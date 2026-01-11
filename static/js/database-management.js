@@ -68,16 +68,17 @@ document.addEventListener("DOMContentLoaded", () => {
         window.notificationManager.show(
           "Storage information updated successfully",
           "success"
-      );
-    } catch (error) {
-      window.notificationManager.show(
-        error.message || "Failed to perform database action",
-        "danger"
-      );
-      setButtonLoading(currentButton, false, currentAction);
-    }
-  }
-});
+        );
+      } catch (error) {
+        window.notificationManager.show(
+          error.message || "Failed to perform database action",
+          "danger"
+        );
+        setButtonLoading(currentButton, false, currentAction);
+      } finally {
+        setButtonLoading(refreshStorageBtn, false);
+      }
+    });
   }
 
   document.body.addEventListener("mousedown", async (event) => {

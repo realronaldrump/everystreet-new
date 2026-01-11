@@ -505,10 +505,8 @@ async function bulkDeleteTrips(ids) {
     selectedTripIds.clear();
     const selectAllEl = document.getElementById("select-all-trips");
     if (selectAllEl) selectAllEl.checked = false;
-      tripsTable.reload();
-    } catch (e) {
-      window.notificationManager?.show("Failed to delete trips", "danger");
-    }
+    tripsTable.reload();
+  } catch (e) {
+    window.notificationManager?.show("Failed to delete trips", "danger");
   }
-}
 }

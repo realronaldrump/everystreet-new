@@ -735,46 +735,6 @@ class UploadManager {
     }
   }
 
-  async loadUploadSourceTrips() {
-    this.loadingManager.startOperation("Loading Uploaded Trips");
-
-    try {
-      const response = await fetch("/api/trips");
-
-      if (!response.ok) {
-        throw new Error(`Server responded with status: ${response.status}`);
-      }
-
-      const geojsonData = await response.json();
-
-      if (geojsonData?.type === "FeatureCollection") {
-        const allTrips = geojsonData.features.map((feature) => ({
-          _id: feature.properties.transactionId,
-          transactionId: feature.properties.transactionId,
-          filename: feature.properties.filename || "N/A",
-          startTime: feature.properties.startTime,
-          endTime: feature.properties.endTime,
-          source: feature.properties.source || "unknown",
-        }));
-
-        const uploadSourceTrips = allTrips.filter((trip) =>
-          this.config.uploadSources.includes(trip.source)
-        );
-
-        this.displayUploadSourceTrips(uploadSourceTrips);
-      } else {
-        throw new Error("Invalid data format received from /api/trips");
-      }
-    } catch (error) {
-      window.notificationManager.show("Error loading trips from server", "danger");
-      this.loadingManager.error(`Error fetching trips: ${error.message}`);
-      this.displayUploadSourceTrips([]);
-    } finally {
-      this.loadingManager.finish();
-    }
-  }
-  }
-
   displayUploadSourceTrips(trips) {
     const { uploadedTripsBody } = this.elements;
 
