@@ -53,7 +53,9 @@ async def generate_and_store_geojson(
         # Cleanup old file
         existing_meta = await CoverageMetadata.find_one(
             {"location.display_name": location_name}
-        ).project(Projection_model=CoverageMetadata)  # Or just fetch full doc
+        ).project(
+            Projection_model=CoverageMetadata
+        )  # Or just fetch full doc
         # Actually simplest is fetch full doc or specific fields via projection if supported or just get.
         # Beanie projection: find_one(...).project(PydanticModel)
         # We can just fetch the doc, it's not huge.
