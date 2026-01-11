@@ -21,10 +21,8 @@ from celery.signals import worker_process_init
 from celery.utils.log import get_task_logger
 from dotenv import load_dotenv
 from kombu import Queue
-from pymongo.errors import ConnectionFailure
 
 from db import db_manager
-from live_tracking import initialize_db as initialize_live_tracking_db
 from redis_config import get_redis_url
 
 logger = get_task_logger(__name__)
@@ -240,16 +238,16 @@ def init_worker(**_kwargs):
             logger.error("Failed to attach MongoDB logging handler: %s", log_err)
         # ---------------------------------------------------
 
-        logger.info(
-            "Initializing live_tracking global collections for worker...",
-        )
-        live_collection = db_manager.get_collection("live_trips")
-        if live_collection is None:
-            raise ConnectionFailure(
-                "Failed to get live collection from db_manager even though connection seems healthy.",
-            )
-        initialize_live_tracking_db(live_collection)
-        logger.info("live_tracking global collections initialized for worker.")
+        # ---------------------------------------------------
+        logger.info("Initializing Beanie ODM for worker...")
+        # Beanie initialization must be run in an event loop
+        import asyncio
+
+        loop = asyncio.get_event_loop()
+        # Ensure db_manager is ready
+        db_manager.ensure_connection()
+        loop.run_until_complete(db_manager.init_beanie())
+        logger.info("Beanie ODM initialized.")
 
         logger.info("Worker process initialization complete.")
 

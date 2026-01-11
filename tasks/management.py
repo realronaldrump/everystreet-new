@@ -12,9 +12,9 @@ This module provides functions for managing tasks through the API:
 from __future__ import annotations
 
 import asyncio
-import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any
+import uuid
 
 from celery.utils.log import get_task_logger
 

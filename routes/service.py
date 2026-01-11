@@ -86,23 +86,33 @@ async def generate_optimal_route_with_progress(
         # Use Street Beanie model to find segments
         # Using raw pymongo for specific projection and large result set if preferred,
         # but Beanie find also supports this.
-        # Using get_motor_collection() for precise replacement of raw query behavior
-        streets_coll = Street.get_motor_collection()
-        cursor = streets_coll.find(
-            {
-                "properties.location": location_name,
-                "properties.driven": False,
-                "properties.undriveable": {"$ne": True},
-            },
-            {
-                "geometry": 1,
-                "properties.segment_id": 1,
-                "properties.segment_length": 1,
-                "properties.street_name": 1,
-            },
-        ).limit(MAX_SEGMENTS)
+        # Use Street Beanie model to find segments with projection
+        undriven_objs = (
+            await Street.find(
+                {
+                    "properties.location": location_name,
+                    "properties.driven": False,
+                    "properties.undriveable": {"$ne": True},
+                }
+            )
+            .project(
+                {
+                    "geometry": 1,
+                    "properties.segment_id": 1,
+                    "properties.segment_length": 1,
+                    "properties.street_name": 1,
+                }
+            )
+            .to_list(length=MAX_SEGMENTS)
+        )
 
-        undriven = await cursor.to_list(length=MAX_SEGMENTS)
+        # Convert to list of dicts to match expected structure
+        undriven = [
+            u if isinstance(u, dict) else u.model_dump(by_alias=True)
+            for u in undriven_objs
+        ]
+
+        # undriven is already a list from code above
 
         if not undriven:
             await tracker.complete("All streets already driven!")
@@ -515,9 +525,10 @@ async def generate_optimal_route_with_progress(
             await tracker.complete("Route generation complete!")
         except Exception as update_err:
             logger.error("Final DB progress update failed: %s", update_err)
-            # Use Beanie collection
-            await OptimalRouteProgress.get_motor_collection().update_one(
-                {"task_id": task_id},
+            # Use Beanie update
+            await OptimalRouteProgress.find_one(
+                OptimalRouteProgress.task_id == task_id
+            ).update(
                 {
                     "$set": {
                         "status": "completed",
@@ -525,7 +536,7 @@ async def generate_optimal_route_with_progress(
                         "stage": "complete",
                         "completed_at": datetime.now(UTC),
                     }
-                },
+                }
             )
 
         return {
@@ -603,9 +614,11 @@ async def save_optimal_route(location_id: str, route_result: dict[str, Any]) -> 
             # So we rely on extra=allow.
             # But Beanie document.save() overwrites full document if we modified it?
             # Best to use update query to avoid concurrency overwrites if possible, or just update the object.
-            # Using get_motor_collection() for precise replacement of update_one_with_retry
-            await CoverageMetadata.get_motor_collection().update_one(
-                {"_id": ObjectId(location_id)},
+            # Use Beanie update logic to avoid overwrites
+            # We can run update on the CoverageMetadata class with a filter,
+            # or on the instance. Instance update is cleaner if we have it.
+            # But the metadata instance 'metadata' is already fetched.
+            await metadata.update(
                 {
                     "$set": {
                         "optimal_route": route_doc,
@@ -623,7 +636,7 @@ async def save_optimal_route(location_id: str, route_result: dict[str, Any]) -> 
                             ),
                         },
                     }
-                },
+                }
             )
             logger.info("Saved optimal route for location %s", location_id)
         else:
