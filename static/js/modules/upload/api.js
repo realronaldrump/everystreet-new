@@ -24,7 +24,7 @@ export async function uploadFiles(selectedFiles, loadingManager) {
     } else {
       window.notificationManager?.show(
         `Could not upload ${entry.filename}: File data missing. Please re-select the file.`,
-        "warning"
+        "warning",
       );
     }
   });
@@ -177,7 +177,7 @@ export async function bulkDeleteTrips(tripIds, loadingManager) {
     } catch (error) {
       window.notificationManager?.show(
         `Error deleting trip ${tripId}: ${error.message}`,
-        "warning"
+        "warning",
       );
       failCount++;
     }

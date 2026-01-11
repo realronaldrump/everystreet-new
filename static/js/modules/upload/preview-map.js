@@ -113,7 +113,7 @@ export function updatePreviewMap(map, selectedFiles) {
           Array.isArray(coord) &&
           coord.length >= 2 &&
           !Number.isNaN(coord[0]) &&
-          !Number.isNaN(coord[1])
+          !Number.isNaN(coord[1]),
       );
 
       if (validCoords.length < 2) {
