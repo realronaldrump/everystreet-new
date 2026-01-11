@@ -1,12 +1,13 @@
 """API endpoints for viewing and managing server logs."""
 
 import logging
-from datetime import timedelta, datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query, status
-from db import ServerLog
 from pydantic import BaseModel
+
+from db import ServerLog
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
