@@ -679,6 +679,9 @@ Draw Your Coverage Area
           <h5 class="modal-title" id="taskProgressModalLabel">
             <i class="fas fa-cog fa-spin me-2"></i>Processing Coverage
           </h5>
+          <button type="button" class="btn btn-sm btn-outline-secondary" id="minimize-progress-modal" title="Minimize to continue browsing">
+            <i class="fas fa-window-minimize"></i>
+          </button>
         </div>
         <div class="modal-body">
           <!-- Progress Steps -->
@@ -758,6 +761,18 @@ Initializing...
           </button>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- Minimized Progress Indicator -->
+  <div id="minimized-progress-indicator" class="minimized-progress-badge" style="display: none;">
+    <div class="d-flex align-items-center gap-2">
+      <i class="fas fa-cog fa-spin"></i>
+      <span class="minimized-location-name"></span>
+      <span class="badge bg-primary minimized-progress-percent">0%</span>
+      <button type="button" class="btn btn-sm btn-link text-white p-0 ms-1" id="restore-progress-modal" title="Expand">
+        <i class="fas fa-expand"></i>
+      </button>
     </div>
   </div>
 {% endblock %}

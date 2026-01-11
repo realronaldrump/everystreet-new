@@ -266,24 +266,14 @@ async def get_undriven_streets(location: LocationModel):
         )
 
         if count == 0:
-            return JSONResponse(
-                content={
-                    "type": "FeatureCollection",
-                    "features": [],
-                },
-            )
+            return {"type": "FeatureCollection", "features": []}
 
         features = []
         # Use Beanie iteration
         async for street in Street.find(query):
             features.append(street.model_dump(include={"geometry", "properties"}))
 
-        content_to_return = {
-            "type": "FeatureCollection",
-            "features": features,
-        }
-        # Direct JSON return, assuming types are serializable (Beanie models usually are)
-        return JSONResponse(content=content_to_return)
+        return {"type": "FeatureCollection", "features": features}
 
     except HTTPException:
         raise
