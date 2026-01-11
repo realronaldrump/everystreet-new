@@ -958,7 +958,6 @@ class CoverageCalculator:
         self,
         coverage_stats: dict[str, Any],
         processed_trip_ids_set: set[str],
-        newly_driven_count: int,
     ) -> None:
         """Update coverage metadata in the database.
 

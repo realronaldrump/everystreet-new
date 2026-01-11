@@ -577,7 +577,7 @@ class DatabaseManager:
             raise
 
     def _get_existing_index_name(
-        self, collection_name: str, keys: str | list[tuple[str, int]]
+        self,
     ) -> str | None:
         """Get the name of an existing index with matching keys.
 

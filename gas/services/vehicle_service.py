@@ -36,12 +36,9 @@ class VehicleService:
         if vin:
             conditions.append(Vehicle.vin == vin)
         if active_only:
-            conditions.append(Vehicle.is_active == True)
+            conditions.append(Vehicle.is_active)
 
-        if conditions:
-            query = Vehicle.find(*conditions)
-        else:
-            query = Vehicle.find_all()
+        query = Vehicle.find(*conditions) if conditions else Vehicle.find_all()
 
         vehicles = await query.sort(-Vehicle.created_at).to_list()
 

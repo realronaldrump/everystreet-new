@@ -43,27 +43,6 @@ async def get_trips(request: Request):
 
     if matched_only:
         query["matchedGps"] = {"$ne": None}
-    projection = {
-        "gps": 1,
-        "matchedGps": 1,
-        "matchStatus": 1,
-        "startTime": 1,
-        "endTime": 1,
-        "distance": 1,
-        "maxSpeed": 1,
-        "transactionId": 1,
-        "imei": 1,
-        "startLocation": 1,
-        "destination": 1,
-        "totalIdleDuration": 1,
-        "fuelConsumed": 1,
-        "source": 1,
-        "hardBrakingCount": 1,
-        "hardAccelerationCount": 1,
-        "startOdometer": 1,
-        "endOdometer": 1,
-        "averageSpeed": 1,
-    }
     # Use Beanie cursor iteration
     trip_cursor = Trip.find(query).sort(-Trip.endTime)
 

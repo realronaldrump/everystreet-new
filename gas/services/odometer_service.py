@@ -237,14 +237,14 @@ class OdometerService:
         prev_fillup = await GasFillup.find_one(
             GasFillup.imei == imei,
             GasFillup.fillup_time <= target_time,
-            GasFillup.odometer != None,
+            GasFillup.odometer is not None,
         ).sort(-GasFillup.fillup_time)
 
         # Next trusted fill-up
         next_fillup = await GasFillup.find_one(
             GasFillup.imei == imei,
             GasFillup.fillup_time > target_time,
-            GasFillup.odometer != None,
+            GasFillup.odometer is not None,
         ).sort(GasFillup.fillup_time)
 
         best_anchor = None
@@ -284,7 +284,7 @@ class OdometerService:
             prev_trip = await Trip.find_one(
                 Trip.imei == imei,
                 Trip.endTime <= target_time,
-                Trip.endOdometer != None,
+                Trip.endOdometer is not None,
             ).sort(-Trip.endTime)
             if prev_trip:
                 # Standardize structure to look like fillup for calc

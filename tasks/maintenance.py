@@ -76,7 +76,6 @@ async def validate_trips_async(_self) -> dict[str, Any]:
     """
     processed_count = 0
     modified_count = 0
-    batch_size = 100  # Process in smaller chunks if needed, but here we just stream
 
     query = {"invalid": {"$ne": True}}
 

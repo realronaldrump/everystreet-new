@@ -51,10 +51,7 @@ class FillupService:
             end_dt = parse_iso_datetime(end_date)
             conditions.append(GasFillup.fillup_time <= end_dt)
 
-        if conditions:
-            query = GasFillup.find(*conditions)
-        else:
-            query = GasFillup.find_all()
+        query = GasFillup.find(*conditions) if conditions else GasFillup.find_all()
 
         fillups = await query.sort(-GasFillup.fillup_time).limit(limit).to_list()
         return fillups

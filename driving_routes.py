@@ -4,7 +4,7 @@ from collections import defaultdict
 from typing import Any
 
 import httpx
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Body, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 
 from config import get_mapbox_token
@@ -231,7 +231,7 @@ async def optimize_driving_route(request: Request):
         data = await request.json()
         end_points = data.get("end_points")
 
-        current_position = request_data.get("current_position")
+        current_position = data.get("current_position")
         if current_position and "lat" in current_position and "lon" in current_position:
             route = await _get_mapbox_optimization_route(
                 float(current_position["lon"]),
