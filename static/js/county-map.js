@@ -171,7 +171,7 @@
         hideLoading();
         setupInteractions();
         updateStats();
-      } catch (_error) {
+      } catch (error) {
         updateLoadingText(`Error: ${error.message}`);
       }
     });
@@ -272,7 +272,7 @@
       if (recalcState && isRecalculating) {
         startRecalculatePolling(recalcState.startedAt);
       }
-    } catch (_error) {}
+    } catch {}
   }
 
   // Format date for display
@@ -335,7 +335,7 @@
         );
         clearRecalcState();
       }
-    } catch (_error) {
+    } catch {
       clearRecalcState();
     }
   }
@@ -370,7 +370,7 @@
       }
 
       setTimeout(() => checkAndRefresh(startedAt), 2000);
-    } catch (_error) {
+    } catch {
       setTimeout(() => checkAndRefresh(startedAt), 3000);
     }
   }

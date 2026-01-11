@@ -74,7 +74,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const data = await response.json();
       updateStatsDisplay(data);
-    } catch (_error) {
+    } catch {
       window.notificationManager?.show("Failed to load log statistics", "warning");
     }
   }
@@ -127,7 +127,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const data = await response.json();
       currentLogs = data.logs;
       displayLogs(data);
-    } catch (_error) {
+    } catch {
       logsContainer.innerHTML = `
         <div class="text-center py-5 text-danger">
           <i class="fas fa-exclamation-triangle fa-3x mb-3"></i>
@@ -276,7 +276,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }, 1500);
 
       window.notificationManager?.show("Log entry copied to clipboard", "success");
-    } catch (_error) {
+    } catch {
       window.notificationManager?.show("Failed to copy log entry", "danger");
     }
   }
@@ -329,7 +329,7 @@ document.addEventListener("DOMContentLoaded", () => {
         `Copied ${currentLogs.length} log entries to clipboard`,
         "success"
       );
-    } catch (_error) {
+    } catch {
       window.notificationManager?.show("Failed to copy logs", "danger");
     }
   }
@@ -368,7 +368,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       // Reload logs and stats
       await Promise.all([loadLogs(), loadStats()]);
-    } catch (_error) {
+    } catch {
       window.notificationManager?.show("Failed to clear logs", "danger");
     } finally {
       setButtonLoading(clearLogsBtn, false);
@@ -400,7 +400,7 @@ document.addEventListener("DOMContentLoaded", () => {
       URL.revokeObjectURL(url);
 
       window.notificationManager?.show("Logs exported successfully", "success");
-    } catch (_error) {
+    } catch {
       window.notificationManager?.show("Failed to export logs", "danger");
     }
   }

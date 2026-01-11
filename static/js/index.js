@@ -52,7 +52,7 @@ document.addEventListener("DOMContentLoaded", () => {
             updateLiveTrackingVisibility();
           }
         }
-      } catch (_err) {}
+      } catch {}
     })();
 
     // Respond to changes from other tabs/windows or settings page

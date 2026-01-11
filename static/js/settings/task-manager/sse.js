@@ -26,10 +26,12 @@ export function createEventSource(callbacks) {
         if (onUpdate) {
           onUpdate(updates);
         }
-      } catch (_error) {}
+      } catch {
+        // ignore
+      }
     };
 
-    eventSource.onerror = () => {
+    eventSource.onerror = (error) => {
       if (onError) {
         onError(error);
       }
@@ -41,7 +43,7 @@ export function createEventSource(callbacks) {
     };
 
     return eventSource;
-  } catch (_error) {
+  } catch {
     return null;
   }
 }

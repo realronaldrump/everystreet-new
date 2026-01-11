@@ -49,7 +49,7 @@
         loadGasStats(),
         checkLiveTracking(),
       ]);
-    } catch (_error) {}
+    } catch {}
   }
 
   /**
@@ -73,7 +73,7 @@
         parseInt(data.total_trips, 10) || 0,
         formatNumber
       );
-    } catch (_error) {
+    } catch {
       if (elements.statMiles) elements.statMiles.textContent = "--";
       if (elements.statTrips) elements.statTrips.textContent = "--";
     }
@@ -104,7 +104,7 @@
 
       // Populate activity feed
       populateActivityFeed(trips);
-    } catch (_error) {
+    } catch {
       populateActivityFeed([]);
     }
   }
@@ -125,7 +125,7 @@
           valueEl.textContent = data.average_mpg.toFixed(1);
         }
       }
-    } catch (_error) {}
+    } catch {}
   }
 
   /**
@@ -147,7 +147,7 @@
           elements.liveIndicator.title = "No active tracking";
         }
       }
-    } catch (_error) {
+    } catch {
       if (elements.liveIndicator) {
         elements.liveIndicator.classList.remove("active");
       }

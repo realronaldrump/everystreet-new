@@ -444,7 +444,7 @@ class MobileMapInterface {
     this.cleanupCallbacks.forEach((fn) => {
       try {
         fn();
-      } catch (_err) {}
+      } catch {}
     });
     this.cleanupCallbacks = [];
   }

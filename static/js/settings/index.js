@@ -77,7 +77,7 @@ function setupTaskConfigEventListeners(taskManager) {
         const result = await response.json();
         window.notificationManager.show(result.message, "success");
         taskManager.loadTaskConfig();
-      } catch (_error) {
+      } catch {
         hideLoadingOverlay();
         window.notificationManager.show("Failed to reset tasks", "danger");
       }
@@ -111,7 +111,7 @@ function setupTaskConfigEventListeners(taskManager) {
         if (modal) modal.hide();
 
         taskManager.loadTaskConfig();
-      } catch (_error) {
+      } catch {
         hideLoadingOverlay();
         window.notificationManager.show("Failed to pause tasks", "danger");
       }
@@ -133,7 +133,7 @@ function setupTaskConfigEventListeners(taskManager) {
 
         window.notificationManager.show("Tasks resumed", "success");
         taskManager.loadTaskConfig();
-      } catch (_error) {
+      } catch {
         hideLoadingOverlay();
         window.notificationManager.show("Failed to resume tasks", "danger");
       }
@@ -155,7 +155,7 @@ function setupTaskConfigEventListeners(taskManager) {
 
         window.notificationManager.show("All running tasks stopped", "success");
         taskManager.loadTaskConfig();
-      } catch (_error) {
+      } catch {
         hideLoadingOverlay();
         window.notificationManager.show("Failed to stop tasks", "danger");
       }
@@ -177,7 +177,7 @@ function setupTaskConfigEventListeners(taskManager) {
 
         window.notificationManager.show("All tasks enabled", "success");
         taskManager.loadTaskConfig();
-      } catch (_error) {
+      } catch {
         hideLoadingOverlay();
         window.notificationManager.show("Failed to enable tasks", "danger");
       }
@@ -199,7 +199,7 @@ function setupTaskConfigEventListeners(taskManager) {
 
         window.notificationManager.show("All tasks disabled", "success");
         taskManager.loadTaskConfig();
-      } catch (_error) {
+      } catch {
         hideLoadingOverlay();
         window.notificationManager.show("Failed to disable tasks", "danger");
       }
@@ -307,7 +307,7 @@ function setupFetchAllMissingModal(taskManager) {
             fetchAllMissingStartInput.value = "2020-01-01T00:00";
           }
         }
-      } catch (_error) {
+      } catch {
         if (fetchAllMissingStartInput) {
           fetchAllMissingStartInput.value = "2020-01-01T00:00";
         }

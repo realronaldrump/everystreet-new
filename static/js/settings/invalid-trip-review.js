@@ -25,7 +25,7 @@ export class InvalidTripReview {
       this.trips = data.trips;
       this.renderTable();
       this.renderPagination();
-    } catch (_error) {
+    } catch {
       if (this.tableBody) {
         this.tableBody.innerHTML =
           '<tr><td colspan="5" class="text-center text-danger">Failed to load invalid trips</td></tr>';

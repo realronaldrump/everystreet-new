@@ -375,7 +375,7 @@
           addVehicleListeners(vehicle.imei);
         });
       }
-    } catch (_error) {
+    } catch {
       if (vehiclesList) {
         vehiclesList.innerHTML =
           '<p class="text-center text-danger py-3">Error loading vehicles</p>';

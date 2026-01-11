@@ -74,7 +74,7 @@ export function setupAppSettingsForm() {
       } else {
         applySettings();
       }
-    } catch (_err) {
+    } catch {
       applySettings();
     }
   })();
@@ -107,7 +107,7 @@ export function setupAppSettingsForm() {
       if (!resp.ok) {
         throw new Error(`Server returned ${resp.status}`);
       }
-    } catch (_err) {
+    } catch {
       window.notificationManager?.show("Failed to save settings on server", "danger");
       return;
     }
@@ -131,7 +131,7 @@ export function setupAppSettingsForm() {
           payload.polylineColor,
           payload.polylineOpacity
         );
-      } catch (_err) {}
+      } catch {}
     }
   }
 

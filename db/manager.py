@@ -16,12 +16,13 @@ from typing import TYPE_CHECKING, Any, TypeVar
 import certifi
 from gridfs import AsyncGridFSBucket
 from pymongo import AsyncMongoClient
-from pymongo.asynchronous.collection import AsyncCollection
-from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import ConnectionFailure, OperationFailure
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
+
+    from pymongo.asynchronous.collection import AsyncCollection
+    from pymongo.asynchronous.database import AsyncDatabase
 
 logger = logging.getLogger(__name__)
 
@@ -576,8 +577,8 @@ class DatabaseManager:
 
     def _get_existing_index_name(
         self,
-        collection_name: str,
-        keys: str | list[tuple[str, int]],
+        _collection_name: str,
+        _keys: str | list[tuple[str, int]],
     ) -> str | None:
         """Get the name of an existing index with matching keys.
 

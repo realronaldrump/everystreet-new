@@ -207,7 +207,7 @@ export function updateMobileHistoryList(history, taskManager) {
           card.dataset.startTime = entry.timestamp;
           card.dataset.isRunning = "true";
         }
-      } catch (_e) {
+      } catch {
         // Error calculating elapsed time - silently ignore
       }
     }
@@ -470,7 +470,7 @@ async function pollGeocodeProgress(context) {
     if (progressData.stage === "completed" || progressData.stage === "error") {
       handleGeocodeCompletion(context, progressData);
     }
-  } catch (_pollErr) {
+  } catch {
     // Error polling progress - silently ignore
     clearInterval(pollGeocodeProgress.pollInterval);
     geocodeBtn.disabled = false;
@@ -693,7 +693,7 @@ export function setupMobileGeocodeTrips() {
 
       // Update pollInterval reference for cleanup
       pollGeocodeProgress.pollInterval = pollInterval;
-    } catch (_err) {
+    } catch {
       geocodeBtn.disabled = false;
       if (statusEl) {
         statusEl.textContent = "Error starting geocoding. See console.";
@@ -795,7 +795,7 @@ export function setupMobileRemapTrips() {
           remapStatus.textContent = data.message;
         }
         window.notificationManager.show(data.message, "success");
-      } catch (_error) {
+      } catch {
         hideLoadingOverlay();
         if (remapStatus) {
           remapStatus.classList.remove("info");
