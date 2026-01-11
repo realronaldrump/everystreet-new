@@ -6,8 +6,8 @@ from typing import Any
 from fastapi import APIRouter, Query
 
 from core.api import api_route
-from gas.services import FillupService
 from db.schemas import GasFillupCreateModel
+from gas.services import FillupService
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
