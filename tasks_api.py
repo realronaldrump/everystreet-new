@@ -9,15 +9,8 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from date_utils import normalize_to_utc_datetime
-from db import (
-    count_documents_with_retry,
-    db_manager,
-    delete_many_with_retry,
-    find_with_retry,
-    serialize_datetime,
-    update_many_with_retry,
-    update_one_with_retry,
-)
+from db import db_manager
+from db.models import TaskHistory
 from models import BackgroundTasksConfigModel
 from tasks import (
     TASK_METADATA,
@@ -33,9 +26,6 @@ from tasks import (
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
-
-task_config_collection = db_manager.db["task_config"]
-task_history_collection = db_manager.db["task_history"]
 
 
 class ForceStopRequest(BaseModel):
@@ -82,7 +72,7 @@ async def _task_schedule_action(
 async def update_background_tasks_config(
     data: BackgroundTasksConfigModel,
 ):
-    """Update the configuration of background tasks."""
+    """Update configuration of background tasks."""
     payload = data.dict(exclude_unset=True)
     return await _task_schedule_action(
         payload,
@@ -94,7 +84,7 @@ async def update_background_tasks_config(
 
 @router.get("/api/background_tasks/config")
 async def get_background_tasks_config():
-    """Get the current configuration of background tasks."""
+    """Get current configuration of background tasks."""
     try:
         config = await get_task_config()
         task_metadata = await get_all_task_metadata()
@@ -179,7 +169,7 @@ async def pause_background_tasks(
 
 @router.post("/api/background_tasks/resume")
 async def resume_background_tasks():
-    """Resume all paused background tasks."""
+    """Resume all background tasks."""
     return await _task_schedule_action(
         {"globalDisable": False},
         success_message="Background tasks resumed",
@@ -188,194 +178,63 @@ async def resume_background_tasks():
     )
 
 
-@router.post("/api/background_tasks/stop")
-async def stop_all_background_tasks():
-    """Stop all currently running background tasks."""
-    return await _task_schedule_action(
-        {"globalDisable": True},
-        success_message="All background tasks stopped",
-        default_error="Failed to stop tasks",
-        action="stop all background tasks",
-    )
-
-
-@router.post("/api/background_tasks/enable")
-async def enable_all_background_tasks():
-    """Enable all background tasks."""
-    tasks_update = {tid: {"enabled": True} for tid in TASK_METADATA}
-    return await _task_schedule_action(
-        {"tasks": tasks_update},
-        success_message="All background tasks enabled",
-        default_error="Failed to enable tasks",
-        action="enable all background tasks",
-    )
-
-
-@router.post("/api/background_tasks/disable")
-async def disable_all_background_tasks():
-    """Disable all background tasks."""
-    tasks_update = {tid: {"enabled": False} for tid in TASK_METADATA}
-    return await _task_schedule_action(
-        {"tasks": tasks_update},
-        success_message="All background tasks disabled",
-        default_error="Failed to disable tasks",
-        action="disable all background tasks",
-    )
-
-
 @router.post("/api/background_tasks/run")
-async def manual_run_tasks(
-    tasks_to_run: list[str] = Body(...),
+async def run_background_task(
+    data: dict = Body(...),
 ):
-    """Manually trigger one or more background tasks."""
-    if not tasks_to_run:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No tasks specified to run",
-        )
-    results = []
-    for task_id in tasks_to_run:
-        if task_id == "ALL":
-            res = await manual_run_task("ALL")
-        elif task_id in TASK_METADATA:
-            res = await manual_run_task(task_id)
-        else:
-            res = {
-                "status": "error",
-                "message": "Unknown task",
-            }
-        success = res.get("status") == "success"
-        results.append(
-            {
-                "task": task_id,
-                "success": success,
-                "message": res.get("message"),
-                "task_id": res.get("task_id"),
-            },
-        )
-    return {
-        "status": "success",
-        "results": results,
-    }
+    """Manually trigger a background task."""
+    task_id = data.get("task_id")
+    return await _task_schedule_action(
+        {"task_id": task_id, "trigger": "manual"},
+        success_message=f"Task {task_id} triggered successfully",
+        default_error=f"Failed to trigger task {task_id}",
+        action=f"manually run task {task_id}",
+    )
 
 
-@router.post("/api/background_tasks/force_stop")
-async def force_stop_task(payload: ForceStopRequest):
-    """Force a task back to IDLE status when it becomes stuck."""
-
-    try:
-        return await force_reset_task(payload.task_id, payload.reason)
-    except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(exc),
-        ) from exc
-    except Exception as exc:  # pragma: no cover - defensive
-        logger.exception(
-            "Error force-stopping task %s: %s",
-            payload.task_id,
-            exc,
-        )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to force stop task.",
-        ) from exc
-
-
-@router.post("/api/background_tasks/fetch_trips_range")
-async def schedule_fetch_trips_range(payload: FetchTripsRangeRequest):
-    """Schedule a manual trip fetch for the given date range."""
-
-    try:
-        result = await trigger_manual_fetch_trips_range(
-            payload.start_date,
-            payload.end_date,
-            map_match=payload.map_match,
-        )
-        return result
-    except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(exc),
-        ) from exc
-    except Exception as exc:  # pragma: no cover - defensive
-        logger.exception("Error scheduling manual fetch: %s", exc)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to schedule manual fetch.",
-        ) from exc
-
-
-@router.get("/api/trips/earliest_date")
-async def get_earliest_trip_date_endpoint():
-    """Get the date of the earliest trip in the database."""
-    try:
-        from tasks import get_earliest_trip_date
-
-        date = await get_earliest_trip_date()
-        return {"earliest_date": date.isoformat() if date else None}
-    except Exception as exc:
-        logger.exception("Error getting earliest trip date: %s", exc)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to get earliest trip date.",
-        ) from exc
-
-
-class FetchAllMissingPayload(BaseModel):
-    start_date: str | None = None
-
-
-@router.post("/api/background_tasks/fetch_all_missing_trips")
-async def schedule_fetch_all_missing_trips(payload: FetchAllMissingPayload = None):
-    """Schedule a task to fetch all missing trips from a start date (or default) to now."""
-    try:
-        start_date = payload.start_date if payload else None
-        result = await trigger_fetch_all_missing_trips(start_date=start_date)
-        return result
-    except Exception as exc:
-        logger.exception("Error scheduling fetch all missing trips: %s", exc)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to schedule fetch all missing trips.",
-        ) from exc
-
-
-@router.get("/api/tasks/{celery_task_id}/status")
-async def get_celery_task_status(celery_task_id: str):
-    """Get the status of a Celery task by its ID.
-
-    This endpoint checks both the task history collection and Celery's
-    backend to provide the current state of a background task.
-    """
+@router.get("/api/background_tasks/status/{task_id}")
+async def get_task_status(task_id: str):
+    """Get current status of a background task."""
     from celery.result import AsyncResult
-
     from celery_app import app as celery_app
-    from db import find_one_with_retry
 
     try:
-        # First check our task history collection
-        history_entry = await find_one_with_retry(
-            task_history_collection,
-            {"_id": celery_task_id},
+        if task_id not in TASK_METADATA:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Task {task_id} not found",
+            )
+
+        history = (
+            await TaskHistory.find(TaskHistory.id == task_id)
+            .sort(-TaskHistory.timestamp)
+            .limit(1)
+            .to_list()
         )
 
-        if history_entry:
+        if history:
+            history_entry = history[0]
             return {
-                "task_id": celery_task_id,
-                "status": history_entry.get("status", "UNKNOWN"),
-                "result": history_entry.get("result"),
-                "error": history_entry.get("error"),
-                "start_time": serialize_datetime(history_entry.get("start_time")),
-                "end_time": serialize_datetime(history_entry.get("end_time")),
-                "runtime_ms": history_entry.get("runtime"),
+                "task_id": task_id,
+                "status": history_entry.status,
+                "result": history_entry.result,
+                "error": history_entry.error,
+                "start_time": (
+                    history_entry.start_time.isoformat()
+                    if history_entry.start_time
+                    else None
+                ),
+                "end_time": (
+                    history_entry.end_time.isoformat()
+                    if history_entry.end_time
+                    else None
+                ),
+                "runtime_ms": history_entry.runtime,
             }
 
-        # Fall back to checking Celery's result backend
-        result = AsyncResult(celery_task_id, app=celery_app)
-
+        result = AsyncResult(task_id, app=celery_app)
         response = {
-            "task_id": celery_task_id,
+            "task_id": task_id,
             "status": result.status,
             "result": None,
             "error": None,
@@ -388,9 +247,8 @@ async def get_celery_task_status(celery_task_id: str):
                 response["error"] = str(result.result)
 
         return response
-
     except Exception as exc:
-        logger.exception("Error getting task status for %s: %s", celery_task_id, exc)
+        logger.exception("Error getting task status for %s: %s", task_id, exc)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get task status: {exc}",
@@ -411,24 +269,22 @@ async def get_task_details(task_id: str):
         config = await get_task_config()
         task_config = config.get("tasks", {}).get(task_id, {})
 
-        history_docs = await find_with_retry(
-            task_history_collection,
-            {"task_id": task_id},
-            sort=[("timestamp", -1)],
-            limit=5,
+        history_docs = (
+            await TaskHistory.find(TaskHistory.task_id == task_id)
+            .sort(-TaskHistory.timestamp)
+            .limit(5)
+            .to_list()
         )
 
         history = []
         for entry in history_docs:
-            entry["_id"] = str(entry["_id"])
             history.append(
                 {
-                    "timestamp": serialize_datetime(
-                        entry.get("timestamp"),
-                    ),
-                    "status": entry["status"],
-                    "runtime": entry.get("runtime"),
-                    "error": entry.get("error"),
+                    "id": str(entry.id),
+                    "timestamp": entry.timestamp.isoformat(),
+                    "status": entry.status,
+                    "runtime": entry.runtime,
+                    "error": entry.error,
                 },
             )
 
@@ -443,22 +299,29 @@ async def get_task_details(task_id: str):
                 "interval_minutes",
                 task_def["default_interval_minutes"],
             ),
-            "last_run": serialize_datetime(
-                task_config.get("last_run"),
+            "last_run": (
+                task_config.get("last_run").isoformat()
+                if task_config.get("last_run")
+                else None
             ),
-            "next_run": serialize_datetime(
-                task_config.get("next_run"),
+            "next_run": (
+                task_config.get("next_run").isoformat()
+                if task_config.get("next_run")
+                else None
             ),
-            "start_time": serialize_datetime(
-                task_config.get("start_time"),
+            "start_time": (
+                task_config.get("start_time").isoformat()
+                if task_config.get("start_time")
+                else None
             ),
-            "end_time": serialize_datetime(
-                task_config.get("end_time"),
+            "end_time": (
+                task_config.get("end_time").isoformat()
+                if task_config.get("end_time")
+                else None
             ),
             "last_error": task_config.get("last_error"),
             "history": history,
         }
-
     except Exception as e:
         logger.exception(
             "Error getting task details for %s: %s",
@@ -475,41 +338,35 @@ async def get_task_details(task_id: str):
 async def get_task_history(page: int = 1, limit: int = 10):
     """Get paginated task execution history."""
     try:
-        total_count = await count_documents_with_retry(
-            task_history_collection,
-            {},
-        )
+        total_count = await TaskHistory.count()
+
         skip = (page - 1) * limit
-        entries = await find_with_retry(
-            task_history_collection,
-            {},
-            sort=[("timestamp", -1)],
-            skip=skip,
-            limit=limit,
+        entries = (
+            await TaskHistory.find()
+            .sort(-TaskHistory.timestamp)
+            .skip(skip)
+            .limit(limit)
+            .to_list()
         )
 
         history = []
         for entry in entries:
-            entry["_id"] = str(entry["_id"])
-            entry["timestamp"] = serialize_datetime(
-                entry.get("timestamp"),
-            )
-            if "runtime" in entry:
-                entry["runtime"] = float(entry["runtime"]) if entry["runtime"] else None
-            history.append(entry)
+            entry_dict = {
+                "id": str(entry.id),
+                "timestamp": entry.timestamp.isoformat(),
+            }
+            if entry.runtime:
+                entry_dict["runtime"] = float(entry.runtime)
+            history.append(entry_dict)
 
         return {
             "history": history,
-            "total": total_count,
-            "page": page,
+            "total_count": total_count,
+            "returned_count": len(history),
             "limit": limit,
-            "total_pages": ceil(total_count / limit),
         }
     except Exception as e:
-        logger.exception(
-            "Error fetching task history: %s",
-            str(e),
-        )
+        logger.exception("Error getting task history: %s", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),
@@ -518,18 +375,19 @@ async def get_task_history(page: int = 1, limit: int = 10):
 
 @router.delete("/api/background_tasks/history")
 async def clear_task_history():
-    """Clear all task execution history."""
+    """Clear all task history."""
     try:
-        result = await delete_many_with_retry(task_history_collection, {})
+        result = await TaskHistory.delete_many({})
+        logger.info(
+            "Cleared %d task history entries",
+            result.deleted_count,
+        )
         return {
-            "status": "success",
-            "message": f"Cleared {result.deleted_count} task history entries",
+            "message": f"Successfully cleared {result.deleted_count} task history entries",
+            "deleted_count": result.deleted_count,
         }
     except Exception as e:
-        logger.exception(
-            "Error clearing task history: %s",
-            str(e),
-        )
+        logger.exception("Error clearing task history: %s", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),
@@ -537,163 +395,58 @@ async def clear_task_history():
 
 
 @router.post("/api/background_tasks/reset")
-async def reset_task_states():
-    """Reset any stuck 'RUNNING' tasks to 'FAILED' state with safeguards."""
+async def reset_task(data: dict = Body(...)):
+    """Force reset a stuck task."""
+    task_id = data.get("task_id")
+    result = await force_reset_task(task_id)
+    return result
+
+
+@router.post("/api/background_tasks/update_schedule")
+async def update_task_schedule_endpoint(data: dict = Body(...)):
+    """Update a single task's schedule."""
+    task_id = data.get("task_id")
+    if not task_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Missing task_id",
+        )
+    payload = {k: v for k, v in data.items() if k != "task_id"}
+    return await _task_schedule_action(
+        payload,
+        success_message=f"Schedule updated for task {task_id}",
+        default_error=f"Failed to update schedule for task {task_id}",
+        action=f"update schedule for task {task_id}",
+    )
+
+
+@router.post("/api/background_tasks/fetch_trips")
+async def fetch_trips_manual(data: FetchTripsRangeRequest):
+    """Manually trigger trip fetching for a date range."""
     try:
-        now = datetime.now(UTC)
-        stuck_threshold = timedelta(hours=2)
-        reset_count = 0
-        skipped_count = 0
-
-        config = await get_task_config()
-        tasks_config = config.get("tasks", {})
-        updates = {}
-
-        for (
-            task_id,
-            task_info,
-        ) in tasks_config.items():
-            if task_info.get("status") != TaskStatus.RUNNING.value:
-                continue
-
-            start_time_any = task_info.get("start_time")
-            start_time = normalize_to_utc_datetime(start_time_any)
-            if start_time_any and not start_time:
-                logger.warning(
-                    "Could not parse start_time string '%s' for task %s",
-                    start_time_any,
-                    task_id,
-                )
-
-            if not start_time:
-                updates[f"tasks.{task_id}.status"] = TaskStatus.FAILED.value
-                updates[f"tasks.{task_id}.last_error"] = (
-                    "Task reset: status RUNNING, invalid/missing start_time"
-                )
-                updates[f"tasks.{task_id}.end_time"] = now
-                reset_count += 1
-                logger.warning(
-                    "Resetting task %s due to missing/invalid start_time.",
-                    task_id,
-                )
-            else:
-                runtime = now - start_time
-                if runtime > stuck_threshold:
-                    updates[f"tasks.{task_id}.status"] = TaskStatus.FAILED.value
-                    updates[f"tasks.{task_id}.last_error"] = (
-                        f"Task reset: ran for > {stuck_threshold}"
-                    )
-                    updates[f"tasks.{task_id}.end_time"] = now
-                    reset_count += 1
-                    logger.warning(
-                        "Resetting task %s running since %s.",
-                        task_id,
-                        start_time,
-                    )
-                else:
-                    skipped_count += 1
-                    logger.info(
-                        "Task %s running for %s, not stuck yet.",
-                        task_id,
-                        runtime,
-                    )
-
-        history_result = await update_many_with_retry(
-            task_history_collection,
-            {
-                "status": TaskStatus.RUNNING.value,
-                "start_time": {"$lt": now - stuck_threshold},
-            },
-            {
-                "$set": {
-                    "status": TaskStatus.FAILED.value,
-                    "error": "Task reset: history entry stuck in RUNNING state",
-                    "end_time": now,
-                },
-            },
+        result = await trigger_manual_fetch_trips_range(
+            data.start_date,
+            data.end_date,
+            data.map_match,
         )
-        history_reset_count = history_result.modified_count if history_result else 0
-
-        if updates:
-            config_update_result = await update_one_with_retry(
-                task_config_collection,
-                {"_id": "global_background_task_config"},
-                {"$set": updates},
-            )
-            if not config_update_result or config_update_result.modified_count == 0:
-                logger.warning(
-                    "Attempted to reset task states in config, but no document "
-                    "was modified.",
-                )
-
-        return {
-            "status": "success",
-            "message": (
-                f"Reset {reset_count} stuck tasks, skipped {skipped_count}. "
-                f"Reset {history_reset_count} history entries."
-            ),
-            "reset_count": reset_count,
-            "skipped_count": skipped_count,
-            "history_reset_count": history_reset_count,
-        }
+        return result
     except Exception as e:
-        logger.exception(
-            "Error resetting task states: %s",
-            str(e),
-        )
+        logger.exception("Error fetching trips manually: %s", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),
         )
 
 
-@router.get("/api/background_tasks/sse")
-async def background_tasks_sse(request: Request):
-    """Provides server-sent events for real-time task status updates."""
-
-    async def event_generator():
-        try:
-            while True:
-                if await request.is_disconnected():
-                    logger.info("SSE client disconnected")
-                    break
-
-                config = await get_task_config()
-
-                updates = {}
-                for (
-                    task_id,
-                    task_config,
-                ) in config.get("tasks", {}).items():
-                    task_status = task_config.get("status", "IDLE")
-                    updates[task_id] = {
-                        "status": task_status,
-                        "last_updated": serialize_datetime(
-                            task_config.get("last_updated"),
-                        ),
-                        "last_run": serialize_datetime(
-                            task_config.get("last_run"),
-                        ),
-                        "next_run": serialize_datetime(
-                            task_config.get("next_run"),
-                        ),
-                        "last_error": task_config.get("last_error"),
-                    }
-
-                yield f"data: {json.dumps(updates)}\\n\\n"
-
-                await asyncio.sleep(2)
-        except asyncio.CancelledError:
-            logger.info("SSE connection closed")
-        except Exception as e:
-            logger.error("Error in SSE generator: %s", e)
-            yield f"data: {json.dumps({'error': str(e)})}\\n\\n"
-
-    return StreamingResponse(
-        event_generator(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-        },
-    )
+@router.post("/api/background_tasks/fetch_missing_trips")
+async def fetch_missing_trips():
+    """Manually trigger fetch all missing trips task."""
+    try:
+        result = await trigger_fetch_all_missing_trips()
+        return result
+    except Exception as e:
+        logger.exception("Error fetching missing trips: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        )
