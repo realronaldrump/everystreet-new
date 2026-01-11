@@ -3,56 +3,163 @@ line-length = 88
 target-version = "py311"
 
 [tool.ruff.lint]
-# Enable comprehensive auto-fixable rules
-# E: pycodestyle errors (many auto-fixable)
-# F: Pyflakes (all auto-fixable)
-# W: pycodestyle warnings (some auto-fixable)
-# SIM: flake8-simplify (many auto-fixable simplifications)
-# C4: flake8-comprehensions (many auto-fixable)
-# PIE: flake8-pie (some auto-fixable)
-# RET: flake8-return (some auto-fixable)
-# TID: flake8-tidy-imports (many auto-fixable)
-# ARG: flake8-unused-arguments (some auto-fixable)
-# UP: pyupgrade (many auto-fixable, also handled separately)
-# B: flake8-bugbear (some auto-fixable, conservative)
-# PT: flake8-pytest-style (if tests exist)
-# TCH: flake8-type-checking (some auto-fixable)
-# I: isort (handled separately but good to have)
+# MAXIMUM AUTO-FIXABLE RULES ENABLED
+# The goal is to fix as much as possible automatically.
+# Rules are selected based on their auto-fix capabilities.
+#
+# Legend:
+# - ALL FIXES: All issues from this plugin can be auto-fixed
+# - MOST FIXES: Most issues can be auto-fixed
+# - SOME FIXES: Some issues can be auto-fixed
+# - NO FIXES: Issues require manual intervention (we still report them)
+#
 select = [
-    "E",      # pycodestyle errors
-    "F",      # Pyflakes
-    "W",      # pycodestyle warnings
-    "SIM",    # flake8-simplify
-    "C4",     # flake8-comprehensions
-    "PIE",    # flake8-pie
-    "RET",    # flake8-return
-    "TID",    # flake8-tidy-imports
-    "ARG",    # flake8-unused-arguments
-    "UP",     # pyupgrade
-    "B",      # flake8-bugbear
-    "PT",     # flake8-pytest-style
-    "TCH",    # flake8-type-checking
-    "I",      # isort
+    # === ESSENTIAL (ALL FIXES) ===
+    "F",      # Pyflakes - unused imports, undefined names, etc.
+    "E",      # pycodestyle errors - whitespace, indentation, etc.
+    "W",      # pycodestyle warnings - whitespace warnings
+    "I",      # isort - import sorting
+    "UP",     # pyupgrade - upgrade syntax to modern Python
+
+    # === SIMPLIFICATION (MOST FIXES) ===
+    "SIM",    # flake8-simplify - simplify code constructs
+    "C4",     # flake8-comprehensions - better comprehensions
+    "PIE",    # flake8-pie - misc improvements
+
+    # === CODE QUALITY (SOME FIXES) ===
+    "B",      # flake8-bugbear - likely bugs and design problems
+    "RET",    # flake8-return - return statement issues
+    "TCH",    # flake8-type-checking - move imports to TYPE_CHECKING
+    "TID",    # flake8-tidy-imports - import hygiene
+    "PERF",   # Perflint - performance anti-patterns
+    "FURB",   # refurb - modernize code
+    "LOG",    # flake8-logging - logging best practices
+    "RUF",    # Ruff-specific rules - additional fixes
+
+    # === ADDITIONAL QUALITY (MIXED FIXES) ===
+    "A",      # flake8-builtins - don't shadow builtins
+    "COM",    # flake8-commas - trailing comma enforcement
+    "DTZ",    # flake8-datetimez - timezone-aware datetime
+    "FA",     # flake8-future-annotations - __future__ annotations
+    "ISC",    # flake8-implicit-str-concat - string concatenation
+    "ICN",    # flake8-import-conventions - import aliases
+    "G",      # flake8-logging-format - logging format strings
+    "INP",    # flake8-no-pep420 - implicit namespace packages
+    "PIE",    # flake8-pie - misc improvements
+    "Q",      # flake8-quotes - quote consistency
+    "RSE",    # flake8-raise - raise statement improvements
+    "SLF",    # flake8-self - private member access
+    "SLOT",   # flake8-slots - __slots__ enforcement
+    "INT",    # flake8-gettext - i18n issues
+    "PGH",    # pygrep-hooks - misc issues
+    "PL",     # Pylint - comprehensive linting
+    "FLY",    # flynt - f-string conversion
+    "ASYNC",  # flake8-async - async issues
+    "PYI",    # flake8-pyi - type stub issues
+
+    # === TESTING (IF TESTS EXIST) ===
+    "PT",     # flake8-pytest-style - pytest best practices
+
+    # === UNCOMMON BUT USEFUL ===
+    "ARG",    # flake8-unused-arguments - unused function args
+    "PTH",    # flake8-use-pathlib - use pathlib instead of os.path
+    "EM",     # flake8-errmsg - exception message best practices
+    "TRY",    # tryceratops - exception handling best practices
+    "N",      # pep8-naming - naming conventions
+    "YTT",    # flake8-2020 - sys.version checks
 ]
 
-# Ignore rules that are not auto-fixable or too opinionated
+# Ignore rules that are too aggressive, noisy, or not auto-fixable
 ignore = [
-    "E501",   # Line too long (handled by formatters)
-    "W505",   # Doc line too long (handled by formatters)
-    "B008",   # Do not perform function calls in argument defaults (too opinionated)
-    "B904",   # Allow `raise` without specifying exception (too opinionated)
-    "PT011",  # pytest.raises without match (too opinionated)
-    "PT012",  # pytest.raises with too broad exception (too opinionated)
-    "RET504", # Unnecessary assignment before return (can be too aggressive)
+    # Line length (handled by formatters)
+    "E501",    # Line too long
+    "W505",    # Doc line too long
+
+    # Too opinionated for auto-fix
+    "B008",    # Do not perform function calls in argument defaults
+    "B904",    # Within an `except` clause, raise exceptions with `raise ... from`
+    "RET504",  # Unnecessary assignment before return statement
+    "PLR0913", # Too many arguments to function call
+    "PLR2004", # Magic value used in comparison
+    "PLR0911", # Too many return statements
+    "PLR0912", # Too many branches
+    "PLR0915", # Too many statements
+    "PLW2901", # Outer loop variable overwritten by inner loop
+
+    # Testing rules that are too strict
+    "PT011",   # pytest.raises without match
+    "PT012",   # pytest.raises with too broad exception
+
+    # Naming - too noisy for existing codebases
+    "N802",    # Function name should be lowercase
+    "N803",    # Argument name should be lowercase
+    "N806",    # Variable in function should be lowercase
+    "N815",    # Variable in class scope should not be mixedCase
+    "N816",    # Variable in global scope should not be mixedCase
+
+    # Exception messages - can be too strict
+    "EM101",   # Exception must not use a string literal
+    "EM102",   # Exception must not use an f-string literal
+    "TRY003",  # Avoid specifying long messages outside exception class
+
+    # Imports - covered by other tools
+    "INP001",  # Missing __init__.py (not always needed in Python 3)
+
+    # Pylint - too noisy
+    "PLR0904", # Too many public methods
+    "PLC0415", # Import outside toplevel
+    "PLW0603", # Using global statement
+
+    # Self - can be noisy for internal access patterns
+    "SLF001",  # Private member accessed
+
+    # Slots - too invasive for existing code
+    "SLOT000", # Subclasses of non-slot classes should not define slots
+    "SLOT001", # Subclasses of non-slot classes should not define slots
+
+    # Type checking - can cause issues
+    "TCH001",  # Move application import into TYPE_CHECKING block
+    "TCH002",  # Move third-party import into TYPE_CHECKING block
+    "TCH003",  # Move standard library import into TYPE_CHECKING block
+
+    # Path-related - too invasive
+    "PTH123",  # open() should be replaced by Path.open()
+
+    # Commas - can conflict with black
+    "COM812",  # Trailing comma missing
+
+    # ISC - can conflict with black
+    "ISC001",  # Implicitly concatenated string literals on one line
 ]
+
+# Allow autofix for all enabled rules when possible
+[tool.ruff.lint.per-file-ignores]
+# Tests can have more relaxed rules
+"tests/**/*.py" = ["S101", "ARG", "PLR2004"]
+# Scripts can use print
+"scripts/**/*.py" = ["T201"]
+# Init files can have unused imports (re-exports)
+"__init__.py" = ["F401"]
 
 [tool.ruff.lint.pycodestyle]
 max-doc-length = 88
+
+[tool.ruff.lint.isort]
+# Make isort compatible with black
+combine-as-imports = true
+force-wrap-aliases = true
+known-first-party = ["core", "db", "routes", "tasks", "trips", "visits", "exports", "coverage", "analytics"]
+
+[tool.ruff.lint.pylint]
+max-args = 10
+max-branches = 15
+max-statements = 60
 
 [tool.ruff.format]
 # Format code and wrap lines (including comments) to 88 characters
 docstring-code-line-length = 88
 docstring-code-format = true
+skip-magic-trailing-comma = false
 
 
 

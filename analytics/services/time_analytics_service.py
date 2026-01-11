@@ -87,6 +87,7 @@ class TimeAnalyticsService:
             },
             {
                 "$project": {
+                    "_id": 0,
                     "transactionId": 1,
                     "startTime": 1,
                     "endTime": 1,

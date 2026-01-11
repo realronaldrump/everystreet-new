@@ -24,7 +24,7 @@ async def get_gas_fillups(
 ) -> list[dict[str, Any]]:
     """Get gas fill-up records with optional filters."""
     fillups = await FillupService.get_fillups(imei, vin, start_date, end_date, limit)
-    return [f.model_dump(by_alias=True) for f in fillups]
+    return [f.model_dump(by_alias=True, mode="json") for f in fillups]
 
 
 @router.get("/api/gas-fillups/{fillup_id}")
@@ -36,7 +36,7 @@ async def get_gas_fillup(fillup_id: str) -> dict[str, Any]:
         from core.exceptions import ResourceNotFoundException
 
         raise ResourceNotFoundException("Fill-up not found")
-    return fillup.model_dump(by_alias=True)
+    return fillup.model_dump(by_alias=True, mode="json")
 
 
 @router.post("/api/gas-fillups")
@@ -47,7 +47,7 @@ async def create_gas_fillup(
     """Create a new gas fill-up record."""
     fillup_dict = fillup_data.model_dump(exclude_none=True)
     fillup = await FillupService.create_fillup(fillup_dict)
-    return fillup.model_dump(by_alias=True)
+    return fillup.model_dump(by_alias=True, mode="json")
 
 
 @router.put("/api/gas-fillups/{fillup_id}")
@@ -59,7 +59,7 @@ async def update_gas_fillup(
     # Use exclude_unset=True to know what the user actually sent
     update_data = fillup_data.model_dump(exclude_unset=True)
     fillup = await FillupService.update_fillup(fillup_id, update_data)
-    return fillup.model_dump(by_alias=True)
+    return fillup.model_dump(by_alias=True, mode="json")
 
 
 @router.delete("/api/gas-fillups/{fillup_id}")

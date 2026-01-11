@@ -22,7 +22,7 @@ async def get_vehicles(
     try:
         vehicles = await VehicleService.get_vehicles(imei, vin, active_only)
         # Convert Beanie models to JSON-compatible dicts
-        return [v.model_dump(by_alias=True) for v in vehicles]
+        return [v.model_dump(by_alias=True, mode="json") for v in vehicles]
 
     except Exception as e:
         logger.error("Error fetching vehicles: %s", e)
@@ -36,7 +36,7 @@ async def create_vehicle(vehicle_data: VehicleModel) -> dict[str, Any]:
         vehicle_dict = vehicle_data.model_dump(exclude={"id"}, exclude_none=True)
         vehicle = await VehicleService.create_vehicle(vehicle_dict)
         # Convert Beanie model to JSON-compatible dict
-        return vehicle.model_dump(by_alias=True)
+        return vehicle.model_dump(by_alias=True, mode="json")
 
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -54,7 +54,7 @@ async def update_vehicle(imei: str, vehicle_data: VehicleModel) -> dict[str, Any
         )
         vehicle = await VehicleService.update_vehicle(imei, update_data)
         # Convert Beanie model to JSON-compatible dict
-        return vehicle.model_dump(by_alias=True)
+        return vehicle.model_dump(by_alias=True, mode="json")
 
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))

@@ -1,0 +1,23 @@
+{
+  "profile": "jinja",
+  "indent": 2,
+  "max_line_length": 120,
+  "max_attribute_length": 80,
+  "format_css": true,
+  "format_js": true,
+  "preserve_blank_lines": true,
+  "preserve_leading_space": true,
+  "close_void_tags": true,
+  "no_set_formatting": false,
+  "no_function_formatting": false,
+  "no_line_after_yaml": true,
+  "blank_line_after_tag": "load,extends,include,block,endblock",
+  "blank_line_before_tag": "load,extends,include,block",
+  "custom_blocks": "tojson,cache,macro,call,filter",
+  "custom_html": "",
+  "ignore": "H006,H013,H021,H023,H025,T002,T003",
+  "extension": ".html,.jinja,.jinja2,.j2",
+  "linter_output_format": "{filename}:{line}: {code} {message}",
+  "use_gitignore": true,
+  "exclude": "node_modules,venv,.git"
+}
