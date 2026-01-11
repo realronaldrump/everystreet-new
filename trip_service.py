@@ -405,15 +405,14 @@ class TripService:
                         options,
                         source="api",
                     )
-
-                    if result.get("saved_id"):
-                        processed_trip_ids.append(transaction_id)
-
                 except Exception:
                     logger.exception(
                         "Failed to process Bouncie trip %s",
                         transaction_id,
                     )
+                else:
+                    if result.get("saved_id"):
+                        processed_trip_ids.append(transaction_id)
 
             return processed_trip_ids
         except Exception as exc:
