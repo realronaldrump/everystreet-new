@@ -1,331 +1,350 @@
 """
-Route handlers for coverage area management.
+Coverage area CRUD API endpoints.
 
-Handles CRUD operations for coverage areas and their details.
+Simplified API for managing coverage areas:
+- Add area by name (no configuration)
+- List areas with stats
+- Get single area details
+- Delete area
+- Trigger rebuild
 """
 
-import asyncio
 import logging
-import time
-import uuid
-from datetime import UTC, datetime
+from typing import Any
 
 from beanie import PydanticObjectId
 from fastapi import APIRouter, HTTPException, status
-from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 
-from coverage.location_settings import normalize_location_settings
-from coverage_tasks import process_area
-from db import CoverageMetadata, OsmData, ProgressStatus, Street
-from db.schemas import DeleteCoverageAreaModel, LocationModel
+from coverage.ingestion import create_area, delete_area, rebuild_area
+from coverage.models import CoverageArea, Job
 
 logger = logging.getLogger(__name__)
-router = APIRouter()
+router = APIRouter(prefix="/api/coverage", tags=["coverage"])
 
 
-@router.get("/api/coverage_areas")
-async def get_coverage_areas():
-    """Get all coverage areas."""
+# =============================================================================
+# Request/Response Models
+# =============================================================================
+
+
+class CreateAreaRequest(BaseModel):
+    """Request to create a new coverage area."""
+
+    display_name: str
+    area_type: str = "city"  # city, county, state, custom
+    boundary: dict[str, Any] | None = None  # Optional GeoJSON, fetched if not provided
+
+
+class AreaResponse(BaseModel):
+    """Coverage area response."""
+
+    id: str
+    display_name: str
+    area_type: str
+    status: str
+    health: str
+
+    # Statistics (imperial only)
+    total_length_miles: float
+    driven_length_miles: float
+    coverage_percentage: float
+    total_segments: int
+    driven_segments: int
+
+    # Timestamps
+    created_at: str
+    last_synced: str | None
+
+    class Config:
+        from_attributes = True
+
+
+class AreaListResponse(BaseModel):
+    """Response for listing areas."""
+
+    success: bool = True
+    areas: list[AreaResponse]
+
+
+class AreaDetailResponse(BaseModel):
+    """Response for single area with full details."""
+
+    success: bool = True
+    area: AreaResponse
+    bounding_box: list[float] | None = None
+    has_optimal_route: bool = False
+
+
+class CreateAreaResponse(BaseModel):
+    """Response after creating an area."""
+
+    success: bool = True
+    area_id: str
+    job_id: str | None = None
+    message: str
+
+
+class DeleteAreaResponse(BaseModel):
+    """Response after deleting an area."""
+
+    success: bool = True
+    message: str
+
+
+# =============================================================================
+# Endpoints
+# =============================================================================
+
+
+@router.get("/areas", response_model=AreaListResponse)
+async def list_areas():
+    """
+    Get all coverage areas with their statistics.
+
+    Returns a simplified list of areas with coverage stats.
+    No pagination - designed for typical usage (< 20 areas).
+    """
     try:
-        areas = await CoverageMetadata.find_all().to_list()
-        processed_areas = []
+        areas = await CoverageArea.find_all().to_list()
+
+        area_responses = []
         for area in areas:
-            area_dict = area.model_dump(by_alias=True)
-            # Ensure _id is serialized as string
-            if area.id is not None:
-                area_dict["_id"] = str(area.id)
-            processed_areas.append(area_dict)
+            area_responses.append(
+                AreaResponse(
+                    id=str(area.id),
+                    display_name=area.display_name,
+                    area_type=area.area_type,
+                    status=area.status,
+                    health=area.health,
+                    total_length_miles=area.total_length_miles,
+                    driven_length_miles=area.driven_length_miles,
+                    coverage_percentage=area.coverage_percentage,
+                    total_segments=area.total_segments,
+                    driven_segments=area.driven_segments,
+                    created_at=area.created_at.isoformat(),
+                    last_synced=area.last_synced.isoformat()
+                    if area.last_synced
+                    else None,
+                )
+            )
 
-        return {"success": True, "areas": processed_areas}
+        return AreaListResponse(areas=area_responses)
+
     except Exception as e:
-        logger.error(
-            "Error fetching coverage areas: %s",
-            str(e),
-            exc_info=True,
-        )
-        return JSONResponse(
-            status_code=500,
-            content={"success": False, "error": str(e)},
-        )
-
-
-@router.get("/api/coverage_areas/{location_id}")
-async def get_coverage_area_details(location_id: PydanticObjectId):
-    """Get detailed information about a coverage area."""
-    overall_start_time = time.perf_counter()
-    logger.info("[%s] Request received for coverage area details.", location_id)
-
-    t_start_find_meta = time.perf_counter()
-    coverage_doc = await CoverageMetadata.get(location_id)
-    t_end_find_meta = time.perf_counter()
-    logger.info(
-        "[%s] Found coverage_doc in %.4fs.",
-        location_id,
-        t_end_find_meta - t_start_find_meta,
-    )
-
-    if not coverage_doc:
+        logger.error(f"Error listing coverage areas: {e}")
         raise HTTPException(
-            status_code=404,
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        )
+
+
+@router.get("/areas/{area_id}", response_model=AreaDetailResponse)
+async def get_area(area_id: str):
+    """
+    Get detailed information about a coverage area.
+
+    Includes bounding box and optimal route availability.
+    """
+    try:
+        oid = PydanticObjectId(area_id)
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid area ID format",
+        )
+
+    area = await CoverageArea.get(oid)
+    if not area:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
             detail="Coverage area not found",
         )
 
-    location_info = coverage_doc.location
-    if not isinstance(location_info, dict) or not location_info.get("display_name"):
-        logger.error(
-            "Coverage area %s has malformed or missing 'location' data.",
-            location_id,
-        )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=(
-                f"Coverage area with ID '{location_id}' was found but "
-                "contains incomplete or malformed internal location "
-                "information. Please check data integrity."
-            ),
-        )
-
-    coverage_dict = coverage_doc.model_dump(by_alias=True)
-    # Ensure _id is serialized as string
-    if coverage_doc.id is not None:
-        coverage_dict["_id"] = str(coverage_doc.id)
-
-    result = {
-        "success": True,
-        "coverage": coverage_dict,
-    }
-
-    overall_end_time = time.perf_counter()
-    logger.info(
-        "[%s] Total processing time for get_coverage_area_details: %.4fs.",
-        location_id,
-        overall_end_time - overall_start_time,
+    return AreaDetailResponse(
+        area=AreaResponse(
+            id=str(area.id),
+            display_name=area.display_name,
+            area_type=area.area_type,
+            status=area.status,
+            health=area.health,
+            total_length_miles=area.total_length_miles,
+            driven_length_miles=area.driven_length_miles,
+            coverage_percentage=area.coverage_percentage,
+            total_segments=area.total_segments,
+            driven_segments=area.driven_segments,
+            created_at=area.created_at.isoformat(),
+            last_synced=area.last_synced.isoformat() if area.last_synced else None,
+        ),
+        bounding_box=area.bounding_box if area.bounding_box else None,
+        has_optimal_route=area.optimal_route is not None,
     )
-    return result
 
 
-@router.post("/api/preprocess_streets")
-async def preprocess_streets_route(location_data: LocationModel):
-    """Preprocess streets data for a validated location."""
-    display_name = None
+@router.post("/areas", response_model=CreateAreaResponse)
+async def add_area(request: CreateAreaRequest):
+    """
+    Add a new coverage area.
+
+    Simply provide the name (e.g., "Seattle, WA") and the system
+    handles everything else automatically:
+    - Fetches boundary from geocoding
+    - Downloads streets from OpenStreetMap
+    - Calculates coverage from existing trips
+
+    No configuration options - the system "just works".
+    """
     try:
-        validated_location_dict = normalize_location_settings(location_data.dict())
-        display_name = validated_location_dict.get("display_name")
-
-        if not display_name:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid location data provided (missing display_name).",
-            )
-
-        existing = await CoverageMetadata.find_one(
-            {"location.display_name": display_name},
+        area = await create_area(
+            display_name=request.display_name,
+            area_type=request.area_type,
+            boundary=request.boundary,
         )
-        if existing and existing.status in {
-            "processing",
-            "preprocessing",
-            "calculating",
-            "queued",
-        }:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="This area is already being processed",
-            )
 
-        # Upsert coverage metadata
-        if existing:
-            existing.location = validated_location_dict
-            existing.status = "processing"
-            existing.last_error = None
-            existing.last_updated = datetime.now(UTC)
-            existing.total_length_miles = 0
-            existing.driven_length_miles = 0
-            existing.total_length_m = 0.0
-            existing.driven_length_m = 0.0
-            existing.coverage_percentage = 0
-            existing.total_streets = 0
-            await existing.save()
-        else:
-            new_coverage = CoverageMetadata(
-                location=validated_location_dict,
-                status="processing",
-                last_updated=datetime.now(UTC),
-                total_length_miles=0,
-                driven_length_miles=0,
-                total_length_m=0.0,
-                driven_length_m=0.0,
-                coverage_percentage=0,
-                total_streets=0,
-            )
-            await new_coverage.insert()
+        # Get the associated job
+        job = await Job.find_one({"area_id": area.id, "job_type": "area_ingestion"})
 
-        task_id = str(uuid.uuid4())
+        return CreateAreaResponse(
+            area_id=str(area.id),
+            job_id=str(job.id) if job else None,
+            message=f"Area '{request.display_name}' is being set up. This typically takes 1-2 minutes.",
+        )
 
-        # Create or update progress status
-        progress = await ProgressStatus.find_one({"_id": task_id})
-        if progress:
-            progress.operation_type = "initializing"
-            progress.progress = 0
-            progress.message = "Task queued, starting..."
-            progress.updated_at = datetime.now(UTC)
-            progress.status = "queued"
-            await progress.save()
-        else:
-            progress = ProgressStatus(
-                id=task_id,
-                operation_type="initializing",
-                progress=0,
-                message="Task queued, starting...",
-                updated_at=datetime.now(UTC),
-                status="queued",
-            )
-            # Store location in result dict for reference
-            progress.result = {"location": display_name}
-            await progress.insert()
-
-        asyncio.create_task(process_area(validated_location_dict, task_id))
-        return {
-            "status": "success",
-            "task_id": task_id,
-        }
-
-    except HTTPException:
-        raise
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
     except Exception as e:
-        logger.exception(
-            "Error in preprocess_streets_route for %s: %s",
-            display_name,
-            e,
-        )
-        try:
-            if display_name:
-                existing = await CoverageMetadata.find_one(
-                    {"location.display_name": display_name},
-                )
-                if existing:
-                    existing.status = "error"
-                    existing.last_error = str(e)
-                    await existing.save()
-        except Exception as db_err:
-            logger.exception(
-                "Failed to update error status for %s: %s",
-                display_name,
-                db_err,
-            )
+        logger.error(f"Error creating coverage area: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),
         )
 
 
-@router.post("/api/coverage_areas/delete")
-async def delete_coverage_area(location: DeleteCoverageAreaModel):
-    """Delete a coverage area and all associated data."""
-    try:
-        display_name = location.display_name
-        if not display_name:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid location display name",
-            )
+@router.delete("/areas/{area_id}", response_model=DeleteAreaResponse)
+async def remove_area(area_id: str):
+    """
+    Delete a coverage area and all associated data.
 
-        coverage_metadata = await CoverageMetadata.find_one(
-            {"location.display_name": display_name},
+    This removes:
+    - Street segments
+    - Coverage state
+    - Statistics
+
+    This action cannot be undone.
+    """
+    try:
+        oid = PydanticObjectId(area_id)
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid area ID format",
         )
 
-        if not coverage_metadata:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Coverage area not found",
-            )
+    deleted = await delete_area(oid)
 
-        # Delete GridFS files
-        from coverage.gridfs_service import gridfs_service
+    if not deleted:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Coverage area not found",
+        )
 
-        if gridfs_id := coverage_metadata.streets_geojson_id:
-            await gridfs_service.delete_file(gridfs_id, display_name)
+    return DeleteAreaResponse(
+        message="Coverage area deleted successfully",
+    )
 
-        # Delete all GridFS files tagged with this location
-        await gridfs_service.delete_files_by_location(display_name)
 
-        # Delete progress data
-        try:
-            await ProgressStatus.find({"result.location": display_name}).delete()
-            logger.info("Deleted progress data for %s", display_name)
-        except Exception as progress_err:
-            logger.warning(
-                "Error deleting progress data for %s: %s",
-                display_name,
-                progress_err,
-            )
+@router.post("/areas/{area_id}/rebuild")
+async def trigger_rebuild(area_id: str):
+    """
+    Trigger a rebuild of an area with fresh OSM data.
 
-        # Delete cached OSM data
-        try:
-            await OsmData.find({"location": display_name}).delete()
-            logger.info("Deleted cached OSM data for %s", display_name)
-        except Exception as osm_err:
-            logger.warning(
-                "Error deleting OSM data for %s: %s",
-                display_name,
-                osm_err,
-            )
+    Use this when:
+    - New streets have been added to OpenStreetMap
+    - The area data is more than 90 days old
+    - You want to reset and recalculate everything
 
-        # Delete street segments
-        await Street.find({"properties.location": display_name}).delete()
-        logger.info("Deleted street segments for %s", display_name)
+    Returns a job ID for tracking progress.
+    """
+    try:
+        oid = PydanticObjectId(area_id)
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid area ID format",
+        )
 
-        # Delete coverage metadata
-        await coverage_metadata.delete()
-        logger.info("Deleted coverage metadata for %s", display_name)
+    try:
+        job = await rebuild_area(oid)
 
         return {
-            "status": "success",
-            "message": "Coverage area and all associated data deleted successfully",
+            "success": True,
+            "job_id": str(job.id),
+            "message": "Rebuild started. This typically takes 1-2 minutes.",
         }
 
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.exception(
-            "Error deleting coverage area: %s",
-            str(e),
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
         )
+    except Exception as e:
+        logger.error(f"Error triggering rebuild: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),
         )
 
 
-@router.post("/api/coverage_areas/cancel")
-async def cancel_coverage_area(location: DeleteCoverageAreaModel):
-    """Cancel processing of a coverage area."""
-    try:
-        display_name = location.display_name
-        if not display_name:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid location display name",
-            )
+# =============================================================================
+# Legacy Compatibility (temporary)
+# =============================================================================
 
-        coverage = await CoverageMetadata.find_one(
-            {"location.display_name": display_name},
+# These endpoints maintain backwards compatibility with old frontend
+# TODO: Remove after frontend migration
+
+
+@router.get("/coverage_areas")
+async def legacy_list_areas():
+    """Legacy endpoint - redirects to new format."""
+    result = await list_areas()
+    # Convert to old format
+    legacy_areas = []
+    for area in result.areas:
+        legacy_areas.append(
+            {
+                "_id": area.id,
+                "location": {
+                    "display_name": area.display_name,
+                },
+                "status": area.status,
+                "total_length_miles": area.total_length_miles,
+                "driven_length_miles": area.driven_length_miles,
+                "coverage_percentage": area.coverage_percentage,
+                "total_streets": area.total_segments,
+            }
         )
-        if coverage:
-            coverage.status = "canceled"
-            coverage.last_error = "Task was canceled by user."
-            await coverage.save()
+    return {"success": True, "areas": legacy_areas}
 
-        return {
-            "status": "success",
-            "message": "Coverage area processing canceled",
-        }
 
-    except Exception as e:
-        logger.exception(
-            "Error canceling coverage area: %s",
-            str(e),
-        )
+@router.post("/coverage_areas/delete")
+async def legacy_delete_area(location: dict):
+    """Legacy endpoint for deletion by display_name."""
+    display_name = location.get("display_name")
+    if not display_name:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Missing display_name",
         )
+
+    area = await CoverageArea.find_one({"display_name": display_name})
+    if not area:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Coverage area not found",
+        )
+
+    await delete_area(area.id)
+    return {"status": "success", "message": "Coverage area deleted successfully"}

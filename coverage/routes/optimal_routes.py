@@ -16,8 +16,30 @@ from fastapi import APIRouter, HTTPException, Query, Response
 from fastapi.responses import StreamingResponse
 
 from db import CoverageMetadata, OptimalRouteProgress
+from coverage.models import CoverageArea
 
 logger = logging.getLogger(__name__)
+
+
+async def _get_coverage_doc(location_id: PydanticObjectId):
+    """
+    Get coverage document, trying new CoverageArea first, falling back to CoverageMetadata.
+
+    Returns tuple of (doc, is_new_model) where is_new_model indicates if it's CoverageArea.
+    """
+    # Try new model first
+    doc = await CoverageArea.get(location_id)
+    if doc:
+        return doc, True
+
+    # Fall back to old model
+    doc = await CoverageMetadata.get(location_id)
+    if doc:
+        return doc, False
+
+    return None, False
+
+
 router = APIRouter()
 
 
@@ -36,16 +58,24 @@ async def start_optimal_route_generation(
     """Start a background task to generate optimal completion route."""
     from tasks import generate_optimal_route_task
 
-    coverage_doc = await CoverageMetadata.get(location_id)
+    coverage_doc, is_new = await _get_coverage_doc(location_id)
 
     if not coverage_doc:
         raise HTTPException(status_code=404, detail="Coverage area not found")
 
-    if coverage_doc.status == "processing":
-        raise HTTPException(
-            status_code=400,
-            detail="Coverage area is still being processed. Wait for completion.",
-        )
+    # Check status - new model uses different status values
+    if is_new:
+        if coverage_doc.status == "initializing":
+            raise HTTPException(
+                status_code=400,
+                detail="Coverage area is still being processed. Wait for completion.",
+            )
+    else:
+        if coverage_doc.status == "processing":
+            raise HTTPException(
+                status_code=400,
+                detail="Coverage area is still being processed. Wait for completion.",
+            )
 
     task = generate_optimal_route_task.delay(
         location_id=str(location_id),
@@ -129,7 +159,7 @@ async def get_worker_status():
 @router.get("/api/coverage_areas/{location_id}/optimal-route")
 async def get_optimal_route(location_id: PydanticObjectId):
     """Retrieve the generated optimal route for a coverage area."""
-    coverage_doc = await CoverageMetadata.get(location_id)
+    coverage_doc, is_new = await _get_coverage_doc(location_id)
 
     if not coverage_doc:
         raise HTTPException(status_code=404, detail="Coverage area not found")
@@ -138,7 +168,7 @@ async def get_optimal_route(location_id: PydanticObjectId):
     route = None
     if hasattr(coverage_doc, "optimal_route") and coverage_doc.optimal_route:
         route = coverage_doc.optimal_route
-    elif coverage_doc.location and coverage_doc.location.get("optimal_route_data"):
+    elif not is_new and hasattr(coverage_doc, "location") and coverage_doc.location:
         route = coverage_doc.location.get("optimal_route_data")
 
     if not route:
@@ -150,11 +180,17 @@ async def get_optimal_route(location_id: PydanticObjectId):
     # Prepare route data (handle dict or Pydantic model)
     route_data = route if isinstance(route, dict) else route.model_dump(by_alias=True)
 
+    # Get location name
+    if is_new:
+        location_name = coverage_doc.display_name
+    else:
+        location_name = (
+            coverage_doc.location.get("display_name") if coverage_doc.location else None
+        )
+
     return {
         "status": "success",
-        "location_name": (
-            coverage_doc.location.get("display_name") if coverage_doc.location else None
-        ),
+        "location_name": location_name,
         **route_data,
     }
 
@@ -164,7 +200,7 @@ async def export_optimal_route_gpx(location_id: PydanticObjectId):
     """Export optimal route as GPX file for navigation apps."""
     from export_helpers import build_gpx_from_coords
 
-    coverage_doc = await CoverageMetadata.get(location_id)
+    coverage_doc, is_new = await _get_coverage_doc(location_id)
 
     if not coverage_doc:
         raise HTTPException(status_code=404, detail="Coverage area not found")
@@ -173,11 +209,15 @@ async def export_optimal_route_gpx(location_id: PydanticObjectId):
     route = None
     if hasattr(coverage_doc, "optimal_route") and coverage_doc.optimal_route:
         route = coverage_doc.optimal_route
-    elif coverage_doc.location and coverage_doc.location.get("optimal_route_data"):
+    elif not is_new and hasattr(coverage_doc, "location") and coverage_doc.location:
         route = coverage_doc.location.get("optimal_route_data")
 
     # Prepare route data (handle dict or Pydantic model)
-    route_data = route if isinstance(route, dict) else route.model_dump(by_alias=True)
+    route_data = (
+        route
+        if isinstance(route, dict)
+        else (route.model_dump(by_alias=True) if route else None)
+    )
 
     if (
         route_data
@@ -191,11 +231,15 @@ async def export_optimal_route_gpx(location_id: PydanticObjectId):
             detail="No optimal route available. Generate one first.",
         )
 
-    location_name = (
-        coverage_doc.location.get("display_name", "Route")
-        if coverage_doc.location
-        else "Route"
-    )
+    # Get location name
+    if is_new:
+        location_name = coverage_doc.display_name or "Route"
+    else:
+        location_name = (
+            coverage_doc.location.get("display_name", "Route")
+            if coverage_doc.location
+            else "Route"
+        )
     gpx_content = build_gpx_from_coords(
         route_data["coordinates"],
         name=f"Optimal Route - {location_name}",
@@ -216,7 +260,7 @@ async def export_optimal_route_gpx(location_id: PydanticObjectId):
 @router.delete("/api/coverage_areas/{location_id}/optimal-route")
 async def delete_optimal_route(location_id: PydanticObjectId):
     """Delete saved optimal route for a coverage area."""
-    coverage_doc = await CoverageMetadata.get(location_id)
+    coverage_doc, _is_new = await _get_coverage_doc(location_id)
 
     if not coverage_doc:
         raise HTTPException(status_code=404, detail="Coverage area not found")

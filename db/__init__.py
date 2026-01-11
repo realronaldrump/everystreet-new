@@ -58,6 +58,14 @@ from db.models import (
     Vehicle,
 )
 
+# New coverage system models
+from coverage.models import (
+    CoverageArea,
+    CoverageState,
+    Job,
+    Street as NewStreet,
+)
+
 # ============================================================================
 # Query Building
 # ============================================================================
@@ -75,7 +83,6 @@ logger = logging.getLogger(__name__)
 # ============================================================================
 
 __all__ = [
-    "ALL_DOCUMENT_MODELS",
     "ALL_DOCUMENT_MODELS",
     "AppSettings",
     "ArchivedLiveTrip",
@@ -102,4 +109,9 @@ __all__ = [
     "db_manager",
     # Query Building
     "parse_query_date",
+    # New coverage system models
+    "CoverageArea",
+    "CoverageState",
+    "Job",
+    "NewStreet",
 ]

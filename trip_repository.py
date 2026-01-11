@@ -144,6 +144,22 @@ class TripRepository:
                 transaction_id,
             )
 
+            # Emit coverage event for automatic street coverage updates
+            try:
+                from coverage.events import emit_trip_completed
+
+                await emit_trip_completed(
+                    trip_id=str(trip.id),
+                    trip_data=trip_to_save,
+                )
+            except Exception as coverage_err:
+                # Coverage update failure should not fail the trip save
+                logger.warning(
+                    "Failed to emit coverage event for trip %s: %s",
+                    transaction_id,
+                    coverage_err,
+                )
+
             return str(trip.id)
 
         except Exception as e:

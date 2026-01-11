@@ -404,6 +404,22 @@ async def process_trip_end(data: dict[str, Any]) -> None:
     )
     await _publish_trip_snapshot(trip, status="completed")
 
+    # Emit coverage event for automatic street coverage updates
+    try:
+        from coverage.events import emit_trip_completed
+
+        trip_data = trip.model_dump()
+        await emit_trip_completed(
+            trip_id=str(trip.id),
+            trip_data=trip_data,
+        )
+    except Exception as coverage_err:
+        logger.warning(
+            "Failed to emit coverage event for trip %s: %s",
+            transaction_id,
+            coverage_err,
+        )
+
     # Archive the trip
     try:
         # Create ArchivedLiveTrip from LiveTrip data

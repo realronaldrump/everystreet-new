@@ -1,12 +1,577 @@
 /**
- * Coverage Management - Main Entry Point
- * Imports and initializes the modular coverage management system
+ * Coverage Management - New Simplified Version
+ *
+ * Event-driven coverage system with:
+ * - Simple add/delete operations (no configuration)
+ * - Automatic coverage updates
+ * - Viewport-based map rendering
  */
 
-import CoverageManager from "./modules/coverage/coverage-manager.js";
+// API base URL
+const API_BASE = "/api/coverage";
 
-// The CoverageManager class handles all initialization in its constructor
-// It will be instantiated when DOMContentLoaded fires
-// The instance is stored in window.coverageManager for backward compatibility
+// State
+let currentAreaId = null;
+let map = null;
+let streetSource = null;
 
-export default CoverageManager;
+// =============================================================================
+// Initialization
+// =============================================================================
+
+document.addEventListener("DOMContentLoaded", async () => {
+  console.log("Coverage Management initialized");
+
+  // Load initial data
+  await loadAreas();
+
+  // Set up event listeners
+  setupEventListeners();
+});
+
+function setupEventListeners() {
+  // Refresh button
+  document.getElementById("refresh-table-btn")?.addEventListener("click", loadAreas);
+  document.getElementById("quick-refresh-all")?.addEventListener("click", loadAreas);
+
+  // Add area button
+  document.getElementById("add-coverage-area")?.addEventListener("click", addArea);
+
+  // Close dashboard
+  document.getElementById("close-dashboard-btn")?.addEventListener("click", () => {
+    document.getElementById("coverage-dashboard").style.display = "none";
+    currentAreaId = null;
+  });
+
+  // Map filter buttons
+  document.querySelectorAll("[data-filter]").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      document.querySelectorAll("[data-filter]").forEach((b) => {
+        b.classList.remove("active", "btn-primary", "btn-success", "btn-danger");
+        b.classList.add(
+          "btn-outline-" +
+            (b.dataset.filter === "all"
+              ? "primary"
+              : b.dataset.filter === "driven"
+                ? "success"
+                : "danger")
+        );
+      });
+      e.target.classList.add("active");
+      e.target.classList.remove(
+        "btn-outline-primary",
+        "btn-outline-success",
+        "btn-outline-danger"
+      );
+      e.target.classList.add(
+        "btn-" +
+          (e.target.dataset.filter === "all"
+            ? "primary"
+            : e.target.dataset.filter === "driven"
+              ? "success"
+              : "danger")
+      );
+
+      applyMapFilter(e.target.dataset.filter);
+    });
+  });
+}
+
+// =============================================================================
+// API Functions
+// =============================================================================
+
+async function apiGet(endpoint) {
+  const response = await fetch(`${API_BASE}${endpoint}`);
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.detail || `Request failed: ${response.status}`);
+  }
+  return response.json();
+}
+
+async function apiPost(endpoint, data) {
+  const response = await fetch(`${API_BASE}${endpoint}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.detail || `Request failed: ${response.status}`);
+  }
+  return response.json();
+}
+
+async function apiDelete(endpoint) {
+  const response = await fetch(`${API_BASE}${endpoint}`, { method: "DELETE" });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.detail || `Request failed: ${response.status}`);
+  }
+  return response.json();
+}
+
+// =============================================================================
+// Area Management
+// =============================================================================
+
+async function loadAreas() {
+  try {
+    const data = await apiGet("/areas");
+    renderAreasTable(data.areas);
+    document.getElementById("total-areas-count").textContent = data.areas.length;
+  } catch (error) {
+    console.error("Failed to load areas:", error);
+    showNotification("Failed to load coverage areas: " + error.message, "danger");
+  }
+}
+
+function renderAreasTable(areas) {
+  const tbody = document.querySelector("#coverage-areas-table tbody");
+
+  if (!areas || areas.length === 0) {
+    tbody.innerHTML = `
+            <tr>
+                <td colspan="7" class="text-center p-4">
+                    <div class="empty-state">
+                        <i class="fas fa-map-marked-alt fa-3x text-secondary mb-3"></i>
+                        <p class="mb-2">No coverage areas yet</p>
+                        <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#addAreaModal">
+                            <i class="fas fa-plus me-1"></i>Add Your First Area
+                        </button>
+                    </div>
+                </td>
+            </tr>`;
+    return;
+  }
+
+  tbody.innerHTML = areas
+    .map(
+      (area) => `
+        <tr data-area-id="${area.id}">
+            <td>
+                <strong>${escapeHtml(area.display_name)}</strong>
+                <br><small class="text-secondary">${area.area_type}</small>
+            </td>
+            <td>${renderStatus(area.status, area.health)}</td>
+            <td>${formatMiles(area.total_length_miles)}</td>
+            <td>${formatMiles(area.driven_length_miles)}</td>
+            <td>
+                <div class="progress" style="height: 20px; min-width: 100px;">
+                    <div class="progress-bar bg-success" style="width: ${area.coverage_percentage}%">
+                        ${area.coverage_percentage.toFixed(1)}%
+                    </div>
+                </div>
+            </td>
+            <td>${area.last_synced ? formatRelativeTime(area.last_synced) : "Never"}</td>
+            <td>
+                <div class="btn-group btn-group-sm">
+                    <button class="btn btn-outline-primary" onclick="viewArea('${area.id}')" 
+                            title="View on map" ${area.status !== "ready" ? "disabled" : ""}>
+                        <i class="fas fa-map"></i>
+                    </button>
+                    <button class="btn btn-outline-warning" onclick="rebuildArea('${area.id}')"
+                            title="Rebuild with fresh data" ${area.status !== "ready" ? "disabled" : ""}>
+                        <i class="fas fa-sync"></i>
+                    </button>
+                    <button class="btn btn-outline-danger" onclick="deleteArea('${area.id}', '${escapeHtml(area.display_name)}')"
+                            title="Delete area">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </td>
+        </tr>
+    `
+    )
+    .join("");
+}
+
+function renderStatus(status, health) {
+  const statusConfig = {
+    ready: { class: "success", icon: "check-circle", text: "Ready" },
+    initializing: { class: "info", icon: "spinner fa-spin", text: "Setting up..." },
+    rebuilding: { class: "warning", icon: "sync fa-spin", text: "Rebuilding..." },
+    error: { class: "danger", icon: "exclamation-circle", text: "Error" },
+  };
+
+  const config = statusConfig[status] || statusConfig["error"];
+  return `<span class="badge bg-${config.class}">
+        <i class="fas fa-${config.icon} me-1"></i>${config.text}
+    </span>`;
+}
+
+async function addArea() {
+  const displayName = document.getElementById("location-input").value.trim();
+  const areaType = document.getElementById("location-type").value;
+
+  if (!displayName) {
+    showNotification("Please enter a location name", "warning");
+    return;
+  }
+
+  try {
+    // Close add modal
+    bootstrap.Modal.getInstance(document.getElementById("addAreaModal"))?.hide();
+
+    // Show progress modal
+    const progressModal = new bootstrap.Modal(
+      document.getElementById("taskProgressModal")
+    );
+    progressModal.show();
+    updateProgress(0, "Creating area...");
+
+    // Create area
+    const result = await apiPost("/areas", {
+      display_name: displayName,
+      area_type: areaType,
+    });
+
+    // Poll for job completion
+    if (result.job_id) {
+      await pollJobProgress(result.job_id);
+    }
+
+    // Done
+    progressModal.hide();
+    showNotification(`Area "${displayName}" added successfully!`, "success");
+
+    // Refresh table
+    await loadAreas();
+
+    // Clear form
+    document.getElementById("location-input").value = "";
+  } catch (error) {
+    console.error("Failed to add area:", error);
+    bootstrap.Modal.getInstance(document.getElementById("taskProgressModal"))?.hide();
+    showNotification("Failed to add area: " + error.message, "danger");
+  }
+}
+
+async function deleteArea(areaId, displayName) {
+  const confirmed = await window.confirmationDialog?.show({
+    title: "Delete Coverage Area",
+    message: `Delete "<strong>${escapeHtml(displayName)}</strong>"?<br><br>This will remove all coverage data for this area.`,
+    confirmText: "Delete",
+    confirmButtonClass: "btn-danger",
+  });
+
+  if (!confirmed) {
+    return;
+  }
+
+  try {
+    await apiDelete(`/areas/${areaId}`);
+    showNotification(`Area "${displayName}" deleted`, "success");
+
+    if (currentAreaId === areaId) {
+      document.getElementById("coverage-dashboard").style.display = "none";
+      currentAreaId = null;
+    }
+
+    await loadAreas();
+  } catch (error) {
+    console.error("Failed to delete area:", error);
+    showNotification("Failed to delete area: " + error.message, "danger");
+  }
+}
+
+async function rebuildArea(areaId) {
+  const confirmed = await window.confirmationDialog?.show({
+    title: "Rebuild Coverage Area",
+    message:
+      "Rebuild this area with fresh data from OpenStreetMap?<br><br>This may take a few minutes.",
+    confirmText: "Rebuild",
+    confirmButtonClass: "btn-warning",
+  });
+
+  if (!confirmed) {
+    return;
+  }
+
+  try {
+    const progressModal = new bootstrap.Modal(
+      document.getElementById("taskProgressModal")
+    );
+    progressModal.show();
+    updateProgress(0, "Starting rebuild...");
+
+    const result = await apiPost(`/areas/${areaId}/rebuild`, {});
+
+    if (result.job_id) {
+      await pollJobProgress(result.job_id);
+    }
+
+    progressModal.hide();
+    showNotification("Area rebuilt successfully!", "success");
+    await loadAreas();
+  } catch (error) {
+    console.error("Failed to rebuild area:", error);
+    bootstrap.Modal.getInstance(document.getElementById("taskProgressModal"))?.hide();
+    showNotification("Failed to rebuild area: " + error.message, "danger");
+  }
+}
+
+// =============================================================================
+// Job Progress Polling
+// =============================================================================
+
+async function pollJobProgress(jobId) {
+  const maxAttempts = 300; // 5 minutes max
+  let attempts = 0;
+
+  while (attempts < maxAttempts) {
+    try {
+      const job = await apiGet(`/jobs/${jobId}`);
+
+      updateProgress(job.progress, job.stage);
+
+      if (job.status === "completed") {
+        return job;
+      }
+
+      if (job.status === "failed" || job.status === "needs_attention") {
+        throw new Error(job.error || "Job failed");
+      }
+
+      await sleep(1000);
+      attempts++;
+    } catch (error) {
+      console.error("Error polling job:", error);
+      throw error;
+    }
+  }
+
+  throw new Error("Job timed out");
+}
+
+function updateProgress(percent, message) {
+  const bar = document.querySelector("#taskProgressModal .progress-bar");
+  const msg = document.querySelector("#taskProgressModal .progress-message");
+  const stage = document.querySelector("#taskProgressModal .progress-stage");
+
+  if (bar) {
+    bar.style.width = `${percent}%`;
+    bar.textContent = `${Math.round(percent)}%`;
+  }
+  if (msg) msg.textContent = message;
+  if (stage) stage.textContent = `${Math.round(percent)}% complete`;
+}
+
+// =============================================================================
+// Map & Dashboard
+// =============================================================================
+
+async function viewArea(areaId) {
+  currentAreaId = areaId;
+
+  try {
+    // Show dashboard
+    document.getElementById("coverage-dashboard").style.display = "block";
+
+    // Load area details
+    const data = await apiGet(`/areas/${areaId}`);
+    const area = data.area;
+
+    // Update stats
+    document.getElementById("dashboard-location-name").textContent = area.display_name;
+    document.getElementById("dashboard-total-length").textContent = formatMiles(
+      area.total_length_miles
+    );
+    document.getElementById("dashboard-driven-length").textContent = formatMiles(
+      area.driven_length_miles
+    );
+    document.getElementById("dashboard-coverage-percentage").textContent =
+      `${area.coverage_percentage.toFixed(1)}%`;
+
+    // Load segment counts
+    const summary = await apiGet(`/areas/${areaId}/streets/summary`);
+    document.getElementById("segments-driven").textContent =
+      summary.segment_counts.driven || 0;
+    document.getElementById("segments-undriven").textContent =
+      summary.segment_counts.undriven || 0;
+    document.getElementById("segments-undriveable").textContent =
+      summary.segment_counts.undriveable || 0;
+
+    // Initialize or update map
+    if (data.bounding_box) {
+      await initOrUpdateMap(areaId, data.bounding_box);
+    }
+
+    // Scroll to dashboard
+    document
+      .getElementById("coverage-dashboard")
+      .scrollIntoView({ behavior: "smooth" });
+  } catch (error) {
+    console.error("Failed to load area:", error);
+    showNotification("Failed to load area details: " + error.message, "danger");
+  }
+}
+
+async function initOrUpdateMap(areaId, bbox) {
+  const container = document.getElementById("coverage-map");
+  container.innerHTML = ""; // Clear loading spinner
+
+  if (!map) {
+    mapboxgl.accessToken = window.MAPBOX_ACCESS_TOKEN;
+    map = new mapboxgl.Map({
+      container: "coverage-map",
+      style: "mapbox://styles/mapbox/dark-v11",
+      bounds: [
+        [bbox[0], bbox[1]],
+        [bbox[2], bbox[3]],
+      ],
+      fitBoundsOptions: { padding: 50 },
+    });
+
+    map.addControl(new mapboxgl.NavigationControl(), "top-right");
+
+    map.on("load", () => loadStreets(areaId));
+    map.on("moveend", () => loadStreets(areaId));
+  } else {
+    map.fitBounds(
+      [
+        [bbox[0], bbox[1]],
+        [bbox[2], bbox[3]],
+      ],
+      { padding: 50 }
+    );
+    loadStreets(areaId);
+  }
+}
+
+async function loadStreets(areaId) {
+  if (!map || !areaId) return;
+
+  const bounds = map.getBounds();
+
+  try {
+    const data = await apiGet(
+      `/areas/${areaId}/streets/geojson?` +
+        new URLSearchParams({
+          min_lon: bounds.getWest(),
+          min_lat: bounds.getSouth(),
+          max_lon: bounds.getEast(),
+          max_lat: bounds.getNorth(),
+        })
+    );
+
+    // Update or add source
+    if (map.getSource("streets")) {
+      map.getSource("streets").setData(data);
+    } else {
+      map.addSource("streets", { type: "geojson", data });
+
+      // Undriven streets (red)
+      map.addLayer({
+        id: "streets-undriven",
+        type: "line",
+        source: "streets",
+        filter: ["==", ["get", "status"], "undriven"],
+        paint: {
+          "line-color": "#ef4444",
+          "line-width": 2,
+          "line-opacity": 0.8,
+        },
+      });
+
+      // Driven streets (green)
+      map.addLayer({
+        id: "streets-driven",
+        type: "line",
+        source: "streets",
+        filter: ["==", ["get", "status"], "driven"],
+        paint: {
+          "line-color": "#22c55e",
+          "line-width": 2,
+          "line-opacity": 0.8,
+        },
+      });
+
+      // Undriveable streets (gray, dashed)
+      map.addLayer({
+        id: "streets-undriveable",
+        type: "line",
+        source: "streets",
+        filter: ["==", ["get", "status"], "undriveable"],
+        paint: {
+          "line-color": "#6b7280",
+          "line-width": 1,
+          "line-opacity": 0.5,
+          "line-dasharray": [2, 2],
+        },
+      });
+    }
+  } catch (error) {
+    console.error("Failed to load streets:", error);
+  }
+}
+
+function applyMapFilter(filter) {
+  if (!map) return;
+
+  const layers = ["streets-undriven", "streets-driven", "streets-undriveable"];
+
+  layers.forEach((layerId) => {
+    if (!map.getLayer(layerId)) return;
+
+    if (filter === "all") {
+      map.setLayoutProperty(layerId, "visibility", "visible");
+    } else if (filter === "driven") {
+      map.setLayoutProperty(
+        layerId,
+        "visibility",
+        layerId === "streets-driven" ? "visible" : "none"
+      );
+    } else if (filter === "undriven") {
+      map.setLayoutProperty(
+        layerId,
+        "visibility",
+        layerId === "streets-undriven" ? "visible" : "none"
+      );
+    }
+  });
+}
+
+// =============================================================================
+// Utilities
+// =============================================================================
+
+function showNotification(message, type = "info") {
+  window.notificationManager?.show(message, type);
+}
+
+function formatMiles(miles) {
+  if (miles === null || miles === undefined) return "0 mi";
+  return `${miles.toFixed(2)} mi`;
+}
+
+function formatRelativeTime(isoString) {
+  const date = new Date(isoString);
+  const now = new Date();
+  const diffMs = now - date;
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMins / 60);
+  const diffDays = Math.floor(diffHours / 24);
+
+  if (diffMins < 1) return "Just now";
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return date.toLocaleDateString();
+}
+
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// Make functions available globally for onclick handlers
+window.viewArea = viewArea;
+window.deleteArea = deleteArea;
+window.rebuildArea = rebuildArea;

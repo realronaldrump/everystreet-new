@@ -1,40 +1,60 @@
-"""Coverage package - Modular coverage area management system.
+"""Coverage package - Event-driven street coverage tracking system.
 
-This package contains all coverage-related functionality organized into
-logical modules for better maintainability and testability.
+This package provides automatic coverage tracking when trips are completed.
+It uses an event-driven architecture where trip completion triggers coverage
+updates automatically.
 
-Modules:
-    - calculator: Coverage calculation engine
-    - constants: Configuration constants
-    - geojson_generator: GeoJSON generation and GridFS storage
-    - gridfs_service: GridFS operations for GeoJSON streaming
-    - serializers: Data serialization utilities
-    - services: Business logic services (stats, segment marking, geometry)
-    - routes: API route handlers organized by domain
+Key modules:
+    - models: Data models (CoverageArea, Street, CoverageState, Job)
+    - constants: Fixed system constants (segment length, buffers, etc.)
+    - ingestion: Area creation and OSM data fetching
+    - matching: Trip-to-street geometric matching
+    - events: Event system for trip/coverage coordination
+    - worker: Event handlers that process coverage updates
+    - stats: Statistics aggregation
+    - routes: API endpoints
+
+Usage:
+    # Register event handlers on app startup
+    from coverage.events import register_handlers
+    register_handlers()
+
+    # Create a new coverage area
+    from coverage.ingestion import create_area
+    area, job = await create_area("Waco, TX", user_id)
+
+    # Trip completion triggers automatic coverage update via events
+    from coverage.events import emit_trip_completed
+    await emit_trip_completed(trip_id, user_id)
 """
 
-from coverage.calculator import (
-    CoverageCalculator,
-    compute_coverage_for_location,
-    compute_incremental_coverage,
-)
-from coverage.geojson_generator import generate_and_store_geojson
-from coverage.gridfs_service import gridfs_service
-from coverage.services import (
-    coverage_stats_service,
-    geometry_service,
-    segment_marking_service,
+from coverage.models import CoverageArea, CoverageState, Job, Street
+from coverage.ingestion import create_area, delete_area, rebuild_area
+from coverage.events import register_handlers, emit_trip_completed
+from coverage.stats import update_area_stats
+from coverage.constants import (
+    SEGMENT_LENGTH_METERS,
+    MATCH_BUFFER_METERS,
+    MIN_OVERLAP_METERS,
 )
 
 __all__ = [
-    # Calculator
-    "CoverageCalculator",
-    "compute_coverage_for_location",
-    "compute_incremental_coverage",
-    "coverage_stats_service",
-    "generate_and_store_geojson",
-    "geometry_service",
-    # Services
-    "gridfs_service",
-    "segment_marking_service",
+    # Models
+    "CoverageArea",
+    "CoverageState",
+    "Job",
+    "Street",
+    # Ingestion
+    "create_area",
+    "delete_area",
+    "rebuild_area",
+    # Events
+    "register_handlers",
+    "emit_trip_completed",
+    # Stats
+    "update_area_stats",
+    # Constants
+    "SEGMENT_LENGTH_METERS",
+    "MATCH_BUFFER_METERS",
+    "MIN_OVERLAP_METERS",
 ]

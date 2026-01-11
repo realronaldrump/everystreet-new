@@ -159,6 +159,12 @@ async def startup_event():
         await ensure_settings_cached()
         logger.info("App settings loaded into cache.")
 
+        # Register coverage event handlers
+        from coverage.events import register_handlers
+
+        register_handlers()
+        logger.info("Coverage event handlers registered.")
+
         logger.info("Application startup completed successfully.")
 
     except Exception as e:

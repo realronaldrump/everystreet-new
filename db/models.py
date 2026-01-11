@@ -380,34 +380,6 @@ class CoverageMetadata(Document):
         extra = "allow"
 
 
-class Street(Document):
-    """Street segment document with GeoJSON geometry."""
-
-    properties: dict[str, Any] = Field(default_factory=dict)
-    geometry: dict[str, Any] = Field(default_factory=dict)
-    type: str = "Feature"
-
-    class Settings:
-        name = "streets"
-        indexes = [
-            IndexModel(
-                [("properties.location", ASCENDING), ("geometry", "2dsphere")],
-                name="streets_location_geo_idx",
-            ),
-            IndexModel(
-                [
-                    ("properties.location", ASCENDING),
-                    ("properties.segment_id", ASCENDING),
-                ],
-                name="streets_location_segment_id_unique_idx",
-                unique=True,
-            ),
-        ]
-
-    class Config:
-        extra = "allow"
-
-
 class OsmData(Document):
     """OpenStreetMap data cache document."""
 
@@ -718,6 +690,14 @@ class CountyTopology(Document):
         populate_by_name = True
 
 
+# Import new coverage models
+from coverage.models import (
+    CoverageArea,
+    CoverageState,
+    Job,
+    Street,
+)
+
 # List of all document models for Beanie initialization
 ALL_DOCUMENT_MODELS = [
     Trip,
@@ -725,7 +705,6 @@ ALL_DOCUMENT_MODELS = [
     LiveTrip,
     ArchivedLiveTrip,
     CoverageMetadata,
-    Street,
     OsmData,
     Place,
     TaskConfig,
@@ -739,4 +718,9 @@ ALL_DOCUMENT_MODELS = [
     BouncieCredentials,
     CountyVisitedCache,
     CountyTopology,
+    # New coverage system models
+    CoverageArea,
+    CoverageState,
+    Job,
+    Street,
 ]

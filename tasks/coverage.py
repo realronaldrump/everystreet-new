@@ -1,23 +1,23 @@
 """
 Coverage calculation tasks.
 
-This module provides Celery tasks for updating street coverage calculations:
-- update_coverage_for_new_trips: Incrementally updates coverage for all areas
+This module provides Celery tasks for coverage operations.
+
+In the new event-driven system, coverage updates happen automatically when
+trips complete. This task is kept for manual/scheduled full refreshes of
+coverage statistics.
 """
 
 from __future__ import annotations
 
-import asyncio
-import uuid
-from datetime import UTC, datetime
 from typing import Any
 
 from celery import shared_task
 from celery.utils.log import get_task_logger
 
 from core.async_bridge import run_async_from_sync
-from coverage import compute_incremental_coverage
-from db.models import CoverageMetadata, ProgressStatus
+from coverage.models import CoverageArea
+from coverage.stats import update_area_stats
 from tasks.core import task_runner
 
 logger = get_task_logger(__name__)
@@ -25,98 +25,69 @@ logger = get_task_logger(__name__)
 
 @task_runner
 async def update_coverage_for_new_trips_async(_self) -> dict[str, Any]:
-    """Async logic for updating coverage incrementally."""
+    """
+    Refresh coverage statistics for all areas.
+
+    In the new event-driven system, coverage updates happen automatically
+    when trips complete. This task recalculates stats for all areas,
+    which is useful for:
+    - Fixing any inconsistencies
+    - After manual data corrections
+    - Scheduled maintenance
+    """
     processed_areas = 0
     failed_areas = 0
     skipped_areas = 0
 
-    # Fetch all coverage areas
-    coverage_areas_cursor = CoverageMetadata.find({})
-    coverage_areas = await coverage_areas_cursor.to_list()
+    # Fetch all coverage areas using new model
+    coverage_areas = await CoverageArea.find_all().to_list()
     logger.info(
-        "Found %d coverage areas to check for incremental updates.",
+        "Found %d coverage areas to refresh statistics.",
         len(coverage_areas),
     )
 
     for area in coverage_areas:
-        # area is a CoverageMetadata document
-        location = area.location
-        area_id_str = str(area.id)
-        display_name = (
-            location.get("display_name", "Unknown")
-            if location
-            else f"Unknown (ID: {area_id_str})"
-        )
+        display_name = area.display_name or f"Unknown (ID: {area.id})"
 
-        if not location:
-            logger.warning(
-                "Skipping area %s due to missing location data.",
-                area_id_str,
+        # Skip areas that aren't ready
+        if area.status not in ("ready", "degraded"):
+            logger.info(
+                "Skipping area '%s' - status is '%s'",
+                display_name,
+                area.status,
             )
             skipped_areas += 1
             continue
 
-        sub_task_id = f"incr_update_{area_id_str}_{uuid.uuid4()}"
-        logger.info(
-            "Processing incremental update for '%s' (SubTask: %s)",
-            display_name,
-            sub_task_id,
-        )
-
         try:
-            result = await compute_incremental_coverage(location, sub_task_id)
+            # Update statistics for this area
+            updated_area = await update_area_stats(area.id)
 
-            if result:
+            if updated_area:
                 logger.info(
-                    "Successfully updated coverage for '%s'. New coverage: %.2f%%",
+                    "Successfully refreshed stats for '%s'. Coverage: %.2f%%",
                     display_name,
-                    result.get("coverage_percentage", 0),
+                    updated_area.coverage_percentage,
                 )
                 processed_areas += 1
             else:
                 logger.warning(
-                    "Incremental update failed or returned no result for "
-                    "'%s' (SubTask: %s). Check previous logs.",
+                    "Stats refresh returned no result for '%s'.",
                     display_name,
-                    sub_task_id,
                 )
                 failed_areas += 1
 
-            await asyncio.sleep(0.5)
-
-        except Exception as inner_e:
+        except Exception as e:
             logger.error(
-                "Error during incremental update for '%s': %s",
+                "Error refreshing stats for '%s': %s",
                 display_name,
-                inner_e,
+                e,
                 exc_info=True,
             )
             failed_areas += 1
-            try:
-                # Update progress status using Beanie
-                doc = await ProgressStatus.get(sub_task_id)
-                update_data = {
-                    "stage": "error",
-                    "error": str(inner_e),
-                    "updated_at": datetime.now(UTC),
-                }
-                if doc:
-                    await doc.set(update_data)
-                else:
-                    # Create new if needed, assuming upsert=True logic
-                    await ProgressStatus(id=sub_task_id, **update_data).insert()
-
-            except Exception as prog_err:
-                logger.exception(
-                    "Failed to update progress status for failed sub-task %s: %s",
-                    sub_task_id,
-                    prog_err,
-                )
-            continue
 
     logger.info(
-        "Completed automated incremental updates. Processed: %d, "
-        "Failed: %d, Skipped: %d",
+        "Completed coverage stats refresh. Processed: %d, Failed: %d, Skipped: %d",
         processed_areas,
         failed_areas,
         skipped_areas,
@@ -128,7 +99,7 @@ async def update_coverage_for_new_trips_async(_self) -> dict[str, Any]:
         "areas_failed": failed_areas,
         "areas_skipped": skipped_areas,
         "message": (
-            f"Completed incremental updates. Processed: {processed_areas}, "
+            f"Completed stats refresh. Processed: {processed_areas}, "
             f"Failed: {failed_areas}, Skipped: {skipped_areas}"
         ),
     }
@@ -144,5 +115,5 @@ async def update_coverage_for_new_trips_async(_self) -> dict[str, Any]:
     queue="default",
 )
 def update_coverage_for_new_trips(_self, *_args, **_kwargs):
-    """Celery task wrapper for updating coverage incrementally."""
+    """Celery task wrapper for refreshing coverage statistics."""
     return run_async_from_sync(update_coverage_for_new_trips_async(_self))

@@ -277,17 +277,22 @@ class TripQueryService:
         trips_data = []
         for trip in trips:
             if isinstance(trip, Trip):
-                trip_dict = {
-                    "transactionId": trip.transactionId,
-                    "startTime": trip.startTime,
-                    "endTime": trip.endTime,
-                    "distance": trip.distance,
-                    "validation_message": getattr(trip, "validation_message", None),
-                    "source": getattr(trip, "source", None),
-                    "validated_at": getattr(trip, "validated_at", None),
-                }
+                trip_id = str(trip.id)
+                data = trip.model_dump()
             else:
-                trip_dict = trip
+                trip_id = str(trip.get("_id"))
+                data = trip
+
+            trip_dict = {
+                "id": trip_id,
+                "transaction_id": data.get("transactionId"),
+                "start_time": data.get("startTime"),
+                "end_time": data.get("endTime"),
+                "distance": data.get("distance"),
+                "invalidation_reason": data.get("validation_message"),
+                "source": data.get("source"),
+                "validated_at": data.get("validated_at"),
+            }
             trips_data.append(trip_dict)
 
         return {
