@@ -232,5 +232,9 @@ class VehicleModel(BaseModel):
     year: int | None = None
     is_active: bool = True
 
+    # Odometer tracking
+    odometer_reading: float | None = None
+    odometer_source: str | None = None  # 'bouncie', 'manual', 'trip'
+
     class Config:
         extra = "allow"

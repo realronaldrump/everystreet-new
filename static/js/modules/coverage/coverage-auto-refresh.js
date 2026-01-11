@@ -34,9 +34,9 @@ export class CoverageAutoRefresh {
         return;
       }
 
-      const isModalProcessing
-        = this.manager.crud?.currentProcessingLocation
-        && document.getElementById("taskProgressModal")?.classList.contains("show");
+      const isModalProcessing =
+        this.manager.crud?.currentProcessingLocation &&
+        document.getElementById("taskProgressModal")?.classList.contains("show");
 
       // Don't auto-refresh while modal is open - polling handles updates there
       if (isModalProcessing) {
@@ -96,7 +96,7 @@ export class CoverageAutoRefresh {
 
         if (!isStillProcessing) {
           // Item finished processing - do a full refresh once
-          this.manager.loadCoverageAreas(false, true);
+          this.manager.loadCoverageAreas(false, true, false, true);
           return;
         }
 
@@ -173,8 +173,8 @@ export class CoverageAutoRefresh {
     }
 
     const notification = document.createElement("div");
-    notification.className
-      = "alert alert-info alert-dismissible fade show mt-3 fade-in-up";
+    notification.className =
+      "alert alert-info alert-dismissible fade show mt-3 fade-in-up";
     notification.innerHTML = `
       <h5><i class="fas fa-info-circle me-2"></i>Interrupted Task Found</h5>
       <p>A processing task for <strong>${location.display_name}</strong>

@@ -7,10 +7,22 @@ import apiClient from "../api-client.js";
 
 const COVERAGE_API = {
   /**
-   * Fetch all coverage areas
+   * Invalidate all coverage-related caches
+   * Call this after any mutation to ensure fresh data is fetched
    */
-  async getAllAreas() {
-    const data = await apiClient.get("/api/coverage_areas", { cache: true });
+  invalidateCache() {
+    apiClient.clearCache("/api/coverage_areas");
+  },
+
+  /**
+   * Fetch all coverage areas
+   * @param {boolean} bypassCache - Force fresh fetch from server
+   */
+  async getAllAreas(bypassCache = false) {
+    if (bypassCache) {
+      this.invalidateCache();
+    }
+    const data = await apiClient.get("/api/coverage_areas", { cache: !bypassCache });
     if (!data.success) {
       throw new Error(data.error || "API returned failure");
     }
@@ -59,25 +71,31 @@ const COVERAGE_API = {
    * Start preprocessing streets for a location
    */
   async preprocessStreets(location) {
-    return apiClient.post("/api/preprocess_streets", location);
+    const result = await apiClient.post("/api/preprocess_streets", location);
+    this.invalidateCache();
+    return result;
   },
 
   /**
    * Start preprocessing custom boundary
    */
   async preprocessCustomBoundary(location) {
-    return apiClient.post("/api/preprocess_custom_boundary", location);
+    const result = await apiClient.post("/api/preprocess_custom_boundary", location);
+    this.invalidateCache();
+    return result;
   },
 
   /**
    * Update coverage for an area (full or incremental)
    */
   async updateCoverage(location, mode = "full") {
-    const endpoint
-      = mode === "incremental"
+    const endpoint =
+      mode === "incremental"
         ? "/api/street_coverage/incremental"
         : "/api/street_coverage";
-    return apiClient.post(endpoint, location);
+    const result = await apiClient.post(endpoint, location);
+    this.invalidateCache();
+    return result;
   },
 
   /**
@@ -95,21 +113,33 @@ const COVERAGE_API = {
    * Cancel processing for a location
    */
   async cancelProcessing(displayName) {
-    return apiClient.post("/api/coverage_areas/cancel", { display_name: displayName });
+    const result = await apiClient.post("/api/coverage_areas/cancel", {
+      display_name: displayName,
+    });
+    this.invalidateCache();
+    return result;
   },
 
   /**
    * Delete a coverage area
    */
   async deleteArea(displayName) {
-    return apiClient.post("/api/coverage_areas/delete", { display_name: displayName });
+    const result = await apiClient.post("/api/coverage_areas/delete", {
+      display_name: displayName,
+    });
+    this.invalidateCache();
+    return result;
   },
 
   /**
    * Refresh stats for a coverage area
    */
   async refreshStats(locationId) {
-    return apiClient.post(`/api/coverage_areas/${locationId}/refresh_stats`);
+    const result = await apiClient.post(
+      `/api/coverage_areas/${locationId}/refresh_stats`
+    );
+    this.invalidateCache();
+    return result;
   },
 
   /**
@@ -126,7 +156,12 @@ const COVERAGE_API = {
     if (!endpoint) {
       throw new Error(`Unknown action: ${action}`);
     }
-    return apiClient.post(endpoint, { location_id: locationId, segment_id: segmentId });
+    const result = await apiClient.post(endpoint, {
+      location_id: locationId,
+      segment_id: segmentId,
+    });
+    this.invalidateCache();
+    return result;
   },
 
   /**

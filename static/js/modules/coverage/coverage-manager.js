@@ -124,8 +124,14 @@ class CoverageManager {
    * @param {boolean} showLoading - Show loading indicator
    * @param {boolean} silent - Suppress notifications
    * @param {boolean} skipRebuild - Skip full table rebuild (for incremental updates)
+   * @param {boolean} bypassCache - Force fresh fetch from server (use after mutations)
    */
-  async loadCoverageAreas(showLoading = true, silent = false, skipRebuild = false) {
+  async loadCoverageAreas(
+    showLoading = true,
+    silent = false,
+    skipRebuild = false,
+    bypassCache = false
+  ) {
     const tableBody = document.querySelector("#coverage-areas-table tbody");
     if (!tableBody) {
       return;
@@ -145,7 +151,7 @@ class CoverageManager {
     }
 
     try {
-      const areas = await COVERAGE_API.getAllAreas();
+      const areas = await COVERAGE_API.getAllAreas(bypassCache);
 
       // For silent updates, check if data actually changed before rebuilding
       if (skipRebuild && this._lastAreasHash) {
@@ -297,8 +303,8 @@ class CoverageManager {
    * Find most efficient streets
    */
   async findMostEfficientStreets() {
-    const locationId
-      = this.dashboard.selectedLocation?._id || this.dashboard.currentDashboardLocationId;
+    const locationId =
+      this.dashboard.selectedLocation?._id || this.dashboard.currentDashboardLocationId;
     if (!locationId) {
       this.notificationManager.show("Please select a coverage area first.", "warning");
       return;
@@ -338,8 +344,8 @@ class CoverageManager {
 // Initialize on DOM ready
 document.addEventListener("DOMContentLoaded", () => {
   if (typeof mapboxgl === "undefined") {
-    const msg
-      = "Error: Mapbox GL JS library failed to load. Map functionality will be unavailable.";
+    const msg =
+      "Error: Mapbox GL JS library failed to load. Map functionality will be unavailable.";
     const errContainer = document.getElementById("alerts-container") || document.body;
     const errDiv = document.createElement("div");
     errDiv.className = "alert alert-danger m-3";
@@ -352,8 +358,8 @@ document.addEventListener("DOMContentLoaded", () => {
     console.warn("Chart.js not loaded. Chart functionality will be unavailable.");
     const chartContainer = document.getElementById("street-type-chart");
     if (chartContainer) {
-      chartContainer.innerHTML
-        = '<div class="alert alert-warning small p-2">Chart library not loaded.</div>';
+      chartContainer.innerHTML =
+        '<div class="alert alert-warning small p-2">Chart library not loaded.</div>';
     }
   }
   window.coverageManager = new CoverageManager();

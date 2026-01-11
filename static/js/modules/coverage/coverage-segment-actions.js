@@ -109,8 +109,8 @@ export class CoverageSegmentActions {
    */
   _getActiveLocationId() {
     return (
-      this.manager.dashboard.selectedLocation?._id
-      || this.manager.dashboard.currentDashboardLocationId
+      this.manager.dashboard.selectedLocation?._id ||
+      this.manager.dashboard.currentDashboardLocationId
     );
   }
 
@@ -182,6 +182,6 @@ export class CoverageSegmentActions {
     const formatterContext = createFormatterContext();
 
     await this.manager.dashboard.refreshDashboardData(locationId, formatterContext);
-    await this.manager.loadCoverageAreas();
+    await this.manager.loadCoverageAreas(true, false, false, true);
   }
 }

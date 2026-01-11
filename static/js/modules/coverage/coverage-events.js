@@ -215,7 +215,7 @@ export class CoverageEvents {
       });
 
     document.getElementById("refresh-table-btn")?.addEventListener("click", () => {
-      this.manager.loadCoverageAreas(true);
+      this.manager.loadCoverageAreas(true, false, false, true);
     });
 
     document.getElementById("close-dashboard-btn")?.addEventListener("click", () => {

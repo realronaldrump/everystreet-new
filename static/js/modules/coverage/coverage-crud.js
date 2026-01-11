@@ -28,8 +28,8 @@ export class CoverageCRUD {
    */
   async addCoverageArea() {
     if (
-      !this.validator.validatedLocation
-      || !this.validator.validatedLocation.display_name
+      !this.validator.validatedLocation ||
+      !this.validator.validatedLocation.display_name
     ) {
       this.notificationManager.show("Please validate a location first.", "warning");
       return;
@@ -110,14 +110,14 @@ export class CoverageCRUD {
           "success"
         );
 
-        await this.manager.loadCoverageAreas();
+        await this.manager.loadCoverageAreas(true, false, false, true);
       } else {
         this.progress.hideProgressModal();
         this.notificationManager.show(
           "Processing started, but no task ID received.",
           "warning"
         );
-        await this.manager.loadCoverageAreas();
+        await this.manager.loadCoverageAreas(true, false, false, true);
       }
 
       const locationInput = document.getElementById("location-input");
@@ -134,7 +134,7 @@ export class CoverageCRUD {
         "danger"
       );
       this.progress.hideProgressModal();
-      await this.manager.loadCoverageAreas();
+      await this.manager.loadCoverageAreas(true, false, false, true);
     } finally {
       addButton.disabled = true;
       addButton.innerHTML = originalButtonContent;
@@ -146,8 +146,8 @@ export class CoverageCRUD {
    */
   async addCustomCoverageArea() {
     if (
-      !this.validator.validatedCustomBoundary
-      || !this.validator.validatedCustomBoundary.display_name
+      !this.validator.validatedCustomBoundary ||
+      !this.validator.validatedCustomBoundary.display_name
     ) {
       this.notificationManager.show(
         "Please validate your custom boundary first.",
@@ -234,14 +234,14 @@ export class CoverageCRUD {
           "success"
         );
 
-        await this.manager.loadCoverageAreas();
+        await this.manager.loadCoverageAreas(true, false, false, true);
       } else {
         this.progress.hideProgressModal();
         this.notificationManager.show(
           "Processing started, but no task ID received.",
           "warning"
         );
-        await this.manager.loadCoverageAreas();
+        await this.manager.loadCoverageAreas(true, false, false, true);
       }
 
       const customAreaName = document.getElementById("custom-area-name");
@@ -257,7 +257,7 @@ export class CoverageCRUD {
         "danger"
       );
       this.progress.hideProgressModal();
-      await this.manager.loadCoverageAreas();
+      await this.manager.loadCoverageAreas(true, false, false, true);
     } finally {
       addButton.disabled = true;
       addButton.innerHTML = originalButtonContent;
@@ -292,8 +292,8 @@ export class CoverageCRUD {
       const locationData = await COVERAGE_API.getArea(locationId);
 
       if (
-        this.currentProcessingLocation?.display_name
-        === locationData.location.display_name
+        this.currentProcessingLocation?.display_name ===
+        locationData.location.display_name
       ) {
         this.notificationManager.show(
           `Update already in progress for ${locationData.location.display_name}.`,
@@ -312,8 +312,8 @@ export class CoverageCRUD {
       this.progress.currentTaskId = null;
       this.progress._addBeforeUnloadListener();
 
-      const isUpdatingDisplayedLocation
-        = this.manager.dashboard.selectedLocation?._id === locationId;
+      const isUpdatingDisplayedLocation =
+        this.manager.dashboard.selectedLocation?._id === locationId;
 
       this.progress.showProgressModal(
         `Requesting ${mode} update for ${processingLocation.display_name}...`
@@ -336,7 +336,7 @@ export class CoverageCRUD {
         }
 
         // Reload the list to show updated timestamps
-        await this.manager.loadCoverageAreas(false, true);
+        await this.manager.loadCoverageAreas(false, true, false, true);
 
         // If we are currently viewing this location's dashboard, refresh it
         if (isUpdatingDisplayedLocation) {
@@ -348,7 +348,7 @@ export class CoverageCRUD {
           "Update started, but no task ID received.",
           "warning"
         );
-        await this.manager.loadCoverageAreas();
+        await this.manager.loadCoverageAreas(true, false, false, true);
       }
     } catch (error) {
       console.error("Error updating coverage:", error);
@@ -359,7 +359,7 @@ export class CoverageCRUD {
         );
       }
       this.progress.hideProgressModal();
-      await this.manager.loadCoverageAreas();
+      await this.manager.loadCoverageAreas(true, false, false, true);
       throw error;
     } finally {
       this.pendingOperations.delete(`update-${locationId}`);
@@ -413,7 +413,7 @@ export class CoverageCRUD {
         this.progress.hideProgressModal();
       }
 
-      await this.manager.loadCoverageAreas();
+      await this.manager.loadCoverageAreas(true, false, false, true);
     } catch (error) {
       console.error("Error cancelling processing:", error);
       this.notificationManager.show(
@@ -453,11 +453,11 @@ export class CoverageCRUD {
 
       await COVERAGE_API.deleteArea(location.display_name);
 
-      await this.manager.loadCoverageAreas();
+      await this.manager.loadCoverageAreas(true, false, false, true);
 
       if (
-        this.manager.dashboard.selectedLocation?.location?.display_name
-        === location.display_name
+        this.manager.dashboard.selectedLocation?.location?.display_name ===
+        location.display_name
       ) {
         this.manager.dashboard.closeCoverageDashboard();
       }
@@ -491,18 +491,18 @@ export class CoverageCRUD {
       const metersToFeet = (value) => value * 3.28084;
       const defaults = {
         segment:
-          location.segment_length_feet
-          || (location.segment_length_meters
+          location.segment_length_feet ||
+          (location.segment_length_meters
             ? metersToFeet(location.segment_length_meters)
             : 150),
         buffer:
-          location.match_buffer_feet
-          || (location.match_buffer_meters
+          location.match_buffer_feet ||
+          (location.match_buffer_meters
             ? metersToFeet(location.match_buffer_meters)
             : 25),
         min:
-          location.min_match_length_feet
-          || (location.min_match_length_meters
+          location.min_match_length_feet ||
+          (location.min_match_length_meters
             ? metersToFeet(location.min_match_length_meters)
             : 15),
       };
@@ -523,13 +523,13 @@ export class CoverageCRUD {
         0
       );
 
-      const isCustom
-        = location.osm_type === "custom" || location.boundary_type === "custom";
+      const isCustom =
+        location.osm_type === "custom" || location.boundary_type === "custom";
       let taskData = null;
 
       if (isCustom) {
-        const geometry
-          = location.geojson?.geometry || location.geojson || location.geometry;
+        const geometry =
+          location.geojson?.geometry || location.geojson || location.geometry;
         if (!geometry) {
           throw new Error("Custom boundary is missing geometry");
         }
@@ -557,7 +557,7 @@ export class CoverageCRUD {
         `Reprocessing for ${location.display_name} completed.`,
         "success"
       );
-      await this.manager.loadCoverageAreas(false, true);
+      await this.manager.loadCoverageAreas(false, true, false, true);
 
       // Refresh dashboard if needed
       if (this.manager.dashboard.selectedLocation?._id === locationId) {

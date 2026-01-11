@@ -95,12 +95,20 @@ class VehicleService:
             msg = f"Vehicle with IMEI {imei} not found"
             raise ResourceNotFoundException(msg)
 
+        # Track if odometer is being updated
+        odometer_updated = "odometer_reading" in update_data
+
         # Update fields
         for key, value in update_data.items():
             if hasattr(vehicle, key):
                 setattr(vehicle, key, value)
 
         vehicle.updated_at = datetime.now(UTC)
+
+        # Set odometer timestamp if odometer was updated
+        if odometer_updated:
+            vehicle.odometer_updated_at = datetime.now(UTC)
+
         await vehicle.save()
 
         return vehicle

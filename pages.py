@@ -66,6 +66,12 @@ async def profile_page(request: Request):
     return _render_page("profile.html", request)
 
 
+@router.get("/vehicles", response_class=HTMLResponse)
+async def vehicles_page(request: Request):
+    """Render vehicle management page."""
+    return _render_page("vehicles.html", request)
+
+
 @router.get("/insights")
 async def insights_page(request: Request):
     return _render_page("insights.html", request)

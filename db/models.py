@@ -582,6 +582,11 @@ class Vehicle(Document):
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
+    # Odometer tracking
+    odometer_reading: float | None = None  # Current/last known odometer reading
+    odometer_source: str | None = None  # 'bouncie', 'manual', 'trip'
+    odometer_updated_at: datetime | None = None  # When odometer was last updated
+
     class Settings:
         name = "vehicles"
         indexes = [

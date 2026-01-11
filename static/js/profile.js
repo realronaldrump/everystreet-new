@@ -50,7 +50,7 @@
       );
     }
 
-    // Vehicle Management Listeners
+    // Vehicle sync for authorized devices (syncs to credentials)
     const syncVehiclesBtn = document.getElementById("syncVehiclesBtn");
     if (syncVehiclesBtn) {
       syncVehiclesBtn.addEventListener("click", syncVehiclesFromBouncie);
@@ -231,8 +231,8 @@
     const clientSecret = document.getElementById("clientSecret").value.trim();
     const redirectUri = document.getElementById("redirectUri").value.trim();
     const authorizationCode = document.getElementById("authorizationCode").value.trim();
-    const fetchConcurrency
-      = document.getElementById("fetchConcurrency")?.value.trim() || "12";
+    const fetchConcurrency =
+      document.getElementById("fetchConcurrency")?.value.trim() || "12";
 
     // Collect devices
     const deviceInputs = document.querySelectorAll("#devicesList input");
@@ -362,222 +362,8 @@
     return map[type] || "info";
   }
 
-  // ========================================
-  // Vehicle Management
-  // ========================================
-
   /**
-   * Load and display vehicles
-   */
-  async function loadVehicles() {
-    const vehiclesList = document.getElementById("vehiclesList");
-
-    try {
-      const response = await fetch("/api/vehicles?active_only=false");
-      if (!response.ok) {
-        throw new Error("Failed to load vehicles");
-      }
-
-      const vehicles = await response.json();
-      const noVehiclesHtml
-        = '<p class="text-center text-muted py-3">No vehicles found. Click "Sync from Bouncie" to auto-discover vehicles.</p>';
-
-      if (vehiclesList) {
-        if (vehicles.length === 0) {
-          vehiclesList.innerHTML = noVehiclesHtml;
-        } else {
-          vehiclesList.innerHTML = vehicles
-            .map((vehicle) => createVehicleItem(vehicle))
-            .join("");
-        }
-      }
-
-      // Add event listeners if we have vehicles
-      if (vehicles.length > 0) {
-        vehicles.forEach((vehicle) => {
-          addVehicleListeners(vehicle.imei);
-        });
-      }
-    } catch {
-      if (vehiclesList) {
-        vehiclesList.innerHTML
-          = '<p class="text-center text-danger py-3">Error loading vehicles</p>';
-      }
-    }
-  }
-
-  /**
-   * Add listeners for a vehicle item
-   */
-  function addVehicleListeners(imei) {
-    const saveBtn = document.getElementById(`save-vehicle-${imei}`);
-    const deleteBtn = document.getElementById(`delete-vehicle-${imei}`);
-
-    if (saveBtn) {
-      saveBtn.addEventListener("click", () => saveVehicle(imei));
-    }
-    if (deleteBtn) {
-      deleteBtn.addEventListener("click", () => deleteVehicle(imei));
-    }
-  }
-
-  /**
-   * Create HTML for a vehicle item
-   */
-  function createVehicleItem(vehicle) {
-    const statusBadge = vehicle.is_active
-      ? '<span class="badge bg-success">Active</span>'
-      : '<span class="badge bg-secondary">Inactive</span>';
-
-    return `
-      <div class="vehicle-item-container" id="vehicle-${vehicle.imei}">
-        <div class="row g-3">
-          <div class="col-md-3">
-            <label class="form-label small text-muted">IMEI</label>
-            <input type="text" class="form-control form-control-sm" value="${vehicle.imei}" readonly style="background: var(--surface-2);" />
-          </div>
-          <div class="col-md-3">
-            <label class="form-label small text-muted">VIN</label>
-            <input type="text" class="form-control form-control-sm" value="${vehicle.vin || "N/A"}" readonly style="background: var(--surface-2);" />
-          </div>
-          <div class="col-md-4">
-            <label class="form-label small text-muted">Custom Name</label>
-            <input type="text" class="form-control form-control-sm" id="name-${vehicle.imei}"
-                   value="${vehicle.custom_name || ""}" placeholder="Enter friendly name..." />
-          </div>
-          <div class="col-md-2">
-            <label class="form-label small text-muted">Status</label>
-            <div>${statusBadge}</div>
-            <div class="form-check form-switch mt-1">
-              <input class="form-check-input" type="checkbox" id="active-${vehicle.imei}"
-                     ${vehicle.is_active ? "checked" : ""} />
-              <label class="form-check-label small" for="active-${vehicle.imei}">Active</label>
-            </div>
-          </div>
-          <div class="col-12">
-            <button type="button" class="btn btn-sm btn-primary" id="save-vehicle-${vehicle.imei}">
-              <i class="fas fa-save"></i> Save Changes
-            </button>
-            <button type="button" class="btn btn-sm btn-outline-danger" id="delete-vehicle-${vehicle.imei}">
-              <i class="fas fa-trash"></i> Deactivate
-            </button>
-          </div>
-        </div>
-      </div>
-    `;
-  }
-
-  /**
-   * Save vehicle changes
-   */
-  async function saveVehicle(imei) {
-    const nameInput = document.getElementById(`name-${imei}`);
-    const activeInput = document.getElementById(`active-${imei}`);
-
-    try {
-      const vehicleData = {
-        imei,
-        custom_name: nameInput.value || null,
-        is_active: activeInput.checked,
-      };
-
-      const response = await fetch(`/api/vehicles/${imei}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(vehicleData),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.detail || "Failed to save vehicle");
-      }
-
-      showStatus("Vehicle updated successfully!", "success");
-      await loadVehicles();
-    } catch (error) {
-      showStatus(error.message || "Failed to save vehicle", "error");
-    }
-  }
-
-  /**
-   * Delete vehicle
-   */
-  async function deleteVehicle(imei) {
-    const confirmed = await window.confirmationDialog.show({
-      title: "Delete Vehicle",
-      message:
-        "Are you sure you want to delete this vehicle? This will mark it as inactive.",
-      confirmText: "Delete",
-      confirmButtonClass: "btn-danger",
-    });
-
-    if (!confirmed) {
-      return;
-    }
-
-    try {
-      const response = await fetch(`/api/vehicles/${imei}`, {
-        method: "DELETE",
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.detail || "Failed to delete vehicle");
-      }
-
-      showStatus("Vehicle deleted successfully!", "success");
-      await loadVehicles();
-    } catch (error) {
-      showStatus(error.message || "Failed to delete vehicle", "error");
-    }
-  }
-
-  /**
-   * Add new vehicle
-   */
-  async function addNewVehicle() {
-    const imei = await window.promptDialog.show({
-      title: "Add New Vehicle",
-      message: "Enter vehicle IMEI:",
-      placeholder: "IMEI",
-      confirmText: "Add Vehicle",
-    });
-    if (!imei) {
-      return;
-    }
-
-    try {
-      const vehicleData = {
-        imei: imei.trim(),
-        custom_name: null,
-        vin: null,
-        is_active: true,
-      };
-
-      const response = await fetch("/api/vehicles", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(vehicleData),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.detail || "Failed to add vehicle");
-      }
-
-      showStatus("Vehicle added successfully!", "success");
-      await loadVehicles();
-    } catch (error) {
-      showStatus(error.message || "Failed to add vehicle", "error");
-    }
-  }
-
-  /**
-   * Sync vehicles from Bouncie
+   * Sync vehicles from Bouncie (updates authorized devices in credentials)
    */
   async function syncVehiclesFromBouncie() {
     try {
@@ -595,20 +381,11 @@
 
       showStatus(data.message || "Vehicles synced successfully!", "success");
 
-      // Reload vehicles and credentials (to update authorized devices)
-      await Promise.all([loadVehicles(), loadCredentials()]);
+      // Reload credentials to update authorized devices
+      await loadCredentials();
     } catch (error) {
       showStatus(`Error syncing vehicles: ${error.message}`, "error");
     }
-  }
-
-  // Initialize vehicle management
-  const addVehicleBtn = document.getElementById("addVehicleBtn");
-  if (addVehicleBtn) {
-    addVehicleBtn.addEventListener("click", addNewVehicle);
-
-    // Load vehicles on page load
-    loadVehicles();
   }
 
   // ========================================
@@ -672,8 +449,8 @@
           }, 2000);
         }
       } else if (statusEl) {
-        statusEl.textContent
-          = "No settings configured yet. Please enter your Mapbox token.";
+        statusEl.textContent =
+          "No settings configured yet. Please enter your Mapbox token.";
         statusEl.className = "alert alert-warning mt-3";
       }
     } catch (error) {
@@ -711,8 +488,8 @@
 
     if (!mapboxToken.startsWith("pk.")) {
       if (statusEl) {
-        statusEl.textContent
-          = "Mapbox token should start with 'pk.' (public token). Secret tokens (sk.) will not work.";
+        statusEl.textContent =
+          "Mapbox token should start with 'pk.' (public token). Secret tokens (sk.) will not work.";
         statusEl.className = "alert alert-warning mt-3";
         statusEl.style.display = "block";
       }
@@ -749,8 +526,8 @@
         }
 
         if (statusEl) {
-          statusEl.textContent
-            = "Settings saved! Refresh the page to apply changes to maps.";
+          statusEl.textContent =
+            "Settings saved! Refresh the page to apply changes to maps.";
           statusEl.className = "alert alert-success mt-3";
           statusEl.style.display = "block";
         }

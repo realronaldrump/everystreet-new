@@ -201,6 +201,15 @@ Insights & Tracking
                       Visits
                     </a>
                   </li>
+                  <li role="none">
+                    <a class="dropdown-item {% if request.url.path == '/vehicles' %}active{% endif %}"
+                       href="/vehicles"
+                       role="menuitem"
+                       {% if request.url.path == '/vehicles' %}aria-current="page"{% endif %}>
+                      <i class="fas fa-car me-2" aria-hidden="true"></i>
+                      My Vehicle
+                    </a>
+                  </li>
                   <li role="separator">
                     <hr class="dropdown-divider" />
                   </li>
@@ -410,6 +419,13 @@ System
                    class="{% if request.url.path == '/visits' %}active{% endif %}"
                    {% if request.url.path == '/visits' %}aria-current="page"{% endif %}>
                   <i class="fas fa-map-marker-alt me-2" aria-hidden="true"></i> Visits
+                </a>
+              </li>
+              <li role="none">
+                <a href="/vehicles"
+                   class="{% if request.url.path == '/vehicles' %}active{% endif %}"
+                   {% if request.url.path == '/vehicles' %}aria-current="page"{% endif %}>
+                  <i class="fas fa-car me-2" aria-hidden="true"></i> My Vehicle
                 </a>
               </li>
             </ul>
