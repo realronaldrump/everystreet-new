@@ -668,7 +668,6 @@ class CoverageCalculator:
         await self._update_coverage_metadata(
             coverage_stats,
             processed_trip_ids_set,
-            newly_driven_count,
         )
 
         final_result = {
