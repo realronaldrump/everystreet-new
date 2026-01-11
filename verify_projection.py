@@ -19,7 +19,7 @@ async def verify_projection():
         # Filter is: {"properties.location": ..., "properties.driven": False, ...}
         # We'll just query ANY street to test the mechanism
 
-        collection = Street.get_motor_collection()
+        collection = Street.get_pymongo_collection()
         projection = {
             "geometry": 1,
             "properties.segment_id": 1,

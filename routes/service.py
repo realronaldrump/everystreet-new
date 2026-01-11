@@ -96,7 +96,7 @@ async def generate_optimal_route_with_progress(
         # but Beanie find also supports this.
         # Direct Motor access to avoid Beanie projection issues
         undriven_objs = (
-            await Street.get_motor_collection()
+            await Street.get_pymongo_collection()
             .find(
                 {
                     "properties.location": location_name,
