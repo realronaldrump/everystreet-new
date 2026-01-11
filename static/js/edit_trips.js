@@ -1,4 +1,4 @@
-/* global mapboxgl, MapboxDraw, DateUtils, mapBase, notificationManager */
+/* global mapboxgl, MapboxDraw */
 
 document.addEventListener("DOMContentLoaded", () => {
   let editMap = null;

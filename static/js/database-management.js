@@ -1,4 +1,4 @@
-/* global confirmationDialog, notificationManager */
+/* global confirmationDialog */
 
 document.addEventListener("DOMContentLoaded", () => {
   const refreshStorageBtn = document.getElementById("refresh-storage");

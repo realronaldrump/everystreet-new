@@ -1,5 +1,3 @@
-/* global notificationManager */
-
 /* Mobile Map Interface - Simplified for Unified DOM
  *
  * This file handles mobile-specific behaviors for the map page:

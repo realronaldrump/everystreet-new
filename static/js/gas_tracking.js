@@ -1,4 +1,4 @@
-/* global mapboxgl, mapBase, notificationManager */
+/* global mapboxgl */
 
 /**
  * Gas Tracking Module

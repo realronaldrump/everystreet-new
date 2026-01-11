@@ -245,18 +245,16 @@ class LoadingManager {
 
   /**
    * Complete a stage (legacy compatibility)
-   * @param {string} stageName - Name of the stage to complete
    */
-  completeStage(_stageName) {
+  completeStage() {
     this.hide();
   }
 
   /**
    * Stage error (legacy compatibility)
-   * @param {string} stageName - Stage name
    * @param {string} message - Error message
    */
-  stageError(_stageName, message) {
+  stageError(message) {
     this.error(message);
   }
 

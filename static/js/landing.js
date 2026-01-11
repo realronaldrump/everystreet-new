@@ -266,13 +266,6 @@
   }
 
   /**
-   * Format a percentage
-   */
-  function _formatPercentage(value) {
-    return `${value.toFixed(1)}%`;
-  }
-
-  /**
    * Format a date as relative time ago
    */
   function formatTimeAgo(date) {

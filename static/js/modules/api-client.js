@@ -124,7 +124,7 @@ class APIClient {
           const text = await response.text();
           errorDetail = text || errorDetail;
         }
-      } catch (_parseError) {
+      } catch {
         // If we can't parse the error, use the status code
       }
 
@@ -218,7 +218,7 @@ class APIClient {
           try {
             const response = JSON.parse(xhr.responseText);
             resolve(response);
-          } catch (_e) {
+          } catch {
             resolve(xhr.responseText);
           }
         } else {
