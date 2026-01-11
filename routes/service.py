@@ -9,7 +9,8 @@ import networkx as nx
 import osmnx as ox
 from beanie import PydanticObjectId
 
-from db.models import CoverageMetadata, OptimalRouteProgress, Street
+from coverage.models import CoverageArea, CoverageState, Street
+from db.models import CoverageMetadata, OptimalRouteProgress
 from progress_tracker import ProgressTracker
 
 from .constants import GRAPH_STORAGE_DIR, MAX_SEGMENTS
@@ -59,17 +60,28 @@ async def generate_optimal_route_with_progress(
     try:
         await update_progress("initializing", 0, "Starting optimal route generation...")
 
-        # Find coverage area by ID
+        # Find coverage area by ID - try new CoverageArea first, fall back to CoverageMetadata
         # location_id may be str (from Celery) or PydanticObjectId
         if isinstance(location_id, str):
             location_id = PydanticObjectId(location_id)
-        area = await CoverageMetadata.get(location_id)
-        if not area:
-            msg = f"Coverage area {location_id} not found"
-            raise ValueError(msg)
 
-        location_info = area.location or {}
-        location_name = location_info.get("display_name", "Unknown")
+        # Try new CoverageArea model first
+        new_area = await CoverageArea.get(location_id)
+        old_area = None
+        use_new_schema = new_area is not None
+
+        if use_new_schema:
+            location_name = new_area.display_name
+            boundary_geom = new_area.boundary
+        else:
+            # Fall back to old CoverageMetadata
+            old_area = await CoverageMetadata.get(location_id)
+            if not old_area:
+                msg = f"Coverage area {location_id} not found"
+                raise ValueError(msg)
+            location_info = old_area.location or {}
+            location_name = location_info.get("display_name", "Unknown")
+            boundary_geom = location_info.get("geojson", {}).get("geometry")
 
         await update_progress(
             "loading_area",
@@ -78,10 +90,14 @@ async def generate_optimal_route_with_progress(
         )
 
         # Validate that the coverage area has a valid geometry
-        boundary_geom = location_info.get("geojson", {}).get("geometry")
         if not boundary_geom:
-            bbox = location_info.get("boundingbox")
-            if not (bbox and len(bbox) >= 4):
+            if not use_new_schema and old_area:
+                location_info = old_area.location or {}
+                bbox = location_info.get("boundingbox")
+                if not (bbox and len(bbox) >= 4):
+                    msg = "No valid boundary for coverage area"
+                    raise ValueError(msg)
+            else:
                 msg = "No valid boundary for coverage area"
                 raise ValueError(msg)
 
@@ -91,28 +107,64 @@ async def generate_optimal_route_with_progress(
             "Loading undriven street segments...",
         )
 
-        # Use Street Beanie model to find segments
-        # Using raw pymongo for specific projection and large result set if preferred,
-        # but Beanie find also supports this.
-        # Direct Motor access to avoid Beanie projection issues
-        undriven_objs = (
-            await Street.get_pymongo_collection()
-            .find(
-                {
-                    "properties.location": location_name,
-                    "properties.driven": False,
-                    "properties.undriveable": {"$ne": True},
-                },
-                projection={
-                    "geometry": 1,
-                    "properties.segment_id": 1,
-                    "properties.segment_length": 1,
-                    "properties.street_name": 1,
-                    "properties.osm_id": 1,  # Ensure we fetch osm_id if it exists
-                },
+        if use_new_schema:
+            # New schema: query Street by area_id, join with CoverageState for status
+            # First get all segment IDs that are NOT driven (undriven or not in CoverageState)
+            driven_segment_ids = set()
+            undriveable_segment_ids = set()
+
+            async for state in CoverageState.find(CoverageState.area_id == location_id):
+                if state.status == "driven":
+                    driven_segment_ids.add(state.segment_id)
+                elif state.status == "undriveable":
+                    undriveable_segment_ids.add(state.segment_id)
+
+            # Query streets for this area
+            undriven_objs = []
+            async for street in Street.find(
+                Street.area_id == location_id,
+                limit=MAX_SEGMENTS,
+            ):
+                # Skip driven or undriveable segments
+                if street.segment_id in driven_segment_ids:
+                    continue
+                if street.segment_id in undriveable_segment_ids:
+                    continue
+
+                # Convert to old format for compatibility with downstream code
+                undriven_objs.append(
+                    {
+                        "_id": street.id,
+                        "geometry": street.geometry,
+                        "properties": {
+                            "segment_id": street.segment_id,
+                            "segment_length": street.length_miles
+                            * 5280,  # Convert miles to feet
+                            "street_name": street.street_name,
+                            "osm_id": street.osm_id,
+                        },
+                    }
+                )
+        else:
+            # Old schema: query using properties.location, properties.driven
+            undriven_objs = (
+                await Street.get_pymongo_collection()
+                .find(
+                    {
+                        "properties.location": location_name,
+                        "properties.driven": False,
+                        "properties.undriveable": {"$ne": True},
+                    },
+                    projection={
+                        "geometry": 1,
+                        "properties.segment_id": 1,
+                        "properties.segment_length": 1,
+                        "properties.street_name": 1,
+                        "properties.osm_id": 1,
+                    },
+                )
+                .to_list(length=MAX_SEGMENTS)
             )
-            .to_list(length=MAX_SEGMENTS)
-        )
 
         # Convert to list of dicts to match expected structure
         undriven = [
@@ -633,26 +685,27 @@ async def save_optimal_route(
 
     try:
         route_doc = dict(route_result)
-        # Use Beanie CoverageMetadata model
         # location_id may be str (from Celery) or PydanticObjectId
         if isinstance(location_id, str):
             location_id = PydanticObjectId(location_id)
+
+        # Try new CoverageArea model first
+        new_area = await CoverageArea.get(location_id)
+        if new_area:
+            await new_area.update(
+                {
+                    "$set": {
+                        "optimal_route": route_doc,
+                        "optimal_route_generated_at": datetime.now(UTC),
+                    },
+                },
+            )
+            logger.info("Saved optimal route to CoverageArea %s", location_id)
+            return
+
+        # Fall back to old CoverageMetadata model
         metadata = await CoverageMetadata.get(location_id)
         if metadata:
-            # metadata.optimal_route is not defined in the model explicitly as a dict field?
-            # But 'extra="allow"' is on.
-            # However, it is better to set it using underlying update for flexibility if model is not updated.
-            # Model has 'extra="allow"'.
-            # Let's use update query for atomic update on fields that might not be in model
-            # But wait, we have CoverageMetadata model locally, we can see if it has optimal_route.
-            # It does NOT.
-            # So we rely on extra=allow.
-            # But Beanie document.save() overwrites full document if we modified it?
-            # Best to use update query to avoid concurrency overwrites if possible, or just update the object.
-            # Use Beanie update logic to avoid overwrites
-            # We can run update on the CoverageMetadata class with a filter,
-            # or on the instance. Instance update is cleaner if we have it.
-            # But the metadata instance 'metadata' is already fetched.
             await metadata.update(
                 {
                     "$set": {
@@ -673,10 +726,10 @@ async def save_optimal_route(
                     },
                 },
             )
-            logger.info("Saved optimal route for location %s", location_id)
+            logger.info("Saved optimal route to CoverageMetadata %s", location_id)
         else:
             logger.warning(
-                "Could not find coverage metadata for %s to save route",
+                "Could not find coverage area for %s to save route",
                 location_id,
             )
 

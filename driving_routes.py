@@ -4,11 +4,13 @@ from collections import defaultdict
 from typing import Annotated, Any
 
 import httpx
+from beanie import PydanticObjectId
 from fastapi import APIRouter, Body, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 
 from config import get_mapbox_token
-from db.models import CoverageMetadata, Street, Trip
+from coverage.models import CoverageArea, CoverageState, Street
+from db.models import CoverageMetadata, Trip
 from db.schemas import LocationModel
 from live_tracking import get_active_trip
 
@@ -339,60 +341,108 @@ async def find_connected_undriven_clusters(
 ) -> list[dict[str, Any]]:
     """Finds connected clusters of undriven street segments."""
     try:
-        obj_location_id = location_id
+        obj_location_id = PydanticObjectId(location_id)
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid location_id format")
 
-    coverage_doc = await CoverageMetadata.find_one(
-        CoverageMetadata.id == obj_location_id,
-    )
-
-    if not coverage_doc or not coverage_doc.location:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Coverage area with ID '{location_id}' not found.",
-        )
-
-    location_name = (
-        coverage_doc.location.get("display_name") if coverage_doc.location else None
-    )
-    if not location_name:
-        raise HTTPException(
-            status_code=404,
-            detail="Coverage area is missing display name.",
-        )
-
-    # Use Beanie Street model instead of raw collection
-    undriven_streets_cursor = Street.find(
-        {
-            "properties.location": location_name,
-            "properties.driven": False,
-            "properties.undriveable": {"$ne": True},
-        },
-    )
+    # Try new CoverageArea model first
+    new_area = await CoverageArea.get(obj_location_id)
+    use_new_schema = new_area is not None
 
     segment_map = {}
     adjacency = defaultdict(list)
 
-    async for street in undriven_streets_cursor:
-        segment_id = street.id
-        geom = street.geometry or {}
-        coords = geom.get("coordinates", [])
+    if use_new_schema:
+        location_name = new_area.display_name
 
-        if not coords:
-            continue
+        # Get driven and undriveable segment IDs from CoverageState
+        driven_segment_ids = set()
+        undriveable_segment_ids = set()
+        async for state in CoverageState.find(CoverageState.area_id == obj_location_id):
+            if state.status == "driven":
+                driven_segment_ids.add(state.segment_id)
+            elif state.status == "undriveable":
+                undriveable_segment_ids.add(state.segment_id)
 
-        segment_midpoint = _segment_midpoint(geom)
-        segment_map[segment_id] = {
-            "id": segment_id,
-            "midpoint": segment_midpoint,
-            "coords": coords,
-        }
+        # Query undriven streets
+        async for street in Street.find(Street.area_id == obj_location_id):
+            if street.segment_id in driven_segment_ids:
+                continue
+            if street.segment_id in undriveable_segment_ids:
+                continue
 
-        if len(coords) >= 2:
-            lon1, lat1 = coords[0]
-            lon2, lat2 = coords[-1]
-            segment_map[segment_id]["midpoint"] = (lat1 + lat2) / 2, (lon1 + lon2) / 2
+            geom = street.geometry or {}
+            coords = geom.get("coordinates", [])
+
+            if not coords:
+                continue
+
+            segment_midpoint = _segment_midpoint(geom)
+            segment_map[street.segment_id] = {
+                "id": street.segment_id,
+                "midpoint": segment_midpoint,
+                "coords": coords,
+            }
+
+            if len(coords) >= 2:
+                lon1, lat1 = coords[0]
+                lon2, lat2 = coords[-1]
+                segment_map[street.segment_id]["midpoint"] = (
+                    (lat1 + lat2) / 2,
+                    (lon1 + lon2) / 2,
+                )
+    else:
+        # Fall back to old CoverageMetadata schema
+        coverage_doc = await CoverageMetadata.find_one(
+            CoverageMetadata.id == location_id,
+        )
+
+        if not coverage_doc or not coverage_doc.location:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Coverage area with ID '{location_id}' not found.",
+            )
+
+        location_name = (
+            coverage_doc.location.get("display_name") if coverage_doc.location else None
+        )
+        if not location_name:
+            raise HTTPException(
+                status_code=404,
+                detail="Coverage area is missing display name.",
+            )
+
+        # Use Beanie Street model with old schema
+        undriven_streets_cursor = Street.find(
+            {
+                "properties.location": location_name,
+                "properties.driven": False,
+                "properties.undriveable": {"$ne": True},
+            },
+        )
+
+        async for street in undriven_streets_cursor:
+            segment_id = street.id
+            geom = street.geometry or {}
+            coords = geom.get("coordinates", [])
+
+            if not coords:
+                continue
+
+            segment_midpoint = _segment_midpoint(geom)
+            segment_map[segment_id] = {
+                "id": segment_id,
+                "midpoint": segment_midpoint,
+                "coords": coords,
+            }
+
+            if len(coords) >= 2:
+                lon1, lat1 = coords[0]
+                lon2, lat2 = coords[-1]
+                segment_map[segment_id]["midpoint"] = (
+                    (lat1 + lat2) / 2,
+                    (lon1 + lon2) / 2,
+                )
 
     for street in segment_map.values():
         for other in segment_map.values():
@@ -403,7 +453,7 @@ async def find_connected_undriven_clusters(
             if dist < 50:
                 adjacency[street["id"]].append(other["id"])
 
-    clusters = await find_connected_undriven_clusters(segment_map, adjacency)
+    clusters = _find_clusters_in_graph(segment_map, adjacency)
     return [
         {
             "cluster_id": i,
