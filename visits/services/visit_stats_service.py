@@ -72,7 +72,7 @@ class VisitStatsService:
 
         results = []
         for place_model in places:
-            place = place_model.model_dump()
+            place = place_model.model_dump(by_alias=True)
             visits = await VisitTrackingService.calculate_visits_for_place(place)
 
             total_visits = len(visits)
