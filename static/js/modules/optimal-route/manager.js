@@ -46,9 +46,11 @@ export class OptimalRoutesManager {
     });
 
     // Generate button
-    document.getElementById("generate-route-btn")?.addEventListener("click", () => {
-      this.generateRoute();
-    });
+    document
+      .getElementById("generate-route-btn")
+      ?.addEventListener("click", () => {
+        this.generateRoute();
+      });
 
     // Export GPX
     document.getElementById("export-gpx-btn")?.addEventListener("click", () => {
@@ -61,9 +63,11 @@ export class OptimalRoutesManager {
     });
 
     // Clear route
-    document.getElementById("clear-route-btn")?.addEventListener("click", () => {
-      this.clearRoute();
-    });
+    document
+      .getElementById("clear-route-btn")
+      ?.addEventListener("click", () => {
+        this.clearRoute();
+      });
 
     // Retry button
     document.getElementById("retry-btn")?.addEventListener("click", () => {
@@ -71,9 +75,11 @@ export class OptimalRoutesManager {
     });
 
     // Cancel button
-    document.getElementById("cancel-task-btn")?.addEventListener("click", () => {
-      this.cancelTask();
-    });
+    document
+      .getElementById("cancel-task-btn")
+      ?.addEventListener("click", () => {
+        this.cancelTask();
+      });
 
     this.setupLayerControls();
   }
@@ -103,7 +109,9 @@ export class OptimalRoutesManager {
       const slider = document.getElementById(id);
       slider?.addEventListener("input", (e) => {
         const opacity = e.target.value / 100;
-        const label = slider.closest(".layer-opacity").querySelector(".opacity-value");
+        const label = slider
+          .closest(".layer-opacity")
+          .querySelector(".opacity-value");
         if (label) {
           label.textContent = `${e.target.value}%`;
         }
@@ -159,7 +167,7 @@ export class OptimalRoutesManager {
 
       // Dispatch event
       document.dispatchEvent(
-        new CustomEvent("coverageAreasLoaded", { detail: { areas } })
+        new CustomEvent("coverageAreasLoaded", { detail: { areas } }),
       );
 
       this.ui.populateAreaSelect(areas);
@@ -197,8 +205,8 @@ export class OptimalRoutesManager {
 
     // Load streets
     try {
-      const { drivenFeatures, undrivenFeatures }
-        = await this.api.loadStreetNetwork(areaId);
+      const { drivenFeatures, undrivenFeatures } =
+        await this.api.loadStreetNetwork(areaId);
       this.map.updateStreets(drivenFeatures, undrivenFeatures);
     } catch {
       // already logged in api
@@ -236,7 +244,10 @@ export class OptimalRoutesManager {
       });
 
       this.api.connectSSE(activeTask.task_id);
-      this.ui.showNotification("Reconnected to in-progress route generation", "info");
+      this.ui.showNotification(
+        "Reconnected to in-progress route generation",
+        "info",
+      );
     }
 
     // Fly to area
@@ -265,7 +276,7 @@ export class OptimalRoutesManager {
       if (workerStatus.status === "no_workers") {
         this.ui.showNotification(
           "No workers available. Task will be queued.",
-          "warning"
+          "warning",
         );
       }
 
@@ -337,13 +348,13 @@ export class OptimalRoutesManager {
     if (this.ui.turnByTurnBtn?.disabled) {
       this.ui.showNotification(
         "Generate a route before starting navigation.",
-        "warning"
+        "warning",
       );
       return;
     }
     window.localStorage.setItem("turnByTurnAreaId", this.selectedAreaId);
     window.location.href = `/turn-by-turn?areaId=${encodeURIComponent(
-      this.selectedAreaId
+      this.selectedAreaId,
     )}`;
   }
 

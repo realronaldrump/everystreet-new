@@ -43,7 +43,8 @@ export class CoverageValidator {
 
     const originalButtonContent = validateButton.innerHTML;
     validateButton.disabled = true;
-    validateButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Validating...';
+    validateButton.innerHTML =
+      '<i class="fas fa-spinner fa-spin"></i> Validating...';
 
     try {
       const data = await COVERAGE_API.validateLocation(locationInput, locType);
@@ -52,7 +53,7 @@ export class CoverageValidator {
         locationInputEl.classList.add("is-invalid");
         this.notificationManager.show(
           "Location not found. Please check your input.",
-          "warning"
+          "warning",
         );
       } else {
         locationInputEl.classList.add("is-valid");
@@ -62,20 +63,23 @@ export class CoverageValidator {
         const validationResult = document.getElementById("validation-result");
         if (validationResult) {
           validationResult.classList.remove("d-none");
-          validationResult.querySelector(".validation-message").textContent
-            = `Found: ${data.display_name}`;
+          validationResult.querySelector(".validation-message").textContent =
+            `Found: ${data.display_name}`;
         }
 
         this.notificationManager.show(
           `Location validated: ${data.display_name}`,
-          "success"
+          "success",
         );
         addButton.focus();
       }
     } catch (error) {
       console.error("Error validating location:", error);
       locationInputEl.classList.add("is-invalid");
-      this.notificationManager.show(`Validation failed: ${error.message}`, "danger");
+      this.notificationManager.show(
+        `Validation failed: ${error.message}`,
+        "danger",
+      );
     } finally {
       validateButton.disabled = false;
       validateButton.innerHTML = originalButtonContent;
@@ -104,13 +108,19 @@ export class CoverageValidator {
 
     const drawnFeatures = this.drawing.getAllDrawnFeatures();
     if (!drawnFeatures.features || drawnFeatures.features.length === 0) {
-      this.notificationManager.show("Please draw a polygon boundary first.", "warning");
+      this.notificationManager.show(
+        "Please draw a polygon boundary first.",
+        "warning",
+      );
       return;
     }
 
     const polygon = drawnFeatures.features[0];
     if (polygon.geometry.type !== "Polygon") {
-      this.notificationManager.show("Please draw a polygon boundary.", "warning");
+      this.notificationManager.show(
+        "Please draw a polygon boundary.",
+        "warning",
+      );
       return;
     }
 
@@ -123,19 +133,20 @@ export class CoverageValidator {
 
     const originalButtonContent = validateButton.innerHTML;
     validateButton.disabled = true;
-    validateButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Validating...';
+    validateButton.innerHTML =
+      '<i class="fas fa-spinner fa-spin"></i> Validating...';
 
     try {
       const data = await COVERAGE_API.validateCustomBoundary(
         areaName,
-        polygon.geometry
+        polygon.geometry,
       );
 
       if (!data || !data.valid) {
         customAreaNameInput.classList.add("is-invalid");
         this.notificationManager.show(
           "Custom boundary validation failed. Please check your drawing.",
-          "warning"
+          "warning",
         );
       } else {
         customAreaNameInput.classList.add("is-valid");
@@ -149,7 +160,7 @@ export class CoverageValidator {
 
         this.notificationManager.show(
           `Custom boundary "${data.display_name}" validated successfully!`,
-          "success"
+          "success",
         );
 
         if (addButton) {
@@ -159,7 +170,10 @@ export class CoverageValidator {
     } catch (error) {
       console.error("Error validating custom boundary:", error);
       customAreaNameInput.classList.add("is-invalid");
-      this.notificationManager.show(`Validation failed: ${error.message}`, "danger");
+      this.notificationManager.show(
+        `Validation failed: ${error.message}`,
+        "danger",
+      );
     } finally {
       validateButton.disabled = false;
       validateButton.innerHTML = originalButtonContent;
@@ -172,7 +186,7 @@ export class CoverageValidator {
 
     const validationResult = document.getElementById("validation-result");
     const drawingValidationResult = document.getElementById(
-      "drawing-validation-result"
+      "drawing-validation-result",
     );
 
     if (validationResult) {

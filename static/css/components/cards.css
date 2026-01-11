@@ -45,7 +45,9 @@
 
 /* Darker card variant (from coverage_management.html) */
 .card.bg-darker {
-  background-color: var(--surface-0) !important; /* Even darker than surface-1 */
+  background-color: var(
+    --surface-0
+  ) !important; /* Even darker than surface-1 */
   border: 1px solid var(--surface-2); /* Subtle border */
 }
 

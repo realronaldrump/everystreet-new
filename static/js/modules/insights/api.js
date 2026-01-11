@@ -67,8 +67,8 @@ export async function loadAllData(dateRange, prevRange) {
     end_date: prevRange.end,
   });
 
-  const [behavior, insights, analytics, metrics, prevBehavior, prevInsights]
-    = await Promise.all([
+  const [behavior, insights, analytics, metrics, prevBehavior, prevInsights] =
+    await Promise.all([
       fetchBehavior(params),
       fetchInsights(params),
       fetchAnalytics(params),

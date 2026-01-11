@@ -87,7 +87,11 @@ body.light-mode .turn-by-turn {
   content: "";
   position: absolute;
   inset: -20%;
-  background: radial-gradient(circle at 70% 20%, rgb(var(--primary-rgb) / 12%), transparent 45%);
+  background: radial-gradient(
+    circle at 70% 20%,
+    rgb(var(--primary-rgb) / 12%),
+    transparent 45%
+  );
   pointer-events: none;
   z-index: 1;
 }
@@ -314,7 +318,11 @@ body.light-mode .turn-by-turn {
   width: 100%;
   transform-origin: left;
   transform: scaleX(0);
-  background: linear-gradient(120deg, var(--nav-accent), var(--nav-accent-light));
+  background: linear-gradient(
+    120deg,
+    var(--nav-accent),
+    var(--nav-accent-light)
+  );
   transition: transform var(--nav-transition-normal);
 }
 
@@ -750,8 +758,8 @@ body.light-mode .turn-by-turn {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: calc(env(safe-area-inset-top) + var(--nav-space-md)) var(--nav-space-md)
-    var(--nav-space-md);
+  padding: calc(env(safe-area-inset-top) + var(--nav-space-md))
+    var(--nav-space-md) var(--nav-space-md);
   background: var(--nav-surface);
   backdrop-filter: blur(12px) saturate(1.4);
   pointer-events: auto;

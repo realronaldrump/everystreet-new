@@ -87,14 +87,18 @@ const dateUtils = {
    * Get start date from storage or current date.
    */
   getStartDate() {
-    return utils.getStorage(CONFIG.STORAGE_KEYS.startDate) || this.getCurrentDate();
+    return (
+      utils.getStorage(CONFIG.STORAGE_KEYS.startDate) || this.getCurrentDate()
+    );
   },
 
   /**
    * Get end date from storage or current date.
    */
   getEndDate() {
-    return utils.getStorage(CONFIG.STORAGE_KEYS.endDate) || this.getCurrentDate();
+    return (
+      utils.getStorage(CONFIG.STORAGE_KEYS.endDate) || this.getCurrentDate()
+    );
   },
 
   /**
@@ -184,15 +188,17 @@ const dateUtils = {
     }
     Object.entries(options).forEach(([key, value]) => {
       if (
-        value !== null
-        && value !== undefined
-        && !["dateStyle", "timeStyle"].includes(key)
+        value !== null &&
+        value !== undefined &&
+        !["dateStyle", "timeStyle"].includes(key)
       ) {
         formatterOptions[key] = value;
       }
     });
 
-    return new Intl.DateTimeFormat("en-US", formatterOptions).format(d.toDate());
+    return new Intl.DateTimeFormat("en-US", formatterOptions).format(
+      d.toDate(),
+    );
   },
 
   /**
@@ -382,7 +388,9 @@ const dateUtils = {
     const d = dayjs(date);
     const s = dayjs(startDate).startOf("day");
     const e = dayjs(endDate).endOf("day");
-    return d.isValid() && s.isValid() && e.isValid() && d.isBetween(s, e, null, "[]");
+    return (
+      d.isValid() && s.isValid() && e.isValid() && d.isBetween(s, e, null, "[]")
+    );
   },
 
   /**
@@ -436,10 +444,18 @@ const dateUtils = {
 
     const startDate = this.parseDateString(currentStart);
     const endDate = this.parseDateString(currentEnd);
-    const days
-      = startDate && endDate ? dayjs(endDate).diff(dayjs(startDate), "day") + 1 : 0;
+    const days =
+      startDate && endDate
+        ? dayjs(endDate).diff(dayjs(startDate), "day") + 1
+        : 0;
 
-    const range = { start: currentStart, end: currentEnd, startDate, endDate, days };
+    const range = {
+      start: currentStart,
+      end: currentEnd,
+      startDate,
+      endDate,
+      days,
+    };
     utils.setStorage(cacheKey, range);
     return range;
   },
@@ -466,8 +482,8 @@ const dateUtils = {
    * Format distance in user units (miles/feet).
    */
   distanceInUserUnits(meters, fixed = 2) {
-    const validMeters
-      = typeof meters === "number" && !Number.isNaN(meters) ? meters : 0;
+    const validMeters =
+      typeof meters === "number" && !Number.isNaN(meters) ? meters : 0;
     const miles = validMeters * 0.000621371;
     return miles < 0.1
       ? `${(validMeters * 3.28084).toFixed(0)} ft`
@@ -478,7 +494,8 @@ const dateUtils = {
    * Format vehicle speed with status.
    */
   formatVehicleSpeed(speed) {
-    const validSpeed = typeof speed === "number" ? speed : parseFloat(speed) || 0;
+    const validSpeed =
+      typeof speed === "number" ? speed : parseFloat(speed) || 0;
 
     let status = "stopped";
     if (validSpeed > 35) {

@@ -85,14 +85,16 @@ export class ProgressPoller {
     this.addActiveTask(taskId);
 
     // Small initial delay to give the backend task time to start
-    await new Promise((resolve) => setTimeout(resolve, POLLING_CONFIG.INITIAL_DELAY));
+    await new Promise((resolve) =>
+      setTimeout(resolve, POLLING_CONFIG.INITIAL_DELAY),
+    );
 
     while (retries < POLLING_CONFIG.MAX_RETRIES) {
       // Check if task was canceled
       if (!this.isTaskActive(taskId)) {
         this.notificationManager.show(
           `Polling stopped for task ${taskId.substring(0, 8)}...`,
-          "info"
+          "info",
         );
         throw new Error("Polling canceled");
       }
@@ -114,10 +116,15 @@ export class ProgressPoller {
         }
         if (data.stage === STATUS.ERROR) {
           const errorMessage = data.error || data.message || "Unknown error";
-          this.notificationManager.show(`Task failed: ${errorMessage}`, "danger");
+          this.notificationManager.show(
+            `Task failed: ${errorMessage}`,
+            "danger",
+          );
           this.removeActiveTask(taskId);
           onError(data);
-          throw new Error(data.error || data.message || "Coverage calculation failed");
+          throw new Error(
+            data.error || data.message || "Coverage calculation failed",
+          );
         } else if (data.stage === STATUS.CANCELED) {
           this.notificationManager.show("Task was canceled.", "warning");
           this.removeActiveTask(taskId);
@@ -129,7 +136,9 @@ export class ProgressPoller {
         if (data.stage === lastStage) {
           consecutiveSameStage++;
           if (consecutiveSameStage > 12 && consecutiveSameStage % 24 === 0) {
-            console.warn(`Task appears stalled at: ${formatStageName(data.stage)}`);
+            console.warn(
+              `Task appears stalled at: ${formatStageName(data.stage)}`,
+            );
           }
         } else {
           lastStage = data.stage;
@@ -147,7 +156,7 @@ export class ProgressPoller {
         if (is404 && initial404Count < POLLING_CONFIG.MAX_INITIAL_404_RETRIES) {
           initial404Count++;
           console.log(
-            `Task ${taskId.substring(0, 8)}... not ready yet (attempt ${initial404Count}/${POLLING_CONFIG.MAX_INITIAL_404_RETRIES}), retrying...`
+            `Task ${taskId.substring(0, 8)}... not ready yet (attempt ${initial404Count}/${POLLING_CONFIG.MAX_INITIAL_404_RETRIES}), retrying...`,
           );
           // Wait a bit longer for the task to initialize
           await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -158,7 +167,7 @@ export class ProgressPoller {
         // For non-404 errors or after max 404 retries, handle error
         this.notificationManager.show(
           `Error polling progress: ${error.message}`,
-          "danger"
+          "danger",
         );
         this.removeActiveTask(taskId);
         onPollingError({
@@ -176,11 +185,14 @@ export class ProgressPoller {
     // Timeout
     this.notificationManager.show(
       `Polling timed out after ${Math.round(
-        (POLLING_CONFIG.MAX_RETRIES
-          * calculatePollInterval(STATUS.UNKNOWN, POLLING_CONFIG.MAX_RETRIES - 1))
-          / 60000
+        (POLLING_CONFIG.MAX_RETRIES *
+          calculatePollInterval(
+            STATUS.UNKNOWN,
+            POLLING_CONFIG.MAX_RETRIES - 1,
+          )) /
+          60000,
       )} minutes.`,
-      "danger"
+      "danger",
     );
     this.removeActiveTask(taskId);
     onTimeout({

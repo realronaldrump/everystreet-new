@@ -25,10 +25,10 @@ class CoverageSelection {
 
     const toolbar = document.createElement("div");
     toolbar.id = "bulk-action-toolbar";
-    toolbar.className
-      = "bulk-action-toolbar d-flex align-items-center bg-dark bg-opacity-75 rounded shadow-sm";
-    toolbar.style.cssText
-      = "position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:2;gap:6px;padding:6px 10px;display:none;";
+    toolbar.className =
+      "bulk-action-toolbar d-flex align-items-center bg-dark bg-opacity-75 rounded shadow-sm";
+    toolbar.style.cssText =
+      "position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:2;gap:6px;padding:6px 10px;display:none;";
 
     toolbar.innerHTML = `
       <span id="bulk-selected-count" class="badge bg-info">0 Selected</span>
@@ -45,7 +45,7 @@ class CoverageSelection {
         const { action } = markBtn.dataset;
         if (action) {
           document.dispatchEvent(
-            new CustomEvent("coverageBulkAction", { detail: action })
+            new CustomEvent("coverageBulkAction", { detail: action }),
           );
         }
         return;
@@ -99,7 +99,7 @@ class CoverageSelection {
           },
           filter: ["in", "segment_id", ""],
         },
-        "streets-layer"
+        "streets-layer",
       );
     }
 
@@ -115,7 +115,8 @@ class CoverageSelection {
    * Update bulk toolbar
    */
   _updateBulkToolbar() {
-    const toolbar = this.bulkToolbar || document.getElementById("bulk-action-toolbar");
+    const toolbar =
+      this.bulkToolbar || document.getElementById("bulk-action-toolbar");
     if (!toolbar) {
       return;
     }

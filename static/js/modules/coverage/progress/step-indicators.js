@@ -54,7 +54,9 @@ function markErrorStepByProgress(progress, steps) {
     { threshold: 0, step: "initializing" },
   ];
 
-  const errorStep = errorSteps.find((s) => progress > s.threshold && steps[s.step]);
+  const errorStep = errorSteps.find(
+    (s) => progress > s.threshold && steps[s.step],
+  );
 
   if (!errorStep) {
     return false;
@@ -63,7 +65,12 @@ function markErrorStepByProgress(progress, steps) {
   markError(steps, errorStep.step);
 
   // Mark all previous steps as complete
-  const stepOrder = ["initializing", "preprocessing", "indexing", "calculating"];
+  const stepOrder = [
+    "initializing",
+    "preprocessing",
+    "indexing",
+    "calculating",
+  ];
   const errorIndex = stepOrder.indexOf(errorStep.step);
   for (let i = 0; i < errorIndex; i++) {
     if (steps[stepOrder[i]]) {
@@ -78,7 +85,12 @@ function markErrorStepByProgress(progress, steps) {
  * Mark error on active step for canceled tasks
  */
 function markCanceledStep(steps) {
-  const stepOrder = ["calculating", "indexing", "preprocessing", "initializing"];
+  const stepOrder = [
+    "calculating",
+    "indexing",
+    "preprocessing",
+    "initializing",
+  ];
   for (const stepKey of stepOrder) {
     if (steps[stepKey]?.classList.contains("active")) {
       markError(steps, stepKey);

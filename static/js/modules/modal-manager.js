@@ -88,7 +88,7 @@ class ModalManager {
             value: defaultValue,
             required,
           }),
-        ].filter(Boolean)
+        ].filter(Boolean),
       );
 
       const modal = this._createModal({
@@ -126,7 +126,7 @@ class ModalManager {
                     const errorDiv = createElement(
                       "div",
                       { className: "invalid-feedback" },
-                      error
+                      error,
                     );
                     input.parentNode.insertBefore(errorDiv, input.nextSibling);
                   }
@@ -270,7 +270,7 @@ class ModalManager {
           className: btn.class || "btn btn-secondary",
           ...(btn.dismiss ? { "data-bs-dismiss": "modal" } : {}),
         },
-        btn.text
+        btn.text,
       );
 
       if (btn.callback) {
@@ -310,14 +310,18 @@ class ModalManager {
                         className: "modal-header",
                       },
                       [
-                        createElement("h5", { className: "modal-title" }, title),
+                        createElement(
+                          "h5",
+                          { className: "modal-title" },
+                          title,
+                        ),
                         createElement("button", {
                           type: "button",
                           className: "btn-close btn-close-white",
                           "data-bs-dismiss": "modal",
                           "aria-label": "Close",
                         }),
-                      ]
+                      ],
                     )
                   : null,
                 createElement(
@@ -325,7 +329,7 @@ class ModalManager {
                   {
                     className: "modal-body",
                   },
-                  typeof body === "string" ? body : [body]
+                  typeof body === "string" ? body : [body],
                 ),
                 footerButtons.length > 0
                   ? createElement(
@@ -333,14 +337,14 @@ class ModalManager {
                       {
                         className: "modal-footer",
                       },
-                      footerButtons
+                      footerButtons,
                     )
                   : null,
-              ].filter(Boolean)
+              ].filter(Boolean),
             ),
-          ]
+          ],
         ),
-      ]
+      ],
     );
 
     return modal;
@@ -361,7 +365,7 @@ class ModalManager {
         onHideCallback();
         this._cleanup(modalId);
       },
-      { once: true }
+      { once: true },
     );
 
     bsModal.show();
@@ -408,17 +412,21 @@ class ModalManager {
       return message;
     }
 
-    return createElement("div", { className: "d-flex align-items-start gap-3" }, [
-      createElement(
-        "div",
-        {
-          className: "flex-shrink-0",
-          style: "font-size: 2rem;",
-        },
-        icon
-      ),
-      createElement("div", { className: "flex-grow-1" }, message),
-    ]);
+    return createElement(
+      "div",
+      { className: "d-flex align-items-start gap-3" },
+      [
+        createElement(
+          "div",
+          {
+            className: "flex-shrink-0",
+            style: "font-size: 2rem;",
+          },
+          icon,
+        ),
+        createElement("div", { className: "flex-grow-1" }, message),
+      ],
+    );
   }
 
   /**

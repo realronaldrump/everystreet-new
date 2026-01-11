@@ -41,10 +41,10 @@ export function setupManualFetchTripsForm(taskManager) {
     const endDate = new Date(endValue);
 
     if (
-      !startDate
-      || !endDate
-      || Number.isNaN(startDate.getTime())
-      || Number.isNaN(endDate.getTime())
+      !startDate ||
+      !endDate ||
+      Number.isNaN(startDate.getTime()) ||
+      Number.isNaN(endDate.getTime())
     ) {
       if (statusEl) {
         statusEl.textContent = "Invalid date selection.";
@@ -68,7 +68,7 @@ export function setupManualFetchTripsForm(taskManager) {
       await taskManager.scheduleManualFetch(
         startDate.toISOString(),
         endDate.toISOString(),
-        mapMatchEnabled
+        mapMatchEnabled,
       );
       if (statusEl) {
         statusEl.textContent = "Fetch scheduled successfully.";
@@ -128,14 +128,14 @@ export function setupGeocodeTrips() {
       if (!start_date || !end_date) {
         window.notificationManager.show(
           "Please select both start and end dates",
-          "danger"
+          "danger",
         );
         return;
       }
     } else if (method === "interval") {
       interval_days = parseInt(
         document.getElementById("geocode-interval-select").value,
-        10
+        10,
       );
     }
 
@@ -153,7 +153,7 @@ export function setupGeocodeTrips() {
       progressBar.classList.add(
         "bg-primary",
         "progress-bar-animated",
-        "progress-bar-striped"
+        "progress-bar-striped",
       );
       progressMessage.textContent = "Initializing...";
       progressMetrics.textContent = "";
@@ -174,12 +174,14 @@ export function setupGeocodeTrips() {
       // Start polling for progress
       const pollInterval = setInterval(async () => {
         try {
-          const progressResponse = await fetch(`/api/geocode_trips/progress/${taskId}`);
+          const progressResponse = await fetch(
+            `/api/geocode_trips/progress/${taskId}`,
+          );
           if (!progressResponse.ok) {
             clearInterval(pollInterval);
             geocodeBtn.disabled = false;
-            const errorMessage
-              = progressResponse.status === 404
+            const errorMessage =
+              progressResponse.status === 404
                 ? "Geocoding task not found."
                 : "Unable to retrieve geocoding progress.";
             if (statusEl) {
@@ -219,7 +221,7 @@ export function setupGeocodeTrips() {
                 "progress-bar-animated",
                 "progress-bar-striped",
                 "bg-primary",
-                "bg-danger"
+                "bg-danger",
               );
               progressBar.classList.add("bg-success");
               if (statusEl) {
@@ -228,14 +230,14 @@ export function setupGeocodeTrips() {
               }
               window.notificationManager.show(
                 `Geocoding completed: ${metrics.updated || 0} updated, ${metrics.skipped || 0} skipped`,
-                "success"
+                "success",
               );
             } else {
               progressBar.classList.remove(
                 "progress-bar-animated",
                 "progress-bar-striped",
                 "bg-primary",
-                "bg-success"
+                "bg-success",
               );
               progressBar.classList.add("bg-danger");
               if (statusEl) {
@@ -244,7 +246,7 @@ export function setupGeocodeTrips() {
               }
               window.notificationManager.show(
                 `Geocoding failed: ${progressData.error || "Unknown error"}`,
-                "danger"
+                "danger",
               );
             }
           }
@@ -258,7 +260,7 @@ export function setupGeocodeTrips() {
           }
           window.notificationManager?.show(
             "Lost connection while monitoring geocoding progress",
-            "warning"
+            "warning",
           );
         }
       }, 1000); // Poll every second
@@ -317,14 +319,14 @@ export function setupRemapMatchedTrips() {
       if (!start_date || !end_date) {
         window.notificationManager.show(
           "Please select both start and end dates",
-          "danger"
+          "danger",
         );
         return;
       }
     } else {
       interval_days = parseInt(
         document.getElementById("remap-interval-select").value,
-        10
+        10,
       );
       const startDateObj = new Date();
       startDateObj.setDate(startDateObj.getDate() - interval_days);
@@ -334,7 +336,8 @@ export function setupRemapMatchedTrips() {
 
     try {
       showLoadingOverlay();
-      document.getElementById("remap-status").textContent = "Remapping trips...";
+      document.getElementById("remap-status").textContent =
+        "Remapping trips...";
 
       const response = await fetch("/api/matched_trips/remap", {
         method: "POST",
@@ -350,7 +353,8 @@ export function setupRemapMatchedTrips() {
       window.notificationManager.show(data.message, "success");
     } catch {
       hideLoadingOverlay();
-      document.getElementById("remap-status").textContent = "Error re-matching trips.";
+      document.getElementById("remap-status").textContent =
+        "Error re-matching trips.";
       window.notificationManager.show("Failed to re-match trips", "danger");
     }
   });

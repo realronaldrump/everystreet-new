@@ -49,14 +49,20 @@ class CoverageManager {
     this.coverageMap = new CoverageMap(this.notificationManager);
     this.ui = new CoverageUI(this.notificationManager);
     this.drawing = new CoverageDrawing(this.notificationManager);
-    this.selection = new CoverageSelection(this.coverageMap, this.notificationManager);
+    this.selection = new CoverageSelection(
+      this.coverageMap,
+      this.notificationManager,
+    );
     this.navigation = new CoverageNavigation(
       this.coverageMap,
-      this.notificationManager
+      this.notificationManager,
     );
 
     // Initialize validator
-    this.validator = new CoverageValidator(this.notificationManager, this.drawing);
+    this.validator = new CoverageValidator(
+      this.notificationManager,
+      this.drawing,
+    );
 
     // Dashboard module
     this.dashboard = new CoverageDashboard(
@@ -64,7 +70,7 @@ class CoverageManager {
       this.ui,
       this.coverageMap,
       this.navigation,
-      this.selection
+      this.selection,
     );
 
     // CRUD module
@@ -73,7 +79,7 @@ class CoverageManager {
       this.progress,
       this.confirmationDialog,
       this.validator,
-      this // Pass manager for reload triggers
+      this, // Pass manager for reload triggers
     );
 
     // Export module
@@ -109,7 +115,10 @@ class CoverageManager {
    * Wrapper for Dashboard Display
    */
   async displayCoverageDashboard(locationId) {
-    await this.dashboard.displayCoverageDashboard(locationId, createFormatterContext());
+    await this.dashboard.displayCoverageDashboard(
+      locationId,
+      createFormatterContext(),
+    );
   }
 
   /**
@@ -125,7 +134,11 @@ class CoverageManager {
    * @param {boolean} silent - Suppress notifications
    * @param {boolean} skipRebuild - Skip full table rebuild (for incremental updates)
    */
-  async loadCoverageAreas(showLoading = true, silent = false, skipRebuild = false) {
+  async loadCoverageAreas(
+    showLoading = true,
+    silent = false,
+    skipRebuild = false,
+  ) {
     const tableBody = document.querySelector("#coverage-areas-table tbody");
     if (!tableBody) {
       return;
@@ -163,7 +176,7 @@ class CoverageManager {
         areas,
         formatRelativeTime,
         this.progress.formatStageName.bind(this.progress),
-        distanceInUserUnits
+        distanceInUserUnits,
       );
       this.ui.initializeDataTable();
       this.modals.initTooltips();
@@ -173,7 +186,7 @@ class CoverageManager {
       if (!silent) {
         this.notificationManager.show(
           `Failed to load coverage areas: ${error.message}.`,
-          "danger"
+          "danger",
         );
       }
       if (tableBody) {
@@ -205,7 +218,7 @@ class CoverageManager {
     if (!locationId && !locationStr) {
       this.notificationManager.show(
         "Action failed: Missing location identifier.",
-        "danger"
+        "danger",
       );
       return;
     }
@@ -217,7 +230,7 @@ class CoverageManager {
       } catch {
         this.notificationManager.show(
           "Action failed: Invalid location data.",
-          "danger"
+          "danger",
         );
         return;
       }
@@ -234,7 +247,9 @@ class CoverageManager {
     switch (action) {
       case "update-full":
         if (locationId) {
-          this.crud.updateCoverageForArea(locationId, "full").finally(resetButton);
+          this.crud
+            .updateCoverageForArea(locationId, "full")
+            .finally(resetButton);
         }
         break;
       case "update-incremental":
@@ -260,7 +275,10 @@ class CoverageManager {
         }
         break;
       default:
-        this.notificationManager.show(`Unknown table action: ${action}`, "warning");
+        this.notificationManager.show(
+          `Unknown table action: ${action}`,
+          "warning",
+        );
         resetButton();
     }
   }
@@ -273,7 +291,9 @@ class CoverageManager {
 
     const locationSearchForm = document.getElementById("location-search-form");
     const drawingInterface = document.getElementById("drawing-interface");
-    const locationSearchButtons = document.getElementById("location-search-buttons");
+    const locationSearchButtons = document.getElementById(
+      "location-search-buttons",
+    );
     const drawingButtons = document.getElementById("drawing-buttons");
 
     if (type === "location") {
@@ -297,10 +317,14 @@ class CoverageManager {
    * Find most efficient streets
    */
   async findMostEfficientStreets() {
-    const locationId
-      = this.dashboard.selectedLocation?._id || this.dashboard.currentDashboardLocationId;
+    const locationId =
+      this.dashboard.selectedLocation?._id ||
+      this.dashboard.currentDashboardLocationId;
     if (!locationId) {
-      this.notificationManager.show("Please select a coverage area first.", "warning");
+      this.notificationManager.show(
+        "Please select a coverage area first.",
+        "warning",
+      );
       return;
     }
     await this.navigation.findMostEfficientStreets(locationId);
@@ -310,7 +334,10 @@ class CoverageManager {
    * Ask match settings (Utility used by CRUD)
    * Delegates to modals module
    */
-  _askMatchSettings(locationName, defaults = { segment: 300, buffer: 50, min: 15 }) {
+  _askMatchSettings(
+    locationName,
+    defaults = { segment: 300, buffer: 50, min: 15 },
+  ) {
     return this.modals.askMatchSettings(locationName, defaults);
   }
 
@@ -338,9 +365,10 @@ class CoverageManager {
 // Initialize on DOM ready
 document.addEventListener("DOMContentLoaded", () => {
   if (typeof mapboxgl === "undefined") {
-    const msg
-      = "Error: Mapbox GL JS library failed to load. Map functionality will be unavailable.";
-    const errContainer = document.getElementById("alerts-container") || document.body;
+    const msg =
+      "Error: Mapbox GL JS library failed to load. Map functionality will be unavailable.";
+    const errContainer =
+      document.getElementById("alerts-container") || document.body;
     const errDiv = document.createElement("div");
     errDiv.className = "alert alert-danger m-3";
     errDiv.textContent = msg;
@@ -349,11 +377,13 @@ document.addEventListener("DOMContentLoaded", () => {
     return;
   }
   if (typeof Chart === "undefined") {
-    console.warn("Chart.js not loaded. Chart functionality will be unavailable.");
+    console.warn(
+      "Chart.js not loaded. Chart functionality will be unavailable.",
+    );
     const chartContainer = document.getElementById("street-type-chart");
     if (chartContainer) {
-      chartContainer.innerHTML
-        = '<div class="alert alert-warning small p-2">Chart library not loaded.</div>';
+      chartContainer.innerHTML =
+        '<div class="alert alert-warning small p-2">Chart library not loaded.</div>';
     }
   }
   window.coverageManager = new CoverageManager();
