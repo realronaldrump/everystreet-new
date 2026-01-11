@@ -432,7 +432,8 @@ class Place(Document):
     """Place/location document for visit tracking."""
 
     name: str | None = None
-    location: dict[str, Any] | None = None
+    geometry: dict[str, Any] | None = None  # GeoJSON geometry for custom places
+    location: dict[str, Any] | None = None  # Legacy/alternative location field
     address: str | None = None
     category: str | None = None
     created_at: datetime | None = None

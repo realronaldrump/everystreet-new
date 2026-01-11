@@ -149,3 +149,72 @@ class GasFillupCreateModel(BaseModel):
 
     class Config:
         extra = "allow"
+
+
+# ============================================================================
+# Place Response Models - Beanie-compatible with automatic datetime serialization
+# ============================================================================
+
+
+class PlaceResponse(BaseModel):
+    """Response model for a single place."""
+
+    id: str = Field(..., description="Place ID")
+    name: str
+    geometry: dict[str, Any] | None = None
+    created_at: datetime | None = None
+
+    class Config:
+        from_attributes = True
+
+
+class PlaceStatisticsResponse(BaseModel):
+    """Response model for place statistics."""
+
+    id: str = Field(..., description="Place ID")
+    name: str
+    totalVisits: int = 0
+    averageTimeSpent: str | None = None
+    firstVisit: datetime | None = None
+    lastVisit: datetime | None = None
+    averageTimeSinceLastVisit: str | None = None
+
+
+class VisitResponse(BaseModel):
+    """Response model for a single visit."""
+
+    id: str
+    transactionId: str | None = None
+    endTime: datetime | None = None
+    departureTime: datetime | None = None
+    timeSpent: str | None = None
+    timeSinceLastVisit: str | None = None
+    source: str | None = None
+    distance: float | None = None
+
+
+class PlaceVisitsResponse(BaseModel):
+    """Response model for place visits."""
+
+    trips: list[VisitResponse]
+    name: str
+
+
+class NonCustomPlaceVisit(BaseModel):
+    """Response model for non-custom place visit statistics."""
+
+    name: str
+    totalVisits: int
+    firstVisit: datetime | None = None
+    lastVisit: datetime | None = None
+
+
+class VisitSuggestion(BaseModel):
+    """Response model for visit suggestions."""
+
+    suggestedName: str
+    totalVisits: int
+    firstVisit: datetime | None = None
+    lastVisit: datetime | None = None
+    centroid: list[float]
+    boundary: dict[str, Any]

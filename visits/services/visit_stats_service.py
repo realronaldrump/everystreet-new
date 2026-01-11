@@ -5,6 +5,14 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from db.models import Place, Trip
+from db.schemas import (
+    NonCustomPlaceVisit,
+    PlaceResponse,
+    PlaceStatisticsResponse,
+    PlaceVisitsResponse,
+    VisitResponse,
+    VisitSuggestion,
+)
 from visits.services.visit_tracking_service import VisitTrackingService
 
 logger = logging.getLogger(__name__)
@@ -14,15 +22,16 @@ class VisitStatsService:
     """Service class for visit statistics and suggestions."""
 
     @staticmethod
-    async def get_place_statistics(place: dict) -> dict[str, Any]:
+    async def get_place_statistics(
+        place: Place | PlaceResponse,
+    ) -> PlaceStatisticsResponse:
         """Get statistics about visits to a place.
 
         Args:
-            place: Place document
+            place: Place model or PlaceResponse
 
         Returns:
-            Dictionary with totalVisits, averageTimeSpent, firstVisit,
-            lastVisit, averageTimeSinceLastVisit, and name
+            PlaceStatisticsResponse with visit statistics
         """
         visits = await VisitTrackingService.calculate_visits_for_place(place)
 
@@ -48,23 +57,32 @@ class VisitStatsService:
         first_visit = min((v["arrival_time"] for v in visits), default=None)
         last_visit = max((v["arrival_time"] for v in visits), default=None)
 
-        return {
-            "totalVisits": total_visits,
-            "averageTimeSpent": VisitTrackingService.format_duration(avg_duration),
-            "firstVisit": first_visit.isoformat() if first_visit else None,
-            "lastVisit": last_visit.isoformat() if last_visit else None,
-            "averageTimeSinceLastVisit": VisitTrackingService.format_duration(
+        # Get place name and id
+        if isinstance(place, PlaceResponse):
+            place_id = place.id
+            name = place.name
+        else:
+            place_id = str(place.id)
+            name = place.name or ""
+
+        return PlaceStatisticsResponse(
+            id=place_id,
+            name=name,
+            totalVisits=total_visits,
+            averageTimeSpent=VisitTrackingService.format_duration(avg_duration),
+            firstVisit=first_visit,
+            lastVisit=last_visit,
+            averageTimeSinceLastVisit=VisitTrackingService.format_duration(
                 avg_time_between
             ),
-            "name": place["name"],
-        }
+        )
 
     @staticmethod
-    async def get_all_places_statistics() -> list[dict[str, Any]]:
+    async def get_all_places_statistics() -> list[PlaceStatisticsResponse]:
         """Get statistics for all custom places.
 
         Returns:
-            List of place statistics dictionaries
+            List of PlaceStatisticsResponse objects
         """
         places = await Place.find_all().to_list()
         if not places:
@@ -72,8 +90,7 @@ class VisitStatsService:
 
         results = []
         for place_model in places:
-            place = place_model.model_dump(by_alias=True)
-            visits = await VisitTrackingService.calculate_visits_for_place(place)
+            visits = await VisitTrackingService.calculate_visits_for_place(place_model)
 
             total_visits = len(visits)
             durations = [
@@ -88,35 +105,35 @@ class VisitStatsService:
             last_visit = max((v["arrival_time"] for v in visits), default=None)
 
             results.append(
-                {
-                    "_id": str(place_model.id),
-                    "name": place["name"],
-                    "totalVisits": total_visits,
-                    "averageTimeSpent": VisitTrackingService.format_duration(
-                        avg_duration
-                    ),
-                    "firstVisit": first_visit.isoformat() if first_visit else None,
-                    "lastVisit": last_visit.isoformat() if last_visit else None,
-                }
+                PlaceStatisticsResponse(
+                    id=str(place_model.id),
+                    name=place_model.name or "",
+                    totalVisits=total_visits,
+                    averageTimeSpent=VisitTrackingService.format_duration(avg_duration),
+                    firstVisit=first_visit,
+                    lastVisit=last_visit,
+                )
             )
         return results
 
     @staticmethod
-    async def get_trips_for_place(place: dict) -> dict[str, Any]:
+    async def get_trips_for_place(
+        place: Place | PlaceResponse,
+    ) -> PlaceVisitsResponse:
         """Get trips that visited a specific place.
 
         Args:
-            place: Place document
+            place: Place model or PlaceResponse
 
         Returns:
-            Dictionary with trips list and place name
+            PlaceVisitsResponse with trips list and place name
         """
         visits = await VisitTrackingService.calculate_visits_for_place(place)
 
         trips_data = []
         for visit in visits:
             trip = visit["arrival_trip"]
-            arrival_trip_id = str(trip["_id"])
+            arrival_trip_id = str(trip.get("_id", ""))
 
             duration_str = VisitTrackingService.format_duration(visit["duration"])
             time_since_last_str = VisitTrackingService.format_duration(
@@ -130,34 +147,33 @@ class VisitStatsService:
             transaction_id = trip.get("transactionId", arrival_trip_id)
 
             trips_data.append(
-                {
-                    "id": arrival_trip_id,
-                    "transactionId": transaction_id,
-                    "endTime": (
-                        visit["arrival_time"].isoformat()
-                        if visit["arrival_time"]
-                        else None
-                    ),
-                    "departureTime": (
-                        visit["departure_time"].isoformat()
-                        if visit["departure_time"]
-                        else None
-                    ),
-                    "timeSpent": duration_str,
-                    "timeSinceLastVisit": time_since_last_str,
-                    "source": trip.get("source", "unknown"),
-                    "distance": distance,
-                }
+                VisitResponse(
+                    id=arrival_trip_id,
+                    transactionId=transaction_id,
+                    endTime=visit["arrival_time"],
+                    departureTime=visit["departure_time"],
+                    timeSpent=duration_str,
+                    timeSinceLastVisit=time_since_last_str,
+                    source=trip.get("source"),
+                    distance=distance,
+                )
             )
 
-        trips_data.sort(key=lambda x: x["endTime"], reverse=True)
+        # Sort by endTime descending
+        trips_data.sort(key=lambda x: x.endTime or datetime.min, reverse=True)
 
-        return {"trips": trips_data, "name": place["name"]}
+        # Get place name
+        if isinstance(place, PlaceResponse):
+            name = place.name
+        else:
+            name = place.name or ""
+
+        return PlaceVisitsResponse(trips=trips_data, name=name)
 
     @staticmethod
     async def get_non_custom_places_visits(
         timeframe: str | None = None,
-    ) -> list[dict[str, Any]]:
+    ) -> list[NonCustomPlaceVisit]:
         """Aggregate visits to non-custom destinations.
 
         The logic derives a human-readable place name from destination information,
@@ -170,7 +186,7 @@ class VisitStatsService:
             timeframe: Optional time filter (day|week|month|year)
 
         Returns:
-            List of non-custom place visit statistics
+            List of NonCustomPlaceVisit objects
 
         Raises:
             ValueError: If timeframe is invalid
@@ -238,28 +254,22 @@ class VisitStatsService:
 
         results = await Trip.aggregate(pipeline).to_list()
 
-        places_data = [
-            {
-                "name": doc["_id"],
-                "totalVisits": doc["totalVisits"],
-                "firstVisit": (
-                    doc["firstVisit"].isoformat() if doc.get("firstVisit") else None
-                ),
-                "lastVisit": (
-                    doc["lastVisit"].isoformat() if doc.get("lastVisit") else None
-                ),
-            }
+        return [
+            NonCustomPlaceVisit(
+                name=doc["_id"],
+                totalVisits=doc["totalVisits"],
+                firstVisit=doc.get("firstVisit"),
+                lastVisit=doc.get("lastVisit"),
+            )
             for doc in results
         ]
-
-        return places_data
 
     @staticmethod
     async def get_visit_suggestions(
         min_visits: int = 5,
         cell_size_m: int = 250,
         timeframe: str | None = None,
-    ) -> list[dict[str, Any]]:
+    ) -> list[VisitSuggestion]:
         """Suggest areas that are visited often but are not yet custom places.
 
         This endpoint groups trip destinations without destinationPlaceId
@@ -272,8 +282,7 @@ class VisitStatsService:
             timeframe: Optional time filter (day|week|month|year)
 
         Returns:
-            List of suggested places with suggestedName, totalVisits,
-            firstVisit, lastVisit, centroid, and boundary
+            List of VisitSuggestion objects
 
         Raises:
             ValueError: If timeframe is invalid
@@ -400,18 +409,14 @@ class VisitStatsService:
             }
 
             suggestions.append(
-                {
-                    "suggestedName": f"Area near {round(center_lat, 3)}, {round(center_lng, 3)}",
-                    "totalVisits": c["totalVisits"],
-                    "firstVisit": (
-                        c["firstVisit"].isoformat() if c.get("firstVisit") else None
-                    ),
-                    "lastVisit": (
-                        c["lastVisit"].isoformat() if c.get("lastVisit") else None
-                    ),
-                    "centroid": [center_lng, center_lat],
-                    "boundary": boundary,
-                }
+                VisitSuggestion(
+                    suggestedName=f"Area near {round(center_lat, 3)}, {round(center_lng, 3)}",
+                    totalVisits=c["totalVisits"],
+                    firstVisit=c.get("firstVisit"),
+                    lastVisit=c.get("lastVisit"),
+                    centroid=[center_lng, center_lat],
+                    boundary=boundary,
+                )
             )
 
         return suggestions

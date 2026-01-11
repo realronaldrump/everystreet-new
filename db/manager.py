@@ -265,17 +265,6 @@ class DatabaseManager:
         """
         return self._max_retry_attempts
 
-    def get_collection(self, collection_name: str) -> AsyncCollection:
-        """Get a raw MongoDB collection by name.
-
-        Args:
-            collection_name: Name of the collection.
-
-        Returns:
-            The AsyncCollection instance.
-        """
-        return self.db[collection_name]
-
     async def init_beanie(self) -> None:
         """Initialize Beanie ODM with all document models.
 

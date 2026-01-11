@@ -2,8 +2,11 @@
 
 import logging
 
+from typing import Any
+
 from date_utils import normalize_to_utc_datetime
-from db.models import Trip
+from db.models import Place, Trip
+from db.schemas import PlaceResponse
 
 logger = logging.getLogger(__name__)
 
@@ -12,7 +15,7 @@ class VisitTrackingService:
     """Service class for visit tracking and calculation."""
 
     @staticmethod
-    async def calculate_visits_for_place(place: dict) -> list[dict]:
+    async def calculate_visits_for_place(place: Place | PlaceResponse) -> list[dict]:
         """Calculate visits for a place using a single MongoDB aggregation.
 
         This avoids the N+1 query pattern by:
@@ -21,19 +24,24 @@ class VisitTrackingService:
         - Using $setWindowFields to compute time since previous visit's departure
 
         Args:
-            place: Place document with _id and geometry
+            place: Place model or PlaceResponse
 
         Returns:
             List of visit dicts with arrival_trip, arrival_time, departure_time,
             duration, and time_since_last
         """
-        place_id = str(place["_id"])
-        geometry = place.get("geometry")
+        # Handle both Place model and PlaceResponse
+        if isinstance(place, PlaceResponse):
+            place_id = place.id
+            geometry = place.geometry
+        else:
+            place_id = str(place.id)
+            geometry = place.geometry
 
         # Match trips by destinationPlaceId OR by spatial intersection with place geometry
         # This handles both new trips (with destinationPlaceId set) and older trips
         # that were recorded before the place was created
-        match_conditions = [
+        match_conditions: list[dict[str, Any]] = [
             {"destinationPlaceId": place_id},
         ]
 

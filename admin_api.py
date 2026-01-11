@@ -8,8 +8,44 @@ from fastapi import APIRouter, Body, HTTPException, status
 from core.http.geocoding import validate_location_osm
 from date_utils import ensure_utc
 from db import db_manager
-from db.models import AppSettings, Trip
+from db.models import (
+    AppSettings,
+    ArchivedLiveTrip,
+    CoverageMetadata,
+    GasFillup,
+    LiveTrip,
+    MatchedTrip,
+    OptimalRouteProgress,
+    OsmData,
+    Place,
+    ProgressStatus,
+    ServerLog,
+    Street,
+    TaskConfig,
+    TaskHistory,
+    Trip,
+    Vehicle,
+)
 from models import CollectionModel, LocationModel, ValidateLocationModel
+
+# Map collection names to Beanie Document models for admin operations
+COLLECTION_TO_MODEL = {
+    "trips": Trip,
+    "matched_trips": MatchedTrip,
+    "live_trips": LiveTrip,
+    "archived_live_trips": ArchivedLiveTrip,
+    "coverage_metadata": CoverageMetadata,
+    "streets": Street,
+    "osm_data": OsmData,
+    "places": Place,
+    "task_config": TaskConfig,
+    "task_history": TaskHistory,
+    "progress_status": ProgressStatus,
+    "optimal_route_progress": OptimalRouteProgress,
+    "gas_fillups": GasFillup,
+    "vehicles": Vehicle,
+    "server_logs": ServerLog,
+}
 from osm_utils import generate_geojson_osm
 
 logger = logging.getLogger(__name__)
@@ -97,14 +133,24 @@ async def clear_collection(data: CollectionModel):
                 detail="Missing 'collection' field",
             )
 
-        collection = db_manager.get_collection(name)
-        result = await collection.delete_many({})
+        # Use Beanie models for known collections
+        model = COLLECTION_TO_MODEL.get(name)
+        if model is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Unknown collection '{name}'. Supported: {list(COLLECTION_TO_MODEL.keys())}",
+            )
+
+        result = await model.find_all().delete()
+        deleted_count = result.deleted_count if result else 0
 
         return {
             "message": f"Successfully cleared collection {name}",
-            "deleted_count": result.deleted_count,
+            "deleted_count": deleted_count,
         }
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.exception(
             "Error clearing collection: %s",
