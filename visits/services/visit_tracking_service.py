@@ -1,7 +1,6 @@
 """Business logic for visit detection and tracking."""
 
 import logging
-
 from typing import Any
 
 from date_utils import normalize_to_utc_datetime
