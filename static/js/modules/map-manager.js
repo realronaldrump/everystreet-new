@@ -10,7 +10,10 @@ import utils from "./utils.js";
 const mapManager = {
   async initialize() {
     try {
-      const initStage = window.loadingManager.startStage("init", "Initializing map...");
+      const initStage = window.loadingManager.startStage(
+        "init",
+        "Initializing map...",
+      );
 
       const mapElement = utils.getElement("map");
       if (!mapElement || state.map) {
@@ -36,7 +39,8 @@ const mapManager = {
       mapboxgl.config.REPORT_MAP_LOAD_TIMES = false;
       mapboxgl.config.COLLECT_RESOURCE_TIMING = false;
 
-      const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
+      const theme =
+        document.documentElement.getAttribute("data-bs-theme") || "dark";
 
       // Determine initial map view
       const urlParams = new URLSearchParams(window.location.search);
@@ -93,7 +97,7 @@ const mapManager = {
       state.map.addControl(new mapboxgl.NavigationControl(), "top-right");
       state.map.addControl(
         new mapboxgl.AttributionControl({ compact: true }),
-        "bottom-right"
+        "bottom-right",
       );
 
       // Setup event handlers
@@ -130,7 +134,7 @@ const mapManager = {
       window.loadingManager.stageError("init", error.message);
       window.notificationManager.show(
         `Map initialization failed: ${error.message}`,
-        "danger"
+        "danger",
       );
       return false;
     }
@@ -160,7 +164,10 @@ const mapManager = {
     const queryLayers = [];
     if (state.map.getLayer("trips-hitbox")) {
       queryLayers.push("trips-hitbox");
-    } else if (!state.mapLayers.trips?.isHeatmap && state.map.getLayer("trips-layer")) {
+    } else if (
+      !state.mapLayers.trips?.isHeatmap &&
+      state.map.getLayer("trips-layer")
+    ) {
       queryLayers.push("trips-layer");
     } else if (
       state.mapLayers.trips?.isHeatmap &&
@@ -200,7 +207,9 @@ const mapManager = {
   refreshTripStyles: utils.throttle(() => {
     if (!state.map || !state.mapInitialized) return;
 
-    const selectedId = state.selectedTripId ? String(state.selectedTripId) : null;
+    const selectedId = state.selectedTripId
+      ? String(state.selectedTripId)
+      : null;
 
     ["trips", "matchedTrips"].forEach((layerName) => {
       const layerInfo = state.mapLayers[layerName];
@@ -221,7 +230,10 @@ const mapManager = {
             "case",
             [
               "==",
-              ["to-string", ["coalesce", ["get", "transactionId"], ["get", "id"]]],
+              [
+                "to-string",
+                ["coalesce", ["get", "transactionId"], ["get", "id"]],
+              ],
               selectedId,
             ],
             layerInfo.highlightColor || "#FFD700",
@@ -234,7 +246,10 @@ const mapManager = {
             "case",
             [
               "==",
-              ["to-string", ["coalesce", ["get", "transactionId"], ["get", "id"]]],
+              [
+                "to-string",
+                ["coalesce", ["get", "transactionId"], ["get", "id"]],
+              ],
               selectedId,
             ],
             baseWeight * 2,
