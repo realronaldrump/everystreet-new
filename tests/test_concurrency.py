@@ -1,6 +1,7 @@
 import asyncio
 import unittest
-from unittest.mock import MagicMock, patch, AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
+
 from coverage.calculator import CoverageCalculator
 from coverage.constants import MAX_CONCURRENT_DB_OPS
 

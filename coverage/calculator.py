@@ -22,11 +22,11 @@ from coverage.constants import (
     DEFAULT_MIN_MATCH_LENGTH_METERS,
     DEGREES_TO_METERS,
     FEET_TO_METERS,
+    MAX_CONCURRENT_DB_OPS,
     MAX_TRIP_IDS_TO_STORE,
     MAX_TRIPS_PER_BATCH,
     MAX_UPDATE_BATCH_SIZE,
     METERS_TO_MILES,
-    MAX_CONCURRENT_DB_OPS,
 )
 from db.models import CoverageMetadata, ProgressStatus, Street, Trip
 from geometry_service import GeometryService
@@ -1176,7 +1176,9 @@ class CoverageCalculator:
         try:
             metadata = await CoverageMetadata.find_one(
                 {"location.display_name": self.location_name},
-            ).project(model=CoverageMetadata)  # Or just fetch and access field
+            ).project(
+                model=CoverageMetadata
+            )  # Or just fetch and access field
 
             # Since processed_trips is a dict inside the model (field checked in previous view)
             # CoverageMetadata has field `location` (dict) and `display_name`?
