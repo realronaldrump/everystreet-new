@@ -13,7 +13,7 @@ from io import StringIO
 from fastapi import Request
 from fastapi.responses import StreamingResponse
 
-from db import json_dumps, parse_query_date
+from db import parse_query_date
 from export_helpers import (
     CSV_BASE_FIELDS,
     CSV_GEOMETRY_FIELDS,
@@ -56,7 +56,7 @@ class StreamingService:
                     continue
                 props = {k: v for k, v in trip.items() if k != "gps"}
                 feature = GeometryService.feature_from_geometry(geom, props)
-                chunk = json_dumps(feature, separators=(",", ":"))
+                chunk = json.dumps(feature, separators=(",", ":"))
                 if not first:
                     yield ","
                 yield chunk
@@ -73,7 +73,7 @@ class StreamingService:
         first = True
         async for doc in cursor:
             try:
-                chunk = json_dumps(doc, separators=(",", ":"))
+                chunk = json.dumps(doc, separators=(",", ":"))
                 if not first:
                     yield ","
                 yield chunk
