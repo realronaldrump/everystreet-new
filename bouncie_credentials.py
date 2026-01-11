@@ -9,8 +9,9 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from db import BouncieCredentials
 from pydantic import BaseModel
+
+from db import BouncieCredentials
 
 logger = logging.getLogger(__name__)
 
