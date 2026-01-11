@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from beanie import PydanticObjectId
+
 from core.exceptions import ResourceNotFoundException, ValidationException
 from date_utils import parse_timestamp
 from db.models import GasFillup, Vehicle
