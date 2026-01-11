@@ -75,19 +75,31 @@
       elements.syncVehicleBtn.addEventListener("click", syncFromBouncie);
     }
     if (elements.refreshBouncieBtn) {
-      elements.refreshBouncieBtn.addEventListener("click", fetchBouncieOdometer);
+      elements.refreshBouncieBtn.addEventListener(
+        "click",
+        fetchBouncieOdometer,
+      );
     }
     if (elements.useBouncieReadingBtn) {
-      elements.useBouncieReadingBtn.addEventListener("click", useBouncieReading);
+      elements.useBouncieReadingBtn.addEventListener(
+        "click",
+        useBouncieReading,
+      );
     }
     if (elements.saveManualOdometerBtn) {
-      elements.saveManualOdometerBtn.addEventListener("click", saveManualOdometer);
+      elements.saveManualOdometerBtn.addEventListener(
+        "click",
+        saveManualOdometer,
+      );
     }
     if (elements.saveSettingsBtn) {
       elements.saveSettingsBtn.addEventListener("click", saveSettings);
     }
     if (elements.vehicleSelect) {
-      elements.vehicleSelect.addEventListener("change", handleVehicleSelectChange);
+      elements.vehicleSelect.addEventListener(
+        "change",
+        handleVehicleSelectChange,
+      );
     }
   }
 
@@ -241,14 +253,17 @@
 
     // Odometer
     if (vehicle.odometer_reading) {
-      elements.currentOdometer.textContent = formatNumber(vehicle.odometer_reading);
+      elements.currentOdometer.textContent = formatNumber(
+        vehicle.odometer_reading,
+      );
 
       const sourceLabels = {
         bouncie: "From Bouncie",
         manual: "Manually entered",
         trip: "From trip data",
       };
-      const sourceLabel = sourceLabels[vehicle.odometer_source] || "Unknown source";
+      const sourceLabel =
+        sourceLabels[vehicle.odometer_source] || "Unknown source";
       elements.odometerSource.innerHTML = `<i class="fas fa-info-circle me-1"></i>${sourceLabel}`;
 
       if (vehicle.odometer_updated_at) {
@@ -268,7 +283,9 @@
 
     // Pre-fill manual input with current reading
     if (vehicle.odometer_reading) {
-      elements.manualOdometerInput.placeholder = formatNumber(vehicle.odometer_reading);
+      elements.manualOdometerInput.placeholder = formatNumber(
+        vehicle.odometer_reading,
+      );
     }
   }
 
@@ -284,7 +301,7 @@
 
     try {
       const response = await fetch(
-        `/api/vehicle-location?imei=${currentVehicle.imei}&use_now=true`
+        `/api/vehicle-location?imei=${currentVehicle.imei}&use_now=true`,
       );
       const data = await response.json();
 
@@ -331,7 +348,11 @@
 
     const value = parseFloat(elements.manualOdometerInput.value);
     if (isNaN(value) || value < 0) {
-      showNotification("Error", "Please enter a valid odometer reading", "error");
+      showNotification(
+        "Error",
+        "Please enter a valid odometer reading",
+        "error",
+      );
       return;
     }
 
@@ -406,9 +427,12 @@
     showLoading();
 
     try {
-      const response = await fetch("/api/profile/bouncie-credentials/sync-vehicles", {
-        method: "POST",
-      });
+      const response = await fetch(
+        "/api/profile/bouncie-credentials/sync-vehicles",
+        {
+          method: "POST",
+        },
+      );
 
       const data = await response.json();
 
@@ -419,7 +443,7 @@
       showNotification(
         "Success",
         data.message || "Vehicle synced from Bouncie",
-        "success"
+        "success",
       );
       await loadVehicle();
     } catch (error) {
@@ -427,7 +451,7 @@
       showNotification(
         "Error",
         error.message || "Failed to sync from Bouncie",
-        "error"
+        "error",
       );
       // Reload to show whatever state we have
       await loadVehicle();
@@ -468,7 +492,8 @@
           ? "fa-exclamation-circle text-danger"
           : "fa-info-circle text-primary";
 
-    const toastHeader = elements.notificationToast.querySelector(".toast-header i");
+    const toastHeader =
+      elements.notificationToast.querySelector(".toast-header i");
     if (toastHeader) {
       toastHeader.className = `fas ${iconClass} me-2`;
     }
@@ -502,8 +527,10 @@
     const diffDays = Math.floor(diffHours / 24);
 
     if (diffSecs < 60) return "just now";
-    if (diffMins < 60) return `${diffMins} minute${diffMins > 1 ? "s" : ""} ago`;
-    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? "s" : ""} ago`;
+    if (diffMins < 60)
+      return `${diffMins} minute${diffMins > 1 ? "s" : ""} ago`;
+    if (diffHours < 24)
+      return `${diffHours} hour${diffHours > 1 ? "s" : ""} ago`;
     if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? "s" : ""} ago`;
 
     return date.toLocaleDateString();
