@@ -23,7 +23,9 @@ export function readFileAsText(file) {
  * @returns {string} The file extension (including the dot, lowercase)
  */
 export function getFileExtension(filename) {
-  return filename.slice(((filename.lastIndexOf(".") - 1) >>> 0) + 1).toLowerCase();
+  return filename
+    .slice(((filename.lastIndexOf(".") - 1) >>> 0) + 1)
+    .toLowerCase();
 }
 
 /**
@@ -55,7 +57,7 @@ export function parseGPX(file, gpxContent) {
       extractPointsFromElements(rtepts, coordinates, times);
     } else {
       throw new Error(
-        `No track points (trkpt) or route points (rtept) found in ${file.name}`
+        `No track points (trkpt) or route points (rtept) found in ${file.name}`,
       );
     }
   } else {
@@ -67,9 +69,13 @@ export function parseGPX(file, gpxContent) {
   }
 
   const startTime =
-    times.length > 0 ? new Date(Math.min(...times.map((t) => t.getTime()))) : null;
+    times.length > 0
+      ? new Date(Math.min(...times.map((t) => t.getTime())))
+      : null;
   const endTime =
-    times.length > 0 ? new Date(Math.max(...times.map((t) => t.getTime()))) : null;
+    times.length > 0
+      ? new Date(Math.max(...times.map((t) => t.getTime())))
+      : null;
 
   return {
     file,
@@ -138,7 +144,7 @@ export function parseGeoJSON(file, content) {
     }
   } else {
     throw new Error(
-      "Unsupported GeoJSON type. Must be FeatureCollection, Feature, or LineString."
+      "Unsupported GeoJSON type. Must be FeatureCollection, Feature, or LineString.",
     );
   }
 

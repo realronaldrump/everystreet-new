@@ -8,12 +8,12 @@ import logging
 from typing import Any
 
 from external_geo_service import ExternalGeoService
-from trip_repository import TripRepository
 from trip_processor.basic_processing import TripBasicProcessor, format_idle_time
 from trip_processor.geocoding import TripGeocoder
 from trip_processor.map_matching import TripMapMatcher
 from trip_processor.state import TripState, TripStateMachine
 from trip_processor.validators import TripValidator
+from trip_repository import TripRepository
 
 logger = logging.getLogger(__name__)
 

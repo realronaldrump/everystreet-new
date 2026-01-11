@@ -21,7 +21,11 @@ import {
   updateStats,
   setupPanelToggle,
 } from "./ui.js";
-import { addMapLayers, updateStopLayerVisibility, getMapStyle } from "./map-layers.js";
+import {
+  addMapLayers,
+  updateStopLayerVisibility,
+  getMapStyle,
+} from "./map-layers.js";
 import { setupInteractions } from "./interactions.js";
 import { setupStateStatsToggle } from "./state-stats.js";
 
@@ -196,7 +200,7 @@ async function triggerRecalculate() {
     } else {
       window.notificationManager.show(
         `Error starting calculation: ${data.error}`,
-        "danger"
+        "danger",
       );
       clearRecalcState();
     }

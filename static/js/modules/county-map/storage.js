@@ -39,7 +39,7 @@ export function getStoredRecalcState() {
 export function storeRecalcState(startedAt) {
   localStorage.setItem(
     RECALC_STORAGE_KEY,
-    JSON.stringify({ startedAt: startedAt.toISOString() })
+    JSON.stringify({ startedAt: startedAt.toISOString() }),
   );
 }
 
