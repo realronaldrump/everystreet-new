@@ -58,14 +58,13 @@ async def start_optimal_route_generation(
     # before worker picks up the task
     progress = OptimalRouteProgress(
         location=str(location_id),
+        task_id=task.id,
         status="queued",
         progress=0,
         created_at=datetime.now(UTC),
         updated_at=datetime.now(UTC),
     )
-    # Store task_id in route dict for reference
     progress.route = {
-        "task_id": task.id,
         "stage": "queued",
         "message": "Task queued, waiting for worker...",
     }
@@ -268,7 +267,7 @@ async def cancel_optimal_route_task(task_id: str):
     from celery_app import app as celery_app
 
     # Check if task exists
-    progress = await OptimalRouteProgress.find_one({"route.task_id": task_id})
+    progress = await OptimalRouteProgress.find_one({"task_id": task_id})
 
     if not progress:
         raise HTTPException(status_code=404, detail="Task not found")
@@ -324,7 +323,7 @@ async def cancel_optimal_route_task(task_id: str):
 @router.get("/api/optimal-routes/{task_id}/progress")
 async def get_optimal_route_progress(task_id: str):
     """Get current progress for an optimal route generation task."""
-    progress = await OptimalRouteProgress.find_one({"route.task_id": task_id})
+    progress = await OptimalRouteProgress.find_one({"task_id": task_id})
 
     if not progress:
         raise HTTPException(status_code=404, detail="Task not found")
@@ -362,7 +361,7 @@ async def stream_optimal_route_progress(task_id: str):
 
             try:
                 progress = await OptimalRouteProgress.find_one(
-                    {"route.task_id": task_id},
+                    {"task_id": task_id},
                 )
 
                 if not progress:

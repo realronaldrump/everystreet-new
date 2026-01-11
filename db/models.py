@@ -525,6 +525,7 @@ class OptimalRouteProgress(Document):
     """Optimal route calculation progress document."""
 
     location: str | None = None
+    task_id: str | None = None
     status: str | None = None
     progress: float = 0.0
     route: dict[str, Any] | None = None
