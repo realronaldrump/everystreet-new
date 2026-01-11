@@ -95,7 +95,7 @@
   function storeRecalcState(startedAt) {
     localStorage.setItem(
       RECALC_STORAGE_KEY,
-      JSON.stringify({ startedAt: startedAt.toISOString() })
+      JSON.stringify({ startedAt: startedAt.toISOString() }),
     );
   }
 
@@ -256,7 +256,11 @@
           document.getElementById("last-updated").textContent =
             `Last updated: ${lastUpdated.toLocaleDateString()} ${lastUpdated.toLocaleTimeString()}`;
 
-          if (recalcState && lastUpdated > recalcState.startedAt && isRecalculating) {
+          if (
+            recalcState &&
+            lastUpdated > recalcState.startedAt &&
+            isRecalculating
+          ) {
             clearRecalcState();
           }
         }
@@ -331,7 +335,7 @@
       } else {
         window.notificationManager.show(
           `Error starting calculation: ${data.error}`,
-          "danger"
+          "danger",
         );
         clearRecalcState();
       }
@@ -557,8 +561,8 @@
           formatDateRange(
             "Driven",
             countyVisits[fips].firstVisit,
-            countyVisits[fips].lastVisit
-          )
+            countyVisits[fips].lastVisit,
+          ),
         );
       }
       if (isStopped && countyStops[fips]) {
@@ -566,8 +570,8 @@
           formatDateRange(
             "Stopped",
             countyStops[fips].firstStop,
-            countyStops[fips].lastStop
-          )
+            countyStops[fips].lastStop,
+          ),
         );
       }
 
@@ -605,7 +609,9 @@
     const totalCounties = countyData.features.length;
     const visitedCount = Object.keys(countyVisits).length;
     const percentage =
-      totalCounties > 0 ? ((visitedCount / totalCounties) * 100).toFixed(1) : "0.0";
+      totalCounties > 0
+        ? ((visitedCount / totalCounties) * 100).toFixed(1)
+        : "0.0";
 
     // Count unique states
     const visitedStates = new Set();
@@ -675,8 +681,12 @@
         const countyFips = feature.properties.fips;
         const visits = countyVisits[countyFips];
         if (visits) {
-          const firstVisit = visits.firstVisit ? new Date(visits.firstVisit) : null;
-          const lastVisit = visits.lastVisit ? new Date(visits.lastVisit) : null;
+          const firstVisit = visits.firstVisit
+            ? new Date(visits.firstVisit)
+            : null;
+          const lastVisit = visits.lastVisit
+            ? new Date(visits.lastVisit)
+            : null;
 
           if (
             firstVisit &&
@@ -778,7 +788,7 @@
   function zoomToState(stateFips) {
     // Get bounding box of all counties in this state
     const stateCounties = countyData.features.filter(
-      (f) => f.properties.stateFips === stateFips
+      (f) => f.properties.stateFips === stateFips,
     );
 
     if (stateCounties.length === 0) return;
@@ -806,7 +816,7 @@
         [minLng, minLat],
         [maxLng, maxLat],
       ],
-      { padding: 50, maxZoom: 8 }
+      { padding: 50, maxZoom: 8 },
     );
   }
 
@@ -828,7 +838,9 @@
   function setupStateStatsToggle() {
     const toggleBtn = document.getElementById("state-stats-toggle");
     const content = document.getElementById("state-stats-list");
-    const chevron = toggleBtn ? toggleBtn.querySelector(".state-stats-chevron") : null;
+    const chevron = toggleBtn
+      ? toggleBtn.querySelector(".state-stats-chevron")
+      : null;
 
     if (toggleBtn && content) {
       toggleBtn.addEventListener("click", () => {
@@ -836,7 +848,9 @@
         content.style.display = isExpanded ? "none" : "block";
         toggleBtn.setAttribute("aria-expanded", !isExpanded);
         if (chevron) {
-          chevron.style.transform = isExpanded ? "rotate(0deg)" : "rotate(180deg)";
+          chevron.style.transform = isExpanded
+            ? "rotate(0deg)"
+            : "rotate(180deg)";
         }
 
         // Render stats on first open
