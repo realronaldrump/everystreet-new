@@ -16,14 +16,10 @@ from shapely.geometry import Point, shape
 
 from county_data_service import get_county_topology_document
 from date_utils import parse_timestamp
-from db import db_manager
-from db.models import Trip
+from db.models import CountyVisitedCache, Trip
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/counties", tags=["counties"])
-
-# Collection for caching visited counties
-county_cache_collection = db_manager.get_collection("county_visited_cache")
 
 try:
     from shapely.validation import make_valid as _make_valid
@@ -68,21 +64,19 @@ async def get_visited_counties() -> dict[str, Any]:
     Returns cached data if available, otherwise triggers a recalculation.
     """
     try:
-        # Try to get cached data
-        cache = await county_cache_collection.find_one({"_id": "visited_counties"})
+        # Try to get cached data using Beanie
+        cache = await CountyVisitedCache.get("visited_counties")
 
         if cache:
-            stopped = cache.get("stopped_counties", {})
+            stopped = cache.stopped_counties or {}
             return {
                 "success": True,
-                "counties": cache.get(
-                    "counties", {}
-                ),  # {fips: {firstVisit, lastVisit}}
-                "stoppedCounties": stopped,  # {fips: {firstStop, lastStop}}
-                "totalVisited": len(cache.get("counties", {})),
+                "counties": cache.counties or {},
+                "stoppedCounties": stopped,
+                "totalVisited": len(cache.counties or {}),
                 "totalStopped": len(stopped),
-                "lastUpdated": cache.get("updated_at"),
-                "totalTripsAnalyzed": cache.get("trips_analyzed", 0),
+                "lastUpdated": cache.updated_at,
+                "totalTripsAnalyzed": cache.trips_analyzed or 0,
                 "cached": True,
             }
 
@@ -182,22 +176,15 @@ async def calculate_visited_counties_task():
         county_visits: dict[str, dict[str, datetime | None]] = {}
         county_stops: dict[str, dict[str, datetime | None]] = {}
 
-        # Query all valid trips with GPS data, ordered by time
-        trips_cursor = Trip.get_motor_collection().find(
+        # Query all valid trips with GPS data using Beanie
+        trips_cursor = Trip.find(
             {
                 "isInvalid": {"$ne": True},
                 "$or": [
                     {"gps.type": {"$in": ["LineString", "Point"]}},
                     {"matchedGps.type": {"$in": ["LineString", "Point"]}},
                 ],
-            },
-            {
-                "gps": 1,
-                "matchedGps": 1,
-                "transactionId": 1,
-                "startTime": 1,
-                "endTime": 1,
-            },
+            }
         )
 
         trips_analyzed = 0
@@ -205,13 +192,13 @@ async def calculate_visited_counties_task():
         async for trip in trips_cursor:
             trips_analyzed += 1
 
-            # Get trip timestamps
-            trip_start_time = parse_timestamp(trip.get("startTime"))
-            trip_end_time = parse_timestamp(trip.get("endTime"))
+            # Get trip timestamps - access as Beanie document attributes
+            trip_start_time = parse_timestamp(trip.startTime)
+            trip_end_time = parse_timestamp(trip.endTime)
             trip_time = trip_start_time or trip_end_time
 
             # Prefer matched GPS if available
-            gps_data = trip.get("matchedGps") or trip.get("gps")
+            gps_data = trip.matchedGps or trip.gps
             if not gps_data or gps_data.get("type") not in {"LineString", "Point"}:
                 continue
 
@@ -243,7 +230,7 @@ async def calculate_visited_counties_task():
             except Exception as e:
                 logger.warning(
                     "Error processing trip %s: %s",
-                    trip.get("transactionId", "unknown"),
+                    trip.transactionId or "unknown",
                     e,
                 )
 
@@ -278,22 +265,28 @@ async def calculate_visited_counties_task():
                 ),
             }
 
-        # Save to cache
-        await county_cache_collection.update_one(
-            {"_id": "visited_counties"},
-            {
-                "$set": {
-                    "counties": counties_serializable,
-                    "stopped_counties": stops_serializable,
-                    "trips_analyzed": trips_analyzed,
-                    "updated_at": datetime.now(UTC),
-                    "calculation_time_seconds": (
-                        datetime.now(UTC) - start_time
-                    ).total_seconds(),
-                }
-            },
-            upsert=True,
-        )
+        # Save to cache using Beanie upsert pattern
+        existing_cache = await CountyVisitedCache.get("visited_counties")
+        if existing_cache:
+            existing_cache.counties = counties_serializable
+            existing_cache.stopped_counties = stops_serializable
+            existing_cache.trips_analyzed = trips_analyzed
+            existing_cache.updated_at = datetime.now(UTC)
+            existing_cache.calculation_time_seconds = (
+                datetime.now(UTC) - start_time
+            ).total_seconds()
+            await existing_cache.save()
+        else:
+            new_cache = CountyVisitedCache(
+                counties=counties_serializable,
+                stopped_counties=stops_serializable,
+                trips_analyzed=trips_analyzed,
+                updated_at=datetime.now(UTC),
+                calculation_time_seconds=(
+                    datetime.now(UTC) - start_time
+                ).total_seconds(),
+            )
+            await new_cache.insert()
 
         logger.info(
             "County calculation complete: %d visited, %d stopped from %d trips in %.1f seconds",
@@ -493,17 +486,17 @@ def _extract_stop_points(
 async def get_cache_status() -> dict[str, Any]:
     """Get the status of the county cache."""
     try:
-        cache = await county_cache_collection.find_one({"_id": "visited_counties"})
+        cache = await CountyVisitedCache.get("visited_counties")
 
         if cache:
-            stopped = cache.get("stopped_counties", {})
+            stopped = cache.stopped_counties or {}
             return {
                 "cached": True,
-                "totalVisited": len(cache.get("counties", {})),
+                "totalVisited": len(cache.counties or {}),
                 "totalStopped": len(stopped),
-                "tripsAnalyzed": cache.get("trips_analyzed", 0),
-                "lastUpdated": cache.get("updated_at"),
-                "calculationTime": cache.get("calculation_time_seconds"),
+                "tripsAnalyzed": cache.trips_analyzed or 0,
+                "lastUpdated": cache.updated_at,
+                "calculationTime": cache.calculation_time_seconds,
             }
         return {
             "cached": False,

@@ -16,7 +16,7 @@ from typing import Any
 
 import httpx
 
-from db import db_manager
+from db.models import CountyTopology
 
 logger = logging.getLogger(__name__)
 
@@ -80,11 +80,10 @@ async def get_county_topology_document(
 
     variant_key = _resolve_variant_key(projection)
     variant = TOPOLOGY_VARIANTS[variant_key]
-    collection = db_manager.get_collection(COUNTY_TOPOLOGY_COLLECTION)
 
-    document = await collection.find_one({"_id": variant["id"]})
-    if document and "topology" in document:
-        return document
+    document = await CountyTopology.get(variant["id"])
+    if document and document.topology:
+        return document.model_dump()
 
     if not ensure_available:
         return None
