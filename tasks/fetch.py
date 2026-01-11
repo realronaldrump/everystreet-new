@@ -19,7 +19,6 @@ from bouncie_trip_fetcher import fetch_bouncie_trips_in_range
 from config import get_bouncie_config
 from core.async_bridge import run_async_from_sync
 from date_utils import parse_timestamp
-
 from db.models import Trip
 from tasks.core import task_runner
 

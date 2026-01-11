@@ -17,6 +17,7 @@ from celery.utils.log import get_task_logger
 from pydantic import ValidationError
 from pymongo import UpdateOne
 from pymongo.errors import BulkWriteError
+
 from core.async_bridge import run_async_from_sync
 from db.models import Trip
 from live_tracking import cleanup_stale_trips_logic
