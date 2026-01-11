@@ -4,8 +4,8 @@ import logging
 from typing import Any
 
 from core.exceptions import ValidationException
+from date_utils import parse_timestamp
 from db.models import GasFillup, Trip
-from gas.serializers import parse_iso_datetime
 from gas.services.bouncie_service import BouncieService
 from geometry_service import GeometryService
 
@@ -50,7 +50,7 @@ class OdometerService:
             )
         else:
             # Parse timestamp
-            target_time = parse_iso_datetime(timestamp)
+            target_time = parse_timestamp(timestamp)
 
             # Find the trip closest to this timestamp
             # First, try to find a trip that contains this timestamp
@@ -240,7 +240,7 @@ class OdometerService:
         Returns:
             Dict with estimated_odometer, anchor_date, anchor_odometer, distance_diff, method
         """
-        target_time = parse_iso_datetime(timestamp)
+        target_time = parse_timestamp(timestamp)
 
         # 1. Find Anchors (Gas Fill-ups)
         # Previous trusted fill-up

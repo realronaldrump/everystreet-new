@@ -7,8 +7,8 @@ from typing import Any
 from bson import ObjectId
 
 from core.exceptions import ResourceNotFoundException, ValidationException
+from date_utils import parse_timestamp
 from db.models import GasFillup, Trip, Vehicle
-from gas.serializers import parse_iso_datetime
 
 logger = logging.getLogger(__name__)
 
@@ -41,9 +41,9 @@ class StatisticsService:
         if start_date or end_date:
             date_query: dict[str, Any] = {}
             if start_date:
-                date_query["$gte"] = parse_iso_datetime(start_date)
+                date_query["$gte"] = parse_timestamp(start_date)
             if end_date:
-                date_query["$lte"] = parse_iso_datetime(end_date)
+                date_query["$lte"] = parse_timestamp(end_date)
             match_stage["fillup_time"] = date_query
 
         pipeline: list[dict[str, Any]] = []
