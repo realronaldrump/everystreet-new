@@ -1,13 +1,18 @@
 """Business logic for trip gas cost calculations."""
 
 import bisect
-import logging
 
 from date_utils import parse_timestamp
 from db.models import GasFillup
-from trips.serializers import _safe_float
 
-logger = logging.getLogger(__name__)
+
+def _safe_float(value, default=0.0):
+    try:
+        if value is None:
+            return default
+        return float(value)
+    except (TypeError, ValueError):
+        return default
 
 
 class TripCostService:

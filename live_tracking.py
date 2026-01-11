@@ -372,7 +372,6 @@ async def process_trip_end(data: dict[str, Any]) -> None:
     # Update trip as completed
     trip.status = "completed"
     trip.endTime = end_time
-    # trip.endTimeZone = end_data.get("timeZone", "UTC") # Not in model, but extra allowed
     trip.endTimeZone = end_data.get("timeZone", "UTC")
     trip.endOdometer = end_data.get("odometer")
     trip.fuelConsumed = end_data.get("fuelConsumed")

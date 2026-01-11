@@ -11,8 +11,22 @@ from date_utils import parse_timestamp
 from db import build_query_from_request
 from db.models import Trip
 from geometry_service import GeometryService
-from trips.serializers import _safe_float, _safe_int
 from trips.services import TripCostService, TripQueryService
+
+
+def _safe_float(value, default=0.0):
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _safe_int(value, default=0):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
 
 logger = logging.getLogger(__name__)
 router = APIRouter()

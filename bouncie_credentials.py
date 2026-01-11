@@ -9,8 +9,9 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from db import BouncieCredentials
 from pydantic import BaseModel
+
+from db import BouncieCredentials
 
 logger = logging.getLogger(__name__)
 
@@ -154,47 +155,46 @@ async def update_bouncie_credentials(credentials: dict[str, Any]) -> bool:
             await existing.save()
             logger.info("Successfully updated Bouncie credentials in database")
             return True
-        else:
-            new_creds = BouncieCredentials(id="bouncie_credentials")
+        new_creds = BouncieCredentials(id="bouncie_credentials")
 
-            if "client_id" in credentials:
-                new_creds.client_id = credentials["client_id"]
-            if "client_secret" in credentials:
-                new_creds.client_secret = credentials["client_secret"]
-            if "redirect_uri" in credentials:
-                new_creds.redirect_uri = credentials["redirect_uri"]
-            if "authorization_code" in credentials:
-                new_creds.authorization_code = credentials["authorization_code"]
-            if "authorized_devices" in credentials:
-                devices = credentials["authorized_devices"]
-                if isinstance(devices, str):
-                    devices = [d.strip() for d in devices.split(",") if d.strip()]
-                elif not isinstance(devices, list):
-                    devices = []
-                new_creds.authorized_devices = devices
-            if "fetch_concurrency" in credentials:
-                try:
-                    fetch_concurrency = int(credentials["fetch_concurrency"])
-                    if fetch_concurrency < 1:
-                        fetch_concurrency = 1
-                    elif fetch_concurrency > 50:
-                        fetch_concurrency = 50
-                    new_creds.fetch_concurrency = fetch_concurrency
-                except (ValueError, TypeError):
-                    new_creds.fetch_concurrency = 12
-            else:
+        if "client_id" in credentials:
+            new_creds.client_id = credentials["client_id"]
+        if "client_secret" in credentials:
+            new_creds.client_secret = credentials["client_secret"]
+        if "redirect_uri" in credentials:
+            new_creds.redirect_uri = credentials["redirect_uri"]
+        if "authorization_code" in credentials:
+            new_creds.authorization_code = credentials["authorization_code"]
+        if "authorized_devices" in credentials:
+            devices = credentials["authorized_devices"]
+            if isinstance(devices, str):
+                devices = [d.strip() for d in devices.split(",") if d.strip()]
+            elif not isinstance(devices, list):
+                devices = []
+            new_creds.authorized_devices = devices
+        if "fetch_concurrency" in credentials:
+            try:
+                fetch_concurrency = int(credentials["fetch_concurrency"])
+                if fetch_concurrency < 1:
+                    fetch_concurrency = 1
+                elif fetch_concurrency > 50:
+                    fetch_concurrency = 50
+                new_creds.fetch_concurrency = fetch_concurrency
+            except (ValueError, TypeError):
                 new_creds.fetch_concurrency = 12
+        else:
+            new_creds.fetch_concurrency = 12
 
-            if "access_token" in credentials:
-                new_creds.access_token = credentials["access_token"]
-            if "refresh_token" in credentials:
-                new_creds.refresh_token = credentials["refresh_token"]
-            if "expires_at" in credentials:
-                new_creds.expires_at = credentials["expires_at"]
+        if "access_token" in credentials:
+            new_creds.access_token = credentials["access_token"]
+        if "refresh_token" in credentials:
+            new_creds.refresh_token = credentials["refresh_token"]
+        if "expires_at" in credentials:
+            new_creds.expires_at = credentials["expires_at"]
 
-            await new_creds.insert()
-            logger.info("Successfully created Bouncie credentials in database")
-            return True
+        await new_creds.insert()
+        logger.info("Successfully created Bouncie credentials in database")
+        return True
 
     except Exception as e:
         logger.exception("Error updating Bouncie credentials: %s", e)

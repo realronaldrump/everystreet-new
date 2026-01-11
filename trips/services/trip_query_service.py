@@ -7,9 +7,16 @@ from date_utils import parse_timestamp
 from db import build_calendar_date_expr
 from db.models import Trip, Vehicle
 from geometry_service import GeometryService
-from trips.serializers import _safe_float
 
 logger = logging.getLogger(__name__)
+
+
+def _safe_float(value, default=0.0):
+    """Safely cast value to float."""
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
 
 
 class TripQueryService:
@@ -163,10 +170,7 @@ class TripQueryService:
         formatted_data = []
         for trip in trips_list:
             # Handle both Beanie models and aggregation dicts
-            if isinstance(trip, Trip):
-                trip_dict = trip.model_dump()
-            else:
-                trip_dict = trip
+            trip_dict = trip.model_dump() if isinstance(trip, Trip) else trip
 
             start_time = parse_timestamp(trip_dict.get("startTime"))
             end_time = parse_timestamp(trip_dict.get("endTime"))

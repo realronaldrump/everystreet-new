@@ -17,7 +17,6 @@ from coverage.location_settings import normalize_location_settings
 from coverage.streets_preprocessor import build_street_segments
 from db import (
     coverage_metadata_collection,
-    db_manager,
     find_one_with_retry,
     progress_collection,
     update_one_with_retry,
