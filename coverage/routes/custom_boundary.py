@@ -114,8 +114,8 @@ async def preprocess_custom_boundary(data: CustomBoundaryModel):
     }
     location_dict = normalize_location_settings(location_dict)
 
-    
-    existing = await CoverageMetadata.find_one(CoverageMetadata.location.display_name == display_name),
+    existing = await CoverageMetadata.find_one(
+        CoverageMetadata.location.display_name == display_name
     )
     if existing and existing.get("status") in {
         "processing",
@@ -148,8 +148,8 @@ async def preprocess_custom_boundary(data: CustomBoundaryModel):
 
     task_id = str(uuid.uuid4())
 
-    
-    progress = await ProgressStatus.find_one(ProgressStatus.id == task_id),
+    progress = await ProgressStatus.find_one(
+        ProgressStatus.id == task_id,
         {
             "$set": {
                 "stage": "initializing",
