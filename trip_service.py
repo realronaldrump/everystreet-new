@@ -101,12 +101,9 @@ class TripService:
         self.mapbox_token = mapbox_token or get_mapbox_token()
 
     @with_comprehensive_handling
-    async def get_trip_by_id(self, trip_id: str) -> dict[str, Any] | None:
+    async def get_trip_by_id(self, trip_id: str) -> Trip | None:
         """Retrieve a trip by its ID."""
-        trip = await Trip.find_one(Trip.transactionId == trip_id)
-        if trip:
-            return trip.model_dump()
-        return None
+        return await Trip.find_one(Trip.transactionId == trip_id)
 
     @with_comprehensive_handling
     async def process_single_trip(
@@ -433,17 +430,7 @@ class TripService:
         limit: int = 100,
     ) -> dict[str, Any]:
         """Remap trips using map matching."""
-        trips = []
-        if trip_ids:
-            for trip_id in trip_ids:
-                trip = await self.get_trip_by_id(trip_id)
-                if trip:
-                    trips.append(trip)
-        elif query:
-            # Beanie find with query
-            trip_models = await Trip.find(query).limit(limit).to_list()
-            trips = [t.model_dump() for t in trip_models]
-        else:
+        if not trip_ids and not query:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Either trip_ids or query must be provided",
@@ -505,13 +492,19 @@ class TripService:
 
                 # Skip if addresses already exist and skip_if_exists is True
                 if skip_if_exists:
+                    # Trip is a Beanie model now
+                    start_loc = getattr(trip, "startLocation", None)
+                    dest_loc = getattr(trip, "destination", None)
+
                     has_start = bool(
-                        trip.get("startLocation")
-                        and trip.get("startLocation").get("formatted_address")
+                        start_loc
+                        and isinstance(start_loc, dict)
+                        and start_loc.get("formatted_address")
                     )
                     has_destination = bool(
-                        trip.get("destination")
-                        and trip.get("destination").get("formatted_address")
+                        dest_loc
+                        and isinstance(dest_loc, dict)
+                        and dest_loc.get("formatted_address")
                     )
                     if has_start and has_destination:
                         results["skipped"] += 1
@@ -524,7 +517,7 @@ class TripService:
                 )
 
                 await self.process_single_trip(
-                    trip, options, trip.get("source", "unknown")
+                    trip.model_dump(), options, getattr(trip, "source", "unknown")
                 )
                 results["updated"] += 1
 

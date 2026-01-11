@@ -14,7 +14,6 @@ from celery.utils.log import get_task_logger
 from pymongo.errors import ConnectionFailure
 
 from core.async_bridge import run_async_from_sync
-from db import db_manager
 from live_tracking import (
     process_trip_data,
     process_trip_end,
@@ -56,41 +55,8 @@ def process_webhook_event_task(self, data: dict[str, Any]) -> dict[str, Any]:
         transaction_id or "N/A",
     )
 
-    live_collection = None
-
     try:
-        logger.debug(
-            "Task %s: Attempting to get DB collections via db_manager.",
-            celery_task_id,
-        )
-        _ = db_manager.client
-        if not db_manager.connection_healthy:
-            logger.warning(
-                "Task %s: DB Manager connection unhealthy, attempting re-init.",
-                celery_task_id,
-            )
-            db_manager.ensure_connection()
-            if not db_manager.connection_healthy:
-                logger.critical(
-                    "Task %s: DB Manager re-initialization failed.",
-                    celery_task_id,
-                )
-                raise ConnectionFailure(
-                    "DB Manager connection unhealthy after re-init attempt.",
-                )
-
-        live_collection = db_manager.get_collection("live_trips")
-
-        if live_collection is None:
-            logger.critical(
-                "Task %s: Failed to obtain required DB collection "
-                "('live_trips') via db_manager.",
-                celery_task_id,
-            )
-            raise ConnectionFailure("Failed to obtain DB collection via db_manager.")
-
-        logger.debug("Task %s: Successfully obtained DB collections.", celery_task_id)
-
+        # We rely on Beanie initialization being done at app startup / celery worker startup
         if not event_type:
             logger.error(
                 "Task %s: Missing eventType in webhook data: %s",
@@ -115,13 +81,13 @@ def process_webhook_event_task(self, data: dict[str, Any]) -> dict[str, Any]:
             }
 
         if event_type == "tripStart":
-            run_async_from_sync(process_trip_start(data, live_collection))
+            run_async_from_sync(process_trip_start(data))
         elif event_type == "tripData":
-            run_async_from_sync(process_trip_data(data, live_collection))
+            run_async_from_sync(process_trip_data(data))
         elif event_type == "tripMetrics":
-            run_async_from_sync(process_trip_metrics(data, live_collection))
+            run_async_from_sync(process_trip_metrics(data))
         elif event_type == "tripEnd":
-            run_async_from_sync(process_trip_end(data, live_collection))
+            run_async_from_sync(process_trip_end(data))
         elif event_type in ("connect", "disconnect", "battery", "mil"):
             logger.info(
                 "Task %s: Received non-trip event type: %s. Ignoring. Payload: %s",

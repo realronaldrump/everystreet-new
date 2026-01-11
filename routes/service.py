@@ -33,10 +33,10 @@ async def generate_optimal_route_with_progress(
     start_coords: tuple[float, float] | None = None,  # (lon, lat)
 ) -> dict[str, Any]:
     # Create progress tracker for optimal route progress collection
-    # ProgressTracker expects a motor collection
+    # ProgressTracker expects a Beanie model
     tracker = ProgressTracker(
         task_id,
-        OptimalRouteProgress.get_motor_collection(),
+        OptimalRouteProgress,
         location_id=location_id,
         use_task_id_field=True,
     )

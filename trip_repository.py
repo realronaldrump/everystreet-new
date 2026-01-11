@@ -31,7 +31,7 @@ class TripRepository:
             trips_col: Optional custom trips collection (for testing)
         """
         # Retrieve collection from Beanie model if not provided
-        self.trips_collection = trips_col or Trip.get_motor_collection()
+        # Custom collections not stored anymore as we use Beanie models directly
 
     async def save_trip(
         self,

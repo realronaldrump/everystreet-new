@@ -3,11 +3,9 @@
 Handles fetching streets, marking segments, and street-related queries.
 """
 
-import json
 import logging
 from typing import Any
 
-import bson
 from bson import ObjectId
 from fastapi import APIRouter, HTTPException, Query, Request, Response, status
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -16,14 +14,11 @@ from gridfs import errors
 from coverage.gridfs_service import gridfs_service
 from coverage.serializers import sanitize_features
 from coverage.services import segment_marking_service
-from db import CoverageMetadata, Street, db_manager
+from db import CoverageMetadata, Street
 from models import LocationModel
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
-
-# Keep raw collection access for complex geo queries that Beanie doesn't support well
-streets_collection = db_manager.db["streets"]
 
 
 @router.get("/api/coverage_areas/{location_id}/geojson/gridfs")
@@ -153,8 +148,7 @@ async def get_coverage_area_streets(
     elif driven:
         query["properties.driven"] = True
 
-    cursor = streets_collection.find(
-        query,
+    cursor = Street.find(query).project(
         {
             "_id": 0,
             "geometry": 1,
@@ -164,9 +158,24 @@ async def get_coverage_area_streets(
             "properties.segment_length": 1,
             "properties.driven": 1,
             "properties.undriveable": 1,
-        },
+        }
     )
-    features = await cursor.to_list(length=None)
+    features = await cursor.to_list()
+    # Beanie Projection returns dicts if projection is dict-like or result of .project()
+    # Actually Beanie .project(Model) returns Model. project(dict) might be different or unsupported directly in finding objects?
+    # Street.find(query) returns FindMany.
+    # Beanie's FindMany.project supports a Pydantic model.
+    # To get a subset of fields as dict, we can use `await Street.find(query).to_list()` and then map.
+    # Or, we can use `Street.find(query).project(ProjectionModel)` if we had one.
+    # Since we don't have a partial model handy, let's fetch full objects and dump with include/exclude.
+    # Or rely on MongoDB projection via aggregations if performance matters.
+    # But for now, let's just fetch full objects and let sanitization happen.
+
+    features_list = await Street.find(query).to_list()
+    features = [
+        {"geometry": f.geometry, "properties": f.properties} for f in features_list
+    ]
+
     features = sanitize_features(features)
     return {"type": "FeatureCollection", "features": features}
 
@@ -217,19 +226,14 @@ async def get_coverage_area_streets_viewport(
     elif driven:
         query["properties.driven"] = True
 
-    projection = {
-        "_id": 0,
-        "geometry": 1,
-        "properties.segment_id": 1,
-        "properties.street_name": 1,
-        "properties.highway": 1,
-        "properties.segment_length": 1,
-        "properties.driven": 1,
-        "properties.undriveable": 1,
-    }
+    # Use Beanie find with limit
+    # For geoIntersects, Beanie supports passing the query dict directly
+    features_list = await Street.find(query).limit(5000).to_list()
 
-    cursor = streets_collection.find(query, projection).limit(5000)
-    features = await cursor.to_list(length=5000)
+    # Map to dict structure expected by sanitize_features
+    features = [
+        {"geometry": f.geometry, "properties": f.properties} for f in features_list
+    ]
     features = sanitize_features(features)
     return {"type": "FeatureCollection", "features": features}
 
@@ -264,7 +268,7 @@ async def get_undriven_streets(location: LocationModel):
             "properties.driven": False,
         }
 
-        count = await streets_collection.count_documents(query)
+        count = await Street.find(query).count()
         logger.info(
             "Found %d undriven street documents for '%s'.",
             count,
@@ -280,18 +284,16 @@ async def get_undriven_streets(location: LocationModel):
             )
 
         features = []
-        cursor = streets_collection.find(query)
-        async for street_doc in cursor:
-            if "geometry" in street_doc and "properties" in street_doc:
-                features.append(street_doc)
+        # Use Beanie iteration
+        async for street in Street.find(query):
+            features.append(street.model_dump(include={"geometry", "properties"}))
 
         content_to_return = {
             "type": "FeatureCollection",
             "features": features,
         }
-        return JSONResponse(
-            content=json.loads(bson.json_util.dumps(content_to_return)),
-        )
+        # Direct JSON return, assuming types are serializable (Beanie models usually are)
+        return JSONResponse(content=content_to_return)
 
     except HTTPException:
         raise

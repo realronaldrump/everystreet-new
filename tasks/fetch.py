@@ -13,7 +13,6 @@ from typing import Any
 
 from celery import shared_task
 from celery.utils.log import get_task_logger
-from pymongo import DESCENDING
 
 from bouncie_trip_fetcher import fetch_bouncie_trips_in_range
 from config import get_bouncie_config
@@ -80,7 +79,7 @@ async def periodic_fetch_trips_async(
         try:
             logger.info("Looking for the most recent trip in the database (any source)")
             # Use Beanie to find latest trip
-            latest_trip = await Trip.find_one(sort=[("endTime", DESCENDING)])
+            latest_trip = await Trip.find_one(sort="-endTime")
 
             if latest_trip:
                 latest_trip_id = latest_trip.transactionId or "unknown"

@@ -15,8 +15,6 @@ from typing import Any
 from celery import shared_task
 from celery.utils.log import get_task_logger
 from pydantic import ValidationError
-from pymongo import UpdateOne
-from pymongo.errors import BulkWriteError
 
 from core.async_bridge import run_async_from_sync
 from db.models import Trip
@@ -78,10 +76,10 @@ async def validate_trips_async(_self) -> dict[str, Any]:
     """
     processed_count = 0
     modified_count = 0
-    batch_size = 500
+    batch_size = 100  # Process in smaller chunks if needed, but here we just stream
 
     query = {"invalid": {"$ne": True}}
-    # Use Beanie count
+
     total_docs_to_process = await Trip.find(query).count()
     logger.info("Found %d trips to validate.", total_docs_to_process)
 
@@ -93,35 +91,11 @@ async def validate_trips_async(_self) -> dict[str, Any]:
             "modified_count": 0,
         }
 
-    # Use Beanie find with projection manually if desired, but Beanie returns model instances.
-    # To optimize memory, we can use specific projection or just load models if they are not huge.
-    # The existing code projected specific fields: transactionId, startTime, endTime, gps, distance, maxSpeed, _id
-    # We can use .project() or just iterate. Given batch processing, loading full objects is okay,
-    # or we can use keys.
-    # But to use TripDataModel validation, we need a dictionary. Beanie objects can be dumped.
-    # Let's use projection to raw dicts for performance and compatibility with TripDataModel.
+    # Beanie iteration
+    # Iterate using Beanie cursor
+    # Note: Trip.find(query) returns a FindMany object which is async iterable
 
-    cursor = (
-        Trip.get_motor_collection()
-        .find(
-            query,
-            {
-                "transactionId": 1,
-                "startTime": 1,
-                "endTime": 1,
-                "gps": 1,
-                "distance": 1,
-                "maxSpeed": 1,
-                "_id": 1,
-            },
-        )
-        .batch_size(batch_size)
-    )
-
-    batch_updates = []
-
-    # We iterate the motor cursor for efficiency in this batch job
-    async for trip in cursor:
+    async for trip in Trip.find(query):
         processed_count += 1
 
         # First check: required data validation using Pydantic
@@ -129,84 +103,52 @@ async def validate_trips_async(_self) -> dict[str, Any]:
         message = None
 
         try:
+            # Trip document is already a Pydantic model (Beanie Document)
+            # But the validation logic in TripDataModel might be stricter or different.
+            # TripDataModel expects a dict input usually if we re-instantiate,
+            # or we can pass proper kwargs.
+            trip_dict = trip.model_dump()
+
             # TripDataModel validation covers required fields, types, and GPS structure
-            model = TripDataModel(**trip)
+            model = TripDataModel(**trip_dict)
 
             # Second check: functional/semantic validation (stationary logic)
             valid, message = model.validate_meaningful()
 
         except ValidationError as e:
             valid = False
-            # Simplify error message
             message = str(e)
         except Exception as e:
             valid = False
             message = f"Unexpected error during validation: {e}"
 
         if not valid:
-            # Mark as invalid in both collections (if multiple exist, otherwise just trips)
-            batch_updates.append(
-                UpdateOne(
-                    {"_id": trip["_id"]},
-                    {
-                        "$set": {
-                            "invalid": True,
-                            "validation_message": message or "Invalid data detected",
-                            "validated_at": datetime.now(UTC),
-                        },
-                    },
-                ),
-            )
-            modified_count += 1
+            # Mark as invalid
+            # We explicitly update the document and save it.
+            # This is "Beanie-only", no raw UpdateOne.
+            # It performs one write per invalid trip.
+            try:
+                # We can set attributes on the Beanie object
+                # Trip model doesn't explicitly have 'invalid' field defined in db/models.py
+                # except via extra="allow".
 
-        if len(batch_updates) >= batch_size:
-            if batch_updates:
-                try:
-                    # Using raw collection for bulk write updates is standard/efficient
-                    trips_coll = Trip.get_motor_collection()
-                    result = await trips_coll.bulk_write(
-                        batch_updates,
-                        ordered=False,
-                    )
-                    logger.info(
-                        "Executed validation batch: Matched=%d, Modified=%d",
-                        result.matched_count,
-                        result.modified_count,
-                    )
-                except BulkWriteError as bwe:
-                    logger.error(
-                        "Bulk write error during validation: %s",
-                        bwe.details,
-                    )
-                except Exception as bulk_err:
-                    logger.error(
-                        "Error executing validation batch: %s",
-                        bulk_err,
-                    )
-            batch_updates = []
+                trip.invalid = True
+                trip.validation_message = message or "Invalid data detected"
+                trip.validated_at = datetime.now(UTC)
+
+                await trip.save()
+                modified_count += 1
+            except Exception as save_err:
+                logger.error("Failed to save invalid trip %s: %s", trip.id, save_err)
+
+        if processed_count % 500 == 0:
             logger.info(
                 "Processed %d/%d trips for validation.",
                 processed_count,
                 total_docs_to_process,
             )
-            await asyncio.sleep(0.1)
-
-    if batch_updates:
-        try:
-            trips_coll = Trip.get_motor_collection()
-            result = await trips_coll.bulk_write(batch_updates, ordered=False)
-            logger.info(
-                "Executed final validation batch: Matched=%d, Modified=%d",
-                result.matched_count,
-                result.modified_count,
-            )
-        except BulkWriteError as bwe:
-            logger.error(
-                "Bulk write error during final validation batch: %s",
-                bwe.details,
-            )
-        except Exception as bulk_err:
-            logger.error("Error executing final validation batch: %s", bulk_err)
+            # Yield to event loop
+            await asyncio.sleep(0.01)
 
     return {
         "status": "success",

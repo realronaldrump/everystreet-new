@@ -6,11 +6,10 @@ Generates GeoJSON FeatureCollection of streets and stores in GridFS.
 from __future__ import annotations
 
 import contextlib
+import json
 import logging
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
-
-import bson.json_util
 
 from db.manager import db_manager
 from db.models import CoverageMetadata, ProgressStatus, Street
@@ -51,13 +50,7 @@ async def generate_and_store_geojson(
 
     try:
         # Cleanup old file
-        existing_meta = await CoverageMetadata.find_one(
-            {"location.display_name": location_name}
-        ).project(
-            Projection_model=CoverageMetadata
-        )  # Or just fetch full doc
-        # Actually simplest is fetch full doc or specific fields via projection if supported or just get.
-        # Beanie projection: find_one(...).project(PydanticModel)
+
         # We can just fetch the doc, it's not huge.
         existing_meta_doc = await CoverageMetadata.find_one(
             {"location.display_name": location_name}
@@ -112,7 +105,7 @@ async def generate_and_store_geojson(
                 "geometry": street.geometry,
                 "properties": street.properties,
             }
-            json_str = bson.json_util.dumps(feature)
+            json_str = json.dumps(feature)
             prefix = b"" if first else b",\n"
             await upload_stream.write(prefix + json_str.encode("utf-8"))
             first = False
