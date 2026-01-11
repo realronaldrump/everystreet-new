@@ -6,6 +6,7 @@ to connected WebSocket clients, eliminating the need for constant database polli
 This module uses async Redis operations to avoid blocking the event loop.
 """
 
+import json
 import logging
 from datetime import UTC, datetime
 from typing import Any
@@ -13,7 +14,6 @@ from typing import Any
 import redis.asyncio as aioredis
 from redis.exceptions import ConnectionError as RedisConnectionError
 
-from db import json_dumps
 from redis_config import get_redis_url
 
 logger = logging.getLogger(__name__)
@@ -60,6 +60,13 @@ async def get_redis_client() -> aioredis.Redis:
         raise
 
 
+def _json_serializer(obj: Any) -> Any:
+    """JSON serializer for objects not serializable by default json code."""
+    if isinstance(obj, datetime):
+        return obj.isoformat()
+    raise TypeError(f"Type {type(obj)} not serializable")
+
+
 async def publish_trip_state(
     transaction_id: str,
     trip_data: dict[str, Any],
@@ -85,10 +92,10 @@ async def publish_trip_state(
             "event_type": "trip_state",
             "status": status,
             "trip": trip_data,
-            "timestamp": datetime.now(UTC).isoformat(),
+            "timestamp": datetime.now(UTC),
         }
 
-        message = json_dumps(event_data)
+        message = json.dumps(event_data, default=_json_serializer)
         subscribers = await client.publish(TRIP_UPDATES_CHANNEL, message)
 
         logger.debug(

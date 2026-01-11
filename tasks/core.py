@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 
 from celery.utils.log import get_task_logger
 
-from db import task_config_collection, update_one_with_retry
+from db import db_manager
 
 logger = get_task_logger(__name__)
 T = TypeVar("T")
@@ -163,8 +163,8 @@ class TaskStatusManager:
                 update_data[f"tasks.{task_id}.end_time"] = None
                 update_data[f"tasks.{task_id}.last_error"] = None
 
-            result = await update_one_with_retry(
-                task_config_collection,
+            task_config_coll = db_manager.get_collection("task_config")
+            result = await task_config_coll.update_one(
                 {"_id": "global_background_task_config"},
                 {"$set": update_data},
                 upsert=True,

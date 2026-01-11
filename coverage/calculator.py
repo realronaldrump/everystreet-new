@@ -25,17 +25,7 @@ from coverage.constants import (
     MAX_UPDATE_BATCH_SIZE,
     METERS_TO_MILES,
 )
-from db import (
-    batch_cursor,
-    count_documents_with_retry,
-    coverage_metadata_collection,
-    find_one_with_retry,
-    progress_collection,
-    streets_collection,
-    trips_collection,
-    update_many_with_retry,
-    update_one_with_retry,
-)
+from db.models import CoverageMetadata, ProgressStatus, Street, Trip
 from geometry_service import GeometryService
 from models import validate_geojson_point_or_linestring
 
@@ -163,12 +153,17 @@ class CoverageCalculator:
                 update_data["error"] = error
                 update_data["status"] = "error"
 
-            await update_one_with_retry(
-                progress_collection,
-                {"_id": self.task_id},
-                {"$set": update_data},
-                upsert=True,
-            )
+            # Upsert ProgressStatus
+            # Beanie: find by ID and update or insert
+            # Since _id is user provided task_id (string), we map it to id field
+            status_doc = await ProgressStatus.get(self.task_id)
+            if status_doc:
+                await status_doc.set(update_data)
+            else:
+                status_doc = ProgressStatus(id=self.task_id, **update_data)
+                # Ensure all fields are set
+                await status_doc.insert()
+
         except Exception as e:
             logger.error(
                 "Task %s: Error updating progress: %s",
@@ -246,8 +241,7 @@ class CoverageCalculator:
                 },
             ]
 
-            cursor = streets_collection.aggregate(pipeline)
-            result = await cursor.to_list(length=1)
+            result = await Street.aggregate(pipeline).to_list(length=1)
 
             if result:
                 stats = result[0]
@@ -387,23 +381,29 @@ class CoverageCalculator:
             # Convert back to GeoJSON
             query_geometry = mapping(query_polygon)
 
-            # Query MongoDB
-            cursor = streets_collection.find(
-                {
-                    "properties.location": self.location_name,
-                    "properties.driven": False,
-                    "geometry": {"$geoIntersects": {"$geometry": query_geometry}},
-                },
-                {"properties.segment_id": 1, "geometry": 1},
-            )
+            # Query MongoDB using Beanie
+            # Using raw find to get specific fields including geometry
+            docs = (
+                await Street.find(
+                    {
+                        "properties.location": self.location_name,
+                        "properties.driven": False,
+                        "geometry": {"$geoIntersects": {"$geometry": query_geometry}},
+                    }
+                )
+                .project(model=Street)
+                .to_list()
+            )  # Fetch all matches
 
-            segments = await cursor.to_list(length=None)
+            # Since we need only specific fields and Street model returns objects, we can optimize.
+            # But Beanie Street(Document) includes all fields.
+
             if self.min_match_length <= 0:
-                return [doc["properties"]["segment_id"] for doc in segments]
+                return [doc.properties["segment_id"] for doc in docs]
 
             matched_segments: list[str] = []
-            for doc in segments:
-                segment_geom = doc.get("geometry")
+            for doc in docs:
+                segment_geom = doc.geometry
                 if not segment_geom:
                     continue
                 try:
@@ -413,7 +413,7 @@ class CoverageCalculator:
                     continue
 
                 if self._geometry_length_m(intersection) >= self.min_match_length:
-                    matched_segments.append(doc["properties"]["segment_id"])
+                    matched_segments.append(doc.properties["segment_id"])
 
             return matched_segments
         except Exception as e:
@@ -455,10 +455,7 @@ class CoverageCalculator:
         base_trip_filter = self._build_trip_filter(processed_trip_ids_set)
 
         try:
-            self.total_trips_to_process = await count_documents_with_retry(
-                trips_collection,
-                base_trip_filter,
-            )
+            self.total_trips_to_process = await Trip.find(base_trip_filter).count()
             logger.info(
                 "Task %s: Found %d trips to process.",
                 self.task_id,
@@ -471,43 +468,19 @@ class CoverageCalculator:
         if self.total_trips_to_process == 0:
             return True
 
-        trips_cursor = trips_collection.find(
-            base_trip_filter,
-            {"gps": 1, "_id": 1},
-        ).batch_size(self.trip_batch_size)
-
         self.newly_covered_segments = set()
         processed_count = 0
 
-        async for trip_batch in batch_cursor(trips_cursor, self.trip_batch_size):
-            tasks = []
+        # Manual batching using Beanie iterator
+        batch: list[Trip] = []
+        async for trip_doc in Trip.find(base_trip_filter).project(
+            model=Trip
+        ):  # Project to Trip model (includes gps, id)
+            batch.append(trip_doc)
 
-            for trip_doc in trip_batch:
-                trip_id = str(trip_doc["_id"])
-                if trip_id in processed_trip_ids_set:
-                    continue
-
-                is_valid, coords = self._is_valid_trip(trip_doc.get("gps"))
-                if not is_valid or not coords:
-                    processed_trip_ids_set.add(trip_id)
-                    processed_count += 1
-                    continue
-
-                # Create the task to query streets for this specific trip
-                tasks.append(self._find_intersecting_streets(trip_doc.get("gps")))
-                processed_trip_ids_set.add(trip_id)
-
-            # Execute batch of geospatial queries concurrently
-            if tasks:
-                results = await asyncio.gather(*tasks, return_exceptions=True)
-
-                for res in results:
-                    if isinstance(res, list):
-                        self.newly_covered_segments.update(res)
-                    elif isinstance(res, Exception):
-                        logger.error("Error querying intersections: %s", res)
-
-                processed_count += len(tasks)
+            if len(batch) >= self.trip_batch_size:
+                await self._process_batch(batch, processed_trip_ids_set)
+                processed_count += len(batch)
                 self.processed_trips_count = processed_count
 
                 # Update progress
@@ -520,8 +493,56 @@ class CoverageCalculator:
                     f"Processed {processed_count}/{self.total_trips_to_process} trips. "
                     f"Found {len(self.newly_covered_segments)} segments.",
                 )
+                batch = []
+
+        # Process remaining
+        if batch:
+            await self._process_batch(batch, processed_trip_ids_set)
+            processed_count += len(batch)
+            self.processed_trips_count = processed_count
+
+            # Final progress update for this stage
+            progress_pct = 50 + (
+                processed_count / max(self.total_trips_to_process, 1) * 40
+            )
+            await self.update_progress(
+                "processing_trips",
+                progress_pct,
+                f"Processed {processed_count}/{self.total_trips_to_process} trips. "
+                f"Found {len(self.newly_covered_segments)} segments.",
+            )
 
         return True
+
+    async def _process_batch(
+        self, batch: list[Trip], processed_trip_ids_set: set[str]
+    ) -> None:
+        """Process a batch of trips."""
+        tasks = []
+
+        for trip_doc in batch:
+            trip_id = str(trip_doc.id)  # Beanie uses .id for _id
+            if trip_id in processed_trip_ids_set:
+                continue
+
+            is_valid, coords = self._is_valid_trip(trip_doc.gps)
+            if not is_valid or not coords:
+                processed_trip_ids_set.add(trip_id)
+                continue
+
+            # Create the task to query streets for this specific trip
+            tasks.append(self._find_intersecting_streets(trip_doc.gps))
+            processed_trip_ids_set.add(trip_id)
+
+        # Execute batch of geospatial queries concurrently
+        if tasks:
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+
+            for res in results:
+                if isinstance(res, list):
+                    self.newly_covered_segments.update(res)
+                elif isinstance(res, Exception):
+                    logger.error("Error querying intersections: %s", res)
 
     def _build_trip_filter(self, processed_trip_ids_set: set[str]) -> dict[str, Any]:
         """Build MongoDB filter for trips query.
@@ -566,10 +587,28 @@ class CoverageCalculator:
                 logger.warning("Invalid bbox, processing all trips")
 
         # Exclude already processed trips
+        # Beanie's _id is strings usually if defined as Pydantic models with str id?
+        # But if the set contains strings, we need to match appropriately.
+        # Beanie Trip model: id field is implicit or explicit.
+        # If it's explicit, it's typically str or ObjectId.
+        # Here we assume IDs in DB are ObjectId OR strings that work with $nin.
+        # Beanie handles ID serialization.
+
+        # We need to construct a list of IDs to exclude.
+        # If Beanie expects ObjectIds for _id, we should convert strings to ObjectIds.
+        # If Beanie expects Strings, we use strings.
+        # The Trip model might use PydanticObjectId or str.
+        # Let's check Trip model in db/models.py again?
+        # Line 34: class Trip(Document):
+        # ...
+        # It doesn't explicitly define id field, so it uses default PydanticObjectId (ObjectId).
+        # So we should convert strings to ObjectIds for the query if we are filtering by _id.
+
         processed_object_ids = [
             ObjectId(tid) for tid in processed_trip_ids_set if ObjectId.is_valid(tid)
         ]
         if processed_object_ids:
+            # We can rely on Beanie/Pydantic to serialize if we pass ObjectIds
             base_trip_filter["_id"] = {"$nin": processed_object_ids}
 
         return base_trip_filter
@@ -644,15 +683,16 @@ class CoverageCalculator:
             for i in range(0, len(segment_ids), MAX_UPDATE_BATCH_SIZE):
                 segment_batch = segment_ids[i : i + MAX_UPDATE_BATCH_SIZE]
 
-                await update_many_with_retry(
-                    streets_collection,
-                    {"properties.segment_id": {"$in": segment_batch}},
+                # Update using Beanie
+                await Street.find(
+                    {"properties.segment_id": {"$in": segment_batch}}
+                ).update(
                     {
                         "$set": {
                             "properties.driven": True,
                             "properties.last_coverage_update": update_timestamp,
                         },
-                    },
+                    }
                 )
                 await asyncio.sleep(BATCH_PROCESS_DELAY)
         except Exception as e:
@@ -834,7 +874,7 @@ class CoverageCalculator:
                 },
             ]
 
-            result = await streets_collection.aggregate(pipeline).to_list(1)
+            result = await Street.aggregate(pipeline).to_list(1)
 
             if not result or not result[0].get("overall"):
                 logger.error(
@@ -961,12 +1001,9 @@ class CoverageCalculator:
                     len(trip_ids_list),
                 )
 
-            await update_one_with_retry(
-                coverage_metadata_collection,
-                {"location.display_name": self.location_name},
-                update_doc,
-                upsert=True,
-            )
+            await CoverageMetadata.find_one(
+                {"location.display_name": self.location_name}
+            ).update(update_doc, upsert=True)
 
         except Exception as e:
             logger.error("Task %s: Error updating metadata: %s", self.task_id, e)
@@ -1054,15 +1091,42 @@ class CoverageCalculator:
             Set of previously processed trip IDs
         """
         try:
-            metadata = await find_one_with_retry(
-                coverage_metadata_collection,
-                {"location.display_name": self.location_name},
-                {"processed_trips.trip_ids": 1},
+            metadata = await CoverageMetadata.find_one(
+                {"location.display_name": self.location_name}
+            ).project(model=CoverageMetadata)  # Or just fetch and access field
+
+            # Since processed_trips is a dict inside the model (field checked in previous view)
+            # CoverageMetadata has field `location` (dict) and `display_name`?
+            # Wait, `db/models.py` showed `CoverageMetadata` fields.
+            # CoverageMetadata(Document):
+            #   location: dict
+            #   display_name: str | None
+            #   ...
+            # But here query uses `{"location.display_name": self.location_name}`.
+            # This implies `location` is a sub-document/dict containing `display_name`.
+            # And `_load_previous_trip_ids` projects `processed_trips.trip_ids`.
+            # I need to check if `processed_trips` is defined in `CoverageMetadata`.
+            # Looking at `db/models.py` again (Step 117):
+            #   location: dict[str, Any] = Field(default_factory=dict)
+            #   display_name: str | None = None
+            #   ...
+            # It accepts `extra="allow"`. So `processed_trips` might be an extra field or inside `location`.
+            # The code `metadata["processed_trips"]` suggests it's a top-level field.
+
+            # Since `extra="allow"`, we can access it via `getattr(metadata, "processed_trips", {})` or strict typing.
+
+            # `find_one` will return a CoverageMetadata instance.
+            metadata = await CoverageMetadata.find_one(
+                {"location.display_name": self.location_name}
             )
-            if metadata and "processed_trips" in metadata:
-                ids = metadata["processed_trips"].get("trip_ids", [])
-                if isinstance(ids, list):
-                    return set(map(str, ids))
+
+            if metadata and hasattr(metadata, "processed_trips"):
+                processed = metadata.processed_trips
+                if isinstance(processed, dict):
+                    ids = processed.get("trip_ids", [])
+                    if isinstance(ids, list):
+                        return set(map(str, ids))
+
         except Exception as e:
             logger.warning("Failed to load previous trip IDs: %s. Running full.", e)
         return set()

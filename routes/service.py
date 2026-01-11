@@ -3,20 +3,13 @@ import logging
 import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import networkx as nx
 import osmnx as ox
 from bson import ObjectId
-from shapely.geometry import LineString
 
-from db import (
-    coverage_metadata_collection,
-    find_one_with_retry,
-    optimal_route_progress_collection,
-    streets_collection,
-    update_one_with_retry,
-)
+from db.models import CoverageMetadata, OptimalRouteProgress, Street
 from progress_tracker import ProgressTracker
 
 from .constants import GRAPH_STORAGE_DIR, MAX_SEGMENTS
@@ -24,8 +17,12 @@ from .core import make_req_id, solve_greedy_route
 from .gaps import fill_route_gaps
 from .geometry import _segment_midpoint
 from .graph import build_osmid_index, try_match_osmid
-from .types import EdgeRef, ReqId
 from .validation import validate_route
+
+if TYPE_CHECKING:
+    from shapely.geometry import LineString
+
+    from .types import EdgeRef, ReqId
 
 logger = logging.getLogger(__name__)
 
@@ -36,9 +33,10 @@ async def generate_optimal_route_with_progress(
     start_coords: tuple[float, float] | None = None,  # (lon, lat)
 ) -> dict[str, Any]:
     # Create progress tracker for optimal route progress collection
+    # ProgressTracker expects a motor collection
     tracker = ProgressTracker(
         task_id,
-        optimal_route_progress_collection,
+        OptimalRouteProgress.get_motor_collection(),
         location_id=location_id,
         use_task_id_field=True,
     )
@@ -61,12 +59,13 @@ async def generate_optimal_route_with_progress(
     try:
         await update_progress("initializing", 0, "Starting optimal route generation...")
 
-        obj_id = ObjectId(location_id)
-        area = await find_one_with_retry(coverage_metadata_collection, {"_id": obj_id})
+        # Find coverage area by ID
+        # location_id is likely an ObjectId string
+        area = await CoverageMetadata.get(ObjectId(location_id))
         if not area:
             raise ValueError(f"Coverage area {location_id} not found")
 
-        location_info = area.get("location", {})
+        location_info = area.location or {}
         location_name = location_info.get("display_name", "Unknown")
 
         await update_progress(
@@ -84,7 +83,12 @@ async def generate_optimal_route_with_progress(
             "loading_segments", 20, "Loading undriven street segments..."
         )
 
-        cursor = streets_collection.find(
+        # Use Street Beanie model to find segments
+        # Using raw pymongo for specific projection and large result set if preferred,
+        # but Beanie find also supports this.
+        # Using get_motor_collection() for precise replacement of raw query behavior
+        streets_coll = Street.get_motor_collection()
+        cursor = streets_coll.find(
             {
                 "properties.location": location_name,
                 "properties.driven": False,
@@ -511,7 +515,8 @@ async def generate_optimal_route_with_progress(
             await tracker.complete("Route generation complete!")
         except Exception as update_err:
             logger.error("Final DB progress update failed: %s", update_err)
-            await optimal_route_progress_collection.update_one(
+            # Use Beanie collection
+            await OptimalRouteProgress.get_motor_collection().update_one(
                 {"task_id": task_id},
                 {
                     "$set": {
@@ -585,26 +590,46 @@ async def save_optimal_route(location_id: str, route_result: dict[str, Any]) -> 
 
     try:
         route_doc = dict(route_result)
-        await update_one_with_retry(
-            coverage_metadata_collection,
-            {"_id": ObjectId(location_id)},
-            {
-                "$set": {
-                    "optimal_route": route_doc,
-                    "optimal_route_metadata": {
-                        "generated_at": datetime.now(UTC),
-                        "distance_meters": route_result.get("total_distance_m"),
-                        "required_edge_count": route_result.get("required_edge_count"),
-                        "undriven_segments_loaded": route_result.get(
-                            "undriven_segments_loaded"
-                        ),
-                        "segment_coverage_ratio": route_result.get(
-                            "segment_coverage_ratio"
-                        ),
-                    },
-                }
-            },
-        )
-        logger.info("Saved optimal route for location %s", location_id)
+        # Use Beanie CoverageMetadata model
+        metadata = await CoverageMetadata.get(ObjectId(location_id))
+        if metadata:
+            # metadata.optimal_route is not defined in the model explicitly as a dict field?
+            # But 'extra="allow"' is on.
+            # However, it is better to set it using underlying update for flexibility if model is not updated.
+            # Model has 'extra="allow"'.
+            # Let's use update query for atomic update on fields that might not be in model
+            # But wait, we have CoverageMetadata model locally, we can see if it has optimal_route.
+            # It does NOT.
+            # So we rely on extra=allow.
+            # But Beanie document.save() overwrites full document if we modified it?
+            # Best to use update query to avoid concurrency overwrites if possible, or just update the object.
+            # Using get_motor_collection() for precise replacement of update_one_with_retry
+            await CoverageMetadata.get_motor_collection().update_one(
+                {"_id": ObjectId(location_id)},
+                {
+                    "$set": {
+                        "optimal_route": route_doc,
+                        "optimal_route_metadata": {
+                            "generated_at": datetime.now(UTC),
+                            "distance_meters": route_result.get("total_distance_m"),
+                            "required_edge_count": route_result.get(
+                                "required_edge_count"
+                            ),
+                            "undriven_segments_loaded": route_result.get(
+                                "undriven_segments_loaded"
+                            ),
+                            "segment_coverage_ratio": route_result.get(
+                                "segment_coverage_ratio"
+                            ),
+                        },
+                    }
+                },
+            )
+            logger.info("Saved optimal route for location %s", location_id)
+        else:
+            logger.warning(
+                "Could not find coverage metadata for %s to save route", location_id
+            )
+
     except Exception as e:
         logger.error("Failed to save optimal route: %s", e)

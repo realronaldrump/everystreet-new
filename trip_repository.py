@@ -9,7 +9,7 @@ import logging
 from typing import Any
 
 from date_utils import get_current_utc_time
-from db import trips_collection
+from db.models import Trip
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +30,8 @@ class TripRepository:
         Args:
             trips_col: Optional custom trips collection (for testing)
         """
-        self.trips_collection = trips_col or trips_collection
+        # Retrieve collection from Beanie model if not provided
+        self.trips_collection = trips_col or Trip.get_motor_collection()
 
     async def save_trip(
         self,

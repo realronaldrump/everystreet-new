@@ -8,19 +8,12 @@ from __future__ import annotations
 import contextlib
 import logging
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import bson.json_util
 
-from db import (
-    batch_cursor,
-    coverage_metadata_collection,
-    db_manager,
-    find_one_with_retry,
-    progress_collection,
-    streets_collection,
-    update_one_with_retry,
-)
+from db.manager import db_manager
+from db.models import CoverageMetadata, ProgressStatus, Street
 
 if TYPE_CHECKING:
     from motor.motor_asyncio import AsyncIOMotorGridFSBucket
@@ -42,10 +35,10 @@ async def generate_and_store_geojson(
         return
 
     logger.info("Task %s: Generating GeoJSON for %s...", task_id, location_name)
-    await progress_collection.update_one(
-        {"_id": task_id},
-        {"$set": {"stage": "generating_geojson", "message": "Creating map data..."}},
-        upsert=True,
+
+    # Update progress
+    await _update_progress(
+        task_id, {"stage": "generating_geojson", "message": "Creating map data..."}
     )
 
     fs: AsyncIOMotorGridFSBucket = db_manager.gridfs_bucket
@@ -58,14 +51,31 @@ async def generate_and_store_geojson(
 
     try:
         # Cleanup old file
-        existing_meta = await find_one_with_retry(
-            coverage_metadata_collection,
-            {"location.display_name": location_name},
-            {"streets_geojson_gridfs_id": 1},
+        existing_meta = await CoverageMetadata.find_one(
+            {"location.display_name": location_name}
+        ).project(Projection_model=CoverageMetadata)  # Or just fetch full doc
+        # Actually simplest is fetch full doc or specific fields via projection if supported or just get.
+        # Beanie projection: find_one(...).project(PydanticModel)
+        # We can just fetch the doc, it's not huge.
+        existing_meta_doc = await CoverageMetadata.find_one(
+            {"location.display_name": location_name}
         )
-        if existing_meta and existing_meta.get("streets_geojson_gridfs_id"):
+
+        if existing_meta_doc and existing_meta_doc.streets_geojson_id:
             with contextlib.suppress(Exception):
-                await fs.delete(existing_meta["streets_geojson_gridfs_id"])
+                # Ensure it's an ObjectId if needed, or string depending on what GridFS expects.
+                # GridFS usually uses ObjectId. The model has it as str?
+                # Check model: streets_geojson_id: str | None
+                # If it's stored as str, we might need ObjectId(str) if GridFS expects that.
+                # Usually standard GridFS uses ObjectId.
+                from bson import ObjectId
+
+                try:
+                    oid = ObjectId(existing_meta_doc.streets_geojson_id)
+                    await fs.delete(oid)
+                except Exception:
+                    # Maybe it wasn't an ObjectId or file missing
+                    pass
 
         # Stream new file
         upload_stream = fs.open_upload_stream(
@@ -80,53 +90,54 @@ async def generate_and_store_geojson(
 
         await upload_stream.write(b'{"type": "FeatureCollection", "features": [\n')
 
-        cursor = streets_collection.find(
-            {"properties.location": location_name},
-            {"_id": 0, "geometry": 1, "properties": 1},
-        )
+        # Find streets using Beanie
+        # Only fetch geometry and properties
+        # Beanie doesn't strictly enforce projection to dict unless .project() is used.
+        # But we can just iterate the docs.
+        # Using a projection model or just iterating full docs (they are loaded anyway)
+        # Raw iteration via find() is fine.
 
+        # We will use manual batching logic inline or just async iterator
         first = True
-        async for batch in batch_cursor(cursor, 1000):
-            chunk = []
-            for street in batch:
-                if "geometry" not in street:
-                    continue
 
-                feature = {
-                    "type": "Feature",
-                    "geometry": street["geometry"],
-                    "properties": street.get("properties", {}),
-                }
-                json_str = bson.json_util.dumps(feature)
-                prefix = b"" if first else b",\n"
-                chunk.append(prefix + json_str.encode("utf-8"))
-                first = False
+        # Beanie cursor
+        async for street in Street.find({"properties.location": location_name}):
+            if not street.geometry:
+                continue
 
-            if chunk:
-                await upload_stream.write(b"".join(chunk))
+            feature = {
+                "type": "Feature",
+                "geometry": street.geometry,
+                "properties": street.properties,
+            }
+            json_str = bson.json_util.dumps(feature)
+            prefix = b"" if first else b",\n"
+            await upload_stream.write(prefix + json_str.encode("utf-8"))
+            first = False
 
         # Close JSON
         await upload_stream.write(b"\n]}")
         await upload_stream.close()
 
         # Update Metadata with final "completed" status
-        await update_one_with_retry(
-            coverage_metadata_collection,
-            {"location.display_name": location_name},
+        gridfs_id_str = str(upload_stream._id)
+
+        await CoverageMetadata.find_one(
+            {"location.display_name": location_name}
+        ).update(
             {
                 "$set": {
-                    "streets_geojson_gridfs_id": upload_stream._id,  # noqa: SLF001
-                    "last_geojson_update": datetime.now(UTC),
+                    "streets_geojson_id": gridfs_id_str,  # Model field name
                     "status": "completed",
                     "last_updated": datetime.now(UTC),
                 }
-            },
+            }
         )
 
-        await progress_collection.update_one(
-            {"_id": task_id},
-            {"$set": {"stage": "complete", "progress": 100, "status": "complete"}},
+        await _update_progress(
+            task_id, {"stage": "complete", "progress": 100, "status": "complete"}
         )
+
         logger.info("Task %s: GeoJSON generation complete.", task_id)
 
     except Exception as e:
@@ -134,27 +145,34 @@ async def generate_and_store_geojson(
         if upload_stream:
             await upload_stream.abort()
 
-        # Update task status to error so frontend stops polling
-        await progress_collection.update_one(
-            {"_id": task_id},
+        # Update task status to error
+        await _update_progress(
+            task_id,
             {
-                "$set": {
-                    "stage": "error",
-                    "status": "error",
-                    "error": f"GeoJSON generation failed: {e!s}",
-                }
+                "stage": "error",
+                "status": "error",
+                "error": f"GeoJSON generation failed: {e!s}",
             },
         )
 
-        # Also update coverage_metadata_collection so the table reflects the error
-        await update_one_with_retry(
-            coverage_metadata_collection,
-            {"location.display_name": location_name},
+        # Update metadata
+        await CoverageMetadata.find_one(
+            {"location.display_name": location_name}
+        ).update(
             {
                 "$set": {
                     "status": "error",
-                    "last_error": f"GeoJSON generation failed: {str(e)[:200]}",
                     "last_updated": datetime.now(UTC),
                 }
-            },
+            }
         )
+
+
+async def _update_progress(task_id: str, update_data: dict[str, Any]) -> None:
+    """Helper to upsert progress."""
+    status_doc = await ProgressStatus.get(task_id)
+    if status_doc:
+        await status_doc.set(update_data)
+    else:
+        status_doc = ProgressStatus(id=task_id, **update_data)
+        await status_doc.insert()

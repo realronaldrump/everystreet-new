@@ -11,8 +11,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Query
 
 from config import get_mapbox_token
-from db import db_manager
-from db.models import CoverageMetadata
+from db.models import CoverageMetadata, Street
 from external_geo_service import ExternalGeoService
 
 logger = logging.getLogger(__name__)
@@ -99,7 +98,7 @@ async def search_streets(
             logger.warning("Coverage area not found: %s", location_id)
             return []
 
-        location_name = coverage_area.location.display_name
+        location_name = coverage_area.location.get("display_name")
         if not location_name:
             logger.warning(
                 "Coverage area %s missing display_name in location", location_id
@@ -126,8 +125,8 @@ async def search_streets(
             {"$limit": limit},
         ]
 
-        streets_collection = db_manager.get_collection("streets")
-        grouped_streets = await streets_collection.aggregate(pipeline).to_list(None)
+        # Use Beanie Street.aggregate()
+        grouped_streets = await Street.aggregate(pipeline).to_list()
 
         features = []
         for street in grouped_streets:
@@ -146,7 +145,7 @@ async def search_streets(
                         },
                         "properties": {
                             "street_name": street.get("_id"),
-                            "location": street.get("location"),
+                            "location": location_name,  # Use variable instead of aggregate result which might be missing
                             "highway": street.get("highway"),
                             "segment_count": street.get("segment_count", 0),
                             "total_length": street.get("total_length", 0),
@@ -186,7 +185,7 @@ async def _search_streets_in_coverage(
             logger.warning("Coverage area not found: %s", location_id)
             return []
 
-        location_name = coverage_area.location.display_name
+        location_name = coverage_area.location.get("display_name")
         if not location_name:
             logger.warning(
                 "Coverage area %s missing display_name in location", location_id
@@ -213,8 +212,7 @@ async def _search_streets_in_coverage(
             {"$limit": limit},
         ]
 
-        streets_collection = db_manager.get_collection("streets")
-        grouped_streets = await streets_collection.aggregate(pipeline).to_list(None)
+        grouped_streets = await Street.aggregate(pipeline).to_list()
 
         features = []
         for street in grouped_streets:
@@ -233,7 +231,7 @@ async def _search_streets_in_coverage(
                         },
                         "properties": {
                             "street_name": street.get("_id"),
-                            "location": street.get("location"),
+                            "location": location_name,
                             "highway": street.get("highway"),
                             "segment_count": street.get("segment_count", 0),
                             "total_length": street.get("total_length", 0),

@@ -15,12 +15,7 @@ from typing import Any
 from coverage import compute_coverage_for_location, compute_incremental_coverage
 from coverage.location_settings import normalize_location_settings
 from coverage.streets_preprocessor import build_street_segments
-from db import (
-    coverage_metadata_collection,
-    find_one_with_retry,
-    progress_collection,
-    update_one_with_retry,
-)
+from db.models import CoverageMetadata, ProgressStatus
 from preprocess_streets import preprocess_streets as async_preprocess_streets
 
 logging.basicConfig(
@@ -28,6 +23,83 @@ logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
+
+
+async def _update_progress(
+    task_id: str,
+    update_data: dict[str, Any],
+    upsert: bool = True,
+) -> None:
+    """Helper to update progress status using Beanie."""
+    # Ensure updated_at is set if not present (though usually passed in update_data)
+    # Beanie doesn't strictly require on_insert if we are just setting fields that match the model
+    # But for upsert we need the base document if inserting.
+
+    # Using find_one(...).upsert() with Beanie:
+    # update query is required.
+
+    # Simpler approach matching calculator.py:
+    doc = await ProgressStatus.get(task_id)
+    if doc:
+        await doc.set(update_data)
+    elif upsert:
+        # Create new
+        # Need to ensure all required fields are present or defaults are used
+        # ProgressStatus model has optional fields mostly?
+        # Assuming task_id is the _id
+        # We need to construct the object
+        # update_data might contain "$set", strip it if present
+        data = update_data.get("$set", update_data)
+        doc = ProgressStatus(id=task_id, **data)
+        await doc.insert()
+    else:
+        logger.warning(f"Task {task_id} not found for update and upsert=False")
+
+
+async def _update_coverage_metadata(
+    display_name: str,
+    update_data: dict[str, Any],
+) -> None:
+    """Helper to update coverage metadata using Beanie."""
+    # Find by display_name is not by ID, so we use find_one
+    q = {"location.display_name": display_name}
+    data = update_data.get("$set", update_data)
+    unset_data = update_data.get("$unset")
+
+    # Use Beanie's find_one with upsert
+    # Note: upsert in Beanie requires on_insert doc usually, or relies on update query
+    # A safer way compatible with raw mongo logic is find -> update/insert
+
+    doc = await CoverageMetadata.find_one(
+        CoverageMetadata.location.display_name == display_name
+    )
+    if doc:
+        # Construct update query
+        req = {}
+        if data:
+            req["$set"] = data
+        if unset_data:
+            req["$unset"] = unset_data
+
+        if req:
+            await doc.update(req)
+    else:
+        # Create new if upsert logic required (usually yes for metadata)
+        # But we need 'location' to be set correctly for a new doc
+        if "location" not in data:
+            # Basic partial doc might fail validation if required fields missing
+            # But let's assume if creating new, we have enough info or model has defaults
+            # Using raw collection upsert for safety/compatibility with partial data if simpler
+            # But try to stay Beanie.
+            # Actually, for metadata, usually we have the location object.
+            # We can skip specific logic here if not needed
+            pass
+
+    # Alternative: use update_one on the Beanie model class (works like pymongo wrapper)
+    # await CoverageMetadata.get_motor_collection().update_one(q, update_data, upsert=True)
+    await CoverageMetadata.get_motor_collection().update_one(
+        q, update_data, upsert=True
+    )
 
 
 async def process_coverage_calculation(
@@ -52,20 +124,16 @@ async def process_coverage_calculation(
         display_name,
     )
     try:
-        await update_one_with_retry(
-            progress_collection,
-            {"_id": task_id},
+        await _update_progress(
+            task_id,
             {
-                "$set": {
-                    "stage": "initializing",
-                    "progress": 0,
-                    "message": "Starting coverage calculation orchestration...",
-                    "updated_at": datetime.now(UTC),
-                    "location": display_name,
-                    "status": "processing",
-                },
+                "stage": "initializing",
+                "progress": 0,
+                "message": "Starting coverage calculation orchestration...",
+                "updated_at": datetime.now(UTC),
+                "location": display_name,
+                "status": "processing",
             },
-            upsert=True,
         )
 
         result = await compute_coverage_for_location(location, task_id)
@@ -76,9 +144,8 @@ async def process_coverage_calculation(
                 task_id,
                 display_name,
             )
-            await update_one_with_retry(
-                coverage_metadata_collection,
-                {"location.display_name": display_name},
+            await _update_coverage_metadata(
+                display_name,
                 {
                     "$set": {
                         "status": "error",
@@ -86,7 +153,6 @@ async def process_coverage_calculation(
                         "last_updated": datetime.now(UTC),
                     },
                 },
-                upsert=True,
             )
         elif result.get("status") == "error":
             logger.error(
@@ -95,9 +161,8 @@ async def process_coverage_calculation(
                 display_name,
                 result.get("last_error", "Unknown error"),
             )
-            await update_one_with_retry(
-                coverage_metadata_collection,
-                {"location.display_name": display_name},
+            await _update_coverage_metadata(
+                display_name,
                 {
                     "$set": {
                         "status": "error",
@@ -105,7 +170,6 @@ async def process_coverage_calculation(
                         "last_updated": datetime.now(UTC),
                     },
                 },
-                upsert=True,
             )
         else:
             logger.info(
@@ -123,9 +187,8 @@ async def process_coverage_calculation(
         )
 
         try:
-            await update_one_with_retry(
-                coverage_metadata_collection,
-                {"location.display_name": display_name},
+            await _update_coverage_metadata(
+                display_name,
                 {
                     "$set": {
                         "status": "error",
@@ -133,20 +196,16 @@ async def process_coverage_calculation(
                         "last_updated": datetime.now(UTC),
                     },
                 },
-                upsert=True,
             )
-            await update_one_with_retry(
-                progress_collection,
-                {"_id": task_id},
+            await _update_progress(
+                task_id,
                 {
-                    "$set": {
-                        "stage": "error",
-                        "progress": 0,
-                        "message": f"Orchestration Error: {str(e)[:500]}",
-                        "error": str(e)[:200],
-                        "updated_at": datetime.now(UTC),
-                        "status": "error",
-                    },
+                    "stage": "error",
+                    "progress": 0,
+                    "message": f"Orchestration Error: {str(e)[:500]}",
+                    "error": str(e)[:200],
+                    "updated_at": datetime.now(UTC),
+                    "status": "error",
                 },
             )
         except Exception as inner_e:
@@ -178,20 +237,16 @@ async def process_incremental_coverage_calculation(
         display_name,
     )
     try:
-        await update_one_with_retry(
-            progress_collection,
-            {"_id": task_id},
+        await _update_progress(
+            task_id,
             {
-                "$set": {
-                    "stage": "initializing",
-                    "progress": 0,
-                    "message": "Starting incremental coverage orchestration...",
-                    "updated_at": datetime.now(UTC),
-                    "location": display_name,
-                    "status": "processing",
-                },
+                "stage": "initializing",
+                "progress": 0,
+                "message": "Starting incremental coverage orchestration...",
+                "updated_at": datetime.now(UTC),
+                "location": display_name,
+                "status": "processing",
             },
-            upsert=True,
         )
 
         result = await compute_incremental_coverage(location, task_id)
@@ -202,9 +257,8 @@ async def process_incremental_coverage_calculation(
                 task_id,
                 display_name,
             )
-            await update_one_with_retry(
-                coverage_metadata_collection,
-                {"location.display_name": display_name},
+            await _update_coverage_metadata(
+                display_name,
                 {
                     "$set": {
                         "status": "error",
@@ -212,7 +266,6 @@ async def process_incremental_coverage_calculation(
                         "last_updated": datetime.now(UTC),
                     },
                 },
-                upsert=True,
             )
         elif result.get("status") == "error":
             logger.error(
@@ -221,9 +274,8 @@ async def process_incremental_coverage_calculation(
                 display_name,
                 result.get("last_error", "Unknown error"),
             )
-            await update_one_with_retry(
-                coverage_metadata_collection,
-                {"location.display_name": display_name},
+            await _update_coverage_metadata(
+                display_name,
                 {
                     "$set": {
                         "status": "error",
@@ -231,7 +283,6 @@ async def process_incremental_coverage_calculation(
                         "last_updated": datetime.now(UTC),
                     },
                 },
-                upsert=True,
             )
         else:
             logger.info(
@@ -249,9 +300,8 @@ async def process_incremental_coverage_calculation(
         )
 
         try:
-            await update_one_with_retry(
-                coverage_metadata_collection,
-                {"location.display_name": display_name},
+            await _update_coverage_metadata(
+                display_name,
                 {
                     "$set": {
                         "status": "error",
@@ -259,20 +309,16 @@ async def process_incremental_coverage_calculation(
                         "last_updated": datetime.now(UTC),
                     },
                 },
-                upsert=True,
             )
-            await update_one_with_retry(
-                progress_collection,
-                {"_id": task_id},
+            await _update_progress(
+                task_id,
                 {
-                    "$set": {
-                        "stage": "error",
-                        "progress": 0,
-                        "message": f"Orchestration Error: {str(e)[:500]}",
-                        "error": str(e)[:200],
-                        "updated_at": datetime.now(UTC),
-                        "status": "error",
-                    },
+                    "stage": "error",
+                    "progress": 0,
+                    "message": f"Orchestration Error: {str(e)[:500]}",
+                    "error": str(e)[:200],
+                    "updated_at": datetime.now(UTC),
+                    "status": "error",
                 },
             )
         except Exception as inner_e:
@@ -306,24 +352,19 @@ async def process_area(
     overall_status = "processing"
 
     try:
-        await update_one_with_retry(
-            progress_collection,
-            {"_id": task_id},
+        await _update_progress(
+            task_id,
             {
-                "$set": {
-                    "stage": "preprocessing",
-                    "progress": 0,
-                    "message": "Initializing area processing...",
-                    "updated_at": datetime.now(UTC),
-                    "location": display_name,
-                    "status": "processing",
-                },
+                "stage": "preprocessing",
+                "progress": 0,
+                "message": "Initializing area processing...",
+                "updated_at": datetime.now(UTC),
+                "location": display_name,
+                "status": "processing",
             },
-            upsert=True,
         )
-        await update_one_with_retry(
-            coverage_metadata_collection,
-            {"location.display_name": display_name},
+        await _update_coverage_metadata(
+            display_name,
             {
                 "$set": {
                     "location": location,
@@ -342,41 +383,33 @@ async def process_area(
                 },
                 "$unset": {"streets_data": "", "processed_trips": ""},
             },
-            upsert=True,
         )
 
-        metadata = await find_one_with_retry(
-            coverage_metadata_collection,
-            {"location.display_name": display_name},
-            {"_id": 1},
-        )
-        if metadata and metadata.get("_id"):
-            location["_id"] = str(metadata["_id"])
+        # Retrieve ID if it exists to ensure consistency
+        metadata = await CoverageMetadata.find_one(
+            CoverageMetadata.location.display_name == display_name
+        ).project(Projection_model=CoverageMetadata)
+        if metadata and metadata.id:
+            location["_id"] = str(metadata.id)
 
-        await update_one_with_retry(
-            progress_collection,
-            {"_id": task_id},
+        await _update_progress(
+            task_id,
             {
-                "$set": {
-                    "progress": 5,
-                    "message": "Preprocessing streets (fetching OSM data)...",
-                },
+                "progress": 5,
+                "message": "Preprocessing streets (fetching OSM data)...",
             },
         )
 
         # Preprocess streets (defaults or feet overrides handled internally)
         graph, _ = await async_preprocess_streets(location, task_id)
 
-        await update_one_with_retry(
-            progress_collection,
-            {"_id": task_id},
+        await _update_progress(
+            task_id,
             {
-                "$set": {
-                    "stage": "indexing",
-                    "progress": 10,
-                    "message": "Segmenting streets for coverage analysis...",
-                    "updated_at": datetime.now(UTC),
-                },
+                "stage": "indexing",
+                "progress": 10,
+                "message": "Segmenting streets for coverage analysis...",
+                "updated_at": datetime.now(UTC),
             },
         )
 
@@ -395,9 +428,8 @@ async def process_area(
                 error_msg,
             )
             overall_status = "error"
-            await update_one_with_retry(
-                coverage_metadata_collection,
-                {"location.display_name": display_name},
+            await _update_coverage_metadata(
+                display_name,
                 {
                     "$set": {
                         "status": "error",
@@ -405,20 +437,16 @@ async def process_area(
                         "last_updated": datetime.now(UTC),
                     },
                 },
-                upsert=True,
             )
-            await update_one_with_retry(
-                progress_collection,
-                {"_id": task_id},
+            await _update_progress(
+                task_id,
                 {
-                    "$set": {
-                        "stage": "error",
-                        "progress": 20,
-                        "message": error_msg,
-                        "error": error_msg,
-                        "updated_at": datetime.now(UTC),
-                        "status": "error",
-                    },
+                    "stage": "error",
+                    "progress": 20,
+                    "message": error_msg,
+                    "error": error_msg,
+                    "updated_at": datetime.now(UTC),
+                    "status": "error",
                 },
             )
             return
@@ -432,9 +460,8 @@ async def process_area(
                 display_name,
             )
             overall_status = "error"
-            await update_one_with_retry(
-                coverage_metadata_collection,
-                {"location.display_name": display_name},
+            await _update_coverage_metadata(
+                display_name,
                 {
                     "$set": {
                         "status": "error",
@@ -442,20 +469,16 @@ async def process_area(
                         "last_updated": datetime.now(UTC),
                     },
                 },
-                upsert=True,
             )
-            await update_one_with_retry(
-                progress_collection,
-                {"_id": task_id},
+            await _update_progress(
+                task_id,
                 {
-                    "$set": {
-                        "stage": "error",
-                        "progress": 20,
-                        "message": error_msg,
-                        "error": error_msg,
-                        "updated_at": datetime.now(UTC),
-                        "status": "error",
-                    },
+                    "stage": "error",
+                    "progress": 20,
+                    "message": error_msg,
+                    "error": error_msg,
+                    "updated_at": datetime.now(UTC),
+                    "status": "error",
                 },
             )
             return
@@ -465,22 +488,18 @@ async def process_area(
             task_id,
             display_name,
         )
-        await update_one_with_retry(
-            coverage_metadata_collection,
-            {"location.display_name": display_name},
+        await _update_coverage_metadata(
+            display_name,
             {"$set": {"status": "calculating"}},
         )
 
-        await update_one_with_retry(
-            progress_collection,
-            {"_id": task_id},
+        await _update_progress(
+            task_id,
             {
-                "$set": {
-                    "stage": "post_preprocessing",
-                    "progress": 40,
-                    "message": "Street preprocessing complete. Initializing coverage calculation...",
-                    "updated_at": datetime.now(UTC),
-                },
+                "stage": "post_preprocessing",
+                "progress": 40,
+                "message": "Street preprocessing complete. Initializing coverage calculation...",
+                "updated_at": datetime.now(UTC),
             },
         )
         calculation_result = await compute_coverage_for_location(
@@ -504,9 +523,8 @@ async def process_area(
                 display_name,
                 final_error,
             )
-            await update_one_with_retry(
-                coverage_metadata_collection,
-                {"location.display_name": display_name},
+            await _update_coverage_metadata(
+                display_name,
                 {
                     "$set": {
                         "status": "error",
@@ -514,20 +532,16 @@ async def process_area(
                         "last_updated": datetime.now(UTC),
                     },
                 },
-                upsert=True,
             )
             # Ensure progress is updated to error state so frontend stops polling
-            await update_one_with_retry(
-                progress_collection,
-                {"_id": task_id},
+            await _update_progress(
+                task_id,
                 {
-                    "$set": {
-                        "stage": "error",
-                        "status": "error",
-                        "error": final_error,
-                        "message": f"Coverage calculation failed: {final_error}",
-                        "updated_at": datetime.now(UTC),
-                    },
+                    "stage": "error",
+                    "status": "error",
+                    "error": final_error,
+                    "message": f"Coverage calculation failed: {final_error}",
+                    "updated_at": datetime.now(UTC),
                 },
             )
         else:
@@ -548,9 +562,8 @@ async def process_area(
         )
 
         try:
-            await update_one_with_retry(
-                coverage_metadata_collection,
-                {"location.display_name": display_name},
+            await _update_coverage_metadata(
+                display_name,
                 {
                     "$set": {
                         "status": "error",
@@ -558,19 +571,15 @@ async def process_area(
                         "last_updated": datetime.now(UTC),
                     },
                 },
-                upsert=True,
             )
-            await update_one_with_retry(
-                progress_collection,
-                {"_id": task_id},
+            await _update_progress(
+                task_id,
                 {
-                    "$set": {
-                        "stage": "error",
-                        "message": f"Area Processing Error: {str(e)[:500]}",
-                        "error": str(e)[:200],
-                        "updated_at": datetime.now(UTC),
-                        "status": "error",
-                    },
+                    "stage": "error",
+                    "message": f"Area Processing Error: {str(e)[:500]}",
+                    "error": str(e)[:200],
+                    "updated_at": datetime.now(UTC),
+                    "status": "error",
                 },
             )
         except Exception as inner_e:

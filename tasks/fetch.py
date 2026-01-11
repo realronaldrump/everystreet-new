@@ -13,18 +13,14 @@ from typing import Any
 
 from celery import shared_task
 from celery.utils.log import get_task_logger
+from pymongo import DESCENDING
 
 from bouncie_trip_fetcher import fetch_bouncie_trips_in_range
 from config import get_bouncie_config
 from core.async_bridge import run_async_from_sync
 from date_utils import parse_timestamp
-from db import (
-    count_documents_with_retry,
-    find_one_with_retry,
-    task_config_collection,
-    trips_collection,
-    update_one_with_retry,
-)
+from db import db_manager
+from db.models import Trip
 from tasks.core import task_runner
 
 logger = get_task_logger(__name__)
@@ -84,16 +80,14 @@ async def periodic_fetch_trips_async(
     if not start_date_fetch:
         try:
             logger.info("Looking for the most recent trip in the database (any source)")
-            latest_trip = await find_one_with_retry(
-                trips_collection,
-                {},
-                sort=[("endTime", -1)],
-            )
+            # Use Beanie to find latest trip
+            latest_trip = await Trip.find_one(sort=[("endTime", DESCENDING)])
 
             if latest_trip:
-                latest_trip_id = latest_trip.get("transactionId", "unknown")
-                latest_trip_source = latest_trip.get("source", "unknown")
-                latest_trip_end = parse_timestamp(latest_trip.get("endTime"))
+                latest_trip_id = latest_trip.transactionId or "unknown"
+                # 'source' field is not explicitly in Trip model but extra fields allowed
+                latest_trip_source = getattr(latest_trip, "source", "unknown")
+                latest_trip_end = latest_trip.endTime
 
                 logger.info(
                     "Found most recent trip: id=%s, source=%s, endTime=%s",
@@ -125,11 +119,13 @@ async def periodic_fetch_trips_async(
 
         except Exception as e:
             logger.exception("Error finding latest trip: %s", e)
-        start_date_fetch = now_utc - timedelta(hours=48)
-        logger.info(
-            "Using fallback start date after error (48 hours ago): %s",
-            start_date_fetch.isoformat(),
-        )
+
+        if not start_date_fetch:
+            start_date_fetch = now_utc - timedelta(hours=48)
+            logger.info(
+                "Using fallback start date after error (48 hours ago): %s",
+                start_date_fetch.isoformat(),
+            )
 
     max_lookback = now_utc - timedelta(days=7)
     if start_date_fetch < max_lookback:
@@ -170,8 +166,9 @@ async def periodic_fetch_trips_async(
 
     logger.info("Updating last_success_time in task config...")
     try:
-        update_result = await update_one_with_retry(
-            task_config_collection,
+        # Use raw collection for singleton config
+        task_config_coll = db_manager.get_collection("task_config")
+        update_result = await task_config_coll.update_one(
             {"_id": "global_background_task_config"},
             {"$set": {"tasks.periodic_fetch_trips.last_success_time": now_utc}},
             upsert=True,
@@ -185,22 +182,22 @@ async def periodic_fetch_trips_async(
         logger.exception("Error updating task config: %s", update_err)
 
     try:
-        trips_after_fetch = await count_documents_with_retry(
-            trips_collection,
-            {"source": "bouncie"},
-        )
+        trips_after_fetch = await Trip.find(Trip.matchStatus == "bouncie").count()
+        # Wait, source vs matchStatus? Trip model has `matchStatus`.
+        # Legacy code queried `{"source": "bouncie"}`.
+        # Trip model `extra="allow"`.
+        # `source` is likely an extra field.
+        trips_after_fetch = await Trip.find({"source": "bouncie"}).count()
+
         logger.info(
             "Total trips with source='bouncie' after fetch: %d",
             trips_after_fetch,
         )
 
-        trips_recent = await count_documents_with_retry(
-            trips_collection,
-            {
-                "source": "bouncie",
-                "startTime": {"$gte": start_date_fetch},
-            },
-        )
+        trips_recent = await Trip.find(
+            {"source": "bouncie", "startTime": {"$gte": start_date_fetch}}
+        ).count()
+
         logger.info(
             "Trips with source='bouncie' since %s: %d",
             start_date_fetch.isoformat(),
@@ -337,14 +334,10 @@ def manual_fetch_trips_range(
 async def get_earliest_trip_date() -> datetime | None:
     """Find the start time of the earliest trip in the database."""
     try:
-        earliest_trip = await find_one_with_retry(
-            trips_collection,
-            {},
-            sort=[("startTime", 1)],
-            projection={"startTime": 1},
-        )
-        if earliest_trip and "startTime" in earliest_trip:
-            return parse_timestamp(earliest_trip["startTime"])
+        # Use Beanie
+        earliest_trip = await Trip.find_one(sort=[("startTime", 1)])
+        if earliest_trip and earliest_trip.startTime:
+            return earliest_trip.startTime
     except Exception as e:
         logger.error("Error finding earliest trip date: %s", e)
     return None
@@ -390,7 +383,7 @@ async def fetch_all_missing_trips_async(
     )
 
     try:
-        initial_count = await count_documents_with_retry(trips_collection, {})
+        initial_count = await Trip.count()
         logger.info("Current total trips in DB before fetch: %d", initial_count)
     except Exception as e:
         logger.error("Error counting trips: %s", e)

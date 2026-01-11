@@ -5,10 +5,12 @@ all data into memory at once.
 """
 
 import csv
+import json
 import logging
 from collections.abc import AsyncIterator
 from datetime import datetime
 from io import StringIO
+from typing import Any
 
 from fastapi import Request
 from fastapi.responses import StreamingResponse
@@ -24,6 +26,15 @@ from export_helpers import (
 from geometry_service import GeometryService
 
 logger = logging.getLogger(__name__)
+
+
+def _ensure_dict(item: Any) -> dict[str, Any]:
+    """Convert item to dictionary if it is a Pydantic model."""
+    if hasattr(item, "model_dump"):
+        return item.model_dump(by_alias=True)
+    if hasattr(item, "dict"):
+        return item.dict(by_alias=True)
+    return item
 
 
 class StreamingService:
@@ -51,6 +62,7 @@ class StreamingService:
         first = True
         async for trip in cursor:
             try:
+                trip = _ensure_dict(trip)
                 geom = GeometryService.geometry_from_document(trip, geometry_field)
                 if not geom:
                     continue
@@ -73,7 +85,8 @@ class StreamingService:
         first = True
         async for doc in cursor:
             try:
-                chunk = json.dumps(doc, separators=(",", ":"))
+                doc = _ensure_dict(doc)
+                chunk = json.dumps(doc, separators=(",", ":"), default=str)
                 if not first:
                     yield ","
                 yield chunk
@@ -91,7 +104,7 @@ class StreamingService:
         """
         trips = []
         async for trip in cursor:
-            trips.append(trip)
+            trips.append(_ensure_dict(trip))
 
         gpx_content = await create_gpx(trips)
         yield gpx_content
@@ -122,6 +135,7 @@ class StreamingService:
 
         async for doc in cursor:
             try:
+                doc = _ensure_dict(doc)
                 flat = flatten_trip_for_csv(
                     doc,
                     include_gps_in_csv=include_gps_in_csv,

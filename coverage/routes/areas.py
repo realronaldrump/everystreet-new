@@ -16,7 +16,7 @@ from fastapi.responses import JSONResponse
 from coverage.location_settings import normalize_location_settings
 from coverage.serializers import serialize_coverage_area, serialize_coverage_details
 from coverage_tasks import process_area
-from db import CoverageMetadata, OsmData, ProgressStatus, Street, db_manager
+from db import CoverageMetadata, OsmData, ProgressStatus, Street
 from models import DeleteCoverageAreaModel, LocationModel
 
 logger = logging.getLogger(__name__)

@@ -20,14 +20,7 @@ from coverage.location_settings import (
     FEET_TO_METERS,
     normalize_location_settings,
 )
-from db import (
-    coverage_metadata_collection,
-    delete_many_with_retry,
-    insert_many_with_retry,
-    progress_collection,
-    streets_collection,
-    update_one_with_retry,
-)
+from db.models import CoverageMetadata, ProgressStatus, Street
 from preprocess_streets import GRAPH_STORAGE_DIR, preprocess_streets
 
 logger = logging.getLogger(__name__)
@@ -110,20 +103,30 @@ async def _update_progress(
 ) -> None:
     if not task_id:
         return
-    update_doc: dict[str, Any] = {
+
+    update_data = {
         "stage": "indexing",
         "progress": round(progress, 2),
         "message": message,
         "updated_at": datetime.now(UTC),
     }
     if metrics is not None:
-        update_doc["metrics"] = metrics
-    await update_one_with_retry(
-        progress_collection,
-        {"_id": task_id},
-        {"$set": update_doc},
-        upsert=True,
-    )
+        update_data["metrics"] = metrics
+
+    # Upsert ProgressStatus
+    # Beanie doesn't have a direct "upsert dict" helper, but we can check existene or use update with upsert=True if finding by ID
+    # Since we need to match by _id being task_id.
+
+    # We can use find_one(id).upsert(Set(data), on_insert=Doc(id=id, **data))
+    # Or just use the model.
+
+    status_doc = await ProgressStatus.get(task_id)
+    if status_doc:
+        await status_doc.set(update_data)
+    else:
+        # Create new
+        status_doc = ProgressStatus(id=task_id, **update_data)
+        await status_doc.insert()
 
 
 async def build_street_segments(
@@ -176,14 +179,12 @@ async def build_street_segments(
     edges_projected = ox.projection.project_gdf(edges)
     total_edges = len(edges_projected)
 
-    await delete_many_with_retry(
-        streets_collection,
-        {"properties.location": location_name},
-    )
+    # Delete existing street segments for this location
+    await Street.find({"properties.location": location_name}).delete()
 
     segment_count = 0
     total_length_m = 0.0
-    batch: list[dict[str, Any]] = []
+    batch: list[Street] = []
 
     progress_start = 15
     progress_span = 20
@@ -219,27 +220,32 @@ async def build_street_segments(
 
                 segment_count += 1
                 total_length_m += seg_length
-                batch.append(
-                    {
-                        "geometry": mapping(seg_geom),
-                        "properties": {
-                            "segment_id": f"{location_id}-{segment_count}",
-                            "location": location_name,
-                            "street_name": street_name,
-                            "highway": highway,
-                            "segment_length": seg_length,
-                            "driven": False,
-                            "undriveable": False,
-                            "osm_id": osmid,
-                        },
-                        "area_id": ObjectId(location_id),
-                        "area_version": 1,
+
+                street_doc = Street(
+                    geometry=mapping(seg_geom),
+                    properties={
                         "segment_id": f"{location_id}-{segment_count}",
-                    }
+                        "location": location_name,
+                        "street_name": street_name,
+                        "highway": highway,
+                        "segment_length": seg_length,
+                        "driven": False,
+                        "undriveable": False,
+                        "osm_id": osmid,
+                    },
+                    # Extra fields that were outside of properties/geometry in original dict
+                    # But checking Street model, it only has properties and geometry fields + type
+                    # The original code added "area_id" and "area_version" and "segment_id" at top level
+                    # But Street model says check Config: extra="allow"
+                    area_id=ObjectId(location_id),
+                    area_version=1,
+                    segment_id=f"{location_id}-{segment_count}",
                 )
 
+                batch.append(street_doc)
+
                 if len(batch) >= BATCH_SIZE:
-                    await insert_many_with_retry(streets_collection, batch)
+                    await Street.insert_many(batch)
                     batch.clear()
 
         if idx % progress_interval == 0 or time.monotonic() - last_progress >= 1.0:
@@ -257,11 +263,10 @@ async def build_street_segments(
             last_progress = time.monotonic()
 
     if batch:
-        await insert_many_with_retry(streets_collection, batch)
+        await Street.insert_many(batch)
 
-    await update_one_with_retry(
-        coverage_metadata_collection,
-        {"location.display_name": location_name},
+    # Update CoverageMetadata
+    await CoverageMetadata.find_one({"location.display_name": location_name}).upsert(
         {
             "$set": {
                 "total_segments": segment_count,
@@ -270,7 +275,13 @@ async def build_street_segments(
                 "last_updated": datetime.now(UTC),
             }
         },
-        upsert=True,
+        on_insert=CoverageMetadata(
+            location={"display_name": location_name},
+            total_segments=segment_count,
+            total_length_m=total_length_m,
+            driveable_length_m=total_length_m,
+            last_updated=datetime.now(UTC),
+        ),
     )
 
     await _update_progress(

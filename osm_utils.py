@@ -12,12 +12,7 @@ import osmnx as ox
 from shapely.geometry import box, shape
 from shapely.geometry.base import BaseGeometry
 
-from db import (
-    find_one_with_retry,
-    insert_one_with_retry,
-    osm_data_collection,
-    update_one_with_retry,
-)
+from db.models import OsmData
 
 logger = logging.getLogger(__name__)
 
@@ -244,38 +239,30 @@ async def generate_geojson_osm(
         try:
             bson_size_estimate = len(json.dumps(geojson_data).encode("utf-8"))
             if bson_size_estimate <= 16793598:
-                existing_data = await find_one_with_retry(
-                    osm_data_collection,
-                    {"location": location, "type": osm_type_label},
+                # Query using Beanie model
+                existing_data = await OsmData.find_one(
+                    OsmData.location == location,
+                    OsmData.type == osm_type_label,
                 )
 
                 if existing_data:
-                    await update_one_with_retry(
-                        osm_data_collection,
-                        {"_id": existing_data["_id"]},
-                        {
-                            "$set": {
-                                "geojson": geojson_data,
-                                "updated_at": datetime.now(UTC),
-                            }
-                        },
-                    )
+                    existing_data.geojson = geojson_data
+                    existing_data.updated_at = datetime.now(UTC)
+                    await existing_data.save()
                     logger.info(
                         "Updated cached OSM data for %s, type: %s",
                         location_name,
                         osm_type_label,
                     )
                 else:
-                    await insert_one_with_retry(
-                        osm_data_collection,
-                        {
-                            "location": location,
-                            "type": osm_type_label,
-                            "geojson": geojson_data,
-                            "created_at": datetime.now(UTC),
-                            "updated_at": datetime.now(UTC),
-                        },
+                    new_data = OsmData(
+                        location=location,
+                        type=osm_type_label,
+                        geojson=geojson_data,
+                        created_at=datetime.now(UTC),
+                        updated_at=datetime.now(UTC),
                     )
+                    await new_data.insert()
                     logger.info(
                         "Stored OSM data to cache for %s, type: %s",
                         location_name,

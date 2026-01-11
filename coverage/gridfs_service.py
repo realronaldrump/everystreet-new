@@ -12,7 +12,8 @@ from fastapi.encoders import jsonable_encoder
 from gridfs import errors
 from motor.motor_asyncio import AsyncIOMotorGridFSBucket
 
-from db import db_manager, find_one_with_retry, update_one_with_retry
+from db.manager import db_manager
+from db.models import CoverageMetadata, Street
 
 logger = logging.getLogger(__name__)
 
@@ -20,12 +21,13 @@ logger = logging.getLogger(__name__)
 class GridFSService:
     """Service for managing GeoJSON files in GridFS."""
 
-    def __init__(self):
-        """Initialize GridFS service."""
-        self.db = db_manager.db
-        self.bucket = AsyncIOMotorGridFSBucket(self.db)
-        self.coverage_metadata_collection = self.db["coverage_metadata"]
-        self.streets_collection = self.db["streets"]
+    @property
+    def bucket(self) -> AsyncIOMotorGridFSBucket:
+        """Get GridFS bucket from db_manager."""
+        return db_manager.gridfs_bucket
+
+    # We can access fs.files collection via db_manager.db for metadata queries if needed
+    # db_manager.db["fs.files"]
 
     async def get_file_metadata(self, file_id: ObjectId) -> dict | None:
         """Get metadata for a GridFS file.
@@ -37,7 +39,7 @@ class GridFSService:
             File metadata or None if not found
         """
         try:
-            metadata = await self.db["fs.files"].find_one({"_id": file_id})
+            metadata = await db_manager.db["fs.files"].find_one({"_id": file_id})
             return metadata
         except Exception as e:
             logger.error("Error fetching GridFS file metadata %s: %s", file_id, e)
@@ -197,7 +199,8 @@ class GridFSService:
         """
         deleted_count = 0
         try:
-            cursor = self.db["fs.files"].find(
+            # Query fs.files collection
+            cursor = db_manager.db["fs.files"].find(
                 {"metadata.location": location_name}, {"_id": 1}
             )
             async for file_doc in cursor:
@@ -231,42 +234,30 @@ class GridFSService:
             New GridFS file ID or None on error
         """
         try:
-            coverage_doc = await find_one_with_retry(
-                self.coverage_metadata_collection,
-                {"_id": location_id},
-                {"location.display_name": 1, "streets_geojson_gridfs_id": 1},
-            )
+            # Use Beanie to get metadata
+            coverage_doc = await CoverageMetadata.get(location_id)
 
-            if not coverage_doc or not coverage_doc.get("location", {}).get(
-                "display_name"
-            ):
+            if not coverage_doc or not coverage_doc.location.get("display_name"):
                 logger.warning(
                     "Cannot regenerate GeoJSON: missing coverage metadata for %s",
                     location_id,
                 )
                 return None
 
-            location_name = coverage_doc["location"]["display_name"]
+            location_name = coverage_doc.location["display_name"]
 
-            # Stream and clean features
-            raw_features = await self.streets_collection.find(
-                {"properties.location": location_name},
-                {
-                    "_id": 0,
-                    "geometry": 1,
-                    "properties.segment_id": 1,
-                    "properties.street_name": 1,
-                    "properties.highway": 1,
-                    "properties.segment_length": 1,
-                    "properties.driven": 1,
-                    "properties.undriveable": 1,
-                },
-            ).to_list(length=None)
-
-            # Build clean GeoJSON
+            # Stream and clean features using Beanie
+            # Fetch specific fields
             clean_features = []
-            for f in raw_features:
-                props = f.get("properties", {})
+            async for street in Street.find(
+                {"properties.location": location_name}
+            ).project(
+                model=Street
+            ):  # We can optimize query if needed, but iteration is fine
+                if not street.geometry:
+                    continue
+
+                props = street.properties
                 clean_props = {
                     "segment_id": props.get("segment_id"),
                     "street_name": props.get("street_name"),
@@ -278,7 +269,7 @@ class GridFSService:
                 clean_features.append(
                     {
                         "type": "Feature",
-                        "geometry": f.get("geometry"),
+                        "geometry": street.geometry,
                         "properties": clean_props,
                     }
                 )
@@ -286,9 +277,14 @@ class GridFSService:
             geojson = {"type": "FeatureCollection", "features": clean_features}
 
             # Delete old GridFS file if present
-            old_id = coverage_doc.get("streets_geojson_gridfs_id")
-            if isinstance(old_id, ObjectId):
-                await self.delete_file(old_id, location_name)
+            # Access field directly from model
+            old_id_str = coverage_doc.streets_geojson_id
+            if old_id_str:
+                try:
+                    old_id = ObjectId(old_id_str)
+                    await self.delete_file(old_id, location_name)
+                except Exception:
+                    pass
 
             # Serialize and upload
             safe_geojson = jsonable_encoder(geojson)
@@ -298,11 +294,8 @@ class GridFSService:
             )
 
             # Update metadata
-            await update_one_with_retry(
-                self.coverage_metadata_collection,
-                {"_id": location_id},
-                {"$set": {"streets_geojson_gridfs_id": new_id}},
-            )
+            coverage_doc.streets_geojson_id = str(new_id)
+            await coverage_doc.save()
 
             logger.info("Regenerated GridFS geojson %s for %s", new_id, location_name)
             return new_id

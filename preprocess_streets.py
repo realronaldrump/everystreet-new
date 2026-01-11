@@ -109,7 +109,7 @@ async def preprocess_streets(
 
 async def preprocess_all_graphs():
     """Main function to process all coverage areas."""
-    from db import coverage_metadata_collection
+    from db.models import CoverageMetadata
 
     load_dotenv()
 
@@ -119,15 +119,21 @@ async def preprocess_all_graphs():
 
     # Fetch all coverage areas
     logger.info("Fetching coverage areas from MongoDB...")
-    cursor = coverage_metadata_collection.find({})
-    areas = await cursor.to_list(length=None)
+    areas_cursor = CoverageMetadata.find({})
+    areas = await areas_cursor.to_list()
     logger.info("Found %d coverage areas.", len(areas))
 
     for area in areas:
-        loc_data = area.get("location", {})
+        # Beanie model to dict or accessing properties
+        # area is a CoverageMetadata document
+        loc_data = area.location
+        if not loc_data:
+            continue
+
         # Ensure _id is available for filename
+        # In Beanie, id is available as .id or in doc
         if "_id" not in loc_data:
-            loc_data["_id"] = str(area["_id"])
+            loc_data["_id"] = str(area.id)
 
         await preprocess_streets(loc_data)
 

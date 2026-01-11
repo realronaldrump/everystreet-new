@@ -7,9 +7,10 @@ Settings are stored once and shared across all deployments using the same databa
 from __future__ import annotations
 
 import logging
+from datetime import UTC, datetime
 from typing import Any
 
-from db import db_manager, find_one_with_retry, update_one_with_retry
+from db.models import AppSettings
 
 logger = logging.getLogger(__name__)
 
@@ -30,11 +31,6 @@ class SettingsCache:
         cls._cache = cache
 
 
-async def get_app_settings_collection():
-    """Get the app_settings collection from db_manager."""
-    return db_manager.get_collection("app_settings")
-
-
 async def get_app_settings() -> dict[str, Any]:
     """Retrieve app settings from database.
 
@@ -52,21 +48,25 @@ async def get_app_settings() -> dict[str, Any]:
         }
 
     try:
-        collection = await get_app_settings_collection()
-        settings = await find_one_with_retry(
-            collection,
-            {"_id": "app_settings"},
-        )
+        # Using string ID "app_settings" as per legacy schema
+        settings = await AppSettings.get("app_settings")
 
         if settings:
             logger.debug("Retrieved app settings from database")
 
             # Use DB value
-            token = settings.get("mapbox_access_token", "")
+            # Model fields should be populated, fallback to dict access if needed via extra fields
+            token = settings.mapbox_access_token or ""
+
+            # If mapbox_access_token was not in model fields but in db (because of extra='allow')
+            if not token and hasattr(settings, "mapbox_access_token"):
+                token = getattr(settings, "mapbox_access_token", "")
+
+            clarity_id = settings.clarity_project_id
 
             result = {
                 "mapbox_access_token": token,
-                "clarity_project_id": settings.get("clarity_project_id"),
+                "clarity_project_id": clarity_id,
             }
             # Update cache
             SettingsCache.set_cache(result)
@@ -91,8 +91,6 @@ async def update_app_settings(settings: dict[str, Any]) -> bool:
     """
 
     try:
-        collection = await get_app_settings_collection()
-
         # Build update_data with only the fields that were explicitly provided
         update_data = {}
 
@@ -105,14 +103,25 @@ async def update_app_settings(settings: dict[str, Any]) -> bool:
             logger.warning("No fields to update in app settings")
             return False
 
-        result = await update_one_with_retry(
-            collection,
-            {"_id": "app_settings"},
-            {"$set": update_data},
-            upsert=True,
-        )
+        # Update via Beanie
+        # We try to get the document first
+        doc = await AppSettings.get("app_settings")
+        if doc:
+            # Update fields
+            for k, v in update_data.items():
+                setattr(doc, k, v)
+            doc.updated_at = datetime.now(UTC)
+            await doc.save()
+            success = True
+        else:
+            # Insert new document with specific ID
+            # Beanie Document init with id argument
+            new_doc = AppSettings(
+                id="app_settings", updated_at=datetime.now(UTC), **update_data
+            )
+            await new_doc.insert()
+            success = True
 
-        success = result.modified_count > 0 or result.upserted_id is not None
         if success:
             logger.info("Successfully updated app settings in database")
             # Invalidate cache

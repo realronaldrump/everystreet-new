@@ -16,12 +16,7 @@ from celery.utils.log import get_task_logger
 
 from core.async_bridge import run_async_from_sync
 from coverage import compute_incremental_coverage
-from db import (
-    coverage_metadata_collection,
-    find_with_retry,
-    progress_collection,
-    update_one_with_retry,
-)
+from db.models import CoverageMetadata, ProgressStatus
 from tasks.core import task_runner
 
 logger = get_task_logger(__name__)
@@ -34,15 +29,18 @@ async def update_coverage_for_new_trips_async(_self) -> dict[str, Any]:
     failed_areas = 0
     skipped_areas = 0
 
-    coverage_areas = await find_with_retry(coverage_metadata_collection, {})
+    # Fetch all coverage areas
+    coverage_areas_cursor = CoverageMetadata.find({})
+    coverage_areas = await coverage_areas_cursor.to_list()
     logger.info(
         "Found %d coverage areas to check for incremental updates.",
         len(coverage_areas),
     )
 
     for area in coverage_areas:
-        location = area.get("location")
-        area_id_str = str(area.get("_id"))
+        # area is a CoverageMetadata document
+        location = area.location
+        area_id_str = str(area.id)
         display_name = (
             location.get("display_name", "Unknown")
             if location
@@ -94,18 +92,19 @@ async def update_coverage_for_new_trips_async(_self) -> dict[str, Any]:
             )
             failed_areas += 1
             try:
-                await update_one_with_retry(
-                    progress_collection,
-                    {"_id": sub_task_id},
-                    {
-                        "$set": {
-                            "stage": "error",
-                            "error": str(inner_e),
-                            "updated_at": datetime.now(UTC),
-                        }
-                    },
-                    upsert=True,
-                )
+                # Update progress status using Beanie
+                doc = await ProgressStatus.get(sub_task_id)
+                update_data = {
+                    "stage": "error",
+                    "error": str(inner_e),
+                    "updated_at": datetime.now(UTC),
+                }
+                if doc:
+                    await doc.set(update_data)
+                else:
+                    # Create new if needed, assuming upsert=True logic
+                    await ProgressStatus(id=sub_task_id, **update_data).insert()
+
             except Exception as prog_err:
                 logger.error(
                     "Failed to update progress status for failed sub-task %s: %s",

@@ -11,8 +11,6 @@ from typing import Any
 
 from motor.motor_asyncio import AsyncIOMotorCollection
 
-from db import update_one_with_retry
-
 logger = logging.getLogger(__name__)
 
 
@@ -123,8 +121,7 @@ class ProgressTracker:
             }
 
         try:
-            await update_one_with_retry(
-                self.collection,
+            await self.collection.update_one(
                 self._get_filter(),
                 update_doc,
                 upsert=upsert,
@@ -159,8 +156,7 @@ class ProgressTracker:
             update_data["location_id"] = self.location_id
 
         try:
-            await update_one_with_retry(
-                self.collection,
+            await self.collection.update_one(
                 self._get_filter(),
                 {"$set": update_data},
                 upsert=False,
@@ -197,8 +193,7 @@ class ProgressTracker:
             update_data["location_id"] = self.location_id
 
         try:
-            await update_one_with_retry(
-                self.collection,
+            await self.collection.update_one(
                 self._get_filter(),
                 {"$set": update_data},
                 upsert=False,

@@ -16,13 +16,14 @@ from shapely.geometry import Point, shape
 
 from county_data_service import get_county_topology_document
 from date_utils import parse_timestamp
-from db import db_manager, trips_collection
+from db import db_manager
+from db.models import Trip
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/counties", tags=["counties"])
 
 # Collection for caching visited counties
-county_cache_collection = db_manager.db["county_visited_cache"]
+county_cache_collection = db_manager.get_collection("county_visited_cache")
 
 try:
     from shapely.validation import make_valid as _make_valid
@@ -182,7 +183,7 @@ async def calculate_visited_counties_task():
         county_stops: dict[str, dict[str, datetime | None]] = {}
 
         # Query all valid trips with GPS data, ordered by time
-        trips_cursor = trips_collection.find(
+        trips_cursor = Trip.get_motor_collection().find(
             {
                 "isInvalid": {"$ne": True},
                 "$or": [

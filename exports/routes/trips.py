@@ -1,5 +1,6 @@
 """Trip export route handlers."""
 
+import json
 import logging
 from datetime import datetime
 
@@ -8,17 +9,19 @@ from fastapi import APIRouter, HTTPException, Query, Request, status
 from db import (
     build_calendar_date_expr,
     build_query_from_request,
-    db_manager,
-    find_one_with_retry,
-    json_dumps,
 )
+from db.models import Trip
 from export_helpers import create_export_response, process_trip_for_export
-from exports.services import StreamingService
+from exports.services.streaming_service import StreamingService
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
-trips_collection = db_manager.db["trips"]
+
+async def trip_cursor_wrapper(cursor):
+    """Yield dicts from Beanie cursor."""
+    async for trip in cursor:
+        yield trip.model_dump()
 
 
 @router.get("/export/geojson")
@@ -26,7 +29,9 @@ async def export_geojson(request: Request):
     """Export trips as GeoJSON."""
     try:
         query = await build_query_from_request(request)
-        cursor = trips_collection.find(query).batch_size(500)
+        find_query = Trip.find(query)
+        cursor = trip_cursor_wrapper(find_query)
+
         filename_base = f"trips_{StreamingService.get_date_range_filename(request)}"
 
         response = await StreamingService.export_format(
@@ -46,7 +51,9 @@ async def export_gpx(request: Request):
     """Export trips as GPX."""
     try:
         query = await build_query_from_request(request)
-        cursor = trips_collection.find(query).batch_size(500)
+        find_query = Trip.find(query)
+        cursor = trip_cursor_wrapper(find_query)
+
         filename_base = f"trips_{StreamingService.get_date_range_filename(request)}"
 
         response = await StreamingService.export_format(cursor, "gpx", filename_base)
@@ -66,10 +73,7 @@ async def export_single_trip(
 ):
     """Export a single trip by ID."""
     try:
-        t = await find_one_with_retry(
-            trips_collection,
-            {"transactionId": trip_id},
-        )
+        t = await Trip.find_one(Trip.transactionId == trip_id)
 
         if not t:
             raise HTTPException(
@@ -77,11 +81,13 @@ async def export_single_trip(
                 detail="Trip not found",
             )
 
-        start_date = t.get("startTime")
+        # Convert to dict for export helper
+        trip_dict = t.model_dump()
+        start_date = trip_dict.get("startTime")
         date_str = start_date.strftime("%Y%m%d") if start_date else "unknown_date"
         filename_base = f"trip_{trip_id}_{date_str}"
 
-        return await create_export_response([t], fmt, filename_base)
+        return await create_export_response([trip_dict], fmt, filename_base)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -104,15 +110,16 @@ async def export_all_trips(
         current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename_base = f"all_trips_{current_time}"
 
-        cursor = trips_collection.find({}).batch_size(500)
+        find_query = Trip.find({})
+        cursor = trip_cursor_wrapper(find_query)
 
         # Try streaming export first
         response = await StreamingService.export_format(cursor, fmt, filename_base)
         if response:
             return response
 
-        # Fall back to non-streaming helper for shapefile
-        all_trips = await trips_collection.find({}).to_list(length=1000)
+        # Fall back to non-streaming helper for shapefile and others
+        all_trips = [t.model_dump() for t in await find_query.to_list()]
         return await create_export_response(all_trips, fmt, filename_base)
     except ValueError as e:
         raise HTTPException(
@@ -137,14 +144,15 @@ async def export_trips_within_range(
         query = await build_query_from_request(request)
         filename_base = f"trips_{StreamingService.get_date_range_filename(request)}"
 
-        cursor = trips_collection.find(query).batch_size(500)
+        find_query = Trip.find(query)
+        cursor = trip_cursor_wrapper(find_query)
 
         response = await StreamingService.export_format(cursor, fmt, filename_base)
         if response:
             return response
 
         # Fallback for shapefile
-        trips_list = await trips_collection.find(query).to_list(length=1000)
+        trips_list = [t.model_dump() for t in await find_query.to_list()]
         return await create_export_response(trips_list, fmt, filename_base)
     except ValueError as e:
         raise HTTPException(
@@ -172,7 +180,8 @@ async def export_matched_trips_within_range(
             f"matched_trips_{StreamingService.get_date_range_filename(request)}"
         )
 
-        cursor = trips_collection.find(query).batch_size(500)
+        find_query = Trip.find(query)
+        cursor = trip_cursor_wrapper(find_query)
 
         response = await StreamingService.export_format(
             cursor, fmt, filename_base, geometry_field="matchedGps"
@@ -180,7 +189,7 @@ async def export_matched_trips_within_range(
         if response:
             return response
 
-        matched_list = await trips_collection.find(query).to_list(length=1000)
+        matched_list = [t.model_dump() for t in await find_query.to_list()]
         return await create_export_response(matched_list, fmt, filename_base)
     except ValueError as e:
         raise HTTPException(
@@ -242,9 +251,11 @@ async def export_advanced(
             elif not include_matched_trips and not include_trips:
                 return
 
-            async for trip in trips_collection.find(final_filter).batch_size(500):
+            # Use Beanie Trip model find
+            async for trip in Trip.find(final_filter):
+                trip_dict = trip.model_dump()
                 processed = await process_trip_for_export(
-                    trip,
+                    trip_dict,
                     include_basic_info,
                     include_locations,
                     include_telemetry,
@@ -253,8 +264,8 @@ async def export_advanced(
                     include_custom,
                 )
                 if processed:
-                    processed["trip_type"] = trip.get("source", "unknown")
-                    if trip.get("matchedGps"):
+                    processed["trip_type"] = trip_dict.get("source", "unknown")
+                    if trip_dict.get("matchedGps"):
                         processed["has_match"] = True
                     yield processed
 
@@ -281,7 +292,7 @@ async def export_advanced(
                     for k in base_fields:
                         v = item.get(k)
                         if isinstance(v, dict | list):
-                            row[k] = json_dumps(v)
+                            row[k] = json.dumps(v, default=str)
                         else:
                             row[k] = v
                     writer.writerow(row)
@@ -303,7 +314,7 @@ async def export_advanced(
                 yield "["
                 first = True
                 async for item in processed_docs_cursor():
-                    chunk = json_dumps(item, separators=(",", ":"))
+                    chunk = json.dumps(item, separators=(",", ":"), default=str)
                     if not first:
                         yield ","
                     yield chunk

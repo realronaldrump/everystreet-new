@@ -20,7 +20,7 @@ from bouncie_credentials import (
 )
 from config import API_BASE_URL, AUTH_URL
 from core.http.session import get_session
-from db import update_one_with_retry, vehicles_collection
+from db.models import Vehicle
 
 logger = logging.getLogger(__name__)
 
@@ -238,8 +238,8 @@ async def sync_vehicles_from_bouncie():
             }
 
             # Upsert into vehicles collection
-            await update_one_with_retry(
-                vehicles_collection,
+            vehicles_coll = Vehicle.get_motor_collection()
+            await vehicles_coll.update_one(
                 {"imei": imei},
                 {"$set": vehicle_doc},
                 upsert=True,

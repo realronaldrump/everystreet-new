@@ -20,17 +20,19 @@ from celery.utils.log import get_task_logger
 
 from celery_app import app as celery_app
 from date_utils import ensure_utc, parse_timestamp
-from db import (
-    serialize_datetime,
-    task_config_collection,
-    task_history_collection,
-    update_one_with_retry,
-)
+from db import db_manager
+from db.models import TaskHistory
 from tasks.config import check_dependencies, get_task_config, update_task_history_entry
 from tasks.core import TASK_METADATA, TaskStatus, TaskStatusManager
 from tasks.fetch import fetch_all_missing_trips
 
 logger = get_task_logger(__name__)
+
+
+def _serialize_datetime(dt: datetime | None) -> str | None:
+    if not dt:
+        return None
+    return dt.isoformat()
 
 
 async def get_all_task_metadata() -> dict[str, Any]:
@@ -65,16 +67,16 @@ async def get_all_task_metadata() -> dict[str, Any]:
                     "enabled": config_data.get("enabled", True),
                     "interval_minutes": interval_minutes,
                     "status": config_data.get("status", TaskStatus.IDLE.value),
-                    "last_run": serialize_datetime(last_run),
-                    "next_run": serialize_datetime(estimated_next_run),
+                    "last_run": _serialize_datetime(last_run),
+                    "next_run": _serialize_datetime(estimated_next_run),
                     "last_error": config_data.get("last_error"),
-                    "start_time": serialize_datetime(
+                    "start_time": _serialize_datetime(
                         config_data.get("start_time"),
                     ),
-                    "end_time": serialize_datetime(
+                    "end_time": _serialize_datetime(
                         config_data.get("end_time"),
                     ),
-                    "last_updated": serialize_datetime(
+                    "last_updated": _serialize_datetime(
                         config_data.get("last_updated"),
                     ),
                     "manual_only": metadata.get("manual_only", False),
@@ -324,7 +326,8 @@ async def force_reset_task(
     revoked_count = 0
 
     # 1. Find running/pending instances in history
-    cursor = task_history_collection.find(
+    # Use Beanie TaskHistory
+    cursor = TaskHistory.find(
         {
             "task_id": task_id,
             "status": {"$in": [TaskStatus.RUNNING.value, TaskStatus.PENDING.value]},
@@ -332,7 +335,7 @@ async def force_reset_task(
     )
 
     async for doc in cursor:
-        celery_task_id = doc["_id"]  # The _id is the celery_task_id
+        celery_task_id = doc.id
         logger.warning(
             "Force stopping task %s (Celery ID: %s)",
             task_id,
@@ -355,7 +358,7 @@ async def force_reset_task(
             celery_task_id=celery_task_id,
             task_name=task_id,
             status="REVOKED",
-            manual_run=doc.get("manual_run", False),
+            manual_run=doc.manual_run,
             error=f"Force stopped: {message}",
             end_time=now,
         )
@@ -369,8 +372,8 @@ async def force_reset_task(
         f"tasks.{task_id}.start_time": None,
     }
 
-    await update_one_with_retry(
-        task_config_collection,
+    task_config_coll = db_manager.get_collection("task_config")
+    await task_config_coll.update_one(
         {"_id": "global_background_task_config"},
         {"$set": update_fields},
         upsert=True,
@@ -504,8 +507,8 @@ async def update_task_schedule(task_config_update: dict[str, Any]) -> dict[str, 
                 "message": "No valid configuration changes detected.",
             }
 
-        result = await update_one_with_retry(
-            task_config_collection,
+        task_config_coll = db_manager.get_collection("task_config")
+        result = await task_config_coll.update_one(
             {"_id": "global_background_task_config"},
             {"$set": update_payload},
             upsert=True,

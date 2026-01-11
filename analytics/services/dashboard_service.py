@@ -7,10 +7,9 @@ from typing import Any
 import pytz
 
 from core.math_utils import calculate_circular_average_hour
-from db import db_manager
+from db.models import Trip
 
 logger = logging.getLogger(__name__)
-trips_collection = db_manager.db["trips"]
 
 
 class DashboardService:
@@ -77,7 +76,8 @@ class DashboardService:
             },
         ]
 
-        trips_result = await trips_collection.aggregate(pipeline)
+        # Use Beanie aggregation
+        trips_result = await Trip.aggregate(pipeline).to_list()
 
         # Top destinations (up to 5) with basic stats
         pipeline_top_destinations = [
@@ -118,9 +118,7 @@ class DashboardService:
             {"$limit": 5},
         ]
 
-        trips_top = await aggregate_with_retry(
-            trips_collection, pipeline_top_destinations
-        )
+        trips_top = await Trip.aggregate(pipeline_top_destinations).to_list()
 
         # Build response
         combined = {
@@ -334,7 +332,7 @@ class DashboardService:
             },
         ]
 
-        results = await trips_collection.aggregate(pipeline)
+        results = await Trip.aggregate(pipeline).to_list()
 
         if not results:
             return {

@@ -180,12 +180,22 @@ class Street(Document):
 class OsmData(Document):
     """OpenStreetMap data cache document."""
 
-    location: str | None = None
-    data: dict[str, Any] | None = None
+    location: dict[str, Any] | None = None
+    type: str | None = None
+    geojson: dict[str, Any] | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+    data: dict[str, Any] | None = None  # Legacy support if needed
     fetched_at: datetime | None = None
 
     class Settings:
         name = "osm_data"
+        indexes = [
+            IndexModel(
+                [("location", ASCENDING), ("type", ASCENDING)],
+                name="osm_data_location_type_idx",
+            )
+        ]
 
     class Config:
         extra = "allow"
@@ -335,9 +345,16 @@ class Vehicle(Document):
 class AppSettings(Document):
     """Application settings document."""
 
-    key: Indexed(str, unique=True)
-    value: Any = None
+    # We use a fixed ID "app_settings" typically.
+    # We define specific fields for known settings to allow validation,
+    # but allow extra fields for extensibility.
+    mapbox_access_token: str | None = None
+    clarity_project_id: str | None = None
     updated_at: datetime | None = None
+
+    # Legacy key/value support if needed (optional)
+    key: Indexed(str, unique=True) | None = None
+    value: Any = None
 
     class Settings:
         name = "app_settings"

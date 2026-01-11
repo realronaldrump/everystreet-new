@@ -19,7 +19,8 @@ from pymongo import UpdateOne
 from pymongo.errors import BulkWriteError, ConnectionFailure
 
 from core.async_bridge import run_async_from_sync
-from db import db_manager, find_with_retry, trips_collection
+from db import db_manager
+from db.models import Trip
 from live_tracking import cleanup_stale_trips_logic
 from models import TripDataModel
 from tasks.config import check_dependencies
@@ -99,7 +100,8 @@ async def validate_trips_async(_self) -> dict[str, Any]:
     batch_size = 500
 
     query = {"invalid": {"$ne": True}}
-    total_docs_to_process = await trips_collection.count_documents(query)
+    # Use Beanie count
+    total_docs_to_process = await Trip.find(query).count()
     logger.info("Found %d trips to validate.", total_docs_to_process)
 
     if total_docs_to_process == 0:
@@ -110,20 +112,35 @@ async def validate_trips_async(_self) -> dict[str, Any]:
             "modified_count": 0,
         }
 
-    cursor = trips_collection.find(
-        query,
-        {
-            "transactionId": 1,
-            "startTime": 1,
-            "endTime": 1,
-            "gps": 1,
-            "distance": 1,
-            "maxSpeed": 1,
-            "_id": 1,
-        },
-    ).batch_size(batch_size)
+    # Use Beanie find with projection manually if desired, but Beanie returns model instances.
+    # To optimize memory, we can use specific projection or just load models if they are not huge.
+    # The existing code projected specific fields: transactionId, startTime, endTime, gps, distance, maxSpeed, _id
+    # We can use .project() or just iterate. Given batch processing, loading full objects is okay,
+    # or we can use keys.
+    # But to use TripDataModel validation, we need a dictionary. Beanie objects can be dumped.
+    # Let's use projection to raw dicts for performance and compatibility with TripDataModel.
+
+    cursor = (
+        Trip.get_motor_collection()
+        .find(
+            query,
+            {
+                "transactionId": 1,
+                "startTime": 1,
+                "endTime": 1,
+                "gps": 1,
+                "distance": 1,
+                "maxSpeed": 1,
+                "_id": 1,
+            },
+        )
+        .batch_size(batch_size)
+    )
 
     batch_updates = []
+    trips_updated_count = 0
+
+    # We iterate the motor cursor for efficiency in this batch job
     async for trip in cursor:
         processed_count += 1
 
@@ -147,7 +164,7 @@ async def validate_trips_async(_self) -> dict[str, Any]:
             message = f"Unexpected error during validation: {e}"
 
         if not valid:
-            # Mark as invalid in both collections
+            # Mark as invalid in both collections (if multiple exist, otherwise just trips)
             batch_updates.append(
                 UpdateOne(
                     {"_id": trip["_id"]},
@@ -165,7 +182,9 @@ async def validate_trips_async(_self) -> dict[str, Any]:
         if len(batch_updates) >= batch_size:
             if batch_updates:
                 try:
-                    result = await trips_collection.bulk_write(
+                    # Using raw collection for bulk write updates is standard/efficient
+                    trips_coll = Trip.get_motor_collection()
+                    result = await trips_coll.bulk_write(
                         batch_updates,
                         ordered=False,
                     )
@@ -194,7 +213,8 @@ async def validate_trips_async(_self) -> dict[str, Any]:
 
     if batch_updates:
         try:
-            result = await trips_collection.bulk_write(batch_updates, ordered=False)
+            trips_coll = Trip.get_motor_collection()
+            result = await trips_coll.bulk_write(batch_updates, ordered=False)
             logger.info(
                 "Executed final validation batch: Matched=%d, Modified=%d",
                 result.matched_count,
@@ -252,7 +272,9 @@ async def remap_unmatched_trips_async(_self) -> dict[str, Any]:
     logger.info("Checking for unmatched trips (matchedGps is None).")
 
     query = {"matchedGps": None, "invalid": {"$ne": True}}
-    trips_to_process = await find_with_retry(trips_collection, query, limit=limit)
+    # Use Beanie find with limit
+    trips_to_process = await Trip.find(query).limit(limit).to_list()
+
     logger.info(
         "Found %d trips to attempt remapping (limit %d).",
         len(trips_to_process),
@@ -269,11 +291,8 @@ async def remap_unmatched_trips_async(_self) -> dict[str, Any]:
         )
 
     trip_service = TripService(mapbox_token)
-    trip_ids = [
-        trip.get("transactionId")
-        for trip in trips_to_process
-        if trip.get("transactionId")
-    ]
+    # Beanie trips are objects, access attribute directly
+    trip_ids = [trip.transactionId for trip in trips_to_process if trip.transactionId]
 
     result = await trip_service.remap_trips(trip_ids=trip_ids, limit=len(trip_ids))
 
