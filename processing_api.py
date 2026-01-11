@@ -6,8 +6,7 @@ from pydantic import BaseModel
 
 from config import get_mapbox_token
 from date_utils import normalize_calendar_date
-from db import db_manager
-
+from db import (
     build_calendar_date_expr,
     db_manager,
     find_with_retry,

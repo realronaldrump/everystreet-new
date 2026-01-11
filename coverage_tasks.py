@@ -12,13 +12,12 @@ import logging
 from datetime import UTC, datetime
 from typing import Any
 
-from coverage import (compute_coverage_for_location,
-                      compute_incremental_coverage)
+from coverage import compute_coverage_for_location, compute_incremental_coverage
 from coverage.location_settings import normalize_location_settings
 from coverage.streets_preprocessor import build_street_segments
-from db import db_manager
-
+from db import (
     coverage_metadata_collection,
+    db_manager,
     find_one_with_retry,
     progress_collection,
     update_one_with_retry,
