@@ -70,11 +70,41 @@ export class CoverageEvents {
    * Setup modal event listeners
    */
   _setupModalListeners() {
-    // Task progress modal hidden
+    // Task progress modal hidden - only clear context if not minimized
     document
       .getElementById("taskProgressModal")
       ?.addEventListener("hidden.bs.modal", () => {
-        this.manager.progress.clearProcessingContext();
+        // Don't clear context if modal was minimized (processing continues)
+        if (!this.manager.progress.modal.getIsMinimized()) {
+          this.manager.progress.clearProcessingContext();
+        }
+      });
+
+    // Minimize progress modal button
+    document
+      .getElementById("minimize-progress-modal")
+      ?.addEventListener("click", (e) => {
+        e.preventDefault();
+        this.manager.progress.modal.minimize();
+      });
+
+    // Restore progress modal from minimized indicator
+    document
+      .getElementById("restore-progress-modal")
+      ?.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.manager.progress.modal.restore();
+      });
+
+    // Also allow clicking anywhere on the minimized indicator to restore
+    document
+      .getElementById("minimized-progress-indicator")
+      ?.addEventListener("click", (e) => {
+        // Don't restore if clicking on the restore button (it handles itself)
+        if (!e.target.closest("#restore-progress-modal")) {
+          this.manager.progress.modal.restore();
+        }
       });
 
     // Add area modal shown

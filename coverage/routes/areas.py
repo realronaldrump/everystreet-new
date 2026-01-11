@@ -12,6 +12,7 @@ from datetime import UTC, datetime
 
 from beanie import PydanticObjectId
 from fastapi import APIRouter, HTTPException, status
+from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 
 from coverage.location_settings import normalize_location_settings
@@ -30,10 +31,9 @@ async def get_coverage_areas():
         areas = await CoverageMetadata.find_all().to_list()
         processed_areas = [area.model_dump(by_alias=True) for area in areas]
 
-        return {
-            "success": True,
-            "areas": processed_areas,
-        }
+        return JSONResponse(
+            content=jsonable_encoder({"success": True, "areas": processed_areas})
+        )
     except Exception as e:
         logger.error(
             "Error fetching coverage areas: %s",
@@ -93,7 +93,7 @@ async def get_coverage_area_details(location_id: PydanticObjectId):
         location_id,
         overall_end_time - overall_start_time,
     )
-    return JSONResponse(content=result)
+    return JSONResponse(content=jsonable_encoder(result))
 
 
 @router.post("/api/preprocess_streets")

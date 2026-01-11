@@ -26,6 +26,7 @@ export class ProgressModal {
     this.lastProgressUpdate = null;
     this.lastActivityTime = null;
     this.currentProcessingLocation = null;
+    this.isMinimized = false;
   }
 
   /**
@@ -260,8 +261,14 @@ export class ProgressModal {
     this.lastProgressUpdate = {
       stage,
       progress,
+      metrics,
+      message,
+      error,
       elapsedMs: Date.now() - (this.processingStartTime || Date.now()),
     };
+
+    // Update minimized indicator if minimized
+    this.updateMinimizedIndicator(progress);
   }
 
   /**
@@ -452,6 +459,106 @@ export class ProgressModal {
   }
 
   /**
+   * Minimize the modal and show floating indicator
+   */
+  minimize() {
+    const modalElement = this.getModalElement();
+    if (!modalElement) {
+      return;
+    }
+
+    const modal = bootstrap.Modal.getInstance(modalElement);
+    if (modal) {
+      // Remove focus to prevent aria-hidden warnings
+      if (document.activeElement && modalElement.contains(document.activeElement)) {
+        document.activeElement.blur();
+      }
+      modal.hide();
+    }
+
+    this.isMinimized = true;
+    this.showMinimizedIndicator();
+  }
+
+  /**
+   * Restore the modal from minimized state
+   */
+  restore() {
+    this.hideMinimizedIndicator();
+    this.isMinimized = false;
+
+    const modalElement = this.getModalElement();
+    if (!modalElement) {
+      return;
+    }
+
+    const bsModal = bootstrap.Modal.getOrCreateInstance(modalElement, {
+      backdrop: "static",
+      keyboard: false,
+    });
+    bsModal.show();
+
+    // Update with last known progress
+    if (this.lastProgressUpdate) {
+      this.updateContent(this.lastProgressUpdate);
+    }
+  }
+
+  /**
+   * Show the minimized floating indicator
+   */
+  showMinimizedIndicator() {
+    const indicator = document.getElementById("minimized-progress-indicator");
+    if (!indicator) {
+      return;
+    }
+
+    const locationName
+      = this.currentProcessingLocation?.display_name || "Processing...";
+    const progress = this.lastProgressUpdate?.progress || 0;
+
+    indicator.querySelector(".minimized-location-name").textContent = locationName;
+    indicator.querySelector(".minimized-progress-percent").textContent = `${progress}%`;
+    indicator.style.display = "block";
+  }
+
+  /**
+   * Hide the minimized floating indicator
+   */
+  hideMinimizedIndicator() {
+    const indicator = document.getElementById("minimized-progress-indicator");
+    if (indicator) {
+      indicator.style.display = "none";
+    }
+  }
+
+  /**
+   * Update the minimized indicator with current progress
+   */
+  updateMinimizedIndicator(progress) {
+    if (!this.isMinimized) {
+      return;
+    }
+
+    const indicator = document.getElementById("minimized-progress-indicator");
+    if (!indicator) {
+      return;
+    }
+
+    const progressEl = indicator.querySelector(".minimized-progress-percent");
+    if (progressEl) {
+      progressEl.textContent = `${progress}%`;
+    }
+  }
+
+  /**
+   * Check if modal is currently minimized
+   */
+  getIsMinimized() {
+    return this.isMinimized;
+  }
+
+  /**
    * Reset all modal state
    */
   reset() {
@@ -460,5 +567,7 @@ export class ProgressModal {
     this.lastProgressUpdate = null;
     this.lastActivityTime = null;
     this.currentProcessingLocation = null;
+    this.isMinimized = false;
+    this.hideMinimizedIndicator();
   }
 }

@@ -350,3 +350,62 @@
   transform: scale(1.15);
   color: var(--info);
 }
+
+/* Minimized Progress Indicator */
+.minimized-progress-badge {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 1060;
+  background: var(--surface-glass);
+  color: var(--text-on-dark);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-lg);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  cursor: pointer;
+  transition: var(--transition-fast);
+  animation: slideInUp 0.3s ease-out;
+}
+
+.minimized-progress-badge:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-xl);
+  background: var(--surface-elevated);
+}
+
+.minimized-progress-badge .minimized-location-name {
+  max-width: 150px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 500;
+}
+
+.minimized-progress-badge .fa-cog {
+  color: var(--info);
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Progress modal minimize button styling */
+#minimize-progress-modal {
+  border: none;
+  opacity: 0.7;
+  transition: var(--transition-fast);
+}
+
+#minimize-progress-modal:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.1);
+}

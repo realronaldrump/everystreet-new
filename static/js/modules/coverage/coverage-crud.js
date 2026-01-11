@@ -28,8 +28,8 @@ export class CoverageCRUD {
    */
   async addCoverageArea() {
     if (
-      !this.validator.validatedLocation ||
-      !this.validator.validatedLocation.display_name
+      !this.validator.validatedLocation
+      || !this.validator.validatedLocation.display_name
     ) {
       this.notificationManager.show("Please validate a location first.", "warning");
       return;
@@ -146,8 +146,8 @@ export class CoverageCRUD {
    */
   async addCustomCoverageArea() {
     if (
-      !this.validator.validatedCustomBoundary ||
-      !this.validator.validatedCustomBoundary.display_name
+      !this.validator.validatedCustomBoundary
+      || !this.validator.validatedCustomBoundary.display_name
     ) {
       this.notificationManager.show(
         "Please validate your custom boundary first.",
@@ -292,8 +292,8 @@ export class CoverageCRUD {
       const locationData = await COVERAGE_API.getArea(locationId);
 
       if (
-        this.currentProcessingLocation?.display_name ===
-        locationData.location.display_name
+        this.currentProcessingLocation?.display_name
+        === locationData.location.display_name
       ) {
         this.notificationManager.show(
           `Update already in progress for ${locationData.location.display_name}.`,
@@ -312,8 +312,8 @@ export class CoverageCRUD {
       this.progress.currentTaskId = null;
       this.progress._addBeforeUnloadListener();
 
-      const isUpdatingDisplayedLocation =
-        this.manager.dashboard.selectedLocation?._id === locationId;
+      const isUpdatingDisplayedLocation
+        = this.manager.dashboard.selectedLocation?._id === locationId;
 
       this.progress.showProgressModal(
         `Requesting ${mode} update for ${processingLocation.display_name}...`
@@ -456,8 +456,8 @@ export class CoverageCRUD {
       await this.manager.loadCoverageAreas(true, false, false, true);
 
       if (
-        this.manager.dashboard.selectedLocation?.location?.display_name ===
-        location.display_name
+        this.manager.dashboard.selectedLocation?.location?.display_name
+        === location.display_name
       ) {
         this.manager.dashboard.closeCoverageDashboard();
       }
@@ -491,18 +491,18 @@ export class CoverageCRUD {
       const metersToFeet = (value) => value * 3.28084;
       const defaults = {
         segment:
-          location.segment_length_feet ||
-          (location.segment_length_meters
+          location.segment_length_feet
+          || (location.segment_length_meters
             ? metersToFeet(location.segment_length_meters)
             : 150),
         buffer:
-          location.match_buffer_feet ||
-          (location.match_buffer_meters
+          location.match_buffer_feet
+          || (location.match_buffer_meters
             ? metersToFeet(location.match_buffer_meters)
             : 25),
         min:
-          location.min_match_length_feet ||
-          (location.min_match_length_meters
+          location.min_match_length_feet
+          || (location.min_match_length_meters
             ? metersToFeet(location.min_match_length_meters)
             : 15),
       };
@@ -523,13 +523,13 @@ export class CoverageCRUD {
         0
       );
 
-      const isCustom =
-        location.osm_type === "custom" || location.boundary_type === "custom";
+      const isCustom
+        = location.osm_type === "custom" || location.boundary_type === "custom";
       let taskData = null;
 
       if (isCustom) {
-        const geometry =
-          location.geojson?.geometry || location.geojson || location.geometry;
+        const geometry
+          = location.geojson?.geometry || location.geojson || location.geometry;
         if (!geometry) {
           throw new Error("Custom boundary is missing geometry");
         }
@@ -570,6 +570,74 @@ export class CoverageCRUD {
         "danger"
       );
       this.progress.hideProgressModal();
+    }
+  }
+
+  /**
+   * Resume an interrupted task from saved state
+   * @param {Object} progressData - Saved progress data from localStorage
+   */
+  async resumeInterruptedTask(progressData) {
+    if (!progressData || !progressData.taskId) {
+      this.notificationManager.show("No valid task data to resume.", "warning");
+      return;
+    }
+
+    const { taskId, location, progress: savedProgress, stage } = progressData;
+
+    if (!location || !location.display_name) {
+      this.notificationManager.show(
+        "Cannot resume: missing location information.",
+        "warning"
+      );
+      localStorage.removeItem("coverageProcessingState");
+      return;
+    }
+
+    try {
+      // Set up processing context
+      this.currentProcessingLocation = location;
+      this.progress.currentProcessingLocation = location;
+      this.progress.currentTaskId = taskId;
+      this.progress.activeTaskIds.add(taskId);
+      this.progress._addBeforeUnloadListener();
+
+      // Show progress modal with last known state
+      this.progress.showProgressModal(
+        `Resuming: ${location.display_name}...`,
+        savedProgress || 0
+      );
+
+      // Update modal with saved progress data
+      this.progress.modal.updateContent({
+        stage: stage || "unknown",
+        progress: savedProgress || 0,
+        message: `Reconnecting to task...`,
+      });
+
+      // Resume polling - this will check the actual server status
+      await this.progress.pollCoverageProgress(taskId);
+
+      this.notificationManager.show(
+        `Processing for ${location.display_name} completed.`,
+        "success"
+      );
+
+      // Reload the coverage areas list
+      await this.manager.loadCoverageAreas(true, false, false, true);
+    } catch (error) {
+      console.error("Error resuming interrupted task:", error);
+      this.notificationManager.show(
+        `Failed to resume task: ${error.message}`,
+        "danger"
+      );
+      this.progress.hideProgressModal();
+
+      // Clean up the saved state if the task truly failed
+      localStorage.removeItem("coverageProcessingState");
+
+      // Reload to get current state
+      await this.manager.loadCoverageAreas(true, false, false, true);
     }
   }
 }
