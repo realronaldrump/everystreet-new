@@ -104,7 +104,7 @@ export function updateStats(elements, selectedFiles) {
   if (totalPointsSpan) {
     const totalPoints = selectedFiles.reduce(
       (sum, entry) => sum + (entry.points || 0),
-      0
+      0,
     );
     totalPointsSpan.textContent = totalPoints.toLocaleString();
   }
@@ -203,7 +203,7 @@ function bindDeleteButtons(container, onDelete) {
  */
 export function getSelectedTripIds() {
   const selectedCheckboxes = document.querySelectorAll(
-    `.${CSS_CLASSES.tripCheckbox}:checked`
+    `.${CSS_CLASSES.tripCheckbox}:checked`,
   );
   return Array.from(selectedCheckboxes).map((cb) => cb.value);
 }
@@ -218,7 +218,7 @@ export function updateBulkDeleteButtonState(bulkDeleteBtn) {
   }
 
   const selectedCheckboxes = document.querySelectorAll(
-    `.${CSS_CLASSES.tripCheckbox}:checked`
+    `.${CSS_CLASSES.tripCheckbox}:checked`,
   );
   bulkDeleteBtn.disabled = selectedCheckboxes.length === 0;
 }
