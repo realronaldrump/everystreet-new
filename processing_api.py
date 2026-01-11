@@ -6,7 +6,8 @@ from pydantic import BaseModel
 
 from config import get_mapbox_token
 from date_utils import normalize_calendar_date
-from db import (
+from db import db_manager
+
     build_calendar_date_expr,
     db_manager,
     find_with_retry,
@@ -22,7 +23,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 # Collections
-trips_collection = db_manager.db["trips"]
+trips_collection = db_manager.get_collection("trips")
 
 
 # Initialize TripService
@@ -178,7 +179,7 @@ async def map_match_trips_endpoint(
                 detail="Either trip_id or date range is required",
             )
 
-        trips = await find_with_retry(trips_collection, query)
+        trips = await collection.find_one(trips_collection, query)
 
         if not trips:
             raise HTTPException(
@@ -262,7 +263,7 @@ async def remap_matched_trips(
                 )
                 if chunk_expr:
                     # Unset matched fields instead of deleting documents
-                    result = await update_many_with_retry(
+                    result = await collection.update_many(
                         trips_collection,
                         {"$expr": chunk_expr},
                         {
@@ -277,7 +278,7 @@ async def remap_matched_trips(
                 current_start = chunk_end + timedelta(days=1)
         else:
             # Unset matched fields instead of deleting documents
-            update_result = await update_many_with_retry(
+            update_result = await collection.update_many(
                 trips_collection,
                 {"$expr": range_expr},
                 {"$unset": {"matchedGps": "", "matchStatus": "", "matched_at": ""}},

@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from db import db_manager, find_one_with_retry, update_one_with_retry
+from db import db_manager
 
 logger = logging.getLogger(__name__)
 
@@ -48,8 +48,8 @@ async def get_bouncie_credentials() -> dict[str, Any]:
         }
 
     try:
-        collection = db_manager.get_collection("bouncie_credentials")
-        credentials = await find_one_with_retry(
+        bouncie_credentials = db_manager.get_collection("bouncie_credentials")
+        credentials = await collection.find_one(
             collection,
             {"_id": "bouncie_credentials"},
         )
@@ -103,7 +103,7 @@ async def update_bouncie_credentials(credentials: dict[str, Any]) -> bool:
         True if update was successful, False otherwise.
     """
     try:
-        collection = db_manager.get_collection("bouncie_credentials")
+        bouncie_credentials = db_manager.get_collection("bouncie_credentials")
 
         # Build update_data with ONLY the fields that were explicitly provided
         update_data = {}
@@ -166,7 +166,7 @@ async def update_bouncie_credentials(credentials: dict[str, Any]) -> bool:
             logger.warning("No fields to update in credentials")
             return False
 
-        result = await update_one_with_retry(
+        result = await collection.update_one(
             collection,
             {"_id": "bouncie_credentials"},
             {"$set": update_data},

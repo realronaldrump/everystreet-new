@@ -13,7 +13,7 @@ import pymongo
 from pymongo.collection import Collection
 
 from date_utils import parse_timestamp
-from db import serialize_document
+
 from geometry_service import GeometryService
 from trip_event_publisher import publish_trip_state
 
@@ -42,7 +42,7 @@ async def _publish_trip_snapshot(
         return
 
     try:
-        serialized_trip = serialize_document(trip_doc)
+        serialized_trip = trip_doc
         await publish_trip_state(transaction_id, serialized_trip, status=status)
     except Exception as e:
         logger.error("Failed to publish trip %s: %s", transaction_id, e)
@@ -495,7 +495,7 @@ async def get_trip_updates(_last_sequence: int = 0) -> dict[str, Any]:
     trip = await get_active_trip()
 
     if trip:
-        serialized = serialize_document(trip)
+        serialized = trip
         return {
             "status": "success",
             "has_update": True,
