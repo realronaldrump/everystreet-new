@@ -94,11 +94,7 @@ class TripStatsService:
 
             # Find trips matching query
             trips_list = await Trip.find(query).to_list()
-            trip_ids = [
-                trip.transactionId
-                for trip in trips_list
-                if trip.transactionId
-            ]
+            trip_ids = [trip.transactionId for trip in trips_list if trip.transactionId]
 
             total_trips = len(trip_ids)
 
@@ -128,7 +124,9 @@ class TripStatsService:
                 progress.progress = progress_pct
                 progress.message = f"Geocoding trip {current} of {total}"
                 progress.metadata["current_trip_id"] = trip_id
-                progress.metadata["processed"] = progress.metadata.get("processed", 0) + 1
+                progress.metadata["processed"] = (
+                    progress.metadata.get("processed", 0) + 1
+                )
                 progress.updated_at = datetime.now(UTC)
                 await progress.save()
 
@@ -209,9 +207,13 @@ class TripStatsService:
             "progress": progress.progress or 0,
             "message": progress.message or "",
             "metrics": progress.metadata or {},
-            "current_trip_id": progress.metadata.get("current_trip_id") if progress.metadata else None,
+            "current_trip_id": (
+                progress.metadata.get("current_trip_id") if progress.metadata else None
+            ),
             "error": progress.error,
-            "updated_at": progress.updated_at.isoformat() if progress.updated_at else None,
+            "updated_at": (
+                progress.updated_at.isoformat() if progress.updated_at else None
+            ),
         }
 
     async def regeocode_single_trip(self, trip_id: str):
