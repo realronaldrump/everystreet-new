@@ -196,6 +196,7 @@ async def run_background_task(
 async def get_task_status(task_id: str):
     """Get current status of a background task."""
     from celery.result import AsyncResult
+
     from celery_app import app as celery_app
 
     try:
