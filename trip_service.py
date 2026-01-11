@@ -449,15 +449,6 @@ class TripService:
                 detail="Either trip_ids or query must be provided",
             )
 
-        # process_batch_trips expects dict query, but here we already fetched the trips
-        # actually process_batch_trips takes a query, NOT a list of trips.
-        # So we should call process_single_trip in a loop here, OR reuse process_batch_trips logic.
-
-        # But wait, original code did:
-        # result = await self.process_batch_trips({}, options, limit=len(trips))
-        # That {} query is WRONG if we wanted to process specific trips.
-        # process_batch_trips uses "find_with_retry(..., query)".
-
         # We need to adapt logic. process_batch_trips is designed to find by query.
         # But if we have specific IDs, constructing a query is better.
 
