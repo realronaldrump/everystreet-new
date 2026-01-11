@@ -2,11 +2,11 @@ import logging
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Body, HTTPException, status
-from models import BackgroundTasksConfigModel
 from pydantic import BaseModel
 
 from date_utils import normalize_to_utc_datetime
 from db.models import TaskHistory
+from db.schemas import BackgroundTasksConfigModel
 from tasks import (
     TASK_METADATA,
     force_reset_task,

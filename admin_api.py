@@ -4,7 +4,6 @@ from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter, Body, HTTPException, status
-from models import CollectionModel, LocationModel, ValidateLocationModel
 
 from core.http.geocoding import validate_location_osm
 from date_utils import ensure_utc
@@ -27,6 +26,7 @@ from db.models import (
     Trip,
     Vehicle,
 )
+from db.schemas import CollectionModel, LocationModel, ValidateLocationModel
 from osm_utils import generate_geojson_osm
 
 # Map collection names to Beanie Document models for admin operations

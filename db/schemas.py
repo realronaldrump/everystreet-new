@@ -218,3 +218,18 @@ class VisitSuggestion(BaseModel):
     lastVisit: datetime | None = None
     centroid: list[float]
     boundary: dict[str, Any]
+
+
+class VehicleModel(BaseModel):
+    """Model for vehicle data."""
+
+    imei: str
+    vin: str | None = None
+    custom_name: str | None = None
+    make: str | None = None
+    model: str | None = None
+    year: int | None = None
+    is_active: bool = True
+
+    class Config:
+        extra = "allow"

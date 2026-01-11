@@ -4,8 +4,8 @@ import logging
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
-from models import VehicleModel
 
+from db.schemas import VehicleModel
 from gas.services import VehicleService
 
 logger = logging.getLogger(__name__)

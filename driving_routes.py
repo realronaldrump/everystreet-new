@@ -6,10 +6,10 @@ from typing import Any
 import httpx
 from fastapi import APIRouter, Body, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
-from models import LocationModel
 
 from config import get_mapbox_token
 from db.models import CoverageMetadata, Street, Trip
+from db.schemas import LocationModel
 from live_tracking import get_active_trip
 
 logger = logging.getLogger(__name__)

@@ -12,7 +12,6 @@ from datetime import UTC, datetime
 from typing import Any
 
 from bson import ObjectId
-from models import validate_geojson_point_or_linestring
 from shapely.geometry import mapping, shape
 
 from coverage.constants import (
@@ -298,7 +297,9 @@ class CoverageCalculator:
         if not gps_data or not isinstance(gps_data, dict):
             return False, []
 
-        is_valid, validated_geojson = validate_geojson_point_or_linestring(gps_data)
+        is_valid, validated_geojson = (
+            GeometryService.validate_geojson_point_or_linestring(gps_data)
+        )
 
         if not is_valid or validated_geojson is None:
             return False, []

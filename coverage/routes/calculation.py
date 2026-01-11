@@ -11,7 +11,6 @@ from datetime import UTC, datetime
 from beanie import PydanticObjectId
 from fastapi import APIRouter, HTTPException, status
 from fastapi.responses import JSONResponse
-from models import LocationModel
 
 from coverage.gridfs_service import gridfs_service
 from coverage.services import coverage_stats_service
@@ -20,6 +19,7 @@ from coverage_tasks import (
     process_incremental_coverage_calculation,
 )
 from db import ProgressStatus
+from db.schemas import LocationModel
 
 logger = logging.getLogger(__name__)
 router = APIRouter()

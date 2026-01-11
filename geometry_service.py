@@ -232,3 +232,49 @@ class GeometryService:
     def feature_collection(features: list[dict[str, Any]]) -> dict[str, Any]:
         """Build a GeoJSON FeatureCollection."""
         return {"type": "FeatureCollection", "features": features}
+
+    @staticmethod
+    def validate_geojson_point_or_linestring(
+        data: Any,
+    ) -> tuple[bool, dict[str, Any] | None]:
+        """Validate if the data is a valid GeoJSON Point or LineString.
+
+        Args:
+            data: The GeoJSON data to validate.
+
+        Returns:
+            A tuple of (is_valid, validated_geojson).
+        """
+        if not isinstance(data, dict):
+            return False, None
+
+        geom_type = data.get("type")
+        coordinates = data.get("coordinates")
+
+        if geom_type not in ["Point", "LineString"]:
+            return False, None
+
+        if not isinstance(coordinates, list):
+            return False, None
+
+        if geom_type == "Point":
+            is_valid, pair = GeometryService.validate_coordinate_pair(coordinates)
+            if not is_valid or pair is None:
+                return False, None
+            return True, {"type": "Point", "coordinates": pair}
+
+        if geom_type == "LineString":
+            if len(coordinates) < 2:
+                return False, None
+            validated_coords = []
+            for coord in coordinates:
+                is_valid, pair = GeometryService.validate_coordinate_pair(coord)
+                if is_valid and pair is not None:
+                    validated_coords.append(pair)
+
+            if len(validated_coords) < 2:
+                return False, None
+
+            return True, {"type": "LineString", "coordinates": validated_coords}
+
+        return False, None
