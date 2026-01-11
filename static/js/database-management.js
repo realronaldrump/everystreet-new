@@ -44,7 +44,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (!response.ok) {
       const errorData = await response.json();
-      throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
+      throw new Error(
+        errorData.detail || `HTTP error! status: ${response.status}`,
+      );
     }
 
     return response.json();
@@ -67,12 +69,12 @@ document.addEventListener("DOMContentLoaded", () => {
         updateStorageDisplay(data);
         window.notificationManager.show(
           "Storage information updated successfully",
-          "success"
+          "success",
         );
       } catch (error) {
         window.notificationManager.show(
           error.message || "Failed to perform database action",
-          "danger"
+          "danger",
         );
         setButtonLoading(currentButton, false, currentAction);
       } finally {
@@ -111,7 +113,9 @@ document.addEventListener("DOMContentLoaded", () => {
       th.addEventListener("click", () => {
         const column = th.dataset.sort;
         const dir =
-          currentSort.column === column && currentSort.dir === "asc" ? "desc" : "asc";
+          currentSort.column === column && currentSort.dir === "asc"
+            ? "desc"
+            : "asc";
 
         // Update Sort State
         currentSort = { column, dir };
@@ -133,11 +137,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
         rows.sort((a, b) => {
           const aVal =
-            a.querySelector(`td[data-value]`).parentElement.children[th.cellIndex]
-              .dataset.value;
+            a.querySelector(`td[data-value]`).parentElement.children[
+              th.cellIndex
+            ].dataset.value;
           const bVal =
-            b.querySelector(`td[data-value]`).parentElement.children[th.cellIndex]
-              .dataset.value;
+            b.querySelector(`td[data-value]`).parentElement.children[
+              th.cellIndex
+            ].dataset.value;
 
           let comparison = 0;
           if (column === "name") {
@@ -174,14 +180,14 @@ document.addEventListener("DOMContentLoaded", () => {
       const result = await performDatabaseAction(endpoint, body);
       window.notificationManager.show(
         result.message || "Operation completed successfully",
-        "success"
+        "success",
       );
 
       setTimeout(() => window.location.reload(), 1500);
     } catch (error) {
       window.notificationManager.show(
         error.message || "Failed to perform database action",
-        "danger"
+        "danger",
       );
       setButtonLoading(currentButton, false, currentAction);
     }
