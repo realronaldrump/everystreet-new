@@ -328,23 +328,6 @@ export class OptimalRouteMap {
     });
   }
 
-  updateLayerOrder() {
-    if (!this.map || !this.mapLayersReady) return;
-
-    // layerOrder should be an object mapping group IDs to lists of layer IDs
-    // The items in the DOM are reversed (bottom of list = bottom of map stack)
-    // but the `updateLayerOrder` logic in original file seemed to rely on DOM order.
-    // Here we will just provide a method to move layers.
-
-    // Actually, simply exposing `moveLayer` is enough if the UI handles the logic loop.
-    // Or we accept an array of layer IDs in order from bottom to top?
-    // Let's copy the original logic pattern: iterate through DOM items.
-    // Wait, Map class shouldn't know about DOM items.
-    // The Manager/UI should parse DOM and tell Map what order to use.
-
-    // Better: Helper method `moveLayersToTop`
-  }
-
   moveLayers(layerIds) {
     if (!this.map || !this.mapLayersReady) return;
     layerIds.forEach((layerId) => {

@@ -132,7 +132,7 @@ export function updateRunningTaskDurations() {
             }
           }
         } catch (e) {
-          console.error("Error updating duration:", e);
+          // Error updating duration - silently ignore
         }
       }
     });
@@ -157,7 +157,7 @@ export function updateRunningTaskDurations() {
               }
             }
           } catch (e) {
-            console.error("Error updating duration:", e);
+            // Error updating duration - silently ignore
           }
         }
       });
