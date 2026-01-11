@@ -4,13 +4,14 @@ import logging
 
 from fastapi import APIRouter, HTTPException, status
 
+from db.schemas import NonCustomPlaceVisit, PlaceVisitsResponse
 from visits.services import PlaceService, VisitStatsService
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-@router.get("/api/places/{place_id}/trips")
+@router.get("/api/places/{place_id}/trips", response_model=PlaceVisitsResponse)
 async def get_trips_for_place(place_id: str):
     """Get trips that visited a specific place, with corrected duration logic."""
     try:
@@ -23,6 +24,8 @@ async def get_trips_for_place(place_id: str):
 
         return await VisitStatsService.get_trips_for_place(place)
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.exception("Error getting trips for place %s: %s", place_id, e)
         raise HTTPException(
@@ -31,7 +34,7 @@ async def get_trips_for_place(place_id: str):
         )
 
 
-@router.get("/api/non_custom_places_visits")
+@router.get("/api/non_custom_places_visits", response_model=list[NonCustomPlaceVisit])
 async def get_non_custom_places_visits(timeframe: str | None = None):
     """Aggregate visits to non-custom destinations.
 

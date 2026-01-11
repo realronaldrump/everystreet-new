@@ -446,7 +446,9 @@ async def get_coverage_area_by_name(data: LocationModel):
                 status_code=404, detail=f"Coverage area '{data.location}' not found."
             )
 
-        return JSONResponse(content=coverage_area.model_dump())
+        return coverage_area
+    except HTTPException:
+        raise
     except Exception as e:
         logger.exception("Error getting coverage area: %s", e)
         raise HTTPException(status_code=500, detail=str(e))

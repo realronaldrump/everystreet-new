@@ -6,6 +6,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
 
+from db.schemas import PlaceResponse
 from visits.services import PlaceService
 
 logger = logging.getLogger(__name__)
@@ -26,7 +27,7 @@ class PlaceUpdateModel(BaseModel):
     geometry: dict[str, Any] | None = None
 
 
-@router.get("/api/places")
+@router.get("/api/places", response_model=list[PlaceResponse])
 async def get_places():
     """Get all custom places."""
     try:
@@ -39,7 +40,7 @@ async def get_places():
         )
 
 
-@router.post("/api/places")
+@router.post("/api/places", response_model=PlaceResponse)
 async def create_place(place: PlaceModel):
     """Create a new custom place."""
     try:
@@ -65,7 +66,7 @@ async def delete_place(place_id: str):
         )
 
 
-@router.patch("/api/places/{place_id}")
+@router.patch("/api/places/{place_id}", response_model=PlaceResponse)
 async def update_place(place_id: str, update_data: PlaceUpdateModel):
     """Update a custom place (name and/or geometry)."""
     try:

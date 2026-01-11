@@ -4,13 +4,14 @@ import logging
 
 from fastapi import APIRouter, HTTPException, Query, status
 
+from db.schemas import PlaceStatisticsResponse, VisitSuggestion
 from visits.services import PlaceService, VisitStatsService
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-@router.get("/api/places/{place_id}/statistics")
+@router.get("/api/places/{place_id}/statistics", response_model=PlaceStatisticsResponse)
 async def get_place_statistics(place_id: str):
     """Get statistics about visits to a place using robust calculation."""
     try:
@@ -23,6 +24,8 @@ async def get_place_statistics(place_id: str):
 
         return await VisitStatsService.get_place_statistics(place)
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.exception("Error getting place statistics for %s: %s", place_id, e)
         raise HTTPException(
@@ -31,7 +34,7 @@ async def get_place_statistics(place_id: str):
         )
 
 
-@router.get("/api/places/statistics")
+@router.get("/api/places/statistics", response_model=list[PlaceStatisticsResponse])
 async def get_all_places_statistics():
     """Get statistics for all custom places using robust, efficient calculation."""
     try:
@@ -41,7 +44,7 @@ async def get_all_places_statistics():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/api/visit_suggestions")
+@router.get("/api/visit_suggestions", response_model=list[VisitSuggestion])
 async def get_visit_suggestions(
     min_visits: int = Query(5, description="Minimum number of visits"),
     cell_size_m: int = Query(250, description="Grid cell size in meters"),
