@@ -101,7 +101,7 @@ export async function runTask(taskId, context, onSuccess) {
     notifier.show(
       "Error",
       `Failed to start task ${taskId}: ${error.message}`,
-      "danger"
+      "danger",
     );
     return false;
   }
@@ -145,7 +145,9 @@ export async function forceStopTask(taskId, context, onSuccess) {
 
   try {
     showLoadingOverlay();
-    const data = await apiClient.post(API_ENDPOINTS.FORCE_STOP, { task_id: taskId });
+    const data = await apiClient.post(API_ENDPOINTS.FORCE_STOP, {
+      task_id: taskId,
+    });
     hideLoadingOverlay();
 
     const message = data.message || `Task ${taskId} has been reset.`;
@@ -161,7 +163,7 @@ export async function forceStopTask(taskId, context, onSuccess) {
     notifier.show(
       "Error",
       `Failed to force stop task ${taskId}: ${error.message}`,
-      "danger"
+      "danger",
     );
     return false;
   }
@@ -181,7 +183,7 @@ export async function scheduleManualFetch(
   endIso,
   mapMatch,
   context,
-  onSuccess
+  onSuccess,
 ) {
   const { notifier } = context;
 
@@ -197,7 +199,7 @@ export async function scheduleManualFetch(
     notifier.show(
       "Success",
       result.message || "Fetch scheduled successfully",
-      "success"
+      "success",
     );
 
     if (onSuccess) {
@@ -207,7 +209,11 @@ export async function scheduleManualFetch(
     return true;
   } catch (error) {
     hideLoadingOverlay();
-    notifier.show("Error", `Failed to schedule fetch: ${error.message}`, "danger");
+    notifier.show(
+      "Error",
+      `Failed to schedule fetch: ${error.message}`,
+      "danger",
+    );
     throw error;
   }
 }
@@ -262,7 +268,11 @@ export async function clearTaskHistory(context, onSuccess) {
     return true;
   } catch (error) {
     hideLoadingOverlay();
-    notifier.show("Error", `Failed to clear history: ${error.message}`, "danger");
+    notifier.show(
+      "Error",
+      `Failed to clear history: ${error.message}`,
+      "danger",
+    );
     return false;
   }
 }
@@ -280,11 +290,17 @@ export function gatherTaskConfigFromUI() {
     const { taskId } = row.dataset;
     if (!taskId) return;
 
-    const intervalSelect = row.querySelector(`select[data-task-id="${taskId}"]`);
-    const enabledCheckbox = row.querySelector(`input[data-task-id="${taskId}"]`);
+    const intervalSelect = row.querySelector(
+      `select[data-task-id="${taskId}"]`,
+    );
+    const enabledCheckbox = row.querySelector(
+      `input[data-task-id="${taskId}"]`,
+    );
 
     config.tasks[taskId] = {
-      interval_minutes: intervalSelect ? parseInt(intervalSelect.value, 10) : null,
+      interval_minutes: intervalSelect
+        ? parseInt(intervalSelect.value, 10)
+        : null,
       enabled: enabledCheckbox ? enabledCheckbox.checked : true,
     };
   });
