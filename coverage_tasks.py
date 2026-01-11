@@ -53,7 +53,7 @@ async def _update_progress(
         doc = ProgressStatus(id=task_id, **data)
         await doc.insert()
     else:
-        logger.warning(f"Task {task_id} not found for update and upsert=False")
+        logger.warning("Task %s not found for update and upsert=False", task_id)
 
 
 async def _update_coverage_metadata(
@@ -161,10 +161,9 @@ async def process_coverage_calculation(
 
     except Exception as e:
         logger.exception(
-            "Unhandled error in coverage task orchestration %s for %s: %s",
+            "Unhandled error in coverage task orchestration %s for %s",
             task_id,
             display_name,
-            e,
         )
 
         try:
@@ -189,11 +188,10 @@ async def process_coverage_calculation(
                     "status": "error",
                 },
             )
-        except Exception as inner_e:
+        except Exception:
             logger.exception(
-                "Task %s: Failed to update status after primary orchestration error: %s",
+                "Task %s: Failed to update status after primary orchestration error",
                 task_id,
-                str(inner_e),
             )
 
 
@@ -275,10 +273,9 @@ async def process_incremental_coverage_calculation(
 
     except Exception as e:
         logger.exception(
-            "Unhandled error in incremental coverage task orchestration %s for %s: %s",
+            "Unhandled error in incremental coverage task orchestration %s for %s",
             task_id,
             display_name,
-            e,
         )
 
         try:
@@ -303,11 +300,10 @@ async def process_incremental_coverage_calculation(
                     "status": "error",
                 },
             )
-        except Exception as inner_e:
+        except Exception:
             logger.exception(
-                "Task %s: Failed to update status after primary incremental orchestration error: %s",
+                "Task %s: Failed to update status after primary incremental orchestration error",
                 task_id,
-                str(inner_e),
             )
 
 
@@ -370,7 +366,7 @@ async def process_area(
         # Retrieve ID if it exists to ensure consistency
         metadata = await CoverageMetadata.find_one(
             CoverageMetadata.location.display_name == display_name,
-        ).project(Projection_model=CoverageMetadata)
+        )
         if metadata and metadata.id:
             location["_id"] = str(metadata.id)
 
@@ -537,10 +533,9 @@ async def process_area(
     except Exception as e:
         overall_status = "error"
         logger.exception(
-            "Unhandled error during area processing task %s for %s: %s",
+            "Unhandled error during area processing task %s for %s",
             task_id,
             display_name,
-            e,
         )
 
         try:
@@ -564,11 +559,10 @@ async def process_area(
                     "status": "error",
                 },
             )
-        except Exception as inner_e:
+        except Exception:
             logger.exception(
-                "Task %s: Failed to update status after primary area processing error: %s",
+                "Task %s: Failed to update status after primary area processing error",
                 task_id,
-                str(inner_e),
             )
     finally:
         logger.info(
