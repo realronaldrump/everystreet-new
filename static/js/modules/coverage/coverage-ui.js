@@ -623,15 +623,29 @@ class CoverageUI {
    * @private
    */
   static _extractAreaData(area, _formatRelativeTime, distanceInUserUnits) {
+    // Check if area is processing (has zero values) or complete
+    const isProcessing = area.status && [
+      "processing",
+      "preprocessing",
+      "calculating",
+      "indexing",
+      "finalizing",
+      "generating_geojson",
+      "initializing",
+      "loading_streets",
+    ].includes(area.status);
+
+    const hasData = area.total_length > 0 || area.total_segments > 0;
+
     return {
       lastUpdated: area.last_updated
         ? new Date(area.last_updated).toLocaleString("en-US", { hour12: true })
         : "Never",
       lastUpdatedOrder: area.last_updated ? new Date(area.last_updated).getTime() : 0,
-      totalLengthMiles: distanceInUserUnits(area.total_length),
-      drivenLengthMiles: distanceInUserUnits(area.driven_length),
+      totalLengthMiles: isProcessing && !hasData ? "--" : distanceInUserUnits(area.total_length),
+      drivenLengthMiles: isProcessing && !hasData ? "--" : distanceInUserUnits(area.driven_length),
       coveragePercentage: area.coverage_percentage?.toFixed(1) || "0.0",
-      totalSegments: area.total_segments?.toLocaleString() || 0,
+      totalSegments: isProcessing && !hasData ? "--" : (area.total_segments?.toLocaleString() || 0),
     };
   }
 
