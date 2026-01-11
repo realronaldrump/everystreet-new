@@ -36,7 +36,9 @@ export class CoverageAutoRefresh {
 
       const isModalProcessing =
         this.manager.crud?.currentProcessingLocation &&
-        document.getElementById("taskProgressModal")?.classList.contains("show");
+        document
+          .getElementById("taskProgressModal")
+          ?.classList.contains("show");
 
       // Don't auto-refresh while modal is open - polling handles updates there
       if (isModalProcessing) {
@@ -200,11 +202,16 @@ export class CoverageAutoRefresh {
       notification.remove();
     });
 
-    notification.querySelector(".discard-task").addEventListener("click", () => {
-      localStorage.removeItem("coverageProcessingState");
-      this.manager.notificationManager.show("Interrupted task discarded", "info");
-      notification.remove();
-    });
+    notification
+      .querySelector(".discard-task")
+      .addEventListener("click", () => {
+        localStorage.removeItem("coverageProcessingState");
+        this.manager.notificationManager.show(
+          "Interrupted task discarded",
+          "info",
+        );
+        notification.remove();
+      });
 
     document.querySelector("#alerts-container")?.prepend(notification);
   }

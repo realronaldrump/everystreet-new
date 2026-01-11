@@ -1,141 +1,145 @@
-{% extends "base.html" %}
+{% extends "base.html" %} {% block title %} Profile Settings {% endblock %} {%
+block extra_css %}
 
-{% block title %}
+<link
+  rel="stylesheet"
+  href="{{ url_for('static', path='css/settings.css') | replace('http://', '//') }}"
+/>
+<style>
+  .credential-input {
+    font-family: "Monaco", "Consolas", monospace;
+  }
 
-Profile Settings
-{% endblock %}
+  .credential-masked {
+    letter-spacing: 0.1em;
+  }
 
-{% block extra_css %}
+  .device-list-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+    padding: 10px;
+    background: var(--surface-2);
+    border-radius: var(--radius-md);
+  }
 
-  <link rel="stylesheet"
-        href="{{ url_for('static', path='css/settings.css') | replace('http://', '//') }}" />
-  <style>
-      .credential-input {
-          font-family: 'Monaco', 'Consolas', monospace;
-      }
+  .device-list-item input {
+    flex: 1;
+  }
 
-      .credential-masked {
-          letter-spacing: 0.1em;
-      }
+  .device-list-item button {
+    flex-shrink: 0;
+  }
 
-      .device-list-item {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          margin-bottom: 10px;
-          padding: 10px;
-          background: var(--surface-2);
-          border-radius: var(--radius-md);
-      }
+  .credentials-status {
+    padding: var(--space-3);
+    border-radius: var(--radius-md);
+    margin-bottom: var(--space-3);
+  }
 
-      .device-list-item input {
-          flex: 1;
-      }
+  .credentials-status.success {
+    background: rgb(var(--success-rgb), 0.15);
+    border: 1px solid var(--success);
+    color: var(--success);
+  }
 
-      .device-list-item button {
-          flex-shrink: 0;
-      }
+  .credentials-status.warning {
+    background: rgb(var(--warning-rgb), 0.15);
+    border: 1px solid var(--warning);
+    color: var(--warning);
+  }
 
-      .credentials-status {
-          padding: var(--space-3);
-          border-radius: var(--radius-md);
-          margin-bottom: var(--space-3);
-      }
+  .credentials-status.error {
+    background: rgb(var(--danger-rgb), 0.15);
+    border: 1px solid var(--danger);
+    color: var(--danger);
+  }
 
-      .credentials-status.success {
-          background: rgb(var(--success-rgb), 0.15);
-          border: 1px solid var(--success);
-          color: var(--success);
-      }
+  .vehicle-item-container {
+    background: var(--surface-2);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: var(--space-3);
+    margin-bottom: var(--space-3);
+    transition: all 0.2s ease;
+  }
 
-      .credentials-status.warning {
-          background: rgb(var(--warning-rgb), 0.15);
-          border: 1px solid var(--warning);
-          color: var(--warning);
-      }
+  .vehicle-item-container:hover {
+    background: var(--surface-3);
+    border-color: var(--border-color);
+  }
 
-      .credentials-status.error {
-          background: rgb(var(--danger-rgb), 0.15);
-          border: 1px solid var(--danger);
-          color: var(--danger);
-      }
+  @media (max-width: 768px) {
+    .device-list-item {
+      flex-direction: column;
+      align-items: stretch;
+    }
 
-      .vehicle-item-container {
-          background: var(--surface-2);
-          border: 1px solid var(--border-color);
-          border-radius: var(--radius-lg);
-          padding: var(--space-3);
-          margin-bottom: var(--space-3);
-          transition: all 0.2s ease;
-      }
+    .device-list-item input {
+      width: 100%;
+    }
+  }
+</style>
+{% endblock %} {% block content %}
 
-      .vehicle-item-container:hover {
-          background: var(--surface-3);
-          border-color: var(--border-color);
-      }
+<div class="container-fluid settings-container">
+  <h2 class="mb-4"><i class="fas fa-user-circle"></i> Profile Settings</h2>
 
-      @media (max-width: 768px) {
-          .device-list-item {
-              flex-direction: column;
-              align-items: stretch;
-          }
+  <!-- Credentials Status Banner -->
+  <div
+    id="credentials-status-banner"
+    class="credentials-status"
+    style="display: none"
+  >
+    <i class="fas fa-info-circle"></i>
+    <span id="credentials-status-text"></span>
+  </div>
 
-          .device-list-item input {
-              width: 100%;
-          }
-      }
-  </style>
-{% endblock %}
-
-
-{% block content %}
-
-  <div class="container-fluid settings-container">
-    <h2 class="mb-4">
-      <i class="fas fa-user-circle"></i> Profile Settings
-    </h2>
-
-    <!-- Credentials Status Banner -->
-    <div id="credentials-status-banner" class="credentials-status" style="display: none">
-      <i class="fas fa-info-circle"></i>
-      <span id="credentials-status-text"></span>
-    </div>
-
-    <!-- App Settings (Mapbox, Analytics) -->
-    <div class="settings-group">
-      <h3 class="settings-group-title">
-        <i class="fas fa-cog"></i>
+  <!-- App Settings (Mapbox, Analytics) -->
+  <div class="settings-group">
+    <h3 class="settings-group-title">
+      <i class="fas fa-cog"></i>
       App Settings
-      </h3>
-      <p class="text-muted small">
-      Configure your Mapbox access token for map rendering and optional Microsoft Clarity analytics.
-      These settings are stored in the database and persist across deployments.
-      </p>
+    </h3>
+    <p class="text-muted small">
+      Configure your Mapbox access token for map rendering and optional
+      Microsoft Clarity analytics. These settings are stored in the database and
+      persist across deployments.
+    </p>
 
-      <form id="appSettingsForm">
-        <!-- Mapbox Access Token -->
-        <div class="mb-4">
-          <label for="mapboxToken" class="form-label">
-            <i class="fas fa-map text-primary me-1"></i>
-                                                                                                                                  Mapbox Access Token <span class="text-danger">*</span>
+    <form id="appSettingsForm">
+      <!-- Mapbox Access Token -->
+      <div class="mb-4">
+        <label for="mapboxToken" class="form-label">
+          <i class="fas fa-map text-primary me-1"></i>
+          Mapbox Access Token <span class="text-danger">*</span>
         </label>
         <div class="input-group">
-          <input type="password"
-                 class="form-control credential-input"
-                 id="mapboxToken"
-                 placeholder="pk.eyJ1Ijoi..."
-                 required />
-          <button class="btn btn-outline-secondary"
-                  type="button"
-                  id="toggleMapboxToken"
-                  title="Show/Hide Token">
+          <input
+            type="password"
+            class="form-control credential-input"
+            id="mapboxToken"
+            placeholder="pk.eyJ1Ijoi..."
+            required
+          />
+          <button
+            class="btn btn-outline-secondary"
+            type="button"
+            id="toggleMapboxToken"
+            title="Show/Hide Token"
+          >
             <i class="fas fa-eye"></i>
           </button>
         </div>
         <div class="form-text">
           <strong>Required for maps.</strong> Get your free token at
-          <a href="https://account.mapbox.com/access-tokens/" target="_blank" rel="noopener">mapbox.com</a>.
-          Use a public token starting with <code>pk.</code>
+          <a
+            href="https://account.mapbox.com/access-tokens/"
+            target="_blank"
+            rel="noopener"
+            >mapbox.com</a
+          >. Use a public token starting with <code>pk.</code>
         </div>
       </div>
 
@@ -143,221 +147,249 @@ Profile Settings
       <div class="mb-4">
         <label for="clarityProjectId" class="form-label">
           <i class="fas fa-chart-line text-info me-1"></i>
-                                                                                                          Clarity Project ID <span class="text-muted">(optional)</span>
-      </label>
-      <input type="text" class="form-control" id="clarityProjectId" placeholder="abc123xyz" />
-      <div class="form-text">
+          Clarity Project ID <span class="text-muted">(optional)</span>
+        </label>
+        <input
+          type="text"
+          class="form-control"
+          id="clarityProjectId"
+          placeholder="abc123xyz"
+        />
+        <div class="form-text">
           Optional analytics. Get your project ID at
-        <a href="https://clarity.microsoft.com/" target="_blank" rel="noopener">clarity.microsoft.com</a>.
-          Leave blank to disable.
+          <a
+            href="https://clarity.microsoft.com/"
+            target="_blank"
+            rel="noopener"
+            >clarity.microsoft.com</a
+          >. Leave blank to disable.
+        </div>
       </div>
-    </div>
 
-    <!-- Action Buttons -->
-    <div class="d-flex gap-2 flex-wrap">
-      <button type="submit" class="btn btn-primary" id="saveAppSettingsBtn">
-        <i class="fas fa-save"></i> Save App Settings
-      </button>
-      <button type="button" class="btn btn-secondary" id="loadAppSettingsBtn">
-        <i class="fas fa-sync"></i> Reload
-      </button>
-    </div>
+      <!-- Action Buttons -->
+      <div class="d-flex gap-2 flex-wrap">
+        <button type="submit" class="btn btn-primary" id="saveAppSettingsBtn">
+          <i class="fas fa-save"></i> Save App Settings
+        </button>
+        <button type="button" class="btn btn-secondary" id="loadAppSettingsBtn">
+          <i class="fas fa-sync"></i> Reload
+        </button>
+      </div>
 
-    <div id="appSettingsSaveStatus" class="mt-3" style="display: none;">
-    </div>
-  </form>
-</div>
+      <div id="appSettingsSaveStatus" class="mt-3" style="display: none"></div>
+    </form>
+  </div>
 
-<!-- Bouncie API Credentials -->
-<div class="settings-group">
-  <h3 class="settings-group-title">
-    <i class="fas fa-key"></i>
+  <!-- Bouncie API Credentials -->
+  <div class="settings-group">
+    <h3 class="settings-group-title">
+      <i class="fas fa-key"></i>
       Bouncie API Credentials
-  </h3>
-  <p class="text-muted small">
-      Configure your Bouncie API credentials for trip fetching. These credentials
-      are stored securely in the database and will be used for all API requests.
-  </p>
+    </h3>
+    <p class="text-muted small">
+      Configure your Bouncie API credentials for trip fetching. These
+      credentials are stored securely in the database and will be used for all
+      API requests.
+    </p>
 
-  <form id="bouncieCredentialsForm">
-    <!-- Client ID -->
-    <div class="mb-3">
-      <label for="clientId" class="form-label">
-                                                                                  Client ID <span class="text-danger">*</span>
-    </label>
-    <input type="text"
-           class="form-control credential-input"
-           id="clientId"
-           placeholder="Enter your Bouncie Client ID"
-           required />
-    <div class="form-text">
+    <form id="bouncieCredentialsForm">
+      <!-- Client ID -->
+      <div class="mb-3">
+        <label for="clientId" class="form-label">
+          Client ID <span class="text-danger">*</span>
+        </label>
+        <input
+          type="text"
+          class="form-control credential-input"
+          id="clientId"
+          placeholder="Enter your Bouncie Client ID"
+          required
+        />
+        <div class="form-text">
           Your Bouncie application's client identifier
-    </div>
-  </div>
+        </div>
+      </div>
 
-  <!-- Client Secret -->
-  <div class="mb-3">
-    <label for="clientSecret" class="form-label">
-                                                          Client Secret <span class="text-danger">*</span>
-  </label>
-  <div class="input-group">
-    <input type="password"
-           class="form-control credential-input"
-           id="clientSecret"
-           placeholder="Enter your Bouncie Client Secret"
-           required />
-    <button class="btn btn-outline-secondary" type="button" id="toggleClientSecret">
-      <i class="fas fa-eye"></i>
-    </button>
-  </div>
-  <div class="form-text">
+      <!-- Client Secret -->
+      <div class="mb-3">
+        <label for="clientSecret" class="form-label">
+          Client Secret <span class="text-danger">*</span>
+        </label>
+        <div class="input-group">
+          <input
+            type="password"
+            class="form-control credential-input"
+            id="clientSecret"
+            placeholder="Enter your Bouncie Client Secret"
+            required
+          />
+          <button
+            class="btn btn-outline-secondary"
+            type="button"
+            id="toggleClientSecret"
+          >
+            <i class="fas fa-eye"></i>
+          </button>
+        </div>
+        <div class="form-text">
           Your Bouncie application's client secret (kept secure)
-  </div>
-</div>
+        </div>
+      </div>
 
-<!-- Redirect URI -->
-<div class="mb-3">
-  <label for="redirectUri" class="form-label">
-                                  Redirect URI <span class="text-danger">*</span>
-</label>
-<input type="url"
-       class="form-control credential-input"
-       id="redirectUri"
-       placeholder="https://your-domain.com/callback"
-       required />
-<div class="form-text">
+      <!-- Redirect URI -->
+      <div class="mb-3">
+        <label for="redirectUri" class="form-label">
+          Redirect URI <span class="text-danger">*</span>
+        </label>
+        <input
+          type="url"
+          class="form-control credential-input"
+          id="redirectUri"
+          placeholder="https://your-domain.com/callback"
+          required
+        />
+        <div class="form-text">
           The OAuth callback URL configured in your Bouncie application
-</div>
-</div>
+        </div>
+      </div>
 
-<!-- Authorization Code -->
-<div class="mb-3">
-  <label for="authorizationCode" class="form-label">
-                                  Authorization Code <span class="text-danger">*</span>
-</label>
-<div class="input-group">
-  <input type="password"
-         class="form-control credential-input"
-         id="authorizationCode"
-         placeholder="Enter your Bouncie Authorization Code"
-         required />
-  <button class="btn btn-outline-secondary" type="button" id="toggleAuthCode">
-    <i class="fas fa-eye"></i>
-  </button>
-</div>
-<div class="form-text">
+      <!-- Authorization Code -->
+      <div class="mb-3">
+        <label for="authorizationCode" class="form-label">
+          Authorization Code <span class="text-danger">*</span>
+        </label>
+        <div class="input-group">
+          <input
+            type="password"
+            class="form-control credential-input"
+            id="authorizationCode"
+            placeholder="Enter your Bouncie Authorization Code"
+            required
+          />
+          <button
+            class="btn btn-outline-secondary"
+            type="button"
+            id="toggleAuthCode"
+          >
+            <i class="fas fa-eye"></i>
+          </button>
+        </div>
+        <div class="form-text">
           The authorization code obtained from Bouncie OAuth flow
-</div>
-</div>
+        </div>
+      </div>
 
-<!-- Authorized Devices -->
-<div class="mb-3">
-  <label class="form-label">
-                                  Authorized Devices (IMEIs) <span class="text-danger">*</span>
-</label>
-<div id="devicesList">
-  <!-- Device inputs will be added here dynamically -->
-</div>
-<button type="button" class="btn btn-sm btn-outline-primary" id="addDeviceBtn">
-  <i class="fas fa-plus"></i> Add Device
-</button>
-<div class="form-text">
+      <!-- Authorized Devices -->
+      <div class="mb-3">
+        <label class="form-label">
+          Authorized Devices (IMEIs) <span class="text-danger">*</span>
+        </label>
+        <div id="devicesList">
+          <!-- Device inputs will be added here dynamically -->
+        </div>
+        <button
+          type="button"
+          class="btn btn-sm btn-outline-primary"
+          id="addDeviceBtn"
+        >
+          <i class="fas fa-plus"></i> Add Device
+        </button>
+        <div class="form-text">
           IMEI numbers of devices authorized to fetch trip data from
-</div>
-</div>
+        </div>
+      </div>
 
-<!-- Fetch Concurrency -->
-<div class="mb-3">
-  <label for="fetchConcurrency" class="form-label">
+      <!-- Fetch Concurrency -->
+      <div class="mb-3">
+        <label for="fetchConcurrency" class="form-label">
           Fetch Concurrency
-  </label>
-  <input type="number"
-         class="form-control"
-         id="fetchConcurrency"
-         placeholder="12"
-         min="1"
-         max="50"
-         value="12" />
-  <div class="form-text">
-          Maximum number of concurrent API requests when fetching trips (1-50, default: 12)
+        </label>
+        <input
+          type="number"
+          class="form-control"
+          id="fetchConcurrency"
+          placeholder="12"
+          min="1"
+          max="50"
+          value="12"
+        />
+        <div class="form-text">
+          Maximum number of concurrent API requests when fetching trips (1-50,
+          default: 12)
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="d-flex gap-2 flex-wrap">
+        <button type="submit" class="btn btn-primary" id="saveCredentialsBtn">
+          <i class="fas fa-save"></i> Save Credentials
+        </button>
+        <button type="button" class="btn btn-secondary" id="loadCredentialsBtn">
+          <i class="fas fa-sync"></i> Reload
+        </button>
+        <button type="button" class="btn btn-info" id="unmaskCredentialsBtn">
+          <i class="fas fa-eye"></i> Unmask All
+        </button>
+      </div>
+
+      <div id="credentialsSaveStatus" class="mt-3" style="display: none"></div>
+    </form>
+  </div>
+
+  <!-- Vehicle Management Link -->
+  <div class="settings-group">
+    <h3 class="settings-group-title">
+      <i class="fas fa-car"></i>
+      Vehicle Management
+    </h3>
+    <p class="text-muted small">
+      Manage your vehicle details, odometer settings, and more.
+    </p>
+    <a href="/vehicles" class="btn btn-outline-primary">
+      <i class="fas fa-car me-2"></i>Go to My Vehicle
+    </a>
+  </div>
+
+  <!-- Help/Documentation -->
+  <div class="settings-group">
+    <h3 class="settings-group-title">
+      <i class="fas fa-question-circle"></i>
+      How to Get Your Credentials
+    </h3>
+    <ol>
+      <li>
+        <strong>Create a Bouncie Developer Account:</strong> Visit the
+        <a href="https://developer.bouncie.com" target="_blank" rel="noopener">
+          Bouncie Developer Portal
+        </a>
+        and sign up for an account.
+      </li>
+      <li>
+        <strong>Create an Application:</strong> Once logged in, create a new
+        application to get your Client ID and Client Secret.
+      </li>
+      <li>
+        <strong>Configure Redirect URI:</strong> Set your redirect URI in the
+        Bouncie application settings (e.g., https://your-domain.com/callback).
+      </li>
+      <li>
+        <strong>Complete OAuth Flow:</strong> Use the OAuth 2.0 authorization
+        flow to obtain an authorization code.
+      </li>
+      <li>
+        <strong>Find Device IMEIs:</strong> Your device IMEI numbers can be
+        found in your Bouncie account settings or on the physical device.
+      </li>
+    </ol>
+    <p class="text-muted small mb-0">
+      <i class="fas fa-info-circle"></i>
+      <strong>Note:</strong> These credentials are stored securely in your
+      database and are never exposed in logs or error messages.
+    </p>
   </div>
 </div>
 
-<!-- Action Buttons -->
-<div class="d-flex gap-2 flex-wrap">
-  <button type="submit" class="btn btn-primary" id="saveCredentialsBtn">
-    <i class="fas fa-save"></i> Save Credentials
-  </button>
-  <button type="button" class="btn btn-secondary" id="loadCredentialsBtn">
-    <i class="fas fa-sync"></i> Reload
-  </button>
-  <button type="button" class="btn btn-info" id="unmaskCredentialsBtn">
-    <i class="fas fa-eye"></i> Unmask All
-  </button>
-</div>
+{% endblock %} {% block extra_js %}
 
-<div id="credentialsSaveStatus" class="mt-3" style="display: none;">
-</div>
-</form>
-</div>
-
-<!-- Vehicle Management Link -->
-<div class="settings-group">
-  <h3 class="settings-group-title">
-    <i class="fas fa-car"></i>
-      Vehicle Management
-  </h3>
-  <p class="text-muted small">
-      Manage your vehicle details, odometer settings, and more.
-  </p>
-  <a href="/vehicles" class="btn btn-outline-primary">
-    <i class="fas fa-car me-2"></i>Go to My Vehicle
-  </a>
-</div>
-
-<!-- Help/Documentation -->
-<div class="settings-group">
-  <h3 class="settings-group-title">
-    <i class="fas fa-question-circle"></i>
-      How to Get Your Credentials
-  </h3>
-  <ol>
-    <li>
-      <strong>Create a Bouncie Developer Account:</strong> Visit the
-      <a href="https://developer.bouncie.com" target="_blank" rel="noopener">
-          Bouncie Developer Portal
-      </a>
-        and sign up for an account.
-    </li>
-    <li>
-      <strong>Create an Application:</strong> Once logged in, create a new
-        application to get your Client ID and Client Secret.
-    </li>
-    <li>
-      <strong>Configure Redirect URI:</strong> Set your redirect URI in the
-        Bouncie application settings (e.g., https://your-domain.com/callback).
-    </li>
-    <li>
-      <strong>Complete OAuth Flow:</strong> Use the OAuth 2.0 authorization
-        flow to obtain an authorization code.
-    </li>
-    <li>
-      <strong>Find Device IMEIs:</strong> Your device IMEI numbers can be found
-        in your Bouncie account settings or on the physical device.
-    </li>
-  </ol>
-  <p class="text-muted small mb-0">
-    <i class="fas fa-info-circle"></i>
-    <strong>Note:</strong> These credentials are stored securely in your database
-      and are never exposed in logs or error messages.
-  </p>
-</div>
-</div>
-
-{% endblock %}
-
-
-{% block extra_js %}
-
-  <script src="{{ url_for('static', path='js/profile.js') | replace('http://', '//') }}"></script>
+<script src="{{ url_for('static', path='js/profile.js') | replace('http://', '//') }}"></script>
 {% endblock %}

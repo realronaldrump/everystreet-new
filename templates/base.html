@@ -1,49 +1,50 @@
-{% from 'partials/_library_versions.html' import CDN, LIB_VERSIONS with context %}
-<!DOCTYPE html>
+{% from 'partials/_library_versions.html' import CDN, LIB_VERSIONS with context
+%}
+<!doctype html>
 <html lang="en" data-bs-theme="dark">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport"
-          content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="description"
-          content="Every Street - Tracking and Visualizing Davis's street coverage" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
+    <meta
+      name="description"
+      content="Every Street - Tracking and Visualizing Davis's street coverage"
+    />
     <meta name="theme-color" content="#121212" />
     <meta name="color-scheme" content="dark light" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta
+      name="apple-mobile-web-app-status-bar-style"
+      content="black-translucent"
+    />
 
     <!-- Prevent flash of wrong theme -->
     <script>
-        (function() {
-            const savedTheme = localStorage.getItem("theme");
-            const prefersDarkScheme = window.matchMedia(
-                "(prefers-color-scheme: dark)",
-            ).matches;
+      (function () {
+        const savedTheme = localStorage.getItem("theme");
+        const prefersDarkScheme = window.matchMedia(
+          "(prefers-color-scheme: dark)",
+        ).matches;
 
-            if (savedTheme === "light" || (!savedTheme && !prefersDarkScheme)) {
-                document.documentElement.setAttribute("data-bs-theme", "light");
-                document.documentElement.classList.add("light-mode");
-                document
-                    .querySelector('meta[name="theme-color"]')
-                    ?.setAttribute("content", "#f8f9fa");
-            } else {
-                document.documentElement.setAttribute("data-bs-theme", "dark");
-                document
-                    .querySelector('meta[name="theme-color"]')
-                    ?.setAttribute("content", "#121212");
-            }
-        })();
+        if (savedTheme === "light" || (!savedTheme && !prefersDarkScheme)) {
+          document.documentElement.setAttribute("data-bs-theme", "light");
+          document.documentElement.classList.add("light-mode");
+          document
+            .querySelector('meta[name="theme-color"]')
+            ?.setAttribute("content", "#f8f9fa");
+        } else {
+          document.documentElement.setAttribute("data-bs-theme", "dark");
+          document
+            .querySelector('meta[name="theme-color"]')
+            ?.setAttribute("content", "#121212");
+        }
+      })();
     </script>
 
-    <title>
-
-      {% block title %}
-
-Every Street
-      {% endblock %}
-
-    </title>
+    <title>{% block title %} Every Street {% endblock %}</title>
 
     <!-- Resource hints -->
     <link rel="dns-prefetch" href="//cdn.jsdelivr.net" />
@@ -53,67 +54,85 @@ Every Street
     <link rel="preconnect" href="//api.mapbox.com" crossorigin />
 
     <!-- Favicon -->
-    <link rel="icon"
-          href="{{ url_for('static', path='favicon.ico') | replace('http://', '//') }}"
-          type="image/x-icon" />
-    <link rel="apple-touch-icon"
-          href="{{ url_for('static', path='apple-touch-icon.png') | replace('http://', '//') }}" />
+    <link
+      rel="icon"
+      href="{{ url_for('static', path='favicon.ico') | replace('http://', '//') }}"
+      type="image/x-icon"
+    />
+    <link
+      rel="apple-touch-icon"
+      href="{{ url_for('static', path='apple-touch-icon.png') | replace('http://', '//') }}"
+    />
 
     <!-- Font loading with display swap -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
-          rel="stylesheet" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
 
     <!-- Critical CSS -->
-    <link rel="stylesheet" href="{{ CDN.bootstrap_css }}" crossorigin="anonymous" />
-    <link rel="stylesheet" href="{{ CDN.fontawesome }}" crossorigin="anonymous" />
+    <link
+      rel="stylesheet"
+      href="{{ CDN.bootstrap_css }}"
+      crossorigin="anonymous"
+    />
+    <link
+      rel="stylesheet"
+      href="{{ CDN.fontawesome }}"
+      crossorigin="anonymous"
+    />
     <!-- Core CSS -->
-    <link rel="stylesheet"
-          href="{{ url_for('static', path='css/style.css') | replace('http://', '//') }}" />
-    <link rel="stylesheet"
-          href="{{ url_for('static', path='css/animations.css') | replace('http://', '//') }}" />
-    <link rel="stylesheet"
-          href="{{ url_for('static', path='css/loading-styles.css') | replace('http://', '//') }}" />
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', path='css/style.css') | replace('http://', '//') }}"
+    />
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', path='css/animations.css') | replace('http://', '//') }}"
+    />
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', path='css/loading-styles.css') | replace('http://', '//') }}"
+    />
 
     <!-- Non-critical CSS loaded asynchronously -->
-    <link rel="preload"
-          href="{{ CDN.flatpickr_css }}"
-          as="style"
-          onload="this.onload=null;this.rel='stylesheet'" />
+    <link
+      rel="preload"
+      href="{{ CDN.flatpickr_css }}"
+      as="style"
+      onload="
+        this.onload = null;
+        this.rel = 'stylesheet';
+      "
+    />
     <noscript>
       <link rel="stylesheet" href="{{ CDN.flatpickr_css }}" />
     </noscript>
 
-    {% block extra_css %}
-
-    {% endblock %}
-
-
-    {% block head_content %}
-
-    {% endblock %}
-
-
+    {% block extra_css %} {% endblock %} {% block head_content %} {% endblock %}
     {% if CLARITY_PROJECT_ID %}
-      <script type="text/javascript">
-          (function(c, l, a, r, i, t, y) {
-              c[a] =
-                  c[a] ||
-                  function() {
-                      (c[a].q = c[a].q || []).push(arguments);
-                  };
-              t = l.createElement(r);
-              t.async = 1;
-              t.src = "https://www.clarity.ms/tag/" + i;
-              y = l.getElementsByTagName(r)[0];
-              y.parentNode.insertBefore(t, y);
-          })(window, document, "clarity", "script", "{{ CLARITY_PROJECT_ID }}");
-      </script>
+    <script type="text/javascript">
+      (function (c, l, a, r, i, t, y) {
+        c[a] =
+          c[a] ||
+          function () {
+            (c[a].q = c[a].q || []).push(arguments);
+          };
+        t = l.createElement(r);
+        t.async = 1;
+        t.src = "https://www.clarity.ms/tag/" + i;
+        y = l.getElementsByTagName(r)[0];
+        y.parentNode.insertBefore(t, y);
+      })(window, document, "clarity", "script", "{{ CLARITY_PROJECT_ID }}");
+    </script>
     {% endif %}
   </head>
   <body>
-    <a href="#main-content" class="visually-hidden-focusable">Skip to main content</a>
+    <a href="#main-content" class="visually-hidden-focusable"
+      >Skip to main content</a
+    >
 
     <div id="app" class="layout-wrapper">
       <!-- Top Navigation Bar -->
@@ -121,15 +140,19 @@ Every Street
         <div class="header-container">
           <!-- Logo and Brand -->
           <div class="brand-section">
-            <button id="menu-toggle"
-                    class="menu-toggle-btn"
-                    aria-label="Toggle navigation menu"
-                    aria-expanded="false"
-                    aria-controls="mobile-nav-drawer">
+            <button
+              id="menu-toggle"
+              class="menu-toggle-btn"
+              aria-label="Toggle navigation menu"
+              aria-expanded="false"
+              aria-controls="mobile-nav-drawer"
+            >
               <i class="fas fa-bars" aria-hidden="true"></i>
             </button>
             <a href="/" class="brand-logo" aria-label="Every Street Home">
-              <span class="brand-icon" aria-hidden="true"><i class="fas fa-route"></i></span>
+              <span class="brand-icon" aria-hidden="true"
+                ><i class="fas fa-route"></i
+              ></span>
               <span class="brand-text">EveryStreet</span>
             </a>
           </div>
@@ -137,75 +160,154 @@ Every Street
           <!-- Primary Navigation -->
           <nav class="main-nav" aria-label="Main navigation" role="navigation">
             <ul class="nav-list">
-              <li class="nav-item {% if request.url.path == '/map' %}active{% endif %}">
-                <a href="/map"
-                   title="Map"
-                   {% if request.url.path == '/map' %}aria-current="page"{% endif %}>
+              <li
+                class="nav-item {% if request.url.path == '/map' %}active{% endif %}"
+              >
+                <a
+                  href="/map"
+                  title="Map"
+                  {%
+                  if
+                  request.url.path=""
+                  ="/map"
+                  %}aria-current="page"
+                  {%
+                  endif
+                  %}
+                >
                   <i class="fas fa-map" aria-hidden="true"></i> <span>Map</span>
                 </a>
               </li>
-              <li class="nav-item {% if request.url.path == '/trips' %}active{% endif %}">
-                <a href="/trips"
-                   title="Trips"
-                   {% if request.url.path == '/trips' %}aria-current="page"{% endif %}>
+              <li
+                class="nav-item {% if request.url.path == '/trips' %}active{% endif %}"
+              >
+                <a
+                  href="/trips"
+                  title="Trips"
+                  {%
+                  if
+                  request.url.path=""
+                  ="/trips"
+                  %}aria-current="page"
+                  {%
+                  endif
+                  %}
+                >
                   <i class="fas fa-road" aria-hidden="true"></i>
                   <span>Trips</span>
                 </a>
               </li>
-              <li class="nav-item {% if request.url.path == '/insights' %}active{% endif %}">
-                <a href="/insights"
-                   title="Insights"
-                   {% if request.url.path == '/insights' %}aria-current="page"{% endif %}>
+              <li
+                class="nav-item {% if request.url.path == '/insights' %}active{% endif %}"
+              >
+                <a
+                  href="/insights"
+                  title="Insights"
+                  {%
+                  if
+                  request.url.path=""
+                  ="/insights"
+                  %}aria-current="page"
+                  {%
+                  endif
+                  %}
+                >
                   <i class="fas fa-chart-line" aria-hidden="true"></i>
                   <span>Insights</span>
                 </a>
               </li>
-              <li class="nav-item {% if request.url.path == '/gas-tracking' %}active{% endif %}">
-                <a href="/gas-tracking"
-                   title="Gas Tracking"
-                   {% if request.url.path == '/gas-tracking' %}aria-current="page"{% endif %}>
+              <li
+                class="nav-item {% if request.url.path == '/gas-tracking' %}active{% endif %}"
+              >
+                <a
+                  href="/gas-tracking"
+                  title="Gas Tracking"
+                  {%
+                  if
+                  request.url.path=""
+                  ="/gas-tracking"
+                  %}aria-current="page"
+                  {%
+                  endif
+                  %}
+                >
                   <i class="fas fa-gas-pump" aria-hidden="true"></i>
                   <span>Gas</span>
                 </a>
               </li>
-              <li class="nav-item {% if request.url.path == '/coverage-navigator' %}active{% endif %}">
-                <a href="/coverage-navigator"
-                   title="Coverage Navigator"
-                   {% if request.url.path == '/coverage-navigator' %}aria-current="page"{% endif %}>
+              <li
+                class="nav-item {% if request.url.path == '/coverage-navigator' %}active{% endif %}"
+              >
+                <a
+                  href="/coverage-navigator"
+                  title="Coverage Navigator"
+                  {%
+                  if
+                  request.url.path=""
+                  ="/coverage-navigator"
+                  %}aria-current="page"
+                  {%
+                  endif
+                  %}
+                >
                   <i class="fas fa-route" aria-hidden="true"></i>
                   <span>Coverage Navigator</span>
                 </a>
               </li>
               <!-- More Dropdown -->
               <li class="nav-item dropdown">
-                <a href="#"
-                   class="dropdown-toggle"
-                   data-bs-toggle="dropdown"
-                   aria-expanded="false"
-                   aria-haspopup="true"
-                   role="button">
+                <a
+                  href="#"
+                  class="dropdown-toggle"
+                  data-bs-toggle="dropdown"
+                  aria-expanded="false"
+                  aria-haspopup="true"
+                  role="button"
+                >
                   <i class="fas fa-ellipsis-h" aria-hidden="true"></i>
                   <span>More</span>
                 </a>
-                <ul class="dropdown-menu dropdown-menu-end dropdown-menu-grouped" role="menu">
+                <ul
+                  class="dropdown-menu dropdown-menu-end dropdown-menu-grouped"
+                  role="menu"
+                >
                   <!-- Insights & Tracking -->
-                  <li class="dropdown-header">
-Insights & Tracking
-                  </li>
+                  <li class="dropdown-header">Insights & Tracking</li>
                   <li role="none">
-                    <a class="dropdown-item {% if request.url.path == '/visits' %}active{% endif %}"
-                       href="/visits"
-                       role="menuitem"
-                       {% if request.url.path == '/visits' %}aria-current="page"{% endif %}>
-                      <i class="fas fa-map-marker-alt me-2" aria-hidden="true"></i>
+                    <a
+                      class="dropdown-item {% if request.url.path == '/visits' %}active{% endif %}"
+                      href="/visits"
+                      role="menuitem"
+                      {%
+                      if
+                      request.url.path=""
+                      ="/visits"
+                      %}aria-current="page"
+                      {%
+                      endif
+                      %}
+                    >
+                      <i
+                        class="fas fa-map-marker-alt me-2"
+                        aria-hidden="true"
+                      ></i>
                       Visits
                     </a>
                   </li>
                   <li role="none">
-                    <a class="dropdown-item {% if request.url.path == '/vehicles' %}active{% endif %}"
-                       href="/vehicles"
-                       role="menuitem"
-                       {% if request.url.path == '/vehicles' %}aria-current="page"{% endif %}>
+                    <a
+                      class="dropdown-item {% if request.url.path == '/vehicles' %}active{% endif %}"
+                      href="/vehicles"
+                      role="menuitem"
+                      {%
+                      if
+                      request.url.path=""
+                      ="/vehicles"
+                      %}aria-current="page"
+                      {%
+                      endif
+                      %}
+                    >
                       <i class="fas fa-car me-2" aria-hidden="true"></i>
                       My Vehicle
                     </a>
@@ -215,33 +317,67 @@ Insights & Tracking
                   </li>
 
                   <!-- Coverage & Routes -->
-                  <li class="dropdown-header">
-Coverage & Routes
-                  </li>
+                  <li class="dropdown-header">Coverage & Routes</li>
                   <li role="none">
-                    <a class="dropdown-item {% if request.url.path == '/coverage-management' %}active{% endif %}"
-                       href="/coverage-management"
-                       role="menuitem"
-                       {% if request.url.path == '/coverage-management' %}aria-current="page"{% endif %}>
-                      <i class="fas fa-map-marked-alt me-2" aria-hidden="true"></i>
+                    <a
+                      class="dropdown-item {% if request.url.path == '/coverage-management' %}active{% endif %}"
+                      href="/coverage-management"
+                      role="menuitem"
+                      {%
+                      if
+                      request.url.path=""
+                      ="/coverage-management"
+                      %}aria-current="page"
+                      {%
+                      endif
+                      %}
+                    >
+                      <i
+                        class="fas fa-map-marked-alt me-2"
+                        aria-hidden="true"
+                      ></i>
                       Coverage Areas
                     </a>
                   </li>
                   <li role="none">
-                    <a class="dropdown-item {% if request.url.path == '/turn-by-turn' %}active{% endif %}"
-                       href="/turn-by-turn"
-                       role="menuitem"
-                       {% if request.url.path == '/turn-by-turn' %}aria-current="page"{% endif %}>
-                      <i class="fas fa-location-arrow me-2" aria-hidden="true"></i>
+                    <a
+                      class="dropdown-item {% if request.url.path == '/turn-by-turn' %}active{% endif %}"
+                      href="/turn-by-turn"
+                      role="menuitem"
+                      {%
+                      if
+                      request.url.path=""
+                      ="/turn-by-turn"
+                      %}aria-current="page"
+                      {%
+                      endif
+                      %}
+                    >
+                      <i
+                        class="fas fa-location-arrow me-2"
+                        aria-hidden="true"
+                      ></i>
                       Turn-by-Turn
                     </a>
                   </li>
                   <li role="none">
-                    <a class="dropdown-item {% if request.url.path == '/county-map' %}active{% endif %}"
-                       href="/county-map"
-                       role="menuitem"
-                       {% if request.url.path == '/county-map' %}aria-current="page"{% endif %}>
-                      <i class="fas fa-globe-americas me-2" aria-hidden="true"></i>
+                    <a
+                      class="dropdown-item {% if request.url.path == '/county-map' %}active{% endif %}"
+                      href="/county-map"
+                      role="menuitem"
+                      {%
+                      if
+                      request.url.path=""
+                      ="/county-map"
+                      %}aria-current="page"
+                      {%
+                      endif
+                      %}
+                    >
+                      <i
+                        class="fas fa-globe-americas me-2"
+                        aria-hidden="true"
+                      ></i>
                       County Map
                     </a>
                   </li>
@@ -250,32 +386,57 @@ Coverage & Routes
                   </li>
 
                   <!-- Data -->
-                  <li class="dropdown-header">
-Data
-                  </li>
+                  <li class="dropdown-header">Data</li>
                   <li role="none">
-                    <a class="dropdown-item {% if request.url.path == '/edit_trips' %}active{% endif %}"
-                       href="/edit_trips"
-                       role="menuitem"
-                       {% if request.url.path == '/edit_trips' %}aria-current="page"{% endif %}>
+                    <a
+                      class="dropdown-item {% if request.url.path == '/edit_trips' %}active{% endif %}"
+                      href="/edit_trips"
+                      role="menuitem"
+                      {%
+                      if
+                      request.url.path=""
+                      ="/edit_trips"
+                      %}aria-current="page"
+                      {%
+                      endif
+                      %}
+                    >
                       <i class="fas fa-edit me-2" aria-hidden="true"></i>
                       Edit Trips
                     </a>
                   </li>
                   <li role="none">
-                    <a class="dropdown-item {% if request.url.path == '/export' %}active{% endif %}"
-                       href="/export"
-                       role="menuitem"
-                       {% if request.url.path == '/export' %}aria-current="page"{% endif %}>
+                    <a
+                      class="dropdown-item {% if request.url.path == '/export' %}active{% endif %}"
+                      href="/export"
+                      role="menuitem"
+                      {%
+                      if
+                      request.url.path=""
+                      ="/export"
+                      %}aria-current="page"
+                      {%
+                      endif
+                      %}
+                    >
                       <i class="fas fa-file-export me-2" aria-hidden="true"></i>
                       Export Data
                     </a>
                   </li>
                   <li role="none">
-                    <a class="dropdown-item {% if request.url.path == '/upload' %}active{% endif %}"
-                       href="/upload"
-                       role="menuitem"
-                       {% if request.url.path == '/upload' %}aria-current="page"{% endif %}>
+                    <a
+                      class="dropdown-item {% if request.url.path == '/upload' %}active{% endif %}"
+                      href="/upload"
+                      role="menuitem"
+                      {%
+                      if
+                      request.url.path=""
+                      ="/upload"
+                      %}aria-current="page"
+                      {%
+                      endif
+                      %}
+                    >
                       <i class="fas fa-upload me-2" aria-hidden="true"></i>
                       Upload GPX
                     </a>
@@ -285,41 +446,75 @@ Data
                   </li>
 
                   <!-- System -->
-                  <li class="dropdown-header">
-System
-                  </li>
+                  <li class="dropdown-header">System</li>
                   <li role="none">
-                    <a class="dropdown-item {% if request.url.path == '/database-management' %}active{% endif %}"
-                       href="/database-management"
-                       role="menuitem"
-                       {% if request.url.path == '/database-management' %}aria-current="page"{% endif %}>
+                    <a
+                      class="dropdown-item {% if request.url.path == '/database-management' %}active{% endif %}"
+                      href="/database-management"
+                      role="menuitem"
+                      {%
+                      if
+                      request.url.path=""
+                      ="/database-management"
+                      %}aria-current="page"
+                      {%
+                      endif
+                      %}
+                    >
                       <i class="fas fa-database me-2" aria-hidden="true"></i>
                       Database
                     </a>
                   </li>
                   <li role="none">
-                    <a class="dropdown-item {% if request.url.path == '/server-logs' %}active{% endif %}"
-                       href="/server-logs"
-                       role="menuitem"
-                       {% if request.url.path == '/server-logs' %}aria-current="page"{% endif %}>
+                    <a
+                      class="dropdown-item {% if request.url.path == '/server-logs' %}active{% endif %}"
+                      href="/server-logs"
+                      role="menuitem"
+                      {%
+                      if
+                      request.url.path=""
+                      ="/server-logs"
+                      %}aria-current="page"
+                      {%
+                      endif
+                      %}
+                    >
                       <i class="fas fa-file-alt me-2" aria-hidden="true"></i>
                       Server Logs
                     </a>
                   </li>
                   <li role="none">
-                    <a class="dropdown-item {% if request.url.path == '/settings' %}active{% endif %}"
-                       href="/settings"
-                       role="menuitem"
-                       {% if request.url.path == '/settings' %}aria-current="page"{% endif %}>
+                    <a
+                      class="dropdown-item {% if request.url.path == '/settings' %}active{% endif %}"
+                      href="/settings"
+                      role="menuitem"
+                      {%
+                      if
+                      request.url.path=""
+                      ="/settings"
+                      %}aria-current="page"
+                      {%
+                      endif
+                      %}
+                    >
                       <i class="fas fa-cog me-2" aria-hidden="true"></i>
                       Settings
                     </a>
                   </li>
                   <li role="none">
-                    <a class="dropdown-item {% if request.url.path == '/profile' %}active{% endif %}"
-                       href="/profile"
-                       role="menuitem"
-                       {% if request.url.path == '/profile' %}aria-current="page"{% endif %}>
+                    <a
+                      class="dropdown-item {% if request.url.path == '/profile' %}active{% endif %}"
+                      href="/profile"
+                      role="menuitem"
+                      {%
+                      if
+                      request.url.path=""
+                      ="/profile"
+                      %}aria-current="page"
+                      {%
+                      endif
+                      %}
+                    >
                       <i class="fas fa-user-circle me-2" aria-hidden="true"></i>
                       Profile
                     </a>
@@ -331,19 +526,23 @@ System
 
           <!-- Tools and User Options -->
           <div class="tools-section">
-            <button id="filters-toggle"
-                    class="tool-btn"
-                    aria-label="Toggle filters panel"
-                    title="Filters"
-                    aria-expanded="false"
-                    aria-controls="filters-panel">
+            <button
+              id="filters-toggle"
+              class="tool-btn"
+              aria-label="Toggle filters panel"
+              title="Filters"
+              aria-expanded="false"
+              aria-controls="filters-panel"
+            >
               <i class="fas fa-filter" aria-hidden="true"></i>
             </button>
             <label class="theme-toggle" title="Toggle dark/light mode">
-              <input type="checkbox"
-                     id="theme-toggle-checkbox"
-                     role="switch"
-                     aria-label="Toggle theme" />
+              <input
+                type="checkbox"
+                id="theme-toggle-checkbox"
+                role="switch"
+                aria-label="Toggle theme"
+              />
               <span class="theme-slider" aria-hidden="true">
                 <i class="fas fa-moon"></i>
                 <i class="fas fa-sun"></i>
@@ -354,10 +553,12 @@ System
       </header>
 
       <!-- Mobile Navigation Drawer -->
-      <nav id="mobile-nav-drawer"
-           class="mobile-nav-drawer"
-           role="navigation"
-           aria-label="Mobile navigation">
+      <nav
+        id="mobile-nav-drawer"
+        class="mobile-nav-drawer"
+        role="navigation"
+        aria-label="Mobile navigation"
+      >
         <div class="drawer-header">
           <span class="drawer-title">Menu</span>
           <button class="drawer-close-btn" aria-label="Close menu">
@@ -367,24 +568,51 @@ System
         <div class="drawer-nav">
           <!-- Core Section -->
           <div class="drawer-nav-section">
-            <button class="drawer-nav-section-header"
-                    aria-expanded="true"
-                    aria-controls="nav-section-core">
+            <button
+              class="drawer-nav-section-header"
+              aria-expanded="true"
+              aria-controls="nav-section-core"
+            >
               <span class="drawer-nav-section-title">Core</span>
-              <i class="fas fa-chevron-down drawer-nav-section-chevron" aria-hidden="true"></i>
+              <i
+                class="fas fa-chevron-down drawer-nav-section-chevron"
+                aria-hidden="true"
+              ></i>
             </button>
-            <ul class="drawer-nav-section-list" id="nav-section-core" role="list">
+            <ul
+              class="drawer-nav-section-list"
+              id="nav-section-core"
+              role="list"
+            >
               <li role="none">
-                <a href="/map"
-                   class="{% if request.url.path == '/map' %}active{% endif %}"
-                   {% if request.url.path == '/map' %}aria-current="page"{% endif %}>
+                <a
+                  href="/map"
+                  class="{% if request.url.path == '/map' %}active{% endif %}"
+                  {%
+                  if
+                  request.url.path=""
+                  ="/map"
+                  %}aria-current="page"
+                  {%
+                  endif
+                  %}
+                >
                   <i class="fas fa-map me-2" aria-hidden="true"></i> Map
                 </a>
               </li>
               <li role="none">
-                <a href="/trips"
-                   class="{% if request.url.path == '/trips' %}active{% endif %}"
-                   {% if request.url.path == '/trips' %}aria-current="page"{% endif %}>
+                <a
+                  href="/trips"
+                  class="{% if request.url.path == '/trips' %}active{% endif %}"
+                  {%
+                  if
+                  request.url.path=""
+                  ="/trips"
+                  %}aria-current="page"
+                  {%
+                  endif
+                  %}
+                >
                   <i class="fas fa-road me-2" aria-hidden="true"></i> Trips
                 </a>
               </li>
@@ -393,38 +621,86 @@ System
 
           <!-- Insights & Tracking Section -->
           <div class="drawer-nav-section">
-            <button class="drawer-nav-section-header"
-                    aria-expanded="true"
-                    aria-controls="nav-section-insights">
+            <button
+              class="drawer-nav-section-header"
+              aria-expanded="true"
+              aria-controls="nav-section-insights"
+            >
               <span class="drawer-nav-section-title">Insights & Tracking</span>
-              <i class="fas fa-chevron-down drawer-nav-section-chevron" aria-hidden="true"></i>
+              <i
+                class="fas fa-chevron-down drawer-nav-section-chevron"
+                aria-hidden="true"
+              ></i>
             </button>
-            <ul class="drawer-nav-section-list" id="nav-section-insights" role="list">
+            <ul
+              class="drawer-nav-section-list"
+              id="nav-section-insights"
+              role="list"
+            >
               <li role="none">
-                <a href="/insights"
-                   class="{% if request.url.path == '/insights' %}active{% endif %}"
-                   {% if request.url.path == '/insights' %}aria-current="page"{% endif %}>
-                  <i class="fas fa-chart-line me-2" aria-hidden="true"></i> Driving Insights
+                <a
+                  href="/insights"
+                  class="{% if request.url.path == '/insights' %}active{% endif %}"
+                  {%
+                  if
+                  request.url.path=""
+                  ="/insights"
+                  %}aria-current="page"
+                  {%
+                  endif
+                  %}
+                >
+                  <i class="fas fa-chart-line me-2" aria-hidden="true"></i>
+                  Driving Insights
                 </a>
               </li>
               <li role="none">
-                <a href="/gas-tracking"
-                   class="{% if request.url.path == '/gas-tracking' %}active{% endif %}"
-                   {% if request.url.path == '/gas-tracking' %}aria-current="page"{% endif %}>
-                  <i class="fas fa-gas-pump me-2" aria-hidden="true"></i> Gas Tracking
+                <a
+                  href="/gas-tracking"
+                  class="{% if request.url.path == '/gas-tracking' %}active{% endif %}"
+                  {%
+                  if
+                  request.url.path=""
+                  ="/gas-tracking"
+                  %}aria-current="page"
+                  {%
+                  endif
+                  %}
+                >
+                  <i class="fas fa-gas-pump me-2" aria-hidden="true"></i> Gas
+                  Tracking
                 </a>
               </li>
               <li role="none">
-                <a href="/visits"
-                   class="{% if request.url.path == '/visits' %}active{% endif %}"
-                   {% if request.url.path == '/visits' %}aria-current="page"{% endif %}>
-                  <i class="fas fa-map-marker-alt me-2" aria-hidden="true"></i> Visits
+                <a
+                  href="/visits"
+                  class="{% if request.url.path == '/visits' %}active{% endif %}"
+                  {%
+                  if
+                  request.url.path=""
+                  ="/visits"
+                  %}aria-current="page"
+                  {%
+                  endif
+                  %}
+                >
+                  <i class="fas fa-map-marker-alt me-2" aria-hidden="true"></i>
+                  Visits
                 </a>
               </li>
               <li role="none">
-                <a href="/vehicles"
-                   class="{% if request.url.path == '/vehicles' %}active{% endif %}"
-                   {% if request.url.path == '/vehicles' %}aria-current="page"{% endif %}>
+                <a
+                  href="/vehicles"
+                  class="{% if request.url.path == '/vehicles' %}active{% endif %}"
+                  {%
+                  if
+                  request.url.path=""
+                  ="/vehicles"
+                  %}aria-current="page"
+                  {%
+                  endif
+                  %}
+                >
                   <i class="fas fa-car me-2" aria-hidden="true"></i> My Vehicle
                 </a>
               </li>
@@ -433,39 +709,88 @@ System
 
           <!-- Coverage & Routes Section -->
           <div class="drawer-nav-section">
-            <button class="drawer-nav-section-header"
-                    aria-expanded="true"
-                    aria-controls="nav-section-coverage">
+            <button
+              class="drawer-nav-section-header"
+              aria-expanded="true"
+              aria-controls="nav-section-coverage"
+            >
               <span class="drawer-nav-section-title">Coverage & Routes</span>
-              <i class="fas fa-chevron-down drawer-nav-section-chevron" aria-hidden="true"></i>
+              <i
+                class="fas fa-chevron-down drawer-nav-section-chevron"
+                aria-hidden="true"
+              ></i>
             </button>
-            <ul class="drawer-nav-section-list" id="nav-section-coverage" role="list">
+            <ul
+              class="drawer-nav-section-list"
+              id="nav-section-coverage"
+              role="list"
+            >
               <li role="none">
-                <a href="/coverage-management"
-                   class="{% if request.url.path == '/coverage-management' %}active{% endif %}"
-                   {% if request.url.path == '/coverage-management' %}aria-current="page"{% endif %}>
-                  <i class="fas fa-map-marked-alt me-2" aria-hidden="true"></i> Coverage Areas
+                <a
+                  href="/coverage-management"
+                  class="{% if request.url.path == '/coverage-management' %}active{% endif %}"
+                  {%
+                  if
+                  request.url.path=""
+                  ="/coverage-management"
+                  %}aria-current="page"
+                  {%
+                  endif
+                  %}
+                >
+                  <i class="fas fa-map-marked-alt me-2" aria-hidden="true"></i>
+                  Coverage Areas
                 </a>
               </li>
               <li role="none">
-                <a href="/coverage-navigator"
-                   class="{% if request.url.path == '/coverage-navigator' %}active{% endif %}"
-                   {% if request.url.path == '/coverage-navigator' %}aria-current="page"{% endif %}>
-                  <i class="fas fa-route me-2" aria-hidden="true"></i> Coverage Navigator
+                <a
+                  href="/coverage-navigator"
+                  class="{% if request.url.path == '/coverage-navigator' %}active{% endif %}"
+                  {%
+                  if
+                  request.url.path=""
+                  ="/coverage-navigator"
+                  %}aria-current="page"
+                  {%
+                  endif
+                  %}
+                >
+                  <i class="fas fa-route me-2" aria-hidden="true"></i> Coverage
+                  Navigator
                 </a>
               </li>
               <li role="none">
-                <a href="/turn-by-turn"
-                   class="{% if request.url.path == '/turn-by-turn' %}active{% endif %}"
-                   {% if request.url.path == '/turn-by-turn' %}aria-current="page"{% endif %}>
-                  <i class="fas fa-location-arrow me-2" aria-hidden="true"></i> Turn-by-Turn
+                <a
+                  href="/turn-by-turn"
+                  class="{% if request.url.path == '/turn-by-turn' %}active{% endif %}"
+                  {%
+                  if
+                  request.url.path=""
+                  ="/turn-by-turn"
+                  %}aria-current="page"
+                  {%
+                  endif
+                  %}
+                >
+                  <i class="fas fa-location-arrow me-2" aria-hidden="true"></i>
+                  Turn-by-Turn
                 </a>
               </li>
               <li role="none">
-                <a href="/county-map"
-                   class="{% if request.url.path == '/county-map' %}active{% endif %}"
-                   {% if request.url.path == '/county-map' %}aria-current="page"{% endif %}>
-                  <i class="fas fa-globe-americas me-2" aria-hidden="true"></i> County Map
+                <a
+                  href="/county-map"
+                  class="{% if request.url.path == '/county-map' %}active{% endif %}"
+                  {%
+                  if
+                  request.url.path=""
+                  ="/county-map"
+                  %}aria-current="page"
+                  {%
+                  endif
+                  %}
+                >
+                  <i class="fas fa-globe-americas me-2" aria-hidden="true"></i>
+                  County Map
                 </a>
               </li>
             </ul>
@@ -473,32 +798,70 @@ System
 
           <!-- Data Section -->
           <div class="drawer-nav-section">
-            <button class="drawer-nav-section-header"
-                    aria-expanded="true"
-                    aria-controls="nav-section-data">
+            <button
+              class="drawer-nav-section-header"
+              aria-expanded="true"
+              aria-controls="nav-section-data"
+            >
               <span class="drawer-nav-section-title">Data</span>
-              <i class="fas fa-chevron-down drawer-nav-section-chevron" aria-hidden="true"></i>
+              <i
+                class="fas fa-chevron-down drawer-nav-section-chevron"
+                aria-hidden="true"
+              ></i>
             </button>
-            <ul class="drawer-nav-section-list" id="nav-section-data" role="list">
+            <ul
+              class="drawer-nav-section-list"
+              id="nav-section-data"
+              role="list"
+            >
               <li role="none">
-                <a href="/edit_trips"
-                   class="{% if request.url.path == '/edit_trips' %}active{% endif %}"
-                   {% if request.url.path == '/edit_trips' %}aria-current="page"{% endif %}>
+                <a
+                  href="/edit_trips"
+                  class="{% if request.url.path == '/edit_trips' %}active{% endif %}"
+                  {%
+                  if
+                  request.url.path=""
+                  ="/edit_trips"
+                  %}aria-current="page"
+                  {%
+                  endif
+                  %}
+                >
                   <i class="fas fa-edit me-2" aria-hidden="true"></i> Edit Trips
                 </a>
               </li>
               <li role="none">
-                <a href="/export"
-                   class="{% if request.url.path == '/export' %}active{% endif %}"
-                   {% if request.url.path == '/export' %}aria-current="page"{% endif %}>
-                  <i class="fas fa-file-export me-2" aria-hidden="true"></i> Export Data
+                <a
+                  href="/export"
+                  class="{% if request.url.path == '/export' %}active{% endif %}"
+                  {%
+                  if
+                  request.url.path=""
+                  ="/export"
+                  %}aria-current="page"
+                  {%
+                  endif
+                  %}
+                >
+                  <i class="fas fa-file-export me-2" aria-hidden="true"></i>
+                  Export Data
                 </a>
               </li>
               <li role="none">
-                <a href="/upload"
-                   class="{% if request.url.path == '/upload' %}active{% endif %}"
-                   {% if request.url.path == '/upload' %}aria-current="page"{% endif %}>
-                  <i class="fas fa-upload me-2" aria-hidden="true"></i> Upload GPX
+                <a
+                  href="/upload"
+                  class="{% if request.url.path == '/upload' %}active{% endif %}"
+                  {%
+                  if
+                  request.url.path=""
+                  ="/upload"
+                  %}aria-current="page"
+                  {%
+                  endif
+                  %}
+                >
+                  <i class="fas fa-upload me-2" aria-hidden="true"></i> Upload
+                  GPX
                 </a>
               </li>
             </ul>
@@ -506,39 +869,87 @@ System
 
           <!-- System Section -->
           <div class="drawer-nav-section">
-            <button class="drawer-nav-section-header"
-                    aria-expanded="true"
-                    aria-controls="nav-section-system">
+            <button
+              class="drawer-nav-section-header"
+              aria-expanded="true"
+              aria-controls="nav-section-system"
+            >
               <span class="drawer-nav-section-title">System</span>
-              <i class="fas fa-chevron-down drawer-nav-section-chevron" aria-hidden="true"></i>
+              <i
+                class="fas fa-chevron-down drawer-nav-section-chevron"
+                aria-hidden="true"
+              ></i>
             </button>
-            <ul class="drawer-nav-section-list" id="nav-section-system" role="list">
+            <ul
+              class="drawer-nav-section-list"
+              id="nav-section-system"
+              role="list"
+            >
               <li role="none">
-                <a href="/database-management"
-                   class="{% if request.url.path == '/database-management' %}active{% endif %}"
-                   {% if request.url.path == '/database-management' %}aria-current="page"{% endif %}>
-                  <i class="fas fa-database me-2" aria-hidden="true"></i> Database
+                <a
+                  href="/database-management"
+                  class="{% if request.url.path == '/database-management' %}active{% endif %}"
+                  {%
+                  if
+                  request.url.path=""
+                  ="/database-management"
+                  %}aria-current="page"
+                  {%
+                  endif
+                  %}
+                >
+                  <i class="fas fa-database me-2" aria-hidden="true"></i>
+                  Database
                 </a>
               </li>
               <li role="none">
-                <a href="/server-logs"
-                   class="{% if request.url.path == '/server-logs' %}active{% endif %}"
-                   {% if request.url.path == '/server-logs' %}aria-current="page"{% endif %}>
-                  <i class="fas fa-file-alt me-2" aria-hidden="true"></i> Server Logs
+                <a
+                  href="/server-logs"
+                  class="{% if request.url.path == '/server-logs' %}active{% endif %}"
+                  {%
+                  if
+                  request.url.path=""
+                  ="/server-logs"
+                  %}aria-current="page"
+                  {%
+                  endif
+                  %}
+                >
+                  <i class="fas fa-file-alt me-2" aria-hidden="true"></i> Server
+                  Logs
                 </a>
               </li>
               <li role="none">
-                <a href="/settings"
-                   class="{% if request.url.path == '/settings' %}active{% endif %}"
-                   {% if request.url.path == '/settings' %}aria-current="page"{% endif %}>
+                <a
+                  href="/settings"
+                  class="{% if request.url.path == '/settings' %}active{% endif %}"
+                  {%
+                  if
+                  request.url.path=""
+                  ="/settings"
+                  %}aria-current="page"
+                  {%
+                  endif
+                  %}
+                >
                   <i class="fas fa-cog me-2" aria-hidden="true"></i> Settings
                 </a>
               </li>
               <li role="none">
-                <a href="/profile"
-                   class="{% if request.url.path == '/profile' %}active{% endif %}"
-                   {% if request.url.path == '/profile' %}aria-current="page"{% endif %}>
-                  <i class="fas fa-user-circle me-2" aria-hidden="true"></i> Profile
+                <a
+                  href="/profile"
+                  class="{% if request.url.path == '/profile' %}active{% endif %}"
+                  {%
+                  if
+                  request.url.path=""
+                  ="/profile"
+                  %}aria-current="page"
+                  {%
+                  endif
+                  %}
+                >
+                  <i class="fas fa-user-circle me-2" aria-hidden="true"></i>
+                  Profile
                 </a>
               </li>
             </ul>
@@ -547,14 +958,14 @@ System
       </nav>
 
       <!-- Filters Panel (Hidden by default) -->
-      <aside id="filters-panel"
-             class="side-panel filters-panel"
-             role="complementary"
-             aria-label="Filters">
+      <aside
+        id="filters-panel"
+        class="side-panel filters-panel"
+        role="complementary"
+        aria-label="Filters"
+      >
         <div class="panel-header">
-          <h2 class="panel-title">
-Filters
-          </h2>
+          <h2 class="panel-title">Filters</h2>
           <button class="panel-close-btn" aria-label="Close filters">
             <i class="fas fa-times" aria-hidden="true"></i>
           </button>
@@ -562,55 +973,81 @@ Filters
         <div class="panel-body">
           <form id="filters-form" aria-label="Trip filters">
             <div class="form-group">
-              <label for="start-date" class="form-label">
-Start Date
-              </label>
-              <input type="text"
-                     id="start-date"
-                     class="form-control datepicker"
-                     placeholder="Select Start Date"
-                     aria-label="Start date filter"
-                     aria-describedby="start-date-help" />
+              <label for="start-date" class="form-label"> Start Date </label>
+              <input
+                type="text"
+                id="start-date"
+                class="form-control datepicker"
+                placeholder="Select Start Date"
+                aria-label="Start date filter"
+                aria-describedby="start-date-help"
+              />
               <div id="start-date-help" class="form-text">
                 Filter trips from this date
               </div>
             </div>
             <div class="form-group">
-              <label for="end-date" class="form-label">
-End Date
-              </label>
-              <input type="text"
-                     id="end-date"
-                     class="form-control datepicker"
-                     placeholder="Select End Date"
-                     aria-label="End date filter"
-                     aria-describedby="end-date-help" />
+              <label for="end-date" class="form-label"> End Date </label>
+              <input
+                type="text"
+                id="end-date"
+                class="form-control datepicker"
+                placeholder="Select End Date"
+                aria-label="End date filter"
+                aria-describedby="end-date-help"
+              />
               <div id="end-date-help" class="form-text">
                 Filter trips up to this date
               </div>
             </div>
 
             <div class="form-group">
-              <label class="form-label">
-Quick Selections
-              </label>
-              <div class="quick-selections" role="group" aria-label="Date range presets">
-                <button type="button" class="quick-select-btn" data-range="today">
+              <label class="form-label"> Quick Selections </label>
+              <div
+                class="quick-selections"
+                role="group"
+                aria-label="Date range presets"
+              >
+                <button
+                  type="button"
+                  class="quick-select-btn"
+                  data-range="today"
+                >
                   Today
                 </button>
-                <button type="button" class="quick-select-btn" data-range="yesterday">
+                <button
+                  type="button"
+                  class="quick-select-btn"
+                  data-range="yesterday"
+                >
                   Yesterday
                 </button>
-                <button type="button" class="quick-select-btn" data-range="last-week">
+                <button
+                  type="button"
+                  class="quick-select-btn"
+                  data-range="last-week"
+                >
                   Last 7 Days
                 </button>
-                <button type="button" class="quick-select-btn" data-range="last-month">
+                <button
+                  type="button"
+                  class="quick-select-btn"
+                  data-range="last-month"
+                >
                   Last 30 Days
                 </button>
-                <button type="button" class="quick-select-btn" data-range="last-year">
+                <button
+                  type="button"
+                  class="quick-select-btn"
+                  data-range="last-year"
+                >
                   Last Year
                 </button>
-                <button type="button" class="quick-select-btn" data-range="all-time">
+                <button
+                  type="button"
+                  class="quick-select-btn"
+                  data-range="all-time"
+                >
                   All Time
                 </button>
               </div>
@@ -618,7 +1055,11 @@ Quick Selections
           </form>
 
           <div class="panel-actions">
-            <button id="apply-filters" class="btn btn-primary btn-block" type="button">
+            <button
+              id="apply-filters"
+              class="btn btn-primary btn-block"
+              type="button"
+            >
               <i class="fas fa-check" aria-hidden="true"></i> Apply Filters
             </button>
             <button id="reset-filters" class="btn btn-outline" type="button">
@@ -629,16 +1070,15 @@ Quick Selections
       </aside>
 
       <!-- Content Overlay (for when panels are open) -->
-      <div id="content-overlay" class="content-overlay" aria-hidden="true">
-      </div>
+      <div
+        id="content-overlay"
+        class="content-overlay"
+        aria-hidden="true"
+      ></div>
 
       <!-- Main Content Area -->
       <main id="main-content" class="main-content" role="main">
-
-        {% block content %}
-
-        {% endblock %}
-
+        {% block content %} {% endblock %}
       </main>
 
       <!-- Notification Container -->
@@ -649,15 +1089,13 @@ Quick Selections
       <!-- Loading overlay -->
       <div class="loading-overlay" role="status" aria-live="polite">
         <div class="loading-indicator">
-          <div class="loading-spinner" aria-hidden="true">
-          </div>
+          <div class="loading-spinner" aria-hidden="true"></div>
           <span class="loading-text">Loading...</span>
         </div>
       </div>
     </div>
 
-    <div id="modals-container">
-    </div>
+    <div id="modals-container"></div>
 
     <!-- Core JS - Load in specific order -->
     <script src="{{ CDN.jquery }}" crossorigin="anonymous"></script>
@@ -675,12 +1113,12 @@ Quick Selections
     <script src="{{ CDN.dayjs_isoWeek }}"></script>
     <script src="{{ CDN.dayjs_isBetween }}"></script>
     <script>
-        // Initialize Day.js plugins
-        dayjs.extend(dayjs_plugin_relativeTime);
-        dayjs.extend(dayjs_plugin_duration);
-        dayjs.extend(dayjs_plugin_weekOfYear);
-        dayjs.extend(dayjs_plugin_isoWeek);
-        dayjs.extend(dayjs_plugin_isBetween);
+      // Initialize Day.js plugins
+      dayjs.extend(dayjs_plugin_relativeTime);
+      dayjs.extend(dayjs_plugin_duration);
+      dayjs.extend(dayjs_plugin_weekOfYear);
+      dayjs.extend(dayjs_plugin_isoWeek);
+      dayjs.extend(dayjs_plugin_isBetween);
     </script>
     <script src="{{ CDN.flatpickr_js }}"></script>
 
@@ -688,37 +1126,33 @@ Quick Selections
 
     <!-- Other libraries -->
 
-
     <!-- App scripts - Load in dependency order -->
     <script src="{{ url_for('static', path='js/loading_manager.js') | replace('http://', '//') }}"></script>
     <script src="{{ url_for('static', path='js/live_tracking.js') | replace('http://', '//') }}"></script>
     <!-- Consolidated ES-module bootstrap (replaces app.js & modern-ui.js stubs) -->
     <script type="module">
-        import AppController from "{{ url_for('static', path='js/modules/app-controller.js') | replace('http://', '//') }}";
-        import "{{ url_for('static', path='js/modules/ui/ui-init.js') | replace('http://', '//') }}";
-        const start = () => AppController.initialize();
-        if (document.readyState === "loading") {
-            document.addEventListener("DOMContentLoaded", start);
-        } else {
-            start();
-        }
+      import AppController from "{{ url_for('static', path='js/modules/app-controller.js') | replace('http://', '//') }}";
+      import "{{ url_for('static', path='js/modules/ui/ui-init.js') | replace('http://', '//') }}";
+      const start = () => AppController.initialize();
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", start);
+      } else {
+        start();
+      }
     </script>
 
-    {% block extra_js %}
-
-    {% endblock %}
-
+    {% block extra_js %} {% endblock %}
 
     <!-- Service Worker Registration -->
     <script>
-        if ("serviceWorker" in navigator && location.protocol === "https:") {
-            window.addEventListener("load", () => {
-                navigator.serviceWorker
-                    .register("/static/js/sw.js")
-                    .then((reg) => console.log("SW registered:", reg.scope))
-                    .catch((err) => console.error("SW registration failed:", err));
-            });
-        }
+      if ("serviceWorker" in navigator && location.protocol === "https:") {
+        window.addEventListener("load", () => {
+          navigator.serviceWorker
+            .register("/static/js/sw.js")
+            .then((reg) => console.log("SW registered:", reg.scope))
+            .catch((err) => console.error("SW registration failed:", err));
+        });
+      }
     </script>
   </body>
 </html>
