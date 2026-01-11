@@ -54,7 +54,9 @@ class TurnByTurnState {
    * @param {string} newState
    */
   transitionTo(newState) {
-    if (this.currentState === newState) return;
+    if (this.currentState === newState) {
+      return;
+    }
 
     this.previousState = this.currentState;
     this.currentState = newState;

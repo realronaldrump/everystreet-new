@@ -1,4 +1,5 @@
-"""Retry utilities for async HTTP operations.
+"""
+Retry utilities for async HTTP operations.
 
 This module provides retry decorators using tenacity for resilient HTTP calls.
 """
@@ -37,7 +38,8 @@ def retry_async(
         asyncio.TimeoutError,
     ),
 ):
-    """Factory that returns a tenacity retry decorator configured with provided parameters.
+    """
+    Factory that returns a tenacity retry decorator configured with provided parameters.
 
     Args:
         max_retries: Maximum number of retry attempts (in addition to the first attempt).

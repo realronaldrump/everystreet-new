@@ -33,8 +33,8 @@ export function formatStageName(stage) {
     [STATUS.POST_PREPROCESSING]: "Post-processing",
   };
   return (
-    stageNames[stage] ||
-    stage.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())
+    stageNames[stage]
+    || stage.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())
   );
 }
 
@@ -92,7 +92,9 @@ export function distanceInUserUnits(meters, fixed = 2) {
  * Delegates to central formatter
  */
 export function formatTimeAgo(date) {
-  if (!date) return "never";
+  if (!date) {
+    return "never";
+  }
   return baseFormatTimeAgo(date, true); // abbreviated = true for "30s ago" format
 }
 

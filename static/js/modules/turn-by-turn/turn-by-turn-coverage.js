@@ -75,7 +75,9 @@ class TurnByTurnCoverage {
         const isUndriveable = feature.properties?.undriveable === true;
         const length = feature.properties?.segment_length || 0;
 
-        if (!segmentId || isUndriveable) continue;
+        if (!segmentId || isUndriveable) {
+          continue;
+        }
 
         this.segmentIndex.set(segmentId, feature);
         this.totalSegmentLength += length;
@@ -104,7 +106,9 @@ class TurnByTurnCoverage {
    * @param {{lon: number, lat: number}} position
    */
   checkSegmentCoverage(position) {
-    if (!this.segmentIndex.size || this.undrivenSegmentIds.size === 0) return;
+    if (!this.segmentIndex.size || this.undrivenSegmentIds.size === 0) {
+      return;
+    }
 
     const current = [position.lon, position.lat];
     const newlyDriven = [];
@@ -112,7 +116,9 @@ class TurnByTurnCoverage {
     // Check each undriven segment
     for (const segmentId of this.undrivenSegmentIds) {
       const feature = this.segmentIndex.get(segmentId);
-      if (!feature) continue;
+      if (!feature) {
+        continue;
+      }
 
       // Check if current position is close to this segment
       const distance = distanceToLineString(current, feature.geometry.coordinates);
@@ -136,10 +142,14 @@ class TurnByTurnCoverage {
     const newlyDrivenFeatures = [];
 
     for (const segmentId of segmentIds) {
-      if (!this.undrivenSegmentIds.has(segmentId)) continue;
+      if (!this.undrivenSegmentIds.has(segmentId)) {
+        continue;
+      }
 
       const feature = this.segmentIndex.get(segmentId);
-      if (!feature) continue;
+      if (!feature) {
+        continue;
+      }
 
       // Move from undriven to driven
       this.undrivenSegmentIds.delete(segmentId);
@@ -154,7 +164,9 @@ class TurnByTurnCoverage {
       newlyDrivenFeatures.push(feature);
     }
 
-    if (newlyDrivenFeatures.length === 0) return;
+    if (newlyDrivenFeatures.length === 0) {
+      return;
+    }
 
     // Rebuild feature arrays for map update
     const drivenFeatures = [];
@@ -197,8 +209,8 @@ class TurnByTurnCoverage {
    * @returns {{percentage: number, drivenLength: number, totalLength: number}}
    */
   getCoverageStats() {
-    const percentage =
-      this.totalSegmentLength > 0
+    const percentage
+      = this.totalSegmentLength > 0
         ? (this.drivenSegmentLength / this.totalSegmentLength) * 100
         : 0;
 
@@ -216,7 +228,9 @@ class TurnByTurnCoverage {
    * @param {number} count
    */
   onSegmentsCompleted(count) {
-    if (count === 0) return;
+    if (count === 0) {
+      return;
+    }
 
     this.sessionSegmentsCompleted += count;
 
@@ -237,7 +251,9 @@ class TurnByTurnCoverage {
    */
   showSegmentCompletionPopup(count) {
     // Don't spam popups
-    if (this.completionPopupTimeout) return;
+    if (this.completionPopupTimeout) {
+      return;
+    }
 
     const popup = document.createElement("div");
     popup.className = "nav-segment-counter";
@@ -270,7 +286,9 @@ class TurnByTurnCoverage {
    * Persist driven segments to server
    */
   async persistDrivenSegments() {
-    if (!this.pendingSegmentUpdates || this.pendingSegmentUpdates.size === 0) return;
+    if (!this.pendingSegmentUpdates || this.pendingSegmentUpdates.size === 0) {
+      return;
+    }
 
     const segmentIds = Array.from(this.pendingSegmentUpdates);
     this.pendingSegmentUpdates.clear();

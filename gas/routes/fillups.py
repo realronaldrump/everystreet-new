@@ -1,7 +1,7 @@
 """API routes for gas fill-up management."""
 
 import logging
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Query
 
@@ -16,11 +16,14 @@ router = APIRouter()
 @router.get("/api/gas-fillups")
 @api_route(logger)
 async def get_gas_fillups(
-    imei: str | None = Query(None, description="Filter by vehicle IMEI"),
-    vin: str | None = Query(None, description="Filter by VIN"),
-    start_date: str | None = Query(None, description="Start date filter"),
-    end_date: str | None = Query(None, description="End date filter"),
-    limit: int = Query(100, description="Maximum number of records to return"),
+    imei: Annotated[str | None, Query(description="Filter by vehicle IMEI")] = None,
+    vin: Annotated[str | None, Query(description="Filter by VIN")] = None,
+    start_date: Annotated[str | None, Query(description="Start date filter")] = None,
+    end_date: Annotated[str | None, Query(description="End date filter")] = None,
+    limit: Annotated[
+        int,
+        Query(description="Maximum number of records to return"),
+    ] = 100,
 ) -> list[dict[str, Any]]:
     """Get gas fill-up records with optional filters."""
     fillups = await FillupService.get_fillups(imei, vin, start_date, end_date, limit)
@@ -35,7 +38,8 @@ async def get_gas_fillup(fillup_id: str) -> dict[str, Any]:
     if not fillup:
         from core.exceptions import ResourceNotFoundException
 
-        raise ResourceNotFoundException("Fill-up not found")
+        msg = "Fill-up not found"
+        raise ResourceNotFoundException(msg)
     return fillup.model_dump(by_alias=True, mode="json")
 
 
@@ -53,7 +57,8 @@ async def create_gas_fillup(
 @router.put("/api/gas-fillups/{fillup_id}")
 @api_route(logger)
 async def update_gas_fillup(
-    fillup_id: str, fillup_data: GasFillupCreateModel
+    fillup_id: str,
+    fillup_data: GasFillupCreateModel,
 ) -> dict[str, Any]:
     """Update a gas fill-up record."""
     # Use exclude_unset=True to know what the user actually sent
@@ -66,5 +71,4 @@ async def update_gas_fillup(
 @api_route(logger)
 async def delete_gas_fillup(fillup_id: str) -> dict[str, str]:
     """Delete a gas fill-up record."""
-    result = await FillupService.delete_fillup(fillup_id)
-    return result
+    return await FillupService.delete_fillup(fillup_id)

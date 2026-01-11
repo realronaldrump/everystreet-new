@@ -64,10 +64,10 @@ class LoadingManager {
    * @returns {LoadingManager} - Returns this for chaining
    */
   show(message = "Loading...", options = {}) {
-    const messageOptions =
-      typeof message === "object" && message !== null ? message : options;
-    const messageText =
-      typeof message === "object" && message !== null
+    const messageOptions
+      = typeof message === "object" && message !== null ? message : options;
+    const messageText
+      = typeof message === "object" && message !== null
         ? messageOptions.message || "Loading..."
         : message;
 
@@ -228,15 +228,17 @@ class LoadingManager {
    * @returns {Object} - Stage control object
    */
   startStage(stageName, message, options = {}) {
-    const messageOptions =
-      typeof message === "object" && message !== null ? message : options;
-    const messageText =
-      typeof message === "object" && message !== null ? undefined : message;
+    const messageOptions
+      = typeof message === "object" && message !== null ? message : options;
+    const messageText
+      = typeof message === "object" && message !== null ? undefined : message;
 
     this.show(messageText || `Loading ${stageName}...`, messageOptions);
     return {
       update: (_progress, msg) => {
-        if (msg) this.updateMessage(msg);
+        if (msg) {
+          this.updateMessage(msg);
+        }
       },
       complete: () => this.hide(),
       error: (msg) => this.error(msg),
@@ -268,7 +270,9 @@ class LoadingManager {
     return {
       id: Date.now(),
       update: (_progress, msg) => {
-        if (msg) this.updateMessage(msg);
+        if (msg) {
+          this.updateMessage(msg);
+        }
       },
       finish: () => this.hide(),
       error: (msg) => this.error(msg),

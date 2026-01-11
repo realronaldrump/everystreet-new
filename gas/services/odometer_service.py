@@ -21,7 +21,8 @@ class OdometerService:
         timestamp: str | None = None,
         use_now: bool = False,
     ) -> dict[str, Any]:
-        """Get vehicle location and odometer at a specific time.
+        """
+        Get vehicle location and odometer at a specific time.
 
         Args:
             imei: Vehicle IMEI
@@ -32,8 +33,9 @@ class OdometerService:
             Dict with latitude, longitude, odometer, timestamp, address
         """
         if not use_now and not timestamp:
+            msg = "timestamp parameter is required when use_now is false"
             raise ValidationException(
-                "timestamp parameter is required when use_now is false"
+                msg,
             )
 
         if use_now:
@@ -114,19 +116,22 @@ class OdometerService:
         # 1. GPS Data (Most accurate)
         if trip.gps:
             location_data = OdometerService._extract_gps_coordinates(
-                trip.gps, location_data
+                trip.gps,
+                location_data,
             )
 
         # 2. End Location (Direct lat/lon)
         if not location_data["latitude"] and trip.endLocation:
             location_data = OdometerService._extract_end_location(
-                trip.endLocation, location_data
+                trip.endLocation,
+                location_data,
             )
 
         # 3. Start Location (Fallback if trip has no movement)
         if not location_data["latitude"] and trip.startLocation:
             location_data = OdometerService._extract_start_location(
-                trip.startLocation, location_data
+                trip.startLocation,
+                location_data,
             )
 
         # Odometer Fallback
@@ -144,9 +149,11 @@ class OdometerService:
 
     @staticmethod
     def _extract_gps_coordinates(
-        gps: dict[str, Any], location_data: dict[str, Any]
+        gps: dict[str, Any],
+        location_data: dict[str, Any],
     ) -> dict[str, Any]:
-        """Extract coordinates from GPS data.
+        """
+        Extract coordinates from GPS data.
 
         Args:
             gps: GPS geometry object
@@ -173,7 +180,7 @@ class OdometerService:
 
         if candidate_coord:
             is_valid, validated = GeometryService.validate_coordinate_pair(
-                candidate_coord
+                candidate_coord,
             )
             if is_valid and validated is not None:
                 location_data["longitude"] = validated[0]
@@ -183,9 +190,11 @@ class OdometerService:
 
     @staticmethod
     def _extract_end_location(
-        end_location: dict[str, Any], location_data: dict[str, Any]
+        end_location: dict[str, Any],
+        location_data: dict[str, Any],
     ) -> dict[str, Any]:
-        """Extract coordinates from end location.
+        """
+        Extract coordinates from end location.
 
         Args:
             end_location: End location object
@@ -196,7 +205,7 @@ class OdometerService:
         """
         if "lat" in end_location and "lon" in end_location:
             is_valid, validated = GeometryService.validate_coordinate_pair(
-                [end_location["lon"], end_location["lat"]]
+                [end_location["lon"], end_location["lat"]],
             )
             if is_valid and validated is not None:
                 location_data["longitude"] = validated[0]
@@ -207,9 +216,11 @@ class OdometerService:
 
     @staticmethod
     def _extract_start_location(
-        start_location: dict[str, Any], location_data: dict[str, Any]
+        start_location: dict[str, Any],
+        location_data: dict[str, Any],
     ) -> dict[str, Any]:
-        """Extract coordinates from start location.
+        """
+        Extract coordinates from start location.
 
         Args:
             start_location: Start location object
@@ -220,7 +231,7 @@ class OdometerService:
         """
         if "lat" in start_location and "lon" in start_location:
             is_valid, validated = GeometryService.validate_coordinate_pair(
-                [start_location["lon"], start_location["lat"]]
+                [start_location["lon"], start_location["lat"]],
             )
             if is_valid and validated is not None:
                 location_data["longitude"] = validated[0]
@@ -231,7 +242,9 @@ class OdometerService:
 
     @staticmethod
     async def estimate_odometer_reading(imei: str, timestamp: str) -> dict[str, Any]:
-        """Estimate odometer reading by interpolating/extrapolating from nearest known anchors.
+        """
+        Estimate odometer reading by interpolating/extrapolating from nearest known
+        anchors.
 
         Args:
             imei: Vehicle IMEI

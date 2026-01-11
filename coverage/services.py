@@ -1,7 +1,7 @@
-"""Business logic services for coverage operations.
+"""
+Business logic services for coverage operations.
 
-Contains services for statistics calculation, segment marking,
-and geometry operations.
+Contains services for statistics calculation, segment marking, and geometry operations.
 """
 
 import logging
@@ -21,7 +21,8 @@ class CoverageStatsService:
     """Service for calculating and managing coverage statistics."""
 
     async def recalculate_stats(self, location_id: str) -> dict | None:
-        """Recalculate statistics for a coverage area.
+        """
+        Recalculate statistics for a coverage area.
 
         Args:
             location_id: Coverage area ID
@@ -69,14 +70,13 @@ class CoverageStatsService:
                 return updated_coverage_area.model_dump(by_alias=True)
 
             # Fallback response
-            base_response = {
+            return {
                 **stats,
                 "_id": str(location_id),
                 "location": coverage_area.location,
                 "last_updated": datetime.now(UTC).isoformat(),
                 "last_stats_update": datetime.now(UTC).isoformat(),
             }
-            return base_response
 
         except Exception as e:
             logger.error(
@@ -94,15 +94,16 @@ class CoverageStatsService:
                             "$set": {
                                 "status": "error",
                                 "last_error": f"Stats recalc failed: {e}",
-                            }
-                        }
+                            },
+                        },
                     )
             except Exception:
                 pass
             return None
 
     async def _aggregate_street_stats(self, location_name: str) -> dict:
-        """Aggregate statistics from street documents.
+        """
+        Aggregate statistics from street documents.
 
         Args:
             location_name: Location display name
@@ -122,8 +123,8 @@ class CoverageStatsService:
                                 {"$eq": ["$properties.undriveable", True]},
                                 0,
                                 1,
-                            ]
-                        }
+                            ],
+                        },
                     },
                     "total_length": {"$sum": "$properties.segment_length"},
                     "driveable_length": {
@@ -132,8 +133,8 @@ class CoverageStatsService:
                                 {"$eq": ["$properties.undriveable", True]},
                                 0,
                                 "$properties.segment_length",
-                            ]
-                        }
+                            ],
+                        },
                     },
                     "driven_length": {
                         "$sum": {
@@ -141,8 +142,8 @@ class CoverageStatsService:
                                 {"$eq": ["$properties.driven", True]},
                                 "$properties.segment_length",
                                 0,
-                            ]
-                        }
+                            ],
+                        },
                     },
                     "street_types_data": {
                         "$push": {
@@ -181,7 +182,7 @@ class CoverageStatsService:
 
         # Calculate per-street-type statistics
         street_types = self._calculate_street_type_stats(
-            agg_result.get("street_types_data", [])
+            agg_result.get("street_types_data", []),
         )
 
         return {
@@ -196,7 +197,8 @@ class CoverageStatsService:
 
     @staticmethod
     def _calculate_street_type_stats(street_types_data: list) -> list:
-        """Calculate per-street-type statistics.
+        """
+        Calculate per-street-type statistics.
 
         Args:
             street_types_data: List of street type data from aggregation
@@ -247,7 +249,7 @@ class CoverageStatsService:
                     "total": data["total"],
                     "covered": data["covered"],
                     "undriveable_length": data["undriveable_length"],
-                }
+                },
             )
 
         final_street_types.sort(key=lambda x: x["length"], reverse=True)
@@ -268,7 +270,8 @@ class SegmentMarkingService:
         updates: dict,
         action_name: str,
     ) -> dict:
-        """Mark a street segment with updates.
+        """
+        Mark a street segment with updates.
 
         Args:
             location_id_str: Coverage area location ID
@@ -347,8 +350,8 @@ class SegmentMarkingService:
                 "$set": {
                     "needs_stats_update": True,
                     "last_modified": datetime.now(UTC),
-                }
-            }
+                },
+            },
         )
 
         # Recalculate stats & regenerate GeoJSON (don't block response)
@@ -373,7 +376,8 @@ class GeometryService:
 
     @staticmethod
     def bbox_from_geometry(geom: dict) -> list[float]:
-        """Return bounding box from GeoJSON geometry.
+        """
+        Return bounding box from GeoJSON geometry.
 
         Args:
             geom: GeoJSON geometry dictionary
@@ -389,7 +393,7 @@ class GeometryService:
             minx, miny, maxx, maxy = geom_shape.bounds
             return [miny, maxy, minx, maxx]
         except Exception as e:
-            logger.error("Failed to compute bbox from geometry: %s", e)
+            logger.exception("Failed to compute bbox from geometry: %s", e)
             raise HTTPException(
                 status_code=400,
                 detail="Invalid geometry for bounding box computation",

@@ -40,7 +40,9 @@
     }
 
     const container = document.getElementById(mapContainerId);
-    if (!container || !window.MAPBOX_ACCESS_TOKEN) return;
+    if (!container || !window.MAPBOX_ACCESS_TOKEN) {
+      return;
+    }
 
     if (!window.coverageMasterMap) {
       window.coverageMasterMap = window.mapBase.createMap(mapContainerId, {

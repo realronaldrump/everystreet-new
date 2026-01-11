@@ -70,7 +70,9 @@ const TurnByTurnAPI = {
    * @returns {Promise<number|null>} Duration in seconds or null
    */
   async fetchRouteETA(waypoints, accessToken) {
-    if (waypoints.length < 2) return null;
+    if (waypoints.length < 2) {
+      return null;
+    }
 
     try {
       // Sample up to 25 waypoints for Directions API

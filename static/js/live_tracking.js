@@ -211,7 +211,9 @@ class LiveTripTracker {
   }
 
   startPolling() {
-    if (this.pollingTimer) return;
+    if (this.pollingTimer) {
+      return;
+    }
 
     console.info("Starting polling fallback");
     this.poll();
@@ -247,7 +249,9 @@ class LiveTripTracker {
   }
 
   updateTrip(trip) {
-    if (!trip) return;
+    if (!trip) {
+      return;
+    }
 
     // Handle completed trips
     if (trip.status === "completed") {
@@ -256,8 +260,8 @@ class LiveTripTracker {
       return;
     }
 
-    const isNewTrip =
-      !this.activeTrip || this.activeTrip.transactionId !== trip.transactionId;
+    const isNewTrip
+      = !this.activeTrip || this.activeTrip.transactionId !== trip.transactionId;
 
     this.activeTrip = trip;
 
@@ -361,7 +365,9 @@ class LiveTripTracker {
   }
 
   updateMarkerStyle(speed) {
-    if (!this.map || !this.map.getLayer(this.markerLayerId)) return;
+    if (!this.map || !this.map.getLayer(this.markerLayerId)) {
+      return;
+    }
 
     let color = "";
     let radius = 0;
@@ -405,7 +411,9 @@ class LiveTripTracker {
    * Start animated pulse effect on the vehicle marker
    */
   startPulseAnimation() {
-    if (this.pulseAnimationFrame) return;
+    if (this.pulseAnimationFrame) {
+      return;
+    }
 
     let pulseRadius = 20;
     let pulseOpacity = 0.4;
@@ -421,11 +429,15 @@ class LiveTripTracker {
       if (expanding) {
         pulseRadius += 0.3;
         pulseOpacity -= 0.006;
-        if (pulseRadius >= 35) expanding = false;
+        if (pulseRadius >= 35) {
+          expanding = false;
+        }
       } else {
         pulseRadius -= 0.5;
         pulseOpacity += 0.01;
-        if (pulseRadius <= 20) expanding = true;
+        if (pulseRadius <= 20) {
+          expanding = true;
+        }
       }
 
       try {
@@ -456,7 +468,9 @@ class LiveTripTracker {
   }
 
   updateMetrics(trip) {
-    if (!this.metricsElem || !trip) return;
+    if (!this.metricsElem || !trip) {
+      return;
+    }
 
     const startTime = trip.startTime ? new Date(trip.startTime) : null;
     const lastUpdate = trip.lastUpdate ? new Date(trip.lastUpdate) : null;
@@ -520,8 +534,8 @@ class LiveTripTracker {
       )
       .join("");
 
-    const optionalHtml =
-      Object.keys(optional).length > 0
+    const optionalHtml
+      = Object.keys(optional).length > 0
         ? `
         <div class="metric-section-divider"></div>
         <div class="metric-section-title">Trip Behavior</div>
@@ -548,7 +562,9 @@ class LiveTripTracker {
   }
 
   fitTripBounds(coords) {
-    if (!coords || coords.length === 0) return;
+    if (!coords || coords.length === 0) {
+      return;
+    }
 
     const mapboxCoords = coords.map((c) => [c.lon, c.lat]);
 
@@ -569,7 +585,9 @@ class LiveTripTracker {
   }
 
   followVehicle(lastCoord) {
-    if (!lastCoord) return;
+    if (!lastCoord) {
+      return;
+    }
 
     const point = [lastCoord.lon, lastCoord.lat];
     const bounds = this.map.getBounds();
@@ -599,7 +617,9 @@ class LiveTripTracker {
   }
 
   updateStatus(connected, message) {
-    if (!this.statusIndicator || !this.statusText) return;
+    if (!this.statusIndicator || !this.statusText) {
+      return;
+    }
 
     this.statusIndicator.classList.toggle("connected", connected);
     this.statusIndicator.classList.toggle("disconnected", !connected);

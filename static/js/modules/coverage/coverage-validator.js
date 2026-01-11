@@ -62,8 +62,8 @@ export class CoverageValidator {
         const validationResult = document.getElementById("validation-result");
         if (validationResult) {
           validationResult.classList.remove("d-none");
-          validationResult.querySelector(".validation-message").textContent =
-            `Found: ${data.display_name}`;
+          validationResult.querySelector(".validation-message").textContent
+            = `Found: ${data.display_name}`;
         }
 
         this.notificationManager.show(
@@ -115,7 +115,9 @@ export class CoverageValidator {
     }
 
     customAreaNameInput.classList.remove("is-invalid", "is-valid");
-    if (addButton) addButton.disabled = true;
+    if (addButton) {
+      addButton.disabled = true;
+    }
     this.validatedCustomBoundary = null;
     this.drawing.hideDrawingValidationResult();
 
@@ -139,7 +141,9 @@ export class CoverageValidator {
         customAreaNameInput.classList.add("is-valid");
         this.validatedCustomBoundary = data;
         this.drawing.validatedCustomBoundary = data;
-        if (addButton) addButton.disabled = false;
+        if (addButton) {
+          addButton.disabled = false;
+        }
 
         this.drawing.showDrawingValidationResult(data);
 
@@ -148,7 +152,9 @@ export class CoverageValidator {
           "success"
         );
 
-        if (addButton) addButton.focus();
+        if (addButton) {
+          addButton.focus();
+        }
       }
     } catch (error) {
       console.error("Error validating custom boundary:", error);
@@ -169,13 +175,21 @@ export class CoverageValidator {
       "drawing-validation-result"
     );
 
-    if (validationResult) validationResult.classList.add("d-none");
-    if (drawingValidationResult) drawingValidationResult.classList.add("d-none");
+    if (validationResult) {
+      validationResult.classList.add("d-none");
+    }
+    if (drawingValidationResult) {
+      drawingValidationResult.classList.add("d-none");
+    }
 
     const addLocationButton = document.getElementById("add-coverage-area");
     const addCustomButton = document.getElementById("add-custom-area");
 
-    if (addLocationButton) addLocationButton.disabled = true;
-    if (addCustomButton) addCustomButton.disabled = true;
+    if (addLocationButton) {
+      addLocationButton.disabled = true;
+    }
+    if (addCustomButton) {
+      addCustomButton.disabled = true;
+    }
   }
 }

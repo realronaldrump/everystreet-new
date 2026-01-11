@@ -1,8 +1,9 @@
-"""Unified progress tracking for long-running background tasks.
+"""
+Unified progress tracking for long-running background tasks.
 
-This module provides a centralized ProgressTracker class that standardizes
-progress updates to MongoDB, eliminating duplicate boilerplate across
-coverage_tasks.py, route_solver.py, preprocess_streets.py, and trips.py.
+This module provides a centralized ProgressTracker class that standardizes progress
+updates to MongoDB, eliminating duplicate boilerplate across coverage_tasks.py,
+route_solver.py, preprocess_streets.py, and trips.py.
 """
 
 import logging
@@ -15,7 +16,8 @@ logger = logging.getLogger(__name__)
 
 
 class ProgressTracker:
-    """Unified progress tracking for long-running background tasks.
+    """
+    Unified progress tracking for long-running background tasks.
 
     Usage:
         tracker = ProgressTracker(task_id, OptimalRouteProgress, location="My Location")
@@ -35,7 +37,8 @@ class ProgressTracker:
         task_type: str | None = None,
         use_task_id_field: bool = False,
     ) -> None:
-        """Initialize a progress tracker.
+        """
+        Initialize a progress tracker.
 
         Args:
             task_id: Unique identifier for the task. If None, updates are skipped.
@@ -63,7 +66,7 @@ class ProgressTracker:
     async def update(
         self,
         stage: str,
-        progress: int | float,
+        progress: float,
         message: str,
         *,
         status: str = "processing",
@@ -71,7 +74,8 @@ class ProgressTracker:
         metrics: dict[str, Any] | None = None,
         upsert: bool = True,
     ) -> None:
-        """Update task progress in MongoDB.
+        """
+        Update task progress in MongoDB.
 
         Args:
             stage: Current processing stage (e.g., "fetching", "processing", "complete").
@@ -144,7 +148,7 @@ class ProgressTracker:
                         "message": message,
                         "updated_at": now,
                         "status": status if not error else "error",
-                    }
+                    },
                 )
                 if error:
                     initial_data["error"] = error
@@ -157,10 +161,11 @@ class ProgressTracker:
                 await new_doc.insert()
 
         except Exception as e:
-            logger.error("Task %s: Failed to update progress: %s", self.task_id, e)
+            logger.exception("Task %s: Failed to update progress: %s", self.task_id, e)
 
     async def complete(self, message: str = "Completed") -> None:
-        """Mark the task as completed.
+        """
+        Mark the task as completed.
 
         Args:
             message: Completion message to display.
@@ -190,10 +195,11 @@ class ProgressTracker:
             if doc:
                 await doc.update({"$set": update_data})
         except Exception as e:
-            logger.error("Task %s: Failed to mark complete: %s", self.task_id, e)
+            logger.exception("Task %s: Failed to mark complete: %s", self.task_id, e)
 
     async def fail(self, error: str, message: str | None = None) -> None:
-        """Mark the task as failed.
+        """
+        Mark the task as failed.
 
         Args:
             error: Error message to store.
@@ -225,4 +231,4 @@ class ProgressTracker:
             if doc:
                 await doc.update({"$set": update_data})
         except Exception as e:
-            logger.error("Task %s: Failed to mark as failed: %s", self.task_id, e)
+            logger.exception("Task %s: Failed to mark as failed: %s", self.task_id, e)

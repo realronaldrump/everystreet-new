@@ -111,8 +111,8 @@ async function processDownloadStream(response, filename, format, totalSize) {
 
     // Log progress periodically
     if (
-      totalSize &&
-      receivedLength % Math.max(totalSize / 10, 1024 * 1024) < value.length
+      totalSize
+      && receivedLength % Math.max(totalSize / 10, 1024 * 1024) < value.length
     ) {
       console.info(
         `Download progress: ${Math.round((receivedLength / totalSize) * 100)}% (${receivedLength}/${totalSize} bytes)`
@@ -150,13 +150,13 @@ function updateProgress(receivedLength, totalSize) {
   const progress = Math.min(Math.round((receivedLength / totalSize) * 100), 100);
 
   if (
-    window.loadingManager &&
-    typeof window.loadingManager.updateProgress === "function"
+    window.loadingManager
+    && typeof window.loadingManager.updateProgress === "function"
   ) {
     window.loadingManager.updateProgress(progress);
   } else if (
-    window.LoadingManager &&
-    typeof window.LoadingManager.updateProgress === "function"
+    window.LoadingManager
+    && typeof window.LoadingManager.updateProgress === "function"
   ) {
     window.LoadingManager.updateProgress(progress);
   } else {

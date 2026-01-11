@@ -103,10 +103,11 @@ TASK_METADATA = {
 
 
 class TaskStatusManager:
-    """Centralized task status management using db_manager.
+    """
+    Centralized task status management using db_manager.
 
-    This is a singleton class that provides methods for updating task status
-    in the global task configuration document stored in MongoDB.
+    This is a singleton class that provides methods for updating task status in the
+    global task configuration document stored in MongoDB.
     """
 
     _instance = None
@@ -124,7 +125,8 @@ class TaskStatusManager:
         status: str,
         error: str | None = None,
     ) -> bool:
-        """Updates the status of a specific task using the TaskConfig Beanie model.
+        """
+        Updates the status of a specific task using the TaskConfig Beanie model.
 
         Args:
             task_id: The identifier of the task (e.g., 'periodic_fetch_trips').
@@ -193,7 +195,8 @@ class TaskStatusManager:
 
 
 def task_runner(func: Callable) -> Callable:
-    """Decorator that handles all common task lifecycle management.
+    """
+    Decorator that handles all common task lifecycle management.
 
     This decorator wraps async task functions to provide consistent:
     - Status updates (RUNNING, COMPLETED, FAILED)

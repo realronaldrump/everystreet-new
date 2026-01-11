@@ -1,7 +1,8 @@
-"""Query building utilities for MongoDB.
+"""
+Query building utilities for MongoDB.
 
-Provides functions for constructing complex MongoDB queries,
-particularly for date filtering and request parameter handling.
+Provides functions for constructing complex MongoDB queries, particularly for date
+filtering and request parameter handling.
 """
 
 from __future__ import annotations
@@ -23,7 +24,8 @@ def parse_query_date(
     date_str: str | None,
     end_of_day: bool = False,
 ) -> datetime | None:
-    """Parse a date string for query filtering.
+    """
+    Parse a date string for query filtering.
 
     Handles both date-only strings (YYYY-MM-DD) and full ISO datetime strings.
     For date-only strings, can optionally set to end of day.
@@ -62,7 +64,8 @@ def build_calendar_date_expr(
     *,
     date_field: str = "startTime",
 ) -> dict[str, Any] | None:
-    """Build a MongoDB $expr for calendar date filtering with timezone support.
+    """
+    Build a MongoDB $expr for calendar date filtering with timezone support.
 
     Creates an aggregation expression that converts dates to the document's
     timezone before comparing, enabling accurate local date filtering.
@@ -97,10 +100,10 @@ def build_calendar_date_expr(
                 {
                     "case": {"$in": ["$timeZone", ["", "0000"]]},
                     "then": "UTC",
-                }
+                },
             ],
             "default": {"$ifNull": ["$timeZone", "UTC"]},
-        }
+        },
     }
 
     # Convert date field to string in document's timezone
@@ -109,7 +112,7 @@ def build_calendar_date_expr(
             "format": "%Y-%m-%d",
             "date": f"${date_field}",
             "timezone": tz_expr,
-        }
+        },
     }
 
     # Build comparison clauses
@@ -132,7 +135,8 @@ async def build_query_from_request(
     include_imei: bool = True,
     additional_filters: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Build a MongoDB query from FastAPI request parameters.
+    """
+    Build a MongoDB query from FastAPI request parameters.
 
     Extracts common query parameters (start_date, end_date, imei) and
     builds a query with proper date filtering.

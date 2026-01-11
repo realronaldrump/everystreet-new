@@ -25,7 +25,8 @@ class VisitStatsService:
     async def get_place_statistics(
         place: Place | PlaceResponse,
     ) -> PlaceStatisticsResponse:
-        """Get statistics about visits to a place.
+        """
+        Get statistics about visits to a place.
 
         Args:
             place: Place model or PlaceResponse
@@ -73,13 +74,14 @@ class VisitStatsService:
             firstVisit=first_visit,
             lastVisit=last_visit,
             averageTimeSinceLastVisit=VisitTrackingService.format_duration(
-                avg_time_between
+                avg_time_between,
             ),
         )
 
     @staticmethod
     async def get_all_places_statistics() -> list[PlaceStatisticsResponse]:
-        """Get statistics for all custom places.
+        """
+        Get statistics for all custom places.
 
         Returns:
             List of PlaceStatisticsResponse objects
@@ -112,7 +114,7 @@ class VisitStatsService:
                     averageTimeSpent=VisitTrackingService.format_duration(avg_duration),
                     firstVisit=first_visit,
                     lastVisit=last_visit,
-                )
+                ),
             )
         return results
 
@@ -120,7 +122,8 @@ class VisitStatsService:
     async def get_trips_for_place(
         place: Place | PlaceResponse,
     ) -> PlaceVisitsResponse:
-        """Get trips that visited a specific place.
+        """
+        Get trips that visited a specific place.
 
         Args:
             place: Place model or PlaceResponse
@@ -137,7 +140,7 @@ class VisitStatsService:
 
             duration_str = VisitTrackingService.format_duration(visit["duration"])
             time_since_last_str = VisitTrackingService.format_duration(
-                visit["time_since_last"]
+                visit["time_since_last"],
             )
 
             distance = trip.get("distance", 0)
@@ -156,7 +159,7 @@ class VisitStatsService:
                     timeSinceLastVisit=time_since_last_str,
                     source=trip.get("source"),
                     distance=distance,
-                )
+                ),
             )
 
         # Sort by endTime descending
@@ -171,7 +174,8 @@ class VisitStatsService:
     async def get_non_custom_places_visits(
         timeframe: str | None = None,
     ) -> list[NonCustomPlaceVisit]:
-        """Aggregate visits to non-custom destinations.
+        """
+        Aggregate visits to non-custom destinations.
 
         The logic derives a human-readable place name from destination information,
         prioritizing actual place names over addresses:
@@ -207,8 +211,9 @@ class VisitStatsService:
                 "year": timedelta(days=365),
             }
             if timeframe not in delta_map:
+                msg = f"Unsupported timeframe '{timeframe}'. Choose from day, week, month, year."
                 raise ValueError(
-                    f"Unsupported timeframe '{timeframe}'. Choose from day, week, month, year."
+                    msg,
                 )
 
             start_date = now - delta_map[timeframe]
@@ -228,13 +233,13 @@ class VisitStatsService:
                                         "$ifNull": [
                                             "$destination.address_components.street",
                                             "Unknown",
-                                        ]
+                                        ],
                                     },
-                                ]
+                                ],
                             },
-                        ]
-                    }
-                }
+                        ],
+                    },
+                },
             },
             {"$match": {"placeName": {"$ne": None, "$nin": ["", "Unknown"]}}},
             {
@@ -243,7 +248,7 @@ class VisitStatsService:
                     "totalVisits": {"$sum": 1},
                     "firstVisit": {"$min": "$endTime"},
                     "lastVisit": {"$max": "$endTime"},
-                }
+                },
             },
             {"$sort": {"totalVisits": -1}},
             {"$limit": 100},
@@ -267,7 +272,8 @@ class VisitStatsService:
         cell_size_m: int = 250,
         timeframe: str | None = None,
     ) -> list[VisitSuggestion]:
-        """Suggest areas that are visited often but are not yet custom places.
+        """
+        Suggest areas that are visited often but are not yet custom places.
 
         This endpoint groups trip destinations without destinationPlaceId
         by a spatial grid (default ~250m x 250m) and returns any cells that have
@@ -284,8 +290,10 @@ class VisitStatsService:
         Raises:
             ValueError: If timeframe is invalid
         """
-        from shapely.geometry import Point as ShpPoint
-        from shapely.geometry import shape as shp_shape
+        from shapely.geometry import (
+            Point as ShpPoint,
+            shape as shp_shape,
+        )
 
         match_stage: dict[str, Any] = {
             "destinationPlaceId": {"$exists": False},
@@ -302,8 +310,9 @@ class VisitStatsService:
                 "year": timedelta(days=365),
             }
             if timeframe not in delta_map:
+                msg = "Unsupported timeframe. Choose from day, week, month, year."
                 raise ValueError(
-                    "Unsupported timeframe. Choose from day, week, month, year."
+                    msg,
                 )
 
             match_stage["endTime"] = {"$gte": now - delta_map[timeframe]}
@@ -320,17 +329,17 @@ class VisitStatsService:
                             "if": {"$eq": ["$gps.type", "Point"]},
                             "then": "$gps.coordinates",
                             "else": {"$arrayElemAt": ["$gps.coordinates", -1]},
-                        }
+                        },
                     },
                     "endTime": 1,
-                }
+                },
             },
             {
                 "$project": {
                     "lng": {"$arrayElemAt": ["$coordinates", 0]},
                     "lat": {"$arrayElemAt": ["$coordinates", 1]},
                     "endTime": 1,
-                }
+                },
             },
             {
                 "$addFields": {
@@ -338,15 +347,15 @@ class VisitStatsService:
                         "$round": [
                             {"$multiply": ["$lng", cell_precision]},
                             0,
-                        ]
+                        ],
                     },
                     "latCell": {
                         "$round": [
                             {"$multiply": ["$lat", cell_precision]},
                             0,
-                        ]
+                        ],
                     },
-                }
+                },
             },
             {
                 "$group": {
@@ -356,7 +365,7 @@ class VisitStatsService:
                     "lastVisit": {"$max": "$endTime"},
                     "avgLng": {"$avg": "$lng"},
                     "avgLat": {"$avg": "$lat"},
-                }
+                },
             },
             {"$match": {"totalVisits": {"$gte": min_visits}}},
             {"$sort": {"totalVisits": -1}},
@@ -372,7 +381,7 @@ class VisitStatsService:
             try:
                 if place.geometry:
                     existing_polygons.append(shp_shape(place.geometry))
-            except Exception:  # noqa: BLE001
+            except Exception:
                 continue
 
         def overlaps_existing(lng: float, lat: float) -> bool:
@@ -401,7 +410,7 @@ class VisitStatsService:
                         [center_lng + half, center_lat + half],
                         [center_lng - half, center_lat + half],
                         [center_lng - half, center_lat - half],
-                    ]
+                    ],
                 ],
             }
 
@@ -413,7 +422,7 @@ class VisitStatsService:
                     lastVisit=c.get("lastVisit"),
                     centroid=[center_lng, center_lat],
                     boundary=boundary,
-                )
+                ),
             )
 
         return suggestions

@@ -15,7 +15,8 @@ class TripAnalyticsService:
 
     @staticmethod
     async def get_trip_analytics(query: dict[str, Any]) -> dict[str, Any]:
-        """Get analytics on trips over time.
+        """
+        Get analytics on trips over time.
 
         Args:
             query: MongoDB query filter
@@ -41,13 +42,13 @@ class TripAnalyticsService:
                             "$hour": {
                                 "date": "$startTime",
                                 "timezone": tz_expr,
-                            }
+                            },
                         },
                         "dayOfWeek": {
                             "$dayOfWeek": {
                                 "date": "$startTime",
                                 "timezone": tz_expr,
-                            }
+                            },
                         },
                     },
                     "totalDistance": {"$sum": "$distance"},
@@ -71,7 +72,8 @@ class TripAnalyticsService:
 
     @staticmethod
     def _organize_daily_data(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        """Organize results into daily aggregates.
+        """
+        Organize results into daily aggregates.
 
         Args:
             results: Raw aggregation results
@@ -93,7 +95,8 @@ class TripAnalyticsService:
 
     @staticmethod
     def _organize_hourly_data(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        """Organize results into hourly aggregates.
+        """
+        Organize results into hourly aggregates.
 
         Args:
             results: Raw aggregation results
@@ -111,7 +114,8 @@ class TripAnalyticsService:
 
     @staticmethod
     def _organize_weekday_data(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        """Organize data by day of week (MongoDB returns 1=Sunday, 7=Saturday).
+        """
+        Organize data by day of week (MongoDB returns 1=Sunday, 7=Saturday).
 
         Args:
             results: Raw aggregation results
@@ -129,7 +133,8 @@ class TripAnalyticsService:
 
     @staticmethod
     async def get_driver_behavior_analytics(query: dict[str, Any]) -> dict[str, Any]:
-        """Aggregate driving behavior statistics within optional date range filters.
+        """
+        Aggregate driving behavior statistics within optional date range filters.
 
         Args:
             query: MongoDB query filter
@@ -149,7 +154,7 @@ class TripAnalyticsService:
                             "to": "double",
                             "onError": 0.0,
                             "onNull": 0.0,
-                        }
+                        },
                     },
                     "numericMaxSpeed": {
                         "$convert": {
@@ -157,7 +162,7 @@ class TripAnalyticsService:
                             "to": "double",
                             "onError": 0.0,
                             "onNull": 0.0,
-                        }
+                        },
                     },
                     "speedValue": {
                         "$convert": {
@@ -165,19 +170,19 @@ class TripAnalyticsService:
                             "to": "double",
                             "onError": None,
                             "onNull": None,
-                        }
+                        },
                     },
                     "hardBrakingVal": {
                         "$ifNull": [
                             "$hardBrakingCounts",
                             {"$ifNull": ["$hardBrakingCount", 0]},
-                        ]
+                        ],
                     },
                     "hardAccelVal": {
                         "$ifNull": [
                             "$hardAccelerationCounts",
                             {"$ifNull": ["$hardAccelerationCount", 0]},
-                        ]
+                        ],
                     },
                     "idleSeconds": {
                         "$convert": {
@@ -185,7 +190,7 @@ class TripAnalyticsService:
                             "to": "double",
                             "onError": 0.0,
                             "onNull": 0.0,
-                        }
+                        },
                     },
                     "fuelDouble": {
                         "$convert": {
@@ -193,16 +198,16 @@ class TripAnalyticsService:
                             "to": "double",
                             "onError": 0.0,
                             "onNull": 0.0,
-                        }
+                        },
                     },
                     "dtParts": {
                         "$dateToParts": {
                             "date": "$startTime",
                             "timezone": tz_expr,
                             "iso8601": True,
-                        }
+                        },
                     },
-                }
+                },
             },
             {
                 "$facet": {
@@ -218,20 +223,20 @@ class TripAnalyticsService:
                                             {"$ne": ["$speedValue", None]},
                                             "$speedValue",
                                             0,
-                                        ]
-                                    }
+                                        ],
+                                    },
                                 },
                                 "speedCount": {
                                     "$sum": {
-                                        "$cond": [{"$ne": ["$speedValue", None]}, 1, 0]
-                                    }
+                                        "$cond": [{"$ne": ["$speedValue", None]}, 1, 0],
+                                    },
                                 },
                                 "maxSpeed": {"$max": "$numericMaxSpeed"},
                                 "hardBrakingCounts": {"$sum": "$hardBrakingVal"},
                                 "hardAccelerationCounts": {"$sum": "$hardAccelVal"},
                                 "totalIdlingTime": {"$sum": "$idleSeconds"},
                                 "fuelConsumed": {"$sum": "$fuelDouble"},
-                            }
+                            },
                         },
                         {
                             "$project": {
@@ -243,14 +248,14 @@ class TripAnalyticsService:
                                         {"$gt": ["$speedCount", 0]},
                                         {"$divide": ["$speedSum", "$speedCount"]},
                                         0,
-                                    ]
+                                    ],
                                 },
                                 "maxSpeed": 1,
                                 "hardBrakingCounts": 1,
                                 "hardAccelerationCounts": 1,
                                 "totalIdlingTime": 1,
                                 "fuelConsumed": 1,
-                            }
+                            },
                         },
                     ],
                     "weekly": [
@@ -264,7 +269,7 @@ class TripAnalyticsService:
                                 "distance": {"$sum": "$numericDistance"},
                                 "hardBraking": {"$sum": "$hardBrakingVal"},
                                 "hardAccel": {"$sum": "$hardAccelVal"},
-                            }
+                            },
                         },
                         {"$sort": {"_id.wy": 1, "_id.wk": 1}},
                         {
@@ -276,13 +281,13 @@ class TripAnalyticsService:
                                         "-W",
                                         {"$cond": [{"$lt": ["$_id.wk", 10]}, "0", ""]},
                                         {"$toString": "$_id.wk"},
-                                    ]
+                                    ],
                                 },
                                 "trips": 1,
                                 "distance": 1,
                                 "hardBraking": 1,
                                 "hardAccel": 1,
-                            }
+                            },
                         },
                     ],
                     "monthly": [
@@ -293,7 +298,7 @@ class TripAnalyticsService:
                                 "distance": {"$sum": "$numericDistance"},
                                 "hardBraking": {"$sum": "$hardBrakingVal"},
                                 "hardAccel": {"$sum": "$hardAccelVal"},
-                            }
+                            },
                         },
                         {"$sort": {"_id.y": 1, "_id.m": 1}},
                         {
@@ -305,16 +310,16 @@ class TripAnalyticsService:
                                         "-",
                                         {"$cond": [{"$lt": ["$_id.m", 10]}, "0", ""]},
                                         {"$toString": "$_id.m"},
-                                    ]
+                                    ],
                                 },
                                 "trips": 1,
                                 "distance": 1,
                                 "hardBraking": 1,
                                 "hardAccel": 1,
-                            }
+                            },
                         },
                     ],
-                }
+                },
             },
             {
                 "$project": {
@@ -331,11 +336,11 @@ class TripAnalyticsService:
                                 "totalIdlingTime": 0.0,
                                 "fuelConsumed": 0.0,
                             },
-                        ]
+                        ],
                     },
                     "weekly": 1,
                     "monthly": 1,
-                }
+                },
             },
             {
                 "$project": {
@@ -349,7 +354,7 @@ class TripAnalyticsService:
                     "fuelConsumed": {"$round": ["$totals.fuelConsumed", 2]},
                     "weekly": 1,
                     "monthly": 1,
-                }
+                },
             },
         ]
 
@@ -372,7 +377,8 @@ class TripAnalyticsService:
 
     @staticmethod
     async def get_recent_trips(limit: int = 5) -> list[dict[str, Any]]:
-        """Get recent trips for landing page activity feed.
+        """
+        Get recent trips for landing page activity feed.
 
         Args:
             limit: Number of trips to return (1-20)
@@ -394,9 +400,8 @@ class TripAnalyticsService:
                     "destination": 1,
                     "startLocation": 1,
                     "maxSpeed": 1,
-                }
+                },
             },
         ]
 
-        trips = await Trip.aggregate(pipeline).to_list()
-        return trips
+        return await Trip.aggregate(pipeline).to_list()

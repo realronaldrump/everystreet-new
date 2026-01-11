@@ -1,16 +1,15 @@
 """
 Centralized exception hierarchy for domain-specific errors.
 
-This module provides custom exception classes that represent specific error
-conditions in the application, enabling better error handling and client-side
-error recovery.
+This module provides custom exception classes that represent specific error conditions
+in the application, enabling better error handling and client-side error recovery.
 """
 
 
 class EveryStreetException(Exception):
     """Base exception for all application-specific errors."""
 
-    def __init__(self, message: str, details: dict = None):
+    def __init__(self, message: str, details: dict | None = None):
         self.message = message
         self.details = details or {}
         super().__init__(self.message)

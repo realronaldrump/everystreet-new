@@ -11,12 +11,14 @@ const dateManager = {
   init() {
     const startInput = uiState.getElement(CONFIG.selectors.startDate);
     const endInput = uiState.getElement(CONFIG.selectors.endDate);
-    if (!startInput || !endInput) return;
+    if (!startInput || !endInput) {
+      return;
+    }
 
-    const startDate =
-      utils.getStorage(CONFIG.storage.startDate) || dateUtils.getCurrentDate();
-    const endDate =
-      utils.getStorage(CONFIG.storage.endDate) || dateUtils.getCurrentDate();
+    const startDate
+      = utils.getStorage(CONFIG.storage.startDate) || dateUtils.getCurrentDate();
+    const endDate
+      = utils.getStorage(CONFIG.storage.endDate) || dateUtils.getCurrentDate();
     this.flatpickrInstances = new Map();
 
     const fpConfig = {
@@ -36,7 +38,9 @@ const dateManager = {
         ...fpConfig,
         maxDate: endDate,
         onChange: (sel) => {
-          if (sel.length) this.flatpickrInstances.get("end")?.set("minDate", sel[0]);
+          if (sel.length) {
+            this.flatpickrInstances.get("end")?.set("minDate", sel[0]);
+          }
         },
       });
       this.flatpickrInstances.set("start", sp);
@@ -47,7 +51,9 @@ const dateManager = {
         ...fpConfig,
         minDate: startDate,
         onChange: (sel) => {
-          if (sel.length) this.flatpickrInstances.get("start")?.set("maxDate", sel[0]);
+          if (sel.length) {
+            this.flatpickrInstances.get("start")?.set("maxDate", sel[0]);
+          }
         },
       });
       this.flatpickrInstances.set("end", ep);
@@ -64,8 +70,12 @@ const dateManager = {
     // Bind apply and reset buttons
     const applyBtn = uiState.getElement(CONFIG.selectors.applyFiltersBtn);
     const resetBtn = uiState.getElement(CONFIG.selectors.resetFilters);
-    if (applyBtn) eventManager.add(applyBtn, "click", () => this.applyFilters());
-    if (resetBtn) eventManager.add(resetBtn, "click", () => this.reset());
+    if (applyBtn) {
+      eventManager.add(applyBtn, "click", () => this.applyFilters());
+    }
+    if (resetBtn) {
+      eventManager.add(resetBtn, "click", () => this.reset());
+    }
   },
 
   updateInputs(startDate, endDate) {
@@ -102,19 +112,27 @@ const dateManager = {
     } else {
       // Fallback or partial existence
       if (startInputEl) {
-        if (startInputEl._flatpickr) startInputEl._flatpickr.setDate(startDate, true);
-        else startInputEl.value = startDate;
+        if (startInputEl._flatpickr) {
+          startInputEl._flatpickr.setDate(startDate, true);
+        } else {
+          startInputEl.value = startDate;
+        }
       }
       if (endInputEl) {
-        if (endInputEl._flatpickr) endInputEl._flatpickr.setDate(endDate, true);
-        else endInputEl.value = endDate;
+        if (endInputEl._flatpickr) {
+          endInputEl._flatpickr.setDate(endDate, true);
+        } else {
+          endInputEl.value = endDate;
+        }
       }
     }
   },
 
   async setRange(range) {
     const btn = document.querySelector(`[data-range="${range}"]`);
-    if (btn) btn.classList.add("btn-loading");
+    if (btn) {
+      btn.classList.add("btn-loading");
+    }
     try {
       const { startDate, endDate } = await dateUtils.getDateRangePreset(range);
       if (startDate && endDate) {
@@ -125,17 +143,23 @@ const dateManager = {
         uiState.uiState.lastFilterPreset = range;
         uiState.saveUIState();
         await this.applyFilters();
-      } else throw new Error("Invalid date range");
+      } else {
+        throw new Error("Invalid date range");
+      }
     } catch (err) {
       console.error("Error setting date range:", err);
       utils.showNotification(`Error setting date range: ${err.message}`, "danger");
     } finally {
-      if (btn) btn.classList.remove("btn-loading");
+      if (btn) {
+        btn.classList.remove("btn-loading");
+      }
     }
   },
 
   detectPreset(start, end) {
-    if (!start || !end) return null;
+    if (!start || !end) {
+      return null;
+    }
 
     // Use string comparison for date strings (YYYY-MM-DD)
     const today = dateUtils.getCurrentDate();
@@ -143,23 +167,37 @@ const dateManager = {
 
     // Check if same day
     if (start === end) {
-      if (start === today) return "today";
-      if (start === yesterday) return "yesterday";
+      if (start === today) {
+        return "today";
+      }
+      if (start === yesterday) {
+        return "yesterday";
+      }
     }
 
     // For range presets, calculate day difference using string dates
     const startDate = dateUtils.parseDateString(start);
     const endDate = dateUtils.parseDateString(end);
-    if (!startDate || !endDate) return null;
+    if (!startDate || !endDate) {
+      return null;
+    }
 
     const diffDays = Math.round((endDate - startDate) / (1000 * 60 * 60 * 24));
     const endIsToday = end === today;
 
     if (endIsToday) {
-      if (diffDays === 6) return "last-week";
-      if (diffDays === 29 || diffDays === 30) return "last-month";
-      if (diffDays === 89 || diffDays === 90) return "last-quarter";
-      if (diffDays === 364 || diffDays === 365) return "last-year";
+      if (diffDays === 6) {
+        return "last-week";
+      }
+      if (diffDays === 29 || diffDays === 30) {
+        return "last-month";
+      }
+      if (diffDays === 89 || diffDays === 90) {
+        return "last-quarter";
+      }
+      if (diffDays === 364 || diffDays === 365) {
+        return "last-year";
+      }
     }
 
     return null;
@@ -167,22 +205,26 @@ const dateManager = {
 
   updateIndicator() {
     const indicator = uiState.getElement(CONFIG.selectors.filterIndicator);
-    if (!indicator) return;
+    if (!indicator) {
+      return;
+    }
     const span = indicator.querySelector(".filter-date-range");
-    if (!span) return;
-    const savedStartDate =
-      utils.getStorage(CONFIG.storage.startDate) || dateUtils.getCurrentDate();
-    const savedEndDate =
-      utils.getStorage(CONFIG.storage.endDate) || dateUtils.getCurrentDate();
+    if (!span) {
+      return;
+    }
+    const savedStartDate
+      = utils.getStorage(CONFIG.storage.startDate) || dateUtils.getCurrentDate();
+    const savedEndDate
+      = utils.getStorage(CONFIG.storage.endDate) || dateUtils.getCurrentDate();
     const fmt = (d) => dateUtils.formatForDisplay(d, { dateStyle: "medium" }) || d;
     const preset = this.detectPreset(savedStartDate, savedEndDate);
     if (preset) {
-      span.textContent =
-        preset.charAt(0).toUpperCase() + preset.slice(1).replace("-", " ");
+      span.textContent
+        = preset.charAt(0).toUpperCase() + preset.slice(1).replace("-", " ");
       indicator.setAttribute("data-preset", preset);
     } else {
-      span.textContent =
-        savedStartDate === savedEndDate
+      span.textContent
+        = savedStartDate === savedEndDate
           ? fmt(savedStartDate)
           : `${fmt(savedStartDate)} - ${fmt(savedEndDate)}`;
       indicator.removeAttribute("data-preset");
@@ -246,7 +288,9 @@ const dateManager = {
       btn.classList.remove(CONFIG.classes.active);
     });
     const todayBtn = uiState.getElement('.quick-select-btn[data-range="today"]');
-    if (todayBtn) todayBtn.classList.add(CONFIG.classes.active);
+    if (todayBtn) {
+      todayBtn.classList.add(CONFIG.classes.active);
+    }
     this.updateIndicator();
     this.applyFilters();
     document.dispatchEvent(new Event("filtersReset"));

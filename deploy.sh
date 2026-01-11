@@ -26,7 +26,7 @@ docker compose logs --tail=20 web
 echo "Checking if web container is healthy..."
 if docker compose ps web | grep -q "Up"; then
     echo "✓ Web container is running"
-    
+
     echo "Testing web container connectivity..."
     if curl -sf http://localhost:8080/ > /dev/null 2>&1; then
         echo "✓ Web container is responding on port 8080"

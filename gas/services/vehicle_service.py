@@ -19,7 +19,8 @@ class VehicleService:
         vin: str | None = None,
         active_only: bool = True,
     ) -> list[Vehicle]:
-        """Get all vehicles or filter by IMEI/VIN.
+        """
+        Get all vehicles or filter by IMEI/VIN.
 
         Args:
             imei: Optional IMEI filter
@@ -36,7 +37,7 @@ class VehicleService:
         if vin:
             conditions.append(Vehicle.vin == vin)
         if active_only:
-            conditions.append(Vehicle.is_active == True)
+            conditions.append(Vehicle.is_active)
 
         query = Vehicle.find(*conditions) if conditions else Vehicle.find_all()
 
@@ -47,7 +48,8 @@ class VehicleService:
 
     @staticmethod
     async def create_vehicle(vehicle_data: dict[str, Any]) -> Vehicle:
-        """Create a new vehicle record.
+        """
+        Create a new vehicle record.
 
         Args:
             vehicle_data: Vehicle data dictionary
@@ -61,7 +63,8 @@ class VehicleService:
         # Check if vehicle with this IMEI already exists
         existing = await Vehicle.find_one(Vehicle.imei == vehicle_data["imei"])
         if existing:
-            raise DuplicateResourceException("Vehicle with this IMEI already exists")
+            msg = "Vehicle with this IMEI already exists"
+            raise DuplicateResourceException(msg)
 
         vehicle_data["created_at"] = datetime.now(UTC)
         vehicle_data["updated_at"] = datetime.now(UTC)
@@ -73,7 +76,8 @@ class VehicleService:
 
     @staticmethod
     async def update_vehicle(imei: str, update_data: dict[str, Any]) -> Vehicle:
-        """Update a vehicle's information.
+        """
+        Update a vehicle's information.
 
         Args:
             imei: Vehicle IMEI
@@ -88,7 +92,8 @@ class VehicleService:
         # Find the vehicle
         vehicle = await Vehicle.find_one(Vehicle.imei == imei)
         if not vehicle:
-            raise ResourceNotFoundException(f"Vehicle with IMEI {imei} not found")
+            msg = f"Vehicle with IMEI {imei} not found"
+            raise ResourceNotFoundException(msg)
 
         # Update fields
         for key, value in update_data.items():
@@ -102,7 +107,8 @@ class VehicleService:
 
     @staticmethod
     async def delete_vehicle(imei: str) -> dict[str, str]:
-        """Mark a vehicle as inactive.
+        """
+        Mark a vehicle as inactive.
 
         Args:
             imei: Vehicle IMEI
@@ -115,7 +121,8 @@ class VehicleService:
         """
         vehicle = await Vehicle.find_one(Vehicle.imei == imei)
         if not vehicle:
-            raise ResourceNotFoundException(f"Vehicle with IMEI {imei} not found")
+            msg = f"Vehicle with IMEI {imei} not found"
+            raise ResourceNotFoundException(msg)
 
         vehicle.is_active = False
         vehicle.updated_at = datetime.now(UTC)
@@ -125,7 +132,8 @@ class VehicleService:
 
     @staticmethod
     async def get_vehicle_by_imei(imei: str) -> Vehicle | None:
-        """Get a vehicle by IMEI.
+        """
+        Get a vehicle by IMEI.
 
         Args:
             imei: Vehicle IMEI

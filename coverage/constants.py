@@ -1,4 +1,5 @@
-"""Constants for street coverage calculation.
+"""
+Constants for street coverage calculation.
 
 Default values, batch sizes, and other configuration constants.
 """

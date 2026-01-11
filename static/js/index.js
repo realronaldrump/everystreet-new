@@ -13,7 +13,9 @@ if ("PerformanceObserver" in window) {
 // Helper function for updating live tracking visibility
 function updateLiveTrackingVisibility() {
   const liveTrackingPanel = document.getElementById("live-tracking-panel");
-  if (!liveTrackingPanel) return;
+  if (!liveTrackingPanel) {
+    return;
+  }
   const showLiveTracking = window.localStorage.getItem("showLiveTracking");
   // Default: show panel unless setting exists and is explicitly "false"
   const shouldShow = showLiveTracking !== "false";

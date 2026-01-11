@@ -7,9 +7,13 @@ const utils = {
 
   // XSS Sanitization - escapes HTML special characters
   escapeHtml(str) {
-    if (str === null || str === undefined) return "";
+    if (str === null || str === undefined) {
+      return "";
+    }
     let inputStr = str;
-    if (typeof inputStr !== "string") inputStr = String(inputStr);
+    if (typeof inputStr !== "string") {
+      inputStr = String(inputStr);
+    }
     const map = {
       "&": "&amp;",
       "<": "&lt;",
@@ -26,8 +30,12 @@ const utils = {
   // Create an element with safe text content
   createElement(tag, text = "", className = "") {
     const el = document.createElement(tag);
-    if (text) el.textContent = text;
-    if (className) el.className = className;
+    if (text) {
+      el.textContent = text;
+    }
+    if (className) {
+      el.className = className;
+    }
     return el;
   },
 
@@ -124,7 +132,9 @@ const utils = {
       const data = await response.json();
 
       // Cache successful response
-      if (!this._apiCache) this._apiCache = new Map();
+      if (!this._apiCache) {
+        this._apiCache = new Map();
+      }
       this._apiCache.set(key, { data, timestamp: Date.now() });
 
       return data;
@@ -180,24 +190,26 @@ const utils = {
   },
 
   getDeviceProfile() {
-    if (this._deviceProfile) return this._deviceProfile;
+    if (this._deviceProfile) {
+      return this._deviceProfile;
+    }
 
-    const hasTouch =
-      typeof window !== "undefined" &&
-      ("ontouchstart" in window || navigator.maxTouchPoints > 1);
-    const smallViewport =
-      typeof window !== "undefined" &&
-      typeof window.matchMedia === "function" &&
-      window.matchMedia("(max-width: 820px)").matches;
-    const deviceMemory =
-      typeof navigator !== "undefined" && "deviceMemory" in navigator
+    const hasTouch
+      = typeof window !== "undefined"
+      && ("ontouchstart" in window || navigator.maxTouchPoints > 1);
+    const smallViewport
+      = typeof window !== "undefined"
+      && typeof window.matchMedia === "function"
+      && window.matchMedia("(max-width: 820px)").matches;
+    const deviceMemory
+      = typeof navigator !== "undefined" && "deviceMemory" in navigator
         ? navigator.deviceMemory
         : null;
     const lowMemory = Number.isFinite(deviceMemory) && deviceMemory <= 4;
-    const saveData =
-      typeof navigator !== "undefined" &&
-      navigator.connection &&
-      navigator.connection.saveData === true;
+    const saveData
+      = typeof navigator !== "undefined"
+      && navigator.connection
+      && navigator.connection.saveData === true;
 
     this._deviceProfile = {
       isMobile: Boolean(hasTouch || smallViewport),
@@ -214,7 +226,9 @@ const utils = {
   getStorage(key, defaultValue = null) {
     try {
       const value = localStorage.getItem(key);
-      if (value === null) return defaultValue;
+      if (value === null) {
+        return defaultValue;
+      }
 
       try {
         return JSON.parse(value);
@@ -239,8 +253,8 @@ const utils = {
       this.clearOldCache();
       try {
         // Reuse the computed value if available, otherwise recompute
-        const toStore =
-          stringValue !== undefined
+        const toStore
+          = stringValue !== undefined
             ? stringValue
             : typeof value === "object"
               ? JSON.stringify(value)
@@ -294,7 +308,9 @@ const utils = {
     const handleConnectionChange = (isInitialCheck = false) => {
       const isOnline = navigator.onLine;
       const alertsContainer = document.querySelector("#alerts-container");
-      if (!alertsContainer) return;
+      if (!alertsContainer) {
+        return;
+      }
 
       // Clear existing connection status alerts
       alertsContainer.querySelectorAll(".connection-status").forEach((el) => {
@@ -330,8 +346,8 @@ const utils = {
         }
 
         const statusBar = document.createElement("div");
-        statusBar.className =
-          "connection-status alert alert-success alert-dismissible fade show";
+        statusBar.className
+          = "connection-status alert alert-success alert-dismissible fade show";
         statusBar.innerHTML = `
           <i class="fas fa-wifi me-2"></i>
           <strong>Connected</strong> - Connection restored.
@@ -407,9 +423,9 @@ const utils = {
 
   // Accessibility announcements for screen readers
   announce(message, priority = "polite") {
-    const announcer =
-      document.getElementById("map-announcements") ||
-      document.querySelector('[aria-live="polite"]');
+    const announcer
+      = document.getElementById("map-announcements")
+      || document.querySelector('[aria-live="polite"]');
 
     if (!announcer) {
       console.warn("No aria-live region found for announcements");
@@ -432,7 +448,9 @@ const utils = {
   },
   // Helper to format vehicle name
   formatVehicleName(vehicle) {
-    if (!vehicle) return "Unknown Vehicle";
+    if (!vehicle) {
+      return "Unknown Vehicle";
+    }
     return vehicle.custom_name || `Vehicle ${vehicle.vin || vehicle.imei}`;
   },
 };
@@ -461,9 +479,9 @@ function handleError(error, context = "", level = "error", onComplete = null) {
     let userMessage = `Error in ${context}: ${errorObj.message}`;
 
     if (
-      errorObj.name === "NetworkError" ||
-      errorObj.message.includes("fetch") ||
-      errorObj.message.includes("network")
+      errorObj.name === "NetworkError"
+      || errorObj.message.includes("fetch")
+      || errorObj.message.includes("network")
     ) {
       userMessage = "Network error: Please check your connection and try again.";
     } else if (errorObj.message.includes("timeout")) {
@@ -537,7 +555,9 @@ class NotificationManager {
     const closeButton = notification.querySelector(".btn-close");
     if (closeButton) {
       closeButton.addEventListener("mousedown", (e) => {
-        if (e.button !== 0) return;
+        if (e.button !== 0) {
+          return;
+        }
         clearTimeout(timeout);
         this._removeNotification(notification);
       });
@@ -547,7 +567,9 @@ class NotificationManager {
   }
 
   _removeNotification(notification) {
-    if (!notification || !notification.parentNode) return;
+    if (!notification || !notification.parentNode) {
+      return;
+    }
 
     if (this.config.animations) {
       notification.classList.remove("show");
@@ -564,7 +586,9 @@ class NotificationManager {
   }
 
   _trimNotifications() {
-    if (this.notifications.length <= this.config.maxNotifications) return;
+    if (this.notifications.length <= this.config.maxNotifications) {
+      return;
+    }
 
     const excess = this.notifications.length - this.config.maxNotifications;
     for (let i = 0; i < excess; i++) {
@@ -600,7 +624,9 @@ class ConfirmationDialog {
   }
 
   _createModal() {
-    if (document.getElementById(this.modalId)) return;
+    if (document.getElementById(this.modalId)) {
+      return;
+    }
 
     const modal = document.createElement("div");
     modal.className = "modal fade";
@@ -643,8 +669,8 @@ class ConfirmationDialog {
       const message = options.message || this.config.defaultMessage;
       const confirmText = options.confirmText || this.config.defaultConfirmText;
       const cancelText = options.cancelText || this.config.defaultCancelText;
-      const confirmButtonClass =
-        options.confirmButtonClass || this.config.defaultConfirmButtonClass;
+      const confirmButtonClass
+        = options.confirmButtonClass || this.config.defaultConfirmButtonClass;
 
       modalElement.querySelector(".modal-title").textContent = title;
       modalElement.querySelector(".modal-body").innerHTML = message;
@@ -681,7 +707,9 @@ class ConfirmationDialog {
       }
 
       confirmBtn?.addEventListener("mousedown", (e) => {
-        if (e.button !== 0) return;
+        if (e.button !== 0) {
+          return;
+        }
         handleConfirm();
       });
       modalElement.addEventListener("hidden.bs.modal", handleDismiss);
@@ -725,7 +753,9 @@ class PromptDialog {
   }
 
   _createModal() {
-    if (document.getElementById(this.modalId)) return;
+    if (document.getElementById(this.modalId)) {
+      return;
+    }
 
     const modal = document.createElement("div");
     modal.className = "modal fade";
@@ -771,8 +801,8 @@ class PromptDialog {
       const message = options.message || this.config.defaultMessage;
       const confirmText = options.confirmText || this.config.defaultConfirmText;
       const cancelText = options.cancelText || this.config.defaultCancelText;
-      const confirmButtonClass =
-        options.confirmButtonClass || this.config.defaultConfirmButtonClass;
+      const confirmButtonClass
+        = options.confirmButtonClass || this.config.defaultConfirmButtonClass;
       const inputType = options.inputType || this.config.defaultInputType;
       const placeholder = options.placeholder || "";
       const defaultValue = options.defaultValue || "";
@@ -830,7 +860,9 @@ class PromptDialog {
       }
 
       confirmBtn?.addEventListener("mousedown", (e) => {
-        if (e.button !== 0) return;
+        if (e.button !== 0) {
+          return;
+        }
         handleConfirm();
       });
       input?.addEventListener("keypress", handleKeypress);

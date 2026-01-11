@@ -13,7 +13,9 @@ import { formatDateTime, getStatusHTML } from "./formatters.js";
  */
 export function renderTaskConfigTable(config, intervalOptions = INTERVAL_OPTIONS) {
   const tbody = document.querySelector("#taskConfigTable tbody");
-  if (!tbody) return;
+  if (!tbody) {
+    return;
+  }
 
   tbody.innerHTML = "";
 
@@ -26,7 +28,9 @@ export function renderTaskConfigTable(config, intervalOptions = INTERVAL_OPTIONS
     const taskStatus = task.status || "IDLE";
     const canForceStop = ["RUNNING", "PENDING"].includes(taskStatus);
 
-    if (!task.display_name) return;
+    if (!task.display_name) {
+      return;
+    }
 
     row.innerHTML = `
       <td>

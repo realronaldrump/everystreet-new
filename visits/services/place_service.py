@@ -25,7 +25,8 @@ class PlaceService:
 
     @staticmethod
     async def get_places() -> list[PlaceResponse]:
-        """Get all custom places.
+        """
+        Get all custom places.
 
         Returns:
             List of PlaceResponse objects
@@ -35,7 +36,8 @@ class PlaceService:
 
     @staticmethod
     async def create_place(name: str, geometry: dict[str, Any]) -> PlaceResponse:
-        """Create a new custom place.
+        """
+        Create a new custom place.
 
         Args:
             name: The name of the place
@@ -54,7 +56,8 @@ class PlaceService:
 
     @staticmethod
     async def delete_place(place_id: str) -> dict[str, str]:
-        """Delete a custom place.
+        """
+        Delete a custom place.
 
         Args:
             place_id: The place ID to delete
@@ -79,7 +82,8 @@ class PlaceService:
         name: str | None = None,
         geometry: dict[str, Any] | None = None,
     ) -> PlaceResponse:
-        """Update a custom place (name and/or geometry).
+        """
+        Update a custom place (name and/or geometry).
 
         Args:
             place_id: The place ID to update
@@ -94,7 +98,8 @@ class PlaceService:
         """
         place = await Place.get(place_id)
         if not place:
-            raise ValueError("Place not found")
+            msg = "Place not found"
+            raise ValueError(msg)
 
         if name is not None:
             place.name = name
@@ -106,7 +111,8 @@ class PlaceService:
 
     @staticmethod
     async def get_place_by_id(place_id: str) -> PlaceResponse | None:
-        """Get a place by ID.
+        """
+        Get a place by ID.
 
         Args:
             place_id: The place ID

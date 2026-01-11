@@ -1,7 +1,7 @@
 #!/bin/bash
 # dev-mac.sh - Run app locally on Mac (connects to remote database)
 #
-# By default, NO local Celery worker is started. Background tasks are 
+# By default, NO local Celery worker is started. Background tasks are
 # processed by the 24/7 production worker on the mini PC.
 #
 # Use --local-worker flag to start a local Celery worker (not recommended

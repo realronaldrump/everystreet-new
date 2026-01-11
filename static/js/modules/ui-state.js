@@ -9,24 +9,30 @@ class UIState {
     this.activeModals = new Set();
     this.touchStartX = null;
     this.touchStartY = null;
-    this.isMobile =
-      typeof window !== "undefined" && window.innerWidth < CONFIG.UI.mobileBreakpoint;
-    this.reducedMotion =
-      typeof window !== "undefined" &&
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    this.isMobile
+      = typeof window !== "undefined" && window.innerWidth < CONFIG.UI.mobileBreakpoint;
+    this.reducedMotion
+      = typeof window !== "undefined"
+      && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     this.uiState = this.loadUIState();
   }
 
   getElement(selector) {
-    if (this.elementCache.has(selector)) return this.elementCache.get(selector);
+    if (this.elementCache.has(selector)) {
+      return this.elementCache.get(selector);
+    }
     const el = document.querySelector(selector);
-    if (el) this.elementCache.set(selector, el);
+    if (el) {
+      this.elementCache.set(selector, el);
+    }
     return el;
   }
 
   getAllElements(selector) {
     const key = `all_${selector}`;
-    if (this.elementCache.has(key)) return this.elementCache.get(key);
+    if (this.elementCache.has(key)) {
+      return this.elementCache.get(key);
+    }
     const nodes = document.querySelectorAll(selector);
     this.elementCache.set(key, nodes);
     return nodes;

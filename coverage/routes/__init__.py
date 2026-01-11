@@ -1,4 +1,5 @@
-"""Coverage routes package.
+"""
+Coverage routes package.
 
 Contains all API route handlers organized by domain:
     - areas: Coverage area CRUD operations
@@ -12,8 +13,8 @@ from coverage.routes import areas, calculation, custom_boundary, optimal_routes,
 
 __all__ = [
     "areas",
-    "streets",
     "calculation",
     "custom_boundary",
     "optimal_routes",
+    "streets",
 ]

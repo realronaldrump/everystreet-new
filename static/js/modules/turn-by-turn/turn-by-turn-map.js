@@ -92,7 +92,9 @@ class TurnByTurnMap {
    * @param {Function} onDragStart
    */
   setupMapInteractions(onDragStart) {
-    if (!this.map) return;
+    if (!this.map) {
+      return;
+    }
     this.map.on("dragstart", onDragStart);
   }
 
@@ -111,8 +113,8 @@ class TurnByTurnMap {
           const currentStyle = this.map.getStyle();
           // Only change if style actually changed
           if (
-            currentStyle &&
-            !currentStyle.sprite?.includes(
+            currentStyle
+            && !currentStyle.sprite?.includes(
               newStyle.split("/").pop()?.replace("-v11", "")
             )
           ) {
@@ -132,7 +134,9 @@ class TurnByTurnMap {
    * Setup all map layers
    */
   setupMapLayers() {
-    if (!this.map) return;
+    if (!this.map) {
+      return;
+    }
     const emptyGeoJSON = { type: "FeatureCollection", features: [] };
 
     // === COVERAGE SEGMENT LAYERS ===
@@ -297,7 +301,9 @@ class TurnByTurnMap {
    * @param {Array<[number, number]>} coords
    */
   updateRouteLayers(coords) {
-    if (!this.map || !this.mapReady) return;
+    if (!this.map || !this.mapReady) {
+      return;
+    }
 
     const routeSource = this.map.getSource("nav-route");
     const progressSource = this.map.getSource("nav-route-progress");
@@ -322,9 +328,13 @@ class TurnByTurnMap {
    * @param {Array<[number, number]>} progressCoords
    */
   updateProgressLine(progressCoords) {
-    if (!this.map) return;
+    if (!this.map) {
+      return;
+    }
     const progressSource = this.map.getSource("nav-route-progress");
-    if (!progressSource) return;
+    if (!progressSource) {
+      return;
+    }
 
     if (progressCoords.length < 2) {
       progressSource.setData({ type: "FeatureCollection", features: [] });
@@ -350,7 +360,9 @@ class TurnByTurnMap {
    * @param {Array} justDrivenFeatures
    */
   updateCoverageMapLayers(drivenFeatures, undrivenFeatures, justDrivenFeatures) {
-    if (!this.map) return;
+    if (!this.map) {
+      return;
+    }
 
     const drivenSource = this.map.getSource("coverage-driven");
     const undrivenSource = this.map.getSource("coverage-undriven");
@@ -375,7 +387,9 @@ class TurnByTurnMap {
    * @param {Object} geometry
    */
   setNavigateToStartRoute(geometry) {
-    if (!this.map) return;
+    if (!this.map) {
+      return;
+    }
     const source = this.map.getSource("nav-to-start");
     if (source) {
       source.setData({
@@ -389,7 +403,9 @@ class TurnByTurnMap {
    * Clear navigate-to-start route
    */
   clearNavigateToStartRoute() {
-    if (!this.map) return;
+    if (!this.map) {
+      return;
+    }
     const source = this.map.getSource("nav-to-start");
     if (source) {
       source.setData({ type: "FeatureCollection", features: [] });
@@ -402,7 +418,9 @@ class TurnByTurnMap {
    * @param {[number, number]} endCoord
    */
   addRouteMarkers(startCoord, endCoord) {
-    if (!this.map) return;
+    if (!this.map) {
+      return;
+    }
 
     this.startMarker?.remove();
     this.endMarker?.remove();
@@ -429,7 +447,9 @@ class TurnByTurnMap {
    * @param {[number, number]} coord
    */
   updatePositionMarker(coord) {
-    if (!this.map) return;
+    if (!this.map) {
+      return;
+    }
 
     if (!this.positionMarker) {
       const markerEl = document.createElement("div");
@@ -451,7 +471,9 @@ class TurnByTurnMap {
    * @param {number} heading
    */
   updateMarkerHeading(heading) {
-    if (!this.positionMarker || !Number.isFinite(heading)) return;
+    if (!this.positionMarker || !Number.isFinite(heading)) {
+      return;
+    }
     this.positionMarker.setRotation(heading);
   }
 
@@ -461,7 +483,9 @@ class TurnByTurnMap {
    * @param {Object} options
    */
   fitBounds(coords, options = {}) {
-    if (!this.map || coords.length < 2) return;
+    if (!this.map || coords.length < 2) {
+      return;
+    }
 
     const bounds = coords.reduce(
       (b, coord) => b.extend(coord),
@@ -484,7 +508,9 @@ class TurnByTurnMap {
    * @param {Object} options
    */
   updateCamera(center, bearing, zoom, options = {}) {
-    if (!this.map) return;
+    if (!this.map) {
+      return;
+    }
 
     const cameraUpdate = {
       center,
@@ -505,7 +531,9 @@ class TurnByTurnMap {
    * Clear route layers
    */
   clearRouteLayers() {
-    if (!this.map) return;
+    if (!this.map) {
+      return;
+    }
     const emptyGeoJSON = { type: "FeatureCollection", features: [] };
     this.map.getSource("nav-route")?.setData(emptyGeoJSON);
     this.map.getSource("nav-route-progress")?.setData(emptyGeoJSON);

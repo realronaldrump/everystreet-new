@@ -1,7 +1,8 @@
-"""Database connection manager module.
+"""
+Database connection manager module.
 
-Provides a singleton DatabaseManager class for MongoDB connections with
-robust retry logic, connection pooling, and event loop handling.
+Provides a singleton DatabaseManager class for MongoDB connections with robust retry
+logic, connection pooling, and event loop handling.
 """
 
 from __future__ import annotations
@@ -11,7 +12,7 @@ import logging
 import os
 import threading
 from datetime import UTC
-from typing import TYPE_CHECKING, Any, TypeVar
+from typing import TYPE_CHECKING, Any, Self, TypeVar
 
 import certifi
 from gridfs import AsyncGridFSBucket
@@ -27,7 +28,8 @@ T = TypeVar("T")
 
 
 class DatabaseManager:
-    """Singleton class to manage the MongoDB client, database connection, and GridFS.
+    """
+    Singleton class to manage the MongoDB client, database connection, and GridFS.
 
     This class handles:
     - Connection pooling and lifecycle management
@@ -51,7 +53,7 @@ class DatabaseManager:
     _instance: DatabaseManager | None = None
     _lock = threading.Lock()
 
-    def __new__(cls) -> DatabaseManager:
+    def __new__(cls) -> Self:
         """Create or return the singleton instance."""
         with cls._lock:
             if cls._instance is None:
@@ -74,13 +76,13 @@ class DatabaseManager:
             # Load configuration from environment
             self._max_pool_size = int(os.getenv("MONGODB_MAX_POOL_SIZE", "50"))
             self._connection_timeout_ms = int(
-                os.getenv("MONGODB_CONNECTION_TIMEOUT_MS", "5000")
+                os.getenv("MONGODB_CONNECTION_TIMEOUT_MS", "5000"),
             )
             self._server_selection_timeout_ms = int(
-                os.getenv("MONGODB_SERVER_SELECTION_TIMEOUT_MS", "10000")
+                os.getenv("MONGODB_SERVER_SELECTION_TIMEOUT_MS", "10000"),
             )
             self._socket_timeout_ms = int(
-                os.getenv("MONGODB_SOCKET_TIMEOUT_MS", "30000")
+                os.getenv("MONGODB_SOCKET_TIMEOUT_MS", "30000"),
             )
             self._max_retry_attempts = int(os.getenv("MONGODB_MAX_RETRY_ATTEMPTS", "5"))
             self._db_name = os.getenv("MONGODB_DATABASE", "every_street")
@@ -91,7 +93,8 @@ class DatabaseManager:
             )
 
     def _initialize_client(self) -> None:
-        """Initialize the MongoDB client with proper connection settings.
+        """
+        Initialize the MongoDB client with proper connection settings.
 
         Raises:
             Exception: If client initialization fails.
@@ -142,12 +145,13 @@ class DatabaseManager:
 
         except Exception as e:
             self._connection_healthy = False
-            logger.error("Failed to initialize MongoDB client: %s", str(e))
+            logger.exception("Failed to initialize MongoDB client: %s", str(e))
             raise
 
     @staticmethod
     def _get_current_loop() -> asyncio.AbstractEventLoop | None:
-        """Safely get the current running event loop.
+        """
+        Safely get the current running event loop.
 
         Returns:
             The current event loop or None if no loop is running.
@@ -158,7 +162,8 @@ class DatabaseManager:
             return None
 
     def _close_client_sync(self) -> None:
-        """Synchronously reset client state for loop change scenarios.
+        """
+        Synchronously reset client state for loop change scenarios.
 
         Note: With PyMongo's AsyncMongoClient, close() is async. In sync context,
         we just reset the references and let garbage collection handle cleanup.
@@ -200,7 +205,8 @@ class DatabaseManager:
 
     @property
     def db(self) -> AsyncDatabase:
-        """Get the database instance, initializing if necessary.
+        """
+        Get the database instance, initializing if necessary.
 
         Returns:
             The AsyncDatabase instance.
@@ -213,12 +219,14 @@ class DatabaseManager:
             self._initialize_client()
             self._bound_loop = self._get_current_loop()
         if self._db is None:
-            raise ConnectionFailure("Database instance could not be initialized.")
+            msg = "Database instance could not be initialized."
+            raise ConnectionFailure(msg)
         return self._db
 
     @property
     def client(self) -> AsyncMongoClient:
-        """Get the client instance, initializing if necessary.
+        """
+        Get the client instance, initializing if necessary.
 
         Returns:
             The AsyncMongoClient instance.
@@ -231,12 +239,14 @@ class DatabaseManager:
             self._initialize_client()
             self._bound_loop = self._get_current_loop()
         if self._client is None:
-            raise ConnectionFailure("MongoDB client could not be initialized.")
+            msg = "MongoDB client could not be initialized."
+            raise ConnectionFailure(msg)
         return self._client
 
     @property
     def gridfs_bucket(self) -> AsyncGridFSBucket:
-        """Get the GridFS bucket instance.
+        """
+        Get the GridFS bucket instance.
 
         Returns:
             The AsyncGridFSBucket instance.
@@ -248,7 +258,8 @@ class DatabaseManager:
 
     @property
     def connection_healthy(self) -> bool:
-        """Check if the connection is healthy.
+        """
+        Check if the connection is healthy.
 
         Returns:
             True if connection is healthy, False otherwise.
@@ -257,7 +268,8 @@ class DatabaseManager:
 
     @property
     def max_retry_attempts(self) -> int:
-        """Get the maximum number of retry attempts.
+        """
+        Get the maximum number of retry attempts.
 
         Returns:
             Maximum retry attempts configuration value.
@@ -265,7 +277,8 @@ class DatabaseManager:
         return self._max_retry_attempts
 
     async def init_beanie(self) -> None:
-        """Initialize Beanie ODM with all document models.
+        """
+        Initialize Beanie ODM with all document models.
 
         This should be called once during application startup.
         """
@@ -291,7 +304,7 @@ class DatabaseManager:
                 logger.info("Closing MongoDB client connections...")
                 await self._client.close()
             except Exception as e:
-                logger.error("Error closing MongoDB client: %s", str(e))
+                logger.exception("Error closing MongoDB client: %s", str(e))
             finally:
                 self._client = None
                 self._db = None
@@ -301,7 +314,8 @@ class DatabaseManager:
                 logger.info("MongoDB client state reset")
 
     def __del__(self) -> None:
-        """Destructor to reset client references.
+        """
+        Destructor to reset client references.
 
         Note: With PyMongo's AsyncMongoClient, close() is async.
         In __del__, we cannot await, so we just reset references.

@@ -74,7 +74,9 @@ async function loadCoverageAreas(locationSelect) {
  * @param {HTMLButtonElement} exportBtn - Export button element
  */
 async function handleUndrivenStreetsExport(locationSelect, formatSelect, exportBtn) {
-  if (!locationSelect.value) return;
+  if (!locationSelect.value) {
+    return;
+  }
 
   const originalText = setButtonLoading(exportBtn, true, "Export Undriven Streets");
   window.notificationManager?.show("Exporting undriven streets...", "info");

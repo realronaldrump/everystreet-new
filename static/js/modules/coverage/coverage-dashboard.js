@@ -57,13 +57,17 @@ export class CoverageDashboard {
     dashboardElement.style.display = "block";
     dashboardElement.classList.add("fade-in-up");
 
-    locationNameElement.innerHTML =
-      '<span class="loading-skeleton" style="width: 150px; display: inline-block;"></span>';
+    locationNameElement.innerHTML
+      = '<span class="loading-skeleton" style="width: 150px; display: inline-block;"></span>';
 
     const chartContainer = document.getElementById("street-type-chart");
-    if (chartContainer) chartContainer.innerHTML = this.ui.createLoadingSkeleton(180);
+    if (chartContainer) {
+      chartContainer.innerHTML = this.ui.createLoadingSkeleton(180);
+    }
     const coverageEl = document.getElementById("street-type-coverage");
-    if (coverageEl) coverageEl.innerHTML = this.ui.createLoadingSkeleton(100, 3);
+    if (coverageEl) {
+      coverageEl.innerHTML = this.ui.createLoadingSkeleton(100, 3);
+    }
     mapContainer.innerHTML = this.ui.createLoadingIndicator("Loading map data...");
 
     try {
@@ -80,8 +84,8 @@ export class CoverageDashboard {
       }
 
       this.selectedLocation = coverageData;
-      locationNameElement.textContent =
-        coverageData.location.display_name || "Unnamed Area";
+      locationNameElement.textContent
+        = coverageData.location.display_name || "Unnamed Area";
 
       // Pass context helpers if needed, or bind them in the manager.
       // Assuming extraContext provides necessary formatters.
@@ -119,7 +123,9 @@ export class CoverageDashboard {
 
       this.showTripsActive = localStorage.getItem("showTripsOverlay") === "true";
       const tripToggle = document.getElementById("toggle-trip-overlay");
-      if (tripToggle) tripToggle.checked = this.showTripsActive;
+      if (tripToggle) {
+        tripToggle.checked = this.showTripsActive;
+      }
 
       // If trip overlay was active, ensure it's loaded
       if (this.showTripsActive) {
@@ -167,7 +173,9 @@ export class CoverageDashboard {
           distanceFormatter,
           streetTypeFormatter
         );
-        if (this.ui.streetTypeChartInstance) this.ui.streetTypeChartInstance.destroy();
+        if (this.ui.streetTypeChartInstance) {
+          this.ui.streetTypeChartInstance.destroy();
+        }
         this.ui.createStreetTypeChart(
           refreshData.coverage.street_types || [],
           streetTypeFormatter,
@@ -232,16 +240,23 @@ export class CoverageDashboard {
       let buttonClass = "";
       if (btn.dataset.filter === currentFilter) {
         btn.classList.add("active");
-        if (currentFilter === "driven") buttonClass = "btn-success";
-        else if (currentFilter === "undriven") buttonClass = "btn-danger";
-        else if (currentFilter === "undriveable") buttonClass = "btn-warning";
-        else buttonClass = "btn-primary";
+        if (currentFilter === "driven") {
+          buttonClass = "btn-success";
+        } else if (currentFilter === "undriven") {
+          buttonClass = "btn-danger";
+        } else if (currentFilter === "undriveable") {
+          buttonClass = "btn-warning";
+        } else {
+          buttonClass = "btn-primary";
+        }
+      } else if (btn.dataset.filter === "driven") {
+        buttonClass = "btn-outline-success";
+      } else if (btn.dataset.filter === "undriven") {
+        buttonClass = "btn-outline-danger";
+      } else if (btn.dataset.filter === "undriveable") {
+        buttonClass = "btn-outline-warning";
       } else {
-        if (btn.dataset.filter === "driven") buttonClass = "btn-outline-success";
-        else if (btn.dataset.filter === "undriven") buttonClass = "btn-outline-danger";
-        else if (btn.dataset.filter === "undriveable")
-          buttonClass = "btn-outline-warning";
-        else buttonClass = "btn-outline-primary";
+        buttonClass = "btn-outline-primary";
       }
 
       btn.classList.add(buttonClass);
@@ -252,7 +267,9 @@ export class CoverageDashboard {
    * Show street on map
    */
   showStreetOnMap(streetName) {
-    if (!this.coverageMap.map || !this.coverageMap.streetsGeoJson) return;
+    if (!this.coverageMap.map || !this.coverageMap.streetsGeoJson) {
+      return;
+    }
 
     const matchingFeatures = this.coverageMap.streetsGeoJson.features.filter(
       (f) => (f.properties?.street_name || "Unnamed") === streetName
@@ -268,10 +285,12 @@ export class CoverageDashboard {
 
     const selSource = "selected-street";
     const selLayer = "selected-street-layer";
-    if (this.coverageMap.map.getLayer(selLayer))
+    if (this.coverageMap.map.getLayer(selLayer)) {
       this.coverageMap.map.removeLayer(selLayer);
-    if (this.coverageMap.map.getSource(selSource))
+    }
+    if (this.coverageMap.map.getSource(selSource)) {
       this.coverageMap.map.removeSource(selSource);
+    }
 
     this.coverageMap.map.addSource(selSource, {
       type: "geojson",
@@ -296,13 +315,17 @@ export class CoverageDashboard {
     const bounds = new mapboxgl.LngLatBounds();
     matchingFeatures.forEach((f) => {
       const geom = f.geometry;
-      if (!geom) return;
+      if (!geom) {
+        return;
+      }
       const extendCoord = (coord) => bounds.extend(coord);
-      if (geom.type === "LineString") geom.coordinates.forEach(extendCoord);
-      else if (geom.type === "MultiLineString")
+      if (geom.type === "LineString") {
+        geom.coordinates.forEach(extendCoord);
+      } else if (geom.type === "MultiLineString") {
         geom.coordinates.forEach((line) => {
           line.forEach(extendCoord);
         });
+      }
     });
     if (!bounds.isEmpty()) {
       this.coverageMap.map.fitBounds(bounds, {

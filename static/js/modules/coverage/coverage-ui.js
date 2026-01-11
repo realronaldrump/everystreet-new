@@ -20,7 +20,9 @@ class CoverageUI {
   updateCoverageTable(areas, formatRelativeTime, formatStageName, distanceInUserUnits) {
     this.lastCoverageAreas = areas;
     const tableBody = document.querySelector("#coverage-areas-table tbody");
-    if (!tableBody) return;
+    if (!tableBody) {
+      return;
+    }
 
     tableBody.innerHTML = "";
 
@@ -65,7 +67,9 @@ class CoverageUI {
    */
   initializeDataTable() {
     this.dataTableInitializedAt = Date.now();
-    if (!window.$ || !$.fn.DataTable) return;
+    if (!window.$ || !$.fn.DataTable) {
+      return;
+    }
 
     const table = $("#coverage-areas-table");
 
@@ -79,7 +83,9 @@ class CoverageUI {
     const bodyRows = Array.from(table.find("tbody tr"));
     const hasPlaceholderRows = bodyRows.some((row) => {
       const cells = Array.from(row.children);
-      if (cells.some((cell) => cell.hasAttribute("colspan"))) return true;
+      if (cells.some((cell) => cell.hasAttribute("colspan"))) {
+        return true;
+      }
       return headerColumns && cells.length !== headerColumns;
     });
 
@@ -104,11 +110,15 @@ class CoverageUI {
    * Update dashboard stats
    */
   updateDashboardStats(coverage, distanceInUserUnits, formatRelativeTime) {
-    if (!coverage) return;
+    if (!coverage) {
+      return;
+    }
     const statsContainer = document.querySelector(
       ".dashboard-stats-card .stats-container"
     );
-    if (!statsContainer) return;
+    if (!statsContainer) {
+      return;
+    }
 
     const totalLengthM = parseFloat(coverage.total_length || 0);
     const drivenLengthM = parseFloat(coverage.driven_length || 0);
@@ -124,16 +134,17 @@ class CoverageUI {
       }, 0);
     }
 
-    const lastUpdated =
-      coverage.last_stats_update || coverage.last_updated
+    const lastUpdated
+      = coverage.last_stats_update || coverage.last_updated
         ? formatRelativeTime(coverage.last_stats_update || coverage.last_updated)
         : "Never";
 
     let barColor = "bg-success";
-    if (coverage.status === "error" || coverage.status === "canceled")
+    if (coverage.status === "error" || coverage.status === "canceled") {
       barColor = "bg-danger";
-    else if (coverage.status !== "completed" && coverage.status !== "complete")
+    } else if (coverage.status !== "completed" && coverage.status !== "complete") {
       barColor = "bg-warning";
+    }
 
     const html = `
       <div class="row g-3">
@@ -153,7 +164,7 @@ class CoverageUI {
         ${this.createStatItem(lastUpdated, "Last Updated", "text-muted", "small")}
       </div>
       <div class="progress mt-3 mb-2" style="height: 12px;">
-        <div class="progress-bar ${barColor}" role="progressbar" style="width: ${coveragePercentage}%" 
+        <div class="progress-bar ${barColor}" role="progressbar" style="width: ${coveragePercentage}%"
              aria-valuenow="${coveragePercentage}" aria-valuemin="0" aria-valuemax="100">
         </div>
       </div>
@@ -188,7 +199,9 @@ class CoverageUI {
    */
   updateStreetTypeCoverage(streetTypes, distanceInUserUnits, formatStreetType) {
     const streetTypeCoverageEl = document.getElementById("street-type-coverage");
-    if (!streetTypeCoverageEl) return;
+    if (!streetTypeCoverageEl) {
+      return;
+    }
 
     if (!streetTypes || !streetTypes.length) {
       streetTypeCoverageEl.innerHTML = this.createAlertMessage(
@@ -215,12 +228,15 @@ class CoverageUI {
             : type.total_length_m) || 0
         )
       );
-      const denominatorLabel =
-        type.driveable_length_m !== undefined ? "Driveable" : "Total";
+      const denominatorLabel
+        = type.driveable_length_m !== undefined ? "Driveable" : "Total";
 
       let barColor = "bg-success";
-      if (parseFloat(coveragePct) < 25) barColor = "bg-danger";
-      else if (parseFloat(coveragePct) < 75) barColor = "bg-warning";
+      if (parseFloat(coveragePct) < 25) {
+        barColor = "bg-danger";
+      } else if (parseFloat(coveragePct) < 75) {
+        barColor = "bg-warning";
+      }
 
       html += `
         <div class="street-type-item mb-2">
@@ -247,8 +263,12 @@ class CoverageUI {
    */
   createStreetTypeChart(streetTypes, formatStreetType) {
     const chartContainer = document.getElementById("street-type-chart");
-    if (!chartContainer) return;
-    if (this.streetTypeChartInstance) this.streetTypeChartInstance.destroy();
+    if (!chartContainer) {
+      return;
+    }
+    if (this.streetTypeChartInstance) {
+      this.streetTypeChartInstance.destroy();
+    }
 
     if (!streetTypes || !streetTypes.length) {
       chartContainer.innerHTML = this.createAlertMessage(
@@ -267,8 +287,8 @@ class CoverageUI {
     const driveable = sortedTypes.map((t) => (t.driveable_length_m || 0) * 0.000621371);
     const coveragePct = sortedTypes.map((t) => t.coverage_percentage || 0);
 
-    chartContainer.innerHTML =
-      '<canvas id="streetTypeChartCanvas" style="min-height: 180px;"></canvas>';
+    chartContainer.innerHTML
+      = '<canvas id="streetTypeChartCanvas" style="min-height: 180px;"></canvas>';
     const ctx = document.getElementById("streetTypeChartCanvas").getContext("2d");
 
     this.streetTypeChartInstance = new Chart(ctx, {
@@ -355,8 +375,8 @@ class CoverageUI {
     if (!this.undrivenSortSelect) {
       this.undrivenSortSelect = document.getElementById("undriven-streets-sort");
       if (
-        this.undrivenSortSelect &&
-        !this.undrivenSortSelect.dataset.listenerAttached
+        this.undrivenSortSelect
+        && !this.undrivenSortSelect.dataset.listenerAttached
       ) {
         this.undrivenSortSelect.addEventListener("change", () => {
           this.undrivenSortCriterion = this.undrivenSortSelect.value;
@@ -370,7 +390,9 @@ class CoverageUI {
       }
     }
     const container = this.undrivenStreetsContainer;
-    if (!container) return;
+    if (!container) {
+      return;
+    }
 
     if (!geojson || !Array.isArray(geojson.features) || !geojson.features.length) {
       container.innerHTML = this.createAlertMessage(
@@ -393,7 +415,9 @@ class CoverageUI {
       }
       agg.length += Number.isNaN(segLen) ? 0 : segLen;
       agg.segments += 1;
-      if (props.driven) agg.driven = true;
+      if (props.driven) {
+        agg.driven = true;
+      }
     }
 
     const undrivenData = [...aggregates.entries()]
@@ -459,18 +483,24 @@ class CoverageUI {
    * Clear dashboard UI
    */
   clearDashboardUI() {
-    document.getElementById("dashboard-location-name").textContent =
-      "Select a location";
+    document.getElementById("dashboard-location-name").textContent
+      = "Select a location";
     const statsContainer = document.querySelector(
       ".dashboard-stats-card .stats-container"
     );
-    if (statsContainer) statsContainer.innerHTML = "";
+    if (statsContainer) {
+      statsContainer.innerHTML = "";
+    }
 
     const chartContainer = document.getElementById("street-type-chart");
-    if (chartContainer) chartContainer.innerHTML = "";
+    if (chartContainer) {
+      chartContainer.innerHTML = "";
+    }
 
     const coverageEl = document.getElementById("street-type-coverage");
-    if (coverageEl) coverageEl.innerHTML = "";
+    if (coverageEl) {
+      coverageEl.innerHTML = "";
+    }
 
     if (this.streetTypeChartInstance) {
       this.streetTypeChartInstance.destroy();
@@ -482,8 +512,8 @@ class CoverageUI {
    * Create alert message
    */
   createAlertMessage(title, message, type = "info") {
-    const iconClass =
-      {
+    const iconClass
+      = {
         danger: "fa-exclamation-circle",
         warning: "fa-exclamation-triangle",
         info: "fa-info-circle",
@@ -576,9 +606,15 @@ class CoverageUI {
    * @private
    */
   static _getRowClassName(statusInfo) {
-    if (statusInfo.isProcessing) return "processing-row table-info";
-    if (statusInfo.hasError) return "table-danger";
-    if (statusInfo.isCanceled) return "table-warning";
+    if (statusInfo.isProcessing) {
+      return "processing-row table-info";
+    }
+    if (statusInfo.hasError) {
+      return "table-danger";
+    }
+    if (statusInfo.isCanceled) {
+      return "table-warning";
+    }
     return "";
   }
 
@@ -604,9 +640,15 @@ class CoverageUI {
    * @private
    */
   static _getProgressBarColor(statusInfo, coveragePercentage) {
-    if (statusInfo.hasError || statusInfo.isCanceled) return "bg-secondary";
-    if (coveragePercentage < 25) return "bg-danger";
-    if (coveragePercentage < 75) return "bg-warning";
+    if (statusInfo.hasError || statusInfo.isCanceled) {
+      return "bg-secondary";
+    }
+    if (coveragePercentage < 25) {
+      return "bg-danger";
+    }
+    if (coveragePercentage < 75) {
+      return "bg-warning";
+    }
     return "bg-success";
   }
 

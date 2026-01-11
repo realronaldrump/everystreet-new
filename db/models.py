@@ -1,4 +1,5 @@
-"""Beanie ODM document models for MongoDB collections.
+"""
+Beanie ODM document models for MongoDB collections.
 
 This module defines all document models using Beanie ODM, which provides:
 - Automatic Pydantic validation
@@ -241,7 +242,8 @@ class Trip(Document):
             IndexModel([("endTime", DESCENDING)], name="trips_endTime_desc_idx"),
             IndexModel([("gps", "2dsphere")], name="trips_gps_2dsphere_idx"),
             IndexModel(
-                [("startGeoPoint", "2dsphere")], name="trips_startGeoPoint_2dsphere_idx"
+                [("startGeoPoint", "2dsphere")],
+                name="trips_startGeoPoint_2dsphere_idx",
             ),
             IndexModel(
                 [("destinationGeoPoint", "2dsphere")],
@@ -421,7 +423,7 @@ class OsmData(Document):
             IndexModel(
                 [("location", ASCENDING), ("type", ASCENDING)],
                 name="osm_data_location_type_idx",
-            )
+            ),
         ]
 
     class Config:
@@ -487,7 +489,7 @@ class TaskHistory(Document):
             IndexModel(
                 [("task_id", ASCENDING), ("timestamp", DESCENDING)],
                 name="task_history_task_timestamp_idx",
-            )
+            ),
         ]
 
     class Config:
@@ -557,7 +559,8 @@ class GasFillup(Document):
                 name="gas_fillups_imei_time_idx",
             ),
             IndexModel(
-                [("fillup_time", DESCENDING)], name="gas_fillups_fillup_time_idx"
+                [("fillup_time", DESCENDING)],
+                name="gas_fillups_fillup_time_idx",
             ),
             IndexModel([("vin", ASCENDING)], name="gas_fillups_vin_idx", sparse=True),
         ]

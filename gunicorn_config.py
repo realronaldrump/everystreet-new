@@ -1,4 +1,5 @@
-"""Gunicorn configuration file.
+"""
+Gunicorn configuration file.
 
 Optimized for Docker deployment with resource constraints.
 """
@@ -78,7 +79,9 @@ max_worker_memory = 512 * 1024 * 1024
 def on_starting(_server):
     """Log when server starts."""
     logging.getLogger("gunicorn.error").info(
-        "Starting Gunicorn with %d workers, timeout %ds", workers, timeout
+        "Starting Gunicorn with %d workers, timeout %ds",
+        workers,
+        timeout,
     )
 
 

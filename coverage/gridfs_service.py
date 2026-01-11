@@ -1,4 +1,5 @@
-"""GridFS operations for coverage GeoJSON storage.
+"""
+GridFS operations for coverage GeoJSON storage.
 
 Handles streaming, storing, and regenerating GeoJSON data in MongoDB GridFS.
 """
@@ -27,7 +28,8 @@ class GridFSService:
     # We can access fs.files collection via db_manager.db for metadata queries if needed
 
     async def get_file_metadata(self, file_id: ObjectId) -> dict | None:
-        """Get metadata for a GridFS file.
+        """
+        Get metadata for a GridFS file.
 
         Args:
             file_id: GridFS file ID
@@ -36,16 +38,18 @@ class GridFSService:
             File metadata or None if not found
         """
         try:
-            metadata = await db_manager.db["fs.files"].find_one({"_id": file_id})
-            return metadata
+            return await db_manager.db["fs.files"].find_one({"_id": file_id})
         except Exception as e:
-            logger.error("Error fetching GridFS file metadata %s: %s", file_id, e)
+            logger.exception("Error fetching GridFS file metadata %s: %s", file_id, e)
             return None
 
     async def stream_geojson(
-        self, file_id: ObjectId, location_id: str
+        self,
+        file_id: ObjectId,
+        location_id: str,
     ) -> AsyncIterator[bytes]:
-        """Stream GeoJSON data from GridFS.
+        """
+        Stream GeoJSON data from GridFS.
 
         Args:
             file_id: GridFS file ID
@@ -156,7 +160,8 @@ class GridFSService:
                 )
 
     async def delete_file(self, file_id: ObjectId, location_name: str = "") -> bool:
-        """Delete a file from GridFS.
+        """
+        Delete a file from GridFS.
 
         Args:
             file_id: GridFS file ID
@@ -186,7 +191,8 @@ class GridFSService:
             return False
 
     async def delete_files_by_location(self, location_name: str) -> int:
-        """Delete all GridFS files tagged with a location name.
+        """
+        Delete all GridFS files tagged with a location name.
 
         Args:
             location_name: Location display name
@@ -198,7 +204,8 @@ class GridFSService:
         try:
             # Query fs.files collection
             cursor = db_manager.db["fs.files"].find(
-                {"metadata.location": location_name}, {"_id": 1}
+                {"metadata.location": location_name},
+                {"_id": 1},
             )
             async for file_doc in cursor:
                 try:
@@ -220,9 +227,11 @@ class GridFSService:
         return deleted_count
 
     async def regenerate_streets_geojson(
-        self, location_id: ObjectId
+        self,
+        location_id: ObjectId,
     ) -> ObjectId | None:
-        """Regenerate and store streets GeoJSON in GridFS.
+        """
+        Regenerate and store streets GeoJSON in GridFS.
 
         Args:
             location_id: Coverage area ID
@@ -247,9 +256,9 @@ class GridFSService:
             # Fetch specific fields
             clean_features = []
             async for street in Street.find(
-                {"properties.location": location_name}
+                {"properties.location": location_name},
             ).project(
-                model=Street
+                model=Street,
             ):  # We can optimize query if needed, but iteration is fine
                 if not street.geometry:
                     continue
@@ -268,7 +277,7 @@ class GridFSService:
                         "type": "Feature",
                         "geometry": street.geometry,
                         "properties": clean_props,
-                    }
+                    },
                 )
 
             geojson = {"type": "FeatureCollection", "features": clean_features}
@@ -286,7 +295,8 @@ class GridFSService:
             # Serialize and upload
             data_bytes = json.dumps(geojson).encode("utf-8")
             new_id = await self.bucket.upload_from_stream(
-                f"{location_name}_streets.geojson", data_bytes
+                f"{location_name}_streets.geojson",
+                data_bytes,
             )
 
             # Update metadata

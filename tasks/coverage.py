@@ -1,4 +1,5 @@
-"""Coverage calculation tasks.
+"""
+Coverage calculation tasks.
 
 This module provides Celery tasks for updating street coverage calculations:
 - update_coverage_for_new_trips: Incrementally updates coverage for all areas
@@ -106,7 +107,7 @@ async def update_coverage_for_new_trips_async(_self) -> dict[str, Any]:
                     await ProgressStatus(id=sub_task_id, **update_data).insert()
 
             except Exception as prog_err:
-                logger.error(
+                logger.exception(
                     "Failed to update progress status for failed sub-task %s: %s",
                     sub_task_id,
                     prog_err,

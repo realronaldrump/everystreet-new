@@ -89,7 +89,9 @@ async function initializeMap() {
  */
 function setVehicleStatus(message, tone = "muted") {
   const statusEl = document.getElementById("vehicle-status");
-  if (!statusEl) return;
+  if (!statusEl) {
+    return;
+  }
 
   const toneClassMap = {
     success: "text-success",
@@ -138,7 +140,9 @@ async function loadVehicles(options = {}) {
     setVehicleStatus("Loading your vehicles...", "muted");
 
     const response = await fetch("/api/vehicles?active_only=true");
-    if (!response.ok) throw new Error("Failed to load vehicles");
+    if (!response.ok) {
+      throw new Error("Failed to load vehicles");
+    }
 
     vehicles = await response.json();
 
@@ -153,8 +157,8 @@ async function loadVehicles(options = {}) {
     }
 
     if (vehicles.length === 0) {
-      vehicleSelect.innerHTML =
-        '<option value="">No vehicles found. Go to Profile to sync/add.</option>';
+      vehicleSelect.innerHTML
+        = '<option value="">No vehicles found. Go to Profile to sync/add.</option>';
       setVehicleStatus(
         "No vehicles detected yet. Auto-discovery attempted—please sync from Profile.",
         "warning"
@@ -179,7 +183,8 @@ async function loadVehicles(options = {}) {
         "success"
       );
       return vehicles;
-    } else if (vehicles.length > 0) {
+    }
+    if (vehicles.length > 0) {
       setVehicleStatus(
         "Vehicles detected. Select one to see its latest location and odometer.",
         "success"
@@ -217,9 +222,9 @@ async function attemptVehicleDiscovery() {
       method: "POST",
       successMessage: "Created vehicles from your recorded trips.",
       hasVehicles: (data) =>
-        (data?.synced ?? 0) > 0 ||
-        (data?.updated ?? 0) > 0 ||
-        (data?.total_vehicles ?? 0) > 0,
+        (data?.synced ?? 0) > 0
+        || (data?.updated ?? 0) > 0
+        || (data?.total_vehicles ?? 0) > 0,
     },
   ];
 
@@ -290,7 +295,9 @@ async function updateLocationAndOdometer() {
         locationText.classList.add("text-muted");
         odometerDisplay.textContent = "Enter manually";
         odometerInput.placeholder = "Enter odometer reading";
-        if (map && marker) marker.remove();
+        if (map && marker) {
+          marker.remove();
+        }
         currentLocation = null;
         return;
       }
@@ -306,13 +313,15 @@ async function updateLocationAndOdometer() {
     // Update map
     if (data.latitude && data.longitude) {
       updateMap(data.latitude, data.longitude);
-      locationText.textContent =
-        data.address || `${data.latitude.toFixed(6)}, ${data.longitude.toFixed(6)}`;
+      locationText.textContent
+        = data.address || `${data.latitude.toFixed(6)}, ${data.longitude.toFixed(6)}`;
       locationText.classList.remove("text-muted");
     } else {
       locationText.textContent = "Location not available (GPS data missing)";
       locationText.classList.add("text-muted");
-      if (map && marker) marker.remove();
+      if (map && marker) {
+        marker.remove();
+      }
     }
 
     // Update odometer - strict check for null/undefined to allow 0
@@ -323,7 +332,9 @@ async function updateLocationAndOdometer() {
     } else {
       odometerDisplay.textContent = "Not available";
       // Don't clear manual input if user typed something
-      if (!odometerInput.value) odometerInput.placeholder = "Enter manually";
+      if (!odometerInput.value) {
+        odometerInput.placeholder = "Enter manually";
+      }
     }
   } catch {
     locationText.textContent = "Error loading location";
@@ -347,7 +358,9 @@ function isNearCurrentTime(datetimeString) {
  * Update map with location
  */
 function updateMap(lat, lon) {
-  if (!map) return;
+  if (!map) {
+    return;
+  }
 
   // Remove existing marker
   if (marker) {
@@ -370,8 +383,8 @@ function updateMap(lat, lon) {
  */
 function calculateTotalCost() {
   const gallons = parseFloat(document.getElementById("gallons").value) || 0;
-  const pricePerGallon =
-    parseFloat(document.getElementById("price-per-gallon").value) || 0;
+  const pricePerGallon
+    = parseFloat(document.getElementById("price-per-gallon").value) || 0;
   const totalCostInput = document.getElementById("total-cost");
 
   if (gallons > 0 && pricePerGallon > 0) {
@@ -468,8 +481,8 @@ async function autoCalcOdometer() {
 
   try {
     // Show loading state
-    autoCalcBtn.innerHTML =
-      '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
+    autoCalcBtn.innerHTML
+      = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
     autoCalcBtn.disabled = true;
 
     const timestamp = new Date(fillupTime).toISOString();
@@ -637,7 +650,9 @@ function resetFormState() {
       vehicleSelect.value = selectedVehicle;
       setCurrentTime(); // Reset time to now
       currentLocation = null; // Clear old location data
-      if (marker) marker.remove();
+      if (marker) {
+        marker.remove();
+      }
       updateLocationAndOdometer(); // Fetch fresh "now" data
     }, 0);
   } else {
@@ -659,21 +674,23 @@ async function loadRecentFillups() {
     }
 
     const response = await fetch(url);
-    if (!response.ok) throw new Error("Failed to load fill-ups");
+    if (!response.ok) {
+      throw new Error("Failed to load fill-ups");
+    }
 
     const fillups = await response.json();
     recentFillups = fillups; // Store globally
 
     if (fillups.length === 0) {
-      fillupList.innerHTML =
-        '<p class="text-center text-muted">No fill-ups recorded yet</p>';
+      fillupList.innerHTML
+        = '<p class="text-center text-muted">No fill-ups recorded yet</p>';
       return;
     }
 
     fillupList.innerHTML = fillups.map((fillup) => createFillupItem(fillup)).join("");
   } catch {
-    fillupList.innerHTML =
-      '<p class="text-center text-danger">Error loading fill-ups</p>';
+    fillupList.innerHTML
+      = '<p class="text-center text-danger">Error loading fill-ups</p>';
   }
 }
 
@@ -741,7 +758,9 @@ function createFillupItem(fillup) {
  */
 window.editFillup = (id) => {
   const fillup = recentFillups.find((f) => f._id === id);
-  if (!fillup) return;
+  if (!fillup) {
+    return;
+  }
 
   // Switch to edit mode UI
   document.getElementById("fillup-id").value = fillup._id;
@@ -854,14 +873,16 @@ async function loadStatistics() {
     }
 
     const response = await fetch(url);
-    if (!response.ok) throw new Error("Failed to load statistics");
+    if (!response.ok) {
+      throw new Error("Failed to load statistics");
+    }
 
     const stats = await response.json();
 
     // Update stats display
     document.getElementById("total-fillups").textContent = stats.total_fillups || 0;
-    document.getElementById("total-spent").textContent =
-      `$${(stats.total_cost || 0).toFixed(2)}`;
+    document.getElementById("total-spent").textContent
+      = `$${(stats.total_cost || 0).toFixed(2)}`;
     document.getElementById("avg-mpg").textContent = stats.average_mpg
       ? stats.average_mpg.toFixed(1)
       : "--";

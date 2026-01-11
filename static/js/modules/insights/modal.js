@@ -60,11 +60,13 @@ export function displayTripsInModal(trips, timeType, timeValue) {
 
   // Build table rows
   const tbody = document.querySelector("#modal-trips-table tbody");
-  if (!tbody) return;
+  if (!tbody) {
+    return;
+  }
 
   if (!trips || trips.length === 0) {
-    tbody.innerHTML =
-      '<tr><td colspan="8" class="text-center">No trips found for this time period.</td></tr>';
+    tbody.innerHTML
+      = '<tr><td colspan="8" class="text-center">No trips found for this time period.</td></tr>';
   } else {
     tbody.innerHTML = trips
       .map((trip) => {
@@ -76,12 +78,12 @@ export function displayTripsInModal(trips, timeType, timeValue) {
           : "-";
         const duration = formatDuration(trip.duration || 0);
         const distance = trip.distance ? `${trip.distance.toFixed(1)} mi` : "-";
-        const startLoc =
-          trip.startLocation?.formatted_address ||
-          trip.startLocation?.name ||
-          "Unknown";
-        const destLoc =
-          trip.destination?.formatted_address || trip.destination?.name || "Unknown";
+        const startLoc
+          = trip.startLocation?.formatted_address
+          || trip.startLocation?.name
+          || "Unknown";
+        const destLoc
+          = trip.destination?.formatted_address || trip.destination?.name || "Unknown";
         const maxSpeed = trip.maxSpeed ? `${trip.maxSpeed.toFixed(1)} mph` : "-";
         const tripId = trip.transactionId || trip._id?.$oid || trip._id || "-";
 

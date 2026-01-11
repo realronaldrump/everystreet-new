@@ -1,6 +1,7 @@
 """API routes for visit statistics and suggestions."""
 
 import logging
+from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query, status
 
@@ -46,11 +47,15 @@ async def get_all_places_statistics():
 
 @router.get("/api/visit_suggestions", response_model=list[VisitSuggestion])
 async def get_visit_suggestions(
-    min_visits: int = Query(5, description="Minimum number of visits"),
-    cell_size_m: int = Query(250, description="Grid cell size in meters"),
-    timeframe: str | None = Query(None, description="Optional timeframe filter"),
+    min_visits: Annotated[int, Query(description="Minimum number of visits")] = 5,
+    cell_size_m: Annotated[int, Query(description="Grid cell size in meters")] = 250,
+    timeframe: Annotated[
+        str | None,
+        Query(description="Optional timeframe filter"),
+    ] = None,
 ):
-    """Suggest areas that are visited often but are not yet custom places.
+    """
+    Suggest areas that are visited often but are not yet custom places.
 
     This endpoint groups trip destinations without destinationPlaceId
     by a spatial grid (default ~250m x 250m) and returns any cells that have
@@ -76,7 +81,9 @@ async def get_visit_suggestions(
     """
     try:
         return await VisitStatsService.get_visit_suggestions(
-            min_visits, cell_size_m, timeframe
+            min_visits,
+            cell_size_m,
+            timeframe,
         )
     except ValueError as e:
         raise HTTPException(

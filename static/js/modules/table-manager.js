@@ -53,8 +53,8 @@ export class TableManager {
 
     // Create pagination controls
     const paginationContainer = document.createElement("div");
-    paginationContainer.className =
-      "table-pagination d-flex justify-content-between align-items-center mt-3";
+    paginationContainer.className
+      = "table-pagination d-flex justify-content-between align-items-center mt-3";
     paginationContainer.innerHTML = `
       <div class="pagination-info">
         <span class="pagination-showing"></span>
@@ -143,7 +143,9 @@ export class TableManager {
         this._renderClientData();
       }
     } catch (error) {
-      if (error.name === "AbortError") return;
+      if (error.name === "AbortError") {
+        return;
+      }
       console.error("Table data fetch error:", error);
       this._showError("Failed to load data");
     } finally {
@@ -229,7 +231,9 @@ export class TableManager {
           td.textContent = escapeHtml(row[col.data] ?? "");
         }
 
-        if (col.className) td.className = col.className;
+        if (col.className) {
+          td.className = col.className;
+        }
         tr.appendChild(td);
       });
 
@@ -294,8 +298,8 @@ export class TableManager {
     const start = page * pageSize + 1;
     const end = Math.min((page + 1) * pageSize, totalRecords);
 
-    this.controls.info.textContent =
-      totalRecords > 0
+    this.controls.info.textContent
+      = totalRecords > 0
         ? `Showing ${start} to ${end} of ${totalRecords} entries`
         : "No entries";
 
@@ -303,8 +307,8 @@ export class TableManager {
     this.controls.next.disabled = page >= totalPages - 1;
 
     // Remove existing page number items (everything between prev and next)
-    const existingPageItems =
-      this.controls.paginationList.querySelectorAll(".page-number-item");
+    const existingPageItems
+      = this.controls.paginationList.querySelectorAll(".page-number-item");
     existingPageItems.forEach((item) => {
       item.remove();
     });

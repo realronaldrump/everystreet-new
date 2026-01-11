@@ -41,8 +41,12 @@ export {
  */
 export function createElement(tag, text = "", className = "") {
   const el = document.createElement(tag);
-  if (text) el.textContent = text;
-  if (className) el.className = className;
+  if (text) {
+    el.textContent = text;
+  }
+  if (className) {
+    el.className = className;
+  }
   return el;
 }
 
@@ -161,7 +165,9 @@ export function throttle(func, limit) {
 export function getStorage(key, defaultValue = null) {
   try {
     const value = localStorage.getItem(key);
-    if (value === null) return defaultValue;
+    if (value === null) {
+      return defaultValue;
+    }
     try {
       return JSON.parse(value);
     } catch {
@@ -181,16 +187,16 @@ export function getStorage(key, defaultValue = null) {
  */
 export function setStorage(key, value) {
   try {
-    const stringValue =
-      typeof value === "object" ? JSON.stringify(value) : String(value);
+    const stringValue
+      = typeof value === "object" ? JSON.stringify(value) : String(value);
     localStorage.setItem(key, stringValue);
     return true;
   } catch (e) {
     console.warn("Storage error:", e);
     clearOldCache();
     try {
-      const stringValue =
-        typeof value === "object" ? JSON.stringify(value) : String(value);
+      const stringValue
+        = typeof value === "object" ? JSON.stringify(value) : String(value);
       localStorage.setItem(key, stringValue);
       return true;
     } catch {
@@ -371,24 +377,26 @@ let _deviceProfile = null;
  * @returns {Object} Device profile with capabilities info
  */
 export function getDeviceProfile() {
-  if (_deviceProfile) return _deviceProfile;
+  if (_deviceProfile) {
+    return _deviceProfile;
+  }
 
-  const hasTouch =
-    typeof window !== "undefined" &&
-    ("ontouchstart" in window || navigator.maxTouchPoints > 1);
-  const smallViewport =
-    typeof window !== "undefined" &&
-    typeof window.matchMedia === "function" &&
-    window.matchMedia("(max-width: 820px)").matches;
-  const deviceMemory =
-    typeof navigator !== "undefined" && "deviceMemory" in navigator
+  const hasTouch
+    = typeof window !== "undefined"
+    && ("ontouchstart" in window || navigator.maxTouchPoints > 1);
+  const smallViewport
+    = typeof window !== "undefined"
+    && typeof window.matchMedia === "function"
+    && window.matchMedia("(max-width: 820px)").matches;
+  const deviceMemory
+    = typeof navigator !== "undefined" && "deviceMemory" in navigator
       ? navigator.deviceMemory
       : null;
   const lowMemory = Number.isFinite(deviceMemory) && deviceMemory <= 4;
-  const saveData =
-    typeof navigator !== "undefined" &&
-    navigator.connection &&
-    navigator.connection.saveData === true;
+  const saveData
+    = typeof navigator !== "undefined"
+    && navigator.connection
+    && navigator.connection.saveData === true;
 
   _deviceProfile = {
     isMobile: Boolean(hasTouch || smallViewport),
@@ -428,9 +436,9 @@ export function showNotification(...args) {
  * @param {string} priority - Priority ("polite" or "assertive")
  */
 export function announce(message, priority = "polite") {
-  const announcer =
-    document.getElementById("map-announcements") ||
-    document.querySelector('[aria-live="polite"]');
+  const announcer
+    = document.getElementById("map-announcements")
+    || document.querySelector('[aria-live="polite"]');
 
   if (!announcer) {
     console.warn("No aria-live region found for announcements");
@@ -494,9 +502,9 @@ export function handleError(error, context = "", level = "error", onComplete = n
     let userMessage = `Error in ${context}: ${errorObj.message}`;
 
     if (
-      errorObj.name === "NetworkError" ||
-      errorObj.message.includes("fetch") ||
-      errorObj.message.includes("network")
+      errorObj.name === "NetworkError"
+      || errorObj.message.includes("fetch")
+      || errorObj.message.includes("network")
     ) {
       userMessage = "Network error: Please check your connection and try again.";
     } else if (errorObj.message.includes("timeout")) {

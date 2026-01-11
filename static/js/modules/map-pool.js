@@ -146,7 +146,9 @@ class MapPool {
    * Evict least recently used maps if we're at the limit
    */
   _evictIfNeeded() {
-    if (this.maps.size < this.maxMaps) return;
+    if (this.maps.size < this.maxMaps) {
+      return;
+    }
 
     // Find maps that are not in use and sort by last used
     const evictable = [];
@@ -173,8 +175,11 @@ class MapPool {
     let inUse = 0;
     let idle = 0;
     for (const entry of this.maps.values()) {
-      if (entry.inUse) inUse++;
-      else idle++;
+      if (entry.inUse) {
+        inUse++;
+      } else {
+        idle++;
+      }
     }
     return { total: this.maps.size, inUse, idle, max: this.maxMaps };
   }

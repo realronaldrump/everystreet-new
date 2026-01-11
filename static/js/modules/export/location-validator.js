@@ -52,8 +52,8 @@ export async function validateLocation(inputId) {
   if (validateButton) {
     originalText = validateButton.textContent || "Validate";
     validateButton.disabled = true;
-    validateButton.innerHTML =
-      '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Validating...';
+    validateButton.innerHTML
+      = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Validating...';
   }
 
   try {

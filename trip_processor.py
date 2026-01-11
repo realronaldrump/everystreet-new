@@ -1,9 +1,10 @@
-"""Unified Trip Processor.
+"""
+Unified Trip Processor.
 
-This module provides a TripProcessor class that orchestrates trip processing
-including validation, parsing, geocoding, and map matching. It uses a state
-machine approach to track processing status and delegates to specialized
-services for external API calls and database persistence.
+This module provides a TripProcessor class that orchestrates trip processing including
+validation, parsing, geocoding, and map matching. It uses a state machine approach to
+track processing status and delegates to specialized services for external API calls and
+database persistence.
 """
 
 import logging
@@ -36,10 +37,11 @@ class TripState(Enum):
 
 
 class TripProcessor:
-    """Orchestrates trip processing including validation, geocoding, and map matching.
+    """
+    Orchestrates trip processing including validation, geocoding, and map matching.
 
-    Uses a state machine approach to track processing status and delegates
-    to specialized services for external API calls and database persistence.
+    Uses a state machine approach to track processing status and delegates to
+    specialized services for external API calls and database persistence.
     """
 
     def __init__(
@@ -49,7 +51,8 @@ class TripProcessor:
         geo_service: ExternalGeoService | None = None,
         repository: TripRepository | None = None,
     ):
-        """Initialize the trip processor.
+        """
+        Initialize the trip processor.
 
         Args:
             mapbox_token: The Mapbox access token for map matching and geocoding
@@ -92,7 +95,8 @@ class TripProcessor:
         new_state: TripState,
         error: str | None = None,
     ) -> None:
-        """Update the processing state and record it in history.
+        """
+        Update the processing state and record it in history.
 
         Args:
             new_state: The new state to set
@@ -114,7 +118,8 @@ class TripProcessor:
         self.state_history.append(state_change)
 
     def set_trip_data(self, trip_data: dict[str, Any]) -> None:
-        """Set the raw trip data to be processed.
+        """
+        Set the raw trip data to be processed.
 
         Args:
             trip_data: The raw trip data dictionary
@@ -125,7 +130,8 @@ class TripProcessor:
         self._set_state(TripState.NEW)
 
     def get_processing_status(self) -> dict[str, Any]:
-        """Get the current processing status.
+        """
+        Get the current processing status.
 
         Returns:
             Dict with current state, history, and any errors
@@ -138,7 +144,8 @@ class TripProcessor:
         }
 
     async def process(self, do_map_match: bool = True) -> dict[str, Any]:
-        """Process the trip through all appropriate stages based on current state.
+        """
+        Process the trip through all appropriate stages based on current state.
 
         Args:
             do_map_match: Whether to perform map matching
@@ -181,7 +188,8 @@ class TripProcessor:
             return {}
 
     async def validate(self) -> bool:
-        """Validate the trip data using Pydantic model.
+        """
+        Validate the trip data using Pydantic model.
 
         Returns:
             True if validation passed, False otherwise
@@ -222,7 +230,8 @@ class TripProcessor:
             return False
 
     async def process_basic(self) -> bool:
-        """Perform basic processing on trip data (timestamps, GPS parsing, etc.).
+        """
+        Perform basic processing on trip data (timestamps, GPS parsing, etc.).
 
         Returns:
             True if processing succeeded, False otherwise
@@ -247,7 +256,8 @@ class TripProcessor:
             gps_data = self.processed_data.get("gps")
             if not gps_data:
                 self._set_state(
-                    TripState.FAILED, "Missing GPS data for basic processing"
+                    TripState.FAILED,
+                    "Missing GPS data for basic processing",
                 )
                 return False
 
@@ -259,7 +269,8 @@ class TripProcessor:
                     gps_coords and isinstance(gps_coords, list) and len(gps_coords) == 2
                 ):
                     self._set_state(
-                        TripState.FAILED, "Point GeoJSON has invalid coordinates"
+                        TripState.FAILED,
+                        "Point GeoJSON has invalid coordinates",
                     )
                     return False
                 start_coord = gps_coords
@@ -270,7 +281,8 @@ class TripProcessor:
                     gps_coords and isinstance(gps_coords, list) and len(gps_coords) >= 2
                 ):
                     self._set_state(
-                        TripState.FAILED, "LineString has insufficient coordinates"
+                        TripState.FAILED,
+                        "LineString has insufficient coordinates",
                     )
                     return False
                 start_coord = gps_coords[0]
@@ -292,7 +304,11 @@ class TripProcessor:
                             and len(curr) == 2
                         ):
                             total_distance += GeometryService.haversine_distance(
-                                prev[0], prev[1], curr[0], curr[1], unit="miles"
+                                prev[0],
+                                prev[1],
+                                curr[0],
+                                curr[1],
+                                unit="miles",
                             )
                     self.processed_data["distance"] = total_distance
             else:
@@ -331,7 +347,8 @@ class TripProcessor:
 
     @staticmethod
     async def get_place_at_point(point: Point) -> dict[str, Any] | None:
-        """Find a custom place that contains the given point.
+        """
+        Find a custom place that contains the given point.
 
         Args:
             point: A shapely Point to check
@@ -345,7 +362,7 @@ class TripProcessor:
         try:
             return await Place.find_one(query)
         except Exception as e:
-            logger.error("Error finding place at point: %s", str(e))
+            logger.exception("Error finding place at point: %s", str(e))
             return None
 
     @staticmethod
@@ -377,13 +394,16 @@ class TripProcessor:
             logger.warning("Invalid polygon format for trip %s", transaction_id)
         else:
             logger.warning(
-                "Unsupported geometry type '%s' for trip %s", geom_type, transaction_id
+                "Unsupported geometry type '%s' for trip %s",
+                geom_type,
+                transaction_id,
             )
 
         return fallback_coords
 
     async def geocode(self) -> bool:
-        """Perform geocoding for trip start and end points.
+        """
+        Perform geocoding for trip start and end points.
 
         Returns:
             True if geocoding succeeded, False otherwise
@@ -404,7 +424,8 @@ class TripProcessor:
                     return False
             elif self.state != TripState.PROCESSED:
                 logger.warning(
-                    "Cannot geocode trip that hasn't been processed: %s", transaction_id
+                    "Cannot geocode trip that hasn't been processed: %s",
+                    transaction_id,
                 )
                 return False
 
@@ -454,21 +475,25 @@ class TripProcessor:
                 if start_place:
                     self.processed_data["startLocation"] = (
                         self._build_location_from_place(
-                            start_place, start_coord, transaction_id
+                            start_place,
+                            start_coord,
+                            transaction_id,
                         )
                     )
                     self.processed_data["startPlaceId"] = str(
-                        start_place.get("_id", "")
+                        start_place.get("_id", ""),
                     )
                 else:
                     # Use external geocoding service
                     rev_start = await self.geo_service.reverse_geocode(
-                        start_coord[1], start_coord[0]
+                        start_coord[1],
+                        start_coord[0],
                     )
                     if rev_start:
                         self.processed_data["startLocation"] = (
                             self.geo_service.parse_geocode_response(
-                                rev_start, start_coord
+                                rev_start,
+                                start_coord,
                             )
                         )
 
@@ -478,15 +503,18 @@ class TripProcessor:
                 if end_place:
                     self.processed_data["destination"] = (
                         self._build_location_from_place(
-                            end_place, end_coord, transaction_id
+                            end_place,
+                            end_coord,
+                            transaction_id,
                         )
                     )
                     self.processed_data["destinationPlaceId"] = str(
-                        end_place.get("_id", "")
+                        end_place.get("_id", ""),
                     )
                 else:
                     rev_end = await self.geo_service.reverse_geocode(
-                        end_coord[1], end_coord[0]
+                        end_coord[1],
+                        end_coord[0],
                     )
                     if rev_end:
                         self.processed_data["destination"] = (
@@ -494,7 +522,8 @@ class TripProcessor:
                         )
                     else:
                         logger.warning(
-                            "Trip %s: Failed to geocode destination", transaction_id
+                            "Trip %s: Failed to geocode destination",
+                            transaction_id,
                         )
 
             self.processed_data["location_schema_version"] = 2
@@ -519,7 +548,8 @@ class TripProcessor:
         coords: list[float],
         transaction_id: str,
     ) -> dict[str, Any]:
-        """Build structured location data from a custom place.
+        """
+        Build structured location data from a custom place.
 
         Args:
             place: The place document
@@ -541,7 +571,9 @@ class TripProcessor:
 
         if "geometry" in place:
             extracted = self._extract_coords_from_geometry(
-                place["geometry"], [coords[0], coords[1]], transaction_id
+                place["geometry"],
+                [coords[0], coords[1]],
+                transaction_id,
             )
             structured["coordinates"]["lng"] = extracted[0]
             structured["coordinates"]["lat"] = extracted[1]
@@ -552,7 +584,8 @@ class TripProcessor:
         return structured
 
     async def map_match(self) -> bool:
-        """Perform map matching for the trip.
+        """
+        Perform map matching for the trip.
 
         Returns:
             True if map matching succeeded or was appropriately handled, False otherwise
@@ -598,7 +631,8 @@ class TripProcessor:
             gps_data = self.processed_data.get("gps")
             if not gps_data or not isinstance(gps_data, dict):
                 self._set_state(
-                    TripState.FAILED, "Invalid or missing GPS data for map matching"
+                    TripState.FAILED,
+                    "Invalid or missing GPS data for map matching",
                 )
                 return False
 
@@ -621,22 +655,28 @@ class TripProcessor:
                     return True
             else:
                 logger.warning(
-                    "Trip %s: Unexpected GPS type '%s'", transaction_id, gps_type
+                    "Trip %s: Unexpected GPS type '%s'",
+                    transaction_id,
+                    gps_type,
                 )
                 return True
 
             # Extract timestamps and call map matching service
             timestamps = self.geo_service.extract_timestamps_for_coordinates(
-                coords, self.processed_data
+                coords,
+                self.processed_data,
             )
             match_result = await self.geo_service.map_match_coordinates(
-                coords, timestamps
+                coords,
+                timestamps,
             )
 
             if match_result.get("code") != "Ok":
                 error_msg = match_result.get("message", "Unknown map matching error")
                 logger.error(
-                    "Map matching failed for trip %s: %s", transaction_id, error_msg
+                    "Map matching failed for trip %s: %s",
+                    transaction_id,
+                    error_msg,
                 )
                 self.errors["map_match"] = f"Map matching API failed: {error_msg}"
                 return True  # Not a processing failure, just couldn't match
@@ -644,7 +684,7 @@ class TripProcessor:
             # Validate and store matched geometry
             validated_matched_gps = None
             if match_result.get("matchings") and match_result["matchings"][0].get(
-                "geometry"
+                "geometry",
             ):
                 matched_geometry = match_result["matchings"][0]["geometry"]
                 geom_type = matched_geometry.get("type")
@@ -692,7 +732,8 @@ class TripProcessor:
             return False
 
     async def save(self, _map_match_result: bool | None = None) -> str | None:
-        """Save the processed trip to the database.
+        """
+        Save the processed trip to the database.
 
         Args:
             map_match_result: Optional override for whether to save map matching results
@@ -715,13 +756,11 @@ class TripProcessor:
             return None
 
         # Save to trips collection (includes matchedGps if present)
-        saved_id = await self.repository.save_trip(
+        return await self.repository.save_trip(
             self.processed_data,
             self.source,
             self.state_history,
         )
-
-        return saved_id
 
     @staticmethod
     def format_idle_time(seconds: Any) -> str:
@@ -736,5 +775,5 @@ class TripProcessor:
             secs = total_seconds % 60
             return f"{hrs:02d}:{mins:02d}:{secs:02d}"
         except (TypeError, ValueError):
-            logger.error("Invalid input for format_idle_time: %s", seconds)
+            logger.exception("Invalid input for format_idle_time: %s", seconds)
             return "00:00:00"

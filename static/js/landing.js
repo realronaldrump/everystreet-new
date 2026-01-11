@@ -60,7 +60,9 @@
   async function loadMetrics() {
     try {
       const response = await fetch("/api/metrics");
-      if (!response.ok) throw new Error("Failed to fetch metrics");
+      if (!response.ok) {
+        throw new Error("Failed to fetch metrics");
+      }
 
       const data = await response.json();
 
@@ -76,8 +78,12 @@
         formatNumber
       );
     } catch {
-      if (elements.statMiles) elements.statMiles.textContent = "--";
-      if (elements.statTrips) elements.statTrips.textContent = "--";
+      if (elements.statMiles) {
+        elements.statMiles.textContent = "--";
+      }
+      if (elements.statTrips) {
+        elements.statTrips.textContent = "--";
+      }
     }
   }
 
@@ -87,7 +93,9 @@
   async function loadRecentTrips() {
     try {
       const response = await fetch("/api/trips/history?limit=5");
-      if (!response.ok) throw new Error("Failed to fetch trips");
+      if (!response.ok) {
+        throw new Error("Failed to fetch trips");
+      }
 
       const data = await response.json();
       const trips = data.trips || data || [];
@@ -117,7 +125,9 @@
   async function loadGasStats() {
     try {
       const response = await fetch("/api/gas-statistics");
-      if (!response.ok) throw new Error("Failed to fetch gas stats");
+      if (!response.ok) {
+        throw new Error("Failed to fetch gas stats");
+      }
 
       const data = await response.json();
 
@@ -138,7 +148,9 @@
   async function checkLiveTracking() {
     try {
       const response = await fetch("/api/active_trip");
-      if (!response.ok) throw new Error("Failed to check live tracking");
+      if (!response.ok) {
+        throw new Error("Failed to check live tracking");
+      }
 
       const data = await response.json();
 
@@ -162,7 +174,9 @@
    * Populate the activity feed with recent trips
    */
   function populateActivityFeed(trips) {
-    if (!elements.activityFeed) return;
+    if (!elements.activityFeed) {
+      return;
+    }
 
     if (!trips || trips.length === 0) {
       elements.activityFeed.innerHTML = `
@@ -205,9 +219,15 @@
    * Format a destination object for display
    */
   function formatDestination(dest) {
-    if (!dest) return "Unknown";
-    if (typeof dest === "string") return dest;
-    if (dest.name) return dest.name;
+    if (!dest) {
+      return "Unknown";
+    }
+    if (typeof dest === "string") {
+      return dest;
+    }
+    if (dest.name) {
+      return dest.name;
+    }
     if (dest.formatted_address) {
       // Shorten the address
       const parts = dest.formatted_address.split(",");
@@ -220,7 +240,9 @@
    * Animate a numeric value change
    */
   function animateValue(element, endValue, formatter) {
-    if (!element) return;
+    if (!element) {
+      return;
+    }
 
     const startValue = parseFloat(element.textContent.replace(/[^0-9.-]/g, "")) || 0;
     const startTime = performance.now();
@@ -273,11 +295,21 @@
     const diffHour = Math.floor(diffMin / 60);
     const diffDay = Math.floor(diffHour / 24);
 
-    if (diffSec < 60) return "just now";
-    if (diffMin < 60) return `${diffMin}m`;
-    if (diffHour < 24) return `${diffHour}h`;
-    if (diffDay < 7) return `${diffDay}d`;
-    if (diffDay < 30) return `${Math.floor(diffDay / 7)}w`;
+    if (diffSec < 60) {
+      return "just now";
+    }
+    if (diffMin < 60) {
+      return `${diffMin}m`;
+    }
+    if (diffHour < 24) {
+      return `${diffHour}h`;
+    }
+    if (diffDay < 7) {
+      return `${diffDay}d`;
+    }
+    if (diffDay < 30) {
+      return `${Math.floor(diffDay / 7)}w`;
+    }
     return `${Math.floor(diffDay / 30)}mo`;
   }
 

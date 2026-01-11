@@ -23,7 +23,7 @@ class TurnByTurnUI {
    * Cache all DOM element references
    */
   cacheElements() {
-    const config = this.config;
+    const { config } = this;
 
     // Setup controls
     this.elements.areaSelect = document.getElementById(config.areaSelectId);
@@ -139,7 +139,9 @@ class TurnByTurnUI {
 
   toggleSetupPanel() {
     const panel = this.elements.setupPanel;
-    if (!panel) return;
+    if (!panel) {
+      return;
+    }
     if (panel.classList.contains("hidden")) {
       this.showSetupPanel();
     } else {
@@ -274,7 +276,9 @@ class TurnByTurnUI {
     const statusEl = this.elements.previewStartStatus;
     if (statusEl) {
       statusEl.classList.remove("at-start", "away", "unknown");
-      if (status) statusEl.classList.add(status);
+      if (status) {
+        statusEl.classList.add(status);
+      }
     }
     if (this.elements.previewStartText) {
       this.elements.previewStartText.textContent = text;
@@ -295,14 +299,18 @@ class TurnByTurnUI {
 
   setSetupStatus(message, isError = false) {
     const el = this.elements.setupStatus;
-    if (!el) return;
+    if (!el) {
+      return;
+    }
     el.textContent = message;
     el.style.color = isError ? "#b91c1c" : "";
   }
 
   setNavStatus(message, isError = false) {
     const el = this.elements.navStatus;
-    if (!el) return;
+    if (!el) {
+      return;
+    }
     el.textContent = message;
     el.style.color = isError ? "#b91c1c" : "";
   }
@@ -317,14 +325,18 @@ class TurnByTurnUI {
       turnIcon,
     } = this.elements;
 
-    if (!primaryInstruction || !distEl) return;
+    if (!primaryInstruction || !distEl) {
+      return;
+    }
 
     turnIcon?.classList.remove("off-route", "arrive");
 
     if (offRoute) {
       primaryInstruction.textContent = "Return to route";
       distEl.textContent = `Off by ${formatDistance(closest?.distance || 0)}`;
-      if (roadName) roadName.textContent = routeName;
+      if (roadName) {
+        roadName.textContent = routeName;
+      }
       turnIcon?.classList.add("off-route");
       this.setNavStatus("Off route. Rejoin the highlighted path.", true);
       this.setTurnRotation(0);
@@ -334,28 +346,34 @@ class TurnByTurnUI {
     if (distanceToTurn < 25 && type === "arrive") {
       primaryInstruction.textContent = "Arrive at destination";
       distEl.textContent = "Now";
-      if (roadName) roadName.textContent = routeName;
+      if (roadName) {
+        roadName.textContent = routeName;
+      }
       turnIcon?.classList.add("arrive");
       this.setNavStatus("Arriving at destination.");
       this.setTurnRotation(180);
       return;
     }
 
-    const distLabel =
-      distanceToTurn < 25 ? "Now" : `In ${formatDistance(distanceToTurn)}`;
+    const distLabel
+      = distanceToTurn < 25 ? "Now" : `In ${formatDistance(distanceToTurn)}`;
     const instruction = getInstructionText(type);
     const rotation = getTurnRotation(type);
 
     distEl.textContent = distLabel;
     primaryInstruction.textContent = instruction;
-    if (roadName) roadName.textContent = routeName;
+    if (roadName) {
+      roadName.textContent = routeName;
+    }
     this.setTurnRotation(rotation);
     this.setNavStatus("On route.");
   }
 
   setTurnRotation(deg) {
     const glyph = this.elements.turnIconGlyph;
-    if (!glyph) return;
+    if (!glyph) {
+      return;
+    }
     glyph.style.transform = `rotate(${deg}deg)`;
   }
 
@@ -363,7 +381,9 @@ class TurnByTurnUI {
 
   updateSignal(accuracy) {
     const { navSignal, navSignalText } = this.elements;
-    if (!navSignal || !navSignalText || !Number.isFinite(accuracy)) return;
+    if (!navSignal || !navSignalText || !Number.isFinite(accuracy)) {
+      return;
+    }
 
     const rounded = Math.round(accuracy);
     navSignalText.textContent = `GPS ${rounded}m`;
@@ -377,7 +397,9 @@ class TurnByTurnUI {
 
   updateSpeed(speedMps) {
     const el = this.elements.speedLabel;
-    if (!el) return;
+    if (!el) {
+      return;
+    }
     if (!speedMps || speedMps < 0.5) {
       el.textContent = "--";
       return;
@@ -388,7 +410,9 @@ class TurnByTurnUI {
 
   updateEta(remainingDistance, speedMps) {
     const el = this.elements.etaLabel;
-    if (!el) return;
+    if (!el) {
+      return;
+    }
     if (!speedMps || speedMps < 0.5) {
       el.textContent = "--";
       return;
@@ -453,7 +477,9 @@ class TurnByTurnUI {
 
   updateSetupSummary(totalDistance, turnCount, coveragePercent) {
     const el = this.elements.setupSummary;
-    if (!el) return;
+    if (!el) {
+      return;
+    }
 
     el.innerHTML = `
       <div class="summary-item">
@@ -475,17 +501,21 @@ class TurnByTurnUI {
 
   populateAreaSelect(areas) {
     const select = this.elements.areaSelect;
-    if (!select) return;
+    if (!select) {
+      return;
+    }
 
     select.innerHTML = '<option value="">Select a coverage area...</option>';
     areas.forEach((area) => {
       const areaId = area._id || area.id;
-      const name =
-        area.location?.display_name ||
-        area.location?.city ||
-        area.name ||
-        "Coverage Area";
-      if (!areaId) return;
+      const name
+        = area.location?.display_name
+        || area.location?.city
+        || area.name
+        || "Coverage Area";
+      if (!areaId) {
+        return;
+      }
 
       const option = document.createElement("option");
       option.value = String(areaId);
@@ -520,7 +550,9 @@ class TurnByTurnUI {
 
   setLoadRouteLoading(loading) {
     const btn = this.elements.loadRouteBtn;
-    if (!btn) return;
+    if (!btn) {
+      return;
+    }
     btn.disabled = loading;
     btn.classList.toggle("loading", loading);
   }
@@ -557,20 +589,36 @@ class TurnByTurnUI {
   resetGuidanceUI() {
     const { distanceToTurn, primaryInstruction, roadName, turnIcon } = this.elements;
 
-    if (distanceToTurn) distanceToTurn.textContent = "Ready";
-    if (primaryInstruction) primaryInstruction.textContent = "Select a route to begin";
-    if (roadName) roadName.textContent = "--";
+    if (distanceToTurn) {
+      distanceToTurn.textContent = "Ready";
+    }
+    if (primaryInstruction) {
+      primaryInstruction.textContent = "Select a route to begin";
+    }
+    if (roadName) {
+      roadName.textContent = "--";
+    }
     this.setTurnRotation(0);
     turnIcon?.classList.remove("off-route", "arrive");
 
-    if (this.elements.progressValue) this.elements.progressValue.textContent = "--";
-    if (this.elements.progressLabel) this.elements.progressLabel.textContent = "Route";
-    if (this.elements.progressFill)
+    if (this.elements.progressValue) {
+      this.elements.progressValue.textContent = "--";
+    }
+    if (this.elements.progressLabel) {
+      this.elements.progressLabel.textContent = "Route";
+    }
+    if (this.elements.progressFill) {
       this.elements.progressFill.style.transform = "scaleX(0)";
-    if (this.elements.remainingDistance)
+    }
+    if (this.elements.remainingDistance) {
       this.elements.remainingDistance.textContent = "--";
-    if (this.elements.etaLabel) this.elements.etaLabel.textContent = "--";
-    if (this.elements.speedLabel) this.elements.speedLabel.textContent = "--";
+    }
+    if (this.elements.etaLabel) {
+      this.elements.etaLabel.textContent = "--";
+    }
+    if (this.elements.speedLabel) {
+      this.elements.speedLabel.textContent = "--";
+    }
   }
 
   // === Utilities ===
@@ -581,7 +629,9 @@ class TurnByTurnUI {
    * @returns {string}
    */
   formatDuration(seconds) {
-    if (!seconds || !Number.isFinite(seconds)) return "--";
+    if (!seconds || !Number.isFinite(seconds)) {
+      return "--";
+    }
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.round((seconds % 3600) / 60);
 

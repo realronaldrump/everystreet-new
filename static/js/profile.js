@@ -114,12 +114,21 @@
     const authCodeInput = document.getElementById("authorizationCode");
     const fetchConcurrencyInput = document.getElementById("fetchConcurrency");
 
-    if (clientIdInput) clientIdInput.value = credentials.client_id || "";
-    if (clientSecretInput) clientSecretInput.value = credentials.client_secret || "";
-    if (redirectUriInput) redirectUriInput.value = credentials.redirect_uri || "";
-    if (authCodeInput) authCodeInput.value = credentials.authorization_code || "";
-    if (fetchConcurrencyInput)
+    if (clientIdInput) {
+      clientIdInput.value = credentials.client_id || "";
+    }
+    if (clientSecretInput) {
+      clientSecretInput.value = credentials.client_secret || "";
+    }
+    if (redirectUriInput) {
+      redirectUriInput.value = credentials.redirect_uri || "";
+    }
+    if (authCodeInput) {
+      authCodeInput.value = credentials.authorization_code || "";
+    }
+    if (fetchConcurrencyInput) {
       fetchConcurrencyInput.value = credentials.fetch_concurrency || "12";
+    }
 
     // Handle devices
     currentDevices = credentials.authorized_devices || [];
@@ -127,11 +136,19 @@
 
     // Add CSS class for masked fields
     if (masked) {
-      if (clientSecretInput) clientSecretInput.classList.add("credential-masked");
-      if (authCodeInput) authCodeInput.classList.add("credential-masked");
+      if (clientSecretInput) {
+        clientSecretInput.classList.add("credential-masked");
+      }
+      if (authCodeInput) {
+        authCodeInput.classList.add("credential-masked");
+      }
     } else {
-      if (clientSecretInput) clientSecretInput.classList.remove("credential-masked");
-      if (authCodeInput) authCodeInput.classList.remove("credential-masked");
+      if (clientSecretInput) {
+        clientSecretInput.classList.remove("credential-masked");
+      }
+      if (authCodeInput) {
+        authCodeInput.classList.remove("credential-masked");
+      }
     }
   }
 
@@ -214,8 +231,8 @@
     const clientSecret = document.getElementById("clientSecret").value.trim();
     const redirectUri = document.getElementById("redirectUri").value.trim();
     const authorizationCode = document.getElementById("authorizationCode").value.trim();
-    const fetchConcurrency =
-      document.getElementById("fetchConcurrency")?.value.trim() || "12";
+    const fetchConcurrency
+      = document.getElementById("fetchConcurrency")?.value.trim() || "12";
 
     // Collect devices
     const deviceInputs = document.querySelectorAll("#devicesList input");
@@ -286,10 +303,14 @@
       const icon = button.querySelector("i");
       if (input.type === "password") {
         input.type = "text";
-        if (icon) icon.className = "fas fa-eye-slash";
+        if (icon) {
+          icon.className = "fas fa-eye-slash";
+        }
       } else {
         input.type = "password";
-        if (icon) icon.className = "fas fa-eye";
+        if (icon) {
+          icon.className = "fas fa-eye";
+        }
       }
     }
   }
@@ -353,11 +374,13 @@
 
     try {
       const response = await fetch("/api/vehicles?active_only=false");
-      if (!response.ok) throw new Error("Failed to load vehicles");
+      if (!response.ok) {
+        throw new Error("Failed to load vehicles");
+      }
 
       const vehicles = await response.json();
-      const noVehiclesHtml =
-        '<p class="text-center text-muted py-3">No vehicles found. Click "Sync from Bouncie" to auto-discover vehicles.</p>';
+      const noVehiclesHtml
+        = '<p class="text-center text-muted py-3">No vehicles found. Click "Sync from Bouncie" to auto-discover vehicles.</p>';
 
       if (vehiclesList) {
         if (vehicles.length === 0) {
@@ -377,8 +400,8 @@
       }
     } catch {
       if (vehiclesList) {
-        vehiclesList.innerHTML =
-          '<p class="text-center text-danger py-3">Error loading vehicles</p>';
+        vehiclesList.innerHTML
+          = '<p class="text-center text-danger py-3">Error loading vehicles</p>';
       }
     }
   }
@@ -521,7 +544,9 @@
       placeholder: "IMEI",
       confirmText: "Add Vehicle",
     });
-    if (!imei) return;
+    if (!imei) {
+      return;
+    }
 
     try {
       const vehicleData = {
@@ -646,12 +671,10 @@
             statusEl.style.display = "none";
           }, 2000);
         }
-      } else {
-        if (statusEl) {
-          statusEl.textContent =
-            "No settings configured yet. Please enter your Mapbox token.";
-          statusEl.className = "alert alert-warning mt-3";
-        }
+      } else if (statusEl) {
+        statusEl.textContent
+          = "No settings configured yet. Please enter your Mapbox token.";
+        statusEl.className = "alert alert-warning mt-3";
       }
     } catch (error) {
       if (statusEl) {
@@ -688,8 +711,8 @@
 
     if (!mapboxToken.startsWith("pk.")) {
       if (statusEl) {
-        statusEl.textContent =
-          "Mapbox token should start with 'pk.' (public token). Secret tokens (sk.) will not work.";
+        statusEl.textContent
+          = "Mapbox token should start with 'pk.' (public token). Secret tokens (sk.) will not work.";
         statusEl.className = "alert alert-warning mt-3";
         statusEl.style.display = "block";
       }
@@ -718,21 +741,23 @@
 
       if (response.ok && data.status === "success") {
         // Explicitly ensure the values stay in the inputs (don't clear them)
-        if (mapboxInput) mapboxInput.value = mapboxToken;
-        if (clarityInput) clarityInput.value = clarityProjectId || "";
+        if (mapboxInput) {
+          mapboxInput.value = mapboxToken;
+        }
+        if (clarityInput) {
+          clarityInput.value = clarityProjectId || "";
+        }
 
         if (statusEl) {
-          statusEl.textContent =
-            "Settings saved! Refresh the page to apply changes to maps.";
+          statusEl.textContent
+            = "Settings saved! Refresh the page to apply changes to maps.";
           statusEl.className = "alert alert-success mt-3";
           statusEl.style.display = "block";
         }
-      } else {
-        if (statusEl) {
-          statusEl.textContent = `Error: ${data.detail || data.message || "Unknown error"}`;
-          statusEl.className = "alert alert-danger mt-3";
-          statusEl.style.display = "block";
-        }
+      } else if (statusEl) {
+        statusEl.textContent = `Error: ${data.detail || data.message || "Unknown error"}`;
+        statusEl.className = "alert alert-danger mt-3";
+        statusEl.style.display = "block";
       }
     } catch (error) {
       if (statusEl) {

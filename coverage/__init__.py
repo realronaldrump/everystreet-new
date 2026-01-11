@@ -31,10 +31,10 @@ __all__ = [
     "CoverageCalculator",
     "compute_coverage_for_location",
     "compute_incremental_coverage",
+    "coverage_stats_service",
     "generate_and_store_geojson",
+    "geometry_service",
     # Services
     "gridfs_service",
-    "coverage_stats_service",
     "segment_marking_service",
-    "geometry_service",
 ]

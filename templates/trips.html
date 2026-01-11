@@ -1,192 +1,209 @@
-{% extends "base.html" %} {% block title %}Every Street - Trips{% endblock %} {%
+{% extends "base.html" %}
+
+{% block title %}
+
+Every Street - Trips
+{% endblock %}
+
+{%
 block extra_css %}
+
 <!-- DataTables CSS -->
 <link rel="stylesheet" href="{{ CDN.datatables_css }}" />
 <link rel="stylesheet" href="{{ CDN.datatables_buttons_css }}" />
-<link
-  rel="stylesheet"
-  href="{{ url_for('static', path='css/trips.css') | replace('http://', '//') }}"
-/>
-{% endblock %} {% block content %}
-<div class="container-fluid px-4 py-3">
-  <h1 class="mb-4">Trips</h1>
-
-  <div class="card mb-4 filter-panel">
-    <div class="card-body">
-      <div
-        class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3"
-      >
-        <div>
-          <div class="filter-title">Filter and narrow down your trips</div>
-          <div class="filter-subtitle">
-            Choose a vehicle, date window, and any performance limits. Apply to
-            see instant results.
-          </div>
-          <div id="active-filter-chips" class="filter-chip-row mt-2"></div>
-        </div>
-
-      </div>
-
-      <div class="row g-3 align-items-end">
-        <div class="col-md-3 col-lg-2">
-          <label for="trip-filter-vehicle" class="form-label">Vehicle</label>
-          <select id="trip-filter-vehicle" class="form-select">
-            <option value="">All vehicles</option>
-          </select>
-        </div>
-
-
-
-        <div class="col-md-3 col-lg-2">
-          <label class="form-label">Distance (mi)</label>
-          <div class="input-group">
-            <span class="input-group-text"><i class="fas fa-road"></i></span>
-            <input
-              type="number"
-              class="form-control"
-              id="trip-filter-distance-min"
-              placeholder="Min"
-              step="0.1"
-            />
-            <span class="input-group-text">-</span>
-            <input
-              type="number"
-              class="form-control"
-              id="trip-filter-distance-max"
-              placeholder="Max"
-              step="0.1"
-            />
-          </div>
-        </div>
-        <div class="col-md-3 col-lg-2">
-          <label class="form-label">Max Speed (mph)</label>
-          <div class="input-group">
-            <span class="input-group-text"
-              ><i class="fas fa-tachometer-alt"></i
-            ></span>
-            <input
-              type="number"
-              class="form-control"
-              id="trip-filter-speed-min"
-              placeholder="Min"
-              step="1"
-            />
-            <span class="input-group-text">-</span>
-            <input
-              type="number"
-              class="form-control"
-              id="trip-filter-speed-max"
-              placeholder="Max"
-              step="1"
-            />
-          </div>
-        </div>
-        <div class="col-md-3 col-lg-2">
-          <label class="form-label">Fuel (gal)</label>
-          <div class="input-group">
-            <span class="input-group-text"
-              ><i class="fas fa-gas-pump"></i
-            ></span>
-            <input
-              type="number"
-              class="form-control"
-              id="trip-filter-fuel-min"
-              placeholder="Min"
-              step="0.01"
-            />
-            <span class="input-group-text">-</span>
-            <input
-              type="number"
-              class="form-control"
-              id="trip-filter-fuel-max"
-              placeholder="Max"
-              step="0.01"
-            />
-          </div>
-        </div>
-        <div class="col-md-3 col-lg-1 d-flex align-items-center">
-          <div class="form-check mt-4">
-            <input
-              class="form-check-input"
-              type="checkbox"
-              id="trip-filter-has-fuel"
-            />
-            <label class="form-check-label" for="trip-filter-has-fuel">
-              Has Fuel
-            </label>
-          </div>
-        </div>
-      </div>
-      <div
-        class="d-flex flex-wrap justify-content-between align-items-center gap-3 mt-3"
-      >
-        <div class="filter-helper-text" id="filter-helper-text">
-          Adjust filters then apply to refresh results. Active filters appear as
-          chips above.
-        </div>
-        <div class="d-flex gap-2">
-          <button class="btn btn-primary" id="trip-filter-apply">
-            <i class="fas fa-check"></i> Apply filters
-          </button>
-          <button class="btn btn-outline-secondary" id="trip-filter-reset">
-            <i class="fas fa-undo"></i> Reset
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Single Trips Container - CSS handles responsive layout -->
-  <div class="trips-container">
-    <div class="card">
-      <div class="card-body">
-        <!-- Bulk Actions Bar -->
-        <div class="trips-actions-bar">
-          <label class="trips-select-all">
-            <input type="checkbox" id="select-all-trips" />
-            <span class="trips-select-all-text">Select All</span>
-          </label>
-          <div class="trips-actions-buttons">
-            <button id="bulk-delete-trips-btn" class="btn btn-danger btn-sm" disabled>
-              <i class="fas fa-trash"></i>
-              <span class="btn-text">Delete Selected</span>
-            </button>
-            <button id="refresh-geocoding-btn" class="btn btn-primary btn-sm">
-              <i class="fas fa-sync"></i>
-              <span class="btn-text">Refresh Geocoding</span>
-            </button>
-          </div>
-        </div>
-
-        <div class="table-responsive">
-          <table id="trips-table" class="table table-striped table-hover w-100">
-            <thead>
-              <tr>
-                <th class="col-checkbox">
-                  <!-- Select all moved to action bar -->
-                </th>
-                <th data-sortable="true">Trip</th>
-                <th data-sortable="true">Date</th>
-                <th data-sortable="true">Route</th>
-                <th class="col-hide-mobile" data-sortable="true">Performance</th>
-                <th class="col-hide-mobile" data-sortable="true">Fuel &amp; Cost</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              <!-- Data populated by DataTables -->
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-{% endblock %} {% block extra_js %}
-<!-- DataTables JS -->
-<script src="{{ CDN.datatables_js }}"></script>
-<script src="{{ CDN.datatables_buttons_js }}"></script>
-<script src="{{ CDN.datatables_buttons_colvis }}"></script>
-<script type="module" src="{{ url_for('static', path='js/trips.js') | replace('http://', '//') }}"></script>
+<link rel="stylesheet"
+      href="{{ url_for('static', path='css/trips.css') | replace('http://', '//') }}" />
 {% endblock %}
 
+
+{% block content %}
+
+  <div class="container-fluid px-4 py-3">
+    <h1 class="mb-4">
+Trips
+    </h1>
+
+    <div class="card mb-4 filter-panel">
+      <div class="card-body">
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
+          <div>
+            <div class="filter-title">
+Filter and narrow down your trips
+            </div>
+            <div class="filter-subtitle">
+            Choose a vehicle, date window, and any performance limits. Apply to
+            see instant results.
+            </div>
+            <div id="active-filter-chips" class="filter-chip-row mt-2">
+            </div>
+          </div>
+
+        </div>
+
+        <div class="row g-3 align-items-end">
+          <div class="col-md-3 col-lg-2">
+            <label for="trip-filter-vehicle" class="form-label">
+Vehicle
+            </label>
+            <select id="trip-filter-vehicle" class="form-select">
+              <option value="">
+All vehicles
+              </option>
+            </select>
+          </div>
+
+
+
+          <div class="col-md-3 col-lg-2">
+            <label class="form-label">
+Distance (mi)
+            </label>
+            <div class="input-group">
+              <span class="input-group-text"><i class="fas fa-road"></i></span>
+              <input type="number"
+                     class="form-control"
+                     id="trip-filter-distance-min"
+                     placeholder="Min"
+                     step="0.1" />
+              <span class="input-group-text">-</span>
+              <input type="number"
+                     class="form-control"
+                     id="trip-filter-distance-max"
+                     placeholder="Max"
+                     step="0.1" />
+            </div>
+          </div>
+          <div class="col-md-3 col-lg-2">
+            <label class="form-label">
+Max Speed (mph)
+            </label>
+            <div class="input-group">
+              <span class="input-group-text"><i class="fas fa-tachometer-alt"></i></span>
+              <input type="number"
+                     class="form-control"
+                     id="trip-filter-speed-min"
+                     placeholder="Min"
+                     step="1" />
+              <span class="input-group-text">-</span>
+              <input type="number"
+                     class="form-control"
+                     id="trip-filter-speed-max"
+                     placeholder="Max"
+                     step="1" />
+            </div>
+          </div>
+          <div class="col-md-3 col-lg-2">
+            <label class="form-label">
+Fuel (gal)
+            </label>
+            <div class="input-group">
+              <span class="input-group-text"><i class="fas fa-gas-pump"></i></span>
+              <input type="number"
+                     class="form-control"
+                     id="trip-filter-fuel-min"
+                     placeholder="Min"
+                     step="0.01" />
+              <span class="input-group-text">-</span>
+              <input type="number"
+                     class="form-control"
+                     id="trip-filter-fuel-max"
+                     placeholder="Max"
+                     step="0.01" />
+            </div>
+          </div>
+          <div class="col-md-3 col-lg-1 d-flex align-items-center">
+            <div class="form-check mt-4">
+              <input class="form-check-input" type="checkbox" id="trip-filter-has-fuel" />
+              <label class="form-check-label" for="trip-filter-has-fuel">
+              Has Fuel
+              </label>
+            </div>
+          </div>
+        </div>
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mt-3">
+          <div class="filter-helper-text" id="filter-helper-text">
+          Adjust filters then apply to refresh results. Active filters appear as
+          chips above.
+          </div>
+          <div class="d-flex gap-2">
+            <button class="btn btn-primary" id="trip-filter-apply">
+              <i class="fas fa-check"></i> Apply filters
+            </button>
+            <button class="btn btn-outline-secondary" id="trip-filter-reset">
+              <i class="fas fa-undo"></i> Reset
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Single Trips Container - CSS handles responsive layout -->
+    <div class="trips-container">
+      <div class="card">
+        <div class="card-body">
+          <!-- Bulk Actions Bar -->
+          <div class="trips-actions-bar">
+            <label class="trips-select-all">
+              <input type="checkbox" id="select-all-trips" />
+              <span class="trips-select-all-text">Select All</span>
+            </label>
+            <div class="trips-actions-buttons">
+              <button id="bulk-delete-trips-btn" class="btn btn-danger btn-sm" disabled>
+                <i class="fas fa-trash"></i>
+                <span class="btn-text">Delete Selected</span>
+              </button>
+              <button id="refresh-geocoding-btn" class="btn btn-primary btn-sm">
+                <i class="fas fa-sync"></i>
+                <span class="btn-text">Refresh Geocoding</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="table-responsive">
+            <table id="trips-table" class="table table-striped table-hover w-100">
+              <thead>
+                <tr>
+                  <th class="col-checkbox">
+                    <!-- Select all moved to action bar -->
+                  </th>
+                  <th data-sortable="true">
+Trip
+                  </th>
+                  <th data-sortable="true">
+Date
+                  </th>
+                  <th data-sortable="true">
+Route
+                  </th>
+                  <th class="col-hide-mobile" data-sortable="true">
+Performance
+                  </th>
+                  <th class="col-hide-mobile" data-sortable="true">
+Fuel &amp; Cost
+                  </th>
+                  <th>
+Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <!-- Data populated by DataTables -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}
+
+
+{% block extra_js %}
+
+  <!-- DataTables JS -->
+  <script src="{{ CDN.datatables_js }}"></script>
+  <script src="{{ CDN.datatables_buttons_js }}"></script>
+  <script src="{{ CDN.datatables_buttons_colvis }}"></script>
+  <script type="module"
+          src="{{ url_for('static', path='js/trips.js') | replace('http://', '//') }}"></script>
+{% endblock %}

@@ -10,8 +10,8 @@
     constructor(options = {}) {
       this.mapController = options.mapController;
       this.dataLoader = options.dataLoader;
-      this.notificationManager =
-        options.notificationManager || window.notificationManager;
+      this.notificationManager
+        = options.notificationManager || window.notificationManager;
       this.onViewTrips = options.onViewTrips || (() => {});
       this.onZoomToPlace = options.onZoomToPlace || (() => {});
     }
@@ -39,7 +39,9 @@
      * @param {Object} lngLat - Longitude/latitude coordinates (optional)
      */
     async showPlaceStatistics(placeId, place, lngLat = null) {
-      if (!place) return;
+      if (!place) {
+        return;
+      }
 
       let targetLngLat = lngLat;
       if (!targetLngLat && place.geometry?.coordinates) {
@@ -165,7 +167,9 @@
      */
     _bindPopupButtons(popup) {
       const popupNode = popup?.getElement();
-      if (!popupNode) return;
+      if (!popupNode) {
+        return;
+      }
 
       popupNode.querySelector(".view-trips-btn")?.addEventListener("click", (e) => {
         e.preventDefault();

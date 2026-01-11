@@ -17,7 +17,8 @@ class DashboardService:
 
     @staticmethod
     async def get_driving_insights(query: dict[str, Any]) -> dict[str, Any]:
-        """Get aggregated driving insights.
+        """
+        Get aggregated driving insights.
 
         Args:
             query: MongoDB query filter
@@ -91,18 +92,18 @@ class DashboardService:
                                     {"$ifNull": ["$startTime", None]},
                                     {"$ifNull": ["$endTime", None]},
                                     {"$lt": ["$startTime", "$endTime"]},
-                                ]
+                                ],
                             },
                             "then": {
                                 "$divide": [
                                     {"$subtract": ["$endTime", "$startTime"]},
                                     1000,
-                                ]
+                                ],
                             },
                             "else": 0.0,
-                        }
-                    }
-                }
+                        },
+                    },
+                },
             },
             {
                 "$group": {
@@ -112,7 +113,7 @@ class DashboardService:
                     "total_duration": {"$sum": "$duration_seconds"},
                     "last_visit": {"$max": "$endTime"},
                     "isCustomPlace": {"$first": "$isCustomPlace"},
-                }
+                },
             },
             {"$sort": {"visits": -1}},
             {"$limit": 5},
@@ -178,7 +179,8 @@ class DashboardService:
 
     @staticmethod
     async def get_metrics(query: dict[str, Any]) -> dict[str, Any]:
-        """Get trip metrics and statistics using database aggregation.
+        """
+        Get trip metrics and statistics using database aggregation.
 
         Args:
             query: MongoDB query filter
@@ -394,6 +396,7 @@ class DashboardService:
             "avg_speed": f"{round(metrics.get('avg_speed', 0.0), 2)}",
             "max_speed": f"{round(metrics.get('max_speed', 0.0), 2)}",
             "total_duration_seconds": round(
-                metrics.get("total_duration_seconds", 0.0), 0
+                metrics.get("total_duration_seconds", 0.0),
+                0,
             ),
         }

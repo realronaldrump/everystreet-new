@@ -42,11 +42,15 @@ async function initializePage() {
 
 async function loadVehicles() {
   const vehicleSelect = document.getElementById("trip-filter-vehicle");
-  if (!vehicleSelect) return;
+  if (!vehicleSelect) {
+    return;
+  }
 
   try {
     const response = await fetch(`${CONFIG.API.vehicles}?active_only=true`);
-    if (!response.ok) throw new Error("Failed to load vehicles");
+    if (!response.ok) {
+      throw new Error("Failed to load vehicles");
+    }
 
     const vehicles = await response.json();
     vehicleSelect.innerHTML = '<option value="">All vehicles</option>';
@@ -290,9 +294,9 @@ function getFilterValues() {
 
 function setupFilterListeners() {
   const inputs = document.querySelectorAll(
-    "#trip-filter-vehicle, #trip-filter-distance-min, #trip-filter-distance-max, " +
-      "#trip-filter-speed-min, #trip-filter-speed-max, #trip-filter-fuel-min, #trip-filter-fuel-max, " +
-      "#trip-filter-has-fuel"
+    "#trip-filter-vehicle, #trip-filter-distance-min, #trip-filter-distance-max, "
+      + "#trip-filter-speed-min, #trip-filter-speed-max, #trip-filter-fuel-min, #trip-filter-fuel-max, "
+      + "#trip-filter-has-fuel"
   );
 
   inputs.forEach((input) => {
@@ -310,8 +314,11 @@ function setupFilterListeners() {
   if (resetBtn) {
     resetBtn.addEventListener("click", () => {
       inputs.forEach((input) => {
-        if (input.type === "checkbox") input.checked = false;
-        else input.value = "";
+        if (input.type === "checkbox") {
+          input.checked = false;
+        } else {
+          input.value = "";
+        }
       });
       updateFilterChips();
       tripsTable.reload();
@@ -321,7 +328,9 @@ function setupFilterListeners() {
 
 function updateFilterChips(triggerReload = false) {
   const container = document.getElementById("active-filter-chips");
-  if (!container) return;
+  if (!container) {
+    return;
+  }
 
   const filters = getFilterValues();
   container.innerHTML = "";
@@ -396,7 +405,9 @@ function updateFilterChips(triggerReload = false) {
   if (filters.has_fuel) {
     addChip("Has fuel", "Only trips with fuel data", () => {
       const cb = document.getElementById("trip-filter-has-fuel");
-      if (cb) cb.checked = false;
+      if (cb) {
+        cb.checked = false;
+      }
     });
   }
 
@@ -404,19 +415,28 @@ function updateFilterChips(triggerReload = false) {
     container.innerHTML = '<span class="filter-empty">No active filters</span>';
   }
 
-  if (triggerReload) tripsTable.reload();
+  if (triggerReload) {
+    tripsTable.reload();
+  }
 }
 
 function clearInput(id) {
   const el = document.getElementById(id);
-  if (!el) return;
-  if (el.type === "checkbox") el.checked = false;
-  else el.value = "";
+  if (!el) {
+    return;
+  }
+  if (el.type === "checkbox") {
+    el.checked = false;
+  } else {
+    el.value = "";
+  }
 }
 
 function showFilterAppliedMessage() {
   const helper = document.getElementById("filter-helper-text");
-  if (!helper) return;
+  if (!helper) {
+    return;
+  }
   helper.textContent = "Filters applied. Showing the newest matching trips.";
   helper.classList.add("text-success");
   setTimeout(() => {
@@ -427,7 +447,9 @@ function showFilterAppliedMessage() {
 
 function updateBulkDeleteButton() {
   const btn = document.getElementById("bulk-delete-trips-btn");
-  if (!btn) return;
+  if (!btn) {
+    return;
+  }
 
   const count = selectedTripIds.size;
   btn.disabled = count === 0;
@@ -441,7 +463,9 @@ function setupBulkActions() {
   document
     .getElementById("bulk-delete-trips-btn")
     ?.addEventListener("click", async () => {
-      if (selectedTripIds.size === 0) return;
+      if (selectedTripIds.size === 0) {
+        return;
+      }
 
       const confirmed = await window.confirmationDialog.show({
         title: "Delete Trips",
@@ -480,7 +504,9 @@ function setupBulkActions() {
 async function deleteTrip(id) {
   try {
     const response = await fetch(CONFIG.API.tripById(id), { method: "DELETE" });
-    if (!response.ok) throw new Error("Failed to delete trip");
+    if (!response.ok) {
+      throw new Error("Failed to delete trip");
+    }
 
     window.notificationManager?.show("Trip deleted successfully", "success");
     selectedTripIds.delete(id);
@@ -498,13 +524,17 @@ async function bulkDeleteTrips(ids) {
       body: JSON.stringify({ trip_ids: ids }),
     });
 
-    if (!response.ok) throw new Error("Failed to bulk delete trips");
+    if (!response.ok) {
+      throw new Error("Failed to bulk delete trips");
+    }
 
     const result = await response.json();
     window.notificationManager?.show(result.message || "Trips deleted", "success");
     selectedTripIds.clear();
     const selectAllEl = document.getElementById("select-all-trips");
-    if (selectAllEl) selectAllEl.checked = false;
+    if (selectAllEl) {
+      selectAllEl.checked = false;
+    }
     tripsTable.reload();
   } catch {
     window.notificationManager?.show("Failed to delete trips", "danger");

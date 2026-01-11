@@ -1,7 +1,8 @@
-"""Live trip tracking for Bouncie webhook events.
+"""
+Live trip tracking for Bouncie webhook events.
 
-Simplified single-user implementation for real-time trip visualization.
-Trips are stored in live_trips collection for visual reference only.
+Simplified single-user implementation for real-time trip visualization. Trips are stored
+in live_trips collection for visual reference only.
 """
 
 import logging
@@ -18,7 +19,8 @@ logger = logging.getLogger(__name__)
 
 
 async def _publish_trip_snapshot(
-    trip_doc: dict[str, Any] | LiveTrip, status: str = "active"
+    trip_doc: dict[str, Any] | LiveTrip,
+    status: str = "active",
 ) -> None:
     """Publish trip update to WebSocket clients via Redis."""
     trip_dict = trip_doc.model_dump() if isinstance(trip_doc, LiveTrip) else trip_doc
@@ -31,7 +33,7 @@ async def _publish_trip_snapshot(
     try:
         await publish_trip_state(transaction_id, trip_dict, status=status)
     except Exception as e:
-        logger.error("Failed to publish trip %s: %s", transaction_id, e)
+        logger.exception("Failed to publish trip %s: %s", transaction_id, e)
 
 
 def _parse_timestamp(timestamp_str: str | None) -> datetime | None:
@@ -45,7 +47,8 @@ def _parse_timestamp(timestamp_str: str | None) -> datetime | None:
 
 
 def _extract_coordinates_from_data(data_points: list[dict]) -> list[dict[str, Any]]:
-    """Extract and normalize coordinates from Bouncie tripData payload.
+    """
+    Extract and normalize coordinates from Bouncie tripData payload.
 
     Uses centralized coordinate validation to ensure consistency.
 
@@ -61,7 +64,7 @@ def _extract_coordinates_from_data(data_points: list[dict]) -> list[dict[str, An
         if timestamp and lat is not None and lon is not None:
             # Use centralized validation for coordinate pairs
             is_valid, validated_coord = GeometryService.validate_coordinate_pair(
-                [lon, lat]
+                [lon, lat],
             )
             if is_valid and validated_coord is not None:
                 coord = {
@@ -81,10 +84,11 @@ def _extract_coordinates_from_data(data_points: list[dict]) -> list[dict[str, An
 
 
 def _deduplicate_coordinates(existing: list[dict], new: list[dict]) -> list[dict]:
-    """Merge and deduplicate coordinates by timestamp.
+    """
+    Merge and deduplicate coordinates by timestamp.
 
-    Bouncie sends duplicate data across real-time and periodic streams.
-    Use timestamp as unique key, preferring newer data.
+    Bouncie sends duplicate data across real-time and periodic streams. Use timestamp as
+    unique key, preferring newer data.
     """
     # Build dict keyed by ISO timestamp
     coords_map = {}
@@ -97,12 +101,12 @@ def _deduplicate_coordinates(existing: list[dict], new: list[dict]) -> list[dict
             coords_map[key] = coord
 
     # Sort by timestamp
-    sorted_coords = sorted(coords_map.values(), key=lambda c: c["timestamp"])
-    return sorted_coords
+    return sorted(coords_map.values(), key=lambda c: c["timestamp"])
 
 
 def _calculate_trip_metrics(
-    coordinates: list[dict], start_time: datetime
+    coordinates: list[dict],
+    start_time: datetime,
 ) -> dict[str, Any]:
     """Calculate distance, speed, and duration from coordinates."""
     if not coordinates:
@@ -125,7 +129,11 @@ def _calculate_trip_metrics(
         curr = coordinates[i]
 
         segment_dist = GeometryService.haversine_distance(
-            prev["lon"], prev["lat"], curr["lon"], curr["lat"], unit="miles"
+            prev["lon"],
+            prev["lat"],
+            curr["lon"],
+            curr["lat"],
+            unit="miles",
         )
         distance_miles += segment_dist
 
@@ -145,7 +153,11 @@ def _calculate_trip_metrics(
         time_diff = (curr["timestamp"] - prev["timestamp"]).total_seconds()
         if time_diff > 0:
             last_dist = GeometryService.haversine_distance(
-                prev["lon"], prev["lat"], curr["lon"], curr["lat"], unit="miles"
+                prev["lon"],
+                prev["lat"],
+                curr["lon"],
+                curr["lat"],
+                unit="miles",
             )
             current_speed = (last_dist / time_diff) * 3600
 
@@ -238,7 +250,8 @@ async def process_trip_data(data: dict[str, Any]) -> None:
 
     # Fetch existing trip
     trip = await LiveTrip.find_one(
-        LiveTrip.transactionId == transaction_id, LiveTrip.status == "active"
+        LiveTrip.transactionId == transaction_id,
+        LiveTrip.status == "active",
     )
 
     if not trip:
@@ -290,7 +303,8 @@ async def process_trip_metrics(data: dict[str, Any]) -> None:
 
     # Check if trip exists
     trip = await LiveTrip.find_one(
-        LiveTrip.transactionId == transaction_id, LiveTrip.status == "active"
+        LiveTrip.transactionId == transaction_id,
+        LiveTrip.status == "active",
     )
 
     if not trip:
@@ -351,7 +365,8 @@ async def process_trip_end(data: dict[str, Any]) -> None:
 
     # Fetch active trip
     trip = await LiveTrip.find_one(
-        LiveTrip.transactionId == transaction_id, LiveTrip.status == "active"
+        LiveTrip.transactionId == transaction_id,
+        LiveTrip.status == "active",
     )
 
     if not trip:
@@ -394,7 +409,8 @@ async def process_trip_end(data: dict[str, Any]) -> None:
         # Create ArchivedLiveTrip from LiveTrip data
         trip_data = trip.model_dump()
         trip_data.pop(
-            "_id", None
+            "_id",
+            None,
         )  # Remove _id to let new one be generated or use same?
         # ArchivedLiveTrip might have specific fields, let's map what we can
         # The model definition in models.py shows ArchivedLiveTrip has similar fields.
@@ -420,7 +436,7 @@ async def process_trip_end(data: dict[str, Any]) -> None:
         await trip.delete()
         logger.info("Trip %s archived and removed from live", transaction_id)
     except Exception as archive_err:
-        logger.error("Failed to archive trip %s: %s", transaction_id, archive_err)
+        logger.exception("Failed to archive trip %s: %s", transaction_id, archive_err)
 
     # Trigger periodic fetch
     try:
@@ -473,12 +489,13 @@ async def get_active_trip() -> dict[str, Any] | None:
             return trip.model_dump()
         return None
     except Exception as e:
-        logger.error("Error fetching active trip: %s", e)
+        logger.exception("Error fetching active trip: %s", e)
         return None
 
 
 async def get_trip_updates(_last_sequence: int = 0) -> dict[str, Any]:
-    """Get updates for polling clients.
+    """
+    Get updates for polling clients.
 
     Note: last_sequence is ignored in simplified version.
     Returns current active trip if exists.
@@ -503,7 +520,8 @@ async def cleanup_old_trips(max_age_days: int = 30) -> int:
     threshold = datetime.now(UTC) - timedelta(days=max_age_days)
 
     result = await LiveTrip.find(
-        LiveTrip.status == "completed", LiveTrip.endTime < threshold
+        LiveTrip.status == "completed",
+        LiveTrip.endTime < threshold,
     ).delete()
 
     count = result.deleted_count
@@ -523,7 +541,8 @@ async def cleanup_stale_trips_logic(
 
     # Find stale active trips
     stale_trips = await LiveTrip.find(
-        LiveTrip.status == "active", LiveTrip.lastUpdate < stale_threshold
+        LiveTrip.status == "active",
+        LiveTrip.lastUpdate < stale_threshold,
     ).to_list(length=100)
 
     stale_count = 0
@@ -547,7 +566,9 @@ async def cleanup_stale_trips_logic(
     old_removed = await cleanup_old_trips(max_archive_age_days)
 
     logger.info(
-        "Cleanup: %d stale trips, %d old trips removed", stale_count, old_removed
+        "Cleanup: %d stale trips, %d old trips removed",
+        stale_count,
+        old_removed,
     )
     return {
         "stale_trips_archived": stale_count,

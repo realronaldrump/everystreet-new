@@ -1,7 +1,8 @@
-"""Redis Pub/Sub event publisher for trip updates.
+"""
+Redis Pub/Sub event publisher for trip updates.
 
-This module provides an event-driven mechanism for publishing trip updates
-to connected WebSocket clients, eliminating the need for constant database polling.
+This module provides an event-driven mechanism for publishing trip updates to connected
+WebSocket clients, eliminating the need for constant database polling.
 
 This module uses async Redis operations to avoid blocking the event loop.
 """
@@ -29,7 +30,8 @@ class RedisClientState:
 
 
 async def get_redis_client() -> aioredis.Redis:
-    """Get or create a singleton async Redis client instance.
+    """
+    Get or create a singleton async Redis client instance.
 
     Returns:
         Async Redis client instance configured for Pub/Sub.
@@ -50,13 +52,14 @@ async def get_redis_client() -> aioredis.Redis:
 
     try:
         RedisClientState.client = await aioredis.from_url(
-            redis_url, decode_responses=True
+            redis_url,
+            decode_responses=True,
         )
         await RedisClientState.client.ping()
         logger.info("Connected to Redis for trip event publishing")
         return RedisClientState.client
     except RedisConnectionError as e:
-        logger.error("Failed to connect to Redis: %s", e)
+        logger.exception("Failed to connect to Redis: %s", e)
         raise
 
 
@@ -64,7 +67,8 @@ def _json_serializer(obj: Any) -> Any:
     """JSON serializer for objects not serializable by default json code."""
     if isinstance(obj, datetime):
         return obj.isoformat()
-    raise TypeError(f"Type {type(obj)} not serializable")
+    msg = f"Type {type(obj)} not serializable"
+    raise TypeError(msg)
 
 
 async def publish_trip_state(
@@ -73,7 +77,8 @@ async def publish_trip_state(
     *,
     status: str = "active",
 ) -> bool:
-    """Publish a full trip snapshot to Redis Pub/Sub.
+    """
+    Publish a full trip snapshot to Redis Pub/Sub.
 
     Args:
         transaction_id: Trip identifier.
@@ -108,7 +113,7 @@ async def publish_trip_state(
         return True
 
     except Exception as e:
-        logger.error(
+        logger.exception(
             "Failed to publish trip state for %s: %s",
             transaction_id,
             e,

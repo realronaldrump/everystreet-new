@@ -9,8 +9,8 @@
   class VisitsDrawing {
     constructor(mapController, options = {}) {
       this.mapController = mapController;
-      this.notificationManager =
-        options.notificationManager || window.notificationManager;
+      this.notificationManager
+        = options.notificationManager || window.notificationManager;
 
       this.draw = null;
       this.currentPolygon = null;
@@ -110,7 +110,9 @@
      * Start drawing mode
      */
     startDrawing() {
-      if (this.drawingEnabled || !this.draw) return;
+      if (this.drawingEnabled || !this.draw) {
+        return;
+      }
 
       this.resetDrawing(false);
       this.draw.changeMode("draw_polygon");
@@ -133,7 +135,9 @@
      * @param {Object} event - Mapbox draw event
      */
     onPolygonCreated(event) {
-      if (!event?.features || event.features.length === 0) return;
+      if (!event?.features || event.features.length === 0) {
+        return;
+      }
 
       if (this.currentPolygon) {
         this.draw.delete(this.currentPolygon.id);
@@ -193,8 +197,12 @@
         placeNameInput.value = "";
         placeNameInput.classList.remove("is-invalid");
       }
-      if (savePlaceBtn) savePlaceBtn.setAttribute("disabled", "true");
-      if (startDrawingBtn) startDrawingBtn.classList.remove("active");
+      if (savePlaceBtn) {
+        savePlaceBtn.setAttribute("disabled", "true");
+      }
+      if (startDrawingBtn) {
+        startDrawingBtn.classList.remove("active");
+      }
 
       if (this.drawingEnabled && removeControl && this.draw) {
         this.draw.changeMode("simple_select");
@@ -241,7 +249,9 @@
      * @param {Object} suggestion - Suggestion object with boundary and name
      */
     applySuggestion(suggestion) {
-      if (!suggestion || !suggestion.boundary) return;
+      if (!suggestion || !suggestion.boundary) {
+        return;
+      }
 
       this.resetDrawing(false);
 

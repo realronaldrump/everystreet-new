@@ -2,6 +2,7 @@
 
 import json
 import logging
+from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query, status
 
@@ -14,8 +15,8 @@ router = APIRouter()
 
 @router.get("/api/export/streets")
 async def export_streets(
-    location: str = Query(..., description="Location data in JSON format"),
-    fmt: str = Query("geojson", description="Export format"),
+    location: Annotated[str, Query(description="Location data in JSON format")],
+    fmt: Annotated[str, Query(description="Export format")] = "geojson",
 ):
     """Export streets data for a location."""
     try:
@@ -54,8 +55,8 @@ async def export_streets(
 
 @router.get("/api/export/boundary")
 async def export_boundary(
-    location: str = Query(..., description="Location data in JSON format"),
-    fmt: str = Query("geojson", description="Export format"),
+    location: Annotated[str, Query(description="Location data in JSON format")],
+    fmt: Annotated[str, Query(description="Export format")] = "geojson",
 ):
     """Export boundary data for a location."""
     try:

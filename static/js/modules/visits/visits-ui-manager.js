@@ -74,7 +74,9 @@
 
     showManagePlacesModal(placesMap) {
       const modalElement = document.getElementById("manage-places-modal");
-      if (!modalElement) return;
+      if (!modalElement) {
+        return;
+      }
 
       const modal = bootstrap.Modal.getOrCreateInstance(modalElement);
       this.refreshManagePlacesModal(placesMap);
@@ -83,7 +85,9 @@
 
     refreshManagePlacesModal(placesMap) {
       const tableBody = document.querySelector("#manage-places-table tbody");
-      if (!tableBody) return;
+      if (!tableBody) {
+        return;
+      }
 
       tableBody.innerHTML = "";
       const placesArray = Array.from(placesMap.values());
@@ -154,10 +158,14 @@
 
     showEditPlaceModal(placeId, placesMap) {
       const place = placesMap.get(placeId);
-      if (!place) return;
+      if (!place) {
+        return;
+      }
 
       const modalElement = document.getElementById("edit-place-modal");
-      if (!modalElement) return;
+      if (!modalElement) {
+        return;
+      }
 
       document.getElementById("edit-place-id").value = placeId;
       document.getElementById("edit-place-name").value = place.name;
@@ -234,7 +242,9 @@
         }, 300);
 
         const placeNameElement = document.getElementById("selected-place-name");
-        if (placeNameElement) placeNameElement.textContent = place.name;
+        if (placeNameElement) {
+          placeNameElement.textContent = place.name;
+        }
 
         await this.manager.showTripsForPlace(placeId);
         this.manager.mapController.animateToPlace(place);

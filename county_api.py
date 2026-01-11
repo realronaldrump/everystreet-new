@@ -1,9 +1,9 @@
-"""County Map API.
+"""
+County Map API.
 
-Provides endpoints for county-level coverage visualization.
-Counties are marked as visited if any trip geometry passes through them.
-Tracks first and most recent visit dates for each county.
-Results are cached in MongoDB for fast page loads.
+Provides endpoints for county-level coverage visualization. Counties are marked as
+visited if any trip geometry passes through them. Tracks first and most recent visit
+dates for each county. Results are cached in MongoDB for fast page loads.
 """
 
 import logging
@@ -32,7 +32,8 @@ except Exception:
 
 @router.get("/topology")
 async def get_county_topology(projection: str | None = None) -> dict[str, Any]:
-    """Return county TopoJSON data stored in MongoDB.
+    """
+    Return county TopoJSON data stored in MongoDB.
 
     If the requested projection is not yet cached, it will be downloaded and stored.
     """
@@ -59,7 +60,8 @@ async def get_county_topology(projection: str | None = None) -> dict[str, Any]:
 
 @router.get("/visited")
 async def get_visited_counties() -> dict[str, Any]:
-    """Get cached list of visited county FIPS codes with visit dates.
+    """
+    Get cached list of visited county FIPS codes with visit dates.
 
     Returns cached data if available, otherwise triggers a recalculation.
     """
@@ -108,7 +110,8 @@ async def get_visited_counties() -> dict[str, Any]:
 async def recalculate_visited_counties(
     background_tasks: BackgroundTasks,
 ) -> dict[str, Any]:
-    """Trigger recalculation of visited counties.
+    """
+    Trigger recalculation of visited counties.
 
     This performs geospatial intersection between trip geometries and county polygons.
     The calculation runs in the background.
@@ -130,7 +133,8 @@ async def recalculate_visited_counties(
 
 
 async def calculate_visited_counties_task():
-    """Background task to calculate which counties have been driven through.
+    """
+    Background task to calculate which counties have been driven through.
 
     Tracks first visit date and most recent visit date for each county.
     """
@@ -140,7 +144,8 @@ async def calculate_visited_counties_task():
     try:
         topology_document = await get_county_topology_document()
         if not topology_document or "topology" not in topology_document:
-            raise RuntimeError("County topology could not be loaded from database")
+            msg = "County topology could not be loaded from database"
+            raise RuntimeError(msg)
         topology = topology_document["topology"]
 
         # Convert TopoJSON to GeoJSON features
@@ -184,7 +189,7 @@ async def calculate_visited_counties_task():
                     {"gps.type": {"$in": ["LineString", "Point"]}},
                     {"matchedGps.type": {"$in": ["LineString", "Point"]}},
                 ],
-            }
+            },
         )
 
         trips_analyzed = 0
@@ -301,7 +306,8 @@ async def calculate_visited_counties_task():
 
 
 def topojson_to_geojson(topology: dict, object_name: str) -> list[dict]:
-    """Convert TopoJSON to GeoJSON features.
+    """
+    Convert TopoJSON to GeoJSON features.
 
     Simple implementation that handles the arc-based geometry encoding.
     """

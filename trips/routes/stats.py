@@ -20,12 +20,12 @@ trip_stats_service = TripStatsService(trip_service)
 
 @router.post("/api/geocode_trips", tags=["Trips API"])
 async def geocode_trips(data: DateRangeModel | None = None):
-    """Unified endpoint to re-geocode trips within a date range with progress tracking.
+    """
+    Unified endpoint to re-geocode trips within a date range with progress tracking.
 
-    This replaces the old "GeoPoint Update", "Re-geocode All Trips", and
-    "Update Geocoding" functionality.
-    Only geocodes trips that don't already have addresses, and checks
-    against custom places efficiently.
+    This replaces the old "GeoPoint Update", "Re-geocode All Trips", and "Update
+    Geocoding" functionality. Only geocodes trips that don't already have addresses, and
+    checks against custom places efficiently.
     """
     try:
         start_date = None
@@ -37,12 +37,11 @@ async def geocode_trips(data: DateRangeModel | None = None):
             end_date = data.end_date
             interval_days = data.interval_days
 
-        result = await trip_stats_service.geocode_trips(
+        return await trip_stats_service.geocode_trips(
             start_date=start_date,
             end_date=end_date,
             interval_days=interval_days,
         )
-        return result
 
     except ValueError as e:
         raise HTTPException(
@@ -62,8 +61,7 @@ async def geocode_trips(data: DateRangeModel | None = None):
 async def get_geocode_progress(task_id: str):
     """Get progress for a geocoding task."""
     try:
-        result = await trip_stats_service.get_geocode_progress(task_id)
-        return result
+        return await trip_stats_service.get_geocode_progress(task_id)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -74,15 +72,14 @@ async def get_geocode_progress(task_id: str):
 @router.post("/api/trips/{trip_id}/regeocode", tags=["Trips API"])
 @api_route(logger)
 async def regeocode_single_trip(trip_id: str):
-    """Re-run geocoding for a single trip.
+    """
+    Re-run geocoding for a single trip.
 
-    Used by the Trips UI when a user clicks
-    the per-trip "Refresh Geocoding" button so the trip is re-evaluated against
-    any newly-created custom places.
+    Used by the Trips UI when a user clicks the per-trip "Refresh Geocoding" button so
+    the trip is re-evaluated against any newly-created custom places.
     """
     try:
-        result = await trip_stats_service.regeocode_single_trip(trip_id)
-        return result
+        return await trip_stats_service.regeocode_single_trip(trip_id)
     except ValueError as e:
         if "not found" in str(e).lower():
             raise HTTPException(

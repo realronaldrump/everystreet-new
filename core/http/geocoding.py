@@ -1,7 +1,8 @@
-"""Geocoding utilities for OpenStreetMap Nominatim and Mapbox APIs.
+"""
+Geocoding utilities for OpenStreetMap Nominatim and Mapbox APIs.
 
-This module provides reverse geocoding and location validation functions
-with built-in retry logic and rate limit handling.
+This module provides reverse geocoding and location validation functions with built-in
+retry logic and rate limit handling.
 """
 
 from __future__ import annotations
@@ -22,7 +23,8 @@ async def validate_location_osm(
     location: str,
     location_type: str,
 ) -> dict[str, Any] | None:
-    """Validate a location using the OSM Nominatim search API.
+    """
+    Validate a location using the OSM Nominatim search API.
 
     Args:
         location: The location string to validate.
@@ -56,7 +58,7 @@ async def validate_location_osm(
             )
             return None
     except Exception as e:
-        logger.error("Error validating location: %s", e)
+        logger.exception("Error validating location: %s", e)
         raise
 
 
@@ -65,7 +67,8 @@ async def reverse_geocode_nominatim(
     lat: float,
     lon: float,
 ) -> dict[str, Any] | None:
-    """Reverse geocode coordinates using OSM Nominatim.
+    """
+    Reverse geocode coordinates using OSM Nominatim.
 
     Args:
         lat: Latitude coordinate.
@@ -109,7 +112,8 @@ async def reverse_geocode_mapbox(
     lon: float,
     access_token: str,
 ) -> dict[str, Any] | None:
-    """Reverse geocode coordinates using Mapbox Geocoding API.
+    """
+    Reverse geocode coordinates using Mapbox Geocoding API.
 
     Args:
         lat: Latitude coordinate.

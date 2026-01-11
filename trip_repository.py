@@ -1,7 +1,8 @@
-"""Trip Repository Module.
+"""
+Trip Repository Module.
 
-This module provides the TripRepository class that handles all database
-persistence operations for trips, following the Single Responsibility Principle.
+This module provides the TripRepository class that handles all database persistence
+operations for trips, following the Single Responsibility Principle.
 """
 
 import json
@@ -15,17 +16,19 @@ logger = logging.getLogger(__name__)
 
 
 class TripRepository:
-    """Repository for trip database operations.
+    """
+    Repository for trip database operations.
 
-    Handles all database persistence operations including saving trips
-    to the trips collection and matched trips collection.
+    Handles all database persistence operations including saving trips to the trips
+    collection and matched trips collection.
     """
 
     def __init__(
         self,
         trips_col=None,
     ):
-        """Initialize the repository with optional custom collections.
+        """
+        Initialize the repository with optional custom collections.
 
         Args:
             trips_col: Optional custom trips collection (for testing)
@@ -39,7 +42,8 @@ class TripRepository:
         source: str,
         state_history: list[dict[str, Any]],
     ) -> str | None:
-        """Save a trip to the trips collection.
+        """
+        Save a trip to the trips collection.
 
         Args:
             trip_data: The processed trip data dictionary
@@ -62,7 +66,7 @@ class TripRepository:
                 try:
                     trip_to_save["gps"] = json.loads(gps_to_save)
                 except json.JSONDecodeError:
-                    logger.error(
+                    logger.exception(
                         "Failed to parse stringified GPS data for trip %s. Setting GPS to null.",
                         trip_to_save.get("transactionId", "unknown"),
                     )
@@ -70,7 +74,7 @@ class TripRepository:
 
             # Final validation check after any potential parsing
             if trip_to_save.get(
-                "gps"
+                "gps",
             ) is not None and not self._is_valid_geojson_object(trip_to_save["gps"]):
                 logger.error(
                     "Trip %s: 'gps' field is invalid at save time. Value: %s. Setting to null.",
@@ -143,12 +147,13 @@ class TripRepository:
             return str(trip.id)
 
         except Exception as e:
-            logger.error("Error saving trip: %s", e)
+            logger.exception("Error saving trip: %s", e)
             return None
 
     @staticmethod
     def _is_valid_geojson_object(geojson_data: Any) -> bool:
-        """Checks if the input is a valid GeoJSON Point or LineString.
+        """
+        Checks if the input is a valid GeoJSON Point or LineString.
 
         Args:
             geojson_data: Data to validate

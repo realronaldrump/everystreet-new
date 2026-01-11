@@ -129,8 +129,8 @@ export function updateUIBasedOnFormat(format, elements) {
       if (elements.includeCustom) {
         elements.includeCustom.disabled = true;
         elements.includeCustom.parentElement.classList.add("text-muted");
-        elements.includeCustom.title =
-          "Custom data may have limited support in Shapefile format";
+        elements.includeCustom.title
+          = "Custom data may have limited support in Shapefile format";
       }
       break;
 
@@ -138,8 +138,8 @@ export function updateUIBasedOnFormat(format, elements) {
       if (elements.includeGeometry) {
         elements.includeGeometry.disabled = true;
         elements.includeGeometry.parentElement.classList.add("text-muted");
-        elements.includeGeometry.title =
-          "Complex geometry not fully supported in CSV format";
+        elements.includeGeometry.title
+          = "Complex geometry not fully supported in CSV format";
       }
       break;
 
@@ -172,7 +172,9 @@ export function setButtonLoading(
   originalText = "",
   loadingText = "Exporting..."
 ) {
-  if (!button) return originalText;
+  if (!button) {
+    return originalText;
+  }
 
   if (isLoading) {
     const savedText = button.textContent || originalText;

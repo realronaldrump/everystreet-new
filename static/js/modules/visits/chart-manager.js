@@ -9,8 +9,8 @@
       }
 
       Chart.defaults.color = "rgba(255, 255, 255, 0.8)";
-      Chart.defaults.font.family =
-        "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+      Chart.defaults.font.family
+        = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
 
       const gradient = ctx.createLinearGradient(0, 0, 0, 400);
       gradient.addColorStop(0, "rgba(187, 134, 252, 0.8)");
@@ -93,10 +93,14 @@
     }
 
     update(stats, onBarClick) {
-      if (!this.chart) return;
+      if (!this.chart) {
+        return;
+      }
 
       this.chart.options.onClick = (_event, elements) => {
-        if (!elements.length || !onBarClick) return;
+        if (!elements.length || !onBarClick) {
+          return;
+        }
         const chartElement = elements[0];
         const placeName = this.chart.data.labels[chartElement.index];
         onBarClick(placeName);

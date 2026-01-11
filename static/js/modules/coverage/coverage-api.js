@@ -73,8 +73,8 @@ const COVERAGE_API = {
    * Update coverage for an area (full or incremental)
    */
   async updateCoverage(location, mode = "full") {
-    const endpoint =
-      mode === "incremental"
+    const endpoint
+      = mode === "incremental"
         ? "/api/street_coverage/incremental"
         : "/api/street_coverage";
     return apiClient.post(endpoint, location);
@@ -165,8 +165,12 @@ const COVERAGE_API = {
    */
   async generateOptimalRoute(locationId, startLon = null, startLat = null) {
     const params = new URLSearchParams();
-    if (startLon !== null) params.set("start_lon", startLon.toString());
-    if (startLat !== null) params.set("start_lat", startLat.toString());
+    if (startLon !== null) {
+      params.set("start_lon", startLon.toString());
+    }
+    if (startLat !== null) {
+      params.set("start_lat", startLat.toString());
+    }
 
     const url = `/api/coverage_areas/${locationId}/generate-optimal-route${
       params.toString() ? `?${params}` : ""

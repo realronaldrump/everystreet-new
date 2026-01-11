@@ -25,8 +25,8 @@ const mapManager = {
       mapboxgl.accessToken = window.MAPBOX_ACCESS_TOKEN;
 
       if (!mapboxgl.supported()) {
-        mapElement.innerHTML =
-          '<div class="webgl-unsupported-message p-4 text-center">WebGL is not supported by your browser.</div>';
+        mapElement.innerHTML
+          = '<div class="webgl-unsupported-message p-4 text-center">WebGL is not supported by your browser.</div>';
         throw new Error("WebGL not supported");
       }
 
@@ -44,8 +44,8 @@ const mapManager = {
       const lngParam = parseFloat(urlParams.get("lng"));
       const zoomParam = parseFloat(urlParams.get("zoom"));
       const savedView = utils.getStorage("mapView");
-      const mapCenter =
-        !Number.isNaN(latParam) && !Number.isNaN(lngParam)
+      const mapCenter
+        = !Number.isNaN(latParam) && !Number.isNaN(lngParam)
           ? [lngParam, latParam]
           : savedView?.center || CONFIG.MAP.defaultCenter;
       const mapZoom = !Number.isNaN(zoomParam)
@@ -55,8 +55,8 @@ const mapManager = {
       // Determine initial map style - respect stored preference or use theme
       const storedMapType = utils.getStorage("mapType");
       const initialMapType = storedMapType || theme;
-      const initialStyle =
-        CONFIG.MAP.styles[initialMapType] || CONFIG.MAP.styles[theme];
+      const initialStyle
+        = CONFIG.MAP.styles[initialMapType] || CONFIG.MAP.styles[theme];
 
       initStage.update(60, "Creating map instance...");
 
@@ -98,7 +98,9 @@ const mapManager = {
 
       // Setup event handlers
       const saveViewState = utils.debounce(() => {
-        if (!state.map) return;
+        if (!state.map) {
+          return;
+        }
         const center = state.map.getCenter();
         const zoom = state.map.getZoom();
         utils.setStorage("mapView", {
@@ -137,7 +139,9 @@ const mapManager = {
   },
 
   updateUrlState() {
-    if (!state.map || !window.history?.replaceState) return;
+    if (!state.map || !window.history?.replaceState) {
+      return;
+    }
 
     try {
       const center = state.map.getCenter();
@@ -163,8 +167,8 @@ const mapManager = {
     } else if (!state.mapLayers.trips?.isHeatmap && state.map.getLayer("trips-layer")) {
       queryLayers.push("trips-layer");
     } else if (
-      state.mapLayers.trips?.isHeatmap &&
-      state.map.getLayer("trips-layer-1")
+      state.mapLayers.trips?.isHeatmap
+      && state.map.getLayer("trips-layer-1")
     ) {
       queryLayers.push("trips-layer-1");
     }
@@ -198,19 +202,27 @@ const mapManager = {
   },
 
   refreshTripStyles: utils.throttle(() => {
-    if (!state.map || !state.mapInitialized) return;
+    if (!state.map || !state.mapInitialized) {
+      return;
+    }
 
     const selectedId = state.selectedTripId ? String(state.selectedTripId) : null;
 
     ["trips", "matchedTrips"].forEach((layerName) => {
       const layerInfo = state.mapLayers[layerName];
-      if (!layerInfo?.visible) return;
+      if (!layerInfo?.visible) {
+        return;
+      }
 
       // Skip heatmap layers - they don't support trip selection styling
-      if (layerInfo.isHeatmap) return;
+      if (layerInfo.isHeatmap) {
+        return;
+      }
 
       const layerId = `${layerName}-layer`;
-      if (!state.map.getLayer(layerId)) return;
+      if (!state.map.getLayer(layerId)) {
+        return;
+      }
 
       const baseColor = layerInfo.color || "#4A90D9";
       const baseWeight = layerInfo.weight || 2;
@@ -255,7 +267,9 @@ const mapManager = {
   }, CONFIG.MAP.throttleDelay),
 
   _updateSelectedTripOverlay(selectedId) {
-    if (!state.map || !state.mapInitialized) return;
+    if (!state.map || !state.mapInitialized) {
+      return;
+    }
 
     const sourceId = "selected-trip-source";
     const layerId = "selected-trip-layer";
@@ -270,10 +284,10 @@ const mapManager = {
     };
 
     if (
-      !selectedId ||
-      state.selectedTripLayer !== "trips" ||
-      !state.mapLayers.trips?.isHeatmap ||
-      !state.mapLayers.trips?.visible
+      !selectedId
+      || state.selectedTripLayer !== "trips"
+      || !state.mapLayers.trips?.isHeatmap
+      || !state.mapLayers.trips?.visible
     ) {
       removeOverlay();
       return;
@@ -281,11 +295,11 @@ const mapManager = {
 
     const tripLayer = state.mapLayers.trips?.layer;
     const matchingFeature = tripLayer?.features?.find((feature) => {
-      const featureId =
-        feature?.properties?.transactionId ||
-        feature?.properties?.id ||
-        feature?.properties?.tripId ||
-        feature?.id;
+      const featureId
+        = feature?.properties?.transactionId
+        || feature?.properties?.id
+        || feature?.properties?.tripId
+        || feature?.id;
       return featureId != null && String(featureId) === selectedId;
     });
 
@@ -300,8 +314,8 @@ const mapManager = {
       properties: matchingFeature.properties || {},
     };
 
-    const highlightColor =
-      window.MapStyles?.MAP_LAYER_COLORS?.trips?.selected || "#FFD700";
+    const highlightColor
+      = window.MapStyles?.MAP_LAYER_COLORS?.trips?.selected || "#FFD700";
     const highlightWidth = [
       "interpolate",
       ["linear"],
@@ -352,7 +366,9 @@ const mapManager = {
   },
 
   async fitBounds(animate = true) {
-    if (!state.map || !state.mapInitialized) return;
+    if (!state.map || !state.mapInitialized) {
+      return;
+    }
 
     await utils.measurePerformance("fitBounds", () => {
       const bounds = new mapboxgl.LngLatBounds();
@@ -387,13 +403,17 @@ const mapManager = {
   },
 
   zoomToLastTrip(targetZoom = 14) {
-    if (!state.map || !state.mapLayers.trips?.layer?.features) return;
+    if (!state.map || !state.mapLayers.trips?.layer?.features) {
+      return;
+    }
 
     const { features } = state.mapLayers.trips.layer;
 
     const lastTripFeature = features.reduce((latest, feature) => {
       const endTime = feature.properties?.endTime;
-      if (!endTime) return latest;
+      if (!endTime) {
+        return latest;
+      }
 
       const time = new Date(endTime).getTime();
       const latestTime = latest?.properties?.endTime
@@ -403,7 +423,9 @@ const mapManager = {
       return time > latestTime ? feature : latest;
     }, null);
 
-    if (!lastTripFeature?.geometry) return;
+    if (!lastTripFeature?.geometry) {
+      return;
+    }
 
     let lastCoord = null;
     const { type, coordinates } = lastTripFeature.geometry;
@@ -415,9 +437,9 @@ const mapManager = {
     }
 
     if (
-      lastCoord?.length === 2 &&
-      !Number.isNaN(lastCoord[0]) &&
-      !Number.isNaN(lastCoord[1])
+      lastCoord?.length === 2
+      && !Number.isNaN(lastCoord[0])
+      && !Number.isNaN(lastCoord[1])
     ) {
       state.map.flyTo({
         center: lastCoord,

@@ -32,8 +32,8 @@ class CoverageDrawing {
       mapboxgl.accessToken = window.MAPBOX_ACCESS_TOKEN;
 
       const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
-      const mapStyle =
-        theme === "light"
+      const mapStyle
+        = theme === "light"
           ? "mapbox://styles/mapbox/light-v11"
           : "mapbox://styles/mapbox/dark-v11";
 
@@ -219,8 +219,12 @@ class CoverageDrawing {
     const validateButton = document.getElementById("validate-drawing");
     const addButton = document.getElementById("add-custom-area");
 
-    if (validateButton) validateButton.disabled = false;
-    if (addButton) addButton.disabled = true;
+    if (validateButton) {
+      validateButton.disabled = false;
+    }
+    if (addButton) {
+      addButton.disabled = true;
+    }
 
     this.validatedCustomBoundary = null;
     this.hideDrawingValidationResult();
@@ -233,8 +237,12 @@ class CoverageDrawing {
     const validateButton = document.getElementById("validate-drawing");
     const addButton = document.getElementById("add-custom-area");
 
-    if (validateButton) validateButton.disabled = true;
-    if (addButton) addButton.disabled = true;
+    if (validateButton) {
+      validateButton.disabled = true;
+    }
+    if (addButton) {
+      addButton.disabled = true;
+    }
 
     this.validatedCustomBoundary = null;
     this.hideDrawingValidationResult();
@@ -254,7 +262,9 @@ class CoverageDrawing {
    * Get all drawn features
    */
   getAllDrawnFeatures() {
-    if (!this.drawingMapDraw) return null;
+    if (!this.drawingMapDraw) {
+      return null;
+    }
     return this.drawingMapDraw.getAll();
   }
 
@@ -262,9 +272,11 @@ class CoverageDrawing {
    * Update theme
    */
   updateTheme(theme) {
-    if (!this.drawingMap) return;
-    const styleUrl =
-      theme === "light"
+    if (!this.drawingMap) {
+      return;
+    }
+    const styleUrl
+      = theme === "light"
         ? "mapbox://styles/mapbox/light-v11"
         : "mapbox://styles/mapbox/dark-v11";
 

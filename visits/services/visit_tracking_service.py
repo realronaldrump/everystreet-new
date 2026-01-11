@@ -15,7 +15,8 @@ class VisitTrackingService:
 
     @staticmethod
     async def calculate_visits_for_place(place: Place | PlaceResponse) -> list[dict]:
-        """Calculate visits for a place using a single MongoDB aggregation.
+        """
+        Calculate visits for a place using a single MongoDB aggregation.
 
         This avoids the N+1 query pattern by:
         - Matching all trips that end at the place (destinationPlaceId or within geometry)
@@ -52,7 +53,7 @@ class VisitTrackingService:
         if geometry:
             # Match trips whose destinationGeoPoint falls within the place geometry
             match_conditions.append(
-                {"destinationGeoPoint": {"$geoWithin": {"$geometry": geometry}}}
+                {"destinationGeoPoint": {"$geoWithin": {"$geometry": geometry}}},
             )
 
         ended_at_place_match = {
@@ -74,12 +75,12 @@ class VisitTrackingService:
                         {"$project": {"_id": 0, "startTime": 1}},
                     ],
                     "as": "nextTrip",
-                }
+                },
             },
             {
                 "$addFields": {
                     "departure_time": {"$arrayElemAt": ["$nextTrip.startTime", 0]},
-                }
+                },
             },
             {
                 "$addFields": {
@@ -89,18 +90,18 @@ class VisitTrackingService:
                                 "$and": [
                                     {"$ne": ["$departure_time", None]},
                                     {"$ne": ["$endTime", None]},
-                                ]
+                                ],
                             },
                             {
                                 "$divide": [
                                     {"$subtract": ["$departure_time", "$endTime"]},
                                     1000,
-                                ]
+                                ],
                             },
                             None,
-                        ]
-                    }
-                }
+                        ],
+                    },
+                },
             },
             {
                 "$setWindowFields": {
@@ -111,10 +112,10 @@ class VisitTrackingService:
                                 "output": "$departure_time",
                                 "by": -1,
                                 "default": None,
-                            }
-                        }
+                            },
+                        },
                     },
-                }
+                },
             },
             {
                 "$addFields": {
@@ -124,7 +125,7 @@ class VisitTrackingService:
                                 "$and": [
                                     {"$ne": ["$previous_departure_time", None]},
                                     {"$ne": ["$endTime", None]},
-                                ]
+                                ],
                             },
                             {
                                 "$divide": [
@@ -132,21 +133,21 @@ class VisitTrackingService:
                                         "$subtract": [
                                             "$endTime",
                                             "$previous_departure_time",
-                                        ]
+                                        ],
                                     },
                                     1000,
-                                ]
+                                ],
                             },
                             None,
-                        ]
-                    }
-                }
+                        ],
+                    },
+                },
             },
             {
                 "$project": {
                     "nextTrip": 0,
                     "previous_departure_time": 0,
-                }
+                },
             },
         ]
 
@@ -166,14 +167,15 @@ class VisitTrackingService:
                     "departure_time": departure_time,
                     "duration": duration,
                     "time_since_last": time_since_last,
-                }
+                },
             )
 
         return visits
 
     @staticmethod
     def format_duration(seconds):
-        """Format duration in seconds to a human-readable string.
+        """
+        Format duration in seconds to a human-readable string.
 
         Args:
             seconds: Duration in seconds (can be None or negative)

@@ -259,7 +259,10 @@ def dijkstra_to_any_target(
 
 
 def reverse_candidates_for_edge(
-    G: nx.MultiDiGraph, u: int, v: int, key: int
+    G: nx.MultiDiGraph,
+    u: int,
+    v: int,
+    key: int,
 ) -> list[EdgeRef]:
     """Find plausible reverse edges v->u (keys) if present."""
     if not G.has_edge(v, u):

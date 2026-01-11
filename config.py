@@ -1,4 +1,5 @@
-"""Centralized configuration for external APIs.
+"""
+Centralized configuration for external APIs.
 
 This module is the single source of truth for configuration used across the
 application. All API tokens and credentials are stored in MongoDB and
@@ -15,10 +16,11 @@ API_BASE_URL: Final[str] = "https://api.bouncie.dev/v1"
 
 
 def get_mapbox_token() -> str:
-    """Get Mapbox access token from cached settings.
+    """
+    Get Mapbox access token from cached settings.
 
-    This provides sync access to the token for module-level usage.
-    The cache is populated at app startup via ensure_settings_cached().
+    This provides sync access to the token for module-level usage. The cache is
+    populated at app startup via ensure_settings_cached().
     """
     from app_settings import get_cached_mapbox_token
 
@@ -26,10 +28,11 @@ def get_mapbox_token() -> str:
 
 
 def get_clarity_id() -> str | None:
-    """Get Clarity project ID from cached settings.
+    """
+    Get Clarity project ID from cached settings.
 
-    This provides sync access to the ID for module-level usage.
-    The cache is populated at app startup via ensure_settings_cached().
+    This provides sync access to the ID for module-level usage. The cache is populated
+    at app startup via ensure_settings_cached().
     """
     from app_settings import get_cached_clarity_id
 
@@ -37,7 +40,8 @@ def get_clarity_id() -> str | None:
 
 
 async def get_bouncie_config() -> dict[str, Any]:
-    """Get Bouncie API configuration from database.
+    """
+    Get Bouncie API configuration from database.
 
     This is a single-user app. All Bouncie credentials are stored in MongoDB
     and configured via the profile page. No environment variable fallbacks.
@@ -59,7 +63,8 @@ async def get_bouncie_config() -> dict[str, Any]:
 
 
 async def get_app_settings() -> dict[str, Any]:
-    """Get app settings from database.
+    """
+    Get app settings from database.
 
     Returns:
         Dictionary containing:
@@ -72,10 +77,10 @@ async def get_app_settings() -> dict[str, Any]:
 
 
 __all__ = [
-    "AUTH_URL",
     "API_BASE_URL",
-    "get_mapbox_token",
-    "get_clarity_id",
-    "get_bouncie_config",
+    "AUTH_URL",
     "get_app_settings",
+    "get_bouncie_config",
+    "get_clarity_id",
+    "get_mapbox_token",
 ]

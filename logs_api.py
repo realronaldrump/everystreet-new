@@ -2,7 +2,7 @@
 
 import logging
 from datetime import datetime, timedelta
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import BaseModel
@@ -41,9 +41,9 @@ class LogsStatsResponse(BaseModel):
 
 @router.get("/api/server-logs", response_model=LogsResponse)
 async def get_server_logs(
-    limit: int = Query(default=500, ge=1, le=5000),
-    level: str | None = Query(default=None),
-    search: str | None = Query(default=None),
+    limit: Annotated[int, Query(ge=1, le=5000)] = 500,
+    level: Annotated[str | None, Query()] = None,
+    search: Annotated[str | None, Query()] = None,
 ) -> dict[str, Any]:
     """
     Get recent server logs from the database.
@@ -82,14 +82,14 @@ async def get_server_logs(
         logger.exception("Error fetching server logs")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to retrieve server logs: {str(e)}",
+            detail=f"Failed to retrieve server logs: {e!s}",
         )
 
 
 @router.delete("/api/server-logs", response_model=ClearLogsResponse)
 async def clear_server_logs(
-    level: str | None = Query(default=None),
-    older_than_days: int | None = Query(default=None, ge=1),
+    level: Annotated[str | None, Query()] = None,
+    older_than_days: Annotated[int | None, Query(ge=1)] = None,
 ) -> dict[str, Any]:
     """
     Clear server logs from the database.
@@ -133,7 +133,7 @@ async def clear_server_logs(
         logger.exception("Error clearing server logs")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to clear server logs: {str(e)}",
+            detail=f"Failed to clear server logs: {e!s}",
         )
 
 
@@ -176,5 +176,5 @@ async def get_logs_stats() -> dict[str, Any]:
         logger.exception("Error fetching server logs statistics")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to retrieve log statistics: {str(e)}",
+            detail=f"Failed to retrieve log statistics: {e!s}",
         )

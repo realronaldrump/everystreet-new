@@ -7,17 +7,19 @@ import utils from "./utils.js";
 
 const tripInteractions = {
   handleTripClick(e, feature, layerName = null) {
-    if (!feature?.properties) return;
+    if (!feature?.properties) {
+      return;
+    }
 
-    const tripId =
-      feature.properties.transactionId ||
-      feature.properties.id ||
-      feature.properties.tripId;
+    const tripId
+      = feature.properties.transactionId
+      || feature.properties.id
+      || feature.properties.tripId;
 
     if (tripId) {
       state.selectedTripId = tripId;
-      state.selectedTripLayer =
-        layerName || this.resolveTripLayerName(feature?.layer?.id);
+      state.selectedTripLayer
+        = layerName || this.resolveTripLayerName(feature?.layer?.id);
       mapManager.refreshTripStyles();
     }
 
@@ -35,9 +37,15 @@ const tripInteractions = {
   },
 
   resolveTripLayerName(layerId = "") {
-    if (!layerId || typeof layerId !== "string") return null;
-    if (layerId.startsWith("matchedTrips")) return "matchedTrips";
-    if (layerId.startsWith("trips")) return "trips";
+    if (!layerId || typeof layerId !== "string") {
+      return null;
+    }
+    if (layerId.startsWith("matchedTrips")) {
+      return "matchedTrips";
+    }
+    if (layerId.startsWith("trips")) {
+      return "trips";
+    }
     return null;
   },
 
@@ -103,13 +111,15 @@ const tripInteractions = {
 
   createActionButtons(feature) {
     const props = feature.properties || {};
-    const isMatched =
-      props.source === "matched" ||
-      props.mapMatchingStatus === "success" ||
-      feature.source?.includes("matched");
+    const isMatched
+      = props.source === "matched"
+      || props.mapMatchingStatus === "success"
+      || feature.source?.includes("matched");
     const tripId = props.transactionId || props.id || props.tripId;
 
-    if (!tripId) return "";
+    if (!tripId) {
+      return "";
+    }
 
     return `
         <div class="popup-actions mt-3 d-flex gap-2 flex-wrap">
@@ -157,10 +167,14 @@ const tripInteractions = {
 
     popupElement.addEventListener("click", async (e) => {
       const button = e.target.closest("button");
-      if (!button) return;
+      if (!button) {
+        return;
+      }
 
       const { tripId } = button.dataset;
-      if (!tripId) return;
+      if (!tripId) {
+        return;
+      }
 
       button.disabled = true;
       button.classList.add("btn-loading");
@@ -173,8 +187,8 @@ const tripInteractions = {
         } else if (button.classList.contains("delete-trip-btn")) {
           await this.deleteTrip(tripId, popup);
         } else if (
-          button.classList.contains("rematch-trip-btn") ||
-          button.classList.contains("map-match-btn")
+          button.classList.contains("rematch-trip-btn")
+          || button.classList.contains("map-match-btn")
         ) {
           await this.rematchTrip(tripId, popup);
         }
@@ -195,7 +209,9 @@ const tripInteractions = {
       confirmText: "Delete",
       confirmButtonClass: "btn-danger",
     });
-    if (!confirmed) return;
+    if (!confirmed) {
+      return;
+    }
 
     try {
       const response = await utils.fetchWithRetry(`/api/matched_trips/${tripId}`, {
@@ -221,7 +237,9 @@ const tripInteractions = {
       confirmText: "Delete",
       confirmButtonClass: "btn-danger",
     });
-    if (!confirmed) return;
+    if (!confirmed) {
+      return;
+    }
 
     try {
       const response = await utils.fetchWithRetry(`/api/trips/${tripId}`, {
@@ -268,7 +286,9 @@ const tripInteractions = {
         if (!wasVisible) {
           state.mapLayers.matchedTrips.visible = true;
           const toggle = document.getElementById("matchedTrips-toggle");
-          if (toggle) toggle.checked = true;
+          if (toggle) {
+            toggle.checked = true;
+          }
         }
 
         // Force refresh matched trips layer (fetchMatchedTrips now works regardless of visibility)

@@ -19,7 +19,9 @@ export class InvalidTripReview {
   async fetchInvalidTrips() {
     try {
       const response = await fetch("/api/trips/invalid");
-      if (!response.ok) throw new Error("Failed to fetch invalid trips");
+      if (!response.ok) {
+        throw new Error("Failed to fetch invalid trips");
+      }
 
       const data = await response.json();
       this.trips = data.trips;
@@ -27,22 +29,24 @@ export class InvalidTripReview {
       this.renderPagination();
     } catch {
       if (this.tableBody) {
-        this.tableBody.innerHTML =
-          '<tr><td colspan="5" class="text-center text-danger">Failed to load invalid trips</td></tr>';
+        this.tableBody.innerHTML
+          = '<tr><td colspan="5" class="text-center text-danger">Failed to load invalid trips</td></tr>';
       }
     }
   }
 
   renderTable() {
-    if (!this.tableBody) return;
+    if (!this.tableBody) {
+      return;
+    }
 
     const start = (this.currentPage - 1) * this.itemsPerPage;
     const end = start + this.itemsPerPage;
     const pageTrips = this.trips.slice(start, end);
 
     if (pageTrips.length === 0) {
-      this.tableBody.innerHTML =
-        '<tr><td colspan="5" class="text-center">No invalid trips found</td></tr>';
+      this.tableBody.innerHTML
+        = '<tr><td colspan="5" class="text-center">No invalid trips found</td></tr>';
       return;
     }
 
@@ -71,7 +75,9 @@ export class InvalidTripReview {
   }
 
   attachEventListeners() {
-    if (!this.tableBody) return;
+    if (!this.tableBody) {
+      return;
+    }
 
     this.tableBody.addEventListener("click", (e) => {
       const restoreBtn = e.target.closest(".restore-trip-btn");
@@ -91,7 +97,9 @@ export class InvalidTripReview {
         method: "POST",
       });
 
-      if (!response.ok) throw new Error("Failed to restore trip");
+      if (!response.ok) {
+        throw new Error("Failed to restore trip");
+      }
 
       window.notificationManager?.show("Trip restored successfully", "success");
       this.fetchInvalidTrips();
@@ -112,14 +120,18 @@ export class InvalidTripReview {
       confirmButtonClass: "btn-danger",
     });
 
-    if (!confirmed) return;
+    if (!confirmed) {
+      return;
+    }
 
     try {
       const response = await fetch(`/api/trips/invalid/${tripId}`, {
         method: "DELETE",
       });
 
-      if (!response.ok) throw new Error("Failed to delete trip");
+      if (!response.ok) {
+        throw new Error("Failed to delete trip");
+      }
 
       window.notificationManager?.show("Trip deleted permanently", "success");
       this.fetchInvalidTrips();
@@ -132,7 +144,9 @@ export class InvalidTripReview {
   }
 
   renderPagination() {
-    if (!this.paginationContainer) return;
+    if (!this.paginationContainer) {
+      return;
+    }
 
     const totalPages = Math.ceil(this.trips.length / this.itemsPerPage);
 

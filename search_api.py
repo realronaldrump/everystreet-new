@@ -1,12 +1,12 @@
-"""Search API for places, addresses, and streets.
+"""
+Search API for places, addresses, and streets.
 
-Provides endpoints for geocoding searches and street lookups with
-support for Nominatim (OSM) and Mapbox geocoding services via
-centralized ExternalGeoService.
+Provides endpoints for geocoding searches and street lookups with support for Nominatim
+(OSM) and Mapbox geocoding services via centralized ExternalGeoService.
 """
 
 import logging
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import APIRouter, HTTPException, Query
 
@@ -24,16 +24,31 @@ _geo_service = ExternalGeoService(get_mapbox_token())
 
 @router.get("/geocode")
 async def geocode_search(
-    query: str = Query(..., description="Search query (place, address, or street)"),
-    limit: int = Query(5, ge=1, le=20, description="Maximum number of results"),
-    use_mapbox: bool = Query(
-        None,
-        description="Force Mapbox geocoding (True) or Nominatim (False). Default prefers Mapbox if configured.",
-    ),
-    proximity_lon: float = Query(None, description="Longitude to bias results toward"),
-    proximity_lat: float = Query(None, description="Latitude to bias results toward"),
+    query: Annotated[
+        str,
+        Query(description="Search query (place, address, or street)"),
+    ],
+    limit: Annotated[
+        int,
+        Query(ge=1, le=20, description="Maximum number of results"),
+    ] = 5,
+    use_mapbox: Annotated[
+        bool | None,
+        Query(
+            description="Force Mapbox geocoding (True) or Nominatim (False). Default prefers Mapbox if configured.",
+        ),
+    ] = None,
+    proximity_lon: Annotated[
+        float | None,
+        Query(description="Longitude to bias results toward"),
+    ] = None,
+    proximity_lat: Annotated[
+        float | None,
+        Query(description="Latitude to bias results toward"),
+    ] = None,
 ):
-    """Search for places, addresses, or streets using geocoding services.
+    """
+    Search for places, addresses, or streets using geocoding services.
 
     Args:
         query: Search query string
@@ -47,7 +62,8 @@ async def geocode_search(
     """
     if not query or len(query.strip()) < 2:
         raise HTTPException(
-            status_code=400, detail="Query must be at least 2 characters"
+            status_code=400,
+            detail="Query must be at least 2 characters",
         )
 
     logger.debug("Geocoding search for: %s (use_mapbox=%s)", query, use_mapbox)
@@ -58,7 +74,10 @@ async def geocode_search(
             proximity = (proximity_lon, proximity_lat)
 
         results = await _geo_service.forward_geocode(
-            query, limit, proximity, prefer_mapbox=use_mapbox
+            query,
+            limit,
+            proximity,
+            prefer_mapbox=use_mapbox,
         )
 
         logger.info("Found %d results for query: %s", len(results), query)
@@ -70,13 +89,18 @@ async def geocode_search(
 
 @router.get("/streets")
 async def search_streets(
-    query: str = Query(..., description="Street name to search for"),
-    location_id: str = Query(
-        None, description="Optional coverage area ID to search within"
-    ),
-    limit: int = Query(10, ge=1, le=50, description="Maximum number of results"),
+    query: Annotated[str, Query(description="Street name to search for")],
+    location_id: Annotated[
+        str | None,
+        Query(description="Optional coverage area ID to search within"),
+    ] = None,
+    limit: Annotated[
+        int,
+        Query(ge=1, le=50, description="Maximum number of results"),
+    ] = 10,
 ):
-    """Search for streets by name, optionally within a coverage area.
+    """
+    Search for streets by name, optionally within a coverage area.
 
     Args:
         query: Street name query
@@ -88,7 +112,8 @@ async def search_streets(
     """
     if not query or len(query.strip()) < 2:
         raise HTTPException(
-            status_code=400, detail="Query must be at least 2 characters"
+            status_code=400,
+            detail="Query must be at least 2 characters",
         )
 
     try:
@@ -101,7 +126,8 @@ async def search_streets(
         location_name = coverage_area.location.get("display_name")
         if not location_name:
             logger.warning(
-                "Coverage area %s missing display_name in location", location_id
+                "Coverage area %s missing display_name in location",
+                location_id,
             )
             return []
 
@@ -110,7 +136,7 @@ async def search_streets(
                 "$match": {
                     "properties.location": location_name,
                     "properties.street_name": {"$regex": query, "$options": "i"},
-                }
+                },
             },
             {
                 "$group": {
@@ -120,7 +146,7 @@ async def search_streets(
                     "total_length": {"$sum": "$properties.segment_length"},
                     "segment_count": {"$sum": 1},
                     "driven_count": {"$sum": {"$cond": ["$properties.driven", 1, 0]}},
-                }
+                },
             },
             {"$limit": limit},
         ]
@@ -151,7 +177,7 @@ async def search_streets(
                             "total_length": street.get("total_length", 0),
                             "driven_count": street.get("driven_count", 0),
                         },
-                    }
+                    },
                 )
 
         logger.debug(
@@ -161,14 +187,18 @@ async def search_streets(
         )
         return features
     except Exception as e:
-        logger.error("Error in search_streets: %s", e)
+        logger.exception("Error in search_streets: %s", e)
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 async def _search_streets_in_coverage(
-    query: str, location_id: str, limit: int = 10
+    query: str,
+    location_id: str,
+    limit: int = 10,
 ) -> list[dict[str, Any]]:
-    """Search for streets within a specific coverage area, grouping segments by street name.
+    """
+    Search for streets within a specific coverage area, grouping segments by street
+    name.
 
     Args:
         query: Street name query (lowercase)
@@ -188,7 +218,8 @@ async def _search_streets_in_coverage(
         location_name = coverage_area.location.get("display_name")
         if not location_name:
             logger.warning(
-                "Coverage area %s missing display_name in location", location_id
+                "Coverage area %s missing display_name in location",
+                location_id,
             )
             return []
 
@@ -197,7 +228,7 @@ async def _search_streets_in_coverage(
                 "$match": {
                     "properties.location": location_name,
                     "properties.street_name": {"$regex": query, "$options": "i"},
-                }
+                },
             },
             {
                 "$group": {
@@ -207,7 +238,7 @@ async def _search_streets_in_coverage(
                     "total_length": {"$sum": "$properties.segment_length"},
                     "segment_count": {"$sum": 1},
                     "driven_count": {"$sum": {"$cond": ["$properties.driven", 1, 0]}},
-                }
+                },
             },
             {"$limit": limit},
         ]
@@ -237,7 +268,7 @@ async def _search_streets_in_coverage(
                             "total_length": street.get("total_length", 0),
                             "driven_count": street.get("driven_count", 0),
                         },
-                    }
+                    },
                 )
 
         return features

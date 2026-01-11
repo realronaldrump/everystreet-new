@@ -21,7 +21,9 @@
  * @returns {string} Escaped string safe for HTML insertion
  */
 export function escapeHtml(str) {
-  if (str === null || str === undefined) return "";
+  if (str === null || str === undefined) {
+    return "";
+  }
   const input = typeof str === "string" ? str : String(str);
   const map = {
     "&": "&amp;",
@@ -47,7 +49,9 @@ export function escapeHtml(str) {
  * @returns {string} Formatted number or "--" if invalid
  */
 export function formatNumber(num, decimals = 0) {
-  if (num === null || num === undefined || Number.isNaN(num)) return "--";
+  if (num === null || num === undefined || Number.isNaN(num)) {
+    return "--";
+  }
   return Number(num).toLocaleString(undefined, {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
@@ -61,7 +65,9 @@ export function formatNumber(num, decimals = 0) {
  * @returns {string} Formatted percentage string
  */
 export function formatPercentage(value, decimals = 1) {
-  if (value === null || value === undefined || Number.isNaN(value)) return "--";
+  if (value === null || value === undefined || Number.isNaN(value)) {
+    return "--";
+  }
   return `${Number(value).toFixed(decimals)}%`;
 }
 
@@ -75,7 +81,9 @@ export function formatPercentage(value, decimals = 1) {
  * @returns {string} Formatted distance or "--" if invalid
  */
 export function formatDistance(miles) {
-  if (miles === null || miles === undefined) return "--";
+  if (miles === null || miles === undefined) {
+    return "--";
+  }
   return `${parseFloat(miles).toFixed(1)} mi`;
 }
 
@@ -100,7 +108,9 @@ export function distanceInUserUnits(meters, fixed = 2) {
  * @returns {string} Formatted distance in miles
  */
 export function formatKmToMiles(km, decimals = 1) {
-  if (km === null || km === undefined) return "--";
+  if (km === null || km === undefined) {
+    return "--";
+  }
   const miles = km * 0.621371;
   return `${miles.toFixed(decimals)} mi`;
 }
@@ -116,12 +126,18 @@ export function formatKmToMiles(km, decimals = 1) {
  * @returns {string} Formatted duration (e.g., "2h 30m", "45m 30s", "30s")
  */
 export function formatDuration(seconds) {
-  if (!seconds && seconds !== 0) return "--";
+  if (!seconds && seconds !== 0) {
+    return "--";
+  }
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
   const s = Math.floor(seconds % 60);
-  if (h > 0) return `${h}h ${m}m`;
-  if (m > 0) return `${m}m ${s}s`;
+  if (h > 0) {
+    return `${h}h ${m}m`;
+  }
+  if (m > 0) {
+    return `${m}m ${s}s`;
+  }
   return `${s}s`;
 }
 
@@ -140,7 +156,9 @@ export function formatDurationMs(ms) {
  * @returns {string} Time in HH:MM:SS format
  */
 export function formatSecondsToHMS(seconds) {
-  if (typeof seconds !== "number" || Number.isNaN(seconds)) return "00:00:00";
+  if (typeof seconds !== "number" || Number.isNaN(seconds)) {
+    return "00:00:00";
+  }
   const totalSeconds = Math.max(0, Math.floor(seconds));
   const h = Math.floor(totalSeconds / 3600);
   const m = Math.floor((totalSeconds % 3600) / 60);
@@ -160,7 +178,9 @@ export function formatSecondsToHMS(seconds) {
  * @returns {string} Formatted time string
  */
 export function formatTimeFromHours(hours) {
-  if (hours === null || hours === undefined) return "--:--";
+  if (hours === null || hours === undefined) {
+    return "--:--";
+  }
   const h = Math.floor(hours);
   const m = Math.round((hours - h) * 60);
   const displayHour = h % 12 === 0 ? 12 : h % 12;
@@ -174,9 +194,15 @@ export function formatTimeFromHours(hours) {
  * @returns {string} Formatted hour (e.g., "2 PM")
  */
 export function formatHourLabel(hour) {
-  if (hour === 0) return "12 AM";
-  if (hour === 12) return "12 PM";
-  if (hour < 12) return `${hour} AM`;
+  if (hour === 0) {
+    return "12 AM";
+  }
+  if (hour === 12) {
+    return "12 PM";
+  }
+  if (hour < 12) {
+    return `${hour} AM`;
+  }
   return `${hour - 12} PM`;
 }
 
@@ -187,7 +213,9 @@ export function formatHourLabel(hour) {
  * @returns {number} Duration in seconds
  */
 export function parseDurationToSeconds(duration = "") {
-  if (!duration || duration === "N/A" || duration === "Unknown") return 0;
+  if (!duration || duration === "N/A" || duration === "Unknown") {
+    return 0;
+  }
 
   let seconds = 0;
   const dayMatch = duration.match(/(\d+)\s*d/);
@@ -195,10 +223,18 @@ export function parseDurationToSeconds(duration = "") {
   const minuteMatch = duration.match(/(\d+)\s*m/);
   const secondMatch = duration.match(/(\d+)\s*s/);
 
-  if (dayMatch) seconds += parseInt(dayMatch[1], 10) * 86400;
-  if (hourMatch) seconds += parseInt(hourMatch[1], 10) * 3600;
-  if (minuteMatch) seconds += parseInt(minuteMatch[1], 10) * 60;
-  if (secondMatch) seconds += parseInt(secondMatch[1], 10);
+  if (dayMatch) {
+    seconds += parseInt(dayMatch[1], 10) * 86400;
+  }
+  if (hourMatch) {
+    seconds += parseInt(hourMatch[1], 10) * 3600;
+  }
+  if (minuteMatch) {
+    seconds += parseInt(minuteMatch[1], 10) * 60;
+  }
+  if (secondMatch) {
+    seconds += parseInt(secondMatch[1], 10);
+  }
 
   return seconds;
 }
@@ -213,7 +249,9 @@ export function parseDurationToSeconds(duration = "") {
  * @returns {string} Locale-formatted date/time or "--" if invalid
  */
 export function formatDateTime(isoString) {
-  if (!isoString) return "--";
+  if (!isoString) {
+    return "--";
+  }
   return new Date(isoString).toLocaleString("en-US", { hour12: true });
 }
 
@@ -223,13 +261,19 @@ export function formatDateTime(isoString) {
  * @returns {string|null} Formatted date string or null if invalid
  */
 export function formatDateToString(date) {
-  if (!date) return null;
+  if (!date) {
+    return null;
+  }
   const d = typeof dayjs !== "undefined" ? dayjs(date) : null;
-  if (d?.isValid()) return d.format("YYYY-MM-DD");
+  if (d?.isValid()) {
+    return d.format("YYYY-MM-DD");
+  }
 
   // Fallback without dayjs
   const dateObj = date instanceof Date ? date : new Date(date);
-  if (Number.isNaN(dateObj.getTime())) return null;
+  if (Number.isNaN(dateObj.getTime())) {
+    return null;
+  }
   const year = dateObj.getFullYear();
   const month = String(dateObj.getMonth() + 1).padStart(2, "0");
   const day = String(dateObj.getDate()).padStart(2, "0");
@@ -244,7 +288,9 @@ export function formatDateToString(date) {
  */
 export function formatForDisplay(dateString, options = { dateStyle: "medium" }) {
   const d = typeof dayjs !== "undefined" ? dayjs(dateString) : null;
-  if (!d || !d.isValid()) return dateString || "";
+  if (!d || !d.isValid()) {
+    return dateString || "";
+  }
 
   const formatterOptions = { ...options };
   return new Intl.DateTimeFormat("en-US", formatterOptions).format(d.toDate());
@@ -257,14 +303,19 @@ export function formatForDisplay(dateString, options = { dateStyle: "medium" }) 
  * @returns {string} Formatted week range
  */
 export function formatWeekRange(weekStr) {
-  if (!weekStr) return "N/A";
+  if (!weekStr) {
+    return "N/A";
+  }
 
   const [year, week] = weekStr.split("-W");
   const simple = new Date(parseInt(year, 10), 0, 1 + (parseInt(week, 10) - 1) * 7);
   const dow = simple.getDay();
   const ISOweekStart = simple;
-  if (dow <= 4) ISOweekStart.setDate(simple.getDate() - simple.getDay() + 1);
-  else ISOweekStart.setDate(simple.getDate() + 8 - simple.getDay());
+  if (dow <= 4) {
+    ISOweekStart.setDate(simple.getDate() - simple.getDay() + 1);
+  } else {
+    ISOweekStart.setDate(simple.getDate() + 8 - simple.getDay());
+  }
 
   const ISOweekEnd = new Date(ISOweekStart);
   ISOweekEnd.setDate(ISOweekEnd.getDate() + 6);
@@ -280,7 +331,9 @@ export function formatWeekRange(weekStr) {
  * @returns {string} Formatted month string
  */
 export function formatMonth(monthStr) {
-  if (!monthStr) return "N/A";
+  if (!monthStr) {
+    return "N/A";
+  }
 
   const [year, month] = monthStr.split("-");
   const date = new Date(parseInt(year, 10), parseInt(month, 10) - 1);
@@ -298,23 +351,35 @@ export function formatMonth(monthStr) {
  * @returns {string} Relative time string
  */
 export function formatTimeAgo(dateInput, abbreviated = false) {
-  if (!dateInput) return "Never";
+  if (!dateInput) {
+    return "Never";
+  }
 
   const date = dateInput instanceof Date ? dateInput : new Date(dateInput);
-  if (Number.isNaN(date.getTime())) return "Never";
+  if (Number.isNaN(date.getTime())) {
+    return "Never";
+  }
 
   const now = new Date();
   const diffMs = now - date;
   const seconds = Math.floor(diffMs / 1000);
 
-  if (seconds < 5) return "just now";
+  if (seconds < 5) {
+    return "just now";
+  }
 
   if (abbreviated) {
-    if (seconds < 60) return `${seconds}s ago`;
+    if (seconds < 60) {
+      return `${seconds}s ago`;
+    }
     const minutes = Math.floor(seconds / 60);
-    if (minutes < 60) return `${minutes}m ago`;
+    if (minutes < 60) {
+      return `${minutes}m ago`;
+    }
     const hours = Math.floor(minutes / 60);
-    if (hours < 24) return `${hours}h ago`;
+    if (hours < 24) {
+      return `${hours}h ago`;
+    }
     const days = Math.floor(hours / 24);
     return `${days}d ago`;
   }
@@ -326,11 +391,14 @@ export function formatTimeAgo(dateInput, abbreviated = false) {
 
   if (days > 7) {
     return date.toLocaleDateString();
-  } else if (days > 0) {
+  }
+  if (days > 0) {
     return `${days} day${days > 1 ? "s" : ""} ago`;
-  } else if (hours > 0) {
+  }
+  if (hours > 0) {
     return `${hours} hour${hours > 1 ? "s" : ""} ago`;
-  } else if (minutes > 0) {
+  }
+  if (minutes > 0) {
     return `${minutes} minute${minutes > 1 ? "s" : ""} ago`;
   }
   return "Just now";
@@ -355,8 +423,12 @@ export function formatRelativeTime(dateString) {
  * @returns {string} Formatted vehicle name
  */
 export function formatVehicleName(vehicle) {
-  if (!vehicle) return "Unknown";
-  if (vehicle.custom_name) return vehicle.custom_name;
+  if (!vehicle) {
+    return "Unknown";
+  }
+  if (vehicle.custom_name) {
+    return vehicle.custom_name;
+  }
   if (vehicle.year || vehicle.make || vehicle.model) {
     return `${vehicle.year || ""} ${vehicle.make || ""} ${vehicle.model || ""}`.trim();
   }
@@ -369,14 +441,18 @@ export function formatVehicleName(vehicle) {
  * @returns {string} Sanitized location string
  */
 export function sanitizeLocation(location) {
-  if (!location) return "Unknown";
-  if (typeof location === "string") return location;
+  if (!location) {
+    return "Unknown";
+  }
+  if (typeof location === "string") {
+    return location;
+  }
   if (typeof location === "object") {
     return (
-      location.formatted_address ||
-      location.name ||
-      [location.street, location.city, location.state].filter(Boolean).join(", ") ||
-      "Unknown"
+      location.formatted_address
+      || location.name
+      || [location.street, location.city, location.state].filter(Boolean).join(", ")
+      || "Unknown"
     );
   }
   return "Unknown";
@@ -389,7 +465,9 @@ export function sanitizeLocation(location) {
  * @returns {string} Formatted street type
  */
 export function formatStreetType(type) {
-  if (!type) return "Unknown";
+  if (!type) {
+    return "Unknown";
+  }
   return type.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
 }
 
@@ -406,9 +484,13 @@ export function formatVehicleSpeed(speed) {
   const validSpeed = typeof speed === "number" ? speed : parseFloat(speed) || 0;
 
   let status = "stopped";
-  if (validSpeed > 35) status = "fast";
-  else if (validSpeed > 10) status = "medium";
-  else if (validSpeed > 0) status = "slow";
+  if (validSpeed > 35) {
+    status = "fast";
+  } else if (validSpeed > 10) {
+    status = "medium";
+  } else if (validSpeed > 0) {
+    status = "slow";
+  }
 
   return {
     value: validSpeed.toFixed(1),

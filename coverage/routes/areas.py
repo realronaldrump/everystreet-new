@@ -1,4 +1,5 @@
-"""Route handlers for coverage area management.
+"""
+Route handlers for coverage area management.
 
 Handles CRUD operations for coverage areas and their details.
 """
@@ -40,7 +41,8 @@ async def get_coverage_areas():
             exc_info=True,
         )
         return JSONResponse(
-            status_code=500, content={"success": False, "error": str(e)}
+            status_code=500,
+            content={"success": False, "error": str(e)},
         )
 
 
@@ -109,7 +111,7 @@ async def preprocess_streets_route(location_data: LocationModel):
             )
 
         existing = await CoverageMetadata.find_one(
-            {"location.display_name": display_name}
+            {"location.display_name": display_name},
         )
         if existing and existing.status in {
             "processing",
@@ -186,14 +188,14 @@ async def preprocess_streets_route(location_data: LocationModel):
         try:
             if display_name:
                 existing = await CoverageMetadata.find_one(
-                    {"location.display_name": display_name}
+                    {"location.display_name": display_name},
                 )
                 if existing:
                     existing.status = "error"
                     existing.last_error = str(e)
                     await existing.save()
         except Exception as db_err:
-            logger.error(
+            logger.exception(
                 "Failed to update error status for %s: %s",
                 display_name,
                 db_err,
@@ -216,7 +218,7 @@ async def delete_coverage_area(location: DeleteCoverageAreaModel):
             )
 
         coverage_metadata = await CoverageMetadata.find_one(
-            {"location.display_name": display_name}
+            {"location.display_name": display_name},
         )
 
         if not coverage_metadata:
@@ -294,7 +296,7 @@ async def cancel_coverage_area(location: DeleteCoverageAreaModel):
             )
 
         coverage = await CoverageMetadata.find_one(
-            {"location.display_name": display_name}
+            {"location.display_name": display_name},
         )
         if coverage:
             coverage.status = "canceled"

@@ -1,7 +1,8 @@
-"""Profile API endpoints for managing user configuration.
+"""
+Profile API endpoints for managing user configuration.
 
-This module provides API endpoints for managing Bouncie credentials
-and other user-specific settings.
+This module provides API endpoints for managing Bouncie credentials and other user-
+specific settings.
 """
 
 from __future__ import annotations
@@ -40,7 +41,8 @@ class BouncieCredentials(BaseModel):
 
 @router.get("/api/profile/bouncie-credentials")
 async def get_credentials():
-    """Get current Bouncie credentials.
+    """
+    Get current Bouncie credentials.
 
     Returns credentials with masked secrets for display purposes.
     """
@@ -72,7 +74,8 @@ async def get_credentials():
 
 @router.post("/api/profile/bouncie-credentials")
 async def update_credentials(credentials: BouncieCredentials):
-    """Update Bouncie credentials.
+    """
+    Update Bouncie credentials.
 
     Args:
         credentials: New credential values to store
@@ -107,7 +110,8 @@ async def update_credentials(credentials: BouncieCredentials):
 
 @router.get("/api/profile/bouncie-credentials/unmask")
 async def get_credentials_unmasked():
-    """Get current Bouncie credentials without masking.
+    """
+    Get current Bouncie credentials without masking.
 
     Use with caution - returns sensitive data.
     """
@@ -124,7 +128,8 @@ async def get_credentials_unmasked():
 
 @router.post("/api/profile/bouncie-credentials/sync-vehicles")
 async def sync_vehicles_from_bouncie():
-    """Fetch all vehicles from Bouncie and update local records.
+    """
+    Fetch all vehicles from Bouncie and update local records.
 
     This will:
     1. Authenticate with Bouncie using stored credentials
@@ -178,7 +183,8 @@ async def sync_vehicles_from_bouncie():
 
         if not token:
             raise HTTPException(
-                status_code=500, detail="No access token received from Bouncie"
+                status_code=500,
+                detail="No access token received from Bouncie",
             )
 
         # 2. Fetch Vehicles
@@ -191,7 +197,9 @@ async def sync_vehicles_from_bouncie():
             if resp.status != 200:
                 error_text = await resp.text()
                 logger.error(
-                    "Failed to fetch vehicles: %s - %s", resp.status, error_text
+                    "Failed to fetch vehicles: %s - %s",
+                    resp.status,
+                    error_text,
                 )
                 raise HTTPException(
                     status_code=502,
@@ -312,7 +320,8 @@ class AppSettingsModel(BaseModel):
 
 @router.get("/api/profile/app-settings")
 async def get_settings():
-    """Get current app settings.
+    """
+    Get current app settings.
 
     Returns settings with masked Mapbox token for display purposes.
     """
@@ -342,7 +351,8 @@ async def get_settings():
 
 @router.post("/api/profile/app-settings")
 async def update_settings(settings: AppSettingsModel):
-    """Update app settings.
+    """
+    Update app settings.
 
     Args:
         settings: New settings values to store
@@ -388,7 +398,8 @@ async def update_settings(settings: AppSettingsModel):
 
 @router.get("/api/profile/app-settings/unmask")
 async def get_settings_unmasked():
-    """Get current app settings without masking.
+    """
+    Get current app settings without masking.
 
     Use with caution - returns sensitive data.
     """

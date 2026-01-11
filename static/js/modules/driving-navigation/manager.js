@@ -135,9 +135,9 @@ export class DrivingNavigation {
       const buttonsToEnable = [this.ui.findBtn, this.ui.findEfficientBtn];
       buttonsToEnable.forEach((btn) => {
         if (
-          btn?.disabled &&
-          btn.dataset.disabledReason === "no-location" &&
-          this.selectedArea
+          btn?.disabled
+          && btn.dataset.disabledReason === "no-location"
+          && this.selectedArea
         ) {
           btn.disabled = false;
           delete btn.dataset.disabledReason;
@@ -192,8 +192,8 @@ export class DrivingNavigation {
     try {
       const areaMatch = this.coverageAreas.find(
         (area) =>
-          String(area._id || area.id || "") === selectedValue ||
-          String(area.location?.id || "") === selectedValue
+          String(area._id || area.id || "") === selectedValue
+          || String(area.location?.id || "") === selectedValue
       );
 
       if (areaMatch) {
@@ -310,7 +310,9 @@ export class DrivingNavigation {
       this.ui.setStatus("Please select an area first.", true);
       return;
     }
-    if (this.isFetchingRoute) return;
+    if (this.isFetchingRoute) {
+      return;
+    }
 
     this.isFetchingRoute = true;
     const originalHtml = this.ui.setButtonLoading(this.ui.findBtn, "Finding Route...");
@@ -341,9 +343,9 @@ export class DrivingNavigation {
           notificationManager.show(data.message, "success");
         }
       } else if (
-        data.status === "success" &&
-        data.route_geometry &&
-        data.target_street
+        data.status === "success"
+        && data.route_geometry
+        && data.target_street
       ) {
         this.ui.setActiveStep("rendering");
         this.displayRoute(data);
@@ -371,7 +373,9 @@ export class DrivingNavigation {
    * @param {Object} data - Route data from API
    */
   displayRoute(data) {
-    if (!this.mapManager.isReady()) return;
+    if (!this.mapManager.isReady()) {
+      return;
+    }
 
     // Set route data on map
     if (data.route_geometry) {
@@ -551,7 +555,9 @@ export class DrivingNavigation {
    * @param {string} segmentId - The segment ID to navigate to
    */
   async findRouteToSegment(segmentId) {
-    if (!this.selectedArea || !segmentId) return;
+    if (!this.selectedArea || !segmentId) {
+      return;
+    }
 
     this.ui.setStatus(`Calculating route to segment #${segmentId}...`);
     this.ui.setNavigationButtonsEnabled(false);
@@ -599,7 +605,9 @@ export class DrivingNavigation {
    * Open the current route in Google Maps.
    */
   openInGoogleMaps() {
-    if (!this.currentRoute) return;
+    if (!this.currentRoute) {
+      return;
+    }
     const { start, end } = this.currentRoute;
     window.open(
       `https://www.google.com/maps/dir/?api=1&origin=${start.lat},${start.lng}&destination=${end.lat},${end.lng}&travelmode=driving`,
@@ -611,7 +619,9 @@ export class DrivingNavigation {
    * Open the current route in Apple Maps.
    */
   openInAppleMaps() {
-    if (!this.currentRoute) return;
+    if (!this.currentRoute) {
+      return;
+    }
     const { start, end } = this.currentRoute;
     window.open(
       `maps://maps.apple.com/?daddr=${end.lat},${end.lng}&saddr=${start.lat},${start.lng}`,

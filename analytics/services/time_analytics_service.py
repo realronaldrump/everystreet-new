@@ -14,9 +14,12 @@ class TimeAnalyticsService:
 
     @staticmethod
     async def get_time_period_trips(
-        query: dict[str, Any], time_type: str, time_value: int
+        query: dict[str, Any],
+        time_type: str,
+        time_value: int,
     ) -> list[dict[str, Any]]:
-        """Get trips for a specific time period (hour or day of week).
+        """
+        Get trips for a specific time period (hour or day of week).
 
         Args:
             query: MongoDB query filter
@@ -40,9 +43,9 @@ class TimeAnalyticsService:
                         "$eq": [
                             {"$hour": {"date": "$startTime", "timezone": tz_expr}},
                             time_value,
-                        ]
+                        ],
                     },
-                ]
+                ],
             }
         elif time_type == "day":
             # Convert JavaScript day (0=Sunday) to MongoDB day (1=Sunday)
@@ -54,12 +57,13 @@ class TimeAnalyticsService:
                         "$eq": [
                             {"$dayOfWeek": {"date": "$startTime", "timezone": tz_expr}},
                             mongo_day,
-                        ]
+                        ],
                     },
-                ]
+                ],
             }
         else:
-            raise ValueError("time_type must be 'hour' or 'day'")
+            msg = "time_type must be 'hour' or 'day'"
+            raise ValueError(msg)
 
         pipeline = [
             {"$match": query},
@@ -72,18 +76,18 @@ class TimeAnalyticsService:
                                     {"$ifNull": ["$startTime", False]},
                                     {"$ifNull": ["$endTime", False]},
                                     {"$lt": ["$startTime", "$endTime"]},
-                                ]
+                                ],
                             },
                             "then": {
                                 "$divide": [
                                     {"$subtract": ["$endTime", "$startTime"]},
                                     1000.0,
-                                ]
+                                ],
                             },
                             "else": {"$ifNull": ["$duration", 0]},
-                        }
-                    }
-                }
+                        },
+                    },
+                },
             },
             {
                 "$project": {
@@ -99,11 +103,10 @@ class TimeAnalyticsService:
                     "totalIdleDuration": 1,
                     "fuelConsumed": 1,
                     "timeZone": 1,
-                }
+                },
             },
             {"$sort": {"startTime": -1}},
             {"$limit": 100},
         ]
 
-        trips = await Trip.aggregate(pipeline).to_list()
-        return trips
+        return await Trip.aggregate(pipeline).to_list()

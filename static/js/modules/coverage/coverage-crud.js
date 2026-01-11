@@ -28,8 +28,8 @@ export class CoverageCRUD {
    */
   async addCoverageArea() {
     if (
-      !this.validator.validatedLocation ||
-      !this.validator.validatedLocation.display_name
+      !this.validator.validatedLocation
+      || !this.validator.validatedLocation.display_name
     ) {
       this.notificationManager.show("Please validate a location first.", "warning");
       return;
@@ -38,7 +38,9 @@ export class CoverageCRUD {
     const addButton = document.getElementById("add-coverage-area");
     const modal = bootstrap.Modal.getInstance(document.getElementById("addAreaModal"));
 
-    if (!addButton) return;
+    if (!addButton) {
+      return;
+    }
 
     const originalButtonContent = addButton.innerHTML;
     addButton.disabled = true;
@@ -48,17 +50,23 @@ export class CoverageCRUD {
     const segLenEl = document.getElementById("segment-length-input");
     if (segLenEl?.value) {
       const val = parseInt(segLenEl.value, 10);
-      if (!Number.isNaN(val) && val > 0) locationToAdd.segment_length_feet = val;
+      if (!Number.isNaN(val) && val > 0) {
+        locationToAdd.segment_length_feet = val;
+      }
     }
     const bufEl = document.getElementById("match-buffer-input");
     if (bufEl?.value) {
       const v = parseFloat(bufEl.value);
-      if (!Number.isNaN(v) && v > 0) locationToAdd.match_buffer_feet = v;
+      if (!Number.isNaN(v) && v > 0) {
+        locationToAdd.match_buffer_feet = v;
+      }
     }
     const minEl = document.getElementById("min-match-length-input");
     if (minEl?.value) {
       const v2 = parseFloat(minEl.value);
-      if (!Number.isNaN(v2) && v2 > 0) locationToAdd.min_match_length_feet = v2;
+      if (!Number.isNaN(v2) && v2 > 0) {
+        locationToAdd.min_match_length_feet = v2;
+      }
     }
 
     try {
@@ -72,7 +80,9 @@ export class CoverageCRUD {
         return;
       }
 
-      if (modal) modal.hide();
+      if (modal) {
+        modal.hide();
+      }
 
       this.currentProcessingLocation = locationToAdd;
       this.progress.currentProcessingLocation = locationToAdd;
@@ -136,8 +146,8 @@ export class CoverageCRUD {
    */
   async addCustomCoverageArea() {
     if (
-      !this.validator.validatedCustomBoundary ||
-      !this.validator.validatedCustomBoundary.display_name
+      !this.validator.validatedCustomBoundary
+      || !this.validator.validatedCustomBoundary.display_name
     ) {
       this.notificationManager.show(
         "Please validate your custom boundary first.",
@@ -149,7 +159,9 @@ export class CoverageCRUD {
     const addButton = document.getElementById("add-custom-area");
     const modal = bootstrap.Modal.getInstance(document.getElementById("addAreaModal"));
 
-    if (!addButton) return;
+    if (!addButton) {
+      return;
+    }
 
     const originalButtonContent = addButton.innerHTML;
     addButton.disabled = true;
@@ -159,17 +171,23 @@ export class CoverageCRUD {
     const segLenEl2 = document.getElementById("segment-length-input");
     if (segLenEl2?.value) {
       const val2 = parseInt(segLenEl2.value, 10);
-      if (!Number.isNaN(val2) && val2 > 0) customAreaToAdd.segment_length_feet = val2;
+      if (!Number.isNaN(val2) && val2 > 0) {
+        customAreaToAdd.segment_length_feet = val2;
+      }
     }
     const bufElC = document.getElementById("match-buffer-input");
     if (bufElC?.value) {
       const v = parseFloat(bufElC.value);
-      if (!Number.isNaN(v) && v > 0) customAreaToAdd.match_buffer_feet = v;
+      if (!Number.isNaN(v) && v > 0) {
+        customAreaToAdd.match_buffer_feet = v;
+      }
     }
     const minElC = document.getElementById("min-match-length-input");
     if (minElC?.value) {
       const v2 = parseFloat(minElC.value);
-      if (!Number.isNaN(v2) && v2 > 0) customAreaToAdd.min_match_length_feet = v2;
+      if (!Number.isNaN(v2) && v2 > 0) {
+        customAreaToAdd.min_match_length_feet = v2;
+      }
     }
 
     try {
@@ -186,7 +204,9 @@ export class CoverageCRUD {
         return;
       }
 
-      if (modal) modal.hide();
+      if (modal) {
+        modal.hide();
+      }
 
       this.currentProcessingLocation = customAreaToAdd;
       this.progress.currentProcessingLocation = customAreaToAdd;
@@ -272,8 +292,8 @@ export class CoverageCRUD {
       const locationData = await COVERAGE_API.getArea(locationId);
 
       if (
-        this.currentProcessingLocation?.display_name ===
-        locationData.location.display_name
+        this.currentProcessingLocation?.display_name
+        === locationData.location.display_name
       ) {
         this.notificationManager.show(
           `Update already in progress for ${locationData.location.display_name}.`,
@@ -292,8 +312,8 @@ export class CoverageCRUD {
       this.progress.currentTaskId = null;
       this.progress._addBeforeUnloadListener();
 
-      const isUpdatingDisplayedLocation =
-        this.manager.dashboard.selectedLocation?._id === locationId;
+      const isUpdatingDisplayedLocation
+        = this.manager.dashboard.selectedLocation?._id === locationId;
 
       this.progress.showProgressModal(
         `Requesting ${mode} update for ${processingLocation.display_name}...`
@@ -366,7 +386,9 @@ export class CoverageCRUD {
       confirmButtonClass: "btn-danger",
     });
 
-    if (!confirmed) return;
+    if (!confirmed) {
+      return;
+    }
 
     this.notificationManager.show(
       `Attempting to cancel processing for ${locationToCancel.display_name}...`,
@@ -419,7 +441,9 @@ export class CoverageCRUD {
       confirmButtonClass: "btn-danger",
     });
 
-    if (!confirmed) return;
+    if (!confirmed) {
+      return;
+    }
 
     try {
       this.notificationManager.show(
@@ -432,8 +456,8 @@ export class CoverageCRUD {
       await this.manager.loadCoverageAreas();
 
       if (
-        this.manager.dashboard.selectedLocation?.location?.display_name ===
-        location.display_name
+        this.manager.dashboard.selectedLocation?.location?.display_name
+        === location.display_name
       ) {
         this.manager.dashboard.closeCoverageDashboard();
       }
@@ -460,23 +484,25 @@ export class CoverageCRUD {
     try {
       const data = await COVERAGE_API.getArea(locationId);
       const { location } = data;
-      if (!location.display_name) throw new Error("Missing location");
+      if (!location.display_name) {
+        throw new Error("Missing location");
+      }
 
       const metersToFeet = (value) => value * 3.28084;
       const defaults = {
         segment:
-          location.segment_length_feet ||
-          (location.segment_length_meters
+          location.segment_length_feet
+          || (location.segment_length_meters
             ? metersToFeet(location.segment_length_meters)
             : 300),
         buffer:
-          location.match_buffer_feet ||
-          (location.match_buffer_meters
+          location.match_buffer_feet
+          || (location.match_buffer_meters
             ? metersToFeet(location.match_buffer_meters)
             : 50),
         min:
-          location.min_match_length_feet ||
-          (location.min_match_length_meters
+          location.min_match_length_feet
+          || (location.min_match_length_meters
             ? metersToFeet(location.min_match_length_meters)
             : 15),
       };
@@ -484,7 +510,9 @@ export class CoverageCRUD {
         location.display_name,
         defaults
       );
-      if (settings === null) return;
+      if (settings === null) {
+        return;
+      }
 
       location.segment_length_feet = settings.segment;
       location.match_buffer_feet = settings.buffer;
@@ -495,13 +523,13 @@ export class CoverageCRUD {
         0
       );
 
-      const isCustom =
-        location.osm_type === "custom" || location.boundary_type === "custom";
+      const isCustom
+        = location.osm_type === "custom" || location.boundary_type === "custom";
       let taskData = null;
 
       if (isCustom) {
-        const geometry =
-          location.geojson?.geometry || location.geojson || location.geometry;
+        const geometry
+          = location.geojson?.geometry || location.geojson || location.geometry;
         if (!geometry) {
           throw new Error("Custom boundary is missing geometry");
         }

@@ -1,5 +1,6 @@
 import logging
 from datetime import datetime, timedelta
+from typing import Annotated
 
 from fastapi import APIRouter, Body, HTTPException, status
 from pydantic import BaseModel
@@ -148,9 +149,11 @@ async def get_background_tasks_config():
 
 @router.post("/api/background_tasks/pause")
 async def pause_background_tasks(
-    data: dict[str, object] = Body(default={"duration": 30}),
+    data: Annotated[dict[str, object] | None, Body()] = None,
 ):
     """Pause all background tasks for a specified duration."""
+    if data is None:
+        data = {"duration": 30}
     minutes = int(data.get("duration", 30))
     return await _task_schedule_action(
         {"globalDisable": True},
@@ -173,7 +176,7 @@ async def resume_background_tasks():
 
 @router.post("/api/background_tasks/run")
 async def run_background_task(
-    data: dict = Body(...),
+    data: Annotated[dict, Body()],
 ):
     """Manually trigger a background task."""
     task_id = data.get("task_id")
@@ -389,15 +392,14 @@ async def clear_task_history():
 
 
 @router.post("/api/background_tasks/reset")
-async def reset_task(data: dict = Body(...)):
+async def reset_task(data: Annotated[dict, Body()]):
     """Force reset a stuck task."""
     task_id = data.get("task_id")
-    result = await force_reset_task(task_id)
-    return result
+    return await force_reset_task(task_id)
 
 
 @router.post("/api/background_tasks/update_schedule")
-async def update_task_schedule_endpoint(data: dict = Body(...)):
+async def update_task_schedule_endpoint(data: Annotated[dict, Body()]):
     """Update a single task's schedule."""
     task_id = data.get("task_id")
     if not task_id:
@@ -418,12 +420,11 @@ async def update_task_schedule_endpoint(data: dict = Body(...)):
 async def fetch_trips_manual(data: FetchTripsRangeRequest):
     """Manually trigger trip fetching for a date range."""
     try:
-        result = await trigger_manual_fetch_trips_range(
+        return await trigger_manual_fetch_trips_range(
             data.start_date,
             data.end_date,
             data.map_match,
         )
-        return result
     except Exception as e:
         logger.exception("Error fetching trips manually: %s", e)
         raise HTTPException(
@@ -436,8 +437,7 @@ async def fetch_trips_manual(data: FetchTripsRangeRequest):
 async def fetch_missing_trips():
     """Manually trigger fetch all missing trips task."""
     try:
-        result = await trigger_fetch_all_missing_trips()
-        return result
+        return await trigger_fetch_all_missing_trips()
     except Exception as e:
         logger.exception("Error fetching missing trips: %s", e)
         raise HTTPException(

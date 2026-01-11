@@ -1,4 +1,5 @@
-"""Exports package for trip and geo data export functionality.
+"""
+Exports package for trip and geo data export functionality.
 
 This package provides modular export functionality including:
 - Trip exports (GeoJSON, GPX, CSV, JSON, Shapefile)

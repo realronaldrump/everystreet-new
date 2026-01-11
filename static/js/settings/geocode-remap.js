@@ -6,7 +6,9 @@
 
 export function setupManualFetchTripsForm(taskManager) {
   const form = document.getElementById("manualFetchTripsForm");
-  if (!form) return;
+  if (!form) {
+    return;
+  }
 
   const startInput = document.getElementById("manual-fetch-start");
   const endInput = document.getElementById("manual-fetch-end");
@@ -15,15 +17,21 @@ export function setupManualFetchTripsForm(taskManager) {
 
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
-    if (!taskManager) return;
+    if (!taskManager) {
+      return;
+    }
 
     const startValue = startInput?.value;
     const endValue = endInput?.value;
 
-    if (statusEl) statusEl.textContent = "";
+    if (statusEl) {
+      statusEl.textContent = "";
+    }
 
     if (!startValue || !endValue) {
-      if (statusEl) statusEl.textContent = "Please select both start and end dates.";
+      if (statusEl) {
+        statusEl.textContent = "Please select both start and end dates.";
+      }
       return;
     }
 
@@ -33,32 +41,42 @@ export function setupManualFetchTripsForm(taskManager) {
     const endDate = new Date(endValue);
 
     if (
-      !startDate ||
-      !endDate ||
-      Number.isNaN(startDate.getTime()) ||
-      Number.isNaN(endDate.getTime())
+      !startDate
+      || !endDate
+      || Number.isNaN(startDate.getTime())
+      || Number.isNaN(endDate.getTime())
     ) {
-      if (statusEl) statusEl.textContent = "Invalid date selection.";
+      if (statusEl) {
+        statusEl.textContent = "Invalid date selection.";
+      }
       return;
     }
 
     if (endDate.getTime() <= startDate.getTime()) {
-      if (statusEl) statusEl.textContent = "End date must be after the start date.";
+      if (statusEl) {
+        statusEl.textContent = "End date must be after the start date.";
+      }
       return;
     }
 
     const mapMatchEnabled = Boolean(mapMatchInput?.checked);
 
     try {
-      if (statusEl) statusEl.textContent = "Scheduling fetch...";
+      if (statusEl) {
+        statusEl.textContent = "Scheduling fetch...";
+      }
       await taskManager.scheduleManualFetch(
         startDate.toISOString(),
         endDate.toISOString(),
         mapMatchEnabled
       );
-      if (statusEl) statusEl.textContent = "Fetch scheduled successfully.";
+      if (statusEl) {
+        statusEl.textContent = "Fetch scheduled successfully.";
+      }
     } catch (error) {
-      if (statusEl) statusEl.textContent = `Error: ${error.message}`;
+      if (statusEl) {
+        statusEl.textContent = `Error: ${error.message}`;
+      }
     }
   });
 }
@@ -74,7 +92,9 @@ export function setupGeocodeTrips() {
   const progressMetrics = document.getElementById("geocode-progress-metrics");
   const statusEl = document.getElementById("geocode-trips-status");
 
-  if (!geocodeType || !geocodeBtn) return;
+  if (!geocodeType || !geocodeBtn) {
+    return;
+  }
 
   // Handle method selection
   geocodeType.addEventListener("change", function () {
@@ -93,7 +113,9 @@ export function setupGeocodeTrips() {
 
   // Handle button click
   geocodeBtn.addEventListener("mousedown", async (e) => {
-    if (e.button !== 0) return;
+    if (e.button !== 0) {
+      return;
+    }
 
     const method = geocodeType.value;
     let start_date = "";
@@ -156,8 +178,8 @@ export function setupGeocodeTrips() {
           if (!progressResponse.ok) {
             clearInterval(pollInterval);
             geocodeBtn.disabled = false;
-            const errorMessage =
-              progressResponse.status === 404
+            const errorMessage
+              = progressResponse.status === 404
                 ? "Geocoding task not found."
                 : "Unable to retrieve geocoding progress.";
             if (statusEl) {
@@ -266,7 +288,9 @@ export function setupRemapMatchedTrips() {
   const remapType = document.getElementById("remap-type");
   const dateRangeDiv = document.getElementById("remap-date-range");
   const intervalDiv = document.getElementById("remap-interval");
-  if (!remapType || !dateRangeDiv || !intervalDiv) return;
+  if (!remapType || !dateRangeDiv || !intervalDiv) {
+    return;
+  }
 
   remapType.addEventListener("change", function () {
     dateRangeDiv.style.display = this.value === "date" ? "block" : "none";
@@ -274,10 +298,14 @@ export function setupRemapMatchedTrips() {
   });
 
   const remapBtn = document.getElementById("remap-btn");
-  if (!remapBtn) return;
+  if (!remapBtn) {
+    return;
+  }
 
   remapBtn.addEventListener("mousedown", async (e) => {
-    if (e.button !== 0) return;
+    if (e.button !== 0) {
+      return;
+    }
     const method = remapType.value;
     let start_date = "";
     let end_date = "";

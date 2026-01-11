@@ -1,7 +1,8 @@
-"""Mathematical utilities for circular statistics.
+"""
+Mathematical utilities for circular statistics.
 
-This module provides specialized mathematical functions for circular data
-(e.g., hours of the day, compass directions).
+This module provides specialized mathematical functions for circular data (e.g., hours
+of the day, compass directions).
 """
 
 from __future__ import annotations
@@ -13,7 +14,8 @@ import statistics
 def calculate_circular_average_hour(
     hours_list: list[float],
 ) -> float:
-    """Calculate the circular average of a list of hours (0-23).
+    """
+    Calculate the circular average of a list of hours (0-23).
 
     This function properly handles the circular nature of hours, where
     23:59 is close to 00:01. Standard averaging would fail for times

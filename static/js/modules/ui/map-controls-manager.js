@@ -20,11 +20,13 @@ const mapControlsManager = {
     // Apply persisted settings on load - wait for map to be initialized
     let settingsApplied = false;
     const applySettings = () => {
-      if (settingsApplied) return;
+      if (settingsApplied) {
+        return;
+      }
       if (
-        state.map &&
-        state.mapInitialized &&
-        typeof state.map.setStyle === "function"
+        state.map
+        && state.mapInitialized
+        && typeof state.map.setStyle === "function"
       ) {
         settingsApplied = true;
         this.updateMapType(mapTypeSelect?.value);
@@ -51,7 +53,9 @@ const mapControlsManager = {
 
   toggleControlPanel() {
     const panel = uiState.getElement(CONFIG.selectors.mapControls);
-    if (!panel) return;
+    if (!panel) {
+      return;
+    }
     panel.classList.toggle(CONFIG.classes.open);
     const isOpen = panel.classList.contains(CONFIG.classes.open);
     utils.setStorage(CONFIG.storage.mapControlsOpen, isOpen);
@@ -60,7 +64,9 @@ const mapControlsManager = {
 
   updateMapType(type = "dark") {
     const map = state.map || window.map;
-    if (!map || !state.mapInitialized) return;
+    if (!map || !state.mapInitialized) {
+      return;
+    }
     if (typeof map.setStyle !== "function") {
       console.warn("Map setStyle method not available yet");
       return;
@@ -68,8 +74,8 @@ const mapControlsManager = {
     utils.setStorage(CONFIG.storage.mapType, type);
     try {
       // Use style from CONFIG if available, fallback to default pattern
-      const styleUrl =
-        MAP_CONFIG.MAP.styles[type] || `mapbox://styles/mapbox/${type}-v11`;
+      const styleUrl
+        = MAP_CONFIG.MAP.styles[type] || `mapbox://styles/mapbox/${type}-v11`;
       map.setStyle(styleUrl);
       eventManager.emit("mapTypeChanged", { type });
     } catch (error) {

@@ -107,10 +107,18 @@ export class CoverageModals {
       const confirmBtn = modalEl.querySelector("#segment-length-confirm-btn");
       const cancelBtn = modalEl.querySelector("#segment-length-cancel-btn");
 
-      if (segEl) segEl.value = defaults.segment;
-      if (bufEl) bufEl.value = defaults.buffer;
-      if (minEl) minEl.value = defaults.min;
-      if (titleEl) titleEl.textContent = `Re-segment Streets for ${locationName}`;
+      if (segEl) {
+        segEl.value = defaults.segment;
+      }
+      if (bufEl) {
+        bufEl.value = defaults.buffer;
+      }
+      if (minEl) {
+        minEl.value = defaults.min;
+      }
+      if (titleEl) {
+        titleEl.textContent = `Re-segment Streets for ${locationName}`;
+      }
 
       const bsModal = new bootstrap.Modal(modalEl, { backdrop: "static" });
 
@@ -121,12 +129,12 @@ export class CoverageModals {
         cleanup();
         bsModal.hide();
         if (
-          Number.isNaN(segVal) ||
-          segVal <= 0 ||
-          Number.isNaN(bufVal) ||
-          bufVal <= 0 ||
-          Number.isNaN(minVal) ||
-          minVal <= 0
+          Number.isNaN(segVal)
+          || segVal <= 0
+          || Number.isNaN(bufVal)
+          || bufVal <= 0
+          || Number.isNaN(minVal)
+          || minVal <= 0
         ) {
           resolve(null);
         } else {
@@ -192,7 +200,9 @@ export class CoverageModals {
     const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
     tooltipTriggerList.forEach((tooltipTriggerEl) => {
       const existing = bootstrap.Tooltip.getInstance(tooltipTriggerEl);
-      if (existing) existing.dispose();
+      if (existing) {
+        existing.dispose();
+      }
       new bootstrap.Tooltip(tooltipTriggerEl, {
         animation: true,
         delay: { show: 500, hide: 100 },
@@ -230,12 +240,16 @@ export class CoverageModals {
       const themeObserver = new MutationObserver((mutations) => {
         mutations.forEach((mutation) => {
           if (
-            mutation.type === "attributes" &&
-            mutation.attributeName === "data-bs-theme"
+            mutation.type === "attributes"
+            && mutation.attributeName === "data-bs-theme"
           ) {
             const newTheme = document.documentElement.getAttribute("data-bs-theme");
-            if (coverageMap) coverageMap.updateTheme(newTheme);
-            if (drawing) drawing.updateTheme(newTheme);
+            if (coverageMap) {
+              coverageMap.updateTheme(newTheme);
+            }
+            if (drawing) {
+              drawing.updateTheme(newTheme);
+            }
           }
         });
       });

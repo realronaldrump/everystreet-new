@@ -65,13 +65,16 @@ async def generate_optimal_route_with_progress(
             location_id = PydanticObjectId(location_id)
         area = await CoverageMetadata.get(location_id)
         if not area:
-            raise ValueError(f"Coverage area {location_id} not found")
+            msg = f"Coverage area {location_id} not found"
+            raise ValueError(msg)
 
         location_info = area.location or {}
         location_name = location_info.get("display_name", "Unknown")
 
         await update_progress(
-            "loading_area", 10, f"Loading coverage area: {location_name}"
+            "loading_area",
+            10,
+            f"Loading coverage area: {location_name}",
         )
 
         # Validate that the coverage area has a valid geometry
@@ -79,10 +82,13 @@ async def generate_optimal_route_with_progress(
         if not boundary_geom:
             bbox = location_info.get("boundingbox")
             if not (bbox and len(bbox) >= 4):
-                raise ValueError("No valid boundary for coverage area")
+                msg = "No valid boundary for coverage area"
+                raise ValueError(msg)
 
         await update_progress(
-            "loading_segments", 20, "Loading undriven street segments..."
+            "loading_segments",
+            20,
+            "Loading undriven street segments...",
         )
 
         # Use Street Beanie model to find segments
@@ -95,7 +101,7 @@ async def generate_optimal_route_with_progress(
                     "properties.location": location_name,
                     "properties.driven": False,
                     "properties.undriveable": {"$ne": True},
-                }
+                },
             )
             .project(
                 {
@@ -103,7 +109,7 @@ async def generate_optimal_route_with_progress(
                     "properties.segment_id": 1,
                     "properties.segment_length": 1,
                     "properties.street_name": 1,
-                }
+                },
             )
             .to_list(length=MAX_SEGMENTS)
         )
@@ -124,7 +130,9 @@ async def generate_optimal_route_with_progress(
             }
 
         await update_progress(
-            "loading_segments", 30, f"Found {len(undriven)} undriven segments to route"
+            "loading_segments",
+            30,
+            f"Found {len(undriven)} undriven segments to route",
         )
 
         await update_progress("loading_graph", 40, "Loading street network...")
@@ -153,13 +161,18 @@ async def generate_optimal_route_with_progress(
                 await preprocess_streets(loc_data, task_id)
 
                 await update_progress(
-                    "loading_graph", 44, "Graph downloaded successfully, loading..."
+                    "loading_graph",
+                    44,
+                    "Graph downloaded successfully, loading...",
                 )
             except Exception as e:
-                logger.error("Failed to auto-generate graph: %s", e)
-                raise ValueError(
+                logger.exception("Failed to auto-generate graph: %s", e)
+                msg = (
                     f"Failed to download street network from OpenStreetMap: {e}. "
                     f"This may be due to rate limiting or network issues. Please try again later."
+                )
+                raise ValueError(
+                    msg,
                 )
 
         try:
@@ -174,8 +187,9 @@ async def generate_optimal_route_with_progress(
                 f"Loaded network: {G.number_of_nodes()} nodes, {G.number_of_edges()} edges",
             )
         except Exception as e:
-            logger.error("Failed to load graph from disk: %s", e)
-            raise ValueError(f"Failed to load street network: {e}")
+            logger.exception("Failed to load graph from disk: %s", e)
+            msg = f"Failed to load street network: {e}"
+            raise ValueError(msg)
 
         total_segments = len(undriven)
         await update_progress(
@@ -250,7 +264,7 @@ async def generate_optimal_route_with_progress(
             last_update = time.monotonic()
 
             for i, edge in enumerate(
-                executor.map(process_segment_osmid, seg_data_list)
+                executor.map(process_segment_osmid, seg_data_list),
             ):
                 processed_segments = i + 1
                 if seg_data_list[i] is None:
@@ -260,7 +274,7 @@ async def generate_optimal_route_with_progress(
                         or time.monotonic() - last_update >= 1.0
                     ):
                         progress_pct = 50 + int(
-                            8 * processed_segments / total_for_progress
+                            8 * processed_segments / total_for_progress,
                         )
                         await update_progress(
                             "mapping_segments",
@@ -398,7 +412,7 @@ async def generate_optimal_route_with_progress(
                         )
                         last_update = time.monotonic()
             except Exception as e:
-                logger.error("Batch spatial lookup failed: %s", e)
+                logger.exception("Batch spatial lookup failed: %s", e)
                 # Fallback to individual lookup if batch fails (unlikely)
                 last_update = time.monotonic()
                 progress_interval = max(10, max(1, fallback_total) // 25)
@@ -440,7 +454,8 @@ async def generate_optimal_route_with_progress(
                         last_update = time.monotonic()
 
         if not required_reqs:
-            raise ValueError("Could not map any segments to street network")
+            msg = "Could not map any segments to street network"
+            raise ValueError(msg)
 
         await update_progress(
             "mapping_segments",
@@ -462,7 +477,7 @@ async def generate_optimal_route_with_progress(
         if start_coords:
             with contextlib.suppress(Exception):
                 start_node_id = int(
-                    ox.distance.nearest_nodes(G, start_coords[0], start_coords[1])
+                    ox.distance.nearest_nodes(G, start_coords[0], start_coords[1]),
                 )
 
         # NOTE: We no longer pre-bridge disconnected clusters with OSM downloads.
@@ -483,14 +498,18 @@ async def generate_optimal_route_with_progress(
             )
         except Exception as e:
             logger.error("Greedy solver failed: %s", e, exc_info=True)
-            raise ValueError(f"Route solver failed: {e}")
+            msg = f"Route solver failed: {e}"
+            raise ValueError(msg)
 
         if not route_coords:
-            raise ValueError("Failed to generate route coordinates")
+            msg = "Failed to generate route coordinates"
+            raise ValueError(msg)
 
         # Fill gaps in the route with Mapbox driving directions
         await update_progress(
-            "filling_gaps", 85, "Filling route gaps with driving routes..."
+            "filling_gaps",
+            85,
+            "Filling route gaps with driving routes...",
         )
 
         try:
@@ -517,19 +536,23 @@ async def generate_optimal_route_with_progress(
         await update_progress("finalizing", 95, "Finalizing route geometry...")
 
         errors, warnings, validation_details = validate_route(
-            route_coords, stats, mapped_segments, len(undriven)
+            route_coords,
+            stats,
+            mapped_segments,
+            len(undriven),
         )
         if errors:
-            raise ValueError(f"Validation failed: {'; '.join(errors)}")
+            msg = f"Validation failed: {'; '.join(errors)}"
+            raise ValueError(msg)
 
         logger.info("Route generation finished. Updating DB status to completed.")
         try:
             await tracker.complete("Route generation complete!")
         except Exception as update_err:
-            logger.error("Final DB progress update failed: %s", update_err)
+            logger.exception("Final DB progress update failed: %s", update_err)
             # Use Beanie update
             await OptimalRouteProgress.find_one(
-                OptimalRouteProgress.task_id == task_id
+                OptimalRouteProgress.task_id == task_id,
             ).update(
                 {
                     "$set": {
@@ -537,8 +560,8 @@ async def generate_optimal_route_with_progress(
                         "progress": 100,
                         "stage": "complete",
                         "completed_at": datetime.now(UTC),
-                    }
-                }
+                    },
+                },
             )
 
         return {
@@ -595,12 +618,15 @@ async def generate_optimal_route(
 
     task_id = f"manual_{uuid.uuid4()}"
     return await generate_optimal_route_with_progress(
-        location_id, task_id, start_coords
+        location_id,
+        task_id,
+        start_coords,
     )
 
 
 async def save_optimal_route(
-    location_id: str | PydanticObjectId, route_result: dict[str, Any]
+    location_id: str | PydanticObjectId,
+    route_result: dict[str, Any],
 ) -> None:
     if route_result.get("status") != "success":
         return
@@ -635,23 +661,24 @@ async def save_optimal_route(
                             "generated_at": datetime.now(UTC),
                             "distance_meters": route_result.get("total_distance_m"),
                             "required_edge_count": route_result.get(
-                                "required_edge_count"
+                                "required_edge_count",
                             ),
                             "undriven_segments_loaded": route_result.get(
-                                "undriven_segments_loaded"
+                                "undriven_segments_loaded",
                             ),
                             "segment_coverage_ratio": route_result.get(
-                                "segment_coverage_ratio"
+                                "segment_coverage_ratio",
                             ),
                         },
-                    }
-                }
+                    },
+                },
             )
             logger.info("Saved optimal route for location %s", location_id)
         else:
             logger.warning(
-                "Could not find coverage metadata for %s to save route", location_id
+                "Could not find coverage metadata for %s to save route",
+                location_id,
             )
 
     except Exception as e:
-        logger.error("Failed to save optimal route: %s", e)
+        logger.exception("Failed to save optimal route: %s", e)

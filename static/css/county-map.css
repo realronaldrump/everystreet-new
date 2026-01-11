@@ -105,29 +105,17 @@
 }
 
 .stat-card--primary {
-  background: linear-gradient(
-    135deg,
-    rgb(16 185 129 / 20%),
-    rgb(16 185 129 / 10%)
-  );
+  background: linear-gradient(135deg, rgb(16 185 129 / 20%), rgb(16 185 129 / 10%));
   border: 1px solid rgb(16 185 129 / 30%);
 }
 
 .stat-card--secondary {
-  background: linear-gradient(
-    135deg,
-    rgb(99 102 241 / 20%),
-    rgb(99 102 241 / 10%)
-  );
+  background: linear-gradient(135deg, rgb(99 102 241 / 20%), rgb(99 102 241 / 10%));
   border: 1px solid rgb(99 102 241 / 30%);
 }
 
 .stat-card--accent {
-  background: linear-gradient(
-    135deg,
-    rgb(245 158 11 / 20%),
-    rgb(245 158 11 / 10%)
-  );
+  background: linear-gradient(135deg, rgb(245 158 11 / 20%), rgb(245 158 11 / 10%));
   border: 1px solid rgb(245 158 11 / 30%);
 }
 
@@ -184,11 +172,7 @@
 }
 
 .recalculate-prompt {
-  background: linear-gradient(
-    135deg,
-    rgb(59 130 246 / 20%),
-    rgb(59 130 246 / 10%)
-  );
+  background: linear-gradient(135deg, rgb(59 130 246 / 20%), rgb(59 130 246 / 10%));
   border: 1px solid rgb(59 130 246 / 30%);
   border-radius: 12px;
   padding: 1rem;
@@ -286,11 +270,7 @@
 
 .state-stat-item--complete {
   border-color: rgb(16 185 129 / 30%);
-  background: linear-gradient(
-    135deg,
-    rgb(16 185 129 / 10%),
-    rgb(16 185 129 / 5%)
-  );
+  background: linear-gradient(135deg, rgb(16 185 129 / 10%), rgb(16 185 129 / 5%));
 }
 
 .state-stat-header {

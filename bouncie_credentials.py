@@ -1,7 +1,7 @@
-"""Bouncie credentials management.
+"""
+Bouncie credentials management.
 
-This module handles storage and retrieval of Bouncie API credentials
-using Beanie ODM.
+This module handles storage and retrieval of Bouncie API credentials using Beanie ODM.
 """
 
 from __future__ import annotations
@@ -31,7 +31,8 @@ class BouncieCredentialsModel(BaseModel):
 
 
 async def get_bouncie_credentials() -> dict[str, Any]:
-    """Retrieve Bouncie credentials from database.
+    """
+    Retrieve Bouncie credentials from database.
 
     This is a single-user app. All credentials are stored in MongoDB and
     configured via profile page. No environment variable fallbacks.
@@ -50,7 +51,7 @@ async def get_bouncie_credentials() -> dict[str, Any]:
     """
     try:
         credentials = await BouncieCredentials.find_one(
-            BouncieCredentials.id == "bouncie_credentials"
+            BouncieCredentials.id == "bouncie_credentials",
         )
 
         if credentials:
@@ -72,7 +73,7 @@ async def get_bouncie_credentials() -> dict[str, Any]:
 
         logger.warning(
             "No Bouncie credentials found in database. "
-            "Please configure via profile page."
+            "Please configure via profile page.",
         )
         return {
             "client_id": "",
@@ -101,7 +102,8 @@ async def get_bouncie_credentials() -> dict[str, Any]:
 
 
 async def update_bouncie_credentials(credentials: dict[str, Any]) -> bool:
-    """Update Bouncie credentials in database.
+    """
+    Update Bouncie credentials in database.
 
     Args:
         credentials: Dictionary containing credential fields to update.
@@ -115,7 +117,7 @@ async def update_bouncie_credentials(credentials: dict[str, Any]) -> bool:
     """
     try:
         existing = await BouncieCredentials.find_one(
-            BouncieCredentials.id == "bouncie_credentials"
+            BouncieCredentials.id == "bouncie_credentials",
         )
 
         if existing:
@@ -202,7 +204,8 @@ async def update_bouncie_credentials(credentials: dict[str, Any]) -> bool:
 
 
 async def validate_bouncie_credentials(credentials: dict[str, Any]) -> tuple[bool, str]:
-    """Validate that required Bouncie credentials are present.
+    """
+    Validate that required Bouncie credentials are present.
 
     Args:
         credentials: Dictionary of credentials to validate

@@ -207,13 +207,13 @@ async def generate_geojson_osm(
                     [
                         "LineString",
                         "MultiLineString",
-                    ]
+                    ],
                 )
             ]
             gdf = gdf[
                 gdf.apply(
                     lambda row: _is_drivable_street(
-                        {k: v for k, v in row.items() if k != "geometry"}
+                        {k: v for k, v in row.items() if k != "geometry"},
                     ),
                     axis=1,
                 )
@@ -225,7 +225,7 @@ async def generate_geojson_osm(
                         "display_name": location_name,
                         "osm_id": location.get("osm_id"),
                         "osm_type": location.get("osm_type"),
-                    }
+                    },
                 ],
                 geometry=[boundary_geom],
                 crs="EPSG:4326",

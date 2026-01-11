@@ -89,7 +89,9 @@ export function showDependencyErrorModal(_taskId, errorMessage) {
  */
 export async function showTaskDetails(taskId) {
   const modal = document.getElementById("taskDetailsModal");
-  if (!modal) return;
+  if (!modal) {
+    return;
+  }
 
   const modalBody = modal.querySelector(".modal-body");
   const runBtn = modal.querySelector(".run-task-btn");
@@ -98,8 +100,8 @@ export async function showTaskDetails(taskId) {
     runBtn.dataset.taskId = taskId;
   }
 
-  modalBody.innerHTML =
-    '<div class="text-center"><i class="fas fa-spinner fa-spin"></i> Loading...</div>';
+  modalBody.innerHTML
+    = '<div class="text-center"><i class="fas fa-spinner fa-spin"></i> Loading...</div>';
 
   const bsModal = new bootstrap.Modal(modal);
   bsModal.show();
@@ -111,7 +113,7 @@ export async function showTaskDetails(taskId) {
       <div class="task-details">
         <h6>${details.display_name || taskId}</h6>
         <p class="text-muted small">${taskId}</p>
-        
+
         <div class="row mb-3">
           <div class="col-6">
             <strong>Status:</strong><br>
@@ -122,7 +124,7 @@ export async function showTaskDetails(taskId) {
             ${details.enabled ? '<span class="badge bg-success">Yes</span>' : '<span class="badge bg-secondary">No</span>'}
           </div>
         </div>
-        
+
         <div class="row mb-3">
           <div class="col-6">
             <strong>Interval:</strong><br>
@@ -133,7 +135,7 @@ export async function showTaskDetails(taskId) {
             ${details.run_count || 0}
           </div>
         </div>
-        
+
         <div class="row mb-3">
           <div class="col-6">
             <strong>Last Run:</strong><br>
@@ -144,7 +146,7 @@ export async function showTaskDetails(taskId) {
             ${details.next_run ? formatDateTime(details.next_run) : "Not scheduled"}
           </div>
         </div>
-        
+
         ${
           details.last_error
             ? `
@@ -155,7 +157,7 @@ export async function showTaskDetails(taskId) {
         `
             : ""
         }
-        
+
         ${
           details.description
             ? `

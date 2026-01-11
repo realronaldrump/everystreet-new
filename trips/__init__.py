@@ -1,4 +1,5 @@
-"""Trip tracking and management package.
+"""
+Trip tracking and management package.
 
 This package provides modular functionality for:
 - Trip querying and filtering

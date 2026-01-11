@@ -19,7 +19,9 @@ if (typeof window !== "undefined") {
  */
 export function animateCounter(elementId, endValue, decimals = 0) {
   const element = document.getElementById(elementId);
-  if (!element) return;
+  if (!element) {
+    return;
+  }
 
   const existingCounter = getCounter(elementId);
 
@@ -57,7 +59,9 @@ export function animateCounter(elementId, endValue, decimals = 0) {
  */
 export function updateTimeMetric(elementId, seconds) {
   const element = document.getElementById(elementId);
-  if (!element) return;
+  if (!element) {
+    return;
+  }
 
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
@@ -109,8 +113,8 @@ export function updateComparisons() {
   }
 
   // Distance comparison
-  const avgPerTrip =
-    insights.total_trips > 0
+  const avgPerTrip
+    = insights.total_trips > 0
       ? (insights.total_distance / insights.total_trips).toFixed(1)
       : 0;
   const distanceCompEl = document.querySelector("#distance-comparison span");
@@ -119,8 +123,8 @@ export function updateComparisons() {
   }
 
   // Fuel comparison
-  const mpg =
-    insights.total_distance > 0 && insights.total_fuel_consumed > 0
+  const mpg
+    = insights.total_distance > 0 && insights.total_fuel_consumed > 0
       ? (insights.total_distance / insights.total_fuel_consumed).toFixed(1)
       : 0;
   const fuelCompEl = document.querySelector("#fuel-comparison span");
@@ -140,13 +144,17 @@ export function updateComparisons() {
  */
 export function updateTrends() {
   const state = getState();
-  if (!state.prevRange) return;
+  if (!state.prevRange) {
+    return;
+  }
 
   const { insights, behavior } = state.data;
   const { insights: prevIn, behavior: prevBh } = state.prevRange;
 
   const trendElements = document.querySelectorAll(".metric-trend");
-  if (trendElements.length < 4) return;
+  if (trendElements.length < 4) {
+    return;
+  }
 
   const currentVals = [
     insights.total_trips || 0,
@@ -166,7 +174,9 @@ export function updateTrends() {
     const curr = currentVals[idx];
     const prev = prevVals[idx];
     let diff = 0;
-    if (prev > 0) diff = ((curr - prev) / prev) * 100;
+    if (prev > 0) {
+      diff = ((curr - prev) / prev) * 100;
+    }
 
     let cls = "neutral";
     let icon = "fa-minus";

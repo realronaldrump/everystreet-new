@@ -9,8 +9,8 @@
   class VisitsActions {
     constructor(options = {}) {
       this.loadingManager = options.loadingManager || window.loadingManager;
-      this.notificationManager =
-        options.notificationManager || window.notificationManager;
+      this.notificationManager
+        = options.notificationManager || window.notificationManager;
       this.confirmationDialog = options.confirmationDialog || window.confirmationDialog;
     }
 
@@ -42,8 +42,8 @@
       const saveBtn = document.getElementById("save-place");
       saveBtn?.classList.add("loading");
       if (saveBtn) {
-        saveBtn.innerHTML =
-          '<span class="spinner-border spinner-border-sm me-2"></span>Saving...';
+        saveBtn.innerHTML
+          = '<span class="spinner-border spinner-border-sm me-2"></span>Saving...';
       }
 
       this.loadingManager?.startOperation("Saving Place");
@@ -111,7 +111,9 @@
         confirmed = true;
       }
 
-      if (!confirmed) return false;
+      if (!confirmed) {
+        return false;
+      }
 
       this.loadingManager?.startOperation("Deleting Place");
 
@@ -188,7 +190,7 @@
         );
 
         if (onSuccess) {
-          await onSuccess(updatedPlace, !!newGeometry);
+          await onSuccess(updatedPlace, Boolean(newGeometry));
         }
 
         return updatedPlace;

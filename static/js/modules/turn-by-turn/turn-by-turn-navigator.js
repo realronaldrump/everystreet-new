@@ -206,7 +206,9 @@ class TurnByTurnNavigator {
     const storedArea = window.localStorage.getItem("turnByTurnAreaId");
     const areaId = queryArea || storedArea;
 
-    if (!areaId) return;
+    if (!areaId) {
+      return;
+    }
 
     this.ui.setAreaSelectValue(areaId);
     this.handleAreaChange();
@@ -274,11 +276,11 @@ class TurnByTurnNavigator {
       if (coverageData) {
         this.coverageBaseline = {
           totalMi:
-            (coverageData.driveable_length_m || coverageData.total_length || 0) /
-            1609.344,
+            (coverageData.driveable_length_m || coverageData.total_length || 0)
+            / 1609.344,
           coveredMi:
-            (coverageData.driven_length_m || coverageData.driven_length || 0) /
-            1609.344,
+            (coverageData.driven_length_m || coverageData.driven_length || 0)
+            / 1609.344,
           percentage: coverageData.coverage_percentage || 0,
         };
       }
@@ -377,10 +379,10 @@ class TurnByTurnNavigator {
       })
       .filter(Boolean);
 
-    const nameNode =
-      xml.querySelector("trk > name") ||
-      xml.querySelector("rte > name") ||
-      xml.querySelector("metadata > name");
+    const nameNode
+      = xml.querySelector("trk > name")
+      || xml.querySelector("rte > name")
+      || xml.querySelector("metadata > name");
     const name = nameNode?.textContent?.trim() || this.routeName;
 
     return { coords, name };
@@ -409,7 +411,7 @@ class TurnByTurnNavigator {
    */
   buildManeuvers() {
     const maneuvers = [];
-    const minTurnDistance = DISTANCE_THRESHOLDS.minTurnDistance;
+    const { minTurnDistance } = DISTANCE_THRESHOLDS;
     const minAngle = DISTANCE_THRESHOLDS.minTurnAngle;
     let lastDistance = 0;
 
@@ -420,9 +422,15 @@ class TurnByTurnNavigator {
       const absDelta = Math.abs(delta);
       const along = this.routeDistances[i];
 
-      if (absDelta < minAngle) continue;
-      if (along - lastDistance < minTurnDistance) continue;
-      if (this.segmentLengths[i - 1] < 8 || this.segmentLengths[i] < 8) continue;
+      if (absDelta < minAngle) {
+        continue;
+      }
+      if (along - lastDistance < minTurnDistance) {
+        continue;
+      }
+      if (this.segmentLengths[i - 1] < 8 || this.segmentLengths[i] < 8) {
+        continue;
+      }
 
       maneuvers.push({
         index: i,
@@ -607,13 +615,19 @@ class TurnByTurnNavigator {
    * Handle live tracking event (fallback for when GPS isn't available)
    */
   handleLiveTrackingUpdate(event) {
-    if (!this.isNavigating || this.gps.watchId) return;
+    if (!this.isNavigating || this.gps.watchId) {
+      return;
+    }
 
     const coords = event.detail?.coords || event.detail?.trip?.coordinates || [];
-    if (!coords.length) return;
+    if (!coords.length) {
+      return;
+    }
 
     const lastCoord = coords[coords.length - 1];
-    if (!Number.isFinite(lastCoord?.lat) || !Number.isFinite(lastCoord?.lon)) return;
+    if (!Number.isFinite(lastCoord?.lat) || !Number.isFinite(lastCoord?.lon)) {
+      return;
+    }
 
     const fix = {
       lat: lastCoord.lat,
@@ -631,7 +645,9 @@ class TurnByTurnNavigator {
    * Main navigation update loop
    */
   updateNavigation(fix) {
-    if (!this.map.mapReady || !this.routeLoaded) return;
+    if (!this.map.mapReady || !this.routeLoaded) {
+      return;
+    }
 
     const current = [fix.lon, fix.lat];
     this.map.updatePositionMarker(current);
@@ -664,7 +680,9 @@ class TurnByTurnNavigator {
     }
 
     const closest = this.findClosestPoint(current);
-    if (!closest) return;
+    if (!closest) {
+      return;
+    }
 
     // Apply progress smoothing
     const rawProgress = Math.min(closest.along, this.totalDistance);
@@ -704,8 +722,8 @@ class TurnByTurnNavigator {
       const routeMiles = smoothedProgress / 1609.344;
       const totalAreaMiles = this.coverageBaseline.totalMi || 1;
       const uncoveredFraction = (100 - baselinePercent) / 100;
-      const estimatedNewCoverage =
-        (routeMiles / totalAreaMiles) * 100 * uncoveredFraction * 0.8;
+      const estimatedNewCoverage
+        = (routeMiles / totalAreaMiles) * 100 * uncoveredFraction * 0.8;
       const liveCoveragePercent = Math.min(100, baselinePercent + estimatedNewCoverage);
       this.ui.updateCoverageProgress(baselinePercent, liveCoveragePercent);
     }
@@ -759,9 +777,13 @@ class TurnByTurnNavigator {
     const speedMph = speedMps ? speedMps * 2.23694 : 0;
     let zoom = ZOOM_LEVELS.default;
 
-    if (speedMph > ZOOM_THRESHOLDS.highway) zoom = ZOOM_LEVELS.highway;
-    else if (speedMph > ZOOM_THRESHOLDS.arterial) zoom = ZOOM_LEVELS.arterial;
-    else if (speedMph > ZOOM_THRESHOLDS.city) zoom = ZOOM_LEVELS.city;
+    if (speedMph > ZOOM_THRESHOLDS.highway) {
+      zoom = ZOOM_LEVELS.highway;
+    } else if (speedMph > ZOOM_THRESHOLDS.arterial) {
+      zoom = ZOOM_LEVELS.arterial;
+    } else if (speedMph > ZOOM_THRESHOLDS.city) {
+      zoom = ZOOM_LEVELS.city;
+    }
 
     return zoom;
   }
@@ -770,7 +792,9 @@ class TurnByTurnNavigator {
    * Find closest point on route
    */
   findClosestPoint(current) {
-    if (!this.routeCoords.length) return null;
+    if (!this.routeCoords.length) {
+      return null;
+    }
 
     const totalSegments = this.routeCoords.length - 1;
     let startIndex = 0;
@@ -809,7 +833,9 @@ class TurnByTurnNavigator {
       best = searchRange(0, totalSegments - 1);
     }
 
-    if (best) this.lastClosestIndex = best.index;
+    if (best) {
+      this.lastClosestIndex = best.index;
+    }
     return best;
   }
 
@@ -867,7 +893,9 @@ class TurnByTurnNavigator {
    */
   resumeFromAhead() {
     const resumeData = this.state.getResumeAheadData();
-    if (!resumeData) return;
+    if (!resumeData) {
+      return;
+    }
 
     this.lastClosestIndex = resumeData.index;
     this.gps.lastValidProgress = this.routeDistances[resumeData.index];
@@ -889,7 +917,9 @@ class TurnByTurnNavigator {
    * Toggle overview mode
    */
   toggleOverview() {
-    if (!this.map.mapReady || !this.routeLoaded) return;
+    if (!this.map.mapReady || !this.routeLoaded) {
+      return;
+    }
 
     this.overviewMode = !this.overviewMode;
 
@@ -912,7 +942,9 @@ class TurnByTurnNavigator {
    * Recenter on user position
    */
   recenter() {
-    if (!this.gps.lastPosition) return;
+    if (!this.gps.lastPosition) {
+      return;
+    }
 
     this.followMode = true;
     this.overviewMode = false;

@@ -44,7 +44,9 @@ export class DrivingNavigationUI {
    * @param {boolean} [isError=false] - Whether this is an error message
    */
   setStatus(message, isError = false) {
-    if (!this.statusMsg) return;
+    if (!this.statusMsg) {
+      return;
+    }
     this.statusMsg.textContent = message;
     this.statusMsg.className = isError ? "text-danger" : "text-info";
   }
@@ -54,7 +56,9 @@ export class DrivingNavigationUI {
    * @param {Array} areas - Array of coverage area objects
    */
   populateAreaDropdown(areas) {
-    if (!this.areaSelect) return;
+    if (!this.areaSelect) {
+      return;
+    }
     this.areaSelect.innerHTML = '<option value="">Select an area...</option>';
     areas.forEach((area) => {
       const areaId = area._id || area.id;
@@ -72,7 +76,9 @@ export class DrivingNavigationUI {
    * Load the auto-follow toggle state from localStorage.
    */
   loadAutoFollowState() {
-    if (!this.autoFollowToggle) return;
+    if (!this.autoFollowToggle) {
+      return;
+    }
     const savedState = window.localStorage.getItem("drivingNavAutoFollow") === "true";
     this.autoFollowToggle.checked = savedState;
   }
@@ -132,7 +138,9 @@ export class DrivingNavigationUI {
   resetSteps() {
     this.currentStep = null;
     [this.stepClustering, this.stepOptimizing, this.stepRendering].forEach((s) => {
-      if (s) s.className = "step";
+      if (s) {
+        s.className = "step";
+      }
     });
   }
 
@@ -145,16 +153,18 @@ export class DrivingNavigationUI {
     this.currentStep = step;
 
     const stepConfig = PROCESSING_STEPS[step];
-    if (!stepConfig) return;
+    if (!stepConfig) {
+      return;
+    }
 
     // Update step classes
     if (this.stepClustering) {
-      this.stepClustering.className =
-        step === "clustering" ? "step active" : "step completed";
+      this.stepClustering.className
+        = step === "clustering" ? "step active" : "step completed";
     }
     if (this.stepOptimizing) {
-      this.stepOptimizing.className =
-        step === "optimizing"
+      this.stepOptimizing.className
+        = step === "optimizing"
           ? "step active"
           : step === "rendering"
             ? "step completed"
@@ -172,7 +182,9 @@ export class DrivingNavigationUI {
    * @param {Object} routeData - Route data with clusters, segments, duration, distance
    */
   showRouteDetails(routeData) {
-    if (!this.routeDetails || !routeData) return;
+    if (!this.routeDetails || !routeData) {
+      return;
+    }
 
     this.routeDetails.style.display = "block";
 
@@ -205,7 +217,9 @@ export class DrivingNavigationUI {
    * @param {string} segmentId - Segment ID
    */
   displayTargetInfo(streetName, segmentId) {
-    if (!this.targetInfo) return;
+    if (!this.targetInfo) {
+      return;
+    }
 
     this.targetInfo.innerHTML = `
       <div class="alert alert-info p-2 mb-2">
@@ -224,7 +238,9 @@ export class DrivingNavigationUI {
    */
   displayRouteDetailsContent(durationMinutes, distanceMiles, locationSource) {
     const routeDetailsContent = document.getElementById("route-details-content");
-    if (!routeDetailsContent) return;
+    if (!routeDetailsContent) {
+      return;
+    }
 
     routeDetailsContent.innerHTML = `
       <div class="route-info-detail">
@@ -242,11 +258,13 @@ export class DrivingNavigationUI {
    */
   displayEfficientClustersInfo(clusters, clusterColors) {
     const routeDetailsContent = document.getElementById("route-details-content");
-    if (!routeDetailsContent || !clusters || clusters.length === 0) return;
+    if (!routeDetailsContent || !clusters || clusters.length === 0) {
+      return;
+    }
 
     const totalSegments = clusters.reduce((sum, c) => sum + c.segment_count, 0);
-    const totalLengthMiles =
-      clusters.reduce((sum, c) => sum + c.total_length_m, 0) / 1609.34;
+    const totalLengthMiles
+      = clusters.reduce((sum, c) => sum + c.total_length_m, 0) / 1609.34;
 
     routeDetailsContent.innerHTML = `
       <div class="cluster-summary mb-2">
@@ -304,8 +322,12 @@ export class DrivingNavigationUI {
    * @param {boolean} enabled - Whether buttons should be enabled
    */
   setNavigationButtonsEnabled(enabled) {
-    if (this.findBtn) this.findBtn.disabled = !enabled;
-    if (this.findEfficientBtn) this.findEfficientBtn.disabled = !enabled;
+    if (this.findBtn) {
+      this.findBtn.disabled = !enabled;
+    }
+    if (this.findEfficientBtn) {
+      this.findEfficientBtn.disabled = !enabled;
+    }
   }
 
   /**
@@ -313,8 +335,12 @@ export class DrivingNavigationUI {
    * @param {boolean} enabled - Whether buttons should be enabled
    */
   setMapLinkButtonsEnabled(enabled) {
-    if (this.openGoogleMapsBtn) this.openGoogleMapsBtn.disabled = !enabled;
-    if (this.openAppleMapsBtn) this.openAppleMapsBtn.disabled = !enabled;
+    if (this.openGoogleMapsBtn) {
+      this.openGoogleMapsBtn.disabled = !enabled;
+    }
+    if (this.openAppleMapsBtn) {
+      this.openAppleMapsBtn.disabled = !enabled;
+    }
   }
 
   /**
@@ -324,7 +350,9 @@ export class DrivingNavigationUI {
    * @returns {string} Original button HTML for restoration
    */
   setButtonLoading(button, loadingText) {
-    if (!button) return "";
+    if (!button) {
+      return "";
+    }
     const originalHtml = button.innerHTML;
     button.disabled = true;
     button.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${loadingText}`;
@@ -337,7 +365,9 @@ export class DrivingNavigationUI {
    * @param {string} originalHtml - Original button HTML
    */
   restoreButton(button, originalHtml) {
-    if (!button) return;
+    if (!button) {
+      return;
+    }
     button.disabled = false;
     button.innerHTML = originalHtml;
   }

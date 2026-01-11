@@ -22,7 +22,9 @@ export function initCharts() {
  */
 function initTrendsChart() {
   const trendsCtx = document.getElementById("trendsChart")?.getContext("2d");
-  if (!trendsCtx) return;
+  if (!trendsCtx) {
+    return;
+  }
 
   const chart = new Chart(trendsCtx, {
     type: "line",
@@ -63,7 +65,9 @@ function initTrendsChart() {
           callbacks: {
             label(context) {
               let label = context.dataset.label || "";
-              if (label) label += ": ";
+              if (label) {
+                label += ": ";
+              }
               if (context.dataset.yAxisID === "y") {
                 label += `${context.parsed.y.toFixed(1)} miles`;
               } else {
@@ -113,7 +117,9 @@ function initTrendsChart() {
  */
 function initEfficiencyChart() {
   const efficiencyCtx = document.getElementById("efficiencyChart")?.getContext("2d");
-  if (!efficiencyCtx) return;
+  if (!efficiencyCtx) {
+    return;
+  }
 
   const chart = new Chart(efficiencyCtx, {
     type: "doughnut",
@@ -157,7 +163,9 @@ function initEfficiencyChart() {
  */
 function initTimeDistChart() {
   const timeDistCtx = document.getElementById("timeDistChart")?.getContext("2d");
-  if (!timeDistCtx) return;
+  if (!timeDistCtx) {
+    return;
+  }
 
   const chart = new Chart(timeDistCtx, {
     type: "bar",
@@ -224,12 +232,16 @@ export function updateAllCharts() {
 export function updateTrendsChart() {
   const state = getState();
   const { analytics } = state.data;
-  if (!analytics || !analytics.daily_distances) return;
+  if (!analytics || !analytics.daily_distances) {
+    return;
+  }
 
   const data = processTimeSeriesData(analytics.daily_distances, state.currentView);
 
   const chart = getChart("trends");
-  if (!chart) return;
+  if (!chart) {
+    return;
+  }
 
   chart.data.labels = data.labels;
   chart.data.datasets[0].data = data.distances;
@@ -249,7 +261,9 @@ export function updateEfficiencyChart() {
   const speedEfficiency = calculateSpeedEfficiency(behavior);
 
   const chart = getChart("efficiency");
-  if (!chart) return;
+  if (!chart) {
+    return;
+  }
 
   chart.data.datasets[0].data = [fuelEfficiency, idleEfficiency, speedEfficiency];
   chart.update();
@@ -261,20 +275,24 @@ export function updateEfficiencyChart() {
 export function updateTimeDistChart() {
   const state = getState();
   const { analytics } = state.data;
-  if (!analytics || !analytics.time_distribution) return;
+  if (!analytics || !analytics.time_distribution) {
+    return;
+  }
 
-  const labels =
-    state.currentTimeView === "hour"
+  const labels
+    = state.currentTimeView === "hour"
       ? Array.from({ length: 24 }, (_, i) => formatHourLabel(i))
       : ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-  const data =
-    state.currentTimeView === "hour"
+  const data
+    = state.currentTimeView === "hour"
       ? processHourlyData(analytics.time_distribution)
       : processDailyData(analytics.weekday_distribution);
 
   const chart = getChart("timeDist");
-  if (!chart) return;
+  if (!chart) {
+    return;
+  }
 
   chart.data.labels = labels;
   chart.data.datasets[0].data = data;
@@ -389,8 +407,8 @@ function processDailyData(weekdayData) {
  * @param {Object} insights - Insights data
  */
 export function calculateFuelEfficiency(insights) {
-  const mpg =
-    insights.total_distance > 0 && insights.total_fuel_consumed > 0
+  const mpg
+    = insights.total_distance > 0 && insights.total_fuel_consumed > 0
       ? insights.total_distance / insights.total_fuel_consumed
       : 0;
 
@@ -422,7 +440,8 @@ export function calculateSpeedEfficiency(behavior) {
 
   if (avgSpeed >= 45 && avgSpeed <= 65) {
     return 100;
-  } else if (avgSpeed < 45) {
+  }
+  if (avgSpeed < 45) {
     return (avgSpeed / 45) * 100;
   }
   return Math.max(100 - (avgSpeed - 65) * 2, 0);
@@ -434,7 +453,9 @@ export function calculateSpeedEfficiency(behavior) {
  * @param {Array} activeElements - Active chart elements
  */
 function handleTimeDistChartClick(_event, activeElements) {
-  if (!activeElements || activeElements.length === 0) return;
+  if (!activeElements || activeElements.length === 0) {
+    return;
+  }
 
   const state = getState();
   const elementIndex = activeElements[0].index;

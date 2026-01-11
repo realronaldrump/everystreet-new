@@ -45,7 +45,9 @@ export function saveExportSettings(elements) {
 export function loadSavedExportSettings(elements, updateUIBasedOnFormat) {
   try {
     const savedSettingsJSON = window.utils?.getStorage(EXPORT_SETTINGS_STORAGE_KEY);
-    if (!savedSettingsJSON) return;
+    if (!savedSettingsJSON) {
+      return;
+    }
 
     const settings = JSON.parse(savedSettingsJSON);
     setDataSources(settings.dataSources, elements);
@@ -63,7 +65,9 @@ export function loadSavedExportSettings(elements, updateUIBasedOnFormat) {
  * @param {Object} elements - Cached DOM elements
  */
 function setDataSources(dataSources, elements) {
-  if (!dataSources) return;
+  if (!dataSources) {
+    return;
+  }
 
   if (elements.includeTrips && dataSources.includeTrips !== undefined) {
     elements.includeTrips.checked = dataSources.includeTrips;
@@ -82,7 +86,9 @@ function setDataSources(dataSources, elements) {
  * @param {Object} elements - Cached DOM elements
  */
 function setDataFields(dataFields, elements) {
-  if (!dataFields) return;
+  if (!dataFields) {
+    return;
+  }
 
   if (elements.includeBasicInfo && dataFields.includeBasicInfo !== undefined) {
     elements.includeBasicInfo.checked = dataFields.includeBasicInfo;
@@ -111,9 +117,9 @@ function setDataFields(dataFields, elements) {
  */
 function setDateSettings(dateSettings, elements) {
   if (
-    !dateSettings ||
-    !elements.exportAllDates ||
-    dateSettings.exportAllDates === undefined
+    !dateSettings
+    || !elements.exportAllDates
+    || dateSettings.exportAllDates === undefined
   ) {
     return;
   }

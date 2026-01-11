@@ -37,7 +37,8 @@ class TripQueryService:
         end_date: str | None,
         price_map: dict,
     ) -> dict[str, Any]:
-        """Get trips data formatted for DataTables server-side processing.
+        """
+        Get trips data formatted for DataTables server-side processing.
 
         Args:
             draw: DataTables draw counter
@@ -207,7 +208,8 @@ class TripQueryService:
                 "totalIdleDuration": trip_dict.get("totalIdleDuration", 0),
                 "fuelConsumed": _safe_float(trip_dict.get("fuelConsumed"), 0),
                 "estimated_cost": TripCostService.calculate_trip_cost(
-                    trip_dict, price_map
+                    trip_dict,
+                    price_map,
                 ),
             }
             formatted_data.append(formatted_trip)
@@ -254,7 +256,8 @@ class TripQueryService:
 
     @staticmethod
     async def get_invalid_trips():
-        """Get all invalid trips for review.
+        """
+        Get all invalid trips for review.
 
         Returns:
             dict with status, trips list, and count
@@ -295,9 +298,13 @@ class TripQueryService:
 
     @staticmethod
     async def get_trips_in_bounds(
-        min_lat: float, min_lon: float, max_lat: float, max_lon: float
+        min_lat: float,
+        min_lon: float,
+        max_lat: float,
+        max_lon: float,
     ):
-        """Get trip coordinates within a given bounding box.
+        """
+        Get trip coordinates within a given bounding box.
 
         Args:
             min_lat: Minimum latitude
@@ -314,8 +321,9 @@ class TripQueryService:
             max_lat,
             max_lon,
         ):
+            msg = "Invalid bounding box coordinates (lat must be -90 to 90, lon -180 to 180)."
             raise ValueError(
-                "Invalid bounding box coordinates (lat must be -90 to 90, lon -180 to 180)."
+                msg,
             )
 
         bounding_box_geometry = GeometryService.bounding_box_polygon(
@@ -325,7 +333,8 @@ class TripQueryService:
             max_lon,
         )
         if bounding_box_geometry is None:
-            raise ValueError("Invalid bounding box coordinates.")
+            msg = "Invalid bounding box coordinates."
+            raise ValueError(msg)
 
         query = {
             "matchedGps": {

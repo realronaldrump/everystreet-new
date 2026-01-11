@@ -1,4 +1,5 @@
-"""Maintenance tasks for trip data.
+"""
+Maintenance tasks for trip data.
 
 This module provides Celery tasks for maintaining trip data quality:
 - cleanup_stale_trips: Archives stale live tracking trips
@@ -66,7 +67,8 @@ def cleanup_stale_trips(_self, *_args, **_kwargs):
 
 @task_runner
 async def validate_trips_async(_self) -> dict[str, Any]:
-    """Async logic for validating trip data and marking invalid records.
+    """
+    Async logic for validating trip data and marking invalid records.
 
     This comprehensive validation task checks:
     1. Required fields (transactionId, startTime, endTime, gps)
@@ -117,7 +119,11 @@ async def validate_trips_async(_self) -> dict[str, Any]:
                 await trip.save()
                 modified_count += 1
             except Exception as save_err:
-                logger.error("Failed to save invalid trip %s: %s", trip.id, save_err)
+                logger.exception(
+                    "Failed to save invalid trip %s: %s",
+                    trip.id,
+                    save_err,
+                )
 
         if processed_count % 500 == 0:
             logger.info(
@@ -186,8 +192,9 @@ async def remap_unmatched_trips_async(_self) -> dict[str, Any]:
     mapbox_token = get_mapbox_token()
     if not mapbox_token:
         logger.warning("Mapbox token not configured, cannot perform map matching.")
+        msg = "Mapbox token is not configured. Please set it in the profile page."
         raise ValueError(
-            "Mapbox token is not configured. Please set it in the profile page."
+            msg,
         )
 
     trip_service = TripService(mapbox_token)

@@ -124,14 +124,18 @@
     }
 
     async loadNonCustomPlacesVisits() {
-      if (!this.nonCustomVisitsTable) return;
+      if (!this.nonCustomVisitsTable) {
+        return;
+      }
 
       const visitsData = await this.dataLoader.loadNonCustomPlacesVisits();
       this.nonCustomVisitsTable.clear().rows.add(visitsData).draw();
     }
 
     async loadSuggestions() {
-      if (!this.suggestionsTable) return;
+      if (!this.suggestionsTable) {
+        return;
+      }
 
       if (this.suggestionsTable?.processing) {
         this.suggestionsTable.processing(true);
@@ -215,8 +219,8 @@
       });
 
       try {
-        const { customStats, otherStats } =
-          await this.dataLoader.filterByTimeframe(timeframe);
+        const { customStats, otherStats }
+          = await this.dataLoader.filterByTimeframe(timeframe);
 
         this.updateVisitsData(customStats);
         this.nonCustomVisitsTable?.clear().rows.add(otherStats).draw();
@@ -288,8 +292,8 @@
       const placeBeingEdited = this.drawing.getPlaceBeingEdited();
 
       // Only include geometry if editing the same place that was started for edit
-      const newGeometry =
-        currentPolygon && placeBeingEdited === placeId ? currentPolygon.geometry : null;
+      const newGeometry
+        = currentPolygon && placeBeingEdited === placeId ? currentPolygon.geometry : null;
 
       const updatedPlace = await this.actions.saveEditedPlace({
         placeId,
@@ -332,7 +336,9 @@
     }
 
     applySuggestion(suggestion) {
-      if (!suggestion || !suggestion.boundary) return;
+      if (!suggestion || !suggestion.boundary) {
+        return;
+      }
 
       this.drawing.applySuggestion(suggestion);
       this.mapController.animateToPlace({ geometry: suggestion.boundary });
@@ -351,8 +357,8 @@
       this.visitsTable = window.VisitsTableFactory.createVisitsTable({
         onPlaceSelected: (placeId) => this.uiManager.toggleView(placeId),
       });
-      this.nonCustomVisitsTable =
-        window.VisitsTableFactory.createNonCustomVisitsTable();
+      this.nonCustomVisitsTable
+        = window.VisitsTableFactory.createNonCustomVisitsTable();
       this.tripsTable = window.VisitsTableFactory.createTripsTable({
         onTripSelected: (tripId) => this.confirmViewTripOnMap(tripId),
       });
@@ -365,7 +371,9 @@
     // --- Trip Viewing ---
 
     confirmViewTripOnMap(tripId) {
-      if (!tripId) return;
+      if (!tripId) {
+        return;
+      }
       this.fetchAndShowTrip(tripId);
     }
 
@@ -418,7 +426,9 @@
 
     async showPlaceStatistics(placeId, lngLat = null) {
       const place = this.places.get(placeId);
-      if (!place) return;
+      if (!place) {
+        return;
+      }
 
       await this.popup.showPlaceStatistics(placeId, place, lngLat);
     }

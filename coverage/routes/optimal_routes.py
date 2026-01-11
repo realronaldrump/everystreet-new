@@ -1,4 +1,5 @@
-"""Route handlers for optimal route generation and management.
+"""
+Route handlers for optimal route generation and management.
 
 Handles generating, retrieving, and exporting optimal completion routes.
 """
@@ -8,6 +9,7 @@ import contextlib
 import json
 import logging
 from datetime import UTC, datetime
+from typing import Annotated
 
 from beanie import PydanticObjectId
 from fastapi import APIRouter, HTTPException, Query, Response
@@ -22,8 +24,14 @@ router = APIRouter()
 @router.post("/api/coverage_areas/{location_id}/generate-optimal-route")
 async def start_optimal_route_generation(
     location_id: PydanticObjectId,
-    start_lon: float = Query(None, description="Optional starting longitude"),
-    start_lat: float = Query(None, description="Optional starting latitude"),
+    start_lon: Annotated[
+        float | None,
+        Query(description="Optional starting longitude"),
+    ] = None,
+    start_lat: Annotated[
+        float | None,
+        Query(description="Optional starting latitude"),
+    ] = None,
 ):
     """Start a background task to generate optimal completion route."""
     from tasks import generate_optimal_route_task
@@ -103,7 +111,7 @@ async def get_worker_status():
                     "name": worker_name,
                     "active_tasks": len(active.get(worker_name, [])),
                     "registered_tasks": len(registered.get(worker_name, [])),
-                }
+                },
             )
 
         return {
@@ -113,7 +121,7 @@ async def get_worker_status():
         }
 
     except Exception as e:
-        logger.error("Failed to check worker status: %s", e)
+        logger.exception("Failed to check worker status: %s", e)
         return {
             "status": "error",
             "message": f"Failed to check worker status: {e}",
@@ -216,10 +224,11 @@ async def delete_optimal_route(location_id: PydanticObjectId):
 
 @router.get("/api/coverage_areas/{location_id}/active-task")
 async def get_active_route_task(location_id: str):
-    """Check if there's an active or recent route generation task for this location.
+    """
+    Check if there's an active or recent route generation task for this location.
 
-    Returns the task_id and current progress if an active task is found,
-    allowing the frontend to reconnect after page refresh.
+    Returns the task_id and current progress if an active task is found, allowing the
+    frontend to reconnect after page refresh.
     """
     # Find any active/pending task for this location
     # Sort by created_at descending to get the most recent task
@@ -250,10 +259,11 @@ async def get_active_route_task(location_id: str):
 
 @router.delete("/api/optimal-routes/{task_id}")
 async def cancel_optimal_route_task(task_id: str):
-    """Cancel an in-progress route generation task.
+    """
+    Cancel an in-progress route generation task.
 
-    Revokes the Celery task and marks it as cancelled in the database.
-    Also cancels any other active tasks for the same location.
+    Revokes the Celery task and marks it as cancelled in the database. Also cancels any
+    other active tasks for the same location.
     """
     from celery_app import app as celery_app
 
@@ -281,7 +291,7 @@ async def cancel_optimal_route_task(task_id: str):
             {
                 "location": location_id,
                 "status": {"$in": active_statuses},
-            }
+            },
         ).to_list()
 
         cancelled_count = 0
@@ -303,7 +313,9 @@ async def cancel_optimal_route_task(task_id: str):
                 cancelled_count += 1
 
         logger.info(
-            "Cancelled %d active tasks for location %s", cancelled_count, location_id
+            "Cancelled %d active tasks for location %s",
+            cancelled_count,
+            location_id,
         )
 
     return {"status": "cancelled", "message": "All active tasks cancelled"}
@@ -350,7 +362,7 @@ async def stream_optimal_route_progress(task_id: str):
 
             try:
                 progress = await OptimalRouteProgress.find_one(
-                    {"route.task_id": task_id}
+                    {"route.task_id": task_id},
                 )
 
                 if not progress:

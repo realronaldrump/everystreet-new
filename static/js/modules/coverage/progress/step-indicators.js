@@ -56,7 +56,9 @@ function markErrorStepByProgress(progress, steps) {
 
   const errorStep = errorSteps.find((s) => progress > s.threshold && steps[s.step]);
 
-  if (!errorStep) return false;
+  if (!errorStep) {
+    return false;
+  }
 
   markError(steps, errorStep.step);
 
@@ -64,7 +66,9 @@ function markErrorStepByProgress(progress, steps) {
   const stepOrder = ["initializing", "preprocessing", "indexing", "calculating"];
   const errorIndex = stepOrder.indexOf(errorStep.step);
   for (let i = 0; i < errorIndex; i++) {
-    if (steps[stepOrder[i]]) markComplete(steps, stepOrder[i]);
+    if (steps[stepOrder[i]]) {
+      markComplete(steps, stepOrder[i]);
+    }
   }
 
   return true;
@@ -81,7 +85,9 @@ function markCanceledStep(steps) {
       return;
     }
   }
-  if (steps.initializing) markError(steps, "initializing");
+  if (steps.initializing) {
+    markError(steps, "initializing");
+  }
 }
 
 /**
@@ -155,7 +161,9 @@ function markStepsByStage(stage, progress, steps) {
  * Update step indicators in the modal
  */
 export function updateStepIndicators(modal, stage, progress) {
-  if (!modal) return;
+  if (!modal) {
+    return;
+  }
 
   const steps = {
     initializing: modal.querySelector(".step-initializing"),

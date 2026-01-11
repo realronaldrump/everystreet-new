@@ -130,7 +130,9 @@ function setupFabActions() {
  */
 export async function loadAllData() {
   const state = InsightsState.getState();
-  if (state.isLoading) return;
+  if (state.isLoading) {
+    return;
+  }
 
   InsightsState.updateState({ isLoading: true });
   showLoadingStates();
@@ -217,8 +219,12 @@ export function showLoadingStates() {
   const trendsLoading = document.getElementById("trends-loading");
   const trendsChart = document.getElementById("trendsChart");
 
-  if (trendsLoading) trendsLoading.style.display = "flex";
-  if (trendsChart) trendsChart.style.display = "none";
+  if (trendsLoading) {
+    trendsLoading.style.display = "flex";
+  }
+  if (trendsChart) {
+    trendsChart.style.display = "none";
+  }
 }
 
 /**
@@ -228,8 +234,12 @@ export function hideLoadingStates() {
   const trendsLoading = document.getElementById("trends-loading");
   const trendsChart = document.getElementById("trendsChart");
 
-  if (trendsLoading) trendsLoading.style.display = "none";
-  if (trendsChart) trendsChart.style.display = "block";
+  if (trendsLoading) {
+    trendsLoading.style.display = "none";
+  }
+  if (trendsChart) {
+    trendsChart.style.display = "block";
+  }
 }
 
 /**

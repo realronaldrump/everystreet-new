@@ -1,8 +1,9 @@
-"""External Geo Service Module.
+"""
+External Geo Service Module.
 
-This module provides the ExternalGeoService class that handles all external
-geolocation API calls (Mapbox and Nominatim) for geocoding and map matching,
-following the Single Responsibility Principle.
+This module provides the ExternalGeoService class that handles all external geolocation
+API calls (Mapbox and Nominatim) for geocoding and map matching, following the Single
+Responsibility Principle.
 """
 
 import asyncio
@@ -27,14 +28,16 @@ map_match_semaphore = asyncio.Semaphore(10)
 
 
 class ExternalGeoService:
-    """Service for external geocoding and map matching APIs.
+    """
+    Service for external geocoding and map matching APIs.
 
-    Handles all external API calls to Mapbox and Nominatim for geocoding
-    and map matching operations.
+    Handles all external API calls to Mapbox and Nominatim for geocoding and map
+    matching operations.
     """
 
     def __init__(self, mapbox_token: str | None = None):
-        """Initialize the geo service.
+        """
+        Initialize the geo service.
 
         Args:
             mapbox_token: Optional Mapbox access token for geocoding and map matching
@@ -47,7 +50,8 @@ class ExternalGeoService:
         lat: float,
         lon: float,
     ) -> dict[str, Any] | None:
-        """Reverse geocode coordinates using Mapbox or Nominatim fallback.
+        """
+        Reverse geocode coordinates using Mapbox or Nominatim fallback.
 
         Args:
             lat: Latitude
@@ -77,7 +81,8 @@ class ExternalGeoService:
         response: dict[str, Any],
         coordinates: list[float],
     ) -> dict[str, Any]:
-        """Parse geocoding response into structured location schema.
+        """
+        Parse geocoding response into structured location schema.
 
         Args:
             response: Raw geocoding API response
@@ -98,7 +103,8 @@ class ExternalGeoService:
                 if "id" in ctx:
                     if ctx["id"].startswith("postcode"):
                         structured["address_components"]["postal_code"] = ctx.get(
-                            "text", ""
+                            "text",
+                            "",
                         )
                     elif ctx["id"].startswith("place"):
                         structured["address_components"]["city"] = ctx.get("text", "")
@@ -106,14 +112,16 @@ class ExternalGeoService:
                         structured["address_components"]["state"] = ctx.get("text", "")
                     elif ctx["id"].startswith("country"):
                         structured["address_components"]["country"] = ctx.get(
-                            "text", ""
+                            "text",
+                            "",
                         )
 
             if "text" in response:
                 structured["address_components"]["street"] = response.get("text", "")
             if "address" in response:
                 structured["address_components"]["street_number"] = response.get(
-                    "address", ""
+                    "address",
+                    "",
                 )
 
         # Handle Nominatim response format
@@ -142,7 +150,8 @@ class ExternalGeoService:
 
     @staticmethod
     def get_empty_location_schema() -> dict[str, Any]:
-        """Get empty location schema structure.
+        """
+        Get empty location schema structure.
 
         Returns:
             Empty location schema dictionary
@@ -171,7 +180,8 @@ class ExternalGeoService:
         proximity: tuple[float, float] | None = None,
         country_codes: str = "us",
     ) -> list[dict[str, Any]]:
-        """Forward geocode a query using Nominatim (OSM) API.
+        """
+        Forward geocode a query using Nominatim (OSM) API.
 
         Args:
             query: Search query string
@@ -227,7 +237,7 @@ class ExternalGeoService:
                             "address": result.get("address", {}),
                             "importance": result.get("importance", 0),
                             "bbox": result.get("boundingbox"),
-                        }
+                        },
                     )
                 return normalized
         except Exception as e:
@@ -241,7 +251,8 @@ class ExternalGeoService:
         proximity: tuple[float, float] | None = None,
         country: str = "US",
     ) -> list[dict[str, Any]]:
-        """Forward geocode a query using Mapbox Geocoding API.
+        """
+        Forward geocode a query using Mapbox Geocoding API.
 
         Args:
             query: Search query string
@@ -291,7 +302,7 @@ class ExternalGeoService:
                             "text": feature.get("text", ""),
                             "bbox": feature.get("bbox"),
                             "context": feature.get("context", []),
-                        }
+                        },
                     )
                 return results
         except Exception as e:
@@ -305,7 +316,8 @@ class ExternalGeoService:
         proximity: tuple[float, float] | None = None,
         prefer_mapbox: bool | None = None,
     ) -> list[dict[str, Any]]:
-        """Forward geocode with automatic fallback (Mapbox → Nominatim).
+        """
+        Forward geocode with automatic fallback (Mapbox → Nominatim).
 
         Args:
             query: Search query string
@@ -340,7 +352,8 @@ class ExternalGeoService:
         min_sub_chunk: int = 20,
         jump_threshold_m: float = 200.0,
     ) -> dict[str, Any]:
-        """Map match coordinates using the Mapbox API.
+        """
+        Map match coordinates using the Mapbox API.
 
         Args:
             coordinates: List of [lon, lat] coordinates
@@ -382,7 +395,8 @@ class ExternalGeoService:
         )
 
     def _initialize_projections(self, coords: list[list[float]]) -> None:
-        """Initialize projections for map matching.
+        """
+        Initialize projections for map matching.
 
         Args:
             coords: Coordinates to determine UTM zone
@@ -410,7 +424,8 @@ class ExternalGeoService:
         min_sub_chunk: int,
         jump_threshold_m: float,
     ) -> dict[str, Any]:
-        """Process map matching with chunking and stitching.
+        """
+        Process map matching with chunking and stitching.
 
         Args:
             session: aiohttp session
@@ -455,7 +470,9 @@ class ExternalGeoService:
                 return []
 
             matched_coords = await self._try_match_chunk(
-                chunk_coords, chunk_timestamps, call_mapbox_api
+                chunk_coords,
+                chunk_timestamps,
+                call_mapbox_api,
             )
             if matched_coords is not None:
                 return matched_coords
@@ -463,7 +480,10 @@ class ExternalGeoService:
             # Try recursive splitting if allowed
             if depth < max_retries and len(chunk_coords) > min_sub_chunk:
                 return await self._match_chunk_recursive(
-                    chunk_coords, chunk_timestamps, depth, match_chunk
+                    chunk_coords,
+                    chunk_timestamps,
+                    depth,
+                    match_chunk,
                 )
 
             return None
@@ -471,19 +491,26 @@ class ExternalGeoService:
         # Split coordinates into chunks
         chunk_indices = self._create_chunk_indices(coordinates, chunk_size, overlap)
         logger.info(
-            "Splitting %d coords into %d chunks", len(coordinates), len(chunk_indices)
+            "Splitting %d coords into %d chunks",
+            len(coordinates),
+            len(chunk_indices),
         )
 
         # Process chunks and stitch results
         final_matched = await self._process_and_stitch_chunks(
-            coordinates, all_timestamps, chunk_indices, match_chunk
+            coordinates,
+            all_timestamps,
+            chunk_indices,
+            match_chunk,
         )
         if isinstance(final_matched, dict):  # Error dict
             return final_matched
 
         # Detect and fix jumps
         final_matched = await self._fix_route_jumps(
-            final_matched, jump_threshold_m, match_chunk
+            final_matched,
+            jump_threshold_m,
+            match_chunk,
         )
 
         logger.info("Final matched coords: %d points", len(final_matched))
@@ -528,7 +555,11 @@ class ExternalGeoService:
                 # Fallback to distance-based radius
                 prev_coord = coords[i - 1]
                 distance = GeometryService.haversine_distance(
-                    prev_coord[0], prev_coord[1], coord[0], coord[1], unit="meters"
+                    prev_coord[0],
+                    prev_coord[1],
+                    coord[0],
+                    coord[1],
+                    unit="meters",
                 )
                 radiuses.append(50 if distance > 100 else 25)
 
@@ -536,7 +567,8 @@ class ExternalGeoService:
 
     @staticmethod
     def _has_valid_timestamps(
-        timestamps_chunk: list[int | None] | None, index: int
+        timestamps_chunk: list[int | None] | None,
+        index: int,
     ) -> bool:
         """Check if valid timestamps exist for current and previous index."""
         return (
@@ -564,10 +596,15 @@ class ExternalGeoService:
 
                 try:
                     async with session.post(
-                        base_url, params=params, json=request_body
+                        base_url,
+                        params=params,
+                        json=request_body,
                     ) as response:
                         result = await self._handle_mapbox_response(
-                            response, attempt, max_attempts, min_backoff
+                            response,
+                            attempt,
+                            max_attempts,
+                            min_backoff,
                         )
                         if result is not None:
                             return result
@@ -589,7 +626,10 @@ class ExternalGeoService:
         """Handle different response status codes from Mapbox API."""
         if response.status == 429:
             return await self._handle_rate_limit(
-                response, attempt, max_attempts, min_backoff
+                response,
+                attempt,
+                max_attempts,
+                min_backoff,
             )
 
         if 400 <= response.status < 500:
@@ -658,7 +698,8 @@ class ExternalGeoService:
             # Try filtering invalid coordinates
             if "invalid coordinates" in msg.lower():
                 return await self._retry_with_filtered_coords(
-                    chunk_coords, call_mapbox_api
+                    chunk_coords,
+                    call_mapbox_api,
                 )
 
         except Exception as exc:
@@ -677,8 +718,7 @@ class ExternalGeoService:
         ]
         if len(filtered) >= 2 and len(filtered) < len(chunk_coords):
             # Recursively try with filtered coords (depth doesn't increment for this)
-            result = await self._try_match_chunk(filtered, None, call_mapbox_api)
-            return result
+            return await self._try_match_chunk(filtered, None, call_mapbox_api)
         return None
 
     @staticmethod
@@ -841,7 +881,8 @@ class ExternalGeoService:
         coordinates: list[list[float]],
         trip_data: dict[str, Any],
     ) -> list[int | None]:
-        """Extract timestamps for coordinates, interpolating if necessary.
+        """
+        Extract timestamps for coordinates, interpolating if necessary.
 
         Args:
             coordinates: List of [lon, lat] coordinates

@@ -24,12 +24,12 @@ export class DrivingNavigationMap {
     this.clusterMarkers = [];
 
     // Get colors with fallbacks from MapStyles if available
-    this.clusterColors =
-      window.MapStyles?.MAP_LAYER_COLORS?.clusters || DEFAULT_CLUSTER_COLORS;
-    this.streetColors =
-      window.MapStyles?.MAP_LAYER_COLORS?.streets || DEFAULT_STREET_COLORS;
-    this.routeColors =
-      window.MapStyles?.MAP_LAYER_COLORS?.routes || DEFAULT_ROUTE_COLORS;
+    this.clusterColors
+      = window.MapStyles?.MAP_LAYER_COLORS?.clusters || DEFAULT_CLUSTER_COLORS;
+    this.streetColors
+      = window.MapStyles?.MAP_LAYER_COLORS?.streets || DEFAULT_STREET_COLORS;
+    this.routeColors
+      = window.MapStyles?.MAP_LAYER_COLORS?.routes || DEFAULT_ROUTE_COLORS;
   }
 
   /**
@@ -78,7 +78,9 @@ export class DrivingNavigationMap {
    * @returns {Promise<void>}
    */
   bindMapLoad() {
-    if (!this.map) return Promise.resolve();
+    if (!this.map) {
+      return Promise.resolve();
+    }
 
     return new Promise((resolve, reject) => {
       const handleLoad = () => {
@@ -111,7 +113,9 @@ export class DrivingNavigationMap {
    * Set up all map layers for driving navigation.
    */
   setupMapLayers() {
-    if (!this.map) return;
+    if (!this.map) {
+      return;
+    }
 
     const emptyGeoJSON = { type: "FeatureCollection", features: [] };
 
@@ -182,7 +186,9 @@ export class DrivingNavigationMap {
     }
     this.clusterColors.forEach((color, index) => {
       const layerId = `efficient-cluster-layer-${index}`;
-      if (this.map.getLayer(layerId)) return;
+      if (this.map.getLayer(layerId)) {
+        return;
+      }
       this.map.addLayer({
         id: layerId,
         type: "line",
@@ -199,7 +205,9 @@ export class DrivingNavigationMap {
    * @param {Object} data - GeoJSON data
    */
   setSourceData(sourceId, data) {
-    if (!this.map) return;
+    if (!this.map) {
+      return;
+    }
     const source = this.map.getSource(sourceId);
     if (source) {
       source.setData(data);
@@ -224,7 +232,9 @@ export class DrivingNavigationMap {
    * @returns {Array} Array of features
    */
   querySourceFeatures(sourceId, options = {}) {
-    if (!this.map) return [];
+    if (!this.map) {
+      return [];
+    }
     return this.map.querySourceFeatures(sourceId, options);
   }
 
@@ -234,7 +244,9 @@ export class DrivingNavigationMap {
    * @param {Object} [options] - Fit options like padding
    */
   fitBounds(bounds, options = { padding: 50 }) {
-    if (!this.map || bounds.isEmpty()) return;
+    if (!this.map || bounds.isEmpty()) {
+      return;
+    }
     this.map.fitBounds(bounds, options);
   }
 
@@ -243,7 +255,9 @@ export class DrivingNavigationMap {
    * @param {number[]} coordinates - [lng, lat] coordinates
    */
   panTo(coordinates) {
-    if (!this.map) return;
+    if (!this.map) {
+      return;
+    }
     this.map.panTo(coordinates);
   }
 
@@ -252,10 +266,14 @@ export class DrivingNavigationMap {
    * @param {string} segmentId - The segment ID to highlight
    */
   highlightTargetStreet(segmentId) {
-    if (!this.map) return;
+    if (!this.map) {
+      return;
+    }
 
     const targetSource = this.map.getSource("target-street");
-    if (!targetSource) return;
+    if (!targetSource) {
+      return;
+    }
 
     // Query the rendered features from the undriven-streets layer
     const features = this.querySourceFeatures("undriven-streets", {
@@ -356,7 +374,9 @@ export class DrivingNavigationMap {
    * @param {Function} createPopupFn - Function to create popup HTML for a segment
    */
   setupInteractivity(createPopupFn) {
-    if (!this.map) return;
+    if (!this.map) {
+      return;
+    }
 
     this.map.on("mouseenter", "undriven-streets-layer", () => {
       this.map.getCanvas().style.cursor = "pointer";
@@ -367,7 +387,9 @@ export class DrivingNavigationMap {
     });
 
     this.map.on("click", "undriven-streets-layer", (e) => {
-      if (!e.features || e.features.length === 0) return;
+      if (!e.features || e.features.length === 0) {
+        return;
+      }
       const feature = e.features[0];
       const popupContent = createPopupFn(feature);
 

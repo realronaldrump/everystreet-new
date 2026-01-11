@@ -1,4 +1,5 @@
-"""Route handlers for custom boundary operations.
+"""
+Route handlers for custom boundary operations.
 
 Handles validation and preprocessing of custom drawn boundaries.
 """
@@ -25,10 +26,11 @@ router = APIRouter()
 
 @router.post("/api/validate_custom_boundary")
 async def validate_custom_boundary(data: ValidateCustomBoundaryModel):
-    """Validate a custom drawn boundary polygon.
+    """
+    Validate a custom drawn boundary polygon.
 
-    Ensures the geometry is a valid Polygon/MultiPolygon and returns
-    basic statistics for frontend feedback.
+    Ensures the geometry is a valid Polygon/MultiPolygon and returns basic statistics
+    for frontend feedback.
     """
     area_name = data.area_name.strip()
     if not area_name:
@@ -41,14 +43,17 @@ async def validate_custom_boundary(data: ValidateCustomBoundaryModel):
     try:
         geom_shape = shape(geometry)
         if geom_shape.geom_type not in ("Polygon", "MultiPolygon"):
-            raise ValueError("Geometry must be Polygon or MultiPolygon")
+            msg = "Geometry must be Polygon or MultiPolygon"
+            raise ValueError(msg)
         if geom_shape.is_empty:
-            raise ValueError("Geometry is empty")
+            msg = "Geometry is empty"
+            raise ValueError(msg)
         # Attempt to fix invalid geometries
         if not geom_shape.is_valid:
             geom_shape = geom_shape.buffer(0)
         if geom_shape.is_empty or not geom_shape.is_valid:
-            raise ValueError("Invalid geometry (self-intersection or zero area)")
+            msg = "Invalid geometry (self-intersection or zero area)"
+            raise ValueError(msg)
 
         # Stats
         if geom_shape.geom_type == "Polygon":
@@ -71,16 +76,17 @@ async def validate_custom_boundary(data: ValidateCustomBoundaryModel):
             },
         }
     except Exception as e:
-        logger.error("Custom boundary validation failed: %s", e)
+        logger.exception("Custom boundary validation failed: %s", e)
         return JSONResponse(status_code=400, content={"valid": False, "detail": str(e)})
 
 
 @router.post("/api/preprocess_custom_boundary")
 async def preprocess_custom_boundary(data: CustomBoundaryModel):
-    """Kick off preprocessing for a custom drawn boundary.
+    """
+    Kick off preprocessing for a custom drawn boundary.
 
-    Creates/updates a coverage area record and schedules a background task
-    that fetches streets inside the provided geometry and calculates coverage.
+    Creates/updates a coverage area record and schedules a background task that fetches
+    streets inside the provided geometry and calculates coverage.
     """
     display_name = data.display_name or data.area_name
     if not display_name:

@@ -8,7 +8,9 @@ import perf from "./performance-optimisations.js";
 import themeManager from "./theme-manager.js";
 
 function init() {
-  if (uiState.initialized) return;
+  if (uiState.initialized) {
+    return;
+  }
 
   try {
     themeManager.init();

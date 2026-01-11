@@ -42,7 +42,8 @@ router = APIRouter()
 
 
 async def _process_bouncie_event(data: dict[str, Any]) -> dict[str, Any]:
-    """Process Bouncie webhook event.
+    """
+    Process Bouncie webhook event.
 
     Raises exceptions if processing fails, which are caught by the webhook handler.
     """
@@ -117,8 +118,8 @@ async def websocket_endpoint(websocket: WebSocket):
                         "type": "trip_state",
                         "trip": initial_trip,
                         "status": initial_trip.get("status", "active"),
-                    }
-                )
+                    },
+                ),
             )
 
         # Subscribe to Redis updates
@@ -155,8 +156,8 @@ async def websocket_endpoint(websocket: WebSocket):
                             "trip": trip_payload,
                             "status": event_data.get("status", "active"),
                             "transaction_id": event_data.get("transaction_id"),
-                        }
-                    )
+                        },
+                    ),
                 )
 
             except json.JSONDecodeError as e:
@@ -192,10 +193,11 @@ async def websocket_endpoint(websocket: WebSocket):
 
 @router.post("/webhook/bouncie")
 async def bouncie_webhook(request: Request):
-    """Receive and process Bouncie webhook events.
+    """
+    Receive and process Bouncie webhook events.
 
-    Always returns 200 OK to prevent Bouncie from deactivating the webhook.
-    Processing errors are logged but don't fail the webhook response.
+    Always returns 200 OK to prevent Bouncie from deactivating the webhook. Processing
+    errors are logged but don't fail the webhook response.
     """
     try:
         data = await request.json()
@@ -216,7 +218,8 @@ async def bouncie_webhook(request: Request):
         try:
             result = await _process_bouncie_event(data)
             return JSONResponse(
-                content={"status": "ok", "detail": result}, status_code=200
+                content={"status": "ok", "detail": result},
+                status_code=200,
             )
         except Exception as processing_error:
             # Log processing errors but still return 200 OK
@@ -238,7 +241,7 @@ async def bouncie_webhook(request: Request):
             )
 
     except json.JSONDecodeError:
-        logger.error("Invalid JSON in webhook")
+        logger.exception("Invalid JSON in webhook")
         # Return 200 OK even for invalid JSON to prevent webhook deactivation
         return JSONResponse(
             content={"status": "accepted", "message": "Invalid JSON payload"},
@@ -292,7 +295,8 @@ async def active_trip_endpoint():
 
 @router.get("/api/trip_updates")
 async def trip_updates_endpoint():
-    """Polling fallback endpoint for trip updates.
+    """
+    Polling fallback endpoint for trip updates.
 
     Returns current active trip if available.
     """

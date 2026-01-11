@@ -94,7 +94,8 @@ async def get_trips(request: Request):
                 "averageSpeed": trip_dict.get("averageSpeed"),
                 "pointsRecorded": num_points,
                 "estimated_cost": TripCostService.calculate_trip_cost(
-                    trip_dict, price_map
+                    trip_dict,
+                    price_map,
                 ),
                 "matchedGps": matched_geom,
                 "matchStatus": trip_dict.get("matchStatus"),
@@ -117,7 +118,7 @@ async def get_trips_datatable(request: Request):
     """Get trips data formatted for DataTables server-side processing."""
     try:
         body = await request.json()
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid JSON payload for trips datatable request.",
@@ -136,7 +137,7 @@ async def get_trips_datatable(request: Request):
     # Fetch gas prices for cost calculation
     price_map = await TripCostService.get_fillup_price_map()
 
-    result = await TripQueryService.get_trips_datatable(
+    return await TripQueryService.get_trips_datatable(
         draw=draw,
         start=start,
         length=length,
@@ -148,8 +149,6 @@ async def get_trips_datatable(request: Request):
         end_date=end_date,
         price_map=price_map,
     )
-
-    return result
 
 
 @router.get("/api/trips/invalid", tags=["Trips API"])

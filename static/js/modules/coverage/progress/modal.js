@@ -40,7 +40,9 @@ export class ProgressModal {
    */
   show(message = "Processing...", progress = 0, locationName = null) {
     const modalElement = this.getModalElement();
-    if (!modalElement) return;
+    if (!modalElement) {
+      return;
+    }
 
     const modalTitle = modalElement.querySelector(".modal-title");
     const modalProgressBar = modalElement.querySelector(".progress-bar");
@@ -65,8 +67,8 @@ export class ProgressModal {
       modalProgressBar.style.width = `${progress}%`;
       modalProgressBar.setAttribute("aria-valuenow", progress);
       modalProgressBar.textContent = `${progress}%`;
-      modalProgressBar.className =
-        "progress-bar progress-bar-striped progress-bar-animated bg-primary";
+      modalProgressBar.className
+        = "progress-bar progress-bar-striped progress-bar-animated bg-primary";
     }
 
     // Set initial message
@@ -82,13 +84,23 @@ export class ProgressModal {
     const elapsedTime = progressDetails.querySelector(".elapsed-time");
     const estimatedTime = progressDetails.querySelector(".estimated-time");
 
-    if (stageInfo) stageInfo.innerHTML = "";
-    if (statsInfo) statsInfo.innerHTML = "";
-    if (elapsedTime) elapsedTime.textContent = "Elapsed: 0s";
-    if (estimatedTime) estimatedTime.textContent = "";
+    if (stageInfo) {
+      stageInfo.innerHTML = "";
+    }
+    if (statsInfo) {
+      statsInfo.innerHTML = "";
+    }
+    if (elapsedTime) {
+      elapsedTime.textContent = "Elapsed: 0s";
+    }
+    if (estimatedTime) {
+      estimatedTime.textContent = "";
+    }
 
     // Enable cancel button
-    if (cancelBtn) cancelBtn.disabled = false;
+    if (cancelBtn) {
+      cancelBtn.disabled = false;
+    }
 
     // Start timing
     this.startTiming();
@@ -108,7 +120,9 @@ export class ProgressModal {
    */
   hide() {
     const modalElement = this.getModalElement();
-    if (!modalElement) return;
+    if (!modalElement) {
+      return;
+    }
 
     const modal = bootstrap.Modal.getInstance(modalElement);
     if (modal) {
@@ -137,7 +151,9 @@ export class ProgressModal {
    */
   updateContent(data) {
     const modalElement = this.getModalElement();
-    if (!modalElement) return;
+    if (!modalElement) {
+      return;
+    }
 
     const {
       stage = STATUS.UNKNOWN,
@@ -230,7 +246,9 @@ export class ProgressModal {
       this.updateActivityIndicator(false);
 
       const estimatedTimeEl = modalElement.querySelector(".estimated-time");
-      if (estimatedTimeEl) estimatedTimeEl.textContent = "";
+      if (estimatedTimeEl) {
+        estimatedTimeEl.textContent = "";
+      }
     } else {
       if (!this.progressTimer) {
         this.startTiming();
@@ -250,7 +268,9 @@ export class ProgressModal {
    * Start the timing interval
    */
   startTiming() {
-    if (this.progressTimer) clearInterval(this.progressTimer);
+    if (this.progressTimer) {
+      clearInterval(this.progressTimer);
+    }
 
     this.processingStartTime = Date.now();
     this.lastActivityTime = Date.now();
@@ -279,7 +299,9 @@ export class ProgressModal {
    * Update timing information display
    */
   updateTimingInfo() {
-    if (!this.processingStartTime) return;
+    if (!this.processingStartTime) {
+      return;
+    }
 
     const elapsedMs = Date.now() - this.processingStartTime;
     const elapsedText = formatElapsedTime(elapsedMs);
@@ -289,8 +311,12 @@ export class ProgressModal {
       "#taskProgressModal .estimated-time"
     );
 
-    if (elapsedTimeEl) elapsedTimeEl.textContent = `Elapsed: ${elapsedText}`;
-    if (estimatedTimeEl) estimatedTimeEl.textContent = "";
+    if (elapsedTimeEl) {
+      elapsedTimeEl.textContent = `Elapsed: ${elapsedText}`;
+    }
+    if (estimatedTimeEl) {
+      estimatedTimeEl.textContent = "";
+    }
   }
 
   /**
@@ -298,12 +324,16 @@ export class ProgressModal {
    */
   updateActivityIndicator(isActive = null) {
     const modalElement = this.getModalElement();
-    if (!modalElement) return;
+    if (!modalElement) {
+      return;
+    }
 
     const activityIndicator = modalElement.querySelector(".activity-indicator");
     const lastUpdateEl = modalElement.querySelector(".last-update-time");
 
-    if (!activityIndicator || !lastUpdateEl) return;
+    if (!activityIndicator || !lastUpdateEl) {
+      return;
+    }
 
     const now = new Date();
     let currentlyActive = false;
@@ -316,12 +346,12 @@ export class ProgressModal {
 
     if (currentlyActive) {
       activityIndicator.classList.add("pulsing");
-      activityIndicator.innerHTML =
-        '<i class="fas fa-circle-notch fa-spin text-info me-1"></i>Active';
+      activityIndicator.innerHTML
+        = '<i class="fas fa-circle-notch fa-spin text-info me-1"></i>Active';
     } else {
       activityIndicator.classList.remove("pulsing");
-      activityIndicator.innerHTML =
-        '<i class="fas fa-hourglass-half text-secondary me-1"></i>Idle';
+      activityIndicator.innerHTML
+        = '<i class="fas fa-hourglass-half text-secondary me-1"></i>Idle';
     }
 
     if (this.lastActivityTime) {
@@ -336,7 +366,9 @@ export class ProgressModal {
    */
   showSuccessAnimation() {
     const modal = this.getModalElement();
-    if (!modal) return;
+    if (!modal) {
+      return;
+    }
 
     const modalBody = modal.querySelector(".modal-body");
     const successIcon = document.createElement("div");
@@ -358,7 +390,9 @@ export class ProgressModal {
    */
   showErrorState(_errorMessage, onRetry) {
     const modal = this.getModalElement();
-    if (!modal) return;
+    if (!modal) {
+      return;
+    }
 
     const footer = modal.querySelector(".modal-footer");
     const retryBtn = document.createElement("button");
@@ -366,7 +400,9 @@ export class ProgressModal {
     retryBtn.innerHTML = '<i class="fas fa-redo me-1"></i>Retry';
     retryBtn.onclick = () => {
       this.hide();
-      if (onRetry) onRetry();
+      if (onRetry) {
+        onRetry();
+      }
     };
 
     footer.insertBefore(retryBtn, footer.firstChild);
@@ -377,7 +413,9 @@ export class ProgressModal {
    */
   showRetryOption(taskId, onRetry) {
     const modal = this.getModalElement();
-    if (!modal) return;
+    if (!modal) {
+      return;
+    }
 
     const modalBody = modal.querySelector(".modal-body");
     const retrySection = document.createElement("div");
@@ -391,7 +429,9 @@ export class ProgressModal {
 
     retrySection.querySelector(".retry-task-btn").onclick = () => {
       retrySection.remove();
-      if (onRetry) onRetry(taskId);
+      if (onRetry) {
+        onRetry(taskId);
+      }
     };
 
     modalBody.appendChild(retrySection);

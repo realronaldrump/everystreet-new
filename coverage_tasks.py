@@ -1,11 +1,11 @@
-"""Module for orchestrating street coverage preprocessing and calculation.
+"""
+Module for orchestrating street coverage preprocessing and calculation.
 
 tasks.
 
-This module contains functions that manage the workflow of fetching street
-data, segmenting it, calculating coverage based on trip data, and updating
-database status and results. These functions are typically called
-asynchronously from API endpoints.
+This module contains functions that manage the workflow of fetching street data,
+segmenting it, calculating coverage based on trip data, and updating database status and
+results. These functions are typically called asynchronously from API endpoints.
 """
 
 import logging
@@ -76,18 +76,18 @@ async def _update_coverage_metadata(
 
         if req:
             await doc.update(req)
-    else:
-        # Create new document if it doesn't exist (upsert behavior)
-        if "location" in data:
-            new_doc = CoverageMetadata(**data)
-            await new_doc.insert()
+    # Create new document if it doesn't exist (upsert behavior)
+    elif "location" in data:
+        new_doc = CoverageMetadata(**data)
+        await new_doc.insert()
 
 
 async def process_coverage_calculation(
     location: dict[str, Any],
     task_id: str,
 ) -> None:
-    """Orchestrates the full coverage calculation process in the background.
+    """
+    Orchestrates the full coverage calculation process in the background.
 
     Delegates the core calculation, progress updates, and result handling to
     `compute_coverage_for_location`. This function primarily initializes the
@@ -190,7 +190,7 @@ async def process_coverage_calculation(
                 },
             )
         except Exception as inner_e:
-            logger.error(
+            logger.exception(
                 "Task %s: Failed to update status after primary orchestration error: %s",
                 task_id,
                 str(inner_e),
@@ -201,7 +201,8 @@ async def process_incremental_coverage_calculation(
     location: dict[str, Any],
     task_id: str,
 ) -> None:
-    """Orchestrates the incremental coverage calculation process.
+    """
+    Orchestrates the incremental coverage calculation process.
 
     Delegates the core calculation, progress updates, and result handling to
     `compute_incremental_coverage`.
@@ -303,7 +304,7 @@ async def process_incremental_coverage_calculation(
                 },
             )
         except Exception as inner_e:
-            logger.error(
+            logger.exception(
                 "Task %s: Failed to update status after primary incremental orchestration error: %s",
                 task_id,
                 str(inner_e),
@@ -368,7 +369,7 @@ async def process_area(
 
         # Retrieve ID if it exists to ensure consistency
         metadata = await CoverageMetadata.find_one(
-            CoverageMetadata.location.display_name == display_name
+            CoverageMetadata.location.display_name == display_name,
         ).project(Projection_model=CoverageMetadata)
         if metadata and metadata.id:
             location["_id"] = str(metadata.id)
@@ -402,7 +403,7 @@ async def process_area(
             )
         except Exception as seg_err:
             error_msg = f"Street segmentation failed: {seg_err}"
-            logger.error(
+            logger.exception(
                 "Task %s: Segmentation failed for %s: %s",
                 task_id,
                 display_name,
@@ -564,7 +565,7 @@ async def process_area(
                 },
             )
         except Exception as inner_e:
-            logger.error(
+            logger.exception(
                 "Task %s: Failed to update status after primary area processing error: %s",
                 task_id,
                 str(inner_e),

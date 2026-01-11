@@ -162,7 +162,8 @@ body.light-mode .legend-indicator--undriven {
     border-style: solid; /* Ensure border is solid */
   }
 
-  .btn-primary, .btn-secondary /* etc. */ {
+  .btn-primary,
+  .btn-secondary /* etc. */ {
     border-color: currentcolor; /* Ensure contrast for filled buttons */
   }
 
@@ -189,12 +190,12 @@ body.light-mode .legend-indicator--undriven {
   .app-header,
   .mobile-nav-drawer,
   .side-panel,
-  .tools-section, /* Hide theme toggle, etc. */
+  .tools-section /* Hide theme toggle, etc. */,
   .menu-toggle-btn,
   .notification-container,
   .loading-overlay,
-  .control-panel, /* Hide map control panel */
-  .btn, /* Hide most buttons */
+  .control-panel /* Hide map control panel */,
+  .btn /* Hide most buttons */,
   .quick-selections,
   .panel-actions,
   #map-controls /* Hide specific map controls panel if it's different */ {

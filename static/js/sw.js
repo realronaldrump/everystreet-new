@@ -17,8 +17,12 @@ self.addEventListener("activate", () => {
  */
 self.addEventListener("fetch", (event) => {
   const { request } = event;
-  if (request.method !== "GET") return;
-  if (!API_PATTERN.test(request.url) && !TILE_PATTERN.test(request.url)) return;
+  if (request.method !== "GET") {
+    return;
+  }
+  if (!API_PATTERN.test(request.url) && !TILE_PATTERN.test(request.url)) {
+    return;
+  }
 
   event.respondWith(staleWhileRevalidate(request));
 });

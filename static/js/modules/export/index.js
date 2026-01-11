@@ -67,7 +67,9 @@ class ExportManager {
     // Validate location button handlers
     this.elements.validateButtons?.forEach((button) => {
       button.addEventListener("mousedown", (event) => {
-        if (event.button !== 0) return;
+        if (event.button !== 0) {
+          return;
+        }
         const targetId = event.currentTarget.dataset.target;
         if (targetId) {
           validateLocation(targetId);
@@ -109,7 +111,9 @@ class ExportManager {
     }
 
     const config = EXPORT_CONFIG[formType];
-    if (!config) return;
+    if (!config) {
+      return;
+    }
 
     // Prevent duplicate exports
     if (this.activeExports[formType]) {
@@ -121,7 +125,9 @@ class ExportManager {
     }
 
     const formElement = this.elements[config.id];
-    if (!formElement) return;
+    if (!formElement) {
+      return;
+    }
 
     const submitButton = formElement.querySelector('button[type="submit"]');
     const originalText = setButtonLoading(submitButton, true, `Export ${config.name}`);

@@ -1,4 +1,5 @@
-"""Webhook processing task.
+"""
+Webhook processing task.
 
 This module provides the Celery task for processing Bouncie webhook events
 asynchronously, including trip start, data, metrics, and end events.
@@ -35,7 +36,8 @@ logger = get_task_logger(__name__)
     queue="default",
 )
 def process_webhook_event_task(self, data: dict[str, Any]) -> dict[str, Any]:
-    """Celery task to process Bouncie webhook data asynchronously.
+    """
+    Celery task to process Bouncie webhook data asynchronously.
 
     Obtains DB collections reliably at the start of execution via db_manager.
 
@@ -117,7 +119,7 @@ def process_webhook_event_task(self, data: dict[str, Any]) -> dict[str, Any]:
         return {"status": "success", "message": "Event processed successfully"}
 
     except ConnectionFailure as db_err:
-        logger.error(
+        logger.exception(
             "Task %s (%s): Database connection error during processing: %s",
             task_name,
             celery_task_id,
@@ -145,11 +147,11 @@ def process_webhook_event_task(self, data: dict[str, Any]) -> dict[str, Any]:
                 )
                 raise db_err from retry_exc
         else:
-            logger.error(
+            logger.exception(
                 "Cannot retry task %s as Celery retry context is missing.",
                 celery_task_id,
             )
-            raise db_err
+            raise
 
     except Exception as e:
         end_time = datetime.now(UTC)
@@ -188,11 +190,11 @@ def process_webhook_event_task(self, data: dict[str, Any]) -> dict[str, Any]:
                 )
                 raise e from retry_exc
         else:
-            logger.error(
+            logger.exception(
                 "Cannot retry task %s for generic error as Celery retry "
                 "context is missing.",
                 celery_task_id,
             )
-            raise e
+            raise
 
     return {"status": "error", "message": "Unknown error (unreachable)"}

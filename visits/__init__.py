@@ -1,4 +1,5 @@
-"""Visits and places module for the street coverage application.
+"""
+Visits and places module for the street coverage application.
 
 This module provides modular functionality for:
 - Custom place management (CRUD operations)

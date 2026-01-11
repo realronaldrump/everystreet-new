@@ -1,7 +1,8 @@
-"""HTTP session management for aiohttp.
+"""
+HTTP session management for aiohttp.
 
-This module provides shared aiohttp ClientSession management with proper
-handling of process forks and event loop changes.
+This module provides shared aiohttp ClientSession management with proper handling of
+process forks and event loop changes.
 """
 
 from __future__ import annotations
@@ -30,7 +31,8 @@ class SessionState:
 
 
 async def get_session() -> aiohttp.ClientSession:
-    """Get or create a shared aiohttp ClientSession.
+    """
+    Get or create a shared aiohttp ClientSession.
 
     This function creates a per-process session and handles fork scenarios
     cleanly. Sessions are not shared across processes to avoid concurrency

@@ -26,7 +26,8 @@ async def get_single_trip(trip_id: str):
     trip = await TripCrudService.get_trip(trip_id)
     if not trip:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Trip not found"
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Trip not found",
         )
     return {
         "status": "success",
@@ -39,8 +40,7 @@ async def get_single_trip(trip_id: str):
 async def delete_trip(trip_id: str):
     """Delete a trip by its transaction ID."""
     try:
-        result = await TripCrudService.delete_trip(trip_id)
-        return result
+        return await TripCrudService.delete_trip(trip_id)
     except ValueError as e:
         if "not found" in str(e).lower():
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
@@ -55,12 +55,11 @@ async def delete_trip(trip_id: str):
 async def update_trip(trip_id: str, update_data: TripUpdateRequest):
     """Update a trip's details, such as its geometry or properties."""
     try:
-        result = await TripCrudService.update_trip(
+        return await TripCrudService.update_trip(
             trip_id,
             geometry_data=update_data.geometry,
             properties_data=update_data.properties,
         )
-        return result
     except ValueError as e:
         if "not found" in str(e).lower():
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
@@ -80,8 +79,7 @@ async def bulk_delete_trips(request: Request):
     trip_ids = body.get("trip_ids", [])
 
     try:
-        result = await TripCrudService.bulk_delete_trips(trip_ids)
-        return result
+        return await TripCrudService.bulk_delete_trips(trip_ids)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
@@ -91,8 +89,7 @@ async def bulk_delete_trips(request: Request):
 async def restore_trip(trip_id: str):
     """Restore an invalid trip."""
     try:
-        result = await TripCrudService.restore_trip(trip_id)
-        return result
+        return await TripCrudService.restore_trip(trip_id)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 

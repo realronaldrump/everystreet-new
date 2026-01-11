@@ -127,7 +127,9 @@ class CoverageManager {
    */
   async loadCoverageAreas(showLoading = true, silent = false, skipRebuild = false) {
     const tableBody = document.querySelector("#coverage-areas-table tbody");
-    if (!tableBody) return;
+    if (!tableBody) {
+      return;
+    }
 
     if (showLoading && !silent) {
       tableBody.innerHTML = `
@@ -295,8 +297,8 @@ class CoverageManager {
    * Find most efficient streets
    */
   async findMostEfficientStreets() {
-    const locationId =
-      this.dashboard.selectedLocation?._id || this.dashboard.currentDashboardLocationId;
+    const locationId
+      = this.dashboard.selectedLocation?._id || this.dashboard.currentDashboardLocationId;
     if (!locationId) {
       this.notificationManager.show("Please select a coverage area first.", "warning");
       return;
@@ -317,7 +319,9 @@ class CoverageManager {
    */
   updateTotalAreasCount(count = null) {
     const countElement = document.getElementById("total-areas-count");
-    if (!countElement) return;
+    if (!countElement) {
+      return;
+    }
 
     if (count === null) {
       COVERAGE_API.getAllAreas().then((areas) => {
@@ -334,8 +338,8 @@ class CoverageManager {
 // Initialize on DOM ready
 document.addEventListener("DOMContentLoaded", () => {
   if (typeof mapboxgl === "undefined") {
-    const msg =
-      "Error: Mapbox GL JS library failed to load. Map functionality will be unavailable.";
+    const msg
+      = "Error: Mapbox GL JS library failed to load. Map functionality will be unavailable.";
     const errContainer = document.getElementById("alerts-container") || document.body;
     const errDiv = document.createElement("div");
     errDiv.className = "alert alert-danger m-3";
@@ -347,9 +351,10 @@ document.addEventListener("DOMContentLoaded", () => {
   if (typeof Chart === "undefined") {
     console.warn("Chart.js not loaded. Chart functionality will be unavailable.");
     const chartContainer = document.getElementById("street-type-chart");
-    if (chartContainer)
-      chartContainer.innerHTML =
-        '<div class="alert alert-warning small p-2">Chart library not loaded.</div>';
+    if (chartContainer) {
+      chartContainer.innerHTML
+        = '<div class="alert alert-warning small p-2">Chart library not loaded.</div>';
+    }
   }
   window.coverageManager = new CoverageManager();
 });

@@ -15,7 +15,8 @@ class BouncieService:
 
     @staticmethod
     async def fetch_vehicle_status(imei: str) -> dict[str, Any] | None:
-        """Fetch real-time vehicle status from Bouncie API.
+        """
+        Fetch real-time vehicle status from Bouncie API.
 
         Calls GET /v1/vehicles?imei={imei} to get current:
         - stats.odometer: Current odometer reading
@@ -77,5 +78,5 @@ class BouncieService:
                 return result
 
         except Exception as e:
-            logger.error("Error fetching vehicle status from Bouncie: %s", e)
+            logger.exception("Error fetching vehicle status from Bouncie: %s", e)
             return None

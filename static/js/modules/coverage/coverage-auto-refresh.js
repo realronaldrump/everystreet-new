@@ -30,17 +30,23 @@ export class CoverageAutoRefresh {
 
     this.refreshInterval = setInterval(async () => {
       // Skip if already refreshing or if modal is showing (polling handles that)
-      if (this.isAutoRefreshing) return;
+      if (this.isAutoRefreshing) {
+        return;
+      }
 
-      const isModalProcessing =
-        this.manager.crud?.currentProcessingLocation &&
-        document.getElementById("taskProgressModal")?.classList.contains("show");
+      const isModalProcessing
+        = this.manager.crud?.currentProcessingLocation
+        && document.getElementById("taskProgressModal")?.classList.contains("show");
 
       // Don't auto-refresh while modal is open - polling handles updates there
-      if (isModalProcessing) return;
+      if (isModalProcessing) {
+        return;
+      }
 
       const processingRows = document.querySelectorAll(".processing-row");
-      if (processingRows.length === 0) return;
+      if (processingRows.length === 0) {
+        return;
+      }
 
       // Only do incremental status updates, not full table rebuilds
       this.isAutoRefreshing = true;
@@ -73,12 +79,16 @@ export class CoverageAutoRefresh {
 
       processingRows.forEach((row) => {
         const locationLink = row.querySelector(".location-name-link");
-        if (!locationLink) return;
+        if (!locationLink) {
+          return;
+        }
 
         const { locationId } = locationLink.dataset;
         const area = areas.find((a) => a._id === locationId);
 
-        if (!area) return;
+        if (!area) {
+          return;
+        }
 
         // Check if no longer processing
         const status = area.status || "unknown";
@@ -127,7 +137,9 @@ export class CoverageAutoRefresh {
    */
   checkForInterruptedTasks() {
     const savedProgress = localStorage.getItem("coverageProcessingState");
-    if (!savedProgress) return;
+    if (!savedProgress) {
+      return;
+    }
 
     try {
       const progressData = JSON.parse(savedProgress);
@@ -161,11 +173,11 @@ export class CoverageAutoRefresh {
     }
 
     const notification = document.createElement("div");
-    notification.className =
-      "alert alert-info alert-dismissible fade show mt-3 fade-in-up";
+    notification.className
+      = "alert alert-info alert-dismissible fade show mt-3 fade-in-up";
     notification.innerHTML = `
       <h5><i class="fas fa-info-circle me-2"></i>Interrupted Task Found</h5>
-      <p>A processing task for <strong>${location.display_name}</strong> 
+      <p>A processing task for <strong>${location.display_name}</strong>
          (Task ID: ${taskId.substring(0, 8)}...) was interrupted.</p>
       <div class="progress mb-2" style="height: 20px;">
         <div class="progress-bar bg-info" style="width: ${progressData.progress || 0}%">

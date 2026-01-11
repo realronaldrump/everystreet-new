@@ -1,7 +1,8 @@
-"""App settings management.
+"""
+App settings management.
 
-This module handles storage and retrieval of app-wide settings from MongoDB.
-Settings are stored once and shared across all deployments using the same database.
+This module handles storage and retrieval of app-wide settings from MongoDB. Settings
+are stored once and shared across all deployments using the same database.
 """
 
 from __future__ import annotations
@@ -32,7 +33,8 @@ class SettingsCache:
 
 
 async def get_app_settings() -> dict[str, Any]:
-    """Retrieve app settings from database.
+    """
+    Retrieve app settings from database.
 
     Returns:
         Dictionary containing:
@@ -80,7 +82,8 @@ async def get_app_settings() -> dict[str, Any]:
 
 
 async def update_app_settings(settings: dict[str, Any]) -> bool:
-    """Update app settings in database.
+    """
+    Update app settings in database.
 
     Args:
         settings: Dictionary containing settings fields to update.
@@ -133,11 +136,12 @@ async def update_app_settings(settings: dict[str, Any]) -> bool:
 
 
 def get_cached_mapbox_token() -> str:
-    """Get Mapbox token from cache (sync access).
+    """
+    Get Mapbox token from cache (sync access).
 
-    This is used for module-level imports where async isn't available.
-    The cache is populated when get_app_settings() is called.
-    Falls back to environment variable if cache is empty or missing.
+    This is used for module-level imports where async isn't available. The cache is
+    populated when get_app_settings() is called. Falls back to environment variable if
+    cache is empty or missing.
     """
     token = ""
     cache = SettingsCache.get_cache()
@@ -148,11 +152,12 @@ def get_cached_mapbox_token() -> str:
 
 
 def get_cached_clarity_id() -> str | None:
-    """Get Clarity ID from cache (sync access).
+    """
+    Get Clarity ID from cache (sync access).
 
-    This is used for module-level imports where async isn't available.
-    The cache is populated when get_app_settings() is called.
-    Falls back to None if cache not yet populated.
+    This is used for module-level imports where async isn't available. The cache is
+    populated when get_app_settings() is called. Falls back to None if cache not yet
+    populated.
     """
     cache = SettingsCache.get_cache()
     if cache:
@@ -161,7 +166,8 @@ def get_cached_clarity_id() -> str | None:
 
 
 async def ensure_settings_cached() -> None:
-    """Ensure settings are loaded into cache.
+    """
+    Ensure settings are loaded into cache.
 
     Call this at app startup to populate the cache.
     """

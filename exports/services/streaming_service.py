@@ -1,7 +1,8 @@
-"""Streaming service for efficient export data generation.
+"""
+Streaming service for efficient export data generation.
 
-Provides async generators for streaming large datasets without loading
-all data into memory at once.
+Provides async generators for streaming large datasets without loading all data into
+memory at once.
 """
 
 import csv
@@ -98,7 +99,8 @@ class StreamingService:
 
     @staticmethod
     async def stream_gpx(cursor) -> AsyncIterator[str]:
-        """Stream GPX from cursor.
+        """
+        Stream GPX from cursor.
 
         Note: GPX requires collecting trips first due to library structure.
         """
@@ -172,35 +174,44 @@ class StreamingService:
         include_gps_in_csv: bool = False,
         flatten_location_fields: bool = True,
     ) -> StreamingResponse | None:
-        """Export cursor data in specified format.
+        """
+        Export cursor data in specified format.
 
-        Returns StreamingResponse for supported streaming formats,
-        or None if format requires non-streaming fallback.
+        Returns StreamingResponse for supported streaming formats, or None if format
+        requires non-streaming fallback.
         """
         fmt_lower = fmt.lower()
 
         if fmt_lower == "json":
             stream = cls.stream_json_array(cursor)
             return cls.create_streaming_response(
-                stream, "application/json", f"{filename_base}.json"
+                stream,
+                "application/json",
+                f"{filename_base}.json",
             )
 
         if fmt_lower == "geojson":
             stream = cls.stream_geojson(cursor, geometry_field)
             return cls.create_streaming_response(
-                stream, "application/geo+json", f"{filename_base}.geojson"
+                stream,
+                "application/geo+json",
+                f"{filename_base}.geojson",
             )
 
         if fmt_lower == "gpx":
             stream = cls.stream_gpx(cursor)
             return cls.create_streaming_response(
-                stream, "application/gpx+xml", f"{filename_base}.gpx"
+                stream,
+                "application/gpx+xml",
+                f"{filename_base}.gpx",
             )
 
         if fmt_lower == "csv":
             stream = cls.stream_csv(cursor, include_gps_in_csv, flatten_location_fields)
             return cls.create_streaming_response(
-                stream, "text/csv", f"{filename_base}.csv"
+                stream,
+                "text/csv",
+                f"{filename_base}.csv",
             )
 
         # Format not supported for streaming

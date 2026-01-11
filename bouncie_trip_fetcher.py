@@ -1,7 +1,8 @@
-"""Bouncie_trip_fetcher.py.
+"""
+Bouncie_trip_fetcher.py.
 
-Fetches trip data from the Bouncie API, processes and validates each trip using
-the unified TripProcessor, and stores trips in MongoDB.
+Fetches trip data from the Bouncie API, processes and validates each trip using the
+unified TripProcessor, and stores trips in MongoDB.
 """
 
 import asyncio
@@ -70,7 +71,7 @@ async def fetch_trips_for_device(
                 )
             return trips
     except Exception as e:
-        logger.error(
+        logger.exception(
             "Error fetching trips for device %s: %s",
             imei,
             e,
@@ -82,7 +83,7 @@ async def fetch_bouncie_trips_in_range(
     start_dt: datetime,
     end_dt: datetime,
     do_map_match: bool = False,
-    task_progress: dict = None,
+    task_progress: dict | None = None,
 ) -> list:
     # Parallel chunk processing across devices and 7-day windows
     all_new_trips = []
@@ -100,9 +101,9 @@ async def fetch_bouncie_trips_in_range(
             logger.error("No authorized devices configured; aborting fetch")
             if progress_tracker is not None:
                 progress_tracker["fetch_and_store_trips"]["status"] = "failed"
-                progress_tracker["fetch_and_store_trips"][
-                    "message"
-                ] = "No authorized devices configured"
+                progress_tracker["fetch_and_store_trips"]["message"] = (
+                    "No authorized devices configured"
+                )
             return all_new_trips
 
         session = await get_session()
@@ -111,9 +112,9 @@ async def fetch_bouncie_trips_in_range(
             logger.error("Failed to obtain access token; aborting fetch")
             if progress_tracker is not None:
                 progress_tracker["fetch_and_store_trips"]["status"] = "failed"
-                progress_tracker["fetch_and_store_trips"][
-                    "message"
-                ] = "Failed to obtain access token"
+                progress_tracker["fetch_and_store_trips"]["message"] = (
+                    "Failed to obtain access token"
+                )
             return all_new_trips
 
         # Initialize TripService once
@@ -183,9 +184,9 @@ async def fetch_bouncie_trips_in_range(
                         if progress_tracker is not None and total_chunks:
                             pct = (completed_chunks / total_chunks) * 100
                             progress_tracker["fetch_and_store_trips"]["progress"] = pct
-                            progress_tracker["fetch_and_store_trips"][
-                                "message"
-                            ] = f"Processed {completed_chunks}/{total_chunks} chunks"
+                            progress_tracker["fetch_and_store_trips"]["message"] = (
+                                f"Processed {completed_chunks}/{total_chunks} chunks"
+                            )
 
         # Kick off tasks in parallel
         tasks = [process_chunk(imei, s, e) for (imei, s, e) in chunk_windows]
@@ -211,10 +212,11 @@ async def fetch_bouncie_trips_in_range(
         ):
             progress_tracker["fetch_and_store_trips"]["status"] = "completed"
             progress_tracker["fetch_and_store_trips"]["progress"] = 100
-            progress_tracker["fetch_and_store_trips"][
-                "message"
-            ] = f"Completed fetch and processing. Found {len(all_new_trips)} new/updated trips."
+            progress_tracker["fetch_and_store_trips"]["message"] = (
+                f"Completed fetch and processing. Found {len(all_new_trips)} new/updated trips."
+            )
     logger.info(
-        "fetch_bouncie_trips_in_range finished, returning %d trips.", len(all_new_trips)
+        "fetch_bouncie_trips_in_range finished, returning %d trips.",
+        len(all_new_trips),
     )
     return all_new_trips

@@ -55,7 +55,9 @@ class TurnByTurnGPS {
     this.watchId = geolocationService.watchPosition(
       (position) => {
         const { latitude, longitude, accuracy, heading, speed } = position.coords;
-        if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return;
+        if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+          return;
+        }
 
         const fix = {
           lat: latitude,
@@ -173,7 +175,9 @@ class TurnByTurnGPS {
    * @returns {number|null}
    */
   getAverageSpeed() {
-    if (this.speedSamples.length === 0) return null;
+    if (this.speedSamples.length === 0) {
+      return null;
+    }
     const sum = this.speedSamples.reduce((acc, v) => acc + v, 0);
     return sum / this.speedSamples.length;
   }
@@ -213,8 +217,8 @@ class TurnByTurnGPS {
     }
 
     // Rule 3: Weighted moving average for smoothness
-    const avg =
-      this.progressHistory.reduce((a, b) => a + b, 0) / this.progressHistory.length;
+    const avg
+      = this.progressHistory.reduce((a, b) => a + b, 0) / this.progressHistory.length;
 
     // Blend: 70% current, 30% average
     const smoothed = clampedProgress * 0.7 + avg * 0.3;

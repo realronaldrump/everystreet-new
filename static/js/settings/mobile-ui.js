@@ -33,7 +33,9 @@ export function setupMobileAccordions() {
 export function setupMobileTaskList(taskManager) {
   // Hook into the existing updateTaskConfigTable function
   const originalUpdate = taskManager?.updateTaskConfigTable;
-  if (!originalUpdate) return;
+  if (!originalUpdate) {
+    return;
+  }
 
   taskManager.updateTaskConfigTable = function (config) {
     originalUpdate.call(this, config);
@@ -43,12 +45,16 @@ export function setupMobileTaskList(taskManager) {
 
 export function updateMobileTaskList(config, taskManager) {
   const mobileList = document.getElementById("mobile-task-list");
-  if (!mobileList) return;
+  if (!mobileList) {
+    return;
+  }
 
   mobileList.innerHTML = "";
 
   Object.entries(config.tasks).forEach(([taskId, task]) => {
-    if (!task.display_name) return;
+    if (!task.display_name) {
+      return;
+    }
 
     const isManualOnly = Boolean(task.manual_only);
     const taskStatus = task.status || "IDLE";
@@ -92,7 +98,7 @@ export function updateMobileTaskList(config, taskManager) {
           <div class="mobile-task-info-item">
             <span class="mobile-task-info-label">Enabled</span>
             <div class="mobile-task-info-value">
-              <input type="checkbox" class="mobile-switch mobile-task-enabled" 
+              <input type="checkbox" class="mobile-switch mobile-task-enabled"
                 data-task-id="${taskId}" ${task.enabled ? "checked" : ""} />
             </div>
           </div>
@@ -162,7 +168,9 @@ export function updateMobileTaskList(config, taskManager) {
 
 export function setupMobileHistoryList(taskManager) {
   const originalUpdate = taskManager?.updateTaskHistoryTable;
-  if (!originalUpdate) return;
+  if (!originalUpdate) {
+    return;
+  }
 
   taskManager.updateTaskHistoryTable = function (history) {
     originalUpdate.call(this, history);
@@ -172,7 +180,9 @@ export function setupMobileHistoryList(taskManager) {
 
 export function updateMobileHistoryList(history, taskManager) {
   const mobileList = document.getElementById("mobile-history-list");
-  if (!mobileList) return;
+  if (!mobileList) {
+    return;
+  }
 
   mobileList.innerHTML = "";
 
@@ -248,7 +258,7 @@ export function updateMobileHistoryList(history, taskManager) {
       ${
         entry.error
           ? `
-      <button class="btn btn-danger btn-sm w-100 mt-2 mobile-view-error" 
+      <button class="btn btn-danger btn-sm w-100 mt-2 mobile-view-error"
         data-error="${escapeHtml(entry.error)}">
         <i class="fas fa-exclamation-circle"></i> View Error
       </button>
@@ -278,7 +288,9 @@ export function updateMobilePagination(taskManager) {
   const nextBtn = document.getElementById("mobile-history-next");
   const pageInfo = document.getElementById("mobile-history-page-info");
 
-  if (!pagination || !taskManager) return;
+  if (!pagination || !taskManager) {
+    return;
+  }
 
   const { currentHistoryPage, historyTotalPages } = taskManager;
 
@@ -366,7 +378,9 @@ export function setupMobileGlobalControls() {
 
 export function setupMobileManualFetch(taskManager) {
   const form = document.getElementById("mobile-manualFetchTripsForm");
-  if (!form) return;
+  if (!form) {
+    return;
+  }
 
   const startInput = document.getElementById("mobile-manual-fetch-start");
   const endInput = document.getElementById("mobile-manual-fetch-end");
@@ -375,7 +389,9 @@ export function setupMobileManualFetch(taskManager) {
 
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
-    if (!taskManager) return;
+    if (!taskManager) {
+      return;
+    }
 
     const startValue = startInput?.value;
     const endValue = endInput?.value;
@@ -398,10 +414,10 @@ export function setupMobileManualFetch(taskManager) {
     const endDate = new Date(endValue);
 
     if (
-      !startDate ||
-      !endDate ||
-      Number.isNaN(startDate.getTime()) ||
-      Number.isNaN(endDate.getTime())
+      !startDate
+      || !endDate
+      || Number.isNaN(startDate.getTime())
+      || Number.isNaN(endDate.getTime())
     ) {
       if (statusEl) {
         statusEl.classList.add("error");
@@ -490,8 +506,8 @@ function handleGeocodeProgressError(context, status) {
   const { geocodeBtn, statusEl } = context;
   clearInterval(pollGeocodeProgress.pollInterval);
   geocodeBtn.disabled = false;
-  const errorMessage =
-    status === 404
+  const errorMessage
+    = status === 404
       ? "Geocoding task not found."
       : "Unable to retrieve geocoding progress.";
   if (statusEl) {
@@ -514,7 +530,9 @@ function updateGeocodeProgressUI(context, progressData) {
     progressBar.setAttribute("aria-valuenow", progress);
   }
 
-  if (progressMessage) progressMessage.textContent = message;
+  if (progressMessage) {
+    progressMessage.textContent = message;
+  }
 
   if (progressMetrics && metrics.total > 0) {
     progressMetrics.textContent = `Total: ${metrics.total} | Updated: ${metrics.updated || 0} | Skipped: ${metrics.skipped || 0} | Failed: ${metrics.failed || 0}`;
@@ -591,7 +609,9 @@ export function setupMobileGeocodeTrips() {
   const progressMetrics = document.getElementById("mobile-geocode-progress-metrics");
   const statusEl = document.getElementById("mobile-geocode-trips-status");
 
-  if (!geocodeBtn) return;
+  if (!geocodeBtn) {
+    return;
+  }
 
   // Handle tab clicks
   geocodeTabs.forEach((tab) => {
@@ -649,7 +669,9 @@ export function setupMobileGeocodeTrips() {
         statusEl.classList.remove("d-none", "success", "error");
         statusEl.classList.add("info");
       }
-      if (progressPanel) progressPanel.style.display = "block";
+      if (progressPanel) {
+        progressPanel.style.display = "block";
+      }
       if (progressBar) {
         progressBar.style.width = "0%";
         progressBar.textContent = "0%";
@@ -661,8 +683,12 @@ export function setupMobileGeocodeTrips() {
           "progress-bar-striped"
         );
       }
-      if (progressMessage) progressMessage.textContent = "Initializing...";
-      if (progressMetrics) progressMetrics.textContent = "";
+      if (progressMessage) {
+        progressMessage.textContent = "Initializing...";
+      }
+      if (progressMetrics) {
+        progressMetrics.textContent = "";
+      }
 
       const response = await fetch("/api/geocode_trips", {
         method: "POST",
@@ -744,9 +770,9 @@ export function setupMobileRemapTrips() {
 
   if (remapBtn) {
     remapBtn.addEventListener("click", async () => {
-      const method =
-        document.querySelector(".mobile-date-method-tab.active")?.dataset.method ||
-        "date";
+      const method
+        = document.querySelector(".mobile-date-method-tab.active")?.dataset.method
+        || "date";
       let start_date = "";
       let end_date = "";
       let interval_days = 0;
@@ -820,10 +846,14 @@ export function setupMobileRemapTrips() {
 
 export function setupMobileSaveFAB(taskManager) {
   const fab = document.getElementById("mobile-save-config-fab");
-  if (!fab) return;
+  if (!fab) {
+    return;
+  }
 
   fab.addEventListener("click", () => {
-    if (!taskManager) return;
+    if (!taskManager) {
+      return;
+    }
 
     // Gather mobile config
     const mobileGlobalSwitch = document.getElementById("mobile-globalDisableSwitch");

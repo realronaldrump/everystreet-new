@@ -1,4 +1,5 @@
-"""Trip fetching tasks.
+"""
+Trip fetching tasks.
 
 This module provides Celery tasks for fetching trips from external sources:
 - periodic_fetch_trips: Periodic automatic fetch of recent trips
@@ -31,7 +32,8 @@ async def periodic_fetch_trips_async(
     end_time_iso: str | None = None,
     trigger_source: str = "scheduled",
 ) -> dict[str, Any]:
-    """Async logic for fetching periodic trips since the last stored trip.
+    """
+    Async logic for fetching periodic trips since the last stored trip.
 
     Can optionally accept specific start/end times for event-driven fetches.
     """
@@ -57,7 +59,8 @@ async def periodic_fetch_trips_async(
             end_date_fetch = parse_timestamp(end_time_iso)
 
             if not start_date_fetch or not end_date_fetch:
-                raise ValueError("Invalid start or end time format")
+                msg = "Invalid start or end time format"
+                raise ValueError(msg)
 
             logger.info(
                 "Event-Driven Fetch (%s): Using provided range %s to %s",
@@ -66,7 +69,7 @@ async def periodic_fetch_trips_async(
                 end_date_fetch.isoformat(),
             )
         except Exception as e:
-            logger.error(
+            logger.exception(
                 "Failed to parse provided date range: %s. Falling back to default logic.",
                 e,
             )
@@ -169,7 +172,7 @@ async def periodic_fetch_trips_async(
 
         # Update specific task config
         task_config = await TaskConfig.find_one(
-            TaskConfig.task_id == "periodic_fetch_trips"
+            TaskConfig.task_id == "periodic_fetch_trips",
         )
         if not task_config:
             task_config = TaskConfig(task_id="periodic_fetch_trips")
@@ -197,7 +200,7 @@ async def periodic_fetch_trips_async(
         )
 
         trips_recent = await Trip.find(
-            {"source": "bouncie", "startTime": {"$gte": start_date_fetch}}
+            {"source": "bouncie", "startTime": {"$gte": start_date_fetch}},
         ).count()
 
         logger.info(
@@ -234,7 +237,8 @@ def periodic_fetch_trips(
     trigger_source: str = "scheduled",
     **_kwargs,
 ):
-    """Celery task wrapper for fetching periodic trips.
+    """
+    Celery task wrapper for fetching periodic trips.
 
     Accepts kwargs to support event-driven triggers with specific date ranges.
     """
@@ -244,7 +248,7 @@ def periodic_fetch_trips(
             start_time_iso=start_time_iso,
             end_time_iso=end_time_iso,
             trigger_source=trigger_source,
-        )
+        ),
     )
 
 
@@ -261,14 +265,16 @@ async def manual_fetch_trips_range_async(
     def _parse_iso(dt_str: str) -> datetime:
         parsed = parse_timestamp(dt_str)
         if not parsed:
-            raise ValueError(f"Invalid date value: {dt_str}")
+            msg = f"Invalid date value: {dt_str}"
+            raise ValueError(msg)
         return parsed
 
     start_dt = _parse_iso(start_iso)
     end_dt = _parse_iso(end_iso)
 
     if end_dt <= start_dt:
-        raise ValueError("End date must be after start date")
+        msg = "End date must be after start date"
+        raise ValueError(msg)
 
     logger.info(
         "STARTING MANUAL FETCH TASK: %s to %s (map_match=%s, manual_run=%s)",
@@ -341,15 +347,19 @@ async def get_earliest_trip_date() -> datetime | None:
         if earliest_trip and earliest_trip.startTime:
             return earliest_trip.startTime
     except Exception as e:
-        logger.error("Error finding earliest trip date: %s", e)
+        logger.exception("Error finding earliest trip date: %s", e)
     return None
 
 
 @task_runner
 async def fetch_all_missing_trips_async(
-    _self, manual_run: bool = False, start_iso: str | None = None
+    _self,
+    manual_run: bool = False,
+    start_iso: str | None = None,
 ) -> dict[str, Any]:
-    """Fetch all trips from a start date (defaulting to earliest trip or 2020-01-01) to now."""
+    """Fetch all trips from a start date (defaulting to earliest trip or 2020-01-01) to
+    now.
+    """
 
     if start_iso:
         start_dt = parse_timestamp(start_iso)
@@ -388,7 +398,7 @@ async def fetch_all_missing_trips_async(
         initial_count = await Trip.count()
         logger.info("Current total trips in DB before fetch: %d", initial_count)
     except Exception as e:
-        logger.error("Error counting trips: %s", e)
+        logger.exception("Error counting trips: %s", e)
 
     # We disable map matching for this bulk operation to be faster/safer,
     # or we could make it configurable. For now, let's default to False
@@ -425,5 +435,9 @@ def fetch_all_missing_trips(_self, **_kwargs):
     manual_run = _kwargs.get("manual_run", True)
     start_iso = _kwargs.get("start_iso")
     return run_async_from_sync(
-        fetch_all_missing_trips_async(_self, manual_run=manual_run, start_iso=start_iso)
+        fetch_all_missing_trips_async(
+            _self,
+            manual_run=manual_run,
+            start_iso=start_iso,
+        ),
     )

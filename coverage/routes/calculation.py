@@ -1,4 +1,5 @@
-"""Route handlers for coverage calculation operations.
+"""
+Route handlers for coverage calculation operations.
 
 Handles triggering coverage calculations and checking their status.
 """

@@ -24,7 +24,8 @@ class FillupService:
         end_date: str | None = None,
         limit: int = 100,
     ) -> list[GasFillup]:
-        """Get gas fill-up records with optional filters.
+        """
+        Get gas fill-up records with optional filters.
 
         Args:
             imei: Optional IMEI filter
@@ -55,12 +56,12 @@ class FillupService:
 
         query = GasFillup.find(*conditions) if conditions else GasFillup.find_all()
 
-        fillups = await query.sort(-GasFillup.fillup_time).limit(limit).to_list()
-        return fillups
+        return await query.sort(-GasFillup.fillup_time).limit(limit).to_list()
 
     @staticmethod
     async def get_fillup_by_id(fillup_id: str) -> GasFillup | None:
-        """Get a specific gas fill-up by ID.
+        """
+        Get a specific gas fill-up by ID.
 
         Args:
             fillup_id: Fill-up ObjectId string
@@ -69,7 +70,8 @@ class FillupService:
             GasFillup model or None if not found
         """
         if not PydanticObjectId.is_valid(fillup_id):
-            raise ValidationException("Invalid fillup ID")
+            msg = "Invalid fillup ID"
+            raise ValidationException(msg)
 
         return await GasFillup.get(fillup_id)
 
@@ -81,7 +83,8 @@ class FillupService:
         is_full_tank: bool,
         missed_previous: bool,
     ) -> tuple[float | None, float | None, float | None]:
-        """Calculate MPG for a fill-up.
+        """
+        Calculate MPG for a fill-up.
 
         Strict MPG Rules:
         1. Previous fill-up must exist and have odometer
@@ -124,7 +127,8 @@ class FillupService:
 
     @staticmethod
     async def create_fillup(fillup_data: dict[str, Any]) -> GasFillup:
-        """Create a new gas fill-up record.
+        """
+        Create a new gas fill-up record.
 
         Args:
             fillup_data: Fill-up data dictionary
@@ -135,7 +139,8 @@ class FillupService:
         # Convert string datetime to datetime object if needed
         fillup_time = parse_timestamp(fillup_data["fillup_time"])
         if not fillup_time:
-            raise ValidationException("Invalid fillup_time format")
+            msg = "Invalid fillup_time format"
+            raise ValidationException(msg)
 
         # Get vehicle info if available
         vehicle = await Vehicle.find_one(Vehicle.imei == fillup_data["imei"])
@@ -198,14 +203,16 @@ class FillupService:
 
         # Trigger recalculation of next entry
         await FillupService.recalculate_subsequent_fillup(
-            fillup_data["imei"], fillup_time
+            fillup_data["imei"],
+            fillup_time,
         )
 
         return fillup
 
     @staticmethod
     async def update_fillup(fillup_id: str, update_data: dict[str, Any]) -> GasFillup:
-        """Update a gas fill-up record.
+        """
+        Update a gas fill-up record.
 
         Args:
             fillup_id: Fill-up ObjectId string
@@ -218,12 +225,14 @@ class FillupService:
             ValueError: If fill-up not found
         """
         if not PydanticObjectId.is_valid(fillup_id):
-            raise ValidationException("Invalid fillup ID")
+            msg = "Invalid fillup ID"
+            raise ValidationException(msg)
 
         # Check if fillup exists
         fillup = await GasFillup.get(fillup_id)
         if not fillup:
-            raise ResourceNotFoundException("Fill-up not found")
+            msg = "Fill-up not found"
+            raise ResourceNotFoundException(msg)
 
         current_time = update_data.get("fillup_time", fillup.fillup_time)
         imei = update_data.get("imei", fillup.imei)
@@ -251,7 +260,8 @@ class FillupService:
                 curr_is_full = True
 
             curr_missed_prev = update_data.get(
-                "missed_previous", fillup.missed_previous
+                "missed_previous",
+                fillup.missed_previous,
             )
 
             # Calculate stats
@@ -291,7 +301,8 @@ class FillupService:
 
     @staticmethod
     async def delete_fillup(fillup_id: str) -> dict[str, str]:
-        """Delete a gas fill-up record.
+        """
+        Delete a gas fill-up record.
 
         Args:
             fillup_id: Fill-up ObjectId string
@@ -303,12 +314,14 @@ class FillupService:
             ValueError: If fill-up not found
         """
         if not PydanticObjectId.is_valid(fillup_id):
-            raise ValidationException("Invalid fillup ID")
+            msg = "Invalid fillup ID"
+            raise ValidationException(msg)
 
         # Get existing to find IMEI and time
         fillup = await GasFillup.get(fillup_id)
         if not fillup:
-            raise ResourceNotFoundException("Fill-up not found")
+            msg = "Fill-up not found"
+            raise ResourceNotFoundException(msg)
 
         imei = fillup.imei
         fillup_time = fillup.fillup_time
@@ -322,7 +335,9 @@ class FillupService:
 
     @staticmethod
     async def recalculate_subsequent_fillup(imei: str, after_time: datetime) -> None:
-        """Finds the next fill-up after 'after_time' and recalculates its MPG/distance stats.
+        """
+        Finds the next fill-up after 'after_time' and recalculates its MPG/distance
+        stats.
 
         This ensures cascading recalculation when fill-ups are inserted, updated, or deleted.
 
@@ -382,4 +397,4 @@ class FillupService:
             logger.info("Recalculated stats for fill-up %s", next_fillup.id)
 
         except Exception as e:
-            logger.error("Error recalculating subsequent fillup: %s", e)
+            logger.exception("Error recalculating subsequent fillup: %s", e)

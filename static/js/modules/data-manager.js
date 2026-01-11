@@ -24,18 +24,26 @@ const mapLoadingIndicator = (() => {
 
   return {
     show(message = "Loading map data...") {
-      if (!ensureElements()) return;
+      if (!ensureElements()) {
+        return;
+      }
       indicatorEl.classList.remove("d-none");
       indicatorEl.setAttribute("aria-busy", "true");
       indicatorEl.setAttribute("aria-live", "polite");
       this.update(message);
     },
     update(message) {
-      if (!ensureElements()) return;
-      if (textEl) textEl.textContent = message;
+      if (!ensureElements()) {
+        return;
+      }
+      if (textEl) {
+        textEl.textContent = message;
+      }
     },
     hide() {
-      if (!ensureElements()) return;
+      if (!ensureElements()) {
+        return;
+      }
       indicatorEl.classList.add("d-none");
       indicatorEl.removeAttribute("aria-busy");
     },
@@ -44,7 +52,9 @@ const mapLoadingIndicator = (() => {
 
 const dataManager = {
   async fetchTrips() {
-    if (!state.mapInitialized) return null;
+    if (!state.mapInitialized) {
+      return null;
+    }
 
     const dataStage = window.loadingManager.startStage("data", "Loading trips...", {
       blocking: false,
@@ -84,7 +94,9 @@ const dataManager = {
       mapLoadingIndicator.hide();
       return tripData;
     } catch (error) {
-      if (error?.name === "AbortError") return null;
+      if (error?.name === "AbortError") {
+        return null;
+      }
       dataStage.error(error.message);
       window.notificationManager?.show("Failed to load trips", "danger");
       return null;
@@ -94,7 +106,9 @@ const dataManager = {
   },
 
   async fetchMatchedTrips() {
-    if (!state.mapInitialized) return null;
+    if (!state.mapInitialized) {
+      return null;
+    }
     window.loadingManager.pulse("Loading matched trips...");
 
     try {
@@ -122,8 +136,8 @@ const dataManager = {
             const endTime = f?.properties?.endTime;
             const endTs = endTime ? new Date(endTime).getTime() : null;
             f.properties = f.properties || {};
-            f.properties.isRecent =
-              typeof endTs === "number" && !Number.isNaN(endTs)
+            f.properties.isRecent
+              = typeof endTs === "number" && !Number.isNaN(endTs)
                 ? now - endTs <= threshold
                 : false;
           });
@@ -137,7 +151,9 @@ const dataManager = {
       }
       return null;
     } catch (error) {
-      if (error?.name === "AbortError") return null;
+      if (error?.name === "AbortError") {
+        return null;
+      }
       console.error("Error fetching matched trips:", error);
       return null;
     }
@@ -145,8 +161,9 @@ const dataManager = {
 
   async fetchUndrivenStreets() {
     const selectedLocationId = utils.getStorage(CONFIG.STORAGE_KEYS.selectedLocation);
-    if (!selectedLocationId || !state.mapInitialized || state.undrivenStreetsLoaded)
+    if (!selectedLocationId || !state.mapInitialized || state.undrivenStreetsLoaded) {
       return null;
+    }
 
     window.loadingManager.pulse("Loading undriven streets...");
     try {
@@ -166,7 +183,9 @@ const dataManager = {
       }
       return null;
     } catch (error) {
-      if (error?.name === "AbortError") return null;
+      if (error?.name === "AbortError") {
+        return null;
+      }
       console.error("Error fetching undriven streets:", error);
       state.undrivenStreetsLoaded = false;
       return null;
@@ -175,8 +194,9 @@ const dataManager = {
 
   async fetchDrivenStreets() {
     const selectedLocationId = utils.getStorage(CONFIG.STORAGE_KEYS.selectedLocation);
-    if (!selectedLocationId || !state.mapInitialized || state.drivenStreetsLoaded)
+    if (!selectedLocationId || !state.mapInitialized || state.drivenStreetsLoaded) {
       return null;
+    }
 
     window.loadingManager.pulse("Loading driven streets...");
     try {
@@ -196,7 +216,9 @@ const dataManager = {
       }
       return null;
     } catch (error) {
-      if (error?.name === "AbortError") return null;
+      if (error?.name === "AbortError") {
+        return null;
+      }
       console.error("Error fetching driven streets:", error);
       state.drivenStreetsLoaded = false;
       return null;
@@ -205,8 +227,9 @@ const dataManager = {
 
   async fetchAllStreets() {
     const selectedLocationId = utils.getStorage(CONFIG.STORAGE_KEYS.selectedLocation);
-    if (!selectedLocationId || !state.mapInitialized || state.allStreetsLoaded)
+    if (!selectedLocationId || !state.mapInitialized || state.allStreetsLoaded) {
       return null;
+    }
 
     window.loadingManager.pulse("Loading all streets...");
     try {
@@ -226,7 +249,9 @@ const dataManager = {
       }
       return null;
     } catch (error) {
-      if (error?.name === "AbortError") return null;
+      if (error?.name === "AbortError") {
+        return null;
+      }
       console.error("Error fetching all streets:", error);
       state.allStreetsLoaded = false;
       return null;
@@ -251,14 +276,18 @@ const dataManager = {
       }
       return data;
     } catch (error) {
-      if (error?.name === "AbortError") return null;
+      if (error?.name === "AbortError") {
+        return null;
+      }
       console.error("Error fetching metrics:", error);
       return null;
     }
   },
 
   async updateMap(fitBounds = false) {
-    if (!state.mapInitialized) return;
+    if (!state.mapInitialized) {
+      return;
+    }
 
     const renderStage = window.loadingManager.startStage("render", "Updating map...");
 
@@ -268,14 +297,21 @@ const dataManager = {
 
       const promises = [];
 
-      if (state.mapLayers.trips.visible) promises.push(this.fetchTrips());
-      if (state.mapLayers.matchedTrips.visible) promises.push(this.fetchMatchedTrips());
-      if (state.mapLayers.undrivenStreets.visible && !state.undrivenStreetsLoaded)
+      if (state.mapLayers.trips.visible) {
+        promises.push(this.fetchTrips());
+      }
+      if (state.mapLayers.matchedTrips.visible) {
+        promises.push(this.fetchMatchedTrips());
+      }
+      if (state.mapLayers.undrivenStreets.visible && !state.undrivenStreetsLoaded) {
         promises.push(this.fetchUndrivenStreets());
-      if (state.mapLayers.drivenStreets.visible && !state.drivenStreetsLoaded)
+      }
+      if (state.mapLayers.drivenStreets.visible && !state.drivenStreetsLoaded) {
         promises.push(this.fetchDrivenStreets());
-      if (state.mapLayers.allStreets.visible && !state.allStreetsLoaded)
+      }
+      if (state.mapLayers.allStreets.visible && !state.allStreetsLoaded) {
         promises.push(this.fetchAllStreets());
+      }
 
       renderStage.update(50, "Loading layer data...");
       await Promise.allSettled(promises);
@@ -300,7 +336,9 @@ const dataManager = {
         });
       });
 
-      if (fitBounds) await mapManager.fitBounds();
+      if (fitBounds) {
+        await mapManager.fitBounds();
+      }
 
       renderStage.complete();
       state.metrics.renderTime = Date.now() - state.metrics.loadStartTime;

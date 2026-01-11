@@ -31,7 +31,9 @@ class APIClient {
     // Check cache for GET requests
     if (method === "GET" && cache) {
       const cached = this._getFromCache(url);
-      if (cached) return cached;
+      if (cached) {
+        return cached;
+      }
     }
 
     // Build request options
@@ -59,7 +61,9 @@ class APIClient {
         retry ? this.retryAttempts : 1
       );
 
-      if (timeoutId) clearTimeout(timeoutId);
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
 
       // Handle response
       const data = await this._handleResponse(response);
@@ -71,7 +75,9 @@ class APIClient {
 
       return data;
     } catch (error) {
-      if (timeoutId) clearTimeout(timeoutId);
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
       throw this._handleError(error, url);
     }
   }
@@ -118,8 +124,8 @@ class APIClient {
         const contentType = response.headers.get("content-type");
         if (contentType?.includes("application/json")) {
           const errorData = await response.json();
-          errorDetail =
-            errorData.detail || errorData.error || errorData.message || errorDetail;
+          errorDetail
+            = errorData.detail || errorData.error || errorData.message || errorDetail;
         } else {
           const text = await response.text();
           errorDetail = text || errorDetail;
@@ -140,11 +146,11 @@ class APIClient {
     // Parse response based on content type
     if (contentType.includes("application/json")) {
       return await response.json();
-    } else if (contentType.includes("text/")) {
-      return await response.text();
-    } else {
-      return await response.blob();
     }
+    if (contentType.includes("text/")) {
+      return await response.text();
+    }
+    return await response.blob();
   }
 
   /**
@@ -249,7 +255,9 @@ class APIClient {
    */
   _getFromCache(key) {
     const cached = this.cache.get(key);
-    if (!cached) return null;
+    if (!cached) {
+      return null;
+    }
 
     if (Date.now() - cached.timestamp > cached.duration) {
       this.cache.delete(key);

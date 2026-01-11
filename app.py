@@ -201,7 +201,6 @@ async def internal_error_handler(request: Request, exc: Exception):
         request.method,
         request.url,
         str(exc),
-        exc_info=True,
     )
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

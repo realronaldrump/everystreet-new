@@ -3,6 +3,7 @@
 import json
 import logging
 from datetime import datetime
+from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query, Request, status
 
@@ -31,10 +32,11 @@ async def export_geojson(request: Request):
 
         filename_base = f"trips_{StreamingService.get_date_range_filename(request)}"
 
-        response = await StreamingService.export_format(
-            cursor, "geojson", filename_base
+        return await StreamingService.export_format(
+            cursor,
+            "geojson",
+            filename_base,
         )
-        return response
     except Exception as e:
         logger.exception("Error exporting GeoJSON: %s", e)
         raise HTTPException(
@@ -53,8 +55,7 @@ async def export_gpx(request: Request):
 
         filename_base = f"trips_{StreamingService.get_date_range_filename(request)}"
 
-        response = await StreamingService.export_format(cursor, "gpx", filename_base)
-        return response
+        return await StreamingService.export_format(cursor, "gpx", filename_base)
     except Exception as e:
         logger.exception("Error exporting GPX: %s", e)
         raise HTTPException(
@@ -66,7 +67,7 @@ async def export_gpx(request: Request):
 @router.get("/api/export/trip/{trip_id}")
 async def export_single_trip(
     trip_id: str,
-    fmt: str = Query("geojson", description="Export format"),
+    fmt: Annotated[str, Query(description="Export format")] = "geojson",
 ):
     """Export a single trip by ID."""
     try:
@@ -100,7 +101,7 @@ async def export_single_trip(
 
 @router.get("/api/export/all_trips")
 async def export_all_trips(
-    fmt: str = Query("geojson", description="Export format"),
+    fmt: Annotated[str, Query(description="Export format")] = "geojson",
 ):
     """Export all trips in various formats."""
     try:
@@ -134,7 +135,7 @@ async def export_all_trips(
 @router.get("/api/export/trips")
 async def export_trips_within_range(
     request: Request,
-    fmt: str = Query("geojson", description="Export format"),
+    fmt: Annotated[str, Query(description="Export format")] = "geojson",
 ):
     """Export trips within a date range."""
     try:
@@ -167,7 +168,7 @@ async def export_trips_within_range(
 @router.get("/api/export/matched_trips")
 async def export_matched_trips_within_range(
     request: Request,
-    fmt: str = Query("geojson", description="Export format"),
+    fmt: Annotated[str, Query(description="Export format")] = "geojson",
 ):
     """Export matched trips within a date range."""
     try:
@@ -181,7 +182,10 @@ async def export_matched_trips_within_range(
         cursor = trip_cursor_wrapper(find_query)
 
         response = await StreamingService.export_format(
-            cursor, fmt, filename_base, geometry_field="matchedGps"
+            cursor,
+            fmt,
+            filename_base,
+            geometry_field="matchedGps",
         )
         if response:
             return response
@@ -204,19 +208,38 @@ async def export_matched_trips_within_range(
 @router.get("/api/export/advanced")
 async def export_advanced(
     request: Request,
-    include_trips: bool = Query(True, description="Include regular trips"),
-    include_matched_trips: bool = Query(True, description="Include map-matched trips"),
-    include_basic_info: bool = Query(True, description="Include basic trip info"),
-    include_locations: bool = Query(True, description="Include location info"),
-    include_telemetry: bool = Query(True, description="Include telemetry data"),
-    include_geometry: bool = Query(True, description="Include geometry data"),
-    include_meta: bool = Query(True, description="Include metadata"),
-    include_custom: bool = Query(True, description="Include custom fields"),
-    include_gps_in_csv: bool = Query(False, description="Include GPS in CSV export"),
-    flatten_location_fields: bool = Query(
-        True, description="Flatten location fields in CSV"
-    ),
-    fmt: str = Query("json", description="Export format"),
+    include_trips: Annotated[bool, Query(description="Include regular trips")] = True,
+    include_matched_trips: Annotated[
+        bool,
+        Query(description="Include map-matched trips"),
+    ] = True,
+    include_basic_info: Annotated[
+        bool,
+        Query(description="Include basic trip info"),
+    ] = True,
+    include_locations: Annotated[
+        bool,
+        Query(description="Include location info"),
+    ] = True,
+    include_telemetry: Annotated[
+        bool,
+        Query(description="Include telemetry data"),
+    ] = True,
+    include_geometry: Annotated[
+        bool,
+        Query(description="Include geometry data"),
+    ] = True,
+    include_meta: Annotated[bool, Query(description="Include metadata")] = True,
+    include_custom: Annotated[bool, Query(description="Include custom fields")] = True,
+    include_gps_in_csv: Annotated[
+        bool,
+        Query(description="Include GPS in CSV export"),
+    ] = False,
+    flatten_location_fields: Annotated[
+        bool,
+        Query(description="Flatten location fields in CSV"),
+    ] = True,
+    fmt: Annotated[str, Query(description="Export format")] = "json",
 ):
     """Advanced configurable export for trips data."""
     import csv
@@ -301,7 +324,7 @@ async def export_advanced(
                 csv_generator(),
                 media_type="text/csv",
                 headers={
-                    "Content-Disposition": f'attachment; filename="{filename_base}.csv"'
+                    "Content-Disposition": f'attachment; filename="{filename_base}.csv"',
                 },
             )
 
@@ -322,7 +345,7 @@ async def export_advanced(
                 json_generator(),
                 media_type="application/json",
                 headers={
-                    "Content-Disposition": f'attachment; filename="{filename_base}.json"'
+                    "Content-Disposition": f'attachment; filename="{filename_base}.json"',
                 },
             )
 
@@ -341,7 +364,7 @@ async def export_advanced(
             flatten_location_fields=flatten_location_fields,
         )
     except ValueError as e:
-        logger.error("Export error: %s", e)
+        logger.exception("Export error: %s", e)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
@@ -418,4 +441,4 @@ def _build_csv_fields(
     if include_custom:
         base_fields += ["notes", "tags", "category", "purpose", "customFields"]
 
-    return sorted(set(base_fields + ["trip_type"]))
+    return sorted({*base_fields, "trip_type"})

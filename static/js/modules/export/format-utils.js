@@ -10,7 +10,9 @@
  * @returns {string} File extension including the dot
  */
 export function getExtensionForFormat(format) {
-  if (!format) return ".dat";
+  if (!format) {
+    return ".dat";
+  }
 
   switch (format.toLowerCase()) {
     case "json":
@@ -36,7 +38,9 @@ export function getExtensionForFormat(format) {
  * @returns {string} MIME content type
  */
 export function getContentTypeForFormat(format) {
-  if (!format) return "application/octet-stream";
+  if (!format) {
+    return "application/octet-stream";
+  }
 
   switch (format.toLowerCase()) {
     case "json":
@@ -63,15 +67,15 @@ export function getContentTypeForFormat(format) {
  * @returns {string} GPX XML string
  */
 export function geojsonToGpx(geojson) {
-  let gpx =
-    '<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="EveryStreet" xmlns="http://www.topografix.com/GPX/1/1">\n';
+  let gpx
+    = '<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="EveryStreet" xmlns="http://www.topografix.com/GPX/1/1">\n';
 
   if (geojson?.features && Array.isArray(geojson.features)) {
     geojson.features.forEach((f, i) => {
       if (
-        f.geometry &&
-        f.geometry.type === "LineString" &&
-        Array.isArray(f.geometry.coordinates)
+        f.geometry
+        && f.geometry.type === "LineString"
+        && Array.isArray(f.geometry.coordinates)
       ) {
         gpx += `<trk><name>Undriven Street ${i + 1}</name><trkseg>`;
         f.geometry.coordinates.forEach(([lon, lat]) => {

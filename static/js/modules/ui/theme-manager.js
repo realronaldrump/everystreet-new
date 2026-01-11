@@ -16,19 +16,21 @@ const themeManager = {
   },
 
   apply(theme, animate = true) {
-    if (uiState.currentTheme === theme) return;
+    if (uiState.currentTheme === theme) {
+      return;
+    }
     const isLight = theme === "light";
     uiState.currentTheme = theme;
 
     if (animate && CONFIG.animations.enabled) {
-      document.documentElement.style.transition =
-        "background-color 0.3s ease, color 0.3s ease";
+      document.documentElement.style.transition
+        = "background-color 0.3s ease, color 0.3s ease";
     }
 
     (
-      utils.batchDOMUpdates ??
-      utils.batchDomUpdates ??
-      ((updates) => {
+      utils.batchDOMUpdates
+      ?? utils.batchDomUpdates
+      ?? ((updates) => {
         updates.forEach((fn) => {
           fn();
         });
@@ -56,7 +58,9 @@ const themeManager = {
 
   updateMetaColor(theme) {
     const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute("content", CONFIG.themeColors[theme]);
+    if (meta) {
+      meta.setAttribute("content", CONFIG.themeColors[theme]);
+    }
   },
 
   updateMapTheme(theme) {
@@ -87,18 +91,28 @@ const themeManager = {
   },
 
   updateChartThemes(theme) {
-    if (!window.Chart) return;
+    if (!window.Chart) {
+      return;
+    }
     const charts = window.Chart.instances;
-    if (!charts) return;
+    if (!charts) {
+      return;
+    }
     Object.values(charts).forEach((chart) => {
-      if (!chart || !chart.options) return;
+      if (!chart || !chart.options) {
+        return;
+      }
       const isDark = theme === "dark";
       const textColor = isDark ? "#ffffff" : "#000000";
       const gridColor = isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)";
       if (chart.options.scales) {
         Object.values(chart.options.scales).forEach((scale) => {
-          if (scale.ticks) scale.ticks.color = textColor;
-          if (scale.grid) scale.grid.color = gridColor;
+          if (scale.ticks) {
+            scale.ticks.color = textColor;
+          }
+          if (scale.grid) {
+            scale.grid.color = gridColor;
+          }
         });
       }
       if (chart.options.plugins?.legend?.labels) {
@@ -110,7 +124,9 @@ const themeManager = {
 
   syncToggles(theme) {
     const toggle = uiState.getElement(CONFIG.selectors.themeToggle);
-    if (toggle) toggle.checked = theme === "light";
+    if (toggle) {
+      toggle.checked = theme === "light";
+    }
   },
 
   setupToggles() {
@@ -125,11 +141,15 @@ const themeManager = {
   watchSystemPreference() {
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
     const handler = (e) => {
-      if (!utils.getStorage(CONFIG.storage.theme))
+      if (!utils.getStorage(CONFIG.storage.theme)) {
         this.apply(e.matches ? "dark" : "light");
+      }
     };
-    if (mq.addEventListener) mq.addEventListener("change", handler);
-    else mq.addListener(handler);
+    if (mq.addEventListener) {
+      mq.addEventListener("change", handler);
+    } else {
+      mq.addListener(handler);
+    }
   },
 };
 

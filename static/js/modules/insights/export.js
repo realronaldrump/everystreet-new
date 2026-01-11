@@ -25,7 +25,7 @@ export function exportChart() {
     return;
   }
 
-  const formatDate = window.InsightsFormatters.formatDate;
+  const { formatDate } = window.InsightsFormatters;
   const url = canvas.toDataURL("image/png");
   const a = document.createElement("a");
   a.href = url;
@@ -39,7 +39,7 @@ export function exportChart() {
  * Export analytics table data as CSV
  */
 export function exportData() {
-  const formatDate = window.InsightsFormatters.formatDate;
+  const { formatDate } = window.InsightsFormatters;
 
   // Check if DataTable is initialized
   if (!$.fn.DataTable.isDataTable("#analytics-table")) {

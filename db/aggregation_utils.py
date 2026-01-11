@@ -1,7 +1,8 @@
-"""Common MongoDB aggregation pipeline utilities.
+"""
+Common MongoDB aggregation pipeline utilities.
 
-This module provides reusable aggregation pipeline builders and data
-organization utilities to reduce code duplication across analytics services.
+This module provides reusable aggregation pipeline builders and data organization
+utilities to reduce code duplication across analytics services.
 """
 
 from __future__ import annotations
@@ -10,7 +11,8 @@ from typing import Any
 
 
 def get_mongo_tz_expr() -> dict[str, Any]:
-    """Return the standard MongoDB timezone expression for aggregation pipelines.
+    """
+    Return the standard MongoDB timezone expression for aggregation pipelines.
 
     This expression handles the timeZone field on trip documents, falling back
     to UTC when the field is missing, empty, or set to "0000".
@@ -22,7 +24,7 @@ def get_mongo_tz_expr() -> dict[str, Any]:
         "$switch": {
             "branches": [{"case": {"$in": ["$timeZone", ["", "0000"]]}, "then": "UTC"}],
             "default": {"$ifNull": ["$timeZone", "UTC"]},
-        }
+        },
     }
 
 
@@ -31,7 +33,8 @@ def build_date_grouping_stage(
     group_by: list[str] | None = None,
     sum_fields: dict[str, str] | None = None,
 ) -> dict[str, Any]:
-    """Build a MongoDB aggregation $group stage for date-based grouping.
+    """
+    Build a MongoDB aggregation $group stage for date-based grouping.
 
     Args:
         date_field: The field to extract date/time components from.
@@ -70,28 +73,28 @@ def build_date_grouping_stage(
             "$hour": {
                 "date": date_field,
                 "timezone": tz_expr,
-            }
+            },
         }
     if "dayOfWeek" in group_by:
         group_id["dayOfWeek"] = {
             "$dayOfWeek": {
                 "date": date_field,
                 "timezone": tz_expr,
-            }
+            },
         }
     if "month" in group_by:
         group_id["month"] = {
             "$month": {
                 "date": date_field,
                 "timezone": tz_expr,
-            }
+            },
         }
     if "year" in group_by:
         group_id["year"] = {
             "$year": {
                 "date": date_field,
                 "timezone": tz_expr,
-            }
+            },
         }
 
     # Build accumulator fields
@@ -103,7 +106,7 @@ def build_date_grouping_stage(
         "$group": {
             "_id": group_id,
             **accumulators,
-        }
+        },
     }
 
 
@@ -112,7 +115,8 @@ def organize_by_dimension(
     dimension: str,
     value_fields: list[str] | None = None,
 ) -> list[dict[str, Any]]:
-    """Organize aggregation results by a single dimension.
+    """
+    Organize aggregation results by a single dimension.
 
     Args:
         results: Raw MongoDB aggregation results.
@@ -154,7 +158,8 @@ def organize_by_multiple_dimensions(
     results: list[dict[str, Any]],
     dimensions: list[str],
 ) -> list[dict[str, Any]]:
-    """Organize aggregation results by multiple dimensions.
+    """
+    Organize aggregation results by multiple dimensions.
 
     Args:
         results: Raw MongoDB aggregation results.
@@ -188,7 +193,8 @@ def organize_by_multiple_dimensions(
 
 
 def build_match_stage(filters: dict[str, Any]) -> dict[str, Any]:
-    """Build a MongoDB $match stage from filters.
+    """
+    Build a MongoDB $match stage from filters.
 
     Args:
         filters: Dictionary of field filters.
@@ -203,7 +209,8 @@ def build_sort_stage(
     sort_by: str,
     ascending: bool = True,
 ) -> dict[str, Any]:
-    """Build a MongoDB $sort stage.
+    """
+    Build a MongoDB $sort stage.
 
     Args:
         sort_by: Field name to sort by.
@@ -216,7 +223,8 @@ def build_sort_stage(
 
 
 def build_limit_stage(limit: int) -> dict[str, Any]:
-    """Build a MongoDB $limit stage.
+    """
+    Build a MongoDB $limit stage.
 
     Args:
         limit: Maximum number of documents to return.
@@ -228,7 +236,8 @@ def build_limit_stage(limit: int) -> dict[str, Any]:
 
 
 def build_project_stage(fields: dict[str, Any]) -> dict[str, Any]:
-    """Build a MongoDB $project stage.
+    """
+    Build a MongoDB $project stage.
 
     Args:
         fields: Dictionary mapping field names to inclusion (1/0) or expressions.

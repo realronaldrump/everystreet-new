@@ -40,7 +40,9 @@ function setupTaskConfigEventListeners(taskManager) {
 
   if (saveTaskConfigBtn) {
     saveTaskConfigBtn.addEventListener("mousedown", (e) => {
-      if (e.button !== 0) return;
+      if (e.button !== 0) {
+        return;
+      }
       const config = taskManager.gatherTaskConfigFromUI();
       taskManager
         .submitTaskConfigUpdate(config)
@@ -63,7 +65,9 @@ function setupTaskConfigEventListeners(taskManager) {
   const resetTasksBtn = document.getElementById("resetTasksBtn");
   if (resetTasksBtn) {
     resetTasksBtn.addEventListener("mousedown", async (e) => {
-      if (e.button !== 0) return;
+      if (e.button !== 0) {
+        return;
+      }
       try {
         showLoadingOverlay();
         const response = await fetch("/api/background_tasks/reset", {
@@ -72,7 +76,9 @@ function setupTaskConfigEventListeners(taskManager) {
 
         hideLoadingOverlay();
 
-        if (!response.ok) throw new Error("Failed to reset tasks");
+        if (!response.ok) {
+          throw new Error("Failed to reset tasks");
+        }
 
         const result = await response.json();
         window.notificationManager.show(result.message, "success");
@@ -86,7 +92,9 @@ function setupTaskConfigEventListeners(taskManager) {
 
   if (confirmPauseBtn) {
     confirmPauseBtn.addEventListener("mousedown", async (e) => {
-      if (e.button !== 0) return;
+      if (e.button !== 0) {
+        return;
+      }
       const duration = document.getElementById("pauseDuration")?.value || 60;
       try {
         showLoadingOverlay();
@@ -98,7 +106,9 @@ function setupTaskConfigEventListeners(taskManager) {
 
         hideLoadingOverlay();
 
-        if (!response.ok) throw new Error("Failed to pause tasks");
+        if (!response.ok) {
+          throw new Error("Failed to pause tasks");
+        }
 
         window.notificationManager.show(
           `Tasks paused for ${duration} minutes`,
@@ -108,7 +118,9 @@ function setupTaskConfigEventListeners(taskManager) {
         const modal = bootstrap.Modal.getInstance(
           document.getElementById("pauseModal")
         );
-        if (modal) modal.hide();
+        if (modal) {
+          modal.hide();
+        }
 
         taskManager.loadTaskConfig();
       } catch {
@@ -120,7 +132,9 @@ function setupTaskConfigEventListeners(taskManager) {
 
   if (resumeBtn) {
     resumeBtn.addEventListener("mousedown", async (e) => {
-      if (e.button !== 0) return;
+      if (e.button !== 0) {
+        return;
+      }
       try {
         showLoadingOverlay();
         const response = await fetch("/api/background_tasks/resume", {
@@ -129,7 +143,9 @@ function setupTaskConfigEventListeners(taskManager) {
 
         hideLoadingOverlay();
 
-        if (!response.ok) throw new Error("Failed to resume tasks");
+        if (!response.ok) {
+          throw new Error("Failed to resume tasks");
+        }
 
         window.notificationManager.show("Tasks resumed", "success");
         taskManager.loadTaskConfig();
@@ -142,7 +158,9 @@ function setupTaskConfigEventListeners(taskManager) {
 
   if (stopAllBtn) {
     stopAllBtn.addEventListener("mousedown", async (e) => {
-      if (e.button !== 0) return;
+      if (e.button !== 0) {
+        return;
+      }
       try {
         showLoadingOverlay();
         const response = await fetch("/api/background_tasks/stop", {
@@ -151,7 +169,9 @@ function setupTaskConfigEventListeners(taskManager) {
 
         hideLoadingOverlay();
 
-        if (!response.ok) throw new Error("Failed to stop tasks");
+        if (!response.ok) {
+          throw new Error("Failed to stop tasks");
+        }
 
         window.notificationManager.show("All running tasks stopped", "success");
         taskManager.loadTaskConfig();
@@ -164,7 +184,9 @@ function setupTaskConfigEventListeners(taskManager) {
 
   if (enableAllBtn) {
     enableAllBtn.addEventListener("mousedown", async (e) => {
-      if (e.button !== 0) return;
+      if (e.button !== 0) {
+        return;
+      }
       try {
         showLoadingOverlay();
         const response = await fetch("/api/background_tasks/enable", {
@@ -173,7 +195,9 @@ function setupTaskConfigEventListeners(taskManager) {
 
         hideLoadingOverlay();
 
-        if (!response.ok) throw new Error("Failed to enable all tasks");
+        if (!response.ok) {
+          throw new Error("Failed to enable all tasks");
+        }
 
         window.notificationManager.show("All tasks enabled", "success");
         taskManager.loadTaskConfig();
@@ -186,7 +210,9 @@ function setupTaskConfigEventListeners(taskManager) {
 
   if (disableAllBtn) {
     disableAllBtn.addEventListener("mousedown", async (e) => {
-      if (e.button !== 0) return;
+      if (e.button !== 0) {
+        return;
+      }
       try {
         showLoadingOverlay();
         const response = await fetch("/api/background_tasks/disable", {
@@ -195,7 +221,9 @@ function setupTaskConfigEventListeners(taskManager) {
 
         hideLoadingOverlay();
 
-        if (!response.ok) throw new Error("Failed to disable all tasks");
+        if (!response.ok) {
+          throw new Error("Failed to disable all tasks");
+        }
 
         window.notificationManager.show("All tasks disabled", "success");
         taskManager.loadTaskConfig();
@@ -208,7 +236,9 @@ function setupTaskConfigEventListeners(taskManager) {
 
   if (manualRunAllBtn) {
     manualRunAllBtn.addEventListener("mousedown", (e) => {
-      if (e.button !== 0) return;
+      if (e.button !== 0) {
+        return;
+      }
       taskManager.runTask("ALL");
     });
   }
@@ -229,7 +259,9 @@ function setupTaskConfigEventListeners(taskManager) {
 
   if (clearHistoryBtn) {
     clearHistoryBtn.addEventListener("mousedown", (e) => {
-      if (e.button !== 0) return;
+      if (e.button !== 0) {
+        return;
+      }
       const modal = new bootstrap.Modal(document.getElementById("clearHistoryModal"));
       modal.show();
     });
@@ -238,7 +270,9 @@ function setupTaskConfigEventListeners(taskManager) {
   const confirmClearHistory = document.getElementById("confirmClearHistory");
   if (confirmClearHistory) {
     confirmClearHistory.addEventListener("mousedown", async (e) => {
-      if (e.button !== 0) return;
+      if (e.button !== 0) {
+        return;
+      }
       await taskManager.clearTaskHistory();
       const modal = bootstrap.Modal.getInstance(
         document.getElementById("clearHistoryModal")
@@ -325,8 +359,12 @@ function setupFetchAllMissingModal(taskManager) {
       modal.hide();
 
       try {
-        if (openFetchAllMissingModalBtn) openFetchAllMissingModalBtn.disabled = true;
-        if (statusSpan) statusSpan.textContent = "Starting task...";
+        if (openFetchAllMissingModalBtn) {
+          openFetchAllMissingModalBtn.disabled = true;
+        }
+        if (statusSpan) {
+          statusSpan.textContent = "Starting task...";
+        }
 
         showLoadingOverlay();
         const response = await fetch("/api/background_tasks/fetch_all_missing_trips", {
@@ -343,11 +381,16 @@ function setupFetchAllMissingModal(taskManager) {
             "Fetch all missing trips task started",
             "success"
           );
-          if (statusSpan) statusSpan.textContent = "Task started!";
+          if (statusSpan) {
+            statusSpan.textContent = "Task started!";
+          }
           setTimeout(() => {
-            if (statusSpan) statusSpan.textContent = "";
-            if (openFetchAllMissingModalBtn)
+            if (statusSpan) {
+              statusSpan.textContent = "";
+            }
+            if (openFetchAllMissingModalBtn) {
               openFetchAllMissingModalBtn.disabled = false;
+            }
           }, 3000);
           taskManager.loadTaskConfig();
         } else {
@@ -356,8 +399,12 @@ function setupFetchAllMissingModal(taskManager) {
       } catch (error) {
         hideLoadingOverlay();
         taskManager.notifier.show("Error", error.message, "danger");
-        if (statusSpan) statusSpan.textContent = "Error starting task";
-        if (openFetchAllMissingModalBtn) openFetchAllMissingModalBtn.disabled = false;
+        if (statusSpan) {
+          statusSpan.textContent = "Error starting task";
+        }
+        if (openFetchAllMissingModalBtn) {
+          openFetchAllMissingModalBtn.disabled = false;
+        }
       }
     });
   }

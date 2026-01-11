@@ -20,7 +20,8 @@ class TripCostService:
 
     @staticmethod
     async def get_fillup_price_map(query=None):
-        """Fetches valid gas fill-ups and organizes them by IMEI for efficient lookup.
+        """
+        Fetches valid gas fill-ups and organizes them by IMEI for efficient lookup.
 
         Args:
             query: Optional MongoDB query filter
@@ -73,7 +74,9 @@ class TripCostService:
 
     @staticmethod
     def calculate_trip_cost(trip, price_map):
-        """Calculates estimated cost for a trip based on fuel consumed and historical gas prices.
+        """
+        Calculates estimated cost for a trip based on fuel consumed and historical gas
+        prices.
 
         Args:
             trip (dict): Trip document with 'fuelConsumed', 'imei', 'startTime'

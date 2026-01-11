@@ -77,7 +77,7 @@ def calculate_required_distance(
 ) -> float:
     """Calculate total required distance from all requirements."""
     required_dist = 0.0
-    for _rid, opts in required_reqs.items():
+    for opts in required_reqs.values():
         best = min((edge_length_m(G, u, v, k) for (u, v, k) in opts), default=0.0)
         required_dist += best
     return required_dist
@@ -167,7 +167,9 @@ def solve_greedy_route(
 
     # Build component structure
     req_to_comp, comp_to_rids, comp_targets = build_component_structure(
-        G, required_reqs, req_to_starts
+        G,
+        required_reqs,
+        req_to_starts,
     )
     global_targets: set[int] = set(start_counts.keys())
 
@@ -226,7 +228,10 @@ def solve_greedy_route(
                 break
 
             result = dijkstra_to_any_target(
-                G, current_node, global_targets, weight="length"
+                G,
+                current_node,
+                global_targets,
+                weight="length",
             )
             if result is None:
                 # Current position is disconnected from remaining segments
@@ -298,7 +303,10 @@ def solve_greedy_route(
                 active_comp = None
                 continue
             result = dijkstra_to_any_target(
-                G, current_node, comp_target_nodes, weight="length"
+                G,
+                current_node,
+                comp_target_nodes,
+                weight="length",
             )
             if result is None:
                 # Component is unreachable from current position
@@ -335,14 +343,18 @@ def solve_greedy_route(
                 continue
 
         def _candidate_score(
-            rid: ReqId, _node: int = current_node
+            rid: ReqId,
+            _node: int = current_node,
         ) -> tuple[float, float]:
             service_edge = _best_service_edge_from_start(rid, _node)
             seg_count = float(
-                req_segment_counts.get(rid, 1) if req_segment_counts else 1
+                req_segment_counts.get(rid, 1) if req_segment_counts else 1,
             )
             edge_len = edge_length_m(
-                G, service_edge[0], service_edge[1], service_edge[2]
+                G,
+                service_edge[0],
+                service_edge[1],
+                service_edge[2],
             )
             return (-seg_count, -edge_len)
 
@@ -385,7 +397,7 @@ def solve_greedy_route(
         "required_distance": float(required_dist),
         "deadhead_distance": float(deadhead_dist),
         "deadhead_percentage": float(
-            (deadhead_dist / total_dist * 100.0) if total_dist > 0 else 0.0
+            (deadhead_dist / total_dist * 100.0) if total_dist > 0 else 0.0,
         ),
         "required_reqs": float(len(required_reqs)),
         "completed_reqs": float(len(required_reqs) - len(skipped_disconnected)),

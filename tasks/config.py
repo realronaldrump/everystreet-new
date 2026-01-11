@@ -1,4 +1,5 @@
-"""Task configuration management functions.
+"""
+Task configuration management functions.
 
 This module provides functions for managing task configuration in the database,
 including retrieving configuration, checking dependencies, and updating task history.
@@ -18,7 +19,8 @@ logger = get_task_logger(__name__)
 
 
 async def get_task_config() -> dict[str, Any]:
-    """Retrieves all task configurations as a dictionary.
+    """
+    Retrieves all task configurations as a dictionary.
 
     Returns:
         A dictionary where the 'tasks' key contains a map of task_id to its configuration.
@@ -97,7 +99,8 @@ async def get_task_config() -> dict[str, Any]:
 async def check_dependencies(
     task_id: str,
 ) -> dict[str, Any]:
-    """Checks if dependencies for a given task are met.
+    """
+    Checks if dependencies for a given task are met.
 
     Dependencies are considered met if they are not currently running
     or recently failed.
@@ -125,7 +128,7 @@ async def check_dependencies(
 
         # Query all dependencies at once
         dep_configs = await TaskConfig.find(
-            In(TaskConfig.task_id, dependencies)
+            In(TaskConfig.task_id, dependencies),
         ).to_list()
         dep_map = {d.task_id: d for d in dep_configs}
 
@@ -182,7 +185,8 @@ async def update_task_history_entry(
     end_time: datetime | None = None,
     runtime_ms: float | None = None,
 ):
-    """Creates or updates an entry in the task history collection.
+    """
+    Creates or updates an entry in the task history collection.
 
     Args:
         celery_task_id: The unique ID assigned by Celery to this task instance.

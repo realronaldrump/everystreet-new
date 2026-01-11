@@ -1,4 +1,5 @@
-"""Task management API functions.
+"""
+Task management API functions.
 
 This module provides functions for managing tasks through the API:
 - get_all_task_metadata: Retrieves metadata for all tasks with current status
@@ -34,7 +35,9 @@ def _serialize_datetime(dt: datetime | None) -> str | None:
 
 
 async def get_all_task_metadata() -> dict[str, Any]:
-    """Retrieves metadata for all defined tasks, enriched with current status and configuration.
+    """
+    Retrieves metadata for all defined tasks, enriched with current status and
+    configuration.
 
     Returns:
         A dictionary where keys are task IDs and values are dictionaries
@@ -104,7 +107,8 @@ async def get_all_task_metadata() -> dict[str, Any]:
 
 
 async def manual_run_task(task_id: str) -> dict[str, Any]:
-    """Manually triggers one or all specified background tasks via Celery.
+    """
+    Manually triggers one or all specified background tasks via Celery.
 
     Args:
         task_id: The identifier of the task to run, or 'ALL' to run all enabled tasks.
@@ -161,7 +165,8 @@ async def _send_manual_task(
     task_name: str,
     celery_task_string_name: str,
 ) -> dict[str, Any]:
-    """Internal helper to check dependencies and send a single manual task to Celery.
+    """
+    Internal helper to check dependencies and send a single manual task to Celery.
 
     Args:
         task_name: The application-specific task name.
@@ -240,7 +245,8 @@ async def trigger_manual_fetch_trips_range(
     end_utc = ensure_utc(end_date)
 
     if end_utc <= start_utc:
-        raise ValueError("End date must be after start date")
+        msg = "End date must be after start date"
+        raise ValueError(msg)
 
     celery_task_id = f"manual_fetch_trips_range_{uuid.uuid4()}"
     kwargs = {
@@ -307,7 +313,8 @@ async def force_reset_task(
     task_id: str,
     reason: str | None = None,
 ) -> dict[str, Any]:
-    """Forcefully reset a task's status to IDLE and revoke running Celery tasks.
+    """
+    Forcefully reset a task's status to IDLE and revoke running Celery tasks.
 
     This function:
     1. Identifies any 'RUNNING' or 'PENDING' instances of the task in history.
@@ -318,7 +325,8 @@ async def force_reset_task(
     from db.models import TaskConfig, TaskHistory
 
     if task_id not in TASK_METADATA:
-        raise ValueError(f"Unknown task_id: {task_id}")
+        msg = f"Unknown task_id: {task_id}"
+        raise ValueError(msg)
 
     now = datetime.now(UTC)
     message = reason or "Task force-stopped by user"
@@ -330,7 +338,7 @@ async def force_reset_task(
         {
             "task_id": task_id,
             "status": {"$in": [TaskStatus.RUNNING.value, TaskStatus.PENDING.value]},
-        }
+        },
     )
 
     async for doc in cursor:
@@ -346,7 +354,7 @@ async def force_reset_task(
             celery_app.control.revoke(celery_task_id, terminate=True)
             revoked_count += 1
         except Exception as e:
-            logger.error(
+            logger.exception(
                 "Failed to revoke Celery task %s: %s",
                 celery_task_id,
                 e,
@@ -377,7 +385,7 @@ async def force_reset_task(
         await task_config.save()
 
     except Exception as e:
-        logger.error("Failed to reset task config for %s: %s", task_id, e)
+        logger.exception("Failed to reset task config for %s: %s", task_id, e)
         # Continue anyway as we revoked tasks
 
     # Add a history entry for the force stop action itself
@@ -411,7 +419,9 @@ async def force_reset_task(
 
 
 async def update_task_schedule(task_config_update: dict[str, Any]) -> dict[str, Any]:
-    """Updates the task scheduling configuration (enabled status, interval) in the database.
+    """
+    Updates the task scheduling configuration (enabled status, interval) in the
+    database.
 
     Args:
         task_config_update: A dictionary containing the updates. Can include:
@@ -447,7 +457,7 @@ async def update_task_schedule(task_config_update: dict[str, Any]) -> dict[str, 
                         # Or just log it.
                         pass
                 changes.append(
-                    f"Global scheduling disable set to {global_disable_update} (Not fully implemented in new schema)"
+                    f"Global scheduling disable set to {global_disable_update} (Not fully implemented in new schema)",
                 )
             else:
                 logger.warning(
@@ -459,7 +469,7 @@ async def update_task_schedule(task_config_update: dict[str, Any]) -> dict[str, 
             for task_id, settings in tasks_update.items():
                 if task_id in TASK_METADATA:
                     task_config = await TaskConfig.find_one(
-                        TaskConfig.task_id == task_id
+                        TaskConfig.task_id == task_id,
                     )
                     if not task_config:
                         task_config = TaskConfig(task_id=task_id)
@@ -546,7 +556,8 @@ async def trigger_fetch_all_missing_trips(
     # Check dependencies
     dep_check = await check_dependencies(task_id)
     if not dep_check["can_run"]:
-        raise ValueError(f"Cannot run task: {dep_check['reason']}")
+        msg = f"Cannot run task: {dep_check['reason']}"
+        raise ValueError(msg)
 
     # Trigger the task
     task = fetch_all_missing_trips.delay(manual_run=True, start_iso=start_date)

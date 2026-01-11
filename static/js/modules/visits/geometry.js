@@ -1,6 +1,8 @@
 (() => {
   function collectCoordinates(geometry) {
-    if (!geometry?.type) return [];
+    if (!geometry?.type) {
+      return [];
+    }
 
     switch (geometry.type) {
       case "Point":
@@ -20,11 +22,15 @@
 
   function computeBounds(geometry) {
     const coords = collectCoordinates(geometry);
-    if (coords.length === 0) return null;
+    if (coords.length === 0) {
+      return null;
+    }
 
     return coords.reduce(
       (acc, [lng, lat]) => {
-        if (typeof lng !== "number" || typeof lat !== "number") return acc;
+        if (typeof lng !== "number" || typeof lat !== "number") {
+          return acc;
+        }
         return {
           minLng: Math.min(acc.minLng, lng),
           minLat: Math.min(acc.minLat, lat),
@@ -43,7 +49,9 @@
 
   function fitMapToGeometry(map, geometry, options = {}) {
     const bounds = computeBounds(geometry);
-    if (!map || !bounds) return;
+    if (!map || !bounds) {
+      return;
+    }
 
     map.fitBounds(
       [

@@ -1,4 +1,5 @@
-"""Utility functions for distance calculation.
+"""
+Utility functions for distance calculation.
 
 This module provides utility functions for distance calculations.
 For other utilities, use the core modules:
@@ -20,13 +21,14 @@ from geometry_service import GeometryService
 logger = logging.getLogger(__name__)
 
 __all__ = [
-    "meters_to_miles",
     "calculate_distance",
+    "meters_to_miles",
 ]
 
 
 def meters_to_miles(meters: float) -> float:
-    """Convert meters to miles.
+    """
+    Convert meters to miles.
 
     Note: For new code, prefer importing METERS_TO_MILES from constants module directly.
 
@@ -42,7 +44,8 @@ def meters_to_miles(meters: float) -> float:
 def calculate_distance(
     coordinates: list[list[float]],
 ) -> float:
-    """Calculate the total distance of a trip from a list of [lng, lat] coordinates.
+    """
+    Calculate the total distance of a trip from a list of [lng, lat] coordinates.
 
     Note: For new code, prefer using GeometryService.calculate_distance() directly.
 

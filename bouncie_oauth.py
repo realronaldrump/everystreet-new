@@ -1,7 +1,8 @@
-"""Centralized Bouncie OAuth service.
+"""
+Centralized Bouncie OAuth service.
 
-Handles OAuth token acquisition and caching for the Bouncie API.
-All Bouncie API integrations should use this service for authentication.
+Handles OAuth token acquisition and caching for the Bouncie API. All Bouncie API
+integrations should use this service for authentication.
 """
 
 import logging
@@ -18,7 +19,8 @@ logger = logging.getLogger(__name__)
 
 
 class BouncieOAuth:
-    """Centralized OAuth handler for Bouncie API.
+    """
+    Centralized OAuth handler for Bouncie API.
 
     Provides token caching and automatic refresh using authorization_code flow.
 
@@ -34,7 +36,8 @@ class BouncieOAuth:
         session: aiohttp.ClientSession | None = None,
         credentials: dict | None = None,
     ) -> str | None:
-        """Get an access token, using cached token if still valid.
+        """
+        Get an access token, using cached token if still valid.
 
         Args:
             session: Optional aiohttp session (will create if not provided)
@@ -73,13 +76,13 @@ class BouncieOAuth:
         if not auth_code:
             logger.error(
                 "No authorization code configured. Please set up Bouncie credentials "
-                "via the profile page."
+                "via the profile page.",
             )
             return None
 
         if not all([client_id, client_secret, redirect_uri]):
             logger.error(
-                "Missing required OAuth credentials (client_id, client_secret, or redirect_uri)"
+                "Missing required OAuth credentials (client_id, client_secret, or redirect_uri)",
             )
             return None
 
@@ -94,7 +97,9 @@ class BouncieOAuth:
 
         try:
             async with session.post(
-                AUTH_URL, json=payload, headers=headers
+                AUTH_URL,
+                json=payload,
+                headers=headers,
             ) as response:
                 if response.status == 401:
                     text = await response.text()
@@ -117,7 +122,9 @@ class BouncieOAuth:
 
                 # Save new token to storage
                 await BouncieOAuth._save_token(
-                    credentials, new_access_token, expires_in
+                    credentials,
+                    new_access_token,
+                    expires_in,
                 )
                 logger.info(
                     "Successfully obtained new access token (expires in %d seconds)",
@@ -126,12 +133,14 @@ class BouncieOAuth:
                 return new_access_token
 
         except aiohttp.ClientResponseError as e:
-            logger.error(
-                "HTTP error retrieving access token: %s %s", e.status, e.message
+            logger.exception(
+                "HTTP error retrieving access token: %s %s",
+                e.status,
+                e.message,
             )
             return None
         except Exception as e:
-            logger.error("Error retrieving access token: %s", e)
+            logger.exception("Error retrieving access token: %s", e)
             return None
 
     @staticmethod

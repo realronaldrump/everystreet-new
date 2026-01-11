@@ -25,11 +25,13 @@ export function updateDestinationsTable() {
   const destinations = insights.top_destinations || [];
 
   const tbody = document.querySelector("#destinations-table tbody");
-  if (!tbody) return;
+  if (!tbody) {
+    return;
+  }
 
   if (!destinations.length) {
-    tbody.innerHTML =
-      '<tr><td colspan="5" class="text-center">No destination data in the selected date range.</td></tr>';
+    tbody.innerHTML
+      = '<tr><td colspan="5" class="text-center">No destination data in the selected date range.</td></tr>';
     return;
   }
 
@@ -71,26 +73,30 @@ export function updateDestinationsTable() {
  */
 export function updateAnalyticsTable() {
   const tableEl = document.getElementById("analytics-table");
-  if (!tableEl) return;
+  if (!tableEl) {
+    return;
+  }
 
   const state = getState();
   const { behavior } = state.data;
 
-  const tableData =
-    state.currentView === "weekly" ? behavior.weekly || [] : behavior.monthly || [];
+  const tableData
+    = state.currentView === "weekly" ? behavior.weekly || [] : behavior.monthly || [];
 
   const tbody = tableEl.querySelector("tbody");
-  if (!tbody) return;
+  if (!tbody) {
+    return;
+  }
 
   tbody.innerHTML = tableData
     .map((row) => {
-      const period =
-        state.currentView === "weekly"
+      const period
+        = state.currentView === "weekly"
           ? formatWeekRange(row.week)
           : formatMonth(row.month);
 
-      const efficiency =
-        row.distance > 0 && row.fuelConsumed > 0
+      const efficiency
+        = row.distance > 0 && row.fuelConsumed > 0
           ? (row.distance / row.fuelConsumed).toFixed(1)
           : "N/A";
 

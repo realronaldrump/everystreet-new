@@ -146,7 +146,9 @@ class ModalManager {
       // Focus input after modal is shown
       setTimeout(() => {
         const input = document.getElementById(inputId);
-        if (input) input.focus();
+        if (input) {
+          input.focus();
+        }
       }, 300);
     });
   }
@@ -233,7 +235,9 @@ class ModalManager {
       });
 
       this._showModal(modal, modalId, () => {
-        if (onHide) onHide();
+        if (onHide) {
+          onHide();
+        }
         resolve(null);
       });
 
@@ -400,7 +404,9 @@ class ModalManager {
    * Format message with optional icon
    */
   _formatMessage(message, icon) {
-    if (!icon) return message;
+    if (!icon) {
+      return message;
+    }
 
     return createElement("div", { className: "d-flex align-items-start gap-3" }, [
       createElement(

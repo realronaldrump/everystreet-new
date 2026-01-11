@@ -21,7 +21,7 @@ def create_route_stats(
         "required_distance": float(required_dist),
         "deadhead_distance": float(deadhead_dist),
         "deadhead_percentage": float(
-            (deadhead_dist / total_dist * 100.0) if total_dist > 0 else 0.0
+            (deadhead_dist / total_dist * 100.0) if total_dist > 0 else 0.0,
         ),
         "required_reqs": float(required_reqs_count),
         "completed_reqs": float(required_reqs_count - skipped_count),
@@ -50,7 +50,7 @@ def validate_route(
     details["coverage_ratio"] = coverage_ratio
     if total_segments > 0 and coverage_ratio < MIN_SEGMENT_COVERAGE_RATIO:
         errors.append(
-            f"Only {mapped_segments}/{total_segments} undriven segments mapped to the routing graph."
+            f"Only {mapped_segments}/{total_segments} undriven segments mapped to the routing graph.",
         )
 
     max_gap_ft = calculate_max_route_gap(route_coords)
@@ -58,7 +58,7 @@ def validate_route(
     if max_gap_ft > MAX_ROUTE_GAP_FT:
         gap_miles = max_gap_ft / 5280.0
         errors.append(
-            f"Route contains a {max_gap_ft:.0f}ft ({gap_miles:.2f} miles) gap between points."
+            f"Route contains a {max_gap_ft:.0f}ft ({gap_miles:.2f} miles) gap between points.",
         )
 
     required_distance = float(stats.get("required_distance", 0.0))
@@ -74,7 +74,7 @@ def validate_route(
         errors.append(f"Deadhead ratio {deadhead_ratio:.2f} exceeds maximum threshold.")
     elif deadhead_ratio > MAX_DEADHEAD_RATIO_WARN:
         warnings.append(
-            f"Deadhead ratio {deadhead_ratio:.2f} is high; route may be inefficient."
+            f"Deadhead ratio {deadhead_ratio:.2f} is high; route may be inefficient.",
         )
 
     return errors, warnings, details

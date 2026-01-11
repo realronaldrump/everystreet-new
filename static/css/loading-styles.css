@@ -144,12 +144,7 @@ body.light-mode .loading-text,
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    rgb(255 255 255 / 10%),
-    transparent
-  );
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 10%), transparent);
   animation: skeleton-shimmer 1.5s infinite;
   background-size: 200% 100%;
 }
@@ -159,12 +154,7 @@ body.light-mode .skeleton-loader {
 }
 
 body.light-mode .skeleton-loader::after {
-  background: linear-gradient(
-    90deg,
-    transparent,
-    rgb(255 255 255 / 50%),
-    transparent
-  );
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 50%), transparent);
 }
 
 @keyframes skeleton-shimmer {

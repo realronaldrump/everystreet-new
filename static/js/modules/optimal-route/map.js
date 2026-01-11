@@ -18,7 +18,9 @@ export class OptimalRouteMap {
     }
 
     const container = document.getElementById(this.containerId);
-    if (!container || !window.MAPBOX_ACCESS_TOKEN) return Promise.resolve();
+    if (!container || !window.MAPBOX_ACCESS_TOKEN) {
+      return Promise.resolve();
+    }
 
     mapboxgl.accessToken = window.MAPBOX_ACCESS_TOKEN;
 
@@ -37,7 +39,9 @@ export class OptimalRouteMap {
   }
 
   bindMapLoad() {
-    if (!this.map) return Promise.resolve();
+    if (!this.map) {
+      return Promise.resolve();
+    }
     return new Promise((resolve) => {
       const handleLoad = () => {
         this.addArrowImage();
@@ -54,7 +58,9 @@ export class OptimalRouteMap {
   }
 
   addArrowImage() {
-    if (this.map.hasImage("arrow")) return;
+    if (this.map.hasImage("arrow")) {
+      return;
+    }
 
     const width = 24;
     const height = 24;
@@ -79,7 +85,9 @@ export class OptimalRouteMap {
   }
 
   setupMapLayers() {
-    if (!this.map || this.mapLayersReady) return;
+    if (!this.map || this.mapLayersReady) {
+      return;
+    }
 
     const emptyGeoJSON = { type: "FeatureCollection", features: [] };
 
@@ -160,8 +168,12 @@ export class OptimalRouteMap {
   }
 
   ensureMapLayers() {
-    if (!this.map) return false;
-    if (this.map.getSource("streets-driven")) return true;
+    if (!this.map) {
+      return false;
+    }
+    if (this.map.getSource("streets-driven")) {
+      return true;
+    }
     if (typeof this.map.isStyleLoaded === "function" && !this.map.isStyleLoaded()) {
       return false;
     }
@@ -170,7 +182,9 @@ export class OptimalRouteMap {
   }
 
   updateStreets(drivenFeatures, undrivenFeatures) {
-    if (!this.ensureMapLayers()) return;
+    if (!this.ensureMapLayers()) {
+      return;
+    }
 
     this.setSourceData("streets-driven", drivenFeatures);
     this.setSourceData("streets-undriven", undrivenFeatures);
@@ -200,8 +214,12 @@ export class OptimalRouteMap {
   }
 
   displayRoute(coordinates, stats, animate = false) {
-    if (!this.map || !coordinates || coordinates.length < 2) return;
-    if (!this.ensureMapLayers()) return;
+    if (!this.map || !coordinates || coordinates.length < 2) {
+      return;
+    }
+    if (!this.ensureMapLayers()) {
+      return;
+    }
 
     if (this.routeAnimationFrame) {
       cancelAnimationFrame(this.routeAnimationFrame);
@@ -227,7 +245,9 @@ export class OptimalRouteMap {
       this.animateRouteDrawing(geojson);
     } else {
       const source = this.map.getSource("optimal-route");
-      if (source) source.setData(geojson);
+      if (source) {
+        source.setData(geojson);
+      }
     }
 
     // Fit bounds
@@ -245,7 +265,9 @@ export class OptimalRouteMap {
     const properties = geojson?.features?.[0]?.properties || {};
 
     if (!source || !coordinates || coordinates.length < 2) {
-      if (source) source.setData(geojson);
+      if (source) {
+        source.setData(geojson);
+      }
       return;
     }
 
@@ -282,7 +304,9 @@ export class OptimalRouteMap {
   }
 
   flyToBounds(bounds) {
-    if (!this.map || !bounds) return;
+    if (!this.map || !bounds) {
+      return;
+    }
     const [south, north, west, east] = bounds;
     this.map.fitBounds(
       [
@@ -294,7 +318,9 @@ export class OptimalRouteMap {
   }
 
   toggleLayer(layerIds, isVisible) {
-    if (!this.map || !this.mapLayersReady) return;
+    if (!this.map || !this.mapLayersReady) {
+      return;
+    }
     layerIds.forEach((id) => {
       try {
         if (this.map.getLayer(id)) {
@@ -307,7 +333,9 @@ export class OptimalRouteMap {
   }
 
   setLayerOpacity(layerIds, opacity) {
-    if (!this.map || !this.mapLayersReady) return;
+    if (!this.map || !this.mapLayersReady) {
+      return;
+    }
     layerIds.forEach((id) => {
       try {
         const layer = this.map.getLayer(id);
@@ -329,7 +357,9 @@ export class OptimalRouteMap {
   }
 
   moveLayers(layerIds) {
-    if (!this.map || !this.mapLayersReady) return;
+    if (!this.map || !this.mapLayersReady) {
+      return;
+    }
     layerIds.forEach((layerId) => {
       try {
         if (this.map.getLayer(layerId)) {

@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from datetime import UTC, datetime
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, HTTPException, status
 
@@ -101,7 +101,7 @@ async def get_app_settings_endpoint():
     summary="Update Application Settings",
     description="Persist application settings. Fields omitted in payload remain unchanged.",
 )
-async def update_app_settings_endpoint(settings: dict = Body(...)):
+async def update_app_settings_endpoint(settings: Annotated[dict, Body()]):
     try:
         if not isinstance(settings, dict):
             raise HTTPException(status_code=400, detail="Invalid payload")
@@ -114,8 +114,7 @@ async def update_app_settings_endpoint(settings: dict = Body(...)):
         else:
             await AppSettings(id="default", **settings, **DEFAULT_APP_SETTINGS).insert()
 
-        updated_settings = await get_persisted_app_settings()
-        return updated_settings
+        return await get_persisted_app_settings()
     except Exception as e:
         logger.exception("Error updating app settings via API: %s", e)
         raise HTTPException(

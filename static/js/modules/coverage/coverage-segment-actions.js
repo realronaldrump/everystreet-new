@@ -59,7 +59,9 @@ export class CoverageSegmentActions {
    */
   async handleBulkMarkSegments(action) {
     const segmentIds = this.manager.selection.getSelectedSegmentIds();
-    if (segmentIds.length === 0) return;
+    if (segmentIds.length === 0) {
+      return;
+    }
 
     const activeLocationId = this._getActiveLocationId();
 
@@ -107,8 +109,8 @@ export class CoverageSegmentActions {
    */
   _getActiveLocationId() {
     return (
-      this.manager.dashboard.selectedLocation?._id ||
-      this.manager.dashboard.currentDashboardLocationId
+      this.manager.dashboard.selectedLocation?._id
+      || this.manager.dashboard.currentDashboardLocationId
     );
   }
 
@@ -118,14 +120,18 @@ export class CoverageSegmentActions {
    * @param {string} action - Action that was performed
    */
   _updateSegmentInGeoJson(segmentId, action) {
-    const streetsGeoJson = this.manager.coverageMap.streetsGeoJson;
-    if (!streetsGeoJson?.features) return;
+    const { streetsGeoJson } = this.manager.coverageMap;
+    if (!streetsGeoJson?.features) {
+      return;
+    }
 
     const featureIndex = streetsGeoJson.features.findIndex(
       (f) => f.properties.segment_id === segmentId
     );
 
-    if (featureIndex === -1) return;
+    if (featureIndex === -1) {
+      return;
+    }
 
     const feature = streetsGeoJson.features[featureIndex];
 

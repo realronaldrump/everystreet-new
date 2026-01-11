@@ -111,7 +111,9 @@ class CoverageProgress {
 
     return this.poller.poll(taskId, {
       onUpdate: (data) => {
-        if (onUpdate) onUpdate(data);
+        if (onUpdate) {
+          onUpdate(data);
+        }
         this.updateModalContent(data);
         this.updateStepIndicators(data.stage, data.progress);
         this.lastActivityTime = new Date();
@@ -161,7 +163,9 @@ class CoverageProgress {
     const locationName = this.currentProcessingLocation?.display_name;
 
     // Update legacy properties
-    if (this.progressTimer) clearInterval(this.progressTimer);
+    if (this.progressTimer) {
+      clearInterval(this.progressTimer);
+    }
     this.processingStartTime = Date.now();
     this.lastActivityTime = Date.now();
 
@@ -191,7 +195,9 @@ class CoverageProgress {
    * Update modal content
    */
   updateModalContent(data) {
-    if (!this.currentProcessingLocation) return;
+    if (!this.currentProcessingLocation) {
+      return;
+    }
     this.modal.updateContent(data);
 
     // Sync legacy properties
@@ -223,7 +229,9 @@ class CoverageProgress {
    * Update timing info
    */
   updateTimingInfo() {
-    if (!this.processingStartTime) return;
+    if (!this.processingStartTime) {
+      return;
+    }
 
     const now = Date.now();
     const elapsedMs = now - this.processingStartTime;
@@ -246,8 +254,12 @@ class CoverageProgress {
       "#taskProgressModal .estimated-time"
     );
 
-    if (elapsedTimeEl) elapsedTimeEl.textContent = `Elapsed: ${elapsedText}`;
-    if (estimatedTimeEl) estimatedTimeEl.textContent = "";
+    if (elapsedTimeEl) {
+      elapsedTimeEl.textContent = `Elapsed: ${elapsedText}`;
+    }
+    if (estimatedTimeEl) {
+      estimatedTimeEl.textContent = "";
+    }
   }
 
   /**
@@ -261,7 +273,9 @@ class CoverageProgress {
    * Format time ago
    */
   formatTimeAgo(date) {
-    if (!date) return "never";
+    if (!date) {
+      return "never";
+    }
     const seconds = Math.floor((Date.now() - new Date(date)) / 1000);
 
     let formatted = "";
@@ -362,14 +376,18 @@ class CoverageProgress {
 
     const errorStep = errorSteps.find((s) => progress > s.threshold && steps[s.step]);
 
-    if (!errorStep) return false;
+    if (!errorStep) {
+      return false;
+    }
 
     markError(errorStep.step);
 
     const stepOrder = ["initializing", "preprocessing", "indexing", "calculating"];
     const errorIndex = stepOrder.indexOf(errorStep.step);
     for (let i = 0; i < errorIndex; i++) {
-      if (steps[stepOrder[i]]) markComplete(stepOrder[i]);
+      if (steps[stepOrder[i]]) {
+        markComplete(stepOrder[i]);
+      }
     }
 
     return true;
@@ -383,7 +401,9 @@ class CoverageProgress {
         return;
       }
     }
-    if (steps.initializing) markError("initializing");
+    if (steps.initializing) {
+      markError("initializing");
+    }
   }
 
   static _markStepsByStage(stage, progress, markComplete, markActive) {

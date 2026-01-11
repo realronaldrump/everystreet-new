@@ -1,6 +1,7 @@
 import json
 import logging
 from datetime import UTC, datetime
+from typing import Annotated
 
 import gpxpy
 from fastapi import APIRouter, File, HTTPException, UploadFile, status
@@ -21,7 +22,8 @@ trip_service = TripService(get_mapbox_token())
 
 
 async def process_and_store_trip(trip: dict, source: str = "upload") -> None:
-    """Process and store a trip using TripService.
+    """
+    Process and store a trip using TripService.
 
     Args:
         trip: Trip data dictionary
@@ -33,7 +35,8 @@ async def process_and_store_trip(trip: dict, source: str = "upload") -> None:
 async def process_geojson_trip(
     geojson_data: dict,
 ) -> list[dict] | None:
-    """Process GeoJSON trip data into trip dictionaries.
+    """
+    Process GeoJSON trip data into trip dictionaries.
 
     Args:
         geojson_data: GeoJSON data with trip features
@@ -84,9 +87,10 @@ async def process_geojson_trip(
 
 @router.post("/api/upload")
 async def upload_files(
-    files: list[UploadFile] = File(...),
+    files: Annotated[list[UploadFile], File()],
 ):
-    """Upload GPX or GeoJSON files and process them into the trips.
+    """
+    Upload GPX or GeoJSON files and process them into the trips.
 
     collection.
     """
@@ -159,7 +163,7 @@ async def upload_files(
                                 # Calculate distance based on the final unique coordinates
                                 trip_dict["distance"] = (
                                     GeometryService.calculate_distance(
-                                        standardized_gpx_gps.get("coordinates", [])
+                                        standardized_gpx_gps.get("coordinates", []),
                                     )
                                 )
 
@@ -175,7 +179,7 @@ async def upload_files(
                                 )
 
                 except Exception as gpx_err:
-                    logger.error(
+                    logger.exception(
                         "Error processing GPX file %s in /api/upload: %s",
                         filename,
                         gpx_err,
@@ -215,7 +219,7 @@ async def upload_files(
                     )
                     continue
                 except Exception as geojson_err:
-                    logger.error(
+                    logger.exception(
                         "Error processing GeoJSON file %s in /api/upload: %s",
                         filename,
                         geojson_err,

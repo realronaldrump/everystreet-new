@@ -13,10 +13,14 @@ const panelManager = {
     };
     const panel = uiState.getElement(panelMap[type]);
     const overlay = uiState.getElement(CONFIG.selectors.contentOverlay);
-    if (!panel || !panel.classList.contains(CONFIG.classes.open)) return;
+    if (!panel || !panel.classList.contains(CONFIG.classes.open)) {
+      return;
+    }
     panel.style.transition = `transform ${this.transitionDuration}ms ease-in-out`;
     panel.classList.remove(CONFIG.classes.open);
-    if (overlay) await utils.fadeOut(overlay, this.transitionDuration);
+    if (overlay) {
+      await utils.fadeOut(overlay, this.transitionDuration);
+    }
     if (type === "mobile") {
       document.body.style.overflow = "";
       document.body.style.paddingRight = "";
@@ -37,12 +41,16 @@ const panelManager = {
     };
     const panel = uiState.getElement(panelMap[type]);
     const overlay = uiState.getElement(CONFIG.selectors.contentOverlay);
-    if (!panel || panel.classList.contains(CONFIG.classes.open)) return;
+    if (!panel || panel.classList.contains(CONFIG.classes.open)) {
+      return;
+    }
     panel.style.transition = `transform ${this.transitionDuration}ms ease-in-out`;
     if (type === "mobile") {
       const scrollbarW = utils.measureScrollbarWidth();
       document.body.style.overflow = "hidden";
-      if (scrollbarW > 0) document.body.style.paddingRight = `${scrollbarW}px`;
+      if (scrollbarW > 0) {
+        document.body.style.paddingRight = `${scrollbarW}px`;
+      }
     }
     if (overlay) {
       overlay.style.display = "block";
@@ -54,7 +62,9 @@ const panelManager = {
       uiState.saveUIState();
       setTimeout(() => {
         const firstInput = panel.querySelector("input, select, button");
-        if (firstInput) firstInput.focus();
+        if (firstInput) {
+          firstInput.focus();
+        }
       }, this.transitionDuration);
     }
   },
@@ -70,8 +80,9 @@ const panelManager = {
 
   init() {
     const mobileDrawer = uiState.getElement(CONFIG.selectors.mobileDrawer);
-    if (mobileDrawer && "ontouchstart" in window)
+    if (mobileDrawer && "ontouchstart" in window) {
       this.initSwipeGestures(mobileDrawer, "mobile");
+    }
 
     // Initialize collapsible drawer nav sections
     this.initDrawerSections();
@@ -100,7 +111,9 @@ const panelManager = {
       }
     });
 
-    if (uiState.uiState.filtersOpen) setTimeout(() => this.open("filters"), 100);
+    if (uiState.uiState.filtersOpen) {
+      setTimeout(() => this.open("filters"), 100);
+    }
   },
 
   initDrawerSections() {
@@ -130,7 +143,9 @@ const panelManager = {
       element.style.transition = "none";
     };
     const onMove = (e) => {
-      if (!isDragging) return;
+      if (!isDragging) {
+        return;
+      }
       currentX = e.touches[0].clientX;
       const diff = currentX - startX;
       if (type === "mobile" && diff < 0) {
@@ -139,12 +154,16 @@ const panelManager = {
       }
     };
     const onEnd = () => {
-      if (!isDragging) return;
+      if (!isDragging) {
+        return;
+      }
       isDragging = false;
       element.style.transition = "";
       element.style.transform = "";
       const diff = currentX - startX;
-      if (Math.abs(diff) > element.offsetWidth * 0.3) this.close(type);
+      if (Math.abs(diff) > element.offsetWidth * 0.3) {
+        this.close(type);
+      }
     };
     element.addEventListener("touchstart", onStart, { passive: true });
     element.addEventListener("touchmove", onMove, { passive: true });

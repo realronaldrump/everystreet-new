@@ -80,12 +80,18 @@
 
   function getStoredRecalcState() {
     const raw = localStorage.getItem(RECALC_STORAGE_KEY);
-    if (!raw) return null;
+    if (!raw) {
+      return null;
+    }
     try {
       const parsed = JSON.parse(raw);
-      if (!parsed.startedAt) return null;
+      if (!parsed.startedAt) {
+        return null;
+      }
       const startedAt = new Date(parsed.startedAt);
-      if (Number.isNaN(startedAt.getTime())) return null;
+      if (Number.isNaN(startedAt.getTime())) {
+        return null;
+      }
       return { startedAt };
     } catch {
       return null;
@@ -186,10 +192,10 @@
 
   // Get appropriate map style based on theme
   function getMapStyle() {
-    const isDark =
-      document.documentElement.getAttribute("data-bs-theme") === "dark" ||
-      document.documentElement.classList.contains("dark-mode") ||
-      !document.documentElement.classList.contains("light-mode");
+    const isDark
+      = document.documentElement.getAttribute("data-bs-theme") === "dark"
+      || document.documentElement.classList.contains("dark-mode")
+      || !document.documentElement.classList.contains("light-mode");
     return isDark
       ? "mapbox://styles/mapbox/dark-v11"
       : "mapbox://styles/mapbox/light-v11";
@@ -231,8 +237,8 @@
       const recalcState = getStoredRecalcState();
 
       const hasVisits = data.counties && Object.keys(data.counties).length > 0;
-      const hasStops =
-        data.stoppedCounties && Object.keys(data.stoppedCounties).length > 0;
+      const hasStops
+        = data.stoppedCounties && Object.keys(data.stoppedCounties).length > 0;
 
       if (data.success && (hasVisits || hasStops)) {
         // Store county visits data (includes dates)
@@ -253,8 +259,8 @@
         // Show last updated time if available
         if (data.lastUpdated) {
           const lastUpdated = new Date(data.lastUpdated);
-          document.getElementById("last-updated").textContent =
-            `Last updated: ${lastUpdated.toLocaleDateString()} ${lastUpdated.toLocaleTimeString()}`;
+          document.getElementById("last-updated").textContent
+            = `Last updated: ${lastUpdated.toLocaleDateString()} ${lastUpdated.toLocaleTimeString()}`;
 
           if (recalcState && lastUpdated > recalcState.startedAt && isRecalculating) {
             clearRecalcState();
@@ -279,7 +285,9 @@
 
   // Format date for display
   function formatDate(isoString) {
-    if (!isoString) return "Unknown";
+    if (!isoString) {
+      return "Unknown";
+    }
     try {
       const date = new Date(isoString);
       return date.toLocaleDateString("en-US", {
@@ -314,7 +322,9 @@
 
   // Trigger recalculation
   async function triggerRecalculate() {
-    if (isRecalculating) return;
+    if (isRecalculating) {
+      return;
+    }
 
     const startedAt = new Date();
     isRecalculating = true;
@@ -343,7 +353,9 @@
   }
 
   function startRecalculatePolling(startedAt) {
-    if (recalcPollerActive) return;
+    if (recalcPollerActive) {
+      return;
+    }
     recalcPollerActive = true;
     setTimeout(() => checkAndRefresh(startedAt), 2000);
   }
@@ -359,9 +371,9 @@
       const data = await response.json();
 
       const lastUpdated = data.lastUpdated ? new Date(data.lastUpdated) : null;
-      const isUpdated =
-        data.cached &&
-        (startedAt
+      const isUpdated
+        = data.cached
+        && (startedAt
           ? lastUpdated && lastUpdated > startedAt
           : data.totalVisited > 0 || data.totalStopped > 0);
 
@@ -524,7 +536,9 @@
     }
 
     function showTooltip(e) {
-      if (e.features.length === 0) return;
+      if (e.features.length === 0) {
+        return;
+      }
 
       const feature = e.features[0];
       const { fips } = feature.properties;
@@ -606,8 +620,8 @@
   function updateStats() {
     const totalCounties = countyData.features.length;
     const visitedCount = Object.keys(countyVisits).length;
-    const percentage =
-      totalCounties > 0 ? ((visitedCount / totalCounties) * 100).toFixed(1) : "0.0";
+    const percentage
+      = totalCounties > 0 ? ((visitedCount / totalCounties) * 100).toFixed(1) : "0.0";
 
     // Count unique states
     const visitedStates = new Set();
@@ -618,10 +632,10 @@
     });
 
     // Update DOM
-    document.getElementById("counties-visited").textContent =
-      visitedCount.toLocaleString();
-    document.getElementById("counties-total").textContent =
-      totalCounties.toLocaleString();
+    document.getElementById("counties-visited").textContent
+      = visitedCount.toLocaleString();
+    document.getElementById("counties-total").textContent
+      = totalCounties.toLocaleString();
     document.getElementById("coverage-percent").textContent = `${percentage}%`;
     document.getElementById("states-visited").textContent = visitedStates.size;
   }
@@ -681,16 +695,16 @@
           const lastVisit = visits.lastVisit ? new Date(visits.lastVisit) : null;
 
           if (
-            firstVisit &&
-            (!stateStats[stateFips].firstVisit ||
-              firstVisit < stateStats[stateFips].firstVisit)
+            firstVisit
+            && (!stateStats[stateFips].firstVisit
+              || firstVisit < stateStats[stateFips].firstVisit)
           ) {
             stateStats[stateFips].firstVisit = firstVisit;
           }
           if (
-            lastVisit &&
-            (!stateStats[stateFips].lastVisit ||
-              lastVisit > stateStats[stateFips].lastVisit)
+            lastVisit
+            && (!stateStats[stateFips].lastVisit
+              || lastVisit > stateStats[stateFips].lastVisit)
           ) {
             stateStats[stateFips].lastVisit = lastVisit;
           }
@@ -730,7 +744,9 @@
     const filteredList = stateList.filter((s) => s.total > 0);
 
     const container = document.getElementById("state-list");
-    if (!container) return;
+    if (!container) {
+      return;
+    }
 
     container.innerHTML = filteredList
       .map((state) => {
@@ -783,7 +799,9 @@
       (f) => f.properties.stateFips === stateFips
     );
 
-    if (stateCounties.length === 0) return;
+    if (stateCounties.length === 0) {
+      return;
+    }
 
     // Calculate bounds
     let minLng = Infinity,
@@ -795,10 +813,18 @@
       const coords = county.geometry.coordinates;
       const flatCoords = flattenCoordinates(coords);
       flatCoords.forEach(([lng, lat]) => {
-        if (lng < minLng) minLng = lng;
-        if (lng > maxLng) maxLng = lng;
-        if (lat < minLat) minLat = lat;
-        if (lat > maxLat) maxLat = lat;
+        if (lng < minLng) {
+          minLng = lng;
+        }
+        if (lng > maxLng) {
+          maxLng = lng;
+        }
+        if (lat < minLat) {
+          minLat = lat;
+        }
+        if (lat > maxLat) {
+          maxLat = lat;
+        }
       });
     });
 
@@ -843,8 +869,8 @@
 
         // Render stats on first open
         if (
-          (!isExpanded && content.innerHTML.trim() === "") ||
-          content.querySelector("#state-list").innerHTML.trim() === ""
+          (!isExpanded && content.innerHTML.trim() === "")
+          || content.querySelector("#state-list").innerHTML.trim() === ""
         ) {
           renderStateStatsList();
         }
@@ -862,7 +888,9 @@
 
   function setupStopToggle() {
     const toggle = document.getElementById("toggle-stops");
-    if (!toggle) return;
+    if (!toggle) {
+      return;
+    }
 
     showStoppedCounties = toggle.checked;
     toggle.addEventListener("change", () => {
@@ -872,7 +900,9 @@
   }
 
   function updateStopLayerVisibility() {
-    if (!map) return;
+    if (!map) {
+      return;
+    }
     const visibility = showStoppedCounties ? "visible" : "none";
     ["counties-stopped-fill", "counties-stopped-border"].forEach((layerId) => {
       if (map.getLayer(layerId)) {
@@ -883,7 +913,9 @@
 
   function resumeRecalculateIfNeeded() {
     const recalcState = getStoredRecalcState();
-    if (!recalcState) return;
+    if (!recalcState) {
+      return;
+    }
     isRecalculating = true;
     updateRecalculateUi(true, "Recalculating county data...");
   }

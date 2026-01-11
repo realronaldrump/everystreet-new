@@ -69,7 +69,8 @@ class GeometryService:
             return distance_m / 1609.344
         if unit == "km":
             return distance_m / 1000.0
-        raise ValueError("Invalid unit. Use 'meters', 'miles', or 'km'.")
+        msg = "Invalid unit. Use 'meters', 'miles', or 'km'."
+        raise ValueError(msg)
 
     @staticmethod
     def parse_geojson(value: Any) -> dict[str, Any] | None:
@@ -186,7 +187,10 @@ class GeometryService:
     ) -> dict[str, Any] | None:
         """Create a GeoJSON Polygon for a bounding box."""
         if not GeometryService.validate_bounding_box(
-            min_lat, min_lon, max_lat, max_lon
+            min_lat,
+            min_lon,
+            max_lat,
+            max_lon,
         ):
             return None
         coords = [
@@ -237,7 +241,8 @@ class GeometryService:
     def validate_geojson_point_or_linestring(
         data: Any,
     ) -> tuple[bool, dict[str, Any] | None]:
-        """Validate if the data is a valid GeoJSON Point or LineString.
+        """
+        Validate if the data is a valid GeoJSON Point or LineString.
 
         Args:
             data: The GeoJSON data to validate.

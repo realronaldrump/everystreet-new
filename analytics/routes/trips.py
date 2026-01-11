@@ -1,6 +1,7 @@
 """API routes for trip analytics."""
 
 import logging
+from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query, Request, status
 from fastapi.responses import JSONResponse
@@ -57,7 +58,9 @@ async def get_time_period_trips(request: Request):
 
     try:
         trips = await TimeAnalyticsService.get_time_period_trips(
-            query, time_type, time_value
+            query,
+            time_type,
+            time_value,
         )
         return JSONResponse(content=trips)
     except ValueError as e:
@@ -70,7 +73,8 @@ async def get_time_period_trips(request: Request):
 @router.get("/api/driver-behavior")
 @api_route(logger)
 async def driver_behavior_analytics(request: Request):
-    """Aggregate driving behavior statistics within optional date range filters.
+    """
+    Aggregate driving behavior statistics within optional date range filters.
 
     Accepts the same `start_date` and `end_date` query parameters used by other API endpoints.
     If no filters are provided, all trips are considered (back-compat).
@@ -83,7 +87,10 @@ async def driver_behavior_analytics(request: Request):
 @router.get("/api/trips/history")
 @api_route(logger)
 async def get_recent_trips(
-    limit: int = Query(5, ge=1, le=20, description="Number of trips to return"),
+    limit: Annotated[
+        int,
+        Query(ge=1, le=20, description="Number of trips to return"),
+    ] = 5,
 ):
     """Get recent trips for landing page activity feed."""
     trips = await TripAnalyticsService.get_recent_trips(limit)

@@ -62,8 +62,7 @@ def calculate_max_route_gap(route_coords: list[list[float]]) -> float:
             unit="miles",
         )
         d_ft = d_miles * 5280.0
-        if d_ft > max_gap:
-            max_gap = d_ft
+        max_gap = max(max_gap, d_ft)
     return max_gap
 
 
@@ -77,7 +76,11 @@ def log_jump_distance(
     new_xy = node_xy.get(new_node)
     if old_xy and new_xy:
         jump_dist = GeometryService.haversine_distance(
-            old_xy[0], old_xy[1], new_xy[0], new_xy[1], unit="miles"
+            old_xy[0],
+            old_xy[1],
+            new_xy[0],
+            new_xy[1],
+            unit="miles",
         )
         logger.warning(
             "Route contains %.2f mile gap between disconnected components "

@@ -1,4 +1,5 @@
-"""Analytics package for trip and dashboard analytics.
+"""
+Analytics package for trip and dashboard analytics.
 
 This package provides modular functionality for:
 - Trip analytics and aggregations

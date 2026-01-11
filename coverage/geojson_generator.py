@@ -1,4 +1,5 @@
-"""GeoJSON generation and storage for coverage data.
+"""
+GeoJSON generation and storage for coverage data.
 
 Generates GeoJSON FeatureCollection of streets and stores in GridFS.
 """
@@ -26,7 +27,8 @@ async def generate_and_store_geojson(
     location_name: str | None,
     task_id: str,
 ) -> None:
-    """Generate a GeoJSON FeatureCollection of streets and store it in GridFS.
+    """
+    Generate a GeoJSON FeatureCollection of streets and store it in GridFS.
 
     Args:
         location_name: Display name of the location
@@ -39,7 +41,8 @@ async def generate_and_store_geojson(
 
     # Update progress
     await _update_progress(
-        task_id, {"stage": "generating_geojson", "message": "Creating map data..."}
+        task_id,
+        {"stage": "generating_geojson", "message": "Creating map data..."},
     )
 
     fs: AsyncGridFSBucket = db_manager.gridfs_bucket
@@ -55,7 +58,7 @@ async def generate_and_store_geojson(
 
         # We can just fetch the doc, it's not huge.
         existing_meta_doc = await CoverageMetadata.find_one(
-            {"location.display_name": location_name}
+            {"location.display_name": location_name},
         )
 
         if existing_meta_doc and existing_meta_doc.streets_geojson_id:
@@ -118,25 +121,26 @@ async def generate_and_store_geojson(
         gridfs_id_str = str(upload_stream._id)
 
         await CoverageMetadata.find_one(
-            {"location.display_name": location_name}
+            {"location.display_name": location_name},
         ).update(
             {
                 "$set": {
                     "streets_geojson_id": gridfs_id_str,  # Model field name
                     "status": "completed",
                     "last_updated": datetime.now(UTC),
-                }
-            }
+                },
+            },
         )
 
         await _update_progress(
-            task_id, {"stage": "complete", "progress": 100, "status": "complete"}
+            task_id,
+            {"stage": "complete", "progress": 100, "status": "complete"},
         )
 
         logger.info("Task %s: GeoJSON generation complete.", task_id)
 
     except Exception as e:
-        logger.error("Task %s: GeoJSON generation failed: %s", task_id, e)
+        logger.exception("Task %s: GeoJSON generation failed: %s", task_id, e)
         if upload_stream:
             await upload_stream.abort()
 
@@ -152,14 +156,14 @@ async def generate_and_store_geojson(
 
         # Update metadata
         await CoverageMetadata.find_one(
-            {"location.display_name": location_name}
+            {"location.display_name": location_name},
         ).update(
             {
                 "$set": {
                     "status": "error",
                     "last_updated": datetime.now(UTC),
-                }
-            }
+                },
+            },
         )
 
 

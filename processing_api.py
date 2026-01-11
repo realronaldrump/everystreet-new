@@ -108,7 +108,7 @@ async def get_trip_status(trip_id: str):
                 detail="Trip not found",
             )
 
-        status_info = {
+        return {
             "transaction_id": trip_id,
             "collection": "trips",  # Static name
             "source": getattr(trip, "source", "unknown"),
@@ -125,8 +125,6 @@ async def get_trip_status(trip_id: str):
             "matched_at": trip.matched_at,
             "last_processed": trip.lastUpdate,  # or saved_at
         }
-
-        return status_info
 
     except Exception as e:
         logger.exception(
@@ -247,7 +245,7 @@ async def remap_matched_trips(
 
         # Beanie's `find(query).update(update_query)`
         update_result = await Trip.find({"$expr": range_expr}).update(
-            {"$unset": {"matchedGps": "", "matchStatus": "", "matched_at": ""}}
+            {"$unset": {"matchedGps": "", "matchStatus": "", "matched_at": ""}},
         )
 
         total_deleted_count = update_result.modified_count

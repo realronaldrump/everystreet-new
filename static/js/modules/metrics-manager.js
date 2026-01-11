@@ -23,7 +23,9 @@ const metricsManager = {
       utils.batchDOMUpdates([
         () =>
           Object.values(elements).forEach((el) => {
-            if (el) el.textContent = el.id.includes("time") ? "--:--" : "0";
+            if (el) {
+              el.textContent = el.id.includes("time") ? "--:--" : "0";
+            }
           }),
         () => this.dispatchMetricsEvent(totalsDetail),
       ]);
@@ -40,19 +42,27 @@ const metricsManager = {
 
     utils.batchDOMUpdates([
       () => {
-        if (elements.totalTrips) elements.totalTrips.textContent = metrics.totalTrips;
-        if (elements.totalDistance)
+        if (elements.totalTrips) {
+          elements.totalTrips.textContent = metrics.totalTrips;
+        }
+        if (elements.totalDistance) {
           elements.totalDistance.textContent = metrics.totalDistance.toFixed(1);
-        if (elements.avgDistance)
+        }
+        if (elements.avgDistance) {
           elements.avgDistance.textContent = metrics.avgDistance.toFixed(1);
-        if (elements.avgStartTime)
+        }
+        if (elements.avgStartTime) {
           elements.avgStartTime.textContent = metrics.avgStartTime;
-        if (elements.avgDrivingTime)
+        }
+        if (elements.avgDrivingTime) {
           elements.avgDrivingTime.textContent = metrics.avgDrivingTime;
-        if (elements.avgSpeed)
+        }
+        if (elements.avgSpeed) {
           elements.avgSpeed.textContent = metrics.avgSpeed.toFixed(1);
-        if (elements.maxSpeed)
+        }
+        if (elements.maxSpeed) {
           elements.maxSpeed.textContent = metrics.maxSpeed.toFixed(0);
+        }
       },
       () => this.dispatchMetricsEvent(totalsDetail),
     ]);
@@ -133,7 +143,9 @@ const metricsManager = {
   },
 
   formatDuration(seconds) {
-    if (!seconds || Number.isNaN(seconds)) return "--:--";
+    if (!seconds || Number.isNaN(seconds)) {
+      return "--:--";
+    }
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
     const secs = Math.floor(seconds % 60);
@@ -145,7 +157,9 @@ const metricsManager = {
   },
 
   dispatchMetricsEvent(totals) {
-    if (!totals || typeof document === "undefined") return;
+    if (!totals || typeof document === "undefined") {
+      return;
+    }
     try {
       const detail = {
         source: "metricsManager",

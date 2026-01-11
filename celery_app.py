@@ -1,14 +1,13 @@
-"""Celery application configuration for EveryStreet.
+"""
+Celery application configuration for EveryStreet.
 
-This module sets up the Celery application instance with Redis as the message
-broker and result backend. It also configures Celery Beat to run the single
-dynamic task scheduler.
+This module sets up the Celery application instance with Redis as the message broker and
+result backend. It also configures Celery Beat to run the single dynamic task scheduler.
 
-**Important Security Note:** Celery workers should NOT be run with superuser
-(root) privileges. Ensure your deployment environment (e.g., Dockerfile)
-is set up to run Celery workers as a non-root user. You
-can use the `--uid` option when starting Celery workers to specify a different
-user.
+**Important Security Note:** Celery workers should NOT be run with superuser (root)
+privileges. Ensure your deployment environment (e.g., Dockerfile) is set up to run
+Celery workers as a non-root user. You can use the `--uid` option when starting Celery
+workers to specify a different user.
 """
 
 import logging
@@ -67,13 +66,13 @@ def get_redis_connection_with_retry():
                 )
                 time.sleep(RETRY_DELAY)
             else:
-                logger.error(
+                logger.exception(
                     "Failed to connect to Redis after %d attempts. Celery will likely fail to start.",
                     MAX_RETRIES,
                 )
                 raise
         except Exception as e:
-            logger.error(
+            logger.exception(
                 "Unexpected error during Redis connection attempt: %s",
                 e,
             )
@@ -146,14 +145,12 @@ def task_failure_handler(
             task_name,
             task_id,
             exception,
-            exc_info=True,
         )
     else:
         logger.warning(
             "Scheduler task (%s) failed: %s",
             task_id,
             exception,
-            exc_info=True,
         )
 
 
@@ -211,7 +208,7 @@ def init_worker(**_kwargs):
 
             # Configure formatting
             formatter = logging.Formatter(
-                "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+                "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
             )
             mongo_handler.setFormatter(formatter)
             mongo_handler.setLevel(logging.INFO)
@@ -232,10 +229,10 @@ def init_worker(**_kwargs):
             tasks_logger.addHandler(stream_handler)
 
             logger.info(
-                "MongoDB logging handler and StreamHandler attached to worker process."
+                "MongoDB logging handler and StreamHandler attached to worker process.",
             )
         except Exception as log_err:
-            logger.error("Failed to attach MongoDB logging handler: %s", log_err)
+            logger.exception("Failed to attach MongoDB logging handler: %s", log_err)
         # ---------------------------------------------------
 
         # ---------------------------------------------------
@@ -257,6 +254,7 @@ def init_worker(**_kwargs):
             e,
             exc_info=True,
         )
+        msg = f"Worker initialization failed critically: {e}"
         raise RuntimeError(
-            f"Worker initialization failed critically: {e}",
+            msg,
         ) from e

@@ -61,7 +61,9 @@
     }
 
     addPlace(place, refreshSource = true) {
-      if (!place?.geometry || !place?._id) return;
+      if (!place?.geometry || !place?._id) {
+        return;
+      }
       const feature = VisitsMapController._createFeature(place);
       this.placeFeatures.set(place._id, feature);
       this.customPlacesData.features.push(feature);
@@ -71,7 +73,9 @@
     }
 
     removePlace(placeId) {
-      if (!this.placeFeatures.has(placeId)) return;
+      if (!this.placeFeatures.has(placeId)) {
+        return;
+      }
       const feature = this.placeFeatures.get(placeId);
       this.customPlacesData.features = this.customPlacesData.features.filter(
         (f) => f !== feature
@@ -81,7 +85,9 @@
     }
 
     previewSuggestion(suggestion) {
-      if (!this.map || !suggestion?.boundary) return;
+      if (!this.map || !suggestion?.boundary) {
+        return;
+      }
 
       if (this.map.getLayer("suggestion-preview-fill")) {
         this.map.removeLayer("suggestion-preview-fill");
@@ -112,7 +118,9 @@
     }
 
     animateToPlace(place) {
-      if (!place?.geometry || !this.map) return;
+      if (!place?.geometry || !this.map) {
+        return;
+      }
       this.geometryUtils.fitMapToGeometry(this.map, place.geometry, {
         padding: 100,
         duration: 1000,
@@ -120,7 +128,9 @@
     }
 
     zoomToFitAllPlaces() {
-      if (!this.map || this.customPlacesData.features.length === 0) return;
+      if (!this.map || this.customPlacesData.features.length === 0) {
+        return;
+      }
       const geometry = {
         type: "GeometryCollection",
         geometries: this.customPlacesData.features.map((f) => f.geometry),
@@ -132,7 +142,9 @@
     }
 
     toggleCustomPlacesVisibility(isVisible) {
-      if (!this.map) return;
+      if (!this.map) {
+        return;
+      }
       const visibility = isVisible ? "visible" : "none";
       [
         "custom-places-fill",
@@ -147,8 +159,8 @@
 
     toggleMapStyle() {
       this.mapStyle = this.mapStyle === "satellite" ? "dark" : "satellite";
-      const styleUrl =
-        this.mapStyle === "satellite"
+      const styleUrl
+        = this.mapStyle === "satellite"
           ? "mapbox://styles/mapbox/satellite-streets-v12"
           : "mapbox://styles/mapbox/dark-v11";
 
@@ -163,8 +175,8 @@
 
     updateTheme(theme) {
       this.mapStyle = theme === "light" ? "light" : "dark";
-      const styleUrl =
-        this.mapStyle === "light"
+      const styleUrl
+        = this.mapStyle === "light"
           ? "mapbox://styles/mapbox/light-v11"
           : "mapbox://styles/mapbox/dark-v11";
 
@@ -192,7 +204,9 @@
      * @param {LngLat} lngLat - Map coordinates
      */
     showPlacePopup(content, lngLat) {
-      if (!this.map) return null;
+      if (!this.map) {
+        return null;
+      }
       this.activePopup?.remove?.();
 
       this.activePopup = new mapboxgl.Popup({
@@ -255,7 +269,9 @@
     }
 
     _addPlacesSource() {
-      if (!this.map) return;
+      if (!this.map) {
+        return;
+      }
 
       if (this.map.getSource("custom-places")) {
         return;
@@ -268,7 +284,9 @@
     }
 
     _addPlacesLayers() {
-      if (!this.map || !this.map.getSource("custom-places")) return;
+      if (!this.map || !this.map.getSource("custom-places")) {
+        return;
+      }
 
       if (!this.map.getLayer("custom-places-fill")) {
         this.map.addLayer({
@@ -309,7 +327,9 @@
     }
 
     _bindPlaceInteractions() {
-      if (!this.map?.getLayer("custom-places-fill")) return;
+      if (!this.map?.getLayer("custom-places-fill")) {
+        return;
+      }
 
       let hoveredStateId = null;
       this.map.on("mousemove", "custom-places-fill", (e) => {
@@ -357,7 +377,9 @@
     }
 
     _animatePlaceClick() {
-      if (!this.map?.getLayer("custom-places-highlight")) return;
+      if (!this.map?.getLayer("custom-places-highlight")) {
+        return;
+      }
       this.map.setPaintProperty("custom-places-highlight", "line-opacity", 0.8);
       setTimeout(() => {
         this.map?.setPaintProperty("custom-places-highlight", "line-opacity", 0);

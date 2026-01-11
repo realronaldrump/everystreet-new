@@ -19,7 +19,9 @@ export function setupTabSwitching() {
         content.classList.remove("active");
       });
       const tabContent = document.getElementById(`${tabName}-tab`);
-      if (tabContent) tabContent.classList.add("active");
+      if (tabContent) {
+        tabContent.classList.add("active");
+      }
     });
   });
 }
@@ -47,20 +49,33 @@ export function setupAppSettingsForm() {
       geocodeTripsOnFetch: gtof,
     } = settings;
 
-    const isDarkMode =
-      document.documentElement.getAttribute("data-bs-theme") === "dark";
+    const isDarkMode
+      = document.documentElement.getAttribute("data-bs-theme") === "dark";
 
     // Apply settings to form elements
-    if (darkModeToggle) darkModeToggle.checked = isDarkMode;
-    if (highlightRecentTrips) highlightRecentTrips.checked = hrt !== false;
-    if (autoCenterToggle) autoCenterToggle.checked = autoCenter !== false;
-    if (showLiveTracking) showLiveTracking.checked = slt !== false;
-    if (geocodeTripsOnFetch) geocodeTripsOnFetch.checked = gtof !== false;
-    if (polylineColor)
+    if (darkModeToggle) {
+      darkModeToggle.checked = isDarkMode;
+    }
+    if (highlightRecentTrips) {
+      highlightRecentTrips.checked = hrt !== false;
+    }
+    if (autoCenterToggle) {
+      autoCenterToggle.checked = autoCenter !== false;
+    }
+    if (showLiveTracking) {
+      showLiveTracking.checked = slt !== false;
+    }
+    if (geocodeTripsOnFetch) {
+      geocodeTripsOnFetch.checked = gtof !== false;
+    }
+    if (polylineColor) {
       polylineColor.value = pc || localStorage.getItem("polylineColor") || "#00FF00";
+    }
     if (polylineOpacity) {
       polylineOpacity.value = po || localStorage.getItem("polylineOpacity") || "0.8";
-      if (opacityValue) opacityValue.textContent = polylineOpacity.value;
+      if (opacityValue) {
+        opacityValue.textContent = polylineOpacity.value;
+      }
     }
   }
 

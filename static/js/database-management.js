@@ -9,7 +9,9 @@ document.addEventListener("DOMContentLoaded", () => {
   let currentButton = null;
 
   function setButtonLoading(button, isLoading, action) {
-    if (!button) return;
+    if (!button) {
+      return;
+    }
 
     button.disabled = isLoading;
 
@@ -51,7 +53,9 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function updateStorageDisplay(data) {
-    if (!data) return;
+    if (!data) {
+      return;
+    }
 
     if (storageText) {
       storageText.textContent = `Using ${data.used_mb}MB`;
@@ -60,7 +64,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (refreshStorageBtn) {
     refreshStorageBtn.addEventListener("mousedown", async (e) => {
-      if (e.button !== 0) return;
+      if (e.button !== 0) {
+        return;
+      }
       try {
         setButtonLoading(refreshStorageBtn, true);
         const data = await performDatabaseAction("/api/database/storage-info");
@@ -82,7 +88,9 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   document.body.addEventListener("mousedown", async (event) => {
-    if (event.button !== 0) return;
+    if (event.button !== 0) {
+      return;
+    }
     const clearButton = event.target.closest(".clear-collection");
 
     if (clearButton) {
@@ -110,8 +118,8 @@ document.addEventListener("DOMContentLoaded", () => {
     headers.forEach((th) => {
       th.addEventListener("click", () => {
         const column = th.dataset.sort;
-        const dir =
-          currentSort.column === column && currentSort.dir === "asc" ? "desc" : "asc";
+        const dir
+          = currentSort.column === column && currentSort.dir === "asc" ? "desc" : "asc";
 
         // Update Sort State
         currentSort = { column, dir };
@@ -132,11 +140,11 @@ document.addEventListener("DOMContentLoaded", () => {
         const rows = Array.from(tbody.querySelectorAll("tr"));
 
         rows.sort((a, b) => {
-          const aVal =
-            a.querySelector(`td[data-value]`).parentElement.children[th.cellIndex]
+          const aVal
+            = a.querySelector(`td[data-value]`).parentElement.children[th.cellIndex]
               .dataset.value;
-          const bVal =
-            b.querySelector(`td[data-value]`).parentElement.children[th.cellIndex]
+          const bVal
+            = b.querySelector(`td[data-value]`).parentElement.children[th.cellIndex]
               .dataset.value;
 
           let comparison = 0;

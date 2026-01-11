@@ -39,11 +39,11 @@ class CoverageNavigation {
         if (activeTripResponse.ok) {
           const activeTripData = await activeTripResponse.json();
           if (
-            activeTripData.trip?.coordinates &&
-            activeTripData.trip.coordinates.length > 0
+            activeTripData.trip?.coordinates
+            && activeTripData.trip.coordinates.length > 0
           ) {
-            const lastCoord =
-              activeTripData.trip.coordinates[
+            const lastCoord
+              = activeTripData.trip.coordinates[
                 activeTripData.trip.coordinates.length - 1
               ];
             currentLat = lastCoord.lat;
@@ -98,9 +98,9 @@ class CoverageNavigation {
       );
 
       if (
-        data.status === "no_streets" ||
-        data.status === "no_valid_streets" ||
-        data.status === "no_clusters"
+        data.status === "no_streets"
+        || data.status === "no_valid_streets"
+        || data.status === "no_clusters"
       ) {
         this.notificationManager.show(data.message, "info");
         this.clearEfficientStreetMarkers();
@@ -108,9 +108,9 @@ class CoverageNavigation {
       }
 
       if (
-        data.status === "success" &&
-        data.suggested_clusters &&
-        data.suggested_clusters.length > 0
+        data.status === "success"
+        && data.suggested_clusters
+        && data.suggested_clusters.length > 0
       ) {
         this.suggestedEfficientStreets = data.suggested_clusters;
         this.displayEfficientStreets(data.suggested_clusters, positionSource);
@@ -121,8 +121,8 @@ class CoverageNavigation {
         const startingStreetName = topCluster.nearest_segment.street_name;
 
         this.notificationManager.show(
-          `Found ${data.suggested_clusters.length} efficient street clusters. ` +
-            `Top cluster (starts with ${startingStreetName}): ${distanceMiles} mi away, ${lengthMiles} mi total length.`,
+          `Found ${data.suggested_clusters.length} efficient street clusters. `
+            + `Top cluster (starts with ${startingStreetName}): ${distanceMiles} mi away, ${lengthMiles} mi total length.`,
           "success",
           7000
         );
@@ -143,8 +143,8 @@ class CoverageNavigation {
     } finally {
       if (btn) {
         btn.disabled = false;
-        btn.innerHTML =
-          '<i class="fas fa-bullseye me-2"></i>Find Most Efficient Streets';
+        btn.innerHTML
+          = '<i class="fas fa-bullseye me-2"></i>Find Most Efficient Streets';
       }
     }
   }
@@ -166,7 +166,9 @@ class CoverageNavigation {
    * Display efficient streets
    */
   displayEfficientStreets(clusters, positionSource) {
-    if (!this.coverageMap?.map || !this.coverageMap.map.isStyleLoaded()) return;
+    if (!this.coverageMap?.map || !this.coverageMap.map.isStyleLoaded()) {
+      return;
+    }
 
     this.clearEfficientStreetMarkers(false);
 
@@ -180,9 +182,9 @@ class CoverageNavigation {
       const markerColor = colors[index] || defaultClusterColor;
 
       if (
-        cluster.segments &&
-        Array.isArray(cluster.segments) &&
-        this.coverageMap.map.getSource("streets")
+        cluster.segments
+        && Array.isArray(cluster.segments)
+        && this.coverageMap.map.getSource("streets")
       ) {
         cluster.segments.forEach((segment) => {
           const segmentId = segment.segment_id || segment.properties?.segment_id;
@@ -200,9 +202,9 @@ class CoverageNavigation {
         const el = document.createElement("div");
         el.className = "efficient-street-marker-mapbox";
         el.innerHTML = `
-          <div style="background-color: ${markerColor}; border: 2px solid white; 
-               border-radius: 50%; width: 30px; height: 30px; display: flex; 
-               align-items: center; justify-content: center; font-weight: bold; 
+          <div style="background-color: ${markerColor}; border: 2px solid white;
+               border-radius: 50%; width: 30px; height: 30px; display: flex;
+               align-items: center; justify-content: center; font-weight: bold;
                color: ${index === 0 ? "black" : "white"}; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">
             ${rank}
           </div>
@@ -224,17 +226,17 @@ class CoverageNavigation {
       if (Array.isArray(cluster?.segments)) {
         cluster.segments.forEach((segment) => {
           if (
-            segment.geometry &&
-            segment.geometry.type === "LineString" &&
-            segment.geometry.coordinates
+            segment.geometry
+            && segment.geometry.type === "LineString"
+            && segment.geometry.coordinates
           ) {
             segment.geometry.coordinates.forEach((coord) => {
               bounds.extend(coord);
             });
           } else if (
-            segment.geometry &&
-            segment.geometry.type === "MultiLineString" &&
-            segment.geometry.coordinates
+            segment.geometry
+            && segment.geometry.type === "MultiLineString"
+            && segment.geometry.coordinates
           ) {
             segment.geometry.coordinates.forEach((line) => {
               line.forEach((coord) => {
@@ -282,14 +284,14 @@ class CoverageNavigation {
           0,
           8
         )}...</div>
-        
+
         <div class="efficiency-metrics small">
           <div><i class="fas fa-ruler text-info me-1"></i> Total Length: ${totalLengthMiles} mi</div>
           <div><i class="fas fa-road text-info me-1"></i> Segments: ${segmentCount}</div>
           <div><i class="fas fa-location-arrow text-warning me-1"></i> Approx. Distance: ${distanceToClusterMiles} mi</div>
           <div><i class="fas fa-chart-line text-success me-1"></i> Efficiency Score: ${efficiencyScore}</div>
         </div>
-        
+
         <hr class="my-2">
         <div class="text-center">
           <button class="btn btn-sm btn-outline-light copy-segment-id-btn" data-segment-id="${
@@ -342,7 +344,7 @@ class CoverageNavigation {
           <h6 class="mb-0">
             <i class="fas fa-bullseye me-2"></i>Most Efficient Street Clusters
           </h6>
-          <button type="button" class="btn-close btn-close-white" 
+          <button type="button" class="btn-close btn-close-white"
                   onclick="document.getElementById('efficient-streets-panel').remove(); document.dispatchEvent(new CustomEvent('coverageClearEfficientMarkers'));">
           </button>
         </div>
@@ -374,7 +376,7 @@ class CoverageNavigation {
                 <span title="Efficiency score"><i class="fas fa-chart-line"></i> Score: ${score}</span>
               </div>
             </div>
-            <button class="btn btn-sm btn-outline-light focus-street-btn" 
+            <button class="btn btn-sm btn-outline-light focus-street-btn"
                     title="Focus map on start of this cluster"
                     data-coords="${nearestSegment.start_coords.join(",")}"
                     data-segment-id="${nearestSegment.segment_id}">
@@ -415,9 +417,9 @@ class CoverageNavigation {
     this.efficientStreetMarkers = [];
 
     if (
-      this.coverageMap?.map &&
-      this.suggestedEfficientStreets &&
-      this.coverageMap.map.getSource("streets")
+      this.coverageMap?.map
+      && this.suggestedEfficientStreets
+      && this.coverageMap.map.getSource("streets")
     ) {
       this.suggestedEfficientStreets.forEach((cluster) => {
         if (Array.isArray(cluster?.segments)) {
@@ -442,7 +444,9 @@ class CoverageNavigation {
 
     if (removePanel) {
       const panel = document.getElementById("efficient-streets-panel");
-      if (panel) panel.remove();
+      if (panel) {
+        panel.remove();
+      }
     }
   }
 
@@ -536,7 +540,9 @@ class CoverageNavigation {
    * Display the optimal route on the map
    */
   async displayOptimalRoute(locationId) {
-    if (!this.coverageMap?.map) return;
+    if (!this.coverageMap?.map) {
+      return;
+    }
 
     try {
       const route = await COVERAGE_API.getOptimalRoute(locationId);
@@ -660,7 +666,7 @@ class CoverageNavigation {
           <h6 class="mb-0">
             <i class="fas fa-route me-2" style="color: #9333ea;"></i>Optimal Completion Route
           </h6>
-          <button type="button" class="btn-close btn-close-white" 
+          <button type="button" class="btn-close btn-close-white"
                   onclick="document.getElementById('optimal-route-panel').remove(); document.dispatchEvent(new CustomEvent('coverageClearOptimalRoute'));">
           </button>
         </div>
@@ -679,12 +685,12 @@ class CoverageNavigation {
               </div>
             </div>
           </div>
-          
+
           <div class="small text-muted mb-3">
             <i class="fas fa-info-circle me-1"></i>
             Streets to cover: ${requiredMi} mi. Lower deadhead = more efficient route.
           </div>
-          
+
           <div class="d-flex gap-2">
             <button class="btn btn-sm btn-outline-light flex-grow-1" id="export-gpx-btn">
               <i class="fas fa-download me-1"></i>Export GPX
@@ -726,7 +732,9 @@ class CoverageNavigation {
    * Clear optimal route from map
    */
   clearOptimalRoute() {
-    if (!this.coverageMap?.map) return;
+    if (!this.coverageMap?.map) {
+      return;
+    }
 
     const { map } = this.coverageMap;
 
@@ -745,7 +753,9 @@ class CoverageNavigation {
 
     // Remove panel
     const panel = document.getElementById("optimal-route-panel");
-    if (panel) panel.remove();
+    if (panel) {
+      panel.remove();
+    }
 
     this.currentOptimalRouteLocationId = null;
   }

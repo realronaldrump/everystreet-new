@@ -20,7 +20,9 @@ export class OptimalRouteUI {
 
     // Helper for formatting
     this.formatCount = (value) => {
-      if (typeof value !== "number" || Number.isNaN(value)) return "--";
+      if (typeof value !== "number" || Number.isNaN(value)) {
+        return "--";
+      }
       return value.toLocaleString();
     };
   }
@@ -41,7 +43,9 @@ export class OptimalRouteUI {
   }
 
   populateAreaSelect(areas) {
-    if (!this.areaSelect || !this.config.populateAreaSelect) return;
+    if (!this.areaSelect || !this.config.populateAreaSelect) {
+      return;
+    }
 
     this.areaSelect.innerHTML = '<option value="">Select a coverage area...</option>';
 
@@ -60,13 +64,15 @@ export class OptimalRouteUI {
 
   updateSavedRoutes(areas, onRouteClick) {
     const historyContainer = document.getElementById("route-history");
-    if (!historyContainer) return;
+    if (!historyContainer) {
+      return;
+    }
 
     const areasWithRoutes = areas.filter((a) => a.optimal_route);
 
     if (areasWithRoutes.length === 0) {
-      historyContainer.innerHTML =
-        '<div class="text-muted small">No saved routes yet.</div>';
+      historyContainer.innerHTML
+        = '<div class="text-muted small">No saved routes yet.</div>';
       return;
     }
 
@@ -101,14 +107,16 @@ export class OptimalRouteUI {
 
   updateAreaStats(areaId) {
     const areaStats = document.getElementById("area-stats");
-    if (!areaStats) return;
+    if (!areaStats) {
+      return;
+    }
 
     const selectedOption = this.areaSelect?.querySelector(`option[value="${areaId}"]`);
     if (selectedOption) {
-      document.getElementById("area-coverage").textContent =
-        `${selectedOption.dataset.coverage}%`;
-      document.getElementById("area-remaining").textContent =
-        selectedOption.dataset.remaining;
+      document.getElementById("area-coverage").textContent
+        = `${selectedOption.dataset.coverage}%`;
+      document.getElementById("area-remaining").textContent
+        = selectedOption.dataset.remaining;
       areaStats.style.display = "block";
     } else {
       areaStats.style.display = "none";
@@ -118,8 +126,8 @@ export class OptimalRouteUI {
   updateProgress(data) {
     const stage = (data.stage || "initializing").toLowerCase();
     const rawMetrics = data.metrics || {};
-    const metrics =
-      Object.keys(rawMetrics).length > 0 ? rawMetrics : this.currentMetrics || {};
+    const metrics
+      = Object.keys(rawMetrics).length > 0 ? rawMetrics : this.currentMetrics || {};
     this.currentStage = stage;
     this.currentMetrics = metrics;
     this.setHudActive(true);
@@ -163,8 +171,12 @@ export class OptimalRouteUI {
   }
 
   setStatusMessage(primary, secondary, stage, metrics, labelOverride) {
-    if (stage) this.currentStage = stage;
-    if (metrics) this.currentMetrics = metrics;
+    if (stage) {
+      this.currentStage = stage;
+    }
+    if (metrics) {
+      this.currentMetrics = metrics;
+    }
 
     if (this.progressMessagePrimary) {
       this.progressMessagePrimary.textContent = primary;
@@ -178,7 +190,9 @@ export class OptimalRouteUI {
   }
 
   updateHud(stage, primary, secondary, metrics, labelOverride) {
-    if (!this.hud?.container) return;
+    if (!this.hud?.container) {
+      return;
+    }
     const meta = STAGE_COPY[stage] || { label: "Working", message: "Processing..." };
 
     if (this.hud.stage) {
@@ -200,8 +214,8 @@ export class OptimalRouteUI {
     const osmMatched = metrics.osm_matched ?? null;
     const fallbackTotal = metrics.fallback_total ?? null;
     const fallbackMatched = metrics.fallback_matched ?? null;
-    const mappedSegments =
-      metrics.mapped_segments ?? Number(osmMatched || 0) + Number(fallbackMatched || 0);
+    const mappedSegments
+      = metrics.mapped_segments ?? Number(osmMatched || 0) + Number(fallbackMatched || 0);
 
     if (this.hud.segments) {
       this.hud.segments.textContent = hasMetrics
@@ -228,10 +242,10 @@ export class OptimalRouteUI {
 
   formatMetricRatio(value, total) {
     if (
-      typeof value !== "number" ||
-      typeof total !== "number" ||
-      total <= 0 ||
-      value < 0
+      typeof value !== "number"
+      || typeof total !== "number"
+      || total <= 0
+      || value < 0
     ) {
       return "--";
     }
@@ -239,8 +253,12 @@ export class OptimalRouteUI {
   }
 
   appendActivity(text) {
-    if (!this.hud?.activity) return;
-    if (!text || text === this.lastActivityMessage) return;
+    if (!this.hud?.activity) {
+      return;
+    }
+    if (!text || text === this.lastActivityMessage) {
+      return;
+    }
 
     const entry = {
       time: this.lastElapsedLabel || "0:00",
@@ -274,12 +292,16 @@ export class OptimalRouteUI {
   }
 
   setHudActive(isActive) {
-    if (!this.hud?.container) return;
+    if (!this.hud?.container) {
+      return;
+    }
     this.hud.container.classList.toggle("active", isActive);
   }
 
   setScannerActive(isActive) {
-    if (!this.hud?.scanner) return;
+    if (!this.hud?.scanner) {
+      return;
+    }
     this.hud.scanner.classList.toggle("active", isActive);
   }
 
@@ -310,7 +332,9 @@ export class OptimalRouteUI {
     ];
 
     const currentIndex = stageOrder.indexOf(currentStage);
-    if (currentIndex === -1) return false;
+    if (currentIndex === -1) {
+      return false;
+    }
 
     return stageNames.every((name) => {
       const stageIndex = stageOrder.indexOf(name);
@@ -322,7 +346,9 @@ export class OptimalRouteUI {
     document.getElementById("results-section").style.display = "none";
     document.getElementById("error-section").style.display = "none";
     const progressSection = document.getElementById("progress-section");
-    if (progressSection) progressSection.style.display = "block";
+    if (progressSection) {
+      progressSection.style.display = "block";
+    }
 
     document.getElementById("progress-bar").style.width = "0%";
     this.currentStage = "initializing";
@@ -345,19 +371,25 @@ export class OptimalRouteUI {
     this.elapsedTimer = setInterval(() => this.updateElapsedTime(), 1000);
 
     const generateBtn = document.getElementById("generate-route-btn");
-    if (generateBtn) generateBtn.disabled = true;
+    if (generateBtn) {
+      generateBtn.disabled = true;
+    }
   }
 
   hideProgressSection() {
     this.stopElapsedTimer();
     const progressSection = document.getElementById("progress-section");
-    if (progressSection) progressSection.style.display = "none";
+    if (progressSection) {
+      progressSection.style.display = "none";
+    }
     this.setScannerActive(false);
     this.setHudActive(false);
   }
 
   updateElapsedTime() {
-    if (!this.startTime) return;
+    if (!this.startTime) {
+      return;
+    }
 
     const elapsed = Math.floor((Date.now() - this.startTime) / 1000);
     const minutes = Math.floor(elapsed / 60);
@@ -416,7 +448,9 @@ export class OptimalRouteUI {
   }
 
   formatDistance(meters) {
-    if (!meters && meters !== 0) return "--";
+    if (!meters && meters !== 0) {
+      return "--";
+    }
     return `${(meters / 1609.344).toFixed(2)} mi`;
   }
 

@@ -117,14 +117,16 @@ export async function runTask(taskId, context, onSuccess) {
 export async function forceStopTask(taskId, context, onSuccess) {
   const { notifier } = context;
 
-  if (!taskId) return false;
+  if (!taskId) {
+    return false;
+  }
 
   let confirmed = true;
   const confirmMessage = `Force stop task ${taskId}? This will reset its status.`;
 
   if (
-    window.confirmationDialog &&
-    typeof window.confirmationDialog.show === "function"
+    window.confirmationDialog
+    && typeof window.confirmationDialog.show === "function"
   ) {
     confirmed = await window.confirmationDialog.show({
       title: "Force Stop Task",
@@ -141,7 +143,9 @@ export async function forceStopTask(taskId, context, onSuccess) {
     });
   }
 
-  if (!confirmed) return false;
+  if (!confirmed) {
+    return false;
+  }
 
   try {
     showLoadingOverlay();
@@ -234,8 +238,8 @@ export async function clearTaskHistory(context, onSuccess) {
   let confirmed = true;
 
   if (
-    window.confirmationDialog &&
-    typeof window.confirmationDialog.show === "function"
+    window.confirmationDialog
+    && typeof window.confirmationDialog.show === "function"
   ) {
     confirmed = await window.confirmationDialog.show({
       title: "Clear Task History",
@@ -246,7 +250,9 @@ export async function clearTaskHistory(context, onSuccess) {
     });
   }
 
-  if (!confirmed) return false;
+  if (!confirmed) {
+    return false;
+  }
 
   try {
     showLoadingOverlay();
@@ -278,7 +284,9 @@ export function gatherTaskConfigFromUI() {
 
   document.querySelectorAll("#taskConfigTable tbody tr").forEach((row) => {
     const { taskId } = row.dataset;
-    if (!taskId) return;
+    if (!taskId) {
+      return;
+    }
 
     const intervalSelect = row.querySelector(`select[data-task-id="${taskId}"]`);
     const enabledCheckbox = row.querySelector(`input[data-task-id="${taskId}"]`);

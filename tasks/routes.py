@@ -1,7 +1,8 @@
-"""Optimal route generation task.
+"""
+Optimal route generation task.
 
-This module provides the Celery task for generating optimal completion routes
-for coverage areas using the Rural Postman Problem (RPP) algorithm.
+This module provides the Celery task for generating optimal completion routes for
+coverage areas using the Rural Postman Problem (RPP) algorithm.
 """
 
 from __future__ import annotations
@@ -25,7 +26,8 @@ async def generate_optimal_route_async(
     start_lon: float | None = None,
     start_lat: float | None = None,
 ) -> dict[str, Any]:
-    """Generate optimal completion route for a coverage area.
+    """
+    Generate optimal completion route for a coverage area.
 
     Uses the Rural Postman Problem algorithm to find the minimum-distance
     circuit that covers all undriven streets.
@@ -57,7 +59,9 @@ async def generate_optimal_route_async(
 
     # Generate the route with progress tracking
     result = await generate_optimal_route_with_progress(
-        location_id, task_id, start_coords
+        location_id,
+        task_id,
+        start_coords,
     )
 
     # Save to database if successful
@@ -94,5 +98,5 @@ def generate_optimal_route_task(
             location_id=location_id,
             start_lon=start_lon,
             start_lat=start_lat,
-        )
+        ),
     )

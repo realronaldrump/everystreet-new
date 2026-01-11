@@ -2,7 +2,9 @@
 (() => {
   function createVisitsTable({ onPlaceSelected }) {
     const el = document.getElementById("visits-table");
-    if (!el || !window.$) return null;
+    if (!el || !window.$) {
+      return null;
+    }
 
     const headers = [
       "Place",
@@ -84,9 +86,9 @@
         searchPlaceholder: "Search places...",
       },
       dom:
-        "<'row'<'col-sm-12 col-md-6'l><'col-sm-12 col-md-6'f>>" +
-        "<'row'<'col-sm-12'tr>>" +
-        "<'row'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
+        "<'row'<'col-sm-12 col-md-6'l><'col-sm-12 col-md-6'f>>"
+        + "<'row'<'col-sm-12'tr>>"
+        + "<'row'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
       columnDefs: [{ type: "duration", targets: 4 }],
       drawCallback() {
         $("#visits-table tbody tr").each(function (i) {
@@ -98,7 +100,9 @@
     });
 
     $(el).on("mousedown", ".place-link", (event) => {
-      if (event.button !== 0) return;
+      if (event.button !== 0) {
+        return;
+      }
       event.preventDefault();
       const placeId = $(event.target).closest(".place-link").data("place-id");
       if (placeId) {
@@ -112,7 +116,9 @@
 
   function createNonCustomVisitsTable() {
     const el = document.getElementById("non-custom-visits-table");
-    if (!el || !window.$) return null;
+    if (!el || !window.$) {
+      return null;
+    }
 
     const headers = ["Place", "Total Visits", "First Visit", "Last Visit"];
 
@@ -171,15 +177,17 @@
         searchPlaceholder: "Search locations...",
       },
       dom:
-        "<'row'<'col-sm-12 col-md-6'l><'col-sm-12 col-md-6'f>>" +
-        "<'row'<'col-sm-12'tr>>" +
-        "<'row'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
+        "<'row'<'col-sm-12 col-md-6'l><'col-sm-12 col-md-6'f>>"
+        + "<'row'<'col-sm-12'tr>>"
+        + "<'row'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
     });
   }
 
   function createTripsTable({ onTripSelected }) {
     const el = document.getElementById("trips-for-place-table");
-    if (!el || !window.$) return null;
+    if (!el || !window.$) {
+      return null;
+    }
 
     const headers = [
       "Trip ID",
@@ -284,16 +292,18 @@
         searchPlaceholder: "Search trips...",
       },
       dom:
-        "<'row'<'col-sm-12 col-md-6'l><'col-sm-12 col-md-6'f>>" +
-        "<'row'<'col-sm-12'tr>>" +
-        "<'row'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
+        "<'row'<'col-sm-12 col-md-6'l><'col-sm-12 col-md-6'f>>"
+        + "<'row'<'col-sm-12'tr>>"
+        + "<'row'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
       columnDefs: [{ type: "duration", targets: [4, 5] }],
     });
 
     $(el)
       .find("tbody")
       .on("mousedown", ".view-trip-btn, .trip-id-link", (e) => {
-        if (e.button !== 0) return;
+        if (e.button !== 0) {
+          return;
+        }
         const tripId = $(e.currentTarget).data("trip-id");
         if (tripId) {
           const $btn = $(e.currentTarget);
@@ -307,7 +317,9 @@
 
   function createSuggestionsTable({ onCreatePlace, onPreview }) {
     const el = document.getElementById("suggested-places-table");
-    if (!el || !window.$) return null;
+    if (!el || !window.$) {
+      return null;
+    }
 
     const headers = [
       "Suggested Name",

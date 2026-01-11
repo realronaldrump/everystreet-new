@@ -19,7 +19,8 @@ from core.exceptions import (
 
 
 def api_route(logger: logging.Logger):
-    """Decorator for FastAPI endpoints that provides standardized error handling.
+    """
+    Decorator for FastAPI endpoints that provides standardized error handling.
 
     Wraps async endpoint functions with try/except to:
     - Re-raise HTTPException instances as-is
@@ -62,7 +63,9 @@ def api_route(logger: logging.Logger):
                 ) from e
             except AuthenticationException as e:
                 logger.warning(
-                    "Authentication failed in %s: %s", func.__name__, e.message
+                    "Authentication failed in %s: %s",
+                    func.__name__,
+                    e.message,
                 )
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
@@ -70,7 +73,9 @@ def api_route(logger: logging.Logger):
                 ) from e
             except AuthorizationException as e:
                 logger.warning(
-                    "Authorization failed in %s: %s", func.__name__, e.message
+                    "Authorization failed in %s: %s",
+                    func.__name__,
+                    e.message,
                 )
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
@@ -78,15 +83,19 @@ def api_route(logger: logging.Logger):
                 ) from e
             except RateLimitException as e:
                 logger.warning(
-                    "Rate limit exceeded in %s: %s", func.__name__, e.message
+                    "Rate limit exceeded in %s: %s",
+                    func.__name__,
+                    e.message,
                 )
                 raise HTTPException(
                     status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                     detail=e.message,
                 ) from e
             except ExternalServiceException as e:
-                logger.error(
-                    "External service error in %s: %s", func.__name__, e.message
+                logger.exception(
+                    "External service error in %s: %s",
+                    func.__name__,
+                    e.message,
                 )
                 raise HTTPException(
                     status_code=status.HTTP_502_BAD_GATEWAY,
@@ -95,7 +104,9 @@ def api_route(logger: logging.Logger):
             except EveryStreetException as e:
                 # Catch-all for other custom exceptions
                 logger.exception(
-                    "Application error in %s: %s", func.__name__, e.message
+                    "Application error in %s: %s",
+                    func.__name__,
+                    e.message,
                 )
                 raise HTTPException(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

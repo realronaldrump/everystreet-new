@@ -44,7 +44,9 @@ const layerManager = {
   },
 
   _removeTripHitboxLayer(layerName) {
-    if (!state.map) return;
+    if (!state.map) {
+      return;
+    }
     const hitboxLayerId = `${layerName}-hitbox`;
     if (state.map.getLayer(hitboxLayerId)) {
       ["click", "mouseenter", "mouseleave"].forEach((event) => {
@@ -56,7 +58,9 @@ const layerManager = {
   },
 
   async _setupTripInteractions(layerName, sourceId, layerInfo) {
-    if (!state.map || !this._shouldEnableTripInteractions(layerName)) return;
+    if (!state.map || !this._shouldEnableTripInteractions(layerName)) {
+      return;
+    }
 
     const hitboxLayerId = `${layerName}-hitbox`;
     const hitboxConfig = {
@@ -96,14 +100,19 @@ const layerManager = {
 
     const tripInteractions = (await import("./trip-interactions.js")).default;
     const clickHandler = (e) => {
-      if (typeof e.originalEvent?.button === "number" && e.originalEvent.button !== 0)
+      if (typeof e.originalEvent?.button === "number" && e.originalEvent.button !== 0) {
         return;
-      if (typeof state.map?.isMoving === "function" && state.map.isMoving()) return;
+      }
+      if (typeof state.map?.isMoving === "function" && state.map.isMoving()) {
+        return;
+      }
       if (layerName === "trips" && state.map.getLayer("matchedTrips-hitbox")) {
         const matchedHits = state.map.queryRenderedFeatures(e.point, {
           layers: ["matchedTrips-hitbox"],
         });
-        if (matchedHits.length > 0) return;
+        if (matchedHits.length > 0) {
+          return;
+        }
       }
       e.originalEvent?.stopPropagation?.();
       if (e.features?.length > 0) {
@@ -124,7 +133,9 @@ const layerManager = {
     state.map.on("mouseenter", hitboxLayerId, mouseEnterHandler);
     state.map.on("mouseleave", hitboxLayerId, mouseLeaveHandler);
 
-    if (!this._layerCleanupMap) this._layerCleanupMap = new Map();
+    if (!this._layerCleanupMap) {
+      this._layerCleanupMap = new Map();
+    }
     this._layerCleanupMap.set(hitboxLayerId, {
       handlers: {
         click: clickHandler,
@@ -146,7 +157,9 @@ const layerManager = {
 
   initializeControls() {
     const container = utils.getElement("layer-toggles");
-    if (!container) return;
+    if (!container) {
+      return;
+    }
 
     // Load saved layer settings
     const settings = utils.getStorage(CONFIG.STORAGE_KEYS.layerSettings) || {};
@@ -175,10 +188,10 @@ const layerManager = {
       div.style.cursor = "move";
 
       const checkboxId = `${name}-toggle`;
-      const supportsColorPicker =
-        info.supportsColorPicker !== false && name !== "customPlaces";
-      const supportsOpacitySlider =
-        info.supportsOpacitySlider !== false && name !== "customPlaces";
+      const supportsColorPicker
+        = info.supportsColorPicker !== false && name !== "customPlaces";
+      const supportsOpacitySlider
+        = info.supportsOpacitySlider !== false && name !== "customPlaces";
       const colorValue = typeof info.color === "string" ? info.color : "#ffffff";
 
       const controls = [];
@@ -224,10 +237,14 @@ const layerManager = {
   },
 
   bindHeatmapEvents() {
-    if (this._heatmapEventsBound || !state.map) return;
+    if (this._heatmapEventsBound || !state.map) {
+      return;
+    }
 
     const refreshHeatmaps = utils.debounce(() => {
-      if (!state.map || !state.mapInitialized) return;
+      if (!state.map || !state.mapInitialized) {
+        return;
+      }
       Object.entries(state.mapLayers).forEach(([layerName, info]) => {
         if (info?.isHeatmap && info.visible) {
           this._refreshHeatmapStyle(layerName);
@@ -246,7 +263,9 @@ const layerManager = {
       utils.debounce((e) => {
         const input = e.target;
         const layerName = input.closest(".layer-control")?.dataset.layerName;
-        if (!layerName) return;
+        if (!layerName) {
+          return;
+        }
 
         if (input.type === "checkbox") {
           this.toggleLayer(layerName, input.checked);
@@ -267,11 +286,11 @@ const layerManager = {
     container.addEventListener("dragstart", (e) => {
       const { target } = e;
       if (
-        target.tagName === "INPUT" ||
-        target.tagName === "LABEL" ||
-        target.closest("input") ||
-        target.closest("label") ||
-        target.closest("button")
+        target.tagName === "INPUT"
+        || target.tagName === "LABEL"
+        || target.closest("input")
+        || target.closest("label")
+        || target.closest("button")
       ) {
         e.preventDefault();
         return;
@@ -297,7 +316,9 @@ const layerManager = {
       e.preventDefault();
       e.dataTransfer.dropEffect = "move";
 
-      if (!draggedElement) return;
+      if (!draggedElement) {
+        return;
+      }
 
       const afterElement = this.getDragAfterElementForLayers(container, e.clientY);
       if (afterElement == null) {
@@ -333,7 +354,9 @@ const layerManager = {
 
   reorderLayersFromVisible() {
     const container = utils.getElement("layer-toggles");
-    if (!container) return;
+    if (!container) {
+      return;
+    }
 
     Array.from(container.children).forEach((item, index) => {
       const { layerName } = item.dataset;
@@ -364,12 +387,16 @@ const layerManager = {
 
   async toggleLayer(name, visible) {
     const layerInfo = state.mapLayers[name];
-    if (!layerInfo) return;
+    if (!layerInfo) {
+      return;
+    }
 
     layerInfo.visible = visible;
 
     const loadingEl = document.getElementById(`${name}-loading`);
-    if (loadingEl) loadingEl.classList.remove("d-none");
+    if (loadingEl) {
+      loadingEl.classList.remove("d-none");
+    }
 
     if (visible) {
       await this._loadLayerDataIfNeeded(name, layerInfo);
@@ -381,7 +408,9 @@ const layerManager = {
       await this._toggleStandardLayer(name, layerInfo, visible);
     }
 
-    if (loadingEl) loadingEl.classList.add("d-none");
+    if (loadingEl) {
+      loadingEl.classList.add("d-none");
+    }
   },
 
   async _loadLayerDataIfNeeded(name, layerInfo) {
@@ -445,7 +474,9 @@ const layerManager = {
 
   updateLayerStyle(name, property, value) {
     const layerInfo = state.mapLayers[name];
-    if (!layerInfo) return;
+    if (!layerInfo) {
+      return;
+    }
 
     layerInfo[property] = value;
 
@@ -487,20 +518,26 @@ const layerManager = {
   },
 
   _getHeatmapTripCountInView(layerName, fallbackCount) {
-    if (!state.map || !state.mapInitialized) return fallbackCount;
+    if (!state.map || !state.mapInitialized) {
+      return fallbackCount;
+    }
     const layerId = `${layerName}-layer-1`;
-    if (!state.map.getLayer(layerId)) return fallbackCount;
+    if (!state.map.getLayer(layerId)) {
+      return fallbackCount;
+    }
 
     const rendered = state.map.queryRenderedFeatures({ layers: [layerId] });
-    if (!rendered?.length) return 0;
+    if (!rendered?.length) {
+      return 0;
+    }
 
     const uniqueTrips = new Set();
     rendered.forEach((feature, index) => {
-      const id =
-        feature.properties?.transactionId ??
-        feature.properties?.id ??
-        feature.id ??
-        `rendered-${index}`;
+      const id
+        = feature.properties?.transactionId
+        ?? feature.properties?.id
+        ?? feature.id
+        ?? `rendered-${index}`;
       uniqueTrips.add(String(id));
     });
 
@@ -509,7 +546,9 @@ const layerManager = {
 
   _refreshHeatmapStyle(layerName) {
     const layerInfo = state.mapLayers[layerName];
-    if (!layerInfo?.isHeatmap || !layerInfo.layer || !state.map) return;
+    if (!layerInfo?.isHeatmap || !layerInfo.layer || !state.map) {
+      return;
+    }
 
     const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
     const totalTripCount = layerInfo.layer?.features?.length || 0;
@@ -523,7 +562,9 @@ const layerManager = {
 
     glowLayers.forEach((glowConfig, index) => {
       const glowLayerId = `${layerName}-layer-${index}`;
-      if (!state.map.getLayer(glowLayerId)) return;
+      if (!state.map.getLayer(glowLayerId)) {
+        return;
+      }
 
       state.map.setPaintProperty(
         glowLayerId,
@@ -551,14 +592,18 @@ const layerManager = {
   },
 
   _scheduleHeatmapRefresh(layerName) {
-    if (!state.map) return;
+    if (!state.map) {
+      return;
+    }
     const refresh = () => this._refreshHeatmapStyle(layerName);
     requestAnimationFrame(refresh);
     state.map.once("idle", refresh);
   },
 
   async updateMapLayer(layerName, data) {
-    if (!state.map || !state.mapInitialized || !data) return;
+    if (!state.map || !state.mapInitialized || !data) {
+      return;
+    }
 
     const sourceId = `${layerName}-source`;
     const layerId = `${layerName}-layer`;
@@ -583,7 +628,9 @@ const layerManager = {
           layerInfo,
           data
         );
-        if (updateSuccess) return;
+        if (updateSuccess) {
+          return;
+        }
       }
 
       await this._rebuildLayer(layerName, layerId, sourceId, layerInfo, data);
@@ -864,7 +911,9 @@ const layerManager = {
   },
 
   cleanup() {
-    if (!state.map) return;
+    if (!state.map) {
+      return;
+    }
 
     if (this._heatmapRefreshHandler) {
       state.map.off("moveend", this._heatmapRefreshHandler);

@@ -1,4 +1,5 @@
-"""Gas tracking and vehicle management package.
+"""
+Gas tracking and vehicle management package.
 
 This package provides modular functionality for:
 - Vehicle management (CRUD operations)

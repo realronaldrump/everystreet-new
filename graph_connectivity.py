@@ -1,8 +1,8 @@
 """
 Simple route gap-filling via Mapbox Directions API.
 
-This module provides a single function to fetch driving routes between points,
-used by the route solver to fill gaps in generated routes.
+This module provides a single function to fetch driving routes between points, used by
+the route solver to fill gaps in generated routes.
 """
 
 from __future__ import annotations
@@ -139,14 +139,14 @@ async def fetch_bridge_route(
             return None
 
     except httpx.HTTPStatusError as e:
-        logger.error("Mapbox Directions API HTTP error: %s", e.response.status_code)
+        logger.exception("Mapbox Directions API HTTP error: %s", e.response.status_code)
         # Add backoff for rate limit errors (429)
         if e.response.status_code == 429:
             await asyncio.sleep(1.0)  # Brief backoff
         return None
     except httpx.RequestError as e:
-        logger.error("Mapbox Directions API request error: %s", e)
+        logger.exception("Mapbox Directions API request error: %s", e)
         return None
     except Exception as e:
-        logger.error("Unexpected error fetching bridge route: %s", e)
+        logger.exception("Unexpected error fetching bridge route: %s", e)
         return None

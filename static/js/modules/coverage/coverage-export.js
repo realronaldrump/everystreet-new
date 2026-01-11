@@ -43,8 +43,8 @@ export class CoverageExport {
               const url = URL.createObjectURL(blob);
               const a = document.createElement("a");
               a.href = url;
-              const locationName =
-                selectedLocation?.location?.display_name || "coverage_map";
+              const locationName
+                = selectedLocation?.location?.display_name || "coverage_map";
               const dateStr = dateUtils.formatDateToString(new Date());
               a.download = `${locationName
                 .replace(/[^a-z0-9]/gi, "_")
@@ -70,10 +70,10 @@ export class CoverageExport {
 
     if (typeof html2canvas === "undefined") {
       const script = document.createElement("script");
-      script.src =
-        "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
-      script.integrity =
-        "sha512-BNaRQnYJYiPSqHHDb58B0yaPfCu+Wgds8Gp/gU33kqBtgNS4tSPHuGibyoeqMV/TJlSKda6FXzoEyYGjTe+vXA==";
+      script.src
+        = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
+      script.integrity
+        = "sha512-BNaRQnYJYiPSqHHDb58B0yaPfCu+Wgds8Gp/gU33kqBtgNS4tSPHuGibyoeqMV/TJlSKda6FXzoEyYGjTe+vXA==";
       script.crossOrigin = "anonymous";
       script.onload = doExport;
       script.onerror = () =>

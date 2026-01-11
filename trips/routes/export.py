@@ -1,6 +1,7 @@
 """API routes for trip export and bounds querying."""
 
 import logging
+from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query, status
 
@@ -14,32 +15,35 @@ router = APIRouter()
 @router.get("/api/trips_in_bounds", tags=["Trips API"])
 @api_route(logger)
 async def get_trips_in_bounds(
-    min_lat: float = Query(
-        ...,
-        description="Minimum latitude of the bounding box",
-    ),
-    min_lon: float = Query(
-        ...,
-        description="Minimum longitude of the bounding box",
-    ),
-    max_lat: float = Query(
-        ...,
-        description="Maximum latitude of the bounding box",
-    ),
-    max_lon: float = Query(
-        ...,
-        description="Maximum longitude of the bounding box",
-    ),
+    min_lat: Annotated[
+        float,
+        Query(description="Minimum latitude of the bounding box"),
+    ],
+    min_lon: Annotated[
+        float,
+        Query(description="Minimum longitude of the bounding box"),
+    ],
+    max_lat: Annotated[
+        float,
+        Query(description="Maximum latitude of the bounding box"),
+    ],
+    max_lon: Annotated[
+        float,
+        Query(description="Maximum longitude of the bounding box"),
+    ],
 ):
-    """Get raw or matched trip coordinates within a given bounding box.
+    """
+    Get raw or matched trip coordinates within a given bounding box.
 
     Uses a spatial query for efficiency. Queries the single trips collection.
     """
     try:
-        result = await TripQueryService.get_trips_in_bounds(
-            min_lat, min_lon, max_lat, max_lon
+        return await TripQueryService.get_trips_in_bounds(
+            min_lat,
+            min_lon,
+            max_lat,
+            max_lon,
         )
-        return result
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

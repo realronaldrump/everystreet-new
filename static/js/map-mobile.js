@@ -129,10 +129,12 @@ class MobileMapInterface {
     // Header click to expand/collapse
     if (this.header) {
       const onHeaderClick = (event) => {
-        if (event.target.closest("button, a, input, select")) return;
+        if (event.target.closest("button, a, input, select")) {
+          return;
+        }
         const collapsedState = this.sortedStates[0]?.state || "collapsed";
-        const expandedState =
-          this.sortedStates[this.sortedStates.length - 1]?.state || "expanded";
+        const expandedState
+          = this.sortedStates[this.sortedStates.length - 1]?.state || "expanded";
 
         if (this.currentState === collapsedState) {
           this.setState(this.getNextStateUp(collapsedState));
@@ -156,7 +158,9 @@ class MobileMapInterface {
     // Content scroll to drag
     if (this.sheetContent) {
       const onContentStart = (event) => {
-        if (!event.touches || event.touches.length > 1) return;
+        if (!event.touches || event.touches.length > 1) {
+          return;
+        }
         this.dragCandidateStartY = event.touches[0].clientY;
       };
       const onContentMove = (event) => this.handleContentDrag(event);
@@ -180,7 +184,9 @@ class MobileMapInterface {
   }
 
   beginDrag(event) {
-    if (!event.touches || event.touches.length > 1) return;
+    if (!event.touches || event.touches.length > 1) {
+      return;
+    }
 
     this.isDragging = true;
     this.dragStartY = event.touches[0].clientY;
@@ -193,7 +199,9 @@ class MobileMapInterface {
   }
 
   beginDragFromContent(currentY) {
-    if (this.isDragging) return;
+    if (this.isDragging) {
+      return;
+    }
     this.isDragging = true;
     this.dragStartY = currentY;
     this.dragStartOffset = this.currentOffset;
@@ -203,7 +211,9 @@ class MobileMapInterface {
   }
 
   handleContentDrag(event) {
-    if (!this.sheetContent || !event.touches || event.touches.length > 1) return;
+    if (!this.sheetContent || !event.touches || event.touches.length > 1) {
+      return;
+    }
 
     const touch = event.touches[0];
     const deltaY = touch.clientY - this.dragCandidateStartY;
@@ -221,7 +231,9 @@ class MobileMapInterface {
   }
 
   continueDrag(event) {
-    if (!this.isDragging || !event.touches || event.touches.length > 1) return;
+    if (!this.isDragging || !event.touches || event.touches.length > 1) {
+      return;
+    }
 
     const touch = event.touches[0];
     const deltaY = touch.clientY - this.dragStartY;
@@ -235,7 +247,9 @@ class MobileMapInterface {
   }
 
   finishDrag(event) {
-    if (!this.isDragging) return;
+    if (!this.isDragging) {
+      return;
+    }
 
     let clientY = this.dragStartY;
     if (event.changedTouches?.length > 0) {
@@ -252,8 +266,8 @@ class MobileMapInterface {
     this.currentOffset = this.clampOffset(this.dragStartOffset + deltaY);
     this.applySheetOffset(this.currentOffset, { immediate: false });
 
-    const targetState =
-      Math.abs(deltaY) > this.flingThreshold
+    const targetState
+      = Math.abs(deltaY) > this.flingThreshold
         ? deltaY > 0
           ? this.getNextStateDown(this.currentState)
           : this.getNextStateUp(this.currentState)
@@ -263,8 +277,8 @@ class MobileMapInterface {
   }
 
   clampOffset(offset) {
-    const maxOffset =
-      this.sortedStates.length > 0
+    const maxOffset
+      = this.sortedStates.length > 0
         ? this.sortedStates[0].offset
         : this.stateOffsets.collapsed;
     const clampedMax = Number.isFinite(maxOffset) ? maxOffset : 0;
@@ -272,7 +286,9 @@ class MobileMapInterface {
   }
 
   applySheetOffset(offset, { immediate = false } = {}) {
-    if (!this.sheet) return;
+    if (!this.sheet) {
+      return;
+    }
     const value = `${Math.max(0, Math.round(offset))}px`;
     if (immediate) {
       const previous = this.sheet.style.transition;
@@ -287,9 +303,11 @@ class MobileMapInterface {
   }
 
   updateBackdropForOffset(offset) {
-    if (!this.backdrop) return;
-    const maxOffset =
-      this.sortedStates.length > 0
+    if (!this.backdrop) {
+      return;
+    }
+    const maxOffset
+      = this.sortedStates.length > 0
         ? this.sortedStates[0].offset
         : this.stateOffsets.collapsed;
     const denominator = Number.isFinite(maxOffset) && maxOffset > 0 ? maxOffset : 1;
@@ -303,7 +321,9 @@ class MobileMapInterface {
   }
 
   setState(state, options = {}) {
-    if (!this.sheet) return;
+    if (!this.sheet) {
+      return;
+    }
     let validState = state;
     if (!this.activeStates.includes(state)) {
       validState = this.activeStates[0] || "collapsed";
@@ -320,30 +340,42 @@ class MobileMapInterface {
   }
 
   updateSheetClasses(state) {
-    if (!this.sheet) return;
+    if (!this.sheet) {
+      return;
+    }
     ["collapsed", "peek", "half", "expanded"].forEach((name) => {
       this.sheet.classList.toggle(name, name === state);
     });
   }
 
   getNextStateUp(state = this.currentState) {
-    if (!this.sortedStates.length) return state;
+    if (!this.sortedStates.length) {
+      return state;
+    }
     const index = this.sortedStates.findIndex((item) => item.state === state);
-    if (index === -1) return this.sortedStates[this.sortedStates.length - 1].state;
+    if (index === -1) {
+      return this.sortedStates[this.sortedStates.length - 1].state;
+    }
     const nextIndex = Math.min(this.sortedStates.length - 1, index + 1);
     return this.sortedStates[nextIndex].state;
   }
 
   getNextStateDown(state = this.currentState) {
-    if (!this.sortedStates.length) return state;
+    if (!this.sortedStates.length) {
+      return state;
+    }
     const index = this.sortedStates.findIndex((item) => item.state === state);
-    if (index === -1) return this.sortedStates[0].state;
+    if (index === -1) {
+      return this.sortedStates[0].state;
+    }
     const nextIndex = Math.max(0, index - 1);
     return this.sortedStates[nextIndex].state;
   }
 
   getNearestState(offset) {
-    if (!this.sortedStates.length) return this.currentState;
+    if (!this.sortedStates.length) {
+      return this.currentState;
+    }
     let nearest = this.sortedStates[0].state;
     let minDistance = Infinity;
     this.sortedStates.forEach(({ state, offset: stateOffset }) => {
@@ -362,10 +394,12 @@ class MobileMapInterface {
   }
 
   calculateSheetMetrics() {
-    if (!this.sheet) return;
+    if (!this.sheet) {
+      return;
+    }
 
-    const viewportHeight =
-      window.innerHeight || document.documentElement.clientHeight || 0;
+    const viewportHeight
+      = window.innerHeight || document.documentElement.clientHeight || 0;
     const sheetRect = this.sheet.getBoundingClientRect();
     const sheetHeight = sheetRect.height || viewportHeight * 0.85 || 0;
 
@@ -415,7 +449,9 @@ class MobileMapInterface {
   }
 
   bind(target, event, handler) {
-    if (!target) return;
+    if (!target) {
+      return;
+    }
     target.addEventListener(event, handler);
     this.cleanupCallbacks.push(() => target.removeEventListener(event, handler));
   }

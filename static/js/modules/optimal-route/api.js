@@ -72,7 +72,9 @@ export class OptimalRouteAPI {
     try {
       const data = await apiClient.get(`/api/coverage_areas/${areaId}`);
 
-      if (!data.success || !data.coverage) return null;
+      if (!data.success || !data.coverage) {
+        return null;
+      }
 
       const { location } = data.coverage;
       if (location?.boundingbox) {
@@ -120,7 +122,9 @@ export class OptimalRouteAPI {
   }
 
   async cancelTask(taskId) {
-    if (!taskId) return;
+    if (!taskId) {
+      return;
+    }
 
     try {
       if (this.eventSource) {

@@ -16,7 +16,8 @@ class TripStatsService:
     """Service class for trip statistics and geocoding operations."""
 
     def __init__(self, trip_service: TripService):
-        """Initialize the stats service with a TripService instance.
+        """
+        Initialize the stats service with a TripService instance.
 
         Args:
             trip_service: TripService instance for geocoding operations
@@ -29,7 +30,8 @@ class TripStatsService:
         end_date: str | None = None,
         interval_days: int = 0,
     ):
-        """Re-geocode trips within a date range with progress tracking.
+        """
+        Re-geocode trips within a date range with progress tracking.
 
         Args:
             start_date: Optional start date (ISO format)
@@ -58,18 +60,21 @@ class TripStatsService:
                 end_iso = end_dt.date().isoformat()
                 range_expr = build_calendar_date_expr(start_iso, end_iso)
                 if not range_expr:
-                    raise ValueError("Invalid date range")
+                    msg = "Invalid date range"
+                    raise ValueError(msg)
                 query = {"$expr": range_expr}
             else:
                 start_iso = normalize_calendar_date(start_date)
                 end_iso = normalize_calendar_date(end_date)
 
                 if not start_iso or not end_iso:
-                    raise ValueError("Invalid date range")
+                    msg = "Invalid date range"
+                    raise ValueError(msg)
 
                 range_expr = build_calendar_date_expr(start_iso, end_iso)
                 if not range_expr:
-                    raise ValueError("Invalid date range")
+                    msg = "Invalid date range"
+                    raise ValueError(msg)
                 query = {"$expr": range_expr}
 
             # Initialize progress tracking
@@ -174,7 +179,7 @@ class TripStatsService:
             progress.stage = "error"
             progress.status = "failed"
             progress.progress = 0
-            progress.message = f"Error: {str(e)}"
+            progress.message = f"Error: {e!s}"
             progress.error = str(e)
             progress.updated_at = datetime.now(UTC)
             await progress.save()
@@ -182,7 +187,8 @@ class TripStatsService:
 
     @staticmethod
     async def get_geocode_progress(task_id: str):
-        """Get progress for a geocoding task.
+        """
+        Get progress for a geocoding task.
 
         Args:
             task_id: UUID of the geocoding task
@@ -199,7 +205,8 @@ class TripStatsService:
         )
 
         if not progress:
-            raise ValueError("Task not found")
+            msg = "Task not found"
+            raise ValueError(msg)
 
         return {
             "task_id": task_id,
@@ -217,7 +224,8 @@ class TripStatsService:
         }
 
     async def regeocode_single_trip(self, trip_id: str):
-        """Re-run geocoding for a single trip.
+        """
+        Re-run geocoding for a single trip.
 
         Args:
             trip_id: Transaction ID of the trip
@@ -230,10 +238,12 @@ class TripStatsService:
         """
         trip = await self.trip_service.get_trip_by_id(trip_id)
         if not trip:
-            raise ValueError("Trip not found")
+            msg = "Trip not found"
+            raise ValueError(msg)
 
         result = await self.trip_service.refresh_geocoding(
-            [trip_id], skip_if_exists=False
+            [trip_id],
+            skip_if_exists=False,
         )
 
         if result["updated"] > 0:
@@ -241,6 +251,7 @@ class TripStatsService:
                 "status": "success",
                 "message": f"Trip {trip_id} re-geocoded successfully.",
             }
+        msg = f"Failed to re-geocode trip {trip_id}. Check logs for details."
         raise ValueError(
-            f"Failed to re-geocode trip {trip_id}. Check logs for details."
+            msg,
         )

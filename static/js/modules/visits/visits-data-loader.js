@@ -7,8 +7,8 @@
   class VisitsDataLoader {
     constructor(options = {}) {
       this.loadingManager = options.loadingManager || window.loadingManager;
-      this.notificationManager =
-        options.notificationManager || window.notificationManager;
+      this.notificationManager
+        = options.notificationManager || window.notificationManager;
     }
 
     /**

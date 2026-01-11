@@ -1,14 +1,14 @@
 /* ============================
    Global Mobile Detection Rules
-   ============================ 
-   
-   Note: Most mobile-specific styles have been colocated to their 
+   ============================
+
+   Note: Most mobile-specific styles have been colocated to their
    respective component files:
    - Mobile search styles → search.css
-   - Mobile header/nav styles → header.css  
+   - Mobile header/nav styles → header.css
    - Mobile map UI (bottom sheet, FAB, etc.) → modern-map.css
    - Responsive layout utilities → layout.css
-   
+
    This file only contains truly global mobile rules that don't
    belong to any specific component.
 */

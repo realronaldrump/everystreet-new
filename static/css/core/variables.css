@@ -31,27 +31,11 @@
   --info-rgb: 139, 157, 195;
 
   /* Gradients */
-  --primary-gradient: linear-gradient(
-    135deg,
-    var(--primary),
-    var(--primary-dark)
-  );
-  --secondary-gradient: linear-gradient(
-    135deg,
-    var(--secondary),
-    var(--secondary-dark)
-  );
-  --success-gradient: linear-gradient(
-    135deg,
-    var(--success),
-    var(--success-dark)
-  );
+  --primary-gradient: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  --secondary-gradient: linear-gradient(135deg, var(--secondary), var(--secondary-dark));
+  --success-gradient: linear-gradient(135deg, var(--success), var(--success-dark));
   --danger-gradient: linear-gradient(135deg, var(--danger), var(--danger-dark));
-  --warning-gradient: linear-gradient(
-    135deg,
-    var(--warning),
-    var(--warning-dark)
-  );
+  --warning-gradient: linear-gradient(135deg, var(--warning), var(--warning-dark));
   --info-gradient: linear-gradient(135deg, var(--info), var(--info-dark));
 
   /* Warm Dark Mode Colors (Default) - Softer & More Comfortable */
@@ -69,10 +53,7 @@
   --text-on-dark: #fafafa;
   --text-on-light: #1a1d23;
   --border-color: rgb(160 165 172 / 15%);
-  --border-color-light: rgb(
-    160 165 172 / 28%
-  ); /* For focused elements or stronger divisions */
-
+  --border-color-light: rgb(160 165 172 / 28%); /* For focused elements or stronger divisions */
   --divider-color: rgb(160 165 172 / 10%);
   --surface-rgb: 37, 40, 47;
   --text-rgb: 225, 227, 230;
@@ -80,8 +61,8 @@
 
   /* Typography */
   --font-family:
-    "Inter", -apple-system, blinkmacsystemfont, "Segoe UI", roboto, oxygen,
-    ubuntu, cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+    "Inter", -apple-system, blinkmacsystemfont, "Segoe UI", roboto, oxygen, ubuntu, cantarell,
+    "Open Sans", "Helvetica Neue", sans-serif;
   --font-size-xs: 0.75rem; /* 12px */
   --font-size-sm: 0.875rem; /* 14px */
   --font-size-md: 1rem; /* 16px */
@@ -157,10 +138,8 @@
   );
 
   /* Interactive lift shadows for hover states */
-  --shadow-lift:
-    0 8px 25px rgb(0 0 0 / 15%), 0 0 20px rgb(var(--primary-rgb) / 15%);
-  --shadow-lift-intense:
-    0 12px 35px rgb(0 0 0 / 18%), 0 0 30px rgb(var(--primary-rgb) / 25%);
+  --shadow-lift: 0 8px 25px rgb(0 0 0 / 15%), 0 0 20px rgb(var(--primary-rgb) / 15%);
+  --shadow-lift-intense: 0 12px 35px rgb(0 0 0 / 18%), 0 0 30px rgb(var(--primary-rgb) / 25%);
 
   /* Border Radius - Minimal */
   --radius-xs: 2px;

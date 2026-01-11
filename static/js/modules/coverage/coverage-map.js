@@ -25,7 +25,9 @@ class CoverageMap {
    */
   initializeCoverageMap(coverage, containerId = "coverage-map") {
     const mapContainer = document.getElementById(containerId);
-    if (!mapContainer) return;
+    if (!mapContainer) {
+      return;
+    }
 
     if (this.map && typeof this.map.remove === "function") {
       try {
@@ -49,8 +51,8 @@ class CoverageMap {
 
     try {
       const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
-      const mapStyle =
-        theme === "light"
+      const mapStyle
+        = theme === "light"
           ? "mapbox://styles/mapbox/light-v11"
           : "mapbox://styles/mapbox/dark-v11";
 
@@ -110,7 +112,9 @@ class CoverageMap {
         );
       });
 
-      if (this.mapInfoPanel) this.mapInfoPanel.remove();
+      if (this.mapInfoPanel) {
+        this.mapInfoPanel.remove();
+      }
       this.createMapInfoPanel();
     } catch (mapInitError) {
       console.error("Failed to initialize Mapbox GL:", mapInitError);
@@ -138,9 +142,13 @@ class CoverageMap {
       "streets-selection-highlight",
     ];
     layersToRemove.forEach((layerId) => {
-      if (this.map.getLayer(layerId)) this.map.removeLayer(layerId);
+      if (this.map.getLayer(layerId)) {
+        this.map.removeLayer(layerId);
+      }
     });
-    if (this.map.getSource("streets")) this.map.removeSource("streets");
+    if (this.map.getSource("streets")) {
+      this.map.removeSource("streets");
+    }
 
     this.streetsGeoJson = geojson;
     this.currentFilter = "all";
@@ -206,16 +214,17 @@ class CoverageMap {
       const bounds = new mapboxgl.LngLatBounds();
       geojson.features.forEach((f) => {
         if (f.geometry?.coordinates) {
-          if (f.geometry.type === "LineString")
+          if (f.geometry.type === "LineString") {
             f.geometry.coordinates.forEach((coord) => {
               bounds.extend(coord);
             });
-          else if (f.geometry.type === "MultiLineString")
+          } else if (f.geometry.type === "MultiLineString") {
             f.geometry.coordinates.forEach((line) => {
               line.forEach((coord) => {
                 bounds.extend(coord);
               });
             });
+          }
         }
       });
       this.mapBounds = !bounds.isEmpty() ? bounds : null;
@@ -257,13 +266,17 @@ class CoverageMap {
           this.hoveredSegmentId = currentHoverId;
         }
         this.updateMapInfoPanel(props, true);
-        if (this.mapInfoPanel) this.mapInfoPanel.style.display = "block";
+        if (this.mapInfoPanel) {
+          this.mapInfoPanel.style.display = "block";
+        }
       }
     });
 
     this.map.on("mouseleave", "streets-layer", () => {
       this.map.getCanvas().style.cursor = "";
-      if (this.mapInfoPanel) this.mapInfoPanel.style.display = "none";
+      if (this.mapInfoPanel) {
+        this.mapInfoPanel.style.display = "none";
+      }
       if (this.hoveredSegmentId !== null && this.map.getSource("streets")) {
         this.map.setFeatureState(
           { source: "streets", id: this.hoveredSegmentId },
@@ -274,14 +287,16 @@ class CoverageMap {
     });
 
     this.map.on("click", "streets-layer", (e) => {
-      if (e.originalEvent?.button !== 0) return;
+      if (e.originalEvent?.button !== 0) {
+        return;
+      }
       if (e.features?.length > 0) {
         const props = e.features[0].properties;
 
-        const isMultiSelect =
-          e.originalEvent?.ctrlKey ||
-          e.originalEvent?.metaKey ||
-          e.originalEvent?.shiftKey;
+        const isMultiSelect
+          = e.originalEvent?.ctrlKey
+          || e.originalEvent?.metaKey
+          || e.originalEvent?.shiftKey;
         if (isMultiSelect) {
           const segId = props.segment_id;
           if (segId) {
@@ -322,7 +337,9 @@ class CoverageMap {
           });
         }
         this.updateMapInfoPanel(props, false);
-        if (this.mapInfoPanel) this.mapInfoPanel.style.display = "block";
+        if (this.mapInfoPanel) {
+          this.mapInfoPanel.style.display = "block";
+        }
       }
     });
   }
@@ -331,17 +348,17 @@ class CoverageMap {
    * Create street popup content HTML
    */
   createStreetPopupContentHTML(props) {
-    const streetName =
-      props.street_name || props.name || props.display_name || "Unnamed Street";
+    const streetName
+      = props.street_name || props.name || props.display_name || "Unnamed Street";
     const streetType = props.highway || props.inferred_highway_type || "unknown";
     const segmentLength = parseFloat(
       props.segment_length || props.segment_length_m || props.length || 0
     );
     const lengthFormatted = this.distanceInUserUnits(segmentLength);
-    const isDriven =
-      props.driven === true || String(props.driven).toLowerCase() === "true";
-    const isUndriveable =
-      props.undriveable === true || String(props.undriveable).toLowerCase() === "true";
+    const isDriven
+      = props.driven === true || String(props.driven).toLowerCase() === "true";
+    const isUndriveable
+      = props.undriveable === true || String(props.undriveable).toLowerCase() === "true";
     const status = isDriven ? "Driven" : "Not Driven";
     const segmentId = props.segment_id || "N/A";
 
@@ -390,7 +407,9 @@ class CoverageMap {
    * Setup map event handlers
    */
   setupMapEventHandlers() {
-    if (!this.map) return;
+    if (!this.map) {
+      return;
+    }
 
     let moveEndTimer = null;
     this.map.on("moveend", () => {
@@ -436,24 +455,27 @@ class CoverageMap {
    * Set map filter
    */
   setMapFilter(filterType, updateButtons = true) {
-    if (!this.map || !this.map.getLayer("streets-layer")) return;
+    if (!this.map || !this.map.getLayer("streets-layer")) {
+      return;
+    }
     this.currentFilter = filterType;
     let filter = null;
 
-    if (filterType === "driven")
+    if (filterType === "driven") {
       filter = [
         "all",
         ["==", ["get", "driven"], true],
         ["!=", ["get", "undriveable"], true],
       ];
-    else if (filterType === "undriven")
+    } else if (filterType === "undriven") {
       filter = [
         "all",
         ["==", ["get", "driven"], false],
         ["!=", ["get", "undriveable"], true],
       ];
-    else if (filterType === "undriveable")
+    } else if (filterType === "undriveable") {
       filter = ["==", ["get", "undriveable"], true];
+    }
 
     try {
       this.map.setFilter("streets-layer", filter);
@@ -475,7 +497,9 @@ class CoverageMap {
    * Setup trip layers
    */
   setupTripLayers() {
-    if (!this.map || !this.map.isStyleLoaded()) return;
+    if (!this.map || !this.map.isStyleLoaded()) {
+      return;
+    }
     if (!this.map.getSource("trips-source")) {
       this.map.addSource("trips-source", {
         type: "geojson",
@@ -505,7 +529,9 @@ class CoverageMap {
    * Clear trip overlay
    */
   clearTripOverlay() {
-    if (!this.map || !this.map.getSource("trips-source")) return;
+    if (!this.map || !this.map.getSource("trips-source")) {
+      return;
+    }
     try {
       this.map
         .getSource("trips-source")
@@ -519,10 +545,14 @@ class CoverageMap {
    * Load trips for view
    */
   async loadTripsForView() {
-    if (!this.map || !this.showTripsActive || !this.map.isStyleLoaded()) return;
+    if (!this.map || !this.showTripsActive || !this.map.isStyleLoaded()) {
+      return;
+    }
     this.setupTripLayers();
     const tripsSource = this.map.getSource("trips-source");
-    if (!tripsSource) return;
+    if (!tripsSource) {
+      return;
+    }
 
     const bounds = this.map.getBounds();
     const sw = bounds.getSouthWest();
@@ -544,12 +574,13 @@ class CoverageMap {
       const tripFeatures = trips
         .map((coords, index) => {
           if (
-            !Array.isArray(coords) ||
-            coords.length < 2 ||
-            !Array.isArray(coords[0]) ||
-            coords[0].length < 2
-          )
+            !Array.isArray(coords)
+            || coords.length < 2
+            || !Array.isArray(coords[0])
+            || coords[0].length < 2
+          ) {
             return null;
+          }
           return {
             type: "Feature",
             properties: { tripId: `trip-${index}` },
@@ -575,30 +606,37 @@ class CoverageMap {
    * Create map info panel
    */
   createMapInfoPanel() {
-    if (document.querySelector(".map-info-panel")) return;
+    if (document.querySelector(".map-info-panel")) {
+      return;
+    }
     this.mapInfoPanel = document.createElement("div");
     this.mapInfoPanel.className = "map-info-panel";
     this.mapInfoPanel.style.display = "none";
     const mapContainer = document.getElementById("coverage-map");
-    if (mapContainer) mapContainer.appendChild(this.mapInfoPanel);
-    else console.warn("Map container not found for info panel.");
+    if (mapContainer) {
+      mapContainer.appendChild(this.mapInfoPanel);
+    } else {
+      console.warn("Map container not found for info panel.");
+    }
   }
 
   /**
    * Update map info panel
    */
   updateMapInfoPanel(props, isHover = false) {
-    if (!this.mapInfoPanel) return;
+    if (!this.mapInfoPanel) {
+      return;
+    }
     const streetName = props.name || props.street_name || "Unnamed Street";
     const streetType = props.highway || props.inferred_highway_type || "unknown";
     const segmentLength = parseFloat(
       props.segment_length || props.segment_length_m || props.length || 0
     );
     const lengthFormatted = this.distanceInUserUnits(segmentLength);
-    const isDriven =
-      props.driven === true || String(props.driven).toLowerCase() === "true";
-    const isUndriveable =
-      props.undriveable === true || String(props.undriveable).toLowerCase() === "true";
+    const isDriven
+      = props.driven === true || String(props.driven).toLowerCase() === "true";
+    const isUndriveable
+      = props.undriveable === true || String(props.undriveable).toLowerCase() === "true";
     const status = isDriven ? "Driven" : "Not Driven";
     const segmentId = props.segment_id || "N/A";
 
@@ -627,7 +665,9 @@ class CoverageMap {
               12
             )}...</span></div><div class="mt-2 small text-center text-muted opacity-75">Click segment for actions</div>`
       }`;
-    if (!isHover) this.mapInfoPanel.style.display = "block";
+    if (!isHover) {
+      this.mapInfoPanel.style.display = "block";
+    }
   }
 
   /**
@@ -642,7 +682,9 @@ class CoverageMap {
       }
       this.coverageSummaryControl = null;
     }
-    if (!coverage || !this.map) return;
+    if (!coverage || !this.map) {
+      return;
+    }
 
     const coveragePercentage = parseFloat(coverage.coverage_percentage || 0).toFixed(1);
     const totalDist = this.distanceInUserUnits(
@@ -676,8 +718,8 @@ class CoverageMap {
    * Update map theme
    */
   updateTheme(theme) {
-    const styleUrl =
-      theme === "light"
+    const styleUrl
+      = theme === "light"
         ? "mapbox://styles/mapbox/light-v11"
         : "mapbox://styles/mapbox/dark-v11";
 
@@ -737,8 +779,8 @@ class CoverageMap {
       validMeters = 0;
     }
     const miles = validMeters * 0.000621371;
-    const formatted =
-      miles < 0.1
+    const formatted
+      = miles < 0.1
         ? `${(validMeters * 3.28084).toFixed(0)} ft`
         : `${miles.toFixed(fixed)} mi`;
     this.lastDistanceLabel = formatted;
@@ -749,7 +791,9 @@ class CoverageMap {
    * Utility: Format street type
    */
   formatStreetType(type) {
-    if (!type) return "Unknown";
+    if (!type) {
+      return "Unknown";
+    }
     const formatted = type.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
     this.lastStreetTypeLabel = formatted;
     return formatted;
@@ -759,8 +803,8 @@ class CoverageMap {
    * Utility: Create alert message
    */
   createAlertMessage(title, message, type = "info") {
-    const iconClass =
-      {
+    const iconClass
+      = {
         danger: "fa-exclamation-circle",
         warning: "fa-exclamation-triangle",
         info: "fa-info-circle",

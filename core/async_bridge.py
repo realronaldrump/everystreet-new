@@ -1,7 +1,8 @@
-"""Async-to-sync bridge for Celery tasks and other synchronous contexts.
+"""
+Async-to-sync bridge for Celery tasks and other synchronous contexts.
 
-This module provides utilities to run async coroutines from synchronous code
-with proper event loop management.
+This module provides utilities to run async coroutines from synchronous code with proper
+event loop management.
 """
 
 from __future__ import annotations
@@ -23,7 +24,8 @@ T = TypeVar("T")
 def run_async_from_sync(
     coro: Coroutine[Any, Any, T],
 ) -> T:
-    """Run an async coroutine from a synchronous context, managing the event loop.
+    """
+    Run an async coroutine from a synchronous context, managing the event loop.
 
     This is crucial for calling async functions (like motor operations)
     from synchronous Celery tasks without encountering 'Event loop is closed' errors
@@ -65,7 +67,7 @@ def run_async_from_sync(
             # Allow cancelled tasks to complete
             if pending:
                 loop.run_until_complete(
-                    asyncio.gather(*pending, return_exceptions=True)
+                    asyncio.gather(*pending, return_exceptions=True),
                 )
 
             # Cleanup the session associated with this loop

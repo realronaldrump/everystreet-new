@@ -28,13 +28,13 @@ export { DrivingNavigationUI } from "./modules/driving-navigation/ui.js";
  */
 document.addEventListener("DOMContentLoaded", () => {
   if (typeof mapboxgl === "undefined") {
-    const mapContainerId =
-      window.coverageNavigatorConfig?.drivingNavigation?.mapContainerId ||
-      "driving-map";
+    const mapContainerId
+      = window.coverageNavigatorConfig?.drivingNavigation?.mapContainerId
+      || "driving-map";
     const mapDiv = document.getElementById(mapContainerId);
     if (mapDiv) {
-      mapDiv.innerHTML =
-        '<div class="alert alert-danger m-3">Error: Mapping library failed to load.</div>';
+      mapDiv.innerHTML
+        = '<div class="alert alert-danger m-3">Error: Mapping library failed to load.</div>';
     }
     return;
   }

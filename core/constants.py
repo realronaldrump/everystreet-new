@@ -1,4 +1,5 @@
-"""Global constants for the core package.
+"""
+Global constants for the core package.
 
 This module contains shared constants used across the application core.
 """

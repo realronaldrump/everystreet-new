@@ -1,7 +1,7 @@
 import logging
 import math
 from collections import defaultdict
-from typing import Any
+from typing import Annotated, Any
 
 import httpx
 from fastapi import APIRouter, Body, HTTPException, Query, Request
@@ -43,18 +43,21 @@ async def _get_mapbox_optimization_route(
     start_lat: float,
     end_points: list[tuple] | None = None,
 ) -> dict[str, Any]:
-    """Calls Mapbox Optimization API v1 to get an optimized route for multiple points."""
+    """Calls Mapbox Optimization API v1 to get an optimized route for multiple
+    points.
+    """
     mapbox_token = get_mapbox_token()
     if not mapbox_token:
         raise HTTPException(status_code=500, detail="Mapbox API token not configured.")
     if not end_points:
         raise HTTPException(
-            status_code=400, detail="No end points provided for optimization."
+            status_code=400,
+            detail="No end points provided for optimization.",
         )
 
     if len(end_points) > 11:
         logger.warning(
-            "Too many points for Mapbox Optimization v1 (max 11), limiting to first 11."
+            "Too many points for Mapbox Optimization v1 (max 11), limiting to first 11.",
         )
         end_points = end_points[:11]
 
@@ -89,7 +92,7 @@ async def _get_mapbox_optimization_route(
                 "waypoints": trip.get("waypoints", []),
             }
         except httpx.HTTPStatusError as e:
-            logger.error(
+            logger.exception(
                 "Mapbox Optimization API HTTP error: %s - %s",
                 e.response.status_code,
                 e.response.text,
@@ -99,9 +102,10 @@ async def _get_mapbox_optimization_route(
                 detail=f"Mapbox Optimization API error: {e.response.text}",
             )
         except httpx.RequestError as e:
-            logger.error("Mapbox Optimization API request error: %s", e)
+            logger.exception("Mapbox Optimization API request error: %s", e)
             raise HTTPException(
-                status_code=503, detail=f"Could not connect to Mapbox API: {e}"
+                status_code=503,
+                detail=f"Could not connect to Mapbox API: {e}",
             )
 
 
@@ -144,7 +148,7 @@ async def _get_mapbox_directions_route(
                 "waypoints": route.get("waypoints", []),
             }
         except httpx.HTTPStatusError as e:
-            logger.error(
+            logger.exception(
                 "Mapbox Directions API HTTP error: %s - %s",
                 e.response.status_code,
                 e.response.text,
@@ -154,9 +158,10 @@ async def _get_mapbox_directions_route(
                 detail=f"Mapbox Directions API error: {e.response.text}",
             )
         except httpx.RequestError as e:
-            logger.error("Mapbox Directions API request error: %s", e)
+            logger.exception("Mapbox Directions API request error: %s", e)
             raise HTTPException(
-                status_code=503, detail=f"Could not connect to Mapbox API: {e}"
+                status_code=503,
+                detail=f"Could not connect to Mapbox API: {e}",
             )
 
 
@@ -259,18 +264,23 @@ async def get_driving_route(request: Request):
 
         if not start or not end:
             raise HTTPException(
-                status_code=400, detail="Start and end points required."
+                status_code=400,
+                detail="Start and end points required.",
             )
 
         if not all(k in start for k in ["lat", "lon"]) or not all(
             k in end for k in ["lat", "lon"]
         ):
             raise HTTPException(
-                status_code=400, detail="Start and end must have lat/lon coordinates."
+                status_code=400,
+                detail="Start and end must have lat/lon coordinates.",
             )
 
         route = await _get_mapbox_directions_route(
-            start["lon"], start["lat"], end["lon"], end["lat"]
+            start["lon"],
+            start["lat"],
+            end["lon"],
+            end["lat"],
         )
         return JSONResponse(content=route)
 
@@ -334,7 +344,7 @@ async def find_connected_undriven_clusters(
         raise HTTPException(status_code=400, detail="Invalid location_id format")
 
     coverage_doc = await CoverageMetadata.find_one(
-        CoverageMetadata.id == obj_location_id
+        CoverageMetadata.id == obj_location_id,
     )
 
     if not coverage_doc or not coverage_doc.location:
@@ -421,7 +431,7 @@ def _segment_distance(seg1: dict, seg2: dict) -> float:
 
 
 @router.get("/api/driving_routes/find_clusters")
-async def find_clusters_endpoint(location_id: str = Query(...)):
+async def find_clusters_endpoint(location_id: Annotated[str, Query()]):
     """Find connected clusters of undriven street segments."""
     try:
         clusters = await find_connected_undriven_clusters(location_id)
@@ -438,12 +448,13 @@ async def get_coverage_area_by_name(data: LocationModel):
     """Get coverage area by display name."""
     try:
         coverage_area = await CoverageMetadata.find_one(
-            CoverageMetadata.location.display_name == data.location
+            CoverageMetadata.location.display_name == data.location,
         )
 
         if not coverage_area:
             raise HTTPException(
-                status_code=404, detail=f"Coverage area '{data.location}' not found."
+                status_code=404,
+                detail=f"Coverage area '{data.location}' not found.",
             )
 
         return coverage_area
@@ -455,7 +466,7 @@ async def get_coverage_area_by_name(data: LocationModel):
 
 
 @router.post("/api/reset_first_trip_point")
-async def reset_first_trip_point(data: dict = Body(...)):
+async def reset_first_trip_point(data: Annotated[dict, Body()]):
     """Reset the first trip point in coverage metadata."""
     try:
         location_id = data.get("location_id")
@@ -463,12 +474,13 @@ async def reset_first_trip_point(data: dict = Body(...)):
             raise HTTPException(status_code=400, detail="location_id is required.")
 
         coverage_area = await CoverageMetadata.find_one(
-            CoverageMetadata.id == location_id
+            CoverageMetadata.id == location_id,
         )
 
         if not coverage_area:
             raise HTTPException(
-                status_code=404, detail=f"Coverage area '{location_id}' not found."
+                status_code=404,
+                detail=f"Coverage area '{location_id}' not found.",
             )
 
         new_point = data.get("first_trip_point")
@@ -479,7 +491,7 @@ async def reset_first_trip_point(data: dict = Body(...)):
         await coverage_area.save()
 
         return JSONResponse(
-            content={"message": "First trip point updated successfully."}
+            content={"message": "First trip point updated successfully."},
         )
     except Exception as e:
         logger.exception("Error resetting first trip point: %s", e)

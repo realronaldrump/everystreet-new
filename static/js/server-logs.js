@@ -88,8 +88,8 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("info-count").textContent = data.by_level?.INFO || 0;
     document.getElementById("warning-count").textContent = data.by_level?.WARNING || 0;
     document.getElementById("error-count").textContent = data.by_level?.ERROR || 0;
-    document.getElementById("critical-count").textContent =
-      data.by_level?.CRITICAL || 0;
+    document.getElementById("critical-count").textContent
+      = data.by_level?.CRITICAL || 0;
   }
 
   /**
@@ -347,7 +347,9 @@ document.addEventListener("DOMContentLoaded", () => {
         confirmButtonClass: "btn-danger",
       });
 
-      if (!confirmed) return;
+      if (!confirmed) {
+        return;
+      }
 
       setButtonLoading(clearLogsBtn, true);
 
@@ -414,8 +416,8 @@ document.addEventListener("DOMContentLoaded", () => {
     if (autoRefreshEnabled) {
       autoRefreshToggle.classList.remove("btn-outline-success");
       autoRefreshToggle.classList.add("btn-success");
-      autoRefreshToggle.innerHTML =
-        '<i class="fas fa-clock"></i> Auto-Refresh: ON (30s)';
+      autoRefreshToggle.innerHTML
+        = '<i class="fas fa-clock"></i> Auto-Refresh: ON (30s)';
 
       // Refresh every 30 seconds
       autoRefreshInterval = setInterval(() => {
@@ -445,7 +447,9 @@ document.addEventListener("DOMContentLoaded", () => {
    * Set button loading state
    */
   function setButtonLoading(button, isLoading) {
-    if (!button) return;
+    if (!button) {
+      return;
+    }
 
     button.disabled = isLoading;
 

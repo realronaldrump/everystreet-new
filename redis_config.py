@@ -1,7 +1,8 @@
-"""Centralized Redis connection configuration.
+"""
+Centralized Redis connection configuration.
 
-This module provides a single source of truth for Redis URL construction
-with proper URL encoding to handle special characters in passwords.
+This module provides a single source of truth for Redis URL construction with proper URL
+encoding to handle special characters in passwords.
 """
 
 import logging
@@ -12,7 +13,8 @@ logger = logging.getLogger(__name__)
 
 
 def get_redis_url() -> str:
-    """Get Redis URL from environment with proper URL encoding.
+    """
+    Get Redis URL from environment with proper URL encoding.
 
     Constructs Redis URL from environment variables with proper URL encoding
     for credentials to handle special characters (@, :, /, etc.).

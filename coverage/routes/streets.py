@@ -1,10 +1,11 @@
-"""Route handlers for street segment operations.
+"""
+Route handlers for street segment operations.
 
 Handles fetching streets, marking segments, and street-related queries.
 """
 
 import logging
-from typing import Any
+from typing import Annotated, Any
 
 from beanie import PydanticObjectId
 from bson import ObjectId
@@ -36,7 +37,8 @@ def sanitize_features(features: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 @router.get("/api/coverage_areas/{location_id}/geojson/gridfs")
 async def get_coverage_area_geojson_from_gridfs(
-    location_id: PydanticObjectId, response: Response
+    location_id: PydanticObjectId,
+    response: Response,
 ):
     """Stream raw GeoJSON from GridFS for a given coverage area."""
     logger.info("[%s] Request received for GridFS GeoJSON stream.", location_id)
@@ -74,7 +76,11 @@ async def get_coverage_area_geojson_from_gridfs(
         try:
             gridfs_id = ObjectId(gridfs_id)
         except Exception:
-            logger.error("[%s] Invalid GridFS ID format: %s", location_id, gridfs_id)
+            logger.exception(
+                "[%s] Invalid GridFS ID format: %s",
+                location_id,
+                gridfs_id,
+            )
             raise HTTPException(status_code=400, detail="Invalid GridFS ID format.")
 
     try:
@@ -101,7 +107,8 @@ async def get_coverage_area_geojson_from_gridfs(
 
         async def stream_geojson_data():
             async for chunk in gridfs_service.stream_geojson(
-                gridfs_id, str(location_id)
+                gridfs_id,
+                str(location_id),
             ):
                 yield chunk
 
@@ -129,15 +136,16 @@ async def get_coverage_area_geojson_from_gridfs(
             exc_info=True,
         )
         raise HTTPException(
-            status_code=500, detail=f"Error streaming GeoJSON data: {str(e)}"
+            status_code=500,
+            detail=f"Error streaming GeoJSON data: {e!s}",
         )
 
 
 @router.get("/api/coverage_areas/{location_id}/streets")
 async def get_coverage_area_streets(
     location_id: PydanticObjectId,
-    undriven: bool = Query(False),
-    driven: bool = Query(False),
+    undriven: Annotated[bool, Query()] = False,
+    driven: Annotated[bool, Query()] = False,
 ):
     """Get updated street GeoJSON for a coverage area."""
     meta = await CoverageMetadata.get(location_id)
@@ -170,12 +178,12 @@ async def get_coverage_area_streets(
 @router.get("/api/coverage_areas/{location_id}/streets/viewport")
 async def get_coverage_area_streets_viewport(
     location_id: PydanticObjectId,
-    west: float = Query(..., description="Viewport min longitude"),
-    south: float = Query(..., description="Viewport min latitude"),
-    east: float = Query(..., description="Viewport max longitude"),
-    north: float = Query(..., description="Viewport max latitude"),
-    undriven: bool = Query(False),
-    driven: bool = Query(False),
+    west: Annotated[float, Query(description="Viewport min longitude")],
+    south: Annotated[float, Query(description="Viewport min latitude")],
+    east: Annotated[float, Query(description="Viewport max longitude")],
+    north: Annotated[float, Query(description="Viewport max latitude")],
+    undriven: Annotated[bool, Query()] = False,
+    driven: Annotated[bool, Query()] = False,
 ):
     """Return streets intersecting the current map viewport."""
     meta = await CoverageMetadata.get(location_id)
@@ -194,7 +202,7 @@ async def get_coverage_area_streets_viewport(
                 [east, north],
                 [west, north],
                 [west, south],
-            ]
+            ],
         ],
     }
 
@@ -232,7 +240,7 @@ async def get_undriven_streets(location: LocationModel):
         )
 
         coverage_metadata = await CoverageMetadata.find_one(
-            {"location.display_name": location_name}
+            {"location.display_name": location_name},
         )
 
         if not coverage_metadata:
@@ -303,8 +311,7 @@ async def get_street_segment_details(segment_id: str):
                 detail="Segment not found",
             )
         # Return as dict without _id
-        result = segment.model_dump(exclude={"id"})
-        return result
+        return segment.model_dump(exclude={"id"})
     except HTTPException:
         raise
     except Exception as e:
@@ -315,7 +322,7 @@ async def get_street_segment_details(segment_id: str):
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error fetching segment details: {str(e)}",
+            detail=f"Error fetching segment details: {e!s}",
         )
 
 
@@ -347,7 +354,8 @@ async def mark_street_segment_as_driven(request: Request):
             exc_info=True,
         )
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
         )
 
 
@@ -376,7 +384,8 @@ async def mark_street_segment_as_undriven(request: Request):
             exc_info=True,
         )
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
         )
 
 
@@ -408,7 +417,8 @@ async def mark_street_segment_as_undriveable(request: Request):
             exc_info=True,
         )
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
         )
 
 
@@ -437,5 +447,6 @@ async def mark_street_segment_as_driveable(request: Request):
             exc_info=True,
         )
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
         )

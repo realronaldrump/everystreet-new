@@ -72,24 +72,29 @@ def with_comprehensive_handling(func: Callable) -> Callable:
             # Reduce log noise for very hot paths
             if func.__name__ in ("process_single_trip",):
                 logger.debug(
-                    "Successfully completed %s in %.2fs", func.__name__, duration
+                    "Successfully completed %s in %.2fs",
+                    func.__name__,
+                    duration,
                 )
             else:
                 logger.info(
-                    "Successfully completed %s in %.2fs", func.__name__, duration
+                    "Successfully completed %s in %.2fs",
+                    func.__name__,
+                    duration,
                 )
             return result
         except DuplicateKeyError as e:
             logger.warning("Duplicate key error in %s: %s", func.__name__, e)
             raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT, detail="Trip already exists"
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Trip already exists",
             )
         except Exception as e:
             duration = time.time() - start_time
             logger.exception("Error in %s after %.2fs: %s", func.__name__, duration, e)
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Processing error: {str(e)}",
+                detail=f"Processing error: {e!s}",
             )
 
     return wrapper
@@ -98,7 +103,7 @@ def with_comprehensive_handling(func: Callable) -> Callable:
 class TripService:
     """Centralized service for all trip processing operations."""
 
-    def __init__(self, mapbox_token: str = None):
+    def __init__(self, mapbox_token: str | None = None):
         self.mapbox_token = mapbox_token or get_mapbox_token()
 
     @with_comprehensive_handling
@@ -201,7 +206,7 @@ class TripService:
         query: dict[str, Any],
         options: ProcessingOptions,
         limit: int = 100,
-        progress_tracker: dict = None,
+        progress_tracker: dict | None = None,
     ) -> BatchProcessingResult:
         """Process multiple trips in batch with configurable options."""
         result = BatchProcessingResult()
@@ -225,7 +230,9 @@ class TripService:
 
             try:
                 trip_result = await self.process_single_trip(
-                    trip, options, trip.get("source", "unknown")
+                    trip,
+                    options,
+                    trip.get("source", "unknown"),
                 )
 
                 # Update counters based on processing result
@@ -244,9 +251,9 @@ class TripService:
             except Exception as e:
                 result.failed += 1
                 result.errors.append(
-                    {"trip_id": trip.get("transactionId", "unknown"), "error": str(e)}
+                    {"trip_id": trip.get("transactionId", "unknown"), "error": str(e)},
                 )
-                logger.error(
+                logger.exception(
                     "Error processing trip %s: %s",
                     trip.get("transactionId"),
                     str(e),
@@ -289,9 +296,10 @@ class TripService:
         self,
         trips_data: list[dict[str, Any]],
         do_map_match: bool = False,
-        progress_tracker: dict = None,
+        progress_tracker: dict | None = None,
     ) -> list[str]:
-        """Process multiple Bouncie trips.
+        """
+        Process multiple Bouncie trips.
 
         Returns a list of transactionIds that were successfully saved (not ObjectIds).
         """
@@ -372,7 +380,7 @@ class TripService:
             for index, trip in enumerate(trips_to_process):
                 if progress_section is not None and trips_data:
                     progress_section["progress"] = int(
-                        (index / max(1, len(trips_to_process))) * 100
+                        (index / max(1, len(trips_to_process))) * 100,
                     )
                     progress_section["message"] = "Processing trips..."
 
@@ -402,7 +410,7 @@ class TripService:
                         processed_trip_ids.append(transaction_id)
 
                 except Exception as trip_error:
-                    logger.error(
+                    logger.exception(
                         "Failed to process Bouncie trip %s: %s",
                         transaction_id,
                         str(trip_error),
@@ -426,8 +434,8 @@ class TripService:
     @with_comprehensive_handling
     async def remap_trips(
         self,
-        trip_ids: list[str] = None,
-        query: dict[str, Any] = None,
+        trip_ids: list[str] | None = None,
+        query: dict[str, Any] | None = None,
         limit: int = 100,
     ) -> dict[str, Any]:
         """Remap trips using map matching."""
@@ -450,7 +458,9 @@ class TripService:
         if trip_ids:
             batch_query = {"transactionId": {"$in": trip_ids}}
             result = await self.process_batch_trips(
-                batch_query, options, limit=len(trip_ids)
+                batch_query,
+                options,
+                limit=len(trip_ids),
             )
             return result.to_dict()
         if query:
@@ -466,7 +476,7 @@ class TripService:
         self,
         trip_ids: list[str],
         skip_if_exists: bool = True,
-        progress_callback: callable = None,
+        progress_callback: callable | None = None,
     ) -> dict[str, Any]:
         """Refresh geocoding for specified trips."""
         results = {
@@ -500,12 +510,12 @@ class TripService:
                     has_start = bool(
                         start_loc
                         and isinstance(start_loc, dict)
-                        and start_loc.get("formatted_address")
+                        and start_loc.get("formatted_address"),
                     )
                     has_destination = bool(
                         dest_loc
                         and isinstance(dest_loc, dict)
-                        and dest_loc.get("formatted_address")
+                        and dest_loc.get("formatted_address"),
                     )
                     if has_start and has_destination:
                         results["skipped"] += 1
@@ -518,15 +528,19 @@ class TripService:
                 )
 
                 await self.process_single_trip(
-                    trip.model_dump(), options, getattr(trip, "source", "unknown")
+                    trip.model_dump(),
+                    options,
+                    getattr(trip, "source", "unknown"),
                 )
                 results["updated"] += 1
 
             except Exception as e:
                 results["failed"] += 1
-                results["errors"].append(f"Trip {trip_id}: {str(e)}")
-                logger.error(
-                    "Error refreshing geocoding for trip %s: %s", trip_id, str(e)
+                results["errors"].append(f"Trip {trip_id}: {e!s}")
+                logger.exception(
+                    "Error refreshing geocoding for trip %s: %s",
+                    trip_id,
+                    str(e),
                 )
 
         return results

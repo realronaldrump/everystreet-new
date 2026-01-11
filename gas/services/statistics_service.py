@@ -22,7 +22,8 @@ class StatisticsService:
         start_date: str | None = None,
         end_date: str | None = None,
     ) -> dict[str, Any]:
-        """Get gas consumption statistics.
+        """
+        Get gas consumption statistics.
 
         Args:
             imei: Optional IMEI filter
@@ -62,7 +63,7 @@ class StatisticsService:
                         "average_price_per_gallon": {"$avg": "$price_per_gallon"},
                         "min_date": {"$min": "$fillup_time"},
                         "max_date": {"$max": "$fillup_time"},
-                    }
+                    },
                 },
                 {
                     "$project": {
@@ -72,13 +73,13 @@ class StatisticsService:
                         "total_cost": {"$round": ["$total_cost", 2]},
                         "average_mpg": {"$round": ["$average_mpg", 2]},
                         "average_price_per_gallon": {
-                            "$round": ["$average_price_per_gallon", 2]
+                            "$round": ["$average_price_per_gallon", 2],
                         },
                         "period_start": "$min_date",
                         "period_end": "$max_date",
-                    }
+                    },
                 },
-            ]
+            ],
         )
 
         results = await GasFillup.aggregate(pipeline).to_list()
@@ -109,7 +110,8 @@ class StatisticsService:
 
     @staticmethod
     async def sync_vehicles_from_trips() -> dict[str, Any]:
-        """Sync vehicles from trip data.
+        """
+        Sync vehicles from trip data.
 
         Creates vehicle records with VIN info from trips for any vehicles
         that don't already exist.
@@ -124,7 +126,7 @@ class StatisticsService:
                     "_id": "$imei",
                     "vin": {"$first": "$vin"},
                     "latest_trip": {"$max": "$endTime"},
-                }
+                },
             },
             {"$match": {"_id": {"$ne": None}}},
         ]
@@ -168,7 +170,9 @@ class StatisticsService:
                 synced_count += 1
 
         logger.info(
-            "Vehicle sync complete: %d new, %d updated", synced_count, updated_count
+            "Vehicle sync complete: %d new, %d updated",
+            synced_count,
+            updated_count,
         )
 
         return {
@@ -180,9 +184,11 @@ class StatisticsService:
 
     @staticmethod
     async def calculate_trip_gas_cost(
-        trip_id: str, imei: str | None = None
+        trip_id: str,
+        imei: str | None = None,
     ) -> dict[str, Any]:
-        """Calculate the gas cost for a specific trip based on latest fill-up prices.
+        """
+        Calculate the gas cost for a specific trip based on latest fill-up prices.
 
         Args:
             trip_id: Trip transaction ID or ObjectId
@@ -201,11 +207,13 @@ class StatisticsService:
         if not trip:
             trip = await Trip.find_one(Trip.transactionId == trip_id)
         if not trip:
-            raise ResourceNotFoundException(f"Trip {trip_id} not found")
+            msg = f"Trip {trip_id} not found"
+            raise ResourceNotFoundException(msg)
 
         trip_imei = imei or trip.imei
         if not trip_imei:
-            raise ValidationException("Cannot determine vehicle IMEI")
+            msg = "Cannot determine vehicle IMEI"
+            raise ValidationException(msg)
 
         # Get the most recent fill-up before or during this trip
         fillup = await GasFillup.find_one(

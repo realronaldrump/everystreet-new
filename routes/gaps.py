@@ -40,7 +40,11 @@ async def fill_route_gaps(
             continue
 
         d_miles = GeometryService.haversine_distance(
-            prev[0], prev[1], cur[0], cur[1], unit="miles"
+            prev[0],
+            prev[1],
+            cur[0],
+            cur[1],
+            unit="miles",
         )
         d_ft = d_miles * 5280.0
 

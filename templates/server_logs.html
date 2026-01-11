@@ -1,5 +1,13 @@
-{% extends "base.html" %} {% block title %}Server Logs{% endblock %} {%
+{% extends "base.html" %}
+
+{% block title %}
+
+Server Logs
+{% endblock %}
+
+{%
 block content %}
+
 <div class="container-fluid py-4">
   <h1 class="mb-4">
     <i class="fas fa-file-alt me-2"></i>Server Logs
@@ -8,7 +16,9 @@ block content %}
   <!-- Statistics Card -->
   <div class="card mb-4">
     <div class="card-header d-flex justify-content-between align-items-center">
-      <h2 class="h5 mb-0">Log Statistics</h2>
+      <h2 class="h5 mb-0">
+Log Statistics
+      </h2>
       <button id="refresh-stats" class="btn btn-sm btn-outline-primary">
         <i class="fas fa-sync-alt"></i> Refresh
       </button>
@@ -17,38 +27,62 @@ block content %}
       <div class="row" id="log-stats">
         <div class="col-md-2">
           <div class="stat-item">
-            <div class="stat-label">Total Logs</div>
-            <div class="stat-value" id="total-count">-</div>
+            <div class="stat-label">
+Total Logs
+            </div>
+            <div class="stat-value" id="total-count">
+-
+            </div>
           </div>
         </div>
         <div class="col-md-2">
           <div class="stat-item">
-            <div class="stat-label">DEBUG</div>
-            <div class="stat-value text-secondary" id="debug-count">0</div>
+            <div class="stat-label">
+DEBUG
+            </div>
+            <div class="stat-value text-secondary" id="debug-count">
+0
+            </div>
           </div>
         </div>
         <div class="col-md-2">
           <div class="stat-item">
-            <div class="stat-label">INFO</div>
-            <div class="stat-value text-info" id="info-count">0</div>
+            <div class="stat-label">
+INFO
+            </div>
+            <div class="stat-value text-info" id="info-count">
+0
+            </div>
           </div>
         </div>
         <div class="col-md-2">
           <div class="stat-item">
-            <div class="stat-label">WARNING</div>
-            <div class="stat-value text-warning" id="warning-count">0</div>
+            <div class="stat-label">
+WARNING
+            </div>
+            <div class="stat-value text-warning" id="warning-count">
+0
+            </div>
           </div>
         </div>
         <div class="col-md-2">
           <div class="stat-item">
-            <div class="stat-label">ERROR</div>
-            <div class="stat-value text-danger" id="error-count">0</div>
+            <div class="stat-label">
+ERROR
+            </div>
+            <div class="stat-value text-danger" id="error-count">
+0
+            </div>
           </div>
         </div>
         <div class="col-md-2">
           <div class="stat-item">
-            <div class="stat-label">CRITICAL</div>
-            <div class="stat-value text-danger" id="critical-count">0</div>
+            <div class="stat-label">
+CRITICAL
+            </div>
+            <div class="stat-value text-danger" id="critical-count">
+0
+            </div>
           </div>
         </div>
       </div>
@@ -58,39 +92,67 @@ block content %}
   <!-- Filters and Actions Card -->
   <div class="card mb-4">
     <div class="card-header">
-      <h2 class="h5 mb-0">Filters & Actions</h2>
+      <h2 class="h5 mb-0">
+Filters & Actions
+      </h2>
     </div>
     <div class="card-body">
       <div class="row g-3">
         <div class="col-md-3">
-          <label for="level-filter" class="form-label">Log Level</label>
+          <label for="level-filter" class="form-label">
+Log Level
+          </label>
           <select id="level-filter" class="form-select">
-            <option value="">All Levels</option>
-            <option value="DEBUG">DEBUG</option>
-            <option value="INFO">INFO</option>
-            <option value="WARNING">WARNING</option>
-            <option value="ERROR">ERROR</option>
-            <option value="CRITICAL">CRITICAL</option>
+            <option value="">
+All Levels
+            </option>
+            <option value="DEBUG">
+DEBUG
+            </option>
+            <option value="INFO">
+INFO
+            </option>
+            <option value="WARNING">
+WARNING
+            </option>
+            <option value="ERROR">
+ERROR
+            </option>
+            <option value="CRITICAL">
+CRITICAL
+            </option>
           </select>
         </div>
         <div class="col-md-3">
-          <label for="limit-filter" class="form-label">Limit</label>
+          <label for="limit-filter" class="form-label">
+Limit
+          </label>
           <select id="limit-filter" class="form-select">
-            <option value="100">100</option>
-            <option value="250">250</option>
-            <option value="500" selected>500</option>
-            <option value="1000">1000</option>
-            <option value="2500">2500</option>
+            <option value="100">
+100
+            </option>
+            <option value="250">
+250
+            </option>
+            <option value="500" selected>
+500
+            </option>
+            <option value="1000">
+1000
+            </option>
+            <option value="2500">
+2500
+            </option>
           </select>
         </div>
         <div class="col-md-4">
-          <label for="search-filter" class="form-label">Search Message</label>
-          <input
-            type="text"
-            id="search-filter"
-            class="form-control"
-            placeholder="Search log messages..."
-          />
+          <label for="search-filter" class="form-label">
+Search Message
+          </label>
+          <input type="text"
+                 id="search-filter"
+                 class="form-control"
+                 placeholder="Search log messages..." />
         </div>
         <div class="col-md-2 d-flex align-items-end">
           <button id="apply-logs-filters" class="btn btn-primary w-100">
@@ -125,7 +187,9 @@ block content %}
   <!-- Logs Display Card -->
   <div class="card">
     <div class="card-header d-flex justify-content-between align-items-center">
-      <h2 class="h5 mb-0">Log Entries</h2>
+      <h2 class="h5 mb-0">
+Log Entries
+      </h2>
       <small class="text-muted" id="logs-info">Loading...</small>
     </div>
     <div class="card-body p-0">
@@ -134,7 +198,9 @@ block content %}
           <div class="spinner-border text-primary" role="status">
             <span class="visually-hidden">Loading...</span>
           </div>
-          <p class="mt-2">Loading logs...</p>
+          <p class="mt-2">
+Loading logs...
+          </p>
         </div>
       </div>
     </div>
@@ -142,147 +208,153 @@ block content %}
 </div>
 
 <!-- Notification container -->
-<div class="notification-container position-fixed top-0 end-0 p-3"></div>
+<div class="notification-container position-fixed top-0 end-0 p-3">
+</div>
 
 <style>
-  .stat-item {
-    text-align: center;
-    padding: 1rem;
-  }
+    .stat-item {
+        text-align: center;
+        padding: 1rem;
+    }
 
-  .stat-label {
-    font-size: 0.875rem;
-    color: var(--bs-secondary);
-    margin-bottom: 0.5rem;
-  }
+    .stat-label {
+        font-size: 0.875rem;
+        color: var(--bs-secondary);
+        margin-bottom: 0.5rem;
+    }
 
-  .stat-value {
-    font-size: 1.5rem;
-    font-weight: 600;
-  }
+    .stat-value {
+        font-size: 1.5rem;
+        font-weight: 600;
+    }
 
-  .logs-container {
-    max-height: 600px;
-    overflow-y: auto;
-    background: var(--bs-dark);
-    font-family: "Courier New", monospace;
-    font-size: 0.875rem;
-  }
+    .logs-container {
+        max-height: 600px;
+        overflow-y: auto;
+        background: var(--bs-dark);
+        font-family: "Courier New", monospace;
+        font-size: 0.875rem;
+    }
 
-  .log-entry {
-    padding: 0.75rem 1rem;
-    border-bottom: 1px solid var(--bs-border-color);
-    transition: background-color 0.2s;
-  }
+    .log-entry {
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid var(--bs-border-color);
+        transition: background-color 0.2s;
+    }
 
-  .log-entry:hover {
-    background-color: rgba(255, 255, 255, 0.05);
-  }
+    .log-entry:hover {
+        background-color: rgba(255, 255, 255, 0.05);
+    }
 
-  .log-entry:hover .copy-log-btn {
-    opacity: 1;
-  }
+    .log-entry:hover .copy-log-btn {
+        opacity: 1;
+    }
 
-  .copy-log-btn {
-    opacity: 0.6;
-    transition: opacity 0.2s;
-    min-width: 36px;
-    padding: 0.25rem 0.5rem;
-    font-size: 0.875rem;
-  }
+    .copy-log-btn {
+        opacity: 0.6;
+        transition: opacity 0.2s;
+        min-width: 36px;
+        padding: 0.25rem 0.5rem;
+        font-size: 0.875rem;
+    }
 
-  .copy-log-btn:hover {
-    opacity: 1;
-  }
+    .copy-log-btn:hover {
+        opacity: 1;
+    }
 
-  .log-entry.log-DEBUG {
-    border-left: 3px solid var(--bs-secondary);
-  }
+    .log-entry.log-DEBUG {
+        border-left: 3px solid var(--bs-secondary);
+    }
 
-  .log-entry.log-INFO {
-    border-left: 3px solid var(--bs-info);
-  }
+    .log-entry.log-INFO {
+        border-left: 3px solid var(--bs-info);
+    }
 
-  .log-entry.log-WARNING {
-    border-left: 3px solid var(--bs-warning);
-  }
+    .log-entry.log-WARNING {
+        border-left: 3px solid var(--bs-warning);
+    }
 
-  .log-entry.log-ERROR {
-    border-left: 3px solid var(--bs-danger);
-  }
+    .log-entry.log-ERROR {
+        border-left: 3px solid var(--bs-danger);
+    }
 
-  .log-entry.log-CRITICAL {
-    border-left: 3px solid #dc3545;
-    background-color: rgba(220, 53, 69, 0.1);
-  }
+    .log-entry.log-CRITICAL {
+        border-left: 3px solid #dc3545;
+        background-color: rgba(220, 53, 69, 0.1);
+    }
 
-  .log-timestamp {
-    color: var(--bs-secondary);
-    font-weight: 600;
-  }
+    .log-timestamp {
+        color: var(--bs-secondary);
+        font-weight: 600;
+    }
 
-  .log-level {
-    display: inline-block;
-    padding: 0.25rem 0.5rem;
-    border-radius: 0.25rem;
-    font-weight: 600;
-    font-size: 0.75rem;
-    margin-left: 0.5rem;
-  }
+    .log-level {
+        display: inline-block;
+        padding: 0.25rem 0.5rem;
+        border-radius: 0.25rem;
+        font-weight: 600;
+        font-size: 0.75rem;
+        margin-left: 0.5rem;
+    }
 
-  .log-level.DEBUG {
-    background-color: var(--bs-secondary);
-    color: white;
-  }
+    .log-level.DEBUG {
+        background-color: var(--bs-secondary);
+        color: white;
+    }
 
-  .log-level.INFO {
-    background-color: var(--bs-info);
-    color: white;
-  }
+    .log-level.INFO {
+        background-color: var(--bs-info);
+        color: white;
+    }
 
-  .log-level.WARNING {
-    background-color: var(--bs-warning);
-    color: black;
-  }
+    .log-level.WARNING {
+        background-color: var(--bs-warning);
+        color: black;
+    }
 
-  .log-level.ERROR {
-    background-color: var(--bs-danger);
-    color: white;
-  }
+    .log-level.ERROR {
+        background-color: var(--bs-danger);
+        color: white;
+    }
 
-  .log-level.CRITICAL {
-    background-color: #dc3545;
-    color: white;
-    font-weight: 700;
-  }
+    .log-level.CRITICAL {
+        background-color: #dc3545;
+        color: white;
+        font-weight: 700;
+    }
 
-  .log-logger {
-    color: var(--bs-cyan);
-    font-weight: 500;
-  }
+    .log-logger {
+        color: var(--bs-cyan);
+        font-weight: 500;
+    }
 
-  .log-message {
-    color: var(--bs-light);
-    margin-top: 0.25rem;
-    word-break: break-word;
-  }
+    .log-message {
+        color: var(--bs-light);
+        margin-top: 0.25rem;
+        word-break: break-word;
+    }
 
-  .log-details {
-    color: var(--bs-gray-500);
-    font-size: 0.75rem;
-    margin-top: 0.25rem;
-  }
+    .log-details {
+        color: var(--bs-gray-500);
+        font-size: 0.75rem;
+        margin-top: 0.25rem;
+    }
 
-  .log-exception {
-    background-color: rgba(220, 53, 69, 0.2);
-    padding: 0.5rem;
-    margin-top: 0.5rem;
-    border-radius: 0.25rem;
-    white-space: pre-wrap;
-    font-size: 0.75rem;
-  }
+    .log-exception {
+        background-color: rgba(220, 53, 69, 0.2);
+        padding: 0.5rem;
+        margin-top: 0.5rem;
+        border-radius: 0.25rem;
+        white-space: pre-wrap;
+        font-size: 0.75rem;
+    }
 </style>
 
-{% endblock %} {% block extra_js %}
-<script src="{{ url_for('static', path='js/server-logs.js') | replace('http://', '//') }}?v=2"></script>
+{% endblock %}
+
+
+
+{% block extra_js %}
+
+  <script src="{{ url_for('static', path='js/server-logs.js') | replace('http://', '//') }}?v=2"></script>
 {% endblock %}

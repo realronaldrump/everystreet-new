@@ -1,10 +1,11 @@
-"""Helpers for loading and storing county topology data in MongoDB.
+"""
+Helpers for loading and storing county topology data in MongoDB.
 
-This module centralizes access to the county TopoJSON documents so the data
-can be served from the database instead of static files on disk.
+This module centralizes access to the county TopoJSON documents so the data can be
+served from the database instead of static files on disk.
 
-If the requested topology is missing, it will be fetched from a stable CDN
-source and cached in MongoDB for subsequent requests.
+If the requested topology is missing, it will be fetched from a stable CDN source and
+cached in MongoDB for subsequent requests.
 """
 
 from __future__ import annotations
@@ -69,7 +70,8 @@ async def get_county_topology_document(
     *,
     ensure_available: bool = True,
 ) -> dict[str, Any] | None:
-    """Fetch a county TopoJSON document from MongoDB.
+    """
+    Fetch a county TopoJSON document from MongoDB.
 
     If ``ensure_available`` is True and the document is missing, the data will
     be downloaded from the configured source URL and stored in the database
@@ -90,7 +92,8 @@ async def get_county_topology_document(
 
 
 async def _download_and_store_topology(
-    variant_key: str, variant: dict[str, str]
+    variant_key: str,
+    variant: dict[str, str],
 ) -> dict[str, Any]:
     """Download a topology file from its source URL and persist it."""
 

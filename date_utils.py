@@ -94,7 +94,8 @@ def normalize_to_utc_datetime(value: str | datetime | date | None) -> datetime |
             parsed_date = datetime.strptime(value, "%Y-%m-%d").date()
         except ValueError:
             logger.warning(
-                "Unable to interpret value '%s' as datetime; returning None.", value
+                "Unable to interpret value '%s' as datetime; returning None.",
+                value,
             )
             return None
 

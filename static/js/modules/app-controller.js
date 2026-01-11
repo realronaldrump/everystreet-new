@@ -32,7 +32,9 @@ const initializeLiveTracker = () => {
 
 const initializeLocationDropdown = async () => {
   const dropdown = utils.getElement("streets-location");
-  if (!dropdown) return;
+  if (!dropdown) {
+    return;
+  }
   try {
     const response = await utils.fetchWithRetry("/api/coverage_areas");
     const areas = response.areas || [];
@@ -41,17 +43,19 @@ const initializeLocationDropdown = async () => {
     areas.forEach((area) => {
       const option = document.createElement("option");
       option.value = area._id || area.id;
-      option.textContent =
-        area.location?.display_name ||
-        area.location?.city ||
-        area.name ||
-        area.city ||
-        "Unknown Location";
+      option.textContent
+        = area.location?.display_name
+        || area.location?.city
+        || area.name
+        || area.city
+        || "Unknown Location";
       frag.appendChild(option);
     });
     dropdown.appendChild(frag);
     const savedId = utils.getStorage(CONFIG.STORAGE_KEYS.selectedLocation);
-    if (savedId) dropdown.value = savedId;
+    if (savedId) {
+      dropdown.value = savedId;
+    }
   } catch (err) {
     console.error("Location dropdown error:", err);
     window.notificationManager.show("Failed to load coverage areas", "warning");
@@ -65,11 +69,15 @@ const restoreLayerVisibility = () => {
     if (layerName === "trips") {
       // Trips layer is always visible by default
       state.mapLayers[layerName].visible = true;
-      if (toggle) toggle.checked = true;
+      if (toggle) {
+        toggle.checked = true;
+      }
     } else if (saved[layerName] !== undefined) {
       // Restore saved visibility state
       state.mapLayers[layerName].visible = saved[layerName];
-      if (toggle) toggle.checked = saved[layerName];
+      if (toggle) {
+        toggle.checked = saved[layerName];
+      }
     }
     // Note: Visibility will be applied after data is loaded in initialize()
   });
@@ -83,7 +91,9 @@ const AppController = {
 
       if (utils.getElement("map") && !document.getElementById("visits-page")) {
         const ok = await mapManager.initialize();
-        if (!ok) throw new Error("Map init failed");
+        if (!ok) {
+          throw new Error("Map init failed");
+        }
 
         layerManager.initializeControls();
         layerManager.bindHeatmapEvents();
@@ -290,7 +300,9 @@ const AppController = {
 
     // Map style reload event – re-apply layers
     document.addEventListener("mapStyleLoaded", async () => {
-      if (!state.map || !state.mapInitialized) return;
+      if (!state.map || !state.mapInitialized) {
+        return;
+      }
       window.loadingManager.pulse("Applying new map style...");
 
       // Wait for map style to be fully loaded
@@ -330,8 +342,9 @@ const AppController = {
 
     // Fit-bounds button
     const fitBoundsBtn = utils.getElement("fit-bounds");
-    if (fitBoundsBtn)
+    if (fitBoundsBtn) {
       fitBoundsBtn.addEventListener("click", () => mapManager.fitBounds());
+    }
 
     // Highlight recent trips toggle
     const highlightToggle = utils.getElement("highlight-recent-trips");
@@ -352,8 +365,9 @@ const AppController = {
 
     // Keyboard shortcuts
     window.addEventListener("keydown", (e) => {
-      if (!state.map || document.activeElement.matches("input, textarea, select"))
+      if (!state.map || document.activeElement.matches("input, textarea, select")) {
         return;
+      }
       const actions = {
         "+": () => state.map.zoomIn(),
         "=": () => state.map.zoomIn(),
@@ -410,7 +424,9 @@ const AppController = {
         confirmText: "Start Map Matching",
         confirmButtonClass: "btn-primary",
       });
-      if (!confirmed) return;
+      if (!confirmed) {
+        return;
+      }
       window.loadingManager.show("Starting map matching process...");
       const res = await utils.fetchWithRetry("/api/map_match_trips", {
         method: "POST",
@@ -462,7 +478,9 @@ const AppController = {
     };
 
     const config = layerMap[mode];
-    if (!config) return;
+    if (!config) {
+      return;
+    }
 
     if (shouldHide) {
       // Hide the layer

@@ -36,7 +36,8 @@ async def get_trips_for_place(place_id: str):
 
 @router.get("/api/non_custom_places_visits", response_model=list[NonCustomPlaceVisit])
 async def get_non_custom_places_visits(timeframe: str | None = None):
-    """Aggregate visits to non-custom destinations.
+    """
+    Aggregate visits to non-custom destinations.
 
     The logic derives a human-readable place name from destination information,
     prioritizing actual place names over addresses:

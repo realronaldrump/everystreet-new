@@ -1,7 +1,7 @@
 """API routes for vehicle management."""
 
 import logging
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import APIRouter, HTTPException, Query
 
@@ -14,9 +14,12 @@ router = APIRouter()
 
 @router.get("/api/vehicles")
 async def get_vehicles(
-    imei: str | None = Query(None, description="Filter by IMEI"),
-    vin: str | None = Query(None, description="Filter by VIN"),
-    active_only: bool = Query(True, description="Only return active vehicles"),
+    imei: Annotated[str | None, Query(description="Filter by IMEI")] = None,
+    vin: Annotated[str | None, Query(description="Filter by VIN")] = None,
+    active_only: Annotated[
+        bool,
+        Query(description="Only return active vehicles"),
+    ] = True,
 ) -> list[dict[str, Any]]:
     """Get all vehicles or filter by IMEI/VIN."""
     try:
@@ -25,7 +28,7 @@ async def get_vehicles(
         return [v.model_dump(by_alias=True, mode="json") for v in vehicles]
 
     except Exception as e:
-        logger.error("Error fetching vehicles: %s", e)
+        logger.exception("Error fetching vehicles: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -41,7 +44,7 @@ async def create_vehicle(vehicle_data: VehicleModel) -> dict[str, Any]:
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        logger.error("Error creating vehicle: %s", e)
+        logger.exception("Error creating vehicle: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -50,7 +53,8 @@ async def update_vehicle(imei: str, vehicle_data: VehicleModel) -> dict[str, Any
     """Update a vehicle's information."""
     try:
         update_data = vehicle_data.model_dump(
-            exclude={"id", "imei", "created_at"}, exclude_none=True
+            exclude={"id", "imei", "created_at"},
+            exclude_none=True,
         )
         vehicle = await VehicleService.update_vehicle(imei, update_data)
         # Convert Beanie model to JSON-compatible dict
@@ -59,7 +63,7 @@ async def update_vehicle(imei: str, vehicle_data: VehicleModel) -> dict[str, Any
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
-        logger.error("Error updating vehicle: %s", e)
+        logger.exception("Error updating vehicle: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -67,11 +71,10 @@ async def update_vehicle(imei: str, vehicle_data: VehicleModel) -> dict[str, Any
 async def delete_vehicle(imei: str) -> dict[str, str]:
     """Delete a vehicle (or mark as inactive)."""
     try:
-        result = await VehicleService.delete_vehicle(imei)
-        return result
+        return await VehicleService.delete_vehicle(imei)
 
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
-        logger.error("Error deleting vehicle: %s", e)
+        logger.exception("Error deleting vehicle: %s", e)
         raise HTTPException(status_code=500, detail=str(e))

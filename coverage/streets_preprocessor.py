@@ -136,19 +136,22 @@ async def build_street_segments(
 ) -> dict[str, Any]:
     """Generate street segments for a location and store them in MongoDB."""
     if not isinstance(location, dict):
-        raise ValueError("Location must be a dictionary")
+        msg = "Location must be a dictionary"
+        raise ValueError(msg)
 
     location = normalize_location_settings(location)
     location_name = location.get("display_name")
     if not location_name:
-        raise ValueError("Missing display_name for location")
+        msg = "Missing display_name for location"
+        raise ValueError(msg)
 
     location_id = location.get("_id")
     if isinstance(location_id, ObjectId):
         location_id = str(location_id)
 
     if not location_id:
-        raise ValueError("Missing location ID for street preprocessing")
+        msg = "Missing location ID for street preprocessing"
+        raise ValueError(msg)
 
     segment_length_m = location.get("segment_length_meters")
     if not segment_length_m:
@@ -170,11 +173,13 @@ async def build_street_segments(
 
     edges = ox.graph_to_gdfs(graph, nodes=False, fill_edge_geometry=True)
     if edges.empty:
-        raise ValueError("No street edges found for this location")
+        msg = "No street edges found for this location"
+        raise ValueError(msg)
 
     edges = edges[edges.geometry.notnull()].copy()
     if edges.empty:
-        raise ValueError("No usable street geometries found for this location")
+        msg = "No usable street geometries found for this location"
+        raise ValueError(msg)
 
     edges_projected = ox.projection.project_gdf(edges)
     total_edges = len(edges_projected)
@@ -209,7 +214,7 @@ async def build_street_segments(
 
             segment_lengths = [seg.length for seg in segments]
             geo_series = gpd.GeoSeries(segments, crs=edges_projected.crs).to_crs(
-                "EPSG:4326"
+                "EPSG:4326",
             )
 
             for seg_geom, seg_length in zip(geo_series, segment_lengths, strict=False):
@@ -273,7 +278,7 @@ async def build_street_segments(
                 "total_length_m": total_length_m,
                 "driveable_length_m": total_length_m,
                 "last_updated": datetime.now(UTC),
-            }
+            },
         },
         on_insert=CoverageMetadata(
             location={"display_name": location_name},

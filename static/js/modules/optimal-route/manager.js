@@ -104,7 +104,9 @@ export class OptimalRoutesManager {
       slider?.addEventListener("input", (e) => {
         const opacity = e.target.value / 100;
         const label = slider.closest(".layer-opacity").querySelector(".opacity-value");
-        if (label) label.textContent = `${e.target.value}%`;
+        if (label) {
+          label.textContent = `${e.target.value}%`;
+        }
 
         this.map.setLayerOpacity(layers, opacity);
       });
@@ -151,7 +153,9 @@ export class OptimalRoutesManager {
   async loadCoverageAreas() {
     try {
       const areas = await this.api.loadCoverageAreas();
-      if (!areas) return;
+      if (!areas) {
+        return;
+      }
 
       // Dispatch event
       document.dispatchEvent(
@@ -171,7 +175,9 @@ export class OptimalRoutesManager {
 
     if (!areaId) {
       const generateBtn = document.getElementById("generate-route-btn");
-      if (generateBtn) generateBtn.disabled = true;
+      if (generateBtn) {
+        generateBtn.disabled = true;
+      }
       document.getElementById("area-stats").style.display = "none";
       document.getElementById("map-legend").style.display = "none";
       this.clearRoute();
@@ -180,7 +186,9 @@ export class OptimalRoutesManager {
     }
 
     const generateBtn = document.getElementById("generate-route-btn");
-    if (generateBtn) generateBtn.disabled = false;
+    if (generateBtn) {
+      generateBtn.disabled = false;
+    }
 
     // Wait for map
     await this.map.bindMapLoad();
@@ -189,8 +197,8 @@ export class OptimalRoutesManager {
 
     // Load streets
     try {
-      const { drivenFeatures, undrivenFeatures } =
-        await this.api.loadStreetNetwork(areaId);
+      const { drivenFeatures, undrivenFeatures }
+        = await this.api.loadStreetNetwork(areaId);
       this.map.updateStreets(drivenFeatures, undrivenFeatures);
     } catch {
       // already logged in api
@@ -245,7 +253,9 @@ export class OptimalRoutesManager {
   }
 
   async generateRoute() {
-    if (!this.selectedAreaId) return;
+    if (!this.selectedAreaId) {
+      return;
+    }
 
     this.ui.showProgressSection();
 
@@ -287,7 +297,9 @@ export class OptimalRoutesManager {
   }
 
   async cancelTask() {
-    if (!this.currentTaskId) return;
+    if (!this.currentTaskId) {
+      return;
+    }
     try {
       await this.api.cancelTask(this.currentTaskId);
       this.onCancelled();
@@ -300,7 +312,9 @@ export class OptimalRoutesManager {
     this.currentTaskId = null;
     this.ui.hideProgressSection();
     const generateBtn = document.getElementById("generate-route-btn");
-    if (generateBtn) generateBtn.disabled = false;
+    if (generateBtn) {
+      generateBtn.disabled = false;
+    }
     this.ui.showNotification("Task cancelled", "info");
   }
 
@@ -334,7 +348,9 @@ export class OptimalRoutesManager {
   }
 
   exportGPX() {
-    if (!this.selectedAreaId) return;
+    if (!this.selectedAreaId) {
+      return;
+    }
     const url = `/api/coverage_areas/${this.selectedAreaId}/optimal-route/gpx`;
     window.open(url, "_blank");
   }

@@ -1,7 +1,7 @@
 """API routes for gas statistics and vehicle synchronization."""
 
 import logging
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import APIRouter, HTTPException, Query
 
@@ -13,17 +13,16 @@ router = APIRouter()
 
 @router.get("/api/gas-statistics")
 async def get_gas_statistics(
-    imei: str | None = Query(None, description="Filter by vehicle IMEI"),
-    start_date: str | None = Query(None, description="Start date filter"),
-    end_date: str | None = Query(None, description="End date filter"),
+    imei: Annotated[str | None, Query(description="Filter by vehicle IMEI")] = None,
+    start_date: Annotated[str | None, Query(description="Start date filter")] = None,
+    end_date: Annotated[str | None, Query(description="End date filter")] = None,
 ) -> dict[str, Any]:
     """Get gas consumption statistics."""
     try:
-        stats = await StatisticsService.get_gas_statistics(imei, start_date, end_date)
-        return stats
+        return await StatisticsService.get_gas_statistics(imei, start_date, end_date)
 
     except Exception as e:
-        logger.error("Error calculating gas statistics: %s", e)
+        logger.exception("Error calculating gas statistics: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -31,26 +30,24 @@ async def get_gas_statistics(
 async def sync_vehicles_from_trips() -> dict[str, Any]:
     """Sync vehicles from trip data - creates vehicle records with VIN info from trips."""
     try:
-        result = await StatisticsService.sync_vehicles_from_trips()
-        return result
+        return await StatisticsService.sync_vehicles_from_trips()
 
     except Exception as e:
-        logger.error("Error syncing vehicles: %s", e)
+        logger.exception("Error syncing vehicles: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/api/trip-gas-cost")
 async def calculate_trip_gas_cost(
-    trip_id: str = Query(..., description="Trip transaction ID or ObjectId"),
-    imei: str | None = Query(None, description="Vehicle IMEI"),
+    trip_id: Annotated[str, Query(description="Trip transaction ID or ObjectId")],
+    imei: Annotated[str | None, Query(description="Vehicle IMEI")] = None,
 ) -> dict[str, Any]:
     """Calculate the gas cost for a specific trip based on latest fill-up prices."""
     try:
-        result = await StatisticsService.calculate_trip_gas_cost(trip_id, imei)
-        return result
+        return await StatisticsService.calculate_trip_gas_cost(trip_id, imei)
 
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
-        logger.error("Error calculating trip gas cost: %s", e)
+        logger.exception("Error calculating trip gas cost: %s", e)
         raise HTTPException(status_code=500, detail=str(e))

@@ -15,20 +15,28 @@ const eventManager = {
    */
   add(element, events, handler, options = {}) {
     const el = typeof element === "string" ? state.getElement(element) : element;
-    if (!el) return false;
+    if (!el) {
+      return false;
+    }
 
-    if (!state.listeners.has(el)) state.listeners.set(el, new Map());
+    if (!state.listeners.has(el)) {
+      state.listeners.set(el, new Map());
+    }
     const eventList = Array.isArray(events) ? events : [events];
     const elementListeners = state.listeners.get(el);
 
     eventList.forEach((eventType) => {
       const key = `${eventType}_${handler.name || Math.random()}`;
-      if (elementListeners.has(key)) return; // already registered
+      if (elementListeners.has(key)) {
+        return;
+      } // already registered
 
-      const wrapped =
-        options.leftClickOnly && eventType === "click"
+      const wrapped
+        = options.leftClickOnly && eventType === "click"
           ? (e) => {
-              if (e.button === 0) handler(e);
+              if (e.button === 0) {
+                handler(e);
+              }
             }
           : handler;
 
@@ -47,13 +55,17 @@ const eventManager = {
    * Event delegation.
    */
   delegate(container, selector, eventType, handler) {
-    const containerEl =
-      typeof container === "string" ? state.getElement(container) : container;
-    if (!containerEl) return false;
+    const containerEl
+      = typeof container === "string" ? state.getElement(container) : container;
+    if (!containerEl) {
+      return false;
+    }
 
     const delegated = (e) => {
       const target = e.target.closest(selector);
-      if (target && containerEl.contains(target)) handler.call(target, e);
+      if (target && containerEl.contains(target)) {
+        handler.call(target, e);
+      }
     };
 
     containerEl.addEventListener(eventType, delegated);
@@ -65,7 +77,9 @@ const eventManager = {
    */
   once(element, event, handler) {
     const el = typeof element === "string" ? state.getElement(element) : element;
-    if (!el) return false;
+    if (!el) {
+      return false;
+    }
 
     const onceHandler = (e) => {
       handler(e);
@@ -81,7 +95,9 @@ const eventManager = {
    */
   on(event, handler, target = document) {
     const el = typeof target === "string" ? state.getElement(target) : target;
-    if (!el) return false;
+    if (!el) {
+      return false;
+    }
     el.addEventListener(event, handler);
     return true;
   },
@@ -92,7 +108,9 @@ const eventManager = {
    */
   emit(event, detail = {}, target = document) {
     const el = typeof target === "string" ? state.getElement(target) : target;
-    if (!el) return false;
+    if (!el) {
+      return false;
+    }
     el.dispatchEvent(new CustomEvent(event, { detail }));
     return true;
   },

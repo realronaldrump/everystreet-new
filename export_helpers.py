@@ -1,8 +1,9 @@
-"""Export utilities for trip data.
+"""
+Export utilities for trip data.
 
-Provides functions to convert lists of trip dictionaries into standard
-geospatial formats (GeoJSON, GPX, and Shapefile) for export and
-interoperability with other mapping tools and applications.
+Provides functions to convert lists of trip dictionaries into standard geospatial
+formats (GeoJSON, GPX, and Shapefile) for export and interoperability with other mapping
+tools and applications.
 """
 
 import io
@@ -27,7 +28,8 @@ def build_gpx_from_coords(
     name: str = "Track",
     description: str | None = None,
 ) -> str:
-    """Build GPX XML from coordinate list using gpxpy.
+    """
+    Build GPX XML from coordinate list using gpxpy.
 
     Args:
         coords: List of [lon, lat] coordinate pairs
@@ -60,7 +62,8 @@ def build_gpx_from_coords(
 async def create_geojson(
     trips: list[dict[str, Any]],
 ) -> str:
-    """Convert trip dictionaries to a GeoJSON FeatureCollection string.
+    """
+    Convert trip dictionaries to a GeoJSON FeatureCollection string.
 
     Args:
         trips: List of trip dictionaries
@@ -130,7 +133,7 @@ async def create_geojson(
             features.append(feature)
 
         except Exception as e:
-            logger.error(
+            logger.exception(
                 "Error processing trip %s for GeoJSON: %s",
                 trip.get("transactionId", "?"),
                 e,
@@ -159,7 +162,8 @@ async def create_geojson(
 async def create_gpx(
     trips: list[dict[str, Any]],
 ) -> str:
-    """Convert trip dictionaries to a GPX file (XML string).
+    """
+    Convert trip dictionaries to a GPX file (XML string).
 
     Args:
         trips: List of trip dictionaries
@@ -272,7 +276,7 @@ async def create_gpx(
                 trip_count += 1
 
         except Exception as e:
-            logger.error(
+            logger.exception(
                 "Error processing trip %s for GPX: %s",
                 trip.get("transactionId", "?"),
                 e,
@@ -297,7 +301,8 @@ async def create_shapefile(
     geojson_data: dict[str, Any],
     output_name: str,
 ) -> io.BytesIO:
-    """Convert GeoJSON data to a shapefile ZIP archive.
+    """
+    Convert GeoJSON data to a shapefile ZIP archive.
 
     Args:
         geojson_data: GeoJSON data dictionary
@@ -328,12 +333,13 @@ async def create_shapefile(
             buf.seek(0)
             return buf
     except Exception as e:
-        logger.error("Error creating shapefile: %s", e)
+        logger.exception("Error creating shapefile: %s", e)
         raise
 
 
 async def export_geojson_response(data, filename: str) -> StreamingResponse:
-    """Create a StreamingResponse with GeoJSON content.
+    """
+    Create a StreamingResponse with GeoJSON content.
 
     Args:
         data: Trip data or GeoJSON data
@@ -357,7 +363,8 @@ async def export_geojson_response(data, filename: str) -> StreamingResponse:
 
 
 async def export_gpx_response(data, filename: str) -> StreamingResponse:
-    """Create a StreamingResponse with GPX content.
+    """
+    Create a StreamingResponse with GPX content.
 
     Args:
         data: Trip data
@@ -401,7 +408,8 @@ async def export_shapefile_response(
     geojson_data,
     filename: str,
 ) -> StreamingResponse:
-    """Create a StreamingResponse with Shapefile content (ZIP).
+    """
+    Create a StreamingResponse with Shapefile content (ZIP).
 
     Args:
         geojson_data: GeoJSON data to convert to shapefile
@@ -428,7 +436,8 @@ async def create_export_response(
     include_gps_in_csv: bool = False,
     flatten_location_fields: bool = True,
 ) -> StreamingResponse:
-    """Create a StreamingResponse with data in the requested format.
+    """
+    Create a StreamingResponse with data in the requested format.
 
     Args:
         data: Trip data
@@ -494,13 +503,15 @@ async def create_export_response(
                 "Content-Disposition": f'attachment; filename="{filename_base}.csv"',
             },
         )
-    raise ValueError(f"Unsupported export format: {fmt}")
+    msg = f"Unsupported export format: {fmt}"
+    raise ValueError(msg)
 
 
 def get_location_filename(
     location: dict[str, Any],
 ) -> str:
-    """Create a safe filename from a location dictionary.
+    """
+    Create a safe filename from a location dictionary.
 
     Args:
         location: Location dictionary with display_name
@@ -522,7 +533,8 @@ async def process_trip_for_export(
     include_meta: bool = True,
     include_custom: bool = True,
 ) -> dict[str, Any]:
-    """Process a trip dictionary based on field preferences for export.
+    """
+    Process a trip dictionary based on field preferences for export.
 
     Args:
         trip: Original trip dictionary
@@ -677,7 +689,8 @@ def _flatten_location(
     location: dict[str, Any],
     prefix: str,
 ) -> dict[str, Any]:
-    """Flatten a location object into prefixed CSV columns.
+    """
+    Flatten a location object into prefixed CSV columns.
 
     Args:
         location: Location dictionary with formatted_address, address_components, coordinates
@@ -713,7 +726,8 @@ def flatten_trip_for_csv(
     include_gps_in_csv: bool = False,
     flatten_location_fields: bool = True,
 ) -> dict[str, Any]:
-    """Flatten a trip dictionary for CSV export.
+    """
+    Flatten a trip dictionary for CSV export.
 
     This function consolidates the location flattening logic used by both
     streaming (export_api.py) and buffered (create_csv_export) CSV generation.
@@ -774,7 +788,8 @@ async def create_csv_export(
     include_gps_in_csv: bool = False,
     flatten_location_fields: bool = True,
 ) -> str:
-    """Convert trip dictionaries to CSV format.
+    """
+    Convert trip dictionaries to CSV format.
 
     Args:
         trips: List of trip dictionaries

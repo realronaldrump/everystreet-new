@@ -6,15 +6,17 @@ logger = logging.getLogger(__name__)
 
 
 class TripExportService:
-    """Service class for trip export operations.
+    """
+    Service class for trip export operations.
 
-    This service provides functionality for exporting trip data
-    in various formats like GPX and KML.
+    This service provides functionality for exporting trip data in various formats like
+    GPX and KML.
     """
 
     @staticmethod
     async def export_to_gpx(_trip_id: str):
-        """Export a trip to GPX format.
+        """
+        Export a trip to GPX format.
 
         Args:
             trip_id: Transaction ID of the trip
@@ -26,11 +28,13 @@ class TripExportService:
             This is a placeholder for future GPX export functionality.
         """
         logger.warning("GPX export not yet implemented")
-        raise NotImplementedError("GPX export functionality coming soon")
+        msg = "GPX export functionality coming soon"
+        raise NotImplementedError(msg)
 
     @staticmethod
     async def export_to_kml(_trip_id: str):
-        """Export a trip to KML format.
+        """
+        Export a trip to KML format.
 
         Args:
             trip_id: Transaction ID of the trip
@@ -42,4 +46,5 @@ class TripExportService:
             This is a placeholder for future KML export functionality.
         """
         logger.warning("KML export not yet implemented")
-        raise NotImplementedError("KML export functionality coming soon")
+        msg = "KML export functionality coming soon"
+        raise NotImplementedError(msg)

@@ -20,7 +20,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   async function initializeMap() {
     const mapEl = document.getElementById("editMap");
-    if (!mapEl) return;
+    if (!mapEl) {
+      return;
+    }
 
     editMap = window.mapBase.createMap(mapEl.id, {
       center: [-95.7129, 37.0902],
@@ -82,7 +84,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Handle trip clicks
     editMap.on("click", tripsLayerId, (e) => {
-      if (e.originalEvent?.button !== 0) return;
+      if (e.originalEvent?.button !== 0) {
+        return;
+      }
       const feature = e.features[0];
       if (feature) {
         selectTrip(feature);
@@ -129,7 +133,9 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     editMap.on("draw.update", (e) => {
-      if (!editMode || !currentTrip) return;
+      if (!editMode || !currentTrip) {
+        return;
+      }
 
       e.features.forEach((feature) => {
         if (feature.geometry.type === "Point") {
@@ -157,7 +163,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const saveChangesBtn = document.getElementById("saveChanges");
     if (saveChangesBtn) {
       saveChangesBtn.addEventListener("mousedown", (e) => {
-        if (e.button !== 0) return;
+        if (e.button !== 0) {
+          return;
+        }
         saveTripChanges();
       });
     }
@@ -175,7 +183,9 @@ document.addEventListener("DOMContentLoaded", () => {
       const applyFiltersBtn = document.getElementById("apply-filters");
       if (applyFiltersBtn) {
         applyFiltersBtn.addEventListener("mousedown", (e) => {
-          if (e.button !== 0) return;
+          if (e.button !== 0) {
+            return;
+          }
           loadTrips();
         });
       }
@@ -186,14 +196,14 @@ document.addEventListener("DOMContentLoaded", () => {
     try {
       const startInput = document.getElementById("start-date");
       const endInput = document.getElementById("end-date");
-      const startDate =
-        startInput?.value ||
-        window.utils.getStorage("startDate") ||
-        window.DateUtils.getYesterday();
-      const endDate =
-        endInput?.value ||
-        window.utils.getStorage("endDate") ||
-        window.DateUtils.getYesterday();
+      const startDate
+        = startInput?.value
+        || window.utils.getStorage("startDate")
+        || window.DateUtils.getYesterday();
+      const endDate
+        = endInput?.value
+        || window.utils.getStorage("endDate")
+        || window.DateUtils.getYesterday();
 
       // Validate date range
       if (!window.DateUtils.isValidDateRange(startDate, endDate)) {
@@ -206,16 +216,20 @@ document.addEventListener("DOMContentLoaded", () => {
       window.utils.setStorage("endDate", endDate);
 
       const tripTypeSelect = document.getElementById("tripType");
-      if (!tripTypeSelect) return;
+      if (!tripTypeSelect) {
+        return;
+      }
 
       const tripType = tripTypeSelect.value;
-      const url =
-        tripType === "matched_trips"
+      const url
+        = tripType === "matched_trips"
           ? `/api/matched_trips?start_date=${startDate}&end_date=${endDate}`
           : `/api/trips?start_date=${startDate}&end_date=${endDate}`;
 
       const res = await fetch(url);
-      if (!res.ok) throw new Error("Failed to fetch trips");
+      if (!res.ok) {
+        throw new Error("Failed to fetch trips");
+      }
 
       const data = await res.json();
       if (!data.features || data.features.length === 0) {
@@ -237,7 +251,9 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function displayTripsOnMap(trips) {
-    if (!editMap) return;
+    if (!editMap) {
+      return;
+    }
 
     clearTrips();
     currentTrip = null;
@@ -250,10 +266,10 @@ document.addEventListener("DOMContentLoaded", () => {
     tripFeatures = trips.filter((trip) => {
       const gps = trip.geometry || trip.gps;
       return (
-        gps &&
-        gps.type === "LineString" &&
-        gps.coordinates &&
-        gps.coordinates.length > 0
+        gps
+        && gps.type === "LineString"
+        && gps.coordinates
+        && gps.coordinates.length > 0
       );
     });
 
@@ -302,7 +318,9 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function selectTrip(feature) {
-    if (!editMap) return;
+    if (!editMap) {
+      return;
+    }
 
     // Reset previous selection
     if (currentTrip) {
@@ -318,7 +336,9 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function updateTripStyle(feature, styleType) {
-    if (!editMap || !feature) return;
+    if (!editMap || !feature) {
+      return;
+    }
 
     const style = window.MapStyles?.getTripStyle?.(styleType) || {
       color: styleType === "selected" ? "#ffd700" : "#3388ff",
@@ -363,7 +383,9 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function createEditableMarkers(coordinates) {
-    if (!editMap) return;
+    if (!editMap) {
+      return;
+    }
 
     clearMarkers();
 
@@ -433,16 +455,18 @@ document.addEventListener("DOMContentLoaded", () => {
     const Δφ = ((point2.lat - point1.lat) * Math.PI) / 180;
     const Δλ = ((point2.lng - point1.lng) * Math.PI) / 180;
 
-    const a =
-      Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-      Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    const a
+      = Math.sin(Δφ / 2) * Math.sin(Δφ / 2)
+      + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
     return R * c;
   }
 
   function addPointToTrip(latLng) {
-    if (!currentTrip) return;
+    if (!currentTrip) {
+      return;
+    }
 
     const coords = currentTrip.geometry.coordinates;
     const index = findClosestPointIndex(latLng, coords);
@@ -454,7 +478,9 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function updatePointInTrip(index, latLng) {
-    if (!currentTrip) return;
+    if (!currentTrip) {
+      return;
+    }
 
     currentTrip.geometry.coordinates[index] = [latLng.lng, latLng.lat];
 
@@ -463,7 +489,9 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function updateTripPolyline() {
-    if (!currentTrip || !editMap) return;
+    if (!currentTrip || !editMap) {
+      return;
+    }
 
     // Update the source data
     const source = editMap.getSource(tripsSourceId);

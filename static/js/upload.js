@@ -80,7 +80,9 @@ class UploadManager {
 
   async initializePreviewMap() {
     const mapEl = this.elements.previewMapElement;
-    if (!mapEl) return;
+    if (!mapEl) {
+      return;
+    }
 
     this.state.previewMap = window.mapBase.createMap(mapEl.id, {
       center: this.config.map.defaultCenter,
@@ -163,7 +165,9 @@ class UploadManager {
   initializeDropZoneListeners() {
     const { dropZone, fileInput } = this.elements;
 
-    if (!dropZone || !fileInput) return;
+    if (!dropZone || !fileInput) {
+      return;
+    }
 
     dropZone.addEventListener("dragover", (e) => {
       e.preventDefault();
@@ -181,7 +185,9 @@ class UploadManager {
     });
 
     dropZone.addEventListener("mousedown", (e) => {
-      if (e.button !== 0) return;
+      if (e.button !== 0) {
+        return;
+      }
       fileInput.click();
     });
 
@@ -191,10 +197,14 @@ class UploadManager {
   initializeUploadButtonListener() {
     const { uploadButton } = this.elements;
 
-    if (!uploadButton) return;
+    if (!uploadButton) {
+      return;
+    }
 
     uploadButton.addEventListener("mousedown", (e) => {
-      if (e.button !== 0) return;
+      if (e.button !== 0) {
+        return;
+      }
       this.uploadFiles();
     });
   }
@@ -224,7 +234,9 @@ class UploadManager {
   }
 
   async handleFiles(files) {
-    if (!files || files.length === 0) return;
+    if (!files || files.length === 0) {
+      return;
+    }
 
     this.loadingManager.startOperation("Handling Files");
     this.loadingManager.addSubOperation("parsing", files.length);
@@ -350,10 +362,10 @@ class UploadManager {
         throw new Error(`Insufficient valid coordinates found in ${file.name}`);
       }
 
-      const startTime =
-        times.length > 0 ? new Date(Math.min(...times.map((t) => t.getTime()))) : null;
-      const endTime =
-        times.length > 0 ? new Date(Math.max(...times.map((t) => t.getTime()))) : null;
+      const startTime
+        = times.length > 0 ? new Date(Math.min(...times.map((t) => t.getTime()))) : null;
+      const endTime
+        = times.length > 0 ? new Date(Math.max(...times.map((t) => t.getTime()))) : null;
 
       const fileEntry = {
         file,
@@ -407,9 +419,9 @@ class UploadManager {
 
   processGeoJSONFeature(feature, file, index) {
     if (
-      !feature.geometry ||
-      !feature.properties ||
-      feature.geometry.type !== "LineString"
+      !feature.geometry
+      || !feature.properties
+      || feature.geometry.type !== "LineString"
     ) {
       return;
     }
@@ -474,7 +486,9 @@ class UploadManager {
   updateFileList() {
     const { fileListBody, uploadButton } = this.elements;
 
-    if (!fileListBody) return;
+    if (!fileListBody) {
+      return;
+    }
 
     fileListBody.innerHTML = "";
 
@@ -506,16 +520,18 @@ class UploadManager {
   updatePreviewMap() {
     const { previewMap, previewSourceId } = this.state;
 
-    if (!previewMap) return;
+    if (!previewMap) {
+      return;
+    }
 
     const features = this.state.selectedFiles
       .map((entry) => {
         const validCoords = entry.coordinates.filter(
           (coord) =>
-            Array.isArray(coord) &&
-            coord.length >= 2 &&
-            !Number.isNaN(coord[0]) &&
-            !Number.isNaN(coord[1])
+            Array.isArray(coord)
+            && coord.length >= 2
+            && !Number.isNaN(coord[0])
+            && !Number.isNaN(coord[1])
         );
 
         if (validCoords.length < 2) {
@@ -648,8 +664,8 @@ class UploadManager {
 
     if (uploadButton) {
       uploadButton.disabled = true;
-      uploadButton.innerHTML =
-        '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Uploading...';
+      uploadButton.innerHTML
+        = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Uploading...';
     }
 
     try {
@@ -738,7 +754,9 @@ class UploadManager {
   displayUploadSourceTrips(trips) {
     const { uploadedTripsBody } = this.elements;
 
-    if (!uploadedTripsBody) return;
+    if (!uploadedTripsBody) {
+      return;
+    }
 
     this.loadingManager.startOperation("Displaying Uploaded Trips");
 
@@ -804,7 +822,9 @@ class UploadManager {
   updateBulkDeleteButtonState() {
     const { bulkDeleteBtn } = this.elements;
 
-    if (!bulkDeleteBtn) return;
+    if (!bulkDeleteBtn) {
+      return;
+    }
 
     const selectedCheckboxes = document.querySelectorAll(".trip-checkbox:checked");
     bulkDeleteBtn.disabled = selectedCheckboxes.length === 0;
@@ -832,7 +852,9 @@ class UploadManager {
       });
 
       if (confirmed) {
-        if (bulkDeleteBtn) bulkDeleteBtn.disabled = true;
+        if (bulkDeleteBtn) {
+          bulkDeleteBtn.disabled = true;
+        }
         let successCount = 0;
         let failCount = 0;
         this.loadingManager.addSubOperation("bulk_delete", tripIds.length);
@@ -890,9 +912,12 @@ class UploadManager {
       );
       this.loadingManager.error(`Error during bulk deletion: ${error.message}`);
     } finally {
-      if (bulkDeleteBtn) bulkDeleteBtn.disabled = false;
-      if (this.elements.selectAllCheckbox)
+      if (bulkDeleteBtn) {
+        bulkDeleteBtn.disabled = false;
+      }
+      if (this.elements.selectAllCheckbox) {
         this.elements.selectAllCheckbox.checked = false;
+      }
       this.updateBulkDeleteButtonState();
       this.loadingManager.finish();
     }

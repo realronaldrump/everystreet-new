@@ -1,7 +1,8 @@
-"""Task scheduler for triggering background tasks.
+"""
+Task scheduler for triggering background tasks.
 
-This module provides the main scheduler that runs periodically and triggers
-other tasks based on their configured schedules and dependencies.
+This module provides the main scheduler that runs periodically and triggers other tasks
+based on their configured schedules and dependencies.
 """
 
 from __future__ import annotations
@@ -23,7 +24,8 @@ logger = get_task_logger(__name__)
 
 
 async def run_task_scheduler_async() -> None:
-    """Async logic for the main task scheduler.
+    """
+    Async logic for the main task scheduler.
 
     This task runs periodically (e.g., every minute) and triggers other tasks
     based on their configured schedules and dependencies.

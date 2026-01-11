@@ -15,16 +15,20 @@ class CoverageSelection {
    * Create bulk action toolbar
    */
   createBulkActionToolbar() {
-    if (document.getElementById("bulk-action-toolbar")) return;
+    if (document.getElementById("bulk-action-toolbar")) {
+      return;
+    }
     const mapContainer = document.getElementById("coverage-map");
-    if (!mapContainer) return;
+    if (!mapContainer) {
+      return;
+    }
 
     const toolbar = document.createElement("div");
     toolbar.id = "bulk-action-toolbar";
-    toolbar.className =
-      "bulk-action-toolbar d-flex align-items-center bg-dark bg-opacity-75 rounded shadow-sm";
-    toolbar.style.cssText =
-      "position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:2;gap:6px;padding:6px 10px;display:none;";
+    toolbar.className
+      = "bulk-action-toolbar d-flex align-items-center bg-dark bg-opacity-75 rounded shadow-sm";
+    toolbar.style.cssText
+      = "position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:2;gap:6px;padding:6px 10px;display:none;";
 
     toolbar.innerHTML = `
       <span id="bulk-selected-count" class="badge bg-info">0 Selected</span>
@@ -59,10 +63,14 @@ class CoverageSelection {
    * Toggle segment selection
    */
   toggleSegmentSelection(segmentId) {
-    if (!segmentId) return;
-    if (this.selectedSegmentIds.has(segmentId))
+    if (!segmentId) {
+      return;
+    }
+    if (this.selectedSegmentIds.has(segmentId)) {
       this.selectedSegmentIds.delete(segmentId);
-    else this.selectedSegmentIds.add(segmentId);
+    } else {
+      this.selectedSegmentIds.add(segmentId);
+    }
 
     this._updateSelectionHighlight();
     this._updateBulkToolbar();
@@ -72,7 +80,9 @@ class CoverageSelection {
    * Update selection highlight
    */
   _updateSelectionHighlight() {
-    if (!this.coverageMap?.map || !this.coverageMap.map.getSource("streets")) return;
+    if (!this.coverageMap?.map || !this.coverageMap.map.getSource("streets")) {
+      return;
+    }
 
     const layerId = "streets-selection-highlight";
     if (!this.coverageMap.map.getLayer(layerId)) {
@@ -106,10 +116,14 @@ class CoverageSelection {
    */
   _updateBulkToolbar() {
     const toolbar = this.bulkToolbar || document.getElementById("bulk-action-toolbar");
-    if (!toolbar) return;
+    if (!toolbar) {
+      return;
+    }
     const countSpan = document.getElementById("bulk-selected-count");
     const count = this.selectedSegmentIds.size;
-    if (countSpan) countSpan.textContent = `${count} Selected`;
+    if (countSpan) {
+      countSpan.textContent = `${count} Selected`;
+    }
 
     const disabled = count === 0;
     toolbar
@@ -124,7 +138,9 @@ class CoverageSelection {
    * Clear selection
    */
   clearSelection() {
-    if (this.selectedSegmentIds.size === 0) return;
+    if (this.selectedSegmentIds.size === 0) {
+      return;
+    }
     this.selectedSegmentIds.clear();
     this._updateSelectionHighlight();
     this._updateBulkToolbar();

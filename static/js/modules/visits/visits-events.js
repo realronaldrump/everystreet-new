@@ -25,23 +25,31 @@
     _setupButtonListeners() {
       // Drawing controls
       document.getElementById("start-drawing")?.addEventListener("mousedown", (e) => {
-        if (e.button !== 0) return;
+        if (e.button !== 0) {
+          return;
+        }
         this.manager.startDrawing();
       });
 
       document.getElementById("save-place")?.addEventListener("mousedown", (e) => {
-        if (e.button !== 0) return;
+        if (e.button !== 0) {
+          return;
+        }
         this.manager.savePlace();
       });
 
       document.getElementById("clear-drawing")?.addEventListener("mousedown", (e) => {
-        if (e.button !== 0) return;
+        if (e.button !== 0) {
+          return;
+        }
         this.manager.clearCurrentDrawing();
       });
 
       // Map controls
       document.getElementById("zoom-to-fit")?.addEventListener("mousedown", (e) => {
-        if (e.button !== 0) return;
+        if (e.button !== 0) {
+          return;
+        }
         this.manager.zoomToFitAllPlaces();
       });
 
@@ -51,14 +59,18 @@
 
       // Place management
       document.getElementById("manage-places")?.addEventListener("mousedown", (e) => {
-        if (e.button !== 0) return;
+        if (e.button !== 0) {
+          return;
+        }
         this.manager.uiManager?.showManagePlacesModal(this.manager.places);
       });
 
       document
         .getElementById("edit-place-boundary")
         ?.addEventListener("mousedown", (e) => {
-          if (e.button !== 0) return;
+          if (e.button !== 0) {
+            return;
+          }
           this.manager.startEditingPlaceBoundary();
         });
 
@@ -66,7 +78,9 @@
       document
         .getElementById("back-to-places-btn")
         ?.addEventListener("mousedown", (e) => {
-          if (e.button !== 0) return;
+          if (e.button !== 0) {
+            return;
+          }
           this.manager.uiManager?.toggleView();
         });
     }
@@ -102,7 +116,9 @@
     _setupKeyboardShortcuts() {
       document.addEventListener("keydown", (e) => {
         // Only handle shortcuts with Ctrl/Cmd key
-        if (!e.ctrlKey && !e.metaKey) return;
+        if (!e.ctrlKey && !e.metaKey) {
+          return;
+        }
 
         switch (e.key) {
           case "d":

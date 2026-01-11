@@ -111,7 +111,8 @@ export class ProgressPoller {
           this.removeActiveTask(taskId);
           onComplete(data);
           return data;
-        } else if (data.stage === STATUS.ERROR) {
+        }
+        if (data.stage === STATUS.ERROR) {
           const errorMessage = data.error || data.message || "Unknown error";
           this.notificationManager.show(`Task failed: ${errorMessage}`, "danger");
           this.removeActiveTask(taskId);
@@ -175,9 +176,9 @@ export class ProgressPoller {
     // Timeout
     this.notificationManager.show(
       `Polling timed out after ${Math.round(
-        (POLLING_CONFIG.MAX_RETRIES *
-          calculatePollInterval(STATUS.UNKNOWN, POLLING_CONFIG.MAX_RETRIES - 1)) /
-          60000
+        (POLLING_CONFIG.MAX_RETRIES
+          * calculatePollInterval(STATUS.UNKNOWN, POLLING_CONFIG.MAX_RETRIES - 1))
+          / 60000
       )} minutes.`,
       "danger"
     );

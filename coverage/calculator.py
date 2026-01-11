@@ -1,12 +1,14 @@
-"""Coverage calculator module.
+"""
+Coverage calculator module.
 
-Calculates street segment coverage based on trip data using MongoDB native
-geospatial queries ($geoIntersects) instead of in-memory R-trees.
+Calculates street segment coverage based on trip data using MongoDB native geospatial
+queries ($geoIntersects) instead of in-memory R-trees.
 """
 
 from __future__ import annotations
 
 import asyncio
+import itertools
 import logging
 from datetime import UTC, datetime
 from typing import Any
@@ -32,7 +34,8 @@ logger = logging.getLogger(__name__)
 
 
 class CoverageCalculator:
-    """Handles the calculation of street coverage for a specific location.
+    """
+    Handles the calculation of street coverage for a specific location.
 
     Uses MongoDB-side geospatial operations for efficient coverage matching.
     """
@@ -42,7 +45,8 @@ class CoverageCalculator:
         location: dict[str, Any],
         task_id: str,
     ) -> None:
-        """Initialize the coverage calculator.
+        """
+        Initialize the coverage calculator.
 
         Args:
             location: Dictionary with location data (display_name, osm_id, etc.)
@@ -75,7 +79,8 @@ class CoverageCalculator:
 
     @staticmethod
     def _get_match_buffer(location: dict[str, Any]) -> float:
-        """Get match buffer distance in meters from location settings.
+        """
+        Get match buffer distance in meters from location settings.
 
         Args:
             location: Location dictionary
@@ -91,7 +96,8 @@ class CoverageCalculator:
 
     @staticmethod
     def _get_min_match_length(location: dict[str, Any]) -> float:
-        """Get minimum match length in meters from location settings.
+        """
+        Get minimum match length in meters from location settings.
 
         Args:
             location: Location dictionary
@@ -112,7 +118,8 @@ class CoverageCalculator:
         message: str = "",
         error: str = "",
     ) -> None:
-        """Update the progress document in MongoDB.
+        """
+        Update the progress document in MongoDB.
 
         Args:
             stage: Current processing stage
@@ -132,7 +139,8 @@ class CoverageCalculator:
                 "total_trips_to_process": self.total_trips_to_process,
                 "processed_trips": self.processed_trips_count,
                 "driveable_length_mi": round(
-                    self.total_driveable_length * METERS_TO_MILES, 2
+                    self.total_driveable_length * METERS_TO_MILES,
+                    2,
                 ),
                 "covered_length_mi": round(current_covered_length * METERS_TO_MILES, 2),
                 "coverage_percentage": round(coverage_pct, 2),
@@ -164,14 +172,15 @@ class CoverageCalculator:
                 await status_doc.insert()
 
         except Exception as e:
-            logger.error(
+            logger.exception(
                 "Task %s: Error updating progress: %s",
                 self.task_id,
                 e,
             )
 
     async def calculate_initial_stats(self) -> bool:
-        """Calculate initial statistics using MongoDB aggregation.
+        """
+        Calculate initial statistics using MongoDB aggregation.
 
         Returns:
             True if successful, False otherwise
@@ -200,8 +209,8 @@ class CoverageCalculator:
                                     {"$eq": ["$properties.undriveable", True]},
                                     0,
                                     "$properties.segment_length",
-                                ]
-                            }
+                                ],
+                            },
                         },
                         "driven_length": {
                             "$sum": {
@@ -210,12 +219,12 @@ class CoverageCalculator:
                                         "$and": [
                                             {"$eq": ["$properties.driven", True]},
                                             {"$ne": ["$properties.undriveable", True]},
-                                        ]
+                                        ],
                                     },
                                     "$properties.segment_length",
                                     0,
-                                ]
-                            }
+                                ],
+                            },
                         },
                         "total_segments": {"$sum": 1},
                         "covered_segments": {
@@ -224,8 +233,8 @@ class CoverageCalculator:
                                     {"$eq": ["$properties.driven", True]},
                                     1,
                                     0,
-                                ]
-                            }
+                                ],
+                            },
                         },
                         "driven_ids": {
                             "$push": {
@@ -233,10 +242,10 @@ class CoverageCalculator:
                                     {"$eq": ["$properties.driven", True]},
                                     "$properties.segment_id",
                                     "$$REMOVE",
-                                ]
-                            }
+                                ],
+                            },
                         },
-                    }
+                    },
                 },
             ]
 
@@ -286,7 +295,8 @@ class CoverageCalculator:
     def _is_valid_trip(
         gps_data: dict[str, Any] | None,
     ) -> tuple[bool, list[list[float]]]:
-        """Validate if the GPS data is suitable for coverage calculation.
+        """
+        Validate if the GPS data is suitable for coverage calculation.
 
         Args:
             gps_data: GPS data dictionary (GeoJSON)
@@ -316,7 +326,8 @@ class CoverageCalculator:
 
     @staticmethod
     def _line_length_m(coords: list[tuple[float, float]]) -> float:
-        """Calculate length of a line in meters.
+        """
+        Calculate length of a line in meters.
 
         Args:
             coords: List of coordinate tuples (lon, lat)
@@ -325,7 +336,7 @@ class CoverageCalculator:
             Length in meters
         """
         length_m = 0.0
-        for (lon1, lat1), (lon2, lat2) in zip(coords, coords[1:], strict=False):
+        for (lon1, lat1), (lon2, lat2) in itertools.pairwise(coords):
             length_m += GeometryService.haversine_distance(
                 lon1,
                 lat1,
@@ -336,7 +347,8 @@ class CoverageCalculator:
         return length_m
 
     def _geometry_length_m(self, geom: Any) -> float:
-        """Calculate geometry length in meters.
+        """
+        Calculate geometry length in meters.
 
         Handles LineString, MultiLineString, and GeometryCollection types.
 
@@ -361,7 +373,8 @@ class CoverageCalculator:
         return 0.0
 
     async def _find_intersecting_streets(self, trip_geometry: dict) -> list[str]:
-        """Find undriven streets intersecting a trip geometry using MongoDB.
+        """
+        Find undriven streets intersecting a trip geometry using MongoDB.
 
         Args:
             trip_geometry: GeoJSON geometry of the trip
@@ -390,7 +403,7 @@ class CoverageCalculator:
                         "properties.location": self.location_name,
                         "properties.driven": False,
                         "geometry": {"$geoIntersects": {"$geometry": query_geometry}},
-                    }
+                    },
                 )
                 .project(model=Street)
                 .to_list()
@@ -422,7 +435,7 @@ class CoverageCalculator:
             self._geospatial_error_count += 1
             if self._geospatial_error_count == 1:
                 self._geospatial_error_sample = str(e)
-                logger.error(
+                logger.exception(
                     "Task %s: Geospatial query failed: %s "
                     "(further errors will be summarized)",
                     self.task_id,
@@ -437,7 +450,8 @@ class CoverageCalculator:
             return []
 
     async def process_trips(self, processed_trip_ids_set: set[str]) -> bool:
-        """Process trips to find newly covered street segments.
+        """
+        Process trips to find newly covered street segments.
 
         Uses MongoDB geospatial queries to find intersections.
 
@@ -463,7 +477,7 @@ class CoverageCalculator:
                 self.total_trips_to_process,
             )
         except Exception as e:
-            logger.error("Task %s: Error counting trips: %s", self.task_id, e)
+            logger.exception("Task %s: Error counting trips: %s", self.task_id, e)
             return False
 
         if self.total_trips_to_process == 0:
@@ -475,7 +489,7 @@ class CoverageCalculator:
         # Manual batching using Beanie iterator
         batch: list[Trip] = []
         async for trip_doc in Trip.find(base_trip_filter).project(
-            model=Trip
+            model=Trip,
         ):  # Project to Trip model (includes gps, id)
             batch.append(trip_doc)
 
@@ -516,7 +530,9 @@ class CoverageCalculator:
         return True
 
     async def _process_batch(
-        self, batch: list[Trip], processed_trip_ids_set: set[str]
+        self,
+        batch: list[Trip],
+        processed_trip_ids_set: set[str],
     ) -> None:
         """Process a batch of trips."""
         tasks = []
@@ -546,7 +562,8 @@ class CoverageCalculator:
                     logger.error("Error querying intersections: %s", res)
 
     def _build_trip_filter(self, processed_trip_ids_set: set[str]) -> dict[str, Any]:
-        """Build MongoDB filter for trips query.
+        """
+        Build MongoDB filter for trips query.
 
         Args:
             processed_trip_ids_set: Set of already processed trip IDs
@@ -578,11 +595,11 @@ class CoverageCalculator:
                                 [max_lon, max_lat],
                                 [min_lon, max_lat],
                                 [min_lon, min_lat],
-                            ]
+                            ],
                         ],
                     }
                     base_trip_filter["gps"] = {
-                        "$geoIntersects": {"$geometry": bbox_polygon}
+                        "$geoIntersects": {"$geometry": bbox_polygon},
                     }
             except (ValueError, TypeError):
                 logger.warning("Invalid bbox, processing all trips")
@@ -618,7 +635,8 @@ class CoverageCalculator:
         self,
         processed_trip_ids_set: set[str],
     ) -> dict[str, Any] | None:
-        """Update street 'driven' status and calculate final stats.
+        """
+        Update street 'driven' status and calculate final stats.
 
         Args:
             processed_trip_ids_set: Set of all processed trip IDs
@@ -628,7 +646,7 @@ class CoverageCalculator:
         """
         # Identify segments that are truly new (not in initial set)
         segments_to_update_in_db = list(
-            self.newly_covered_segments - self.initial_covered_segments
+            self.newly_covered_segments - self.initial_covered_segments,
         )
         newly_driven_count = len(segments_to_update_in_db)
 
@@ -655,7 +673,9 @@ class CoverageCalculator:
 
         # Update metadata
         await self._update_coverage_metadata(
-            coverage_stats, processed_trip_ids_set, newly_driven_count
+            coverage_stats,
+            processed_trip_ids_set,
+            newly_driven_count,
         )
 
         final_result = {
@@ -674,7 +694,8 @@ class CoverageCalculator:
         return final_result
 
     async def _update_driven_segments(self, segment_ids: list[str]) -> None:
-        """Update segments as driven in the database.
+        """
+        Update segments as driven in the database.
 
         Args:
             segment_ids: List of segment IDs to mark as driven
@@ -686,22 +707,23 @@ class CoverageCalculator:
 
                 # Update using Beanie
                 await Street.find(
-                    {"properties.segment_id": {"$in": segment_batch}}
+                    {"properties.segment_id": {"$in": segment_batch}},
                 ).update(
                     {
                         "$set": {
                             "properties.driven": True,
                             "properties.last_coverage_update": update_timestamp,
                         },
-                    }
+                    },
                 )
                 await asyncio.sleep(BATCH_PROCESS_DELAY)
         except Exception as e:
-            logger.error("Task %s: Error updating DB: %s", self.task_id, e)
+            logger.exception("Task %s: Error updating DB: %s", self.task_id, e)
             await self.update_progress("error", 90, f"Error updating DB: {e}")
 
     async def _calculate_final_stats(self) -> dict[str, Any] | None:
-        """Calculate final coverage statistics via MongoDB aggregation.
+        """
+        Calculate final coverage statistics via MongoDB aggregation.
 
         Returns:
             Coverage statistics dictionary or None on error
@@ -716,7 +738,7 @@ class CoverageCalculator:
                                 "$group": {
                                     "_id": None,
                                     "total_length": {
-                                        "$sum": "$properties.segment_length"
+                                        "$sum": "$properties.segment_length",
                                     },
                                     "driveable_length": {
                                         "$sum": {
@@ -725,12 +747,12 @@ class CoverageCalculator:
                                                     "$eq": [
                                                         "$properties.undriveable",
                                                         True,
-                                                    ]
+                                                    ],
                                                 },
                                                 0,
                                                 "$properties.segment_length",
-                                            ]
-                                        }
+                                            ],
+                                        },
                                     },
                                     "driven_length": {
                                         "$sum": {
@@ -741,20 +763,20 @@ class CoverageCalculator:
                                                             "$eq": [
                                                                 "$properties.driven",
                                                                 True,
-                                                            ]
+                                                            ],
                                                         },
                                                         {
                                                             "$ne": [
                                                                 "$properties.undriveable",
                                                                 True,
-                                                            ]
+                                                            ],
                                                         },
-                                                    ]
+                                                    ],
                                                 },
                                                 "$properties.segment_length",
                                                 0,
-                                            ]
-                                        }
+                                            ],
+                                        },
                                     },
                                     "total_segments": {"$sum": 1},
                                     "covered_segments": {
@@ -766,30 +788,30 @@ class CoverageCalculator:
                                                             "$eq": [
                                                                 "$properties.driven",
                                                                 True,
-                                                            ]
+                                                            ],
                                                         },
                                                         {
                                                             "$ne": [
                                                                 "$properties.undriveable",
                                                                 True,
-                                                            ]
+                                                            ],
                                                         },
-                                                    ]
+                                                    ],
                                                 },
                                                 1,
                                                 0,
-                                            ]
-                                        }
+                                            ],
+                                        },
                                     },
-                                }
-                            }
+                                },
+                            },
                         ],
                         "by_type": [
                             {
                                 "$group": {
                                     "_id": "$properties.highway",
                                     "total_length": {
-                                        "$sum": "$properties.segment_length"
+                                        "$sum": "$properties.segment_length",
                                     },
                                     "driveable_length": {
                                         "$sum": {
@@ -798,12 +820,12 @@ class CoverageCalculator:
                                                     "$eq": [
                                                         "$properties.undriveable",
                                                         True,
-                                                    ]
+                                                    ],
                                                 },
                                                 0,
                                                 "$properties.segment_length",
-                                            ]
-                                        }
+                                            ],
+                                        },
                                     },
                                     "driven_length": {
                                         "$sum": {
@@ -814,20 +836,20 @@ class CoverageCalculator:
                                                             "$eq": [
                                                                 "$properties.driven",
                                                                 True,
-                                                            ]
+                                                            ],
                                                         },
                                                         {
                                                             "$ne": [
                                                                 "$properties.undriveable",
                                                                 True,
-                                                            ]
+                                                            ],
                                                         },
-                                                    ]
+                                                    ],
                                                 },
                                                 "$properties.segment_length",
                                                 0,
-                                            ]
-                                        }
+                                            ],
+                                        },
                                     },
                                     "total_segments": {"$sum": 1},
                                     "covered_segments": {
@@ -839,20 +861,20 @@ class CoverageCalculator:
                                                             "$eq": [
                                                                 "$properties.driven",
                                                                 True,
-                                                            ]
+                                                            ],
                                                         },
                                                         {
                                                             "$ne": [
                                                                 "$properties.undriveable",
                                                                 True,
-                                                            ]
+                                                            ],
                                                         },
-                                                    ]
+                                                    ],
                                                 },
                                                 1,
                                                 0,
-                                            ]
-                                        }
+                                            ],
+                                        },
                                     },
                                     "undriveable_length": {
                                         "$sum": {
@@ -861,17 +883,17 @@ class CoverageCalculator:
                                                     "$eq": [
                                                         "$properties.undriveable",
                                                         True,
-                                                    ]
+                                                    ],
                                                 },
                                                 "$properties.segment_length",
                                                 0,
-                                            ]
-                                        }
+                                            ],
+                                        },
                                     },
-                                }
-                            }
+                                },
+                            },
                         ],
-                    }
+                    },
                 },
             ]
 
@@ -879,7 +901,8 @@ class CoverageCalculator:
 
             if not result or not result[0].get("overall"):
                 logger.error(
-                    "Task %s: Final stats aggregation returned empty.", self.task_id
+                    "Task %s: Final stats aggregation returned empty.",
+                    self.task_id,
                 )
                 await self.update_progress(
                     "error",
@@ -893,7 +916,7 @@ class CoverageCalculator:
             stats = result[0]["overall"][0]
 
             final_street_types = self._build_street_types_stats(
-                result[0].get("by_type", [])
+                result[0].get("by_type", []),
             )
 
             driveable_length = stats.get("driveable_length", 0)
@@ -917,13 +940,18 @@ class CoverageCalculator:
             }
 
         except Exception as e:
-            logger.error("Task %s: Error calculating final stats: %s", self.task_id, e)
+            logger.exception(
+                "Task %s: Error calculating final stats: %s",
+                self.task_id,
+                e,
+            )
             await self.update_progress("error", 95, f"Error calculating stats: {e}")
             return None
 
     @staticmethod
     def _build_street_types_stats(by_type_data: list[dict]) -> list[dict]:
-        """Build street type statistics from aggregation results.
+        """
+        Build street type statistics from aggregation results.
 
         Args:
             by_type_data: List of per-type aggregation results
@@ -946,10 +974,11 @@ class CoverageCalculator:
                     "covered_length_m": round(driven_len, 2),
                     "driveable_length_m": round(driveable_len, 2),
                     "undriveable_length_m": round(
-                        item.get("undriveable_length", 0.0), 2
+                        item.get("undriveable_length", 0.0),
+                        2,
                     ),
                     "coverage_percentage": round(pct, 2),
-                }
+                },
             )
 
         final_street_types.sort(key=lambda x: x["total_length_m"], reverse=True)
@@ -960,7 +989,8 @@ class CoverageCalculator:
         coverage_stats: dict[str, Any],
         processed_trip_ids_set: set[str],
     ) -> None:
-        """Update coverage metadata in the database.
+        """
+        Update coverage metadata in the database.
 
         Args:
             coverage_stats: Calculated coverage statistics
@@ -1002,18 +1032,19 @@ class CoverageCalculator:
                 )
 
             await CoverageMetadata.find_one(
-                {"location.display_name": self.location_name}
+                {"location.display_name": self.location_name},
             ).update(update_doc, upsert=True)
 
         except Exception as e:
-            logger.error("Task %s: Error updating metadata: %s", self.task_id, e)
+            logger.exception("Task %s: Error updating metadata: %s", self.task_id, e)
             await self.update_progress("error", 97, f"Failed to update metadata: {e}")
 
     async def compute_coverage(
         self,
         run_incremental: bool = False,
     ) -> dict[str, Any] | None:
-        """Main orchestration method for the coverage calculation process.
+        """
+        Main orchestration method for the coverage calculation process.
 
         Args:
             run_incremental: If True, only process new trips since last run
@@ -1035,7 +1066,9 @@ class CoverageCalculator:
 
         try:
             await self.update_progress(
-                "initializing", 0, f"Initializing {run_type} calculation..."
+                "initializing",
+                0,
+                f"Initializing {run_type} calculation...",
             )
 
             # Calculate initial stats
@@ -1060,7 +1093,7 @@ class CoverageCalculator:
             if final_stats:
                 # Trigger GeoJSON generation in background
                 asyncio.create_task(
-                    generate_and_store_geojson(self.location_name, self.task_id)
+                    generate_and_store_geojson(self.location_name, self.task_id),
                 )
 
             duration = (datetime.now(UTC) - start_time).total_seconds()
@@ -1085,17 +1118,16 @@ class CoverageCalculator:
             return None
 
     async def _load_previous_trip_ids(self) -> set[str]:
-        """Load previously processed trip IDs from metadata.
+        """
+        Load previously processed trip IDs from metadata.
 
         Returns:
             Set of previously processed trip IDs
         """
         try:
             metadata = await CoverageMetadata.find_one(
-                {"location.display_name": self.location_name}
-            ).project(
-                model=CoverageMetadata
-            )  # Or just fetch and access field
+                {"location.display_name": self.location_name},
+            ).project(model=CoverageMetadata)  # Or just fetch and access field
 
             # Since processed_trips is a dict inside the model (field checked in previous view)
             # CoverageMetadata has field `location` (dict) and `display_name`?
@@ -1115,7 +1147,7 @@ class CoverageCalculator:
 
             # `find_one` will return a CoverageMetadata instance.
             metadata = await CoverageMetadata.find_one(
-                {"location.display_name": self.location_name}
+                {"location.display_name": self.location_name},
             )
 
             if metadata and hasattr(metadata, "processed_trips"):
@@ -1134,7 +1166,8 @@ async def compute_coverage_for_location(
     location: dict[str, Any],
     task_id: str,
 ) -> dict[str, Any] | None:
-    """Entry point for a full coverage calculation.
+    """
+    Entry point for a full coverage calculation.
 
     Args:
         location: Location dictionary with display_name and other settings
@@ -1151,7 +1184,8 @@ async def compute_incremental_coverage(
     location: dict[str, Any],
     task_id: str,
 ) -> dict[str, Any] | None:
-    """Entry point for an incremental coverage calculation.
+    """
+    Entry point for an incremental coverage calculation.
 
     Args:
         location: Location dictionary with display_name and other settings

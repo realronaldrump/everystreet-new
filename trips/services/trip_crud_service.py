@@ -16,7 +16,8 @@ class TripCrudService:
 
     @staticmethod
     async def get_trip(trip_id: str) -> Trip | None:
-        """Get a single trip by its transaction ID.
+        """
+        Get a single trip by its transaction ID.
 
         Args:
             trip_id: Transaction ID of the trip
@@ -28,7 +29,8 @@ class TripCrudService:
 
     @staticmethod
     async def delete_trip(trip_id: str):
-        """Delete a trip by its transaction ID.
+        """
+        Delete a trip by its transaction ID.
 
         Args:
             trip_id: Transaction ID of the trip
@@ -41,7 +43,8 @@ class TripCrudService:
         """
         trip = await Trip.find_one(Trip.transactionId == trip_id)
         if not trip:
-            raise ValueError("Trip not found")
+            msg = "Trip not found"
+            raise ValueError(msg)
 
         await trip.delete()
 
@@ -53,7 +56,8 @@ class TripCrudService:
 
     @staticmethod
     async def bulk_delete_trips(trip_ids: list[str]):
-        """Bulk delete trips by their transaction IDs.
+        """
+        Bulk delete trips by their transaction IDs.
 
         Args:
             trip_ids: List of transaction IDs
@@ -65,7 +69,8 @@ class TripCrudService:
             ValueError: If no trip IDs provided
         """
         if not trip_ids:
-            raise ValueError("No trip IDs provided")
+            msg = "No trip IDs provided"
+            raise ValueError(msg)
 
         result = await Trip.find(In(Trip.transactionId, trip_ids)).delete()
 
@@ -77,7 +82,8 @@ class TripCrudService:
 
     @staticmethod
     async def update_trip(trip_id: str, geometry_data=None, properties_data=None):
-        """Update a trip's details, such as its geometry or properties.
+        """
+        Update a trip's details, such as its geometry or properties.
 
         Args:
             trip_id: Transaction ID of the trip
@@ -92,14 +98,16 @@ class TripCrudService:
         """
         trip = await Trip.find_one(Trip.transactionId == trip_id)
         if not trip:
-            raise ValueError("Trip not found")
+            msg = "Trip not found"
+            raise ValueError(msg)
 
         if geometry_data:
             if isinstance(geometry_data, str):
                 try:
                     geometry_data = json.loads(geometry_data)
                 except json.JSONDecodeError:
-                    raise ValueError("Invalid JSON format for geometry field.")
+                    msg = "Invalid JSON format for geometry field."
+                    raise ValueError(msg)
             trip.gps = geometry_data
 
         if properties_data:
@@ -117,7 +125,8 @@ class TripCrudService:
 
     @staticmethod
     async def restore_trip(trip_id: str):
-        """Restore an invalid trip.
+        """
+        Restore an invalid trip.
 
         Args:
             trip_id: Transaction ID of the trip
@@ -130,7 +139,8 @@ class TripCrudService:
         """
         trip = await Trip.find_one(Trip.transactionId == trip_id)
         if not trip:
-            raise ValueError("Trip not found")
+            msg = "Trip not found"
+            raise ValueError(msg)
 
         # Unset invalid flags
         trip.invalid = None
