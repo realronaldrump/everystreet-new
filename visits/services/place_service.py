@@ -4,7 +4,6 @@ import logging
 from datetime import UTC, datetime
 from typing import Any
 
-from bson import ObjectId
 
 from date_utils import normalize_to_utc_datetime
 from db.models import Place
@@ -121,9 +120,9 @@ class PlaceService:
             Success message
 
         Raises:
-            ValueError: If place_id is invalid ObjectId
+            ValueError: If place_id is invalid
         """
-        place = await Place.get(ObjectId(place_id))
+        place = await Place.get(place_id)
         if place:
             await place.delete()
         return {
@@ -148,9 +147,9 @@ class PlaceService:
             Updated place dictionary
 
         Raises:
-            ValueError: If place not found or invalid ObjectId
+            ValueError: If place not found or invalid
         """
-        place = await Place.get(ObjectId(place_id))
+        place = await Place.get(place_id)
         if not place:
             raise ValueError("Place not found")
 
@@ -179,9 +178,9 @@ class PlaceService:
             Place document or None if not found
 
         Raises:
-            ValueError: If place_id is invalid ObjectId
+            ValueError: If place_id is invalid
         """
-        place = await Place.get(ObjectId(place_id))
+        place = await Place.get(place_id)
         if not place:
             return None
         return {

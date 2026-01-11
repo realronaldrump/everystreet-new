@@ -10,11 +10,9 @@ from datetime import UTC, datetime
 
 from beanie import PydanticObjectId
 from fastapi import APIRouter, HTTPException, status
-from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 
 from coverage.gridfs_service import gridfs_service
-from coverage.serializers import serialize_progress
 from coverage.services import coverage_stats_service
 from coverage_tasks import (
     process_coverage_calculation,
@@ -74,7 +72,7 @@ async def get_coverage_status(task_id: str):
             detail="Task not found",
         )
     # Return progress data even if in error state - let frontend handle it
-    return serialize_progress(progress.model_dump())
+    return progress.model_dump()
 
 
 @router.post("/api/street_coverage/incremental")
@@ -137,8 +135,6 @@ async def refresh_coverage_stats(location_id: PydanticObjectId):
         "coverage": updated_coverage_data,
     }
 
-    encoded_content = jsonable_encoder(response_content)
-
     asyncio.create_task(gridfs_service.regenerate_streets_geojson(location_id))
 
-    return JSONResponse(content=encoded_content)
+    return JSONResponse(content=response_content)

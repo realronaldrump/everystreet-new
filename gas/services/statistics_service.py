@@ -4,7 +4,6 @@ import logging
 from datetime import UTC, datetime
 from typing import Any
 
-from bson import ObjectId
 
 from core.exceptions import ResourceNotFoundException, ValidationException
 from db.models import GasFillup, Trip, Vehicle
@@ -197,7 +196,7 @@ class StatisticsService:
         # Get the trip
         trip = None
         if ObjectId.is_valid(trip_id):
-            trip = await Trip.get(ObjectId(trip_id))
+            trip = await Trip.get(trip_id)
         if not trip:
             trip = await Trip.find_one(Trip.transactionId == trip_id)
         if not trip:

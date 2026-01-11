@@ -11,7 +11,6 @@ import logging
 from datetime import UTC, datetime
 from typing import Any
 
-from bson import ObjectId
 from shapely.geometry import mapping, shape
 
 from coverage.constants import (

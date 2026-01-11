@@ -7,13 +7,12 @@ import logging
 from typing import Any
 
 from beanie import PydanticObjectId
-from bson import ObjectId as BsonObjectId
+from bson import ObjectId
 from fastapi import APIRouter, HTTPException, Query, Request, Response, status
 from fastapi.responses import JSONResponse, StreamingResponse
 from gridfs import errors
 
 from coverage.gridfs_service import gridfs_service
-from coverage.serializers import sanitize_features
 from coverage.services import segment_marking_service
 from db import CoverageMetadata, Street
 from models import LocationModel
@@ -57,10 +56,10 @@ async def get_coverage_area_geojson_from_gridfs(
         streets_data = await get_coverage_area_streets(location_id)
         return JSONResponse(content=streets_data, media_type="application/json")
 
-    # GridFS needs bson.ObjectId for its API
+    # GridFS needs ObjectId for its API
     if isinstance(gridfs_id, str):
         try:
-            gridfs_id = BsonObjectId(gridfs_id)
+            gridfs_id = ObjectId(gridfs_id)
         except Exception:
             logger.error("[%s] Invalid GridFS ID format: %s", location_id, gridfs_id)
             raise HTTPException(status_code=400, detail="Invalid GridFS ID format.")

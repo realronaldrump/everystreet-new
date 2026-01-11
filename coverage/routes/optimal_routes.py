@@ -13,7 +13,6 @@ from beanie import PydanticObjectId
 from fastapi import APIRouter, HTTPException, Query, Response
 from fastapi.responses import StreamingResponse
 
-from coverage.serializers import serialize_optimal_route
 from db import CoverageMetadata, OptimalRouteProgress
 
 logger = logging.getLogger(__name__)
@@ -143,14 +142,12 @@ async def get_optimal_route(location_id: PydanticObjectId):
             detail="No optimal route generated yet. Use POST to generate one.",
         )
 
-    route = serialize_optimal_route(route)
-
     return {
         "status": "success",
         "location_name": (
             coverage_doc.location.get("display_name") if coverage_doc.location else None
         ),
-        **route,
+        **route.model_dump(by_alias=True),
     }
 
 
@@ -363,7 +360,7 @@ async def stream_optimal_route_progress(task_id: str):
                         "progress": 0,
                         "message": "Waiting for task to start...",
                     }
-                    yield f"data: {json.dumps(data, default=str)}\n\n"
+                    yield f"data: {json.dumps(data)}\n\n"
                     await asyncio.sleep(1)
                     continue
 
@@ -393,9 +390,9 @@ async def stream_optimal_route_progress(task_id: str):
                         "metrics": current_metrics,
                         "error": route_data.get("error"),
                         "started_at": route_data.get("started_at"),
-                        "updated_at": progress.updated_at,
+                        "updated_at": progress.updated_at.isoformat() if progress.updated_at else None,
                     }
-                    yield f"data: {json.dumps(data, default=str)}\n\n"
+                    yield f"data: {json.dumps(data)}\n\n"
 
                 if current_status in ("completed", "failed", "error", "cancelled"):
                     final_data = {
@@ -407,7 +404,7 @@ async def stream_optimal_route_progress(task_id: str):
                         "error": route_data.get("error"),
                         "completed_at": route_data.get("completed_at"),
                     }
-                    yield f"data: {json.dumps(final_data, default=str)}\n\n"
+                    yield f"data: {json.dumps(final_data)}\n\n"
                     break
 
             except Exception as e:

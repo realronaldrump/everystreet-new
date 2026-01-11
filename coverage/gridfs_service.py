@@ -8,7 +8,6 @@ import logging
 from collections.abc import AsyncIterator
 
 from bson import ObjectId
-from fastapi.encoders import jsonable_encoder
 from gridfs import AsyncGridFSBucket, errors
 
 from db.manager import db_manager
@@ -285,8 +284,7 @@ class GridFSService:
                     pass
 
             # Serialize and upload
-            safe_geojson = jsonable_encoder(geojson)
-            data_bytes = json.dumps(safe_geojson).encode("utf-8")
+            data_bytes = json.dumps(geojson).encode("utf-8")
             new_id = await self.bucket.upload_from_stream(
                 f"{location_name}_streets.geojson", data_bytes
             )

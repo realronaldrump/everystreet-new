@@ -11,7 +11,6 @@ from typing import Any
 
 import geopandas as gpd
 import osmnx as ox
-from bson import ObjectId
 from shapely.geometry import LineString, MultiLineString, MultiPoint, mapping
 from shapely.ops import split
 
@@ -237,7 +236,7 @@ async def build_street_segments(
                     # But checking Street model, it only has properties and geometry fields + type
                     # The original code added "area_id" and "area_version" and "segment_id" at top level
                     # But Street model says check Config: extra="allow"
-                    area_id=ObjectId(location_id),
+                    area_id=location_id,
                     area_version=1,
                     segment_id=f"{location_id}-{segment_count}",
                 )

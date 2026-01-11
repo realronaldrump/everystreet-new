@@ -11,6 +11,7 @@ import logging
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
+from bson import ObjectId
 from db.manager import db_manager
 from db.models import CoverageMetadata, ProgressStatus, Street
 
@@ -63,8 +64,6 @@ async def generate_and_store_geojson(
                 # Check model: streets_geojson_id: str | None
                 # If it's stored as str, we might need ObjectId(str) if GridFS expects that.
                 # Usually standard GridFS uses ObjectId.
-                from bson import ObjectId
-
                 try:
                     oid = ObjectId(existing_meta_doc.streets_geojson_id)
                     await fs.delete(oid)

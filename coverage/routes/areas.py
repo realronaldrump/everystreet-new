@@ -14,7 +14,6 @@ from fastapi import APIRouter, HTTPException, status
 from fastapi.responses import JSONResponse
 
 from coverage.location_settings import normalize_location_settings
-from coverage.serializers import serialize_coverage_area, serialize_coverage_details
 from coverage_tasks import process_area
 from db import CoverageMetadata, OsmData, ProgressStatus, Street
 from models import DeleteCoverageAreaModel, LocationModel
@@ -28,7 +27,7 @@ async def get_coverage_areas():
     """Get all coverage areas."""
     try:
         areas = await CoverageMetadata.find_all().to_list()
-        processed_areas = [serialize_coverage_area(area.model_dump()) for area in areas]
+        processed_areas = [area.model_dump(by_alias=True) for area in areas]
 
         return {
             "success": True,
@@ -83,7 +82,7 @@ async def get_coverage_area_details(location_id: PydanticObjectId):
 
     result = {
         "success": True,
-        "coverage": serialize_coverage_details(coverage_doc.model_dump()),
+        "coverage": coverage_doc.model_dump(by_alias=True),
     }
 
     overall_end_time = time.perf_counter()

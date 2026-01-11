@@ -4,7 +4,6 @@ import logging
 from datetime import UTC, datetime
 from typing import Any
 
-from bson import ObjectId
 
 from core.exceptions import ResourceNotFoundException, ValidationException
 from db.models import GasFillup, Vehicle
@@ -69,7 +68,7 @@ class FillupService:
         if not ObjectId.is_valid(fillup_id):
             raise ValidationException("Invalid fillup ID")
 
-        return await GasFillup.get(ObjectId(fillup_id))
+        return await GasFillup.get(fillup_id)
 
     @staticmethod
     def calculate_mpg(
@@ -217,7 +216,7 @@ class FillupService:
             raise ValidationException("Invalid fillup ID")
 
         # Check if fillup exists
-        fillup = await GasFillup.get(ObjectId(fillup_id))
+        fillup = await GasFillup.get(fillup_id)
         if not fillup:
             raise ResourceNotFoundException("Fill-up not found")
 
@@ -302,7 +301,7 @@ class FillupService:
             raise ValidationException("Invalid fillup ID")
 
         # Get existing to find IMEI and time
-        fillup = await GasFillup.get(ObjectId(fillup_id))
+        fillup = await GasFillup.get(fillup_id)
         if not fillup:
             raise ResourceNotFoundException("Fill-up not found")
 

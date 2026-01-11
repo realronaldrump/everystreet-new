@@ -8,12 +8,10 @@ import logging
 from collections import defaultdict
 from datetime import UTC, datetime
 
-from bson import ObjectId
 from fastapi import HTTPException, status
 from shapely.geometry import shape
 
 from coverage.gridfs_service import gridfs_service
-from coverage.serializers import serialize_coverage_details
 from db import CoverageMetadata, Street
 
 logger = logging.getLogger(__name__)
@@ -22,7 +20,7 @@ logger = logging.getLogger(__name__)
 class CoverageStatsService:
     """Service for calculating and managing coverage statistics."""
 
-    async def recalculate_stats(self, location_id: ObjectId) -> dict | None:
+    async def recalculate_stats(self, location_id: str) -> dict | None:
         """Recalculate statistics for a coverage area.
 
         Args:
@@ -68,9 +66,7 @@ class CoverageStatsService:
             updated_coverage_area = await CoverageMetadata.get(location_id)
 
             if updated_coverage_area:
-                return serialize_coverage_details(
-                    updated_coverage_area.model_dump(by_alias=True)
-                )
+                return updated_coverage_area.model_dump(by_alias=True)
 
             # Fallback response
             base_response = {
@@ -292,14 +288,6 @@ class SegmentMarkingService:
                 detail="Missing location_id or segment_id",
             )
 
-        try:
-            obj_location_id = ObjectId(location_id_str)
-        except Exception:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid location_id format",
-            )
-
         # Find segment
         segment_doc = await Street.find_one({"properties.segment_id": segment_id})
 
@@ -310,7 +298,7 @@ class SegmentMarkingService:
             )
 
         # Validate location match
-        coverage_meta = await CoverageMetadata.get(obj_location_id)
+        coverage_meta = await CoverageMetadata.get(location_id_str)
 
         if not coverage_meta or not coverage_meta.location.get("display_name"):
             raise HTTPException(
