@@ -17,7 +17,12 @@ class CoverageUI {
   /**
    * Update coverage table
    */
-  updateCoverageTable(areas, formatRelativeTime, formatStageName, distanceInUserUnits) {
+  updateCoverageTable(
+    areas,
+    formatRelativeTime,
+    formatStageName,
+    distanceInUserUnits,
+  ) {
     this.lastCoverageAreas = areas;
     const tableBody = document.querySelector("#coverage-areas-table tbody");
     if (!tableBody) {
@@ -56,7 +61,7 @@ class CoverageUI {
         index,
         formatRelativeTime,
         formatStageName,
-        distanceInUserUnits
+        distanceInUserUnits,
       );
       tableBody.appendChild(row);
     });
@@ -114,7 +119,7 @@ class CoverageUI {
       return;
     }
     const statsContainer = document.querySelector(
-      ".dashboard-stats-card .stats-container"
+      ".dashboard-stats-card .stats-container",
     );
     if (!statsContainer) {
       return;
@@ -122,7 +127,9 @@ class CoverageUI {
 
     const totalLengthM = parseFloat(coverage.total_length || 0);
     const drivenLengthM = parseFloat(coverage.driven_length || 0);
-    const coveragePercentage = parseFloat(coverage.coverage_percentage || 0).toFixed(1);
+    const coveragePercentage = parseFloat(
+      coverage.coverage_percentage || 0,
+    ).toFixed(1);
     const totalSegments = parseInt(coverage.total_segments || 0, 10);
 
     let coveredSegments = 0;
@@ -134,15 +141,20 @@ class CoverageUI {
       }, 0);
     }
 
-    const lastUpdated
-      = coverage.last_stats_update || coverage.last_updated
-        ? formatRelativeTime(coverage.last_stats_update || coverage.last_updated)
+    const lastUpdated =
+      coverage.last_stats_update || coverage.last_updated
+        ? formatRelativeTime(
+            coverage.last_stats_update || coverage.last_updated,
+          )
         : "Never";
 
     let barColor = "bg-success";
     if (coverage.status === "error" || coverage.status === "canceled") {
       barColor = "bg-danger";
-    } else if (coverage.status !== "completed" && coverage.status !== "complete") {
+    } else if (
+      coverage.status !== "completed" &&
+      coverage.status !== "complete"
+    ) {
       barColor = "bg-warning";
     }
 
@@ -152,14 +164,14 @@ class CoverageUI {
         ${this.createStatItem(
           distanceInUserUnits(drivenLengthM),
           "Driven Length",
-          "text-success"
+          "text-success",
         )}
         ${this.createStatItem(`${coveragePercentage}%`, "Coverage", "text-primary")}
         ${this.createStatItem(totalSegments.toLocaleString(), "Total Segments")}
         ${this.createStatItem(
           coveredSegments.toLocaleString(),
           "Driven Segments",
-          "text-success"
+          "text-success",
         )}
         ${this.createStatItem(lastUpdated, "Last Updated", "text-muted", "small")}
       </div>
@@ -198,7 +210,9 @@ class CoverageUI {
    * Update street type coverage
    */
   updateStreetTypeCoverage(streetTypes, distanceInUserUnits, formatStreetType) {
-    const streetTypeCoverageEl = document.getElementById("street-type-coverage");
+    const streetTypeCoverageEl = document.getElementById(
+      "street-type-coverage",
+    );
     if (!streetTypeCoverageEl) {
       return;
     }
@@ -207,29 +221,32 @@ class CoverageUI {
       streetTypeCoverageEl.innerHTML = this.createAlertMessage(
         "No Data",
         "No street type data available.",
-        "secondary"
+        "secondary",
       );
       return;
     }
 
     const sortedTypes = [...streetTypes].sort(
-      (a, b) => parseFloat(b.total_length_m || 0) - parseFloat(a.total_length_m || 0)
+      (a, b) =>
+        parseFloat(b.total_length_m || 0) - parseFloat(a.total_length_m || 0),
     );
     const topTypes = sortedTypes.slice(0, 6);
 
     let html = "";
     topTypes.forEach((type) => {
       const coveragePct = parseFloat(type.coverage_percentage || 0).toFixed(1);
-      const coveredDist = distanceInUserUnits(parseFloat(type.covered_length_m || 0));
+      const coveredDist = distanceInUserUnits(
+        parseFloat(type.covered_length_m || 0),
+      );
       const totalDist = distanceInUserUnits(
         parseFloat(
           (type.driveable_length_m !== undefined
             ? type.driveable_length_m
-            : type.total_length_m) || 0
-        )
+            : type.total_length_m) || 0,
+        ),
       );
-      const denominatorLabel
-        = type.driveable_length_m !== undefined ? "Driveable" : "Total";
+      const denominatorLabel =
+        type.driveable_length_m !== undefined ? "Driveable" : "Total";
 
       let barColor = "bg-success";
       if (parseFloat(coveragePct) < 25) {
@@ -242,12 +259,12 @@ class CoverageUI {
         <div class="street-type-item mb-2">
           <div class="d-flex justify-content-between align-items-center mb-1">
             <small class="fw-bold text-truncate me-2" title="${formatStreetType(
-              type.type
+              type.type,
             )}">${formatStreetType(type.type)}</small>
             <small class="text-muted text-nowrap">${coveragePct}% (${coveredDist} / ${totalDist} ${denominatorLabel})</small>
           </div>
           <div class="progress" style="height: 8px;" title="${formatStreetType(
-            type.type
+            type.type,
           )}: ${coveragePct}% Covered">
             <div class="progress-bar ${barColor}" role="progressbar" style="width: ${coveragePct}%"
                  aria-valuenow="${coveragePct}" aria-valuemin="0" aria-valuemax="100"></div>
@@ -274,7 +291,7 @@ class CoverageUI {
       chartContainer.innerHTML = this.createAlertMessage(
         "No Data",
         "No street type data available for chart.",
-        "secondary"
+        "secondary",
       );
       return;
     }
@@ -283,13 +300,19 @@ class CoverageUI {
       .sort((a, b) => (b.total_length_m || 0) - (a.total_length_m || 0))
       .slice(0, 10);
     const labels = sortedTypes.map((t) => formatStreetType(t.type));
-    const covered = sortedTypes.map((t) => (t.covered_length_m || 0) * 0.000621371);
-    const driveable = sortedTypes.map((t) => (t.driveable_length_m || 0) * 0.000621371);
+    const covered = sortedTypes.map(
+      (t) => (t.covered_length_m || 0) * 0.000621371,
+    );
+    const driveable = sortedTypes.map(
+      (t) => (t.driveable_length_m || 0) * 0.000621371,
+    );
     const coveragePct = sortedTypes.map((t) => t.coverage_percentage || 0);
 
-    chartContainer.innerHTML
-      = '<canvas id="streetTypeChartCanvas" style="min-height: 180px;"></canvas>';
-    const ctx = document.getElementById("streetTypeChartCanvas").getContext("2d");
+    chartContainer.innerHTML =
+      '<canvas id="streetTypeChartCanvas" style="min-height: 180px;"></canvas>';
+    const ctx = document
+      .getElementById("streetTypeChartCanvas")
+      .getContext("2d");
 
     this.streetTypeChartInstance = new Chart(ctx, {
       type: "bar",
@@ -370,20 +393,24 @@ class CoverageUI {
    */
   updateUndrivenStreetsList(geojson, distanceInUserUnits) {
     if (!this.undrivenStreetsContainer) {
-      this.undrivenStreetsContainer = document.getElementById("undriven-streets-list");
+      this.undrivenStreetsContainer = document.getElementById(
+        "undriven-streets-list",
+      );
     }
     if (!this.undrivenSortSelect) {
-      this.undrivenSortSelect = document.getElementById("undriven-streets-sort");
+      this.undrivenSortSelect = document.getElementById(
+        "undriven-streets-sort",
+      );
       if (
-        this.undrivenSortSelect
-        && !this.undrivenSortSelect.dataset.listenerAttached
+        this.undrivenSortSelect &&
+        !this.undrivenSortSelect.dataset.listenerAttached
       ) {
         this.undrivenSortSelect.addEventListener("change", () => {
           this.undrivenSortCriterion = this.undrivenSortSelect.value;
           document.dispatchEvent(
             new CustomEvent("coverageUndrivenSortChanged", {
               detail: this.undrivenSortCriterion,
-            })
+            }),
           );
         });
         this.undrivenSortSelect.dataset.listenerAttached = "true";
@@ -394,11 +421,15 @@ class CoverageUI {
       return;
     }
 
-    if (!geojson || !Array.isArray(geojson.features) || !geojson.features.length) {
+    if (
+      !geojson ||
+      !Array.isArray(geojson.features) ||
+      !geojson.features.length
+    ) {
       container.innerHTML = this.createAlertMessage(
         "No Data",
         "No street data available.",
-        "secondary"
+        "secondary",
       );
       return;
     }
@@ -432,7 +463,7 @@ class CoverageUI {
       container.innerHTML = this.createAlertMessage(
         "All Covered",
         "Great job! Every street has at least one driven segment.",
-        "success"
+        "success",
       );
       return;
     }
@@ -473,7 +504,7 @@ class CoverageUI {
       el.addEventListener("click", () => {
         const street = el.dataset.streetName || el.textContent.trim();
         document.dispatchEvent(
-          new CustomEvent("coverageShowStreet", { detail: street })
+          new CustomEvent("coverageShowStreet", { detail: street }),
         );
       });
     });
@@ -483,10 +514,10 @@ class CoverageUI {
    * Clear dashboard UI
    */
   clearDashboardUI() {
-    document.getElementById("dashboard-location-name").textContent
-      = "Select a location";
+    document.getElementById("dashboard-location-name").textContent =
+      "Select a location";
     const statsContainer = document.querySelector(
-      ".dashboard-stats-card .stats-container"
+      ".dashboard-stats-card .stats-container",
     );
     if (statsContainer) {
       statsContainer.innerHTML = "";
@@ -512,8 +543,8 @@ class CoverageUI {
    * Create alert message
    */
   createAlertMessage(title, message, type = "info") {
-    const iconClass
-      = {
+    const iconClass =
+      {
         danger: "fa-exclamation-circle",
         warning: "fa-exclamation-triangle",
         info: "fa-info-circle",
@@ -538,7 +569,7 @@ class CoverageUI {
     index,
     formatRelativeTime,
     formatStageName,
-    distanceInUserUnits
+    distanceInUserUnits,
   ) {
     const row = document.createElement("tr");
     const status = area.status || "unknown";
@@ -554,11 +585,11 @@ class CoverageUI {
     const areaData = CoverageUI._extractAreaData(
       area,
       formatRelativeTime,
-      distanceInUserUnits
+      distanceInUserUnits,
     );
     const progressBarColor = CoverageUI._getProgressBarColor(
       statusInfo,
-      area.coverage_percentage
+      area.coverage_percentage,
     );
     const locationId = area._id;
 
@@ -569,7 +600,7 @@ class CoverageUI {
       progressBarColor,
       locationId,
       formatStageName,
-      formatRelativeTime
+      formatRelativeTime,
     );
 
     return row;
@@ -624,16 +655,18 @@ class CoverageUI {
    */
   static _extractAreaData(area, _formatRelativeTime, distanceInUserUnits) {
     // Check if area is processing (has zero values) or complete
-    const isProcessing = area.status && [
-      "processing",
-      "preprocessing",
-      "calculating",
-      "indexing",
-      "finalizing",
-      "generating_geojson",
-      "initializing",
-      "loading_streets",
-    ].includes(area.status);
+    const isProcessing =
+      area.status &&
+      [
+        "processing",
+        "preprocessing",
+        "calculating",
+        "indexing",
+        "finalizing",
+        "generating_geojson",
+        "initializing",
+        "loading_streets",
+      ].includes(area.status);
 
     const hasData = area.total_length > 0 || area.total_segments > 0;
 
@@ -641,11 +674,24 @@ class CoverageUI {
       lastUpdated: area.last_updated
         ? new Date(area.last_updated).toLocaleString("en-US", { hour12: true })
         : "Never",
-      lastUpdatedOrder: area.last_updated ? new Date(area.last_updated).getTime() : 0,
-      totalLengthMiles: isProcessing && !hasData ? "--" : distanceInUserUnits(area.total_length_m || area.total_length || 0),
-      drivenLengthMiles: isProcessing && !hasData ? "--" : distanceInUserUnits(area.driven_length_m || area.driven_length || 0),
+      lastUpdatedOrder: area.last_updated
+        ? new Date(area.last_updated).getTime()
+        : 0,
+      totalLengthMiles:
+        isProcessing && !hasData
+          ? "--"
+          : distanceInUserUnits(area.total_length_m || area.total_length || 0),
+      drivenLengthMiles:
+        isProcessing && !hasData
+          ? "--"
+          : distanceInUserUnits(
+              area.driven_length_m || area.driven_length || 0,
+            ),
       coveragePercentage: area.coverage_percentage?.toFixed(1) || "0.0",
-      totalSegments: isProcessing && !hasData ? "--" : (area.total_segments?.toLocaleString() || 0),
+      totalSegments:
+        isProcessing && !hasData
+          ? "--"
+          : area.total_segments?.toLocaleString() || 0,
     };
   }
 
@@ -678,7 +724,7 @@ class CoverageUI {
     progressBarColor,
     locationId,
     formatStageName,
-    formatRelativeTime
+    formatRelativeTime,
   ) {
     const locationButtonData = JSON.stringify({
       display_name: area.location?.display_name || "",
@@ -687,7 +733,7 @@ class CoverageUI {
     const statusIndicator = CoverageUI._buildStatusIndicator(
       area,
       statusInfo,
-      formatStageName
+      formatStageName,
     );
     const disabledAttr = statusInfo.isProcessing ? "disabled" : "";
 
@@ -702,7 +748,8 @@ class CoverageUI {
         parseFloat(area.total_length_m || area.total_length || 0) * 0.000621371
       }">${areaData.totalLengthMiles}</td>
       <td data-label="Driven Length" class="text-end" data-order="${
-        parseFloat(area.driven_length_m || area.driven_length || 0) * 0.000621371
+        parseFloat(area.driven_length_m || area.driven_length || 0) *
+        0.000621371
       }">${areaData.drivenLengthMiles}</td>
       <td data-label="Coverage" data-order="${parseFloat(area.coverage_percentage || 0)}">
         <div class="progress" style="height: 22px;" title="${areaData.coveragePercentage}% coverage">
@@ -716,7 +763,7 @@ class CoverageUI {
       </td>
       <td data-label="Segments" class="text-end" data-order="${parseInt(
         area.total_segments || 0,
-        10
+        10,
       )}">${areaData.totalSegments}</td>
       <td data-label="Last Updated" data-order="${areaData.lastUpdatedOrder}">
         <span title="${areaData.lastUpdated}">${formatRelativeTime(area.last_updated)}</span>
