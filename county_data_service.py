@@ -20,8 +20,6 @@ from db.models import CountyTopology
 
 logger = logging.getLogger(__name__)
 
-COUNTY_TOPOLOGY_COLLECTION = "county_topology"
-
 DEFAULT_TOPOLOGY_VARIANT = "standard"
 TOPOLOGY_VARIANTS: dict[str, dict[str, str]] = {
     "standard": {
@@ -107,18 +105,27 @@ async def _download_and_store_topology(
         response.raise_for_status()
         topology_data: dict[str, Any] = response.json()
 
-    document = {
-        "_id": variant["id"],
-        "projection": variant.get("projection", variant_key),
-        "source": variant["source"],
-        "topology": topology_data,
-        "updated_at": datetime.now(UTC),
-    }
-
-    collection = db_manager.get_collection(COUNTY_TOPOLOGY_COLLECTION)
-    await collection.replace_one({"_id": variant["id"]}, document, upsert=True)
-    logger.info("Stored county topology variant '%s' in MongoDB", variant_key)
-    return document
+    # Use Beanie upsert pattern
+    existing = await CountyTopology.get(variant["id"])
+    if existing:
+        existing.projection = variant.get("projection", variant_key)
+        existing.source = variant["source"]
+        existing.topology = topology_data
+        existing.updated_at = datetime.now(UTC)
+        await existing.save()
+        logger.info("Updated county topology variant '%s' in MongoDB", variant_key)
+        return existing.model_dump()
+    else:
+        new_doc = CountyTopology(
+            id=variant["id"],
+            projection=variant.get("projection", variant_key),
+            source=variant["source"],
+            topology=topology_data,
+            updated_at=datetime.now(UTC),
+        )
+        await new_doc.insert()
+        logger.info("Stored county topology variant '%s' in MongoDB", variant_key)
+        return new_doc.model_dump()
 
 
 async def refresh_county_topology(projection: str | None = None) -> dict[str, Any]:

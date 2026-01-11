@@ -61,18 +61,11 @@ async def _update_coverage_metadata(
     update_data: dict[str, Any],
 ) -> None:
     """Helper to update coverage metadata using Beanie."""
-    # Find by display_name is not by ID, so we use find_one
-    q = {"location.display_name": display_name}
     data = update_data.get("$set", update_data)
     unset_data = update_data.get("$unset")
 
-    # Use Beanie's find_one with upsert
-    # Note: upsert in Beanie requires on_insert doc usually, or relies on update query
-    # A safer way compatible with raw mongo logic is find -> update/insert
-
-    doc = await CoverageMetadata.find_one(
-        CoverageMetadata.location.display_name == display_name
-    )
+    # Use Beanie's native find/update pattern
+    doc = await CoverageMetadata.find_one({"location.display_name": display_name})
     if doc:
         # Construct update query
         req = {}
@@ -84,22 +77,10 @@ async def _update_coverage_metadata(
         if req:
             await doc.update(req)
     else:
-        # Create new if upsert logic required (usually yes for metadata)
-        # But we need 'location' to be set correctly for a new doc
-        if "location" not in data:
-            # Basic partial doc might fail validation if required fields missing
-            # But let's assume if creating new, we have enough info or model has defaults
-            # Using raw collection upsert for safety/compatibility with partial data if simpler
-            # But try to stay Beanie.
-            # Actually, for metadata, usually we have the location object.
-            # We can skip specific logic here if not needed
-            pass
-
-    # Alternative: use update_one on the Beanie model class (works like pymongo wrapper)
-    # await CoverageMetadata.get_motor_collection().update_one(q, update_data, upsert=True)
-    await CoverageMetadata.get_motor_collection().update_one(
-        q, update_data, upsert=True
-    )
+        # Create new document if it doesn't exist (upsert behavior)
+        if "location" in data:
+            new_doc = CoverageMetadata(**data)
+            await new_doc.insert()
 
 
 async def process_coverage_calculation(

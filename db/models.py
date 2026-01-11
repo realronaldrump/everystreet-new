@@ -440,6 +440,7 @@ class CountyTopology(Document):
 
     class Config:
         extra = "allow"
+        populate_by_name = True
 
 
 # List of all document models for Beanie initialization
