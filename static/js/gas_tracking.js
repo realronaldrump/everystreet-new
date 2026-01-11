@@ -238,7 +238,7 @@ async function attemptVehicleDiscovery() {
           continue;
         }
         const errorText = await response.text();
-        console.warn(`Vehicle discovery failed (${step.label}):`, errorText);
+        // Tolerated error, continue to next step
         continue;
       }
 
@@ -249,7 +249,7 @@ async function attemptVehicleDiscovery() {
         return true;
       }
     } catch (err) {
-      console.warn(`Vehicle discovery error during ${step.label}:`, err);
+      // Vehicle discovery error, continue to next step
     }
   }
 
@@ -332,7 +332,6 @@ async function updateLocationAndOdometer() {
       if (!odometerInput.value) odometerInput.placeholder = "Enter manually";
     }
   } catch (error) {
-    console.error("Error fetching location:", error);
     locationText.textContent = "Error loading location";
     locationText.classList.add("text-muted");
     odometerDisplay.textContent = "--";
@@ -504,7 +503,6 @@ async function autoCalcOdometer() {
       showError("Could not estimate: No previous/next trusted odometer found.");
     }
   } catch (error) {
-    console.error("Error estimating odometer:", error);
     showError("Failed to auto-calculate odometer");
   } finally {
     // Restore button
@@ -604,7 +602,6 @@ async function handleFormSubmit(e) {
     // Reload data
     await Promise.all([loadRecentFillups(), loadStatistics()]);
   } catch (error) {
-    console.error("Error submitting fill-up:", error);
     showError(error.message || `Failed to ${isEdit ? "update" : "save"} fill-up`);
   } finally {
     submitButton.disabled = false;
@@ -681,7 +678,6 @@ async function loadRecentFillups() {
 
     fillupList.innerHTML = fillups.map((fillup) => createFillupItem(fillup)).join("");
   } catch (error) {
-    console.error("Error loading fill-ups:", error);
     fillupList.innerHTML =
       '<p class="text-center text-danger">Error loading fill-ups</p>';
   }
@@ -847,7 +843,6 @@ window.deleteFillup = async (id) => {
 
     await Promise.all([loadRecentFillups(), loadStatistics()]);
   } catch (error) {
-    console.error("Error deleting fill-up:", error);
     showError("Failed to delete fill-up");
   }
 };
@@ -879,7 +874,5 @@ async function loadStatistics() {
     document.getElementById("cost-per-mile").textContent = stats.cost_per_mile
       ? `$${stats.cost_per_mile.toFixed(3)}`
       : "$0.00";
-  } catch (error) {
-    console.error("Error loading statistics:", error);
   }
 }

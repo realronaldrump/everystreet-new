@@ -22,19 +22,14 @@ router = APIRouter()
 
 @router.post("/api/coverage_areas/{location_id}/generate-optimal-route")
 async def start_optimal_route_generation(
-    location_id: str,
+    location_id: PydanticObjectId,
     start_lon: float = Query(None, description="Optional starting longitude"),
     start_lat: float = Query(None, description="Optional starting latitude"),
 ):
     """Start a background task to generate optimal completion route."""
     from tasks import generate_optimal_route_task
 
-    try:
-        obj_location_id = ObjectId(location_id)
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid location_id format")
-
-    coverage_doc = await CoverageMetadata.get(obj_location_id)
+    coverage_doc = await CoverageMetadata.get(location_id)
 
     if not coverage_doc:
         raise HTTPException(status_code=404, detail="Coverage area not found")
@@ -46,7 +41,7 @@ async def start_optimal_route_generation(
         )
 
     task = generate_optimal_route_task.delay(
-        location_id=location_id,
+        location_id=str(location_id),
         start_lon=start_lon,
         start_lat=start_lat,
         manual_run=True,
@@ -55,7 +50,7 @@ async def start_optimal_route_generation(
     # Create initial progress document so SSE can track queued state
     # before worker picks up the task
     progress = OptimalRouteProgress(
-        location=location_id,
+        location=str(location_id),
         status="queued",
         progress=0,
         created_at=datetime.now(UTC),
@@ -128,14 +123,9 @@ async def get_worker_status():
 
 
 @router.get("/api/coverage_areas/{location_id}/optimal-route")
-async def get_optimal_route(location_id: str):
+async def get_optimal_route(location_id: PydanticObjectId):
     """Retrieve the generated optimal route for a coverage area."""
-    try:
-        obj_location_id = ObjectId(location_id)
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid location_id format")
-
-    coverage_doc = await CoverageMetadata.get(obj_location_id)
+    coverage_doc = await CoverageMetadata.get(location_id)
 
     if not coverage_doc:
         raise HTTPException(status_code=404, detail="Coverage area not found")
@@ -165,16 +155,11 @@ async def get_optimal_route(location_id: str):
 
 
 @router.get("/api/coverage_areas/{location_id}/optimal-route/gpx")
-async def export_optimal_route_gpx(location_id: str):
+async def export_optimal_route_gpx(location_id: PydanticObjectId):
     """Export optimal route as GPX file for navigation apps."""
     from export_helpers import build_gpx_from_coords
 
-    try:
-        obj_location_id = ObjectId(location_id)
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid location_id format")
-
-    coverage_doc = await CoverageMetadata.get(obj_location_id)
+    coverage_doc = await CoverageMetadata.get(location_id)
 
     if not coverage_doc:
         raise HTTPException(status_code=404, detail="Coverage area not found")
@@ -217,14 +202,9 @@ async def export_optimal_route_gpx(location_id: str):
 
 
 @router.delete("/api/coverage_areas/{location_id}/optimal-route")
-async def delete_optimal_route(location_id: str):
-    """Delete the saved optimal route for a coverage area."""
-    try:
-        obj_location_id = ObjectId(location_id)
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid location_id format")
-
-    coverage_doc = await CoverageMetadata.get(obj_location_id)
+async def delete_optimal_route(location_id: PydanticObjectId):
+    """Delete saved optimal route for a coverage area."""
+    coverage_doc = await CoverageMetadata.get(location_id)
 
     if not coverage_doc:
         raise HTTPException(status_code=404, detail="Coverage area not found")
