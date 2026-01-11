@@ -1,7 +1,6 @@
 """Verification script to check for legacy DB usage and import errors."""
 
 import ast
-import os
 import sys
 from pathlib import Path
 
@@ -100,7 +99,7 @@ def check_module_imports():
         try:
             print(f"Testing import of {mod}...")
             __import__(mod)
-            print(f"  OK")
+            print("  OK")
         except Exception as e:
             import_errors.append(f"Failed to import {mod}: {e}")
 

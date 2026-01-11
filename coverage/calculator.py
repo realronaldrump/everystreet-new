@@ -1093,22 +1093,20 @@ class CoverageCalculator:
         try:
             metadata = await CoverageMetadata.find_one(
                 {"location.display_name": self.location_name}
-            ).project(model=CoverageMetadata)  # Or just fetch and access field
+            ).project(
+                model=CoverageMetadata
+            )  # Or just fetch and access field
 
             # Since processed_trips is a dict inside the model (field checked in previous view)
             # CoverageMetadata has field `location` (dict) and `display_name`?
             # Wait, `db/models.py` showed `CoverageMetadata` fields.
             # CoverageMetadata(Document):
-            #   location: dict
-            #   display_name: str | None
             #   ...
             # But here query uses `{"location.display_name": self.location_name}`.
             # This implies `location` is a sub-document/dict containing `display_name`.
             # And `_load_previous_trip_ids` projects `processed_trips.trip_ids`.
             # I need to check if `processed_trips` is defined in `CoverageMetadata`.
             # Looking at `db/models.py` again (Step 117):
-            #   location: dict[str, Any] = Field(default_factory=dict)
-            #   display_name: str | None = None
             #   ...
             # It accepts `extra="allow"`. So `processed_trips` might be an extra field or inside `location`.
             # The code `metadata["processed_trips"]` suggests it's a top-level field.

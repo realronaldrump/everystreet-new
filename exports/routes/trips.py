@@ -6,10 +6,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, HTTPException, Query, Request, status
 
-from db import (
-    build_calendar_date_expr,
-    build_query_from_request,
-)
+from db import build_calendar_date_expr, build_query_from_request
 from db.models import Trip
 from export_helpers import create_export_response, process_trip_for_export
 from exports.services.streaming_service import StreamingService

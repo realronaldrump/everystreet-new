@@ -30,7 +30,6 @@ Usage:
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
 
 from db.indexes import (
     ensure_archived_trip_indexes,

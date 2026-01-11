@@ -27,7 +27,6 @@ class GridFSService:
         return db_manager.gridfs_bucket
 
     # We can access fs.files collection via db_manager.db for metadata queries if needed
-    # db_manager.db["fs.files"]
 
     async def get_file_metadata(self, file_id: ObjectId) -> dict | None:
         """Get metadata for a GridFS file.
