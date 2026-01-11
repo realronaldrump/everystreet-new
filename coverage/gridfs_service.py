@@ -25,8 +25,6 @@ class GridFSService:
         """Get GridFS bucket from db_manager."""
         return db_manager.gridfs_bucket
 
-    # We can access fs.files collection via db_manager.db for metadata queries if needed
-
     async def get_file_metadata(self, file_id: ObjectId) -> dict | None:
         """
         Get metadata for a GridFS file.
@@ -38,7 +36,19 @@ class GridFSService:
             File metadata or None if not found
         """
         try:
-            return await db_manager.db["fs.files"].find_one({"_id": file_id})
+            # Access GridFS metadata using GridFSBucket.find() method
+            cursor = self.bucket.find({"_id": file_id})
+            async for grid_out in cursor:
+                # Return metadata from GridOut object
+                return {
+                    "_id": grid_out._id,
+                    "length": grid_out.length,
+                    "chunkSize": grid_out.chunk_size,
+                    "uploadDate": grid_out.upload_date,
+                    "filename": grid_out.filename,
+                    "metadata": grid_out.metadata,
+                }
+            return None
         except Exception as e:
             logger.exception("Error fetching GridFS file metadata %s: %s", file_id, e)
             return None
@@ -202,18 +212,15 @@ class GridFSService:
         """
         deleted_count = 0
         try:
-            # Query fs.files collection
-            cursor = db_manager.db["fs.files"].find(
-                {"metadata.location": location_name},
-                {"_id": 1},
-            )
-            async for file_doc in cursor:
+            # Query GridFS files using GridFSBucket.find()
+            cursor = self.bucket.find({"metadata.location": location_name})
+            async for grid_out in cursor:
                 try:
-                    await self.bucket.delete(file_doc["_id"])
+                    await self.bucket.delete(grid_out._id)
                     deleted_count += 1
                     logger.info(
                         "Deleted GridFS file %s for %s",
-                        file_doc["_id"],
+                        grid_out._id,
                         location_name,
                     )
                 except errors.NoFile:
