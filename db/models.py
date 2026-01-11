@@ -240,12 +240,18 @@ class TaskConfig(Document):
 class TaskHistory(Document):
     """Task execution history document."""
 
+    # Use string ID for celery task IDs (UUID strings)
+    id: str | None = Field(default=None, alias="_id")
     task_id: Indexed(str) | None = None
     timestamp: Indexed(datetime, index_type=DESCENDING) | None = None
     status: str | None = None
     duration_seconds: float | None = None
     result: dict[str, Any] | None = None
     error: str | None = None
+    manual_run: bool | None = None
+    start_time: datetime | None = None
+    end_time: datetime | None = None
+    runtime: float | None = None
 
     class Settings:
         name = "task_history"
