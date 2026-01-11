@@ -19,7 +19,6 @@ from db import db_manager, init_database
 from driving_routes import router as driving_routes_router
 from exports import router as export_api_router
 from gas import router as gas_api_router
-
 from live_tracking_api import router as live_tracking_api_router
 from logs_api import router as logs_api_router
 from mongodb_logging_handler import MongoDBHandler
