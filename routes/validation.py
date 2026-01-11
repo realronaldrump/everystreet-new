@@ -1,9 +1,5 @@
-from .constants import (
-    MAX_DEADHEAD_RATIO_ERROR,
-    MAX_DEADHEAD_RATIO_WARN,
-    MAX_ROUTE_GAP_FT,
-    MIN_SEGMENT_COVERAGE_RATIO,
-)
+from .constants import (MAX_DEADHEAD_RATIO_ERROR, MAX_DEADHEAD_RATIO_WARN,
+                        MAX_ROUTE_GAP_FT, MIN_SEGMENT_COVERAGE_RATIO)
 from .geometry import calculate_max_route_gap
 
 

@@ -13,18 +13,13 @@ Modules:
     - routes: API route handlers organized by domain
 """
 
-from coverage.calculator import (
-    CoverageCalculator,
-    compute_coverage_for_location,
-    compute_incremental_coverage,
-)
+from coverage.calculator import (CoverageCalculator,
+                                 compute_coverage_for_location,
+                                 compute_incremental_coverage)
 from coverage.geojson_generator import generate_and_store_geojson
 from coverage.gridfs_service import gridfs_service
-from coverage.services import (
-    coverage_stats_service,
-    geometry_service,
-    segment_marking_service,
-)
+from coverage.services import (coverage_stats_service, geometry_service,
+                               segment_marking_service)
 
 __all__ = [
     # Calculator

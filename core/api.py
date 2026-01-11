@@ -6,16 +6,10 @@ from collections.abc import Callable
 
 from fastapi import HTTPException, status
 
-from core.exceptions import (
-    AuthenticationException,
-    AuthorizationException,
-    DuplicateResourceException,
-    EveryStreetException,
-    ExternalServiceException,
-    RateLimitException,
-    ResourceNotFoundException,
-    ValidationException,
-)
+from core.exceptions import (AuthenticationException, AuthorizationException,
+                             DuplicateResourceException, EveryStreetException,
+                             ExternalServiceException, RateLimitException,
+                             ResourceNotFoundException, ValidationException)
 
 
 def api_route(logger: logging.Logger):

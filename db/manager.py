@@ -14,12 +14,9 @@ from datetime import UTC
 from typing import TYPE_CHECKING, Any, TypeVar
 
 import certifi
-from motor.motor_asyncio import (
-    AsyncIOMotorClient,
-    AsyncIOMotorCollection,
-    AsyncIOMotorDatabase,
-    AsyncIOMotorGridFSBucket,
-)
+from motor.motor_asyncio import (AsyncIOMotorClient, AsyncIOMotorCollection,
+                                 AsyncIOMotorDatabase,
+                                 AsyncIOMotorGridFSBucket)
 from pymongo.errors import ConnectionFailure, OperationFailure
 
 if TYPE_CHECKING:

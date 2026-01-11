@@ -16,10 +16,8 @@ from fastapi.responses import JSONResponse
 from coverage.gridfs_service import gridfs_service
 from coverage.serializers import serialize_progress
 from coverage.services import coverage_stats_service
-from coverage_tasks import (
-    process_coverage_calculation,
-    process_incremental_coverage_calculation,
-)
+from coverage_tasks import (process_coverage_calculation,
+                            process_incremental_coverage_calculation)
 from db import ProgressStatus
 from models import LocationModel
 

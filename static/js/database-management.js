@@ -151,7 +151,9 @@ document.addEventListener("DOMContentLoaded", () => {
         });
 
         // Re-append sorted rows
-        rows.forEach((row) => tbody.appendChild(row));
+        rows.forEach((row) => {
+          tbody.appendChild(row);
+        });
       });
     });
   }

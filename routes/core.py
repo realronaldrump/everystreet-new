@@ -3,12 +3,8 @@ import logging
 import networkx as nx
 
 from .geometry import log_jump_distance
-from .graph import (
-    dijkstra_to_any_target,
-    edge_length_m,
-    get_edge_geometry,
-    reverse_candidates_for_edge,
-)
+from .graph import (dijkstra_to_any_target, edge_length_m, get_edge_geometry,
+                    reverse_candidates_for_edge)
 from .types import EdgeRef, ReqId
 
 logger = logging.getLogger(__name__)

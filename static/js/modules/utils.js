@@ -70,7 +70,9 @@ export function getAllElements(selector) {
  */
 export function batchDOMUpdates(updates) {
   requestAnimationFrame(() => {
-    updates.forEach((update) => update());
+    updates.forEach((update) => {
+      update();
+    });
   });
 }
 

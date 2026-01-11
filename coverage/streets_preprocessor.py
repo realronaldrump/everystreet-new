@@ -15,11 +15,9 @@ from bson import ObjectId
 from shapely.geometry import LineString, MultiLineString, MultiPoint, mapping
 from shapely.ops import split
 
-from coverage.location_settings import (
-    DEFAULT_SEGMENT_LENGTH_FEET,
-    FEET_TO_METERS,
-    normalize_location_settings,
-)
+from coverage.location_settings import (DEFAULT_SEGMENT_LENGTH_FEET,
+                                        FEET_TO_METERS,
+                                        normalize_location_settings)
 from db.models import CoverageMetadata, ProgressStatus, Street
 from preprocess_streets import GRAPH_STORAGE_DIR, preprocess_streets
 

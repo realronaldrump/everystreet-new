@@ -12,12 +12,8 @@ import os
 
 import aiohttp
 
-from core.constants import (
-    HTTP_CONNECTION_LIMIT,
-    HTTP_TIMEOUT_CONNECT,
-    HTTP_TIMEOUT_SOCK_READ,
-    HTTP_TIMEOUT_TOTAL,
-)
+from core.constants import (HTTP_CONNECTION_LIMIT, HTTP_TIMEOUT_CONNECT,
+                            HTTP_TIMEOUT_SOCK_READ, HTTP_TIMEOUT_TOTAL)
 
 logger = logging.getLogger(__name__)
 

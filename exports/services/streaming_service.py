@@ -16,13 +16,9 @@ from fastapi import Request
 from fastapi.responses import StreamingResponse
 
 from db import parse_query_date
-from export_helpers import (
-    CSV_BASE_FIELDS,
-    CSV_GEOMETRY_FIELDS,
-    CSV_LOCATION_FIELDS,
-    create_gpx,
-    flatten_trip_for_csv,
-)
+from export_helpers import (CSV_BASE_FIELDS, CSV_GEOMETRY_FIELDS,
+                            CSV_LOCATION_FIELDS, create_gpx,
+                            flatten_trip_for_csv)
 from geometry_service import GeometryService
 
 logger = logging.getLogger(__name__)

@@ -129,10 +129,7 @@ def organize_by_dimension(
     """
     if value_fields is None:
         # Auto-detect value fields from first result
-        if results:
-            value_fields = [k for k in results[0].keys() if k != "_id"]
-        else:
-            value_fields = []
+        value_fields = [k for k in results[0] if k != "_id"] if results else []
 
     organized: dict[Any, dict[str, Any]] = {}
     for result in results:

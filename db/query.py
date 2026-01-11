@@ -7,12 +7,13 @@ particularly for date filtering and request parameter handling.
 from __future__ import annotations
 
 import logging
-from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from date_utils import normalize_calendar_date, normalize_to_utc_datetime
 
 if TYPE_CHECKING:
+    from datetime import datetime
+
     from fastapi import Request
 
 logger = logging.getLogger(__name__)
