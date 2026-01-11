@@ -368,6 +368,7 @@ class ServerLog(Document):
 class BouncieCredentials(Document):
     """Bouncie API credentials document."""
 
+    id: str = "bouncie_credentials"
     client_id: str | None = None
     client_secret: str | None = None
     redirect_uri: str | None = None
@@ -380,7 +381,7 @@ class BouncieCredentials(Document):
 
     class Settings:
         name = "bouncie_credentials"
-        indexes = [IndexModel([("_id", ASCENDING)], unique=True)]
+        indexes = [IndexModel([("id", ASCENDING)], unique=True)]
 
     class Config:
         extra = "allow"
