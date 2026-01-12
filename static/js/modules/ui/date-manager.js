@@ -15,10 +15,10 @@ const dateManager = {
       return;
     }
 
-    const startDate
-      = utils.getStorage(CONFIG.storage.startDate) || dateUtils.getCurrentDate();
-    const endDate
-      = utils.getStorage(CONFIG.storage.endDate) || dateUtils.getCurrentDate();
+    const startDate =
+      utils.getStorage(CONFIG.storage.startDate) || dateUtils.getCurrentDate();
+    const endDate =
+      utils.getStorage(CONFIG.storage.endDate) || dateUtils.getCurrentDate();
     this.flatpickrInstances = new Map();
 
     const fpConfig = {
@@ -148,7 +148,10 @@ const dateManager = {
       }
     } catch (err) {
       console.error("Error setting date range:", err);
-      utils.showNotification(`Error setting date range: ${err.message}`, "danger");
+      utils.showNotification(
+        `Error setting date range: ${err.message}`,
+        "danger",
+      );
     } finally {
       if (btn) {
         btn.classList.remove("btn-loading");
@@ -212,19 +215,20 @@ const dateManager = {
     if (!span) {
       return;
     }
-    const savedStartDate
-      = utils.getStorage(CONFIG.storage.startDate) || dateUtils.getCurrentDate();
-    const savedEndDate
-      = utils.getStorage(CONFIG.storage.endDate) || dateUtils.getCurrentDate();
-    const fmt = (d) => dateUtils.formatForDisplay(d, { dateStyle: "medium" }) || d;
+    const savedStartDate =
+      utils.getStorage(CONFIG.storage.startDate) || dateUtils.getCurrentDate();
+    const savedEndDate =
+      utils.getStorage(CONFIG.storage.endDate) || dateUtils.getCurrentDate();
+    const fmt = (d) =>
+      dateUtils.formatForDisplay(d, { dateStyle: "medium" }) || d;
     const preset = this.detectPreset(savedStartDate, savedEndDate);
     if (preset) {
-      span.textContent
-        = preset.charAt(0).toUpperCase() + preset.slice(1).replace("-", " ");
+      span.textContent =
+        preset.charAt(0).toUpperCase() + preset.slice(1).replace("-", " ");
       indicator.setAttribute("data-preset", preset);
     } else {
-      span.textContent
-        = savedStartDate === savedEndDate
+      span.textContent =
+        savedStartDate === savedEndDate
           ? fmt(savedStartDate)
           : `${fmt(savedStartDate)} - ${fmt(savedEndDate)}`;
       indicator.removeAttribute("data-preset");
@@ -263,13 +267,13 @@ const dateManager = {
       document.dispatchEvent(
         new CustomEvent("filtersApplied", {
           detail: { startDate: startDateVal, endDate: endDateVal },
-        })
+        }),
       );
       const fd = (d) => dateUtils.formatForDisplay(d, { dateStyle: "short" });
       utils.showNotification(
         `Filters applied: ${fd(startDateVal)} to ${fd(endDateVal)}`,
         "success",
-        3000
+        3000,
       );
     } finally {
       if (btn) {
@@ -287,7 +291,9 @@ const dateManager = {
     uiState.getAllElements(".quick-select-btn").forEach((btn) => {
       btn.classList.remove(CONFIG.classes.active);
     });
-    const todayBtn = uiState.getElement('.quick-select-btn[data-range="today"]');
+    const todayBtn = uiState.getElement(
+      '.quick-select-btn[data-range="today"]',
+    );
     if (todayBtn) {
       todayBtn.classList.add(CONFIG.classes.active);
     }
