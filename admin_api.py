@@ -256,7 +256,7 @@ async def get_last_trip_point():
 @router.get("/api/first_trip_date")
 async def get_first_trip_date():
     try:
-        earliest_trip = await Trip.find_all().sort(Trip.startTime, 1).limit(1).to_list()
+        earliest_trip = await Trip.find_all().sort(+Trip.startTime).limit(1).to_list()
 
         if not earliest_trip or not earliest_trip[0].startTime:
             now = datetime.now(UTC)
