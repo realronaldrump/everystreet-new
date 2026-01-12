@@ -5,6 +5,28 @@
  *
  * Simplified single-user implementation with WebSocket primary, polling fallback.
  */
+const LIVE_TRACKING_DEFAULTS = {
+  pollingInterval: 3000, // 3 seconds
+  followStorageKey: "autoFollowVehicle",
+};
+
+const LIVE_TRACKING_LAYER_IDS = {
+  source: "live-trip-source",
+  lineGlow: "live-trip-line-glow",
+  lineCasing: "live-trip-line-casing",
+  line: "live-trip-line",
+  marker: "live-trip-marker",
+  pulse: "live-trip-pulse",
+  arrow: "live-trip-arrow",
+  arrowImage: "live-trip-arrow-icon",
+};
+
+const COVERAGE_LAYER_IDS = [
+  "drivenStreets-layer",
+  "undrivenStreets-layer",
+  "allStreets-layer",
+];
+
 class LiveTripTracker {
   static instance = null;
 
@@ -21,21 +43,47 @@ class LiveTripTracker {
     }
 
     this.map = map;
+
+    this._initializeState();
+    this._cacheDomElements();
+
+    this.initializeMapLayers();
+    this.bindHudControls();
+    this.bindMapInteractionHandlers();
+    this.setLiveTripActive(false);
+    this.initialize();
+  }
+
+  // --- Setup ------------------------------------------------------------
+  _initializeState() {
     this.activeTrip = null;
     this.ws = null;
     this.pollingTimer = null;
-    this.pollingInterval = 3000; // 3 seconds
+    this.pollingInterval = LIVE_TRACKING_DEFAULTS.pollingInterval;
 
-    // Map layer IDs
-    this.sourceId = "live-trip-source";
-    this.lineGlowLayerId = "live-trip-line-glow";
-    this.lineCasingLayerId = "live-trip-line-casing";
-    this.lineLayerId = "live-trip-line";
-    this.markerLayerId = "live-trip-marker";
-    this.arrowLayerId = "live-trip-arrow";
-    this.arrowImageId = "live-trip-arrow-icon";
+    this.sourceId = LIVE_TRACKING_LAYER_IDS.source;
+    this.lineGlowLayerId = LIVE_TRACKING_LAYER_IDS.lineGlow;
+    this.lineCasingLayerId = LIVE_TRACKING_LAYER_IDS.lineCasing;
+    this.lineLayerId = LIVE_TRACKING_LAYER_IDS.line;
+    this.markerLayerId = LIVE_TRACKING_LAYER_IDS.marker;
+    this.pulseLayerId = LIVE_TRACKING_LAYER_IDS.pulse;
+    this.arrowLayerId = LIVE_TRACKING_LAYER_IDS.arrow;
+    this.arrowImageId = LIVE_TRACKING_LAYER_IDS.arrowImage;
 
-    // DOM elements
+    this.coverageLayerIds = [...COVERAGE_LAYER_IDS];
+
+    this.followStorageKey = LIVE_TRACKING_DEFAULTS.followStorageKey;
+    this.followPreference = this.loadFollowPreference();
+    this.followMode = false;
+    this.lastBearing = null;
+    this.lastCoord = null;
+    this.hasActiveTrip = false;
+    this.routeStyle = this.loadRouteStyle();
+    this.mapInteractionHandlers = [];
+    this.pulseAnimationFrame = null;
+  }
+
+  _cacheDomElements() {
     this.statusIndicator = document.querySelector(".status-indicator");
     this.statusText = document.querySelector(".live-status-text");
     this.tripCountElem = document.querySelector("#active-trips-count");
@@ -51,154 +99,204 @@ class LiveTripTracker {
     this.hudAvgSpeedElem = document.getElementById("live-trip-avg-speed");
     this.followToggle = document.getElementById("live-trip-follow-toggle");
     this.followLabel = this.followToggle?.querySelector(".follow-label");
-
-    this.coverageLayerIds = [
-      "drivenStreets-layer",
-      "undrivenStreets-layer",
-      "allStreets-layer",
-    ];
-
-    this.followStorageKey = "autoFollowVehicle";
-    this.followPreference = this.loadFollowPreference();
-    this.followMode = false;
-    this.lastBearing = null;
-    this.lastCoord = null;
-    this.hasActiveTrip = false;
-    this.routeStyle = this.loadRouteStyle();
-    this.mapInteractionHandlers = [];
-
-    this.initializeMapLayers();
-    this.bindHudControls();
-    this.bindMapInteractionHandlers();
-    this.setLiveTripActive(false);
-    this.initialize();
   }
 
+  // --- Map layers -------------------------------------------------------
   initializeMapLayers() {
     if (!this.map || !this.map.addSource) {
       console.warn("Map not ready for layers");
       return;
     }
 
-    // Add pulse ring layer ID
-    this.pulseLayerId = "live-trip-pulse";
-
     try {
-      const lineWidth = ["interpolate", ["linear"], ["zoom"], 10, 3.5, 14, 5, 18, 8];
-      const casingWidth = ["interpolate", ["linear"], ["zoom"], 10, 6.5, 14, 9, 18, 13];
-      const glowWidth = ["interpolate", ["linear"], ["zoom"], 10, 10, 14, 14, 18, 20];
+      const { lineWidth, casingWidth, glowWidth } = this._getRouteWidths();
       const { color, opacity } = this.routeStyle;
       const casingColor = this.getRouteCasingColor();
 
-      // Add GeoJSON source
-      if (!this.map.getSource(this.sourceId)) {
-        this.map.addSource(this.sourceId, {
-          type: "geojson",
-          data: { type: "FeatureCollection", features: [] },
-        });
-      }
-
-      // Glow layer (underlay) for the live route
-      if (!this.map.getLayer(this.lineGlowLayerId)) {
-        this.map.addLayer({
-          id: this.lineGlowLayerId,
-          type: "line",
-          source: this.sourceId,
-          filter: ["==", ["get", "type"], "line"],
-          paint: {
-            "line-color": color,
-            "line-width": glowWidth,
-            "line-opacity": Math.min(0.45, opacity * 0.6),
-            "line-blur": 6,
-          },
-          layout: {
-            "line-cap": "round",
-            "line-join": "round",
-          },
-        });
-      }
-
-      // Outer casing for route legibility
-      if (!this.map.getLayer(this.lineCasingLayerId)) {
-        this.map.addLayer({
-          id: this.lineCasingLayerId,
-          type: "line",
-          source: this.sourceId,
-          filter: ["==", ["get", "type"], "line"],
-          paint: {
-            "line-color": casingColor,
-            "line-width": casingWidth,
-            "line-opacity": 0.85,
-            "line-blur": 0.6,
-          },
-          layout: {
-            "line-cap": "round",
-            "line-join": "round",
-          },
-        });
-      }
-
-      // Add line layer for trip path with enhanced styling
-      if (!this.map.getLayer(this.lineLayerId)) {
-        this.map.addLayer({
-          id: this.lineLayerId,
-          type: "line",
-          source: this.sourceId,
-          filter: ["==", ["get", "type"], "line"],
-          paint: {
-            "line-color": color,
-            "line-width": lineWidth,
-            "line-opacity": opacity,
-            "line-blur": 0.3,
-          },
-          layout: {
-            "line-cap": "round",
-            "line-join": "round",
-          },
-        });
-      }
-
-      // Add outer pulse ring layer (animated via CSS/JS)
-      if (!this.map.getLayer(this.pulseLayerId)) {
-        this.map.addLayer({
-          id: this.pulseLayerId,
-          type: "circle",
-          source: this.sourceId,
-          filter: ["==", ["get", "type"], "marker"],
-          paint: {
-            "circle-radius": 20,
-            "circle-color": "transparent",
-            "circle-stroke-width": 2,
-            "circle-stroke-color": color,
-            "circle-stroke-opacity": 0.4,
-          },
-        });
-      }
-
-      // Add marker for current position with enhanced styling
-      if (!this.map.getLayer(this.markerLayerId)) {
-        this.map.addLayer({
-          id: this.markerLayerId,
-          type: "circle",
-          source: this.sourceId,
-          filter: ["==", ["get", "type"], "marker"],
-          paint: {
-            "circle-radius": 9,
-            "circle-color": color,
-            "circle-stroke-width": 2.5,
-            "circle-stroke-color": "#ffffff",
-            "circle-blur": 0,
-          },
-        });
-      }
-
+      this._ensureLiveTripSource();
+      this._ensureRouteLayers({
+        lineWidth,
+        casingWidth,
+        glowWidth,
+        color,
+        opacity,
+        casingColor,
+      });
+      this._ensurePulseLayer(color);
+      this._ensureMarkerLayer(color);
       this.ensureArrowLayer();
-
-      // Start pulse animation
       this.startPulseAnimation();
     } catch (error) {
       console.error("Error initializing map layers:", error);
     }
+  }
+
+  _getRouteWidths() {
+    return {
+      lineWidth: ["interpolate", ["linear"], ["zoom"], 10, 3.5, 14, 5, 18, 8],
+      casingWidth: ["interpolate", ["linear"], ["zoom"], 10, 6.5, 14, 9, 18, 13],
+      glowWidth: ["interpolate", ["linear"], ["zoom"], 10, 10, 14, 14, 18, 20],
+    };
+  }
+
+  _ensureLiveTripSource() {
+    if (this.map.getSource(this.sourceId)) {
+      return;
+    }
+    this.map.addSource(this.sourceId, {
+      type: "geojson",
+      data: { type: "FeatureCollection", features: [] },
+    });
+  }
+
+  _ensureRouteLayers({ lineWidth, casingWidth, glowWidth, color, opacity, casingColor }) {
+    if (!this.map.getLayer(this.lineGlowLayerId)) {
+      this.map.addLayer({
+        id: this.lineGlowLayerId,
+        type: "line",
+        source: this.sourceId,
+        filter: ["==", ["get", "type"], "line"],
+        paint: {
+          "line-color": color,
+          "line-width": glowWidth,
+          "line-opacity": Math.min(0.45, opacity * 0.6),
+          "line-blur": 6,
+        },
+        layout: {
+          "line-cap": "round",
+          "line-join": "round",
+        },
+      });
+    }
+
+    if (!this.map.getLayer(this.lineCasingLayerId)) {
+      this.map.addLayer({
+        id: this.lineCasingLayerId,
+        type: "line",
+        source: this.sourceId,
+        filter: ["==", ["get", "type"], "line"],
+        paint: {
+          "line-color": casingColor,
+          "line-width": casingWidth,
+          "line-opacity": 0.85,
+          "line-blur": 0.6,
+        },
+        layout: {
+          "line-cap": "round",
+          "line-join": "round",
+        },
+      });
+    }
+
+    if (!this.map.getLayer(this.lineLayerId)) {
+      this.map.addLayer({
+        id: this.lineLayerId,
+        type: "line",
+        source: this.sourceId,
+        filter: ["==", ["get", "type"], "line"],
+        paint: {
+          "line-color": color,
+          "line-width": lineWidth,
+          "line-opacity": opacity,
+          "line-blur": 0.3,
+        },
+        layout: {
+          "line-cap": "round",
+          "line-join": "round",
+        },
+      });
+    }
+  }
+
+  _ensurePulseLayer(color) {
+    if (this.map.getLayer(this.pulseLayerId)) {
+      return;
+    }
+    this.map.addLayer({
+      id: this.pulseLayerId,
+      type: "circle",
+      source: this.sourceId,
+      filter: ["==", ["get", "type"], "marker"],
+      paint: {
+        "circle-radius": 20,
+        "circle-color": "transparent",
+        "circle-stroke-width": 2,
+        "circle-stroke-color": color,
+        "circle-stroke-opacity": 0.4,
+      },
+    });
+  }
+
+  _ensureMarkerLayer(color) {
+    if (this.map.getLayer(this.markerLayerId)) {
+      return;
+    }
+    this.map.addLayer({
+      id: this.markerLayerId,
+      type: "circle",
+      source: this.sourceId,
+      filter: ["==", ["get", "type"], "marker"],
+      paint: {
+        "circle-radius": 9,
+        "circle-color": color,
+        "circle-stroke-width": 2.5,
+        "circle-stroke-color": "#ffffff",
+        "circle-blur": 0,
+      },
+    });
+  }
+
+  ensureArrowLayer() {
+    if (!this.map) {
+      return;
+    }
+
+    const addLayer = () => {
+      if (this.map.getLayer(this.arrowLayerId)) {
+        return;
+      }
+      this.map.addLayer({
+        id: this.arrowLayerId,
+        type: "symbol",
+        source: this.sourceId,
+        filter: ["==", ["get", "type"], "marker"],
+        layout: {
+          "icon-image": this.arrowImageId,
+          "icon-size": 0.55,
+          "icon-allow-overlap": true,
+          "icon-ignore-placement": true,
+          "icon-rotate": ["get", "heading"],
+          "icon-rotation-alignment": "map",
+        },
+        paint: {
+          "icon-color": this.routeStyle.color,
+        },
+      });
+    };
+
+    if (this.map.hasImage(this.arrowImageId)) {
+      addLayer();
+      return;
+    }
+
+    const svg = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+        <path d="M24 4L40 44L24 36L8 44Z" fill="black" />
+      </svg>
+    `;
+
+    const img = new Image();
+    img.onload = () => {
+      try {
+        if (!this.map.hasImage(this.arrowImageId)) {
+          this.map.addImage(this.arrowImageId, img, { sdf: true });
+        }
+        addLayer();
+      } catch (error) {
+        console.warn("Failed to add arrow image:", error);
+      }
+    };
+    img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
   }
 
   loadRouteStyle() {
@@ -293,6 +391,7 @@ class LiveTripTracker {
     this.applyRouteStyle();
   }
 
+  // --- HUD & follow -----------------------------------------------------
   bindHudControls() {
     if (!this.followToggle) {
       return;
@@ -452,59 +551,6 @@ class LiveTripTracker {
     }
   }
 
-  ensureArrowLayer() {
-    if (!this.map) {
-      return;
-    }
-
-    const addLayer = () => {
-      if (this.map.getLayer(this.arrowLayerId)) {
-        return;
-      }
-      this.map.addLayer({
-        id: this.arrowLayerId,
-        type: "symbol",
-        source: this.sourceId,
-        filter: ["==", ["get", "type"], "marker"],
-        layout: {
-          "icon-image": this.arrowImageId,
-          "icon-size": 0.55,
-          "icon-allow-overlap": true,
-          "icon-ignore-placement": true,
-          "icon-rotate": ["get", "heading"],
-          "icon-rotation-alignment": "map",
-        },
-        paint: {
-          "icon-color": this.routeStyle.color,
-        },
-      });
-    };
-
-    if (this.map.hasImage(this.arrowImageId)) {
-      addLayer();
-      return;
-    }
-
-    const svg = `
-      <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
-        <path d="M24 4L40 44L24 36L8 44Z" fill="black" />
-      </svg>
-    `;
-
-    const img = new Image();
-    img.onload = () => {
-      try {
-        if (!this.map.hasImage(this.arrowImageId)) {
-          this.map.addImage(this.arrowImageId, img, { sdf: true });
-        }
-        addLayer();
-      } catch (error) {
-        console.warn("Failed to add arrow image:", error);
-      }
-    };
-    img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
-  }
-
   updateHud(trip, coords) {
     if (!this.hudElem || !trip) {
       return;
@@ -654,6 +700,7 @@ class LiveTripTracker {
     return { streetName, status };
   }
 
+  // --- Live updates -----------------------------------------------------
   async initialize() {
     try {
       // Load initial trip data
@@ -782,6 +829,7 @@ class LiveTripTracker {
     }
   }
 
+  // --- Trip rendering ---------------------------------------------------
   updateTrip(trip) {
     if (!trip) {
       return;
@@ -1077,6 +1125,19 @@ class LiveTripTracker {
     }
   }
 
+  _renderMetricRows(metrics) {
+    return Object.entries(metrics)
+      .map(
+        ([label, value]) => `
+        <div class="metric-row">
+          <span class="metric-label">${label}:</span>
+          <span class="metric-value">${value}</span>
+        </div>
+      `
+      )
+      .join("");
+  }
+
   updateMetrics(trip) {
     if (!this.metricsElem || !trip) {
       return;
@@ -1133,32 +1194,14 @@ class LiveTripTracker {
     }
 
     // Render metrics
-    const baseHtml = Object.entries(metrics)
-      .map(
-        ([label, value]) => `
-        <div class="metric-row">
-          <span class="metric-label">${label}:</span>
-          <span class="metric-value">${value}</span>
-        </div>
-      `
-      )
-      .join("");
+    const baseHtml = this._renderMetricRows(metrics);
 
     const optionalHtml
       = Object.keys(optional).length > 0
         ? `
         <div class="metric-section-divider"></div>
         <div class="metric-section-title">Trip Behavior</div>
-        ${Object.entries(optional)
-          .map(
-            ([label, value]) => `
-            <div class="metric-row">
-              <span class="metric-label">${label}:</span>
-              <span class="metric-value">${value}</span>
-            </div>
-          `
-          )
-          .join("")}
+        ${this._renderMetricRows(optional)}
       `
         : "";
 
@@ -1265,6 +1308,21 @@ class LiveTripTracker {
     }
   }
 
+  // --- Cleanup ----------------------------------------------------------
+  _removeLayer(layerId) {
+    if (!this.map?.getLayer(layerId)) {
+      return;
+    }
+    this.map.removeLayer(layerId);
+  }
+
+  _removeSource(sourceId) {
+    if (!this.map?.getSource(sourceId)) {
+      return;
+    }
+    this.map.removeSource(sourceId);
+  }
+
   destroy() {
     this.stopPolling();
     this.stopPulseAnimation();
@@ -1288,27 +1346,15 @@ class LiveTripTracker {
     // Remove map layers
     if (this.map) {
       try {
-        if (this.map.getLayer(this.pulseLayerId)) {
-          this.map.removeLayer(this.pulseLayerId);
-        }
-        if (this.map.getLayer(this.arrowLayerId)) {
-          this.map.removeLayer(this.arrowLayerId);
-        }
-        if (this.map.getLayer(this.lineLayerId)) {
-          this.map.removeLayer(this.lineLayerId);
-        }
-        if (this.map.getLayer(this.lineCasingLayerId)) {
-          this.map.removeLayer(this.lineCasingLayerId);
-        }
-        if (this.map.getLayer(this.lineGlowLayerId)) {
-          this.map.removeLayer(this.lineGlowLayerId);
-        }
-        if (this.map.getLayer(this.markerLayerId)) {
-          this.map.removeLayer(this.markerLayerId);
-        }
-        if (this.map.getSource(this.sourceId)) {
-          this.map.removeSource(this.sourceId);
-        }
+        [
+          this.pulseLayerId,
+          this.arrowLayerId,
+          this.lineLayerId,
+          this.lineCasingLayerId,
+          this.lineGlowLayerId,
+          this.markerLayerId,
+        ].forEach((layerId) => this._removeLayer(layerId));
+        this._removeSource(this.sourceId);
       } catch (error) {
         console.warn("Error removing layers:", error);
       }
