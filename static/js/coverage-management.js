@@ -140,11 +140,78 @@ function setupEventListeners() {
 // Background Job UI (minimize + resume)
 // =============================================================================
 
-// =============================================================================
-// Background Job UI
-// =============================================================================
+function setupBackgroundJobUI() {
+  // Global job tracking handles resume/minimize; this keeps coverage UI stable.
+  updateProgress(0, "Ready", "");
+}
 
-// Local UI helpers (error handling, etc remain, but job progress is global now)
+async function resumeBackgroundJob() {
+  // No-op: GlobalJobTracker resumes automatically from localStorage.
+}
+
+function showProgressModal() {
+  const el = document.getElementById("taskProgressModal");
+  if (!el) {
+    return;
+  }
+  const modal = bootstrap.Modal.getOrCreateInstance(el);
+  modal.show();
+}
+
+function hideProgressModal() {
+  const el = document.getElementById("taskProgressModal");
+  if (!el) {
+    return;
+  }
+  const modal = bootstrap.Modal.getInstance(el);
+  modal?.hide();
+}
+
+function hideMinimizedBadge() {
+  const badge = document.getElementById("minimized-progress-badge");
+  badge?.classList.add("d-none");
+}
+
+function updateMinimizedBadge() {
+  const badge = document.getElementById("minimized-progress-badge");
+  if (!badge) {
+    return;
+  }
+
+  const title = document.getElementById("task-progress-title")?.textContent;
+  const pctText = document.querySelector(
+    "#taskProgressModal .progress-bar"
+  )?.textContent || "0%";
+
+  const nameEl = badge.querySelector(".minimized-location-name");
+  const pctEl = badge.querySelector(".minimized-progress-percent");
+
+  if (nameEl) {
+    nameEl.textContent = title || "Background Job";
+  }
+  if (pctEl) {
+    pctEl.textContent = pctText;
+  }
+}
+
+function saveActiveJobToStorage() {
+  // Placeholder for legacy job tracking; GlobalJobTracker owns persistence.
+}
+
+function setProgressModalTitle() {
+  const titleEl = document.getElementById("task-progress-title");
+  if (titleEl && !titleEl.textContent) {
+    titleEl.textContent = "Processing...";
+  }
+}
+
+function isJobActiveStatus(status) {
+  return ["pending", "running"].includes(status);
+}
+
+function isJobTerminalStatus(status) {
+  return ["completed", "failed", "cancelled", "needs_attention"].includes(status);
+}
 
 // =============================================================================
 // API Functions
