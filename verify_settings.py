@@ -5,8 +5,8 @@ import sys
 # Add project root to path
 sys.path.append(os.getcwd())
 
-from db.manager import DatabaseManager
 from app_settings import get_app_settings, update_app_settings
+from db.manager import DatabaseManager
 from db.models import AppSettings
 
 
