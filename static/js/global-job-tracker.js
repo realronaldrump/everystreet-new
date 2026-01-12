@@ -176,7 +176,8 @@ async function cancelActiveJob() {
   const { jobId } = activeJob;
   const oldText = document.getElementById("task-progress-message")?.textContent;
   if (document.getElementById("task-progress-message")) {
-    document.getElementById("task-progress-message").textContent = "Cancelling...";
+    document.getElementById("task-progress-message").textContent =
+      "Cancelling...";
   }
 
   try {
@@ -187,14 +188,14 @@ async function cancelActiveJob() {
 
     // Dispatch event so page can refresh if needed
     document.dispatchEvent(
-      new CustomEvent("coverage:job-cancelled", { detail: { jobId } })
+      new CustomEvent("coverage:job-cancelled", { detail: { jobId } }),
     );
   } catch (e) {
     console.error("Failed to cancel job:", e);
     showNotification("Failed to cancel job", "danger");
     if (document.getElementById("task-progress-message")) {
-      document.getElementById("task-progress-message").textContent
-        = oldText || "Error cancelling";
+      document.getElementById("task-progress-message").textContent =
+        oldText || "Error cancelling";
     }
   }
 }
@@ -237,7 +238,7 @@ function handleJobFinished(job) {
   document.dispatchEvent(
     new CustomEvent("coverage:job-finished", {
       detail: { job, success },
-    })
+    }),
   );
 }
 
