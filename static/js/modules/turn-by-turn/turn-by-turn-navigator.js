@@ -163,7 +163,7 @@ class TurnByTurnNavigator {
 
     // Live tracking fallback event
     document.addEventListener("liveTrackingUpdated", (event) =>
-      this.handleLiveTrackingUpdate(event)
+      this.handleLiveTrackingUpdate(event),
     );
   }
 
@@ -282,11 +282,12 @@ class TurnByTurnNavigator {
       if (coverageData) {
         this.coverageBaseline = {
           totalMi:
-            (coverageData.driveable_length_m || coverageData.total_length || 0)
-            / 1609.344,
+            (coverageData.driveable_length_m ||
+              coverageData.total_length ||
+              0) / 1609.344,
           coveredMi:
-            (coverageData.driven_length_m || coverageData.driven_length || 0)
-            / 1609.344,
+            (coverageData.driven_length_m || coverageData.driven_length || 0) /
+            1609.344,
           percentage: coverageData.coverage_percentage || 0,
         };
       }
@@ -298,13 +299,13 @@ class TurnByTurnNavigator {
       this.map.updateRouteLayers(this.routeCoords);
       this.map.addRouteMarkers(
         this.routeCoords[0],
-        this.routeCoords[this.routeCoords.length - 1]
+        this.routeCoords[this.routeCoords.length - 1],
       );
 
       this.ui.updateSetupSummary(
         this.totalDistance,
         Math.max(this.maneuvers.length - 2, 0),
-        this.coverageBaseline.percentage
+        this.coverageBaseline.percentage,
       );
 
       this.routeLoaded = true;
@@ -347,7 +348,7 @@ class TurnByTurnNavigator {
   async fetchRouteETA() {
     const duration = await TurnByTurnAPI.fetchRouteETA(
       this.routeCoords,
-      this.map.getAccessToken()
+      this.map.getAccessToken(),
     );
 
     if (duration) {
@@ -385,10 +386,10 @@ class TurnByTurnNavigator {
       })
       .filter(Boolean);
 
-    const nameNode
-      = xml.querySelector("trk > name")
-      || xml.querySelector("rte > name")
-      || xml.querySelector("metadata > name");
+    const nameNode =
+      xml.querySelector("trk > name") ||
+      xml.querySelector("rte > name") ||
+      xml.querySelector("metadata > name");
     const name = nameNode?.textContent?.trim() || this.routeName;
 
     return { coords, name };
@@ -470,7 +471,10 @@ class TurnByTurnNavigator {
       const position = await this.gps.getCurrentPosition();
       this.gps.lastPosition = position;
 
-      const startInfo = this.state.findSmartStartPoint(position, this.routeCoords);
+      const startInfo = this.state.findSmartStartPoint(
+        position,
+        this.routeCoords,
+      );
 
       if (startInfo.isAtStart) {
         this.ui.updateStartStatus("at-start", "You're at the start point");
@@ -479,13 +483,16 @@ class TurnByTurnNavigator {
         const directions = await TurnByTurnAPI.fetchDirectionsToPoint(
           [position.lon, position.lat],
           startInfo.point,
-          this.map.getAccessToken()
+          this.map.getAccessToken(),
         );
 
         if (directions) {
           const distText = formatDistance(directions.distance);
           const timeText = this.ui.formatDuration(directions.duration);
-          this.ui.updateStartStatus("away", `${distText} away (${timeText} to start)`);
+          this.ui.updateStartStatus(
+            "away",
+            `${distText} away (${timeText} to start)`,
+          );
           this.navigateToStartRoute = directions.geometry;
         } else {
           const distText = formatDistance(startInfo.distanceFromUser);
@@ -515,7 +522,7 @@ class TurnByTurnNavigator {
         const directions = await TurnByTurnAPI.fetchDirectionsToPoint(
           [this.gps.lastPosition.lon, this.gps.lastPosition.lat],
           this.state.smartStartPoint,
-          this.map.getAccessToken()
+          this.map.getAccessToken(),
         );
         if (directions) {
           this.navigateToStartRoute = directions.geometry;
@@ -557,7 +564,10 @@ class TurnByTurnNavigator {
       this.overviewMode = false;
       this.ui.updateControlStates(this.overviewMode, this.followMode);
       this.ui.hideSetupPanel();
-      this.ui.setNavStatus("Device GPS unavailable. Waiting for live tracking.", true);
+      this.ui.setNavStatus(
+        "Device GPS unavailable. Waiting for live tracking.",
+        true,
+      );
       return;
     }
 
@@ -590,7 +600,7 @@ class TurnByTurnNavigator {
     this.ui.setNavStatus("Waiting for GPS...");
     this.gps.startGeolocation(
       (fix) => this.handlePosition(fix),
-      (error) => this.handleGeolocationError(error)
+      (error) => this.handleGeolocationError(error),
     );
   }
 
@@ -609,7 +619,7 @@ class TurnByTurnNavigator {
     if (error.code === error.PERMISSION_DENIED) {
       this.ui.setNavStatus(
         "Location permission denied. Waiting for live tracking.",
-        true
+        true,
       );
       this.gps.stopGeolocation();
       return;
@@ -629,7 +639,8 @@ class TurnByTurnNavigator {
       return;
     }
 
-    const coords = event.detail?.coords || event.detail?.trip?.coordinates || [];
+    const coords =
+      event.detail?.coords || event.detail?.trip?.coordinates || [];
     if (!coords.length) {
       return;
     }
@@ -697,7 +708,10 @@ class TurnByTurnNavigator {
     // Apply progress smoothing
     const rawProgress = Math.min(closest.along, this.totalDistance);
     const smoothedProgress = this.gps.smoothProgress(rawProgress);
-    const remainingDistance = Math.max(this.totalDistance - smoothedProgress, 0);
+    const remainingDistance = Math.max(
+      this.totalDistance - smoothedProgress,
+      0,
+    );
     const offRoute = closest.distance > this.config.offRouteThresholdMeters;
 
     // Handle state transitions
@@ -706,7 +720,7 @@ class TurnByTurnNavigator {
       remainingDistance,
       offRoute,
       closest,
-      () => this.offerResumeFromAhead()
+      () => this.offerResumeFromAhead(),
     );
 
     // Update progress line
@@ -717,14 +731,18 @@ class TurnByTurnNavigator {
     this.map.updateProgressLine(progressCoords);
 
     // Update progress bars
-    this.ui.updateRouteProgress(smoothedProgress, this.totalDistance, this.routeName);
+    this.ui.updateRouteProgress(
+      smoothedProgress,
+      this.totalDistance,
+      this.routeName,
+    );
 
     // Update coverage if we have segment data
     const coverageStats = this.coverage.getCoverageStats();
     if (coverageStats.totalLength > 0) {
       this.ui.updateCoverageProgress(
         this.coverageBaseline.percentage,
-        coverageStats.percentage
+        coverageStats.percentage,
       );
     } else {
       // Estimate coverage from route progress
@@ -732,9 +750,12 @@ class TurnByTurnNavigator {
       const routeMiles = smoothedProgress / 1609.344;
       const totalAreaMiles = this.coverageBaseline.totalMi || 1;
       const uncoveredFraction = (100 - baselinePercent) / 100;
-      const estimatedNewCoverage
-        = (routeMiles / totalAreaMiles) * 100 * uncoveredFraction * 0.8;
-      const liveCoveragePercent = Math.min(100, baselinePercent + estimatedNewCoverage);
+      const estimatedNewCoverage =
+        (routeMiles / totalAreaMiles) * 100 * uncoveredFraction * 0.8;
+      const liveCoveragePercent = Math.min(
+        100,
+        baselinePercent + estimatedNewCoverage,
+      );
       this.ui.updateCoverageProgress(baselinePercent, liveCoveragePercent);
     }
 
@@ -751,13 +772,16 @@ class TurnByTurnNavigator {
     // Update instruction
     const nextManeuver = this.getNextManeuver(smoothedProgress);
     if (nextManeuver) {
-      const distanceTo = Math.max(nextManeuver.distanceAlong - smoothedProgress, 0);
+      const distanceTo = Math.max(
+        nextManeuver.distanceAlong - smoothedProgress,
+        0,
+      );
       this.ui.updateInstruction(
         nextManeuver.type,
         distanceTo,
         this.routeName,
         offRoute,
-        closest
+        closest,
       );
     }
 
@@ -822,7 +846,7 @@ class TurnByTurnNavigator {
         const proj = projectToSegment(
           current,
           this.routeCoords[i],
-          this.routeCoords[i + 1]
+          this.routeCoords[i + 1],
         );
 
         if (!closest || proj.distance < closest.distance) {
@@ -865,7 +889,7 @@ class TurnByTurnNavigator {
     const aheadResult = this.state.findNearestPointAhead(
       current,
       this.routeCoords,
-      this.lastClosestIndex
+      this.lastClosestIndex,
     );
 
     if (!aheadResult) {
@@ -876,7 +900,7 @@ class TurnByTurnNavigator {
     const directions = await TurnByTurnAPI.fetchDirectionsToPoint(
       current,
       aheadResult.point,
-      this.map.getAccessToken()
+      this.map.getAccessToken(),
     );
 
     if (directions) {
@@ -941,7 +965,7 @@ class TurnByTurnNavigator {
       this.map.updateCamera(
         [this.gps.lastPosition.lon, this.gps.lastPosition.lat],
         this.gps.lastHeading,
-        ZOOM_LEVELS.default
+        ZOOM_LEVELS.default,
       );
     }
 
@@ -962,7 +986,7 @@ class TurnByTurnNavigator {
     this.map.updateCamera(
       [this.gps.lastPosition.lon, this.gps.lastPosition.lat],
       this.gps.lastHeading,
-      ZOOM_LEVELS.default
+      ZOOM_LEVELS.default,
     );
   }
 
