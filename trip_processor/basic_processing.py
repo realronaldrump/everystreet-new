@@ -92,9 +92,7 @@ class TripBasicProcessor:
                 "totalIdleDuration" not in processed_data
                 and "totalIdlingTime" in processed_data
             ):
-                processed_data["totalIdleDuration"] = processed_data[
-                    "totalIdlingTime"
-                ]
+                processed_data["totalIdleDuration"] = processed_data["totalIdlingTime"]
 
             # Format idle time if present
             if "totalIdleDuration" in processed_data:

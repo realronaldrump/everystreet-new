@@ -12,8 +12,8 @@ from beanie import PydanticObjectId
 from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import BaseModel
 
-from coverage.models import CoverageArea, CoverageState, Street
 from coverage.constants import MAX_VIEWPORT_FEATURES
+from coverage.models import CoverageArea, CoverageState, Street
 from coverage.worker import (
     mark_segment_undriveable,
     mark_segment_undriven,

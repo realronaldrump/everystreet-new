@@ -116,7 +116,9 @@ function initTrendsChart() {
  * Initialize the efficiency chart (doughnut chart)
  */
 function initEfficiencyChart() {
-  const efficiencyCtx = document.getElementById("efficiencyChart")?.getContext("2d");
+  const efficiencyCtx = document
+    .getElementById("efficiencyChart")
+    ?.getContext("2d");
   if (!efficiencyCtx) {
     return;
   }
@@ -162,7 +164,9 @@ function initEfficiencyChart() {
  * Initialize the time distribution chart (bar chart)
  */
 function initTimeDistChart() {
-  const timeDistCtx = document.getElementById("timeDistChart")?.getContext("2d");
+  const timeDistCtx = document
+    .getElementById("timeDistChart")
+    ?.getContext("2d");
   if (!timeDistCtx) {
     return;
   }
@@ -236,7 +240,10 @@ export function updateTrendsChart() {
     return;
   }
 
-  const data = processTimeSeriesData(analytics.daily_distances, state.currentView);
+  const data = processTimeSeriesData(
+    analytics.daily_distances,
+    state.currentView,
+  );
 
   const chart = getChart("trends");
   if (!chart) {
@@ -265,7 +272,11 @@ export function updateEfficiencyChart() {
     return;
   }
 
-  chart.data.datasets[0].data = [fuelEfficiency, idleEfficiency, speedEfficiency];
+  chart.data.datasets[0].data = [
+    fuelEfficiency,
+    idleEfficiency,
+    speedEfficiency,
+  ];
   chart.update();
 }
 
@@ -279,13 +290,13 @@ export function updateTimeDistChart() {
     return;
   }
 
-  const labels
-    = state.currentTimeView === "hour"
+  const labels =
+    state.currentTimeView === "hour"
       ? Array.from({ length: 24 }, (_, i) => formatHourLabel(i))
       : ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-  const data
-    = state.currentTimeView === "hour"
+  const data =
+    state.currentTimeView === "hour"
       ? processHourlyData(analytics.time_distribution)
       : processDailyData(analytics.weekday_distribution);
 
@@ -407,8 +418,8 @@ function processDailyData(weekdayData) {
  * @param {Object} insights - Insights data
  */
 export function calculateFuelEfficiency(insights) {
-  const mpg
-    = insights.total_distance > 0 && insights.total_fuel_consumed > 0
+  const mpg =
+    insights.total_distance > 0 && insights.total_fuel_consumed > 0
       ? insights.total_distance / insights.total_fuel_consumed
       : 0;
 
