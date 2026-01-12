@@ -20,7 +20,7 @@ export class DrivingNavigationAPI {
       return window.coverageNavigatorAreas;
     }
 
-    const data = await apiClient.get("/api/coverage_areas");
+    const data = await apiClient.get("/api/coverage/areas");
     if (!data.success || !data.areas) {
       throw new Error(data.error || "Invalid response format");
     }

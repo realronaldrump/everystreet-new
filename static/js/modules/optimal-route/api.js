@@ -15,7 +15,7 @@ export class OptimalRouteAPI {
         return window.coverageNavigatorAreas;
       }
 
-      const data = await apiClient.get("/api/coverage_areas");
+      const data = await apiClient.get("/api/coverage/areas");
 
       if (!data.success || !data.areas) {
         console.error("Failed to load coverage areas");
@@ -31,7 +31,7 @@ export class OptimalRouteAPI {
 
   async loadStreetNetwork(areaId) {
     try {
-      const data = await apiClient.get(`/api/coverage_areas/${areaId}/streets`);
+      const data = await apiClient.get(`/api/coverage/areas/${areaId}/streets/all`);
 
       if (!data.features || !Array.isArray(data.features)) {
         throw new Error("Invalid street data format");
@@ -41,9 +41,14 @@ export class OptimalRouteAPI {
       const undrivenFeatures = [];
 
       data.features.forEach((feature) => {
-        if (feature.properties?.driven) {
+        const status = feature.properties?.status;
+        const isDriven = status === "driven" || feature.properties?.driven === true;
+        const isUndriveable
+          = status === "undriveable" || feature.properties?.undriveable === true;
+
+        if (isDriven) {
           drivenFeatures.push(feature);
-        } else if (!feature.properties?.undriveable) {
+        } else if (!isUndriveable) {
           undrivenFeatures.push(feature);
         }
       });
@@ -57,7 +62,7 @@ export class OptimalRouteAPI {
 
   async loadExistingRoute(areaId) {
     try {
-      const data = await apiClient.get(`/api/coverage_areas/${areaId}/optimal-route`);
+      const data = await apiClient.get(`/api/coverage/areas/${areaId}/optimal-route`);
       return data;
     } catch (error) {
       if (error.message?.includes("404")) {
@@ -70,15 +75,15 @@ export class OptimalRouteAPI {
 
   async getAreaBounds(areaId) {
     try {
-      const data = await apiClient.get(`/api/coverage_areas/${areaId}`);
+      const data = await apiClient.get(`/api/coverage/areas/${areaId}`);
 
-      if (!data.success || !data.coverage) {
+      if (!data.success || !data.area) {
         return null;
       }
 
-      const { location } = data.coverage;
-      if (location?.boundingbox) {
-        return location.boundingbox.map(parseFloat);
+      const bbox = data.bounding_box;
+      if (Array.isArray(bbox) && bbox.length === 4) {
+        return [bbox[1], bbox[3], bbox[0], bbox[2]];
       }
       return null;
     } catch (error) {
@@ -89,7 +94,7 @@ export class OptimalRouteAPI {
 
   async checkForActiveTask(areaId) {
     try {
-      const data = await apiClient.get(`/api/coverage_areas/${areaId}/active-task`);
+      const data = await apiClient.get(`/api/coverage/areas/${areaId}/active-task`);
       if (data.active && data.task_id) {
         return data;
       }
@@ -111,9 +116,7 @@ export class OptimalRouteAPI {
 
   async generateRoute(areaId) {
     try {
-      const data = await apiClient.post(
-        `/api/coverage_areas/${areaId}/generate-optimal-route`
-      );
+      const data = await apiClient.post(`/api/coverage/areas/${areaId}/optimal-route`);
       return data.task_id;
     } catch (error) {
       console.error("Error starting route generation:", error);
@@ -143,7 +146,7 @@ export class OptimalRouteAPI {
 
   async clearRoute(areaId) {
     try {
-      await apiClient.delete(`/api/coverage_areas/${areaId}/optimal-route`);
+      await apiClient.delete(`/api/coverage/areas/${areaId}/optimal-route`);
     } catch (error) {
       console.warn("Failed to clear route from backend:", error);
     }

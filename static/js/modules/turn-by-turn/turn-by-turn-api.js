@@ -12,7 +12,7 @@ const TurnByTurnAPI = {
    * @returns {Promise<Array>}
    */
   async fetchCoverageAreas() {
-    const data = await apiClient.get("/api/coverage_areas");
+    const data = await apiClient.get("/api/coverage/areas");
     if (!data.success || !data.areas) {
       throw new Error(data.error || "Invalid coverage areas response.");
     }
@@ -25,11 +25,11 @@ const TurnByTurnAPI = {
    * @returns {Promise<Object>}
    */
   async fetchCoverageArea(areaId) {
-    const data = await apiClient.get(`/api/coverage_areas/${areaId}`);
-    if (!data.success || !data.coverage) {
+    const data = await apiClient.get(`/api/coverage/areas/${areaId}`);
+    if (!data.success || !data.area) {
       throw new Error(data.error || "Failed to fetch coverage area");
     }
-    return data.coverage;
+    return data.area;
   },
 
   /**
@@ -39,7 +39,7 @@ const TurnByTurnAPI = {
    */
   async fetchOptimalRouteGpx(areaId) {
     try {
-      return await apiClient.get(`/api/coverage_areas/${areaId}/optimal-route/gpx`, {
+      return await apiClient.get(`/api/coverage/areas/${areaId}/optimal-route/gpx`, {
         parseResponse: (response) => response.text(),
       });
     } catch (error) {
@@ -56,11 +56,11 @@ const TurnByTurnAPI = {
    * @returns {Promise<Object>} GeoJSON data
    */
   async fetchCoverageSegments(areaId) {
-    const data = await apiClient.get(`/api/coverage_areas/${areaId}/streets`);
-    if (!data.geojson || !data.geojson.features) {
+    const data = await apiClient.get(`/api/coverage/areas/${areaId}/streets/all`);
+    if (!data.features || !Array.isArray(data.features)) {
       throw new Error("No segment data in response");
     }
-    return data.geojson;
+    return data;
   },
 
   /**
@@ -149,9 +149,8 @@ const TurnByTurnAPI = {
    * @returns {Promise<void>}
    */
   async persistDrivenSegments(segmentIds, locationId) {
-    await apiClient.post("/api/street_segments/mark_driven", {
+    await apiClient.post(`/api/coverage/areas/${locationId}/streets/mark-driven`, {
       segment_ids: segmentIds,
-      location_id: locationId,
     });
   },
 };

@@ -14,7 +14,11 @@ from pydantic import BaseModel
 
 from coverage.models import CoverageArea, CoverageState, Street
 from coverage.constants import MAX_VIEWPORT_FEATURES
-from coverage.worker import mark_segment_undriveable, mark_segment_undriven
+from coverage.worker import (
+    mark_segment_undriveable,
+    mark_segment_undriven,
+    update_coverage_for_segments,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/coverage", tags=["coverage-streets"])
@@ -46,6 +50,12 @@ class MarkSegmentRequest(BaseModel):
     """Request to mark a segment's status."""
 
     status: str  # "undriveable" or "undriven"
+
+
+class MarkDrivenSegmentsRequest(BaseModel):
+    """Request to mark multiple segments as driven."""
+
+    segment_ids: list[str]
 
 
 # =============================================================================
@@ -192,6 +202,80 @@ async def get_streets_geojson(
     }
 
 
+@router.get("/areas/{area_id}/streets/all")
+async def get_all_streets(
+    area_id: str,
+    status: str | None = Query(None, description="Optional status filter"),
+):
+    """
+    Get all street segments for an area with coverage status.
+
+    Intended for full-area workflows such as turn-by-turn coverage.
+    """
+    try:
+        oid = PydanticObjectId(area_id)
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid area ID format",
+        )
+
+    area = await CoverageArea.get(oid)
+    if not area:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Coverage area not found",
+        )
+
+    if area.status != "ready":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Area is not ready (status: {area.status})",
+        )
+
+    # Load all streets for this area version
+    streets = await Street.find(
+        {
+            "area_id": oid,
+            "area_version": area.area_version,
+        }
+    ).to_list()
+
+    if not streets:
+        return {"type": "FeatureCollection", "features": []}
+
+    segment_ids = [s.segment_id for s in streets]
+    states = await CoverageState.find(
+        {"area_id": oid, "segment_id": {"$in": segment_ids}}
+    ).to_list()
+    status_map = {s.segment_id: s.status for s in states}
+
+    features = []
+    for street in streets:
+        segment_status = status_map.get(street.segment_id, "undriven")
+        if status and segment_status != status:
+            continue
+
+        features.append(
+            {
+                "type": "Feature",
+                "geometry": street.geometry,
+                "properties": {
+                    "segment_id": street.segment_id,
+                    "street_name": street.street_name,
+                    "highway_type": street.highway_type,
+                    "length_miles": street.length_miles,
+                    "status": segment_status,
+                },
+            }
+        )
+
+    return {
+        "type": "FeatureCollection",
+        "features": features,
+    }
+
+
 @router.patch("/areas/{area_id}/streets/{segment_id}")
 async def update_segment_status(
     area_id: str,
@@ -239,6 +323,42 @@ async def update_segment_status(
     return {
         "success": True,
         "message": f"Segment marked as {request.status}",
+    }
+
+
+@router.post("/areas/{area_id}/streets/mark-driven")
+async def mark_segments_driven(
+    area_id: str,
+    request: MarkDrivenSegmentsRequest,
+):
+    """Mark multiple segments as driven for an area."""
+    try:
+        oid = PydanticObjectId(area_id)
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid area ID format",
+        )
+
+    area = await CoverageArea.get(oid)
+    if not area:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Coverage area not found",
+        )
+
+    updated = await update_coverage_for_segments(
+        area_id=oid,
+        segment_ids=request.segment_ids,
+    )
+
+    from coverage.stats import update_area_stats
+
+    await update_area_stats(oid)
+
+    return {
+        "success": True,
+        "updated": updated,
     }
 
 

@@ -36,18 +36,17 @@ const initializeLocationDropdown = async () => {
     return;
   }
   try {
-    const response = await utils.fetchWithRetry("/api/coverage_areas");
+    const response = await utils.fetchWithRetry("/api/coverage/areas");
     const areas = response.areas || [];
     dropdown.innerHTML = '<option value="">Select a location...</option>';
     const frag = document.createDocumentFragment();
     areas.forEach((area) => {
       const option = document.createElement("option");
-      option.value = area._id || area.id;
+      option.value = area.id || area._id;
       option.textContent
-        = area.location?.display_name
-        || area.location?.city
+        = area.display_name
+        || area.location?.display_name
         || area.name
-        || area.city
         || "Unknown Location";
       frag.appendChild(option);
     });

@@ -9,12 +9,17 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 
 from config import get_mapbox_token
+from coverage.constants import FEET_TO_METERS, MILES_TO_METERS
 from coverage.models import CoverageArea, CoverageState, Street
 from db.models import Trip
+from geometry_service import GeometryService
 from live_tracking import get_active_trip
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+CLUSTER_DISTANCE_M = 120.0
+MIN_GRID_SCALE = 0.01
 
 
 def sanitize_for_json(obj: Any) -> Any:
@@ -37,6 +42,324 @@ def get_safe_float(val: Any, default: float = 0.0) -> float:
         return f if math.isfinite(f) else default
     except (TypeError, ValueError):
         return default
+
+
+def _normalize_location_source(source: str | None) -> str:
+    if source == "current-position":
+        return "client-provided"
+    return source or "unknown"
+
+
+async def _resolve_coverage_area(location: dict[str, Any] | None) -> CoverageArea:
+    if not isinstance(location, dict):
+        raise HTTPException(status_code=400, detail="Missing location data.")
+
+    location_id = location.get("id") or location.get("_id")
+    display_name = location.get("display_name") or location.get("location")
+
+    area = None
+    if location_id:
+        try:
+            area = await CoverageArea.get(PydanticObjectId(location_id))
+        except Exception:
+            area = None
+
+    if not area and display_name:
+        area = await CoverageArea.find_one({"display_name": display_name})
+
+    if not area:
+        raise HTTPException(status_code=404, detail="Coverage area not found.")
+
+    return area
+
+
+def _normalize_coord_pair(coord: Any) -> list[float] | None:
+    is_valid, pair = GeometryService.validate_coordinate_pair(coord)
+    if not is_valid or not pair:
+        return None
+    return pair
+
+
+def _extract_line_coords(geometry: dict[str, Any] | None) -> list[list[float]]:
+    if not geometry:
+        return []
+
+    geom_type = geometry.get("type")
+    coords = geometry.get("coordinates", [])
+
+    if geom_type == "LineString":
+        return coords if isinstance(coords, list) else []
+
+    if geom_type == "MultiLineString":
+        for line in coords:
+            if line and isinstance(line, list) and len(line) >= 2:
+                return line
+        return []
+
+    if geom_type == "Point":
+        return [coords] if coords else []
+
+    return []
+
+
+def _segment_midpoint_coords(geometry: dict[str, Any] | None) -> tuple[float, float] | None:
+    coords = _extract_line_coords(geometry)
+    if not coords:
+        return None
+
+    if len(coords) == 1:
+        pair = _normalize_coord_pair(coords[0])
+        if not pair:
+            return None
+        return pair[0], pair[1]
+
+    start = _normalize_coord_pair(coords[0])
+    end = _normalize_coord_pair(coords[-1])
+    if not start or not end:
+        return None
+
+    lon = (start[0] + end[0]) / 2.0
+    lat = (start[1] + end[1]) / 2.0
+    return lon, lat
+
+
+def _estimate_linestring_length_m(geometry: dict[str, Any] | None) -> float:
+    coords = _extract_line_coords(geometry)
+    if len(coords) < 2:
+        return 0.0
+
+    length_m = 0.0
+    prev = _normalize_coord_pair(coords[0])
+    for coord in coords[1:]:
+        cur = _normalize_coord_pair(coord)
+        if not prev or not cur:
+            prev = cur
+            continue
+        length_m += GeometryService.haversine_distance(
+            prev[0],
+            prev[1],
+            cur[0],
+            cur[1],
+            unit="meters",
+        )
+        prev = cur
+    return length_m
+
+
+async def _load_undriven_segments(area: CoverageArea) -> list[dict[str, Any]]:
+    driven_segment_ids = set()
+    undriveable_segment_ids = set()
+    async for state in CoverageState.find(CoverageState.area_id == area.id):
+        if state.status == "driven":
+            driven_segment_ids.add(state.segment_id)
+        elif state.status == "undriveable":
+            undriveable_segment_ids.add(state.segment_id)
+
+    segments = []
+    async for street in Street.find(
+        Street.area_id == area.id,
+        Street.area_version == area.area_version,
+    ):
+        if street.segment_id in driven_segment_ids:
+            continue
+        if street.segment_id in undriveable_segment_ids:
+            continue
+
+        segments.append(
+            {
+                "segment_id": street.segment_id,
+                "street_name": street.street_name,
+                "geometry": street.geometry or {},
+                "length_m": get_safe_float(street.length_miles) * MILES_TO_METERS,
+            }
+        )
+
+    return segments
+
+
+def _find_nearest_segment(
+    segments: list[dict[str, Any]],
+    current_lon: float,
+    current_lat: float,
+) -> tuple[dict[str, Any] | None, tuple[float, float] | None]:
+    best_segment = None
+    best_midpoint = None
+    best_distance = None
+
+    for segment in segments:
+        midpoint = _segment_midpoint_coords(segment.get("geometry"))
+        if not midpoint:
+            continue
+
+        distance = GeometryService.haversine_distance(
+            current_lon,
+            current_lat,
+            midpoint[0],
+            midpoint[1],
+            unit="meters",
+        )
+
+        if best_distance is None or distance < best_distance:
+            best_distance = distance
+            best_segment = segment
+            best_midpoint = midpoint
+
+    return best_segment, best_midpoint
+
+
+def _cluster_segments(
+    segments: list[dict[str, Any]],
+    current_lon: float,
+    current_lat: float,
+    *,
+    threshold_m: float,
+    min_cluster_size: int,
+) -> list[dict[str, Any]]:
+    if not segments:
+        return []
+
+    lat_deg = threshold_m / 111320.0
+    lon_scale = max(math.cos(math.radians(current_lat)), MIN_GRID_SCALE)
+    lon_deg = threshold_m / (111320.0 * lon_scale)
+
+    if lat_deg <= 0 or lon_deg <= 0:
+        return []
+
+    grid: dict[tuple[int, int], list[int]] = defaultdict(list)
+    for idx, segment in enumerate(segments):
+        midpoint = segment.get("midpoint")
+        if not midpoint:
+            continue
+        lon, lat = midpoint
+        cell = (int(lon / lon_deg), int(lat / lat_deg))
+        grid[cell].append(idx)
+
+    parent = list(range(len(segments)))
+
+    def find_root(i: int) -> int:
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+
+    def union(i: int, j: int) -> None:
+        root_i = find_root(i)
+        root_j = find_root(j)
+        if root_i != root_j:
+            parent[root_j] = root_i
+
+    for idx, segment in enumerate(segments):
+        midpoint = segment.get("midpoint")
+        if not midpoint:
+            continue
+        lon, lat = midpoint
+        cell = (int(lon / lon_deg), int(lat / lat_deg))
+        for dx in (-1, 0, 1):
+            for dy in (-1, 0, 1):
+                for other_idx in grid.get((cell[0] + dx, cell[1] + dy), []):
+                    if other_idx <= idx:
+                        continue
+                    other_midpoint = segments[other_idx].get("midpoint")
+                    if not other_midpoint:
+                        continue
+                    distance = GeometryService.haversine_distance(
+                        lon,
+                        lat,
+                        other_midpoint[0],
+                        other_midpoint[1],
+                        unit="meters",
+                    )
+                    if distance <= threshold_m:
+                        union(idx, other_idx)
+
+    groups: dict[int, list[int]] = defaultdict(list)
+    for idx in range(len(segments)):
+        groups[find_root(idx)].append(idx)
+
+    clusters = []
+    for indices in groups.values():
+        if len(indices) < min_cluster_size:
+            continue
+
+        cluster_segments = []
+        total_length_m = 0.0
+        centroid_lon = 0.0
+        centroid_lat = 0.0
+        nearest_segment = None
+        nearest_distance = None
+
+        for idx in indices:
+            segment = segments[idx]
+            midpoint = segment.get("midpoint")
+            if not midpoint:
+                continue
+
+            centroid_lon += midpoint[0]
+            centroid_lat += midpoint[1]
+
+            length_m = segment.get("length_m") or 0.0
+            if length_m <= 0:
+                length_m = _estimate_linestring_length_m(segment.get("geometry"))
+            total_length_m += length_m
+
+            distance = GeometryService.haversine_distance(
+                current_lon,
+                current_lat,
+                midpoint[0],
+                midpoint[1],
+                unit="meters",
+            )
+            if nearest_distance is None or distance < nearest_distance:
+                nearest_distance = distance
+                nearest_segment = segment
+
+            cluster_segments.append(
+                {
+                    "segment_id": segment.get("segment_id"),
+                    "street_name": segment.get("street_name"),
+                    "geometry": segment.get("geometry"),
+                    "length_m": length_m,
+                }
+            )
+
+        if not cluster_segments:
+            continue
+
+        centroid_lon /= len(cluster_segments)
+        centroid_lat /= len(cluster_segments)
+
+        distance_to_cluster_m = GeometryService.haversine_distance(
+            current_lon,
+            current_lat,
+            centroid_lon,
+            centroid_lat,
+            unit="meters",
+        )
+
+        efficiency_score = total_length_m / max(distance_to_cluster_m, 1.0)
+
+        clusters.append(
+            {
+                "cluster_id": len(clusters),
+                "segment_count": len(cluster_segments),
+                "segments": cluster_segments,
+                "centroid": [centroid_lon, centroid_lat],
+                "total_length_m": total_length_m,
+                "distance_to_cluster_m": distance_to_cluster_m,
+                "efficiency_score": efficiency_score,
+                "nearest_segment": {
+                    "segment_id": nearest_segment.get("segment_id")
+                    if nearest_segment
+                    else None,
+                    "street_name": nearest_segment.get("street_name")
+                    if nearest_segment
+                    else None,
+                    "geometry": nearest_segment.get("geometry") if nearest_segment else None,
+                },
+            }
+        )
+
+    return clusters
 
 
 async def _get_mapbox_optimization_route(
@@ -216,7 +539,10 @@ async def get_current_position(request_data: dict) -> tuple[float, float, str]:
 
     last_trip = await Trip.find().sort(-Trip.endTime).limit(1).to_list()
     if not last_trip:
-        return await get_current_position(request_data)
+        raise HTTPException(
+            status_code=404,
+            detail="No trip history available to determine current position.",
+        )
 
     gps_data = last_trip[0].get("gps", {})
     position = _extract_position_from_gps_data(gps_data)
@@ -441,4 +767,3 @@ async def find_clusters_endpoint(location_id: Annotated[str, Query()]):
     except Exception as e:
         logger.exception("Error finding clusters: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
-

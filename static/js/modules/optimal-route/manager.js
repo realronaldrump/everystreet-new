@@ -409,7 +409,7 @@ export class OptimalRoutesManager {
     if (!this.selectedAreaId) {
       return;
     }
-    const url = `/api/coverage_areas/${this.selectedAreaId}/optimal-route/gpx`;
+    const url = `/api/coverage/areas/${this.selectedAreaId}/optimal-route/gpx`;
     window.open(url, "_blank");
   }
 

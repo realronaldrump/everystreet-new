@@ -56,10 +56,10 @@ export const CONFIG = {
     tripAnalytics: "/api/trip-analytics",
 
     // Coverage endpoints
-    coverageAreas: "/api/coverage_areas",
-    coverageAreaById: (id) => `/api/coverage_areas/${id}`,
+    coverageAreas: "/api/coverage/areas",
+    coverageAreaById: (id) => `/api/coverage/areas/${id}`,
     coverageAreaStreets: (id, params = "") =>
-      `/api/coverage_areas/${id}/streets${params ? `?${params}` : ""}`,
+      `/api/coverage/areas/${id}/streets${params ? `?${params}` : ""}`,
 
     // Search endpoints
     searchStreets: "/api/search/streets",
