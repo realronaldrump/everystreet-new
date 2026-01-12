@@ -45,9 +45,14 @@ class TurnByTurnUI {
     this.elements.previewTime = document.getElementById("preview-time");
     this.elements.previewTurns = document.getElementById("preview-turns");
     this.elements.previewCoverage = document.getElementById("preview-coverage");
-    this.elements.previewStartStatus = document.getElementById("preview-start-status");
-    this.elements.previewStartText = document.getElementById("preview-start-text");
-    this.elements.navToStartBtn = document.getElementById("nav-start-from-here");
+    this.elements.previewStartStatus = document.getElementById(
+      "preview-start-status",
+    );
+    this.elements.previewStartText =
+      document.getElementById("preview-start-text");
+    this.elements.navToStartBtn = document.getElementById(
+      "nav-start-from-here",
+    );
     this.elements.beginNavBtn = document.getElementById("nav-begin");
     this.elements.changeRouteBtn = document.getElementById("nav-change-route");
 
@@ -56,25 +61,28 @@ class TurnByTurnUI {
     this.elements.navSignalText = document.getElementById("nav-signal-text");
     this.elements.turnIcon = document.getElementById("nav-turn-icon");
     this.elements.turnIconGlyph = this.elements.turnIcon?.querySelector("i");
-    this.elements.distanceToTurn = document.getElementById("nav-distance-to-turn");
+    this.elements.distanceToTurn = document.getElementById(
+      "nav-distance-to-turn",
+    );
     this.elements.primaryInstruction = document.getElementById(
-      "nav-primary-instruction"
+      "nav-primary-instruction",
     );
     this.elements.roadName = document.getElementById("nav-road-name");
 
     // Dual progress bars
     this.elements.routeProgressFill = document.getElementById(
-      "nav-route-progress-fill"
+      "nav-route-progress-fill",
     );
     this.elements.routeProgressValue = document.getElementById(
-      "nav-route-progress-value"
+      "nav-route-progress-value",
     );
     this.elements.coverageProgressBaseline = document.getElementById(
-      "nav-coverage-baseline"
+      "nav-coverage-baseline",
     );
-    this.elements.coverageProgressLive = document.getElementById("nav-coverage-live");
+    this.elements.coverageProgressLive =
+      document.getElementById("nav-coverage-live");
     this.elements.coverageProgressValue = document.getElementById(
-      "nav-coverage-progress-value"
+      "nav-coverage-progress-value",
     );
 
     // Legacy progress (fallback)
@@ -83,16 +91,21 @@ class TurnByTurnUI {
     this.elements.progressValue = document.getElementById("nav-progress-value");
 
     // Stats
-    this.elements.remainingDistance = document.getElementById("nav-remaining-distance");
+    this.elements.remainingDistance = document.getElementById(
+      "nav-remaining-distance",
+    );
     this.elements.etaLabel = document.getElementById("nav-eta");
     this.elements.speedLabel = document.getElementById("nav-speed");
     this.elements.navStatus = document.getElementById("nav-status");
 
     // Resume prompt
     this.elements.resumePrompt = document.getElementById("nav-resume-prompt");
-    this.elements.resumeDistanceText = document.getElementById("resume-distance-text");
+    this.elements.resumeDistanceText = document.getElementById(
+      "resume-distance-text",
+    );
     this.elements.resumeBtn = document.getElementById("nav-resume-btn");
-    this.elements.dismissResumeBtn = document.getElementById("nav-dismiss-resume");
+    this.elements.dismissResumeBtn =
+      document.getElementById("nav-dismiss-resume");
   }
 
   /**
@@ -110,12 +123,21 @@ class TurnByTurnUI {
     elements.recenterBtn?.addEventListener("click", callbacks.onRecenter);
     elements.routeBtn?.addEventListener("click", callbacks.onToggleSetupPanel);
 
-    elements.navToStartBtn?.addEventListener("click", callbacks.onNavigateToStart);
-    elements.beginNavBtn?.addEventListener("click", callbacks.onBeginNavigation);
+    elements.navToStartBtn?.addEventListener(
+      "click",
+      callbacks.onNavigateToStart,
+    );
+    elements.beginNavBtn?.addEventListener(
+      "click",
+      callbacks.onBeginNavigation,
+    );
     elements.changeRouteBtn?.addEventListener("click", callbacks.onShowSetup);
 
     elements.resumeBtn?.addEventListener("click", callbacks.onResumeFromAhead);
-    elements.dismissResumeBtn?.addEventListener("click", callbacks.onDismissResume);
+    elements.dismissResumeBtn?.addEventListener(
+      "click",
+      callbacks.onDismissResume,
+    );
   }
 
   /**
@@ -205,10 +227,14 @@ class TurnByTurnUI {
     this.elements.previewPanel?.removeAttribute("hidden");
 
     if (this.elements.previewDistance) {
-      this.elements.previewDistance.textContent = formatDistance(data.totalDistance);
+      this.elements.previewDistance.textContent = formatDistance(
+        data.totalDistance,
+      );
     }
     if (this.elements.previewTime) {
-      this.elements.previewTime.textContent = this.formatDuration(data.estimatedTime);
+      this.elements.previewTime.textContent = this.formatDuration(
+        data.estimatedTime,
+      );
     }
     if (this.elements.previewTurns) {
       this.elements.previewTurns.textContent = data.turnCount || 0;
@@ -226,7 +252,9 @@ class TurnByTurnUI {
       this.elements.primaryInstruction.textContent = "Drive to start point";
     }
     if (this.elements.distanceToTurn && data.distanceToStart) {
-      this.elements.distanceToTurn.textContent = formatDistance(data.distanceToStart);
+      this.elements.distanceToTurn.textContent = formatDistance(
+        data.distanceToStart,
+      );
     }
     this.setNavStatus("Navigating to route start");
   }
@@ -355,8 +383,8 @@ class TurnByTurnUI {
       return;
     }
 
-    const distLabel
-      = distanceToTurn < 25 ? "Now" : `In ${formatDistance(distanceToTurn)}`;
+    const distLabel =
+      distanceToTurn < 25 ? "Now" : `In ${formatDistance(distanceToTurn)}`;
     const instruction = getInstructionText(type);
     const rotation = getTurnRotation(type);
 
@@ -435,7 +463,8 @@ class TurnByTurnUI {
   // === Progress Bars ===
 
   updateRouteProgress(progressDistance, totalDistance, routeName) {
-    const percent = totalDistance > 0 ? (progressDistance / totalDistance) * 100 : 0;
+    const percent =
+      totalDistance > 0 ? (progressDistance / totalDistance) * 100 : 0;
 
     if (this.elements.routeProgressFill) {
       this.elements.routeProgressFill.style.transform = `scaleX(${percent / 100})`;
@@ -508,11 +537,11 @@ class TurnByTurnUI {
     select.innerHTML = '<option value="">Select a coverage area...</option>';
     areas.forEach((area) => {
       const areaId = area._id || area.id;
-      const name
-        = area.location?.display_name
-        || area.location?.city
-        || area.name
-        || "Coverage Area";
+      const name =
+        area.location?.display_name ||
+        area.location?.city ||
+        area.name ||
+        "Coverage Area";
       if (!areaId) {
         return;
       }
@@ -587,13 +616,15 @@ class TurnByTurnUI {
   // === Reset UI ===
 
   resetGuidanceUI() {
-    const { distanceToTurn, primaryInstruction, roadName, turnIcon } = this.elements;
+    const { distanceToTurn, primaryInstruction, roadName, turnIcon } =
+      this.elements;
 
     if (distanceToTurn) {
       distanceToTurn.textContent = "Ready";
     }
     if (primaryInstruction) {
-      primaryInstruction.textContent = "Load the optimal coverage route to begin";
+      primaryInstruction.textContent =
+        "Load the optimal coverage route to begin";
     }
     if (roadName) {
       roadName.textContent = "--";
