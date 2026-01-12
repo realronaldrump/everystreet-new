@@ -224,11 +224,12 @@ function initializeTable() {
           const container = document.createElement("div");
           container.className = "btn-group btn-group-sm no-row-click";
 
-          const viewBtn = document.createElement("a");
-          viewBtn.href = `/trips/${row.transactionId}`;
+          const viewBtn = document.createElement("button");
+          viewBtn.type = "button";
           viewBtn.className = "btn btn-outline-primary";
           viewBtn.title = "View details";
           viewBtn.innerHTML = '<i class="fas fa-map"></i>';
+          viewBtn.addEventListener("click", () => openTripModal(row.transactionId));
           container.appendChild(viewBtn);
 
           const deleteBtn = document.createElement("button");
@@ -539,4 +540,184 @@ async function bulkDeleteTrips(ids) {
   } catch {
     window.notificationManager?.show("Failed to delete trips", "danger");
   }
+}
+
+// --- Trip Modal Logic ---
+
+let tripModalMap = null;
+let tripModalInstance = null;
+let currentTripId = null;
+
+async function openTripModal(tripId) {
+  currentTripId = tripId;
+
+  // Initialize modal instance if needed
+  if (!tripModalInstance) {
+    const el = document.getElementById("tripDetailsModal");
+    if (el) {
+      tripModalInstance = new bootstrap.Modal(el);
+      // Clean up map when modal is hidden
+      el.addEventListener("hidden.bs.modal", () => {
+        if (tripModalMap) {
+          // Clear map data but keep instance
+          const src = tripModalMap.getSource("modal-trip");
+          if (src) {
+            src.setData({ type: "FeatureCollection", features: [] });
+          }
+        }
+      });
+      // Handle map resize when modal is shown
+      el.addEventListener("shown.bs.modal", () => {
+        if (tripModalMap) {
+          tripModalMap.resize();
+        } else {
+          initTripModalMap();
+        }
+        loadTripData(currentTripId);
+      });
+    }
+  }
+
+  tripModalInstance.show();
+}
+
+async function initTripModalMap() {
+  if (tripModalMap) return;
+
+  try {
+    const { createMap } = window.mapBase;
+    tripModalMap = createMap("trip-modal-map", {
+      style: "mapbox://styles/mapbox/dark-v11", // Use dark mode by default for contrast
+      zoom: 1,
+      center: [-98.57, 39.82], // Center US
+    });
+
+    tripModalMap.on("load", () => {
+      // Add source and layer for the trip
+      tripModalMap.addSource("modal-trip", {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: [] },
+      });
+
+      tripModalMap.addLayer({
+        id: "modal-trip-line",
+        type: "line",
+        source: "modal-trip",
+        layout: {
+          "line-join": "round",
+          "line-cap": "round",
+        },
+        paint: {
+          "line-color": "#4A90D9",
+          "line-width": 4,
+          "line-opacity": 0.9,
+        },
+      });
+
+      // Add start/end points if needed, or markers
+    });
+  } catch (e) {
+    console.error("Failed to init modal map", e);
+    document.getElementById("trip-modal-map").innerHTML =
+      '<div class="alert alert-danger m-3">Failed to load map.</div>';
+  }
+}
+
+async function loadTripData(tripId) {
+  const loadingEl = document.getElementById("trip-map-loading");
+  if (loadingEl) loadingEl.classList.remove("d-none");
+
+  // Reset text
+  setText("tripModalTitle", "Loading...");
+  setText("tripModalSubtitle", "");
+  setText("modal-distance", "--");
+  setText("modal-duration", "--");
+  setText("modal-max-speed", "--");
+  setText("modal-fuel", "--");
+  setText("modal-start-loc", "--");
+  setText("modal-end-loc", "--");
+
+  try {
+    // Fetch trip details
+    const res = await fetch(CONFIG.API.tripById(tripId));
+    if (!res.ok) throw new Error("Failed to load trip details");
+    const data = await res.json();
+    const trip = data.trip || data; // Handle wrapped response
+
+    updateModalContent(trip);
+
+    // Fetch GeoJSON for map
+    // We can use the same endpoint if it returns geometry, or a specific one.
+    // Assuming API.tripById returns the full trip with geometry or we need another call.
+    // Let's check `trips.js` or `CONFIG`. Usually `tripById` returns the document.
+    // If geometry inside trip object:
+    if (trip.geometry) {
+        renderTripOnMap(trip);
+    } else {
+       // Fallback or separate fetch if needed.
+       // Attempt to fetch dedicated geojson if geometry is missing from detail
+       // const geoRes = await fetch(`/api/trips/${tripId}/geojson`); ...
+    }
+
+  } catch (e) {
+    console.error(e);
+    window.notificationManager?.show("Failed to load trip data", "danger");
+  } finally {
+    if (loadingEl) loadingEl.classList.add("d-none");
+  }
+}
+
+function updateModalContent(trip) {
+  setText("tripModalTitle", trip.vehicleLabel || "Trip Details");
+  setText("tripModalSubtitle", `${formatDateTime(trip.startTime)} • ${trip.transactionId}`);
+  setText("modal-distance", trip.distance ? `${parseFloat(trip.distance).toFixed(2)} mi` : "--");
+  setText("modal-duration", trip.duration ? formatDuration(trip.duration) : "--");
+  setText("modal-max-speed", trip.maxSpeed ? `${Math.round(trip.maxSpeed)} mph` : "--");
+  setText("modal-fuel", trip.fuelConsumed ? `${parseFloat(trip.fuelConsumed).toFixed(2)} gal` : "--");
+  setText("modal-start-loc", sanitizeLocation(trip.startLocation));
+  setText("modal-end-loc", sanitizeLocation(trip.destination));
+}
+
+function renderTripOnMap(trip) {
+  if (!tripModalMap || !tripModalMap.isStyleLoaded()) {
+    // Retry shortly if map not ready (though 'shown' event usually handles this)
+     setTimeout(() => renderTripOnMap(trip), 200);
+     return;
+  }
+
+  const geojson = {
+    type: "Feature",
+    geometry: trip.geometry,
+    properties: {}
+  };
+
+  const src = tripModalMap.getSource("modal-trip");
+  if (src) {
+    src.setData({ type: "FeatureCollection", features: [geojson] });
+  }
+
+  // Fit bounds
+  const bounds = new mapboxgl.LngLatBounds();
+  const coords = trip.geometry.coordinates;
+  // Handle Point vs LineString vs MultiLineString if necessary. Assuming LineString for trips.
+  if (trip.geometry.type === "LineString") {
+      coords.forEach(c => bounds.extend(c));
+  } else if (trip.geometry.type === "Point") {
+      bounds.extend(coords);
+  }
+
+  if (!bounds.isEmpty()) {
+    // Ensure map is resized correctly before fitting bounds
+    tripModalMap.resize();
+    tripModalMap.fitBounds(bounds, {
+      padding: 100,
+      duration: 2000, // Animate over 2 seconds
+      essential: true // Ensure animation happens even if user hasn't interacted
+    });
+  }
+}
+
+function setText(id, text) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = text;
 }
