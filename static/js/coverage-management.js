@@ -14,6 +14,13 @@ const API_BASE = "/api/coverage";
 let currentAreaId = null;
 let map = null;
 let streetSource = null;
+let activeStreetPopup = null;
+let highlightedSegmentId = null;
+let currentMapFilter = "all";
+
+const STREET_LAYERS = ["streets-undriven", "streets-driven", "streets-undriveable"];
+const HIGHLIGHT_LAYER_ID = "streets-highlight";
+let streetInteractivityReady = false;
 
 // Background job tracking (minimizable progress + resume)
 const ACTIVE_JOB_STORAGE_KEY = "coverageManagement.activeJob";
@@ -808,6 +815,7 @@ function updateProgress(percent, message) {
 
 async function viewArea(areaId) {
   currentAreaId = areaId;
+  clearStreetPopup();
 
   try {
     // Show dashboard
@@ -951,18 +959,173 @@ async function loadStreets(areaId) {
           "line-dasharray": [2, 2],
         },
       });
+
+      // Highlighted segment layer (on top)
+      map.addLayer({
+        id: HIGHLIGHT_LAYER_ID,
+        type: "line",
+        source: "streets",
+        filter: ["==", ["get", "segment_id"], ""],
+        paint: {
+          "line-color": "#fbbf24",
+          "line-width": 4,
+          "line-opacity": 0.9,
+        },
+      });
+
+      setupStreetInteractivity();
     }
   } catch (error) {
     console.error("Failed to load streets:", error);
   }
 }
 
+function setupStreetInteractivity() {
+  if (!map || streetInteractivityReady) return;
+
+  streetInteractivityReady = true;
+
+  STREET_LAYERS.forEach((layerId) => {
+    if (!map.getLayer(layerId)) return;
+
+    map.on("click", layerId, handleStreetClick);
+    map.on("mouseenter", layerId, () => {
+      map.getCanvas().style.cursor = "pointer";
+    });
+    map.on("mouseleave", layerId, () => {
+      map.getCanvas().style.cursor = "";
+    });
+  });
+
+  map.on("click", (e) => {
+    const features = map.queryRenderedFeatures(e.point, { layers: STREET_LAYERS });
+    if (!features.length) {
+      clearStreetPopup();
+    }
+  });
+}
+
+function handleStreetClick(event) {
+  const feature = event.features?.[0];
+  if (!feature || !map) return;
+
+  const popupContent = createStreetPopupContent(feature.properties || {});
+
+  clearStreetPopup();
+
+  activeStreetPopup = new mapboxgl.Popup({
+    closeButton: true,
+    closeOnClick: false,
+    className: "coverage-segment-popup",
+    maxWidth: "260px",
+  })
+    .setLngLat(event.lngLat)
+    .setHTML(popupContent)
+    .addTo(map);
+
+  activeStreetPopup.on("close", () => {
+    activeStreetPopup = null;
+    setHighlightedSegment(null);
+  });
+
+  setHighlightedSegment(feature.properties?.segment_id);
+}
+
+function clearStreetPopup() {
+  if (activeStreetPopup) {
+    activeStreetPopup.remove();
+    activeStreetPopup = null;
+  }
+  setHighlightedSegment(null);
+}
+
+function setHighlightedSegment(segmentId) {
+  highlightedSegmentId = segmentId || null;
+  updateHighlightFilter();
+}
+
+function updateHighlightFilter() {
+  if (!map || !map.getLayer(HIGHLIGHT_LAYER_ID)) return;
+
+  if (!highlightedSegmentId) {
+    map.setFilter(HIGHLIGHT_LAYER_ID, ["==", ["get", "segment_id"], ""]);
+    return;
+  }
+
+  const baseFilter = ["==", ["get", "segment_id"], highlightedSegmentId];
+
+  if (currentMapFilter === "driven") {
+    map.setFilter(HIGHLIGHT_LAYER_ID, ["all", baseFilter, ["==", ["get", "status"], "driven"]]);
+  } else if (currentMapFilter === "undriven") {
+    map.setFilter(
+      HIGHLIGHT_LAYER_ID,
+      ["all", baseFilter, ["==", ["get", "status"], "undriven"]]
+    );
+  } else {
+    map.setFilter(HIGHLIGHT_LAYER_ID, baseFilter);
+  }
+}
+
+function createStreetPopupContent(props) {
+  const streetName = escapeHtml(props.street_name || "Unnamed Street");
+  const segmentId = escapeHtml(props.segment_id || "Unknown");
+  const statusKey =
+    typeof props.status === "string" ? props.status.toLowerCase() : "unknown";
+  const statusLabel = formatStatus(statusKey);
+  const statusClass = statusLabel ? `status-${statusKey}` : "";
+  const lengthLabel = formatSegmentLength(props.length_miles);
+  const highwayType = escapeHtml(formatHighwayType(props.highway_type));
+
+  return `
+    <div class="segment-popup-content">
+      <div class="popup-title">${streetName}</div>
+      <div class="popup-detail">
+        <span class="popup-label">Status</span>
+        <span class="popup-value ${statusClass}">${statusLabel}</span>
+      </div>
+      <div class="popup-detail">
+        <span class="popup-label">Length</span>
+        <span class="popup-value">${lengthLabel}</span>
+      </div>
+      <div class="popup-detail">
+        <span class="popup-label">Type</span>
+        <span class="popup-value">${highwayType}</span>
+      </div>
+      <div class="popup-detail popup-meta">
+        <span class="popup-label">Segment</span>
+        <span class="popup-value segment-id">${segmentId}</span>
+      </div>
+    </div>
+  `;
+}
+
+function formatStatus(statusKey) {
+  if (statusKey === "driven") return "Driven";
+  if (statusKey === "undriven") return "Undriven";
+  if (statusKey === "undriveable") return "Undriveable";
+  return "Unknown";
+}
+
+function formatSegmentLength(lengthMiles) {
+  const miles = Number(lengthMiles);
+  if (!Number.isFinite(miles)) {
+    return "Unknown";
+  }
+  return `${miles.toFixed(2)} mi`;
+}
+
+function formatHighwayType(type) {
+  if (!type) return "Unknown";
+  const normalized = String(type).replace(/_/g, " ");
+  return normalized.replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
 function applyMapFilter(filter) {
   if (!map) return;
 
-  const layers = ["streets-undriven", "streets-driven", "streets-undriveable"];
+  currentMapFilter = filter;
 
-  layers.forEach((layerId) => {
+  STREET_LAYERS.forEach((layerId) => {
     if (!map.getLayer(layerId)) return;
 
     if (filter === "all") {
@@ -981,6 +1144,8 @@ function applyMapFilter(filter) {
       );
     }
   });
+
+  updateHighlightFilter();
 }
 
 // =============================================================================
