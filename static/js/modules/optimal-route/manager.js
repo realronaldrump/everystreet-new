@@ -49,9 +49,11 @@ export class OptimalRoutesManager {
     });
 
     // Generate button
-    document.getElementById("generate-route-btn")?.addEventListener("click", () => {
-      this.generateRoute();
-    });
+    document
+      .getElementById("generate-route-btn")
+      ?.addEventListener("click", () => {
+        this.generateRoute();
+      });
 
     // Export GPX
     document.getElementById("export-gpx-btn")?.addEventListener("click", () => {
@@ -59,9 +61,11 @@ export class OptimalRoutesManager {
     });
 
     // Replay animation
-    document.getElementById("replay-animation-btn")?.addEventListener("click", () => {
-      this.replayAnimation();
-    });
+    document
+      .getElementById("replay-animation-btn")
+      ?.addEventListener("click", () => {
+        this.replayAnimation();
+      });
 
     // Start turn-by-turn navigation
     this.ui.turnByTurnBtn?.addEventListener("click", () => {
@@ -69,9 +73,11 @@ export class OptimalRoutesManager {
     });
 
     // Clear route
-    document.getElementById("clear-route-btn")?.addEventListener("click", () => {
-      this.clearRoute();
-    });
+    document
+      .getElementById("clear-route-btn")
+      ?.addEventListener("click", () => {
+        this.clearRoute();
+      });
 
     // Retry button
     document.getElementById("retry-btn")?.addEventListener("click", () => {
@@ -79,9 +85,11 @@ export class OptimalRoutesManager {
     });
 
     // Cancel button
-    document.getElementById("cancel-task-btn")?.addEventListener("click", () => {
-      this.cancelTask();
-    });
+    document
+      .getElementById("cancel-task-btn")
+      ?.addEventListener("click", () => {
+        this.cancelTask();
+      });
 
     this.setupLayerControls();
   }
@@ -111,7 +119,9 @@ export class OptimalRoutesManager {
       const slider = document.getElementById(id);
       slider?.addEventListener("input", (e) => {
         const opacity = e.target.value / 100;
-        const label = slider.closest(".layer-opacity").querySelector(".opacity-value");
+        const label = slider
+          .closest(".layer-opacity")
+          .querySelector(".opacity-value");
         if (label) {
           label.textContent = `${e.target.value}%`;
         }
@@ -169,7 +179,7 @@ export class OptimalRoutesManager {
     }
     const targetId = String(areaId);
     const match = this.coverageAreas.find(
-      (area) => String(area._id || area.id || "") === targetId
+      (area) => String(area._id || area.id || "") === targetId,
     );
     if (match) {
       return match.status || match.location?.status || "";
@@ -199,7 +209,7 @@ export class OptimalRoutesManager {
 
       // Dispatch event
       document.dispatchEvent(
-        new CustomEvent("coverageAreasLoaded", { detail: { areas } })
+        new CustomEvent("coverageAreasLoaded", { detail: { areas } }),
       );
 
       this.ui.populateAreaSelect(areas);
@@ -217,7 +227,7 @@ export class OptimalRoutesManager {
         this.restoreAreaSelection();
         this.ui.showNotification(
           "Coverage calculation is in progress for that area. Please wait until it finishes.",
-          "warning"
+          "warning",
         );
         return;
       }
@@ -291,7 +301,10 @@ export class OptimalRoutesManager {
       });
 
       this.api.connectSSE(activeTask.task_id);
-      this.ui.showNotification("Reconnected to in-progress route generation", "info");
+      this.ui.showNotification(
+        "Reconnected to in-progress route generation",
+        "info",
+      );
     }
 
     // Fly to area
@@ -320,7 +333,7 @@ export class OptimalRoutesManager {
       if (workerStatus.status === "no_workers") {
         this.ui.showNotification(
           "No workers available. Task will be queued.",
-          "warning"
+          "warning",
         );
       }
 
@@ -395,13 +408,13 @@ export class OptimalRoutesManager {
     if (this.ui.turnByTurnBtn?.disabled) {
       this.ui.showNotification(
         "Generate a route before starting navigation.",
-        "warning"
+        "warning",
       );
       return;
     }
     window.localStorage.setItem("turnByTurnAreaId", this.selectedAreaId);
     window.location.href = `/turn-by-turn?areaId=${encodeURIComponent(
-      this.selectedAreaId
+      this.selectedAreaId,
     )}`;
   }
 
@@ -420,7 +433,7 @@ export class OptimalRoutesManager {
     this.map.displayRoute(
       this.currentRouteData.coordinates,
       this.currentRouteData,
-      true
+      true,
     );
   }
 }
