@@ -112,14 +112,12 @@ async def _build_legacy_features(
     driven: bool,
     undriven: bool,
 ) -> list[dict[str, Any]]:
-    streets = (
-        await Street.find(
-            {
-                "area_id": area.id,
-                "area_version": area.area_version,
-            }
-        ).to_list()
-    )
+    streets = await Street.find(
+        {
+            "area_id": area.id,
+            "area_version": area.area_version,
+        }
+    ).to_list()
 
     if not streets:
         return []
@@ -257,9 +255,7 @@ async def legacy_get_streets(
             query["properties.driven"] = False
             query["properties.undriveable"] = {"$ne": True}
 
-        docs = (
-            await Street.get_pymongo_collection().find(query).to_list(length=None)
-        )
+        docs = await Street.get_pymongo_collection().find(query).to_list(length=None)
         features = [
             {
                 "type": "Feature",
@@ -328,9 +324,7 @@ async def legacy_undriven_streets(location: dict[str, Any] = Body(...)):
             "properties.driven": False,
             "properties.undriveable": {"$ne": True},
         }
-        docs = (
-            await Street.get_pymongo_collection().find(query).to_list(length=None)
-        )
+        docs = await Street.get_pymongo_collection().find(query).to_list(length=None)
         features = [
             {
                 "type": "Feature",

@@ -85,7 +85,10 @@ async def generate_optimal_route_with_progress(
                 and new_area.boundary.get("type") == "Feature"
                 else new_area.boundary
             )
-            if isinstance(new_area.boundary, dict) and new_area.boundary.get("type") == "Feature":
+            if (
+                isinstance(new_area.boundary, dict)
+                and new_area.boundary.get("type") == "Feature"
+            ):
                 geojson = new_area.boundary
             else:
                 geojson = (
