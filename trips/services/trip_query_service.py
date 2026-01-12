@@ -148,23 +148,122 @@ class TripQueryService:
         if not sort_column:
             sort_column = "startTime"
             sort_direction = -1
-        elif sort_column == "vehicleLabel":
-            # Sort by IMEI to approximate vehicle ordering
-            sort_column = "imei"
 
-        if sort_column == "duration":
-            # Use aggregation for computed duration sort
-            pipeline = [
-                {"$match": query},
-                {"$addFields": {"duration": {"$subtract": ["$endTime", "$startTime"]}}},
-                {"$sort": {"duration": sort_direction}},
-                {"$skip": start},
-                {"$limit": length},
-            ]
+        # Determine if we need to use aggregation for sorting
+        use_aggregation = False
+        pipeline = [{"$match": query}]
+
+        if sort_column == "vehicleLabel":
+            use_aggregation = True
+            # Join with vehicles to get the label
+            pipeline.extend(
+                [
+                    {
+                        "$lookup": {
+                            "from": "vehicles",
+                            "localField": "imei",
+                            "foreignField": "imei",
+                            "as": "vehicle_docs",
+                        }
+                    },
+                    {
+                        "$addFields": {
+                            "vehicle_doc": {"$arrayElemAt": ["$vehicle_docs", 0]}
+                        }
+                    },
+                    {
+                        "$addFields": {
+                            "vehicleLabelSort": {
+                                "$cond": {
+                                    "if": {
+                                        "$ifNull": ["$vehicle_doc.custom_name", False]
+                                    },
+                                    "then": "$vehicle_doc.custom_name",
+                                    "else": {
+                                        "$cond": {
+                                            "if": {
+                                                "$or": [
+                                                    {
+                                                        "$ifNull": [
+                                                            "$vehicle_doc.make",
+                                                            False,
+                                                        ]
+                                                    },
+                                                    {
+                                                        "$ifNull": [
+                                                            "$vehicle_doc.model",
+                                                            False,
+                                                        ]
+                                                    },
+                                                ]
+                                            },
+                                            "then": {
+                                                "$concat": [
+                                                    {
+                                                        "$ifNull": [
+                                                            {
+                                                                "$toString": "$vehicle_doc.year"
+                                                            },
+                                                            "",
+                                                        ]
+                                                    },
+                                                    " ",
+                                                    {
+                                                        "$ifNull": [
+                                                            "$vehicle_doc.make",
+                                                            "",
+                                                        ]
+                                                    },
+                                                    " ",
+                                                    {
+                                                        "$ifNull": [
+                                                            "$vehicle_doc.model",
+                                                            "",
+                                                        ]
+                                                    },
+                                                ]
+                                            },
+                                            "else": {
+                                                "$ifNull": ["$vehicle_doc.vin", "$imei"]
+                                            },
+                                        }
+                                    },
+                                }
+                            }
+                        }
+                    },
+                    {"$sort": {"vehicleLabelSort": sort_direction}},
+                ]
+            )
+
+        elif sort_column == "duration":
+            use_aggregation = True
+            pipeline.extend(
+                [
+                    {
+                        "$addFields": {
+                            "duration": {"$subtract": ["$endTime", "$startTime"]}
+                        }
+                    },
+                    {"$sort": {"duration": sort_direction}},
+                ]
+            )
+
+        if use_aggregation:
+            pipeline.extend(
+                [
+                    {"$skip": start},
+                    {"$limit": length},
+                ]
+            )
             trips_list = await aggregate_to_list(Trip, pipeline)
         else:
-            # Use Beanie query builder
+            # Use Beanie query builder for standard sorts
             trips_query = Trip.find(query)
+            if sort_column == "vehicleLabel":
+                # Fallback if somehow we get here without aggregation logic (pre-refactor safety)
+                sort_column = "imei"
+
             if sort_direction == -1:
                 trips_query = trips_query.sort(f"-{sort_column}")
             else:
