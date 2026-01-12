@@ -21,6 +21,7 @@ from celery.utils.log import get_task_logger
 from dotenv import load_dotenv
 from kombu import Queue
 
+from core.async_bridge import set_worker_loop, shutdown_worker_loop
 from db import db_manager
 from redis_config import get_redis_url
 
@@ -238,7 +239,10 @@ def init_worker(**_kwargs):
         # Beanie initialization must be run in an event loop
         import asyncio
 
-        loop = asyncio.get_event_loop()
+        # Dedicated loop for sync-to-async calls in this worker process
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        set_worker_loop(loop)
         # Ensure db_manager is ready
         loop.run_until_complete(db_manager.init_beanie())
         logger.info("Beanie ODM initialized.")
@@ -255,3 +259,9 @@ def init_worker(**_kwargs):
         raise RuntimeError(
             msg,
         ) from e
+
+
+@signals.worker_process_shutdown.connect(weak=False)
+def worker_process_shutdown_handler(**_kwargs):
+    logger.info("Celery worker process shutting down...")
+    shutdown_worker_loop()

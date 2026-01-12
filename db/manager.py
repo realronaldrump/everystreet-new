@@ -156,6 +156,11 @@ class DatabaseManager:
 
         Note: Motor clients are safe to close synchronously; we just reset references.
         """
+        if self._client:
+            try:
+                self._client.close()
+            except Exception as e:
+                logger.warning("Error closing MongoDB client: %s", str(e))
         self._client = None
         self._db = None
         self._bound_loop = None
