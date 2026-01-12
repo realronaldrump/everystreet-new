@@ -19,6 +19,7 @@ from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 
 logger = logging.getLogger(__name__)
 
+
 class DatabaseManager:
     """
     Singleton class to manage the MongoDB client and database connection.

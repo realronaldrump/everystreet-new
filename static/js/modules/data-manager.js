@@ -58,7 +58,10 @@ const dataManager = {
     }
 
     const loadingManager = window.loadingManager;
-    loadingManager?.show("Loading trips...", { blocking: false, compact: true });
+    loadingManager?.show("Loading trips...", {
+      blocking: false,
+      compact: true,
+    });
     mapLoadingIndicator.show("Loading trips...");
 
     try {
@@ -71,17 +74,24 @@ const dataManager = {
         {},
         CONFIG.API.retryAttempts,
         CONFIG.API.cacheTime,
-        "fetchTrips"
+        "fetchTrips",
       );
 
       if (!tripData || tripData?.type !== "FeatureCollection") {
         loadingManager?.hide();
-        window.notificationManager?.show("Failed to load valid trip data", "danger");
+        window.notificationManager?.show(
+          "Failed to load valid trip data",
+          "danger",
+        );
         return null;
       }
 
-      loadingManager?.updateMessage(`Rendering ${tripData.features.length} trips...`);
-      mapLoadingIndicator.update(`Rendering ${tripData.features.length} trips...`);
+      loadingManager?.updateMessage(
+        `Rendering ${tripData.features.length} trips...`,
+      );
+      mapLoadingIndicator.update(
+        `Rendering ${tripData.features.length} trips...`,
+      );
 
       await layerManager.updateMapLayer("trips", tripData);
 
@@ -122,7 +132,7 @@ const dataManager = {
         {},
         CONFIG.API.retryAttempts,
         CONFIG.API.cacheTime,
-        "fetchMatchedTrips"
+        "fetchMatchedTrips",
       );
 
       if (data?.type === "FeatureCollection") {
@@ -134,8 +144,8 @@ const dataManager = {
             const endTime = f?.properties?.endTime;
             const endTs = endTime ? new Date(endTime).getTime() : null;
             f.properties = f.properties || {};
-            f.properties.isRecent
-              = typeof endTs === "number" && !Number.isNaN(endTs)
+            f.properties.isRecent =
+              typeof endTs === "number" && !Number.isNaN(endTs)
                 ? now - endTs <= threshold
                 : false;
           });
@@ -158,8 +168,14 @@ const dataManager = {
   },
 
   async fetchUndrivenStreets() {
-    const selectedLocationId = utils.getStorage(CONFIG.STORAGE_KEYS.selectedLocation);
-    if (!selectedLocationId || !state.mapInitialized || state.undrivenStreetsLoaded) {
+    const selectedLocationId = utils.getStorage(
+      CONFIG.STORAGE_KEYS.selectedLocation,
+    );
+    if (
+      !selectedLocationId ||
+      !state.mapInitialized ||
+      state.undrivenStreetsLoaded
+    ) {
       return null;
     }
 
@@ -170,7 +186,7 @@ const dataManager = {
         {},
         CONFIG.API.retryAttempts,
         CONFIG.API.cacheTime,
-        "fetchUndrivenStreets"
+        "fetchUndrivenStreets",
       );
 
       if (data?.type === "FeatureCollection") {
@@ -191,8 +207,14 @@ const dataManager = {
   },
 
   async fetchDrivenStreets() {
-    const selectedLocationId = utils.getStorage(CONFIG.STORAGE_KEYS.selectedLocation);
-    if (!selectedLocationId || !state.mapInitialized || state.drivenStreetsLoaded) {
+    const selectedLocationId = utils.getStorage(
+      CONFIG.STORAGE_KEYS.selectedLocation,
+    );
+    if (
+      !selectedLocationId ||
+      !state.mapInitialized ||
+      state.drivenStreetsLoaded
+    ) {
       return null;
     }
 
@@ -203,7 +225,7 @@ const dataManager = {
         {},
         CONFIG.API.retryAttempts,
         CONFIG.API.cacheTime,
-        "fetchDrivenStreets"
+        "fetchDrivenStreets",
       );
 
       if (data?.type === "FeatureCollection") {
@@ -224,8 +246,14 @@ const dataManager = {
   },
 
   async fetchAllStreets() {
-    const selectedLocationId = utils.getStorage(CONFIG.STORAGE_KEYS.selectedLocation);
-    if (!selectedLocationId || !state.mapInitialized || state.allStreetsLoaded) {
+    const selectedLocationId = utils.getStorage(
+      CONFIG.STORAGE_KEYS.selectedLocation,
+    );
+    if (
+      !selectedLocationId ||
+      !state.mapInitialized ||
+      state.allStreetsLoaded
+    ) {
       return null;
     }
 
@@ -236,7 +264,7 @@ const dataManager = {
         {},
         CONFIG.API.retryAttempts,
         CONFIG.API.cacheTime,
-        "fetchAllStreets"
+        "fetchAllStreets",
       );
 
       if (data?.type === "FeatureCollection") {
@@ -266,11 +294,13 @@ const dataManager = {
         {},
         CONFIG.API.retryAttempts,
         CONFIG.API.cacheTime,
-        "fetchMetrics"
+        "fetchMetrics",
       );
 
       if (data) {
-        document.dispatchEvent(new CustomEvent("metricsUpdated", { detail: data }));
+        document.dispatchEvent(
+          new CustomEvent("metricsUpdated", { detail: data }),
+        );
       }
       return data;
     } catch (error) {
@@ -302,7 +332,10 @@ const dataManager = {
       if (state.mapLayers.matchedTrips.visible) {
         promises.push(this.fetchMatchedTrips());
       }
-      if (state.mapLayers.undrivenStreets.visible && !state.undrivenStreetsLoaded) {
+      if (
+        state.mapLayers.undrivenStreets.visible &&
+        !state.undrivenStreetsLoaded
+      ) {
         promises.push(this.fetchUndrivenStreets());
       }
       if (state.mapLayers.drivenStreets.visible && !state.drivenStreetsLoaded) {
@@ -326,7 +359,7 @@ const dataManager = {
                 state.map.setLayoutProperty(
                   layerId,
                   "visibility",
-                  info.visible ? "visible" : "none"
+                  info.visible ? "visible" : "none",
                 );
               }
             }
