@@ -40,6 +40,7 @@ async def periodic_fetch_trips_async(
 
     Can optionally accept specific start/end times for event-driven fetches.
     """
+
     # Get current Bouncie credentials from database or environment
     bouncie_config = await get_bouncie_config()
     logger.info(

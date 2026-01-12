@@ -8,6 +8,7 @@ from typing import Any
 
 from beanie.operators import In
 from fastapi import HTTPException, status
+from pydantic import BaseModel
 
 from admin_api import get_persisted_app_settings
 from config import get_mapbox_token
@@ -58,6 +59,18 @@ class BatchProcessingResult:
             "skipped": self.skipped,
             "errors": self.errors,
         }
+
+
+class TripStatusProjection(BaseModel):
+    """Projection model for checking trip status."""
+
+    transactionId: str | None = None
+    status: str | None = None
+    processing_state: str | None = None
+    matchedGps: Any | None = None
+
+    class Config:
+        extra = "ignore"
 
 
 def with_comprehensive_handling(func: Callable) -> Callable:
@@ -341,15 +354,16 @@ class TripService:
                     if t.get("transactionId")
                 ]
 
+                incoming_ids = [
+                    t.get("transactionId")
+                    for t in unique_trips
+                    if t.get("transactionId")
+                ]
+
                 # Query existing trips to check their status using Beanie
                 existing_docs = (
                     await Trip.find(In(Trip.transactionId, incoming_ids))
-                    .project(
-                        Trip.transactionId,
-                        Trip.status,
-                        Trip.processing_state,
-                        Trip.matchedGps,
-                    )
+                    .project(TripStatusProjection)
                     .to_list()
                 )
 

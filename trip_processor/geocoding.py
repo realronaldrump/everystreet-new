@@ -98,11 +98,11 @@ class TripGeocoder:
                 start_place = await self.get_place_at_point(start_pt)
                 if start_place:
                     processed_data["startLocation"] = self._build_location_from_place(
-                        start_place,
+                        start_place.model_dump(),
                         start_coord,
                         transaction_id,
                     )
-                    processed_data["startPlaceId"] = str(start_place.get("_id", ""))
+                    processed_data["startPlaceId"] = str(start_place.id)
                 else:
                     # Use external geocoding service
                     rev_start = await self.geocoding_service.reverse_geocode(
@@ -122,11 +122,11 @@ class TripGeocoder:
                 end_place = await self.get_place_at_point(end_pt)
                 if end_place:
                     processed_data["destination"] = self._build_location_from_place(
-                        end_place,
+                        end_place.model_dump(),
                         end_coord,
                         transaction_id,
                     )
-                    processed_data["destinationPlaceId"] = str(end_place.get("_id", ""))
+                    processed_data["destinationPlaceId"] = str(end_place.id)
                 else:
                     rev_end = await self.geocoding_service.reverse_geocode(
                         end_coord[1],
