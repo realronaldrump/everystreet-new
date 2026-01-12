@@ -133,12 +133,17 @@ async def websocket_endpoint(websocket: WebSocket):
         # Send initial trip state
         initial_trip = await get_active_trip()
         if initial_trip:
+            initial_trip_payload = (
+                initial_trip.model_dump()
+                if hasattr(initial_trip, "model_dump")
+                else dict(initial_trip)
+            )
             await websocket.send_text(
                 json.dumps(
                     {
                         "type": "trip_state",
-                        "trip": initial_trip,
-                        "status": initial_trip.get("status", "active"),
+                        "trip": initial_trip_payload,
+                        "status": initial_trip_payload.get("status", "active"),
                     },
                 ),
             )

@@ -13,6 +13,7 @@ from admin_api import get_persisted_app_settings
 from config import get_mapbox_token
 from db.models import Trip
 from trip_processor import TripProcessor, TripState
+from trip_repository import TripRepository
 
 logger = logging.getLogger(__name__)
 
@@ -320,7 +321,9 @@ class TripService:
                 True,
             )
 
-            # Pre-skip duplicates already present in DB and deduplicate inputs
+            repository = TripRepository()
+
+            # Deduplicate inputs by transactionId
             unique_trips: list[dict[str, Any]] = []
             seen_incoming: set[str] = set()
             for t in trips_data:
@@ -330,7 +333,7 @@ class TripService:
                 seen_incoming.add(tx)
                 unique_trips.append(t)
 
-            trips_to_process = []
+            trips_to_handle = []
             if unique_trips:
                 incoming_ids = [
                     t.get("transactionId")
@@ -341,7 +344,12 @@ class TripService:
                 # Query existing trips to check their status using Beanie
                 existing_docs = (
                     await Trip.find(In(Trip.transactionId, incoming_ids))
-                    .project(Trip.transactionId, Trip.matchedGps)
+                    .project(
+                        Trip.transactionId,
+                        Trip.status,
+                        Trip.processing_state,
+                        Trip.matchedGps,
+                    )
                     .to_list()
                 )
 
@@ -350,71 +358,91 @@ class TripService:
                     d_dict = d.model_dump() if hasattr(d, "model_dump") else dict(d)
                     existing_by_id[d_dict.get("transactionId")] = d_dict
 
-                # Determine which trips need processing
                 for trip in unique_trips:
                     transaction_id = trip.get("transactionId")
                     if not transaction_id:
                         continue
+                    if not trip.get("endTime"):
+                        logger.debug(
+                            "Skipping trip %s because 'endTime' is missing",
+                            transaction_id,
+                        )
+                        continue
+                    trips_to_handle.append(trip)
 
-                    existing_trip = existing_by_id.get(transaction_id)
-
-                    if not existing_trip:
-                        # New trip - always process
-                        trips_to_process.append(trip)
-                    elif do_map_match and not existing_trip.get("matchedGps"):
-                        # Map matching requested and missing - process
-                        trips_to_process.append(trip)
-
-            skipped_count = len(seen_incoming) - len(trips_to_process)
+            skipped_count = len(seen_incoming) - len(trips_to_handle)
             logger.info(
-                "Processing Bouncie trips: Total incoming=%d, Unique=%d, To Process=%d, Skipped=%d (existing/duplicates)",
+                "Processing Bouncie trips: Total incoming=%d, Unique=%d, To Handle=%d, Skipped=%d (duplicates/missing endTime)",
                 len(trips_data),
                 len(seen_incoming),
-                len(trips_to_process),
+                len(trips_to_handle),
                 skipped_count,
             )
             if progress_section is not None:
                 progress_section["message"] = (
                     f"Starting trip processing "
-                    f"(skipped {skipped_count} existing/duplicate trips)"
+                    f"(skipped {skipped_count} duplicate/incomplete trips)"
                 )
 
-            for index, trip in enumerate(trips_to_process):
+            processed_count = 0
+            merged_count = 0
+            for index, trip in enumerate(trips_to_handle):
                 if progress_section is not None and trips_data:
                     progress_section["progress"] = int(
-                        (index / max(1, len(trips_to_process))) * 100,
+                        (index / max(1, len(trips_to_handle))) * 100,
                     )
                     progress_section["message"] = "Processing trips..."
 
                 transaction_id = trip.get("transactionId", "unknown")
+                existing_trip = existing_by_id.get(transaction_id)
+                existing_status = existing_trip.get("status") if existing_trip else None
+                existing_processing_state = (
+                    existing_trip.get("processing_state") if existing_trip else None
+                )
+                existing_processed = (
+                    existing_status == "processed"
+                    or existing_processing_state
+                    in {TripState.COMPLETED.value, TripState.MAP_MATCHED.value}
+                )
+                needs_processing = (
+                    not existing_trip
+                    or not existing_processed
+                    or (do_map_match and not existing_trip.get("matchedGps"))
+                )
 
-                if not trip.get("endTime"):
-                    logger.debug(
-                        "Skipping trip %s because 'endTime' is missing",
-                        transaction_id,
-                    )
-                    continue
+                if needs_processing:
+                    try:
+                        options = ProcessingOptions(
+                            validate=True,
+                            geocode=geocode_enabled,
+                            map_match=do_map_match,
+                        )
 
-                try:
-                    options = ProcessingOptions(
-                        validate=True,
-                        geocode=geocode_enabled,
-                        map_match=do_map_match,
-                    )
-
-                    result = await self.process_single_trip(
-                        trip,
-                        options,
-                        source="api",
-                    )
-                except Exception:
-                    logger.exception(
-                        "Failed to process Bouncie trip %s",
-                        transaction_id,
-                    )
+                        result = await self.process_single_trip(
+                            trip,
+                            options,
+                            source="api",
+                        )
+                    except Exception:
+                        logger.exception(
+                            "Failed to process Bouncie trip %s",
+                            transaction_id,
+                        )
+                    else:
+                        if result.get("saved_id"):
+                            processed_trip_ids.append(transaction_id)
+                            processed_count += 1
                 else:
-                    if result.get("saved_id"):
+                    saved_id = await repository.merge_trip(trip, source="api")
+                    if saved_id:
                         processed_trip_ids.append(transaction_id)
+                        merged_count += 1
+            logger.info(
+                "Bouncie trips handled: processed=%d, merged=%d, skipped=%d",
+                processed_count,
+                merged_count,
+                skipped_count,
+            )
         except Exception as exc:
             if progress_section is not None:
                 progress_section["status"] = "failed"

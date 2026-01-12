@@ -2,7 +2,7 @@
 Maintenance tasks for trip data.
 
 This module provides Celery tasks for maintaining trip data quality:
-- cleanup_stale_trips: Archives stale live tracking trips
+- cleanup_stale_trips: Completes stale active trips
 - validate_trips: Validates trip data and marks invalid records
 - remap_unmatched_trips: Attempts to map-match trips that previously failed
 """
@@ -29,24 +29,24 @@ logger = get_task_logger(__name__)
 
 @task_runner
 async def cleanup_stale_trips_async(_self) -> dict[str, Any]:
-    """Async logic for cleaning up stale live tracking trips."""
+    """Async logic for completing stale active trips."""
 
     cleanup_result = await cleanup_stale_trips_logic()
 
-    stale_archived_count = cleanup_result.get("stale_trips_archived", 0)
+    stale_completed_count = cleanup_result.get("stale_trips_archived", 0)
     old_removed_count = cleanup_result.get("old_archives_removed", 0)
     logger.info(
-        "Cleanup logic completed: Archived %d stale live trips, "
-        "removed %d old archives.",
-        stale_archived_count,
+        "Cleanup logic completed: Completed %d stale active trips, "
+        "removed %d old trips.",
+        stale_completed_count,
         old_removed_count,
     )
 
     return {
         "status": "success",
         "message": (
-            f"Cleaned up {stale_archived_count} stale trips, "
-            f"removed {old_removed_count} old archives."
+            f"Completed {stale_completed_count} stale trips, "
+            f"removed {old_removed_count} old trips."
         ),
         "details": cleanup_result,
     }
@@ -61,7 +61,7 @@ async def cleanup_stale_trips_async(_self) -> dict[str, Any]:
     name="tasks.cleanup_stale_trips",
 )
 def cleanup_stale_trips(_self, *_args, **_kwargs):
-    """Celery task wrapper for cleaning up stale live trips."""
+    """Celery task wrapper for completing stale active trips."""
     return run_async_from_sync(cleanup_stale_trips_async(_self))
 
 

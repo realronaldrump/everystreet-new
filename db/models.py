@@ -48,6 +48,7 @@ class Trip(Document):
     endTimeZone: str | None = None
     endOdometer: float | None = None
     gps: dict[str, Any] | None = None
+    coordinates: list[dict[str, Any]] | None = None
     lastUpdate: datetime | None = None
     distance: float | None = None
     currentSpeed: float | None = None
@@ -61,6 +62,11 @@ class Trip(Document):
     hardAccelerationCounts: int | None = None
     fuelConsumed: float | None = None
     closed_reason: str | None = None
+    source: str | None = None
+    saved_at: datetime | None = None
+    processing_state: str | None = None
+    processing_history: list[dict[str, Any]] | None = None
+    coverage_emitted_at: datetime | None = None
 
     # Matched GPS data (consolidated from matched_trips)
     matchedGps: dict[str, Any] | None = None
@@ -291,53 +297,6 @@ class MatchedTrip(Document):
 
     class Settings:
         name = "matched_trips"
-
-    class Config:
-        extra = "allow"
-
-
-class LiveTrip(Document):
-    """Live trip document for real-time tracking."""
-
-    transactionId: str | None = None
-    imei: str | None = None
-    status: str | None = None
-    startTime: datetime | None = None
-    endTime: datetime | None = None
-    gps: dict[str, Any] | None = None
-    lastUpdate: datetime | None = None
-    currentSpeed: float | None = None
-    sequence: int | None = None
-
-    class Settings:
-        name = "live_trips"
-
-    class Config:
-        extra = "allow"
-
-
-class ArchivedLiveTrip(Document):
-    """Archived live trip document."""
-
-    transactionId: str | None = None
-    imei: str | None = None
-    status: str | None = None
-    startTime: datetime | None = None
-    endTime: datetime | None = None
-    gps: dict[str, Any] | None = None
-    archived_at: datetime | None = None
-
-    class Settings:
-        name = "archived_live_trips"
-        indexes = [
-            IndexModel([("gps", "2dsphere")], name="archived_gps_2dsphere_idx"),
-            IndexModel(
-                [("transactionId", 1)],
-                name="archived_transactionId_idx",
-                unique=True,
-            ),
-            IndexModel([("endTime", 1)], name="archived_endTime_idx"),
-        ]
 
     class Config:
         extra = "allow"
@@ -673,8 +632,6 @@ from coverage.models import CoverageArea, CoverageState, Job, Street
 ALL_DOCUMENT_MODELS = [
     Trip,
     MatchedTrip,
-    LiveTrip,
-    ArchivedLiveTrip,
     OsmData,
     Place,
     TaskConfig,

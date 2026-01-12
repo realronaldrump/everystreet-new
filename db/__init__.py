@@ -47,10 +47,8 @@ from db.manager import DatabaseManager, db_manager
 from db.models import (
     ALL_DOCUMENT_MODELS,
     AppSettings,
-    ArchivedLiveTrip,
     BouncieCredentials,
     GasFillup,
-    LiveTrip,
     MatchedTrip,
     OptimalRouteProgress,
     OsmData,
@@ -84,7 +82,6 @@ logger = logging.getLogger(__name__)
 __all__ = [
     "ALL_DOCUMENT_MODELS",
     "AppSettings",
-    "ArchivedLiveTrip",
     "BouncieCredentials",
     # New coverage system models
     "CoverageArea",
@@ -93,7 +90,6 @@ __all__ = [
     "DatabaseManager",
     "GasFillup",
     "Job",
-    "LiveTrip",
     "MatchedTrip",
     "NewStreet",
     "OptimalRouteProgress",

@@ -44,6 +44,7 @@ class AreaResponse(BaseModel):
     area_type: str
     status: str
     health: str
+    last_error: str | None = None
 
     # Statistics (imperial only)
     total_length_miles: float
@@ -120,6 +121,7 @@ async def list_areas():
                     area_type=area.area_type,
                     status=area.status,
                     health=area.health,
+                    last_error=area.last_error,
                     total_length_miles=area.total_length_miles,
                     driveable_length_miles=area.driveable_length_miles,
                     driven_length_miles=area.driven_length_miles,
@@ -170,6 +172,7 @@ async def get_area(area_id: PydanticObjectId):
             area_type=area.area_type,
             status=area.status,
             health=area.health,
+            last_error=area.last_error,
             total_length_miles=area.total_length_miles,
             driveable_length_miles=area.driveable_length_miles,
             driven_length_miles=area.driven_length_miles,

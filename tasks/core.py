@@ -50,7 +50,7 @@ TASK_METADATA = {
         "display_name": "Cleanup Stale Trips",
         "default_interval_minutes": 60,
         "dependencies": [],
-        "description": "Archives trips that haven't been updated recently",
+        "description": "Completes active trips that haven't been updated recently",
     },
     "validate_trips": {
         "display_name": "Validate Trips",

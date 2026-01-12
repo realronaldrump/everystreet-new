@@ -76,8 +76,127 @@ async def fetch_trips_for_device(
             imei,
             e,
         )
+            return []
+
+
+@retry_async(max_retries=3, retry_delay=1.5)
+async def fetch_trip_by_transaction_id(
+    session: aiohttp.ClientSession,
+    token: str,
+    transaction_id: str,
+) -> list:
+    """Fetch a single trip by transactionId."""
+    headers = {
+        "Authorization": token,
+        "Content-Type": "application/json",
+    }
+    params = {
+        "transaction-id": transaction_id,
+        "gps-format": "geojson",
+    }
+    url = f"{API_BASE_URL}/trips"
+
+    try:
+        async with session.get(
+            url,
+            headers=headers,
+            params=params,
+        ) as response:
+            response.raise_for_status()
+            trips = await response.json()
+
+            for trip in trips:
+                if "startTime" in trip:
+                    trip["startTime"] = parse_timestamp(trip["startTime"])
+                if "endTime" in trip:
+                    trip["endTime"] = parse_timestamp(trip["endTime"])
+
+            if trips:
+                logger.info(
+                    "Fetched %d trips for transactionId %s",
+                    len(trips),
+                    transaction_id,
+                )
+            else:
+                logger.info(
+                    "Fetched 0 trips for transactionId %s",
+                    transaction_id,
+                )
+            return trips
+    except Exception as e:
+        logger.exception(
+            "Error fetching trip for transactionId %s: %s",
+            transaction_id,
+            e,
+        )
         return []
 
+
+async def fetch_bouncie_trip_by_transaction_id(
+    transaction_id: str,
+    do_map_match: bool = False,
+    task_progress: dict | None = None,
+) -> list[str]:
+    """Fetch and process a trip by transactionId."""
+    if not transaction_id:
+        return []
+
+    progress_tracker = task_progress
+    if progress_tracker is not None:
+        progress_tracker.setdefault("fetch_and_store_trips", {})
+        progress_tracker["fetch_and_store_trips"]["status"] = "running"
+        progress_tracker["fetch_and_store_trips"]["progress"] = 0
+        progress_tracker["fetch_and_store_trips"]["message"] = (
+            "Starting trip fetch by transactionId"
+        )
+
+    try:
+        credentials = await get_bouncie_config()
+        session = await get_session()
+        token = await BouncieOAuth.get_access_token(session, credentials)
+        if not token:
+            logger.error("Failed to obtain access token; aborting fetch")
+            if progress_tracker is not None:
+                progress_tracker["fetch_and_store_trips"]["status"] = "failed"
+                progress_tracker["fetch_and_store_trips"]["message"] = (
+                    "Failed to obtain access token"
+                )
+            return []
+
+        trip_service = TripService(get_mapbox_token())
+        raw_trips = await fetch_trip_by_transaction_id(
+            session,
+            token,
+            transaction_id,
+        )
+        if not raw_trips:
+            return []
+
+        return await trip_service.process_bouncie_trips(
+            raw_trips,
+            do_map_match=do_map_match,
+            progress_tracker=progress_tracker,
+        )
+    except Exception as e:
+        logger.error(
+            "Error in fetch_bouncie_trip_by_transaction_id: %s",
+            e,
+            exc_info=True,
+        )
+        if progress_tracker is not None:
+            progress_tracker["fetch_and_store_trips"]["status"] = "failed"
+            progress_tracker["fetch_and_store_trips"]["message"] = f"Error: {e}"
+        return []
+    finally:
+        if (
+            progress_tracker is not None
+            and progress_tracker["fetch_and_store_trips"]["status"] != "failed"
+        ):
+            progress_tracker["fetch_and_store_trips"]["status"] = "completed"
+            progress_tracker["fetch_and_store_trips"]["progress"] = 100
+            progress_tracker["fetch_and_store_trips"]["message"] = (
+                "Completed fetch by transactionId."
+            )
 
 async def fetch_bouncie_trips_in_range(
     start_dt: datetime,

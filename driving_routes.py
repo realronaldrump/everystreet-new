@@ -549,8 +549,15 @@ async def get_current_position(
 
     try:
         active_trip = await get_active_trip()
-        if isinstance(active_trip, dict):
-            position = _extract_position_from_gps_data(active_trip.get("gps", {}))
+        if active_trip:
+            active_trip_data = (
+                active_trip.model_dump()
+                if hasattr(active_trip, "model_dump")
+                else dict(active_trip)
+            )
+            position = _extract_position_from_gps_data(
+                active_trip_data.get("gps", {}),
+            )
             if position:
                 return position
     except Exception:

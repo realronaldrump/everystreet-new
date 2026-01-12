@@ -9,9 +9,7 @@ from core.http.geocoding import validate_location_osm
 from date_utils import ensure_utc
 from db.models import (
     AppSettings,
-    ArchivedLiveTrip,
     GasFillup,
-    LiveTrip,
     MatchedTrip,
     OptimalRouteProgress,
     OsmData,
@@ -31,8 +29,6 @@ from osm_utils import generate_geojson_osm
 COLLECTION_TO_MODEL = {
     "trips": Trip,
     "matched_trips": MatchedTrip,
-    "live_trips": LiveTrip,
-    "archived_live_trips": ArchivedLiveTrip,
     "streets": Street,
     "osm_data": OsmData,
     "places": Place,

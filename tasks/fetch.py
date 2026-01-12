@@ -15,7 +15,10 @@ from typing import Any
 from celery import shared_task
 from celery.utils.log import get_task_logger
 
-from bouncie_trip_fetcher import fetch_bouncie_trips_in_range
+from bouncie_trip_fetcher import (
+    fetch_bouncie_trip_by_transaction_id,
+    fetch_bouncie_trips_in_range,
+)
 from config import get_bouncie_config
 from core.async_bridge import run_async_from_sync
 from date_utils import parse_timestamp
@@ -242,6 +245,54 @@ def periodic_fetch_trips(
             _self,
             start_time_iso=start_time_iso,
             end_time_iso=end_time_iso,
+            trigger_source=trigger_source,
+        ),
+    )
+
+
+@task_runner
+async def fetch_trip_by_transaction_id_async(
+    _self,
+    transaction_id: str,
+    trigger_source: str = "manual",
+) -> dict[str, Any]:
+    """Fetch a single trip by transactionId."""
+    if not transaction_id:
+        raise ValueError("transaction_id is required")
+
+    logger.info(
+        "Fetching trip by transactionId=%s (trigger_source=%s)",
+        transaction_id,
+        trigger_source,
+    )
+
+    processed_ids = await fetch_bouncie_trip_by_transaction_id(transaction_id)
+    return {
+        "status": "success",
+        "message": f"Fetched trip {transaction_id}",
+        "processed_ids": processed_ids,
+    }
+
+
+@shared_task(
+    bind=True,
+    max_retries=2,
+    default_retry_delay=60,
+    time_limit=900,
+    soft_time_limit=840,
+    name="tasks.fetch_trip_by_transaction_id",
+)
+def fetch_trip_by_transaction_id(
+    _self,
+    transaction_id: str,
+    trigger_source: str = "manual",
+    **_kwargs,
+):
+    """Celery task wrapper for fetching a trip by transactionId."""
+    return run_async_from_sync(
+        fetch_trip_by_transaction_id_async(
+            _self,
+            transaction_id=transaction_id,
             trigger_source=trigger_source,
         ),
     )

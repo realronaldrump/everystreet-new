@@ -17,6 +17,9 @@ const _streetSource = null;
 let activeStreetPopup = null;
 let highlightedSegmentId = null;
 let currentMapFilter = "all";
+const areaErrorById = new Map();
+const areaNameById = new Map();
+let activeErrorAreaId = null;
 
 const STREET_LAYERS = ["streets-undriven", "streets-driven", "streets-undriveable"];
 const HIGHLIGHT_LAYER_ID = "streets-highlight";
@@ -54,6 +57,13 @@ function setupEventListeners() {
 
   // Add area button
   document.getElementById("add-coverage-area")?.addEventListener("click", addArea);
+
+  const coverageTable = document.getElementById("coverage-areas-table");
+  coverageTable?.addEventListener("click", handleCoverageErrorClick);
+
+  document
+    .getElementById("coverage-error-dismiss")
+    ?.addEventListener("click", hideCoverageErrorDetails);
 
   // Close dashboard
   document.getElementById("close-dashboard-btn")?.addEventListener("click", () => {
@@ -509,6 +519,9 @@ function renderAreasTable(areas) {
   const tbody = document.querySelector("#coverage-areas-table tbody");
 
   if (!areas || areas.length === 0) {
+    areaErrorById.clear();
+    areaNameById.clear();
+    hideCoverageErrorDetails();
     tbody.innerHTML = `
             <tr>
                 <td colspan="7" class="text-center p-4">
@@ -524,6 +537,13 @@ function renderAreasTable(areas) {
     return;
   }
 
+  areaErrorById.clear();
+  areaNameById.clear();
+  areas.forEach((area) => {
+    areaErrorById.set(area.id, area.last_error || "");
+    areaNameById.set(area.id, area.display_name || "Coverage area");
+  });
+
   tbody.innerHTML = areas
     .map(
       (area) => `
@@ -532,7 +552,7 @@ function renderAreasTable(areas) {
                 <strong>${escapeHtml(area.display_name)}</strong>
                 <br><small class="text-secondary">${area.area_type}</small>
             </td>
-            <td>${renderStatus(area.status, area.health, activeJobsByAreaId.get(area.id))}</td>
+            <td>${renderStatus(area, activeJobsByAreaId.get(area.id))}</td>
             <td>${formatMiles(area.total_length_miles)}</td>
             <td>${formatMiles(area.driven_length_miles)}</td>
             <td>
@@ -567,9 +587,12 @@ function renderAreasTable(areas) {
     `
     )
     .join("");
+
+  refreshCoverageErrorDetails(areas);
 }
 
-function renderStatus(status, _health, job) {
+function renderStatus(area, job) {
+  const status = area?.status;
   const statusConfig = {
     ready: { class: "success", icon: "check-circle", text: "Ready" },
     initializing: { class: "info", icon: "spinner fa-spin", text: "Setting up..." },
@@ -578,9 +601,25 @@ function renderStatus(status, _health, job) {
   };
 
   const config = statusConfig[status] || statusConfig.error;
+  const isErrorStatus = status === "error";
   const badge = `<span class="badge bg-${config.class}">
         <i class="fas fa-${config.icon} me-1"></i>${config.text}
     </span>`;
+
+  if (isErrorStatus) {
+    const areaName = escapeHtml(area?.display_name || "Coverage area");
+    return `
+      <button type="button"
+              class="coverage-error-trigger"
+              data-error-action="show"
+              data-area-id="${area.id}"
+              data-area-name="${areaName}"
+              title="View error details"
+              aria-label="View error details for ${areaName}">
+        <i class="fas fa-${config.icon} me-1"></i>${config.text}
+      </button>
+    `;
+  }
 
   if (
     job
@@ -771,6 +810,84 @@ async function recalculateCoverage(areaId, displayName) {
     console.error("Failed to recalculate coverage:", error);
     showNotification(`Failed to recalculate coverage: ${error.message}`, "danger");
   }
+}
+
+// =============================================================================
+// Error Details Panel
+// =============================================================================
+
+function handleCoverageErrorClick(event) {
+  const trigger = event.target.closest("[data-error-action='show']");
+  if (!trigger) {
+    return;
+  }
+
+  const areaId = trigger.dataset.areaId;
+  const areaName = areaNameById.get(areaId) || trigger.dataset.areaName || "";
+
+  showCoverageErrorDetails(areaId, areaName);
+}
+
+function showCoverageErrorDetails(areaId, areaName, { scroll = true } = {}) {
+  if (!areaId) {
+    return;
+  }
+
+  const panel = document.getElementById("coverage-error-panel");
+  if (!panel) {
+    return;
+  }
+
+  const titleEl = document.getElementById("coverage-error-title");
+  const areaEl = document.getElementById("coverage-error-area");
+  const messageEl = document.getElementById("coverage-error-message");
+  const errorMessage = areaErrorById.get(areaId) || "No error details were recorded.";
+
+  if (titleEl) {
+    titleEl.textContent = "Coverage calculation error";
+  }
+  if (areaEl) {
+    areaEl.textContent = areaName ? `Area: ${areaName}` : "Coverage area error";
+  }
+  if (messageEl) {
+    messageEl.textContent = errorMessage;
+  }
+
+  activeErrorAreaId = areaId;
+
+  panel.classList.remove("d-none");
+  panel.classList.remove("fade-in-up");
+  void panel.offsetWidth;
+  panel.classList.add("fade-in-up");
+
+  if (scroll) {
+    panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
+}
+
+function hideCoverageErrorDetails() {
+  const panel = document.getElementById("coverage-error-panel");
+  if (!panel) {
+    return;
+  }
+
+  panel.classList.add("d-none");
+  panel.classList.remove("fade-in-up");
+  activeErrorAreaId = null;
+}
+
+function refreshCoverageErrorDetails(areas) {
+  if (!activeErrorAreaId) {
+    return;
+  }
+
+  const area = areas?.find((entry) => entry.id === activeErrorAreaId);
+  if (!area || area.status !== "error") {
+    hideCoverageErrorDetails();
+    return;
+  }
+
+  showCoverageErrorDetails(area.id, area.display_name, { scroll: false });
 }
 
 // =============================================================================
