@@ -396,64 +396,6 @@ Cancel
     </div>
   </div>
 
-  <!-- Progress Modal - Simplified -->
-  <div class="modal fade"
-       id="taskProgressModal"
-       tabindex="-1"
-       aria-hidden="true"
-       data-bs-backdrop="static"
-       data-bs-keyboard="false">
-    <div class="modal-dialog modal-dialog-centered">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title mb-0">
-            <i class="fas fa-cog fa-spin me-2"></i>
-            <span id="task-progress-title">Setting Up Area</span>
-          </h5>
-          <div class="d-flex align-items-center gap-2">
-            <button type="button"
-                    class="btn btn-sm btn-outline-light"
-                    id="minimize-progress-modal"
-                    title="Minimize">
-              <i class="fas fa-minus"></i>
-            </button>
-            <button type="button"
-                    class="btn-close btn-close-white"
-                    data-bs-dismiss="modal"
-                    aria-label="Close">
-            </button>
-          </div>
-        </div>
-        <div class="modal-body">
-          <div class="mb-3">
-            <div class="progress" style="height: 25px">
-              <div class="progress-bar progress-bar-striped progress-bar-animated"
-                   role="progressbar"
-                   style="width: 0%">
-0%
-              </div>
-            </div>
-          </div>
-          <p class="progress-message text-center mb-0">
-Initializing...
-          </p>
-          <p class="progress-stage text-center text-secondary small mb-0">
-          </p>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Minimized Progress Badge -->
-  <div id="minimized-progress-badge"
-       class="minimized-progress-badge d-none d-flex align-items-center gap-2"
-       role="button"
-       tabindex="0"
-       aria-label="Show setup progress">
-    <i class="fas fa-cog fa-spin"></i>
-    <span class="minimized-location-name"></span>
-    <span class="minimized-progress-percent text-secondary small"></span>
-  </div>
 {% endblock %}
 
 

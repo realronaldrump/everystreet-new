@@ -79,7 +79,7 @@ async def get_task_config() -> dict[str, Any]:
                     "last_error": None,
                     "start_time": None,
                     "end_time": None,
-                    "last_updated": getattr(c, "last_updated", None),
+                    "last_updated": getattr(new_config, "last_updated", None),
                     "last_success_time": None,
                 }
 

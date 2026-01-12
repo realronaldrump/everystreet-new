@@ -140,321 +140,11 @@ function setupEventListeners() {
 // Background Job UI (minimize + resume)
 // =============================================================================
 
-function setupBackgroundJobUI() {
-  const modalEl = document.getElementById("taskProgressModal");
-  const minimizeBtn = document.getElementById("minimize-progress-modal");
-  const badgeEl = document.getElementById("minimized-progress-badge");
+// =============================================================================
+// Background Job UI
+// =============================================================================
 
-  minimizeBtn?.addEventListener("click", () => {
-    hideProgressModal();
-  });
-
-  badgeEl?.addEventListener("click", () => {
-    showProgressModal();
-  });
-
-  badgeEl?.addEventListener("keydown", (event) => {
-    if (event.key === "Enter" || event.key === " ") {
-      event.preventDefault();
-      showProgressModal();
-    }
-  });
-
-  modalEl?.addEventListener("shown.bs.modal", () => {
-    hideMinimizedBadge();
-  });
-
-  modalEl?.addEventListener("hidden.bs.modal", () => {
-    if (activeJob && isJobActiveStatus(activeJob.status)) {
-      showMinimizedBadge();
-    }
-  });
-}
-
-function getProgressModalInstance() {
-  const modalEl = document.getElementById("taskProgressModal");
-  if (!modalEl) {
-    return null;
-  }
-
-  return bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
-}
-
-function showProgressModal() {
-  const modal = getProgressModalInstance();
-  if (!modal) {
-    return;
-  }
-  modal.show();
-}
-
-function hideProgressModal() {
-  const modal = getProgressModalInstance();
-  if (!modal) {
-    return;
-  }
-  modal.hide();
-}
-
-function showMinimizedBadge() {
-  const badgeEl = document.getElementById("minimized-progress-badge");
-  if (!badgeEl) {
-    return;
-  }
-
-  updateMinimizedBadge();
-  badgeEl.classList.remove("d-none");
-}
-
-function hideMinimizedBadge() {
-  const badgeEl = document.getElementById("minimized-progress-badge");
-  if (!badgeEl) {
-    return;
-  }
-  badgeEl.classList.add("d-none");
-}
-
-function updateMinimizedBadge() {
-  const badgeEl = document.getElementById("minimized-progress-badge");
-  if (!badgeEl) {
-    return;
-  }
-
-  const nameEl = badgeEl.querySelector(".minimized-location-name");
-  const percentEl = badgeEl.querySelector(".minimized-progress-percent");
-
-  const locationName = activeJob?.areaName || "Working...";
-  const roundedProgress
-    = typeof activeJob?.progress === "number" ? Math.round(activeJob.progress) : 0;
-
-  if (nameEl) {
-    nameEl.textContent = locationName;
-  }
-  if (percentEl) {
-    percentEl.textContent = `${roundedProgress}%`;
-  }
-  badgeEl.title = activeJob?.message || activeJob?.stage || "";
-}
-
-function getJobTitle(jobType) {
-  if (jobType === "area_rebuild") {
-    return "Rebuilding Area";
-  }
-  return "Setting Up Area";
-}
-
-function setProgressModalTitle() {
-  const titleEl = document.getElementById("task-progress-title");
-  if (!titleEl) {
-    return;
-  }
-
-  const baseTitle = getJobTitle(activeJob?.jobType);
-  const areaName = activeJob?.areaName;
-
-  titleEl.textContent = areaName ? `${baseTitle}: ${areaName}` : baseTitle;
-}
-
-function isJobActiveStatus(status) {
-  return status === "pending" || status === "running";
-}
-
-function isJobTerminalStatus(status) {
-  return (
-    status === "completed"
-    || status === "failed"
-    || status === "needs_attention"
-    || status === "cancelled"
-  );
-}
-
-function saveActiveJobToStorage() {
-  if (!activeJob) {
-    localStorage.removeItem(ACTIVE_JOB_STORAGE_KEY);
-    return;
-  }
-
-  localStorage.setItem(ACTIVE_JOB_STORAGE_KEY, JSON.stringify(activeJob));
-}
-
-function loadActiveJobFromStorage() {
-  const raw = localStorage.getItem(ACTIVE_JOB_STORAGE_KEY);
-  if (!raw) {
-    return null;
-  }
-
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return null;
-  }
-}
-
-function clearActiveJob() {
-  activeJob = null;
-  activeJobPolling = null;
-  localStorage.removeItem(ACTIVE_JOB_STORAGE_KEY);
-}
-
-async function resumeBackgroundJob() {
-  const stored = loadActiveJobFromStorage();
-
-  if (stored?.jobId) {
-    try {
-      const snapshot = await apiGet(`/jobs/${stored.jobId}`);
-
-      if (isJobTerminalStatus(snapshot.status)) {
-        const title = getJobTitle(snapshot.job_type);
-        const areaName = snapshot.area_display_name || stored.areaName;
-        const areaPart = areaName ? `: "${areaName}"` : "";
-
-        clearActiveJob();
-        hideMinimizedBadge();
-        hideProgressModal();
-
-        if (snapshot.status === "completed") {
-          showNotification(`${title} completed${areaPart}`, "success");
-          await loadAreas();
-        } else {
-          const errMsg = snapshot.error || snapshot.stage || "Job failed";
-          showNotification(`${title} failed${areaPart}. ${errMsg}`, "danger");
-          await loadAreas();
-        }
-
-        return;
-      }
-
-      startTrackingJob({
-        jobId: stored.jobId,
-        jobType: snapshot.job_type || stored.jobType,
-        areaId: snapshot.area_id || stored.areaId,
-        areaName: snapshot.area_display_name || stored.areaName,
-        showModal: false,
-        initialSnapshot: snapshot,
-      });
-      return;
-    } catch (error) {
-      console.warn("Failed to resume stored job:", error);
-      clearActiveJob();
-    }
-  }
-
-  // No stored job; fall back to any active jobs on server
-  try {
-    const data = await apiGet("/jobs");
-    const jobs = data.jobs || [];
-    if (!jobs.length) {
-      return;
-    }
-
-    const job = jobs[0];
-    if (!job?.job_id) {
-      return;
-    }
-
-    startTrackingJob({
-      jobId: job.job_id,
-      jobType: job.job_type,
-      areaId: job.area_id,
-      areaName: job.area_display_name,
-      showModal: false,
-      initialSnapshot: job,
-    });
-  } catch (error) {
-    console.warn("Failed to load active jobs:", error);
-  }
-}
-
-function startTrackingJob({
-  jobId,
-  jobType,
-  areaId,
-  areaName,
-  showModal = false,
-  initialMessage = "Starting...",
-  initialSnapshot = null,
-}) {
-  if (!jobId) {
-    return;
-  }
-
-  const initialStage = initialSnapshot?.stage || "Queued";
-  const initialDetail = initialSnapshot?.message || initialMessage || "";
-
-  activeJob = {
-    jobId,
-    jobType,
-    areaId: areaId || null,
-    areaName: areaName || null,
-    status: initialSnapshot?.status || "pending",
-    stage: initialStage,
-    message: initialDetail,
-    progress: initialSnapshot?.progress ?? 0,
-  };
-
-  saveActiveJobToStorage();
-  setProgressModalTitle();
-  updateProgress(activeJob.progress, activeJob.stage, activeJob.message);
-  updateMinimizedBadge();
-
-  if (showModal) {
-    hideMinimizedBadge();
-    showProgressModal();
-  } else {
-    showMinimizedBadge();
-  }
-
-  // Only one poller per jobId
-  if (activeJobPolling?.jobId === jobId) {
-    return;
-  }
-
-  activeJobPolling = { jobId };
-  pollJobProgress(jobId)
-    .then((job) => {
-      if (!job) {
-        return;
-      }
-      void handleJobCompleted(job);
-    })
-    .catch((error) => {
-      void handleJobFailed(error);
-    });
-}
-
-async function handleJobCompleted(job) {
-  const title = getJobTitle(job.job_type || activeJob?.jobType);
-  const areaName = job.area_display_name || activeJob?.areaName;
-  const areaPart = areaName ? `: "${areaName}"` : "";
-
-  clearActiveJob();
-  hideMinimizedBadge();
-  hideProgressModal();
-
-  showNotification(`${title} completed${areaPart}`, "success");
-
-  await loadAreas();
-
-  if (currentAreaId && job.area_id && currentAreaId === job.area_id) {
-    await viewArea(currentAreaId);
-  }
-}
-
-async function handleJobFailed(error) {
-  const job = error?.job;
-  const title = getJobTitle(job?.job_type || activeJob?.jobType);
-  const areaName = job?.area_display_name || activeJob?.areaName;
-  const areaPart = areaName ? `: "${areaName}"` : "";
-  const errMsg = job?.error || error?.message || "Job failed";
-
-  clearActiveJob();
-  hideMinimizedBadge();
-  hideProgressModal();
-
-  showNotification(`${title} failed${areaPart}. ${errMsg}`, "danger");
-
-  await loadAreas();
-}
+// Local UI helpers (error handling, etc remain, but job progress is global now)
 
 // =============================================================================
 // API Functions
@@ -672,12 +362,11 @@ async function addArea() {
 
     // Start/resume progress tracking in the background
     if (result.job_id) {
-      startTrackingJob({
+      GlobalJobTracker.start({
         jobId: result.job_id,
         jobType: "area_ingestion",
         areaId: result.area_id || null,
         areaName: displayName,
-        showModal: true,
         initialMessage: result.message || "Setting up area...",
       });
 
@@ -692,9 +381,6 @@ async function addArea() {
     document.getElementById("location-input").value = "";
   } catch (error) {
     console.error("Failed to add area:", error);
-    clearActiveJob();
-    hideMinimizedBadge();
-    hideProgressModal();
     showNotification(`Failed to add area: ${error.message}`, "danger");
   }
 }
@@ -741,22 +427,17 @@ async function rebuildArea(areaId, displayName = null) {
   }
 
   try {
-    hideMinimizedBadge();
-    showProgressModal();
-    updateProgress(0, "Starting rebuild...", "Submitting request");
-
     const result = await apiPost(`/areas/${areaId}/rebuild`, {});
 
     // Refresh table immediately so you can keep using the page
     await loadAreas();
 
     if (result.job_id) {
-      startTrackingJob({
+       GlobalJobTracker.start({
         jobId: result.job_id,
         jobType: "area_rebuild",
         areaId,
         areaName: displayName,
-        showModal: true,
         initialMessage: result.message || "Rebuilding area...",
       });
 
@@ -768,9 +449,6 @@ async function rebuildArea(areaId, displayName = null) {
     }
   } catch (error) {
     console.error("Failed to rebuild area:", error);
-    clearActiveJob();
-    hideMinimizedBadge();
-    hideProgressModal();
     showNotification(`Failed to rebuild area: ${error.message}`, "danger");
   }
 }

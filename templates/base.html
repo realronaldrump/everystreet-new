@@ -705,17 +705,116 @@ Quick Selections
     </script>
 
     {% block extra_js %}
-
     {% endblock %}
+
+    <!-- Global Job Tracking Script -->
+    <script src="{{ url_for('static', path='js/global-job-tracker.js') | replace('http://', '//') }}"></script>
+
+    <!-- Global Progress Modal -->
+    <div class="modal fade"
+         id="taskProgressModal"
+         tabindex="-1"
+         aria-hidden="true"
+         data-bs-backdrop="static"
+         data-bs-keyboard="false">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header d-flex align-items-center justify-content-between">
+            <h5 class="modal-title mb-0">
+              <i class="fas fa-cog fa-spin me-2"></i>
+              <span id="task-progress-title">Processing...</span>
+            </h5>
+            <div class="d-flex align-items-center gap-2">
+               <button type="button"
+                      class="btn btn-sm btn-outline-light"
+                      id="minimize-progress-modal"
+                      title="Minimize to background">
+                <i class="fas fa-minus me-1"></i> Minimize
+              </button>
+              <button type="button"
+                      class="btn btn-sm btn-outline-danger"
+                      id="cancel-progress-modal"
+                      title="Cancel job">
+                Cancel
+              </button>
+            </div>
+          </div>
+          <div class="modal-body">
+            <div class="mb-3">
+              <div class="progress" style="height: 25px">
+                <div class="progress-bar progress-bar-striped progress-bar-animated"
+                     role="progressbar"
+                     style="width: 0%">
+                  0%
+                </div>
+              </div>
+            </div>
+            <p id="task-progress-message" class="progress-message text-center mb-0">
+              Initializing...
+            </p>
+            <p id="task-progress-stage" class="progress-stage text-center text-secondary small mb-0">
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Global Minimized Progress Badge -->
+    <div id="minimized-progress-badge"
+         class="minimized-progress-badge d-none d-flex align-items-center gap-2"
+         role="button"
+         tabindex="0"
+         title="Click to expand"
+         aria-label="Show background task">
+      <i class="fas fa-cog fa-spin"></i>
+      <span class="minimized-location-name">Background Job</span>
+      <span class="minimized-progress-percent text-secondary small">0%</span>
+    </div>
 
 
     <!-- Service Worker Registration -->
     <script>
         if ("serviceWorker" in navigator && location.protocol === "https:") {
             window.addEventListener("load", () => {
+                const swUrl = "/static/js/sw.js?v=2";
+                const hadController = Boolean(navigator.serviceWorker.controller);
+                let refreshing = false;
+
                 navigator.serviceWorker
-                    .register("/static/js/sw.js")
-                    .then((reg) => console.log("SW registered:", reg.scope))
+                    .register(swUrl)
+                    .then((reg) => {
+                        console.log("SW registered:", reg.scope);
+                        if (typeof reg.update === "function") {
+                            reg.update();
+                        }
+
+                        if (reg.waiting) {
+                            reg.waiting.postMessage({ type: "SKIP_WAITING" });
+                        }
+
+                        reg.addEventListener("updatefound", () => {
+                            const newWorker = reg.installing;
+                            if (!newWorker) {
+                                return;
+                            }
+                            newWorker.addEventListener("statechange", () => {
+                                if (
+                                    newWorker.state === "installed"
+                                    && navigator.serviceWorker.controller
+                                ) {
+                                    newWorker.postMessage({ type: "SKIP_WAITING" });
+                                }
+                            });
+                        });
+
+                        navigator.serviceWorker.addEventListener("controllerchange", () => {
+                            if (!hadController || refreshing) {
+                                return;
+                            }
+                            refreshing = true;
+                            window.location.reload();
+                        });
+                    })
                     .catch((err) => console.error("SW registration failed:", err));
             });
         }
