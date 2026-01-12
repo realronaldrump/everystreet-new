@@ -38,9 +38,6 @@ export class DrivingNavigation {
     this.suggestedClusters = [];
     this.currentRoute = null;
 
-    // For backwards compatibility, expose map directly
-    this.map = null;
-
     this.initialize();
   }
 
@@ -61,7 +58,6 @@ export class DrivingNavigation {
   async initMap() {
     try {
       await this.mapManager.initialize();
-      this.map = this.mapManager.getMap();
       this.ui.setStatus("Map initialized. Select an area.");
 
       // Set up map interactivity
