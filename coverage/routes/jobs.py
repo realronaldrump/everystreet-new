@@ -168,9 +168,9 @@ async def list_active_jobs():
                 job_id=str(job.id),
                 job_type=job.job_type,
                 area_id=str(job.area_id) if job.area_id else None,
-                area_display_name=area_name_by_id.get(str(job.area_id))
-                if job.area_id
-                else None,
+                area_display_name=(
+                    area_name_by_id.get(str(job.area_id)) if job.area_id else None
+                ),
                 status=job.status,
                 stage=job.stage,
                 progress=job.progress,
