@@ -17,21 +17,21 @@ from datetime import UTC, datetime
 from typing import Any
 
 import aiohttp
-from beanie import PydanticObjectId
-from shapely.geometry import LineString, shape, mapping
-from shapely.ops import transform, linemerge
 import pyproj
+from beanie import PydanticObjectId
+from shapely.geometry import LineString, mapping, shape
+from shapely.ops import linemerge, transform
 
-from coverage.events import emit_area_created, CoverageEvents, on_event
-from coverage.models import CoverageArea, CoverageState, Job, Street
 from coverage.constants import (
     BATCH_SIZE,
+    MAX_INGESTION_RETRIES,
     METERS_TO_MILES,
     OSM_REFRESH_DAYS,
-    MAX_INGESTION_RETRIES,
     RETRY_BASE_DELAY_SECONDS,
     SEGMENT_LENGTH_METERS,
 )
+from coverage.events import CoverageEvents, emit_area_created, on_event
+from coverage.models import CoverageArea, CoverageState, Job, Street
 from coverage.stats import update_area_stats
 from coverage.worker import backfill_coverage_for_area
 
@@ -450,9 +450,11 @@ async def _fetch_osm_streets(boundary: dict[str, Any]) -> list[dict[str, Any]]:
                         {
                             "osm_id": way["id"],
                             "tags": way.get("tags", {}),
-                            "geometry": mapping(clipped)
-                            if hasattr(clipped, "geoms")
-                            else mapping(clipped),
+                            "geometry": (
+                                mapping(clipped)
+                                if hasattr(clipped, "geoms")
+                                else mapping(clipped)
+                            ),
                         }
                     )
 
