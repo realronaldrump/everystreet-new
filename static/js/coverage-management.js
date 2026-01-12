@@ -15,6 +15,14 @@ let currentAreaId = null;
 let map = null;
 let streetSource = null;
 
+// Background job tracking (minimizable progress + resume)
+const ACTIVE_JOB_STORAGE_KEY = "coverageManagement.activeJob";
+const JOB_POLL_INTERVAL_MS = 1500;
+
+let activeJob = null;
+let activeJobsByAreaId = new Map();
+let activeJobPolling = null;
+
 // =============================================================================
 // Initialization
 // =============================================================================
@@ -22,11 +30,14 @@ let streetSource = null;
 document.addEventListener("DOMContentLoaded", async () => {
   console.log("Coverage Management initialized");
 
+  setupEventListeners();
+  setupBackgroundJobUI();
+
   // Load initial data
   await loadAreas();
 
-  // Set up event listeners
-  setupEventListeners();
+  // Resume any in-progress job (even after refresh/browser close)
+  await resumeBackgroundJob();
 });
 
 function setupEventListeners() {
