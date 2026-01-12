@@ -5,9 +5,15 @@ import { utils } from "../utils.js";
 import eventManager from "./event-manager.js";
 
 const mapControlsManager = {
+  _initialized: false,
+
   init() {
     const mapTypeSelect = uiState.getElement(CONFIG.UI.selectors.mapTypeSelect);
     if (mapTypeSelect) {
+      if (this._initialized) {
+        return;
+      }
+      this._initialized = true;
       // Default to dark mode, but respect user's stored preference
       const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
       const defaultMapType = utils.getStorage(CONFIG.STORAGE_KEYS.mapType) || theme;
@@ -116,5 +122,11 @@ const mapControlsManager = {
     }
   },
 };
+
+document.addEventListener("es:page-load", (event) => {
+  if (event.detail?.path === "/map") {
+    mapControlsManager.init();
+  }
+});
 
 export default mapControlsManager;

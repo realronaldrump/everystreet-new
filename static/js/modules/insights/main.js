@@ -11,9 +11,12 @@ import * as InsightsFormatters from "./formatters.js";
 import * as InsightsMetrics from "./metrics.js";
 import * as InsightsState from "./state.js";
 import * as InsightsTables from "./tables.js";
+import { onPageLoad } from "../utils.js";
 
-// Initialize on DOM ready
-document.addEventListener("DOMContentLoaded", init);
+let globalListenersBound = false;
+
+// Initialize on page load
+onPageLoad(init, { route: "/insights" });
 
 /**
  * Initialize the driving insights page
@@ -24,6 +27,7 @@ export async function init() {
   InsightsCharts.initCharts();
   await loadAllData();
   startAutoRefresh();
+  document.addEventListener("es:page-unload", stopAutoRefresh, { once: true });
 }
 
 /**
@@ -44,9 +48,12 @@ function initTooltips() {
  */
 function setupEventListeners() {
   // React to global date-filter changes triggered elsewhere in the app
-  document.addEventListener("filtersApplied", () => {
-    loadAllData();
-  });
+  if (!globalListenersBound) {
+    document.addEventListener("filtersApplied", () => {
+      loadAllData();
+    });
+    globalListenersBound = true;
+  }
 
   // View toggles
   document.querySelectorAll(".toggle-btn").forEach((btn) => {
@@ -249,9 +256,7 @@ function startAutoRefresh() {
   const state = InsightsState.getState();
 
   // Clear any existing interval
-  if (state.autoRefreshInterval) {
-    clearInterval(state.autoRefreshInterval);
-  }
+  stopAutoRefresh();
 
   // Refresh data every 5 minutes
   const intervalId = setInterval(
@@ -268,8 +273,13 @@ function startAutoRefresh() {
  * Cleanup on page unload
  */
 window.addEventListener("beforeunload", () => {
+  stopAutoRefresh();
+});
+
+function stopAutoRefresh() {
   const state = InsightsState.getState();
   if (state.autoRefreshInterval) {
     clearInterval(state.autoRefreshInterval);
+    InsightsState.updateState({ autoRefreshInterval: null });
   }
-});
+}

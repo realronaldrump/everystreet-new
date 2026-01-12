@@ -1,4 +1,4 @@
-document.addEventListener("DOMContentLoaded", () => {
+window.utils?.onPageLoad(() => {
   // DOM elements
   const logsContainer = document.getElementById("logs-container");
   const logsInfo = document.getElementById("logs-info");
@@ -480,4 +480,16 @@ document.addEventListener("DOMContentLoaded", () => {
       clearInterval(autoRefreshInterval);
     }
   });
-});
+
+  document.addEventListener(
+    "es:page-unload",
+    () => {
+      if (autoRefreshInterval) {
+        clearInterval(autoRefreshInterval);
+        autoRefreshInterval = null;
+      }
+      autoRefreshEnabled = false;
+    },
+    { once: true }
+  );
+}, { route: "/server-logs" });

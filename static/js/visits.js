@@ -1,7 +1,7 @@
 /* global Chart, DateUtils, bootstrap */
 
 (() => {
-  document.addEventListener("DOMContentLoaded", () => {
+  window.utils?.onPageLoad(() => {
     if (
       typeof Chart !== "undefined"
       && typeof $ !== "undefined"
@@ -58,5 +58,5 @@
       `;
       document.body.prepend(errorDiv);
     }
-  });
+  }, { route: "/visits" });
 })();

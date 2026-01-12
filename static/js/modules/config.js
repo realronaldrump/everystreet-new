@@ -32,6 +32,7 @@ export const CONFIG = {
     startDate: "startDate",
     endDate: "endDate",
     selectedLocation: "selectedLocation",
+    selectedVehicle: "selectedVehicleImei",
     sidebarState: "sidebarCollapsed",
     layerVisibility: "layerVisibility",
     layerSettings: "layerSettings",

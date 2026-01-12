@@ -6,6 +6,7 @@
  * Formatters are imported from the consolidated formatters.js module.
  */
 import { CONFIG } from "./config.js";
+import store, { LEGACY_KEY_MAP } from "./spa/store.js";
 import {
   escapeHtml,
   formatDateTime,
@@ -164,6 +165,10 @@ export function throttle(func, limit) {
  */
 export function getStorage(key, defaultValue = null) {
   try {
+    if (Object.prototype.hasOwnProperty.call(LEGACY_KEY_MAP, key)) {
+      const value = store.getLegacy(key);
+      return value ?? defaultValue;
+    }
     const value = localStorage.getItem(key);
     if (value === null) {
       return defaultValue;
@@ -187,6 +192,10 @@ export function getStorage(key, defaultValue = null) {
  */
 export function setStorage(key, value) {
   try {
+    if (Object.prototype.hasOwnProperty.call(LEGACY_KEY_MAP, key)) {
+      store.setLegacy(key, value, { source: "utils" });
+      return true;
+    }
     const stringValue
       = typeof value === "object" ? JSON.stringify(value) : String(value);
     localStorage.setItem(key, stringValue);
@@ -212,6 +221,10 @@ export function setStorage(key, value) {
  */
 export function removeStorage(key) {
   try {
+    if (Object.prototype.hasOwnProperty.call(LEGACY_KEY_MAP, key)) {
+      store.removeLegacy(key);
+      return true;
+    }
     localStorage.removeItem(key);
     return true;
   } catch (error) {
@@ -219,6 +232,32 @@ export function removeStorage(key) {
     return false;
   }
 }
+
+export function onPageLoad(callback, options = {}) {
+  const handler = () => {
+    if (options.route && document.body?.dataset?.route !== options.route) {
+      return;
+    }
+    callback();
+  };
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", handler, { once: true });
+  } else {
+    handler();
+  }
+
+  document.addEventListener("es:page-load", handler);
+  return handler;
+}
+
+document.addEventListener("es:page-load", () => {
+  state.clearElementCache();
+});
+
+document.addEventListener("es:page-unload", () => {
+  state.clearElementCache();
+});
 
 /**
  * Clear old cache entries to free up storage space

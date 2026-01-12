@@ -1,4 +1,27 @@
 {% from 'partials/_library_versions.html' import CDN, LIB_VERSIONS with context %}
+{% set es_is_partial = (request.headers.get("X-ES-Partial") in ["1", "true", "True"]) or (request.query_params.get("partial") in ["1", "true", "True"]) %}
+{% set es_route_path = request.url.path %}
+{% if es_is_partial %}
+  {% set es_page_title = self.title()|striptags|trim %}
+  <div id="es-spa-fragment"
+       data-es-title="{{ es_page_title }}"
+       data-es-path="{{ request.url.path }}"
+       data-es-url="{{ request.url }}">
+    <template data-es-head>
+      {{ self.extra_css() }}
+      {{ self.head_content() }}
+    </template>
+    <template data-es-shell>
+      {{ self.persistent_shell() }}
+    </template>
+    <template data-es-content>
+      {{ self.content() }}
+    </template>
+    <template data-es-scripts>
+      {{ self.extra_js() }}
+    </template>
+  </div>
+{% else %}
 <!DOCTYPE html>
 <html lang="en" data-bs-theme="dark">
   <head>
@@ -112,7 +135,7 @@ Every Street
       </script>
     {% endif %}
   </head>
-  <body>
+  <body data-route="{{ es_route_path }}">
     <a href="#main-content" class="visually-hidden-focusable">Skip to main content</a>
 
     <div id="app" class="layout-wrapper">
@@ -633,12 +656,17 @@ Quick Selections
       </div>
 
       <!-- Main Content Area -->
-      <main id="main-content" class="main-content" role="main">
+      <main id="main-content" class="main-content" role="main" tabindex="-1">
+        <div id="persistent-shell" class="persistent-shell">
+          {% block persistent_shell %}
 
-        {% block content %}
+          {% endblock %}
+        </div>
+        <div id="route-content" class="route-content" data-spa-target>
+          {% block content %}
 
-        {% endblock %}
-
+          {% endblock %}
+        </div>
       </main>
 
       <!-- Notification Container -->
@@ -658,6 +686,8 @@ Quick Selections
 
     <div id="modals-container">
     </div>
+    <div id="spa-announcer" class="visually-hidden" role="status" aria-live="polite"></div>
+    <div id="spa-scripts" aria-hidden="true"></div>
 
     <!-- Core JS - Load in specific order -->
     <script src="{{ CDN.jquery }}" crossorigin="anonymous"></script>
@@ -696,7 +726,15 @@ Quick Selections
     <script type="module">
         import AppController from "{{ url_for('static', path='js/modules/app-controller.js') | replace('http://', '//') }}";
         import "{{ url_for('static', path='js/modules/ui/ui-init.js') | replace('http://', '//') }}";
-        const start = () => AppController.initialize();
+        import store from "{{ url_for('static', path='js/modules/spa/store.js') | replace('http://', '//') }}";
+        import router from "{{ url_for('static', path='js/modules/spa/router.js') | replace('http://', '//') }}";
+
+        const start = () => {
+            store.init(window.location.href);
+            window.ESStore = store;
+            AppController.initialize();
+            router.init();
+        };
         if (document.readyState === "loading") {
             document.addEventListener("DOMContentLoaded", start);
         } else {
@@ -828,3 +866,4 @@ Quick Selections
     </script>
   </body>
 </html>
+{% endif %}

@@ -4,6 +4,7 @@ import heatmapUtils from "./heatmap-utils.js";
 import mapManager from "./map-manager.js";
 import state from "./state.js";
 import { utils } from "./utils.js";
+import store from "./spa/store.js";
 
 const INTERACTIVE_TRIP_LAYERS = new Set(["trips", "matchedTrips"]);
 
@@ -234,6 +235,7 @@ const layerManager = {
     container.appendChild(fragment);
     this.setupEventListeners(container);
     this.setupDragAndDropForLayers(container);
+    this.syncVisibilityToStore();
   },
 
   bindHeatmapEvents() {
@@ -411,6 +413,16 @@ const layerManager = {
     if (loadingEl) {
       loadingEl.classList.add("d-none");
     }
+
+    this.syncVisibilityToStore();
+  },
+
+  syncVisibilityToStore() {
+    const visibility = {};
+    Object.entries(state.mapLayers).forEach(([layerName, info]) => {
+      visibility[layerName] = info.visible;
+    });
+    store.updateLayerVisibility(visibility, { source: "layers" });
   },
 
   async _loadLayerDataIfNeeded(name, layerInfo) {

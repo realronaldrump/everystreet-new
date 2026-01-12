@@ -488,11 +488,17 @@ class MobileMapInterface {
   }
 }
 
-// Initialize when DOM is ready
-if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", () => {
-    window.mobileMapInterface = new MobileMapInterface();
-  });
-} else {
+const initMobileMap = () => {
+  if (window.mobileMapInterface?.destroy) {
+    window.mobileMapInterface.destroy();
+  }
   window.mobileMapInterface = new MobileMapInterface();
-}
+};
+
+window.utils?.onPageLoad(initMobileMap, { route: "/map" });
+
+document.addEventListener("es:page-unload", () => {
+  if (window.mobileMapInterface?.destroy) {
+    window.mobileMapInterface.destroy();
+  }
+});

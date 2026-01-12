@@ -37,7 +37,7 @@ const _activeJobPolling = null;
 // Initialization
 // =============================================================================
 
-document.addEventListener("DOMContentLoaded", async () => {
+window.utils?.onPageLoad(async () => {
   console.log("Coverage Management initialized");
 
   setupEventListeners();
@@ -48,7 +48,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // Resume any in-progress job (even after refresh/browser close)
   await resumeBackgroundJob();
-});
+}, { route: "/coverage-management" });
 
 function setupEventListeners() {
   // Refresh button
@@ -464,7 +464,23 @@ async function deleteArea(areaId, displayName) {
     return;
   }
 
+  const row = document.querySelector(`[data-area-id="${areaId}"]`);
+  const tbody = row?.parentElement || null;
+  const nextSibling = row?.nextElementSibling || null;
+  const totalCountEl = document.getElementById("total-areas-count");
+  const previousCount = totalCountEl?.textContent || null;
+
   try {
+    if (row) {
+      row.remove();
+    }
+    if (totalCountEl) {
+      const currentCount = Number.parseInt(totalCountEl.textContent || "0", 10);
+      if (Number.isFinite(currentCount)) {
+        totalCountEl.textContent = String(Math.max(0, currentCount - 1));
+      }
+    }
+
     await apiDelete(`/areas/${areaId}`);
     showNotification(`Area "${displayName}" deleted`, "success");
 
@@ -476,6 +492,16 @@ async function deleteArea(areaId, displayName) {
     await loadAreas();
   } catch (error) {
     console.error("Failed to delete area:", error);
+    if (row && tbody) {
+      if (nextSibling) {
+        tbody.insertBefore(row, nextSibling);
+      } else {
+        tbody.appendChild(row);
+      }
+    }
+    if (totalCountEl && previousCount !== null) {
+      totalCountEl.textContent = previousCount;
+    }
     showNotification(`Failed to delete area: ${error.message}`, "danger");
   }
 }

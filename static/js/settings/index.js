@@ -443,11 +443,16 @@ function init() {
       window.taskManager.cleanup();
     }
   });
+
+  document.addEventListener(
+    "es:page-unload",
+    () => {
+      if (window.taskManager) {
+        window.taskManager.cleanup();
+      }
+    },
+    { once: true }
+  );
 }
 
-// Initialize when DOM is ready
-if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", init);
-} else {
-  init();
-}
+window.utils?.onPageLoad(init, { route: "/settings" });

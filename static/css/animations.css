@@ -202,6 +202,26 @@
   }
 }
 
+/* === SPA View Transitions === */
+#route-content {
+  view-transition-name: route-content;
+}
+
+::view-transition-old(route-content) {
+  animation: fadeOut 180ms ease both;
+}
+
+::view-transition-new(route-content) {
+  animation: fadeInUp 220ms ease both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(route-content),
+  ::view-transition-new(route-content) {
+    animation: none;
+  }
+}
+
 @keyframes pulse-dot {
   from {
     transform: translate(-50%, -50%) scale(0.8);

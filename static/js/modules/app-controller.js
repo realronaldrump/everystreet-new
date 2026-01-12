@@ -85,6 +85,8 @@ const restoreLayerVisibility = () => {
 
 // --- Main controller ---------------------------------------------------
 const AppController = {
+  _listenersInitialized: false,
+
   async initialize() {
     try {
       window.loadingManager?.show("Initializing application...");
@@ -100,7 +102,10 @@ const AppController = {
         await initializeLocationDropdown();
         initializeLiveTracker();
         searchManager.initialize();
-        this.setupEventListeners();
+        if (!this._listenersInitialized) {
+          this.setupEventListeners();
+          this._listenersInitialized = true;
+        }
         restoreLayerVisibility();
 
         // Restore street view modes if location is selected
@@ -511,5 +516,11 @@ const AppController = {
     }
   },
 };
+
+document.addEventListener("es:page-load", (event) => {
+  if (event.detail?.path === "/map") {
+    AppController.initialize();
+  }
+});
 
 export default AppController;

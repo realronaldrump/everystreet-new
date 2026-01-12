@@ -15,11 +15,12 @@
 
 import { DrivingNavigation } from "./modules/driving-navigation/manager.js";
 import { DrivingNavigationUI } from "./modules/driving-navigation/ui.js";
+import { onPageLoad } from "./modules/utils.js";
 
 /**
- * Initialize driving navigation when DOM is ready.
+ * Initialize driving navigation when page is ready.
  */
-document.addEventListener("DOMContentLoaded", () => {
+onPageLoad(() => {
   if (typeof mapboxgl === "undefined") {
     const mapContainerId
       = window.coverageNavigatorConfig?.drivingNavigation?.mapContainerId
@@ -37,4 +38,4 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Inject cluster marker styles
   DrivingNavigationUI.injectClusterStyles();
-});
+}, { route: "/driving-navigation" });

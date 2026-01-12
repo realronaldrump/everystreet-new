@@ -22,8 +22,10 @@ function updateLiveTrackingVisibility() {
   liveTrackingPanel.classList.toggle("d-none", !shouldShow);
 }
 
+let storageListenerBound = false;
+
 // Script for toggling chevron in metrics collapse
-document.addEventListener("DOMContentLoaded", () => {
+window.utils?.onPageLoad(() => {
   const metricsButton = document.querySelector('[data-bs-target="#metrics-content"]');
   if (metricsButton) {
     const chevron = metricsButton.querySelector(".fa-chevron-down");
@@ -60,10 +62,13 @@ document.addEventListener("DOMContentLoaded", () => {
     })();
 
     // Respond to changes from other tabs/windows or settings page
-    window.addEventListener("storage", (e) => {
-      if (e.key === "showLiveTracking") {
-        updateLiveTrackingVisibility();
-      }
-    });
+    if (!storageListenerBound) {
+      window.addEventListener("storage", (e) => {
+        if (e.key === "showLiveTracking") {
+          updateLiveTrackingVisibility();
+        }
+      });
+      storageListenerBound = true;
+    }
   }
-});
+}, { route: "/map" });

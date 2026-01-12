@@ -59,10 +59,10 @@
   };
 
   // Initialize
-  document.addEventListener("DOMContentLoaded", () => {
+  window.utils?.onPageLoad(() => {
     initializeEventListeners();
     loadVehicle();
-  });
+  }, { route: "/vehicles" });
 
   /**
    * Initialize event listeners
@@ -122,7 +122,7 @@
       }
 
       // Determine which vehicle to display
-      const savedImei = localStorage.getItem(STORAGE_KEY);
+      const savedImei = window.utils?.getStorage(STORAGE_KEY);
       let vehicleToDisplay = null;
 
       // Try to find saved vehicle
@@ -195,7 +195,8 @@
     currentVehicle = vehicle;
 
     // Persist selection
-    localStorage.setItem(STORAGE_KEY, imei);
+    window.utils?.setStorage(STORAGE_KEY, imei);
+    window.ESStore?.updateFilters({ vehicle: imei }, { source: "vehicle" });
 
     // Update dropdown selection
     if (elements.vehicleSelect) {

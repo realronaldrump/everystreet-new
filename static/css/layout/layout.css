@@ -77,6 +77,39 @@
   overflow: hidden; /* Changed from auto to hidden to prevent double scrollbars if body handles scrolling */
 }
 
+.persistent-shell {
+  display: none;
+  flex: 1 1 auto;
+  position: relative;
+  flex-direction: column;
+}
+
+.route-content {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  transition: opacity 200ms ease, transform 200ms ease;
+}
+
+.route-content.is-transitioning {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+body[data-route="/map"] .persistent-shell {
+  display: flex;
+}
+
+body[data-route="/map"] .route-content {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .route-content {
+    transition: none;
+  }
+}
+
 /* === Content Overlay (for mobile nav, side panels) === */
 .content-overlay {
   position: fixed;

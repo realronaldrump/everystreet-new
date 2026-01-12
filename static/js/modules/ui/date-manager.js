@@ -1,6 +1,7 @@
 import { CONFIG } from "../config.js";
 import { uiState } from "../ui-state.js";
 import { utils } from "../utils.js";
+import store from "../spa/store.js";
 import eventManager from "./event-manager.js";
 import panelManager from "./panel-manager.js";
 
@@ -17,9 +18,13 @@ const dateManager = {
     }
 
     const startDate
-      = utils.getStorage(CONFIG.STORAGE_KEYS.startDate) || dateUtils.getCurrentDate();
+      = store.get("filters.startDate")
+      || utils.getStorage(CONFIG.STORAGE_KEYS.startDate)
+      || dateUtils.getCurrentDate();
     const endDate
-      = utils.getStorage(CONFIG.STORAGE_KEYS.endDate) || dateUtils.getCurrentDate();
+      = store.get("filters.endDate")
+      || utils.getStorage(CONFIG.STORAGE_KEYS.endDate)
+      || dateUtils.getCurrentDate();
     this.flatpickrInstances = new Map();
 
     const fpConfig = {
@@ -62,6 +67,21 @@ const dateManager = {
 
     this.updateInputs(startDate, endDate);
     this.updateIndicator();
+
+    document.addEventListener("es:filters-change", (event) => {
+      const detail = event.detail || {};
+      if (detail.source === "filters") {
+        return;
+      }
+      const nextStart
+        = detail.startDate || store.get("filters.startDate") || startDate;
+      const nextEnd = detail.endDate || store.get("filters.endDate") || endDate;
+      if (!nextStart || !nextEnd) {
+        return;
+      }
+      this.updateInputs(nextStart, nextEnd);
+      this.updateIndicator();
+    });
 
     // Bind quick-select buttons
     uiState.getAllElements(".quick-select-btn").forEach((btn) => {
@@ -257,15 +277,12 @@ const dateManager = {
       btn.classList.add("btn-loading");
     }
     try {
-      utils.setStorage(CONFIG.STORAGE_KEYS.startDate, startDateVal);
-      utils.setStorage(CONFIG.STORAGE_KEYS.endDate, endDateVal);
+      store.updateFilters(
+        { startDate: startDateVal, endDate: endDateVal },
+        { push: true, source: "filters" }
+      );
       this.updateIndicator();
       await panelManager.close("filters");
-      document.dispatchEvent(
-        new CustomEvent("filtersApplied", {
-          detail: { startDate: startDateVal, endDate: endDateVal },
-        })
-      );
       const fd = (d) => dateUtils.formatForDisplay(d, { dateStyle: "short" });
       utils.showNotification(
         `Filters applied: ${fd(startDateVal)} to ${fd(endDateVal)}`,
@@ -283,8 +300,6 @@ const dateManager = {
   reset() {
     const today = dateUtils.getCurrentDate();
     this.updateInputs(today, today);
-    utils.setStorage(CONFIG.STORAGE_KEYS.startDate, today);
-    utils.setStorage(CONFIG.STORAGE_KEYS.endDate, today);
     uiState.getAllElements(".quick-select-btn").forEach((btn) => {
       btn.classList.remove(CONFIG.UI.classes.active);
     });

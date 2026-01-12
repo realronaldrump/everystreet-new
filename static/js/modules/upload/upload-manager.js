@@ -23,6 +23,7 @@ import {
   updateBulkDeleteButtonState,
   updateStats,
 } from "./ui.js";
+import { onPageLoad } from "../utils.js";
 
 /**
  * UploadManager class - orchestrates the upload functionality
@@ -38,7 +39,7 @@ export class UploadManager {
     this.elements = {};
     this.loadingManager = null;
 
-    document.addEventListener("DOMContentLoaded", () => this.init());
+    onPageLoad(() => this.init(), { route: "/upload" });
   }
 
   /**

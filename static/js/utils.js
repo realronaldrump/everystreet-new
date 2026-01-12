@@ -4,6 +4,18 @@
 const utils = {
   // Element management with caching
   _elementCache: new Map(),
+  _sessionKeys: new Set([
+    "startDate",
+    "endDate",
+    "selectedLocation",
+    "mapView",
+    "mapType",
+    "layerVisibility",
+    "layerSettings",
+    "streetViewMode",
+    "selectedVehicleImei",
+    "selectedVehicle",
+  ]),
 
   // XSS Sanitization - escapes HTML special characters
   escapeHtml(str) {
@@ -225,6 +237,24 @@ const utils = {
   // Storage utilities (moved from app.js)
   getStorage(key, defaultValue = null) {
     try {
+      if (this._sessionKeys.has(key)) {
+        const store = window.ESStore;
+        if (store?.getLegacy) {
+          const value = store.getLegacy(key);
+          return value ?? defaultValue;
+        }
+
+        const value = sessionStorage.getItem(key);
+        if (value === null) {
+          return defaultValue;
+        }
+        try {
+          return JSON.parse(value);
+        } catch {
+          return value;
+        }
+      }
+
       const value = localStorage.getItem(key);
       if (value === null) {
         return defaultValue;
@@ -244,6 +274,17 @@ const utils = {
   setStorage(key, value) {
     let stringValue = null;
     try {
+      if (this._sessionKeys.has(key)) {
+        const store = window.ESStore;
+        if (store?.setLegacy) {
+          store.setLegacy(key, value, { source: "utils" });
+          return true;
+        }
+        stringValue = typeof value === "object" ? JSON.stringify(value) : String(value);
+        sessionStorage.setItem(key, stringValue);
+        return true;
+      }
+
       stringValue = typeof value === "object" ? JSON.stringify(value) : String(value);
 
       localStorage.setItem(key, stringValue);
@@ -270,12 +311,39 @@ const utils = {
 
   removeStorage(key) {
     try {
+      if (this._sessionKeys.has(key)) {
+        const store = window.ESStore;
+        if (store?.removeLegacy) {
+          store.removeLegacy(key);
+        } else {
+          sessionStorage.removeItem(key);
+        }
+        return true;
+      }
       localStorage.removeItem(key);
       return true;
     } catch (error) {
       console.warn(`Error removing localStorage for key ${key}:`, error);
       return false;
     }
+  },
+
+  onPageLoad(callback, options = {}) {
+    const handler = () => {
+      if (options.route && document.body?.dataset?.route !== options.route) {
+        return;
+      }
+      callback();
+    };
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", handler, { once: true });
+    } else {
+      handler();
+    }
+
+    document.addEventListener("es:page-load", handler);
+    return handler;
   },
 
   clearOldCache() {
@@ -1182,6 +1250,14 @@ window.promptDialog = window.promptDialog || new PromptDialog();
 window.handleError = handleError;
 window.utils = utils;
 window.DateUtils = DateUtils;
+
+document.addEventListener("es:page-load", () => {
+  window.utils?._elementCache?.clear();
+});
+
+document.addEventListener("es:page-unload", () => {
+  window.utils?._elementCache?.clear();
+});
 
 // Initialize connection monitoring once
 if (document.readyState === "loading") {

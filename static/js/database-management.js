@@ -1,6 +1,6 @@
 /* global confirmationDialog */
 
-document.addEventListener("DOMContentLoaded", () => {
+window.utils?.onPageLoad(() => {
   const refreshStorageBtn = document.getElementById("refresh-storage");
   const storageText = document.querySelector(".storage-text");
 
@@ -195,4 +195,4 @@ document.addEventListener("DOMContentLoaded", () => {
       setButtonLoading(currentButton, false, currentAction);
     }
   }
-});
+}, { route: "/database-management" });

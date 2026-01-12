@@ -3,6 +3,7 @@
 import { CONFIG } from "./config.js";
 import state from "./state.js";
 import { utils } from "./utils.js";
+import store from "./spa/store.js";
 
 // NOTE: this is extracted verbatim from `app.js` to keep behaviour identical.
 // Future refactors can safely trim dependencies now that the code is isolated.
@@ -44,7 +45,7 @@ const mapManager = {
       const latParam = parseFloat(urlParams.get("lat"));
       const lngParam = parseFloat(urlParams.get("lng"));
       const zoomParam = parseFloat(urlParams.get("zoom"));
-      const savedView = utils.getStorage("mapView");
+      const savedView = store.get("map.view") || utils.getStorage(CONFIG.STORAGE_KEYS.mapView);
       const mapCenter
         = !Number.isNaN(latParam) && !Number.isNaN(lngParam)
           ? [lngParam, latParam]
@@ -100,11 +101,13 @@ const mapManager = {
         }
         const center = state.map.getCenter();
         const zoom = state.map.getZoom();
-        utils.setStorage("mapView", {
-          center: [center.lng, center.lat],
-          zoom,
-        });
-        this.updateUrlState();
+        store.updateMapView(
+          {
+            center: [center.lng, center.lat],
+            zoom,
+          },
+          { source: "map" }
+        );
       }, CONFIG.MAP.debounceDelay);
 
       state.map.on("moveend", saveViewState);
@@ -122,6 +125,27 @@ const mapManager = {
       state.metrics.mapLoadTime = Date.now() - state.metrics.loadStartTime;
 
       document.dispatchEvent(new CustomEvent("mapInitialized"));
+
+      if (!this._viewListenerBound) {
+        document.addEventListener("es:map-view-change", (event) => {
+          if (!state.map) {
+            return;
+          }
+          if (event.detail?.source === "map") {
+            return;
+          }
+          const view = event.detail?.view;
+          if (!view || !Array.isArray(view.center) || !Number.isFinite(view.zoom)) {
+            return;
+          }
+          try {
+            state.map.jumpTo({ center: view.center, zoom: view.zoom });
+          } catch (err) {
+            console.warn("Failed to apply map view from store:", err);
+          }
+        });
+        this._viewListenerBound = true;
+      }
 
       return true;
     } catch (error) {

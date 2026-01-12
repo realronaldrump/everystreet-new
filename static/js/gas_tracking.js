@@ -17,14 +17,14 @@ let vehicleDiscoveryAttempted = false;
 const showSuccess = (msg) => window.notificationManager?.show(msg, "success");
 const showError = (msg) => window.notificationManager?.show(msg, "danger");
 
-// Initialize on DOM load
-document.addEventListener("DOMContentLoaded", async () => {
+// Initialize on page load
+window.utils?.onPageLoad(async () => {
   try {
     await initializePage();
   } catch (e) {
     showError(`Critical Error: ${e.message}`);
   }
-});
+}, { route: "/gas-tracking" });
 
 /**
  * Initialize the page
@@ -157,7 +157,7 @@ async function loadVehicles(options = {}) {
       }
     }
 
-    if (vehicles.length === 0) {
+  if (vehicles.length === 0) {
       vehicleSelect.innerHTML
         = '<option value="">No vehicles found. Go to Profile to sync/add.</option>';
       setVehicleStatus(
@@ -174,6 +174,14 @@ async function loadVehicles(options = {}) {
       option.dataset.vin = vehicle.vin || "";
       vehicleSelect.appendChild(option);
     });
+
+    const savedImei = window.utils?.getStorage("selectedVehicleImei");
+    if (savedImei && vehicles.some((vehicle) => vehicle.imei === savedImei)) {
+      vehicleSelect.value = savedImei;
+      await updateLocationAndOdometer();
+      setVehicleStatus(`Loaded ${formatVehicleName(vehicles.find((v) => v.imei === savedImei))}.`, "success");
+      return vehicles;
+    }
 
     // If only one vehicle, auto-select it
     if (vehicles.length === 1) {
@@ -411,7 +419,10 @@ function setCurrentTime() {
  */
 function setupEventListeners() {
   // Vehicle selection change
-  document.getElementById("vehicle-select").addEventListener("change", async () => {
+  document.getElementById("vehicle-select").addEventListener("change", async (event) => {
+    const selected = event.target.value || null;
+    window.utils?.setStorage("selectedVehicleImei", selected);
+    window.ESStore?.updateFilters({ vehicle: selected }, { source: "vehicle" });
     await updateLocationAndOdometer();
     await loadRecentFillups();
     await loadStatistics();

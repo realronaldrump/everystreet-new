@@ -6,26 +6,30 @@
 
 import { CONFIG } from "./modules/config.js";
 import { TableManager } from "./modules/table-manager.js";
+import store from "./modules/spa/store.js";
+import { optimisticAction } from "./modules/spa/optimistic.js";
 import {
   escapeHtml,
   formatDateTime,
   formatDuration,
   formatVehicleName,
   getStorage,
+  onPageLoad,
   sanitizeLocation,
   setStorage,
 } from "./modules/utils.js";
 
 let tripsTable = null;
 const selectedTripIds = new Set();
+let globalListenersBound = false;
 
-document.addEventListener("DOMContentLoaded", async () => {
+onPageLoad(async () => {
   try {
     await initializePage();
   } catch (e) {
     window.notificationManager?.show(`Critical Error: ${e.message}`, "danger");
   }
-});
+}, { route: "/trips" });
 
 async function initializePage() {
   await loadVehicles();
@@ -34,10 +38,13 @@ async function initializePage() {
   setupBulkActions();
   updateFilterChips();
 
-  document.addEventListener("filtersApplied", () => {
-    updateFilterChips();
-    tripsTable.reload({ resetPage: true });
-  });
+  if (!globalListenersBound) {
+    document.addEventListener("filtersApplied", () => {
+      updateFilterChips();
+      tripsTable.reload({ resetPage: true });
+    });
+    globalListenersBound = true;
+  }
 }
 
 async function loadVehicles() {
@@ -61,6 +68,11 @@ async function loadVehicles() {
       option.textContent = formatVehicleName(v);
       vehicleSelect.appendChild(option);
     });
+
+    const savedImei = getStorage(CONFIG.STORAGE_KEYS.selectedVehicle);
+    if (savedImei) {
+      vehicleSelect.value = savedImei;
+    }
   } catch {
     window.notificationManager?.show("Failed to load vehicles list", "warning");
   }
@@ -301,7 +313,13 @@ function setupFilterListeners() {
   );
 
   inputs.forEach((input) => {
-    input.addEventListener("change", () => updateFilterChips());
+    input.addEventListener("change", () => {
+      if (input.id === "trip-filter-vehicle") {
+        setStorage(CONFIG.STORAGE_KEYS.selectedVehicle, input.value || null);
+        store.updateFilters({ vehicle: input.value || null }, { source: "vehicle" });
+      }
+      updateFilterChips();
+    });
     input.addEventListener("input", () => updateFilterChips(false));
   });
 
@@ -504,41 +522,114 @@ function setupBulkActions() {
 
 async function deleteTrip(id) {
   try {
-    const response = await fetch(CONFIG.API.tripById(id), { method: "DELETE" });
-    if (!response.ok) {
-      throw new Error("Failed to delete trip");
-    }
-
-    window.notificationManager?.show("Trip deleted successfully", "success");
-    selectedTripIds.delete(id);
-    tripsTable.reload();
+    await optimisticAction({
+      optimistic: () => {
+        if (!tripsTable?.state?.data) {
+          return null;
+        }
+        const snapshot = {
+          data: [...tripsTable.state.data],
+          totalRecords: tripsTable.state.totalRecords,
+          totalPages: tripsTable.state.totalPages,
+        };
+        tripsTable.state.data = tripsTable.state.data.filter(
+          (row) => row.transactionId !== id
+        );
+        tripsTable.state.totalRecords = Math.max(0, tripsTable.state.totalRecords - 1);
+        tripsTable.state.totalPages = Math.ceil(
+          tripsTable.state.totalRecords / tripsTable.options.pageSize
+        );
+        tripsTable._render();
+        selectedTripIds.delete(id);
+        updateBulkDeleteButton();
+        return snapshot;
+      },
+      request: async () => {
+        const response = await fetch(CONFIG.API.tripById(id), { method: "DELETE" });
+        if (!response.ok) {
+          throw new Error("Failed to delete trip");
+        }
+        return response;
+      },
+      commit: () => {
+        window.notificationManager?.show("Trip deleted successfully", "success");
+        tripsTable.reload();
+      },
+      rollback: (snapshot) => {
+        if (snapshot && tripsTable?.state) {
+          tripsTable.state.data = snapshot.data;
+          tripsTable.state.totalRecords = snapshot.totalRecords;
+          tripsTable.state.totalPages = snapshot.totalPages;
+          tripsTable._render();
+        }
+        window.notificationManager?.show("Failed to delete trip", "danger");
+      },
+    });
   } catch {
-    window.notificationManager?.show("Failed to delete trip", "danger");
+    // Error handled in rollback
   }
 }
 
 async function bulkDeleteTrips(ids) {
   try {
-    const response = await fetch(CONFIG.API.tripsBulkDelete, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ trip_ids: ids }),
+    await optimisticAction({
+      optimistic: () => {
+        if (!tripsTable?.state?.data) {
+          return null;
+        }
+        const snapshot = {
+          data: [...tripsTable.state.data],
+          totalRecords: tripsTable.state.totalRecords,
+          totalPages: tripsTable.state.totalPages,
+        };
+        const idSet = new Set(ids);
+        tripsTable.state.data = tripsTable.state.data.filter(
+          (row) => !idSet.has(row.transactionId)
+        );
+        tripsTable.state.totalRecords = Math.max(
+          0,
+          tripsTable.state.totalRecords - ids.length
+        );
+        tripsTable.state.totalPages = Math.ceil(
+          tripsTable.state.totalRecords / tripsTable.options.pageSize
+        );
+        tripsTable._render();
+        selectedTripIds.clear();
+        const selectAllEl = document.getElementById("select-all-trips");
+        if (selectAllEl) {
+          selectAllEl.checked = false;
+        }
+        updateBulkDeleteButton();
+        return snapshot;
+      },
+      request: async () => {
+        const response = await fetch(CONFIG.API.tripsBulkDelete, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ trip_ids: ids }),
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to bulk delete trips");
+        }
+        return response.json();
+      },
+      commit: (result) => {
+        window.notificationManager?.show(result.message || "Trips deleted", "success");
+        tripsTable.reload();
+      },
+      rollback: (snapshot) => {
+        if (snapshot && tripsTable?.state) {
+          tripsTable.state.data = snapshot.data;
+          tripsTable.state.totalRecords = snapshot.totalRecords;
+          tripsTable.state.totalPages = snapshot.totalPages;
+          tripsTable._render();
+        }
+        window.notificationManager?.show("Failed to delete trips", "danger");
+      },
     });
-
-    if (!response.ok) {
-      throw new Error("Failed to bulk delete trips");
-    }
-
-    const result = await response.json();
-    window.notificationManager?.show(result.message || "Trips deleted", "success");
-    selectedTripIds.clear();
-    const selectAllEl = document.getElementById("select-all-trips");
-    if (selectAllEl) {
-      selectAllEl.checked = false;
-    }
-    tripsTable.reload();
   } catch {
-    window.notificationManager?.show("Failed to delete trips", "danger");
+    // Error handled in rollback
   }
 }
 

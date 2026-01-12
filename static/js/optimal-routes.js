@@ -1,6 +1,7 @@
 import { OptimalRoutesManager } from "./modules/optimal-route/manager.js";
+import { onPageLoad } from "./modules/utils.js";
 
-// Initialize on DOM ready
-document.addEventListener("DOMContentLoaded", () => {
+// Initialize on page load
+onPageLoad(() => {
   window.optimalRoutesManager = new OptimalRoutesManager();
-});
+}, { route: "/optimal-routes" });

@@ -1,6 +1,6 @@
 /* global mapboxgl, MapboxDraw */
 
-document.addEventListener("DOMContentLoaded", () => {
+window.utils?.onPageLoad(() => {
   let editMap = null;
   let draw = null;
   const tripsSourceId = "trips-source";
@@ -550,4 +550,4 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   init();
-});
+}, { route: "/edit_trips" });

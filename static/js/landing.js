@@ -13,6 +13,8 @@
 
   // DOM Elements (cached after DOMContentLoaded)
   let elements = {};
+  let refreshIntervalId = null;
+  let liveTrackingIntervalId = null;
 
   /**
    * Initialize the landing page
@@ -22,6 +24,7 @@
     loadAllData();
     setupRefreshInterval();
     checkLiveTracking();
+    document.addEventListener("es:page-unload", handleUnload, { once: true });
   }
 
   /**
@@ -317,21 +320,33 @@
    * Set up periodic data refresh
    */
   function setupRefreshInterval() {
+    clearIntervals();
+
     // Refresh data periodically
-    setInterval(() => {
+    refreshIntervalId = setInterval(() => {
       loadAllData();
     }, CONFIG.refreshInterval);
 
     // Check live tracking more frequently
-    setInterval(() => {
+    liveTrackingIntervalId = setInterval(() => {
       checkLiveTracking();
     }, 10000); // Every 10 seconds
   }
 
-  // Initialize when DOM is ready
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", init);
-  } else {
-    init();
+  function clearIntervals() {
+    if (refreshIntervalId) {
+      clearInterval(refreshIntervalId);
+      refreshIntervalId = null;
+    }
+    if (liveTrackingIntervalId) {
+      clearInterval(liveTrackingIntervalId);
+      liveTrackingIntervalId = null;
+    }
   }
+
+  function handleUnload() {
+    clearIntervals();
+  }
+
+  window.utils?.onPageLoad(init, { route: "/" });
 })();

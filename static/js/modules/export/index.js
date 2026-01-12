@@ -16,6 +16,7 @@ import {
   updateUIBasedOnFormat,
 } from "./ui.js";
 import { initUndrivenStreetsExport } from "./undriven-streets.js";
+import { onPageLoad } from "../utils.js";
 
 /**
  * ExportManager class
@@ -174,10 +175,10 @@ class ExportManager {
 // Create singleton instance
 const exportManager = new ExportManager();
 
-// Initialize on DOM content loaded
-document.addEventListener("DOMContentLoaded", () => {
+// Initialize on page load
+onPageLoad(() => {
   exportManager.init();
-});
+}, { route: "/export" });
 
 // Expose validateLocation globally for inline onclick handlers
 window.validateLocation = validateLocation;

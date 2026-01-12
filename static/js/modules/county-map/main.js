@@ -15,6 +15,7 @@ import {
   getStoredRecalcState,
   storeRecalcState,
 } from "./storage.js";
+import { onPageLoad } from "../utils.js";
 import {
   hideLoading,
   setupPanelToggle,
@@ -288,9 +289,5 @@ function resumeRecalculateIfNeeded() {
   updateRecalculateUi(true, "Recalculating county data...");
 }
 
-// Initialize on DOM ready
-if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", init);
-} else {
-  init();
-}
+// Initialize on page load
+onPageLoad(init, { route: "/county-map" });
