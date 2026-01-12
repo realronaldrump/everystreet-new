@@ -18,7 +18,11 @@ let activeStreetPopup = null;
 let highlightedSegmentId = null;
 let currentMapFilter = "all";
 
-const STREET_LAYERS = ["streets-undriven", "streets-driven", "streets-undriveable"];
+const STREET_LAYERS = [
+  "streets-undriven",
+  "streets-driven",
+  "streets-undriveable",
+];
 const HIGHLIGHT_LAYER_ID = "streets-highlight";
 let streetInteractivityReady = false;
 
@@ -49,17 +53,25 @@ document.addEventListener("DOMContentLoaded", async () => {
 
 function setupEventListeners() {
   // Refresh button
-  document.getElementById("refresh-table-btn")?.addEventListener("click", loadAreas);
-  document.getElementById("quick-refresh-all")?.addEventListener("click", loadAreas);
+  document
+    .getElementById("refresh-table-btn")
+    ?.addEventListener("click", loadAreas);
+  document
+    .getElementById("quick-refresh-all")
+    ?.addEventListener("click", loadAreas);
 
   // Add area button
-  document.getElementById("add-coverage-area")?.addEventListener("click", addArea);
+  document
+    .getElementById("add-coverage-area")
+    ?.addEventListener("click", addArea);
 
   // Close dashboard
-  document.getElementById("close-dashboard-btn")?.addEventListener("click", () => {
-    document.getElementById("coverage-dashboard").style.display = "none";
-    currentAreaId = null;
-  });
+  document
+    .getElementById("close-dashboard-btn")
+    ?.addEventListener("click", () => {
+      document.getElementById("coverage-dashboard").style.display = "none";
+      currentAreaId = null;
+    });
 
   // Dashboard action buttons
   document
@@ -73,13 +85,16 @@ function setupEventListeners() {
       }
     });
 
-  document.getElementById("rebuild-area-btn")?.addEventListener("click", async () => {
-    if (currentAreaId) {
-      const areaName =
-        document.getElementById("dashboard-location-name")?.textContent || "this area";
-      await rebuildArea(currentAreaId, areaName);
-    }
-  });
+  document
+    .getElementById("rebuild-area-btn")
+    ?.addEventListener("click", async () => {
+      if (currentAreaId) {
+        const areaName =
+          document.getElementById("dashboard-location-name")?.textContent ||
+          "this area";
+        await rebuildArea(currentAreaId, areaName);
+      }
+    });
 
   // Window resize handler
   let resizeTimeout;
@@ -94,21 +109,26 @@ function setupEventListeners() {
   document.querySelectorAll("[data-filter]").forEach((btn) => {
     btn.addEventListener("click", (e) => {
       document.querySelectorAll("[data-filter]").forEach((b) => {
-        b.classList.remove("active", "btn-primary", "btn-success", "btn-danger");
+        b.classList.remove(
+          "active",
+          "btn-primary",
+          "btn-success",
+          "btn-danger",
+        );
         b.classList.add(
           "btn-outline-" +
             (b.dataset.filter === "all"
               ? "primary"
               : b.dataset.filter === "driven"
                 ? "success"
-                : "danger")
+                : "danger"),
         );
       });
       e.target.classList.add("active");
       e.target.classList.remove(
         "btn-outline-primary",
         "btn-outline-success",
-        "btn-outline-danger"
+        "btn-outline-danger",
       );
       e.target.classList.add(
         "btn-" +
@@ -116,7 +136,7 @@ function setupEventListeners() {
             ? "primary"
             : e.target.dataset.filter === "driven"
               ? "success"
-              : "danger")
+              : "danger"),
       );
 
       applyMapFilter(e.target.dataset.filter);
@@ -201,7 +221,9 @@ function updateMinimizedBadge() {
 
   const locationName = activeJob?.areaName || "Working...";
   const roundedProgress =
-    typeof activeJob?.progress === "number" ? Math.round(activeJob.progress) : 0;
+    typeof activeJob?.progress === "number"
+      ? Math.round(activeJob.progress)
+      : 0;
 
   if (nameEl) nameEl.textContent = locationName;
   if (percentEl) percentEl.textContent = `${roundedProgress}%`;
@@ -456,14 +478,18 @@ async function loadAreas() {
 
     const jobs = jobsData.jobs || [];
     activeJobsByAreaId = new Map(
-      jobs.filter((job) => job.area_id).map((job) => [job.area_id, job])
+      jobs.filter((job) => job.area_id).map((job) => [job.area_id, job]),
     );
 
     renderAreasTable(areasData.areas);
-    document.getElementById("total-areas-count").textContent = areasData.areas.length;
+    document.getElementById("total-areas-count").textContent =
+      areasData.areas.length;
   } catch (error) {
     console.error("Failed to load areas:", error);
-    showNotification("Failed to load coverage areas: " + error.message, "danger");
+    showNotification(
+      "Failed to load coverage areas: " + error.message,
+      "danger",
+    );
   }
 }
 
@@ -526,7 +552,7 @@ function renderAreasTable(areas) {
                 </div>
             </td>
         </tr>
-    `
+    `,
     )
     .join("");
 }
@@ -534,8 +560,16 @@ function renderAreasTable(areas) {
 function renderStatus(status, health, job) {
   const statusConfig = {
     ready: { class: "success", icon: "check-circle", text: "Ready" },
-    initializing: { class: "info", icon: "spinner fa-spin", text: "Setting up..." },
-    rebuilding: { class: "warning", icon: "sync fa-spin", text: "Rebuilding..." },
+    initializing: {
+      class: "info",
+      icon: "spinner fa-spin",
+      text: "Setting up...",
+    },
+    rebuilding: {
+      class: "warning",
+      icon: "sync fa-spin",
+      text: "Rebuilding...",
+    },
     error: { class: "danger", icon: "exclamation-circle", text: "Error" },
   };
 
@@ -549,7 +583,8 @@ function renderStatus(status, health, job) {
     isJobActiveStatus(job.status) &&
     (status === "initializing" || status === "rebuilding")
   ) {
-    const percent = typeof job.progress === "number" ? Math.round(job.progress) : 0;
+    const percent =
+      typeof job.progress === "number" ? Math.round(job.progress) : 0;
     const stageText = job.stage ? escapeHtml(job.stage) : "";
     return `<div>${badge}</div><div class="small text-secondary mt-1">${stageText} (${percent}%)</div>`;
   }
@@ -568,7 +603,9 @@ async function addArea() {
 
   try {
     // Close add modal
-    bootstrap.Modal.getInstance(document.getElementById("addAreaModal"))?.hide();
+    bootstrap.Modal.getInstance(
+      document.getElementById("addAreaModal"),
+    )?.hide();
 
     // Show progress modal (can be minimized)
     hideMinimizedBadge();
@@ -603,7 +640,7 @@ async function addArea() {
       showNotification(
         result.message ||
           `Area "${displayName}" is being set up in the background. You can minimize this window and keep using the app.`,
-        "info"
+        "info",
       );
     }
 
@@ -682,7 +719,7 @@ async function rebuildArea(areaId, displayName = null) {
       showNotification(
         result.message ||
           "Rebuild started in the background. You can minimize this window and keep using the app.",
-        "info"
+        "info",
       );
     }
   } catch (error) {
@@ -709,13 +746,16 @@ async function recalculateCoverage(areaId, displayName) {
   }
 
   try {
-    showNotification("Recalculating coverage... This may take a moment.", "info");
+    showNotification(
+      "Recalculating coverage... This may take a moment.",
+      "info",
+    );
 
     const result = await apiPost(`/areas/${areaId}/backfill`, {});
 
     showNotification(
       `Coverage recalculated! Updated ${result.segments_updated} segments.`,
-      "success"
+      "success",
     );
 
     // Refresh the table to show updated stats
@@ -727,7 +767,10 @@ async function recalculateCoverage(areaId, displayName) {
     }
   } catch (error) {
     console.error("Failed to recalculate coverage:", error);
-    showNotification("Failed to recalculate coverage: " + error.message, "danger");
+    showNotification(
+      "Failed to recalculate coverage: " + error.message,
+      "danger",
+    );
   }
 }
 
@@ -826,13 +869,13 @@ async function viewArea(areaId) {
     const area = data.area;
 
     // Update stats
-    document.getElementById("dashboard-location-name").textContent = area.display_name;
+    document.getElementById("dashboard-location-name").textContent =
+      area.display_name;
     document.getElementById("dashboard-total-length").textContent = formatMiles(
-      area.total_length_miles
+      area.total_length_miles,
     );
-    document.getElementById("dashboard-driven-length").textContent = formatMiles(
-      area.driven_length_miles
-    );
+    document.getElementById("dashboard-driven-length").textContent =
+      formatMiles(area.driven_length_miles);
     document.getElementById("dashboard-coverage-percentage").textContent =
       `${area.coverage_percentage.toFixed(1)}%`;
 
@@ -890,7 +933,7 @@ async function initOrUpdateMap(areaId, bbox) {
         [bbox[0], bbox[1]],
         [bbox[2], bbox[3]],
       ],
-      { padding: 50 }
+      { padding: 50 },
     );
     loadStreets(areaId);
     // Resize the map after a short delay to ensure the container has updated dimensions
@@ -911,7 +954,7 @@ async function loadStreets(areaId) {
           min_lat: bounds.getSouth(),
           max_lon: bounds.getEast(),
           max_lat: bounds.getNorth(),
-        })
+        }),
     );
 
     // Update or add source
@@ -998,7 +1041,9 @@ function setupStreetInteractivity() {
   });
 
   map.on("click", (e) => {
-    const features = map.queryRenderedFeatures(e.point, { layers: STREET_LAYERS });
+    const features = map.queryRenderedFeatures(e.point, {
+      layers: STREET_LAYERS,
+    });
     if (!features.length) {
       clearStreetPopup();
     }
@@ -1055,12 +1100,17 @@ function updateHighlightFilter() {
   const baseFilter = ["==", ["get", "segment_id"], highlightedSegmentId];
 
   if (currentMapFilter === "driven") {
-    map.setFilter(HIGHLIGHT_LAYER_ID, ["all", baseFilter, ["==", ["get", "status"], "driven"]]);
+    map.setFilter(HIGHLIGHT_LAYER_ID, [
+      "all",
+      baseFilter,
+      ["==", ["get", "status"], "driven"],
+    ]);
   } else if (currentMapFilter === "undriven") {
-    map.setFilter(
-      HIGHLIGHT_LAYER_ID,
-      ["all", baseFilter, ["==", ["get", "status"], "undriven"]]
-    );
+    map.setFilter(HIGHLIGHT_LAYER_ID, [
+      "all",
+      baseFilter,
+      ["==", ["get", "status"], "undriven"],
+    ]);
   } else {
     map.setFilter(HIGHLIGHT_LAYER_ID, baseFilter);
   }
@@ -1158,13 +1208,13 @@ function applyMapFilter(filter) {
       map.setLayoutProperty(
         layerId,
         "visibility",
-        layerId === "streets-driven" ? "visible" : "none"
+        layerId === "streets-driven" ? "visible" : "none",
       );
     } else if (filter === "undriven") {
       map.setLayoutProperty(
         layerId,
         "visibility",
-        layerId === "streets-undriven" ? "visible" : "none"
+        layerId === "streets-undriven" ? "visible" : "none",
       );
     }
   });
