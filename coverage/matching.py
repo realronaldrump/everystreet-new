@@ -124,6 +124,7 @@ def check_segment_overlap(
 async def find_matching_segments(
     area_id: PydanticObjectId,
     trip_line: LineString,
+    area_version: int | None = None,
 ) -> list[str]:
     """
     Find all street segments that match a trip line.
@@ -154,6 +155,8 @@ async def find_matching_segments(
             }
         },
     }
+    if area_version is not None:
+        query["area_version"] = area_version
 
     matched_segment_ids = []
 
@@ -203,6 +206,12 @@ async def match_trip_to_streets(
         ).to_list()
 
         area_ids = [area.id for area in areas]
+        area_versions = {area.id: area.area_version for area in areas}
+    else:
+        from coverage.models import CoverageArea
+
+        areas = await CoverageArea.find({"_id": {"$in": area_ids}}).to_list()
+        area_versions = {area.id: area.area_version for area in areas}
 
     if not area_ids:
         logger.debug("No areas to match against")
@@ -210,7 +219,14 @@ async def match_trip_to_streets(
 
     results = {}
     for area_id in area_ids:
-        matched = await find_matching_segments(area_id, trip_line)
+        area_version = area_versions.get(area_id)
+        if area_version is None:
+            continue
+        matched = await find_matching_segments(
+            area_id,
+            trip_line,
+            area_version,
+        )
         if matched:
             results[area_id] = matched
 

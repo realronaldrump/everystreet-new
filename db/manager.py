@@ -296,6 +296,22 @@ class DatabaseManager:
             "Beanie ODM initialized with %d document models",
             len(ALL_DOCUMENT_MODELS),
         )
+        await self._drop_legacy_indexes()
+
+    async def _drop_legacy_indexes(self) -> None:
+        """Drop legacy indexes that conflict with the new coverage schema."""
+        try:
+            streets = self.db["streets"]
+            index_info = await streets.index_information()
+            legacy_index = "streets_location_segment_id_unique_idx"
+            if legacy_index in index_info:
+                await streets.drop_index(legacy_index)
+                logger.info(
+                    "Dropped legacy index %s from streets collection",
+                    legacy_index,
+                )
+        except Exception as e:
+            logger.warning("Failed to drop legacy indexes: %s", e)
 
     async def cleanup_connections(self) -> None:
         """Clean up MongoDB client connections."""

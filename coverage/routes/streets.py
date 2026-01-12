@@ -111,6 +111,7 @@ async def get_streets_in_viewport(
     # Query streets in viewport
     streets_query = {
         "area_id": oid,
+        "area_version": area.area_version,
         "geometry": {
             "$geoIntersects": {
                 "$geometry": viewport_polygon,
@@ -263,7 +264,7 @@ async def get_streets_summary(area_id: str):
     # Get status counts
     from coverage.stats import get_segment_status_counts
 
-    counts = await get_segment_status_counts(oid)
+    counts = await get_segment_status_counts(oid, area.area_version)
 
     return {
         "success": True,

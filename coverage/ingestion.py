@@ -142,6 +142,8 @@ async def rebuild_area(area_id: PydanticObjectId) -> Job:
     # Update area status
     area.status = "rebuilding"
     area.area_version += 1
+    area.optimal_route = None
+    area.optimal_route_generated_at = None
     await area.save()
 
     # Create ingestion job
@@ -185,7 +187,7 @@ async def handle_area_created(
     await job.insert()
 
     # Run ingestion
-    await _run_ingestion_pipeline(area_id, job.id)
+    asyncio.create_task(_run_ingestion_pipeline(area_id, job.id))
 
 
 # =============================================================================
@@ -220,10 +222,16 @@ async def _run_ingestion_pipeline(
         job.progress = 10
         await job.save()
 
+        area_updated = False
         if not area.boundary:
-            boundary = await _fetch_boundary(area.display_name)
-            area.boundary = boundary
-            area.bounding_box = _calculate_bounding_box(boundary)
+            area.boundary = await _fetch_boundary(area.display_name)
+            area_updated = True
+
+        if area.boundary and not area.bounding_box:
+            area.bounding_box = _calculate_bounding_box(area.boundary)
+            area_updated = True
+
+        if area_updated:
             await area.save()
 
         # Stage 2: Fetch streets from OSM
@@ -242,21 +250,28 @@ async def _run_ingestion_pipeline(
         segments = _segment_streets(osm_ways, area.id, area.area_version)
         logger.info(f"Created {len(segments)} segments for {area.display_name}")
 
-        # Stage 4: Store segments
+        # Stage 4: Clear any partial data for this version
+        job.stage = "Clearing existing street data"
+        job.progress = 60
+        await job.save()
+
+        await _clear_existing_area_version_data(area.id, area.area_version)
+
+        # Stage 5: Store segments
         job.stage = "Storing street data"
         job.progress = 70
         await job.save()
 
         await _store_segments(segments)
 
-        # Stage 5: Initialize coverage state
+        # Stage 6: Initialize coverage state
         job.stage = "Initializing coverage"
         job.progress = 80
         await job.save()
 
         await _initialize_coverage_state(area.id, segments)
 
-        # Stage 6: Update statistics
+        # Stage 7: Update statistics
         job.stage = "Calculating statistics"
         job.progress = 90
         await job.save()
@@ -265,7 +280,7 @@ async def _run_ingestion_pipeline(
         await area.save()
         await update_area_stats(area.id)
 
-        # Stage 7: Backfill with historical trips
+        # Stage 8: Backfill with historical trips
         job.stage = "Processing historical trips"
         job.progress = 95
         await job.save()
@@ -588,6 +603,26 @@ async def _store_segments(segments: list[dict[str, Any]]) -> None:
         await Street.insert_many(street_docs)
 
     logger.debug(f"Stored {len(segments)} street segments")
+
+
+async def _clear_existing_area_version_data(
+    area_id: PydanticObjectId,
+    area_version: int,
+) -> None:
+    """
+    Clear any existing street data for the current area version.
+
+    This keeps rebuilds and retries idempotent without deleting past versions.
+    """
+    await Street.find({"area_id": area_id, "area_version": area_version}).delete()
+
+    segment_prefix = f"{area_id}-{area_version}-"
+    await CoverageState.find(
+        {
+            "area_id": area_id,
+            "segment_id": {"$regex": f"^{segment_prefix}"},
+        }
+    ).delete()
 
 
 async def _initialize_coverage_state(

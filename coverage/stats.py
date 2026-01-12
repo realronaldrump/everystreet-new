@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime
+from typing import Any
 
 from beanie import PydanticObjectId
 
@@ -17,7 +18,10 @@ from coverage.models import CoverageArea, CoverageState, Street
 logger = logging.getLogger(__name__)
 
 
-async def calculate_area_stats(area_id: PydanticObjectId) -> dict:
+async def calculate_area_stats(
+    area_id: PydanticObjectId,
+    area_version: int | None = None,
+) -> dict:
     """
     Calculate coverage statistics for an area.
 
@@ -29,9 +33,22 @@ async def calculate_area_stats(area_id: PydanticObjectId) -> dict:
     - driveable_length_miles: Total excluding undriveable
     - coverage_percentage: Percentage of driveable streets driven
     """
+    if area_version is None:
+        area = await CoverageArea.get(area_id)
+        if not area:
+            return {
+                "total_segments": 0,
+                "driven_segments": 0,
+                "total_length_miles": 0.0,
+                "driven_length_miles": 0.0,
+                "driveable_length_miles": 0.0,
+                "coverage_percentage": 0.0,
+            }
+        area_version = area.area_version
+
     # Get all segments for this area with their status
     pipeline = [
-        {"$match": {"area_id": area_id}},
+        {"$match": {"area_id": area_id, "area_version": area_version}},
         {
             "$lookup": {
                 "from": "coverage_state",
@@ -129,7 +146,7 @@ async def update_area_stats(area_id: PydanticObjectId) -> CoverageArea | None:
         logger.warning(f"Area {area_id} not found for stats update")
         return None
 
-    stats = await calculate_area_stats(area_id)
+    stats = await calculate_area_stats(area_id, area.area_version)
 
     area.total_segments = stats["total_segments"]
     area.driven_segments = stats["driven_segments"]
@@ -150,14 +167,21 @@ async def update_area_stats(area_id: PydanticObjectId) -> CoverageArea | None:
     return area
 
 
-async def get_segment_status_counts(area_id: PydanticObjectId) -> dict[str, int]:
+async def get_segment_status_counts(
+    area_id: PydanticObjectId,
+    area_version: int | None = None,
+) -> dict[str, int]:
     """
     Get counts of segments by status for an area.
 
     Returns dict like: {"undriven": 150, "driven": 50, "undriveable": 10}
     """
+    match: dict[str, Any] = {"area_id": area_id}
+    if area_version is not None:
+        match["segment_id"] = {"$regex": f"^{area_id}-{area_version}-"}
+
     pipeline = [
-        {"$match": {"area_id": area_id}},
+        {"$match": match},
         {"$group": {"_id": "$status", "count": {"$sum": 1}}},
     ]
 

@@ -140,6 +140,7 @@ async def search_streets(
             street_groups: dict[str, dict] = {}
             async for street in Street.find(
                 Street.area_id == area_id,
+                Street.area_version == new_area.area_version,
                 Street.street_name != None,  # noqa: E711
             ):
                 name = street.street_name

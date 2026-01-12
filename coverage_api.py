@@ -13,7 +13,7 @@ import logging
 
 from fastapi import APIRouter
 
-from coverage.routes import areas, jobs, optimal_routes, streets
+from coverage.routes import areas, jobs, legacy, optimal_routes, streets
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -23,5 +23,6 @@ router.include_router(areas.router)
 router.include_router(streets.router)
 router.include_router(jobs.router)
 router.include_router(optimal_routes.router, tags=["optimal-routes"])
+router.include_router(legacy.router)
 
 logger.info("Coverage API routes loaded successfully")

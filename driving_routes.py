@@ -365,7 +365,10 @@ async def find_connected_undriven_clusters(
                 undriveable_segment_ids.add(state.segment_id)
 
         # Query undriven streets
-        async for street in Street.find(Street.area_id == obj_location_id):
+        async for street in Street.find(
+            Street.area_id == obj_location_id,
+            Street.area_version == new_area.area_version,
+        ):
             if street.segment_id in driven_segment_ids:
                 continue
             if street.segment_id in undriveable_segment_ids:

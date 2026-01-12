@@ -28,6 +28,13 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _to_legacy_boundingbox(bounding_box: list[float] | None) -> list[float] | None:
+    if not bounding_box or len(bounding_box) != 4:
+        return None
+    min_lon, min_lat, max_lon, max_lat = bounding_box
+    return [min_lat, max_lat, min_lon, max_lon]
+
+
 async def generate_optimal_route_with_progress(
     location_id: str,
     task_id: str,
@@ -72,7 +79,30 @@ async def generate_optimal_route_with_progress(
 
         if use_new_schema:
             location_name = new_area.display_name
-            boundary_geom = new_area.boundary
+            boundary_geom = (
+                new_area.boundary.get("geometry")
+                if isinstance(new_area.boundary, dict)
+                and new_area.boundary.get("type") == "Feature"
+                else new_area.boundary
+            )
+            if isinstance(new_area.boundary, dict) and new_area.boundary.get("type") == "Feature":
+                geojson = new_area.boundary
+            else:
+                geojson = (
+                    {
+                        "type": "Feature",
+                        "geometry": new_area.boundary,
+                        "properties": {},
+                    }
+                    if new_area.boundary
+                    else None
+                )
+            location_info = {
+                "id": str(new_area.id),
+                "display_name": new_area.display_name,
+                "boundingbox": _to_legacy_boundingbox(new_area.bounding_box),
+                "geojson": geojson,
+            }
         else:
             # Fall back to old CoverageMetadata
             old_area = await CoverageMetadata.get(location_id)
@@ -123,6 +153,7 @@ async def generate_optimal_route_with_progress(
             undriven_objs = []
             async for street in Street.find(
                 Street.area_id == location_id,
+                Street.area_version == new_area.area_version,
                 limit=MAX_SEGMENTS,
             ):
                 # Skip driven or undriveable segments

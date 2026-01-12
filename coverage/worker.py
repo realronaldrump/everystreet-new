@@ -109,6 +109,21 @@ async def update_coverage_for_segments(
     if not segment_ids:
         return 0
 
+    # Skip segments that were manually marked as undriveable
+    undriveable_states = await CoverageState.find(
+        {
+            "area_id": area_id,
+            "segment_id": {"$in": segment_ids},
+            "status": "undriveable",
+        }
+    ).to_list()
+    undriveable_ids = {state.segment_id for state in undriveable_states}
+    if undriveable_ids:
+        segment_ids = [sid for sid in segment_ids if sid not in undriveable_ids]
+
+    if not segment_ids:
+        return 0
+
     now = datetime.now(UTC)
 
     # Build bulk operations
