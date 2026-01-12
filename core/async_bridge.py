@@ -56,9 +56,6 @@ def run_async_from_sync(
         """
         Ensure the database connection and ODM are initialized for the current loop.
         """
-        # Trigger loop detection and potential reconnection in db_manager
-        _ = db_manager.db
-
         # Re-initialize Beanie for the new loop/client if necessary
         # This binds the models to the current loop's client
         await db_manager.init_beanie()

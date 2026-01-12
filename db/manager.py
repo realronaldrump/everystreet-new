@@ -12,32 +12,22 @@ import logging
 import os
 import threading
 from datetime import UTC
-from typing import TYPE_CHECKING, Any, Self, TypeVar
+from typing import Any, Self
 
 import certifi
-from gridfs import AsyncGridFSBucket
-from pymongo import AsyncMongoClient
-from pymongo.errors import ConnectionFailure
-
-if TYPE_CHECKING:
-    from pymongo.asynchronous.database import AsyncDatabase
+from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 
 logger = logging.getLogger(__name__)
 
-T = TypeVar("T")
-
-
 class DatabaseManager:
     """
-    Singleton class to manage the MongoDB client, database connection, and GridFS.
+    Singleton class to manage the MongoDB client and database connection.
 
     This class handles:
     - Connection pooling and lifecycle management
     - Event loop change detection and reconnection
     - Retry logic with exponential backoff
     - Thread-safe singleton pattern
-    - GridFS bucket access
-
     Environment Variables:
         MONGO_URI: MongoDB connection URI
         MONGO_HOST: MongoDB host (fallback if MONGO_URI not set)
@@ -64,9 +54,8 @@ class DatabaseManager:
     def __init__(self) -> None:
         """Initialize the database manager with configuration from environment."""
         if not getattr(self, "_initialized", False):
-            self._client: AsyncMongoClient | None = None
-            self._db: AsyncDatabase | None = None
-            self._gridfs_bucket_instance: AsyncGridFSBucket | None = None
+            self._client: AsyncIOMotorClient | None = None
+            self._db: AsyncIOMotorDatabase | None = None
             self._bound_loop: asyncio.AbstractEventLoop | None = None
             self._connection_healthy = True
             self._beanie_initialized = False
@@ -137,10 +126,9 @@ class DatabaseManager:
                     tlsCAFile=certifi.where(),
                 )
 
-            self._client = AsyncMongoClient(mongo_uri, **client_kwargs)
+            self._client = AsyncIOMotorClient(mongo_uri, **client_kwargs)
             self._db = self._client[self._db_name]
             self._connection_healthy = True
-            self._gridfs_bucket_instance = None
             logger.info("MongoDB client initialized successfully")
 
         except Exception as e:
@@ -165,12 +153,10 @@ class DatabaseManager:
         """
         Synchronously reset client state for loop change scenarios.
 
-        Note: With PyMongo's AsyncMongoClient, close() is async. In sync context,
-        we just reset the references and let garbage collection handle cleanup.
+        Note: Motor clients are safe to close synchronously; we just reset references.
         """
         self._client = None
         self._db = None
-        self._gridfs_bucket_instance = None
         self._bound_loop = None
         self._beanie_initialized = False
 
@@ -204,15 +190,15 @@ class DatabaseManager:
             self._close_client_sync()
 
     @property
-    def db(self) -> AsyncDatabase:
+    def db(self) -> AsyncIOMotorDatabase:
         """
         Get the database instance, initializing if necessary.
 
         Returns:
-            The AsyncDatabase instance.
+            The AsyncIOMotorDatabase instance.
 
         Raises:
-            ConnectionFailure: If database cannot be initialized.
+            RuntimeError: If database cannot be initialized.
         """
         self._check_loop_and_reconnect()
         if self._db is None or not self._connection_healthy:
@@ -220,19 +206,19 @@ class DatabaseManager:
             self._bound_loop = self._get_current_loop()
         if self._db is None:
             msg = "Database instance could not be initialized."
-            raise ConnectionFailure(msg)
+            raise RuntimeError(msg)
         return self._db
 
     @property
-    def client(self) -> AsyncMongoClient:
+    def client(self) -> AsyncIOMotorClient:
         """
         Get the client instance, initializing if necessary.
 
         Returns:
-            The AsyncMongoClient instance.
+            The AsyncIOMotorClient instance.
 
         Raises:
-            ConnectionFailure: If client cannot be initialized.
+            RuntimeError: If client cannot be initialized.
         """
         self._check_loop_and_reconnect()
         if self._client is None or not self._connection_healthy:
@@ -240,21 +226,8 @@ class DatabaseManager:
             self._bound_loop = self._get_current_loop()
         if self._client is None:
             msg = "MongoDB client could not be initialized."
-            raise ConnectionFailure(msg)
+            raise RuntimeError(msg)
         return self._client
-
-    @property
-    def gridfs_bucket(self) -> AsyncGridFSBucket:
-        """
-        Get the GridFS bucket instance.
-
-        Returns:
-            The AsyncGridFSBucket instance.
-        """
-        db_instance = self.db
-        if self._gridfs_bucket_instance is None:
-            self._gridfs_bucket_instance = AsyncGridFSBucket(db_instance)
-        return self._gridfs_bucket_instance
 
     @property
     def connection_healthy(self) -> bool:
@@ -302,13 +275,12 @@ class DatabaseManager:
         if self._client:
             try:
                 logger.info("Closing MongoDB client connections...")
-                await self._client.close()
+                self._client.close()
             except Exception as e:
                 logger.exception("Error closing MongoDB client: %s", str(e))
             finally:
                 self._client = None
                 self._db = None
-                self._gridfs_bucket_instance = None
                 self._connection_healthy = False
                 self._beanie_initialized = False
                 logger.info("MongoDB client state reset")
@@ -317,14 +289,12 @@ class DatabaseManager:
         """
         Destructor to reset client references.
 
-        Note: With PyMongo's AsyncMongoClient, close() is async.
-        In __del__, we cannot await, so we just reset references.
+        Note: We cannot await in __del__, so we just reset references.
         """
         if hasattr(self, "_client") and self._client:
             # Cannot await close() in __del__ - just reset references
             self._client = None
             self._db = None
-            self._gridfs_bucket_instance = None
 
 
 # Singleton instance

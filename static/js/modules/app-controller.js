@@ -1,12 +1,13 @@
 /* global bootstrap */
 import { CONFIG } from "./config.js";
 import dataManager from "./data-manager.js";
-import dateUtils from "./date-utils.js";
 import layerManager from "./layer-manager.js";
 import mapManager from "./map-manager.js";
 import searchManager from "./search-manager.js";
 import state from "./state.js";
-import utils from "./utils.js";
+import { utils } from "./utils.js";
+
+const dateUtils = window.DateUtils;
 
 // --- Helper functions --------------------------------------------------
 const initializeLiveTracker = () => {
@@ -518,7 +519,5 @@ const AppController = {
   },
 };
 
-// Expose dateUtils as global DateUtils for backward compatibility with non-module scripts
-window.DateUtils = dateUtils;
 
 export default AppController;

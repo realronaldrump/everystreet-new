@@ -1,5 +1,6 @@
-import dateUtils from "./date-utils.js";
-import utils from "./utils.js";
+import { utils } from "./utils.js";
+
+const dateUtils = window.DateUtils;
 
 const metricsManager = {
   updateTripsTable(geojson) {

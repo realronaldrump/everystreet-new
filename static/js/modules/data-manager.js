@@ -3,12 +3,13 @@
  * Handles all API data fetching with proper caching and abort handling
  */
 import { CONFIG } from "./config.js";
-import dateUtils from "./date-utils.js";
 import layerManager from "./layer-manager.js";
 import mapManager from "./map-manager.js";
 import metricsManager from "./metrics-manager.js";
 import state from "./state.js";
-import utils from "./utils.js";
+import { utils } from "./utils.js";
+
+const dateUtils = window.DateUtils;
 
 const mapLoadingIndicator = (() => {
   let indicatorEl = null;
