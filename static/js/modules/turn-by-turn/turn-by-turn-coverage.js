@@ -71,9 +71,11 @@ class TurnByTurnCoverage {
       // Index all segments and categorize
       for (const feature of geojson.features) {
         const segmentId = feature.properties?.segment_id;
-        const isDriven = feature.properties?.driven === true;
-        const isUndriveable = feature.properties?.undriveable === true;
-        const length = feature.properties?.segment_length || 0;
+        const status = feature.properties?.status;
+        const isDriven = status === "driven";
+        const isUndriveable = status === "undriveable";
+        const lengthMiles = feature.properties?.length_miles || 0;
+        const length = lengthMiles * 1609.344;
 
         if (!segmentId || isUndriveable) {
           continue;
@@ -157,7 +159,8 @@ class TurnByTurnCoverage {
       this.liveSegmentsCovered.add(segmentId);
 
       // Track length
-      const length = feature.properties?.segment_length || 0;
+      const lengthMiles = feature.properties?.length_miles || 0;
+      const length = lengthMiles * 1609.344;
       this.drivenSegmentLength += length;
       this.liveCoverageIncrease += length;
 

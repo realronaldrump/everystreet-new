@@ -56,9 +56,9 @@ export class OptimalRouteUI {
 
     areas.forEach((area) => {
       const option = document.createElement("option");
-      const areaId = area._id || area.id || "";
-      const areaName = area.location?.display_name || area.display_name || "Unknown";
-      const status = area.status || area.location?.status || "";
+      const areaId = area.id || area._id || "";
+      const areaName = area.display_name || area.location?.display_name || "Unknown";
+      const status = area.status || "";
       const isProcessing = this.isCoverageCalculationActive(status);
       option.value = String(areaId);
       const coverage = area.coverage_percentage?.toFixed(1) || 0;
@@ -70,9 +70,11 @@ export class OptimalRouteUI {
       option.dataset.status = String(status || "");
       option.dataset.processing = isProcessing ? "true" : "false";
       option.disabled = isProcessing;
-      const totalLength = area.total_length || area.total_length_m || 0;
-      const drivenLength = area.driven_length || area.driven_length_m || 0;
-      option.dataset.remaining = this.formatDistance(totalLength - drivenLength);
+      const totalLengthMeters = (area.total_length_miles || 0) * 1609.344;
+      const drivenLengthMeters = (area.driven_length_miles || 0) * 1609.344;
+      option.dataset.remaining = this.formatDistance(
+        totalLengthMeters - drivenLengthMeters
+      );
       this.areaSelect.appendChild(option);
     });
   }

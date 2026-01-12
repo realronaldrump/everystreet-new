@@ -47,6 +47,7 @@ class AreaResponse(BaseModel):
 
     # Statistics (imperial only)
     total_length_miles: float
+    driveable_length_miles: float
     driven_length_miles: float
     coverage_percentage: float
     total_segments: int
@@ -118,6 +119,7 @@ async def list_areas():
                     status=area.status,
                     health=area.health,
                     total_length_miles=area.total_length_miles,
+                    driveable_length_miles=area.driveable_length_miles,
                     driven_length_miles=area.driven_length_miles,
                     coverage_percentage=area.coverage_percentage,
                     total_segments=area.total_segments,
@@ -169,6 +171,7 @@ async def get_area(area_id: str):
             status=area.status,
             health=area.health,
             total_length_miles=area.total_length_miles,
+            driveable_length_miles=area.driveable_length_miles,
             driven_length_miles=area.driven_length_miles,
             coverage_percentage=area.coverage_percentage,
             total_segments=area.total_segments,

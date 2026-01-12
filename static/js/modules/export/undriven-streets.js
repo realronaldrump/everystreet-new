@@ -51,10 +51,11 @@ async function loadCoverageAreas(locationSelect) {
 
     if (areas.length > 0) {
       areas.forEach((area) => {
-        if (area.location?.display_name) {
+        if (area.display_name && area.id) {
           const opt = document.createElement("option");
-          opt.value = JSON.stringify(area.location);
-          opt.textContent = area.location.display_name;
+          opt.value = area.id;
+          opt.textContent = area.display_name;
+          opt.dataset.displayName = area.display_name;
           locationSelect.appendChild(opt);
         }
       });
@@ -83,12 +84,14 @@ async function handleUndrivenStreetsExport(locationSelect, formatSelect, exportB
 
   try {
     const format = formatSelect?.value || "geojson";
-    const area = JSON.parse(locationSelect.value);
+    const areaId = locationSelect.value;
+    const displayName
+      = locationSelect.selectedOptions?.[0]?.dataset.displayName
+      || "undriven_streets";
 
-    const response = await fetchUndrivenStreets(area);
+    const geojson = await fetchUndrivenStreets(areaId);
 
     let blob = null;
-    const displayName = area.display_name || "undriven_streets";
     const sanitizedName = sanitizeFilename(displayName);
     const timestamp = generateTimestamp();
     // Use underscores for timestamp in filename
@@ -97,13 +100,14 @@ async function handleUndrivenStreetsExport(locationSelect, formatSelect, exportB
 
     if (format === "gpx") {
       // Convert GeoJSON to GPX client-side
-      const geojson = await response.json();
       blob = new Blob([geojsonToGpx(geojson)], {
         type: "application/gpx+xml",
       });
       filename += ".gpx";
     } else {
-      blob = await response.blob();
+      blob = new Blob([JSON.stringify(geojson)], {
+        type: "application/geo+json",
+      });
       filename += ".geojson";
     }
 

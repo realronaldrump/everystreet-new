@@ -20,7 +20,6 @@ from fastapi.responses import JSONResponse
 from starlette.websockets import WebSocketState
 
 from db import db_manager
-from db.models import ArchivedLiveTrip, LiveTrip
 from db.schemas import (
     ActiveTripResponseUnion,
     ActiveTripSuccessResponse,
@@ -59,16 +58,15 @@ async def _process_bouncie_event(data: dict[str, Any]) -> dict[str, Any]:
         logger.warning("Unknown event type: %s", event_type)
         return {"status": "unknown", "event": event_type}
 
-    # Route to appropriate handler using Beanie models
+    # Route to appropriate handler
     if event_type == "tripStart":
-        await process_trip_start(data, LiveTrip)
+        await process_trip_start(data)
     elif event_type == "tripData":
-        await process_trip_data(data, LiveTrip)
+        await process_trip_data(data)
     elif event_type == "tripMetrics":
-        await process_trip_metrics(data, LiveTrip)
+        await process_trip_metrics(data)
     elif event_type == "tripEnd":
-        # Process end with both LiveTrip and ArchivedLiveTrip models
-        await process_trip_end(data, LiveTrip, ArchivedLiveTrip)
+        await process_trip_end(data)
 
     return {"status": "processed", "event": event_type, "transactionId": transaction_id}
 

@@ -158,7 +158,7 @@ export function buildExportUrl(
  * @returns {Promise<Array>} Array of coverage areas
  */
 export async function fetchCoverageAreas() {
-  const response = await fetch("/api/coverage_areas");
+  const response = await fetch("/api/coverage/areas");
   const data = await response.json();
 
   if (data.success && Array.isArray(data?.areas)) {
@@ -197,12 +197,10 @@ export async function validateLocationApi(location, locationType = "city") {
  * @param {Object} area - Area object with location data
  * @returns {Promise<Response>} Fetch response
  */
-export async function fetchUndrivenStreets(area) {
-  const response = await fetch("/api/undriven_streets", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(area),
-  });
+export async function fetchUndrivenStreets(areaId) {
+  const response = await fetch(
+    `/api/coverage/areas/${areaId}/streets/all?status=undriven`
+  );
 
   if (!response.ok) {
     let msg = `Export failed (${response.status})`;
@@ -215,7 +213,7 @@ export async function fetchUndrivenStreets(area) {
     throw new Error(msg);
   }
 
-  return response;
+  return response.json();
 }
 
 export default {

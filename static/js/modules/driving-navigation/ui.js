@@ -62,10 +62,11 @@ export class DrivingNavigationUI {
     this.areaSelect.innerHTML = '<option value="">Select an area...</option>';
     areas.forEach((area) => {
       const areaId = area._id || area.id;
-      if (area.location?.display_name && areaId) {
+      const name = area.display_name || area.location?.display_name;
+      if (name && areaId) {
         const option = document.createElement("option");
         option.value = String(areaId);
-        option.textContent = area.location.display_name;
+        option.textContent = name;
         option.dataset.areaId = String(areaId);
         this.areaSelect.appendChild(option);
       }

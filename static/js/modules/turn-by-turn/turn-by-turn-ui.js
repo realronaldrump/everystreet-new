@@ -509,8 +509,8 @@ class TurnByTurnUI {
     areas.forEach((area) => {
       const areaId = area._id || area.id;
       const name
-        = area.location?.display_name
-        || area.location?.city
+        = area.display_name
+        || area.location?.display_name
         || area.name
         || "Coverage Area";
       if (!areaId) {

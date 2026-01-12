@@ -32,6 +32,77 @@ block content %}
       <span class="map-loading-text">Loading map...</span>
     </div>
 
+    <!-- Live Trip HUD -->
+    <div id="live-trip-hud" class="live-trip-hud" aria-hidden="true">
+      <div class="live-trip-hud-card">
+        <div class="live-trip-hud-header">
+          <div class="live-trip-hud-status">
+            <span class="live-trip-dot" aria-hidden="true"></span>
+            <div>
+              <div class="live-trip-title">
+Live Trip
+              </div>
+              <div class="live-trip-subtitle" id="live-trip-last-update">
+Waiting for updates...
+              </div>
+            </div>
+          </div>
+          <button class="live-trip-follow-toggle"
+                  id="live-trip-follow-toggle"
+                  type="button"
+                  aria-pressed="false">
+            <i class="fas fa-location-arrow" aria-hidden="true"></i>
+            <span class="follow-label">Follow</span>
+          </button>
+        </div>
+        <div class="live-trip-hud-main">
+          <div class="live-trip-speed">
+            <div class="live-trip-speed-value" id="live-trip-speed">
+--
+            </div>
+            <div class="live-trip-speed-label">mph</div>
+          </div>
+          <div class="live-trip-road">
+            <div class="live-trip-road-label">
+Current Street
+            </div>
+            <div class="live-trip-road-value" id="live-trip-street">
+--
+            </div>
+            <div class="live-trip-road-meta" id="live-trip-coverage">
+Coverage: --
+            </div>
+          </div>
+        </div>
+        <div class="live-trip-hud-stats">
+          <div class="live-trip-stat">
+            <div class="label">
+Distance
+            </div>
+            <div class="value" id="live-trip-distance">
+--
+            </div>
+          </div>
+          <div class="live-trip-stat">
+            <div class="label">
+Duration
+            </div>
+            <div class="value" id="live-trip-duration">
+--
+            </div>
+          </div>
+          <div class="live-trip-stat">
+            <div class="label">
+Avg Speed
+            </div>
+            <div class="value" id="live-trip-avg-speed">
+--
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Unified Control Panel - transforms based on viewport -->
     <div id="map-controls"
          class="control-panel shadow-lg"

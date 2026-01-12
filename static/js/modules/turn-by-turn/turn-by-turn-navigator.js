@@ -281,13 +281,12 @@ class TurnByTurnNavigator {
 
       // Process coverage baseline
       if (coverageData) {
+        const driveableMiles
+          = coverageData.driveable_length_miles ?? coverageData.total_length_miles ?? 0;
+        const drivenMiles = coverageData.driven_length_miles ?? 0;
         this.coverageBaseline = {
-          totalMi:
-            (coverageData.driveable_length_m || coverageData.total_length || 0)
-            / 1609.344,
-          coveredMi:
-            (coverageData.driven_length_m || coverageData.driven_length || 0)
-            / 1609.344,
+          totalMi: driveableMiles,
+          coveredMi: drivenMiles,
           percentage: coverageData.coverage_percentage || 0,
         };
       }

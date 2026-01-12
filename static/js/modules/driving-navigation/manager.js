@@ -191,9 +191,7 @@ export class DrivingNavigation {
 
     try {
       const areaMatch = this.coverageAreas.find(
-        (area) =>
-          String(area._id || area.id || "") === selectedValue
-          || String(area.location?.id || "") === selectedValue
+        (area) => String(area.id || area._id || "") === selectedValue
       );
 
       if (areaMatch) {
@@ -214,7 +212,7 @@ export class DrivingNavigation {
       }
 
       this.ui.setStatus(
-        `Area selected: ${this.selectedArea.location.display_name}. Loading streets...`
+        `Area selected: ${this.selectedArea.display_name || "Unknown"}. Loading streets...`
       );
       this.ui.setNavigationButtonsEnabled(true);
       this.ui.clearRouteUI();
@@ -287,12 +285,12 @@ export class DrivingNavigation {
         this.ui.updateProgress(100, "Loaded undriven streets!");
         setTimeout(() => this.ui.hideProgressContainer(), 1000);
         this.ui.setStatus(
-          `Loaded ${driveableFeatures.length} undriven streets in ${this.selectedArea.location.display_name}.`
+          `Loaded ${driveableFeatures.length} undriven streets in ${this.selectedArea.display_name || "Unknown"}.`
         );
       } else {
         this.ui.hideProgressContainer();
         this.ui.setStatus(
-          `No undriven streets found in ${this.selectedArea.location.display_name}.`
+          `No undriven streets found in ${this.selectedArea.display_name || "Unknown"}.`
         );
       }
     } catch (error) {

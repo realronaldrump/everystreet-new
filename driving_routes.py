@@ -9,7 +9,7 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 
 from config import get_mapbox_token
-from coverage.constants import FEET_TO_METERS, MILES_TO_METERS
+from coverage.constants import MILES_TO_METERS
 from coverage.models import CoverageArea, CoverageState, Street
 from db.models import Trip
 from geometry_service import GeometryService
@@ -629,6 +629,175 @@ async def get_current_position_endpoint(request: Request):
     except Exception as e:
         logger.exception("Error getting current position: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/api/driving-navigation/next-route")
+async def get_next_driving_navigation_route(request: Request):
+    """Find a route to the nearest undriven street (or a specific segment)."""
+    try:
+        data = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid request payload.")
+
+    area = await _resolve_coverage_area(data.get("location"))
+    undriven_segments = await _load_undriven_segments(area)
+
+    if not undriven_segments:
+        return JSONResponse(
+            content={
+                "status": "completed",
+                "message": f"All streets in {area.display_name} are driven.",
+            }
+        )
+
+    current_position = data.get("current_position")
+    current_lon = None
+    current_lat = None
+    location_source = None
+
+    if isinstance(current_position, dict):
+        pair = _normalize_coord_pair(
+            [current_position.get("lon"), current_position.get("lat")]
+        )
+        if pair:
+            current_lon, current_lat = pair
+            location_source = "client-provided"
+
+    if current_lon is None or current_lat is None:
+        current_lat, current_lon, location_source = await get_current_position(data)
+
+    location_source = _normalize_location_source(location_source)
+
+    segment_id = data.get("segment_id")
+    target_segment = None
+    target_midpoint = None
+
+    if segment_id:
+        target_segment = next(
+            (
+                segment
+                for segment in undriven_segments
+                if segment.get("segment_id") == segment_id
+            ),
+            None,
+        )
+        if not target_segment:
+            raise HTTPException(
+                status_code=404,
+                detail="Requested segment not found or already driven.",
+            )
+        target_midpoint = _segment_midpoint_coords(target_segment.get("geometry"))
+        if not target_midpoint:
+            raise HTTPException(
+                status_code=404,
+                detail="Target segment has no valid geometry.",
+            )
+    else:
+        target_segment, target_midpoint = _find_nearest_segment(
+            undriven_segments,
+            current_lon,
+            current_lat,
+        )
+        if not target_segment or not target_midpoint:
+            raise HTTPException(
+                status_code=404,
+                detail="No routable undriven streets found.",
+            )
+
+    route = await _get_mapbox_directions_route(
+        current_lon,
+        current_lat,
+        target_midpoint[0],
+        target_midpoint[1],
+    )
+
+    response = {
+        "status": "success",
+        "route_geometry": route.get("geometry"),
+        "route_duration_seconds": route.get("duration", 0),
+        "route_distance_meters": route.get("distance", 0),
+        "target_street": {
+            "street_name": target_segment.get("street_name") or "Unnamed Street",
+            "segment_id": target_segment.get("segment_id"),
+        },
+        "location_source": location_source,
+    }
+
+    return JSONResponse(content=sanitize_for_json(response))
+
+
+@router.get("/api/driving-navigation/suggest-next-street/{area_id}")
+async def suggest_next_street(
+    area_id: str,
+    current_lat: float = Query(...),
+    current_lon: float = Query(...),
+    top_n: int = Query(3),
+    min_cluster_size: int = Query(2),
+):
+    """Suggest efficient clusters of undriven streets."""
+    try:
+        area = await CoverageArea.get(PydanticObjectId(area_id))
+    except Exception:
+        area = await CoverageArea.find_one({"display_name": area_id})
+
+    if not area:
+        raise HTTPException(status_code=404, detail="Coverage area not found.")
+
+    if not _normalize_coord_pair([current_lon, current_lat]):
+        raise HTTPException(status_code=400, detail="Invalid current position.")
+
+    undriven_segments = await _load_undriven_segments(area)
+    if not undriven_segments:
+        return JSONResponse(
+            content={
+                "status": "no_streets",
+                "message": f"No undriven streets found in {area.display_name}.",
+            }
+        )
+
+    prepared_segments = []
+    for segment in undriven_segments:
+        midpoint = _segment_midpoint_coords(segment.get("geometry"))
+        if not midpoint:
+            continue
+        prepared_segments.append({**segment, "midpoint": midpoint})
+
+    if not prepared_segments:
+        return JSONResponse(
+            content={
+                "status": "no_streets",
+                "message": f"No routable streets found in {area.display_name}.",
+            }
+        )
+
+    top_n = max(top_n, 1)
+    min_cluster_size = max(min_cluster_size, 1)
+
+    clusters = _cluster_segments(
+        prepared_segments,
+        current_lon,
+        current_lat,
+        threshold_m=CLUSTER_DISTANCE_M,
+        min_cluster_size=min_cluster_size,
+    )
+
+    if not clusters:
+        return JSONResponse(
+            content={
+                "status": "no_clusters",
+                "message": "No efficient clusters found.",
+            }
+        )
+
+    clusters.sort(key=lambda cluster: cluster.get("efficiency_score", 0), reverse=True)
+    return JSONResponse(
+        content=sanitize_for_json(
+            {
+                "status": "success",
+                "suggested_clusters": clusters[:top_n],
+            }
+        )
+    )
 
 
 def _find_clusters_in_graph(segment_map: dict, adjacency: dict) -> list[list[str]]:
