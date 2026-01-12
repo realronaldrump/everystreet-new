@@ -49,10 +49,10 @@ async def start_optimal_route_generation(
     if not coverage_area:
         raise HTTPException(status_code=404, detail="Coverage area not found")
 
-    if coverage_area.status == "initializing":
+    if coverage_area.status != "ready":
         raise HTTPException(
             status_code=400,
-            detail="Coverage area is still being processed. Wait for completion.",
+            detail=f"Coverage area is not ready (status: {coverage_area.status}).",
         )
 
     task = generate_optimal_route_task.delay(

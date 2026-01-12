@@ -7,7 +7,7 @@ Main orchestrator class that coordinates trip processing through all stages.
 import logging
 from typing import Any
 
-from external_geo_service import ExternalGeoService
+from external_geo_service import GeocodingService, MapMatchingService
 from trip_processor.basic_processing import TripBasicProcessor
 from trip_processor.geocoding import TripGeocoder
 from trip_processor.map_matching import TripMapMatcher
@@ -30,7 +30,8 @@ class TripProcessor:
         self,
         mapbox_token: str | None = None,
         source: str = "api",
-        geo_service: ExternalGeoService | None = None,
+        geocoding_service: GeocodingService | None = None,
+        map_matching_service: MapMatchingService | None = None,
         repository: TripRepository | None = None,
     ):
         """
@@ -39,14 +40,16 @@ class TripProcessor:
         Args:
             mapbox_token: The Mapbox access token for map matching and geocoding
             source: Source of the trip data (api, upload, upload_gpx, bouncie, etc.)
-            geo_service: Optional ExternalGeoService instance (for testing/DI)
+            geocoding_service: Optional geocoding service instance (for testing/DI)
+            map_matching_service: Optional map matching service instance (for testing/DI)
             repository: Optional TripRepository instance (for testing/DI)
         """
         self.source = source
         self.mapbox_token = mapbox_token
 
         # Injected dependencies (lazy-initialize if not provided)
-        self._geo_service = geo_service
+        self._geocoding_service = geocoding_service
+        self._map_matching_service = map_matching_service
         self._repository = repository
 
         # State machine
@@ -77,11 +80,18 @@ class TripProcessor:
         return self._state_machine.errors
 
     @property
-    def geo_service(self) -> ExternalGeoService:
-        """Lazy-initialize geo service."""
-        if self._geo_service is None:
-            self._geo_service = ExternalGeoService(self.mapbox_token)
-        return self._geo_service
+    def geocoding_service(self) -> GeocodingService:
+        """Lazy-initialize geocoding service."""
+        if self._geocoding_service is None:
+            self._geocoding_service = GeocodingService(self.mapbox_token)
+        return self._geocoding_service
+
+    @property
+    def map_matching_service(self) -> MapMatchingService:
+        """Lazy-initialize map matching service."""
+        if self._map_matching_service is None:
+            self._map_matching_service = MapMatchingService(self.mapbox_token)
+        return self._map_matching_service
 
     @property
     def repository(self) -> TripRepository:
@@ -94,14 +104,14 @@ class TripProcessor:
     def geocoder(self) -> TripGeocoder:
         """Lazy-initialize geocoder."""
         if self._geocoder is None:
-            self._geocoder = TripGeocoder(self.geo_service)
+            self._geocoder = TripGeocoder(self.geocoding_service)
         return self._geocoder
 
     @property
     def map_matcher(self) -> TripMapMatcher:
         """Lazy-initialize map matcher."""
         if self._map_matcher is None:
-            self._map_matcher = TripMapMatcher(self.geo_service, self.mapbox_token)
+            self._map_matcher = TripMapMatcher(self.map_matching_service)
         return self._map_matcher
 
     def _set_state(

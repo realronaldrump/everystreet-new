@@ -56,6 +56,8 @@ class AreaResponse(BaseModel):
     # Timestamps
     created_at: str
     last_synced: str | None
+    optimal_route_generated_at: str | None
+    has_optimal_route: bool
 
     class Config:
         from_attributes = True
@@ -128,6 +130,10 @@ async def list_areas():
                     last_synced=area.last_synced.isoformat()
                     if area.last_synced
                     else None,
+                    optimal_route_generated_at=area.optimal_route_generated_at.isoformat()
+                    if area.optimal_route_generated_at
+                    else None,
+                    has_optimal_route=area.optimal_route is not None,
                 )
             )
 
@@ -178,6 +184,10 @@ async def get_area(area_id: str):
             driven_segments=area.driven_segments,
             created_at=area.created_at.isoformat(),
             last_synced=area.last_synced.isoformat() if area.last_synced else None,
+            optimal_route_generated_at=area.optimal_route_generated_at.isoformat()
+            if area.optimal_route_generated_at
+            else None,
+            has_optimal_route=area.optimal_route is not None,
         ),
         bounding_box=area.bounding_box if area.bounding_box else None,
         has_optimal_route=area.optimal_route is not None,
@@ -350,4 +360,3 @@ async def trigger_backfill(area_id: str):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),
         )
-

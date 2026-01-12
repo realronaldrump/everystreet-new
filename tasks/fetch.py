@@ -187,11 +187,6 @@ async def periodic_fetch_trips_async(
         logger.exception("Error updating task config: %s", update_err)
 
     try:
-        trips_after_fetch = await Trip.find(Trip.matchStatus == "bouncie").count()
-        # Wait, source vs matchStatus? Trip model has `matchStatus`.
-        # Legacy code queried `{"source": "bouncie"}`.
-        # Trip model `extra="allow"`.
-        # `source` is likely an extra field.
         trips_after_fetch = await Trip.find({"source": "bouncie"}).count()
 
         logger.info(

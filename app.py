@@ -146,7 +146,7 @@ async def startup_event():
         # await init_database()
 
         # Set up MongoDB logging handler
-        AppState.mongo_handler = MongoDBHandler(collection_name="server_logs")
+        AppState.mongo_handler = MongoDBHandler()
         await AppState.mongo_handler.setup_indexes()
 
         # Add the MongoDB handler to the root logger

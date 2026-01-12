@@ -2,7 +2,7 @@
 Search API for places, addresses, and streets.
 
 Provides endpoints for geocoding searches and street lookups with support for Nominatim
-(OSM) and Mapbox geocoding services via centralized ExternalGeoService.
+(OSM) and Mapbox geocoding services via a centralized GeocodingService.
 """
 
 import logging
@@ -13,14 +13,14 @@ from fastapi import APIRouter, HTTPException, Query
 
 from config import get_mapbox_token
 from coverage.models import CoverageArea, CoverageState, Street
-from external_geo_service import ExternalGeoService
+from external_geo_service import GeocodingService
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/search", tags=["search"])
 
 # Shared geo service instance (uses cached token)
-_geo_service = ExternalGeoService(get_mapbox_token())
+_geo_service = GeocodingService(get_mapbox_token())
 
 
 @router.get("/geocode")

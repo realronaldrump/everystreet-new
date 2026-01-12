@@ -13,12 +13,9 @@ from .schemas import (
     parse_mapbox_response,
     parse_nominatim_response,
 )
-from .service import ExternalGeoService
 from .timestamp_utils import extract_timestamps_for_coordinates
 
 __all__ = [
-    # Main service (backwards compatible)
-    "ExternalGeoService",
     # Individual services
     "GeocodingService",
     "MapMatchingService",

@@ -315,8 +315,9 @@ class LiveTripTracker {
 
   updatePolylineStyle(color, opacity) {
     const nextColor = color || this.routeStyle.color;
-    const nextOpacity = Number.isFinite(opacity)
-      ? Math.min(Math.max(opacity, 0.1), 1)
+    const parsedOpacity = Number.parseFloat(opacity);
+    const nextOpacity = Number.isFinite(parsedOpacity)
+      ? Math.min(Math.max(parsedOpacity, 0.1), 1)
       : this.routeStyle.opacity;
     this.routeStyle = { color: nextColor, opacity: nextOpacity };
     this.applyRouteStyle();
@@ -531,6 +532,156 @@ class LiveTripTracker {
       }
     };
     img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+  }
+
+  updateHud(trip, coords) {
+    if (!this.hudElem || !trip) {
+      return;
+    }
+
+    const speedValue
+      = typeof trip.currentSpeed === "number"
+        ? Math.max(0, Math.round(trip.currentSpeed))
+        : 0;
+    if (this.hudSpeedElem) {
+      this.hudSpeedElem.textContent = `${speedValue}`;
+    }
+
+    const startTime = trip.startTime ? new Date(trip.startTime) : null;
+    const lastUpdate = trip.lastUpdate ? new Date(trip.lastUpdate) : null;
+    let duration = "--";
+    if (startTime && lastUpdate) {
+      duration = DateUtils.formatDurationHMS(startTime, lastUpdate);
+    }
+
+    if (this.hudDurationElem) {
+      this.hudDurationElem.textContent = duration;
+    }
+    if (this.hudDistanceElem) {
+      this.hudDistanceElem.textContent = `${(trip.distance || 0).toFixed(2)} mi`;
+    }
+    if (this.hudAvgSpeedElem) {
+      this.hudAvgSpeedElem.textContent
+        = trip.avgSpeed > 0 ? `${trip.avgSpeed.toFixed(1)} mph` : "--";
+    }
+
+    if (this.hudLastUpdateElem) {
+      this.hudLastUpdateElem.textContent = lastUpdate
+        ? `Updated ${DateUtils.formatTimeAgo(lastUpdate)}`
+        : "Updating...";
+    }
+
+    const areaName = this.getCoverageAreaName();
+    const lastCoord = coords?.[coords.length - 1];
+    const coverageInfo = lastCoord ? this.getCoverageStreetInfo(lastCoord) : null;
+
+    if (coverageInfo?.streetName && this.hudStreetElem) {
+      this.hudStreetElem.textContent = coverageInfo.streetName;
+    } else if (this.hudStreetElem) {
+      this.hudStreetElem.textContent = areaName ? "Outside coverage" : "--";
+    }
+
+    this.updateCoverageBadge(coverageInfo?.status, areaName);
+  }
+
+  updateCoverageBadge(status, areaName) {
+    if (!this.hudCoverageElem) {
+      return;
+    }
+
+    this.hudCoverageElem.classList.remove(
+      "is-driven",
+      "is-undriven",
+      "is-undriveable"
+    );
+
+    if (!status) {
+      this.hudCoverageElem.textContent = areaName
+        ? `Coverage: ${areaName}`
+        : "Coverage: Not active";
+      return;
+    }
+
+    const normalized = String(status).toLowerCase();
+    let label = "Unknown";
+    if (normalized === "driven") {
+      label = "Driven";
+      this.hudCoverageElem.classList.add("is-driven");
+    } else if (normalized === "undriven") {
+      label = "Undriven";
+      this.hudCoverageElem.classList.add("is-undriven");
+    } else if (normalized === "undriveable") {
+      label = "Undriveable";
+      this.hudCoverageElem.classList.add("is-undriveable");
+    }
+
+    const suffix = areaName ? ` - ${areaName}` : "";
+    this.hudCoverageElem.textContent = `Coverage: ${label}${suffix}`;
+  }
+
+  getCoverageAreaName() {
+    const select = document.getElementById("streets-location");
+    if (!select || !select.value) {
+      return null;
+    }
+    const selected = select.options[select.selectedIndex];
+    const text = selected?.textContent?.trim();
+    if (!text || text === "Select a location...") {
+      return null;
+    }
+    return text;
+  }
+
+  getCoverageStreetInfo(coord) {
+    if (!this.map || !coord) {
+      return null;
+    }
+
+    const visibleLayers = this.coverageLayerIds.filter((layerId) => {
+      if (!this.map.getLayer(layerId)) {
+        return false;
+      }
+      const visibility = this.map.getLayoutProperty(layerId, "visibility");
+      return visibility !== "none";
+    });
+
+    if (visibleLayers.length === 0) {
+      return null;
+    }
+
+    const point = this.map.project([coord.lon, coord.lat]);
+    const radius = 8;
+    const bbox = [
+      [point.x - radius, point.y - radius],
+      [point.x + radius, point.y + radius],
+    ];
+    const features = this.map.queryRenderedFeatures(bbox, { layers: visibleLayers });
+
+    if (!features.length) {
+      return null;
+    }
+
+    const preferred = visibleLayers
+      .map((layerId) => features.find((feature) => feature.layer?.id === layerId))
+      .find(Boolean);
+    const feature = preferred || features[0];
+    const props = feature?.properties || {};
+    const streetName = props.street_name || props.name || null;
+    let status = props.status || null;
+
+    if (!status && feature?.layer?.id) {
+      if (feature.layer.id.includes("driven")) {
+        status = "driven";
+      } else if (feature.layer.id.includes("undriven")) {
+        status = "undriven";
+      }
+    }
+
+    if (!streetName) {
+      return null;
+    }
+
+    return { streetName, status };
   }
 
   async initialize() {
@@ -767,7 +918,7 @@ class LiveTripTracker {
     return coords;
   }
 
-  static createFeatures(coords) {
+  static createFeatures(coords, heading = null) {
     const features = [];
     const mapboxCoords = coords.map((c) => [c.lon, c.lat]);
 
@@ -782,9 +933,13 @@ class LiveTripTracker {
 
     // Marker for current position
     if (mapboxCoords.length > 0) {
+      const markerProps = { type: "marker" };
+      if (typeof heading === "number") {
+        markerProps.heading = heading;
+      }
       features.push({
         type: "Feature",
-        properties: { type: "marker" },
+        properties: markerProps,
         geometry: {
           type: "Point",
           coordinates: mapboxCoords[mapboxCoords.length - 1],
@@ -793,6 +948,61 @@ class LiveTripTracker {
     }
 
     return features;
+  }
+
+  static calculateHeading(coords) {
+    if (!Array.isArray(coords) || coords.length < 2) {
+      return null;
+    }
+    const prev = coords[coords.length - 2];
+    const curr = coords[coords.length - 1];
+    if (!prev || !curr) {
+      return null;
+    }
+
+    const toRad = (value) => (value * Math.PI) / 180;
+    const toDeg = (value) => (value * 180) / Math.PI;
+
+    const lat1 = toRad(prev.lat);
+    const lat2 = toRad(curr.lat);
+    const dLon = toRad(curr.lon - prev.lon);
+
+    const y = Math.sin(dLon) * Math.cos(lat2);
+    const x
+      = Math.cos(lat1) * Math.sin(lat2)
+      - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+    const bearing = toDeg(Math.atan2(y, x));
+
+    return LiveTripTracker.normalizeBearing(bearing);
+  }
+
+  static normalizeBearing(bearing) {
+    if (!Number.isFinite(bearing)) {
+      return 0;
+    }
+    return (bearing + 360) % 360;
+  }
+
+  static smoothBearing(previous, next, weight = 0.25) {
+    if (!Number.isFinite(next)) {
+      return previous;
+    }
+    if (!Number.isFinite(previous)) {
+      return LiveTripTracker.normalizeBearing(next);
+    }
+    const delta = ((next - previous + 540) % 360) - 180;
+    return LiveTripTracker.normalizeBearing(previous + delta * weight);
+  }
+
+  static getCssVar(name, fallback) {
+    try {
+      const value = getComputedStyle(document.documentElement)
+        .getPropertyValue(name)
+        .trim();
+      return value || fallback;
+    } catch {
+      return fallback;
+    }
   }
 
   updateMarkerStyle(speed) {
@@ -1014,17 +1224,30 @@ class LiveTripTracker {
     }
   }
 
-  followVehicle(lastCoord) {
-    if (!lastCoord) {
+  followVehicle(lastCoord, heading, { immediate = false } = {}) {
+    if (!lastCoord || !this.map) {
       return;
     }
 
-    const point = [lastCoord.lon, lastCoord.lat];
-    const bounds = this.map.getBounds();
-    const lngLat = new mapboxgl.LngLat(point[0], point[1]);
+    const { zoom, pitch, offset, duration } = this.getFollowCameraConfig();
+    const bearing
+      = typeof heading === "number" ? heading : this.map.getBearing() || 0;
+    const center = [lastCoord.lon, lastCoord.lat];
 
-    if (!bounds.contains(lngLat)) {
-      this.map.panTo(point);
+    const cameraOptions = {
+      center,
+      zoom,
+      pitch,
+      bearing,
+      offset,
+      duration,
+      essential: true,
+    };
+
+    if (immediate) {
+      this.map.jumpTo(cameraOptions);
+    } else {
+      this.map.easeTo(cameraOptions);
     }
   }
 
@@ -1061,6 +1284,10 @@ class LiveTripTracker {
 
     const statusMsg = message || (connected ? "Connected" : "Disconnected");
     this.statusText.textContent = statusMsg;
+
+    if (this.liveBadge) {
+      this.liveBadge.classList.toggle("disconnected", !connected);
+    }
   }
 
   updateTripCount(count) {
@@ -1078,14 +1305,34 @@ class LiveTripTracker {
       this.ws = null;
     }
 
+    if (this.followToggle && this.followToggleHandler) {
+      this.followToggle.removeEventListener("click", this.followToggleHandler);
+    }
+
+    if (this.map && this.mapInteractionHandlers.length > 0) {
+      this.mapInteractionHandlers.forEach(({ evt, handler }) => {
+        this.map.off(evt, handler);
+      });
+      this.mapInteractionHandlers = [];
+    }
+
     // Remove map layers
     if (this.map) {
       try {
         if (this.map.getLayer(this.pulseLayerId)) {
           this.map.removeLayer(this.pulseLayerId);
         }
+        if (this.map.getLayer(this.arrowLayerId)) {
+          this.map.removeLayer(this.arrowLayerId);
+        }
         if (this.map.getLayer(this.lineLayerId)) {
           this.map.removeLayer(this.lineLayerId);
+        }
+        if (this.map.getLayer(this.lineCasingLayerId)) {
+          this.map.removeLayer(this.lineCasingLayerId);
+        }
+        if (this.map.getLayer(this.lineGlowLayerId)) {
+          this.map.removeLayer(this.lineGlowLayerId);
         }
         if (this.map.getLayer(this.markerLayerId)) {
           this.map.removeLayer(this.markerLayerId);

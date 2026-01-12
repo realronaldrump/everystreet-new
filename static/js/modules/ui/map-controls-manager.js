@@ -72,13 +72,47 @@ const mapControlsManager = {
       return;
     }
     utils.setStorage(CONFIG.storage.mapType, type);
+    let onStyleLoaded = null;
     try {
+      const currentView = {
+        center: map.getCenter?.(),
+        zoom: map.getZoom?.(),
+        bearing: map.getBearing?.(),
+        pitch: map.getPitch?.(),
+      };
+      const styleChangeId = (this._styleChangeId = (this._styleChangeId || 0) + 1);
+      onStyleLoaded = () => {
+        if (this._styleChangeId !== styleChangeId) {
+          return;
+        }
+        if (currentView.center) {
+          map.jumpTo({
+            center: currentView.center,
+            zoom: currentView.zoom,
+            bearing: currentView.bearing,
+            pitch: currentView.pitch,
+          });
+        }
+        if (typeof map.resize === "function") {
+          setTimeout(() => map.resize(), 100);
+        }
+        document.dispatchEvent(
+          new CustomEvent("mapStyleLoaded", { detail: { mapType: type } })
+        );
+      };
+
+      if (typeof map.once === "function") {
+        map.once("styledata", onStyleLoaded);
+      }
       // Use style from CONFIG if available, fallback to default pattern
       const styleUrl
         = MAP_CONFIG.MAP.styles[type] || `mapbox://styles/mapbox/${type}-v11`;
       map.setStyle(styleUrl);
       eventManager.emit("mapTypeChanged", { type });
     } catch (error) {
+      if (typeof map.off === "function" && onStyleLoaded) {
+        map.off("styledata", onStyleLoaded);
+      }
       console.error("Error updating map type:", error);
     }
   },

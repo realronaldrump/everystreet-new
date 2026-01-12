@@ -8,7 +8,7 @@ import logging
 from typing import Any
 
 from date_utils import get_current_utc_time
-from external_geo_service import ExternalGeoService
+from external_geo_service import MapMatchingService, extract_timestamps_for_coordinates
 from trip_processor.state import TripState, TripStateMachine
 
 logger = logging.getLogger(__name__)
@@ -21,20 +21,14 @@ class TripMapMatcher:
     Uses external map matching services to snap GPS coordinates to road networks.
     """
 
-    def __init__(
-        self,
-        geo_service: ExternalGeoService,
-        mapbox_token: str | None = None,
-    ):
+    def __init__(self, map_matching_service: MapMatchingService):
         """
         Initialize the map matcher.
 
         Args:
-            geo_service: External geocoding service instance
-            mapbox_token: Mapbox access token for map matching
+            map_matching_service: Map matching service instance
         """
-        self.geo_service = geo_service
-        self.mapbox_token = mapbox_token
+        self.map_matching_service = map_matching_service
 
     async def map_match(
         self,
@@ -55,7 +49,7 @@ class TripMapMatcher:
             transaction_id = processed_data.get("transactionId", "unknown")
             logger.debug("Starting map matching for trip %s", transaction_id)
 
-            if not self.mapbox_token:
+            if not self.map_matching_service.mapbox_token:
                 logger.warning(
                     "No Mapbox token provided, skipping map matching for trip %s",
                     transaction_id,
@@ -96,11 +90,11 @@ class TripMapMatcher:
                 return True, processed_data
 
             # Extract timestamps and call map matching service
-            timestamps = self.geo_service.extract_timestamps_for_coordinates(
+            timestamps = extract_timestamps_for_coordinates(
                 coords,
                 processed_data,
             )
-            match_result = await self.geo_service.map_match_coordinates(
+            match_result = await self.map_matching_service.map_match_coordinates(
                 coords,
                 timestamps,
             )

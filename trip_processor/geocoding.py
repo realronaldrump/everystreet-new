@@ -11,7 +11,7 @@ from typing import Any
 from shapely.geometry import Point
 
 from db import Place
-from external_geo_service import ExternalGeoService
+from external_geo_service import GeocodingService, get_empty_location_schema
 from trip_processor.state import TripState, TripStateMachine
 
 logger = logging.getLogger(__name__)
@@ -24,14 +24,14 @@ class TripGeocoder:
     Uses custom places database and falls back to external geocoding services.
     """
 
-    def __init__(self, geo_service: ExternalGeoService):
+    def __init__(self, geocoding_service: GeocodingService):
         """
         Initialize the geocoder.
 
         Args:
-            geo_service: External geocoding service instance
+            geocoding_service: Geocoding service instance
         """
-        self.geo_service = geo_service
+        self.geocoding_service = geocoding_service
 
     async def geocode(
         self,
@@ -105,13 +105,13 @@ class TripGeocoder:
                     processed_data["startPlaceId"] = str(start_place.get("_id", ""))
                 else:
                     # Use external geocoding service
-                    rev_start = await self.geo_service.reverse_geocode(
+                    rev_start = await self.geocoding_service.reverse_geocode(
                         start_coord[1],
                         start_coord[0],
                     )
                     if rev_start:
                         processed_data["startLocation"] = (
-                            self.geo_service.parse_geocode_response(
+                            self.geocoding_service.parse_geocode_response(
                                 rev_start,
                                 start_coord,
                             )
@@ -128,13 +128,16 @@ class TripGeocoder:
                     )
                     processed_data["destinationPlaceId"] = str(end_place.get("_id", ""))
                 else:
-                    rev_end = await self.geo_service.reverse_geocode(
+                    rev_end = await self.geocoding_service.reverse_geocode(
                         end_coord[1],
                         end_coord[0],
                     )
                     if rev_end:
                         processed_data["destination"] = (
-                            self.geo_service.parse_geocode_response(rev_end, end_coord)
+                            self.geocoding_service.parse_geocode_response(
+                                rev_end,
+                                end_coord,
+                            )
                         )
                     else:
                         logger.warning(
@@ -197,7 +200,7 @@ class TripGeocoder:
         Returns:
             Structured location dictionary
         """
-        structured = ExternalGeoService.get_empty_location_schema()
+        structured = get_empty_location_schema()
         structured["formatted_address"] = place.get("name", "")
 
         for component in ["address", "city", "state", "postal_code", "country"]:
