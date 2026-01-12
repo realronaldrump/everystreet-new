@@ -8,8 +8,9 @@ It listens for events and updates CoverageState accordingly.
 from __future__ import annotations
 
 import logging
+import time
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Awaitable, Callable
 
 from beanie import PydanticObjectId
 
@@ -20,6 +21,8 @@ from coverage.stats import update_area_stats
 from date_utils import get_current_utc_time, normalize_to_utc_datetime
 
 logger = logging.getLogger(__name__)
+
+BackfillProgressCallback = Callable[[dict[str, Any]], Awaitable[None]]
 
 
 @on_event(CoverageEvents.TRIP_COMPLETED)
@@ -254,6 +257,9 @@ async def mark_segment_undriven(
 async def backfill_coverage_for_area(
     area_id: PydanticObjectId,
     since: datetime | None = None,
+    progress_callback: BackfillProgressCallback | None = None,
+    progress_interval: int = 25,
+    progress_time_seconds: float = 2.0,
 ) -> int:
     """
     Backfill coverage for an area using existing trips.
@@ -262,6 +268,7 @@ async def backfill_coverage_for_area(
     If `since` is provided, only processes trips after that date.
 
     Returns total number of segments marked as driven.
+    If provided, progress_callback is invoked with real-time backfill stats.
     """
     from db.models import Trip
 
@@ -302,11 +309,47 @@ async def backfill_coverage_for_area(
         query["$or"] = [{"gps": geo_filter}, {"matchedGps": geo_filter}]
 
     total_updated = 0
-    trip_count = 0
+    processed_trips = 0
+    matched_trips = 0
+
+    total_trips: int | None = None
+    if progress_callback:
+        try:
+            total_trips = await Trip.find(query).count()
+        except Exception as exc:
+            logger.warning("Failed to count trips for backfill progress: %s", exc)
+
+    last_reported = 0
+    last_reported_time = time.monotonic()
+
+    async def report_progress(force: bool = False) -> None:
+        nonlocal last_reported, last_reported_time
+        if not progress_callback:
+            return
+        now = time.monotonic()
+        if (
+            not force
+            and processed_trips - last_reported < progress_interval
+            and now - last_reported_time < progress_time_seconds
+        ):
+            return
+        await progress_callback(
+            {
+                "processed_trips": processed_trips,
+                "total_trips": total_trips,
+                "matched_trips": matched_trips,
+                "segments_updated": total_updated,
+            }
+        )
+        last_reported = processed_trips
+        last_reported_time = now
+
+    await report_progress(force=True)
 
     logger.info(f"Starting backfill for area {area.display_name} with query: {query}")
 
     async for trip in Trip.find(query):
+        processed_trips += 1
         trip_data = trip.model_dump()
         trip_driven_at = get_trip_driven_at(trip_data)
         matches = await match_trip_to_streets(trip_data, area_ids=[area_id])
@@ -319,14 +362,17 @@ async def backfill_coverage_for_area(
                 driven_at=trip_driven_at,
             )
             total_updated += updated
-            trip_count += 1
+            matched_trips += 1
+
+        await report_progress()
 
     # Update stats after backfill
     await update_area_stats(area_id)
+    await report_progress(force=True)
 
     logger.info(
         f"Backfill complete for area {area.display_name}: "
-        f"{total_updated} segments from {trip_count} trips"
+        f"{total_updated} segments from {matched_trips} trips"
     )
 
     return total_updated

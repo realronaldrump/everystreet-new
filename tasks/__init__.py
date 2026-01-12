@@ -16,3 +16,13 @@ Tasks are organized into modules by function:
 - webhook: Webhook processing task
 - routes: Optimal route generation task
 """
+
+# Import task modules so Celery registers @shared_task decorators on startup.
+from . import coverage  # noqa: F401
+from . import fetch  # noqa: F401
+from . import maintenance  # noqa: F401
+from . import routes  # noqa: F401
+from . import scheduler  # noqa: F401
+from . import webhook  # noqa: F401
+
+from .webhook import process_webhook_event_task

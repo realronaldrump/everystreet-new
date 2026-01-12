@@ -14,6 +14,7 @@ from typing import Any
 from beanie import PydanticObjectId
 
 from coverage.models import CoverageArea, CoverageState, Street
+from db.aggregation import aggregate_to_list
 
 logger = logging.getLogger(__name__)
 
@@ -102,7 +103,7 @@ async def calculate_area_stats(
         },
     ]
 
-    results = await Street.aggregate(pipeline).to_list()
+    results = await aggregate_to_list(Street, pipeline)
 
     if not results:
         return {
@@ -185,7 +186,7 @@ async def get_segment_status_counts(
         {"$group": {"_id": "$status", "count": {"$sum": 1}}},
     ]
 
-    results = await CoverageState.aggregate(pipeline).to_list()
+    results = await aggregate_to_list(CoverageState, pipeline)
 
     counts = {"undriven": 0, "driven": 0, "undriveable": 0}
     for r in results:

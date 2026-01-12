@@ -56,6 +56,9 @@ DRIVEABLE_HIGHWAY_TYPES = {
     "service",
 }
 
+BACKFILL_PROGRESS_START = 75.0
+BACKFILL_PROGRESS_END = 99.0
+
 
 # =============================================================================
 # Public API
@@ -206,15 +209,30 @@ async def _run_ingestion_pipeline(
         return
 
     try:
+        async def update_job(
+            stage: str | None = None,
+            progress: float | None = None,
+            message: str | None = None,
+        ) -> None:
+            if stage is not None:
+                job.stage = stage
+            if progress is not None:
+                job.progress = progress
+            if message is not None:
+                job.message = message
+            await job.save()
+
         # Mark job as running
         job.status = "running"
         job.started_at = datetime.now(UTC)
-        await job.save()
+        await update_job(message="Starting ingestion pipeline")
 
         # Stage 1: Fetch boundary if needed
-        job.stage = "Fetching boundary"
-        job.progress = 10
-        await job.save()
+        await update_job(
+            stage="Fetching boundary",
+            progress=5,
+            message="Checking boundary data",
+        )
 
         area_updated = False
         if not area.boundary:
@@ -228,62 +246,158 @@ async def _run_ingestion_pipeline(
         if area_updated:
             await area.save()
 
+        await update_job(message="Boundary ready")
+
         # Stage 2: Fetch streets from OSM
-        job.stage = "Fetching streets from OpenStreetMap"
-        job.progress = 30
-        await job.save()
+        await update_job(
+            stage="Fetching streets from OpenStreetMap",
+            progress=20,
+            message="Querying Overpass API",
+        )
 
         osm_ways = await _fetch_osm_streets(area.boundary)
         logger.info(f"Fetched {len(osm_ways)} ways from OSM for {area.display_name}")
 
         # Stage 3: Segment streets
-        job.stage = "Processing streets"
-        job.progress = 50
-        await job.save()
+        await update_job(
+            stage="Processing streets",
+            progress=40,
+            message=f"Segmenting {len(osm_ways):,} OSM ways",
+        )
 
         segments = _segment_streets(osm_ways, area.id, area.area_version)
         logger.info(f"Created {len(segments)} segments for {area.display_name}")
 
+        await update_job(message=f"Created {len(segments):,} segments")
+
         # Stage 4: Clear any partial data for this version
-        job.stage = "Clearing existing street data"
-        job.progress = 60
-        await job.save()
+        await update_job(
+            stage="Clearing existing street data",
+            progress=45,
+            message=f"Clearing data for version {area.area_version}",
+        )
 
         await _clear_existing_area_version_data(area.id, area.area_version)
 
         # Stage 5: Store segments
-        job.stage = "Storing street data"
-        job.progress = 70
-        await job.save()
+        await update_job(
+            stage="Storing street data",
+            progress=60,
+            message=f"Storing {len(segments):,} segments",
+        )
 
         await _store_segments(segments)
 
         # Stage 6: Initialize coverage state
-        job.stage = "Initializing coverage"
-        job.progress = 80
-        await job.save()
+        await update_job(
+            stage="Initializing coverage",
+            progress=70,
+            message=f"Initializing {len(segments):,} segments",
+        )
 
         await _initialize_coverage_state(area.id, segments)
 
         # Stage 7: Update statistics
-        job.stage = "Calculating statistics"
-        job.progress = 90
-        await job.save()
+        await update_job(
+            stage="Calculating statistics",
+            progress=75,
+            message="Aggregating coverage stats",
+        )
 
         await area.set({"osm_fetched_at": datetime.now(UTC)})
-        await update_area_stats(area.id)
+        stats_area = await update_area_stats(area.id)
+        if stats_area:
+            await update_job(
+                message=(
+                    "Coverage "
+                    f"{stats_area.coverage_percentage:.1f}% "
+                    f"({stats_area.driven_length_miles:.2f}/"
+                    f"{stats_area.driveable_length_miles:.2f} mi driveable)"
+                )
+            )
 
         # Stage 8: Backfill with historical trips
-        job.stage = "Processing historical trips"
-        job.progress = 95
-        await job.save()
+        await update_job(
+            stage="Processing historical trips",
+            progress=BACKFILL_PROGRESS_START,
+            message="Scanning trips for coverage matches",
+        )
 
-        await backfill_coverage_for_area(area.id)
+        backfill_state = {
+            "processed_trips": 0,
+            "total_trips": None,
+            "matched_trips": 0,
+            "segments_updated": 0,
+        }
+        last_backfill_progress = BACKFILL_PROGRESS_START
+
+        def format_backfill_message(state: dict[str, Any]) -> str:
+            processed = state.get("processed_trips", 0)
+            total = state.get("total_trips")
+            matched = state.get("matched_trips", 0)
+            updated = state.get("segments_updated", 0)
+
+            if isinstance(total, int):
+                trip_part = f"Trips processed: {processed:,}/{total:,}"
+            else:
+                trip_part = f"Trips processed: {processed:,}"
+
+            return (
+                f"{trip_part} | "
+                f"Trips matched: {matched:,} | "
+                f"Segments updated: {updated:,}"
+            )
+
+        async def handle_backfill_progress(stats: dict[str, Any]) -> None:
+            nonlocal last_backfill_progress
+            backfill_state.update(stats)
+
+            total = backfill_state.get("total_trips")
+            processed = backfill_state.get("processed_trips", 0)
+
+            if isinstance(total, int):
+                if total <= 0:
+                    ratio = 1.0
+                else:
+                    ratio = min(1.0, processed / total)
+                progress = BACKFILL_PROGRESS_START + (
+                    (BACKFILL_PROGRESS_END - BACKFILL_PROGRESS_START) * ratio
+                )
+            else:
+                progress = last_backfill_progress
+
+            progress = max(last_backfill_progress, progress)
+            last_backfill_progress = progress
+
+            await update_job(
+                stage="Processing historical trips",
+                progress=progress,
+                message=format_backfill_message(backfill_state),
+            )
+
+        segments_updated = await backfill_coverage_for_area(
+            area.id,
+            progress_callback=handle_backfill_progress,
+        )
+        backfill_state["segments_updated"] = segments_updated
+        await update_job(
+            stage="Processing historical trips",
+            progress=BACKFILL_PROGRESS_END,
+            message=format_backfill_message(backfill_state),
+        )
 
         # Complete
         job.status = "completed"
         job.stage = "Complete"
         job.progress = 100
+        if backfill_state.get("matched_trips", 0) > 0:
+            job.message = (
+                "Backfill updated "
+                f"{backfill_state['segments_updated']:,} segments from "
+                f"{backfill_state['matched_trips']:,} trips"
+            )
+        else:
+            job.message = "Complete"
         job.completed_at = datetime.now(UTC)
         await job.save()
 

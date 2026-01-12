@@ -3,6 +3,7 @@
 import logging
 from typing import Any
 
+from db.aggregation import aggregate_to_list
 from db.aggregation_utils import get_mongo_tz_expr
 from db.models import Trip
 
@@ -111,4 +112,4 @@ class TimeAnalyticsService:
             {"$limit": 100},
         ]
 
-        return await Trip.aggregate(pipeline).to_list()
+        return await aggregate_to_list(Trip, pipeline)

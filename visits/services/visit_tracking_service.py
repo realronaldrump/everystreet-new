@@ -4,6 +4,7 @@ import logging
 from typing import Any
 
 from date_utils import normalize_to_utc_datetime
+from db.aggregation import aggregate_to_list
 from db.models import Place, Trip
 from db.schemas import PlaceResponse
 
@@ -151,7 +152,7 @@ class VisitTrackingService:
             },
         ]
 
-        docs = await Trip.aggregate(pipeline).to_list()
+        docs = await aggregate_to_list(Trip, pipeline)
 
         visits: list[dict] = []
         for doc in docs:

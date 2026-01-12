@@ -4,6 +4,7 @@ import logging
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from db.aggregation import aggregate_to_list
 from db.models import Place, Trip
 from db.schemas import (
     NonCustomPlaceVisit,
@@ -254,7 +255,7 @@ class VisitStatsService:
             {"$limit": 100},
         ]
 
-        results = await Trip.aggregate(pipeline).to_list()
+        results = await aggregate_to_list(Trip, pipeline)
 
         return [
             NonCustomPlaceVisit(
@@ -372,7 +373,7 @@ class VisitStatsService:
             {"$limit": 50},
         ]
 
-        clusters = await Trip.aggregate(pipeline).to_list()
+        clusters = await aggregate_to_list(Trip, pipeline)
 
         # Build list of existing custom place polygons for overlap check
         existing_places = await Place.find_all().to_list()

@@ -8,6 +8,7 @@ from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import BaseModel
 
 from db import ServerLog
+from db.aggregation import aggregate_to_list
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -152,7 +153,7 @@ async def get_logs_stats() -> dict[str, Any]:
             {"$group": {"_id": "$level", "count": {"$sum": 1}}},
             {"$sort": {"_id": 1}},
         ]
-        level_counts = await ServerLog.aggregate(pipeline).to_list()
+        level_counts = await aggregate_to_list(ServerLog, pipeline)
 
         oldest_log = await ServerLog.find().sort("+timestamp").first_or_none()
         newest_log = await ServerLog.find().sort("-timestamp").first_or_none()

@@ -3,6 +3,7 @@
 import logging
 from typing import Any
 
+from db.aggregation import aggregate_to_list
 from db.aggregation_utils import get_mongo_tz_expr
 from db.models import Trip
 
@@ -57,7 +58,7 @@ class TripAnalyticsService:
             },
         ]
 
-        results = await Trip.aggregate(pipeline).to_list()
+        results = await aggregate_to_list(Trip, pipeline)
 
         # Organize data by different dimensions
         daily_list = TripAnalyticsService._organize_daily_data(results)
@@ -363,7 +364,7 @@ class TripAnalyticsService:
             },
         ]
 
-        results = await Trip.aggregate(pipeline).to_list()
+        results = await aggregate_to_list(Trip, pipeline)
         if not results:
             return {
                 "totalTrips": 0,
@@ -409,4 +410,4 @@ class TripAnalyticsService:
             },
         ]
 
-        return await Trip.aggregate(pipeline).to_list()
+        return await aggregate_to_list(Trip, pipeline)

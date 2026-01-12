@@ -8,6 +8,7 @@ from beanie import PydanticObjectId
 
 from core.exceptions import ResourceNotFoundException, ValidationException
 from date_utils import parse_timestamp
+from db.aggregation import aggregate_to_list
 from db.models import GasFillup, Trip, Vehicle
 
 logger = logging.getLogger(__name__)
@@ -82,7 +83,7 @@ class StatisticsService:
             ],
         )
 
-        results = await GasFillup.aggregate(pipeline).to_list()
+        results = await aggregate_to_list(GasFillup, pipeline)
 
         if not results:
             return {
@@ -131,7 +132,7 @@ class StatisticsService:
             {"$match": {"_id": {"$ne": None}}},
         ]
 
-        trip_vehicles = await Trip.aggregate(pipeline).to_list()
+        trip_vehicles = await aggregate_to_list(Trip, pipeline)
 
         synced_count = 0
         updated_count = 0

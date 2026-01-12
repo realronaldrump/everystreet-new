@@ -205,7 +205,7 @@ function updateMinimizedBadge() {
 
   if (nameEl) nameEl.textContent = locationName;
   if (percentEl) percentEl.textContent = `${roundedProgress}%`;
-  badgeEl.title = activeJob?.stage || "";
+  badgeEl.title = activeJob?.message || activeJob?.stage || "";
 }
 
 function getJobTitle(jobType) {
@@ -338,19 +338,23 @@ function startTrackingJob({
 }) {
   if (!jobId) return;
 
+  const initialStage = initialSnapshot?.stage || "Queued";
+  const initialDetail = initialSnapshot?.message || initialMessage || "";
+
   activeJob = {
     jobId,
     jobType,
     areaId: areaId || null,
     areaName: areaName || null,
     status: initialSnapshot?.status || "pending",
-    stage: initialSnapshot?.stage || initialMessage,
+    stage: initialStage,
+    message: initialDetail,
     progress: initialSnapshot?.progress ?? 0,
   };
 
   saveActiveJobToStorage();
   setProgressModalTitle();
-  updateProgress(activeJob.progress, activeJob.stage);
+  updateProgress(activeJob.progress, activeJob.stage, activeJob.message);
   updateMinimizedBadge();
 
   if (showModal) {
@@ -550,8 +554,12 @@ function renderStatus(status, health, job) {
     (status === "initializing" || status === "rebuilding")
   ) {
     const percent = typeof job.progress === "number" ? Math.round(job.progress) : 0;
-    const stageText = job.stage ? escapeHtml(job.stage) : "";
-    return `<div>${badge}</div><div class="small text-secondary mt-1">${stageText} (${percent}%)</div>`;
+    const detailText = job.message
+      ? escapeHtml(job.message)
+      : job.stage
+        ? escapeHtml(job.stage)
+        : "";
+    return `<div>${badge}</div><div class="small text-secondary mt-1">${detailText} (${percent}%)</div>`;
   }
 
   return badge;
@@ -573,7 +581,7 @@ async function addArea() {
     // Show progress modal (can be minimized)
     hideMinimizedBadge();
     showProgressModal();
-    updateProgress(0, "Creating area...");
+    updateProgress(0, "Creating area...", "Submitting request");
 
     const titleEl = document.getElementById("task-progress-title");
     if (titleEl) {
@@ -662,7 +670,7 @@ async function rebuildArea(areaId, displayName = null) {
   try {
     hideMinimizedBadge();
     showProgressModal();
-    updateProgress(0, "Starting rebuild...");
+    updateProgress(0, "Starting rebuild...", "Submitting request");
 
     const result = await apiPost(`/areas/${areaId}/rebuild`, {});
 
@@ -747,13 +755,14 @@ async function pollJobProgress(jobId) {
       activeJob.status = job.status;
       activeJob.progress = job.progress;
       activeJob.stage = job.stage;
+      activeJob.message = job.message;
       activeJob.jobType = job.job_type || activeJob.jobType;
       activeJob.areaId = job.area_id || activeJob.areaId;
       activeJob.areaName = job.area_display_name || activeJob.areaName;
 
       saveActiveJobToStorage();
       setProgressModalTitle();
-      updateProgress(job.progress, job.stage);
+      updateProgress(job.progress, job.stage, job.message);
 
       if (isJobTerminalStatus(job.status)) {
         if (job.status === "completed") {
@@ -780,7 +789,11 @@ async function pollJobProgress(jobId) {
       consecutiveErrors += 1;
       console.warn("Error polling job:", error);
 
-      updateProgress(activeJob.progress ?? 0, "Connection lost - retrying...");
+      updateProgress(
+        activeJob.progress ?? 0,
+        "Connection lost - retrying...",
+        activeJob.message
+      );
       await sleep(Math.min(30000, 1000 * consecutiveErrors));
     }
   }
@@ -788,22 +801,28 @@ async function pollJobProgress(jobId) {
   return null;
 }
 
-function updateProgress(percent, message) {
+function updateProgress(percent, message, detailMessage = null) {
   const bar = document.querySelector("#taskProgressModal .progress-bar");
   const msg = document.querySelector("#taskProgressModal .progress-message");
   const stage = document.querySelector("#taskProgressModal .progress-stage");
+  const resolvedDetail =
+    typeof detailMessage === "string" ? detailMessage : activeJob?.message || "";
 
   if (bar) {
     bar.style.width = `${percent}%`;
     bar.textContent = `${Math.round(percent)}%`;
   }
-  if (msg) msg.textContent = message;
-  if (stage) stage.textContent = `${Math.round(percent)}% complete`;
+  if (msg) msg.textContent = message || resolvedDetail || "Working...";
+  if (stage) {
+    const percentLabel = `${Math.round(percent)}% complete`;
+    stage.textContent = resolvedDetail ? `${resolvedDetail} | ${percentLabel}` : percentLabel;
+  }
 
   // Keep minimized badge up-to-date
   if (activeJob) {
     activeJob.progress = percent;
     activeJob.stage = message;
+    activeJob.message = resolvedDetail;
     saveActiveJobToStorage();
     updateMinimizedBadge();
   }

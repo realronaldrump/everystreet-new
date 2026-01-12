@@ -7,6 +7,7 @@ from beanie.operators import In
 
 from date_utils import parse_timestamp
 from db import build_calendar_date_expr
+from db.aggregation import aggregate_to_list
 from db.models import Trip, Vehicle
 from geometry_service import GeometryService
 
@@ -160,7 +161,7 @@ class TripQueryService:
                 {"$skip": start},
                 {"$limit": length},
             ]
-            trips_list = await Trip.aggregate(pipeline).to_list()
+            trips_list = await aggregate_to_list(Trip, pipeline)
         else:
             # Use Beanie query builder
             trips_query = Trip.find(query)

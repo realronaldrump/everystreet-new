@@ -5,6 +5,7 @@ from typing import Any
 
 from core.exceptions import ValidationException
 from date_utils import parse_timestamp
+from db.aggregation import aggregate_to_list
 from db.models import GasFillup, Trip
 from gas.services.bouncie_service import BouncieService
 from geometry_service import GeometryService
@@ -327,7 +328,7 @@ class OdometerService:
             {"$group": {"_id": None, "total_distance": {"$sum": "$distance"}}},
         ]
 
-        result = await Trip.aggregate(pipeline).to_list()
+        result = await aggregate_to_list(Trip, pipeline)
         distance_sum = result[0]["total_distance"] if result else 0
         distance_sum = round(distance_sum, 1)
 
