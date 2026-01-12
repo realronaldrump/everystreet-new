@@ -191,7 +191,7 @@ class StatisticsService:
         Calculate the gas cost for a specific trip based on latest fill-up prices.
 
         Args:
-            trip_id: Trip transaction ID or ObjectId
+            trip_id: Trip transaction ID or document ID
             imei: Optional vehicle IMEI
 
         Returns:

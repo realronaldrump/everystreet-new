@@ -46,13 +46,3 @@ export async function fetchCacheStatus() {
   const response = await fetch("/api/counties/cache-status");
   return response.json();
 }
-
-// Default export for backward compatibility
-const CountyMapAPI = {
-  fetchCountyTopology,
-  fetchVisitedCounties,
-  triggerRecalculation,
-  fetchCacheStatus,
-};
-
-export default CountyMapAPI;

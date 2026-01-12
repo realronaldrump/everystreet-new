@@ -60,30 +60,28 @@ DEFAULT_APP_SETTINGS: dict[str, Any] = {
 }
 
 
-async def get_persisted_app_settings() -> dict[str, Any]:
+async def get_persisted_app_settings() -> AppSettings:
     try:
         settings = await AppSettings.find_one()
         if settings is None:
-            new_doc = AppSettings(**DEFAULT_APP_SETTINGS)
-            await new_doc.insert()
-            return new_doc.model_dump()
-        return settings.model_dump()
+            settings = AppSettings(**DEFAULT_APP_SETTINGS)
+            await settings.insert()
+        return settings
     except Exception as e:
         logger.exception("Error fetching app settings: %s", e)
-        return DEFAULT_APP_SETTINGS.copy()
+        return AppSettings(**DEFAULT_APP_SETTINGS)
 
 
 @router.get(
     "/api/app_settings",
-    response_model=dict,
+    response_model=AppSettings,
+    response_model_exclude={"id"},
     summary="Get Application Settings",
     description="Retrieve persisted application-wide settings.",
 )
 async def get_app_settings_endpoint():
     try:
-        doc = await get_persisted_app_settings()
-        doc.pop("id", None)
-        return doc
+        return await get_persisted_app_settings()
     except Exception as e:
         logger.exception("Error fetching app settings via API: %s", e)
         raise HTTPException(
@@ -94,7 +92,8 @@ async def get_app_settings_endpoint():
 
 @router.post(
     "/api/app_settings",
-    response_model=dict,
+    response_model=AppSettings,
+    response_model_exclude={"id"},
     summary="Update Application Settings",
     description="Persist application settings. Fields omitted in payload remain unchanged.",
 )

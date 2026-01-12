@@ -39,7 +39,7 @@ async def sync_vehicles_from_trips() -> dict[str, Any]:
 
 @router.get("/api/trip-gas-cost")
 async def calculate_trip_gas_cost(
-    trip_id: Annotated[str, Query(description="Trip transaction ID or ObjectId")],
+    trip_id: Annotated[str, Query(description="Trip transaction ID or document ID")],
     imei: Annotated[str | None, Query(description="Vehicle IMEI")] = None,
 ) -> dict[str, Any]:
     """Calculate the gas cost for a specific trip based on latest fill-up prices."""

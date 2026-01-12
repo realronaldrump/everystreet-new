@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import math
 from datetime import UTC, datetime
 from typing import Any
 
@@ -502,7 +503,10 @@ def _segment_streets(
                 seq += 1
             else:
                 # Split into segments
-                num_segments = int(total_length / SEGMENT_LENGTH_METERS) + 1
+                num_segments = max(
+                    1,
+                    math.ceil(total_length / SEGMENT_LENGTH_METERS),
+                )
                 segment_length = total_length / num_segments
 
                 for i in range(num_segments):

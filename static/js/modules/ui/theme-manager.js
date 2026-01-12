@@ -29,7 +29,6 @@ const themeManager = {
 
     (
       utils.batchDOMUpdates
-      ?? utils.batchDomUpdates
       ?? ((updates) => {
         updates.forEach((fn) => {
           fn();

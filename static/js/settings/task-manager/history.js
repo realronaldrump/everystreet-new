@@ -6,7 +6,7 @@
 import {
   escapeHtml,
   formatDateTime,
-  formatDuration,
+  formatDurationMs,
   getStatusColor,
 } from "./formatters.js";
 import { showErrorModal } from "./modals.js";
@@ -38,7 +38,7 @@ export function renderTaskHistoryTable(history) {
     if (entry.runtime !== null && entry.runtime !== undefined) {
       const runtimeMs = parseFloat(entry.runtime);
       if (!Number.isNaN(runtimeMs)) {
-        durationText = formatDuration(runtimeMs);
+        durationText = formatDurationMs(runtimeMs);
       }
     } else if (entry.status === "RUNNING" && entry.timestamp) {
       try {
@@ -46,7 +46,7 @@ export function renderTaskHistoryTable(history) {
         const now = new Date();
         const elapsedMs = now - startTime;
         if (!Number.isNaN(elapsedMs) && elapsedMs >= 0) {
-          durationText = formatDuration(elapsedMs);
+          durationText = formatDurationMs(elapsedMs);
           row.dataset.startTime = entry.timestamp;
           row.dataset.isRunning = "true";
         }
@@ -130,7 +130,7 @@ export function updateRunningTaskDurations() {
           if (!Number.isNaN(elapsedMs) && elapsedMs >= 0) {
             const durationCell = row.querySelector(".task-duration");
             if (durationCell) {
-              durationCell.textContent = formatDuration(elapsedMs);
+              durationCell.textContent = formatDurationMs(elapsedMs);
             }
           }
         } catch {
@@ -155,7 +155,7 @@ export function updateRunningTaskDurations() {
             if (!Number.isNaN(elapsedMs) && elapsedMs >= 0) {
               const durationElement = card.querySelector(".task-duration");
               if (durationElement) {
-                durationElement.textContent = formatDuration(elapsedMs);
+                durationElement.textContent = formatDurationMs(elapsedMs);
               }
             }
           } catch {

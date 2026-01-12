@@ -4,11 +4,11 @@
  * Main entry point for the county map feature
  */
 
-import CountyMapAPI from "./api.js";
+import * as CountyMapAPI from "./api.js";
 import { getStateName, MAP_CONFIG } from "./constants.js";
 import { setupInteractions } from "./interactions.js";
 import { addMapLayers, getMapStyle, updateStopLayerVisibility } from "./map-layers.js";
-import CountyMapState from "./state.js";
+import * as CountyMapState from "./state.js";
 import { setupStateStatsToggle } from "./state-stats.js";
 import {
   clearStoredRecalcState,
@@ -294,10 +294,3 @@ if (document.readyState === "loading") {
 } else {
   init();
 }
-
-// Default export
-const CountyMapMain = {
-  init,
-};
-
-export default CountyMapMain;

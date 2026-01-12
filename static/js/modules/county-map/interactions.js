@@ -4,7 +4,7 @@
  */
 
 import { setHoverHighlight } from "./map-layers.js";
-import CountyMapState from "./state.js";
+import * as CountyMapState from "./state.js";
 import { formatDate } from "./ui.js";
 
 /**
@@ -147,10 +147,3 @@ export function setupInteractions() {
   map.on("mouseleave", "counties-visited-fill", hideTooltip);
   map.on("mouseleave", "counties-stopped-fill", hideTooltip);
 }
-
-// Default export for backward compatibility
-const CountyMapInteractions = {
-  setupInteractions,
-};
-
-export default CountyMapInteractions;

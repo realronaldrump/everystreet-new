@@ -44,6 +44,19 @@ def get_local_transformers(
     return to_meters, to_wgs84
 
 
+def geodesic_distance_meters(
+    lon1: float,
+    lat1: float,
+    lon2: float,
+    lat2: float,
+) -> float:
+    """
+    Return the geodesic distance between two lon/lat points in meters.
+    """
+    _, _, dist = GEOD.inv(lon1, lat1, lon2, lat2)
+    return abs(dist)
+
+
 def _line_length_meters(coords: list[tuple[float, float]]) -> float:
     if len(coords) < 2:
         return 0.0

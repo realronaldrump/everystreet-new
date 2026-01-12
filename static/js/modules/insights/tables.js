@@ -125,17 +125,3 @@ export function updateAnalyticsTable() {
     responsive: true,
   });
 }
-
-// Default export as object for backward compatibility
-const InsightsTables = {
-  updateTables,
-  updateDestinationsTable,
-  updateAnalyticsTable,
-};
-
-// Keep window assignment for backward compatibility during transition
-if (typeof window !== "undefined") {
-  window.InsightsTables = InsightsTables;
-}
-
-export default InsightsTables;

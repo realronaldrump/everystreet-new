@@ -6,7 +6,7 @@ Provides endpoints for geocoding searches and street lookups with support for No
 """
 
 import logging
-from typing import Annotated, Any
+from typing import Annotated
 
 from beanie import PydanticObjectId
 from fastapi import APIRouter, HTTPException, Query
@@ -195,95 +195,3 @@ async def search_streets(
     except Exception as e:
         logger.exception("Error in search_streets: %s", e)
         raise HTTPException(status_code=500, detail=str(e)) from e
-
-
-async def _search_streets_in_coverage(
-    query: str,
-    location_id: str,
-    limit: int = 10,
-) -> list[dict[str, Any]]:
-    """
-    Search for streets within a specific coverage area, grouping segments by street
-    name.
-
-    Args:
-        query: Street name query (lowercase)
-        location_id: Coverage area ID
-        limit: Maximum results (applies to unique street names, not segments)
-
-    Returns:
-        List of GeoJSON features with combined geometries per street name
-    """
-    try:
-        area_id = PydanticObjectId(location_id)
-        new_area = await CoverageArea.get(area_id)
-        if not new_area:
-            logger.warning("Coverage area not found: %s", location_id)
-            return []
-
-        location_name = new_area.display_name
-
-        # Query Street by area_id and street_name, then join with CoverageState for driven status
-        driven_segment_ids = set()
-        async for state in CoverageState.find(
-            CoverageState.area_id == area_id,
-            CoverageState.status == "driven",
-        ):
-            driven_segment_ids.add(state.segment_id)
-
-        # Build results grouped by street name
-        street_groups: dict[str, dict] = {}
-        async for street in Street.find(
-            Street.area_id == area_id,
-            Street.area_version == new_area.area_version,
-            Street.street_name != None,  # noqa: E711
-        ):
-            name = street.street_name
-            if not name or query.lower() not in name.lower():
-                continue
-
-            if name not in street_groups:
-                street_groups[name] = {
-                    "geometries": [],
-                    "highway": street.highway_type,
-                    "total_length": 0.0,
-                    "segment_count": 0,
-                    "driven_count": 0,
-                }
-
-            street_groups[name]["geometries"].append(street.geometry)
-            street_groups[name]["total_length"] += street.length_miles * 5280
-            street_groups[name]["segment_count"] += 1
-            if street.segment_id in driven_segment_ids:
-                street_groups[name]["driven_count"] += 1
-
-        features = []
-        for street_name, data in list(street_groups.items())[:limit]:
-            coordinates = []
-            for geom in data["geometries"]:
-                if geom.get("type") == "LineString":
-                    coordinates.append(geom.get("coordinates", []))
-
-            if coordinates:
-                features.append(
-                    {
-                        "type": "Feature",
-                        "geometry": {
-                            "type": "MultiLineString",
-                            "coordinates": coordinates,
-                        },
-                        "properties": {
-                            "street_name": street_name,
-                            "location": location_name,
-                            "highway": data["highway"],
-                            "segment_count": data["segment_count"],
-                            "total_length": data["total_length"],
-                            "driven_count": data["driven_count"],
-                        },
-                    },
-                )
-
-        return features
-    except Exception:
-        logger.exception("Error in _search_streets_in_coverage for %s", location_id)
-        return []

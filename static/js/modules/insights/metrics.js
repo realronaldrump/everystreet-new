@@ -192,18 +192,3 @@ export function updateTrends() {
     el.innerHTML = `${diff !== 0 ? `<i class="fas ${icon}"></i>` : ""} ${Math.abs(diff).toFixed(0)}%`;
   });
 }
-
-// Expose to window for backward compatibility
-const InsightsMetrics = {
-  animateCounter,
-  updateTimeMetric,
-  updateAllMetrics,
-  updateComparisons,
-  updateTrends,
-};
-
-if (typeof window !== "undefined") {
-  window.InsightsMetrics = InsightsMetrics;
-}
-
-export default InsightsMetrics;

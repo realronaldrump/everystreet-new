@@ -3,7 +3,7 @@
  * Handles state-level statistics display and zoom functionality
  */
 
-import CountyMapState from "./state.js";
+import * as CountyMapState from "./state.js";
 import { formatDate } from "./ui.js";
 
 /**
@@ -257,13 +257,3 @@ export function setupStateStatsToggle() {
     });
   }
 }
-
-// Default export for backward compatibility
-const CountyMapStateStats = {
-  calculateStateStats,
-  renderStateStatsList,
-  zoomToState,
-  setupStateStatsToggle,
-};
-
-export default CountyMapStateStats;

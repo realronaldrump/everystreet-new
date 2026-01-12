@@ -465,22 +465,3 @@ function handleTimeDistChartClick(_event, activeElements) {
 
   loadAndShowTripsForTimePeriod(timeType, timeValue);
 }
-
-// Default export as object for backward compatibility
-const InsightsCharts = {
-  initCharts,
-  updateAllCharts,
-  updateTrendsChart,
-  updateEfficiencyChart,
-  updateTimeDistChart,
-  calculateFuelEfficiency,
-  calculateIdleEfficiency,
-  calculateSpeedEfficiency,
-};
-
-// Keep window assignment for backward compatibility during transition
-if (typeof window !== "undefined") {
-  window.InsightsCharts = InsightsCharts;
-}
-
-export default InsightsCharts;

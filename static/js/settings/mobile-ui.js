@@ -1,13 +1,13 @@
 /* global bootstrap, flatpickr */
 
+import { submitTaskConfigUpdate } from "./task-manager/api.js";
+import { showErrorModal, showTaskDetails } from "./task-manager/modals.js";
 import {
   escapeHtml,
   formatDateTime,
-  formatDuration,
+  formatDurationMs,
   getStatusColor,
-  showErrorModal,
-  showTaskDetails,
-} from "./task-manager.js";
+} from "./task-manager/formatters.js";
 
 /**
  * Mobile UI module - handles all mobile-specific UI rendering and interactions
@@ -205,7 +205,7 @@ export function updateMobileHistoryList(history, taskManager) {
     if (entry.runtime !== null && entry.runtime !== undefined) {
       const runtimeMs = parseFloat(entry.runtime);
       if (!Number.isNaN(runtimeMs)) {
-        durationText = formatDuration(runtimeMs);
+        durationText = formatDurationMs(runtimeMs);
       }
     } else if (entry.status === "RUNNING" && entry.timestamp) {
       try {
@@ -213,7 +213,7 @@ export function updateMobileHistoryList(history, taskManager) {
         const now = new Date();
         const elapsedMs = now - startTime;
         if (!Number.isNaN(elapsedMs) && elapsedMs >= 0) {
-          durationText = formatDuration(elapsedMs);
+          durationText = formatDurationMs(elapsedMs);
           card.dataset.startTime = entry.timestamp;
           card.dataset.isRunning = "true";
         }
@@ -877,8 +877,7 @@ export function setupMobileSaveFAB(taskManager) {
       tasks,
     };
 
-    taskManager
-      .submitTaskConfigUpdate(config)
+    submitTaskConfigUpdate(config)
       .then(() => {
         window.notificationManager.show(
           "Task configuration updated successfully",

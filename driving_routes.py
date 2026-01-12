@@ -6,7 +6,7 @@ from typing import Annotated, Any
 import httpx
 from beanie import PydanticObjectId
 from fastapi import APIRouter, HTTPException, Query, Request
-from fastapi.responses import JSONResponse
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
 from config import get_mapbox_token
 from coverage.constants import MILES_TO_METERS
@@ -20,6 +20,25 @@ router = APIRouter()
 
 CLUSTER_DISTANCE_M = 120.0
 MIN_GRID_SCALE = 0.01
+
+
+class CoverageLocation(BaseModel):
+    id: PydanticObjectId | None = Field(
+        default=None,
+        validation_alias=AliasChoices("id", "_id"),
+    )
+    display_name: str | None = None
+    location: str | None = None
+
+    model_config = ConfigDict(extra="allow")
+
+
+class DrivingNavigationRequest(BaseModel):
+    location: CoverageLocation | None = None
+    current_position: dict[str, Any] | None = None
+    segment_id: str | None = None
+
+    model_config = ConfigDict(extra="allow")
 
 
 def sanitize_for_json(obj: Any) -> Any:
@@ -50,23 +69,16 @@ def _normalize_location_source(source: str | None) -> str:
     return source or "unknown"
 
 
-async def _resolve_coverage_area(location: dict[str, Any] | None) -> CoverageArea:
-    if not isinstance(location, dict):
+async def _resolve_coverage_area(
+    location: CoverageLocation | None,
+) -> CoverageArea:
+    if location is None:
         raise HTTPException(status_code=400, detail="Missing location data.")
 
-    location_id = location.get("id") or location.get("_id")
-    display_name = location.get("display_name") or location.get("location")
+    if location.id is None:
+        raise HTTPException(status_code=400, detail="Missing location id.")
 
-    area = None
-    if location_id:
-        try:
-            area = await CoverageArea.get(PydanticObjectId(location_id))
-        except Exception:
-            area = None
-
-    if not area and display_name:
-        area = await CoverageArea.find_one({"display_name": display_name})
-
+    area = await CoverageArea.get(location.id)
     if not area:
         raise HTTPException(status_code=404, detail="Coverage area not found.")
 
@@ -516,9 +528,14 @@ def _extract_position_from_gps_data(gps_data: dict) -> tuple[float, float, str] 
     return None
 
 
-async def get_current_position(request_data: dict) -> tuple[float, float, str]:
+async def get_current_position(
+    request_data: DrivingNavigationRequest | dict[str, Any],
+) -> tuple[float, float, str]:
     """Determines the current position from request, live tracking, or last trip."""
-    current_position = request_data.get("current_position")
+    if isinstance(request_data, DrivingNavigationRequest):
+        current_position = request_data.current_position
+    else:
+        current_position = request_data.get("current_position")
     if current_position and "lat" in current_position and "lon" in current_position:
         return (
             float(current_position["lat"]),
@@ -570,12 +587,12 @@ async def optimize_driving_route(request: Request):
                 float(current_position["lat"]),
                 end_points,
             )
-            return JSONResponse(content=route)
+            return route
 
         position = await get_current_position(data)
         lon, lat, _ = position
         route = await _get_mapbox_optimization_route(lon, lat, end_points)
-        return JSONResponse(content=route)
+        return route
 
     except Exception as e:
         logger.exception("Error optimizing driving route: %s", e)
@@ -610,7 +627,7 @@ async def get_driving_route(request: Request):
             end["lon"],
             end["lat"],
         )
-        return JSONResponse(content=route)
+        return route
 
     except Exception as e:
         logger.exception("Error getting driving route: %s", e)
@@ -626,32 +643,25 @@ async def get_current_position_endpoint(request: Request):
             lat, lon, source = position
             return {"lat": lat, "lon": lon, "source": source}
 
-        return JSONResponse(content={"position": None})
+        return {"position": None}
     except Exception as e:
         logger.exception("Error getting current position: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/api/driving-navigation/next-route")
-async def get_next_driving_navigation_route(request: Request):
+async def get_next_driving_navigation_route(payload: DrivingNavigationRequest):
     """Find a route to the nearest undriven street (or a specific segment)."""
-    try:
-        data = await request.json()
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid request payload.")
-
-    area = await _resolve_coverage_area(data.get("location"))
+    area = await _resolve_coverage_area(payload.location)
     undriven_segments = await _load_undriven_segments(area)
 
     if not undriven_segments:
-        return JSONResponse(
-            content={
-                "status": "completed",
-                "message": f"All streets in {area.display_name} are driven.",
-            }
-        )
+        return {
+            "status": "completed",
+            "message": f"All streets in {area.display_name} are driven.",
+        }
 
-    current_position = data.get("current_position")
+    current_position = payload.current_position
     current_lon = None
     current_lat = None
     location_source = None
@@ -665,11 +675,11 @@ async def get_next_driving_navigation_route(request: Request):
             location_source = "client-provided"
 
     if current_lon is None or current_lat is None:
-        current_lat, current_lon, location_source = await get_current_position(data)
+        current_lat, current_lon, location_source = await get_current_position(payload)
 
     location_source = _normalize_location_source(location_source)
 
-    segment_id = data.get("segment_id")
+    segment_id = payload.segment_id
     target_segment = None
     target_midpoint = None
 
@@ -724,22 +734,19 @@ async def get_next_driving_navigation_route(request: Request):
         "location_source": location_source,
     }
 
-    return JSONResponse(content=sanitize_for_json(response))
+    return sanitize_for_json(response)
 
 
 @router.get("/api/driving-navigation/suggest-next-street/{area_id}")
 async def suggest_next_street(
-    area_id: str,
+    area_id: PydanticObjectId,
     current_lat: float = Query(...),
     current_lon: float = Query(...),
     top_n: int = Query(3),
     min_cluster_size: int = Query(2),
 ):
     """Suggest efficient clusters of undriven streets."""
-    try:
-        area = await CoverageArea.get(PydanticObjectId(area_id))
-    except Exception:
-        area = await CoverageArea.find_one({"display_name": area_id})
+    area = await CoverageArea.get(area_id)
 
     if not area:
         raise HTTPException(status_code=404, detail="Coverage area not found.")
@@ -749,12 +756,10 @@ async def suggest_next_street(
 
     undriven_segments = await _load_undriven_segments(area)
     if not undriven_segments:
-        return JSONResponse(
-            content={
-                "status": "no_streets",
-                "message": f"No undriven streets found in {area.display_name}.",
-            }
-        )
+        return {
+            "status": "no_streets",
+            "message": f"No undriven streets found in {area.display_name}.",
+        }
 
     prepared_segments = []
     for segment in undriven_segments:
@@ -764,12 +769,10 @@ async def suggest_next_street(
         prepared_segments.append({**segment, "midpoint": midpoint})
 
     if not prepared_segments:
-        return JSONResponse(
-            content={
-                "status": "no_streets",
-                "message": f"No routable streets found in {area.display_name}.",
-            }
-        )
+        return {
+            "status": "no_streets",
+            "message": f"No routable streets found in {area.display_name}.",
+        }
 
     top_n = max(top_n, 1)
     min_cluster_size = max(min_cluster_size, 1)
@@ -783,21 +786,17 @@ async def suggest_next_street(
     )
 
     if not clusters:
-        return JSONResponse(
-            content={
-                "status": "no_clusters",
-                "message": "No efficient clusters found.",
-            }
-        )
+        return {
+            "status": "no_clusters",
+            "message": "No efficient clusters found.",
+        }
 
     clusters.sort(key=lambda cluster: cluster.get("efficiency_score", 0), reverse=True)
-    return JSONResponse(
-        content=sanitize_for_json(
-            {
-                "status": "success",
-                "suggested_clusters": clusters[:top_n],
-            }
-        )
+    return sanitize_for_json(
+        {
+            "status": "success",
+            "suggested_clusters": clusters[:top_n],
+        }
     )
 
 
@@ -832,15 +831,10 @@ def _find_clusters_in_graph(segment_map: dict, adjacency: dict) -> list[list[str
 
 
 async def find_connected_undriven_clusters(
-    location_id: str,
+    location_id: PydanticObjectId,
 ) -> list[dict[str, Any]]:
     """Finds connected clusters of undriven street segments."""
-    try:
-        obj_location_id = PydanticObjectId(location_id)
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid location_id format")
-
-    new_area = await CoverageArea.get(obj_location_id)
+    new_area = await CoverageArea.get(location_id)
     if not new_area:
         raise HTTPException(
             status_code=404,
@@ -853,7 +847,7 @@ async def find_connected_undriven_clusters(
     # Get driven and undriveable segment IDs from CoverageState
     driven_segment_ids = set()
     undriveable_segment_ids = set()
-    async for state in CoverageState.find(CoverageState.area_id == obj_location_id):
+    async for state in CoverageState.find(CoverageState.area_id == location_id):
         if state.status == "driven":
             driven_segment_ids.add(state.segment_id)
         elif state.status == "undriveable":
@@ -861,7 +855,7 @@ async def find_connected_undriven_clusters(
 
     # Query undriven streets
     async for street in Street.find(
-        Street.area_id == obj_location_id,
+        Street.area_id == location_id,
         Street.area_version == new_area.area_version,
     ):
         if street.segment_id in driven_segment_ids:
@@ -927,11 +921,11 @@ def _segment_distance(seg1: dict, seg2: dict) -> float:
 
 
 @router.get("/api/driving_routes/find_clusters")
-async def find_clusters_endpoint(location_id: Annotated[str, Query()]):
+async def find_clusters_endpoint(location_id: Annotated[PydanticObjectId, Query()]):
     """Find connected clusters of undriven street segments."""
     try:
         clusters = await find_connected_undriven_clusters(location_id)
-        return JSONResponse(content={"clusters": clusters})
+        return {"clusters": clusters}
     except HTTPException:
         raise
     except Exception as e:

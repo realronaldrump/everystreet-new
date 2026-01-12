@@ -12,14 +12,14 @@ from fastapi import (
     APIRouter,
     HTTPException,
     Request,
+    Response,
     WebSocket,
     WebSocketDisconnect,
     status,
 )
-from fastapi.responses import JSONResponse
 from starlette.websockets import WebSocketState
 
-from db import db_manager
+from db import WebhookFailure, db_manager
 from db.schemas import (
     ActiveTripResponseUnion,
     ActiveTripSuccessResponse,
@@ -89,7 +89,7 @@ async def _record_webhook_failure(
         "payload": payload,
     }
     with contextlib.suppress(Exception):
-        await db_manager.db["webhook_failures"].insert_one(failure_payload)
+        await WebhookFailure(**failure_payload).insert()
 
 
 # ============================================================================
@@ -228,23 +228,17 @@ async def bouncie_webhook(request: Request):
                 error_id=error_id,
                 reason="invalid_payload_type",
             )
-            return JSONResponse(
-                content={
-                    "status": "accepted",
-                    "message": "Invalid payload type",
-                    "error_id": error_id,
-                },
-                status_code=200,
-            )
+            return {
+                "status": "accepted",
+                "message": "Invalid payload type",
+                "error_id": error_id,
+            }
         event_type = data.get("eventType")
         transaction_id = data.get("transactionId")
 
         if not event_type:
             logger.warning("Webhook missing eventType")
-            return JSONResponse(
-                content={"status": "accepted", "message": "Missing eventType"},
-                status_code=200,
-            )
+            return {"status": "accepted", "message": "Missing eventType"}
 
         logger.info("Webhook received: %s (Trip: %s)", event_type, transaction_id)
 
@@ -252,14 +246,11 @@ async def bouncie_webhook(request: Request):
             from tasks import process_webhook_event_task
 
             task = process_webhook_event_task.delay(data)
-            return JSONResponse(
-                content={
-                    "status": "accepted",
-                    "message": "Event queued",
-                    "task_id": task.id,
-                },
-                status_code=200,
-            )
+            return {
+                "status": "accepted",
+                "message": "Event queued",
+                "task_id": task.id,
+            }
         except Exception as enqueue_error:
             error_id = str(uuid.uuid4())
             logger.exception(
@@ -271,15 +262,12 @@ async def bouncie_webhook(request: Request):
             )
             try:
                 result = await _process_bouncie_event(data)
-                return JSONResponse(
-                    content={
-                        "status": "ok",
-                        "detail": result,
-                        "warning": "Processed inline after queue failure",
-                        "error_id": error_id,
-                    },
-                    status_code=200,
-                )
+                return {
+                    "status": "ok",
+                    "detail": result,
+                    "warning": "Processed inline after queue failure",
+                    "error_id": error_id,
+                }
             except Exception as processing_error:
                 logger.exception(
                     "Failed to process webhook event after queue failure [%s]: %s (Trip: %s) - Error: %s",
@@ -294,21 +282,15 @@ async def bouncie_webhook(request: Request):
                     reason="enqueue_failed_and_processing_failed",
                     error=processing_error,
                 )
-                return JSONResponse(
-                    content={
-                        "status": "accepted",
-                        "message": "Event received but processing failed",
-                        "error_id": error_id,
-                    },
-                    status_code=200,
-                )
+                return {
+                    "status": "accepted",
+                    "message": "Event received but processing failed",
+                    "error_id": error_id,
+                }
 
     except json.JSONDecodeError:
         logger.exception("Invalid JSON in webhook")
-        return JSONResponse(
-            content={"status": "accepted", "message": "Invalid JSON payload"},
-            status_code=200,
-        )
+        return {"status": "accepted", "message": "Invalid JSON payload"}
     except Exception as e:
         # Catch-all for any unexpected errors
         error_id = str(uuid.uuid4())
@@ -319,14 +301,11 @@ async def bouncie_webhook(request: Request):
             reason="unexpected_exception",
             error=e,
         )
-        return JSONResponse(
-            content={
-                "status": "accepted",
-                "message": "Event received but encountered error",
-                "error_id": error_id,
-            },
-            status_code=200,
-        )
+        return {
+            "status": "accepted",
+            "message": "Event received but encountered error",
+            "error_id": error_id,
+        }
 
 
 @router.get(
@@ -361,7 +340,7 @@ async def active_trip_endpoint():
 
 
 @router.get("/api/trip_updates")
-async def trip_updates_endpoint():
+async def trip_updates_endpoint(response: Response):
     """
     Polling fallback endpoint for trip updates.
 
@@ -369,14 +348,12 @@ async def trip_updates_endpoint():
     """
     try:
         if not db_manager.connection_healthy:
-            return JSONResponse(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                content={
-                    "status": "error",
-                    "has_update": False,
-                    "message": "Database unavailable",
-                },
-            )
+            response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+            return {
+                "status": "error",
+                "has_update": False,
+                "message": "Database unavailable",
+            }
 
         updates = await get_trip_updates()
         updates["server_time"] = datetime.now(UTC).isoformat()
@@ -386,13 +363,11 @@ async def trip_updates_endpoint():
         error_id = str(uuid.uuid4())
         logger.exception("Error in trip_updates [%s]: %s", error_id, e)
 
-        return JSONResponse(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content={
-                "status": "error",
-                "has_update": False,
-                "message": "Internal server error",
-                "error_id": error_id,
-                "server_time": datetime.now(UTC).isoformat(),
-            },
-        )
+        response.status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
+        return {
+            "status": "error",
+            "has_update": False,
+            "message": "Internal server error",
+            "error_id": error_id,
+            "server_time": datetime.now(UTC).isoformat(),
+        }

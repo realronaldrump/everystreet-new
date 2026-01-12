@@ -8,75 +8,169 @@ and street segments to determine which segments have been driven.
 from __future__ import annotations
 
 import logging
+from statistics import median
 from typing import Any
 
 from beanie import PydanticObjectId
-from shapely.geometry import LineString, shape
+from shapely.geometry import LineString, MultiLineString, mapping, shape
+from shapely.geometry.base import BaseGeometry
 from shapely.ops import transform
 
 from coverage.models import Street
 from coverage.constants import (
     MATCH_BUFFER_METERS,
     MIN_OVERLAP_METERS,
+    MIN_GPS_GAP_METERS,
+    MAX_GPS_GAP_METERS,
+    GPS_GAP_MULTIPLIER,
+    SHORT_SEGMENT_OVERLAP_RATIO,
 )
-from coverage.geo_utils import get_local_transformers
+from coverage.geo_utils import get_local_transformers, geodesic_distance_meters
 
 logger = logging.getLogger(__name__)
 
 
-def trip_to_linestring(trip: dict[str, Any]) -> LineString | None:
+def _coerce_coord_pair(value: Any) -> list[float] | None:
+    if isinstance(value, dict):
+        lon = value.get("lon")
+        if lon is None:
+            lon = value.get("lng")
+        lat = value.get("lat")
+    else:
+        if not isinstance(value, list | tuple) or len(value) < 2:
+            return None
+        lon, lat = value[0], value[1]
+
+    try:
+        lon_f = float(lon)
+        lat_f = float(lat)
+    except (TypeError, ValueError):
+        return None
+
+    if not (-180 <= lon_f <= 180 and -90 <= lat_f <= 90):
+        return None
+
+    return [lon_f, lat_f]
+
+
+def _normalize_coords(coords: list[Any]) -> list[list[float]]:
+    normalized = []
+    for coord in coords:
+        pair = _coerce_coord_pair(coord)
+        if pair is None:
+            continue
+        if not normalized or pair != normalized[-1]:
+            normalized.append(pair)
+    return normalized
+
+
+def _extract_lines_from_geojson(
+    geom: dict[str, Any],
+) -> list[list[list[float]]] | None:
+    geom_type = geom.get("type")
+    coords = geom.get("coordinates")
+    if geom_type == "LineString":
+        if not isinstance(coords, list):
+            return None
+        normalized = _normalize_coords(coords)
+        return [normalized] if len(normalized) >= 2 else None
+    if geom_type == "MultiLineString":
+        if not isinstance(coords, list):
+            return None
+        lines: list[list[list[float]]] = []
+        for line_coords in coords:
+            if not isinstance(line_coords, list):
+                continue
+            normalized = _normalize_coords(line_coords)
+            if len(normalized) >= 2:
+                lines.append(normalized)
+        return lines if lines else None
+    return None
+
+
+def _adaptive_gap_threshold(distances: list[float]) -> float:
+    if not distances:
+        return MIN_GPS_GAP_METERS
+    typical = median(distances)
+    threshold = max(MIN_GPS_GAP_METERS, typical * GPS_GAP_MULTIPLIER)
+    return min(threshold, MAX_GPS_GAP_METERS)
+
+
+def _split_coords_by_gap(coords: list[list[float]]) -> list[LineString]:
+    if len(coords) < 2:
+        return []
+    distances = [
+        geodesic_distance_meters(prev[0], prev[1], curr[0], curr[1])
+        for prev, curr in zip(coords, coords[1:])
+    ]
+    gap_threshold = _adaptive_gap_threshold(distances)
+
+    segments: list[LineString] = []
+    current: list[list[float]] = [coords[0]]
+    for prev, curr in zip(coords, coords[1:]):
+        gap = geodesic_distance_meters(prev[0], prev[1], curr[0], curr[1])
+        if gap > gap_threshold:
+            if len(current) >= 2:
+                segments.append(LineString(current))
+            current = [curr]
+        else:
+            current.append(curr)
+
+    if len(current) >= 2:
+        segments.append(LineString(current))
+
+    return segments
+
+
+def trip_to_linestring(trip: dict[str, Any]) -> BaseGeometry | None:
     """
-    Convert a trip document to a Shapely LineString.
+    Convert a trip document to a Shapely LineString/MultiLineString.
 
     Handles both GeoJSON geometry and raw coordinate arrays.
     Returns None if trip has no valid geometry.
     """
+    lines = None
     # Prefer matched geometry when available
     if "matchedGps" in trip and isinstance(trip["matchedGps"], dict):
-        geom = trip["matchedGps"]
-        if geom.get("type") == "LineString" and geom.get("coordinates"):
-            coords = geom["coordinates"]
-            if len(coords) >= 2:
-                return LineString(coords)
+        lines = _extract_lines_from_geojson(trip["matchedGps"])
 
     # Try GeoJSON geometry next
-    if "gps" in trip and isinstance(trip["gps"], dict):
+    if lines is None and "gps" in trip and isinstance(trip["gps"], dict):
         geom = trip["gps"]
-        if geom.get("type") == "LineString" and geom.get("coordinates"):
-            coords = geom["coordinates"]
-            if len(coords) >= 2:
-                return LineString(coords)
+        lines = _extract_lines_from_geojson(geom)
 
     # Try raw coordinates array
-    if "coordinates" in trip:
-        coords = trip["coordinates"]
-        if len(coords) >= 2:
-            if isinstance(coords[0], dict):
-                coords = [
-                    [point["lon"], point["lat"]]
-                    for point in coords
-                    if "lon" in point and "lat" in point
-                ]
+    if lines is None and "coordinates" in trip:
+        raw_coords = trip["coordinates"]
+        if isinstance(raw_coords, list):
+            coords = _normalize_coords(raw_coords)
             if len(coords) >= 2:
-                return LineString(coords)
+                lines = [coords]
 
     # Try locations array (from live tracking)
-    if "locations" in trip:
+    if lines is None and "locations" in trip:
         locs = trip["locations"]
-        if len(locs) >= 2:
-            coords = [
-                [loc["lon"], loc["lat"]]
-                for loc in locs
-                if "lon" in loc and "lat" in loc
-            ]
+        if isinstance(locs, list):
+            coords = _normalize_coords(locs)
             if len(coords) >= 2:
-                return LineString(coords)
+                lines = [coords]
 
-    return None
+    if not lines:
+        return None
+
+    segments: list[LineString] = []
+    for line_coords in lines:
+        segments.extend(_split_coords_by_gap(line_coords))
+
+    if not segments:
+        return None
+    if len(segments) == 1:
+        return segments[0]
+    return MultiLineString(segments)
 
 
 def buffer_trip_line(
-    trip_line: LineString, buffer_meters: float = MATCH_BUFFER_METERS
+    trip_line: BaseGeometry, buffer_meters: float = MATCH_BUFFER_METERS
 ) -> tuple[Any, Any, Any]:
     """
     Create buffer polygons around a trip line.
@@ -96,6 +190,7 @@ def check_segment_overlap(
     trip_buffer_meters: Any,
     to_meters: Any,
     min_overlap_meters: float = MIN_OVERLAP_METERS,
+    short_segment_ratio: float = SHORT_SEGMENT_OVERLAP_RATIO,
 ) -> bool:
     """
     Check if a street segment overlaps sufficiently with a trip buffer.
@@ -121,17 +216,33 @@ def check_segment_overlap(
             return False
 
         intersection_length = intersection.length
+        segment_length = segment_meters.length
+        if segment_length <= 0:
+            return False
 
-        return intersection_length >= min_overlap_meters
+        required_overlap = min(
+            min_overlap_meters,
+            segment_length * short_segment_ratio,
+        )
+
+        return intersection_length >= required_overlap
 
     except Exception as e:
         logger.debug(f"Error checking segment overlap: {e}")
         return False
 
 
+def _buffer_to_geojson(buffer_geom: BaseGeometry) -> dict[str, Any] | None:
+    if buffer_geom.is_empty:
+        return None
+    if buffer_geom.geom_type not in ("Polygon", "MultiPolygon"):
+        buffer_geom = buffer_geom.envelope
+    return mapping(buffer_geom)
+
+
 async def find_matching_segments(
     area_id: PydanticObjectId,
-    trip_line: LineString,
+    trip_line: BaseGeometry,
     area_version: int | None = None,
 ) -> list[str]:
     """
@@ -147,20 +258,17 @@ async def find_matching_segments(
 
     # Use a simple polygon for MongoDB query
     buffer_geom = trip_buffer_wgs84
-    if buffer_geom.geom_type == "MultiPolygon":
-        buffer_geom = buffer_geom.convex_hull
-    elif buffer_geom.geom_type != "Polygon":
-        buffer_geom = buffer_geom.envelope
-
-    buffer_coords = list(buffer_geom.exterior.coords)
+    buffer_geojson = _buffer_to_geojson(buffer_geom)
+    if buffer_geojson is None:
+        return []
 
     query = {
         "area_id": area_id,
         "geometry": {
             "$geoIntersects": {
                 "$geometry": {
-                    "type": "Polygon",
-                    "coordinates": [buffer_coords],
+                    "type": buffer_geojson["type"],
+                    "coordinates": buffer_geojson["coordinates"],
                 }
             }
         },

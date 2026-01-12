@@ -22,7 +22,6 @@ function init() {
     // Defer heavier init (date pickers & events)
     const runDeferred = () => {
       dateManager.init?.();
-      // setupEvents still lives in legacy script; if extracted add here.
     };
     if ("requestIdleCallback" in window) {
       requestIdleCallback(runDeferred, { timeout: 1000 });

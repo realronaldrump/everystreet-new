@@ -6,10 +6,8 @@
 
 import { escapeHtml } from "../formatters.js";
 import { fetchTimePeriodTrips } from "./api.js";
-import InsightsExport from "./export.js";
 import { formatDuration, formatHourLabel, getDateRange } from "./formatters.js";
-
-const { showNotification } = InsightsExport;
+import { showNotification } from "./export.js";
 
 /**
  * Load and display trips for a specific time period
@@ -116,16 +114,3 @@ export function displayTripsInModal(trips, timeType, timeValue) {
     modal.show();
   }
 }
-
-// Default export as object for backward compatibility
-const InsightsModal = {
-  loadAndShowTripsForTimePeriod,
-  displayTripsInModal,
-};
-
-// Keep window assignment for backward compatibility during transition
-if (typeof window !== "undefined") {
-  window.InsightsModal = InsightsModal;
-}
-
-export default InsightsModal;

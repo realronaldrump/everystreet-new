@@ -47,10 +47,9 @@ export function showErrorModal(errorMessage) {
 
 /**
  * Show a dependency error modal
- * @param {string} _taskId - Task ID (unused but kept for API compatibility)
  * @param {string} errorMessage - Error message to display
  */
-export function showDependencyErrorModal(_taskId, errorMessage) {
+export function showDependencyErrorModal(errorMessage) {
   let modal = document.getElementById("dependencyErrorModal");
   if (!modal) {
     modal = document.createElement("div");

@@ -88,17 +88,3 @@ export function calculatePreviousRange(startDate, periodDays) {
     end: formatDate(prevEndDateObj),
   };
 }
-
-// Default export as object
-const InsightsFormatters = {
-  formatDate,
-  formatWeekRange,
-  formatMonth,
-  formatDuration,
-  formatHourLabel,
-  getDateRange,
-  calculateDaysDiff,
-  calculatePreviousRange,
-};
-
-export default InsightsFormatters;

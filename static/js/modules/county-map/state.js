@@ -112,26 +112,3 @@ export function resetState() {
   showStoppedCounties = false;
   recalcPollerActive = false;
 }
-
-// Default export for backward compatibility
-const CountyMapState = {
-  getMap,
-  setMap,
-  getCountyVisits,
-  setCountyVisits,
-  getCountyStops,
-  setCountyStops,
-  getCountyData,
-  setCountyData,
-  getStatesData,
-  setStatesData,
-  getIsRecalculating,
-  setIsRecalculating,
-  getShowStoppedCounties,
-  setShowStoppedCounties,
-  getRecalcPollerActive,
-  setRecalcPollerActive,
-  resetState,
-};
-
-export default CountyMapState;

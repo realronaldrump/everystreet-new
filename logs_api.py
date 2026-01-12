@@ -16,7 +16,7 @@ router = APIRouter()
 class LogsResponse(BaseModel):
     """Response model for logs endpoint."""
 
-    logs: list[dict[str, Any]]
+    logs: list[ServerLog]
     total_count: int
     returned_count: int
     limit: int
@@ -72,7 +72,7 @@ async def get_server_logs(
         total_count = await ServerLog.find(query_filter).count()
 
         return {
-            "logs": [log.model_dump(mode="json") for log in logs],
+            "logs": logs,
             "total_count": total_count,
             "returned_count": len(logs),
             "limit": limit,

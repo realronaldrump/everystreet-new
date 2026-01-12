@@ -107,14 +107,3 @@ export const STATE_FIPS_TO_NAME = {
 export function getStateName(fips) {
   return STATE_FIPS_TO_NAME[fips] || "Unknown";
 }
-
-// Default export for backward compatibility
-const CountyMapConstants = {
-  RECALC_STORAGE_KEY,
-  MAP_CONFIG,
-  COLORS,
-  STATE_FIPS_TO_NAME,
-  getStateName,
-};
-
-export default CountyMapConstants;

@@ -1,10 +1,11 @@
 """API routes for gas fill-up management."""
 
 import logging
-from typing import Annotated, Any
+from typing import Annotated
 
 from fastapi import APIRouter, Query
 
+from db.models import GasFillup
 from core.api import api_route
 from db.schemas import GasFillupCreateModel
 from gas.services import FillupService
@@ -13,7 +14,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-@router.get("/api/gas-fillups")
+@router.get("/api/gas-fillups", response_model=list[GasFillup])
 @api_route(logger)
 async def get_gas_fillups(
     imei: Annotated[str | None, Query(description="Filter by vehicle IMEI")] = None,
@@ -24,15 +25,14 @@ async def get_gas_fillups(
         int,
         Query(description="Maximum number of records to return"),
     ] = 100,
-) -> list[dict[str, Any]]:
+) -> list[GasFillup]:
     """Get gas fill-up records with optional filters."""
-    fillups = await FillupService.get_fillups(imei, vin, start_date, end_date, limit)
-    return [f.model_dump(by_alias=True, mode="json") for f in fillups]
+    return await FillupService.get_fillups(imei, vin, start_date, end_date, limit)
 
 
-@router.get("/api/gas-fillups/{fillup_id}")
+@router.get("/api/gas-fillups/{fillup_id}", response_model=GasFillup)
 @api_route(logger)
-async def get_gas_fillup(fillup_id: str) -> dict[str, Any]:
+async def get_gas_fillup(fillup_id: str) -> GasFillup:
     """Get a specific gas fill-up by ID."""
     fillup = await FillupService.get_fillup_by_id(fillup_id)
     if not fillup:
@@ -40,31 +40,27 @@ async def get_gas_fillup(fillup_id: str) -> dict[str, Any]:
 
         msg = "Fill-up not found"
         raise ResourceNotFoundException(msg)
-    return fillup.model_dump(by_alias=True, mode="json")
+    return fillup
 
 
-@router.post("/api/gas-fillups")
+@router.post("/api/gas-fillups", response_model=GasFillup)
 @api_route(logger)
-async def create_gas_fillup(
-    fillup_data: GasFillupCreateModel,
-) -> dict[str, Any]:
+async def create_gas_fillup(fillup_data: GasFillupCreateModel) -> GasFillup:
     """Create a new gas fill-up record."""
     fillup_dict = fillup_data.model_dump(exclude_none=True)
-    fillup = await FillupService.create_fillup(fillup_dict)
-    return fillup.model_dump(by_alias=True, mode="json")
+    return await FillupService.create_fillup(fillup_dict)
 
 
-@router.put("/api/gas-fillups/{fillup_id}")
+@router.put("/api/gas-fillups/{fillup_id}", response_model=GasFillup)
 @api_route(logger)
 async def update_gas_fillup(
     fillup_id: str,
     fillup_data: GasFillupCreateModel,
-) -> dict[str, Any]:
+) -> GasFillup:
     """Update a gas fill-up record."""
     # Use exclude_unset=True to know what the user actually sent
     update_data = fillup_data.model_dump(exclude_unset=True)
-    fillup = await FillupService.update_fillup(fillup_id, update_data)
-    return fillup.model_dump(by_alias=True, mode="json")
+    return await FillupService.update_fillup(fillup_id, update_data)
 
 
 @router.delete("/api/gas-fillups/{fillup_id}")

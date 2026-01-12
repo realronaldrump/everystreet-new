@@ -49,12 +49,3 @@ export function storeRecalcState(startedAt) {
 export function clearStoredRecalcState() {
   localStorage.removeItem(RECALC_STORAGE_KEY);
 }
-
-// Default export for backward compatibility
-const CountyMapStorage = {
-  getStoredRecalcState,
-  storeRecalcState,
-  clearStoredRecalcState,
-};
-
-export default CountyMapStorage;

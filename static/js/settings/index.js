@@ -19,7 +19,9 @@ import {
 } from "./geocode-remap.js";
 import { InvalidTripReview } from "./invalid-trip-review.js";
 import { initMobileUI } from "./mobile-ui.js";
-import { showTaskDetails, TaskManager } from "./task-manager.js";
+import { gatherTaskConfigFromUI, submitTaskConfigUpdate } from "./task-manager/api.js";
+import { showTaskDetails } from "./task-manager/modals.js";
+import { TaskManager } from "./task-manager/task-manager.js";
 
 // Initialize task manager globally
 window.taskManager = null;
@@ -43,9 +45,8 @@ function setupTaskConfigEventListeners(taskManager) {
       if (e.button !== 0) {
         return;
       }
-      const config = taskManager.gatherTaskConfigFromUI();
-      taskManager
-        .submitTaskConfigUpdate(config)
+      const config = gatherTaskConfigFromUI();
+      submitTaskConfigUpdate(config)
         .then(() => {
           window.notificationManager.show(
             "Task configuration updated successfully",
@@ -245,9 +246,8 @@ function setupTaskConfigEventListeners(taskManager) {
 
   if (globalSwitch) {
     globalSwitch.addEventListener("change", () => {
-      const config = taskManager.gatherTaskConfigFromUI();
-      taskManager
-        .submitTaskConfigUpdate(config)
+      const config = gatherTaskConfigFromUI();
+      submitTaskConfigUpdate(config)
         .then(() =>
           window.notificationManager.show("Global disable toggled", "success")
         )

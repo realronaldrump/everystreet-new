@@ -315,7 +315,10 @@ class TripService:
         try:
             # Get app settings to check geocoding preference
             app_settings = await get_persisted_app_settings()
-            geocode_enabled = app_settings.get("geocodeTripsOnFetch", True)
+            geocode_enabled = app_settings.model_dump().get(
+                "geocodeTripsOnFetch",
+                True,
+            )
 
             # Pre-skip duplicates already present in DB and deduplicate inputs
             unique_trips: list[dict[str, Any]] = []

@@ -11,25 +11,15 @@ import {
   forceStopTask as apiForceStopTask,
   runTask as apiRunTask,
   scheduleManualFetch as apiScheduleManualFetch,
-  submitTaskConfigUpdate as apiSubmitTaskConfigUpdate,
   fetchTaskConfig,
   fetchTaskHistory,
-  gatherTaskConfigFromUI,
 } from "./api.js";
 import { HISTORY_DEFAULTS, INTERVAL_OPTIONS, POLLING_INTERVALS } from "./constants.js";
-import {
-  escapeHtml,
-  formatDateTime,
-  formatDuration,
-  getStatusColor,
-  getStatusHTML,
-} from "./formatters.js";
 import {
   renderHistoryPagination,
   renderTaskHistoryTable,
   updateRunningTaskDurations,
 } from "./history.js";
-import { showDependencyErrorModal, showErrorModal, showTaskDetails } from "./modals.js";
 import {
   createEventSource,
   getPollingInterval,
@@ -156,7 +146,7 @@ export class TaskManager {
     try {
       const data = await fetchTaskHistory(this.currentHistoryPage, this.historyLimit);
       this.historyTotalPages = data.total_pages;
-      TaskManager.updateTaskHistoryTable(data.history);
+      this.updateTaskHistoryTable(data.history);
       this.updateHistoryPagination();
     } catch (error) {
       this.notifier.show(
@@ -168,21 +158,6 @@ export class TaskManager {
   }
 
   /**
-   * Static method to update history table (for compatibility with mobile-ui.js)
-   * @param {Array} history - History entries
-   */
-  static updateTaskHistoryTable(history) {
-    renderTaskHistoryTable(history);
-  }
-
-  /**
-   * Static method to update running task durations
-   */
-  static updateRunningTaskDurations() {
-    updateRunningTaskDurations();
-  }
-
-  /**
    * Setup interval to update running task durations
    */
   setupDurationUpdates() {
@@ -190,7 +165,7 @@ export class TaskManager {
       clearInterval(this.durationUpdateInterval);
     }
     this.durationUpdateInterval = setInterval(() => {
-      TaskManager.updateRunningTaskDurations();
+      updateRunningTaskDurations();
     }, POLLING_INTERVALS.DURATION_UPDATE);
   }
 
@@ -204,17 +179,14 @@ export class TaskManager {
     });
   }
 
-  // Static utility methods for backward compatibility
-  static escapeHtml = escapeHtml;
-  static showErrorModal = showErrorModal;
-  static getStatusHTML = getStatusHTML;
-  static getStatusColor = getStatusColor;
-  static formatDateTime = formatDateTime;
-  static formatDuration = formatDuration;
-  static showTaskDetails = showTaskDetails;
-  static showDependencyErrorModal = showDependencyErrorModal;
-  static gatherTaskConfigFromUI = gatherTaskConfigFromUI;
-  static submitTaskConfigUpdate = apiSubmitTaskConfigUpdate;
+  /**
+   * Update task history table (default desktop view)
+   * @param {Array} history - History entries
+   */
+  updateTaskHistoryTable(history) {
+    renderTaskHistoryTable(history);
+  }
+
 
   /**
    * Run a specific task
@@ -265,17 +237,6 @@ export class TaskManager {
       this.currentHistoryPage = 1;
       await this.updateTaskHistory();
     });
-  }
-
-  /**
-   * Instance method wrappers for static methods (for compatibility)
-   */
-  gatherTaskConfigFromUI() {
-    return gatherTaskConfigFromUI();
-  }
-
-  async submitTaskConfigUpdate(config) {
-    return apiSubmitTaskConfigUpdate(config);
   }
 
   /**

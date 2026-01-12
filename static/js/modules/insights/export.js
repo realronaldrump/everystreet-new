@@ -4,6 +4,9 @@
  * Handles export, sharing, and report generation for the driving insights page
  */
 
+import { formatDate } from "./formatters.js";
+import { getState } from "./state.js";
+
 /**
  * Show a notification message
  * @param {string} message - Message to show
@@ -25,7 +28,6 @@ export function exportChart() {
     return;
   }
 
-  const { formatDate } = window.InsightsFormatters;
   const url = canvas.toDataURL("image/png");
   const a = document.createElement("a");
   a.href = url;
@@ -39,8 +41,6 @@ export function exportChart() {
  * Export analytics table data as CSV
  */
 export function exportData() {
-  const { formatDate } = window.InsightsFormatters;
-
   // Check if DataTable is initialized
   if (!$.fn.DataTable.isDataTable("#analytics-table")) {
     showNotification("No data to export", "error");
@@ -88,7 +88,7 @@ export function generateReport() {
  * Share insights via Web Share API or clipboard
  */
 export function shareInsights() {
-  const state = window.InsightsState.getState();
+  const state = getState();
   const { insights } = state.data;
 
   if (!insights) {
@@ -127,18 +127,3 @@ export function fallbackShare(shareData) {
     .then(() => showNotification("Link copied to clipboard!", "success"))
     .catch(() => showNotification("Failed to copy to clipboard", "error"));
 }
-
-// Expose to window for backward compatibility
-const InsightsExport = {
-  exportChart,
-  exportData,
-  generateReport,
-  shareInsights,
-  showNotification,
-};
-
-if (typeof window !== "undefined") {
-  window.InsightsExport = InsightsExport;
-}
-
-export default InsightsExport;

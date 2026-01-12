@@ -3,7 +3,7 @@
  * Handles UI updates, loading states, and recalculation prompts
  */
 
-import CountyMapState from "./state.js";
+import * as CountyMapState from "./state.js";
 
 /**
  * Get all recalculate buttons
@@ -183,18 +183,3 @@ export function setupPanelToggle() {
     });
   }
 }
-
-// Default export for backward compatibility
-const CountyMapUI = {
-  getRecalculateButtons,
-  updateRecalculateUi,
-  showRecalculatePrompt,
-  updateLoadingText,
-  hideLoading,
-  updateLastUpdated,
-  updateStats,
-  formatDate,
-  setupPanelToggle,
-};
-
-export default CountyMapUI;

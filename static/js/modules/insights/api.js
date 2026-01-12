@@ -82,20 +82,3 @@ export async function loadAllData(dateRange, prevRange) {
     previous: { behavior: prevBehavior, insights: prevInsights },
   };
 }
-
-// Default export as object for backward compatibility
-const InsightsAPI = {
-  fetchBehavior,
-  fetchInsights,
-  fetchAnalytics,
-  fetchMetrics,
-  fetchTimePeriodTrips,
-  loadAllData,
-};
-
-// Keep window assignment for backward compatibility during transition
-if (typeof window !== "undefined") {
-  window.InsightsAPI = InsightsAPI;
-}
-
-export default InsightsAPI;

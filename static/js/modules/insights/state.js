@@ -96,22 +96,3 @@ export function resetState() {
   state.isLoading = false;
   state.prevRange = null;
 }
-
-// Default export as object for backward compatibility
-const InsightsState = {
-  getState,
-  updateState,
-  updateData,
-  setChart,
-  getChart,
-  setCounter,
-  getCounter,
-  resetState,
-};
-
-// Keep window assignment for backward compatibility during transition
-if (typeof window !== "undefined") {
-  window.InsightsState = InsightsState;
-}
-
-export default InsightsState;

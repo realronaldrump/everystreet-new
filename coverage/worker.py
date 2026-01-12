@@ -293,12 +293,13 @@ async def backfill_coverage_for_area(
                 ]
             ],
         }
-        # Use $geoIntersects to find trips whose GPS traces intersect the area
-        # This is more accurate than checking start/end points
-        query["gps"] = {"$geoIntersects": {"$geometry": bbox_polygon}}
+        # Use $geoIntersects to find trips whose traces intersect the area
+        geo_filter = {"$geoIntersects": {"$geometry": bbox_polygon}}
+        query["$or"] = [{"gps": geo_filter}, {"matchedGps": geo_filter}]
     elif area.boundary:
         # Use the actual boundary if available
-        query["gps"] = {"$geoIntersects": {"$geometry": area.boundary}}
+        geo_filter = {"$geoIntersects": {"$geometry": area.boundary}}
+        query["$or"] = [{"gps": geo_filter}, {"matchedGps": geo_filter}]
 
     total_updated = 0
     trip_count = 0

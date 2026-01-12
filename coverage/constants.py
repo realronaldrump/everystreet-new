@@ -18,6 +18,10 @@ MATCH_BUFFER_FEET = 25.0  # Buffer around trip line
 MATCH_BUFFER_METERS = MATCH_BUFFER_FEET * 0.3048
 MIN_OVERLAP_FEET = 15.0  # Minimum overlap to count as driven
 MIN_OVERLAP_METERS = MIN_OVERLAP_FEET * 0.3048
+MIN_GPS_GAP_METERS = 250.0  # Split trip lines when GPS gaps exceed this
+MAX_GPS_GAP_METERS = 1500.0  # Cap the adaptive gap threshold
+GPS_GAP_MULTIPLIER = 8.0  # Scale factor for adaptive gap detection
+SHORT_SEGMENT_OVERLAP_RATIO = 0.5  # Require at least half of very short segments
 
 # =============================================================================
 # Unit Conversions

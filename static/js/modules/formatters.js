@@ -3,7 +3,7 @@
  * Consolidated formatting utilities for dates, times, durations, distances, etc.
  *
  * This module centralizes all formatting logic that was previously duplicated
- * across multiple files (utils.js, date-utils.js, insights/formatters.js,
+ * across multiple files (utils.js, insights/formatters.js,
  * coverage/coverage-utils.js, task-manager/formatters.js, etc.)
  *
  * @module formatters
@@ -490,49 +490,3 @@ export function formatVehicleSpeed(speed) {
     cssClass: `vehicle-${status}`,
   };
 }
-
-// ============================================================================
-// Default Export (all formatters as object)
-// ============================================================================
-
-const formatters = {
-  // XSS Prevention
-  escapeHtml,
-
-  // Numbers
-  formatNumber,
-  formatPercentage,
-
-  // Distance
-  formatDistance,
-  distanceInUserUnits,
-  formatKmToMiles,
-
-  // Duration
-  formatDuration,
-  formatDurationMs,
-  formatSecondsToHMS,
-  formatTimeFromHours,
-  formatHourLabel,
-  parseDurationToSeconds,
-
-  // Date/Time
-  formatDateTime,
-  formatDateToString,
-  formatForDisplay,
-  formatWeekRange,
-  formatMonth,
-
-  // Relative Time
-  formatTimeAgo,
-
-  // Vehicle/Location
-  formatVehicleName,
-  sanitizeLocation,
-  formatStreetType,
-
-  // Speed
-  formatVehicleSpeed,
-};
-
-export default formatters;

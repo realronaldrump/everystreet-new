@@ -1,24 +1,25 @@
-import { UI_CONFIG as CONFIG } from "../config.js";
-import dateUtils from "../date-utils.js";
+import { CONFIG } from "../config.js";
 import { uiState } from "../ui-state.js";
 import { utils } from "../utils.js";
 import eventManager from "./event-manager.js";
 import panelManager from "./panel-manager.js";
 
+const dateUtils = window.DateUtils;
+
 const dateManager = {
   flatpickrInstances: new Map(),
 
   init() {
-    const startInput = uiState.getElement(CONFIG.selectors.startDate);
-    const endInput = uiState.getElement(CONFIG.selectors.endDate);
+    const startInput = uiState.getElement(CONFIG.UI.selectors.startDate);
+    const endInput = uiState.getElement(CONFIG.UI.selectors.endDate);
     if (!startInput || !endInput) {
       return;
     }
 
     const startDate
-      = utils.getStorage(CONFIG.storage.startDate) || dateUtils.getCurrentDate();
+      = utils.getStorage(CONFIG.STORAGE_KEYS.startDate) || dateUtils.getCurrentDate();
     const endDate
-      = utils.getStorage(CONFIG.storage.endDate) || dateUtils.getCurrentDate();
+      = utils.getStorage(CONFIG.STORAGE_KEYS.endDate) || dateUtils.getCurrentDate();
     this.flatpickrInstances = new Map();
 
     const fpConfig = {
@@ -29,7 +30,7 @@ const dateManager = {
       maxDate: "today",
       disableMobile: true,
       allowInput: true,
-      animate: CONFIG.animations.enabled && !uiState.reducedMotion,
+      animate: CONFIG.UI.animations.enabled && !uiState.reducedMotion,
       locale: { firstDayOfWeek: 0 },
     };
 
@@ -68,8 +69,8 @@ const dateManager = {
     });
 
     // Bind apply and reset buttons
-    const applyBtn = uiState.getElement(CONFIG.selectors.applyFiltersBtn);
-    const resetBtn = uiState.getElement(CONFIG.selectors.resetFilters);
+    const applyBtn = uiState.getElement(CONFIG.UI.selectors.applyFiltersBtn);
+    const resetBtn = uiState.getElement(CONFIG.UI.selectors.resetFilters);
     if (applyBtn) {
       eventManager.add(applyBtn, "click", () => this.applyFilters());
     }
@@ -79,8 +80,8 @@ const dateManager = {
   },
 
   updateInputs(startDate, endDate) {
-    const startInputEl = uiState.getElement(CONFIG.selectors.startDate);
-    const endInputEl = uiState.getElement(CONFIG.selectors.endDate);
+    const startInputEl = uiState.getElement(CONFIG.UI.selectors.startDate);
+    const endInputEl = uiState.getElement(CONFIG.UI.selectors.endDate);
 
     // Helper to calculate "today" for diverse constraints if needed,
     // but here we just need to relax them effectively.
@@ -138,7 +139,7 @@ const dateManager = {
       if (startDate && endDate) {
         this.updateInputs(startDate, endDate);
         uiState.getAllElements(".quick-select-btn").forEach((b) => {
-          b.classList.toggle(CONFIG.classes.active, b.dataset.range === range);
+          b.classList.toggle(CONFIG.UI.classes.active, b.dataset.range === range);
         });
         uiState.uiState.lastFilterPreset = range;
         uiState.saveUIState();
@@ -204,7 +205,7 @@ const dateManager = {
   },
 
   updateIndicator() {
-    const indicator = uiState.getElement(CONFIG.selectors.filterIndicator);
+    const indicator = uiState.getElement(CONFIG.UI.selectors.filterIndicator);
     if (!indicator) {
       return;
     }
@@ -213,9 +214,9 @@ const dateManager = {
       return;
     }
     const savedStartDate
-      = utils.getStorage(CONFIG.storage.startDate) || dateUtils.getCurrentDate();
+      = utils.getStorage(CONFIG.STORAGE_KEYS.startDate) || dateUtils.getCurrentDate();
     const savedEndDate
-      = utils.getStorage(CONFIG.storage.endDate) || dateUtils.getCurrentDate();
+      = utils.getStorage(CONFIG.STORAGE_KEYS.endDate) || dateUtils.getCurrentDate();
     const fmt = (d) => dateUtils.formatForDisplay(d, { dateStyle: "medium" }) || d;
     const preset = this.detectPreset(savedStartDate, savedEndDate);
     if (preset) {
@@ -234,9 +235,9 @@ const dateManager = {
   },
 
   async applyFilters() {
-    const sIn = uiState.getElement(CONFIG.selectors.startDate);
-    const eIn = uiState.getElement(CONFIG.selectors.endDate);
-    const btn = uiState.getElement(CONFIG.selectors.applyFiltersBtn);
+    const sIn = uiState.getElement(CONFIG.UI.selectors.startDate);
+    const eIn = uiState.getElement(CONFIG.UI.selectors.endDate);
+    const btn = uiState.getElement(CONFIG.UI.selectors.applyFiltersBtn);
     if (!sIn || !eIn) {
       utils.showNotification("Date input elements missing", "danger");
       return;
@@ -256,8 +257,8 @@ const dateManager = {
       btn.classList.add("btn-loading");
     }
     try {
-      utils.setStorage(CONFIG.storage.startDate, startDateVal);
-      utils.setStorage(CONFIG.storage.endDate, endDateVal);
+      utils.setStorage(CONFIG.STORAGE_KEYS.startDate, startDateVal);
+      utils.setStorage(CONFIG.STORAGE_KEYS.endDate, endDateVal);
       this.updateIndicator();
       await panelManager.close("filters");
       document.dispatchEvent(
@@ -282,14 +283,14 @@ const dateManager = {
   reset() {
     const today = dateUtils.getCurrentDate();
     this.updateInputs(today, today);
-    utils.setStorage(CONFIG.storage.startDate, today);
-    utils.setStorage(CONFIG.storage.endDate, today);
+    utils.setStorage(CONFIG.STORAGE_KEYS.startDate, today);
+    utils.setStorage(CONFIG.STORAGE_KEYS.endDate, today);
     uiState.getAllElements(".quick-select-btn").forEach((btn) => {
-      btn.classList.remove(CONFIG.classes.active);
+      btn.classList.remove(CONFIG.UI.classes.active);
     });
     const todayBtn = uiState.getElement('.quick-select-btn[data-range="today"]');
     if (todayBtn) {
-      todayBtn.classList.add(CONFIG.classes.active);
+      todayBtn.classList.add(CONFIG.UI.classes.active);
     }
     this.updateIndicator();
     this.applyFilters();

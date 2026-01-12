@@ -4,13 +4,13 @@
  * Main initialization and event handling for the driving insights page
  */
 
-import InsightsAPI from "./api.js";
-import InsightsCharts from "./charts.js";
-import InsightsExport from "./export.js";
-import InsightsFormatters from "./formatters.js";
-import InsightsMetrics from "./metrics.js";
-import InsightsState from "./state.js";
-import InsightsTables from "./tables.js";
+import * as InsightsAPI from "./api.js";
+import * as InsightsCharts from "./charts.js";
+import * as InsightsExport from "./export.js";
+import * as InsightsFormatters from "./formatters.js";
+import * as InsightsMetrics from "./metrics.js";
+import * as InsightsState from "./state.js";
+import * as InsightsTables from "./tables.js";
 
 // Initialize on DOM ready
 document.addEventListener("DOMContentLoaded", init);
@@ -273,17 +273,3 @@ window.addEventListener("beforeunload", () => {
     clearInterval(state.autoRefreshInterval);
   }
 });
-
-// Expose for external access if needed
-const InsightsMain = {
-  init,
-  loadAllData,
-  showLoadingStates,
-  hideLoadingStates,
-};
-
-if (typeof window !== "undefined") {
-  window.InsightsMain = InsightsMain;
-}
-
-export default InsightsMain;

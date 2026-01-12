@@ -33,7 +33,7 @@ const tripInteractions = {
       .setHTML(this.createPopupContent(feature))
       .addTo(state.map);
     // Attach listeners immediately; Mapbox GL's 'open' can fire before handler registration
-    this.setupPopupEventListeners(popup, feature);
+    this.setupPopupEventListeners(popup);
   },
 
   resolveTripLayerName(layerId = "") {
@@ -149,16 +149,12 @@ const tripInteractions = {
       `;
   },
 
-  setupPopupEventListeners(
-    popup /* feature is unused here intentionally */,
-    feature,
-    attempt = 0
-  ) {
+  setupPopupEventListeners(popup, attempt = 0) {
     const popupElement = popup.getElement();
     if (!popupElement) {
       if (attempt < 5) {
         setTimeout(
-          () => this.setupPopupEventListeners(popup, feature, attempt + 1),
+          () => this.setupPopupEventListeners(popup, attempt + 1),
           50
         );
       }

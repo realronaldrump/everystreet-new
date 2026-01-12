@@ -4,7 +4,7 @@
  */
 
 import { COLORS } from "./constants.js";
-import CountyMapState from "./state.js";
+import * as CountyMapState from "./state.js";
 
 /**
  * Add all map layers for counties and states
@@ -175,13 +175,3 @@ export function getMapStyle() {
     ? "mapbox://styles/mapbox/dark-v11"
     : "mapbox://styles/mapbox/light-v11";
 }
-
-// Default export for backward compatibility
-const CountyMapLayers = {
-  addMapLayers,
-  updateStopLayerVisibility,
-  setHoverHighlight,
-  getMapStyle,
-};
-
-export default CountyMapLayers;

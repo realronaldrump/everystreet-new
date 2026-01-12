@@ -61,7 +61,7 @@ export async function runTask(taskId, context, onSuccess) {
         const taskResult = result.results.find((r) => r.task === taskId);
 
         if (taskResult && !taskResult.success) {
-          showDependencyErrorModal(taskId, taskResult.message);
+          showDependencyErrorModal(taskResult.message);
           return false;
         }
       }

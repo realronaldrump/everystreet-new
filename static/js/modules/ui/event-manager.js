@@ -1,7 +1,7 @@
 import { uiState as state } from "../ui-state.js";
 
 /**
- * Lightweight event management helper extracted from legacy modern-ui.js.
+ * Lightweight event management helper.
  * Provides add / delegate / once wrappers with internal bookkeeping so
  * listeners can be removed later if needed.
  */
