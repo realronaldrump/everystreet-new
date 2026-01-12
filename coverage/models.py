@@ -25,8 +25,7 @@ class CoverageArea(Document):
     """
     A geographic area for street coverage tracking.
 
-    This replaces the old CoverageMetadata model with a cleaner structure
-    that separates user-facing status from internal implementation details.
+    Represents a coverage area with user-facing status and cached statistics.
     """
 
     # Identity

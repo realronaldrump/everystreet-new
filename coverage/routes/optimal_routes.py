@@ -15,37 +15,23 @@ from beanie import PydanticObjectId
 from fastapi import APIRouter, HTTPException, Query, Response
 from fastapi.responses import StreamingResponse
 
-from db import CoverageMetadata, OptimalRouteProgress
+from db import OptimalRouteProgress
 from coverage.models import CoverageArea
 
 logger = logging.getLogger(__name__)
 
 
-async def _get_coverage_doc(location_id: PydanticObjectId):
-    """
-    Get coverage document, trying new CoverageArea first, falling back to CoverageMetadata.
-
-    Returns tuple of (doc, is_new_model) where is_new_model indicates if it's CoverageArea.
-    """
-    # Try new model first
-    doc = await CoverageArea.get(location_id)
-    if doc:
-        return doc, True
-
-    # Fall back to old model
-    doc = await CoverageMetadata.get(location_id)
-    if doc:
-        return doc, False
-
-    return None, False
+async def _get_coverage_area(area_id: PydanticObjectId) -> CoverageArea | None:
+    """Fetch a coverage area by ID."""
+    return await CoverageArea.get(area_id)
 
 
 router = APIRouter()
 
 
-@router.post("/api/coverage_areas/{location_id}/generate-optimal-route")
+@router.post("/api/coverage/areas/{area_id}/optimal-route")
 async def start_optimal_route_generation(
-    location_id: PydanticObjectId,
+    area_id: PydanticObjectId,
     start_lon: Annotated[
         float | None,
         Query(description="Optional starting longitude"),
@@ -58,27 +44,19 @@ async def start_optimal_route_generation(
     """Start a background task to generate optimal completion route."""
     from tasks import generate_optimal_route_task
 
-    coverage_doc, is_new = await _get_coverage_doc(location_id)
+    coverage_area = await _get_coverage_area(area_id)
 
-    if not coverage_doc:
+    if not coverage_area:
         raise HTTPException(status_code=404, detail="Coverage area not found")
 
-    # Check status - new model uses different status values
-    if is_new:
-        if coverage_doc.status == "initializing":
-            raise HTTPException(
-                status_code=400,
-                detail="Coverage area is still being processed. Wait for completion.",
-            )
-    else:
-        if coverage_doc.status == "processing":
-            raise HTTPException(
-                status_code=400,
-                detail="Coverage area is still being processed. Wait for completion.",
-            )
+    if coverage_area.status == "initializing":
+        raise HTTPException(
+            status_code=400,
+            detail="Coverage area is still being processed. Wait for completion.",
+        )
 
     task = generate_optimal_route_task.delay(
-        location_id=str(location_id),
+        location_id=str(area_id),
         start_lon=start_lon,
         start_lat=start_lat,
         manual_run=True,
@@ -87,7 +65,7 @@ async def start_optimal_route_generation(
     # Create initial progress document so SSE can track queued state
     # before worker picks up the task
     progress = OptimalRouteProgress(
-        location=str(location_id),
+        location=str(area_id),
         task_id=task.id,
         status="queued",
         stage="queued",
@@ -101,7 +79,7 @@ async def start_optimal_route_generation(
     logger.info(
         "Started optimal route generation task %s for location %s",
         task.id,
-        location_id,
+        area_id,
     )
 
     return {"task_id": task.id, "status": "started"}
@@ -156,20 +134,18 @@ async def get_worker_status():
         }
 
 
-@router.get("/api/coverage_areas/{location_id}/optimal-route")
-async def get_optimal_route(location_id: PydanticObjectId):
+@router.get("/api/coverage/areas/{area_id}/optimal-route")
+async def get_optimal_route(area_id: PydanticObjectId):
     """Retrieve the generated optimal route for a coverage area."""
-    coverage_doc, is_new = await _get_coverage_doc(location_id)
+    coverage_area = await _get_coverage_area(area_id)
 
-    if not coverage_doc:
+    if not coverage_area:
         raise HTTPException(status_code=404, detail="Coverage area not found")
 
     # Get route from the model - check several possible locations
     route = None
-    if hasattr(coverage_doc, "optimal_route") and coverage_doc.optimal_route:
-        route = coverage_doc.optimal_route
-    elif not is_new and hasattr(coverage_doc, "location") and coverage_doc.location:
-        route = coverage_doc.location.get("optimal_route_data")
+    if coverage_area.optimal_route:
+        route = coverage_area.optimal_route
 
     if not route:
         raise HTTPException(
@@ -181,12 +157,7 @@ async def get_optimal_route(location_id: PydanticObjectId):
     route_data = route if isinstance(route, dict) else route.model_dump(by_alias=True)
 
     # Get location name
-    if is_new:
-        location_name = coverage_doc.display_name
-    else:
-        location_name = (
-            coverage_doc.location.get("display_name") if coverage_doc.location else None
-        )
+    location_name = coverage_area.display_name
 
     return {
         "status": "success",
@@ -195,22 +166,20 @@ async def get_optimal_route(location_id: PydanticObjectId):
     }
 
 
-@router.get("/api/coverage_areas/{location_id}/optimal-route/gpx")
-async def export_optimal_route_gpx(location_id: PydanticObjectId):
+@router.get("/api/coverage/areas/{area_id}/optimal-route/gpx")
+async def export_optimal_route_gpx(area_id: PydanticObjectId):
     """Export optimal route as GPX file for navigation apps."""
     from export_helpers import build_gpx_from_coords
 
-    coverage_doc, is_new = await _get_coverage_doc(location_id)
+    coverage_area = await _get_coverage_area(area_id)
 
-    if not coverage_doc:
+    if not coverage_area:
         raise HTTPException(status_code=404, detail="Coverage area not found")
 
     # Get route from the model
     route = None
-    if hasattr(coverage_doc, "optimal_route") and coverage_doc.optimal_route:
-        route = coverage_doc.optimal_route
-    elif not is_new and hasattr(coverage_doc, "location") and coverage_doc.location:
-        route = coverage_doc.location.get("optimal_route_data")
+    if coverage_area.optimal_route:
+        route = coverage_area.optimal_route
 
     # Prepare route data (handle dict or Pydantic model)
     route_data = (
@@ -232,14 +201,7 @@ async def export_optimal_route_gpx(location_id: PydanticObjectId):
         )
 
     # Get location name
-    if is_new:
-        location_name = coverage_doc.display_name or "Route"
-    else:
-        location_name = (
-            coverage_doc.location.get("display_name", "Route")
-            if coverage_doc.location
-            else "Route"
-        )
+    location_name = coverage_area.display_name or "Route"
     gpx_content = build_gpx_from_coords(
         route_data["coordinates"],
         name=f"Optimal Route - {location_name}",
@@ -257,24 +219,23 @@ async def export_optimal_route_gpx(location_id: PydanticObjectId):
     )
 
 
-@router.delete("/api/coverage_areas/{location_id}/optimal-route")
-async def delete_optimal_route(location_id: PydanticObjectId):
+@router.delete("/api/coverage/areas/{area_id}/optimal-route")
+async def delete_optimal_route(area_id: PydanticObjectId):
     """Delete saved optimal route for a coverage area."""
-    coverage_doc, _is_new = await _get_coverage_doc(location_id)
+    coverage_area = await _get_coverage_area(area_id)
 
-    if not coverage_doc:
+    if not coverage_area:
         raise HTTPException(status_code=404, detail="Coverage area not found")
 
     # Unset optimal_route field
-    if hasattr(coverage_doc, "optimal_route"):
-        coverage_doc.optimal_route = None
-        await coverage_doc.save()
+    coverage_area.optimal_route = None
+    await coverage_area.save()
 
     return {"status": "success", "message": "Optimal route deleted"}
 
 
-@router.get("/api/coverage_areas/{location_id}/active-task")
-async def get_active_route_task(location_id: str):
+@router.get("/api/coverage/areas/{area_id}/active-task")
+async def get_active_route_task(area_id: str):
     """
     Check if there's an active or recent route generation task for this location.
 
@@ -285,7 +246,7 @@ async def get_active_route_task(location_id: str):
     # Sort by created_at descending to get the most recent task
     progress = await OptimalRouteProgress.find_one(
         {
-            "location": location_id,
+            "location": area_id,
             "status": {"$in": ["queued", "running", "pending", "initializing"]},
         },
         sort=[("created_at", -1)],

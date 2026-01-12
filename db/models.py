@@ -8,7 +8,7 @@ This module defines all document models using Beanie ODM, which provides:
 - Index definitions at the model level
 
 Usage:
-    from db.models import Trip, CoverageMetadata, Street
+    from db.models import Trip, Vehicle
 
     # Find a trip
     trip = await Trip.find_one(Trip.transactionId == "abc123")
@@ -330,50 +330,6 @@ class ArchivedLiveTrip(Document):
                 unique=True,
             ),
             IndexModel([("endTime", ASCENDING)], name="archived_endTime_idx"),
-        ]
-
-    class Config:
-        extra = "allow"
-
-
-class CoverageMetadata(Document):
-    """Coverage area metadata document."""
-
-    location: dict[str, Any] = Field(default_factory=dict)
-    display_name: str | None = None
-    status: str | None = None
-    total_streets: int | None = None
-    driven_streets: int | None = None
-    coverage_percentage: float | None = None
-    total_length_miles: float | None = None
-    driven_length_miles: float | None = None
-    total_length_m: float | None = None
-    driven_length_m: float | None = None
-    last_updated: datetime | None = None
-    last_calculated: datetime | None = None
-    boundary: dict[str, Any] | None = None
-    streets_geojson_id: str | None = None
-
-    # Configuration fields
-    segment_length_feet: float | None = None
-    segment_length_meters: float | None = None
-    match_buffer_feet: float | None = None
-    match_buffer_meters: float | None = None
-    min_match_length_feet: float | None = None
-    min_match_length_meters: float | None = None
-
-    class Settings:
-        name = "coverage_metadata"
-        indexes = [
-            IndexModel(
-                [("location.display_name", ASCENDING)],
-                name="coverage_metadata_display_name_idx",
-                unique=True,
-            ),
-            IndexModel(
-                [("status", ASCENDING), ("last_updated", ASCENDING)],
-                name="coverage_metadata_status_updated_idx",
-            ),
         ]
 
     class Config:
@@ -704,7 +660,6 @@ ALL_DOCUMENT_MODELS = [
     MatchedTrip,
     LiveTrip,
     ArchivedLiveTrip,
-    CoverageMetadata,
     OsmData,
     Place,
     TaskConfig,

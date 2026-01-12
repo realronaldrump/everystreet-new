@@ -13,23 +13,15 @@ from typing import Any
 from beanie import PydanticObjectId
 from shapely.geometry import LineString, shape
 from shapely.ops import transform
-import pyproj
 
 from coverage.models import Street
 from coverage.constants import (
     MATCH_BUFFER_METERS,
     MIN_OVERLAP_METERS,
 )
+from coverage.geo_utils import get_local_transformers
 
 logger = logging.getLogger(__name__)
-
-# Coordinate transformers for buffer calculations
-# WGS84 to Web Mercator (for meter-based operations)
-WGS84 = pyproj.CRS("EPSG:4326")
-WEB_MERCATOR = pyproj.CRS("EPSG:3857")
-
-to_meters = pyproj.Transformer.from_crs(WGS84, WEB_MERCATOR, always_xy=True).transform
-to_wgs84 = pyproj.Transformer.from_crs(WEB_MERCATOR, WGS84, always_xy=True).transform
 
 
 def trip_to_linestring(trip: dict[str, Any]) -> LineString | None:
@@ -39,7 +31,15 @@ def trip_to_linestring(trip: dict[str, Any]) -> LineString | None:
     Handles both GeoJSON geometry and raw coordinate arrays.
     Returns None if trip has no valid geometry.
     """
-    # Try GeoJSON geometry first
+    # Prefer matched geometry when available
+    if "matchedGps" in trip and isinstance(trip["matchedGps"], dict):
+        geom = trip["matchedGps"]
+        if geom.get("type") == "LineString" and geom.get("coordinates"):
+            coords = geom["coordinates"]
+            if len(coords) >= 2:
+                return LineString(coords)
+
+    # Try GeoJSON geometry next
     if "gps" in trip and isinstance(trip["gps"], dict):
         geom = trip["gps"]
         if geom.get("type") == "LineString" and geom.get("coordinates"):
@@ -51,7 +51,14 @@ def trip_to_linestring(trip: dict[str, Any]) -> LineString | None:
     if "coordinates" in trip:
         coords = trip["coordinates"]
         if len(coords) >= 2:
-            return LineString(coords)
+            if isinstance(coords[0], dict):
+                coords = [
+                    [point["lon"], point["lat"]]
+                    for point in coords
+                    if "lon" in point and "lat" in point
+                ]
+            if len(coords) >= 2:
+                return LineString(coords)
 
     # Try locations array (from live tracking)
     if "locations" in trip:
@@ -70,23 +77,24 @@ def trip_to_linestring(trip: dict[str, Any]) -> LineString | None:
 
 def buffer_trip_line(
     trip_line: LineString, buffer_meters: float = MATCH_BUFFER_METERS
-) -> Any:
+) -> tuple[Any, Any, Any]:
     """
-    Create a buffer polygon around a trip line.
+    Create buffer polygons around a trip line.
 
-    Projects to meters, buffers, then projects back to WGS84.
+    Returns (buffer_meters_geom, buffer_wgs84_geom, to_meters_transform).
     """
-    # Project to meters
+    to_meters, to_wgs84 = get_local_transformers(trip_line)
     line_meters = transform(to_meters, trip_line)
     # Buffer
-    buffered = line_meters.buffer(buffer_meters)
-    # Project back to WGS84
-    return transform(to_wgs84, buffered)
+    buffered_meters = line_meters.buffer(buffer_meters)
+    buffered_wgs84 = transform(to_wgs84, buffered_meters)
+    return buffered_meters, buffered_wgs84, to_meters
 
 
 def check_segment_overlap(
     segment_geom: dict[str, Any],
-    trip_buffer: Any,
+    trip_buffer_meters: Any,
+    to_meters: Any,
     min_overlap_meters: float = MIN_OVERLAP_METERS,
 ) -> bool:
     """
@@ -101,18 +109,18 @@ def check_segment_overlap(
         if not segment_line.is_valid:
             return False
 
-        if not trip_buffer.intersects(segment_line):
+        segment_meters = transform(to_meters, segment_line)
+
+        if not trip_buffer_meters.intersects(segment_meters):
             return False
 
         # Calculate intersection length in meters
-        intersection = trip_buffer.intersection(segment_line)
+        intersection = trip_buffer_meters.intersection(segment_meters)
 
         if intersection.is_empty:
             return False
 
-        # Project to meters for accurate length calculation
-        intersection_meters = transform(to_meters, intersection)
-        intersection_length = intersection_meters.length
+        intersection_length = intersection.length
 
         return intersection_length >= min_overlap_meters
 
@@ -135,14 +143,16 @@ async def find_matching_segments(
     Returns list of segment_ids that were matched.
     """
     # Create buffered polygon around trip
-    trip_buffer = buffer_trip_line(trip_line)
+    trip_buffer_meters, trip_buffer_wgs84, to_meters = buffer_trip_line(trip_line)
 
-    # Get bounding box for initial MongoDB query
-    minx, miny, maxx, maxy = trip_buffer.bounds
+    # Use a simple polygon for MongoDB query
+    buffer_geom = trip_buffer_wgs84
+    if buffer_geom.geom_type == "MultiPolygon":
+        buffer_geom = buffer_geom.convex_hull
+    elif buffer_geom.geom_type != "Polygon":
+        buffer_geom = buffer_geom.envelope
 
-    # Query segments that intersect the trip buffer's bounding box
-    # Using $geoIntersects with a Polygon for better performance
-    buffer_coords = list(trip_buffer.exterior.coords)
+    buffer_coords = list(buffer_geom.exterior.coords)
 
     query = {
         "area_id": area_id,
@@ -161,7 +171,7 @@ async def find_matching_segments(
     matched_segment_ids = []
 
     async for street in Street.find(query):
-        if check_segment_overlap(street.geometry, trip_buffer):
+        if check_segment_overlap(street.geometry, trip_buffer_meters, to_meters):
             matched_segment_ids.append(street.segment_id)
 
     logger.debug(

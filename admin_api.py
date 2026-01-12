@@ -11,7 +11,6 @@ from db import db_manager
 from db.models import (
     AppSettings,
     ArchivedLiveTrip,
-    CoverageMetadata,
     GasFillup,
     LiveTrip,
     MatchedTrip,
@@ -35,7 +34,6 @@ COLLECTION_TO_MODEL = {
     "matched_trips": MatchedTrip,
     "live_trips": LiveTrip,
     "archived_live_trips": ArchivedLiveTrip,
-    "coverage_metadata": CoverageMetadata,
     "streets": Street,
     "osm_data": OsmData,
     "places": Place,

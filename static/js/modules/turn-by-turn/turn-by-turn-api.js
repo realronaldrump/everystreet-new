@@ -76,16 +76,16 @@ const TurnByTurnAPI = {
 
     try {
       // Sample up to 25 waypoints for Directions API
-      const sampleCount = Math.min(25, waypoints.length);
-      const step = Math.floor(waypoints.length / sampleCount);
-      const sampled = [];
-      for (let i = 0; i < waypoints.length; i += step) {
-        sampled.push(waypoints[i]);
-      }
-      // Always include the last point
-      const last = waypoints[waypoints.length - 1];
-      if (sampled[sampled.length - 1] !== last) {
-        sampled.push(last);
+      const maxWaypoints = 25;
+      let sampled = waypoints;
+      if (waypoints.length > maxWaypoints) {
+        const lastIndex = waypoints.length - 1;
+        const stride = lastIndex / (maxWaypoints - 1);
+        sampled = [];
+        for (let i = 0; i < maxWaypoints; i++) {
+          const index = Math.floor(i * stride);
+          sampled.push(waypoints[index]);
+        }
       }
 
       const coordsString = sampled.map((c) => `${c[0]},${c[1]}`).join(";");
@@ -112,6 +112,16 @@ const TurnByTurnAPI = {
    * @returns {Promise<{duration: number, distance: number, geometry: Object}|null>}
    */
   async fetchDirectionsToPoint(origin, destination, accessToken) {
+    const isValidCoord = (coord) =>
+      Array.isArray(coord)
+      && coord.length === 2
+      && Number.isFinite(coord[0])
+      && Number.isFinite(coord[1]);
+
+    if (!accessToken || !isValidCoord(origin) || !isValidCoord(destination)) {
+      return null;
+    }
+
     try {
       const url = `https://api.mapbox.com/directions/v5/${DIRECTIONS_PROFILE}/${origin[0]},${origin[1]};${destination[0]},${destination[1]}?access_token=${accessToken}&geometries=${DIRECTIONS_GEOMETRY}&overview=full`;
 

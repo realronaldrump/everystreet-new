@@ -13,7 +13,6 @@ from fastapi import APIRouter, HTTPException, Query
 
 from config import get_mapbox_token
 from coverage.models import CoverageArea, CoverageState, Street
-from db.models import CoverageMetadata
 from external_geo_service import ExternalGeoService
 
 logger = logging.getLogger(__name__)
@@ -119,157 +118,81 @@ async def search_streets(
         )
 
     try:
-        # Try new CoverageArea model first
         area_id = PydanticObjectId(location_id) if location_id else None
         new_area = await CoverageArea.get(area_id) if area_id else None
-        use_new_schema = new_area is not None
+        if not new_area:
+            logger.warning("Coverage area not found: %s", location_id)
+            return []
 
-        if use_new_schema:
-            location_name = new_area.display_name
+        location_name = new_area.display_name
 
-            # New schema: query Street by area_id and street_name
-            # Then join with CoverageState for driven status
-            driven_segment_ids = set()
-            async for state in CoverageState.find(
-                CoverageState.area_id == area_id,
-                CoverageState.status == "driven",
-            ):
-                driven_segment_ids.add(state.segment_id)
+        # Query Street by area_id and street_name, then join with CoverageState for driven status
+        driven_segment_ids = set()
+        async for state in CoverageState.find(
+            CoverageState.area_id == area_id,
+            CoverageState.status == "driven",
+        ):
+            driven_segment_ids.add(state.segment_id)
 
-            # Build results grouped by street name
-            street_groups: dict[str, dict] = {}
-            async for street in Street.find(
-                Street.area_id == area_id,
-                Street.area_version == new_area.area_version,
-                Street.street_name != None,  # noqa: E711
-            ):
-                name = street.street_name
-                if not name or query.lower() not in name.lower():
-                    continue
+        # Build results grouped by street name
+        street_groups: dict[str, dict] = {}
+        async for street in Street.find(
+            Street.area_id == area_id,
+            Street.area_version == new_area.area_version,
+            Street.street_name != None,  # noqa: E711
+        ):
+            name = street.street_name
+            if not name or query.lower() not in name.lower():
+                continue
 
-                if name not in street_groups:
-                    street_groups[name] = {
-                        "geometries": [],
-                        "highway": street.highway_type,
-                        "total_length": 0.0,
-                        "segment_count": 0,
-                        "driven_count": 0,
-                    }
+            if name not in street_groups:
+                street_groups[name] = {
+                    "geometries": [],
+                    "highway": street.highway_type,
+                    "total_length": 0.0,
+                    "segment_count": 0,
+                    "driven_count": 0,
+                }
 
-                street_groups[name]["geometries"].append(street.geometry)
-                street_groups[name]["total_length"] += (
-                    street.length_miles * 5280
-                )  # to feet
-                street_groups[name]["segment_count"] += 1
-                if street.segment_id in driven_segment_ids:
-                    street_groups[name]["driven_count"] += 1
+            street_groups[name]["geometries"].append(street.geometry)
+            street_groups[name]["total_length"] += street.length_miles * 5280  # to feet
+            street_groups[name]["segment_count"] += 1
+            if street.segment_id in driven_segment_ids:
+                street_groups[name]["driven_count"] += 1
 
-            features = []
-            for street_name, data in list(street_groups.items())[:limit]:
-                coordinates = []
-                for geom in data["geometries"]:
-                    if geom.get("type") == "LineString":
-                        coordinates.append(geom.get("coordinates", []))
+        features = []
+        for street_name, data in list(street_groups.items())[:limit]:
+            coordinates = []
+            for geom in data["geometries"]:
+                if geom.get("type") == "LineString":
+                    coordinates.append(geom.get("coordinates", []))
 
-                if coordinates:
-                    features.append(
-                        {
-                            "type": "Feature",
-                            "geometry": {
-                                "type": "MultiLineString",
-                                "coordinates": coordinates,
-                            },
-                            "properties": {
-                                "street_name": street_name,
-                                "location": location_name,
-                                "highway": data["highway"],
-                                "segment_count": data["segment_count"],
-                                "total_length": data["total_length"],
-                                "driven_count": data["driven_count"],
-                            },
+            if coordinates:
+                features.append(
+                    {
+                        "type": "Feature",
+                        "geometry": {
+                            "type": "MultiLineString",
+                            "coordinates": coordinates,
                         },
-                    )
-
-            logger.debug(
-                "Found %d unique streets matching '%s' in %s (new schema)",
-                len(features),
-                query,
-                location_name,
-            )
-            return features
-        else:
-            # Fall back to old CoverageMetadata schema
-            coverage_area = await CoverageMetadata.get(location_id)
-
-            if not coverage_area or not coverage_area.location:
-                logger.warning("Coverage area not found: %s", location_id)
-                return []
-
-            location_name = coverage_area.location.get("display_name")
-            if not location_name:
-                logger.warning(
-                    "Coverage area %s missing display_name in location",
-                    location_id,
+                        "properties": {
+                            "street_name": street_name,
+                            "location": location_name,
+                            "highway": data["highway"],
+                            "segment_count": data["segment_count"],
+                            "total_length": data["total_length"],
+                            "driven_count": data["driven_count"],
+                        },
+                    },
                 )
-                return []
 
-            pipeline = [
-                {
-                    "$match": {
-                        "properties.location": location_name,
-                        "properties.street_name": {"$regex": query, "$options": "i"},
-                    },
-                },
-                {
-                    "$group": {
-                        "_id": "$properties.street_name",
-                        "geometries": {"$push": "$geometry"},
-                        "highway": {"$first": "$properties.highway"},
-                        "total_length": {"$sum": "$properties.segment_length"},
-                        "segment_count": {"$sum": 1},
-                        "driven_count": {
-                            "$sum": {"$cond": ["$properties.driven", 1, 0]}
-                        },
-                    },
-                },
-                {"$limit": limit},
-            ]
-
-            # Use Beanie Street.aggregate()
-            grouped_streets = await Street.aggregate(pipeline).to_list()
-
-            features = []
-            for street in grouped_streets:
-                coordinates = []
-                for geom in street.get("geometries", []):
-                    if geom.get("type") == "LineString":
-                        coordinates.append(geom.get("coordinates", []))
-
-                if coordinates:
-                    features.append(
-                        {
-                            "type": "Feature",
-                            "geometry": {
-                                "type": "MultiLineString",
-                                "coordinates": coordinates,
-                            },
-                            "properties": {
-                                "street_name": street.get("_id"),
-                                "location": location_name,
-                                "highway": street.get("highway"),
-                                "segment_count": street.get("segment_count", 0),
-                                "total_length": street.get("total_length", 0),
-                                "driven_count": street.get("driven_count", 0),
-                            },
-                        },
-                    )
-
-            logger.debug(
-                "Found %d unique streets (from segments) matching '%s' across all locations",
-                len(features),
-                query,
-            )
-            return features
+        logger.debug(
+            "Found %d unique streets matching '%s' in %s",
+            len(features),
+            query,
+            location_name,
+        )
+        return features
     except Exception as e:
         logger.exception("Error in search_streets: %s", e)
         raise HTTPException(status_code=500, detail=str(e)) from e
@@ -293,142 +216,74 @@ async def _search_streets_in_coverage(
         List of GeoJSON features with combined geometries per street name
     """
     try:
-        # Try new CoverageArea model first
         area_id = PydanticObjectId(location_id)
         new_area = await CoverageArea.get(area_id)
-        use_new_schema = new_area is not None
+        if not new_area:
+            logger.warning("Coverage area not found: %s", location_id)
+            return []
 
-        if use_new_schema:
-            location_name = new_area.display_name
+        location_name = new_area.display_name
 
-            # New schema: query Street by area_id and street_name
-            # Then join with CoverageState for driven status
-            driven_segment_ids = set()
-            async for state in CoverageState.find(
-                CoverageState.area_id == area_id,
-                CoverageState.status == "driven",
-            ):
-                driven_segment_ids.add(state.segment_id)
+        # Query Street by area_id and street_name, then join with CoverageState for driven status
+        driven_segment_ids = set()
+        async for state in CoverageState.find(
+            CoverageState.area_id == area_id,
+            CoverageState.status == "driven",
+        ):
+            driven_segment_ids.add(state.segment_id)
 
-            # Build results grouped by street name
-            street_groups: dict[str, dict] = {}
-            async for street in Street.find(
-                Street.area_id == area_id,
-                Street.street_name != None,  # noqa: E711
-            ):
-                name = street.street_name
-                if not name or query.lower() not in name.lower():
-                    continue
+        # Build results grouped by street name
+        street_groups: dict[str, dict] = {}
+        async for street in Street.find(
+            Street.area_id == area_id,
+            Street.street_name != None,  # noqa: E711
+        ):
+            name = street.street_name
+            if not name or query.lower() not in name.lower():
+                continue
 
-                if name not in street_groups:
-                    street_groups[name] = {
-                        "geometries": [],
-                        "highway": street.highway_type,
-                        "total_length": 0.0,
-                        "segment_count": 0,
-                        "driven_count": 0,
-                    }
+            if name not in street_groups:
+                street_groups[name] = {
+                    "geometries": [],
+                    "highway": street.highway_type,
+                    "total_length": 0.0,
+                    "segment_count": 0,
+                    "driven_count": 0,
+                }
 
-                street_groups[name]["geometries"].append(street.geometry)
-                street_groups[name]["total_length"] += street.length_miles * 5280
-                street_groups[name]["segment_count"] += 1
-                if street.segment_id in driven_segment_ids:
-                    street_groups[name]["driven_count"] += 1
+            street_groups[name]["geometries"].append(street.geometry)
+            street_groups[name]["total_length"] += street.length_miles * 5280
+            street_groups[name]["segment_count"] += 1
+            if street.segment_id in driven_segment_ids:
+                street_groups[name]["driven_count"] += 1
 
-            features = []
-            for street_name, data in list(street_groups.items())[:limit]:
-                coordinates = []
-                for geom in data["geometries"]:
-                    if geom.get("type") == "LineString":
-                        coordinates.append(geom.get("coordinates", []))
+        features = []
+        for street_name, data in list(street_groups.items())[:limit]:
+            coordinates = []
+            for geom in data["geometries"]:
+                if geom.get("type") == "LineString":
+                    coordinates.append(geom.get("coordinates", []))
 
-                if coordinates:
-                    features.append(
-                        {
-                            "type": "Feature",
-                            "geometry": {
-                                "type": "MultiLineString",
-                                "coordinates": coordinates,
-                            },
-                            "properties": {
-                                "street_name": street_name,
-                                "location": location_name,
-                                "highway": data["highway"],
-                                "segment_count": data["segment_count"],
-                                "total_length": data["total_length"],
-                                "driven_count": data["driven_count"],
-                            },
+            if coordinates:
+                features.append(
+                    {
+                        "type": "Feature",
+                        "geometry": {
+                            "type": "MultiLineString",
+                            "coordinates": coordinates,
                         },
-                    )
-
-            return features
-        else:
-            # Fall back to old CoverageMetadata schema
-            coverage_area = await CoverageMetadata.get(location_id)
-
-            if not coverage_area or not coverage_area.location:
-                logger.warning("Coverage area not found: %s", location_id)
-                return []
-
-            location_name = coverage_area.location.get("display_name")
-            if not location_name:
-                logger.warning(
-                    "Coverage area %s missing display_name in location",
-                    location_id,
+                        "properties": {
+                            "street_name": street_name,
+                            "location": location_name,
+                            "highway": data["highway"],
+                            "segment_count": data["segment_count"],
+                            "total_length": data["total_length"],
+                            "driven_count": data["driven_count"],
+                        },
+                    },
                 )
-                return []
 
-            pipeline = [
-                {
-                    "$match": {
-                        "properties.location": location_name,
-                        "properties.street_name": {"$regex": query, "$options": "i"},
-                    },
-                },
-                {
-                    "$group": {
-                        "_id": "$properties.street_name",
-                        "geometries": {"$push": "$geometry"},
-                        "highway": {"$first": "$properties.highway"},
-                        "total_length": {"$sum": "$properties.segment_length"},
-                        "segment_count": {"$sum": 1},
-                        "driven_count": {
-                            "$sum": {"$cond": ["$properties.driven", 1, 0]}
-                        },
-                    },
-                },
-                {"$limit": limit},
-            ]
-
-            grouped_streets = await Street.aggregate(pipeline).to_list()
-
-            features = []
-            for street in grouped_streets:
-                coordinates = []
-                for geom in street.get("geometries", []):
-                    if geom.get("type") == "LineString":
-                        coordinates.append(geom.get("coordinates", []))
-
-                if coordinates:
-                    features.append(
-                        {
-                            "type": "Feature",
-                            "geometry": {
-                                "type": "MultiLineString",
-                                "coordinates": coordinates,
-                            },
-                            "properties": {
-                                "street_name": street.get("_id"),
-                                "location": location_name,
-                                "highway": street.get("highway"),
-                                "segment_count": street.get("segment_count", 0),
-                                "total_length": street.get("total_length", 0),
-                                "driven_count": street.get("driven_count", 0),
-                            },
-                        },
-                    )
-
-            return features
+        return features
     except Exception:
         logger.exception("Error in _search_streets_in_coverage for %s", location_id)
         return []

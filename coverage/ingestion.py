@@ -19,10 +19,10 @@ from typing import Any
 import aiohttp
 from beanie import PydanticObjectId
 from shapely.geometry import LineString, shape, mapping
-from shapely.ops import transform, linemerge
-import pyproj
+from shapely.ops import transform
 
 from coverage.events import emit_area_created, CoverageEvents, on_event
+from coverage.geo_utils import geodesic_length_meters, get_local_transformers
 from coverage.models import CoverageArea, CoverageState, Job, Street
 from coverage.constants import (
     BATCH_SIZE,
@@ -36,13 +36,6 @@ from coverage.stats import update_area_stats
 from coverage.worker import backfill_coverage_for_area
 
 logger = logging.getLogger(__name__)
-
-# Coordinate transformers
-WGS84 = pyproj.CRS("EPSG:4326")
-WEB_MERCATOR = pyproj.CRS("EPSG:3857")
-
-to_meters = pyproj.Transformer.from_crs(WGS84, WEB_MERCATOR, always_xy=True).transform
-to_wgs84 = pyproj.Transformer.from_crs(WEB_MERCATOR, WGS84, always_xy=True).transform
 
 # OSM highway types to include (driveable roads)
 DRIVEABLE_HIGHWAY_TYPES = {
@@ -487,6 +480,7 @@ def _segment_streets(
             continue
 
         for line in lines:
+            to_meters, to_wgs84 = get_local_transformers(line)
             # Project to meters for accurate segmentation
             line_m = transform(to_meters, line)
             total_length = line_m.length
@@ -502,7 +496,7 @@ def _segment_streets(
                         "street_name": street_name,
                         "highway_type": highway_type,
                         "osm_id": osm_id,
-                        "length_miles": total_length * METERS_TO_MILES,
+                        "length_miles": geodesic_length_meters(line) * METERS_TO_MILES,
                     }
                 )
                 seq += 1
@@ -514,10 +508,6 @@ def _segment_streets(
                 for i in range(num_segments):
                     start_dist = i * segment_length
                     end_dist = min((i + 1) * segment_length, total_length)
-
-                    # Extract segment
-                    start_point = line_m.interpolate(start_dist)
-                    end_point = line_m.interpolate(end_dist)
 
                     # Get the actual line segment
                     segment_m = _extract_line_segment(line_m, start_dist, end_dist)
@@ -536,7 +526,8 @@ def _segment_streets(
                             "street_name": street_name,
                             "highway_type": highway_type,
                             "osm_id": osm_id,
-                            "length_miles": (end_dist - start_dist) * METERS_TO_MILES,
+                            "length_miles": geodesic_length_meters(segment_wgs)
+                            * METERS_TO_MILES,
                         }
                     )
                     seq += 1

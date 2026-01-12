@@ -11,7 +11,7 @@ Modules:
     indexes: Index definitions and initialization
 
 Usage:
-    from db.models import Trip, CoverageMetadata, Vehicle
+    from db.models import Trip, Vehicle
 
     # Find a trip
     trip = await Trip.find_one(Trip.transactionId == "abc123")
@@ -42,7 +42,6 @@ from db.models import (
     AppSettings,
     ArchivedLiveTrip,
     BouncieCredentials,
-    CoverageMetadata,
     GasFillup,
     LiveTrip,
     MatchedTrip,
@@ -87,7 +86,6 @@ __all__ = [
     "AppSettings",
     "ArchivedLiveTrip",
     "BouncieCredentials",
-    "CoverageMetadata",
     # Manager
     "DatabaseManager",
     "GasFillup",

@@ -164,6 +164,13 @@ class GeolocationService {
       speed: position.coords.speed,
       timestamp: position.timestamp,
       coords: {
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+        accuracy: position.coords.accuracy,
+        altitude: position.coords.altitude,
+        altitudeAccuracy: position.coords.altitudeAccuracy,
+        heading: position.coords.heading,
+        speed: position.coords.speed,
         lat: position.coords.latitude,
         lng: position.coords.longitude,
       },

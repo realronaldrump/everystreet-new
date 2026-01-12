@@ -10,7 +10,7 @@ import osmnx as ox
 from beanie import PydanticObjectId
 
 from coverage.models import CoverageArea, CoverageState, Street
-from db.models import CoverageMetadata, OptimalRouteProgress
+from db.models import OptimalRouteProgress
 from progress_tracker import ProgressTracker
 
 from .constants import GRAPH_STORAGE_DIR, MAX_SEGMENTS
@@ -26,13 +26,6 @@ if TYPE_CHECKING:
     from .types import EdgeRef, ReqId
 
 logger = logging.getLogger(__name__)
-
-
-def _to_legacy_boundingbox(bounding_box: list[float] | None) -> list[float] | None:
-    if not bounding_box or len(bounding_box) != 4:
-        return None
-    min_lon, min_lat, max_lon, max_lat = bounding_box
-    return [min_lat, max_lat, min_lon, max_lon]
 
 
 async def generate_optimal_route_with_progress(
@@ -67,51 +60,40 @@ async def generate_optimal_route_with_progress(
     try:
         await update_progress("initializing", 0, "Starting optimal route generation...")
 
-        # Find coverage area by ID - try new CoverageArea first, fall back to CoverageMetadata
+        # Find coverage area by ID
         # location_id may be str (from Celery) or PydanticObjectId
         if isinstance(location_id, str):
             location_id = PydanticObjectId(location_id)
 
-        # Try new CoverageArea model first
-        new_area = await CoverageArea.get(location_id)
-        old_area = None
-        use_new_schema = new_area is not None
+        coverage_area = await CoverageArea.get(location_id)
+        if not coverage_area:
+            msg = f"Coverage area {location_id} not found"
+            raise ValueError(msg)
 
-        if use_new_schema:
-            location_name = new_area.display_name
-            boundary_geom = (
-                new_area.boundary.get("geometry")
-                if isinstance(new_area.boundary, dict)
-                and new_area.boundary.get("type") == "Feature"
-                else new_area.boundary
-            )
-            if isinstance(new_area.boundary, dict) and new_area.boundary.get("type") == "Feature":
-                geojson = new_area.boundary
-            else:
-                geojson = (
-                    {
-                        "type": "Feature",
-                        "geometry": new_area.boundary,
-                        "properties": {},
-                    }
-                    if new_area.boundary
-                    else None
-                )
-            location_info = {
-                "id": str(new_area.id),
-                "display_name": new_area.display_name,
-                "boundingbox": _to_legacy_boundingbox(new_area.bounding_box),
-                "geojson": geojson,
-            }
+        location_name = coverage_area.display_name
+        if isinstance(coverage_area.boundary, dict) and coverage_area.boundary.get(
+            "type"
+        ) == "Feature":
+            boundary_geom = coverage_area.boundary.get("geometry")
+            geojson = coverage_area.boundary
         else:
-            # Fall back to old CoverageMetadata
-            old_area = await CoverageMetadata.get(location_id)
-            if not old_area:
-                msg = f"Coverage area {location_id} not found"
-                raise ValueError(msg)
-            location_info = old_area.location or {}
-            location_name = location_info.get("display_name", "Unknown")
-            boundary_geom = location_info.get("geojson", {}).get("geometry")
+            boundary_geom = coverage_area.boundary
+            geojson = (
+                {
+                    "type": "Feature",
+                    "geometry": coverage_area.boundary,
+                    "properties": {},
+                }
+                if coverage_area.boundary
+                else None
+            )
+        location_info = {
+            "id": str(coverage_area.id),
+            "display_name": coverage_area.display_name,
+            "boundary": coverage_area.boundary,
+            "bounding_box": coverage_area.bounding_box,
+            "geojson": geojson,
+        }
 
         await update_progress(
             "loading_area",
@@ -121,13 +103,8 @@ async def generate_optimal_route_with_progress(
 
         # Validate that the coverage area has a valid geometry
         if not boundary_geom:
-            if not use_new_schema and old_area:
-                location_info = old_area.location or {}
-                bbox = location_info.get("boundingbox")
-                if not (bbox and len(bbox) >= 4):
-                    msg = "No valid boundary for coverage area"
-                    raise ValueError(msg)
-            else:
+            bbox = coverage_area.bounding_box
+            if not (bbox and len(bbox) == 4):
                 msg = "No valid boundary for coverage area"
                 raise ValueError(msg)
 
@@ -137,64 +114,43 @@ async def generate_optimal_route_with_progress(
             "Loading undriven street segments...",
         )
 
-        if use_new_schema:
-            # New schema: query Street by area_id, join with CoverageState for status
-            # First get all segment IDs that are NOT driven (undriven or not in CoverageState)
-            driven_segment_ids = set()
-            undriveable_segment_ids = set()
+        # Query Street by area_id, join with CoverageState for status
+        # First get all segment IDs that are NOT driven (undriven or not in CoverageState)
+        driven_segment_ids = set()
+        undriveable_segment_ids = set()
 
-            async for state in CoverageState.find(CoverageState.area_id == location_id):
-                if state.status == "driven":
-                    driven_segment_ids.add(state.segment_id)
-                elif state.status == "undriveable":
-                    undriveable_segment_ids.add(state.segment_id)
+        async for state in CoverageState.find(CoverageState.area_id == location_id):
+            if state.status == "driven":
+                driven_segment_ids.add(state.segment_id)
+            elif state.status == "undriveable":
+                undriveable_segment_ids.add(state.segment_id)
 
-            # Query streets for this area
-            undriven_objs = []
-            async for street in Street.find(
-                Street.area_id == location_id,
-                Street.area_version == new_area.area_version,
-                limit=MAX_SEGMENTS,
-            ):
-                # Skip driven or undriveable segments
-                if street.segment_id in driven_segment_ids:
-                    continue
-                if street.segment_id in undriveable_segment_ids:
-                    continue
+        # Query streets for this area
+        undriven_objs = []
+        async for street in Street.find(
+            Street.area_id == location_id,
+            Street.area_version == coverage_area.area_version,
+            limit=MAX_SEGMENTS,
+        ):
+            # Skip driven or undriveable segments
+            if street.segment_id in driven_segment_ids:
+                continue
+            if street.segment_id in undriveable_segment_ids:
+                continue
 
-                # Convert to old format for compatibility with downstream code
-                undriven_objs.append(
-                    {
-                        "_id": street.id,
-                        "geometry": street.geometry,
-                        "properties": {
-                            "segment_id": street.segment_id,
-                            "segment_length": street.length_miles
-                            * 5280,  # Convert miles to feet
-                            "street_name": street.street_name,
-                            "osm_id": street.osm_id,
-                        },
-                    }
-                )
-        else:
-            # Old schema: query using properties.location, properties.driven
-            undriven_objs = (
-                await Street.get_pymongo_collection()
-                .find(
-                    {
-                        "properties.location": location_name,
-                        "properties.driven": False,
-                        "properties.undriveable": {"$ne": True},
+            # Convert to downstream format for route generation
+            undriven_objs.append(
+                {
+                    "_id": street.id,
+                    "geometry": street.geometry,
+                    "properties": {
+                        "segment_id": street.segment_id,
+                        "segment_length": street.length_miles
+                        * 5280,  # Convert miles to feet
+                        "street_name": street.street_name,
+                        "osm_id": street.osm_id,
                     },
-                    projection={
-                        "geometry": 1,
-                        "properties.segment_id": 1,
-                        "properties.segment_length": 1,
-                        "properties.street_name": 1,
-                        "properties.osm_id": 1,
-                    },
-                )
-                .to_list(length=MAX_SEGMENTS)
+                }
             )
 
         # Convert to list of dicts to match expected structure
@@ -720,49 +676,23 @@ async def save_optimal_route(
         if isinstance(location_id, str):
             location_id = PydanticObjectId(location_id)
 
-        # Try new CoverageArea model first
-        new_area = await CoverageArea.get(location_id)
-        if new_area:
-            await new_area.update(
-                {
-                    "$set": {
-                        "optimal_route": route_doc,
-                        "optimal_route_generated_at": datetime.now(UTC),
-                    },
-                },
-            )
-            logger.info("Saved optimal route to CoverageArea %s", location_id)
-            return
-
-        # Fall back to old CoverageMetadata model
-        metadata = await CoverageMetadata.get(location_id)
-        if metadata:
-            await metadata.update(
-                {
-                    "$set": {
-                        "optimal_route": route_doc,
-                        "optimal_route_metadata": {
-                            "generated_at": datetime.now(UTC),
-                            "distance_meters": route_result.get("total_distance_m"),
-                            "required_edge_count": route_result.get(
-                                "required_edge_count",
-                            ),
-                            "undriven_segments_loaded": route_result.get(
-                                "undriven_segments_loaded",
-                            ),
-                            "segment_coverage_ratio": route_result.get(
-                                "segment_coverage_ratio",
-                            ),
-                        },
-                    },
-                },
-            )
-            logger.info("Saved optimal route to CoverageMetadata %s", location_id)
-        else:
+        coverage_area = await CoverageArea.get(location_id)
+        if not coverage_area:
             logger.warning(
                 "Could not find coverage area for %s to save route",
                 location_id,
             )
+            return
+
+        await coverage_area.update(
+            {
+                "$set": {
+                    "optimal_route": route_doc,
+                    "optimal_route_generated_at": datetime.now(UTC),
+                },
+            },
+        )
+        logger.info("Saved optimal route to CoverageArea %s", location_id)
 
     except Exception as e:
         logger.exception("Failed to save optimal route: %s", e)

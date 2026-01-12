@@ -5,13 +5,12 @@ from typing import Annotated, Any
 
 import httpx
 from beanie import PydanticObjectId
-from fastapi import APIRouter, Body, HTTPException, Query, Request
+from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 
 from config import get_mapbox_token
 from coverage.models import CoverageArea, CoverageState, Street
-from db.models import CoverageMetadata, Trip
-from db.schemas import LocationModel
+from db.models import Trip
 from live_tracking import get_active_trip
 
 logger = logging.getLogger(__name__)
@@ -345,107 +344,55 @@ async def find_connected_undriven_clusters(
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid location_id format")
 
-    # Try new CoverageArea model first
     new_area = await CoverageArea.get(obj_location_id)
-    use_new_schema = new_area is not None
+    if not new_area:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Coverage area with ID '{location_id}' not found.",
+        )
 
     segment_map = {}
     adjacency = defaultdict(list)
 
-    if use_new_schema:
-        location_name = new_area.display_name
+    # Get driven and undriveable segment IDs from CoverageState
+    driven_segment_ids = set()
+    undriveable_segment_ids = set()
+    async for state in CoverageState.find(CoverageState.area_id == obj_location_id):
+        if state.status == "driven":
+            driven_segment_ids.add(state.segment_id)
+        elif state.status == "undriveable":
+            undriveable_segment_ids.add(state.segment_id)
 
-        # Get driven and undriveable segment IDs from CoverageState
-        driven_segment_ids = set()
-        undriveable_segment_ids = set()
-        async for state in CoverageState.find(CoverageState.area_id == obj_location_id):
-            if state.status == "driven":
-                driven_segment_ids.add(state.segment_id)
-            elif state.status == "undriveable":
-                undriveable_segment_ids.add(state.segment_id)
+    # Query undriven streets
+    async for street in Street.find(
+        Street.area_id == obj_location_id,
+        Street.area_version == new_area.area_version,
+    ):
+        if street.segment_id in driven_segment_ids:
+            continue
+        if street.segment_id in undriveable_segment_ids:
+            continue
 
-        # Query undriven streets
-        async for street in Street.find(
-            Street.area_id == obj_location_id,
-            Street.area_version == new_area.area_version,
-        ):
-            if street.segment_id in driven_segment_ids:
-                continue
-            if street.segment_id in undriveable_segment_ids:
-                continue
+        geom = street.geometry or {}
+        coords = geom.get("coordinates", [])
 
-            geom = street.geometry or {}
-            coords = geom.get("coordinates", [])
+        if not coords:
+            continue
 
-            if not coords:
-                continue
+        segment_midpoint = _segment_midpoint(geom)
+        segment_map[street.segment_id] = {
+            "id": street.segment_id,
+            "midpoint": segment_midpoint,
+            "coords": coords,
+        }
 
-            segment_midpoint = _segment_midpoint(geom)
-            segment_map[street.segment_id] = {
-                "id": street.segment_id,
-                "midpoint": segment_midpoint,
-                "coords": coords,
-            }
-
-            if len(coords) >= 2:
-                lon1, lat1 = coords[0]
-                lon2, lat2 = coords[-1]
-                segment_map[street.segment_id]["midpoint"] = (
-                    (lat1 + lat2) / 2,
-                    (lon1 + lon2) / 2,
-                )
-    else:
-        # Fall back to old CoverageMetadata schema
-        coverage_doc = await CoverageMetadata.find_one(
-            CoverageMetadata.id == location_id,
-        )
-
-        if not coverage_doc or not coverage_doc.location:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Coverage area with ID '{location_id}' not found.",
+        if len(coords) >= 2:
+            lon1, lat1 = coords[0]
+            lon2, lat2 = coords[-1]
+            segment_map[street.segment_id]["midpoint"] = (
+                (lat1 + lat2) / 2,
+                (lon1 + lon2) / 2,
             )
-
-        location_name = (
-            coverage_doc.location.get("display_name") if coverage_doc.location else None
-        )
-        if not location_name:
-            raise HTTPException(
-                status_code=404,
-                detail="Coverage area is missing display name.",
-            )
-
-        # Use Beanie Street model with old schema
-        undriven_streets_cursor = Street.find(
-            {
-                "properties.location": location_name,
-                "properties.driven": False,
-                "properties.undriveable": {"$ne": True},
-            },
-        )
-
-        async for street in undriven_streets_cursor:
-            segment_id = street.id
-            geom = street.geometry or {}
-            coords = geom.get("coordinates", [])
-
-            if not coords:
-                continue
-
-            segment_midpoint = _segment_midpoint(geom)
-            segment_map[segment_id] = {
-                "id": segment_id,
-                "midpoint": segment_midpoint,
-                "coords": coords,
-            }
-
-            if len(coords) >= 2:
-                lon1, lat1 = coords[0]
-                lon2, lat2 = coords[-1]
-                segment_map[segment_id]["midpoint"] = (
-                    (lat1 + lat2) / 2,
-                    (lon1 + lon2) / 2,
-                )
 
     for street in segment_map.values():
         for other in segment_map.values():
@@ -495,57 +442,3 @@ async def find_clusters_endpoint(location_id: Annotated[str, Query()]):
         logger.exception("Error finding clusters: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
 
-
-@router.post("/api/coverage_area_by_name")
-async def get_coverage_area_by_name(data: LocationModel):
-    """Get coverage area by display name."""
-    try:
-        coverage_area = await CoverageMetadata.find_one(
-            CoverageMetadata.location.display_name == data.location,
-        )
-
-        if not coverage_area:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Coverage area '{data.location}' not found.",
-            )
-
-        return coverage_area
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.exception("Error getting coverage area: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.post("/api/reset_first_trip_point")
-async def reset_first_trip_point(data: Annotated[dict, Body()]):
-    """Reset the first trip point in coverage metadata."""
-    try:
-        location_id = data.get("location_id")
-        if not location_id:
-            raise HTTPException(status_code=400, detail="location_id is required.")
-
-        coverage_area = await CoverageMetadata.find_one(
-            CoverageMetadata.id == location_id,
-        )
-
-        if not coverage_area:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Coverage area '{location_id}' not found.",
-            )
-
-        new_point = data.get("first_trip_point")
-        if new_point is None:
-            raise HTTPException(status_code=400, detail="first_trip_point is required.")
-
-        coverage_area.first_trip_point = new_point
-        await coverage_area.save()
-
-        return JSONResponse(
-            content={"message": "First trip point updated successfully."},
-        )
-    except Exception as e:
-        logger.exception("Error resetting first trip point: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))

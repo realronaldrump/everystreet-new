@@ -45,7 +45,7 @@ async def preprocess_streets(
     Returns:
         Tuple of (graph, graphml_path) for the downloaded network.
     """
-    location_id = str(location.get("_id", "unknown"))
+    location_id = str(location.get("_id") or location.get("id") or "unknown")
     location_name = location.get("display_name", "Unknown Location")
 
     if task_id:
@@ -60,23 +60,31 @@ async def preprocess_streets(
 
     try:
         # 1. Get Polygon
-        boundary_geom = location.get("geojson")
+        boundary_geom = (
+            location.get("boundary")
+            or location.get("geojson")
+            or location.get("geometry")
+        )
         if isinstance(boundary_geom, dict) and boundary_geom.get("type") == "Feature":
             boundary_geom = boundary_geom.get("geometry")
         if boundary_geom:
             polygon = shape(boundary_geom)
         else:
-            bbox = location.get("boundingbox")
+            bbox = location.get("bounding_box")
             if bbox and len(bbox) >= 4:
-                polygon = box(
-                    float(bbox[2]),
-                    float(bbox[0]),
-                    float(bbox[3]),
-                    float(bbox[1]),
-                )
+                polygon = box(float(bbox[0]), float(bbox[1]), float(bbox[2]), float(bbox[3]))
             else:
-                logger.warning("No valid boundary for %s. Skipping.", location_name)
-                return None
+                legacy_bbox = location.get("boundingbox")
+                if legacy_bbox and len(legacy_bbox) >= 4:
+                    polygon = box(
+                        float(legacy_bbox[2]),
+                        float(legacy_bbox[0]),
+                        float(legacy_bbox[3]),
+                        float(legacy_bbox[1]),
+                    )
+                else:
+                    logger.warning("No valid boundary for %s. Skipping.", location_name)
+                    return None
 
         # 2. Buffer Polygon
         routing_polygon = _buffer_polygon_for_routing(polygon, ROUTING_BUFFER_FT)
@@ -115,7 +123,7 @@ async def preprocess_streets(
 
 async def preprocess_all_graphs():
     """Main function to process all coverage areas."""
-    from db.models import CoverageMetadata
+    from coverage.models import CoverageArea
 
     load_dotenv()
 
@@ -125,21 +133,17 @@ async def preprocess_all_graphs():
 
     # Fetch all coverage areas
     logger.info("Fetching coverage areas from MongoDB...")
-    areas_cursor = CoverageMetadata.find({})
-    areas = await areas_cursor.to_list()
+    areas = await CoverageArea.find_all().to_list()
     logger.info("Found %d coverage areas.", len(areas))
 
     for area in areas:
-        # Beanie model to dict or accessing properties
-        # area is a CoverageMetadata document
-        loc_data = area.location
-        if not loc_data:
-            continue
-
-        # Ensure _id is available for filename
-        # In Beanie, id is available as .id or in doc
-        if "_id" not in loc_data:
-            loc_data["_id"] = str(area.id)
+        loc_data = {
+            "_id": str(area.id),
+            "id": str(area.id),
+            "display_name": area.display_name,
+            "boundary": area.boundary,
+            "bounding_box": area.bounding_box,
+        }
 
         await preprocess_streets(loc_data)
 
