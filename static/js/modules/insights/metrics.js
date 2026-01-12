@@ -113,8 +113,8 @@ export function updateComparisons() {
   }
 
   // Distance comparison
-  const avgPerTrip
-    = insights.total_trips > 0
+  const avgPerTrip =
+    insights.total_trips > 0
       ? (insights.total_distance / insights.total_trips).toFixed(1)
       : 0;
   const distanceCompEl = document.querySelector("#distance-comparison span");
@@ -123,8 +123,8 @@ export function updateComparisons() {
   }
 
   // Fuel comparison
-  const mpg
-    = insights.total_distance > 0 && insights.total_fuel_consumed > 0
+  const mpg =
+    insights.total_distance > 0 && insights.total_fuel_consumed > 0
       ? (insights.total_distance / insights.total_fuel_consumed).toFixed(1)
       : 0;
   const fuelCompEl = document.querySelector("#fuel-comparison span");

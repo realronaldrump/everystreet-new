@@ -32,6 +32,13 @@ from __future__ import annotations
 
 import logging
 
+# New coverage system models
+from coverage.models import (
+    CoverageArea,
+    CoverageState,
+    Job,
+)
+from coverage.models import Street as NewStreet
 from db.manager import DatabaseManager, db_manager
 
 # ============================================================================
@@ -50,20 +57,12 @@ from db.models import (
     Place,
     ProgressStatus,
     ServerLog,
-    WebhookFailure,
     Street,
     TaskConfig,
     TaskHistory,
     Trip,
     Vehicle,
-)
-
-# New coverage system models
-from coverage.models import (
-    CoverageArea,
-    CoverageState,
-    Job,
-    Street as NewStreet,
+    WebhookFailure,
 )
 
 # ============================================================================

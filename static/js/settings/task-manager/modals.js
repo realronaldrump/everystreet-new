@@ -99,8 +99,8 @@ export async function showTaskDetails(taskId) {
     runBtn.dataset.taskId = taskId;
   }
 
-  modalBody.innerHTML
-    = '<div class="text-center"><i class="fas fa-spinner fa-spin"></i> Loading...</div>';
+  modalBody.innerHTML =
+    '<div class="text-center"><i class="fas fa-spinner fa-spin"></i> Loading...</div>';
 
   const bsModal = new bootstrap.Modal(modal);
   bsModal.show();

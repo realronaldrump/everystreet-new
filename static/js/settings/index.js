@@ -19,7 +19,10 @@ import {
 } from "./geocode-remap.js";
 import { InvalidTripReview } from "./invalid-trip-review.js";
 import { initMobileUI } from "./mobile-ui.js";
-import { gatherTaskConfigFromUI, submitTaskConfigUpdate } from "./task-manager/api.js";
+import {
+  gatherTaskConfigFromUI,
+  submitTaskConfigUpdate,
+} from "./task-manager/api.js";
 import { showTaskDetails } from "./task-manager/modals.js";
 import { TaskManager } from "./task-manager/task-manager.js";
 
@@ -50,14 +53,14 @@ function setupTaskConfigEventListeners(taskManager) {
         .then(() => {
           window.notificationManager.show(
             "Task configuration updated successfully",
-            "success"
+            "success",
           );
           taskManager.loadTaskConfig();
         })
         .catch((error) => {
           window.notificationManager.show(
             `Error updating task config: ${error.message}`,
-            "danger"
+            "danger",
           );
         });
     });
@@ -113,11 +116,11 @@ function setupTaskConfigEventListeners(taskManager) {
 
         window.notificationManager.show(
           `Tasks paused for ${duration} minutes`,
-          "success"
+          "success",
         );
 
         const modal = bootstrap.Modal.getInstance(
-          document.getElementById("pauseModal")
+          document.getElementById("pauseModal"),
         );
         if (modal) {
           modal.hide();
@@ -249,10 +252,13 @@ function setupTaskConfigEventListeners(taskManager) {
       const config = gatherTaskConfigFromUI();
       submitTaskConfigUpdate(config)
         .then(() =>
-          window.notificationManager.show("Global disable toggled", "success")
+          window.notificationManager.show("Global disable toggled", "success"),
         )
         .catch(() =>
-          window.notificationManager.show("Failed to toggle global disable", "danger")
+          window.notificationManager.show(
+            "Failed to toggle global disable",
+            "danger",
+          ),
         );
     });
   }
@@ -262,7 +268,9 @@ function setupTaskConfigEventListeners(taskManager) {
       if (e.button !== 0) {
         return;
       }
-      const modal = new bootstrap.Modal(document.getElementById("clearHistoryModal"));
+      const modal = new bootstrap.Modal(
+        document.getElementById("clearHistoryModal"),
+      );
       modal.show();
     });
   }
@@ -275,7 +283,7 @@ function setupTaskConfigEventListeners(taskManager) {
       }
       await taskManager.clearTaskHistory();
       const modal = bootstrap.Modal.getInstance(
-        document.getElementById("clearHistoryModal")
+        document.getElementById("clearHistoryModal"),
       );
       modal.hide();
     });
@@ -322,10 +330,14 @@ function setupTaskConfigEventListeners(taskManager) {
  */
 function setupFetchAllMissingModal(taskManager) {
   const openFetchAllMissingModalBtn = document.getElementById(
-    "openFetchAllMissingModalBtn"
+    "openFetchAllMissingModalBtn",
   );
-  const confirmFetchAllMissingBtn = document.getElementById("confirmFetchAllMissing");
-  const fetchAllMissingStartInput = document.getElementById("fetchAllMissingStart");
+  const confirmFetchAllMissingBtn = document.getElementById(
+    "confirmFetchAllMissing",
+  );
+  const fetchAllMissingStartInput = document.getElementById(
+    "fetchAllMissingStart",
+  );
 
   if (openFetchAllMissingModalBtn) {
     openFetchAllMissingModalBtn.addEventListener("click", async () => {
@@ -367,11 +379,14 @@ function setupFetchAllMissingModal(taskManager) {
         }
 
         window.loadingManager?.show();
-        const response = await fetch("/api/background_tasks/fetch_all_missing_trips", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ start_date: startDate }),
-        });
+        const response = await fetch(
+          "/api/background_tasks/fetch_all_missing_trips",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ start_date: startDate }),
+          },
+        );
         const result = await response.json();
         window.loadingManager?.hide();
 
@@ -379,7 +394,7 @@ function setupFetchAllMissingModal(taskManager) {
           taskManager.notifier.show(
             "Success",
             "Fetch all missing trips task started",
-            "success"
+            "success",
           );
           if (statusSpan) {
             statusSpan.textContent = "Task started!";
@@ -394,7 +409,9 @@ function setupFetchAllMissingModal(taskManager) {
           }, 3000);
           taskManager.loadTaskConfig();
         } else {
-          throw new Error(result.detail || result.message || "Failed to start task");
+          throw new Error(
+            result.detail || result.message || "Failed to start task",
+          );
         }
       } catch (error) {
         window.loadingManager?.hide();

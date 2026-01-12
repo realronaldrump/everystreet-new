@@ -82,7 +82,9 @@ async def _record_webhook_failure(
     failure_payload = {
         "received_at": datetime.now(UTC),
         "eventType": payload.get("eventType") if isinstance(payload, dict) else None,
-        "transactionId": payload.get("transactionId") if isinstance(payload, dict) else None,
+        "transactionId": (
+            payload.get("transactionId") if isinstance(payload, dict) else None
+        ),
         "reason": reason,
         "error_id": error_id,
         "error": str(error) if error else None,

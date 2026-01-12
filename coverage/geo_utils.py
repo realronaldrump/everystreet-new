@@ -18,7 +18,10 @@ GEOD = pyproj.Geod(ellps="WGS84")
 
 def get_local_transformers(
     geom: BaseGeometry,
-) -> tuple[Callable[[float, float], tuple[float, float]], Callable[[float, float], tuple[float, float]]]:
+) -> tuple[
+    Callable[[float, float], tuple[float, float]],
+    Callable[[float, float], tuple[float, float]],
+]:
     """
     Build local azimuthal equidistant transformers centered on the geometry.
 
@@ -74,7 +77,5 @@ def geodesic_length_meters(geom: BaseGeometry) -> float:
     if geom_type == "LineString":
         return _line_length_meters(list(geom.coords))
     if geom_type == "MultiLineString":
-        return sum(
-            _line_length_meters(list(line.coords)) for line in geom.geoms
-        )
+        return sum(_line_length_meters(list(line.coords)) for line in geom.geoms)
     return 0.0
