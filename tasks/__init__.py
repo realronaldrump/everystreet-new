@@ -24,5 +24,4 @@ from . import maintenance  # noqa: F401
 from . import routes  # noqa: F401
 from . import scheduler  # noqa: F401
 from . import webhook  # noqa: F401
-
 from .webhook import process_webhook_event_task

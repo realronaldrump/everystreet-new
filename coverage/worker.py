@@ -14,7 +14,7 @@ from typing import Any, Awaitable, Callable
 
 from beanie import PydanticObjectId
 
-from coverage.events import CoverageEvents, on_event, emit_coverage_updated
+from coverage.events import CoverageEvents, emit_coverage_updated, on_event
 from coverage.matching import match_trip_to_streets
 from coverage.models import CoverageArea, CoverageState
 from coverage.stats import update_area_stats
@@ -64,9 +64,9 @@ async def handle_trip_completed(
             updated = await update_coverage_for_segments(
                 area_id=area_id,
                 segment_ids=segment_ids,
-                trip_id=PydanticObjectId(trip_id)
-                if isinstance(trip_id, str)
-                else trip_id,
+                trip_id=(
+                    PydanticObjectId(trip_id) if isinstance(trip_id, str) else trip_id
+                ),
                 driven_at=trip_driven_at,
             )
             total_updated += updated
