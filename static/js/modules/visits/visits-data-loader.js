@@ -7,8 +7,8 @@
   class VisitsDataLoader {
     constructor(options = {}) {
       this.loadingManager = options.loadingManager || window.loadingManager;
-      this.notificationManager
-        = options.notificationManager || window.notificationManager;
+      this.notificationManager =
+        options.notificationManager || window.notificationManager;
     }
 
     /**
@@ -31,7 +31,10 @@
         return placesMap;
       } catch (error) {
         console.error("Error loading places:", error);
-        this.notificationManager?.show("Failed to load custom places", "danger");
+        this.notificationManager?.show(
+          "Failed to load custom places",
+          "danger",
+        );
         this.loadingManager?.hide();
         return new Map();
       }
@@ -51,7 +54,7 @@
         console.error("Error fetching non-custom places visits:", error);
         this.notificationManager?.show(
           "Failed to load non-custom places visits",
-          "danger"
+          "danger",
         );
         return [];
       }
@@ -97,7 +100,9 @@
      */
     async loadPlaceDetailStatistics(placeId) {
       try {
-        return await window.VisitsDataService.fetchPlaceDetailStatistics(placeId);
+        return await window.VisitsDataService.fetchPlaceDetailStatistics(
+          placeId,
+        );
       } catch (error) {
         console.error("Error fetching place statistics:", error);
         throw error;
@@ -120,7 +125,7 @@
         console.error(`Error fetching trips for place ${placeId}:`, error);
         this.notificationManager?.show(
           "Failed to fetch trips for the selected place.",
-          "danger"
+          "danger",
         );
         this.loadingManager?.hide();
         return { trips: [], name: null };
@@ -144,7 +149,7 @@
         this.loadingManager?.hide();
         this.notificationManager?.show(
           "Error loading trip data. Please try again.",
-          "danger"
+          "danger",
         );
         throw error;
       }

@@ -11,7 +11,12 @@ import {
   uploadFiles,
 } from "./api.js";
 import { CSS_CLASSES } from "./constants.js";
-import { getFileExtension, parseGeoJSON, parseGPX, readFileAsText } from "./parsers.js";
+import {
+  getFileExtension,
+  parseGeoJSON,
+  parseGPX,
+  readFileAsText,
+} from "./parsers.js";
 import { initializePreviewMap, updatePreviewMap } from "./preview-map.js";
 import {
   cacheElements,
@@ -70,7 +75,7 @@ export class UploadManager {
     }
 
     this.state.previewMap = await initializePreviewMap(mapEl.id, (filename) =>
-      this.handleMapFeatureClick(filename)
+      this.handleMapFeatureClick(filename),
     );
   }
 
@@ -79,7 +84,9 @@ export class UploadManager {
    * @param {string} filename - The filename of the clicked feature
    */
   handleMapFeatureClick(filename) {
-    const index = this.state.selectedFiles.findIndex((f) => f.filename === filename);
+    const index = this.state.selectedFiles.findIndex(
+      (f) => f.filename === filename,
+    );
     if (index !== -1) {
       this.removeFile(index);
     }
@@ -126,7 +133,9 @@ export class UploadManager {
       fileInput.click();
     });
 
-    fileInput.addEventListener("change", () => this.handleFiles(fileInput.files));
+    fileInput.addEventListener("change", () =>
+      this.handleFiles(fileInput.files),
+    );
   }
 
   /**
@@ -155,7 +164,9 @@ export class UploadManager {
 
     if (selectAllCheckbox) {
       selectAllCheckbox.addEventListener("change", () => {
-        const checkboxes = document.querySelectorAll(`.${CSS_CLASSES.tripCheckbox}`);
+        const checkboxes = document.querySelectorAll(
+          `.${CSS_CLASSES.tripCheckbox}`,
+        );
         checkboxes.forEach((cb) => {
           cb.checked = selectAllCheckbox.checked;
         });
@@ -189,7 +200,7 @@ export class UploadManager {
 
     try {
       const filePromises = Array.from(files).map((file, index) =>
-        this.processFile(file, index)
+        this.processFile(file, index),
       );
 
       await Promise.all(filePromises);
@@ -224,7 +235,7 @@ export class UploadManager {
       } else {
         window.notificationManager?.show(
           `Unsupported file type: ${file.name}. Only .gpx and .geojson files are supported.`,
-          "warning"
+          "warning",
         );
       }
 
@@ -233,7 +244,7 @@ export class UploadManager {
       this.loadingManager?.error(`Error handling file: ${file.name}`);
       window.notificationManager?.show(
         `Error parsing ${file.name}: ${error.message}`,
-        "danger"
+        "danger",
       );
     }
   }
@@ -242,15 +253,18 @@ export class UploadManager {
    * Update the UI after file changes
    */
   updateUI() {
-    renderFileList(this.elements.fileListBody, this.state.selectedFiles, (index) =>
-      this.removeFile(index)
+    renderFileList(
+      this.elements.fileListBody,
+      this.state.selectedFiles,
+      (index) => this.removeFile(index),
     );
 
     updatePreviewMap(this.state.previewMap, this.state.selectedFiles);
     updateStats(this.elements, this.state.selectedFiles);
 
     if (this.elements.uploadButton) {
-      this.elements.uploadButton.disabled = this.state.selectedFiles.length === 0;
+      this.elements.uploadButton.disabled =
+        this.state.selectedFiles.length === 0;
     }
   }
 
@@ -261,7 +275,9 @@ export class UploadManager {
   removeFile(index) {
     if (index >= 0 && index < this.state.selectedFiles.length) {
       const removedFile = this.state.selectedFiles.splice(index, 1);
-      window.handleError?.(`Removed file ${removedFile[0]?.filename} from selection.`);
+      window.handleError?.(
+        `Removed file ${removedFile[0]?.filename} from selection.`,
+      );
       this.updateUI();
     }
   }
@@ -274,7 +290,10 @@ export class UploadManager {
     const { uploadButton } = this.elements;
 
     if (selectedFiles.length === 0) {
-      window.notificationManager?.show("No files selected to upload", "warning");
+      window.notificationManager?.show(
+        "No files selected to upload",
+        "warning",
+      );
       return;
     }
 
@@ -293,7 +312,7 @@ export class UploadManager {
     } catch (error) {
       window.notificationManager?.show(
         `Error uploading files: ${error.message}`,
-        "danger"
+        "danger",
       );
       this.loadingManager?.error(`Error uploading files: ${error.message}`);
     } finally {
@@ -312,7 +331,10 @@ export class UploadManager {
       const trips = await fetchUploadedTrips();
       this.displayUploadSourceTrips(trips);
     } catch (error) {
-      window.notificationManager?.show("Error loading trips from server", "danger");
+      window.notificationManager?.show(
+        "Error loading trips from server",
+        "danger",
+      );
       this.loadingManager?.error(`Error fetching trips: ${error.message}`);
       this.displayUploadSourceTrips([]);
     } finally {
@@ -330,7 +352,7 @@ export class UploadManager {
     this.state.displayedTrips = trips;
 
     renderUploadedTrips(this.elements.uploadedTripsBody, trips, (tripId) =>
-      this.deleteTrip(tripId)
+      this.deleteTrip(tripId),
     );
 
     updateBulkDeleteButtonState(this.elements.bulkDeleteBtn);
@@ -350,14 +372,14 @@ export class UploadManager {
       if (result) {
         window.notificationManager?.show(
           `Trip ${tripId} deleted successfully. Matched trips deleted: ${result.deleted_matched_trips}`,
-          "success"
+          "success",
         );
         await this.loadUploadSourceTrips();
       }
     } catch (error) {
       window.notificationManager?.show(
         `Error deleting trip: ${error.message}`,
-        "danger"
+        "danger",
       );
       this.loadingManager?.error(`Error deleting trip: ${error.message}`);
     } finally {
@@ -376,7 +398,10 @@ export class UploadManager {
     const tripIds = getSelectedTripIds();
 
     if (tripIds.length === 0) {
-      window.notificationManager?.show("No trips selected for deletion.", "warning");
+      window.notificationManager?.show(
+        "No trips selected for deletion.",
+        "warning",
+      );
       this.loadingManager?.hide();
       return;
     }
@@ -388,7 +413,7 @@ export class UploadManager {
 
       const { successCount, failCount } = await bulkDeleteTrips(
         tripIds,
-        this.loadingManager
+        this.loadingManager,
       );
 
       const { message, type } = getBulkDeleteMessage(successCount, failCount);
@@ -399,9 +424,11 @@ export class UploadManager {
       if (error.message !== "Bulk delete cancelled by user") {
         window.notificationManager?.show(
           `An unexpected error occurred during bulk deletion: ${error.message}`,
-          "danger"
+          "danger",
         );
-        this.loadingManager?.error(`Error during bulk deletion: ${error.message}`);
+        this.loadingManager?.error(
+          `Error during bulk deletion: ${error.message}`,
+        );
       }
     } finally {
       if (bulkDeleteBtn) {
