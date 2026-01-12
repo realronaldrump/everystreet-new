@@ -4,7 +4,7 @@ import logging
 from datetime import UTC, datetime
 from typing import Any
 
-from bson import ObjectId
+from beanie import PydanticObjectId
 
 from core.exceptions import ResourceNotFoundException, ValidationException
 from date_utils import parse_timestamp
@@ -202,8 +202,8 @@ class StatisticsService:
         """
         # Get the trip
         trip = None
-        if ObjectId.is_valid(trip_id):
-            trip = await Trip.get(trip_id)
+        if PydanticObjectId.is_valid(trip_id):
+            trip = await Trip.get(PydanticObjectId(trip_id))
         if not trip:
             trip = await Trip.find_one(Trip.transactionId == trip_id)
         if not trip:

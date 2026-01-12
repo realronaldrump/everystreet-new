@@ -1,4 +1,4 @@
-import { UI_CONFIG as CONFIG, CONFIG as MAP_CONFIG } from "../config.js";
+import { CONFIG } from "../config.js";
 import state from "../state.js";
 import uiState from "../ui-state.js";
 import { utils } from "../utils.js";
@@ -6,11 +6,11 @@ import eventManager from "./event-manager.js";
 
 const mapControlsManager = {
   init() {
-    const mapTypeSelect = uiState.getElement(CONFIG.selectors.mapTypeSelect);
+    const mapTypeSelect = uiState.getElement(CONFIG.UI.selectors.mapTypeSelect);
     if (mapTypeSelect) {
       // Default to dark mode, but respect user's stored preference
       const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
-      const defaultMapType = utils.getStorage(CONFIG.storage.mapType) || theme;
+      const defaultMapType = utils.getStorage(CONFIG.STORAGE_KEYS.mapType) || theme;
       mapTypeSelect.value = defaultMapType;
       mapTypeSelect.addEventListener("change", (e) =>
         this.updateMapType(e.target.value)
@@ -52,13 +52,13 @@ const mapControlsManager = {
   },
 
   toggleControlPanel() {
-    const panel = uiState.getElement(CONFIG.selectors.mapControls);
+    const panel = uiState.getElement(CONFIG.UI.selectors.mapControls);
     if (!panel) {
       return;
     }
-    panel.classList.toggle(CONFIG.classes.open);
-    const isOpen = panel.classList.contains(CONFIG.classes.open);
-    utils.setStorage(CONFIG.storage.mapControlsOpen, isOpen);
+    panel.classList.toggle(CONFIG.UI.classes.open);
+    const isOpen = panel.classList.contains(CONFIG.UI.classes.open);
+    utils.setStorage(CONFIG.STORAGE_KEYS.mapControlsOpen, isOpen);
     eventManager.emit("mapControlsToggled", { open: isOpen });
   },
 
@@ -71,7 +71,7 @@ const mapControlsManager = {
       console.warn("Map setStyle method not available yet");
       return;
     }
-    utils.setStorage(CONFIG.storage.mapType, type);
+    utils.setStorage(CONFIG.STORAGE_KEYS.mapType, type);
     let onStyleLoaded = null;
     try {
       const currentView = {
@@ -106,7 +106,7 @@ const mapControlsManager = {
       }
       // Use style from CONFIG if available, fallback to default pattern
       const styleUrl
-        = MAP_CONFIG.MAP.styles[type] || `mapbox://styles/mapbox/${type}-v11`;
+        = CONFIG.MAP.styles[type] || `mapbox://styles/mapbox/${type}-v11`;
       map.setStyle(styleUrl);
       eventManager.emit("mapTypeChanged", { type });
     } catch (error) {

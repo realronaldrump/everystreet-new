@@ -148,21 +148,13 @@ async def list_areas():
 
 
 @router.get("/areas/{area_id}", response_model=AreaDetailResponse)
-async def get_area(area_id: str):
+async def get_area(area_id: PydanticObjectId):
     """
     Get detailed information about a coverage area.
 
     Includes bounding box and optimal route availability.
     """
-    try:
-        oid = PydanticObjectId(area_id)
-    except Exception:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid area ID format",
-        )
-
-    area = await CoverageArea.get(oid)
+    area = await CoverageArea.get(area_id)
     if not area:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -237,7 +229,7 @@ async def add_area(request: CreateAreaRequest):
 
 
 @router.delete("/areas/{area_id}", response_model=DeleteAreaResponse)
-async def remove_area(area_id: str):
+async def remove_area(area_id: PydanticObjectId):
     """
     Delete a coverage area and all associated data.
 
@@ -248,15 +240,7 @@ async def remove_area(area_id: str):
 
     This action cannot be undone.
     """
-    try:
-        oid = PydanticObjectId(area_id)
-    except Exception:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid area ID format",
-        )
-
-    deleted = await delete_area(oid)
+    deleted = await delete_area(area_id)
 
     if not deleted:
         raise HTTPException(
@@ -270,7 +254,7 @@ async def remove_area(area_id: str):
 
 
 @router.post("/areas/{area_id}/rebuild")
-async def trigger_rebuild(area_id: str):
+async def trigger_rebuild(area_id: PydanticObjectId):
     """
     Trigger a rebuild of an area with fresh OSM data.
 
@@ -282,15 +266,7 @@ async def trigger_rebuild(area_id: str):
     Returns a job ID for tracking progress.
     """
     try:
-        oid = PydanticObjectId(area_id)
-    except Exception:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid area ID format",
-        )
-
-    try:
-        job = await rebuild_area(oid)
+        job = await rebuild_area(area_id)
 
         return {
             "success": True,
@@ -312,7 +288,7 @@ async def trigger_rebuild(area_id: str):
 
 
 @router.post("/areas/{area_id}/backfill")
-async def trigger_backfill(area_id: str):
+async def trigger_backfill(area_id: PydanticObjectId):
     """
     Trigger a backfill of coverage data for an existing area.
 
@@ -329,15 +305,7 @@ async def trigger_backfill(area_id: str):
     """
     from coverage.worker import backfill_coverage_for_area
 
-    try:
-        oid = PydanticObjectId(area_id)
-    except Exception:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid area ID format",
-        )
-
-    area = await CoverageArea.get(oid)
+    area = await CoverageArea.get(area_id)
     if not area:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -346,7 +314,7 @@ async def trigger_backfill(area_id: str):
 
     try:
         logger.info(f"Starting backfill for area {area.display_name}")
-        segments_updated = await backfill_coverage_for_area(oid)
+        segments_updated = await backfill_coverage_for_area(area_id)
 
         return {
             "success": True,

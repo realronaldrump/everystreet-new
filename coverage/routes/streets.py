@@ -65,7 +65,7 @@ class MarkDrivenSegmentsRequest(BaseModel):
 
 @router.get("/areas/{area_id}/streets", response_model=StreetsResponse)
 async def get_streets_in_viewport(
-    area_id: str,
+    area_id: PydanticObjectId,
     min_lon: float = Query(..., description="Viewport minimum longitude"),
     min_lat: float = Query(..., description="Viewport minimum latitude"),
     max_lon: float = Query(..., description="Viewport maximum longitude"),
@@ -82,16 +82,8 @@ async def get_streets_in_viewport(
     - Features include 'status' property: 'undriven', 'driven', 'undriveable'
     - Render segments with appropriate colors based on status
     """
-    try:
-        oid = PydanticObjectId(area_id)
-    except Exception:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid area ID format",
-        )
-
     # Verify area exists and is ready
-    area = await CoverageArea.get(oid)
+    area = await CoverageArea.get(area_id)
     if not area:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -120,7 +112,7 @@ async def get_streets_in_viewport(
 
     # Query streets in viewport
     streets_query = {
-        "area_id": oid,
+        "area_id": area_id,
         "area_version": area.area_version,
         "geometry": {
             "$geoIntersects": {
@@ -141,7 +133,7 @@ async def get_streets_in_viewport(
     # Get coverage states for these segments
     segment_ids = [s.segment_id for s in streets]
     states = await CoverageState.find(
-        {"area_id": oid, "segment_id": {"$in": segment_ids}}
+        {"area_id": area_id, "segment_id": {"$in": segment_ids}}
     ).to_list()
 
     # Build state lookup
@@ -177,7 +169,7 @@ async def get_streets_in_viewport(
 
 @router.get("/areas/{area_id}/streets/geojson")
 async def get_streets_geojson(
-    area_id: str,
+    area_id: PydanticObjectId,
     min_lon: float = Query(...),
     min_lat: float = Query(...),
     max_lon: float = Query(...),
@@ -204,7 +196,7 @@ async def get_streets_geojson(
 
 @router.get("/areas/{area_id}/streets/all")
 async def get_all_streets(
-    area_id: str,
+    area_id: PydanticObjectId,
     status: str | None = Query(None, description="Optional status filter"),
 ):
     """
@@ -212,15 +204,7 @@ async def get_all_streets(
 
     Intended for full-area workflows such as turn-by-turn coverage.
     """
-    try:
-        oid = PydanticObjectId(area_id)
-    except Exception:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid area ID format",
-        )
-
-    area = await CoverageArea.get(oid)
+    area = await CoverageArea.get(area_id)
     if not area:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -242,7 +226,7 @@ async def get_all_streets(
     # Load all streets for this area version
     streets = await Street.find(
         {
-            "area_id": oid,
+            "area_id": area_id,
             "area_version": area.area_version,
         }
     ).to_list()
@@ -252,7 +236,7 @@ async def get_all_streets(
 
     segment_ids = [s.segment_id for s in streets]
     states = await CoverageState.find(
-        {"area_id": oid, "segment_id": {"$in": segment_ids}}
+        {"area_id": area_id, "segment_id": {"$in": segment_ids}}
     ).to_list()
     status_map = {s.segment_id: s.status for s in states}
 
@@ -284,7 +268,7 @@ async def get_all_streets(
 
 @router.patch("/areas/{area_id}/streets/{segment_id}")
 async def update_segment_status(
-    area_id: str,
+    area_id: PydanticObjectId,
     segment_id: str,
     request: MarkSegmentRequest,
 ):
@@ -295,16 +279,8 @@ async def update_segment_status(
     - Mark a segment as 'undriveable' (private road, highway, etc.)
     - Reset a segment to 'undriven' (undo driving detection)
     """
-    try:
-        oid = PydanticObjectId(area_id)
-    except Exception:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid area ID format",
-        )
-
     # Verify segment exists
-    street = await Street.find_one({"area_id": oid, "segment_id": segment_id})
+    street = await Street.find_one({"area_id": area_id, "segment_id": segment_id})
     if not street:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -312,9 +288,9 @@ async def update_segment_status(
         )
 
     if request.status == "undriveable":
-        await mark_segment_undriveable(oid, segment_id)
+        await mark_segment_undriveable(area_id, segment_id)
     elif request.status == "undriven":
-        await mark_segment_undriven(oid, segment_id)
+        await mark_segment_undriven(area_id, segment_id)
     else:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -324,7 +300,7 @@ async def update_segment_status(
     # Recalculate stats
     from coverage.stats import update_area_stats
 
-    await update_area_stats(oid)
+    await update_area_stats(area_id)
 
     return {
         "success": True,
@@ -334,19 +310,11 @@ async def update_segment_status(
 
 @router.post("/areas/{area_id}/streets/mark-driven")
 async def mark_segments_driven(
-    area_id: str,
+    area_id: PydanticObjectId,
     request: MarkDrivenSegmentsRequest,
 ):
     """Mark multiple segments as driven for an area."""
-    try:
-        oid = PydanticObjectId(area_id)
-    except Exception:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid area ID format",
-        )
-
-    area = await CoverageArea.get(oid)
+    area = await CoverageArea.get(area_id)
     if not area:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -354,13 +322,13 @@ async def mark_segments_driven(
         )
 
     updated = await update_coverage_for_segments(
-        area_id=oid,
+        area_id=area_id,
         segment_ids=request.segment_ids,
     )
 
     from coverage.stats import update_area_stats
 
-    await update_area_stats(oid)
+    await update_area_stats(area_id)
 
     return {
         "success": True,
@@ -369,21 +337,13 @@ async def mark_segments_driven(
 
 
 @router.get("/areas/{area_id}/streets/summary")
-async def get_streets_summary(area_id: str):
+async def get_streets_summary(area_id: PydanticObjectId):
     """
     Get a summary of street coverage without loading all segments.
 
     Returns counts and totals for display in UI.
     """
-    try:
-        oid = PydanticObjectId(area_id)
-    except Exception:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid area ID format",
-        )
-
-    area = await CoverageArea.get(oid)
+    area = await CoverageArea.get(area_id)
     if not area:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -393,11 +353,11 @@ async def get_streets_summary(area_id: str):
     # Get status counts
     from coverage.stats import get_segment_status_counts
 
-    counts = await get_segment_status_counts(oid, area.area_version)
+    counts = await get_segment_status_counts(area_id, area.area_version)
 
     return {
         "success": True,
-        "area_id": area_id,
+        "area_id": str(area_id),
         "display_name": area.display_name,
         "status": area.status,
         "total_segments": area.total_segments,

@@ -209,18 +209,4 @@ export const CONFIG = {
   },
 };
 
-// For backward compatibility with files importing UI_CONFIG
-export const UI_CONFIG = {
-  selectors: CONFIG.UI.selectors,
-  classes: CONFIG.UI.classes,
-  storage: CONFIG.STORAGE_KEYS,
-  transitions: CONFIG.UI.transitions,
-  map: { defaultZoom: CONFIG.MAP.defaultZoom, flyToDuration: 1.5 },
-  themeColors: CONFIG.UI.themeColors,
-  debounceDelays: CONFIG.UI.debounceDelays,
-  mobileBreakpoint: CONFIG.UI.mobileBreakpoint,
-  tooltipDelay: CONFIG.UI.tooltipDelay,
-  animations: CONFIG.UI.animations,
-};
-
 export default CONFIG;

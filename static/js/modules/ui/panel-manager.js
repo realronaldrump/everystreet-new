@@ -1,23 +1,23 @@
-import { UI_CONFIG as CONFIG } from "../config.js";
+import { CONFIG } from "../config.js";
 import { uiState } from "../ui-state.js";
 import { utils } from "../utils.js";
 import eventManager from "./event-manager.js";
 
 const panelManager = {
-  transitionDuration: CONFIG.transitions.normal,
+  transitionDuration: CONFIG.UI.transitions.normal,
 
   async close(type) {
     const panelMap = {
-      mobile: CONFIG.selectors.mobileDrawer,
-      filters: CONFIG.selectors.filtersPanel,
+      mobile: CONFIG.UI.selectors.mobileDrawer,
+      filters: CONFIG.UI.selectors.filtersPanel,
     };
     const panel = uiState.getElement(panelMap[type]);
-    const overlay = uiState.getElement(CONFIG.selectors.contentOverlay);
-    if (!panel || !panel.classList.contains(CONFIG.classes.open)) {
+    const overlay = uiState.getElement(CONFIG.UI.selectors.contentOverlay);
+    if (!panel || !panel.classList.contains(CONFIG.UI.classes.open)) {
       return;
     }
     panel.style.transition = `transform ${this.transitionDuration}ms ease-in-out`;
-    panel.classList.remove(CONFIG.classes.open);
+    panel.classList.remove(CONFIG.UI.classes.open);
     if (overlay) {
       await utils.fadeOut(overlay, this.transitionDuration);
     }
@@ -36,12 +36,12 @@ const panelManager = {
 
   async open(type) {
     const panelMap = {
-      mobile: CONFIG.selectors.mobileDrawer,
-      filters: CONFIG.selectors.filtersPanel,
+      mobile: CONFIG.UI.selectors.mobileDrawer,
+      filters: CONFIG.UI.selectors.filtersPanel,
     };
     const panel = uiState.getElement(panelMap[type]);
-    const overlay = uiState.getElement(CONFIG.selectors.contentOverlay);
-    if (!panel || panel.classList.contains(CONFIG.classes.open)) {
+    const overlay = uiState.getElement(CONFIG.UI.selectors.contentOverlay);
+    if (!panel || panel.classList.contains(CONFIG.UI.classes.open)) {
       return;
     }
     panel.style.transition = `transform ${this.transitionDuration}ms ease-in-out`;
@@ -56,7 +56,7 @@ const panelManager = {
       overlay.style.display = "block";
       await utils.fadeIn(overlay, this.transitionDuration / 2);
     }
-    panel.classList.add(CONFIG.classes.open);
+    panel.classList.add(CONFIG.UI.classes.open);
     if (type === "filters") {
       uiState.uiState.filtersOpen = true;
       uiState.saveUIState();
@@ -71,15 +71,15 @@ const panelManager = {
 
   toggle(type) {
     const panelMap = {
-      filters: CONFIG.selectors.filtersPanel,
-      mobile: CONFIG.selectors.mobileDrawer,
+      filters: CONFIG.UI.selectors.filtersPanel,
+      mobile: CONFIG.UI.selectors.mobileDrawer,
     };
     const panel = uiState.getElement(panelMap[type]);
-    panel?.classList.contains(CONFIG.classes.open) ? this.close(type) : this.open(type);
+    panel?.classList.contains(CONFIG.UI.classes.open) ? this.close(type) : this.open(type);
   },
 
   init() {
-    const mobileDrawer = uiState.getElement(CONFIG.selectors.mobileDrawer);
+    const mobileDrawer = uiState.getElement(CONFIG.UI.selectors.mobileDrawer);
     if (mobileDrawer && "ontouchstart" in window) {
       this.initSwipeGestures(mobileDrawer, "mobile");
     }
@@ -87,20 +87,20 @@ const panelManager = {
     // Initialize collapsible drawer nav sections
     this.initDrawerSections();
 
-    eventManager.add(CONFIG.selectors.menuToggle, "click", (e) => {
+    eventManager.add(CONFIG.UI.selectors.menuToggle, "click", (e) => {
       e.stopPropagation();
       this.open("mobile");
     });
-    eventManager.add(CONFIG.selectors.closeBtn, "click", () => this.close("mobile"));
-    eventManager.add(CONFIG.selectors.contentOverlay, "click", () => {
+    eventManager.add(CONFIG.UI.selectors.closeBtn, "click", () => this.close("mobile"));
+    eventManager.add(CONFIG.UI.selectors.contentOverlay, "click", () => {
       this.close("mobile");
       this.close("filters");
     });
-    eventManager.add(CONFIG.selectors.filterToggle, "click", (e) => {
+    eventManager.add(CONFIG.UI.selectors.filterToggle, "click", (e) => {
       e.stopPropagation();
       this.toggle("filters");
     });
-    eventManager.add(CONFIG.selectors.filtersClose, "click", () =>
+    eventManager.add(CONFIG.UI.selectors.filtersClose, "click", () =>
       this.close("filters")
     );
 

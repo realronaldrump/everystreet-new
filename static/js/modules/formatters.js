@@ -404,15 +404,6 @@ export function formatTimeAgo(dateInput, abbreviated = false) {
   return "Just now";
 }
 
-/**
- * Alias for formatTimeAgo for backward compatibility
- * @param {string} dateString - ISO date string
- * @returns {string} Formatted relative time
- */
-export function formatRelativeTime(dateString) {
-  return formatTimeAgo(dateString, false);
-}
-
 // ============================================================================
 // Vehicle/Location Formatting
 // ============================================================================
@@ -534,7 +525,6 @@ const formatters = {
 
   // Relative Time
   formatTimeAgo,
-  formatRelativeTime,
 
   // Vehicle/Location
   formatVehicleName,

@@ -8,7 +8,6 @@ from typing import Any
 
 from beanie.operators import In
 from fastapi import HTTPException, status
-from pymongo.errors import DuplicateKeyError
 
 from admin_api import get_persisted_app_settings
 from config import get_mapbox_token
@@ -82,14 +81,14 @@ def with_comprehensive_handling(func: Callable) -> Callable:
                     func.__name__,
                     duration,
                 )
-        except DuplicateKeyError as e:
-            logger.warning("Duplicate key error in %s: %s", func.__name__, e)
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Trip already exists",
-            )
-        except Exception:
+        except Exception as e:
             duration = time.time() - start_time
+            if e.__class__.__name__ == "DuplicateKeyError":
+                logger.warning("Duplicate key error in %s: %s", func.__name__, e)
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Trip already exists",
+                )
             logger.exception("Error in %s after %.2fs", func.__name__, duration)
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

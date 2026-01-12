@@ -92,7 +92,7 @@ async def geocode_search(
 async def search_streets(
     query: Annotated[str, Query(description="Street name to search for")],
     location_id: Annotated[
-        str | None,
+        PydanticObjectId | None,
         Query(description="Optional coverage area ID to search within"),
     ] = None,
     limit: Annotated[
@@ -118,8 +118,7 @@ async def search_streets(
         )
 
     try:
-        area_id = PydanticObjectId(location_id) if location_id else None
-        new_area = await CoverageArea.get(area_id) if area_id else None
+        new_area = await CoverageArea.get(location_id) if location_id else None
         if not new_area:
             logger.warning("Coverage area not found: %s", location_id)
             return []
@@ -129,7 +128,7 @@ async def search_streets(
         # Query Street by area_id and street_name, then join with CoverageState for driven status
         driven_segment_ids = set()
         async for state in CoverageState.find(
-            CoverageState.area_id == area_id,
+            CoverageState.area_id == location_id,
             CoverageState.status == "driven",
         ):
             driven_segment_ids.add(state.segment_id)
@@ -137,7 +136,7 @@ async def search_streets(
         # Build results grouped by street name
         street_groups: dict[str, dict] = {}
         async for street in Street.find(
-            Street.area_id == area_id,
+            Street.area_id == location_id,
             Street.area_version == new_area.area_version,
             Street.street_name != None,  # noqa: E711
         ):

@@ -54,7 +54,7 @@ class JobListResponse(BaseModel):
 
 
 @router.get("/jobs/{job_id}", response_model=JobStatusResponse)
-async def get_job_status(job_id: str):
+async def get_job_status(job_id: PydanticObjectId):
     """
     Get the status of a background job.
 
@@ -63,15 +63,7 @@ async def get_job_status(job_id: str):
     - Area rebuilds
     - Route generation
     """
-    try:
-        oid = PydanticObjectId(job_id)
-    except Exception:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid job ID format",
-        )
-
-    job = await Job.get(oid)
+    job = await Job.get(job_id)
     if not job:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -101,23 +93,17 @@ async def get_job_status(job_id: str):
 
 
 @router.get("/areas/{area_id}/jobs", response_model=JobListResponse)
-async def get_area_jobs(area_id: str, limit: int = 10):
+async def get_area_jobs(area_id: PydanticObjectId, limit: int = 10):
     """
     Get recent jobs for a coverage area.
 
     Returns the most recent jobs, ordered by creation time.
     """
-    try:
-        oid = PydanticObjectId(area_id)
-    except Exception:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid area ID format",
-        )
+    jobs = (
+        await Job.find({"area_id": area_id}).sort("-created_at").limit(limit).to_list()
+    )
 
-    jobs = await Job.find({"area_id": oid}).sort("-created_at").limit(limit).to_list()
-
-    area = await CoverageArea.get(oid)
+    area = await CoverageArea.get(area_id)
     area_display_name = area.display_name if area else None
 
     return JobListResponse(
@@ -125,7 +111,7 @@ async def get_area_jobs(area_id: str, limit: int = 10):
             JobStatusResponse(
                 job_id=str(job.id),
                 job_type=job.job_type,
-                area_id=str(job.area_id) if job.area_id else str(oid),
+                area_id=str(job.area_id) if job.area_id else str(area_id),
                 area_display_name=area_display_name,
                 status=job.status,
                 stage=job.stage,
@@ -186,22 +172,14 @@ async def list_active_jobs():
 
 
 @router.delete("/jobs/{job_id}")
-async def cancel_job(job_id: str):
+async def cancel_job(job_id: PydanticObjectId):
     """
     Cancel a pending or running job.
 
     Note: This doesn't immediately stop running tasks, but prevents
     retries and marks the job as cancelled.
     """
-    try:
-        oid = PydanticObjectId(job_id)
-    except Exception:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid job ID format",
-        )
-
-    job = await Job.get(oid)
+    job = await Job.get(job_id)
     if not job:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -222,4 +200,3 @@ async def cancel_job(job_id: str):
         "success": True,
         "message": "Job cancelled",
     }
-

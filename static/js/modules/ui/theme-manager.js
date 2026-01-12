@@ -1,11 +1,11 @@
-import { UI_CONFIG as CONFIG, CONFIG as MAP_CONFIG } from "../config.js";
+import { CONFIG } from "../config.js";
 import uiState from "../ui-state.js";
 import { utils } from "../utils.js";
 import eventManager from "./event-manager.js";
 
 const themeManager = {
   init() {
-    const saved = utils.getStorage(CONFIG.storage.theme);
+    const saved = utils.getStorage(CONFIG.STORAGE_KEYS.theme);
     const systemPref = window.matchMedia("(prefers-color-scheme: dark)").matches
       ? "dark"
       : "light";
@@ -22,7 +22,7 @@ const themeManager = {
     const isLight = theme === "light";
     uiState.currentTheme = theme;
 
-    if (animate && CONFIG.animations.enabled) {
+    if (animate && CONFIG.UI.animations.enabled) {
       document.documentElement.style.transition
         = "background-color 0.3s ease, color 0.3s ease";
     }
@@ -37,7 +37,7 @@ const themeManager = {
       })
     )([
       () => {
-        document.body.classList.toggle(CONFIG.classes.lightMode, isLight);
+        document.body.classList.toggle(CONFIG.UI.classes.lightMode, isLight);
         document.documentElement.setAttribute("data-bs-theme", theme);
       },
       () => this.updateMetaColor(theme),
@@ -46,20 +46,20 @@ const themeManager = {
       () => this.updateChartThemes(theme),
     ]);
 
-    if (animate && CONFIG.animations.enabled) {
+    if (animate && CONFIG.UI.animations.enabled) {
       setTimeout(() => {
         document.documentElement.style.transition = "";
       }, 300);
     }
 
-    utils.setStorage(CONFIG.storage.theme, theme);
+    utils.setStorage(CONFIG.STORAGE_KEYS.theme, theme);
     document.dispatchEvent(new CustomEvent("themeChanged", { detail: { theme } }));
   },
 
   updateMetaColor(theme) {
     const meta = document.querySelector('meta[name="theme-color"]');
     if (meta) {
-      meta.setAttribute("content", CONFIG.themeColors[theme]);
+      meta.setAttribute("content", CONFIG.UI.themeColors[theme]);
     }
   },
 
@@ -75,8 +75,8 @@ const themeManager = {
     const bearing = window.map.getBearing();
     const pitch = window.map.getPitch();
 
-    if (MAP_CONFIG?.MAP?.styles?.[theme]) {
-      const styleUrl = MAP_CONFIG.MAP.styles[theme];
+    if (CONFIG.MAP.styles?.[theme]) {
+      const styleUrl = CONFIG.MAP.styles[theme];
       const restoreState = () => {
         window.map.jumpTo({ center, zoom, bearing, pitch });
         setTimeout(() => window.map.resize(), 100);
@@ -123,14 +123,14 @@ const themeManager = {
   },
 
   syncToggles(theme) {
-    const toggle = uiState.getElement(CONFIG.selectors.themeToggle);
+    const toggle = uiState.getElement(CONFIG.UI.selectors.themeToggle);
     if (toggle) {
       toggle.checked = theme === "light";
     }
   },
 
   setupToggles() {
-    const toggle = uiState.getElement(CONFIG.selectors.themeToggle);
+    const toggle = uiState.getElement(CONFIG.UI.selectors.themeToggle);
     if (toggle) {
       eventManager.add(toggle, "change", () =>
         this.apply(toggle.checked ? "light" : "dark")
@@ -141,7 +141,7 @@ const themeManager = {
   watchSystemPreference() {
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
     const handler = (e) => {
-      if (!utils.getStorage(CONFIG.storage.theme)) {
+      if (!utils.getStorage(CONFIG.STORAGE_KEYS.theme)) {
         this.apply(e.matches ? "dark" : "light");
       }
     };

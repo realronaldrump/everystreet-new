@@ -1,4 +1,4 @@
-import { UI_CONFIG as CONFIG } from "../config.js";
+import { CONFIG } from "../config.js";
 import uiState from "../ui-state.js";
 import dateManager from "./date-manager.js";
 // utils is not used here; avoid unused import
@@ -6,9 +6,9 @@ import eventManager from "./event-manager.js";
 import panelManager from "./panel-manager.js";
 
 function ensureIndicator() {
-  let indicator = uiState.getElement(CONFIG.selectors.filterIndicator);
+  let indicator = uiState.getElement(CONFIG.UI.selectors.filterIndicator);
   if (!indicator) {
-    const tools = uiState.getElement(CONFIG.selectors.toolsSection);
+    const tools = uiState.getElement(CONFIG.UI.selectors.toolsSection);
     if (!tools) {
       return null;
     }
@@ -25,24 +25,24 @@ function ensureIndicator() {
 const filterIndicatorManager = {
   init() {
     const indicator = ensureIndicator();
-    const filtersBtn = uiState.getElement(CONFIG.selectors.filterToggle);
+    const filtersBtn = uiState.getElement(CONFIG.UI.selectors.filterToggle);
     if (!indicator || !filtersBtn) {
       return;
     }
 
     filtersBtn.addEventListener("click", () => {
-      indicator.classList.remove(CONFIG.classes.unseen);
+      indicator.classList.remove(CONFIG.UI.classes.unseen);
     });
 
     document.addEventListener("filtersApplied", () => {
-      indicator.classList.remove(CONFIG.classes.active);
-      indicator.classList.add(CONFIG.classes.applied);
-      indicator.classList.add(CONFIG.classes.unseen);
+      indicator.classList.remove(CONFIG.UI.classes.active);
+      indicator.classList.add(CONFIG.UI.classes.applied);
+      indicator.classList.add(CONFIG.UI.classes.unseen);
       dateManager.updateIndicator();
     });
 
     eventManager.on("filtersReset", () => {
-      indicator.classList.remove(CONFIG.classes.applied, CONFIG.classes.unseen);
+      indicator.classList.remove(CONFIG.UI.classes.applied, CONFIG.UI.classes.unseen);
     });
 
     // Clicking the indicator or icon opens the filters panel
