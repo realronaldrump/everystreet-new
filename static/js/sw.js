@@ -21,10 +21,10 @@ self.addEventListener("activate", (event) => {
             return caches.delete(key);
           }
           return null;
-        })
+        }),
       );
       await clients.claim();
-    })()
+    })(),
   );
 });
 
@@ -45,7 +45,10 @@ self.addEventListener("fetch", (event) => {
 
   const url = new URL(request.url);
 
-  if (url.origin === self.location.origin && url.pathname.startsWith(API_PATH_PREFIX)) {
+  if (
+    url.origin === self.location.origin &&
+    url.pathname.startsWith(API_PATH_PREFIX)
+  ) {
     event.respondWith(networkFirst(request));
     return;
   }

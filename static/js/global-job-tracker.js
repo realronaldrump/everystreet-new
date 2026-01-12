@@ -20,7 +20,7 @@ let pollTimeout = null;
 function initGlobalJobTracker() {
   console.log("Global Job Tracker initialized");
   setupGlobalUI();
-  
+
   // Check for stored job or active jobs on server
   resumeJobTracking();
 }
@@ -34,7 +34,7 @@ function setupGlobalUI() {
   cancelBtn?.addEventListener("click", cancelActiveJob);
 
   badgeEl?.addEventListener("click", restoreJobModal);
-  
+
   // Listen for custom events to start tracking from other pages
   document.addEventListener("coverage:job-started", (e) => {
     if (e.detail?.jobId) {
@@ -69,14 +69,14 @@ async function resumeJobTracking() {
       if (isJobActive(job.status)) {
         activeJob = { ...stored, ...mapJobToState(job) };
         saveJobState();
-        
+
         // Decide whether to show modal or badge based on previous state
         if (activeJob.minimized) {
           showMinimizedBadge();
         } else {
           showProgressModal();
         }
-        
+
         startPolling(activeJob.jobId);
       } else {
         handleJobFinished(job);
@@ -101,7 +101,7 @@ function startGlobalTracking(config) {
     message: config.initialMessage || "Starting...",
     progress: 0,
     status: "pending",
-    minimized: false // Default to open
+    minimized: false, // Default to open
   };
 
   saveJobState();
@@ -129,7 +129,7 @@ function clearJobState() {
 
 function startPolling(jobId) {
   clearTimeout(pollTimeout);
-  
+
   const poll = async () => {
     if (!activeJob || activeJob.jobId !== jobId) return;
 
@@ -166,11 +166,12 @@ async function fetchJobStatus(jobId) {
 
 async function cancelActiveJob() {
   if (!activeJob) return;
-  
+
   const jobId = activeJob.jobId;
   const oldText = document.getElementById("task-progress-message")?.textContent;
-  if(document.getElementById("task-progress-message")) {
-      document.getElementById("task-progress-message").textContent = "Cancelling...";
+  if (document.getElementById("task-progress-message")) {
+    document.getElementById("task-progress-message").textContent =
+      "Cancelling...";
   }
 
   try {
@@ -178,14 +179,17 @@ async function cancelActiveJob() {
     // UI update handled by polling or immediate cleanup
     stopTracking();
     showNotification("Job cancelled", "info");
-    
+
     // Dispatch event so page can refresh if needed
-    document.dispatchEvent(new CustomEvent("coverage:job-cancelled", { detail: { jobId } }));
+    document.dispatchEvent(
+      new CustomEvent("coverage:job-cancelled", { detail: { jobId } }),
+    );
   } catch (e) {
     console.error("Failed to cancel job:", e);
     showNotification("Failed to cancel job", "danger");
-    if(document.getElementById("task-progress-message")) {
-         document.getElementById("task-progress-message").textContent = oldText || "Error cancelling";
+    if (document.getElementById("task-progress-message")) {
+      document.getElementById("task-progress-message").textContent =
+        oldText || "Error cancelling";
     }
   }
 }
@@ -194,7 +198,7 @@ function minimizeJob() {
   if (!activeJob) return;
   activeJob.minimized = true;
   saveJobState();
-  
+
   hideProgressModal();
   showMinimizedBadge();
 }
@@ -203,7 +207,7 @@ function restoreJobModal() {
   if (!activeJob) return;
   activeJob.minimized = false;
   saveJobState();
-  
+
   hideMinimizedBadge();
   showProgressModal();
   updateModalUI();
@@ -211,17 +215,21 @@ function restoreJobModal() {
 
 function handleJobFinished(job) {
   stopTracking();
-  
+
   const success = job.status === "completed";
   const title = getJobTitle(job.job_type);
-  const msg = success ? "completed successfully" : `failed: ${job.error || job.message}`;
-  
+  const msg = success
+    ? "completed successfully"
+    : `failed: ${job.error || job.message}`;
+
   showNotification(`${title} ${msg}`, success ? "success" : "danger");
-  
+
   // Dispatch event so current page can refresh data
-  document.dispatchEvent(new CustomEvent("coverage:job-finished", { 
-    detail: { job, success } 
-  }));
+  document.dispatchEvent(
+    new CustomEvent("coverage:job-finished", {
+      detail: { job, success },
+    }),
+  );
 }
 
 // =============================================================================
@@ -246,16 +254,18 @@ function updateModalUI() {
   const stageEl = document.getElementById("task-progress-stage");
 
   if (titleEl) {
-      const baseTitle = getJobTitle(activeJob.jobType);
-      titleEl.textContent = activeJob.areaName ? `${baseTitle}: ${activeJob.areaName}` : baseTitle;
+    const baseTitle = getJobTitle(activeJob.jobType);
+    titleEl.textContent = activeJob.areaName
+      ? `${baseTitle}: ${activeJob.areaName}`
+      : baseTitle;
   }
-  
+
   if (barEl) {
     const pct = Math.round(activeJob.progress || 0);
     barEl.style.width = `${pct}%`;
     barEl.textContent = `${pct}%`;
   }
-  
+
   if (msgEl) msgEl.textContent = activeJob.message || "Working...";
   if (stageEl) stageEl.textContent = activeJob.stage || "";
 }
@@ -263,10 +273,10 @@ function updateModalUI() {
 function updateBadgeUI() {
   const badge = document.getElementById("minimized-progress-badge");
   if (!badge) return;
-  
+
   const nameEl = badge.querySelector(".minimized-location-name");
   const pctEl = badge.querySelector(".minimized-progress-percent");
-  
+
   if (nameEl) nameEl.textContent = activeJob.areaName || "Background Job";
   if (pctEl) pctEl.textContent = `${Math.round(activeJob.progress || 0)}%`;
 }
@@ -311,13 +321,13 @@ function mapJobToState(job) {
     progress: job.progress,
     message: job.message,
     stage: job.stage,
-    error: job.error
+    error: job.error,
   };
 }
 
 // Export for usage
 window.GlobalJobTracker = {
-  start: startGlobalTracking
+  start: startGlobalTracking,
 };
 
 // Auto-init
