@@ -249,6 +249,47 @@ class TripQueryService:
                 ]
             )
 
+        elif sort_column in ["distance", "maxSpeed", "fuelConsumed"]:
+            use_aggregation = True
+            pipeline.extend(
+                [
+                    {
+                        "$addFields": {
+                            "sortVal": {
+                                "$switch": {
+                                    "branches": [
+                                        {
+                                            "case": {
+                                                "$eq": [
+                                                    {"$type": f"${sort_column}"},
+                                                    "string",
+                                                ]
+                                            },
+                                            "then": {"$toDouble": f"${sort_column}"},
+                                        },
+                                        {
+                                            "case": {
+                                                "$eq": [
+                                                    {"$type": f"${sort_column}"},
+                                                    "missing",
+                                                ]
+                                            },
+                                            "then": 0,
+                                        },
+                                        {
+                                            "case": {"$eq": [f"${sort_column}", None]},
+                                            "then": 0,
+                                        },
+                                    ],
+                                    "default": f"${sort_column}",
+                                }
+                            }
+                        }
+                    },
+                    {"$sort": {"sortVal": sort_direction}},
+                ]
+            )
+
         if use_aggregation:
             pipeline.extend(
                 [
