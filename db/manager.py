@@ -255,9 +255,23 @@ class DatabaseManager:
 
         This should be called once during application startup.
         """
-        if self._beanie_initialized:
+        self._check_loop_and_reconnect()
+        current_loop = self._get_current_loop()
+
+        if (
+            self._beanie_initialized
+            and self._client is not None
+            and self._db is not None
+            and self._bound_loop == current_loop
+        ):
             logger.debug("Beanie already initialized, skipping")
             return
+
+        if self._beanie_initialized:
+            logger.info(
+                "Beanie initialized on a different loop; reinitializing.",
+            )
+            self._close_client_sync()
 
         from beanie import init_beanie
 
