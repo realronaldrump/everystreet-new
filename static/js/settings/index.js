@@ -1,4 +1,4 @@
-/* global showLoadingOverlay, hideLoadingOverlay, bootstrap */
+/* global bootstrap */
 
 /**
  * Settings Page Entry Point
@@ -69,12 +69,12 @@ function setupTaskConfigEventListeners(taskManager) {
         return;
       }
       try {
-        showLoadingOverlay();
+        window.loadingManager?.show();
         const response = await fetch("/api/background_tasks/reset", {
           method: "POST",
         });
 
-        hideLoadingOverlay();
+        window.loadingManager?.hide();
 
         if (!response.ok) {
           throw new Error("Failed to reset tasks");
@@ -84,7 +84,7 @@ function setupTaskConfigEventListeners(taskManager) {
         window.notificationManager.show(result.message, "success");
         taskManager.loadTaskConfig();
       } catch {
-        hideLoadingOverlay();
+        window.loadingManager?.hide();
         window.notificationManager.show("Failed to reset tasks", "danger");
       }
     });
@@ -97,14 +97,14 @@ function setupTaskConfigEventListeners(taskManager) {
       }
       const duration = document.getElementById("pauseDuration")?.value || 60;
       try {
-        showLoadingOverlay();
+        window.loadingManager?.show();
         const response = await fetch("/api/background_tasks/pause", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ duration: parseInt(duration, 10) }),
         });
 
-        hideLoadingOverlay();
+        window.loadingManager?.hide();
 
         if (!response.ok) {
           throw new Error("Failed to pause tasks");
@@ -124,7 +124,7 @@ function setupTaskConfigEventListeners(taskManager) {
 
         taskManager.loadTaskConfig();
       } catch {
-        hideLoadingOverlay();
+        window.loadingManager?.hide();
         window.notificationManager.show("Failed to pause tasks", "danger");
       }
     });
@@ -136,12 +136,12 @@ function setupTaskConfigEventListeners(taskManager) {
         return;
       }
       try {
-        showLoadingOverlay();
+        window.loadingManager?.show();
         const response = await fetch("/api/background_tasks/resume", {
           method: "POST",
         });
 
-        hideLoadingOverlay();
+        window.loadingManager?.hide();
 
         if (!response.ok) {
           throw new Error("Failed to resume tasks");
@@ -150,7 +150,7 @@ function setupTaskConfigEventListeners(taskManager) {
         window.notificationManager.show("Tasks resumed", "success");
         taskManager.loadTaskConfig();
       } catch {
-        hideLoadingOverlay();
+        window.loadingManager?.hide();
         window.notificationManager.show("Failed to resume tasks", "danger");
       }
     });
@@ -162,12 +162,12 @@ function setupTaskConfigEventListeners(taskManager) {
         return;
       }
       try {
-        showLoadingOverlay();
+        window.loadingManager?.show();
         const response = await fetch("/api/background_tasks/stop", {
           method: "POST",
         });
 
-        hideLoadingOverlay();
+        window.loadingManager?.hide();
 
         if (!response.ok) {
           throw new Error("Failed to stop tasks");
@@ -176,7 +176,7 @@ function setupTaskConfigEventListeners(taskManager) {
         window.notificationManager.show("All running tasks stopped", "success");
         taskManager.loadTaskConfig();
       } catch {
-        hideLoadingOverlay();
+        window.loadingManager?.hide();
         window.notificationManager.show("Failed to stop tasks", "danger");
       }
     });
@@ -188,12 +188,12 @@ function setupTaskConfigEventListeners(taskManager) {
         return;
       }
       try {
-        showLoadingOverlay();
+        window.loadingManager?.show();
         const response = await fetch("/api/background_tasks/enable", {
           method: "POST",
         });
 
-        hideLoadingOverlay();
+        window.loadingManager?.hide();
 
         if (!response.ok) {
           throw new Error("Failed to enable all tasks");
@@ -202,7 +202,7 @@ function setupTaskConfigEventListeners(taskManager) {
         window.notificationManager.show("All tasks enabled", "success");
         taskManager.loadTaskConfig();
       } catch {
-        hideLoadingOverlay();
+        window.loadingManager?.hide();
         window.notificationManager.show("Failed to enable tasks", "danger");
       }
     });
@@ -214,12 +214,12 @@ function setupTaskConfigEventListeners(taskManager) {
         return;
       }
       try {
-        showLoadingOverlay();
+        window.loadingManager?.show();
         const response = await fetch("/api/background_tasks/disable", {
           method: "POST",
         });
 
-        hideLoadingOverlay();
+        window.loadingManager?.hide();
 
         if (!response.ok) {
           throw new Error("Failed to disable all tasks");
@@ -228,7 +228,7 @@ function setupTaskConfigEventListeners(taskManager) {
         window.notificationManager.show("All tasks disabled", "success");
         taskManager.loadTaskConfig();
       } catch {
-        hideLoadingOverlay();
+        window.loadingManager?.hide();
         window.notificationManager.show("Failed to disable tasks", "danger");
       }
     });
@@ -366,14 +366,14 @@ function setupFetchAllMissingModal(taskManager) {
           statusSpan.textContent = "Starting task...";
         }
 
-        showLoadingOverlay();
+        window.loadingManager?.show();
         const response = await fetch("/api/background_tasks/fetch_all_missing_trips", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ start_date: startDate }),
         });
         const result = await response.json();
-        hideLoadingOverlay();
+        window.loadingManager?.hide();
 
         if (response.ok && result.status === "success") {
           taskManager.notifier.show(
@@ -397,7 +397,7 @@ function setupFetchAllMissingModal(taskManager) {
           throw new Error(result.detail || result.message || "Failed to start task");
         }
       } catch (error) {
-        hideLoadingOverlay();
+        window.loadingManager?.hide();
         taskManager.notifier.show("Error", error.message, "danger");
         if (statusSpan) {
           statusSpan.textContent = "Error starting task";

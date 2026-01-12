@@ -1,4 +1,4 @@
-/* global showLoadingOverlay, hideLoadingOverlay, bootstrap, flatpickr */
+/* global bootstrap, flatpickr */
 
 import {
   escapeHtml,
@@ -799,7 +799,7 @@ export function setupMobileRemapTrips() {
       }
 
       try {
-        showLoadingOverlay();
+        window.loadingManager?.show();
         if (remapStatus) {
           remapStatus.classList.remove("d-none", "success", "error");
           remapStatus.classList.add("info");
@@ -812,7 +812,7 @@ export function setupMobileRemapTrips() {
           body: JSON.stringify({ start_date, end_date, interval_days }),
         });
 
-        hideLoadingOverlay();
+        window.loadingManager?.hide();
         const data = await response.json();
 
         if (remapStatus) {
@@ -822,7 +822,7 @@ export function setupMobileRemapTrips() {
         }
         window.notificationManager.show(data.message, "success");
       } catch {
-        hideLoadingOverlay();
+        window.loadingManager?.hide();
         if (remapStatus) {
           remapStatus.classList.remove("info");
           remapStatus.classList.add("error");

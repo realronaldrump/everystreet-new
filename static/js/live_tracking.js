@@ -461,6 +461,7 @@ class LiveTripTracker {
     }
     if (this.hudStreetElem) {
       this.hudStreetElem.textContent = "--";
+      this.hudStreetElem.title = "";
     }
     if (this.hudCoverageElem) {
       this.hudCoverageElem.textContent = "Coverage: --";
@@ -497,7 +498,7 @@ class LiveTripTracker {
         filter: ["==", ["get", "type"], "marker"],
         layout: {
           "icon-image": this.arrowImageId,
-          "icon-size": 0.7,
+          "icon-size": 0.55,
           "icon-allow-overlap": true,
           "icon-ignore-placement": true,
           "icon-rotate": ["get", "heading"],
@@ -862,7 +863,7 @@ class LiveTripTracker {
 
     // Update metrics panel
     this.updateMetrics(trip);
-    this.updateHud(trip, coords, heading);
+    this.updateHud(trip, coords);
 
     // Update map view for new trips
     if (isNewTrip) {

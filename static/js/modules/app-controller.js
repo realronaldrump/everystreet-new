@@ -140,7 +140,6 @@ const AppController = {
         }
 
         await Promise.all(fetchPromises);
-        window.loadingManager?.hide();
 
         // Ensure all visible layers have their visibility applied after data loads
         await new Promise((resolve) => {

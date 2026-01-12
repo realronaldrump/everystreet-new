@@ -1197,6 +1197,12 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
   box-shadow: var(--glow-primary);
 }
 
+.live-trip-follow-toggle:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
 .live-trip-hud-main {
   display: grid;
   grid-template-columns: auto 1fr;

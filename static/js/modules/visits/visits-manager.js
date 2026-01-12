@@ -74,7 +74,7 @@
 
     async initialize() {
       window.VisitsHelpers.showInitialLoading();
-      this.loadingManager.startOperation("Initializing Visits Page");
+      this.loadingManager?.show("Initializing Visits Page");
 
       try {
         await this.mapController.initialize(window.VisitsHelpers.getCurrentTheme());
@@ -102,11 +102,11 @@
           this.updateStatsCounts()
         );
 
-        this.loadingManager.finish("Initializing Visits Page");
+        this.loadingManager?.hide();
         window.VisitsHelpers.hideInitialLoading();
       } catch (error) {
         console.error("Error initializing visits page:", error);
-        this.loadingManager.error("Failed to initialize visits page");
+        this.loadingManager?.hide();
         window.VisitsHelpers.showErrorState();
       }
     }
@@ -168,14 +168,14 @@
     }
 
     async updateVisitsData(statsData = null) {
-      this.loadingManager.startOperation("Updating Statistics");
+      this.loadingManager?.show("Updating Statistics");
       const placeEntries = Array.from(this.places.entries());
 
       if (placeEntries.length === 0) {
         this.chartManager.update([], null);
         this.visitsTable?.clear().draw();
         this.statsManager.updateInsights([]);
-        this.loadingManager.finish("Updating Statistics");
+        this.loadingManager?.hide();
         return;
       }
 
@@ -208,7 +208,7 @@
         console.error("Error updating place statistics:", error);
         window.notificationManager?.show("Error updating place statistics", "danger");
       } finally {
-        this.loadingManager.finish("Updating Statistics");
+        this.loadingManager?.hide();
       }
     }
 

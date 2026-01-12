@@ -46,7 +46,7 @@
           = '<span class="spinner-border spinner-border-sm me-2"></span>Saving...';
       }
 
-      this.loadingManager?.startOperation("Saving Place");
+      this.loadingManager?.show("Saving Place");
 
       try {
         const savedPlace = await window.VisitsDataService.createPlace({
@@ -76,7 +76,7 @@
         if (saveBtn) {
           saveBtn.innerHTML = '<i class="fas fa-save me-2"></i><span>Save Place</span>';
         }
-        this.loadingManager?.finish("Saving Place");
+        this.loadingManager?.hide();
         if (onComplete) {
           onComplete();
         }
@@ -115,7 +115,7 @@
         return false;
       }
 
-      this.loadingManager?.startOperation("Deleting Place");
+      this.loadingManager?.show("Deleting Place");
 
       try {
         await window.VisitsDataService.deletePlace(placeId);
@@ -138,7 +138,7 @@
         );
         return false;
       } finally {
-        this.loadingManager?.finish("Deleting Place");
+        this.loadingManager?.hide();
       }
     }
 
@@ -164,7 +164,7 @@
         return null;
       }
 
-      this.loadingManager?.startOperation("Updating Place");
+      this.loadingManager?.show("Updating Place");
 
       try {
         const requestBody = { name: newName };
@@ -202,7 +202,7 @@
         );
         return null;
       } finally {
-        this.loadingManager?.finish("Updating Place");
+        this.loadingManager?.hide();
       }
     }
 

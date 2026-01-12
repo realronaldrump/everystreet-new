@@ -17,7 +17,7 @@
      * @returns {Promise<Map>} Map of place ID to place data
      */
     async loadPlaces(onPlacesLoaded) {
-      this.loadingManager?.startOperation("Loading Places");
+      this.loadingManager?.show("Loading Places");
 
       try {
         const places = await window.VisitsDataService.fetchPlaces();
@@ -27,12 +27,12 @@
           await onPlacesLoaded(places);
         }
 
-        this.loadingManager?.finish("Loading Places");
+        this.loadingManager?.hide();
         return placesMap;
       } catch (error) {
         console.error("Error loading places:", error);
         this.notificationManager?.show("Failed to load custom places", "danger");
-        this.loadingManager?.error("Failed during Loading Places");
+        this.loadingManager?.hide();
         return new Map();
       }
     }
@@ -110,11 +110,11 @@
      * @returns {Promise<Object>} Trips data with trips array and place name
      */
     async loadPlaceTrips(placeId) {
-      this.loadingManager?.startOperation("Loading Trips");
+      this.loadingManager?.show("Loading Trips");
 
       try {
         const data = await window.VisitsDataService.fetchPlaceTrips(placeId);
-        this.loadingManager?.finish("Loading Trips");
+        this.loadingManager?.hide();
         return data;
       } catch (error) {
         console.error(`Error fetching trips for place ${placeId}:`, error);
@@ -122,7 +122,7 @@
           "Failed to fetch trips for the selected place.",
           "danger"
         );
-        this.loadingManager?.finish("Loading Trips");
+        this.loadingManager?.hide();
         return { trips: [], name: null };
       }
     }
@@ -133,15 +133,15 @@
      * @returns {Promise<Object>} Trip data
      */
     async loadTrip(tripId) {
-      this.loadingManager?.startOperation("Loading Trip");
+      this.loadingManager?.show("Loading Trip");
 
       try {
         const tripResponse = await window.VisitsDataService.fetchTrip(tripId);
-        this.loadingManager?.finish("Loading Trip");
+        this.loadingManager?.hide();
         return tripResponse.trip || tripResponse;
       } catch (error) {
         console.error("Error fetching trip data:", error);
-        this.loadingManager?.error("Failed to fetch trip data");
+        this.loadingManager?.hide();
         this.notificationManager?.show(
           "Error loading trip data. Please try again.",
           "danger"

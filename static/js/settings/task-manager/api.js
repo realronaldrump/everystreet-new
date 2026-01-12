@@ -1,4 +1,3 @@
-/* global showLoadingOverlay, hideLoadingOverlay */
 
 /**
  * Task Manager API
@@ -51,11 +50,11 @@ export async function runTask(taskId, context, onSuccess) {
   const { notifier, activeTasksMap } = context;
 
   try {
-    showLoadingOverlay();
+    window.loadingManager?.show();
 
     const result = await apiClient.post(API_ENDPOINTS.RUN, { task_id: taskId });
 
-    hideLoadingOverlay();
+    window.loadingManager?.hide();
 
     if (result.status === "success") {
       if (result.results?.length > 0) {
@@ -97,7 +96,7 @@ export async function runTask(taskId, context, onSuccess) {
     }
     throw new Error(result.message || "Failed to start task");
   } catch (error) {
-    hideLoadingOverlay();
+    window.loadingManager?.hide();
     notifier.show(
       "Error",
       `Failed to start task ${taskId}: ${error.message}`,
@@ -148,9 +147,9 @@ export async function forceStopTask(taskId, context, onSuccess) {
   }
 
   try {
-    showLoadingOverlay();
+    window.loadingManager?.show();
     const data = await apiClient.post(API_ENDPOINTS.FORCE_STOP, { task_id: taskId });
-    hideLoadingOverlay();
+    window.loadingManager?.hide();
 
     const message = data.message || `Task ${taskId} has been reset.`;
     notifier.show("Task Reset", message, "warning");
@@ -161,7 +160,7 @@ export async function forceStopTask(taskId, context, onSuccess) {
 
     return true;
   } catch (error) {
-    hideLoadingOverlay();
+    window.loadingManager?.hide();
     notifier.show(
       "Error",
       `Failed to force stop task ${taskId}: ${error.message}`,
@@ -190,13 +189,13 @@ export async function scheduleManualFetch(
   const { notifier } = context;
 
   try {
-    showLoadingOverlay();
+    window.loadingManager?.show();
     const result = await apiClient.post(API_ENDPOINTS.FETCH_TRIPS_RANGE, {
       start_date: startIso,
       end_date: endIso,
       map_match: mapMatch,
     });
-    hideLoadingOverlay();
+    window.loadingManager?.hide();
 
     notifier.show(
       "Success",
@@ -210,7 +209,7 @@ export async function scheduleManualFetch(
 
     return true;
   } catch (error) {
-    hideLoadingOverlay();
+    window.loadingManager?.hide();
     notifier.show("Error", `Failed to schedule fetch: ${error.message}`, "danger");
     throw error;
   }
@@ -255,9 +254,9 @@ export async function clearTaskHistory(context, onSuccess) {
   }
 
   try {
-    showLoadingOverlay();
+    window.loadingManager?.show();
     await apiClient.delete(API_ENDPOINTS.HISTORY);
-    hideLoadingOverlay();
+    window.loadingManager?.hide();
 
     notifier.show("Success", "Task history cleared", "success");
 
@@ -267,7 +266,7 @@ export async function clearTaskHistory(context, onSuccess) {
 
     return true;
   } catch (error) {
-    hideLoadingOverlay();
+    window.loadingManager?.hide();
     notifier.show("Error", `Failed to clear history: ${error.message}`, "danger");
     return false;
   }

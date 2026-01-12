@@ -46,17 +46,17 @@ export class UploadManager {
    */
   async init() {
     this.loadingManager = window.loadingManager;
-    this.loadingManager?.startOperation("Initializing Upload Manager");
+    this.loadingManager?.show("Initializing Upload Manager");
 
     try {
       this.elements = cacheElements();
       await this.initializePreviewMap();
       this.initializeEventListeners();
       await this.loadUploadSourceTrips();
-      this.loadingManager?.finish();
+      this.loadingManager?.hide();
     } catch (error) {
       console.error("Failed to initialize upload manager:", error);
-      this.loadingManager?.error("Failed to initialize upload manager");
+      this.loadingManager?.hide();
     }
   }
 
@@ -92,9 +92,6 @@ export class UploadManager {
     this.initializeDropZoneListeners();
     this.initializeUploadButtonListener();
     this.initializeCheckboxListeners();
-
-    // Expose removeFile globally for backwards compatibility
-    window.removeFile = (index) => this.removeFile(index);
   }
 
   /**
@@ -186,8 +183,7 @@ export class UploadManager {
       return;
     }
 
-    this.loadingManager?.startOperation("Handling Files");
-    this.loadingManager?.addSubOperation("parsing", files.length);
+    this.loadingManager?.show("Handling Files");
 
     this.state.selectedFiles = [];
 
@@ -202,7 +198,7 @@ export class UploadManager {
       console.error("Error during file processing:", error);
       this.loadingManager?.error("Error during file processing.");
     } finally {
-      this.loadingManager?.finish();
+      this.loadingManager?.hide();
     }
   }
 
@@ -282,7 +278,7 @@ export class UploadManager {
       return;
     }
 
-    this.loadingManager?.startOperation("Uploading Files");
+    this.loadingManager?.show("Uploading Files");
     this.loadingManager?.addSubOperation("uploading", selectedFiles.length);
 
     setUploadButtonState(uploadButton, false, true);
@@ -302,7 +298,7 @@ export class UploadManager {
       this.loadingManager?.error(`Error uploading files: ${error.message}`);
     } finally {
       setUploadButtonState(uploadButton, true, false);
-      this.loadingManager?.finish();
+      this.loadingManager?.hide();
     }
   }
 
@@ -310,7 +306,7 @@ export class UploadManager {
    * Load and display uploaded trips
    */
   async loadUploadSourceTrips() {
-    this.loadingManager?.startOperation("Loading Uploaded Trips");
+    this.loadingManager?.show("Loading Uploaded Trips");
 
     try {
       const trips = await fetchUploadedTrips();
@@ -320,7 +316,7 @@ export class UploadManager {
       this.loadingManager?.error(`Error fetching trips: ${error.message}`);
       this.displayUploadSourceTrips([]);
     } finally {
-      this.loadingManager?.finish();
+      this.loadingManager?.hide();
     }
   }
 
@@ -329,7 +325,7 @@ export class UploadManager {
    * @param {Array<Object>} trips - Array of trip objects
    */
   displayUploadSourceTrips(trips) {
-    this.loadingManager?.startOperation("Displaying Uploaded Trips");
+    this.loadingManager?.show("Displaying Uploaded Trips");
 
     this.state.displayedTrips = trips;
 
@@ -338,7 +334,7 @@ export class UploadManager {
     );
 
     updateBulkDeleteButtonState(this.elements.bulkDeleteBtn);
-    this.loadingManager?.finish();
+    this.loadingManager?.hide();
   }
 
   /**
@@ -346,7 +342,7 @@ export class UploadManager {
    * @param {string} tripId - The transaction ID of the trip to delete
    */
   async deleteTrip(tripId) {
-    this.loadingManager?.startOperation("Deleting Trip");
+    this.loadingManager?.show("Deleting Trip");
 
     try {
       const result = await deleteTrip(tripId);
@@ -365,7 +361,7 @@ export class UploadManager {
       );
       this.loadingManager?.error(`Error deleting trip: ${error.message}`);
     } finally {
-      this.loadingManager?.finish();
+      this.loadingManager?.hide();
     }
   }
 
@@ -375,13 +371,13 @@ export class UploadManager {
   async bulkDeleteTrips() {
     const { bulkDeleteBtn, selectAllCheckbox } = this.elements;
 
-    this.loadingManager?.startOperation("Deleting Selected Trips");
+    this.loadingManager?.show("Deleting Selected Trips");
 
     const tripIds = getSelectedTripIds();
 
     if (tripIds.length === 0) {
       window.notificationManager?.show("No trips selected for deletion.", "warning");
-      this.loadingManager?.finish();
+      this.loadingManager?.hide();
       return;
     }
 
@@ -413,7 +409,7 @@ export class UploadManager {
       }
       resetSelectAllCheckbox(selectAllCheckbox);
       updateBulkDeleteButtonState(bulkDeleteBtn);
-      this.loadingManager?.finish();
+      this.loadingManager?.hide();
     }
   }
 }

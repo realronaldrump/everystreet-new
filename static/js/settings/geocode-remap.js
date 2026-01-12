@@ -1,4 +1,4 @@
-/* global showLoadingOverlay, hideLoadingOverlay, flatpickr */
+/* global flatpickr */
 
 /**
  * Setup functions for trip geocoding and remapping functionality
@@ -333,7 +333,7 @@ export function setupRemapMatchedTrips() {
     }
 
     try {
-      showLoadingOverlay();
+      window.loadingManager?.show();
       document.getElementById("remap-status").textContent = "Remapping trips...";
 
       const response = await fetch("/api/matched_trips/remap", {
@@ -342,14 +342,14 @@ export function setupRemapMatchedTrips() {
         body: JSON.stringify({ start_date, end_date, interval_days }),
       });
 
-      hideLoadingOverlay();
+      window.loadingManager?.hide();
 
       const data = await response.json();
 
       document.getElementById("remap-status").textContent = data.message;
       window.notificationManager.show(data.message, "success");
     } catch {
-      hideLoadingOverlay();
+      window.loadingManager?.hide();
       document.getElementById("remap-status").textContent = "Error re-matching trips.";
       window.notificationManager.show("Failed to re-match trips", "danger");
     }
