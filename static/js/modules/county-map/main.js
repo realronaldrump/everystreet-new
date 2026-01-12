@@ -7,7 +7,11 @@
 import CountyMapAPI from "./api.js";
 import { getStateName, MAP_CONFIG } from "./constants.js";
 import { setupInteractions } from "./interactions.js";
-import { addMapLayers, getMapStyle, updateStopLayerVisibility } from "./map-layers.js";
+import {
+  addMapLayers,
+  getMapStyle,
+  updateStopLayerVisibility,
+} from "./map-layers.js";
 import CountyMapState from "./state.js";
 import { setupStateStatsToggle } from "./state-stats.js";
 import {
@@ -114,8 +118,8 @@ async function loadVisitedCounties() {
     const countyData = CountyMapState.getCountyData();
 
     const hasVisits = data.counties && Object.keys(data.counties).length > 0;
-    const hasStops
-      = data.stoppedCounties && Object.keys(data.stoppedCounties).length > 0;
+    const hasStops =
+      data.stoppedCounties && Object.keys(data.stoppedCounties).length > 0;
 
     if (data.success && (hasVisits || hasStops)) {
       // Store county visits data (includes dates)
@@ -142,9 +146,9 @@ async function loadVisitedCounties() {
         updateLastUpdated(data.lastUpdated);
 
         if (
-          recalcState
-          && lastUpdated > recalcState.startedAt
-          && CountyMapState.getIsRecalculating()
+          recalcState &&
+          lastUpdated > recalcState.startedAt &&
+          CountyMapState.getIsRecalculating()
         ) {
           clearRecalcState();
         }
@@ -197,7 +201,7 @@ async function triggerRecalculate() {
     } else {
       window.notificationManager.show(
         `Error starting calculation: ${data.error}`,
-        "danger"
+        "danger",
       );
       clearRecalcState();
     }
@@ -232,9 +236,9 @@ async function checkAndRefresh(startedAt) {
     const data = await CountyMapAPI.fetchCacheStatus();
 
     const lastUpdated = data.lastUpdated ? new Date(data.lastUpdated) : null;
-    const isUpdated
-      = data.cached
-      && (startedAt
+    const isUpdated =
+      data.cached &&
+      (startedAt
         ? lastUpdated && lastUpdated > startedAt
         : data.totalVisited > 0 || data.totalStopped > 0);
 
