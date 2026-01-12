@@ -305,17 +305,6 @@ export async function fetchWithRetry(
   }
 }
 
-/**
- * Cached fetch (no retries)
- * @param {string} url - URL to fetch
- * @param {Object} options - Fetch options
- * @param {number} cacheTime - Cache duration in milliseconds
- * @returns {Promise<*>} Parsed JSON response
- */
-export function cachedFetch(url, options = {}, cacheTime = 10000) {
-  return fetchWithRetry(url, options, 0, cacheTime);
-}
-
 // ============================================================================
 // Animation Utilities
 // ============================================================================
@@ -531,7 +520,7 @@ export function handleError(error, context = "", level = "error", onComplete = n
 }
 
 // ============================================================================
-// Default Export (utils object for backward compatibility)
+// Utilities Object
 // ============================================================================
 
 const utils = {
@@ -563,7 +552,6 @@ const utils = {
 
   // Fetch
   fetchWithRetry,
-  cachedFetch,
 
   // Animation
   fadeIn,
@@ -585,4 +573,3 @@ const utils = {
 };
 
 export { utils };
-export default utils;

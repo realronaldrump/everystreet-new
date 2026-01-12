@@ -12,7 +12,6 @@ from typing import Any
 
 from celery import shared_task
 from celery.utils.log import get_task_logger
-from pymongo.errors import ConnectionFailure
 
 from core.async_bridge import run_async_from_sync
 from live_tracking import (
@@ -117,41 +116,6 @@ def process_webhook_event_task(self, data: dict[str, Any]) -> dict[str, Any]:
             runtime,
         )
         return {"status": "success", "message": "Event processed successfully"}
-
-    except ConnectionFailure as db_err:
-        logger.exception(
-            "Task %s (%s): Database connection error during processing: %s",
-            task_name,
-            celery_task_id,
-            db_err,
-            exc_info=False,
-        )
-        if (
-            hasattr(self, "request")
-            and hasattr(self.request, "retries")
-            and hasattr(self, "default_retry_delay")
-        ):
-            countdown = int(self.default_retry_delay * (2**self.request.retries))
-            logger.info(
-                "Retrying task %s in %d seconds due to DB connection error.",
-                celery_task_id,
-                countdown,
-            )
-            try:
-                raise self.retry(exc=db_err, countdown=countdown)
-            except Exception as retry_exc:
-                logger.critical(
-                    "Failed to *initiate* retry for task %s: %s",
-                    celery_task_id,
-                    retry_exc,
-                )
-                raise db_err from retry_exc
-        else:
-            logger.exception(
-                "Cannot retry task %s as Celery retry context is missing.",
-                celery_task_id,
-            )
-            raise
 
     except Exception as e:
         end_time = datetime.now(UTC)
