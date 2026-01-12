@@ -112,13 +112,6 @@ def api_route(logger: logging.Logger):
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                     detail=e.message,
                 ) from e
-            except ValueError as e:
-                # Handle ValueError as validation error for backward compatibility
-                logger.warning("Value error in %s: %s", func.__name__, str(e))
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=str(e),
-                ) from e
             except Exception as e:
                 # Generic catch-all for unexpected errors
                 logger.exception("Unexpected error in %s: %s", func.__name__, e)

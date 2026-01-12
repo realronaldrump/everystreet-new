@@ -11,11 +11,11 @@ from pydantic import BaseModel
 from date_utils import normalize_to_utc_datetime
 from db.models import TaskHistory
 from db.schemas import BackgroundTasksConfigModel
-from tasks import (
-    TASK_METADATA,
+from tasks.config import get_task_config
+from tasks.core import TASK_METADATA
+from tasks.management import (
     force_reset_task,
     get_all_task_metadata,
-    get_task_config,
     trigger_fetch_all_missing_trips,
     trigger_manual_fetch_trips_range,
     update_task_schedule,

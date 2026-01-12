@@ -28,7 +28,7 @@ from datetime import datetime
 from typing import Any
 
 from beanie import Document, Indexed, PydanticObjectId
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pymongo import ASCENDING, DESCENDING, IndexModel
 
 from date_utils import parse_timestamp
@@ -56,7 +56,7 @@ class Trip(Document):
     duration: float | None = None
     pointsRecorded: int | None = None
     sequence: int | None = None
-    totalIdlingTime: float | None = None
+    totalIdleDuration: float | None = None
     hardBrakingCounts: int | None = None
     hardAccelerationCounts: int | None = None
     fuelConsumed: float | None = None
@@ -79,8 +79,15 @@ class Trip(Document):
     validation_status: str | None = None
     validation_message: str | None = None
 
-    # Frontend compatibility
-    coordinates: list[dict[str, Any]] | None = Field(default_factory=list)
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_idle_duration(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            idle_duration = data.get("totalIdleDuration")
+            if idle_duration is None and "totalIdlingTime" in data:
+                data["totalIdleDuration"] = data.get("totalIdlingTime")
+            data.pop("totalIdlingTime", None)
+        return data
 
     @field_validator(
         "startTime",
@@ -344,7 +351,6 @@ class OsmData(Document):
     geojson: dict[str, Any] | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
-    data: dict[str, Any] | None = None  # Legacy support if needed
     fetched_at: datetime | None = None
 
     class Settings:
@@ -365,7 +371,6 @@ class Place(Document):
 
     name: str | None = None
     geometry: dict[str, Any] | None = None  # GeoJSON geometry for custom places
-    location: dict[str, Any] | None = None  # Legacy/alternative location field
     address: str | None = None
     category: str | None = None
     created_at: datetime | None = None
@@ -540,18 +545,11 @@ class Vehicle(Document):
 class AppSettings(Document):
     """Application settings document."""
 
-    # Use string ID to support legacy documents with string _id values
-    id: str | None = Field(default=None, alias="_id")
-
     # We define specific fields for known settings to allow validation,
     # but allow extra fields for extensibility.
     mapbox_access_token: str | None = None
     clarity_project_id: str | None = None
     updated_at: datetime | None = None
-
-    # Legacy key/value support if needed (optional)
-    key: Indexed(str, unique=True) | None = None
-    value: Any = None
 
     class Settings:
         name = "app_settings"

@@ -131,7 +131,6 @@ def build_calendar_date_expr(
 async def build_query_from_request(
     request: Request,
     date_field: str = "startTime",
-    _end_of_day: bool = True,
     include_imei: bool = True,
     additional_filters: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
@@ -144,7 +143,6 @@ async def build_query_from_request(
     Args:
         request: FastAPI Request object.
         date_field: Document field for date filtering.
-        _end_of_day: Unused, kept for backward compatibility.
         include_imei: Whether to include IMEI filter if present.
         additional_filters: Extra filter conditions to merge.
 

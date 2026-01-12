@@ -170,14 +170,6 @@ class OdometerService:
             candidate_coord = coords
         elif g_type == "LineString" and coords:
             candidate_coord = coords[-1]
-        # Handle legacy FeatureCollection if present
-        elif g_type == "FeatureCollection":
-            features = gps.get("features", [])
-            if features and features[0].get("geometry", {}).get("coordinates"):
-                fc_coords = features[0]["geometry"]["coordinates"]
-                if fc_coords:
-                    candidate_coord = fc_coords[-1]
-
         if candidate_coord:
             is_valid, validated = GeometryService.validate_coordinate_pair(
                 candidate_coord,

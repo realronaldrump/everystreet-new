@@ -38,21 +38,9 @@ async def process_single_trip(
             detail="Trip not found",
         )
 
-    # Convert Beanie document to dict for TripService compatibility if it expects dicts
-    # TripService likely expects a dict based on old code.
-    # TODO: Refactor TripService to accept Trip models eventually,
-    # but for now we can dump the model.
     trip_dict = trip.model_dump()
 
-    # Pass the object? The service might do updates.
-    # If the service does specific collection updates, that's bad.
-    # But let's assume TripService is "Logic" and we pass data properly.
-    # Wait, TripService.process_single_trip probably calls repositories or DB.
-    # If TripService uses legacy code, then we have a problem downstream.
-    # But for this file, we fix the entry point.
-
-    source = trip.get("source") or "unknown"  # Beanie model access or dict access?
-    # getattr(trip, "source", "unknown") if it's an extra field.
+    source = trip_dict.get("source") or getattr(trip, "source", None) or "unknown"
 
     processing_options = ProcessingOptions(
         validate=True,

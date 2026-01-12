@@ -30,12 +30,12 @@ export class DrivingNavigationAPI {
   }
 
   /**
-   * Fetch undriven streets for a given location.
-   * @param {Object} location - The location object with area details
+   * Fetch undriven streets for a given area.
+   * @param {string} areaId - Coverage area ID
    * @returns {Promise<Object>} GeoJSON FeatureCollection of undriven streets
    */
-  async fetchUndrivenStreets(location) {
-    return apiClient.post("/api/undriven_streets", location);
+  async fetchUndrivenStreets(areaId) {
+    return apiClient.get(`/api/coverage/areas/${areaId}/streets/all?status=undriven`);
   }
 
   /**

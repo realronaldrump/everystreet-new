@@ -233,6 +233,12 @@ async def get_all_streets(
             detail=f"Area is not ready (status: {area.status})",
         )
 
+    if status and status not in ("undriven", "driven", "undriveable"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid status filter",
+        )
+
     # Load all streets for this area version
     streets = await Street.find(
         {

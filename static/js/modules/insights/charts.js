@@ -423,7 +423,8 @@ export function calculateFuelEfficiency(insights) {
  */
 export function calculateIdleEfficiency(behavior) {
   const totalTime = behavior.totalTrips * 30 * 60; // Assume 30 min avg per trip
-  const idlePercent = (behavior.totalIdlingTime / totalTime) * 100;
+  const idleSeconds = behavior.totalIdleDuration || 0;
+  const idlePercent = (idleSeconds / totalTime) * 100;
 
   // Lower idle percentage = higher efficiency
   return Math.max(100 - idlePercent * 2, 0);

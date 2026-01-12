@@ -15,7 +15,7 @@ from beanie import PydanticObjectId
 from pymongo import UpdateOne
 
 from coverage.events import CoverageEvents, on_event, emit_coverage_updated
-from coverage.matching import match_trip_to_streets, trip_to_linestring
+from coverage.matching import match_trip_to_streets
 from coverage.models import CoverageArea, CoverageState
 from coverage.stats import update_area_stats
 from date_utils import get_current_utc_time, normalize_to_utc_datetime

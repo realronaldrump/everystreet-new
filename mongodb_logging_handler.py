@@ -9,12 +9,11 @@ from db.models import ServerLog
 class MongoDBHandler(logging.Handler):
     """Custom logging handler that writes log records to MongoDB via Beanie."""
 
-    def __init__(self, _db_manager=None, collection_name: str = "server_logs"):
+    def __init__(self, collection_name: str = "server_logs"):
         """
         Initialize the MongoDB logging handler.
 
         Args:
-            db_manager: Unused, kept for compatibility with current app.py call
             collection_name: Name of the collection to store logs in
         """
         super().__init__()

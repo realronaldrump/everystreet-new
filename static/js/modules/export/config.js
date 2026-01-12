@@ -49,7 +49,7 @@ export const EXPORT_CONFIG = {
     id: "export-undriven-streets-form",
     location: "undriven-streets-location",
     format: "undriven-streets-format",
-    endpoint: "/api/undriven_streets",
+    endpoint: "/api/coverage/areas/:id/streets/all?status=undriven",
     name: "undriven streets",
   },
 };

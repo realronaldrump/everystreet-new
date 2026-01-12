@@ -74,17 +74,8 @@ async def preprocess_streets(
             if bbox and len(bbox) >= 4:
                 polygon = box(float(bbox[0]), float(bbox[1]), float(bbox[2]), float(bbox[3]))
             else:
-                legacy_bbox = location.get("boundingbox")
-                if legacy_bbox and len(legacy_bbox) >= 4:
-                    polygon = box(
-                        float(legacy_bbox[2]),
-                        float(legacy_bbox[0]),
-                        float(legacy_bbox[3]),
-                        float(legacy_bbox[1]),
-                    )
-                else:
-                    logger.warning("No valid boundary for %s. Skipping.", location_name)
-                    return None
+                logger.warning("No valid boundary for %s. Skipping.", location_name)
+                return None
 
         # 2. Buffer Polygon
         routing_polygon = _buffer_polygon_for_routing(polygon, ROUTING_BUFFER_FT)

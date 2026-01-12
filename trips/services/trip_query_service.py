@@ -195,6 +195,10 @@ class TripQueryService:
             # Import here to avoid circular dependency
             from trips.services.trip_cost_service import TripCostService
 
+            total_idle_duration = trip_dict.get("totalIdleDuration")
+            if total_idle_duration is None:
+                total_idle_duration = trip_dict.get("totalIdlingTime", 0)
+
             formatted_trip = {
                 "transactionId": trip_dict.get("transactionId", ""),
                 "imei": imei,
@@ -205,7 +209,7 @@ class TripQueryService:
                 "startLocation": start_location,
                 "destination": destination,
                 "maxSpeed": _safe_float(trip_dict.get("maxSpeed"), 0),
-                "totalIdleDuration": trip_dict.get("totalIdleDuration", 0),
+                "totalIdleDuration": total_idle_duration,
                 "fuelConsumed": _safe_float(trip_dict.get("fuelConsumed"), 0),
                 "estimated_cost": TripCostService.calculate_trip_cost(
                     trip_dict,

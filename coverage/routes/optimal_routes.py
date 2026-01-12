@@ -42,7 +42,7 @@ async def start_optimal_route_generation(
     ] = None,
 ):
     """Start a background task to generate optimal completion route."""
-    from tasks import generate_optimal_route_task
+    from tasks.routes import generate_optimal_route_task
 
     coverage_area = await _get_coverage_area(area_id)
 

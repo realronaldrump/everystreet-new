@@ -23,7 +23,13 @@ async def _publish_trip_snapshot(
     status: str = "active",
 ) -> None:
     """Publish trip update to WebSocket clients via Redis."""
-    trip_dict = trip_doc.model_dump() if isinstance(trip_doc, LiveTrip) else trip_doc
+    trip_dict = (
+        trip_doc.model_dump() if isinstance(trip_doc, LiveTrip) else dict(trip_doc)
+    )
+
+    if "totalIdleDuration" not in trip_dict and "totalIdlingTime" in trip_dict:
+        trip_dict["totalIdleDuration"] = trip_dict.get("totalIdlingTime")
+    trip_dict.pop("totalIdlingTime", None)
 
     transaction_id = trip_dict.get("transactionId")
     if not transaction_id:
@@ -228,7 +234,7 @@ async def process_trip_start(data: dict[str, Any]) -> None:
         trip.avgSpeed = 0.0
         trip.duration = 0.0
         trip.pointsRecorded = 0
-        trip.totalIdlingTime = 0.0
+        trip.totalIdleDuration = 0.0
         trip.hardBrakingCounts = 0
         trip.hardAccelerationCounts = 0
         trip.lastUpdate = start_time
@@ -321,7 +327,7 @@ async def process_trip_metrics(data: dict[str, Any]) -> None:
         trip.avgSpeed = float(metrics_data["averageSpeed"])
         updates_made = True
     if "idlingTime" in metrics_data:
-        trip.totalIdlingTime = float(metrics_data["idlingTime"])
+        trip.totalIdleDuration = float(metrics_data["idlingTime"])
         updates_made = True
     if "hardBraking" in metrics_data:
         trip.hardBrakingCounts = int(metrics_data["hardBraking"])

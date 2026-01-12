@@ -8,7 +8,7 @@ import logging
 from typing import Any
 
 from external_geo_service import ExternalGeoService
-from trip_processor.basic_processing import TripBasicProcessor, format_idle_time
+from trip_processor.basic_processing import TripBasicProcessor
 from trip_processor.geocoding import TripGeocoder
 from trip_processor.map_matching import TripMapMatcher
 from trip_processor.state import TripState, TripStateMachine
@@ -323,22 +323,3 @@ class TripProcessor:
             self.source,
             self.state_history,
         )
-
-    @staticmethod
-    def format_idle_time(seconds: Any) -> str:
-        """
-        Convert idle time in seconds to a HH:MM:SS string.
-
-        This is a convenience wrapper for backward compatibility.
-        """
-        return format_idle_time(seconds)
-
-    # Legacy method compatibility - kept for backward compatibility
-    @staticmethod
-    async def get_place_at_point(point: Any) -> dict[str, Any] | None:
-        """
-        Find a custom place that contains the given point.
-
-        This is a convenience wrapper for backward compatibility.
-        """
-        return await TripGeocoder.get_place_at_point(point)

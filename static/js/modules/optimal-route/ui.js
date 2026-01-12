@@ -100,9 +100,9 @@ export class OptimalRouteUI {
           ? new Date(route.generated_at).toLocaleDateString()
           : "Unknown";
         return `
-          <div class="route-history-item" data-area-id="${area._id}">
+          <div class="route-history-item" data-area-id="${area.id || area._id}">
             <div>
-              <div class="route-name">${area.location?.display_name || "Unknown"}</div>
+              <div class="route-name">${area.display_name || "Unknown"}</div>
               <div class="route-date">${date}</div>
             </div>
             <i class="fas fa-chevron-right text-muted"></i>

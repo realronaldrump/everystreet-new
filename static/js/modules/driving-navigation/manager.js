@@ -253,13 +253,14 @@ export class DrivingNavigation {
     try {
       this.ui.updateProgress(20, "Fetching undriven streets from database...");
 
-      const geojson = await this.api.fetchUndrivenStreets(this.selectedArea.location);
+      const areaId = this.selectedArea.id || this.selectedArea._id;
+      const geojson = await this.api.fetchUndrivenStreets(areaId);
 
       this.ui.updateProgress(60, "Processing street data...");
 
       if (geojson?.features?.length > 0) {
         const driveableFeatures = geojson.features.filter(
-          (feature) => !feature.properties?.undriveable
+          (feature) => feature.properties?.status !== "undriveable"
         );
         const driveableGeoJSON = {
           type: "FeatureCollection",

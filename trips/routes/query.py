@@ -73,6 +73,9 @@ async def get_trips(request: Request):
                 else []
             )
             num_points = len(coords) if isinstance(coords, list) else 0
+            total_idle_duration = trip_dict.get("totalIdleDuration")
+            if total_idle_duration is None:
+                total_idle_duration = trip_dict.get("totalIdlingTime")
             props = {
                 "transactionId": trip_dict.get("transactionId"),
                 "imei": trip_dict.get("imei"),
@@ -84,7 +87,7 @@ async def get_trips(request: Request):
                 "timeZone": trip_dict.get("timeZone"),
                 "startLocation": trip_dict.get("startLocation"),
                 "destination": trip_dict.get("destination"),
-                "totalIdleDuration": trip_dict.get("totalIdleDuration"),
+                "totalIdleDuration": total_idle_duration,
                 "fuelConsumed": _safe_float(trip_dict.get("fuelConsumed"), 0),
                 "source": trip_dict.get("source"),
                 "hardBrakingCount": trip_dict.get("hardBrakingCount"),

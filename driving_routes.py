@@ -527,13 +527,11 @@ async def get_current_position(request_data: dict) -> tuple[float, float, str]:
         )
 
     try:
-        active_trip_response = await get_active_trip()
-        if hasattr(active_trip_response, "trip"):
-            trip = active_trip_response.trip
-            position = _extract_position_from_gps_data(trip.get("gps", {}))
+        active_trip = await get_active_trip()
+        if isinstance(active_trip, dict):
+            position = _extract_position_from_gps_data(active_trip.get("gps", {}))
             if position:
                 return position
-
     except Exception:
         pass
 
@@ -544,7 +542,10 @@ async def get_current_position(request_data: dict) -> tuple[float, float, str]:
             detail="No trip history available to determine current position.",
         )
 
-    gps_data = last_trip[0].get("gps", {})
+    last_trip_doc = last_trip[0]
+    gps_data = getattr(last_trip_doc, "gps", None)
+    if not isinstance(gps_data, dict):
+        gps_data = {}
     position = _extract_position_from_gps_data(gps_data)
     if position:
         return position

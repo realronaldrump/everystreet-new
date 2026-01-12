@@ -197,9 +197,7 @@ def init_worker(**_kwargs):
         try:
             from mongodb_logging_handler import MongoDBHandler
 
-            # Create handler using the worker's db instance
-            # Pass db_manager instead of db instance for lazy access
-            mongo_handler = MongoDBHandler(db_manager)
+            mongo_handler = MongoDBHandler()
 
             # We need to run setup_indexes, but we can't await here easily.
             # However, the handler handles async emission.

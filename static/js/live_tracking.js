@@ -28,16 +28,49 @@ class LiveTripTracker {
 
     // Map layer IDs
     this.sourceId = "live-trip-source";
+    this.lineGlowLayerId = "live-trip-line-glow";
+    this.lineCasingLayerId = "live-trip-line-casing";
     this.lineLayerId = "live-trip-line";
     this.markerLayerId = "live-trip-marker";
+    this.arrowLayerId = "live-trip-arrow";
+    this.arrowImageId = "live-trip-arrow-icon";
 
     // DOM elements
     this.statusIndicator = document.querySelector(".status-indicator");
     this.statusText = document.querySelector(".live-status-text");
     this.tripCountElem = document.querySelector("#active-trips-count");
     this.metricsElem = document.querySelector(".live-trip-metrics");
+    this.liveBadge = document.getElementById("live-status-badge");
+    this.hudElem = document.getElementById("live-trip-hud");
+    this.hudLastUpdateElem = document.getElementById("live-trip-last-update");
+    this.hudSpeedElem = document.getElementById("live-trip-speed");
+    this.hudStreetElem = document.getElementById("live-trip-street");
+    this.hudCoverageElem = document.getElementById("live-trip-coverage");
+    this.hudDistanceElem = document.getElementById("live-trip-distance");
+    this.hudDurationElem = document.getElementById("live-trip-duration");
+    this.hudAvgSpeedElem = document.getElementById("live-trip-avg-speed");
+    this.followToggle = document.getElementById("live-trip-follow-toggle");
+    this.followLabel = this.followToggle?.querySelector(".follow-label");
+
+    this.coverageLayerIds = [
+      "drivenStreets-layer",
+      "undrivenStreets-layer",
+      "allStreets-layer",
+    ];
+
+    this.followStorageKey = "autoFollowVehicle";
+    this.followPreference = this.loadFollowPreference();
+    this.followMode = false;
+    this.lastBearing = null;
+    this.lastCoord = null;
+    this.hasActiveTrip = false;
+    this.routeStyle = this.loadRouteStyle();
+    this.mapInteractionHandlers = [];
 
     this.initializeMapLayers();
+    this.bindHudControls();
+    this.bindMapInteractionHandlers();
+    this.setLiveTripActive(false);
     this.initialize();
   }
 
@@ -51,11 +84,87 @@ class LiveTripTracker {
     this.pulseLayerId = "live-trip-pulse";
 
     try {
+      const lineWidth = [
+        "interpolate",
+        ["linear"],
+        ["zoom"],
+        10,
+        3.5,
+        14,
+        5,
+        18,
+        8,
+      ];
+      const casingWidth = [
+        "interpolate",
+        ["linear"],
+        ["zoom"],
+        10,
+        6.5,
+        14,
+        9,
+        18,
+        13,
+      ];
+      const glowWidth = [
+        "interpolate",
+        ["linear"],
+        ["zoom"],
+        10,
+        10,
+        14,
+        14,
+        18,
+        20,
+      ];
+      const { color, opacity } = this.routeStyle;
+      const casingColor = this.getRouteCasingColor();
+
       // Add GeoJSON source
       if (!this.map.getSource(this.sourceId)) {
         this.map.addSource(this.sourceId, {
           type: "geojson",
           data: { type: "FeatureCollection", features: [] },
+        });
+      }
+
+      // Glow layer (underlay) for the live route
+      if (!this.map.getLayer(this.lineGlowLayerId)) {
+        this.map.addLayer({
+          id: this.lineGlowLayerId,
+          type: "line",
+          source: this.sourceId,
+          filter: ["==", ["get", "type"], "line"],
+          paint: {
+            "line-color": color,
+            "line-width": glowWidth,
+            "line-opacity": Math.min(0.45, opacity * 0.6),
+            "line-blur": 6,
+          },
+          layout: {
+            "line-cap": "round",
+            "line-join": "round",
+          },
+        });
+      }
+
+      // Outer casing for route legibility
+      if (!this.map.getLayer(this.lineCasingLayerId)) {
+        this.map.addLayer({
+          id: this.lineCasingLayerId,
+          type: "line",
+          source: this.sourceId,
+          filter: ["==", ["get", "type"], "line"],
+          paint: {
+            "line-color": casingColor,
+            "line-width": casingWidth,
+            "line-opacity": 0.85,
+            "line-blur": 0.6,
+          },
+          layout: {
+            "line-cap": "round",
+            "line-join": "round",
+          },
         });
       }
 
@@ -67,10 +176,10 @@ class LiveTripTracker {
           source: this.sourceId,
           filter: ["==", ["get", "type"], "line"],
           paint: {
-            "line-color": "#10b981",
-            "line-width": 4,
-            "line-opacity": 0.85,
-            "line-blur": 0.5,
+            "line-color": color,
+            "line-width": lineWidth,
+            "line-opacity": opacity,
+            "line-blur": 0.3,
           },
           layout: {
             "line-cap": "round",
@@ -104,20 +213,324 @@ class LiveTripTracker {
           source: this.sourceId,
           filter: ["==", ["get", "type"], "marker"],
           paint: {
-            "circle-radius": 10,
-            "circle-color": "#10b981",
-            "circle-stroke-width": 3,
+            "circle-radius": 9,
+            "circle-color": color,
+            "circle-stroke-width": 2.5,
             "circle-stroke-color": "#ffffff",
             "circle-blur": 0,
           },
         });
       }
 
+      this.ensureArrowLayer();
+
       // Start pulse animation
       this.startPulseAnimation();
     } catch (error) {
       console.error("Error initializing map layers:", error);
     }
+  }
+
+  loadRouteStyle() {
+    let color = LiveTripTracker.getCssVar("--primary", "#7c9d96");
+    let opacity = 0.9;
+
+    try {
+      const storedColor = localStorage.getItem("polylineColor");
+      const storedOpacity = localStorage.getItem("polylineOpacity");
+      if (storedColor) {
+        color = storedColor;
+      }
+      if (storedOpacity) {
+        const parsed = Number.parseFloat(storedOpacity);
+        if (Number.isFinite(parsed)) {
+          opacity = Math.min(Math.max(parsed, 0.1), 1);
+        }
+      }
+    } catch {
+      // Ignore storage errors
+    }
+
+    return { color, opacity };
+  }
+
+  loadFollowPreference() {
+    try {
+      const stored = window.utils?.getStorage?.(this.followStorageKey);
+      if (stored === true || stored === false) {
+        return stored;
+      }
+      if (stored === "true") {
+        return true;
+      }
+      if (stored === "false") {
+        return false;
+      }
+    } catch {
+      // Ignore storage errors
+    }
+
+    try {
+      const autoCenter = localStorage.getItem("autoCenter");
+      if (autoCenter === "false") {
+        return false;
+      }
+    } catch {
+      // Ignore storage errors
+    }
+
+    return true;
+  }
+
+  getRouteCasingColor() {
+    const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
+    return theme === "light" ? "rgba(15, 23, 42, 0.8)" : "rgba(248, 250, 252, 0.85)";
+  }
+
+  applyRouteStyle() {
+    if (!this.map) {
+      return;
+    }
+    const { color, opacity } = this.routeStyle;
+    if (this.map.getLayer(this.lineLayerId)) {
+      this.map.setPaintProperty(this.lineLayerId, "line-color", color);
+      this.map.setPaintProperty(this.lineLayerId, "line-opacity", opacity);
+    }
+    if (this.map.getLayer(this.lineGlowLayerId)) {
+      this.map.setPaintProperty(this.lineGlowLayerId, "line-color", color);
+      this.map.setPaintProperty(
+        this.lineGlowLayerId,
+        "line-opacity",
+        Math.min(0.45, opacity * 0.6)
+      );
+    }
+    if (this.map.getLayer(this.lineCasingLayerId)) {
+      this.map.setPaintProperty(
+        this.lineCasingLayerId,
+        "line-color",
+        this.getRouteCasingColor()
+      );
+    }
+  }
+
+  updatePolylineStyle(color, opacity) {
+    const nextColor = color || this.routeStyle.color;
+    const nextOpacity = Number.isFinite(opacity)
+      ? Math.min(Math.max(opacity, 0.1), 1)
+      : this.routeStyle.opacity;
+    this.routeStyle = { color: nextColor, opacity: nextOpacity };
+    this.applyRouteStyle();
+  }
+
+  bindHudControls() {
+    if (!this.followToggle) {
+      return;
+    }
+
+    this.followToggleHandler = () => {
+      if (!this.hasActiveTrip) {
+        return;
+      }
+      const next = !this.followMode;
+      this.setFollowMode(next, { persist: true, resetCamera: !next });
+      if (next && this.lastCoord) {
+        this.followVehicle(this.lastCoord, this.lastBearing, { immediate: true });
+      }
+    };
+
+    this.followToggle.addEventListener("click", this.followToggleHandler);
+  }
+
+  bindMapInteractionHandlers() {
+    if (!this.map) {
+      return;
+    }
+
+    const disableFollow = (event) => {
+      if (!this.followMode || !this.hasActiveTrip) {
+        return;
+      }
+      if (!event?.originalEvent) {
+        return;
+      }
+      this.setFollowMode(false, { persist: true, resetCamera: false });
+    };
+
+    ["dragstart", "zoomstart", "rotatestart", "pitchstart"].forEach((evt) => {
+      this.map.on(evt, disableFollow);
+      this.mapInteractionHandlers.push({ evt, handler: disableFollow });
+    });
+  }
+
+  setLiveTripActive(isActive) {
+    this.hasActiveTrip = isActive;
+
+    if (this.hudElem) {
+      this.hudElem.classList.toggle("is-active", isActive);
+      this.hudElem.setAttribute("aria-hidden", isActive ? "false" : "true");
+    }
+
+    if (this.liveBadge) {
+      this.liveBadge.classList.toggle("d-none", !isActive);
+    }
+
+    if (!isActive) {
+      const wasFollowing = this.followMode;
+      this.followMode = false;
+      this.updateFollowToggle(false, { disabled: true });
+      this.clearHudValues();
+      if (wasFollowing) {
+        this.resetFollowCamera();
+      }
+      return;
+    }
+
+    this.updateFollowToggle(this.followMode, { disabled: false });
+  }
+
+  updateFollowToggle(isActive, { disabled = false } = {}) {
+    if (!this.followToggle) {
+      return;
+    }
+    this.followToggle.classList.toggle("is-active", isActive);
+    this.followToggle.setAttribute("aria-pressed", isActive ? "true" : "false");
+    this.followToggle.disabled = disabled;
+    if (this.followLabel) {
+      this.followLabel.textContent = isActive ? "Following" : "Follow";
+    }
+  }
+
+  setFollowMode(enabled, { persist = true, resetCamera = false, force = false } = {}) {
+    if (!force && this.followMode === enabled) {
+      this.updateFollowToggle(enabled);
+      return;
+    }
+
+    this.followMode = enabled;
+
+    if (persist) {
+      this.followPreference = enabled;
+      window.utils?.setStorage?.(this.followStorageKey, enabled);
+    }
+
+    this.updateFollowToggle(enabled);
+
+    if (!enabled && resetCamera) {
+      this.resetFollowCamera();
+    }
+  }
+
+  getFollowCameraConfig() {
+    const isMobile = window.utils?.getDeviceProfile?.().isMobile;
+    const prefersReducedMotion
+      = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const containerHeight = this.map?.getContainer()?.clientHeight || 600;
+    const offsetY = Math.round(
+      Math.min(180, Math.max(90, containerHeight * 0.22))
+    );
+
+    return {
+      zoom: isMobile ? 16.8 : 15.8,
+      pitch: isMobile ? 58 : 52,
+      offset: [0, offsetY],
+      duration: prefersReducedMotion ? 0 : 850,
+    };
+  }
+
+  resetFollowCamera() {
+    if (!this.map) {
+      return;
+    }
+    const prefersReducedMotion
+      = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    this.map.easeTo({
+      pitch: 0,
+      bearing: 0,
+      duration: prefersReducedMotion ? 0 : 700,
+      essential: true,
+    });
+  }
+
+  clearHudValues() {
+    if (this.hudLastUpdateElem) {
+      this.hudLastUpdateElem.textContent = "Waiting for updates...";
+    }
+    if (this.hudSpeedElem) {
+      this.hudSpeedElem.textContent = "--";
+    }
+    if (this.hudStreetElem) {
+      this.hudStreetElem.textContent = "--";
+    }
+    if (this.hudCoverageElem) {
+      this.hudCoverageElem.textContent = "Coverage: --";
+      this.hudCoverageElem.classList.remove(
+        "is-driven",
+        "is-undriven",
+        "is-undriveable"
+      );
+    }
+    if (this.hudDistanceElem) {
+      this.hudDistanceElem.textContent = "--";
+    }
+    if (this.hudDurationElem) {
+      this.hudDurationElem.textContent = "--";
+    }
+    if (this.hudAvgSpeedElem) {
+      this.hudAvgSpeedElem.textContent = "--";
+    }
+  }
+
+  ensureArrowLayer() {
+    if (!this.map) {
+      return;
+    }
+
+    const addLayer = () => {
+      if (this.map.getLayer(this.arrowLayerId)) {
+        return;
+      }
+      this.map.addLayer({
+        id: this.arrowLayerId,
+        type: "symbol",
+        source: this.sourceId,
+        filter: ["==", ["get", "type"], "marker"],
+        layout: {
+          "icon-image": this.arrowImageId,
+          "icon-size": 0.7,
+          "icon-allow-overlap": true,
+          "icon-ignore-placement": true,
+          "icon-rotate": ["get", "heading"],
+          "icon-rotation-alignment": "map",
+        },
+        paint: {
+          "icon-color": this.routeStyle.color,
+        },
+      });
+    };
+
+    if (this.map.hasImage(this.arrowImageId)) {
+      addLayer();
+      return;
+    }
+
+    const svg = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+        <path d="M24 4L40 44L24 36L8 44Z" fill="black" />
+      </svg>
+    `;
+
+    const img = new Image();
+    img.onload = () => {
+      try {
+        if (!this.map.hasImage(this.arrowImageId)) {
+          this.map.addImage(this.arrowImageId, img, { sdf: true });
+        }
+        addLayer();
+      } catch (error) {
+        console.warn("Failed to add arrow image:", error);
+      }
+    };
+    img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
   }
 
   async initialize() {
@@ -272,8 +685,17 @@ class LiveTripTracker {
       return;
     }
 
+    const rawHeading = LiveTripTracker.calculateHeading(coords);
+    const heading
+      = typeof rawHeading === "number"
+        ? LiveTripTracker.smoothBearing(this.lastBearing, rawHeading, 0.28)
+        : this.lastBearing;
+    if (typeof heading === "number") {
+      this.lastBearing = heading;
+    }
+
     // Create GeoJSON features
-    const features = LiveTripTracker.createFeatures(coords);
+    const features = LiveTripTracker.createFeatures(coords, heading);
 
     // Update map source
     const source = this.map.getSource(this.sourceId);
@@ -286,13 +708,22 @@ class LiveTripTracker {
 
     // Update metrics panel
     this.updateMetrics(trip);
+    this.updateHud(trip, coords, heading);
 
     // Update map view for new trips
     if (isNewTrip) {
-      this.fitTripBounds(coords);
-    } else if (window.utils?.getStorage?.("autoFollowVehicle") === "true") {
-      this.followVehicle(coords[coords.length - 1]);
+      this.setLiveTripActive(true);
+      this.setFollowMode(this.followPreference, { persist: false, resetCamera: false });
+      if (this.followMode) {
+        this.followVehicle(coords[coords.length - 1], heading, { immediate: true });
+      } else {
+        this.fitTripBounds(coords);
+      }
+    } else if (this.followMode) {
+      this.followVehicle(coords[coords.length - 1], heading);
     }
+
+    this.lastCoord = coords[coords.length - 1];
 
     // Update UI
     this.updateTripCount(1);
@@ -374,20 +805,20 @@ class LiveTripTracker {
     let strokeWidth = 0;
 
     if (speed === 0) {
-      color = "#ef4444"; // Red - stopped (matches --danger)
-      radius = 10;
-      strokeWidth = 3;
+      color = LiveTripTracker.getCssVar("--danger", "#d48584");
+      radius = 8;
+      strokeWidth = 2;
     } else if (speed < 10) {
-      color = "#f59e0b"; // Amber - slow (matches --warning)
-      radius = 9;
+      color = LiveTripTracker.getCssVar("--warning", "#d4a574");
+      radius = 8;
       strokeWidth = 2;
     } else if (speed < 35) {
-      color = "#3b82f6"; // Blue - medium (matches --info)
-      radius = 10;
-      strokeWidth = 3;
+      color = LiveTripTracker.getCssVar("--info", "#8b9dc3");
+      radius = 9;
+      strokeWidth = 2.5;
     } else {
-      color = "#10b981"; // Green - fast (matches --success)
-      radius = 12;
+      color = LiveTripTracker.getCssVar("--primary", "#7c9d96");
+      radius = 10;
       strokeWidth = 3;
     }
 
@@ -401,9 +832,8 @@ class LiveTripTracker {
       this.map.setPaintProperty(this.pulseLayerId, "circle-stroke-color", color);
     }
 
-    // Update line color to match current state
-    if (this.map.getLayer(this.lineLayerId)) {
-      this.map.setPaintProperty(this.lineLayerId, "line-color", color);
+    if (this.map.getLayer(this.arrowLayerId)) {
+      this.map.setPaintProperty(this.arrowLayerId, "icon-color", color);
     }
   }
 
@@ -510,8 +940,8 @@ class LiveTripTracker {
       optional["Max Speed"] = `${trip.maxSpeed.toFixed(1)} mph`;
     }
 
-    if (trip.totalIdlingTime > 0) {
-      optional["Idling Time"] = DateUtils.formatSecondsToHMS(trip.totalIdlingTime);
+    if (trip.totalIdleDuration > 0) {
+      optional["Idling Time"] = DateUtils.formatSecondsToHMS(trip.totalIdleDuration);
     }
 
     if (trip.hardBrakingCounts > 0) {
@@ -600,6 +1030,8 @@ class LiveTripTracker {
 
   clearTrip() {
     this.activeTrip = null;
+    this.lastCoord = null;
+    this.lastBearing = null;
 
     // Clear map
     const source = this.map.getSource(this.sourceId);
@@ -609,9 +1041,12 @@ class LiveTripTracker {
 
     // Clear metrics
     if (this.metricsElem) {
-      this.metricsElem.innerHTML = "";
+      this.metricsElem.innerHTML = `
+        <div class="text-secondary small">No live trip in progress.</div>
+      `;
     }
 
+    this.setLiveTripActive(false);
     this.updateTripCount(0);
     this.updateStatus(true, "Idle");
   }
