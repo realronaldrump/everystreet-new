@@ -157,7 +157,9 @@ const AppController = {
           });
         });
 
-        if (state.mapLayers.trips?.layer?.features?.length) {
+        if (window.PRELOAD_TRIP_ID) {
+          requestAnimationFrame(() => mapManager.zoomToTrip(window.PRELOAD_TRIP_ID));
+        } else if (state.mapLayers.trips?.layer?.features?.length) {
           requestAnimationFrame(() => mapManager.zoomToLastTrip());
         }
 

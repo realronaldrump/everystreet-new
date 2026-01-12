@@ -495,6 +495,7 @@ Max Speed
   <script>
       // Make Mapbox access token available globally
       window.MAPBOX_ACCESS_TOKEN = "{{ MAPBOX_ACCESS_TOKEN }}";
+      window.PRELOAD_TRIP_ID = "{{ trip_id }}" !== "None" ? "{{ trip_id }}" : null;
   </script>
   <script src="{{ url_for('static', path='js/index.js') | replace('http://', '//') }}"></script>
   <script src="{{ url_for('static', path='js/map-mobile.js') | replace('http://', '//') }}"></script>

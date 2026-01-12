@@ -399,6 +399,54 @@ const mapManager = {
     });
   },
 
+  async zoomToTrip(tripId) {
+    if (!state.map || !state.mapLayers.trips?.layer?.features) {
+      return;
+    }
+
+    // Wait for features to be loaded if they aren't yet
+    if (state.mapLayers.trips.layer.features.length === 0) {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
+
+    const { features } = state.mapLayers.trips.layer;
+    const tripFeature = features.find((f) => {
+      const fId
+        = f.properties?.transactionId
+        || f.properties?.id
+        || f.properties?.tripId
+        || f.id;
+      return String(fId) === String(tripId);
+    });
+
+    if (!tripFeature?.geometry) {
+      console.warn(`Trip ${tripId} not found in loaded features`);
+      return;
+    }
+
+    const bounds = new mapboxgl.LngLatBounds();
+    const { type, coordinates } = tripFeature.geometry;
+
+    if (type === "LineString") {
+      coordinates.forEach((coord) => bounds.extend(coord));
+    } else if (type === "Point") {
+      bounds.extend(coordinates);
+    }
+
+    if (!bounds.isEmpty()) {
+      state.map.fitBounds(bounds, {
+        padding: 50,
+        maxZoom: 15,
+        duration: 2000,
+      });
+
+      // Also select it
+      state.selectedTripId = tripId;
+      state.selectedTripLayer = "trips";
+      this.refreshTripStyles();
+    }
+  },
+
   zoomToLastTrip(targetZoom = 14) {
     if (!state.map || !state.mapLayers.trips?.layer?.features) {
       return;
