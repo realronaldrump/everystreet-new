@@ -551,36 +551,50 @@ async function addArea() {
     // Close add modal
     bootstrap.Modal.getInstance(document.getElementById("addAreaModal"))?.hide();
 
-    // Show progress modal
-    const progressModal = new bootstrap.Modal(
-      document.getElementById("taskProgressModal")
-    );
-    progressModal.show();
+    // Show progress modal (can be minimized)
+    hideMinimizedBadge();
+    showProgressModal();
     updateProgress(0, "Creating area...");
 
-    // Create area
+    const titleEl = document.getElementById("task-progress-title");
+    if (titleEl) {
+      titleEl.textContent = `Setting Up Area: ${displayName}`;
+    }
+
+    // Create area (kicks off background ingestion job server-side)
     const result = await apiPost("/areas", {
       display_name: displayName,
       area_type: areaType,
     });
 
-    // Poll for job completion
-    if (result.job_id) {
-      await pollJobProgress(result.job_id);
-    }
-
-    // Done
-    progressModal.hide();
-    showNotification(`Area "${displayName}" added successfully!`, "success");
-
-    // Refresh table
+    // Refresh table immediately so you can keep using the page
     await loadAreas();
+
+    // Start/resume progress tracking in the background
+    if (result.job_id) {
+      startTrackingJob({
+        jobId: result.job_id,
+        jobType: "area_ingestion",
+        areaId: result.area_id || null,
+        areaName: displayName,
+        showModal: true,
+        initialMessage: result.message || "Setting up area...",
+      });
+
+      showNotification(
+        result.message ||
+          `Area "${displayName}" is being set up in the background. You can minimize this window and keep using the app.`,
+        "info"
+      );
+    }
 
     // Clear form
     document.getElementById("location-input").value = "";
   } catch (error) {
     console.error("Failed to add area:", error);
-    bootstrap.Modal.getInstance(document.getElementById("taskProgressModal"))?.hide();
+    clearActiveJob();
+    hideMinimizedBadge();
+    hideProgressModal();
     showNotification("Failed to add area: " + error.message, "danger");
   }
 }
