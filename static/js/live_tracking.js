@@ -149,7 +149,14 @@ class LiveTripTracker {
     });
   }
 
-  _ensureRouteLayers({ lineWidth, casingWidth, glowWidth, color, opacity, casingColor }) {
+  _ensureRouteLayers({
+    lineWidth,
+    casingWidth,
+    glowWidth,
+    color,
+    opacity,
+    casingColor,
+  }) {
     if (!this.map.getLayer(this.lineGlowLayerId)) {
       this.map.addLayer({
         id: this.lineGlowLayerId,
