@@ -241,21 +241,39 @@ async def backfill_coverage_for_area(
         return 0
 
     # Build query for trips that might intersect this area
-    query = {}
+    # We use a $geoIntersects query on the gps field if the area has a boundary
+    query: dict = {}
     if since:
         query["startTime"] = {"$gte": since}
 
     # Get bounding box for spatial filtering
-    if area.bounding_box:
+    # Create a bounding box polygon for the $geoIntersects query
+    if area.bounding_box and len(area.bounding_box) == 4:
         min_lon, min_lat, max_lon, max_lat = area.bounding_box
-        # Note: This is a rough filter, actual intersection checked in matching
-        query["$or"] = [
-            {"startLocation.lon": {"$gte": min_lon, "$lte": max_lon}},
-            {"endLocation.lon": {"$gte": min_lon, "$lte": max_lon}},
-        ]
+        # Create a GeoJSON polygon for the bounding box
+        bbox_polygon = {
+            "type": "Polygon",
+            "coordinates": [
+                [
+                    [min_lon, min_lat],
+                    [max_lon, min_lat],
+                    [max_lon, max_lat],
+                    [min_lon, max_lat],
+                    [min_lon, min_lat],  # Close the polygon
+                ]
+            ],
+        }
+        # Use $geoIntersects to find trips whose GPS traces intersect the area
+        # This is more accurate than checking start/end points
+        query["gps"] = {"$geoIntersects": {"$geometry": bbox_polygon}}
+    elif area.boundary:
+        # Use the actual boundary if available
+        query["gps"] = {"$geoIntersects": {"$geometry": area.boundary}}
 
     total_updated = 0
     trip_count = 0
+
+    logger.info(f"Starting backfill for area {area.display_name} with query: {query}")
 
     async for trip in Trip.find(query):
         trip_data = trip.model_dump()

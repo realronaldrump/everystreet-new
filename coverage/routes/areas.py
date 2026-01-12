@@ -298,6 +298,57 @@ async def trigger_rebuild(area_id: str):
         )
 
 
+@router.post("/areas/{area_id}/backfill")
+async def trigger_backfill(area_id: str):
+    """
+    Trigger a backfill of coverage data for an existing area.
+
+    This matches all existing trips against the area's streets and updates
+    coverage accordingly. Use this when:
+    - The area was created but trips weren't matched correctly
+    - You've imported historical trip data
+    - Coverage seems incomplete
+
+    Unlike rebuild, this does NOT re-fetch OSM data or re-segment streets.
+    It only re-processes trip matching.
+
+    Returns the number of segments updated.
+    """
+    from coverage.worker import backfill_coverage_for_area
+
+    try:
+        oid = PydanticObjectId(area_id)
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid area ID format",
+        )
+
+    area = await CoverageArea.get(oid)
+    if not area:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Coverage area not found",
+        )
+
+    try:
+        logger.info(f"Starting backfill for area {area.display_name}")
+        segments_updated = await backfill_coverage_for_area(oid)
+
+        return {
+            "success": True,
+            "message": f"Backfill complete. Updated {segments_updated} segments.",
+            "segments_updated": segments_updated,
+        }
+
+    except Exception as e:
+        logger.error(f"Error during backfill: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        )
+
+
 # =============================================================================
 # Legacy Compatibility (temporary)
 # =============================================================================

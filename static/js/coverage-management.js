@@ -43,6 +43,24 @@ function setupEventListeners() {
     currentAreaId = null;
   });
 
+  // Dashboard action buttons
+  document
+    .getElementById("recalculate-coverage-btn")
+    ?.addEventListener("click", async () => {
+      if (currentAreaId) {
+        const areaName =
+          document.getElementById("dashboard-location-name")?.textContent ||
+          "this area";
+        await recalculateCoverage(currentAreaId, areaName);
+      }
+    });
+
+  document.getElementById("rebuild-area-btn")?.addEventListener("click", async () => {
+    if (currentAreaId) {
+      await rebuildArea(currentAreaId);
+    }
+  });
+
   // Map filter buttons
   document.querySelectorAll("[data-filter]").forEach((btn) => {
     btn.addEventListener("click", (e) => {
@@ -171,8 +189,12 @@ function renderAreasTable(areas) {
                             title="View on map" ${area.status !== "ready" ? "disabled" : ""}>
                         <i class="fas fa-map"></i>
                     </button>
+                    <button class="btn btn-outline-info" onclick="recalculateCoverage('${area.id}', '${escapeHtml(area.display_name)}')"
+                            title="Recalculate coverage from trips" ${area.status !== "ready" ? "disabled" : ""}>
+                        <i class="fas fa-calculator"></i>
+                    </button>
                     <button class="btn btn-outline-warning" onclick="rebuildArea('${area.id}')"
-                            title="Rebuild with fresh data" ${area.status !== "ready" ? "disabled" : ""}>
+                            title="Rebuild with fresh OSM data" ${area.status !== "ready" ? "disabled" : ""}>
                         <i class="fas fa-sync"></i>
                     </button>
                     <button class="btn btn-outline-danger" onclick="deleteArea('${area.id}', '${escapeHtml(area.display_name)}')"
@@ -309,6 +331,43 @@ async function rebuildArea(areaId) {
     console.error("Failed to rebuild area:", error);
     bootstrap.Modal.getInstance(document.getElementById("taskProgressModal"))?.hide();
     showNotification("Failed to rebuild area: " + error.message, "danger");
+  }
+}
+
+async function recalculateCoverage(areaId, displayName) {
+  const confirmed = await window.confirmationDialog?.show({
+    title: "Recalculate Coverage",
+    message:
+      `Recalculate coverage for "<strong>${escapeHtml(displayName)}</strong>" by matching all existing trips?<br><br>` +
+      `This will update coverage data without re-downloading streets from OSM. Use this if coverage seems incomplete.`,
+    confirmText: "Recalculate",
+    confirmButtonClass: "btn-info",
+  });
+
+  if (!confirmed) {
+    return;
+  }
+
+  try {
+    showNotification("Recalculating coverage... This may take a moment.", "info");
+
+    const result = await apiPost(`/areas/${areaId}/backfill`, {});
+
+    showNotification(
+      `Coverage recalculated! Updated ${result.segments_updated} segments.`,
+      "success"
+    );
+
+    // Refresh the table to show updated stats
+    await loadAreas();
+
+    // If we're viewing this area, refresh the map too
+    if (currentAreaId === areaId) {
+      await viewArea(areaId);
+    }
+  } catch (error) {
+    console.error("Failed to recalculate coverage:", error);
+    showNotification("Failed to recalculate coverage: " + error.message, "danger");
   }
 }
 
@@ -575,3 +634,4 @@ function sleep(ms) {
 window.viewArea = viewArea;
 window.deleteArea = deleteArea;
 window.rebuildArea = rebuildArea;
+window.recalculateCoverage = recalculateCoverage;
