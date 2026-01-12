@@ -1,48 +1,34 @@
-{% extends "base.html" %}
+{% extends "base.html" %} {% block title %} Every Street - Map {% endblock %} {%
+block extra_css %}
 
-{% block title %}
+<!-- Mapbox GL CSS -->
+<link rel="stylesheet" href="{{ CDN.mapbox_gl_css }}" />
+<link
+  rel="stylesheet"
+  href="{{ url_for('static', path='css/modern-map.css') | replace('http://', '//') }}"
+/>
+<link
+  rel="stylesheet"
+  href="{{ url_for('static', path='css/search.css') | replace('http://', '//') }}"
+/>
+{% endblock %} {% block persistent_shell %} {% include
+"partials/_map_shell.html" %} {% endblock %} {% block content %}
+<div class="visually-hidden">Map view</div>
+{% endblock %} {% block head_content %}
 
-Every Street - Map
-{% endblock %}
+<!-- Removed map-enhancements.css link from here as it's in base.html -->
+<!-- Removed inline styles as they are now in external CSS files -->
+{% endblock %} {% block extra_js %}
 
-
-{% block extra_css %}
-
-  <!-- Mapbox GL CSS -->
-  <link rel="stylesheet" href="{{ CDN.mapbox_gl_css }}" />
-  <link rel="stylesheet"
-        href="{{ url_for('static', path='css/modern-map.css') | replace('http://', '//') }}" />
-  <link rel="stylesheet"
-        href="{{ url_for('static', path='css/search.css') | replace('http://', '//') }}" />
-{% endblock %}
-
-{% block persistent_shell %}
-  {% include "partials/_map_shell.html" %}
-{% endblock %}
-
-{% block content %}
-  <div class="visually-hidden">Map view</div>
-{% endblock %}
-
-
-{% block head_content %}
-
-  <!-- Removed map-enhancements.css link from here as it's in base.html -->
-  <!-- Removed inline styles as they are now in external CSS files -->
-{% endblock %}
-
-
-{% block extra_js %}
-
-  <!-- Mapbox GL JS -->
-  <script src="{{ CDN.mapbox_gl_js }}"></script>
-  <script src="{{ url_for('static', path='js/map-base.js') | replace('http://', '//') }}"></script>
-  <script src="{{ url_for('static', path='js/modules/map-styles.js') | replace('http://', '//') }}"></script>
-  <script>
-      // Make Mapbox access token available globally
-      window.MAPBOX_ACCESS_TOKEN = "{{ MAPBOX_ACCESS_TOKEN }}";
-      window.PRELOAD_TRIP_ID = "{{ trip_id }}" !== "None" ? "{{ trip_id }}" : null;
-  </script>
-  <script src="{{ url_for('static', path='js/index.js') | replace('http://', '//') }}"></script>
-  <script src="{{ url_for('static', path='js/map-mobile.js') | replace('http://', '//') }}"></script>
+<!-- Mapbox GL JS -->
+<script src="{{ CDN.mapbox_gl_js }}"></script>
+<script src="{{ url_for('static', path='js/map-base.js') | replace('http://', '//') }}"></script>
+<script src="{{ url_for('static', path='js/modules/map-styles.js') | replace('http://', '//') }}"></script>
+<script>
+  // Make Mapbox access token available globally
+  window.MAPBOX_ACCESS_TOKEN = "{{ MAPBOX_ACCESS_TOKEN }}";
+  window.PRELOAD_TRIP_ID = "{{ trip_id }}" !== "None" ? "{{ trip_id }}" : null;
+</script>
+<script src="{{ url_for('static', path='js/index.js') | replace('http://', '//') }}"></script>
+<script src="{{ url_for('static', path='js/map-mobile.js') | replace('http://', '//') }}"></script>
 {% endblock %}
