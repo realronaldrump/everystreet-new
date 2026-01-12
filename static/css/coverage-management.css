@@ -481,27 +481,27 @@
 }
 
 .coverage-segment-popup .status-driven {
-  background: color-mix(in srgb, var(--success) 20%, transparent);
+  background: rgb(var(--success-rgb) / 18%);
   color: var(--success);
-  border-color: color-mix(in srgb, var(--success) 40%, transparent);
+  border-color: rgb(var(--success-rgb) / 45%);
 }
 
 .coverage-segment-popup .status-undriven {
-  background: color-mix(in srgb, var(--danger) 20%, transparent);
+  background: rgb(var(--danger-rgb) / 18%);
   color: var(--danger);
-  border-color: color-mix(in srgb, var(--danger) 40%, transparent);
+  border-color: rgb(var(--danger-rgb) / 45%);
 }
 
 .coverage-segment-popup .status-undriveable {
-  background: color-mix(in srgb, var(--text-tertiary) 20%, transparent);
+  background: rgb(var(--border-rgb) / 24%);
   color: var(--text-tertiary);
-  border-color: color-mix(in srgb, var(--text-tertiary) 40%, transparent);
+  border-color: rgb(var(--border-rgb) / 45%);
 }
 
 .coverage-segment-popup .status-unknown {
-  background: color-mix(in srgb, var(--info) 20%, transparent);
+  background: rgb(var(--info-rgb) / 18%);
   color: var(--info);
-  border-color: color-mix(in srgb, var(--info) 40%, transparent);
+  border-color: rgb(var(--info-rgb) / 45%);
 }
 
 .coverage-segment-popup .popup-grid {
