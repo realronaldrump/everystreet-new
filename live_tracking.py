@@ -23,9 +23,7 @@ async def _publish_trip_snapshot(
     status: str = "active",
 ) -> None:
     """Publish trip update to WebSocket clients via Redis."""
-    trip_dict = (
-        trip_doc.model_dump() if isinstance(trip_doc, Trip) else dict(trip_doc)
-    )
+    trip_dict = trip_doc.model_dump() if isinstance(trip_doc, Trip) else dict(trip_doc)
 
     if "totalIdleDuration" not in trip_dict and "totalIdlingTime" in trip_dict:
         trip_dict["totalIdleDuration"] = trip_dict.get("totalIdlingTime")
@@ -485,9 +483,7 @@ async def get_active_trip() -> Trip | None:
     """Get the currently active trip."""
     try:
         return (
-            await Trip.find(Trip.status == "active")
-            .sort("-lastUpdate")
-            .first_or_none()
+            await Trip.find(Trip.status == "active").sort("-lastUpdate").first_or_none()
         )
     except Exception as e:
         logger.exception("Error fetching active trip: %s", e)
