@@ -1075,6 +1075,8 @@ function createStreetPopupContent(props) {
   const statusClass = statusLabel ? `status-${statusKey}` : "";
   const lengthLabel = formatSegmentLength(props.length_miles);
   const highwayType = escapeHtml(formatHighwayType(props.highway_type));
+  const firstDriven = formatPopupDate(props.first_driven_at, statusKey);
+  const lastDriven = formatPopupDate(props.last_driven_at, statusKey);
 
   return `
     <div class="segment-popup-content">
@@ -1090,6 +1092,14 @@ function createStreetPopupContent(props) {
       <div class="popup-detail">
         <span class="popup-label">Type</span>
         <span class="popup-value">${highwayType}</span>
+      </div>
+      <div class="popup-detail">
+        <span class="popup-label">First driven</span>
+        <span class="popup-value">${firstDriven}</span>
+      </div>
+      <div class="popup-detail">
+        <span class="popup-label">Last driven</span>
+        <span class="popup-value">${lastDriven}</span>
       </div>
       <div class="popup-detail popup-meta">
         <span class="popup-label">Segment</span>
@@ -1112,6 +1122,27 @@ function formatSegmentLength(lengthMiles) {
     return "Unknown";
   }
   return `${miles.toFixed(2)} mi`;
+}
+
+function formatPopupDate(value, statusKey) {
+  if (!value) {
+    if (statusKey === "driven") {
+      return "Unknown";
+    }
+    if (statusKey === "undriveable") {
+      return "N/A";
+    }
+    return "Never";
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "Unknown";
+  }
+  return date.toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
 }
 
 function formatHighwayType(type) {

@@ -66,6 +66,7 @@ class TurnByTurnNavigator {
     this.isNavigating = false;
     this.followMode = true;
     this.overviewMode = false;
+    this.needsStartSeed = false;
 
     // Route preview
     this.estimatedDriveTime = null;
@@ -473,7 +474,7 @@ class TurnByTurnNavigator {
       const startInfo = this.state.findSmartStartPoint(position, this.routeCoords);
 
       if (startInfo.isAtStart) {
-        this.ui.updateStartStatus("at-start", "You're at the start point");
+        this.ui.updateStartStatus("at-start", "You're on the route");
         this.ui.showBeginButton();
       } else {
         const directions = await TurnByTurnAPI.fetchDirectionsToPoint(
@@ -485,11 +486,11 @@ class TurnByTurnNavigator {
         if (directions) {
           const distText = formatDistance(directions.distance);
           const timeText = this.ui.formatDuration(directions.duration);
-          this.ui.updateStartStatus("away", `${distText} away (${timeText} to start)`);
+          this.ui.updateStartStatus("away", `${distText} away (${timeText} to route)`);
           this.navigateToStartRoute = directions.geometry;
         } else {
           const distText = formatDistance(startInfo.distanceFromUser);
-          this.ui.updateStartStatus("away", `${distText} from start point`);
+          this.ui.updateStartStatus("away", `${distText} from route`);
         }
         this.ui.showNavigateToStartButton();
       }
@@ -508,6 +509,8 @@ class TurnByTurnNavigator {
       return;
     }
 
+    this.needsStartSeed = true;
+    this.gps.resetSmoothing();
     this.ui.setNavToStartLoading(true);
 
     try {
@@ -550,6 +553,9 @@ class TurnByTurnNavigator {
       this.ui.setNavStatus("Load a route first.", true);
       return;
     }
+
+    this.needsStartSeed = true;
+    this.gps.resetSmoothing();
 
     if (!TurnByTurnGPS.isAvailable()) {
       this.isNavigating = true;
@@ -689,9 +695,23 @@ class TurnByTurnNavigator {
       return;
     }
 
+    const shouldSeedStart
+      = this.needsStartSeed
+      && this.state.getState() === NAV_STATES.ACTIVE_NAVIGATION;
+    if (shouldSeedStart) {
+      this.lastClosestIndex = 0;
+    }
+
     const closest = this.findClosestPoint(current);
     if (!closest) {
       return;
+    }
+
+    if (shouldSeedStart) {
+      this.gps.lastValidProgress = closest.along;
+      this.gps.progressHistory = [closest.along];
+      this.gps.lastProgressTime = Date.now();
+      this.needsStartSeed = false;
     }
 
     // Apply progress smoothing
@@ -984,6 +1004,7 @@ class TurnByTurnNavigator {
 
     this.isNavigating = false;
     this.navigateToStartRoute = null;
+    this.needsStartSeed = false;
 
     this.map.clearRouteLayers();
     this.map.clearNavigateToStartRoute();

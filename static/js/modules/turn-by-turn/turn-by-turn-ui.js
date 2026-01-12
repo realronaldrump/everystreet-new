@@ -223,17 +223,17 @@ class TurnByTurnUI {
     this.hideSetupPanel();
 
     if (this.elements.primaryInstruction) {
-      this.elements.primaryInstruction.textContent = "Drive to start point";
+      this.elements.primaryInstruction.textContent = "Drive to route";
     }
     if (this.elements.distanceToTurn && data.distanceToStart) {
       this.elements.distanceToTurn.textContent = formatDistance(data.distanceToStart);
     }
-    this.setNavStatus("Navigating to route start");
+    this.setNavStatus("Navigating to route");
   }
 
   showArrivedAtStart() {
     if (this.elements.primaryInstruction) {
-      this.elements.primaryInstruction.textContent = "Arrived at start";
+      this.elements.primaryInstruction.textContent = "Arrived at route";
     }
     if (this.elements.distanceToTurn) {
       this.elements.distanceToTurn.textContent = "Starting route...";
@@ -287,7 +287,7 @@ class TurnByTurnUI {
 
   showNavigateToStartButton() {
     this.elements.navToStartBtn?.removeAttribute("hidden");
-    this.elements.beginNavBtn?.setAttribute("hidden", "");
+    this.elements.beginNavBtn?.removeAttribute("hidden");
   }
 
   showBeginButton() {

@@ -134,13 +134,14 @@ async def get_streets_in_viewport(
         {"area_id": oid, "segment_id": {"$in": segment_ids}}
     ).to_list()
 
-    # Build status lookup
-    status_map = {s.segment_id: s.status for s in states}
+    # Build state lookup
+    state_map = {s.segment_id: s for s in states}
 
     # Build GeoJSON features
     features = []
     for street in streets:
-        segment_status = status_map.get(street.segment_id, "undriven")
+        state = state_map.get(street.segment_id)
+        segment_status = state.status if state else "undriven"
 
         features.append(
             StreetFeature(
@@ -150,6 +151,8 @@ async def get_streets_in_viewport(
                     "highway_type": street.highway_type,
                     "length_miles": street.length_miles,
                     "status": segment_status,
+                    "last_driven_at": state.last_driven_at if state else None,
+                    "first_driven_at": state.first_driven_at if state else None,
                 },
                 geometry=street.geometry,
             )

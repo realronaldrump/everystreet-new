@@ -144,6 +144,7 @@ class CoverageState(Document):
 
     # Provenance - how did this segment get marked?
     last_driven_at: datetime | None = None
+    first_driven_at: datetime | None = None
     driven_by_trip_id: PydanticObjectId | None = None
 
     # Manual override tracking

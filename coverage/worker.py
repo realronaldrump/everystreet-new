@@ -18,6 +18,7 @@ from coverage.events import CoverageEvents, on_event, emit_coverage_updated
 from coverage.matching import match_trip_to_streets, trip_to_linestring
 from coverage.models import CoverageArea, CoverageState
 from coverage.stats import update_area_stats
+from date_utils import get_current_utc_time, normalize_to_utc_datetime
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +47,8 @@ async def handle_trip_completed(
                 return
             trip_data = trip.model_dump()
 
+        trip_driven_at = get_trip_driven_at(trip_data)
+
         # Match trip to streets in all relevant areas
         matches = await match_trip_to_streets(trip_data)
 
@@ -62,6 +65,7 @@ async def handle_trip_completed(
                 trip_id=PydanticObjectId(trip_id)
                 if isinstance(trip_id, str)
                 else trip_id,
+                driven_at=trip_driven_at,
             )
             total_updated += updated
 
@@ -99,6 +103,7 @@ async def update_coverage_for_segments(
     area_id: PydanticObjectId,
     segment_ids: list[str],
     trip_id: PydanticObjectId | None = None,
+    driven_at: datetime | str | None = None,
 ) -> int:
     """
     Mark segments as driven for an area.
@@ -124,7 +129,7 @@ async def update_coverage_for_segments(
     if not segment_ids:
         return 0
 
-    now = datetime.now(UTC)
+    driven_at = normalize_to_utc_datetime(driven_at) or get_current_utc_time()
 
     # Build bulk operations
     operations = []
@@ -135,18 +140,37 @@ async def update_coverage_for_segments(
                     "area_id": area_id,
                     "segment_id": segment_id,
                 },
-                {
-                    "$set": {
-                        "status": "driven",
-                        "last_driven_at": now,
-                        "driven_by_trip_id": trip_id,
-                    },
-                    "$setOnInsert": {
-                        "area_id": area_id,
-                        "segment_id": segment_id,
-                        "manually_marked": False,
-                    },
-                },
+                [
+                    {
+                        "$set": {
+                            "status": "driven",
+                            "last_driven_at": driven_at,
+                            "first_driven_at": {
+                                "$let": {
+                                    "vars": {"existing": "$first_driven_at"},
+                                    "in": {
+                                        "$cond": [
+                                            {
+                                                "$or": [
+                                                    {"$eq": ["$$existing", None]},
+                                                    {"$gt": ["$$existing", driven_at]},
+                                                ]
+                                            },
+                                            driven_at,
+                                            "$$existing",
+                                        ]
+                                    },
+                                }
+                            },
+                            "driven_by_trip_id": trip_id,
+                            "area_id": area_id,
+                            "segment_id": segment_id,
+                            "manually_marked": {
+                                "$ifNull": ["$manually_marked", False]
+                            },
+                        }
+                    }
+                ],
                 upsert=True,
             )
         )
@@ -212,6 +236,7 @@ async def mark_segment_undriven(
     if result:
         result.status = "undriven"
         result.last_driven_at = None
+        result.first_driven_at = None
         result.driven_by_trip_id = None
         result.manually_marked = True
         result.marked_at = datetime.now(UTC)
@@ -277,6 +302,7 @@ async def backfill_coverage_for_area(
 
     async for trip in Trip.find(query):
         trip_data = trip.model_dump()
+        trip_driven_at = get_trip_driven_at(trip_data)
         matches = await match_trip_to_streets(trip_data, area_ids=[area_id])
 
         if area_id in matches:
@@ -284,6 +310,7 @@ async def backfill_coverage_for_area(
                 area_id=area_id,
                 segment_ids=matches[area_id],
                 trip_id=trip.id,
+                driven_at=trip_driven_at,
             )
             total_updated += updated
             trip_count += 1
@@ -297,3 +324,15 @@ async def backfill_coverage_for_area(
     )
 
     return total_updated
+
+
+def get_trip_driven_at(trip_data: dict[str, Any] | None) -> datetime | None:
+    if not trip_data:
+        return None
+
+    driven_at = (
+        trip_data.get("endTime")
+        or trip_data.get("startTime")
+        or trip_data.get("lastUpdate")
+    )
+    return normalize_to_utc_datetime(driven_at)
