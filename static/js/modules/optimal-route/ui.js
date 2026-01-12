@@ -85,7 +85,7 @@ export class OptimalRouteUI {
       return;
     }
 
-    const areasWithRoutes = areas.filter((a) => a.optimal_route);
+    const areasWithRoutes = areas.filter((a) => a.has_optimal_route);
 
     if (areasWithRoutes.length === 0) {
       historyContainer.innerHTML =
@@ -95,9 +95,8 @@ export class OptimalRouteUI {
 
     historyContainer.innerHTML = areasWithRoutes
       .map((area) => {
-        const route = area.optimal_route;
-        const date = route.generated_at
-          ? new Date(route.generated_at).toLocaleDateString()
+        const date = area.optimal_route_generated_at
+          ? new Date(area.optimal_route_generated_at).toLocaleDateString()
           : "Unknown";
         return `
           <div class="route-history-item" data-area-id="${area.id || area._id}">

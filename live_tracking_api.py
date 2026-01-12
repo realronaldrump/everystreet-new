@@ -71,6 +71,27 @@ async def _process_bouncie_event(data: dict[str, Any]) -> dict[str, Any]:
     return {"status": "processed", "event": event_type, "transactionId": transaction_id}
 
 
+async def _record_webhook_failure(
+    data: dict[str, Any],
+    error_id: str,
+    reason: str,
+    error: Exception | None = None,
+) -> None:
+    """Store failed webhook payloads so they can be inspected or replayed."""
+    payload = data if isinstance(data, dict) else {"raw_payload": data}
+    failure_payload = {
+        "received_at": datetime.now(UTC),
+        "eventType": payload.get("eventType") if isinstance(payload, dict) else None,
+        "transactionId": payload.get("transactionId") if isinstance(payload, dict) else None,
+        "reason": reason,
+        "error_id": error_id,
+        "error": str(error) if error else None,
+        "payload": payload,
+    }
+    with contextlib.suppress(Exception):
+        await db_manager.db["webhook_failures"].insert_one(failure_payload)
+
+
 # ============================================================================
 # WebSocket Connection Manager
 # ============================================================================
@@ -194,8 +215,8 @@ async def bouncie_webhook(request: Request):
     """
     Receive and process Bouncie webhook events.
 
-    Returns non-2xx responses for invalid payloads or processing failures so Bouncie
-    can retry per their webhook delivery guidance.
+    Always returns 200 OK to prevent Bouncie from deactivating the webhook. Processing
+    happens asynchronously with internal retries and failure capture.
     """
     try:
         data = await request.json()
@@ -205,55 +226,90 @@ async def bouncie_webhook(request: Request):
         if not event_type:
             logger.warning("Webhook missing eventType")
             return JSONResponse(
-                content={"status": "error", "message": "Missing eventType"},
-                status_code=status.HTTP_400_BAD_REQUEST,
+                content={"status": "accepted", "message": "Missing eventType"},
+                status_code=200,
             )
 
         logger.info("Webhook received: %s (Trip: %s)", event_type, transaction_id)
 
-        # Process event with error handling
         try:
-            result = await _process_bouncie_event(data)
+            from tasks import process_webhook_event_task
+
+            task = process_webhook_event_task.delay(data)
             return JSONResponse(
-                content={"status": "ok", "detail": result},
+                content={
+                    "status": "accepted",
+                    "message": "Event queued",
+                    "task_id": task.id,
+                },
                 status_code=200,
             )
-        except Exception as processing_error:
-            # Log processing errors and return non-2xx to trigger retries.
+        except Exception as enqueue_error:
             error_id = str(uuid.uuid4())
             logger.exception(
-                "Failed to process webhook event [%s]: %s (Trip: %s) - Error: %s",
+                "Failed to enqueue webhook event [%s]: %s (Trip: %s) - Error: %s",
                 error_id,
                 event_type,
                 transaction_id,
-                processing_error,
+                enqueue_error,
             )
-            return JSONResponse(
-                content={
-                    "status": "error",
-                    "message": "Event received but processing failed",
-                    "error_id": error_id,
-                },
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
+            try:
+                result = await _process_bouncie_event(data)
+                return JSONResponse(
+                    content={
+                        "status": "ok",
+                        "detail": result,
+                        "warning": "Processed inline after queue failure",
+                        "error_id": error_id,
+                    },
+                    status_code=200,
+                )
+            except Exception as processing_error:
+                logger.exception(
+                    "Failed to process webhook event after queue failure [%s]: %s (Trip: %s) - Error: %s",
+                    error_id,
+                    event_type,
+                    transaction_id,
+                    processing_error,
+                )
+                await _record_webhook_failure(
+                    data,
+                    error_id=error_id,
+                    reason="enqueue_failed_and_processing_failed",
+                    error=processing_error,
+                )
+                return JSONResponse(
+                    content={
+                        "status": "accepted",
+                        "message": "Event received but processing failed",
+                        "error_id": error_id,
+                    },
+                    status_code=200,
+                )
 
     except json.JSONDecodeError:
         logger.exception("Invalid JSON in webhook")
         return JSONResponse(
-            content={"status": "error", "message": "Invalid JSON payload"},
-            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"status": "accepted", "message": "Invalid JSON payload"},
+            status_code=200,
         )
     except Exception as e:
         # Catch-all for any unexpected errors
         error_id = str(uuid.uuid4())
         logger.exception("Unexpected webhook error [%s]: %s", error_id, e)
+        await _record_webhook_failure(
+            data if "data" in locals() else {},
+            error_id=error_id,
+            reason="unexpected_exception",
+            error=e,
+        )
         return JSONResponse(
             content={
-                "status": "error",
+                "status": "accepted",
                 "message": "Event received but encountered error",
                 "error_id": error_id,
             },
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=200,
         )
 
 

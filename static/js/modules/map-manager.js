@@ -10,11 +10,12 @@ import utils from "./utils.js";
 const mapManager = {
   async initialize() {
     try {
-      const initStage = window.loadingManager.startStage("init", "Initializing map...");
+      const loadingManager = window.loadingManager;
+      loadingManager?.show("Initializing map...");
 
       const mapElement = utils.getElement("map");
       if (!mapElement || state.map) {
-        initStage.complete();
+        loadingManager?.hide();
         return state.mapInitialized;
       }
 
@@ -30,7 +31,7 @@ const mapManager = {
         throw new Error("WebGL not supported");
       }
 
-      initStage.update(30, "Configuring map...");
+      loadingManager?.updateMessage("Configuring map...");
 
       // Disable telemetry for performance
       mapboxgl.config.REPORT_MAP_LOAD_TIMES = false;
@@ -58,7 +59,7 @@ const mapManager = {
       const initialStyle
         = CONFIG.MAP.styles[initialMapType] || CONFIG.MAP.styles[theme];
 
-      initStage.update(60, "Creating map instance...");
+      loadingManager?.updateMessage("Creating map instance...");
 
       state.map = new mapboxgl.Map({
         container: "map",
@@ -87,7 +88,7 @@ const mapManager = {
 
       window.map = state.map;
 
-      initStage.update(80, "Adding controls...");
+      loadingManager?.updateMessage("Adding controls...");
 
       // Add controls
       state.map.addControl(new mapboxgl.NavigationControl(), "top-right");
@@ -112,7 +113,7 @@ const mapManager = {
       // Wait for map to load
       await new Promise((resolve) => {
         state.map.on("load", () => {
-          initStage.complete();
+          loadingManager?.hide();
           resolve();
         });
       });
@@ -125,7 +126,7 @@ const mapManager = {
       return true;
     } catch (error) {
       console.error("Map initialization error:", error);
-      window.loadingManager.stageError("init", error.message);
+      window.loadingManager?.hide();
       window.notificationManager.show(
         `Map initialization failed: ${error.message}`,
         "danger"

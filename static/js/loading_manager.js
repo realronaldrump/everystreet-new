@@ -217,85 +217,9 @@ class LoadingManager {
     // Auto-hide after showing error
     setTimeout(() => this.forceHide(), 3000);
   }
-
-  // === Legacy API compatibility ===
-
-  /**
-   * Start a named stage (legacy compatibility)
-   * @param {string} stageName - Name of the stage
-   * @param {string} message - Message to show
-   * @param {Object} options - Display options
-   * @returns {Object} - Stage control object
-   */
-  startStage(stageName, message, options = {}) {
-    const messageOptions
-      = typeof message === "object" && message !== null ? message : options;
-    const messageText
-      = typeof message === "object" && message !== null ? undefined : message;
-
-    this.show(messageText || `Loading ${stageName}...`, messageOptions);
-    return {
-      update: (_progress, msg) => {
-        if (msg) {
-          this.updateMessage(msg);
-        }
-      },
-      complete: () => this.hide(),
-      error: (msg) => this.error(msg),
-    };
-  }
-
-  /**
-   * Complete a stage (legacy compatibility)
-   */
-  completeStage() {
-    this.hide();
-  }
-
-  /**
-   * Stage error (legacy compatibility)
-   * @param {string} message - Error message
-   */
-  stageError(message) {
-    this.error(message);
-  }
-
-  /**
-   * Start an operation (legacy compatibility)
-   * @param {string} name - Operation name
-   * @returns {Object} - Operation control object
-   */
-  startOperation(name) {
-    this.show(`Loading ${name}...`);
-    return {
-      id: Date.now(),
-      update: (_progress, msg) => {
-        if (msg) {
-          this.updateMessage(msg);
-        }
-      },
-      finish: () => this.hide(),
-      error: (msg) => this.error(msg),
-      addSubOperation: () => ({
-        // No-op stubs for sub-operations (legacy compatibility)
-        error: (msg) => this.error(msg),
-      }),
-    };
-  }
-
-  /**
-   * Finish named operation (legacy compatibility)
-   */
-  finish() {
-    this.forceHide();
-  }
 }
 
 // Create singleton instance
 if (!window.loadingManager || typeof window.loadingManager.show !== "function") {
   window.loadingManager = new LoadingManager();
 }
-
-// Legacy function compatibility
-window.showLoadingOverlay = (message) => window.loadingManager.show(message);
-window.hideLoadingOverlay = () => window.loadingManager.hide();
