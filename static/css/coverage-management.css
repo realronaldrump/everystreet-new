@@ -446,44 +446,100 @@
 .coverage-segment-popup .segment-popup-content {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
+}
+
+.coverage-segment-popup .popup-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
 }
 
 .coverage-segment-popup .popup-title {
   font-weight: 600;
-  font-size: 0.95rem;
+  font-size: 0.98rem;
+  line-height: 1.2;
 }
 
-.coverage-segment-popup .popup-detail {
+.coverage-segment-popup .popup-subtitle {
+  font-size: 0.8rem;
+  color: var(--text-tertiary);
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 6px;
+}
+
+.coverage-segment-popup .status-pill {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.coverage-segment-popup .status-driven {
+  background: color-mix(in srgb, var(--success) 20%, transparent);
+  color: var(--success);
+  border-color: color-mix(in srgb, var(--success) 40%, transparent);
+}
+
+.coverage-segment-popup .status-undriven {
+  background: color-mix(in srgb, var(--danger) 20%, transparent);
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 40%, transparent);
+}
+
+.coverage-segment-popup .status-undriveable {
+  background: color-mix(in srgb, var(--text-tertiary) 20%, transparent);
+  color: var(--text-tertiary);
+  border-color: color-mix(in srgb, var(--text-tertiary) 40%, transparent);
+}
+
+.coverage-segment-popup .status-unknown {
+  background: color-mix(in srgb, var(--info) 20%, transparent);
+  color: var(--info);
+  border-color: color-mix(in srgb, var(--info) 40%, transparent);
+}
+
+.coverage-segment-popup .popup-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 12px;
+}
+
+.coverage-segment-popup .popup-item {
   display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  font-size: 0.82rem;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .coverage-segment-popup .popup-label {
+  font-size: 0.7rem;
   color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .coverage-segment-popup .popup-value {
   color: var(--text-primary);
   font-weight: 600;
-  text-align: right;
+  font-size: 0.82rem;
 }
 
-.coverage-segment-popup .popup-value.status-driven {
-  color: var(--success);
-}
-
-.coverage-segment-popup .popup-value.status-undriven {
-  color: var(--danger);
-}
-
-.coverage-segment-popup .popup-value.status-undriveable {
-  color: var(--text-tertiary);
+.coverage-segment-popup .popup-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  border-top: 1px solid var(--border-color);
+  padding-top: 6px;
 }
 
 .coverage-segment-popup .segment-id {
   font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
   font-weight: 500;
+  font-size: 0.75rem;
 }

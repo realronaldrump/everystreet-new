@@ -1072,7 +1072,6 @@ function createStreetPopupContent(props) {
   const statusKey =
     typeof props.status === "string" ? props.status.toLowerCase() : "unknown";
   const statusLabel = formatStatus(statusKey);
-  const statusClass = statusLabel ? `status-${statusKey}` : "";
   const lengthLabel = formatSegmentLength(props.length_miles);
   const highwayType = escapeHtml(formatHighwayType(props.highway_type));
   const firstDriven = formatPopupDate(props.first_driven_at, statusKey);
@@ -1080,28 +1079,22 @@ function createStreetPopupContent(props) {
 
   return `
     <div class="segment-popup-content">
-      <div class="popup-title">${streetName}</div>
-      <div class="popup-detail">
-        <span class="popup-label">Status</span>
-        <span class="popup-value ${statusClass}">${statusLabel}</span>
+      <div class="popup-header">
+        <div class="popup-title">${streetName}</div>
+        <span class="status-pill status-${statusKey}">${statusLabel}</span>
       </div>
-      <div class="popup-detail">
-        <span class="popup-label">Length</span>
-        <span class="popup-value">${lengthLabel}</span>
+      <div class="popup-subtitle">${highwayType} • ${lengthLabel}</div>
+      <div class="popup-grid">
+        <div class="popup-item">
+          <span class="popup-label">First driven</span>
+          <span class="popup-value">${firstDriven}</span>
+        </div>
+        <div class="popup-item">
+          <span class="popup-label">Last driven</span>
+          <span class="popup-value">${lastDriven}</span>
+        </div>
       </div>
-      <div class="popup-detail">
-        <span class="popup-label">Type</span>
-        <span class="popup-value">${highwayType}</span>
-      </div>
-      <div class="popup-detail">
-        <span class="popup-label">First driven</span>
-        <span class="popup-value">${firstDriven}</span>
-      </div>
-      <div class="popup-detail">
-        <span class="popup-label">Last driven</span>
-        <span class="popup-value">${lastDriven}</span>
-      </div>
-      <div class="popup-detail popup-meta">
+      <div class="popup-meta">
         <span class="popup-label">Segment</span>
         <span class="popup-value segment-id">${segmentId}</span>
       </div>
