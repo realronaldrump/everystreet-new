@@ -99,7 +99,14 @@ class LoadingManager {
         ? messageOptions.message || "Loading..."
         : message;
 
-    const { blocking = true, compact = false } = messageOptions;
+    const blocking
+      = typeof messageOptions.blocking === "boolean" ? messageOptions.blocking : false;
+    const compact
+      = blocking
+        ? false
+        : typeof messageOptions.compact === "boolean"
+          ? messageOptions.compact
+          : true;
     this.activeOptions = { blocking, compact };
 
     // Cancel any pending hide
@@ -118,18 +125,19 @@ class LoadingManager {
       this.hideBar(true);
     }
 
+    if (blocking === false) {
+      this.overlay?.classList.add("non-blocking");
+    } else {
+      this.overlay?.classList.remove("non-blocking");
+    }
+    if (compact) {
+      this.overlay?.classList.add("compact");
+    } else {
+      this.overlay?.classList.remove("compact");
+    }
+
     if (!this.isVisible) {
       this.showStartTime = Date.now();
-      if (blocking === false) {
-        this.overlay?.classList.add("non-blocking");
-      } else {
-        this.overlay?.classList.remove("non-blocking");
-      }
-      if (compact) {
-        this.overlay?.classList.add("compact");
-      } else {
-        this.overlay?.classList.remove("compact");
-      }
       this.overlay?.classList.add("visible");
       this.isVisible = true;
     }
