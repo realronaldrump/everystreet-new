@@ -5,8 +5,8 @@ from typing import Annotated
 
 from fastapi import APIRouter, Query
 
-from db.models import GasFillup
 from core.api import api_route
+from db.models import GasFillup
 from db.schemas import GasFillupCreateModel
 from gas.services import FillupService
 

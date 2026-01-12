@@ -16,16 +16,16 @@ from shapely.geometry import LineString, MultiLineString, mapping, shape
 from shapely.geometry.base import BaseGeometry
 from shapely.ops import transform
 
-from coverage.models import Street
 from coverage.constants import (
-    MATCH_BUFFER_METERS,
-    MIN_OVERLAP_METERS,
-    MIN_GPS_GAP_METERS,
-    MAX_GPS_GAP_METERS,
     GPS_GAP_MULTIPLIER,
+    MATCH_BUFFER_METERS,
+    MAX_GPS_GAP_METERS,
+    MIN_GPS_GAP_METERS,
+    MIN_OVERLAP_METERS,
     SHORT_SEGMENT_OVERLAP_RATIO,
 )
-from coverage.geo_utils import get_local_transformers, geodesic_distance_meters
+from coverage.geo_utils import geodesic_distance_meters, get_local_transformers
+from coverage.models import Street
 
 logger = logging.getLogger(__name__)
 
