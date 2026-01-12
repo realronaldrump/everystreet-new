@@ -1118,7 +1118,7 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
 .live-trip-hud.is-active {
   opacity: 1;
   transform: translateY(0);
-  pointer-events: none;
+  pointer-events: auto;
 }
 
 .live-trip-hud-card {
@@ -1241,6 +1241,9 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
   font-weight: var(--font-weight-semibold);
   color: var(--text-primary);
   margin: var(--space-1) 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .live-trip-road-meta {

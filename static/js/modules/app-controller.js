@@ -129,7 +129,7 @@ const AppController = {
           }, 500);
         }
 
-        const mapStage = window.loadingManager.startStage("map", "Loading map data...");
+        window.loadingManager?.updateMessage("Loading map data...");
 
         // Fetch all visible layers during initialization
         const fetchPromises = [dataManager.fetchTrips(), dataManager.fetchMetrics()];
@@ -140,7 +140,7 @@ const AppController = {
         }
 
         await Promise.all(fetchPromises);
-        mapStage.complete();
+        window.loadingManager?.hide();
 
         // Ensure all visible layers have their visibility applied after data loads
         await new Promise((resolve) => {
@@ -165,7 +165,7 @@ const AppController = {
       }
 
       document.dispatchEvent(new CustomEvent("appReady"));
-      setTimeout(() => window.loadingManager.finish(), 300);
+      setTimeout(() => window.loadingManager.hide(), 300);
     } catch (err) {
       console.error("App initialization error:", err);
       window.loadingManager.error(`Initialization failed: ${err.message}`);

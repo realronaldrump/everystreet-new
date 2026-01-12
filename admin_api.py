@@ -52,7 +52,6 @@ router = APIRouter()
 
 
 DEFAULT_APP_SETTINGS: dict[str, Any] = {
-    "_id": "default",
     "highlightRecentTrips": True,
     "autoCenter": True,
     "showLiveTracking": True,
@@ -64,10 +63,11 @@ DEFAULT_APP_SETTINGS: dict[str, Any] = {
 
 async def get_persisted_app_settings() -> dict[str, Any]:
     try:
-        settings = await AppSettings.get("default")
+        settings = await AppSettings.find_one()
         if settings is None:
-            await AppSettings(id="default", **DEFAULT_APP_SETTINGS).insert()
-            return DEFAULT_APP_SETTINGS.copy()
+            new_doc = AppSettings(**DEFAULT_APP_SETTINGS)
+            await new_doc.insert()
+            return new_doc.model_dump()
         return settings.model_dump()
     except Exception as e:
         logger.exception("Error fetching app settings: %s", e)
@@ -104,13 +104,15 @@ async def update_app_settings_endpoint(settings: Annotated[dict, Body()]):
         if not isinstance(settings, dict):
             raise HTTPException(status_code=400, detail="Invalid payload")
 
-        existing = await AppSettings.get("default")
+        existing = await AppSettings.find_one()
         if existing:
             for key, value in settings.items():
                 setattr(existing, key, value)
             await existing.save()
         else:
-            await AppSettings(id="default", **settings, **DEFAULT_APP_SETTINGS).insert()
+            payload = DEFAULT_APP_SETTINGS.copy()
+            payload.update(settings)
+            await AppSettings(**payload).insert()
 
         return await get_persisted_app_settings()
     except Exception as e:

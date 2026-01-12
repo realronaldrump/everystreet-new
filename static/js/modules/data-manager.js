@@ -56,16 +56,14 @@ const dataManager = {
       return null;
     }
 
-    const dataStage = window.loadingManager.startStage("data", "Loading trips...", {
-      blocking: false,
-      compact: true,
-    });
+    const loadingManager = window.loadingManager;
+    loadingManager?.show("Loading trips...", { blocking: false, compact: true });
     mapLoadingIndicator.show("Loading trips...");
 
     try {
       const { start, end } = dateUtils.getCachedDateRange();
       const params = new URLSearchParams({ start_date: start, end_date: end });
-      dataStage.update(30, `Loading trips from ${start} to ${end}...`);
+      loadingManager?.updateMessage(`Loading trips from ${start} to ${end}...`);
 
       const tripData = await utils.fetchWithRetry(
         `${CONFIG.API.trips}?${params}`,
@@ -76,31 +74,30 @@ const dataManager = {
       );
 
       if (!tripData || tripData?.type !== "FeatureCollection") {
-        dataStage.error("Invalid trip data received from server.");
+        loadingManager?.hide();
         window.notificationManager?.show("Failed to load valid trip data", "danger");
         return null;
       }
 
-      dataStage.update(70, `Rendering ${tripData.features.length} trips...`);
+      loadingManager?.updateMessage(`Rendering ${tripData.features.length} trips...`);
       mapLoadingIndicator.update(`Rendering ${tripData.features.length} trips...`);
 
       await layerManager.updateMapLayer("trips", tripData);
 
-      dataStage.update(90, "Finalizing...");
+      loadingManager?.updateMessage("Finalizing...");
       mapManager.refreshTripStyles();
       metricsManager.updateTripsTable(tripData);
 
-      dataStage.complete();
-      mapLoadingIndicator.hide();
       return tripData;
     } catch (error) {
       if (error?.name === "AbortError") {
         return null;
       }
-      dataStage.error(error.message);
+      loadingManager?.hide();
       window.notificationManager?.show("Failed to load trips", "danger");
       return null;
     } finally {
+      loadingManager?.hide();
       mapLoadingIndicator.hide();
     }
   },
@@ -289,10 +286,11 @@ const dataManager = {
       return;
     }
 
-    const renderStage = window.loadingManager.startStage("render", "Updating map...");
+    const loadingManager = window.loadingManager;
+    loadingManager?.show("Updating map...");
 
     try {
-      renderStage.update(20, "Fetching map data...");
+      loadingManager?.updateMessage("Fetching map data...");
       state.cancelAllRequests();
 
       const promises = [];
@@ -313,10 +311,10 @@ const dataManager = {
         promises.push(this.fetchAllStreets());
       }
 
-      renderStage.update(50, "Loading layer data...");
+      loadingManager?.updateMessage("Loading layer data...");
       await Promise.allSettled(promises);
 
-      renderStage.update(80, "Rendering layers...");
+      loadingManager?.updateMessage("Rendering layers...");
 
       await new Promise((resolve) => {
         requestAnimationFrame(() => {
@@ -340,13 +338,11 @@ const dataManager = {
         await mapManager.fitBounds();
       }
 
-      renderStage.complete();
       state.metrics.renderTime = Date.now() - state.metrics.loadStartTime;
     } catch (error) {
-      renderStage.error(error.message);
       window.notificationManager?.show("Error updating map data", "danger");
     } finally {
-      window.loadingManager.finish();
+      loadingManager?.hide();
     }
   },
 };

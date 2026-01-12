@@ -72,7 +72,7 @@ async def _process_bouncie_event(data: dict[str, Any]) -> dict[str, Any]:
 
 
 async def _record_webhook_failure(
-    data: dict[str, Any],
+    data: Any,
     error_id: str,
     reason: str,
     error: Exception | None = None,
@@ -220,6 +220,22 @@ async def bouncie_webhook(request: Request):
     """
     try:
         data = await request.json()
+        if not isinstance(data, dict):
+            error_id = str(uuid.uuid4())
+            logger.warning("Webhook payload is not a JSON object")
+            await _record_webhook_failure(
+                data,
+                error_id=error_id,
+                reason="invalid_payload_type",
+            )
+            return JSONResponse(
+                content={
+                    "status": "accepted",
+                    "message": "Invalid payload type",
+                    "error_id": error_id,
+                },
+                status_code=200,
+            )
         event_type = data.get("eventType")
         transaction_id = data.get("transactionId")
 

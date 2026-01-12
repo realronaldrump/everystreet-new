@@ -577,8 +577,11 @@ class LiveTripTracker {
 
     if (coverageInfo?.streetName && this.hudStreetElem) {
       this.hudStreetElem.textContent = coverageInfo.streetName;
+      this.hudStreetElem.title = coverageInfo.streetName;
     } else if (this.hudStreetElem) {
-      this.hudStreetElem.textContent = areaName ? "Outside coverage" : "--";
+      const fallback = areaName ? "Outside coverage" : "--";
+      this.hudStreetElem.textContent = fallback;
+      this.hudStreetElem.title = fallback;
     }
 
     this.updateCoverageBadge(coverageInfo?.status, areaName);
