@@ -93,7 +93,9 @@ const panelManager = {
       e.stopPropagation();
       this.open("mobile");
     });
-    eventManager.add(CONFIG.UI.selectors.closeBtn, "click", () => this.close("mobile"));
+    eventManager.add(CONFIG.UI.selectors.closeBtn, "click", () =>
+      this.close("mobile"),
+    );
     eventManager.add(CONFIG.UI.selectors.contentOverlay, "click", () => {
       this.close("mobile");
       this.close("filters");
@@ -103,7 +105,7 @@ const panelManager = {
       this.toggle("filters");
     });
     eventManager.add(CONFIG.UI.selectors.filtersClose, "click", () =>
-      this.close("filters")
+      this.close("filters"),
     );
 
     document.addEventListener("keydown", (e) => {

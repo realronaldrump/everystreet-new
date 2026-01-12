@@ -5,7 +5,11 @@
 
 import { fetchCoverageAreas, fetchUndrivenStreets } from "./api.js";
 import { triggerDownload } from "./download.js";
-import { generateTimestamp, geojsonToGpx, sanitizeFilename } from "./format-utils.js";
+import {
+  generateTimestamp,
+  geojsonToGpx,
+  sanitizeFilename,
+} from "./format-utils.js";
 import { setButtonLoading } from "./ui.js";
 
 /**
@@ -64,7 +68,10 @@ async function loadCoverageAreas(locationSelect) {
     }
   } catch (err) {
     locationSelect.innerHTML = '<option value="">Failed to load areas</option>';
-    window.notificationManager?.show(`Failed to load areas: ${err.message}`, "error");
+    window.notificationManager?.show(
+      `Failed to load areas: ${err.message}`,
+      "error",
+    );
   }
 }
 
@@ -74,19 +81,28 @@ async function loadCoverageAreas(locationSelect) {
  * @param {HTMLSelectElement} formatSelect - Format select element
  * @param {HTMLButtonElement} exportBtn - Export button element
  */
-async function handleUndrivenStreetsExport(locationSelect, formatSelect, exportBtn) {
+async function handleUndrivenStreetsExport(
+  locationSelect,
+  formatSelect,
+  exportBtn,
+) {
   if (!locationSelect.value) {
     return;
   }
 
-  const originalText = setButtonLoading(exportBtn, true, "Export Undriven Streets");
+  const originalText = setButtonLoading(
+    exportBtn,
+    true,
+    "Export Undriven Streets",
+  );
   window.notificationManager?.show("Exporting undriven streets...", "info");
 
   try {
     const format = formatSelect?.value || "geojson";
     const areaId = locationSelect.value;
-    const displayName
-      = locationSelect.selectedOptions?.[0]?.dataset.displayName || "undriven_streets";
+    const displayName =
+      locationSelect.selectedOptions?.[0]?.dataset.displayName ||
+      "undriven_streets";
 
     const geojson = await fetchUndrivenStreets(areaId);
 
@@ -113,10 +129,13 @@ async function handleUndrivenStreetsExport(locationSelect, formatSelect, exportB
     triggerDownload(
       blob,
       filename,
-      format === "gpx" ? "application/gpx+xml" : "application/geo+json"
+      format === "gpx" ? "application/gpx+xml" : "application/geo+json",
     );
 
-    window.notificationManager?.show("Undriven streets export completed", "success");
+    window.notificationManager?.show(
+      "Undriven streets export completed",
+      "success",
+    );
   } catch (err) {
     window.notificationManager?.show(`Export failed: ${err.message}`, "error");
   } finally {

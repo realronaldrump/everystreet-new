@@ -89,7 +89,7 @@ export function updateMobileTaskList(config, taskManager) {
                   <option value="${opt.value}" ${opt.value === task.interval_minutes ? "selected" : ""}>
                     ${opt.label}
                   </option>
-                `
+                `,
                   )
                   .join("")}
               </select>
@@ -322,7 +322,9 @@ export function updateMobilePagination(taskManager) {
 
 export function setupMobileGlobalControls() {
   // Global disable switch
-  const mobileGlobalSwitch = document.getElementById("mobile-globalDisableSwitch");
+  const mobileGlobalSwitch = document.getElementById(
+    "mobile-globalDisableSwitch",
+  );
   const desktopGlobalSwitch = document.getElementById("globalDisableSwitch");
 
   if (mobileGlobalSwitch && desktopGlobalSwitch) {
@@ -370,7 +372,9 @@ export function setupMobileGlobalControls() {
 
   if (mobileClearBtn && desktopClearBtn) {
     mobileClearBtn.addEventListener("click", () => {
-      const modal = new bootstrap.Modal(document.getElementById("clearHistoryModal"));
+      const modal = new bootstrap.Modal(
+        document.getElementById("clearHistoryModal"),
+      );
       modal.show();
     });
   }
@@ -384,7 +388,9 @@ export function setupMobileManualFetch(taskManager) {
 
   const startInput = document.getElementById("mobile-manual-fetch-start");
   const endInput = document.getElementById("mobile-manual-fetch-end");
-  const mapMatchInput = document.getElementById("mobile-manual-fetch-map-match");
+  const mapMatchInput = document.getElementById(
+    "mobile-manual-fetch-map-match",
+  );
   const statusEl = document.getElementById("mobile-manual-fetch-status");
 
   form.addEventListener("submit", async (event) => {
@@ -414,10 +420,10 @@ export function setupMobileManualFetch(taskManager) {
     const endDate = new Date(endValue);
 
     if (
-      !startDate
-      || !endDate
-      || Number.isNaN(startDate.getTime())
-      || Number.isNaN(endDate.getTime())
+      !startDate ||
+      !endDate ||
+      Number.isNaN(startDate.getTime()) ||
+      Number.isNaN(endDate.getTime())
     ) {
       if (statusEl) {
         statusEl.classList.add("error");
@@ -447,7 +453,7 @@ export function setupMobileManualFetch(taskManager) {
       await taskManager.scheduleManualFetch(
         startDate.toISOString(),
         endDate.toISOString(),
-        mapMatchEnabled
+        mapMatchEnabled,
       );
       if (statusEl) {
         statusEl.classList.remove("info");
@@ -474,7 +480,9 @@ async function pollGeocodeProgress(context) {
   const { taskId, geocodeBtn, statusEl } = context;
 
   try {
-    const progressResponse = await fetch(`/api/geocode_trips/progress/${taskId}`);
+    const progressResponse = await fetch(
+      `/api/geocode_trips/progress/${taskId}`,
+    );
     if (!progressResponse.ok) {
       handleGeocodeProgressError(context, progressResponse.status);
       return;
@@ -497,7 +505,7 @@ async function pollGeocodeProgress(context) {
     }
     window.notificationManager?.show(
       "Lost connection while monitoring geocoding progress",
-      "warning"
+      "warning",
     );
   }
 }
@@ -506,8 +514,8 @@ function handleGeocodeProgressError(context, status) {
   const { geocodeBtn, statusEl } = context;
   clearInterval(pollGeocodeProgress.pollInterval);
   geocodeBtn.disabled = false;
-  const errorMessage
-    = status === 404
+  const errorMessage =
+    status === 404
       ? "Geocoding task not found."
       : "Unable to retrieve geocoding progress.";
   if (statusEl) {
@@ -551,13 +559,13 @@ function handleGeocodeCompletion(context, progressData) {
     updateGeocodeSuccessUI(statusEl, progressBar, metrics);
     window.notificationManager.show(
       `Geocoding completed: ${metrics.updated || 0} updated, ${metrics.skipped || 0} skipped`,
-      "success"
+      "success",
     );
   } else {
     updateGeocodeErrorUI(statusEl, progressBar, progressData);
     window.notificationManager.show(
       `Geocoding failed: ${progressData.error || "Unknown error"}`,
-      "danger"
+      "danger",
     );
   }
 }
@@ -568,7 +576,7 @@ function updateGeocodeSuccessUI(statusEl, progressBar, metrics) {
       "progress-bar-animated",
       "progress-bar-striped",
       "bg-primary",
-      "bg-danger"
+      "bg-danger",
     );
     progressBar.classList.add("bg-success");
   }
@@ -585,7 +593,7 @@ function updateGeocodeErrorUI(statusEl, progressBar, progressData) {
       "progress-bar-animated",
       "progress-bar-striped",
       "bg-primary",
-      "bg-success"
+      "bg-success",
     );
     progressBar.classList.add("bg-danger");
   }
@@ -598,15 +606,21 @@ function updateGeocodeErrorUI(statusEl, progressBar, progressData) {
 
 export function setupMobileGeocodeTrips() {
   const geocodeTabs = document.querySelectorAll(
-    '.mobile-date-method-tab[data-target="geocode"]'
+    '.mobile-date-method-tab[data-target="geocode"]',
   );
   const geocodeDateRange = document.getElementById("mobile-geocode-date-range");
   const geocodeInterval = document.getElementById("mobile-geocode-interval");
   const geocodeBtn = document.getElementById("mobile-geocode-trips-btn");
-  const progressPanel = document.getElementById("mobile-geocode-progress-panel");
+  const progressPanel = document.getElementById(
+    "mobile-geocode-progress-panel",
+  );
   const progressBar = document.getElementById("mobile-geocode-progress-bar");
-  const progressMessage = document.getElementById("mobile-geocode-progress-message");
-  const progressMetrics = document.getElementById("mobile-geocode-progress-metrics");
+  const progressMessage = document.getElementById(
+    "mobile-geocode-progress-message",
+  );
+  const progressMetrics = document.getElementById(
+    "mobile-geocode-progress-metrics",
+  );
   const statusEl = document.getElementById("mobile-geocode-trips-status");
 
   if (!geocodeBtn) {
@@ -638,7 +652,7 @@ export function setupMobileGeocodeTrips() {
   // Handle button click
   geocodeBtn.addEventListener("click", async () => {
     const activeTab = document.querySelector(
-      '.mobile-date-method-tab[data-target="geocode"].active'
+      '.mobile-date-method-tab[data-target="geocode"].active',
     );
     const method = activeTab?.dataset.method || "date";
     let start_date = "";
@@ -651,14 +665,14 @@ export function setupMobileGeocodeTrips() {
       if (!start_date || !end_date) {
         window.notificationManager.show(
           "Please select both start and end dates",
-          "danger"
+          "danger",
         );
         return;
       }
     } else if (method === "interval") {
       interval_days = parseInt(
         document.getElementById("mobile-geocode-interval-select")?.value || "0",
-        10
+        10,
       );
     }
 
@@ -680,7 +694,7 @@ export function setupMobileGeocodeTrips() {
         progressBar.classList.add(
           "bg-primary",
           "progress-bar-animated",
-          "progress-bar-striped"
+          "progress-bar-striped",
         );
       }
       if (progressMessage) {
@@ -714,7 +728,7 @@ export function setupMobileGeocodeTrips() {
           progressMessage,
           progressMetrics,
         }),
-        1000
+        1000,
       );
 
       // Update pollInterval reference for cleanup
@@ -742,9 +756,11 @@ export function setupMobileGeocodeTrips() {
 }
 
 export function setupMobileRemapTrips() {
-  const dateTab = document.querySelector('.mobile-date-method-tab[data-method="date"]');
+  const dateTab = document.querySelector(
+    '.mobile-date-method-tab[data-method="date"]',
+  );
   const intervalTab = document.querySelector(
-    '.mobile-date-method-tab[data-method="interval"]'
+    '.mobile-date-method-tab[data-method="interval"]',
   );
   const dateRange = document.getElementById("mobile-remap-date-range");
   const intervalDiv = document.getElementById("mobile-remap-interval");
@@ -770,9 +786,9 @@ export function setupMobileRemapTrips() {
 
   if (remapBtn) {
     remapBtn.addEventListener("click", async () => {
-      const method
-        = document.querySelector(".mobile-date-method-tab.active")?.dataset.method
-        || "date";
+      const method =
+        document.querySelector(".mobile-date-method-tab.active")?.dataset
+          .method || "date";
       let start_date = "";
       let end_date = "";
       let interval_days = 0;
@@ -783,14 +799,14 @@ export function setupMobileRemapTrips() {
         if (!start_date || !end_date) {
           window.notificationManager.show(
             "Please select both start and end dates",
-            "danger"
+            "danger",
           );
           return;
         }
       } else {
         interval_days = parseInt(
           document.getElementById("mobile-remap-interval-select").value,
-          10
+          10,
         );
         const startDateObj = new Date();
         startDateObj.setDate(startDateObj.getDate() - interval_days);
@@ -856,7 +872,9 @@ export function setupMobileSaveFAB(taskManager) {
     }
 
     // Gather mobile config
-    const mobileGlobalSwitch = document.getElementById("mobile-globalDisableSwitch");
+    const mobileGlobalSwitch = document.getElementById(
+      "mobile-globalDisableSwitch",
+    );
     const tasks = {};
 
     document.querySelectorAll(".mobile-task-card").forEach((card) => {
@@ -881,7 +899,7 @@ export function setupMobileSaveFAB(taskManager) {
       .then(() => {
         window.notificationManager.show(
           "Task configuration updated successfully",
-          "success"
+          "success",
         );
         fab.classList.add("saved");
         setTimeout(() => fab.classList.remove("saved"), 2000);
@@ -891,7 +909,7 @@ export function setupMobileSaveFAB(taskManager) {
         // Error updating task config - notification shown below
         window.notificationManager.show(
           `Error updating task config: ${error.message}`,
-          "danger"
+          "danger",
         );
       });
   });

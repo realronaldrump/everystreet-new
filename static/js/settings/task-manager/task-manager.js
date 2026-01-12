@@ -14,7 +14,11 @@ import {
   fetchTaskConfig,
   fetchTaskHistory,
 } from "./api.js";
-import { HISTORY_DEFAULTS, INTERVAL_OPTIONS, POLLING_INTERVALS } from "./constants.js";
+import {
+  HISTORY_DEFAULTS,
+  INTERVAL_OPTIONS,
+  POLLING_INTERVALS,
+} from "./constants.js";
 import {
   renderHistoryPagination,
   renderTaskHistoryTable,
@@ -118,7 +122,7 @@ export class TaskManager {
       this.notifier.show(
         "Error",
         `Failed to load task configuration: ${error.message}`,
-        "danger"
+        "danger",
       );
     }
   }
@@ -144,7 +148,10 @@ export class TaskManager {
    */
   async updateTaskHistory() {
     try {
-      const data = await fetchTaskHistory(this.currentHistoryPage, this.historyLimit);
+      const data = await fetchTaskHistory(
+        this.currentHistoryPage,
+        this.historyLimit,
+      );
       this.historyTotalPages = data.total_pages;
       this.updateTaskHistoryTable(data.history);
       this.updateHistoryPagination();
@@ -152,7 +159,7 @@ export class TaskManager {
       this.notifier.show(
         "Error",
         `Failed to update task history: ${error.message}`,
-        "danger"
+        "danger",
       );
     }
   }
@@ -173,10 +180,14 @@ export class TaskManager {
    * Update history pagination controls
    */
   updateHistoryPagination() {
-    renderHistoryPagination(this.currentHistoryPage, this.historyTotalPages, (page) => {
-      this.currentHistoryPage = page;
-      this.updateTaskHistory();
-    });
+    renderHistoryPagination(
+      this.currentHistoryPage,
+      this.historyTotalPages,
+      (page) => {
+        this.currentHistoryPage = page;
+        this.updateTaskHistory();
+      },
+    );
   }
 
   /**
@@ -196,7 +207,7 @@ export class TaskManager {
     return apiRunTask(
       taskId,
       { notifier: this.notifier, activeTasksMap: this.activeTasksMap },
-      () => this.loadTaskConfig()
+      () => this.loadTaskConfig(),
     );
   }
 
@@ -207,7 +218,7 @@ export class TaskManager {
    */
   async forceStopTask(taskId) {
     return apiForceStopTask(taskId, { notifier: this.notifier }, () =>
-      this.loadTaskConfig()
+      this.loadTaskConfig(),
     );
   }
 
@@ -224,7 +235,7 @@ export class TaskManager {
       endIso,
       mapMatch,
       { notifier: this.notifier },
-      () => this.loadTaskConfig()
+      () => this.loadTaskConfig(),
     );
   }
 
