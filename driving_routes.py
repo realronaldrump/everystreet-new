@@ -441,4 +441,3 @@ async def find_clusters_endpoint(location_id: Annotated[str, Query()]):
     except Exception as e:
         logger.exception("Error finding clusters: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
-

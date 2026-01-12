@@ -14,12 +14,12 @@ from beanie import PydanticObjectId
 from shapely.geometry import LineString, shape
 from shapely.ops import transform
 
-from coverage.models import Street
 from coverage.constants import (
     MATCH_BUFFER_METERS,
     MIN_OVERLAP_METERS,
 )
 from coverage.geo_utils import get_local_transformers
+from coverage.models import Street
 
 logger = logging.getLogger(__name__)
 

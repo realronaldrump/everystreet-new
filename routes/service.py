@@ -71,9 +71,10 @@ async def generate_optimal_route_with_progress(
             raise ValueError(msg)
 
         location_name = coverage_area.display_name
-        if isinstance(coverage_area.boundary, dict) and coverage_area.boundary.get(
-            "type"
-        ) == "Feature":
+        if (
+            isinstance(coverage_area.boundary, dict)
+            and coverage_area.boundary.get("type") == "Feature"
+        ):
             boundary_geom = coverage_area.boundary.get("geometry")
             geojson = coverage_area.boundary
         else:
