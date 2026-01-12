@@ -16,13 +16,6 @@
 import { DrivingNavigation } from "./modules/driving-navigation/manager.js";
 import { DrivingNavigationUI } from "./modules/driving-navigation/ui.js";
 
-// Re-export for external usage
-export { DrivingNavigation };
-export { DrivingNavigationAPI } from "./modules/driving-navigation/api.js";
-export * from "./modules/driving-navigation/constants.js";
-export { DrivingNavigationMap } from "./modules/driving-navigation/map.js";
-export { DrivingNavigationUI } from "./modules/driving-navigation/ui.js";
-
 /**
  * Initialize driving navigation when DOM is ready.
  */
@@ -39,8 +32,9 @@ document.addEventListener("DOMContentLoaded", () => {
     return;
   }
 
-  // Initialize driving navigation and expose globally for backwards compatibility
-  window.drivingNav = new DrivingNavigation();
+  // Initialize driving navigation
+  const drivingNav = new DrivingNavigation();
+  void drivingNav;
 
   // Inject cluster marker styles
   DrivingNavigationUI.injectClusterStyles();

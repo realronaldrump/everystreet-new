@@ -199,7 +199,7 @@ class LiveTripTracker {
             "circle-radius": 20,
             "circle-color": "transparent",
             "circle-stroke-width": 2,
-            "circle-stroke-color": "#10b981",
+            "circle-stroke-color": color,
             "circle-stroke-opacity": 0.4,
           },
         });
