@@ -29,6 +29,7 @@ export class OptimalRouteMap {
       style: "mapbox://styles/mapbox/dark-v11",
       center: [-98.5795, 39.8283], // Center of US
       zoom: 4,
+      attributionControl: false,
     });
 
     if (this.options.addNavigationControl) {

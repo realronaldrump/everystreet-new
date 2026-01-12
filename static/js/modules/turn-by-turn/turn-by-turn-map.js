@@ -59,7 +59,7 @@ class TurnByTurnMap {
       pitch: 45,
       bearing: 0,
       antialias: true,
-      attributionControl: true,
+      attributionControl: false,
     });
 
     this.map.dragRotate.disable();

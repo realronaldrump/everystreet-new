@@ -91,10 +91,6 @@ const mapManager = {
 
       // Add controls
       state.map.addControl(new mapboxgl.NavigationControl(), "top-right");
-      state.map.addControl(
-        new mapboxgl.AttributionControl({ compact: true }),
-        "bottom-right"
-      );
 
       // Setup event handlers
       const saveViewState = utils.debounce(() => {

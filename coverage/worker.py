@@ -153,7 +153,7 @@ async def update_coverage_for_segments(
 
     # Execute bulk write
     if operations:
-        result = await CoverageState.get_motor_collection().bulk_write(operations)
+        result = await CoverageState.get_pymongo_collection().bulk_write(operations)
         updated = result.modified_count + result.upserted_count
         logger.debug(
             f"Updated {updated} segments for area {area_id} "

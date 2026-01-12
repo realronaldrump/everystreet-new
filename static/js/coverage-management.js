@@ -481,6 +481,7 @@ async function initOrUpdateMap(areaId, bbox) {
         [bbox[2], bbox[3]],
       ],
       fitBoundsOptions: { padding: 50 },
+      attributionControl: false,
     });
 
     map.addControl(new mapboxgl.NavigationControl(), "top-right");

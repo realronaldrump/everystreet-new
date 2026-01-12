@@ -4,7 +4,6 @@
     const {
       center = [0, 0],
       zoom = 2,
-      attributionControl = true,
       accessToken,
       style,
       ...rest
@@ -39,8 +38,8 @@
       style: defaultStyle,
       center,
       zoom,
-      attributionControl,
       ...rest,
+      attributionControl: false,
     });
     map.addControl(new mapboxgl.NavigationControl());
     map.on("error", () => {});

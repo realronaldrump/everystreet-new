@@ -41,6 +41,7 @@ export async function init() {
     zoom: MAP_CONFIG.zoom,
     minZoom: MAP_CONFIG.minZoom,
     maxZoom: MAP_CONFIG.maxZoom,
+    attributionControl: false,
   });
 
   CountyMapState.setMap(map);

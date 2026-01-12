@@ -76,6 +76,7 @@ async function initializeMap() {
       style: "mapbox://styles/mapbox/dark-v11", // Default to dark as per app theme
       center: [-95.7129, 37.0902],
       zoom: 4,
+      attributionControl: false,
     });
     map.addControl(new mapboxgl.NavigationControl(), "top-right");
   }

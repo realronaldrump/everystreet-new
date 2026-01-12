@@ -75,7 +75,7 @@ class MapPool {
       center: options.center || CONFIG.MAP.defaultCenter,
       zoom: options.zoom || CONFIG.MAP.defaultZoom,
       maxZoom: options.maxZoom || CONFIG.MAP.maxZoom,
-      attributionControl: options.attributionControl ?? false,
+      attributionControl: false,
       logoPosition: options.logoPosition || "bottom-right",
       ...CONFIG.MAP.performanceOptions,
       ...(options.performanceOptions || {}),

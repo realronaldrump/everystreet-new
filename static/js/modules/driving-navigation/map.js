@@ -55,6 +55,7 @@ export class DrivingNavigationMap {
           style: "mapbox://styles/mapbox/dark-v11",
           center: [-96, 37.8],
           zoom: 3,
+          attributionControl: false,
         });
 
         this.map.on("load", () => {
