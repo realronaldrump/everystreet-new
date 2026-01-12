@@ -5,9 +5,11 @@ export class OptimalRouteUI {
     this.config = config;
     this.areaSelect = document.getElementById(config.areaSelectId);
     this.turnByTurnBtn = document.getElementById("start-turn-by-turn-btn");
-    this.progressMessagePrimary = document.getElementById("progress-message-primary");
+    this.progressMessagePrimary = document.getElementById(
+      "progress-message-primary",
+    );
     this.progressMessageSecondary = document.getElementById(
-      "progress-message-secondary"
+      "progress-message-secondary",
     );
     this.hud = this.cacheHudElements();
     this.activityLog = [];
@@ -52,12 +54,14 @@ export class OptimalRouteUI {
       return;
     }
 
-    this.areaSelect.innerHTML = '<option value="">Select a coverage area...</option>';
+    this.areaSelect.innerHTML =
+      '<option value="">Select a coverage area...</option>';
 
     areas.forEach((area) => {
       const option = document.createElement("option");
       const areaId = area.id || area._id || "";
-      const areaName = area.display_name || area.location?.display_name || "Unknown";
+      const areaName =
+        area.display_name || area.location?.display_name || "Unknown";
       const status = area.status || "";
       const isProcessing = this.isCoverageCalculationActive(status);
       option.value = String(areaId);
@@ -73,7 +77,7 @@ export class OptimalRouteUI {
       const totalLengthMeters = (area.total_length_miles || 0) * 1609.344;
       const drivenLengthMeters = (area.driven_length_miles || 0) * 1609.344;
       option.dataset.remaining = this.formatDistance(
-        totalLengthMeters - drivenLengthMeters
+        totalLengthMeters - drivenLengthMeters,
       );
       this.areaSelect.appendChild(option);
     });
@@ -128,7 +132,9 @@ export class OptimalRouteUI {
       return;
     }
 
-    const selectedOption = this.areaSelect?.querySelector(`option[value="${areaId}"]`);
+    const selectedOption = this.areaSelect?.querySelector(
+      `option[value="${areaId}"]`,
+    );
     if (selectedOption) {
       document.getElementById("area-coverage").textContent =
         `${selectedOption.dataset.coverage}%`;
@@ -144,7 +150,9 @@ export class OptimalRouteUI {
     const stage = (data.stage || "initializing").toLowerCase();
     const rawMetrics = data.metrics || {};
     const metrics =
-      Object.keys(rawMetrics).length > 0 ? rawMetrics : this.currentMetrics || {};
+      Object.keys(rawMetrics).length > 0
+        ? rawMetrics
+        : this.currentMetrics || {};
     this.currentStage = stage;
     this.currentMetrics = metrics;
     this.setHudActive(true);
@@ -156,7 +164,7 @@ export class OptimalRouteUI {
 
     const { primary, secondary, label } = this.buildProgressMessages(
       stage,
-      data.message
+      data.message,
     );
     this.setStatusMessage(primary, secondary, stage, metrics, label);
 
@@ -210,7 +218,10 @@ export class OptimalRouteUI {
     if (!this.hud?.container) {
       return;
     }
-    const meta = STAGE_COPY[stage] || { label: "Working", message: "Processing..." };
+    const meta = STAGE_COPY[stage] || {
+      label: "Working",
+      message: "Processing...",
+    };
 
     if (this.hud.stage) {
       this.hud.stage.textContent = labelOverride || meta.label || "Working";
@@ -232,7 +243,8 @@ export class OptimalRouteUI {
     const fallbackTotal = metrics.fallback_total ?? null;
     const fallbackMatched = metrics.fallback_matched ?? null;
     const mappedSegments =
-      metrics.mapped_segments ?? Number(osmMatched || 0) + Number(fallbackMatched || 0);
+      metrics.mapped_segments ??
+      Number(osmMatched || 0) + Number(fallbackMatched || 0);
 
     if (this.hud.segments) {
       this.hud.segments.textContent = hasMetrics
@@ -302,7 +314,7 @@ export class OptimalRouteUI {
 
         row.append(time, message);
         return row;
-      })
+      }),
     );
 
     this.lastActivityMessage = text;
@@ -373,7 +385,7 @@ export class OptimalRouteUI {
     this.resetHud();
     const { primary, secondary, label } = this.buildProgressMessages(
       "initializing",
-      ""
+      "",
     );
     this.setStatusMessage(primary, secondary, "initializing", {}, label);
     this.setHudActive(true);
@@ -438,15 +450,12 @@ export class OptimalRouteUI {
     this.hideProgressSection();
     document.getElementById("generate-route-btn").disabled = false;
 
-    document.getElementById("stat-total-distance").textContent = this.formatDistance(
-      data.total_distance_m
-    );
-    document.getElementById("stat-required-distance").textContent = this.formatDistance(
-      data.required_distance_m
-    );
-    document.getElementById("stat-deadhead-distance").textContent = this.formatDistance(
-      data.deadhead_distance_m
-    );
+    document.getElementById("stat-total-distance").textContent =
+      this.formatDistance(data.total_distance_m);
+    document.getElementById("stat-required-distance").textContent =
+      this.formatDistance(data.required_distance_m);
+    document.getElementById("stat-deadhead-distance").textContent =
+      this.formatDistance(data.deadhead_distance_m);
     document.getElementById("stat-deadhead-percent").textContent = `${(
       100 - (data.deadhead_percentage || 0)
     ).toFixed(1)}%`;

@@ -102,7 +102,9 @@ def _extract_line_coords(geometry: dict[str, Any] | None) -> list[list[float]]:
     return []
 
 
-def _segment_midpoint_coords(geometry: dict[str, Any] | None) -> tuple[float, float] | None:
+def _segment_midpoint_coords(
+    geometry: dict[str, Any] | None,
+) -> tuple[float, float] | None:
     coords = _extract_line_coords(geometry)
     if not coords:
         return None
@@ -348,13 +350,15 @@ def _cluster_segments(
                 "distance_to_cluster_m": distance_to_cluster_m,
                 "efficiency_score": efficiency_score,
                 "nearest_segment": {
-                    "segment_id": nearest_segment.get("segment_id")
-                    if nearest_segment
-                    else None,
-                    "street_name": nearest_segment.get("street_name")
-                    if nearest_segment
-                    else None,
-                    "geometry": nearest_segment.get("geometry") if nearest_segment else None,
+                    "segment_id": (
+                        nearest_segment.get("segment_id") if nearest_segment else None
+                    ),
+                    "street_name": (
+                        nearest_segment.get("street_name") if nearest_segment else None
+                    ),
+                    "geometry": (
+                        nearest_segment.get("geometry") if nearest_segment else None
+                    ),
                 },
             }
         )
