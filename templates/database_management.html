@@ -24,7 +24,7 @@ Storage Usage
       <div class="row">
         <div class="col-md-6">
           <p class="storage-text">
-            Using {{ storage_used_mb }}MB
+            Using {% if storage_used_mb is not none %}{{ storage_used_mb }}MB{% else %}N/A{% endif %}
           </p>
         </div>
         <div class="col-md-6">
@@ -71,8 +71,8 @@ Actions
           <td data-value="{{ collection.document_count }}">
 {{ collection.document_count }}
           </td>
-          <td data-value="{{ collection.size_mb }}">
-{{ "%.2f"|format(collection.size_mb) }}
+          <td data-value="{{ collection.size_mb or 0 }}">
+{% if collection.size_mb is not none %}{{ "%.2f"|format(collection.size_mb) }}{% else %}N/A{% endif %}
           </td>
           <td>
             <div class="btn-group btn-group-sm">

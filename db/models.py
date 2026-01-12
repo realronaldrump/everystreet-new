@@ -28,8 +28,8 @@ from datetime import datetime
 from typing import Any
 
 from beanie import Document, Indexed, PydanticObjectId
+from beanie.odm.fields import IndexModel
 from pydantic import Field, field_validator, model_validator
-from pymongo import ASCENDING, DESCENDING, IndexModel
 
 from date_utils import parse_timestamp
 
@@ -244,9 +244,9 @@ class Trip(Document):
         name = "trips"
         use_state_management = True
         indexes = [
-            IndexModel([("startTime", ASCENDING)], name="trips_startTime_asc_idx"),
-            IndexModel([("endTime", ASCENDING)], name="trips_endTime_asc_idx"),
-            IndexModel([("endTime", DESCENDING)], name="trips_endTime_desc_idx"),
+            IndexModel([("startTime", 1)], name="trips_startTime_asc_idx"),
+            IndexModel([("endTime", 1)], name="trips_endTime_asc_idx"),
+            IndexModel([("endTime", -1)], name="trips_endTime_desc_idx"),
             IndexModel([("gps", "2dsphere")], name="trips_gps_2dsphere_idx"),
             IndexModel(
                 [("startGeoPoint", "2dsphere")],
@@ -265,12 +265,12 @@ class Trip(Document):
                 name="trips_coverage_query_idx",
             ),
             IndexModel(
-                [("destinationPlaceId", ASCENDING)],
+                [("destinationPlaceId", 1)],
                 name="trips_destinationPlaceId_idx",
                 sparse=True,
             ),
             IndexModel(
-                [("destinationPlaceName", ASCENDING)],
+                [("destinationPlaceName", 1)],
                 name="trips_destinationPlaceName_idx",
                 sparse=True,
             ),
@@ -332,11 +332,11 @@ class ArchivedLiveTrip(Document):
         indexes = [
             IndexModel([("gps", "2dsphere")], name="archived_gps_2dsphere_idx"),
             IndexModel(
-                [("transactionId", ASCENDING)],
+                [("transactionId", 1)],
                 name="archived_transactionId_idx",
                 unique=True,
             ),
-            IndexModel([("endTime", ASCENDING)], name="archived_endTime_idx"),
+            IndexModel([("endTime", 1)], name="archived_endTime_idx"),
         ]
 
     class Config:
@@ -357,7 +357,7 @@ class OsmData(Document):
         name = "osm_data"
         indexes = [
             IndexModel(
-                [("location", ASCENDING), ("type", ASCENDING)],
+                [("location", 1), ("type", 1)],
                 name="osm_data_location_type_idx",
             ),
         ]
@@ -410,7 +410,7 @@ class TaskHistory(Document):
     # Use string ID for celery task IDs (UUID strings)
     id: str | None = Field(default=None, alias="_id")
     task_id: Indexed(str) | None = None
-    timestamp: Indexed(datetime, index_type=DESCENDING) | None = None
+    timestamp: Indexed(datetime, index_type=-1) | None = None
     status: str | None = None
     duration_seconds: float | None = None
     result: dict[str, Any] | None = None
@@ -424,7 +424,7 @@ class TaskHistory(Document):
         name = "task_history"
         indexes = [
             IndexModel(
-                [("task_id", ASCENDING), ("timestamp", DESCENDING)],
+                [("task_id", 1), ("timestamp", -1)],
                 name="task_history_task_timestamp_idx",
             ),
         ]
@@ -498,14 +498,14 @@ class GasFillup(Document):
         name = "gas_fillups"
         indexes = [
             IndexModel(
-                [("imei", ASCENDING), ("fillup_time", DESCENDING)],
+                [("imei", 1), ("fillup_time", -1)],
                 name="gas_fillups_imei_time_idx",
             ),
             IndexModel(
-                [("fillup_time", DESCENDING)],
+                [("fillup_time", -1)],
                 name="gas_fillups_fillup_time_idx",
             ),
-            IndexModel([("vin", ASCENDING)], name="gas_fillups_vin_idx", sparse=True),
+            IndexModel([("vin", 1)], name="gas_fillups_vin_idx", sparse=True),
         ]
 
     class Config:
@@ -533,9 +533,9 @@ class Vehicle(Document):
     class Settings:
         name = "vehicles"
         indexes = [
-            IndexModel([("imei", ASCENDING)], name="vehicles_imei_idx", unique=True),
-            IndexModel([("vin", ASCENDING)], name="vehicles_vin_idx", sparse=True),
-            IndexModel([("is_active", ASCENDING)], name="vehicles_is_active_idx"),
+            IndexModel([("imei", 1)], name="vehicles_imei_idx", unique=True),
+            IndexModel([("vin", 1)], name="vehicles_vin_idx", sparse=True),
+            IndexModel([("is_active", 1)], name="vehicles_is_active_idx"),
         ]
 
     class Config:
@@ -562,7 +562,7 @@ class AppSettings(Document):
 class ServerLog(Document):
     """Server log document for MongoDB logging handler."""
 
-    timestamp: Indexed(datetime, index_type=DESCENDING) | None = None
+    timestamp: Indexed(datetime, index_type=-1) | None = None
     level: str | None = None
     logger_name: str | None = None
     message: str | None = None
@@ -574,9 +574,9 @@ class ServerLog(Document):
     class Settings:
         name = "server_logs"
         indexes = [
-            IndexModel([("level", ASCENDING)], name="server_logs_level_idx"),
+            IndexModel([("level", 1)], name="server_logs_level_idx"),
             IndexModel(
-                [("timestamp", ASCENDING)],
+                [("timestamp", 1)],
                 name="server_logs_ttl_idx",
                 expireAfterSeconds=30 * 24 * 60 * 60,
             ),
@@ -602,7 +602,7 @@ class BouncieCredentials(Document):
 
     class Settings:
         name = "bouncie_credentials"
-        indexes = [IndexModel([("id", ASCENDING)], unique=True)]
+        indexes = [IndexModel([("id", 1)], unique=True)]
 
     class Config:
         extra = "allow"

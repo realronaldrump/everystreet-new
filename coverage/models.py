@@ -17,8 +17,8 @@ from datetime import UTC, datetime
 from typing import Any
 
 from beanie import Document, Indexed, PydanticObjectId
+from beanie.odm.fields import IndexModel
 from pydantic import Field
-from pymongo import ASCENDING, DESCENDING, IndexModel
 
 
 class CoverageArea(Document):
@@ -67,11 +67,11 @@ class CoverageArea(Document):
         name = "coverage_areas"
         indexes = [
             IndexModel(
-                [("status", ASCENDING)],
+                [("status", 1)],
                 name="coverage_areas_status_idx",
             ),
             IndexModel(
-                [("osm_fetched_at", ASCENDING)],
+                [("osm_fetched_at", 1)],
                 name="coverage_areas_osm_fetched_idx",
             ),
         ]
@@ -108,16 +108,16 @@ class Street(Document):
         name = "streets"
         indexes = [
             IndexModel(
-                [("area_id", ASCENDING), ("segment_id", ASCENDING)],
+                [("area_id", 1), ("segment_id", 1)],
                 name="streets_area_segment_unique_idx",
                 unique=True,
             ),
             IndexModel(
-                [("area_id", ASCENDING), ("geometry", "2dsphere")],
+                [("area_id", 1), ("geometry", "2dsphere")],
                 name="streets_area_geo_idx",
             ),
             IndexModel(
-                [("area_id", ASCENDING), ("area_version", ASCENDING)],
+                [("area_id", 1), ("area_version", 1)],
                 name="streets_area_version_idx",
             ),
         ]
@@ -154,12 +154,12 @@ class CoverageState(Document):
         name = "coverage_state"
         indexes = [
             IndexModel(
-                [("area_id", ASCENDING), ("segment_id", ASCENDING)],
+                [("area_id", 1), ("segment_id", 1)],
                 name="coverage_state_area_segment_unique_idx",
                 unique=True,
             ),
             IndexModel(
-                [("area_id", ASCENDING), ("status", ASCENDING)],
+                [("area_id", 1), ("status", 1)],
                 name="coverage_state_area_status_idx",
             ),
         ]
@@ -204,15 +204,15 @@ class Job(Document):
         name = "jobs"
         indexes = [
             IndexModel(
-                [("area_id", ASCENDING), ("job_type", ASCENDING)],
+                [("area_id", 1), ("job_type", 1)],
                 name="jobs_area_type_idx",
             ),
             IndexModel(
-                [("status", ASCENDING)],
+                [("status", 1)],
                 name="jobs_status_idx",
             ),
             IndexModel(
-                [("created_at", DESCENDING)],
+                [("created_at", -1)],
                 name="jobs_created_idx",
             ),
         ]

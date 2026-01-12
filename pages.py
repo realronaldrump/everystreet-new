@@ -6,7 +6,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
 from config import get_clarity_id, get_mapbox_token
-from db import db_manager
+from db.models import ALL_DOCUMENT_MODELS
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -130,23 +130,25 @@ async def coverage_management_page(request: Request):
 async def database_management_page(request: Request):
     """Render database management page with statistics."""
     try:
-        db_stats = await db_manager.db.command("dbStats")
-        storage_used_mb = round(db_stats["dataSize"] / (1024 * 1024), 2)
-        collection_names = list(await db_manager.db.list_collection_names())
         collections_info = []
-        for collection_name in collection_names:
-            stats = await db_manager.db.command("collStats", collection_name)
+        collection_models = {}
+        for model in ALL_DOCUMENT_MODELS:
+            collection_models.setdefault(model.get_collection_name(), model)
+
+        for collection_name in sorted(collection_models):
+            model = collection_models[collection_name]
+            document_count = await model.find_all().count()
             collections_info.append(
                 {
                     "name": collection_name,
-                    "document_count": stats["count"],
-                    "size_mb": round(stats["size"] / (1024 * 1024), 2),
+                    "document_count": document_count,
+                    "size_mb": None,
                 },
             )
         return _render_page(
             "database_management.html",
             request,
-            storage_used_mb=storage_used_mb,
+            storage_used_mb=None,
             collections=collections_info,
         )
     except Exception as e:

@@ -7,7 +7,6 @@ from fastapi import APIRouter, Body, HTTPException, status
 
 from core.http.geocoding import validate_location_osm
 from date_utils import ensure_utc
-from db import db_manager
 from db.models import (
     AppSettings,
     ArchivedLiveTrip,
@@ -165,12 +164,8 @@ async def clear_collection(data: CollectionModel):
 @router.get("/api/database/storage-info")
 async def get_storage_info():
     try:
-        stats = await db_manager.db.command("dbStats")
-        data_size = stats.get("dataSize", 0)
-        used_mb = round(data_size / (1024 * 1024), 2)
-
         return {
-            "used_mb": used_mb,
+            "used_mb": None,
         }
     except Exception as e:
         logger.exception(

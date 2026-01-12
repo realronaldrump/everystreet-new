@@ -77,11 +77,6 @@ class TurnByTurnUI {
       "nav-coverage-progress-value"
     );
 
-    // Legacy progress (fallback)
-    this.elements.progressFill = document.getElementById("nav-progress-fill");
-    this.elements.progressLabel = document.getElementById("nav-progress-label");
-    this.elements.progressValue = document.getElementById("nav-progress-value");
-
     // Stats
     this.elements.remainingDistance = document.getElementById("nav-remaining-distance");
     this.elements.etaLabel = document.getElementById("nav-eta");
@@ -444,17 +439,6 @@ class TurnByTurnUI {
       this.elements.routeProgressValue.textContent = `${Math.round(percent)}%`;
     }
 
-    // Legacy progress bar
-    if (this.elements.progressLabel) {
-      this.elements.progressLabel.textContent = routeName;
-    }
-    if (this.elements.progressValue) {
-      this.elements.progressValue.textContent = `${formatDistance(progressDistance)} of ${formatDistance(totalDistance)}`;
-    }
-    if (this.elements.progressFill) {
-      const ratio = totalDistance ? progressDistance / totalDistance : 0;
-      this.elements.progressFill.style.transform = `scaleX(${Math.min(Math.max(ratio, 0), 1)})`;
-    }
   }
 
   updateCoverageProgress(baselinePercent, livePercent) {
