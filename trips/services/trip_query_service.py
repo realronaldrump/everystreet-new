@@ -61,7 +61,8 @@ class TripQueryService:
         if not isinstance(columns, list):
             columns = []
 
-        query = {"invalid": {"$ne": True}}
+        base_query = {"invalid": {"$ne": True}}
+        query = dict(base_query)
 
         if start_date or end_date:
             range_expr = build_calendar_date_expr(start_date, end_date)
@@ -127,7 +128,7 @@ class TripQueryService:
             ]
 
         # Use Beanie count methods
-        total_count = await Trip.count()
+        total_count = await Trip.find(base_query).count()
         filtered_count = await Trip.find(query).count()
 
         sort_column = None
@@ -232,7 +233,7 @@ class TripQueryService:
                             }
                         }
                     },
-                    {"$sort": {"vehicleLabelSort": sort_direction}},
+                    {"$sort": {"vehicleLabelSort": sort_direction, "startTime": -1}},
                 ]
             )
 
@@ -245,7 +246,7 @@ class TripQueryService:
                             "duration": {"$subtract": ["$endTime", "$startTime"]}
                         }
                     },
-                    {"$sort": {"duration": sort_direction}},
+                    {"$sort": {"duration": sort_direction, "startTime": -1}},
                 ]
             )
 
@@ -286,7 +287,7 @@ class TripQueryService:
                             }
                         }
                     },
-                    {"$sort": {"sortVal": sort_direction}},
+                    {"$sort": {"sortVal": sort_direction, "startTime": -1}},
                 ]
             )
 

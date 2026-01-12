@@ -36,7 +36,7 @@ async function initializePage() {
 
   document.addEventListener("filtersApplied", () => {
     updateFilterChips();
-    tripsTable.reload();
+    tripsTable.reload({ resetPage: true });
   });
 }
 
@@ -306,7 +306,7 @@ function setupFilterListeners() {
   });
 
   document.getElementById("trip-filter-apply")?.addEventListener("click", () => {
-    tripsTable.reload();
+    tripsTable.reload({ resetPage: true });
     showFilterAppliedMessage();
     updateFilterChips();
   });
@@ -322,7 +322,7 @@ function setupFilterListeners() {
         }
       });
       updateFilterChips();
-      tripsTable.reload();
+      tripsTable.reload({ resetPage: true });
     });
   }
 }
@@ -369,7 +369,7 @@ function updateFilterChips(triggerReload = false) {
         setStorage("startDate", null);
         setStorage("endDate", null);
         document.dispatchEvent(new Event("filtersReset"));
-        tripsTable.reload();
+        tripsTable.reload({ resetPage: true });
       }
     );
   }
@@ -417,7 +417,7 @@ function updateFilterChips(triggerReload = false) {
   }
 
   if (triggerReload) {
-    tripsTable.reload();
+    tripsTable.reload({ resetPage: true });
   }
 }
 

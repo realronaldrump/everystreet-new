@@ -121,10 +121,13 @@ export class TableManager {
       }
     });
 
-    this.reload();
+    this.reload({ resetPage: true });
   }
 
-  async reload() {
+  async reload({ resetPage = false } = {}) {
+    if (resetPage) {
+      this.state.page = 0;
+    }
     if (this.state.loading) {
       this.state.abortController?.abort();
     }
@@ -186,8 +189,13 @@ export class TableManager {
     const result = await response.json();
 
     this.state.data = result.data || [];
-    this.state.totalRecords = result.recordsTotal || 0;
-    this.state.totalPages = Math.ceil(this.state.totalRecords / this.options.pageSize);
+    const totalRecords = Number.isFinite(result.recordsFiltered)
+      ? result.recordsFiltered
+      : Number.isFinite(result.recordsTotal)
+        ? result.recordsTotal
+        : 0;
+    this.state.totalRecords = totalRecords;
+    this.state.totalPages = Math.ceil(totalRecords / this.options.pageSize);
 
     this._render();
     this.options.onDataLoaded?.(result);
