@@ -61,6 +61,15 @@ function setupEventListeners() {
     }
   });
 
+  // Window resize handler
+  let resizeTimeout;
+  window.addEventListener("resize", () => {
+    if (map) {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => map.resize(), 200);
+    }
+  });
+
   // Map filter buttons
   document.querySelectorAll("[data-filter]").forEach((btn) => {
     btn.addEventListener("click", (e) => {
@@ -500,6 +509,8 @@ async function initOrUpdateMap(areaId, bbox) {
       { padding: 50 }
     );
     loadStreets(areaId);
+    // Resize the map after a short delay to ensure the container has updated dimensions
+    setTimeout(() => map.resize(), 100);
   }
 }
 

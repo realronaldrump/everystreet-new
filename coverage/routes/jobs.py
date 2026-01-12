@@ -10,7 +10,7 @@ from beanie import PydanticObjectId
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
 
-from coverage.models import Job
+from coverage.models import CoverageArea, Job
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/coverage", tags=["coverage-jobs"])
@@ -27,6 +27,8 @@ class JobStatusResponse(BaseModel):
     success: bool = True
     job_id: str
     job_type: str
+    area_id: str | None = None
+    area_display_name: str | None = None
     status: str
     stage: str
     progress: float
@@ -76,9 +78,17 @@ async def get_job_status(job_id: str):
             detail="Job not found",
         )
 
+    area_id_str = str(job.area_id) if job.area_id else None
+    area_display_name = None
+    if job.area_id:
+        area = await CoverageArea.get(job.area_id)
+        area_display_name = area.display_name if area else None
+
     return JobStatusResponse(
         job_id=str(job.id),
         job_type=job.job_type,
+        area_id=area_id_str,
+        area_display_name=area_display_name,
         status=job.status,
         stage=job.stage,
         progress=job.progress,
@@ -107,11 +117,16 @@ async def get_area_jobs(area_id: str, limit: int = 10):
 
     jobs = await Job.find({"area_id": oid}).sort("-created_at").limit(limit).to_list()
 
+    area = await CoverageArea.get(oid)
+    area_display_name = area.display_name if area else None
+
     return JobListResponse(
         jobs=[
             JobStatusResponse(
                 job_id=str(job.id),
                 job_type=job.job_type,
+                area_id=str(job.area_id) if job.area_id else str(oid),
+                area_display_name=area_display_name,
                 status=job.status,
                 stage=job.stage,
                 progress=job.progress,
@@ -139,11 +154,23 @@ async def list_active_jobs():
         .to_list()
     )
 
+    area_ids = {job.area_id for job in jobs if job.area_id}
+    areas = (
+        await CoverageArea.find({"_id": {"$in": list(area_ids)}}).to_list()
+        if area_ids
+        else []
+    )
+    area_name_by_id = {str(area.id): area.display_name for area in areas}
+
     return JobListResponse(
         jobs=[
             JobStatusResponse(
                 job_id=str(job.id),
                 job_type=job.job_type,
+                area_id=str(job.area_id) if job.area_id else None,
+                area_display_name=area_name_by_id.get(str(job.area_id))
+                if job.area_id
+                else None,
                 status=job.status,
                 stage=job.stage,
                 progress=job.progress,
