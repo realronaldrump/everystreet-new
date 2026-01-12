@@ -10,16 +10,16 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+import pyproj
 from beanie import PydanticObjectId
 from shapely.geometry import LineString, shape
 from shapely.ops import transform
-import pyproj
 
-from coverage.models import Street
 from coverage.constants import (
     MATCH_BUFFER_METERS,
     MIN_OVERLAP_METERS,
 )
+from coverage.models import Street
 
 logger = logging.getLogger(__name__)
 
