@@ -127,12 +127,14 @@ async def list_areas():
                     total_segments=area.total_segments,
                     driven_segments=area.driven_segments,
                     created_at=area.created_at.isoformat(),
-                    last_synced=area.last_synced.isoformat()
-                    if area.last_synced
-                    else None,
-                    optimal_route_generated_at=area.optimal_route_generated_at.isoformat()
-                    if area.optimal_route_generated_at
-                    else None,
+                    last_synced=(
+                        area.last_synced.isoformat() if area.last_synced else None
+                    ),
+                    optimal_route_generated_at=(
+                        area.optimal_route_generated_at.isoformat()
+                        if area.optimal_route_generated_at
+                        else None
+                    ),
                     has_optimal_route=area.optimal_route is not None,
                 )
             )
@@ -176,9 +178,11 @@ async def get_area(area_id: PydanticObjectId):
             driven_segments=area.driven_segments,
             created_at=area.created_at.isoformat(),
             last_synced=area.last_synced.isoformat() if area.last_synced else None,
-            optimal_route_generated_at=area.optimal_route_generated_at.isoformat()
-            if area.optimal_route_generated_at
-            else None,
+            optimal_route_generated_at=(
+                area.optimal_route_generated_at.isoformat()
+                if area.optimal_route_generated_at
+                else None
+            ),
             has_optimal_route=area.optimal_route is not None,
         ),
         bounding_box=area.bounding_box if area.bounding_box else None,
