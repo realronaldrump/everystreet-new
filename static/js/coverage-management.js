@@ -641,24 +641,36 @@ async function rebuildArea(areaId, displayName = null) {
   }
 
   try {
-    const progressModal = new bootstrap.Modal(
-      document.getElementById("taskProgressModal")
-    );
-    progressModal.show();
+    hideMinimizedBadge();
+    showProgressModal();
     updateProgress(0, "Starting rebuild...");
 
     const result = await apiPost(`/areas/${areaId}/rebuild`, {});
 
-    if (result.job_id) {
-      await pollJobProgress(result.job_id);
-    }
-
-    progressModal.hide();
-    showNotification("Area rebuilt successfully!", "success");
+    // Refresh table immediately so you can keep using the page
     await loadAreas();
+
+    if (result.job_id) {
+      startTrackingJob({
+        jobId: result.job_id,
+        jobType: "area_rebuild",
+        areaId,
+        areaName: displayName,
+        showModal: true,
+        initialMessage: result.message || "Rebuilding area...",
+      });
+
+      showNotification(
+        result.message ||
+          "Rebuild started in the background. You can minimize this window and keep using the app.",
+        "info"
+      );
+    }
   } catch (error) {
     console.error("Failed to rebuild area:", error);
-    bootstrap.Modal.getInstance(document.getElementById("taskProgressModal"))?.hide();
+    clearActiveJob();
+    hideMinimizedBadge();
+    hideProgressModal();
     showNotification("Failed to rebuild area: " + error.message, "danger");
   }
 }
