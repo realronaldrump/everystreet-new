@@ -55,6 +55,11 @@ export class OptimalRoutesManager {
       this.exportGPX();
     });
 
+    // Replay animation
+    document.getElementById("replay-animation-btn")?.addEventListener("click", () => {
+      this.replayAnimation();
+    });
+
     // Start turn-by-turn navigation
     this.ui.turnByTurnBtn?.addEventListener("click", () => {
       this.openTurnByTurn();
@@ -197,8 +202,8 @@ export class OptimalRoutesManager {
 
     // Load streets
     try {
-      const { drivenFeatures, undrivenFeatures }
-        = await this.api.loadStreetNetwork(areaId);
+      const { drivenFeatures, undrivenFeatures } =
+        await this.api.loadStreetNetwork(areaId);
       this.map.updateStreets(drivenFeatures, undrivenFeatures);
     } catch {
       // already logged in api

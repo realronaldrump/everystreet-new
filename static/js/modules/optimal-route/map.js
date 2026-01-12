@@ -273,7 +273,7 @@ export class OptimalRouteMap {
     }
 
     const total = coordinates.length;
-    const step = Math.max(2, Math.round(total / 160));
+    const step = Math.max(2, Math.round(total / 180));
     let index = 2;
 
     const drawFrame = () => {
