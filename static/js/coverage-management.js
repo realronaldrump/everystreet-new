@@ -1083,7 +1083,7 @@ function createStreetPopupContent(props) {
         <div class="popup-title">${streetName}</div>
         <span class="status-pill status-${statusKey}">${statusLabel}</span>
       </div>
-      <div class="popup-subtitle">${highwayType} • ${lengthLabel}</div>
+      <div class="popup-subtitle">${highwayType} &middot; ${lengthLabel}</div>
       <div class="popup-grid">
         <div class="popup-item">
           <span class="popup-label">First driven</span>
