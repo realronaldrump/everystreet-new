@@ -524,7 +524,7 @@ function renderAreasTable(areas) {
     .join("");
 }
 
-function renderStatus(status, health) {
+function renderStatus(status, health, job) {
   const statusConfig = {
     ready: { class: "success", icon: "check-circle", text: "Ready" },
     initializing: { class: "info", icon: "spinner fa-spin", text: "Setting up..." },
@@ -533,9 +533,21 @@ function renderStatus(status, health) {
   };
 
   const config = statusConfig[status] || statusConfig["error"];
-  return `<span class="badge bg-${config.class}">
+  const badge = `<span class="badge bg-${config.class}">
         <i class="fas fa-${config.icon} me-1"></i>${config.text}
     </span>`;
+
+  if (
+    job &&
+    isJobActiveStatus(job.status) &&
+    (status === "initializing" || status === "rebuilding")
+  ) {
+    const percent = typeof job.progress === "number" ? Math.round(job.progress) : 0;
+    const stageText = job.stage ? escapeHtml(job.stage) : "";
+    return `<div>${badge}</div><div class="small text-secondary mt-1">${stageText} (${percent}%)</div>`;
+  }
+
+  return badge;
 }
 
 async function addArea() {
@@ -717,32 +729,56 @@ async function recalculateCoverage(areaId, displayName) {
 // =============================================================================
 
 async function pollJobProgress(jobId) {
-  const maxAttempts = 300; // 5 minutes max
-  let attempts = 0;
+  let consecutiveErrors = 0;
 
-  while (attempts < maxAttempts) {
+  while (activeJob && activeJob.jobId === jobId) {
     try {
       const job = await apiGet(`/jobs/${jobId}`);
+      consecutiveErrors = 0;
 
+      // Keep local state in sync so we can resume after refresh
+      activeJob.status = job.status;
+      activeJob.progress = job.progress;
+      activeJob.stage = job.stage;
+      activeJob.jobType = job.job_type || activeJob.jobType;
+      activeJob.areaId = job.area_id || activeJob.areaId;
+      activeJob.areaName = job.area_display_name || activeJob.areaName;
+
+      saveActiveJobToStorage();
+      setProgressModalTitle();
       updateProgress(job.progress, job.stage);
 
-      if (job.status === "completed") {
-        return job;
+      if (isJobTerminalStatus(job.status)) {
+        if (job.status === "completed") {
+          return job;
+        }
+
+        const err = new Error(job.error || job.stage || "Job failed");
+        err.job = job;
+        throw err;
       }
 
-      if (job.status === "failed" || job.status === "needs_attention") {
-        throw new Error(job.error || "Job failed");
-      }
-
-      await sleep(1000);
-      attempts++;
+      await sleep(JOB_POLL_INTERVAL_MS);
     } catch (error) {
-      console.error("Error polling job:", error);
-      throw error;
+      // Stop polling if the user started tracking a different job
+      if (!activeJob || activeJob.jobId !== jobId) {
+        return null;
+      }
+
+      // Bubble up explicit job failures
+      if (error?.job) {
+        throw error;
+      }
+
+      consecutiveErrors += 1;
+      console.warn("Error polling job:", error);
+
+      updateProgress(activeJob.progress ?? 0, "Connection lost - retrying...");
+      await sleep(Math.min(30000, 1000 * consecutiveErrors));
     }
   }
 
-  throw new Error("Job timed out");
+  return null;
 }
 
 function updateProgress(percent, message) {
@@ -756,6 +792,14 @@ function updateProgress(percent, message) {
   }
   if (msg) msg.textContent = message;
   if (stage) stage.textContent = `${Math.round(percent)}% complete`;
+
+  // Keep minimized badge up-to-date
+  if (activeJob) {
+    activeJob.progress = percent;
+    activeJob.stage = message;
+    saveActiveJobToStorage();
+    updateMinimizedBadge();
+  }
 }
 
 // =============================================================================
