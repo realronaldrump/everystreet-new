@@ -76,7 +76,7 @@ async def fetch_trips_for_device(
             imei,
             e,
         )
-            return []
+        return []
 
 
 @retry_async(max_retries=3, retry_delay=1.5)
@@ -197,6 +197,7 @@ async def fetch_bouncie_trip_by_transaction_id(
             progress_tracker["fetch_and_store_trips"]["message"] = (
                 "Completed fetch by transactionId."
             )
+
 
 async def fetch_bouncie_trips_in_range(
     start_dt: datetime,
