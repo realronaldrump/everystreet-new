@@ -34,7 +34,11 @@ export function buildTripsExportUrl(config, elements) {
  * @returns {string} Export URL
  * @throws {Error} If location validation fails
  */
-export function buildLocationExportUrl(config, elements, validateLocationInput) {
+export function buildLocationExportUrl(
+  config,
+  elements,
+  validateLocationInput,
+) {
   const locationInput = elements[config.location];
   const format = elements[config.format]?.value;
 
@@ -94,7 +98,7 @@ export function buildAdvancedExportUrl(config, elements, saveSettings) {
 
     if (!startDate || !endDate) {
       throw new Error(
-        "Please select both start and end dates or check 'Export all dates'"
+        "Please select both start and end dates or check 'Export all dates'",
       );
     }
 
@@ -128,7 +132,7 @@ export function buildExportUrl(
   config,
   elements,
   validateLocationInput,
-  saveSettings
+  saveSettings,
 ) {
   switch (formType) {
     case "trips":
@@ -146,7 +150,9 @@ export function buildExportUrl(
       // Fallback for any potentially added simple formats
       const format = elements[config.format]?.value;
       if (!format) {
-        throw new Error(`Could not determine format for export type '${formType}'`);
+        throw new Error(
+          `Could not determine format for export type '${formType}'`,
+        );
       }
       return `${config.endpoint}?format=${format}`;
     }
@@ -199,7 +205,7 @@ export async function validateLocationApi(location, locationType = "city") {
  */
 export async function fetchUndrivenStreets(areaId) {
   const response = await fetch(
-    `/api/coverage/areas/${areaId}/streets/all?status=undriven`
+    `/api/coverage/areas/${areaId}/streets/all?status=undriven`,
   );
 
   if (!response.ok) {
