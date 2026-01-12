@@ -15,8 +15,8 @@ function ensureIndicator() {
     indicator = document.createElement("span");
     indicator.id = "filter-indicator";
     indicator.className = "filter-indicator";
-    indicator.innerHTML
-      = '<i class="fas fa-calendar-alt me-1" aria-hidden="true"></i> <span class="filter-date-range">—</span>';
+    indicator.innerHTML =
+      '<i class="fas fa-calendar-alt me-1" aria-hidden="true"></i> <span class="filter-date-range">—</span>';
     tools.insertBefore(indicator, tools.firstChild.nextSibling); // after filters button
   }
   return indicator;
@@ -42,7 +42,10 @@ const filterIndicatorManager = {
     });
 
     eventManager.on("filtersReset", () => {
-      indicator.classList.remove(CONFIG.UI.classes.applied, CONFIG.UI.classes.unseen);
+      indicator.classList.remove(
+        CONFIG.UI.classes.applied,
+        CONFIG.UI.classes.unseen,
+      );
     });
 
     // Clicking the indicator or icon opens the filters panel

@@ -9,11 +9,13 @@ const mapControlsManager = {
     const mapTypeSelect = uiState.getElement(CONFIG.UI.selectors.mapTypeSelect);
     if (mapTypeSelect) {
       // Default to dark mode, but respect user's stored preference
-      const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
-      const defaultMapType = utils.getStorage(CONFIG.STORAGE_KEYS.mapType) || theme;
+      const theme =
+        document.documentElement.getAttribute("data-bs-theme") || "dark";
+      const defaultMapType =
+        utils.getStorage(CONFIG.STORAGE_KEYS.mapType) || theme;
       mapTypeSelect.value = defaultMapType;
       mapTypeSelect.addEventListener("change", (e) =>
-        this.updateMapType(e.target.value)
+        this.updateMapType(e.target.value),
       );
     }
 
@@ -24,9 +26,9 @@ const mapControlsManager = {
         return;
       }
       if (
-        state.map
-        && state.mapInitialized
-        && typeof state.map.setStyle === "function"
+        state.map &&
+        state.mapInitialized &&
+        typeof state.map.setStyle === "function"
       ) {
         settingsApplied = true;
         this.updateMapType(mapTypeSelect?.value);
@@ -80,7 +82,8 @@ const mapControlsManager = {
         bearing: map.getBearing?.(),
         pitch: map.getPitch?.(),
       };
-      const styleChangeId = (this._styleChangeId = (this._styleChangeId || 0) + 1);
+      const styleChangeId = (this._styleChangeId =
+        (this._styleChangeId || 0) + 1);
       onStyleLoaded = () => {
         if (this._styleChangeId !== styleChangeId) {
           return;
@@ -97,7 +100,7 @@ const mapControlsManager = {
           setTimeout(() => map.resize(), 100);
         }
         document.dispatchEvent(
-          new CustomEvent("mapStyleLoaded", { detail: { mapType: type } })
+          new CustomEvent("mapStyleLoaded", { detail: { mapType: type } }),
         );
       };
 
@@ -105,8 +108,8 @@ const mapControlsManager = {
         map.once("styledata", onStyleLoaded);
       }
       // Use style from CONFIG if available, fallback to default pattern
-      const styleUrl
-        = CONFIG.MAP.styles[type] || `mapbox://styles/mapbox/${type}-v11`;
+      const styleUrl =
+        CONFIG.MAP.styles[type] || `mapbox://styles/mapbox/${type}-v11`;
       map.setStyle(styleUrl);
       eventManager.emit("mapTypeChanged", { type });
     } catch (error) {
