@@ -456,7 +456,6 @@ const DATE_STORAGE_KEYS = {
 };
 
 const DateUtils = {
-
   parseDateString(dateStr) {
     if (!dateStr) {
       return null;

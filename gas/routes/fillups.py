@@ -5,8 +5,8 @@ from typing import Annotated
 
 from fastapi import APIRouter, Query
 
-from db.models import GasFillup
 from core.api import api_route
+from db.models import GasFillup
 from db.schemas import GasFillupCreateModel
 from gas.services import FillupService
 
@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-@router.get("/api/gas-fillups", response_model=list[GasFillup])
+@router.get("/api/gas-fillups")
 @api_route(logger)
 async def get_gas_fillups(
     imei: Annotated[str | None, Query(description="Filter by vehicle IMEI")] = None,
@@ -30,7 +30,7 @@ async def get_gas_fillups(
     return await FillupService.get_fillups(imei, vin, start_date, end_date, limit)
 
 
-@router.get("/api/gas-fillups/{fillup_id}", response_model=GasFillup)
+@router.get("/api/gas-fillups/{fillup_id}")
 @api_route(logger)
 async def get_gas_fillup(fillup_id: str) -> GasFillup:
     """Get a specific gas fill-up by ID."""
@@ -43,7 +43,7 @@ async def get_gas_fillup(fillup_id: str) -> GasFillup:
     return fillup
 
 
-@router.post("/api/gas-fillups", response_model=GasFillup)
+@router.post("/api/gas-fillups")
 @api_route(logger)
 async def create_gas_fillup(fillup_data: GasFillupCreateModel) -> GasFillup:
     """Create a new gas fill-up record."""
@@ -51,7 +51,7 @@ async def create_gas_fillup(fillup_data: GasFillupCreateModel) -> GasFillup:
     return await FillupService.create_fillup(fillup_dict)
 
 
-@router.put("/api/gas-fillups/{fillup_id}", response_model=GasFillup)
+@router.put("/api/gas-fillups/{fillup_id}")
 @api_route(logger)
 async def update_gas_fillup(
     fillup_id: str,

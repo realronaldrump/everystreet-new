@@ -1,8 +1,8 @@
 """
 Coverage event system.
 
-This module provides a simple event emission and handling system
-for triggering coverage updates when trips complete.
+This module provides a simple event emission and handling system for triggering coverage
+updates when trips complete.
 """
 
 from __future__ import annotations
@@ -10,9 +10,12 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import UTC, datetime
-from typing import Any, Callable, Coroutine
+from typing import TYPE_CHECKING, Any
 
-from beanie import PydanticObjectId
+if TYPE_CHECKING:
+    from collections.abc import Callable, Coroutine
+
+    from beanie import PydanticObjectId
 
 logger = logging.getLogger(__name__)
 
@@ -44,8 +47,8 @@ async def emit(event_type: str, **kwargs) -> None:
     """
     Emit an event to all registered handlers.
 
-    Handlers are executed concurrently. Failures in one handler
-    don't affect other handlers.
+    Handlers are executed concurrently. Failures in one handler don't affect other
+    handlers.
     """
     handlers = _handlers.get(event_type, [])
 
@@ -59,7 +62,7 @@ async def emit(event_type: str, **kwargs) -> None:
         try:
             await handler(**kwargs)
         except Exception as e:
-            logger.error(f"Handler {handler.__name__} failed for {event_type}: {e}")
+            logger.exception(f"Handler {handler.__name__} failed for {event_type}: {e}")
 
     await asyncio.gather(*[run_handler(h) for h in handlers])
 
@@ -93,8 +96,8 @@ async def emit_trip_completed(
     """
     Emit a trip_completed event.
 
-    Called when a live tracking trip ends or a trip is uploaded.
-    This triggers coverage updates for all relevant areas.
+    Called when a live tracking trip ends or a trip is uploaded. This triggers coverage
+    updates for all relevant areas.
     """
     await emit(
         CoverageEvents.TRIP_COMPLETED,
@@ -164,11 +167,10 @@ def register_handlers():
     """
     Register all coverage event handlers.
 
-    This is called during application startup to ensure
-    handlers are connected before events are emitted.
+    This is called during application startup to ensure handlers are connected before
+    events are emitted.
     """
     # Import worker to register its handlers
-    from coverage import worker
 
     logger.info("Coverage event handlers registered")
 

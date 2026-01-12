@@ -187,7 +187,6 @@ export class TaskManager {
     renderTaskHistoryTable(history);
   }
 
-
   /**
    * Run a specific task
    * @param {string} taskId - ID of the task to run

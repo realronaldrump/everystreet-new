@@ -12,7 +12,7 @@ from coverage.routes import areas, jobs, optimal_routes, streets
 
 __all__ = [
     "areas",
-    "streets",
     "jobs",
     "optimal_routes",
+    "streets",
 ]

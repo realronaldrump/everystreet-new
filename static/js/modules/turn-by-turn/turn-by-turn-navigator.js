@@ -695,8 +695,7 @@ class TurnByTurnNavigator {
     }
 
     const shouldSeedStart
-      = this.needsStartSeed
-      && this.state.getState() === NAV_STATES.ACTIVE_NAVIGATION;
+      = this.needsStartSeed && this.state.getState() === NAV_STATES.ACTIVE_NAVIGATION;
     if (shouldSeedStart) {
       this.lastClosestIndex = 0;
     }

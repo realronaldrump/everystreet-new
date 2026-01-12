@@ -58,9 +58,8 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (storageText) {
-      storageText.textContent = data.used_mb == null
-        ? "Using N/A"
-        : `Using ${data.used_mb}MB`;
+      storageText.textContent
+        = data.used_mb == null ? "Using N/A" : `Using ${data.used_mb}MB`;
     }
   }
 

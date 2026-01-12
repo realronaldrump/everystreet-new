@@ -57,7 +57,7 @@ const dataManager = {
       return null;
     }
 
-    const loadingManager = window.loadingManager;
+    const { loadingManager } = window;
     loadingManager?.show("Loading trips...", { blocking: false, compact: true });
     mapLoadingIndicator.show("Loading trips...");
 
@@ -287,7 +287,7 @@ const dataManager = {
       return;
     }
 
-    const loadingManager = window.loadingManager;
+    const { loadingManager } = window;
     loadingManager?.show("Updating map...");
 
     try {
@@ -340,7 +340,7 @@ const dataManager = {
       }
 
       state.metrics.renderTime = Date.now() - state.metrics.loadStartTime;
-    } catch (error) {
+    } catch (_error) {
       window.notificationManager?.show("Error updating map data", "danger");
     } finally {
       loadingManager?.hide();

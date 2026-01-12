@@ -1,13 +1,7 @@
 // Factory for creating maps using Mapbox GL JS
 ((window, document, mapboxgl) => {
   function createMap(containerId, options = {}) {
-    const {
-      center = [0, 0],
-      zoom = 2,
-      accessToken,
-      style,
-      ...rest
-    } = options;
+    const { center = [0, 0], zoom = 2, accessToken, style, ...rest } = options;
 
     const container = document.getElementById(containerId);
     if (!container) {

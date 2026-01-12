@@ -105,8 +105,7 @@ const mapControlsManager = {
         map.once("styledata", onStyleLoaded);
       }
       // Use style from CONFIG if available, fallback to default pattern
-      const styleUrl
-        = CONFIG.MAP.styles[type] || `mapbox://styles/mapbox/${type}-v11`;
+      const styleUrl = CONFIG.MAP.styles[type] || `mapbox://styles/mapbox/${type}-v11`;
       map.setStyle(styleUrl);
       eventManager.emit("mapTypeChanged", { type });
     } catch (error) {

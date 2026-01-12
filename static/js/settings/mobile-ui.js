@@ -1,13 +1,13 @@
 /* global bootstrap, flatpickr */
 
 import { submitTaskConfigUpdate } from "./task-manager/api.js";
-import { showErrorModal, showTaskDetails } from "./task-manager/modals.js";
 import {
   escapeHtml,
   formatDateTime,
   formatDurationMs,
   getStatusColor,
 } from "./task-manager/formatters.js";
+import { showErrorModal, showTaskDetails } from "./task-manager/modals.js";
 
 /**
  * Mobile UI module - handles all mobile-specific UI rendering and interactions

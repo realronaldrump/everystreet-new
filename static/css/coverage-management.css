@@ -363,7 +363,7 @@
   border-radius: var(--radius-pill);
   box-shadow: var(--shadow-lg);
   backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  border: 1px solid rgb(255 255 255 / 15%);
   cursor: pointer;
   transition: var(--transition-fast);
   animation: slideInUp 0.3s ease-out;
@@ -392,6 +392,7 @@
     opacity: 0;
     transform: translateY(20px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);

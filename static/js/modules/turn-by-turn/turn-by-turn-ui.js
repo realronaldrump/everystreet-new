@@ -429,7 +429,7 @@ class TurnByTurnUI {
 
   // === Progress Bars ===
 
-  updateRouteProgress(progressDistance, totalDistance, routeName) {
+  updateRouteProgress(progressDistance, totalDistance, _routeName) {
     const percent = totalDistance > 0 ? (progressDistance / totalDistance) * 100 : 0;
 
     if (this.elements.routeProgressFill) {
@@ -438,7 +438,6 @@ class TurnByTurnUI {
     if (this.elements.routeProgressValue) {
       this.elements.routeProgressValue.textContent = `${Math.round(percent)}%`;
     }
-
   }
 
   updateCoverageProgress(baselinePercent, livePercent) {

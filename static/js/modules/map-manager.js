@@ -10,7 +10,7 @@ import { utils } from "./utils.js";
 const mapManager = {
   async initialize() {
     try {
-      const loadingManager = window.loadingManager;
+      const { loadingManager } = window;
       loadingManager?.show("Initializing map...");
 
       const mapElement = utils.getElement("map");

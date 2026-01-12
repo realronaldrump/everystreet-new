@@ -402,7 +402,6 @@ const AppController = {
       utils.setStorage(CONFIG.STORAGE_KEYS.layerVisibility, visibility);
       layerManager.cleanup();
     });
-
   },
 
   // Public method for map matching trips
@@ -510,6 +509,5 @@ const AppController = {
     }
   },
 };
-
 
 export default AppController;

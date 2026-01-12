@@ -127,20 +127,22 @@ async def list_areas():
                     total_segments=area.total_segments,
                     driven_segments=area.driven_segments,
                     created_at=area.created_at.isoformat(),
-                    last_synced=area.last_synced.isoformat()
-                    if area.last_synced
-                    else None,
-                    optimal_route_generated_at=area.optimal_route_generated_at.isoformat()
-                    if area.optimal_route_generated_at
-                    else None,
+                    last_synced=(
+                        area.last_synced.isoformat() if area.last_synced else None
+                    ),
+                    optimal_route_generated_at=(
+                        area.optimal_route_generated_at.isoformat()
+                        if area.optimal_route_generated_at
+                        else None
+                    ),
                     has_optimal_route=area.optimal_route is not None,
-                )
+                ),
             )
 
         return AreaListResponse(areas=area_responses)
 
     except Exception as e:
-        logger.error(f"Error listing coverage areas: {e}")
+        logger.exception(f"Error listing coverage areas: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),
@@ -176,9 +178,11 @@ async def get_area(area_id: PydanticObjectId):
             driven_segments=area.driven_segments,
             created_at=area.created_at.isoformat(),
             last_synced=area.last_synced.isoformat() if area.last_synced else None,
-            optimal_route_generated_at=area.optimal_route_generated_at.isoformat()
-            if area.optimal_route_generated_at
-            else None,
+            optimal_route_generated_at=(
+                area.optimal_route_generated_at.isoformat()
+                if area.optimal_route_generated_at
+                else None
+            ),
             has_optimal_route=area.optimal_route is not None,
         ),
         bounding_box=area.bounding_box if area.bounding_box else None,
@@ -221,7 +225,7 @@ async def add_area(request: CreateAreaRequest):
             detail=str(e),
         )
     except Exception as e:
-        logger.error(f"Error creating coverage area: {e}")
+        logger.exception(f"Error creating coverage area: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),
@@ -280,7 +284,7 @@ async def trigger_rebuild(area_id: PydanticObjectId):
             detail=str(e),
         )
     except Exception as e:
-        logger.error(f"Error triggering rebuild: {e}")
+        logger.exception(f"Error triggering rebuild: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),
@@ -323,7 +327,7 @@ async def trigger_backfill(area_id: PydanticObjectId):
         }
 
     except Exception as e:
-        logger.error(f"Error during backfill: {e}")
+        logger.exception(f"Error during backfill: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),

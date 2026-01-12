@@ -33,7 +33,9 @@ My Vehicles
       <div class="spinner-border text-primary" role="status">
         <span class="visually-hidden">Loading...</span>
       </div>
-      <p class="text-muted mt-3">Loading vehicles...</p>
+      <p class="text-muted mt-3">
+Loading vehicles...
+      </p>
     </div>
 
     <!-- Empty State -->
@@ -41,7 +43,9 @@ My Vehicles
       <div class="empty-icon mb-4">
         <i class="fas fa-car-side fa-4x text-muted"></i>
       </div>
-      <h3 class="text-muted mb-3">No Vehicles Found</h3>
+      <h3 class="text-muted mb-3">
+No Vehicles Found
+      </h3>
       <p class="text-secondary mb-4">
         Sync your vehicles from Bouncie to get started.
       </p>
@@ -56,7 +60,9 @@ My Vehicles
         <div class="col-lg-8 col-xl-6">
 
           <!-- Vehicle Selector (shown when multiple vehicles) -->
-          <div class="card vehicle-selector-card mb-4" id="vehicle-selector-card" style="display: none;">
+          <div class="card vehicle-selector-card mb-4"
+               id="vehicle-selector-card"
+               style="display: none">
             <div class="card-body p-3">
               <label for="vehicle-select" class="form-label mb-2">
                 <i class="fas fa-car-side me-2 text-primary"></i>Select Vehicle
@@ -76,8 +82,12 @@ My Vehicles
                   <i class="fas fa-car"></i>
                 </div>
                 <div class="vehicle-title-section">
-                  <h2 class="vehicle-name mb-1" id="vehicle-name">--</h2>
-                  <div class="vehicle-subtitle text-muted" id="vehicle-subtitle">--</div>
+                  <h2 class="vehicle-name mb-1" id="vehicle-name">
+--
+                  </h2>
+                  <div class="vehicle-subtitle text-muted" id="vehicle-subtitle">
+--
+                  </div>
                 </div>
                 <div class="vehicle-status-badge" id="vehicle-status-badge">
                   <span class="badge bg-success">Active</span>
@@ -90,36 +100,46 @@ My Vehicles
                   <div class="info-label">
                     <i class="fas fa-fingerprint text-primary me-2"></i>IMEI
                   </div>
-                  <div class="info-value" id="vehicle-imei">--</div>
+                  <div class="info-value" id="vehicle-imei">
+--
+                  </div>
                 </div>
                 <div class="info-item">
                   <div class="info-label">
                     <i class="fas fa-barcode text-primary me-2"></i>VIN
                   </div>
-                  <div class="info-value" id="vehicle-vin">--</div>
+                  <div class="info-value" id="vehicle-vin">
+--
+                  </div>
                 </div>
                 <div class="info-item">
                   <div class="info-label">
                     <i class="fas fa-industry text-primary me-2"></i>Make
                   </div>
-                  <div class="info-value" id="vehicle-make">--</div>
+                  <div class="info-value" id="vehicle-make">
+--
+                  </div>
                 </div>
                 <div class="info-item">
                   <div class="info-label">
                     <i class="fas fa-car-alt text-primary me-2"></i>Model
                   </div>
-                  <div class="info-value" id="vehicle-model">--</div>
+                  <div class="info-value" id="vehicle-model">
+--
+                  </div>
                 </div>
                 <div class="info-item">
                   <div class="info-label">
                     <i class="fas fa-calendar text-primary me-2"></i>Year
                   </div>
-                  <div class="info-value" id="vehicle-year">--</div>
+                  <div class="info-value" id="vehicle-year">
+--
+                  </div>
                 </div>
               </div>
 
               <!-- Divider -->
-              <hr class="my-4">
+              <hr class="my-4" />
 
               <!-- Odometer Section -->
               <div class="odometer-section">
@@ -155,7 +175,10 @@ My Vehicles
                     <div class="bouncie-value" id="bouncie-odometer">
                       <span class="spinner-border spinner-border-sm" role="status"></span>
                     </div>
-                    <button type="button" class="btn btn-primary btn-sm" id="use-bouncie-reading-btn" disabled>
+                    <button type="button"
+                            class="btn btn-primary btn-sm"
+                            id="use-bouncie-reading-btn"
+                            disabled>
                       Use This Reading
                     </button>
                   </div>
@@ -186,7 +209,7 @@ My Vehicles
               </div>
 
               <!-- Divider -->
-              <hr class="my-4">
+              <hr class="my-4" />
 
               <!-- Vehicle Settings -->
               <div class="vehicle-settings-section">
@@ -196,20 +219,21 @@ My Vehicles
 
                 <!-- Custom Name -->
                 <div class="mb-3">
-                  <label for="custom-name-input" class="form-label">Display Name</label>
+                  <label for="custom-name-input" class="form-label">
+Display Name
+                  </label>
                   <input type="text"
                          class="form-control"
                          id="custom-name-input"
                          placeholder="Enter a custom name for your vehicle" />
-                  <div class="form-text">This name will be shown throughout the app.</div>
+                  <div class="form-text">
+This name will be shown throughout the app.
+                  </div>
                 </div>
 
                 <!-- Active Status -->
                 <div class="form-check form-switch mb-3">
-                  <input class="form-check-input"
-                         type="checkbox"
-                         id="active-status-toggle"
-                         checked />
+                  <input class="form-check-input" type="checkbox" id="active-status-toggle" checked />
                   <label class="form-check-label" for="active-status-toggle">
                     Vehicle is active
                   </label>
@@ -245,11 +269,16 @@ My Vehicles
 
   <!-- Toast Container -->
   <div class="toast-container position-fixed bottom-0 end-0 p-3">
-    <div id="notification-toast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+    <div id="notification-toast"
+         class="toast"
+         role="alert"
+         aria-live="assertive"
+         aria-atomic="true">
       <div class="toast-header">
         <i class="fas fa-info-circle text-primary me-2"></i>
         <strong class="me-auto" id="toast-title">Notification</strong>
-        <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+        <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close">
+        </button>
       </div>
       <div class="toast-body" id="toast-body">
         Message here

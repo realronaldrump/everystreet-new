@@ -72,7 +72,12 @@ async def preprocess_streets(
         else:
             bbox = location.get("bounding_box")
             if bbox and len(bbox) >= 4:
-                polygon = box(float(bbox[0]), float(bbox[1]), float(bbox[2]), float(bbox[3]))
+                polygon = box(
+                    float(bbox[0]),
+                    float(bbox[1]),
+                    float(bbox[2]),
+                    float(bbox[3]),
+                )
             else:
                 logger.warning("No valid boundary for %s. Skipping.", location_name)
                 return None

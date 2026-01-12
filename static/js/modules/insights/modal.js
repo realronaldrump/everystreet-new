@@ -6,8 +6,8 @@
 
 import { escapeHtml } from "../formatters.js";
 import { fetchTimePeriodTrips } from "./api.js";
-import { formatDuration, formatHourLabel, getDateRange } from "./formatters.js";
 import { showNotification } from "./export.js";
+import { formatDuration, formatHourLabel, getDateRange } from "./formatters.js";
 
 /**
  * Load and display trips for a specific time period

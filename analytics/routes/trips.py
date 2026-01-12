@@ -28,8 +28,7 @@ async def get_trip_analytics(request: Request):
             detail="Missing date range",
         )
 
-    result = await TripAnalyticsService.get_trip_analytics(query)
-    return result
+    return await TripAnalyticsService.get_trip_analytics(query)
 
 
 @router.get("/api/time-period-trips")
@@ -56,12 +55,11 @@ async def get_time_period_trips(request: Request):
         )
 
     try:
-        trips = await TimeAnalyticsService.get_time_period_trips(
+        return await TimeAnalyticsService.get_time_period_trips(
             query,
             time_type,
             time_value,
         )
-        return trips
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -79,8 +77,7 @@ async def driver_behavior_analytics(request: Request):
     If no filters are provided, all trips are considered (back-compat).
     """
     query = await build_query_from_request(request)
-    combined = await TripAnalyticsService.get_driver_behavior_analytics(query)
-    return combined
+    return await TripAnalyticsService.get_driver_behavior_analytics(query)
 
 
 @router.get("/api/trips/history")

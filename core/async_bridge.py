@@ -53,8 +53,8 @@ def run_async_from_sync(
     asyncio.set_event_loop(loop)
 
     async def _setup_db() -> None:
-        """
-        Ensure the database connection and ODM are initialized for the current loop.
+        """Ensure the database connection and ODM are initialized for the current
+        loop.
         """
         # Re-initialize Beanie for the new loop/client if necessary
         # This binds the models to the current loop's client

@@ -153,10 +153,7 @@ const tripInteractions = {
     const popupElement = popup.getElement();
     if (!popupElement) {
       if (attempt < 5) {
-        setTimeout(
-          () => this.setupPopupEventListeners(popup, attempt + 1),
-          50
-        );
+        setTimeout(() => this.setupPopupEventListeners(popup, attempt + 1), 50);
       }
       return;
     }

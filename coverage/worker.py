@@ -1,20 +1,21 @@
 """
 Coverage update worker.
 
-This module handles the actual coverage updates when trips complete.
-It listens for events and updates CoverageState accordingly.
+This module handles the actual coverage updates when trips complete. It listens for
+events and updates CoverageState accordingly.
 """
 
 from __future__ import annotations
 
 import logging
 import time
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
-from typing import Any, Awaitable, Callable
+from typing import Any
 
 from beanie import PydanticObjectId
 
-from coverage.events import CoverageEvents, on_event, emit_coverage_updated
+from coverage.events import CoverageEvents, emit_coverage_updated, on_event
 from coverage.matching import match_trip_to_streets
 from coverage.models import CoverageArea, CoverageState
 from coverage.stats import update_area_stats
@@ -64,9 +65,9 @@ async def handle_trip_completed(
             updated = await update_coverage_for_segments(
                 area_id=area_id,
                 segment_ids=segment_ids,
-                trip_id=PydanticObjectId(trip_id)
-                if isinstance(trip_id, str)
-                else trip_id,
+                trip_id=(
+                    PydanticObjectId(trip_id) if isinstance(trip_id, str) else trip_id
+                ),
                 driven_at=trip_driven_at,
             )
             total_updated += updated
@@ -79,11 +80,11 @@ async def handle_trip_completed(
 
         logger.info(
             f"Trip {trip_id} updated {total_updated} segments "
-            f"across {len(matches)} areas"
+            f"across {len(matches)} areas",
         )
 
     except Exception as e:
-        logger.error(f"Error processing coverage for trip {trip_id}: {e}")
+        logger.exception(f"Error processing coverage for trip {trip_id}: {e}")
         raise
 
 
@@ -110,8 +111,7 @@ async def update_coverage_for_segments(
     """
     Mark segments as driven for an area.
 
-    Uses bulk operations for efficiency.
-    Returns the number of segments updated.
+    Uses bulk operations for efficiency. Returns the number of segments updated.
     """
     if not segment_ids:
         return 0
@@ -122,7 +122,7 @@ async def update_coverage_for_segments(
             "area_id": area_id,
             "segment_id": {"$in": segment_ids},
             "status": "undriveable",
-        }
+        },
     ).to_list()
     undriveable_ids = {state.segment_id for state in undriveable_states}
     if undriveable_ids:
@@ -149,20 +149,20 @@ async def update_coverage_for_segments(
                                         "$or": [
                                             {"$eq": ["$$existing", None]},
                                             {"$gt": ["$$existing", driven_at]},
-                                        ]
+                                        ],
                                     },
                                     driven_at,
                                     "$$existing",
-                                ]
+                                ],
                             },
-                        }
+                        },
                     },
                     "driven_by_trip_id": trip_id,
                     "area_id": area_id,
                     "segment_id": segment_id,
                     "manually_marked": {"$ifNull": ["$manually_marked", False]},
-                }
-            }
+                },
+            },
         ]
 
         on_insert = CoverageState(
@@ -176,7 +176,7 @@ async def update_coverage_for_segments(
         )
 
         result = await CoverageState.find_one(
-            {"area_id": area_id, "segment_id": segment_id}
+            {"area_id": area_id, "segment_id": segment_id},
         ).upsert(update_pipeline, on_insert=on_insert)
 
         if hasattr(result, "modified_count"):
@@ -206,7 +206,7 @@ async def mark_segment_undriveable(
     Returns True if the segment was updated.
     """
     result = await CoverageState.find_one(
-        {"area_id": area_id, "segment_id": segment_id}
+        {"area_id": area_id, "segment_id": segment_id},
     )
 
     if result:
@@ -238,7 +238,7 @@ async def mark_segment_undriven(
     Returns True if the segment was updated.
     """
     result = await CoverageState.find_one(
-        {"area_id": area_id, "segment_id": segment_id}
+        {"area_id": area_id, "segment_id": segment_id},
     )
 
     if result:
@@ -297,7 +297,7 @@ async def backfill_coverage_for_area(
                     [max_lon, max_lat],
                     [min_lon, max_lat],
                     [min_lon, min_lat],  # Close the polygon
-                ]
+                ],
             ],
         }
         # Use $geoIntersects to find trips whose traces intersect the area
@@ -339,7 +339,7 @@ async def backfill_coverage_for_area(
                 "total_trips": total_trips,
                 "matched_trips": matched_trips,
                 "segments_updated": total_updated,
-            }
+            },
         )
         last_reported = processed_trips
         last_reported_time = now
@@ -372,7 +372,7 @@ async def backfill_coverage_for_area(
 
     logger.info(
         f"Backfill complete for area {area.display_name}: "
-        f"{total_updated} segments from {matched_trips} trips"
+        f"{total_updated} segments from {matched_trips} trips",
     )
 
     return total_updated

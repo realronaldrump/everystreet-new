@@ -285,20 +285,22 @@ class MapMatchingService:
         async with map_match_semaphore:
             for attempt in range(1, max_attempts + 1):
                 try:
-                    async with mapbox_rate_limiter:
-                        async with session.post(
+                    async with (
+                        mapbox_rate_limiter,
+                        session.post(
                             base_url,
                             params=params,
                             json=request_body,
-                        ) as response:
-                            result = await self._handle_mapbox_response(
-                                response,
-                                attempt,
-                                max_attempts,
-                                min_backoff,
-                            )
-                            if result is not None:
-                                return result
+                        ) as response,
+                    ):
+                        result = await self._handle_mapbox_response(
+                            response,
+                            attempt,
+                            max_attempts,
+                            min_backoff,
+                        )
+                        if result is not None:
+                            return result
                 except Exception as e:
                     if attempt < max_attempts:
                         await asyncio.sleep(min_backoff * (2 ** (attempt - 1)))

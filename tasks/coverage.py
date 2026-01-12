@@ -3,9 +3,8 @@ Coverage calculation tasks.
 
 This module provides Celery tasks for coverage operations.
 
-In the new event-driven system, coverage updates happen automatically when
-trips complete. This task is kept for manual/scheduled full refreshes of
-coverage statistics.
+In the new event-driven system, coverage updates happen automatically when trips
+complete. This task is kept for manual/scheduled full refreshes of coverage statistics.
 """
 
 from __future__ import annotations

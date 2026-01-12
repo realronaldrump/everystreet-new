@@ -1,20 +1,21 @@
 """
 Coverage statistics calculation.
 
-This module computes and updates coverage statistics for areas by
-aggregating data from the CoverageState collection.
+This module computes and updates coverage statistics for areas by aggregating data from
+the CoverageState collection.
 """
 
 from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime
-from typing import Any
-
-from beanie import PydanticObjectId
+from typing import TYPE_CHECKING, Any
 
 from coverage.models import CoverageArea, CoverageState, Street
 from db.aggregation import aggregate_to_list
+
+if TYPE_CHECKING:
+    from beanie import PydanticObjectId
 
 logger = logging.getLogger(__name__)
 
@@ -61,13 +62,13 @@ async def calculate_area_stats(
                                 "$and": [
                                     {"$eq": ["$area_id", area_id]},
                                     {"$eq": ["$segment_id", "$$segment_id"]},
-                                ]
-                            }
-                        }
-                    }
+                                ],
+                            },
+                        },
+                    },
                 ],
                 "as": "state",
-            }
+            },
         },
         {"$unwind": {"path": "$state", "preserveNullAndEmptyArrays": True}},
         {
@@ -76,7 +77,7 @@ async def calculate_area_stats(
                 "total_segments": {"$sum": 1},
                 "total_length_miles": {"$sum": "$length_miles"},
                 "driven_segments": {
-                    "$sum": {"$cond": [{"$eq": ["$state.status", "driven"]}, 1, 0]}
+                    "$sum": {"$cond": [{"$eq": ["$state.status", "driven"]}, 1, 0]},
                 },
                 "driven_length_miles": {
                     "$sum": {
@@ -84,11 +85,13 @@ async def calculate_area_stats(
                             {"$eq": ["$state.status", "driven"]},
                             "$length_miles",
                             0,
-                        ]
-                    }
+                        ],
+                    },
                 },
                 "undriveable_segments": {
-                    "$sum": {"$cond": [{"$eq": ["$state.status", "undriveable"]}, 1, 0]}
+                    "$sum": {
+                        "$cond": [{"$eq": ["$state.status", "undriveable"]}, 1, 0],
+                    },
                 },
                 "undriveable_length_miles": {
                     "$sum": {
@@ -96,10 +99,10 @@ async def calculate_area_stats(
                             {"$eq": ["$state.status", "undriveable"]},
                             "$length_miles",
                             0,
-                        ]
-                    }
+                        ],
+                    },
                 },
-            }
+            },
         },
     ]
 
@@ -139,8 +142,8 @@ async def update_area_stats(area_id: PydanticObjectId) -> CoverageArea | None:
     """
     Calculate and persist coverage statistics for an area.
 
-    Updates the CoverageArea document with fresh statistics.
-    Returns the updated area or None if not found.
+    Updates the CoverageArea document with fresh statistics. Returns the updated area or
+    None if not found.
     """
     area = await CoverageArea.get(area_id)
     if not area:
@@ -162,7 +165,7 @@ async def update_area_stats(area_id: PydanticObjectId) -> CoverageArea | None:
     logger.info(
         f"Updated stats for area {area.display_name}: "
         f"{stats['driven_segments']}/{stats['total_segments']} segments, "
-        f"{stats['coverage_percentage']}% coverage"
+        f"{stats['coverage_percentage']}% coverage",
     )
 
     return area

@@ -1,11 +1,12 @@
-"""
-Aggregation helpers compatible with Motor or PyMongo async collections.
-"""
+"""Aggregation helpers compatible with Motor or PyMongo async collections."""
 
 from __future__ import annotations
 
 import inspect
-from typing import Any, Iterable
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 
 async def aggregate_to_list(
@@ -18,8 +19,8 @@ async def aggregate_to_list(
     """
     Run an aggregation pipeline and return results as a list.
 
-    Handles Motor (cursor returned directly) and PyMongo async
-    (cursor returned via await) collections.
+    Handles Motor (cursor returned directly) and PyMongo async (cursor returned via
+    await) collections.
     """
     collection = model.get_pymongo_collection()
     cursor = collection.aggregate(pipeline, **kwargs)

@@ -84,39 +84,9 @@ class LiveTripTracker {
     this.pulseLayerId = "live-trip-pulse";
 
     try {
-      const lineWidth = [
-        "interpolate",
-        ["linear"],
-        ["zoom"],
-        10,
-        3.5,
-        14,
-        5,
-        18,
-        8,
-      ];
-      const casingWidth = [
-        "interpolate",
-        ["linear"],
-        ["zoom"],
-        10,
-        6.5,
-        14,
-        9,
-        18,
-        13,
-      ];
-      const glowWidth = [
-        "interpolate",
-        ["linear"],
-        ["zoom"],
-        10,
-        10,
-        14,
-        14,
-        18,
-        20,
-      ];
+      const lineWidth = ["interpolate", ["linear"], ["zoom"], 10, 3.5, 14, 5, 18, 8];
+      const casingWidth = ["interpolate", ["linear"], ["zoom"], 10, 6.5, 14, 9, 18, 13];
+      const glowWidth = ["interpolate", ["linear"], ["zoom"], 10, 10, 14, 14, 18, 20];
       const { color, opacity } = this.routeStyle;
       const casingColor = this.getRouteCasingColor();
 
@@ -423,12 +393,11 @@ class LiveTripTracker {
 
   getFollowCameraConfig() {
     const isMobile = window.utils?.getDeviceProfile?.().isMobile;
-    const prefersReducedMotion
-      = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const prefersReducedMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)"
+    ).matches;
     const containerHeight = this.map?.getContainer()?.clientHeight || 600;
-    const offsetY = Math.round(
-      Math.min(180, Math.max(90, containerHeight * 0.22))
-    );
+    const offsetY = Math.round(Math.min(180, Math.max(90, containerHeight * 0.22)));
 
     return {
       zoom: isMobile ? 16.8 : 15.8,
@@ -442,8 +411,9 @@ class LiveTripTracker {
     if (!this.map) {
       return;
     }
-    const prefersReducedMotion
-      = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const prefersReducedMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)"
+    ).matches;
     this.map.easeTo({
       pitch: 0,
       bearing: 0,
@@ -593,11 +563,7 @@ class LiveTripTracker {
       return;
     }
 
-    this.hudCoverageElem.classList.remove(
-      "is-driven",
-      "is-undriven",
-      "is-undriveable"
-    );
+    this.hudCoverageElem.classList.remove("is-driven", "is-undriven", "is-undriveable");
 
     if (!status) {
       this.hudCoverageElem.textContent = areaName
@@ -1234,8 +1200,7 @@ class LiveTripTracker {
     }
 
     const { zoom, pitch, offset, duration } = this.getFollowCameraConfig();
-    const bearing
-      = typeof heading === "number" ? heading : this.map.getBearing() || 0;
+    const bearing = typeof heading === "number" ? heading : this.map.getBearing() || 0;
     const center = [lastCoord.lon, lastCoord.lat];
 
     const cameraOptions = {

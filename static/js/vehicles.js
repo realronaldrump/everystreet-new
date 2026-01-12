@@ -148,7 +148,9 @@
    * Populate the vehicle selector dropdown
    */
   function populateVehicleSelector(vehicles) {
-    if (!elements.vehicleSelect) return;
+    if (!elements.vehicleSelect) {
+      return;
+    }
 
     elements.vehicleSelect.innerHTML = "";
 
@@ -186,7 +188,9 @@
    */
   function selectVehicle(imei) {
     const vehicle = allVehicles.find((v) => v.imei === imei);
-    if (!vehicle) return;
+    if (!vehicle) {
+      return;
+    }
 
     currentVehicle = vehicle;
 
@@ -209,13 +213,15 @@
    * Display vehicle data in the UI
    */
   function displayVehicle(vehicle) {
-    if (!vehicle) return;
+    if (!vehicle) {
+      return;
+    }
 
     // Name and subtitle
-    const displayName =
-      vehicle.custom_name ||
-      `${vehicle.year || ""} ${vehicle.make || ""} ${vehicle.model || ""}`.trim() ||
-      "My Vehicle";
+    const displayName
+      = vehicle.custom_name
+      || `${vehicle.year || ""} ${vehicle.make || ""} ${vehicle.model || ""}`.trim()
+      || "My Vehicle";
     elements.vehicleName.textContent = displayName;
 
     const subtitle = vehicle.custom_name
@@ -225,11 +231,11 @@
 
     // Status badge
     if (vehicle.is_active) {
-      elements.vehicleStatusBadge.innerHTML =
-        '<span class="badge bg-success">Active</span>';
+      elements.vehicleStatusBadge.innerHTML
+        = '<span class="badge bg-success">Active</span>';
     } else {
-      elements.vehicleStatusBadge.innerHTML =
-        '<span class="badge bg-secondary">Inactive</span>';
+      elements.vehicleStatusBadge.innerHTML
+        = '<span class="badge bg-secondary">Inactive</span>';
     }
 
     // Info grid
@@ -257,8 +263,8 @@
       }
     } else {
       elements.currentOdometer.textContent = "--";
-      elements.odometerSource.innerHTML =
-        '<i class="fas fa-info-circle me-1"></i>No reading yet';
+      elements.odometerSource.innerHTML
+        = '<i class="fas fa-info-circle me-1"></i>No reading yet';
       elements.odometerUpdated.textContent = "";
     }
 
@@ -276,10 +282,12 @@
    * Fetch live odometer reading from Bouncie
    */
   async function fetchBouncieOdometer() {
-    if (!currentVehicle) return;
+    if (!currentVehicle) {
+      return;
+    }
 
-    elements.bouncieOdometer.innerHTML =
-      '<span class="spinner-border spinner-border-sm" role="status"></span>';
+    elements.bouncieOdometer.innerHTML
+      = '<span class="spinner-border spinner-border-sm" role="status"></span>';
     elements.useBouncieReadingBtn.disabled = true;
 
     try {
@@ -312,7 +320,9 @@
    * Use the Bouncie reading as the current odometer
    */
   async function useBouncieReading() {
-    if (!currentVehicle || !bouncieOdometer) return;
+    if (!currentVehicle || !bouncieOdometer) {
+      return;
+    }
 
     try {
       await updateVehicleOdometer(bouncieOdometer, "bouncie");
@@ -327,10 +337,12 @@
    * Save manually entered odometer
    */
   async function saveManualOdometer() {
-    if (!currentVehicle) return;
+    if (!currentVehicle) {
+      return;
+    }
 
     const value = parseFloat(elements.manualOdometerInput.value);
-    if (isNaN(value) || value < 0) {
+    if (Number.isNaN(value) || value < 0) {
       showNotification("Error", "Please enter a valid odometer reading", "error");
       return;
     }
@@ -371,7 +383,9 @@
    * Save vehicle settings (name, active status)
    */
   async function saveSettings() {
-    if (!currentVehicle) return;
+    if (!currentVehicle) {
+      return;
+    }
 
     const customName = elements.customNameInput.value.trim() || null;
     const isActive = elements.activeStatusToggle.checked;
@@ -461,8 +475,8 @@
     elements.toastBody.textContent = message;
 
     // Update icon based on type
-    const iconClass =
-      type === "success"
+    const iconClass
+      = type === "success"
         ? "fa-check-circle text-success"
         : type === "error"
           ? "fa-exclamation-circle text-danger"
@@ -481,7 +495,9 @@
    * Format number with commas
    */
   function formatNumber(num) {
-    if (num === null || num === undefined) return "--";
+    if (num === null || num === undefined) {
+      return "--";
+    }
     return Number(num).toLocaleString("en-US", {
       minimumFractionDigits: 0,
       maximumFractionDigits: 1,
@@ -492,7 +508,9 @@
    * Format relative time (e.g., "2 hours ago")
    */
   function formatRelativeTime(date) {
-    if (!date) return "";
+    if (!date) {
+      return "";
+    }
 
     const now = new Date();
     const diffMs = now - date;
@@ -501,10 +519,18 @@
     const diffHours = Math.floor(diffMins / 60);
     const diffDays = Math.floor(diffHours / 24);
 
-    if (diffSecs < 60) return "just now";
-    if (diffMins < 60) return `${diffMins} minute${diffMins > 1 ? "s" : ""} ago`;
-    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? "s" : ""} ago`;
-    if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? "s" : ""} ago`;
+    if (diffSecs < 60) {
+      return "just now";
+    }
+    if (diffMins < 60) {
+      return `${diffMins} minute${diffMins > 1 ? "s" : ""} ago`;
+    }
+    if (diffHours < 24) {
+      return `${diffHours} hour${diffHours > 1 ? "s" : ""} ago`;
+    }
+    if (diffDays < 7) {
+      return `${diffDays} day${diffDays > 1 ? "s" : ""} ago`;
+    }
 
     return date.toLocaleDateString();
   }

@@ -32,6 +32,13 @@ from __future__ import annotations
 
 import logging
 
+# New coverage system models
+from coverage.models import (
+    CoverageArea,
+    CoverageState,
+    Job,
+    Street as NewStreet,
+)
 from db.manager import DatabaseManager, db_manager
 
 # ============================================================================
@@ -50,20 +57,12 @@ from db.models import (
     Place,
     ProgressStatus,
     ServerLog,
-    WebhookFailure,
     Street,
     TaskConfig,
     TaskHistory,
     Trip,
     Vehicle,
-)
-
-# New coverage system models
-from coverage.models import (
-    CoverageArea,
-    CoverageState,
-    Job,
-    Street as NewStreet,
+    WebhookFailure,
 )
 
 # ============================================================================
@@ -87,31 +86,31 @@ __all__ = [
     "AppSettings",
     "ArchivedLiveTrip",
     "BouncieCredentials",
+    # New coverage system models
+    "CoverageArea",
+    "CoverageState",
     # Manager
     "DatabaseManager",
     "GasFillup",
+    "Job",
     "LiveTrip",
     "MatchedTrip",
+    "NewStreet",
     "OptimalRouteProgress",
     "OsmData",
     "Place",
     "ProgressStatus",
     "ServerLog",
-    "WebhookFailure",
     "Street",
     "TaskConfig",
     "TaskHistory",
     # Beanie Models
     "Trip",
     "Vehicle",
+    "WebhookFailure",
     "build_calendar_date_expr",
     "build_query_from_request",
     "db_manager",
     # Query Building
     "parse_query_date",
-    # New coverage system models
-    "CoverageArea",
-    "CoverageState",
-    "Job",
-    "NewStreet",
 ]

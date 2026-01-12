@@ -86,8 +86,7 @@ async function handleUndrivenStreetsExport(locationSelect, formatSelect, exportB
     const format = formatSelect?.value || "geojson";
     const areaId = locationSelect.value;
     const displayName
-      = locationSelect.selectedOptions?.[0]?.dataset.displayName
-      || "undriven_streets";
+      = locationSelect.selectedOptions?.[0]?.dataset.displayName || "undriven_streets";
 
     const geojson = await fetchUndrivenStreets(areaId);
 

@@ -1,16 +1,20 @@
 """
 Geo helpers for coverage calculations.
 
-Provides local projections for meter-based geometry work and
-geodesic length calculations for accurate distances.
+Provides local projections for meter-based geometry work and geodesic length
+calculations for accurate distances.
 """
 
 from __future__ import annotations
 
-from typing import Callable
+from typing import TYPE_CHECKING
 
 import pyproj
-from shapely.geometry.base import BaseGeometry
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from shapely.geometry.base import BaseGeometry
 
 WGS84 = pyproj.CRS("EPSG:4326")
 GEOD = pyproj.Geod(ellps="WGS84")
@@ -18,7 +22,10 @@ GEOD = pyproj.Geod(ellps="WGS84")
 
 def get_local_transformers(
     geom: BaseGeometry,
-) -> tuple[Callable[[float, float], tuple[float, float]], Callable[[float, float], tuple[float, float]]]:
+) -> tuple[
+    Callable[[float, float], tuple[float, float]],
+    Callable[[float, float], tuple[float, float]],
+]:
     """
     Build local azimuthal equidistant transformers centered on the geometry.
 
@@ -50,9 +57,7 @@ def geodesic_distance_meters(
     lon2: float,
     lat2: float,
 ) -> float:
-    """
-    Return the geodesic distance between two lon/lat points in meters.
-    """
+    """Return the geodesic distance between two lon/lat points in meters."""
     _, _, dist = GEOD.inv(lon1, lat1, lon2, lat2)
     return abs(dist)
 
@@ -60,21 +65,17 @@ def geodesic_distance_meters(
 def _line_length_meters(coords: list[tuple[float, float]]) -> float:
     if len(coords) < 2:
         return 0.0
-    lons, lats = zip(*coords)
+    lons, lats = zip(*coords, strict=False)
     return abs(GEOD.line_length(lons, lats))
 
 
 def geodesic_length_meters(geom: BaseGeometry) -> float:
-    """
-    Return the geodesic length of a LineString or MultiLineString in meters.
-    """
+    """Return the geodesic length of a LineString or MultiLineString in meters."""
     if geom.is_empty:
         return 0.0
     geom_type = geom.geom_type
     if geom_type == "LineString":
         return _line_length_meters(list(geom.coords))
     if geom_type == "MultiLineString":
-        return sum(
-            _line_length_meters(list(line.coords)) for line in geom.geoms
-        )
+        return sum(_line_length_meters(list(line.coords)) for line in geom.geoms)
     return 0.0

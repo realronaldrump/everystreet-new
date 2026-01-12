@@ -1,31 +1,34 @@
 """
 Trip-to-street matching logic.
 
-This module handles the geometric intersection between trip GPS traces
-and street segments to determine which segments have been driven.
+This module handles the geometric intersection between trip GPS traces and street
+segments to determine which segments have been driven.
 """
 
 from __future__ import annotations
 
+import itertools
 import logging
 from statistics import median
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from beanie import PydanticObjectId
 from shapely.geometry import LineString, MultiLineString, mapping, shape
-from shapely.geometry.base import BaseGeometry
 from shapely.ops import transform
 
-from coverage.models import Street
 from coverage.constants import (
-    MATCH_BUFFER_METERS,
-    MIN_OVERLAP_METERS,
-    MIN_GPS_GAP_METERS,
-    MAX_GPS_GAP_METERS,
     GPS_GAP_MULTIPLIER,
+    MATCH_BUFFER_METERS,
+    MAX_GPS_GAP_METERS,
+    MIN_GPS_GAP_METERS,
+    MIN_OVERLAP_METERS,
     SHORT_SEGMENT_OVERLAP_RATIO,
 )
-from coverage.geo_utils import get_local_transformers, geodesic_distance_meters
+from coverage.geo_utils import geodesic_distance_meters, get_local_transformers
+from coverage.models import Street
+
+if TYPE_CHECKING:
+    from beanie import PydanticObjectId
+    from shapely.geometry.base import BaseGeometry
 
 logger = logging.getLogger(__name__)
 
@@ -101,13 +104,13 @@ def _split_coords_by_gap(coords: list[list[float]]) -> list[LineString]:
         return []
     distances = [
         geodesic_distance_meters(prev[0], prev[1], curr[0], curr[1])
-        for prev, curr in zip(coords, coords[1:])
+        for prev, curr in itertools.pairwise(coords)
     ]
     gap_threshold = _adaptive_gap_threshold(distances)
 
     segments: list[LineString] = []
     current: list[list[float]] = [coords[0]]
-    for prev, curr in zip(coords, coords[1:]):
+    for prev, curr in itertools.pairwise(coords):
         gap = geodesic_distance_meters(prev[0], prev[1], curr[0], curr[1])
         if gap > gap_threshold:
             if len(current) >= 2:
@@ -126,8 +129,8 @@ def trip_to_linestring(trip: dict[str, Any]) -> BaseGeometry | None:
     """
     Convert a trip document to a Shapely LineString/MultiLineString.
 
-    Handles both GeoJSON geometry and raw coordinate arrays.
-    Returns None if trip has no valid geometry.
+    Handles both GeoJSON geometry and raw coordinate arrays. Returns None if trip has no
+    valid geometry.
     """
     lines = None
     # Prefer matched geometry when available
@@ -170,7 +173,8 @@ def trip_to_linestring(trip: dict[str, Any]) -> BaseGeometry | None:
 
 
 def buffer_trip_line(
-    trip_line: BaseGeometry, buffer_meters: float = MATCH_BUFFER_METERS
+    trip_line: BaseGeometry,
+    buffer_meters: float = MATCH_BUFFER_METERS,
 ) -> tuple[Any, Any, Any]:
     """
     Create buffer polygons around a trip line.
@@ -195,8 +199,8 @@ def check_segment_overlap(
     """
     Check if a street segment overlaps sufficiently with a trip buffer.
 
-    Returns True if the segment intersects the buffer and the intersection
-    length meets the minimum overlap threshold.
+    Returns True if the segment intersects the buffer and the intersection length meets
+    the minimum overlap threshold.
     """
     try:
         segment_line = shape(segment_geom)
@@ -248,8 +252,8 @@ async def find_matching_segments(
     """
     Find all street segments that match a trip line.
 
-    Uses MongoDB geospatial query to find candidate segments,
-    then uses Shapely for precise intersection testing.
+    Uses MongoDB geospatial query to find candidate segments, then uses Shapely for
+    precise intersection testing.
 
     Returns list of segment_ids that were matched.
     """
@@ -269,8 +273,8 @@ async def find_matching_segments(
                 "$geometry": {
                     "type": buffer_geojson["type"],
                     "coordinates": buffer_geojson["coordinates"],
-                }
-            }
+                },
+            },
         },
     }
     if area_version is not None:
@@ -283,7 +287,7 @@ async def find_matching_segments(
             matched_segment_ids.append(street.segment_id)
 
     logger.debug(
-        f"Found {len(matched_segment_ids)} matching segments for trip in area {area_id}"
+        f"Found {len(matched_segment_ids)} matching segments for trip in area {area_id}",
     )
 
     return matched_segment_ids
@@ -296,14 +300,14 @@ async def match_trip_to_streets(
     """
     Match a trip to streets in one or more areas.
 
-    If area_ids is None, matches against all ready areas that
-    intersect the trip's bounding box.
+    If area_ids is None, matches against all ready areas that intersect the trip's
+    bounding box.
 
     Returns dict mapping area_id -> list of matched segment_ids.
     """
     trip_line = trip_to_linestring(trip)
     if trip_line is None:
-        logger.warning(f"Trip has no valid geometry, skipping matching")
+        logger.warning("Trip has no valid geometry, skipping matching")
         return {}
 
     # If no areas specified, find areas that intersect trip
@@ -320,7 +324,7 @@ async def match_trip_to_streets(
                 "bounding_box.2": {"$gte": minx},  # max_lon >= trip_min_lon
                 "bounding_box.1": {"$lte": maxy},  # min_lat <= trip_max_lat
                 "bounding_box.3": {"$gte": miny},  # max_lat >= trip_min_lat
-            }
+            },
         ).to_list()
 
         area_ids = [area.id for area in areas]

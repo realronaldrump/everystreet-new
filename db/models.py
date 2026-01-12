@@ -667,12 +667,7 @@ class CountyTopology(Document):
 
 
 # Import new coverage models
-from coverage.models import (
-    CoverageArea,
-    CoverageState,
-    Job,
-    Street,
-)
+from coverage.models import CoverageArea, CoverageState, Job, Street
 
 # List of all document models for Beanie initialization
 ALL_DOCUMENT_MODELS = [

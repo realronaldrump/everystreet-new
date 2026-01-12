@@ -114,7 +114,9 @@ def _extract_line_coords(geometry: dict[str, Any] | None) -> list[list[float]]:
     return []
 
 
-def _segment_midpoint_coords(geometry: dict[str, Any] | None) -> tuple[float, float] | None:
+def _segment_midpoint_coords(
+    geometry: dict[str, Any] | None,
+) -> tuple[float, float] | None:
     coords = _extract_line_coords(geometry)
     if not coords:
         return None
@@ -183,7 +185,7 @@ async def _load_undriven_segments(area: CoverageArea) -> list[dict[str, Any]]:
                 "street_name": street.street_name,
                 "geometry": street.geometry or {},
                 "length_m": get_safe_float(street.length_miles) * MILES_TO_METERS,
-            }
+            },
         )
 
     return segments
@@ -331,7 +333,7 @@ def _cluster_segments(
                     "street_name": segment.get("street_name"),
                     "geometry": segment.get("geometry"),
                     "length_m": length_m,
-                }
+                },
             )
 
         if not cluster_segments:
@@ -360,15 +362,17 @@ def _cluster_segments(
                 "distance_to_cluster_m": distance_to_cluster_m,
                 "efficiency_score": efficiency_score,
                 "nearest_segment": {
-                    "segment_id": nearest_segment.get("segment_id")
-                    if nearest_segment
-                    else None,
-                    "street_name": nearest_segment.get("street_name")
-                    if nearest_segment
-                    else None,
-                    "geometry": nearest_segment.get("geometry") if nearest_segment else None,
+                    "segment_id": (
+                        nearest_segment.get("segment_id") if nearest_segment else None
+                    ),
+                    "street_name": (
+                        nearest_segment.get("street_name") if nearest_segment else None
+                    ),
+                    "geometry": (
+                        nearest_segment.get("geometry") if nearest_segment else None
+                    ),
                 },
-            }
+            },
         )
 
     return clusters
@@ -582,17 +586,15 @@ async def optimize_driving_route(request: Request):
 
         current_position = data.get("current_position")
         if current_position and "lat" in current_position and "lon" in current_position:
-            route = await _get_mapbox_optimization_route(
+            return await _get_mapbox_optimization_route(
                 float(current_position["lon"]),
                 float(current_position["lat"]),
                 end_points,
             )
-            return route
 
         position = await get_current_position(data)
         lon, lat, _ = position
-        route = await _get_mapbox_optimization_route(lon, lat, end_points)
-        return route
+        return await _get_mapbox_optimization_route(lon, lat, end_points)
 
     except Exception as e:
         logger.exception("Error optimizing driving route: %s", e)
@@ -621,13 +623,12 @@ async def get_driving_route(request: Request):
                 detail="Start and end must have lat/lon coordinates.",
             )
 
-        route = await _get_mapbox_directions_route(
+        return await _get_mapbox_directions_route(
             start["lon"],
             start["lat"],
             end["lon"],
             end["lat"],
         )
-        return route
 
     except Exception as e:
         logger.exception("Error getting driving route: %s", e)
@@ -668,7 +669,7 @@ async def get_next_driving_navigation_route(payload: DrivingNavigationRequest):
 
     if isinstance(current_position, dict):
         pair = _normalize_coord_pair(
-            [current_position.get("lon"), current_position.get("lat")]
+            [current_position.get("lon"), current_position.get("lat")],
         )
         if pair:
             current_lon, current_lat = pair
@@ -740,10 +741,10 @@ async def get_next_driving_navigation_route(payload: DrivingNavigationRequest):
 @router.get("/api/driving-navigation/suggest-next-street/{area_id}")
 async def suggest_next_street(
     area_id: PydanticObjectId,
-    current_lat: float = Query(...),
-    current_lon: float = Query(...),
-    top_n: int = Query(3),
-    min_cluster_size: int = Query(2),
+    current_lat: Annotated[float, Query()],
+    current_lon: Annotated[float, Query()],
+    top_n: Annotated[int, Query()] = 3,
+    min_cluster_size: Annotated[int, Query()] = 2,
 ):
     """Suggest efficient clusters of undriven streets."""
     area = await CoverageArea.get(area_id)
@@ -796,7 +797,7 @@ async def suggest_next_street(
         {
             "status": "success",
             "suggested_clusters": clusters[:top_n],
-        }
+        },
     )
 
 

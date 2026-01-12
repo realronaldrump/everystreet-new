@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-@router.get("/api/vehicles", response_model=list[Vehicle])
+@router.get("/api/vehicles")
 async def get_vehicles(
     imei: Annotated[str | None, Query(description="Filter by IMEI")] = None,
     vin: Annotated[str | None, Query(description="Filter by VIN")] = None,
@@ -31,7 +31,7 @@ async def get_vehicles(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/api/vehicles", response_model=Vehicle)
+@router.post("/api/vehicles")
 async def create_vehicle(vehicle_data: VehicleModel) -> Vehicle:
     """Create a new vehicle record."""
     try:
@@ -45,7 +45,7 @@ async def create_vehicle(vehicle_data: VehicleModel) -> Vehicle:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.put("/api/vehicles/{imei}", response_model=Vehicle)
+@router.put("/api/vehicles/{imei}")
 async def update_vehicle(imei: str, vehicle_data: VehicleModel) -> Vehicle:
     """Update a vehicle's information."""
     try:

@@ -123,7 +123,7 @@ async def get_area_jobs(area_id: PydanticObjectId, limit: int = 10):
                 completed_at=job.completed_at.isoformat() if job.completed_at else None,
             )
             for job in jobs
-        ]
+        ],
     )
 
 
@@ -154,9 +154,9 @@ async def list_active_jobs():
                 job_id=str(job.id),
                 job_type=job.job_type,
                 area_id=str(job.area_id) if job.area_id else None,
-                area_display_name=area_name_by_id.get(str(job.area_id))
-                if job.area_id
-                else None,
+                area_display_name=(
+                    area_name_by_id.get(str(job.area_id)) if job.area_id else None
+                ),
                 status=job.status,
                 stage=job.stage,
                 progress=job.progress,
@@ -167,7 +167,7 @@ async def list_active_jobs():
                 completed_at=job.completed_at.isoformat() if job.completed_at else None,
             )
             for job in jobs
-        ]
+        ],
     )
 
 

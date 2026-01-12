@@ -6,14 +6,14 @@ No more loading entire GeoJSON files - streams segments as needed.
 """
 
 import logging
-from typing import Any
+from typing import Annotated, Any
 
 from beanie import PydanticObjectId
 from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import BaseModel
 
-from coverage.models import CoverageArea, CoverageState, Street
 from coverage.constants import MAX_VIEWPORT_FEATURES
+from coverage.models import CoverageArea, CoverageState, Street
 from coverage.worker import (
     mark_segment_undriveable,
     mark_segment_undriven,
@@ -66,10 +66,10 @@ class MarkDrivenSegmentsRequest(BaseModel):
 @router.get("/areas/{area_id}/streets", response_model=StreetsResponse)
 async def get_streets_in_viewport(
     area_id: PydanticObjectId,
-    min_lon: float = Query(..., description="Viewport minimum longitude"),
-    min_lat: float = Query(..., description="Viewport minimum latitude"),
-    max_lon: float = Query(..., description="Viewport maximum longitude"),
-    max_lat: float = Query(..., description="Viewport maximum latitude"),
+    min_lon: Annotated[float, Query(description="Viewport minimum longitude")],
+    min_lat: Annotated[float, Query(description="Viewport minimum latitude")],
+    max_lon: Annotated[float, Query(description="Viewport maximum longitude")],
+    max_lat: Annotated[float, Query(description="Viewport maximum latitude")],
 ):
     """
     Get street segments within a map viewport.
@@ -106,7 +106,7 @@ async def get_streets_in_viewport(
                 [max_lon, max_lat],
                 [min_lon, max_lat],
                 [min_lon, min_lat],
-            ]
+            ],
         ],
     }
 
@@ -117,7 +117,7 @@ async def get_streets_in_viewport(
         "geometry": {
             "$geoIntersects": {
                 "$geometry": viewport_polygon,
-            }
+            },
         },
     }
 
@@ -133,7 +133,7 @@ async def get_streets_in_viewport(
     # Get coverage states for these segments
     segment_ids = [s.segment_id for s in streets]
     states = await CoverageState.find(
-        {"area_id": area_id, "segment_id": {"$in": segment_ids}}
+        {"area_id": area_id, "segment_id": {"$in": segment_ids}},
     ).to_list()
 
     # Build state lookup
@@ -157,7 +157,7 @@ async def get_streets_in_viewport(
                     "first_driven_at": state.first_driven_at if state else None,
                 },
                 geometry=street.geometry,
-            )
+            ),
         )
 
     return StreetsResponse(
@@ -170,10 +170,10 @@ async def get_streets_in_viewport(
 @router.get("/areas/{area_id}/streets/geojson")
 async def get_streets_geojson(
     area_id: PydanticObjectId,
-    min_lon: float = Query(...),
-    min_lat: float = Query(...),
-    max_lon: float = Query(...),
-    max_lat: float = Query(...),
+    min_lon: Annotated[float, Query()],
+    min_lat: Annotated[float, Query()],
+    max_lon: Annotated[float, Query()],
+    max_lat: Annotated[float, Query()],
 ):
     """
     Get streets as a GeoJSON FeatureCollection.
@@ -197,7 +197,7 @@ async def get_streets_geojson(
 @router.get("/areas/{area_id}/streets/all")
 async def get_all_streets(
     area_id: PydanticObjectId,
-    status: str | None = Query(None, description="Optional status filter"),
+    status: Annotated[str | None, Query(description="Optional status filter")] = None,
 ):
     """
     Get all street segments for an area with coverage status.
@@ -228,7 +228,7 @@ async def get_all_streets(
         {
             "area_id": area_id,
             "area_version": area.area_version,
-        }
+        },
     ).to_list()
 
     if not streets:
@@ -236,7 +236,7 @@ async def get_all_streets(
 
     segment_ids = [s.segment_id for s in streets]
     states = await CoverageState.find(
-        {"area_id": area_id, "segment_id": {"$in": segment_ids}}
+        {"area_id": area_id, "segment_id": {"$in": segment_ids}},
     ).to_list()
     status_map = {s.segment_id: s.status for s in states}
 
@@ -257,7 +257,7 @@ async def get_all_streets(
                     "length_miles": street.length_miles,
                     "status": segment_status,
                 },
-            }
+            },
         )
 
     return {

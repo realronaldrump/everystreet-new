@@ -24,7 +24,12 @@ Storage Usage
       <div class="row">
         <div class="col-md-6">
           <p class="storage-text">
-            Using {% if storage_used_mb is not none %}{{ storage_used_mb }}MB{% else %}N/A{% endif %}
+            Using
+            {% if storage_used_mb is not none %}
+{{ storage_used_mb }}MB
+            {% else %}
+N/A
+            {% endif %}
           </p>
         </div>
         <div class="col-md-6">
@@ -49,13 +54,13 @@ Collection Statistics
           <thead>
             <tr>
               <th data-sort="name" style="cursor: pointer">
-                                                                                                                                                                                        Collection <i class="fas fa-sort small text-muted ms-1"></i>
+                                                                                                                                                                                                                                                                            Collection <i class="fas fa-sort small text-muted ms-1"></i>
             </th>
             <th data-sort="count" style="cursor: pointer">
-                                                                                                                                                                Documents <i class="fas fa-sort small text-muted ms-1"></i>
+                                                                                                                                                                                                                                        Documents <i class="fas fa-sort small text-muted ms-1"></i>
           </th>
           <th data-sort="size" style="cursor: pointer">
-                                                                                                                                        Size (MB) <i class="fas fa-sort small text-muted ms-1"></i>
+                                                                                                                                                                                                    Size (MB) <i class="fas fa-sort small text-muted ms-1"></i>
         </th>
         <th>
 Actions
@@ -72,7 +77,11 @@ Actions
 {{ collection.document_count }}
           </td>
           <td data-value="{{ collection.size_mb or 0 }}">
-{% if collection.size_mb is not none %}{{ "%.2f"|format(collection.size_mb) }}{% else %}N/A{% endif %}
+            {% if collection.size_mb is not none %}
+{{ "%.2f"|format(collection.size_mb) }}
+            {% else %}
+N/A
+            {% endif %}
           </td>
           <td>
             <div class="btn-group btn-group-sm">

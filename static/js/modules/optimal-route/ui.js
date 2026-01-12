@@ -63,9 +63,7 @@ export class OptimalRouteUI {
       option.value = String(areaId);
       const coverage = area.coverage_percentage?.toFixed(1) || 0;
       const label = `${areaName} (${coverage}%)`;
-      option.textContent = isProcessing
-        ? `${label} (calculating coverage)`
-        : label;
+      option.textContent = isProcessing ? `${label} (calculating coverage)` : label;
       option.dataset.coverage = coverage;
       option.dataset.status = String(status || "");
       option.dataset.processing = isProcessing ? "true" : "false";
@@ -88,8 +86,8 @@ export class OptimalRouteUI {
     const areasWithRoutes = areas.filter((a) => a.has_optimal_route);
 
     if (areasWithRoutes.length === 0) {
-      historyContainer.innerHTML =
-        '<div class="text-muted small">No saved routes yet.</div>';
+      historyContainer.innerHTML
+        = '<div class="text-muted small">No saved routes yet.</div>';
       return;
     }
 
@@ -129,10 +127,10 @@ export class OptimalRouteUI {
 
     const selectedOption = this.areaSelect?.querySelector(`option[value="${areaId}"]`);
     if (selectedOption) {
-      document.getElementById("area-coverage").textContent =
-        `${selectedOption.dataset.coverage}%`;
-      document.getElementById("area-remaining").textContent =
-        selectedOption.dataset.remaining;
+      document.getElementById("area-coverage").textContent
+        = `${selectedOption.dataset.coverage}%`;
+      document.getElementById("area-remaining").textContent
+        = selectedOption.dataset.remaining;
       areaStats.style.display = "block";
     } else {
       areaStats.style.display = "none";
@@ -142,8 +140,8 @@ export class OptimalRouteUI {
   updateProgress(data) {
     const stage = (data.stage || "initializing").toLowerCase();
     const rawMetrics = data.metrics || {};
-    const metrics =
-      Object.keys(rawMetrics).length > 0 ? rawMetrics : this.currentMetrics || {};
+    const metrics
+      = Object.keys(rawMetrics).length > 0 ? rawMetrics : this.currentMetrics || {};
     this.currentStage = stage;
     this.currentMetrics = metrics;
     this.setHudActive(true);
@@ -230,8 +228,8 @@ export class OptimalRouteUI {
     const osmMatched = metrics.osm_matched ?? null;
     const fallbackTotal = metrics.fallback_total ?? null;
     const fallbackMatched = metrics.fallback_matched ?? null;
-    const mappedSegments =
-      metrics.mapped_segments ?? Number(osmMatched || 0) + Number(fallbackMatched || 0);
+    const mappedSegments
+      = metrics.mapped_segments ?? Number(osmMatched || 0) + Number(fallbackMatched || 0);
 
     if (this.hud.segments) {
       this.hud.segments.textContent = hasMetrics
@@ -258,10 +256,10 @@ export class OptimalRouteUI {
 
   formatMetricRatio(value, total) {
     if (
-      typeof value !== "number" ||
-      typeof total !== "number" ||
-      total <= 0 ||
-      value < 0
+      typeof value !== "number"
+      || typeof total !== "number"
+      || total <= 0
+      || value < 0
     ) {
       return "--";
     }

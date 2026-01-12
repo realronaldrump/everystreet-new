@@ -231,8 +231,8 @@
     const clientSecret = document.getElementById("clientSecret").value.trim();
     const redirectUri = document.getElementById("redirectUri").value.trim();
     const authorizationCode = document.getElementById("authorizationCode").value.trim();
-    const fetchConcurrency =
-      document.getElementById("fetchConcurrency")?.value.trim() || "12";
+    const fetchConcurrency
+      = document.getElementById("fetchConcurrency")?.value.trim() || "12";
 
     // Collect devices
     const deviceInputs = document.querySelectorAll("#devicesList input");
@@ -449,8 +449,8 @@
           }, 2000);
         }
       } else if (statusEl) {
-        statusEl.textContent =
-          "No settings configured yet. Please enter your Mapbox token.";
+        statusEl.textContent
+          = "No settings configured yet. Please enter your Mapbox token.";
         statusEl.className = "alert alert-warning mt-3";
       }
     } catch (error) {
@@ -488,8 +488,8 @@
 
     if (!mapboxToken.startsWith("pk.")) {
       if (statusEl) {
-        statusEl.textContent =
-          "Mapbox token should start with 'pk.' (public token). Secret tokens (sk.) will not work.";
+        statusEl.textContent
+          = "Mapbox token should start with 'pk.' (public token). Secret tokens (sk.) will not work.";
         statusEl.className = "alert alert-warning mt-3";
         statusEl.style.display = "block";
       }
@@ -526,8 +526,8 @@
         }
 
         if (statusEl) {
-          statusEl.textContent =
-            "Settings saved! Refresh the page to apply changes to maps.";
+          statusEl.textContent
+            = "Settings saved! Refresh the page to apply changes to maps.";
           statusEl.className = "alert alert-success mt-3";
           statusEl.style.display = "block";
         }

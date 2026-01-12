@@ -35,7 +35,7 @@ class CoverageArea(Document):
     # Boundary
     boundary: dict[str, Any] = Field(default_factory=dict)  # GeoJSON Polygon
     bounding_box: list[float] = Field(
-        default_factory=list
+        default_factory=list,
     )  # [min_lon, min_lat, max_lon, max_lat]
 
     # User-facing status (simple, non-technical)
@@ -130,8 +130,8 @@ class CoverageState(Document):
     """
     Dynamic coverage status for a street segment.
 
-    This is the mutable state that changes when trips are driven or
-    when users manually mark segments. Geometry is NOT stored here.
+    This is the mutable state that changes when trips are driven or when users manually
+    mark segments. Geometry is NOT stored here.
     """
 
     # Keys
@@ -172,8 +172,8 @@ class Job(Document):
     """
     Unified job status tracking for all background work.
 
-    This replaces ProgressStatus and OptimalRouteProgress with a single
-    consistent model for all job types.
+    This replaces ProgressStatus and OptimalRouteProgress with a single consistent model
+    for all job types.
     """
 
     # Identity

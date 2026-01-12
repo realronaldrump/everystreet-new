@@ -7,7 +7,7 @@
 
 import { CONFIG } from "./config.js";
 import state from "./state.js";
-import { utils, createElement, escapeHtml } from "./utils.js";
+import { createElement, escapeHtml, utils } from "./utils.js";
 
 const searchManager = {
   searchInput: null,

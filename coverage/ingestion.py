@@ -19,20 +19,20 @@ from typing import Any
 
 import aiohttp
 from beanie import PydanticObjectId
-from shapely.geometry import LineString, shape, mapping
+from shapely.geometry import LineString, mapping, shape
 from shapely.ops import transform
 
-from coverage.events import emit_area_created, CoverageEvents, on_event
-from coverage.geo_utils import geodesic_length_meters, get_local_transformers
-from coverage.models import CoverageArea, CoverageState, Job, Street
 from coverage.constants import (
     BATCH_SIZE,
+    MAX_INGESTION_RETRIES,
     METERS_TO_MILES,
     OSM_REFRESH_DAYS,
-    MAX_INGESTION_RETRIES,
     RETRY_BASE_DELAY_SECONDS,
     SEGMENT_LENGTH_METERS,
 )
+from coverage.events import CoverageEvents, emit_area_created, on_event
+from coverage.geo_utils import geodesic_length_meters, get_local_transformers
+from coverage.models import CoverageArea, CoverageState, Job, Street
 from coverage.stats import update_area_stats
 from coverage.worker import backfill_coverage_for_area
 
@@ -73,13 +73,14 @@ async def create_area(
     """
     Create a new coverage area and trigger ingestion.
 
-    If boundary is not provided, it will be fetched via geocoding.
-    Returns the created area (in "initializing" status).
+    If boundary is not provided, it will be fetched via geocoding. Returns the created
+    area (in "initializing" status).
     """
     # Check for duplicate name
     existing = await CoverageArea.find_one({"display_name": display_name})
     if existing:
-        raise ValueError(f"Area with name '{display_name}' already exists")
+        msg = f"Area with name '{display_name}' already exists"
+        raise ValueError(msg)
 
     # Create the area record
     area = CoverageArea(
@@ -134,7 +135,8 @@ async def rebuild_area(area_id: PydanticObjectId) -> Job:
     """
     area = await CoverageArea.get(area_id)
     if not area:
-        raise ValueError(f"Area {area_id} not found")
+        msg = f"Area {area_id} not found"
+        raise ValueError(msg)
 
     # Update area status
     area.status = "rebuilding"
@@ -169,9 +171,7 @@ async def handle_area_created(
     display_name: str,
     **kwargs,
 ) -> None:
-    """
-    Handle area_created event by running the ingestion pipeline.
-    """
+    """Handle area_created event by running the ingestion pipeline."""
     area_id = PydanticObjectId(area_id) if isinstance(area_id, str) else area_id
 
     # Create ingestion job
@@ -209,6 +209,7 @@ async def _run_ingestion_pipeline(
         return
 
     try:
+
         async def update_job(
             stage: str | None = None,
             progress: float | None = None,
@@ -313,7 +314,7 @@ async def _run_ingestion_pipeline(
                     f"{stats_area.coverage_percentage:.1f}% "
                     f"({stats_area.driven_length_miles:.2f}/"
                     f"{stats_area.driveable_length_miles:.2f} mi driveable)"
-                )
+                ),
             )
 
         # Stage 8: Backfill with historical trips
@@ -356,10 +357,7 @@ async def _run_ingestion_pipeline(
             processed = backfill_state.get("processed_trips", 0)
 
             if isinstance(total, int):
-                if total <= 0:
-                    ratio = 1.0
-                else:
-                    ratio = min(1.0, processed / total)
+                ratio = 1.0 if total <= 0 else min(1.0, processed / total)
                 progress = BACKFILL_PROGRESS_START + (
                     (BACKFILL_PROGRESS_END - BACKFILL_PROGRESS_START) * ratio
                 )
@@ -406,13 +404,13 @@ async def _run_ingestion_pipeline(
                 "status": "ready",
                 "health": "healthy",
                 "last_error": None,
-            }
+            },
         )
 
         logger.info(f"Ingestion complete for area {area.display_name}")
 
     except Exception as e:
-        logger.error(f"Ingestion failed for area {area_id}: {e}")
+        logger.exception(f"Ingestion failed for area {area_id}: {e}")
 
         job.retry_count += 1
         job.error = str(e)
@@ -454,9 +452,7 @@ async def _delayed_retry(
 
 
 async def _fetch_boundary(location_name: str) -> dict[str, Any]:
-    """
-    Fetch boundary polygon from Nominatim geocoding.
-    """
+    """Fetch boundary polygon from Nominatim geocoding."""
     url = "https://nominatim.openstreetmap.org/search"
     params = {
         "q": location_name,
@@ -474,35 +470,34 @@ async def _fetch_boundary(location_name: str) -> dict[str, Any]:
             data = await response.json()
 
     if not data:
-        raise ValueError(f"Location not found: {location_name}")
+        msg = f"Location not found: {location_name}"
+        raise ValueError(msg)
 
     result = data[0]
     geojson = result.get("geojson")
 
     if not geojson:
-        raise ValueError(f"No boundary polygon for: {location_name}")
+        msg = f"No boundary polygon for: {location_name}"
+        raise ValueError(msg)
 
     # Ensure it's a Polygon or MultiPolygon
     geom_type = geojson.get("type")
     if geom_type not in ("Polygon", "MultiPolygon"):
-        raise ValueError(f"Invalid geometry type for boundary: {geom_type}")
+        msg = f"Invalid geometry type for boundary: {geom_type}"
+        raise ValueError(msg)
 
     return geojson
 
 
 def _calculate_bounding_box(boundary: dict[str, Any]) -> list[float]:
-    """
-    Calculate bounding box [min_lon, min_lat, max_lon, max_lat] from GeoJSON.
-    """
+    """Calculate bounding box [min_lon, min_lat, max_lon, max_lat] from GeoJSON."""
     geom = shape(boundary)
     minx, miny, maxx, maxy = geom.bounds
     return [minx, miny, maxx, maxy]
 
 
 async def _fetch_osm_streets(boundary: dict[str, Any]) -> list[dict[str, Any]]:
-    """
-    Fetch street ways from OSM Overpass API within a boundary.
-    """
+    """Fetch street ways from OSM Overpass API within a boundary."""
     # Build Overpass query
     geom = shape(boundary)
     minx, miny, maxx, maxy = geom.bounds
@@ -558,10 +553,12 @@ async def _fetch_osm_streets(boundary: dict[str, Any]) -> list[dict[str, Any]]:
                         {
                             "osm_id": way["id"],
                             "tags": way.get("tags", {}),
-                            "geometry": mapping(clipped)
-                            if hasattr(clipped, "geoms")
-                            else mapping(clipped),
-                        }
+                            "geometry": (
+                                mapping(clipped)
+                                if hasattr(clipped, "geoms")
+                                else mapping(clipped)
+                            ),
+                        },
                     )
 
     return result
@@ -572,9 +569,7 @@ def _segment_streets(
     area_id: PydanticObjectId,
     area_version: int,
 ) -> list[dict[str, Any]]:
-    """
-    Segment OSM ways into fixed-length segments.
-    """
+    """Segment OSM ways into fixed-length segments."""
     segments = []
     seq = 0
 
@@ -612,7 +607,7 @@ def _segment_streets(
                         "highway_type": highway_type,
                         "osm_id": osm_id,
                         "length_miles": geodesic_length_meters(line) * METERS_TO_MILES,
-                    }
+                    },
                 )
                 seq += 1
             else:
@@ -646,7 +641,7 @@ def _segment_streets(
                             "osm_id": osm_id,
                             "length_miles": geodesic_length_meters(segment_wgs)
                             * METERS_TO_MILES,
-                        }
+                        },
                     )
                     seq += 1
 
@@ -658,9 +653,7 @@ def _extract_line_segment(
     start_dist: float,
     end_dist: float,
 ) -> LineString | None:
-    """
-    Extract a segment of a line between two distances.
-    """
+    """Extract a segment of a line between two distances."""
     if start_dist >= end_dist:
         return None
 
@@ -705,9 +698,7 @@ def _extract_line_segment(
 
 
 async def _store_segments(segments: list[dict[str, Any]]) -> None:
-    """
-    Store street segments in the database using bulk operations.
-    """
+    """Store street segments in the database using bulk operations."""
     if not segments:
         return
 
@@ -736,7 +727,7 @@ async def _clear_existing_area_version_data(
         {
             "area_id": area_id,
             "segment_id": {"$regex": f"^{segment_prefix}"},
-        }
+        },
     ).delete()
 
 
@@ -744,9 +735,7 @@ async def _initialize_coverage_state(
     area_id: PydanticObjectId,
     segments: list[dict[str, Any]],
 ) -> None:
-    """
-    Initialize coverage state for all segments as undriven.
-    """
+    """Initialize coverage state for all segments as undriven."""
     if not segments:
         return
 
@@ -772,24 +761,20 @@ async def _initialize_coverage_state(
 
 
 async def check_areas_needing_refresh() -> list[CoverageArea]:
-    """
-    Find areas that need OSM data refresh (older than 90 days).
-    """
+    """Find areas that need OSM data refresh (older than 90 days)."""
     from datetime import timedelta
 
     cutoff = datetime.now(UTC) - timedelta(days=OSM_REFRESH_DAYS)
 
-    areas = await CoverageArea.find(
+    return await CoverageArea.find(
         {
             "status": "ready",
             "$or": [
                 {"osm_fetched_at": None},
                 {"osm_fetched_at": {"$lt": cutoff}},
             ],
-        }
+        },
     ).to_list()
-
-    return areas
 
 
 async def refresh_stale_areas() -> int:

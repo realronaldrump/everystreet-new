@@ -10,9 +10,7 @@ class MongoDBHandler(logging.Handler):
     """Custom logging handler that writes log records to MongoDB via Beanie."""
 
     def __init__(self):
-        """
-        Initialize the MongoDB logging handler.
-        """
+        """Initialize the MongoDB logging handler."""
         super().__init__()
         self._pending_tasks = set()
 

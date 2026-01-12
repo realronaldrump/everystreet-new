@@ -75,7 +75,9 @@ const panelManager = {
       mobile: CONFIG.UI.selectors.mobileDrawer,
     };
     const panel = uiState.getElement(panelMap[type]);
-    panel?.classList.contains(CONFIG.UI.classes.open) ? this.close(type) : this.open(type);
+    panel?.classList.contains(CONFIG.UI.classes.open)
+      ? this.close(type)
+      : this.open(type);
   },
 
   init() {
