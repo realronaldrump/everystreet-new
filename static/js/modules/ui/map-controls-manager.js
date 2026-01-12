@@ -1,7 +1,7 @@
 import { UI_CONFIG as CONFIG, CONFIG as MAP_CONFIG } from "../config.js";
 import state from "../state.js";
 import uiState from "../ui-state.js";
-import utils from "../utils.js";
+import { utils } from "../utils.js";
 import eventManager from "./event-manager.js";
 
 const mapControlsManager = {

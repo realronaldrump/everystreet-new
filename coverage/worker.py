@@ -12,7 +12,6 @@ from datetime import UTC, datetime
 from typing import Any
 
 from beanie import PydanticObjectId
-from pymongo import UpdateOne
 
 from coverage.events import CoverageEvents, on_event, emit_coverage_updated
 from coverage.matching import match_trip_to_streets
@@ -131,61 +130,67 @@ async def update_coverage_for_segments(
 
     driven_at = normalize_to_utc_datetime(driven_at) or get_current_utc_time()
 
-    # Build bulk operations
-    operations = []
+    updated = 0
     for segment_id in segment_ids:
-        operations.append(
-            UpdateOne(
-                {
-                    "area_id": area_id,
-                    "segment_id": segment_id,
-                },
-                [
-                    {
-                        "$set": {
-                            "status": "driven",
-                            "last_driven_at": driven_at,
-                            "first_driven_at": {
-                                "$let": {
-                                    "vars": {"existing": "$first_driven_at"},
-                                    "in": {
-                                        "$cond": [
-                                            {
-                                                "$or": [
-                                                    {"$eq": ["$$existing", None]},
-                                                    {"$gt": ["$$existing", driven_at]},
-                                                ]
-                                            },
-                                            driven_at,
-                                            "$$existing",
+        update_pipeline = [
+            {
+                "$set": {
+                    "status": "driven",
+                    "last_driven_at": driven_at,
+                    "first_driven_at": {
+                        "$let": {
+                            "vars": {"existing": "$first_driven_at"},
+                            "in": {
+                                "$cond": [
+                                    {
+                                        "$or": [
+                                            {"$eq": ["$$existing", None]},
+                                            {"$gt": ["$$existing", driven_at]},
                                         ]
                                     },
-                                }
-                            },
-                            "driven_by_trip_id": trip_id,
-                            "area_id": area_id,
-                            "segment_id": segment_id,
-                            "manually_marked": {
-                                "$ifNull": ["$manually_marked", False]
+                                    driven_at,
+                                    "$$existing",
+                                ]
                             },
                         }
-                    }
-                ],
-                upsert=True,
-            )
+                    },
+                    "driven_by_trip_id": trip_id,
+                    "area_id": area_id,
+                    "segment_id": segment_id,
+                    "manually_marked": {"$ifNull": ["$manually_marked", False]},
+                }
+            }
+        ]
+
+        on_insert = CoverageState(
+            area_id=area_id,
+            segment_id=segment_id,
+            status="driven",
+            last_driven_at=driven_at,
+            first_driven_at=driven_at,
+            driven_by_trip_id=trip_id,
+            manually_marked=False,
         )
 
-    # Execute bulk write
-    if operations:
-        result = await CoverageState.get_pymongo_collection().bulk_write(operations)
-        updated = result.modified_count + result.upserted_count
+        result = await CoverageState.find_one(
+            {"area_id": area_id, "segment_id": segment_id}
+        ).upsert(update_pipeline, on_insert=on_insert)
+
+        if hasattr(result, "modified_count"):
+            updated += result.modified_count
+        elif hasattr(result, "inserted_id"):
+            updated += 1
+        else:
+            updated += 1
+
+    if updated:
         logger.debug(
-            f"Updated {updated} segments for area {area_id} "
-            f"(modified: {result.modified_count}, inserted: {result.upserted_count})"
+            "Updated %d segments for area %s",
+            updated,
+            area_id,
         )
-        return updated
 
-    return 0
+    return updated
 
 
 async def mark_segment_undriveable(

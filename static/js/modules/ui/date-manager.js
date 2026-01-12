@@ -1,7 +1,7 @@
 import { UI_CONFIG as CONFIG } from "../config.js";
 import dateUtils from "../date-utils.js";
 import { uiState } from "../ui-state.js";
-import utils from "../utils.js";
+import { utils } from "../utils.js";
 import eventManager from "./event-manager.js";
 import panelManager from "./panel-manager.js";
 

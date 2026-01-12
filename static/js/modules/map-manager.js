@@ -2,7 +2,7 @@
 
 import { CONFIG } from "./config.js";
 import state from "./state.js";
-import utils from "./utils.js";
+import { utils } from "./utils.js";
 
 // NOTE: this is extracted verbatim from `app.js` to keep behaviour identical.
 // Future refactors can safely trim dependencies now that the code is isolated.

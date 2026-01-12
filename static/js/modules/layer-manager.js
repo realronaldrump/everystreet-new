@@ -3,7 +3,7 @@ import dataManager from "./data-manager.js";
 import heatmapUtils from "./heatmap-utils.js";
 import mapManager from "./map-manager.js";
 import state from "./state.js";
-import utils from "./utils.js";
+import { utils } from "./utils.js";
 
 const INTERACTIVE_TRIP_LAYERS = new Set(["trips", "matchedTrips"]);
 

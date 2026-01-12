@@ -3,7 +3,7 @@
 import mapManager from "./map-manager.js";
 import metricsManager from "./metrics-manager.js";
 import state from "./state.js";
-import utils from "./utils.js";
+import { utils } from "./utils.js";
 
 const tripInteractions = {
   handleTripClick(e, feature, layerName = null) {
