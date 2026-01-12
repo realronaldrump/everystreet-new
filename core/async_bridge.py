@@ -1,13 +1,14 @@
 """
 Async-to-sync bridge for Celery tasks and other synchronous contexts.
 
-This module provides utilities to run async coroutines from synchronous code with
-proper event loop management, reusing a per-worker loop when available.
+This module provides utilities to run async coroutines from synchronous code with proper
+event loop management, reusing a per-worker loop when available.
 """
 
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import os
 import threading
@@ -81,10 +82,8 @@ def shutdown_worker_loop() -> None:
 
     try:
         if not loop.is_closed():
-            try:
+            with contextlib.suppress(Exception):
                 asyncio.set_event_loop(loop)
-            except Exception:
-                pass
 
             try:
                 pending = asyncio.all_tasks(loop)
@@ -110,10 +109,8 @@ def shutdown_worker_loop() -> None:
             loop.close()
     finally:
         clear_worker_loop()
-        try:
+        with contextlib.suppress(Exception):
             asyncio.set_event_loop(None)
-        except Exception:
-            pass
 
 
 def _ensure_no_running_loop() -> None:
@@ -189,10 +186,8 @@ def run_async_from_sync(
         return _run_in_new_loop(coro)
 
     _ensure_no_running_loop()
-    try:
+    with contextlib.suppress(Exception):
         asyncio.set_event_loop(loop)
-    except Exception:
-        pass
 
     if loop.is_running():
         msg = "Worker event loop is already running; cannot run sync bridge"

@@ -705,7 +705,9 @@ Quick Selections
     </script>
 
     {% block extra_js %}
+
     {% endblock %}
+
 
     <!-- Global Job Tracking Script -->
     <script src="{{ url_for('static', path='js/global-job-tracker.js') | replace('http://', '//') }}"></script>
@@ -725,7 +727,7 @@ Quick Selections
               <span id="task-progress-title">Processing...</span>
             </h5>
             <div class="d-flex align-items-center gap-2">
-               <button type="button"
+              <button type="button"
                       class="btn btn-sm btn-outline-light"
                       id="minimize-progress-modal"
                       title="Minimize to background">
@@ -752,7 +754,8 @@ Quick Selections
             <p id="task-progress-message" class="progress-message text-center mb-0">
               Initializing...
             </p>
-            <p id="task-progress-stage" class="progress-stage text-center text-secondary small mb-0">
+            <p id="task-progress-stage"
+               class="progress-stage text-center text-secondary small mb-0">
             </p>
           </div>
         </div>
@@ -789,7 +792,9 @@ Quick Selections
                         }
 
                         if (reg.waiting) {
-                            reg.waiting.postMessage({ type: "SKIP_WAITING" });
+                            reg.waiting.postMessage({
+                                type: "SKIP_WAITING"
+                            });
                         }
 
                         reg.addEventListener("updatefound", () => {
@@ -799,10 +804,12 @@ Quick Selections
                             }
                             newWorker.addEventListener("statechange", () => {
                                 if (
-                                    newWorker.state === "installed"
-                                    && navigator.serviceWorker.controller
+                                    newWorker.state === "installed" &&
+                                    navigator.serviceWorker.controller
                                 ) {
-                                    newWorker.postMessage({ type: "SKIP_WAITING" });
+                                    newWorker.postMessage({
+                                        type: "SKIP_WAITING"
+                                    });
                                 }
                             });
                         });

@@ -258,7 +258,8 @@ async def fetch_trip_by_transaction_id_async(
 ) -> dict[str, Any]:
     """Fetch a single trip by transactionId."""
     if not transaction_id:
-        raise ValueError("transaction_id is required")
+        msg = "transaction_id is required"
+        raise ValueError(msg)
 
     logger.info(
         "Fetching trip by transactionId=%s (trigger_source=%s)",

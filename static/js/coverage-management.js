@@ -26,12 +26,12 @@ const HIGHLIGHT_LAYER_ID = "streets-highlight";
 let streetInteractivityReady = false;
 
 // Background job tracking (minimizable progress + resume)
-const ACTIVE_JOB_STORAGE_KEY = "coverageManagement.activeJob";
+const _ACTIVE_JOB_STORAGE_KEY = "coverageManagement.activeJob";
 const JOB_POLL_INTERVAL_MS = 1500;
 
-let activeJob = null;
+const activeJob = null;
 let activeJobsByAreaId = new Map();
-let activeJobPolling = null;
+const _activeJobPolling = null;
 
 // =============================================================================
 // Initialization
@@ -433,7 +433,7 @@ async function rebuildArea(areaId, displayName = null) {
     await loadAreas();
 
     if (result.job_id) {
-       GlobalJobTracker.start({
+      GlobalJobTracker.start({
         jobId: result.job_id,
         jobType: "area_rebuild",
         areaId,
@@ -500,7 +500,7 @@ function handleCoverageErrorClick(event) {
     return;
   }
 
-  const areaId = trigger.dataset.areaId;
+  const { areaId } = trigger.dataset;
   const areaName = areaNameById.get(areaId) || trigger.dataset.areaName || "";
 
   showCoverageErrorDetails(areaId, areaName);
@@ -572,7 +572,7 @@ function refreshCoverageErrorDetails(areas) {
 // Job Progress Polling
 // =============================================================================
 
-async function pollJobProgress(jobId) {
+async function _pollJobProgress(jobId) {
   let consecutiveErrors = 0;
 
   while (activeJob && activeJob.jobId === jobId) {

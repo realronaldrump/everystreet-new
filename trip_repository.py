@@ -278,7 +278,7 @@ class TripRepository:
 
         if not coords_map:
             return existing
-        merged = sorted(
+        return sorted(
             coords_map.values(),
             key=lambda c: (
                 c["timestamp"].isoformat()
@@ -286,7 +286,6 @@ class TripRepository:
                 else str(c.get("timestamp"))
             ),
         )
-        return merged
 
     def _merge_trip_fields(
         self,
@@ -379,8 +378,12 @@ class TripRepository:
             if key in incoming and incoming[key] is not None:
                 setattr(trip, key, incoming[key])
 
-        if gps_changed or not existing.get("startGeoPoint") or not existing.get(
-            "destinationGeoPoint",
+        if (
+            gps_changed
+            or not existing.get("startGeoPoint")
+            or not existing.get(
+                "destinationGeoPoint",
+            )
         ):
             start_geo, dest_geo = self._derive_geo_points(getattr(trip, "gps", None))
             if start_geo:
@@ -393,9 +396,8 @@ class TripRepository:
             trip.status = "processed"
         elif incoming_status and existing.get("status") != "processed":
             trip.status = incoming_status
-        elif (
-            existing.get("status") in {None, "active"}
-            and (incoming.get("endTime") or incoming.get("gps"))
+        elif existing.get("status") in {None, "active"} and (
+            incoming.get("endTime") or incoming.get("gps")
         ):
             trip.status = "completed"
 
@@ -465,7 +467,10 @@ class TripRepository:
                 and len(end_coords) >= 2
             ):
                 return (
-                    {"type": "Point", "coordinates": [start_coords[0], start_coords[1]]},
+                    {
+                        "type": "Point",
+                        "coordinates": [start_coords[0], start_coords[1]],
+                    },
                     {"type": "Point", "coordinates": [end_coords[0], end_coords[1]]},
                 )
         return None, None
