@@ -33,23 +33,28 @@
     },
   };
 
-  window.utils?.onPageLoad(() => {
-    if (!window.mapBase || typeof mapboxgl === "undefined") {
-      console.error("Mapbox GL JS library not found. Coverage map cannot load.");
-      return;
-    }
+  window.utils?.onPageLoad(
+    () => {
+      if (!window.mapBase || typeof mapboxgl === "undefined") {
+        console.error(
+          "Mapbox GL JS library not found. Coverage map cannot load.",
+        );
+        return;
+      }
 
-    const container = document.getElementById(mapContainerId);
-    if (!container || !window.MAPBOX_ACCESS_TOKEN) {
-      return;
-    }
+      const container = document.getElementById(mapContainerId);
+      if (!container || !window.MAPBOX_ACCESS_TOKEN) {
+        return;
+      }
 
-    if (!window.coverageMasterMap) {
-      window.coverageMasterMap = window.mapBase.createMap(mapContainerId, {
-        center: [-96, 37.8],
-        zoom: 4,
-        accessToken: window.MAPBOX_ACCESS_TOKEN,
-      });
-    }
-  }, { route: "/coverage-navigator" });
+      if (!window.coverageMasterMap) {
+        window.coverageMasterMap = window.mapBase.createMap(mapContainerId, {
+          center: [-96, 37.8],
+          zoom: 4,
+          accessToken: window.MAPBOX_ACCESS_TOKEN,
+        });
+      }
+    },
+    { route: "/coverage-navigator" },
+  );
 })();

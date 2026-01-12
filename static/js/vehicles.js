@@ -59,10 +59,13 @@
   };
 
   // Initialize
-  window.utils?.onPageLoad(() => {
-    initializeEventListeners();
-    loadVehicle();
-  }, { route: "/vehicles" });
+  window.utils?.onPageLoad(
+    () => {
+      initializeEventListeners();
+      loadVehicle();
+    },
+    { route: "/vehicles" },
+  );
 
   /**
    * Initialize event listeners
@@ -75,19 +78,31 @@
       elements.syncVehicleBtn.addEventListener("click", syncFromBouncie);
     }
     if (elements.refreshBouncieBtn) {
-      elements.refreshBouncieBtn.addEventListener("click", fetchBouncieOdometer);
+      elements.refreshBouncieBtn.addEventListener(
+        "click",
+        fetchBouncieOdometer,
+      );
     }
     if (elements.useBouncieReadingBtn) {
-      elements.useBouncieReadingBtn.addEventListener("click", useBouncieReading);
+      elements.useBouncieReadingBtn.addEventListener(
+        "click",
+        useBouncieReading,
+      );
     }
     if (elements.saveManualOdometerBtn) {
-      elements.saveManualOdometerBtn.addEventListener("click", saveManualOdometer);
+      elements.saveManualOdometerBtn.addEventListener(
+        "click",
+        saveManualOdometer,
+      );
     }
     if (elements.saveSettingsBtn) {
       elements.saveSettingsBtn.addEventListener("click", saveSettings);
     }
     if (elements.vehicleSelect) {
-      elements.vehicleSelect.addEventListener("change", handleVehicleSelectChange);
+      elements.vehicleSelect.addEventListener(
+        "change",
+        handleVehicleSelectChange,
+      );
     }
   }
 
@@ -219,10 +234,10 @@
     }
 
     // Name and subtitle
-    const displayName
-      = vehicle.custom_name
-      || `${vehicle.year || ""} ${vehicle.make || ""} ${vehicle.model || ""}`.trim()
-      || "My Vehicle";
+    const displayName =
+      vehicle.custom_name ||
+      `${vehicle.year || ""} ${vehicle.make || ""} ${vehicle.model || ""}`.trim() ||
+      "My Vehicle";
     elements.vehicleName.textContent = displayName;
 
     const subtitle = vehicle.custom_name
@@ -232,11 +247,11 @@
 
     // Status badge
     if (vehicle.is_active) {
-      elements.vehicleStatusBadge.innerHTML
-        = '<span class="badge bg-success">Active</span>';
+      elements.vehicleStatusBadge.innerHTML =
+        '<span class="badge bg-success">Active</span>';
     } else {
-      elements.vehicleStatusBadge.innerHTML
-        = '<span class="badge bg-secondary">Inactive</span>';
+      elements.vehicleStatusBadge.innerHTML =
+        '<span class="badge bg-secondary">Inactive</span>';
     }
 
     // Info grid
@@ -248,14 +263,17 @@
 
     // Odometer
     if (vehicle.odometer_reading) {
-      elements.currentOdometer.textContent = formatNumber(vehicle.odometer_reading);
+      elements.currentOdometer.textContent = formatNumber(
+        vehicle.odometer_reading,
+      );
 
       const sourceLabels = {
         bouncie: "From Bouncie",
         manual: "Manually entered",
         trip: "From trip data",
       };
-      const sourceLabel = sourceLabels[vehicle.odometer_source] || "Unknown source";
+      const sourceLabel =
+        sourceLabels[vehicle.odometer_source] || "Unknown source";
       elements.odometerSource.innerHTML = `<i class="fas fa-info-circle me-1"></i>${sourceLabel}`;
 
       if (vehicle.odometer_updated_at) {
@@ -264,8 +282,8 @@
       }
     } else {
       elements.currentOdometer.textContent = "--";
-      elements.odometerSource.innerHTML
-        = '<i class="fas fa-info-circle me-1"></i>No reading yet';
+      elements.odometerSource.innerHTML =
+        '<i class="fas fa-info-circle me-1"></i>No reading yet';
       elements.odometerUpdated.textContent = "";
     }
 
@@ -275,7 +293,9 @@
 
     // Pre-fill manual input with current reading
     if (vehicle.odometer_reading) {
-      elements.manualOdometerInput.placeholder = formatNumber(vehicle.odometer_reading);
+      elements.manualOdometerInput.placeholder = formatNumber(
+        vehicle.odometer_reading,
+      );
     }
   }
 
@@ -287,13 +307,13 @@
       return;
     }
 
-    elements.bouncieOdometer.innerHTML
-      = '<span class="spinner-border spinner-border-sm" role="status"></span>';
+    elements.bouncieOdometer.innerHTML =
+      '<span class="spinner-border spinner-border-sm" role="status"></span>';
     elements.useBouncieReadingBtn.disabled = true;
 
     try {
       const response = await fetch(
-        `/api/vehicle-location?imei=${currentVehicle.imei}&use_now=true`
+        `/api/vehicle-location?imei=${currentVehicle.imei}&use_now=true`,
       );
       const data = await response.json();
 
@@ -344,7 +364,11 @@
 
     const value = parseFloat(elements.manualOdometerInput.value);
     if (Number.isNaN(value) || value < 0) {
-      showNotification("Error", "Please enter a valid odometer reading", "error");
+      showNotification(
+        "Error",
+        "Please enter a valid odometer reading",
+        "error",
+      );
       return;
     }
 
@@ -421,9 +445,12 @@
     showLoading();
 
     try {
-      const response = await fetch("/api/profile/bouncie-credentials/sync-vehicles", {
-        method: "POST",
-      });
+      const response = await fetch(
+        "/api/profile/bouncie-credentials/sync-vehicles",
+        {
+          method: "POST",
+        },
+      );
 
       const data = await response.json();
 
@@ -434,7 +461,7 @@
       showNotification(
         "Success",
         data.message || "Vehicle synced from Bouncie",
-        "success"
+        "success",
       );
       await loadVehicle();
     } catch (error) {
@@ -442,7 +469,7 @@
       showNotification(
         "Error",
         error.message || "Failed to sync from Bouncie",
-        "error"
+        "error",
       );
       // Reload to show whatever state we have
       await loadVehicle();
@@ -476,14 +503,15 @@
     elements.toastBody.textContent = message;
 
     // Update icon based on type
-    const iconClass
-      = type === "success"
+    const iconClass =
+      type === "success"
         ? "fa-check-circle text-success"
         : type === "error"
           ? "fa-exclamation-circle text-danger"
           : "fa-info-circle text-primary";
 
-    const toastHeader = elements.notificationToast.querySelector(".toast-header i");
+    const toastHeader =
+      elements.notificationToast.querySelector(".toast-header i");
     if (toastHeader) {
       toastHeader.className = `fas ${iconClass} me-2`;
     }
