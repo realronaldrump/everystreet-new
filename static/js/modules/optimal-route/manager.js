@@ -15,6 +15,8 @@ export class OptimalRoutesManager {
     this.selectedAreaId = null;
     this.currentTaskId = null;
     this.currentRouteData = null;
+    this.coverageAreas = [];
+    this.lastSelectedAreaId = "";
 
     // Initialize modules
     this.ui = new OptimalRouteUI(this.config);
@@ -156,12 +158,44 @@ export class OptimalRoutesManager {
     });
   }
 
+  isCoverageCalculationActive(status) {
+    const normalized = String(status || "").toLowerCase();
+    return ["initializing", "processing", "rebuilding"].includes(normalized);
+  }
+
+  getAreaStatus(areaId) {
+    if (!areaId) {
+      return "";
+    }
+    const targetId = String(areaId);
+    const match = this.coverageAreas.find(
+      (area) => String(area._id || area.id || "") === targetId
+    );
+    if (match) {
+      return match.status || match.location?.status || "";
+    }
+    const options = this.ui.areaSelect?.options || [];
+    for (const option of options) {
+      if (option.value === targetId) {
+        return option.dataset.status || "";
+      }
+    }
+    return "";
+  }
+
+  restoreAreaSelection() {
+    if (this.ui.areaSelect) {
+      this.ui.areaSelect.value = this.lastSelectedAreaId || "";
+    }
+  }
+
   async loadCoverageAreas() {
     try {
       const areas = await this.api.loadCoverageAreas();
       if (!areas) {
         return;
       }
+      this.coverageAreas = areas;
 
       // Dispatch event
       document.dispatchEvent(
@@ -176,10 +210,24 @@ export class OptimalRoutesManager {
   }
 
   async onAreaSelect(areaId) {
-    this.selectedAreaId = areaId;
+    const nextAreaId = areaId ? String(areaId) : "";
+    if (nextAreaId) {
+      const status = this.getAreaStatus(nextAreaId);
+      if (this.isCoverageCalculationActive(status)) {
+        this.restoreAreaSelection();
+        this.ui.showNotification(
+          "Coverage calculation is in progress for that area. Please wait until it finishes.",
+          "warning"
+        );
+        return;
+      }
+    }
+
+    this.selectedAreaId = nextAreaId || null;
+    this.lastSelectedAreaId = nextAreaId;
     this.ui.setTurnByTurnEnabled(false);
 
-    if (!areaId) {
+    if (!nextAreaId) {
       const generateBtn = document.getElementById("generate-route-btn");
       if (generateBtn) {
         generateBtn.disabled = true;
@@ -199,12 +247,12 @@ export class OptimalRoutesManager {
     // Wait for map
     await this.map.bindMapLoad();
 
-    this.ui.updateAreaStats(areaId);
+    this.ui.updateAreaStats(nextAreaId);
 
     // Load streets
     try {
       const { drivenFeatures, undrivenFeatures } =
-        await this.api.loadStreetNetwork(areaId);
+        await this.api.loadStreetNetwork(nextAreaId);
       this.map.updateStreets(drivenFeatures, undrivenFeatures);
     } catch {
       // already logged in api
@@ -212,7 +260,7 @@ export class OptimalRoutesManager {
 
     // Check for existing route
     try {
-      const routeData = await this.api.loadExistingRoute(areaId);
+      const routeData = await this.api.loadExistingRoute(nextAreaId);
       if (routeData?.coordinates) {
         this.currentRouteData = routeData;
         this.map.displayRoute(routeData.coordinates, routeData);
@@ -223,7 +271,7 @@ export class OptimalRoutesManager {
     }
 
     // Check for active task
-    const activeTask = await this.api.checkForActiveTask(areaId);
+    const activeTask = await this.api.checkForActiveTask(nextAreaId);
     if (activeTask) {
       this.currentTaskId = activeTask.task_id;
 
@@ -247,7 +295,7 @@ export class OptimalRoutesManager {
     }
 
     // Fly to area
-    const bounds = await this.api.getAreaBounds(areaId);
+    const bounds = await this.api.getAreaBounds(nextAreaId);
     if (bounds) {
       this.map.flyToBounds(bounds);
       document.getElementById("map-legend").style.display = "block";

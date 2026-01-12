@@ -42,6 +42,11 @@ export class OptimalRouteUI {
     };
   }
 
+  isCoverageCalculationActive(status) {
+    const normalized = String(status || "").toLowerCase();
+    return ["initializing", "processing", "rebuilding"].includes(normalized);
+  }
+
   populateAreaSelect(areas) {
     if (!this.areaSelect || !this.config.populateAreaSelect) {
       return;
@@ -51,10 +56,20 @@ export class OptimalRouteUI {
 
     areas.forEach((area) => {
       const option = document.createElement("option");
-      option.value = String(area._id || area.id || "");
+      const areaId = area._id || area.id || "";
+      const areaName = area.location?.display_name || area.display_name || "Unknown";
+      const status = area.status || area.location?.status || "";
+      const isProcessing = this.isCoverageCalculationActive(status);
+      option.value = String(areaId);
       const coverage = area.coverage_percentage?.toFixed(1) || 0;
-      option.textContent = `${area.location?.display_name || "Unknown"} (${coverage}%)`;
+      const label = `${areaName} (${coverage}%)`;
+      option.textContent = isProcessing
+        ? `${label} (calculating coverage)`
+        : label;
       option.dataset.coverage = coverage;
+      option.dataset.status = String(status || "");
+      option.dataset.processing = isProcessing ? "true" : "false";
+      option.disabled = isProcessing;
       const totalLength = area.total_length || area.total_length_m || 0;
       const drivenLength = area.driven_length || area.driven_length_m || 0;
       option.dataset.remaining = this.formatDistance(totalLength - drivenLength);
