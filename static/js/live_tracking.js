@@ -283,8 +283,11 @@ class LiveTripTracker {
   }
 
   getRouteCasingColor() {
-    const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
-    return theme === "light" ? "rgba(15, 23, 42, 0.8)" : "rgba(248, 250, 252, 0.85)";
+    const theme =
+      document.documentElement.getAttribute("data-bs-theme") || "dark";
+    return theme === "light"
+      ? "rgba(15, 23, 42, 0.8)"
+      : "rgba(248, 250, 252, 0.85)";
   }
 
   applyRouteStyle() {
@@ -301,14 +304,14 @@ class LiveTripTracker {
       this.map.setPaintProperty(
         this.lineGlowLayerId,
         "line-opacity",
-        Math.min(0.45, opacity * 0.6)
+        Math.min(0.45, opacity * 0.6),
       );
     }
     if (this.map.getLayer(this.lineCasingLayerId)) {
       this.map.setPaintProperty(
         this.lineCasingLayerId,
         "line-color",
-        this.getRouteCasingColor()
+        this.getRouteCasingColor(),
       );
     }
   }
@@ -335,7 +338,9 @@ class LiveTripTracker {
       const next = !this.followMode;
       this.setFollowMode(next, { persist: true, resetCamera: !next });
       if (next && this.lastCoord) {
-        this.followVehicle(this.lastCoord, this.lastBearing, { immediate: true });
+        this.followVehicle(this.lastCoord, this.lastBearing, {
+          immediate: true,
+        });
       }
     };
 
@@ -401,7 +406,10 @@ class LiveTripTracker {
     }
   }
 
-  setFollowMode(enabled, { persist = true, resetCamera = false, force = false } = {}) {
+  setFollowMode(
+    enabled,
+    { persist = true, resetCamera = false, force = false } = {},
+  ) {
     if (!force && this.followMode === enabled) {
       this.updateFollowToggle(enabled);
       return;
@@ -423,11 +431,12 @@ class LiveTripTracker {
 
   getFollowCameraConfig() {
     const isMobile = window.utils?.getDeviceProfile?.().isMobile;
-    const prefersReducedMotion
-      = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const prefersReducedMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
     const containerHeight = this.map?.getContainer()?.clientHeight || 600;
     const offsetY = Math.round(
-      Math.min(180, Math.max(90, containerHeight * 0.22))
+      Math.min(180, Math.max(90, containerHeight * 0.22)),
     );
 
     return {
@@ -442,8 +451,9 @@ class LiveTripTracker {
     if (!this.map) {
       return;
     }
-    const prefersReducedMotion
-      = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const prefersReducedMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
     this.map.easeTo({
       pitch: 0,
       bearing: 0,
@@ -467,7 +477,7 @@ class LiveTripTracker {
       this.hudCoverageElem.classList.remove(
         "is-driven",
         "is-undriven",
-        "is-undriveable"
+        "is-undriveable",
       );
     }
     if (this.hudDistanceElem) {
@@ -539,8 +549,8 @@ class LiveTripTracker {
       return;
     }
 
-    const speedValue
-      = typeof trip.currentSpeed === "number"
+    const speedValue =
+      typeof trip.currentSpeed === "number"
         ? Math.max(0, Math.round(trip.currentSpeed))
         : 0;
     if (this.hudSpeedElem) {
@@ -561,8 +571,8 @@ class LiveTripTracker {
       this.hudDistanceElem.textContent = `${(trip.distance || 0).toFixed(2)} mi`;
     }
     if (this.hudAvgSpeedElem) {
-      this.hudAvgSpeedElem.textContent
-        = trip.avgSpeed > 0 ? `${trip.avgSpeed.toFixed(1)} mph` : "--";
+      this.hudAvgSpeedElem.textContent =
+        trip.avgSpeed > 0 ? `${trip.avgSpeed.toFixed(1)} mph` : "--";
     }
 
     if (this.hudLastUpdateElem) {
@@ -573,7 +583,9 @@ class LiveTripTracker {
 
     const areaName = this.getCoverageAreaName();
     const lastCoord = coords?.[coords.length - 1];
-    const coverageInfo = lastCoord ? this.getCoverageStreetInfo(lastCoord) : null;
+    const coverageInfo = lastCoord
+      ? this.getCoverageStreetInfo(lastCoord)
+      : null;
 
     if (coverageInfo?.streetName && this.hudStreetElem) {
       this.hudStreetElem.textContent = coverageInfo.streetName;
@@ -592,7 +604,7 @@ class LiveTripTracker {
     this.hudCoverageElem.classList.remove(
       "is-driven",
       "is-undriven",
-      "is-undriveable"
+      "is-undriveable",
     );
 
     if (!status) {
@@ -655,14 +667,18 @@ class LiveTripTracker {
       [point.x - radius, point.y - radius],
       [point.x + radius, point.y + radius],
     ];
-    const features = this.map.queryRenderedFeatures(bbox, { layers: visibleLayers });
+    const features = this.map.queryRenderedFeatures(bbox, {
+      layers: visibleLayers,
+    });
 
     if (!features.length) {
       return null;
     }
 
     const preferred = visibleLayers
-      .map((layerId) => features.find((feature) => feature.layer?.id === layerId))
+      .map((layerId) =>
+        features.find((feature) => feature.layer?.id === layerId),
+      )
       .find(Boolean);
     const feature = preferred || features[0];
     const props = feature?.properties || {};
@@ -824,8 +840,8 @@ class LiveTripTracker {
       return;
     }
 
-    const isNewTrip
-      = !this.activeTrip || this.activeTrip.transactionId !== trip.transactionId;
+    const isNewTrip =
+      !this.activeTrip || this.activeTrip.transactionId !== trip.transactionId;
 
     this.activeTrip = trip;
 
@@ -837,8 +853,8 @@ class LiveTripTracker {
     }
 
     const rawHeading = LiveTripTracker.calculateHeading(coords);
-    const heading
-      = typeof rawHeading === "number"
+    const heading =
+      typeof rawHeading === "number"
         ? LiveTripTracker.smoothBearing(this.lastBearing, rawHeading, 0.28)
         : this.lastBearing;
     if (typeof heading === "number") {
@@ -864,9 +880,14 @@ class LiveTripTracker {
     // Update map view for new trips
     if (isNewTrip) {
       this.setLiveTripActive(true);
-      this.setFollowMode(this.followPreference, { persist: false, resetCamera: false });
+      this.setFollowMode(this.followPreference, {
+        persist: false,
+        resetCamera: false,
+      });
       if (this.followMode) {
-        this.followVehicle(coords[coords.length - 1], heading, { immediate: true });
+        this.followVehicle(coords[coords.length - 1], heading, {
+          immediate: true,
+        });
       } else {
         this.fitTripBounds(coords);
       }
@@ -886,7 +907,7 @@ class LiveTripTracker {
           trip,
           coords,
         },
-      })
+      }),
     );
   }
 
@@ -968,9 +989,9 @@ class LiveTripTracker {
     const dLon = toRad(curr.lon - prev.lon);
 
     const y = Math.sin(dLon) * Math.cos(lat2);
-    const x
-      = Math.cos(lat1) * Math.sin(lat2)
-      - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+    const x =
+      Math.cos(lat1) * Math.sin(lat2) -
+      Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
     const bearing = toDeg(Math.atan2(y, x));
 
     return LiveTripTracker.normalizeBearing(bearing);
@@ -1035,11 +1056,19 @@ class LiveTripTracker {
     // Update marker styling with smooth transition
     this.map.setPaintProperty(this.markerLayerId, "circle-color", color);
     this.map.setPaintProperty(this.markerLayerId, "circle-radius", radius);
-    this.map.setPaintProperty(this.markerLayerId, "circle-stroke-width", strokeWidth);
+    this.map.setPaintProperty(
+      this.markerLayerId,
+      "circle-stroke-width",
+      strokeWidth,
+    );
 
     // Sync pulse ring color
     if (this.map.getLayer(this.pulseLayerId)) {
-      this.map.setPaintProperty(this.pulseLayerId, "circle-stroke-color", color);
+      this.map.setPaintProperty(
+        this.pulseLayerId,
+        "circle-stroke-color",
+        color,
+      );
     }
 
     if (this.map.getLayer(this.arrowLayerId)) {
@@ -1081,11 +1110,15 @@ class LiveTripTracker {
       }
 
       try {
-        this.map.setPaintProperty(this.pulseLayerId, "circle-radius", pulseRadius);
+        this.map.setPaintProperty(
+          this.pulseLayerId,
+          "circle-radius",
+          pulseRadius,
+        );
         this.map.setPaintProperty(
           this.pulseLayerId,
           "circle-stroke-opacity",
-          Math.max(0.1, pulseOpacity)
+          Math.max(0.1, pulseOpacity),
         );
       } catch {
         // Layer might be removed during animation
@@ -1151,7 +1184,9 @@ class LiveTripTracker {
     }
 
     if (trip.totalIdleDuration > 0) {
-      optional["Idling Time"] = DateUtils.formatSecondsToHMS(trip.totalIdleDuration);
+      optional["Idling Time"] = DateUtils.formatSecondsToHMS(
+        trip.totalIdleDuration,
+      );
     }
 
     if (trip.hardBrakingCounts > 0) {
@@ -1170,12 +1205,12 @@ class LiveTripTracker {
           <span class="metric-label">${label}:</span>
           <span class="metric-value">${value}</span>
         </div>
-      `
+      `,
       )
       .join("");
 
-    const optionalHtml
-      = Object.keys(optional).length > 0
+    const optionalHtml =
+      Object.keys(optional).length > 0
         ? `
         <div class="metric-section-divider"></div>
         <div class="metric-section-title">Trip Behavior</div>
@@ -1186,7 +1221,7 @@ class LiveTripTracker {
               <span class="metric-label">${label}:</span>
               <span class="metric-value">${value}</span>
             </div>
-          `
+          `,
           )
           .join("")}
       `
@@ -1230,8 +1265,8 @@ class LiveTripTracker {
     }
 
     const { zoom, pitch, offset, duration } = this.getFollowCameraConfig();
-    const bearing
-      = typeof heading === "number" ? heading : this.map.getBearing() || 0;
+    const bearing =
+      typeof heading === "number" ? heading : this.map.getBearing() || 0;
     const center = [lastCoord.lon, lastCoord.lat];
 
     const cameraOptions = {
