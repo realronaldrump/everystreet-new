@@ -90,7 +90,7 @@ const router = {
     const controller = new AbortController();
     this.inFlight = controller;
 
-    window.loadingManager?.show("Loading...", { blocking: false });
+    window.loadingManager?.showBar?.("Loading page...");
     document.dispatchEvent(
       new CustomEvent("es:page-unload", {
         detail: { url: window.location.href, nextUrl: nextUrl.href },
@@ -148,7 +148,7 @@ const router = {
       if (this.inFlight === controller) {
         this.inFlight = null;
       }
-      window.loadingManager?.hide();
+      window.loadingManager?.hideBar?.();
     }
   },
 

@@ -116,6 +116,27 @@ const panelManager = {
     if (uiState.uiState.filtersOpen) {
       setTimeout(() => this.open("filters"), 100);
     }
+
+    if (mobileDrawer) {
+      mobileDrawer.addEventListener("click", (event) => {
+        const link = event.target.closest("a[href]");
+        if (!link) {
+          return;
+        }
+        const href = link.getAttribute("href") || "";
+        if (!href || href.startsWith("#")) {
+          return;
+        }
+        if (link.getAttribute("data-bs-toggle")) {
+          return;
+        }
+        this.close("mobile");
+      });
+    }
+
+    document.addEventListener("es:page-load", () => {
+      this.close("mobile");
+    });
   },
 
   initDrawerSections() {

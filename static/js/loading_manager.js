@@ -12,6 +12,12 @@ class LoadingManager {
     this.hideTimeout = null;
     this.minShowTime = 200; // Minimum time to show overlay (prevents flicker)
     this.showStartTime = null;
+    this.bar = null;
+    this.barIsVisible = false;
+    this.barActiveCount = 0;
+    this.barHideTimeout = null;
+    this.barShowStartTime = null;
+    this.barMinShowTime = 150;
 
     // Initialize when DOM is ready
     if (document.readyState === "loading") {
@@ -30,6 +36,28 @@ class LoadingManager {
     } else {
       this.textElement = this.overlay.querySelector(".loading-text");
     }
+
+    this.initBar();
+  }
+
+  initBar() {
+    this.bar = document.getElementById("spa-progress");
+    if (!this.bar) {
+      this.createBar();
+    }
+  }
+
+  createBar() {
+    this.bar = document.createElement("div");
+    this.bar.id = "spa-progress";
+    this.bar.className = "spa-progress";
+    this.bar.setAttribute("role", "progressbar");
+    this.bar.setAttribute("aria-hidden", "true");
+
+    const bar = document.createElement("div");
+    bar.className = "spa-progress-bar";
+    this.bar.appendChild(bar);
+    document.body.prepend(this.bar);
   }
 
   createOverlay() {
@@ -86,6 +114,10 @@ class LoadingManager {
       this.textElement.textContent = messageText;
     }
 
+    if (blocking) {
+      this.hideBar(true);
+    }
+
     if (!this.isVisible) {
       this.showStartTime = Date.now();
       if (blocking === false) {
@@ -100,6 +132,31 @@ class LoadingManager {
       }
       this.overlay?.classList.add("visible");
       this.isVisible = true;
+    }
+
+    return this;
+  }
+
+  showBar(message = "Loading...") {
+    if (!this.bar) {
+      this.initBar();
+    }
+
+    if (this.barHideTimeout) {
+      clearTimeout(this.barHideTimeout);
+      this.barHideTimeout = null;
+    }
+
+    this.barActiveCount += 1;
+
+    if (this.bar) {
+      this.bar.setAttribute("aria-hidden", "false");
+      this.bar.setAttribute("aria-valuetext", message);
+      if (!this.barIsVisible) {
+        this.barShowStartTime = Date.now();
+        this.bar.classList.add("is-active");
+        this.barIsVisible = true;
+      }
     }
 
     return this;
@@ -128,6 +185,36 @@ class LoadingManager {
         this.overlay?.classList.remove("compact");
         this.isVisible = false;
         this.showStartTime = null;
+      }
+    }, delay);
+
+    return this;
+  }
+
+  hideBar(force = false) {
+    if (this.barHideTimeout) {
+      clearTimeout(this.barHideTimeout);
+      this.barHideTimeout = null;
+    }
+
+    this.barActiveCount = force ? 0 : Math.max(0, this.barActiveCount - 1);
+
+    if (this.barActiveCount > 0) {
+      return this;
+    }
+
+    const elapsed = this.barShowStartTime
+      ? Date.now() - this.barShowStartTime
+      : Infinity;
+    const delay = Math.max(0, this.barMinShowTime - elapsed);
+
+    this.barHideTimeout = setTimeout(() => {
+      if (this.barActiveCount === 0 && this.bar) {
+        this.bar.classList.remove("is-active");
+        this.bar.setAttribute("aria-hidden", "true");
+        this.bar.removeAttribute("aria-valuetext");
+        this.barIsVisible = false;
+        this.barShowStartTime = null;
       }
     }, delay);
 
