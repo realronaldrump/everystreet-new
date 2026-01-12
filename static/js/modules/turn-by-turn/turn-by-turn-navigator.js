@@ -85,6 +85,12 @@ class TurnByTurnNavigator {
     // State change callback
     this.state.setStateChangeCallback((newState) => {
       this.ui.updateForState(newState, this.getStateData(newState));
+
+      if (newState === NAV_STATES.ROUTE_PREVIEW) {
+        // Show a usable start action immediately, then refine based on proximity.
+        this.ui.showBeginButton();
+        this.checkStartProximity();
+      }
     });
 
     // Coverage map update callback
@@ -168,14 +174,14 @@ class TurnByTurnNavigator {
     this.ui.bindEvents({
       onAreaChange: () => this.handleAreaChange(),
       onLoadRoute: () => this.loadRoute(),
-      onStartNavigation: () => this.startNavigation(),
+      onStartNavigation: () => this.beginNavigation(),
       onEndNavigation: () => this.endNavigation(),
       onToggleOverview: () => this.toggleOverview(),
       onRecenter: () => this.recenter(),
       onToggleSetupPanel: () => this.ui.toggleSetupPanel(),
       onNavigateToStart: () => this.startNavigatingToStart(),
       onBeginNavigation: () => this.beginNavigation(),
-      onShowSetup: () => this.ui.showSetupPanel(),
+      onShowSetup: () => this.state.transitionTo(NAV_STATES.SETUP),
       onResumeFromAhead: () => this.resumeFromAhead(),
       onDismissResume: () => this.dismissResumePrompt(),
     });
@@ -456,6 +462,10 @@ class TurnByTurnNavigator {
    * Check user proximity to start for preview
    */
   async checkStartProximity() {
+    if (!this.routeLoaded || this.routeCoords.length < 2) {
+      return;
+    }
+
     try {
       const position = await this.gps.getCurrentPosition();
       this.gps.lastPosition = position;
@@ -485,7 +495,7 @@ class TurnByTurnNavigator {
       }
     } catch {
       this.ui.updateStartStatus("unknown", "Location unavailable");
-      this.ui.showNavigateToStartButton();
+      this.ui.showBeginButton();
     }
   }
 

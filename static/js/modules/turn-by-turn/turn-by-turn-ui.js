@@ -593,7 +593,7 @@ class TurnByTurnUI {
       distanceToTurn.textContent = "Ready";
     }
     if (primaryInstruction) {
-      primaryInstruction.textContent = "Select a route to begin";
+      primaryInstruction.textContent = "Load the optimal coverage route to begin";
     }
     if (roadName) {
       roadName.textContent = "--";
