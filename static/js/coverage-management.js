@@ -68,7 +68,9 @@ function setupEventListeners() {
 
   document.getElementById("rebuild-area-btn")?.addEventListener("click", async () => {
     if (currentAreaId) {
-      await rebuildArea(currentAreaId);
+      const areaName =
+        document.getElementById("dashboard-location-name")?.textContent || "this area";
+      await rebuildArea(currentAreaId, areaName);
     }
   });
 
@@ -440,9 +442,18 @@ async function apiDelete(endpoint) {
 
 async function loadAreas() {
   try {
-    const data = await apiGet("/areas");
-    renderAreasTable(data.areas);
-    document.getElementById("total-areas-count").textContent = data.areas.length;
+    const [areasData, jobsData] = await Promise.all([
+      apiGet("/areas"),
+      apiGet("/jobs").catch(() => ({ jobs: [] })),
+    ]);
+
+    const jobs = jobsData.jobs || [];
+    activeJobsByAreaId = new Map(
+      jobs.filter((job) => job.area_id).map((job) => [job.area_id, job])
+    );
+
+    renderAreasTable(areasData.areas);
+    document.getElementById("total-areas-count").textContent = areasData.areas.length;
   } catch (error) {
     console.error("Failed to load areas:", error);
     showNotification("Failed to load coverage areas: " + error.message, "danger");
@@ -476,7 +487,7 @@ function renderAreasTable(areas) {
                 <strong>${escapeHtml(area.display_name)}</strong>
                 <br><small class="text-secondary">${area.area_type}</small>
             </td>
-            <td>${renderStatus(area.status, area.health)}</td>
+            <td>${renderStatus(area.status, area.health, activeJobsByAreaId.get(area.id))}</td>
             <td>${formatMiles(area.total_length_miles)}</td>
             <td>${formatMiles(area.driven_length_miles)}</td>
             <td>
@@ -497,8 +508,8 @@ function renderAreasTable(areas) {
                             title="Recalculate coverage from trips" ${area.status !== "ready" ? "disabled" : ""}>
                         <i class="fas fa-calculator"></i>
                     </button>
-                    <button class="btn btn-outline-warning" onclick="rebuildArea('${area.id}')"
-                            title="Rebuild with fresh OSM data" ${area.status !== "ready" ? "disabled" : ""}>
+                    <button class="btn btn-outline-warning" onclick="rebuildArea('${area.id}', '${escapeHtml(area.display_name)}')"
+                             title="Rebuild with fresh OSM data" ${area.status !== "ready" ? "disabled" : ""}>
                         <i class="fas fa-sync"></i>
                     </button>
                     <button class="btn btn-outline-danger" onclick="deleteArea('${area.id}', '${escapeHtml(area.display_name)}')"
@@ -602,7 +613,7 @@ async function deleteArea(areaId, displayName) {
   }
 }
 
-async function rebuildArea(areaId) {
+async function rebuildArea(areaId, displayName = null) {
   const confirmed = await window.confirmationDialog?.show({
     title: "Rebuild Coverage Area",
     message:

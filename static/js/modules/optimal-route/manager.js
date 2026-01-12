@@ -14,6 +14,7 @@ export class OptimalRoutesManager {
 
     this.selectedAreaId = null;
     this.currentTaskId = null;
+    this.currentRouteData = null;
 
     // Initialize modules
     this.ui = new OptimalRouteUI(this.config);
@@ -213,6 +214,7 @@ export class OptimalRoutesManager {
     try {
       const routeData = await this.api.loadExistingRoute(areaId);
       if (routeData?.coordinates) {
+        this.currentRouteData = routeData;
         this.map.displayRoute(routeData.coordinates, routeData);
         this.ui.showResults(routeData);
       }
@@ -290,6 +292,7 @@ export class OptimalRoutesManager {
     // Load the full route data now
     const routeData = await this.api.loadExistingRoute(this.selectedAreaId);
     if (routeData?.coordinates) {
+      this.currentRouteData = routeData;
       this.map.displayRoute(routeData.coordinates, routeData, true); // animate=true
       this.ui.showResults(routeData);
     } else {
@@ -299,6 +302,7 @@ export class OptimalRoutesManager {
 
   onError(message) {
     this.ui.showError(message);
+    this.ui.hideReplayButton();
   }
 
   async cancelTask() {
@@ -328,6 +332,7 @@ export class OptimalRoutesManager {
     document.getElementById("results-section").style.display = "none";
     document.getElementById("error-section").style.display = "none";
     this.ui.setTurnByTurnEnabled(false);
+    this.ui.hideReplayButton();
 
     if (this.selectedAreaId) {
       await this.api.clearRoute(this.selectedAreaId);
@@ -358,5 +363,16 @@ export class OptimalRoutesManager {
     }
     const url = `/api/coverage_areas/${this.selectedAreaId}/optimal-route/gpx`;
     window.open(url, "_blank");
+  }
+
+  async replayAnimation() {
+    if (!this.currentRouteData?.coordinates) {
+      return;
+    }
+    this.map.displayRoute(
+      this.currentRouteData.coordinates,
+      this.currentRouteData,
+      true
+    );
   }
 }
