@@ -276,8 +276,7 @@ async def _run_ingestion_pipeline(
         job.progress = 90
         await job.save()
 
-        area.osm_fetched_at = datetime.now(UTC)
-        await area.save()
+        await area.set({"osm_fetched_at": datetime.now(UTC)})
         await update_area_stats(area.id)
 
         # Stage 8: Backfill with historical trips
@@ -294,10 +293,13 @@ async def _run_ingestion_pipeline(
         job.completed_at = datetime.now(UTC)
         await job.save()
 
-        area.status = "ready"
-        area.health = "healthy"
-        area.last_error = None
-        await area.save()
+        await area.set(
+            {
+                "status": "ready",
+                "health": "healthy",
+                "last_error": None,
+            }
+        )
 
         logger.info(f"Ingestion complete for area {area.display_name}")
 
@@ -307,12 +309,15 @@ async def _run_ingestion_pipeline(
         job.retry_count += 1
         job.error = str(e)
 
+        area_updates: dict[str, Any] = {}
         if job.retry_count >= MAX_INGESTION_RETRIES:
             job.status = "needs_attention"
             job.stage = "Failed - manual intervention required"
-            area.status = "error"
-            area.health = "unavailable"
-            area.last_error = str(e)
+            area_updates = {
+                "status": "error",
+                "health": "unavailable",
+                "last_error": str(e),
+            }
         else:
             job.status = "pending"
             job.stage = f"Retry {job.retry_count} scheduled"
@@ -321,7 +326,8 @@ async def _run_ingestion_pipeline(
             asyncio.create_task(_delayed_retry(area_id, job_id, delay))
 
         await job.save()
-        await area.save()
+        if area_updates:
+            await area.set(area_updates)
 
 
 async def _delayed_retry(

@@ -486,7 +486,10 @@ async function initOrUpdateMap(areaId, bbox) {
 
     map.addControl(new mapboxgl.NavigationControl(), "top-right");
 
-    map.on("load", () => loadStreets(areaId));
+    map.on("load", () => {
+      loadStreets(areaId);
+      map.resize();
+    });
     map.on("moveend", () => loadStreets(areaId));
   } else {
     map.fitBounds(
