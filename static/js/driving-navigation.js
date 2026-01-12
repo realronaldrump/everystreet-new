@@ -33,8 +33,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // Initialize driving navigation
-  const drivingNav = new DrivingNavigation();
-  void drivingNav;
+  new DrivingNavigation();
 
   // Inject cluster marker styles
   DrivingNavigationUI.injectClusterStyles();
