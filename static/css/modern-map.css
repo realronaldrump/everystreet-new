@@ -1100,6 +1100,224 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
   color: var(--text-secondary);
 }
 
+/* Live Trip HUD (Apple/Google-style overlay) */
+.live-trip-hud {
+  position: absolute;
+  top: var(--space-4);
+  right: var(--space-4);
+  z-index: var(--z-overlay);
+  width: min(360px, calc(100vw - (2 * var(--space-4))));
+  opacity: 0;
+  transform: translateY(-12px);
+  pointer-events: none;
+  transition:
+    opacity var(--transition-normal),
+    transform var(--transition-normal);
+}
+
+.live-trip-hud.is-active {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: none;
+}
+
+.live-trip-hud-card {
+  pointer-events: auto;
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: 18px;
+  border: 1px solid var(--border-color);
+  background: var(--surface-glass);
+  box-shadow:
+    var(--shadow-xl),
+    0 0 0 1px rgb(var(--primary-rgb) / 8%);
+  backdrop-filter: blur(16px) saturate(1.4);
+}
+
+.live-trip-hud-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.live-trip-hud-status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.live-trip-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--success);
+  box-shadow: var(--glow-success);
+  animation: live-trip-pulse 1.8s ease-in-out infinite;
+}
+
+.live-trip-title {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+
+.live-trip-subtitle {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+.live-trip-follow-toggle {
+  border: 1px solid rgb(var(--primary-rgb) / 30%);
+  background: rgb(var(--primary-rgb) / 12%);
+  color: var(--primary);
+  border-radius: var(--radius-pill);
+  padding: 0.35rem 0.7rem;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  transition: all var(--transition-fast);
+}
+
+.live-trip-follow-toggle:hover {
+  border-color: rgb(var(--primary-rgb) / 50%);
+  background: rgb(var(--primary-rgb) / 20%);
+  transform: translateY(-1px);
+}
+
+.live-trip-follow-toggle.is-active {
+  color: var(--text-on-primary);
+  background: var(--primary);
+  border-color: transparent;
+  box-shadow: var(--glow-primary);
+}
+
+.live-trip-hud-main {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.live-trip-speed {
+  display: grid;
+  place-items: center;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-lg);
+  background: rgb(var(--primary-rgb) / 10%);
+  border: 1px solid rgb(var(--primary-rgb) / 18%);
+  min-width: 84px;
+}
+
+.live-trip-speed-value {
+  font-size: 2.1rem;
+  font-weight: var(--font-weight-bold);
+  color: var(--text-primary);
+  line-height: 1;
+}
+
+.live-trip-speed-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--text-secondary);
+  margin-top: var(--space-1);
+}
+
+.live-trip-road-label {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.live-trip-road-value {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  margin: var(--space-1) 0;
+}
+
+.live-trip-road-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  padding: 0.2rem 0.6rem;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-color);
+  background: rgb(var(--surface-rgb) / 35%);
+}
+
+.live-trip-road-meta.is-driven {
+  color: var(--success);
+  border-color: rgb(var(--success-rgb) / 35%);
+  background: rgb(var(--success-rgb) / 12%);
+}
+
+.live-trip-road-meta.is-undriven {
+  color: var(--warning);
+  border-color: rgb(var(--warning-rgb) / 35%);
+  background: rgb(var(--warning-rgb) / 12%);
+}
+
+.live-trip-road-meta.is-undriveable {
+  color: var(--danger);
+  border-color: rgb(var(--danger-rgb) / 35%);
+  background: rgb(var(--danger-rgb) / 12%);
+}
+
+.live-trip-hud-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.live-trip-stat {
+  padding: var(--space-2) var(--space-2);
+  border-radius: var(--radius-md);
+  background: rgb(var(--surface-rgb) / 35%);
+  border: 1px solid var(--border-color);
+  text-align: center;
+}
+
+.live-trip-stat .label {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-tertiary);
+  margin-bottom: var(--space-1);
+}
+
+.live-trip-stat .value {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+
+@keyframes live-trip-pulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+
+  60% {
+    transform: scale(1.3);
+    opacity: 0.3;
+  }
+
+  100% {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+}
+
 /* Map Info Panel (from coverage_management.html) */
 .map-info-panel {
   position: absolute;
@@ -1274,6 +1492,34 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
     position: fixed;
     top: 0;
     left: 0;
+  }
+
+  .live-trip-hud {
+    left: var(--space-3);
+    right: var(--space-3);
+    top: calc(var(--space-3) + env(safe-area-inset-top, 0px));
+    width: auto;
+  }
+
+  .live-trip-hud-card {
+    padding: var(--space-3);
+    border-radius: 16px;
+  }
+
+  .live-trip-speed {
+    min-width: 70px;
+  }
+
+  .live-trip-speed-value {
+    font-size: 1.8rem;
+  }
+
+  .live-trip-road-value {
+    font-size: var(--font-size-md);
+  }
+
+  .live-trip-stat .label {
+    font-size: 0.6rem;
   }
 
   /* Adjust header for map page */

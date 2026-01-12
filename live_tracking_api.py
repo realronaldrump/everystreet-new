@@ -194,8 +194,8 @@ async def bouncie_webhook(request: Request):
     """
     Receive and process Bouncie webhook events.
 
-    Always returns 200 OK to prevent Bouncie from deactivating the webhook. Processing
-    errors are logged but don't fail the webhook response.
+    Returns non-2xx responses for invalid payloads or processing failures so Bouncie
+    can retry per their webhook delivery guidance.
     """
     try:
         data = await request.json()
@@ -204,10 +204,9 @@ async def bouncie_webhook(request: Request):
 
         if not event_type:
             logger.warning("Webhook missing eventType")
-            # Return 200 OK even for invalid payloads to prevent webhook deactivation
             return JSONResponse(
-                content={"status": "accepted", "message": "Missing eventType"},
-                status_code=200,
+                content={"status": "error", "message": "Missing eventType"},
+                status_code=status.HTTP_400_BAD_REQUEST,
             )
 
         logger.info("Webhook received: %s (Trip: %s)", event_type, transaction_id)
@@ -220,7 +219,7 @@ async def bouncie_webhook(request: Request):
                 status_code=200,
             )
         except Exception as processing_error:
-            # Log processing errors but still return 200 OK
+            # Log processing errors and return non-2xx to trigger retries.
             error_id = str(uuid.uuid4())
             logger.exception(
                 "Failed to process webhook event [%s]: %s (Trip: %s) - Error: %s",
@@ -231,32 +230,30 @@ async def bouncie_webhook(request: Request):
             )
             return JSONResponse(
                 content={
-                    "status": "accepted",
+                    "status": "error",
                     "message": "Event received but processing failed",
                     "error_id": error_id,
                 },
-                status_code=200,  # Still return 200 to prevent webhook deactivation
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
     except json.JSONDecodeError:
         logger.exception("Invalid JSON in webhook")
-        # Return 200 OK even for invalid JSON to prevent webhook deactivation
         return JSONResponse(
-            content={"status": "accepted", "message": "Invalid JSON payload"},
-            status_code=200,
+            content={"status": "error", "message": "Invalid JSON payload"},
+            status_code=status.HTTP_400_BAD_REQUEST,
         )
     except Exception as e:
         # Catch-all for any unexpected errors
         error_id = str(uuid.uuid4())
         logger.exception("Unexpected webhook error [%s]: %s", error_id, e)
-        # Still return 200 OK to prevent webhook deactivation
         return JSONResponse(
             content={
-                "status": "accepted",
+                "status": "error",
                 "message": "Event received but encountered error",
                 "error_id": error_id,
             },
-            status_code=200,
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
 
 
