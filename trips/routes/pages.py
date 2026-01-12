@@ -23,7 +23,7 @@ async def trips_page(request: Request):
     )
 
 
-@router.get("/{trip_id}", response_class=HTMLResponse, tags=["Pages"])
+@router.get("/trips/{trip_id}", response_class=HTMLResponse, tags=["Pages"])
 async def trip_detail_page(request: Request, trip_id: str):
     """Render the map page focused on a specific trip."""
     from config import get_mapbox_token  # Import here to avoid circular deps if any
