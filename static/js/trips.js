@@ -1007,14 +1007,16 @@ function updatePlaybackUI() {
     if (icon) {
       icon.className = "fas fa-pause";
     }
-    playBtn.querySelector("span")?.textContent = "Pause";
+    const span = playBtn.querySelector("span");
+    if (span) span.textContent = "Pause";
   } else {
     playBtn.classList.remove("is-playing");
     playBtn.setAttribute("aria-pressed", "false");
     if (icon) {
       icon.className = "fas fa-play";
     }
-    playBtn.querySelector("span")?.textContent = "Play";
+    const span = playBtn.querySelector("span");
+    if (span) span.textContent = "Play";
   }
 }
 
