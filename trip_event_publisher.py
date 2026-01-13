@@ -15,6 +15,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 import redis.asyncio as aioredis
+from beanie import PydanticObjectId
 from redis.exceptions import ConnectionError as RedisConnectionError
 
 from redis_config import get_redis_url
@@ -65,10 +66,12 @@ async def get_redis_client() -> aioredis.Redis:
         raise
 
 
-def _json_serializer(obj: Any) -> Any:
+def json_serializer(obj: Any) -> Any:
     """JSON serializer for objects not serializable by default json code."""
     if isinstance(obj, datetime):
         return obj.isoformat()
+    if isinstance(obj, PydanticObjectId):
+        return str(obj)
     msg = f"Type {type(obj)} not serializable"
     raise TypeError(msg)
 
@@ -102,7 +105,7 @@ async def publish_trip_state(
             "timestamp": datetime.now(UTC),
         }
 
-        message = json.dumps(event_data, default=_json_serializer)
+        message = json.dumps(event_data, default=json_serializer)
         subscribers = await client.publish(TRIP_UPDATES_CHANNEL, message)
 
         logger.debug(
