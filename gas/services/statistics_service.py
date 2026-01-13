@@ -85,6 +85,75 @@ class StatisticsService:
 
         results = await aggregate_to_list(GasFillup, pipeline)
 
+        record_pipeline: list[dict[str, Any]] = []
+        if match_stage:
+            record_pipeline.append({"$match": match_stage})
+        record_pipeline.extend(
+            [
+                {
+                    "$addFields": {
+                        "numeric_mpg": {
+                            "$convert": {
+                                "input": "$calculated_mpg",
+                                "to": "double",
+                                "onError": 0.0,
+                                "onNull": 0.0,
+                            },
+                        },
+                        "numeric_price": {
+                            "$convert": {
+                                "input": "$price_per_gallon",
+                                "to": "double",
+                                "onError": 0.0,
+                                "onNull": 0.0,
+                            },
+                        },
+                    },
+                },
+                {
+                    "$facet": {
+                        "best_mpg": [
+                            {"$match": {"numeric_mpg": {"$gt": 0}}},
+                            {
+                                "$sort": {
+                                    "numeric_mpg": -1,
+                                    "fillup_time": -1,
+                                },
+                            },
+                            {"$limit": 1},
+                            {
+                                "$project": {
+                                    "_id": 0,
+                                    "mpg": "$numeric_mpg",
+                                    "fillup_time": 1,
+                                    "price_per_gallon": "$numeric_price",
+                                },
+                            },
+                        ],
+                        "cheapest_price": [
+                            {"$match": {"numeric_price": {"$gt": 0}}},
+                            {
+                                "$sort": {
+                                    "numeric_price": 1,
+                                    "fillup_time": -1,
+                                },
+                            },
+                            {"$limit": 1},
+                            {
+                                "$project": {
+                                    "_id": 0,
+                                    "price_per_gallon": "$numeric_price",
+                                    "fillup_time": 1,
+                                },
+                            },
+                        ],
+                    },
+                },
+            ],
+        )
+
+        record_results = await aggregate_to_list(GasFillup, record_pipeline)
+
         if not results:
             return {
                 "imei": imei,
@@ -96,6 +165,7 @@ class StatisticsService:
                 "cost_per_mile": None,
                 "period_start": start_date,
                 "period_end": end_date,
+                "records": {},
             }
 
         stats = results[0]
@@ -106,6 +176,27 @@ class StatisticsService:
             stats["cost_per_mile"] = round(avg_price / stats["average_mpg"], 3)
         else:
             stats["cost_per_mile"] = None
+
+        records: dict[str, Any] = {}
+        if record_results and record_results[0]:
+            record_data = record_results[0]
+            best_mpg = record_data.get("best_mpg") or []
+            cheapest_price = record_data.get("cheapest_price") or []
+            if best_mpg:
+                record = best_mpg[0]
+                records["best_mpg"] = {
+                    "mpg": record.get("mpg", 0.0),
+                    "fillup_time": record.get("fillup_time"),
+                    "price_per_gallon": record.get("price_per_gallon"),
+                }
+            if cheapest_price:
+                record = cheapest_price[0]
+                records["cheapest_price"] = {
+                    "price_per_gallon": record.get("price_per_gallon", 0.0),
+                    "fillup_time": record.get("fillup_time"),
+                }
+
+        stats["records"] = records
 
         return stats
 

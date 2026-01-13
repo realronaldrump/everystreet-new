@@ -8,6 +8,7 @@ import pytz
 
 from core.math_utils import calculate_circular_average_hour
 from db.aggregation import aggregate_to_list
+from db.aggregation_utils import get_mongo_tz_expr
 from db.models import Trip
 
 logger = logging.getLogger(__name__)
@@ -122,6 +123,265 @@ class DashboardService:
 
         trips_top = await aggregate_to_list(Trip, pipeline_top_destinations)
 
+        tz_expr = get_mongo_tz_expr()
+        record_pipeline = [
+            {"$match": query},
+            {
+                "$addFields": {
+                    "numericDistance": {
+                        "$convert": {
+                            "input": "$distance",
+                            "to": "double",
+                            "onError": 0.0,
+                            "onNull": 0.0,
+                        },
+                    },
+                    "numericMaxSpeed": {
+                        "$convert": {
+                            "input": "$maxSpeed",
+                            "to": "double",
+                            "onError": 0.0,
+                            "onNull": 0.0,
+                        },
+                    },
+                    "avgSpeedValue": {
+                        "$convert": {
+                            "input": {
+                                "$ifNull": [
+                                    "$avgSpeed",
+                                    "$averageSpeed",
+                                ],
+                            },
+                            "to": "double",
+                            "onError": 0.0,
+                            "onNull": 0.0,
+                        },
+                    },
+                    "idleSeconds": {
+                        "$convert": {
+                            "input": {
+                                "$ifNull": [
+                                    "$totalIdleDuration",
+                                    "$totalIdlingTime",
+                                ],
+                            },
+                            "to": "double",
+                            "onError": 0.0,
+                            "onNull": 0.0,
+                        },
+                    },
+                    "hardBrakingVal": {
+                        "$convert": {
+                            "input": {
+                                "$ifNull": [
+                                    "$hardBrakingCounts",
+                                    {"$ifNull": ["$hardBrakingCount", 0]},
+                                ],
+                            },
+                            "to": "double",
+                            "onError": 0.0,
+                            "onNull": 0.0,
+                        },
+                    },
+                    "hardAccelVal": {
+                        "$convert": {
+                            "input": {
+                                "$ifNull": [
+                                    "$hardAccelerationCounts",
+                                    {"$ifNull": ["$hardAccelerationCount", 0]},
+                                ],
+                            },
+                            "to": "double",
+                            "onError": 0.0,
+                            "onNull": 0.0,
+                        },
+                    },
+                    "duration_seconds": {
+                        "$cond": {
+                            "if": {
+                                "$and": [
+                                    {"$ifNull": ["$startTime", None]},
+                                    {"$ifNull": ["$endTime", None]},
+                                    {"$lt": ["$startTime", "$endTime"]},
+                                ],
+                            },
+                            "then": {
+                                "$divide": [
+                                    {"$subtract": ["$endTime", "$startTime"]},
+                                    1000,
+                                ],
+                            },
+                            "else": 0.0,
+                        },
+                    },
+                    "recorded_at": {"$ifNull": ["$endTime", "$startTime"]},
+                    "day_key": {
+                        "$dateToString": {
+                            "format": "%Y-%m-%d",
+                            "date": "$startTime",
+                            "timezone": tz_expr,
+                        },
+                    },
+                },
+            },
+            {
+                "$facet": {
+                    "longest_trip": [
+                        {"$match": {"numericDistance": {"$gt": 0}}},
+                        {"$sort": {"numericDistance": -1, "recorded_at": -1}},
+                        {"$limit": 1},
+                        {
+                            "$project": {
+                                "_id": 0,
+                                "distance": "$numericDistance",
+                                "recorded_at": 1,
+                            },
+                        },
+                    ],
+                    "longest_duration": [
+                        {"$match": {"duration_seconds": {"$gt": 0}}},
+                        {"$sort": {"duration_seconds": -1, "recorded_at": -1}},
+                        {"$limit": 1},
+                        {
+                            "$project": {
+                                "_id": 0,
+                                "duration_seconds": 1,
+                                "recorded_at": 1,
+                            },
+                        },
+                    ],
+                    "max_speed": [
+                        {"$match": {"numericMaxSpeed": {"$gt": 0}}},
+                        {"$sort": {"numericMaxSpeed": -1, "recorded_at": -1}},
+                        {"$limit": 1},
+                        {
+                            "$project": {
+                                "_id": 0,
+                                "max_speed": "$numericMaxSpeed",
+                                "recorded_at": 1,
+                            },
+                        },
+                    ],
+                    "avg_speed": [
+                        {"$match": {"avgSpeedValue": {"$gt": 0}}},
+                        {"$sort": {"avgSpeedValue": -1, "recorded_at": -1}},
+                        {"$limit": 1},
+                        {
+                            "$project": {
+                                "_id": 0,
+                                "avg_speed": "$avgSpeedValue",
+                                "recorded_at": 1,
+                            },
+                        },
+                    ],
+                    "max_idle": [
+                        {"$match": {"idleSeconds": {"$gt": 0}}},
+                        {"$sort": {"idleSeconds": -1, "recorded_at": -1}},
+                        {"$limit": 1},
+                        {
+                            "$project": {
+                                "_id": 0,
+                                "idle_seconds": "$idleSeconds",
+                                "recorded_at": 1,
+                            },
+                        },
+                    ],
+                    "max_hard_braking": [
+                        {"$match": {"hardBrakingVal": {"$gt": 0}}},
+                        {"$sort": {"hardBrakingVal": -1, "recorded_at": -1}},
+                        {"$limit": 1},
+                        {
+                            "$project": {
+                                "_id": 0,
+                                "hard_braking": "$hardBrakingVal",
+                                "recorded_at": 1,
+                            },
+                        },
+                    ],
+                    "max_hard_accel": [
+                        {"$match": {"hardAccelVal": {"$gt": 0}}},
+                        {"$sort": {"hardAccelVal": -1, "recorded_at": -1}},
+                        {"$limit": 1},
+                        {
+                            "$project": {
+                                "_id": 0,
+                                "hard_accel": "$hardAccelVal",
+                                "recorded_at": 1,
+                            },
+                        },
+                    ],
+                    "max_day_distance": [
+                        {"$match": {"day_key": {"$ne": None}}},
+                        {
+                            "$group": {
+                                "_id": "$day_key",
+                                "distance": {"$sum": "$numericDistance"},
+                                "trips": {"$sum": 1},
+                                "duration_seconds": {
+                                    "$sum": "$duration_seconds",
+                                },
+                            },
+                        },
+                        {"$sort": {"distance": -1, "_id": -1}},
+                        {"$limit": 1},
+                        {
+                            "$project": {
+                                "_id": 0,
+                                "date": "$_id",
+                                "distance": 1,
+                            },
+                        },
+                    ],
+                    "max_day_trips": [
+                        {"$match": {"day_key": {"$ne": None}}},
+                        {
+                            "$group": {
+                                "_id": "$day_key",
+                                "distance": {"$sum": "$numericDistance"},
+                                "trips": {"$sum": 1},
+                                "duration_seconds": {
+                                    "$sum": "$duration_seconds",
+                                },
+                            },
+                        },
+                        {"$sort": {"trips": -1, "_id": -1}},
+                        {"$limit": 1},
+                        {
+                            "$project": {
+                                "_id": 0,
+                                "date": "$_id",
+                                "trips": 1,
+                            },
+                        },
+                    ],
+                    "max_day_duration": [
+                        {"$match": {"day_key": {"$ne": None}}},
+                        {
+                            "$group": {
+                                "_id": "$day_key",
+                                "distance": {"$sum": "$numericDistance"},
+                                "trips": {"$sum": 1},
+                                "duration_seconds": {
+                                    "$sum": "$duration_seconds",
+                                },
+                            },
+                        },
+                        {"$sort": {"duration_seconds": -1, "_id": -1}},
+                        {"$limit": 1},
+                        {
+                            "$project": {
+                                "_id": 0,
+                                "date": "$_id",
+                                "duration_seconds": 1,
+                            },
+                        },
+                    ],
+                },
+            },
+        ]
+
+        record_results = await aggregate_to_list(Trip, record_pipeline)
+
         # Build response
         combined = {
             "total_trips": 0,
@@ -132,6 +392,7 @@ class DashboardService:
             "longest_trip_distance": 0.0,
             "most_visited": {},
             "top_destinations": [],
+            "records": {},
         }
 
         if trips_result and trips_result[0]:
@@ -146,27 +407,31 @@ class DashboardService:
                 0,
             )
 
+        def _format_location(value: Any) -> str:
+            if isinstance(value, dict):
+                return (
+                    value.get("formatted_address")
+                    or value.get("name")
+                    or value.get("address")
+                    or str(value)
+                )
+            return str(value)
+
         if trips_top:
             # The first entry is also the "most visited" location
             best = trips_top[0]
+            best_location = _format_location(best["_id"])
             combined["most_visited"] = {
-                "_id": best["_id"],
+                "location": best_location,
                 "count": best["visits"],
+                "lastVisit": best.get("last_visit"),
                 "isCustomPlace": best.get("isCustomPlace", False),
             }
 
             # Add formatted top destinations list
             combined["top_destinations"] = [
                 {
-                    "location": (
-                        d["_id"].get("formatted_address")
-                        if isinstance(d["_id"], dict)
-                        else (
-                            d["_id"].get("name")
-                            if isinstance(d["_id"], dict)
-                            else str(d["_id"])
-                        )
-                    ),
+                    "location": _format_location(d["_id"]),
                     "visits": d.get("visits", 0),
                     "distance": round(d.get("distance", 0.0), 2),
                     "duration_seconds": round(d.get("total_duration", 0.0), 0),
@@ -175,6 +440,92 @@ class DashboardService:
                 }
                 for d in trips_top
             ]
+
+        if record_results and record_results[0]:
+            record_data = record_results[0]
+
+            def _first_record(key: str) -> dict[str, Any] | None:
+                entries = record_data.get(key) or []
+                return entries[0] if entries else None
+
+            records: dict[str, Any] = {}
+            longest_trip = _first_record("longest_trip")
+            if longest_trip:
+                records["longest_trip"] = {
+                    "distance": longest_trip.get("distance", 0.0),
+                    "recorded_at": longest_trip.get("recorded_at"),
+                }
+
+            longest_duration = _first_record("longest_duration")
+            if longest_duration:
+                records["longest_duration"] = {
+                    "duration_seconds": longest_duration.get("duration_seconds", 0.0),
+                    "recorded_at": longest_duration.get("recorded_at"),
+                }
+
+            max_speed = _first_record("max_speed")
+            if max_speed:
+                records["max_speed"] = {
+                    "max_speed": max_speed.get("max_speed", 0.0),
+                    "recorded_at": max_speed.get("recorded_at"),
+                }
+
+            avg_speed = _first_record("avg_speed")
+            if avg_speed:
+                records["avg_speed"] = {
+                    "avg_speed": avg_speed.get("avg_speed", 0.0),
+                    "recorded_at": avg_speed.get("recorded_at"),
+                }
+
+            max_idle = _first_record("max_idle")
+            if max_idle:
+                records["max_idle"] = {
+                    "idle_seconds": max_idle.get("idle_seconds", 0.0),
+                    "recorded_at": max_idle.get("recorded_at"),
+                }
+
+            max_braking = _first_record("max_hard_braking")
+            if max_braking:
+                records["max_hard_braking"] = {
+                    "hard_braking": max_braking.get("hard_braking", 0),
+                    "recorded_at": max_braking.get("recorded_at"),
+                }
+
+            max_accel = _first_record("max_hard_accel")
+            if max_accel:
+                records["max_hard_accel"] = {
+                    "hard_accel": max_accel.get("hard_accel", 0),
+                    "recorded_at": max_accel.get("recorded_at"),
+                }
+
+            max_day_distance = _first_record("max_day_distance")
+            if max_day_distance:
+                records["max_day_distance"] = {
+                    "date": max_day_distance.get("date"),
+                    "distance": max_day_distance.get("distance", 0.0),
+                }
+
+            max_day_trips = _first_record("max_day_trips")
+            if max_day_trips:
+                records["max_day_trips"] = {
+                    "date": max_day_trips.get("date"),
+                    "trips": max_day_trips.get("trips", 0),
+                }
+
+            max_day_duration = _first_record("max_day_duration")
+            if max_day_duration:
+                records["max_day_duration"] = {
+                    "date": max_day_duration.get("date"),
+                    "duration_seconds": max_day_duration.get("duration_seconds", 0.0),
+                }
+
+            if combined.get("most_visited"):
+                records["most_visited"] = combined["most_visited"]
+
+            combined["records"] = records
+
+            if records.get("longest_trip"):
+                combined["longest_trip_distance"] = records["longest_trip"]["distance"]
 
         return combined
 

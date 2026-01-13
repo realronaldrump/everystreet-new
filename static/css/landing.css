@@ -184,6 +184,12 @@ body[data-route="/"] #filters-toggle {
   color: var(--text-secondary);
 }
 
+.delight-date {
+  margin-top: var(--space-1);
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}
+
 .landing-toolbar {
   display: flex;
   align-items: center;

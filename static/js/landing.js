@@ -7,6 +7,8 @@
   // Configuration
   const CONFIG = {
     refreshInterval: 60000, // 1 minute
+    recordRotationInterval: 30 * 60 * 1000, // 30 minutes
+    recordRotationStorageKey: "es:record-rotation",
     animationDuration: 500,
     activityLimit: 5,
   };
@@ -15,8 +17,18 @@
   let elements = {};
   let refreshIntervalId = null;
   let liveTrackingIntervalId = null;
+  let recordRotationIntervalId = null;
   let swipeActionsBound = false;
-  let recordDistanceCache = null;
+  let recordEntries = [];
+  let recordIndex = 0;
+  let recordInitialized = false;
+  let currentRecordId = null;
+  let recordSources = {
+    insights: null,
+    gas: null,
+    counties: null,
+    coverage: null,
+  };
 
   let pageSignal = null;
   let lastKnownLocation = null;
@@ -36,6 +48,7 @@
     setupRefreshInterval();
     checkLiveTracking();
     bindSwipeActions();
+    bindRecordCard();
     if (typeof cleanup === "function") {
       cleanup(() => {
         clearIntervals();
@@ -59,7 +72,9 @@
       lastFillup: document.getElementById("last-fillup"),
       activityFeed: document.getElementById("activity-feed"),
       recordCard: document.getElementById("record-card"),
-      recordDistance: document.getElementById("record-distance"),
+      recordValue: document.getElementById("record-value"),
+      recordTitle: document.getElementById("record-title"),
+      recordDate: document.getElementById("record-date"),
 
       widgetEditToggle: document.getElementById("widget-edit-toggle"),
       navTiles: Array.from(document.querySelectorAll(".nav-tile")),
@@ -82,6 +97,8 @@
         loadMetrics(),
         loadGasStats(),
         loadInsights(),
+        loadCountyStats(),
+        loadCoverageStats(),
         checkLiveTracking(),
         loadWeather(),
       ]);
@@ -226,49 +243,417 @@
     }
   }
 
-  function updateRecordValue(distance) {
-    const numeric = Number(distance);
-    if (!Number.isFinite(numeric) || numeric <= 0) {
-      if (elements.recordDistance) {
-        elements.recordDistance.textContent = recordDistanceCache
-          ? `${recordDistanceCache.toFixed(1)} mi`
-          : "--";
+  function bindRecordCard() {
+    if (!elements.recordCard) {
+      return;
+    }
+    const advance = () => advanceRecord({ manual: true });
+    elements.recordCard.addEventListener(
+      "click",
+      advance,
+      pageSignal ? { signal: pageSignal } : false
+    );
+    elements.recordCard.addEventListener(
+      "keydown",
+      (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          advance();
+        }
+      },
+      pageSignal ? { signal: pageSignal } : false
+    );
+  }
+
+  async function loadCountyStats() {
+    try {
+      const response = await fetch("/api/counties/visited");
+      if (!response.ok) {
+        throw new Error("Failed to fetch county stats");
       }
-      return recordDistanceCache || 0;
+      const data = await response.json();
+      if (data?.success) {
+        setRecordSource("counties", data);
+      }
+    } catch (error) {
+      console.warn("Failed to load county stats", error);
     }
-
-    if (!recordDistanceCache || numeric > recordDistanceCache) {
-      recordDistanceCache = numeric;
-    }
-
-    if (elements.recordDistance) {
-      elements.recordDistance.textContent = `${recordDistanceCache.toFixed(1)} mi`;
-    }
-
-    if (elements.recordCard) {
-      const existing = getStoredValue("es:record-metrics") || {};
-      const previous = Number(existing.longestTrip || 0);
-      elements.recordCard.classList.toggle("is-record", recordDistanceCache > previous);
-    }
-
-    return recordDistanceCache;
   }
 
-  function getRecordDistance(trips) {
-    if (!Array.isArray(trips) || trips.length === 0) {
-      return 0;
+  async function loadCoverageStats() {
+    try {
+      const response = await fetch("/api/coverage/areas");
+      if (!response.ok) {
+        throw new Error("Failed to fetch coverage areas");
+      }
+      const data = await response.json();
+      if (data?.areas) {
+        setRecordSource("coverage", data);
+      }
+    } catch (error) {
+      console.warn("Failed to load coverage stats", error);
     }
-    return trips.reduce((max, trip) => {
-      const distance = Number.parseFloat(trip.distance || 0);
-      return Number.isFinite(distance) && distance > max ? distance : max;
-    }, 0);
   }
 
-  function _formatDayKey(date) {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-    return `${year}-${month}-${day}`;
+  function setRecordSource(key, data) {
+    recordSources = { ...recordSources, [key]: data };
+    updateRecordEntries();
+  }
+
+  function updateRecordEntries() {
+    recordEntries = buildRecordEntries();
+    if (recordEntries.length === 0) {
+      renderEmptyRecord();
+      startRecordRotation();
+      return;
+    }
+
+    if (!recordInitialized) {
+      recordIndex = getInitialRecordIndex(recordEntries.length);
+      recordInitialized = true;
+    }
+    if (recordIndex >= recordEntries.length) {
+      recordIndex = 0;
+    }
+
+    renderRecordEntry(recordEntries[recordIndex]);
+    startRecordRotation();
+  }
+
+  function buildRecordEntries() {
+    const entries = [];
+    const insights = recordSources.insights;
+
+    if (insights?.records) {
+      const records = insights.records;
+      addRecordEntry(entries, {
+        id: "longest-trip-distance",
+        title: "Longest trip distance",
+        value: formatMilesValue(records.longest_trip?.distance, 1),
+        date: records.longest_trip?.recorded_at,
+        datePrefix: "On",
+      });
+      addRecordEntry(entries, {
+        id: "longest-trip-duration",
+        title: "Longest trip duration",
+        value: formatDurationShort(records.longest_duration?.duration_seconds),
+        date: records.longest_duration?.recorded_at,
+        datePrefix: "On",
+      });
+      addRecordEntry(entries, {
+        id: "max-speed",
+        title: "Top speed",
+        value: formatSpeedValue(records.max_speed?.max_speed, 1),
+        date: records.max_speed?.recorded_at,
+        datePrefix: "On",
+      });
+      addRecordEntry(entries, {
+        id: "avg-speed",
+        title: "Highest average speed",
+        value: formatSpeedValue(records.avg_speed?.avg_speed, 1),
+        date: records.avg_speed?.recorded_at,
+        datePrefix: "On",
+      });
+      addRecordEntry(entries, {
+        id: "max-idle",
+        title: "Most idle time in a trip",
+        value: formatDurationShort(records.max_idle?.idle_seconds),
+        date: records.max_idle?.recorded_at,
+        datePrefix: "On",
+      });
+      addRecordEntry(entries, {
+        id: "max-hard-braking",
+        title: "Most hard braking events",
+        value: formatCountValue(records.max_hard_braking?.hard_braking, "event"),
+        date: records.max_hard_braking?.recorded_at,
+        datePrefix: "On",
+      });
+      addRecordEntry(entries, {
+        id: "max-hard-accel",
+        title: "Most hard acceleration events",
+        value: formatCountValue(records.max_hard_accel?.hard_accel, "event"),
+        date: records.max_hard_accel?.recorded_at,
+        datePrefix: "On",
+      });
+      addRecordEntry(entries, {
+        id: "max-day-distance",
+        title: "Most miles in a day",
+        value: formatMilesValue(records.max_day_distance?.distance, 1),
+        date: records.max_day_distance?.date,
+        datePrefix: "On",
+      });
+      addRecordEntry(entries, {
+        id: "max-day-trips",
+        title: "Most trips in a day",
+        value: formatCountValue(records.max_day_trips?.trips, "trip"),
+        date: records.max_day_trips?.date,
+        datePrefix: "On",
+      });
+      addRecordEntry(entries, {
+        id: "max-day-duration",
+        title: "Most drive time in a day",
+        value: formatDurationShort(records.max_day_duration?.duration_seconds),
+        date: records.max_day_duration?.date,
+        datePrefix: "On",
+      });
+
+      const mostVisited = records.most_visited;
+      if (mostVisited) {
+        const title = mostVisited.location
+          ? `Most visited destination: ${mostVisited.location}`
+          : "Most visited destination";
+        addRecordEntry(entries, {
+          id: "most-visited",
+          title,
+          value: formatCountValue(mostVisited.count, "visit"),
+          date: mostVisited.lastVisit,
+          datePrefix: "Last visit",
+        });
+      }
+    }
+
+    const gas = recordSources.gas?.records;
+    if (gas) {
+      addRecordEntry(entries, {
+        id: "best-mpg",
+        title: "Best MPG fill-up",
+        value: formatMilesValue(gas.best_mpg?.mpg, 1, "mpg"),
+        date: gas.best_mpg?.fillup_time,
+        datePrefix: "On",
+      });
+      addRecordEntry(entries, {
+        id: "cheapest-price",
+        title: "Lowest price per gallon",
+        value: formatPricePerGallon(gas.cheapest_price?.price_per_gallon),
+        date: gas.cheapest_price?.fillup_time,
+        datePrefix: "On",
+      });
+    }
+
+    const counties = recordSources.counties;
+    if (counties?.success) {
+      addRecordEntry(entries, {
+        id: "counties-visited",
+        title: "Counties visited",
+        value: formatCountValue(counties.totalVisited, "county"),
+        date: counties.lastUpdated,
+        datePrefix: "Updated",
+      });
+    }
+
+    const coverage = recordSources.coverage;
+    if (coverage?.areas?.length) {
+      const bestArea = coverage.areas.reduce((best, area) => {
+        if (!best) {
+          return area;
+        }
+        return area.coverage_percentage > best.coverage_percentage ? area : best;
+      }, null);
+      if (bestArea) {
+        const coverageDate = bestArea.last_synced || bestArea.created_at;
+        addRecordEntry(entries, {
+          id: "coverage-best",
+          title: `Coverage in ${bestArea.display_name}`,
+          value: formatPercentage(bestArea.coverage_percentage),
+          date: coverageDate,
+          datePrefix: bestArea.last_synced ? "Last synced" : "Created",
+        });
+      }
+    }
+
+    return entries;
+  }
+
+  function addRecordEntry(entries, { id, title, value, date, datePrefix }) {
+    if (!value || value === "--") {
+      return;
+    }
+    const parsedDate = parseRecordDate(date);
+    if (!parsedDate) {
+      return;
+    }
+    const dateText = formatRecordDate(parsedDate);
+    if (!dateText) {
+      return;
+    }
+    entries.push({
+      id,
+      title,
+      value,
+      dateText: datePrefix ? `${datePrefix} ${dateText}` : dateText,
+    });
+  }
+
+  function renderRecordEntry(entry) {
+    if (!entry) {
+      renderEmptyRecord();
+      return;
+    }
+    if (elements.recordValue) {
+      elements.recordValue.textContent = entry.value;
+    }
+    if (elements.recordTitle) {
+      elements.recordTitle.textContent = entry.title;
+    }
+    if (elements.recordDate) {
+      elements.recordDate.textContent = entry.dateText;
+    }
+    if (entry.id !== currentRecordId) {
+      currentRecordId = entry.id;
+      storeRecordIndex(recordIndex);
+    }
+  }
+
+  function renderEmptyRecord() {
+    if (elements.recordValue) {
+      elements.recordValue.textContent = "--";
+    }
+    if (elements.recordTitle) {
+      elements.recordTitle.textContent = "--";
+    }
+    if (elements.recordDate) {
+      elements.recordDate.textContent = "--";
+    }
+    currentRecordId = null;
+  }
+
+  function advanceRecord({ manual = false } = {}) {
+    if (recordEntries.length === 0) {
+      return;
+    }
+    recordIndex = (recordIndex + 1) % recordEntries.length;
+    renderRecordEntry(recordEntries[recordIndex]);
+    if (manual) {
+      startRecordRotation({ reset: true });
+    }
+  }
+
+  function startRecordRotation({ reset = false } = {}) {
+    if (recordEntries.length < 2) {
+      if (recordRotationIntervalId) {
+        clearInterval(recordRotationIntervalId);
+        recordRotationIntervalId = null;
+      }
+      return;
+    }
+    if (recordRotationIntervalId && !reset) {
+      return;
+    }
+    if (recordRotationIntervalId) {
+      clearInterval(recordRotationIntervalId);
+      recordRotationIntervalId = null;
+    }
+    recordRotationIntervalId = setInterval(() => {
+      advanceRecord();
+    }, CONFIG.recordRotationInterval);
+  }
+
+  function getInitialRecordIndex(entryCount) {
+    const stored = getStoredValue(CONFIG.recordRotationStorageKey);
+    if (
+      stored
+      && Number.isInteger(stored.index)
+      && stored.index >= 0
+      && stored.index < entryCount
+    ) {
+      const elapsed = Date.now() - (stored.timestamp || 0);
+      if (elapsed < CONFIG.recordRotationInterval) {
+        return stored.index;
+      }
+      return (stored.index + 1) % entryCount;
+    }
+    return 0;
+  }
+
+  function storeRecordIndex(index) {
+    try {
+      localStorage.setItem(
+        CONFIG.recordRotationStorageKey,
+        JSON.stringify({ index, timestamp: Date.now() })
+      );
+    } catch {
+      // Ignore storage failures.
+    }
+  }
+
+  function parseRecordDate(value) {
+    if (!value) {
+      return null;
+    }
+    if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      const date = new Date(`${value}T12:00:00`);
+      return Number.isNaN(date.getTime()) ? null : date;
+    }
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+
+  function formatRecordDate(date) {
+    if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+      return null;
+    }
+    return date.toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  }
+
+  function formatMilesValue(value, decimals = 1, suffix = "mi") {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric) || numeric <= 0) {
+      return null;
+    }
+    return `${numeric.toFixed(decimals)} ${suffix}`;
+  }
+
+  function formatSpeedValue(value, decimals = 1) {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric) || numeric <= 0) {
+      return null;
+    }
+    return `${numeric.toFixed(decimals)} mph`;
+  }
+
+  function formatDurationShort(seconds) {
+    const numeric = Number(seconds);
+    if (!Number.isFinite(numeric) || numeric <= 0) {
+      return null;
+    }
+    const totalMinutes = Math.max(1, Math.round(numeric / 60));
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    if (hours > 0) {
+      const minuteLabel = minutes > 0 ? ` ${String(minutes).padStart(2, "0")}m` : "";
+      return `${hours}h${minuteLabel}`;
+    }
+    return `${minutes}m`;
+  }
+
+  function formatCountValue(value, singular, plural) {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric) || numeric <= 0) {
+      return null;
+    }
+    const rounded = Math.round(numeric);
+    const label = rounded === 1 ? singular : plural || `${singular}s`;
+    return `${rounded.toLocaleString()} ${label}`;
+  }
+
+  function formatPricePerGallon(value) {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric) || numeric <= 0) {
+      return null;
+    }
+    return `$${numeric.toFixed(2)}/gal`;
+  }
+
+  function formatPercentage(value) {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric) || numeric <= 0) {
+      return null;
+    }
+    return `${numeric.toFixed(1)}%`;
   }
 
 
@@ -438,11 +823,8 @@
       // Populate activity feed
       populateActivityFeed(trips);
 
-      updateRecordValue(recordDistanceCache || getRecordDistance(trips));
     } catch {
       populateActivityFeed([]);
-
-      updateRecordValue(recordDistanceCache || 0);
     }
   }
 
@@ -456,7 +838,7 @@
         throw new Error("Failed to fetch insights");
       }
       const data = await response.json();
-      updateRecordValue(data.longest_trip_distance || 0);
+      setRecordSource("insights", data);
     } catch (error) {
       console.warn("Failed to load driving insights", error);
     }
@@ -473,6 +855,7 @@
       }
 
       const data = await response.json();
+      setRecordSource("gas", data);
 
       if (elements.lastFillup) {
         const valueEl = elements.lastFillup.querySelector(".meta-value");
@@ -731,6 +1114,10 @@
     if (liveTrackingIntervalId) {
       clearInterval(liveTrackingIntervalId);
       liveTrackingIntervalId = null;
+    }
+    if (recordRotationIntervalId) {
+      clearInterval(recordRotationIntervalId);
+      recordRotationIntervalId = null;
     }
   }
 
