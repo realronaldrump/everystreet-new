@@ -122,14 +122,14 @@ class OdometerService:
             )
 
         # 2. End Location (Direct lat/lon)
-        if not location_data["latitude"] and trip.endLocation:
+        if location_data["latitude"] is None and trip.endLocation:
             location_data = OdometerService._extract_end_location(
                 trip.endLocation,
                 location_data,
             )
 
         # 3. Start Location (Fallback if trip has no movement)
-        if not location_data["latitude"] and trip.startLocation:
+        if location_data["latitude"] is None and trip.startLocation:
             location_data = OdometerService._extract_start_location(
                 trip.startLocation,
                 location_data,
