@@ -99,8 +99,8 @@ export async function showTaskDetails(taskId) {
     runBtn.dataset.taskId = taskId;
   }
 
-  modalBody.innerHTML
-    = '<div class="text-center"><i class="fas fa-spinner fa-spin"></i> Loading...</div>';
+  modalBody.innerHTML =
+    '<div class="text-center"><i class="fas fa-spinner fa-spin"></i> Loading...</div>';
 
   const bsModal = new bootstrap.Modal(modal);
   bsModal.show();
@@ -209,9 +209,10 @@ export function showTaskLogsModal(entry) {
   }
 
   const contentDiv = modal.querySelector("#taskLogsContent");
-  
+
   // Format the result/error for display
-  let resultHtml = '<div class="text-muted fst-italic">No result data available</div>';
+  let resultHtml =
+    '<div class="text-muted fst-italic">No result data available</div>';
   if (entry.result) {
     const jsonStr = JSON.stringify(entry.result, null, 2);
     resultHtml = `<pre class="bg-black p-3 rounded border border-secondary text-info"><code>${escapeHtml(jsonStr)}</code></pre>`;
