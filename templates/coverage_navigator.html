@@ -1,513 +1,533 @@
-{% extends "base.html" %}
-
-{% block title %}
-
-Coverage Navigator
-{% endblock %}
-
-{%
+{% extends "base.html" %} {% block title %} Coverage Navigator {% endblock %} {%
 block head_content %}
-
 
 <!-- Mapbox GL CSS -->
 <link rel="stylesheet" href="{{ CDN.mapbox_gl_css }}" />
-<link rel="stylesheet"
-      href="{{ url_for('static', path='css/coverage-navigator.css') | replace('http://', '//') }}" />
-{% endblock %}
+<link
+  rel="stylesheet"
+  href="{{ url_for('static', path='css/coverage-navigator.css') | replace('http://', '//') }}"
+/>
+{% endblock %} {% block content %}
 
-
-{% block content %}
-
-  <div class="coverage-navigator">
-    <h1 class="visually-hidden">
-Coverage Navigator
-    </h1>
-    <aside class="control-panel">
-      <div class="panel-header">
-        <div>
-          <h4>
-            <i class="fas fa-route me-2"></i>Coverage Navigator
-          </h4>
-          <p class="text-muted mb-0">
+<div class="coverage-navigator">
+  <h1 class="visually-hidden">Coverage Navigator</h1>
+  <aside class="control-panel">
+    <div class="panel-header">
+      <div>
+        <h4><i class="fas fa-route me-2"></i>Coverage Navigator</h4>
+        <p class="text-muted mb-0">
           Plan, navigate, and optimize every remaining street with minimal
           deadhead driving.
-          </p>
-        </div>
+        </p>
       </div>
+    </div>
 
-      <div class="control-section">
-        <label for="area-select" class="form-label">
-Coverage Area
-        </label>
-        <select id="area-select" class="form-select">
-          <option value="">
-Select a coverage area...
-          </option>
-        </select>
-        <div id="area-stats" class="area-stats mt-2" style="display: none">
-          <div class="stat-row">
-            <span class="stat-label">Coverage:</span>
-            <span id="area-coverage" class="stat-value" data-coverage-percent data-value-flash>--</span>
-          </div>
-          <div class="stat-row">
-            <span class="stat-label">Remaining:</span>
-            <span id="area-remaining" class="stat-value" data-value-flash>--</span>
-          </div>
+    <div class="control-section">
+      <label for="area-select" class="form-label"> Coverage Area </label>
+      <select id="area-select" class="form-select">
+        <option value="">Select a coverage area...</option>
+      </select>
+      <div id="area-stats" class="area-stats mt-2" style="display: none">
+        <div class="stat-row">
+          <span class="stat-label">Coverage:</span>
+          <span
+            id="area-coverage"
+            class="stat-value"
+            data-coverage-percent
+            data-value-flash
+            >--</span
+          >
         </div>
-      </div>
-
-      <div class="control-section">
-        <div class="section-header">
-          <h5 class="h6 mb-0">
-            <i class="fas fa-compass me-2"></i>Navigate Now
-          </h5>
-          <div class="form-check form-switch">
-            <input class="form-check-input" type="checkbox" role="switch" id="auto-follow-toggle" />
-            <label class="form-check-label" for="auto-follow-toggle">
-Auto-Follow
-            </label>
-          </div>
-        </div>
-
-        <div class="btn-grid mt-3">
-          <button id="find-next-street-btn" class="btn btn-primary" disabled>
-            <i class="fas fa-route"></i> Find Nearest Undriven Street
-          </button>
-          <button id="find-efficient-street-btn" class="btn btn-info" disabled>
-            <i class="fas fa-layer-group"></i> Find Efficient Clusters
-          </button>
-        </div>
-
-        <div id="status-message" class="text-info mt-3">
-          <i class="fas fa-info-circle"></i> Please select an area to begin.
-        </div>
-
-        <div id="target-info" class="mt-3">
-        </div>
-
-        <div id="route-info" class="mt-3">
-          <h6 class="mb-2">
-            <i class="fas fa-route me-2"></i>Active Guidance
-          </h6>
-          <div id="route-details-content">
-          </div>
-          <div class="mt-3">
-            <div class="btn-group w-100">
-              <button id="open-google-maps-btn" class="btn btn-outline-light" disabled>
-                <i class="fab fa-google me-2"></i>Open in Google Maps
-              </button>
-              <button id="open-apple-maps-btn" class="btn btn-outline-light" disabled>
-                <i class="fab fa-apple me-2"></i>Open in Apple Maps
-              </button>
-            </div>
-          </div>
-        </div>
-
-      </div>
-
-      <div id="route-progress-container" class="control-section">
-        <div class="progress-steps">
-          <div id="step-clustering" class="step">
-Clustering
-          </div>
-          <div id="step-optimizing" class="step">
-Optimizing
-          </div>
-          <div id="step-rendering" class="step">
-Rendering
-          </div>
-        </div>
-        <div class="progress">
-          <div id="route-progress-bar"
-               class="progress-bar progress-bar-striped progress-bar-animated"
-               role="progressbar"
-               style="width: 0%">
-          </div>
-        </div>
-        <div id="processing-status" class="text-muted">
-Preparing...
-        </div>
-      </div>
-
-      <div id="route-details" class="control-section">
-        <h5 class="h6">
-Route Details
-        </h5>
-        <div id="route-stats">
-        </div>
-      </div>
-
-      <div class="control-section">
-        <h5 class="h6 mb-2">
-          <i class="fas fa-magic me-2"></i>Optimal Route Planner
-        </h5>
-        <button id="generate-route-btn" class="btn btn-primary btn-lg w-100" disabled>
-          <i class="fas fa-magic me-2"></i>Generate Optimal Route
-        </button>
-        <div class="form-text mt-2">
-          <i class="fas fa-info-circle me-1"></i>
-        Uses the Rural Postman Problem algorithm to minimize deadhead driving.
-        </div>
-      </div>
-
-      <div id="progress-section" class="control-section" style="display: none">
-        <h5 class="mb-2">
-          <i class="fas fa-satellite-dish me-2"></i>Route Solver Live
-        </h5>
-        <div class="small text-muted mb-3">
-        Mapping, connecting, and plotting the circuit in real time.
-        </div>
-        <div class="progress-stages">
-          <div class="stage" data-stage="queued,waiting,initializing">
-            <div class="stage-icon">
-              <i class="fas fa-play"></i>
-            </div>
-            <div class="stage-label">
-Starting
-            </div>
-          </div>
-          <div class="stage"
-               data-stage="loading_area,loading_segments,loading_graph,fetching_osm">
-            <div class="stage-icon">
-              <i class="fas fa-database"></i>
-            </div>
-            <div class="stage-label">
-Loading
-            </div>
-          </div>
-          <div class="stage" data-stage="mapping_segments">
-            <div class="stage-icon">
-              <i class="fas fa-project-diagram"></i>
-            </div>
-            <div class="stage-label">
-Mapping
-            </div>
-          </div>
-          <div class="stage" data-stage="connectivity_check">
-            <div class="stage-icon">
-              <i class="fas fa-network-wired"></i>
-            </div>
-            <div class="stage-label">
-Linking
-            </div>
-          </div>
-          <div class="stage" data-stage="routing">
-            <div class="stage-icon">
-              <i class="fas fa-route"></i>
-            </div>
-            <div class="stage-label">
-Routing
-            </div>
-          </div>
-          <div class="stage" data-stage="finalizing,complete">
-            <div class="stage-icon">
-              <i class="fas fa-check"></i>
-            </div>
-            <div class="stage-label">
-Finalize
-            </div>
-          </div>
-        </div>
-        <div class="progress mt-3" style="height: 8px">
-          <div id="progress-bar"
-               class="progress-bar progress-bar-striped progress-bar-animated"
-               role="progressbar"
-               style="width: 0%">
-          </div>
-        </div>
-        <div id="progress-message" class="progress-message mt-2">
-          <div id="progress-message-primary">
-Initializing...
-          </div>
-          <div id="progress-message-secondary" class="progress-message-secondary">
-          </div>
-        </div>
-        <div id="elapsed-time" class="elapsed-time mt-2">
-          <i class="fas fa-clock me-1"></i>Elapsed:
-          <span id="elapsed-value">0:00</span>
-        </div>
-        <button id="cancel-task-btn" class="btn btn-outline-danger btn-sm mt-3 w-100">
-          <i class="fas fa-times me-2"></i>Cancel Task
-        </button>
-      </div>
-
-      <div id="results-section" class="control-section" style="display: none">
-        <h5 class="mb-3">
-          <i class="fas fa-chart-bar me-2"></i>Route Statistics
-        </h5>
-        <div class="stats-grid">
-          <div class="stat-card">
-            <div class="stat-icon">
-              <i class="fas fa-road"></i>
-            </div>
-            <div class="stat-content">
-              <div class="stat-value" id="stat-total-distance">
---
-              </div>
-              <div class="stat-label">
-Total Route
-              </div>
-            </div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-icon">
-              <i class="fas fa-check-circle"></i>
-            </div>
-            <div class="stat-content">
-              <div class="stat-value" id="stat-required-distance">
---
-              </div>
-              <div class="stat-label">
-Coverage
-              </div>
-            </div>
-          </div>
-          <div class="stat-card deadhead">
-            <div class="stat-icon">
-              <i class="fas fa-car-side"></i>
-            </div>
-            <div class="stat-content">
-              <div class="stat-value" id="stat-deadhead-distance">
---
-              </div>
-              <div class="stat-label">
-Deadhead
-              </div>
-            </div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-icon">
-              <i class="fas fa-percentage"></i>
-            </div>
-            <div class="stat-content">
-              <div class="stat-value" id="stat-deadhead-percent">
---
-              </div>
-              <div class="stat-label">
-Efficiency
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="export-buttons mt-3">
-          <button id="export-gpx-btn" class="btn btn-outline-primary">
-            <i class="fas fa-download me-2"></i>Export GPX
-          </button>
-          <button id="replay-animation-btn" class="btn btn-outline-primary" disabled>
-            <i class="fas fa-redo me-2"></i>Replay
-          </button>
-          <button id="start-turn-by-turn-btn" class="btn btn-outline-primary" disabled>
-            <i class="fas fa-location-arrow me-2"></i>Turn-by-Turn
-          </button>
-          <button id="clear-route-btn" class="btn btn-outline-secondary">
-            <i class="fas fa-times me-2"></i>Clear Route
-          </button>
-        </div>
-
-        <div class="layer-controls mt-3 border-top pt-3">
-          <h6 class="mb-3 text-muted text-uppercase small" style="letter-spacing: 0.5px">
-          Map Layers
-          </h6>
-          <div id="layer-list" class="layer-list">
-            <div class="layer-item" data-layer-id="route">
-              <div class="layer-header">
-                <div class="d-flex align-items-center">
-                  <div class="layer-drag-controls me-2">
-                    <button class="btn btn-sm btn-link p-0 layer-up" title="Move Up">
-                      <i class="fas fa-chevron-up"></i>
-                    </button>
-                    <button class="btn btn-sm btn-link p-0 layer-down" title="Move Down">
-                      <i class="fas fa-chevron-down"></i>
-                    </button>
-                  </div>
-                  <span class="layer-name fw-medium">Optimal Route</span>
-                </div>
-                <div class="form-check form-switch m-0">
-                  <input class="form-check-input" type="checkbox" id="toggle-route-layer" checked />
-                </div>
-              </div>
-              <div class="layer-opacity mt-2">
-                <label class="small text-muted mb-1 d-flex justify-content-between">
-                  <span>Opacity</span>
-                  <span class="opacity-value">100%</span>
-                </label>
-                <input type="range"
-                       class="form-range"
-                       id="opacity-route-layer"
-                       min="0"
-                       max="100"
-                       value="100" />
-              </div>
-            </div>
-
-            <div class="layer-item" data-layer-id="driven">
-              <div class="layer-header">
-                <div class="d-flex align-items-center">
-                  <div class="layer-drag-controls me-2">
-                    <button class="btn btn-sm btn-link p-0 layer-up" title="Move Up">
-                      <i class="fas fa-chevron-up"></i>
-                    </button>
-                    <button class="btn btn-sm btn-link p-0 layer-down" title="Move Down">
-                      <i class="fas fa-chevron-down"></i>
-                    </button>
-                  </div>
-                  <span class="layer-name fw-medium">Driven Streets</span>
-                </div>
-                <div class="form-check form-switch m-0">
-                  <input class="form-check-input" type="checkbox" id="toggle-driven-layer" checked />
-                </div>
-              </div>
-              <div class="layer-opacity mt-2">
-                <label class="small text-muted mb-1 d-flex justify-content-between">
-                  <span>Opacity</span>
-                  <span class="opacity-value">60%</span>
-                </label>
-                <input type="range"
-                       class="form-range"
-                       id="opacity-driven-layer"
-                       min="0"
-                       max="100"
-                       value="60" />
-              </div>
-            </div>
-
-            <div class="layer-item" data-layer-id="undriven">
-              <div class="layer-header">
-                <div class="d-flex align-items-center">
-                  <div class="layer-drag-controls me-2">
-                    <button class="btn btn-sm btn-link p-0 layer-up" title="Move Up">
-                      <i class="fas fa-chevron-up"></i>
-                    </button>
-                    <button class="btn btn-sm btn-link p-0 layer-down" title="Move Down">
-                      <i class="fas fa-chevron-down"></i>
-                    </button>
-                  </div>
-                  <span class="layer-name fw-medium">Undriven Streets</span>
-                </div>
-                <div class="form-check form-switch m-0">
-                  <input class="form-check-input" type="checkbox" id="toggle-undriven-layer" checked />
-                </div>
-              </div>
-              <div class="layer-opacity mt-2">
-                <label class="small text-muted mb-1 d-flex justify-content-between">
-                  <span>Opacity</span>
-                  <span class="opacity-value">80%</span>
-                </label>
-                <input type="range"
-                       class="form-range"
-                       id="opacity-undriven-layer"
-                       min="0"
-                       max="100"
-                       value="80" />
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div id="error-section" class="control-section error-section" style="display: none">
-        <div class="error-icon">
-          <i class="fas fa-exclamation-triangle"></i>
-        </div>
-        <div class="error-message" id="error-message">
-An error occurred.
-        </div>
-        <button id="retry-btn" class="btn btn-outline-danger mt-2">
-          <i class="fas fa-redo me-2"></i>Try Again
-        </button>
-      </div>
-
-      <div class="control-section mt-auto">
-        <h6 class="mb-2">
-          <i class="fas fa-history me-2"></i>Saved Routes
-        </h6>
-        <div id="route-history" class="route-history">
-          <div class="text-muted small">
-No saved routes yet.
-          </div>
-        </div>
-      </div>
-    </aside>
-
-    <div class="map-container">
-      <div id="coverage-map">
-      </div>
-      <div id="map-scanner-overlay" class="map-scanner-overlay" aria-hidden="true">
-      </div>
-      <div id="route-solver-hud" class="route-solver-hud" aria-live="polite">
-        <div class="hud-panel">
-          <div class="hud-header">
-            <div class="hud-signal">
-              <span class="hud-dot"></span>
-              <span class="hud-title">Route Solver</span>
-            </div>
-            <div id="hud-stage" class="hud-stage">
-Initializing
-            </div>
-          </div>
-          <div id="hud-message" class="hud-message">
-Initializing...
-          </div>
-          <div id="hud-submessage" class="hud-submessage">
-          </div>
-          <div class="hud-metrics">
-            <div class="hud-metric">
-              <span class="label">Segments</span>
-              <span id="hud-segments" class="value">--</span>
-            </div>
-            <div class="hud-metric">
-              <span class="label">Matched</span>
-              <span id="hud-matched" class="value">--</span>
-            </div>
-            <div class="hud-metric">
-              <span class="label">Fallback</span>
-              <span id="hud-fallback" class="value">--</span>
-            </div>
-            <div class="hud-metric">
-              <span class="label">Elapsed</span>
-              <span id="hud-elapsed" class="value">0:00</span>
-            </div>
-          </div>
-          <div id="hud-activity" class="hud-activity">
-          </div>
-        </div>
-      </div>
-      <div class="map-legend" id="map-legend" style="display: none">
-        <h6>
-Legend
-        </h6>
-        <div class="legend-item">
-          <span class="legend-color" style="background: #10b981"></span>
-          <span>Driven Streets</span>
-        </div>
-        <div class="legend-item">
-          <span class="legend-color" style="background: #ef4444"></span>
-          <span>Undriven Streets</span>
-        </div>
-        <div class="legend-item">
-          <span class="legend-color" style="background: #9333ea; height: 5px"></span>
-          <span>Optimal Route</span>
+        <div class="stat-row">
+          <span class="stat-label">Remaining:</span>
+          <span id="area-remaining" class="stat-value" data-value-flash
+            >--</span
+          >
         </div>
       </div>
     </div>
+
+    <div class="control-section">
+      <div class="section-header">
+        <h5 class="h6 mb-0"><i class="fas fa-compass me-2"></i>Navigate Now</h5>
+        <div class="form-check form-switch">
+          <input
+            class="form-check-input"
+            type="checkbox"
+            role="switch"
+            id="auto-follow-toggle"
+          />
+          <label class="form-check-label" for="auto-follow-toggle">
+            Auto-Follow
+          </label>
+        </div>
+      </div>
+
+      <div class="btn-grid mt-3">
+        <button id="find-next-street-btn" class="btn btn-primary" disabled>
+          <i class="fas fa-route"></i> Find Nearest Undriven Street
+        </button>
+        <button id="find-efficient-street-btn" class="btn btn-info" disabled>
+          <i class="fas fa-layer-group"></i> Find Efficient Clusters
+        </button>
+      </div>
+
+      <div id="status-message" class="text-info mt-3">
+        <i class="fas fa-info-circle"></i> Please select an area to begin.
+      </div>
+
+      <div id="target-info" class="mt-3"></div>
+
+      <div id="route-info" class="mt-3">
+        <h6 class="mb-2"><i class="fas fa-route me-2"></i>Active Guidance</h6>
+        <div id="route-details-content"></div>
+        <div class="mt-3">
+          <div class="btn-group w-100">
+            <button
+              id="open-google-maps-btn"
+              class="btn btn-outline-light"
+              disabled
+            >
+              <i class="fab fa-google me-2"></i>Open in Google Maps
+            </button>
+            <button
+              id="open-apple-maps-btn"
+              class="btn btn-outline-light"
+              disabled
+            >
+              <i class="fab fa-apple me-2"></i>Open in Apple Maps
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="route-progress-container" class="control-section">
+      <div class="progress-steps">
+        <div id="step-clustering" class="step">Clustering</div>
+        <div id="step-optimizing" class="step">Optimizing</div>
+        <div id="step-rendering" class="step">Rendering</div>
+      </div>
+      <div class="progress">
+        <div
+          id="route-progress-bar"
+          class="progress-bar progress-bar-striped progress-bar-animated"
+          role="progressbar"
+          style="width: 0%"
+        ></div>
+      </div>
+      <div id="processing-status" class="text-muted">Preparing...</div>
+    </div>
+
+    <div id="route-details" class="control-section">
+      <h5 class="h6">Route Details</h5>
+      <div id="route-stats"></div>
+    </div>
+
+    <div class="control-section">
+      <h5 class="h6 mb-2">
+        <i class="fas fa-magic me-2"></i>Optimal Route Planner
+      </h5>
+      <button
+        id="generate-route-btn"
+        class="btn btn-primary btn-lg w-100"
+        disabled
+      >
+        <i class="fas fa-magic me-2"></i>Generate Optimal Route
+      </button>
+      <div class="form-text mt-2">
+        <i class="fas fa-info-circle me-1"></i>
+        Uses the Rural Postman Problem algorithm to minimize deadhead driving.
+      </div>
+    </div>
+
+    <div id="progress-section" class="control-section" style="display: none">
+      <h5 class="mb-2">
+        <i class="fas fa-satellite-dish me-2"></i>Route Solver Live
+      </h5>
+      <div class="small text-muted mb-3">
+        Mapping, connecting, and plotting the circuit in real time.
+      </div>
+      <div class="progress-stages">
+        <div class="stage" data-stage="queued,waiting,initializing">
+          <div class="stage-icon">
+            <i class="fas fa-play"></i>
+          </div>
+          <div class="stage-label">Starting</div>
+        </div>
+        <div
+          class="stage"
+          data-stage="loading_area,loading_segments,loading_graph,fetching_osm"
+        >
+          <div class="stage-icon">
+            <i class="fas fa-database"></i>
+          </div>
+          <div class="stage-label">Loading</div>
+        </div>
+        <div class="stage" data-stage="mapping_segments">
+          <div class="stage-icon">
+            <i class="fas fa-project-diagram"></i>
+          </div>
+          <div class="stage-label">Mapping</div>
+        </div>
+        <div class="stage" data-stage="connectivity_check">
+          <div class="stage-icon">
+            <i class="fas fa-network-wired"></i>
+          </div>
+          <div class="stage-label">Linking</div>
+        </div>
+        <div class="stage" data-stage="routing">
+          <div class="stage-icon">
+            <i class="fas fa-route"></i>
+          </div>
+          <div class="stage-label">Routing</div>
+        </div>
+        <div class="stage" data-stage="finalizing,complete">
+          <div class="stage-icon">
+            <i class="fas fa-check"></i>
+          </div>
+          <div class="stage-label">Finalize</div>
+        </div>
+      </div>
+      <div class="progress mt-3" style="height: 8px">
+        <div
+          id="progress-bar"
+          class="progress-bar progress-bar-striped progress-bar-animated"
+          role="progressbar"
+          style="width: 0%"
+        ></div>
+      </div>
+      <div id="progress-message" class="progress-message mt-2">
+        <div id="progress-message-primary">Initializing...</div>
+        <div
+          id="progress-message-secondary"
+          class="progress-message-secondary"
+        ></div>
+      </div>
+      <div id="elapsed-time" class="elapsed-time mt-2">
+        <i class="fas fa-clock me-1"></i>Elapsed:
+        <span id="elapsed-value">0:00</span>
+      </div>
+      <button
+        id="cancel-task-btn"
+        class="btn btn-outline-danger btn-sm mt-3 w-100"
+      >
+        <i class="fas fa-times me-2"></i>Cancel Task
+      </button>
+    </div>
+
+    <div id="results-section" class="control-section" style="display: none">
+      <h5 class="mb-3">
+        <i class="fas fa-chart-bar me-2"></i>Route Statistics
+      </h5>
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-icon">
+            <i class="fas fa-road"></i>
+          </div>
+          <div class="stat-content">
+            <div class="stat-value" id="stat-total-distance">--</div>
+            <div class="stat-label">Total Route</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">
+            <i class="fas fa-check-circle"></i>
+          </div>
+          <div class="stat-content">
+            <div class="stat-value" id="stat-required-distance">--</div>
+            <div class="stat-label">Coverage</div>
+          </div>
+        </div>
+        <div class="stat-card deadhead">
+          <div class="stat-icon">
+            <i class="fas fa-car-side"></i>
+          </div>
+          <div class="stat-content">
+            <div class="stat-value" id="stat-deadhead-distance">--</div>
+            <div class="stat-label">Deadhead</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">
+            <i class="fas fa-percentage"></i>
+          </div>
+          <div class="stat-content">
+            <div class="stat-value" id="stat-deadhead-percent">--</div>
+            <div class="stat-label">Efficiency</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="export-buttons mt-3">
+        <button id="export-gpx-btn" class="btn btn-outline-primary">
+          <i class="fas fa-download me-2"></i>Export GPX
+        </button>
+        <button
+          id="replay-animation-btn"
+          class="btn btn-outline-primary"
+          disabled
+        >
+          <i class="fas fa-redo me-2"></i>Replay
+        </button>
+        <button
+          id="start-turn-by-turn-btn"
+          class="btn btn-outline-primary"
+          disabled
+        >
+          <i class="fas fa-location-arrow me-2"></i>Turn-by-Turn
+        </button>
+        <button id="clear-route-btn" class="btn btn-outline-secondary">
+          <i class="fas fa-times me-2"></i>Clear Route
+        </button>
+      </div>
+
+      <div class="layer-controls mt-3 border-top pt-3">
+        <h6
+          class="mb-3 text-muted text-uppercase small"
+          style="letter-spacing: 0.5px"
+        >
+          Map Layers
+        </h6>
+        <div id="layer-list" class="layer-list">
+          <div class="layer-item" data-layer-id="route">
+            <div class="layer-header">
+              <div class="d-flex align-items-center">
+                <div class="layer-drag-controls me-2">
+                  <button
+                    class="btn btn-sm btn-link p-0 layer-up"
+                    title="Move Up"
+                  >
+                    <i class="fas fa-chevron-up"></i>
+                  </button>
+                  <button
+                    class="btn btn-sm btn-link p-0 layer-down"
+                    title="Move Down"
+                  >
+                    <i class="fas fa-chevron-down"></i>
+                  </button>
+                </div>
+                <span class="layer-name fw-medium">Optimal Route</span>
+              </div>
+              <div class="form-check form-switch m-0">
+                <input
+                  class="form-check-input"
+                  type="checkbox"
+                  id="toggle-route-layer"
+                  checked
+                />
+              </div>
+            </div>
+            <div class="layer-opacity mt-2">
+              <label
+                class="small text-muted mb-1 d-flex justify-content-between"
+              >
+                <span>Opacity</span>
+                <span class="opacity-value">100%</span>
+              </label>
+              <input
+                type="range"
+                class="form-range"
+                id="opacity-route-layer"
+                min="0"
+                max="100"
+                value="100"
+              />
+            </div>
+          </div>
+
+          <div class="layer-item" data-layer-id="driven">
+            <div class="layer-header">
+              <div class="d-flex align-items-center">
+                <div class="layer-drag-controls me-2">
+                  <button
+                    class="btn btn-sm btn-link p-0 layer-up"
+                    title="Move Up"
+                  >
+                    <i class="fas fa-chevron-up"></i>
+                  </button>
+                  <button
+                    class="btn btn-sm btn-link p-0 layer-down"
+                    title="Move Down"
+                  >
+                    <i class="fas fa-chevron-down"></i>
+                  </button>
+                </div>
+                <span class="layer-name fw-medium">Driven Streets</span>
+              </div>
+              <div class="form-check form-switch m-0">
+                <input
+                  class="form-check-input"
+                  type="checkbox"
+                  id="toggle-driven-layer"
+                  checked
+                />
+              </div>
+            </div>
+            <div class="layer-opacity mt-2">
+              <label
+                class="small text-muted mb-1 d-flex justify-content-between"
+              >
+                <span>Opacity</span>
+                <span class="opacity-value">60%</span>
+              </label>
+              <input
+                type="range"
+                class="form-range"
+                id="opacity-driven-layer"
+                min="0"
+                max="100"
+                value="60"
+              />
+            </div>
+          </div>
+
+          <div class="layer-item" data-layer-id="undriven">
+            <div class="layer-header">
+              <div class="d-flex align-items-center">
+                <div class="layer-drag-controls me-2">
+                  <button
+                    class="btn btn-sm btn-link p-0 layer-up"
+                    title="Move Up"
+                  >
+                    <i class="fas fa-chevron-up"></i>
+                  </button>
+                  <button
+                    class="btn btn-sm btn-link p-0 layer-down"
+                    title="Move Down"
+                  >
+                    <i class="fas fa-chevron-down"></i>
+                  </button>
+                </div>
+                <span class="layer-name fw-medium">Undriven Streets</span>
+              </div>
+              <div class="form-check form-switch m-0">
+                <input
+                  class="form-check-input"
+                  type="checkbox"
+                  id="toggle-undriven-layer"
+                  checked
+                />
+              </div>
+            </div>
+            <div class="layer-opacity mt-2">
+              <label
+                class="small text-muted mb-1 d-flex justify-content-between"
+              >
+                <span>Opacity</span>
+                <span class="opacity-value">80%</span>
+              </label>
+              <input
+                type="range"
+                class="form-range"
+                id="opacity-undriven-layer"
+                min="0"
+                max="100"
+                value="80"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div
+      id="error-section"
+      class="control-section error-section"
+      style="display: none"
+    >
+      <div class="error-icon">
+        <i class="fas fa-exclamation-triangle"></i>
+      </div>
+      <div class="error-message" id="error-message">An error occurred.</div>
+      <button id="retry-btn" class="btn btn-outline-danger mt-2">
+        <i class="fas fa-redo me-2"></i>Try Again
+      </button>
+    </div>
+
+    <div class="control-section mt-auto">
+      <h6 class="mb-2"><i class="fas fa-history me-2"></i>Saved Routes</h6>
+      <div id="route-history" class="route-history">
+        <div class="text-muted small">No saved routes yet.</div>
+      </div>
+    </div>
+  </aside>
+
+  <div class="map-container">
+    <div id="coverage-map"></div>
+    <div
+      id="map-scanner-overlay"
+      class="map-scanner-overlay"
+      aria-hidden="true"
+    ></div>
+    <div id="route-solver-hud" class="route-solver-hud" aria-live="polite">
+      <div class="hud-panel">
+        <div class="hud-header">
+          <div class="hud-signal">
+            <span class="hud-dot"></span>
+            <span class="hud-title">Route Solver</span>
+          </div>
+          <div id="hud-stage" class="hud-stage">Initializing</div>
+        </div>
+        <div id="hud-message" class="hud-message">Initializing...</div>
+        <div id="hud-submessage" class="hud-submessage"></div>
+        <div class="hud-metrics">
+          <div class="hud-metric">
+            <span class="label">Segments</span>
+            <span id="hud-segments" class="value">--</span>
+          </div>
+          <div class="hud-metric">
+            <span class="label">Matched</span>
+            <span id="hud-matched" class="value">--</span>
+          </div>
+          <div class="hud-metric">
+            <span class="label">Fallback</span>
+            <span id="hud-fallback" class="value">--</span>
+          </div>
+          <div class="hud-metric">
+            <span class="label">Elapsed</span>
+            <span id="hud-elapsed" class="value">0:00</span>
+          </div>
+        </div>
+        <div id="hud-activity" class="hud-activity"></div>
+      </div>
+    </div>
+    <div class="map-legend" id="map-legend" style="display: none">
+      <h6>Legend</h6>
+      <div class="legend-item">
+        <span class="legend-color" style="background: #10b981"></span>
+        <span>Driven Streets</span>
+      </div>
+      <div class="legend-item">
+        <span class="legend-color" style="background: #ef4444"></span>
+        <span>Undriven Streets</span>
+      </div>
+      <div class="legend-item">
+        <span
+          class="legend-color"
+          style="background: #9333ea; height: 5px"
+        ></span>
+        <span>Optimal Route</span>
+      </div>
+    </div>
   </div>
-{% endblock %}
+</div>
+{% endblock %} {% block extra_js %}
 
-
-{% block extra_js %}
-
-
-  <!-- Mapbox GL JS -->
-  <script src="{{ CDN.mapbox_gl_js }}"></script>
-  <script src="{{ url_for('static', path='js/map-base.js') | replace('http://', '//') }}"></script>
-  <script src="{{ url_for('static', path='js/modules/map-styles.js') | replace('http://', '//') }}"></script>
-  <script>
-      window.MAPBOX_ACCESS_TOKEN = "{{ MAPBOX_ACCESS_TOKEN }}";
-  </script>
-  <script src="{{ url_for('static', path='js/coverage-navigator.js') | replace('http://', '//') }}"></script>
-  <script type="module"
-          src="{{ url_for('static', path='js/driving-navigation.js') | replace('http://', '//') }}"></script>
-  <script type="module"
-          src="{{ url_for('static', path='js/optimal-routes.js') | replace('http://', '//') }}"></script>
+<!-- Mapbox GL JS -->
+<script src="{{ CDN.mapbox_gl_js }}"></script>
+<script src="{{ url_for('static', path='js/map-base.js') | replace('http://', '//') }}"></script>
+<script src="{{ url_for('static', path='js/modules/map-styles.js') | replace('http://', '//') }}"></script>
+<script>
+  window.MAPBOX_ACCESS_TOKEN = "{{ MAPBOX_ACCESS_TOKEN }}";
+</script>
+<script src="{{ url_for('static', path='js/coverage-navigator.js') | replace('http://', '//') }}"></script>
+<script
+  type="module"
+  src="{{ url_for('static', path='js/driving-navigation.js') | replace('http://', '//') }}"
+></script>
+<script
+  type="module"
+  src="{{ url_for('static', path='js/optimal-routes.js') | replace('http://', '//') }}"
+></script>
 {% endblock %}

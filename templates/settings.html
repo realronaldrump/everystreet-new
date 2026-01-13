@@ -1,891 +1,871 @@
-{% extends "base.html" %}
+{% extends "base.html" %} {% block title %} Settings {% endblock %} {% block
+extra_css %}
 
-{% block title %}
+<link
+  rel="stylesheet"
+  href="{{ url_for('static', path='css/settings.css') | replace('http://', '//') }}"
+/>
+{% endblock %} {% block content %}
 
-Settings
-{% endblock %}
+<div class="container-fluid settings-container">
+  <h1 class="visually-hidden">Settings</h1>
+  <!-- Tab Navigation -->
+  <div class="settings-tabs">
+    <button class="settings-tab" data-tab="preferences">
+      <i class="fas fa-sliders-h"></i>
+      <span>Preferences</span>
+    </button>
+    <button class="settings-tab active" data-tab="background-tasks">
+      <i class="fas fa-tasks"></i>
+      <span>Background Tasks</span>
+    </button>
+    <button class="settings-tab" data-tab="data-management">
+      <i class="fas fa-database"></i>
+      <span>Data Management</span>
+    </button>
+  </div>
 
-
-{% block extra_css %}
-
-  <link rel="stylesheet"
-        href="{{ url_for('static', path='css/settings.css') | replace('http://', '//') }}" />
-{% endblock %}
-
-{% block content %}
-
-  <div class="container-fluid settings-container">
-    <h1 class="visually-hidden">
-Settings
-    </h1>
-    <!-- Tab Navigation -->
-    <div class="settings-tabs">
-      <button class="settings-tab" data-tab="preferences">
-        <i class="fas fa-sliders-h"></i>
-        <span>Preferences</span>
-      </button>
-      <button class="settings-tab active" data-tab="background-tasks">
-        <i class="fas fa-tasks"></i>
-        <span>Background Tasks</span>
-      </button>
-      <button class="settings-tab" data-tab="data-management">
-        <i class="fas fa-database"></i>
-        <span>Data Management</span>
-      </button>
-    </div>
-
-    <!-- Preferences Tab -->
-    <div class="settings-tab-content" id="preferences-tab">
-      <div class="preferences-section">
-        <form id="app-settings-form">
-          <!-- Appearance Settings -->
-          <div class="settings-group">
-            <h3 class="settings-group-title">
-              <i class="fas fa-palette"></i>
+  <!-- Preferences Tab -->
+  <div class="settings-tab-content" id="preferences-tab">
+    <div class="preferences-section">
+      <form id="app-settings-form">
+        <!-- Appearance Settings -->
+        <div class="settings-group">
+          <h3 class="settings-group-title">
+            <i class="fas fa-palette"></i>
             Appearance
-            </h3>
-            <div class="setting-item">
-              <div class="setting-label">
-                <div class="setting-label-title">
-Dark Mode
-                </div>
-                <div class="setting-label-description">
-Use dark theme for the application interface
-                </div>
+          </h3>
+          <div class="setting-item">
+            <div class="setting-label">
+              <div class="setting-label-title">Dark Mode</div>
+              <div class="setting-label-description">
+                Use dark theme for the application interface
               </div>
-              <div class="setting-control">
-                <div class="form-check form-switch">
-                  <input class="form-check-input"
-                         type="checkbox"
-                         role="switch"
-                         id="dark-mode-toggle"
-                         checked />
-                </div>
+            </div>
+            <div class="setting-control">
+              <div class="form-check form-switch">
+                <input
+                  class="form-check-input"
+                  type="checkbox"
+                  role="switch"
+                  id="dark-mode-toggle"
+                  checked
+                />
               </div>
             </div>
           </div>
+        </div>
 
-          <!-- Personalization Settings -->
-          <div class="settings-group">
-            <h3 class="settings-group-title">
-              <i class="fas fa-magic"></i>
+        <!-- Personalization Settings -->
+        <div class="settings-group">
+          <h3 class="settings-group-title">
+            <i class="fas fa-magic"></i>
             Personalization
-            </h3>
-            <div class="setting-item">
-              <div class="setting-label">
-                <div class="setting-label-title">
-Accent Color
-                </div>
-                <div class="setting-label-description">
-Choose your primary accent color for highlights and glows
-                </div>
-              </div>
-              <div class="setting-control">
-                <input type="color" id="accent-color-picker" value="#7c9d96" />
+          </h3>
+          <div class="setting-item">
+            <div class="setting-label">
+              <div class="setting-label-title">Accent Color</div>
+              <div class="setting-label-description">
+                Choose your primary accent color for highlights and glows
               </div>
             </div>
-            <div class="setting-item">
-              <div class="setting-label">
-                <div class="setting-label-title">
-Information Density
-                </div>
-                <div class="setting-label-description">
-Adjust spacing to fit more or less on each screen
-                </div>
-              </div>
-              <div class="setting-control">
-                <div class="option-group" role="radiogroup" aria-label="Information density">
-                  <label class="option-pill">
-                    <input type="radio" name="ui-density" value="compact" />
-                    <span>Compact</span>
-                  </label>
-                  <label class="option-pill">
-                    <input type="radio" name="ui-density" value="comfortable" checked />
-                    <span>Comfortable</span>
-                  </label>
-                  <label class="option-pill">
-                    <input type="radio" name="ui-density" value="spacious" />
-                    <span>Spacious</span>
-                  </label>
-                </div>
+            <div class="setting-control">
+              <input type="color" id="accent-color-picker" value="#7c9d96" />
+            </div>
+          </div>
+          <div class="setting-item">
+            <div class="setting-label">
+              <div class="setting-label-title">Information Density</div>
+              <div class="setting-label-description">
+                Adjust spacing to fit more or less on each screen
               </div>
             </div>
-            <div class="setting-item">
-              <div class="setting-label">
-                <div class="setting-label-title">
-Animation Style
-                </div>
-                <div class="setting-label-description">
-Choose how expressive interface animations feel
-                </div>
-              </div>
-              <div class="setting-control">
-                <div class="option-group" role="radiogroup" aria-label="Animation style">
-                  <label class="option-pill">
-                    <input type="radio" name="motion-mode" value="subtle" />
-                    <span>Subtle</span>
-                  </label>
-                  <label class="option-pill">
-                    <input type="radio" name="motion-mode" value="balanced" checked />
-                    <span>Balanced</span>
-                  </label>
-                  <label class="option-pill">
-                    <input type="radio" name="motion-mode" value="playful" />
-                    <span>Playful</span>
-                  </label>
-                </div>
-              </div>
-            </div>
-            <div class="setting-item">
-              <div class="setting-label">
-                <div class="setting-label-title">
-Widget Editing Mode
-                </div>
-                <div class="setting-label-description">
-Rearrange dashboard tiles and quick launch widgets
-                </div>
-              </div>
-              <div class="setting-control">
-                <div class="form-check form-switch">
-                  <input class="form-check-input" type="checkbox" id="widget-edit-mode" />
-                </div>
+            <div class="setting-control">
+              <div
+                class="option-group"
+                role="radiogroup"
+                aria-label="Information density"
+              >
+                <label class="option-pill">
+                  <input type="radio" name="ui-density" value="compact" />
+                  <span>Compact</span>
+                </label>
+                <label class="option-pill">
+                  <input
+                    type="radio"
+                    name="ui-density"
+                    value="comfortable"
+                    checked
+                  />
+                  <span>Comfortable</span>
+                </label>
+                <label class="option-pill">
+                  <input type="radio" name="ui-density" value="spacious" />
+                  <span>Spacious</span>
+                </label>
               </div>
             </div>
           </div>
+          <div class="setting-item">
+            <div class="setting-label">
+              <div class="setting-label-title">Animation Style</div>
+              <div class="setting-label-description">
+                Choose how expressive interface animations feel
+              </div>
+            </div>
+            <div class="setting-control">
+              <div
+                class="option-group"
+                role="radiogroup"
+                aria-label="Animation style"
+              >
+                <label class="option-pill">
+                  <input type="radio" name="motion-mode" value="subtle" />
+                  <span>Subtle</span>
+                </label>
+                <label class="option-pill">
+                  <input
+                    type="radio"
+                    name="motion-mode"
+                    value="balanced"
+                    checked
+                  />
+                  <span>Balanced</span>
+                </label>
+                <label class="option-pill">
+                  <input type="radio" name="motion-mode" value="playful" />
+                  <span>Playful</span>
+                </label>
+              </div>
+            </div>
+          </div>
+          <div class="setting-item">
+            <div class="setting-label">
+              <div class="setting-label-title">Widget Editing Mode</div>
+              <div class="setting-label-description">
+                Rearrange dashboard tiles and quick launch widgets
+              </div>
+            </div>
+            <div class="setting-control">
+              <div class="form-check form-switch">
+                <input
+                  class="form-check-input"
+                  type="checkbox"
+                  id="widget-edit-mode"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
 
-          <!-- Map Settings -->
-          <div class="settings-group">
-            <h3 class="settings-group-title">
-              <i class="fas fa-map"></i>
+        <!-- Map Settings -->
+        <div class="settings-group">
+          <h3 class="settings-group-title">
+            <i class="fas fa-map"></i>
             Map
-            </h3>
-            <div class="setting-item">
-              <div class="setting-label">
-                <div class="setting-label-title">
-Highlight Recent Trips
-                </div>
-                <div class="setting-label-description">
-Visually emphasize recently completed trips on the map
-                </div>
-              </div>
-              <div class="setting-control">
-                <div class="form-check form-switch">
-                  <input class="form-check-input"
-                         type="checkbox"
-                         role="switch"
-                         id="highlight-recent-trips"
-                         checked />
-                </div>
+          </h3>
+          <div class="setting-item">
+            <div class="setting-label">
+              <div class="setting-label-title">Highlight Recent Trips</div>
+              <div class="setting-label-description">
+                Visually emphasize recently completed trips on the map
               </div>
             </div>
-            <div class="setting-item">
-              <div class="setting-label">
-                <div class="setting-label-title">
-Auto-Center on Live Location
-                </div>
-                <div class="setting-label-description">
-Automatically center the map on your current location during live tracking
-                </div>
-              </div>
-              <div class="setting-control">
-                <div class="form-check form-switch">
-                  <input class="form-check-input"
-                         type="checkbox"
-                         role="switch"
-                         id="auto-center-toggle"
-                         checked />
-                </div>
+            <div class="setting-control">
+              <div class="form-check form-switch">
+                <input
+                  class="form-check-input"
+                  type="checkbox"
+                  role="switch"
+                  id="highlight-recent-trips"
+                  checked
+                />
               </div>
             </div>
           </div>
+          <div class="setting-item">
+            <div class="setting-label">
+              <div class="setting-label-title">
+                Auto-Center on Live Location
+              </div>
+              <div class="setting-label-description">
+                Automatically center the map on your current location during
+                live tracking
+              </div>
+            </div>
+            <div class="setting-control">
+              <div class="form-check form-switch">
+                <input
+                  class="form-check-input"
+                  type="checkbox"
+                  role="switch"
+                  id="auto-center-toggle"
+                  checked
+                />
+              </div>
+            </div>
+          </div>
+        </div>
 
-          <!-- Live Tracking Settings -->
-          <div class="settings-group">
-            <h3 class="settings-group-title">
-              <i class="fas fa-broadcast-tower"></i>
+        <!-- Live Tracking Settings -->
+        <div class="settings-group">
+          <h3 class="settings-group-title">
+            <i class="fas fa-broadcast-tower"></i>
             Live Tracking
-            </h3>
-            <div class="setting-item">
-              <div class="setting-label">
-                <div class="setting-label-title">
-Show Live Tracking Panel
-                </div>
-                <div class="setting-label-description">
-Display the live tracking panel on the main map
-                </div>
-              </div>
-              <div class="setting-control">
-                <div class="form-check form-switch">
-                  <input class="form-check-input"
-                         type="checkbox"
-                         role="switch"
-                         id="show-live-tracking"
-                         checked />
-                </div>
+          </h3>
+          <div class="setting-item">
+            <div class="setting-label">
+              <div class="setting-label-title">Show Live Tracking Panel</div>
+              <div class="setting-label-description">
+                Display the live tracking panel on the main map
               </div>
             </div>
-            <div class="setting-item">
-              <div class="setting-label">
-                <div class="setting-label-title">
-Tracking Path Style
-                </div>
-                <div class="setting-label-description">
-Customize the color and opacity of the live tracking path
-                </div>
+            <div class="setting-control">
+              <div class="form-check form-switch">
+                <input
+                  class="form-check-input"
+                  type="checkbox"
+                  role="switch"
+                  id="show-live-tracking"
+                  checked
+                />
               </div>
-              <div class="setting-control">
-                <div class="color-picker-row">
-                  <input type="color" id="polyline-color" value="#00FF00" />
-                  <div class="opacity-slider">
-                    <span>Opacity:</span>
-                    <input type="range" min="0.1" max="1" step="0.1" id="polyline-opacity" value="0.8" />
-                    <span id="opacity-value" class="opacity-slider-value">0.8</span>
-                  </div>
+            </div>
+          </div>
+          <div class="setting-item">
+            <div class="setting-label">
+              <div class="setting-label-title">Tracking Path Style</div>
+              <div class="setting-label-description">
+                Customize the color and opacity of the live tracking path
+              </div>
+            </div>
+            <div class="setting-control">
+              <div class="color-picker-row">
+                <input type="color" id="polyline-color" value="#00FF00" />
+                <div class="opacity-slider">
+                  <span>Opacity:</span>
+                  <input
+                    type="range"
+                    min="0.1"
+                    max="1"
+                    step="0.1"
+                    id="polyline-opacity"
+                    value="0.8"
+                  />
+                  <span id="opacity-value" class="opacity-slider-value"
+                    >0.8</span
+                  >
                 </div>
               </div>
             </div>
           </div>
+        </div>
 
-          <!-- Trip Processing Settings -->
-          <div class="settings-group">
-            <h3 class="settings-group-title">
-              <i class="fas fa-cogs"></i>
+        <!-- Trip Processing Settings -->
+        <div class="settings-group">
+          <h3 class="settings-group-title">
+            <i class="fas fa-cogs"></i>
             Trip Processing
-            </h3>
-            <div class="setting-item">
-              <div class="setting-label">
-                <div class="setting-label-title">
-Geocode Trips on Fetch
-                </div>
-                <div class="setting-label-description">
-Automatically reverse geocode trips when fetched from Bouncie to get start and end locations. Disable to reduce processing time.
-                </div>
+          </h3>
+          <div class="setting-item">
+            <div class="setting-label">
+              <div class="setting-label-title">Geocode Trips on Fetch</div>
+              <div class="setting-label-description">
+                Automatically reverse geocode trips when fetched from Bouncie to
+                get start and end locations. Disable to reduce processing time.
               </div>
-              <div class="setting-control">
-                <div class="form-check form-switch">
-                  <input class="form-check-input"
-                         type="checkbox"
-                         role="switch"
-                         id="geocode-trips-on-fetch"
-                         checked />
-                </div>
+            </div>
+            <div class="setting-control">
+              <div class="form-check form-switch">
+                <input
+                  class="form-check-input"
+                  type="checkbox"
+                  role="switch"
+                  id="geocode-trips-on-fetch"
+                  checked
+                />
               </div>
             </div>
           </div>
+        </div>
 
-          <div class="preferences-actions">
-            <button type="reset" class="btn btn-outline-secondary">
-              <i class="fas fa-undo"></i> Reset
-            </button>
-            <button type="submit" class="btn btn-primary">
-              <i class="fas fa-save"></i> Save Preferences
-            </button>
-          </div>
-        </form>
-      </div>
+        <div class="preferences-actions">
+          <button type="reset" class="btn btn-outline-secondary">
+            <i class="fas fa-undo"></i> Reset
+          </button>
+          <button type="submit" class="btn btn-primary">
+            <i class="fas fa-save"></i> Save Preferences
+          </button>
+        </div>
+      </form>
     </div>
+  </div>
 
-    <!-- Background Tasks Tab -->
-    <div class="settings-tab-content active" id="background-tasks-tab">
-      <!-- Global Task Control -->
-      <div class="settings-group">
-        <h3 class="settings-group-title">
-          <i class="fas fa-sliders-h"></i>
+  <!-- Background Tasks Tab -->
+  <div class="settings-tab-content active" id="background-tasks-tab">
+    <!-- Global Task Control -->
+    <div class="settings-group">
+      <h3 class="settings-group-title">
+        <i class="fas fa-sliders-h"></i>
         Global Task Control
-        </h3>
-        <div class="setting-item">
-          <div class="setting-label">
-            <div class="setting-label-title">
-Globally Disable Tasks
-            </div>
-            <div class="setting-label-description">
-Pause all automated background tasks
-            </div>
-          </div>
-          <div class="setting-control">
-            <div class="form-check form-switch">
-              <input class="form-check-input" type="checkbox" id="globalDisableSwitch" />
-            </div>
+      </h3>
+      <div class="setting-item">
+        <div class="setting-label">
+          <div class="setting-label-title">Globally Disable Tasks</div>
+          <div class="setting-label-description">
+            Pause all automated background tasks
           </div>
         </div>
-
-        <div class="task-action-buttons">
-          <button class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#pauseModal">
-            <i class="fas fa-pause"></i>
-            <span class="btn-text">Pause Tasks</span>
-          </button>
-          <button class="btn btn-success" id="resumeBtn">
-            <i class="fas fa-play"></i>
-            <span class="btn-text">Resume Tasks</span>
-          </button>
-          <button class="btn btn-danger" id="stopAllBtn">
-            <i class="fas fa-stop"></i>
-            <span class="btn-text">Stop All</span>
-          </button>
-          <button class="btn btn-warning" id="resetTasksBtn">
-            <i class="fas fa-sync"></i>
-            <span class="btn-text">Reset Tasks</span>
-          </button>
-          <button class="btn btn-primary" id="enableAllBtn">
-            <i class="fas fa-check"></i>
-            <span class="btn-text">Enable All</span>
-          </button>
-          <button class="btn btn-secondary" id="disableAllBtn">
-            <i class="fas fa-times"></i>
-            <span class="btn-text">Disable All</span>
-          </button>
-          <button class="btn btn-info" id="manualRunAllBtn">
-            <i class="fas fa-play-circle"></i>
-            <span class="btn-text">Run All Now</span>
-          </button>
+        <div class="setting-control">
+          <div class="form-check form-switch">
+            <input
+              class="form-check-input"
+              type="checkbox"
+              id="globalDisableSwitch"
+            />
+          </div>
         </div>
       </div>
 
-      <!-- Task Configuration -->
-      <div class="settings-group">
-        <h3 class="settings-group-title">
-          <i class="fas fa-tasks"></i>
-        Task Configuration
-        </h3>
-        <div class="table-responsive">
-          <table class="table table-dark" id="taskConfigTable">
-            <thead>
-              <tr>
-                <th>
-Task
-                </th>
-                <th>
-Interval
-                </th>
-                <th>
-Enabled
-                </th>
-                <th style="width: 150px">
-Status
-                </th>
-                <th class="col-hide-mobile">
-Last Run
-                </th>
-                <th class="col-hide-mobile">
-Next Run
-                </th>
-                <th>
-Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              <!-- Task rows will be populated by JavaScript -->
-            </tbody>
-          </table>
-        </div>
-        <button class="btn btn-primary" id="saveTaskConfigBtn">
-          <i class="fas fa-save"></i> Save Configuration
+      <div class="task-action-buttons">
+        <button
+          class="btn btn-warning"
+          data-bs-toggle="modal"
+          data-bs-target="#pauseModal"
+        >
+          <i class="fas fa-pause"></i>
+          <span class="btn-text">Pause Tasks</span>
+        </button>
+        <button class="btn btn-success" id="resumeBtn">
+          <i class="fas fa-play"></i>
+          <span class="btn-text">Resume Tasks</span>
+        </button>
+        <button class="btn btn-danger" id="stopAllBtn">
+          <i class="fas fa-stop"></i>
+          <span class="btn-text">Stop All</span>
+        </button>
+        <button class="btn btn-warning" id="resetTasksBtn">
+          <i class="fas fa-sync"></i>
+          <span class="btn-text">Reset Tasks</span>
+        </button>
+        <button class="btn btn-primary" id="enableAllBtn">
+          <i class="fas fa-check"></i>
+          <span class="btn-text">Enable All</span>
+        </button>
+        <button class="btn btn-secondary" id="disableAllBtn">
+          <i class="fas fa-times"></i>
+          <span class="btn-text">Disable All</span>
+        </button>
+        <button class="btn btn-info" id="manualRunAllBtn">
+          <i class="fas fa-play-circle"></i>
+          <span class="btn-text">Run All Now</span>
         </button>
       </div>
+    </div>
 
-      <!-- Manual Trip Fetch -->
-      <div class="settings-group" id="manual-fetch-card">
-        <h3 class="settings-group-title">
-          <i class="fas fa-cloud-download-alt"></i>
+    <!-- Task Configuration -->
+    <div class="settings-group">
+      <h3 class="settings-group-title">
+        <i class="fas fa-tasks"></i>
+        Task Configuration
+      </h3>
+      <div class="table-responsive">
+        <table class="table table-dark" id="taskConfigTable">
+          <thead>
+            <tr>
+              <th>Task</th>
+              <th>Interval</th>
+              <th>Enabled</th>
+              <th style="width: 150px">Status</th>
+              <th class="col-hide-mobile">Last Run</th>
+              <th class="col-hide-mobile">Next Run</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- Task rows will be populated by JavaScript -->
+          </tbody>
+        </table>
+      </div>
+      <button class="btn btn-primary" id="saveTaskConfigBtn">
+        <i class="fas fa-save"></i> Save Configuration
+      </button>
+    </div>
+
+    <!-- Manual Trip Fetch -->
+    <div class="settings-group" id="manual-fetch-card">
+      <h3 class="settings-group-title">
+        <i class="fas fa-cloud-download-alt"></i>
         Manual Trip Fetch
-        </h3>
-        <p class="text-muted small">
-        Schedule an on-demand trip fetch for a specific date range. Map
-        matching can be toggled for the fetched trips.
-        </p>
-        <form id="manualFetchTripsForm" class="row g-3">
-          <div class="col-md-4">
-            <label for="manual-fetch-start" class="form-label">
-Start
-            </label>
-            <input type="datetime-local" class="form-control" id="manual-fetch-start" required />
-          </div>
-          <div class="col-md-4">
-            <label for="manual-fetch-end" class="form-label">
-End
-            </label>
-            <input type="datetime-local" class="form-control" id="manual-fetch-end" required />
-          </div>
-          <div class="col-md-4 d-flex align-items-end">
-            <div class="form-check form-switch">
-              <input class="form-check-input" type="checkbox" id="manual-fetch-map-match" />
-              <label class="form-check-label" for="manual-fetch-map-match">
+      </h3>
+      <p class="text-muted small">
+        Schedule an on-demand trip fetch for a specific date range. Map matching
+        can be toggled for the fetched trips.
+      </p>
+      <form id="manualFetchTripsForm" class="row g-3">
+        <div class="col-md-4">
+          <label for="manual-fetch-start" class="form-label"> Start </label>
+          <input
+            type="datetime-local"
+            class="form-control"
+            id="manual-fetch-start"
+            required
+          />
+        </div>
+        <div class="col-md-4">
+          <label for="manual-fetch-end" class="form-label"> End </label>
+          <input
+            type="datetime-local"
+            class="form-control"
+            id="manual-fetch-end"
+            required
+          />
+        </div>
+        <div class="col-md-4 d-flex align-items-end">
+          <div class="form-check form-switch">
+            <input
+              class="form-check-input"
+              type="checkbox"
+              id="manual-fetch-map-match"
+            />
+            <label class="form-check-label" for="manual-fetch-map-match">
               Enable map matching
-              </label>
-            </div>
+            </label>
           </div>
-          <div class="col-12 d-flex align-items-center gap-3 flex-wrap">
-            <button type="submit" class="btn btn-success" id="manual-fetch-submit">
-              <i class="fas fa-cloud-download-alt"></i> Fetch Trips
-            </button>
-            <span class="text-muted" id="manual-fetch-status"></span>
-          </div>
-        </form>
-      </div>
+        </div>
+        <div class="col-12 d-flex align-items-center gap-3 flex-wrap">
+          <button
+            type="submit"
+            class="btn btn-success"
+            id="manual-fetch-submit"
+          >
+            <i class="fas fa-cloud-download-alt"></i> Fetch Trips
+          </button>
+          <span class="text-muted" id="manual-fetch-status"></span>
+        </div>
+      </form>
+    </div>
 
-      <!-- Fetch All Missing Trips -->
-      <div class="settings-group">
-        <h3 class="settings-group-title">
-          <i class="fas fa-sync-alt"></i>
+    <!-- Fetch All Missing Trips -->
+    <div class="settings-group">
+      <h3 class="settings-group-title">
+        <i class="fas fa-sync-alt"></i>
         Fetch All Missing Trips
-        </h3>
-        <p class="text-muted small">
-        Fetches all trips from a configurable start date to now. Useful for filling gaps.
-        </p>
-        <div class="d-flex align-items-center gap-3 flex-wrap">
-          <button class="btn btn-warning"
-                  data-bs-toggle="modal"
-                  data-bs-target="#fetchAllMissingModal"
-                  id="openFetchAllMissingModalBtn">
-            <i class="fas fa-sync-alt"></i> Fetch All Missing Trips
-          </button>
-          <span class="text-muted" id="fetchAllMissingStatus"></span>
-        </div>
+      </h3>
+      <p class="text-muted small">
+        Fetches all trips from a configurable start date to now. Useful for
+        filling gaps.
+      </p>
+      <div class="d-flex align-items-center gap-3 flex-wrap">
+        <button
+          class="btn btn-warning"
+          data-bs-toggle="modal"
+          data-bs-target="#fetchAllMissingModal"
+          id="openFetchAllMissingModalBtn"
+        >
+          <i class="fas fa-sync-alt"></i> Fetch All Missing Trips
+        </button>
+        <span class="text-muted" id="fetchAllMissingStatus"></span>
       </div>
+    </div>
 
-      <!-- Task History -->
-      <div class="settings-group">
-        <h3 class="settings-group-title">
-          <i class="fas fa-history"></i>
+    <!-- Task History -->
+    <div class="settings-group">
+      <h3 class="settings-group-title">
+        <i class="fas fa-history"></i>
         Task History
-        </h3>
-        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-          <button class="btn btn-danger btn-sm" id="clearHistoryBtn">
-            <i class="fas fa-trash"></i> Clear History
-          </button>
-        </div>
-        <div class="table-responsive">
-          <table class="table table-dark" id="taskHistoryTable">
-            <thead>
-              <tr>
-                <th>
-Task
-                </th>
-                <th>
-Status
-                </th>
-                <th class="col-hide-mobile">
-Start Time
-                </th>
-                <th>
-Duration
-                </th>
-                <th class="col-hide-mobile">
-Result
-                </th>
-                <th>
-Details
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              <!-- Task history will be populated by JavaScript -->
-            </tbody>
-          </table>
-          <div id="taskHistoryPagination" class="mt-3">
-            <!-- Pagination controls will be added by JavaScript -->
-          </div>
+      </h3>
+      <div
+        class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2"
+      >
+        <button class="btn btn-danger btn-sm" id="clearHistoryBtn">
+          <i class="fas fa-trash"></i> Clear History
+        </button>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-dark" id="taskHistoryTable">
+          <thead>
+            <tr>
+              <th>Task</th>
+              <th>Status</th>
+              <th class="col-hide-mobile">Start Time</th>
+              <th>Duration</th>
+              <th class="col-hide-mobile">Result</th>
+              <th>Details</th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- Task history will be populated by JavaScript -->
+          </tbody>
+        </table>
+        <div id="taskHistoryPagination" class="mt-3">
+          <!-- Pagination controls will be added by JavaScript -->
         </div>
       </div>
     </div>
+  </div>
 
-    <!-- Data Management Tab -->
-    <div class="settings-tab-content" id="data-management-tab">
-      <!-- Invalid Trips Section -->
-      <div class="settings-group">
-        <h3 class="settings-group-title">
-          <i class="fas fa-exclamation-triangle"></i>
+  <!-- Data Management Tab -->
+  <div class="settings-tab-content" id="data-management-tab">
+    <!-- Invalid Trips Section -->
+    <div class="settings-group">
+      <h3 class="settings-group-title">
+        <i class="fas fa-exclamation-triangle"></i>
         Invalid Trips Review
-        </h3>
-        <p class="text-muted small">
-        Review trips that were marked as invalid. You can restore them if they are valid or permanently delete them.
-        </p>
-        <div class="table-responsive">
-          <table class="table table-dark table-hover" id="invalidTripsTable">
-            <thead>
-              <tr>
-                <th>
-Date
-                </th>
-                <th>
-Source
-                </th>
-                <th>
-Reason
-                </th>
-                <th>
-Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              <!-- Populated by JS -->
-            </tbody>
-          </table>
-        </div>
-        <div id="invalidTripsPagination" class="mt-3">
-        </div>
+      </h3>
+      <p class="text-muted small">
+        Review trips that were marked as invalid. You can restore them if they
+        are valid or permanently delete them.
+      </p>
+      <div class="table-responsive">
+        <table class="table table-dark table-hover" id="invalidTripsTable">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Source</th>
+              <th>Reason</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- Populated by JS -->
+          </tbody>
+        </table>
       </div>
+      <div id="invalidTripsPagination" class="mt-3"></div>
+    </div>
 
-      <!-- Re-geocode Trips Section -->
-      <div class="settings-group">
-        <h3 class="settings-group-title">
-          <i class="fas fa-map-marker-alt"></i>
+    <!-- Re-geocode Trips Section -->
+    <div class="settings-group">
+      <h3 class="settings-group-title">
+        <i class="fas fa-map-marker-alt"></i>
         Re-geocode Trips
-        </h3>
-        <p class="text-muted small">
-Re-geocode trips within a date range. Only trips without addresses will be geocoded. Efficiently checks against custom places.
-        </p>
+      </h3>
+      <p class="text-muted small">
+        Re-geocode trips within a date range. Only trips without addresses will
+        be geocoded. Efficiently checks against custom places.
+      </p>
 
+      <div class="mb-3">
+        <label for="geocode-type" class="form-label"> Select Method: </label>
+        <select id="geocode-type" class="form-select">
+          <option value="date">Pick a Date Range</option>
+          <option value="interval">Use a Predefined Interval</option>
+          <option value="all">All Trips</option>
+        </select>
+      </div>
+
+      <div id="geocode-date-range">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label for="geocode-start" class="form-label"> Start Date: </label>
+            <input
+              type="text"
+              id="geocode-start"
+              class="form-control datepicker"
+            />
+          </div>
+          <div class="col-md-6">
+            <label for="geocode-end" class="form-label"> End Date: </label>
+            <input
+              type="text"
+              id="geocode-end"
+              class="form-control datepicker"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div id="geocode-interval" style="display: none">
         <div class="mb-3">
-          <label for="geocode-type" class="form-label">
-Select Method:
+          <label for="geocode-interval-select" class="form-label">
+            Select Interval:
           </label>
-          <select id="geocode-type" class="form-select">
-            <option value="date">
-Pick a Date Range
-            </option>
-            <option value="interval">
-Use a Predefined Interval
-            </option>
-            <option value="all">
-All Trips
-            </option>
+          <select id="geocode-interval-select" class="form-select">
+            <option value="1">Last Day</option>
+            <option value="3">Last 3 Days</option>
+            <option value="7">Last Week</option>
+            <option value="30">Last Month</option>
+            <option value="90">Last 3 Months</option>
+            <option value="180">Last 6 Months</option>
+            <option value="365">Last Year</option>
+            <option value="730">Last 2 Years</option>
           </select>
         </div>
+      </div>
 
-        <div id="geocode-date-range">
-          <div class="row g-3">
-            <div class="col-md-6">
-              <label for="geocode-start" class="form-label">
-Start Date:
-              </label>
-              <input type="text" id="geocode-start" class="form-control datepicker" />
-            </div>
-            <div class="col-md-6">
-              <label for="geocode-end" class="form-label">
-End Date:
-              </label>
-              <input type="text" id="geocode-end" class="form-control datepicker" />
-            </div>
-          </div>
-        </div>
+      <div class="mt-3">
+        <button id="geocode-trips-btn" class="btn btn-warning">
+          <i class="fas fa-sync-alt"></i> Re-geocode Trips
+        </button>
+        <div id="geocode-trips-status" class="mt-2"></div>
+      </div>
 
-        <div id="geocode-interval" style="display: none">
-          <div class="mb-3">
-            <label for="geocode-interval-select" class="form-label">
-Select Interval:
-            </label>
-            <select id="geocode-interval-select" class="form-select">
-              <option value="1">
-Last Day
-              </option>
-              <option value="3">
-Last 3 Days
-              </option>
-              <option value="7">
-Last Week
-              </option>
-              <option value="30">
-Last Month
-              </option>
-              <option value="90">
-Last 3 Months
-              </option>
-              <option value="180">
-Last 6 Months
-              </option>
-              <option value="365">
-Last Year
-              </option>
-              <option value="730">
-Last 2 Years
-              </option>
-            </select>
-          </div>
-        </div>
-
-        <div class="mt-3">
-          <button id="geocode-trips-btn" class="btn btn-warning">
-            <i class="fas fa-sync-alt"></i> Re-geocode Trips
-          </button>
-          <div id="geocode-trips-status" class="mt-2">
-          </div>
-        </div>
-
-        <!-- Progress Panel -->
-        <div id="geocode-progress-panel" class="mt-3" style="display: none">
-          <div class="card bg-secondary">
-            <div class="card-body">
-              <h5 class="card-title">
-Geocoding Progress
-              </h5>
-              <div class="progress mb-2" style="height: 25px">
-                <div id="geocode-progress-bar"
-                     class="progress-bar progress-bar-striped progress-bar-animated"
-                     role="progressbar"
-                     style="width: 0%"
-                     aria-valuenow="0"
-                     aria-valuemin="0"
-                     aria-valuemax="100">
+      <!-- Progress Panel -->
+      <div id="geocode-progress-panel" class="mt-3" style="display: none">
+        <div class="card bg-secondary">
+          <div class="card-body">
+            <h5 class="card-title">Geocoding Progress</h5>
+            <div class="progress mb-2" style="height: 25px">
+              <div
+                id="geocode-progress-bar"
+                class="progress-bar progress-bar-striped progress-bar-animated"
+                role="progressbar"
+                style="width: 0%"
+                aria-valuenow="0"
+                aria-valuemin="0"
+                aria-valuemax="100"
+              >
                 0%
-                </div>
-              </div>
-              <div id="geocode-progress-message" class="small mb-2">
-              </div>
-              <div id="geocode-progress-metrics" class="small text-muted">
               </div>
             </div>
+            <div id="geocode-progress-message" class="small mb-2"></div>
+            <div id="geocode-progress-metrics" class="small text-muted"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Remap Matched Trips Section -->
+    <div class="settings-group">
+      <h3 class="settings-group-title">
+        <i class="fas fa-route"></i>
+        Remap Matched Trips
+      </h3>
+      <p class="text-muted small">
+        Re-match trips to the street network within a specific date range.
+      </p>
+
+      <div class="mb-3">
+        <label for="remap-type" class="form-label"> Select Method: </label>
+        <select id="remap-type" class="form-select">
+          <option value="date">Pick a Date Range</option>
+          <option value="interval">Use a Predefined Interval</option>
+        </select>
+      </div>
+
+      <div id="remap-date-range">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label for="remap-start" class="form-label"> Start Date: </label>
+            <input
+              type="text"
+              id="remap-start"
+              class="form-control datepicker"
+            />
+          </div>
+          <div class="col-md-6">
+            <label for="remap-end" class="form-label"> End Date: </label>
+            <input type="text" id="remap-end" class="form-control datepicker" />
           </div>
         </div>
       </div>
 
-      <!-- Remap Matched Trips Section -->
-      <div class="settings-group">
-        <h3 class="settings-group-title">
-          <i class="fas fa-route"></i>
-        Remap Matched Trips
-        </h3>
-        <p class="text-muted small">
-        Re-match trips to the street network within a specific date range.
-        </p>
-
+      <div id="remap-interval" style="display: none">
         <div class="mb-3">
-          <label for="remap-type" class="form-label">
-Select Method:
+          <label for="remap-interval-select" class="form-label">
+            Select Interval:
           </label>
-          <select id="remap-type" class="form-select">
-            <option value="date">
-Pick a Date Range
-            </option>
-            <option value="interval">
-Use a Predefined Interval
-            </option>
+          <select id="remap-interval-select" class="form-select">
+            <option value="1">Last Day</option>
+            <option value="3">Last 3 Days</option>
+            <option value="7">Last Week</option>
+            <option value="30">Last Month</option>
+            <option value="90">Last 3 Months</option>
+            <option value="180">Last 6 Months</option>
+            <option value="365">Last Year</option>
+            <option value="730">Last 2 Years</option>
+            <option value="0">All Time</option>
           </select>
         </div>
+      </div>
 
-        <div id="remap-date-range">
-          <div class="row g-3">
-            <div class="col-md-6">
-              <label for="remap-start" class="form-label">
-Start Date:
-              </label>
-              <input type="text" id="remap-start" class="form-control datepicker" />
-            </div>
-            <div class="col-md-6">
-              <label for="remap-end" class="form-label">
-End Date:
-              </label>
-              <input type="text" id="remap-end" class="form-control datepicker" />
-            </div>
-          </div>
-        </div>
-
-        <div id="remap-interval" style="display: none">
-          <div class="mb-3">
-            <label for="remap-interval-select" class="form-label">
-Select Interval:
-            </label>
-            <select id="remap-interval-select" class="form-select">
-              <option value="1">
-Last Day
-              </option>
-              <option value="3">
-Last 3 Days
-              </option>
-              <option value="7">
-Last Week
-              </option>
-              <option value="30">
-Last Month
-              </option>
-              <option value="90">
-Last 3 Months
-              </option>
-              <option value="180">
-Last 6 Months
-              </option>
-              <option value="365">
-Last Year
-              </option>
-              <option value="730">
-Last 2 Years
-              </option>
-              <option value="0">
-All Time
-              </option>
-            </select>
-          </div>
-        </div>
-
-        <div class="mt-3">
-          <button id="remap-btn" class="btn btn-warning">
-            <i class="fas fa-route"></i> Re-Match Trips
-          </button>
-          <div id="remap-status" class="mt-2">
-          </div>
-        </div>
+      <div class="mt-3">
+        <button id="remap-btn" class="btn btn-warning">
+          <i class="fas fa-route"></i> Re-Match Trips
+        </button>
+        <div id="remap-status" class="mt-2"></div>
       </div>
     </div>
   </div>
+</div>
 
-  <!-- Task Details Modal -->
-  <div class="modal fade" id="taskDetailsModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
-      <div class="modal-content bg-dark text-white">
-        <div class="modal-header">
-          <h5 class="modal-title">
-Task Details
-          </h5>
-          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal">
-          </button>
-        </div>
-        <div class="modal-body">
-          <div class="task-details-content">
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-Close
-          </button>
-          <button type="button" class="btn btn-primary run-task-btn">
-            <i class="fas fa-play"></i> Run Now
-          </button>
-        </div>
+<!-- Task Details Modal -->
+<div class="modal fade" id="taskDetailsModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content bg-dark text-white">
+      <div class="modal-header">
+        <h5 class="modal-title">Task Details</h5>
+        <button
+          type="button"
+          class="btn-close btn-close-white"
+          data-bs-dismiss="modal"
+        ></button>
+      </div>
+      <div class="modal-body">
+        <div class="task-details-content"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+          Close
+        </button>
+        <button type="button" class="btn btn-primary run-task-btn">
+          <i class="fas fa-play"></i> Run Now
+        </button>
       </div>
     </div>
   </div>
+</div>
 
-  <!-- Pause Tasks Modal -->
-  <div class="modal fade" id="pauseModal" tabindex="-1">
-    <div class="modal-dialog">
-      <div class="modal-content bg-dark text-white">
-        <div class="modal-header">
-          <h5 class="modal-title">
-Pause Tasks
-          </h5>
-          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal">
-          </button>
+<!-- Pause Tasks Modal -->
+<div class="modal fade" id="pauseModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content bg-dark text-white">
+      <div class="modal-header">
+        <h5 class="modal-title">Pause Tasks</h5>
+        <button
+          type="button"
+          class="btn-close btn-close-white"
+          data-bs-dismiss="modal"
+        ></button>
+      </div>
+      <div class="modal-body">
+        <p>
+          Pausing tasks will temporarily stop scheduled task execution. Running
+          tasks will complete, but no new tasks will start.
+        </p>
+        <div class="mb-3">
+          <label for="pauseDuration" class="form-label">
+            Pause Duration (minutes):
+          </label>
+          <input
+            type="number"
+            class="form-control"
+            id="pauseDuration"
+            min="1"
+            value="60"
+          />
         </div>
-        <div class="modal-body">
-          <p>
-          Pausing tasks will temporarily stop scheduled task execution.
-          Running tasks will complete, but no new tasks will start.
-          </p>
-          <div class="mb-3">
-            <label for="pauseDuration" class="form-label">
-Pause Duration (minutes):
-            </label>
-            <input type="number" class="form-control" id="pauseDuration" min="1" value="60" />
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-Cancel
-          </button>
-          <button type="button" class="btn btn-warning" id="confirmPause">
-Pause Tasks
-          </button>
-        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+          Cancel
+        </button>
+        <button type="button" class="btn btn-warning" id="confirmPause">
+          Pause Tasks
+        </button>
       </div>
     </div>
   </div>
+</div>
 
-  <!-- Clear History Confirmation Modal -->
-  <div class="modal fade" id="clearHistoryModal" tabindex="-1">
-    <div class="modal-dialog">
-      <div class="modal-content bg-dark text-white">
-        <div class="modal-header">
-          <h5 class="modal-title">
-Clear Task History
-          </h5>
-          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal">
-          </button>
-        </div>
-        <div class="modal-body">
-          <p>
-          Are you sure you want to clear the task history? This action cannot be undone.
-          </p>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-Cancel
-          </button>
-          <button type="button" class="btn btn-danger" id="confirmClearHistory">
-Clear History
-          </button>
-        </div>
+<!-- Clear History Confirmation Modal -->
+<div class="modal fade" id="clearHistoryModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content bg-dark text-white">
+      <div class="modal-header">
+        <h5 class="modal-title">Clear Task History</h5>
+        <button
+          type="button"
+          class="btn-close btn-close-white"
+          data-bs-dismiss="modal"
+        ></button>
+      </div>
+      <div class="modal-body">
+        <p>
+          Are you sure you want to clear the task history? This action cannot be
+          undone.
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+          Cancel
+        </button>
+        <button type="button" class="btn btn-danger" id="confirmClearHistory">
+          Clear History
+        </button>
       </div>
     </div>
   </div>
+</div>
 
-  <!-- Task Status Template (hidden) -->
-  <template id="task-status-template">
-    <div class="task-status d-flex align-items-center">
-      <div class="spinner-border spinner-border-sm me-2" role="status">
-        <span class="visually-hidden">Running...</span>
-      </div>
-      <span class="status-text">Running...</span>
-      <div class="progress ms-2" style="width: 100px; height: 6px">
-        <div class="progress-bar progress-bar-striped progress-bar-animated"
-             role="progressbar"
-             style="width: 0%">
-        </div>
-      </div>
+<!-- Task Status Template (hidden) -->
+<template id="task-status-template">
+  <div class="task-status d-flex align-items-center">
+    <div class="spinner-border spinner-border-sm me-2" role="status">
+      <span class="visually-hidden">Running...</span>
     </div>
-  </template>
+    <span class="status-text">Running...</span>
+    <div class="progress ms-2" style="width: 100px; height: 6px">
+      <div
+        class="progress-bar progress-bar-striped progress-bar-animated"
+        role="progressbar"
+        style="width: 0%"
+      ></div>
+    </div>
+  </div>
+</template>
 
-  <!-- Fetch All Missing Trips Modal -->
-  <div class="modal fade"
-       id="fetchAllMissingModal"
-       tabindex="-1"
-       aria-labelledby="fetchAllMissingModalLabel"
-       aria-hidden="true">
-    <div class="modal-dialog">
-      <div class="modal-content bg-dark text-white">
-        <div class="modal-header">
-          <h5 class="modal-title" id="fetchAllMissingModalLabel">
+<!-- Fetch All Missing Trips Modal -->
+<div
+  class="modal fade"
+  id="fetchAllMissingModal"
+  tabindex="-1"
+  aria-labelledby="fetchAllMissingModalLabel"
+  aria-hidden="true"
+>
+  <div class="modal-dialog">
+    <div class="modal-content bg-dark text-white">
+      <div class="modal-header">
+        <h5 class="modal-title" id="fetchAllMissingModalLabel">
           Fetch All Missing Trips
-          </h5>
-          <button type="button"
-                  class="btn-close btn-close-white"
-                  data-bs-dismiss="modal"
-                  aria-label="Close">
-          </button>
-        </div>
-        <div class="modal-body">
-          <p>
-          This will fetch all trips from the selected start date up to now.
-          This process may take a while.
-          </p>
-          <div class="mb-3">
-            <label for="fetchAllMissingStart" class="form-label">
-Start Date
-            </label>
-            <input type="datetime-local" class="form-control" id="fetchAllMissingStart" />
-            <div class="form-text text-muted">
+        </h5>
+        <button
+          type="button"
+          class="btn-close btn-close-white"
+          data-bs-dismiss="modal"
+          aria-label="Close"
+        ></button>
+      </div>
+      <div class="modal-body">
+        <p>
+          This will fetch all trips from the selected start date up to now. This
+          process may take a while.
+        </p>
+        <div class="mb-3">
+          <label for="fetchAllMissingStart" class="form-label">
+            Start Date
+          </label>
+          <input
+            type="datetime-local"
+            class="form-control"
+            id="fetchAllMissingStart"
+          />
+          <div class="form-text text-muted">
             Defaults to the earliest trip found in your database.
-            </div>
           </div>
         </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-Cancel
-          </button>
-          <button type="button" class="btn btn-warning" id="confirmFetchAllMissing">
-Start Fetch
-          </button>
-        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+          Cancel
+        </button>
+        <button
+          type="button"
+          class="btn btn-warning"
+          id="confirmFetchAllMissing"
+        >
+          Start Fetch
+        </button>
       </div>
     </div>
   </div>
+</div>
 
-{% endblock %}
+{% endblock %} {% block extra_js %}
 
-
-{% block extra_js %}
-
-  <script type="module"
-          src="{{ url_for('static', path='js/settings/index.js') | replace('http://', '//') }}"></script>
+<script
+  type="module"
+  src="{{ url_for('static', path='js/settings/index.js') | replace('http://', '//') }}"
+></script>
 {% endblock %}
