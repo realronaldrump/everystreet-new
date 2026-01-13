@@ -27,11 +27,11 @@ endblock %}
 
         .insights-hero {
             background: linear-gradient(135deg,
-                    rgba(var(--primary-rgb), 0.1),
-                    rgba(var(--secondary-rgb), 0.1),
-                    rgba(var(--primary-rgb), 0.05));
+                    rgba(var(--primary-rgb), 0.08),
+                    rgba(var(--secondary-rgb), 0.07),
+                    rgba(var(--primary-rgb), 0.04));
             background-size: 200% 200%;
-            animation: gradientShift 15s ease infinite;
+            animation: gradientShift 45s ease infinite;
             border-radius: var(--radius-xl);
             padding: var(--space-8) var(--space-6);
             margin-bottom: var(--space-6);
@@ -47,9 +47,9 @@ endblock %}
             width: 200%;
             height: 200%;
             background: radial-gradient(circle,
-                    rgba(255, 255, 255, 0.1) 0%,
+                    rgba(255, 255, 255, 0.06) 0%,
                     transparent 70%);
-            animation: pulse-hero 8s ease-in-out infinite;
+            animation: pulse-hero 16s ease-in-out infinite;
             pointer-events: none;
         }
 
@@ -59,7 +59,10 @@ endblock %}
             border-radius: var(--radius-lg);
             padding: var(--space-4);
             border: 1px solid var(--border-color);
-            transition: all var(--transition-normal);
+            transition:
+                transform var(--transition-normal),
+                box-shadow var(--transition-normal),
+                border-color var(--transition-fast);
             cursor: pointer;
             position: relative;
             overflow: hidden;
@@ -74,9 +77,9 @@ endblock %}
             height: 100%;
             background: linear-gradient(90deg,
                     transparent,
-                    rgba(255, 255, 255, 0.1),
+                    rgba(255, 255, 255, 0.06),
                     transparent);
-            transition: left 0.6s ease;
+            transition: left 0.8s ease;
         }
 
         .metric-card:hover::before {
@@ -84,9 +87,9 @@ endblock %}
         }
 
         .metric-card:hover {
-            transform: translateY(-4px);
-            box-shadow: var(--shadow-lg);
-            border-color: var(--primary);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+            border-color: rgb(var(--primary-rgb) / 45%);
         }
 
         .metric-icon {
@@ -130,7 +133,7 @@ endblock %}
         .metric-trend i {
             display: inline-block;
             margin-right: 4px;
-            animation: trend-bob 2s ease-in-out infinite;
+            animation: trend-bob 3.2s ease-in-out infinite;
         }
 
         @keyframes trend-bob {
@@ -140,7 +143,7 @@ endblock %}
             }
 
             50% {
-                transform: translateY(-2px);
+                transform: translateY(-1px);
             }
         }
 
@@ -157,12 +160,15 @@ endblock %}
         /* Chart containers with glassmorphism */
         .chart-container {
             background: var(--surface-glass);
-            backdrop-filter: blur(10px);
+            backdrop-filter: blur(var(--blur-subtle));
             border: 1px solid var(--border-color);
             border-radius: var(--radius-lg);
             padding: var(--space-5);
-            box-shadow: var(--shadow-md);
-            transition: all var(--transition-normal);
+            box-shadow: var(--shadow-sm);
+            transition:
+                transform var(--transition-normal),
+                box-shadow var(--transition-normal),
+                border-color var(--transition-fast);
             position: relative;
             overflow: hidden;
             max-height: 450px;
@@ -180,8 +186,8 @@ endblock %}
         }
 
         .chart-container:hover {
-            box-shadow: var(--shadow-lg);
-            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+            transform: translateY(-1px);
         }
 
         .chart-container canvas {
@@ -225,7 +231,10 @@ endblock %}
             font-weight: var(--font-weight-medium);
             border-radius: var(--radius-sm);
             cursor: pointer;
-            transition: all var(--transition-fast);
+            transition:
+                background-color var(--transition-fast),
+                color var(--transition-fast),
+                box-shadow var(--transition-fast);
             position: relative;
         }
 
@@ -242,7 +251,7 @@ endblock %}
                     var(--surface-3) 50%,
                     var(--surface-2) 75%);
             background-size: 200% 100%;
-            animation: loading 1.5s infinite;
+            animation: loading 2s ease-in-out infinite;
             border-radius: var(--radius-sm);
         }
 
@@ -268,7 +277,9 @@ endblock %}
             opacity: 0;
             max-height: 0;
             overflow: hidden;
-            transition: all var(--transition-normal);
+            transition:
+                opacity var(--transition-normal),
+                max-height var(--transition-normal);
         }
 
         .stat-comparison.show {
@@ -299,14 +310,12 @@ endblock %}
         }
 
         .data-table tbody tr {
-            transition: all var(--transition-fast);
+            transition: background-color var(--transition-fast);
             cursor: pointer;
         }
 
         .data-table tbody tr:hover {
             background: var(--surface-2);
-            transform: scale(1.01);
-            box-shadow: var(--shadow-sm);
         }
 
         .data-table tbody td {
@@ -329,20 +338,22 @@ endblock %}
             background: var(--primary-gradient);
             color: var(--text-on-primary);
             border: none;
-            box-shadow: var(--shadow-lg);
+            box-shadow: var(--shadow-md);
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
             font-size: 24px;
-            transition: all var(--transition-normal);
+            transition:
+                transform var(--transition-normal),
+                box-shadow var(--transition-normal);
             position: relative;
             overflow: hidden;
         }
 
         .fab:hover {
-            box-shadow: var(--shadow-xl);
-            transform: scale(1.1);
+            box-shadow: var(--shadow-lg);
+            transform: scale(1.04);
         }
 
         .fab:active {
@@ -359,8 +370,11 @@ endblock %}
             gap: var(--space-3);
             opacity: 0;
             visibility: hidden;
-            transform: scale(0.8) translateY(20px);
-            transition: all var(--transition-normal);
+            transform: scale(0.92) translateY(8px);
+            transition:
+                opacity var(--transition-normal),
+                transform var(--transition-normal),
+                visibility var(--transition-normal);
         }
 
         .fab-menu.show {
@@ -412,8 +426,8 @@ endblock %}
             }
 
             50% {
-                transform: scale(1.2);
-                opacity: 0.7;
+                transform: scale(1.08);
+                opacity: 0.85;
             }
         }
 
@@ -424,7 +438,7 @@ endblock %}
             background: var(--success);
             border-radius: 50%;
             margin-left: var(--space-2);
-            animation: pulse-live 2s infinite;
+            animation: pulse-live 3s infinite;
         }
 
         /* Chart loading states */
@@ -449,15 +463,17 @@ endblock %}
         .custom-tooltip {
             position: absolute;
             background: var(--surface-glass);
-            backdrop-filter: blur(10px);
+            backdrop-filter: blur(var(--blur-subtle));
             border: 1px solid var(--border-color);
             border-radius: var(--radius-md);
             padding: var(--space-3);
             box-shadow: var(--shadow-lg);
             pointer-events: none;
             opacity: 0;
-            transform: translateY(10px);
-            transition: all var(--transition-fast);
+            transform: translateY(6px);
+            transition:
+                opacity var(--transition-fast),
+                transform var(--transition-fast);
             z-index: var(--z-tooltip);
         }
 
@@ -484,7 +500,10 @@ endblock %}
             color: var(--text-secondary);
             font-size: var(--font-size-sm);
             cursor: pointer;
-            transition: all var(--transition-fast);
+            transition:
+                background-color var(--transition-fast),
+                color var(--transition-fast),
+                border-color var(--transition-fast);
         }
 
         .period-preset:hover {
@@ -507,11 +526,14 @@ endblock %}
             display: flex;
             align-items: center;
             gap: var(--space-4);
-            transition: all var(--transition-normal);
+            transition:
+                transform var(--transition-normal),
+                box-shadow var(--transition-normal),
+                border-color var(--transition-fast);
         }
 
         .insight-card:hover {
-            transform: translateX(4px);
+            transform: translateX(2px);
             box-shadow: var(--shadow-md);
         }
 

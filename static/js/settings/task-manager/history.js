@@ -9,7 +9,7 @@ import {
   formatDurationMs,
   getStatusColor,
 } from "./formatters.js";
-import { showErrorModal } from "./modals.js";
+import { showErrorModal, showTaskLogsModal } from "./modals.js";
 
 /**
  * Render the task history table
@@ -88,9 +88,11 @@ export function renderTaskHistoryTable(history) {
     row.innerHTML = `
       <td>${entry.task_id}</td>
       <td>
-        <span class="badge bg-${getStatusColor(entry.status)}">
-          ${entry.status}
-        </span>
+        <a href="#" class="view-logs-link text-decoration-none" data-entry-index="${history.indexOf(entry)}">
+          <span class="badge bg-${getStatusColor(entry.status)}">
+            ${entry.status}
+          </span>
+        </a>
       </td>
       <td>${formatDateTime(entry.timestamp)}</td>
       <td class="task-duration">${durationText}</td>
@@ -106,6 +108,17 @@ export function renderTaskHistoryTable(history) {
     btn.addEventListener("mousedown", () => {
       const errorMessage = btn.dataset.error;
       showErrorModal(errorMessage);
+    });
+  });
+
+  // Attach logs link handlers
+  tbody.querySelectorAll(".view-logs-link").forEach((link) => {
+    link.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      const index = parseInt(link.dataset.entryIndex, 10);
+      if (history[index]) {
+        showTaskLogsModal(history[index]);
+      }
     });
   });
 

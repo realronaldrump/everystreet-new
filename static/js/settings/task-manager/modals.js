@@ -177,3 +177,83 @@ export async function showTaskDetails(taskId) {
     `;
   }
 }
+
+/**
+ * Show a modal with task execution logs/results
+ * @param {Object} entry - Task history entry object
+ */
+export function showTaskLogsModal(entry) {
+  let modal = document.getElementById("taskLogsModal");
+  if (!modal) {
+    modal = document.createElement("div");
+    modal.id = "taskLogsModal";
+    modal.className = "modal fade";
+    modal.setAttribute("tabindex", "-1");
+    modal.innerHTML = `
+      <div class="modal-dialog modal-lg">
+        <div class="modal-content bg-dark text-white">
+          <div class="modal-header">
+            <h5 class="modal-title">Task Execution Logs</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <div id="taskLogsContent"></div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+          </div>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+  }
+
+  const contentDiv = modal.querySelector("#taskLogsContent");
+  
+  // Format the result/error for display
+  let resultHtml = '<div class="text-muted fst-italic">No result data available</div>';
+  if (entry.result) {
+    const jsonStr = JSON.stringify(entry.result, null, 2);
+    resultHtml = `<pre class="bg-black p-3 rounded border border-secondary text-info"><code>${escapeHtml(jsonStr)}</code></pre>`;
+  }
+
+  let errorHtml = "";
+  if (entry.error) {
+    errorHtml = `
+      <div class="alert alert-danger mt-3">
+        <h6><i class="fas fa-exclamation-circle"></i> Error</h6>
+        <pre class="mb-0" style="white-space: pre-wrap;">${escapeHtml(entry.error)}</pre>
+      </div>
+    `;
+  }
+
+  contentDiv.innerHTML = `
+    <div class="mb-3">
+      <div class="row">
+        <div class="col-md-6">
+          <strong>Task ID:</strong> <span class="text-monospace">${entry.task_id || "Unknown"}</span>
+        </div>
+        <div class="col-md-6 text-md-end">
+          <strong>Time:</strong> ${formatDateTime(entry.timestamp)}
+        </div>
+      </div>
+      <div class="row mt-2">
+        <div class="col-md-6">
+           <strong>Status:</strong> ${getStatusHTML(entry.status)}
+        </div>
+        <div class="col-md-6 text-md-end">
+           <strong>Duration:</strong> ${entry.runtime ? formatDurationMs(parseFloat(entry.runtime)) : "N/A"}
+        </div>
+      </div>
+    </div>
+    
+    <hr class="border-secondary">
+    
+    <h6>Execution Result</h6>
+    ${resultHtml}
+    ${errorHtml}
+  `;
+
+  const bsModal = new bootstrap.Modal(modal);
+  bsModal.show();
+}

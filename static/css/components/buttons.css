@@ -14,7 +14,7 @@
   font-weight: var(--font-weight-medium);
   cursor: pointer;
   transition:
-    transform var(--transition-spring-fast),
+    transform var(--transition-normal),
     box-shadow var(--transition-fast),
     background-color var(--transition-fast),
     color var(--transition-fast),
@@ -36,7 +36,7 @@
 }
 
 .btn:active:not(:disabled) {
-  transform: scale(0.97);
+  transform: scale(0.99);
 }
 
 .btn i {

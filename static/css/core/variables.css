@@ -100,66 +100,66 @@
   --panel-width: 340px;
 
   /* Effects - Minimal & Subtle */
-  --transition-fast: 180ms ease-out;
-  --transition-normal: 280ms ease-out;
-  --transition-slow: 380ms cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-spring: 360ms cubic-bezier(0.34, 1.56, 0.64, 1);
-  --transition-spring-fast: 220ms cubic-bezier(0.34, 1.56, 0.64, 1);
-  --shadow-xs: 0 1px 2px rgb(0 0 0 / 3%);
-  --shadow-sm: 0 1px 3px rgb(0 0 0 / 6%);
-  --shadow-md: 0 2px 6px rgb(0 0 0 / 8%);
-  --shadow-lg: 0 4px 12px rgb(0 0 0 / 10%);
-  --shadow-xl: 0 8px 24px rgb(0 0 0 / 12%);
+  --transition-fast: 140ms ease-out;
+  --transition-normal: 220ms ease-out;
+  --transition-slow: 300ms ease-out;
+  --transition-spring: 260ms cubic-bezier(0.2, 0, 0, 1);
+  --transition-spring-fast: 180ms cubic-bezier(0.2, 0, 0, 1);
+  --shadow-xs: 0 1px 2px rgb(0 0 0 / 4%);
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 7%);
+  --shadow-md: 0 3px 8px rgb(0 0 0 / 9%);
+  --shadow-lg: 0 6px 16px rgb(0 0 0 / 12%);
+  --shadow-xl: 0 12px 28px rgb(0 0 0 / 14%);
   --shadow-inset: inset 0 1px 3px rgb(0 0 0 / 6%);
-  --shadow-elevation-1: 0 2px 8px rgb(0 0 0 / 10%);
-  --shadow-elevation-2: 0 6px 16px rgb(0 0 0 / 12%), 0 0 12px rgb(0 0 0 / 6%);
-  --shadow-elevation-3: 0 10px 28px rgb(0 0 0 / 14%), 0 0 18px rgb(0 0 0 / 8%);
-  --shadow-elevation-4: 0 18px 40px rgb(0 0 0 / 18%), 0 0 24px rgb(0 0 0 / 10%);
-  --shadow-elevation-5: 0 24px 60px rgb(0 0 0 / 22%), 0 0 30px rgb(0 0 0 / 12%);
+  --shadow-elevation-1: 0 2px 6px rgb(0 0 0 / 10%);
+  --shadow-elevation-2: 0 6px 14px rgb(0 0 0 / 12%), 0 0 10px rgb(0 0 0 / 6%);
+  --shadow-elevation-3: 0 10px 24px rgb(0 0 0 / 14%), 0 0 14px rgb(0 0 0 / 8%);
+  --shadow-elevation-4: 0 16px 32px rgb(0 0 0 / 18%), 0 0 18px rgb(0 0 0 / 10%);
+  --shadow-elevation-5: 0 22px 48px rgb(0 0 0 / 20%), 0 0 22px rgb(0 0 0 / 12%);
 
   /* Immersive Effects - Glow & Ambient */
-  --glow-primary: 0 0 20px rgb(var(--primary-rgb) / 35%);
-  --glow-primary-intense: 0 0 30px rgb(var(--primary-rgb) / 50%);
-  --glow-success: 0 0 20px rgb(var(--success-rgb) / 40%);
-  --glow-success-intense: 0 0 30px rgb(var(--success-rgb) / 55%);
-  --glow-warning: 0 0 20px rgb(var(--warning-rgb) / 40%);
-  --glow-danger: 0 0 20px rgb(var(--danger-rgb) / 40%);
-  --glow-info: 0 0 20px rgb(var(--info-rgb) / 40%);
+  --glow-primary: 0 0 12px rgb(var(--primary-rgb) / 25%);
+  --glow-primary-intense: 0 0 20px rgb(var(--primary-rgb) / 35%);
+  --glow-success: 0 0 12px rgb(var(--success-rgb) / 28%);
+  --glow-success-intense: 0 0 20px rgb(var(--success-rgb) / 40%);
+  --glow-warning: 0 0 12px rgb(var(--warning-rgb) / 28%);
+  --glow-danger: 0 0 12px rgb(var(--danger-rgb) / 28%);
+  --glow-info: 0 0 12px rgb(var(--info-rgb) / 28%);
 
   /* Ambient gradients for immersive backgrounds */
   --accent: var(--primary);
   --accent-rgb: var(--primary-rgb);
   --section-accent: var(--accent);
   --section-accent-rgb: var(--accent-rgb);
-  --ambient-tint: rgb(var(--section-accent-rgb) / 8%);
+  --ambient-tint: rgb(var(--section-accent-rgb) / 6%);
   --gradient-ambient: linear-gradient(
     135deg,
     var(--ambient-tint) 0%,
-    transparent 50%,
-    rgb(var(--info-rgb) / 6%) 100%
+    transparent 55%,
+    rgb(var(--info-rgb) / 4%) 100%
   );
   --gradient-accent-bar: linear-gradient(
     90deg,
-    rgb(var(--section-accent-rgb) / 60%) 0%,
-    rgb(var(--info-rgb) / 40%) 100%
+    rgb(var(--section-accent-rgb) / 45%) 0%,
+    rgb(var(--info-rgb) / 30%) 100%
   );
   --gradient-surface-glow: radial-gradient(
     ellipse at top left,
-    rgb(var(--primary-rgb) / 10%) 0%,
-    transparent 50%
+    rgb(var(--primary-rgb) / 7%) 0%,
+    transparent 55%
   );
 
   /* Interactive lift shadows for hover states */
-  --shadow-lift: 0 8px 25px rgb(0 0 0 / 15%), 0 0 20px rgb(var(--primary-rgb) / 15%);
-  --shadow-lift-intense: 0 12px 35px rgb(0 0 0 / 18%), 0 0 30px rgb(var(--primary-rgb) / 25%);
+  --shadow-lift: 0 6px 16px rgb(0 0 0 / 14%);
+  --shadow-lift-intense: 0 10px 24px rgb(0 0 0 / 18%);
 
   /* Glass + blur system */
-  --blur-subtle: 8px;
-  --blur-strong: 16px;
-  --blur-modal: 24px;
-  --glass-1: rgb(var(--surface-rgb) / 72%);
-  --glass-2: rgb(var(--surface-rgb) / 82%);
-  --glass-3: rgb(var(--surface-rgb) / 92%);
+  --blur-subtle: 6px;
+  --blur-strong: 12px;
+  --blur-modal: 18px;
+  --glass-1: rgb(var(--surface-rgb) / 78%);
+  --glass-2: rgb(var(--surface-rgb) / 86%);
+  --glass-3: rgb(var(--surface-rgb) / 94%);
   --glass-border: rgb(var(--border-rgb) / 25%);
 
   /* Border Radius - Minimal */
@@ -210,15 +210,15 @@ body.light-mode {
   --border-color-light: rgb(40 42 45 / 20%);
   --divider-color: rgb(40 42 45 / 8%);
   --shadow-xs: 0 1px 2px rgb(40 42 45 / 5%);
-  --shadow-sm: 0 2px 4px rgb(40 42 45 / 6%);
-  --shadow-md: 0 4px 8px rgb(40 42 45 / 8%);
-  --shadow-lg: 0 10px 20px rgb(40 42 45 / 10%);
-  --shadow-xl: 0 20px 40px rgb(40 42 45 / 10%);
-  --shadow-elevation-1: 0 2px 8px rgb(40 42 45 / 10%);
-  --shadow-elevation-2: 0 8px 20px rgb(40 42 45 / 12%), 0 0 12px rgb(40 42 45 / 6%);
-  --shadow-elevation-3: 0 14px 30px rgb(40 42 45 / 14%), 0 0 18px rgb(40 42 45 / 8%);
-  --shadow-elevation-4: 0 20px 42px rgb(40 42 45 / 16%), 0 0 24px rgb(40 42 45 / 10%);
-  --shadow-elevation-5: 0 28px 60px rgb(40 42 45 / 20%), 0 0 30px rgb(40 42 45 / 12%);
+  --shadow-sm: 0 1px 2px rgb(40 42 45 / 7%);
+  --shadow-md: 0 3px 8px rgb(40 42 45 / 9%);
+  --shadow-lg: 0 8px 16px rgb(40 42 45 / 12%);
+  --shadow-xl: 0 14px 28px rgb(40 42 45 / 14%);
+  --shadow-elevation-1: 0 2px 6px rgb(40 42 45 / 10%);
+  --shadow-elevation-2: 0 6px 14px rgb(40 42 45 / 12%), 0 0 10px rgb(40 42 45 / 6%);
+  --shadow-elevation-3: 0 10px 24px rgb(40 42 45 / 14%), 0 0 14px rgb(40 42 45 / 8%);
+  --shadow-elevation-4: 0 16px 32px rgb(40 42 45 / 16%), 0 0 18px rgb(40 42 45 / 10%);
+  --shadow-elevation-5: 0 22px 48px rgb(40 42 45 / 20%), 0 0 22px rgb(40 42 45 / 12%);
   --scrollbar-thumb-color: rgb(124 157 150 / 25%);
   --scrollbar-track-color: rgb(160 165 172 / 15%);
   --scrollbar-thumb-hover-color: rgb(124 157 150 / 40%);

@@ -10,15 +10,15 @@
   border: 1px solid var(--border-color);
   overflow: hidden;
   transition:
-    transform var(--transition-spring-fast),
-    box-shadow var(--transition-fast);
+    transform var(--transition-normal),
+    box-shadow var(--transition-normal);
   margin-bottom: var(--space-5);
   position: relative;
 }
 
 .card:hover {
   box-shadow: var(--shadow-lift);
-  transform: translateY(-3px);
+  transform: translateY(-2px);
 }
 
 .card.is-clickable,
@@ -27,7 +27,7 @@
 }
 
 .card:active {
-  transform: scale(0.99);
+  transform: scale(0.995);
 }
 
 .card-header {

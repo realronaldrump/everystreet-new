@@ -24,14 +24,14 @@
 .ambient-orb {
   position: absolute;
   border-radius: 50%;
-  filter: blur(100px);
-  opacity: 0.15;
-  animation: ambientFloat 20s ease-in-out infinite;
+  filter: blur(70px);
+  opacity: 0.1;
+  animation: ambientFloat 40s ease-in-out infinite;
 }
 
 .ambient-orb-1 {
-  width: 600px;
-  height: 600px;
+  width: 480px;
+  height: 480px;
   background: var(--primary);
   top: -200px;
   right: -100px;
@@ -39,8 +39,8 @@
 }
 
 .ambient-orb-2 {
-  width: 500px;
-  height: 500px;
+  width: 420px;
+  height: 420px;
   background: var(--info);
   bottom: -150px;
   left: -100px;
@@ -48,8 +48,8 @@
 }
 
 .ambient-orb-3 {
-  width: 400px;
-  height: 400px;
+  width: 340px;
+  height: 340px;
   background: var(--success);
   top: 50%;
   left: 50%;
@@ -64,15 +64,15 @@
   }
 
   25% {
-    transform: translate(30px, -30px) scale(1.05);
+    transform: translate(16px, -16px) scale(1.02);
   }
 
   50% {
-    transform: translate(-20px, 20px) scale(0.95);
+    transform: translate(-12px, 12px) scale(0.98);
   }
 
   75% {
-    transform: translate(-30px, -20px) scale(1.02);
+    transform: translate(-16px, -12px) scale(1.01);
   }
 }
 
@@ -86,7 +86,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-6);
-  animation: fadeInUp 0.6s ease-out;
+  animation: fadeInUp 0.4s ease-out;
 }
 
 /* Greeting + context */
@@ -200,7 +200,7 @@
 @keyframes fadeInUp {
   from {
     opacity: 0;
-    transform: translateY(20px);
+    transform: translateY(8px);
   }
 
   to {
@@ -220,7 +220,7 @@
   backdrop-filter: blur(var(--blur-strong));
   border-radius: var(--radius-xl);
   border: 1px solid var(--border-color);
-  animation: fadeInUp 0.6s ease-out 0.1s both;
+  animation: fadeInUp 0.4s ease-out 0.1s both;
 }
 
 .stat-pulse {
@@ -234,12 +234,12 @@
   color: var(--text-primary);
   line-height: 1;
   transition:
-    transform 0.3s ease,
-    color 0.3s ease;
+    transform var(--transition-fast),
+    color var(--transition-fast);
 }
 
 .stat-value.updating {
-  animation: statPulse 0.5s ease;
+  animation: statPulse 0.4s ease;
 }
 
 @keyframes statPulse {
@@ -248,7 +248,7 @@
   }
 
   50% {
-    transform: scale(1.05);
+    transform: scale(1.03);
     color: var(--primary);
   }
 
@@ -291,14 +291,14 @@
   color: inherit;
   overflow: hidden;
   transition:
-    transform 0.3s ease,
-    box-shadow 0.3s ease,
-    border-color 0.3s ease;
+    transform var(--transition-normal),
+    box-shadow var(--transition-normal),
+    border-color var(--transition-normal);
   min-height: 120px;
 }
 
 .nav-tile:hover {
-  transform: translateY(-4px);
+  transform: translateY(-2px);
   box-shadow: var(--shadow-xl);
   border-color: var(--border-color-light);
 }
@@ -309,7 +309,7 @@
 }
 
 .nav-tile:active {
-  transform: translateY(-2px);
+  transform: translateY(-1px);
 }
 
 /* Tile Background Effect */
@@ -317,8 +317,8 @@
   position: absolute;
   inset: 0;
   opacity: 0;
-  transition: opacity 0.3s ease;
-  background: linear-gradient(135deg, rgb(var(--primary-rgb), 0.08) 0%, transparent 50%);
+  transition: opacity var(--transition-normal);
+  background: linear-gradient(135deg, rgb(var(--primary-rgb), 0.05) 0%, transparent 55%);
 }
 
 .nav-tile:hover .tile-bg {
@@ -346,14 +346,14 @@
   font-size: var(--font-size-xl);
   color: var(--primary);
   transition:
-    background 0.3s ease,
-    transform 0.3s ease;
+    background var(--transition-normal),
+    transform var(--transition-normal);
 }
 
 .nav-tile:hover .tile-icon {
   background: var(--primary);
   color: var(--text-on-primary);
-  transform: scale(1.05);
+  transform: scale(1.02);
 }
 
 .tile-text {
@@ -391,18 +391,18 @@
 
 .live-dot.active {
   background: var(--success);
-  box-shadow: 0 0 0 4px rgb(var(--success-rgb), 0.2);
-  animation: livePulse 2s ease-in-out infinite;
+  box-shadow: 0 0 0 3px rgb(var(--success-rgb), 0.16);
+  animation: livePulse 3s ease-in-out infinite;
 }
 
 @keyframes livePulse {
   0%,
   100% {
-    box-shadow: 0 0 0 4px rgb(var(--success-rgb), 0.2);
+    box-shadow: 0 0 0 3px rgb(var(--success-rgb), 0.16);
   }
 
   50% {
-    box-shadow: 0 0 0 8px rgb(var(--success-rgb), 0.1);
+    box-shadow: 0 0 0 6px rgb(var(--success-rgb), 0.08);
   }
 }
 
@@ -465,7 +465,7 @@
   border-radius: var(--radius-xl);
   border: 1px solid var(--border-color);
   overflow: hidden;
-  animation: fadeInUp 0.6s ease-out 0.3s both;
+  animation: fadeInUp 0.4s ease-out 0.2s both;
 }
 
 .activity-header {
@@ -489,7 +489,7 @@
   height: 6px;
   border-radius: 50%;
   background: var(--success);
-  animation: livePulse 2s ease-in-out infinite;
+  animation: livePulse 3s ease-in-out infinite;
 }
 
 .activity-feed {
@@ -511,14 +511,14 @@
   height: 40px;
   border-radius: 50%;
   background: var(--surface-2);
-  animation: loadingPulse 1.5s ease-in-out infinite;
+  animation: loadingPulse 2s ease-in-out infinite;
 }
 
 @keyframes loadingPulse {
   0%,
   100% {
-    transform: scale(0.95);
-    opacity: 0.5;
+    transform: scale(0.98);
+    opacity: 0.65;
   }
 
   50% {
@@ -534,7 +534,7 @@
   gap: var(--space-3);
   padding: var(--space-3) 0;
   border-bottom: 1px solid var(--divider-color);
-  animation: slideIn 0.3s ease-out;
+  animation: slideIn 0.25s ease-out;
 }
 
 .activity-item:last-child {
@@ -544,7 +544,7 @@
 @keyframes slideIn {
   from {
     opacity: 0;
-    transform: translateX(-10px);
+    transform: translateX(-6px);
   }
 
   to {
@@ -770,43 +770,43 @@
 
 /* === Staggered Animation Delays === */
 .nav-tile:nth-child(1) {
-  animation: fadeInUp 0.5s ease-out 0.1s both;
+  animation: fadeInUp 0.35s ease-out 0.08s both;
 }
 
 .nav-tile:nth-child(2) {
-  animation: fadeInUp 0.5s ease-out 0.15s both;
+  animation: fadeInUp 0.35s ease-out 0.12s both;
 }
 
 .nav-tile:nth-child(3) {
-  animation: fadeInUp 0.5s ease-out 0.2s both;
+  animation: fadeInUp 0.35s ease-out 0.16s both;
 }
 
 .nav-tile:nth-child(4) {
-  animation: fadeInUp 0.5s ease-out 0.25s both;
+  animation: fadeInUp 0.35s ease-out 0.2s both;
 }
 
 .nav-tile:nth-child(5) {
-  animation: fadeInUp 0.5s ease-out 0.3s both;
+  animation: fadeInUp 0.35s ease-out 0.24s both;
 }
 
 .nav-tile:nth-child(6) {
-  animation: fadeInUp 0.5s ease-out 0.35s both;
+  animation: fadeInUp 0.35s ease-out 0.28s both;
 }
 
 .nav-tile:nth-child(7) {
-  animation: fadeInUp 0.5s ease-out 0.4s both;
+  animation: fadeInUp 0.35s ease-out 0.32s both;
 }
 
 .nav-tile:nth-child(8) {
-  animation: fadeInUp 0.5s ease-out 0.42s both;
+  animation: fadeInUp 0.35s ease-out 0.34s both;
 }
 
 .nav-tile:nth-child(9) {
-  animation: fadeInUp 0.5s ease-out 0.44s both;
+  animation: fadeInUp 0.35s ease-out 0.36s both;
 }
 
 .nav-tile:nth-child(10) {
-  animation: fadeInUp 0.5s ease-out 0.46s both;
+  animation: fadeInUp 0.35s ease-out 0.38s both;
 }
 
 /* === Reduce Motion === */

@@ -13,36 +13,37 @@
 
 .ambient-background {
   overflow: hidden;
+  opacity: 0.18;
 }
 
 .ambient-orb {
   position: absolute;
-  width: 420px;
-  height: 420px;
+  width: 320px;
+  height: 320px;
   border-radius: 50%;
   background: radial-gradient(
     circle at 30% 30%,
-    rgb(var(--section-accent-rgb) / 28%),
-    transparent 60%
+    rgb(var(--section-accent-rgb) / 18%),
+    transparent 65%
   );
-  filter: blur(var(--blur-strong));
-  opacity: 0.6;
-  animation: ambientFloat 24s ease-in-out infinite;
+  filter: blur(var(--blur-subtle));
+  opacity: 0.35;
+  animation: ambientFloat 40s ease-in-out infinite;
 }
 
 .ambient-orb.orb-cool {
   background: radial-gradient(
     circle at 30% 30%,
-    rgb(var(--info-rgb) / 26%),
-    transparent 60%
+    rgb(var(--info-rgb) / 18%),
+    transparent 65%
   );
 }
 
 .ambient-orb.orb-warm {
   background: radial-gradient(
     circle at 30% 30%,
-    rgb(var(--warning-rgb) / 26%),
-    transparent 60%
+    rgb(var(--warning-rgb) / 18%),
+    transparent 65%
   );
 }
 
@@ -60,19 +61,19 @@
 .ambient-orb-3 {
   top: 20%;
   right: 10%;
-  width: 320px;
-  height: 320px;
+  width: 260px;
+  height: 260px;
   animation-delay: -12s;
 }
 
 .noise-overlay {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220' viewBox='0 0 220 220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23n)' opacity='0.18'/%3E%3C/svg%3E");
-  opacity: 0.04;
+  opacity: 0.03;
   mix-blend-mode: soft-light;
 }
 
 body[data-route="/"] .ambient-background {
-  opacity: 0.35;
+  opacity: 0.24;
 }
 
 body[data-route="/trips"] {
@@ -110,17 +111,17 @@ body[data-time-of-day="night"] {
 .glass {
   background: var(--glass-1);
   border: 1px solid var(--glass-border);
-  backdrop-filter: blur(var(--blur-subtle)) saturate(1.2);
+  backdrop-filter: blur(var(--blur-subtle)) saturate(1.1);
 }
 
 .glass--prominent {
   background: var(--glass-2);
-  backdrop-filter: blur(var(--blur-strong)) saturate(1.3);
+  backdrop-filter: blur(var(--blur-strong)) saturate(1.15);
 }
 
 .glass--modal {
   background: var(--glass-3);
-  backdrop-filter: blur(var(--blur-modal)) saturate(1.4);
+  backdrop-filter: blur(var(--blur-modal)) saturate(1.2);
 }
 
 /* Elevation utilities */
@@ -338,17 +339,26 @@ body[data-route="/map"] .nav-breadcrumb {
 
 /* Motion preference adjustments */
 body.motion-subtle {
-  --transition-fast: 140ms ease-out;
-  --transition-normal: 220ms ease-out;
-  --transition-slow: 300ms ease-out;
-  --transition-spring: 260ms cubic-bezier(0.34, 1.4, 0.64, 1);
+  --transition-fast: 120ms ease-out;
+  --transition-normal: 200ms ease-out;
+  --transition-slow: 260ms ease-out;
+  --transition-spring: 220ms cubic-bezier(0.2, 0, 0, 1);
 }
 
 body.motion-playful {
-  --transition-fast: 200ms ease-out;
-  --transition-normal: 320ms ease-out;
-  --transition-slow: 420ms ease-out;
-  --transition-spring: 420ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  --transition-fast: 180ms ease-out;
+  --transition-normal: 280ms ease-out;
+  --transition-slow: 360ms ease-out;
+  --transition-spring: 320ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+body.motion-subtle .ambient-background {
+  opacity: 0.12;
+}
+
+body.motion-subtle .ambient-orb {
+  animation: none;
+  opacity: 0.2;
 }
 
 body.is-busy {
