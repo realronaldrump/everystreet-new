@@ -76,6 +76,10 @@ async def get_trips(request: Request):
             total_idle_duration = trip_dict.get("totalIdleDuration")
             if total_idle_duration is None:
                 total_idle_duration = trip_dict.get("totalIdlingTime")
+            avg_speed = trip_dict.get("averageSpeed")
+            if avg_speed is None:
+                avg_speed = trip_dict.get("avgSpeed")
+
             props = {
                 "transactionId": trip_dict.get("transactionId"),
                 "imei": trip_dict.get("imei"),
@@ -94,7 +98,8 @@ async def get_trips(request: Request):
                 "hardAccelerationCount": trip_dict.get("hardAccelerationCount"),
                 "startOdometer": trip_dict.get("startOdometer"),
                 "endOdometer": trip_dict.get("endOdometer"),
-                "averageSpeed": trip_dict.get("averageSpeed"),
+                "averageSpeed": avg_speed,
+                "avgSpeed": avg_speed,
                 "pointsRecorded": num_points,
                 "estimated_cost": TripCostService.calculate_trip_cost(
                     trip_dict,
