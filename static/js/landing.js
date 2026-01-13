@@ -28,7 +28,7 @@
     pageSignal = signal || null;
     cacheElements();
     updateGreeting();
-    updateSuggestion();
+
     highlightFrequentTiles();
     bindWidgetEditToggle();
 
