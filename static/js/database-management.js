@@ -1,13 +1,15 @@
 /* global confirmationDialog */
 
 window.utils?.onPageLoad(
-  () => {
+  ({ signal } = {}) => {
     const refreshStorageBtn = document.getElementById("refresh-storage");
     const storageText = document.querySelector(".storage-text");
 
     let currentAction = null;
     let currentCollection = null;
     let currentButton = null;
+
+    const withSignal = (options = {}) => (signal ? { ...options, signal } : options);
 
     function setButtonLoading(button, isLoading, action) {
       if (!button) {
@@ -43,7 +45,7 @@ window.utils?.onPageLoad(
         options.body = JSON.stringify(body);
       }
 
-      const response = await fetch(endpoint, options);
+      const response = await fetch(endpoint, withSignal(options));
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -65,51 +67,59 @@ window.utils?.onPageLoad(
     }
 
     if (refreshStorageBtn) {
-      refreshStorageBtn.addEventListener("mousedown", async (e) => {
-        if (e.button !== 0) {
-          return;
-        }
-        try {
-          setButtonLoading(refreshStorageBtn, true);
-          const data = await performDatabaseAction("/api/database/storage-info");
-          updateStorageDisplay(data);
-          window.notificationManager.show(
-            "Storage information updated successfully",
-            "success"
-          );
-        } catch (error) {
-          window.notificationManager.show(
-            error.message || "Failed to perform database action",
-            "danger"
-          );
-          setButtonLoading(currentButton, false, currentAction);
-        } finally {
-          setButtonLoading(refreshStorageBtn, false);
-        }
-      });
+      refreshStorageBtn.addEventListener(
+        "mousedown",
+        async (e) => {
+          if (e.button !== 0) {
+            return;
+          }
+          try {
+            setButtonLoading(refreshStorageBtn, true);
+            const data = await performDatabaseAction("/api/database/storage-info");
+            updateStorageDisplay(data);
+            window.notificationManager.show(
+              "Storage information updated successfully",
+              "success"
+            );
+          } catch (error) {
+            window.notificationManager.show(
+              error.message || "Failed to perform database action",
+              "danger"
+            );
+            setButtonLoading(currentButton, false, currentAction);
+          } finally {
+            setButtonLoading(refreshStorageBtn, false);
+          }
+        },
+        signal ? { signal } : false
+      );
     }
 
-    document.body.addEventListener("mousedown", async (event) => {
-      if (event.button !== 0) {
-        return;
-      }
-      const clearButton = event.target.closest(".clear-collection");
-
-      if (clearButton) {
-        currentAction = "clear";
-        currentCollection = clearButton.dataset.collection;
-        currentButton = clearButton;
-
-        const confirmed = await confirmationDialog.show({
-          message: `Are you sure you want to clear all documents from the ${currentCollection} collection? This action cannot be undone.`,
-          confirmButtonClass: "btn-danger",
-        });
-
-        if (confirmed) {
-          handleConfirmedAction();
+    document.body.addEventListener(
+      "mousedown",
+      async (event) => {
+        if (event.button !== 0) {
+          return;
         }
-      }
-    });
+        const clearButton = event.target.closest(".clear-collection");
+
+        if (clearButton) {
+          currentAction = "clear";
+          currentCollection = clearButton.dataset.collection;
+          currentButton = clearButton;
+
+          const confirmed = await confirmationDialog.show({
+            message: `Are you sure you want to clear all documents from the ${currentCollection} collection? This action cannot be undone.`,
+            confirmButtonClass: "btn-danger",
+          });
+
+          if (confirmed) {
+            handleConfirmedAction();
+          }
+        }
+      },
+      signal ? { signal } : false
+    );
 
     // Table Sorting Logic
     const table = document.getElementById("collections-table");
@@ -118,7 +128,9 @@ window.utils?.onPageLoad(
       let currentSort = { column: null, dir: "asc" };
 
       headers.forEach((th) => {
-        th.addEventListener("click", () => {
+        th.addEventListener(
+          "click",
+          () => {
           const column = th.dataset.sort;
           const dir
             = currentSort.column === column && currentSort.dir === "asc" ? "desc" : "asc";
@@ -164,7 +176,9 @@ window.utils?.onPageLoad(
           rows.forEach((row) => {
             tbody.appendChild(row);
           });
-        });
+          },
+          signal ? { signal } : false
+        );
       });
     }
 
@@ -187,7 +201,11 @@ window.utils?.onPageLoad(
           "success"
         );
 
-        setTimeout(() => window.location.reload(), 1500);
+        setTimeout(() => {
+          if (!signal?.aborted) {
+            window.location.reload();
+          }
+        }, 1500);
       } catch (error) {
         window.notificationManager.show(
           error.message || "Failed to perform database action",

@@ -39,13 +39,13 @@ export class UploadManager {
     this.elements = {};
     this.loadingManager = null;
 
-    onPageLoad(() => this.init(), { route: "/upload" });
+    onPageLoad((context) => this.init(context), { route: "/upload" });
   }
 
   /**
    * Initialize the upload manager
    */
-  async init() {
+  async init({ cleanup } = {}) {
     this.loadingManager = window.loadingManager;
     this.loadingManager?.show("Initializing Upload Manager");
 
@@ -55,6 +55,21 @@ export class UploadManager {
       this.initializeEventListeners();
       await this.loadUploadSourceTrips();
       this.loadingManager?.hide();
+
+      if (typeof cleanup === "function") {
+        cleanup(() => {
+          if (this.state.previewMap) {
+            try {
+              this.state.previewMap.remove();
+            } catch {
+              // Ignore map cleanup errors.
+            }
+            this.state.previewMap = null;
+          }
+          this.state.selectedFiles = [];
+          this.state.displayedTrips = [];
+        });
+      }
     } catch (error) {
       console.error("Failed to initialize upload manager:", error);
       this.loadingManager?.hide();

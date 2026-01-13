@@ -89,6 +89,7 @@
   flex: 1 1 auto;
   position: relative;
   flex-direction: column;
+  view-transition-name: route-shell;
 }
 
 .route-content {
@@ -98,11 +99,12 @@
   transition:
     opacity var(--transition-fast),
     transform var(--transition-fast);
+  view-transition-name: route-content;
 }
 
 .route-content.is-transitioning {
   opacity: 0;
-  transform: none;
+  transform: translateX(var(--nav-exit-x, 0));
 }
 
 body[data-route="/map"] .persistent-shell {

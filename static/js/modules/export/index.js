@@ -29,19 +29,23 @@ class ExportManager {
 
     /** @type {Object} Track active export operations */
     this.activeExports = {};
+
+    /** @type {AbortSignal|null} */
+    this.pageSignal = null;
   }
 
   /**
    * Initialize the export manager
    */
-  init() {
+  init({ signal } = {}) {
+    this.pageSignal = signal || null;
     this.elements = cacheElements();
-    this.initEventListeners();
+    this.initEventListeners(signal);
     initDatePickers(this.elements);
     loadSavedExportSettings(this.elements, (format) =>
       updateUIBasedOnFormat(format, this.elements)
     );
-    initUndrivenStreetsExport();
+    initUndrivenStreetsExport({ signal });
 
     // Initialize CSV options visibility
     const formatSelect = document.getElementById("adv-format");
@@ -53,51 +57,67 @@ class ExportManager {
   /**
    * Initialize event listeners for export forms
    */
-  initEventListeners() {
+  initEventListeners(signal) {
     // Form submit handlers
     Object.keys(EXPORT_CONFIG).forEach((formKey) => {
       const form = this.elements[EXPORT_CONFIG[formKey].id];
       if (form) {
-        form.addEventListener("submit", (event) => {
-          event.preventDefault();
-          this.handleFormSubmit(formKey);
-        });
+        form.addEventListener(
+          "submit",
+          (event) => {
+            event.preventDefault();
+            this.handleFormSubmit(formKey);
+          },
+          signal ? { signal } : false
+        );
       }
     });
 
     // Validate location button handlers
     this.elements.validateButtons?.forEach((button) => {
-      button.addEventListener("mousedown", (event) => {
-        if (event.button !== 0) {
-          return;
-        }
-        const targetId = event.currentTarget.dataset.target;
-        if (targetId) {
-          validateLocation(targetId);
-        }
-      });
+      button.addEventListener(
+        "mousedown",
+        (event) => {
+          if (event.button !== 0) {
+            return;
+          }
+          const targetId = event.currentTarget.dataset.target;
+          if (targetId) {
+            validateLocation(targetId);
+          }
+        },
+        signal ? { signal } : false
+      );
     });
 
     // Export all dates checkbox handler
     if (this.elements.exportAllDates) {
-      this.elements.exportAllDates.addEventListener("change", (event) => {
-        const { checked } = event.target;
-        const startDateInput = document.getElementById("adv-start-date");
-        const endDateInput = document.getElementById("adv-end-date");
+      this.elements.exportAllDates.addEventListener(
+        "change",
+        (event) => {
+          const { checked } = event.target;
+          const startDateInput = document.getElementById("adv-start-date");
+          const endDateInput = document.getElementById("adv-end-date");
 
-        if (startDateInput && endDateInput) {
-          startDateInput.disabled = checked;
-          endDateInput.disabled = checked;
-        }
-      });
+          if (startDateInput && endDateInput) {
+            startDateInput.disabled = checked;
+            endDateInput.disabled = checked;
+          }
+        },
+        signal ? { signal } : false
+      );
     }
 
     // Format select change handler
     const formatSelect = document.getElementById("adv-format");
     if (formatSelect) {
-      formatSelect.addEventListener("change", (event) => {
-        updateUIBasedOnFormat(event.target.value, this.elements);
-      });
+      formatSelect.addEventListener(
+        "change",
+        (event) => {
+          updateUIBasedOnFormat(event.target.value, this.elements);
+        },
+        signal ? { signal } : false
+      );
     }
   }
 
@@ -146,6 +166,16 @@ class ExportManager {
       );
 
       const abortController = new AbortController();
+      if (this.pageSignal) {
+        if (this.pageSignal.aborted) {
+          throw new DOMException("Aborted", "AbortError");
+        }
+        this.pageSignal.addEventListener(
+          "abort",
+          () => abortController.abort(),
+          { once: true }
+        );
+      }
       const timeoutId = setTimeout(() => {
         abortController.abort();
         window.handleError?.(
@@ -160,6 +190,9 @@ class ExportManager {
         clearTimeout(timeoutId);
       }
     } catch (error) {
+      if (error.name === "AbortError") {
+        return;
+      }
       console.error("Export error:", error);
       window.notificationManager?.show(
         `Export failed: ${error.message || "Unknown error"}`,
@@ -177,8 +210,15 @@ const exportManager = new ExportManager();
 
 // Initialize on page load
 onPageLoad(
-  () => {
-    exportManager.init();
+  ({ signal, cleanup } = {}) => {
+    exportManager.init({ signal });
+    if (typeof cleanup === "function") {
+      cleanup(() => {
+        exportManager.elements = {};
+        exportManager.activeExports = {};
+        exportManager.pageSignal = null;
+      });
+    }
   },
   { route: "/export" }
 );

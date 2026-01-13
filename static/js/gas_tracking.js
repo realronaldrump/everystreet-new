@@ -19,9 +19,9 @@ const showError = (msg) => window.notificationManager?.show(msg, "danger");
 
 // Initialize on page load
 window.utils?.onPageLoad(
-  async () => {
+  async ({ signal, cleanup } = {}) => {
     try {
-      await initializePage();
+      await initializePage(signal, cleanup);
     } catch (e) {
       showError(`Critical Error: ${e.message}`);
     }
@@ -32,7 +32,7 @@ window.utils?.onPageLoad(
 /**
  * Initialize the page
  */
-async function initializePage() {
+async function initializePage(signal, cleanup) {
   try {
     // Initialize map
     await initializeMap();
@@ -47,10 +47,31 @@ async function initializePage() {
     await loadRecentFillups();
 
     // Set up event listeners
-    setupEventListeners();
+    setupEventListeners(signal);
 
     // Set current time as default
     setCurrentTime();
+
+    if (typeof cleanup === "function") {
+      cleanup(() => {
+        if (marker) {
+          try {
+            marker.remove();
+          } catch {
+            // Ignore cleanup errors.
+          }
+          marker = null;
+        }
+        if (map) {
+          try {
+            map.remove();
+          } catch {
+            // Ignore cleanup errors.
+          }
+          map = null;
+        }
+      });
+    }
   } catch {
     showError("Failed to initialize page");
   }
@@ -423,61 +444,83 @@ function setCurrentTime() {
 /**
  * Set up event listeners
  */
-function setupEventListeners() {
+function setupEventListeners(signal) {
   // Vehicle selection change
   document
     .getElementById("vehicle-select")
-    .addEventListener("change", async (event) => {
-      const selected = event.target.value || null;
-      window.utils?.setStorage("selectedVehicleImei", selected);
-      window.ESStore?.updateFilters({ vehicle: selected }, { source: "vehicle" });
-      await updateLocationAndOdometer();
-      await loadRecentFillups();
-      await loadStatistics();
-    });
+    .addEventListener(
+      "change",
+      async (event) => {
+        const selected = event.target.value || null;
+        window.utils?.setStorage("selectedVehicleImei", selected);
+        window.ESStore?.updateFilters({ vehicle: selected }, { source: "vehicle" });
+        await updateLocationAndOdometer();
+        await loadRecentFillups();
+        await loadStatistics();
+      },
+      signal ? { signal } : false
+    );
 
   // Fill-up time change
   document
     .getElementById("fillup-time")
-    .addEventListener("change", updateLocationAndOdometer);
+    .addEventListener(
+      "change",
+      updateLocationAndOdometer,
+      signal ? { signal } : false
+    );
 
   // Use Now button
-  document.getElementById("use-now-btn").addEventListener("click", () => {
-    setCurrentTime();
-    updateLocationAndOdometer();
-  });
+  document.getElementById("use-now-btn").addEventListener(
+    "click",
+    () => {
+      setCurrentTime();
+      updateLocationAndOdometer();
+    },
+    signal ? { signal } : false
+  );
 
   // Calculate total cost when price or gallons change
-  document.getElementById("gallons").addEventListener("input", calculateTotalCost);
+  document
+    .getElementById("gallons")
+    .addEventListener("input", calculateTotalCost, signal ? { signal } : false);
   document
     .getElementById("price-per-gallon")
-    .addEventListener("input", calculateTotalCost);
+    .addEventListener("input", calculateTotalCost, signal ? { signal } : false);
 
   // Form submission
   document
     .getElementById("gas-fillup-form")
-    .addEventListener("submit", handleFormSubmit);
+    .addEventListener("submit", handleFormSubmit, signal ? { signal } : false);
 
   // Cancel edit
-  document.getElementById("cancel-edit-btn").addEventListener("click", resetFormState);
+  document
+    .getElementById("cancel-edit-btn")
+    .addEventListener("click", resetFormState, signal ? { signal } : false);
 
   // Odometer Not Recorded toggle
-  document.getElementById("odometer-not-recorded").addEventListener("change", (e) => {
-    const odoInput = document.getElementById("odometer");
-    if (e.target.checked) {
-      odoInput.value = "";
-      odoInput.disabled = true;
-      odoInput.placeholder = "Not recorded";
-    } else {
-      odoInput.disabled = false;
-      odoInput.placeholder = "miles";
-    }
-  });
+  document
+    .getElementById("odometer-not-recorded")
+    .addEventListener(
+      "change",
+      (e) => {
+        const odoInput = document.getElementById("odometer");
+        if (e.target.checked) {
+          odoInput.value = "";
+          odoInput.disabled = true;
+          odoInput.placeholder = "Not recorded";
+        } else {
+          odoInput.disabled = false;
+          odoInput.placeholder = "miles";
+        }
+      },
+      signal ? { signal } : false
+    );
 
   // Auto-calc Odometer
   document
     .getElementById("auto-calc-odometer")
-    .addEventListener("click", autoCalcOdometer);
+    .addEventListener("click", autoCalcOdometer, signal ? { signal } : false);
 }
 
 /**

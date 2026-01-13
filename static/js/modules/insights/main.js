@@ -13,21 +13,28 @@ import * as InsightsMetrics from "./metrics.js";
 import * as InsightsState from "./state.js";
 import * as InsightsTables from "./tables.js";
 
-let globalListenersBound = false;
+let tooltipInstances = [];
 
 // Initialize on page load
-onPageLoad(init, { route: "/insights" });
+onPageLoad((context) => init(context), { route: "/insights" });
 
 /**
  * Initialize the driving insights page
  */
-export async function init() {
-  setupEventListeners();
+export async function init({ signal, cleanup } = {}) {
+  setupEventListeners(signal);
   initTooltips();
   InsightsCharts.initCharts();
   await loadAllData();
   startAutoRefresh();
-  document.addEventListener("es:page-unload", stopAutoRefresh, { once: true });
+  if (typeof cleanup === "function") {
+    cleanup(() => {
+      stopAutoRefresh();
+      InsightsTables.destroyTables?.();
+      tooltipInstances.forEach((instance) => instance?.dispose?.());
+      tooltipInstances = [];
+    });
+  }
 }
 
 /**
@@ -35,66 +42,69 @@ export async function init() {
  */
 function initTooltips() {
   if (typeof bootstrap !== "undefined" && bootstrap.Tooltip) {
-    Array.from(document.querySelectorAll('[data-bs-toggle="tooltip"]')).forEach(
-      (el) => {
-        bootstrap.Tooltip.getOrCreateInstance(el);
-      }
-    );
+    tooltipInstances = Array.from(
+      document.querySelectorAll('[data-bs-toggle="tooltip"]')
+    ).map((el) => bootstrap.Tooltip.getOrCreateInstance(el));
   }
 }
 
 /**
  * Setup all event listeners
  */
-function setupEventListeners() {
+function setupEventListeners(signal) {
   // React to global date-filter changes triggered elsewhere in the app
-  if (!globalListenersBound) {
-    document.addEventListener("filtersApplied", () => {
+  document.addEventListener(
+    "filtersApplied",
+    () => {
       loadAllData();
-    });
-    globalListenersBound = true;
-  }
+    },
+    signal ? { signal } : false
+  );
 
   // View toggles
   document.querySelectorAll(".toggle-btn").forEach((btn) => {
-    btn.addEventListener("click", handleToggleChange);
+    btn.addEventListener("click", handleToggleChange, signal ? { signal } : false);
   });
 
   // Metric cards
   document.querySelectorAll(".metric-card").forEach((card) => {
-    card.addEventListener("click", handleMetricClick);
+    card.addEventListener("click", handleMetricClick, signal ? { signal } : false);
   });
 
   // FAB menu
-  setupFabMenu();
+  setupFabMenu(signal);
 
   // FAB actions
-  setupFabActions();
+  setupFabActions(signal);
 }
 
 /**
  * Setup floating action button menu
  */
-function setupFabMenu() {
+function setupFabMenu(signal) {
   const fabMain = document.getElementById("fab-main");
   const fabMenu = document.getElementById("fab-menu");
 
   if (fabMain && fabMenu) {
-    fabMain.addEventListener("click", () => {
-      fabMenu.classList.toggle("show");
-      const icon = fabMain.querySelector("i");
-      if (icon) {
-        icon.classList.toggle("fa-plus");
-        icon.classList.toggle("fa-times");
-      }
-    });
+    fabMain.addEventListener(
+      "click",
+      () => {
+        fabMenu.classList.toggle("show");
+        const icon = fabMain.querySelector("i");
+        if (icon) {
+          icon.classList.toggle("fa-plus");
+          icon.classList.toggle("fa-times");
+        }
+      },
+      signal ? { signal } : false
+    );
   }
 }
 
 /**
  * Setup floating action button actions
  */
-function setupFabActions() {
+function setupFabActions(signal) {
   const refreshBtn = document.getElementById("refresh-data");
   const downloadBtn = document.getElementById("download-report");
   const shareBtn = document.getElementById("share-insights");
@@ -103,32 +113,56 @@ function setupFabActions() {
   const viewMapBtn = document.getElementById("view-map");
 
   if (refreshBtn) {
-    refreshBtn.addEventListener("click", () => {
-      loadAllData();
-      InsightsExport.showNotification("Data refreshed successfully", "success");
-    });
+    refreshBtn.addEventListener(
+      "click",
+      () => {
+        loadAllData();
+        InsightsExport.showNotification("Data refreshed successfully", "success");
+      },
+      signal ? { signal } : false
+    );
   }
 
   if (downloadBtn) {
-    downloadBtn.addEventListener("click", InsightsExport.generateReport);
+    downloadBtn.addEventListener(
+      "click",
+      InsightsExport.generateReport,
+      signal ? { signal } : false
+    );
   }
 
   if (shareBtn) {
-    shareBtn.addEventListener("click", InsightsExport.shareInsights);
+    shareBtn.addEventListener(
+      "click",
+      InsightsExport.shareInsights,
+      signal ? { signal } : false
+    );
   }
 
   if (exportChartBtn) {
-    exportChartBtn.addEventListener("click", InsightsExport.exportChart);
+    exportChartBtn.addEventListener(
+      "click",
+      InsightsExport.exportChart,
+      signal ? { signal } : false
+    );
   }
 
   if (exportDataBtn) {
-    exportDataBtn.addEventListener("click", InsightsExport.exportData);
+    exportDataBtn.addEventListener(
+      "click",
+      InsightsExport.exportData,
+      signal ? { signal } : false
+    );
   }
 
   if (viewMapBtn) {
-    viewMapBtn.addEventListener("click", () => {
-      window.location.href = "/trips";
-    });
+    viewMapBtn.addEventListener(
+      "click",
+      () => {
+        window.location.href = "/trips";
+      },
+      signal ? { signal } : false
+    );
   }
 }
 

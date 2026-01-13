@@ -21,7 +21,7 @@ import { onPageLoad } from "./modules/utils.js";
  * Initialize driving navigation when page is ready.
  */
 onPageLoad(
-  () => {
+  ({ cleanup } = {}) => {
     if (typeof mapboxgl === "undefined") {
       const mapContainerId
         = window.coverageNavigatorConfig?.drivingNavigation?.mapContainerId
@@ -35,10 +35,14 @@ onPageLoad(
     }
 
     // Initialize driving navigation
-    new DrivingNavigation();
+    const navigation = new DrivingNavigation();
 
     // Inject cluster marker styles
     DrivingNavigationUI.injectClusterStyles();
+
+    if (typeof cleanup === "function") {
+      cleanup(() => navigation.destroy?.());
+    }
   },
   { route: "/driving-navigation" }
 );

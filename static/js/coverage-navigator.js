@@ -34,7 +34,7 @@
   };
 
   window.utils?.onPageLoad(
-    () => {
+    ({ cleanup } = {}) => {
       if (!window.mapBase || typeof mapboxgl === "undefined") {
         console.error("Mapbox GL JS library not found. Coverage map cannot load.");
         return;
@@ -50,6 +50,19 @@
           center: [-96, 37.8],
           zoom: 4,
           accessToken: window.MAPBOX_ACCESS_TOKEN,
+        });
+      }
+
+      if (typeof cleanup === "function") {
+        cleanup(() => {
+          if (window.coverageMasterMap) {
+            try {
+              window.coverageMasterMap.remove();
+            } catch {
+              // Ignore cleanup errors.
+            }
+            window.coverageMasterMap = null;
+          }
         });
       }
     },

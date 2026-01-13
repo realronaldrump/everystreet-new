@@ -125,3 +125,12 @@ export function updateAnalyticsTable() {
     responsive: true,
   });
 }
+
+export function destroyTables() {
+  const selectors = ["#destinations-table", "#analytics-table"];
+  selectors.forEach((selector) => {
+    if ($.fn.DataTable.isDataTable(selector)) {
+      $(selector).DataTable().clear().destroy(true);
+    }
+  });
+}

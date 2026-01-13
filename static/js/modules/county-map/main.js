@@ -29,7 +29,7 @@ import {
 /**
  * Initialize the county map
  */
-export async function init() {
+export async function init({ cleanup } = {}) {
   updateLoadingText("Initializing map...");
 
   // Create map with standard projection (not Albers - TopoJSON is unprojected)
@@ -46,6 +46,19 @@ export async function init() {
   });
 
   CountyMapState.setMap(map);
+  if (typeof cleanup === "function") {
+    cleanup(() => {
+      const activeMap = CountyMapState.getMap();
+      if (activeMap) {
+        try {
+          activeMap.remove();
+        } catch {
+          // Ignore map cleanup errors.
+        }
+      }
+      CountyMapState.resetState?.();
+    });
+  }
 
   // Add navigation controls
   map.addControl(new mapboxgl.NavigationControl(), "bottom-right");

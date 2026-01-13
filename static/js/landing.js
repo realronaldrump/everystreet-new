@@ -18,10 +18,13 @@
   let swipeActionsBound = false;
   let recordDistanceCache = null;
 
+  let pageSignal = null;
+
   /**
    * Initialize the landing page
    */
-  function init() {
+  function init({ signal, cleanup } = {}) {
+    pageSignal = signal || null;
     cacheElements();
     updateGreeting();
     updateSuggestion();
@@ -32,7 +35,12 @@
     setupRefreshInterval();
     checkLiveTracking();
     bindSwipeActions();
-    document.addEventListener("es:page-unload", handleUnload, { once: true });
+    if (typeof cleanup === "function") {
+      cleanup(() => {
+        clearIntervals();
+        swipeActionsBound = false;
+      });
+    }
   }
 
   /**
@@ -110,14 +118,22 @@
     if (!elements.widgetEditToggle) {
       return;
     }
-    elements.widgetEditToggle.addEventListener("click", () => {
-      document.dispatchEvent(new CustomEvent("widgets:toggle-edit"));
-    });
-    document.addEventListener("widgets:edit-toggled", (event) => {
-      const enabled = event.detail?.enabled;
-      elements.widgetEditToggle.textContent = enabled ? "Done" : "Customize";
-      elements.widgetEditToggle.classList.toggle("active", Boolean(enabled));
-    });
+    elements.widgetEditToggle.addEventListener(
+      "click",
+      () => {
+        document.dispatchEvent(new CustomEvent("widgets:toggle-edit"));
+      },
+      pageSignal ? { signal: pageSignal } : false
+    );
+    document.addEventListener(
+      "widgets:edit-toggled",
+      (event) => {
+        const enabled = event.detail?.enabled;
+        elements.widgetEditToggle.textContent = enabled ? "Done" : "Customize";
+        elements.widgetEditToggle.classList.toggle("active", Boolean(enabled));
+      },
+      pageSignal ? { signal: pageSignal } : false
+    );
   }
 
   function bindSuggestionCard() {
@@ -131,13 +147,17 @@
         window.location.href = path;
       }
     };
-    card.addEventListener("click", handleActivate);
-    card.addEventListener("keydown", (event) => {
-      if (event.key === "Enter" || event.key === " ") {
-        event.preventDefault();
-        handleActivate();
-      }
-    });
+    card.addEventListener("click", handleActivate, pageSignal ? { signal: pageSignal } : false);
+    card.addEventListener(
+      "keydown",
+      (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          handleActivate();
+        }
+      },
+      pageSignal ? { signal: pageSignal } : false
+    );
   }
 
   function updateSuggestion() {
@@ -607,33 +627,37 @@
     if (swipeActionsBound || !elements.activityFeed) {
       return;
     }
-    elements.activityFeed.addEventListener("click", (event) => {
-      const button = event.target.closest(".swipe-action-btn");
-      if (!button) {
-        return;
-      }
-      const { action } = button.dataset;
-      const item = button.closest("[data-trip-id]");
-      const tripId = item?.dataset.tripId;
-
-      if (action === "view") {
-        window.location.href = "/trips";
-      } else if (action === "share" && tripId) {
-        const shareData = {
-          title: "EveryStreet Trip",
-          text: "Check out this recent trip.",
-          url: `${window.location.origin}/trips`,
-        };
-        if (navigator.share) {
-          navigator.share(shareData).catch(() => {});
-        } else {
-          window.notificationManager?.show(
-            "Share is not available on this device",
-            "info"
-          );
+    elements.activityFeed.addEventListener(
+      "click",
+      (event) => {
+        const button = event.target.closest(".swipe-action-btn");
+        if (!button) {
+          return;
         }
-      }
-    });
+        const { action } = button.dataset;
+        const item = button.closest("[data-trip-id]");
+        const tripId = item?.dataset.tripId;
+
+        if (action === "view") {
+          window.location.href = "/trips";
+        } else if (action === "share" && tripId) {
+          const shareData = {
+            title: "EveryStreet Trip",
+            text: "Check out this recent trip.",
+            url: `${window.location.origin}/trips`,
+          };
+          if (navigator.share) {
+            navigator.share(shareData).catch(() => {});
+          } else {
+            window.notificationManager?.show(
+              "Share is not available on this device",
+              "info"
+            );
+          }
+        }
+      },
+      pageSignal ? { signal: pageSignal } : false
+    );
     swipeActionsBound = true;
   }
 
@@ -761,10 +785,6 @@
       clearInterval(liveTrackingIntervalId);
       liveTrackingIntervalId = null;
     }
-  }
-
-  function handleUnload() {
-    clearIntervals();
   }
 
   window.utils?.onPageLoad(init, { route: "/" });

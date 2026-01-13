@@ -32,16 +32,18 @@ const JOB_POLL_INTERVAL_MS = 1500;
 const activeJob = null;
 let activeJobsByAreaId = new Map();
 const _activeJobPolling = null;
+let pageActive = false;
 
 // =============================================================================
 // Initialization
 // =============================================================================
 
 window.utils?.onPageLoad(
-  async () => {
+  async ({ signal, cleanup } = {}) => {
     console.log("Coverage Management initialized");
 
-    setupEventListeners();
+    pageActive = true;
+    setupEventListeners(signal);
     setupBackgroundJobUI();
 
     // Load initial data
@@ -49,63 +51,124 @@ window.utils?.onPageLoad(
 
     // Resume any in-progress job (even after refresh/browser close)
     await resumeBackgroundJob();
+
+    if (typeof cleanup === "function") {
+      cleanup(() => {
+        pageActive = false;
+        if (activeStreetPopup) {
+          try {
+            activeStreetPopup.remove();
+          } catch {
+            // Ignore cleanup errors.
+          }
+          activeStreetPopup = null;
+        }
+        if (map) {
+          try {
+            map.remove();
+          } catch {
+            // Ignore cleanup errors.
+          }
+          map = null;
+        }
+        activeJobsByAreaId = new Map();
+        activeErrorAreaId = null;
+      });
+    }
   },
   { route: "/coverage-management" }
 );
 
-function setupEventListeners() {
+function setupEventListeners(signal) {
   // Refresh button
-  document.getElementById("refresh-table-btn")?.addEventListener("click", loadAreas);
-  document.getElementById("quick-refresh-all")?.addEventListener("click", loadAreas);
+  document
+    .getElementById("refresh-table-btn")
+    ?.addEventListener("click", loadAreas, signal ? { signal } : false);
+  document
+    .getElementById("quick-refresh-all")
+    ?.addEventListener("click", loadAreas, signal ? { signal } : false);
 
   // Add area button
-  document.getElementById("add-coverage-area")?.addEventListener("click", addArea);
+  document
+    .getElementById("add-coverage-area")
+    ?.addEventListener("click", addArea, signal ? { signal } : false);
 
   const coverageTable = document.getElementById("coverage-areas-table");
-  coverageTable?.addEventListener("click", handleCoverageErrorClick);
+  coverageTable?.addEventListener(
+    "click",
+    handleCoverageErrorClick,
+    signal ? { signal } : false
+  );
 
   document
     .getElementById("coverage-error-dismiss")
-    ?.addEventListener("click", hideCoverageErrorDetails);
+    ?.addEventListener(
+      "click",
+      hideCoverageErrorDetails,
+      signal ? { signal } : false
+    );
 
   // Close dashboard
-  document.getElementById("close-dashboard-btn")?.addEventListener("click", () => {
-    document.getElementById("coverage-dashboard").style.display = "none";
-    currentAreaId = null;
-  });
+  document
+    .getElementById("close-dashboard-btn")
+    ?.addEventListener(
+      "click",
+      () => {
+        document.getElementById("coverage-dashboard").style.display = "none";
+        currentAreaId = null;
+      },
+      signal ? { signal } : false
+    );
 
   // Dashboard action buttons
   document
     .getElementById("recalculate-coverage-btn")
-    ?.addEventListener("click", async () => {
-      if (currentAreaId) {
-        const areaName
-          = document.getElementById("dashboard-location-name")?.textContent
-          || "this area";
-        await recalculateCoverage(currentAreaId, areaName);
-      }
-    });
+    ?.addEventListener(
+      "click",
+      async () => {
+        if (currentAreaId) {
+          const areaName
+            = document.getElementById("dashboard-location-name")?.textContent
+            || "this area";
+          await recalculateCoverage(currentAreaId, areaName);
+        }
+      },
+      signal ? { signal } : false
+    );
 
-  document.getElementById("rebuild-area-btn")?.addEventListener("click", async () => {
-    if (currentAreaId) {
-      const areaName
-        = document.getElementById("dashboard-location-name")?.textContent || "this area";
-      await rebuildArea(currentAreaId, areaName);
-    }
-  });
+  document
+    .getElementById("rebuild-area-btn")
+    ?.addEventListener(
+      "click",
+      async () => {
+        if (currentAreaId) {
+          const areaName
+            = document.getElementById("dashboard-location-name")?.textContent
+            || "this area";
+          await rebuildArea(currentAreaId, areaName);
+        }
+      },
+      signal ? { signal } : false
+    );
 
   // Window resize handler
   let resizeTimeout;
-  window.addEventListener("resize", () => {
-    if (map) {
-      clearTimeout(resizeTimeout);
-      resizeTimeout = setTimeout(() => map.resize(), 200);
-    }
-  });
+  window.addEventListener(
+    "resize",
+    () => {
+      if (map) {
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(() => map.resize(), 200);
+      }
+    },
+    signal ? { signal } : false
+  );
 
   // Map filter buttons
   document.querySelectorAll("[data-filter]").forEach((btn) => {
-    btn.addEventListener("click", (e) => {
+    btn.addEventListener(
+      "click",
+      (e) => {
       document.querySelectorAll("[data-filter]").forEach((b) => {
         b.classList.remove("active", "btn-primary", "btn-success", "btn-danger");
         b.classList.add(
@@ -134,8 +197,10 @@ function setupEventListeners() {
         }`
       );
 
-      applyMapFilter(e.target.dataset.filter);
-    });
+        applyMapFilter(e.target.dataset.filter);
+      },
+      signal ? { signal } : false
+    );
   });
 }
 
@@ -670,7 +735,7 @@ function refreshCoverageErrorDetails(areas) {
 async function _pollJobProgress(jobId) {
   let consecutiveErrors = 0;
 
-  while (activeJob && activeJob.jobId === jobId) {
+  while (pageActive && activeJob && activeJob.jobId === jobId) {
     try {
       const job = await apiGet(`/jobs/${jobId}`);
       consecutiveErrors = 0;

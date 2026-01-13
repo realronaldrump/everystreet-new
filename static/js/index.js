@@ -22,20 +22,22 @@ function updateLiveTrackingVisibility() {
   liveTrackingPanel.classList.toggle("d-none", !shouldShow);
 }
 
-let storageListenerBound = false;
-
 // Script for toggling chevron in metrics collapse
 window.utils?.onPageLoad(
-  () => {
+  ({ signal } = {}) => {
     const metricsButton = document.querySelector('[data-bs-target="#metrics-content"]');
     if (metricsButton) {
       const chevron = metricsButton.querySelector(".fa-chevron-down");
-      metricsButton.addEventListener("click", () => {
-        const isExpanded = metricsButton.getAttribute("aria-expanded") === "true";
-        if (chevron) {
-          chevron.style.transform = isExpanded ? "rotate(0deg)" : "rotate(180deg)";
-        }
-      });
+      metricsButton.addEventListener(
+        "click",
+        () => {
+          const isExpanded = metricsButton.getAttribute("aria-expanded") === "true";
+          if (chevron) {
+            chevron.style.transform = isExpanded ? "rotate(0deg)" : "rotate(180deg)";
+          }
+        },
+        signal ? { signal } : false
+      );
       // Initial state check for chevron if panel is collapsed by default
       if (metricsButton.getAttribute("aria-expanded") === "false" && chevron) {
         chevron.style.transform = "rotate(0deg)";
@@ -63,14 +65,15 @@ window.utils?.onPageLoad(
       })();
 
       // Respond to changes from other tabs/windows or settings page
-      if (!storageListenerBound) {
-        window.addEventListener("storage", (e) => {
+      window.addEventListener(
+        "storage",
+        (e) => {
           if (e.key === "showLiveTracking") {
             updateLiveTrackingVisibility();
           }
-        });
-        storageListenerBound = true;
-      }
+        },
+        signal ? { signal } : false
+      );
     }
 
     const setupMapTilt = () => {
@@ -96,13 +99,17 @@ window.utils?.onPageLoad(
         });
       };
 
-      window.addEventListener("scroll", () => {
-        if (ticking) {
-          return;
-        }
-        ticking = true;
-        requestAnimationFrame(applyTilt);
-      });
+      window.addEventListener(
+        "scroll",
+        () => {
+          if (ticking) {
+            return;
+          }
+          ticking = true;
+          requestAnimationFrame(applyTilt);
+        },
+        signal ? { signal, passive: true } : { passive: true }
+      );
     };
 
     setupMapTilt();

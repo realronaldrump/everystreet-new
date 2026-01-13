@@ -37,6 +37,7 @@ export class DrivingNavigation {
     this.isFetchingRoute = false;
     this.suggestedClusters = [];
     this.currentRoute = null;
+    this.abortController = new AbortController();
 
     this.initialize();
   }
@@ -75,42 +76,81 @@ export class DrivingNavigation {
    * Set up all event listeners.
    */
   setupEventListeners() {
-    this.ui.areaSelect?.addEventListener("change", () => this.handleAreaChange());
-    this.ui.findBtn?.addEventListener("click", () => this.findAndDisplayRoute());
-    this.ui.findEfficientBtn?.addEventListener("click", () =>
-      this.findEfficientStreetClusters()
+    const { signal } = this.abortController;
+    this.ui.areaSelect?.addEventListener(
+      "change",
+      () => this.handleAreaChange(),
+      signal ? { signal } : false
     );
-    this.ui.autoFollowToggle?.addEventListener("change", (e) =>
-      this.ui.saveAutoFollowState(e.target.checked)
+    this.ui.findBtn?.addEventListener(
+      "click",
+      () => this.findAndDisplayRoute(),
+      signal ? { signal } : false
     );
-    this.ui.openGoogleMapsBtn?.addEventListener("click", () => this.openInGoogleMaps());
-    this.ui.openAppleMapsBtn?.addEventListener("click", () => this.openInAppleMaps());
+    this.ui.findEfficientBtn?.addEventListener(
+      "click",
+      () => this.findEfficientStreetClusters(),
+      signal ? { signal } : false
+    );
+    this.ui.autoFollowToggle?.addEventListener(
+      "change",
+      (e) => this.ui.saveAutoFollowState(e.target.checked),
+      signal ? { signal } : false
+    );
+    this.ui.openGoogleMapsBtn?.addEventListener(
+      "click",
+      () => this.openInGoogleMaps(),
+      signal ? { signal } : false
+    );
+    this.ui.openAppleMapsBtn?.addEventListener(
+      "click",
+      () => this.openInAppleMaps(),
+      signal ? { signal } : false
+    );
 
     // Listen for updates from LiveTripTracker
     document.addEventListener(
       "liveTrackingUpdated",
-      this.handleLiveTrackingUpdate.bind(this)
+      this.handleLiveTrackingUpdate.bind(this),
+      signal ? { signal } : false
     );
 
     // Listen for coverage areas being loaded by OptimalRoutesManager
-    document.addEventListener("coverageAreasLoaded", (e) => {
-      if (e.detail?.areas) {
-        this.coverageAreas = e.detail.areas;
-      }
-    });
+    document.addEventListener(
+      "coverageAreasLoaded",
+      (e) => {
+        if (e.detail?.areas) {
+          this.coverageAreas = e.detail.areas;
+        }
+      },
+      signal ? { signal } : false
+    );
 
     // Delegate click for dynamically created popup buttons
-    document.addEventListener("click", (event) => {
-      if (event.target.matches(".navigate-to-segment")) {
-        const { segmentId } = event.target.dataset;
-        // Close all popups
-        document.querySelectorAll(".mapboxgl-popup").forEach((p) => {
-          p.remove();
-        });
-        this.mapManager.highlightTargetStreet(segmentId);
-        this.findRouteToSegment(segmentId);
-      }
-    });
+    document.addEventListener(
+      "click",
+      (event) => {
+        if (event.target.matches(".navigate-to-segment")) {
+          const { segmentId } = event.target.dataset;
+          // Close all popups
+          document.querySelectorAll(".mapboxgl-popup").forEach((p) => {
+            p.remove();
+          });
+          this.mapManager.highlightTargetStreet(segmentId);
+          this.findRouteToSegment(segmentId);
+        }
+      },
+      signal ? { signal } : false
+    );
+  }
+
+  destroy() {
+    try {
+      this.abortController.abort();
+    } catch {
+      // Ignore abort errors.
+    }
+    this.mapManager?.destroy?.();
   }
 
   /**

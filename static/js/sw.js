@@ -1,14 +1,33 @@
 /* global clients */
 
-const CACHE_VERSION = "v2";
+const CACHE_VERSION = "v3";
+const APP_SHELL_CACHE = `everystreet-shell-${CACHE_VERSION}`;
 const API_CACHE = `everystreet-api-${CACHE_VERSION}`;
 const TILE_CACHE = `everystreet-tiles-${CACHE_VERSION}`;
 
 const API_PATH_PREFIX = "/api/";
 const TILE_HOSTS = new Set(["basemaps.cartocdn.com"]);
+const STATIC_PATH_PREFIX = "/static/";
+const APP_SHELL_ASSETS = [
+  "/static/css/style.css",
+  "/static/css/animations.css",
+  "/static/css/loading-styles.css",
+  "/static/js/utils.js",
+  "/static/js/loading_manager.js",
+  "/static/js/modules/app-controller.js",
+  "/static/js/modules/ui/ui-init.js",
+  "/static/js/modules/spa/router.js",
+  "/static/js/modules/spa/store.js",
+];
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(self.skipWaiting());
+  event.waitUntil(
+    (async () => {
+      const cache = await caches.open(APP_SHELL_CACHE);
+      await cache.addAll(APP_SHELL_ASSETS);
+      await self.skipWaiting();
+    })()
+  );
 });
 
 self.addEventListener("activate", (event) => {
@@ -17,7 +36,7 @@ self.addEventListener("activate", (event) => {
       const keys = await caches.keys();
       await Promise.all(
         keys.map((key) => {
-          if (key !== API_CACHE && key !== TILE_CACHE) {
+          if (key !== API_CACHE && key !== TILE_CACHE && key !== APP_SHELL_CACHE) {
             return caches.delete(key);
           }
           return null;
@@ -47,6 +66,11 @@ self.addEventListener("fetch", (event) => {
 
   if (url.origin === self.location.origin && url.pathname.startsWith(API_PATH_PREFIX)) {
     event.respondWith(networkFirst(request));
+    return;
+  }
+
+  if (url.origin === self.location.origin && url.pathname.startsWith(STATIC_PATH_PREFIX)) {
+    event.respondWith(cacheFirst(request, APP_SHELL_CACHE));
     return;
   }
 
@@ -95,6 +119,19 @@ async function staleWhileRevalidate(request, cacheName) {
     });
 
   return cached || networkPromise;
+}
+
+async function cacheFirst(request, cacheName) {
+  const cache = await caches.open(cacheName);
+  const cached = await cache.match(request);
+  if (cached) {
+    return cached;
+  }
+  const response = await fetch(request);
+  if (response && response.ok) {
+    cache.put(request, response.clone());
+  }
+  return response;
 }
 
 function shouldCacheApiResponse(response) {

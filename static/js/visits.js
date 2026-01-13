@@ -2,7 +2,7 @@
 
 (() => {
   window.utils?.onPageLoad(
-    () => {
+    ({ cleanup } = {}) => {
       if (
         typeof Chart !== "undefined"
         && typeof $ !== "undefined"
@@ -27,6 +27,14 @@
           attributes: true,
           attributeFilter: ["data-bs-theme"],
         });
+
+        if (typeof cleanup === "function") {
+          cleanup(() => {
+            themeObserver.disconnect();
+            window.visitsManager?.destroy?.();
+            window.visitsManager = null;
+          });
+        }
       } else {
         const missingLibraries = [];
         if (typeof Chart === "undefined") {

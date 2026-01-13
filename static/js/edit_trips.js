@@ -1,7 +1,7 @@
 /* global mapboxgl, MapboxDraw */
 
 window.utils?.onPageLoad(
-  () => {
+  ({ cleanup } = {}) => {
     let editMap = null;
     let draw = null;
     const tripsSourceId = "trips-source";
@@ -555,6 +555,22 @@ window.utils?.onPageLoad(
     }
 
     init();
+
+    if (typeof cleanup === "function") {
+      cleanup(() => {
+        if (editMap) {
+          try {
+            editMap.remove();
+          } catch {
+            // Ignore map cleanup errors.
+          }
+          editMap = null;
+        }
+        draw = null;
+        currentTrip = null;
+        tripFeatures = [];
+      });
+    }
   },
   { route: "/edit_trips" }
 );

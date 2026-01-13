@@ -11,7 +11,7 @@ import { setButtonLoading } from "./ui.js";
 /**
  * Initialize the undriven streets export form
  */
-export function initUndrivenStreetsExport() {
+export function initUndrivenStreetsExport({ signal } = {}) {
   const locationSelect = document.getElementById("undriven-streets-location");
   const formatSelect = document.getElementById("undriven-streets-format");
   const exportBtn = document.getElementById("export-undriven-streets-btn");
@@ -23,29 +23,45 @@ export function initUndrivenStreetsExport() {
   }
 
   // Fetch areas and populate dropdown
-  loadCoverageAreas(locationSelect);
+  loadCoverageAreas(locationSelect, signal);
 
   // Enable export button only if area is selected
-  locationSelect.addEventListener("change", () => {
-    if (exportBtn) {
-      exportBtn.disabled = !locationSelect.value;
-    }
-  });
+  locationSelect.addEventListener(
+    "change",
+    () => {
+      if (exportBtn) {
+        exportBtn.disabled = !locationSelect.value;
+      }
+    },
+    signal ? { signal } : false
+  );
 
   // Handle form submission
-  form.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    await handleUndrivenStreetsExport(locationSelect, formatSelect, exportBtn);
-  });
+  form.addEventListener(
+    "submit",
+    async (e) => {
+      e.preventDefault();
+      await handleUndrivenStreetsExport(
+        locationSelect,
+        formatSelect,
+        exportBtn,
+        signal
+      );
+    },
+    signal ? { signal } : false
+  );
 }
 
 /**
  * Load coverage areas into the location select dropdown
  * @param {HTMLSelectElement} locationSelect - Location select element
  */
-async function loadCoverageAreas(locationSelect) {
+async function loadCoverageAreas(locationSelect, signal) {
+  if (signal?.aborted) {
+    return;
+  }
   try {
-    const areas = await fetchCoverageAreas();
+    const areas = await fetchCoverageAreas(signal);
 
     locationSelect.innerHTML = '<option value="">Select an area...</option>';
 
@@ -63,6 +79,9 @@ async function loadCoverageAreas(locationSelect) {
       locationSelect.innerHTML = '<option value="">No areas found</option>';
     }
   } catch (err) {
+    if (err.name === "AbortError") {
+      return;
+    }
     locationSelect.innerHTML = '<option value="">Failed to load areas</option>';
     window.notificationManager?.show(`Failed to load areas: ${err.message}`, "error");
   }
@@ -74,8 +93,16 @@ async function loadCoverageAreas(locationSelect) {
  * @param {HTMLSelectElement} formatSelect - Format select element
  * @param {HTMLButtonElement} exportBtn - Export button element
  */
-async function handleUndrivenStreetsExport(locationSelect, formatSelect, exportBtn) {
+async function handleUndrivenStreetsExport(
+  locationSelect,
+  formatSelect,
+  exportBtn,
+  signal
+) {
   if (!locationSelect.value) {
+    return;
+  }
+  if (signal?.aborted) {
     return;
   }
 
@@ -88,7 +115,7 @@ async function handleUndrivenStreetsExport(locationSelect, formatSelect, exportB
     const displayName
       = locationSelect.selectedOptions?.[0]?.dataset.displayName || "undriven_streets";
 
-    const geojson = await fetchUndrivenStreets(areaId);
+    const geojson = await fetchUndrivenStreets(areaId, signal);
 
     let blob = null;
     const sanitizedName = sanitizeFilename(displayName);
@@ -118,6 +145,9 @@ async function handleUndrivenStreetsExport(locationSelect, formatSelect, exportB
 
     window.notificationManager?.show("Undriven streets export completed", "success");
   } catch (err) {
+    if (err.name === "AbortError") {
+      return;
+    }
     window.notificationManager?.show(`Export failed: ${err.message}`, "error");
   } finally {
     setButtonLoading(exportBtn, false, originalText);

@@ -8,89 +8,144 @@
   let allVehicles = [];
   let currentVehicle = null;
   let bouncieOdometer = null;
+  let pageSignal = null;
 
   // LocalStorage key for persisting selected vehicle
   const STORAGE_KEY = "selectedVehicleImei";
 
   // DOM Elements
-  const elements = {
-    loadingState: document.getElementById("loading-state"),
-    emptyState: document.getElementById("empty-state"),
-    vehicleContent: document.getElementById("vehicle-content"),
-
-    // Vehicle info
-    vehicleName: document.getElementById("vehicle-name"),
-    vehicleSubtitle: document.getElementById("vehicle-subtitle"),
-    vehicleStatusBadge: document.getElementById("vehicle-status-badge"),
-    vehicleImei: document.getElementById("vehicle-imei"),
-    vehicleVin: document.getElementById("vehicle-vin"),
-    vehicleMake: document.getElementById("vehicle-make"),
-    vehicleModel: document.getElementById("vehicle-model"),
-    vehicleYear: document.getElementById("vehicle-year"),
-
-    // Odometer
-    currentOdometer: document.getElementById("current-odometer"),
-    odometerSource: document.getElementById("odometer-source"),
-    odometerUpdated: document.getElementById("odometer-updated"),
-    bouncieOdometer: document.getElementById("bouncie-odometer"),
-    bouncieReadingSection: document.getElementById("bouncie-reading-section"),
-    manualOdometerInput: document.getElementById("manual-odometer-input"),
-
-    // Settings
-    customNameInput: document.getElementById("custom-name-input"),
-    activeStatusToggle: document.getElementById("active-status-toggle"),
-
-    // Buttons
-    syncFromEmptyBtn: document.getElementById("sync-from-empty-btn"),
-    syncVehicleBtn: document.getElementById("sync-vehicle-btn"),
-    refreshBouncieBtn: document.getElementById("refresh-bouncie-btn"),
-    useBouncieReadingBtn: document.getElementById("use-bouncie-reading-btn"),
-    saveManualOdometerBtn: document.getElementById("save-manual-odometer-btn"),
-    saveSettingsBtn: document.getElementById("save-settings-btn"),
-
-    // Vehicle selector
-    vehicleSelectorCard: document.getElementById("vehicle-selector-card"),
-    vehicleSelect: document.getElementById("vehicle-select"),
-
-    // Toast
-    notificationToast: document.getElementById("notification-toast"),
-    toastTitle: document.getElementById("toast-title"),
-    toastBody: document.getElementById("toast-body"),
-  };
+  let elements = {};
 
   // Initialize
   window.utils?.onPageLoad(
-    () => {
-      initializeEventListeners();
+    ({ signal, cleanup } = {}) => {
+      pageSignal = signal || null;
+      cacheElements();
+      resetState();
+      initializeEventListeners(signal);
       loadVehicle();
+      if (typeof cleanup === "function") {
+        cleanup(() => {
+          pageSignal = null;
+          resetState();
+        });
+      }
     },
     { route: "/vehicles" }
   );
 
+  function cacheElements() {
+    elements = {
+      loadingState: document.getElementById("loading-state"),
+      emptyState: document.getElementById("empty-state"),
+      vehicleContent: document.getElementById("vehicle-content"),
+
+      // Vehicle info
+      vehicleName: document.getElementById("vehicle-name"),
+      vehicleSubtitle: document.getElementById("vehicle-subtitle"),
+      vehicleStatusBadge: document.getElementById("vehicle-status-badge"),
+      vehicleImei: document.getElementById("vehicle-imei"),
+      vehicleVin: document.getElementById("vehicle-vin"),
+      vehicleMake: document.getElementById("vehicle-make"),
+      vehicleModel: document.getElementById("vehicle-model"),
+      vehicleYear: document.getElementById("vehicle-year"),
+
+      // Odometer
+      currentOdometer: document.getElementById("current-odometer"),
+      odometerSource: document.getElementById("odometer-source"),
+      odometerUpdated: document.getElementById("odometer-updated"),
+      bouncieOdometer: document.getElementById("bouncie-odometer"),
+      bouncieReadingSection: document.getElementById("bouncie-reading-section"),
+      manualOdometerInput: document.getElementById("manual-odometer-input"),
+
+      // Settings
+      customNameInput: document.getElementById("custom-name-input"),
+      activeStatusToggle: document.getElementById("active-status-toggle"),
+
+      // Buttons
+      syncFromEmptyBtn: document.getElementById("sync-from-empty-btn"),
+      syncVehicleBtn: document.getElementById("sync-vehicle-btn"),
+      refreshBouncieBtn: document.getElementById("refresh-bouncie-btn"),
+      useBouncieReadingBtn: document.getElementById("use-bouncie-reading-btn"),
+      saveManualOdometerBtn: document.getElementById("save-manual-odometer-btn"),
+      saveSettingsBtn: document.getElementById("save-settings-btn"),
+
+      // Vehicle selector
+      vehicleSelectorCard: document.getElementById("vehicle-selector-card"),
+      vehicleSelect: document.getElementById("vehicle-select"),
+
+      // Toast
+      notificationToast: document.getElementById("notification-toast"),
+      toastTitle: document.getElementById("toast-title"),
+      toastBody: document.getElementById("toast-body"),
+    };
+  }
+
+  function resetState() {
+    allVehicles = [];
+    currentVehicle = null;
+    bouncieOdometer = null;
+  }
+
+  function withSignal(options = {}) {
+    if (pageSignal) {
+      return { ...options, signal: pageSignal };
+    }
+    return options;
+  }
+
   /**
    * Initialize event listeners
    */
-  function initializeEventListeners() {
+  function initializeEventListeners(signal) {
     if (elements.syncFromEmptyBtn) {
-      elements.syncFromEmptyBtn.addEventListener("click", syncFromBouncie);
+      elements.syncFromEmptyBtn.addEventListener(
+        "click",
+        syncFromBouncie,
+        signal ? { signal } : false
+      );
     }
     if (elements.syncVehicleBtn) {
-      elements.syncVehicleBtn.addEventListener("click", syncFromBouncie);
+      elements.syncVehicleBtn.addEventListener(
+        "click",
+        syncFromBouncie,
+        signal ? { signal } : false
+      );
     }
     if (elements.refreshBouncieBtn) {
-      elements.refreshBouncieBtn.addEventListener("click", fetchBouncieOdometer);
+      elements.refreshBouncieBtn.addEventListener(
+        "click",
+        fetchBouncieOdometer,
+        signal ? { signal } : false
+      );
     }
     if (elements.useBouncieReadingBtn) {
-      elements.useBouncieReadingBtn.addEventListener("click", useBouncieReading);
+      elements.useBouncieReadingBtn.addEventListener(
+        "click",
+        useBouncieReading,
+        signal ? { signal } : false
+      );
     }
     if (elements.saveManualOdometerBtn) {
-      elements.saveManualOdometerBtn.addEventListener("click", saveManualOdometer);
+      elements.saveManualOdometerBtn.addEventListener(
+        "click",
+        saveManualOdometer,
+        signal ? { signal } : false
+      );
     }
     if (elements.saveSettingsBtn) {
-      elements.saveSettingsBtn.addEventListener("click", saveSettings);
+      elements.saveSettingsBtn.addEventListener(
+        "click",
+        saveSettings,
+        signal ? { signal } : false
+      );
     }
     if (elements.vehicleSelect) {
-      elements.vehicleSelect.addEventListener("change", handleVehicleSelectChange);
+      elements.vehicleSelect.addEventListener(
+        "change",
+        handleVehicleSelectChange,
+        signal ? { signal } : false
+      );
     }
   }
 
@@ -98,10 +153,13 @@
    * Load the vehicle data
    */
   async function loadVehicle() {
+    if (pageSignal?.aborted) {
+      return;
+    }
     showLoading();
 
     try {
-      const response = await fetch("/api/vehicles?active_only=false");
+      const response = await fetch("/api/vehicles?active_only=false", withSignal());
       if (!response.ok) {
         throw new Error("Failed to fetch vehicles");
       }
@@ -141,6 +199,9 @@
       selectVehicle(vehicleToDisplay.imei);
       showContent();
     } catch (error) {
+      if (error.name === "AbortError") {
+        return;
+      }
       console.error("Error loading vehicle:", error);
       showEmpty();
       showNotification("Error", "Failed to load vehicle data", "error");
@@ -296,7 +357,8 @@
 
     try {
       const response = await fetch(
-        `/api/vehicle-location?imei=${currentVehicle.imei}&use_now=true`
+        `/api/vehicle-location?imei=${currentVehicle.imei}&use_now=true`,
+        withSignal()
       );
       const data = await response.json();
 
@@ -312,6 +374,9 @@
         elements.useBouncieReadingBtn.disabled = true;
       }
     } catch (error) {
+      if (error.name === "AbortError") {
+        return;
+      }
       console.error("Error fetching Bouncie odometer:", error);
       bouncieOdometer = null;
       elements.bouncieOdometer.textContent = "Connection error";
@@ -332,6 +397,9 @@
       await updateVehicleOdometer(bouncieOdometer, "bouncie");
       showNotification("Success", "Odometer updated from Bouncie", "success");
     } catch (error) {
+      if (error.name === "AbortError") {
+        return;
+      }
       console.error("Error updating odometer:", error);
       showNotification("Error", "Failed to update odometer", "error");
     }
@@ -356,6 +424,9 @@
       elements.manualOdometerInput.value = "";
       showNotification("Success", "Odometer updated", "success");
     } catch (error) {
+      if (error.name === "AbortError") {
+        return;
+      }
       console.error("Error saving manual odometer:", error);
       showNotification("Error", "Failed to save odometer", "error");
     }
@@ -365,7 +436,9 @@
    * Update vehicle odometer via API
    */
   async function updateVehicleOdometer(reading, source) {
-    const response = await fetch(`/api/vehicles/${currentVehicle.imei}`, {
+    const response = await fetch(
+      `/api/vehicles/${currentVehicle.imei}`,
+      withSignal({
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -373,7 +446,8 @@
         odometer_reading: reading,
         odometer_source: source,
       }),
-    });
+      })
+    );
 
     if (!response.ok) {
       throw new Error("Failed to update vehicle");
@@ -395,15 +469,18 @@
     const isActive = elements.activeStatusToggle.checked;
 
     try {
-      const response = await fetch(`/api/vehicles/${currentVehicle.imei}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          imei: currentVehicle.imei,
-          custom_name: customName,
-          is_active: isActive,
-        }),
-      });
+      const response = await fetch(
+        `/api/vehicles/${currentVehicle.imei}`,
+        withSignal({
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            imei: currentVehicle.imei,
+            custom_name: customName,
+            is_active: isActive,
+          }),
+        })
+      );
 
       if (!response.ok) {
         throw new Error("Failed to save settings");
@@ -412,6 +489,9 @@
       await loadVehicle();
       showNotification("Success", "Settings saved", "success");
     } catch (error) {
+      if (error.name === "AbortError") {
+        return;
+      }
       console.error("Error saving settings:", error);
       showNotification("Error", "Failed to save settings", "error");
     }
@@ -424,9 +504,12 @@
     showLoading();
 
     try {
-      const response = await fetch("/api/profile/bouncie-credentials/sync-vehicles", {
-        method: "POST",
-      });
+      const response = await fetch(
+        "/api/profile/bouncie-credentials/sync-vehicles",
+        withSignal({
+          method: "POST",
+        })
+      );
 
       const data = await response.json();
 
@@ -441,6 +524,9 @@
       );
       await loadVehicle();
     } catch (error) {
+      if (error.name === "AbortError") {
+        return;
+      }
       console.error("Error syncing from Bouncie:", error);
       showNotification(
         "Error",

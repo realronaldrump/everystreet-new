@@ -1,5 +1,5 @@
 window.utils?.onPageLoad(
-  () => {
+  ({ signal, cleanup } = {}) => {
     // DOM elements
     const logsContainer = document.getElementById("logs-container");
     const logsInfo = document.getElementById("logs-info");
@@ -25,43 +25,75 @@ window.utils?.onPageLoad(
     loadLogs();
 
     // Event listeners
-    refreshLogsBtn.addEventListener("click", (e) => {
-      e.preventDefault();
-      loadLogs();
-    });
-    refreshStatsBtn.addEventListener("click", (e) => {
-      e.preventDefault();
-      loadStats();
-    });
-    clearLogsBtn.addEventListener("click", (e) => {
-      e.preventDefault();
-      clearLogs();
-    });
-    exportLogsBtn.addEventListener("click", (e) => {
-      e.preventDefault();
-      exportLogs();
-    });
-    applyFiltersBtn.addEventListener("click", (e) => {
-      e.preventDefault();
-      loadLogs();
-    });
-    autoRefreshToggle.addEventListener("click", (e) => {
-      e.preventDefault();
-      toggleAutoRefresh();
-    });
-    if (copyAllLogsBtn) {
-      copyAllLogsBtn.addEventListener("click", (e) => {
+    refreshLogsBtn.addEventListener(
+      "click",
+      (e) => {
         e.preventDefault();
-        copyAllLogs();
-      });
+        loadLogs();
+      },
+      signal ? { signal } : false
+    );
+    refreshStatsBtn.addEventListener(
+      "click",
+      (e) => {
+        e.preventDefault();
+        loadStats();
+      },
+      signal ? { signal } : false
+    );
+    clearLogsBtn.addEventListener(
+      "click",
+      (e) => {
+        e.preventDefault();
+        clearLogs();
+      },
+      signal ? { signal } : false
+    );
+    exportLogsBtn.addEventListener(
+      "click",
+      (e) => {
+        e.preventDefault();
+        exportLogs();
+      },
+      signal ? { signal } : false
+    );
+    applyFiltersBtn.addEventListener(
+      "click",
+      (e) => {
+        e.preventDefault();
+        loadLogs();
+      },
+      signal ? { signal } : false
+    );
+    autoRefreshToggle.addEventListener(
+      "click",
+      (e) => {
+        e.preventDefault();
+        toggleAutoRefresh();
+      },
+      signal ? { signal } : false
+    );
+    if (copyAllLogsBtn) {
+      copyAllLogsBtn.addEventListener(
+        "click",
+        (e) => {
+          e.preventDefault();
+          copyAllLogs();
+        },
+        signal ? { signal } : false
+      );
     }
 
     // Allow Enter key in search filter
-    searchFilter.addEventListener("keypress", (e) => {
-      if (e.key === "Enter") {
-        loadLogs();
-      }
-    });
+    searchFilter.addEventListener(
+      "keypress",
+      (e) => {
+        if (e.key === "Enter") {
+          loadLogs();
+        }
+      },
+      signal ? { signal } : false
+    );
 
     /**
      * Load log statistics
@@ -476,24 +508,15 @@ window.utils?.onPageLoad(
       return div.innerHTML;
     }
 
-    // Clean up on page unload
-    window.addEventListener("beforeunload", () => {
-      if (autoRefreshInterval) {
-        clearInterval(autoRefreshInterval);
-      }
-    });
-
-    document.addEventListener(
-      "es:page-unload",
-      () => {
+    if (typeof cleanup === "function") {
+      cleanup(() => {
         if (autoRefreshInterval) {
           clearInterval(autoRefreshInterval);
           autoRefreshInterval = null;
         }
         autoRefreshEnabled = false;
-      },
-      { once: true }
-    );
+      });
+    }
   },
   { route: "/server-logs" }
 );

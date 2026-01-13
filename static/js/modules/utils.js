@@ -234,21 +234,77 @@ export function removeStorage(key) {
 }
 
 export function onPageLoad(callback, options = {}) {
-  const handler = () => {
+  let cleanup = null;
+  let controller = null;
+  let activeRoute = null;
+
+  const run = () => {
     if (options.route && document.body?.dataset?.route !== options.route) {
       return;
     }
-    callback();
+
+    if (cleanup) {
+      cleanup();
+      cleanup = null;
+    }
+
+    if (controller) {
+      controller.abort();
+    }
+    controller = new AbortController();
+    activeRoute = options.route || document.body?.dataset?.route || null;
+
+    const registerCleanup = (fn) => {
+      if (typeof fn === "function") {
+        cleanup = fn;
+      }
+    };
+
+    const result = callback({ signal: controller.signal, cleanup: registerCleanup });
+    if (typeof result === "function") {
+      cleanup = result;
+    }
+  };
+
+  const handleUnload = (event) => {
+    if (options.route && event?.detail?.path && event.detail.path !== options.route) {
+      return;
+    }
+    if (!activeRoute) {
+      return;
+    }
+    if (cleanup) {
+      cleanup();
+      cleanup = null;
+    }
+    if (controller) {
+      controller.abort();
+      controller = null;
+    }
+    activeRoute = null;
   };
 
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", handler, { once: true });
+    document.addEventListener("DOMContentLoaded", run, { once: true });
   } else {
-    handler();
+    run();
   }
 
-  document.addEventListener("es:page-load", handler);
-  return handler;
+  document.addEventListener("es:page-load", run);
+  document.addEventListener("es:page-unload", handleUnload);
+
+  return () => {
+    document.removeEventListener("es:page-load", run);
+    document.removeEventListener("es:page-unload", handleUnload);
+    if (cleanup) {
+      cleanup();
+      cleanup = null;
+    }
+    if (controller) {
+      controller.abort();
+      controller = null;
+    }
+  };
 }
 
 document.addEventListener("es:page-load", () => {

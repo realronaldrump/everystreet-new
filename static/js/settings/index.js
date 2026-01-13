@@ -413,7 +413,7 @@ function setupFetchAllMissingModal(taskManager) {
 /**
  * Main initialization function
  */
-function init() {
+function init({ cleanup } = {}) {
   // Create TaskManager instance
   const taskManager = new TaskManager();
   window.taskManager = taskManager;
@@ -426,7 +426,7 @@ function init() {
   setupFetchAllMissingModal(taskManager);
 
   // Initialize mobile UI
-  initMobileUI(taskManager);
+  const mobileCleanup = initMobileUI(taskManager);
 
   // Initialize app settings (tabs, preferences)
   initAppSettings();
@@ -437,22 +437,16 @@ function init() {
   // Load initial task config
   taskManager.loadTaskConfig();
 
-  // Cleanup on page unload
-  window.addEventListener("beforeunload", () => {
-    if (window.taskManager) {
-      window.taskManager.cleanup();
-    }
-  });
-
-  document.addEventListener(
-    "es:page-unload",
-    () => {
+  if (typeof cleanup === "function") {
+    cleanup(() => {
+      if (typeof mobileCleanup === "function") {
+        mobileCleanup();
+      }
       if (window.taskManager) {
         window.taskManager.cleanup();
       }
-    },
-    { once: true }
-  );
+    });
+  }
 }
 
 window.utils?.onPageLoad(init, { route: "/settings" });

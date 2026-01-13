@@ -5,58 +5,87 @@
 
 (() => {
   let currentDevices = [];
+  let pageSignal = null;
 
   // Initialize page
   window.utils?.onPageLoad(
-    () => {
-      initializeEventListeners();
+    ({ signal, cleanup } = {}) => {
+      pageSignal = signal || null;
+      initializeEventListeners(signal);
+      initializeAppSettingsListeners(signal);
       loadCredentials();
+      loadAppSettings();
+      if (typeof cleanup === "function") {
+        cleanup(() => {
+          pageSignal = null;
+          currentDevices = [];
+        });
+      }
     },
     { route: "/profile" }
   );
 
+  function withSignal(options = {}) {
+    if (pageSignal) {
+      return { ...options, signal: pageSignal };
+    }
+    return options;
+  }
+
   /**
    * Initialize all event listeners
    */
-  function initializeEventListeners() {
+  function initializeEventListeners(signal) {
     const form = document.getElementById("bouncieCredentialsForm");
     if (form) {
-      form.addEventListener("submit", handleSaveCredentials);
+      form.addEventListener("submit", handleSaveCredentials, signal ? { signal } : false);
     }
 
     const loadBtn = document.getElementById("loadCredentialsBtn");
     if (loadBtn) {
-      loadBtn.addEventListener("click", loadCredentials);
+      loadBtn.addEventListener("click", loadCredentials, signal ? { signal } : false);
     }
 
     const unmaskBtn = document.getElementById("unmaskCredentialsBtn");
     if (unmaskBtn) {
-      unmaskBtn.addEventListener("click", unmaskAllCredentials);
+      unmaskBtn.addEventListener("click", unmaskAllCredentials, signal ? { signal } : false);
     }
 
     const addDeviceBtn = document.getElementById("addDeviceBtn");
     if (addDeviceBtn) {
-      addDeviceBtn.addEventListener("click", () => addDeviceInput());
+      addDeviceBtn.addEventListener(
+        "click",
+        () => addDeviceInput(),
+        signal ? { signal } : false
+      );
     }
 
     const toggleSecretBtn = document.getElementById("toggleClientSecret");
     if (toggleSecretBtn) {
-      toggleSecretBtn.addEventListener("click", () =>
-        togglePasswordVisibility("clientSecret", "toggleClientSecret")
+      toggleSecretBtn.addEventListener(
+        "click",
+        () => togglePasswordVisibility("clientSecret", "toggleClientSecret"),
+        signal ? { signal } : false
       );
     }
 
     const toggleAuthBtn = document.getElementById("toggleAuthCode");
     if (toggleAuthBtn) {
-      toggleAuthBtn.addEventListener("click", () =>
-        togglePasswordVisibility("authorizationCode", "toggleAuthCode")
+      toggleAuthBtn.addEventListener(
+        "click",
+        () => togglePasswordVisibility("authorizationCode", "toggleAuthCode"),
+        signal ? { signal } : false
       );
     }
 
     // Vehicle sync for authorized devices (syncs to credentials)
     const syncVehiclesBtn = document.getElementById("syncVehiclesBtn");
     if (syncVehiclesBtn) {
-      syncVehiclesBtn.addEventListener("click", syncVehiclesFromBouncie);
+      syncVehiclesBtn.addEventListener(
+        "click",
+        syncVehiclesFromBouncie,
+        signal ? { signal } : false
+      );
     }
   }
 
@@ -64,10 +93,16 @@
    * Load credentials from the server
    */
   async function loadCredentials() {
+    if (pageSignal?.aborted) {
+      return;
+    }
     try {
       showStatus("Loading credentials...", "info");
 
-      const response = await fetch("/api/profile/bouncie-credentials");
+      const response = await fetch(
+        "/api/profile/bouncie-credentials",
+        withSignal()
+      );
       const data = await response.json();
 
       if (data.status === "success" && data.credentials) {
@@ -80,6 +115,9 @@
         );
       }
     } catch (error) {
+      if (error.name === "AbortError") {
+        return;
+      }
       showStatus(`Error loading credentials: ${error.message}`, "error");
     }
   }
@@ -88,10 +126,16 @@
    * Unmask all credentials (loads full unmasked values)
    */
   async function unmaskAllCredentials() {
+    if (pageSignal?.aborted) {
+      return;
+    }
     try {
       showStatus("Loading unmasked credentials...", "info");
 
-      const response = await fetch("/api/profile/bouncie-credentials/unmask");
+      const response = await fetch(
+        "/api/profile/bouncie-credentials/unmask",
+        withSignal()
+      );
       const data = await response.json();
 
       if (data.status === "success" && data.credentials) {
@@ -101,6 +145,9 @@
         showStatus("Failed to unmask credentials", "error");
       }
     } catch (error) {
+      if (error.name === "AbortError") {
+        return;
+      }
       showStatus(`Error unmasking credentials: ${error.message}`, "error");
     }
   }
@@ -228,6 +275,9 @@
    */
   async function handleSaveCredentials(event) {
     event.preventDefault();
+    if (pageSignal?.aborted) {
+      return;
+    }
 
     // Collect form data
     const clientId = document.getElementById("clientId").value.trim();
@@ -257,20 +307,23 @@
     try {
       showStatus("Saving credentials...", "info");
 
-      const response = await fetch("/api/profile/bouncie-credentials", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          client_id: clientId,
-          client_secret: clientSecret,
-          redirect_uri: redirectUri,
-          authorization_code: authorizationCode,
-          authorized_devices: devices,
-          fetch_concurrency: parseInt(fetchConcurrency, 10) || 12,
-        }),
-      });
+      const response = await fetch(
+        "/api/profile/bouncie-credentials",
+        withSignal({
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            client_id: clientId,
+            client_secret: clientSecret,
+            redirect_uri: redirectUri,
+            authorization_code: authorizationCode,
+            authorized_devices: devices,
+            fetch_concurrency: parseInt(fetchConcurrency, 10) || 12,
+          }),
+        })
+      );
 
       const data = await response.json();
 
@@ -280,7 +333,9 @@
 
         // Reload to show masked values
         setTimeout(() => {
-          loadCredentials();
+          if (!pageSignal?.aborted) {
+            loadCredentials();
+          }
         }, 1500);
       } else {
         showStatus(
@@ -289,6 +344,9 @@
         );
       }
     } catch (error) {
+      if (error.name === "AbortError") {
+        return;
+      }
       showStatus(`Error saving credentials: ${error.message}`, "error");
     }
   }
@@ -369,12 +427,18 @@
    * Sync vehicles from Bouncie (updates authorized devices in credentials)
    */
   async function syncVehiclesFromBouncie() {
+    if (pageSignal?.aborted) {
+      return;
+    }
     try {
       showStatus("Syncing vehicles from Bouncie...", "info");
 
-      const response = await fetch("/api/profile/bouncie-credentials/sync-vehicles", {
-        method: "POST",
-      });
+      const response = await fetch(
+        "/api/profile/bouncie-credentials/sync-vehicles",
+        withSignal({
+          method: "POST",
+        })
+      );
 
       const data = await response.json();
 
@@ -387,6 +451,9 @@
       // Reload credentials to update authorized devices
       await loadCredentials();
     } catch (error) {
+      if (error.name === "AbortError") {
+        return;
+      }
       showStatus(`Error syncing vehicles: ${error.message}`, "error");
     }
   }
@@ -398,21 +465,27 @@
   /**
    * Initialize app settings event listeners
    */
-  function initializeAppSettingsListeners() {
+  function initializeAppSettingsListeners(signal) {
     const form = document.getElementById("appSettingsForm");
     if (form) {
-      form.addEventListener("submit", handleSaveAppSettings);
+      form.addEventListener(
+        "submit",
+        handleSaveAppSettings,
+        signal ? { signal } : false
+      );
     }
 
     const loadBtn = document.getElementById("loadAppSettingsBtn");
     if (loadBtn) {
-      loadBtn.addEventListener("click", loadAppSettings);
+      loadBtn.addEventListener("click", loadAppSettings, signal ? { signal } : false);
     }
 
     const toggleMapboxBtn = document.getElementById("toggleMapboxToken");
     if (toggleMapboxBtn) {
-      toggleMapboxBtn.addEventListener("click", () =>
-        togglePasswordVisibility("mapboxToken", "toggleMapboxToken")
+      toggleMapboxBtn.addEventListener(
+        "click",
+        () => togglePasswordVisibility("mapboxToken", "toggleMapboxToken"),
+        signal ? { signal } : false
       );
     }
   }
@@ -422,6 +495,9 @@
    */
   async function loadAppSettings() {
     const statusEl = document.getElementById("appSettingsSaveStatus");
+    if (pageSignal?.aborted) {
+      return;
+    }
 
     try {
       if (statusEl) {
@@ -430,7 +506,7 @@
         statusEl.style.display = "block";
       }
 
-      const response = await fetch("/api/profile/app-settings");
+      const response = await fetch("/api/profile/app-settings", withSignal());
       const data = await response.json();
 
       if (data.status === "success" && data.settings) {
@@ -457,6 +533,9 @@
         statusEl.className = "alert alert-warning mt-3";
       }
     } catch (error) {
+      if (error.name === "AbortError") {
+        return;
+      }
       if (statusEl) {
         statusEl.textContent = `Error loading settings: ${error.message}`;
         statusEl.className = "alert alert-danger mt-3";
@@ -471,6 +550,9 @@
    */
   async function handleSaveAppSettings(event) {
     event.preventDefault();
+    if (pageSignal?.aborted) {
+      return;
+    }
 
     const statusEl = document.getElementById("appSettingsSaveStatus");
     const mapboxInput = document.getElementById("mapboxToken");
@@ -506,16 +588,19 @@
         statusEl.style.display = "block";
       }
 
-      const response = await fetch("/api/profile/app-settings", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          mapbox_access_token: mapboxToken,
-          clarity_project_id: clarityProjectId,
-        }),
-      });
+      const response = await fetch(
+        "/api/profile/app-settings",
+        withSignal({
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            mapbox_access_token: mapboxToken,
+            clarity_project_id: clarityProjectId,
+          }),
+        })
+      );
 
       const data = await response.json();
 
@@ -540,6 +625,9 @@
         statusEl.style.display = "block";
       }
     } catch (error) {
+      if (error.name === "AbortError") {
+        return;
+      }
       if (statusEl) {
         statusEl.textContent = `Error saving settings: ${error.message}`;
         statusEl.className = "alert alert-danger mt-3";
@@ -548,7 +636,4 @@
     }
   }
 
-  // Initialize app settings listeners and load on page load
-  initializeAppSettingsListeners();
-  loadAppSettings();
 })();

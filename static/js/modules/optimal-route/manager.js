@@ -17,6 +17,7 @@ export class OptimalRoutesManager {
     this.currentRouteData = null;
     this.coverageAreas = [];
     this.lastSelectedAreaId = "";
+    this.abortController = new AbortController();
 
     // Initialize modules
     this.ui = new OptimalRouteUI(this.config);
@@ -43,50 +44,84 @@ export class OptimalRoutesManager {
   }
 
   setupEventListeners() {
+    const { signal } = this.abortController;
     // Area selection
-    this.ui.areaSelect?.addEventListener("change", (e) => {
-      this.onAreaSelect(e.target.value);
-    });
+    this.ui.areaSelect?.addEventListener(
+      "change",
+      (e) => {
+        this.onAreaSelect(e.target.value);
+      },
+      signal ? { signal } : false
+    );
 
     // Generate button
-    document.getElementById("generate-route-btn")?.addEventListener("click", () => {
-      this.generateRoute();
-    });
+    document.getElementById("generate-route-btn")?.addEventListener(
+      "click",
+      () => {
+        this.generateRoute();
+      },
+      signal ? { signal } : false
+    );
 
     // Export GPX
-    document.getElementById("export-gpx-btn")?.addEventListener("click", () => {
-      this.exportGPX();
-    });
+    document.getElementById("export-gpx-btn")?.addEventListener(
+      "click",
+      () => {
+        this.exportGPX();
+      },
+      signal ? { signal } : false
+    );
 
     // Replay animation
-    document.getElementById("replay-animation-btn")?.addEventListener("click", () => {
-      this.replayAnimation();
-    });
+    document.getElementById("replay-animation-btn")?.addEventListener(
+      "click",
+      () => {
+        this.replayAnimation();
+      },
+      signal ? { signal } : false
+    );
 
     // Start turn-by-turn navigation
-    this.ui.turnByTurnBtn?.addEventListener("click", () => {
-      this.openTurnByTurn();
-    });
+    this.ui.turnByTurnBtn?.addEventListener(
+      "click",
+      () => {
+        this.openTurnByTurn();
+      },
+      signal ? { signal } : false
+    );
 
     // Clear route
-    document.getElementById("clear-route-btn")?.addEventListener("click", () => {
-      this.clearRoute();
-    });
+    document.getElementById("clear-route-btn")?.addEventListener(
+      "click",
+      () => {
+        this.clearRoute();
+      },
+      signal ? { signal } : false
+    );
 
     // Retry button
-    document.getElementById("retry-btn")?.addEventListener("click", () => {
-      this.generateRoute();
-    });
+    document.getElementById("retry-btn")?.addEventListener(
+      "click",
+      () => {
+        this.generateRoute();
+      },
+      signal ? { signal } : false
+    );
 
     // Cancel button
-    document.getElementById("cancel-task-btn")?.addEventListener("click", () => {
-      this.cancelTask();
-    });
+    document.getElementById("cancel-task-btn")?.addEventListener(
+      "click",
+      () => {
+        this.cancelTask();
+      },
+      signal ? { signal } : false
+    );
 
     this.setupLayerControls();
   }
 
   setupLayerControls() {
+    const { signal } = this.abortController;
     // Visibility
     const toggles = {
       "toggle-route-layer": ["optimal-route-line", "optimal-route-arrows"],
@@ -95,9 +130,13 @@ export class OptimalRoutesManager {
     };
 
     Object.entries(toggles).forEach(([id, layers]) => {
-      document.getElementById(id)?.addEventListener("change", (e) => {
-        this.map.toggleLayer(layers, e.target.checked);
-      });
+      document.getElementById(id)?.addEventListener(
+        "change",
+        (e) => {
+          this.map.toggleLayer(layers, e.target.checked);
+        },
+        signal ? { signal } : false
+      );
     });
 
     // Opacity
@@ -109,36 +148,48 @@ export class OptimalRoutesManager {
 
     Object.entries(opacitySliders).forEach(([id, layers]) => {
       const slider = document.getElementById(id);
-      slider?.addEventListener("input", (e) => {
-        const opacity = e.target.value / 100;
-        const label = slider.closest(".layer-opacity").querySelector(".opacity-value");
-        if (label) {
-          label.textContent = `${e.target.value}%`;
-        }
+      slider?.addEventListener(
+        "input",
+        (e) => {
+          const opacity = e.target.value / 100;
+          const label = slider.closest(".layer-opacity").querySelector(".opacity-value");
+          if (label) {
+            label.textContent = `${e.target.value}%`;
+          }
 
-        this.map.setLayerOpacity(layers, opacity);
-      });
+          this.map.setLayerOpacity(layers, opacity);
+        },
+        signal ? { signal } : false
+      );
     });
 
     // Ordering logic (basic moving)
     document.querySelectorAll(".layer-up").forEach((btn) => {
-      btn.addEventListener("click", (e) => {
-        const item = e.target.closest(".layer-item");
-        if (item.previousElementSibling) {
-          item.parentNode.insertBefore(item, item.previousElementSibling);
-          this.updateLayerOrder();
-        }
-      });
+      btn.addEventListener(
+        "click",
+        (e) => {
+          const item = e.target.closest(".layer-item");
+          if (item.previousElementSibling) {
+            item.parentNode.insertBefore(item, item.previousElementSibling);
+            this.updateLayerOrder();
+          }
+        },
+        signal ? { signal } : false
+      );
     });
 
     document.querySelectorAll(".layer-down").forEach((btn) => {
-      btn.addEventListener("click", (e) => {
-        const item = e.target.closest(".layer-item");
-        if (item.nextElementSibling) {
-          item.parentNode.insertBefore(item.nextElementSibling, item);
-          this.updateLayerOrder();
-        }
-      });
+      btn.addEventListener(
+        "click",
+        (e) => {
+          const item = e.target.closest(".layer-item");
+          if (item.nextElementSibling) {
+            item.parentNode.insertBefore(item.nextElementSibling, item);
+            this.updateLayerOrder();
+          }
+        },
+        signal ? { signal } : false
+      );
     });
   }
 
@@ -422,5 +473,14 @@ export class OptimalRoutesManager {
       this.currentRouteData,
       true
     );
+  }
+
+  destroy() {
+    try {
+      this.abortController.abort();
+    } catch {
+      // Ignore abort errors.
+    }
+    this.map?.destroy?.();
   }
 }

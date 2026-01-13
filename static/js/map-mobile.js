@@ -488,17 +488,20 @@ class MobileMapInterface {
   }
 }
 
-const initMobileMap = () => {
+const initMobileMap = ({ cleanup } = {}) => {
   if (window.mobileMapInterface?.destroy) {
     window.mobileMapInterface.destroy();
   }
   window.mobileMapInterface = new MobileMapInterface();
+
+  if (typeof cleanup === "function") {
+    cleanup(() => {
+      if (window.mobileMapInterface?.destroy) {
+        window.mobileMapInterface.destroy();
+      }
+      window.mobileMapInterface = null;
+    });
+  }
 };
 
 window.utils?.onPageLoad(initMobileMap, { route: "/map" });
-
-document.addEventListener("es:page-unload", () => {
-  if (window.mobileMapInterface?.destroy) {
-    window.mobileMapInterface.destroy();
-  }
-});

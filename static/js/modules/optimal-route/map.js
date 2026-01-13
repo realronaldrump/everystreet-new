@@ -7,6 +7,8 @@ export class OptimalRouteMap {
     this.map = null;
     this.mapLayersReady = false;
     this.routeAnimationFrame = null;
+    this.ownsMap = false;
+    this.interactivityHandlers = null;
 
     this.onLayerReady = options.onLayerReady || (() => {});
   }
@@ -14,6 +16,7 @@ export class OptimalRouteMap {
   initialize() {
     if (this.options.useSharedMap && window.coverageMasterMap) {
       this.map = window.coverageMasterMap;
+      this.ownsMap = false;
       return this.bindMapLoad();
     }
 
@@ -36,6 +39,7 @@ export class OptimalRouteMap {
       this.map.addControl(new mapboxgl.NavigationControl(), "top-right");
     }
 
+    this.ownsMap = true;
     return this.bindMapLoad();
   }
 
@@ -121,12 +125,15 @@ export class OptimalRouteMap {
     });
 
     // Add cursor interaction for undriven streets
-    this.map.on("mouseenter", "streets-undriven-layer", () => {
+    const handleMouseEnter = () => {
       this.map.getCanvas().style.cursor = "pointer";
-    });
-    this.map.on("mouseleave", "streets-undriven-layer", () => {
+    };
+    const handleMouseLeave = () => {
       this.map.getCanvas().style.cursor = "";
-    });
+    };
+    this.map.on("mouseenter", "streets-undriven-layer", handleMouseEnter);
+    this.map.on("mouseleave", "streets-undriven-layer", handleMouseLeave);
+    this.interactivityHandlers = { handleMouseEnter, handleMouseLeave };
 
     this.addLayer({
       id: "optimal-route-line",
@@ -212,6 +219,35 @@ export class OptimalRouteMap {
       this.routeAnimationFrame = null;
     }
     this.setSourceData("optimal-route", []);
+  }
+
+  destroy() {
+    if (this.routeAnimationFrame) {
+      cancelAnimationFrame(this.routeAnimationFrame);
+      this.routeAnimationFrame = null;
+    }
+
+    if (this.map && this.interactivityHandlers) {
+      const { handleMouseEnter, handleMouseLeave } = this.interactivityHandlers;
+      try {
+        this.map.off("mouseenter", "streets-undriven-layer", handleMouseEnter);
+        this.map.off("mouseleave", "streets-undriven-layer", handleMouseLeave);
+      } catch {
+        // Ignore map listener cleanup errors.
+      }
+      this.interactivityHandlers = null;
+    }
+
+    if (this.map && this.ownsMap) {
+      try {
+        this.map.remove();
+      } catch {
+        // Ignore map cleanup errors.
+      }
+    }
+
+    this.map = null;
+    this.ownsMap = false;
   }
 
   displayRoute(coordinates, stats, animate = false) {

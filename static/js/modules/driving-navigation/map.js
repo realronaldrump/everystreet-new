@@ -22,6 +22,8 @@ export class DrivingNavigationMap {
     this.options = options;
     this.map = null;
     this.clusterMarkers = [];
+    this.ownsMap = false;
+    this.interactivityHandlers = null;
 
     // Get colors with fallbacks from MapStyles if available
     this.clusterColors
@@ -39,6 +41,7 @@ export class DrivingNavigationMap {
   initialize() {
     if (this.options.useSharedMap && window.coverageMasterMap) {
       this.map = window.coverageMasterMap;
+      this.ownsMap = false;
       return this.bindMapLoad();
     }
 
@@ -60,6 +63,7 @@ export class DrivingNavigationMap {
 
         this.map.on("load", () => {
           this.setupMapLayers();
+          this.ownsMap = true;
           resolve();
         });
 
@@ -198,6 +202,39 @@ export class DrivingNavigationMap {
         filter: ["==", "clusterIndex", index],
       });
     });
+  }
+
+  destroy() {
+    this.clusterMarkers.forEach((marker) => {
+      try {
+        marker.remove();
+      } catch {
+        // Ignore marker cleanup errors.
+      }
+    });
+    this.clusterMarkers = [];
+
+    if (this.map && this.interactivityHandlers) {
+      const { handleMouseEnter, handleMouseLeave, handleClick } = this.interactivityHandlers;
+      try {
+        this.map.off("mouseenter", "undriven-streets-layer", handleMouseEnter);
+        this.map.off("mouseleave", "undriven-streets-layer", handleMouseLeave);
+        this.map.off("click", "undriven-streets-layer", handleClick);
+      } catch {
+        // Ignore map listener cleanup errors.
+      }
+      this.interactivityHandlers = null;
+    }
+
+    if (this.map && this.ownsMap) {
+      try {
+        this.map.remove();
+      } catch {
+        // Ignore map cleanup errors.
+      }
+    }
+    this.map = null;
+    this.ownsMap = false;
   }
 
   /**
@@ -379,15 +416,15 @@ export class DrivingNavigationMap {
       return;
     }
 
-    this.map.on("mouseenter", "undriven-streets-layer", () => {
+    const handleMouseEnter = () => {
       this.map.getCanvas().style.cursor = "pointer";
-    });
+    };
 
-    this.map.on("mouseleave", "undriven-streets-layer", () => {
+    const handleMouseLeave = () => {
       this.map.getCanvas().style.cursor = "";
-    });
+    };
 
-    this.map.on("click", "undriven-streets-layer", (e) => {
+    const handleClick = (e) => {
       if (!e.features || e.features.length === 0) {
         return;
       }
@@ -395,7 +432,16 @@ export class DrivingNavigationMap {
       const popupContent = createPopupFn(feature);
 
       new mapboxgl.Popup().setLngLat(e.lngLat).setHTML(popupContent).addTo(this.map);
-    });
+    };
+
+    this.map.on("mouseenter", "undriven-streets-layer", handleMouseEnter);
+    this.map.on("mouseleave", "undriven-streets-layer", handleMouseLeave);
+    this.map.on("click", "undriven-streets-layer", handleClick);
+    this.interactivityHandlers = {
+      handleMouseEnter,
+      handleMouseLeave,
+      handleClick,
+    };
   }
 
   /**

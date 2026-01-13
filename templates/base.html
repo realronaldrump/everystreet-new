@@ -85,7 +85,7 @@ Every Street
       <!-- Font loading with display swap -->
       <link rel="preconnect" href="https://fonts.googleapis.com" />
       <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+      <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Sora:wght@400;500;600;700&display=swap"
             rel="stylesheet" />
 
       <!-- Critical CSS -->
@@ -108,6 +108,7 @@ Every Street
         <link rel="stylesheet" href="{{ CDN.flatpickr_css }}" />
       </noscript>
 
+      <meta data-es-head-boundary="start" />
       {% block extra_css %}
 
       {% endblock %}
@@ -116,6 +117,7 @@ Every Street
       {% block head_content %}
 
       {% endblock %}
+      <meta data-es-head-boundary="end" />
 
 
       {% if CLARITY_PROJECT_ID %}
@@ -733,7 +735,6 @@ Quick Selections
       </div>
 
       <!-- Core JS - Load in specific order -->
-      <script src="{{ CDN.jquery }}" crossorigin="anonymous"></script>
       <script src="{{ CDN.bootstrap_js }}" crossorigin="anonymous"></script>
 
       <!-- Load utilities first -->
@@ -860,7 +861,7 @@ Quick Selections
       <script>
           if ("serviceWorker" in navigator && location.protocol === "https:") {
               window.addEventListener("load", () => {
-                  const swUrl = "/static/js/sw.js?v=2";
+                  const swUrl = "/static/js/sw.js?v=3";
                   const hadController = Boolean(navigator.serviceWorker.controller);
                   let refreshing = false;
 

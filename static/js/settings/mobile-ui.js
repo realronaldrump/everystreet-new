@@ -908,4 +908,11 @@ export function initMobileUI(taskManager) {
   setupMobileManualFetch(taskManager);
   setupMobileDataManagement();
   setupMobileSaveFAB(taskManager);
+
+  return () => {
+    if (pollGeocodeProgress.pollInterval) {
+      clearInterval(pollGeocodeProgress.pollInterval);
+      pollGeocodeProgress.pollInterval = null;
+    }
+  };
 }

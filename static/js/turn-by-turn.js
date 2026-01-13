@@ -21,9 +21,12 @@ import TurnByTurnNavigator from "./modules/turn-by-turn/turn-by-turn-navigator.j
 import { onPageLoad } from "./modules/utils.js";
 
 onPageLoad(
-  () => {
+  ({ cleanup } = {}) => {
     const navigator = new TurnByTurnNavigator();
     navigator.init();
+    if (typeof cleanup === "function") {
+      cleanup(() => navigator.destroy());
+    }
   },
   { route: "/turn-by-turn" }
 );

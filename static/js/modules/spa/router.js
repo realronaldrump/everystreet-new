@@ -50,12 +50,15 @@ const router = {
   viewTransitionsEnabled: true,
   sharedTransitionsEnabled: false,
   historyKey: "es:route-history",
+  scrollPositionsKey: "es:scroll-positions",
+  maxScrollEntries: 24,
   routeHistory: [],
   swipeState: {
     startX: 0,
     startY: 0,
     active: false,
   },
+  lastNavigation: null,
 
   init() {
     if (this.initialized) {
@@ -69,6 +72,9 @@ const router = {
     this.scriptHost = document.getElementById("spa-scripts");
     this.announcer = document.getElementById("spa-announcer");
     this.routeHistory = this.loadHistory();
+    if ("scrollRestoration" in window.history) {
+      window.history.scrollRestoration = "manual";
+    }
     this.updateHistory(window.location.pathname, document.title);
     if (this.sharedTransitionsEnabled) {
       this.prepareSharedElements();
@@ -106,6 +112,17 @@ const router = {
       return;
     }
 
+    const previousUrl = window.location.href;
+    const previousPath = window.location.pathname;
+    this.lastNavigation = {
+      previousUrl,
+      previousPath,
+      nextUrl: nextUrl.href,
+      nextPath: nextUrl.pathname,
+      fromPopstate,
+    };
+    this.saveScrollPosition(previousUrl);
+
     this.setTransitionDirection(nextUrl, { fromPopstate });
 
     if (this.inFlight) {
@@ -119,7 +136,12 @@ const router = {
     window.loadingManager?.showBar?.("Loading page...");
     document.dispatchEvent(
       new CustomEvent("es:page-unload", {
-        detail: { url: window.location.href, nextUrl: nextUrl.href },
+        detail: {
+          url: previousUrl,
+          path: previousPath,
+          nextUrl: nextUrl.href,
+          nextPath: nextUrl.pathname,
+        },
       })
     );
 
@@ -182,7 +204,12 @@ const router = {
         store.applyUrlParams(nextUrl.href, { emit: true, source: "navigate" });
       }
 
-      this.dispatchPageLoad(fragment);
+      this.dispatchPageLoad(fragment, { previousUrl, previousPath, fromPopstate });
+      if (fromPopstate) {
+        requestAnimationFrame(() => {
+          this.restoreScrollPosition(nextUrl.href);
+        });
+      }
       this.updateHistory(fragment.path || nextUrl.pathname, fragment.title);
       this.updateBreadcrumb(fragment);
     } catch (error) {
@@ -233,19 +260,24 @@ const router = {
   },
 
   updateHead(headHtml) {
-    document.querySelectorAll("[data-es-dynamic='head']").forEach((node) => {
-      node.remove();
-    });
+    this.clearDynamicHead();
 
     if (!headHtml) {
       return;
     }
 
+    const insertionPoint = document.querySelector(
+      '[data-es-head-boundary="end"]'
+    );
     const template = document.createElement("template");
     template.innerHTML = headHtml;
     Array.from(template.content.children).forEach((node) => {
       node.setAttribute("data-es-dynamic", "head");
-      document.head.appendChild(node);
+      if (insertionPoint && insertionPoint.parentNode) {
+        insertionPoint.parentNode.insertBefore(node, insertionPoint);
+      } else {
+        document.head.appendChild(node);
+      }
     });
   },
 
@@ -413,15 +445,102 @@ const router = {
     }
   },
 
-  dispatchPageLoad(fragment) {
+  dispatchPageLoad(fragment, context = {}) {
     document.dispatchEvent(
       new CustomEvent("es:page-load", {
         detail: {
           path: fragment.path,
           url: fragment.url,
+          title: fragment.title,
+          previousPath: context.previousPath,
+          previousUrl: context.previousUrl,
+          fromPopstate: Boolean(context.fromPopstate),
         },
       })
     );
+  },
+
+  clearDynamicHead() {
+    document.querySelectorAll("[data-es-dynamic='head']").forEach((node) => {
+      node.remove();
+    });
+
+    const startMarker = document.querySelector(
+      '[data-es-head-boundary="start"]'
+    );
+    const endMarker = document.querySelector('[data-es-head-boundary="end"]');
+    if (
+      !startMarker
+      || !endMarker
+      || startMarker.parentNode !== document.head
+      || endMarker.parentNode !== document.head
+    ) {
+      return;
+    }
+
+    let node = startMarker.nextSibling;
+    while (node && node !== endMarker) {
+      const next = node.nextSibling;
+      node.remove();
+      node = next;
+    }
+  },
+
+  loadScrollPositions() {
+    try {
+      const raw = sessionStorage.getItem(this.scrollPositionsKey);
+      const parsed = raw ? JSON.parse(raw) : null;
+      if (parsed && typeof parsed === "object") {
+        return parsed;
+      }
+    } catch {
+      // Ignore parse errors.
+    }
+    return {};
+  },
+
+  saveScrollPositions(positions) {
+    try {
+      sessionStorage.setItem(this.scrollPositionsKey, JSON.stringify(positions));
+    } catch {
+      // Ignore storage failures.
+    }
+  },
+
+  saveScrollPosition(url = window.location.href) {
+    if (!url || typeof url !== "string") {
+      return;
+    }
+    const positions = this.loadScrollPositions();
+    positions[url] = {
+      y: window.scrollY || 0,
+      timestamp: Date.now(),
+    };
+
+    const entries = Object.entries(positions);
+    if (entries.length > this.maxScrollEntries) {
+      entries
+        .sort((a, b) => (a[1]?.timestamp || 0) - (b[1]?.timestamp || 0))
+        .slice(0, entries.length - this.maxScrollEntries)
+        .forEach(([key]) => {
+          delete positions[key];
+        });
+    }
+
+    this.saveScrollPositions(positions);
+  },
+
+  restoreScrollPosition(url) {
+    if (!url || typeof url !== "string") {
+      return false;
+    }
+    const positions = this.loadScrollPositions();
+    const entry = positions[url];
+    if (!entry || !Number.isFinite(entry.y)) {
+      return false;
+    }
+    window.scrollTo({ top: entry.y, left: 0, behavior: "auto" });
+    return true;
   },
 
   setTransitionDirection(nextUrl, { fromPopstate = false } = {}) {

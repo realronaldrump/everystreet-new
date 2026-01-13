@@ -21,30 +21,32 @@ import {
 
 let tripsTable = null;
 const selectedTripIds = new Set();
-let globalListenersBound = false;
+onPageLoad(
+  async ({ signal } = {}) => {
+    try {
+      await initializePage(signal);
+    } catch (e) {
+      window.notificationManager?.show(`Critical Error: ${e.message}`, "danger");
+    }
+  },
+  { route: "/trips" }
+);
 
-onPageLoad(async () => {
-  try {
-    await initializePage();
-  } catch (e) {
-    window.notificationManager?.show(`Critical Error: ${e.message}`, "danger");
-  }
-}, { route: "/trips" });
-
-async function initializePage() {
+async function initializePage(signal) {
   await loadVehicles();
   initializeTable();
   setupFilterListeners();
   setupBulkActions();
   updateFilterChips();
 
-  if (!globalListenersBound) {
-    document.addEventListener("filtersApplied", () => {
+  document.addEventListener(
+    "filtersApplied",
+    () => {
       updateFilterChips();
       tripsTable.reload({ resetPage: true });
-    });
-    globalListenersBound = true;
-  }
+    },
+    signal ? { signal } : false
+  );
 }
 
 async function loadVehicles() {
