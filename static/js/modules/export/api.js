@@ -34,7 +34,11 @@ export function buildTripsExportUrl(config, elements) {
  * @returns {string} Export URL
  * @throws {Error} If location validation fails
  */
-export function buildLocationExportUrl(config, elements, validateLocationInput) {
+export function buildLocationExportUrl(
+  config,
+  elements,
+  validateLocationInput,
+) {
   const locationInput = elements[config.location];
   const format = elements[config.format]?.value;
 
@@ -94,7 +98,7 @@ export function buildAdvancedExportUrl(config, elements, saveSettings) {
 
     if (!startDate || !endDate) {
       throw new Error(
-        "Please select both start and end dates or check 'Export all dates'"
+        "Please select both start and end dates or check 'Export all dates'",
       );
     }
 
@@ -128,7 +132,7 @@ export function buildExportUrl(
   config,
   elements,
   validateLocationInput,
-  saveSettings
+  saveSettings,
 ) {
   switch (formType) {
     case "trips":
@@ -146,7 +150,9 @@ export function buildExportUrl(
       // Fallback for any potentially added simple formats
       const format = elements[config.format]?.value;
       if (!format) {
-        throw new Error(`Could not determine format for export type '${formType}'`);
+        throw new Error(
+          `Could not determine format for export type '${formType}'`,
+        );
       }
       return `${config.endpoint}?format=${format}`;
     }
@@ -158,7 +164,10 @@ export function buildExportUrl(
  * @returns {Promise<Array>} Array of coverage areas
  */
 export async function fetchCoverageAreas(signal) {
-  const response = await fetch("/api/coverage/areas", signal ? { signal } : undefined);
+  const response = await fetch(
+    "/api/coverage/areas",
+    signal ? { signal } : undefined,
+  );
   const data = await response.json();
 
   if (data.success && Array.isArray(data?.areas)) {
@@ -200,7 +209,7 @@ export async function validateLocationApi(location, locationType = "city") {
 export async function fetchUndrivenStreets(areaId, signal) {
   const response = await fetch(
     `/api/coverage/areas/${areaId}/streets/all?status=undriven`,
-    signal ? { signal } : undefined
+    signal ? { signal } : undefined,
   );
 
   if (!response.ok) {

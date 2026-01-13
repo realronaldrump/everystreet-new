@@ -1,290 +1,237 @@
-{% extends "base.html" %}
+{% extends "base.html" %} {% block title %} Driving Insights & Analytics {%
+endblock %} {% block extra_css %}
 
-{% block title %}
+<link
+  rel="stylesheet"
+  href="{{ url_for('static', path='css/insights.css') | replace('http://', '//') }}"
+/>
+<link rel="stylesheet" href="{{ CDN.datatables_css }}" />
+<link rel="stylesheet" href="{{ CDN.datatables_bs5_css }}" />
 
-Driving Insights & Analytics
-{% endblock %}
+{% endblock %} {% block content %}
 
-
-{% block extra_css %}
-
-  <link rel="stylesheet"
-        href="{{ url_for('static', path='css/insights.css') | replace('http://', '//') }}" />
-  <link rel="stylesheet" href="{{ CDN.datatables_css }}" />
-  <link rel="stylesheet" href="{{ CDN.datatables_bs5_css }}" />
-
-{% endblock %}
-
-
-{% block content %}
-
-  <div class="container-fluid">
-    <!-- Hero Section with Key Metrics -->
-    <div class="insights-hero">
-      <div class="row align-items-center">
-        <div class="col-lg-8">
-          <h1 class="display-4 fw-bold mb-3">
+<div class="container-fluid">
+  <!-- Hero Section with Key Metrics -->
+  <div class="insights-hero">
+    <div class="row align-items-center">
+      <div class="col-lg-8">
+        <h1 class="display-4 fw-bold mb-3">
           Driving Insights & Analytics
-            <span class="live-indicator"></span>
-          </h1>
-          <p class="lead text-secondary mb-4">
+          <span class="live-indicator"></span>
+        </h1>
+        <p class="lead text-secondary mb-4">
           Comprehensive analysis of your driving patterns and behaviors
+        </p>
+      </div>
+      <div class="col-lg-4 text-center">
+        <div class="hero-stat">
+          <div class="display-3 text-primary counter" id="hero-total-miles">
+            0
+          </div>
+          <p class="text-secondary">Total Miles Driven</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Primary Metrics Grid -->
+  <div class="row g-4 mb-5" data-widget-container="insights-metrics">
+    <div class="col-md-6 col-lg-3" data-widget-id="trips">
+      <div class="metric-card" data-metric="trips">
+        <div class="metric-icon">
+          <i class="fas fa-route"></i>
+        </div>
+        <div class="metric-value counter" id="total-trips">0</div>
+        <div class="metric-label">Total Trips</div>
+        <div class="metric-trend positive">
+          <i class="fas fa-arrow-up"></i> 12%
+        </div>
+        <div class="stat-comparison" id="trips-comparison">
+          <small>Daily Average: <span class="fw-bold">0</span></small>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-6 col-lg-3" data-widget-id="distance">
+      <div class="metric-card" data-metric="distance">
+        <div class="metric-icon">
+          <i class="fas fa-road"></i>
+        </div>
+        <div class="metric-value">
+          <span class="counter" id="total-distance">0</span>
+          <small style="font-size: 0.5em">miles</small>
+        </div>
+        <div class="metric-label">Distance Traveled</div>
+        <div class="metric-trend positive">
+          <i class="fas fa-arrow-up"></i> 8%
+        </div>
+        <div class="stat-comparison" id="distance-comparison">
+          <small>Avg per Trip: <span class="fw-bold">0</span> miles</small>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-6 col-lg-3" data-widget-id="fuel">
+      <div class="metric-card" data-metric="fuel">
+        <div class="metric-icon">
+          <i class="fas fa-gas-pump"></i>
+        </div>
+        <div class="metric-value">
+          <span class="counter" id="total-fuel">0</span>
+          <small style="font-size: 0.5em">gal</small>
+        </div>
+        <div class="metric-label">Fuel Consumed</div>
+        <div class="metric-trend negative">
+          <i class="fas fa-arrow-down"></i> 5%
+        </div>
+        <div class="stat-comparison" id="fuel-comparison">
+          <small>Efficiency: <span class="fw-bold">0</span> MPG</small>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-6 col-lg-3" data-widget-id="time">
+      <div class="metric-card" data-metric="time">
+        <div class="metric-icon">
+          <i class="fas fa-clock"></i>
+        </div>
+        <div class="metric-value" id="total-time">0h 0m</div>
+        <div class="metric-label">Time on Road</div>
+        <div class="metric-trend neutral"><i class="fas fa-minus"></i> 0%</div>
+        <div class="stat-comparison" id="time-comparison">
+          <small>Avg Speed: <span class="fw-bold">0</span> mph</small>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Behavior Metrics -->
+  <div class="row g-4 mb-5">
+    <div class="col-md-4">
+      <div class="insight-card">
+        <div class="insight-icon bg-danger bg-opacity-10 text-danger">
+          <i class="fas fa-exclamation-triangle"></i>
+        </div>
+        <div class="insight-content">
+          <h4>Aggressive Events</h4>
+          <p>
+            <span class="counter" id="hard-braking">0</span> Hard Brakes |
+            <span class="counter" id="hard-accel">0</span> Hard Accels
           </p>
         </div>
-        <div class="col-lg-4 text-center">
-          <div class="hero-stat">
-            <div class="display-3 text-primary counter" id="hero-total-miles">
-            0
-            </div>
-            <p class="text-secondary">
-Total Miles Driven
-            </p>
-          </div>
-        </div>
       </div>
     </div>
 
-    <!-- Primary Metrics Grid -->
-    <div class="row g-4 mb-5" data-widget-container="insights-metrics">
-      <div class="col-md-6 col-lg-3" data-widget-id="trips">
-        <div class="metric-card" data-metric="trips">
-          <div class="metric-icon">
-            <i class="fas fa-route"></i>
-          </div>
-          <div class="metric-value counter" id="total-trips">
-0
-          </div>
-          <div class="metric-label">
-Total Trips
-          </div>
-          <div class="metric-trend positive">
-            <i class="fas fa-arrow-up"></i> 12%
-          </div>
-          <div class="stat-comparison" id="trips-comparison">
-            <small>Daily Average: <span class="fw-bold">0</span></small>
-          </div>
+    <div class="col-md-4">
+      <div class="insight-card">
+        <div class="insight-icon bg-warning bg-opacity-10 text-warning">
+          <i class="fas fa-tachometer-alt"></i>
         </div>
-      </div>
-
-      <div class="col-md-6 col-lg-3" data-widget-id="distance">
-        <div class="metric-card" data-metric="distance">
-          <div class="metric-icon">
-            <i class="fas fa-road"></i>
-          </div>
-          <div class="metric-value">
-            <span class="counter" id="total-distance">0</span>
-            <small style="font-size: 0.5em">miles</small>
-          </div>
-          <div class="metric-label">
-Distance Traveled
-          </div>
-          <div class="metric-trend positive">
-            <i class="fas fa-arrow-up"></i> 8%
-          </div>
-          <div class="stat-comparison" id="distance-comparison">
-            <small>Avg per Trip: <span class="fw-bold">0</span> miles</small>
-          </div>
-        </div>
-      </div>
-
-      <div class="col-md-6 col-lg-3" data-widget-id="fuel">
-        <div class="metric-card" data-metric="fuel">
-          <div class="metric-icon">
-            <i class="fas fa-gas-pump"></i>
-          </div>
-          <div class="metric-value">
-            <span class="counter" id="total-fuel">0</span>
-            <small style="font-size: 0.5em">gal</small>
-          </div>
-          <div class="metric-label">
-Fuel Consumed
-          </div>
-          <div class="metric-trend negative">
-            <i class="fas fa-arrow-down"></i> 5%
-          </div>
-          <div class="stat-comparison" id="fuel-comparison">
-            <small>Efficiency: <span class="fw-bold">0</span> MPG</small>
-          </div>
-        </div>
-      </div>
-
-      <div class="col-md-6 col-lg-3" data-widget-id="time">
-        <div class="metric-card" data-metric="time">
-          <div class="metric-icon">
-            <i class="fas fa-clock"></i>
-          </div>
-          <div class="metric-value" id="total-time">
-0h 0m
-          </div>
-          <div class="metric-label">
-Time on Road
-          </div>
-          <div class="metric-trend neutral">
-            <i class="fas fa-minus"></i> 0%
-          </div>
-          <div class="stat-comparison" id="time-comparison">
-            <small>Avg Speed: <span class="fw-bold">0</span> mph</small>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Behavior Metrics -->
-    <div class="row g-4 mb-5">
-      <div class="col-md-4">
-        <div class="insight-card">
-          <div class="insight-icon bg-danger bg-opacity-10 text-danger">
-            <i class="fas fa-exclamation-triangle"></i>
-          </div>
-          <div class="insight-content">
-            <h4>
-Aggressive Events
-            </h4>
-            <p>
-              <span class="counter" id="hard-braking">0</span> Hard Brakes |
-              <span class="counter" id="hard-accel">0</span> Hard Accels
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <div class="col-md-4">
-        <div class="insight-card">
-          <div class="insight-icon bg-warning bg-opacity-10 text-warning">
-            <i class="fas fa-tachometer-alt"></i>
-          </div>
-          <div class="insight-content">
-            <h4>
-Speed Statistics
-            </h4>
-            <p>
+        <div class="insight-content">
+          <h4>Speed Statistics</h4>
+          <p>
             Max: <span class="counter" id="max-speed">0</span> mph | Avg:
-              <span class="counter" id="avg-speed">0</span> mph
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <div class="col-md-4">
-        <div class="insight-card">
-          <div class="insight-icon bg-info bg-opacity-10 text-info">
-            <i class="fas fa-pause-circle"></i>
-          </div>
-          <div class="insight-content">
-            <h4>
-Idle Time
-            </h4>
-            <p id="idle-time">
-0h 0m
-            </p>
-          </div>
+            <span class="counter" id="avg-speed">0</span> mph
+          </p>
         </div>
       </div>
     </div>
 
-    <!-- Charts Section -->
-    <div class="row g-4 mb-5">
-      <!-- Combined Trends Chart -->
-      <div class="col-lg-8">
-        <div class="chart-container">
-          <div class="chart-header">
-            <h3 class="chart-title">
-Driving Trends
-            </h3>
-            <div class="chart-controls">
-              <div class="toggle-group">
-                <button class="toggle-btn active" data-view="daily">
-Daily
-                </button>
-                <button class="toggle-btn" data-view="weekly">
-Weekly
-                </button>
-                <button class="toggle-btn" data-view="monthly">
-Monthly
-                </button>
-              </div>
-              <button class="btn btn-sm btn-outline" id="export-chart">
-                <i class="fas fa-download"></i>
-              </button>
-            </div>
-          </div>
-          <div class="chart-loading" id="trends-loading">
-            <div class="chart-loading-spinner">
-            </div>
-          </div>
-          <canvas id="trendsChart" style="display: none" height="400"></canvas>
+    <div class="col-md-4">
+      <div class="insight-card">
+        <div class="insight-icon bg-info bg-opacity-10 text-info">
+          <i class="fas fa-pause-circle"></i>
         </div>
-      </div>
-
-      <!-- Efficiency Gauges -->
-      <div class="col-lg-4">
-        <div class="chart-container">
-          <div class="chart-header">
-            <h3 class="chart-title">
-Efficiency Metrics
-            </h3>
-          </div>
-          <canvas id="efficiencyChart" height="400"></canvas>
+        <div class="insight-content">
+          <h4>Idle Time</h4>
+          <p id="idle-time">0h 0m</p>
         </div>
       </div>
     </div>
+  </div>
 
-    <!-- Time Distribution -->
-    <div class="row g-4 mb-5">
-      <div class="col-lg-12">
-        <div class="chart-container time-dist-container">
-          <div class="chart-header">
-            <h3 class="chart-title">
-Time Distribution
-            </h3>
-            <div class="chart-controls">
-              <div class="toggle-group">
-                <button class="toggle-btn active" data-time="hour">
-                By Hour
-                </button>
-                <button class="toggle-btn" data-time="day">
-By Day
-                </button>
-              </div>
+  <!-- Charts Section -->
+  <div class="row g-4 mb-5">
+    <!-- Combined Trends Chart -->
+    <div class="col-lg-8">
+      <div class="chart-container">
+        <div class="chart-header">
+          <h3 class="chart-title">Driving Trends</h3>
+          <div class="chart-controls">
+            <div class="toggle-group">
+              <button class="toggle-btn active" data-view="daily">Daily</button>
+              <button class="toggle-btn" data-view="weekly">Weekly</button>
+              <button class="toggle-btn" data-view="monthly">Monthly</button>
             </div>
-          </div>
-          <canvas id="timeDistChart" height="320"></canvas>
-        </div>
-      </div>
-    </div>
-
-    <!-- Destinations & Routes -->
-    <div class="row g-4 mb-5">
-      <div class="col-12">
-        <div class="chart-container">
-          <div class="chart-header">
-            <h3 class="chart-title">
-Frequently Visited Locations
-            </h3>
-            <button class="btn btn-sm btn-primary" id="view-map">
-              <i class="fas fa-map"></i> View on Trips Page
+            <button class="btn btn-sm btn-outline" id="export-chart">
+              <i class="fas fa-download"></i>
             </button>
           </div>
-          <div class="table-responsive">
-            <table class="data-table" id="destinations-table">
-              <thead>
-                <tr>
-                  <th>
-Location
-                  </th>
-                  <th>
-Visits
-                  </th>
-                  <th data-bs-toggle="tooltip"
-                      title="Sum of miles driven to this location during the selected date range">
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              Total Distance&nbsp;<i class="fas fa-question-circle text-muted"></i>
+        </div>
+        <div class="chart-loading" id="trends-loading">
+          <div class="chart-loading-spinner"></div>
+        </div>
+        <canvas id="trendsChart" style="display: none" height="400"></canvas>
+      </div>
+    </div>
+
+    <!-- Efficiency Gauges -->
+    <div class="col-lg-4">
+      <div class="chart-container">
+        <div class="chart-header">
+          <h3 class="chart-title">Efficiency Metrics</h3>
+        </div>
+        <canvas id="efficiencyChart" height="400"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Time Distribution -->
+  <div class="row g-4 mb-5">
+    <div class="col-lg-12">
+      <div class="chart-container time-dist-container">
+        <div class="chart-header">
+          <h3 class="chart-title">Time Distribution</h3>
+          <div class="chart-controls">
+            <div class="toggle-group">
+              <button class="toggle-btn active" data-time="hour">
+                By Hour
+              </button>
+              <button class="toggle-btn" data-time="day">By Day</button>
+            </div>
+          </div>
+        </div>
+        <canvas id="timeDistChart" height="320"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Destinations & Routes -->
+  <div class="row g-4 mb-5">
+    <div class="col-12">
+      <div class="chart-container">
+        <div class="chart-header">
+          <h3 class="chart-title">Frequently Visited Locations</h3>
+          <button class="btn btn-sm btn-primary" id="view-map">
+            <i class="fas fa-map"></i> View on Trips Page
+          </button>
+        </div>
+        <div class="table-responsive">
+          <table class="data-table" id="destinations-table">
+            <thead>
+              <tr>
+                <th>Location</th>
+                <th>Visits</th>
+                <th
+                  data-bs-toggle="tooltip"
+                  title="Sum of miles driven to this location during the selected date range"
+                >
+                  Total Distance&nbsp;<i
+                    class="fas fa-question-circle text-muted"
+                  ></i>
                 </th>
-                <th>
-Avg Duration
-                </th>
-                <th>
-Last Visit
-                </th>
+                <th>Avg Duration</th>
+                <th>Last Visit</th>
               </tr>
             </thead>
             <tbody>
@@ -301,9 +248,7 @@ Last Visit
     <div class="col-12">
       <div class="chart-container">
         <div class="chart-header">
-          <h3 class="chart-title">
-Detailed Trip Analytics
-          </h3>
+          <h3 class="chart-title">Detailed Trip Analytics</h3>
           <div class="chart-controls">
             <button class="btn btn-sm btn-outline" id="export-data">
               <i class="fas fa-file-export"></i> Export
@@ -314,27 +259,13 @@ Detailed Trip Analytics
           <table class="data-table" id="analytics-table">
             <thead>
               <tr>
-                <th>
-Period
-                </th>
-                <th>
-Trips
-                </th>
-                <th>
-Distance
-                </th>
-                <th>
-Duration
-                </th>
-                <th>
-Fuel
-                </th>
-                <th>
-Hard Events
-                </th>
-                <th>
-Efficiency
-                </th>
+                <th>Period</th>
+                <th>Trips</th>
+                <th>Distance</th>
+                <th>Duration</th>
+                <th>Fuel</th>
+                <th>Hard Events</th>
+                <th>Efficiency</th>
               </tr>
             </thead>
             <tbody>
@@ -365,53 +296,40 @@ Efficiency
   </div>
 
   <!-- Custom tooltip -->
-  <div class="custom-tooltip" id="custom-tooltip">
-  </div>
+  <div class="custom-tooltip" id="custom-tooltip"></div>
 
   <!-- Trip Details Modal -->
-  <div class="modal fade"
-       id="tripDetailsModal"
-       tabindex="-1"
-       aria-labelledby="tripDetailsModalLabel"
-       aria-hidden="true">
+  <div
+    class="modal fade"
+    id="tripDetailsModal"
+    tabindex="-1"
+    aria-labelledby="tripDetailsModalLabel"
+    aria-hidden="true"
+  >
     <div class="modal-dialog modal-xl">
       <div class="modal-content">
         <div class="modal-header">
-          <h5 class="modal-title" id="tripDetailsModalLabel">
-Trips
-          </h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close">
-          </button>
+          <h5 class="modal-title" id="tripDetailsModalLabel">Trips</h5>
+          <button
+            type="button"
+            class="btn-close"
+            data-bs-dismiss="modal"
+            aria-label="Close"
+          ></button>
         </div>
         <div class="modal-body">
           <div class="table-responsive">
             <table class="table table-striped" id="modal-trips-table">
               <thead>
                 <tr>
-                  <th>
-Start Time
-                  </th>
-                  <th>
-End Time
-                  </th>
-                  <th>
-Duration
-                  </th>
-                  <th>
-Distance
-                  </th>
-                  <th>
-Start Location
-                  </th>
-                  <th>
-Destination
-                  </th>
-                  <th>
-Max Speed
-                  </th>
-                  <th>
-Actions
-                  </th>
+                  <th>Start Time</th>
+                  <th>End Time</th>
+                  <th>Duration</th>
+                  <th>Distance</th>
+                  <th>Start Location</th>
+                  <th>Destination</th>
+                  <th>Max Speed</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -421,50 +339,69 @@ Actions
           </div>
         </div>
         <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-Close
+          <button
+            type="button"
+            class="btn btn-secondary"
+            data-bs-dismiss="modal"
+          >
+            Close
           </button>
         </div>
       </div>
     </div>
   </div>
 </div>
-{% endblock %}
+{% endblock %} {% block extra_js %}
 
+<!-- Chart.js and dependencies -->
+<script src="{{ CDN.chartjs }}"></script>
+<script src="{{ CDN.chartjs_adapter }}"></script>
+<script src="{{ CDN.chartjs_datalabels }}"></script>
 
-{% block extra_js %}
+<script src="{{ CDN.jquery }}" crossorigin="anonymous"></script>
 
-  <!-- Chart.js and dependencies -->
-  <script src="{{ CDN.chartjs }}"></script>
-  <script src="{{ CDN.chartjs_adapter }}"></script>
-  <script src="{{ CDN.chartjs_datalabels }}"></script>
+<!-- DataTables -->
+<script src="{{ CDN.datatables_js }}"></script>
+<script src="{{ CDN.datatables_bs5_js }}"></script>
 
-  <script src="{{ CDN.jquery }}" crossorigin="anonymous"></script>
+<!-- CountUp.js for number animations -->
+<script src="{{ CDN.countup }}"></script>
 
-  <!-- DataTables -->
-  <script src="{{ CDN.datatables_js }}"></script>
-  <script src="{{ CDN.datatables_bs5_js }}"></script>
-
-  <!-- CountUp.js for number animations -->
-  <script src="{{ CDN.countup }}"></script>
-
-  <!-- Driving Insights Modules (loaded in dependency order) -->
-  <script type="module"
-          src="{{ url_for('static', path='js/modules/insights/state.js') | replace('http://', '//') }}"></script>
-  <script type="module"
-          src="{{ url_for('static', path='js/modules/insights/formatters.js') | replace('http://', '//') }}"></script>
-  <script type="module"
-          src="{{ url_for('static', path='js/modules/insights/api.js') | replace('http://', '//') }}"></script>
-  <script type="module"
-          src="{{ url_for('static', path='js/modules/insights/export.js') | replace('http://', '//') }}"></script>
-  <script type="module"
-          src="{{ url_for('static', path='js/modules/insights/modal.js') | replace('http://', '//') }}"></script>
-  <script type="module"
-          src="{{ url_for('static', path='js/modules/insights/charts.js') | replace('http://', '//') }}"></script>
-  <script type="module"
-          src="{{ url_for('static', path='js/modules/insights/metrics.js') | replace('http://', '//') }}"></script>
-  <script type="module"
-          src="{{ url_for('static', path='js/modules/insights/tables.js') | replace('http://', '//') }}"></script>
-  <script type="module"
-          src="{{ url_for('static', path='js/modules/insights/main.js') | replace('http://', '//') }}"></script>
+<!-- Driving Insights Modules (loaded in dependency order) -->
+<script
+  type="module"
+  src="{{ url_for('static', path='js/modules/insights/state.js') | replace('http://', '//') }}"
+></script>
+<script
+  type="module"
+  src="{{ url_for('static', path='js/modules/insights/formatters.js') | replace('http://', '//') }}"
+></script>
+<script
+  type="module"
+  src="{{ url_for('static', path='js/modules/insights/api.js') | replace('http://', '//') }}"
+></script>
+<script
+  type="module"
+  src="{{ url_for('static', path='js/modules/insights/export.js') | replace('http://', '//') }}"
+></script>
+<script
+  type="module"
+  src="{{ url_for('static', path='js/modules/insights/modal.js') | replace('http://', '//') }}"
+></script>
+<script
+  type="module"
+  src="{{ url_for('static', path='js/modules/insights/charts.js') | replace('http://', '//') }}"
+></script>
+<script
+  type="module"
+  src="{{ url_for('static', path='js/modules/insights/metrics.js') | replace('http://', '//') }}"
+></script>
+<script
+  type="module"
+  src="{{ url_for('static', path='js/modules/insights/tables.js') | replace('http://', '//') }}"
+></script>
+<script
+  type="module"
+  src="{{ url_for('static', path='js/modules/insights/main.js') | replace('http://', '//') }}"
+></script>
 {% endblock %}
