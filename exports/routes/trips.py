@@ -66,7 +66,9 @@ async def _export_trips_from_request(
     if query_overrides:
         query.update(query_overrides)
 
-    filename_base = f"{filename_prefix}_{StreamingService.get_date_range_filename(request)}"
+    filename_base = (
+        f"{filename_prefix}_{StreamingService.get_date_range_filename(request)}"
+    )
     find_query = Trip.find(query)
     return await _export_from_query(
         find_query,
@@ -128,6 +130,7 @@ async def export_single_trip(
     fmt: Annotated[str, Query(description="Export format")] = "geojson",
 ):
     """Export a single trip by ID."""
+
     async def _export():
         t = await Trip.find_one(Trip.transactionId == trip_id)
         if not t:
@@ -151,6 +154,7 @@ async def export_all_trips(
     fmt: Annotated[str, Query(description="Export format")] = "geojson",
 ):
     """Export all trips in various formats."""
+
     async def _export():
         current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename_base = f"all_trips_{current_time}"
