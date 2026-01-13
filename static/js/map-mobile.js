@@ -70,6 +70,7 @@ class MobileMapInterface {
 
     this.setupDragInteractions();
     this.setupFABActions();
+    this.setupMapPanGuard();
 
     window.addEventListener("resize", this.resizeHandler);
     this.cleanupCallbacks.push(() =>
@@ -104,6 +105,40 @@ class MobileMapInterface {
     this.bind(refreshBtn, "click", () => {
       document.getElementById("refresh-map")?.click();
       this.showFeedback("Refreshing map...");
+    });
+  }
+
+  setupMapPanGuard() {
+    const map = document.getElementById("map");
+    if (!map) {
+      return;
+    }
+
+    let touchStartY = 0;
+
+    const onTouchStart = (event) => {
+      if (!event.touches || event.touches.length !== 1) {
+        return;
+      }
+      touchStartY = event.touches[0].clientY;
+    };
+
+    const onTouchMove = (event) => {
+      if (!event.touches || event.touches.length !== 1) {
+        return;
+      }
+      const deltaY = event.touches[0].clientY - touchStartY;
+      if (deltaY > 0 && window.scrollY === 0) {
+        event.preventDefault();
+      }
+    };
+
+    map.addEventListener("touchstart", onTouchStart, { passive: true });
+    map.addEventListener("touchmove", onTouchMove, { passive: false });
+
+    this.cleanupCallbacks.push(() => {
+      map.removeEventListener("touchstart", onTouchStart);
+      map.removeEventListener("touchmove", onTouchMove);
     });
   }
 

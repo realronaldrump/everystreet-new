@@ -1440,6 +1440,10 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
 }
 
 @media (width <= 768px) {
+  body.map-page {
+    overscroll-behavior-y: none;
+  }
+
   /* Transform control panel into bottom sheet on mobile */
   .control-panel#map-controls {
     position: fixed;
@@ -1515,6 +1519,8 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
     position: fixed;
     top: 0;
     left: 0;
+    touch-action: none;
+    overscroll-behavior: contain;
   }
 
   .live-trip-hud {
