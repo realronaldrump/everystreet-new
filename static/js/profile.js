@@ -12,7 +12,7 @@
       initializeEventListeners();
       loadCredentials();
     },
-    { route: "/profile" }
+    { route: "/profile" },
   );
 
   /**
@@ -42,14 +42,14 @@
     const toggleSecretBtn = document.getElementById("toggleClientSecret");
     if (toggleSecretBtn) {
       toggleSecretBtn.addEventListener("click", () =>
-        togglePasswordVisibility("clientSecret", "toggleClientSecret")
+        togglePasswordVisibility("clientSecret", "toggleClientSecret"),
       );
     }
 
     const toggleAuthBtn = document.getElementById("toggleAuthCode");
     if (toggleAuthBtn) {
       toggleAuthBtn.addEventListener("click", () =>
-        togglePasswordVisibility("authorizationCode", "toggleAuthCode")
+        togglePasswordVisibility("authorizationCode", "toggleAuthCode"),
       );
     }
 
@@ -76,7 +76,7 @@
       } else {
         showStatus(
           "No credentials found. Please enter your Bouncie credentials.",
-          "warning"
+          "warning",
         );
       }
     } catch (error) {
@@ -233,9 +233,11 @@
     const clientId = document.getElementById("clientId").value.trim();
     const clientSecret = document.getElementById("clientSecret").value.trim();
     const redirectUri = document.getElementById("redirectUri").value.trim();
-    const authorizationCode = document.getElementById("authorizationCode").value.trim();
-    const fetchConcurrency
-      = document.getElementById("fetchConcurrency")?.value.trim() || "12";
+    const authorizationCode = document
+      .getElementById("authorizationCode")
+      .value.trim();
+    const fetchConcurrency =
+      document.getElementById("fetchConcurrency")?.value.trim() || "12";
 
     // Collect devices
     const deviceInputs = document.querySelectorAll("#devicesList input");
@@ -285,7 +287,7 @@
       } else {
         showStatus(
           `Error saving credentials: ${data.detail || data.message || "Unknown error"}`,
-          "error"
+          "error",
         );
       }
     } catch (error) {
@@ -372,9 +374,12 @@
     try {
       showStatus("Syncing vehicles from Bouncie...", "info");
 
-      const response = await fetch("/api/profile/bouncie-credentials/sync-vehicles", {
-        method: "POST",
-      });
+      const response = await fetch(
+        "/api/profile/bouncie-credentials/sync-vehicles",
+        {
+          method: "POST",
+        },
+      );
 
       const data = await response.json();
 
@@ -412,7 +417,7 @@
     const toggleMapboxBtn = document.getElementById("toggleMapboxToken");
     if (toggleMapboxBtn) {
       toggleMapboxBtn.addEventListener("click", () =>
-        togglePasswordVisibility("mapboxToken", "toggleMapboxToken")
+        togglePasswordVisibility("mapboxToken", "toggleMapboxToken"),
       );
     }
   }
@@ -452,8 +457,8 @@
           }, 2000);
         }
       } else if (statusEl) {
-        statusEl.textContent
-          = "No settings configured yet. Please enter your Mapbox token.";
+        statusEl.textContent =
+          "No settings configured yet. Please enter your Mapbox token.";
         statusEl.className = "alert alert-warning mt-3";
       }
     } catch (error) {
@@ -482,7 +487,8 @@
     // Validate Mapbox token format
     if (!mapboxToken) {
       if (statusEl) {
-        statusEl.textContent = "Mapbox access token is required for maps to work.";
+        statusEl.textContent =
+          "Mapbox access token is required for maps to work.";
         statusEl.className = "alert alert-danger mt-3";
         statusEl.style.display = "block";
       }
@@ -491,8 +497,8 @@
 
     if (!mapboxToken.startsWith("pk.")) {
       if (statusEl) {
-        statusEl.textContent
-          = "Mapbox token should start with 'pk.' (public token). Secret tokens (sk.) will not work.";
+        statusEl.textContent =
+          "Mapbox token should start with 'pk.' (public token). Secret tokens (sk.) will not work.";
         statusEl.className = "alert alert-warning mt-3";
         statusEl.style.display = "block";
       }
@@ -529,8 +535,8 @@
         }
 
         if (statusEl) {
-          statusEl.textContent
-            = "Settings saved! Refresh the page to apply changes to maps.";
+          statusEl.textContent =
+            "Settings saved! Refresh the page to apply changes to maps.";
           statusEl.className = "alert alert-success mt-3";
           statusEl.style.display = "block";
         }

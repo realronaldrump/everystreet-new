@@ -58,7 +58,7 @@ const personalization = {
       document.dispatchEvent(
         new CustomEvent("widgets:set-edit", {
           detail: { enabled: widgetEditing === "true" },
-        })
+        }),
       );
     }
   },
@@ -97,10 +97,15 @@ const personalization = {
 
     if (widgetEditing !== undefined) {
       if (persist) {
-        localStorage.setItem(STORAGE_KEYS.widgetEdit, widgetEditing ? "true" : "false");
+        localStorage.setItem(
+          STORAGE_KEYS.widgetEdit,
+          widgetEditing ? "true" : "false",
+        );
       }
       document.dispatchEvent(
-        new CustomEvent("widgets:set-edit", { detail: { enabled: widgetEditing } })
+        new CustomEvent("widgets:set-edit", {
+          detail: { enabled: widgetEditing },
+        }),
       );
     }
   },
@@ -159,10 +164,13 @@ const personalization = {
     root.style.setProperty("--primary-light", this.baseVars.primaryLight);
     root.style.setProperty("--primary-dark", this.baseVars.primaryDark);
     root.style.setProperty("--primary-rgb", this.baseVars.primaryRgb);
-    root.style.setProperty("--accent", this.baseVars.accent || this.baseVars.primary);
+    root.style.setProperty(
+      "--accent",
+      this.baseVars.accent || this.baseVars.primary,
+    );
     root.style.setProperty(
       "--accent-rgb",
-      this.baseVars.accentRgb || this.baseVars.primaryRgb
+      this.baseVars.accentRgb || this.baseVars.primaryRgb,
     );
     document.dispatchEvent(new CustomEvent("contextual:refresh"));
   },

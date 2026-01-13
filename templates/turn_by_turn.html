@@ -1,289 +1,279 @@
-{% extends "base.html" %}
+{% extends "base.html" %} {% block title %} Turn-by-Turn Navigation {% endblock
+%} {% block head_content %}
 
-{% block title %}
+<link rel="stylesheet" href="{{ CDN.mapbox_gl_css }}" />
+<link
+  rel="stylesheet"
+  href="{{ url_for('static', path='css/turn-by-turn.css') | replace('http://', '//') }}"
+/>
+{% endblock %} {% block content %}
 
-Turn-by-Turn Navigation
-{% endblock %}
+<div class="turn-by-turn" id="turn-by-turn">
+  <h1 class="visually-hidden" data-shared-transition="page-title">
+    Turn-by-Turn Navigation
+  </h1>
+  <div id="turn-by-turn-map"></div>
 
-{% block head_content %}
-
-  <link rel="stylesheet" href="{{ CDN.mapbox_gl_css }}" />
-  <link rel="stylesheet"
-        href="{{ url_for('static', path='css/turn-by-turn.css') | replace('http://', '//') }}" />
-{% endblock %}
-
-
-{% block content %}
-
-  <div class="turn-by-turn" id="turn-by-turn">
-    <h1 class="visually-hidden" data-shared-transition="page-title">
-Turn-by-Turn Navigation
-    </h1>
-    <div id="turn-by-turn-map">
+  <!-- Top Navigation Bar -->
+  <div class="nav-top">
+    <div class="nav-top-bar">
+      <a class="nav-back" href="/coverage-navigator">
+        <i class="fas fa-chevron-left" aria-hidden="true"></i>
+        <span>Coverage</span>
+      </a>
+      <div class="nav-signal" id="nav-signal">
+        <span class="nav-signal-dot" aria-hidden="true"></span>
+        <span id="nav-signal-text">GPS</span>
+      </div>
     </div>
 
-    <!-- Top Navigation Bar -->
-    <div class="nav-top">
-      <div class="nav-top-bar">
-        <a class="nav-back" href="/coverage-navigator">
-          <i class="fas fa-chevron-left" aria-hidden="true"></i>
-          <span>Coverage</span>
-        </a>
-        <div class="nav-signal" id="nav-signal">
-          <span class="nav-signal-dot" aria-hidden="true"></span>
-          <span id="nav-signal-text">GPS</span>
-        </div>
+    <!-- Turn Instruction Card -->
+    <div class="nav-instruction-card" aria-live="polite">
+      <div class="nav-turn-icon" id="nav-turn-icon">
+        <i class="fas fa-arrow-up" aria-hidden="true"></i>
       </div>
-
-      <!-- Turn Instruction Card -->
-      <div class="nav-instruction-card" aria-live="polite">
-        <div class="nav-turn-icon" id="nav-turn-icon">
-          <i class="fas fa-arrow-up" aria-hidden="true"></i>
-        </div>
-        <div class="nav-instruction-text">
-          <div class="nav-distance" id="nav-distance-to-turn">
-Ready
-          </div>
-          <div class="nav-primary" id="nav-primary-instruction">
+      <div class="nav-instruction-text">
+        <div class="nav-distance" id="nav-distance-to-turn">Ready</div>
+        <div class="nav-primary" id="nav-primary-instruction">
           Load the optimal coverage route to begin
-          </div>
-          <div class="nav-road" id="nav-road-name">
---
-          </div>
         </div>
-      </div>
-    </div>
-
-    <!-- Map Control Buttons -->
-    <div class="nav-controls">
-      <button class="nav-control-btn" id="nav-overview-btn" title="Route overview">
-        <i class="fas fa-route" aria-hidden="true"></i>
-      </button>
-      <button class="nav-control-btn" id="nav-recenter-btn" title="Recenter">
-        <i class="fas fa-location-arrow" aria-hidden="true"></i>
-      </button>
-      <button class="nav-control-btn" id="nav-route-btn" title="Route options">
-        <i class="fas fa-layer-group" aria-hidden="true"></i>
-      </button>
-    </div>
-
-    <!-- Bottom Stats Panel -->
-    <div class="nav-bottom">
-      <div class="nav-bottom-card">
-        <!-- Dual Progress Bars -->
-        <div class="nav-dual-progress">
-          <!-- Route Progress -->
-          <div class="nav-progress-item">
-            <div class="progress-header">
-              <span class="progress-label">Route Progress</span>
-              <span class="progress-value" id="nav-route-progress-value" data-value-flash>0%</span>
-            </div>
-            <div class="nav-progress-bar">
-              <div class="nav-progress-fill" id="nav-route-progress-fill">
-              </div>
-            </div>
-          </div>
-
-          <!-- Coverage Area Progress -->
-          <div class="nav-progress-item">
-            <div class="progress-header">
-              <span class="progress-label">Area Coverage</span>
-              <span class="progress-value"
-                    id="nav-coverage-progress-value"
-                    data-coverage-percent
-                    data-value-flash>0%</span>
-            </div>
-            <div class="nav-progress-bar coverage">
-              <div class="nav-progress-fill-baseline" id="nav-coverage-baseline">
-              </div>
-              <div class="nav-progress-fill-live" id="nav-coverage-live">
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Stats Grid -->
-        <div class="nav-stats">
-          <div class="nav-stat">
-            <div class="label">
-Remaining
-            </div>
-            <div class="value" id="nav-remaining-distance" data-value-flash>
---
-            </div>
-          </div>
-          <div class="nav-stat">
-            <div class="label">
-ETA
-            </div>
-            <div class="value" id="nav-eta" data-value-flash>
---
-            </div>
-          </div>
-          <div class="nav-stat">
-            <div class="label">
-Speed
-            </div>
-            <div class="value" id="nav-speed" data-value-flash>
---
-            </div>
-          </div>
-        </div>
-
-        <!-- Bottom Actions -->
-        <div class="nav-bottom-actions">
-          <div class="nav-status" id="nav-status" aria-live="polite">
-          Waiting for route
-          </div>
-          <button class="nav-end-btn" id="nav-end-btn" type="button">
-          End
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Route Preview Panel -->
-    <div class="nav-preview" id="nav-preview" hidden>
-      <div class="nav-preview-header">
-        <button class="nav-preview-back" id="nav-change-route" type="button">
-          <i class="fas fa-chevron-left" aria-hidden="true"></i>
-        </button>
-        <div class="nav-preview-title">
-Route Preview
-        </div>
-        <div class="nav-preview-spacer">
-        </div>
-      </div>
-
-      <div class="nav-preview-map" id="nav-preview-map-area">
-        <!-- Map shows through here -->
-      </div>
-
-      <div class="nav-preview-content">
-        <!-- Route Stats - 4 items in grid -->
-        <div class="nav-preview-stats">
-          <div class="preview-stat">
-            <span class="preview-stat-value" id="preview-distance">--</span>
-            <span class="preview-stat-label">Distance</span>
-          </div>
-          <div class="preview-stat">
-            <span class="preview-stat-value" id="preview-time">--</span>
-            <span class="preview-stat-label">Est. Time</span>
-          </div>
-          <div class="preview-stat">
-            <span class="preview-stat-value" id="preview-turns">--</span>
-            <span class="preview-stat-label">Turns</span>
-          </div>
-          <div class="preview-stat">
-            <span class="preview-stat-value"
-                  id="preview-coverage"
-                  data-coverage-percent
-                  data-value-flash>--</span>
-            <span class="preview-stat-label">Coverage</span>
-          </div>
-        </div>
-
-        <!-- Start Point Status -->
-        <div class="nav-preview-start" id="preview-start-status">
-          <i class="fas fa-map-marker-alt" aria-hidden="true"></i>
-          <span id="preview-start-text">Checking location...</span>
-        </div>
-
-        <!-- Preview Actions - single row -->
-        <div class="nav-preview-actions">
-          <button class="nav-primary-btn secondary" id="nav-start-from-here" type="button" hidden>
-            <i class="fas fa-directions" aria-hidden="true"></i>
-            <span>Navigate to Route</span>
-          </button>
-          <button class="nav-primary-btn" id="nav-begin" type="button" hidden>
-            <i class="fas fa-play" aria-hidden="true"></i>
-            <span>Start Navigation</span>
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Resume From Ahead Prompt -->
-    <div class="nav-resume-prompt" id="nav-resume-prompt" hidden>
-      <div class="nav-resume-header">
-        <div class="nav-resume-icon">
-          <i class="fas fa-route" aria-hidden="true"></i>
-        </div>
-        <div>
-          <div class="nav-resume-title">
-Off Route
-          </div>
-          <div class="nav-resume-subtitle">
-Resume from nearest point ahead?
-          </div>
-        </div>
-      </div>
-      <div class="nav-resume-distance" id="resume-distance-text">
---
-      </div>
-      <div class="nav-resume-actions">
-        <button class="nav-primary-btn secondary" id="nav-dismiss-resume" type="button">
-        Stay Off Route
-        </button>
-        <button class="nav-primary-btn" id="nav-resume-btn" type="button">
-        Resume Route
-        </button>
-      </div>
-    </div>
-
-    <!-- Setup Panel -->
-    <div class="nav-setup" id="nav-setup">
-      <div class="nav-setup-card">
-        <div class="nav-setup-header">
-          <div class="nav-setup-title">
-Turn-by-Turn Navigation
-          </div>
-          <p class="nav-setup-subtitle">
-          Select a coverage area, then load the optimal route for live guidance.
-          </p>
-        </div>
-        <label for="nav-area-select" class="nav-label">
-Coverage Area
-        </label>
-        <select id="nav-area-select" class="nav-select">
-          <option value="">
-Select a coverage area...
-          </option>
-        </select>
-        <div class="nav-setup-actions">
-          <button class="nav-primary-btn secondary"
-                  id="nav-load-route-btn"
-                  type="button"
-                  disabled>
-            <i class="fas fa-map" aria-hidden="true"></i>
-          Load Route
-          </button>
-          <button class="nav-primary-btn" id="nav-start-btn" type="button" disabled>
-            <i class="fas fa-play" aria-hidden="true"></i>
-          Start
-          </button>
-        </div>
-        <div class="nav-setup-status" id="nav-setup-status">
-        Select an area to continue.
-        </div>
-        <div class="nav-setup-summary" id="nav-setup-summary">
-        </div>
+        <div class="nav-road" id="nav-road-name">--</div>
       </div>
     </div>
   </div>
-{% endblock %}
 
+  <!-- Map Control Buttons -->
+  <div class="nav-controls">
+    <button
+      class="nav-control-btn"
+      id="nav-overview-btn"
+      title="Route overview"
+    >
+      <i class="fas fa-route" aria-hidden="true"></i>
+    </button>
+    <button class="nav-control-btn" id="nav-recenter-btn" title="Recenter">
+      <i class="fas fa-location-arrow" aria-hidden="true"></i>
+    </button>
+    <button class="nav-control-btn" id="nav-route-btn" title="Route options">
+      <i class="fas fa-layer-group" aria-hidden="true"></i>
+    </button>
+  </div>
 
-{% block extra_js %}
+  <!-- Bottom Stats Panel -->
+  <div class="nav-bottom">
+    <div class="nav-bottom-card">
+      <!-- Dual Progress Bars -->
+      <div class="nav-dual-progress">
+        <!-- Route Progress -->
+        <div class="nav-progress-item">
+          <div class="progress-header">
+            <span class="progress-label">Route Progress</span>
+            <span
+              class="progress-value"
+              id="nav-route-progress-value"
+              data-value-flash
+              >0%</span
+            >
+          </div>
+          <div class="nav-progress-bar">
+            <div class="nav-progress-fill" id="nav-route-progress-fill"></div>
+          </div>
+        </div>
 
-  <script src="{{ CDN.mapbox_gl_js }}"></script>
-  <script src="{{ url_for('static', path='js/map-base.js') | replace('http://', '//') }}"></script>
-  <script>
-      window.MAPBOX_ACCESS_TOKEN = "{{ MAPBOX_ACCESS_TOKEN }}";
-  </script>
-  <script type="module"
-          src="{{ url_for('static', path='js/turn-by-turn.js') | replace('http://', '//') }}"></script>
-  <script>
-      document.body.classList.add("turn-by-turn-active");
-  </script>
+        <!-- Coverage Area Progress -->
+        <div class="nav-progress-item">
+          <div class="progress-header">
+            <span class="progress-label">Area Coverage</span>
+            <span
+              class="progress-value"
+              id="nav-coverage-progress-value"
+              data-coverage-percent
+              data-value-flash
+              >0%</span
+            >
+          </div>
+          <div class="nav-progress-bar coverage">
+            <div
+              class="nav-progress-fill-baseline"
+              id="nav-coverage-baseline"
+            ></div>
+            <div class="nav-progress-fill-live" id="nav-coverage-live"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stats Grid -->
+      <div class="nav-stats">
+        <div class="nav-stat">
+          <div class="label">Remaining</div>
+          <div class="value" id="nav-remaining-distance" data-value-flash>
+            --
+          </div>
+        </div>
+        <div class="nav-stat">
+          <div class="label">ETA</div>
+          <div class="value" id="nav-eta" data-value-flash>--</div>
+        </div>
+        <div class="nav-stat">
+          <div class="label">Speed</div>
+          <div class="value" id="nav-speed" data-value-flash>--</div>
+        </div>
+      </div>
+
+      <!-- Bottom Actions -->
+      <div class="nav-bottom-actions">
+        <div class="nav-status" id="nav-status" aria-live="polite">
+          Waiting for route
+        </div>
+        <button class="nav-end-btn" id="nav-end-btn" type="button">End</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Route Preview Panel -->
+  <div class="nav-preview" id="nav-preview" hidden>
+    <div class="nav-preview-header">
+      <button class="nav-preview-back" id="nav-change-route" type="button">
+        <i class="fas fa-chevron-left" aria-hidden="true"></i>
+      </button>
+      <div class="nav-preview-title">Route Preview</div>
+      <div class="nav-preview-spacer"></div>
+    </div>
+
+    <div class="nav-preview-map" id="nav-preview-map-area">
+      <!-- Map shows through here -->
+    </div>
+
+    <div class="nav-preview-content">
+      <!-- Route Stats - 4 items in grid -->
+      <div class="nav-preview-stats">
+        <div class="preview-stat">
+          <span class="preview-stat-value" id="preview-distance">--</span>
+          <span class="preview-stat-label">Distance</span>
+        </div>
+        <div class="preview-stat">
+          <span class="preview-stat-value" id="preview-time">--</span>
+          <span class="preview-stat-label">Est. Time</span>
+        </div>
+        <div class="preview-stat">
+          <span class="preview-stat-value" id="preview-turns">--</span>
+          <span class="preview-stat-label">Turns</span>
+        </div>
+        <div class="preview-stat">
+          <span
+            class="preview-stat-value"
+            id="preview-coverage"
+            data-coverage-percent
+            data-value-flash
+            >--</span
+          >
+          <span class="preview-stat-label">Coverage</span>
+        </div>
+      </div>
+
+      <!-- Start Point Status -->
+      <div class="nav-preview-start" id="preview-start-status">
+        <i class="fas fa-map-marker-alt" aria-hidden="true"></i>
+        <span id="preview-start-text">Checking location...</span>
+      </div>
+
+      <!-- Preview Actions - single row -->
+      <div class="nav-preview-actions">
+        <button
+          class="nav-primary-btn secondary"
+          id="nav-start-from-here"
+          type="button"
+          hidden
+        >
+          <i class="fas fa-directions" aria-hidden="true"></i>
+          <span>Navigate to Route</span>
+        </button>
+        <button class="nav-primary-btn" id="nav-begin" type="button" hidden>
+          <i class="fas fa-play" aria-hidden="true"></i>
+          <span>Start Navigation</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Resume From Ahead Prompt -->
+  <div class="nav-resume-prompt" id="nav-resume-prompt" hidden>
+    <div class="nav-resume-header">
+      <div class="nav-resume-icon">
+        <i class="fas fa-route" aria-hidden="true"></i>
+      </div>
+      <div>
+        <div class="nav-resume-title">Off Route</div>
+        <div class="nav-resume-subtitle">Resume from nearest point ahead?</div>
+      </div>
+    </div>
+    <div class="nav-resume-distance" id="resume-distance-text">--</div>
+    <div class="nav-resume-actions">
+      <button
+        class="nav-primary-btn secondary"
+        id="nav-dismiss-resume"
+        type="button"
+      >
+        Stay Off Route
+      </button>
+      <button class="nav-primary-btn" id="nav-resume-btn" type="button">
+        Resume Route
+      </button>
+    </div>
+  </div>
+
+  <!-- Setup Panel -->
+  <div class="nav-setup" id="nav-setup">
+    <div class="nav-setup-card">
+      <div class="nav-setup-header">
+        <div class="nav-setup-title">Turn-by-Turn Navigation</div>
+        <p class="nav-setup-subtitle">
+          Select a coverage area, then load the optimal route for live guidance.
+        </p>
+      </div>
+      <label for="nav-area-select" class="nav-label"> Coverage Area </label>
+      <select id="nav-area-select" class="nav-select">
+        <option value="">Select a coverage area...</option>
+      </select>
+      <div class="nav-setup-actions">
+        <button
+          class="nav-primary-btn secondary"
+          id="nav-load-route-btn"
+          type="button"
+          disabled
+        >
+          <i class="fas fa-map" aria-hidden="true"></i>
+          Load Route
+        </button>
+        <button
+          class="nav-primary-btn"
+          id="nav-start-btn"
+          type="button"
+          disabled
+        >
+          <i class="fas fa-play" aria-hidden="true"></i>
+          Start
+        </button>
+      </div>
+      <div class="nav-setup-status" id="nav-setup-status">
+        Select an area to continue.
+      </div>
+      <div class="nav-setup-summary" id="nav-setup-summary"></div>
+    </div>
+  </div>
+</div>
+{% endblock %} {% block extra_js %}
+
+<script src="{{ CDN.mapbox_gl_js }}"></script>
+<script src="{{ url_for('static', path='js/map-base.js') | replace('http://', '//') }}"></script>
+<script>
+  window.MAPBOX_ACCESS_TOKEN = "{{ MAPBOX_ACCESS_TOKEN }}";
+</script>
+<script
+  type="module"
+  src="{{ url_for('static', path='js/turn-by-turn.js') | replace('http://', '//') }}"
+></script>
+<script>
+  document.body.classList.add("turn-by-turn-active");
+</script>
 {% endblock %}

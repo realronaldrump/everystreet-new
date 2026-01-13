@@ -6,5 +6,5 @@ onPageLoad(
   () => {
     window.optimalRoutesManager = new OptimalRoutesManager();
   },
-  { route: "/optimal-routes" }
+  { route: "/optimal-routes" },
 );
