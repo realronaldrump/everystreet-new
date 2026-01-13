@@ -85,7 +85,7 @@ async def driver_behavior_analytics(request: Request):
 async def get_recent_trips(
     limit: Annotated[
         int,
-        Query(ge=1, le=20, description="Number of trips to return"),
+        Query(ge=1, le=100, description="Number of trips to return"),
     ] = 5,
 ):
     """Get recent trips for landing page activity feed."""
