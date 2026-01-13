@@ -22,46 +22,106 @@ async def trip_cursor_wrapper(cursor):
         yield trip.model_dump()
 
 
-@router.get("/export/geojson")
-async def export_geojson(request: Request):
-    """Export trips as GeoJSON."""
+async def _export_from_query(
+    find_query,
+    fmt: str,
+    filename_base: str,
+    geometry_field: str = "gps",
+    include_gps_in_csv: bool = False,
+    flatten_location_fields: bool = True,
+):
+    cursor = trip_cursor_wrapper(find_query)
+
+    response = await StreamingService.export_format(
+        cursor,
+        fmt,
+        filename_base,
+        geometry_field=geometry_field,
+        include_gps_in_csv=include_gps_in_csv,
+        flatten_location_fields=flatten_location_fields,
+    )
+    if response:
+        return response
+
+    trips_list = [t.model_dump() for t in await find_query.to_list()]
+    return await create_export_response(
+        trips_list,
+        fmt,
+        filename_base,
+        include_gps_in_csv=include_gps_in_csv,
+        flatten_location_fields=flatten_location_fields,
+    )
+
+
+async def _export_trips_from_request(
+    request: Request,
+    fmt: str,
+    filename_prefix: str,
+    query_overrides: dict | None = None,
+    geometry_field: str = "gps",
+    include_gps_in_csv: bool = False,
+    flatten_location_fields: bool = True,
+):
+    query = await build_query_from_request(request)
+    if query_overrides:
+        query.update(query_overrides)
+
+    filename_base = (
+        f"{filename_prefix}_{StreamingService.get_date_range_filename(request)}"
+    )
+    find_query = Trip.find(query)
+    return await _export_from_query(
+        find_query,
+        fmt,
+        filename_base,
+        geometry_field=geometry_field,
+        include_gps_in_csv=include_gps_in_csv,
+        flatten_location_fields=flatten_location_fields,
+    )
+
+
+async def _run_export(action, error_message: str):
     try:
-        query = await build_query_from_request(request)
-        find_query = Trip.find(query)
-        cursor = trip_cursor_wrapper(find_query)
-
-        filename_base = f"trips_{StreamingService.get_date_range_filename(request)}"
-
-        return await StreamingService.export_format(
-            cursor,
-            "geojson",
-            filename_base,
+        return await action()
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
         )
     except Exception as e:
-        logger.exception("Error exporting GeoJSON: %s", e)
+        logger.exception(error_message, e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),
         )
+
+
+@router.get("/export/geojson")
+async def export_geojson(request: Request):
+    """Export trips as GeoJSON."""
+    return await _run_export(
+        lambda: _export_trips_from_request(
+            request,
+            "geojson",
+            "trips",
+        ),
+        "Error exporting GeoJSON: %s",
+    )
 
 
 @router.get("/export/gpx")
 async def export_gpx(request: Request):
     """Export trips as GPX."""
-    try:
-        query = await build_query_from_request(request)
-        find_query = Trip.find(query)
-        cursor = trip_cursor_wrapper(find_query)
-
-        filename_base = f"trips_{StreamingService.get_date_range_filename(request)}"
-
-        return await StreamingService.export_format(cursor, "gpx", filename_base)
-    except Exception as e:
-        logger.exception("Error exporting GPX: %s", e)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
-        )
+    return await _run_export(
+        lambda: _export_trips_from_request(
+            request,
+            "gpx",
+            "trips",
+        ),
+        "Error exporting GPX: %s",
+    )
 
 
 @router.get("/api/export/trip/{trip_id}")
@@ -70,33 +130,23 @@ async def export_single_trip(
     fmt: Annotated[str, Query(description="Export format")] = "geojson",
 ):
     """Export a single trip by ID."""
-    try:
-        t = await Trip.find_one(Trip.transactionId == trip_id)
 
+    async def _export():
+        t = await Trip.find_one(Trip.transactionId == trip_id)
         if not t:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Trip not found",
             )
 
-        # Convert to dict for export helper
         trip_dict = t.model_dump()
         start_date = trip_dict.get("startTime")
         date_str = start_date.strftime("%Y%m%d") if start_date else "unknown_date"
         filename_base = f"trip_{trip_id}_{date_str}"
 
         return await create_export_response([trip_dict], fmt, filename_base)
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
-        )
-    except Exception as e:
-        logger.exception("Error exporting trip %s: %s", trip_id, str(e))
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
-        )
+
+    return await _run_export(_export, f"Error exporting trip {trip_id}: %s")
 
 
 @router.get("/api/export/all_trips")
@@ -104,32 +154,14 @@ async def export_all_trips(
     fmt: Annotated[str, Query(description="Export format")] = "geojson",
 ):
     """Export all trips in various formats."""
-    try:
+
+    async def _export():
         current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename_base = f"all_trips_{current_time}"
-
         find_query = Trip.find({})
-        cursor = trip_cursor_wrapper(find_query)
+        return await _export_from_query(find_query, fmt, filename_base)
 
-        # Try streaming export first
-        response = await StreamingService.export_format(cursor, fmt, filename_base)
-        if response:
-            return response
-
-        # Fall back to non-streaming helper for shapefile and others
-        all_trips = [t.model_dump() for t in await find_query.to_list()]
-        return await create_export_response(all_trips, fmt, filename_base)
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
-        )
-    except Exception as e:
-        logger.exception("Error exporting all trips: %s", str(e))
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
-        )
+    return await _run_export(_export, "Error exporting all trips: %s")
 
 
 @router.get("/api/export/trips")
@@ -138,31 +170,14 @@ async def export_trips_within_range(
     fmt: Annotated[str, Query(description="Export format")] = "geojson",
 ):
     """Export trips within a date range."""
-    try:
-        query = await build_query_from_request(request)
-        filename_base = f"trips_{StreamingService.get_date_range_filename(request)}"
-
-        find_query = Trip.find(query)
-        cursor = trip_cursor_wrapper(find_query)
-
-        response = await StreamingService.export_format(cursor, fmt, filename_base)
-        if response:
-            return response
-
-        # Fallback for shapefile
-        trips_list = [t.model_dump() for t in await find_query.to_list()]
-        return await create_export_response(trips_list, fmt, filename_base)
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
-        )
-    except Exception as e:
-        logger.exception("Error exporting trips within range: %s", str(e))
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
-        )
+    return await _run_export(
+        lambda: _export_trips_from_request(
+            request,
+            fmt,
+            "trips",
+        ),
+        "Error exporting trips within range: %s",
+    )
 
 
 @router.get("/api/export/matched_trips")
@@ -171,38 +186,16 @@ async def export_matched_trips_within_range(
     fmt: Annotated[str, Query(description="Export format")] = "geojson",
 ):
     """Export matched trips within a date range."""
-    try:
-        query = await build_query_from_request(request)
-        query["matchedGps"] = {"$ne": None}
-        filename_base = (
-            f"matched_trips_{StreamingService.get_date_range_filename(request)}"
-        )
-
-        find_query = Trip.find(query)
-        cursor = trip_cursor_wrapper(find_query)
-
-        response = await StreamingService.export_format(
-            cursor,
+    return await _run_export(
+        lambda: _export_trips_from_request(
+            request,
             fmt,
-            filename_base,
+            "matched_trips",
+            query_overrides={"matchedGps": {"$ne": None}},
             geometry_field="matchedGps",
-        )
-        if response:
-            return response
-
-        matched_list = [t.model_dump() for t in await find_query.to_list()]
-        return await create_export_response(matched_list, fmt, filename_base)
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
-        )
-    except Exception as e:
-        logger.exception("Error exporting matched trips: %s", str(e))
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
-        )
+        ),
+        "Error exporting matched trips: %s",
+    )
 
 
 @router.get("/api/export/advanced")
