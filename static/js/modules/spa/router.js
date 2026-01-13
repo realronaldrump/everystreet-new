@@ -609,7 +609,7 @@ const router = {
       trail.appendChild(link);
     });
 
-    container.classList.toggle("is-empty", items.length === 0);
+    container.classList.toggle("is-empty", items.length <= 1);
   },
 
   bindSwipeBack() {

@@ -43,7 +43,7 @@
       greetingTitle: document.getElementById("greeting-title"),
       greetingSubtitle: document.getElementById("greeting-subtitle"),
       weatherChip: document.getElementById("weather-chip"),
-      streakChip: document.getElementById("streak-chip"),
+      weatherChip: document.getElementById("weather-chip"),
       statMiles: document.getElementById("stat-miles"),
       statTrips: document.getElementById("stat-trips"),
       liveIndicator: document.getElementById("live-indicator"),
@@ -94,7 +94,7 @@
       subtitle = "Plan your next drive while the roads are fresh.";
     } else if (hour >= 12 && hour < 17) {
       title = "Good afternoon";
-      subtitle = "Your coverage streak is ready for another push.";
+      subtitle = "Your coverage journey is ready for another push.";
     } else if (hour >= 17 && hour < 22) {
       title = "Good evening";
       subtitle = "Wrap up the day with a quick route check.";
@@ -244,14 +244,7 @@
     }
   }
 
-  function updateStreak(trips) {
-    const streakDays = calculateStreak(trips);
-    if (elements.streakChip) {
-      const suffix = streakDays === 1 ? "day" : "days";
-      elements.streakChip.textContent = `Streak: ${streakDays} ${suffix}`;
-    }
-    return streakDays;
-  }
+
 
   function updateRecordValue(distance) {
     const numeric = Number(distance);
@@ -281,30 +274,7 @@
     return recordDistanceCache;
   }
 
-  function calculateStreak(trips) {
-    if (!Array.isArray(trips) || trips.length === 0) {
-      return 0;
-    }
-    const days = new Set(
-      trips
-        .map((trip) => trip.endTime || trip.startTime)
-        .filter(Boolean)
-        .map((time) => formatDayKey(new Date(time)))
-    );
 
-    let streak = 0;
-    const cursor = new Date();
-    while (true) {
-      const key = formatDayKey(cursor);
-      if (days.has(key)) {
-        streak += 1;
-        cursor.setDate(cursor.getDate() - 1);
-      } else {
-        break;
-      }
-    }
-    return streak;
-  }
 
   function getRecordDistance(trips) {
     if (!Array.isArray(trips) || trips.length === 0) {
@@ -499,13 +469,13 @@
 
       // Populate activity feed
       populateActivityFeed(trips);
-      updateStreak(trips);
+
       updateRecordValue(
         recordDistanceCache || getRecordDistance(trips)
       );
     } catch {
       populateActivityFeed([]);
-      updateStreak([]);
+
       updateRecordValue(recordDistanceCache || 0);
     }
   }
