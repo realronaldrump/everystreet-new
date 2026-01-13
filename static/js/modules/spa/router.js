@@ -3,9 +3,9 @@ import store from "./store.js";
 const loadedScripts = new Set();
 
 const prefersReducedMotion = () =>
-  typeof window !== "undefined"
-  && window.matchMedia
-  && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  typeof window !== "undefined" &&
+  window.matchMedia &&
+  window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 const shouldHandleClick = (event, link) => {
   if (!link || event.defaultPrevented) {
@@ -60,8 +60,9 @@ const router = {
       return;
     }
 
-    this.main = document.getElementById("route-content")
-      || document.getElementById("main-content");
+    this.main =
+      document.getElementById("route-content") ||
+      document.getElementById("main-content");
     this.shell = document.getElementById("persistent-shell");
     this.scriptHost = document.getElementById("spa-scripts");
     this.announcer = document.getElementById("spa-announcer");
@@ -88,7 +89,10 @@ const router = {
     this.initialized = true;
   },
 
-  async navigate(url, { push = true, fromPopstate = false, force = false } = {}) {
+  async navigate(
+    url,
+    { push = true, fromPopstate = false, force = false } = {},
+  ) {
     if (!this.main) {
       window.location.href = url;
       return;
@@ -113,7 +117,7 @@ const router = {
     document.dispatchEvent(
       new CustomEvent("es:page-unload", {
         detail: { url: window.location.href, nextUrl: nextUrl.href },
-      })
+      }),
     );
 
     try {
@@ -150,7 +154,9 @@ const router = {
       } else {
         this.main.classList.add("is-transitioning");
         await apply();
-        requestAnimationFrame(() => this.main.classList.remove("is-transitioning"));
+        requestAnimationFrame(() =>
+          this.main.classList.remove("is-transitioning"),
+        );
       }
 
       if (push && window.history.pushState) {
@@ -263,9 +269,9 @@ const router = {
       return;
     }
 
-    Array.from(this.scriptHost.querySelectorAll("[data-es-dynamic='script']")).forEach(
-      (node) => node.remove()
-    );
+    Array.from(
+      this.scriptHost.querySelectorAll("[data-es-dynamic='script']"),
+    ).forEach((node) => node.remove());
 
     if (!scriptsHtml) {
       return;
@@ -290,7 +296,9 @@ const router = {
         script.src = src;
         const loadPromise = new Promise((resolve, reject) => {
           script.addEventListener("load", resolve, { once: true });
-          script.addEventListener("error", () => reject(new Error(`Failed to load ${src}`)));
+          script.addEventListener("error", () =>
+            reject(new Error(`Failed to load ${src}`)),
+          );
         });
         this.scriptHost.appendChild(script);
         await Promise.allSettled([loadPromise]);
@@ -365,9 +373,9 @@ const router = {
   },
 
   restoreFocus() {
-    let focusTarget
-      = this.main.querySelector("[data-es-focus]")
-      || this.main.querySelector("h1, h2, [role='heading']");
+    let focusTarget =
+      this.main.querySelector("[data-es-focus]") ||
+      this.main.querySelector("h1, h2, [role='heading']");
 
     if (!focusTarget) {
       const globalFocus = document.querySelector("[data-es-focus]");
@@ -381,11 +389,10 @@ const router = {
     }
 
     if (focusTarget && typeof focusTarget.focus === "function") {
-      const isNaturallyFocusable
-        = focusTarget.matches?.(
-          "a[href], button, input, select, textarea, details, summary, [tabindex]"
-        )
-        || false;
+      const isNaturallyFocusable =
+        focusTarget.matches?.(
+          "a[href], button, input, select, textarea, details, summary, [tabindex]",
+        ) || false;
       if (!isNaturallyFocusable) {
         focusTarget.setAttribute("tabindex", "-1");
       }
@@ -400,7 +407,7 @@ const router = {
           path: fragment.path,
           url: fragment.url,
         },
-      })
+      }),
     );
   },
 
@@ -425,7 +432,8 @@ const router = {
   prepareSharedElements() {
     let index = 0;
     document.querySelectorAll("[data-shared-transition]").forEach((element) => {
-      const name = element.dataset.sharedTransition || element.id || `shared-${index}`;
+      const name =
+        element.dataset.sharedTransition || element.id || `shared-${index}`;
       element.style.viewTransitionName = name;
       index += 1;
     });
@@ -440,7 +448,10 @@ const router = {
       if (hoverTimer) {
         clearTimeout(hoverTimer);
       }
-      hoverTimer = setTimeout(() => this.prefetch(link.href), this.prefetchDelay);
+      hoverTimer = setTimeout(
+        () => this.prefetch(link.href),
+        this.prefetchDelay,
+      );
     };
 
     document.addEventListener("pointerover", (event) => {
@@ -474,7 +485,10 @@ const router = {
     if (link.getAttribute("data-bs-toggle")) {
       return false;
     }
-    if (link.hasAttribute("data-es-no-spa") || link.hasAttribute("data-no-spa")) {
+    if (
+      link.hasAttribute("data-es-no-spa") ||
+      link.hasAttribute("data-no-spa")
+    ) {
       return false;
     }
     if (link.hasAttribute("data-no-prefetch")) {
@@ -539,12 +553,21 @@ const router = {
     } catch {
       // Ignore parse errors.
     }
-    return [{ path: window.location.pathname, title: document.title, timestamp: Date.now() }];
+    return [
+      {
+        path: window.location.pathname,
+        title: document.title,
+        timestamp: Date.now(),
+      },
+    ];
   },
 
   saveHistory() {
     try {
-      sessionStorage.setItem(this.historyKey, JSON.stringify(this.routeHistory.slice(-8)));
+      sessionStorage.setItem(
+        this.historyKey,
+        JSON.stringify(this.routeHistory.slice(-8)),
+      );
     } catch {
       // Ignore storage failures.
     }
@@ -619,7 +642,11 @@ const router = {
         if (!event.touches || event.touches.length !== 1) {
           return;
         }
-        if (event.target.closest("[data-gesture-ignore], .mapboxgl-canvas-container")) {
+        if (
+          event.target.closest(
+            "[data-gesture-ignore], .mapboxgl-canvas-container",
+          )
+        ) {
           return;
         }
         const touch = event.touches[0];
@@ -630,7 +657,7 @@ const router = {
         this.swipeState.startX = touch.clientX;
         this.swipeState.startY = touch.clientY;
       },
-      { passive: true }
+      { passive: true },
     );
 
     document.addEventListener(
@@ -652,7 +679,7 @@ const router = {
           window.history.back();
         }
       },
-      { passive: true }
+      { passive: true },
     );
   },
 };

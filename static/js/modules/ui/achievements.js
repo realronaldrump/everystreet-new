@@ -46,7 +46,11 @@ const achievements = {
           this.checkCoverageMilestones(percent);
         }
       });
-      observer.observe(element, { childList: true, characterData: true, subtree: true });
+      observer.observe(element, {
+        childList: true,
+        characterData: true,
+        subtree: true,
+      });
       this.observers.set(element, observer);
 
       const initial = this.parsePercent(element.textContent || "");
@@ -64,7 +68,7 @@ const achievements = {
     }
 
     const reached = MILESTONES.filter(
-      (milestone) => percent >= milestone && !state[key][milestone]
+      (milestone) => percent >= milestone && !state[key][milestone],
     );
     if (reached.length === 0) {
       return;
@@ -147,7 +151,9 @@ const achievements = {
   },
 
   getCoverageKey() {
-    return document.body?.dataset.route || window.location.pathname || "default";
+    return (
+      document.body?.dataset.route || window.location.pathname || "default"
+    );
   },
 
   getStored(key, fallback) {

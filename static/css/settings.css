@@ -167,7 +167,9 @@
   color: var(--text-secondary);
   cursor: pointer;
   position: relative;
-  transition: background var(--transition-fast), color var(--transition-fast);
+  transition:
+    background var(--transition-fast),
+    color var(--transition-fast);
 }
 
 .option-pill input {

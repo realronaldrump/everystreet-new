@@ -1,10 +1,10 @@
 import { utils } from "../utils.js";
 
-const RIPPLE_SELECTOR
-  = ".btn, .nav-tile, .action-button, .mobile-fab, .mobile-action-btn, [data-ripple]";
+const RIPPLE_SELECTOR =
+  ".btn, .nav-tile, .action-button, .mobile-fab, .mobile-action-btn, [data-ripple]";
 
-const VALUE_FLASH_SELECTOR
-  = "[data-value-flash], .metric-value, .stat-value, .mobile-metric-value, .counter";
+const VALUE_FLASH_SELECTOR =
+  "[data-value-flash], .metric-value, .stat-value, .mobile-metric-value, .counter";
 
 const interactions = {
   initialized: false,
@@ -77,7 +77,7 @@ const interactions = {
     const containers = document.querySelectorAll("[data-stagger]");
     containers.forEach((container) => {
       const items = Array.from(container.children).filter(
-        (child) => child.nodeType === 1
+        (child) => child.nodeType === 1,
       );
       items.forEach((item, index) => {
         if (item.classList.contains("stagger-item")) {
@@ -99,7 +99,11 @@ const interactions = {
         void element.offsetWidth;
         element.classList.add("value-flash");
       });
-      observer.observe(element, { characterData: true, childList: true, subtree: true });
+      observer.observe(element, {
+        characterData: true,
+        childList: true,
+        subtree: true,
+      });
       this.observers.set(element, observer);
     });
   },

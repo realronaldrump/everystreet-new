@@ -1,293 +1,308 @@
-{% extends "base.html" %}
+{% extends "base.html" %} {% block title %} EveryStreet {% endblock %} {% block
+head_content %}
 
-{% block title %}
+<style>
+  /* Hide filters toggle on landing page */
+  #filters-toggle {
+    display: none !important;
+  }
+</style>
+{% endblock %} {% block extra_css %}
 
-EveryStreet
-{% endblock %}
+<link
+  rel="stylesheet"
+  href="{{ url_for('static', path='css/landing.css') | replace('http://', '//') }}"
+/>
+{% endblock %} {% block content %}
 
+<div class="landing-page">
+  <!-- Ambient Background -->
+  <div class="landing-ambient">
+    <div class="ambient-orb ambient-orb-1"></div>
+    <div class="ambient-orb ambient-orb-2"></div>
+    <div class="ambient-orb ambient-orb-3"></div>
+  </div>
 
-{% block head_content %}
-
-  <style>
-      /* Hide filters toggle on landing page */
-      #filters-toggle {
-          display: none !important;
-      }
-  </style>
-{% endblock %}
-
-
-{% block extra_css %}
-
-  <link rel="stylesheet"
-        href="{{ url_for('static', path='css/landing.css') | replace('http://', '//') }}" />
-{% endblock %}
-
-
-{% block content %}
-
-  <div class="landing-page">
-    <!-- Ambient Background -->
-    <div class="landing-ambient">
-      <div class="ambient-orb ambient-orb-1">
+  <!-- Main Content -->
+  <div class="landing-content">
+    <div class="landing-greeting">
+      <div class="greeting-text">
+        <h1
+          class="greeting-title"
+          id="greeting-title"
+          data-shared-transition="page-title"
+        >
+          Welcome back
+        </h1>
+        <div class="greeting-subtitle" id="greeting-subtitle">
+          Here is your latest drive snapshot.
+        </div>
       </div>
-      <div class="ambient-orb ambient-orb-2">
-      </div>
-      <div class="ambient-orb ambient-orb-3">
+      <div class="greeting-chips">
+        <div class="greeting-chip" id="weather-chip" data-value-flash>
+          Weather: --
+        </div>
+        <div class="greeting-chip" id="streak-chip" data-value-flash>
+          Streak: --
+        </div>
       </div>
     </div>
 
-    <!-- Main Content -->
-    <div class="landing-content">
-      <div class="landing-greeting">
-        <div class="greeting-text">
-          <h1 class="greeting-title" id="greeting-title" data-shared-transition="page-title">
-Welcome back
-          </h1>
-          <div class="greeting-subtitle" id="greeting-subtitle">
-            Here is your latest drive snapshot.
-          </div>
+    <!-- Hero Stats Row -->
+    <div class="hero-stats" id="hero-stats">
+      <div class="stat-pulse">
+        <div class="stat-value" id="stat-miles" data-value-flash>--</div>
+        <div class="stat-label">Miles Driven</div>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat-pulse">
+        <div class="stat-value" id="stat-trips" data-value-flash>--</div>
+        <div class="stat-label">Trips</div>
+      </div>
+    </div>
+
+    <div class="delight-grid" data-stagger>
+      <div class="delight-card" id="record-card">
+        <div class="delight-label">Personal Record</div>
+        <div class="delight-value" id="record-distance" data-value-flash>
+          --
         </div>
-        <div class="greeting-chips">
-          <div class="greeting-chip" id="weather-chip" data-value-flash>Weather: --</div>
-          <div class="greeting-chip" id="streak-chip" data-value-flash>Streak: --</div>
+        <div class="delight-sub">Longest trip distance</div>
+      </div>
+      <div class="delight-card" id="suggestion-card" role="button" tabindex="0">
+        <div class="delight-label">Next Up</div>
+        <div class="delight-value" id="suggestion-title">
+          Explore a new area
+        </div>
+        <div class="delight-sub" id="suggestion-subtitle">
+          Based on your recent routes
         </div>
       </div>
+    </div>
 
-      <!-- Hero Stats Row -->
-      <div class="hero-stats" id="hero-stats">
-        <div class="stat-pulse">
-          <div class="stat-value" id="stat-miles" data-value-flash>
---
+    <!-- Navigation Grid -->
+    <div class="landing-toolbar">
+      <div class="toolbar-title">Quick Launch</div>
+      <button
+        class="btn btn-outline btn-sm"
+        id="widget-edit-toggle"
+        type="button"
+      >
+        Customize
+      </button>
+    </div>
+
+    <div class="nav-grid" data-stagger data-widget-container="landing-nav">
+      <!-- Primary Actions -->
+      <a
+        href="/map"
+        class="nav-tile nav-tile-primary"
+        data-tile="map"
+        data-widget-id="map"
+      >
+        <div class="tile-bg"></div>
+        <div class="tile-content">
+          <div class="tile-icon">
+            <i class="fas fa-map"></i>
           </div>
-          <div class="stat-label">
-Miles Driven
+          <div class="tile-text">
+            <span class="tile-title">Map</span>
+            <span class="tile-subtitle">View your coverage</span>
           </div>
         </div>
-        <div class="stat-divider">
+        <div class="tile-indicator">
+          <span
+            class="live-dot"
+            id="live-indicator"
+            title="Live tracking"
+          ></span>
         </div>
-        <div class="stat-pulse">
-          <div class="stat-value" id="stat-trips" data-value-flash>
---
+      </a>
+
+      <a
+        href="/coverage-navigator"
+        class="nav-tile nav-tile-primary"
+        data-tile="navigate"
+        data-widget-id="navigate"
+      >
+        <div class="tile-bg"></div>
+        <div class="tile-content">
+          <div class="tile-icon">
+            <i class="fas fa-route"></i>
           </div>
-          <div class="stat-label">
-Trips
+          <div class="tile-text">
+            <span class="tile-title">Navigate</span>
+            <span class="tile-subtitle">Plan your next route</span>
           </div>
         </div>
+      </a>
+
+      <!-- Secondary Row -->
+      <a
+        href="/trips"
+        class="nav-tile"
+        data-tile="trips"
+        data-widget-id="trips"
+      >
+        <div class="tile-bg"></div>
+        <div class="tile-content">
+          <div class="tile-icon">
+            <i class="fas fa-road"></i>
+          </div>
+          <div class="tile-text">
+            <span class="tile-title">Trips</span>
+            <span class="tile-subtitle">Browse history</span>
+          </div>
+        </div>
+        <div class="tile-meta" id="recent-trip">
+          <span class="meta-value">--</span>
+          <span class="meta-label">ago</span>
+        </div>
+      </a>
+
+      <a
+        href="/insights"
+        class="nav-tile"
+        data-tile="insights"
+        data-widget-id="insights"
+      >
+        <div class="tile-bg"></div>
+        <div class="tile-content">
+          <div class="tile-icon">
+            <i class="fas fa-chart-line"></i>
+          </div>
+          <div class="tile-text">
+            <span class="tile-title">Insights</span>
+            <span class="tile-subtitle">Analytics & trends</span>
+          </div>
+        </div>
+      </a>
+
+      <a
+        href="/gas-tracking"
+        class="nav-tile"
+        data-tile="gas"
+        data-widget-id="gas"
+      >
+        <div class="tile-bg"></div>
+        <div class="tile-content">
+          <div class="tile-icon">
+            <i class="fas fa-gas-pump"></i>
+          </div>
+          <div class="tile-text">
+            <span class="tile-title">Gas</span>
+            <span class="tile-subtitle">Fuel tracking</span>
+          </div>
+        </div>
+        <div class="tile-meta" id="last-fillup">
+          <span class="meta-value">--</span>
+          <span class="meta-label">mpg avg</span>
+        </div>
+      </a>
+
+      <a
+        href="/visits"
+        class="nav-tile"
+        data-tile="visits"
+        data-widget-id="visits"
+      >
+        <div class="tile-bg"></div>
+        <div class="tile-content">
+          <div class="tile-icon">
+            <i class="fas fa-map-marker-alt"></i>
+          </div>
+          <div class="tile-text">
+            <span class="tile-title">Visits</span>
+            <span class="tile-subtitle">Places tracked</span>
+          </div>
+        </div>
+      </a>
+
+      <!-- Tools Row -->
+      <a
+        href="/upload"
+        class="nav-tile nav-tile-tool"
+        data-tile="upload"
+        data-widget-id="upload"
+      >
+        <div class="tile-bg"></div>
+        <div class="tile-content">
+          <div class="tile-icon">
+            <i class="fas fa-upload"></i>
+          </div>
+          <div class="tile-text">
+            <span class="tile-title">Upload</span>
+          </div>
+        </div>
+      </a>
+
+      <a
+        href="/export"
+        class="nav-tile nav-tile-tool"
+        data-tile="export"
+        data-widget-id="export"
+      >
+        <div class="tile-bg"></div>
+        <div class="tile-content">
+          <div class="tile-icon">
+            <i class="fas fa-download"></i>
+          </div>
+          <div class="tile-text">
+            <span class="tile-title">Export</span>
+          </div>
+        </div>
+      </a>
+
+      <a
+        href="/coverage-management"
+        class="nav-tile nav-tile-tool"
+        data-tile="areas"
+        data-widget-id="areas"
+      >
+        <div class="tile-bg"></div>
+        <div class="tile-content">
+          <div class="tile-icon">
+            <i class="fas fa-vector-square"></i>
+          </div>
+          <div class="tile-text">
+            <span class="tile-title">Areas</span>
+          </div>
+        </div>
+      </a>
+
+      <a
+        href="/settings"
+        class="nav-tile nav-tile-tool"
+        data-tile="settings"
+        data-widget-id="settings"
+      >
+        <div class="tile-bg"></div>
+        <div class="tile-content">
+          <div class="tile-icon">
+            <i class="fas fa-cog"></i>
+          </div>
+          <div class="tile-text">
+            <span class="tile-title">Settings</span>
+          </div>
+        </div>
+      </a>
+    </div>
+
+    <!-- Activity Feed -->
+    <div class="activity-section" data-stagger>
+      <div class="activity-header">
+        <span class="activity-title">Recent Activity</span>
+        <span class="activity-live-dot"></span>
       </div>
-
-      <div class="delight-grid" data-stagger>
-        <div class="delight-card" id="record-card">
-          <div class="delight-label">Personal Record</div>
-          <div class="delight-value" id="record-distance" data-value-flash>--</div>
-          <div class="delight-sub">Longest trip distance</div>
-        </div>
-        <div class="delight-card" id="suggestion-card" role="button" tabindex="0">
-          <div class="delight-label">Next Up</div>
-          <div class="delight-value" id="suggestion-title">Explore a new area</div>
-          <div class="delight-sub" id="suggestion-subtitle">
-            Based on your recent routes
-          </div>
-        </div>
-      </div>
-
-      <!-- Navigation Grid -->
-      <div class="landing-toolbar">
-        <div class="toolbar-title">Quick Launch</div>
-        <button class="btn btn-outline btn-sm" id="widget-edit-toggle" type="button">
-          Customize
-        </button>
-      </div>
-
-      <div class="nav-grid" data-stagger data-widget-container="landing-nav">
-        <!-- Primary Actions -->
-        <a href="/map"
-           class="nav-tile nav-tile-primary"
-           data-tile="map"
-           data-widget-id="map">
-          <div class="tile-bg">
-          </div>
-          <div class="tile-content">
-            <div class="tile-icon">
-              <i class="fas fa-map"></i>
-            </div>
-            <div class="tile-text">
-              <span class="tile-title">Map</span>
-              <span class="tile-subtitle">View your coverage</span>
-            </div>
-          </div>
-          <div class="tile-indicator">
-            <span class="live-dot" id="live-indicator" title="Live tracking"></span>
-          </div>
-        </a>
-
-        <a href="/coverage-navigator"
-           class="nav-tile nav-tile-primary"
-           data-tile="navigate"
-           data-widget-id="navigate">
-          <div class="tile-bg">
-          </div>
-          <div class="tile-content">
-            <div class="tile-icon">
-              <i class="fas fa-route"></i>
-            </div>
-            <div class="tile-text">
-              <span class="tile-title">Navigate</span>
-              <span class="tile-subtitle">Plan your next route</span>
-            </div>
-          </div>
-        </a>
-
-        <!-- Secondary Row -->
-        <a href="/trips" class="nav-tile" data-tile="trips" data-widget-id="trips">
-          <div class="tile-bg">
-          </div>
-          <div class="tile-content">
-            <div class="tile-icon">
-              <i class="fas fa-road"></i>
-            </div>
-            <div class="tile-text">
-              <span class="tile-title">Trips</span>
-              <span class="tile-subtitle">Browse history</span>
-            </div>
-          </div>
-          <div class="tile-meta" id="recent-trip">
-            <span class="meta-value">--</span>
-            <span class="meta-label">ago</span>
-          </div>
-        </a>
-
-        <a href="/insights" class="nav-tile" data-tile="insights" data-widget-id="insights">
-          <div class="tile-bg">
-          </div>
-          <div class="tile-content">
-            <div class="tile-icon">
-              <i class="fas fa-chart-line"></i>
-            </div>
-            <div class="tile-text">
-              <span class="tile-title">Insights</span>
-              <span class="tile-subtitle">Analytics & trends</span>
-            </div>
-          </div>
-        </a>
-
-        <a href="/gas-tracking" class="nav-tile" data-tile="gas" data-widget-id="gas">
-          <div class="tile-bg">
-          </div>
-          <div class="tile-content">
-            <div class="tile-icon">
-              <i class="fas fa-gas-pump"></i>
-            </div>
-            <div class="tile-text">
-              <span class="tile-title">Gas</span>
-              <span class="tile-subtitle">Fuel tracking</span>
-            </div>
-          </div>
-          <div class="tile-meta" id="last-fillup">
-            <span class="meta-value">--</span>
-            <span class="meta-label">mpg avg</span>
-          </div>
-        </a>
-
-        <a href="/visits" class="nav-tile" data-tile="visits" data-widget-id="visits">
-          <div class="tile-bg">
-          </div>
-          <div class="tile-content">
-            <div class="tile-icon">
-              <i class="fas fa-map-marker-alt"></i>
-            </div>
-            <div class="tile-text">
-              <span class="tile-title">Visits</span>
-              <span class="tile-subtitle">Places tracked</span>
-            </div>
-          </div>
-        </a>
-
-        <!-- Tools Row -->
-        <a href="/upload"
-           class="nav-tile nav-tile-tool"
-           data-tile="upload"
-           data-widget-id="upload">
-          <div class="tile-bg">
-          </div>
-          <div class="tile-content">
-            <div class="tile-icon">
-              <i class="fas fa-upload"></i>
-            </div>
-            <div class="tile-text">
-              <span class="tile-title">Upload</span>
-            </div>
-          </div>
-        </a>
-
-        <a href="/export"
-           class="nav-tile nav-tile-tool"
-           data-tile="export"
-           data-widget-id="export">
-          <div class="tile-bg">
-          </div>
-          <div class="tile-content">
-            <div class="tile-icon">
-              <i class="fas fa-download"></i>
-            </div>
-            <div class="tile-text">
-              <span class="tile-title">Export</span>
-            </div>
-          </div>
-        </a>
-
-        <a href="/coverage-management"
-           class="nav-tile nav-tile-tool"
-           data-tile="areas"
-           data-widget-id="areas">
-          <div class="tile-bg">
-          </div>
-          <div class="tile-content">
-            <div class="tile-icon">
-              <i class="fas fa-vector-square"></i>
-            </div>
-            <div class="tile-text">
-              <span class="tile-title">Areas</span>
-            </div>
-          </div>
-        </a>
-
-        <a href="/settings"
-           class="nav-tile nav-tile-tool"
-           data-tile="settings"
-           data-widget-id="settings">
-          <div class="tile-bg">
-          </div>
-          <div class="tile-content">
-            <div class="tile-icon">
-              <i class="fas fa-cog"></i>
-            </div>
-            <div class="tile-text">
-              <span class="tile-title">Settings</span>
-            </div>
-          </div>
-        </a>
-      </div>
-
-      <!-- Activity Feed -->
-      <div class="activity-section" data-stagger>
-        <div class="activity-header">
-          <span class="activity-title">Recent Activity</span>
-          <span class="activity-live-dot"></span>
-        </div>
-        <div class="activity-feed" id="activity-feed">
-          <div class="activity-loading">
-            <div class="loading-pulse">
-            </div>
-          </div>
+      <div class="activity-feed" id="activity-feed">
+        <div class="activity-loading">
+          <div class="loading-pulse"></div>
         </div>
       </div>
     </div>
   </div>
-{% endblock %}
+</div>
+{% endblock %} {% block extra_js %}
 
-
-{% block extra_js %}
-
-  <script src="{{ url_for('static', path='js/landing.js') | replace('http://', '//') }}"></script>
+<script src="{{ url_for('static', path='js/landing.js') | replace('http://', '//') }}"></script>
 {% endblock %}
