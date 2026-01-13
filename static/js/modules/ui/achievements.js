@@ -100,7 +100,6 @@ const achievements = {
 
   fireCelebration(message) {
     window.notificationManager?.show(message, "success");
-    this.spawnConfetti();
   },
 
   spawnConfetti() {

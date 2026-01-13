@@ -10,28 +10,11 @@ endblock %}
     <style>
         /* ===== Modern Insights Dashboard Styles ===== */
 
-        /* Animated gradient background for hero */
-        @keyframes gradientShift {
-            0% {
-                background-position: 0% 50%;
-            }
-
-            50% {
-                background-position: 100% 50%;
-            }
-
-            100% {
-                background-position: 0% 50%;
-            }
-        }
-
         .insights-hero {
             background: linear-gradient(135deg,
                     rgba(var(--primary-rgb), 0.08),
                     rgba(var(--secondary-rgb), 0.07),
                     rgba(var(--primary-rgb), 0.04));
-            background-size: 200% 200%;
-            animation: gradientShift 45s ease infinite;
             border-radius: var(--radius-xl);
             padding: var(--space-8) var(--space-6);
             margin-bottom: var(--space-6);
@@ -246,23 +229,8 @@ endblock %}
 
         /* Loading skeleton */
         .skeleton {
-            background: linear-gradient(90deg,
-                    var(--surface-2) 25%,
-                    var(--surface-3) 50%,
-                    var(--surface-2) 75%);
-            background-size: 200% 100%;
-            animation: loading 2s ease-in-out infinite;
+            background: var(--surface-2);
             border-radius: var(--radius-sm);
-        }
-
-        @keyframes loading {
-            0% {
-                background-position: 200% 0;
-            }
-
-            100% {
-                background-position: -200% 0;
-            }
         }
 
         /* Stat comparison */
@@ -470,7 +438,7 @@ endblock %}
             box-shadow: var(--shadow-lg);
             pointer-events: none;
             opacity: 0;
-            transform: translateY(6px);
+            transform: none;
             transition:
                 opacity var(--transition-fast),
                 transform var(--transition-fast);
@@ -479,7 +447,7 @@ endblock %}
 
         .custom-tooltip.show {
             opacity: 1;
-            transform: translateY(0);
+            transform: none;
         }
 
         /* Period selector */

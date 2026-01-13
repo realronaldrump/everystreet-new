@@ -46,6 +46,11 @@
   white-space: nowrap;
 }
 
+/* Disable animated progress stripes */
+.progress-bar-animated {
+  animation: none !important;
+}
+
 /* === Visibility === */
 .visually-hidden,
 .visually-hidden-focusable:not(:focus, :active) {

@@ -178,19 +178,7 @@
 }
 
 .coverage-navigator #progress-bar {
-  background: linear-gradient(90deg, #9333ea 0%, #7c3aed 50%, #9333ea 100%);
-  background-size: 200% 100%;
-  animation: shimmer 2s linear infinite;
-}
-
-@keyframes shimmer {
-  0% {
-    background-position: 200% 0;
-  }
-
-  100% {
-    background-position: -200% 0;
-  }
+  background: var(--primary);
 }
 
 .coverage-navigator #processing-status {

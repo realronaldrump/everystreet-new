@@ -100,7 +100,7 @@
 
 .route-content.is-transitioning {
   opacity: 0;
-  transform: translateY(4px);
+  transform: none;
 }
 
 body[data-route="/map"] .persistent-shell {

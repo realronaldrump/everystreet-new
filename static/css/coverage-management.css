@@ -160,14 +160,7 @@
 
 /* Skeleton loading enhancement - keyframe moved to animations.css */
 .skeleton-shimmer {
-  background: linear-gradient(
-    90deg,
-    rgb(255 255 255 / 5%) 0%,
-    rgb(255 255 255 / 10%) 50%,
-    rgb(255 255 255 / 5%) 100%
-  );
-  background-size: 200% 100%;
-  animation: shimmer 1.5s ease-in-out infinite;
+  background: rgb(255 255 255 / 8%);
 }
 
 /* CSS for the efficient streets panel */
@@ -390,12 +383,12 @@
 @keyframes slideInUp {
   from {
     opacity: 0;
-    transform: translateY(20px);
+    transform: none;
   }
 
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: none;
   }
 }
 

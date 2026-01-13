@@ -76,6 +76,11 @@ body[data-route="/"] .ambient-background {
   opacity: 0.24;
 }
 
+/* Hide breadcrumb on landing page to prevent overlay */
+body[data-route="/"] .nav-breadcrumb {
+  display: none;
+}
+
 body[data-route="/trips"] {
   --section-accent-rgb: var(--info-rgb);
 }

@@ -56,15 +56,11 @@
   opacity: 0;
   z-index: -1;
   transition: opacity var(--transition-normal);
-  background-size: 300% 300%;
-  animation: gradient-shift 4s ease infinite;
 }
 
 .visits-card:hover::before {
   opacity: 0.15;
 }
-
-/* Note: @keyframes gradient-shift moved to animations.css */
 
 /* Enhanced Place Management Panel */
 .place-management-panel {
