@@ -30,7 +30,7 @@
     updateSuggestion();
     highlightFrequentTiles();
     bindWidgetEditToggle();
-    bindSuggestionCard();
+
     loadAllData();
     setupRefreshInterval();
     checkLiveTracking();
@@ -59,9 +59,7 @@
       activityFeed: document.getElementById("activity-feed"),
       recordCard: document.getElementById("record-card"),
       recordDistance: document.getElementById("record-distance"),
-      suggestionCard: document.getElementById("suggestion-card"),
-      suggestionTitle: document.getElementById("suggestion-title"),
-      suggestionSubtitle: document.getElementById("suggestion-subtitle"),
+
       widgetEditToggle: document.getElementById("widget-edit-toggle"),
       navTiles: Array.from(document.querySelectorAll(".nav-tile")),
     };
@@ -73,7 +71,7 @@
   async function loadAllData() {
     try {
       updateGreeting();
-      updateSuggestion();
+
       highlightFrequentTiles();
       await Promise.all([
         loadMetrics(),
@@ -136,59 +134,9 @@
     );
   }
 
-  function bindSuggestionCard() {
-    const card = elements.suggestionCard;
-    if (!card) {
-      return;
-    }
-    const handleActivate = () => {
-      const path = card.dataset.suggestionPath;
-      if (path) {
-        window.location.href = path;
-      }
-    };
-    card.addEventListener("click", handleActivate, pageSignal ? { signal: pageSignal } : false);
-    card.addEventListener(
-      "keydown",
-      (event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          handleActivate();
-        }
-      },
-      pageSignal ? { signal: pageSignal } : false
-    );
-  }
 
-  function updateSuggestion() {
-    if (
-      !elements.suggestionTitle
-      || !elements.suggestionSubtitle
-      || !elements.suggestionCard
-    ) {
-      return;
-    }
-    const history = getRouteHistory();
-    const counts = getRouteCounts();
-    const recent = history.find(
-      (entry) => entry.path !== "/" && entry.path !== "/landing"
-    );
-    const frequent = getMostVisitedPath(counts);
-    const pick = recent || frequent;
 
-    if (pick) {
-      const label = pick.title || pathToLabel(pick.path);
-      elements.suggestionTitle.textContent = `Continue ${label}`;
-      elements.suggestionSubtitle.textContent = pick.timestamp
-        ? `Last visited ${formatTimeAgo(new Date(pick.timestamp))}`
-        : "Keep your momentum going.";
-      elements.suggestionCard.dataset.suggestionPath = pick.path;
-    } else {
-      elements.suggestionTitle.textContent = "Explore a new area";
-      elements.suggestionSubtitle.textContent = "Based on your recent routes";
-      elements.suggestionCard.dataset.suggestionPath = "/map";
-    }
-  }
+
 
   function highlightFrequentTiles() {
     if (!elements.navTiles || elements.navTiles.length === 0) {
@@ -314,18 +262,7 @@
     return `${year}-${month}-${day}`;
   }
 
-  function getRouteHistory() {
-    try {
-      const raw = sessionStorage.getItem("es:route-history");
-      const parsed = raw ? JSON.parse(raw) : [];
-      if (Array.isArray(parsed)) {
-        return parsed.slice().reverse();
-      }
-    } catch {
-      // Ignore parse errors.
-    }
-    return [];
-  }
+
 
   function getRouteCounts() {
     return getStoredValue("es:route-counts") || {};
@@ -340,21 +277,7 @@
     return { path, timestamp: null };
   }
 
-  function pathToLabel(path) {
-    const labels = {
-      "/map": "Map",
-      "/coverage-navigator": "Coverage Navigator",
-      "/coverage-management": "Coverage Areas",
-      "/trips": "Trips",
-      "/insights": "Insights",
-      "/gas-tracking": "Gas",
-      "/visits": "Visits",
-      "/upload": "Upload",
-      "/export": "Export",
-      "/settings": "Settings",
-    };
-    return labels[path] || "your route";
-  }
+
 
   function getStoredValue(key) {
     try {
