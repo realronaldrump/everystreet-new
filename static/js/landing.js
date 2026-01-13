@@ -142,7 +142,7 @@
       () => {
         document.dispatchEvent(new CustomEvent("widgets:toggle-edit"));
       },
-      pageSignal ? { signal: pageSignal } : false
+      pageSignal ? { signal: pageSignal } : false,
     );
     document.addEventListener(
       "widgets:edit-toggled",
@@ -151,13 +151,9 @@
         elements.widgetEditToggle.textContent = enabled ? "Done" : "Customize";
         elements.widgetEditToggle.classList.toggle("active", Boolean(enabled));
       },
-      pageSignal ? { signal: pageSignal } : false
+      pageSignal ? { signal: pageSignal } : false,
     );
   }
-
-
-
-
 
   function highlightFrequentTiles() {
     if (!elements.navTiles || elements.navTiles.length === 0) {
@@ -184,7 +180,7 @@
     };
 
     const frequentTiles = new Set(
-      frequentPaths.map((path) => pathToTile[path]).filter(Boolean)
+      frequentPaths.map((path) => pathToTile[path]).filter(Boolean),
     );
 
     elements.navTiles.forEach((tile) => {
@@ -251,7 +247,7 @@
     elements.recordCard.addEventListener(
       "click",
       advance,
-      pageSignal ? { signal: pageSignal } : false
+      pageSignal ? { signal: pageSignal } : false,
     );
     elements.recordCard.addEventListener(
       "keydown",
@@ -261,7 +257,7 @@
           advance();
         }
       },
-      pageSignal ? { signal: pageSignal } : false
+      pageSignal ? { signal: pageSignal } : false,
     );
   }
 
@@ -364,7 +360,10 @@
       addRecordEntry(entries, {
         id: "max-hard-braking",
         title: "Most hard braking events",
-        value: formatCountValue(records.max_hard_braking?.hard_braking, "event"),
+        value: formatCountValue(
+          records.max_hard_braking?.hard_braking,
+          "event",
+        ),
         date: records.max_hard_braking?.recorded_at,
         datePrefix: "On",
       });
@@ -447,7 +446,9 @@
         if (!best) {
           return area;
         }
-        return area.coverage_percentage > best.coverage_percentage ? area : best;
+        return area.coverage_percentage > best.coverage_percentage
+          ? area
+          : best;
       }, null);
       if (bestArea) {
         const coverageDate = bestArea.last_synced || bestArea.created_at;
@@ -551,10 +552,10 @@
   function getInitialRecordIndex(entryCount) {
     const stored = getStoredValue(CONFIG.recordRotationStorageKey);
     if (
-      stored
-      && Number.isInteger(stored.index)
-      && stored.index >= 0
-      && stored.index < entryCount
+      stored &&
+      Number.isInteger(stored.index) &&
+      stored.index >= 0 &&
+      stored.index < entryCount
     ) {
       const elapsed = Date.now() - (stored.timestamp || 0);
       if (elapsed < CONFIG.recordRotationInterval) {
@@ -569,7 +570,7 @@
     try {
       localStorage.setItem(
         CONFIG.recordRotationStorageKey,
-        JSON.stringify({ index, timestamp: Date.now() })
+        JSON.stringify({ index, timestamp: Date.now() }),
       );
     } catch {
       // Ignore storage failures.
@@ -624,7 +625,8 @@
     const hours = Math.floor(totalMinutes / 60);
     const minutes = totalMinutes % 60;
     if (hours > 0) {
-      const minuteLabel = minutes > 0 ? ` ${String(minutes).padStart(2, "0")}m` : "";
+      const minuteLabel =
+        minutes > 0 ? ` ${String(minutes).padStart(2, "0")}m` : "";
       return `${hours}h${minuteLabel}`;
     }
     return `${minutes}m`;
@@ -656,8 +658,6 @@
     return `${numeric.toFixed(1)}%`;
   }
 
-
-
   function getRouteCounts() {
     return getStoredValue("es:route-counts") || {};
   }
@@ -670,8 +670,6 @@
     const [path] = entries.sort((a, b) => b[1] - a[1])[0];
     return { path, timestamp: null };
   }
-
-
 
   function getStoredValue(key) {
     try {
@@ -705,7 +703,7 @@
           temp,
           label,
           timestamp: Date.now(),
-        })
+        }),
       );
     } catch {
       // Ignore storage failures.
@@ -764,8 +762,12 @@
       const trips = parseInt(data.total_trips, 10) || 0;
 
       if (window.metricAnimator?.animate) {
-        window.metricAnimator.animate(elements.statMiles, miles, { decimals: 0 });
-        window.metricAnimator.animate(elements.statTrips, trips, { decimals: 0 });
+        window.metricAnimator.animate(elements.statMiles, miles, {
+          decimals: 0,
+        });
+        window.metricAnimator.animate(elements.statTrips, trips, {
+          decimals: 0,
+        });
       } else {
         animateValue(elements.statMiles, miles, formatMiles);
         animateValue(elements.statTrips, trips, formatNumber);
@@ -797,9 +799,9 @@
       if (trips.length > 0) {
         const lastTrip = trips[0];
         if (
-          lastTrip.destinationGeoPoint
-          && lastTrip.destinationGeoPoint.coordinates
-          && lastTrip.destinationGeoPoint.coordinates.length >= 2
+          lastTrip.destinationGeoPoint &&
+          lastTrip.destinationGeoPoint.coordinates &&
+          lastTrip.destinationGeoPoint.coordinates.length >= 2
         ) {
           const [lon, lat] = lastTrip.destinationGeoPoint.coordinates;
           if (Number.isFinite(lat) && Number.isFinite(lon)) {
@@ -822,7 +824,6 @@
 
       // Populate activity feed
       populateActivityFeed(trips);
-
     } catch {
       populateActivityFeed([]);
     }
@@ -917,7 +918,9 @@
     const activityHtml = trips
       .slice(0, CONFIG.activityLimit)
       .map((trip, index) => {
-        const distance = trip.distance ? parseFloat(trip.distance).toFixed(1) : "?";
+        const distance = trip.distance
+          ? parseFloat(trip.distance).toFixed(1)
+          : "?";
         const destination = formatDestination(trip.destination);
         const time = trip.endTime || trip.startTime;
         const timeAgo = time ? formatTimeAgo(new Date(time)) : "";
@@ -981,12 +984,12 @@
           } else {
             window.notificationManager?.show(
               "Share is not available on this device",
-              "info"
+              "info",
             );
           }
         }
       },
-      pageSignal ? { signal: pageSignal } : false
+      pageSignal ? { signal: pageSignal } : false,
     );
     swipeActionsBound = true;
   }
@@ -1020,7 +1023,8 @@
       return;
     }
 
-    const startValue = parseFloat(element.textContent.replace(/[^0-9.-]/g, "")) || 0;
+    const startValue =
+      parseFloat(element.textContent.replace(/[^0-9.-]/g, "")) || 0;
     const startTime = performance.now();
     const duration = CONFIG.animationDuration;
 
