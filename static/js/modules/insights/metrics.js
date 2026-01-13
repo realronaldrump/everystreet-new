@@ -23,6 +23,11 @@ export function animateCounter(elementId, endValue, decimals = 0) {
     return;
   }
 
+  if (window.metricAnimator?.animateById) {
+    window.metricAnimator.animateById(elementId, endValue, { decimals });
+    return;
+  }
+
   const existingCounter = getCounter(elementId);
 
   if (!existingCounter) {

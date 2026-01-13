@@ -28,6 +28,14 @@
         return;
       }
 
+      if (window.metricAnimator?.animateById) {
+        window.metricAnimator.animateById(elementId, targetValue, {
+          decimals: 0,
+          duration: duration / 1000,
+        });
+        return;
+      }
+
       const startValue = parseInt(element.textContent, 10) || 0;
       const increment = (targetValue - startValue) / (duration / 16);
       let currentValue = startValue;

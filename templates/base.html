@@ -137,6 +137,12 @@ Every Street
   </head>
   <body data-route="{{ es_route_path }}">
     <a href="#main-content" class="visually-hidden-focusable">Skip to main content</a>
+    <div class="ambient-background" aria-hidden="true">
+      <div class="ambient-orb ambient-orb-1 orb-cool"></div>
+      <div class="ambient-orb ambient-orb-2 orb-warm"></div>
+      <div class="ambient-orb ambient-orb-3"></div>
+    </div>
+    <div class="noise-overlay" aria-hidden="true"></div>
     <div id="spa-progress" class="spa-progress" role="progressbar" aria-hidden="true">
       <div class="spa-progress-bar"></div>
     </div>
@@ -660,6 +666,9 @@ Quick Selections
 
       <!-- Main Content Area -->
       <main id="main-content" class="main-content" role="main" tabindex="-1">
+        <div id="nav-breadcrumb" class="nav-breadcrumb" aria-label="Breadcrumb">
+          <div id="nav-trail" class="nav-trail"></div>
+        </div>
         <div id="persistent-shell" class="persistent-shell">
           {% block persistent_shell %}
 
@@ -671,6 +680,25 @@ Quick Selections
           {% endblock %}
         </div>
       </main>
+
+      <nav id="bottom-nav" class="bottom-nav" aria-label="Primary">
+        <a href="/map" class="bottom-nav-item">
+          <i class="fas fa-map" aria-hidden="true"></i>
+          <span>Map</span>
+        </a>
+        <a href="/trips" class="bottom-nav-item">
+          <i class="fas fa-road" aria-hidden="true"></i>
+          <span>Trips</span>
+        </a>
+        <a href="/insights" class="bottom-nav-item">
+          <i class="fas fa-chart-line" aria-hidden="true"></i>
+          <span>Insights</span>
+        </a>
+        <button type="button" class="bottom-nav-item" id="bottom-nav-more">
+          <i class="fas fa-ellipsis-h" aria-hidden="true"></i>
+          <span>More</span>
+        </button>
+      </nav>
 
       <!-- Notification Container -->
       <div class="notification-container" aria-live="polite" aria-atomic="true">

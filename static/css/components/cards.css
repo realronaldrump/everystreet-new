@@ -6,16 +6,28 @@
 .card {
   background-color: var(--surface-1);
   border-radius: var(--radius-md);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-elevation-1);
   border: 1px solid var(--border-color);
   overflow: hidden;
-  transition: box-shadow var(--transition-normal);
+  transition:
+    transform var(--transition-spring-fast),
+    box-shadow var(--transition-fast);
   margin-bottom: var(--space-5);
   position: relative;
 }
 
 .card:hover {
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-lift);
+  transform: translateY(-3px);
+}
+
+.card.is-clickable,
+.card[data-ripple] {
+  cursor: pointer;
+}
+
+.card:active {
+  transform: scale(0.99);
 }
 
 .card-header {

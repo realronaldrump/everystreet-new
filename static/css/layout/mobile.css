@@ -32,6 +32,29 @@
   }
 }
 
+@media (width <= 768px) {
+  body {
+    overscroll-behavior-y: auto;
+  }
+
+  .panel-body,
+  .side-panel,
+  .control-panel-body,
+  .modal-body,
+  .table-responsive,
+  .drawer-nav,
+  .drawer-content {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .btn,
+  .nav-item a,
+  .dropdown-item,
+  .quick-select-btn {
+    min-height: var(--touch-target);
+  }
+}
+
 /* Very small devices: FAB size adjustments */
 @media (width <= 375px) {
   .mobile-fab {

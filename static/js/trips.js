@@ -638,6 +638,20 @@ async function bulkDeleteTrips(ids) {
 let tripModalMap = null;
 let tripModalInstance = null;
 let currentTripId = null;
+let playbackControlsBound = false;
+
+const playbackState = {
+  coords: [],
+  marker: null,
+  frame: null,
+  progress: 0,
+  speed: 1,
+  isPlaying: false,
+  trailSourceId: "modal-trip-trail",
+  trailLayerId: "modal-trip-trail-line",
+  headSourceId: "modal-trip-head",
+  headLayerId: "modal-trip-head-point",
+};
 
 async function openTripModal(tripId) {
   currentTripId = tripId;
@@ -656,6 +670,7 @@ async function openTripModal(tripId) {
             src.setData({ type: "FeatureCollection", features: [] });
           }
         }
+        resetPlayback();
       });
       // Handle map resize when modal is shown
       el.addEventListener("shown.bs.modal", () => {
@@ -664,6 +679,7 @@ async function openTripModal(tripId) {
         } else {
           initTripModalMap();
         }
+        setupTripPlaybackControls();
         loadTripData(currentTripId);
       });
     }
@@ -704,6 +720,48 @@ async function initTripModalMap() {
           "line-opacity": 0.9,
         },
       });
+
+      if (!tripModalMap.getSource(playbackState.trailSourceId)) {
+        tripModalMap.addSource(playbackState.trailSourceId, {
+          type: "geojson",
+          data: { type: "FeatureCollection", features: [] },
+        });
+
+        tripModalMap.addLayer({
+          id: playbackState.trailLayerId,
+          type: "line",
+          source: playbackState.trailSourceId,
+          layout: {
+            "line-join": "round",
+            "line-cap": "round",
+          },
+          paint: {
+            "line-color": "#7c9d96",
+            "line-width": 3,
+            "line-opacity": 0.6,
+          },
+        });
+      }
+
+      if (!tripModalMap.getSource(playbackState.headSourceId)) {
+        tripModalMap.addSource(playbackState.headSourceId, {
+          type: "geojson",
+          data: { type: "FeatureCollection", features: [] },
+        });
+
+        tripModalMap.addLayer({
+          id: playbackState.headLayerId,
+          type: "circle",
+          source: playbackState.headSourceId,
+          paint: {
+            "circle-radius": 6,
+            "circle-color": "#f97316",
+            "circle-opacity": 0.9,
+            "circle-stroke-width": 2,
+            "circle-stroke-color": "#fff",
+          },
+        });
+      }
 
       // Add start/end points if needed, or markers
     });
@@ -787,6 +845,8 @@ function renderTripOnMap(trip) {
     src.setData({ type: "FeatureCollection", features: [geojson] });
   }
 
+  setPlaybackRoute(trip.geometry);
+
   // Fit bounds
   const bounds = new mapboxgl.LngLatBounds();
   const coords = trip.geometry.coordinates;
@@ -805,6 +865,156 @@ function renderTripOnMap(trip) {
       duration: 2000, // Animate over 2 seconds
       essential: true // Ensure animation happens even if user hasn't interacted
     });
+  }
+}
+
+function setupTripPlaybackControls() {
+  if (playbackControlsBound) {
+    return;
+  }
+
+  const playBtn = document.getElementById("trip-playback-toggle");
+  const speedInput = document.getElementById("trip-playback-speed");
+  const speedLabel = document.getElementById("trip-playback-speed-label");
+
+  if (playBtn) {
+    playBtn.addEventListener("click", () => {
+      if (playbackState.isPlaying) {
+        pausePlayback();
+      } else {
+        startPlayback();
+      }
+      updatePlaybackUI();
+    });
+  }
+
+  if (speedInput) {
+    speedInput.addEventListener("input", () => {
+      playbackState.speed = Number(speedInput.value) || 1;
+      if (speedLabel) {
+        speedLabel.textContent = `${playbackState.speed.toFixed(1)}x`;
+      }
+    });
+  }
+
+  playbackControlsBound = true;
+  updatePlaybackUI();
+}
+
+function setPlaybackRoute(geometry) {
+  if (!geometry || geometry.type !== "LineString") {
+    playbackState.coords = [];
+    return;
+  }
+  playbackState.coords = geometry.coordinates || [];
+  playbackState.progress = 0;
+  updatePlaybackTrail([]);
+  updatePlaybackHead(null);
+}
+
+function startPlayback() {
+  if (!tripModalMap || playbackState.coords.length === 0) {
+    return;
+  }
+  playbackState.isPlaying = true;
+  if (!playbackState.marker) {
+    playbackState.marker = new mapboxgl.Marker({ color: "#f97316" });
+  }
+
+  const step = () => {
+    if (!playbackState.isPlaying) {
+      return;
+    }
+    playbackState.progress += playbackState.speed * 0.6;
+    const index = Math.min(
+      playbackState.coords.length - 1,
+      Math.floor(playbackState.progress)
+    );
+    const coord = playbackState.coords[index];
+    if (!coord) {
+      pausePlayback();
+      return;
+    }
+
+    playbackState.marker.setLngLat(coord).addTo(tripModalMap);
+    updatePlaybackHead(coord);
+    updatePlaybackTrail(playbackState.coords.slice(0, index + 1));
+
+    if (index >= playbackState.coords.length - 1) {
+      pausePlayback();
+      return;
+    }
+    playbackState.frame = requestAnimationFrame(step);
+  };
+
+  playbackState.frame = requestAnimationFrame(step);
+}
+
+function pausePlayback() {
+  playbackState.isPlaying = false;
+  if (playbackState.frame) {
+    cancelAnimationFrame(playbackState.frame);
+    playbackState.frame = null;
+  }
+}
+
+function resetPlayback() {
+  pausePlayback();
+  playbackState.progress = 0;
+  updatePlaybackTrail([]);
+  updatePlaybackHead(null);
+  if (playbackState.marker) {
+    playbackState.marker.remove();
+  }
+}
+
+function updatePlaybackHead(coord) {
+  if (!tripModalMap?.getSource(playbackState.headSourceId)) {
+    return;
+  }
+  const feature = coord
+    ? { type: "Feature", geometry: { type: "Point", coordinates: coord } }
+    : null;
+  const data = feature ? { type: "FeatureCollection", features: [feature] } : {
+    type: "FeatureCollection",
+    features: [],
+  };
+  tripModalMap.getSource(playbackState.headSourceId).setData(data);
+}
+
+function updatePlaybackTrail(coords) {
+  if (!tripModalMap?.getSource(playbackState.trailSourceId)) {
+    return;
+  }
+  const data = coords.length
+    ? {
+        type: "FeatureCollection",
+        features: [{ type: "Feature", geometry: { type: "LineString", coordinates: coords } }],
+      }
+    : { type: "FeatureCollection", features: [] };
+  tripModalMap.getSource(playbackState.trailSourceId).setData(data);
+}
+
+function updatePlaybackUI() {
+  const playBtn = document.getElementById("trip-playback-toggle");
+  if (!playBtn) {
+    return;
+  }
+  const icon = playBtn.querySelector("i");
+  if (playbackState.isPlaying) {
+    playBtn.classList.add("is-playing");
+    playBtn.setAttribute("aria-pressed", "true");
+    if (icon) {
+      icon.className = "fas fa-pause";
+    }
+    playBtn.querySelector("span")?.textContent = "Pause";
+  } else {
+    playBtn.classList.remove("is-playing");
+    playBtn.setAttribute("aria-pressed", "false");
+    if (icon) {
+      icon.className = "fas fa-play";
+    }
+    playBtn.querySelector("span")?.textContent = "Play";
   }
 }
 

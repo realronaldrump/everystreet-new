@@ -13,7 +13,7 @@
   z-index: var(--z-drawer); /* Same level as mobile drawer, manage visibility via JS */
   transform: translateX(100%);
   transition: transform var(--transition-slow);
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--shadow-elevation-3);
   display: flex;
   flex-direction: column;
   border-left: 1px solid var(--border-color);
@@ -22,6 +22,7 @@
 
 .side-panel.open {
   transform: translateX(0);
+  animation: slide-in-fade 0.35s ease both;
 }
 
 .panel-header {
@@ -77,6 +78,12 @@
   overflow: hidden; /* Changed from auto to hidden to prevent double scrollbars if body handles scrolling */
 }
 
+@media (width <= 768px) {
+  .main-content {
+    padding-bottom: calc(72px + env(safe-area-inset-bottom));
+  }
+}
+
 .persistent-shell {
   display: none;
   flex: 1 1 auto;
@@ -115,12 +122,14 @@ body[data-route="/map"] .route-content {
   position: fixed;
   inset: 0;
   background-color: rgb(0 0 0 / 50%);
+  backdrop-filter: blur(var(--blur-subtle));
   z-index: calc(var(--z-drawer) - 1); /* Below drawer/panel */
   opacity: 0;
   visibility: hidden;
   transition:
     opacity var(--transition-normal),
-    visibility var(--transition-normal);
+    visibility var(--transition-normal),
+    backdrop-filter var(--transition-normal);
   pointer-events: none;
 }
 

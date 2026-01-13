@@ -440,7 +440,7 @@ const layerManager = {
   async _toggleHeatmapLayer(name, layerInfo, visible) {
     const firstGlowLayer = `${name}-layer-0`;
     if (state.map?.getLayer(firstGlowLayer)) {
-      this._updateHeatmapLayersVisibility(name, visible);
+      this._updateHeatmapLayersVisibility(name, layerInfo, visible);
       if (visible) {
         this._scheduleHeatmapRefresh(name);
       }
@@ -450,15 +450,17 @@ const layerManager = {
     this._updateHitboxVisibility(name, visible);
   },
 
-  _updateHeatmapLayersVisibility(name, visible) {
+  _updateHeatmapLayersVisibility(name, layerInfo, visible) {
+    const tripCount = layerInfo.layer?.features?.length || 0;
+    const visibleTripCount = this._getHeatmapTripCountInView(name, tripCount);
+    const opacities = heatmapUtils.getUpdatedOpacities(
+      visibleTripCount,
+      layerInfo.opacity ?? 1
+    );
     for (let i = 0; i < 2; i++) {
       const glowLayerId = `${name}-layer-${i}`;
       if (state.map.getLayer(glowLayerId)) {
-        state.map.setLayoutProperty(
-          glowLayerId,
-          "visibility",
-          visible ? "visible" : "none"
-        );
+        this._fadeLayer(glowLayerId, visible, opacities[i]);
       }
     }
   },
@@ -466,11 +468,54 @@ const layerManager = {
   async _toggleStandardLayer(name, layerInfo, visible) {
     const layerId = `${name}-layer`;
     if (state.map?.getLayer(layerId)) {
-      state.map.setLayoutProperty(layerId, "visibility", visible ? "visible" : "none");
+      this._fadeLayer(layerId, visible, layerInfo.opacity);
     } else if (visible && layerInfo.layer) {
       await this.updateMapLayer(name, layerInfo.layer);
     }
     this._updateHitboxVisibility(name, visible);
+  },
+
+  _fadeLayer(layerId, visible, fallbackOpacity = 1) {
+    if (!state.map?.getLayer(layerId)) {
+      return;
+    }
+    const layerType = state.map.getLayer(layerId).type;
+    const opacityProp = this._getOpacityProperty(layerType);
+    if (!opacityProp) {
+      state.map.setLayoutProperty(layerId, "visibility", visible ? "visible" : "none");
+      return;
+    }
+
+    const transition = { duration: 320, delay: 0 };
+    const targetOpacity = visible ? fallbackOpacity : 0;
+    if (visible) {
+      state.map.setLayoutProperty(layerId, "visibility", "visible");
+    }
+    state.map.setPaintProperty(layerId, `${opacityProp}-transition`, transition);
+    state.map.setPaintProperty(layerId, opacityProp, targetOpacity);
+
+    if (!visible) {
+      window.setTimeout(() => {
+        if (state.map?.getLayer(layerId)) {
+          state.map.setLayoutProperty(layerId, "visibility", "none");
+        }
+      }, transition.duration);
+    }
+  },
+
+  _getOpacityProperty(layerType) {
+    switch (layerType) {
+      case "line":
+        return "line-opacity";
+      case "fill":
+        return "fill-opacity";
+      case "circle":
+        return "circle-opacity";
+      case "symbol":
+        return "icon-opacity";
+      default:
+        return null;
+    }
   },
 
   _updateHitboxVisibility(name, visible) {

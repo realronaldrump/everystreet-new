@@ -1,0 +1,383 @@
+/* ============================
+   Immersive UI Enhancements
+   ============================ */
+
+/* Ambient background layers */
+.ambient-background,
+.noise-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.ambient-background {
+  overflow: hidden;
+}
+
+.ambient-orb {
+  position: absolute;
+  width: 420px;
+  height: 420px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 30% 30%,
+    rgb(var(--section-accent-rgb) / 28%),
+    transparent 60%
+  );
+  filter: blur(var(--blur-strong));
+  opacity: 0.6;
+  animation: ambientFloat 24s ease-in-out infinite;
+}
+
+.ambient-orb.orb-cool {
+  background: radial-gradient(
+    circle at 30% 30%,
+    rgb(var(--info-rgb) / 26%),
+    transparent 60%
+  );
+}
+
+.ambient-orb.orb-warm {
+  background: radial-gradient(
+    circle at 30% 30%,
+    rgb(var(--warning-rgb) / 26%),
+    transparent 60%
+  );
+}
+
+.ambient-orb-1 {
+  top: -140px;
+  left: -120px;
+}
+
+.ambient-orb-2 {
+  bottom: -160px;
+  right: -140px;
+  animation-delay: -6s;
+}
+
+.ambient-orb-3 {
+  top: 20%;
+  right: 10%;
+  width: 320px;
+  height: 320px;
+  animation-delay: -12s;
+}
+
+.noise-overlay {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220' viewBox='0 0 220 220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23n)' opacity='0.18'/%3E%3C/svg%3E");
+  opacity: 0.04;
+  mix-blend-mode: soft-light;
+}
+
+body[data-route="/"] .ambient-background {
+  opacity: 0.35;
+}
+
+body[data-route="/trips"] {
+  --section-accent-rgb: var(--info-rgb);
+}
+
+body[data-route="/insights"] {
+  --section-accent-rgb: var(--success-rgb);
+}
+
+body[data-route="/coverage-management"],
+body[data-route="/coverage-navigator"],
+body[data-route="/turn-by-turn"] {
+  --section-accent-rgb: var(--warning-rgb);
+}
+
+body[data-route="/gas-tracking"] {
+  --section-accent-rgb: var(--danger-rgb);
+}
+
+body[data-route="/visits"] {
+  --section-accent-rgb: var(--primary-rgb);
+}
+
+body[data-time-of-day="morning"] {
+  --ambient-tint: rgb(var(--section-accent-rgb) / 10%);
+}
+
+body[data-time-of-day="evening"],
+body[data-time-of-day="night"] {
+  --ambient-tint: rgb(var(--section-accent-rgb) / 12%);
+}
+
+/* Glass surfaces */
+.glass {
+  background: var(--glass-1);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(var(--blur-subtle)) saturate(1.2);
+}
+
+.glass--prominent {
+  background: var(--glass-2);
+  backdrop-filter: blur(var(--blur-strong)) saturate(1.3);
+}
+
+.glass--modal {
+  background: var(--glass-3);
+  backdrop-filter: blur(var(--blur-modal)) saturate(1.4);
+}
+
+/* Elevation utilities */
+.elevation-1 {
+  box-shadow: var(--shadow-elevation-1);
+}
+
+.elevation-2 {
+  box-shadow: var(--shadow-elevation-2);
+}
+
+.elevation-3 {
+  box-shadow: var(--shadow-elevation-3);
+}
+
+.elevation-4 {
+  box-shadow: var(--shadow-elevation-4);
+}
+
+.elevation-5 {
+  box-shadow: var(--shadow-elevation-5);
+}
+
+/* Ripple base */
+.ripple-container {
+  position: relative;
+  overflow: hidden;
+  transform: translateZ(0);
+}
+
+.es-ripple {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgb(var(--accent-rgb) / 35%) 0%, transparent 70%);
+  animation: ripple 600ms ease-out forwards;
+  pointer-events: none;
+}
+
+/* Staggered reveal helpers */
+.stagger-item {
+  opacity: 0;
+  animation: fadeInUp 0.5s ease forwards;
+}
+
+/* Navigation breadcrumb trail */
+.nav-breadcrumb {
+  position: sticky;
+  top: var(--header-height);
+  z-index: var(--z-sticky);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  background: var(--glass-1);
+  border-bottom: 1px solid var(--divider-color);
+  backdrop-filter: blur(var(--blur-subtle));
+}
+
+.nav-breadcrumb.is-empty {
+  display: none;
+}
+
+.nav-trail {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+.nav-trail-item {
+  color: inherit;
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+.nav-trail-item:hover {
+  color: var(--text-primary);
+}
+
+.nav-trail-item.current {
+  color: var(--text-primary);
+  font-weight: var(--font-weight-semibold);
+}
+
+.nav-trail-sep {
+  color: var(--text-tertiary);
+}
+
+body[data-route="/map"] .nav-breadcrumb {
+  display: none;
+}
+
+/* Bottom navigation (mobile) */
+.bottom-nav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: none;
+  align-items: center;
+  justify-content: space-around;
+  padding: var(--space-2) var(--space-3) calc(var(--space-2) + env(safe-area-inset-bottom));
+  background: var(--glass-2);
+  border-top: 1px solid var(--divider-color);
+  backdrop-filter: blur(var(--blur-strong));
+  z-index: var(--z-fixed);
+  transition: transform var(--transition-normal);
+}
+
+.bottom-nav.hidden {
+  transform: translateY(100%);
+}
+
+.bottom-nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  background: none;
+  border: none;
+  font-size: var(--font-size-xs);
+  min-width: 64px;
+}
+
+.bottom-nav-item i {
+  font-size: var(--font-size-lg);
+  color: var(--text-secondary);
+  transition: color var(--transition-fast);
+}
+
+.bottom-nav-item.active,
+.bottom-nav-item:focus-visible,
+.bottom-nav-item:hover {
+  color: var(--text-primary);
+}
+
+.bottom-nav-item.active i,
+.bottom-nav-item:hover i {
+  color: var(--accent);
+}
+
+@media (width <= 768px) {
+  .bottom-nav {
+    display: flex;
+  }
+
+  body[data-route="/map"] .bottom-nav {
+    display: none;
+  }
+}
+
+/* Swipe actions */
+.swipe-item {
+  position: relative;
+  overflow: hidden;
+}
+
+.swipe-actions {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-2);
+  background: var(--surface-2);
+}
+
+.swipe-action-btn {
+  width: 52px;
+  height: 52px;
+  border-radius: var(--radius-full);
+  border: none;
+  background: var(--primary);
+  color: var(--text-on-primary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-sm);
+}
+
+.swipe-action-btn.secondary {
+  background: var(--info);
+}
+
+.swipe-action-btn.danger {
+  background: var(--danger);
+}
+
+.swipe-content {
+  position: relative;
+  background: var(--surface-1);
+  transition: transform var(--transition-normal);
+}
+
+.swipe-item.open .swipe-content {
+  transform: translateX(-120px);
+}
+
+/* Widget edit mode */
+[data-widget-editing="true"] [data-widget-id] {
+  outline: 1px dashed rgb(var(--primary-rgb) / 60%);
+  outline-offset: 4px;
+  cursor: grab;
+}
+
+[data-widget-editing="true"] [data-widget-id].is-dragging {
+  opacity: 0.6;
+  cursor: grabbing;
+}
+
+/* Motion preference adjustments */
+body.motion-subtle {
+  --transition-fast: 140ms ease-out;
+  --transition-normal: 220ms ease-out;
+  --transition-slow: 300ms ease-out;
+  --transition-spring: 260ms cubic-bezier(0.34, 1.4, 0.64, 1);
+}
+
+body.motion-playful {
+  --transition-fast: 200ms ease-out;
+  --transition-normal: 320ms ease-out;
+  --transition-slow: 420ms ease-out;
+  --transition-spring: 420ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+body.is-busy {
+  --glass-1: rgb(var(--surface-rgb) / 86%);
+  --glass-2: rgb(var(--surface-rgb) / 92%);
+  --glass-3: rgb(var(--surface-rgb) / 96%);
+}
+
+/* Density adjustments */
+body.density-compact {
+  --space-1: 0.2rem;
+  --space-2: 0.4rem;
+  --space-3: 0.6rem;
+  --space-4: 0.8rem;
+  --space-5: 1rem;
+  --space-6: 1.2rem;
+}
+
+body.density-spacious {
+  --space-1: 0.3rem;
+  --space-2: 0.6rem;
+  --space-3: 0.9rem;
+  --space-4: 1.2rem;
+  --space-5: 1.5rem;
+  --space-6: 1.8rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ambient-orb {
+    animation: none;
+  }
+}

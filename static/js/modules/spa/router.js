@@ -43,6 +43,17 @@ const shouldHandleClick = (event, link) => {
 const router = {
   initialized: false,
   inFlight: null,
+  prefetchCache: new Map(),
+  prefetchControllers: new Map(),
+  prefetchDelay: 140,
+  prefetchTTL: 60000,
+  historyKey: "es:route-history",
+  routeHistory: [],
+  swipeState: {
+    startX: 0,
+    startY: 0,
+    active: false,
+  },
 
   init() {
     if (this.initialized) {
@@ -54,6 +65,9 @@ const router = {
     this.shell = document.getElementById("persistent-shell");
     this.scriptHost = document.getElementById("spa-scripts");
     this.announcer = document.getElementById("spa-announcer");
+    this.routeHistory = this.loadHistory();
+    this.updateHistory(window.location.pathname, document.title);
+    this.prepareSharedElements();
 
     document.addEventListener("click", (event) => {
       const link = event.target.closest("a");
@@ -68,19 +82,24 @@ const router = {
       this.navigate(window.location.href, { push: false, fromPopstate: true });
     });
 
+    this.bindPrefetch();
+    this.bindSwipeBack();
+    this.updateBreadcrumb();
     this.initialized = true;
   },
 
-  async navigate(url, { push = true, fromPopstate = false } = {}) {
+  async navigate(url, { push = true, fromPopstate = false, force = false } = {}) {
     if (!this.main) {
       window.location.href = url;
       return;
     }
 
     const nextUrl = new URL(url, window.location.origin);
-    if (nextUrl.href === window.location.href && !fromPopstate) {
+    if (nextUrl.href === window.location.href && !fromPopstate && !force) {
       return;
     }
+
+    this.setTransitionDirection(nextUrl, { fromPopstate });
 
     if (this.inFlight) {
       this.inFlight.abort();
@@ -98,26 +117,33 @@ const router = {
     );
 
     try {
-      const response = await fetch(nextUrl.href, {
-        headers: {
-          "X-ES-Partial": "1",
-          "X-Requested-With": "spa",
-        },
-        credentials: "same-origin",
-        signal: controller.signal,
-      });
+      let html = this.getPrefetched(nextUrl.href);
+      if (!html) {
+        const response = await fetch(nextUrl.href, {
+          headers: {
+            "X-ES-Partial": "1",
+            "X-Requested-With": "spa",
+          },
+          credentials: "same-origin",
+          signal: controller.signal,
+        });
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+
+        html = await response.text();
       }
-
-      const html = await response.text();
       const fragment = this.parseFragment(html);
       if (!fragment) {
         throw new Error("Missing SPA fragment");
       }
 
-      const apply = () => this.applyFragment(fragment, { push });
+      this.prepareSharedElements();
+      const apply = () => {
+        this.applyFragment(fragment, { push });
+        this.prepareSharedElements();
+      };
 
       if ("startViewTransition" in document && !prefersReducedMotion()) {
         await document.startViewTransition(apply).finished;
@@ -138,6 +164,8 @@ const router = {
       }
 
       this.dispatchPageLoad(fragment);
+      this.updateHistory(fragment.path || nextUrl.pathname, fragment.title);
+      this.updateBreadcrumb(fragment);
     } catch (error) {
       if (error.name === "AbortError") {
         return;
@@ -373,6 +401,258 @@ const router = {
           url: fragment.url,
         },
       })
+    );
+  },
+
+  setTransitionDirection(nextUrl, { fromPopstate = false } = {}) {
+    let direction = "forward";
+    if (fromPopstate) {
+      direction = "back";
+    } else if (this.routeHistory.length > 1) {
+      const previous = this.routeHistory[this.routeHistory.length - 2];
+      if (previous?.path === nextUrl.pathname) {
+        direction = "back";
+      }
+    }
+
+    document.documentElement.dataset.navDirection = direction;
+    const enterX = direction === "back" ? "-20px" : "20px";
+    const exitX = direction === "back" ? "20px" : "-20px";
+    document.documentElement.style.setProperty("--nav-enter-x", enterX);
+    document.documentElement.style.setProperty("--nav-exit-x", exitX);
+  },
+
+  prepareSharedElements() {
+    let index = 0;
+    document.querySelectorAll("[data-shared-transition]").forEach((element) => {
+      const name = element.dataset.sharedTransition || element.id || `shared-${index}`;
+      element.style.viewTransitionName = name;
+      index += 1;
+    });
+  },
+
+  bindPrefetch() {
+    let hoverTimer = null;
+    const schedule = (link) => {
+      if (!this.shouldPrefetch(link)) {
+        return;
+      }
+      if (hoverTimer) {
+        clearTimeout(hoverTimer);
+      }
+      hoverTimer = setTimeout(() => this.prefetch(link.href), this.prefetchDelay);
+    };
+
+    document.addEventListener("pointerover", (event) => {
+      const link = event.target.closest("a");
+      if (!link) {
+        return;
+      }
+      schedule(link);
+    });
+
+    document.addEventListener("focusin", (event) => {
+      const link = event.target.closest("a");
+      if (!link) {
+        return;
+      }
+      schedule(link);
+    });
+  },
+
+  shouldPrefetch(link) {
+    if (!link) {
+      return false;
+    }
+    const href = link.getAttribute("href") || "";
+    if (!href || href.startsWith("#")) {
+      return false;
+    }
+    if (href.startsWith("mailto:") || href.startsWith("tel:")) {
+      return false;
+    }
+    if (link.getAttribute("data-bs-toggle")) {
+      return false;
+    }
+    if (link.hasAttribute("data-es-no-spa") || link.hasAttribute("data-no-spa")) {
+      return false;
+    }
+    if (link.hasAttribute("data-no-prefetch")) {
+      return false;
+    }
+    const url = new URL(link.href, window.location.origin);
+    return url.origin === window.location.origin;
+  },
+
+  getPrefetched(url) {
+    const cached = this.prefetchCache.get(url);
+    if (!cached) {
+      return null;
+    }
+    if (Date.now() - cached.timestamp > this.prefetchTTL) {
+      this.prefetchCache.delete(url);
+      return null;
+    }
+    this.prefetchCache.delete(url);
+    return cached.html;
+  },
+
+  async prefetch(url) {
+    if (!url || this.prefetchControllers.has(url)) {
+      return;
+    }
+    const cached = this.prefetchCache.get(url);
+    if (cached && Date.now() - cached.timestamp < this.prefetchTTL) {
+      return;
+    }
+
+    const controller = new AbortController();
+    this.prefetchControllers.set(url, controller);
+    try {
+      const response = await fetch(url, {
+        headers: {
+          "X-ES-Partial": "1",
+          "X-Requested-With": "spa",
+        },
+        credentials: "same-origin",
+        signal: controller.signal,
+      });
+      if (!response.ok) {
+        return;
+      }
+      const html = await response.text();
+      this.prefetchCache.set(url, { html, timestamp: Date.now() });
+    } catch {
+      // Prefetch is opportunistic.
+    } finally {
+      this.prefetchControllers.delete(url);
+    }
+  },
+
+  loadHistory() {
+    try {
+      const raw = sessionStorage.getItem(this.historyKey);
+      const parsed = raw ? JSON.parse(raw) : [];
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed.slice(-8);
+      }
+    } catch {
+      // Ignore parse errors.
+    }
+    return [{ path: window.location.pathname, title: document.title, timestamp: Date.now() }];
+  },
+
+  saveHistory() {
+    try {
+      sessionStorage.setItem(this.historyKey, JSON.stringify(this.routeHistory.slice(-8)));
+    } catch {
+      // Ignore storage failures.
+    }
+  },
+
+  updateHistory(path, title) {
+    if (!path) {
+      return;
+    }
+    const label = title || document.title || path;
+    const now = Date.now();
+    const last = this.routeHistory[this.routeHistory.length - 1];
+    if (last && last.path === path) {
+      last.title = label;
+      last.timestamp = now;
+    } else {
+      this.routeHistory.push({ path, title: label, timestamp: now });
+    }
+    if (this.routeHistory.length > 8) {
+      this.routeHistory = this.routeHistory.slice(-8);
+    }
+    this.saveHistory();
+    this.updateUsage(path);
+  },
+
+  updateUsage(path) {
+    try {
+      const raw = localStorage.getItem("es:route-counts");
+      const counts = raw ? JSON.parse(raw) : {};
+      counts[path] = (counts[path] || 0) + 1;
+      localStorage.setItem("es:route-counts", JSON.stringify(counts));
+    } catch {
+      // Ignore storage failures.
+    }
+  },
+
+  updateBreadcrumb(fragment) {
+    const trail = document.getElementById("nav-trail");
+    const container = document.getElementById("nav-breadcrumb");
+    if (!trail || !container) {
+      return;
+    }
+
+    const items = this.routeHistory.slice(-3);
+    trail.innerHTML = "";
+
+    items.forEach((item, index) => {
+      if (index > 0) {
+        const divider = document.createElement("span");
+        divider.className = "nav-trail-sep";
+        divider.textContent = "›";
+        trail.appendChild(divider);
+      }
+      const link = document.createElement("a");
+      link.href = item.path;
+      link.className = "nav-trail-item";
+      link.textContent = item.title || item.path;
+      if (index === items.length - 1) {
+        link.setAttribute("aria-current", "page");
+        link.classList.add("current");
+      }
+      trail.appendChild(link);
+    });
+
+    container.classList.toggle("is-empty", items.length === 0);
+  },
+
+  bindSwipeBack() {
+    document.addEventListener(
+      "touchstart",
+      (event) => {
+        if (!event.touches || event.touches.length !== 1) {
+          return;
+        }
+        if (event.target.closest("[data-gesture-ignore], .mapboxgl-canvas-container")) {
+          return;
+        }
+        const touch = event.touches[0];
+        if (touch.clientX > 28) {
+          return;
+        }
+        this.swipeState.active = true;
+        this.swipeState.startX = touch.clientX;
+        this.swipeState.startY = touch.clientY;
+      },
+      { passive: true }
+    );
+
+    document.addEventListener(
+      "touchend",
+      (event) => {
+        if (!this.swipeState.active) {
+          return;
+        }
+        const touch = event.changedTouches?.[0];
+        if (!touch) {
+          this.swipeState.active = false;
+          return;
+        }
+        const deltaX = touch.clientX - this.swipeState.startX;
+        const deltaY = Math.abs(touch.clientY - this.swipeState.startY);
+        this.swipeState.active = false;
+
+        if (deltaX > 90 && deltaY < 60 && window.history.length > 1) {
+          window.history.back();
+        }
+      },
+      { passive: true }
     );
   },
 };

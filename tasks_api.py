@@ -354,6 +354,10 @@ async def get_task_history(page: int = 1, limit: int = 10):
             entry_dict = {
                 "id": str(entry.id),
                 "timestamp": entry.timestamp.isoformat(),
+                "task_id": entry.task_id,
+                "status": entry.status,
+                "result": entry.result,
+                "error": entry.error,
             }
             if entry.runtime:
                 entry_dict["runtime"] = float(entry.runtime)

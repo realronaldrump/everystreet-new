@@ -772,23 +772,24 @@ async function viewArea(areaId) {
 
     // Update stats
     document.getElementById("dashboard-location-name").textContent = area.display_name;
-    document.getElementById("dashboard-total-length").textContent = formatMiles(
-      area.total_length_miles
-    );
-    document.getElementById("dashboard-driven-length").textContent = formatMiles(
-      area.driven_length_miles
-    );
-    document.getElementById("dashboard-coverage-percentage").textContent
-      = `${area.coverage_percentage.toFixed(1)}%`;
+    setMetricValue("dashboard-total-length", area.total_length_miles, {
+      decimals: 2,
+      suffix: " mi",
+    });
+    setMetricValue("dashboard-driven-length", area.driven_length_miles, {
+      decimals: 2,
+      suffix: " mi",
+    });
+    setMetricValue("dashboard-coverage-percentage", area.coverage_percentage, {
+      decimals: 1,
+      suffix: "%",
+    });
 
     // Load segment counts
     const summary = await apiGet(`/areas/${areaId}/streets/summary`);
-    document.getElementById("segments-driven").textContent
-      = summary.segment_counts.driven || 0;
-    document.getElementById("segments-undriven").textContent
-      = summary.segment_counts.undriven || 0;
-    document.getElementById("segments-undriveable").textContent
-      = summary.segment_counts.undriveable || 0;
+    setMetricValue("segments-driven", summary.segment_counts.driven || 0);
+    setMetricValue("segments-undriven", summary.segment_counts.undriven || 0);
+    setMetricValue("segments-undriveable", summary.segment_counts.undriveable || 0);
 
     // Initialize or update map
     if (data.bounding_box) {
@@ -1149,6 +1150,19 @@ function applyMapFilter(filter) {
 
 function showNotification(message, type = "info") {
   window.notificationManager?.show(message, type);
+}
+
+function setMetricValue(elementId, value, { decimals = 0, suffix = "" } = {}) {
+  const element = document.getElementById(elementId);
+  if (!element) {
+    return;
+  }
+  const numeric = Number(value) || 0;
+  if (window.metricAnimator?.animate) {
+    window.metricAnimator.animate(element, numeric, { decimals, suffix });
+  } else {
+    element.textContent = `${numeric.toFixed(decimals)}${suffix}`;
+  }
 }
 
 function formatMiles(miles) {

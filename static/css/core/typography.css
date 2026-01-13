@@ -1,0 +1,50 @@
+@import url("https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap");
+
+body {
+  font-family: var(--font-family);
+  font-size: var(--font-size-md);
+  letter-spacing: 0.01em;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+.display-1,
+.display-2,
+.display-3,
+.display-4,
+.display-5 {
+  font-family: var(--font-family-display);
+  letter-spacing: -0.01em;
+}
+
+p,
+.lead {
+  line-height: var(--line-height-relaxed);
+}
+
+.route-content p,
+.route-content .lead,
+.route-content .text-muted,
+.route-content .text-secondary {
+  max-width: 70ch;
+}
+
+[data-numeric],
+.counter,
+.metric-value,
+.stat-value,
+.hero-stat .display-3,
+.nav-progress-value,
+.preview-stat-value,
+.live-trip-speed-value,
+.live-trip-stat .value,
+.nav-stat .value,
+.meta-value {
+  font-family: var(--font-family-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}

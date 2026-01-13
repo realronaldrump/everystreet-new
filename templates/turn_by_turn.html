@@ -16,6 +16,7 @@ Turn-by-Turn Navigation
 {% block content %}
 
   <div class="turn-by-turn" id="turn-by-turn">
+    <h1 class="visually-hidden" data-shared-transition="page-title">Turn-by-Turn Navigation</h1>
     <div id="turn-by-turn-map">
     </div>
 
@@ -73,7 +74,7 @@ Ready
           <div class="nav-progress-item">
             <div class="progress-header">
               <span class="progress-label">Route Progress</span>
-              <span class="progress-value" id="nav-route-progress-value">0%</span>
+              <span class="progress-value" id="nav-route-progress-value" data-value-flash>0%</span>
             </div>
             <div class="nav-progress-bar">
               <div class="nav-progress-fill" id="nav-route-progress-fill">
@@ -85,7 +86,7 @@ Ready
           <div class="nav-progress-item">
             <div class="progress-header">
               <span class="progress-label">Area Coverage</span>
-              <span class="progress-value" id="nav-coverage-progress-value">0%</span>
+              <span class="progress-value" id="nav-coverage-progress-value" data-coverage-percent data-value-flash>0%</span>
             </div>
             <div class="nav-progress-bar coverage">
               <div class="nav-progress-fill-baseline" id="nav-coverage-baseline">
@@ -102,7 +103,7 @@ Ready
             <div class="label">
 Remaining
             </div>
-            <div class="value" id="nav-remaining-distance">
+            <div class="value" id="nav-remaining-distance" data-value-flash>
 --
             </div>
           </div>
@@ -110,7 +111,7 @@ Remaining
             <div class="label">
 ETA
             </div>
-            <div class="value" id="nav-eta">
+            <div class="value" id="nav-eta" data-value-flash>
 --
             </div>
           </div>
@@ -118,7 +119,7 @@ ETA
             <div class="label">
 Speed
             </div>
-            <div class="value" id="nav-speed">
+            <div class="value" id="nav-speed" data-value-flash>
 --
             </div>
           </div>
@@ -169,7 +170,7 @@ Route Preview
             <span class="preview-stat-label">Turns</span>
           </div>
           <div class="preview-stat">
-            <span class="preview-stat-value" id="preview-coverage">--</span>
+            <span class="preview-stat-value" id="preview-coverage" data-coverage-percent data-value-flash>--</span>
             <span class="preview-stat-label">Coverage</span>
           </div>
         </div>

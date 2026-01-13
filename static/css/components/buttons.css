@@ -9,22 +9,34 @@
   justify-content: center;
   gap: var(--space-2);
   padding: var(--space-2) var(--space-4);
+  min-height: var(--touch-target);
   border-radius: var(--radius-sm);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition:
+    transform var(--transition-spring-fast),
+    box-shadow var(--transition-fast),
+    background-color var(--transition-fast),
+    color var(--transition-fast),
+    border-color var(--transition-fast);
   border: 1px solid transparent;
   font-size: var(--font-size-sm);
   line-height: var(--line-height-normal);
   text-decoration: none;
   position: relative;
   user-select: none;
+  overflow: hidden;
+  touch-action: manipulation;
 }
 
 .btn:disabled,
 .btn.disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.btn:active:not(:disabled) {
+  transform: scale(0.97);
 }
 
 .btn i {
@@ -132,8 +144,8 @@
 }
 
 .btn-icon {
-  width: 38px; /* Slightly larger for better tap target */
-  height: 38px;
+  width: var(--touch-target);
+  height: var(--touch-target);
   padding: 0;
   border-radius: var(--radius-full);
 }

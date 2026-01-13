@@ -485,7 +485,7 @@
   border-radius: 16px;
   padding: 0.9rem;
   box-shadow: 0 18px 40px rgb(0 0 0 / 35%);
-  backdrop-filter: blur(12px);
+  backdrop-filter: blur(var(--blur-subtle));
 }
 
 .coverage-navigator .hud-header {

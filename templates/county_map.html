@@ -18,6 +18,7 @@ Every Street - County Map
 {% block content %}
 
   <div class="county-map-wrapper">
+    <h1 class="visually-hidden" data-shared-transition="page-title">County Coverage</h1>
     <!-- Map Container -->
     <div id="county-map"
          class="county-map-container"
@@ -43,7 +44,7 @@ Every Street - County Map
       <div class="stats-content" id="stats-content">
         <div class="stats-grid">
           <div class="stat-card stat-card--primary">
-            <div class="stat-value" id="counties-visited">
+            <div class="stat-value" id="counties-visited" data-value-flash>
 0
             </div>
             <div class="stat-label">
@@ -51,7 +52,7 @@ Counties Visited
             </div>
           </div>
           <div class="stat-card stat-card--secondary">
-            <div class="stat-value" id="counties-total">
+            <div class="stat-value" id="counties-total" data-value-flash>
 3,143
             </div>
             <div class="stat-label">
@@ -59,7 +60,7 @@ Total US Counties
             </div>
           </div>
           <div class="stat-card stat-card--accent">
-            <div class="stat-value" id="coverage-percent">
+            <div class="stat-value" id="coverage-percent" data-coverage-percent data-value-flash>
 0%
             </div>
             <div class="stat-label">
@@ -67,7 +68,7 @@ Coverage
             </div>
           </div>
           <div class="stat-card">
-            <div class="stat-value" id="states-visited">
+            <div class="stat-value" id="states-visited" data-value-flash>
 0
             </div>
             <div class="stat-label">

@@ -37,6 +37,10 @@ export function setupAppSettingsForm() {
   const geocodeTripsOnFetch = document.getElementById("geocode-trips-on-fetch");
   const form = document.getElementById("app-settings-form");
   const themeToggleCheckbox = document.getElementById("theme-toggle-checkbox");
+  const accentColorPicker = document.getElementById("accent-color-picker");
+  const densityOptions = document.querySelectorAll("input[name='ui-density']");
+  const motionOptions = document.querySelectorAll("input[name='motion-mode']");
+  const widgetEditToggle = document.getElementById("widget-edit-mode");
 
   // Function to apply settings to UI
   function applySettings(settings = {}) {
@@ -47,6 +51,10 @@ export function setupAppSettingsForm() {
       polylineColor: pc,
       polylineOpacity: po,
       geocodeTripsOnFetch: gtof,
+      accentColor,
+      uiDensity,
+      motionMode,
+      widgetEditing,
     } = settings;
 
     const isDarkMode
@@ -77,6 +85,31 @@ export function setupAppSettingsForm() {
         opacityValue.textContent = polylineOpacity.value;
       }
     }
+
+    const storedAccent = accentColor || localStorage.getItem("es:accent-color") || "#7c9d96";
+    if (accentColorPicker) {
+      accentColorPicker.value = storedAccent;
+    }
+    const densityValue = uiDensity || localStorage.getItem("es:ui-density") || "comfortable";
+    densityOptions.forEach((input) => {
+      input.checked = input.value === densityValue;
+    });
+    const motionValue = motionMode || localStorage.getItem("es:motion-mode") || "balanced";
+    motionOptions.forEach((input) => {
+      input.checked = input.value === motionValue;
+    });
+    if (widgetEditToggle) {
+      const storedWidgetEditing = widgetEditing ?? localStorage.getItem("es:widget-editing");
+      widgetEditToggle.checked = storedWidgetEditing === true || storedWidgetEditing === "true";
+    }
+
+    window.personalization?.applyPreferences?.({
+      accentColor: storedAccent,
+      density: densityValue,
+      motion: motionValue,
+      widgetEditing: widgetEditToggle?.checked,
+      persist: false,
+    });
   }
 
   // Load settings from server
@@ -103,6 +136,8 @@ export function setupAppSettingsForm() {
 
   // Save preferences function
   async function savePreferences() {
+    const densityValue = [...densityOptions].find((input) => input.checked)?.value;
+    const motionValue = [...motionOptions].find((input) => input.checked)?.value;
     const payload = {
       highlightRecentTrips: highlightRecentTrips?.checked,
       autoCenter: autoCenterToggle?.checked,
@@ -110,6 +145,10 @@ export function setupAppSettingsForm() {
       polylineColor: polylineColor?.value,
       polylineOpacity: polylineOpacity?.value,
       geocodeTripsOnFetch: geocodeTripsOnFetch?.checked,
+      accentColor: accentColorPicker?.value,
+      uiDensity: densityValue || "comfortable",
+      motionMode: motionValue || "balanced",
+      widgetEditing: widgetEditToggle?.checked || false,
     };
 
     try {
@@ -133,6 +172,21 @@ export function setupAppSettingsForm() {
     localStorage.setItem("showLiveTracking", payload.showLiveTracking);
     localStorage.setItem("polylineColor", payload.polylineColor);
     localStorage.setItem("polylineOpacity", payload.polylineOpacity);
+    localStorage.setItem("es:accent-color", payload.accentColor || "");
+    localStorage.setItem("es:ui-density", payload.uiDensity);
+    localStorage.setItem("es:motion-mode", payload.motionMode);
+    localStorage.setItem("es:widget-editing", payload.widgetEditing ? "true" : "false");
+
+    window.personalization?.applyPreferences?.({
+      accentColor: payload.accentColor,
+      density: payload.uiDensity,
+      motion: payload.motionMode,
+      widgetEditing: payload.widgetEditing,
+      persist: false,
+    });
+    document.dispatchEvent(
+      new CustomEvent("widgets:set-edit", { detail: { enabled: payload.widgetEditing } })
+    );
 
     // Show success
     if (window.notificationManager) {
@@ -169,6 +223,41 @@ export function setupAppSettingsForm() {
       }
     });
   }
+
+  accentColorPicker?.addEventListener("input", () => {
+    window.personalization?.applyPreferences?.({
+      accentColor: accentColorPicker.value,
+      persist: false,
+    });
+  });
+
+  densityOptions.forEach((input) => {
+    input.addEventListener("change", () => {
+      if (input.checked) {
+        window.personalization?.applyPreferences?.({
+          density: input.value,
+          persist: false,
+        });
+      }
+    });
+  });
+
+  motionOptions.forEach((input) => {
+    input.addEventListener("change", () => {
+      if (input.checked) {
+        window.personalization?.applyPreferences?.({
+          motion: input.value,
+          persist: false,
+        });
+      }
+    });
+  });
+
+  widgetEditToggle?.addEventListener("change", () => {
+    document.dispatchEvent(
+      new CustomEvent("widgets:set-edit", { detail: { enabled: widgetEditToggle.checked } })
+    );
+  });
 }
 
 /**

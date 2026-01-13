@@ -8,6 +8,200 @@ import { formatDate, formatHourLabel, formatMonth } from "./formatters.js";
 import { loadAndShowTripsForTimePeriod } from "./modal.js";
 import { getChart, getState, setChart } from "./state.js";
 
+const spotlightPlugin = {
+  id: "spotlight",
+  afterEvent(chart, args) {
+    const active = chart.getActiveElements();
+    const activeDataset = active.length ? active[0].datasetIndex : null;
+    const datasets = chart.data.datasets || [];
+    let didUpdate = false;
+
+    datasets.forEach((dataset, index) => {
+      if (!dataset._origColors) {
+        dataset._origColors = {
+          backgroundColor: dataset.backgroundColor,
+          borderColor: dataset.borderColor,
+        };
+      }
+
+      const dim = activeDataset !== null && index !== activeDataset;
+      const targetAlpha = dim ? 0.25 : 1;
+
+      const applyAlpha = (color) => {
+        if (!color || typeof color !== "string") {
+          return color;
+        }
+        if (color.startsWith("rgba")) {
+          return color.replace(/rgba\\(([^,]+),\\s*([^,]+),\\s*([^,]+),\\s*[^)]+\\)/, `rgba($1, $2, $3, ${targetAlpha})`);
+        }
+        if (color.startsWith("rgb")) {
+          return color.replace(/rgb\\(([^,]+),\\s*([^,]+),\\s*([^,]+)\\)/, `rgba($1, $2, $3, ${targetAlpha})`);
+        }
+        return color;
+      };
+
+      const orig = dataset._origColors;
+      const nextBackground = Array.isArray(orig.backgroundColor)
+        ? orig.backgroundColor.map(applyAlpha)
+        : applyAlpha(orig.backgroundColor);
+      const nextBorder = Array.isArray(orig.borderColor)
+        ? orig.borderColor.map(applyAlpha)
+        : applyAlpha(orig.borderColor);
+
+      if (dataset.backgroundColor !== nextBackground || dataset.borderColor !== nextBorder) {
+        dataset.backgroundColor = nextBackground;
+        dataset.borderColor = nextBorder;
+        didUpdate = true;
+      }
+    });
+
+    if (didUpdate) {
+      chart.update("none");
+    }
+  },
+};
+
+function attachZoomPan(chart) {
+  const labels = chart.data.labels || [];
+  if (labels.length < 5) {
+    return;
+  }
+
+  const state = {
+    minIndex: 0,
+    maxIndex: labels.length - 1,
+    dragStartX: 0,
+    dragStartMin: 0,
+    dragStartMax: 0,
+    dragging: false,
+    pinchStartDistance: 0,
+  };
+
+  const clampRange = () => {
+    const minRange = Math.min(10, labels.length - 1);
+    const maxRange = labels.length - 1;
+    const range = Math.max(minRange, Math.min(maxRange, state.maxIndex - state.minIndex));
+    const center = (state.minIndex + state.maxIndex) / 2;
+    state.minIndex = Math.max(0, Math.round(center - range / 2));
+    state.maxIndex = Math.min(labels.length - 1, Math.round(center + range / 2));
+  };
+
+  const applyRange = () => {
+    chart.options.scales.x.min = labels[state.minIndex];
+    chart.options.scales.x.max = labels[state.maxIndex];
+    chart.update("none");
+  };
+
+  chart.canvas.addEventListener("wheel", (event) => {
+    event.preventDefault();
+    const zoomFactor = event.deltaY > 0 ? 1.2 : 0.8;
+    const range = state.maxIndex - state.minIndex;
+    const center = (state.minIndex + state.maxIndex) / 2;
+    const newRange = Math.max(5, Math.min(labels.length - 1, Math.round(range * zoomFactor)));
+    state.minIndex = Math.round(center - newRange / 2);
+    state.maxIndex = Math.round(center + newRange / 2);
+    clampRange();
+    applyRange();
+  });
+
+  chart.canvas.addEventListener("pointerdown", (event) => {
+    if (event.pointerType === "touch") {
+      return;
+    }
+    state.dragging = true;
+    state.dragStartX = event.clientX;
+    state.dragStartMin = state.minIndex;
+    state.dragStartMax = state.maxIndex;
+    chart.canvas.setPointerCapture(event.pointerId);
+  });
+
+  chart.canvas.addEventListener("pointermove", (event) => {
+    if (!state.dragging) {
+      return;
+    }
+    const deltaX = event.clientX - state.dragStartX;
+    const range = state.dragStartMax - state.dragStartMin;
+    const shift = Math.round((-deltaX / chart.canvas.clientWidth) * range);
+    state.minIndex = state.dragStartMin + shift;
+    state.maxIndex = state.dragStartMax + shift;
+    clampRange();
+    applyRange();
+  });
+
+  chart.canvas.addEventListener("pointerup", () => {
+    state.dragging = false;
+  });
+
+  chart.canvas.addEventListener("pointercancel", () => {
+    state.dragging = false;
+  });
+
+  chart.canvas.addEventListener("touchstart", (event) => {
+    if (event.touches.length !== 2) {
+      return;
+    }
+    const [a, b] = event.touches;
+    state.pinchStartDistance = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+  });
+
+  chart.canvas.addEventListener("touchmove", (event) => {
+    if (event.touches.length !== 2 || !state.pinchStartDistance) {
+      return;
+    }
+    const [a, b] = event.touches;
+    const distance = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+    const zoomFactor = distance > state.pinchStartDistance ? 0.9 : 1.1;
+    const range = state.maxIndex - state.minIndex;
+    const center = (state.minIndex + state.maxIndex) / 2;
+    const newRange = Math.max(5, Math.min(labels.length - 1, Math.round(range * zoomFactor)));
+    state.minIndex = Math.round(center - newRange / 2);
+    state.maxIndex = Math.round(center + newRange / 2);
+    clampRange();
+    applyRange();
+    state.pinchStartDistance = distance;
+  });
+}
+
+function attachLongPressTooltip(chart) {
+  let timerId = null;
+
+  const showTooltip = (event) => {
+    const points = chart.getElementsAtEventForMode(
+      event,
+      "nearest",
+      { intersect: false },
+      true
+    );
+    if (!points.length) {
+      return;
+    }
+    chart.setActiveElements(points);
+    chart.tooltip.setActiveElements(points, {
+      x: points[0].element.x,
+      y: points[0].element.y,
+    });
+    chart.update("none");
+  };
+
+  chart.canvas.addEventListener(
+    "touchstart",
+    (event) => {
+      if (event.touches.length !== 1) {
+        return;
+      }
+      timerId = setTimeout(() => showTooltip(event), 450);
+    },
+    { passive: true }
+  );
+
+  chart.canvas.addEventListener("touchend", () => {
+    if (timerId) {
+      clearTimeout(timerId);
+      timerId = null;
+    }
+  });
+}
+
 /**
  * Initialize all charts
  */
@@ -49,9 +243,14 @@ function initTrendsChart() {
         },
       ],
     },
+    plugins: [spotlightPlugin],
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      animation: {
+        duration: 900,
+        easing: "easeOutQuart",
+      },
       interaction: {
         mode: "index",
         intersect: false,
@@ -110,6 +309,8 @@ function initTrendsChart() {
   });
 
   setChart("trends", chart);
+  attachZoomPan(chart);
+  attachLongPressTooltip(chart);
 }
 
 /**
@@ -137,9 +338,16 @@ function initEfficiencyChart() {
         },
       ],
     },
+    plugins: [spotlightPlugin],
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      animation: {
+        animateRotate: true,
+        animateScale: true,
+        duration: 900,
+        easing: "easeOutQuart",
+      },
       plugins: {
         legend: {
           position: "bottom",
@@ -183,9 +391,14 @@ function initTimeDistChart() {
         },
       ],
     },
+    plugins: [spotlightPlugin],
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      animation: {
+        duration: 800,
+        easing: "easeOutQuart",
+      },
       plugins: {
         legend: {
           display: false,
@@ -215,6 +428,7 @@ function initTimeDistChart() {
   });
 
   setChart("timeDist", chart);
+  attachLongPressTooltip(chart);
 }
 
 /**

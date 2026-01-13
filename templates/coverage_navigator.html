@@ -19,6 +19,7 @@ block head_content %}
 {% block content %}
 
   <div class="coverage-navigator">
+    <h1 class="visually-hidden" data-shared-transition="page-title">Coverage Navigator</h1>
     <aside class="control-panel">
       <div class="panel-header">
         <div>
@@ -44,11 +45,11 @@ Select a coverage area...
         <div id="area-stats" class="area-stats mt-2" style="display: none">
           <div class="stat-row">
             <span class="stat-label">Coverage:</span>
-            <span id="area-coverage" class="stat-value">--</span>
+            <span id="area-coverage" class="stat-value" data-coverage-percent data-value-flash>--</span>
           </div>
           <div class="stat-row">
             <span class="stat-label">Remaining:</span>
-            <span id="area-remaining" class="stat-value">--</span>
+            <span id="area-remaining" class="stat-value" data-value-flash>--</span>
           </div>
         </div>
       </div>

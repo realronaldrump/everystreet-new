@@ -265,16 +265,25 @@ export class TableManager {
     if (soft) {
       this.tbody.classList.add("table-loading");
     } else {
-      this.tbody.innerHTML = `
-        <tr>
-          <td colspan="${this.options.columns.length}" class="text-center py-4">
-            <div class="spinner-border spinner-border-sm text-primary" role="status">
-              <span class="visually-hidden">Loading...</span>
-            </div>
-            <span class="ms-2">${escapeHtml(this.options.loadingMessage)}</span>
-          </td>
-        </tr>
-      `;
+      const columns = this.options.columns.length;
+      const rows = this.options.skeletonRows || 6;
+      const widths = ["short", "wide", "medium", "wide", "medium", "short"];
+      const skeletonRows = Array.from({ length: rows })
+        .map(() => {
+          const cells = Array.from({ length: columns })
+            .map((_, colIndex) => {
+              const widthClass = widths[colIndex % widths.length];
+              return `
+                <td>
+                  <div class="skeleton-loader table-skeleton-block ${widthClass}"></div>
+                </td>
+              `;
+            })
+            .join("");
+          return `<tr class="table-skeleton-row">${cells}</tr>`;
+        })
+        .join("");
+      this.tbody.innerHTML = skeletonRows;
     }
   }
 

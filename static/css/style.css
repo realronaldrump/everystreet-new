@@ -16,6 +16,7 @@
 /* === Core Styles === */
 @import url("core/variables.css");
 @import url("core/reset.css");
+@import url("core/typography.css");
 @import url("core/utilities.css");
 
 /* === Layout Styles === */
@@ -32,3 +33,6 @@
 @import url("components/modals.css");
 @import url("components/steps.css");
 @import url("components/mapbox-overrides.css");
+@import url("components/immersive.css");
+@import url("components/confetti.css");
+@import url("components/icons.css");

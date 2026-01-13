@@ -127,6 +127,23 @@ endblock %}
             font-weight: var(--font-weight-medium);
         }
 
+        .metric-trend i {
+            display: inline-block;
+            margin-right: 4px;
+            animation: trend-bob 2s ease-in-out infinite;
+        }
+
+        @keyframes trend-bob {
+            0%,
+            100% {
+                transform: translateY(0);
+            }
+
+            50% {
+                transform: translateY(-2px);
+            }
+        }
+
         .metric-trend.positive {
             background: rgba(var(--success-rgb), 0.2);
             color: var(--success);
@@ -532,7 +549,7 @@ endblock %}
       <div class="insights-hero">
         <div class="row align-items-center">
           <div class="col-lg-8">
-            <h1 class="display-4 fw-bold mb-3">
+            <h1 class="display-4 fw-bold mb-3" data-shared-transition="page-title">
           Driving Insights & Analytics
               <span class="live-indicator"></span>
             </h1>
@@ -554,8 +571,8 @@ Total Miles Driven
       </div>
 
       <!-- Primary Metrics Grid -->
-      <div class="row g-4 mb-5">
-        <div class="col-md-6 col-lg-3">
+      <div class="row g-4 mb-5" data-widget-container="insights-metrics">
+        <div class="col-md-6 col-lg-3" data-widget-id="trips">
           <div class="metric-card" data-metric="trips">
             <div class="metric-icon">
               <i class="fas fa-route"></i>
@@ -575,7 +592,7 @@ Total Trips
           </div>
         </div>
 
-        <div class="col-md-6 col-lg-3">
+        <div class="col-md-6 col-lg-3" data-widget-id="distance">
           <div class="metric-card" data-metric="distance">
             <div class="metric-icon">
               <i class="fas fa-road"></i>
@@ -596,7 +613,7 @@ Distance Traveled
           </div>
         </div>
 
-        <div class="col-md-6 col-lg-3">
+        <div class="col-md-6 col-lg-3" data-widget-id="fuel">
           <div class="metric-card" data-metric="fuel">
             <div class="metric-icon">
               <i class="fas fa-gas-pump"></i>
@@ -617,7 +634,7 @@ Fuel Consumed
           </div>
         </div>
 
-        <div class="col-md-6 col-lg-3">
+        <div class="col-md-6 col-lg-3" data-widget-id="time">
           <div class="metric-card" data-metric="time">
             <div class="metric-icon">
               <i class="fas fa-clock"></i>

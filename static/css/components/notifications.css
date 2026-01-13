@@ -85,6 +85,37 @@
 
 .notification-success .notification-icon {
   color: var(--success);
+  animation: icon-pop 0.35s ease-out;
+}
+
+.notification-check {
+  display: inline-block;
+  width: 14px;
+  height: 8px;
+  border-left: 2px solid currentcolor;
+  border-bottom: 2px solid currentcolor;
+  transform: rotate(-45deg);
+  animation: checkmark-draw 0.4s ease-out;
+}
+
+@keyframes checkmark-draw {
+  0% {
+    width: 0;
+    height: 0;
+    opacity: 0;
+  }
+
+  50% {
+    width: 14px;
+    height: 0;
+    opacity: 1;
+  }
+
+  100% {
+    width: 14px;
+    height: 8px;
+    opacity: 1;
+  }
 }
 
 .notification-error {
@@ -93,6 +124,10 @@
 
 .notification-error .notification-icon {
   color: var(--danger);
+}
+
+.notification.notification-error.show {
+  animation: shake 0.35s ease-out;
 }
 
 .notification-warning {

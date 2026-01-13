@@ -60,18 +60,18 @@
   --border-rgb: 160, 165, 172;
 
   /* Typography */
-  --font-family:
-    "Inter", -apple-system, blinkmacsystemfont, "Segoe UI", roboto, oxygen, ubuntu, cantarell,
-    "Open Sans", "Helvetica Neue", sans-serif;
-  --font-size-xs: 0.75rem; /* 12px */
-  --font-size-sm: 0.875rem; /* 14px */
-  --font-size-md: 1rem; /* 16px */
-  --font-size-lg: 1.125rem; /* 18px */
-  --font-size-xl: 1.25rem; /* 20px */
-  --font-size-2xl: 1.5rem; /* 24px */
-  --font-size-3xl: 1.875rem; /* 30px */
-  --font-size-4xl: 2.25rem; /* 36px */
-  --font-size-display: 3rem; /* 48px */
+  --font-family: "Sora", "Helvetica Neue", "Segoe UI", sans-serif;
+  --font-family-display: "Sora", "Helvetica Neue", "Segoe UI", sans-serif;
+  --font-family-mono: "IBM Plex Mono", "SFMono-Regular", menlo, monospace;
+  --font-size-xs: clamp(0.7rem, 0.66rem + 0.2vw, 0.8rem); /* 11px-13px */
+  --font-size-sm: clamp(0.82rem, 0.78rem + 0.2vw, 0.95rem); /* 13px-15px */
+  --font-size-md: clamp(0.95rem, 0.9rem + 0.25vw, 1.05rem); /* 15px-17px */
+  --font-size-lg: clamp(1.05rem, 1rem + 0.3vw, 1.2rem); /* 17px-19px */
+  --font-size-xl: clamp(1.2rem, 1.1rem + 0.5vw, 1.4rem); /* 19px-22px */
+  --font-size-2xl: clamp(1.4rem, 1.25rem + 0.8vw, 1.8rem); /* 22px-29px */
+  --font-size-3xl: clamp(1.7rem, 1.5rem + 1vw, 2.2rem); /* 27px-35px */
+  --font-size-4xl: clamp(2.1rem, 1.8rem + 1.5vw, 2.8rem); /* 34px-45px */
+  --font-size-display: clamp(2.5rem, 2rem + 2.2vw, 3.6rem); /* 40px-58px */
   --font-weight-light: 300;
   --font-weight-regular: 400;
   --font-weight-medium: 500;
@@ -103,12 +103,19 @@
   --transition-fast: 180ms ease-out;
   --transition-normal: 280ms ease-out;
   --transition-slow: 380ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-spring: 360ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  --transition-spring-fast: 220ms cubic-bezier(0.34, 1.56, 0.64, 1);
   --shadow-xs: 0 1px 2px rgb(0 0 0 / 3%);
   --shadow-sm: 0 1px 3px rgb(0 0 0 / 6%);
   --shadow-md: 0 2px 6px rgb(0 0 0 / 8%);
   --shadow-lg: 0 4px 12px rgb(0 0 0 / 10%);
   --shadow-xl: 0 8px 24px rgb(0 0 0 / 12%);
   --shadow-inset: inset 0 1px 3px rgb(0 0 0 / 6%);
+  --shadow-elevation-1: 0 2px 8px rgb(0 0 0 / 10%);
+  --shadow-elevation-2: 0 6px 16px rgb(0 0 0 / 12%), 0 0 12px rgb(0 0 0 / 6%);
+  --shadow-elevation-3: 0 10px 28px rgb(0 0 0 / 14%), 0 0 18px rgb(0 0 0 / 8%);
+  --shadow-elevation-4: 0 18px 40px rgb(0 0 0 / 18%), 0 0 24px rgb(0 0 0 / 10%);
+  --shadow-elevation-5: 0 24px 60px rgb(0 0 0 / 22%), 0 0 30px rgb(0 0 0 / 12%);
 
   /* Immersive Effects - Glow & Ambient */
   --glow-primary: 0 0 20px rgb(var(--primary-rgb) / 35%);
@@ -120,15 +127,20 @@
   --glow-info: 0 0 20px rgb(var(--info-rgb) / 40%);
 
   /* Ambient gradients for immersive backgrounds */
+  --accent: var(--primary);
+  --accent-rgb: var(--primary-rgb);
+  --section-accent: var(--accent);
+  --section-accent-rgb: var(--accent-rgb);
+  --ambient-tint: rgb(var(--section-accent-rgb) / 8%);
   --gradient-ambient: linear-gradient(
     135deg,
-    rgb(var(--primary-rgb) / 8%) 0%,
+    var(--ambient-tint) 0%,
     transparent 50%,
     rgb(var(--info-rgb) / 6%) 100%
   );
   --gradient-accent-bar: linear-gradient(
     90deg,
-    rgb(var(--primary-rgb) / 60%) 0%,
+    rgb(var(--section-accent-rgb) / 60%) 0%,
     rgb(var(--info-rgb) / 40%) 100%
   );
   --gradient-surface-glow: radial-gradient(
@@ -141,6 +153,15 @@
   --shadow-lift: 0 8px 25px rgb(0 0 0 / 15%), 0 0 20px rgb(var(--primary-rgb) / 15%);
   --shadow-lift-intense: 0 12px 35px rgb(0 0 0 / 18%), 0 0 30px rgb(var(--primary-rgb) / 25%);
 
+  /* Glass + blur system */
+  --blur-subtle: 8px;
+  --blur-strong: 16px;
+  --blur-modal: 24px;
+  --glass-1: rgb(var(--surface-rgb) / 72%);
+  --glass-2: rgb(var(--surface-rgb) / 82%);
+  --glass-3: rgb(var(--surface-rgb) / 92%);
+  --glass-border: rgb(var(--border-rgb) / 25%);
+
   /* Border Radius - Minimal */
   --radius-xs: 2px;
   --radius-sm: 3px;
@@ -149,6 +170,9 @@
   --radius-xl: 8px;
   --radius-full: 9999px;
   --radius-pill: 9999px;
+
+  /* Touch targets */
+  --touch-target: 44px;
 
   /* Z-Index */
   --z-base: 1;
@@ -190,10 +214,19 @@ body.light-mode {
   --shadow-md: 0 4px 8px rgb(40 42 45 / 8%);
   --shadow-lg: 0 10px 20px rgb(40 42 45 / 10%);
   --shadow-xl: 0 20px 40px rgb(40 42 45 / 10%);
+  --shadow-elevation-1: 0 2px 8px rgb(40 42 45 / 10%);
+  --shadow-elevation-2: 0 8px 20px rgb(40 42 45 / 12%), 0 0 12px rgb(40 42 45 / 6%);
+  --shadow-elevation-3: 0 14px 30px rgb(40 42 45 / 14%), 0 0 18px rgb(40 42 45 / 8%);
+  --shadow-elevation-4: 0 20px 42px rgb(40 42 45 / 16%), 0 0 24px rgb(40 42 45 / 10%);
+  --shadow-elevation-5: 0 28px 60px rgb(40 42 45 / 20%), 0 0 30px rgb(40 42 45 / 12%);
   --scrollbar-thumb-color: rgb(124 157 150 / 25%);
   --scrollbar-track-color: rgb(160 165 172 / 15%);
   --scrollbar-thumb-hover-color: rgb(124 157 150 / 40%);
   --surface-rgb: 250, 250, 248;
   --text-rgb: 40, 42, 45;
   --border-rgb: 160, 165, 172;
+  --glass-1: rgb(var(--surface-rgb) / 82%);
+  --glass-2: rgb(var(--surface-rgb) / 90%);
+  --glass-3: rgb(var(--surface-rgb) / 96%);
+  --glass-border: rgb(var(--border-rgb) / 20%);
 }

@@ -7,7 +7,7 @@
   position: fixed;
   inset: 0;
   background-color: rgb(0 0 0 / 40%);
-  backdrop-filter: blur(2px);
+  backdrop-filter: blur(var(--blur-subtle));
   display: flex;
   justify-content: center;
   align-items: center;
@@ -233,7 +233,7 @@ body.light-mode .skeleton-loader::after {
   gap: 8px;
   padding: 12px 20px;
   background: var(--surface-glass, rgb(30 30 30 / 90%));
-  backdrop-filter: blur(8px);
+  backdrop-filter: blur(var(--blur-subtle));
   border-radius: 8px;
   box-shadow: 0 4px 16px rgb(0 0 0 / 20%);
   pointer-events: none;
@@ -285,5 +285,56 @@ body.light-mode .skeleton-loader::after {
 
   .loading-text {
     font-size: 13px;
+  }
+}
+
+/* === Pull to Refresh (mobile) === */
+.pull-to-refresh {
+  position: fixed;
+  top: calc(var(--header-height) + env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%) translateY(-60px);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-pill);
+  background: var(--glass-2);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-elevation-2);
+  backdrop-filter: blur(var(--blur-subtle));
+  opacity: 0;
+  transition:
+    transform var(--transition-normal),
+    opacity var(--transition-normal);
+  z-index: var(--z-fixed);
+}
+
+.pull-to-refresh.active {
+  opacity: 1;
+  transform: translateX(-50%) translateY(calc(-10px + (var(--pull-progress, 0) * 40px)));
+}
+
+.pull-to-refresh.loading {
+  transform: translateX(-50%) translateY(10px);
+}
+
+.pull-to-refresh-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgb(var(--primary-rgb) / 20%);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: loading-spin 0.6s linear infinite;
+}
+
+.pull-to-refresh-text {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pull-to-refresh-spinner {
+    animation: none;
   }
 }

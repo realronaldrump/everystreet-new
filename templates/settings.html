@@ -15,6 +15,7 @@ Settings
 {% block content %}
 
   <div class="container-fluid settings-container">
+    <h1 class="visually-hidden" data-shared-transition="page-title">Settings</h1>
     <!-- Tab Navigation -->
     <div class="settings-tabs">
       <button class="settings-tab" data-tab="preferences">
@@ -57,6 +58,94 @@ Use dark theme for the application interface
                          role="switch"
                          id="dark-mode-toggle"
                          checked />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Personalization Settings -->
+          <div class="settings-group">
+            <h3 class="settings-group-title">
+              <i class="fas fa-magic"></i>
+            Personalization
+            </h3>
+            <div class="setting-item">
+              <div class="setting-label">
+                <div class="setting-label-title">
+Accent Color
+                </div>
+                <div class="setting-label-description">
+Choose your primary accent color for highlights and glows
+                </div>
+              </div>
+              <div class="setting-control">
+                <input type="color" id="accent-color-picker" value="#7c9d96" />
+              </div>
+            </div>
+            <div class="setting-item">
+              <div class="setting-label">
+                <div class="setting-label-title">
+Information Density
+                </div>
+                <div class="setting-label-description">
+Adjust spacing to fit more or less on each screen
+                </div>
+              </div>
+              <div class="setting-control">
+                <div class="option-group" role="radiogroup" aria-label="Information density">
+                  <label class="option-pill">
+                    <input type="radio" name="ui-density" value="compact" />
+                    <span>Compact</span>
+                  </label>
+                  <label class="option-pill">
+                    <input type="radio" name="ui-density" value="comfortable" checked />
+                    <span>Comfortable</span>
+                  </label>
+                  <label class="option-pill">
+                    <input type="radio" name="ui-density" value="spacious" />
+                    <span>Spacious</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+            <div class="setting-item">
+              <div class="setting-label">
+                <div class="setting-label-title">
+Animation Style
+                </div>
+                <div class="setting-label-description">
+Choose how expressive interface animations feel
+                </div>
+              </div>
+              <div class="setting-control">
+                <div class="option-group" role="radiogroup" aria-label="Animation style">
+                  <label class="option-pill">
+                    <input type="radio" name="motion-mode" value="subtle" />
+                    <span>Subtle</span>
+                  </label>
+                  <label class="option-pill">
+                    <input type="radio" name="motion-mode" value="balanced" checked />
+                    <span>Balanced</span>
+                  </label>
+                  <label class="option-pill">
+                    <input type="radio" name="motion-mode" value="playful" />
+                    <span>Playful</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+            <div class="setting-item">
+              <div class="setting-label">
+                <div class="setting-label-title">
+Widget Editing Mode
+                </div>
+                <div class="setting-label-description">
+Rearrange dashboard tiles and quick launch widgets
+                </div>
+              </div>
+              <div class="setting-control">
+                <div class="form-check form-switch">
+                  <input class="form-check-input" type="checkbox" id="widget-edit-mode" />
                 </div>
               </div>
             </div>

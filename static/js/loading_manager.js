@@ -18,6 +18,8 @@ class LoadingManager {
     this.barHideTimeout = null;
     this.barShowStartTime = null;
     this.barMinShowTime = 150;
+    this.barAutoTimer = null;
+    this.barAutoDelay = 600;
 
     // Initialize when DOM is ready
     if (document.readyState === "loading") {
@@ -125,6 +127,17 @@ class LoadingManager {
       this.hideBar(true);
     }
 
+    if (!blocking && !this.barIsVisible) {
+      if (this.barAutoTimer) {
+        clearTimeout(this.barAutoTimer);
+      }
+      this.barAutoTimer = setTimeout(() => {
+        if (this.activeCount > 0 && !this.barIsVisible) {
+          this.showBar(messageText);
+        }
+      }, this.barAutoDelay);
+    }
+
     if (blocking === false) {
       this.overlay?.classList.add("non-blocking");
     } else {
@@ -139,6 +152,7 @@ class LoadingManager {
     if (!this.isVisible) {
       this.showStartTime = Date.now();
       this.overlay?.classList.add("visible");
+      document.body?.classList.add("is-busy");
       this.isVisible = true;
     }
 
@@ -163,6 +177,7 @@ class LoadingManager {
       if (!this.barIsVisible) {
         this.barShowStartTime = Date.now();
         this.bar.classList.add("is-active");
+        document.body?.classList.add("is-busy");
         this.barIsVisible = true;
       }
     }
@@ -182,6 +197,11 @@ class LoadingManager {
       return this;
     }
 
+    if (this.activeCount === 0 && this.barAutoTimer) {
+      clearTimeout(this.barAutoTimer);
+      this.barAutoTimer = null;
+    }
+
     // Ensure minimum show time to prevent flicker
     const elapsed = this.showStartTime ? Date.now() - this.showStartTime : Infinity;
     const delay = Math.max(0, this.minShowTime - elapsed);
@@ -193,6 +213,9 @@ class LoadingManager {
         this.overlay?.classList.remove("compact");
         this.isVisible = false;
         this.showStartTime = null;
+        if (!this.barIsVisible) {
+          document.body?.classList.remove("is-busy");
+        }
       }
     }, delay);
 
@@ -223,6 +246,9 @@ class LoadingManager {
         this.bar.removeAttribute("aria-valuetext");
         this.barIsVisible = false;
         this.barShowStartTime = null;
+        if (!this.isVisible) {
+          document.body?.classList.remove("is-busy");
+        }
       }
     }, delay);
 

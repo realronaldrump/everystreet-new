@@ -1,0 +1,39 @@
+/* ============================
+   Icon System
+   ============================ */
+
+i.fas,
+i.far,
+i.fab,
+i.fa,
+i.fa-solid,
+i.fa-regular,
+i.fa-brands,
+.icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1em;
+  height: 1em;
+  line-height: 1;
+}
+
+.icon-sm {
+  font-size: 0.85em;
+}
+
+.icon-lg {
+  font-size: 1.15em;
+}
+
+.icon-xl {
+  font-size: 1.35em;
+}
+
+.icon-pulse {
+  animation: pulse-subtle 2s ease-in-out infinite;
+}
+
+.icon-pop {
+  animation: icon-pop 0.35s ease-out;
+}

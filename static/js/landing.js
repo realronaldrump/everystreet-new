@@ -15,15 +15,23 @@
   let elements = {};
   let refreshIntervalId = null;
   let liveTrackingIntervalId = null;
+  let swipeActionsBound = false;
+  let recordDistanceCache = null;
 
   /**
    * Initialize the landing page
    */
   function init() {
     cacheElements();
+    updateGreeting();
+    updateSuggestion();
+    highlightFrequentTiles();
+    bindWidgetEditToggle();
+    bindSuggestionCard();
     loadAllData();
     setupRefreshInterval();
     checkLiveTracking();
+    bindSwipeActions();
     document.addEventListener("es:page-unload", handleUnload, { once: true });
   }
 
@@ -32,12 +40,23 @@
    */
   function cacheElements() {
     elements = {
+      greetingTitle: document.getElementById("greeting-title"),
+      greetingSubtitle: document.getElementById("greeting-subtitle"),
+      weatherChip: document.getElementById("weather-chip"),
+      streakChip: document.getElementById("streak-chip"),
       statMiles: document.getElementById("stat-miles"),
       statTrips: document.getElementById("stat-trips"),
       liveIndicator: document.getElementById("live-indicator"),
       recentTrip: document.getElementById("recent-trip"),
       lastFillup: document.getElementById("last-fillup"),
       activityFeed: document.getElementById("activity-feed"),
+      recordCard: document.getElementById("record-card"),
+      recordDistance: document.getElementById("record-distance"),
+      suggestionCard: document.getElementById("suggestion-card"),
+      suggestionTitle: document.getElementById("suggestion-title"),
+      suggestionSubtitle: document.getElementById("suggestion-subtitle"),
+      widgetEditToggle: document.getElementById("widget-edit-toggle"),
+      navTiles: Array.from(document.querySelectorAll(".nav-tile")),
     };
   }
 
@@ -46,15 +65,378 @@
    */
   async function loadAllData() {
     try {
+      updateGreeting();
+      updateSuggestion();
+      highlightFrequentTiles();
       await Promise.all([
         loadMetrics(),
         loadRecentTrips(),
         loadGasStats(),
+        loadInsights(),
         checkLiveTracking(),
+        loadWeather(),
       ]);
     } catch (error) {
       console.warn("Failed to load landing data", error);
     }
+  }
+
+  function updateGreeting() {
+    if (!elements.greetingTitle || !elements.greetingSubtitle) {
+      return;
+    }
+    const hour = new Date().getHours();
+    let title = "Welcome back";
+    let subtitle = "Here is your latest drive snapshot.";
+
+    if (hour >= 5 && hour < 12) {
+      title = "Good morning";
+      subtitle = "Plan your next drive while the roads are fresh.";
+    } else if (hour >= 12 && hour < 17) {
+      title = "Good afternoon";
+      subtitle = "Your coverage streak is ready for another push.";
+    } else if (hour >= 17 && hour < 22) {
+      title = "Good evening";
+      subtitle = "Wrap up the day with a quick route check.";
+    } else {
+      title = "Welcome back";
+      subtitle = "Night drives still count toward coverage.";
+    }
+
+    elements.greetingTitle.textContent = title;
+    elements.greetingSubtitle.textContent = subtitle;
+  }
+
+  function bindWidgetEditToggle() {
+    if (!elements.widgetEditToggle) {
+      return;
+    }
+    elements.widgetEditToggle.addEventListener("click", () => {
+      document.dispatchEvent(new CustomEvent("widgets:toggle-edit"));
+    });
+    document.addEventListener("widgets:edit-toggled", (event) => {
+      const enabled = event.detail?.enabled;
+      elements.widgetEditToggle.textContent = enabled ? "Done" : "Customize";
+      elements.widgetEditToggle.classList.toggle("active", Boolean(enabled));
+    });
+  }
+
+  function bindSuggestionCard() {
+    const card = elements.suggestionCard;
+    if (!card) {
+      return;
+    }
+    const handleActivate = () => {
+      const path = card.dataset.suggestionPath;
+      if (path) {
+        window.location.href = path;
+      }
+    };
+    card.addEventListener("click", handleActivate);
+    card.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        handleActivate();
+      }
+    });
+  }
+
+  function updateSuggestion() {
+    if (!elements.suggestionTitle || !elements.suggestionSubtitle || !elements.suggestionCard) {
+      return;
+    }
+    const history = getRouteHistory();
+    const counts = getRouteCounts();
+    const recent = history.find((entry) => entry.path !== "/" && entry.path !== "/landing");
+    const frequent = getMostVisitedPath(counts);
+    const pick = recent || frequent;
+
+    if (pick) {
+      const label = pick.title || pathToLabel(pick.path);
+      elements.suggestionTitle.textContent = `Continue ${label}`;
+      elements.suggestionSubtitle.textContent = pick.timestamp
+        ? `Last visited ${formatTimeAgo(new Date(pick.timestamp))}`
+        : "Keep your momentum going.";
+      elements.suggestionCard.dataset.suggestionPath = pick.path;
+    } else {
+      elements.suggestionTitle.textContent = "Explore a new area";
+      elements.suggestionSubtitle.textContent = "Based on your recent routes";
+      elements.suggestionCard.dataset.suggestionPath = "/map";
+    }
+  }
+
+  function highlightFrequentTiles() {
+    if (!elements.navTiles || elements.navTiles.length === 0) {
+      return;
+    }
+    const counts = getRouteCounts();
+    const frequentPaths = Object.entries(counts)
+      .filter(([path]) => path !== "/" && path !== "/landing")
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 2)
+      .map(([path]) => path);
+
+    const pathToTile = {
+      "/map": "map",
+      "/coverage-navigator": "navigate",
+      "/trips": "trips",
+      "/insights": "insights",
+      "/gas-tracking": "gas",
+      "/visits": "visits",
+      "/upload": "upload",
+      "/export": "export",
+      "/coverage-management": "areas",
+      "/settings": "settings",
+    };
+
+    const frequentTiles = new Set(
+      frequentPaths.map((path) => pathToTile[path]).filter(Boolean)
+    );
+
+    elements.navTiles.forEach((tile) => {
+      const tileId = tile.dataset.tile;
+      tile.classList.toggle("tile-frequent", frequentTiles.has(tileId));
+    });
+  }
+
+  async function loadWeather() {
+    if (!elements.weatherChip) {
+      return;
+    }
+
+    const cached = getCachedWeather();
+    if (cached) {
+      elements.weatherChip.textContent = `Weather: ${cached.temp}F ${cached.label}`;
+      return;
+    }
+
+    if (!navigator.geolocation) {
+      elements.weatherChip.textContent = "Weather: --";
+      return;
+    }
+
+    try {
+      const position = await new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          timeout: 5000,
+          maximumAge: 600000,
+        });
+      });
+
+      const { latitude, longitude } = position.coords;
+      const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,weather_code&temperature_unit=fahrenheit&timezone=auto`;
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error("Weather request failed");
+      }
+
+      const data = await response.json();
+      const temp = Math.round(Number(data.current?.temperature_2m));
+      const label = mapWeatherCode(data.current?.weather_code);
+      if (!Number.isFinite(temp) || !label) {
+        throw new Error("Weather data missing");
+      }
+
+      elements.weatherChip.textContent = `Weather: ${temp}F ${label}`;
+      setCachedWeather({ temp, label });
+    } catch {
+      elements.weatherChip.textContent = "Weather: --";
+    }
+  }
+
+  function updateStreak(trips) {
+    const streakDays = calculateStreak(trips);
+    if (elements.streakChip) {
+      const suffix = streakDays === 1 ? "day" : "days";
+      elements.streakChip.textContent = `Streak: ${streakDays} ${suffix}`;
+    }
+    return streakDays;
+  }
+
+  function updateRecordValue(distance) {
+    const numeric = Number(distance);
+    if (!Number.isFinite(numeric) || numeric <= 0) {
+      if (elements.recordDistance) {
+        elements.recordDistance.textContent = recordDistanceCache
+          ? `${recordDistanceCache.toFixed(1)} mi`
+          : "--";
+      }
+      return recordDistanceCache || 0;
+    }
+
+    if (!recordDistanceCache || numeric > recordDistanceCache) {
+      recordDistanceCache = numeric;
+    }
+
+    if (elements.recordDistance) {
+      elements.recordDistance.textContent = `${recordDistanceCache.toFixed(1)} mi`;
+    }
+
+    if (elements.recordCard) {
+      const existing = getStoredValue("es:record-metrics") || {};
+      const previous = Number(existing.longestTrip || 0);
+      elements.recordCard.classList.toggle("is-record", recordDistanceCache > previous);
+    }
+
+    return recordDistanceCache;
+  }
+
+  function calculateStreak(trips) {
+    if (!Array.isArray(trips) || trips.length === 0) {
+      return 0;
+    }
+    const days = new Set(
+      trips
+        .map((trip) => trip.endTime || trip.startTime)
+        .filter(Boolean)
+        .map((time) => formatDayKey(new Date(time)))
+    );
+
+    let streak = 0;
+    const cursor = new Date();
+    while (true) {
+      const key = formatDayKey(cursor);
+      if (days.has(key)) {
+        streak += 1;
+        cursor.setDate(cursor.getDate() - 1);
+      } else {
+        break;
+      }
+    }
+    return streak;
+  }
+
+  function getRecordDistance(trips) {
+    if (!Array.isArray(trips) || trips.length === 0) {
+      return 0;
+    }
+    return trips.reduce((max, trip) => {
+      const distance = Number.parseFloat(trip.distance || 0);
+      return Number.isFinite(distance) && distance > max ? distance : max;
+    }, 0);
+  }
+
+  function formatDayKey(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
+
+  function getRouteHistory() {
+    try {
+      const raw = sessionStorage.getItem("es:route-history");
+      const parsed = raw ? JSON.parse(raw) : [];
+      if (Array.isArray(parsed)) {
+        return parsed.slice().reverse();
+      }
+    } catch {
+      // Ignore parse errors.
+    }
+    return [];
+  }
+
+  function getRouteCounts() {
+    return getStoredValue("es:route-counts") || {};
+  }
+
+  function getMostVisitedPath(counts) {
+    const entries = Object.entries(counts);
+    if (entries.length === 0) {
+      return null;
+    }
+    const [path] = entries.sort((a, b) => b[1] - a[1])[0];
+    return { path, timestamp: null };
+  }
+
+  function pathToLabel(path) {
+    const labels = {
+      "/map": "Map",
+      "/coverage-navigator": "Coverage Navigator",
+      "/coverage-management": "Coverage Areas",
+      "/trips": "Trips",
+      "/insights": "Insights",
+      "/gas-tracking": "Gas",
+      "/visits": "Visits",
+      "/upload": "Upload",
+      "/export": "Export",
+      "/settings": "Settings",
+    };
+    return labels[path] || "your route";
+  }
+
+  function getStoredValue(key) {
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) {
+        return null;
+      }
+      return JSON.parse(raw);
+    } catch {
+      return null;
+    }
+  }
+
+  function getCachedWeather() {
+    const cached = getStoredValue("es:weather-cache");
+    if (!cached) {
+      return null;
+    }
+    const maxAge = 20 * 60 * 1000;
+    if (Date.now() - cached.timestamp > maxAge) {
+      return null;
+    }
+    return cached;
+  }
+
+  function setCachedWeather({ temp, label }) {
+    try {
+      localStorage.setItem(
+        "es:weather-cache",
+        JSON.stringify({
+          temp,
+          label,
+          timestamp: Date.now(),
+        })
+      );
+    } catch {
+      // Ignore storage failures.
+    }
+  }
+
+  function mapWeatherCode(code) {
+    const numeric = Number(code);
+    if (!Number.isFinite(numeric)) {
+      return null;
+    }
+    if (numeric === 0) {
+      return "Clear";
+    }
+    if ([1, 2].includes(numeric)) {
+      return "Partly Cloudy";
+    }
+    if (numeric === 3) {
+      return "Cloudy";
+    }
+    if ([45, 48].includes(numeric)) {
+      return "Fog";
+    }
+    if ([51, 53, 55, 56, 57].includes(numeric)) {
+      return "Drizzle";
+    }
+    if ([61, 63, 65, 66, 67].includes(numeric)) {
+      return "Rain";
+    }
+    if ([71, 73, 75, 77].includes(numeric)) {
+      return "Snow";
+    }
+    if ([80, 81, 82].includes(numeric)) {
+      return "Showers";
+    }
+    if ([95, 96, 99].includes(numeric)) {
+      return "Storm";
+    }
+    return "Clear";
   }
 
   /**
@@ -70,16 +452,16 @@
       const data = await response.json();
 
       // Update stats with animation
-      animateValue(
-        elements.statMiles,
-        parseFloat(data.total_distance) || 0,
-        formatMiles
-      );
-      animateValue(
-        elements.statTrips,
-        parseInt(data.total_trips, 10) || 0,
-        formatNumber
-      );
+      const miles = parseFloat(data.total_distance) || 0;
+      const trips = parseInt(data.total_trips, 10) || 0;
+
+      if (window.metricAnimator?.animate) {
+        window.metricAnimator.animate(elements.statMiles, miles, { decimals: 0 });
+        window.metricAnimator.animate(elements.statTrips, trips, { decimals: 0 });
+      } else {
+        animateValue(elements.statMiles, miles, formatMiles);
+        animateValue(elements.statTrips, trips, formatNumber);
+      }
     } catch {
       if (elements.statMiles) {
         elements.statMiles.textContent = "--";
@@ -95,7 +477,7 @@
    */
   async function loadRecentTrips() {
     try {
-      const response = await fetch("/api/trips/history?limit=5");
+      const response = await fetch("/api/trips/history?limit=60");
       if (!response.ok) {
         throw new Error("Failed to fetch trips");
       }
@@ -117,8 +499,43 @@
 
       // Populate activity feed
       populateActivityFeed(trips);
+      const streakDays = updateStreak(trips);
+      const recordDistance = updateRecordValue(
+        recordDistanceCache || getRecordDistance(trips)
+      );
+      document.dispatchEvent(
+        new CustomEvent("achievements:update", {
+          detail: {
+            streakDays,
+            recordDistance,
+          },
+        })
+      );
     } catch {
       populateActivityFeed([]);
+      updateStreak([]);
+      updateRecordValue(recordDistanceCache || 0);
+    }
+  }
+
+  /**
+   * Fetch driving insights for records and achievements
+   */
+  async function loadInsights() {
+    try {
+      const response = await fetch("/api/driving-insights");
+      if (!response.ok) {
+        throw new Error("Failed to fetch insights");
+      }
+      const data = await response.json();
+      const recordDistance = updateRecordValue(data.longest_trip_distance || 0);
+      document.dispatchEvent(
+        new CustomEvent("achievements:update", {
+          detail: { recordDistance },
+        })
+      );
+    } catch (error) {
+      console.warn("Failed to load driving insights", error);
     }
   }
 
@@ -200,15 +617,27 @@
         const timeAgo = time ? formatTimeAgo(new Date(time)) : "";
 
         return `
-        <div class="activity-item" style="animation-delay: ${index * 0.1}s">
-          <div class="activity-icon trip">
-            <i class="fas fa-car"></i>
+        <div class="swipe-item" data-swipe-actions data-trip-id="${trip.transactionId || ""}">
+          <div class="swipe-actions">
+            <button class="swipe-action-btn secondary" data-action="share" aria-label="Share trip">
+              <i class="fas fa-share-alt"></i>
+            </button>
+            <button class="swipe-action-btn" data-action="view" aria-label="View trips">
+              <i class="fas fa-route"></i>
+            </button>
           </div>
-          <div class="activity-text">
-            <div class="activity-description">
-              ${distance} mi to ${destination}
+          <div class="swipe-content">
+            <div class="activity-item" style="animation-delay: ${index * 0.1}s">
+              <div class="activity-icon trip">
+                <i class="fas fa-car"></i>
+              </div>
+              <div class="activity-text">
+                <div class="activity-description">
+                  ${distance} mi to ${destination}
+                </div>
+                <div class="activity-time">${timeAgo}</div>
+              </div>
             </div>
-            <div class="activity-time">${timeAgo}</div>
           </div>
         </div>
       `;
@@ -216,6 +645,37 @@
       .join("");
 
     elements.activityFeed.innerHTML = activityHtml;
+  }
+
+  function bindSwipeActions() {
+    if (swipeActionsBound || !elements.activityFeed) {
+      return;
+    }
+    elements.activityFeed.addEventListener("click", (event) => {
+      const button = event.target.closest(".swipe-action-btn");
+      if (!button) {
+        return;
+      }
+      const action = button.dataset.action;
+      const item = button.closest("[data-trip-id]");
+      const tripId = item?.dataset.tripId;
+
+      if (action === "view") {
+        window.location.href = "/trips";
+      } else if (action === "share" && tripId) {
+        const shareData = {
+          title: "EveryStreet Trip",
+          text: "Check out this recent trip.",
+          url: `${window.location.origin}/trips`,
+        };
+        if (navigator.share) {
+          navigator.share(shareData).catch(() => {});
+        } else {
+          window.notificationManager?.show("Share is not available on this device", "info");
+        }
+      }
+    });
+    swipeActionsBound = true;
   }
 
   /**

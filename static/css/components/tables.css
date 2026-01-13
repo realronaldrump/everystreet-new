@@ -61,3 +61,24 @@ body.light-mode .table-striped tbody tr:nth-of-type(odd) {
   pointer-events: none;
   transition: opacity 0.2s ease;
 }
+
+.table-skeleton-row td {
+  padding: var(--space-3) var(--space-4);
+}
+
+.table-skeleton-block {
+  height: 0.9em;
+  border-radius: var(--radius-sm);
+}
+
+.table-skeleton-block.wide {
+  width: 80%;
+}
+
+.table-skeleton-block.medium {
+  width: 60%;
+}
+
+.table-skeleton-block.short {
+  width: 35%;
+}

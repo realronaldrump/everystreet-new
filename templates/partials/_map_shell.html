@@ -1,5 +1,5 @@
 <div class="map-wrapper d-flex flex-column flex-grow-1" data-es-shell-id="map-shell">
-  <h1 id="map-page-title" class="visually-hidden" data-es-focus>Map</h1>
+  <h1 id="map-page-title" class="visually-hidden" data-es-focus data-shared-transition="page-title">Map</h1>
   <!-- Map Container -->
   <div id="map"
        class="flex-grow-1 position-relative"
@@ -37,7 +37,7 @@ Waiting for updates...
         </div>
         <div class="live-trip-hud-main">
           <div class="live-trip-speed">
-            <div class="live-trip-speed-value" id="live-trip-speed">
+            <div class="live-trip-speed-value" id="live-trip-speed" data-value-flash>
 --
             </div>
             <div class="live-trip-speed-label">
@@ -51,7 +51,7 @@ Current Street
             <div class="live-trip-road-value" id="live-trip-street">
 --
             </div>
-            <div class="live-trip-road-meta" id="live-trip-coverage">
+            <div class="live-trip-road-meta" id="live-trip-coverage" data-coverage-percent data-value-flash>
 Coverage: --
             </div>
           </div>
@@ -61,7 +61,7 @@ Coverage: --
             <div class="label">
 Distance
             </div>
-            <div class="value" id="live-trip-distance">
+            <div class="value" id="live-trip-distance" data-value-flash>
 --
             </div>
           </div>
@@ -69,7 +69,7 @@ Distance
             <div class="label">
 Duration
             </div>
-            <div class="value" id="live-trip-duration">
+            <div class="value" id="live-trip-duration" data-value-flash>
 --
             </div>
           </div>
@@ -77,7 +77,7 @@ Duration
             <div class="label">
 Avg Speed
             </div>
-            <div class="value" id="live-trip-avg-speed">
+            <div class="value" id="live-trip-avg-speed" data-value-flash>
 --
             </div>
           </div>

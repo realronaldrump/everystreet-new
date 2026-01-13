@@ -6,8 +6,48 @@
 .modal-content {
   background-color: var(--surface-1);
   border: 1px solid var(--border-color);
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--shadow-elevation-4);
   border-radius: var(--radius-md);
+}
+
+.modal.fade .modal-dialog {
+  transform: translateY(12px) scale(0.98);
+  transition: transform var(--transition-spring), opacity var(--transition-normal);
+}
+
+.modal.show .modal-dialog {
+  transform: translateY(0) scale(1);
+  animation: modal-rise 0.4s var(--transition-spring) both;
+}
+
+.modal.show .modal-header,
+.modal.show .modal-body,
+.modal.show .modal-footer {
+  animation: modal-section-in 0.35s ease both;
+}
+
+.modal.show .modal-body {
+  animation-delay: 60ms;
+}
+
+.modal.show .modal-footer {
+  animation-delay: 120ms;
+}
+
+.modal.is-closing .modal-dialog {
+  transform: translateY(10px) scale(0.98);
+  opacity: 0;
+}
+
+.modal.swipe-active .modal-dialog {
+  transition: none;
+}
+
+.modal-backdrop {
+  backdrop-filter: blur(var(--blur-subtle));
+  transition:
+    opacity var(--transition-normal),
+    backdrop-filter var(--transition-normal);
 }
 
 .modal-header {
@@ -30,6 +70,10 @@
   display: flex;
   gap: var(--space-3);
   justify-content: flex-end;
+}
+
+.modal .focus-pulse {
+  animation: focus-glow 0.6s ease-out;
 }
 
 .btn-close-white {

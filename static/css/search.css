@@ -46,7 +46,7 @@
     0 8px 24px rgb(0 0 0 / 40%),
     0 4px 12px rgb(0 0 0 / 30%);
   z-index: 9999;
-  backdrop-filter: blur(12px);
+  backdrop-filter: blur(var(--blur-subtle));
   animation: slideDown 0.2s ease-out;
   min-width: 280px;
   margin-top: 0.5rem;

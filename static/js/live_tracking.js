@@ -15,6 +15,8 @@ const LIVE_TRACKING_LAYER_IDS = {
   lineGlow: "live-trip-line-glow",
   lineCasing: "live-trip-line-casing",
   line: "live-trip-line",
+  trailSource: "live-trip-trail-source",
+  trail: "live-trip-trail",
   marker: "live-trip-marker",
   pulse: "live-trip-pulse",
   arrow: "live-trip-arrow",
@@ -52,6 +54,7 @@ class LiveTripTracker {
     this.bindMapInteractionHandlers();
     this.setLiveTripActive(false);
     this.initialize();
+    this.startFreshnessMonitor();
   }
 
   // --- Setup ------------------------------------------------------------
@@ -65,6 +68,8 @@ class LiveTripTracker {
     this.lineGlowLayerId = LIVE_TRACKING_LAYER_IDS.lineGlow;
     this.lineCasingLayerId = LIVE_TRACKING_LAYER_IDS.lineCasing;
     this.lineLayerId = LIVE_TRACKING_LAYER_IDS.line;
+    this.trailSourceId = LIVE_TRACKING_LAYER_IDS.trailSource;
+    this.trailLayerId = LIVE_TRACKING_LAYER_IDS.trail;
     this.markerLayerId = LIVE_TRACKING_LAYER_IDS.marker;
     this.pulseLayerId = LIVE_TRACKING_LAYER_IDS.pulse;
     this.arrowLayerId = LIVE_TRACKING_LAYER_IDS.arrow;
@@ -81,6 +86,8 @@ class LiveTripTracker {
     this.routeStyle = this.loadRouteStyle();
     this.mapInteractionHandlers = [];
     this.pulseAnimationFrame = null;
+    this.lastUpdateTimestamp = null;
+    this.freshnessTimer = null;
   }
 
   _cacheDomElements() {
@@ -122,6 +129,7 @@ class LiveTripTracker {
         opacity,
         casingColor,
       });
+      this._ensureTrailLayer(color);
       this._ensurePulseLayer(color);
       this._ensureMarkerLayer(color);
       this.ensureArrowLayer();
@@ -210,6 +218,29 @@ class LiveTripTracker {
         layout: {
           "line-cap": "round",
           "line-join": "round",
+        },
+      });
+    }
+  }
+
+  _ensureTrailLayer(color) {
+    if (!this.map.getSource(this.trailSourceId)) {
+      this.map.addSource(this.trailSourceId, {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: [] },
+      });
+    }
+
+    if (!this.map.getLayer(this.trailLayerId)) {
+      this.map.addLayer({
+        id: this.trailLayerId,
+        type: "circle",
+        source: this.trailSourceId,
+        paint: {
+          "circle-color": color,
+          "circle-radius": ["interpolate", ["linear"], ["get", "age"], 0, 6, 1, 2],
+          "circle-opacity": ["interpolate", ["linear"], ["get", "age"], 0, 0.6, 1, 0],
+          "circle-blur": 0.4,
         },
       });
     }
@@ -595,6 +626,11 @@ class LiveTripTracker {
         : "Updating...";
     }
 
+    if (lastUpdate) {
+      this.lastUpdateTimestamp = lastUpdate.getTime();
+      this.updateFreshnessState();
+    }
+
     const areaName = this.getCoverageAreaName();
     const lastCoord = coords?.[coords.length - 1];
     const coverageInfo = lastCoord ? this.getCoverageStreetInfo(lastCoord) : null;
@@ -609,6 +645,31 @@ class LiveTripTracker {
     }
 
     this.updateCoverageBadge(coverageInfo?.status, areaName);
+  }
+
+  updateParticleTrail(coords) {
+    if (!this.map?.getSource(this.trailSourceId)) {
+      return;
+    }
+
+    const trailLength = 18;
+    const recent = coords.slice(-trailLength);
+    const total = recent.length;
+    const features = recent.map((point, index) => ({
+      type: "Feature",
+      geometry: {
+        type: "Point",
+        coordinates: [point.lon, point.lat],
+      },
+      properties: {
+        age: total > 1 ? (total - 1 - index) / (total - 1) : 0,
+      },
+    }));
+
+    this.map.getSource(this.trailSourceId).setData({
+      type: "FeatureCollection",
+      features,
+    });
   }
 
   updateCoverageBadge(status, areaName) {
@@ -885,6 +946,7 @@ class LiveTripTracker {
     // Update metrics panel
     this.updateMetrics(trip);
     this.updateHud(trip, coords);
+    this.updateParticleTrail(coords);
 
     // Update map view for new trips
     if (isNewTrip) {
@@ -1219,6 +1281,12 @@ class LiveTripTracker {
       </div>
       ${optionalHtml}
     `;
+
+    this.metricsElem.querySelectorAll(".metric-value").forEach((valueEl) => {
+      valueEl.classList.remove("value-flash");
+      void valueEl.offsetWidth;
+      valueEl.classList.add("value-flash");
+    });
   }
 
   fitTripBounds(coords) {
@@ -1274,11 +1342,17 @@ class LiveTripTracker {
     this.activeTrip = null;
     this.lastCoord = null;
     this.lastBearing = null;
+    this.lastUpdateTimestamp = null;
+    this.updateFreshnessState();
 
     // Clear map
     const source = this.map.getSource(this.sourceId);
     if (source) {
       source.setData({ type: "FeatureCollection", features: [] });
+    }
+    const trailSource = this.map.getSource(this.trailSourceId);
+    if (trailSource) {
+      trailSource.setData({ type: "FeatureCollection", features: [] });
     }
 
     // Clear metrics
@@ -1300,6 +1374,9 @@ class LiveTripTracker {
 
     this.statusIndicator.classList.toggle("connected", connected);
     this.statusIndicator.classList.toggle("disconnected", !connected);
+    const isConnecting = typeof message === "string"
+      && /reconnect|connect|sync/i.test(message);
+    this.statusIndicator.classList.toggle("connecting", !connected && isConnecting);
 
     const statusMsg = message || (connected ? "Connected" : "Disconnected");
     this.statusText.textContent = statusMsg;
@@ -1312,6 +1389,30 @@ class LiveTripTracker {
   updateTripCount(count) {
     if (this.tripCountElem) {
       this.tripCountElem.textContent = count;
+    }
+  }
+
+  startFreshnessMonitor() {
+    if (this.freshnessTimer) {
+      clearInterval(this.freshnessTimer);
+    }
+    this.freshnessTimer = setInterval(() => this.updateFreshnessState(), 4000);
+  }
+
+  updateFreshnessState() {
+    if (!this.statusIndicator) {
+      return;
+    }
+    const now = Date.now();
+    const age = this.lastUpdateTimestamp ? now - this.lastUpdateTimestamp : null;
+    const isStale = age !== null && age > 15000;
+    this.statusIndicator.classList.toggle("stale", isStale);
+    this.statusIndicator.classList.toggle("fresh", !isStale && age !== null);
+    if (this.hudElem) {
+      this.hudElem.classList.toggle("data-stale", isStale);
+    }
+    if (this.liveBadge) {
+      this.liveBadge.classList.toggle("stale", isStale);
     }
   }
 
@@ -1333,6 +1434,10 @@ class LiveTripTracker {
   destroy() {
     this.stopPolling();
     this.stopPulseAnimation();
+    if (this.freshnessTimer) {
+      clearInterval(this.freshnessTimer);
+      this.freshnessTimer = null;
+    }
 
     if (this.ws) {
       this.ws.close();

@@ -888,12 +888,28 @@ class NotificationManager {
   }
 
   show(message, type = "info", duration = this.config.defaultDuration) {
+    const typeClass = type === "danger" ? "error" : type;
+    const iconMap = {
+      success: "fa-check-circle",
+      error: "fa-exclamation-triangle",
+      warning: "fa-exclamation-circle",
+      info: "fa-info-circle",
+    };
+    const iconName = iconMap[typeClass] || iconMap.info;
+    const iconMarkup
+      = typeClass === "success"
+        ? '<span class="notification-check" aria-hidden="true"></span>'
+        : `<i class="fas ${iconName}" aria-hidden="true"></i>`;
+
     const notification = document.createElement("div");
-    notification.className = `notification alert alert-${type} alert-dismissible fade show bg-dark text-white`;
+    notification.className = `notification notification-${typeClass} alert alert-${type} alert-dismissible fade show bg-dark text-white`;
     notification.role = "alert";
     notification.innerHTML = `
-      ${message}
-      <button type="button" class="btn-close btn-close-white" data-bs-dismiss="alert" aria-label="Close"></button>
+      <div class="notification-icon">${iconMarkup}</div>
+      <div class="notification-content">
+        <div class="notification-message">${message}</div>
+      </div>
+      <button type="button" class="btn-close btn-close-white notification-close" data-bs-dismiss="alert" aria-label="Close"></button>
     `;
 
     this.container.appendChild(notification);

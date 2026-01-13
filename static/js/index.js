@@ -71,4 +71,38 @@ window.utils?.onPageLoad(() => {
       storageListenerBound = true;
     }
   }
+
+  const setupMapTilt = () => {
+    const map = window.map || window.coverageMasterMap;
+    if (!map || typeof map.easeTo !== "function") {
+      return;
+    }
+    let ticking = false;
+    const maxPitch = 12;
+    const maxScroll = 320;
+
+    const applyTilt = () => {
+      ticking = false;
+      if (window.liveTripTracker?.followMode) {
+        return;
+      }
+      const scrollY = window.scrollY || 0;
+      const ratio = Math.min(scrollY / maxScroll, 1);
+      map.easeTo({
+        pitch: ratio * maxPitch,
+        duration: 300,
+        essential: true,
+      });
+    };
+
+    window.addEventListener("scroll", () => {
+      if (ticking) {
+        return;
+      }
+      ticking = true;
+      requestAnimationFrame(applyTilt);
+    });
+  };
+
+  setupMapTilt();
 }, { route: "/map" });
