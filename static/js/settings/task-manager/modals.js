@@ -6,7 +6,12 @@
  */
 
 import { fetchTaskDetails } from "./api.js";
-import { escapeHtml, formatDateTime, getStatusHTML } from "./formatters.js";
+import {
+  escapeHtml,
+  formatDateTime,
+  formatDurationMs,
+  getStatusHTML,
+} from "./formatters.js";
 
 /**
  * Show an error modal with the given error message
@@ -212,9 +217,44 @@ export function showTaskLogsModal(entry) {
   
   // Format the result/error for display
   let resultHtml = '<div class="text-muted fst-italic">No result data available</div>';
+  let summaryHtml = "";
+
   if (entry.result) {
     const jsonStr = JSON.stringify(entry.result, null, 2);
     resultHtml = `<pre class="bg-black p-3 rounded border border-secondary text-info"><code>${escapeHtml(jsonStr)}</code></pre>`;
+
+    // Try to extract metrics for summary
+    try {
+      const keys = Object.keys(entry.result);
+      const metrics = [];
+      
+      keys.forEach(key => {
+        const val = entry.result[key];
+        // Check for numeric values or short strings that look like status/counts
+        if (typeof val === 'number' || (typeof val === 'string' && val.length < 20) || typeof val === 'boolean') {
+           // Skip internal or uninteresting keys if needed, but for now show all top-level primitives
+           const label = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+           metrics.push(`<div class="col-md-4 mb-2"><strong>${escapeHtml(label)}:</strong> ${escapeHtml(String(val))}</div>`);
+        }
+      });
+
+      if (metrics.length > 0) {
+        summaryHtml = `
+          <div class="card bg-dark border-secondary mb-3">
+            <div class="card-header border-secondary bg-dark opacity-75">
+              <h6 class="mb-0">Run Summary</h6>
+            </div>
+            <div class="card-body">
+              <div class="row">
+                ${metrics.join("")}
+              </div>
+            </div>
+          </div>
+        `;
+      }
+    } catch (e) {
+      console.warn("Failed to generate summary", e);
+    }
   }
 
   let errorHtml = "";
@@ -250,6 +290,7 @@ export function showTaskLogsModal(entry) {
     <hr class="border-secondary">
     
     <h6>Execution Result</h6>
+    ${summaryHtml}
     ${resultHtml}
     ${errorHtml}
   `;
