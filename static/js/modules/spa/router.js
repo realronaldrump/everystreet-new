@@ -47,7 +47,8 @@ const router = {
   prefetchControllers: new Map(),
   prefetchDelay: 140,
   prefetchTTL: 60000,
-  viewTransitionsEnabled: false,
+  viewTransitionsEnabled: true,
+  sharedTransitionsEnabled: false,
   historyKey: "es:route-history",
   routeHistory: [],
   swipeState: {
@@ -69,8 +70,10 @@ const router = {
     this.announcer = document.getElementById("spa-announcer");
     this.routeHistory = this.loadHistory();
     this.updateHistory(window.location.pathname, document.title);
-    if (this.viewTransitionsEnabled) {
+    if (this.sharedTransitionsEnabled) {
       this.prepareSharedElements();
+    } else {
+      this.clearSharedElements();
     }
 
     document.addEventListener("click", (event) => {
@@ -143,13 +146,17 @@ const router = {
         throw new Error("Missing SPA fragment");
       }
 
-      if (this.viewTransitionsEnabled) {
+      if (this.sharedTransitionsEnabled) {
         this.prepareSharedElements();
+      } else {
+        this.clearSharedElements();
       }
       const apply = () => {
         this.applyFragment(fragment, { push });
-        if (this.viewTransitionsEnabled) {
+        if (this.sharedTransitionsEnabled) {
           this.prepareSharedElements();
+        } else {
+          this.clearSharedElements();
         }
       };
 
@@ -436,7 +443,7 @@ const router = {
   },
 
   prepareSharedElements() {
-    if (!this.viewTransitionsEnabled) {
+    if (!this.sharedTransitionsEnabled) {
       return;
     }
     let index = 0;
@@ -444,6 +451,12 @@ const router = {
       const name = element.dataset.sharedTransition || element.id || `shared-${index}`;
       element.style.viewTransitionName = name;
       index += 1;
+    });
+  },
+
+  clearSharedElements() {
+    document.querySelectorAll("[data-shared-transition]").forEach((element) => {
+      element.style.viewTransitionName = "";
     });
   },
 
