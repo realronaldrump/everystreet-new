@@ -499,17 +499,9 @@
 
       // Populate activity feed
       populateActivityFeed(trips);
-      const streakDays = updateStreak(trips);
-      const recordDistance = updateRecordValue(
+      updateStreak(trips);
+      updateRecordValue(
         recordDistanceCache || getRecordDistance(trips)
-      );
-      document.dispatchEvent(
-        new CustomEvent("achievements:update", {
-          detail: {
-            streakDays,
-            recordDistance,
-          },
-        })
       );
     } catch {
       populateActivityFeed([]);
@@ -519,7 +511,7 @@
   }
 
   /**
-   * Fetch driving insights for records and achievements
+   * Fetch driving insights for records
    */
   async function loadInsights() {
     try {
@@ -528,12 +520,7 @@
         throw new Error("Failed to fetch insights");
       }
       const data = await response.json();
-      const recordDistance = updateRecordValue(data.longest_trip_distance || 0);
-      document.dispatchEvent(
-        new CustomEvent("achievements:update", {
-          detail: { recordDistance },
-        })
-      );
+      updateRecordValue(data.longest_trip_distance || 0);
     } catch (error) {
       console.warn("Failed to load driving insights", error);
     }
