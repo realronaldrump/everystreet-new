@@ -5,7 +5,11 @@
 
 import { fetchCoverageAreas, fetchUndrivenStreets } from "./api.js";
 import { triggerDownload } from "./download.js";
-import { generateTimestamp, geojsonToGpx, sanitizeFilename } from "./format-utils.js";
+import {
+  generateTimestamp,
+  geojsonToGpx,
+  sanitizeFilename,
+} from "./format-utils.js";
 import { setButtonLoading } from "./ui.js";
 
 /**
@@ -33,7 +37,7 @@ export function initUndrivenStreetsExport({ signal } = {}) {
         exportBtn.disabled = !locationSelect.value;
       }
     },
-    signal ? { signal } : false
+    signal ? { signal } : false,
   );
 
   // Handle form submission
@@ -45,10 +49,10 @@ export function initUndrivenStreetsExport({ signal } = {}) {
         locationSelect,
         formatSelect,
         exportBtn,
-        signal
+        signal,
       );
     },
-    signal ? { signal } : false
+    signal ? { signal } : false,
   );
 }
 
@@ -83,7 +87,10 @@ async function loadCoverageAreas(locationSelect, signal) {
       return;
     }
     locationSelect.innerHTML = '<option value="">Failed to load areas</option>';
-    window.notificationManager?.show(`Failed to load areas: ${err.message}`, "error");
+    window.notificationManager?.show(
+      `Failed to load areas: ${err.message}`,
+      "error",
+    );
   }
 }
 
@@ -97,7 +104,7 @@ async function handleUndrivenStreetsExport(
   locationSelect,
   formatSelect,
   exportBtn,
-  signal
+  signal,
 ) {
   if (!locationSelect.value) {
     return;
@@ -106,14 +113,19 @@ async function handleUndrivenStreetsExport(
     return;
   }
 
-  const originalText = setButtonLoading(exportBtn, true, "Export Undriven Streets");
+  const originalText = setButtonLoading(
+    exportBtn,
+    true,
+    "Export Undriven Streets",
+  );
   window.notificationManager?.show("Exporting undriven streets...", "info");
 
   try {
     const format = formatSelect?.value || "geojson";
     const areaId = locationSelect.value;
-    const displayName
-      = locationSelect.selectedOptions?.[0]?.dataset.displayName || "undriven_streets";
+    const displayName =
+      locationSelect.selectedOptions?.[0]?.dataset.displayName ||
+      "undriven_streets";
 
     const geojson = await fetchUndrivenStreets(areaId, signal);
 
@@ -140,10 +152,13 @@ async function handleUndrivenStreetsExport(
     triggerDownload(
       blob,
       filename,
-      format === "gpx" ? "application/gpx+xml" : "application/geo+json"
+      format === "gpx" ? "application/gpx+xml" : "application/geo+json",
     );
 
-    window.notificationManager?.show("Undriven streets export completed", "success");
+    window.notificationManager?.show(
+      "Undriven streets export completed",
+      "success",
+    );
   } catch (err) {
     if (err.name === "AbortError") {
       return;

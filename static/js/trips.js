@@ -26,10 +26,13 @@ onPageLoad(
     try {
       await initializePage(signal);
     } catch (e) {
-      window.notificationManager?.show(`Critical Error: ${e.message}`, "danger");
+      window.notificationManager?.show(
+        `Critical Error: ${e.message}`,
+        "danger",
+      );
     }
   },
-  { route: "/trips" }
+  { route: "/trips" },
 );
 
 async function initializePage(signal) {
@@ -45,7 +48,7 @@ async function initializePage(signal) {
       updateFilterChips();
       tripsTable.reload({ resetPage: true });
     },
-    signal ? { signal } : false
+    signal ? { signal } : false,
   );
 }
 
@@ -192,7 +195,9 @@ function initializeTable() {
 
           const title = document.createElement("div");
           title.className = "trip-title";
-          title.textContent = row.maxSpeed ? `${Math.round(row.maxSpeed)} mph` : "--";
+          title.textContent = row.maxSpeed
+            ? `${Math.round(row.maxSpeed)} mph`
+            : "--";
           cell.appendChild(title);
 
           const idle = row.totalIdleDuration
@@ -243,7 +248,9 @@ function initializeTable() {
           viewBtn.className = "btn btn-outline-primary";
           viewBtn.title = "View details";
           viewBtn.innerHTML = '<i class="fas fa-map"></i>';
-          viewBtn.addEventListener("click", () => openTripModal(row.transactionId));
+          viewBtn.addEventListener("click", () =>
+            openTripModal(row.transactionId),
+          );
           container.appendChild(viewBtn);
 
           const deleteBtn = document.createElement("button");
@@ -309,27 +316,32 @@ function getFilterValues() {
 
 function setupFilterListeners() {
   const inputs = document.querySelectorAll(
-    "#trip-filter-vehicle, #trip-filter-distance-min, #trip-filter-distance-max, "
-      + "#trip-filter-speed-min, #trip-filter-speed-max, #trip-filter-fuel-min, #trip-filter-fuel-max, "
-      + "#trip-filter-has-fuel"
+    "#trip-filter-vehicle, #trip-filter-distance-min, #trip-filter-distance-max, " +
+      "#trip-filter-speed-min, #trip-filter-speed-max, #trip-filter-fuel-min, #trip-filter-fuel-max, " +
+      "#trip-filter-has-fuel",
   );
 
   inputs.forEach((input) => {
     input.addEventListener("change", () => {
       if (input.id === "trip-filter-vehicle") {
         setStorage(CONFIG.STORAGE_KEYS.selectedVehicle, input.value || null);
-        store.updateFilters({ vehicle: input.value || null }, { source: "vehicle" });
+        store.updateFilters(
+          { vehicle: input.value || null },
+          { source: "vehicle" },
+        );
       }
       updateFilterChips();
     });
     input.addEventListener("input", () => updateFilterChips(false));
   });
 
-  document.getElementById("trip-filter-apply")?.addEventListener("click", () => {
-    tripsTable.reload({ resetPage: true });
-    showFilterAppliedMessage();
-    updateFilterChips();
-  });
+  document
+    .getElementById("trip-filter-apply")
+    ?.addEventListener("click", () => {
+      tripsTable.reload({ resetPage: true });
+      showFilterAppliedMessage();
+      updateFilterChips();
+    });
 
   const resetBtn = document.getElementById("trip-filter-reset");
   if (resetBtn) {
@@ -390,7 +402,7 @@ function updateFilterChips(triggerReload = false) {
         setStorage("endDate", null);
         document.dispatchEvent(new Event("filtersReset"));
         tripsTable.reload({ resetPage: true });
-      }
+      },
     );
   }
   if (filters.distance_min || filters.distance_max) {
@@ -400,7 +412,7 @@ function updateFilterChips(triggerReload = false) {
       () => {
         clearInput("trip-filter-distance-min");
         clearInput("trip-filter-distance-max");
-      }
+      },
     );
   }
   if (filters.speed_min || filters.speed_max) {
@@ -410,7 +422,7 @@ function updateFilterChips(triggerReload = false) {
       () => {
         clearInput("trip-filter-speed-min");
         clearInput("trip-filter-speed-max");
-      }
+      },
     );
   }
   if (filters.fuel_min || filters.fuel_max) {
@@ -420,7 +432,7 @@ function updateFilterChips(triggerReload = false) {
       () => {
         clearInput("trip-filter-fuel-min");
         clearInput("trip-filter-fuel-max");
-      }
+      },
     );
   }
   if (filters.has_fuel) {
@@ -476,7 +488,8 @@ function updateBulkDeleteButton() {
   btn.disabled = count === 0;
   const textEl = btn.querySelector(".btn-text");
   if (textEl) {
-    textEl.textContent = count > 0 ? `Delete Selected (${count})` : "Delete Selected";
+    textEl.textContent =
+      count > 0 ? `Delete Selected (${count})` : "Delete Selected";
   }
 }
 
@@ -504,7 +517,10 @@ function setupBulkActions() {
     .getElementById("refresh-geocoding-btn")
     ?.addEventListener("click", async () => {
       try {
-        window.notificationManager?.show("Starting geocoding refresh...", "info");
+        window.notificationManager?.show(
+          "Starting geocoding refresh...",
+          "info",
+        );
         const response = await fetch(CONFIG.API.geocodeTrips, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -512,7 +528,10 @@ function setupBulkActions() {
         });
         const result = await response.json();
         if (response.ok) {
-          window.notificationManager?.show("Geocoding task started.", "success");
+          window.notificationManager?.show(
+            "Geocoding task started.",
+            "success",
+          );
         } else {
           throw new Error(result.detail || "Failed to start geocoding");
         }
@@ -535,11 +554,14 @@ async function deleteTrip(id) {
           totalPages: tripsTable.state.totalPages,
         };
         tripsTable.state.data = tripsTable.state.data.filter(
-          (row) => row.transactionId !== id
+          (row) => row.transactionId !== id,
         );
-        tripsTable.state.totalRecords = Math.max(0, tripsTable.state.totalRecords - 1);
+        tripsTable.state.totalRecords = Math.max(
+          0,
+          tripsTable.state.totalRecords - 1,
+        );
         tripsTable.state.totalPages = Math.ceil(
-          tripsTable.state.totalRecords / tripsTable.options.pageSize
+          tripsTable.state.totalRecords / tripsTable.options.pageSize,
         );
         tripsTable._render();
         selectedTripIds.delete(id);
@@ -547,14 +569,19 @@ async function deleteTrip(id) {
         return snapshot;
       },
       request: async () => {
-        const response = await fetch(CONFIG.API.tripById(id), { method: "DELETE" });
+        const response = await fetch(CONFIG.API.tripById(id), {
+          method: "DELETE",
+        });
         if (!response.ok) {
           throw new Error("Failed to delete trip");
         }
         return response;
       },
       commit: () => {
-        window.notificationManager?.show("Trip deleted successfully", "success");
+        window.notificationManager?.show(
+          "Trip deleted successfully",
+          "success",
+        );
         tripsTable.reload();
       },
       rollback: (snapshot) => {
@@ -586,14 +613,14 @@ async function bulkDeleteTrips(ids) {
         };
         const idSet = new Set(ids);
         tripsTable.state.data = tripsTable.state.data.filter(
-          (row) => !idSet.has(row.transactionId)
+          (row) => !idSet.has(row.transactionId),
         );
         tripsTable.state.totalRecords = Math.max(
           0,
-          tripsTable.state.totalRecords - ids.length
+          tripsTable.state.totalRecords - ids.length,
         );
         tripsTable.state.totalPages = Math.ceil(
-          tripsTable.state.totalRecords / tripsTable.options.pageSize
+          tripsTable.state.totalRecords / tripsTable.options.pageSize,
         );
         tripsTable._render();
         selectedTripIds.clear();
@@ -617,7 +644,10 @@ async function bulkDeleteTrips(ids) {
         return response.json();
       },
       commit: (result) => {
-        window.notificationManager?.show(result.message || "Trips deleted", "success");
+        window.notificationManager?.show(
+          result.message || "Trips deleted",
+          "success",
+        );
         tripsTable.reload();
       },
       rollback: (snapshot) => {
@@ -803,13 +833,12 @@ async function loadTripData(tripId) {
     // Let's check `trips.js` or `CONFIG`. Usually `tripById` returns the document.
     // If geometry inside trip object:
     if (trip.geometry) {
-        renderTripOnMap(trip);
+      renderTripOnMap(trip);
     } else {
-       // Fallback or separate fetch if needed.
-       // Attempt to fetch dedicated geojson if geometry is missing from detail
-       // const geoRes = await fetch(`/api/trips/${tripId}/geojson`); ...
+      // Fallback or separate fetch if needed.
+      // Attempt to fetch dedicated geojson if geometry is missing from detail
+      // const geoRes = await fetch(`/api/trips/${tripId}/geojson`); ...
     }
-
   } catch (e) {
     console.error(e);
     window.notificationManager?.show("Failed to load trip data", "danger");
@@ -820,11 +849,28 @@ async function loadTripData(tripId) {
 
 function updateModalContent(trip) {
   setText("tripModalTitle", trip.vehicleLabel || "Trip Details");
-  setText("tripModalSubtitle", `${formatDateTime(trip.startTime)} • ${trip.transactionId}`);
-  setText("modal-distance", trip.distance ? `${parseFloat(trip.distance).toFixed(2)} mi` : "--");
-  setText("modal-duration", trip.duration ? formatDuration(trip.duration) : "--");
-  setText("modal-max-speed", trip.maxSpeed ? `${Math.round(trip.maxSpeed)} mph` : "--");
-  setText("modal-fuel", trip.fuelConsumed ? `${parseFloat(trip.fuelConsumed).toFixed(2)} gal` : "--");
+  setText(
+    "tripModalSubtitle",
+    `${formatDateTime(trip.startTime)} • ${trip.transactionId}`,
+  );
+  setText(
+    "modal-distance",
+    trip.distance ? `${parseFloat(trip.distance).toFixed(2)} mi` : "--",
+  );
+  setText(
+    "modal-duration",
+    trip.duration ? formatDuration(trip.duration) : "--",
+  );
+  setText(
+    "modal-max-speed",
+    trip.maxSpeed ? `${Math.round(trip.maxSpeed)} mph` : "--",
+  );
+  setText(
+    "modal-fuel",
+    trip.fuelConsumed
+      ? `${parseFloat(trip.fuelConsumed).toFixed(2)} gal`
+      : "--",
+  );
   setText("modal-start-loc", sanitizeLocation(trip.startLocation));
   setText("modal-end-loc", sanitizeLocation(trip.destination));
 }
@@ -832,14 +878,14 @@ function updateModalContent(trip) {
 function renderTripOnMap(trip) {
   if (!tripModalMap || !tripModalMap.isStyleLoaded()) {
     // Retry shortly if map not ready (though 'shown' event usually handles this)
-     setTimeout(() => renderTripOnMap(trip), 200);
-     return;
+    setTimeout(() => renderTripOnMap(trip), 200);
+    return;
   }
 
   const geojson = {
     type: "Feature",
     geometry: trip.geometry,
-    properties: {}
+    properties: {},
   };
 
   const src = tripModalMap.getSource("modal-trip");
@@ -854,9 +900,9 @@ function renderTripOnMap(trip) {
   const coords = trip.geometry.coordinates;
   // Handle Point vs LineString vs MultiLineString if necessary. Assuming LineString for trips.
   if (trip.geometry.type === "LineString") {
-      coords.forEach(c => bounds.extend(c));
+    coords.forEach((c) => bounds.extend(c));
   } else if (trip.geometry.type === "Point") {
-      bounds.extend(coords);
+    bounds.extend(coords);
   }
 
   if (!bounds.isEmpty()) {
@@ -865,7 +911,7 @@ function renderTripOnMap(trip) {
     tripModalMap.fitBounds(bounds, {
       padding: 100,
       duration: 2000, // Animate over 2 seconds
-      essential: true // Ensure animation happens even if user hasn't interacted
+      essential: true, // Ensure animation happens even if user hasn't interacted
     });
   }
 }
@@ -930,7 +976,7 @@ function startPlayback() {
     playbackState.progress += playbackState.speed * 0.6;
     const index = Math.min(
       playbackState.coords.length - 1,
-      Math.floor(playbackState.progress)
+      Math.floor(playbackState.progress),
     );
     const coord = playbackState.coords[index];
     if (!coord) {
@@ -977,10 +1023,12 @@ function updatePlaybackHead(coord) {
   const feature = coord
     ? { type: "Feature", geometry: { type: "Point", coordinates: coord } }
     : null;
-  const data = feature ? { type: "FeatureCollection", features: [feature] } : {
-    type: "FeatureCollection",
-    features: [],
-  };
+  const data = feature
+    ? { type: "FeatureCollection", features: [feature] }
+    : {
+        type: "FeatureCollection",
+        features: [],
+      };
   tripModalMap.getSource(playbackState.headSourceId).setData(data);
 }
 
@@ -991,7 +1039,12 @@ function updatePlaybackTrail(coords) {
   const data = coords.length
     ? {
         type: "FeatureCollection",
-        features: [{ type: "Feature", geometry: { type: "LineString", coordinates: coords } }],
+        features: [
+          {
+            type: "Feature",
+            geometry: { type: "LineString", coordinates: coords },
+          },
+        ],
       }
     : { type: "FeatureCollection", features: [] };
   tripModalMap.getSource(playbackState.trailSourceId).setData(data);

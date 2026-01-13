@@ -322,7 +322,11 @@ body[data-route="/"] #filters-toggle {
   inset: 0;
   opacity: 0;
   transition: opacity var(--transition-normal);
-  background: linear-gradient(135deg, rgb(var(--primary-rgb), 0.05) 0%, transparent 55%);
+  background: linear-gradient(
+    135deg,
+    rgb(var(--primary-rgb), 0.05) 0%,
+    transparent 55%
+  );
 }
 
 .nav-tile:hover .tile-bg {

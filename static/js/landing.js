@@ -123,7 +123,7 @@
       () => {
         document.dispatchEvent(new CustomEvent("widgets:toggle-edit"));
       },
-      pageSignal ? { signal: pageSignal } : false
+      pageSignal ? { signal: pageSignal } : false,
     );
     document.addEventListener(
       "widgets:edit-toggled",
@@ -132,7 +132,7 @@
         elements.widgetEditToggle.textContent = enabled ? "Done" : "Customize";
         elements.widgetEditToggle.classList.toggle("active", Boolean(enabled));
       },
-      pageSignal ? { signal: pageSignal } : false
+      pageSignal ? { signal: pageSignal } : false,
     );
   }
 
@@ -147,7 +147,11 @@
         window.location.href = path;
       }
     };
-    card.addEventListener("click", handleActivate, pageSignal ? { signal: pageSignal } : false);
+    card.addEventListener(
+      "click",
+      handleActivate,
+      pageSignal ? { signal: pageSignal } : false,
+    );
     card.addEventListener(
       "keydown",
       (event) => {
@@ -156,22 +160,22 @@
           handleActivate();
         }
       },
-      pageSignal ? { signal: pageSignal } : false
+      pageSignal ? { signal: pageSignal } : false,
     );
   }
 
   function updateSuggestion() {
     if (
-      !elements.suggestionTitle
-      || !elements.suggestionSubtitle
-      || !elements.suggestionCard
+      !elements.suggestionTitle ||
+      !elements.suggestionSubtitle ||
+      !elements.suggestionCard
     ) {
       return;
     }
     const history = getRouteHistory();
     const counts = getRouteCounts();
     const recent = history.find(
-      (entry) => entry.path !== "/" && entry.path !== "/landing"
+      (entry) => entry.path !== "/" && entry.path !== "/landing",
     );
     const frequent = getMostVisitedPath(counts);
     const pick = recent || frequent;
@@ -215,7 +219,7 @@
     };
 
     const frequentTiles = new Set(
-      frequentPaths.map((path) => pathToTile[path]).filter(Boolean)
+      frequentPaths.map((path) => pathToTile[path]).filter(Boolean),
     );
 
     elements.navTiles.forEach((tile) => {
@@ -291,7 +295,10 @@
     if (elements.recordCard) {
       const existing = getStoredValue("es:record-metrics") || {};
       const previous = Number(existing.longestTrip || 0);
-      elements.recordCard.classList.toggle("is-record", recordDistanceCache > previous);
+      elements.recordCard.classList.toggle(
+        "is-record",
+        recordDistanceCache > previous,
+      );
     }
 
     return recordDistanceCache;
@@ -388,7 +395,7 @@
           temp,
           label,
           timestamp: Date.now(),
-        })
+        }),
       );
     } catch {
       // Ignore storage failures.
@@ -447,8 +454,12 @@
       const trips = parseInt(data.total_trips, 10) || 0;
 
       if (window.metricAnimator?.animate) {
-        window.metricAnimator.animate(elements.statMiles, miles, { decimals: 0 });
-        window.metricAnimator.animate(elements.statTrips, trips, { decimals: 0 });
+        window.metricAnimator.animate(elements.statMiles, miles, {
+          decimals: 0,
+        });
+        window.metricAnimator.animate(elements.statTrips, trips, {
+          decimals: 0,
+        });
       } else {
         animateValue(elements.statMiles, miles, formatMiles);
         animateValue(elements.statTrips, trips, formatNumber);
@@ -587,7 +598,9 @@
     const activityHtml = trips
       .slice(0, CONFIG.activityLimit)
       .map((trip, index) => {
-        const distance = trip.distance ? parseFloat(trip.distance).toFixed(1) : "?";
+        const distance = trip.distance
+          ? parseFloat(trip.distance).toFixed(1)
+          : "?";
         const destination = formatDestination(trip.destination);
         const time = trip.endTime || trip.startTime;
         const timeAgo = time ? formatTimeAgo(new Date(time)) : "";
@@ -651,12 +664,12 @@
           } else {
             window.notificationManager?.show(
               "Share is not available on this device",
-              "info"
+              "info",
             );
           }
         }
       },
-      pageSignal ? { signal: pageSignal } : false
+      pageSignal ? { signal: pageSignal } : false,
     );
     swipeActionsBound = true;
   }
@@ -690,7 +703,8 @@
       return;
     }
 
-    const startValue = parseFloat(element.textContent.replace(/[^0-9.-]/g, "")) || 0;
+    const startValue =
+      parseFloat(element.textContent.replace(/[^0-9.-]/g, "")) || 0;
     const startTime = performance.now();
     const duration = CONFIG.animationDuration;
 

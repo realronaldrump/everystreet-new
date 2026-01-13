@@ -12,5 +12,5 @@ onPageLoad(
       });
     }
   },
-  { route: "/optimal-routes" }
+  { route: "/optimal-routes" },
 );
