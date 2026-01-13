@@ -104,8 +104,8 @@ export async function showTaskDetails(taskId) {
     runBtn.dataset.taskId = taskId;
   }
 
-  modalBody.innerHTML
-    = '<div class="text-center"><i class="fas fa-spinner fa-spin"></i> Loading...</div>';
+  modalBody.innerHTML =
+    '<div class="text-center"><i class="fas fa-spinner fa-spin"></i> Loading...</div>';
 
   const bsModal = new bootstrap.Modal(modal);
   bsModal.show();
@@ -214,9 +214,10 @@ export function showTaskLogsModal(entry) {
   }
 
   const contentDiv = modal.querySelector("#taskLogsContent");
-  
+
   // Format the result/error for display
-  let resultHtml = '<div class="text-muted fst-italic">No result data available</div>';
+  let resultHtml =
+    '<div class="text-muted fst-italic">No result data available</div>';
   let summaryHtml = "";
 
   if (entry.result) {
@@ -227,14 +228,22 @@ export function showTaskLogsModal(entry) {
     try {
       const keys = Object.keys(entry.result);
       const metrics = [];
-      
-      keys.forEach(key => {
+
+      keys.forEach((key) => {
         const val = entry.result[key];
         // Check for numeric values or short strings that look like status/counts
-        if (typeof val === 'number' || (typeof val === 'string' && val.length < 20) || typeof val === 'boolean') {
-           // Skip internal or uninteresting keys if needed, but for now show all top-level primitives
-           const label = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-           metrics.push(`<div class="col-md-4 mb-2"><strong>${escapeHtml(label)}:</strong> ${escapeHtml(String(val))}</div>`);
+        if (
+          typeof val === "number" ||
+          (typeof val === "string" && val.length < 20) ||
+          typeof val === "boolean"
+        ) {
+          // Skip internal or uninteresting keys if needed, but for now show all top-level primitives
+          const label = key
+            .replace(/_/g, " ")
+            .replace(/\b\w/g, (l) => l.toUpperCase());
+          metrics.push(
+            `<div class="col-md-4 mb-2"><strong>${escapeHtml(label)}:</strong> ${escapeHtml(String(val))}</div>`,
+          );
         }
       });
 
