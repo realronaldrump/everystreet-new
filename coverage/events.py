@@ -76,7 +76,6 @@ class CoverageEvents:
     """Standard coverage event type constants."""
 
     TRIP_COMPLETED = "trip_completed"
-    TRIP_UPLOADED = "trip_uploaded"
     AREA_CREATED = "area_created"
     AREA_DELETED = "area_deleted"
     COVERAGE_UPDATED = "coverage_updated"
@@ -96,28 +95,11 @@ async def emit_trip_completed(
     """
     Emit a trip_completed event.
 
-    Called when a live tracking trip ends or a trip is uploaded. This
-    triggers coverage updates for all relevant areas.
+    Called when a live tracking trip ends. This triggers coverage updates
+    for all relevant areas.
     """
     await emit(
         CoverageEvents.TRIP_COMPLETED,
-        trip_id=trip_id,
-        trip_data=trip_data,
-        timestamp=datetime.now(UTC),
-    )
-
-
-async def emit_trip_uploaded(
-    trip_id: PydanticObjectId | str,
-    trip_data: dict[str, Any] | None = None,
-) -> None:
-    """
-    Emit a trip_uploaded event.
-
-    Called when a trip is uploaded via GPX/file import.
-    """
-    await emit(
-        CoverageEvents.TRIP_UPLOADED,
         trip_id=trip_id,
         trip_data=trip_data,
         timestamp=datetime.now(UTC),

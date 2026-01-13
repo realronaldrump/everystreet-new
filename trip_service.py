@@ -1,5 +1,4 @@
 import asyncio
-import json
 import logging
 import time
 from collections.abc import Callable
@@ -273,36 +272,6 @@ class TripService:
                 )
 
         return result
-
-    @with_comprehensive_handling
-    async def process_uploaded_trip(
-        self,
-        trip_data: dict[str, Any],
-        source: str = "upload",
-    ) -> str | None:
-        """Process and store an uploaded trip."""
-        # Standardize GPS data if needed
-        gps_data = trip_data.get("gps")
-        if isinstance(gps_data, str):
-            try:
-                gps_data = json.loads(gps_data)
-                trip_data["gps"] = gps_data
-            except json.JSONDecodeError:
-                transaction_id = trip_data.get("transactionId", "unknown")
-                logger.warning("Invalid GPS data for trip %s", transaction_id)
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Invalid GPS JSON for trip {transaction_id}",
-                )
-
-        # Process with TripProcessor
-        processor = TripProcessor(
-            mapbox_token=self.mapbox_token,
-            source=source,
-        )
-        processor.set_trip_data(trip_data)
-        await processor.process(do_map_match=False)
-        return await processor.save()
 
     @with_comprehensive_handling
     async def process_bouncie_trips(

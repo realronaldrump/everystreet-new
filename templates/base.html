@@ -312,15 +312,6 @@ Data
                       Export Data
                       </a>
                     </li>
-                    <li role="none">
-                      <a class="dropdown-item {% if request.url.path == '/upload' %}active{% endif %}"
-                         href="/upload"
-                         role="menuitem"
-                         {% if request.url.path == '/upload' %}aria-current="page"{% endif %}>
-                        <i class="fas fa-upload me-2" aria-hidden="true"></i>
-                      Upload GPX
-                      </a>
-                    </li>
                     <li role="separator">
                       <hr class="dropdown-divider" />
                     </li>
@@ -533,13 +524,6 @@ System
                      class="{% if request.url.path == '/export' %}active{% endif %}"
                      {% if request.url.path == '/export' %}aria-current="page"{% endif %}>
                     <i class="fas fa-file-export me-2" aria-hidden="true"></i> Export Data
-                  </a>
-                </li>
-                <li role="none">
-                  <a href="/upload"
-                     class="{% if request.url.path == '/upload' %}active{% endif %}"
-                     {% if request.url.path == '/upload' %}aria-current="page"{% endif %}>
-                    <i class="fas fa-upload me-2" aria-hidden="true"></i> Upload GPX
                   </a>
                 </li>
               </ul>

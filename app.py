@@ -28,7 +28,6 @@ from profile_api import router as profile_api_router
 from search_api import router as search_api_router
 from tasks_api import router as tasks_api_router
 from trips import router as trips_router
-from upload_api import router as upload_api_router
 from visits import router as visits_router
 
 load_dotenv()
@@ -122,7 +121,6 @@ app.include_router(profile_api_router)
 app.include_router(search_api_router)
 app.include_router(tasks_api_router)
 app.include_router(trips_router)
-app.include_router(upload_api_router)
 app.include_router(visits_router)
 
 

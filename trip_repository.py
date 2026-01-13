@@ -49,7 +49,7 @@ class TripRepository:
 
         Args:
             trip_data: The processed trip data dictionary
-            source: Source of the trip data (api, upload, bouncie, etc.)
+            source: Source of the trip data (api, bouncie, etc.)
             state_history: Processing state history
 
         Returns:

@@ -103,16 +103,6 @@ async def export_page(request: Request):
     return _render_page("export.html", request)
 
 
-@router.get("/upload", response_class=HTMLResponse)
-async def upload_page(request: Request):
-    """Render upload page."""
-    return _render_page(
-        "upload.html",
-        request,
-        MAPBOX_ACCESS_TOKEN=get_mapbox_token(),
-    )
-
-
 @router.get(
     "/coverage-management",
     response_class=HTMLResponse,
