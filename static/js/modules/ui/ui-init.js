@@ -16,7 +16,6 @@ import swipeDismiss from "./swipe-dismiss.js";
 import widgetManager from "./widget-manager.js";
 import personalization from "./personalization.js";
 import contextualUI from "./contextual-ui.js";
-import achievements from "./achievements.js";
 
 function init() {
   if (uiState.initialized) {
@@ -36,7 +35,6 @@ function init() {
     widgetManager.init?.();
     personalization.init?.();
     contextualUI.init?.();
-    achievements.init?.();
     mapControlsManager.init?.();
     filterIndicatorManager.init?.();
     perf.init?.();
