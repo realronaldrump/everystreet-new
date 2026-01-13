@@ -8,15 +8,16 @@ Every Street - Trips
 {%
 block extra_css %}
 
-  <!-- Mapbox GL CSS -->
-  <link rel="stylesheet" href="{{ CDN.mapbox_gl_css }}" />
-  <link rel="stylesheet" href="{{ url_for('static', path='css/modern-map.css') | replace('http://', '//') }}" />
+<!-- Mapbox GL CSS -->
+<link rel="stylesheet" href="{{ CDN.mapbox_gl_css }}" />
+<link rel="stylesheet"
+      href="{{ url_for('static', path='css/modern-map.css') | replace('http://', '//') }}" />
 
-  <!-- DataTables CSS -->
-  <link rel="stylesheet" href="{{ CDN.datatables_css }}" />
-  <link rel="stylesheet" href="{{ CDN.datatables_buttons_css }}" />
-  <link rel="stylesheet"
-        href="{{ url_for('static', path='css/trips.css') | replace('http://', '//') }}" />
+<!-- DataTables CSS -->
+<link rel="stylesheet" href="{{ CDN.datatables_css }}" />
+<link rel="stylesheet" href="{{ CDN.datatables_buttons_css }}" />
+<link rel="stylesheet"
+      href="{{ url_for('static', path='css/trips.css') | replace('http://', '//') }}" />
 {% endblock %}
 
 
@@ -205,23 +206,30 @@ Actions
         <div class="modal-content">
           <div class="modal-header">
             <div>
-              <h5 class="modal-title" id="tripModalTitle">Trip Details</h5>
-              <div class="text-muted small" id="tripModalSubtitle"></div>
+              <h5 class="modal-title" id="tripModalTitle">
+Trip Details
+              </h5>
+              <div class="text-muted small" id="tripModalSubtitle">
+              </div>
             </div>
-            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close">
+            </button>
           </div>
           <div class="modal-body p-0">
             <div class="row g-0">
               <!-- Map Column -->
               <div class="col-lg-8 position-relative" style="min-height: 400px; height: 60vh;">
-                <div id="trip-modal-map" style="width: 100%; height: 100%;"></div>
+                <div id="trip-modal-map" style="width: 100%; height: 100%;">
+                </div>
                 <div class="trip-playback-controls glass" aria-label="Trip playback controls">
                   <button class="btn btn-sm btn-primary" id="trip-playback-toggle" aria-pressed="false">
                     <i class="fas fa-play"></i>
                     <span>Play</span>
                   </button>
                   <div class="trip-playback-speed">
-                    <label for="trip-playback-speed" class="form-label">Speed</label>
+                    <label for="trip-playback-speed" class="form-label">
+Speed
+                    </label>
                     <input type="range"
                            class="form-range"
                            id="trip-playback-speed"
@@ -233,69 +241,97 @@ Actions
                   </div>
                 </div>
                 <!-- Loading Overlay for Map -->
-                <div id="trip-map-loading" class="position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center bg-dark bg-opacity-75 z-2">
+                <div id="trip-map-loading"
+                     class="position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center bg-dark bg-opacity-75 z-2">
                   <div class="text-center">
-                    <div class="spinner-border text-primary mb-2" role="status"></div>
-                    <div>Loading trip data...</div>
+                    <div class="spinner-border text-primary mb-2" role="status">
+                    </div>
+                    <div>
+Loading trip data...
+                    </div>
                   </div>
                 </div>
               </div>
               <!-- Details Column -->
               <div class="col-lg-4 p-4 overflow-auto" style="max-height: 60vh;">
-                <h6 class="text-uppercase text-secondary small fw-bold mb-3">Statistics</h6>
-                
+                <h6 class="text-uppercase text-secondary small fw-bold mb-3">
+Statistics
+                </h6>
+
                 <div class="d-flex align-items-center mb-4">
-                   <div class="me-3 text-center" style="width: 40px;">
-                     <i class="fas fa-road fa-lg text-primary"></i>
-                   </div>
-                   <div>
-                     <div class="small text-muted">Distance</div>
-                     <div class="fs-5 fw-medium" id="modal-distance">--</div>
-                   </div>
+                  <div class="me-3 text-center" style="width: 40px;">
+                    <i class="fas fa-road fa-lg text-primary"></i>
+                  </div>
+                  <div>
+                    <div class="small text-muted">
+Distance
+                    </div>
+                    <div class="fs-5 fw-medium" id="modal-distance">
+--
+                    </div>
+                  </div>
                 </div>
 
                 <div class="d-flex align-items-center mb-4">
-                   <div class="me-3 text-center" style="width: 40px;">
-                     <i class="far fa-clock fa-lg text-info"></i>
-                   </div>
-                   <div>
-                     <div class="small text-muted">Duration</div>
-                     <div class="fs-5 fw-medium" id="modal-duration">--</div>
-                   </div>
+                  <div class="me-3 text-center" style="width: 40px;">
+                    <i class="far fa-clock fa-lg text-info"></i>
+                  </div>
+                  <div>
+                    <div class="small text-muted">
+Duration
+                    </div>
+                    <div class="fs-5 fw-medium" id="modal-duration">
+--
+                    </div>
+                  </div>
                 </div>
 
                 <div class="d-flex align-items-center mb-4">
-                   <div class="me-3 text-center" style="width: 40px;">
-                     <i class="fas fa-tachometer-alt fa-lg text-warning"></i>
-                   </div>
-                   <div>
-                     <div class="small text-muted">Max Speed</div>
-                     <div class="fs-5 fw-medium" id="modal-max-speed">--</div>
-                   </div>
+                  <div class="me-3 text-center" style="width: 40px;">
+                    <i class="fas fa-tachometer-alt fa-lg text-warning"></i>
+                  </div>
+                  <div>
+                    <div class="small text-muted">
+Max Speed
+                    </div>
+                    <div class="fs-5 fw-medium" id="modal-max-speed">
+--
+                    </div>
+                  </div>
                 </div>
 
                 <div class="d-flex align-items-center mb-4">
-                   <div class="me-3 text-center" style="width: 40px;">
-                     <i class="fas fa-gas-pump fa-lg text-danger"></i>
-                   </div>
-                   <div>
-                     <div class="small text-muted">Fuel Consumed</div>
-                     <div class="fs-5 fw-medium" id="modal-fuel">--</div>
-                   </div>
+                  <div class="me-3 text-center" style="width: 40px;">
+                    <i class="fas fa-gas-pump fa-lg text-danger"></i>
+                  </div>
+                  <div>
+                    <div class="small text-muted">
+Fuel Consumed
+                    </div>
+                    <div class="fs-5 fw-medium" id="modal-fuel">
+--
+                    </div>
+                  </div>
                 </div>
 
-                <hr>
+                <hr />
 
-                <h6 class="text-uppercase text-secondary small fw-bold mb-3">Locations</h6>
+                <h6 class="text-uppercase text-secondary small fw-bold mb-3">
+Locations
+                </h6>
                 <div class="mb-3">
-                  <div class="small text-muted mb-1">Start</div>
+                  <div class="small text-muted mb-1">
+Start
+                  </div>
                   <div class="d-flex">
                     <i class="fas fa-map-marker-alt text-success mt-1 me-2"></i>
                     <span id="modal-start-loc">--</span>
                   </div>
                 </div>
                 <div>
-                  <div class="small text-muted mb-1">End</div>
+                  <div class="small text-muted mb-1">
+End
+                  </div>
                   <div class="d-flex">
                     <i class="fas fa-map-marker-alt text-danger mt-1 me-2"></i>
                     <span id="modal-end-loc">--</span>
@@ -318,7 +354,7 @@ Actions
   <script src="{{ CDN.mapbox_gl_js }}"></script>
   <script src="{{ url_for('static', path='js/map-base.js') | replace('http://', '//') }}"></script>
   <script>
-    window.MAPBOX_ACCESS_TOKEN = "{{ MAPBOX_ACCESS_TOKEN }}";
+      window.MAPBOX_ACCESS_TOKEN = "{{ MAPBOX_ACCESS_TOKEN }}";
   </script>
 
   <!-- DataTables JS -->

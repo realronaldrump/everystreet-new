@@ -4,6 +4,7 @@
  * Coordinates modules and handles initialization
  */
 
+import { onPageLoad } from "../utils.js";
 import { buildExportUrl } from "./api.js";
 import { EXPORT_CONFIG, EXPORT_TIMEOUT_MS } from "./config.js";
 import { downloadFile } from "./download.js";
@@ -16,7 +17,6 @@ import {
   updateUIBasedOnFormat,
 } from "./ui.js";
 import { initUndrivenStreetsExport } from "./undriven-streets.js";
-import { onPageLoad } from "../utils.js";
 
 /**
  * ExportManager class
@@ -176,9 +176,12 @@ class ExportManager {
 const exportManager = new ExportManager();
 
 // Initialize on page load
-onPageLoad(() => {
-  exportManager.init();
-}, { route: "/export" });
+onPageLoad(
+  () => {
+    exportManager.init();
+  },
+  { route: "/export" }
+);
 
 // Expose validateLocation globally for inline onclick handlers
 window.validateLocation = validateLocation;

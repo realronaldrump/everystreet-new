@@ -4,6 +4,7 @@
  * Main initialization and event handling for the driving insights page
  */
 
+import { onPageLoad } from "../utils.js";
 import * as InsightsAPI from "./api.js";
 import * as InsightsCharts from "./charts.js";
 import * as InsightsExport from "./export.js";
@@ -11,7 +12,6 @@ import * as InsightsFormatters from "./formatters.js";
 import * as InsightsMetrics from "./metrics.js";
 import * as InsightsState from "./state.js";
 import * as InsightsTables from "./tables.js";
-import { onPageLoad } from "../utils.js";
 
 let globalListenersBound = false;
 
@@ -253,7 +253,7 @@ export function hideLoadingStates() {
  * Start auto-refresh interval
  */
 function startAutoRefresh() {
-  const state = InsightsState.getState();
+  const _state = InsightsState.getState();
 
   // Clear any existing interval
   stopAutoRefresh();

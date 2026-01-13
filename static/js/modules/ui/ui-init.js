@@ -1,21 +1,21 @@
 import uiState from "../ui-state.js";
 import { utils } from "../utils.js";
+import contextualUI from "./contextual-ui.js";
 import dateManager from "./date-manager.js";
 import filterIndicatorManager from "./filter-indicator-manager.js";
+import interactions from "./interactions.js";
 import mapControlsManager from "./map-controls-manager.js";
+import metricAnimator from "./metric-animator.js";
+import mobileNav from "./mobile-nav.js";
+import modalEffects from "./modal-effects.js";
 import panelManager from "./panel-manager.js";
 import perf from "./performance-optimisations.js";
-import themeManager from "./theme-manager.js";
-import interactions from "./interactions.js";
-import metricAnimator from "./metric-animator.js";
-import modalEffects from "./modal-effects.js";
-import mobileNav from "./mobile-nav.js";
+import personalization from "./personalization.js";
 import pullToRefresh from "./pull-to-refresh.js";
 import swipeActions from "./swipe-actions.js";
 import swipeDismiss from "./swipe-dismiss.js";
+import themeManager from "./theme-manager.js";
 import widgetManager from "./widget-manager.js";
-import personalization from "./personalization.js";
-import contextualUI from "./contextual-ui.js";
 
 function init() {
   if (uiState.initialized) {

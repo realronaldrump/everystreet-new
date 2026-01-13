@@ -214,7 +214,7 @@ export function showTaskLogsModal(entry) {
   }
 
   const contentDiv = modal.querySelector("#taskLogsContent");
-  
+
   // Format the result/error for display
   let resultHtml = '<div class="text-muted fst-italic">No result data available</div>';
   let summaryHtml = "";
@@ -227,14 +227,20 @@ export function showTaskLogsModal(entry) {
     try {
       const keys = Object.keys(entry.result);
       const metrics = [];
-      
-      keys.forEach(key => {
+
+      keys.forEach((key) => {
         const val = entry.result[key];
         // Check for numeric values or short strings that look like status/counts
-        if (typeof val === 'number' || (typeof val === 'string' && val.length < 20) || typeof val === 'boolean') {
-           // Skip internal or uninteresting keys if needed, but for now show all top-level primitives
-           const label = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-           metrics.push(`<div class="col-md-4 mb-2"><strong>${escapeHtml(label)}:</strong> ${escapeHtml(String(val))}</div>`);
+        if (
+          typeof val === "number"
+          || (typeof val === "string" && val.length < 20)
+          || typeof val === "boolean"
+        ) {
+          // Skip internal or uninteresting keys if needed, but for now show all top-level primitives
+          const label = key.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
+          metrics.push(
+            `<div class="col-md-4 mb-2"><strong>${escapeHtml(label)}:</strong> ${escapeHtml(String(val))}</div>`
+          );
         }
       });
 
@@ -286,9 +292,9 @@ export function showTaskLogsModal(entry) {
         </div>
       </div>
     </div>
-    
+
     <hr class="border-secondary">
-    
+
     <h6>Execution Result</h6>
     ${summaryHtml}
     ${resultHtml}

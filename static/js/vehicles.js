@@ -59,10 +59,13 @@
   };
 
   // Initialize
-  window.utils?.onPageLoad(() => {
-    initializeEventListeners();
-    loadVehicle();
-  }, { route: "/vehicles" });
+  window.utils?.onPageLoad(
+    () => {
+      initializeEventListeners();
+      loadVehicle();
+    },
+    { route: "/vehicles" }
+  );
 
   /**
    * Initialize event listeners

@@ -6,7 +6,6 @@
  * Formatters are imported from the consolidated formatters.js module.
  */
 import { CONFIG } from "./config.js";
-import store, { LEGACY_KEY_MAP } from "./spa/store.js";
 import {
   escapeHtml,
   formatDateTime,
@@ -16,6 +15,7 @@ import {
   formatVehicleName,
   sanitizeLocation,
 } from "./formatters.js";
+import store, { LEGACY_KEY_MAP } from "./spa/store.js";
 import state from "./state.js";
 
 // Re-export formatters for convenience
@@ -165,7 +165,7 @@ export function throttle(func, limit) {
  */
 export function getStorage(key, defaultValue = null) {
   try {
-    if (Object.prototype.hasOwnProperty.call(LEGACY_KEY_MAP, key)) {
+    if (Object.hasOwn(LEGACY_KEY_MAP, key)) {
       const value = store.getLegacy(key);
       return value ?? defaultValue;
     }
@@ -192,7 +192,7 @@ export function getStorage(key, defaultValue = null) {
  */
 export function setStorage(key, value) {
   try {
-    if (Object.prototype.hasOwnProperty.call(LEGACY_KEY_MAP, key)) {
+    if (Object.hasOwn(LEGACY_KEY_MAP, key)) {
       store.setLegacy(key, value, { source: "utils" });
       return true;
     }
@@ -221,7 +221,7 @@ export function setStorage(key, value) {
  */
 export function removeStorage(key) {
   try {
-    if (Object.prototype.hasOwnProperty.call(LEGACY_KEY_MAP, key)) {
+    if (Object.hasOwn(LEGACY_KEY_MAP, key)) {
       store.removeLegacy(key);
       return true;
     }

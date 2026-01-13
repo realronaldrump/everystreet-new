@@ -61,7 +61,8 @@ const router = {
       return;
     }
 
-    this.main = document.getElementById("route-content")
+    this.main
+      = document.getElementById("route-content")
       || document.getElementById("main-content");
     this.shell = document.getElementById("persistent-shell");
     this.scriptHost = document.getElementById("spa-scripts");
@@ -293,7 +294,7 @@ const router = {
       script.setAttribute("data-es-dynamic", "script");
 
       if (node.src) {
-        const src = node.src;
+        const { src } = node;
         if (loadedScripts.has(src)) {
           continue;
         }
@@ -301,7 +302,9 @@ const router = {
         script.src = src;
         const loadPromise = new Promise((resolve, reject) => {
           script.addEventListener("load", resolve, { once: true });
-          script.addEventListener("error", () => reject(new Error(`Failed to load ${src}`)));
+          script.addEventListener("error", () =>
+            reject(new Error(`Failed to load ${src}`))
+          );
         });
         this.scriptHost.appendChild(script);
         await Promise.allSettled([loadPromise]);
@@ -395,8 +398,7 @@ const router = {
       const isNaturallyFocusable
         = focusTarget.matches?.(
           "a[href], button, input, select, textarea, details, summary, [tabindex]"
-        )
-        || false;
+        ) || false;
       if (!isNaturallyFocusable) {
         focusTarget.setAttribute("tabindex", "-1");
       }
@@ -553,12 +555,17 @@ const router = {
     } catch {
       // Ignore parse errors.
     }
-    return [{ path: window.location.pathname, title: document.title, timestamp: Date.now() }];
+    return [
+      { path: window.location.pathname, title: document.title, timestamp: Date.now() },
+    ];
   },
 
   saveHistory() {
     try {
-      sessionStorage.setItem(this.historyKey, JSON.stringify(this.routeHistory.slice(-8)));
+      sessionStorage.setItem(
+        this.historyKey,
+        JSON.stringify(this.routeHistory.slice(-8))
+      );
     } catch {
       // Ignore storage failures.
     }
@@ -595,7 +602,7 @@ const router = {
     }
   },
 
-  updateBreadcrumb(fragment) {
+  updateBreadcrumb(_fragment) {
     const trail = document.getElementById("nav-trail");
     const container = document.getElementById("nav-breadcrumb");
     if (!trail || !container) {

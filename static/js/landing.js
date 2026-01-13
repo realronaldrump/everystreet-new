@@ -43,7 +43,6 @@
       greetingTitle: document.getElementById("greeting-title"),
       greetingSubtitle: document.getElementById("greeting-subtitle"),
       weatherChip: document.getElementById("weather-chip"),
-      weatherChip: document.getElementById("weather-chip"),
       statMiles: document.getElementById("stat-miles"),
       statTrips: document.getElementById("stat-trips"),
       liveIndicator: document.getElementById("live-indicator"),
@@ -142,12 +141,18 @@
   }
 
   function updateSuggestion() {
-    if (!elements.suggestionTitle || !elements.suggestionSubtitle || !elements.suggestionCard) {
+    if (
+      !elements.suggestionTitle
+      || !elements.suggestionSubtitle
+      || !elements.suggestionCard
+    ) {
       return;
     }
     const history = getRouteHistory();
     const counts = getRouteCounts();
-    const recent = history.find((entry) => entry.path !== "/" && entry.path !== "/landing");
+    const recent = history.find(
+      (entry) => entry.path !== "/" && entry.path !== "/landing"
+    );
     const frequent = getMostVisitedPath(counts);
     const pick = recent || frequent;
 
@@ -244,8 +249,6 @@
     }
   }
 
-
-
   function updateRecordValue(distance) {
     const numeric = Number(distance);
     if (!Number.isFinite(numeric) || numeric <= 0) {
@@ -274,8 +277,6 @@
     return recordDistanceCache;
   }
 
-
-
   function getRecordDistance(trips) {
     if (!Array.isArray(trips) || trips.length === 0) {
       return 0;
@@ -286,7 +287,7 @@
     }, 0);
   }
 
-  function formatDayKey(date) {
+  function _formatDayKey(date) {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, "0");
     const day = String(date.getDate()).padStart(2, "0");
@@ -470,9 +471,7 @@
       // Populate activity feed
       populateActivityFeed(trips);
 
-      updateRecordValue(
-        recordDistanceCache || getRecordDistance(trips)
-      );
+      updateRecordValue(recordDistanceCache || getRecordDistance(trips));
     } catch {
       populateActivityFeed([]);
 
@@ -613,7 +612,7 @@
       if (!button) {
         return;
       }
-      const action = button.dataset.action;
+      const { action } = button.dataset;
       const item = button.closest("[data-trip-id]");
       const tripId = item?.dataset.tripId;
 
@@ -628,7 +627,10 @@
         if (navigator.share) {
           navigator.share(shareData).catch(() => {});
         } else {
-          window.notificationManager?.show("Share is not available on this device", "info");
+          window.notificationManager?.show(
+            "Share is not available on this device",
+            "info"
+          );
         }
       }
     });

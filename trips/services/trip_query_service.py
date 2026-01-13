@@ -165,19 +165,19 @@ class TripQueryService:
                             "localField": "imei",
                             "foreignField": "imei",
                             "as": "vehicle_docs",
-                        }
+                        },
                     },
                     {
                         "$addFields": {
-                            "vehicle_doc": {"$arrayElemAt": ["$vehicle_docs", 0]}
-                        }
+                            "vehicle_doc": {"$arrayElemAt": ["$vehicle_docs", 0]},
+                        },
                     },
                     {
                         "$addFields": {
                             "vehicleLabelSort": {
                                 "$cond": {
                                     "if": {
-                                        "$ifNull": ["$vehicle_doc.custom_name", False]
+                                        "$ifNull": ["$vehicle_doc.custom_name", False],
                                     },
                                     "then": "$vehicle_doc.custom_name",
                                     "else": {
@@ -188,53 +188,56 @@ class TripQueryService:
                                                         "$ifNull": [
                                                             "$vehicle_doc.make",
                                                             False,
-                                                        ]
+                                                        ],
                                                     },
                                                     {
                                                         "$ifNull": [
                                                             "$vehicle_doc.model",
                                                             False,
-                                                        ]
+                                                        ],
                                                     },
-                                                ]
+                                                ],
                                             },
                                             "then": {
                                                 "$concat": [
                                                     {
                                                         "$ifNull": [
                                                             {
-                                                                "$toString": "$vehicle_doc.year"
+                                                                "$toString": "$vehicle_doc.year",
                                                             },
                                                             "",
-                                                        ]
+                                                        ],
                                                     },
                                                     " ",
                                                     {
                                                         "$ifNull": [
                                                             "$vehicle_doc.make",
                                                             "",
-                                                        ]
+                                                        ],
                                                     },
                                                     " ",
                                                     {
                                                         "$ifNull": [
                                                             "$vehicle_doc.model",
                                                             "",
-                                                        ]
+                                                        ],
                                                     },
-                                                ]
+                                                ],
                                             },
                                             "else": {
-                                                "$ifNull": ["$vehicle_doc.vin", "$imei"]
+                                                "$ifNull": [
+                                                    "$vehicle_doc.vin",
+                                                    "$imei",
+                                                ],
                                             },
-                                        }
+                                        },
                                     },
-                                }
-                            }
-                        }
+                                },
+                            },
+                        },
                     },
                     {"$sort": {"vehicleLabelSort": sort_direction, "startTime": -1}},
-                ]
+                ],
             )
 
         elif sort_column == "duration":
@@ -243,11 +246,11 @@ class TripQueryService:
                 [
                     {
                         "$addFields": {
-                            "duration": {"$subtract": ["$endTime", "$startTime"]}
-                        }
+                            "duration": {"$subtract": ["$endTime", "$startTime"]},
+                        },
                     },
                     {"$sort": {"duration": sort_direction, "startTime": -1}},
-                ]
+                ],
             )
 
         elif sort_column in ["distance", "maxSpeed", "fuelConsumed"]:
@@ -264,7 +267,7 @@ class TripQueryService:
                                                 "$eq": [
                                                     {"$type": f"${sort_column}"},
                                                     "string",
-                                                ]
+                                                ],
                                             },
                                             "then": {"$toDouble": f"${sort_column}"},
                                         },
@@ -273,7 +276,7 @@ class TripQueryService:
                                                 "$eq": [
                                                     {"$type": f"${sort_column}"},
                                                     "missing",
-                                                ]
+                                                ],
                                             },
                                             "then": 0,
                                         },
@@ -283,12 +286,12 @@ class TripQueryService:
                                         },
                                     ],
                                     "default": f"${sort_column}",
-                                }
-                            }
-                        }
+                                },
+                            },
+                        },
                     },
                     {"$sort": {"sortVal": sort_direction, "startTime": -1}},
-                ]
+                ],
             )
 
         if use_aggregation:
@@ -296,7 +299,7 @@ class TripQueryService:
                 [
                     {"$skip": start},
                     {"$limit": length},
-                ]
+                ],
             )
             trips_list = await aggregate_to_list(Trip, pipeline)
         else:

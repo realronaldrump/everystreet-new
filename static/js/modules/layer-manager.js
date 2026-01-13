@@ -2,9 +2,9 @@ import { CONFIG } from "./config.js";
 import dataManager from "./data-manager.js";
 import heatmapUtils from "./heatmap-utils.js";
 import mapManager from "./map-manager.js";
+import store from "./spa/store.js";
 import state from "./state.js";
 import { utils } from "./utils.js";
-import store from "./spa/store.js";
 
 const INTERACTIVE_TRIP_LAYERS = new Set(["trips", "matchedTrips"]);
 

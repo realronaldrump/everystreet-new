@@ -23,7 +23,7 @@
 /* === SPA Progress Bar === */
 .spa-progress {
   position: fixed;
-  top: env(safe-area-inset-top, 0px);
+  top: env(safe-area-inset-top, 0);
   left: 0;
   right: 0;
   height: 3px;

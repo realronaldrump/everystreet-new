@@ -3,6 +3,7 @@
  * Main orchestrator class for file upload functionality
  */
 
+import { onPageLoad } from "../utils.js";
 import {
   bulkDeleteTrips,
   deleteTrip,
@@ -23,7 +24,6 @@ import {
   updateBulkDeleteButtonState,
   updateStats,
 } from "./ui.js";
-import { onPageLoad } from "../utils.js";
 
 /**
  * UploadManager class - orchestrates the upload functionality

@@ -4,6 +4,7 @@
  * Main entry point for the county map feature
  */
 
+import { onPageLoad } from "../utils.js";
 import * as CountyMapAPI from "./api.js";
 import { getStateName, MAP_CONFIG } from "./constants.js";
 import { setupInteractions } from "./interactions.js";
@@ -15,7 +16,6 @@ import {
   getStoredRecalcState,
   storeRecalcState,
 } from "./storage.js";
-import { onPageLoad } from "../utils.js";
 import {
   hideLoading,
   setupPanelToggle,

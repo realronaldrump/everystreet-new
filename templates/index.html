@@ -17,22 +17,32 @@ Every Street - Map
 {% endblock %}
 
 {% block persistent_shell %}
-  {% include "partials/_map_shell.html" %}
+
+{% include "partials/_map_shell.html" %}
+
 {% endblock %}
 
+
 {% block content %}
-  <div class="visually-hidden">Map view</div>
+
+  <div class="visually-hidden">
+Map view
+  </div>
 {% endblock %}
+
 
 
 {% block head_content %}
+
 
   <!-- Removed map-enhancements.css link from here as it's in base.html -->
   <!-- Removed inline styles as they are now in external CSS files -->
 {% endblock %}
 
 
+
 {% block extra_js %}
+
 
   <!-- Mapbox GL JS -->
   <script src="{{ CDN.mapbox_gl_js }}"></script>

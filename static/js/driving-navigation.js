@@ -20,22 +20,25 @@ import { onPageLoad } from "./modules/utils.js";
 /**
  * Initialize driving navigation when page is ready.
  */
-onPageLoad(() => {
-  if (typeof mapboxgl === "undefined") {
-    const mapContainerId
-      = window.coverageNavigatorConfig?.drivingNavigation?.mapContainerId
-      || "driving-map";
-    const mapDiv = document.getElementById(mapContainerId);
-    if (mapDiv) {
-      mapDiv.innerHTML
-        = '<div class="alert alert-danger m-3">Error: Mapping library failed to load.</div>';
+onPageLoad(
+  () => {
+    if (typeof mapboxgl === "undefined") {
+      const mapContainerId
+        = window.coverageNavigatorConfig?.drivingNavigation?.mapContainerId
+        || "driving-map";
+      const mapDiv = document.getElementById(mapContainerId);
+      if (mapDiv) {
+        mapDiv.innerHTML
+          = '<div class="alert alert-danger m-3">Error: Mapping library failed to load.</div>';
+      }
+      return;
     }
-    return;
-  }
 
-  // Initialize driving navigation
-  new DrivingNavigation();
+    // Initialize driving navigation
+    new DrivingNavigation();
 
-  // Inject cluster marker styles
-  DrivingNavigationUI.injectClusterStyles();
-}, { route: "/driving-navigation" });
+    // Inject cluster marker styles
+    DrivingNavigationUI.injectClusterStyles();
+  },
+  { route: "/driving-navigation" }
+);

@@ -66,7 +66,11 @@ const contextualUI = {
           this.setCoverageTone(percent);
         }
       });
-      observer.observe(element, { childList: true, characterData: true, subtree: true });
+      observer.observe(element, {
+        childList: true,
+        characterData: true,
+        subtree: true,
+      });
       this.observers.set(element, observer);
 
       const initial = this.parsePercent(element.textContent || "");

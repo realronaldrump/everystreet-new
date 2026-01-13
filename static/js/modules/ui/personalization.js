@@ -56,7 +56,9 @@ const personalization = {
     this.applyMotion(motion || "balanced");
     if (widgetEditing !== null) {
       document.dispatchEvent(
-        new CustomEvent("widgets:set-edit", { detail: { enabled: widgetEditing === "true" } })
+        new CustomEvent("widgets:set-edit", {
+          detail: { enabled: widgetEditing === "true" },
+        })
       );
     }
   },
@@ -104,7 +106,7 @@ const personalization = {
   },
 
   applyDensity(mode) {
-    const body = document.body;
+    const { body } = document;
     if (!body) {
       return;
     }
@@ -117,7 +119,7 @@ const personalization = {
   },
 
   applyMotion(mode) {
-    const body = document.body;
+    const { body } = document;
     if (!body) {
       return;
     }

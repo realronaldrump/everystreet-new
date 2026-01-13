@@ -37,18 +37,21 @@ const _activeJobPolling = null;
 // Initialization
 // =============================================================================
 
-window.utils?.onPageLoad(async () => {
-  console.log("Coverage Management initialized");
+window.utils?.onPageLoad(
+  async () => {
+    console.log("Coverage Management initialized");
 
-  setupEventListeners();
-  setupBackgroundJobUI();
+    setupEventListeners();
+    setupBackgroundJobUI();
 
-  // Load initial data
-  await loadAreas();
+    // Load initial data
+    await loadAreas();
 
-  // Resume any in-progress job (even after refresh/browser close)
-  await resumeBackgroundJob();
-}, { route: "/coverage-management" });
+    // Resume any in-progress job (even after refresh/browser close)
+    await resumeBackgroundJob();
+  },
+  { route: "/coverage-management" }
+);
 
 function setupEventListeners() {
   // Refresh button
@@ -158,7 +161,7 @@ function showProgressModal() {
   modal.show();
 }
 
-function hideProgressModal() {
+function _hideProgressModal() {
   const el = document.getElementById("taskProgressModal");
   if (!el) {
     return;
@@ -179,9 +182,8 @@ function updateMinimizedBadge() {
   }
 
   const title = document.getElementById("task-progress-title")?.textContent;
-  const pctText = document.querySelector(
-    "#taskProgressModal .progress-bar"
-  )?.textContent || "0%";
+  const pctText
+    = document.querySelector("#taskProgressModal .progress-bar")?.textContent || "0%";
 
   const nameEl = badge.querySelector(".minimized-location-name");
   const pctEl = badge.querySelector(".minimized-progress-percent");

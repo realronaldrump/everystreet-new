@@ -20,7 +20,10 @@
 import TurnByTurnNavigator from "./modules/turn-by-turn/turn-by-turn-navigator.js";
 import { onPageLoad } from "./modules/utils.js";
 
-onPageLoad(() => {
-  const navigator = new TurnByTurnNavigator();
-  navigator.init();
-}, { route: "/turn-by-turn" });
+onPageLoad(
+  () => {
+    const navigator = new TurnByTurnNavigator();
+    navigator.init();
+  },
+  { route: "/turn-by-turn" }
+);

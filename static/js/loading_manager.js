@@ -103,12 +103,11 @@ class LoadingManager {
 
     const blocking
       = typeof messageOptions.blocking === "boolean" ? messageOptions.blocking : false;
-    const compact
-      = blocking
-        ? false
-        : typeof messageOptions.compact === "boolean"
-          ? messageOptions.compact
-          : true;
+    const compact = blocking
+      ? false
+      : typeof messageOptions.compact === "boolean"
+        ? messageOptions.compact
+        : true;
     this.activeOptions = { blocking, compact };
 
     // Cancel any pending hide

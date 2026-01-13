@@ -1,5 +1,3 @@
-import { utils } from "../utils.js";
-
 const RIPPLE_SELECTOR
   = ".btn, .nav-tile, .action-button, .mobile-fab, .mobile-action-btn, [data-ripple]";
 
@@ -99,7 +97,11 @@ const interactions = {
         void element.offsetWidth;
         element.classList.add("value-flash");
       });
-      observer.observe(element, { characterData: true, childList: true, subtree: true });
+      observer.observe(element, {
+        characterData: true,
+        childList: true,
+        subtree: true,
+      });
       this.observers.set(element, observer);
     });
   },

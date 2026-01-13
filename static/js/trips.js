@@ -5,9 +5,9 @@
  */
 
 import { CONFIG } from "./modules/config.js";
-import { TableManager } from "./modules/table-manager.js";
-import store from "./modules/spa/store.js";
 import { optimisticAction } from "./modules/spa/optimistic.js";
+import store from "./modules/spa/store.js";
+import { TableManager } from "./modules/table-manager.js";
 import {
   escapeHtml,
   formatDateTime,

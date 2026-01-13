@@ -7,10 +7,13 @@
   let currentDevices = [];
 
   // Initialize page
-  window.utils?.onPageLoad(() => {
-    initializeEventListeners();
-    loadCredentials();
-  }, { route: "/profile" });
+  window.utils?.onPageLoad(
+    () => {
+      initializeEventListeners();
+      loadCredentials();
+    },
+    { route: "/profile" }
+  );
 
   /**
    * Initialize all event listeners

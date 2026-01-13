@@ -1374,8 +1374,8 @@ class LiveTripTracker {
 
     this.statusIndicator.classList.toggle("connected", connected);
     this.statusIndicator.classList.toggle("disconnected", !connected);
-    const isConnecting = typeof message === "string"
-      && /reconnect|connect|sync/i.test(message);
+    const isConnecting
+      = typeof message === "string" && /reconnect|connect|sync/i.test(message);
     this.statusIndicator.classList.toggle("connecting", !connected && isConnecting);
 
     const statusMsg = message || (connected ? "Connected" : "Disconnected");

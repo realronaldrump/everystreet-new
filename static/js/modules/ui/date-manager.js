@@ -1,7 +1,7 @@
 import { CONFIG } from "../config.js";
+import store from "../spa/store.js";
 import { uiState } from "../ui-state.js";
 import { utils } from "../utils.js";
-import store from "../spa/store.js";
 import eventManager from "./event-manager.js";
 import panelManager from "./panel-manager.js";
 
@@ -73,8 +73,7 @@ const dateManager = {
       if (detail.source === "filters") {
         return;
       }
-      const nextStart
-        = detail.startDate || store.get("filters.startDate") || startDate;
+      const nextStart = detail.startDate || store.get("filters.startDate") || startDate;
       const nextEnd = detail.endDate || store.get("filters.endDate") || endDate;
       if (!nextStart || !nextEnd) {
         return;

@@ -1,9 +1,9 @@
 /* global mapboxgl */
 
 import { CONFIG } from "./config.js";
+import store from "./spa/store.js";
 import state from "./state.js";
 import { utils } from "./utils.js";
-import store from "./spa/store.js";
 
 // NOTE: this is extracted verbatim from `app.js` to keep behaviour identical.
 // Future refactors can safely trim dependencies now that the code is isolated.
@@ -45,7 +45,8 @@ const mapManager = {
       const latParam = parseFloat(urlParams.get("lat"));
       const lngParam = parseFloat(urlParams.get("lng"));
       const zoomParam = parseFloat(urlParams.get("zoom"));
-      const savedView = store.get("map.view") || utils.getStorage(CONFIG.STORAGE_KEYS.mapView);
+      const savedView
+        = store.get("map.view") || utils.getStorage(CONFIG.STORAGE_KEYS.mapView);
       const mapCenter
         = !Number.isNaN(latParam) && !Number.isNaN(lngParam)
           ? [lngParam, latParam]
@@ -436,10 +437,7 @@ const mapManager = {
     const { features } = state.mapLayers.trips.layer;
     const tripFeature = features.find((f) => {
       const fId
-        = f.properties?.transactionId
-        || f.properties?.id
-        || f.properties?.tripId
-        || f.id;
+        = f.properties?.transactionId || f.properties?.id || f.properties?.tripId || f.id;
       return String(fId) === String(tripId);
     });
 

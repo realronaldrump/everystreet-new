@@ -95,7 +95,9 @@
   flex: 1 1 auto;
   display: flex;
   flex-direction: column;
-  transition: opacity var(--transition-fast), transform var(--transition-fast);
+  transition:
+    opacity var(--transition-fast),
+    transform var(--transition-fast);
 }
 
 .route-content.is-transitioning {

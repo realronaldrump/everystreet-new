@@ -242,7 +242,11 @@ class ESStore {
     if (options.emit !== false) {
       this._emit("es:layers-change", { visibility, source: options.source });
     }
-    this._notify({ path: "layers.visibility", value: visibility, source: options.source });
+    this._notify({
+      path: "layers.visibility",
+      value: visibility,
+      source: options.source,
+    });
   }
 
   applyUrlParams(url, options = {}) {
@@ -335,7 +339,7 @@ class ESStore {
       url.searchParams.delete("vehicle");
     }
 
-    const view = this.state.map.view;
+    const { view } = this.state.map;
     if (view && Array.isArray(view.center)) {
       url.searchParams.set("lat", Number(view.center[1]).toFixed(5));
       url.searchParams.set("lng", Number(view.center[0]).toFixed(5));
