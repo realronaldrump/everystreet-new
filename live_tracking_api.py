@@ -34,7 +34,7 @@ from live_tracking import (
     process_trip_start,
 )
 from redis_config import get_redis_url
-from trip_event_publisher import TRIP_UPDATES_CHANNEL
+from trip_event_publisher import TRIP_UPDATES_CHANNEL, json_serializer
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -146,6 +146,7 @@ async def websocket_endpoint(websocket: WebSocket):
                         "trip": initial_trip_payload,
                         "status": initial_trip_payload.get("status", "active"),
                     },
+                    default=json_serializer,
                 ),
             )
 
@@ -184,6 +185,7 @@ async def websocket_endpoint(websocket: WebSocket):
                             "status": event_data.get("status", "active"),
                             "transaction_id": event_data.get("transaction_id"),
                         },
+                        default=json_serializer,
                     ),
                 )
 
