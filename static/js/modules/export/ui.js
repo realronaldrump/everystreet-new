@@ -42,7 +42,6 @@ export function cacheElements() {
   // Data source checkboxes
   elements.includeTrips = document.getElementById("include-trips");
   elements.includeMatchedTrips = document.getElementById("include-matched-trips");
-  elements.includeUploadedTrips = document.getElementById("include-uploaded-trips");
 
   // Data field checkboxes
   elements.includeBasicInfo = document.getElementById("include-basic-info");

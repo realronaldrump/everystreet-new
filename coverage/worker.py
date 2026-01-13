@@ -88,20 +88,6 @@ async def handle_trip_completed(
         raise
 
 
-@on_event(CoverageEvents.TRIP_UPLOADED)
-async def handle_trip_uploaded(
-    trip_id: PydanticObjectId | str,
-    trip_data: dict[str, Any] | None = None,
-    **kwargs,
-) -> None:
-    """
-    Handle a trip_uploaded event.
-
-    Delegates to the same handler as trip_completed.
-    """
-    await handle_trip_completed(trip_id=trip_id, trip_data=trip_data, **kwargs)
-
-
 async def update_coverage_for_segments(
     area_id: PydanticObjectId,
     segment_ids: list[str],

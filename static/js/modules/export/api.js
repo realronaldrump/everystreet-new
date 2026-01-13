@@ -62,7 +62,6 @@ export function buildAdvancedExportUrl(config, elements, saveSettings) {
   const flags = {
     include_trips: elements.includeTrips,
     include_matched_trips: elements.includeMatchedTrips,
-    include_uploaded_trips: elements.includeUploadedTrips,
     include_basic_info: elements.includeBasicInfo,
     include_locations: elements.includeLocations,
     include_telemetry: elements.includeTelemetry,

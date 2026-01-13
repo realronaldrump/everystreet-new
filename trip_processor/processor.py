@@ -41,7 +41,7 @@ class TripProcessor:
 
         Args:
             mapbox_token: The Mapbox access token for map matching and geocoding
-            source: Source of the trip data (api, upload, upload_gpx, bouncie, etc.)
+            source: Source of the trip data (api, bouncie, etc.)
             geocoding_service: Optional geocoding service instance (for testing/DI)
             map_matching_service: Optional map matching service instance (for testing/DI)
             repository: Optional TripRepository instance (for testing/DI)

@@ -66,7 +66,6 @@ export const ADVANCED_EXPORT_ELEMENTS = {
   // Data source checkboxes
   includeTrips: "include-trips",
   includeMatchedTrips: "include-matched-trips",
-  includeUploadedTrips: "include-uploaded-trips",
 
   // Data field checkboxes
   includeBasicInfo: "include-basic-info",

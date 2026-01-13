@@ -173,7 +173,6 @@
       "/insights": "insights",
       "/gas-tracking": "gas",
       "/visits": "visits",
-      "/upload": "upload",
       "/export": "export",
       "/coverage-management": "areas",
       "/settings": "settings",

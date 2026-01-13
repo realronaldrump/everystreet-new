@@ -69,9 +69,6 @@ export const CONFIG = {
     // Vehicle endpoints
     vehicles: "/api/vehicles",
 
-    // Upload endpoints
-    uploadGpx: "/api/upload_gpx",
-
     // Caching and retry settings
     cacheTime: 30000,
     retryAttempts: 3,
