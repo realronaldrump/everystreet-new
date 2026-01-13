@@ -32,10 +32,16 @@ const spotlightPlugin = {
           return color;
         }
         if (color.startsWith("rgba")) {
-          return color.replace(/rgba\\(([^,]+),\\s*([^,]+),\\s*([^,]+),\\s*[^)]+\\)/, `rgba($1, $2, $3, ${targetAlpha})`);
+          return color.replace(
+            /rgba\\(([^,]+),\\s*([^,]+),\\s*([^,]+),\\s*[^)]+\\)/,
+            `rgba($1, $2, $3, ${targetAlpha})`,
+          );
         }
         if (color.startsWith("rgb")) {
-          return color.replace(/rgb\\(([^,]+),\\s*([^,]+),\\s*([^,]+)\\)/, `rgba($1, $2, $3, ${targetAlpha})`);
+          return color.replace(
+            /rgb\\(([^,]+),\\s*([^,]+),\\s*([^,]+)\\)/,
+            `rgba($1, $2, $3, ${targetAlpha})`,
+          );
         }
         return color;
       };
@@ -48,7 +54,10 @@ const spotlightPlugin = {
         ? orig.borderColor.map(applyAlpha)
         : applyAlpha(orig.borderColor);
 
-      if (dataset.backgroundColor !== nextBackground || dataset.borderColor !== nextBorder) {
+      if (
+        dataset.backgroundColor !== nextBackground ||
+        dataset.borderColor !== nextBorder
+      ) {
         dataset.backgroundColor = nextBackground;
         dataset.borderColor = nextBorder;
         didUpdate = true;
@@ -80,10 +89,16 @@ function attachZoomPan(chart) {
   const clampRange = () => {
     const minRange = Math.min(10, labels.length - 1);
     const maxRange = labels.length - 1;
-    const range = Math.max(minRange, Math.min(maxRange, state.maxIndex - state.minIndex));
+    const range = Math.max(
+      minRange,
+      Math.min(maxRange, state.maxIndex - state.minIndex),
+    );
     const center = (state.minIndex + state.maxIndex) / 2;
     state.minIndex = Math.max(0, Math.round(center - range / 2));
-    state.maxIndex = Math.min(labels.length - 1, Math.round(center + range / 2));
+    state.maxIndex = Math.min(
+      labels.length - 1,
+      Math.round(center + range / 2),
+    );
   };
 
   const applyRange = () => {
@@ -97,7 +112,10 @@ function attachZoomPan(chart) {
     const zoomFactor = event.deltaY > 0 ? 1.2 : 0.8;
     const range = state.maxIndex - state.minIndex;
     const center = (state.minIndex + state.maxIndex) / 2;
-    const newRange = Math.max(5, Math.min(labels.length - 1, Math.round(range * zoomFactor)));
+    const newRange = Math.max(
+      5,
+      Math.min(labels.length - 1, Math.round(range * zoomFactor)),
+    );
     state.minIndex = Math.round(center - newRange / 2);
     state.maxIndex = Math.round(center + newRange / 2);
     clampRange();
@@ -141,7 +159,10 @@ function attachZoomPan(chart) {
       return;
     }
     const [a, b] = event.touches;
-    state.pinchStartDistance = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+    state.pinchStartDistance = Math.hypot(
+      a.clientX - b.clientX,
+      a.clientY - b.clientY,
+    );
   });
 
   chart.canvas.addEventListener("touchmove", (event) => {
@@ -153,7 +174,10 @@ function attachZoomPan(chart) {
     const zoomFactor = distance > state.pinchStartDistance ? 0.9 : 1.1;
     const range = state.maxIndex - state.minIndex;
     const center = (state.minIndex + state.maxIndex) / 2;
-    const newRange = Math.max(5, Math.min(labels.length - 1, Math.round(range * zoomFactor)));
+    const newRange = Math.max(
+      5,
+      Math.min(labels.length - 1, Math.round(range * zoomFactor)),
+    );
     state.minIndex = Math.round(center - newRange / 2);
     state.maxIndex = Math.round(center + newRange / 2);
     clampRange();
@@ -170,7 +194,7 @@ function attachLongPressTooltip(chart) {
       event,
       "nearest",
       { intersect: false },
-      true
+      true,
     );
     if (!points.length) {
       return;
@@ -191,7 +215,7 @@ function attachLongPressTooltip(chart) {
       }
       timerId = setTimeout(() => showTooltip(event), 450);
     },
-    { passive: true }
+    { passive: true },
   );
 
   chart.canvas.addEventListener("touchend", () => {
@@ -317,7 +341,9 @@ function initTrendsChart() {
  * Initialize the efficiency chart (doughnut chart)
  */
 function initEfficiencyChart() {
-  const efficiencyCtx = document.getElementById("efficiencyChart")?.getContext("2d");
+  const efficiencyCtx = document
+    .getElementById("efficiencyChart")
+    ?.getContext("2d");
   if (!efficiencyCtx) {
     return;
   }
@@ -370,7 +396,9 @@ function initEfficiencyChart() {
  * Initialize the time distribution chart (bar chart)
  */
 function initTimeDistChart() {
-  const timeDistCtx = document.getElementById("timeDistChart")?.getContext("2d");
+  const timeDistCtx = document
+    .getElementById("timeDistChart")
+    ?.getContext("2d");
   if (!timeDistCtx) {
     return;
   }
@@ -450,7 +478,10 @@ export function updateTrendsChart() {
     return;
   }
 
-  const data = processTimeSeriesData(analytics.daily_distances, state.currentView);
+  const data = processTimeSeriesData(
+    analytics.daily_distances,
+    state.currentView,
+  );
 
   const chart = getChart("trends");
   if (!chart) {
@@ -479,7 +510,11 @@ export function updateEfficiencyChart() {
     return;
   }
 
-  chart.data.datasets[0].data = [fuelEfficiency, idleEfficiency, speedEfficiency];
+  chart.data.datasets[0].data = [
+    fuelEfficiency,
+    idleEfficiency,
+    speedEfficiency,
+  ];
   chart.update();
 }
 
@@ -493,13 +528,13 @@ export function updateTimeDistChart() {
     return;
   }
 
-  const labels
-    = state.currentTimeView === "hour"
+  const labels =
+    state.currentTimeView === "hour"
       ? Array.from({ length: 24 }, (_, i) => formatHourLabel(i))
       : ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-  const data
-    = state.currentTimeView === "hour"
+  const data =
+    state.currentTimeView === "hour"
       ? processHourlyData(analytics.time_distribution)
       : processDailyData(analytics.weekday_distribution);
 
@@ -621,8 +656,8 @@ function processDailyData(weekdayData) {
  * @param {Object} insights - Insights data
  */
 export function calculateFuelEfficiency(insights) {
-  const mpg
-    = insights.total_distance > 0 && insights.total_fuel_consumed > 0
+  const mpg =
+    insights.total_distance > 0 && insights.total_fuel_consumed > 0
       ? insights.total_distance / insights.total_fuel_consumed
       : 0;
 

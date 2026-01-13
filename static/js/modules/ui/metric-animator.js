@@ -35,15 +35,15 @@ const MetricAnimator = {
 
     if (hasCountUp) {
       const existing = elementId ? this.counters.get(elementId) : null;
-      const counter
-        = existing
-          || new CountUp(element, 0, numericValue, decimals, duration, {
-            useEasing: true,
-            useGrouping: true,
-            separator: ",",
-            decimal: ".",
-            suffix,
-          });
+      const counter =
+        existing ||
+        new CountUp(element, 0, numericValue, decimals, duration, {
+          useEasing: true,
+          useGrouping: true,
+          separator: ",",
+          decimal: ".",
+          suffix,
+        });
 
       if (!counter.error) {
         if (!existing && elementId) {
@@ -56,8 +56,8 @@ const MetricAnimator = {
       return;
     }
 
-    const startValue
-      = Number(element.textContent.replace(/[^0-9.-]/g, "")) || 0;
+    const startValue =
+      Number(element.textContent.replace(/[^0-9.-]/g, "")) || 0;
     const startTime = performance.now();
     const targetDuration = duration * 1000;
 

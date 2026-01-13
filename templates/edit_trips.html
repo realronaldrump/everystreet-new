@@ -1,109 +1,84 @@
-{% extends "base.html" %}
+{% extends "base.html" %} {% block title %} Edit Trips - Every Street {%
+endblock %} {% block content %}
 
-{% block title %}
+<div class="container-fluid px-4 py-3">
+  <h1 class="mb-4" data-shared-transition="page-title">Edit Trips</h1>
 
-Edit Trips - Every Street
-{% endblock
-%}
-
-
-{% block content %}
-
-  <div class="container-fluid px-4 py-3">
-    <h1 class="mb-4" data-shared-transition="page-title">
-Edit Trips
-    </h1>
-
-    <!-- Trip Selection Controls -->
-    <div class="row mb-3">
-      <div class="col-md-4">
-        <label for="tripType" class="form-label">
-Trip Type
-        </label>
-        <select class="form-select bg-dark text-white"
-                id="tripType"
-                aria-label="Select trip type">
-          <option value="trips" selected>
-Regular Trips
-          </option>
-          <option value="matched_trips">
-Matched Trips
-          </option>
-        </select>
-      </div>
+  <!-- Trip Selection Controls -->
+  <div class="row mb-3">
+    <div class="col-md-4">
+      <label for="tripType" class="form-label"> Trip Type </label>
+      <select
+        class="form-select bg-dark text-white"
+        id="tripType"
+        aria-label="Select trip type"
+      >
+        <option value="trips" selected>Regular Trips</option>
+        <option value="matched_trips">Matched Trips</option>
+      </select>
     </div>
+  </div>
 
-    <!-- Edit Mode Toggle -->
-    <div class="form-check form-switch mb-3">
-      <input class="form-check-input"
-             type="checkbox"
-             id="editModeToggle"
-             aria-label="Toggle edit mode" />
-      <label class="form-check-label" for="editModeToggle">
-Edit Mode
-      </label>
-    </div>
+  <!-- Edit Mode Toggle -->
+  <div class="form-check form-switch mb-3">
+    <input
+      class="form-check-input"
+      type="checkbox"
+      id="editModeToggle"
+      aria-label="Toggle edit mode"
+    />
+    <label class="form-check-label" for="editModeToggle"> Edit Mode </label>
+  </div>
 
-    <div class="row">
-      <!-- Map Container -->
-      <div class="col-lg-8 col-md-7">
-        <div class="card bg-dark border-secondary">
-          <div class="card-header">
-            <h5 class="mb-0">
-Trip Map
-            </h5>
-          </div>
-          <div class="card-body">
-            <div id="editMap" class="map-container">
-            </div>
-          </div>
+  <div class="row">
+    <!-- Map Container -->
+    <div class="col-lg-8 col-md-7">
+      <div class="card bg-dark border-secondary">
+        <div class="card-header">
+          <h5 class="mb-0">Trip Map</h5>
+        </div>
+        <div class="card-body">
+          <div id="editMap" class="map-container"></div>
         </div>
       </div>
+    </div>
 
-      <!-- Control Panel -->
-      <div class="col-lg-4 col-md-5">
-        <div class="card bg-dark border-secondary">
-          <div class="card-header">
-            <h5 class="mb-0">
-Controls
-            </h5>
-          </div>
-          <div class="card-body">
-            <button class="btn btn-success w-100 mb-3" id="saveChanges" disabled>
-              <i class="fas fa-save me-2"></i>Save Changes
-            </button>
-            <div id="tripDetails" class="text-light">
-            </div>
-          </div>
+    <!-- Control Panel -->
+    <div class="col-lg-4 col-md-5">
+      <div class="card bg-dark border-secondary">
+        <div class="card-header">
+          <h5 class="mb-0">Controls</h5>
+        </div>
+        <div class="card-body">
+          <button class="btn btn-success w-100 mb-3" id="saveChanges" disabled>
+            <i class="fas fa-save me-2"></i>Save Changes
+          </button>
+          <div id="tripDetails" class="text-light"></div>
         </div>
       </div>
     </div>
   </div>
-{% endblock %}
+</div>
+{% endblock %} {% block extra_css %}
 
+<!-- Mapbox GL CSS -->
+<link rel="stylesheet" href="{{ CDN.mapbox_gl_css }}" />
+<link rel="stylesheet" href="{{ CDN.mapbox_draw_css }}" />
+<link
+  rel="stylesheet"
+  href="{{ url_for('static', path='css/edit_trips.css') | replace('http://', '//') }}"
+/>
+{% endblock %} {% block extra_js %}
 
-{% block extra_css %}
-
-  <!-- Mapbox GL CSS -->
-  <link rel="stylesheet" href="{{ CDN.mapbox_gl_css }}" />
-  <link rel="stylesheet" href="{{ CDN.mapbox_draw_css }}" />
-  <link rel="stylesheet"
-        href="{{ url_for('static', path='css/edit_trips.css') | replace('http://', '//') }}" />
-{% endblock %}
-
-
-
-{% block extra_js %}
-
-  <!-- Mapbox GL JS -->
-  <script src="{{ CDN.mapbox_gl_js }}"></script>
-  <script src="{{ url_for('static', path='js/map-base.js') | replace('http://', '//') }}"></script>
-  <script src="{{ url_for('static', path='js/modules/map-styles.js') | replace('http://', '//') }}"></script>
-  <script>
-      // Make Mapbox access token available globally
-      window.MAPBOX_ACCESS_TOKEN = "{{ MAPBOX_ACCESS_TOKEN }}";
-  </script>
-  <!-- Load Mapbox Draw -->
-  <script src="{{ CDN.mapbox_draw_js }}"></script>
-  <script src="{{ url_for('static', path='js/edit_trips.js') | replace('http://', '//') }}"></script>
+<!-- Mapbox GL JS -->
+<script src="{{ CDN.mapbox_gl_js }}"></script>
+<script src="{{ url_for('static', path='js/map-base.js') | replace('http://', '//') }}"></script>
+<script src="{{ url_for('static', path='js/modules/map-styles.js') | replace('http://', '//') }}"></script>
+<script>
+  // Make Mapbox access token available globally
+  window.MAPBOX_ACCESS_TOKEN = "{{ MAPBOX_ACCESS_TOKEN }}";
+</script>
+<!-- Load Mapbox Draw -->
+<script src="{{ CDN.mapbox_draw_js }}"></script>
+<script src="{{ url_for('static', path='js/edit_trips.js') | replace('http://', '//') }}"></script>
 {% endblock %}

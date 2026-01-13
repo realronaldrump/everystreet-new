@@ -25,84 +25,95 @@ function updateLiveTrackingVisibility() {
 let storageListenerBound = false;
 
 // Script for toggling chevron in metrics collapse
-window.utils?.onPageLoad(() => {
-  const metricsButton = document.querySelector('[data-bs-target="#metrics-content"]');
-  if (metricsButton) {
-    const chevron = metricsButton.querySelector(".fa-chevron-down");
-    metricsButton.addEventListener("click", () => {
-      const isExpanded = metricsButton.getAttribute("aria-expanded") === "true";
-      if (chevron) {
-        chevron.style.transform = isExpanded ? "rotate(0deg)" : "rotate(180deg)";
-      }
-    });
-    // Initial state check for chevron if panel is collapsed by default
-    if (metricsButton.getAttribute("aria-expanded") === "false" && chevron) {
-      chevron.style.transform = "rotate(0deg)";
-    } else if (chevron) {
-      chevron.style.transform = "rotate(180deg)";
-    }
-
-    // Toggle Live Tracking Panel visibility based on user setting - initial state
-    updateLiveTrackingVisibility();
-
-    // Fetch server-side setting once and reconcile localStorage
-    (async () => {
-      try {
-        const res = await fetch("/api/app_settings");
-        if (res.ok) {
-          const data = await res.json();
-          if (typeof data.showLiveTracking !== "undefined") {
-            window.localStorage.setItem("showLiveTracking", data.showLiveTracking);
-            updateLiveTrackingVisibility();
-          }
-        }
-      } catch (error) {
-        console.warn("Failed to load app settings", error);
-      }
-    })();
-
-    // Respond to changes from other tabs/windows or settings page
-    if (!storageListenerBound) {
-      window.addEventListener("storage", (e) => {
-        if (e.key === "showLiveTracking") {
-          updateLiveTrackingVisibility();
+window.utils?.onPageLoad(
+  () => {
+    const metricsButton = document.querySelector(
+      '[data-bs-target="#metrics-content"]',
+    );
+    if (metricsButton) {
+      const chevron = metricsButton.querySelector(".fa-chevron-down");
+      metricsButton.addEventListener("click", () => {
+        const isExpanded =
+          metricsButton.getAttribute("aria-expanded") === "true";
+        if (chevron) {
+          chevron.style.transform = isExpanded
+            ? "rotate(0deg)"
+            : "rotate(180deg)";
         }
       });
-      storageListenerBound = true;
-    }
-  }
+      // Initial state check for chevron if panel is collapsed by default
+      if (metricsButton.getAttribute("aria-expanded") === "false" && chevron) {
+        chevron.style.transform = "rotate(0deg)";
+      } else if (chevron) {
+        chevron.style.transform = "rotate(180deg)";
+      }
 
-  const setupMapTilt = () => {
-    const map = window.map || window.coverageMasterMap;
-    if (!map || typeof map.easeTo !== "function") {
-      return;
-    }
-    let ticking = false;
-    const maxPitch = 12;
-    const maxScroll = 320;
+      // Toggle Live Tracking Panel visibility based on user setting - initial state
+      updateLiveTrackingVisibility();
 
-    const applyTilt = () => {
-      ticking = false;
-      if (window.liveTripTracker?.followMode) {
+      // Fetch server-side setting once and reconcile localStorage
+      (async () => {
+        try {
+          const res = await fetch("/api/app_settings");
+          if (res.ok) {
+            const data = await res.json();
+            if (typeof data.showLiveTracking !== "undefined") {
+              window.localStorage.setItem(
+                "showLiveTracking",
+                data.showLiveTracking,
+              );
+              updateLiveTrackingVisibility();
+            }
+          }
+        } catch (error) {
+          console.warn("Failed to load app settings", error);
+        }
+      })();
+
+      // Respond to changes from other tabs/windows or settings page
+      if (!storageListenerBound) {
+        window.addEventListener("storage", (e) => {
+          if (e.key === "showLiveTracking") {
+            updateLiveTrackingVisibility();
+          }
+        });
+        storageListenerBound = true;
+      }
+    }
+
+    const setupMapTilt = () => {
+      const map = window.map || window.coverageMasterMap;
+      if (!map || typeof map.easeTo !== "function") {
         return;
       }
-      const scrollY = window.scrollY || 0;
-      const ratio = Math.min(scrollY / maxScroll, 1);
-      map.easeTo({
-        pitch: ratio * maxPitch,
-        duration: 300,
-        essential: true,
+      let ticking = false;
+      const maxPitch = 12;
+      const maxScroll = 320;
+
+      const applyTilt = () => {
+        ticking = false;
+        if (window.liveTripTracker?.followMode) {
+          return;
+        }
+        const scrollY = window.scrollY || 0;
+        const ratio = Math.min(scrollY / maxScroll, 1);
+        map.easeTo({
+          pitch: ratio * maxPitch,
+          duration: 300,
+          essential: true,
+        });
+      };
+
+      window.addEventListener("scroll", () => {
+        if (ticking) {
+          return;
+        }
+        ticking = true;
+        requestAnimationFrame(applyTilt);
       });
     };
 
-    window.addEventListener("scroll", () => {
-      if (ticking) {
-        return;
-      }
-      ticking = true;
-      requestAnimationFrame(applyTilt);
-    });
-  };
-
-  setupMapTilt();
-}, { route: "/map" });
+    setupMapTilt();
+  },
+  { route: "/map" },
+);
