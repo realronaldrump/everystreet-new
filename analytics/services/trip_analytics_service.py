@@ -404,6 +404,7 @@ class TripAnalyticsService:
                     "endTime": 1,
                     "distance": 1,
                     "destination": 1,
+                    "destinationGeoPoint": 1,
                     "startLocation": 1,
                     "maxSpeed": 1,
                 },

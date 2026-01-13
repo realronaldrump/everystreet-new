@@ -19,6 +19,7 @@
   let recordDistanceCache = null;
 
   let pageSignal = null;
+  let lastKnownLocation = null;
 
   /**
    * Initialize the landing page
@@ -73,9 +74,12 @@
       updateGreeting();
 
       highlightFrequentTiles();
+
+      // Load trips first to get location
+      await loadRecentTrips();
+
       await Promise.all([
         loadMetrics(),
-        loadRecentTrips(),
         loadGasStats(),
         loadInsights(),
         checkLiveTracking(),
@@ -183,20 +187,25 @@
       return;
     }
 
-    if (!navigator.geolocation) {
+    if (!navigator.geolocation && !lastKnownLocation) {
       elements.weatherChip.textContent = "Weather: --";
       return;
     }
 
     try {
-      const position = await new Promise((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(resolve, reject, {
-          timeout: 5000,
-          maximumAge: 600000,
-        });
-      });
+      let latitude, longitude;
 
-      const { latitude, longitude } = position.coords;
+      if (lastKnownLocation) {
+        ({ latitude, longitude } = lastKnownLocation);
+      } else {
+        const position = await new Promise((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            timeout: 5000,
+            maximumAge: 600000,
+          });
+        });
+        ({ latitude, longitude } = position.coords);
+      }
       const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,weather_code&temperature_unit=fahrenheit&timezone=auto`;
       const response = await fetch(url);
       if (!response.ok) {
@@ -398,6 +407,21 @@
 
       const data = await response.json();
       const trips = data.trips || data || [];
+
+      // Extract last known location from the most recent trip
+      if (trips.length > 0) {
+        const lastTrip = trips[0];
+        if (
+          lastTrip.destinationGeoPoint
+          && lastTrip.destinationGeoPoint.coordinates
+          && lastTrip.destinationGeoPoint.coordinates.length >= 2
+        ) {
+          const [lon, lat] = lastTrip.destinationGeoPoint.coordinates;
+          if (Number.isFinite(lat) && Number.isFinite(lon)) {
+            lastKnownLocation = { latitude: lat, longitude: lon };
+          }
+        }
+      }
 
       // Update recent trip meta
       if (trips.length > 0 && elements.recentTrip) {
