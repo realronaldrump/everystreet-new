@@ -155,10 +155,6 @@
     );
   }
 
-
-
-
-
   function highlightFrequentTiles() {
     if (!elements.navTiles || elements.navTiles.length === 0) {
       return;
@@ -210,7 +206,8 @@
     }
 
     try {
-      let latitude, longitude;
+      let latitude,
+longitude;
 
       if (lastKnownLocation) {
         ({ latitude, longitude } = lastKnownLocation);
@@ -322,10 +319,10 @@
 
   function buildRecordEntries() {
     const entries = [];
-    const insights = recordSources.insights;
+    const { insights } = recordSources;
 
     if (insights?.records) {
-      const records = insights.records;
+      const { records } = insights;
       addRecordEntry(entries, {
         id: "longest-trip-distance",
         title: "Longest trip distance",
@@ -430,7 +427,7 @@
       });
     }
 
-    const counties = recordSources.counties;
+    const { counties } = recordSources;
     if (counties?.success) {
       addRecordEntry(entries, {
         id: "counties-visited",
@@ -441,7 +438,7 @@
       });
     }
 
-    const coverage = recordSources.coverage;
+    const { coverage } = recordSources;
     if (coverage?.areas?.length) {
       const bestArea = coverage.areas.reduce((best, area) => {
         if (!best) {
@@ -656,13 +653,11 @@
     return `${numeric.toFixed(1)}%`;
   }
 
-
-
   function getRouteCounts() {
     return getStoredValue("es:route-counts") || {};
   }
 
-  function getMostVisitedPath(counts) {
+  function _getMostVisitedPath(counts) {
     const entries = Object.entries(counts);
     if (entries.length === 0) {
       return null;
@@ -670,8 +665,6 @@
     const [path] = entries.sort((a, b) => b[1] - a[1])[0];
     return { path, timestamp: null };
   }
-
-
 
   function getStoredValue(key) {
     try {
@@ -797,8 +790,7 @@
       if (trips.length > 0) {
         const lastTrip = trips[0];
         if (
-          lastTrip.destinationGeoPoint
-          && lastTrip.destinationGeoPoint.coordinates
+          lastTrip.destinationGeoPoint?.coordinates
           && lastTrip.destinationGeoPoint.coordinates.length >= 2
         ) {
           const [lon, lat] = lastTrip.destinationGeoPoint.coordinates;
@@ -822,7 +814,6 @@
 
       // Populate activity feed
       populateActivityFeed(trips);
-
     } catch {
       populateActivityFeed([]);
     }

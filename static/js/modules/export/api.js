@@ -158,10 +158,7 @@ export function buildExportUrl(
  * @returns {Promise<Array>} Array of coverage areas
  */
 export async function fetchCoverageAreas(signal) {
-  const response = await fetch(
-    "/api/coverage/areas",
-    signal ? { signal } : undefined
-  );
+  const response = await fetch("/api/coverage/areas", signal ? { signal } : undefined);
   const data = await response.json();
 
   if (data.success && Array.isArray(data?.areas)) {

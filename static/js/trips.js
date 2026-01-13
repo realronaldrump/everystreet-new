@@ -691,7 +691,9 @@ async function openTripModal(tripId) {
 }
 
 async function initTripModalMap() {
-  if (tripModalMap) return;
+  if (tripModalMap) {
+    return;
+  }
 
   try {
     const { createMap } = window.mapBase;
@@ -769,14 +771,16 @@ async function initTripModalMap() {
     });
   } catch (e) {
     console.error("Failed to init modal map", e);
-    document.getElementById("trip-modal-map").innerHTML =
-      '<div class="alert alert-danger m-3">Failed to load map.</div>';
+    document.getElementById("trip-modal-map").innerHTML
+      = '<div class="alert alert-danger m-3">Failed to load map.</div>';
   }
 }
 
 async function loadTripData(tripId) {
   const loadingEl = document.getElementById("trip-map-loading");
-  if (loadingEl) loadingEl.classList.remove("d-none");
+  if (loadingEl) {
+    loadingEl.classList.remove("d-none");
+  }
 
   // Reset text
   setText("tripModalTitle", "Loading...");
@@ -791,7 +795,9 @@ async function loadTripData(tripId) {
   try {
     // Fetch trip details
     const res = await fetch(CONFIG.API.tripById(tripId));
-    if (!res.ok) throw new Error("Failed to load trip details");
+    if (!res.ok) {
+      throw new Error("Failed to load trip details");
+    }
     const data = await res.json();
     const trip = data.trip || data; // Handle wrapped response
 
@@ -803,28 +809,38 @@ async function loadTripData(tripId) {
     // Let's check `trips.js` or `CONFIG`. Usually `tripById` returns the document.
     // If geometry inside trip object:
     if (trip.geometry) {
-        renderTripOnMap(trip);
+      renderTripOnMap(trip);
     } else {
-       // Fallback or separate fetch if needed.
-       // Attempt to fetch dedicated geojson if geometry is missing from detail
-       // const geoRes = await fetch(`/api/trips/${tripId}/geojson`); ...
+      // Fallback or separate fetch if needed.
+      // Attempt to fetch dedicated geojson if geometry is missing from detail
+      // const geoRes = await fetch(`/api/trips/${tripId}/geojson`); ...
     }
-
   } catch (e) {
     console.error(e);
     window.notificationManager?.show("Failed to load trip data", "danger");
   } finally {
-    if (loadingEl) loadingEl.classList.add("d-none");
+    if (loadingEl) {
+      loadingEl.classList.add("d-none");
+    }
   }
 }
 
 function updateModalContent(trip) {
   setText("tripModalTitle", trip.vehicleLabel || "Trip Details");
-  setText("tripModalSubtitle", `${formatDateTime(trip.startTime)} • ${trip.transactionId}`);
-  setText("modal-distance", trip.distance ? `${parseFloat(trip.distance).toFixed(2)} mi` : "--");
+  setText(
+    "tripModalSubtitle",
+    `${formatDateTime(trip.startTime)} • ${trip.transactionId}`
+  );
+  setText(
+    "modal-distance",
+    trip.distance ? `${parseFloat(trip.distance).toFixed(2)} mi` : "--"
+  );
   setText("modal-duration", trip.duration ? formatDuration(trip.duration) : "--");
   setText("modal-max-speed", trip.maxSpeed ? `${Math.round(trip.maxSpeed)} mph` : "--");
-  setText("modal-fuel", trip.fuelConsumed ? `${parseFloat(trip.fuelConsumed).toFixed(2)} gal` : "--");
+  setText(
+    "modal-fuel",
+    trip.fuelConsumed ? `${parseFloat(trip.fuelConsumed).toFixed(2)} gal` : "--"
+  );
   setText("modal-start-loc", sanitizeLocation(trip.startLocation));
   setText("modal-end-loc", sanitizeLocation(trip.destination));
 }
@@ -832,14 +848,14 @@ function updateModalContent(trip) {
 function renderTripOnMap(trip) {
   if (!tripModalMap || !tripModalMap.isStyleLoaded()) {
     // Retry shortly if map not ready (though 'shown' event usually handles this)
-     setTimeout(() => renderTripOnMap(trip), 200);
-     return;
+    setTimeout(() => renderTripOnMap(trip), 200);
+    return;
   }
 
   const geojson = {
     type: "Feature",
     geometry: trip.geometry,
-    properties: {}
+    properties: {},
   };
 
   const src = tripModalMap.getSource("modal-trip");
@@ -854,9 +870,9 @@ function renderTripOnMap(trip) {
   const coords = trip.geometry.coordinates;
   // Handle Point vs LineString vs MultiLineString if necessary. Assuming LineString for trips.
   if (trip.geometry.type === "LineString") {
-      coords.forEach(c => bounds.extend(c));
+    coords.forEach((c) => bounds.extend(c));
   } else if (trip.geometry.type === "Point") {
-      bounds.extend(coords);
+    bounds.extend(coords);
   }
 
   if (!bounds.isEmpty()) {
@@ -865,7 +881,7 @@ function renderTripOnMap(trip) {
     tripModalMap.fitBounds(bounds, {
       padding: 100,
       duration: 2000, // Animate over 2 seconds
-      essential: true // Ensure animation happens even if user hasn't interacted
+      essential: true, // Ensure animation happens even if user hasn't interacted
     });
   }
 }
@@ -977,10 +993,12 @@ function updatePlaybackHead(coord) {
   const feature = coord
     ? { type: "Feature", geometry: { type: "Point", coordinates: coord } }
     : null;
-  const data = feature ? { type: "FeatureCollection", features: [feature] } : {
-    type: "FeatureCollection",
-    features: [],
-  };
+  const data = feature
+    ? { type: "FeatureCollection", features: [feature] }
+    : {
+        type: "FeatureCollection",
+        features: [],
+      };
   tripModalMap.getSource(playbackState.headSourceId).setData(data);
 }
 
@@ -991,7 +1009,9 @@ function updatePlaybackTrail(coords) {
   const data = coords.length
     ? {
         type: "FeatureCollection",
-        features: [{ type: "Feature", geometry: { type: "LineString", coordinates: coords } }],
+        features: [
+          { type: "Feature", geometry: { type: "LineString", coordinates: coords } },
+        ],
       }
     : { type: "FeatureCollection", features: [] };
   tripModalMap.getSource(playbackState.trailSourceId).setData(data);
@@ -1010,7 +1030,9 @@ function updatePlaybackUI() {
       icon.className = "fas fa-pause";
     }
     const span = playBtn.querySelector("span");
-    if (span) span.textContent = "Pause";
+    if (span) {
+      span.textContent = "Pause";
+    }
   } else {
     playBtn.classList.remove("is-playing");
     playBtn.setAttribute("aria-pressed", "false");
@@ -1018,11 +1040,15 @@ function updatePlaybackUI() {
       icon.className = "fas fa-play";
     }
     const span = playBtn.querySelector("span");
-    if (span) span.textContent = "Play";
+    if (span) {
+      span.textContent = "Play";
+    }
   }
 }
 
 function setText(id, text) {
   const el = document.getElementById(id);
-  if (el) el.textContent = text;
+  if (el) {
+    el.textContent = text;
+  }
 }

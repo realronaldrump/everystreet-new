@@ -170,11 +170,9 @@ class ExportManager {
         if (this.pageSignal.aborted) {
           throw new DOMException("Aborted", "AbortError");
         }
-        this.pageSignal.addEventListener(
-          "abort",
-          () => abortController.abort(),
-          { once: true }
-        );
+        this.pageSignal.addEventListener("abort", () => abortController.abort(), {
+          once: true,
+        });
       }
       const timeoutId = setTimeout(() => {
         abortController.abort();

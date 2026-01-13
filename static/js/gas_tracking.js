@@ -446,29 +446,23 @@ function setCurrentTime() {
  */
 function setupEventListeners(signal) {
   // Vehicle selection change
-  document
-    .getElementById("vehicle-select")
-    .addEventListener(
-      "change",
-      async (event) => {
-        const selected = event.target.value || null;
-        window.utils?.setStorage("selectedVehicleImei", selected);
-        window.ESStore?.updateFilters({ vehicle: selected }, { source: "vehicle" });
-        await updateLocationAndOdometer();
-        await loadRecentFillups();
-        await loadStatistics();
-      },
-      signal ? { signal } : false
-    );
+  document.getElementById("vehicle-select").addEventListener(
+    "change",
+    async (event) => {
+      const selected = event.target.value || null;
+      window.utils?.setStorage("selectedVehicleImei", selected);
+      window.ESStore?.updateFilters({ vehicle: selected }, { source: "vehicle" });
+      await updateLocationAndOdometer();
+      await loadRecentFillups();
+      await loadStatistics();
+    },
+    signal ? { signal } : false
+  );
 
   // Fill-up time change
   document
     .getElementById("fillup-time")
-    .addEventListener(
-      "change",
-      updateLocationAndOdometer,
-      signal ? { signal } : false
-    );
+    .addEventListener("change", updateLocationAndOdometer, signal ? { signal } : false);
 
   // Use Now button
   document.getElementById("use-now-btn").addEventListener(
@@ -499,23 +493,21 @@ function setupEventListeners(signal) {
     .addEventListener("click", resetFormState, signal ? { signal } : false);
 
   // Odometer Not Recorded toggle
-  document
-    .getElementById("odometer-not-recorded")
-    .addEventListener(
-      "change",
-      (e) => {
-        const odoInput = document.getElementById("odometer");
-        if (e.target.checked) {
-          odoInput.value = "";
-          odoInput.disabled = true;
-          odoInput.placeholder = "Not recorded";
-        } else {
-          odoInput.disabled = false;
-          odoInput.placeholder = "miles";
-        }
-      },
-      signal ? { signal } : false
-    );
+  document.getElementById("odometer-not-recorded").addEventListener(
+    "change",
+    (e) => {
+      const odoInput = document.getElementById("odometer");
+      if (e.target.checked) {
+        odoInput.value = "";
+        odoInput.disabled = true;
+        odoInput.placeholder = "Not recorded";
+      } else {
+        odoInput.disabled = false;
+        odoInput.placeholder = "miles";
+      }
+    },
+    signal ? { signal } : false
+  );
 
   // Auto-calc Odometer
   document

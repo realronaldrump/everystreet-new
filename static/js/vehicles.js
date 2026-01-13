@@ -439,13 +439,13 @@
     const response = await fetch(
       `/api/vehicles/${currentVehicle.imei}`,
       withSignal({
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        imei: currentVehicle.imei,
-        odometer_reading: reading,
-        odometer_source: source,
-      }),
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          imei: currentVehicle.imei,
+          odometer_reading: reading,
+          odometer_source: source,
+        }),
       })
     );
 

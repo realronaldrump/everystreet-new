@@ -102,54 +102,44 @@ function setupEventListeners(signal) {
 
   document
     .getElementById("coverage-error-dismiss")
-    ?.addEventListener(
-      "click",
-      hideCoverageErrorDetails,
-      signal ? { signal } : false
-    );
+    ?.addEventListener("click", hideCoverageErrorDetails, signal ? { signal } : false);
 
   // Close dashboard
-  document
-    .getElementById("close-dashboard-btn")
-    ?.addEventListener(
-      "click",
-      () => {
-        document.getElementById("coverage-dashboard").style.display = "none";
-        currentAreaId = null;
-      },
-      signal ? { signal } : false
-    );
+  document.getElementById("close-dashboard-btn")?.addEventListener(
+    "click",
+    () => {
+      document.getElementById("coverage-dashboard").style.display = "none";
+      currentAreaId = null;
+    },
+    signal ? { signal } : false
+  );
 
   // Dashboard action buttons
-  document
-    .getElementById("recalculate-coverage-btn")
-    ?.addEventListener(
-      "click",
-      async () => {
-        if (currentAreaId) {
-          const areaName
-            = document.getElementById("dashboard-location-name")?.textContent
-            || "this area";
-          await recalculateCoverage(currentAreaId, areaName);
-        }
-      },
-      signal ? { signal } : false
-    );
+  document.getElementById("recalculate-coverage-btn")?.addEventListener(
+    "click",
+    async () => {
+      if (currentAreaId) {
+        const areaName
+          = document.getElementById("dashboard-location-name")?.textContent
+          || "this area";
+        await recalculateCoverage(currentAreaId, areaName);
+      }
+    },
+    signal ? { signal } : false
+  );
 
-  document
-    .getElementById("rebuild-area-btn")
-    ?.addEventListener(
-      "click",
-      async () => {
-        if (currentAreaId) {
-          const areaName
-            = document.getElementById("dashboard-location-name")?.textContent
-            || "this area";
-          await rebuildArea(currentAreaId, areaName);
-        }
-      },
-      signal ? { signal } : false
-    );
+  document.getElementById("rebuild-area-btn")?.addEventListener(
+    "click",
+    async () => {
+      if (currentAreaId) {
+        const areaName
+          = document.getElementById("dashboard-location-name")?.textContent
+          || "this area";
+        await rebuildArea(currentAreaId, areaName);
+      }
+    },
+    signal ? { signal } : false
+  );
 
   // Window resize handler
   let resizeTimeout;
@@ -169,33 +159,33 @@ function setupEventListeners(signal) {
     btn.addEventListener(
       "click",
       (e) => {
-      document.querySelectorAll("[data-filter]").forEach((b) => {
-        b.classList.remove("active", "btn-primary", "btn-success", "btn-danger");
-        b.classList.add(
-          `btn-outline-${
-            b.dataset.filter === "all"
+        document.querySelectorAll("[data-filter]").forEach((b) => {
+          b.classList.remove("active", "btn-primary", "btn-success", "btn-danger");
+          b.classList.add(
+            `btn-outline-${
+              b.dataset.filter === "all"
+                ? "primary"
+                : b.dataset.filter === "driven"
+                  ? "success"
+                  : "danger"
+            }`
+          );
+        });
+        e.target.classList.add("active");
+        e.target.classList.remove(
+          "btn-outline-primary",
+          "btn-outline-success",
+          "btn-outline-danger"
+        );
+        e.target.classList.add(
+          `btn-${
+            e.target.dataset.filter === "all"
               ? "primary"
-              : b.dataset.filter === "driven"
+              : e.target.dataset.filter === "driven"
                 ? "success"
                 : "danger"
           }`
         );
-      });
-      e.target.classList.add("active");
-      e.target.classList.remove(
-        "btn-outline-primary",
-        "btn-outline-success",
-        "btn-outline-danger"
-      );
-      e.target.classList.add(
-        `btn-${
-          e.target.dataset.filter === "all"
-            ? "primary"
-            : e.target.dataset.filter === "driven"
-              ? "success"
-              : "danger"
-        }`
-      );
 
         applyMapFilter(e.target.dataset.filter);
       },

@@ -131,51 +131,53 @@ window.utils?.onPageLoad(
         th.addEventListener(
           "click",
           () => {
-          const column = th.dataset.sort;
-          const dir
-            = currentSort.column === column && currentSort.dir === "asc" ? "desc" : "asc";
+            const column = th.dataset.sort;
+            const dir
+              = currentSort.column === column && currentSort.dir === "asc"
+                ? "desc"
+                : "asc";
 
-          // Update Sort State
-          currentSort = { column, dir };
+            // Update Sort State
+            currentSort = { column, dir };
 
-          // Update Icons
-          headers.forEach((h) => {
-            const icon = h.querySelector("i");
-            if (icon) {
-              icon.className = "fas fa-sort small text-muted ms-1";
-              if (h === th) {
-                icon.className = `fas fa-sort-${dir === "asc" ? "up" : "down"} small text-primary ms-1`;
+            // Update Icons
+            headers.forEach((h) => {
+              const icon = h.querySelector("i");
+              if (icon) {
+                icon.className = "fas fa-sort small text-muted ms-1";
+                if (h === th) {
+                  icon.className = `fas fa-sort-${dir === "asc" ? "up" : "down"} small text-primary ms-1`;
+                }
               }
-            }
-          });
+            });
 
-          // Sort Rows
-          const tbody = table.querySelector("tbody");
-          const rows = Array.from(tbody.querySelectorAll("tr"));
+            // Sort Rows
+            const tbody = table.querySelector("tbody");
+            const rows = Array.from(tbody.querySelectorAll("tr"));
 
-          rows.sort((a, b) => {
-            const aVal
-              = a.querySelector(`td[data-value]`).parentElement.children[th.cellIndex]
-                .dataset.value;
-            const bVal
-              = b.querySelector(`td[data-value]`).parentElement.children[th.cellIndex]
-                .dataset.value;
+            rows.sort((a, b) => {
+              const aVal
+                = a.querySelector(`td[data-value]`).parentElement.children[th.cellIndex]
+                  .dataset.value;
+              const bVal
+                = b.querySelector(`td[data-value]`).parentElement.children[th.cellIndex]
+                  .dataset.value;
 
-            let comparison = 0;
-            if (column === "name") {
-              comparison = aVal.localeCompare(bVal);
-            } else {
-              // Numeric sort for count and size
-              comparison = parseFloat(aVal) - parseFloat(bVal);
-            }
+              let comparison = 0;
+              if (column === "name") {
+                comparison = aVal.localeCompare(bVal);
+              } else {
+                // Numeric sort for count and size
+                comparison = parseFloat(aVal) - parseFloat(bVal);
+              }
 
-            return dir === "asc" ? comparison : -comparison;
-          });
+              return dir === "asc" ? comparison : -comparison;
+            });
 
-          // Re-append sorted rows
-          rows.forEach((row) => {
-            tbody.appendChild(row);
-          });
+            // Re-append sorted rows
+            rows.forEach((row) => {
+              tbody.appendChild(row);
+            });
           },
           signal ? { signal } : false
         );

@@ -69,7 +69,10 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  if (url.origin === self.location.origin && url.pathname.startsWith(STATIC_PATH_PREFIX)) {
+  if (
+    url.origin === self.location.origin
+    && url.pathname.startsWith(STATIC_PATH_PREFIX)
+  ) {
     event.respondWith(cacheFirst(request, APP_SHELL_CACHE));
     return;
   }
@@ -128,7 +131,7 @@ async function cacheFirst(request, cacheName) {
     return cached;
   }
   const response = await fetch(request);
-  if (response && response.ok) {
+  if (response?.ok) {
     cache.put(request, response.clone());
   }
   return response;

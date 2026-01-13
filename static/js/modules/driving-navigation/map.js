@@ -215,7 +215,8 @@ export class DrivingNavigationMap {
     this.clusterMarkers = [];
 
     if (this.map && this.interactivityHandlers) {
-      const { handleMouseEnter, handleMouseLeave, handleClick } = this.interactivityHandlers;
+      const { handleMouseEnter, handleMouseLeave, handleClick }
+        = this.interactivityHandlers;
       try {
         this.map.off("mouseenter", "undriven-streets-layer", handleMouseEnter);
         this.map.off("mouseleave", "undriven-streets-layer", handleMouseLeave);

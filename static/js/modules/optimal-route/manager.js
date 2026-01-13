@@ -152,7 +152,9 @@ export class OptimalRoutesManager {
         "input",
         (e) => {
           const opacity = e.target.value / 100;
-          const label = slider.closest(".layer-opacity").querySelector(".opacity-value");
+          const label = slider
+            .closest(".layer-opacity")
+            .querySelector(".opacity-value");
           if (label) {
             label.textContent = `${e.target.value}%`;
           }

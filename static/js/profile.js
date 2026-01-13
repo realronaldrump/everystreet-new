@@ -38,7 +38,11 @@
   function initializeEventListeners(signal) {
     const form = document.getElementById("bouncieCredentialsForm");
     if (form) {
-      form.addEventListener("submit", handleSaveCredentials, signal ? { signal } : false);
+      form.addEventListener(
+        "submit",
+        handleSaveCredentials,
+        signal ? { signal } : false
+      );
     }
 
     const loadBtn = document.getElementById("loadCredentialsBtn");
@@ -48,7 +52,11 @@
 
     const unmaskBtn = document.getElementById("unmaskCredentialsBtn");
     if (unmaskBtn) {
-      unmaskBtn.addEventListener("click", unmaskAllCredentials, signal ? { signal } : false);
+      unmaskBtn.addEventListener(
+        "click",
+        unmaskAllCredentials,
+        signal ? { signal } : false
+      );
     }
 
     const addDeviceBtn = document.getElementById("addDeviceBtn");
@@ -99,10 +107,7 @@
     try {
       showStatus("Loading credentials...", "info");
 
-      const response = await fetch(
-        "/api/profile/bouncie-credentials",
-        withSignal()
-      );
+      const response = await fetch("/api/profile/bouncie-credentials", withSignal());
       const data = await response.json();
 
       if (data.status === "success" && data.credentials) {
@@ -635,5 +640,4 @@
       }
     }
   }
-
 })();

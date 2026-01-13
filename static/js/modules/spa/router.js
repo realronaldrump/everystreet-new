@@ -266,14 +266,12 @@ const router = {
       return;
     }
 
-    const insertionPoint = document.querySelector(
-      '[data-es-head-boundary="end"]'
-    );
+    const insertionPoint = document.querySelector('[data-es-head-boundary="end"]');
     const template = document.createElement("template");
     template.innerHTML = headHtml;
     Array.from(template.content.children).forEach((node) => {
       node.setAttribute("data-es-dynamic", "head");
-      if (insertionPoint && insertionPoint.parentNode) {
+      if (insertionPoint?.parentNode) {
         insertionPoint.parentNode.insertBefore(node, insertionPoint);
       } else {
         document.head.appendChild(node);
@@ -465,9 +463,7 @@ const router = {
       node.remove();
     });
 
-    const startMarker = document.querySelector(
-      '[data-es-head-boundary="start"]'
-    );
+    const startMarker = document.querySelector('[data-es-head-boundary="start"]');
     const endMarker = document.querySelector('[data-es-head-boundary="end"]');
     if (
       !startMarker
