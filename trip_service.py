@@ -29,7 +29,7 @@ class ProcessingOptions:
         map_match: bool = False,
         validate_only: bool = False,
         geocode_only: bool = False,
-    ):
+    ) -> None:
         self.validate = validate
         self.geocode = geocode
         self.map_match = map_match
@@ -40,7 +40,7 @@ class ProcessingOptions:
 class BatchProcessingResult:
     """Result container for batch processing operations."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.total = 0
         self.validated = 0
         self.geocoded = 0
@@ -117,7 +117,7 @@ def with_comprehensive_handling(func: Callable) -> Callable:
 class TripService:
     """Centralized service for all trip processing operations."""
 
-    def __init__(self, mapbox_token: str | None = None):
+    def __init__(self, mapbox_token: str | None = None) -> None:
         self.mapbox_token = mapbox_token or get_mapbox_token()
 
     @with_comprehensive_handling
@@ -314,7 +314,8 @@ class TripService:
         """
         Process multiple Bouncie trips.
 
-        Returns a list of transactionIds that were successfully saved (not ObjectIds).
+        Returns a list of transactionIds that were successfully saved
+        (not ObjectIds).
         """
         processed_trip_ids: list[str] = []
         progress_section = None

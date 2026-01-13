@@ -1,8 +1,9 @@
 """
 Pydantic schemas for request validation and API responses.
 
-This module contains Pydantic models used for data validation across the application,
-separating API-specific schemas from Beanie database documents.
+This module contains Pydantic models used for data validation across the
+application, separating API-specific schemas from Beanie database
+documents.
 """
 
 from datetime import datetime

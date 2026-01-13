@@ -1,8 +1,8 @@
 """
 Query building utilities for MongoDB.
 
-Provides functions for constructing complex MongoDB queries, particularly for date
-filtering and request parameter handling.
+Provides functions for constructing complex MongoDB queries,
+particularly for date filtering and request parameter handling.
 """
 
 from __future__ import annotations

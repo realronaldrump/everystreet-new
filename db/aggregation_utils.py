@@ -1,8 +1,9 @@
 """
 Common MongoDB aggregation pipeline utilities.
 
-This module provides reusable aggregation pipeline builders and data organization
-utilities to reduce code duplication across analytics services.
+This module provides reusable aggregation pipeline builders and data
+organization utilities to reduce code duplication across analytics
+services.
 """
 
 from __future__ import annotations

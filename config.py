@@ -19,8 +19,8 @@ def get_mapbox_token() -> str:
     """
     Get Mapbox access token from cached settings.
 
-    This provides sync access to the token for module-level usage. The cache is
-    populated at app startup via ensure_settings_cached().
+    This provides sync access to the token for module-level usage. The
+    cache is populated at app startup via ensure_settings_cached().
     """
     from app_settings import get_cached_mapbox_token
 
@@ -31,8 +31,8 @@ def get_clarity_id() -> str | None:
     """
     Get Clarity project ID from cached settings.
 
-    This provides sync access to the ID for module-level usage. The cache is populated
-    at app startup via ensure_settings_cached().
+    This provides sync access to the ID for module-level usage. The
+    cache is populated at app startup via ensure_settings_cached().
     """
     from app_settings import get_cached_clarity_id
 

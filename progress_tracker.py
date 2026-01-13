@@ -1,9 +1,10 @@
 """
 Unified progress tracking for long-running background tasks.
 
-This module provides a centralized ProgressTracker class that standardizes progress
-updates to MongoDB, eliminating duplicate boilerplate across coverage_tasks.py,
-route_solver.py, preprocess_streets.py, and trips.py.
+This module provides a centralized ProgressTracker class that
+standardizes progress updates to MongoDB, eliminating duplicate
+boilerplate across coverage_tasks.py, route_solver.py,
+preprocess_streets.py, and trips.py.
 """
 
 import logging

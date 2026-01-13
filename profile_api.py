@@ -1,8 +1,8 @@
 """
 Profile API endpoints for managing user configuration.
 
-This module provides API endpoints for managing Bouncie credentials and other user-
-specific settings.
+This module provides API endpoints for managing Bouncie credentials and
+other user- specific settings.
 """
 
 from __future__ import annotations

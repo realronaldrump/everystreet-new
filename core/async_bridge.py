@@ -1,8 +1,9 @@
 """
 Async-to-sync bridge for Celery tasks and other synchronous contexts.
 
-This module provides utilities to run async coroutines from synchronous code with proper
-event loop management, reusing a per-worker loop when available.
+This module provides utilities to run async coroutines from synchronous
+code with proper event loop management, reusing a per-worker loop when
+available.
 """
 
 from __future__ import annotations

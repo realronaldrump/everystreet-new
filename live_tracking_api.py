@@ -44,7 +44,8 @@ async def _process_bouncie_event(data: dict[str, Any]) -> dict[str, Any]:
     """
     Process Bouncie webhook event.
 
-    Raises exceptions if processing fails, which are caught by the webhook handler.
+    Raises exceptions if processing fails, which are caught by the
+    webhook handler.
     """
     event_type = data.get("eventType")
     transaction_id = data.get("transactionId")
@@ -102,14 +103,14 @@ async def _record_webhook_failure(
 class ConnectionManager:
     """Manages WebSocket connections."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.active_connections: list[WebSocket] = []
 
-    async def connect(self, websocket: WebSocket):
+    async def connect(self, websocket: WebSocket) -> None:
         await websocket.accept()
         self.active_connections.append(websocket)
 
-    def disconnect(self, websocket: WebSocket):
+    def disconnect(self, websocket: WebSocket) -> None:
         if websocket in self.active_connections:
             self.active_connections.remove(websocket)
 
@@ -222,8 +223,9 @@ async def bouncie_webhook(request: Request):
     """
     Receive and process Bouncie webhook events.
 
-    Always returns 200 OK to prevent Bouncie from deactivating the webhook. Processing
-    happens asynchronously with internal retries and failure capture.
+    Always returns 200 OK to prevent Bouncie from deactivating the
+    webhook. Processing happens asynchronously with internal retries and
+    failure capture.
     """
     try:
         data = await request.json()

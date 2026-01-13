@@ -1,8 +1,8 @@
 """
 Simple route gap-filling via Mapbox Directions API.
 
-This module provides a single function to fetch driving routes between points, used by
-the route solver to fill gaps in generated routes.
+This module provides a single function to fetch driving routes between
+points, used by the route solver to fill gaps in generated routes.
 """
 
 from __future__ import annotations

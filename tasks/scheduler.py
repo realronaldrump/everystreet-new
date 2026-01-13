@@ -1,8 +1,9 @@
 """
 Task scheduler for triggering background tasks.
 
-This module provides the main scheduler that runs periodically and triggers other tasks
-based on their configured schedules and dependencies.
+This module provides the main scheduler that runs periodically and
+triggers other tasks based on their configured schedules and
+dependencies.
 """
 
 from __future__ import annotations
@@ -208,6 +209,6 @@ async def run_task_scheduler_async() -> None:
     time_limit=300,
     soft_time_limit=280,
 )
-def run_task_scheduler(_self, *_args, **_kwargs):
+def run_task_scheduler(_self, *_args, **_kwargs) -> None:
     """Celery task wrapper for the main task scheduler."""
     run_async_from_sync(run_task_scheduler_async())

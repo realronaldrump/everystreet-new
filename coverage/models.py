@@ -25,7 +25,8 @@ class CoverageArea(Document):
     """
     A geographic area for street coverage tracking.
 
-    Represents a coverage area with user-facing status and cached statistics.
+    Represents a coverage area with user-facing status and cached
+    statistics.
     """
 
     # Identity
@@ -130,8 +131,8 @@ class CoverageState(Document):
     """
     Dynamic coverage status for a street segment.
 
-    This is the mutable state that changes when trips are driven or when users manually
-    mark segments. Geometry is NOT stored here.
+    This is the mutable state that changes when trips are driven or when
+    users manually mark segments. Geometry is NOT stored here.
     """
 
     # Keys
@@ -172,8 +173,8 @@ class Job(Document):
     """
     Unified job status tracking for all background work.
 
-    This replaces ProgressStatus and OptimalRouteProgress with a single consistent model
-    for all job types.
+    This replaces ProgressStatus and OptimalRouteProgress with a single
+    consistent model for all job types.
     """
 
     # Identity

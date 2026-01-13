@@ -1,9 +1,10 @@
 """
 County Map API.
 
-Provides endpoints for county-level coverage visualization. Counties are marked as
-visited if any trip geometry passes through them. Tracks first and most recent visit
-dates for each county. Results are cached in MongoDB for fast page loads.
+Provides endpoints for county-level coverage visualization. Counties are
+marked as visited if any trip geometry passes through them. Tracks first
+and most recent visit dates for each county. Results are cached in
+MongoDB for fast page loads.
 """
 
 import logging
@@ -35,7 +36,8 @@ async def get_county_topology(projection: str | None = None) -> dict[str, Any]:
     """
     Return county TopoJSON data stored in MongoDB.
 
-    If the requested projection is not yet cached, it will be downloaded and stored.
+    If the requested projection is not yet cached, it will be downloaded
+    and stored.
     """
 
     try:
@@ -63,7 +65,8 @@ async def get_visited_counties() -> dict[str, Any]:
     """
     Get cached list of visited county FIPS codes with visit dates.
 
-    Returns cached data if available, otherwise triggers a recalculation.
+    Returns cached data if available, otherwise triggers a
+    recalculation.
     """
     try:
         # Try to get cached data using Beanie
@@ -113,8 +116,8 @@ async def recalculate_visited_counties(
     """
     Trigger recalculation of visited counties.
 
-    This performs geospatial intersection between trip geometries and county polygons.
-    The calculation runs in the background.
+    This performs geospatial intersection between trip geometries and
+    county polygons. The calculation runs in the background.
     """
     try:
         # Start background calculation
@@ -437,7 +440,7 @@ def _record_visit(
     visit_map: dict[str, dict[str, datetime | None]],
     fips: str,
     visit_time: datetime | None,
-):
+) -> None:
     if fips not in visit_map:
         visit_map[fips] = {"firstVisit": visit_time, "lastVisit": visit_time}
         return

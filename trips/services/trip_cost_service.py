@@ -6,7 +6,7 @@ from date_utils import parse_timestamp
 from db.models import GasFillup
 
 
-def _safe_float(value, default=0.0):
+def _safe_float(value, default: float = 0.0):
     try:
         if value is None:
             return default

@@ -1,8 +1,8 @@
 """
 Centralized Redis connection configuration.
 
-This module provides a single source of truth for Redis URL construction with proper URL
-encoding to handle special characters in passwords.
+This module provides a single source of truth for Redis URL construction
+with proper URL encoding to handle special characters in passwords.
 """
 
 import logging

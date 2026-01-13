@@ -1,8 +1,9 @@
 """
 Webhook processing task.
 
-This module provides the Celery task for processing Bouncie webhook events
-asynchronously, including trip start, data, metrics, and end events.
+This module provides the Celery task for processing Bouncie webhook
+events asynchronously, including trip start, data, metrics, and end
+events.
 """
 
 from __future__ import annotations

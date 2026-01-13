@@ -1,8 +1,9 @@
 """
 App settings management.
 
-This module handles storage and retrieval of app-wide settings from MongoDB. Settings
-are stored once and shared across all deployments using the same database.
+This module handles storage and retrieval of app-wide settings from
+MongoDB. Settings are stored once and shared across all deployments
+using the same database.
 """
 
 from __future__ import annotations
@@ -139,9 +140,9 @@ def get_cached_mapbox_token() -> str:
     """
     Get Mapbox token from cache (sync access).
 
-    This is used for module-level imports where async isn't available. The cache is
-    populated when get_app_settings() is called. Falls back to environment variable if
-    cache is empty or missing.
+    This is used for module-level imports where async isn't available.
+    The cache is populated when get_app_settings() is called. Falls back
+    to environment variable if cache is empty or missing.
     """
     token = ""
     cache = SettingsCache.get_cache()
@@ -155,9 +156,9 @@ def get_cached_clarity_id() -> str | None:
     """
     Get Clarity ID from cache (sync access).
 
-    This is used for module-level imports where async isn't available. The cache is
-    populated when get_app_settings() is called. Falls back to None if cache not yet
-    populated.
+    This is used for module-level imports where async isn't available.
+    The cache is populated when get_app_settings() is called. Falls back
+    to None if cache not yet populated.
     """
     cache = SettingsCache.get_cache()
     if cache:

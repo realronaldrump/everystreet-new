@@ -35,7 +35,8 @@ async def get_trips_in_bounds(
     """
     Get raw or matched trip coordinates within a given bounding box.
 
-    Uses a spatial query for efficiency. Queries the single trips collection.
+    Uses a spatial query for efficiency. Queries the single trips
+    collection.
     """
     try:
         return await TripQueryService.get_trips_in_bounds(

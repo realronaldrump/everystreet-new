@@ -1,8 +1,9 @@
 """
 Search API for places, addresses, and streets.
 
-Provides endpoints for geocoding searches and street lookups with support for Nominatim
-(OSM) and Mapbox geocoding services via a centralized GeocodingService.
+Provides endpoints for geocoding searches and street lookups with
+support for Nominatim (OSM) and Mapbox geocoding services via a
+centralized GeocodingService.
 """
 
 import logging

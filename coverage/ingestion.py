@@ -73,8 +73,8 @@ async def create_area(
     """
     Create a new coverage area and trigger ingestion.
 
-    If boundary is not provided, it will be fetched via geocoding. Returns the created
-    area (in "initializing" status).
+    If boundary is not provided, it will be fetched via geocoding.
+    Returns the created area (in "initializing" status).
     """
     # Check for duplicate name
     existing = await CoverageArea.find_one({"display_name": display_name})
@@ -718,7 +718,8 @@ async def _clear_existing_area_version_data(
     """
     Clear any existing street data for the current area version.
 
-    This keeps rebuilds and retries idempotent without deleting past versions.
+    This keeps rebuilds and retries idempotent without deleting past
+    versions.
     """
     await Street.find({"area_id": area_id, "area_version": area_version}).delete()
 

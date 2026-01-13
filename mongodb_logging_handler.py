@@ -9,12 +9,12 @@ from db.models import ServerLog
 class MongoDBHandler(logging.Handler):
     """Custom logging handler that writes log records to MongoDB via Beanie."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the MongoDB logging handler."""
         super().__init__()
         self._pending_tasks = set()
 
-    async def setup_indexes(self):
+    async def setup_indexes(self) -> None:
         """No-op as Beanie handles index creation at model level."""
 
     def emit(self, record: logging.LogRecord) -> None:

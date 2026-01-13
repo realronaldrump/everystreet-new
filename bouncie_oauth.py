@@ -1,8 +1,8 @@
 """
 Centralized Bouncie OAuth service.
 
-Handles OAuth token acquisition and caching for the Bouncie API. All Bouncie API
-integrations should use this service for authentication.
+Handles OAuth token acquisition and caching for the Bouncie API. All
+Bouncie API integrations should use this service for authentication.
 """
 
 import logging

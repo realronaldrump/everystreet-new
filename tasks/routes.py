@@ -1,8 +1,9 @@
 """
 Optimal route generation task.
 
-This module provides the Celery task for generating optimal completion routes for
-coverage areas using the Rural Postman Problem (RPP) algorithm.
+This module provides the Celery task for generating optimal completion
+routes for coverage areas using the Rural Postman Problem (RPP)
+algorithm.
 """
 
 from __future__ import annotations

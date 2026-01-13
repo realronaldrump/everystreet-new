@@ -76,7 +76,7 @@ daemon = False
 max_worker_memory = 512 * 1024 * 1024
 
 
-def on_starting(_server):
+def on_starting(_server) -> None:
     """Log when server starts."""
     logging.getLogger("gunicorn.error").info(
         "Starting Gunicorn with %d workers, timeout %ds",
@@ -85,16 +85,16 @@ def on_starting(_server):
     )
 
 
-def post_fork(_server, _worker):
+def post_fork(_server, _worker) -> None:
     """Post-fork actions."""
 
 
-def on_exit(_server):
+def on_exit(_server) -> None:
     """Log when server exits."""
     logging.getLogger("gunicorn.error").info("Gunicorn server shutting down.")
 
 
-def worker_abort(worker):
+def worker_abort(worker) -> None:
     """Log worker timeouts."""
     logging.getLogger("gunicorn.error").warning(
         "Worker %d was aborted due to timeout or memory limits",
@@ -102,6 +102,6 @@ def worker_abort(worker):
     )
 
 
-def worker_exit(_server, worker):
+def worker_exit(_server, worker) -> None:
     """Log when worker exits."""
     logging.getLogger("gunicorn.error").info("Worker %d exited.", worker.pid)

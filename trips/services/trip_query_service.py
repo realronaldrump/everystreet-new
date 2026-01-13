@@ -14,7 +14,7 @@ from geometry_service import GeometryService
 logger = logging.getLogger(__name__)
 
 
-def _safe_float(value, default=0.0):
+def _safe_float(value, default: float = 0.0):
     """Safely cast value to float."""
     try:
         return float(value)
@@ -83,7 +83,7 @@ class TripQueryService:
                 return None
 
         # Numeric filters
-        def _apply_range(field: str, min_val, max_val):
+        def _apply_range(field: str, min_val, max_val) -> None:
             if min_val is None and max_val is None:
                 return
             range_query = {}

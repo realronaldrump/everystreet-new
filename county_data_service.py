@@ -1,11 +1,11 @@
 """
 Helpers for loading and storing county topology data in MongoDB.
 
-This module centralizes access to the county TopoJSON documents so the data can be
-served from the database instead of static files on disk.
+This module centralizes access to the county TopoJSON documents so the
+data can be served from the database instead of static files on disk.
 
-If the requested topology is missing, it will be fetched from a stable CDN source and
-cached in MongoDB for subsequent requests.
+If the requested topology is missing, it will be fetched from a stable
+CDN source and cached in MongoDB for subsequent requests.
 """
 
 from __future__ import annotations

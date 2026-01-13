@@ -1,8 +1,8 @@
 """
 Geo helpers for coverage calculations.
 
-Provides local projections for meter-based geometry work and geodesic length
-calculations for accurate distances.
+Provides local projections for meter-based geometry work and geodesic
+length calculations for accurate distances.
 """
 
 from __future__ import annotations

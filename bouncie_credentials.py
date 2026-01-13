@@ -1,7 +1,8 @@
 """
 Bouncie credentials management.
 
-This module handles storage and retrieval of Bouncie API credentials using Beanie ODM.
+This module handles storage and retrieval of Bouncie API credentials
+using Beanie ODM.
 """
 
 from __future__ import annotations

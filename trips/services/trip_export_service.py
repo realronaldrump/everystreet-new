@@ -9,8 +9,8 @@ class TripExportService:
     """
     Service class for trip export operations.
 
-    This service provides functionality for exporting trip data in various formats like
-    GPX and KML.
+    This service provides functionality for exporting trip data in
+    various formats like GPX and KML.
     """
 
     @staticmethod

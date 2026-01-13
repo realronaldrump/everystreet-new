@@ -1,8 +1,8 @@
 """
 HTTP session management for aiohttp.
 
-This module provides shared aiohttp ClientSession management with proper handling of
-process forks and event loop changes.
+This module provides shared aiohttp ClientSession management with proper
+handling of process forks and event loop changes.
 """
 
 from __future__ import annotations
@@ -115,7 +115,7 @@ async def get_session() -> aiohttp.ClientSession:
     return SessionState.session
 
 
-async def cleanup_session():
+async def cleanup_session() -> None:
     """Close the shared session for the current process."""
     if SessionState.session and not SessionState.session.closed:
         try:

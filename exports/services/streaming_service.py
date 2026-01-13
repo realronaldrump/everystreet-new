@@ -1,8 +1,8 @@
 """
 Streaming service for efficient export data generation.
 
-Provides async generators for streaming large datasets without loading all data into
-memory at once.
+Provides async generators for streaming large datasets without loading
+all data into memory at once.
 """
 
 import csv
@@ -177,8 +177,8 @@ class StreamingService:
         """
         Export cursor data in specified format.
 
-        Returns StreamingResponse for supported streaming formats, or None if format
-        requires non-streaming fallback.
+        Returns StreamingResponse for supported streaming formats, or
+        None if format requires non-streaming fallback.
         """
         fmt_lower = fmt.lower()
 

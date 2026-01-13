@@ -1,8 +1,8 @@
 """
 Database connection manager module.
 
-Provides a singleton DatabaseManager class for MongoDB connections with robust retry
-logic, connection pooling, and event loop handling.
+Provides a singleton DatabaseManager class for MongoDB connections with
+robust retry logic, connection pooling, and event loop handling.
 """
 
 from __future__ import annotations

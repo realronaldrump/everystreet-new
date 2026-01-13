@@ -1,7 +1,8 @@
 """
 Trip Processor Module.
 
-Main orchestrator class that coordinates trip processing through all stages.
+Main orchestrator class that coordinates trip processing through all
+stages.
 """
 
 import logging
@@ -22,8 +23,9 @@ class TripProcessor:
     """
     Orchestrates trip processing including validation, geocoding, and map matching.
 
-    Uses a state machine approach to track processing status and delegates to
-    specialized services for external API calls and database persistence.
+    Uses a state machine approach to track processing status and
+    delegates to specialized services for external API calls and
+    database persistence.
     """
 
     def __init__(
@@ -33,7 +35,7 @@ class TripProcessor:
         geocoding_service: GeocodingService | None = None,
         map_matching_service: MapMatchingService | None = None,
         repository: TripRepository | None = None,
-    ):
+    ) -> None:
         """
         Initialize the trip processor.
 

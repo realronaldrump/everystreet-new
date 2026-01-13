@@ -1,13 +1,15 @@
 """
 Celery application configuration for EveryStreet.
 
-This module sets up the Celery application instance with Redis as the message broker and
-result backend. It also configures Celery Beat to run the single dynamic task scheduler.
+This module sets up the Celery application instance with Redis as the
+message broker and result backend. It also configures Celery Beat to run
+the single dynamic task scheduler.
 
-**Important Security Note:** Celery workers should NOT be run with superuser (root)
-privileges. Ensure your deployment environment (e.g., Dockerfile) is set up to run
-Celery workers as a non-root user. You can use the `--uid` option when starting Celery
-workers to specify a different user.
+**Important Security Note:** Celery workers should NOT be run with
+superuser (root) privileges. Ensure your deployment environment (e.g.,
+Dockerfile) is set up to run Celery workers as a non-root user. You can
+use the `--uid` option when starting Celery workers to specify a
+different user.
 """
 
 import logging
@@ -138,7 +140,7 @@ def task_failure_handler(
     task_id=None,
     exception=None,
     **_kwargs,
-):
+) -> None:
     task_name = sender.name if sender else "unknown"
     if task_name != "tasks.run_task_scheduler":
         logger.error(
@@ -156,24 +158,24 @@ def task_failure_handler(
 
 
 @signals.worker_ready.connect
-def worker_ready_handler(**_kwargs):
+def worker_ready_handler(**_kwargs) -> None:
     logger.info("Celery worker is ready and listening for tasks.")
 
 
 @signals.worker_shutting_down.connect
-def worker_shutdown_handler(**_kwargs):
+def worker_shutdown_handler(**_kwargs) -> None:
     logger.info("Celery worker is shutting down...")
 
 
 @signals.beat_init.connect
-def beat_init_handler(**_kwargs):
+def beat_init_handler(**_kwargs) -> None:
     logger.info(
         "Celery beat scheduler initialized and started (running scheduler task).",
     )
 
 
 @signals.worker_init.connect
-def worker_init(**_kwargs):
+def worker_init(**_kwargs) -> None:
     import sys
     from datetime import datetime
 
@@ -262,6 +264,6 @@ def init_worker(**_kwargs):
 
 
 @signals.worker_process_shutdown.connect(weak=False)
-def worker_process_shutdown_handler(**_kwargs):
+def worker_process_shutdown_handler(**_kwargs) -> None:
     logger.info("Celery worker process shutting down...")
     shutdown_worker_loop()

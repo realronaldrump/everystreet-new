@@ -18,10 +18,11 @@ class TripMapMatcher:
     """
     Handles map matching for trip GPS coordinates.
 
-    Uses external map matching services to snap GPS coordinates to road networks.
+    Uses external map matching services to snap GPS coordinates to road
+    networks.
     """
 
-    def __init__(self, map_matching_service: MapMatchingService):
+    def __init__(self, map_matching_service: MapMatchingService) -> None:
         """
         Initialize the map matcher.
 

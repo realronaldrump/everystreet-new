@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 class TripStatsService:
     """Service class for trip statistics and geocoding operations."""
 
-    def __init__(self, trip_service: TripService):
+    def __init__(self, trip_service: TripService) -> None:
         """
         Initialize the stats service with a TripService instance.
 
@@ -124,7 +124,7 @@ class TripStatsService:
                 }
 
             # Define progress callback
-            async def progress_callback(current: int, total: int, trip_id: str):
+            async def progress_callback(current: int, total: int, trip_id: str) -> None:
                 progress_pct = int((current / total) * 100) if total > 0 else 0
                 progress.progress = progress_pct
                 progress.message = f"Geocoding trip {current} of {total}"

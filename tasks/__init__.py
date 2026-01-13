@@ -18,5 +18,3 @@ Tasks are organized into modules by function:
 """
 
 # Import task modules so Celery registers @shared_task decorators on startup.
-from . import coverage, fetch, maintenance, routes, scheduler, webhook
-from .webhook import process_webhook_event_task

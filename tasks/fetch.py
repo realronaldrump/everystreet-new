@@ -38,7 +38,8 @@ async def periodic_fetch_trips_async(
     """
     Async logic for fetching periodic trips since the last stored trip.
 
-    Can optionally accept specific start/end times for event-driven fetches.
+    Can optionally accept specific start/end times for event-driven
+    fetches.
     """
 
     # Get current Bouncie credentials from database or environment
@@ -239,7 +240,8 @@ def periodic_fetch_trips(
     """
     Celery task wrapper for fetching periodic trips.
 
-    Accepts kwargs to support event-driven triggers with specific date ranges.
+    Accepts kwargs to support event-driven triggers with specific date
+    ranges.
     """
     return run_async_from_sync(
         periodic_fetch_trips_async(

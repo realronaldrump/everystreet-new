@@ -25,7 +25,7 @@ MatchChunkFunc = Callable[
 class MapMatchingService:
     """Service for map matching coordinates to road networks using Mapbox API."""
 
-    def __init__(self, mapbox_token: str | None = None):
+    def __init__(self, mapbox_token: str | None = None) -> None:
         """
         Initialize the map matching service.
 

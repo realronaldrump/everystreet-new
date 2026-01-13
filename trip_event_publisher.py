@@ -1,10 +1,12 @@
 """
 Redis Pub/Sub event publisher for trip updates.
 
-This module provides an event-driven mechanism for publishing trip updates to connected
-WebSocket clients, eliminating the need for constant database polling.
+This module provides an event-driven mechanism for publishing trip
+updates to connected WebSocket clients, eliminating the need for
+constant database polling.
 
-This module uses async Redis operations to avoid blocking the event loop.
+This module uses async Redis operations to avoid blocking the event
+loop.
 """
 
 import json

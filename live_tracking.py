@@ -1,8 +1,9 @@
 """
 Live trip tracking for Bouncie webhook events.
 
-Simplified single-user implementation for real-time trip visualization. Trips are stored
-in the trips collection for unified live and historical access.
+Simplified single-user implementation for real-time trip visualization.
+Trips are stored in the trips collection for unified live and historical
+access.
 """
 
 import logging
@@ -91,8 +92,8 @@ def _deduplicate_coordinates(existing: list[dict], new: list[dict]) -> list[dict
     """
     Merge and deduplicate coordinates by timestamp.
 
-    Bouncie sends duplicate data across real-time and periodic streams. Use timestamp as
-    unique key, preferring newer data.
+    Bouncie sends duplicate data across real-time and periodic streams.
+    Use timestamp as unique key, preferring newer data.
     """
     # Build dict keyed by ISO timestamp
     coords_map = {}

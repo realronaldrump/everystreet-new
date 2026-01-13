@@ -106,8 +106,8 @@ class TaskStatusManager:
     """
     Centralized task status management using db_manager.
 
-    This is a singleton class that provides methods for updating task status in the
-    global task configuration document stored in MongoDB.
+    This is a singleton class that provides methods for updating task
+    status in the global task configuration document stored in MongoDB.
     """
 
     _instance = None

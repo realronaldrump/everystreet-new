@@ -1,7 +1,8 @@
 """
 Trip Basic Processing Module.
 
-Handles basic processing of trip data including GPS parsing and distance calculation.
+Handles basic processing of trip data including GPS parsing and distance
+calculation.
 """
 
 import logging
@@ -17,7 +18,8 @@ class TripBasicProcessor:
     """
     Handles basic processing of trip data.
 
-    Performs GPS coordinate validation, distance calculation, and data enrichment.
+    Performs GPS coordinate validation, distance calculation, and data
+    enrichment.
     """
 
     async def process(

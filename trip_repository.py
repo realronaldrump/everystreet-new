@@ -1,8 +1,9 @@
 """
 Trip Repository Module.
 
-This module provides the TripRepository class that handles all database persistence
-operations for trips, following the Single Responsibility Principle.
+This module provides the TripRepository class that handles all database
+persistence operations for trips, following the Single Responsibility
+Principle.
 """
 
 import json
@@ -20,14 +21,14 @@ class TripRepository:
     """
     Repository for trip database operations.
 
-    Handles all database persistence operations including saving trips to the trips
-    collection and matched trips collection.
+    Handles all database persistence operations including saving trips
+    to the trips collection and matched trips collection.
     """
 
     def __init__(
         self,
         trips_col=None,
-    ):
+    ) -> None:
         """
         Initialize the repository with optional custom collections.
 

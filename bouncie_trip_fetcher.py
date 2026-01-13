@@ -1,8 +1,8 @@
 """
 Bouncie_trip_fetcher.py.
 
-Fetches trip data from the Bouncie API, processes and validates each trip using the
-unified TripProcessor, and stores trips in MongoDB.
+Fetches trip data from the Bouncie API, processes and validates each
+trip using the unified TripProcessor, and stores trips in MongoDB.
 """
 
 import asyncio

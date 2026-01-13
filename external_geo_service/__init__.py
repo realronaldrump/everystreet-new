@@ -1,8 +1,8 @@
 """
 External Geo Service Package.
 
-This package provides geocoding and map matching services using Mapbox and Nominatim
-APIs.
+This package provides geocoding and map matching services using Mapbox
+and Nominatim APIs.
 """
 
 from .geocoding import GeocodingService

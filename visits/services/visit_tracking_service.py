@@ -174,7 +174,7 @@ class VisitTrackingService:
         return visits
 
     @staticmethod
-    def format_duration(seconds):
+    def format_duration(seconds) -> str:
         """
         Format duration in seconds to a human-readable string.
 

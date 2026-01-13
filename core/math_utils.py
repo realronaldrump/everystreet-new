@@ -1,8 +1,8 @@
 """
 Mathematical utilities for circular statistics.
 
-This module provides specialized mathematical functions for circular data (e.g., hours
-of the day, compass directions).
+This module provides specialized mathematical functions for circular
+data (e.g., hours of the day, compass directions).
 """
 
 from __future__ import annotations

@@ -1,7 +1,8 @@
 """
 HTTP response utilities for export.
 
-Provides functions to create StreamingResponse objects for various export formats.
+Provides functions to create StreamingResponse objects for various
+export formats.
 """
 
 import io

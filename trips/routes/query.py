@@ -14,14 +14,14 @@ from geometry_service import GeometryService
 from trips.services import TripCostService, TripQueryService
 
 
-def _safe_float(value, default=0.0):
+def _safe_float(value, default: float = 0.0):
     try:
         return float(value)
     except (TypeError, ValueError):
         return default
 
 
-def _safe_int(value, default=0):
+def _safe_int(value, default: int = 0):
     try:
         return int(value)
     except (TypeError, ValueError):

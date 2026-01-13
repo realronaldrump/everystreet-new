@@ -1,8 +1,8 @@
 """
 Coverage statistics calculation.
 
-This module computes and updates coverage statistics for areas by aggregating data from
-the CoverageState collection.
+This module computes and updates coverage statistics for areas by
+aggregating data from the CoverageState collection.
 """
 
 from __future__ import annotations
@@ -142,8 +142,8 @@ async def update_area_stats(area_id: PydanticObjectId) -> CoverageArea | None:
     """
     Calculate and persist coverage statistics for an area.
 
-    Updates the CoverageArea document with fresh statistics. Returns the updated area or
-    None if not found.
+    Updates the CoverageArea document with fresh statistics. Returns the
+    updated area or None if not found.
     """
     area = await CoverageArea.get(area_id)
     if not area:

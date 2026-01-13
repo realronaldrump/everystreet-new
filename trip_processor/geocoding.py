@@ -1,8 +1,8 @@
 """
 Trip Geocoding Module.
 
-Handles geocoding of trip start and end points using external services and custom
-places.
+Handles geocoding of trip start and end points using external services
+and custom places.
 """
 
 import logging
@@ -21,10 +21,11 @@ class TripGeocoder:
     """
     Handles geocoding for trip start and end points.
 
-    Uses custom places database and falls back to external geocoding services.
+    Uses custom places database and falls back to external geocoding
+    services.
     """
 
-    def __init__(self, geocoding_service: GeocodingService):
+    def __init__(self, geocoding_service: GeocodingService) -> None:
         """
         Initialize the geocoder.
 

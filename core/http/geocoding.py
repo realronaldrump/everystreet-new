@@ -1,8 +1,8 @@
 """
 Geocoding utilities for OpenStreetMap Nominatim and Mapbox APIs.
 
-This module provides reverse geocoding and location validation functions with built-in
-retry logic and rate limit handling.
+This module provides reverse geocoding and location validation functions
+with built-in retry logic and rate limit handling.
 """
 
 from __future__ import annotations

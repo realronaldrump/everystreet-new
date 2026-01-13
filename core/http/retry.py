@@ -1,7 +1,8 @@
 """
 Retry utilities for async HTTP operations.
 
-This module provides retry decorators using tenacity for resilient HTTP calls.
+This module provides retry decorators using tenacity for resilient HTTP
+calls.
 """
 
 from __future__ import annotations

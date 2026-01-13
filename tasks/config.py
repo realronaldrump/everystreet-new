@@ -1,8 +1,9 @@
 """
 Task configuration management functions.
 
-This module provides functions for managing task configuration in the database,
-including retrieving configuration, checking dependencies, and updating task history.
+This module provides functions for managing task configuration in the
+database, including retrieving configuration, checking dependencies, and
+updating task history.
 """
 
 from __future__ import annotations
@@ -184,7 +185,7 @@ async def update_task_history_entry(
     start_time: datetime | None = None,
     end_time: datetime | None = None,
     runtime_ms: float | None = None,
-):
+) -> None:
     """
     Creates or updates an entry in the task history collection.
 

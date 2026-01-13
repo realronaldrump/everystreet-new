@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 class GeocodingService:
     """Service for forward and reverse geocoding using Mapbox and Nominatim APIs."""
 
-    def __init__(self, mapbox_token: str | None = None):
+    def __init__(self, mapbox_token: str | None = None) -> None:
         """
         Initialize the geocoding service.
 

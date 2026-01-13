@@ -23,9 +23,10 @@ async def geocode_trips(data: DateRangeModel | None = None):
     """
     Unified endpoint to re-geocode trips within a date range with progress tracking.
 
-    This replaces the old "GeoPoint Update", "Re-geocode All Trips", and "Update
-    Geocoding" functionality. Only geocodes trips that don't already have addresses, and
-    checks against custom places efficiently.
+    This replaces the old "GeoPoint Update", "Re-geocode All Trips", and
+    "Update Geocoding" functionality. Only geocodes trips that don't
+    already have addresses, and checks against custom places
+    efficiently.
     """
     try:
         start_date = None
@@ -75,8 +76,9 @@ async def regeocode_single_trip(trip_id: str):
     """
     Re-run geocoding for a single trip.
 
-    Used by the Trips UI when a user clicks the per-trip "Refresh Geocoding" button so
-    the trip is re-evaluated against any newly-created custom places.
+    Used by the Trips UI when a user clicks the per-trip "Refresh
+    Geocoding" button so the trip is re-evaluated against any newly-
+    created custom places.
     """
     try:
         return await trip_stats_service.regeocode_single_trip(trip_id)

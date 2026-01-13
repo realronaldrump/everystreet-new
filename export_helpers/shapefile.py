@@ -1,7 +1,8 @@
 """
 Shapefile export utilities.
 
-Provides functions to convert GeoJSON data to shapefile format for export.
+Provides functions to convert GeoJSON data to shapefile format for
+export.
 """
 
 import io

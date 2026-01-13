@@ -1,8 +1,8 @@
 """
 Coverage update worker.
 
-This module handles the actual coverage updates when trips complete. It listens for
-events and updates CoverageState accordingly.
+This module handles the actual coverage updates when trips complete. It
+listens for events and updates CoverageState accordingly.
 """
 
 from __future__ import annotations
@@ -111,7 +111,8 @@ async def update_coverage_for_segments(
     """
     Mark segments as driven for an area.
 
-    Uses bulk operations for efficiency. Returns the number of segments updated.
+    Uses bulk operations for efficiency. Returns the number of segments
+    updated.
     """
     if not segment_ids:
         return 0

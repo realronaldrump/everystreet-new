@@ -1,8 +1,8 @@
 """
 Trip-to-street matching logic.
 
-This module handles the geometric intersection between trip GPS traces and street
-segments to determine which segments have been driven.
+This module handles the geometric intersection between trip GPS traces
+and street segments to determine which segments have been driven.
 """
 
 from __future__ import annotations
@@ -129,8 +129,8 @@ def trip_to_linestring(trip: dict[str, Any]) -> BaseGeometry | None:
     """
     Convert a trip document to a Shapely LineString/MultiLineString.
 
-    Handles both GeoJSON geometry and raw coordinate arrays. Returns None if trip has no
-    valid geometry.
+    Handles both GeoJSON geometry and raw coordinate arrays. Returns
+    None if trip has no valid geometry.
     """
     lines = None
     # Prefer matched geometry when available
@@ -179,7 +179,8 @@ def buffer_trip_line(
     """
     Create buffer polygons around a trip line.
 
-    Returns (buffer_meters_geom, buffer_wgs84_geom, to_meters_transform).
+    Returns (buffer_meters_geom, buffer_wgs84_geom,
+    to_meters_transform).
     """
     to_meters, to_wgs84 = get_local_transformers(trip_line)
     line_meters = transform(to_meters, trip_line)
@@ -199,8 +200,8 @@ def check_segment_overlap(
     """
     Check if a street segment overlaps sufficiently with a trip buffer.
 
-    Returns True if the segment intersects the buffer and the intersection length meets
-    the minimum overlap threshold.
+    Returns True if the segment intersects the buffer and the
+    intersection length meets the minimum overlap threshold.
     """
     try:
         segment_line = shape(segment_geom)
@@ -252,8 +253,8 @@ async def find_matching_segments(
     """
     Find all street segments that match a trip line.
 
-    Uses MongoDB geospatial query to find candidate segments, then uses Shapely for
-    precise intersection testing.
+    Uses MongoDB geospatial query to find candidate segments, then uses
+    Shapely for precise intersection testing.
 
     Returns list of segment_ids that were matched.
     """
@@ -300,8 +301,8 @@ async def match_trip_to_streets(
     """
     Match a trip to streets in one or more areas.
 
-    If area_ids is None, matches against all ready areas that intersect the trip's
-    bounding box.
+    If area_ids is None, matches against all ready areas that intersect
+    the trip's bounding box.
 
     Returns dict mapping area_id -> list of matched segment_ids.
     """
