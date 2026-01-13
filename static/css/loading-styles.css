@@ -280,7 +280,8 @@ body.light-mode .skeleton-loader::after {
 
 .pull-to-refresh.active {
   opacity: 1;
-  transform: translateX(-50%) translateY(calc(-10px + (var(--pull-progress, 0) * 40px)));
+  transform: translateX(-50%)
+    translateY(calc(-10px + (var(--pull-progress, 0) * 40px)));
 }
 
 .pull-to-refresh.loading {
