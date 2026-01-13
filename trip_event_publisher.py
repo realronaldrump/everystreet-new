@@ -14,8 +14,8 @@ import logging
 from datetime import UTC, datetime
 from typing import Any
 
-from beanie import PydanticObjectId
 import redis.asyncio as aioredis
+from beanie import PydanticObjectId
 from redis.exceptions import ConnectionError as RedisConnectionError
 
 from redis_config import get_redis_url
