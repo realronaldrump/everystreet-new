@@ -1,74 +1,74 @@
 .credential-input {
-          font-family: 'Monaco', 'Consolas', monospace;
-      }
+  font-family: "Monaco", "Consolas", monospace;
+}
 
-      .credential-masked {
-          letter-spacing: 0.1em;
-      }
+.credential-masked {
+  letter-spacing: 0.1em;
+}
 
-      .device-list-item {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          margin-bottom: 10px;
-          padding: 10px;
-          background: var(--surface-2);
-          border-radius: var(--radius-md);
-      }
+.device-list-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  padding: 10px;
+  background: var(--surface-2);
+  border-radius: var(--radius-md);
+}
 
-      .device-list-item input {
-          flex: 1;
-      }
+.device-list-item input {
+  flex: 1;
+}
 
-      .device-list-item button {
-          flex-shrink: 0;
-      }
+.device-list-item button {
+  flex-shrink: 0;
+}
 
-      .credentials-status {
-          padding: var(--space-3);
-          border-radius: var(--radius-md);
-          margin-bottom: var(--space-3);
-      }
+.credentials-status {
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-3);
+}
 
-      .credentials-status.success {
-          background: rgb(var(--success-rgb), 0.15);
-          border: 1px solid var(--success);
-          color: var(--success);
-      }
+.credentials-status.success {
+  background: rgb(var(--success-rgb), 0.15);
+  border: 1px solid var(--success);
+  color: var(--success);
+}
 
-      .credentials-status.warning {
-          background: rgb(var(--warning-rgb), 0.15);
-          border: 1px solid var(--warning);
-          color: var(--warning);
-      }
+.credentials-status.warning {
+  background: rgb(var(--warning-rgb), 0.15);
+  border: 1px solid var(--warning);
+  color: var(--warning);
+}
 
-      .credentials-status.error {
-          background: rgb(var(--danger-rgb), 0.15);
-          border: 1px solid var(--danger);
-          color: var(--danger);
-      }
+.credentials-status.error {
+  background: rgb(var(--danger-rgb), 0.15);
+  border: 1px solid var(--danger);
+  color: var(--danger);
+}
 
-      .vehicle-item-container {
-          background: var(--surface-2);
-          border: 1px solid var(--border-color);
-          border-radius: var(--radius-lg);
-          padding: var(--space-3);
-          margin-bottom: var(--space-3);
-          transition: all 0.2s ease;
-      }
+.vehicle-item-container {
+  background: var(--surface-2);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3);
+  margin-bottom: var(--space-3);
+  transition: all 0.2s ease;
+}
 
-      .vehicle-item-container:hover {
-          background: var(--surface-3);
-          border-color: var(--border-color);
-      }
+.vehicle-item-container:hover {
+  background: var(--surface-3);
+  border-color: var(--border-color);
+}
 
-      @media (max-width: 768px) {
-          .device-list-item {
-              flex-direction: column;
-              align-items: stretch;
-          }
+@media (max-width: 768px) {
+  .device-list-item {
+    flex-direction: column;
+    align-items: stretch;
+  }
 
-          .device-list-item input {
-              width: 100%;
-          }
-      }
+  .device-list-item input {
+    width: 100%;
+  }
+}

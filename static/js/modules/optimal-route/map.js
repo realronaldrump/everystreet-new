@@ -54,7 +54,10 @@ export class OptimalRouteMap {
         this.onLayerReady();
         resolve();
       };
-      if (typeof this.map.isStyleLoaded === "function" && this.map.isStyleLoaded()) {
+      if (
+        typeof this.map.isStyleLoaded === "function" &&
+        this.map.isStyleLoaded()
+      ) {
         handleLoad();
       } else {
         this.map.on("load", handleLoad);
@@ -182,7 +185,10 @@ export class OptimalRouteMap {
     if (this.map.getSource("streets-driven")) {
       return true;
     }
-    if (typeof this.map.isStyleLoaded === "function" && !this.map.isStyleLoaded()) {
+    if (
+      typeof this.map.isStyleLoaded === "function" &&
+      !this.map.isStyleLoaded()
+    ) {
       return false;
     }
     this.setupMapLayers();
@@ -290,7 +296,7 @@ export class OptimalRouteMap {
     // Fit bounds
     const routeBounds = coordinates.reduce(
       (accBounds, coord) => accBounds.extend(coord),
-      new mapboxgl.LngLatBounds(coordinates[0], coordinates[0])
+      new mapboxgl.LngLatBounds(coordinates[0], coordinates[0]),
     );
 
     this.map.fitBounds(routeBounds, { padding: 50, duration: 1000 });
@@ -350,7 +356,7 @@ export class OptimalRouteMap {
         [west, south],
         [east, north],
       ],
-      { padding: 50, duration: 1000 }
+      { padding: 50, duration: 1000 },
     );
   }
 
@@ -361,7 +367,11 @@ export class OptimalRouteMap {
     layerIds.forEach((id) => {
       try {
         if (this.map.getLayer(id)) {
-          this.map.setLayoutProperty(id, "visibility", isVisible ? "visible" : "none");
+          this.map.setLayoutProperty(
+            id,
+            "visibility",
+            isVisible ? "visible" : "none",
+          );
         }
       } catch (e) {
         console.warn(`Could not toggle layer ${id}:`, e.message);

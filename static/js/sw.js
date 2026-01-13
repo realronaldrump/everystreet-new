@@ -26,7 +26,7 @@ self.addEventListener("install", (event) => {
       const cache = await caches.open(APP_SHELL_CACHE);
       await cache.addAll(APP_SHELL_ASSETS);
       await self.skipWaiting();
-    })()
+    })(),
   );
 });
 
@@ -36,14 +36,18 @@ self.addEventListener("activate", (event) => {
       const keys = await caches.keys();
       await Promise.all(
         keys.map((key) => {
-          if (key !== API_CACHE && key !== TILE_CACHE && key !== APP_SHELL_CACHE) {
+          if (
+            key !== API_CACHE &&
+            key !== TILE_CACHE &&
+            key !== APP_SHELL_CACHE
+          ) {
             return caches.delete(key);
           }
           return null;
-        })
+        }),
       );
       await clients.claim();
-    })()
+    })(),
   );
 });
 
@@ -64,12 +68,18 @@ self.addEventListener("fetch", (event) => {
 
   const url = new URL(request.url);
 
-  if (url.origin === self.location.origin && url.pathname.startsWith(API_PATH_PREFIX)) {
+  if (
+    url.origin === self.location.origin &&
+    url.pathname.startsWith(API_PATH_PREFIX)
+  ) {
     event.respondWith(networkFirst(request));
     return;
   }
 
-  if (url.origin === self.location.origin && url.pathname.startsWith(STATIC_PATH_PREFIX)) {
+  if (
+    url.origin === self.location.origin &&
+    url.pathname.startsWith(STATIC_PATH_PREFIX)
+  ) {
     event.respondWith(cacheFirst(request, APP_SHELL_CACHE));
     return;
   }

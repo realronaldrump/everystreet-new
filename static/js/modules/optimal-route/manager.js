@@ -51,7 +51,7 @@ export class OptimalRoutesManager {
       (e) => {
         this.onAreaSelect(e.target.value);
       },
-      signal ? { signal } : false
+      signal ? { signal } : false,
     );
 
     // Generate button
@@ -60,7 +60,7 @@ export class OptimalRoutesManager {
       () => {
         this.generateRoute();
       },
-      signal ? { signal } : false
+      signal ? { signal } : false,
     );
 
     // Export GPX
@@ -69,7 +69,7 @@ export class OptimalRoutesManager {
       () => {
         this.exportGPX();
       },
-      signal ? { signal } : false
+      signal ? { signal } : false,
     );
 
     // Replay animation
@@ -78,7 +78,7 @@ export class OptimalRoutesManager {
       () => {
         this.replayAnimation();
       },
-      signal ? { signal } : false
+      signal ? { signal } : false,
     );
 
     // Start turn-by-turn navigation
@@ -87,7 +87,7 @@ export class OptimalRoutesManager {
       () => {
         this.openTurnByTurn();
       },
-      signal ? { signal } : false
+      signal ? { signal } : false,
     );
 
     // Clear route
@@ -96,7 +96,7 @@ export class OptimalRoutesManager {
       () => {
         this.clearRoute();
       },
-      signal ? { signal } : false
+      signal ? { signal } : false,
     );
 
     // Retry button
@@ -105,7 +105,7 @@ export class OptimalRoutesManager {
       () => {
         this.generateRoute();
       },
-      signal ? { signal } : false
+      signal ? { signal } : false,
     );
 
     // Cancel button
@@ -114,7 +114,7 @@ export class OptimalRoutesManager {
       () => {
         this.cancelTask();
       },
-      signal ? { signal } : false
+      signal ? { signal } : false,
     );
 
     this.setupLayerControls();
@@ -135,7 +135,7 @@ export class OptimalRoutesManager {
         (e) => {
           this.map.toggleLayer(layers, e.target.checked);
         },
-        signal ? { signal } : false
+        signal ? { signal } : false,
       );
     });
 
@@ -152,14 +152,16 @@ export class OptimalRoutesManager {
         "input",
         (e) => {
           const opacity = e.target.value / 100;
-          const label = slider.closest(".layer-opacity").querySelector(".opacity-value");
+          const label = slider
+            .closest(".layer-opacity")
+            .querySelector(".opacity-value");
           if (label) {
             label.textContent = `${e.target.value}%`;
           }
 
           this.map.setLayerOpacity(layers, opacity);
         },
-        signal ? { signal } : false
+        signal ? { signal } : false,
       );
     });
 
@@ -174,7 +176,7 @@ export class OptimalRoutesManager {
             this.updateLayerOrder();
           }
         },
-        signal ? { signal } : false
+        signal ? { signal } : false,
       );
     });
 
@@ -188,7 +190,7 @@ export class OptimalRoutesManager {
             this.updateLayerOrder();
           }
         },
-        signal ? { signal } : false
+        signal ? { signal } : false,
       );
     });
   }
@@ -220,7 +222,7 @@ export class OptimalRoutesManager {
     }
     const targetId = String(areaId);
     const match = this.coverageAreas.find(
-      (area) => String(area._id || area.id || "") === targetId
+      (area) => String(area._id || area.id || "") === targetId,
     );
     if (match) {
       return match.status || match.location?.status || "";
@@ -250,7 +252,7 @@ export class OptimalRoutesManager {
 
       // Dispatch event
       document.dispatchEvent(
-        new CustomEvent("coverageAreasLoaded", { detail: { areas } })
+        new CustomEvent("coverageAreasLoaded", { detail: { areas } }),
       );
 
       this.ui.populateAreaSelect(areas);
@@ -268,7 +270,7 @@ export class OptimalRoutesManager {
         this.restoreAreaSelection();
         this.ui.showNotification(
           "Coverage calculation is in progress for that area. Please wait until it finishes.",
-          "warning"
+          "warning",
         );
         return;
       }
@@ -302,8 +304,8 @@ export class OptimalRoutesManager {
 
     // Load streets
     try {
-      const { drivenFeatures, undrivenFeatures }
-        = await this.api.loadStreetNetwork(nextAreaId);
+      const { drivenFeatures, undrivenFeatures } =
+        await this.api.loadStreetNetwork(nextAreaId);
       this.map.updateStreets(drivenFeatures, undrivenFeatures);
     } catch {
       // already logged in api
@@ -342,7 +344,10 @@ export class OptimalRoutesManager {
       });
 
       this.api.connectSSE(activeTask.task_id);
-      this.ui.showNotification("Reconnected to in-progress route generation", "info");
+      this.ui.showNotification(
+        "Reconnected to in-progress route generation",
+        "info",
+      );
     }
 
     // Fly to area
@@ -371,7 +376,7 @@ export class OptimalRoutesManager {
       if (workerStatus.status === "no_workers") {
         this.ui.showNotification(
           "No workers available. Task will be queued.",
-          "warning"
+          "warning",
         );
       }
 
@@ -446,13 +451,13 @@ export class OptimalRoutesManager {
     if (this.ui.turnByTurnBtn?.disabled) {
       this.ui.showNotification(
         "Generate a route before starting navigation.",
-        "warning"
+        "warning",
       );
       return;
     }
     window.localStorage.setItem("turnByTurnAreaId", this.selectedAreaId);
     window.location.href = `/turn-by-turn?areaId=${encodeURIComponent(
-      this.selectedAreaId
+      this.selectedAreaId,
     )}`;
   }
 
@@ -471,7 +476,7 @@ export class OptimalRoutesManager {
     this.map.displayRoute(
       this.currentRouteData.coordinates,
       this.currentRouteData,
-      true
+      true,
     );
   }
 

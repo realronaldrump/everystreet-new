@@ -8,7 +8,10 @@ import { onPageLoad } from "../utils.js";
 import { buildExportUrl } from "./api.js";
 import { EXPORT_CONFIG, EXPORT_TIMEOUT_MS } from "./config.js";
 import { downloadFile } from "./download.js";
-import { validateLocation, validateLocationInput } from "./location-validator.js";
+import {
+  validateLocation,
+  validateLocationInput,
+} from "./location-validator.js";
 import { loadSavedExportSettings, saveExportSettings } from "./settings.js";
 import {
   cacheElements,
@@ -43,7 +46,7 @@ class ExportManager {
     this.initEventListeners(signal);
     initDatePickers(this.elements);
     loadSavedExportSettings(this.elements, (format) =>
-      updateUIBasedOnFormat(format, this.elements)
+      updateUIBasedOnFormat(format, this.elements),
     );
     initUndrivenStreetsExport({ signal });
 
@@ -68,7 +71,7 @@ class ExportManager {
             event.preventDefault();
             this.handleFormSubmit(formKey);
           },
-          signal ? { signal } : false
+          signal ? { signal } : false,
         );
       }
     });
@@ -86,7 +89,7 @@ class ExportManager {
             validateLocation(targetId);
           }
         },
-        signal ? { signal } : false
+        signal ? { signal } : false,
       );
     });
 
@@ -104,7 +107,7 @@ class ExportManager {
             endDateInput.disabled = checked;
           }
         },
-        signal ? { signal } : false
+        signal ? { signal } : false,
       );
     }
 
@@ -116,7 +119,7 @@ class ExportManager {
         (event) => {
           updateUIBasedOnFormat(event.target.value, this.elements);
         },
-        signal ? { signal } : false
+        signal ? { signal } : false,
       );
     }
   }
@@ -140,7 +143,7 @@ class ExportManager {
     if (this.activeExports[formType]) {
       window.notificationManager?.show(
         `Already exporting ${config.name}. Please wait...`,
-        "info"
+        "info",
       );
       return;
     }
@@ -151,18 +154,25 @@ class ExportManager {
     }
 
     const submitButton = formElement.querySelector('button[type="submit"]');
-    const originalText = setButtonLoading(submitButton, true, `Export ${config.name}`);
+    const originalText = setButtonLoading(
+      submitButton,
+      true,
+      `Export ${config.name}`,
+    );
 
     try {
       this.activeExports[formType] = true;
-      window.notificationManager?.show(`Starting ${config.name} export...`, "info");
+      window.notificationManager?.show(
+        `Starting ${config.name} export...`,
+        "info",
+      );
 
       const url = buildExportUrl(
         formType,
         config,
         this.elements,
         validateLocationInput,
-        () => saveExportSettings(this.elements)
+        () => saveExportSettings(this.elements),
       );
 
       const abortController = new AbortController();
@@ -173,19 +183,22 @@ class ExportManager {
         this.pageSignal.addEventListener(
           "abort",
           () => abortController.abort(),
-          { once: true }
+          { once: true },
         );
       }
       const timeoutId = setTimeout(() => {
         abortController.abort();
         window.handleError?.(
-          `Export operation timed out after ${EXPORT_TIMEOUT_MS / 1000} seconds: ${config.name}`
+          `Export operation timed out after ${EXPORT_TIMEOUT_MS / 1000} seconds: ${config.name}`,
         );
       }, EXPORT_TIMEOUT_MS);
 
       try {
         await downloadFile(url, config.name, abortController.signal);
-        window.notificationManager?.show(`${config.name} export completed`, "success");
+        window.notificationManager?.show(
+          `${config.name} export completed`,
+          "success",
+        );
       } finally {
         clearTimeout(timeoutId);
       }
@@ -196,7 +209,7 @@ class ExportManager {
       console.error("Export error:", error);
       window.notificationManager?.show(
         `Export failed: ${error.message || "Unknown error"}`,
-        "error"
+        "error",
       );
     } finally {
       this.activeExports[formType] = false;
@@ -220,7 +233,7 @@ onPageLoad(
       });
     }
   },
-  { route: "/export" }
+  { route: "/export" },
 );
 
 // Expose validateLocation globally for inline onclick handlers

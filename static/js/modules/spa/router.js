@@ -3,9 +3,9 @@ import store from "./store.js";
 const loadedScripts = new Set();
 
 const prefersReducedMotion = () =>
-  typeof window !== "undefined"
-  && window.matchMedia
-  && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  typeof window !== "undefined" &&
+  window.matchMedia &&
+  window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 const shouldHandleClick = (event, link) => {
   if (!link || event.defaultPrevented) {
@@ -65,9 +65,9 @@ const router = {
       return;
     }
 
-    this.main
-      = document.getElementById("route-content")
-      || document.getElementById("main-content");
+    this.main =
+      document.getElementById("route-content") ||
+      document.getElementById("main-content");
     this.shell = document.getElementById("persistent-shell");
     this.scriptHost = document.getElementById("spa-scripts");
     this.announcer = document.getElementById("spa-announcer");
@@ -101,7 +101,10 @@ const router = {
     this.initialized = true;
   },
 
-  async navigate(url, { push = true, fromPopstate = false, force = false } = {}) {
+  async navigate(
+    url,
+    { push = true, fromPopstate = false, force = false } = {},
+  ) {
     if (!this.main) {
       window.location.href = url;
       return;
@@ -142,7 +145,7 @@ const router = {
           nextUrl: nextUrl.href,
           nextPath: nextUrl.pathname,
         },
-      })
+      }),
     );
 
     try {
@@ -183,15 +186,17 @@ const router = {
       };
 
       if (
-        this.viewTransitionsEnabled
-        && "startViewTransition" in document
-        && !prefersReducedMotion()
+        this.viewTransitionsEnabled &&
+        "startViewTransition" in document &&
+        !prefersReducedMotion()
       ) {
         await document.startViewTransition(apply).finished;
       } else {
         this.main.classList.add("is-transitioning");
         await apply();
-        requestAnimationFrame(() => this.main.classList.remove("is-transitioning"));
+        requestAnimationFrame(() =>
+          this.main.classList.remove("is-transitioning"),
+        );
       }
 
       if (push && window.history.pushState) {
@@ -204,7 +209,11 @@ const router = {
         store.applyUrlParams(nextUrl.href, { emit: true, source: "navigate" });
       }
 
-      this.dispatchPageLoad(fragment, { previousUrl, previousPath, fromPopstate });
+      this.dispatchPageLoad(fragment, {
+        previousUrl,
+        previousPath,
+        fromPopstate,
+      });
       if (fromPopstate) {
         requestAnimationFrame(() => {
           this.restoreScrollPosition(nextUrl.href);
@@ -267,7 +276,7 @@ const router = {
     }
 
     const insertionPoint = document.querySelector(
-      '[data-es-head-boundary="end"]'
+      '[data-es-head-boundary="end"]',
     );
     const template = document.createElement("template");
     template.innerHTML = headHtml;
@@ -314,9 +323,9 @@ const router = {
       return;
     }
 
-    Array.from(this.scriptHost.querySelectorAll("[data-es-dynamic='script']")).forEach(
-      (node) => node.remove()
-    );
+    Array.from(
+      this.scriptHost.querySelectorAll("[data-es-dynamic='script']"),
+    ).forEach((node) => node.remove());
 
     if (!scriptsHtml) {
       return;
@@ -342,7 +351,7 @@ const router = {
         const loadPromise = new Promise((resolve, reject) => {
           script.addEventListener("load", resolve, { once: true });
           script.addEventListener("error", () =>
-            reject(new Error(`Failed to load ${src}`))
+            reject(new Error(`Failed to load ${src}`)),
           );
         });
         this.scriptHost.appendChild(script);
@@ -418,9 +427,9 @@ const router = {
   },
 
   restoreFocus() {
-    let focusTarget
-      = this.main.querySelector("[data-es-focus]")
-      || this.main.querySelector("h1, h2, [role='heading']");
+    let focusTarget =
+      this.main.querySelector("[data-es-focus]") ||
+      this.main.querySelector("h1, h2, [role='heading']");
 
     if (!focusTarget) {
       const globalFocus = document.querySelector("[data-es-focus]");
@@ -434,9 +443,9 @@ const router = {
     }
 
     if (focusTarget && typeof focusTarget.focus === "function") {
-      const isNaturallyFocusable
-        = focusTarget.matches?.(
-          "a[href], button, input, select, textarea, details, summary, [tabindex]"
+      const isNaturallyFocusable =
+        focusTarget.matches?.(
+          "a[href], button, input, select, textarea, details, summary, [tabindex]",
         ) || false;
       if (!isNaturallyFocusable) {
         focusTarget.setAttribute("tabindex", "-1");
@@ -456,7 +465,7 @@ const router = {
           previousUrl: context.previousUrl,
           fromPopstate: Boolean(context.fromPopstate),
         },
-      })
+      }),
     );
   },
 
@@ -466,14 +475,14 @@ const router = {
     });
 
     const startMarker = document.querySelector(
-      '[data-es-head-boundary="start"]'
+      '[data-es-head-boundary="start"]',
     );
     const endMarker = document.querySelector('[data-es-head-boundary="end"]');
     if (
-      !startMarker
-      || !endMarker
-      || startMarker.parentNode !== document.head
-      || endMarker.parentNode !== document.head
+      !startMarker ||
+      !endMarker ||
+      startMarker.parentNode !== document.head ||
+      endMarker.parentNode !== document.head
     ) {
       return;
     }
@@ -501,7 +510,10 @@ const router = {
 
   saveScrollPositions(positions) {
     try {
-      sessionStorage.setItem(this.scrollPositionsKey, JSON.stringify(positions));
+      sessionStorage.setItem(
+        this.scrollPositionsKey,
+        JSON.stringify(positions),
+      );
     } catch {
       // Ignore storage failures.
     }
@@ -567,7 +579,8 @@ const router = {
     }
     let index = 0;
     document.querySelectorAll("[data-shared-transition]").forEach((element) => {
-      const name = element.dataset.sharedTransition || element.id || `shared-${index}`;
+      const name =
+        element.dataset.sharedTransition || element.id || `shared-${index}`;
       element.style.viewTransitionName = name;
       index += 1;
     });
@@ -588,7 +601,10 @@ const router = {
       if (hoverTimer) {
         clearTimeout(hoverTimer);
       }
-      hoverTimer = setTimeout(() => this.prefetch(link.href), this.prefetchDelay);
+      hoverTimer = setTimeout(
+        () => this.prefetch(link.href),
+        this.prefetchDelay,
+      );
     };
 
     document.addEventListener("pointerover", (event) => {
@@ -622,7 +638,10 @@ const router = {
     if (link.getAttribute("data-bs-toggle")) {
       return false;
     }
-    if (link.hasAttribute("data-es-no-spa") || link.hasAttribute("data-no-spa")) {
+    if (
+      link.hasAttribute("data-es-no-spa") ||
+      link.hasAttribute("data-no-spa")
+    ) {
       return false;
     }
     if (link.hasAttribute("data-no-prefetch")) {
@@ -688,7 +707,11 @@ const router = {
       // Ignore parse errors.
     }
     return [
-      { path: window.location.pathname, title: document.title, timestamp: Date.now() },
+      {
+        path: window.location.pathname,
+        title: document.title,
+        timestamp: Date.now(),
+      },
     ];
   },
 
@@ -696,7 +719,7 @@ const router = {
     try {
       sessionStorage.setItem(
         this.historyKey,
-        JSON.stringify(this.routeHistory.slice(-8))
+        JSON.stringify(this.routeHistory.slice(-8)),
       );
     } catch {
       // Ignore storage failures.
@@ -772,7 +795,11 @@ const router = {
         if (!event.touches || event.touches.length !== 1) {
           return;
         }
-        if (event.target.closest("[data-gesture-ignore], .mapboxgl-canvas-container")) {
+        if (
+          event.target.closest(
+            "[data-gesture-ignore], .mapboxgl-canvas-container",
+          )
+        ) {
           return;
         }
         const touch = event.touches[0];
@@ -783,7 +810,7 @@ const router = {
         this.swipeState.startX = touch.clientX;
         this.swipeState.startY = touch.clientY;
       },
-      { passive: true }
+      { passive: true },
     );
 
     document.addEventListener(
@@ -805,7 +832,7 @@ const router = {
           window.history.back();
         }
       },
-      { passive: true }
+      { passive: true },
     );
   },
 };
