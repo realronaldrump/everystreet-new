@@ -25,5 +25,5 @@ onPageLoad(
     const navigator = new TurnByTurnNavigator();
     navigator.init();
   },
-  { route: "/turn-by-turn" }
+  { route: "/turn-by-turn" },
 );

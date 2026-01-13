@@ -19,7 +19,9 @@ const contextualUI = {
     }
     this.applyTimeTone();
     this.observeCoverage();
-    document.addEventListener("contextual:refresh", () => this.applyAccentTone());
+    document.addEventListener("contextual:refresh", () =>
+      this.applyAccentTone(),
+    );
     document.addEventListener("es:page-load", () => {
       this.applyTimeTone();
       this.observeCoverage();
@@ -48,7 +50,7 @@ const contextualUI = {
 
   observeCoverage() {
     const elements = COVERAGE_SELECTORS.flatMap((selector) =>
-      Array.from(document.querySelectorAll(selector))
+      Array.from(document.querySelectorAll(selector)),
     );
 
     if (elements.length === 0 && this.coverageTone) {
@@ -102,7 +104,10 @@ const contextualUI = {
     if (rgb) {
       root.style.setProperty("--section-accent-rgb", rgb);
       root.style.setProperty("--section-accent", `rgb(${rgb})`);
-      root.style.setProperty("--ambient-tint", this.formatAmbient(rgb, this.timeTone));
+      root.style.setProperty(
+        "--ambient-tint",
+        this.formatAmbient(rgb, this.timeTone),
+      );
     }
   },
 

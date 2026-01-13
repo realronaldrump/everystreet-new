@@ -60,7 +60,8 @@ window.utils?.onPageLoad(
         type: "line",
         source: tripsSourceId,
         paint: {
-          "line-color": window.MapStyles?.getTripStyle?.("default")?.color || "#3388ff",
+          "line-color":
+            window.MapStyles?.getTripStyle?.("default")?.color || "#3388ff",
           "line-width": 3,
           "line-opacity": 0.8,
         },
@@ -105,7 +106,9 @@ window.utils?.onPageLoad(
 
     function initializeControls() {
       if (!editMap || typeof MapboxDraw === "undefined") {
-        console.error("MapboxDraw is missing. Ensure mapbox-gl-draw.js is included.");
+        console.error(
+          "MapboxDraw is missing. Ensure mapbox-gl-draw.js is included.",
+        );
         return;
       }
 
@@ -197,19 +200,19 @@ window.utils?.onPageLoad(
       try {
         const startInput = document.getElementById("start-date");
         const endInput = document.getElementById("end-date");
-        const startDate
-          = startInput?.value
-          || window.utils.getStorage("startDate")
-          || window.DateUtils.getYesterday();
-        const endDate
-          = endInput?.value
-          || window.utils.getStorage("endDate")
-          || window.DateUtils.getYesterday();
+        const startDate =
+          startInput?.value ||
+          window.utils.getStorage("startDate") ||
+          window.DateUtils.getYesterday();
+        const endDate =
+          endInput?.value ||
+          window.utils.getStorage("endDate") ||
+          window.DateUtils.getYesterday();
 
         // Validate date range
         if (!window.DateUtils.isValidDateRange(startDate, endDate)) {
           throw new Error(
-            "Invalid date range. Start date must be before or equal to end date."
+            "Invalid date range. Start date must be before or equal to end date.",
           );
         }
 
@@ -222,8 +225,8 @@ window.utils?.onPageLoad(
         }
 
         const tripType = tripTypeSelect.value;
-        const url
-          = tripType === "matched_trips"
+        const url =
+          tripType === "matched_trips"
             ? `/api/matched_trips?start_date=${startDate}&end_date=${endDate}`
             : `/api/trips?start_date=${startDate}&end_date=${endDate}`;
 
@@ -245,7 +248,7 @@ window.utils?.onPageLoad(
         if (window.notificationManager) {
           window.notificationManager.show(
             `Error loading trips: ${error.message}`,
-            "danger"
+            "danger",
           );
         }
       }
@@ -267,10 +270,10 @@ window.utils?.onPageLoad(
       tripFeatures = trips.filter((trip) => {
         const gps = trip.geometry || trip.gps;
         return (
-          gps
-          && gps.type === "LineString"
-          && gps.coordinates
-          && gps.coordinates.length > 0
+          gps &&
+          gps.type === "LineString" &&
+          gps.coordinates &&
+          gps.coordinates.length > 0
         );
       });
 
@@ -350,7 +353,7 @@ window.utils?.onPageLoad(
       // Update feature state for styling
       editMap.setFeatureState(
         { source: tripsSourceId, id: feature.id },
-        { selected: styleType === "selected" }
+        { selected: styleType === "selected" },
       );
 
       // Update layer paint properties
@@ -456,9 +459,9 @@ window.utils?.onPageLoad(
       const Δφ = ((point2.lat - point1.lat) * Math.PI) / 180;
       const Δλ = ((point2.lng - point1.lng) * Math.PI) / 180;
 
-      const a
-        = Math.sin(Δφ / 2) * Math.sin(Δφ / 2)
-        + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+      const a =
+        Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+        Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
       const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
       return R * c;
@@ -498,7 +501,7 @@ window.utils?.onPageLoad(
       const source = editMap.getSource(tripsSourceId);
       if (source) {
         const features = tripFeatures.map((f) =>
-          f.id === currentTrip.id ? currentTrip : f
+          f.id === currentTrip.id ? currentTrip : f,
         );
         source.setData({
           type: "FeatureCollection",
@@ -509,19 +512,22 @@ window.utils?.onPageLoad(
 
     async function saveTripChanges() {
       if (!currentTrip) {
-        window.notificationManager?.show("No trip selected to save.", "warning");
+        window.notificationManager?.show(
+          "No trip selected to save.",
+          "warning",
+        );
         return;
       }
 
       try {
-        const tripId
-          = currentTrip.properties?.transactionId || currentTrip.transactionId;
+        const tripId =
+          currentTrip.properties?.transactionId || currentTrip.transactionId;
 
         if (!tripId) {
           console.error("Error: transactionId is undefined.", currentTrip);
           window.notificationManager?.show(
             "Error: Could not find the trip ID to save changes.",
-            "danger"
+            "danger",
           );
           return;
         }
@@ -544,17 +550,20 @@ window.utils?.onPageLoad(
           throw new Error(`Failed to save trip changes: ${response.status}`);
         }
 
-        window.notificationManager?.show("Trip changes saved successfully.", "success");
+        window.notificationManager?.show(
+          "Trip changes saved successfully.",
+          "success",
+        );
       } catch (error) {
         console.error("Error saving trip:", error);
         window.notificationManager?.show(
           `Error saving trip: ${error.message}`,
-          "danger"
+          "danger",
         );
       }
     }
 
     init();
   },
-  { route: "/edit_trips" }
+  { route: "/edit_trips" },
 );

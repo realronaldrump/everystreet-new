@@ -1,328 +1,364 @@
-{% extends "base.html" %}
-
-{% block title %}
-
-Coverage Management
-{% endblock %}
-
-
+{% extends "base.html" %} {% block title %} Coverage Management {% endblock %}
 {% block head_content %}
 
-  <!-- Mapbox GL CSS -->
-  <link rel="stylesheet" href="{{ CDN.mapbox_gl_css }}" />
-  <link rel="stylesheet"
-        href="{{ url_for('static', path='css/coverage-management.css') | replace('http://', '//') }}" />
-{% endblock %}
+<!-- Mapbox GL CSS -->
+<link rel="stylesheet" href="{{ CDN.mapbox_gl_css }}" />
+<link
+  rel="stylesheet"
+  href="{{ url_for('static', path='css/coverage-management.css') | replace('http://', '//') }}"
+/>
+{% endblock %} {% block content %}
 
+<div class="container-fluid">
+  <div class="row">
+    <div class="col-12">
+      <!-- Hero Section -->
+      <div class="hero-section">
+        <div class="row align-items-center">
+          <div class="col-md-8">
+            <h1 class="mb-3" data-shared-transition="page-title">
+              <i class="fas fa-map-marked-alt me-3"></i>Coverage Management
+            </h1>
+            <p class="lead mb-0 opacity-75">
+              Track street coverage across your areas. Coverage updates
+              automatically as you drive.
+            </p>
+          </div>
+          <div class="col-md-4 text-md-end">
+            <div class="d-flex flex-column align-items-md-end">
+              <div class="text-secondary small mb-2">Total Coverage Areas</div>
+              <div
+                class="display-4 fw-bold text-primary"
+                id="total-areas-count"
+              >
+                0
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
 
+      <!-- Alerts container -->
+      <div id="alerts-container"></div>
 
-{% block content %}
-
-  <div class="container-fluid">
-    <div class="row">
-      <div class="col-12">
-        <!-- Hero Section -->
-        <div class="hero-section">
-          <div class="row align-items-center">
-            <div class="col-md-8">
-              <h1 class="mb-3" data-shared-transition="page-title">
-                <i class="fas fa-map-marked-alt me-3"></i>Coverage Management
-              </h1>
-              <p class="lead mb-0 opacity-75">
-              Track street coverage across your areas. Coverage updates automatically as you drive.
+      <!-- Quick Actions -->
+      <div class="row mb-4">
+        <div class="col-md-6 mb-3">
+          <div
+            class="card quick-action-card text-success border-success"
+            data-bs-toggle="modal"
+            data-bs-target="#addAreaModal"
+            style="cursor: pointer"
+          >
+            <div class="card-body text-center">
+              <i class="fas fa-plus-circle fa-2x mb-2"></i>
+              <h5 class="card-title mt-2 mb-1">Add New Area</h5>
+              <p class="card-text small text-secondary mb-0">
+                Start tracking a new location
               </p>
             </div>
-            <div class="col-md-4 text-md-end">
-              <div class="d-flex flex-column align-items-md-end">
-                <div class="text-secondary small mb-2">
-Total Coverage Areas
-                </div>
-                <div class="display-4 fw-bold text-primary" id="total-areas-count">
-0
-                </div>
-              </div>
-            </div>
           </div>
         </div>
-
-        <!-- Alerts container -->
-        <div id="alerts-container">
-        </div>
-
-        <!-- Quick Actions -->
-        <div class="row mb-4">
-          <div class="col-md-6 mb-3">
-            <div class="card quick-action-card text-success border-success"
-                 data-bs-toggle="modal"
-                 data-bs-target="#addAreaModal"
-                 style="cursor: pointer">
-              <div class="card-body text-center">
-                <i class="fas fa-plus-circle fa-2x mb-2"></i>
-                <h5 class="card-title mt-2 mb-1">
-Add New Area
-                </h5>
-                <p class="card-text small text-secondary mb-0">
-                Start tracking a new location
-                </p>
-              </div>
-            </div>
-          </div>
-          <div class="col-md-6 mb-3">
-            <div class="card quick-action-card text-primary border-primary"
-                 id="quick-refresh-all"
-                 style="cursor: pointer">
-              <div class="card-body text-center">
-                <i class="fas fa-sync-alt fa-2x mb-2"></i>
-                <h5 class="card-title mt-2 mb-1">
-Refresh Data
-                </h5>
-                <p class="card-text small text-secondary mb-0">
+        <div class="col-md-6 mb-3">
+          <div
+            class="card quick-action-card text-primary border-primary"
+            id="quick-refresh-all"
+            style="cursor: pointer"
+          >
+            <div class="card-body text-center">
+              <i class="fas fa-sync-alt fa-2x mb-2"></i>
+              <h5 class="card-title mt-2 mb-1">Refresh Data</h5>
+              <p class="card-text small text-secondary mb-0">
                 Reload coverage statistics
-                </p>
-              </div>
+              </p>
             </div>
           </div>
         </div>
+      </div>
 
-        <!-- Coverage Areas Table -->
-        <div class="card">
-          <div class="card-header d-flex justify-content-between align-items-center">
-            <h3 class="h5 mb-0 card-title">
-              <i class="fas fa-list me-2"></i>Coverage Areas
-            </h3>
-            <div class="d-flex gap-2">
-              <button class="btn btn-sm btn-outline-secondary"
-                      id="refresh-table-btn"
-                      data-bs-toggle="tooltip"
-                      title="Refresh table">
-                <i class="fas fa-sync-alt"></i>
-              </button>
-              <button class="btn btn-sm btn-success"
-                      data-bs-toggle="modal"
-                      data-bs-target="#addAreaModal">
-                <i class="fas fa-plus"></i> Add Area
-              </button>
-            </div>
-          </div>
-          <div class="card-body">
-            <div class="table-responsive-lg">
-              <table class="table table-hover" id="coverage-areas-table">
-                <thead>
-                  <tr>
-                    <th>
-Location
-                    </th>
-                    <th>
-Status
-                    </th>
-                    <th>
-Total Length
-                    </th>
-                    <th>
-Driven
-                    </th>
-                    <th>
-Coverage
-                    </th>
-                    <th>
-Last Updated
-                    </th>
-                    <th>
-Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td colspan="7" class="text-center p-4">
-                      <div class="spinner-border text-primary spinner-border-sm mb-2" role="status">
-                        <span class="visually-hidden">Loading...</span>
-                      </div>
-                      <p class="mb-0 text-secondary">
-Loading coverage areas...
-                      </p>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-            <div id="coverage-error-panel"
-                 class="coverage-error-panel d-none"
-                 role="alert"
-                 aria-live="polite">
-              <div class="coverage-error-header">
-                <div class="coverage-error-title">
-                  <span class="coverage-error-icon">
-                    <i class="fas fa-triangle-exclamation"></i>
-                  </span>
-                  <div>
-                    <div id="coverage-error-title">
-Coverage calculation error
-                    </div>
-                    <div class="coverage-error-area" id="coverage-error-area">
-                    </div>
-                  </div>
-                </div>
-                <button type="button"
-                        class="btn btn-sm btn-outline-secondary coverage-error-dismiss"
-                        id="coverage-error-dismiss"
-                        aria-label="Dismiss error details">
-                  <i class="fas fa-times"></i>
-                </button>
-              </div>
-              <div class="coverage-error-body">
-                <div class="coverage-error-label">
-Error details
-                </div>
-                <pre class="coverage-error-message" id="coverage-error-message"></pre>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Coverage Dashboard Section -->
-        <div class="card mt-4" id="coverage-dashboard" style="display: none">
-          <div class="card-header d-flex justify-content-between align-items-center">
-            <h3 class="h5 mb-0 card-title">
-              <i class="fas fa-chart-line me-2"></i>
-              <span id="dashboard-location-name" class="text-info">Select a location</span>
-            </h3>
-            <button class="btn btn-sm btn-outline-secondary" id="close-dashboard-btn">
-              <i class="fas fa-times"></i>
+      <!-- Coverage Areas Table -->
+      <div class="card">
+        <div
+          class="card-header d-flex justify-content-between align-items-center"
+        >
+          <h3 class="h5 mb-0 card-title">
+            <i class="fas fa-list me-2"></i>Coverage Areas
+          </h3>
+          <div class="d-flex gap-2">
+            <button
+              class="btn btn-sm btn-outline-secondary"
+              id="refresh-table-btn"
+              data-bs-toggle="tooltip"
+              title="Refresh table"
+            >
+              <i class="fas fa-sync-alt"></i>
+            </button>
+            <button
+              class="btn btn-sm btn-success"
+              data-bs-toggle="modal"
+              data-bs-target="#addAreaModal"
+            >
+              <i class="fas fa-plus"></i> Add Area
             </button>
           </div>
-          <div class="card-body">
-            <div class="row">
-              <!-- Stats Overview -->
-              <div class="col-lg-3">
-                <div class="card bg-darker mb-3">
-                  <div class="card-header">
-                    <h4 class="h6 mb-0">
-                      <i class="fas fa-chart-bar me-2"></i>Statistics
-                    </h4>
+        </div>
+        <div class="card-body">
+          <div class="table-responsive-lg">
+            <table class="table table-hover" id="coverage-areas-table">
+              <thead>
+                <tr>
+                  <th>Location</th>
+                  <th>Status</th>
+                  <th>Total Length</th>
+                  <th>Driven</th>
+                  <th>Coverage</th>
+                  <th>Last Updated</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td colspan="7" class="text-center p-4">
+                    <div
+                      class="spinner-border text-primary spinner-border-sm mb-2"
+                      role="status"
+                    >
+                      <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mb-0 text-secondary">Loading coverage areas...</p>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div
+            id="coverage-error-panel"
+            class="coverage-error-panel d-none"
+            role="alert"
+            aria-live="polite"
+          >
+            <div class="coverage-error-header">
+              <div class="coverage-error-title">
+                <span class="coverage-error-icon">
+                  <i class="fas fa-triangle-exclamation"></i>
+                </span>
+                <div>
+                  <div id="coverage-error-title">
+                    Coverage calculation error
                   </div>
-                  <div class="card-body">
-                    <div class="stat-item mb-3">
-                      <div class="stat-value h4" id="dashboard-total-length">
-0 mi
-                      </div>
-                      <div class="stat-label text-secondary small">
-Total Length
-                      </div>
-                    </div>
-                    <div class="stat-item mb-3">
-                      <div class="stat-value h4 text-success" id="dashboard-driven-length">
-0 mi
-                      </div>
-                      <div class="stat-label text-secondary small">
-Driven
-                      </div>
-                    </div>
-                    <div class="stat-item">
-                      <div class="stat-value h3 text-primary"
-                           id="dashboard-coverage-percentage"
-                           data-coverage-percent
-                           data-value-flash>
-0%
-                      </div>
-                      <div class="stat-label text-secondary small">
-Coverage
-                      </div>
-                    </div>
-                  </div>
+                  <div
+                    class="coverage-error-area"
+                    id="coverage-error-area"
+                  ></div>
                 </div>
+              </div>
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-secondary coverage-error-dismiss"
+                id="coverage-error-dismiss"
+                aria-label="Dismiss error details"
+              >
+                <i class="fas fa-times"></i>
+              </button>
+            </div>
+            <div class="coverage-error-body">
+              <div class="coverage-error-label">Error details</div>
+              <pre
+                class="coverage-error-message"
+                id="coverage-error-message"
+              ></pre>
+            </div>
+          </div>
+        </div>
+      </div>
 
-                <!-- Segment Status -->
-                <div class="card bg-darker">
-                  <div class="card-header">
-                    <h4 class="h6 mb-0">
-                      <i class="fas fa-road me-2"></i>Segments
-                    </h4>
-                  </div>
-                  <div class="card-body">
-                    <div class="d-flex justify-content-between mb-2">
-                      <span class="text-success"><i class="fas fa-check-circle me-1"></i>Driven</span>
-                      <span id="segments-driven">0</span>
-                    </div>
-                    <div class="d-flex justify-content-between mb-2">
-                      <span class="text-danger"><i class="fas fa-times-circle me-1"></i>Undriven</span>
-                      <span id="segments-undriven">0</span>
-                    </div>
-                    <div class="d-flex justify-content-between">
-                      <span class="text-secondary"><i class="fas fa-ban me-1"></i>Undriveable</span>
-                      <span id="segments-undriveable">0</span>
-                    </div>
-                  </div>
+      <!-- Coverage Dashboard Section -->
+      <div class="card mt-4" id="coverage-dashboard" style="display: none">
+        <div
+          class="card-header d-flex justify-content-between align-items-center"
+        >
+          <h3 class="h5 mb-0 card-title">
+            <i class="fas fa-chart-line me-2"></i>
+            <span id="dashboard-location-name" class="text-info"
+              >Select a location</span
+            >
+          </h3>
+          <button
+            class="btn btn-sm btn-outline-secondary"
+            id="close-dashboard-btn"
+          >
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <div class="card-body">
+          <div class="row">
+            <!-- Stats Overview -->
+            <div class="col-lg-3">
+              <div class="card bg-darker mb-3">
+                <div class="card-header">
+                  <h4 class="h6 mb-0">
+                    <i class="fas fa-chart-bar me-2"></i>Statistics
+                  </h4>
                 </div>
-
-                <!-- Actions -->
-                <div class="card bg-darker mt-3">
-                  <div class="card-header">
-                    <h4 class="h6 mb-0">
-                      <i class="fas fa-cogs me-2"></i>Actions
-                    </h4>
+                <div class="card-body">
+                  <div class="stat-item mb-3">
+                    <div class="stat-value h4" id="dashboard-total-length">
+                      0 mi
+                    </div>
+                    <div class="stat-label text-secondary small">
+                      Total Length
+                    </div>
                   </div>
-                  <div class="card-body">
-                    <button class="btn btn-info btn-sm w-100 mb-2" id="recalculate-coverage-btn">
-                      <i class="fas fa-calculator me-1"></i>Recalculate Coverage
-                    </button>
-                    <button class="btn btn-outline-warning btn-sm w-100" id="rebuild-area-btn">
-                      <i class="fas fa-sync me-1"></i>Rebuild from OSM
-                    </button>
+                  <div class="stat-item mb-3">
+                    <div
+                      class="stat-value h4 text-success"
+                      id="dashboard-driven-length"
+                    >
+                      0 mi
+                    </div>
+                    <div class="stat-label text-secondary small">Driven</div>
+                  </div>
+                  <div class="stat-item">
+                    <div
+                      class="stat-value h3 text-primary"
+                      id="dashboard-coverage-percentage"
+                      data-coverage-percent
+                      data-value-flash
+                    >
+                      0%
+                    </div>
+                    <div class="stat-label text-secondary small">Coverage</div>
                   </div>
                 </div>
               </div>
 
-              <!-- Map View -->
-              <div class="col-lg-9">
-                <div class="card bg-darker h-100">
-                  <div class="card-header">
-                    <div class="d-flex justify-content-between align-items-center">
-                      <h4 class="h6 mb-0">
-                        <i class="fas fa-map me-2"></i>Coverage Map
-                      </h4>
-                      <div class="btn-group btn-group-sm" role="group">
-                        <button class="btn btn-primary active" data-filter="all">
-All
-                        </button>
-                        <button class="btn btn-outline-success" data-filter="driven">
-Driven
-                        </button>
-                        <button class="btn btn-outline-danger" data-filter="undriven">
-Undriven
-                        </button>
+              <!-- Segment Status -->
+              <div class="card bg-darker">
+                <div class="card-header">
+                  <h4 class="h6 mb-0">
+                    <i class="fas fa-road me-2"></i>Segments
+                  </h4>
+                </div>
+                <div class="card-body">
+                  <div class="d-flex justify-content-between mb-2">
+                    <span class="text-success"
+                      ><i class="fas fa-check-circle me-1"></i>Driven</span
+                    >
+                    <span id="segments-driven">0</span>
+                  </div>
+                  <div class="d-flex justify-content-between mb-2">
+                    <span class="text-danger"
+                      ><i class="fas fa-times-circle me-1"></i>Undriven</span
+                    >
+                    <span id="segments-undriven">0</span>
+                  </div>
+                  <div class="d-flex justify-content-between">
+                    <span class="text-secondary"
+                      ><i class="fas fa-ban me-1"></i>Undriveable</span
+                    >
+                    <span id="segments-undriveable">0</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Actions -->
+              <div class="card bg-darker mt-3">
+                <div class="card-header">
+                  <h4 class="h6 mb-0">
+                    <i class="fas fa-cogs me-2"></i>Actions
+                  </h4>
+                </div>
+                <div class="card-body">
+                  <button
+                    class="btn btn-info btn-sm w-100 mb-2"
+                    id="recalculate-coverage-btn"
+                  >
+                    <i class="fas fa-calculator me-1"></i>Recalculate Coverage
+                  </button>
+                  <button
+                    class="btn btn-outline-warning btn-sm w-100"
+                    id="rebuild-area-btn"
+                  >
+                    <i class="fas fa-sync me-1"></i>Rebuild from OSM
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Map View -->
+            <div class="col-lg-9">
+              <div class="card bg-darker h-100">
+                <div class="card-header">
+                  <div
+                    class="d-flex justify-content-between align-items-center"
+                  >
+                    <h4 class="h6 mb-0">
+                      <i class="fas fa-map me-2"></i>Coverage Map
+                    </h4>
+                    <div class="btn-group btn-group-sm" role="group">
+                      <button class="btn btn-primary active" data-filter="all">
+                        All
+                      </button>
+                      <button
+                        class="btn btn-outline-success"
+                        data-filter="driven"
+                      >
+                        Driven
+                      </button>
+                      <button
+                        class="btn btn-outline-danger"
+                        data-filter="undriven"
+                      >
+                        Undriven
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <div class="card-body p-0">
+                  <div id="coverage-map" class="coverage-map-container">
+                    <div
+                      class="map-loading d-flex justify-content-center align-items-center h-100"
+                    >
+                      <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading map...</span>
                       </div>
                     </div>
                   </div>
-                  <div class="card-body p-0">
-                    <div id="coverage-map" class="coverage-map-container">
-                      <div class="map-loading d-flex justify-content-center align-items-center h-100">
-                        <div class="spinner-border text-primary" role="status">
-                          <span class="visually-hidden">Loading map...</span>
-                        </div>
-                      </div>
+                </div>
+                <div class="card-footer">
+                  <div class="map-legend d-flex gap-4 justify-content-center">
+                    <div class="d-flex align-items-center">
+                      <div
+                        style="
+                          width: 20px;
+                          height: 3px;
+                          background: var(--danger);
+                          margin-right: 8px;
+                        "
+                      ></div>
+                      <small>Undriven</small>
                     </div>
-                  </div>
-                  <div class="card-footer">
-                    <div class="map-legend d-flex gap-4 justify-content-center">
-                      <div class="d-flex align-items-center">
-                        <div style="width: 20px; height: 3px; background: var(--danger); margin-right: 8px;">
-                        </div>
-                        <small>Undriven</small>
-                      </div>
-                      <div class="d-flex align-items-center">
-                        <div style="width: 20px; height: 3px; background: var(--success); margin-right: 8px">
-                        </div>
-                        <small>Driven</small>
-                      </div>
-                      <div class="d-flex align-items-center">
-                        <div style="width: 20px;
-                                    height: 3px;
-                                    background: var(--text-tertiary);
-                                    margin-right: 8px">
-                        </div>
-                        <small>Undriveable</small>
-                      </div>
+                    <div class="d-flex align-items-center">
+                      <div
+                        style="
+                          width: 20px;
+                          height: 3px;
+                          background: var(--success);
+                          margin-right: 8px;
+                        "
+                      ></div>
+                      <small>Driven</small>
+                    </div>
+                    <div class="d-flex align-items-center">
+                      <div
+                        style="
+                          width: 20px;
+                          height: 3px;
+                          background: var(--text-tertiary);
+                          margin-right: 8px;
+                        "
+                      ></div>
+                      <small>Undriveable</small>
                     </div>
                   </div>
                 </div>
@@ -333,89 +369,83 @@ Undriven
       </div>
     </div>
   </div>
+</div>
 
-  <!-- Add Area Modal - Simplified -->
-  <div class="modal fade" id="addAreaModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title">
-            <i class="fas fa-plus-circle me-2"></i>Add Coverage Area
-          </h5>
-          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal">
-          </button>
-        </div>
-        <div class="modal-body">
-          <form id="add-area-form">
-            <div class="mb-3">
-              <label for="location-input" class="form-label">
-Location Name
-              </label>
-              <input type="text"
-                     id="location-input"
-                     class="form-control"
-                     placeholder="e.g., Seattle, WA"
-                     required />
-              <small class="form-text text-secondary">
+<!-- Add Area Modal - Simplified -->
+<div class="modal fade" id="addAreaModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">
+          <i class="fas fa-plus-circle me-2"></i>Add Coverage Area
+        </h5>
+        <button
+          type="button"
+          class="btn-close btn-close-white"
+          data-bs-dismiss="modal"
+        ></button>
+      </div>
+      <div class="modal-body">
+        <form id="add-area-form">
+          <div class="mb-3">
+            <label for="location-input" class="form-label">
+              Location Name
+            </label>
+            <input
+              type="text"
+              id="location-input"
+              class="form-control"
+              placeholder="e.g., Seattle, WA"
+              required
+            />
+            <small class="form-text text-secondary">
               Enter a city, county, or state name
-              </small>
-            </div>
-            <div class="mb-3">
-              <label for="location-type" class="form-label">
-Area Type
-              </label>
-              <select id="location-type" class="form-select">
-                <option value="city" selected>
-City
-                </option>
-                <option value="county">
-County
-                </option>
-                <option value="state">
-State
-                </option>
-              </select>
-            </div>
-          </form>
-
-          <div class="alert alert-info small" role="alert">
-            <i class="fas fa-info-circle me-2"></i>
-          After adding, the area will automatically:
-            <ul class="mb-0 mt-2">
-              <li>
-Download street data from OpenStreetMap
-              </li>
-              <li>
-Calculate coverage from your existing trips
-              </li>
-              <li>
-Update automatically as you drive
-              </li>
-            </ul>
+            </small>
           </div>
+          <div class="mb-3">
+            <label for="location-type" class="form-label"> Area Type </label>
+            <select id="location-type" class="form-select">
+              <option value="city" selected>City</option>
+              <option value="county">County</option>
+              <option value="state">State</option>
+            </select>
+          </div>
+        </form>
+
+        <div class="alert alert-info small" role="alert">
+          <i class="fas fa-info-circle me-2"></i>
+          After adding, the area will automatically:
+          <ul class="mb-0 mt-2">
+            <li>Download street data from OpenStreetMap</li>
+            <li>Calculate coverage from your existing trips</li>
+            <li>Update automatically as you drive</li>
+          </ul>
         </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
-Cancel
-          </button>
-          <button type="button" id="add-coverage-area" class="btn btn-success">
-            <i class="fas fa-plus me-1"></i>Add Area
-          </button>
-        </div>
+      </div>
+      <div class="modal-footer">
+        <button
+          type="button"
+          class="btn btn-outline-secondary"
+          data-bs-dismiss="modal"
+        >
+          Cancel
+        </button>
+        <button type="button" id="add-coverage-area" class="btn btn-success">
+          <i class="fas fa-plus me-1"></i>Add Area
+        </button>
       </div>
     </div>
   </div>
+</div>
 
-{% endblock %}
+{% endblock %} {% block extra_js %}
 
-
-
-{% block extra_js %}
-
-  <script src="{{ CDN.mapbox_gl_js }}"></script>
-  <script>
-      window.MAPBOX_ACCESS_TOKEN = "{{ MAPBOX_ACCESS_TOKEN }}";
-  </script>
-  <script type="module"
-          src="{{ url_for('static', path='js/coverage-management.js') | replace('http://', '//') }}"></script>
+<script src="{{ CDN.mapbox_gl_js }}"></script>
+<script>
+  window.MAPBOX_ACCESS_TOKEN = "{{ MAPBOX_ACCESS_TOKEN }}";
+</script>
+<script
+  type="module"
+  src="{{ url_for('static', path='js/coverage-management.js') | replace('http://', '//') }}"
+></script>
 {% endblock %}

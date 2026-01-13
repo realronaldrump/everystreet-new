@@ -76,7 +76,10 @@ window.utils?.onPageLoad(
         const data = await response.json();
         updateStatsDisplay(data);
       } catch {
-        window.notificationManager?.show("Failed to load log statistics", "warning");
+        window.notificationManager?.show(
+          "Failed to load log statistics",
+          "warning",
+        );
       }
     }
 
@@ -84,14 +87,18 @@ window.utils?.onPageLoad(
      * Update statistics display
      */
     function updateStatsDisplay(data) {
-      document.getElementById("total-count").textContent = data.total_count || 0;
-      document.getElementById("debug-count").textContent = data.by_level?.DEBUG || 0;
-      document.getElementById("info-count").textContent = data.by_level?.INFO || 0;
-      document.getElementById("warning-count").textContent
-        = data.by_level?.WARNING || 0;
-      document.getElementById("error-count").textContent = data.by_level?.ERROR || 0;
-      document.getElementById("critical-count").textContent
-        = data.by_level?.CRITICAL || 0;
+      document.getElementById("total-count").textContent =
+        data.total_count || 0;
+      document.getElementById("debug-count").textContent =
+        data.by_level?.DEBUG || 0;
+      document.getElementById("info-count").textContent =
+        data.by_level?.INFO || 0;
+      document.getElementById("warning-count").textContent =
+        data.by_level?.WARNING || 0;
+      document.getElementById("error-count").textContent =
+        data.by_level?.ERROR || 0;
+      document.getElementById("critical-count").textContent =
+        data.by_level?.CRITICAL || 0;
     }
 
     /**
@@ -277,7 +284,10 @@ window.utils?.onPageLoad(
           copyBtn.classList.add("btn-outline-secondary");
         }, 1500);
 
-        window.notificationManager?.show("Log entry copied to clipboard", "success");
+        window.notificationManager?.show(
+          "Log entry copied to clipboard",
+          "success",
+        );
       } catch {
         window.notificationManager?.show("Failed to copy log entry", "danger");
       }
@@ -290,7 +300,7 @@ window.utils?.onPageLoad(
       if (currentLogs.length === 0) {
         window.notificationManager?.show(
           "No logs to copy. Please load logs first.",
-          "warning"
+          "warning",
         );
         return;
       }
@@ -329,7 +339,7 @@ window.utils?.onPageLoad(
 
         window.notificationManager?.show(
           `Copied ${currentLogs.length} log entries to clipboard`,
-          "success"
+          "success",
         );
       } catch {
         window.notificationManager?.show("Failed to copy logs", "danger");
@@ -367,7 +377,7 @@ window.utils?.onPageLoad(
 
         window.notificationManager?.show(
           `Successfully cleared ${result.deleted_count} log entries`,
-          "success"
+          "success",
         );
 
         // Reload logs and stats
@@ -386,7 +396,7 @@ window.utils?.onPageLoad(
       if (currentLogs.length === 0) {
         window.notificationManager?.show(
           "No logs to export. Please load logs first.",
-          "warning"
+          "warning",
         );
         return;
       }
@@ -403,7 +413,10 @@ window.utils?.onPageLoad(
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
 
-        window.notificationManager?.show("Logs exported successfully", "success");
+        window.notificationManager?.show(
+          "Logs exported successfully",
+          "success",
+        );
       } catch {
         window.notificationManager?.show("Failed to export logs", "danger");
       }
@@ -418,8 +431,8 @@ window.utils?.onPageLoad(
       if (autoRefreshEnabled) {
         autoRefreshToggle.classList.remove("btn-outline-success");
         autoRefreshToggle.classList.add("btn-success");
-        autoRefreshToggle.innerHTML
-          = '<i class="fas fa-clock"></i> Auto-Refresh: ON (30s)';
+        autoRefreshToggle.innerHTML =
+          '<i class="fas fa-clock"></i> Auto-Refresh: ON (30s)';
 
         // Refresh every 30 seconds
         autoRefreshInterval = setInterval(() => {
@@ -429,12 +442,13 @@ window.utils?.onPageLoad(
 
         window.notificationManager?.show(
           "Auto-refresh enabled (every 30 seconds)",
-          "info"
+          "info",
         );
       } else {
         autoRefreshToggle.classList.remove("btn-success");
         autoRefreshToggle.classList.add("btn-outline-success");
-        autoRefreshToggle.innerHTML = '<i class="fas fa-clock"></i> Auto-Refresh: OFF';
+        autoRefreshToggle.innerHTML =
+          '<i class="fas fa-clock"></i> Auto-Refresh: OFF';
 
         if (autoRefreshInterval) {
           clearInterval(autoRefreshInterval);
@@ -458,7 +472,8 @@ window.utils?.onPageLoad(
       if (isLoading) {
         const originalContent = button.innerHTML;
         button.setAttribute("data-original-content", originalContent);
-        button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+        button.innerHTML =
+          '<i class="fas fa-spinner fa-spin"></i> Processing...';
       } else {
         const originalContent = button.getAttribute("data-original-content");
         if (originalContent) {
@@ -492,8 +507,8 @@ window.utils?.onPageLoad(
         }
         autoRefreshEnabled = false;
       },
-      { once: true }
+      { once: true },
     );
   },
-  { route: "/server-logs" }
+  { route: "/server-logs" },
 );

@@ -36,7 +36,9 @@
   window.utils?.onPageLoad(
     () => {
       if (!window.mapBase || typeof mapboxgl === "undefined") {
-        console.error("Mapbox GL JS library not found. Coverage map cannot load.");
+        console.error(
+          "Mapbox GL JS library not found. Coverage map cannot load.",
+        );
         return;
       }
 
@@ -53,6 +55,6 @@
         });
       }
     },
-    { route: "/coverage-navigator" }
+    { route: "/coverage-navigator" },
   );
 })();
