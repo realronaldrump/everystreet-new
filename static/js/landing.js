@@ -121,7 +121,7 @@
       () => {
         document.dispatchEvent(new CustomEvent("widgets:toggle-edit"));
       },
-      pageSignal ? { signal: pageSignal } : false
+      pageSignal ? { signal: pageSignal } : false,
     );
     document.addEventListener(
       "widgets:edit-toggled",
@@ -130,13 +130,9 @@
         elements.widgetEditToggle.textContent = enabled ? "Done" : "Customize";
         elements.widgetEditToggle.classList.toggle("active", Boolean(enabled));
       },
-      pageSignal ? { signal: pageSignal } : false
+      pageSignal ? { signal: pageSignal } : false,
     );
   }
-
-
-
-
 
   function highlightFrequentTiles() {
     if (!elements.navTiles || elements.navTiles.length === 0) {
@@ -163,7 +159,7 @@
     };
 
     const frequentTiles = new Set(
-      frequentPaths.map((path) => pathToTile[path]).filter(Boolean)
+      frequentPaths.map((path) => pathToTile[path]).filter(Boolean),
     );
 
     elements.navTiles.forEach((tile) => {
@@ -239,7 +235,10 @@
     if (elements.recordCard) {
       const existing = getStoredValue("es:record-metrics") || {};
       const previous = Number(existing.longestTrip || 0);
-      elements.recordCard.classList.toggle("is-record", recordDistanceCache > previous);
+      elements.recordCard.classList.toggle(
+        "is-record",
+        recordDistanceCache > previous,
+      );
     }
 
     return recordDistanceCache;
@@ -262,8 +261,6 @@
     return `${year}-${month}-${day}`;
   }
 
-
-
   function getRouteCounts() {
     return getStoredValue("es:route-counts") || {};
   }
@@ -276,8 +273,6 @@
     const [path] = entries.sort((a, b) => b[1] - a[1])[0];
     return { path, timestamp: null };
   }
-
-
 
   function getStoredValue(key) {
     try {
@@ -311,7 +306,7 @@
           temp,
           label,
           timestamp: Date.now(),
-        })
+        }),
       );
     } catch {
       // Ignore storage failures.
@@ -370,8 +365,12 @@
       const trips = parseInt(data.total_trips, 10) || 0;
 
       if (window.metricAnimator?.animate) {
-        window.metricAnimator.animate(elements.statMiles, miles, { decimals: 0 });
-        window.metricAnimator.animate(elements.statTrips, trips, { decimals: 0 });
+        window.metricAnimator.animate(elements.statMiles, miles, {
+          decimals: 0,
+        });
+        window.metricAnimator.animate(elements.statTrips, trips, {
+          decimals: 0,
+        });
       } else {
         animateValue(elements.statMiles, miles, formatMiles);
         animateValue(elements.statTrips, trips, formatNumber);
@@ -510,7 +509,9 @@
     const activityHtml = trips
       .slice(0, CONFIG.activityLimit)
       .map((trip, index) => {
-        const distance = trip.distance ? parseFloat(trip.distance).toFixed(1) : "?";
+        const distance = trip.distance
+          ? parseFloat(trip.distance).toFixed(1)
+          : "?";
         const destination = formatDestination(trip.destination);
         const time = trip.endTime || trip.startTime;
         const timeAgo = time ? formatTimeAgo(new Date(time)) : "";
@@ -574,12 +575,12 @@
           } else {
             window.notificationManager?.show(
               "Share is not available on this device",
-              "info"
+              "info",
             );
           }
         }
       },
-      pageSignal ? { signal: pageSignal } : false
+      pageSignal ? { signal: pageSignal } : false,
     );
     swipeActionsBound = true;
   }
@@ -613,7 +614,8 @@
       return;
     }
 
-    const startValue = parseFloat(element.textContent.replace(/[^0-9.-]/g, "")) || 0;
+    const startValue =
+      parseFloat(element.textContent.replace(/[^0-9.-]/g, "")) || 0;
     const startTime = performance.now();
     const duration = CONFIG.animationDuration;
 
