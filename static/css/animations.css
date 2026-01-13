@@ -229,50 +229,6 @@
   }
 }
 
-/* === SPA View Transitions === */
-#route-content {
-  view-transition-name: route-content;
-}
-
-::view-transition-old(route-content) {
-  animation: route-exit 200ms var(--transition-spring) both;
-}
-
-::view-transition-new(route-content) {
-  animation: route-enter 240ms var(--transition-spring) both;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  ::view-transition-old(route-content),
-  ::view-transition-new(route-content) {
-    animation: none;
-  }
-}
-
-@keyframes route-enter {
-  from {
-    opacity: 0;
-    transform: none;
-  }
-
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-
-@keyframes route-exit {
-  from {
-    opacity: 1;
-    transform: none;
-  }
-
-  to {
-    opacity: 0;
-    transform: none;
-  }
-}
-
 @keyframes pulse-dot {
   from {
     transform: translate(-50%, -50%) scale(0.9);

@@ -21,7 +21,6 @@
   background-color: var(--surface-1);
   box-shadow: var(--shadow-sm);
   z-index: var(--z-fixed);
-  view-transition-name: app-header;
   transition:
     background-color var(--transition-normal),
     box-shadow var(--transition-normal);

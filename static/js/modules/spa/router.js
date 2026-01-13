@@ -47,6 +47,7 @@ const router = {
   prefetchControllers: new Map(),
   prefetchDelay: 140,
   prefetchTTL: 60000,
+  viewTransitionsEnabled: false,
   historyKey: "es:route-history",
   routeHistory: [],
   swipeState: {
@@ -67,7 +68,9 @@ const router = {
     this.announcer = document.getElementById("spa-announcer");
     this.routeHistory = this.loadHistory();
     this.updateHistory(window.location.pathname, document.title);
-    this.prepareSharedElements();
+    if (this.viewTransitionsEnabled) {
+      this.prepareSharedElements();
+    }
 
     document.addEventListener("click", (event) => {
       const link = event.target.closest("a");
@@ -139,13 +142,21 @@ const router = {
         throw new Error("Missing SPA fragment");
       }
 
-      this.prepareSharedElements();
+      if (this.viewTransitionsEnabled) {
+        this.prepareSharedElements();
+      }
       const apply = () => {
         this.applyFragment(fragment, { push });
-        this.prepareSharedElements();
+        if (this.viewTransitionsEnabled) {
+          this.prepareSharedElements();
+        }
       };
 
-      if ("startViewTransition" in document && !prefersReducedMotion()) {
+      if (
+        this.viewTransitionsEnabled
+        && "startViewTransition" in document
+        && !prefersReducedMotion()
+      ) {
         await document.startViewTransition(apply).finished;
       } else {
         this.main.classList.add("is-transitioning");
@@ -423,6 +434,9 @@ const router = {
   },
 
   prepareSharedElements() {
+    if (!this.viewTransitionsEnabled) {
+      return;
+    }
     let index = 0;
     document.querySelectorAll("[data-shared-transition]").forEach((element) => {
       const name = element.dataset.sharedTransition || element.id || `shared-${index}`;
