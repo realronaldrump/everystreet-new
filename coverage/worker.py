@@ -387,13 +387,29 @@ async def backfill_coverage_for_area(
         await update_area_stats(area_id)
         return 0
 
-    # Process trip lines in mega-batches for geometry union matching
-    mega_batch_size = min(500, len(trip_lines))  # Union up to 500 trips at a time
+    # Process trip lines in smaller batches for geometry union matching
+    # 50 trips per batch is a good balance between speed and memory
+    mega_batch_size = 50
     all_matched_segments: set[str] = set()
+    total_batches = (len(trip_lines) + mega_batch_size - 1) // mega_batch_size
+
+    logger.info(
+        "Starting batch matching: %d trips in %d batches",
+        len(trip_lines),
+        total_batches,
+    )
 
     for batch_start in range(0, len(trip_lines), mega_batch_size):
         batch_end = min(batch_start + mega_batch_size, len(trip_lines))
         batch_lines = trip_lines[batch_start:batch_end]
+        batch_num = batch_start // mega_batch_size + 1
+
+        logger.debug(
+            "Processing batch %d/%d (%d trips)",
+            batch_num,
+            total_batches,
+            len(batch_lines),
+        )
 
         # Use batch matching with geometry union
         matched = segment_index.find_matching_segments_batch(batch_lines)
