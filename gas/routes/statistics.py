@@ -35,19 +35,3 @@ async def sync_vehicles_from_trips() -> dict[str, Any]:
     except Exception as e:
         logger.exception("Error syncing vehicles: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.get("/api/trip-gas-cost")
-async def calculate_trip_gas_cost(
-    trip_id: Annotated[str, Query(description="Trip transaction ID or document ID")],
-    imei: Annotated[str | None, Query(description="Vehicle IMEI")] = None,
-) -> dict[str, Any]:
-    """Calculate the gas cost for a specific trip based on latest fill-up prices."""
-    try:
-        return await StatisticsService.calculate_trip_gas_cost(trip_id, imei)
-
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except Exception as e:
-        logger.exception("Error calculating trip gas cost: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))

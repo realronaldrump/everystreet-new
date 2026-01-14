@@ -6,7 +6,7 @@ from pydantic import BaseModel
 
 from config import get_mapbox_token
 from db.models import Trip
-from db.schemas import BulkProcessModel, DateRangeModel
+from db.schemas import DateRangeModel
 from trip_service import ProcessingOptions, TripService
 
 # Setup
@@ -51,37 +51,6 @@ async def process_single_trip(
     )
 
     return await trip_service.process_single_trip(trip_dict, processing_options, source)
-
-
-@router.post("/api/bulk_process_trips")
-async def bulk_process_trips(
-    data: BulkProcessModel,
-):
-    """Process multiple trips in bulk with configurable options."""
-    query = data.query
-    options = data.options
-    limit = min(data.limit, 500)
-
-    processing_options = ProcessingOptions(
-        validate=options.get("validate", True),
-        geocode=options.get("geocode", True),
-        map_match=options.get("map_match", False),
-    )
-
-    result = await trip_service.process_batch_trips(query, processing_options, limit)
-
-    if result.total == 0:
-        return {
-            "status": "success",
-            "message": "No trips found matching criteria",
-            "count": 0,
-        }
-
-    return {
-        "status": "success",
-        "message": f"Processed {result.total} trips",
-        "results": result.to_dict(),
-    }
 
 
 @router.get("/api/trips/{trip_id}/status")
@@ -264,23 +233,3 @@ async def remap_matched_trips(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error re-matching trips: {e}",
         )
-
-
-@router.post("/api/trips/refresh_geocoding")
-async def refresh_geocoding_for_trips(
-    trip_ids: list[str],
-):
-    """Refresh geocoding for specific trips."""
-    if not trip_ids:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No trip_ids provided",
-        )
-
-    result = await trip_service.refresh_geocoding(trip_ids)
-
-    return {
-        "message": f"Geocoding refreshed for {result['updated']} trips. Failed: {result['failed']}",
-        "updated_count": result["updated"],
-        "failed_count": result["failed"],
-    }

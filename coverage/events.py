@@ -152,4 +152,3 @@ def register_handlers() -> None:
     # Import worker to register its handlers
 
     logger.info("Coverage event handlers registered")
-

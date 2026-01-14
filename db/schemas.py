@@ -67,14 +67,6 @@ class DateRangeModel(BaseModel):
     interval_days: int = 0
 
 
-class BulkProcessModel(BaseModel):
-    """Model for bulk processing parameters."""
-
-    query: dict[str, Any] = Field(default_factory=dict)
-    options: dict[str, bool] = Field(default_factory=dict)
-    limit: int = 100
-
-
 class BackgroundTasksConfigModel(BaseModel):
     """Model for background tasks configuration."""
 

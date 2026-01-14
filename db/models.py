@@ -546,27 +546,6 @@ class ServerLog(Document):
         extra = "allow"
 
 
-class WebhookFailure(Document):
-    """Webhook failure payloads for inspection and replay."""
-
-    received_at: datetime = Field(default_factory=datetime.utcnow)
-    eventType: str | None = None
-    transactionId: str | None = None
-    reason: str
-    error_id: str
-    error: str | None = None
-    payload: dict[str, Any]
-
-    class Settings:
-        name = "webhook_failures"
-        indexes = [
-            IndexModel([("received_at", -1)], name="webhook_failures_received_at_idx"),
-        ]
-
-    class Config:
-        extra = "allow"
-
-
 class BouncieCredentials(Document):
     """Bouncie API credentials document."""
 
@@ -642,7 +621,6 @@ ALL_DOCUMENT_MODELS = [
     Vehicle,
     AppSettings,
     ServerLog,
-    WebhookFailure,
     BouncieCredentials,
     CountyVisitedCache,
     CountyTopology,

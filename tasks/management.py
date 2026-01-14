@@ -7,7 +7,6 @@ This module provides functions for managing tasks through the API:
 - trigger_manual_fetch_trips_range: Triggers a manual trip fetch for a date range
 - force_reset_task: Forcefully resets a stuck task
 - update_task_schedule: Updates task scheduling configuration
-- trigger_fetch_all_missing_trips: Triggers the fetch all missing trips task
 """
 
 from __future__ import annotations
@@ -23,7 +22,6 @@ from celery_app import app as celery_app
 from date_utils import ensure_utc, parse_timestamp
 from tasks.config import check_dependencies, get_task_config, update_task_history_entry
 from tasks.core import TASK_METADATA, TaskStatus, TaskStatusManager
-from tasks.fetch import fetch_all_missing_trips
 
 logger = get_task_logger(__name__)
 
@@ -545,25 +543,3 @@ async def update_task_schedule(task_config_update: dict[str, Any]) -> dict[str, 
             "status": "error",
             "message": f"Error updating task schedule: {e}",
         }
-
-
-async def trigger_fetch_all_missing_trips(
-    start_date: str | None = None,
-) -> dict[str, Any]:
-    """Triggers the fetch_all_missing_trips task."""
-    task_id = "fetch_all_missing_trips"
-
-    # Check dependencies
-    dep_check = await check_dependencies(task_id)
-    if not dep_check["can_run"]:
-        msg = f"Cannot run task: {dep_check['reason']}"
-        raise ValueError(msg)
-
-    # Trigger the task
-    task = fetch_all_missing_trips.delay(manual_run=True, start_iso=start_date)
-
-    return {
-        "status": "success",
-        "message": "Task triggered successfully",
-        "task_id": task.id,
-    }

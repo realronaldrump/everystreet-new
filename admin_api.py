@@ -22,8 +22,7 @@ from db.models import (
     Trip,
     Vehicle,
 )
-from db.schemas import CollectionModel, LocationModel, ValidateLocationModel
-from osm_utils import generate_geojson_osm
+from db.schemas import CollectionModel, ValidateLocationModel
 
 # Map collection names to Beanie Document models for admin operations
 COLLECTION_TO_MODEL = {
@@ -209,48 +208,6 @@ async def validate_location(
         )
 
     return validated
-
-
-@router.post("/api/generate_geojson")
-async def generate_geojson_endpoint(
-    location: LocationModel,
-    streets_only: bool = False,
-):
-    geojson_data, err = await generate_geojson_osm(
-        location.dict(),
-        streets_only,
-    )
-    if geojson_data:
-        return geojson_data
-    raise HTTPException(
-        status_code=status.HTTP_400_BAD_REQUEST,
-        detail=err or "Unknown error",
-    )
-
-
-@router.get("/api/last_trip_point")
-async def get_last_trip_point():
-    try:
-        most_recent = await Trip.find_all().sort(-Trip.endTime).limit(1).to_list()
-
-        if not most_recent:
-            return {"lastPoint": None}
-
-        gps_data = most_recent[0].gps
-
-        if "coordinates" not in gps_data or not gps_data["coordinates"]:
-            return {"lastPoint": None}
-
-        return {"lastPoint": gps_data["coordinates"][-1]}
-    except Exception as e:
-        logger.exception(
-            "Error get_last_trip_point: %s",
-            str(e),
-        )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve last trip point",
-        )
 
 
 @router.get("/api/first_trip_date")

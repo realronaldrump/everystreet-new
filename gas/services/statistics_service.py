@@ -4,9 +4,6 @@ import logging
 from datetime import UTC, datetime
 from typing import Any
 
-from beanie import PydanticObjectId
-
-from core.exceptions import ResourceNotFoundException, ValidationException
 from date_utils import parse_timestamp
 from db.aggregation import aggregate_to_list
 from db.models import GasFillup, Trip, Vehicle
@@ -272,76 +269,4 @@ class StatisticsService:
             "synced": synced_count,
             "updated": updated_count,
             "total_vehicles": len(trip_vehicles),
-        }
-
-    @staticmethod
-    async def calculate_trip_gas_cost(
-        trip_id: str,
-        imei: str | None = None,
-    ) -> dict[str, Any]:
-        """
-        Calculate the gas cost for a specific trip based on latest fill-up prices.
-
-        Args:
-            trip_id: Trip transaction ID or document ID
-            imei: Optional vehicle IMEI
-
-        Returns:
-            Dict with trip gas cost details
-
-        Raises:
-            ValueError: If trip not found or IMEI cannot be determined
-        """
-        # Get the trip
-        trip = None
-        if PydanticObjectId.is_valid(trip_id):
-            trip = await Trip.get(PydanticObjectId(trip_id))
-        if not trip:
-            trip = await Trip.find_one(Trip.transactionId == trip_id)
-        if not trip:
-            msg = f"Trip {trip_id} not found"
-            raise ResourceNotFoundException(msg)
-
-        trip_imei = imei or trip.imei
-        if not trip_imei:
-            msg = "Cannot determine vehicle IMEI"
-            raise ValidationException(msg)
-
-        # Get the most recent fill-up before or during this trip
-        fillup = await GasFillup.find_one(
-            GasFillup.imei == trip_imei,
-            GasFillup.fillup_time <= trip.endTime,
-        ).sort(-GasFillup.fillup_time)
-
-        if not fillup:
-            # No fill-up data available
-            return {
-                "trip_id": trip_id,
-                "distance": trip.distance or 0,
-                "estimated_cost": None,
-                "message": "No fill-up data available",
-            }
-
-        # Calculate cost based on fuel consumed or estimated MPG
-        fuel_consumed = trip.fuelConsumed
-        price_per_gallon = fillup.price_per_gallon
-
-        if fuel_consumed and price_per_gallon:
-            estimated_cost = fuel_consumed * price_per_gallon
-        elif fillup.calculated_mpg and price_per_gallon:
-            # Estimate based on distance and MPG
-            distance = trip.distance or 0
-            mpg = fillup.calculated_mpg
-            estimated_gallons = distance / mpg if mpg > 0 else 0
-            estimated_cost = estimated_gallons * price_per_gallon
-        else:
-            estimated_cost = None
-
-        return {
-            "trip_id": trip_id,
-            "distance": trip.distance or 0,
-            "fuel_consumed": fuel_consumed,
-            "price_per_gallon": price_per_gallon,
-            "estimated_cost": round(estimated_cost, 2) if estimated_cost else None,
-            "mpg_used": fillup.calculated_mpg,
         }

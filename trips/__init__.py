@@ -6,7 +6,6 @@ This package provides modular functionality for:
 - Trip CRUD operations
 - Trip statistics and geocoding
 - Trip gas cost calculations
-- Trip export (GPX, KML, bounds)
 
 The package is organized into:
 - routes/: API endpoint handlers organized by domain
@@ -16,7 +15,7 @@ The package is organized into:
 
 from fastapi import APIRouter
 
-from trips.routes import crud, export, pages, query, stats
+from trips.routes import crud, pages, query, stats
 
 # Create main router that aggregates all trip-related routes
 router = APIRouter()
@@ -26,6 +25,5 @@ router.include_router(pages.router, tags=["pages"])
 router.include_router(query.router, tags=["trips-query"])
 router.include_router(crud.router, tags=["trips-crud"])
 router.include_router(stats.router, tags=["trips-stats"])
-router.include_router(export.router, tags=["trips-export"])
 
 __all__ = ["router"]

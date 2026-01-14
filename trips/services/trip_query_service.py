@@ -9,7 +9,6 @@ from date_utils import parse_timestamp
 from db import build_calendar_date_expr
 from db.aggregation import aggregate_to_list
 from db.models import Trip, Vehicle
-from geometry_service import GeometryService
 
 logger = logging.getLogger(__name__)
 
@@ -449,72 +448,3 @@ class TripQueryService:
             "trips": trips_data,
             "count": len(trips_data),
         }
-
-    @staticmethod
-    async def get_trips_in_bounds(
-        min_lat: float,
-        min_lon: float,
-        max_lat: float,
-        max_lon: float,
-    ):
-        """
-        Get trip coordinates within a given bounding box.
-
-        Args:
-            min_lat: Minimum latitude
-            min_lon: Minimum longitude
-            max_lat: Maximum latitude
-            max_lon: Maximum longitude
-
-        Returns:
-            GeoJSON FeatureCollection
-        """
-        if not GeometryService.validate_bounding_box(
-            min_lat,
-            min_lon,
-            max_lat,
-            max_lon,
-        ):
-            msg = "Invalid bounding box coordinates (lat must be -90 to 90, lon -180 to 180)."
-            raise ValueError(
-                msg,
-            )
-
-        bounding_box_geometry = GeometryService.bounding_box_polygon(
-            min_lat,
-            min_lon,
-            max_lat,
-            max_lon,
-        )
-        if bounding_box_geometry is None:
-            msg = "Invalid bounding box coordinates."
-            raise ValueError(msg)
-
-        query = {
-            "matchedGps": {
-                "$geoIntersects": {
-                    "$geometry": bounding_box_geometry,
-                },
-            },
-            "invalid": {"$ne": True},
-        }
-
-        # Use Beanie cursor iteration
-        trip_features = []
-        async for trip in Trip.find(query):
-            if trip.matchedGps and trip.matchedGps.get("coordinates"):
-                coords = trip.matchedGps["coordinates"]
-                geometry = GeometryService.geometry_from_coordinate_pairs(
-                    coords,
-                    allow_point=False,
-                    dedupe=False,
-                    validate=False,
-                )
-                if geometry is not None:
-                    feature = GeometryService.feature_from_geometry(
-                        geometry,
-                        properties={"transactionId": trip.transactionId or "N/A"},
-                    )
-                    trip_features.append(feature)
-
-        return GeometryService.feature_collection(trip_features)

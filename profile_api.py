@@ -407,21 +407,3 @@ async def update_settings(settings: AppSettingsModel):
     except Exception as e:
         logger.exception("Error updating app settings")
         raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.get("/api/profile/app-settings/unmask")
-async def get_settings_unmasked():
-    """
-    Get current app settings without masking.
-
-    Use with caution - returns sensitive data.
-    """
-    try:
-        settings = await get_app_settings()
-        return {
-            "status": "success",
-            "settings": settings,
-        }
-    except Exception as e:
-        logger.exception("Error retrieving unmasked app settings")
-        raise HTTPException(status_code=500, detail=str(e))

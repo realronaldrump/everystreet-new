@@ -60,7 +60,6 @@ from db.models import (
     TaskHistory,
     Trip,
     Vehicle,
-    WebhookFailure,
 )
 
 # ============================================================================
@@ -103,7 +102,6 @@ __all__ = [
     # Beanie Models
     "Trip",
     "Vehicle",
-    "WebhookFailure",
     "build_calendar_date_expr",
     "build_query_from_request",
     "db_manager",

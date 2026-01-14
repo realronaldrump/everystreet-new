@@ -13,7 +13,6 @@ Tasks are organized into modules by function:
 - maintenance: Cleanup, validation, and remapping tasks
 - scheduler: Task scheduler
 - management: Task management API functions
-- webhook: Webhook processing task
 - routes: Optimal route generation task
 """
 
@@ -28,7 +27,6 @@ from tasks.fetch import (
 from tasks.maintenance import cleanup_stale_trips, remap_unmatched_trips, validate_trips
 from tasks.routes import generate_optimal_route_task
 from tasks.scheduler import run_task_scheduler
-from tasks.webhook import process_webhook_event_task
 
 __all__ = [
     "cleanup_stale_trips",
@@ -37,7 +35,6 @@ __all__ = [
     "generate_optimal_route_task",
     "manual_fetch_trips_range",
     "periodic_fetch_trips",
-    "process_webhook_event_task",
     "remap_unmatched_trips",
     "run_task_scheduler",
     "update_coverage_for_new_trips",
