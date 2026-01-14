@@ -198,7 +198,7 @@ async def add_area(request: CreateAreaRequest):
     """
     Add a new coverage area.
 
-    Simply provide the name (e.g., "Seattle, WA") and the system
+    Simply provide the name (e.g., "Waco, TX") and the system
     handles everything else automatically:
     - Fetches boundary from geocoding
     - Downloads streets from OpenStreetMap
