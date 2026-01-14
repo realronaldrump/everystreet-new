@@ -23,7 +23,10 @@ export class OptimalRouteAPI {
     try {
       // Check cache, but only use it if it has data
       // This prevents empty arrays from being permanently cached
-      if (window.coverageNavigatorAreas && window.coverageNavigatorAreas.length > 0) {
+      if (
+        window.coverageNavigatorAreas &&
+        window.coverageNavigatorAreas.length > 0
+      ) {
         return window.coverageNavigatorAreas;
       }
 
@@ -47,7 +50,9 @@ export class OptimalRouteAPI {
 
   async loadStreetNetwork(areaId) {
     try {
-      const data = await apiClient.get(`/api/coverage/areas/${areaId}/streets/all`);
+      const data = await apiClient.get(
+        `/api/coverage/areas/${areaId}/streets/all`,
+      );
 
       if (!data.features || !Array.isArray(data.features)) {
         throw new Error("Invalid street data format");
@@ -58,9 +63,10 @@ export class OptimalRouteAPI {
 
       data.features.forEach((feature) => {
         const status = feature.properties?.status;
-        const isDriven = status === "driven" || feature.properties?.driven === true;
-        const isUndriveable
-          = status === "undriveable" || feature.properties?.undriveable === true;
+        const isDriven =
+          status === "driven" || feature.properties?.driven === true;
+        const isUndriveable =
+          status === "undriveable" || feature.properties?.undriveable === true;
 
         if (isDriven) {
           drivenFeatures.push(feature);
@@ -78,7 +84,9 @@ export class OptimalRouteAPI {
 
   async loadExistingRoute(areaId) {
     try {
-      const data = await apiClient.get(`/api/coverage/areas/${areaId}/optimal-route`);
+      const data = await apiClient.get(
+        `/api/coverage/areas/${areaId}/optimal-route`,
+      );
       return data;
     } catch (error) {
       if (error.message?.includes("404")) {
@@ -110,7 +118,9 @@ export class OptimalRouteAPI {
 
   async checkForActiveTask(areaId) {
     try {
-      const data = await apiClient.get(`/api/coverage/areas/${areaId}/active-task`);
+      const data = await apiClient.get(
+        `/api/coverage/areas/${areaId}/active-task`,
+      );
       if (data.active && data.task_id) {
         return data;
       }
@@ -132,7 +142,9 @@ export class OptimalRouteAPI {
 
   async generateRoute(areaId) {
     try {
-      const data = await apiClient.post(`/api/coverage/areas/${areaId}/optimal-route`);
+      const data = await apiClient.post(
+        `/api/coverage/areas/${areaId}/optimal-route`,
+      );
       return data.task_id;
     } catch (error) {
       console.error("Error starting route generation:", error);
@@ -173,7 +185,9 @@ export class OptimalRouteAPI {
       this.eventSource.close();
     }
 
-    this.eventSource = new EventSource(`/api/optimal-routes/${taskId}/progress/sse`);
+    this.eventSource = new EventSource(
+      `/api/optimal-routes/${taskId}/progress/sse`,
+    );
 
     this.eventSource.onmessage = (event) => {
       try {
@@ -183,7 +197,11 @@ export class OptimalRouteAPI {
         const status = (data.status || "").toLowerCase();
         const stage = (data.stage || "").toLowerCase();
 
-        if (status === "completed" || stage === "complete" || data.progress >= 100) {
+        if (
+          status === "completed" ||
+          stage === "complete" ||
+          data.progress >= 100
+        ) {
           this.eventSource.close();
           this.eventSource = null;
           this.onComplete(data);
