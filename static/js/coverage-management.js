@@ -352,7 +352,7 @@ async function loadAreas() {
 function renderAreasTable(areas) {
   const tbody = document.querySelector("#coverage-areas-table tbody");
   if (!tbody) {
-     return;
+    return;
   }
 
   if (!areas || areas.length === 0) {
