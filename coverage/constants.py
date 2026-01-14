@@ -41,6 +41,13 @@ MAX_CONCURRENT_DB_OPS = 25
 BATCH_PROCESS_DELAY = 0.01
 
 # =============================================================================
+# Backfill Optimization
+# =============================================================================
+BACKFILL_TRIP_BATCH_SIZE = 100  # Number of trips to load per batch
+BACKFILL_CONCURRENT_TRIPS = 25  # Max concurrent trip processing
+BACKFILL_BULK_WRITE_SIZE = 500  # Max operations per bulk write
+
+# =============================================================================
 # Retry/Rebuild Configuration
 # =============================================================================
 MAX_INGESTION_RETRIES = 3

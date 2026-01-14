@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Any
 
 from shapely.geometry import LineString, MultiLineString, mapping, shape
 from shapely.ops import transform
+from shapely.strtree import STRtree
 
 from coverage.constants import (
     GPS_GAP_MULTIPLIER,
@@ -31,6 +32,137 @@ if TYPE_CHECKING:
     from shapely.geometry.base import BaseGeometry
 
 logger = logging.getLogger(__name__)
+
+
+class AreaSegmentIndex:
+    """
+    Pre-built spatial index for an area's street segments.
+
+    This provides O(log n) spatial lookups instead of O(n) database queries
+    for each trip during backfill operations.
+    """
+
+    def __init__(self, area_id: PydanticObjectId, area_version: int | None = None):
+        self.area_id = area_id
+        self.area_version = area_version
+        self.segments: list[Street] = []
+        self.segment_geoms: list[BaseGeometry] = []
+        self.segment_geoms_meters: list[BaseGeometry] = []
+        self.strtree: STRtree | None = None
+        self.to_meters = None
+        self.to_wgs84 = None
+        self._built = False
+
+    async def build(self) -> AreaSegmentIndex:
+        """Load all segments and build STRtree index."""
+        query: dict[str, Any] = {"area_id": self.area_id}
+        if self.area_version is not None:
+            query["area_version"] = self.area_version
+
+        self.segments = await Street.find(query).to_list()
+
+        if not self.segments:
+            self._built = True
+            return self
+
+        # Parse geometries
+        self.segment_geoms = []
+        valid_segments = []
+        for seg in self.segments:
+            try:
+                geom = shape(seg.geometry)
+                if geom.is_valid and not geom.is_empty:
+                    self.segment_geoms.append(geom)
+                    valid_segments.append(seg)
+            except Exception:
+                continue
+
+        self.segments = valid_segments
+
+        if not self.segment_geoms:
+            self._built = True
+            return self
+
+        # Get transformers from the centroid of the first geometry
+        representative_geom = self.segment_geoms[0]
+        self.to_meters, self.to_wgs84 = get_local_transformers(representative_geom)
+
+        # Pre-transform all geometries to meters for accurate intersection
+        self.segment_geoms_meters = [
+            transform(self.to_meters, g) for g in self.segment_geoms
+        ]
+
+        # Build STRtree on WGS84 geometries for spatial indexing
+        self.strtree = STRtree(self.segment_geoms)
+
+        self._built = True
+        logger.info(
+            "Built spatial index for area %s with %d segments",
+            self.area_id,
+            len(self.segments),
+        )
+        return self
+
+    def find_matching_segments(
+        self,
+        trip_line: BaseGeometry,
+        buffer_meters: float = MATCH_BUFFER_METERS,
+        min_overlap_meters: float = MIN_OVERLAP_METERS,
+        short_segment_ratio: float = SHORT_SEGMENT_OVERLAP_RATIO,
+    ) -> list[str]:
+        """
+        Find all segments that match a trip line using the spatial index.
+
+        Returns list of segment_ids that were matched.
+        """
+        if not self._built or not self.strtree or not self.segments:
+            return []
+
+        # Create buffered trip geometry
+        trip_buffer_wgs84 = trip_line.buffer(buffer_meters / 111139)  # approx degrees
+
+        # Use STRtree to find candidates (O(log n))
+        candidate_indices = self.strtree.query(trip_buffer_wgs84)
+
+        if len(candidate_indices) == 0:
+            return []
+
+        # Transform trip to meters for accurate intersection
+        trip_meters = transform(self.to_meters, trip_line)
+        trip_buffer_meters = trip_meters.buffer(buffer_meters)
+
+        matched_ids = []
+        for idx in candidate_indices:
+            segment = self.segments[idx]
+            segment_meters = self.segment_geoms_meters[idx]
+
+            # Check actual intersection
+            if not trip_buffer_meters.intersects(segment_meters):
+                continue
+
+            # Calculate intersection length
+            try:
+                intersection = trip_buffer_meters.intersection(segment_meters)
+                if intersection.is_empty:
+                    continue
+
+                intersection_length = intersection.length
+                segment_length = segment_meters.length
+
+                if segment_length <= 0:
+                    continue
+
+                required_overlap = min(
+                    min_overlap_meters,
+                    segment_length * short_segment_ratio,
+                )
+
+                if intersection_length >= required_overlap:
+                    matched_ids.append(segment.segment_id)
+            except Exception:
+                continue
+
+        return matched_ids
 
 
 def _coerce_coord_pair(value: Any) -> list[float] | None:

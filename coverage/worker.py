@@ -7,6 +7,7 @@ listens for events and updates CoverageState accordingly.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 from collections.abc import Awaitable, Callable
@@ -14,9 +15,19 @@ from datetime import UTC, datetime
 from typing import Any
 
 from beanie import PydanticObjectId
+from pymongo import UpdateOne
 
+from coverage.constants import (
+    BACKFILL_BULK_WRITE_SIZE,
+    BACKFILL_CONCURRENT_TRIPS,
+    BACKFILL_TRIP_BATCH_SIZE,
+)
 from coverage.events import CoverageEvents, emit_coverage_updated, on_event
-from coverage.matching import match_trip_to_streets
+from coverage.matching import (
+    AreaSegmentIndex,
+    match_trip_to_streets,
+    trip_to_linestring,
+)
 from coverage.models import CoverageArea, CoverageState
 from coverage.stats import update_area_stats
 from date_utils import get_current_utc_time, normalize_to_utc_datetime
@@ -245,36 +256,43 @@ async def backfill_coverage_for_area(
     area_id: PydanticObjectId,
     since: datetime | None = None,
     progress_callback: BackfillProgressCallback | None = None,
-    progress_interval: int = 25,
-    progress_time_seconds: float = 2.0,
+    progress_interval: int = 50,
+    progress_time_seconds: float = 1.0,
 ) -> int:
     """
     Backfill coverage for an area using existing trips.
 
-    Useful after area ingestion to catch up with historical trips.
-    If `since` is provided, only processes trips after that date.
+    Optimized version with:
+    - Batch trip loading
+    - Parallel trip processing with concurrency control
+    - STRtree spatial indexing for O(log n) segment lookups
+    - Bulk database writes
 
     Returns total number of segments marked as driven.
-    If provided, progress_callback is invoked with real-time backfill stats.
     """
     from db.models import Trip
 
     area = await CoverageArea.get(area_id)
     if not area:
-        logger.warning(f"Area {area_id} not found for backfill")
+        logger.warning("Area %s not found for backfill", area_id)
+        return 0
+
+    # Build spatial index once for the entire backfill
+    logger.info("Building spatial index for area %s", area.display_name)
+    segment_index = AreaSegmentIndex(area_id, area.area_version)
+    await segment_index.build()
+
+    if not segment_index.segments:
+        logger.warning("No segments found for area %s", area.display_name)
         return 0
 
     # Build query for trips that might intersect this area
-    # We use a $geoIntersects query on the gps field if the area has a boundary
     query: dict = {}
     if since:
         query["startTime"] = {"$gte": since}
 
-    # Get bounding box for spatial filtering
-    # Create a bounding box polygon for the $geoIntersects query
     if area.bounding_box and len(area.bounding_box) == 4:
         min_lon, min_lat, max_lon, max_lat = area.bounding_box
-        # Create a GeoJSON polygon for the bounding box
         bbox_polygon = {
             "type": "Polygon",
             "coordinates": [
@@ -283,22 +301,17 @@ async def backfill_coverage_for_area(
                     [max_lon, min_lat],
                     [max_lon, max_lat],
                     [min_lon, max_lat],
-                    [min_lon, min_lat],  # Close the polygon
+                    [min_lon, min_lat],
                 ],
             ],
         }
-        # Use $geoIntersects to find trips whose traces intersect the area
         geo_filter = {"$geoIntersects": {"$geometry": bbox_polygon}}
         query["$or"] = [{"gps": geo_filter}, {"matchedGps": geo_filter}]
     elif area.boundary:
-        # Use the actual boundary if available
         geo_filter = {"$geoIntersects": {"$geometry": area.boundary}}
         query["$or"] = [{"gps": geo_filter}, {"matchedGps": geo_filter}]
 
-    total_updated = 0
-    processed_trips = 0
-    matched_trips = 0
-
+    # Get total count for progress reporting
     total_trips: int | None = None
     if progress_callback:
         try:
@@ -306,6 +319,10 @@ async def backfill_coverage_for_area(
         except Exception as exc:
             logger.warning("Failed to count trips for backfill progress: %s", exc)
 
+    # Progress tracking state
+    processed_trips = 0
+    matched_trips = 0
+    total_updated = 0
     last_reported = 0
     last_reported_time = time.monotonic()
 
@@ -333,33 +350,159 @@ async def backfill_coverage_for_area(
 
     await report_progress(force=True)
 
-    logger.info(f"Starting backfill for area {area.display_name} with query: {query}")
+    logger.info(
+        "Starting optimized backfill for area %s with %d segments",
+        area.display_name,
+        len(segment_index.segments),
+    )
+
+    # Semaphore for concurrency control
+    semaphore = asyncio.Semaphore(BACKFILL_CONCURRENT_TRIPS)
+
+    # Collect all segment updates for bulk write
+    all_segment_updates: dict[str, tuple[datetime | None, PydanticObjectId | None]] = {}
+
+    async def process_single_trip(
+        trip_data: dict, trip_id: PydanticObjectId
+    ) -> tuple[list[str], datetime | None]:
+        """Process a single trip and return matched segment IDs."""
+        async with semaphore:
+            trip_line = trip_to_linestring(trip_data)
+            if trip_line is None:
+                return [], None
+
+            trip_driven_at = get_trip_driven_at(trip_data)
+
+            # Use spatial index for fast matching
+            matched_ids = segment_index.find_matching_segments(trip_line)
+
+            return matched_ids, trip_driven_at
+
+    # Process trips in batches
+    batch: list[tuple[dict, PydanticObjectId]] = []
 
     async for trip in Trip.find(query):
-        processed_trips += 1
         trip_data = trip.model_dump()
-        trip_driven_at = get_trip_driven_at(trip_data)
-        matches = await match_trip_to_streets(trip_data, area_ids=[area_id])
+        batch.append((trip_data, trip.id))
 
-        if area_id in matches:
-            updated = await update_coverage_for_segments(
-                area_id=area_id,
-                segment_ids=matches[area_id],
-                trip_id=trip.id,
-                driven_at=trip_driven_at,
+        if len(batch) >= BACKFILL_TRIP_BATCH_SIZE:
+            # Process batch in parallel
+            tasks = [process_single_trip(td, tid) for td, tid in batch]
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+
+            for i, result in enumerate(results):
+                processed_trips += 1
+                if isinstance(result, Exception):
+                    logger.debug("Trip processing error: %s", result)
+                    continue
+
+                matched_ids, trip_driven_at = result
+                if matched_ids:
+                    matched_trips += 1
+                    trip_id = batch[i][1]
+                    for seg_id in matched_ids:
+                        # Keep earliest driven_at per segment
+                        existing = all_segment_updates.get(seg_id)
+                        if existing is None or (
+                            trip_driven_at
+                            and (existing[0] is None or trip_driven_at < existing[0])
+                        ):
+                            all_segment_updates[seg_id] = (trip_driven_at, trip_id)
+
+            batch = []
+            await report_progress()
+
+    # Process remaining trips in final batch
+    if batch:
+        tasks = [process_single_trip(td, tid) for td, tid in batch]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        for i, result in enumerate(results):
+            processed_trips += 1
+            if isinstance(result, Exception):
+                continue
+
+            matched_ids, trip_driven_at = result
+            if matched_ids:
+                matched_trips += 1
+                trip_id = batch[i][1]
+                for seg_id in matched_ids:
+                    existing = all_segment_updates.get(seg_id)
+                    if existing is None or (
+                        trip_driven_at
+                        and (existing[0] is None or trip_driven_at < existing[0])
+                    ):
+                        all_segment_updates[seg_id] = (trip_driven_at, trip_id)
+
+    await report_progress()
+
+    # Bulk write all segment updates
+    if all_segment_updates:
+        logger.info(
+            "Bulk updating %d segments for area %s",
+            len(all_segment_updates),
+            area.display_name,
+        )
+
+        # Get undriveable segments to skip
+        undriveable_states = await CoverageState.find(
+            {"area_id": area_id, "status": "undriveable"},
+        ).to_list()
+        undriveable_ids = {state.segment_id for state in undriveable_states}
+
+        # Filter out undriveable segments
+        segment_updates = {
+            seg_id: data
+            for seg_id, data in all_segment_updates.items()
+            if seg_id not in undriveable_ids
+        }
+
+        # Build bulk operations
+        operations = []
+        for seg_id, (driven_at, trip_id) in segment_updates.items():
+            driven_at = driven_at or get_current_utc_time()
+            operations.append(
+                UpdateOne(
+                    {"area_id": area_id, "segment_id": seg_id},
+                    {
+                        "$set": {
+                            "status": "driven",
+                            "last_driven_at": driven_at,
+                            "driven_by_trip_id": trip_id,
+                        },
+                        "$min": {"first_driven_at": driven_at},
+                        "$setOnInsert": {
+                            "area_id": area_id,
+                            "segment_id": seg_id,
+                            "manually_marked": False,
+                        },
+                    },
+                    upsert=True,
+                )
             )
-            total_updated += updated
-            matched_trips += 1
 
-        await report_progress()
+            # Execute in batches to avoid memory issues
+            if len(operations) >= BACKFILL_BULK_WRITE_SIZE:
+                collection = CoverageState.get_motor_collection()
+                result = await collection.bulk_write(operations, ordered=False)
+                total_updated += result.modified_count + result.upserted_count
+                operations = []
+
+        # Execute remaining operations
+        if operations:
+            collection = CoverageState.get_motor_collection()
+            result = await collection.bulk_write(operations, ordered=False)
+            total_updated += result.modified_count + result.upserted_count
 
     # Update stats after backfill
     await update_area_stats(area_id)
     await report_progress(force=True)
 
     logger.info(
-        f"Backfill complete for area {area.display_name}: "
-        f"{total_updated} segments from {matched_trips} trips",
+        "Backfill complete for area %s: %d segments from %d trips",
+        area.display_name,
+        total_updated,
+        matched_trips,
     )
 
     return total_updated
