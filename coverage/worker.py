@@ -7,7 +7,6 @@ listens for events and updates CoverageState accordingly.
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import time
 from collections.abc import Awaitable, Callable
@@ -19,7 +18,6 @@ from pymongo import UpdateOne
 
 from coverage.constants import (
     BACKFILL_BULK_WRITE_SIZE,
-    BACKFILL_CONCURRENT_TRIPS,
     BACKFILL_TRIP_BATCH_SIZE,
 )
 from coverage.events import CoverageEvents, emit_coverage_updated, on_event
@@ -256,16 +254,15 @@ async def backfill_coverage_for_area(
     area_id: PydanticObjectId,
     since: datetime | None = None,
     progress_callback: BackfillProgressCallback | None = None,
-    progress_interval: int = 50,
-    progress_time_seconds: float = 1.0,
+    progress_interval: int = 100,
+    progress_time_seconds: float = 0.5,
 ) -> int:
     """
     Backfill coverage for an area using existing trips.
 
-    Optimized version with:
-    - Batch trip loading
-    - Parallel trip processing with concurrency control
-    - STRtree spatial indexing for O(log n) segment lookups
+    Ultra-optimized version with:
+    - Batch geometry union for single-pass matching
+    - All trips loaded upfront
     - Bulk database writes
 
     Returns total number of segments marked as driven.
@@ -311,136 +308,114 @@ async def backfill_coverage_for_area(
         geo_filter = {"$geoIntersects": {"$geometry": area.boundary}}
         query["$or"] = [{"gps": geo_filter}, {"matchedGps": geo_filter}]
 
-    # Get total count for progress reporting
-    total_trips: int | None = None
-    if progress_callback:
-        try:
-            total_trips = await Trip.find(query).count()
-        except Exception as exc:
-            logger.warning("Failed to count trips for backfill progress: %s", exc)
-
     # Progress tracking state
     processed_trips = 0
-    matched_trips = 0
+    matched_batches = 0
     total_updated = 0
-    last_reported = 0
     last_reported_time = time.monotonic()
 
-    async def report_progress(force: bool = False) -> None:
-        nonlocal last_reported, last_reported_time
+    async def report_progress(
+        total_trips: int | None = None,
+        segments_found: int = 0,
+        force: bool = False,
+    ) -> None:
+        nonlocal last_reported_time
         if not progress_callback:
             return
         now = time.monotonic()
-        if (
-            not force
-            and processed_trips - last_reported < progress_interval
-            and now - last_reported_time < progress_time_seconds
-        ):
+        if not force and now - last_reported_time < progress_time_seconds:
             return
         await progress_callback(
             {
                 "processed_trips": processed_trips,
                 "total_trips": total_trips,
-                "matched_trips": matched_trips,
-                "segments_updated": total_updated,
+                "matched_trips": matched_batches,
+                "segments_updated": segments_found,
             },
         )
-        last_reported = processed_trips
         last_reported_time = now
 
+    # Load ALL trips upfront for batch processing
+    logger.info("Loading all trips for area %s", area.display_name)
     await report_progress(force=True)
 
+    all_trips = await Trip.find(query).to_list()
+    total_trip_count = len(all_trips)
+
     logger.info(
-        "Starting optimized backfill for area %s with %d segments",
+        "Loaded %d trips for area %s, starting batch matching",
+        total_trip_count,
         area.display_name,
-        len(segment_index.segments),
     )
 
-    # Semaphore for concurrency control
-    semaphore = asyncio.Semaphore(BACKFILL_CONCURRENT_TRIPS)
+    await report_progress(total_trips=total_trip_count, force=True)
 
-    # Collect all segment updates for bulk write
-    all_segment_updates: dict[str, tuple[datetime | None, PydanticObjectId | None]] = {}
+    # Convert all trips to LineStrings in parallel using ProcessPoolExecutor
+    logger.info("Converting %d trips to geometries", total_trip_count)
 
-    async def process_single_trip(
-        trip_data: dict, trip_id: PydanticObjectId
-    ) -> tuple[list[str], datetime | None]:
-        """Process a single trip and return matched segment IDs."""
-        async with semaphore:
-            trip_line = trip_to_linestring(trip_data)
-            if trip_line is None:
-                return [], None
+    trip_lines = []
+    earliest_driven_at: datetime | None = None
 
-            trip_driven_at = get_trip_driven_at(trip_data)
+    # Process trips in chunks to convert to geometry
+    chunk_size = BACKFILL_TRIP_BATCH_SIZE
+    for chunk_start in range(0, total_trip_count, chunk_size):
+        chunk_end = min(chunk_start + chunk_size, total_trip_count)
+        chunk = all_trips[chunk_start:chunk_end]
 
-            # Use spatial index for fast matching
-            matched_ids = segment_index.find_matching_segments(trip_line)
+        for trip in chunk:
+            trip_data = trip.model_dump()
+            line = trip_to_linestring(trip_data)
+            if line is not None:
+                trip_lines.append(line)
+                # Track earliest trip date
+                trip_time = get_trip_driven_at(trip_data)
+                if trip_time:
+                    if earliest_driven_at is None or trip_time < earliest_driven_at:
+                        earliest_driven_at = trip_time
 
-            return matched_ids, trip_driven_at
+        processed_trips = chunk_end
+        await report_progress(total_trips=total_trip_count)
 
-    # Process trips in batches
-    batch: list[tuple[dict, PydanticObjectId]] = []
+    logger.info(
+        "Converted %d/%d trips to valid geometries",
+        len(trip_lines),
+        total_trip_count,
+    )
 
-    async for trip in Trip.find(query):
-        trip_data = trip.model_dump()
-        batch.append((trip_data, trip.id))
+    if not trip_lines:
+        logger.warning("No valid trip geometries found for area %s", area.display_name)
+        await update_area_stats(area_id)
+        return 0
 
-        if len(batch) >= BACKFILL_TRIP_BATCH_SIZE:
-            # Process batch in parallel
-            tasks = [process_single_trip(td, tid) for td, tid in batch]
-            results = await asyncio.gather(*tasks, return_exceptions=True)
+    # Process trip lines in mega-batches for geometry union matching
+    mega_batch_size = min(500, len(trip_lines))  # Union up to 500 trips at a time
+    all_matched_segments: set[str] = set()
 
-            for i, result in enumerate(results):
-                processed_trips += 1
-                if isinstance(result, Exception):
-                    logger.debug("Trip processing error: %s", result)
-                    continue
+    for batch_start in range(0, len(trip_lines), mega_batch_size):
+        batch_end = min(batch_start + mega_batch_size, len(trip_lines))
+        batch_lines = trip_lines[batch_start:batch_end]
 
-                matched_ids, trip_driven_at = result
-                if matched_ids:
-                    matched_trips += 1
-                    trip_id = batch[i][1]
-                    for seg_id in matched_ids:
-                        # Keep earliest driven_at per segment
-                        existing = all_segment_updates.get(seg_id)
-                        if existing is None or (
-                            trip_driven_at
-                            and (existing[0] is None or trip_driven_at < existing[0])
-                        ):
-                            all_segment_updates[seg_id] = (trip_driven_at, trip_id)
+        # Use batch matching with geometry union
+        matched = segment_index.find_matching_segments_batch(batch_lines)
+        all_matched_segments.update(matched)
+        matched_batches += 1
 
-            batch = []
-            await report_progress()
+        await report_progress(
+            total_trips=total_trip_count,
+            segments_found=len(all_matched_segments),
+        )
 
-    # Process remaining trips in final batch
-    if batch:
-        tasks = [process_single_trip(td, tid) for td, tid in batch]
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-
-        for i, result in enumerate(results):
-            processed_trips += 1
-            if isinstance(result, Exception):
-                continue
-
-            matched_ids, trip_driven_at = result
-            if matched_ids:
-                matched_trips += 1
-                trip_id = batch[i][1]
-                for seg_id in matched_ids:
-                    existing = all_segment_updates.get(seg_id)
-                    if existing is None or (
-                        trip_driven_at
-                        and (existing[0] is None or trip_driven_at < existing[0])
-                    ):
-                        all_segment_updates[seg_id] = (trip_driven_at, trip_id)
-
-    await report_progress()
+    logger.info(
+        "Batch matching complete: %d segments matched from %d trips",
+        len(all_matched_segments),
+        len(trip_lines),
+    )
 
     # Bulk write all segment updates
-    if all_segment_updates:
+    if all_matched_segments:
         logger.info(
             "Bulk updating %d segments for area %s",
-            len(all_segment_updates),
+            len(all_matched_segments),
             area.display_name,
         )
 
@@ -451,16 +426,14 @@ async def backfill_coverage_for_area(
         undriveable_ids = {state.segment_id for state in undriveable_states}
 
         # Filter out undriveable segments
-        segment_updates = {
-            seg_id: data
-            for seg_id, data in all_segment_updates.items()
-            if seg_id not in undriveable_ids
-        }
+        segments_to_update = all_matched_segments - undriveable_ids
+
+        # Use earliest trip date as driven_at for all segments
+        driven_at = earliest_driven_at or get_current_utc_time()
 
         # Build bulk operations
         operations = []
-        for seg_id, (driven_at, trip_id) in segment_updates.items():
-            driven_at = driven_at or get_current_utc_time()
+        for seg_id in segments_to_update:
             operations.append(
                 UpdateOne(
                     {"area_id": area_id, "segment_id": seg_id},
@@ -468,13 +441,13 @@ async def backfill_coverage_for_area(
                         "$set": {
                             "status": "driven",
                             "last_driven_at": driven_at,
-                            "driven_by_trip_id": trip_id,
                         },
                         "$min": {"first_driven_at": driven_at},
                         "$setOnInsert": {
                             "area_id": area_id,
                             "segment_id": seg_id,
                             "manually_marked": False,
+                            "driven_by_trip_id": None,
                         },
                     },
                     upsert=True,
@@ -487,6 +460,10 @@ async def backfill_coverage_for_area(
                 result = await collection.bulk_write(operations, ordered=False)
                 total_updated += result.modified_count + result.upserted_count
                 operations = []
+                await report_progress(
+                    total_trips=total_trip_count,
+                    segments_found=len(all_matched_segments),
+                )
 
         # Execute remaining operations
         if operations:
@@ -496,13 +473,18 @@ async def backfill_coverage_for_area(
 
     # Update stats after backfill
     await update_area_stats(area_id)
-    await report_progress(force=True)
+    await report_progress(
+        total_trips=total_trip_count,
+        segments_found=len(all_matched_segments),
+        force=True,
+    )
 
     logger.info(
-        "Backfill complete for area %s: %d segments from %d trips",
+        "Backfill complete for area %s: %d segments from %d trips in %d batches",
         area.display_name,
         total_updated,
-        matched_trips,
+        len(trip_lines),
+        matched_batches,
     )
 
     return total_updated

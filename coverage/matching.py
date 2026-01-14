@@ -13,7 +13,7 @@ from statistics import median
 from typing import TYPE_CHECKING, Any
 
 from shapely.geometry import LineString, MultiLineString, mapping, shape
-from shapely.ops import transform
+from shapely.ops import transform, unary_union
 from shapely.strtree import STRtree
 
 from coverage.constants import (
@@ -159,6 +159,87 @@ class AreaSegmentIndex:
 
                 if intersection_length >= required_overlap:
                     matched_ids.append(segment.segment_id)
+            except Exception:
+                continue
+
+        return matched_ids
+
+    def find_matching_segments_batch(
+        self,
+        trip_lines: list[BaseGeometry],
+        buffer_meters: float = MATCH_BUFFER_METERS,
+        min_overlap_meters: float = MIN_OVERLAP_METERS,
+        short_segment_ratio: float = SHORT_SEGMENT_OVERLAP_RATIO,
+    ) -> set[str]:
+        """
+        Find all segments that match ANY of the given trip lines.
+
+        Uses geometry union for single-pass matching - much faster for batch operations.
+        Returns set of segment_ids that were matched.
+        """
+        if not self._built or not self.strtree or not self.segments:
+            return set()
+
+        # Filter out None/empty geometries
+        valid_lines = [line for line in trip_lines if line and not line.is_empty]
+        if not valid_lines:
+            return set()
+
+        # Union all trip lines into single geometry for one-pass matching
+        if len(valid_lines) == 1:
+            combined = valid_lines[0]
+        else:
+            combined = unary_union(valid_lines)
+
+        # Simplify to reduce points (faster intersection tests)
+        combined = combined.simplify(tolerance=0.00001, preserve_topology=True)
+
+        # Create buffered geometry in WGS84 for STRtree query
+        buffer_degrees = buffer_meters / 111139  # approx conversion
+        combined_buffer_wgs84 = combined.buffer(buffer_degrees)
+
+        # Use STRtree to find candidates (O(log n))
+        candidate_indices = self.strtree.query(combined_buffer_wgs84)
+
+        if len(candidate_indices) == 0:
+            return set()
+
+        # Transform combined geometry to meters for accurate intersection
+        combined_meters = transform(self.to_meters, combined)
+        combined_buffer_meters = combined_meters.buffer(buffer_meters)
+
+        # Prepare the buffer for intersection tests
+        if not combined_buffer_meters.is_valid:
+            combined_buffer_meters = combined_buffer_meters.buffer(0)
+
+        matched_ids = set()
+        for idx in candidate_indices:
+            segment = self.segments[idx]
+            segment_meters = self.segment_geoms_meters[idx]
+
+            # Quick bounding box check first
+            if not combined_buffer_meters.intersects(segment_meters):
+                continue
+
+            # Calculate intersection length
+            try:
+                intersection = combined_buffer_meters.intersection(segment_meters)
+                if intersection.is_empty:
+                    continue
+
+                intersection_length = intersection.length
+                segment_length = segment_meters.length
+
+                if segment_length <= 0:
+                    continue
+
+                required_overlap = min(
+                    min_overlap_meters,
+                    segment_length * short_segment_ratio,
+                )
+
+                if intersection_length >= required_overlap:
+                    matched_ids.add(segment.segment_id)
             except Exception:
                 continue
 
