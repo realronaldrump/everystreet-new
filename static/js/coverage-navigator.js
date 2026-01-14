@@ -1,71 +1,71 @@
-(() => {
-  const baseConfig = window.coverageNavigatorConfig || {};
-  const mapContainerId = baseConfig.mapContainerId || "coverage-map";
+import { onPageLoad } from "./modules/utils.js";
 
-  // DrivingNavigation should NOT populate the dropdown since OptimalRoutesManager does it
-  // This prevents duplicate entries
-  const drivingDefaults = {
-    areaSelectId: "area-select",
-    mapContainerId,
-    useSharedMap: true,
-    populateAreaSelect: false, // OptimalRoutesManager handles this
-  };
+const baseConfig = window.coverageNavigatorConfig || {};
+const mapContainerId = baseConfig.mapContainerId || "coverage-map";
 
-  // OptimalRoutesManager populates the dropdown for both components
-  const optimalDefaults = {
-    areaSelectId: "area-select",
-    mapContainerId,
-    useSharedMap: true,
-    addNavigationControl: false,
-    populateAreaSelect: true, // Only this one populates the dropdown
-  };
+// DrivingNavigation should NOT populate the dropdown since OptimalRoutesManager does it
+// This prevents duplicate entries
+const drivingDefaults = {
+  areaSelectId: "area-select",
+  mapContainerId,
+  useSharedMap: true,
+  populateAreaSelect: false, // OptimalRoutesManager handles this
+};
 
-  window.coverageNavigatorConfig = {
-    ...baseConfig,
-    mapContainerId,
-    drivingNavigation: {
-      ...drivingDefaults,
-      ...(baseConfig.drivingNavigation || {}),
-    },
-    optimalRoutes: {
-      ...optimalDefaults,
-      ...(baseConfig.optimalRoutes || {}),
-    },
-  };
+// OptimalRoutesManager populates the dropdown for both components
+const optimalDefaults = {
+  areaSelectId: "area-select",
+  mapContainerId,
+  useSharedMap: true,
+  addNavigationControl: false,
+  populateAreaSelect: true, // Only this one populates the dropdown
+};
 
-  window.utils?.onPageLoad(
-    ({ cleanup } = {}) => {
-      if (!window.mapBase || typeof mapboxgl === "undefined") {
-        console.error("Mapbox GL JS library not found. Coverage map cannot load.");
-        return;
-      }
+window.coverageNavigatorConfig = {
+  ...baseConfig,
+  mapContainerId,
+  drivingNavigation: {
+    ...drivingDefaults,
+    ...(baseConfig.drivingNavigation || {}),
+  },
+  optimalRoutes: {
+    ...optimalDefaults,
+    ...(baseConfig.optimalRoutes || {}),
+  },
+};
 
-      const container = document.getElementById(mapContainerId);
-      if (!container || !window.MAPBOX_ACCESS_TOKEN) {
-        return;
-      }
+onPageLoad(
+  ({ cleanup } = {}) => {
+    if (!window.mapBase || typeof mapboxgl === "undefined") {
+      console.error("Mapbox GL JS library not found. Coverage map cannot load.");
+      return;
+    }
 
-      if (!window.coverageMasterMap) {
-        window.coverageMasterMap = window.mapBase.createMap(mapContainerId, {
-          center: [-96, 37.8],
-          zoom: 4,
-          accessToken: window.MAPBOX_ACCESS_TOKEN,
-        });
-      }
+    const container = document.getElementById(mapContainerId);
+    if (!container || !window.MAPBOX_ACCESS_TOKEN) {
+      return;
+    }
 
-      if (typeof cleanup === "function") {
-        cleanup(() => {
-          if (window.coverageMasterMap) {
-            try {
-              window.coverageMasterMap.remove();
-            } catch {
-              // Ignore cleanup errors.
-            }
-            window.coverageMasterMap = null;
+    if (!window.coverageMasterMap) {
+      window.coverageMasterMap = window.mapBase.createMap(mapContainerId, {
+        center: [-96, 37.8],
+        zoom: 4,
+        accessToken: window.MAPBOX_ACCESS_TOKEN,
+      });
+    }
+
+    if (typeof cleanup === "function") {
+      cleanup(() => {
+        if (window.coverageMasterMap) {
+          try {
+            window.coverageMasterMap.remove();
+          } catch {
+            // Ignore cleanup errors.
           }
-        });
-      }
-    },
-    { route: "/coverage-navigator" }
-  );
-})();
+          window.coverageMasterMap = null;
+        }
+      });
+    }
+  },
+  { route: "/coverage-navigator" }
+);
