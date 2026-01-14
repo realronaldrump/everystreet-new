@@ -174,7 +174,7 @@ class AreaSegmentIndex:
         """
         Find all segments that match ANY of the given trip lines.
 
-        Uses geometry union for single-pass matching - much faster for batch operations.
+        Uses geometry union and simple intersection checks for speed.
         Returns set of segment_ids that were matched.
         """
         if not self._built or not self.strtree or not self.segments:
@@ -185,14 +185,8 @@ class AreaSegmentIndex:
         if not valid_lines:
             return set()
 
-        # Union all trip lines into single geometry for one-pass matching
-        if len(valid_lines) == 1:
-            combined = valid_lines[0]
-        else:
-            combined = unary_union(valid_lines)
-
-        # Simplify to reduce points (faster intersection tests)
-        combined = combined.simplify(tolerance=0.00001, preserve_topology=True)
+        # Union all trip lines into single geometry
+        combined = valid_lines[0] if len(valid_lines) == 1 else unary_union(valid_lines)
 
         # Create buffered geometry in WGS84 for STRtree query
         buffer_degrees = buffer_meters / 111139  # approx conversion
@@ -204,44 +198,21 @@ class AreaSegmentIndex:
         if len(candidate_indices) == 0:
             return set()
 
-        # Transform combined geometry to meters for accurate intersection
-        combined_meters = transform(self.to_meters, combined)
-        combined_buffer_meters = combined_meters.buffer(buffer_meters)
+        # Use prepared geometry for much faster intersection checks
+        from shapely.prepared import prep
 
-        # Prepare the buffer for intersection tests
-        if not combined_buffer_meters.is_valid:
-            combined_buffer_meters = combined_buffer_meters.buffer(0)
+        prepared_buffer = prep(combined_buffer_wgs84)
 
+        # Simple intersection check without calculating lengths
+        # This is much faster than computing actual intersection geometry
         matched_ids = set()
         for idx in candidate_indices:
             segment = self.segments[idx]
-            segment_meters = self.segment_geoms_meters[idx]
+            segment_geom = self.segment_geoms[idx]  # WGS84 geometry
 
-            # Quick bounding box check first
-            if not combined_buffer_meters.intersects(segment_meters):
-                continue
-
-            # Calculate intersection length
-            try:
-                intersection = combined_buffer_meters.intersection(segment_meters)
-                if intersection.is_empty:
-                    continue
-
-                intersection_length = intersection.length
-                segment_length = segment_meters.length
-
-                if segment_length <= 0:
-                    continue
-
-                required_overlap = min(
-                    min_overlap_meters,
-                    segment_length * short_segment_ratio,
-                )
-
-                if intersection_length >= required_overlap:
-                    matched_ids.add(segment.segment_id)
-            except Exception:
-                continue
+            # Use prepared geometry for fast intersection check
+            if prepared_buffer.intersects(segment_geom):
+                matched_ids.add(segment.segment_id)
 
         return matched_ids
 
