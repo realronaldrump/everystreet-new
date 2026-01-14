@@ -496,7 +496,14 @@ def _calculate_bounding_box(boundary: dict[str, Any]) -> list[float]:
     return [minx, miny, maxx, maxy]
 
 
-def _split_bounding_box(minx: float, miny: float, maxx: float, maxy: float, rows: int = 2, cols: int = 2) -> list[list[float]]:
+def _split_bounding_box(
+    minx: float,
+    miny: float,
+    maxx: float,
+    maxy: float,
+    rows: int = 2,
+    cols: int = 2,
+) -> list[list[float]]:
     """Split bounding box into smaller boxes for parallel fetching."""
     dx = (maxx - minx) / cols
     dy = (maxy - miny) / rows
@@ -511,7 +518,13 @@ def _split_bounding_box(minx: float, miny: float, maxx: float, maxy: float, rows
     return boxes
 
 
-async def _fetch_single_box(highway_filter: str, minx: float, miny: float, maxx: float, maxy: float) -> dict[str, Any]:
+async def _fetch_single_box(
+    highway_filter: str,
+    minx: float,
+    miny: float,
+    maxx: float,
+    maxy: float,
+) -> dict[str, Any]:
     """Fetch OSM data for a single bounding box with retry."""
     query = f"""
     [out:json][timeout:300];
@@ -533,10 +546,11 @@ async def _fetch_single_box(highway_filter: str, minx: float, miny: float, maxx:
                     return await response.json()
         except aiohttp.ClientResponseError as e:
             if e.status in (504, 502, 503) and attempt < max_retries - 1:
-                await asyncio.sleep(30 * (2 ** attempt))  # exponential backoff
+                await asyncio.sleep(30 * (2**attempt))  # exponential backoff
                 continue
             raise
-    raise RuntimeError("Max retries exceeded")
+    msg = "Max retries exceeded"
+    raise RuntimeError(msg)
 
 
 async def _fetch_osm_streets(boundary: dict[str, Any]) -> list[dict[str, Any]]:

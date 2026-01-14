@@ -270,4 +270,3 @@ def worker_process_shutdown_handler(**_kwargs) -> None:
 
 
 # Import tasks to ensure they are registered with Celery
-import tasks  # noqa: E402

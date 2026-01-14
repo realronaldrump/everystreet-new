@@ -51,9 +51,7 @@ const getByPath = (obj, path) => {
   if (!path) {
     return undefined;
   }
-  return path
-    .split(".")
-    .reduce((acc, key) => (acc ? acc[key] : undefined), obj);
+  return path.split(".").reduce((acc, key) => (acc ? acc[key] : undefined), obj);
 };
 
 const setByPath = (obj, path, value) => {
@@ -287,8 +285,8 @@ class ESStore {
     const lat = parseFloat(params.get("lat"));
     const lng = parseFloat(params.get("lng"));
     const zoom = parseFloat(params.get("zoom"));
-    const hasMapParams =
-      !Number.isNaN(lat) && !Number.isNaN(lng) && !Number.isNaN(zoom);
+    const hasMapParams
+      = !Number.isNaN(lat) && !Number.isNaN(lng) && !Number.isNaN(zoom);
     if (hasMapParams) {
       this.state.map.view = { center: [lng, lat], zoom };
     }
@@ -366,9 +364,7 @@ class ESStore {
     }
 
     const visibility = this.state.layers.visibility || {};
-    const visibleLayers = Object.keys(visibility).filter(
-      (name) => visibility[name],
-    );
+    const visibleLayers = Object.keys(visibility).filter((name) => visibility[name]);
     if (visibleLayers.length) {
       url.searchParams.set("layers", visibleLayers.join(","));
     } else {

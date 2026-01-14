@@ -15,7 +15,7 @@ export class OptimalRouteAPI {
    */
   clearCoverageAreasCache() {
     if (window.coverageNavigatorAreas) {
-      delete window.coverageNavigatorAreas;
+      window.coverageNavigatorAreas = undefined;
     }
   }
 

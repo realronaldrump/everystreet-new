@@ -16,7 +16,7 @@ export class DrivingNavigationAPI {
    */
   clearCoverageAreasCache() {
     if (window.coverageNavigatorAreas) {
-      delete window.coverageNavigatorAreas;
+      window.coverageNavigatorAreas = undefined;
     }
   }
 
@@ -28,7 +28,10 @@ export class DrivingNavigationAPI {
   async loadCoverageAreas() {
     // Check cache, but only use it if it has data
     // This prevents empty arrays from being permanently cached
-    if (Array.isArray(window.coverageNavigatorAreas) && window.coverageNavigatorAreas.length > 0) {
+    if (
+      Array.isArray(window.coverageNavigatorAreas)
+      && window.coverageNavigatorAreas.length > 0
+    ) {
       return window.coverageNavigatorAreas;
     }
 

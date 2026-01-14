@@ -95,8 +95,8 @@ async def emit_trip_completed(
     """
     Emit a trip_completed event.
 
-    Called when a live tracking trip ends. This triggers coverage updates
-    for all relevant areas.
+    Called when a live tracking trip ends. This triggers coverage
+    updates for all relevant areas.
     """
     await emit(
         CoverageEvents.TRIP_COMPLETED,
