@@ -267,3 +267,7 @@ def init_worker(**_kwargs):
 def worker_process_shutdown_handler(**_kwargs) -> None:
     logger.info("Celery worker process shutting down...")
     shutdown_worker_loop()
+
+
+# Import tasks to ensure they are registered with Celery
+import tasks  # noqa: E402
