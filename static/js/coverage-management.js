@@ -333,6 +333,10 @@ async function loadAreas() {
       jobs.filter((job) => job.area_id).map((job) => [job.area_id, job]),
     );
 
+    if (!pageActive) {
+      return;
+    }
+
     renderAreasTable(areasData.areas);
     document.getElementById("total-areas-count").textContent =
       areasData.areas.length;
@@ -347,6 +351,9 @@ async function loadAreas() {
 
 function renderAreasTable(areas) {
   const tbody = document.querySelector("#coverage-areas-table tbody");
+  if (!tbody) {
+     return;
+  }
 
   if (!areas || areas.length === 0) {
     areaErrorById.clear();
