@@ -11,12 +11,24 @@ export class DrivingNavigationAPI {
   }
 
   /**
+   * Clear the cached coverage areas to force a fresh fetch.
+   * Useful after areas are added/deleted in coverage management.
+   */
+  clearCoverageAreasCache() {
+    if (window.coverageNavigatorAreas) {
+      delete window.coverageNavigatorAreas;
+    }
+  }
+
+  /**
    * Load all coverage areas from the API.
-   * Uses cached data from window if available.
+   * Uses cached data from window if available (but only if non-empty).
    * @returns {Promise<Array>} Array of coverage area objects
    */
   async loadCoverageAreas() {
-    if (Array.isArray(window.coverageNavigatorAreas)) {
+    // Check cache, but only use it if it has data
+    // This prevents empty arrays from being permanently cached
+    if (Array.isArray(window.coverageNavigatorAreas) && window.coverageNavigatorAreas.length > 0) {
       return window.coverageNavigatorAreas;
     }
 
@@ -25,7 +37,10 @@ export class DrivingNavigationAPI {
       throw new Error(data.error || "Invalid response format");
     }
 
-    window.coverageNavigatorAreas = data.areas;
+    // Only cache non-empty arrays to allow fresh fetches when areas are added
+    if (data.areas.length > 0) {
+      window.coverageNavigatorAreas = data.areas;
+    }
     return data.areas;
   }
 

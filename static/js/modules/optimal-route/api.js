@@ -9,9 +9,21 @@ export class OptimalRouteAPI {
     this.onCancel = options.onCancel || (() => {});
   }
 
+  /**
+   * Clear the cached coverage areas to force a fresh fetch.
+   * Useful after areas are added/deleted in coverage management.
+   */
+  clearCoverageAreasCache() {
+    if (window.coverageNavigatorAreas) {
+      delete window.coverageNavigatorAreas;
+    }
+  }
+
   async loadCoverageAreas() {
     try {
-      if (window.coverageNavigatorAreas) {
+      // Check cache, but only use it if it has data
+      // This prevents empty arrays from being permanently cached
+      if (window.coverageNavigatorAreas && window.coverageNavigatorAreas.length > 0) {
         return window.coverageNavigatorAreas;
       }
 
@@ -21,7 +33,11 @@ export class OptimalRouteAPI {
         console.error("Failed to load coverage areas");
         return null;
       }
-      window.coverageNavigatorAreas = data.areas;
+
+      // Only cache non-empty arrays to allow fresh fetches when areas are added
+      if (data.areas.length > 0) {
+        window.coverageNavigatorAreas = data.areas;
+      }
       return data.areas;
     } catch (error) {
       console.error("Error loading coverage areas:", error);
