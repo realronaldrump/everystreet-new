@@ -183,12 +183,23 @@ async def shutdown_event() -> None:
 
 
 # --- Global Exception Handlers ---
+def _prefers_html(request: Request) -> bool:
+    accept_header = request.headers.get("accept", "").lower()
+    return "text/html" in accept_header
+
+
 @app.exception_handler(404)
 async def not_found_handler(request: Request, exc: HTTPException):
     """Handle 404 Not Found errors."""
     # Suppress noisy Chrome DevTools requests
     if ".well-known/appspecific" not in str(request.url):
         logger.warning("404 Not Found: %s. Detail: %s", request.url, exc.detail)
+    if _prefers_html(request):
+        return templates.TemplateResponse(
+            "404.html",
+            {"request": request, "path": request.url.path},
+            status_code=status.HTTP_404_NOT_FOUND,
+        )
     return JSONResponse(
         status_code=status.HTTP_404_NOT_FOUND,
         content={"error": "Endpoint not found", "detail": exc.detail},

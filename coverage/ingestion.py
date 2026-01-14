@@ -496,17 +496,25 @@ def _calculate_bounding_box(boundary: dict[str, Any]) -> list[float]:
     return [minx, miny, maxx, maxy]
 
 
-async def _fetch_osm_streets(boundary: dict[str, Any]) -> list[dict[str, Any]]:
-    """Fetch street ways from OSM Overpass API within a boundary."""
-    # Build Overpass query
-    geom = shape(boundary)
-    minx, miny, maxx, maxy = geom.bounds
+def _split_bounding_box(minx: float, miny: float, maxx: float, maxy: float, rows: int = 2, cols: int = 2) -> list[list[float]]:
+    """Split bounding box into smaller boxes for parallel fetching."""
+    dx = (maxx - minx) / cols
+    dy = (maxy - miny) / rows
+    boxes = []
+    for i in range(rows):
+        for j in range(cols):
+            sub_minx = minx + j * dx
+            sub_maxx = minx + (j + 1) * dx
+            sub_miny = miny + i * dy
+            sub_maxy = miny + (i + 1) * dy
+            boxes.append([sub_minx, sub_miny, sub_maxx, sub_maxy])
+    return boxes
 
-    # Build highway type filter
-    highway_filter = "|".join(DRIVEABLE_HIGHWAY_TYPES)
 
+async def _fetch_single_box(highway_filter: str, minx: float, miny: float, maxx: float, maxy: float) -> dict[str, Any]:
+    """Fetch OSM data for a single bounding box with retry."""
     query = f"""
-    [out:json][timeout:120];
+    [out:json][timeout:300];
     (
       way["highway"~"^({highway_filter})$"]({miny},{minx},{maxy},{maxx});
     );
@@ -516,21 +524,54 @@ async def _fetch_osm_streets(boundary: dict[str, Any]) -> list[dict[str, Any]]:
     """
 
     url = "https://overpass-api.de/api/interpreter"
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(url, data={"data": query}) as response:
+                    response.raise_for_status()
+                    return await response.json()
+        except aiohttp.ClientResponseError as e:
+            if e.status in (504, 502, 503) and attempt < max_retries - 1:
+                await asyncio.sleep(30 * (2 ** attempt))  # exponential backoff
+                continue
+            raise
+    raise RuntimeError("Max retries exceeded")
 
-    async with aiohttp.ClientSession() as session:
-        async with session.post(url, data={"data": query}) as response:
-            response.raise_for_status()
-            data = await response.json()
+
+async def _fetch_osm_streets(boundary: dict[str, Any]) -> list[dict[str, Any]]:
+    """Fetch street ways from OSM Overpass API within a boundary."""
+    geom = shape(boundary)
+    minx, miny, maxx, maxy = geom.bounds
+    area = geom.area  # in degrees²
+
+    highway_filter = "|".join(DRIVEABLE_HIGHWAY_TYPES)
+
+    if area > 0.05:  # approx 600 km², split into 4
+        boxes = _split_bounding_box(minx, miny, maxx, maxy, rows=2, cols=2)
+        tasks = [_fetch_single_box(highway_filter, *box) for box in boxes]
+        responses = await asyncio.gather(*tasks)
+        # Merge elements
+        all_elements = []
+        for resp in responses:
+            all_elements.extend(resp.get("elements", []))
+    else:
+        data = await _fetch_single_box(highway_filter, minx, miny, maxx, maxy)
+        all_elements = data.get("elements", [])
 
     # Parse response into ways with geometries
     nodes = {}
     ways = []
 
-    for element in data.get("elements", []):
+    for element in all_elements:
         if element["type"] == "node":
             nodes[element["id"]] = (element["lon"], element["lat"])
         elif element["type"] == "way":
             ways.append(element)
+
+    # Remove duplicate ways by osm_id
+    ways_dict = {way["id"]: way for way in ways}
+    ways = list(ways_dict.values())
 
     # Build way geometries
     result = []
