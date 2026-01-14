@@ -174,45 +174,34 @@ class AreaSegmentIndex:
         """
         Find all segments that match ANY of the given trip lines.
 
-        Uses geometry union and simple intersection checks for speed.
+        Uses per-trip STRtree queries - avoids expensive geometry union.
         Returns set of segment_ids that were matched.
         """
         if not self._built or not self.strtree or not self.segments:
             return set()
 
-        # Filter out None/empty geometries
-        valid_lines = [line for line in trip_lines if line and not line.is_empty]
-        if not valid_lines:
-            return set()
-
-        # Union all trip lines into single geometry
-        combined = valid_lines[0] if len(valid_lines) == 1 else unary_union(valid_lines)
-
-        # Create buffered geometry in WGS84 for STRtree query
         buffer_degrees = buffer_meters / 111139  # approx conversion
-        combined_buffer_wgs84 = combined.buffer(buffer_degrees)
+        matched_ids: set[str] = set()
 
-        # Use STRtree to find candidates (O(log n))
-        candidate_indices = self.strtree.query(combined_buffer_wgs84)
+        # Match each trip individually - faster than union + single query
+        for trip_line in trip_lines:
+            if trip_line is None or trip_line.is_empty:
+                continue
 
-        if len(candidate_indices) == 0:
-            return set()
+            # Buffer the trip line
+            trip_buffer = trip_line.buffer(buffer_degrees)
 
-        # Use prepared geometry for much faster intersection checks
-        from shapely.prepared import prep
+            # Query STRtree for candidates
+            candidate_indices = self.strtree.query(trip_buffer)
 
-        prepared_buffer = prep(combined_buffer_wgs84)
-
-        # Simple intersection check without calculating lengths
-        # This is much faster than computing actual intersection geometry
-        matched_ids = set()
-        for idx in candidate_indices:
-            segment = self.segments[idx]
-            segment_geom = self.segment_geoms[idx]  # WGS84 geometry
-
-            # Use prepared geometry for fast intersection check
-            if prepared_buffer.intersects(segment_geom):
-                matched_ids.add(segment.segment_id)
+            # Check each candidate
+            for idx in candidate_indices:
+                segment_id = self.segments[idx].segment_id
+                if segment_id in matched_ids:
+                    continue  # Already matched
+                segment_geom = self.segment_geoms[idx]
+                if trip_buffer.intersects(segment_geom):
+                    matched_ids.add(segment_id)
 
         return matched_ids
 
