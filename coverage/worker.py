@@ -472,7 +472,7 @@ async def backfill_coverage_for_area(
 
             # Execute in batches to avoid memory issues
             if len(operations) >= BACKFILL_BULK_WRITE_SIZE:
-                collection = CoverageState.get_motor_collection()
+                collection = CoverageState.get_pymongo_collection()
                 result = await collection.bulk_write(operations, ordered=False)
                 total_updated += result.modified_count + result.upserted_count
                 operations = []
@@ -483,7 +483,7 @@ async def backfill_coverage_for_area(
 
         # Execute remaining operations
         if operations:
-            collection = CoverageState.get_motor_collection()
+            collection = CoverageState.get_pymongo_collection()
             result = await collection.bulk_write(operations, ordered=False)
             total_updated += result.modified_count + result.upserted_count
 
