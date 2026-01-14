@@ -51,7 +51,9 @@ const getByPath = (obj, path) => {
   if (!path) {
     return undefined;
   }
-  return path.split(".").reduce((acc, key) => (acc ? acc[key] : undefined), obj);
+  return path
+    .split(".")
+    .reduce((acc, key) => (acc ? acc[key] : undefined), obj);
 };
 
 const setByPath = (obj, path, value) => {
@@ -171,7 +173,11 @@ class ESStore {
       this._persist();
     }
     if (!options.silent) {
-      this._notify({ path: null, value: partial, source: options.source || "update" });
+      this._notify({
+        path: null,
+        value: partial,
+        source: options.source || "update",
+      });
     }
   }
 
@@ -211,10 +217,17 @@ class ESStore {
       this.syncUrl({ push: Boolean(options.push), replace: !options.push });
     }
     if (options.emit !== false) {
-      this._emit("es:filters-change", { ...nextFilters, source: options.source });
+      this._emit("es:filters-change", {
+        ...nextFilters,
+        source: options.source,
+      });
       this._emit("filtersApplied", { ...nextFilters });
     }
-    this._notify({ path: "filters", value: nextFilters, source: options.source });
+    this._notify({
+      path: "filters",
+      value: nextFilters,
+      source: options.source,
+    });
   }
 
   updateMapView(view, options = {}) {
@@ -274,8 +287,8 @@ class ESStore {
     const lat = parseFloat(params.get("lat"));
     const lng = parseFloat(params.get("lng"));
     const zoom = parseFloat(params.get("zoom"));
-    const hasMapParams
-      = !Number.isNaN(lat) && !Number.isNaN(lng) && !Number.isNaN(zoom);
+    const hasMapParams =
+      !Number.isNaN(lat) && !Number.isNaN(lng) && !Number.isNaN(zoom);
     if (hasMapParams) {
       this.state.map.view = { center: [lng, lat], zoom };
     }
@@ -312,7 +325,11 @@ class ESStore {
       });
     }
 
-    this._notify({ path: "url", value: parsedUrl.toString(), source: options.source });
+    this._notify({
+      path: "url",
+      value: parsedUrl.toString(),
+      source: options.source,
+    });
   }
 
   syncUrl({ push = false, replace = false } = {}) {
@@ -349,7 +366,9 @@ class ESStore {
     }
 
     const visibility = this.state.layers.visibility || {};
-    const visibleLayers = Object.keys(visibility).filter((name) => visibility[name]);
+    const visibleLayers = Object.keys(visibility).filter(
+      (name) => visibility[name],
+    );
     if (visibleLayers.length) {
       url.searchParams.set("layers", visibleLayers.join(","));
     } else {
