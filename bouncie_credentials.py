@@ -10,25 +10,9 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from pydantic import BaseModel
-
 from db import BouncieCredentials
 
 logger = logging.getLogger(__name__)
-
-
-class BouncieCredentialsModel(BaseModel):
-    """Pydantic model for Bouncie credentials."""
-
-    client_id: str = ""
-    client_secret: str = ""
-    redirect_uri: str = ""
-    authorization_code: str = ""
-    authorized_devices: list[str] = []
-    fetch_concurrency: int = 12
-    access_token: str | None = None
-    refresh_token: str | None = None
-    expires_at: float | None = None
 
 
 async def get_bouncie_credentials() -> dict[str, Any]:

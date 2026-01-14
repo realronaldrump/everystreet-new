@@ -25,19 +25,6 @@ class TripRepository:
     to the trips collection and matched trips collection.
     """
 
-    def __init__(
-        self,
-        trips_col=None,
-    ) -> None:
-        """
-        Initialize the repository with optional custom collections.
-
-        Args:
-            trips_col: Optional custom trips collection (for testing)
-        """
-        # Retrieve collection from Beanie model if not provided
-        # Custom collections not stored anymore as we use Beanie models directly
-
     async def save_trip(
         self,
         trip_data: dict[str, Any],

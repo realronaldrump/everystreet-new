@@ -16,44 +16,16 @@ class EveryStreetException(Exception):
         super().__init__(self.message)
 
 
-class DatabaseException(EveryStreetException):
-    """Exception raised when database operations fail."""
-
-
 class ValidationException(EveryStreetException):
     """Exception raised when data validation fails."""
-
-
-class GeocodingException(EveryStreetException):
-    """Exception raised when geocoding operations fail."""
-
-
-class MapMatchingException(EveryStreetException):
-    """Exception raised when map matching operations fail."""
 
 
 class ExternalServiceException(EveryStreetException):
     """Exception raised when external service calls fail."""
 
 
-class BouncieException(ExternalServiceException):
-    """Exception raised when Bouncie API operations fail."""
-
-
 class RateLimitException(ExternalServiceException):
     """Exception raised when rate limits are exceeded."""
-
-
-class ConfigurationException(EveryStreetException):
-    """Exception raised when configuration is invalid or missing."""
-
-
-class TripProcessingException(EveryStreetException):
-    """Exception raised during trip processing."""
-
-
-class CoverageCalculationException(EveryStreetException):
-    """Exception raised during coverage calculations."""
 
 
 class AuthenticationException(EveryStreetException):

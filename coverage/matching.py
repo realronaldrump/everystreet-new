@@ -13,7 +13,7 @@ from statistics import median
 from typing import TYPE_CHECKING, Any
 
 from shapely.geometry import LineString, MultiLineString, mapping, shape
-from shapely.ops import transform, unary_union
+from shapely.ops import transform
 from shapely.strtree import STRtree
 
 from coverage.constants import (

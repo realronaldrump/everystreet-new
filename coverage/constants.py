@@ -27,24 +27,19 @@ SHORT_SEGMENT_OVERLAP_RATIO = 0.4  # Require 40% of very short segments (reduced
 # Unit Conversions
 # =============================================================================
 FEET_TO_METERS = 0.3048
-METERS_TO_FEET = 1.0 / FEET_TO_METERS
 METERS_TO_MILES = 0.000621371
 MILES_TO_METERS = 1609.344
-DEGREES_TO_METERS = 111139.0
 
 # =============================================================================
 # Processing Limits
 # =============================================================================
 BATCH_SIZE = 1000
 MAX_VIEWPORT_FEATURES = 5000
-MAX_CONCURRENT_DB_OPS = 25
-BATCH_PROCESS_DELAY = 0.01
 
 # =============================================================================
 # Backfill Optimization
 # =============================================================================
 BACKFILL_TRIP_BATCH_SIZE = 500  # Number of trips to process per batch (increased)
-BACKFILL_CONCURRENT_TRIPS = 50  # Max concurrent trip processing (increased)
 BACKFILL_BULK_WRITE_SIZE = 1000  # Max operations per bulk write (increased)
 
 # =============================================================================

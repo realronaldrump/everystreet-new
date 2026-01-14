@@ -7,29 +7,6 @@ from .constants import (
 from .geometry import calculate_max_route_gap
 
 
-def create_route_stats(
-    total_dist: float,
-    required_dist: float,
-    deadhead_dist: float,
-    required_reqs_count: int,
-    skipped_count: int,
-    iterations: int,
-) -> dict[str, float]:
-    """Create statistics dictionary for the route."""
-    return {
-        "total_distance": float(total_dist),
-        "required_distance": float(required_dist),
-        "deadhead_distance": float(deadhead_dist),
-        "deadhead_percentage": float(
-            (deadhead_dist / total_dist * 100.0) if total_dist > 0 else 0.0,
-        ),
-        "required_reqs": float(required_reqs_count),
-        "completed_reqs": float(required_reqs_count - skipped_count),
-        "skipped_disconnected": float(skipped_count),
-        "iterations": float(iterations),
-    }
-
-
 def validate_route(
     route_coords: list[list[float]],
     stats: dict[str, float],

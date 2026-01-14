@@ -77,10 +77,7 @@ class CoverageEvents:
 
     TRIP_COMPLETED = "trip_completed"
     AREA_CREATED = "area_created"
-    AREA_DELETED = "area_deleted"
     COVERAGE_UPDATED = "coverage_updated"
-    INGESTION_COMPLETED = "ingestion_completed"
-    INGESTION_FAILED = "ingestion_failed"
 
 
 # =============================================================================
@@ -156,7 +153,3 @@ def register_handlers() -> None:
 
     logger.info("Coverage event handlers registered")
 
-
-def clear_handlers() -> None:
-    """Clear all registered handlers (for testing)."""
-    _handlers.clear()

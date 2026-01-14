@@ -161,5 +161,3 @@ def process_webhook_event_task(self, data: dict[str, Any]) -> dict[str, Any]:
                 celery_task_id,
             )
             raise
-
-    return {"status": "error", "message": "Unknown error (unreachable)"}

@@ -90,29 +90,3 @@ class TripStateMachine:
     def is_failed(self) -> bool:
         """Check if the current state is FAILED."""
         return self.state == TripState.FAILED
-
-    def can_proceed_to(self, target_state: TripState) -> bool:
-        """
-        Check if transitioning to the target state is valid.
-
-        Args:
-            target_state: The state to transition to
-
-        Returns:
-            True if the transition is valid
-        """
-        # Define valid transitions
-        valid_transitions = {
-            TripState.NEW: {TripState.VALIDATED, TripState.FAILED},
-            TripState.VALIDATED: {TripState.PROCESSED, TripState.FAILED},
-            TripState.PROCESSED: {TripState.GEOCODED, TripState.FAILED},
-            TripState.GEOCODED: {
-                TripState.MAP_MATCHED,
-                TripState.COMPLETED,
-                TripState.FAILED,
-            },
-            TripState.MAP_MATCHED: {TripState.COMPLETED, TripState.FAILED},
-            TripState.COMPLETED: set(),
-            TripState.FAILED: set(),
-        }
-        return target_state in valid_transitions.get(self.state, set())
