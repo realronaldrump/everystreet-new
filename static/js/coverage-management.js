@@ -251,10 +251,6 @@ function updateMinimizedBadge() {
   }
 }
 
-function saveActiveJobToStorage() {
-  // Placeholder for legacy job tracking; GlobalJobTracker owns persistence.
-}
-
 function setProgressModalTitle() {
   const titleEl = document.getElementById("task-progress-title");
   if (titleEl && !titleEl.textContent) {
@@ -739,7 +735,6 @@ async function _pollJobProgress(jobId) {
       activeJob.areaId = job.area_id || activeJob.areaId;
       activeJob.areaName = job.area_display_name || activeJob.areaName;
 
-      saveActiveJobToStorage();
       setProgressModalTitle();
       updateProgress(job.progress, job.stage, job.message);
 
@@ -806,7 +801,6 @@ function updateProgress(percent, message, detailMessage = null) {
     activeJob.progress = percent;
     activeJob.stage = message;
     activeJob.message = resolvedDetail;
-    saveActiveJobToStorage();
     updateMinimizedBadge();
   }
 }

@@ -363,13 +363,6 @@ class ESStore {
     }
   }
 
-  getStorageScope(key) {
-    if (Object.hasOwn(LEGACY_KEY_MAP, key)) {
-      return "session";
-    }
-    return "local";
-  }
-
   getDefaultState() {
     return deepClone(DEFAULT_STATE);
   }
