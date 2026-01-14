@@ -16,10 +16,7 @@ from typing import Any
 from beanie import PydanticObjectId
 from pymongo import UpdateOne
 
-from coverage.constants import (
-    BACKFILL_BULK_WRITE_SIZE,
-    BACKFILL_TRIP_BATCH_SIZE,
-)
+from coverage.constants import BACKFILL_BULK_WRITE_SIZE, BACKFILL_TRIP_BATCH_SIZE
 from coverage.events import CoverageEvents, emit_coverage_updated, on_event
 from coverage.matching import (
     AreaSegmentIndex,
@@ -467,7 +464,7 @@ async def backfill_coverage_for_area(
                         },
                     },
                     upsert=True,
-                )
+                ),
             )
 
             # Execute in batches to avoid memory issues

@@ -38,11 +38,15 @@ class AreaSegmentIndex:
     """
     Pre-built spatial index for an area's street segments.
 
-    This provides O(log n) spatial lookups instead of O(n) database queries
-    for each trip during backfill operations.
+    This provides O(log n) spatial lookups instead of O(n) database
+    queries for each trip during backfill operations.
     """
 
-    def __init__(self, area_id: PydanticObjectId, area_version: int | None = None):
+    def __init__(
+        self,
+        area_id: PydanticObjectId,
+        area_version: int | None = None,
+    ) -> None:
         self.area_id = area_id
         self.area_version = area_version
         self.segments: list[Street] = []
