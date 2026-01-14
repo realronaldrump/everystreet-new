@@ -50,6 +50,14 @@ window.utils?.onPageLoad(
     setupEventListeners(signal);
     setupBackgroundJobUI();
 
+    // Move modal outside the layout-wrapper to prevent z-index stacking issues
+    // The layout-wrapper creates a stacking context that can trap modals behind the backdrop
+    const addAreaModal = document.getElementById("addAreaModal");
+    const modalsContainer = document.getElementById("modals-container");
+    if (addAreaModal && modalsContainer && !modalsContainer.contains(addAreaModal)) {
+      modalsContainer.appendChild(addAreaModal);
+    }
+
     // Load initial data
     await loadAreas();
 
