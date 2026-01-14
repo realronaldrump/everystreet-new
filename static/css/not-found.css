@@ -1,0 +1,188 @@
+/* ============================
+   Not Found Page
+   ============================ */
+
+.not-found {
+  --section-accent-rgb: var(--warning-rgb);
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-6);
+  padding: var(--space-10) var(--space-6) var(--space-12);
+}
+
+.not-found-card {
+  position: relative;
+  width: min(980px, 100%);
+  padding: clamp(2rem, 4vw, 3.5rem);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  display: grid;
+  gap: var(--space-5);
+  background:
+    radial-gradient(
+      circle at 20% 20%,
+      rgb(var(--section-accent-rgb) / 18%),
+      transparent 55%
+    ),
+    radial-gradient(
+      circle at 90% 0%,
+      rgb(var(--info-rgb) / 18%),
+      transparent 45%
+    ),
+    var(--glass-2);
+}
+
+.not-found-card::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  background: var(--gradient-accent-bar);
+  opacity: 0.85;
+}
+
+.not-found-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.not-found-code {
+  font-size: clamp(3.2rem, 7vw, 6.2rem);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.12em;
+  color: rgb(var(--section-accent-rgb) / 55%);
+  text-shadow: 0 0 18px rgb(var(--section-accent-rgb) / 20%);
+}
+
+.not-found-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-pill);
+  border: 1px solid rgb(var(--section-accent-rgb) / 30%);
+  background: rgb(var(--section-accent-rgb) / 12%);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: var(--font-size-xs);
+}
+
+.not-found-body h1 {
+  margin: 0;
+  font-size: var(--font-size-3xl);
+}
+
+.not-found-body .lead {
+  margin: var(--space-2) 0 0;
+  color: var(--text-secondary);
+}
+
+.not-found-path {
+  display: inline-block;
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-sm);
+  padding: 0.15rem 0.45rem;
+  border-radius: var(--radius-sm);
+  background: rgb(var(--surface-rgb) / 35%);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+}
+
+.not-found-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.not-found-suggestions {
+  width: min(980px, 100%);
+  display: grid;
+  gap: var(--space-3);
+}
+
+.not-found-suggest-title {
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--text-tertiary);
+}
+
+.not-found-grid {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+}
+
+.not-found-tile {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  text-decoration: none;
+  color: var(--text-primary);
+  transition:
+    transform var(--transition-normal),
+    box-shadow var(--transition-fast),
+    border-color var(--transition-fast),
+    background-color var(--transition-fast);
+  background: var(--glass-1);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(var(--blur-subtle)) saturate(1.05);
+}
+
+.not-found-tile:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-elevation-2);
+  border-color: rgb(var(--section-accent-rgb) / 40%);
+}
+
+.not-found-tile .tile-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgb(var(--section-accent-rgb) / 18%);
+  color: rgb(var(--section-accent-rgb) / 90%);
+}
+
+.not-found-tile .tile-title {
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-md);
+}
+
+.not-found-tile .tile-subtitle {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+@media (width <= 768px) {
+  .not-found {
+    padding: var(--space-8) var(--space-4) var(--space-12);
+    align-items: stretch;
+  }
+
+  .not-found-header {
+    justify-content: flex-start;
+  }
+
+  .not-found-actions {
+    justify-content: flex-start;
+  }
+
+  .not-found-card {
+    border-radius: var(--radius-lg);
+  }
+}
