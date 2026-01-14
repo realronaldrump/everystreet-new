@@ -54,7 +54,11 @@ window.utils?.onPageLoad(
     // The layout-wrapper creates a stacking context that can trap modals behind the backdrop
     const addAreaModal = document.getElementById("addAreaModal");
     const modalsContainer = document.getElementById("modals-container");
-    if (addAreaModal && modalsContainer && !modalsContainer.contains(addAreaModal)) {
+    if (
+      addAreaModal &&
+      modalsContainer &&
+      !modalsContainer.contains(addAreaModal)
+    ) {
       modalsContainer.appendChild(addAreaModal);
     }
 
@@ -360,7 +364,7 @@ async function loadAreas() {
 function renderAreasTable(areas) {
   const tbody = document.querySelector("#coverage-areas-table tbody");
   if (!tbody) {
-     return;
+    return;
   }
 
   if (!areas || areas.length === 0) {
