@@ -17,22 +17,23 @@ Tasks are organized into modules by function:
 - routes: Optimal route generation task
 """
 
-# Import task modules so Celery registers @shared_task decorators on startup.
-from tasks.webhook import process_webhook_event_task
-from tasks.scheduler import run_task_scheduler
+from tasks.coverage import update_coverage_for_new_trips
 from tasks.fetch import (
-    periodic_fetch_trips,
+    fetch_all_missing_trips,
     fetch_trip_by_transaction_id,
     manual_fetch_trips_range,
-    fetch_all_missing_trips,
+    periodic_fetch_trips,
 )
-from tasks.coverage import update_coverage_for_new_trips
 from tasks.maintenance import (
     cleanup_stale_trips,
-    validate_trips,
     remap_unmatched_trips,
+    validate_trips,
 )
 from tasks.routes import generate_optimal_route_task
+from tasks.scheduler import run_task_scheduler
+
+# Import task modules so Celery registers @shared_task decorators on startup.
+from tasks.webhook import process_webhook_event_task
 
 __all__ = [
     "process_webhook_event_task",
