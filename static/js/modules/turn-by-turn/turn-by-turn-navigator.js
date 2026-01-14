@@ -193,7 +193,8 @@ class TurnByTurnNavigator {
    */
   async loadCoverageAreas() {
     try {
-      if (Array.isArray(window.coverageNavigatorAreas)) {
+      // Only use cache if it has data (prevent empty array caching issue)
+      if (Array.isArray(window.coverageNavigatorAreas) && window.coverageNavigatorAreas.length > 0) {
         this.coverageAreas = window.coverageNavigatorAreas;
       } else {
         this.coverageAreas = await TurnByTurnAPI.fetchCoverageAreas();

@@ -246,8 +246,21 @@ export class OptimalRoutesManager {
     try {
       const areas = await this.api.loadCoverageAreas();
       if (!areas) {
+        this.ui.showNotification(
+          "Unable to load coverage areas. Please check your connection and try again.",
+          "warning"
+        );
         return;
       }
+
+      // Show informational message if no areas exist yet
+      if (areas.length === 0) {
+        this.ui.showNotification(
+          "No coverage areas found. Create one in Coverage Management to get started.",
+          "info"
+        );
+      }
+
       this.coverageAreas = areas;
 
       // Dispatch event
@@ -257,9 +270,19 @@ export class OptimalRoutesManager {
 
       this.ui.populateAreaSelect(areas);
       this.ui.updateSavedRoutes(areas, (areaId) => this.onAreaSelect(areaId));
-    } catch {
+    } catch (error) {
+      console.error("Error loading coverage areas:", error);
       this.ui.showNotification("Failed to load coverage areas", "danger");
     }
+  }
+
+  /**
+   * Refresh coverage areas by clearing cache and reloading.
+   * Useful after navigating back from coverage management.
+   */
+  async refreshCoverageAreas() {
+    this.api.clearCoverageAreasCache();
+    await this.loadCoverageAreas();
   }
 
   async onAreaSelect(areaId) {
