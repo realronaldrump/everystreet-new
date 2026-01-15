@@ -6,8 +6,6 @@ from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
-from config import get_clarity_id
-
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
@@ -23,7 +21,6 @@ async def trips_page(request: Request):
         "trips.html",
         {
             "request": request,
-            "CLARITY_PROJECT_ID": get_clarity_id(),
             "MAPBOX_ACCESS_TOKEN": get_mapbox_token(),
         },
     )
