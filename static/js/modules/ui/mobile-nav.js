@@ -49,7 +49,7 @@ const mobileNav = {
         }
         this.lastScrollY = current;
       },
-      { passive: true }
+      { passive: true },
     );
   },
 };

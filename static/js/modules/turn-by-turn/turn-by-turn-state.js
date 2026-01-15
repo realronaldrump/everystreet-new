@@ -79,7 +79,7 @@ class TurnByTurnState {
     remaining,
     offRoute,
     closest,
-    offerResumeCallback
+    offerResumeCallback,
   ) {
     // Check for arrival
     if (remaining < 25 && this.currentState !== NAV_STATES.ARRIVED) {

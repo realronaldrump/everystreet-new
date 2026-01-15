@@ -97,8 +97,8 @@ export function setupInteractions() {
         formatDateRange(
           "Driven",
           countyVisits[fips].firstVisit,
-          countyVisits[fips].lastVisit
-        )
+          countyVisits[fips].lastVisit,
+        ),
       );
     }
     if (isStopped && countyStops[fips]) {
@@ -106,8 +106,8 @@ export function setupInteractions() {
         formatDateRange(
           "Stopped",
           countyStops[fips].firstStop,
-          countyStops[fips].lastStop
-        )
+          countyStops[fips].lastStop,
+        ),
       );
     }
 

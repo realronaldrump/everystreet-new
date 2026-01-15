@@ -23,13 +23,13 @@ const themeManager = {
     uiState.currentTheme = theme;
 
     if (animate && CONFIG.UI.animations.enabled) {
-      document.documentElement.style.transition
-        = "background-color 0.3s ease, color 0.3s ease";
+      document.documentElement.style.transition =
+        "background-color 0.3s ease, color 0.3s ease";
     }
 
     (
-      utils.batchDOMUpdates
-      ?? ((updates) => {
+      utils.batchDOMUpdates ??
+      ((updates) => {
         updates.forEach((fn) => {
           fn();
         });
@@ -52,7 +52,9 @@ const themeManager = {
     }
 
     utils.setStorage(CONFIG.STORAGE_KEYS.theme, theme);
-    document.dispatchEvent(new CustomEvent("themeChanged", { detail: { theme } }));
+    document.dispatchEvent(
+      new CustomEvent("themeChanged", { detail: { theme } }),
+    );
   },
 
   updateMetaColor(theme) {
@@ -80,13 +82,15 @@ const themeManager = {
         window.map.jumpTo({ center, zoom, bearing, pitch });
         setTimeout(() => window.map.resize(), 100);
         document.dispatchEvent(
-          new CustomEvent("mapStyleLoaded", { detail: { theme } })
+          new CustomEvent("mapStyleLoaded", { detail: { theme } }),
         );
       };
       window.map.once("styledata", restoreState);
       window.map.setStyle(styleUrl);
     }
-    document.dispatchEvent(new CustomEvent("mapThemeChanged", { detail: { theme } }));
+    document.dispatchEvent(
+      new CustomEvent("mapThemeChanged", { detail: { theme } }),
+    );
   },
 
   updateChartThemes(theme) {
@@ -132,7 +136,7 @@ const themeManager = {
     const toggle = uiState.getElement(CONFIG.UI.selectors.themeToggle);
     if (toggle) {
       eventManager.add(toggle, "change", () =>
-        this.apply(toggle.checked ? "light" : "dark")
+        this.apply(toggle.checked ? "light" : "dark"),
       );
     }
   },

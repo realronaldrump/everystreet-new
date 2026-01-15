@@ -87,20 +87,21 @@ export function processSSEUpdates(updates, context) {
 
         // Notify on task completion/failure
         if (
-          currentStatus === "RUNNING"
-          && (newStatus === "COMPLETED" || newStatus === "FAILED")
+          currentStatus === "RUNNING" &&
+          (newStatus === "COMPLETED" || newStatus === "FAILED")
         ) {
           const taskName = row.querySelector(".task-name-display").textContent;
-          const notificationType = newStatus === "COMPLETED" ? "success" : "danger";
-          const message
-            = newStatus === "COMPLETED"
+          const notificationType =
+            newStatus === "COMPLETED" ? "success" : "danger";
+          const message =
+            newStatus === "COMPLETED"
               ? `Task ${taskName} completed successfully`
               : `Task ${taskName} failed: ${update.last_error || "Unknown error"}`;
 
           notifier.show(
             newStatus === "COMPLETED" ? "Success" : "Error",
             message,
-            notificationType
+            notificationType,
           );
         }
       }
@@ -142,9 +143,13 @@ export function updateActiveTasksMapFromSSE(updates, activeTasksMap, notifier) {
 
         const row = document.querySelector(`tr[data-task-id="${taskId}"]`);
         if (row) {
-          const displayName
-            = row.querySelector(".task-name-display")?.textContent || taskId;
-          notifier.show("Task Started", `Task ${displayName} is now running`, "info");
+          const displayName =
+            row.querySelector(".task-name-display")?.textContent || taskId;
+          notifier.show(
+            "Task Started",
+            `Task ${displayName} is now running`,
+            "info",
+          );
         }
       }
     }
@@ -158,13 +163,15 @@ export function updateActiveTasksMapFromSSE(updates, activeTasksMap, notifier) {
         if (taskState.status === "RUNNING") {
           const row = document.querySelector(`tr[data-task-id="${taskId}"]`);
           if (row) {
-            const displayName
-              = row.querySelector(".task-name-display")?.textContent || taskId;
+            const displayName =
+              row.querySelector(".task-name-display")?.textContent || taskId;
             if (taskStatus === "COMPLETED" || taskStatus === "FAILED") {
               const type = taskStatus === "COMPLETED" ? "success" : "danger";
-              const runTime = Math.round((Date.now() - taskState.startTime) / 1000);
-              const message
-                = taskStatus === "COMPLETED"
+              const runTime = Math.round(
+                (Date.now() - taskState.startTime) / 1000,
+              );
+              const message =
+                taskStatus === "COMPLETED"
                   ? `Task ${displayName} completed successfully in ${runTime}s`
                   : `Task ${displayName} failed: ${updates[taskId].last_error || "Unknown error"}`;
 
@@ -185,7 +192,11 @@ export function updateActiveTasksMapFromSSE(updates, activeTasksMap, notifier) {
  * @param {Map} activeTasksMap - Map tracking active task states
  * @param {Object} notifier - Notifier for showing messages
  */
-export function updateActiveTasksMapFromConfig(config, activeTasksMap, notifier) {
+export function updateActiveTasksMapFromConfig(
+  config,
+  activeTasksMap,
+  notifier,
+) {
   const runningTasks = new Set();
 
   for (const [taskId, taskConfig] of Object.entries(config.tasks)) {
@@ -212,15 +223,15 @@ export function updateActiveTasksMapFromConfig(config, activeTasksMap, notifier)
     const status = config.tasks[taskId]?.status || "COMPLETED";
 
     if (
-      activeTasksMap.get(taskId).status === "RUNNING"
-      && (status === "COMPLETED" || status === "FAILED")
+      activeTasksMap.get(taskId).status === "RUNNING" &&
+      (status === "COMPLETED" || status === "FAILED")
     ) {
       const type = status === "COMPLETED" ? "success" : "danger";
       const runTime = Math.round(
-        (Date.now() - activeTasksMap.get(taskId).startTime) / 1000
+        (Date.now() - activeTasksMap.get(taskId).startTime) / 1000,
       );
-      const message
-        = status === "COMPLETED"
+      const message =
+        status === "COMPLETED"
           ? `Task ${displayName} completed successfully in ${runTime}s`
           : `Task ${displayName} failed: ${config.tasks[taskId]?.last_error || "Unknown error"}`;
 

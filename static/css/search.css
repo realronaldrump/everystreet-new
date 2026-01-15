@@ -355,7 +355,8 @@ body.light-mode .search-results-dropdown::-webkit-scrollbar-thumb,
 }
 
 body.light-mode .search-results-dropdown::-webkit-scrollbar-thumb:hover,
-[data-bs-theme="light"] .search-results-dropdown::-webkit-scrollbar-thumb:hover {
+[data-bs-theme="light"]
+  .search-results-dropdown::-webkit-scrollbar-thumb:hover {
   background: rgb(0 0 0 / 35%);
 }
 

@@ -31,7 +31,10 @@ export function saveExportSettings(elements) {
       format: elements["adv-format"]?.value,
     };
 
-    window.utils?.setStorage(EXPORT_SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+    window.utils?.setStorage(
+      EXPORT_SETTINGS_STORAGE_KEY,
+      JSON.stringify(settings),
+    );
   } catch (error) {
     console.warn("Error saving export settings:", error);
   }
@@ -44,7 +47,9 @@ export function saveExportSettings(elements) {
  */
 export function loadSavedExportSettings(elements, updateUIBasedOnFormat) {
   try {
-    const savedSettingsJSON = window.utils?.getStorage(EXPORT_SETTINGS_STORAGE_KEY);
+    const savedSettingsJSON = window.utils?.getStorage(
+      EXPORT_SETTINGS_STORAGE_KEY,
+    );
     if (!savedSettingsJSON) {
       return;
     }
@@ -72,10 +77,16 @@ function setDataSources(dataSources, elements) {
   if (elements.includeTrips && dataSources.includeTrips !== undefined) {
     elements.includeTrips.checked = dataSources.includeTrips;
   }
-  if (elements.includeMatchedTrips && dataSources.includeMatchedTrips !== undefined) {
+  if (
+    elements.includeMatchedTrips &&
+    dataSources.includeMatchedTrips !== undefined
+  ) {
     elements.includeMatchedTrips.checked = dataSources.includeMatchedTrips;
   }
-  if (elements.includeUploadedTrips && dataSources.includeUploadedTrips !== undefined) {
+  if (
+    elements.includeUploadedTrips &&
+    dataSources.includeUploadedTrips !== undefined
+  ) {
     elements.includeUploadedTrips.checked = dataSources.includeUploadedTrips;
   }
 }
@@ -117,9 +128,9 @@ function setDataFields(dataFields, elements) {
  */
 function setDateSettings(dateSettings, elements) {
   if (
-    !dateSettings
-    || !elements.exportAllDates
-    || dateSettings.exportAllDates === undefined
+    !dateSettings ||
+    !elements.exportAllDates ||
+    dateSettings.exportAllDates === undefined
   ) {
     return;
   }
