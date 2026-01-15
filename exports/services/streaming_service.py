@@ -61,12 +61,35 @@ class StreamingService:
         """Stream GeoJSON FeatureCollection from cursor."""
         yield '{"type":"FeatureCollection","features":['
         first = True
+        count = 0
+        skipped = 0
         async for trip in cursor:
             try:
+                count += 1
                 trip = _ensure_dict(trip)
+
+                # Debug logging for the first few skipped trips
+                raw_geom = trip.get(geometry_field)
+                if not raw_geom and count <= 5:
+                    logger.warning(
+                        "Trip %s missing geometry data in field '%s'. Keys: %s",
+                        trip.get("transactionId", "unknown"),
+                        geometry_field,
+                        list(trip.keys()),
+                    )
+
                 geom = GeometryService.geometry_from_document(trip, geometry_field)
                 if not geom:
+                    if skipped < 5 or count % 100 == 0:
+                        logger.warning(
+                            "Trip %s skipped - invalid geometry. Field '%s': %s",
+                            trip.get("transactionId", "unknown"),
+                            geometry_field,
+                            str(raw_geom)[:100] if raw_geom else "None",
+                        )
+                    skipped += 1
                     continue
+
                 props = {k: v for k, v in trip.items() if k != "gps"}
                 feature = GeometryService.feature_from_geometry(geom, props)
                 chunk = json.dumps(feature, separators=(",", ":"))
@@ -77,6 +100,13 @@ class StreamingService:
             except Exception as e:
                 logger.warning("Skipping trip in GeoJSON stream: %s", e)
                 continue
+
+        if skipped > 0:
+            logger.warning(
+                "GeoJSON export finished: %d trips processed, %d skipped due to missing geometry",
+                count,
+                skipped,
+            )
         yield "]}"
 
     @staticmethod
