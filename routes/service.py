@@ -552,24 +552,21 @@ async def generate_optimal_route_with_progress(
             "Filling route gaps with driving routes...",
         )
 
+        from config import require_mapbox_token
+
+        require_mapbox_token()
+
         try:
-            from config import get_app_settings
+            async def gap_progress(_stage: str, pct: int, msg: str) -> None:
+                # Map gap-fill progress (0-100) to overall progress (85-95)
+                overall_pct = 85 + int(pct * 0.1)
+                await update_progress("filling_gaps", overall_pct, msg)
 
-            settings = await get_app_settings()
-            if settings.get("mapbox_access_token"):
-
-                async def gap_progress(_stage: str, pct: int, msg: str) -> None:
-                    # Map gap-fill progress (0-100) to overall progress (85-95)
-                    overall_pct = 85 + int(pct * 0.1)
-                    await update_progress("filling_gaps", overall_pct, msg)
-
-                route_coords = await fill_route_gaps(
-                    route_coords,
-                    max_gap_ft=1000.0,  # Fill gaps > 1000ft (~0.2 miles)
-                    progress_callback=gap_progress,
-                )
-            else:
-                logger.warning("Mapbox token not configured; skipping gap-filling")
+            route_coords = await fill_route_gaps(
+                route_coords,
+                max_gap_ft=1000.0,  # Fill gaps > 1000ft (~0.2 miles)
+                progress_callback=gap_progress,
+            )
         except Exception as e:
             logger.warning("Gap-filling failed (continuing with gaps): %s", e)
 
@@ -629,22 +626,17 @@ async def generate_optimal_route_with_progress(
         error_msg = str(e)
         # Check if this is a gap validation error and if we're missing the token
         if "gap between points" in error_msg:
-            from config import get_app_settings
-
-            settings = await get_app_settings()
-            if not settings.get("mapbox_access_token"):
-                # Enhance the error message
-                detailed_msg = (
-                    f"Route generation failed: {error_msg} "
-                    "This large gap likely indicates the street network is disconnected. "
-                    "To fix this, please configure the Mapbox Access Token in App Settings "
-                    "to allow bridging between disconnected areas."
-                )
-                await tracker.fail(error_msg, detailed_msg)
-                # Re-raise with the enhanced message so it propagates clearly if needed,
-                # though tracker.fail should handle the UI notification.
-                # We'll re-raise a clean ValueError to avoid confusing tracebacks if this is caught upstream
-                raise ValueError(detailed_msg) from e
+            detailed_msg = (
+                f"Route generation failed: {error_msg} "
+                "This large gap likely indicates the street network is disconnected. "
+                "Ensure MAPBOX_TOKEN is configured so Mapbox gap-filling can bridge "
+                "disconnected areas."
+            )
+            await tracker.fail(error_msg, detailed_msg)
+            # Re-raise with the enhanced message so it propagates clearly if needed,
+            # though tracker.fail should handle the UI notification.
+            # We'll re-raise a clean ValueError to avoid confusing tracebacks if this is caught upstream
+            raise ValueError(detailed_msg) from e
 
         await tracker.fail(error_msg, f"Route generation failed: {e}")
         raise

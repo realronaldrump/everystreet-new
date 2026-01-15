@@ -11,8 +11,8 @@ from fastapi.templating import Jinja2Templates
 
 from admin_api import router as admin_api_router
 from analytics import router as analytics_api_router
-from app_settings import ensure_settings_cached
 from bouncie_webhook_api import router as bouncie_webhook_api_router
+from config import require_mapbox_token
 from core.http.session import cleanup_session
 from county_api import router as county_api_router
 from coverage_api import router as coverage_api_router
@@ -155,9 +155,9 @@ async def startup_event():
         root_logger.addHandler(AppState.mongo_handler)
         logger.info("MongoDB logging handler initialized and configured.")
 
-        # Load app settings into cache for sync access
-        await ensure_settings_cached()
-        logger.info("App settings loaded into cache.")
+        # Validate Mapbox configuration early to fail fast on misconfiguration
+        require_mapbox_token()
+        logger.info("MAPBOX_TOKEN validated successfully.")
 
         # Register coverage event handlers
         from coverage.events import register_handlers

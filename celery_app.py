@@ -23,6 +23,7 @@ from celery.utils.log import get_task_logger
 from dotenv import load_dotenv
 from kombu import Queue
 
+from config import require_mapbox_token
 from core.async_bridge import set_worker_loop, shutdown_worker_loop
 from db import db_manager
 from redis_config import get_redis_url
@@ -31,6 +32,7 @@ logger = get_task_logger(__name__)
 
 # Load environment variables FIRST
 load_dotenv()
+require_mapbox_token()
 
 # Get Redis URL using centralized configuration
 REDIS_URL = get_redis_url()

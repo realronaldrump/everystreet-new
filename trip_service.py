@@ -10,7 +10,7 @@ from fastapi import HTTPException, status
 from pydantic import BaseModel
 
 from admin_api import get_persisted_app_settings
-from config import get_mapbox_token
+from config import require_mapbox_token, validate_mapbox_token
 from db.models import Trip
 from trip_processor import TripProcessor, TripState
 from trip_repository import TripRepository
@@ -117,7 +117,11 @@ class TripService:
     """Centralized service for all trip processing operations."""
 
     def __init__(self, mapbox_token: str | None = None) -> None:
-        self.mapbox_token = mapbox_token or get_mapbox_token()
+        if mapbox_token:
+            validate_mapbox_token(mapbox_token)
+            self.mapbox_token = mapbox_token
+        else:
+            self.mapbox_token = require_mapbox_token()
 
     @with_comprehensive_handling
     async def get_trip_by_id(self, trip_id: str) -> Trip | None:

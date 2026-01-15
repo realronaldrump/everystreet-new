@@ -507,7 +507,6 @@ class AppSettings(Document):
     # We define specific fields for known settings to allow validation,
     # but allow extra fields for extensibility.
     id: str = Field(default="default", alias="_id")
-    mapbox_access_token: str | None = None
     updated_at: datetime | None = None
 
     class Settings:

@@ -4,7 +4,7 @@ import logging
 
 from fastapi import APIRouter, HTTPException, status
 
-from config import get_mapbox_token
+from config import require_mapbox_token
 from core.api import api_route
 from db.schemas import DateRangeModel
 from trip_service import TripService
@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 # Initialize TripService and TripStatsService
-trip_service = TripService(get_mapbox_token())
+trip_service = TripService(require_mapbox_token())
 trip_stats_service = TripStatsService(trip_service)
 
 

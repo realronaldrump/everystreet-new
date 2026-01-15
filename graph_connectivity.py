@@ -100,13 +100,9 @@ async def fetch_bridge_route(
     Returns:
         List of [lon, lat] coordinates for the route, or None if failed
     """
-    from config import get_app_settings
+    from config import require_mapbox_token
 
-    settings = await get_app_settings()
-    token = settings.get("mapbox_access_token")
-    if not token:
-        logger.warning("Mapbox token not configured; cannot fetch bridge route")
-        return None
+    token = require_mapbox_token()
 
     coords_str = f"{from_xy[0]},{from_xy[1]};{to_xy[0]},{to_xy[1]}"
     url = f"https://api.mapbox.com/directions/v5/mapbox/driving/{coords_str}"

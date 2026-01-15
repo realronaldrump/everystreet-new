@@ -44,6 +44,8 @@ COLLECTION_TO_MODEL = {
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
+SENSITIVE_APP_SETTINGS_KEYS = {"mapbox_access_token"}
+
 
 DEFAULT_APP_SETTINGS: dict[str, Any] = {
     "highlightRecentTrips": True,
@@ -76,7 +78,11 @@ async def get_persisted_app_settings() -> AppSettings:
 )
 async def get_app_settings_endpoint():
     try:
-        return await get_persisted_app_settings()
+        settings = await get_persisted_app_settings()
+        payload = settings.model_dump()
+        for key in SENSITIVE_APP_SETTINGS_KEYS:
+            payload.pop(key, None)
+        return payload
     except Exception as e:
         logger.exception("Error fetching app settings via API: %s", e)
         raise HTTPException(
@@ -96,6 +102,14 @@ async def update_app_settings_endpoint(settings: Annotated[dict, Body()]):
     try:
         if not isinstance(settings, dict):
             raise HTTPException(status_code=400, detail="Invalid payload")
+        if any(key in settings for key in SENSITIVE_APP_SETTINGS_KEYS):
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "mapbox_access_token is no longer configurable via app settings. "
+                    "Set MAPBOX_TOKEN in the environment instead."
+                ),
+            )
 
         existing = await AppSettings.find_one()
         if existing:

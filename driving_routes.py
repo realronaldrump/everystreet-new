@@ -8,7 +8,7 @@ from beanie import PydanticObjectId
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
-from config import get_mapbox_token
+from config import require_mapbox_token
 from coverage.constants import MILES_TO_METERS
 from coverage.models import CoverageArea, CoverageState, Street
 from db.models import Trip
@@ -385,9 +385,10 @@ async def _get_mapbox_directions_route(
     end_lat: float,
 ) -> dict[str, Any]:
     """Calls Mapbox Directions API to get a route between two points."""
-    mapbox_token = get_mapbox_token()
-    if not mapbox_token:
-        raise HTTPException(status_code=500, detail="Mapbox API token not configured.")
+    try:
+        mapbox_token = require_mapbox_token()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
     coords_str = f"{start_lon},{start_lat};{end_lon},{end_lat}"
     url = f"https://api.mapbox.com/directions/v5/mapbox/driving/{coords_str}"

@@ -187,15 +187,9 @@ async def remap_unmatched_trips_async(_self) -> dict[str, Any]:
         limit,
     )
 
-    from config import get_mapbox_token
+    from config import require_mapbox_token
 
-    mapbox_token = get_mapbox_token()
-    if not mapbox_token:
-        logger.warning("Mapbox token not configured, cannot perform map matching.")
-        msg = "Mapbox token is not configured. Please set it in the profile page."
-        raise ValueError(
-            msg,
-        )
+    mapbox_token = require_mapbox_token()
 
     trip_service = TripService(mapbox_token)
     # Beanie trips are objects, access attribute directly

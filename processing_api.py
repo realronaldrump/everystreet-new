@@ -4,7 +4,7 @@ from datetime import UTC, datetime, timedelta
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
 
-from config import get_mapbox_token
+from config import require_mapbox_token
 from db.models import Trip
 from db.schemas import DateRangeModel
 from trip_service import ProcessingOptions, TripService
@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 # Initialize TripService
-trip_service = TripService(get_mapbox_token())
+trip_service = TripService(require_mapbox_token())
 
 
 class ProcessTripOptions(BaseModel):
