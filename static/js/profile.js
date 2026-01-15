@@ -8,7 +8,8 @@
     ? window.ProfileState.createEditorState()
     : null;
   const normalizeValues = window.ProfileState?.normalizeValues;
-  const DEFAULT_FETCH_CONCURRENCY = window.ProfileState?.DEFAULT_FETCH_CONCURRENCY || 12;
+  const DEFAULT_FETCH_CONCURRENCY =
+    window.ProfileState?.DEFAULT_FETCH_CONCURRENCY || 12;
 
   let currentDevices = [];
   let pageSignal = null;
@@ -28,7 +29,7 @@
         });
       }
     },
-    { route: "/profile" }
+    { route: "/profile" },
   );
 
   function withSignal(options = {}) {
@@ -59,33 +60,45 @@
       form.addEventListener(
         "submit",
         handleSaveCredentials,
-        signal ? { signal } : false
+        signal ? { signal } : false,
       );
       form.addEventListener(
         "input",
         handleFormInput,
-        signal ? { signal } : false
+        signal ? { signal } : false,
       );
       form.addEventListener(
         "change",
         handleFormInput,
-        signal ? { signal } : false
+        signal ? { signal } : false,
       );
     }
 
     const editBtn = document.getElementById("editProfileBtn");
     if (editBtn) {
-      editBtn.addEventListener("click", enterEditMode, signal ? { signal } : false);
+      editBtn.addEventListener(
+        "click",
+        enterEditMode,
+        signal ? { signal } : false,
+      );
     }
 
     const cancelBtn = document.getElementById("cancelEditBtn");
     if (cancelBtn) {
-      cancelBtn.addEventListener("click", handleCancelEdit, signal ? { signal } : false);
+      cancelBtn.addEventListener(
+        "click",
+        handleCancelEdit,
+        signal ? { signal } : false,
+      );
     }
 
     const loadBtn = document.getElementById("loadCredentialsBtn");
     if (loadBtn) {
-      loadBtn.addEventListener("click", () => loadCredentials(), signal ? { signal } : false);
+      loadBtn.addEventListener(
+        "click",
+        () => loadCredentials(),
+        signal ? { signal } : false,
+      );
     }
 
     const unmaskBtn = document.getElementById("unmaskCredentialsBtn");
@@ -93,7 +106,7 @@
       unmaskBtn.addEventListener(
         "click",
         unmaskAllCredentials,
-        signal ? { signal } : false
+        signal ? { signal } : false,
       );
     }
 
@@ -102,7 +115,7 @@
       addDeviceBtn.addEventListener(
         "click",
         addDeviceInput,
-        signal ? { signal } : false
+        signal ? { signal } : false,
       );
     }
 
@@ -111,7 +124,7 @@
       toggleSecretBtn.addEventListener(
         "click",
         () => togglePasswordVisibility("clientSecret", "toggleClientSecret"),
-        signal ? { signal } : false
+        signal ? { signal } : false,
       );
     }
 
@@ -120,7 +133,7 @@
       toggleAuthBtn.addEventListener(
         "click",
         () => togglePasswordVisibility("authorizationCode", "toggleAuthCode"),
-        signal ? { signal } : false
+        signal ? { signal } : false,
       );
     }
 
@@ -128,12 +141,12 @@
     window.addEventListener(
       "beforeunload",
       handleBeforeUnload,
-      signal ? { signal } : false
+      signal ? { signal } : false,
     );
     document.addEventListener(
       "click",
       handleNavigationAttempt,
-      signal ? { capture: true, signal } : { capture: true }
+      signal ? { capture: true, signal } : { capture: true },
     );
 
     // Vehicle sync for authorized devices (syncs to credentials)
@@ -142,7 +155,7 @@
       syncVehiclesBtn.addEventListener(
         "click",
         syncVehiclesFromBouncie,
-        signal ? { signal } : false
+        signal ? { signal } : false,
       );
     }
   }
@@ -233,10 +246,14 @@
 
   function getFormValues() {
     const clientId = document.getElementById("clientId")?.value.trim() || "";
-    const clientSecret = document.getElementById("clientSecret")?.value.trim() || "";
-    const redirectUri = document.getElementById("redirectUri")?.value.trim() || "";
-    const authorizationCode = document.getElementById("authorizationCode")?.value.trim() || "";
-    const fetchConcurrencyRaw = document.getElementById("fetchConcurrency")?.value;
+    const clientSecret =
+      document.getElementById("clientSecret")?.value.trim() || "";
+    const redirectUri =
+      document.getElementById("redirectUri")?.value.trim() || "";
+    const authorizationCode =
+      document.getElementById("authorizationCode")?.value.trim() || "";
+    const fetchConcurrencyRaw =
+      document.getElementById("fetchConcurrency")?.value;
     const fetchConcurrency = parseInt(fetchConcurrencyRaw, 10);
 
     const deviceInputs = document.querySelectorAll("#devicesList input");
@@ -256,10 +273,10 @@
 
   function validateDraftValues(values) {
     if (
-      !values.client_id
-      || !values.client_secret
-      || !values.redirect_uri
-      || !values.authorization_code
+      !values.client_id ||
+      !values.client_secret ||
+      !values.redirect_uri ||
+      !values.authorization_code
     ) {
       return "All credential fields are required.";
     }
@@ -320,7 +337,7 @@
       if (!silent) {
         showStatus(
           masked ? "Loading credentials..." : "Loading unmasked credentials...",
-          "info"
+          "info",
         );
       }
 
@@ -343,14 +360,14 @@
           } else {
             showStatus(
               "No credentials found. Enter your Bouncie credentials to save.",
-              "warning"
+              "warning",
             );
           }
         }
       } else {
         showStatus(
           "No credentials found. Enter your Bouncie credentials to save.",
-          "warning"
+          "warning",
         );
       }
     } catch (error) {
@@ -401,7 +418,7 @@
     }
     if (fetchConcurrencyInput) {
       fetchConcurrencyInput.value = String(
-        normalized.fetch_concurrency || DEFAULT_FETCH_CONCURRENCY
+        normalized.fetch_concurrency || DEFAULT_FETCH_CONCURRENCY,
       );
     }
 
@@ -578,7 +595,7 @@
             authorized_devices: devices,
             fetch_concurrency: draftValues.fetch_concurrency,
           }),
-        })
+        }),
       );
 
       const data = await response.json();
@@ -599,7 +616,7 @@
       } else {
         showStatus(
           `Error saving credentials: ${data.detail || data.message || "Unknown error"}`,
-          "error"
+          "error",
         );
       }
     } catch (error) {
@@ -780,7 +797,7 @@
         "/api/profile/bouncie-credentials/sync-vehicles",
         withSignal({
           method: "POST",
-        })
+        }),
       );
 
       const data = await response.json();
@@ -800,5 +817,4 @@
       showStatus(`Error syncing vehicles: ${error.message}`, "error");
     }
   }
-
 })();
