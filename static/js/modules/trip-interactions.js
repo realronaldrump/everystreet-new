@@ -11,20 +11,20 @@ const tripInteractions = {
       return;
     }
 
-    const tripId
-      = feature.properties.transactionId
-      || feature.properties.id
-      || feature.properties.tripId;
+    const tripId =
+      feature.properties.transactionId ||
+      feature.properties.id ||
+      feature.properties.tripId;
 
     if (tripId) {
       state.selectedTripId = tripId;
-      state.selectedTripLayer
-        = layerName || this.resolveTripLayerName(feature?.layer?.id);
+      state.selectedTripLayer =
+        layerName || this.resolveTripLayerName(feature?.layer?.id);
       mapManager.refreshTripStyles();
       document.dispatchEvent(
         new CustomEvent("tripSelected", {
           detail: { tripId, layerName: state.selectedTripLayer, source: "map" },
-        })
+        }),
       );
     }
 
@@ -70,7 +70,7 @@ const tripInteractions = {
           hour: "numeric",
           minute: "2-digit",
           hour12: true,
-        })
+        }),
       );
 
     let duration = props.duration || props.drivingTime;
@@ -116,10 +116,10 @@ const tripInteractions = {
 
   createActionButtons(feature) {
     const props = feature.properties || {};
-    const isMatched
-      = props.source === "matched"
-      || props.mapMatchingStatus === "success"
-      || feature.source?.includes("matched");
+    const isMatched =
+      props.source === "matched" ||
+      props.mapMatchingStatus === "success" ||
+      feature.source?.includes("matched");
     const tripId = props.transactionId || props.id || props.tripId;
 
     if (!tripId) {
@@ -185,8 +185,8 @@ const tripInteractions = {
         } else if (button.classList.contains("delete-trip-btn")) {
           await this.deleteTrip(tripId, popup);
         } else if (
-          button.classList.contains("rematch-trip-btn")
-          || button.classList.contains("map-match-btn")
+          button.classList.contains("rematch-trip-btn") ||
+          button.classList.contains("map-match-btn")
         ) {
           await this.rematchTrip(tripId, popup);
         }
@@ -212,12 +212,18 @@ const tripInteractions = {
     }
 
     try {
-      const response = await utils.fetchWithRetry(`/api/matched_trips/${tripId}`, {
-        method: "DELETE",
-      });
+      const response = await utils.fetchWithRetry(
+        `/api/matched_trips/${tripId}`,
+        {
+          method: "DELETE",
+        },
+      );
       if (response) {
         popup.remove();
-        window.notificationManager.show("Matched trip deleted successfully", "success");
+        window.notificationManager.show(
+          "Matched trip deleted successfully",
+          "success",
+        );
         const dataManager = (await import("./data-manager.js")).default;
         await dataManager.updateMap();
       }
@@ -258,14 +264,20 @@ const tripInteractions = {
   async rematchTrip(tripId, popup) {
     try {
       window.notificationManager.show("Starting map matching...", "info");
-      const response = await utils.fetchWithRetry(`/api/process_trip/${tripId}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ map_match: true }),
-      });
+      const response = await utils.fetchWithRetry(
+        `/api/process_trip/${tripId}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ map_match: true }),
+        },
+      );
       if (response) {
         popup.remove();
-        window.notificationManager.show("Trip map matching completed", "success");
+        window.notificationManager.show(
+          "Trip map matching completed",
+          "success",
+        );
 
         // Clear API cache for matched trips to ensure fresh data
         if (utils._apiCache) {
@@ -304,7 +316,7 @@ const tripInteractions = {
               state.map.setLayoutProperty(
                 "matchedTrips-layer",
                 "visibility",
-                "visible"
+                "visible",
               );
             }
             mapManager.refreshTripStyles();

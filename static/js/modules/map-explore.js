@@ -59,7 +59,7 @@ const mapExplore = {
       this.elements.commandToggle.addEventListener(
         "click",
         () => this.elements.controlsToggle.click(),
-        { signal }
+        { signal },
       );
     }
 
@@ -73,7 +73,7 @@ const mapExplore = {
           }
           this.setActiveTab(button.dataset.journeyTab, { focus: true });
         },
-        { signal }
+        { signal },
       );
 
       this.elements.tabList.addEventListener(
@@ -85,7 +85,7 @@ const mapExplore = {
           event.preventDefault();
           this.handleTabKeyNavigation(event.key);
         },
-        { signal }
+        { signal },
       );
     }
 
@@ -99,7 +99,7 @@ const mapExplore = {
           }
           this.setActiveRange(button.dataset.range);
         },
-        { signal }
+        { signal },
       );
     }
 
@@ -114,7 +114,7 @@ const mapExplore = {
           const tripId = card.dataset.tripId;
           this.focusTripById(tripId, { origin: "explore" });
         },
-        { signal }
+        { signal },
       );
     }
 
@@ -124,17 +124,19 @@ const mapExplore = {
         () => {
           this.visibleCount = Math.min(
             this.visibleCount + this.batchSize,
-            this.filteredTrips.length
+            this.filteredTrips.length,
           );
           this.renderGallery({ append: true });
         },
-        { signal }
+        { signal },
       );
     }
 
     if (this.elements.timeline) {
       const throttledInput = utils.throttle((value) => {
-        this.focusTripByIndex(Number.parseInt(value, 10), { origin: "timeline" });
+        this.focusTripByIndex(Number.parseInt(value, 10), {
+          origin: "timeline",
+        });
       }, 150);
 
       this.elements.timeline.addEventListener(
@@ -142,7 +144,7 @@ const mapExplore = {
         (event) => {
           throttledInput(event.target.value);
         },
-        { signal }
+        { signal },
       );
 
       this.elements.timeline.addEventListener(
@@ -153,7 +155,7 @@ const mapExplore = {
             announce: true,
           });
         },
-        { signal }
+        { signal },
       );
     }
 
@@ -162,7 +164,7 @@ const mapExplore = {
       (event) => {
         this.handleTripsUpdated(event.detail?.trips);
       },
-      { signal }
+      { signal },
     );
 
     document.addEventListener(
@@ -176,7 +178,7 @@ const mapExplore = {
           this.focusTripById(tripId, { origin: "map" });
         }
       },
-      { signal }
+      { signal },
     );
 
     document.addEventListener(
@@ -184,7 +186,7 @@ const mapExplore = {
       () => {
         this.clearSelection();
       },
-      { signal }
+      { signal },
     );
 
     document.addEventListener(
@@ -193,7 +195,7 @@ const mapExplore = {
         this.updateRangeLabel();
         this.refreshFromState();
       },
-      { signal }
+      { signal },
     );
   },
 
@@ -228,20 +230,23 @@ const mapExplore = {
 
   normalizeTrip(feature) {
     const props = feature.properties || {};
-    const tripId
-      = props.transactionId || props.id || props.tripId || feature.id || null;
+    const tripId =
+      props.transactionId || props.id || props.tripId || feature.id || null;
     if (!tripId) {
       return null;
     }
 
     const startTs = props.es_startTs || this.parseTimestamp(props.startTime);
-    const endTs = props.es_endTs || this.parseTimestamp(props.endTime) || startTs;
-    const distanceMiles = this.parseNumber(props.es_distanceMiles || props.distance);
+    const endTs =
+      props.es_endTs || this.parseTimestamp(props.endTime) || startTs;
+    const distanceMiles = this.parseNumber(
+      props.es_distanceMiles || props.distance,
+    );
     const avgSpeed = this.parseNumber(
-      props.es_avgSpeed || props.averageSpeed || props.avgSpeed
+      props.es_avgSpeed || props.averageSpeed || props.avgSpeed,
     );
     const durationSec = this.parseNumber(
-      props.es_durationSec || props.duration || props.drivingTime
+      props.es_durationSec || props.duration || props.drivingTime,
     );
 
     const dayKey = endTs ? new Date(endTs).toDateString() : "unknown";
@@ -293,7 +298,7 @@ const mapExplore = {
 
     this.visibleCount = Math.min(
       Math.max(this.visibleCount || this.batchSize, this.batchSize),
-      this.filteredTrips.length
+      this.filteredTrips.length,
     );
 
     this.renderGallery({ append: false });
@@ -333,9 +338,7 @@ const mapExplore = {
     }
 
     const fragment = document.createDocumentFragment();
-    const startIndex = append
-      ? Math.max(0, slice.length - this.batchSize)
-      : 0;
+    const startIndex = append ? Math.max(0, slice.length - this.batchSize) : 0;
 
     slice.slice(startIndex).forEach((trip, index) => {
       const card = document.createElement("button");
@@ -344,7 +347,10 @@ const mapExplore = {
       card.dataset.tripId = trip.id;
       card.setAttribute("role", "option");
       card.setAttribute("aria-selected", "false");
-      card.style.setProperty("--stagger-delay", `${(index + startIndex) * 0.02}s`);
+      card.style.setProperty(
+        "--stagger-delay",
+        `${(index + startIndex) * 0.02}s`,
+      );
 
       const title = document.createElement("div");
       title.className = "trip-card-title";
@@ -404,10 +410,16 @@ const mapExplore = {
     const oldest = this.filteredTrips[tripCount - 1];
     const newest = this.filteredTrips[0];
     if (this.elements.timelineStart) {
-      this.elements.timelineStart.textContent = this.formatDate(oldest.endTs, "medium");
+      this.elements.timelineStart.textContent = this.formatDate(
+        oldest.endTs,
+        "medium",
+      );
     }
     if (this.elements.timelineEnd) {
-      this.elements.timelineEnd.textContent = this.formatDate(newest.endTs, "medium");
+      this.elements.timelineEnd.textContent = this.formatDate(
+        newest.endTs,
+        "medium",
+      );
     }
   },
 
@@ -431,7 +443,7 @@ const mapExplore = {
     }, 0);
 
     const uniqueDays = new Set(
-      this.filteredTrips.map((trip) => trip.dayKey || "unknown")
+      this.filteredTrips.map((trip) => trip.dayKey || "unknown"),
     ).size;
 
     if (this.elements.metaTrips) {
@@ -454,7 +466,9 @@ const mapExplore = {
     if (!start || !end) {
       return;
     }
-    const startLabel = dateUtils.formatForDisplay(start, { dateStyle: "medium" });
+    const startLabel = dateUtils.formatForDisplay(start, {
+      dateStyle: "medium",
+    });
     const endLabel = dateUtils.formatForDisplay(end, { dateStyle: "medium" });
     this.elements.rangeLabel.textContent = `${startLabel} - ${endLabel}`;
   },
@@ -485,7 +499,9 @@ const mapExplore = {
     if (!tabs.length) {
       return;
     }
-    const currentIndex = tabs.findIndex((tab) => tab.classList.contains("is-active"));
+    const currentIndex = tabs.findIndex((tab) =>
+      tab.classList.contains("is-active"),
+    );
     let nextIndex = currentIndex >= 0 ? currentIndex : 0;
 
     if (key === "Home") {
@@ -510,9 +526,11 @@ const mapExplore = {
     }
     this.activeRange = range;
     if (this.elements.filterGroup) {
-      this.elements.filterGroup.querySelectorAll("[data-range]").forEach((btn) => {
-        btn.classList.toggle("is-active", btn.dataset.range === range);
-      });
+      this.elements.filterGroup
+        .querySelectorAll("[data-range]")
+        .forEach((btn) => {
+          btn.classList.toggle("is-active", btn.dataset.range === range);
+        });
     }
     this.applyFilters();
   },
@@ -530,8 +548,9 @@ const mapExplore = {
       return;
     }
 
-    const trip = this.filteredTrips.find((item) => item.id === String(tripId))
-      || this.trips.find((item) => item.id === String(tripId));
+    const trip =
+      this.filteredTrips.find((item) => item.id === String(tripId)) ||
+      this.trips.find((item) => item.id === String(tripId));
     if (!trip) {
       this.pendingSelectionId = String(tripId);
       return;
@@ -552,7 +571,7 @@ const mapExplore = {
 
     if (origin !== "map") {
       const prefersReducedMotion = window.matchMedia(
-        "(prefers-reduced-motion: reduce)"
+        "(prefers-reduced-motion: reduce)",
       ).matches;
       mapManager.zoomToTrip(trip.id, {
         duration: prefersReducedMotion ? 0 : 1600,
@@ -560,14 +579,14 @@ const mapExplore = {
       document.dispatchEvent(
         new CustomEvent("tripSelected", {
           detail: { tripId: trip.id, source: "explore" },
-        })
+        }),
       );
     }
 
     if (announce) {
       utils.announce(
         `Spotlight on trip from ${this.formatDate(trip.endTs, "medium")}`,
-        "polite"
+        "polite",
       );
     }
   },
@@ -578,34 +597,34 @@ const mapExplore = {
     }
 
     if (this.elements.spotlightDistance) {
-      this.elements.spotlightDistance.textContent
-        = trip.distanceMiles != null ? trip.distanceMiles.toFixed(1) : "--";
+      this.elements.spotlightDistance.textContent =
+        trip.distanceMiles != null ? trip.distanceMiles.toFixed(1) : "--";
     }
     if (this.elements.spotlightDate) {
       this.elements.spotlightDate.textContent = this.formatDate(
         trip.endTs,
         "medium",
-        "short"
+        "short",
       );
     }
     if (this.elements.spotlightDuration) {
       const formatDuration = dateUtils?.formatDuration;
-      this.elements.spotlightDuration.textContent
-        = trip.durationSec != null
+      this.elements.spotlightDuration.textContent =
+        trip.durationSec != null
           ? formatDuration
             ? formatDuration(trip.durationSec)
             : `${Math.round(trip.durationSec)}s`
           : "--";
     }
     if (this.elements.spotlightSpeed) {
-      this.elements.spotlightSpeed.textContent
-        = trip.avgSpeed != null ? `${trip.avgSpeed.toFixed(1)} mph` : "--";
+      this.elements.spotlightSpeed.textContent =
+        trip.avgSpeed != null ? `${trip.avgSpeed.toFixed(1)} mph` : "--";
     }
     if (this.elements.spotlightStart) {
       this.elements.spotlightStart.textContent = this.formatDate(
         trip.startTs,
         "medium",
-        "short"
+        "short",
       );
     }
 
@@ -623,7 +642,7 @@ const mapExplore = {
       timeline.value = String(index);
       timeline.setAttribute(
         "aria-valuetext",
-        this.formatDate(trip.endTs, "medium", "short")
+        this.formatDate(trip.endTs, "medium", "short"),
       );
     }
   },
@@ -634,7 +653,7 @@ const mapExplore = {
     }
 
     const prefersReducedMotion = window.matchMedia(
-      "(prefers-reduced-motion: reduce)"
+      "(prefers-reduced-motion: reduce)",
     ).matches;
 
     const cards = this.elements.gallery.querySelectorAll("[data-trip-id]");
@@ -674,14 +693,16 @@ const mapExplore = {
   },
 
   formatMeta(trip) {
-    const distance = trip.distanceMiles != null ? `${trip.distanceMiles.toFixed(1)} mi` : "--";
-    const duration
-      = trip.durationSec != null
+    const distance =
+      trip.distanceMiles != null ? `${trip.distanceMiles.toFixed(1)} mi` : "--";
+    const duration =
+      trip.durationSec != null
         ? dateUtils?.formatDuration
           ? dateUtils.formatDuration(trip.durationSec)
           : `${Math.round(trip.durationSec)}s`
         : "--";
-    const speed = trip.avgSpeed != null ? `${trip.avgSpeed.toFixed(0)} mph` : "--";
+    const speed =
+      trip.avgSpeed != null ? `${trip.avgSpeed.toFixed(0)} mph` : "--";
     return `${distance} · ${duration} · ${speed}`;
   },
 };

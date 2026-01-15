@@ -77,7 +77,9 @@
 /* Compass Control */
 .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
   background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg width='29' height='29' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg' fill='%23fff'%3E%3Cpath d='M10.213 0l4.904 12.36L10 20l-4.787-7.4L10.213 0z' opacity='.25'/%3E%3Cpath d='M10.213 0L10 20l-.213-20z' opacity='.25'/%3E%3Cpath d='M10 3.875l3.438 8.5L10 16.125 6.562 12.5 10 3.875z' fill-rule='evenodd'/%3E%3C/svg%3E") !important;
-  filter: var(--text-primary); /* Will be inverted by body.light-mode if needed */
+  filter: var(
+    --text-primary
+  ); /* Will be inverted by body.light-mode if needed */
 }
 
 body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
@@ -127,7 +129,9 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
 }
 
 .mapboxgl-popup-tip {
-  border-top-color: var(--surface-glass) !important; /* Match content background */
+  border-top-color: var(
+    --surface-glass
+  ) !important; /* Match content background */
 
   /* Adjust tip color if content has a border */
 }
@@ -317,7 +321,9 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
 .trip-path.selected,
 .trip-feature-selected {
   /* stroke-width: further increased by JS */
-  filter: drop-shadow(0 0 6px var(--primary)); /* Use primary color for selection glow */
+  filter: drop-shadow(
+    0 0 6px var(--primary)
+  ); /* Use primary color for selection glow */
 }
 
 .recent-trip,
@@ -333,7 +339,9 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
 }
 
 .undriven-street-feature:hover {
-  filter: drop-shadow(0 0 5px rgb(var(--info-rgb), 0.8)); /* Info color for undriven hover */
+  filter: drop-shadow(
+    0 0 5px rgb(var(--info-rgb), 0.8)
+  ); /* Info color for undriven hover */
 }
 
 /* === Map Control Panel (Floating Panel from index.html) === */
@@ -505,7 +513,11 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
   content: "";
   position: absolute;
   inset: 0;
-  background: radial-gradient(circle at center, rgb(var(--primary-rgb) / 15%) 0%, transparent 70%);
+  background: radial-gradient(
+    circle at center,
+    rgb(var(--primary-rgb) / 15%) 0%,
+    transparent 70%
+  );
   opacity: 0;
   transition: opacity var(--transition-fast);
 }
@@ -2338,7 +2350,9 @@ body.light-mode .map-atmosphere {
   max-width: calc(100% - var(--journey-panel-width) - var(--space-6));
   opacity: 0;
   transform: translateY(-8px);
-  transition: opacity 400ms ease, transform 400ms ease;
+  transition:
+    opacity 400ms ease,
+    transform 400ms ease;
 }
 
 body.map-page.map-ready .map-command-bar {
@@ -2444,7 +2458,11 @@ body[data-route="/map"] #clear-search-btn {
 }
 
 .command-btn--accent {
-  background: linear-gradient(135deg, rgb(var(--journey-accent-rgb) / 25%), rgb(224 122 95 / 25%));
+  background: linear-gradient(
+    135deg,
+    rgb(var(--journey-accent-rgb) / 25%),
+    rgb(224 122 95 / 25%)
+  );
   border-color: rgb(var(--journey-accent-rgb) / 35%);
   color: var(--journey-accent);
 }
@@ -2545,7 +2563,11 @@ body.map-page.map-ready #map-controls.journey-drawer {
 }
 
 .journey-tab.is-active {
-  background: linear-gradient(135deg, rgb(var(--journey-accent-rgb) / 35%), rgb(224 122 95 / 28%));
+  background: linear-gradient(
+    135deg,
+    rgb(var(--journey-accent-rgb) / 35%),
+    rgb(224 122 95 / 28%)
+  );
   color: var(--journey-accent);
   border-color: rgb(var(--journey-accent-rgb) / 45%);
 }
@@ -2574,7 +2596,11 @@ body.map-page.map-ready #map-controls.journey-drawer {
   border-radius: calc(var(--journey-radius) - 4px);
   border: 1px solid var(--journey-border);
   background:
-    radial-gradient(circle at 20% 20%, rgb(var(--journey-accent-rgb) / 20%), transparent 55%),
+    radial-gradient(
+      circle at 20% 20%,
+      rgb(var(--journey-accent-rgb) / 20%),
+      transparent 55%
+    ),
     var(--journey-surface-strong);
   box-shadow: inset 0 0 0 1px rgb(255 255 255 / 4%);
   display: grid;
@@ -2819,7 +2845,11 @@ body.map-page .mapboxgl-ctrl-bottom-right {
 }
 
 body.map-page .mobile-fab {
-  background: linear-gradient(135deg, rgb(var(--journey-accent-rgb) / 70%), rgb(224 122 95 / 70%));
+  background: linear-gradient(
+    135deg,
+    rgb(var(--journey-accent-rgb) / 70%),
+    rgb(224 122 95 / 70%)
+  );
   border: 1px solid rgb(var(--journey-accent-rgb) / 45%);
 }
 
@@ -2842,7 +2872,11 @@ body.map-page #map-controls.journey-drawer .section-header:hover {
 }
 
 body.map-page #map-controls.journey-drawer .section-header::before {
-  background: linear-gradient(90deg, rgb(var(--journey-accent-rgb) / 40%), transparent);
+  background: linear-gradient(
+    90deg,
+    rgb(var(--journey-accent-rgb) / 40%),
+    transparent
+  );
 }
 
 @media (width <= 1024px) {
