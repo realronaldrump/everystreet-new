@@ -12,5 +12,5 @@ onPageLoad(
       });
     }
   },
-  { route: "/coverage-navigator" }
+  { route: "/coverage-navigator" },
 );

@@ -14,7 +14,9 @@
       case "MultiPolygon":
         return geometry.coordinates?.flat(2) || [];
       case "GeometryCollection":
-        return (geometry.geometries || []).flatMap((geom) => collectCoordinates(geom));
+        return (geometry.geometries || []).flatMap((geom) =>
+          collectCoordinates(geom),
+        );
       default:
         return [];
     }
@@ -43,7 +45,7 @@
         minLat: coords[0][1],
         maxLng: coords[0][0],
         maxLat: coords[0][1],
-      }
+      },
     );
   }
 
@@ -58,7 +60,7 @@
         [bounds.minLng, bounds.minLat],
         [bounds.maxLng, bounds.maxLat],
       ],
-      options
+      options,
     );
   }
 

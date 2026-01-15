@@ -1,7 +1,9 @@
 (() => {
   function parseJsonResponse(response, context) {
     if (!response.ok) {
-      throw new Error(context || `Request failed with status ${response.status}`);
+      throw new Error(
+        context || `Request failed with status ${response.status}`,
+      );
     }
     return response.json();
   }
@@ -14,13 +16,18 @@
   async function fetchPlaceStatistics(params = {}) {
     const search = new URLSearchParams(params);
     const query = search.toString();
-    const response = await fetch(`/api/places/statistics${query ? `?${query}` : ""}`);
+    const response = await fetch(
+      `/api/places/statistics${query ? `?${query}` : ""}`,
+    );
     return parseJsonResponse(response, "Failed to fetch place statistics");
   }
 
   async function fetchPlaceDetailStatistics(placeId) {
     const response = await fetch(`/api/places/${placeId}/statistics`);
-    return parseJsonResponse(response, "Failed to fetch place detail statistics");
+    return parseJsonResponse(
+      response,
+      "Failed to fetch place detail statistics",
+    );
   }
 
   async function fetchPlaceTrips(placeId) {
@@ -32,15 +39,20 @@
     const search = new URLSearchParams(params);
     const query = search.toString();
     const response = await fetch(
-      `/api/non_custom_places_visits${query ? `?${query}` : ""}`
+      `/api/non_custom_places_visits${query ? `?${query}` : ""}`,
     );
-    return parseJsonResponse(response, "Failed to fetch non-custom place visits");
+    return parseJsonResponse(
+      response,
+      "Failed to fetch non-custom place visits",
+    );
   }
 
   async function fetchVisitSuggestions(params = {}) {
     const search = new URLSearchParams(params);
     const query = search.toString();
-    const response = await fetch(`/api/visit_suggestions${query ? `?${query}` : ""}`);
+    const response = await fetch(
+      `/api/visit_suggestions${query ? `?${query}` : ""}`,
+    );
     return parseJsonResponse(response, "Failed to fetch visit suggestions");
   }
 
@@ -50,7 +62,9 @@
   }
 
   async function deletePlace(placeId) {
-    const response = await fetch(`/api/places/${placeId}`, { method: "DELETE" });
+    const response = await fetch(`/api/places/${placeId}`, {
+      method: "DELETE",
+    });
     return parseJsonResponse(response, "Failed to delete place");
   }
 

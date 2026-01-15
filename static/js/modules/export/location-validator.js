@@ -23,7 +23,10 @@ export function validateLocationInput(locationInput) {
 
   const locationData = locationInput.getAttribute("data-location");
   if (!locationData) {
-    window.notificationManager?.show("Please validate the location first", "warning");
+    window.notificationManager?.show(
+      "Please validate the location first",
+      "warning",
+    );
     return false;
   }
 
@@ -52,14 +55,14 @@ export async function validateLocation(inputId) {
   if (validateButton) {
     originalText = validateButton.textContent || "Validate";
     validateButton.disabled = true;
-    validateButton.innerHTML
-      = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Validating...';
+    validateButton.innerHTML =
+      '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Validating...';
   }
 
   try {
     window.notificationManager?.show(
       `Validating location: "${locationInput.value}"...`,
-      "info"
+      "info",
     );
 
     const data = await validateLocationApi(locationInput.value);
@@ -68,10 +71,11 @@ export async function validateLocation(inputId) {
       locationInput.setAttribute("data-location", JSON.stringify(data));
       locationInput.setAttribute(
         "data-display-name",
-        data.display_name || data.name || locationInput.value
+        data.display_name || data.name || locationInput.value,
       );
 
-      locationInput.value = data.display_name || data.name || locationInput.value;
+      locationInput.value =
+        data.display_name || data.name || locationInput.value;
 
       locationInput.classList.add("is-valid");
       locationInput.classList.remove("is-invalid");
@@ -83,14 +87,14 @@ export async function validateLocation(inputId) {
 
       window.notificationManager?.show(
         `Location validated: "${data.display_name || data.name || locationInput.value}"`,
-        "success"
+        "success",
       );
     } else {
       locationInput.classList.add("is-invalid");
       locationInput.classList.remove("is-valid");
       window.notificationManager?.show(
         "Location not found. Please try a different search term",
-        "warning"
+        "warning",
       );
     }
   } catch (error) {
@@ -98,7 +102,10 @@ export async function validateLocation(inputId) {
       window.handleError(error, "validating location");
     } else {
       console.error("Error validating location:", error);
-      window.notificationManager?.show(`Validation failed: ${error.message}`, "danger");
+      window.notificationManager?.show(
+        `Validation failed: ${error.message}`,
+        "danger",
+      );
     }
 
     locationInput.classList.add("is-invalid");

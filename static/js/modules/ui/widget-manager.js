@@ -17,7 +17,9 @@ const widgetManager = {
   },
 
   refresh() {
-    this.containers = Array.from(document.querySelectorAll("[data-widget-container]"));
+    this.containers = Array.from(
+      document.querySelectorAll("[data-widget-container]"),
+    );
     this.containers.forEach((container) => {
       this.applyOrder(container);
       if (this.editMode) {
@@ -28,10 +30,14 @@ const widgetManager = {
 
   toggleEdit() {
     this.editMode = !this.editMode;
-    this.containers.forEach((container) => this.enableEdit(container, this.editMode));
+    this.containers.forEach((container) =>
+      this.enableEdit(container, this.editMode),
+    );
     this.storeEditState();
     document.dispatchEvent(
-      new CustomEvent("widgets:edit-toggled", { detail: { enabled: this.editMode } })
+      new CustomEvent("widgets:edit-toggled", {
+        detail: { enabled: this.editMode },
+      }),
     );
   },
 
@@ -40,16 +46,23 @@ const widgetManager = {
       return;
     }
     this.editMode = enabled;
-    this.containers.forEach((container) => this.enableEdit(container, this.editMode));
+    this.containers.forEach((container) =>
+      this.enableEdit(container, this.editMode),
+    );
     this.storeEditState();
     document.dispatchEvent(
-      new CustomEvent("widgets:edit-toggled", { detail: { enabled: this.editMode } })
+      new CustomEvent("widgets:edit-toggled", {
+        detail: { enabled: this.editMode },
+      }),
     );
   },
 
   storeEditState() {
     try {
-      localStorage.setItem("es:widget-editing", this.editMode ? "true" : "false");
+      localStorage.setItem(
+        "es:widget-editing",
+        this.editMode ? "true" : "false",
+      );
     } catch {
       // Ignore storage failures.
     }
@@ -95,7 +108,9 @@ const widgetManager = {
   },
 
   getDragAfterElement(container, y) {
-    const items = [...container.querySelectorAll("[data-widget-id]:not(.is-dragging)")];
+    const items = [
+      ...container.querySelectorAll("[data-widget-id]:not(.is-dragging)"),
+    ];
     return items
       .map((item) => {
         const box = item.getBoundingClientRect();
@@ -129,9 +144,9 @@ const widgetManager = {
 
   saveOrder(container) {
     const key = this.getStorageKey(container);
-    const order = Array.from(container.querySelectorAll("[data-widget-id]")).map(
-      (item) => item.dataset.widgetId
-    );
+    const order = Array.from(
+      container.querySelectorAll("[data-widget-id]"),
+    ).map((item) => item.dataset.widgetId);
     localStorage.setItem(key, JSON.stringify(order));
   },
 

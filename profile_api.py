@@ -320,4 +320,3 @@ async def sync_vehicles_from_bouncie():
             raise
         logger.exception("Error syncing vehicles from Bouncie")
         raise HTTPException(status_code=500, detail=str(e))
-
