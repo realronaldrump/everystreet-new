@@ -163,9 +163,7 @@ async def test_export_streets_area_not_ready(async_client: AsyncClient):
         area_version=1,
     ).insert()
 
-    response = await async_client.get(
-        f"/api/export/streets/{str(area.id)}?fmt=geojson"
-    )
+    response = await async_client.get(f"/api/export/streets/{str(area.id)}?fmt=geojson")
 
     assert response.status_code == 400
     assert "not ready" in response.text.lower()

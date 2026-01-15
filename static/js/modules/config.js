@@ -92,7 +92,11 @@ export const CONFIG = {
       supportsOpacitySlider: true,
       isHeatmap: false,
       lineBlur: 0.6,
-      lineSortKey: ["-", 100000, ["coalesce", ["get", "es_recencyHours"], 99999]],
+      lineSortKey: [
+        "-",
+        100000,
+        ["coalesce", ["get", "es_recencyHours"], 99999],
+      ],
     },
     matchedTrips: {
       order: 3,
@@ -106,7 +110,11 @@ export const CONFIG = {
       maxzoom: 22,
       dasharray: [1.4, 1.4],
       lineBlur: 0.3,
-      lineSortKey: ["-", 100000, ["coalesce", ["get", "es_recencyHours"], 99999]],
+      lineSortKey: [
+        "-",
+        100000,
+        ["coalesce", ["get", "es_recencyHours"], 99999],
+      ],
     },
     undrivenStreets: {
       order: 2,
@@ -206,8 +214,8 @@ export const CONFIG = {
     },
     animations: {
       enabled:
-        typeof window !== "undefined"
-        && !window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+        typeof window !== "undefined" &&
+        !window.matchMedia("(prefers-reduced-motion: reduce)").matches,
     },
   },
 };
