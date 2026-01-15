@@ -4,7 +4,9 @@
 export class InvalidTripReview {
   constructor() {
     this.tableBody = document.querySelector("#invalidTripsTable tbody");
-    this.paginationContainer = document.getElementById("invalidTripsPagination");
+    this.paginationContainer = document.getElementById(
+      "invalidTripsPagination",
+    );
     this.trips = [];
     this.currentPage = 1;
     this.itemsPerPage = 10;
@@ -29,8 +31,8 @@ export class InvalidTripReview {
       this.renderPagination();
     } catch {
       if (this.tableBody) {
-        this.tableBody.innerHTML
-          = '<tr><td colspan="5" class="text-center text-danger">Failed to load invalid trips</td></tr>';
+        this.tableBody.innerHTML =
+          '<tr><td colspan="5" class="text-center text-danger">Failed to load invalid trips</td></tr>';
       }
     }
   }
@@ -45,8 +47,8 @@ export class InvalidTripReview {
     const pageTrips = this.trips.slice(start, end);
 
     if (pageTrips.length === 0) {
-      this.tableBody.innerHTML
-        = '<tr><td colspan="5" class="text-center">No invalid trips found</td></tr>';
+      this.tableBody.innerHTML =
+        '<tr><td colspan="5" class="text-center">No invalid trips found</td></tr>';
       return;
     }
 
@@ -69,7 +71,7 @@ export class InvalidTripReview {
           </div>
         </td>
       </tr>
-    `
+    `,
       )
       .join("");
   }
@@ -106,7 +108,7 @@ export class InvalidTripReview {
     } catch (error) {
       window.notificationManager?.show(
         `Failed to restore trip: ${error.message}`,
-        "danger"
+        "danger",
       );
     }
   }
@@ -138,7 +140,7 @@ export class InvalidTripReview {
     } catch (error) {
       window.notificationManager?.show(
         `Failed to delete trip: ${error.message}`,
-        "danger"
+        "danger",
       );
     }
   }

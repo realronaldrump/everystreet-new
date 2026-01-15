@@ -28,5 +28,5 @@ onPageLoad(
       cleanup(() => navigator.destroy());
     }
   },
-  { route: "/turn-by-turn" }
+  { route: "/turn-by-turn" },
 );

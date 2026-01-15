@@ -28,7 +28,9 @@ class ExportManager {
    */
   cacheElements() {
     // Export type selectors
-    this.elements.exportTypeRadios = document.querySelectorAll('input[name="export-type"]');
+    this.elements.exportTypeRadios = document.querySelectorAll(
+      'input[name="export-type"]',
+    );
 
     // Form containers
     this.elements.formTrips = document.getElementById("form-trips");
@@ -39,33 +41,47 @@ class ExportManager {
     // Trips form elements
     this.elements.tripsStartDate = document.getElementById("trips-start-date");
     this.elements.tripsEndDate = document.getElementById("trips-end-date");
-    this.elements.tripsFormatRadios = document.querySelectorAll('input[name="trips-format"]');
-    this.elements.tripsFieldConfig = document.getElementById("trips-field-config");
-    this.elements.tripsToggleFields = document.getElementById("trips-toggle-fields");
-    this.elements.tripsFieldsPanel = document.getElementById("trips-fields-panel");
+    this.elements.tripsFormatRadios = document.querySelectorAll(
+      'input[name="trips-format"]',
+    );
+    this.elements.tripsFieldConfig =
+      document.getElementById("trips-field-config");
+    this.elements.tripsToggleFields = document.getElementById(
+      "trips-toggle-fields",
+    );
+    this.elements.tripsFieldsPanel =
+      document.getElementById("trips-fields-panel");
     this.elements.tripsPreview = document.getElementById("trips-preview");
 
     // Streets form elements
     this.elements.streetsArea = document.getElementById("streets-area");
     this.elements.streetsStatus = document.getElementById("streets-status");
-    this.elements.streetsFormatRadios = document.querySelectorAll('input[name="streets-format"]');
+    this.elements.streetsFormatRadios = document.querySelectorAll(
+      'input[name="streets-format"]',
+    );
     this.elements.streetsPreview = document.getElementById("streets-preview");
 
     // Boundaries form elements
     this.elements.boundariesArea = document.getElementById("boundaries-area");
-    this.elements.boundariesFormatRadios = document.querySelectorAll('input[name="boundaries-format"]');
-    this.elements.boundariesPreview = document.getElementById("boundaries-preview");
+    this.elements.boundariesFormatRadios = document.querySelectorAll(
+      'input[name="boundaries-format"]',
+    );
+    this.elements.boundariesPreview =
+      document.getElementById("boundaries-preview");
 
     // Undriven form elements
     this.elements.undrivenArea = document.getElementById("undriven-area");
-    this.elements.undrivenFormatRadios = document.querySelectorAll('input[name="undriven-format"]');
+    this.elements.undrivenFormatRadios = document.querySelectorAll(
+      'input[name="undriven-format"]',
+    );
     this.elements.undrivenPreview = document.getElementById("undriven-preview");
 
     // Export button and progress
     this.elements.exportForm = document.getElementById("export-form");
     this.elements.exportButton = document.getElementById("export-button");
     this.elements.exportProgress = document.getElementById("export-progress");
-    this.elements.exportProgressBar = this.elements.exportProgress?.querySelector(".progress-bar");
+    this.elements.exportProgressBar =
+      this.elements.exportProgress?.querySelector(".progress-bar");
     this.elements.exportStatus = document.getElementById("export-status");
 
     // Field checkboxes
@@ -92,7 +108,7 @@ class ExportManager {
           this.switchExportForm(this.exportType);
           this.updatePreview();
         },
-        options
+        options,
       );
     });
 
@@ -105,7 +121,7 @@ class ExportManager {
           this.toggleFieldConfig(format === "csv");
           this.updatePreview();
         },
-        options
+        options,
       );
     });
 
@@ -113,10 +129,13 @@ class ExportManager {
     this.elements.tripsToggleFields?.addEventListener(
       "click",
       () => {
-        const isVisible = this.elements.tripsFieldsPanel.style.display !== "none";
-        this.elements.tripsFieldsPanel.style.display = isVisible ? "none" : "block";
+        const isVisible =
+          this.elements.tripsFieldsPanel.style.display !== "none";
+        this.elements.tripsFieldsPanel.style.display = isVisible
+          ? "none"
+          : "block";
       },
-      options
+      options,
     );
 
     // Field checkboxes
@@ -132,9 +151,11 @@ class ExportManager {
     });
 
     // Date inputs
-    [this.elements.tripsStartDate, this.elements.tripsEndDate].forEach((input) => {
-      input?.addEventListener("change", () => this.updatePreview(), options);
-    });
+    [this.elements.tripsStartDate, this.elements.tripsEndDate].forEach(
+      (input) => {
+        input?.addEventListener("change", () => this.updatePreview(), options);
+      },
+    );
 
     // Area selectors
     [
@@ -153,7 +174,7 @@ class ExportManager {
         e.preventDefault();
         this.handleExport();
       },
-      options
+      options,
     );
   }
 
@@ -229,7 +250,10 @@ class ExportManager {
       this.populateAreaDropdown(this.elements.undrivenArea);
     } catch (error) {
       console.error("Error loading coverage areas:", error);
-      window.notificationManager?.show("Failed to load coverage areas", "error");
+      window.notificationManager?.show(
+        "Failed to load coverage areas",
+        "error",
+      );
     }
   }
 
@@ -312,14 +336,18 @@ class ExportManager {
         if (area) {
           message = `<h6>Ready to export</h6><p>${area.display_name}`;
 
-          if (this.exportType === "streets" && this.elements.streetsStatus?.value) {
+          if (
+            this.exportType === "streets" &&
+            this.elements.streetsStatus?.value
+          ) {
             message += ` (${this.elements.streetsStatus.value} only)`;
           }
 
           message += ` in ${format.toUpperCase()} format</p>`;
 
           if (this.exportType === "undriven" && area.total_segments) {
-            const undrivenCount = area.total_segments - (area.driven_segments || 0);
+            const undrivenCount =
+              area.total_segments - (area.driven_segments || 0);
             message += `<p class="mb-0"><small>${undrivenCount} undriven segment${undrivenCount !== 1 ? "s" : ""}</small></p>`;
           }
         }
@@ -417,13 +445,16 @@ class ExportManager {
       // Start download
       await this.downloadFile(url);
 
-      window.notificationManager?.show("Export completed successfully", "success");
+      window.notificationManager?.show(
+        "Export completed successfully",
+        "success",
+      );
       this.showProgress(false);
     } catch (error) {
       console.error("Export error:", error);
       window.notificationManager?.show(
         error.message || "Export failed. Please try again.",
-        "error"
+        "error",
       );
       this.showProgress(false);
     } finally {
@@ -545,7 +576,7 @@ onPageLoad(
   ({ signal } = {}) => {
     exportManager.init({ signal });
   },
-  { route: "/export" }
+  { route: "/export" },
 );
 
 // Export for module usage

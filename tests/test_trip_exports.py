@@ -4,8 +4,9 @@ Tests for simplified trip export endpoints.
 Tests coverage for trips and matched trips exports with field filtering.
 """
 
-import pytest
 from datetime import UTC, datetime, timedelta
+
+import pytest
 from httpx import AsyncClient
 
 from db.models import Trip

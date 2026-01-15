@@ -1,4 +1,9 @@
-export async function optimisticAction({ optimistic, request, commit, rollback }) {
+export async function optimisticAction({
+  optimistic,
+  request,
+  commit,
+  rollback,
+}) {
   let snapshot = null;
   try {
     snapshot = optimistic?.();
