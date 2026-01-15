@@ -45,7 +45,9 @@ async def stream_geojson_features(features: list[dict]) -> AsyncIterator[str]:
     yield "]}"
 
 
-async def stream_csv_features(features: list[dict], fieldnames: list[str]) -> AsyncIterator[str]:
+async def stream_csv_features(
+    features: list[dict], fieldnames: list[str]
+) -> AsyncIterator[str]:
     """Stream CSV data from features."""
     buf = StringIO()
     writer = csv.DictWriter(buf, fieldnames=fieldnames, extrasaction="ignore")
@@ -109,20 +111,24 @@ async def get_street_features_with_status(
         List of GeoJSON Feature dicts
     """
     # Get all streets for this area version
-    streets = await Street.find({
-        "area_id": area_id,
-        "area_version": area_version,
-    }).to_list()
+    streets = await Street.find(
+        {
+            "area_id": area_id,
+            "area_version": area_version,
+        }
+    ).to_list()
 
     if not streets:
         return []
 
     # Get all coverage states for this area
     segment_ids = [s.segment_id for s in streets]
-    states = await CoverageState.find({
-        "area_id": area_id,
-        "segment_id": {"$in": segment_ids},
-    }).to_list()
+    states = await CoverageState.find(
+        {
+            "area_id": area_id,
+            "segment_id": {"$in": segment_ids},
+        }
+    ).to_list()
 
     # Build lookup map
     state_map = {s.segment_id: s for s in states}
@@ -147,8 +153,16 @@ async def get_street_features_with_status(
                 "length_miles": street.length_miles,
                 "osm_id": street.osm_id,
                 "status": state_status,
-                "first_driven_at": state.first_driven_at.isoformat() if state and state.first_driven_at else None,
-                "last_driven_at": state.last_driven_at.isoformat() if state and state.last_driven_at else None,
+                "first_driven_at": (
+                    state.first_driven_at.isoformat()
+                    if state and state.first_driven_at
+                    else None
+                ),
+                "last_driven_at": (
+                    state.last_driven_at.isoformat()
+                    if state and state.last_driven_at
+                    else None
+                ),
                 "manually_marked": state.manually_marked if state else False,
             },
         }
@@ -167,21 +181,25 @@ async def get_undriven_street_features(
     This is optimized for the common "what haven't I driven yet?" use case.
     """
     # Get undriven states
-    undriven_states = await CoverageState.find({
-        "area_id": area_id,
-        "status": "undriven",
-    }).to_list()
+    undriven_states = await CoverageState.find(
+        {
+            "area_id": area_id,
+            "status": "undriven",
+        }
+    ).to_list()
 
     if not undriven_states:
         return []
 
     # Get corresponding streets
     segment_ids = [s.segment_id for s in undriven_states]
-    streets = await Street.find({
-        "area_id": area_id,
-        "area_version": area_version,
-        "segment_id": {"$in": segment_ids},
-    }).to_list()
+    streets = await Street.find(
+        {
+            "area_id": area_id,
+            "area_version": area_version,
+            "segment_id": {"$in": segment_ids},
+        }
+    ).to_list()
 
     # Build features
     features = []
@@ -239,7 +257,9 @@ def get_boundary_feature(area: CoverageArea) -> dict:
 @router.get("/api/export/streets/{area_id}")
 async def export_streets(
     area_id: PydanticObjectId,
-    fmt: Annotated[str, Query(description="Export format (geojson or csv)")] = "geojson",
+    fmt: Annotated[
+        str, Query(description="Export format (geojson or csv)")
+    ] = "geojson",
     status_filter: Annotated[
         str | None,
         Query(description="Filter by status: driven, undriven, or undriveable"),
@@ -335,7 +355,9 @@ async def export_streets(
 @router.get("/api/export/boundaries/{area_id}")
 async def export_boundary(
     area_id: PydanticObjectId,
-    fmt: Annotated[str, Query(description="Export format (geojson or csv)")] = "geojson",
+    fmt: Annotated[
+        str, Query(description="Export format (geojson or csv)")
+    ] = "geojson",
 ):
     """
     Export boundary for a coverage area.
@@ -407,7 +429,9 @@ async def export_boundary(
 @router.get("/api/export/undriven-streets/{area_id}")
 async def export_undriven_streets(
     area_id: PydanticObjectId,
-    fmt: Annotated[str, Query(description="Export format (geojson or csv)")] = "geojson",
+    fmt: Annotated[
+        str, Query(description="Export format (geojson or csv)")
+    ] = "geojson",
 ):
     """
     Export undriven streets for a coverage area.

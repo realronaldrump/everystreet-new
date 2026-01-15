@@ -57,7 +57,9 @@ def parse_field_groups(fields_param: str | None) -> dict[str, bool]:
     }
 
 
-def get_csv_fieldnames(include_flags: dict[str, bool], flatten_location_fields: bool = True) -> list[str]:
+def get_csv_fieldnames(
+    include_flags: dict[str, bool], flatten_location_fields: bool = True
+) -> list[str]:
     """Build CSV field names based on include flags."""
     fieldnames = []
 
@@ -132,9 +134,10 @@ async def _export_from_query(
 
     # For CSV with field filtering, we need to process each trip
     if fmt == "csv":
-        from fastapi.responses import StreamingResponse
-        from io import StringIO
         import csv
+        from io import StringIO
+
+        from fastapi.responses import StreamingResponse
 
         fieldnames = get_csv_fieldnames(include_flags, flatten_location_fields)
 
@@ -161,6 +164,7 @@ async def _export_from_query(
 
                     # Flatten for CSV
                     from export_helpers import flatten_trip_for_csv
+
                     flat = flatten_trip_for_csv(
                         processed,
                         include_gps_in_csv=include_flags["include_geometry"],
@@ -243,10 +247,14 @@ async def _run_export(action, error_message: str):
 @router.get("/api/export/trips")
 async def export_trips_within_range(
     request: Request,
-    fmt: Annotated[str, Query(description="Export format (geojson or csv)")] = "geojson",
+    fmt: Annotated[
+        str, Query(description="Export format (geojson or csv)")
+    ] = "geojson",
     fields: Annotated[
         str | None,
-        Query(description="Comma-separated field groups: basic,locations,telemetry,geometry,metadata,custom"),
+        Query(
+            description="Comma-separated field groups: basic,locations,telemetry,geometry,metadata,custom"
+        ),
     ] = None,
     flatten_location_fields: Annotated[
         bool,
@@ -289,10 +297,14 @@ async def export_trips_within_range(
 @router.get("/api/export/matched_trips")
 async def export_matched_trips_within_range(
     request: Request,
-    fmt: Annotated[str, Query(description="Export format (geojson or csv)")] = "geojson",
+    fmt: Annotated[
+        str, Query(description="Export format (geojson or csv)")
+    ] = "geojson",
     fields: Annotated[
         str | None,
-        Query(description="Comma-separated field groups: basic,locations,telemetry,geometry,metadata,custom"),
+        Query(
+            description="Comma-separated field groups: basic,locations,telemetry,geometry,metadata,custom"
+        ),
     ] = None,
     flatten_location_fields: Annotated[
         bool,
