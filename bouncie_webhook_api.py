@@ -12,7 +12,7 @@ from typing import Any, Awaitable, Callable
 
 from fastapi import APIRouter, BackgroundTasks, Request, Response, status
 
-from bouncie_credentials import get_bouncie_credentials
+from bouncie_credentials import get_bouncie_credentials, update_bouncie_credentials
 from live_tracking import (
     process_trip_data,
     process_trip_end,
@@ -43,7 +43,11 @@ async def _dispatch_event(payload: dict[str, Any], auth_header: str | None) -> N
                 payload.get("eventType"),
             )
             return
-    elif not auth_header:
+    elif auth_header:
+        saved = await update_bouncie_credentials({"webhook_key": auth_header})
+        if saved:
+            logger.info("Saved Bouncie webhook key from incoming request")
+    else:
         logger.debug(
             "Bouncie webhook received without auth header; no key configured",
         )

@@ -86,15 +86,6 @@
       );
     }
 
-    const toggleWebhookBtn = document.getElementById("toggleWebhookKey");
-    if (toggleWebhookBtn) {
-      toggleWebhookBtn.addEventListener(
-        "click",
-        () => togglePasswordVisibility("webhookKey", "toggleWebhookKey"),
-        signal ? { signal } : false
-      );
-    }
-
     // Vehicle sync for authorized devices (syncs to credentials)
     const syncVehiclesBtn = document.getElementById("syncVehiclesBtn");
     if (syncVehiclesBtn) {
@@ -176,7 +167,6 @@
     const clientSecretInput = document.getElementById("clientSecret");
     const redirectUriInput = document.getElementById("redirectUri");
     const authCodeInput = document.getElementById("authorizationCode");
-    const webhookKeyInput = document.getElementById("webhookKey");
     const fetchConcurrencyInput = document.getElementById("fetchConcurrency");
 
     if (clientIdInput) {
@@ -190,9 +180,6 @@
     }
     if (authCodeInput) {
       authCodeInput.value = credentials.authorization_code || "";
-    }
-    if (webhookKeyInput) {
-      webhookKeyInput.value = credentials.webhook_key || "";
     }
     if (fetchConcurrencyInput) {
       fetchConcurrencyInput.value = credentials.fetch_concurrency || "12";
@@ -210,18 +197,12 @@
       if (authCodeInput) {
         authCodeInput.classList.add("credential-masked");
       }
-      if (webhookKeyInput) {
-        webhookKeyInput.classList.add("credential-masked");
-      }
     } else {
       if (clientSecretInput) {
         clientSecretInput.classList.remove("credential-masked");
       }
       if (authCodeInput) {
         authCodeInput.classList.remove("credential-masked");
-      }
-      if (webhookKeyInput) {
-        webhookKeyInput.classList.remove("credential-masked");
       }
     }
   }
@@ -308,7 +289,6 @@
     const clientSecret = document.getElementById("clientSecret").value.trim();
     const redirectUri = document.getElementById("redirectUri").value.trim();
     const authorizationCode = document.getElementById("authorizationCode").value.trim();
-    const webhookKey = document.getElementById("webhookKey")?.value.trim() || "";
     const fetchConcurrency
       = document.getElementById("fetchConcurrency")?.value.trim() || "12";
 
@@ -344,7 +324,6 @@
             client_secret: clientSecret,
             redirect_uri: redirectUri,
             authorization_code: authorizationCode,
-            webhook_key: webhookKey,
             authorized_devices: devices,
             fetch_concurrency: parseInt(fetchConcurrency, 10) || 12,
           }),

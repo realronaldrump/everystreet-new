@@ -35,7 +35,6 @@ class BouncieCredentials(BaseModel):
     client_secret: str
     redirect_uri: str
     authorization_code: str
-    webhook_key: str | None = None
     authorized_devices: list[str] | str
     fetch_concurrency: int | None = None
 
@@ -63,12 +62,7 @@ async def get_credentials():
                 if len(credentials["authorization_code"]) > 4
                 else "***"
             )
-        if credentials.get("webhook_key"):
-            credentials["webhook_key"] = (
-                f"***{credentials['webhook_key'][-4:]}"
-                if len(credentials["webhook_key"]) > 4
-                else "***"
-            )
+        credentials.pop("webhook_key", None)
 
         return {
             "status": "success",
@@ -124,6 +118,7 @@ async def get_credentials_unmasked():
     """
     try:
         credentials = await get_bouncie_credentials()
+        credentials.pop("webhook_key", None)
         return {
             "status": "success",
             "credentials": credentials,
