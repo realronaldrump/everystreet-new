@@ -97,6 +97,10 @@ const AppController = {
           throw new Error("Map init failed");
         }
 
+        if (document.body) {
+          document.body.classList.add("map-ready");
+        }
+
         layerManager.initializeControls();
         layerManager.bindHeatmapEvents();
         await initializeLocationDropdown();
@@ -169,6 +173,13 @@ const AppController = {
         }
 
         document.dispatchEvent(new CustomEvent("initialDataLoaded"));
+        if (document.body) {
+          document.body.classList.add("map-ready");
+          document.body.classList.toggle(
+            "map-has-trips",
+            Boolean(state.mapLayers.trips?.layer?.features?.length)
+          );
+        }
       }
 
       document.dispatchEvent(new CustomEvent("appReady"));
@@ -184,6 +195,7 @@ const AppController = {
     // Controls toggle collapse icon
     const controlsToggle = utils.getElement("controls-toggle");
     const controlsContent = utils.getElement("controls-content");
+    const controlsPanel = utils.getElement("map-controls");
     if (controlsToggle && controlsContent) {
       // Initialize Bootstrap Collapse
       const collapse = new bootstrap.Collapse(controlsContent, {
@@ -201,6 +213,7 @@ const AppController = {
           icon.className = "fas fa-chevron-up";
         }
         controlsToggle.setAttribute("aria-expanded", "true");
+        controlsPanel?.classList.remove("is-collapsed");
       });
 
       controlsContent.addEventListener("hidden.bs.collapse", () => {
@@ -209,6 +222,7 @@ const AppController = {
           icon.className = "fas fa-chevron-down";
         }
         controlsToggle.setAttribute("aria-expanded", "false");
+        controlsPanel?.classList.add("is-collapsed");
       });
     }
 
@@ -327,6 +341,7 @@ const AppController = {
           await layerManager.updateMapLayer(name, info.layer);
         }
       }
+      mapManager.refreshTripStyles();
       window.loadingManager.hide();
     });
 

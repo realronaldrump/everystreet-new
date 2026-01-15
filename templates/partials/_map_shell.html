@@ -14,6 +14,65 @@ Map
       <span class="map-loading-text">Loading map...</span>
     </div>
 
+    <div class="map-atmosphere" aria-hidden="true">
+    </div>
+
+    <!-- Map command bar -->
+    <div class="map-command-bar" role="region" aria-label="Map command bar">
+      <div class="map-command-search" role="search">
+        <i class="fas fa-search" aria-hidden="true"></i>
+        <input type="text"
+               id="map-search-input"
+               class="map-search-input"
+               placeholder="Search places, streets, highlights..."
+               autocomplete="off"
+               aria-label="Search map" />
+        <button id="clear-search-btn"
+                class="btn btn-sm btn-link btn-clear-search d-none"
+                aria-label="Clear search"
+                title="Clear search">
+          <i class="fas fa-times" aria-hidden="true"></i>
+        </button>
+      </div>
+      <div class="map-command-actions" role="group" aria-label="Map actions">
+        <button type="button"
+                class="command-btn"
+                id="center-on-location"
+                title="Center on my location"
+                aria-label="Center map on current location">
+          <i class="fas fa-location-crosshairs" aria-hidden="true"></i>
+        </button>
+        <button type="button"
+                class="command-btn"
+                id="fit-bounds"
+                title="Fit all trips"
+                aria-label="Fit all trips in view">
+          <i class="fas fa-expand-arrows-alt" aria-hidden="true"></i>
+        </button>
+        <button type="button"
+                class="command-btn"
+                id="refresh-map"
+                title="Refresh map data"
+                aria-label="Refresh map data">
+          <i class="fas fa-sync-alt" aria-hidden="true"></i>
+        </button>
+        <button type="button"
+                class="command-btn"
+                id="download-view"
+                title="Download current view"
+                aria-label="Download current map view">
+          <i class="fas fa-download" aria-hidden="true"></i>
+        </button>
+        <button type="button"
+                class="command-btn command-btn--accent"
+                id="journey-panel-toggle"
+                title="Toggle journey panel"
+                aria-label="Toggle journey panel">
+          <i class="fas fa-layer-group" aria-hidden="true"></i>
+        </button>
+      </div>
+    </div>
+
     <!-- Live Trip HUD -->
     <div id="live-trip-hud" class="live-trip-hud" aria-hidden="true">
       <div class="live-trip-hud-card">
@@ -90,32 +149,40 @@ Avg Speed
       </div>
     </div>
 
-    <!-- Unified Control Panel - transforms based on viewport -->
+    <!-- Journey Drawer -->
     <div id="map-controls"
-         class="control-panel shadow-lg"
+         class="control-panel journey-drawer shadow-lg"
          role="region"
-         aria-label="Map controls">
-      <!-- Mobile sheet handle (hidden on desktop via CSS) -->
+         aria-label="Journey panel">
       <div class="mobile-sheet-handle-container">
         <div class="mobile-sheet-handle">
         </div>
       </div>
 
-      <!-- Panel Header -->
-      <div class="control-panel-header">
-        <h2 class="control-panel-title">
-          <i class="fas fa-layer-group me-2" aria-hidden="true"></i>
-          Map Controls
-        </h2>
+      <div class="control-panel-header journey-header">
+        <div class="journey-title-block">
+          <div class="journey-kicker">
+My Journey
+          </div>
+          <h2 class="journey-title">
+Trip Atlas
+          </h2>
+          <div class="journey-meta" aria-live="polite">
+            <span id="journey-total-trips">0</span> trips
+            <span class="journey-meta-divider">•</span>
+            <span id="journey-total-distance">0</span> mi
+            <span class="journey-meta-divider">•</span>
+            <span id="journey-total-days">0</span> days
+          </div>
+        </div>
         <div class="control-panel-actions">
-          <!-- Mobile live status badge (hidden on desktop) -->
           <span class="mobile-live-badge" id="live-status-badge">
             <span class="pulse-dot"></span>
             <span>Live</span>
           </span>
           <button id="controls-toggle"
                   class="btn btn-sm btn-icon-only"
-                  aria-label="Toggle Controls"
+                  aria-label="Toggle journey panel"
                   aria-expanded="true"
                   aria-controls="controls-content"
                   title="Collapse panel">
@@ -125,304 +192,347 @@ Avg Speed
       </div>
 
       <div id="controls-content" class="collapse show control-panel-body">
-        <!-- Quick Actions Bar -->
-        <div class="quick-actions-bar">
-          <button type="button"
-                  class="btn-quick-action"
-                  id="center-on-location"
-                  title="Center on my location"
-                  aria-label="Center map on current location">
-            <i class="fas fa-location-crosshairs" aria-hidden="true"></i>
+        <div class="journey-tabs" role="tablist" aria-label="Journey panels">
+          <button class="journey-tab is-active"
+                  type="button"
+                  id="journey-tab-explore"
+                  data-journey-tab="explore"
+                  role="tab"
+                  aria-controls="journey-panel-explore"
+                  aria-selected="true">
+Explore
           </button>
-          <button type="button"
-                  class="btn-quick-action"
-                  id="fit-bounds"
-                  title="Fit all trips"
-                  aria-label="Fit all trips in view">
-            <i class="fas fa-expand-arrows-alt" aria-hidden="true"></i>
-          </button>
-          <button type="button"
-                  class="btn-quick-action"
-                  id="refresh-map"
-                  title="Refresh map data"
-                  aria-label="Refresh map data">
-            <i class="fas fa-sync-alt" aria-hidden="true"></i>
-          </button>
-          <button type="button"
-                  class="btn-quick-action"
-                  id="download-view"
-                  title="Download current view"
-                  aria-label="Download current map view">
-            <i class="fas fa-download" aria-hidden="true"></i>
+          <button class="journey-tab"
+                  type="button"
+                  id="journey-tab-layers"
+                  data-journey-tab="layers"
+                  role="tab"
+                  aria-controls="journey-panel-layers"
+                  aria-selected="false">
+Layers
           </button>
         </div>
 
-        <div class="control-sections">
-          <!-- Search Section -->
-          <div class="control-section">
-            <div class="search-container">
-              <div class="position-relative">
-                <i class="fas fa-search search-icon" aria-hidden="true"></i>
-                <input type="text"
-                       id="map-search-input"
-                       class="form-control search-input"
-                       placeholder="Search places, addresses..."
-                       autocomplete="off"
-                       aria-label="Search map" />
-                <button id="clear-search-btn"
-                        class="btn btn-sm btn-link btn-clear-search d-none"
-                        aria-label="Clear search"
-                        title="Clear search">
-                  <i class="fas fa-times" aria-hidden="true"></i>
-                </button>
+        <div class="journey-panels">
+          <section class="journey-panel is-active"
+                   data-journey-panel="explore"
+                   id="journey-panel-explore"
+                   role="tabpanel"
+                   aria-labelledby="journey-tab-explore">
+            <div class="journey-spotlight" id="journey-spotlight" aria-live="polite">
+              <div class="journey-spotlight-header">
+                <span class="spotlight-kicker">Spotlight</span>
+                <span class="spotlight-badge">Recent</span>
+              </div>
+              <div class="journey-spotlight-main">
+                <div class="spotlight-distance">
+                  <span id="spotlight-distance">--</span>
+                  <span class="spotlight-unit">mi</span>
+                </div>
+                <div class="spotlight-date" id="spotlight-date">
+Select a trip to explore
+                </div>
+              </div>
+              <div class="spotlight-metrics">
+                <div class="spotlight-metric">
+                  <span class="spotlight-label">Duration</span>
+                  <span id="spotlight-duration">--</span>
+                </div>
+                <div class="spotlight-metric">
+                  <span class="spotlight-label">Avg Speed</span>
+                  <span id="spotlight-speed">--</span>
+                </div>
+                <div class="spotlight-metric">
+                  <span class="spotlight-label">Start</span>
+                  <span id="spotlight-start">--</span>
+                </div>
               </div>
             </div>
-          </div>
 
-          <!-- Live Tracking Section -->
-          <div class="control-section" id="live-tracking-panel">
-            <button class="section-header"
-                    type="button"
-                    data-bs-toggle="collapse"
-                    data-bs-target="#live-tracking-content"
-                    aria-expanded="false"
-                    aria-controls="live-tracking-content">
-              <div class="section-header-left">
-                <i class="fas fa-broadcast-tower section-icon" aria-hidden="true"></i>
-                <h3 class="section-title">
-Live Tracking
-                </h3>
+            <div class="journey-timeline">
+              <div class="timeline-header">
+                <span class="timeline-title">Timeline</span>
+                <span class="timeline-range" id="journey-range">--</span>
               </div>
-              <div class="section-header-right">
-                <div class="connection-status">
-                  <div class="status-indicator" role="status" aria-live="polite">
+              <input type="range"
+                     id="trip-timeline"
+                     min="0"
+                     max="0"
+                     value="0"
+                     step="1"
+                     aria-label="Trip timeline scrubber" />
+              <div class="timeline-labels">
+                <span id="timeline-start">--</span>
+                <span id="timeline-end">--</span>
+              </div>
+            </div>
+
+            <div class="journey-filters" role="group" aria-label="Trip filters">
+              <button class="journey-filter is-active" type="button" data-range="all">
+All
+              </button>
+              <button class="journey-filter" type="button" data-range="30">
+30 days
+              </button>
+              <button class="journey-filter" type="button" data-range="7">
+7 days
+              </button>
+              <button class="journey-filter" type="button" data-range="1">
+Today
+              </button>
+            </div>
+
+            <div class="journey-gallery" id="trip-gallery" role="listbox" aria-label="Trip gallery">
+              <div class="journey-empty" id="trip-gallery-empty" hidden>
+                <div class="journey-empty-title">No trips yet</div>
+                <div class="journey-empty-subtitle">Once you log a trip, it will appear here.</div>
+              </div>
+            </div>
+
+            <button class="journey-load-more" id="trip-gallery-load-more" type="button">
+Load more
+            </button>
+          </section>
+
+          <section class="journey-panel"
+                   data-journey-panel="layers"
+                   id="journey-panel-layers"
+                   role="tabpanel"
+                   aria-labelledby="journey-tab-layers"
+                   hidden>
+            <div class="control-section" id="live-tracking-panel">
+              <button class="section-header"
+                      type="button"
+                      data-bs-toggle="collapse"
+                      data-bs-target="#live-tracking-content"
+                      aria-expanded="false"
+                      aria-controls="live-tracking-content">
+                <div class="section-header-left">
+                  <i class="fas fa-broadcast-tower section-icon" aria-hidden="true"></i>
+                  <h3 class="section-title">
+Live Tracking
+                  </h3>
+                </div>
+                <div class="section-header-right">
+                  <div class="connection-status">
+                    <div class="status-indicator" role="status" aria-live="polite">
+                    </div>
+                    <span class="live-status-text">Connecting...</span>
                   </div>
-                  <span class="live-status-text">Connecting...</span>
+                  <i class="fas fa-chevron-down section-chevron" aria-hidden="true"></i>
+                </div>
+              </button>
+              <div id="live-tracking-content" class="collapse section-body">
+                <div class="live-tracking-info">
+                  <div class="d-flex align-items-center justify-content-between mb-2">
+                    <span class="text-secondary">Active Trips</span>
+                    <span id="active-trips-count"
+                          class="badge bg-primary rounded-pill"
+                          aria-live="polite">0</span>
+                  </div>
+                  <div class="live-trip-metrics">
+                  </div>
+                  <div class="error-message alert alert-danger d-none mt-2 p-2"
+                       role="alert"
+                       aria-live="assertive">
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="control-section">
+              <button class="section-header"
+                      type="button"
+                      data-bs-toggle="collapse"
+                      data-bs-target="#layers-content"
+                      aria-expanded="true"
+                      aria-controls="layers-content">
+                <div class="section-header-left">
+                  <i class="fas fa-layers section-icon" aria-hidden="true"></i>
+                  <h3 class="section-title">
+Layers & Display
+                  </h3>
                 </div>
                 <i class="fas fa-chevron-down section-chevron" aria-hidden="true"></i>
-              </div>
-            </button>
-            <div id="live-tracking-content" class="collapse section-body">
-              <div class="live-tracking-info">
-                <div class="d-flex align-items-center justify-content-between mb-2">
-                  <span class="text-secondary">Active Trips</span>
-                  <span id="active-trips-count"
-                        class="badge bg-primary rounded-pill"
-                        aria-live="polite">0</span>
-                </div>
-                <div class="live-trip-metrics">
-                  <!-- Trip metrics will be inserted here dynamically -->
-                </div>
-                <div class="error-message alert alert-danger d-none mt-2 p-2"
-                     role="alert"
-                     aria-live="assertive">
-                  <!-- Error messages will be shown here -->
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Layers & Display Section -->
-          <div class="control-section">
-            <button class="section-header"
-                    type="button"
-                    data-bs-toggle="collapse"
-                    data-bs-target="#layers-content"
-                    aria-expanded="true"
-                    aria-controls="layers-content">
-              <div class="section-header-left">
-                <i class="fas fa-layers section-icon" aria-hidden="true"></i>
-                <h3 class="section-title">
-Layers & Display
-                </h3>
-              </div>
-              <i class="fas fa-chevron-down section-chevron" aria-hidden="true"></i>
-            </button>
-            <div id="layers-content" class="collapse show section-body">
-              <!-- Layer Toggles -->
-              <div class="layer-group mb-3">
-                <h4 class="layer-group-title">
+              </button>
+              <div id="layers-content" class="collapse show section-body">
+                <div class="layer-group mb-3">
+                  <h4 class="layer-group-title">
 Visible Layers
-                </h4>
-                <div id="layer-toggles"
-                     class="layer-toggles-grid"
-                     role="group"
-                     aria-label="Layer toggles">
-                  <!-- Layer toggles inserted by JavaScript -->
+                  </h4>
+                  <div id="layer-toggles"
+                       class="layer-toggles-grid"
+                       role="group"
+                       aria-label="Layer toggles">
+                  </div>
                 </div>
-              </div>
 
-              <!-- Street Coverage -->
-              <div class="layer-group mb-3" id="location-selector-container">
-                <h4 class="layer-group-title">
+                <div class="layer-group mb-3" id="location-selector-container">
+                  <h4 class="layer-group-title">
 Street Coverage
-                </h4>
-                <select id="streets-location"
-                        class="form-select form-select-sm mb-2"
-                        aria-label="Select coverage location">
-                  <option value="">
+                  </h4>
+                  <select id="streets-location"
+                          class="form-select form-select-sm mb-2"
+                          aria-label="Select coverage location">
+                    <option value="">
 Select a location...
-                  </option>
-                  <!-- Coverage areas will be loaded here -->
-                </select>
-
-                <!-- Street View Mode Selector -->
-                <div class="street-mode-buttons" role="group" aria-label="Street view mode">
-                  <button type="button"
-                          class="street-mode-btn"
-                          data-street-mode="undriven"
-                          title="Show undriven streets (dashed blue lines)">
-                    <i class="fas fa-road" aria-hidden="true"></i>
-                    <span>Undriven</span>
-                  </button>
-                  <button type="button"
-                          class="street-mode-btn"
-                          data-street-mode="driven"
-                          title="Show driven streets (solid green lines)">
-                    <i class="fas fa-check-circle" aria-hidden="true"></i>
-                    <span>Driven</span>
-                  </button>
-                  <button type="button"
-                          class="street-mode-btn"
-                          data-street-mode="all"
-                          title="Show all streets (single overlay)">
-                    <i class="fas fa-layer-group" aria-hidden="true"></i>
-                    <span>All</span>
-                  </button>
-                </div>
-
-                <!-- Color legend -->
-                <div class="street-legend">
-                  <div class="legend-item">
-                    <span class="legend-indicator legend-indicator--undriven"></span>
-                    <span>Undriven</span>
-                  </div>
-                  <div class="legend-item">
-                    <span class="legend-indicator legend-indicator--driven"></span>
-                    <span>Driven</span>
-                  </div>
-                  <div class="legend-item">
-                    <span class="legend-indicator legend-indicator--all"></span>
-                    <span>All</span>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Display Options -->
-              <div class="layer-group">
-                <div class="mb-3">
-                  <label for="map-type-select" class="form-label small text-secondary mb-1">
-                    Map Style
-                  </label>
-                  <select id="map-type-select"
-                          class="form-select form-select-sm"
-                          aria-label="Select map style">
-                    <option value="dark">
-Dark
-                    </option>
-                    <option value="light">
-Light
-                    </option>
-                    <option value="satellite">
-Satellite
-                    </option>
-                    <option value="streets">
-Streets
                     </option>
                   </select>
-                </div>
-                <div class="custom-switch">
-                  <input class="custom-switch-input"
-                         type="checkbox"
-                         role="switch"
-                         id="highlight-recent-trips"
-                         checked />
-                  <label class="custom-switch-label" for="highlight-recent-trips">
-                    <span class="switch-text">Highlight Recent Trips</span>
-                    <span class="switch-help">Last 6 hours</span>
-                  </label>
-                </div>
-              </div>
-            </div>
-          </div>
 
-          <!-- Statistics Section -->
-          <div class="control-section">
-            <button class="section-header"
-                    type="button"
-                    data-bs-toggle="collapse"
-                    data-bs-target="#metrics-content"
-                    aria-expanded="false"
-                    aria-controls="metrics-content">
-              <div class="section-header-left">
-                <i class="fas fa-chart-bar section-icon" aria-hidden="true"></i>
-                <h3 class="section-title">
-Trip Statistics
-                </h3>
-              </div>
-              <i class="fas fa-chevron-down section-chevron" aria-hidden="true"></i>
-            </button>
-            <div id="metrics-content" class="collapse section-body">
-              <div class="metrics-grid">
-                <div class="metric-item">
-                  <div class="metric-label">
-Total Trips
+                  <div class="street-mode-buttons" role="group" aria-label="Street view mode">
+                    <button type="button"
+                            class="street-mode-btn"
+                            data-street-mode="undriven"
+                            title="Show undriven streets (dashed blue lines)">
+                      <i class="fas fa-road" aria-hidden="true"></i>
+                      <span>Undriven</span>
+                    </button>
+                    <button type="button"
+                            class="street-mode-btn"
+                            data-street-mode="driven"
+                            title="Show driven streets (solid green lines)">
+                      <i class="fas fa-check-circle" aria-hidden="true"></i>
+                      <span>Driven</span>
+                    </button>
+                    <button type="button"
+                            class="street-mode-btn"
+                            data-street-mode="all"
+                            title="Show all streets (single overlay)">
+                      <i class="fas fa-layer-group" aria-hidden="true"></i>
+                      <span>All</span>
+                    </button>
                   </div>
-                  <div class="metric-value" id="total-trips" aria-live="polite">
-0
-                  </div>
-                </div>
-                <div class="metric-item">
-                  <div class="metric-label">
-Total Distance
-                  </div>
-                  <div class="metric-value" aria-live="polite">
-                    <span id="total-distance">0</span> <span class="metric-unit">mi</span>
-                  </div>
-                </div>
-                <div class="metric-item">
-                  <div class="metric-label">
-Avg Distance
-                  </div>
-                  <div class="metric-value" aria-live="polite">
-                    <span id="avg-distance">0</span> <span class="metric-unit">mi</span>
+
+                  <div class="street-legend">
+                    <div class="legend-item">
+                      <span class="legend-indicator legend-indicator--undriven"></span>
+                      <span>Undriven</span>
+                    </div>
+                    <div class="legend-item">
+                      <span class="legend-indicator legend-indicator--driven"></span>
+                      <span>Driven</span>
+                    </div>
+                    <div class="legend-item">
+                      <span class="legend-indicator legend-indicator--all"></span>
+                      <span>All</span>
+                    </div>
                   </div>
                 </div>
-                <div class="metric-item">
-                  <div class="metric-label">
-Avg Start Time
+
+                <div class="layer-group">
+                  <div class="mb-3">
+                    <label for="map-type-select" class="form-label small text-secondary mb-1">
+                      Map Style
+                    </label>
+                    <select id="map-type-select"
+                            class="form-select form-select-sm"
+                            aria-label="Select map style">
+                      <option value="dark">
+Dark
+                      </option>
+                      <option value="light">
+Light
+                      </option>
+                      <option value="satellite">
+Satellite
+                      </option>
+                      <option value="streets">
+Streets
+                      </option>
+                    </select>
                   </div>
-                  <div class="metric-value" id="avg-start-time" aria-live="polite">
---:--
-                  </div>
-                </div>
-                <div class="metric-item">
-                  <div class="metric-label">
-Avg Driving Time
-                  </div>
-                  <div class="metric-value" id="avg-driving-time" aria-live="polite">
---:--
-                  </div>
-                </div>
-                <div class="metric-item">
-                  <div class="metric-label">
-Avg Speed
-                  </div>
-                  <div class="metric-value" aria-live="polite">
-                    <span id="avg-speed">0</span> <span class="metric-unit">mph</span>
-                  </div>
-                </div>
-                <div class="metric-item">
-                  <div class="metric-label">
-Max Speed
-                  </div>
-                  <div class="metric-value" aria-live="polite">
-                    <span id="max-speed">0</span> <span class="metric-unit">mph</span>
+                  <div class="custom-switch">
+                    <input class="custom-switch-input"
+                           type="checkbox"
+                           role="switch"
+                           id="highlight-recent-trips"
+                           checked />
+                    <label class="custom-switch-label" for="highlight-recent-trips">
+                      <span class="switch-text">Emphasize Recent Trips</span>
+                      <span class="switch-help">Last 6 hours</span>
+                    </label>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
+
+            <div class="control-section">
+              <button class="section-header"
+                      type="button"
+                      data-bs-toggle="collapse"
+                      data-bs-target="#metrics-content"
+                      aria-expanded="false"
+                      aria-controls="metrics-content">
+                <div class="section-header-left">
+                  <i class="fas fa-chart-bar section-icon" aria-hidden="true"></i>
+                  <h3 class="section-title">
+Trip Statistics
+                  </h3>
+                </div>
+                <i class="fas fa-chevron-down section-chevron" aria-hidden="true"></i>
+              </button>
+              <div id="metrics-content" class="collapse section-body">
+                <div class="metrics-grid">
+                  <div class="metric-item">
+                    <div class="metric-label">
+Total Trips
+                    </div>
+                    <div class="metric-value" id="total-trips" aria-live="polite">
+0
+                    </div>
+                  </div>
+                  <div class="metric-item">
+                    <div class="metric-label">
+Total Distance
+                    </div>
+                    <div class="metric-value" aria-live="polite">
+                      <span id="total-distance">0</span> <span class="metric-unit">mi</span>
+                    </div>
+                  </div>
+                  <div class="metric-item">
+                    <div class="metric-label">
+Avg Distance
+                    </div>
+                    <div class="metric-value" aria-live="polite">
+                      <span id="avg-distance">0</span> <span class="metric-unit">mi</span>
+                    </div>
+                  </div>
+                  <div class="metric-item">
+                    <div class="metric-label">
+Avg Start Time
+                    </div>
+                    <div class="metric-value" id="avg-start-time" aria-live="polite">
+--:--
+                    </div>
+                  </div>
+                  <div class="metric-item">
+                    <div class="metric-label">
+Avg Driving Time
+                    </div>
+                    <div class="metric-value" id="avg-driving-time" aria-live="polite">
+--:--
+                    </div>
+                  </div>
+                  <div class="metric-item">
+                    <div class="metric-label">
+Avg Speed
+                    </div>
+                    <div class="metric-value" aria-live="polite">
+                      <span id="avg-speed">0</span> <span class="metric-unit">mph</span>
+                    </div>
+                  </div>
+                  <div class="metric-item">
+                    <div class="metric-label">
+Max Speed
+                    </div>
+                    <div class="metric-value" aria-live="polite">
+                      <span id="max-speed">0</span> <span class="metric-unit">mph</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
         </div>
       </div>
     </div>

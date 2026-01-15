@@ -554,6 +554,11 @@ const layerManager = {
       return;
     }
 
+    if (property === "opacity" && ["trips", "matchedTrips"].includes(name)) {
+      mapManager.refreshTripStyles();
+      return;
+    }
+
     const layerId = `${name}-layer`;
     if (state.map?.getLayer(layerId)) {
       const paintProperty = property === "color" ? "line-color" : "line-opacity";
@@ -746,6 +751,15 @@ const layerManager = {
       20,
       layerInfo.weight * 2,
     ]);
+    if (layerInfo.dasharray) {
+      state.map.setPaintProperty(layerId, "line-dasharray", layerInfo.dasharray);
+    }
+    if (typeof layerInfo.lineBlur === "number") {
+      state.map.setPaintProperty(layerId, "line-blur", layerInfo.lineBlur);
+    }
+    if (layerInfo.lineSortKey !== undefined) {
+      state.map.setLayoutProperty(layerId, "line-sort-key", layerInfo.lineSortKey);
+    }
   },
 
   async _rebuildLayer(layerName, layerId, sourceId, layerInfo, data) {
@@ -834,6 +848,16 @@ const layerManager = {
         ],
       },
     };
+
+    if (layerInfo.dasharray) {
+      layerConfig.paint["line-dasharray"] = layerInfo.dasharray;
+    }
+    if (typeof layerInfo.lineBlur === "number") {
+      layerConfig.paint["line-blur"] = layerInfo.lineBlur;
+    }
+    if (layerInfo.lineSortKey !== undefined) {
+      layerConfig.layout["line-sort-key"] = layerInfo.lineSortKey;
+    }
 
     if (layerName === "undrivenStreets") {
       layerConfig.paint["line-dasharray"] = [2, 2];

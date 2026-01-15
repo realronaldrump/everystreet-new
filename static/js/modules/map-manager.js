@@ -5,6 +5,37 @@ import store from "./spa/store.js";
 import state from "./state.js";
 import { utils } from "./utils.js";
 
+const getMapToken = (name, fallback) => {
+  if (typeof window === "undefined") {
+    return fallback;
+  }
+  const target = document.body || document.documentElement;
+  if (!target) {
+    return fallback;
+  }
+  const value = getComputedStyle(target).getPropertyValue(name).trim();
+  if (value) {
+    return value;
+  }
+  const rootValue = getComputedStyle(document.documentElement)
+    .getPropertyValue(name)
+    .trim();
+  return rootValue || fallback;
+};
+
+const getJourneyPalette = () => ({
+  lineHot: getMapToken("--journey-line-hot", "#fbd38d"),
+  lineWarm: getMapToken("--journey-line-warm", "#f29f80"),
+  lineSunset: getMapToken("--journey-line-sunset", "#e07a5f"),
+  lineCool: getMapToken("--journey-line-cool", "#7c9d96"),
+  lineOld: getMapToken("--journey-line-old", "#5f7d78"),
+  lineFaint: getMapToken("--journey-line-faint", "#334b47"),
+  lineSelected: getMapToken("--journey-line-selected", "#ffd166"),
+  matchedHot: getMapToken("--journey-line-matched-hot", "#9bc7d5"),
+  matchedCool: getMapToken("--journey-line-matched-cool", "#7aa3b8"),
+  matchedFaint: getMapToken("--journey-line-matched-faint", "#4a6670"),
+});
+
 // NOTE: this is extracted verbatim from `app.js` to keep behaviour identical.
 // Future refactors can safely trim dependencies now that the code is isolated.
 
@@ -211,6 +242,7 @@ const mapManager = {
         state.selectedTripId = null;
         state.selectedTripLayer = null;
         this.refreshTripStyles();
+        document.dispatchEvent(new CustomEvent("tripSelectionCleared"));
       }
       return;
     }
@@ -224,6 +256,7 @@ const mapManager = {
         state.selectedTripId = null;
         state.selectedTripLayer = null;
         this.refreshTripStyles();
+        document.dispatchEvent(new CustomEvent("tripSelectionCleared"));
       }
     }
   },
@@ -234,6 +267,34 @@ const mapManager = {
     }
 
     const selectedId = state.selectedTripId ? String(state.selectedTripId) : null;
+
+    const palette = getJourneyPalette();
+    const recencyExpr = [
+      "coalesce",
+      ["get", "es_recencyHours"],
+      ["get", "recencyHours"],
+      99999,
+    ];
+    const distanceExpr = [
+      "to-number",
+      ["coalesce", ["get", "es_distanceMiles"], ["get", "distance"], 0],
+    ];
+
+    const baseOpacityExpr = [
+      "interpolate",
+      ["linear"],
+      recencyExpr,
+      0,
+      0.95,
+      24,
+      0.8,
+      168,
+      0.55,
+      720,
+      0.3,
+      2160,
+      0.18,
+    ];
 
     ["trips", "matchedTrips"].forEach((layerName) => {
       const layerInfo = state.mapLayers[layerName];
@@ -251,40 +312,103 @@ const mapManager = {
         return;
       }
 
-      const baseColor = layerInfo.color || "#4A90D9";
+      const baseColor = layerInfo.color || palette.lineCool;
       const baseWeight = layerInfo.weight || 2;
+      const highlightColor = layerInfo.highlightColor || palette.lineSelected;
 
-      // Simple styling: highlight selected trip, otherwise use base color
-      const colorExpr = selectedId
+      const baseColorExpr = state.mapSettings.highlightRecentTrips
         ? [
-            "case",
-            [
-              "==",
-              ["to-string", ["coalesce", ["get", "transactionId"], ["get", "id"]]],
-              selectedId,
-            ],
-            layerInfo.highlightColor || "#FFD700",
-            baseColor,
+            "interpolate",
+            ["linear"],
+            recencyExpr,
+            ...(layerName === "matchedTrips"
+              ? [
+                  0,
+                  palette.matchedHot,
+                  24,
+                  palette.matchedHot,
+                  168,
+                  palette.matchedCool,
+                  720,
+                  palette.matchedFaint,
+                ]
+              : [
+                  0,
+                  palette.lineHot,
+                  6,
+                  palette.lineWarm,
+                  24,
+                  palette.lineSunset,
+                  72,
+                  palette.lineCool,
+                  168,
+                  palette.lineOld,
+                  720,
+                  palette.lineFaint,
+                  2160,
+                  palette.lineFaint,
+                ]),
           ]
         : baseColor;
 
+      const zoomWidthExpr = [
+        "interpolate",
+        ["linear"],
+        ["zoom"],
+        6,
+        baseWeight * 0.6,
+        10,
+        baseWeight,
+        14,
+        baseWeight * 1.5,
+        18,
+        baseWeight * 2.2,
+      ];
+      const distanceScaleExpr = [
+        "interpolate",
+        ["linear"],
+        distanceExpr,
+        0,
+        0.8,
+        3,
+        0.95,
+        8,
+        1.1,
+        20,
+        1.3,
+        40,
+        1.5,
+        80,
+        1.7,
+      ];
+      const baseWidthExpr = ["*", zoomWidthExpr, distanceScaleExpr];
+      const selectedWidthExpr = ["*", baseWidthExpr, 1.6];
+
+      const selectionMatchExpr = [
+        "==",
+        [
+          "to-string",
+          ["coalesce", ["get", "transactionId"], ["get", "id"], ["get", "tripId"]],
+        ],
+        selectedId,
+      ];
+
+      const colorExpr = selectedId
+        ? ["case", selectionMatchExpr, highlightColor, baseColorExpr]
+        : baseColorExpr;
       const widthExpr = selectedId
-        ? [
-            "case",
-            [
-              "==",
-              ["to-string", ["coalesce", ["get", "transactionId"], ["get", "id"]]],
-              selectedId,
-            ],
-            baseWeight * 2,
-            baseWeight,
-          ]
-        : baseWeight;
+        ? ["case", selectionMatchExpr, selectedWidthExpr, baseWidthExpr]
+        : baseWidthExpr;
+      const opacityExpr = state.mapSettings.highlightRecentTrips
+        ? ["*", layerInfo.opacity ?? 1, baseOpacityExpr]
+        : layerInfo.opacity ?? 1;
+      const lineBlur = typeof layerInfo.lineBlur === "number" ? layerInfo.lineBlur : 0;
 
       try {
         state.map.setPaintProperty(layerId, "line-color", colorExpr);
-        state.map.setPaintProperty(layerId, "line-opacity", layerInfo.opacity);
+        state.map.setPaintProperty(layerId, "line-opacity", opacityExpr);
         state.map.setPaintProperty(layerId, "line-width", widthExpr);
+        state.map.setPaintProperty(layerId, "line-blur", lineBlur);
       } catch (error) {
         console.warn("Failed to update trip styles:", error);
       }
@@ -341,8 +465,10 @@ const mapManager = {
       properties: matchingFeature.properties || {},
     };
 
-    const highlightColor
-      = window.MapStyles?.MAP_LAYER_COLORS?.trips?.selected || "#FFD700";
+    const highlightColor = getMapToken(
+      "--journey-line-selected",
+      window.MapStyles?.MAP_LAYER_COLORS?.trips?.selected || "#FFD700"
+    );
     const highlightWidth = [
       "interpolate",
       ["linear"],
@@ -420,16 +546,19 @@ const mapManager = {
       });
 
       if (hasFeatures && !bounds.isEmpty()) {
+        const prefersReducedMotion = window.matchMedia(
+          "(prefers-reduced-motion: reduce)"
+        ).matches;
         state.map.fitBounds(bounds, {
           padding: 50,
           maxZoom: 15,
-          duration: animate ? 1000 : 0,
+          duration: animate && !prefersReducedMotion ? 1000 : 0,
         });
       }
     });
   },
 
-  async zoomToTrip(tripId) {
+  async zoomToTrip(tripId, options = {}) {
     if (!state.map || !state.mapLayers.trips?.layer?.features) {
       return;
     }
@@ -461,10 +590,14 @@ const mapManager = {
     }
 
     if (!bounds.isEmpty()) {
+      const prefersReducedMotion = window.matchMedia(
+        "(prefers-reduced-motion: reduce)"
+      ).matches;
+      const duration = prefersReducedMotion ? 0 : options.duration ?? 2000;
       state.map.fitBounds(bounds, {
         padding: 50,
         maxZoom: 15,
-        duration: 2000,
+        duration,
       });
 
       // Also select it
@@ -513,10 +646,13 @@ const mapManager = {
       && !Number.isNaN(lastCoord[0])
       && !Number.isNaN(lastCoord[1])
     ) {
+      const prefersReducedMotion = window.matchMedia(
+        "(prefers-reduced-motion: reduce)"
+      ).matches;
       state.map.flyTo({
         center: lastCoord,
         zoom: targetZoom,
-        duration: 2000,
+        duration: prefersReducedMotion ? 0 : 2000,
         essential: true,
       });
     }

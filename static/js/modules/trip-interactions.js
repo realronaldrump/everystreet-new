@@ -21,6 +21,11 @@ const tripInteractions = {
       state.selectedTripLayer
         = layerName || this.resolveTripLayerName(feature?.layer?.id);
       mapManager.refreshTripStyles();
+      document.dispatchEvent(
+        new CustomEvent("tripSelected", {
+          detail: { tripId, layerName: state.selectedTripLayer, source: "map" },
+        })
+      );
     }
 
     const popup = new mapboxgl.Popup({
