@@ -336,17 +336,42 @@ async def process_trip_metrics(data: dict[str, Any]) -> None:
     # Update fields from Bouncie metrics
     updates_made = False
 
-    if "averageSpeed" in metrics_data:
-        trip.avgSpeed = float(metrics_data["averageSpeed"])
+    avg_speed = metrics_data.get("averageDriveSpeed")
+    if avg_speed is None:
+        avg_speed = metrics_data.get("averageSpeed")
+    if avg_speed is not None:
+        trip.avgSpeed = float(avg_speed)
         updates_made = True
-    if "idlingTime" in metrics_data:
-        trip.totalIdleDuration = float(metrics_data["idlingTime"])
+
+    idling_time = metrics_data.get("totalIdlingTime")
+    if idling_time is None:
+        idling_time = metrics_data.get("idlingTime")
+    if idling_time is not None:
+        trip.totalIdleDuration = float(idling_time)
         updates_made = True
-    if "hardBraking" in metrics_data:
-        trip.hardBrakingCounts = int(metrics_data["hardBraking"])
+
+    hard_braking = metrics_data.get("hardBrakingCounts")
+    if hard_braking is None:
+        hard_braking = metrics_data.get("hardBraking")
+    if hard_braking is not None:
+        trip.hardBrakingCounts = int(hard_braking)
         updates_made = True
-    if "hardAcceleration" in metrics_data:
-        trip.hardAccelerationCounts = int(metrics_data["hardAcceleration"])
+
+    hard_acceleration = metrics_data.get("hardAccelerationCounts")
+    if hard_acceleration is None:
+        hard_acceleration = metrics_data.get("hardAcceleration")
+    if hard_acceleration is not None:
+        trip.hardAccelerationCounts = int(hard_acceleration)
+        updates_made = True
+
+    trip_distance = metrics_data.get("tripDistance")
+    if trip_distance is not None:
+        trip.distance = float(trip_distance)
+        updates_made = True
+
+    trip_time = metrics_data.get("tripTime")
+    if trip_time is not None:
+        trip.duration = float(trip_time)
         updates_made = True
 
     # Update lastUpdate timestamp

@@ -12,6 +12,7 @@ from fastapi.templating import Jinja2Templates
 from admin_api import router as admin_api_router
 from analytics import router as analytics_api_router
 from app_settings import ensure_settings_cached
+from bouncie_webhook_api import router as bouncie_webhook_api_router
 from core.http.session import cleanup_session
 from county_api import router as county_api_router
 from coverage_api import router as coverage_api_router
@@ -108,6 +109,7 @@ app.add_middleware(
 app.include_router(pages_router)
 app.include_router(admin_api_router)
 app.include_router(analytics_api_router)
+app.include_router(bouncie_webhook_api_router)
 app.include_router(county_api_router)
 app.include_router(coverage_api_router)
 app.include_router(driving_routes_router)

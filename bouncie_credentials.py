@@ -28,6 +28,7 @@ async def get_bouncie_credentials() -> dict[str, Any]:
             - client_secret: str
             - redirect_uri: str
             - authorization_code: str
+            - webhook_key: str
             - authorized_devices: list[str]
             - fetch_concurrency: int (defaults to 12)
             - access_token: str | None
@@ -49,6 +50,7 @@ async def get_bouncie_credentials() -> dict[str, Any]:
                 "client_secret": credentials.client_secret or "",
                 "redirect_uri": credentials.redirect_uri or "",
                 "authorization_code": credentials.authorization_code or "",
+                "webhook_key": credentials.webhook_key or "",
                 "authorized_devices": credentials.authorized_devices or [],
                 "fetch_concurrency": fetch_concurrency,
                 "access_token": credentials.access_token,
@@ -65,6 +67,7 @@ async def get_bouncie_credentials() -> dict[str, Any]:
             "client_secret": "",
             "redirect_uri": "",
             "authorization_code": "",
+            "webhook_key": "",
             "authorized_devices": [],
             "fetch_concurrency": 12,
             "access_token": None,
@@ -78,6 +81,7 @@ async def get_bouncie_credentials() -> dict[str, Any]:
             "client_secret": "",
             "redirect_uri": "",
             "authorization_code": "",
+            "webhook_key": "",
             "authorized_devices": [],
             "fetch_concurrency": 12,
             "access_token": None,
@@ -95,7 +99,8 @@ async def update_bouncie_credentials(credentials: dict[str, Any]) -> bool:
             Only fields present in this dict will be updated.
             Can include: client_id, client_secret, redirect_uri,
             authorization_code, authorized_devices (list or comma-separated string),
-            fetch_concurrency (int, optional), access_token, refresh_token, expires_at
+            fetch_concurrency (int, optional), access_token, refresh_token, expires_at,
+            webhook_key
 
     Returns:
         True if update was successful, False otherwise.
@@ -115,6 +120,11 @@ async def update_bouncie_credentials(credentials: dict[str, Any]) -> bool:
                     existing.redirect_uri = value
                 elif key == "authorization_code":
                     existing.authorization_code = value
+                elif key == "webhook_key":
+                    if value is None:
+                        continue
+                    webhook_key = str(value).strip()
+                    existing.webhook_key = webhook_key or None
                 elif key == "authorized_devices":
                     devices = value
                     if isinstance(devices, str):
@@ -152,6 +162,9 @@ async def update_bouncie_credentials(credentials: dict[str, Any]) -> bool:
             new_creds.redirect_uri = credentials["redirect_uri"]
         if "authorization_code" in credentials:
             new_creds.authorization_code = credentials["authorization_code"]
+        if "webhook_key" in credentials and credentials["webhook_key"] is not None:
+            webhook_key = str(credentials["webhook_key"]).strip()
+            new_creds.webhook_key = webhook_key or None
         if "authorized_devices" in credentials:
             devices = credentials["authorized_devices"]
             if isinstance(devices, str):

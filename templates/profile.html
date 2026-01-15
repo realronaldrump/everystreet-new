@@ -177,6 +177,25 @@ Profile Settings
 </div>
 </div>
 
+<!-- Webhook Key -->
+<div class="mb-3">
+  <label for="webhookKey" class="form-label">
+          Webhook Key
+  </label>
+  <div class="input-group">
+    <input type="password"
+           class="form-control credential-input"
+           id="webhookKey"
+           placeholder="Enter your Bouncie Webhook Key" />
+    <button class="btn btn-outline-secondary" type="button" id="toggleWebhookKey">
+      <i class="fas fa-eye"></i>
+    </button>
+  </div>
+  <div class="form-text">
+          Shared secret for validating Bouncie webhooks (Authorization/X-Bouncie-Authorization).
+  </div>
+</div>
+
 <!-- Authorized Devices -->
 <div class="mb-3">
   <label class="form-label">
