@@ -5,6 +5,37 @@ import store from "./spa/store.js";
 import state from "./state.js";
 import { utils } from "./utils.js";
 
+const getMapToken = (name, fallback) => {
+  if (typeof window === "undefined") {
+    return fallback;
+  }
+  const target = document.body || document.documentElement;
+  if (!target) {
+    return fallback;
+  }
+  const value = getComputedStyle(target).getPropertyValue(name).trim();
+  if (value) {
+    return value;
+  }
+  const rootValue = getComputedStyle(document.documentElement)
+    .getPropertyValue(name)
+    .trim();
+  return rootValue || fallback;
+};
+
+const getJourneyPalette = () => ({
+  lineHot: getMapToken("--journey-line-hot", "#fbd38d"),
+  lineWarm: getMapToken("--journey-line-warm", "#f29f80"),
+  lineSunset: getMapToken("--journey-line-sunset", "#e07a5f"),
+  lineCool: getMapToken("--journey-line-cool", "#7c9d96"),
+  lineOld: getMapToken("--journey-line-old", "#5f7d78"),
+  lineFaint: getMapToken("--journey-line-faint", "#334b47"),
+  lineSelected: getMapToken("--journey-line-selected", "#ffd166"),
+  matchedHot: getMapToken("--journey-line-matched-hot", "#9bc7d5"),
+  matchedCool: getMapToken("--journey-line-matched-cool", "#7aa3b8"),
+  matchedFaint: getMapToken("--journey-line-matched-faint", "#4a6670"),
+});
+
 // NOTE: this is extracted verbatim from `app.js` to keep behaviour identical.
 // Future refactors can safely trim dependencies now that the code is isolated.
 
@@ -27,8 +58,8 @@ const mapManager = {
       mapboxgl.accessToken = window.MAPBOX_ACCESS_TOKEN;
 
       if (!mapboxgl.supported()) {
-        mapElement.innerHTML
-          = '<div class="webgl-unsupported-message p-4 text-center">WebGL is not supported by your browser.</div>';
+        mapElement.innerHTML =
+          '<div class="webgl-unsupported-message p-4 text-center">WebGL is not supported by your browser.</div>';
         throw new Error("WebGL not supported");
       }
 
@@ -38,17 +69,18 @@ const mapManager = {
       mapboxgl.config.REPORT_MAP_LOAD_TIMES = false;
       mapboxgl.config.COLLECT_RESOURCE_TIMING = false;
 
-      const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
+      const theme =
+        document.documentElement.getAttribute("data-bs-theme") || "dark";
 
       // Determine initial map view
       const urlParams = new URLSearchParams(window.location.search);
       const latParam = parseFloat(urlParams.get("lat"));
       const lngParam = parseFloat(urlParams.get("lng"));
       const zoomParam = parseFloat(urlParams.get("zoom"));
-      const savedView
-        = store.get("map.view") || utils.getStorage(CONFIG.STORAGE_KEYS.mapView);
-      const mapCenter
-        = !Number.isNaN(latParam) && !Number.isNaN(lngParam)
+      const savedView =
+        store.get("map.view") || utils.getStorage(CONFIG.STORAGE_KEYS.mapView);
+      const mapCenter =
+        !Number.isNaN(latParam) && !Number.isNaN(lngParam)
           ? [lngParam, latParam]
           : savedView?.center || CONFIG.MAP.defaultCenter;
       const mapZoom = !Number.isNaN(zoomParam)
@@ -58,8 +90,8 @@ const mapManager = {
       // Determine initial map style - respect stored preference or use theme
       const storedMapType = utils.getStorage("mapType");
       const initialMapType = storedMapType || theme;
-      const initialStyle
-        = CONFIG.MAP.styles[initialMapType] || CONFIG.MAP.styles[theme];
+      const initialStyle =
+        CONFIG.MAP.styles[initialMapType] || CONFIG.MAP.styles[theme];
 
       loadingManager?.updateMessage("Creating map instance...");
 
@@ -112,7 +144,7 @@ const mapManager = {
             center: [center.lng, center.lat],
             zoom,
           },
-          { source: "map" }
+          { source: "map" },
         );
       }, CONFIG.MAP.debounceDelay);
 
@@ -141,7 +173,11 @@ const mapManager = {
             return;
           }
           const view = event.detail?.view;
-          if (!view || !Array.isArray(view.center) || !Number.isFinite(view.zoom)) {
+          if (
+            !view ||
+            !Array.isArray(view.center) ||
+            !Number.isFinite(view.zoom)
+          ) {
             return;
           }
           try {
@@ -159,7 +195,7 @@ const mapManager = {
       window.loadingManager?.hide();
       window.notificationManager.show(
         `Map initialization failed: ${error.message}`,
-        "danger"
+        "danger",
       );
       return false;
     }
@@ -191,11 +227,14 @@ const mapManager = {
     const queryLayers = [];
     if (state.map.getLayer("trips-hitbox")) {
       queryLayers.push("trips-hitbox");
-    } else if (!state.mapLayers.trips?.isHeatmap && state.map.getLayer("trips-layer")) {
+    } else if (
+      !state.mapLayers.trips?.isHeatmap &&
+      state.map.getLayer("trips-layer")
+    ) {
       queryLayers.push("trips-layer");
     } else if (
-      state.mapLayers.trips?.isHeatmap
-      && state.map.getLayer("trips-layer-1")
+      state.mapLayers.trips?.isHeatmap &&
+      state.map.getLayer("trips-layer-1")
     ) {
       queryLayers.push("trips-layer-1");
     }
@@ -211,6 +250,7 @@ const mapManager = {
         state.selectedTripId = null;
         state.selectedTripLayer = null;
         this.refreshTripStyles();
+        document.dispatchEvent(new CustomEvent("tripSelectionCleared"));
       }
       return;
     }
@@ -224,6 +264,7 @@ const mapManager = {
         state.selectedTripId = null;
         state.selectedTripLayer = null;
         this.refreshTripStyles();
+        document.dispatchEvent(new CustomEvent("tripSelectionCleared"));
       }
     }
   },
@@ -233,7 +274,32 @@ const mapManager = {
       return;
     }
 
-    const selectedId = state.selectedTripId ? String(state.selectedTripId) : null;
+    const selectedId = state.selectedTripId
+      ? String(state.selectedTripId)
+      : null;
+
+    const palette = getJourneyPalette();
+    const recencyExpr = [
+      "coalesce",
+      ["get", "es_recencyHours"],
+      ["get", "recencyHours"],
+      99999,
+    ];
+    const baseOpacityExpr = [
+      "interpolate",
+      ["linear"],
+      recencyExpr,
+      0,
+      0.95,
+      24,
+      0.8,
+      168,
+      0.55,
+      720,
+      0.3,
+      2160,
+      0.18,
+    ];
 
     ["trips", "matchedTrips"].forEach((layerName) => {
       const layerInfo = state.mapLayers[layerName];
@@ -251,40 +317,88 @@ const mapManager = {
         return;
       }
 
-      const baseColor = layerInfo.color || "#4A90D9";
+      const baseColor = layerInfo.color || palette.lineCool;
       const baseWeight = layerInfo.weight || 2;
+      const highlightColor = layerInfo.highlightColor || palette.lineSelected;
 
-      // Simple styling: highlight selected trip, otherwise use base color
-      const colorExpr = selectedId
+      const baseColorExpr = state.mapSettings.highlightRecentTrips
         ? [
-            "case",
-            [
-              "==",
-              ["to-string", ["coalesce", ["get", "transactionId"], ["get", "id"]]],
-              selectedId,
-            ],
-            layerInfo.highlightColor || "#FFD700",
-            baseColor,
+            "interpolate",
+            ["linear"],
+            recencyExpr,
+            ...(layerName === "matchedTrips"
+              ? [
+                  0,
+                  palette.matchedHot,
+                  24,
+                  palette.matchedHot,
+                  168,
+                  palette.matchedCool,
+                  720,
+                  baseColor,
+                  2160,
+                  baseColor,
+                ]
+              : [
+                  0,
+                  palette.lineHot,
+                  6,
+                  palette.lineWarm,
+                  24,
+                  palette.lineSunset,
+                  72,
+                  palette.lineCool,
+                  168,
+                  palette.lineOld,
+                  720,
+                  palette.lineFaint,
+                  2160,
+                  palette.lineFaint,
+                ]),
           ]
         : baseColor;
 
-      const widthExpr = selectedId
-        ? [
-            "case",
-            [
-              "==",
-              ["to-string", ["coalesce", ["get", "transactionId"], ["get", "id"]]],
-              selectedId,
-            ],
-            baseWeight * 2,
-            baseWeight,
-          ]
-        : baseWeight;
+      const selectionMatchExpr = [
+        "==",
+        [
+          "to-string",
+          [
+            "coalesce",
+            ["get", "transactionId"],
+            ["get", "id"],
+            ["get", "tripId"],
+          ],
+        ],
+        selectedId,
+      ];
+      const widthExpr = [
+        "interpolate",
+        ["linear"],
+        ["zoom"],
+        6,
+        baseWeight * 0.6,
+        10,
+        baseWeight,
+        14,
+        baseWeight * 1.5,
+        18,
+        baseWeight * 2.2,
+      ];
+
+      const colorExpr = selectedId
+        ? ["case", selectionMatchExpr, highlightColor, baseColorExpr]
+        : baseColorExpr;
+      const opacityExpr = state.mapSettings.highlightRecentTrips
+        ? ["*", layerInfo.opacity ?? 1, baseOpacityExpr]
+        : (layerInfo.opacity ?? 1);
+      const lineBlur =
+        typeof layerInfo.lineBlur === "number" ? layerInfo.lineBlur : 0;
 
       try {
         state.map.setPaintProperty(layerId, "line-color", colorExpr);
-        state.map.setPaintProperty(layerId, "line-opacity", layerInfo.opacity);
+        state.map.setPaintProperty(layerId, "line-opacity", opacityExpr);
         state.map.setPaintProperty(layerId, "line-width", widthExpr);
+        state.map.setPaintProperty(layerId, "line-blur", lineBlur);
       } catch (error) {
         console.warn("Failed to update trip styles:", error);
       }
@@ -311,10 +425,10 @@ const mapManager = {
     };
 
     if (
-      !selectedId
-      || state.selectedTripLayer !== "trips"
-      || !state.mapLayers.trips?.isHeatmap
-      || !state.mapLayers.trips?.visible
+      !selectedId ||
+      state.selectedTripLayer !== "trips" ||
+      !state.mapLayers.trips?.isHeatmap ||
+      !state.mapLayers.trips?.visible
     ) {
       removeOverlay();
       return;
@@ -322,11 +436,11 @@ const mapManager = {
 
     const tripLayer = state.mapLayers.trips?.layer;
     const matchingFeature = tripLayer?.features?.find((feature) => {
-      const featureId
-        = feature?.properties?.transactionId
-        || feature?.properties?.id
-        || feature?.properties?.tripId
-        || feature?.id;
+      const featureId =
+        feature?.properties?.transactionId ||
+        feature?.properties?.id ||
+        feature?.properties?.tripId ||
+        feature?.id;
       return featureId != null && String(featureId) === selectedId;
     });
 
@@ -341,8 +455,10 @@ const mapManager = {
       properties: matchingFeature.properties || {},
     };
 
-    const highlightColor
-      = window.MapStyles?.MAP_LAYER_COLORS?.trips?.selected || "#FFD700";
+    const highlightColor = getMapToken(
+      "--journey-line-selected",
+      window.MapStyles?.MAP_LAYER_COLORS?.trips?.selected || "#FFD700",
+    );
     const highlightWidth = [
       "interpolate",
       ["linear"],
@@ -420,16 +536,19 @@ const mapManager = {
       });
 
       if (hasFeatures && !bounds.isEmpty()) {
+        const prefersReducedMotion = window.matchMedia(
+          "(prefers-reduced-motion: reduce)",
+        ).matches;
         state.map.fitBounds(bounds, {
           padding: 50,
           maxZoom: 15,
-          duration: animate ? 1000 : 0,
+          duration: animate && !prefersReducedMotion ? 1000 : 0,
         });
       }
     });
   },
 
-  async zoomToTrip(tripId) {
+  async zoomToTrip(tripId, options = {}) {
     if (!state.map || !state.mapLayers.trips?.layer?.features) {
       return;
     }
@@ -441,8 +560,11 @@ const mapManager = {
 
     const { features } = state.mapLayers.trips.layer;
     const tripFeature = features.find((f) => {
-      const fId
-        = f.properties?.transactionId || f.properties?.id || f.properties?.tripId || f.id;
+      const fId =
+        f.properties?.transactionId ||
+        f.properties?.id ||
+        f.properties?.tripId ||
+        f.id;
       return String(fId) === String(tripId);
     });
 
@@ -461,10 +583,14 @@ const mapManager = {
     }
 
     if (!bounds.isEmpty()) {
+      const prefersReducedMotion = window.matchMedia(
+        "(prefers-reduced-motion: reduce)",
+      ).matches;
+      const duration = prefersReducedMotion ? 0 : (options.duration ?? 2000);
       state.map.fitBounds(bounds, {
         padding: 50,
         maxZoom: 15,
-        duration: 2000,
+        duration,
       });
 
       // Also select it
@@ -509,14 +635,17 @@ const mapManager = {
     }
 
     if (
-      lastCoord?.length === 2
-      && !Number.isNaN(lastCoord[0])
-      && !Number.isNaN(lastCoord[1])
+      lastCoord?.length === 2 &&
+      !Number.isNaN(lastCoord[0]) &&
+      !Number.isNaN(lastCoord[1])
     ) {
+      const prefersReducedMotion = window.matchMedia(
+        "(prefers-reduced-motion: reduce)",
+      ).matches;
       state.map.flyTo({
         center: lastCoord,
         zoom: targetZoom,
-        duration: 2000,
+        duration: prefersReducedMotion ? 0 : 2000,
         essential: true,
       });
     }

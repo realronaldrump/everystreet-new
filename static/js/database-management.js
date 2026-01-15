@@ -9,7 +9,8 @@ window.utils?.onPageLoad(
     let currentCollection = null;
     let currentButton = null;
 
-    const withSignal = (options = {}) => (signal ? { ...options, signal } : options);
+    const withSignal = (options = {}) =>
+      signal ? { ...options, signal } : options;
 
     function setButtonLoading(button, isLoading, action) {
       if (!button) {
@@ -19,7 +20,8 @@ window.utils?.onPageLoad(
       button.disabled = isLoading;
 
       if (isLoading) {
-        button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+        button.innerHTML =
+          '<i class="fas fa-spinner fa-spin"></i> Processing...';
       } else {
         switch (action) {
           case "clear":
@@ -49,7 +51,9 @@ window.utils?.onPageLoad(
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
+        throw new Error(
+          errorData.detail || `HTTP error! status: ${response.status}`,
+        );
       }
 
       return response.json();
@@ -61,8 +65,8 @@ window.utils?.onPageLoad(
       }
 
       if (storageText) {
-        storageText.textContent
-          = data.used_mb == null ? "Using N/A" : `Using ${data.used_mb}MB`;
+        storageText.textContent =
+          data.used_mb == null ? "Using N/A" : `Using ${data.used_mb}MB`;
       }
     }
 
@@ -75,23 +79,25 @@ window.utils?.onPageLoad(
           }
           try {
             setButtonLoading(refreshStorageBtn, true);
-            const data = await performDatabaseAction("/api/database/storage-info");
+            const data = await performDatabaseAction(
+              "/api/database/storage-info",
+            );
             updateStorageDisplay(data);
             window.notificationManager.show(
               "Storage information updated successfully",
-              "success"
+              "success",
             );
           } catch (error) {
             window.notificationManager.show(
               error.message || "Failed to perform database action",
-              "danger"
+              "danger",
             );
             setButtonLoading(currentButton, false, currentAction);
           } finally {
             setButtonLoading(refreshStorageBtn, false);
           }
         },
-        signal ? { signal } : false
+        signal ? { signal } : false,
       );
     }
 
@@ -118,7 +124,7 @@ window.utils?.onPageLoad(
           }
         }
       },
-      signal ? { signal } : false
+      signal ? { signal } : false,
     );
 
     // Table Sorting Logic
@@ -132,8 +138,8 @@ window.utils?.onPageLoad(
           "click",
           () => {
             const column = th.dataset.sort;
-            const dir
-              = currentSort.column === column && currentSort.dir === "asc"
+            const dir =
+              currentSort.column === column && currentSort.dir === "asc"
                 ? "desc"
                 : "asc";
 
@@ -156,12 +162,14 @@ window.utils?.onPageLoad(
             const rows = Array.from(tbody.querySelectorAll("tr"));
 
             rows.sort((a, b) => {
-              const aVal
-                = a.querySelector(`td[data-value]`).parentElement.children[th.cellIndex]
-                  .dataset.value;
-              const bVal
-                = b.querySelector(`td[data-value]`).parentElement.children[th.cellIndex]
-                  .dataset.value;
+              const aVal =
+                a.querySelector(`td[data-value]`).parentElement.children[
+                  th.cellIndex
+                ].dataset.value;
+              const bVal =
+                b.querySelector(`td[data-value]`).parentElement.children[
+                  th.cellIndex
+                ].dataset.value;
 
               let comparison = 0;
               if (column === "name") {
@@ -179,7 +187,7 @@ window.utils?.onPageLoad(
               tbody.appendChild(row);
             });
           },
-          signal ? { signal } : false
+          signal ? { signal } : false,
         );
       });
     }
@@ -200,7 +208,7 @@ window.utils?.onPageLoad(
         const result = await performDatabaseAction(endpoint, body);
         window.notificationManager.show(
           result.message || "Operation completed successfully",
-          "success"
+          "success",
         );
 
         setTimeout(() => {
@@ -211,11 +219,11 @@ window.utils?.onPageLoad(
       } catch (error) {
         window.notificationManager.show(
           error.message || "Failed to perform database action",
-          "danger"
+          "danger",
         );
         setButtonLoading(currentButton, false, currentAction);
       }
     }
   },
-  { route: "/database-management" }
+  { route: "/database-management" },
 );

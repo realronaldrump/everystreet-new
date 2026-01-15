@@ -44,11 +44,11 @@ const initializeLocationDropdown = async () => {
     areas.forEach((area) => {
       const option = document.createElement("option");
       option.value = area.id || area._id;
-      option.textContent
-        = area.display_name
-        || area.location?.display_name
-        || area.name
-        || "Unknown Location";
+      option.textContent =
+        area.display_name ||
+        area.location?.display_name ||
+        area.name ||
+        "Unknown Location";
       frag.appendChild(option);
     });
     dropdown.appendChild(frag);
@@ -97,6 +97,10 @@ const AppController = {
           throw new Error("Map init failed");
         }
 
+        if (document.body) {
+          document.body.classList.add("map-ready");
+        }
+
         layerManager.initializeControls();
         layerManager.bindHeatmapEvents();
         await initializeLocationDropdown();
@@ -110,10 +114,12 @@ const AppController = {
 
         // Restore street view modes if location is selected
         const selectedLocationId = utils.getStorage(
-          CONFIG.STORAGE_KEYS.selectedLocation
+          CONFIG.STORAGE_KEYS.selectedLocation,
         );
         if (selectedLocationId) {
-          let savedStates = utils.getStorage(CONFIG.STORAGE_KEYS.streetViewMode);
+          let savedStates = utils.getStorage(
+            CONFIG.STORAGE_KEYS.streetViewMode,
+          );
           // Handle migration from old string format
           if (typeof savedStates === "string") {
             const oldMode = savedStates;
@@ -138,7 +144,10 @@ const AppController = {
         window.loadingManager?.updateMessage("Loading map data...");
 
         // Fetch all visible layers during initialization
-        const fetchPromises = [dataManager.fetchTrips(), dataManager.fetchMetrics()];
+        const fetchPromises = [
+          dataManager.fetchTrips(),
+          dataManager.fetchMetrics(),
+        ];
 
         // Fetch matched trips if visible
         if (state.mapLayers.matchedTrips.visible) {
@@ -163,12 +172,21 @@ const AppController = {
         });
 
         if (window.PRELOAD_TRIP_ID) {
-          requestAnimationFrame(() => mapManager.zoomToTrip(window.PRELOAD_TRIP_ID));
+          requestAnimationFrame(() =>
+            mapManager.zoomToTrip(window.PRELOAD_TRIP_ID),
+          );
         } else if (state.mapLayers.trips?.layer?.features?.length) {
           requestAnimationFrame(() => mapManager.zoomToLastTrip());
         }
 
         document.dispatchEvent(new CustomEvent("initialDataLoaded"));
+        if (document.body) {
+          document.body.classList.add("map-ready");
+          document.body.classList.toggle(
+            "map-has-trips",
+            Boolean(state.mapLayers.trips?.layer?.features?.length),
+          );
+        }
       }
 
       document.dispatchEvent(new CustomEvent("appReady"));
@@ -184,6 +202,7 @@ const AppController = {
     // Controls toggle collapse icon
     const controlsToggle = utils.getElement("controls-toggle");
     const controlsContent = utils.getElement("controls-content");
+    const controlsPanel = utils.getElement("map-controls");
     if (controlsToggle && controlsContent) {
       // Initialize Bootstrap Collapse
       const collapse = new bootstrap.Collapse(controlsContent, {
@@ -201,6 +220,7 @@ const AppController = {
           icon.className = "fas fa-chevron-up";
         }
         controlsToggle.setAttribute("aria-expanded", "true");
+        controlsPanel?.classList.remove("is-collapsed");
       });
 
       controlsContent.addEventListener("hidden.bs.collapse", () => {
@@ -209,6 +229,7 @@ const AppController = {
           icon.className = "fas fa-chevron-down";
         }
         controlsToggle.setAttribute("aria-expanded", "false");
+        controlsPanel?.classList.add("is-collapsed");
       });
     }
 
@@ -258,7 +279,9 @@ const AppController = {
           btn.classList.toggle("active");
 
           // Save state - ensure we always work with an object
-          let currentStates = utils.getStorage(CONFIG.STORAGE_KEYS.streetViewMode);
+          let currentStates = utils.getStorage(
+            CONFIG.STORAGE_KEYS.streetViewMode,
+          );
           if (typeof currentStates !== "object" || currentStates === null) {
             currentStates = {};
           }
@@ -275,9 +298,13 @@ const AppController = {
     const centerBtn = utils.getElement("center-on-location");
     if (centerBtn) {
       centerBtn.addEventListener("click", async () => {
-        const geolocationService = (await import("./geolocation-service.js")).default;
+        const geolocationService = (await import("./geolocation-service.js"))
+          .default;
         if (!geolocationService.isSupported()) {
-          window.notificationManager.show("Geolocation is not supported", "warning");
+          window.notificationManager.show(
+            "Geolocation is not supported",
+            "warning",
+          );
           return;
         }
         centerBtn.disabled = true;
@@ -296,7 +323,7 @@ const AppController = {
           console.error("Geolocation error:", err);
           window.notificationManager.show(
             `Error getting location: ${err.message}`,
-            "danger"
+            "danger",
           );
           centerBtn.disabled = false;
           centerBtn.classList.remove("btn-loading");
@@ -327,6 +354,7 @@ const AppController = {
           await layerManager.updateMapLayer(name, info.layer);
         }
       }
+      mapManager.refreshTripStyles();
       window.loadingManager.hide();
     });
 
@@ -371,7 +399,10 @@ const AppController = {
 
     // Keyboard shortcuts
     window.addEventListener("keydown", (e) => {
-      if (!state.map || document.activeElement.matches("input, textarea, select")) {
+      if (
+        !state.map ||
+        document.activeElement.matches("input, textarea, select")
+      ) {
         return;
       }
       const actions = {
@@ -436,22 +467,30 @@ const AppController = {
       if (res) {
         window.notificationManager.show(
           `Map matching completed: ${res.message}`,
-          "success"
+          "success",
         );
         await dataManager.updateMap();
       }
     } catch (err) {
       console.error("Map match error:", err);
-      window.notificationManager.show(`Map matching error: ${err.message}`, "danger");
+      window.notificationManager.show(
+        `Map matching error: ${err.message}`,
+        "danger",
+      );
     } finally {
       window.loadingManager.hide();
     }
   },
 
   async handleStreetViewModeChange(mode, shouldHide = false) {
-    const selectedLocationId = utils.getStorage(CONFIG.STORAGE_KEYS.selectedLocation);
+    const selectedLocationId = utils.getStorage(
+      CONFIG.STORAGE_KEYS.selectedLocation,
+    );
     if (!selectedLocationId && !shouldHide) {
-      window.notificationManager.show("Please select a location first", "warning");
+      window.notificationManager.show(
+        "Please select a location first",
+        "warning",
+      );
       return;
     }
 

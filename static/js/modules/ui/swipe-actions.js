@@ -10,7 +10,8 @@ const swipeActions = {
         return;
       }
       item.dataset.swipeBound = "true";
-      const content = item.querySelector(".swipe-content") || item.firstElementChild;
+      const content =
+        item.querySelector(".swipe-content") || item.firstElementChild;
       const maxShift = 120;
       let startX = 0;
       let currentX = 0;

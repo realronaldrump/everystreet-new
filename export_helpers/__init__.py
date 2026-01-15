@@ -20,6 +20,7 @@ from .base import (
     CSV_BASE_FIELDS,
     CSV_GEOMETRY_FIELDS,
     CSV_LOCATION_FIELDS,
+    flatten_geopoint,
     flatten_location,
     get_location_filename,
     normalize_location_object,
@@ -54,6 +55,7 @@ from .trip_processing import (
     LOCATION_FIELDS,
     META_FIELDS,
     TELEMETRY_FIELDS,
+    compute_derived_fields,
     process_trip_for_export,
 )
 
@@ -71,6 +73,8 @@ __all__ = [
     "TELEMETRY_FIELDS",
     # GPX
     "build_gpx_from_coords",
+    # Trip processing functions
+    "compute_derived_fields",
     # CSV
     "create_csv_export",
     # Responses
@@ -83,6 +87,7 @@ __all__ = [
     "export_geojson_response",
     "export_gpx_response",
     "export_shapefile_response",
+    "flatten_geopoint",
     "flatten_location",
     "flatten_trip_for_csv",
     "get_location_filename",

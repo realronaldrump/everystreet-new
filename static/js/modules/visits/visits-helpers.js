@@ -77,11 +77,11 @@
     extractTripGeometry(trip) {
       // Check gps field first - may be GeoJSON object
       if (
-        trip.gps
-        && typeof trip.gps === "object"
-        && trip.gps.type === "LineString"
-        && trip.gps.coordinates
-        && trip.gps.coordinates.length > 0
+        trip.gps &&
+        typeof trip.gps === "object" &&
+        trip.gps.type === "LineString" &&
+        trip.gps.coordinates &&
+        trip.gps.coordinates.length > 0
       ) {
         trip.geometry = trip.gps;
         return;
@@ -93,7 +93,10 @@
       }
 
       // Try matchedGps field
-      if (trip.matchedGps?.coordinates && trip.matchedGps.coordinates.length > 0) {
+      if (
+        trip.matchedGps?.coordinates &&
+        trip.matchedGps.coordinates.length > 0
+      ) {
         trip.geometry = trip.matchedGps;
         return;
       }
@@ -108,12 +111,18 @@
           }
         } catch (e) {
           console.error("Failed to parse gps JSON", e);
-          window.notificationManager?.show("Failed to parse gps JSON.", "danger");
+          window.notificationManager?.show(
+            "Failed to parse gps JSON.",
+            "danger",
+          );
         }
       }
 
       // Fall back to creating line from start/destination points
-      if (trip.startGeoPoint?.coordinates && trip.destinationGeoPoint?.coordinates) {
+      if (
+        trip.startGeoPoint?.coordinates &&
+        trip.destinationGeoPoint?.coordinates
+      ) {
         trip.geometry = {
           type: "LineString",
           coordinates: [

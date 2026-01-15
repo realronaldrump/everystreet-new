@@ -43,7 +43,7 @@ export async function init({ signal, cleanup } = {}) {
 function initTooltips() {
   if (typeof bootstrap !== "undefined" && bootstrap.Tooltip) {
     tooltipInstances = Array.from(
-      document.querySelectorAll('[data-bs-toggle="tooltip"]')
+      document.querySelectorAll('[data-bs-toggle="tooltip"]'),
     ).map((el) => bootstrap.Tooltip.getOrCreateInstance(el));
   }
 }
@@ -58,17 +58,25 @@ function setupEventListeners(signal) {
     () => {
       loadAllData();
     },
-    signal ? { signal } : false
+    signal ? { signal } : false,
   );
 
   // View toggles
   document.querySelectorAll(".toggle-btn").forEach((btn) => {
-    btn.addEventListener("click", handleToggleChange, signal ? { signal } : false);
+    btn.addEventListener(
+      "click",
+      handleToggleChange,
+      signal ? { signal } : false,
+    );
   });
 
   // Metric cards
   document.querySelectorAll(".metric-card").forEach((card) => {
-    card.addEventListener("click", handleMetricClick, signal ? { signal } : false);
+    card.addEventListener(
+      "click",
+      handleMetricClick,
+      signal ? { signal } : false,
+    );
   });
 
   // FAB menu
@@ -96,7 +104,7 @@ function setupFabMenu(signal) {
           icon.classList.toggle("fa-times");
         }
       },
-      signal ? { signal } : false
+      signal ? { signal } : false,
     );
   }
 }
@@ -117,9 +125,12 @@ function setupFabActions(signal) {
       "click",
       () => {
         loadAllData();
-        InsightsExport.showNotification("Data refreshed successfully", "success");
+        InsightsExport.showNotification(
+          "Data refreshed successfully",
+          "success",
+        );
       },
-      signal ? { signal } : false
+      signal ? { signal } : false,
     );
   }
 
@@ -127,7 +138,7 @@ function setupFabActions(signal) {
     downloadBtn.addEventListener(
       "click",
       InsightsExport.generateReport,
-      signal ? { signal } : false
+      signal ? { signal } : false,
     );
   }
 
@@ -135,7 +146,7 @@ function setupFabActions(signal) {
     shareBtn.addEventListener(
       "click",
       InsightsExport.shareInsights,
-      signal ? { signal } : false
+      signal ? { signal } : false,
     );
   }
 
@@ -143,7 +154,7 @@ function setupFabActions(signal) {
     exportChartBtn.addEventListener(
       "click",
       InsightsExport.exportChart,
-      signal ? { signal } : false
+      signal ? { signal } : false,
     );
   }
 
@@ -151,7 +162,7 @@ function setupFabActions(signal) {
     exportDataBtn.addEventListener(
       "click",
       InsightsExport.exportData,
-      signal ? { signal } : false
+      signal ? { signal } : false,
     );
   }
 
@@ -161,7 +172,7 @@ function setupFabActions(signal) {
       () => {
         window.location.href = "/trips";
       },
-      signal ? { signal } : false
+      signal ? { signal } : false,
     );
   }
 }
@@ -184,14 +195,14 @@ export async function loadAllData() {
     // Update current period length (in days) for metrics that rely on it
     const periodDays = InsightsFormatters.calculateDaysDiff(
       dateRange.start,
-      dateRange.end
+      dateRange.end,
     );
     InsightsState.updateState({ currentPeriod: periodDays });
 
     // Calculate previous-period date range for trend comparisons
     const prevRange = InsightsFormatters.calculatePreviousRange(
       dateRange.start,
-      periodDays
+      periodDays,
     );
 
     // Fetch all data
@@ -207,7 +218,10 @@ export async function loadAllData() {
     InsightsTables.updateTables();
   } catch (error) {
     console.error("Error loading data:", error);
-    InsightsExport.showNotification("Error loading data. Please try again.", "error");
+    InsightsExport.showNotification(
+      "Error loading data. Please try again.",
+      "error",
+    );
   } finally {
     InsightsState.updateState({ isLoading: false });
     hideLoadingStates();
@@ -297,7 +311,7 @@ function startAutoRefresh() {
     () => {
       loadAllData();
     },
-    5 * 60 * 1000
+    5 * 60 * 1000,
   );
 
   InsightsState.updateState({ autoRefreshInterval: intervalId });
