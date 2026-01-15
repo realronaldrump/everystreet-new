@@ -9,7 +9,7 @@ import csv
 import json
 import logging
 from collections.abc import AsyncIterator
-from datetime import datetime
+from datetime import UTC, datetime
 from io import StringIO
 from typing import Any
 
@@ -54,19 +54,32 @@ class StreamingService:
                     return f"{s.strftime('%Y%m%d')}-{e.strftime('%Y%m%d')}"
             except Exception:
                 pass
-        return datetime.now().strftime("%Y%m%d")
+        return datetime.now(UTC).strftime("%Y%m%d")
 
     @staticmethod
     async def stream_geojson(cursor, geometry_field: str = "gps") -> AsyncIterator[str]:
         """Stream GeoJSON FeatureCollection from cursor."""
         yield '{"type":"FeatureCollection","features":['
         first = True
+        count = 0
+        missing_geom_count = 0
+
         async for trip in cursor:
             try:
+                count += 1
                 trip = _ensure_dict(trip)
+
                 geom = GeometryService.geometry_from_document(trip, geometry_field)
                 if not geom:
-                    continue
+                    missing_geom_count += 1
+                    # Log first few instances of missing geometry for debugging
+                    if missing_geom_count <= 5:
+                        logger.info(
+                            "Trip %s has no geometry in field '%s'. Exporting as null geometry.",
+                            trip.get("transactionId", "unknown"),
+                            geometry_field,
+                        )
+
                 props = {k: v for k, v in trip.items() if k != "gps"}
                 feature = GeometryService.feature_from_geometry(geom, props)
                 chunk = json.dumps(feature, separators=(",", ":"))
@@ -77,6 +90,13 @@ class StreamingService:
             except Exception as e:
                 logger.warning("Skipping trip in GeoJSON stream: %s", e)
                 continue
+
+        if missing_geom_count > 0:
+            logger.info(
+                "GeoJSON export: %d total trips, %d with null geometry",
+                count,
+                missing_geom_count,
+            )
         yield "]}"
 
     @staticmethod
@@ -104,9 +124,7 @@ class StreamingService:
 
         Note: GPX requires collecting trips first due to library structure.
         """
-        trips = []
-        async for trip in cursor:
-            trips.append(_ensure_dict(trip))
+        trips = [_ensure_dict(trip) async for trip in cursor]
 
         gpx_content = await create_gpx(trips)
         yield gpx_content

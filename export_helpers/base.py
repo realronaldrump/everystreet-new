@@ -13,43 +13,30 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 # CSV field definitions for consistent use across streaming and buffered exports
+# CSV location fields for flattened GeoPoint data
 CSV_LOCATION_FIELDS = [
-    "startLocation_formatted_address",
-    "startLocation_street_number",
-    "startLocation_street",
-    "startLocation_city",
-    "startLocation_county",
-    "startLocation_state",
-    "startLocation_postal_code",
-    "startLocation_country",
-    "startLocation_lat",
-    "startLocation_lng",
-    "destination_formatted_address",
-    "destination_street_number",
-    "destination_street",
-    "destination_city",
-    "destination_county",
-    "destination_state",
-    "destination_postal_code",
-    "destination_country",
-    "destination_lat",
-    "destination_lng",
+    "startGeoPoint_lng",
+    "startGeoPoint_lat",
+    "destinationGeoPoint_lng",
+    "destinationGeoPoint_lat",
+    "destinationPlaceId",
+    "destinationPlaceName",
 ]
 
-CSV_GEOMETRY_FIELDS = ["gps", "geometry", "path", "simplified_path", "route"]
+CSV_GEOMETRY_FIELDS = ["gps", "matchedGps", "coordinates"]
 
 CSV_BASE_FIELDS = [
     "_id",
     "transactionId",
-    "trip_id",
-    "trip_type",
+    "vin",
+    "imei",
+    "status",
     "startTime",
     "endTime",
     "duration",
+    "durationMinutes",
     "distance",
-    "imei",
     "source",
-    "completed",
 ]
 
 
@@ -71,12 +58,63 @@ def normalize_location_object(obj: Any) -> dict[str, Any]:
     return obj if isinstance(obj, dict) else {}
 
 
+def flatten_geopoint(
+    geopoint: dict[str, Any] | None,
+    prefix: str,
+) -> dict[str, Any]:
+    """
+    Flatten a GeoPoint (GeoJSON Point or LineString) into prefixed CSV columns.
+
+    Args:
+        geopoint: GeoJSON dict with type and coordinates
+        prefix: Field prefix (e.g., "startGeoPoint" or "destinationGeoPoint")
+
+    Returns:
+        Dict with flattened fields like "startGeoPoint_lat", "startGeoPoint_lng", etc.
+    """
+    result = {
+        f"{prefix}_lat": "",
+        f"{prefix}_lng": "",
+    }
+
+    if not geopoint or not isinstance(geopoint, dict):
+        return result
+
+    coords = geopoint.get("coordinates")
+    if not coords:
+        return result
+
+    # Handle Point: coordinates = [lng, lat]
+    if (
+        geopoint.get("type") == "Point"
+        and isinstance(coords, list)
+        and len(coords) >= 2
+    ):
+        result[f"{prefix}_lng"] = coords[0]
+        result[f"{prefix}_lat"] = coords[1]
+    # Handle LineString: use first coordinate
+    elif (
+        geopoint.get("type") == "LineString"
+        and isinstance(coords, list)
+        and len(coords) >= 1
+    ):
+        first_coord = coords[0]
+        if isinstance(first_coord, list) and len(first_coord) >= 2:
+            result[f"{prefix}_lng"] = first_coord[0]
+            result[f"{prefix}_lat"] = first_coord[1]
+
+    return result
+
+
 def flatten_location(
     location: dict[str, Any],
     prefix: str,
 ) -> dict[str, Any]:
     """
     Flatten a location object into prefixed CSV columns.
+
+    NOTE: This function is kept for backwards compatibility but trips don't
+    have this structure. Use flatten_geopoint for actual trip geo points.
 
     Args:
         location: Location dictionary with formatted_address, address_components, coordinates
