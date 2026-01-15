@@ -323,14 +323,13 @@ async def sync_vehicles_from_bouncie():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# --- App Settings (Mapbox, Clarity) ---
+# --- App Settings (Mapbox) ---
 
 
 class AppSettingsModel(BaseModel):
     """Model for app-wide settings."""
 
     mapbox_access_token: str | None = None
-    clarity_project_id: str | None = None
 
 
 @router.get("/api/profile/app-settings")
@@ -381,8 +380,6 @@ async def update_settings(settings: AppSettingsModel):
         # Only include fields that were explicitly provided
         if settings.mapbox_access_token is not None:
             settings_dict["mapbox_access_token"] = settings.mapbox_access_token
-        if settings.clarity_project_id is not None:
-            settings_dict["clarity_project_id"] = settings.clarity_project_id
 
         if not settings_dict:
             return {

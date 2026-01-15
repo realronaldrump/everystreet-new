@@ -798,7 +798,7 @@ class LiveTripTracker {
         console.info(`Initial trip loaded: ${data.trip.transactionId}`);
         this.updateTrip(data.trip);
       } else {
-        console.info("No active trip on startup");
+        // console.info("No active trip on startup");
         this.clearTrip();
       }
     } catch (error) {
@@ -826,7 +826,7 @@ class LiveTripTracker {
       this.ws = new WebSocket(url);
 
       this.ws.addEventListener("open", () => {
-        console.info("WebSocket connected");
+        // console.info("WebSocket connected");
         this.stopPolling();
         this.updateStatus(true);
       });

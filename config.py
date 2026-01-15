@@ -27,18 +27,6 @@ def get_mapbox_token() -> str:
     return get_cached_mapbox_token()
 
 
-def get_clarity_id() -> str | None:
-    """
-    Get Clarity project ID from cached settings.
-
-    This provides sync access to the ID for module-level usage. The
-    cache is populated at app startup via ensure_settings_cached().
-    """
-    from app_settings import get_cached_clarity_id
-
-    return get_cached_clarity_id()
-
-
 async def get_bouncie_config() -> dict[str, Any]:
     """
     Get Bouncie API configuration from database.
@@ -69,7 +57,6 @@ async def get_app_settings() -> dict[str, Any]:
     Returns:
         Dictionary containing:
             - mapbox_access_token: str
-            - clarity_project_id: str | None
     """
     from app_settings import get_app_settings as _get_app_settings
 
@@ -81,6 +68,5 @@ __all__ = [
     "AUTH_URL",
     "get_app_settings",
     "get_bouncie_config",
-    "get_clarity_id",
     "get_mapbox_token",
 ]

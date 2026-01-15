@@ -448,6 +448,7 @@
   background-color: var(--surface-4);
   border: none;
   cursor: pointer;
+  position: relative;
 }
 
 .form-check.form-switch .form-check-input:checked {
@@ -456,4 +457,16 @@
 
 .form-check.form-switch .form-check-input:focus {
   box-shadow: 0 0 0 2px rgb(var(--primary-rgb), 0.2);
+}
+
+.form-check.form-switch .form-check-input::before {
+  background-color: white;
+  width: 21px;
+  height: 21px;
+  left: 3px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.form-check.form-switch .form-check-input:checked::before {
+  transform: translate(24px, -50%);
 }

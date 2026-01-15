@@ -63,6 +63,11 @@ const mapManager = {
 
       loadingManager?.updateMessage("Creating map instance...");
 
+      // Clear container to prevent Mapbox warning
+      if (mapElement.hasChildNodes()) {
+        mapElement.innerHTML = "";
+      }
+
       state.map = new mapboxgl.Map({
         container: "map",
         style: initialStyle,
@@ -78,7 +83,7 @@ const mapManager = {
               // Use window.location.origin for base in case of relative URLs
               const parsed = new URL(url, window.location.origin);
               if (parsed.hostname === "events.mapbox.com") {
-                return null;
+                return { url: undefined };
               }
             } catch {
               // Ignore parse errors, do not block

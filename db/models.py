@@ -508,7 +508,6 @@ class AppSettings(Document):
     # but allow extra fields for extensibility.
     id: str = Field(default="default", alias="_id")
     mapbox_access_token: str | None = None
-    clarity_project_id: str | None = None
     updated_at: datetime | None = None
 
     class Settings:

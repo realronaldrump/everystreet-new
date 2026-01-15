@@ -5,7 +5,7 @@ from fastapi import APIRouter, HTTPException, Request, status
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
-from config import get_clarity_id, get_mapbox_token
+from config import get_mapbox_token
 from db.models import ALL_DOCUMENT_MODELS
 
 logger = logging.getLogger(__name__)
@@ -22,7 +22,6 @@ def _render_page(template_name: str, request: Request, **context: Any) -> HTMLRe
         template_name,
         {
             "request": request,
-            "CLARITY_PROJECT_ID": get_clarity_id(),
             **context,
         },
     )

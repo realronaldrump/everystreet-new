@@ -464,7 +464,7 @@
   }
 
   // ========================================
-  // App Settings (Mapbox, Clarity)
+  // App Settings (Mapbox)
   // ========================================
 
   /**
@@ -516,13 +516,8 @@
 
       if (data.status === "success" && data.settings) {
         const mapboxInput = document.getElementById("mapboxToken");
-        const clarityInput = document.getElementById("clarityProjectId");
-
         if (mapboxInput) {
           mapboxInput.value = data.settings.mapbox_access_token || "";
-        }
-        if (clarityInput) {
-          clarityInput.value = data.settings.clarity_project_id || "";
         }
 
         if (statusEl) {
@@ -561,10 +556,8 @@
 
     const statusEl = document.getElementById("appSettingsSaveStatus");
     const mapboxInput = document.getElementById("mapboxToken");
-    const clarityInput = document.getElementById("clarityProjectId");
 
     const mapboxToken = mapboxInput?.value.trim() || "";
-    const clarityProjectId = clarityInput?.value.trim() || null;
 
     // Validate Mapbox token format
     if (!mapboxToken) {
@@ -602,7 +595,6 @@
           },
           body: JSON.stringify({
             mapbox_access_token: mapboxToken,
-            clarity_project_id: clarityProjectId,
           }),
         })
       );
@@ -613,9 +605,6 @@
         // Explicitly ensure the values stay in the inputs (don't clear them)
         if (mapboxInput) {
           mapboxInput.value = mapboxToken;
-        }
-        if (clarityInput) {
-          clarityInput.value = clarityProjectId || "";
         }
 
         if (statusEl) {

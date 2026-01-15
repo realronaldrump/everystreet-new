@@ -40,14 +40,12 @@ async def get_app_settings() -> dict[str, Any]:
     Returns:
         Dictionary containing:
             - mapbox_access_token: str
-            - clarity_project_id: str | None
     """
 
     def get_empty_settings() -> dict[str, Any]:
         """Return empty settings structure when none configured."""
         return {
             "mapbox_access_token": "",
-            "clarity_project_id": None,
         }
 
     try:
@@ -65,11 +63,8 @@ async def get_app_settings() -> dict[str, Any]:
             if not token and hasattr(settings, "mapbox_access_token"):
                 token = getattr(settings, "mapbox_access_token", "")
 
-            clarity_id = settings.clarity_project_id
-
             result = {
                 "mapbox_access_token": token,
-                "clarity_project_id": clarity_id,
             }
             # Update cache
             SettingsCache.set_cache(result)
@@ -100,8 +95,6 @@ async def update_app_settings(settings: dict[str, Any]) -> bool:
 
         if "mapbox_access_token" in settings:
             update_data["mapbox_access_token"] = settings["mapbox_access_token"]
-        if "clarity_project_id" in settings:
-            update_data["clarity_project_id"] = settings["clarity_project_id"]
 
         if not update_data:
             logger.warning("No fields to update in app settings")
@@ -150,20 +143,6 @@ def get_cached_mapbox_token() -> str:
         token = cache["mapbox_access_token"]
 
     return token
-
-
-def get_cached_clarity_id() -> str | None:
-    """
-    Get Clarity ID from cache (sync access).
-
-    This is used for module-level imports where async isn't available.
-    The cache is populated when get_app_settings() is called. Falls back
-    to None if cache not yet populated.
-    """
-    cache = SettingsCache.get_cache()
-    if cache:
-        return cache.get("clarity_project_id")
-    return None
 
 
 async def ensure_settings_cached() -> None:
