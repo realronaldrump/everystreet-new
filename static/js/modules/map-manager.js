@@ -330,7 +330,9 @@ const mapManager = {
                   168,
                   palette.matchedCool,
                   720,
-                  palette.matchedFaint,
+                  baseColor,
+                  2160,
+                  baseColor,
                 ]
               : [
                   0,
