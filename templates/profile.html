@@ -82,6 +82,11 @@ Profile Settings
         Editing is locked to prevent accidental changes. Enable editing to update
         your credentials.
     </p>
+    <fieldset id="profileEditableFields"
+              class="profile-edit-fields"
+              disabled
+              aria-describedby="editModeHelpText">
+      <legend class="visually-hidden">Bouncie credentials</legend>
     <!-- Client ID -->
     <div class="mb-3">
       <label for="clientId" class="form-label">
@@ -91,6 +96,7 @@ Profile Settings
            class="form-control credential-input"
            id="clientId"
            data-editable="true"
+           disabled
            placeholder="Enter your Bouncie Client ID"
            required />
     <div class="form-text">
@@ -108,12 +114,14 @@ Profile Settings
            class="form-control credential-input"
            id="clientSecret"
            data-editable="true"
+           disabled
            placeholder="Enter your Bouncie Client Secret"
            required />
     <button class="btn btn-outline-secondary"
             type="button"
             id="toggleClientSecret"
-            data-editable="true">
+            data-editable="true"
+            disabled>
       <i class="fas fa-eye"></i>
     </button>
   </div>
@@ -131,6 +139,7 @@ Profile Settings
        class="form-control credential-input"
        id="redirectUri"
        data-editable="true"
+       disabled
        placeholder="https://your-domain.com/callback"
        required />
 <div class="form-text">
@@ -148,12 +157,14 @@ Profile Settings
          class="form-control credential-input"
          id="authorizationCode"
          data-editable="true"
+         disabled
          placeholder="Enter your Bouncie Authorization Code"
          required />
   <button class="btn btn-outline-secondary"
           type="button"
           id="toggleAuthCode"
-          data-editable="true">
+          data-editable="true"
+          disabled>
     <i class="fas fa-eye"></i>
   </button>
 </div>
@@ -173,7 +184,8 @@ Profile Settings
 <button type="button"
         class="btn btn-sm btn-outline-primary"
         id="addDeviceBtn"
-        data-editable="true">
+        data-editable="true"
+        disabled>
   <i class="fas fa-plus"></i> Add Device
 </button>
 <div class="form-text">
@@ -190,6 +202,7 @@ Profile Settings
          class="form-control"
          id="fetchConcurrency"
          data-editable="true"
+         disabled
          placeholder="12"
          min="1"
          max="50"
@@ -198,6 +211,7 @@ Profile Settings
           Maximum number of concurrent API requests when fetching trips (1-50, default: 12)
   </div>
 </div>
+    </fieldset>
 
 <!-- View-only Actions -->
 <div class="d-flex gap-2 flex-wrap profile-view-actions">

@@ -198,6 +198,14 @@
     if (!form) {
       return;
     }
+    const fieldset = document.getElementById("profileEditableFields");
+    if (fieldset) {
+      fieldset.disabled = !enabled;
+      fieldset.setAttribute("aria-disabled", (!enabled).toString());
+      if (fieldset.toggleAttribute) {
+        fieldset.toggleAttribute("inert", !enabled);
+      }
+    }
     const editableControls = form.querySelectorAll("[data-editable]");
     editableControls.forEach((control) => {
       control.disabled = !enabled;

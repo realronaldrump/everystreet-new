@@ -58,6 +58,13 @@
   margin-bottom: var(--space-3);
 }
 
+.profile-edit-fields {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+
 #bouncieCredentialsForm[data-editing="false"] .edit-only {
   display: none;
 }
