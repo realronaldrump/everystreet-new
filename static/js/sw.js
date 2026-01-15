@@ -1,6 +1,6 @@
 /* global clients */
 
-const CACHE_VERSION = "v3";
+const CACHE_VERSION = "v4";
 const APP_SHELL_CACHE = `everystreet-shell-${CACHE_VERSION}`;
 const API_CACHE = `everystreet-api-${CACHE_VERSION}`;
 const TILE_CACHE = `everystreet-tiles-${CACHE_VERSION}`;
