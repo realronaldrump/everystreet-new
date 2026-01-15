@@ -54,7 +54,9 @@ async def write_csv(
         writer.writeheader()
         async for item in cursor:
             record = serializer(item)
-            row = {field: _serialize_csv_value(record.get(field)) for field in fieldnames}
+            row = {
+                field: _serialize_csv_value(record.get(field)) for field in fieldnames
+            }
             writer.writerow(row)
             count += 1
             if progress:
@@ -69,7 +71,7 @@ async def write_geojson_features(
 ) -> int:
     count = 0
     with path.open("w", encoding="utf-8") as handle:
-        handle.write('{"type":"FeatureCollection","features":[")
+        handle.write('{"type":"FeatureCollection","features":[')
         first = True
         async for feature in features:
             if not first:
