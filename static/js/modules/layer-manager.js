@@ -745,11 +745,11 @@ const layerManager = {
       ["linear"],
       ["zoom"],
       10,
-      layerInfo.weight * 0.5,
+      layerInfo.weight ? Number(layerInfo.weight) * 0.5 : 1,
       15,
-      layerInfo.weight,
+      Number(layerInfo.weight) || 2,
       20,
-      layerInfo.weight * 2,
+      layerInfo.weight ? Number(layerInfo.weight) * 2 : 4,
     ]);
     if (layerInfo.dasharray) {
       state.map.setPaintProperty(layerId, "line-dasharray", layerInfo.dasharray);
@@ -840,11 +840,11 @@ const layerManager = {
           ["linear"],
           ["zoom"],
           10,
-          layerInfo.weight * 0.5,
+          layerInfo.weight ? Number(layerInfo.weight) * 0.5 : 1,
           15,
-          layerInfo.weight,
+          Number(layerInfo.weight) || 2,
           20,
-          layerInfo.weight * 2,
+          layerInfo.weight ? Number(layerInfo.weight) * 2 : 4,
         ],
       },
     };

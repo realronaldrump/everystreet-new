@@ -26,7 +26,7 @@ const searchManager = {
     this.clearSearchBtn = document.getElementById("clear-search-btn");
 
     if (!this.searchInput || !this.searchResults) {
-      console.warn("Search elements not found");
+      // Search elements not present on this page (e.g. export page)
       return;
     }
 

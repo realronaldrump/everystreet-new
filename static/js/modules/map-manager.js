@@ -308,7 +308,7 @@ const mapManager = {
       }
 
       const baseColor = layerInfo.color || palette.lineCool;
-      const baseWeight = layerInfo.weight || 2;
+      const baseWeight = Number(layerInfo.weight) || 2;
       const highlightColor = layerInfo.highlightColor || palette.lineSelected;
 
       const baseColorExpr = state.mapSettings.highlightRecentTrips
