@@ -1,11 +1,12 @@
 """
-Exports package for trip and geo data export functionality.
+Exports package for trip and coverage data export functionality.
 
-This package provides modular export functionality including:
-- Trip exports (GeoJSON, GPX, CSV, JSON, Shapefile)
-- Streets and boundary exports
+This package provides streamlined export functionality including:
+- Trip exports (GeoJSON, CSV with field filtering)
+- Streets exports with coverage status
+- Boundary exports
+- Undriven streets exports
 - Streaming support for large datasets
-- Advanced configurable exports
 
 The package is organized into:
 - routes/: API endpoint handlers
@@ -14,12 +15,13 @@ The package is organized into:
 
 from fastapi import APIRouter
 
-from exports.routes import geo_router, trips_router
+from exports.routes.domain_exports import router as domain_router
+from exports.routes.trips import router as trips_router
 
 # Create main router that aggregates all export-related routes
 router = APIRouter()
 
 router.include_router(trips_router, tags=["trip-exports"])
-router.include_router(geo_router, tags=["geo-exports"])
+router.include_router(domain_router, tags=["coverage-exports"])
 
 __all__ = ["router"]
