@@ -512,6 +512,9 @@ class MobileMapInterface {
   }
 
   destroy() {
+    if (!this.cleanupCallbacks) {
+      return;
+    }
     this.cleanupCallbacks.forEach((fn) => {
       try {
         fn();
