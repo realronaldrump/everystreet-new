@@ -54,9 +54,7 @@ class StreamingService:
                     return f"{s.strftime('%Y%m%d')}-{e.strftime('%Y%m%d')}"
             except Exception:
                 pass
-        from datetime import timezone
-
-        return datetime.now(timezone.utc).strftime("%Y%m%d")
+        return datetime.now(UTC).strftime("%Y%m%d")
 
     @staticmethod
     async def stream_geojson(cursor, geometry_field: str = "gps") -> AsyncIterator[str]:
