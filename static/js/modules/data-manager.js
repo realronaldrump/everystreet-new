@@ -51,6 +51,78 @@ const mapLoadingIndicator = (() => {
   };
 })();
 
+const parseNumber = (value) => {
+  if (value == null) {
+    return null;
+  }
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const parseTimestamp = (value) => {
+  if (!value) {
+    return null;
+  }
+  const ts = new Date(value).getTime();
+  return Number.isFinite(ts) ? ts : null;
+};
+
+const decorateTripFeatures = (data) => {
+  if (!data?.features?.length) {
+    return;
+  }
+
+  const now = Date.now();
+  const recentThresholdHours =
+    CONFIG.MAP.recentTripThreshold / (60 * 60 * 1000);
+
+  data.features.forEach((feature) => {
+    const props = feature.properties || {};
+
+    const startTs = parseTimestamp(
+      props.es_startTs || props.startTime || props.start_time,
+    );
+    const endTs = parseTimestamp(
+      props.es_endTs || props.endTime || props.end_time,
+    );
+
+    let durationSec = parseNumber(
+      props.es_durationSec || props.duration || props.drivingTime,
+    );
+    if (!durationSec && startTs && endTs) {
+      durationSec = (endTs - startTs) / 1000;
+    }
+
+    const distanceMiles = parseNumber(
+      props.es_distanceMiles || props.distance || props.distance_miles,
+    );
+    let avgSpeed = parseNumber(
+      props.es_avgSpeed ||
+        props.averageSpeed ||
+        props.avgSpeed ||
+        props.avg_speed,
+    );
+    if (!avgSpeed && distanceMiles && durationSec) {
+      avgSpeed = distanceMiles / (durationSec / 3600);
+    }
+
+    const recencyHours = endTs ? (now - endTs) / (60 * 60 * 1000) : null;
+
+    props.es_startTs = startTs;
+    props.es_endTs = endTs;
+    props.es_durationSec = durationSec;
+    props.es_distanceMiles = distanceMiles;
+    props.es_avgSpeed = avgSpeed;
+    props.es_recencyHours = recencyHours;
+    props.es_recencyDays = recencyHours != null ? recencyHours / 24 : null;
+    props.es_isRecent =
+      recencyHours != null ? recencyHours <= recentThresholdHours : false;
+    props.isRecent = props.isRecent ?? props.es_isRecent;
+
+    feature.properties = props;
+  });
+};
+
 const dataManager = {
   async fetchTrips() {
     if (!state.mapInitialized) {
@@ -58,7 +130,10 @@ const dataManager = {
     }
 
     const { loadingManager } = window;
-    loadingManager?.show("Loading trips...", { blocking: false, compact: true });
+    loadingManager?.show("Loading trips...", {
+      blocking: false,
+      compact: true,
+    });
     mapLoadingIndicator.show("Loading trips...");
 
     try {
@@ -71,23 +146,42 @@ const dataManager = {
         {},
         CONFIG.API.retryAttempts,
         CONFIG.API.cacheTime,
-        "fetchTrips"
+        "fetchTrips",
       );
 
       if (!tripData || tripData?.type !== "FeatureCollection") {
         loadingManager?.hide();
-        window.notificationManager?.show("Failed to load valid trip data", "danger");
+        window.notificationManager?.show(
+          "Failed to load valid trip data",
+          "danger",
+        );
         return null;
       }
 
-      loadingManager?.updateMessage(`Rendering ${tripData.features.length} trips...`);
-      mapLoadingIndicator.update(`Rendering ${tripData.features.length} trips...`);
+      decorateTripFeatures(tripData);
+
+      loadingManager?.updateMessage(
+        `Rendering ${tripData.features.length} trips...`,
+      );
+      mapLoadingIndicator.update(
+        `Rendering ${tripData.features.length} trips...`,
+      );
 
       await layerManager.updateMapLayer("trips", tripData);
+      state.mapLayers.trips.layer = tripData;
+      if (document.body) {
+        document.body.classList.toggle(
+          "map-has-trips",
+          tripData.features.length > 0,
+        );
+      }
 
       loadingManager?.updateMessage("Finalizing...");
       mapManager.refreshTripStyles();
       metricsManager.updateTripsTable(tripData);
+      document.dispatchEvent(
+        new CustomEvent("tripsUpdated", { detail: { trips: tripData } }),
+      );
 
       return tripData;
     } catch (error) {
@@ -122,23 +216,13 @@ const dataManager = {
         {},
         CONFIG.API.retryAttempts,
         CONFIG.API.cacheTime,
-        "fetchMatchedTrips"
+        "fetchMatchedTrips",
       );
 
       if (data?.type === "FeatureCollection") {
         // Tag recent matched trips
         try {
-          const now = Date.now();
-          const threshold = CONFIG.MAP.recentTripThreshold;
-          data.features.forEach((f) => {
-            const endTime = f?.properties?.endTime;
-            const endTs = endTime ? new Date(endTime).getTime() : null;
-            f.properties = f.properties || {};
-            f.properties.isRecent
-              = typeof endTs === "number" && !Number.isNaN(endTs)
-                ? now - endTs <= threshold
-                : false;
-          });
+          decorateTripFeatures(data);
         } catch (err) {
           console.warn("Failed to tag recent matched trips:", err);
         }
@@ -158,8 +242,14 @@ const dataManager = {
   },
 
   async fetchUndrivenStreets() {
-    const selectedLocationId = utils.getStorage(CONFIG.STORAGE_KEYS.selectedLocation);
-    if (!selectedLocationId || !state.mapInitialized || state.undrivenStreetsLoaded) {
+    const selectedLocationId = utils.getStorage(
+      CONFIG.STORAGE_KEYS.selectedLocation,
+    );
+    if (
+      !selectedLocationId ||
+      !state.mapInitialized ||
+      state.undrivenStreetsLoaded
+    ) {
       return null;
     }
 
@@ -170,7 +260,7 @@ const dataManager = {
         {},
         CONFIG.API.retryAttempts,
         CONFIG.API.cacheTime,
-        "fetchUndrivenStreets"
+        "fetchUndrivenStreets",
       );
 
       if (data?.type === "FeatureCollection") {
@@ -191,8 +281,14 @@ const dataManager = {
   },
 
   async fetchDrivenStreets() {
-    const selectedLocationId = utils.getStorage(CONFIG.STORAGE_KEYS.selectedLocation);
-    if (!selectedLocationId || !state.mapInitialized || state.drivenStreetsLoaded) {
+    const selectedLocationId = utils.getStorage(
+      CONFIG.STORAGE_KEYS.selectedLocation,
+    );
+    if (
+      !selectedLocationId ||
+      !state.mapInitialized ||
+      state.drivenStreetsLoaded
+    ) {
       return null;
     }
 
@@ -203,7 +299,7 @@ const dataManager = {
         {},
         CONFIG.API.retryAttempts,
         CONFIG.API.cacheTime,
-        "fetchDrivenStreets"
+        "fetchDrivenStreets",
       );
 
       if (data?.type === "FeatureCollection") {
@@ -224,8 +320,14 @@ const dataManager = {
   },
 
   async fetchAllStreets() {
-    const selectedLocationId = utils.getStorage(CONFIG.STORAGE_KEYS.selectedLocation);
-    if (!selectedLocationId || !state.mapInitialized || state.allStreetsLoaded) {
+    const selectedLocationId = utils.getStorage(
+      CONFIG.STORAGE_KEYS.selectedLocation,
+    );
+    if (
+      !selectedLocationId ||
+      !state.mapInitialized ||
+      state.allStreetsLoaded
+    ) {
       return null;
     }
 
@@ -236,7 +338,7 @@ const dataManager = {
         {},
         CONFIG.API.retryAttempts,
         CONFIG.API.cacheTime,
-        "fetchAllStreets"
+        "fetchAllStreets",
       );
 
       if (data?.type === "FeatureCollection") {
@@ -266,11 +368,13 @@ const dataManager = {
         {},
         CONFIG.API.retryAttempts,
         CONFIG.API.cacheTime,
-        "fetchMetrics"
+        "fetchMetrics",
       );
 
       if (data) {
-        document.dispatchEvent(new CustomEvent("metricsUpdated", { detail: data }));
+        document.dispatchEvent(
+          new CustomEvent("metricsUpdated", { detail: data }),
+        );
       }
       return data;
     } catch (error) {
@@ -302,7 +406,10 @@ const dataManager = {
       if (state.mapLayers.matchedTrips.visible) {
         promises.push(this.fetchMatchedTrips());
       }
-      if (state.mapLayers.undrivenStreets.visible && !state.undrivenStreetsLoaded) {
+      if (
+        state.mapLayers.undrivenStreets.visible &&
+        !state.undrivenStreetsLoaded
+      ) {
         promises.push(this.fetchUndrivenStreets());
       }
       if (state.mapLayers.drivenStreets.visible && !state.drivenStreetsLoaded) {
@@ -326,7 +433,7 @@ const dataManager = {
                 state.map.setLayoutProperty(
                   layerId,
                   "visibility",
-                  info.visible ? "visible" : "none"
+                  info.visible ? "visible" : "none",
                 );
               }
             }

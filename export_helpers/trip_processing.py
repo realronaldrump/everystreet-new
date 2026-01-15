@@ -7,71 +7,93 @@ field preferences.
 
 from typing import Any
 
-# Field category definitions
+# Field category definitions - aligned with Trip model in db/models.py
 BASIC_INFO_FIELDS = [
     "_id",
     "transactionId",
-    "trip_id",
+    "vin",
+    "imei",
+    "status",
     "startTime",
     "endTime",
-    "duration",
-    "durationInMinutes",
-    "completed",
-    "active",
+    "duration",  # Computed field
+    "durationMinutes",  # Computed field
 ]
 
 LOCATION_FIELDS = [
-    "startLocation",
-    "destination",
-    "startAddress",
-    "endAddress",
-    "startPoint",
-    "endPoint",
-    "state",
-    "city",
+    "startGeoPoint",
+    "destinationGeoPoint",
+    "destinationPlaceId",
+    "destinationPlaceName",
 ]
 
 TELEMETRY_FIELDS = [
     "distance",
-    "distanceInMiles",
     "startOdometer",
     "endOdometer",
+    "currentSpeed",
     "maxSpeed",
-    "averageSpeed",
-    "idleTime",
+    "avgSpeed",
+    "totalIdleDuration",
+    "hardBrakingCounts",
+    "hardAccelerationCounts",
     "fuelConsumed",
-    "fuelEconomy",
-    "speedingEvents",
+    "pointsRecorded",
 ]
 
 GEOMETRY_FIELDS = [
     "gps",
-    "path",
-    "simplified_path",
-    "route",
-    "geometry",
+    "matchedGps",
+    "coordinates",
 ]
 
 META_FIELDS = [
-    "deviceId",
-    "imei",
-    "vehicleId",
     "source",
-    "processingStatus",
-    "processingTime",
-    "mapMatchStatus",
-    "confidence",
-    "insertedAt",
-    "updatedAt",
+    "processing_state",
+    "matchStatus",
+    "matched_at",
+    "saved_at",
+    "lastUpdate",
+    "closed_reason",
+    "coverage_emitted_at",
+    "sequence",
 ]
 
 CUSTOM_FIELDS = [
-    "notes",
-    "tags",
-    "category",
-    "purpose",
-    "customFields",
+    "invalid",
+    "validated_at",
+    "validation_status",
+    "validation_message",
 ]
+
+
+def compute_derived_fields(trip: dict[str, Any]) -> dict[str, Any]:
+    """
+    Compute derived fields from actual trip data.
+
+    Calculates duration from startTime/endTime if not already present.
+
+    Args:
+        trip: Trip dictionary with raw fields
+
+    Returns:
+        Trip dictionary with computed fields added
+    """
+    # Compute duration from startTime and endTime
+    if "duration" not in trip or trip.get("duration") is None:
+        start = trip.get("startTime")
+        end = trip.get("endTime")
+        if start and end:
+            try:
+                # Handle datetime objects
+                if hasattr(start, "timestamp") and hasattr(end, "timestamp"):
+                    duration_seconds = (end - start).total_seconds()
+                    trip["duration"] = duration_seconds
+                    trip["durationMinutes"] = duration_seconds / 60.0
+            except (TypeError, AttributeError):
+                pass
+
+    return trip
 
 
 async def process_trip_for_export(
