@@ -24,7 +24,7 @@ Usage:
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from beanie import Document, Indexed, PydanticObjectId
@@ -414,6 +414,38 @@ class ProgressStatus(Document):
         extra = "allow"
 
 
+class ExportJob(Document):
+    """Export job status and artifact tracking."""
+
+    owner_key: str | None = None
+    status: str = "pending"  # "pending", "running", "completed", "failed"
+    progress: float = 0.0
+    message: str | None = None
+    error: str | None = None
+
+    # Export specification and results
+    spec: dict[str, Any] = Field(default_factory=dict)
+    result: dict[str, Any] | None = None
+
+    # Timing
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+    updated_at: datetime | None = None
+    expires_at: datetime | None = None
+
+    class Settings:
+        name = "export_jobs"
+        indexes = [
+            IndexModel([("status", 1)], name="export_jobs_status_idx"),
+            IndexModel([("created_at", -1)], name="export_jobs_created_idx"),
+            IndexModel([("owner_key", 1)], name="export_jobs_owner_idx"),
+        ]
+
+    class Config:
+        extra = "allow"
+
+
 class OptimalRouteProgress(Document):
     """Optimal route calculation progress document."""
 
@@ -615,6 +647,7 @@ ALL_DOCUMENT_MODELS = [
     TaskConfig,
     TaskHistory,
     ProgressStatus,
+    ExportJob,
     OptimalRouteProgress,
     GasFillup,
     Vehicle,

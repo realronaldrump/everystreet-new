@@ -1,0 +1,65 @@
+.export-page {
+  padding-bottom: var(--space-8);
+}
+
+.export-card {
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-sm);
+}
+
+.export-section {
+  margin-top: var(--space-5);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border-color-light);
+}
+
+.export-section:first-of-type {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+
+.export-actions {
+  margin-top: var(--space-5);
+}
+
+.export-summary {
+  border: 1px solid var(--border-color-light);
+  border-radius: var(--radius-sm);
+  padding: var(--space-4);
+  background: var(--surface-1);
+}
+
+.export-summary-title {
+  font-weight: var(--font-weight-semibold);
+  margin-bottom: var(--space-2);
+}
+
+.export-progress {
+  margin-top: var(--space-4);
+}
+
+.export-progress .progress {
+  height: 8px;
+  border-radius: var(--radius-pill);
+}
+
+.export-result {
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-color-light);
+}
+
+.export-help-card {
+  background: var(--surface-1);
+}
+
+.export-hero-meta {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-color-light);
+  background: var(--surface-1);
+}
+
+body.light-mode .export-hero-meta {
+  background: rgb(var(--surface-rgb), 0.6);
+}

@@ -51,6 +51,7 @@ from db.models import (
     GasFillup,
     MatchedTrip,
     OptimalRouteProgress,
+    ExportJob,
     OsmData,
     Place,
     ProgressStatus,
@@ -88,6 +89,7 @@ __all__ = [
     # Manager
     "DatabaseManager",
     "GasFillup",
+    "ExportJob",
     "Job",
     "MatchedTrip",
     "NewStreet",

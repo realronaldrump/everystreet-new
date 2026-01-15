@@ -1,229 +1,460 @@
-/**
- * Export Manager
- * Main orchestrator for all export functionality
- * Coordinates modules and handles initialization
- */
-
-import { onPageLoad } from "../utils.js";
-import { buildExportUrl } from "./api.js";
-import { EXPORT_CONFIG, EXPORT_TIMEOUT_MS } from "./config.js";
-import { downloadFile } from "./download.js";
-import { validateLocation, validateLocationInput } from "./location-validator.js";
-import { loadSavedExportSettings, saveExportSettings } from "./settings.js";
+import { announce, onPageLoad, showNotification } from "../utils.js";
 import {
-  cacheElements,
-  initDatePickers,
-  setButtonLoading,
-  updateUIBasedOnFormat,
-} from "./ui.js";
-import { initUndrivenStreetsExport } from "./undriven-streets.js";
+  createExportJob,
+  fetchCoverageAreas,
+  fetchExportStatus,
+  fetchVehicles,
+} from "./api.js";
 
-/**
- * ExportManager class
- * Manages all export functionality for the export page
- */
-class ExportManager {
-  constructor() {
-    /** @type {Object} Cached DOM elements */
-    this.elements = {};
+const ENTITY_LABELS = {
+  trips: "Trips",
+  matched_trips: "Matched Trips",
+  streets: "Streets",
+  boundaries: "Boundary",
+  undriven_streets: "Undriven Streets",
+};
 
-    /** @type {Object} Track active export operations */
-    this.activeExports = {};
+const DEFAULT_RANGE_DAYS = 30;
+const POLL_INTERVAL_MS = 2000;
+let activePoll = null;
 
-    /** @type {AbortSignal|null} */
-    this.pageSignal = null;
-  }
+function cacheElements() {
+  return {
+    form: document.getElementById("export-form"),
+    exportTrips: document.getElementById("export-trips"),
+    exportMatchedTrips: document.getElementById("export-matched-trips"),
+    tripFormat: document.getElementById("trip-format"),
+    includeTripGeometry: document.getElementById("include-trip-geometry"),
+    tripStartDate: document.getElementById("trip-start-date"),
+    tripEndDate: document.getElementById("trip-end-date"),
+    tripAllTime: document.getElementById("trip-all-time"),
+    tripStatus: document.getElementById("trip-status"),
+    tripVehicle: document.getElementById("trip-vehicle"),
+    vehicleOptions: document.getElementById("vehicle-options"),
+    tripIncludeInvalid: document.getElementById("trip-include-invalid"),
+    exportStreets: document.getElementById("export-streets"),
+    exportBoundaries: document.getElementById("export-boundaries"),
+    exportUndriven: document.getElementById("export-undriven"),
+    coverageArea: document.getElementById("coverage-area"),
+    exportError: document.getElementById("export-error"),
+    exportSummaryList: document.getElementById("export-summary-list"),
+    exportStatusText: document.getElementById("export-status-text"),
+    exportProgressBar: document.getElementById("export-progress-bar"),
+    exportProgressPercent: document.getElementById("export-progress-percent"),
+    exportResultDetails: document.getElementById("export-result-details"),
+    exportDownload: document.getElementById("export-download"),
+    exportReset: document.getElementById("export-reset"),
+  };
+}
 
-  /**
-   * Initialize the export manager
-   */
-  init({ signal } = {}) {
-    this.pageSignal = signal || null;
-    this.elements = cacheElements();
-    this.initEventListeners(signal);
-    initDatePickers(this.elements);
-    loadSavedExportSettings(this.elements, (format) =>
-      updateUIBasedOnFormat(format, this.elements)
-    );
-    initUndrivenStreetsExport({ signal });
+function getSelectedItems(elements) {
+  const items = [];
+  const format = elements.tripFormat.value;
+  const includeGeometry = elements.includeTripGeometry.checked;
 
-    // Initialize CSV options visibility
-    const formatSelect = document.getElementById("adv-format");
-    if (formatSelect) {
-      updateUIBasedOnFormat(formatSelect.value, this.elements);
-    }
-  }
-
-  /**
-   * Initialize event listeners for export forms
-   */
-  initEventListeners(signal) {
-    // Form submit handlers
-    Object.keys(EXPORT_CONFIG).forEach((formKey) => {
-      const form = this.elements[EXPORT_CONFIG[formKey].id];
-      if (form) {
-        form.addEventListener(
-          "submit",
-          (event) => {
-            event.preventDefault();
-            this.handleFormSubmit(formKey);
-          },
-          signal ? { signal } : false
-        );
-      }
+  if (elements.exportTrips.checked) {
+    items.push({
+      entity: "trips",
+      format,
+      include_geometry: includeGeometry,
     });
+  }
 
-    // Validate location button handlers
-    this.elements.validateButtons?.forEach((button) => {
-      button.addEventListener(
-        "mousedown",
-        (event) => {
-          if (event.button !== 0) {
-            return;
-          }
-          const targetId = event.currentTarget.dataset.target;
-          if (targetId) {
-            validateLocation(targetId);
-          }
-        },
-        signal ? { signal } : false
-      );
+  if (elements.exportMatchedTrips.checked) {
+    items.push({
+      entity: "matched_trips",
+      format,
+      include_geometry: includeGeometry,
     });
+  }
 
-    // Export all dates checkbox handler
-    if (this.elements.exportAllDates) {
-      this.elements.exportAllDates.addEventListener(
-        "change",
-        (event) => {
-          const { checked } = event.target;
-          const startDateInput = document.getElementById("adv-start-date");
-          const endDateInput = document.getElementById("adv-end-date");
+  if (elements.exportStreets.checked) {
+    items.push({ entity: "streets", format: "geojson" });
+  }
 
-          if (startDateInput && endDateInput) {
-            startDateInput.disabled = checked;
-            endDateInput.disabled = checked;
-          }
-        },
-        signal ? { signal } : false
-      );
+  if (elements.exportBoundaries.checked) {
+    items.push({ entity: "boundaries", format: "geojson" });
+  }
+
+  if (elements.exportUndriven.checked) {
+    items.push({ entity: "undriven_streets", format: "geojson" });
+  }
+
+  return items;
+}
+
+function updateGeometryToggle(elements) {
+  const format = elements.tripFormat.value;
+  const hasTripExports =
+    elements.exportTrips.checked || elements.exportMatchedTrips.checked;
+
+  if (!hasTripExports) {
+    elements.tripFormat.disabled = true;
+    elements.includeTripGeometry.disabled = true;
+    return;
+  }
+
+  elements.tripFormat.disabled = false;
+  elements.includeTripGeometry.disabled = format === "geojson";
+}
+
+function setDateDefaults(elements) {
+  const today = new Date();
+  const endValue = today.toISOString().slice(0, 10);
+  const start = new Date();
+  start.setDate(today.getDate() - DEFAULT_RANGE_DAYS);
+  const startValue = start.toISOString().slice(0, 10);
+
+  elements.tripStartDate.value = startValue;
+  elements.tripEndDate.value = endValue;
+}
+
+function toggleDateInputs(elements) {
+  const disabled = elements.tripAllTime.checked;
+  elements.tripStartDate.disabled = disabled;
+  elements.tripEndDate.disabled = disabled;
+}
+
+function setError(elements, message) {
+  if (!message) {
+    elements.exportError.classList.add("d-none");
+    elements.exportError.textContent = "";
+    return;
+  }
+  elements.exportError.textContent = message;
+  elements.exportError.classList.remove("d-none");
+}
+
+function updateSummary(elements) {
+  const items = getSelectedItems(elements);
+  elements.exportSummaryList.innerHTML = "";
+
+  if (!items.length) {
+    const li = document.createElement("li");
+    li.className = "text-secondary";
+    li.textContent = "No items selected yet.";
+    elements.exportSummaryList.appendChild(li);
+    return;
+  }
+
+  items.forEach((item) => {
+    const li = document.createElement("li");
+    const label = ENTITY_LABELS[item.entity] || item.entity;
+    li.textContent = `${label} (${item.format.toUpperCase()})`;
+    elements.exportSummaryList.appendChild(li);
+  });
+}
+
+function buildTripFilters(elements) {
+  const filters = {
+    include_invalid: elements.tripIncludeInvalid.checked,
+  };
+
+  if (!elements.tripAllTime.checked) {
+    if (elements.tripStartDate.value) {
+      filters.start_date = elements.tripStartDate.value;
     }
-
-    // Format select change handler
-    const formatSelect = document.getElementById("adv-format");
-    if (formatSelect) {
-      formatSelect.addEventListener(
-        "change",
-        (event) => {
-          updateUIBasedOnFormat(event.target.value, this.elements);
-        },
-        signal ? { signal } : false
-      );
+    if (elements.tripEndDate.value) {
+      filters.end_date = elements.tripEndDate.value;
     }
   }
 
-  /**
-   * Handle form submission for an export type
-   * @param {string} formType - Type of export form
-   */
-  async handleFormSubmit(formType) {
-    // Skip undrivenStreets, handled by its own handler
-    if (formType === "undrivenStreets") {
-      return;
-    }
+  if (elements.tripStatus.value) {
+    filters.status = [elements.tripStatus.value];
+  }
 
-    const config = EXPORT_CONFIG[formType];
-    if (!config) {
-      return;
-    }
+  const imei = elements.tripVehicle.value.trim();
+  if (imei) {
+    filters.imei = imei;
+  }
 
-    // Prevent duplicate exports
-    if (this.activeExports[formType]) {
-      window.notificationManager?.show(
-        `Already exporting ${config.name}. Please wait...`,
-        "info"
-      );
-      return;
-    }
+  return filters;
+}
 
-    const formElement = this.elements[config.id];
-    if (!formElement) {
-      return;
-    }
+function buildPayload(elements) {
+  const items = getSelectedItems(elements);
+  const hasTrips = items.some((item) =>
+    ["trips", "matched_trips"].includes(item.entity)
+  );
+  const payload = {
+    items,
+    area_id: elements.coverageArea.value || null,
+    trip_filters: hasTrips ? buildTripFilters(elements) : null,
+  };
 
-    const submitButton = formElement.querySelector('button[type="submit"]');
-    const originalText = setButtonLoading(submitButton, true, `Export ${config.name}`);
+  return payload;
+}
 
-    try {
-      this.activeExports[formType] = true;
-      window.notificationManager?.show(`Starting ${config.name} export...`, "info");
+function validateSelection(elements) {
+  const items = getSelectedItems(elements);
+  if (!items.length) {
+    return "Select at least one export item.";
+  }
 
-      const url = buildExportUrl(
-        formType,
-        config,
-        this.elements,
-        validateLocationInput,
-        () => saveExportSettings(this.elements)
-      );
+  const needsArea = items.some((item) =>
+    ["streets", "boundaries", "undriven_streets"].includes(item.entity)
+  );
+  if (needsArea && !elements.coverageArea.value) {
+    return "Select a coverage area for coverage exports.";
+  }
 
-      const abortController = new AbortController();
-      if (this.pageSignal) {
-        if (this.pageSignal.aborted) {
-          throw new DOMException("Aborted", "AbortError");
-        }
-        this.pageSignal.addEventListener("abort", () => abortController.abort(), {
-          once: true,
-        });
-      }
-      const timeoutId = setTimeout(() => {
-        abortController.abort();
-        window.handleError?.(
-          `Export operation timed out after ${EXPORT_TIMEOUT_MS / 1000} seconds: ${config.name}`
-        );
-      }, EXPORT_TIMEOUT_MS);
+  return null;
+}
 
-      try {
-        await downloadFile(url, config.name, abortController.signal);
-        window.notificationManager?.show(`${config.name} export completed`, "success");
-      } finally {
-        clearTimeout(timeoutId);
-      }
-    } catch (error) {
-      if (error.name === "AbortError") {
-        return;
-      }
-      console.error("Export error:", error);
-      window.notificationManager?.show(
-        `Export failed: ${error.message || "Unknown error"}`,
-        "error"
-      );
-    } finally {
-      this.activeExports[formType] = false;
-      setButtonLoading(submitButton, false, originalText);
-    }
+function updateStatus(elements, status) {
+  if (!status) {
+    elements.exportStatusText.textContent = "No export running";
+    elements.exportProgressPercent.textContent = "0%";
+    elements.exportProgressBar.style.width = "0%";
+    return;
+  }
+
+  const percent = Math.round(status.progress || 0);
+  elements.exportStatusText.textContent = status.message || status.status;
+  elements.exportProgressPercent.textContent = `${percent}%`;
+  elements.exportProgressBar.style.width = `${percent}%`;
+}
+
+function updateResult(elements, status) {
+  if (!status || status.status !== "completed") {
+    elements.exportResultDetails.textContent = "No export generated yet.";
+    elements.exportDownload.classList.add("d-none");
+    elements.exportDownload.removeAttribute("href");
+    return;
+  }
+
+  const records = status.result?.records || {};
+  const parts = Object.entries(records).map(
+    ([entity, count]) => `${ENTITY_LABELS[entity] || entity}: ${count}`
+  );
+
+  elements.exportResultDetails.textContent = parts.length
+    ? parts.join(" | ")
+    : "Export completed.";
+
+  if (status.download_url) {
+    elements.exportDownload.href = status.download_url;
+    elements.exportDownload.classList.remove("d-none");
   }
 }
 
-// Create singleton instance
-const exportManager = new ExportManager();
+function startPolling(elements, jobId, signal) {
+  if (activePoll) {
+    activePoll.stop();
+  }
 
-// Initialize on page load
-onPageLoad(
-  ({ signal, cleanup } = {}) => {
-    exportManager.init({ signal });
-    if (typeof cleanup === "function") {
-      cleanup(() => {
-        exportManager.elements = {};
-        exportManager.activeExports = {};
-        exportManager.pageSignal = null;
-      });
+  let polling = true;
+  const stop = () => {
+    polling = false;
+  };
+  activePoll = { stop };
+
+  const poll = async () => {
+    if (!polling) {
+      return;
     }
-  },
-  { route: "/export" }
-);
+    if (signal?.aborted) {
+      polling = false;
+      activePoll = null;
+      return;
+    }
 
-// Expose validateLocation globally for inline onclick handlers
-window.validateLocation = validateLocation;
+    try {
+      const status = await fetchExportStatus(jobId, signal);
+      updateStatus(elements, status);
+      updateResult(elements, status);
 
-// Export for module usage
-export { ExportManager, exportManager };
-export default exportManager;
+      if (["completed", "failed"].includes(status.status)) {
+        polling = false;
+        activePoll = null;
+        if (status.status === "failed") {
+          showNotification(`Export failed: ${status.error}`, "danger");
+        } else {
+          showNotification("Export ready to download", "success");
+        }
+        announce(status.message || `Export ${status.status}`, "polite");
+        return;
+      }
+    } catch (error) {
+      if (error.name === "AbortError") {
+        polling = false;
+        activePoll = null;
+        return;
+      }
+      polling = false;
+      activePoll = null;
+      setError(elements, error.message || "Failed to check export status.");
+      showNotification("Export status check failed", "danger");
+      return;
+    }
+
+    setTimeout(poll, POLL_INTERVAL_MS);
+  };
+
+  poll();
+}
+
+async function loadCoverageAreas(elements, signal) {
+  try {
+    const areas = await fetchCoverageAreas(signal);
+    elements.coverageArea.innerHTML = "";
+    elements.coverageArea.disabled = false;
+
+    if (!areas.length) {
+      const option = document.createElement("option");
+      option.value = "";
+      option.textContent = "No coverage areas found";
+      elements.coverageArea.appendChild(option);
+      elements.coverageArea.disabled = true;
+      return;
+    }
+
+    const placeholder = document.createElement("option");
+    placeholder.value = "";
+    placeholder.textContent = "Select an area";
+    elements.coverageArea.appendChild(placeholder);
+
+    let selectedReady = false;
+    areas.forEach((area) => {
+      const option = document.createElement("option");
+      option.value = area.id;
+      option.textContent =
+        area.status && area.status !== "ready"
+          ? `${area.display_name} (${area.status})`
+          : area.display_name;
+      if (area.status && area.status !== "ready") {
+        option.disabled = true;
+      }
+      if (!selectedReady && area.status === "ready") {
+        option.selected = true;
+        selectedReady = true;
+      }
+      elements.coverageArea.appendChild(option);
+    });
+  } catch (error) {
+    console.warn("Failed to load coverage areas:", error);
+    elements.coverageArea.innerHTML = "";
+    const option = document.createElement("option");
+    option.value = "";
+    option.textContent = "Unable to load areas";
+    elements.coverageArea.appendChild(option);
+    elements.coverageArea.disabled = true;
+  }
+}
+
+async function loadVehicles(elements, signal) {
+  const vehicles = await fetchVehicles(signal);
+  elements.vehicleOptions.innerHTML = "";
+
+  vehicles.forEach((vehicle) => {
+    if (!vehicle?.imei) {
+      return;
+    }
+    const option = document.createElement("option");
+    const label = vehicle.custom_name || vehicle.vin || vehicle.imei;
+    option.value = vehicle.imei;
+    option.textContent = label;
+    elements.vehicleOptions.appendChild(option);
+  });
+}
+
+function resetForm(elements) {
+  elements.exportTrips.checked = true;
+  elements.exportMatchedTrips.checked = false;
+  elements.exportStreets.checked = false;
+  elements.exportBoundaries.checked = false;
+  elements.exportUndriven.checked = false;
+  elements.tripFormat.value = "json";
+  elements.includeTripGeometry.checked = true;
+  elements.tripAllTime.checked = false;
+  setDateDefaults(elements);
+  toggleDateInputs(elements);
+  elements.tripStatus.value = "";
+  elements.tripVehicle.value = "";
+  elements.tripIncludeInvalid.checked = false;
+  setError(elements, null);
+  updateSummary(elements);
+  updateStatus(elements, null);
+  updateResult(elements, null);
+  updateGeometryToggle(elements);
+}
+
+function registerEventListeners(elements, signal) {
+  const inputs = [
+    elements.exportTrips,
+    elements.exportMatchedTrips,
+    elements.exportStreets,
+    elements.exportBoundaries,
+    elements.exportUndriven,
+    elements.tripFormat,
+    elements.includeTripGeometry,
+    elements.tripAllTime,
+  ];
+
+  inputs.forEach((input) => {
+    if (!input) {
+      return;
+    }
+    input.addEventListener("change", () => {
+      updateGeometryToggle(elements);
+      toggleDateInputs(elements);
+      updateSummary(elements);
+    });
+  });
+
+  elements.exportReset.addEventListener("click", () => resetForm(elements));
+
+  elements.form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    setError(elements, null);
+
+    const validationError = validateSelection(elements);
+    if (validationError) {
+      setError(elements, validationError);
+      showNotification(validationError, "danger");
+      return;
+    }
+
+    const payload = buildPayload(elements);
+    const submitButton = document.getElementById("export-submit");
+    submitButton.disabled = true;
+    submitButton.textContent = "Starting export...";
+
+    try {
+      const job = await createExportJob(payload, signal);
+      updateStatus(elements, {
+        status: job.status,
+        progress: job.progress,
+        message: job.message,
+      });
+      updateResult(elements, null);
+      announce("Export started", "polite");
+      showNotification("Export started", "info");
+      startPolling(elements, job.id, signal);
+    } catch (error) {
+      setError(elements, error.message || "Failed to start export.");
+      showNotification("Failed to start export", "danger");
+    } finally {
+      submitButton.disabled = false;
+      submitButton.innerHTML = "<i class=\"fas fa-download me-2\"></i>Create Export";
+    }
+  });
+}
+
+function initExportPage({ signal }) {
+  const elements = cacheElements();
+  if (!elements.form) {
+    return;
+  }
+
+  setDateDefaults(elements);
+  toggleDateInputs(elements);
+  updateGeometryToggle(elements);
+  updateSummary(elements);
+
+  loadCoverageAreas(elements, signal);
+  loadVehicles(elements, signal);
+  registerEventListeners(elements, signal);
+}
+
+onPageLoad(initExportPage, { route: "/export" });

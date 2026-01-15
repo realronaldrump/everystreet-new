@@ -169,7 +169,7 @@ async def get_optimal_route(area_id: PydanticObjectId):
 @router.get("/api/coverage/areas/{area_id}/optimal-route/gpx")
 async def export_optimal_route_gpx(area_id: PydanticObjectId):
     """Export optimal route as GPX file for navigation apps."""
-    from export_helpers import build_gpx_from_coords
+    from coverage.gpx import build_gpx_from_coords
 
     coverage_area = await _get_coverage_area(area_id)
 

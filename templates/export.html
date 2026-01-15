@@ -3,444 +3,234 @@
 {% block title %}
 
 Every Street - Export Data
-{% endblock
-%}
+{% endblock %}
+
+
+{% block extra_css %}
+  <link rel="stylesheet"
+        href="{{ url_for('static', path='css/export.css') | replace('http://', '//') }}" />
+{% endblock %}
 
 
 {% block content %}
-
-  <div class="container mt-4">
-    <h1 class="mb-4">
-Export Data
-    </h1>
-    <div class="row">
-      <div class="col-md-6">
-        <div class="card mb-4">
-          <div class="card-header">
-Export Trips
-          </div>
-          <div class="card-body">
-            <form id="export-trips-form">
-              <div class="mb-3">
-                <label for="trips-start-date" class="form-label">
-Start Date
-                </label>
-                <input type="date" class="form-control" id="trips-start-date" required />
-              </div>
-              <div class="mb-3">
-                <label for="trips-end-date" class="form-label">
-End Date
-                </label>
-                <input type="date" class="form-control" id="trips-end-date" required />
-              </div>
-              <div class="mb-3">
-                <label for="trips-format" class="form-label">
-Format
-                </label>
-                <select class="form-select" id="trips-format" required>
-                  <option value="geojson">
-GeoJSON
-                  </option>
-                  <option value="gpx">
-GPX
-                  </option>
-                </select>
-              </div>
-              <button type="submit" class="btn btn-primary">
-Export Trips
-              </button>
-            </form>
-          </div>
+  <div class="container-fluid export-page">
+    <div class="hero-section">
+      <div class="row align-items-center">
+        <div class="col-lg-8">
+          <h1 class="mb-3">
+            <i class="fas fa-file-export me-3"></i>Export Data
+          </h1>
+          <p class="lead mb-0">
+          Generate clean exports aligned to the current trips and coverage data model. Exports run in the
+          background and download as a packaged zip with a manifest.
+          </p>
         </div>
-      </div>
-      <div class="col-md-6">
-        <div class="card mb-4">
-          <div class="card-header">
-Export Map Matched Trips
-          </div>
-          <div class="card-body">
-            <form id="export-matched-trips-form">
-              <div class="mb-3">
-                <label for="matched-trips-start-date" class="form-label">
-Start Date
-                </label>
-                <input type="date" class="form-control" id="matched-trips-start-date" required />
-              </div>
-              <div class="mb-3">
-                <label for="matched-trips-end-date" class="form-label">
-End Date
-                </label>
-                <input type="date" class="form-control" id="matched-trips-end-date" required />
-              </div>
-              <div class="mb-3">
-                <label for="matched-trips-format" class="form-label">
-Format
-                </label>
-                <select class="form-select" id="matched-trips-format" required>
-                  <option value="geojson">
-GeoJSON
-                  </option>
-                  <option value="gpx">
-GPX
-                  </option>
-                </select>
-              </div>
-              <button type="submit" class="btn btn-primary">
-              Export Map Matched Trips
-              </button>
-            </form>
+        <div class="col-lg-4 text-lg-end mt-4 mt-lg-0">
+          <div class="export-hero-meta">
+            <div class="text-secondary small">Format</div>
+            <div class="fw-semibold">Zip bundle with manifest.json</div>
           </div>
         </div>
       </div>
     </div>
-    <div class="row mt-4">
-      <div class="col-md-6">
-        <div class="card mb-4">
+
+    <div class="row g-4">
+      <div class="col-xl-8">
+        <div class="card export-card">
           <div class="card-header">
-Export Streets
+            <h2 class="h5 mb-0">Export Configuration</h2>
           </div>
           <div class="card-body">
-            <form id="export-streets-form">
-              <div class="mb-3">
-                <label for="streets-location" class="form-label">
-Location
-                </label>
-                <div class="input-group">
-                  <input type="text" class="form-control" id="streets-location" required />
-                  <button type="button"
-                          class="btn btn-secondary"
-                          onclick="validateLocation('streets-location')">
-                  Validate
-                  </button>
-                </div>
-              </div>
-              <div class="mb-3">
-                <label for="streets-format" class="form-label">
-Format
-                </label>
-                <select class="form-select" id="streets-format" required>
-                  <option value="geojson">
-GeoJSON
-                  </option>
-                  <option value="shapefile">
-Shapefile
-                  </option>
-                </select>
-              </div>
-              <button type="submit" class="btn btn-primary" disabled>
-              Export Streets
-              </button>
-            </form>
-          </div>
-        </div>
-      </div>
-      <div class="col-md-6">
-        <div class="card mb-4">
-          <div class="card-header">
-Export Boundary
-          </div>
-          <div class="card-body">
-            <form id="export-boundary-form">
-              <div class="mb-3">
-                <label for="boundary-location" class="form-label">
-Location
-                </label>
-                <div class="input-group">
-                  <input type="text" class="form-control" id="boundary-location" required />
-                  <button type="button"
-                          class="btn btn-secondary"
-                          onclick="validateLocation('boundary-location')">
-                  Validate
-                  </button>
-                </div>
-              </div>
-              <div class="mb-3">
-                <label for="boundary-format" class="form-label">
-Format
-                </label>
-                <select class="form-select" id="boundary-format" required>
-                  <option value="geojson">
-GeoJSON
-                  </option>
-                  <option value="shapefile">
-Shapefile
-                  </option>
-                </select>
-              </div>
-              <button type="submit" class="btn btn-primary" disabled>
-              Export Boundary
-              </button>
-            </form>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="row mt-4">
-      <div class="col-md-6">
-        <div class="card mb-4">
-          <div class="card-header">
-Export Undriven Streets
-          </div>
-          <div class="card-body">
-            <form id="export-undriven-streets-form">
-              <div class="mb-3">
-                <label for="undriven-streets-location" class="form-label">
-Area
-                </label>
-                <select class="form-select" id="undriven-streets-location" required>
-                  <option value="">
-Loading areas...
-                  </option>
-                </select>
-              </div>
-              <div class="mb-3">
-                <label for="undriven-streets-format" class="form-label">
-Format
-                </label>
-                <select class="form-select" id="undriven-streets-format" required>
-                  <option value="geojson">
-GeoJSON
-                  </option>
-                  <option value="gpx">
-GPX
-                  </option>
-                </select>
-              </div>
-              <button type="submit" class="btn btn-primary" id="export-undriven-streets-btn" disabled>
-              Export Undriven Streets
-              </button>
-            </form>
-          </div>
-        </div>
-      </div>
-      <div class="col-md-6">
-        <div class="card mb-4">
-          <div class="card-header d-flex justify-content-between align-items-center">
-            <span>Advanced Export</span>
-            <button type="button"
-                    class="btn btn-sm btn-outline-secondary"
-                    data-bs-toggle="collapse"
-                    data-bs-target="#advancedExportBody">
-              <i class="fas fa-sliders-h"></i> Configure
-            </button>
-          </div>
-          <div id="advancedExportBody" class="card-body collapse show">
-            <form id="advanced-export-form">
-              <div class="row mb-4">
-                <div class="col-md-12">
-                  <h5>
-Data Sources
-                  </h5>
-                  <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="include-trips" checked />
-                    <label class="form-check-label" for="include-trips">
-                    Regular Trips
-                    </label>
-                  </div>
-                  <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="include-matched-trips" checked />
-                    <label class="form-check-label" for="include-matched-trips">
-                    Map-Matched Trips
-                    </label>
-                  </div>
-                </div>
-              </div>
-
-              <div class="row mb-4">
-                <div class="col-md-12">
-                  <h5>
-Data Fields
-                  </h5>
-                  <div class="row">
-                    <div class="col-md-4">
-                      <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="include-basic-info" checked />
-                        <label class="form-check-label" for="include-basic-info">
-                        Basic Info
-                        </label>
-                        <small class="form-text text-muted d-block">
-                        Trip ID, Start/End Time, Duration
-                        </small>
-                      </div>
-                    </div>
-                    <div class="col-md-4">
-                      <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="include-locations" checked />
-                        <label class="form-check-label" for="include-locations">
-                        Locations
-                        </label>
-                        <small class="form-text text-muted d-block">
-                        Start/End Locations, Addresses
-                        </small>
-                      </div>
-                    </div>
-                    <div class="col-md-4">
-                      <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="include-telemetry" checked />
-                        <label class="form-check-label" for="include-telemetry">
-                        Telemetry
-                        </label>
-                        <small class="form-text text-muted d-block">
-                        Speed, Distance, Fuel, etc.
-                        </small>
-                      </div>
-                    </div>
-                  </div>
-                  <div class="row mt-2">
-                    <div class="col-md-4">
-                      <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="include-geometry" checked />
-                        <label class="form-check-label" for="include-geometry">
-                        GPS Tracks
-                        </label>
-                        <small class="form-text text-muted d-block">
-                        Detailed GPS coordinates
-                        </small>
-                      </div>
-                    </div>
-                    <div class="col-md-4">
-                      <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="include-meta" checked />
-                        <label class="form-check-label" for="include-meta">
-                        Metadata
-                        </label>
-                        <small class="form-text text-muted d-block">
-                        Device ID, Processing Info
-                        </small>
-                      </div>
-                    </div>
-                    <div class="col-md-4">
-                      <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="include-custom" checked />
-                        <label class="form-check-label" for="include-custom">
-                        Custom Data
-                        </label>
-                        <small class="form-text text-muted d-block">
-                        Tags, Notes, Custom Fields
-                        </small>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div class="row mb-4">
-                <div class="col-md-6">
-                  <h5>
-Date Range
-                  </h5>
-                  <div class="mb-3">
-                    <label for="adv-start-date" class="form-label">
-Start Date
-                    </label>
-                    <input type="date" class="form-control" id="adv-start-date" />
-                  </div>
-                  <div class="mb-3">
-                    <label for="adv-end-date" class="form-label">
-End Date
-                    </label>
-                    <input type="date" class="form-control" id="adv-end-date" />
-                  </div>
-                  <div class="form-check mb-3">
-                    <input class="form-check-input" type="checkbox" id="export-all-dates" checked />
-                    <label class="form-check-label" for="export-all-dates">
-                    Export all dates (ignore date range)
-                    </label>
-                  </div>
-                </div>
-                <div class="col-md-6">
-                  <h5>
-Export Format
-                  </h5>
-                  <div class="mb-3">
-                    <label for="adv-format" class="form-label">
-Format
-                    </label>
-                    <select class="form-select" id="adv-format" required>
-                      <option value="geojson">
-GeoJSON
-                      </option>
-                      <option value="gpx">
-GPX
-                      </option>
-                      <option value="json" selected>
-                      JSON (most data fields)
-                      </option>
-                      <option value="csv">
-CSV (tabular data)
-                      </option>
-                      <option value="shapefile">
-Shapefile
-                      </option>
-                    </select>
-                    <small class="form-text text-muted d-block mt-1">
-                    Note: Some formats may not support all selected data fields
-                    </small>
-                  </div>
-
-                  <!-- CSV Export Options -->
-                  <div id="csv-options" class="mt-3" style="display: none">
-                    <h6>
-CSV Options
-                    </h6>
-                    <div class="form-check mb-2">
-                      <input class="form-check-input" type="checkbox" id="include-gps-in-csv" />
-                      <label class="form-check-label" for="include-gps-in-csv">
-                      Include GPS route data
-                      </label>
-                      <small class="form-text text-muted d-block">
-                      GPS data will be included as JSON strings (increases file
-                      size)
-                      </small>
-                    </div>
+            <form id="export-form">
+              <fieldset class="export-section">
+                <legend class="h6">Trip Data</legend>
+                <div class="row g-3">
+                  <div class="col-md-6">
                     <div class="form-check">
-                      <input class="form-check-input" type="checkbox" id="flatten-location-fields" checked />
-                      <label class="form-check-label" for="flatten-location-fields">
-                      Flatten location fields
+                      <input class="form-check-input" type="checkbox" id="export-trips" checked />
+                      <label class="form-check-label" for="export-trips">Trips</label>
+                      <div class="form-text">Raw GPS trips as stored in `trips`.</div>
+                    </div>
+                  </div>
+                  <div class="col-md-6">
+                    <div class="form-check">
+                      <input class="form-check-input" type="checkbox" id="export-matched-trips" />
+                      <label class="form-check-label" for="export-matched-trips">
+                        Matched Trips
                       </label>
-                      <small class="form-text text-muted d-block">
-                      Breaks down location objects into separate columns
-                      (address, city, state, etc.)
-                      </small>
+                      <div class="form-text">Trips with map-matched geometry.</div>
                     </div>
                   </div>
                 </div>
-              </div>
 
-              <div class="alert alert-info" role="alert">
-                <i class="fas fa-info-circle me-2"></i>
-              Export all your trip data for use in PowerBI, ArcGIS, or other
-              analytics tools. You can customize exactly what data to include.
-              </div>
-
-              <div class="d-flex justify-content-between align-items-center">
-                <div>
-                  <button type="submit" class="btn btn-primary">
-                    <i class="fas fa-download me-2"></i> Export Data
-                  </button>
-                </div>
-                <div>
-                  <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="save-export-settings" />
-                    <label class="form-check-label" for="save-export-settings">
-                    Save these settings for next time
-                    </label>
+                <div class="row g-3 mt-2">
+                  <div class="col-md-6">
+                    <label class="form-label" for="trip-format">Trip Export Format</label>
+                    <select class="form-select" id="trip-format">
+                      <option value="json" selected>JSON (full trip records)</option>
+                      <option value="csv">CSV (tabular)</option>
+                      <option value="geojson">GeoJSON (map-ready)</option>
+                    </select>
                   </div>
+                  <div class="col-md-6">
+                    <div class="form-check form-switch mt-4">
+                      <input class="form-check-input" type="checkbox" id="include-trip-geometry" checked />
+                      <label class="form-check-label" for="include-trip-geometry">
+                        Include geometry in JSON/CSV
+                      </label>
+                      <div class="form-text">Disabling keeps geometry fields as null.</div>
+                    </div>
+                  </div>
+                </div>
+              </fieldset>
+
+              <fieldset class="export-section">
+                <legend class="h6">Trip Filters</legend>
+                <div class="row g-3">
+                  <div class="col-md-4">
+                    <label class="form-label" for="trip-start-date">Start Date</label>
+                    <input type="date" class="form-control" id="trip-start-date" />
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label" for="trip-end-date">End Date</label>
+                    <input type="date" class="form-control" id="trip-end-date" />
+                  </div>
+                  <div class="col-md-4 d-flex align-items-end">
+                    <div class="form-check">
+                      <input class="form-check-input" type="checkbox" id="trip-all-time" />
+                      <label class="form-check-label" for="trip-all-time">All time</label>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="row g-3 mt-1">
+                  <div class="col-md-4">
+                    <label class="form-label" for="trip-status">Trip Status</label>
+                    <select class="form-select" id="trip-status">
+                      <option value="">All statuses</option>
+                      <option value="processed">Processed</option>
+                      <option value="completed">Completed</option>
+                      <option value="active">Active</option>
+                    </select>
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label" for="trip-vehicle">Vehicle (IMEI)</label>
+                    <input class="form-control" id="trip-vehicle" list="vehicle-options" placeholder="All vehicles" />
+                    <datalist id="vehicle-options"></datalist>
+                  </div>
+                  <div class="col-md-4 d-flex align-items-end">
+                    <div class="form-check">
+                      <input class="form-check-input" type="checkbox" id="trip-include-invalid" />
+                      <label class="form-check-label" for="trip-include-invalid">Include invalid trips</label>
+                    </div>
+                  </div>
+                </div>
+              </fieldset>
+
+              <fieldset class="export-section">
+                <legend class="h6">Coverage Data</legend>
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <div class="form-check">
+                      <input class="form-check-input" type="checkbox" id="export-streets" />
+                      <label class="form-check-label" for="export-streets">Streets</label>
+                      <div class="form-text">All street segments with status.</div>
+                    </div>
+                  </div>
+                  <div class="col-md-6">
+                    <div class="form-check">
+                      <input class="form-check-input" type="checkbox" id="export-boundaries" />
+                      <label class="form-check-label" for="export-boundaries">Boundary</label>
+                      <div class="form-text">Area polygon boundary.</div>
+                    </div>
+                  </div>
+                  <div class="col-md-6">
+                    <div class="form-check">
+                      <input class="form-check-input" type="checkbox" id="export-undriven" />
+                      <label class="form-check-label" for="export-undriven">Undriven Streets</label>
+                      <div class="form-text">Only undriven segments.</div>
+                    </div>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label" for="coverage-area">Coverage Area</label>
+                    <select class="form-select" id="coverage-area">
+                      <option value="">Select an area</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="form-text mt-2">Coverage exports are always GeoJSON.</div>
+              </fieldset>
+
+              <div class="export-actions">
+                <div class="alert alert-danger d-none" role="alert" id="export-error"></div>
+                <div class="d-flex flex-wrap gap-2">
+                  <button type="submit" class="btn btn-primary" id="export-submit">
+                    <i class="fas fa-download me-2"></i>Create Export
+                  </button>
+                  <button type="button" class="btn btn-outline-secondary" id="export-reset">
+                    Reset
+                  </button>
                 </div>
               </div>
             </form>
           </div>
         </div>
       </div>
+
+      <div class="col-xl-4">
+        <div class="card export-card export-status-card">
+          <div class="card-header">
+            <h2 class="h5 mb-0">Export Status</h2>
+          </div>
+          <div class="card-body">
+            <div id="export-summary" class="export-summary">
+              <div class="export-summary-title">Selected Items</div>
+              <ul class="list-unstyled mb-0" id="export-summary-list">
+                <li class="text-secondary">No items selected yet.</li>
+              </ul>
+            </div>
+
+            <div class="export-progress" id="export-progress">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="text-secondary" id="export-status-text">No export running</span>
+                <span class="text-secondary" id="export-progress-percent">0%</span>
+              </div>
+              <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100">
+                <div class="progress-bar" id="export-progress-bar" style="width: 0%"></div>
+              </div>
+            </div>
+
+            <div class="export-result mt-4" id="export-result">
+              <div class="export-summary-title">Latest Export</div>
+              <div class="text-secondary" id="export-result-details">No export generated yet.</div>
+              <a class="btn btn-success mt-3 d-none" id="export-download" href="#">
+                <i class="fas fa-file-archive me-2"></i>Download Zip
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <div class="card export-card export-help-card mt-4">
+          <div class="card-body">
+            <h3 class="h6">How exports work</h3>
+            <p class="text-secondary small mb-2">
+            Each export is generated from live data, packaged as a zip with a manifest and
+            ready for spreadsheets or GIS tools.
+            </p>
+            <ul class="small text-secondary mb-0">
+              <li>Trips include map-matched data only when requested.</li>
+              <li>Coverage exports require a ready coverage area.</li>
+              <li>Manifests include schema version and record counts.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
     </div>
-  </div>
-  <div id="map-controls" style="display: none">
   </div>
 {% endblock %}
 
 
 {% block extra_js %}
-
   <script type="module"
           src="{{ url_for('static', path='js/modules/export/index.js') | replace('http://', '//') }}"></script>
 {% endblock %}
