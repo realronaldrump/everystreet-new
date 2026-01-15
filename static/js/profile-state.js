@@ -21,7 +21,7 @@
 
   function normalizeValues(values = {}) {
     const devices = normalizeDevices(values.authorized_devices).map((item) =>
-      String(item || "").trim()
+      String(item || "").trim(),
     );
 
     return {
