@@ -353,19 +353,6 @@ const mapManager = {
           ]
         : baseColor;
 
-      const zoomWidthExpr = [
-        "interpolate",
-        ["linear"],
-        ["zoom"],
-        6,
-        baseWeight * 0.6,
-        10,
-        baseWeight,
-        14,
-        baseWeight * 1.5,
-        18,
-        baseWeight * 2.2,
-      ];
       const distanceScaleExpr = [
         "interpolate",
         ["linear"],
@@ -383,9 +370,6 @@ const mapManager = {
         80,
         1.7,
       ];
-      const baseWidthExpr = ["*", zoomWidthExpr, distanceScaleExpr];
-      const selectedWidthExpr = ["*", baseWidthExpr, 1.6];
-
       const selectionMatchExpr = [
         "==",
         [
@@ -394,13 +378,26 @@ const mapManager = {
         ],
         selectedId,
       ];
+      const selectionScaleExpr = selectedId
+        ? ["case", selectionMatchExpr, 1.6, 1]
+        : 1;
+      const widthExpr = [
+        "interpolate",
+        ["linear"],
+        ["zoom"],
+        6,
+        ["*", baseWeight * 0.6, distanceScaleExpr, selectionScaleExpr],
+        10,
+        ["*", baseWeight, distanceScaleExpr, selectionScaleExpr],
+        14,
+        ["*", baseWeight * 1.5, distanceScaleExpr, selectionScaleExpr],
+        18,
+        ["*", baseWeight * 2.2, distanceScaleExpr, selectionScaleExpr],
+      ];
 
       const colorExpr = selectedId
         ? ["case", selectionMatchExpr, highlightColor, baseColorExpr]
         : baseColorExpr;
-      const widthExpr = selectedId
-        ? ["case", selectionMatchExpr, selectedWidthExpr, baseWidthExpr]
-        : baseWidthExpr;
       const opacityExpr = state.mapSettings.highlightRecentTrips
         ? ["*", layerInfo.opacity ?? 1, baseOpacityExpr]
         : layerInfo.opacity ?? 1;
