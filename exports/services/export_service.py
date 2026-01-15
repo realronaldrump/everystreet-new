@@ -101,9 +101,7 @@ class ExportService:
         spec: dict[str, Any] = {
             "items": items,
             "trip_filters": (
-                request.trip_filters.model_dump()
-                if request.trip_filters
-                else None
+                request.trip_filters.model_dump() if request.trip_filters else None
             ),
             "area_id": str(request.area_id) if request.area_id else None,
             "created_at": now.isoformat(),
@@ -348,6 +346,7 @@ class ExportService:
                 progress.bump,
             )
         if fmt == "csv":
+
             def serializer(trip: Any) -> dict[str, Any]:
                 record = serialize_trip_record(
                     trip,
@@ -435,7 +434,9 @@ class ExportService:
         return await write_geojson_features(file_path, features())
 
     @staticmethod
-    def _build_trip_query(filters: dict[str, Any], matched_only: bool) -> dict[str, Any]:
+    def _build_trip_query(
+        filters: dict[str, Any], matched_only: bool
+    ) -> dict[str, Any]:
         query: dict[str, Any] = {}
         if filters:
             start_date = filters.get("start_date")
