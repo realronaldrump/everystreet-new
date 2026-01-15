@@ -82,10 +82,9 @@ async def bouncie_webhook(
     Always returns 2xx to prevent webhook deactivation.
     """
     try:
-        auth_header = (
-            request.headers.get("x-bouncie-authorization")
-            or request.headers.get("authorization")
-        )
+        auth_header = request.headers.get(
+            "x-bouncie-authorization"
+        ) or request.headers.get("authorization")
 
         raw_body = await request.body()
         if not raw_body:
