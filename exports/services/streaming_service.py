@@ -9,7 +9,7 @@ import csv
 import json
 import logging
 from collections.abc import AsyncIterator
-from datetime import datetime
+from datetime import UTC, datetime
 from io import StringIO
 from typing import Any
 
