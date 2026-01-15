@@ -82,7 +82,7 @@ export const CONFIG = {
     trips: {
       order: 1,
       color: "#7c9d96",
-      opacity: 0.75,
+      opacity: 0.82,
       visible: true,
       name: "Trip Trails",
       weight: 2.2,

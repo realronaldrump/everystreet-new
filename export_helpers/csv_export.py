@@ -15,8 +15,7 @@ from .base import (
     CSV_BASE_FIELDS,
     CSV_GEOMETRY_FIELDS,
     CSV_LOCATION_FIELDS,
-    flatten_location,
-    normalize_location_object,
+    flatten_geopoint,
 )
 
 logger = logging.getLogger(__name__)
@@ -51,25 +50,41 @@ def flatten_trip_for_csv(
             else:
                 flat[key] = "[Geometry data not included]"
 
-    # Handle location flattening
+    # Handle location flattening - use actual Trip model GeoPoint fields
     if flatten_location_fields:
-        start_loc = normalize_location_object(trip.get("startLocation", {}))
-        dest = normalize_location_object(trip.get("destination", {}))
+        # Flatten GeoPoint fields (actual Trip model structure)
+        start_geo = trip.get("startGeoPoint")
+        dest_geo = trip.get("destinationGeoPoint")
 
-        flat.update(flatten_location(start_loc, "startLocation"))
-        flat.update(flatten_location(dest, "destination"))
+        flat.update(flatten_geopoint(start_geo, "startGeoPoint"))
+        flat.update(flatten_geopoint(dest_geo, "destinationGeoPoint"))
+
+        # Include place info directly
+        if "destinationPlaceId" in trip:
+            flat["destinationPlaceId"] = trip["destinationPlaceId"]
+        if "destinationPlaceName" in trip:
+            flat["destinationPlaceName"] = trip["destinationPlaceName"]
     else:
-        # Include locations as JSON strings
-        if "startLocation" in trip:
-            flat["startLocation"] = json.dumps(trip["startLocation"])
-        if "destination" in trip:
-            flat["destination"] = json.dumps(trip["destination"])
+        # Include GeoPoints as JSON strings
+        if "startGeoPoint" in trip:
+            flat["startGeoPoint"] = json.dumps(trip["startGeoPoint"])
+        if "destinationGeoPoint" in trip:
+            flat["destinationGeoPoint"] = json.dumps(trip["destinationGeoPoint"])
 
     # Handle all other fields
     for key, value in trip.items():
         if key in flat:
             continue
-        if key in ["startLocation", "destination"] and flatten_location_fields:
+        if (
+            key
+            in [
+                "startGeoPoint",
+                "destinationGeoPoint",
+                "destinationPlaceId",
+                "destinationPlaceName",
+            ]
+            and flatten_location_fields
+        ):
             continue
         if key in CSV_GEOMETRY_FIELDS:
             continue
@@ -113,8 +128,8 @@ async def create_csv_export(
 
     if flatten_location_fields:
         fieldnames.update(CSV_LOCATION_FIELDS)
-        fieldnames.discard("startLocation")
-        fieldnames.discard("destination")
+        fieldnames.discard("startGeoPoint")
+        fieldnames.discard("destinationGeoPoint")
 
     fieldnames = sorted(fieldnames)
 

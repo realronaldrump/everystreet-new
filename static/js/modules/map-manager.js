@@ -275,11 +275,6 @@ const mapManager = {
       ["get", "recencyHours"],
       99999,
     ];
-    const distanceExpr = [
-      "to-number",
-      ["coalesce", ["get", "es_distanceMiles"], ["get", "distance"], 0],
-    ];
-
     const baseOpacityExpr = [
       "interpolate",
       ["linear"],
@@ -353,23 +348,6 @@ const mapManager = {
           ]
         : baseColor;
 
-      const distanceScaleExpr = [
-        "interpolate",
-        ["linear"],
-        distanceExpr,
-        0,
-        0.8,
-        3,
-        0.95,
-        8,
-        1.1,
-        20,
-        1.3,
-        40,
-        1.5,
-        80,
-        1.7,
-      ];
       const selectionMatchExpr = [
         "==",
         [
@@ -378,21 +356,18 @@ const mapManager = {
         ],
         selectedId,
       ];
-      const selectionScaleExpr = selectedId
-        ? ["case", selectionMatchExpr, 1.6, 1]
-        : 1;
       const widthExpr = [
         "interpolate",
         ["linear"],
         ["zoom"],
         6,
-        ["*", baseWeight * 0.6, distanceScaleExpr, selectionScaleExpr],
+        baseWeight * 0.6,
         10,
-        ["*", baseWeight, distanceScaleExpr, selectionScaleExpr],
+        baseWeight,
         14,
-        ["*", baseWeight * 1.5, distanceScaleExpr, selectionScaleExpr],
+        baseWeight * 1.5,
         18,
-        ["*", baseWeight * 2.2, distanceScaleExpr, selectionScaleExpr],
+        baseWeight * 2.2,
       ];
 
       const colorExpr = selectedId
