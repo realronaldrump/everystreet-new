@@ -12,7 +12,9 @@ class MapboxTokenTests(unittest.TestCase):
                 config.require_mapbox_token()
 
     def test_require_mapbox_token_requires_public_prefix(self):
-        with patch.dict(os.environ, {"MAPBOX_TOKEN": "sk.invalidtokenvalue"}, clear=True):
+        with patch.dict(
+            os.environ, {"MAPBOX_TOKEN": "sk.invalidtokenvalue"}, clear=True
+        ):
             with self.assertRaises(RuntimeError):
                 config.require_mapbox_token()
 
