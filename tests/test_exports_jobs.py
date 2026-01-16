@@ -48,7 +48,9 @@ class ExportJobLifecycleTests(unittest.IsolatedAsyncioTestCase):
                     with patch.object(
                         ExportService,
                         "_write_exports",
-                        new=AsyncMock(return_value={"records": {}, "files": [], "area": None}),
+                        new=AsyncMock(
+                            return_value={"records": {}, "files": [], "area": None}
+                        ),
                     ):
                         await ExportService.run_job(str(job.id))
 

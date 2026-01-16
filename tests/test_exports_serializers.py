@@ -6,8 +6,8 @@ from bson import ObjectId
 from exports.serializers import (
     serialize_boundary_properties,
     serialize_street_properties,
-    serialize_trip_record,
     serialize_trip_properties,
+    serialize_trip_record,
 )
 
 

@@ -80,9 +80,7 @@ def _calculate_duration_seconds(trip: Any) -> float | None:
 
 def build_trip_values(trip: Any) -> dict[str, Any]:
     duration_seconds = _calculate_duration_seconds(trip)
-    duration_minutes = (
-        duration_seconds / 60.0 if duration_seconds is not None else None
-    )
+    duration_minutes = duration_seconds / 60.0 if duration_seconds is not None else None
 
     values = {
         "tripId": _get_trip_id(trip),
