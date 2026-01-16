@@ -278,7 +278,7 @@ export async function clearTaskHistory(context, onSuccess) {
 export function gatherTaskConfigFromUI() {
   const config = { tasks: {} };
   const globalSwitch = document.getElementById("globalDisableSwitch");
-  config.disabled = globalSwitch?.checked || false;
+  config.globalDisable = globalSwitch?.checked || false;
 
   document.querySelectorAll("#taskConfigTable tbody tr").forEach((row) => {
     const { taskId } = row.dataset;

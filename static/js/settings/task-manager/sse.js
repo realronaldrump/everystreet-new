@@ -74,7 +74,8 @@ export function processSSEUpdates(updates, context) {
         const runButton = row.querySelector(".run-now-btn");
         if (runButton) {
           const manualOnly = row.dataset.manualOnly === "true";
-          runButton.disabled = manualOnly || newStatus === "RUNNING";
+          runButton.disabled = manualOnly
+            || ["RUNNING", "PENDING"].includes(newStatus);
           runButton.title = manualOnly
             ? "Use the manual fetch form below"
             : "Run task now";
@@ -132,11 +133,11 @@ export function updateActiveTasksMapFromSSE(updates, activeTasksMap, notifier) {
   const runningTasks = new Set();
 
   for (const [taskId, taskData] of Object.entries(updates)) {
-    if (taskData.status === "RUNNING") {
+    if (["RUNNING", "PENDING"].includes(taskData.status)) {
       runningTasks.add(taskId);
       if (!activeTasksMap.has(taskId)) {
         activeTasksMap.set(taskId, {
-          status: "RUNNING",
+          status: taskData.status,
           startTime: new Date(),
         });
 
@@ -189,11 +190,11 @@ export function updateActiveTasksMapFromConfig(config, activeTasksMap, notifier)
   const runningTasks = new Set();
 
   for (const [taskId, taskConfig] of Object.entries(config.tasks)) {
-    if (taskConfig.status === "RUNNING") {
+    if (["RUNNING", "PENDING"].includes(taskConfig.status)) {
       runningTasks.add(taskId);
       if (!activeTasksMap.has(taskId)) {
         activeTasksMap.set(taskId, {
-          status: "RUNNING",
+          status: taskConfig.status,
           startTime: new Date(),
         });
       }

@@ -20,20 +20,7 @@ services:
   worker:
     build: .
     restart: unless-stopped
-    command: celery -A celery_app worker --loglevel=info --pool=prefork --concurrency=2
-    env_file: .env
-    volumes:
-      - .:/app
-    depends_on:
-      - mongo
-      - redis
-    networks:
-      - default
-
-  beat:
-    build: .
-    restart: unless-stopped
-    command: celery -A celery_app beat --loglevel=info
+    command: arq tasks.worker.WorkerSettings
     env_file: .env
     volumes:
       - .:/app

@@ -1,7 +1,7 @@
 #!/bin/bash
 # dev-mac.sh - Run app locally on Mac (connects to remote database)
 #
-# By default, a LOCAL Celery worker IS started.
+# By default, a LOCAL ARQ worker IS started.
 # Use --no-local-worker flag to disable it (e.g. if relying on production worker).
 
 set -e
@@ -34,8 +34,8 @@ export $(grep -v '^#' .env | xargs)
 cleanup() {
     echo ""
     echo "Shutting down..."
-    if [ ! -z "$CELERY_PID" ]; then
-        kill $CELERY_PID 2>/dev/null || true
+    if [ ! -z "$ARQ_PID" ]; then
+        kill $ARQ_PID 2>/dev/null || true
     fi
     if [ ! -z "$UVICORN_PID" ]; then
         kill $UVICORN_PID 2>/dev/null || true
@@ -50,32 +50,32 @@ echo "Database: $MONGO_URI"
 echo ""
 
 # ---------------------------------------------------------
-# PRE-FLIGHT: Clean up any stale/zombie Celery workers
+# PRE-FLIGHT: Clean up any stale/zombie ARQ workers
 # ---------------------------------------------------------
-echo "Checking for stale Celery workers..."
-# We use pkill -f to find any process matching "celery worker"
+echo "Checking for stale ARQ workers..."
+# We use pkill -f to find any process matching "arq"
 # We ignore errors (|| true) in case there are none.
-pkill -f "celery worker" 2>/dev/null || true
+pkill -f "arq " 2>/dev/null || true
 # Wait a moment for them to die
 sleep 1
-if pgrep -f "celery worker" > /dev/null; then
+if pgrep -f "arq " > /dev/null; then
     echo "Force killing stubborn workers..."
-    pkill -9 -f "celery worker" 2>/dev/null || true
+    pkill -9 -f "arq " 2>/dev/null || true
 fi
 echo "Clean slate."
 # ---------------------------------------------------------
 
 
-# Optionally start local Celery worker
+# Optionally start local ARQ worker
 if [ "$START_LOCAL_WORKER" = true ]; then
-    echo "Starting LOCAL Celery worker..."
-    celery -A celery_app.app worker --loglevel=info --pool=solo &
-    CELERY_PID=$!
-    echo "Celery worker started (PID: $CELERY_PID)"
+    echo "Starting LOCAL ARQ worker..."
+    arq tasks.worker.WorkerSettings &
+    ARQ_PID=$!
+    echo "ARQ worker started (PID: $ARQ_PID)"
     # Wait for worker to be ready
     sleep 3
 else
-    echo "Skipping local Celery worker (tasks processed by production worker)"
+    echo "Skipping local ARQ worker (tasks processed by production worker)"
 fi
 
 # Start uvicorn with auto-reload
@@ -89,9 +89,9 @@ echo "========================================"
 echo "EveryStreet is running!"
 echo "  - Web UI: http://localhost:8080"
 if [ "$START_LOCAL_WORKER" = true ]; then
-    echo "  - Local Celery worker: ACTIVE"
+    echo "  - Local ARQ worker: ACTIVE"
 else
-    echo "  - Local Celery worker: DISABLED (using production/remote)"
+    echo "  - Local ARQ worker: DISABLED (using production/remote)"
 fi
 echo "  - Press Ctrl+C to stop all services"
 echo "========================================"

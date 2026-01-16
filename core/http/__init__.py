@@ -6,10 +6,9 @@ from core.http.geocoding import (
     validate_location_osm,
 )
 from core.http.retry import retry_async
-from core.http.session import SessionState, cleanup_session, get_session
+from core.http.session import cleanup_session, get_session
 
 __all__ = [
-    "SessionState",
     "cleanup_session",
     "get_session",
     "retry_async",

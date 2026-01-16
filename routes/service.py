@@ -61,7 +61,7 @@ async def generate_optimal_route_with_progress(
         await update_progress("initializing", 0, "Starting optimal route generation...")
 
         # Find coverage area by ID
-        # location_id may be str (from Celery) or PydanticObjectId
+        # location_id may be str (from background job) or PydanticObjectId
         if isinstance(location_id, str):
             location_id = PydanticObjectId(location_id)
 
@@ -665,7 +665,7 @@ async def save_optimal_route(
 
     try:
         route_doc = dict(route_result)
-        # location_id may be str (from Celery) or PydanticObjectId
+        # location_id may be str (from background job) or PydanticObjectId
         if isinstance(location_id, str):
             location_id = PydanticObjectId(location_id)
 

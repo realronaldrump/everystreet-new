@@ -25,6 +25,7 @@ export const STATUS_COLORS = {
   PENDING: "info",
   COMPLETED: "success",
   FAILED: "danger",
+  CANCELLED: "secondary",
   PAUSED: "warning",
   IDLE: "secondary",
 };

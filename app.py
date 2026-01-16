@@ -28,6 +28,7 @@ from processing_api import router as processing_api_router
 from profile_api import router as profile_api_router
 from search_api import router as search_api_router
 from tasks_api import router as tasks_api_router
+from tasks.arq import close_arq_pool
 from trips import router as trips_router
 from visits import router as visits_router
 
@@ -179,6 +180,7 @@ async def startup_event():
 @app.on_event("shutdown")
 async def shutdown_event() -> None:
     """Clean up resources when shutting down."""
+    await close_arq_pool()
     await db_manager.cleanup_connections()
     await cleanup_session()
     logger.info("Application shutdown completed successfully")

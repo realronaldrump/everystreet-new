@@ -1,7 +1,7 @@
 """
 Optimal route generation task.
 
-This module provides the Celery task for generating optimal completion
+This module provides the ARQ job for generating optimal completion
 routes for coverage areas using the Rural Postman Problem (RPP)
 algorithm.
 """
@@ -10,20 +10,17 @@ from __future__ import annotations
 
 from typing import Any
 
-from celery import shared_task
-from celery.utils.log import get_task_logger
+import logging
 
-from core.async_bridge import run_async_from_sync
 from routes import generate_optimal_route_with_progress, save_optimal_route
-from tasks.core import task_runner
+from tasks.ops import run_task_with_history
 
-logger = get_task_logger(__name__)
+logger = logging.getLogger(__name__)
 
 
-@task_runner
-async def generate_optimal_route_async(
-    _self,
+async def _generate_optimal_route_logic(
     location_id: str,
+    task_id: str,
     start_lon: float | None = None,
     start_lat: float | None = None,
 ) -> dict[str, Any]:
@@ -41,11 +38,6 @@ async def generate_optimal_route_async(
     Returns:
         Dict with route coordinates, distances, and stats
     """
-    import uuid
-
-    # Get the Celery task ID for progress tracking
-    task_id = getattr(_self.request, "id", None) or str(uuid.uuid4())
-
     logger.info(
         "Starting optimal route generation for location %s (task: %s, start: %s, %s)",
         location_id,
@@ -77,27 +69,28 @@ async def generate_optimal_route_async(
     return result
 
 
-@shared_task(
-    bind=True,
-    max_retries=2,
-    default_retry_delay=60,
-    time_limit=1800,  # 30 minutes max
-    soft_time_limit=1700,
-    name="tasks.generate_optimal_route",
-)
-def generate_optimal_route_task(
-    _self,
+async def generate_optimal_route(
+    ctx: dict[str, Any],
     location_id: str,
     start_lon: float | None = None,
     start_lat: float | None = None,
-    **_kwargs,
+    manual_run: bool = False,
 ):
-    """Celery task wrapper for generating optimal completion route."""
-    return run_async_from_sync(
-        generate_optimal_route_async(
-            _self,
+    """ARQ job for generating optimal completion route."""
+    if not ctx.get("job_id"):
+        import uuid
+
+        ctx["job_id"] = str(uuid.uuid4())
+    job_id = ctx["job_id"]
+
+    return await run_task_with_history(
+        ctx,
+        "generate_optimal_route",
+        lambda: _generate_optimal_route_logic(
             location_id=location_id,
+            task_id=job_id,
             start_lon=start_lon,
             start_lat=start_lat,
         ),
+        manual_run=manual_run,
     )

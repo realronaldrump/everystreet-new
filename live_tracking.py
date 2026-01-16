@@ -472,25 +472,20 @@ async def process_trip_end(data: dict[str, Any]) -> None:
                 coverage_err,
             )
 
-    # Trigger periodic fetch
+    # Trigger targeted fetch in ARQ
     try:
-        from celery_app import app as celery_app
+        from tasks.ops import enqueue_task
 
-        celery_task_id = f"fetch_trip_{transaction_id}_{uuid.uuid4()}"
-        task_kwargs = {
-            "transaction_id": transaction_id,
-            "trigger_source": "trip_end",
-        }
-        celery_app.send_task(
-            "tasks.fetch_trip_by_transaction_id",
-            kwargs=task_kwargs,
-            task_id=celery_task_id,
-            queue="default",
+        enqueue_result = await enqueue_task(
+            "fetch_trip_by_transaction_id",
+            transaction_id=transaction_id,
+            trigger_source="trip_end",
+            manual_run=False,
         )
         logger.info(
-            "Triggered targeted fetch for trip %s (task_id: %s)",
+            "Triggered targeted fetch for trip %s (job_id: %s)",
             transaction_id,
-            celery_task_id,
+            enqueue_result.get("job_id"),
         )
     except Exception as trigger_err:
         logger.warning(

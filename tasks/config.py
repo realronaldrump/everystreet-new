@@ -11,12 +11,59 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+import logging
 from beanie.operators import In
-from celery.utils.log import get_task_logger
 
 from db.models import TaskConfig, TaskHistory
+from tasks.registry import TASK_DEFINITIONS, get_dependencies
 
-logger = get_task_logger(__name__)
+logger = logging.getLogger(__name__)
+
+GLOBAL_TASK_ID = "__global__"
+
+
+async def _get_or_create_task_config(task_id: str) -> TaskConfig:
+    task_config = await TaskConfig.find_one(TaskConfig.task_id == task_id)
+    if task_config:
+        return task_config
+
+    default_interval = int(
+        TASK_DEFINITIONS.get(task_id, {}).get("default_interval_minutes", 0) or 0,
+    )
+    task_config = TaskConfig(
+        task_id=task_id,
+        enabled=True,
+        interval_minutes=default_interval,
+        config={
+            "last_error": None,
+            "last_success_time": None,
+            "last_finished_at": None,
+            "last_job_id": None,
+        },
+    )
+    await task_config.save()
+    return task_config
+
+
+async def get_task_config_entry(task_id: str) -> TaskConfig:
+    return await _get_or_create_task_config(task_id)
+
+
+async def get_global_disable() -> bool:
+    global_config = await TaskConfig.find_one(TaskConfig.task_id == GLOBAL_TASK_ID)
+    if not global_config:
+        return False
+    return bool(global_config.config.get("disabled", False))
+
+
+async def set_global_disable(disabled: bool) -> None:
+    global_config = await TaskConfig.find_one(TaskConfig.task_id == GLOBAL_TASK_ID)
+    if not global_config:
+        global_config = TaskConfig(task_id=GLOBAL_TASK_ID, enabled=not disabled)
+    global_config.config = global_config.config or {}
+    global_config.config["disabled"] = bool(disabled)
+    global_config.last_updated = datetime.now(UTC)
+    await global_config.save()
 
 
 async def get_task_config() -> dict[str, Any]:
@@ -26,66 +73,37 @@ async def get_task_config() -> dict[str, Any]:
     Returns:
         A dictionary where the 'tasks' key contains a map of task_id to its configuration.
     """
-    from tasks.core import TASK_METADATA, TaskStatus
-
     try:
         # Fetch all existing task configs
-        all_configs = await TaskConfig.find_all().to_list()
+        all_configs = await TaskConfig.find(
+            {"task_id": {"$ne": GLOBAL_TASK_ID}},
+        ).to_list()
 
-        # Create a map for easy lookup
         config_map = {cfg.task_id: cfg for cfg in all_configs if cfg.task_id}
 
-        tasks_output = {}
+        tasks_output: dict[str, Any] = {}
 
-        for t_id, t_def in TASK_METADATA.items():
+        for t_id, t_def in TASK_DEFINITIONS.items():
             if t_id in config_map:
-                # Use existing config
                 c = config_map[t_id]
-                tasks_output[t_id] = {
-                    "enabled": c.enabled,
-                    "interval_minutes": c.interval_minutes,
-                    "status": c.status,
-                    "last_run": c.last_run,
-                    "next_run": c.next_run,
-                    # Retrieve the extra fields we stored in config dict
-                    "last_error": c.config.get("last_error"),
-                    "start_time": c.config.get("start_time"),
-                    "end_time": c.config.get("end_time"),
-                    "last_updated": getattr(c, "last_updated", None),
-                    "last_success_time": c.config.get("last_success_time"),
-                }
             else:
-                # Create default if missing
-                default_interval = t_def["default_interval_minutes"]
-                new_config = TaskConfig(
-                    task_id=t_id,
-                    enabled=True,
-                    interval_minutes=default_interval,
-                    status=TaskStatus.IDLE.value,
-                    config={
-                        "last_error": None,
-                        "start_time": None,
-                        "end_time": None,
-                        "last_success_time": None,
-                    },
-                )
-                await new_config.save()
+                c = await _get_or_create_task_config(t_id)
 
-                tasks_output[t_id] = {
-                    "enabled": True,
-                    "interval_minutes": default_interval,
-                    "status": TaskStatus.IDLE.value,
-                    "last_run": None,
-                    "next_run": None,
-                    "last_error": None,
-                    "start_time": None,
-                    "end_time": None,
-                    "last_updated": getattr(new_config, "last_updated", None),
-                    "last_success_time": None,
-                }
+            tasks_output[t_id] = {
+                "enabled": c.enabled,
+                "interval_minutes": c.interval_minutes,
+                "last_run": c.last_run,
+                "next_run": c.next_run,
+                "last_error": c.config.get("last_error"),
+                "last_success_time": c.config.get("last_success_time"),
+                "last_finished_at": c.config.get("last_finished_at"),
+                "last_job_id": c.config.get("last_job_id"),
+                "last_updated": getattr(c, "last_updated", None),
+                "manual_only": bool(t_def.get("manual_only", False)),
+            }
 
         return {
-            "disabled": False,  # Global disable flag logic might need a dedicated place if needed, or we assume False
+            "disabled": await get_global_disable(),
             "tasks": tasks_output,
         }
 
@@ -105,60 +123,42 @@ async def check_dependencies(
 
     Dependencies are considered met if they are not currently running
     or recently failed.
-
-    Args:
-        task_id: The identifier of the task to check dependencies for.
-
-    Returns:
-        A dictionary containing:
-            'can_run': Boolean indicating if the task can run based on dependencies.
-            'reason': String explaining why the task cannot run (if applicable).
     """
-    from tasks.core import TASK_METADATA, TaskStatus
-
     try:
-        if task_id not in TASK_METADATA:
+        if task_id not in TASK_DEFINITIONS:
             return {
                 "can_run": False,
                 "reason": f"Unknown task: {task_id}",
             }
 
-        dependencies = TASK_METADATA[task_id].get("dependencies", [])
+        dependencies = get_dependencies(task_id)
         if not dependencies:
             return {"can_run": True}
 
-        # Query all dependencies at once
-        dep_configs = await TaskConfig.find(
-            In(TaskConfig.task_id, dependencies),
-        ).to_list()
-        dep_map = {d.task_id: d for d in dep_configs}
+        dep_histories = await TaskHistory.find(
+            In(TaskHistory.task_id, dependencies),
+        ).sort(-TaskHistory.timestamp).to_list()
+
+        latest_by_task: dict[str, TaskHistory] = {}
+        for history in dep_histories:
+            if history.task_id and history.task_id not in latest_by_task:
+                latest_by_task[history.task_id] = history
 
         for dep_id in dependencies:
-            if dep_id not in dep_map:
-                logger.warning(
-                    "Task %s dependency %s not found in database.",
-                    task_id,
-                    dep_id,
-                )
+            history = latest_by_task.get(dep_id)
+            if not history:
                 continue
 
-            dep_config = dep_map[dep_id]
-            dep_status = dep_config.status
-
-            if dep_status in [
-                TaskStatus.RUNNING.value,
-                TaskStatus.PENDING.value,
-            ]:
+            dep_status = history.status or ""
+            if dep_status in {"RUNNING", "PENDING"}:
                 return {
                     "can_run": False,
                     "reason": f"Dependency '{dep_id}' is currently {dep_status}",
                 }
 
-            if dep_status == TaskStatus.FAILED.value:
-                last_updated = getattr(dep_config, "last_updated", None)
-
-                if last_updated and (
-                    datetime.now(UTC) - last_updated < timedelta(hours=1)
+            if dep_status == "FAILED":
+                if history.timestamp and (
+                    datetime.now(UTC) - history.timestamp < timedelta(hours=1)
                 ):
                     return {
                         "can_run": False,
@@ -176,7 +176,7 @@ async def check_dependencies(
 
 
 async def update_task_history_entry(
-    celery_task_id: str,
+    job_id: str,
     task_name: str,
     status: str,
     manual_run: bool = False,
@@ -188,24 +188,11 @@ async def update_task_history_entry(
 ) -> None:
     """
     Creates or updates an entry in the task history collection.
-
-    Args:
-        celery_task_id: The unique ID assigned by Celery to this task instance.
-        task_name: The application-specific name of the task
-            (e.g., 'periodic_fetch_trips').
-        status: The current status of the task instance
-            (e.g., 'RUNNING', 'COMPLETED', 'FAILED').
-        manual_run: Boolean indicating if the task was triggered manually.
-        result: The result of the task (if completed successfully).
-        error: Error message if the task failed.
-        start_time: Timestamp when the task started execution.
-        end_time: Timestamp when the task finished execution.
-        runtime_ms: Duration of the task execution in milliseconds.
     """
     try:
         now = datetime.now(UTC)
 
-        history = await TaskHistory.get(celery_task_id)
+        history = await TaskHistory.get(job_id)
         if history:
             history.task_id = task_name
             history.status = status
@@ -213,7 +200,7 @@ async def update_task_history_entry(
             history.manual_run = manual_run
         else:
             history = TaskHistory(
-                id=celery_task_id,
+                id=job_id,
                 task_id=task_name,
                 status=status,
                 timestamp=now,
@@ -231,7 +218,7 @@ async def update_task_history_entry(
                 logger.warning(
                     "Could not convert runtime %s to float for %s",
                     runtime_ms,
-                    celery_task_id,
+                    job_id,
                 )
                 history.runtime = None
 
@@ -242,7 +229,7 @@ async def update_task_history_entry(
                 logger.warning(
                     "Could not serialize result for %s (%s) history: %s",
                     task_name,
-                    celery_task_id,
+                    job_id,
                     ser_err,
                 )
                 history.result = f"<Unserializable Result: {type(result).__name__}>"
@@ -253,7 +240,126 @@ async def update_task_history_entry(
     except Exception as e:
         logger.exception(
             "Error updating task history for %s (%s): %s",
-            celery_task_id,
+            job_id,
             task_name,
             e,
         )
+
+
+async def update_task_success(task_id: str, finished_at: datetime) -> None:
+    task_config = await _get_or_create_task_config(task_id)
+    task_config.config = task_config.config or {}
+    task_config.last_run = finished_at
+    task_config.last_updated = finished_at
+    task_config.config["last_success_time"] = finished_at
+    task_config.config["last_finished_at"] = finished_at
+    task_config.config["last_error"] = None
+    await task_config.save()
+
+
+async def update_task_failure(task_id: str, error: str, finished_at: datetime) -> None:
+    task_config = await _get_or_create_task_config(task_id)
+    task_config.config = task_config.config or {}
+    task_config.last_updated = finished_at
+    task_config.config["last_error"] = error
+    task_config.config["last_finished_at"] = finished_at
+    await task_config.save()
+
+
+async def set_last_job_id(task_id: str, job_id: str) -> None:
+    task_config = await _get_or_create_task_config(task_id)
+    task_config.config = task_config.config or {}
+    task_config.config["last_job_id"] = job_id
+    task_config.config["last_error"] = None
+    task_config.last_updated = datetime.now(UTC)
+    await task_config.save()
+
+
+async def update_task_schedule(task_config_update: dict[str, Any]) -> dict[str, Any]:
+    """
+    Updates the task scheduling configuration (enabled status, interval) in the
+    database.
+    """
+    try:
+        changes: list[str] = []
+
+        global_disable_update = task_config_update.get("globalDisable")
+        if isinstance(global_disable_update, bool):
+            await set_global_disable(global_disable_update)
+            changes.append(f"Global scheduling disable set to {global_disable_update}")
+
+        tasks_update = task_config_update.get("tasks", {})
+        if tasks_update:
+            for task_id, settings in tasks_update.items():
+                if task_id not in TASK_DEFINITIONS:
+                    logger.warning(
+                        "Attempted to update configuration for unknown task: %s",
+                        task_id,
+                    )
+                    continue
+
+                task_config = await _get_or_create_task_config(task_id)
+
+                if "enabled" in settings:
+                    new_val = settings["enabled"]
+                    if isinstance(new_val, bool):
+                        old_val = task_config.enabled
+                        if new_val != old_val:
+                            task_config.enabled = new_val
+                            changes.append(
+                                f"Task '{task_id}' enabled status: {old_val} -> {new_val}",
+                            )
+                    else:
+                        logger.warning(
+                            "Ignoring non-boolean value for enabled status of task '%s': %s",
+                            task_id,
+                            new_val,
+                        )
+
+                if "interval_minutes" in settings:
+                    try:
+                        new_val = int(settings["interval_minutes"])
+                        if new_val < 0:
+                            logger.warning(
+                                "Ignoring invalid interval < 0 for task '%s': %s",
+                                task_id,
+                                new_val,
+                            )
+                            continue
+                    except (ValueError, TypeError):
+                        logger.warning(
+                            "Ignoring non-integer interval for task '%s': %s",
+                            task_id,
+                            settings["interval_minutes"],
+                        )
+                        continue
+
+                    old_val = task_config.interval_minutes
+                    if new_val != old_val:
+                        task_config.interval_minutes = new_val
+                        changes.append(
+                            f"Task '{task_id}' interval: {old_val} -> {new_val} mins",
+                        )
+
+                await task_config.save()
+
+        if not changes:
+            logger.info("No valid configuration changes detected in update request.")
+            return {
+                "status": "success",
+                "message": "No valid configuration changes detected.",
+            }
+
+        logger.info("Task configuration updated: %s", "; ".join(changes))
+        return {
+            "status": "success",
+            "message": "Task configuration updated successfully.",
+            "changes": changes,
+        }
+
+    except Exception as e:
+        logger.exception("Error updating task schedule: %s", e)
+        return {
+            "status": "error",
+            "message": f"Error updating task schedule: {e}",
+        }

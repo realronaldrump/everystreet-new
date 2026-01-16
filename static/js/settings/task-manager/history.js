@@ -64,6 +64,8 @@ export function renderTaskHistoryTable(history) {
       resultText = entry.result ? "Success" : "Completed";
     } else if (entry.status === "FAILED") {
       resultText = "Failed";
+    } else if (entry.status === "CANCELLED") {
+      resultText = "Cancelled";
     } else {
       resultText = "N/A";
     }
@@ -83,6 +85,9 @@ export function renderTaskHistoryTable(history) {
     } else if (entry.status === "FAILED") {
       detailsContent
         = '<span class="text-danger"><i class="fas fa-times-circle"></i> Failed</span>';
+    } else if (entry.status === "CANCELLED") {
+      detailsContent
+        = '<span class="text-muted"><i class="fas fa-ban"></i> Cancelled</span>';
     }
 
     row.innerHTML = `

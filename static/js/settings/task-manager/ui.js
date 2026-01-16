@@ -26,7 +26,8 @@ export function renderTaskConfigTable(config, intervalOptions = INTERVAL_OPTIONS
     const isManualOnly = Boolean(task.manual_only);
     row.dataset.manualOnly = isManualOnly ? "true" : "false";
     const taskStatus = task.status || "IDLE";
-    const canForceStop = ["RUNNING", "PENDING"].includes(taskStatus);
+    const isActive = ["RUNNING", "PENDING"].includes(taskStatus);
+    const canForceStop = isActive;
 
     if (!task.display_name) {
       return;
@@ -72,7 +73,7 @@ export function renderTaskConfigTable(config, intervalOptions = INTERVAL_OPTIONS
       <td>
         <div class="btn-group btn-group-sm">
           <button class="btn btn-info run-now-btn" data-task-id="${taskId}"
-            ${isManualOnly || taskStatus === "RUNNING" ? "disabled" : ""}
+            ${isManualOnly || isActive ? "disabled" : ""}
             title="${isManualOnly ? "Use the manual fetch form below" : "Run task now"}">
             <i class="fas fa-play"></i>
           </button>

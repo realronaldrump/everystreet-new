@@ -1,7 +1,6 @@
 gunicorn
 aiohttp
 beanie
-celery
 certifi
 fastapi
 geojson
@@ -9,7 +8,7 @@ geopandas
 geopy
 gpxpy
 httpx
-kombu
+arq
 motor
 numpy
 pydantic

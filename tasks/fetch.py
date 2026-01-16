@@ -1,7 +1,7 @@
 """
 Trip fetching tasks.
 
-This module provides Celery tasks for fetching trips from external sources:
+This module provides ARQ jobs for fetching trips from external sources:
 - periodic_fetch_trips: Periodic automatic fetch of recent trips
 - manual_fetch_trips_range: Manual fetch for a specific date range
 - fetch_all_missing_trips: Bulk fetch to fill gaps in trip history
@@ -12,25 +12,21 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from celery import shared_task
-from celery.utils.log import get_task_logger
+import logging
 
 from bouncie_trip_fetcher import (
     fetch_bouncie_trip_by_transaction_id,
     fetch_bouncie_trips_in_range,
 )
 from config import get_bouncie_config
-from core.async_bridge import run_async_from_sync
 from date_utils import parse_timestamp
 from db.models import Trip
-from tasks.core import task_runner
+from tasks.ops import run_task_with_history
 
-logger = get_task_logger(__name__)
+logger = logging.getLogger(__name__)
 
 
-@task_runner
-async def periodic_fetch_trips_async(
-    _self,
+async def _periodic_fetch_trips_logic(
     start_time_iso: str | None = None,
     end_time_iso: str | None = None,
     trigger_source: str = "scheduled",
@@ -222,40 +218,32 @@ async def periodic_fetch_trips_async(
     }
 
 
-@shared_task(
-    bind=True,
-    max_retries=3,
-    default_retry_delay=60,
-    time_limit=3600,
-    soft_time_limit=3300,
-    name="tasks.periodic_fetch_trips",
-)
-def periodic_fetch_trips(
-    _self,
+async def periodic_fetch_trips(
+    ctx: dict[str, Any],
     start_time_iso: str | None = None,
     end_time_iso: str | None = None,
     trigger_source: str = "scheduled",
-    **_kwargs,
+    manual_run: bool = False,
 ):
     """
-    Celery task wrapper for fetching periodic trips.
+    ARQ job for fetching periodic trips.
 
     Accepts kwargs to support event-driven triggers with specific date
     ranges.
     """
-    return run_async_from_sync(
-        periodic_fetch_trips_async(
-            _self,
+    return await run_task_with_history(
+        ctx,
+        "periodic_fetch_trips",
+        lambda: _periodic_fetch_trips_logic(
             start_time_iso=start_time_iso,
             end_time_iso=end_time_iso,
             trigger_source=trigger_source,
         ),
+        manual_run=manual_run,
     )
 
 
-@task_runner
-async def fetch_trip_by_transaction_id_async(
-    _self,
+async def _fetch_trip_by_transaction_id_logic(
     transaction_id: str,
     trigger_source: str = "manual",
 ) -> dict[str, Any]:
@@ -278,33 +266,25 @@ async def fetch_trip_by_transaction_id_async(
     }
 
 
-@shared_task(
-    bind=True,
-    max_retries=2,
-    default_retry_delay=60,
-    time_limit=900,
-    soft_time_limit=840,
-    name="tasks.fetch_trip_by_transaction_id",
-)
-def fetch_trip_by_transaction_id(
-    _self,
+async def fetch_trip_by_transaction_id(
+    ctx: dict[str, Any],
     transaction_id: str,
     trigger_source: str = "manual",
-    **_kwargs,
+    manual_run: bool = False,
 ):
-    """Celery task wrapper for fetching a trip by transactionId."""
-    return run_async_from_sync(
-        fetch_trip_by_transaction_id_async(
-            _self,
+    """ARQ job for fetching a trip by transactionId."""
+    return await run_task_with_history(
+        ctx,
+        "fetch_trip_by_transaction_id",
+        lambda: _fetch_trip_by_transaction_id_logic(
             transaction_id=transaction_id,
             trigger_source=trigger_source,
         ),
+        manual_run=manual_run,
     )
 
 
-@task_runner
-async def manual_fetch_trips_range_async(
-    _self,
+async def _manual_fetch_trips_range_logic(
     start_iso: str,
     end_iso: str,
     map_match: bool = False,
@@ -360,32 +340,24 @@ async def manual_fetch_trips_range_async(
     }
 
 
-@shared_task(
-    bind=True,
-    max_retries=2,
-    default_retry_delay=60,
-    time_limit=3600,
-    soft_time_limit=3300,
-    name="tasks.manual_fetch_trips_range",
-)
-def manual_fetch_trips_range(
-    _self,
+async def manual_fetch_trips_range(
+    ctx: dict[str, Any],
     start_iso: str,
     end_iso: str,
     map_match: bool = False,
-    **_kwargs,
+    manual_run: bool = True,
 ):
-    """Celery task wrapper for manual date-range trip fetches."""
-    manual_run = _kwargs.get("manual_run", True)
-
-    return run_async_from_sync(
-        manual_fetch_trips_range_async(
-            _self,
+    """ARQ job for manual date-range trip fetches."""
+    return await run_task_with_history(
+        ctx,
+        "manual_fetch_trips_range",
+        lambda: _manual_fetch_trips_range_logic(
             start_iso,
             end_iso,
             map_match=map_match,
             manual_run=manual_run,
         ),
+        manual_run=manual_run,
     )
 
 
@@ -401,9 +373,7 @@ async def get_earliest_trip_date() -> datetime | None:
     return None
 
 
-@task_runner
-async def fetch_all_missing_trips_async(
-    _self,
+async def _fetch_all_missing_trips_logic(
     manual_run: bool = False,
     start_iso: str | None = None,
 ) -> dict[str, Any]:
@@ -472,22 +442,18 @@ async def fetch_all_missing_trips_async(
     }
 
 
-@shared_task(
-    bind=True,
-    max_retries=2,
-    default_retry_delay=60,
-    time_limit=7200,  # Allow 2 hours for this potentially large task
-    soft_time_limit=7000,
-    name="tasks.fetch_all_missing_trips",
-)
-def fetch_all_missing_trips(_self, **_kwargs):
-    """Celery task wrapper for fetching all missing trips."""
-    manual_run = _kwargs.get("manual_run", True)
-    start_iso = _kwargs.get("start_iso")
-    return run_async_from_sync(
-        fetch_all_missing_trips_async(
-            _self,
+async def fetch_all_missing_trips(
+    ctx: dict[str, Any],
+    manual_run: bool = True,
+    start_iso: str | None = None,
+):
+    """ARQ job for fetching all missing trips."""
+    return await run_task_with_history(
+        ctx,
+        "fetch_all_missing_trips",
+        lambda: _fetch_all_missing_trips_logic(
             manual_run=manual_run,
             start_iso=start_iso,
         ),
+        manual_run=manual_run,
     )

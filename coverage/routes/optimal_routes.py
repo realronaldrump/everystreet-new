@@ -42,7 +42,7 @@ async def start_optimal_route_generation(
     ] = None,
 ):
     """Start a background task to generate optimal completion route."""
-    from tasks.routes import generate_optimal_route_task
+    from tasks.ops import enqueue_task
 
     coverage_area = await _get_coverage_area(area_id)
 
@@ -55,18 +55,25 @@ async def start_optimal_route_generation(
             detail=f"Coverage area is not ready (status: {coverage_area.status}).",
         )
 
-    task = generate_optimal_route_task.delay(
+    enqueue_result = await enqueue_task(
+        "generate_optimal_route",
         location_id=str(area_id),
         start_lon=start_lon,
         start_lat=start_lat,
         manual_run=True,
     )
+    task_id = enqueue_result.get("job_id")
+    if not task_id:
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to enqueue optimal route generation task",
+        )
 
     # Create initial progress document so SSE can track queued state
     # before worker picks up the task
     progress = OptimalRouteProgress(
         location=str(area_id),
-        task_id=task.id,
+        task_id=task_id,
         status="queued",
         stage="queued",
         progress=0,
@@ -78,51 +85,35 @@ async def start_optimal_route_generation(
 
     logger.info(
         "Started optimal route generation task %s for location %s",
-        task.id,
+        task_id,
         area_id,
     )
 
-    return {"task_id": task.id, "status": "started"}
+    return {"task_id": task_id, "status": "started"}
 
 
 @router.get("/api/optimal-routes/worker-status")
 async def get_worker_status():
-    """Check if Celery workers are connected and accepting tasks."""
-    from celery_app import app as celery_app
+    """Check if ARQ workers are connected and accepting tasks."""
+    from tasks.arq import get_arq_pool
 
     try:
-        # Get active workers using Celery's inspect API
-        inspector = celery_app.control.inspect()
-
-        # Ping workers (with short timeout)
-        ping_result = inspector.ping()
-
-        if not ping_result:
-            return {
-                "status": "no_workers",
-                "message": "No Celery workers are responding. The worker may be offline.",
-                "workers": [],
-                "recommendation": "Check that the Celery worker is running on the mini PC",
-            }
-
-        # Get more details about active workers
-        active = inspector.active() or {}
-        registered = inspector.registered() or {}
-
-        worker_info = []
-        for worker_name in ping_result:
-            worker_info.append(
-                {
-                    "name": worker_name,
-                    "active_tasks": len(active.get(worker_name, [])),
-                    "registered_tasks": len(registered.get(worker_name, [])),
-                },
+        redis = await get_arq_pool()
+        heartbeat = await redis.get("arq:worker:heartbeat")
+        if heartbeat:
+            last_seen = (
+                heartbeat.decode("utf-8") if isinstance(heartbeat, bytes) else heartbeat
             )
-
+            return {
+                "status": "ok",
+                "message": "ARQ worker heartbeat detected",
+                "workers": [{"name": "arq-worker", "last_seen": last_seen}],
+            }
         return {
-            "status": "ok",
-            "message": f"{len(worker_info)} worker(s) connected",
-            "workers": worker_info,
+            "status": "no_workers",
+            "message": "No ARQ worker heartbeat detected. Worker may be offline.",
+            "workers": [],
+            "recommendation": "Check that the ARQ worker is running",
         }
 
     except Exception as e:
@@ -273,10 +264,10 @@ async def cancel_optimal_route_task(task_id: str):
     """
     Cancel an in-progress route generation task.
 
-    Revokes the Celery task and marks it as cancelled in the database.
+    Aborts the ARQ job and marks it as cancelled in the database.
     Also cancels any other active tasks for the same location.
     """
-    from celery_app import app as celery_app
+    from tasks.ops import abort_job
 
     # Check if task exists
     progress = await OptimalRouteProgress.find_one({"task_id": task_id})
@@ -288,12 +279,12 @@ async def cancel_optimal_route_task(task_id: str):
     current_status = progress.status or ""
 
     if current_status not in ("completed", "failed", "cancelled"):
-        # Revoke the Celery task
         try:
-            celery_app.control.revoke(task_id, terminate=True, signal="SIGTERM")
-            logger.info("Revoked Celery task %s", task_id)
+            aborted = await abort_job(task_id)
+            if aborted:
+                logger.info("Requested ARQ abort for task %s", task_id)
         except Exception as e:
-            logger.warning("Could not revoke Celery task %s: %s", task_id, e)
+            logger.warning("Could not abort ARQ task %s: %s", task_id, e)
 
     # Cancel ALL active tasks for this location (not just this one)
     if location_id:
@@ -309,9 +300,9 @@ async def cancel_optimal_route_task(task_id: str):
         for task in active_tasks:
             tid = task.task_id
             if tid:
-                # Revoke each Celery task
+                # Abort each ARQ job
                 with contextlib.suppress(Exception):
-                    celery_app.control.revoke(tid, terminate=True, signal="SIGTERM")
+                    await abort_job(tid)
 
                 # Mark as cancelled
                 task.status = "cancelled"

@@ -1,7 +1,7 @@
 """
 Coverage calculation tasks.
 
-This module provides Celery tasks for coverage operations.
+This module provides ARQ jobs for coverage operations.
 
 In the new event-driven system, coverage updates happen automatically
 when trips complete. This task is kept for manual/scheduled full
@@ -12,19 +12,16 @@ from __future__ import annotations
 
 from typing import Any
 
-from celery import shared_task
-from celery.utils.log import get_task_logger
+import logging
 
-from core.async_bridge import run_async_from_sync
 from coverage.models import CoverageArea
 from coverage.stats import update_area_stats
-from tasks.core import task_runner
+from tasks.ops import run_task_with_history
 
-logger = get_task_logger(__name__)
+logger = logging.getLogger(__name__)
 
 
-@task_runner
-async def update_coverage_for_new_trips_async(_self) -> dict[str, Any]:
+async def _update_coverage_for_new_trips_logic() -> dict[str, Any]:
     """
     Refresh coverage statistics for all areas.
 
@@ -105,15 +102,14 @@ async def update_coverage_for_new_trips_async(_self) -> dict[str, Any]:
     }
 
 
-@shared_task(
-    bind=True,
-    max_retries=3,
-    default_retry_delay=300,
-    time_limit=7200,
-    soft_time_limit=7000,
-    name="tasks.update_coverage_for_new_trips",
-    queue="default",
-)
-def update_coverage_for_new_trips(_self, *_args, **_kwargs):
-    """Celery task wrapper for refreshing coverage statistics."""
-    return run_async_from_sync(update_coverage_for_new_trips_async(_self))
+async def update_coverage_for_new_trips(
+    ctx: dict[str, Any],
+    manual_run: bool = False,
+) -> dict[str, Any]:
+    """ARQ job for refreshing coverage statistics."""
+    return await run_task_with_history(
+        ctx,
+        "update_coverage_for_new_trips",
+        _update_coverage_for_new_trips_logic,
+        manual_run=manual_run,
+    )

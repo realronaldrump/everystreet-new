@@ -40,6 +40,16 @@ export function getStatusHTML(status) {
       </div>
     `;
   }
+  if (status === "PENDING") {
+    return `
+      <div class="d-flex align-items-center">
+        <div class="spinner-border spinner-border-sm me-2" role="status">
+          <span class="visually-hidden">Queued...</span>
+        </div>
+        <span class="status-text">Queued</span>
+      </div>
+    `;
+  }
 
   return `<span class="badge bg-${color}">${status}</span>`;
 }
