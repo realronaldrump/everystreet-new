@@ -9,10 +9,9 @@ This module provides ARQ jobs for fetching trips from external sources:
 
 from __future__ import annotations
 
+import logging
 from datetime import UTC, datetime, timedelta
 from typing import Any
-
-import logging
 
 from bouncie_trip_fetcher import (
     fetch_bouncie_trip_by_transaction_id,

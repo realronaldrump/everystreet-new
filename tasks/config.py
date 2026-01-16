@@ -8,10 +8,10 @@ updating task history.
 
 from __future__ import annotations
 
+import logging
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-import logging
 from beanie.operators import In
 
 from db.models import TaskConfig, TaskHistory
@@ -135,9 +135,13 @@ async def check_dependencies(
         if not dependencies:
             return {"can_run": True}
 
-        dep_histories = await TaskHistory.find(
-            In(TaskHistory.task_id, dependencies),
-        ).sort(-TaskHistory.timestamp).to_list()
+        dep_histories = (
+            await TaskHistory.find(
+                In(TaskHistory.task_id, dependencies),
+            )
+            .sort(-TaskHistory.timestamp)
+            .to_list()
+        )
 
         latest_by_task: dict[str, TaskHistory] = {}
         for history in dep_histories:
