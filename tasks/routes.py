@@ -8,9 +8,8 @@ algorithm.
 
 from __future__ import annotations
 
-from typing import Any
-
 import logging
+from typing import Any
 
 from routes import generate_optimal_route_with_progress, save_optimal_route
 from tasks.ops import run_task_with_history

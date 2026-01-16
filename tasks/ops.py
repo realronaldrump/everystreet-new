@@ -7,7 +7,7 @@ from __future__ import annotations
 import logging
 import uuid
 from datetime import UTC, datetime, timedelta
-from typing import Any, Callable, Awaitable
+from typing import Any, Awaitable, Callable
 
 from arq.connections import ArqRedis
 
@@ -24,6 +24,7 @@ from tasks.config import (
 from tasks.registry import is_manual_only
 
 logger = logging.getLogger(__name__)
+
 
 def _get_job_id(ctx: dict[str, Any]) -> str:
     job_id = None

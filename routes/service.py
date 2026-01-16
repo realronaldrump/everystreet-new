@@ -557,6 +557,7 @@ async def generate_optimal_route_with_progress(
         require_mapbox_token()
 
         try:
+
             async def gap_progress(_stage: str, pct: int, msg: str) -> None:
                 # Map gap-fill progress (0-100) to overall progress (85-95)
                 overall_pct = 85 + int(pct * 0.1)
