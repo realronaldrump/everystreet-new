@@ -9,7 +9,7 @@ import networkx as nx
 import osmnx as ox
 from beanie import PydanticObjectId
 
-from coverage.models import CoverageArea, CoverageState, Street
+from street_coverage.models import CoverageArea, CoverageState, Street
 from db.models import OptimalRouteProgress
 from progress_tracker import ProgressTracker
 

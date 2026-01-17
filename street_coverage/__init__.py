@@ -16,27 +16,27 @@ Key modules:
 
 Usage:
     # Register event handlers on app startup
-    from coverage.events import register_handlers
+    from street_coverage.events import register_handlers
     register_handlers()
 
     # Create a new coverage area
-    from coverage.ingestion import create_area
+    from street_coverage.ingestion import create_area
     area, job = await create_area("Waco, TX", user_id)
 
     # Trip completion triggers automatic coverage update via events
-    from coverage.events import emit_trip_completed
+    from street_coverage.events import emit_trip_completed
     await emit_trip_completed(trip_id, user_id)
 """
 
-from coverage.constants import (
+from street_coverage.constants import (
     MATCH_BUFFER_METERS,
     MIN_OVERLAP_METERS,
     SEGMENT_LENGTH_METERS,
 )
-from coverage.events import emit_trip_completed, register_handlers
-from coverage.ingestion import create_area, delete_area, rebuild_area
-from coverage.models import CoverageArea, CoverageState, Job, Street
-from coverage.stats import update_area_stats
+from street_coverage.events import emit_trip_completed, register_handlers
+from street_coverage.ingestion import create_area, delete_area, rebuild_area
+from street_coverage.models import CoverageArea, CoverageState, Job, Street
+from street_coverage.stats import update_area_stats
 
 __all__ = [
     "MATCH_BUFFER_METERS",

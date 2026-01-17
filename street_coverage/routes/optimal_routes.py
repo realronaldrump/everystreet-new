@@ -15,7 +15,7 @@ from beanie import PydanticObjectId
 from fastapi import APIRouter, HTTPException, Query, Response
 from fastapi.responses import StreamingResponse
 
-from coverage.models import CoverageArea
+from street_coverage.models import CoverageArea
 from db import OptimalRouteProgress
 
 logger = logging.getLogger(__name__)
@@ -160,7 +160,7 @@ async def get_optimal_route(area_id: PydanticObjectId):
 @router.get("/api/coverage/areas/{area_id}/optimal-route/gpx")
 async def export_optimal_route_gpx(area_id: PydanticObjectId):
     """Export optimal route as GPX file for navigation apps."""
-    from coverage.gpx import build_gpx_from_coords
+    from street_coverage.gpx import build_gpx_from_coords
 
     coverage_area = await _get_coverage_area(area_id)
 

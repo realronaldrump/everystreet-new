@@ -16,8 +16,8 @@ from beanie import PydanticObjectId
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
 
-from coverage.ingestion import create_area, delete_area, rebuild_area
-from coverage.models import CoverageArea, Job
+from street_coverage.ingestion import create_area, delete_area, rebuild_area
+from street_coverage.models import CoverageArea, Job
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/coverage", tags=["coverage"])
@@ -307,7 +307,7 @@ async def trigger_backfill(area_id: PydanticObjectId):
 
     Returns the number of segments updated.
     """
-    from coverage.worker import backfill_coverage_for_area
+    from street_coverage.worker import backfill_coverage_for_area
 
     area = await CoverageArea.get(area_id)
     if not area:

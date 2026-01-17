@@ -10,7 +10,7 @@ from beanie import PydanticObjectId
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
 
-from coverage.models import CoverageArea, Job
+from street_coverage.models import CoverageArea, Job
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/coverage", tags=["coverage-jobs"])

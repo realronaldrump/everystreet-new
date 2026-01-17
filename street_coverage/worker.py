@@ -16,15 +16,15 @@ from typing import Any
 from beanie import PydanticObjectId
 from pymongo import UpdateOne
 
-from coverage.constants import BACKFILL_BULK_WRITE_SIZE, BACKFILL_TRIP_BATCH_SIZE
-from coverage.events import CoverageEvents, emit_coverage_updated, on_event
-from coverage.matching import (
+from street_coverage.constants import BACKFILL_BULK_WRITE_SIZE, BACKFILL_TRIP_BATCH_SIZE
+from street_coverage.events import CoverageEvents, emit_coverage_updated, on_event
+from street_coverage.matching import (
     AreaSegmentIndex,
     match_trip_to_streets,
     trip_to_linestring,
 )
-from coverage.models import CoverageArea, CoverageState
-from coverage.stats import update_area_stats
+from street_coverage.models import CoverageArea, CoverageState
+from street_coverage.stats import update_area_stats
 from date_utils import get_current_utc_time, normalize_to_utc_datetime
 
 logger = logging.getLogger(__name__)

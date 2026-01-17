@@ -16,7 +16,7 @@ from shapely.geometry import LineString, MultiLineString, mapping, shape
 from shapely.ops import transform
 from shapely.strtree import STRtree
 
-from coverage.constants import (
+from street_coverage.constants import (
     GPS_GAP_MULTIPLIER,
     MATCH_BUFFER_METERS,
     MAX_GPS_GAP_METERS,
@@ -24,8 +24,8 @@ from coverage.constants import (
     MIN_OVERLAP_METERS,
     SHORT_SEGMENT_OVERLAP_RATIO,
 )
-from coverage.geo_utils import geodesic_distance_meters, get_local_transformers
-from coverage.models import Street
+from street_coverage.geo_utils import geodesic_distance_meters, get_local_transformers
+from street_coverage.models import Street
 
 if TYPE_CHECKING:
     from beanie import PydanticObjectId
@@ -510,7 +510,7 @@ async def match_trip_to_streets(
 
     # If no areas specified, find areas that intersect trip
     if area_ids is None:
-        from coverage.models import CoverageArea
+        from street_coverage.models import CoverageArea
 
         minx, miny, maxx, maxy = trip_line.bounds
 
@@ -528,7 +528,7 @@ async def match_trip_to_streets(
         area_ids = [area.id for area in areas]
         area_versions = {area.id: area.area_version for area in areas}
     else:
-        from coverage.models import CoverageArea
+        from street_coverage.models import CoverageArea
 
         areas = await CoverageArea.find({"_id": {"$in": area_ids}}).to_list()
         area_versions = {area.id: area.area_version for area in areas}

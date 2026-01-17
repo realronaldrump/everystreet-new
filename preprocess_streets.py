@@ -115,7 +115,7 @@ async def preprocess_streets(
 
 async def preprocess_all_graphs() -> None:
     """Main function to process all coverage areas."""
-    from coverage.models import CoverageArea
+    from street_coverage.models import CoverageArea
 
     load_dotenv()
 

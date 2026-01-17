@@ -13,8 +13,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from coverage.models import CoverageArea
-from coverage.stats import update_area_stats
+from street_coverage.models import CoverageArea
+from street_coverage.stats import update_area_stats
 from tasks.ops import run_task_with_history
 
 logger = logging.getLogger(__name__)

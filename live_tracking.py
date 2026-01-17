@@ -455,7 +455,7 @@ async def process_trip_end(data: dict[str, Any]) -> None:
     # Emit coverage event for automatic street coverage updates (only once)
     if not getattr(trip, "coverage_emitted_at", None) and getattr(trip, "gps", None):
         try:
-            from coverage.events import emit_trip_completed
+            from street_coverage.events import emit_trip_completed
 
             trip_data = trip.model_dump()
             await emit_trip_completed(

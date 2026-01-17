@@ -33,7 +33,7 @@ from __future__ import annotations
 import logging
 
 # New coverage system models
-from coverage.models import (
+from street_coverage.models import (
     CoverageArea,
     CoverageState,
     Job,

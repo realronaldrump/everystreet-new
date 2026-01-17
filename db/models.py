@@ -31,7 +31,7 @@ from beanie import Document, Indexed, PydanticObjectId
 from beanie.odm.fields import IndexModel
 from pydantic import Field, field_validator, model_validator
 
-from coverage.models import CoverageArea, CoverageState, Job, Street
+from street_coverage.models import CoverageArea, CoverageState, Job, Street
 from date_utils import parse_timestamp
 
 

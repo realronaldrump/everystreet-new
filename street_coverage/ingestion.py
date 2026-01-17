@@ -22,7 +22,7 @@ from beanie import PydanticObjectId
 from shapely.geometry import LineString, mapping, shape
 from shapely.ops import transform
 
-from coverage.constants import (
+from street_coverage.constants import (
     BATCH_SIZE,
     MAX_INGESTION_RETRIES,
     METERS_TO_MILES,
@@ -30,11 +30,11 @@ from coverage.constants import (
     RETRY_BASE_DELAY_SECONDS,
     SEGMENT_LENGTH_METERS,
 )
-from coverage.events import CoverageEvents, emit_area_created, on_event
-from coverage.geo_utils import geodesic_length_meters, get_local_transformers
-from coverage.models import CoverageArea, CoverageState, Job, Street
-from coverage.stats import update_area_stats
-from coverage.worker import backfill_coverage_for_area
+from street_coverage.events import CoverageEvents, emit_area_created, on_event
+from street_coverage.geo_utils import geodesic_length_meters, get_local_transformers
+from street_coverage.models import CoverageArea, CoverageState, Job, Street
+from street_coverage.stats import update_area_stats
+from street_coverage.worker import backfill_coverage_for_area
 
 logger = logging.getLogger(__name__)
 _background_tasks: set[asyncio.Task] = set()

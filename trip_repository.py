@@ -415,7 +415,7 @@ class TripRepository:
             return
 
         try:
-            from coverage.events import emit_trip_completed
+            from street_coverage.events import emit_trip_completed
 
             await emit_trip_completed(
                 trip_id=str(trip.id),

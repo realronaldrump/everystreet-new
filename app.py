@@ -177,7 +177,7 @@ async def startup_event():
         logger.info("Valhalla and Nominatim configuration validated successfully.")
 
         # Register coverage event handlers
-        from coverage.events import register_handlers
+        from street_coverage.events import register_handlers
 
         register_handlers()
         logger.info("Coverage event handlers registered.")

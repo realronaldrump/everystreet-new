@@ -8,7 +8,7 @@ Contains all API route handlers organized by domain:
     - optimal_routes: Optimal route generation and export
 """
 
-from coverage.routes import areas, jobs, optimal_routes, streets
+from street_coverage.routes import areas, jobs, optimal_routes, streets
 
 __all__ = [
     "areas",

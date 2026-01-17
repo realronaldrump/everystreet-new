@@ -12,9 +12,9 @@ from beanie import PydanticObjectId
 from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import BaseModel
 
-from coverage.constants import MAX_VIEWPORT_FEATURES
-from coverage.models import CoverageArea, CoverageState, Street
-from coverage.worker import (
+from street_coverage.constants import MAX_VIEWPORT_FEATURES
+from street_coverage.models import CoverageArea, CoverageState, Street
+from street_coverage.worker import (
     mark_segment_undriveable,
     mark_segment_undriven,
     update_coverage_for_segments,
@@ -298,7 +298,7 @@ async def update_segment_status(
         )
 
     # Recalculate stats
-    from coverage.stats import update_area_stats
+    from street_coverage.stats import update_area_stats
 
     await update_area_stats(area_id)
 
@@ -326,7 +326,7 @@ async def mark_segments_driven(
         segment_ids=request.segment_ids,
     )
 
-    from coverage.stats import update_area_stats
+    from street_coverage.stats import update_area_stats
 
     await update_area_stats(area_id)
 
@@ -351,7 +351,7 @@ async def get_streets_summary(area_id: PydanticObjectId):
         )
 
     # Get status counts
-    from coverage.stats import get_segment_status_counts
+    from street_coverage.stats import get_segment_status_counts
 
     counts = await get_segment_status_counts(area_id, area.area_version)
 

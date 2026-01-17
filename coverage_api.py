@@ -13,7 +13,7 @@ import logging
 
 from fastapi import APIRouter
 
-from coverage.routes import areas, jobs, optimal_routes, streets
+from street_coverage.routes import areas, jobs, optimal_routes, streets
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
