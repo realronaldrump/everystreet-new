@@ -9,7 +9,8 @@ from __future__ import annotations
 import json
 import logging
 from datetime import UTC, datetime
-from typing import Any, Awaitable, Callable
+from collections.abc import Awaitable, Callable
+from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, Request, Response, status
 
@@ -66,11 +67,10 @@ async def _dispatch_event(payload: dict[str, Any], auth_header: str | None) -> N
 
     try:
         await handler(payload)
-    except Exception as exc:
+    except Exception:
         logger.exception(
-            "Failed to handle Bouncie webhook event=%s: %s",
+            "Failed to handle Bouncie webhook event=%s",
             event_type,
-            exc,
         )
 
 
@@ -112,8 +112,8 @@ async def bouncie_webhook(
 
         background_tasks.add_task(_dispatch_event, payload, auth_header)
         return Response(status_code=status.HTTP_200_OK)
-    except Exception as exc:
-        logger.exception("Unhandled error in Bouncie webhook: %s", exc)
+    except Exception:
+        logger.exception("Unhandled error in Bouncie webhook")
         return Response(status_code=status.HTTP_200_OK)
 
 
