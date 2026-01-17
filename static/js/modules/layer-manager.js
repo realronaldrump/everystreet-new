@@ -81,11 +81,16 @@ const layerManager = {
       "interpolate",
       ["linear"],
       ["zoom"],
-      6, baseWidth * 0.6,
-      10, baseWidth,
-      14, baseWidth * 1.3,
-      18, baseWidth * 1.6,
-      22, baseWidth * 2,
+      6,
+      baseWidth * 0.6,
+      10,
+      baseWidth,
+      14,
+      baseWidth * 1.3,
+      18,
+      baseWidth * 1.6,
+      22,
+      baseWidth * 2,
     ];
   },
 
@@ -154,12 +159,12 @@ const layerManager = {
       state.map.setLayoutProperty(
         hitboxLayerId,
         "visibility",
-        layerInfo.visible ? "visible" : "none"
+        layerInfo.visible ? "visible" : "none",
       );
       state.map.setPaintProperty(
         hitboxLayerId,
         "line-width",
-        this._getTripHitboxWidth()
+        this._getTripHitboxWidth(),
       );
       // Ensure hitbox is on top for interactivity
       state.map.moveLayer(hitboxLayerId);
@@ -170,7 +175,10 @@ const layerManager = {
 
     const clickHandler = (e) => {
       // Ignore non-primary mouse buttons
-      if (typeof e.originalEvent?.button === "number" && e.originalEvent.button !== 0) {
+      if (
+        typeof e.originalEvent?.button === "number" &&
+        e.originalEvent.button !== 0
+      ) {
         return;
       }
       // Ignore if map is being dragged
@@ -261,7 +269,8 @@ const layerManager = {
 
     sortedLayers.forEach(([name, info]) => {
       const div = document.createElement("div");
-      div.className = "layer-control d-flex align-items-center mb-2 p-2 rounded";
+      div.className =
+        "layer-control d-flex align-items-center mb-2 p-2 rounded";
       div.dataset.layerName = name;
       div.draggable = true;
       div.style.cursor = "move";
@@ -271,7 +280,8 @@ const layerManager = {
         info.supportsColorPicker !== false && name !== "customPlaces";
       const supportsOpacitySlider =
         info.supportsOpacitySlider !== false && name !== "customPlaces";
-      const colorValue = typeof info.color === "string" ? info.color : "#ffffff";
+      const colorValue =
+        typeof info.color === "string" ? info.color : "#ffffff";
 
       const controls = [];
 
@@ -335,7 +345,7 @@ const layerManager = {
         }
 
         this.saveLayerSettings();
-      }, 200)
+      }, 200),
     );
   },
 
@@ -414,7 +424,7 @@ const layerManager = {
         }
         return closest;
       },
-      { offset: Number.NEGATIVE_INFINITY }
+      { offset: Number.NEGATIVE_INFINITY },
     ).element;
   },
 
@@ -437,7 +447,7 @@ const layerManager = {
     // Reorder layers on map
     if (state.map && state.mapInitialized) {
       const sortedLayers = Object.entries(state.mapLayers).sort(
-        ([, a], [, b]) => (b.order || 0) - (a.order || 0)
+        ([, a], [, b]) => (b.order || 0) - (a.order || 0),
       );
 
       let beforeLayer = null;
@@ -516,7 +526,7 @@ const layerManager = {
       // Load data if needed (emits event for data-manager to handle)
       if (visible && !layerInfo.layer) {
         document.dispatchEvent(
-          new CustomEvent("layerDataNeeded", { detail: { layerName: name } })
+          new CustomEvent("layerDataNeeded", { detail: { layerName: name } }),
         );
       }
 
@@ -561,7 +571,7 @@ const layerManager = {
     const visibleTripCount = this._getHeatmapTripCountInView(name, tripCount);
     const opacities = heatmapUtils.getUpdatedOpacities(
       visibleTripCount,
-      layerInfo.opacity ?? 1
+      layerInfo.opacity ?? 1,
     );
 
     for (let i = 0; i < 2; i++) {
@@ -599,7 +609,11 @@ const layerManager = {
     const opacityProp = this._getOpacityProperty(layerType);
 
     if (!opacityProp) {
-      state.map.setLayoutProperty(layerId, "visibility", visible ? "visible" : "none");
+      state.map.setLayoutProperty(
+        layerId,
+        "visibility",
+        visible ? "visible" : "none",
+      );
       return;
     }
 
@@ -610,7 +624,11 @@ const layerManager = {
       state.map.setLayoutProperty(layerId, "visibility", "visible");
     }
 
-    state.map.setPaintProperty(layerId, `${opacityProp}-transition`, transition);
+    state.map.setPaintProperty(
+      layerId,
+      `${opacityProp}-transition`,
+      transition,
+    );
     state.map.setPaintProperty(layerId, opacityProp, targetOpacity);
 
     if (!visible) {
@@ -646,7 +664,7 @@ const layerManager = {
       state.map.setLayoutProperty(
         hitboxLayerId,
         "visibility",
-        visible ? "visible" : "none"
+        visible ? "visible" : "none",
       );
     }
   },
@@ -671,13 +689,23 @@ const layerManager = {
     if (layerInfo.isHeatmap) {
       if (property === "opacity") {
         const tripCount = layerInfo.layer?.features?.length || 0;
-        const visibleTripCount = this._getHeatmapTripCountInView(name, tripCount);
-        const opacities = heatmapUtils.getUpdatedOpacities(visibleTripCount, value);
+        const visibleTripCount = this._getHeatmapTripCountInView(
+          name,
+          tripCount,
+        );
+        const opacities = heatmapUtils.getUpdatedOpacities(
+          visibleTripCount,
+          value,
+        );
 
         for (let i = 0; i < 2; i++) {
           const glowLayerId = `${name}-layer-${i}`;
           if (state.map?.getLayer(glowLayerId)) {
-            state.map.setPaintProperty(glowLayerId, "line-opacity", opacities[i]);
+            state.map.setPaintProperty(
+              glowLayerId,
+              "line-opacity",
+              opacities[i],
+            );
           }
         }
       }
@@ -687,7 +715,8 @@ const layerManager = {
     // Handle standard layers
     const layerId = `${name}-layer`;
     if (state.map?.getLayer(layerId)) {
-      const paintProperty = property === "color" ? "line-color" : "line-opacity";
+      const paintProperty =
+        property === "color" ? "line-color" : "line-opacity";
       state.map.setPaintProperty(layerId, paintProperty, value);
     }
   },
@@ -746,9 +775,13 @@ const layerManager = {
     const layerInfo = state.mapLayers[layerName];
     if (!layerInfo?.isHeatmap || !layerInfo.layer || !state.map) return;
 
-    const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
+    const theme =
+      document.documentElement.getAttribute("data-bs-theme") || "dark";
     const totalTripCount = layerInfo.layer?.features?.length || 0;
-    const visibleTripCount = this._getHeatmapTripCountInView(layerName, totalTripCount);
+    const visibleTripCount = this._getHeatmapTripCountInView(
+      layerName,
+      totalTripCount,
+    );
 
     const { glowLayers } = heatmapUtils.generateHeatmapConfig(layerInfo.layer, {
       theme,
@@ -760,12 +793,28 @@ const layerManager = {
       const glowLayerId = `${layerName}-layer-${index}`;
       if (!state.map.getLayer(glowLayerId)) return;
 
-      state.map.setPaintProperty(glowLayerId, "line-color", glowConfig.paint["line-color"]);
-      state.map.setPaintProperty(glowLayerId, "line-width", glowConfig.paint["line-width"]);
-      state.map.setPaintProperty(glowLayerId, "line-opacity", glowConfig.paint["line-opacity"]);
+      state.map.setPaintProperty(
+        glowLayerId,
+        "line-color",
+        glowConfig.paint["line-color"],
+      );
+      state.map.setPaintProperty(
+        glowLayerId,
+        "line-width",
+        glowConfig.paint["line-width"],
+      );
+      state.map.setPaintProperty(
+        glowLayerId,
+        "line-opacity",
+        glowConfig.paint["line-opacity"],
+      );
 
       if (glowConfig.paint["line-blur"] !== undefined) {
-        state.map.setPaintProperty(glowLayerId, "line-blur", glowConfig.paint["line-blur"]);
+        state.map.setPaintProperty(
+          glowLayerId,
+          "line-blur",
+          glowConfig.paint["line-blur"],
+        );
       }
     });
   },
@@ -804,7 +853,13 @@ const layerManager = {
       await this._ensureStyleLoaded();
 
       if (layerInfo.isHeatmap) {
-        await this._updateHeatmapLayer(layerName, data, sourceId, layerId, layerInfo);
+        await this._updateHeatmapLayer(
+          layerName,
+          data,
+          sourceId,
+          layerId,
+          layerInfo,
+        );
         return;
       }
 
@@ -818,7 +873,7 @@ const layerManager = {
           layerId,
           sourceId,
           layerInfo,
-          data
+          data,
         );
         if (updateSuccess) return;
       }
@@ -827,7 +882,10 @@ const layerManager = {
       await this._rebuildLayer(layerName, layerId, sourceId, layerInfo, data);
     } catch (error) {
       console.error(`Error updating ${layerName} layer:`, error);
-      window.notificationManager?.show(`Failed to update ${layerName} layer`, "warning");
+      window.notificationManager?.show(
+        `Failed to update ${layerName} layer`,
+        "warning",
+      );
     }
   },
 
@@ -867,7 +925,7 @@ const layerManager = {
       state.map.setLayoutProperty(
         layerId,
         "visibility",
-        layerInfo.visible ? "visible" : "none"
+        layerInfo.visible ? "visible" : "none",
       );
 
       layerInfo.layer = data;
@@ -878,7 +936,10 @@ const layerManager = {
 
       return true;
     } catch (updateError) {
-      console.warn(`Falling back to layer rebuild for ${layerName}:`, updateError);
+      console.warn(
+        `Falling back to layer rebuild for ${layerName}:`,
+        updateError,
+      );
       return false;
     }
   },
@@ -898,9 +959,12 @@ const layerManager = {
       "interpolate",
       ["linear"],
       ["zoom"],
-      10, layerInfo.weight * 0.5,
-      15, layerInfo.weight,
-      20, layerInfo.weight * 2,
+      10,
+      layerInfo.weight * 0.5,
+      15,
+      layerInfo.weight,
+      20,
+      layerInfo.weight * 2,
     ]);
   },
 
@@ -921,7 +985,7 @@ const layerManager = {
       state.map.setLayoutProperty(
         layerId,
         "visibility",
-        layerInfo.visible ? "visible" : "none"
+        layerInfo.visible ? "visible" : "none",
       );
     }
 
@@ -999,9 +1063,12 @@ const layerManager = {
           "interpolate",
           ["linear"],
           ["zoom"],
-          10, layerInfo.weight * 0.5,
-          15, layerInfo.weight,
-          20, layerInfo.weight * 2,
+          10,
+          layerInfo.weight * 0.5,
+          15,
+          layerInfo.weight,
+          20,
+          layerInfo.weight * 2,
         ],
       },
     };
@@ -1022,9 +1089,13 @@ const layerManager = {
    * @private
    */
   async _updateHeatmapLayer(layerName, data, sourceId, _layerId, layerInfo) {
-    const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
+    const theme =
+      document.documentElement.getAttribute("data-bs-theme") || "dark";
     const totalTripCount = data?.features?.length || 0;
-    const visibleTripCount = this._getHeatmapTripCountInView(layerName, totalTripCount);
+    const visibleTripCount = this._getHeatmapTripCountInView(
+      layerName,
+      totalTripCount,
+    );
 
     const heatmapConfig = heatmapUtils.generateHeatmapConfig(data, {
       theme,
@@ -1046,18 +1117,34 @@ const layerManager = {
         glowLayers.forEach((glowConfig, index) => {
           const glowLayerId = `${layerName}-layer-${index}`;
           if (state.map.getLayer(glowLayerId)) {
-            state.map.setPaintProperty(glowLayerId, "line-color", glowConfig.paint["line-color"]);
-            state.map.setPaintProperty(glowLayerId, "line-width", glowConfig.paint["line-width"]);
-            state.map.setPaintProperty(glowLayerId, "line-opacity", glowConfig.paint["line-opacity"]);
+            state.map.setPaintProperty(
+              glowLayerId,
+              "line-color",
+              glowConfig.paint["line-color"],
+            );
+            state.map.setPaintProperty(
+              glowLayerId,
+              "line-width",
+              glowConfig.paint["line-width"],
+            );
+            state.map.setPaintProperty(
+              glowLayerId,
+              "line-opacity",
+              glowConfig.paint["line-opacity"],
+            );
 
             if (glowConfig.paint["line-blur"] !== undefined) {
-              state.map.setPaintProperty(glowLayerId, "line-blur", glowConfig.paint["line-blur"]);
+              state.map.setPaintProperty(
+                glowLayerId,
+                "line-blur",
+                glowConfig.paint["line-blur"],
+              );
             }
 
             state.map.setLayoutProperty(
               glowLayerId,
               "visibility",
-              layerInfo.visible ? "visible" : "none"
+              layerInfo.visible ? "visible" : "none",
             );
           }
         });
@@ -1071,7 +1158,10 @@ const layerManager = {
 
         return;
       } catch (updateError) {
-        console.warn(`Falling back to heatmap layer rebuild for ${layerName}:`, updateError);
+        console.warn(
+          `Falling back to heatmap layer rebuild for ${layerName}:`,
+          updateError,
+        );
       }
     }
 
@@ -1159,7 +1249,8 @@ const layerManager = {
           state.map.removeLayer(layerId);
         }
 
-        const sourceId = entry?.sourceId || layerId.replace("-layer", "-source");
+        const sourceId =
+          entry?.sourceId || layerId.replace("-layer", "-source");
         const removeSource = entry?.removeSource !== false;
 
         if (removeSource && sourceId && state.map.getSource(sourceId)) {

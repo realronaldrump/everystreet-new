@@ -75,7 +75,10 @@ const dataManager = {
     if (!state.mapInitialized) return null;
 
     const { loadingManager } = window;
-    loadingManager?.show("Loading trips...", { blocking: false, compact: true });
+    loadingManager?.show("Loading trips...", {
+      blocking: false,
+      compact: true,
+    });
     mapLoadingIndicator.show("Loading trips...");
 
     try {
@@ -88,17 +91,24 @@ const dataManager = {
         {},
         CONFIG.API.retryAttempts,
         CONFIG.API.cacheTime,
-        "fetchTrips"
+        "fetchTrips",
       );
 
       if (!tripData || tripData?.type !== "FeatureCollection") {
         loadingManager?.hide();
-        window.notificationManager?.show("Failed to load valid trip data", "danger");
+        window.notificationManager?.show(
+          "Failed to load valid trip data",
+          "danger",
+        );
         return null;
       }
 
-      loadingManager?.updateMessage(`Rendering ${tripData.features.length} trips...`);
-      mapLoadingIndicator.update(`Rendering ${tripData.features.length} trips...`);
+      loadingManager?.updateMessage(
+        `Rendering ${tripData.features.length} trips...`,
+      );
+      mapLoadingIndicator.update(
+        `Rendering ${tripData.features.length} trips...`,
+      );
 
       // Update map layer
       await layerManager.updateMapLayer("trips", tripData);
@@ -106,9 +116,11 @@ const dataManager = {
       loadingManager?.updateMessage("Finalizing...");
 
       // Emit event for trip styles refresh (handled by app-controller)
-      document.dispatchEvent(new CustomEvent("tripsDataLoaded", {
-        detail: { featureCount: tripData.features.length },
-      }));
+      document.dispatchEvent(
+        new CustomEvent("tripsDataLoaded", {
+          detail: { featureCount: tripData.features.length },
+        }),
+      );
 
       // Update metrics table
       metricsManager.updateTripsTable(tripData);
@@ -147,7 +159,7 @@ const dataManager = {
         {},
         CONFIG.API.retryAttempts,
         CONFIG.API.cacheTime,
-        "fetchMatchedTrips"
+        "fetchMatchedTrips",
       );
 
       if (data?.type === "FeatureCollection") {
@@ -195,9 +207,15 @@ const dataManager = {
    * @returns {Promise<Object|null>}
    */
   async fetchUndrivenStreets() {
-    const selectedLocationId = utils.getStorage(CONFIG.STORAGE_KEYS.selectedLocation);
+    const selectedLocationId = utils.getStorage(
+      CONFIG.STORAGE_KEYS.selectedLocation,
+    );
 
-    if (!selectedLocationId || !state.mapInitialized || state.undrivenStreetsLoaded) {
+    if (
+      !selectedLocationId ||
+      !state.mapInitialized ||
+      state.undrivenStreetsLoaded
+    ) {
       return null;
     }
 
@@ -209,7 +227,7 @@ const dataManager = {
         {},
         CONFIG.API.retryAttempts,
         CONFIG.API.cacheTime,
-        "fetchUndrivenStreets"
+        "fetchUndrivenStreets",
       );
 
       if (data?.type === "FeatureCollection") {
@@ -233,9 +251,15 @@ const dataManager = {
    * @returns {Promise<Object|null>}
    */
   async fetchDrivenStreets() {
-    const selectedLocationId = utils.getStorage(CONFIG.STORAGE_KEYS.selectedLocation);
+    const selectedLocationId = utils.getStorage(
+      CONFIG.STORAGE_KEYS.selectedLocation,
+    );
 
-    if (!selectedLocationId || !state.mapInitialized || state.drivenStreetsLoaded) {
+    if (
+      !selectedLocationId ||
+      !state.mapInitialized ||
+      state.drivenStreetsLoaded
+    ) {
       return null;
     }
 
@@ -247,7 +271,7 @@ const dataManager = {
         {},
         CONFIG.API.retryAttempts,
         CONFIG.API.cacheTime,
-        "fetchDrivenStreets"
+        "fetchDrivenStreets",
       );
 
       if (data?.type === "FeatureCollection") {
@@ -271,9 +295,15 @@ const dataManager = {
    * @returns {Promise<Object|null>}
    */
   async fetchAllStreets() {
-    const selectedLocationId = utils.getStorage(CONFIG.STORAGE_KEYS.selectedLocation);
+    const selectedLocationId = utils.getStorage(
+      CONFIG.STORAGE_KEYS.selectedLocation,
+    );
 
-    if (!selectedLocationId || !state.mapInitialized || state.allStreetsLoaded) {
+    if (
+      !selectedLocationId ||
+      !state.mapInitialized ||
+      state.allStreetsLoaded
+    ) {
       return null;
     }
 
@@ -285,7 +315,7 @@ const dataManager = {
         {},
         CONFIG.API.retryAttempts,
         CONFIG.API.cacheTime,
-        "fetchAllStreets"
+        "fetchAllStreets",
       );
 
       if (data?.type === "FeatureCollection") {
@@ -318,11 +348,13 @@ const dataManager = {
         {},
         CONFIG.API.retryAttempts,
         CONFIG.API.cacheTime,
-        "fetchMetrics"
+        "fetchMetrics",
       );
 
       if (data) {
-        document.dispatchEvent(new CustomEvent("metricsUpdated", { detail: data }));
+        document.dispatchEvent(
+          new CustomEvent("metricsUpdated", { detail: data }),
+        );
       }
 
       return data;
@@ -356,7 +388,10 @@ const dataManager = {
       if (state.mapLayers.matchedTrips.visible) {
         promises.push(this.fetchMatchedTrips());
       }
-      if (state.mapLayers.undrivenStreets.visible && !state.undrivenStreetsLoaded) {
+      if (
+        state.mapLayers.undrivenStreets.visible &&
+        !state.undrivenStreetsLoaded
+      ) {
         promises.push(this.fetchUndrivenStreets());
       }
       if (state.mapLayers.drivenStreets.visible && !state.drivenStreetsLoaded) {
@@ -381,7 +416,7 @@ const dataManager = {
                 state.map.setLayoutProperty(
                   layerId,
                   "visibility",
-                  info.visible ? "visible" : "none"
+                  info.visible ? "visible" : "none",
                 );
               }
             }
@@ -392,9 +427,11 @@ const dataManager = {
 
       // Emit event for fit bounds (handled by app-controller)
       if (fitBounds) {
-        document.dispatchEvent(new CustomEvent("mapDataLoaded", {
-          detail: { fitBounds: true },
-        }));
+        document.dispatchEvent(
+          new CustomEvent("mapDataLoaded", {
+            detail: { fitBounds: true },
+          }),
+        );
       }
 
       state.metrics.renderTime = Date.now() - state.metrics.loadStartTime;

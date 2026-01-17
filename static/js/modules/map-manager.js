@@ -58,7 +58,7 @@ const mapManager = {
           center: [center.lng, center.lat],
           zoom,
         },
-        { source: "map" }
+        { source: "map" },
       );
     }, CONFIG.MAP.debounceDelay);
 
@@ -112,9 +112,15 @@ const mapManager = {
 
     if (state.map.getLayer("trips-hitbox")) {
       queryLayers.push("trips-hitbox");
-    } else if (!state.mapLayers.trips?.isHeatmap && state.map.getLayer("trips-layer")) {
+    } else if (
+      !state.mapLayers.trips?.isHeatmap &&
+      state.map.getLayer("trips-layer")
+    ) {
       queryLayers.push("trips-layer");
-    } else if (state.mapLayers.trips?.isHeatmap && state.map.getLayer("trips-layer-1")) {
+    } else if (
+      state.mapLayers.trips?.isHeatmap &&
+      state.map.getLayer("trips-layer-1")
+    ) {
       queryLayers.push("trips-layer-1");
     }
 
@@ -197,7 +203,10 @@ const mapManager = {
             "case",
             [
               "==",
-              ["to-string", ["coalesce", ["get", "transactionId"], ["get", "id"]]],
+              [
+                "to-string",
+                ["coalesce", ["get", "transactionId"], ["get", "id"]],
+              ],
               selectedId,
             ],
             layerInfo.highlightColor || "#FFD700",
@@ -211,7 +220,10 @@ const mapManager = {
             "case",
             [
               "==",
-              ["to-string", ["coalesce", ["get", "transactionId"], ["get", "id"]]],
+              [
+                "to-string",
+                ["coalesce", ["get", "transactionId"], ["get", "id"]],
+              ],
               selectedId,
             ],
             baseWeight * 2,
@@ -291,11 +303,16 @@ const mapManager = {
       "interpolate",
       ["linear"],
       ["zoom"],
-      6, 2,
-      10, 4,
-      14, 6,
-      18, 10,
-      22, 14,
+      6,
+      2,
+      10,
+      4,
+      14,
+      6,
+      18,
+      10,
+      22,
+      14,
     ];
 
     // Create or update source

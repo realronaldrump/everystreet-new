@@ -146,8 +146,7 @@ const mapCore = {
         document.documentElement.getAttribute("data-bs-theme") || "dark";
       const storedMapType = utils.getStorage(CONFIG.STORAGE_KEYS.mapType);
       const mapType = storedMapType || theme;
-      const mapStyle =
-        CONFIG.MAP.styles[mapType] || CONFIG.MAP.styles[theme];
+      const mapStyle = CONFIG.MAP.styles[mapType] || CONFIG.MAP.styles[theme];
 
       // Determine initial view (URL params > saved state > defaults)
       const initialView = this._getInitialView(options);
@@ -191,9 +190,11 @@ const mapCore = {
       loadingManager?.hide();
 
       // Dispatch event for other modules
-      document.dispatchEvent(new CustomEvent("mapInitialized", {
-        detail: { map },
-      }));
+      document.dispatchEvent(
+        new CustomEvent("mapInitialized", {
+          detail: { map },
+        }),
+      );
 
       // Invoke ready callbacks
       this._invokeReadyCallbacks(map);
@@ -206,7 +207,7 @@ const mapCore = {
 
       window.notificationManager?.show(
         `Map initialization failed: ${error.message}`,
-        "danger"
+        "danger",
       );
 
       return false;
@@ -386,7 +387,7 @@ const mapCore = {
 
     // Dispatch event for layer restoration
     document.dispatchEvent(
-      new CustomEvent("mapStyleChanged", { detail: { styleType } })
+      new CustomEvent("mapStyleChanged", { detail: { styleType } }),
     );
   },
 
