@@ -171,6 +171,17 @@ const AppController = {
         document.dispatchEvent(new CustomEvent("initialDataLoaded"));
       }
 
+      // Ensure map page attributes are set correctly for CSS to show the persistent shell
+      // The CSS rule `body[data-route="/map"] .persistent-shell { display: flex }` requires this
+      document.body.dataset.route = "/map";
+      document.body.classList.add("map-page");
+
+      // Also ensure the persistent shell is visible
+      const persistentShell = document.getElementById("persistent-shell");
+      if (persistentShell) {
+        persistentShell.style.display = "flex";
+      }
+
       // Ensure map controls panel is visible (fix for SPA navigation/refresh issues)
       const controlsPanel = document.getElementById("map-controls");
       if (controlsPanel) {
