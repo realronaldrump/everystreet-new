@@ -57,9 +57,11 @@ const utils = {
     }
 
     const element = document.querySelector(
-      selector.startsWith("#") || selector.includes(" ") || selector.startsWith(".")
+      selector.startsWith("#") ||
+        selector.includes(" ") ||
+        selector.startsWith(".")
         ? selector
-        : `#${selector}`
+        : `#${selector}`,
     );
 
     if (element) {
@@ -135,7 +137,9 @@ const utils = {
 
       if (!response.ok) {
         if (retries > 0 && response.status >= 500) {
-          await new Promise((resolve) => setTimeout(resolve, 1000 * (4 - retries)));
+          await new Promise((resolve) =>
+            setTimeout(resolve, 1000 * (4 - retries)),
+          );
           return this.fetchWithRetry(url, options, retries - 1, cacheTime);
         }
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -172,7 +176,7 @@ const utils = {
       const duration = performance.now() - startTime;
       console.error(
         `Performance: ${name} failed after ${duration.toFixed(2)}ms`,
-        error
+        error,
       );
       throw error;
     }
@@ -228,7 +232,9 @@ const utils = {
       lowMemory,
       deviceMemory: deviceMemory || null,
       saveData,
-      isConstrained: Boolean(hasTouch || smallViewport || lowMemory || saveData),
+      isConstrained: Boolean(
+        hasTouch || smallViewport || lowMemory || saveData,
+      ),
     };
 
     return this._deviceProfile;
@@ -280,12 +286,14 @@ const utils = {
           store.setLegacy(key, value, { source: "utils" });
           return true;
         }
-        stringValue = typeof value === "object" ? JSON.stringify(value) : String(value);
+        stringValue =
+          typeof value === "object" ? JSON.stringify(value) : String(value);
         sessionStorage.setItem(key, stringValue);
         return true;
       }
 
-      stringValue = typeof value === "object" ? JSON.stringify(value) : String(value);
+      stringValue =
+        typeof value === "object" ? JSON.stringify(value) : String(value);
 
       localStorage.setItem(key, stringValue);
       return true;
@@ -355,14 +363,21 @@ const utils = {
         }
       };
 
-      const result = callback({ signal: controller.signal, cleanup: registerCleanup });
+      const result = callback({
+        signal: controller.signal,
+        cleanup: registerCleanup,
+      });
       if (typeof result === "function") {
         cleanup = result;
       }
     };
 
     const handleUnload = (event) => {
-      if (options.route && event?.detail?.path && event.detail.path !== options.route) {
+      if (
+        options.route &&
+        event?.detail?.path &&
+        event.detail.path !== options.route
+      ) {
         return;
       }
       if (!activeRoute) {
@@ -605,7 +620,9 @@ const DateUtils = {
   },
 
   getStartDate() {
-    return utils.getStorage(DATE_STORAGE_KEYS.startDate) || this.getCurrentDate();
+    return (
+      utils.getStorage(DATE_STORAGE_KEYS.startDate) || this.getCurrentDate()
+    );
   },
 
   getEndDate() {
@@ -701,7 +718,9 @@ const DateUtils = {
       }
     });
 
-    return new Intl.DateTimeFormat("en-US", formatterOptions).format(d.toDate());
+    return new Intl.DateTimeFormat("en-US", formatterOptions).format(
+      d.toDate(),
+    );
   },
 
   formatTimeFromHours(hours) {
@@ -860,9 +879,17 @@ const DateUtils = {
     const startDate = this.parseDateString(currentStart);
     const endDate = this.parseDateString(currentEnd);
     const days =
-      startDate && endDate ? dayjs(endDate).diff(dayjs(startDate), "day") + 1 : 0;
+      startDate && endDate
+        ? dayjs(endDate).diff(dayjs(startDate), "day") + 1
+        : 0;
 
-    const range = { start: currentStart, end: currentEnd, startDate, endDate, days };
+    const range = {
+      start: currentStart,
+      end: currentEnd,
+      startDate,
+      endDate,
+      days,
+    };
     utils.setStorage(cacheKey, range);
     return range;
   },
@@ -892,12 +919,17 @@ function handleError(error, context = "", level = "error", onComplete = null) {
       errorObj.message.includes("fetch") ||
       errorObj.message.includes("network")
     ) {
-      userMessage = "Network error: Please check your connection and try again.";
+      userMessage =
+        "Network error: Please check your connection and try again.";
     } else if (errorObj.message.includes("timeout")) {
       userMessage = "The operation timed out. Please try again.";
     } else if (errorObj.message.includes("permission")) {
-      userMessage = "Permission denied: You don't have access to this resource.";
-    } else if (errorObj.message.includes("not found") || errorObj.status === 404) {
+      userMessage =
+        "Permission denied: You don't have access to this resource.";
+    } else if (
+      errorObj.message.includes("not found") ||
+      errorObj.status === 404
+    ) {
       userMessage = "Resource not found: The requested item doesn't exist.";
     } else if (errorObj.status >= 500) {
       userMessage = "Server error: Please try again later.";
@@ -1002,7 +1034,9 @@ class NotificationManager {
         if (notification.parentNode) {
           notification.parentNode.removeChild(notification);
         }
-        this.notifications = this.notifications.filter((n) => n !== notification);
+        this.notifications = this.notifications.filter(
+          (n) => n !== notification,
+        );
       }, 150);
     } else {
       notification.parentNode.removeChild(notification);
@@ -1040,7 +1074,8 @@ class ConfirmationDialog {
       defaultMessage: config.defaultMessage || "Are you sure?",
       defaultConfirmText: config.defaultConfirmText || "Confirm",
       defaultCancelText: config.defaultCancelText || "Cancel",
-      defaultConfirmButtonClass: config.defaultConfirmButtonClass || "btn-primary",
+      defaultConfirmButtonClass:
+        config.defaultConfirmButtonClass || "btn-primary",
     };
 
     this.modalId = this.config.modalId;
@@ -1168,7 +1203,8 @@ class PromptDialog {
       defaultMessage: config.defaultMessage || "Please enter a value:",
       defaultConfirmText: config.defaultConfirmText || "OK",
       defaultCancelText: config.defaultCancelText || "Cancel",
-      defaultConfirmButtonClass: config.defaultConfirmButtonClass || "btn-primary",
+      defaultConfirmButtonClass:
+        config.defaultConfirmButtonClass || "btn-primary",
       defaultInputType: config.inputType || "text",
     };
 
@@ -1314,8 +1350,10 @@ class PromptDialog {
 }
 
 // Initialize global instances
-window.notificationManager = window.notificationManager || new NotificationManager();
-window.confirmationDialog = window.confirmationDialog || new ConfirmationDialog();
+window.notificationManager =
+  window.notificationManager || new NotificationManager();
+window.confirmationDialog =
+  window.confirmationDialog || new ConfirmationDialog();
 window.promptDialog = window.promptDialog || new PromptDialog();
 
 // Export utilities

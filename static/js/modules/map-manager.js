@@ -45,7 +45,8 @@ const mapManager = {
       mapboxgl.config.REPORT_MAP_LOAD_TIMES = false;
       mapboxgl.config.COLLECT_RESOURCE_TIMING = false;
 
-      const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
+      const theme =
+        document.documentElement.getAttribute("data-bs-theme") || "dark";
 
       // Determine initial map view
       const urlParams = new URLSearchParams(window.location.search);
@@ -119,7 +120,7 @@ const mapManager = {
             center: [center.lng, center.lat],
             zoom,
           },
-          { source: "map" }
+          { source: "map" },
         );
       }, CONFIG.MAP.debounceDelay);
 
@@ -148,7 +149,11 @@ const mapManager = {
             return;
           }
           const view = event.detail?.view;
-          if (!view || !Array.isArray(view.center) || !Number.isFinite(view.zoom)) {
+          if (
+            !view ||
+            !Array.isArray(view.center) ||
+            !Number.isFinite(view.zoom)
+          ) {
             return;
           }
           try {
@@ -166,7 +171,7 @@ const mapManager = {
       window.loadingManager?.hide();
       window.notificationManager.show(
         `Map initialization failed: ${error.message}`,
-        "danger"
+        "danger",
       );
       return false;
     }
@@ -198,7 +203,10 @@ const mapManager = {
     const queryLayers = [];
     if (state.map.getLayer("trips-hitbox")) {
       queryLayers.push("trips-hitbox");
-    } else if (!state.mapLayers.trips?.isHeatmap && state.map.getLayer("trips-layer")) {
+    } else if (
+      !state.mapLayers.trips?.isHeatmap &&
+      state.map.getLayer("trips-layer")
+    ) {
       queryLayers.push("trips-layer");
     } else if (
       state.mapLayers.trips?.isHeatmap &&
@@ -240,7 +248,9 @@ const mapManager = {
       return;
     }
 
-    const selectedId = state.selectedTripId ? String(state.selectedTripId) : null;
+    const selectedId = state.selectedTripId
+      ? String(state.selectedTripId)
+      : null;
 
     ["trips", "matchedTrips"].forEach((layerName) => {
       const layerInfo = state.mapLayers[layerName];
@@ -267,7 +277,10 @@ const mapManager = {
             "case",
             [
               "==",
-              ["to-string", ["coalesce", ["get", "transactionId"], ["get", "id"]]],
+              [
+                "to-string",
+                ["coalesce", ["get", "transactionId"], ["get", "id"]],
+              ],
               selectedId,
             ],
             layerInfo.highlightColor || "#FFD700",
@@ -280,7 +293,10 @@ const mapManager = {
             "case",
             [
               "==",
-              ["to-string", ["coalesce", ["get", "transactionId"], ["get", "id"]]],
+              [
+                "to-string",
+                ["coalesce", ["get", "transactionId"], ["get", "id"]],
+              ],
               selectedId,
             ],
             baseWeight * 2,
@@ -449,7 +465,10 @@ const mapManager = {
     const { features } = state.mapLayers.trips.layer;
     const tripFeature = features.find((f) => {
       const fId =
-        f.properties?.transactionId || f.properties?.id || f.properties?.tripId || f.id;
+        f.properties?.transactionId ||
+        f.properties?.id ||
+        f.properties?.tripId ||
+        f.id;
       return String(fId) === String(tripId);
     });
 

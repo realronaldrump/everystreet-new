@@ -174,7 +174,7 @@ function buildTripFilters(elements) {
 function buildPayload(elements) {
   const items = getSelectedItems(elements);
   const hasTrips = items.some((item) =>
-    ["trips", "matched_trips"].includes(item.entity)
+    ["trips", "matched_trips"].includes(item.entity),
   );
   const payload = {
     items,
@@ -192,7 +192,7 @@ function validateSelection(elements) {
   }
 
   const needsArea = items.some((item) =>
-    ["streets", "boundaries", "undriven_streets"].includes(item.entity)
+    ["streets", "boundaries", "undriven_streets"].includes(item.entity),
   );
   if (needsArea && !elements.coverageArea.value) {
     return "Select a coverage area for coverage exports.";
@@ -225,7 +225,7 @@ function updateResult(elements, status) {
 
   const records = status.result?.records || {};
   const parts = Object.entries(records).map(
-    ([entity, count]) => `${ENTITY_LABELS[entity] || entity}: ${count}`
+    ([entity, count]) => `${ENTITY_LABELS[entity] || entity}: ${count}`,
   );
 
   elements.exportResultDetails.textContent = parts.length
@@ -436,7 +436,8 @@ function registerEventListeners(elements, signal) {
       showNotification("Failed to start export", "danger");
     } finally {
       submitButton.disabled = false;
-      submitButton.innerHTML = '<i class="fas fa-download me-2"></i>Create Export';
+      submitButton.innerHTML =
+        '<i class="fas fa-download me-2"></i>Create Export';
     }
   });
 }

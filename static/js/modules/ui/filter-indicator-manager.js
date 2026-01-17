@@ -41,7 +41,10 @@ const filterIndicatorManager = {
     });
 
     eventManager.on("filtersReset", () => {
-      indicator.classList.remove(CONFIG.UI.classes.applied, CONFIG.UI.classes.unseen);
+      indicator.classList.remove(
+        CONFIG.UI.classes.applied,
+        CONFIG.UI.classes.unseen,
+      );
     });
 
     // Clicking the indicator or icon opens the filters panel

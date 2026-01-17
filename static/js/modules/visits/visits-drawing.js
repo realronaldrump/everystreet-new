@@ -59,7 +59,11 @@
         {
           id: "gl-draw-polygon-fill-inactive",
           type: "fill",
-          filter: ["all", ["==", "$type", "Polygon"], ["==", "active", "false"]],
+          filter: [
+            "all",
+            ["==", "$type", "Polygon"],
+            ["==", "active", "false"],
+          ],
           paint: {
             "fill-color": colors.fill,
             "fill-opacity": 0.15,
@@ -77,7 +81,11 @@
         {
           id: "gl-draw-polygon-stroke-inactive",
           type: "line",
-          filter: ["all", ["==", "$type", "Polygon"], ["==", "active", "false"]],
+          filter: [
+            "all",
+            ["==", "$type", "Polygon"],
+            ["==", "active", "false"],
+          ],
           paint: {
             "line-color": colors.outline,
             "line-width": 2,
@@ -125,7 +133,7 @@
       const notification = this.notificationManager?.show(
         "Click on the map to start drawing the place boundary. Click the first point or press Enter to finish.",
         "info",
-        0
+        0,
       );
       this.drawingNotification = notification;
     }
@@ -155,7 +163,7 @@
 
       this.notificationManager?.show(
         "Boundary drawn! Enter a name and click Save Place.",
-        "success"
+        "success",
       );
 
       document.getElementById("place-name")?.focus();
@@ -219,7 +227,10 @@
      */
     startEditingPlaceBoundary(placeId, place, map) {
       if (!place) {
-        this.notificationManager?.show("Could not find place to edit.", "warning");
+        this.notificationManager?.show(
+          "Could not find place to edit.",
+          "warning",
+        );
         return;
       }
 
@@ -240,7 +251,7 @@
       this.notificationManager?.show(
         `Draw the new boundary for "${place.name}". The previous boundary is shown dashed. Finish drawing, then save changes via the Manage Places modal.`,
         "info",
-        10000
+        10000,
       );
     }
 
@@ -278,7 +289,7 @@
 
       this.notificationManager?.show(
         "Suggestion applied! Adjust boundary or name, then click Save Place.",
-        "info"
+        "info",
       );
     }
 

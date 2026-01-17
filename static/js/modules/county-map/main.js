@@ -8,7 +8,11 @@ import { onPageLoad } from "../utils.js";
 import * as CountyMapAPI from "./api.js";
 import { getStateName, MAP_CONFIG } from "./constants.js";
 import { setupInteractions } from "./interactions.js";
-import { addMapLayers, getMapStyle, updateStopLayerVisibility } from "./map-layers.js";
+import {
+  addMapLayers,
+  getMapStyle,
+  updateStopLayerVisibility,
+} from "./map-layers.js";
 import * as CountyMapState from "./state.js";
 import { setupStateStatsToggle } from "./state-stats.js";
 import {
@@ -211,7 +215,7 @@ async function triggerRecalculate() {
     } else {
       window.notificationManager.show(
         `Error starting calculation: ${data.error}`,
-        "danger"
+        "danger",
       );
       clearRecalcState();
     }

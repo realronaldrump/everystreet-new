@@ -31,15 +31,27 @@
   --info-rgb: 139, 157, 195;
 
   /* Gradients */
-  --primary-gradient: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  --primary-gradient: linear-gradient(
+    135deg,
+    var(--primary),
+    var(--primary-dark)
+  );
   --secondary-gradient: linear-gradient(
     135deg,
     var(--secondary),
     var(--secondary-dark)
   );
-  --success-gradient: linear-gradient(135deg, var(--success), var(--success-dark));
+  --success-gradient: linear-gradient(
+    135deg,
+    var(--success),
+    var(--success-dark)
+  );
   --danger-gradient: linear-gradient(135deg, var(--danger), var(--danger-dark));
-  --warning-gradient: linear-gradient(135deg, var(--warning), var(--warning-dark));
+  --warning-gradient: linear-gradient(
+    135deg,
+    var(--warning),
+    var(--warning-dark)
+  );
   --info-gradient: linear-gradient(135deg, var(--info), var(--info-dark));
 
   /* Warm Dark Mode Colors (Default) - Softer & More Comfortable */
@@ -58,8 +70,7 @@
   --text-on-light: #1a1d23;
   --border-color: rgb(160 165 172 / 15%);
   --border-color-light: rgb(
-    160 165 172 /
-    28%
+    160 165 172 / 28%
   ); /* For focused elements or stronger divisions */
   --divider-color: rgb(160 165 172 / 10%);
   --surface-rgb: 37, 40, 47;
@@ -222,10 +233,14 @@ body.light-mode {
   --shadow-lg: 0 8px 16px rgb(40 42 45 / 12%);
   --shadow-xl: 0 14px 28px rgb(40 42 45 / 14%);
   --shadow-elevation-1: 0 2px 6px rgb(40 42 45 / 10%);
-  --shadow-elevation-2: 0 6px 14px rgb(40 42 45 / 12%), 0 0 10px rgb(40 42 45 / 6%);
-  --shadow-elevation-3: 0 10px 24px rgb(40 42 45 / 14%), 0 0 14px rgb(40 42 45 / 8%);
-  --shadow-elevation-4: 0 16px 32px rgb(40 42 45 / 16%), 0 0 18px rgb(40 42 45 / 10%);
-  --shadow-elevation-5: 0 22px 48px rgb(40 42 45 / 20%), 0 0 22px rgb(40 42 45 / 12%);
+  --shadow-elevation-2:
+    0 6px 14px rgb(40 42 45 / 12%), 0 0 10px rgb(40 42 45 / 6%);
+  --shadow-elevation-3:
+    0 10px 24px rgb(40 42 45 / 14%), 0 0 14px rgb(40 42 45 / 8%);
+  --shadow-elevation-4:
+    0 16px 32px rgb(40 42 45 / 16%), 0 0 18px rgb(40 42 45 / 10%);
+  --shadow-elevation-5:
+    0 22px 48px rgb(40 42 45 / 20%), 0 0 22px rgb(40 42 45 / 12%);
   --scrollbar-thumb-color: rgb(124 157 150 / 25%);
   --scrollbar-track-color: rgb(160 165 172 / 15%);
   --scrollbar-thumb-hover-color: rgb(124 157 150 / 40%);

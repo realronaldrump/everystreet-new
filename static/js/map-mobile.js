@@ -44,13 +44,17 @@ class MobileMapInterface {
     this.flingThreshold = 80;
     this.minStateGap = 40;
 
-    this.resizeHandler = MobileMapInterface.debounce(() => this.recomputeLayout(), 150);
+    this.resizeHandler = MobileMapInterface.debounce(
+      () => this.recomputeLayout(),
+      150,
+    );
 
     this.init();
   }
 
   static detectMobileViewport() {
-    const touchCapable = "ontouchstart" in window || navigator.maxTouchPoints > 1;
+    const touchCapable =
+      "ontouchstart" in window || navigator.maxTouchPoints > 1;
     const narrowScreen = window.matchMedia
       ? window.matchMedia("(max-width: 768px)").matches
       : window.innerWidth <= 768;
@@ -74,7 +78,7 @@ class MobileMapInterface {
 
     window.addEventListener("resize", this.resizeHandler);
     this.cleanupCallbacks.push(() =>
-      window.removeEventListener("resize", this.resizeHandler)
+      window.removeEventListener("resize", this.resizeHandler),
     );
   }
 
@@ -95,11 +99,13 @@ class MobileMapInterface {
   setupFABActions() {
     const centerBtn = document.getElementById("mobile-center-location");
     this.bind(centerBtn, "click", () =>
-      document.getElementById("center-on-location")?.click()
+      document.getElementById("center-on-location")?.click(),
     );
 
     const fitBtn = document.getElementById("mobile-fit-bounds");
-    this.bind(fitBtn, "click", () => document.getElementById("fit-bounds")?.click());
+    this.bind(fitBtn, "click", () =>
+      document.getElementById("fit-bounds")?.click(),
+    );
 
     const refreshBtn = document.getElementById("mobile-refresh");
     this.bind(refreshBtn, "click", () => {
@@ -345,7 +351,8 @@ class MobileMapInterface {
       this.sortedStates.length > 0
         ? this.sortedStates[0].offset
         : this.stateOffsets.collapsed;
-    const denominator = Number.isFinite(maxOffset) && maxOffset > 0 ? maxOffset : 1;
+    const denominator =
+      Number.isFinite(maxOffset) && maxOffset > 0 ? maxOffset : 1;
     const progress = 1 - offset / denominator;
     const normalized = Math.max(0, Math.min(1, progress));
     const visible = normalized > 0.05;
@@ -440,15 +447,15 @@ class MobileMapInterface {
 
     const collapsedVisible = Math.min(
       sheetHeight,
-      Math.max(150, Math.round(viewportHeight * 0.25))
+      Math.max(150, Math.round(viewportHeight * 0.25)),
     );
     const peekVisible = Math.min(
       sheetHeight,
-      Math.max(collapsedVisible + 80, Math.round(viewportHeight * 0.45))
+      Math.max(collapsedVisible + 80, Math.round(viewportHeight * 0.45)),
     );
     const halfVisible = Math.min(
       sheetHeight,
-      Math.max(peekVisible + 80, Math.round(viewportHeight * 0.65))
+      Math.max(peekVisible + 80, Math.round(viewportHeight * 0.65)),
     );
 
     const offsets = {
@@ -488,7 +495,9 @@ class MobileMapInterface {
       return;
     }
     target.addEventListener(event, handler);
-    this.cleanupCallbacks.push(() => target.removeEventListener(event, handler));
+    this.cleanupCallbacks.push(() =>
+      target.removeEventListener(event, handler),
+    );
   }
 
   showFeedback(message) {

@@ -28,7 +28,9 @@ export function setupTabSwitching() {
 
 export function setupAppSettingsForm() {
   const darkModeToggle = document.getElementById("dark-mode-toggle");
-  const highlightRecentTrips = document.getElementById("highlight-recent-trips");
+  const highlightRecentTrips = document.getElementById(
+    "highlight-recent-trips",
+  );
   const autoCenterToggle = document.getElementById("auto-center-toggle");
   const showLiveTracking = document.getElementById("show-live-tracking");
   const polylineColor = document.getElementById("polyline-color");
@@ -77,10 +79,12 @@ export function setupAppSettingsForm() {
       geocodeTripsOnFetch.checked = gtof !== false;
     }
     if (polylineColor) {
-      polylineColor.value = pc || localStorage.getItem("polylineColor") || "#00FF00";
+      polylineColor.value =
+        pc || localStorage.getItem("polylineColor") || "#00FF00";
     }
     if (polylineOpacity) {
-      polylineOpacity.value = po || localStorage.getItem("polylineOpacity") || "0.8";
+      polylineOpacity.value =
+        po || localStorage.getItem("polylineOpacity") || "0.8";
       if (opacityValue) {
         opacityValue.textContent = polylineOpacity.value;
       }
@@ -141,8 +145,12 @@ export function setupAppSettingsForm() {
 
   // Save preferences function
   async function savePreferences() {
-    const densityValue = [...densityOptions].find((input) => input.checked)?.value;
-    const motionValue = [...motionOptions].find((input) => input.checked)?.value;
+    const densityValue = [...densityOptions].find(
+      (input) => input.checked,
+    )?.value;
+    const motionValue = [...motionOptions].find(
+      (input) => input.checked,
+    )?.value;
     const payload = {
       highlightRecentTrips: highlightRecentTrips?.checked,
       autoCenter: autoCenterToggle?.checked,
@@ -167,7 +175,10 @@ export function setupAppSettingsForm() {
         throw new Error(`Server returned ${resp.status}`);
       }
     } catch {
-      window.notificationManager?.show("Failed to save settings on server", "danger");
+      window.notificationManager?.show(
+        "Failed to save settings on server",
+        "danger",
+      );
       return;
     }
 
@@ -180,7 +191,10 @@ export function setupAppSettingsForm() {
     localStorage.setItem("es:accent-color", payload.accentColor || "");
     localStorage.setItem("es:ui-density", payload.uiDensity);
     localStorage.setItem("es:motion-mode", payload.motionMode);
-    localStorage.setItem("es:widget-editing", payload.widgetEditing ? "true" : "false");
+    localStorage.setItem(
+      "es:widget-editing",
+      payload.widgetEditing ? "true" : "false",
+    );
 
     window.personalization?.applyPreferences?.({
       accentColor: payload.accentColor,
@@ -192,7 +206,7 @@ export function setupAppSettingsForm() {
     document.dispatchEvent(
       new CustomEvent("widgets:set-edit", {
         detail: { enabled: payload.widgetEditing },
-      })
+      }),
     );
 
     // Show success
@@ -205,7 +219,7 @@ export function setupAppSettingsForm() {
       try {
         window.liveTracker.updatePolylineStyle(
           payload.polylineColor,
-          payload.polylineOpacity
+          payload.polylineOpacity,
         );
       } catch (error) {
         console.warn("Failed to update live tracker polyline style", error);
@@ -264,7 +278,7 @@ export function setupAppSettingsForm() {
     document.dispatchEvent(
       new CustomEvent("widgets:set-edit", {
         detail: { enabled: widgetEditToggle.checked },
-      })
+      }),
     );
   });
 }

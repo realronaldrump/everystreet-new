@@ -42,7 +42,7 @@ class GeolocationService {
         (error) => {
           reject(this._handleError(error));
         },
-        mergedOptions
+        mergedOptions,
       );
     });
   }
@@ -75,7 +75,7 @@ class GeolocationService {
           console.error("Geolocation error:", formattedError);
         }
       },
-      mergedOptions
+      mergedOptions,
     );
 
     return this.watchId;
@@ -126,7 +126,8 @@ class GeolocationService {
     const Δλ = ((lon2 - lon1) * Math.PI) / 180;
 
     const y = Math.sin(Δλ) * Math.cos(φ2);
-    const x = Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
+    const x =
+      Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
 
     const θ = Math.atan2(y, x);
     const bearing = ((θ * 180) / Math.PI + 360) % 360;
@@ -199,7 +200,9 @@ class GeolocationService {
   async requestPermission() {
     if ("permissions" in navigator) {
       try {
-        const result = await navigator.permissions.query({ name: "geolocation" });
+        const result = await navigator.permissions.query({
+          name: "geolocation",
+        });
         return result.state; // 'granted', 'denied', or 'prompt'
       } catch {
         // Permissions API not fully supported, fall back to trying getCurrentPosition

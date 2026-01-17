@@ -19,7 +19,9 @@ const pullToRefresh = {
     document.addEventListener("touchmove", (event) => this.onMove(event), {
       passive: false,
     });
-    document.addEventListener("touchend", () => this.onEnd(), { passive: true });
+    document.addEventListener("touchend", () => this.onEnd(), {
+      passive: true,
+    });
     document.addEventListener("es:page-load", () => this.reset());
   },
 
@@ -74,7 +76,8 @@ const pullToRefresh = {
     this.indicator.classList.add("active");
     const text = this.indicator.querySelector(".pull-to-refresh-text");
     if (text) {
-      text.textContent = progress >= 1 ? "Release to refresh" : "Pull to refresh";
+      text.textContent =
+        progress >= 1 ? "Release to refresh" : "Pull to refresh";
     }
   },
 
