@@ -37,8 +37,8 @@ from coverage.models import (
     CoverageArea,
     CoverageState,
     Job,
-    Street as NewStreet,
 )
+from coverage.models import Street as NewStreet
 from db.manager import DatabaseManager, db_manager
 
 # ============================================================================
