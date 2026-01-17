@@ -6,7 +6,9 @@ import bouncie_webhook_api as webhook_api
 
 
 @pytest.mark.asyncio
-async def test_dispatch_event_rejects_invalid_auth(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_dispatch_event_rejects_invalid_auth(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     get_creds = AsyncMock(return_value={"webhook_key": "expected"})
     record = AsyncMock()
     handler = AsyncMock()

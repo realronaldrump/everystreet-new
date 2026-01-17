@@ -55,10 +55,7 @@ class MapboxConfigTests(unittest.TestCase):
             {"MAPBOX_TOKEN": "pk.test-token-12345678901234567890"},
             clear=True,
         ):
-            assert (
-                config.require_mapbox_token()
-                == "pk.test-token-12345678901234567890"
-            )
+            assert config.require_mapbox_token() == "pk.test-token-12345678901234567890"
 
 
 if __name__ == "__main__":
