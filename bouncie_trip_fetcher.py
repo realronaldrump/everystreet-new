@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 import aiohttp
 
 from bouncie_oauth import BouncieOAuth
-from config import API_BASE_URL, get_bouncie_config, require_mapbox_token
+from config import API_BASE_URL, get_bouncie_config
 from core.http.retry import retry_async
 from core.http.session import get_session
 from date_utils import parse_timestamp
@@ -163,7 +163,7 @@ async def fetch_bouncie_trip_by_transaction_id(
                 )
             return []
 
-        trip_service = TripService(require_mapbox_token())
+        trip_service = TripService()
         raw_trips = await fetch_trip_by_transaction_id(
             session,
             token,
@@ -238,7 +238,7 @@ async def fetch_bouncie_trips_in_range(
             return all_new_trips
 
         # Initialize TripService once
-        trip_service = TripService(require_mapbox_token())
+        trip_service = TripService()
 
         # Build chunk windows (7-day slices per device)
         chunk_windows: list[tuple[str, datetime, datetime]] = []

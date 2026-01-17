@@ -43,7 +43,7 @@ async def get_non_custom_places_visits(timeframe: str | None = None):
     prioritizing actual place names over addresses:
 
        1. destinationPlaceName (if present - explicitly set place name)
-       2. destination.formatted_address (full address from Mapbox, includes POI names)
+       2. destination.formatted_address (full address from Nominatim, includes POI names)
        3. destination.address_components.street (street name as last resort)
 
     Supports an optional timeframe query-param (day | week | month | year).

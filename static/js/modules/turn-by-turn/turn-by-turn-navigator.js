@@ -195,8 +195,8 @@ class TurnByTurnNavigator {
     try {
       // Only use cache if it has data (prevent empty array caching issue)
       if (
-        Array.isArray(window.coverageNavigatorAreas)
-        && window.coverageNavigatorAreas.length > 0
+        Array.isArray(window.coverageNavigatorAreas) &&
+        window.coverageNavigatorAreas.length > 0
       ) {
         this.coverageAreas = window.coverageNavigatorAreas;
       } else {
@@ -285,8 +285,8 @@ class TurnByTurnNavigator {
 
       // Process coverage baseline
       if (coverageData) {
-        const driveableMiles
-          = coverageData.driveable_length_miles ?? coverageData.total_length_miles ?? 0;
+        const driveableMiles =
+          coverageData.driveable_length_miles ?? coverageData.total_length_miles ?? 0;
         const drivenMiles = coverageData.driven_length_miles ?? 0;
         this.coverageBaseline = {
           totalMi: driveableMiles,
@@ -349,10 +349,7 @@ class TurnByTurnNavigator {
    * Fetch estimated drive time
    */
   async fetchRouteETA() {
-    const duration = await TurnByTurnAPI.fetchRouteETA(
-      this.routeCoords,
-      this.map.getAccessToken()
-    );
+    const duration = await TurnByTurnAPI.fetchRouteETA(this.routeCoords);
 
     if (duration) {
       this.estimatedDriveTime = duration;
@@ -389,10 +386,10 @@ class TurnByTurnNavigator {
       })
       .filter(Boolean);
 
-    const nameNode
-      = xml.querySelector("trk > name")
-      || xml.querySelector("rte > name")
-      || xml.querySelector("metadata > name");
+    const nameNode =
+      xml.querySelector("trk > name") ||
+      xml.querySelector("rte > name") ||
+      xml.querySelector("metadata > name");
     const name = nameNode?.textContent?.trim() || this.routeName;
 
     return { coords, name };
@@ -482,8 +479,7 @@ class TurnByTurnNavigator {
       } else {
         const directions = await TurnByTurnAPI.fetchDirectionsToPoint(
           [position.lon, position.lat],
-          startInfo.point,
-          this.map.getAccessToken()
+          startInfo.point
         );
 
         if (directions) {
@@ -520,9 +516,9 @@ class TurnByTurnNavigator {
       if (!this.navigateToStartRoute) {
         const directions = await TurnByTurnAPI.fetchDirectionsToPoint(
           [this.gps.lastPosition.lon, this.gps.lastPosition.lat],
-          this.state.smartStartPoint,
-          this.map.getAccessToken()
+          routePoint
         );
+
         if (directions) {
           this.navigateToStartRoute = directions.geometry;
         }
@@ -698,8 +694,8 @@ class TurnByTurnNavigator {
       return;
     }
 
-    const shouldSeedStart
-      = this.needsStartSeed && this.state.getState() === NAV_STATES.ACTIVE_NAVIGATION;
+    const shouldSeedStart =
+      this.needsStartSeed && this.state.getState() === NAV_STATES.ACTIVE_NAVIGATION;
     if (shouldSeedStart) {
       this.lastClosestIndex = 0;
     }
@@ -754,8 +750,8 @@ class TurnByTurnNavigator {
       const routeMiles = smoothedProgress / 1609.344;
       const totalAreaMiles = this.coverageBaseline.totalMi || 1;
       const uncoveredFraction = (100 - baselinePercent) / 100;
-      const estimatedNewCoverage
-        = (routeMiles / totalAreaMiles) * 100 * uncoveredFraction * 0.8;
+      const estimatedNewCoverage =
+        (routeMiles / totalAreaMiles) * 100 * uncoveredFraction * 0.8;
       const liveCoveragePercent = Math.min(100, baselinePercent + estimatedNewCoverage);
       this.ui.updateCoverageProgress(baselinePercent, liveCoveragePercent);
     }
@@ -897,8 +893,7 @@ class TurnByTurnNavigator {
 
     const directions = await TurnByTurnAPI.fetchDirectionsToPoint(
       current,
-      aheadResult.point,
-      this.map.getAccessToken()
+      aheadResult.point
     );
 
     if (directions) {

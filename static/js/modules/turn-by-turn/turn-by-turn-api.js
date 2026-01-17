@@ -4,7 +4,6 @@
  */
 
 import apiClient from "../api-client.js";
-import { DIRECTIONS_GEOMETRY, DIRECTIONS_PROFILE } from "./turn-by-turn-config.js";
 
 const TurnByTurnAPI = {
   /**
@@ -64,82 +63,51 @@ const TurnByTurnAPI = {
   },
 
   /**
-   * Fetch route ETA via Mapbox Directions API
+   * Fetch route ETA via backend routing API
    * @param {Array<[number, number]>} waypoints - Array of [lon, lat] coordinates
-   * @param {string} accessToken - Mapbox access token
    * @returns {Promise<number|null>} Duration in seconds or null
    */
-  async fetchRouteETA(waypoints, accessToken) {
+  async fetchRouteETA(waypoints) {
     if (waypoints.length < 2) {
       return null;
     }
 
     try {
-      // Sample up to 25 waypoints for Directions API
-      const maxWaypoints = 25;
-      let sampled = waypoints;
-      if (waypoints.length > maxWaypoints) {
-        const lastIndex = waypoints.length - 1;
-        const stride = lastIndex / (maxWaypoints - 1);
-        sampled = [];
-        for (let i = 0; i < maxWaypoints; i++) {
-          const index = Math.floor(i * stride);
-          sampled.push(waypoints[index]);
-        }
-      }
-
-      const coordsString = sampled.map((c) => `${c[0]},${c[1]}`).join(";");
-      const url = `https://api.mapbox.com/directions/v5/mapbox/driving/${coordsString}?access_token=${accessToken}&overview=false`;
-
-      const response = await fetch(url);
-      if (response.ok) {
-        const data = await response.json();
-        if (data.routes && data.routes.length > 0) {
-          return data.routes[0].duration;
-        }
-      }
+      const response = await apiClient.post("/api/routing/eta", {
+        waypoints,
+      });
+      return response?.duration ?? null;
     } catch {
-      // Fall back to simple calculation
+      return null;
     }
-    return null;
   },
 
   /**
-   * Fetch directions from one point to another via Mapbox Directions API
+   * Fetch directions from one point to another via backend routing API
    * @param {[number, number]} origin - [lon, lat]
    * @param {[number, number]} destination - [lon, lat]
-   * @param {string} accessToken - Mapbox access token
    * @returns {Promise<{duration: number, distance: number, geometry: Object}|null>}
    */
-  async fetchDirectionsToPoint(origin, destination, accessToken) {
+  async fetchDirectionsToPoint(origin, destination) {
     const isValidCoord = (coord) =>
-      Array.isArray(coord)
-      && coord.length === 2
-      && Number.isFinite(coord[0])
-      && Number.isFinite(coord[1]);
+      Array.isArray(coord) &&
+      coord.length === 2 &&
+      Number.isFinite(coord[0]) &&
+      Number.isFinite(coord[1]);
 
-    if (!accessToken || !isValidCoord(origin) || !isValidCoord(destination)) {
+    if (!isValidCoord(origin) || !isValidCoord(destination)) {
       return null;
     }
 
     try {
-      const url = `https://api.mapbox.com/directions/v5/${DIRECTIONS_PROFILE}/${origin[0]},${origin[1]};${destination[0]},${destination[1]}?access_token=${accessToken}&geometries=${DIRECTIONS_GEOMETRY}&overview=full`;
-
-      const response = await fetch(url);
-      if (response.ok) {
-        const data = await response.json();
-        if (data.routes && data.routes.length > 0) {
-          return {
-            duration: data.routes[0].duration,
-            distance: data.routes[0].distance,
-            geometry: data.routes[0].geometry,
-          };
-        }
-      }
+      const response = await apiClient.post("/api/routing/route", {
+        origin,
+        destination,
+      });
+      return response?.route || null;
     } catch {
-      // Silently fail - caller will handle null return
+      return null;
     }
-    return null;
   },
 
   /**

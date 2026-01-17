@@ -3,12 +3,11 @@ import math
 from collections import defaultdict
 from typing import Annotated, Any
 
-import httpx
 from beanie import PydanticObjectId
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
-from config import require_mapbox_token
+from core.http.valhalla import ValhallaClient
 from coverage.constants import MILES_TO_METERS
 from coverage.models import CoverageArea, CoverageState, Street
 from db.models import Trip
@@ -378,61 +377,33 @@ def _cluster_segments(
     return clusters
 
 
-async def _get_mapbox_directions_route(
+async def _get_valhalla_route(
     start_lon: float,
     start_lat: float,
     end_lon: float,
     end_lat: float,
 ) -> dict[str, Any]:
-    """Calls Mapbox Directions API to get a route between two points."""
+    """Calls Valhalla route API to get a route between two points."""
+    client = ValhallaClient()
     try:
-        mapbox_token = require_mapbox_token()
-    except RuntimeError as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        result = await client.route(
+            [(start_lon, start_lat), (end_lon, end_lat)],
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
 
-    coords_str = f"{start_lon},{start_lat};{end_lon},{end_lat}"
-    url = f"https://api.mapbox.com/directions/v5/mapbox/driving/{coords_str}"
-    params = {
-        "access_token": mapbox_token,
-        "geometries": "geojson",
-        "overview": "full",
-        "steps": "false",
+    geometry = result.get("geometry")
+    if not geometry:
+        raise HTTPException(
+            status_code=404,
+            detail="No route found by Valhalla routing API.",
+        )
+
+    return {
+        "geometry": geometry,
+        "duration": result.get("duration_seconds", 0),
+        "distance": result.get("distance_meters", 0),
     }
-
-    async with httpx.AsyncClient() as client:
-        try:
-            response = await client.get(url, params=params, timeout=20.0)
-            response.raise_for_status()
-            data = response.json()
-            if not data.get("routes"):
-                raise HTTPException(
-                    status_code=404,
-                    detail=f"No route found by Mapbox Directions API: {data.get('message', 'Unknown')}",
-                )
-
-            route = data["routes"][0]
-            return {
-                "geometry": route.get("geometry", {}),
-                "duration": route.get("duration", 0),
-                "distance": route.get("distance", 0),
-                "waypoints": route.get("waypoints", []),
-            }
-        except httpx.HTTPStatusError as e:
-            logger.exception(
-                "Mapbox Directions API HTTP error: %s - %s",
-                e.response.status_code,
-                e.response.text,
-            )
-            raise HTTPException(
-                status_code=e.response.status_code,
-                detail=f"Mapbox Directions API error: {e.response.text}",
-            )
-        except httpx.RequestError as e:
-            logger.exception("Mapbox Directions API request error: %s", e)
-            raise HTTPException(
-                status_code=503,
-                detail=f"Could not connect to Mapbox API: {e}",
-            )
 
 
 def _extract_position_from_gps_data(gps_data: dict) -> tuple[float, float, str] | None:
@@ -493,7 +464,7 @@ async def get_current_position(
     except Exception:
         pass
 
-    last_trip = await Trip.find().sort(-Trip.endTime).limit(1).to_list()
+    last_trip = await Trip.find().sort("-endTime").limit(1).to_list()
     if not last_trip:
         raise HTTPException(
             status_code=404,
@@ -580,7 +551,7 @@ async def get_next_driving_navigation_route(payload: DrivingNavigationRequest):
                 detail="No routable undriven streets found.",
             )
 
-    route = await _get_mapbox_directions_route(
+    route = await _get_valhalla_route(
         current_lon,
         current_lat,
         target_midpoint[0],

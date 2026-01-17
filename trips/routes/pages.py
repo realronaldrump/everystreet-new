@@ -15,12 +15,15 @@ templates = Jinja2Templates(directory="templates")
 @router.get("/trips", response_class=HTMLResponse, tags=["Pages"])
 async def trips_page(request: Request):
     """Render the main trips data table page."""
-    from config import require_mapbox_token
+    from config import get_mapbox_token, validate_mapbox_token
+
+    token = get_mapbox_token()
+    validate_mapbox_token(token)
 
     return templates.TemplateResponse(
         "trips.html",
         {
             "request": request,
-            "MAPBOX_ACCESS_TOKEN": require_mapbox_token(),
+            "MAPBOX_ACCESS_TOKEN": token,
         },
     )

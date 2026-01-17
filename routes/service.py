@@ -3,7 +3,7 @@ import logging
 import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import networkx as nx
 import osmnx as ox
@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 
 
 async def generate_optimal_route_with_progress(
-    location_id: str,
+    location_id: str | PydanticObjectId,
     task_id: str,
     start_coords: tuple[float, float] | None = None,  # (lon, lat)
 ) -> dict[str, Any]:
@@ -38,7 +38,7 @@ async def generate_optimal_route_with_progress(
     tracker = ProgressTracker(
         task_id,
         OptimalRouteProgress,
-        location_id=location_id,
+        location_id=str(location_id),
         use_task_id_field=True,
     )
 
@@ -521,7 +521,7 @@ async def generate_optimal_route_with_progress(
                 )
 
         # NOTE: We no longer pre-bridge disconnected clusters with OSM downloads.
-        # Instead, we generate the route and fill gaps afterwards with Mapbox routes.
+        # Instead, we generate the route and fill gaps afterwards with Valhalla routes.
         # This is much faster and simpler.
         await update_progress(
             "routing",
@@ -545,18 +545,15 @@ async def generate_optimal_route_with_progress(
             msg = "Failed to generate route coordinates"
             raise ValueError(msg)
 
-        # Fill gaps in the route with Mapbox driving directions
+        # Fill gaps in the route with Valhalla driving directions
         await update_progress(
             "filling_gaps",
             85,
             "Filling route gaps with driving routes...",
         )
 
-        from config import require_mapbox_token
-
-        require_mapbox_token()
-
         try:
+
             async def gap_progress(_stage: str, pct: int, msg: str) -> None:
                 # Map gap-fill progress (0-100) to overall progress (85-95)
                 overall_pct = 85 + int(pct * 0.1)
@@ -588,7 +585,7 @@ async def generate_optimal_route_with_progress(
         except Exception as update_err:
             logger.exception("Final DB progress update failed: %s", update_err)
             # Use Beanie update
-            await OptimalRouteProgress.find_one(
+            update_query = OptimalRouteProgress.find_one(
                 OptimalRouteProgress.task_id == task_id,
             ).update(
                 {
@@ -600,6 +597,7 @@ async def generate_optimal_route_with_progress(
                     },
                 },
             )
+            await cast(Any, update_query)
 
         return {
             "status": "success",
@@ -629,7 +627,7 @@ async def generate_optimal_route_with_progress(
             detailed_msg = (
                 f"Route generation failed: {error_msg} "
                 "This large gap likely indicates the street network is disconnected. "
-                "Ensure MAPBOX_TOKEN is configured so Mapbox gap-filling can bridge "
+                "Ensure Valhalla routing is reachable so gap-filling can bridge "
                 "disconnected areas."
             )
             await tracker.fail(error_msg, detailed_msg)

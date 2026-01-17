@@ -76,6 +76,8 @@ async def _dispatch_event(payload: dict[str, Any], auth_header: str | None) -> N
 
 @router.post("/api/webhooks/bouncie")
 @router.post("/api/webhooks/bouncie/")
+@router.post("/webhook/bouncie")
+@router.post("/webhook/bouncie/")
 async def bouncie_webhook(
     request: Request,
     background_tasks: BackgroundTasks,
@@ -86,10 +88,9 @@ async def bouncie_webhook(
     Always returns 2xx to prevent webhook deactivation.
     """
     try:
-        auth_header = (
-            request.headers.get("x-bouncie-authorization")
-            or request.headers.get("authorization")
-        )
+        auth_header = request.headers.get(
+            "x-bouncie-authorization"
+        ) or request.headers.get("authorization")
 
         raw_body = await request.body()
         if not raw_body:

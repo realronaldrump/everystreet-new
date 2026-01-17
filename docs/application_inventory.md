@@ -8,7 +8,7 @@
 
 ## Executive Summary
 
-**EveryStreet** is a full-stack web application for tracking driving coverage across streets and geographic areas. The app integrates with Bouncie vehicle tracking devices to fetch trip data, processes GPS coordinates via Mapbox map matching, and visualizes street coverage on interactive maps.
+**EveryStreet** is a full-stack web application for tracking driving coverage across streets and geographic areas. The app integrates with Bouncie vehicle tracking devices to fetch trip data, processes GPS coordinates via Valhalla map matching, and visualizes street coverage on interactive maps.
 
 | Metric | Count |
 |--------|-------|
@@ -44,7 +44,9 @@
 | Service | Purpose |
 |---------|---------|
 | **Bouncie API** | Vehicle tracking & trip data |
-| **Mapbox** | Maps, geocoding, directions, map matching |
+| **Mapbox** | Map rendering (tiles/styles) |
+| **Valhalla** | Routing, map matching |
+| **Nominatim** | Geocoding |
 | **OpenStreetMap** | Street geometry data |
 
 ---
@@ -73,7 +75,9 @@ graph TB
     
     subgraph External
         Bouncie[Bouncie API]
-        Mapbox[Mapbox API]
+        Mapbox[Mapbox Tiles]
+        Valhalla[Valhalla]
+        Nominatim[Nominatim]
         OSM[OpenStreetMap]
     end
     
@@ -94,7 +98,8 @@ graph TB
     Services --> Tasks
     
     Services --> Bouncie
-    Services --> Mapbox
+    Services --> Valhalla
+    Services --> Nominatim
     Services --> OSM
 ```
 
@@ -294,7 +299,16 @@ Key stylesheets:
 
 | Variable | Description |
 |----------|-------------|
-| `MAPBOX_TOKEN` | Mapbox public access token (`pk.*`) |
+| `MAPBOX_TOKEN` | Mapbox public access token (`pk.*`) for map rendering only |
+| `VALHALLA_BASE_URL` | Valhalla US9 base URL |
+| `VALHALLA_STATUS_URL` | Valhalla status URL |
+| `VALHALLA_ROUTE_URL` | Valhalla route URL |
+| `VALHALLA_TRACE_ROUTE_URL` | Valhalla trace_route URL |
+| `VALHALLA_TRACE_ATTRIBUTES_URL` | Valhalla trace_attributes URL |
+| `NOMINATIM_BASE_URL` | Nominatim base URL |
+| `NOMINATIM_SEARCH_URL` | Nominatim search URL |
+| `NOMINATIM_REVERSE_URL` | Nominatim reverse URL |
+| `NOMINATIM_USER_AGENT` | Nominatim User-Agent header value |
 | `CORS_ALLOWED_ORIGINS` | Comma-separated allowed origins |
 | `PORT` | Server port (default: 8080) |
 
@@ -322,9 +336,13 @@ Key stylesheets:
 
 ### Mapbox APIs
 - **Map Tiles**: Map rendering in browser
-- **Geocoding**: Address lookup
-- **Directions**: Route calculation
+
+### Valhalla (self-hosted)
+- **Routing**: Route calculation
 - **Map Matching**: GPS trace to road network
+
+### Nominatim (self-hosted)
+- **Geocoding**: Forward/reverse lookup
 
 ### OpenStreetMap
 - **Overpass API**: Street geometry fetch

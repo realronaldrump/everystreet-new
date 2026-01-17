@@ -2,8 +2,7 @@
 Search API for places, addresses, and streets.
 
 Provides endpoints for geocoding searches and street lookups with
-support for Nominatim (OSM) and Mapbox geocoding services via a
-centralized GeocodingService.
+self-hosted Nominatim via a centralized GeocodingService.
 """
 
 import logging
@@ -12,7 +11,6 @@ from typing import Annotated
 from beanie import PydanticObjectId
 from fastapi import APIRouter, HTTPException, Query
 
-from config import require_mapbox_token
 from coverage.models import CoverageArea, CoverageState, Street
 from external_geo_service import GeocodingService
 
@@ -20,8 +18,8 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/search", tags=["search"])
 
-# Shared geo service instance (uses cached token)
-_geo_service = GeocodingService(require_mapbox_token())
+# Shared geo service instance
+_geo_service = GeocodingService()
 
 
 @router.get("/geocode")
@@ -34,12 +32,6 @@ async def geocode_search(
         int,
         Query(ge=1, le=20, description="Maximum number of results"),
     ] = 5,
-    use_mapbox: Annotated[
-        bool | None,
-        Query(
-            description="Force Mapbox geocoding (True) or Nominatim (False). Default prefers Mapbox if configured.",
-        ),
-    ] = None,
     proximity_lon: Annotated[
         float | None,
         Query(description="Longitude to bias results toward"),
@@ -50,12 +42,11 @@ async def geocode_search(
     ] = None,
 ):
     """
-    Search for places, addresses, or streets using geocoding services.
+    Search for places, addresses, or streets using self-hosted Nominatim.
 
     Args:
         query: Search query string
         limit: Maximum number of results to return
-        use_mapbox: Use Mapbox Geocoding API instead of Nominatim
         proximity_lon: Longitude to bias results toward (optional)
         proximity_lat: Latitude to bias results toward (optional)
 
@@ -68,7 +59,7 @@ async def geocode_search(
             detail="Query must be at least 2 characters",
         )
 
-    logger.debug("Geocoding search for: %s (use_mapbox=%s)", query, use_mapbox)
+    logger.debug("Geocoding search for: %s", query)
 
     try:
         proximity = None
@@ -79,7 +70,6 @@ async def geocode_search(
             query,
             limit,
             proximity,
-            prefer_mapbox=use_mapbox,
         )
 
         logger.info("Found %d results for query: %s", len(results), query)

@@ -107,7 +107,7 @@ async def update_app_settings_endpoint(settings: Annotated[dict, Body()]):
                 status_code=400,
                 detail=(
                     "mapbox_access_token is no longer configurable via app settings. "
-                    "Set MAPBOX_TOKEN in the environment instead."
+                    "Set MAPBOX_TOKEN in the environment for map rendering only."
                 ),
             )
 

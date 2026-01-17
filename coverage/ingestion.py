@@ -453,7 +453,12 @@ async def _delayed_retry(
 
 async def _fetch_boundary(location_name: str) -> dict[str, Any]:
     """Fetch boundary polygon from Nominatim geocoding."""
-    url = "https://nominatim.openstreetmap.org/search"
+    from config import (
+        require_nominatim_search_url,
+        require_nominatim_user_agent,
+    )
+
+    url = require_nominatim_search_url()
     params = {
         "q": location_name,
         "format": "json",
@@ -461,7 +466,7 @@ async def _fetch_boundary(location_name: str) -> dict[str, Any]:
         "limit": 1,
     }
     headers = {
-        "User-Agent": "EveryStreet/1.0",
+        "User-Agent": require_nominatim_user_agent(),
     }
 
     async with aiohttp.ClientSession() as session:

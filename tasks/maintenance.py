@@ -182,11 +182,7 @@ async def _remap_unmatched_trips_logic() -> dict[str, Any]:
         limit,
     )
 
-    from config import require_mapbox_token
-
-    mapbox_token = require_mapbox_token()
-
-    trip_service = TripService(mapbox_token)
+    trip_service = TripService()
     # Beanie trips are objects, access attribute directly
     trip_ids = [trip.transactionId for trip in trips_to_process if trip.transactionId]
 

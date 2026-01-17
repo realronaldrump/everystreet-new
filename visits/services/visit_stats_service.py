@@ -181,7 +181,7 @@ class VisitStatsService:
         The logic derives a human-readable place name from destination information,
         prioritizing actual place names over addresses:
             1. destinationPlaceName (if present - explicitly set place name)
-            2. destination.formatted_address (full address from Mapbox, includes POI names)
+            2. destination.formatted_address (full address from Nominatim, includes POI names)
             3. destination.address_components.street (street name as last resort)
 
         Args:

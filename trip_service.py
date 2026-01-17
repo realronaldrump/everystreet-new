@@ -10,7 +10,7 @@ from fastapi import HTTPException, status
 from pydantic import BaseModel
 
 from admin_api import get_persisted_app_settings
-from config import require_mapbox_token, validate_mapbox_token
+from config import require_nominatim_reverse_url, require_valhalla_trace_route_url
 from db.models import Trip
 from trip_processor import TripProcessor, TripState
 from trip_repository import TripRepository
@@ -116,12 +116,9 @@ def with_comprehensive_handling(func: Callable) -> Callable:
 class TripService:
     """Centralized service for all trip processing operations."""
 
-    def __init__(self, mapbox_token: str | None = None) -> None:
-        if mapbox_token:
-            validate_mapbox_token(mapbox_token)
-            self.mapbox_token = mapbox_token
-        else:
-            self.mapbox_token = require_mapbox_token()
+    def __init__(self) -> None:
+        require_valhalla_trace_route_url()
+        require_nominatim_reverse_url()
 
     @with_comprehensive_handling
     async def get_trip_by_id(self, trip_id: str) -> Trip | None:
@@ -136,10 +133,7 @@ class TripService:
         source: str = "api",
     ) -> dict[str, Any]:
         """Process a single trip with specified options."""
-        processor = TripProcessor(
-            mapbox_token=self.mapbox_token,
-            source=source,
-        )
+        processor = TripProcessor(source=source)
         processor.set_trip_data(trip_data)
 
         if options.validate_only:
@@ -321,6 +315,7 @@ class TripService:
                 unique_trips.append(t)
 
             trips_to_handle = []
+            existing_by_id: dict[str, Any] = {}
             if unique_trips:
                 incoming_ids = [
                     t.get("transactionId")
@@ -341,10 +336,12 @@ class TripService:
                     .to_list()
                 )
 
-                existing_by_id = {}
+                existing_by_id = {**existing_by_id}
                 for d in existing_docs:
                     d_dict = d.model_dump() if hasattr(d, "model_dump") else dict(d)
-                    existing_by_id[d_dict.get("transactionId")] = d_dict
+                    transaction_id = d_dict.get("transactionId")
+                    if isinstance(transaction_id, str) and transaction_id:
+                        existing_by_id[transaction_id] = d_dict
 
                 for trip in unique_trips:
                     transaction_id = trip.get("transactionId")

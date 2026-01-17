@@ -50,13 +50,6 @@ class TripMapMatcher:
             transaction_id = processed_data.get("transactionId", "unknown")
             logger.debug("Starting map matching for trip %s", transaction_id)
 
-            if not self.map_matching_service.mapbox_token:
-                logger.warning(
-                    "No Mapbox token provided, skipping map matching for trip %s",
-                    transaction_id,
-                )
-                return True, processed_data
-
             gps_data = processed_data.get("gps")
             if not gps_data or not isinstance(gps_data, dict):
                 state_machine.set_state(

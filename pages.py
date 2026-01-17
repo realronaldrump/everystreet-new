@@ -5,7 +5,7 @@ from fastapi import APIRouter, HTTPException, Request, status
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
-from config import require_mapbox_token
+from config import get_mapbox_token, validate_mapbox_token
 from db.models import ALL_DOCUMENT_MODELS
 
 logger = logging.getLogger(__name__)
@@ -13,7 +13,13 @@ router = APIRouter()
 
 templates = Jinja2Templates(directory="templates")
 
-# Get Mapbox access token from centralized config
+# Get Mapbox access token from centralized config (map rendering only)
+
+
+def _mapbox_token_for_render() -> str:
+    token = get_mapbox_token()
+    validate_mapbox_token(token)
+    return token
 
 
 def _render_page(template_name: str, request: Request, **context: Any) -> HTMLResponse:
@@ -39,7 +45,7 @@ async def map_page(request: Request):
     return _render_page(
         "index.html",
         request,
-        MAPBOX_ACCESS_TOKEN=require_mapbox_token(),
+        MAPBOX_ACCESS_TOKEN=_mapbox_token_for_render(),
     )
 
 
@@ -49,7 +55,7 @@ async def edit_trips_page(request: Request):
     return _render_page(
         "edit_trips.html",
         request,
-        MAPBOX_ACCESS_TOKEN=require_mapbox_token(),
+        MAPBOX_ACCESS_TOKEN=_mapbox_token_for_render(),
     )
 
 
@@ -82,7 +88,7 @@ async def visits_page(request: Request):
     return _render_page(
         "visits.html",
         request,
-        MAPBOX_ACCESS_TOKEN=require_mapbox_token(),
+        MAPBOX_ACCESS_TOKEN=_mapbox_token_for_render(),
     )
 
 
@@ -92,7 +98,7 @@ async def gas_tracking_page(request: Request):
     return _render_page(
         "gas_tracking.html",
         request,
-        MAPBOX_ACCESS_TOKEN=require_mapbox_token(),
+        MAPBOX_ACCESS_TOKEN=_mapbox_token_for_render(),
     )
 
 
@@ -111,7 +117,7 @@ async def coverage_management_page(request: Request):
     return _render_page(
         "coverage_management.html",
         request,
-        MAPBOX_ACCESS_TOKEN=require_mapbox_token(),
+        MAPBOX_ACCESS_TOKEN=_mapbox_token_for_render(),
     )
 
 
@@ -171,7 +177,7 @@ async def coverage_navigator_page(request: Request):
     return _render_page(
         "coverage_navigator.html",
         request,
-        MAPBOX_ACCESS_TOKEN=require_mapbox_token(),
+        MAPBOX_ACCESS_TOKEN=_mapbox_token_for_render(),
     )
 
 
@@ -184,7 +190,7 @@ async def turn_by_turn_page(request: Request):
     return _render_page(
         "turn_by_turn.html",
         request,
-        MAPBOX_ACCESS_TOKEN=require_mapbox_token(),
+        MAPBOX_ACCESS_TOKEN=_mapbox_token_for_render(),
     )
 
 
@@ -219,5 +225,5 @@ async def county_map_page(request: Request):
     return _render_page(
         "county_map.html",
         request,
-        MAPBOX_ACCESS_TOKEN=require_mapbox_token(),
+        MAPBOX_ACCESS_TOKEN=_mapbox_token_for_render(),
     )

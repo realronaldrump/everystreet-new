@@ -30,7 +30,6 @@ class TripProcessor:
 
     def __init__(
         self,
-        mapbox_token: str | None = None,
         source: str = "api",
         geocoding_service: GeocodingService | None = None,
         map_matching_service: MapMatchingService | None = None,
@@ -40,14 +39,12 @@ class TripProcessor:
         Initialize the trip processor.
 
         Args:
-            mapbox_token: The Mapbox access token for map matching and geocoding
             source: Source of the trip data (api, bouncie, etc.)
             geocoding_service: Optional geocoding service instance (for testing/DI)
             map_matching_service: Optional map matching service instance (for testing/DI)
             repository: Optional TripRepository instance (for testing/DI)
         """
         self.source = source
-        self.mapbox_token = mapbox_token
 
         # Injected dependencies (lazy-initialize if not provided)
         self._geocoding_service = geocoding_service
@@ -85,14 +82,14 @@ class TripProcessor:
     def geocoding_service(self) -> GeocodingService:
         """Lazy-initialize geocoding service."""
         if self._geocoding_service is None:
-            self._geocoding_service = GeocodingService(self.mapbox_token)
+            self._geocoding_service = GeocodingService()
         return self._geocoding_service
 
     @property
     def map_matching_service(self) -> MapMatchingService:
         """Lazy-initialize map matching service."""
         if self._map_matching_service is None:
-            self._map_matching_service = MapMatchingService(self.mapbox_token)
+            self._map_matching_service = MapMatchingService()
         return self._map_matching_service
 
     @property

@@ -5,7 +5,6 @@ certifi
 fastapi
 geojson
 geopandas
-geopy
 gpxpy
 httpx
 arq
@@ -28,7 +27,6 @@ autoflake
 eradicate
 flynt
 pycln
-aiolimiter
 osmnx
 networkx
 tenacity

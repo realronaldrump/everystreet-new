@@ -5,13 +5,9 @@ import logging
 from collections.abc import Callable
 from typing import Any
 
-import aiohttp
-import pyproj
-
-from core.http.session import get_session
+from core.exceptions import ExternalServiceException
+from core.http.valhalla import ValhallaClient
 from geometry_service import GeometryService
-
-from .rate_limiting import map_match_semaphore, mapbox_rate_limiter
 
 logger = logging.getLogger(__name__)
 
@@ -23,17 +19,10 @@ MatchChunkFunc = Callable[
 
 
 class MapMatchingService:
-    """Service for map matching coordinates to road networks using Mapbox API."""
+    """Service for map matching coordinates to road networks using Valhalla."""
 
-    def __init__(self, mapbox_token: str | None = None) -> None:
-        """
-        Initialize the map matching service.
-
-        Args:
-            mapbox_token: Mapbox access token for map matching API
-        """
-        self.mapbox_token = mapbox_token
-        self.utm_proj: pyproj.CRS | None = None
+    def __init__(self) -> None:
+        self._client = ValhallaClient()
 
     async def map_match_coordinates(
         self,
@@ -46,7 +35,7 @@ class MapMatchingService:
         jump_threshold_m: float = 200.0,
     ) -> dict[str, Any]:
         """
-        Map match coordinates using the Mapbox API.
+        Map match coordinates using Valhalla.
 
         Args:
             coordinates: List of [lon, lat] coordinates
@@ -60,10 +49,10 @@ class MapMatchingService:
         Returns:
             Dictionary with map matching results
         """
-        if not self.mapbox_token:
+        if not coordinates:
             return {
                 "code": "Error",
-                "message": "No Mapbox token configured for map matching.",
+                "message": "No coordinates provided for map matching.",
             }
 
         if len(coordinates) < 2:
@@ -72,12 +61,7 @@ class MapMatchingService:
                 "message": "At least two coordinates are required for map matching.",
             }
 
-        if not self.utm_proj:
-            self._initialize_projections(coordinates)
-
-        session = await get_session()
         return await self._process_map_matching(
-            session,
             coordinates,
             timestamps,
             chunk_size,
@@ -87,28 +71,8 @@ class MapMatchingService:
             jump_threshold_m,
         )
 
-    def _initialize_projections(self, coords: list[list[float]]) -> None:
-        """
-        Initialize projections for map matching.
-
-        Args:
-            coords: Coordinates to determine UTM zone
-        """
-        lats = [c[1] for c in coords]
-        lons = [c[0] for c in coords]
-        center_lat = sum(lats) / len(lats)
-        center_lon = sum(lons) / len(lons)
-
-        utm_zone = int((center_lon + 180) / 6) + 1
-        hemisphere = "north" if center_lat >= 0 else "south"
-
-        self.utm_proj = pyproj.CRS(
-            f"+proj=utm +zone={utm_zone} +{hemisphere} +ellps=WGS84",
-        )
-
     async def _process_map_matching(
         self,
-        session: aiohttp.ClientSession,
         coordinates: list[list[float]],
         all_timestamps: list[int | None] | None,
         chunk_size: int,
@@ -121,7 +85,6 @@ class MapMatchingService:
         Process map matching with chunking and stitching.
 
         Args:
-            session: aiohttp session
             coordinates: Coordinates to match
             all_timestamps: Optional timestamps
             chunk_size: Size of each chunk
@@ -134,24 +97,23 @@ class MapMatchingService:
             Map matching result dictionary
         """
 
-        async def call_mapbox_api(
+        async def call_valhalla_api(
             coords: list[list[float]],
             timestamps_chunk: list[int | None] | None = None,
         ) -> dict[str, Any]:
-            """Call Mapbox Map Matching API using POST."""
-            coordinates_data = self._build_coordinates_data(coords, timestamps_chunk)
-            radiuses = self._calculate_adaptive_radiuses(coords, timestamps_chunk)
-            request_body = {"coordinates": coordinates_data, "radiuses": radiuses}
-
-            params = {
-                "access_token": self.mapbox_token,
-                "geometries": "geojson",
-                "overview": "full",
-                "tidy": "true",
-                "steps": "false",
-            }
-
-            return await self._execute_mapbox_request(session, params, request_body)
+            """Call Valhalla trace_route API."""
+            shape = self._build_shape_points(coords, timestamps_chunk)
+            try:
+                use_timestamps = bool(
+                    timestamps_chunk
+                    and any(timestamp is not None for timestamp in timestamps_chunk)
+                )
+                return await self._execute_valhalla_request(
+                    shape,
+                    use_timestamps=use_timestamps,
+                )
+            except ExternalServiceException as exc:
+                return {"code": "Error", "message": str(exc)}
 
         async def match_chunk(
             chunk_coords: list[list[float]],
@@ -165,7 +127,7 @@ class MapMatchingService:
             matched_coords = await self._try_match_chunk(
                 chunk_coords,
                 chunk_timestamps,
-                call_mapbox_api,
+                call_valhalla_api,
             )
             if matched_coords is not None:
                 return matched_coords
@@ -211,157 +173,63 @@ class MapMatchingService:
         return self._create_matching_result(final_matched)
 
     @staticmethod
-    def _build_coordinates_data(
+    def _build_shape_points(
         coords: list[list[float]],
         timestamps_chunk: list[int | None] | None,
-    ) -> list[list[float | int]]:
-        """Build coordinate data with optional timestamps."""
-        coordinates_data = []
+    ) -> list[dict[str, float | int]]:
+        """Build Valhalla shape points with optional timestamps."""
+        shape = []
         for i, (lon, lat) in enumerate(coords):
-            coord: list[float | int] = [lon, lat]
+            point: dict[str, float | int] = {"lon": lon, "lat": lat}
             if (
                 timestamps_chunk
                 and i < len(timestamps_chunk)
                 and timestamps_chunk[i] is not None
             ):
-                coord.append(timestamps_chunk[i])  # type: ignore[arg-type]
-            coordinates_data.append(coord)
-        return coordinates_data
+                timestamp = timestamps_chunk[i]
+                if timestamp is not None:
+                    point["time"] = int(timestamp)
+            shape.append(point)
+        return shape
 
-    def _calculate_adaptive_radiuses(
+    async def _execute_valhalla_request(
         self,
-        coords: list[list[float]],
-        timestamps_chunk: list[int | None] | None,
-    ) -> list[int]:
-        """Calculate adaptive radiuses based on timestamps and distances."""
-        radiuses = []
-        for i, coord in enumerate(coords):
-            if i == 0:
-                radiuses.append(25)
-                continue
-
-            # Try timestamp-based radius first
-            if self._has_valid_timestamps(timestamps_chunk, i):
-                time_diff = abs(timestamps_chunk[i] - timestamps_chunk[i - 1])  # type: ignore[index, operator]
-                radiuses.append(50 if time_diff > 0 else 25)
-            else:
-                # Fallback to distance-based radius
-                prev_coord = coords[i - 1]
-                distance = GeometryService.haversine_distance(
-                    prev_coord[0],
-                    prev_coord[1],
-                    coord[0],
-                    coord[1],
-                    unit="meters",
-                )
-                radiuses.append(50 if distance > 100 else 25)
-
-        return radiuses
-
-    @staticmethod
-    def _has_valid_timestamps(
-        timestamps_chunk: list[int | None] | None,
-        index: int,
-    ) -> bool:
-        """Check if valid timestamps exist for current and previous index."""
-        return (
-            timestamps_chunk is not None
-            and index > 0
-            and timestamps_chunk[index] is not None
-            and timestamps_chunk[index - 1] is not None
-        )
-
-    async def _execute_mapbox_request(
-        self,
-        session: aiohttp.ClientSession,
-        params: dict[str, Any],
-        request_body: dict[str, Any],
+        shape: list[dict[str, float | int]],
+        *,
+        use_timestamps: bool = False,
     ) -> dict[str, Any]:
-        """Execute Mapbox API request with retries."""
-        base_url = "https://api.mapbox.com/matching/v5/mapbox/driving"
-        max_attempts = 5
-        min_backoff = 2
+        """Execute Valhalla trace_route request with retries."""
+        max_attempts = 3
+        min_backoff = 1
 
-        async with map_match_semaphore:
-            for attempt in range(1, max_attempts + 1):
-                try:
-                    async with (
-                        mapbox_rate_limiter,
-                        session.post(
-                            base_url,
-                            params=params,
-                            json=request_body,
-                        ) as response,
-                    ):
-                        result = await self._handle_mapbox_response(
-                            response,
-                            attempt,
-                            max_attempts,
-                            min_backoff,
-                        )
-                        if result is not None:
-                            return result
-                except Exception as e:
-                    if attempt < max_attempts:
-                        await asyncio.sleep(min_backoff * (2 ** (attempt - 1)))
-                        continue
-                    return {"code": "Error", "message": f"Mapbox API error: {e!s}"}
+        if use_timestamps and not any(point.get("time") for point in shape):
+            use_timestamps = False
 
-            return {"code": "Error", "message": "All retry attempts failed"}
+        for attempt in range(1, max_attempts + 1):
+            try:
+                result = await self._client.trace_route(
+                    shape,
+                    use_timestamps=use_timestamps or None,
+                )
+                geometry = result.get("geometry")
+                coords = geometry.get("coordinates", []) if geometry else []
+                if not geometry:
+                    return {
+                        "code": "Error",
+                        "message": "Valhalla returned no geometry.",
+                    }
+                return {
+                    "code": "Ok",
+                    "matchings": [{"geometry": geometry}],
+                    "coordinates": coords,
+                }
+            except ExternalServiceException as e:
+                if attempt < max_attempts:
+                    await asyncio.sleep(min_backoff * (2 ** (attempt - 1)))
+                    continue
+                raise
 
-    async def _handle_mapbox_response(
-        self,
-        response: aiohttp.ClientResponse,
-        attempt: int,
-        max_attempts: int,
-        min_backoff: int,
-    ) -> dict[str, Any] | None:
-        """Handle different response status codes from Mapbox API."""
-        if response.status == 429:
-            return await self._handle_rate_limit(
-                response,
-                attempt,
-                max_attempts,
-                min_backoff,
-            )
-
-        if 400 <= response.status < 500:
-            error_text = await response.text()
-            return {
-                "code": "Error",
-                "message": f"Mapbox API error: {response.status}",
-                "details": error_text,
-            }
-
-        if response.status >= 500:
-            if attempt < max_attempts:
-                await asyncio.sleep(min_backoff * (2 ** (attempt - 1)))
-                return None
-            return {
-                "code": "Error",
-                "message": f"Mapbox server error: {response.status}",
-            }
-
-        response.raise_for_status()
-        return await response.json()
-
-    @staticmethod
-    async def _handle_rate_limit(
-        response: aiohttp.ClientResponse,
-        attempt: int,
-        max_attempts: int,
-        min_backoff: int,
-    ) -> dict[str, Any] | None:
-        """Handle rate limit responses."""
-        retry_after = response.headers.get("Retry-After")
-        wait = float(retry_after) if retry_after else min_backoff * (2 ** (attempt - 1))
-        if attempt < max_attempts:
-            await asyncio.sleep(wait)
-            return None
-        return {
-            "code": "Error",
-            "message": "Too Many Requests (exceeded max attempts)",
-        }
+        return {"code": "Error", "message": "All retry attempts failed"}
 
     @staticmethod
     def _is_valid_chunk(chunk_coords: list[list[float]]) -> bool:
@@ -377,41 +245,39 @@ class MapMatchingService:
         self,
         chunk_coords: list[list[float]],
         chunk_timestamps: list[int | None] | None,
-        call_mapbox_api: Callable[..., Any],
+        call_valhalla_api: Callable[..., Any],
     ) -> list[list[float]] | None:
-        """Try to match a chunk using Mapbox API."""
+        """Try to match a chunk using Valhalla."""
         try:
-            data = await call_mapbox_api(chunk_coords, chunk_timestamps)
+            data = await call_valhalla_api(chunk_coords, chunk_timestamps)
             if data.get("code") == "Ok" and data.get("matchings"):
                 return data["matchings"][0]["geometry"]["coordinates"]
 
-            msg = data.get("message", "Mapbox API error (code != Ok)")
-            logger.warning("Mapbox chunk error: %s", msg)
+            msg = data.get("message", "Valhalla error (code != Ok)")
+            logger.warning("Valhalla chunk error: %s", msg)
 
-            # Try filtering invalid coordinates
             if "invalid coordinates" in msg.lower():
                 return await self._retry_with_filtered_coords(
                     chunk_coords,
-                    call_mapbox_api,
+                    call_valhalla_api,
                 )
 
         except Exception as exc:
-            logger.warning("Unexpected error in mapbox chunk: %s", str(exc))
+            logger.warning("Unexpected error in valhalla chunk: %s", str(exc))
 
         return None
 
     async def _retry_with_filtered_coords(
         self,
         chunk_coords: list[list[float]],
-        call_mapbox_api: Callable[..., Any],
+        call_valhalla_api: Callable[..., Any],
     ) -> list[list[float]] | None:
         """Retry matching after filtering invalid coordinates."""
         filtered = [
             c for c in chunk_coords if GeometryService.validate_coordinate_pair(c)[0]
         ]
         if len(filtered) >= 2 and len(filtered) < len(chunk_coords):
-            # Recursively try with filtered coords (depth doesn't increment for this)
-            return await self._try_match_chunk(filtered, None, call_mapbox_api)
+            return await self._try_match_chunk(filtered, None, call_valhalla_api)
         return None
 
     @staticmethod

@@ -6,12 +6,12 @@ This package provides a modular trip processing system with:
 - Validation using Pydantic models
 - Basic GPS data processing
 - Geocoding via external services
-- Map matching via Mapbox API
+- Map matching via Valhalla
 
 Usage:
     from trip_processor import TripProcessor, TripState
 
-    processor = TripProcessor(mapbox_token="your_token")
+    processor = TripProcessor()
     processor.set_trip_data(trip_data)
     result = await processor.process()
 """

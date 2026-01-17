@@ -12,7 +12,7 @@ async def fill_route_gaps(
     progress_callback: Any | None = None,
 ) -> list[list[float]]:
     """
-    Fill gaps in a route with actual driving routes from Mapbox.
+    Fill gaps in a route with actual driving routes from Valhalla.
 
     This is a simple post-processing step that finds any gaps larger than
     max_gap_ft and fetches real driving routes to fill them.
@@ -76,7 +76,7 @@ async def fill_route_gaps(
         from_xy = (prev[0], prev[1])
         to_xy = (cur[0], cur[1])
 
-        # Fetch route from Mapbox
+        # Fetch route from Valhalla
         bridge_coords = await fetch_bridge_route(from_xy, to_xy)
 
         if bridge_coords and len(bridge_coords) >= 2:
@@ -95,7 +95,7 @@ async def fill_route_gaps(
             )
         else:
             logger.warning(
-                "Could not fill gap at index %d (%.2f mi) - Mapbox returned no route",
+                "Could not fill gap at index %d (%.2f mi) - Valhalla returned no route",
                 gap_idx,
                 gap_ft / 5280,
             )

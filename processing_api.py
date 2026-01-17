@@ -4,7 +4,6 @@ from datetime import UTC, datetime, timedelta
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
 
-from config import require_mapbox_token
 from db.models import Trip
 from db.schemas import DateRangeModel
 from trip_service import ProcessingOptions, TripService
@@ -14,7 +13,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 # Initialize TripService
-trip_service = TripService(require_mapbox_token())
+trip_service = TripService()
 
 
 class ProcessTripOptions(BaseModel):
@@ -78,9 +77,9 @@ async def get_trip_status(trip_id: str):
             "validated_at": (
                 trip.validated_at if hasattr(trip, "validated_at") else None
             ),
-            "geocoded_at": trip.geocoded_at if hasattr(trip, "geocoded_at") else None,
-            "matched_at": trip.matched_at,
-            "last_processed": trip.lastUpdate,  # or saved_at
+            "geocoded_at": getattr(trip, "geocoded_at", None),
+            "matched_at": getattr(trip, "matched_at", None),
+            "last_processed": getattr(trip, "lastUpdate", None),
         }
 
     except Exception as e:
@@ -201,11 +200,12 @@ async def remap_matched_trips(
         # Using Beanie update_many
 
         # Beanie's `find(query).update(update_query)`
-        update_result = await Trip.find({"$expr": range_expr}).update(
+        update_result = Trip.find({"$expr": range_expr}).update_many(
             {"$unset": {"matchedGps": "", "matchStatus": "", "matched_at": ""}},
         )
+        update_result = await update_result
 
-        total_deleted_count = update_result.modified_count
+        total_deleted_count = int(getattr(update_result, "modified_count", 0) or 0)
 
         # Now re-process
         # Gather IDs? if too many, we might want to let remap_trips handle the query.

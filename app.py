@@ -12,13 +12,22 @@ from fastapi.templating import Jinja2Templates
 from admin_api import router as admin_api_router
 from analytics import router as analytics_api_router
 from bouncie_webhook_api import router as bouncie_webhook_api_router
-from config import require_mapbox_token
+from config import (
+    require_nominatim_reverse_url,
+    require_nominatim_search_url,
+    require_nominatim_user_agent,
+    require_valhalla_route_url,
+    require_valhalla_status_url,
+    require_valhalla_trace_attributes_url,
+    require_valhalla_trace_route_url,
+)
 from core.http.session import cleanup_session
 from county_api import router as county_api_router
 from coverage_api import router as coverage_api_router
 from db import db_manager
 from driving_routes import router as driving_routes_router
 from exports import router as export_api_router
+from routes.routing import router as routing_router
 from gas import router as gas_api_router
 from live_tracking_api import router as live_tracking_api_router
 from logs_api import router as logs_api_router
@@ -62,7 +71,7 @@ uvicorn_access_logger.addFilter(StaticFileFilter())
 class AppState:
     """Application state container to avoid global variables."""
 
-    mongo_handler = None
+    mongo_handler: MongoDBHandler | None = None
 
 
 # Initialize FastAPI App
@@ -115,6 +124,7 @@ app.include_router(county_api_router)
 app.include_router(coverage_api_router)
 app.include_router(driving_routes_router)
 app.include_router(export_api_router)
+app.include_router(routing_router)
 app.include_router(gas_api_router)
 app.include_router(live_tracking_api_router)
 app.include_router(logs_api_router)
@@ -156,9 +166,15 @@ async def startup_event():
         root_logger.addHandler(AppState.mongo_handler)
         logger.info("MongoDB logging handler initialized and configured.")
 
-        # Validate Mapbox configuration early to fail fast on misconfiguration
-        require_mapbox_token()
-        logger.info("MAPBOX_TOKEN validated successfully.")
+        # Validate Valhalla + Nominatim configuration early to fail fast
+        require_valhalla_route_url()
+        require_valhalla_status_url()
+        require_valhalla_trace_route_url()
+        require_valhalla_trace_attributes_url()
+        require_nominatim_search_url()
+        require_nominatim_reverse_url()
+        require_nominatim_user_agent()
+        logger.info("Valhalla and Nominatim configuration validated successfully.")
 
         # Register coverage event handlers
         from coverage.events import register_handlers

@@ -50,12 +50,6 @@ export const MAP_STYLES = {
 };
 
 /**
- * Mapbox Directions API profile
- */
-export const DIRECTIONS_PROFILE = "mapbox/driving";
-export const DIRECTIONS_GEOMETRY = "geojson";
-
-/**
  * Distance thresholds for various calculations
  */
 export const DISTANCE_THRESHOLDS = {
