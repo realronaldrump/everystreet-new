@@ -32,6 +32,74 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+@router.get("/api/matched_trips", tags=["Trips API"])
+async def get_matched_trips(request: Request):
+    """Stream matched trips as GeoJSON.
+
+    Returns trips that have matchedGps data, using the matched geometry
+    as the primary geometry for each feature.
+    """
+    query = await build_query_from_request(request)
+
+    # Only include trips with matched GPS data
+    query["matchedGps"] = {"$ne": None}
+    # Exclude invalid trips
+    query["invalid"] = {"$ne": True}
+
+    trip_cursor = Trip.find(query).sort(-Trip.endTime)
+
+    # Pre-fetch gas prices for cost calculation
+    price_map = await TripCostService.get_fillup_price_map()
+
+    async def stream():
+        yield '{"type":"FeatureCollection","features":['
+        first = True
+        async for trip in trip_cursor:
+            trip_dict = trip.model_dump() if isinstance(trip, Trip) else trip
+            st = parse_timestamp(trip_dict.get("startTime"))
+            et = parse_timestamp(trip_dict.get("endTime"))
+            duration = (et - st).total_seconds() if st and et else None
+
+            matched_geom = GeometryService.parse_geojson(trip_dict.get("matchedGps"))
+            if not matched_geom:
+                continue  # Skip trips without valid matched geometry
+
+            coords = matched_geom.get("coordinates", []) if matched_geom else []
+            num_points = len(coords) if isinstance(coords, list) else 0
+
+            props = {
+                "transactionId": trip_dict.get("transactionId"),
+                "imei": trip_dict.get("imei"),
+                "startTime": st.isoformat() if st else None,
+                "endTime": et.isoformat() if et else None,
+                "duration": duration,
+                "distance": _safe_float(trip_dict.get("distance"), 0),
+                "maxSpeed": _safe_float(trip_dict.get("maxSpeed"), 0),
+                "startLocation": trip_dict.get("startLocation"),
+                "destination": trip_dict.get("destination"),
+                "fuelConsumed": _safe_float(trip_dict.get("fuelConsumed"), 0),
+                "source": trip_dict.get("source"),
+                "pointsRecorded": num_points,
+                "estimated_cost": TripCostService.calculate_trip_cost(
+                    trip_dict,
+                    price_map,
+                ),
+                "matchStatus": trip_dict.get("matchStatus"),
+                "matched_at": trip_dict.get("matched_at").isoformat()
+                if trip_dict.get("matched_at")
+                else None,
+            }
+            feature = GeometryService.feature_from_geometry(matched_geom, props)
+            chunk = json.dumps(feature, separators=(",", ":"))
+            if not first:
+                yield ","
+            yield chunk
+            first = False
+        yield "]}"
+
+    return StreamingResponse(stream(), media_type="application/geo+json")
+
+
 @router.get("/api/trips", tags=["Trips API"])
 async def get_trips(request: Request):
     """Stream all trips as GeoJSON to improve performance."""

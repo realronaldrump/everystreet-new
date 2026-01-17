@@ -99,7 +99,10 @@ class TripStatsService:
 
             # Find trips matching query
             trips_list = await Trip.find(query).to_list()
-            trip_ids = [trip.transactionId for trip in trips_list if trip.transactionId]
+            # Convert transactionId to string to handle ObjectId values from older data
+            trip_ids = [
+                str(trip.transactionId) for trip in trips_list if trip.transactionId
+            ]
 
             total_trips = len(trip_ids)
 
