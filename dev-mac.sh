@@ -28,7 +28,9 @@ if [ ! -f .env ]; then
     exit 1
 fi
 
-export $(grep -v '^#' .env | xargs)
+set -a
+source .env
+set +a
 
 # Cleanup function to kill background processes on exit
 cleanup() {
