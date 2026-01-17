@@ -5,7 +5,8 @@ import pytest
 from db.models import Trip
 
 
-def test_trip_gps_list_normalization_deduplicates() -> None:
+@pytest.mark.asyncio
+async def test_trip_gps_list_normalization_deduplicates(beanie_db) -> None:
     trip = Trip(
         gps=[
             [-97.0, 32.0],
@@ -21,14 +22,16 @@ def test_trip_gps_list_normalization_deduplicates() -> None:
     assert trip.gps["coordinates"] == [[-97.0, 32.0], [-96.9, 32.1]]
 
 
-def test_trip_gps_single_point_becomes_point() -> None:
+@pytest.mark.asyncio
+async def test_trip_gps_single_point_becomes_point(beanie_db) -> None:
     trip = Trip(gps=[[-97.0, 32.0]])
     assert trip.gps is not None
     assert trip.gps["type"] == "Point"
     assert trip.gps["coordinates"] == [-97.0, 32.0]
 
 
-def test_trip_validate_meaningful_flags_stationary() -> None:
+@pytest.mark.asyncio
+async def test_trip_validate_meaningful_flags_stationary(beanie_db) -> None:
     start = datetime(2024, 1, 1, tzinfo=UTC)
     end = start + timedelta(minutes=1)
     trip = Trip(
@@ -45,7 +48,8 @@ def test_trip_validate_meaningful_flags_stationary() -> None:
     assert "Stationary trip" in message
 
 
-def test_trip_validate_meaningful_accepts_moving() -> None:
+@pytest.mark.asyncio
+async def test_trip_validate_meaningful_accepts_moving(beanie_db) -> None:
     start = datetime(2024, 1, 1, tzinfo=UTC)
     end = start + timedelta(minutes=15)
     trip = Trip(

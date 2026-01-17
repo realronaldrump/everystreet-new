@@ -28,3 +28,5 @@ data/*
 .before_autofix.txt
 .after_autofix.txt
 # bouncie_docs/bouncie_api_docs.json
+.coverage
+.gitignore
