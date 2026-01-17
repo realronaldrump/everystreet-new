@@ -1,6 +1,7 @@
 /* global mapboxgl */
 
 import { CONFIG } from "./config.js";
+import { waitForMapboxToken } from "./mapbox-token.js";
 import store from "./spa/store.js";
 import state from "./state.js";
 import { utils } from "./utils.js";
@@ -15,27 +16,19 @@ const mapManager = {
       loadingManager?.show("Initializing map...");
 
       const mapElement = utils.getElement("map");
-      if (!mapElement || state.map) {
+      const mapCanvas = utils.getElement("map-canvas");
+      if (!mapElement || !mapCanvas || state.map) {
         loadingManager?.hide();
         return state.mapInitialized;
       }
 
-      // Wait for token to be available (may be loading via SPA scripts)
-      let token = window.MAPBOX_ACCESS_TOKEN;
-      if (!token) {
-        // Give inline scripts time to execute during SPA navigation
-        await new Promise((resolve) => setTimeout(resolve, 50));
-        token = window.MAPBOX_ACCESS_TOKEN;
-      }
-      if (!token) {
-        throw new Error("Mapbox access token not configured");
-      }
+      const token = await waitForMapboxToken();
 
       mapboxgl.accessToken = token;
 
       if (!mapboxgl.supported()) {
-        mapElement.innerHTML
-          = '<div class="webgl-unsupported-message p-4 text-center">WebGL is not supported by your browser.</div>';
+        mapElement.innerHTML =
+          '<div class="webgl-unsupported-message p-4 text-center">WebGL is not supported by your browser.</div>';
         throw new Error("WebGL not supported");
       }
 
@@ -45,17 +38,18 @@ const mapManager = {
       mapboxgl.config.REPORT_MAP_LOAD_TIMES = false;
       mapboxgl.config.COLLECT_RESOURCE_TIMING = false;
 
-      const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
+      const theme =
+        document.documentElement.getAttribute("data-bs-theme") || "dark";
 
       // Determine initial map view
       const urlParams = new URLSearchParams(window.location.search);
       const latParam = parseFloat(urlParams.get("lat"));
       const lngParam = parseFloat(urlParams.get("lng"));
       const zoomParam = parseFloat(urlParams.get("zoom"));
-      const savedView
-        = store.get("map.view") || utils.getStorage(CONFIG.STORAGE_KEYS.mapView);
-      const mapCenter
-        = !Number.isNaN(latParam) && !Number.isNaN(lngParam)
+      const savedView =
+        store.get("map.view") || utils.getStorage(CONFIG.STORAGE_KEYS.mapView);
+      const mapCenter =
+        !Number.isNaN(latParam) && !Number.isNaN(lngParam)
           ? [lngParam, latParam]
           : savedView?.center || CONFIG.MAP.defaultCenter;
       const mapZoom = !Number.isNaN(zoomParam)
@@ -65,18 +59,18 @@ const mapManager = {
       // Determine initial map style - respect stored preference or use theme
       const storedMapType = utils.getStorage("mapType");
       const initialMapType = storedMapType || theme;
-      const initialStyle
-        = CONFIG.MAP.styles[initialMapType] || CONFIG.MAP.styles[theme];
+      const initialStyle =
+        CONFIG.MAP.styles[initialMapType] || CONFIG.MAP.styles[theme];
 
       loadingManager?.updateMessage("Creating map instance...");
 
       // Clear container to prevent Mapbox warning
-      if (mapElement.hasChildNodes()) {
-        mapElement.innerHTML = "";
+      if (mapCanvas.hasChildNodes()) {
+        mapCanvas.innerHTML = "";
       }
 
       state.map = new mapboxgl.Map({
-        container: "map",
+        container: "map-canvas",
         style: initialStyle,
         center: mapCenter,
         zoom: mapZoom,
@@ -119,7 +113,7 @@ const mapManager = {
             center: [center.lng, center.lat],
             zoom,
           },
-          { source: "map" }
+          { source: "map" },
         );
       }, CONFIG.MAP.debounceDelay);
 
@@ -148,7 +142,11 @@ const mapManager = {
             return;
           }
           const view = event.detail?.view;
-          if (!view || !Array.isArray(view.center) || !Number.isFinite(view.zoom)) {
+          if (
+            !view ||
+            !Array.isArray(view.center) ||
+            !Number.isFinite(view.zoom)
+          ) {
             return;
           }
           try {
@@ -166,7 +164,7 @@ const mapManager = {
       window.loadingManager?.hide();
       window.notificationManager.show(
         `Map initialization failed: ${error.message}`,
-        "danger"
+        "danger",
       );
       return false;
     }
@@ -198,11 +196,14 @@ const mapManager = {
     const queryLayers = [];
     if (state.map.getLayer("trips-hitbox")) {
       queryLayers.push("trips-hitbox");
-    } else if (!state.mapLayers.trips?.isHeatmap && state.map.getLayer("trips-layer")) {
+    } else if (
+      !state.mapLayers.trips?.isHeatmap &&
+      state.map.getLayer("trips-layer")
+    ) {
       queryLayers.push("trips-layer");
     } else if (
-      state.mapLayers.trips?.isHeatmap
-      && state.map.getLayer("trips-layer-1")
+      state.mapLayers.trips?.isHeatmap &&
+      state.map.getLayer("trips-layer-1")
     ) {
       queryLayers.push("trips-layer-1");
     }
@@ -240,7 +241,9 @@ const mapManager = {
       return;
     }
 
-    const selectedId = state.selectedTripId ? String(state.selectedTripId) : null;
+    const selectedId = state.selectedTripId
+      ? String(state.selectedTripId)
+      : null;
 
     ["trips", "matchedTrips"].forEach((layerName) => {
       const layerInfo = state.mapLayers[layerName];
@@ -267,7 +270,10 @@ const mapManager = {
             "case",
             [
               "==",
-              ["to-string", ["coalesce", ["get", "transactionId"], ["get", "id"]]],
+              [
+                "to-string",
+                ["coalesce", ["get", "transactionId"], ["get", "id"]],
+              ],
               selectedId,
             ],
             layerInfo.highlightColor || "#FFD700",
@@ -280,7 +286,10 @@ const mapManager = {
             "case",
             [
               "==",
-              ["to-string", ["coalesce", ["get", "transactionId"], ["get", "id"]]],
+              [
+                "to-string",
+                ["coalesce", ["get", "transactionId"], ["get", "id"]],
+              ],
               selectedId,
             ],
             baseWeight * 2,
@@ -318,10 +327,10 @@ const mapManager = {
     };
 
     if (
-      !selectedId
-      || state.selectedTripLayer !== "trips"
-      || !state.mapLayers.trips?.isHeatmap
-      || !state.mapLayers.trips?.visible
+      !selectedId ||
+      state.selectedTripLayer !== "trips" ||
+      !state.mapLayers.trips?.isHeatmap ||
+      !state.mapLayers.trips?.visible
     ) {
       removeOverlay();
       return;
@@ -329,11 +338,11 @@ const mapManager = {
 
     const tripLayer = state.mapLayers.trips?.layer;
     const matchingFeature = tripLayer?.features?.find((feature) => {
-      const featureId
-        = feature?.properties?.transactionId
-        || feature?.properties?.id
-        || feature?.properties?.tripId
-        || feature?.id;
+      const featureId =
+        feature?.properties?.transactionId ||
+        feature?.properties?.id ||
+        feature?.properties?.tripId ||
+        feature?.id;
       return featureId != null && String(featureId) === selectedId;
     });
 
@@ -348,8 +357,8 @@ const mapManager = {
       properties: matchingFeature.properties || {},
     };
 
-    const highlightColor
-      = window.MapStyles?.MAP_LAYER_COLORS?.trips?.selected || "#FFD700";
+    const highlightColor =
+      window.MapStyles?.MAP_LAYER_COLORS?.trips?.selected || "#FFD700";
     const highlightWidth = [
       "interpolate",
       ["linear"],
@@ -448,8 +457,11 @@ const mapManager = {
 
     const { features } = state.mapLayers.trips.layer;
     const tripFeature = features.find((f) => {
-      const fId
-        = f.properties?.transactionId || f.properties?.id || f.properties?.tripId || f.id;
+      const fId =
+        f.properties?.transactionId ||
+        f.properties?.id ||
+        f.properties?.tripId ||
+        f.id;
       return String(fId) === String(tripId);
     });
 
@@ -516,9 +528,9 @@ const mapManager = {
     }
 
     if (
-      lastCoord?.length === 2
-      && !Number.isNaN(lastCoord[0])
-      && !Number.isNaN(lastCoord[1])
+      lastCoord?.length === 2 &&
+      !Number.isNaN(lastCoord[0]) &&
+      !Number.isNaN(lastCoord[1])
     ) {
       state.map.flyTo({
         center: lastCoord,
