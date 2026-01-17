@@ -40,5 +40,26 @@ class NominatimConfigTests(unittest.TestCase):
             assert config.require_nominatim_user_agent() == "EveryStreet/1.0"
 
 
+class MapboxConfigTests(unittest.TestCase):
+    def test_validate_mapbox_token_requires_prefix(self) -> None:
+        with pytest.raises(RuntimeError):
+            config.validate_mapbox_token("sk.invalid")
+
+    def test_validate_mapbox_token_requires_length(self) -> None:
+        with pytest.raises(RuntimeError):
+            config.validate_mapbox_token("pk.short")
+
+    def test_require_mapbox_token_reads_env(self) -> None:
+        with patch.dict(
+            os.environ,
+            {"MAPBOX_TOKEN": "pk.test-token-12345678901234567890"},
+            clear=True,
+        ):
+            assert (
+                config.require_mapbox_token()
+                == "pk.test-token-12345678901234567890"
+            )
+
+
 if __name__ == "__main__":
     unittest.main()

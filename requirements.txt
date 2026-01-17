@@ -31,3 +31,6 @@ osmnx
 networkx
 tenacity
 pytest
+pytest-asyncio
+pytest-cov
+mongomock-motor

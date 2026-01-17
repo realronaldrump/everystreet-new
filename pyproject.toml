@@ -197,3 +197,8 @@ paths = ["."]
 
 # Minimum confidence (60% is default, 100% is very strict)
 min_confidence = 60
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --cov=core.api --cov=core.exceptions --cov=db.models --cov=date_utils --cov=exports.auth --cov=exports.serializers --cov=routes.routing --cov=bouncie_credentials --cov=bouncie_webhook_api --cov-report=term-missing --cov-report=lcov:coverage/lcov.info --cov-fail-under=35"
+asyncio_mode = "auto"

@@ -73,3 +73,42 @@ test("draft updates are ignored when not editing", () => {
   assert.equal(state.isDirty, false);
   assert.equal(editor.hasUnsavedChanges(), false);
 });
+
+test("normalizeValues trims inputs and normalizes devices", () => {
+  const normalized = profileState.normalizeValues({
+    client_id: " client ",
+    client_secret: "secret ",
+    redirect_uri: " https://example.com ",
+    authorization_code: " code ",
+    authorized_devices: " 111 , 222 ",
+    fetch_concurrency: "0",
+  });
+
+  assert.equal(normalized.client_id, "client");
+  assert.equal(normalized.client_secret, "secret");
+  assert.equal(normalized.redirect_uri, "https://example.com");
+  assert.equal(normalized.authorization_code, "code");
+  assert.deepEqual(normalized.authorized_devices, ["111", "222"]);
+  assert.equal(normalized.fetch_concurrency, 12);
+});
+
+test("areValuesEqual ignores equivalent normalized inputs", () => {
+  const left = {
+    client_id: "client",
+    client_secret: "secret",
+    redirect_uri: "https://example.com",
+    authorization_code: "code",
+    authorized_devices: ["111", "222"],
+    fetch_concurrency: 12,
+  };
+  const right = {
+    client_id: " client ",
+    client_secret: "secret",
+    redirect_uri: "https://example.com",
+    authorization_code: "code",
+    authorized_devices: "111,222",
+    fetch_concurrency: "12",
+  };
+
+  assert.equal(profileState.areValuesEqual(left, right), true);
+});
