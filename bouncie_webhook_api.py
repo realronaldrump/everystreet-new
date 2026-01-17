@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import UTC, datetime
 from collections.abc import Awaitable, Callable
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, Request, Response, status
