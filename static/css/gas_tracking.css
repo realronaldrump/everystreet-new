@@ -26,7 +26,7 @@
 }
 
 .stat-card .text-secondary {
-  color: var(--text-secondary) !important;
+  color: var(--text-secondary);
 }
 
 .gas-panel {
@@ -119,7 +119,7 @@
 }
 
 #fillup-list .text-muted {
-  color: var(--text-secondary) !important;
+  color: var(--text-secondary);
 }
 
 @media (width <= 992px) {

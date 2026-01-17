@@ -9,11 +9,11 @@ class UIState {
     this.activeModals = new Set();
     this.touchStartX = null;
     this.touchStartY = null;
-    this.isMobile
-      = typeof window !== "undefined" && window.innerWidth < CONFIG.UI.mobileBreakpoint;
-    this.reducedMotion
-      = typeof window !== "undefined"
-      && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    this.isMobile =
+      typeof window !== "undefined" && window.innerWidth < CONFIG.UI.mobileBreakpoint;
+    this.reducedMotion =
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     this.uiState = this.loadUIState();
   }
 

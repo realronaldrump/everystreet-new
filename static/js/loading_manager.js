@@ -94,15 +94,15 @@ class LoadingManager {
    * @returns {LoadingManager} - Returns this for chaining
    */
   show(message = "Loading...", options = {}) {
-    const messageOptions
-      = typeof message === "object" && message !== null ? message : options;
-    const messageText
-      = typeof message === "object" && message !== null
+    const messageOptions =
+      typeof message === "object" && message !== null ? message : options;
+    const messageText =
+      typeof message === "object" && message !== null
         ? messageOptions.message || "Loading..."
         : message;
 
-    const blocking
-      = typeof messageOptions.blocking === "boolean" ? messageOptions.blocking : false;
+    const blocking =
+      typeof messageOptions.blocking === "boolean" ? messageOptions.blocking : false;
     const compact = blocking
       ? false
       : typeof messageOptions.compact === "boolean"

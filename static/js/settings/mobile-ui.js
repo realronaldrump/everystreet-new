@@ -414,10 +414,10 @@ export function setupMobileManualFetch(taskManager) {
     const endDate = new Date(endValue);
 
     if (
-      !startDate
-      || !endDate
-      || Number.isNaN(startDate.getTime())
-      || Number.isNaN(endDate.getTime())
+      !startDate ||
+      !endDate ||
+      Number.isNaN(startDate.getTime()) ||
+      Number.isNaN(endDate.getTime())
     ) {
       if (statusEl) {
         statusEl.classList.add("error");
@@ -506,8 +506,8 @@ function handleGeocodeProgressError(context, status) {
   const { geocodeBtn, statusEl } = context;
   clearInterval(pollGeocodeProgress.pollInterval);
   geocodeBtn.disabled = false;
-  const errorMessage
-    = status === 404
+  const errorMessage =
+    status === 404
       ? "Geocoding task not found."
       : "Unable to retrieve geocoding progress.";
   if (statusEl) {
@@ -770,9 +770,9 @@ export function setupMobileRemapTrips() {
 
   if (remapBtn) {
     remapBtn.addEventListener("click", async () => {
-      const method
-        = document.querySelector(".mobile-date-method-tab.active")?.dataset.method
-        || "date";
+      const method =
+        document.querySelector(".mobile-date-method-tab.active")?.dataset.method ||
+        "date";
       let start_date = "";
       let end_date = "";
       let interval_days = 0;

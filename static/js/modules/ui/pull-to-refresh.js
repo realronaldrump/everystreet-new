@@ -87,8 +87,8 @@ const pullToRefresh = {
 
     if (shouldRefresh) {
       this.indicator.classList.add("loading");
-      this.indicator.querySelector(".pull-to-refresh-text").textContent
-        = "Refreshing...";
+      this.indicator.querySelector(".pull-to-refresh-text").textContent =
+        "Refreshing...";
       window.loadingManager?.showBar?.("Refreshing...");
       router.navigate(window.location.href, { push: false, force: true });
     } else {

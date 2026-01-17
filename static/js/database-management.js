@@ -61,8 +61,8 @@ window.utils?.onPageLoad(
       }
 
       if (storageText) {
-        storageText.textContent
-          = data.used_mb == null ? "Using N/A" : `Using ${data.used_mb}MB`;
+        storageText.textContent =
+          data.used_mb == null ? "Using N/A" : `Using ${data.used_mb}MB`;
       }
     }
 
@@ -132,8 +132,8 @@ window.utils?.onPageLoad(
           "click",
           () => {
             const column = th.dataset.sort;
-            const dir
-              = currentSort.column === column && currentSort.dir === "asc"
+            const dir =
+              currentSort.column === column && currentSort.dir === "asc"
                 ? "desc"
                 : "asc";
 
@@ -156,11 +156,11 @@ window.utils?.onPageLoad(
             const rows = Array.from(tbody.querySelectorAll("tr"));
 
             rows.sort((a, b) => {
-              const aVal
-                = a.querySelector(`td[data-value]`).parentElement.children[th.cellIndex]
+              const aVal =
+                a.querySelector(`td[data-value]`).parentElement.children[th.cellIndex]
                   .dataset.value;
-              const bVal
-                = b.querySelector(`td[data-value]`).parentElement.children[th.cellIndex]
+              const bVal =
+                b.querySelector(`td[data-value]`).parentElement.children[th.cellIndex]
                   .dataset.value;
 
               let comparison = 0;

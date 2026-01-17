@@ -26,12 +26,12 @@ export class DrivingNavigationMap {
     this.interactivityHandlers = null;
 
     // Get colors with fallbacks from MapStyles if available
-    this.clusterColors
-      = window.MapStyles?.MAP_LAYER_COLORS?.clusters || DEFAULT_CLUSTER_COLORS;
-    this.streetColors
-      = window.MapStyles?.MAP_LAYER_COLORS?.streets || DEFAULT_STREET_COLORS;
-    this.routeColors
-      = window.MapStyles?.MAP_LAYER_COLORS?.routes || DEFAULT_ROUTE_COLORS;
+    this.clusterColors =
+      window.MapStyles?.MAP_LAYER_COLORS?.clusters || DEFAULT_CLUSTER_COLORS;
+    this.streetColors =
+      window.MapStyles?.MAP_LAYER_COLORS?.streets || DEFAULT_STREET_COLORS;
+    this.routeColors =
+      window.MapStyles?.MAP_LAYER_COLORS?.routes || DEFAULT_ROUTE_COLORS;
   }
 
   /**
@@ -215,8 +215,8 @@ export class DrivingNavigationMap {
     this.clusterMarkers = [];
 
     if (this.map && this.interactivityHandlers) {
-      const { handleMouseEnter, handleMouseLeave, handleClick }
-        = this.interactivityHandlers;
+      const { handleMouseEnter, handleMouseLeave, handleClick } =
+        this.interactivityHandlers;
       try {
         this.map.off("mouseenter", "undriven-streets-layer", handleMouseEnter);
         this.map.off("mouseleave", "undriven-streets-layer", handleMouseLeave);

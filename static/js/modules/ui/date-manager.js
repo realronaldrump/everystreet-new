@@ -17,14 +17,14 @@ const dateManager = {
       return;
     }
 
-    const startDate
-      = store.get("filters.startDate")
-      || utils.getStorage(CONFIG.STORAGE_KEYS.startDate)
-      || dateUtils.getCurrentDate();
-    const endDate
-      = store.get("filters.endDate")
-      || utils.getStorage(CONFIG.STORAGE_KEYS.endDate)
-      || dateUtils.getCurrentDate();
+    const startDate =
+      store.get("filters.startDate") ||
+      utils.getStorage(CONFIG.STORAGE_KEYS.startDate) ||
+      dateUtils.getCurrentDate();
+    const endDate =
+      store.get("filters.endDate") ||
+      utils.getStorage(CONFIG.STORAGE_KEYS.endDate) ||
+      dateUtils.getCurrentDate();
     this.flatpickrInstances = new Map();
 
     const fpConfig = {
@@ -232,19 +232,19 @@ const dateManager = {
     if (!span) {
       return;
     }
-    const savedStartDate
-      = utils.getStorage(CONFIG.STORAGE_KEYS.startDate) || dateUtils.getCurrentDate();
-    const savedEndDate
-      = utils.getStorage(CONFIG.STORAGE_KEYS.endDate) || dateUtils.getCurrentDate();
+    const savedStartDate =
+      utils.getStorage(CONFIG.STORAGE_KEYS.startDate) || dateUtils.getCurrentDate();
+    const savedEndDate =
+      utils.getStorage(CONFIG.STORAGE_KEYS.endDate) || dateUtils.getCurrentDate();
     const fmt = (d) => dateUtils.formatForDisplay(d, { dateStyle: "medium" }) || d;
     const preset = this.detectPreset(savedStartDate, savedEndDate);
     if (preset) {
-      span.textContent
-        = preset.charAt(0).toUpperCase() + preset.slice(1).replace("-", " ");
+      span.textContent =
+        preset.charAt(0).toUpperCase() + preset.slice(1).replace("-", " ");
       indicator.setAttribute("data-preset", preset);
     } else {
-      span.textContent
-        = savedStartDate === savedEndDate
+      span.textContent =
+        savedStartDate === savedEndDate
           ? fmt(savedStartDate)
           : `${fmt(savedStartDate)} - ${fmt(savedEndDate)}`;
       indicator.removeAttribute("data-preset");

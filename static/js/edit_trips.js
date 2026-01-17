@@ -197,14 +197,14 @@ window.utils?.onPageLoad(
       try {
         const startInput = document.getElementById("start-date");
         const endInput = document.getElementById("end-date");
-        const startDate
-          = startInput?.value
-          || window.utils.getStorage("startDate")
-          || window.DateUtils.getYesterday();
-        const endDate
-          = endInput?.value
-          || window.utils.getStorage("endDate")
-          || window.DateUtils.getYesterday();
+        const startDate =
+          startInput?.value ||
+          window.utils.getStorage("startDate") ||
+          window.DateUtils.getYesterday();
+        const endDate =
+          endInput?.value ||
+          window.utils.getStorage("endDate") ||
+          window.DateUtils.getYesterday();
 
         // Validate date range
         if (!window.DateUtils.isValidDateRange(startDate, endDate)) {
@@ -222,8 +222,8 @@ window.utils?.onPageLoad(
         }
 
         const tripType = tripTypeSelect.value;
-        const url
-          = tripType === "matched_trips"
+        const url =
+          tripType === "matched_trips"
             ? `/api/matched_trips?start_date=${startDate}&end_date=${endDate}`
             : `/api/trips?start_date=${startDate}&end_date=${endDate}`;
 
@@ -267,10 +267,10 @@ window.utils?.onPageLoad(
       tripFeatures = trips.filter((trip) => {
         const gps = trip.geometry || trip.gps;
         return (
-          gps
-          && gps.type === "LineString"
-          && gps.coordinates
-          && gps.coordinates.length > 0
+          gps &&
+          gps.type === "LineString" &&
+          gps.coordinates &&
+          gps.coordinates.length > 0
         );
       });
 
@@ -456,9 +456,9 @@ window.utils?.onPageLoad(
       const Δφ = ((point2.lat - point1.lat) * Math.PI) / 180;
       const Δλ = ((point2.lng - point1.lng) * Math.PI) / 180;
 
-      const a
-        = Math.sin(Δφ / 2) * Math.sin(Δφ / 2)
-        + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+      const a =
+        Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+        Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
       const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
       return R * c;
@@ -514,8 +514,8 @@ window.utils?.onPageLoad(
       }
 
       try {
-        const tripId
-          = currentTrip.properties?.transactionId || currentTrip.transactionId;
+        const tripId =
+          currentTrip.properties?.transactionId || currentTrip.transactionId;
 
         if (!tripId) {
           console.error("Error: transactionId is undefined.", currentTrip);

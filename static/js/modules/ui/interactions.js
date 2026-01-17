@@ -1,8 +1,8 @@
-const RIPPLE_SELECTOR
-  = ".btn, .nav-tile, .action-button, .mobile-fab, .mobile-action-btn, [data-ripple]";
+const RIPPLE_SELECTOR =
+  ".btn, .nav-tile, .action-button, .mobile-fab, .mobile-action-btn, [data-ripple]";
 
-const VALUE_FLASH_SELECTOR
-  = "[data-value-flash], .metric-value, .stat-value, .mobile-metric-value, .counter";
+const VALUE_FLASH_SELECTOR =
+  "[data-value-flash], .metric-value, .stat-value, .mobile-metric-value, .counter";
 
 const interactions = {
   initialized: false,

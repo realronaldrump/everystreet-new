@@ -235,7 +235,7 @@
 /* Responsive adjustments */
 @media (width <= 768px) {
   .vehicle-hero .card-body {
-    padding: var(--space-4) !important;
+    padding: var(--space-4);
   }
 
   .vehicle-hero h1 {

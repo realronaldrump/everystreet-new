@@ -348,7 +348,7 @@
 
   /* Hide less important table columns on mobile */
   .col-hide-mobile {
-    display: none !important;
+    display: none;
   }
 
   /* Task action buttons grid */
@@ -393,7 +393,7 @@
   .btn-group .btn {
     width: 100%;
     margin-bottom: var(--space-1);
-    border-radius: var(--radius-md) !important;
+    border-radius: var(--radius-md);
   }
 }
 

@@ -5,7 +5,7 @@
 }
 
 .selected-trip {
-  color: #ffd700 !important;
+  color: #ffd700;
 }
 
 @media (width <= 768px) {

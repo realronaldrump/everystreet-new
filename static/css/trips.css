@@ -247,23 +247,23 @@
 }
 
 .dataTables_wrapper .dataTables_paginate .paginate_button {
-  background: var(--surface-2) !important;
-  border: 1px solid var(--border-color) !important;
-  border-radius: var(--radius-sm) !important;
-  color: var(--text-secondary) !important;
-  padding: var(--space-2) var(--space-3) !important;
-  margin: 0 2px !important;
+  background: var(--surface-2);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  padding: var(--space-2) var(--space-3);
+  margin: 0 2px;
 }
 
 .dataTables_wrapper .dataTables_paginate .paginate_button:hover {
-  background: var(--surface-3) !important;
-  color: var(--text-primary) !important;
+  background: var(--surface-3);
+  color: var(--text-primary);
 }
 
 .dataTables_wrapper .dataTables_paginate .paginate_button.current {
-  background: var(--primary) !important;
-  color: var(--text-on-primary) !important;
-  border-color: var(--primary) !important;
+  background: var(--primary);
+  color: var(--text-on-primary);
+  border-color: var(--primary);
 }
 
 .dataTables_wrapper .dataTables_paginate .paginate_button.disabled {
@@ -290,7 +290,7 @@
   #trips-table th.col-hide-mobile,
   #trips-table td:nth-child(5),
   #trips-table td:nth-child(6) {
-    display: none !important;
+    display: none;
   }
 
   /* Make action buttons smaller */
@@ -346,8 +346,8 @@
   /* DataTables mobile optimizations */
   .dataTables_wrapper .dataTables_filter,
   .dataTables_wrapper .dataTables_length {
-    float: none !important;
-    text-align: center !important;
+    float: none;
+    text-align: center;
     padding: var(--space-2);
   }
 
@@ -361,7 +361,7 @@
   }
 
   .dataTables_wrapper .dataTables_paginate .paginate_button {
-    padding: var(--space-2) !important;
+    padding: var(--space-2);
     font-size: var(--font-size-xs);
   }
 

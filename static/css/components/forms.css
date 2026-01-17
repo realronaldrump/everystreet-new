@@ -47,7 +47,9 @@
   background-position: right var(--space-3) center;
   background-size: 16px 12px;
   padding-right: calc(
-    var(--space-3) + 16px + var(--space-3)
+    var(--space-3) +
+    16px +
+    var(--space-3)
   ); /* Ensure text doesn't overlap arrow */
 }
 
@@ -65,7 +67,10 @@ body.light-mode .form-select {
   display: flex; /* Use flex for better alignment */
   align-items: center;
   margin-bottom: var(--space-2);
-  min-height: calc(var(--font-size-sm) * var(--line-height-normal)); /* Ensure consistent height */
+  min-height: calc(
+    var(--font-size-sm) *
+    var(--line-height-normal)
+  ); /* Ensure consistent height */
 }
 
 .form-check-input {

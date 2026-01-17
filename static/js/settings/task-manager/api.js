@@ -123,8 +123,8 @@ export async function forceStopTask(taskId, context, onSuccess) {
   const confirmMessage = `Force stop task ${taskId}? This will reset its status.`;
 
   if (
-    window.confirmationDialog
-    && typeof window.confirmationDialog.show === "function"
+    window.confirmationDialog &&
+    typeof window.confirmationDialog.show === "function"
   ) {
     confirmed = await window.confirmationDialog.show({
       title: "Force Stop Task",
@@ -236,8 +236,8 @@ export async function clearTaskHistory(context, onSuccess) {
   let confirmed = true;
 
   if (
-    window.confirmationDialog
-    && typeof window.confirmationDialog.show === "function"
+    window.confirmationDialog &&
+    typeof window.confirmationDialog.show === "function"
   ) {
     confirmed = await window.confirmationDialog.show({
       title: "Clear Task History",

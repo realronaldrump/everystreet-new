@@ -32,7 +32,11 @@
 
   /* Gradients */
   --primary-gradient: linear-gradient(135deg, var(--primary), var(--primary-dark));
-  --secondary-gradient: linear-gradient(135deg, var(--secondary), var(--secondary-dark));
+  --secondary-gradient: linear-gradient(
+    135deg,
+    var(--secondary),
+    var(--secondary-dark)
+  );
   --success-gradient: linear-gradient(135deg, var(--success), var(--success-dark));
   --danger-gradient: linear-gradient(135deg, var(--danger), var(--danger-dark));
   --warning-gradient: linear-gradient(135deg, var(--warning), var(--warning-dark));
@@ -53,7 +57,10 @@
   --text-on-dark: #fafafa;
   --text-on-light: #1a1d23;
   --border-color: rgb(160 165 172 / 15%);
-  --border-color-light: rgb(160 165 172 / 28%); /* For focused elements or stronger divisions */
+  --border-color-light: rgb(
+    160 165 172 /
+    28%
+  ); /* For focused elements or stronger divisions */
   --divider-color: rgb(160 165 172 / 10%);
   --surface-rgb: 37, 40, 47;
   --text-rgb: 225, 227, 230;

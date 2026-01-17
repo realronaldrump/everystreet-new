@@ -86,9 +86,9 @@
         searchPlaceholder: "Search places...",
       },
       dom:
-        "<'row'<'col-sm-12 col-md-6'l><'col-sm-12 col-md-6'f>>"
-        + "<'row'<'col-sm-12'tr>>"
-        + "<'row'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
+        "<'row'<'col-sm-12 col-md-6'l><'col-sm-12 col-md-6'f>>" +
+        "<'row'<'col-sm-12'tr>>" +
+        "<'row'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
       columnDefs: [{ type: "duration", targets: 4 }],
       drawCallback() {
         $("#visits-table tbody tr").each(function (i) {
@@ -177,9 +177,9 @@
         searchPlaceholder: "Search locations...",
       },
       dom:
-        "<'row'<'col-sm-12 col-md-6'l><'col-sm-12 col-md-6'f>>"
-        + "<'row'<'col-sm-12'tr>>"
-        + "<'row'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
+        "<'row'<'col-sm-12 col-md-6'l><'col-sm-12 col-md-6'f>>" +
+        "<'row'<'col-sm-12'tr>>" +
+        "<'row'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
     });
   }
 
@@ -292,9 +292,9 @@
         searchPlaceholder: "Search trips...",
       },
       dom:
-        "<'row'<'col-sm-12 col-md-6'l><'col-sm-12 col-md-6'f>>"
-        + "<'row'<'col-sm-12'tr>>"
-        + "<'row'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
+        "<'row'<'col-sm-12 col-md-6'l><'col-sm-12 col-md-6'f>>" +
+        "<'row'<'col-sm-12'tr>>" +
+        "<'row'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
       columnDefs: [{ type: "duration", targets: [4, 5] }],
     });
 

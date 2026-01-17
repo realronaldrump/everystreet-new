@@ -39,7 +39,9 @@
 }
 
 .table-striped tbody tr:nth-of-type(odd) {
-  background-color: var(--surface-0); /* Slightly different from surface-1 for striping */
+  background-color: var(
+    --surface-0
+  ); /* Slightly different from surface-1 for striping */
 }
 
 body.light-mode .table-striped tbody tr:nth-of-type(odd) {

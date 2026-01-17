@@ -327,24 +327,24 @@
 .mobile-nav-drawer a,
 .mobile-nav-drawer a:link,
 .mobile-nav-drawer a:visited {
-  color: var(--text-secondary) !important;
-  text-decoration: none !important;
+  color: var(--text-secondary);
+  text-decoration: none;
 }
 
 .mobile-nav-drawer a:hover,
 .mobile-nav-drawer a:focus {
-  color: var(--text-primary) !important;
-  text-decoration: none !important;
+  color: var(--text-primary);
+  text-decoration: none;
 }
 
 /* Ensure all lists in mobile nav drawer have no bullets */
 .mobile-nav-drawer ul,
 .mobile-nav-drawer ol,
 .mobile-nav-drawer li {
-  list-style: none !important;
-  list-style-type: none !important;
-  padding-left: 0 !important;
-  margin-left: 0 !important;
+  list-style: none;
+  list-style-type: none;
+  padding-left: 0;
+  margin-left: 0;
 }
 
 .drawer-header {
@@ -382,18 +382,18 @@
 
 .mobile-nav-drawer .drawer-nav-list,
 .drawer-nav-list {
-  list-style: none !important;
-  list-style-type: none !important;
-  padding: 0 !important;
-  margin: 0 !important;
+  list-style: none;
+  list-style-type: none;
+  padding: 0;
+  margin: 0;
 }
 
 .mobile-nav-drawer .drawer-nav-list li,
 .drawer-nav-list li {
-  list-style: none !important;
-  list-style-type: none !important;
-  margin: 0 !important;
-  padding: 0 !important;
+  list-style: none;
+  list-style-type: none;
+  margin: 0;
+  padding: 0;
 }
 
 .mobile-nav-drawer .drawer-nav-list li a,
@@ -401,8 +401,8 @@
   display: flex;
   align-items: center;
   padding: var(--space-3) var(--space-4);
-  color: var(--text-secondary) !important;
-  text-decoration: none !important;
+  color: var(--text-secondary);
+  text-decoration: none;
   font-size: var(--font-size-md);
   transition:
     background-color var(--transition-fast),
@@ -414,8 +414,8 @@
 .mobile-nav-drawer .drawer-nav-list li a:visited,
 .drawer-nav-list li a:link,
 .drawer-nav-list li a:visited {
-  color: var(--text-secondary) !important;
-  text-decoration: none !important;
+  color: var(--text-secondary);
+  text-decoration: none;
 }
 
 .mobile-nav-drawer .drawer-nav-list li a.active,
@@ -423,7 +423,7 @@
 .drawer-nav-list li a.active,
 .drawer-nav-list li a:hover {
   background-color: var(--surface-2);
-  color: var(--text-primary) !important;
+  color: var(--text-primary);
 }
 
 .mobile-nav-drawer .drawer-nav-list li a.active,
@@ -491,11 +491,11 @@
 .drawer-nav-section-list,
 .mobile-nav-drawer ul,
 .drawer-nav ul {
-  list-style: none !important;
-  list-style-type: none !important;
-  padding: 0 !important;
-  padding-left: 0 !important;
-  margin: 0 !important;
+  list-style: none;
+  list-style-type: none;
+  padding: 0;
+  padding-left: 0;
+  margin: 0;
   overflow: hidden;
   max-height: 500px;
   transition:
@@ -508,10 +508,10 @@
 .drawer-nav-section-list li,
 .mobile-nav-drawer ul li,
 .drawer-nav ul li {
-  list-style: none !important;
-  list-style-type: none !important;
-  margin: 0 !important;
-  padding: 0 !important;
+  list-style: none;
+  list-style-type: none;
+  margin: 0;
+  padding: 0;
 }
 
 .drawer-nav-section-list.collapsed {
@@ -524,8 +524,8 @@
   display: flex;
   align-items: center;
   padding: var(--space-2) var(--space-4) var(--space-2) var(--space-5);
-  color: var(--text-secondary) !important;
-  text-decoration: none !important;
+  color: var(--text-secondary);
+  text-decoration: none;
   font-size: var(--font-size-sm);
   transition:
     background-color var(--transition-fast),
@@ -537,20 +537,20 @@
 .mobile-nav-drawer .drawer-nav-section-list li a:visited,
 .drawer-nav-section-list li a:link,
 .drawer-nav-section-list li a:visited {
-  color: var(--text-secondary) !important;
-  text-decoration: none !important;
+  color: var(--text-secondary);
+  text-decoration: none;
 }
 
 .mobile-nav-drawer .drawer-nav-section-list li a:hover,
 .drawer-nav-section-list li a:hover {
   background-color: var(--surface-2);
-  color: var(--text-primary) !important;
+  color: var(--text-primary);
 }
 
 .mobile-nav-drawer .drawer-nav-section-list li a.active,
 .drawer-nav-section-list li a.active {
   background-color: var(--surface-2);
-  color: var(--text-primary) !important;
+  color: var(--text-primary);
   border-left-color: var(--primary);
   font-weight: var(--font-weight-medium);
 }

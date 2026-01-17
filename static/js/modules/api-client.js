@@ -126,8 +126,8 @@ class APIClient {
         const contentType = response.headers.get("content-type");
         if (contentType?.includes("application/json")) {
           const errorData = await response.json();
-          errorDetail
-            = errorData.detail || errorData.error || errorData.message || errorDetail;
+          errorDetail =
+            errorData.detail || errorData.error || errorData.message || errorDetail;
         } else {
           const text = await response.text();
           errorDetail = text || errorDetail;

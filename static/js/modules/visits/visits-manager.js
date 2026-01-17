@@ -219,8 +219,8 @@
       });
 
       try {
-        const { customStats, otherStats }
-          = await this.dataLoader.filterByTimeframe(timeframe);
+        const { customStats, otherStats } =
+          await this.dataLoader.filterByTimeframe(timeframe);
 
         this.updateVisitsData(customStats);
         this.nonCustomVisitsTable?.clear().rows.add(otherStats).draw();
@@ -292,8 +292,8 @@
       const placeBeingEdited = this.drawing.getPlaceBeingEdited();
 
       // Only include geometry if editing the same place that was started for edit
-      const newGeometry
-        = currentPolygon && placeBeingEdited === placeId ? currentPolygon.geometry : null;
+      const newGeometry =
+        currentPolygon && placeBeingEdited === placeId ? currentPolygon.geometry : null;
 
       const updatedPlace = await this.actions.saveEditedPlace({
         placeId,
@@ -357,8 +357,8 @@
       this.visitsTable = window.VisitsTableFactory.createVisitsTable({
         onPlaceSelected: (placeId) => this.uiManager.toggleView(placeId),
       });
-      this.nonCustomVisitsTable
-        = window.VisitsTableFactory.createNonCustomVisitsTable();
+      this.nonCustomVisitsTable =
+        window.VisitsTableFactory.createNonCustomVisitsTable();
       this.tripsTable = window.VisitsTableFactory.createTripsTable({
         onTripSelected: (tripId) => this.confirmViewTripOnMap(tripId),
       });

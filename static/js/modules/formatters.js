@@ -440,10 +440,10 @@ export function sanitizeLocation(location) {
   }
   if (typeof location === "object") {
     return (
-      location.formatted_address
-      || location.name
-      || [location.street, location.city, location.state].filter(Boolean).join(", ")
-      || "Unknown"
+      location.formatted_address ||
+      location.name ||
+      [location.street, location.city, location.state].filter(Boolean).join(", ") ||
+      "Unknown"
     );
   }
   return "Unknown";

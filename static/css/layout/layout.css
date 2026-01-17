@@ -510,7 +510,7 @@ body.light-mode .live-tracking-panel-bg {
 
   .btn-group .btn {
     width: 100%;
-    border-radius: var(--radius-md) !important;
+    border-radius: var(--radius-md);
     margin-bottom: var(--space-2);
   }
 

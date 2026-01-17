@@ -85,8 +85,8 @@ function getSelectedItems(elements) {
 
 function updateGeometryToggle(elements) {
   const format = elements.tripFormat.value;
-  const hasTripExports
-    = elements.exportTrips.checked || elements.exportMatchedTrips.checked;
+  const hasTripExports =
+    elements.exportTrips.checked || elements.exportMatchedTrips.checked;
 
   if (!hasTripExports) {
     elements.tripFormat.disabled = true;
@@ -318,8 +318,8 @@ async function loadCoverageAreas(elements, signal) {
     areas.forEach((area) => {
       const option = document.createElement("option");
       option.value = area.id;
-      option.textContent
-        = area.status && area.status !== "ready"
+      option.textContent =
+        area.status && area.status !== "ready"
           ? `${area.display_name} (${area.status})`
           : area.display_name;
       if (area.status && area.status !== "ready") {

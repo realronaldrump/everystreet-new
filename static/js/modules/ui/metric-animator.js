@@ -32,9 +32,9 @@ const MetricAnimator = {
 
     if (hasCountUp) {
       const existing = elementId ? this.counters.get(elementId) : null;
-      const counter
-        = existing
-        || new CountUp(element, 0, numericValue, decimals, duration, {
+      const counter =
+        existing ||
+        new CountUp(element, 0, numericValue, decimals, duration, {
           useEasing: true,
           useGrouping: true,
           separator: ",",

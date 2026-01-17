@@ -77,11 +77,11 @@
     extractTripGeometry(trip) {
       // Check gps field first - may be GeoJSON object
       if (
-        trip.gps
-        && typeof trip.gps === "object"
-        && trip.gps.type === "LineString"
-        && trip.gps.coordinates
-        && trip.gps.coordinates.length > 0
+        trip.gps &&
+        typeof trip.gps === "object" &&
+        trip.gps.type === "LineString" &&
+        trip.gps.coordinates &&
+        trip.gps.coordinates.length > 0
       ) {
         trip.geometry = trip.gps;
         return;

@@ -11,15 +11,15 @@ const tripInteractions = {
       return;
     }
 
-    const tripId
-      = feature.properties.transactionId
-      || feature.properties.id
-      || feature.properties.tripId;
+    const tripId =
+      feature.properties.transactionId ||
+      feature.properties.id ||
+      feature.properties.tripId;
 
     if (tripId) {
       state.selectedTripId = tripId;
-      state.selectedTripLayer
-        = layerName || this.resolveTripLayerName(feature?.layer?.id);
+      state.selectedTripLayer =
+        layerName || this.resolveTripLayerName(feature?.layer?.id);
       mapManager.refreshTripStyles();
     }
 
@@ -111,10 +111,10 @@ const tripInteractions = {
 
   createActionButtons(feature) {
     const props = feature.properties || {};
-    const isMatched
-      = props.source === "matched"
-      || props.mapMatchingStatus === "success"
-      || feature.source?.includes("matched");
+    const isMatched =
+      props.source === "matched" ||
+      props.mapMatchingStatus === "success" ||
+      feature.source?.includes("matched");
     const tripId = props.transactionId || props.id || props.tripId;
 
     if (!tripId) {
@@ -180,8 +180,8 @@ const tripInteractions = {
         } else if (button.classList.contains("delete-trip-btn")) {
           await this.deleteTrip(tripId, popup);
         } else if (
-          button.classList.contains("rematch-trip-btn")
-          || button.classList.contains("map-match-btn")
+          button.classList.contains("rematch-trip-btn") ||
+          button.classList.contains("map-match-btn")
         ) {
           await this.rematchTrip(tripId, popup);
         }

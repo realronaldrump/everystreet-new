@@ -7,7 +7,7 @@
   },
   "files": {
     "ignoreUnknown": false,
-    "includes": ["**", "!**/node_modules/**", "!**/venv/**", "!**/*.min.js", "!**/templates/**"]
+    "includes": ["**", "!**/node_modules", "!**/venv", "!**/*.min.js", "!**/templates"]
   },
   "formatter": {
     "enabled": true,

@@ -70,8 +70,8 @@ self.addEventListener("fetch", (event) => {
   }
 
   if (
-    url.origin === self.location.origin
-    && url.pathname.startsWith(STATIC_PATH_PREFIX)
+    url.origin === self.location.origin &&
+    url.pathname.startsWith(STATIC_PATH_PREFIX)
   ) {
     event.respondWith(cacheFirst(request, APP_SHELL_CACHE));
     return;

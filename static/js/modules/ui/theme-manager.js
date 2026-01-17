@@ -23,13 +23,13 @@ const themeManager = {
     uiState.currentTheme = theme;
 
     if (animate && CONFIG.UI.animations.enabled) {
-      document.documentElement.style.transition
-        = "background-color 0.3s ease, color 0.3s ease";
+      document.documentElement.style.transition =
+        "background-color 0.3s ease, color 0.3s ease";
     }
 
     (
-      utils.batchDOMUpdates
-      ?? ((updates) => {
+      utils.batchDOMUpdates ??
+      ((updates) => {
         updates.forEach((fn) => {
           fn();
         });

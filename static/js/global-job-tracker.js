@@ -192,8 +192,8 @@ async function cancelActiveJob() {
     console.error("Failed to cancel job:", e);
     showNotification("Failed to cancel job", "danger");
     if (document.getElementById("task-progress-message")) {
-      document.getElementById("task-progress-message").textContent
-        = oldText || "Error cancelling";
+      document.getElementById("task-progress-message").textContent =
+        oldText || "Error cancelling";
     }
   }
 }

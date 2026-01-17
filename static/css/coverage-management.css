@@ -20,15 +20,15 @@
 }
 
 .stats-info .text-info {
-  color: var(--info) !important;
+  color: var(--info);
 }
 
 .stats-info .text-success {
-  color: var(--success) !important;
+  color: var(--success);
 }
 
 .stats-info .text-primary {
-  color: var(--primary) !important;
+  color: var(--primary);
 }
 
 .map-info-panel {
@@ -55,23 +55,23 @@
 }
 
 .map-info-panel .text-success {
-  color: var(--success) !important;
+  color: var(--success);
 }
 
 .map-info-panel .text-danger {
-  color: var(--danger) !important;
+  color: var(--danger);
 }
 
 .map-info-panel .text-info {
-  color: var(--info) !important;
+  color: var(--info);
 }
 
 .map-info-panel .text-warning {
-  color: var(--warning) !important;
+  color: var(--warning);
 }
 
 .map-info-panel .text-muted {
-  color: var(--text-tertiary) !important;
+  color: var(--text-tertiary);
 }
 
 .map-info-panel hr.panel-divider {
@@ -85,7 +85,7 @@
   padding: var(--space-3);
   border-radius: var(--radius-sm);
   box-shadow: var(--shadow-md);
-  border: 1px solid var(--border-color) !important;
+  border: 1px solid var(--border-color);
   min-width: 150px;
   backdrop-filter: blur(var(--blur-subtle));
   transition: var(--transition-fast);
@@ -214,43 +214,43 @@
 }
 
 .mapboxgl-ctrl-draw-btn {
-  background-color: var(--primary) !important;
-  color: var(--text-on-primary) !important;
+  background-color: var(--primary);
+  color: var(--text-on-primary);
 }
 
 .mapboxgl-ctrl-draw-btn:hover {
-  background-color: var(--primary-light) !important;
+  background-color: var(--primary-light);
 }
 
 .mapboxgl-ctrl-draw-btn.active {
-  background-color: var(--success) !important;
+  background-color: var(--success);
 }
 
 /* Custom draw controls styling */
 .mapboxgl-ctrl-draw {
-  background: var(--surface-glass) !important;
-  border-radius: var(--radius-sm) !important;
-  box-shadow: var(--shadow-md) !important;
+  background: var(--surface-glass);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
 }
 
 .mapboxgl-ctrl-draw button {
-  background-color: transparent !important;
-  border: none !important;
-  color: var(--text-on-dark) !important;
-  font-size: var(--font-size-md) !important;
-  padding: var(--space-2) !important;
-  margin: var(--space-1) !important;
-  border-radius: var(--radius-sm) !important;
-  transition: var(--transition-fast) !important;
+  background-color: transparent;
+  border: none;
+  color: var(--text-on-dark);
+  font-size: var(--font-size-md);
+  padding: var(--space-2);
+  margin: var(--space-1);
+  border-radius: var(--radius-sm);
+  transition: var(--transition-fast);
 }
 
 .mapboxgl-ctrl-draw button:hover {
-  background-color: rgb(255 255 255 / 10%) !important;
+  background-color: rgb(255 255 255 / 10%);
 }
 
 .mapboxgl-ctrl-draw button.active {
-  background-color: var(--primary) !important;
-  color: var(--text-on-primary) !important;
+  background-color: var(--primary);
+  color: var(--text-on-primary);
 }
 
 /* Area type selection */
@@ -541,7 +541,11 @@
 /* Coverage error panel */
 .coverage-error-panel {
   margin-top: var(--space-4);
-  background: linear-gradient(135deg, rgb(var(--danger-rgb) / 12%), rgb(var(--surface-rgb) / 92%));
+  background: linear-gradient(
+    135deg,
+    rgb(var(--danger-rgb) / 12%),
+    rgb(var(--surface-rgb) / 92%)
+  );
   border: 1px solid rgb(var(--danger-rgb) / 30%);
   border-left: 4px solid var(--danger);
   border-radius: var(--radius-md);

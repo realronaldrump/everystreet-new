@@ -20,7 +20,7 @@
   .mobile-bottom-sheet,
   .mobile-sheet-handle,
   .mobile-sheet-backdrop {
-    display: none !important;
+    display: none;
   }
 }
 

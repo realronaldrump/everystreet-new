@@ -206,22 +206,22 @@ const utils = {
       return this._deviceProfile;
     }
 
-    const hasTouch
-      = typeof window !== "undefined"
-      && ("ontouchstart" in window || navigator.maxTouchPoints > 1);
-    const smallViewport
-      = typeof window !== "undefined"
-      && typeof window.matchMedia === "function"
-      && window.matchMedia("(max-width: 820px)").matches;
-    const deviceMemory
-      = typeof navigator !== "undefined" && "deviceMemory" in navigator
+    const hasTouch =
+      typeof window !== "undefined" &&
+      ("ontouchstart" in window || navigator.maxTouchPoints > 1);
+    const smallViewport =
+      typeof window !== "undefined" &&
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(max-width: 820px)").matches;
+    const deviceMemory =
+      typeof navigator !== "undefined" && "deviceMemory" in navigator
         ? navigator.deviceMemory
         : null;
     const lowMemory = Number.isFinite(deviceMemory) && deviceMemory <= 4;
-    const saveData
-      = typeof navigator !== "undefined"
-      && navigator.connection
-      && navigator.connection.saveData === true;
+    const saveData =
+      typeof navigator !== "undefined" &&
+      navigator.connection &&
+      navigator.connection.saveData === true;
 
     this._deviceProfile = {
       isMobile: Boolean(hasTouch || smallViewport),
@@ -294,8 +294,8 @@ const utils = {
       this.clearOldCache();
       try {
         // Reuse the computed value if available, otherwise recompute
-        const toStore
-          = stringValue !== undefined
+        const toStore =
+          stringValue !== undefined
             ? stringValue
             : typeof value === "object"
               ? JSON.stringify(value)
@@ -465,8 +465,8 @@ const utils = {
         }
 
         const statusBar = document.createElement("div");
-        statusBar.className
-          = "connection-status alert alert-success alert-dismissible fade show";
+        statusBar.className =
+          "connection-status alert alert-success alert-dismissible fade show";
         statusBar.innerHTML = `
           <i class="fas fa-wifi me-2"></i>
           <strong>Connected</strong> - Connection restored.
@@ -542,9 +542,9 @@ const utils = {
 
   // Accessibility announcements for screen readers
   announce(message, priority = "polite") {
-    const announcer
-      = document.getElementById("map-announcements")
-      || document.querySelector('[aria-live="polite"]');
+    const announcer =
+      document.getElementById("map-announcements") ||
+      document.querySelector('[aria-live="polite"]');
 
     if (!announcer) {
       console.warn("No aria-live region found for announcements");
@@ -693,9 +693,9 @@ const DateUtils = {
     }
     Object.entries(options).forEach(([key, value]) => {
       if (
-        value !== null
-        && value !== undefined
-        && !["dateStyle", "timeStyle"].includes(key)
+        value !== null &&
+        value !== undefined &&
+        !["dateStyle", "timeStyle"].includes(key)
       ) {
         formatterOptions[key] = value;
       }
@@ -859,8 +859,8 @@ const DateUtils = {
 
     const startDate = this.parseDateString(currentStart);
     const endDate = this.parseDateString(currentEnd);
-    const days
-      = startDate && endDate ? dayjs(endDate).diff(dayjs(startDate), "day") + 1 : 0;
+    const days =
+      startDate && endDate ? dayjs(endDate).diff(dayjs(startDate), "day") + 1 : 0;
 
     const range = { start: currentStart, end: currentEnd, startDate, endDate, days };
     utils.setStorage(cacheKey, range);
@@ -888,9 +888,9 @@ function handleError(error, context = "", level = "error", onComplete = null) {
     let userMessage = `Error in ${context}: ${errorObj.message}`;
 
     if (
-      errorObj.name === "NetworkError"
-      || errorObj.message.includes("fetch")
-      || errorObj.message.includes("network")
+      errorObj.name === "NetworkError" ||
+      errorObj.message.includes("fetch") ||
+      errorObj.message.includes("network")
     ) {
       userMessage = "Network error: Please check your connection and try again.";
     } else if (errorObj.message.includes("timeout")) {
@@ -952,8 +952,8 @@ class NotificationManager {
       info: "fa-info-circle",
     };
     const iconName = iconMap[typeClass] || iconMap.info;
-    const iconMarkup
-      = typeClass === "success"
+    const iconMarkup =
+      typeClass === "success"
         ? '<span class="notification-check" aria-hidden="true"></span>'
         : `<i class="fas ${iconName}" aria-hidden="true"></i>`;
 
@@ -1094,8 +1094,8 @@ class ConfirmationDialog {
       const message = options.message || this.config.defaultMessage;
       const confirmText = options.confirmText || this.config.defaultConfirmText;
       const cancelText = options.cancelText || this.config.defaultCancelText;
-      const confirmButtonClass
-        = options.confirmButtonClass || this.config.defaultConfirmButtonClass;
+      const confirmButtonClass =
+        options.confirmButtonClass || this.config.defaultConfirmButtonClass;
 
       modalElement.querySelector(".modal-title").textContent = title;
       modalElement.querySelector(".modal-body").innerHTML = message;
@@ -1226,8 +1226,8 @@ class PromptDialog {
       const message = options.message || this.config.defaultMessage;
       const confirmText = options.confirmText || this.config.defaultConfirmText;
       const cancelText = options.cancelText || this.config.defaultCancelText;
-      const confirmButtonClass
-        = options.confirmButtonClass || this.config.defaultConfirmButtonClass;
+      const confirmButtonClass =
+        options.confirmButtonClass || this.config.defaultConfirmButtonClass;
       const inputType = options.inputType || this.config.defaultInputType;
       const placeholder = options.placeholder || "";
       const defaultValue = options.defaultValue || "";
