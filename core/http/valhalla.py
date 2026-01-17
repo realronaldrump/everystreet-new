@@ -10,15 +10,15 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from core.exceptions import ExternalServiceException
-from core.http.session import get_session
-from core.http.retry import retry_async
 from config import (
     require_valhalla_route_url,
     require_valhalla_status_url,
     require_valhalla_trace_attributes_url,
     require_valhalla_trace_route_url,
 )
+from core.exceptions import ExternalServiceException
+from core.http.retry import retry_async
+from core.http.session import get_session
 
 logger = logging.getLogger(__name__)
 

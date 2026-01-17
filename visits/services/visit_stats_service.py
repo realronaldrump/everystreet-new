@@ -291,10 +291,8 @@ class VisitStatsService:
         Raises:
             ValueError: If timeframe is invalid
         """
-        from shapely.geometry import (
-            Point as ShpPoint,
-            shape as shp_shape,
-        )
+        from shapely.geometry import Point as ShpPoint
+        from shapely.geometry import shape as shp_shape
 
         match_stage: dict[str, Any] = {
             "destinationPlaceId": {"$exists": False},

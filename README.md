@@ -7,6 +7,7 @@ This app expects a single Mapbox public access token provided via the
 Mapbox GL JS for map rendering only, so use a public token (`pk.`) only.
 
 Recommended Mapbox-side restrictions:
+
 - Restrict allowed URLs/origins to your production domain(s) and localhost for dev.
 - Limit token scopes to tiles/styles only (no geocoding, directions, or map matching).
 - Rotate the token if you suspect exposure.
