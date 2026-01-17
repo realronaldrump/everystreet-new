@@ -11,6 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+
 def _install_local_coverage_package() -> None:
     coverage_init = ROOT / "coverage" / "__init__.py"
     if not coverage_init.exists():
