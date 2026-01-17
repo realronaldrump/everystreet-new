@@ -84,7 +84,9 @@
 /* Compass Control */
 .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
   background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg width='29' height='29' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg' fill='%23fff'%3E%3Cpath d='M10.213 0l4.904 12.36L10 20l-4.787-7.4L10.213 0z' opacity='.25'/%3E%3Cpath d='M10.213 0L10 20l-.213-20z' opacity='.25'/%3E%3Cpath d='M10 3.875l3.438 8.5L10 16.125 6.562 12.5 10 3.875z' fill-rule='evenodd'/%3E%3C/svg%3E");
-  filter: var(--text-primary); /* Will be inverted by body.light-mode if needed */
+  filter: var(
+    --text-primary
+  ); /* Will be inverted by body.light-mode if needed */
 }
 
 body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {

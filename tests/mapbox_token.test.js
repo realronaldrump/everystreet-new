@@ -41,9 +41,8 @@ test("waitForMapboxToken returns existing token", async () => {
   global.window = { MAPBOX_ACCESS_TOKEN: "pk.existing-token" };
   global.document = new TestDocument();
 
-  const { waitForMapboxToken } = await import(
-    "../static/js/modules/mapbox-token.js"
-  );
+  const { waitForMapboxToken } =
+    await import("../static/js/modules/mapbox-token.js");
 
   const token = await waitForMapboxToken({ timeoutMs: 50 });
   assert.equal(token, "pk.existing-token");
@@ -66,9 +65,8 @@ test("waitForMapboxToken resolves after event", async () => {
     }
   };
 
-  const { MAPBOX_TOKEN_EVENT, waitForMapboxToken } = await import(
-    "../static/js/modules/mapbox-token.js"
-  );
+  const { MAPBOX_TOKEN_EVENT, waitForMapboxToken } =
+    await import("../static/js/modules/mapbox-token.js");
 
   const tokenPromise = waitForMapboxToken({ timeoutMs: 100 });
 
@@ -76,7 +74,7 @@ test("waitForMapboxToken resolves after event", async () => {
     const token = "pk.event-token";
     global.window.MAPBOX_ACCESS_TOKEN = token;
     global.document.dispatchEvent(
-      new CustomEvent(MAPBOX_TOKEN_EVENT, { detail: { token } })
+      new CustomEvent(MAPBOX_TOKEN_EVENT, { detail: { token } }),
     );
   }, 10);
 
