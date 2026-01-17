@@ -65,7 +65,8 @@
 
 .mapboxgl-ctrl-group button:focus-visible {
   outline: 2px solid var(--primary) !important;
-  outline-offset: -2px !important; /* CSS fix placeholder - will be actual fix */
+  outline-offset: -2px !important; /* Inset outline */
+
   z-index: 1; /* Ensure focus outline is visible */
 }
 
@@ -2242,5 +2243,16 @@ body.light-mode .mobile-select {
 
   .mobile-metric-value {
     font-size: var(--font-size-lg);
+  }
+}
+
+@media (width > 768px) {
+  .control-panel#map-controls {
+    display: flex !important;
+    opacity: 1 !important;
+    transform: none !important;
+    visibility: visible !important;
+    inset: auto auto var(--space-4) var(--space-4) !important; /* Reset position */
+    max-height: calc(100vh - var(--header-height, 80px) - (2 * var(--space-4))) !important;
   }
 }
