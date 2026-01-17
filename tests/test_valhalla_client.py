@@ -46,3 +46,21 @@ def test_normalize_trace_response_extracts_geometry() -> None:
 
     assert normalized["geometry"]["type"] == "LineString"
     assert normalized["geometry"]["coordinates"] == [[0.0, 0.0], [1.0, 1.0]]
+
+
+def test_normalize_trace_response_returns_none_for_empty_coords() -> None:
+    """Verify that empty coordinates result in None geometry, not empty LineString."""
+    # Empty trip
+    data = {"trip": {}}
+    normalized = ValhallaClient._normalize_trace_response(data)
+    assert normalized["geometry"] is None
+
+    # Empty shape
+    data = {"trip": {"shape": {}}}
+    normalized = ValhallaClient._normalize_trace_response(data)
+    assert normalized["geometry"] is None
+
+    # Empty coordinates
+    data = {"trip": {"shape": {"coordinates": []}}}
+    normalized = ValhallaClient._normalize_trace_response(data)
+    assert normalized["geometry"] is None
