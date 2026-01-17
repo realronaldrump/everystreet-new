@@ -1,6 +1,7 @@
 /* global mapboxgl */
 
 import { CONFIG } from "./config.js";
+import { waitForMapboxToken } from "./mapbox-token.js";
 import store from "./spa/store.js";
 import state from "./state.js";
 import { utils } from "./utils.js";
@@ -15,21 +16,13 @@ const mapManager = {
       loadingManager?.show("Initializing map...");
 
       const mapElement = utils.getElement("map");
-      if (!mapElement || state.map) {
+      const mapCanvas = utils.getElement("map-canvas");
+      if (!mapElement || !mapCanvas || state.map) {
         loadingManager?.hide();
         return state.mapInitialized;
       }
 
-      // Wait for token to be available (may be loading via SPA scripts)
-      let token = window.MAPBOX_ACCESS_TOKEN;
-      if (!token) {
-        // Give inline scripts time to execute during SPA navigation
-        await new Promise((resolve) => setTimeout(resolve, 50));
-        token = window.MAPBOX_ACCESS_TOKEN;
-      }
-      if (!token) {
-        throw new Error("Mapbox access token not configured");
-      }
+      const token = await waitForMapboxToken();
 
       mapboxgl.accessToken = token;
 
@@ -71,12 +64,12 @@ const mapManager = {
       loadingManager?.updateMessage("Creating map instance...");
 
       // Clear container to prevent Mapbox warning
-      if (mapElement.hasChildNodes()) {
-        mapElement.innerHTML = "";
+      if (mapCanvas.hasChildNodes()) {
+        mapCanvas.innerHTML = "";
       }
 
       state.map = new mapboxgl.Map({
-        container: "map",
+        container: "map-canvas",
         style: initialStyle,
         center: mapCenter,
         zoom: mapZoom,

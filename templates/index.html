@@ -34,9 +34,15 @@ Map view
 
 {% block head_content %}
 
-
-  <!-- Removed map-enhancements.css link from here as it's in base.html -->
-  <!-- Removed inline styles as they are now in external CSS files -->
+  <meta name="mapbox-access-token" content="{{ MAPBOX_ACCESS_TOKEN }}" />
+  <script>
+      window.MAPBOX_ACCESS_TOKEN = "{{ MAPBOX_ACCESS_TOKEN }}";
+      document.dispatchEvent(
+          new CustomEvent("es:mapbox-token-ready", {
+              detail: { token: window.MAPBOX_ACCESS_TOKEN },
+          })
+      );
+  </script>
 {% endblock %}
 
 
@@ -49,8 +55,6 @@ Map view
   <script src="{{ url_for('static', path='js/map-base.js') | replace('http://', '//') }}"></script>
   <script src="{{ url_for('static', path='js/modules/map-styles.js') | replace('http://', '//') }}"></script>
   <script>
-      // Make Mapbox access token available globally
-      window.MAPBOX_ACCESS_TOKEN = "{{ MAPBOX_ACCESS_TOKEN }}";
       window.PRELOAD_TRIP_ID = "{{ trip_id }}" !== "None" ? "{{ trip_id }}" : null;
   </script>
   <script src="{{ url_for('static', path='js/index.js') | replace('http://', '//') }}"></script>

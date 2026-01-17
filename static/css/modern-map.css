@@ -32,6 +32,13 @@
   outline: none; /* Remove focus outline from map container */
 }
 
+#map-canvas {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+  width: 100%;
+}
+
 /* === Mapbox GL JS Control Styling === */
 .mapboxgl-ctrl-group {
   background-color: var(--surface-1);
