@@ -171,6 +171,13 @@ const AppController = {
         document.dispatchEvent(new CustomEvent("initialDataLoaded"));
       }
 
+      // Ensure map controls panel is visible (fix for SPA navigation/refresh issues)
+      const controlsPanel = document.getElementById("map-controls");
+      if (controlsPanel) {
+        controlsPanel.style.display = "";
+        controlsPanel.style.visibility = "visible";
+      }
+
       document.dispatchEvent(new CustomEvent("appReady"));
       setTimeout(() => window.loadingManager.hide(), 300);
     } catch (err) {

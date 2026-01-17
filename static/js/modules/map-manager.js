@@ -20,11 +20,18 @@ const mapManager = {
         return state.mapInitialized;
       }
 
-      if (!window.MAPBOX_ACCESS_TOKEN) {
+      // Wait for token to be available (may be loading via SPA scripts)
+      let token = window.MAPBOX_ACCESS_TOKEN;
+      if (!token) {
+        // Give inline scripts time to execute during SPA navigation
+        await new Promise(resolve => setTimeout(resolve, 50));
+        token = window.MAPBOX_ACCESS_TOKEN;
+      }
+      if (!token) {
         throw new Error("Mapbox access token not configured");
       }
 
-      mapboxgl.accessToken = window.MAPBOX_ACCESS_TOKEN;
+      mapboxgl.accessToken = token;
 
       if (!mapboxgl.supported()) {
         mapElement.innerHTML

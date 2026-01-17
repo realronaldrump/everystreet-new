@@ -51,9 +51,10 @@
   background-color: transparent;
   backdrop-filter: none;
   pointer-events: none;
-  justify-content: flex-end;
-  align-items: flex-start;
+  justify-content: center;
+  align-items: flex-end;
   padding: 16px;
+  padding-bottom: 32px;
 }
 
 .loading-overlay.compact .loading-indicator {
