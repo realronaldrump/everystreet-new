@@ -38,9 +38,12 @@ const TurnByTurnAPI = {
    */
   async fetchOptimalRouteGpx(areaId) {
     try {
-      return await apiClient.get(`/api/coverage/areas/${areaId}/optimal-route/gpx`, {
-        parseResponse: (response) => response.text(),
-      });
+      return await apiClient.get(
+        `/api/coverage/areas/${areaId}/optimal-route/gpx`,
+        {
+          parseResponse: (response) => response.text(),
+        },
+      );
     } catch (error) {
       if (error.message?.includes("404")) {
         throw new Error("No optimal route found. Generate one first.");
@@ -55,7 +58,9 @@ const TurnByTurnAPI = {
    * @returns {Promise<Object>} GeoJSON data
    */
   async fetchCoverageSegments(areaId) {
-    const data = await apiClient.get(`/api/coverage/areas/${areaId}/streets/all`);
+    const data = await apiClient.get(
+      `/api/coverage/areas/${areaId}/streets/all`,
+    );
     if (!data.features || !Array.isArray(data.features)) {
       throw new Error("No segment data in response");
     }
@@ -117,9 +122,12 @@ const TurnByTurnAPI = {
    * @returns {Promise<void>}
    */
   async persistDrivenSegments(segmentIds, locationId) {
-    await apiClient.post(`/api/coverage/areas/${locationId}/streets/mark-driven`, {
-      segment_ids: segmentIds,
-    });
+    await apiClient.post(
+      `/api/coverage/areas/${locationId}/streets/mark-driven`,
+      {
+        segment_ids: segmentIds,
+      },
+    );
   },
 };
 

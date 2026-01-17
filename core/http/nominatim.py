@@ -9,14 +9,14 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from config import (
+    require_nominatim_reverse_url,
+    require_nominatim_search_url,
+    require_nominatim_user_agent,
+)
 from core.exceptions import ExternalServiceException
 from core.http.retry import retry_async
 from core.http.session import get_session
-from config import (
-    require_nominatim_search_url,
-    require_nominatim_reverse_url,
-    require_nominatim_user_agent,
-)
 
 logger = logging.getLogger(__name__)
 
