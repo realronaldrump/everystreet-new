@@ -37,6 +37,12 @@ from coverage.stats import update_area_stats
 from coverage.worker import backfill_coverage_for_area
 
 logger = logging.getLogger(__name__)
+_background_tasks: set[asyncio.Task] = set()
+
+
+def _track_task(task: asyncio.Task) -> None:
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)
 
 # OSM highway types to include (driveable roads)
 DRIVEABLE_HIGHWAY_TYPES = {
@@ -92,7 +98,7 @@ async def create_area(
     )
     await area.insert()
 
-    logger.info(f"Created coverage area: {display_name} ({area.id})")
+    logger.info("Created coverage area: %s (%s)", display_name, area.id)
 
     # Emit event to trigger async ingestion
     await emit_area_created(area.id, display_name)
@@ -122,7 +128,7 @@ async def delete_area(area_id: PydanticObjectId) -> bool:
     # Delete the area itself
     await area.delete()
 
-    logger.info(f"Deleted coverage area: {area.display_name} ({area_id})")
+    logger.info("Deleted coverage area: %s (%s)", area.display_name, area_id)
 
     return True
 
@@ -155,7 +161,8 @@ async def rebuild_area(area_id: PydanticObjectId) -> Job:
     await job.insert()
 
     # Queue the ingestion (fire and forget)
-    asyncio.create_task(_run_ingestion_pipeline(area_id, job.id))
+    task = asyncio.create_task(_run_ingestion_pipeline(area_id, job.id))
+    _track_task(task)
 
     return job
 
@@ -168,8 +175,8 @@ async def rebuild_area(area_id: PydanticObjectId) -> Job:
 @on_event(CoverageEvents.AREA_CREATED)
 async def handle_area_created(
     area_id: PydanticObjectId | str,
-    display_name: str,
-    **kwargs,
+    _display_name: str,
+    **_kwargs,
 ) -> None:
     """Handle area_created event by running the ingestion pipeline."""
     area_id = PydanticObjectId(area_id) if isinstance(area_id, str) else area_id
@@ -184,7 +191,8 @@ async def handle_area_created(
     await job.insert()
 
     # Run ingestion
-    asyncio.create_task(_run_ingestion_pipeline(area_id, job.id))
+    task = asyncio.create_task(_run_ingestion_pipeline(area_id, job.id))
+    _track_task(task)
 
 
 # =============================================================================
@@ -205,7 +213,7 @@ async def _run_ingestion_pipeline(
     area = await CoverageArea.get(area_id)
 
     if not job or not area:
-        logger.error(f"Job {job_id} or area {area_id} not found")
+        logger.error("Job %s or area %s not found", job_id, area_id)
         return
 
     try:
@@ -257,7 +265,11 @@ async def _run_ingestion_pipeline(
         )
 
         osm_ways = await _fetch_osm_streets(area.boundary)
-        logger.info(f"Fetched {len(osm_ways)} ways from OSM for {area.display_name}")
+        logger.info(
+            "Fetched %s ways from OSM for %s",
+            len(osm_ways),
+            area.display_name,
+        )
 
         # Stage 3: Segment streets
         await update_job(
@@ -267,7 +279,11 @@ async def _run_ingestion_pipeline(
         )
 
         segments = _segment_streets(osm_ways, area.id, area.area_version)
-        logger.info(f"Created {len(segments)} segments for {area.display_name}")
+        logger.info(
+            "Created %s segments for %s",
+            len(segments),
+            area.display_name,
+        )
 
         await update_job(message=f"Created {len(segments):,} segments")
 
@@ -407,10 +423,10 @@ async def _run_ingestion_pipeline(
             },
         )
 
-        logger.info(f"Ingestion complete for area {area.display_name}")
+        logger.info("Ingestion complete for area %s", area.display_name)
 
     except Exception as e:
-        logger.exception(f"Ingestion failed for area {area_id}: {e}")
+        logger.exception("Ingestion failed for area %s", area_id)
 
         job.retry_count += 1
         job.error = str(e)
@@ -429,7 +445,8 @@ async def _run_ingestion_pipeline(
             job.stage = f"Retry {job.retry_count} scheduled"
             # Schedule retry with exponential backoff
             delay = RETRY_BASE_DELAY_SECONDS * (2 ** (job.retry_count - 1))
-            asyncio.create_task(_delayed_retry(area_id, job_id, delay))
+            task = asyncio.create_task(_delayed_retry(area_id, job_id, delay))
+            _track_task(task)
 
         await job.save()
         if area_updates:
@@ -466,10 +483,13 @@ async def _fetch_boundary(location_name: str) -> dict[str, Any]:
         "User-Agent": require_nominatim_user_agent(),
     }
 
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url, params=params, headers=headers) as response:
-            response.raise_for_status()
-            data = await response.json()
+    async with aiohttp.ClientSession() as session, session.get(
+        url,
+        params=params,
+        headers=headers,
+    ) as response:
+        response.raise_for_status()
+        data = await response.json()
 
     if not data:
         msg = f"Location not found: {location_name}"
@@ -542,10 +562,12 @@ async def _fetch_single_box(
     max_retries = 3
     for attempt in range(max_retries):
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.post(url, data={"data": query}) as response:
-                    response.raise_for_status()
-                    return await response.json()
+            async with aiohttp.ClientSession() as session, session.post(
+                url,
+                data={"data": query},
+            ) as response:
+                response.raise_for_status()
+                return await response.json()
         except aiohttp.ClientResponseError as e:
             if e.status in (504, 502, 503) and attempt < max_retries - 1:
                 await asyncio.sleep(30 * (2**attempt))  # exponential backoff
@@ -594,10 +616,9 @@ async def _fetch_osm_streets(boundary: dict[str, Any]) -> list[dict[str, Any]]:
     boundary_shape = shape(boundary)
 
     for way in ways:
-        coords = []
-        for node_id in way.get("nodes", []):
-            if node_id in nodes:
-                coords.append(nodes[node_id])
+        coords = [
+            nodes[node_id] for node_id in way.get("nodes", []) if node_id in nodes
+        ]
 
         if len(coords) >= 2:
             line = LineString(coords)
@@ -610,11 +631,7 @@ async def _fetch_osm_streets(boundary: dict[str, Any]) -> list[dict[str, Any]]:
                         {
                             "osm_id": way["id"],
                             "tags": way.get("tags", {}),
-                            "geometry": (
-                                mapping(clipped)
-                                if hasattr(clipped, "geoms")
-                                else mapping(clipped)
-                            ),
+                            "geometry": mapping(clipped),
                         },
                     )
 
@@ -765,7 +782,7 @@ async def _store_segments(segments: list[dict[str, Any]]) -> None:
         street_docs = [Street(**seg) for seg in batch]
         await Street.insert_many(street_docs)
 
-    logger.debug(f"Stored {len(segments)} street segments")
+    logger.debug("Stored %s street segments", len(segments))
 
 
 async def _clear_existing_area_version_data(
@@ -810,7 +827,7 @@ async def _initialize_coverage_state(
         ]
         await CoverageState.insert_many(state_docs)
 
-    logger.debug(f"Initialized coverage state for {len(segments)} segments")
+    logger.debug("Initialized coverage state for %s segments", len(segments))
 
 
 # =============================================================================

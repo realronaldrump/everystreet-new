@@ -112,39 +112,36 @@ async def list_areas():
     try:
         areas = await CoverageArea.find_all().to_list()
 
-        area_responses = []
-        for area in areas:
-            area_responses.append(
-                AreaResponse(
-                    id=str(area.id),
-                    display_name=area.display_name,
-                    area_type=area.area_type,
-                    status=area.status,
-                    health=area.health,
-                    last_error=area.last_error,
-                    total_length_miles=area.total_length_miles,
-                    driveable_length_miles=area.driveable_length_miles,
-                    driven_length_miles=area.driven_length_miles,
-                    coverage_percentage=area.coverage_percentage,
-                    total_segments=area.total_segments,
-                    driven_segments=area.driven_segments,
-                    created_at=area.created_at.isoformat(),
-                    last_synced=(
-                        area.last_synced.isoformat() if area.last_synced else None
-                    ),
-                    optimal_route_generated_at=(
-                        area.optimal_route_generated_at.isoformat()
-                        if area.optimal_route_generated_at
-                        else None
-                    ),
-                    has_optimal_route=area.optimal_route is not None,
+        area_responses = [
+            AreaResponse(
+                id=str(area.id),
+                display_name=area.display_name,
+                area_type=area.area_type,
+                status=area.status,
+                health=area.health,
+                last_error=area.last_error,
+                total_length_miles=area.total_length_miles,
+                driveable_length_miles=area.driveable_length_miles,
+                driven_length_miles=area.driven_length_miles,
+                coverage_percentage=area.coverage_percentage,
+                total_segments=area.total_segments,
+                driven_segments=area.driven_segments,
+                created_at=area.created_at.isoformat(),
+                last_synced=area.last_synced.isoformat() if area.last_synced else None,
+                optimal_route_generated_at=(
+                    area.optimal_route_generated_at.isoformat()
+                    if area.optimal_route_generated_at
+                    else None
                 ),
+                has_optimal_route=area.optimal_route is not None,
             )
+            for area in areas
+        ]
 
         return AreaListResponse(areas=area_responses)
 
     except Exception as e:
-        logger.exception(f"Error listing coverage areas: {e}")
+        logger.exception("Error listing coverage areas")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),
@@ -228,7 +225,7 @@ async def add_area(request: CreateAreaRequest):
             detail=str(e),
         )
     except Exception as e:
-        logger.exception(f"Error creating coverage area: {e}")
+        logger.exception("Error creating coverage area")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),
@@ -287,7 +284,7 @@ async def trigger_rebuild(area_id: PydanticObjectId):
             detail=str(e),
         )
     except Exception as e:
-        logger.exception(f"Error triggering rebuild: {e}")
+        logger.exception("Error triggering rebuild")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),
@@ -320,18 +317,17 @@ async def trigger_backfill(area_id: PydanticObjectId):
         )
 
     try:
-        logger.info(f"Starting backfill for area {area.display_name}")
+        logger.info("Starting backfill for area %s", area.display_name)
         segments_updated = await backfill_coverage_for_area(area_id)
-
+    except Exception as e:
+        logger.exception("Error during backfill for area %s", area.display_name)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        )
+    else:
         return {
             "success": True,
             "message": f"Backfill complete. Updated {segments_updated} segments.",
             "segments_updated": segments_updated,
         }
-
-    except Exception as e:
-        logger.exception(f"Error during backfill: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
-        )

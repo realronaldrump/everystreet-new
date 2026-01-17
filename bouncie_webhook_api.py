@@ -13,6 +13,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, Request, Response, status
+from fastapi.responses import JSONResponse
 
 from bouncie_credentials import get_bouncie_credentials, update_bouncie_credentials
 from bouncie_webhook_status import get_webhook_status, record_webhook_event
@@ -34,6 +35,13 @@ TRIP_EVENT_HANDLERS: dict[str, TripHandler] = {
     "tripMetrics": process_trip_metrics,
     "tripEnd": process_trip_end,
 }
+
+
+def _ok_response() -> Response:
+    return JSONResponse(
+        status_code=status.HTTP_200_OK,
+        content={"status": "ok"},
+    )
 
 
 async def _dispatch_event(payload: dict[str, Any], auth_header: str | None) -> None:
@@ -78,6 +86,8 @@ async def _dispatch_event(payload: dict[str, Any], auth_header: str | None) -> N
 @router.post("/api/webhooks/bouncie/")
 @router.post("/webhook/bouncie")
 @router.post("/webhook/bouncie/")
+@router.post("/bouncie-webhook")
+@router.post("/bouncie-webhook/")
 async def bouncie_webhook(
     request: Request,
     background_tasks: BackgroundTasks,
@@ -95,26 +105,26 @@ async def bouncie_webhook(
         raw_body = await request.body()
         if not raw_body:
             logger.warning("Bouncie webhook received empty body")
-            return Response(status_code=status.HTTP_200_OK)
+            return _ok_response()
 
         try:
             payload = json.loads(raw_body)
         except json.JSONDecodeError as exc:
             logger.warning("Bouncie webhook invalid JSON: %s", exc)
-            return Response(status_code=status.HTTP_200_OK)
+            return _ok_response()
 
         if not isinstance(payload, dict):
             logger.warning(
                 "Bouncie webhook expected JSON object, got %s",
                 type(payload).__name__,
             )
-            return Response(status_code=status.HTTP_200_OK)
+            return _ok_response()
 
         background_tasks.add_task(_dispatch_event, payload, auth_header)
-        return Response(status_code=status.HTTP_200_OK)
+        return _ok_response()
     except Exception:
         logger.exception("Unhandled error in Bouncie webhook")
-        return Response(status_code=status.HTTP_200_OK)
+        return _ok_response()
 
 
 @router.get("/api/webhooks/bouncie/status")

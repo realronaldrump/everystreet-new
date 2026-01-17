@@ -33,7 +33,7 @@ async def get_places():
     try:
         return await PlaceService.get_places()
     except Exception as e:
-        logger.exception("Error getting places: %s", e)
+        logger.exception("Error getting places")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),
@@ -46,7 +46,7 @@ async def create_place(place: PlaceModel):
     try:
         return await PlaceService.create_place(place.name, place.geometry)
     except Exception as e:
-        logger.exception("Error creating place: %s", e)
+        logger.exception("Error creating place")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),
@@ -59,7 +59,7 @@ async def delete_place(place_id: str):
     try:
         return await PlaceService.delete_place(place_id)
     except Exception as e:
-        logger.exception("Error deleting place: %s", e)
+        logger.exception("Error deleting place")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),
@@ -81,7 +81,7 @@ async def update_place(place_id: str, update_data: PlaceUpdateModel):
             detail=str(e),
         )
     except Exception as e:
-        logger.exception("Error updating place: %s", e)
+        logger.exception("Error updating place")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),

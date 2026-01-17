@@ -15,20 +15,17 @@ router = APIRouter()
 @router.get("/api/places/{place_id}/statistics", response_model=PlaceStatisticsResponse)
 async def get_place_statistics(place_id: str):
     """Get statistics about visits to a place using robust calculation."""
+    place = await PlaceService.get_place_by_id(place_id)
+    if not place:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Place not found",
+        )
+
     try:
-        place = await PlaceService.get_place_by_id(place_id)
-        if not place:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Place not found",
-            )
-
         return await VisitStatsService.get_place_statistics(place)
-
-    except HTTPException:
-        raise
     except Exception as e:
-        logger.exception("Error getting place statistics for %s: %s", place_id, e)
+        logger.exception("Error getting place statistics for %s", place_id)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),
@@ -41,7 +38,7 @@ async def get_all_places_statistics():
     try:
         return await VisitStatsService.get_all_places_statistics()
     except Exception as e:
-        logger.exception("Error in get_all_places_statistics: %s", e)
+        logger.exception("Error in get_all_places_statistics")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -91,7 +88,7 @@ async def get_visit_suggestions(
             detail=str(e),
         )
     except Exception as e:
-        logger.exception("Error generating visit suggestions: %s", e)
+        logger.exception("Error generating visit suggestions")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),

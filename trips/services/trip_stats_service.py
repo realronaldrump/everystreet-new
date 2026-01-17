@@ -46,55 +46,56 @@ class TripStatsService:
         """
         task_id = str(uuid.uuid4())
 
+        # Determine date range
+        if not start_date and not end_date and interval_days == 0:
+            # Default to all trips
+            query = {}
+            start_iso = None
+            end_iso = None
+        elif interval_days > 0:
+            end_dt = datetime.now(UTC)
+            start_dt = end_dt - timedelta(days=interval_days)
+            start_iso = start_dt.date().isoformat()
+            end_iso = end_dt.date().isoformat()
+            range_expr = build_calendar_date_expr(start_iso, end_iso)
+            if not range_expr:
+                msg = "Invalid date range"
+                raise ValueError(msg)
+            query = {"$expr": range_expr}
+        else:
+            start_iso = normalize_calendar_date(start_date)
+            end_iso = normalize_calendar_date(end_date)
+
+            if not start_iso or not end_iso:
+                msg = "Invalid date range"
+                raise ValueError(msg)
+
+            range_expr = build_calendar_date_expr(start_iso, end_iso)
+            if not range_expr:
+                msg = "Invalid date range"
+                raise ValueError(msg)
+            query = {"$expr": range_expr}
+
+        # Initialize progress tracking
+        progress = ProgressStatus(
+            operation_id=task_id,
+            operation_type="geocoding",
+            status="running",
+            stage="initializing",
+            progress=0,
+            message="Finding trips to geocode...",
+            started_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
+            metadata={
+                "total": 0,
+                "processed": 0,
+                "updated": 0,
+                "skipped": 0,
+                "failed": 0,
+            },
+        )
+
         try:
-            # Determine date range
-            if not start_date and not end_date and interval_days == 0:
-                # Default to all trips
-                query = {}
-                start_iso = None
-                end_iso = None
-            elif interval_days > 0:
-                end_dt = datetime.now(UTC)
-                start_dt = end_dt - timedelta(days=interval_days)
-                start_iso = start_dt.date().isoformat()
-                end_iso = end_dt.date().isoformat()
-                range_expr = build_calendar_date_expr(start_iso, end_iso)
-                if not range_expr:
-                    msg = "Invalid date range"
-                    raise ValueError(msg)
-                query = {"$expr": range_expr}
-            else:
-                start_iso = normalize_calendar_date(start_date)
-                end_iso = normalize_calendar_date(end_date)
-
-                if not start_iso or not end_iso:
-                    msg = "Invalid date range"
-                    raise ValueError(msg)
-
-                range_expr = build_calendar_date_expr(start_iso, end_iso)
-                if not range_expr:
-                    msg = "Invalid date range"
-                    raise ValueError(msg)
-                query = {"$expr": range_expr}
-
-            # Initialize progress tracking
-            progress = ProgressStatus(
-                operation_id=task_id,
-                operation_type="geocoding",
-                status="running",
-                stage="initializing",
-                progress=0,
-                message="Finding trips to geocode...",
-                started_at=datetime.now(UTC),
-                updated_at=datetime.now(UTC),
-                metadata={
-                    "total": 0,
-                    "processed": 0,
-                    "updated": 0,
-                    "skipped": 0,
-                    "failed": 0,
-                },
-            )
             await progress.insert()
 
             # Find trips matching query
@@ -177,7 +178,7 @@ class TripStatsService:
             }
 
         except Exception as e:
-            logger.exception("Error in geocode_trips: %s", e)
+            logger.exception("Error in geocode_trips")
             # Update progress with error
             progress.stage = "error"
             progress.status = "failed"

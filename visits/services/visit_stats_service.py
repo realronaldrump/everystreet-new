@@ -164,7 +164,10 @@ class VisitStatsService:
             )
 
         # Sort by endTime descending
-        trips_data.sort(key=lambda x: x.endTime or datetime.min, reverse=True)
+        trips_data.sort(
+            key=lambda x: x.endTime or datetime.min.replace(tzinfo=UTC),
+            reverse=True,
+        )
 
         # Get place name
         name = place.name if isinstance(place, PlaceResponse) else place.name or ""

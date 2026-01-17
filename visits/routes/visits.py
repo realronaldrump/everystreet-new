@@ -14,20 +14,17 @@ router = APIRouter()
 @router.get("/api/places/{place_id}/trips", response_model=PlaceVisitsResponse)
 async def get_trips_for_place(place_id: str):
     """Get trips that visited a specific place, with corrected duration logic."""
+    place = await PlaceService.get_place_by_id(place_id)
+    if not place:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Place not found",
+        )
+
     try:
-        place = await PlaceService.get_place_by_id(place_id)
-        if not place:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Place not found",
-            )
-
         return await VisitStatsService.get_trips_for_place(place)
-
-    except HTTPException:
-        raise
     except Exception as e:
-        logger.exception("Error getting trips for place %s: %s", place_id, e)
+        logger.exception("Error getting trips for place %s", place_id)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),
@@ -58,7 +55,7 @@ async def get_non_custom_places_visits(timeframe: str | None = None):
             detail=str(e),
         )
     except Exception as e:
-        logger.exception("Error getting non-custom places visits: %s", e)
+        logger.exception("Error getting non-custom places visits")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),

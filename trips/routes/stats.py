@@ -49,7 +49,7 @@ async def geocode_trips(data: DateRangeModel | None = None):
             detail=str(e),
         )
     except Exception as e:
-        logger.exception("Error in geocode_trips: %s", e)
+        logger.exception("Error in geocode_trips")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error geocoding trips: {e}",
