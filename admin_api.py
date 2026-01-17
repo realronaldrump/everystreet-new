@@ -44,7 +44,10 @@ COLLECTION_TO_MODEL = {
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
-SENSITIVE_APP_SETTINGS_KEYS = {"mapbox_access_token"}
+MAPBOX_SETTINGS_ERROR = (
+    "mapbox_access_token is no longer configurable via app settings. "
+    "Set MAPBOX_TOKEN in the environment for map rendering only."
+)
 
 
 DEFAULT_APP_SETTINGS: dict[str, Any] = {
@@ -80,8 +83,7 @@ async def get_app_settings_endpoint():
     try:
         settings = await get_persisted_app_settings()
         payload = settings.model_dump()
-        for key in SENSITIVE_APP_SETTINGS_KEYS:
-            payload.pop(key, None)
+        payload.pop("mapbox_access_token", None)
         return payload
     except Exception as e:
         logger.exception("Error fetching app settings via API: %s", e)
@@ -102,13 +104,10 @@ async def update_app_settings_endpoint(settings: Annotated[dict, Body()]):
     try:
         if not isinstance(settings, dict):
             raise HTTPException(status_code=400, detail="Invalid payload")
-        if any(key in settings for key in SENSITIVE_APP_SETTINGS_KEYS):
+        if "mapbox_access_token" in settings:
             raise HTTPException(
                 status_code=400,
-                detail=(
-                    "mapbox_access_token is no longer configurable via app settings. "
-                    "Set MAPBOX_TOKEN in the environment for map rendering only."
-                ),
+                detail=MAPBOX_SETTINGS_ERROR,
             )
 
         existing = await AppSettings.find_one()
@@ -227,16 +226,19 @@ async def validate_location(
 @router.get("/api/first_trip_date")
 async def get_first_trip_date():
     try:
-        earliest_trip = await Trip.find_all().sort(+Trip.startTime).limit(1).to_list()
+        earliest_trip = await Trip.find_all().sort("startTime").limit(1).to_list()
 
         if not earliest_trip or not earliest_trip[0].startTime:
             now = datetime.now(UTC)
             return {"first_trip_date": now.isoformat()}
 
-        earliest_trip_date = ensure_utc(earliest_trip[0].startTime)
+        start_time = ensure_utc(earliest_trip[0].startTime)
+        if not start_time:
+            now = datetime.now(UTC)
+            return {"first_trip_date": now.isoformat()}
 
         return {
-            "first_trip_date": earliest_trip_date.isoformat().replace("+00:00", "Z"),
+            "first_trip_date": start_time.isoformat().replace("+00:00", "Z"),
         }
     except Exception as e:
         logger.exception(
