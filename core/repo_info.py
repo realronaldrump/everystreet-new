@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import subprocess
 from dataclasses import dataclass
 from datetime import datetime, timezone
-import subprocess
 from typing import Optional
 
 
