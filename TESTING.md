@@ -11,7 +11,7 @@ pytest
 ```
 
 Coverage:
-- Terminal summary + `coverage/lcov.info`
+- Terminal summary + `coverage.lcov`
 
 Notes:
 - Database tests use an in-memory Mongo mock (`mongomock-motor`), so no external

@@ -30,3 +30,4 @@ data/*
 # bouncie_docs/bouncie_api_docs.json
 .coverage
 .gitignore
+coverage.lcov

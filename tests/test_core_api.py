@@ -87,7 +87,8 @@ async def test_api_route_allows_http_exception_passthrough() -> None:
 async def test_api_route_wraps_unexpected_exception() -> None:
     @api_route(logger)
     async def handler():
-        raise ValueError("boom")
+        msg = "boom"
+        raise ValueError(msg)
 
     with pytest.raises(HTTPException) as raised:
         await handler()

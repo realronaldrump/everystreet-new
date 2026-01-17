@@ -11,6 +11,8 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+
+# pytest-cov imports the coverage library; load the app's package for app imports.
 def _install_local_coverage_package() -> None:
     coverage_init = ROOT / "coverage" / "__init__.py"
     if not coverage_init.exists():
@@ -55,9 +57,9 @@ def _default_test_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("NOMINATIM_USER_AGENT", "EveryStreet/1.0 (test)")
 
 
-@pytest.fixture()
+@pytest.fixture
 async def beanie_db():
     client = AsyncMongoMockClient()
     database = client["test_db"]
     await init_beanie(database=database, document_models=[Trip])
-    yield database
+    return database
