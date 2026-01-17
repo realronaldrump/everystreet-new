@@ -161,11 +161,11 @@ class ValhallaClient:
     def _normalize_trace_response(data: dict[str, Any]) -> dict[str, Any]:
         trip = data.get("trip") or {}
         shape = trip.get("shape") or {}
-        geometry = {
-            "type": "LineString",
-            "coordinates": shape.get("coordinates", []),
-        }
-        return {
-            "geometry": geometry,
-            "raw": data,
-        }
+        coords = shape.get("coordinates", [])
+
+        # Return None geometry if no coordinates
+        geometry = None
+        if coords:
+            geometry = {"type": "LineString", "coordinates": coords}
+
+        return {"geometry": geometry, "raw": data}

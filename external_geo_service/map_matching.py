@@ -213,10 +213,10 @@ class MapMatchingService:
                 )
                 geometry = result.get("geometry")
                 coords = geometry.get("coordinates", []) if geometry else []
-                if not geometry:
+                if not geometry or not coords:
                     return {
                         "code": "Error",
-                        "message": "Valhalla returned no geometry.",
+                        "message": f"Valhalla returned no geometry (input: {len(shape)} points).",
                     }
                 return {
                     "code": "Ok",
