@@ -139,6 +139,7 @@ async def sync_vehicles_from_bouncie():
     3. Update the 'authorized_devices' list in credentials
     4. Create/Update records in the 'vehicles' collection
     """
+
     def _raise_http(status_code: int, detail: str) -> None:
         raise HTTPException(status_code=status_code, detail=detail)
 

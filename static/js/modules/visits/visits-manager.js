@@ -22,7 +22,8 @@
       this.mapController = new window.VisitsMapController({
         geometryUtils: window.VisitsGeometry,
         mapStyles: window.MapStyles,
-        onPlaceClicked: (placeId, lngLat) => this.showPlaceStatistics(placeId, lngLat),
+        onPlaceClicked: (placeId, lngLat) =>
+          this.showPlaceStatistics(placeId, lngLat),
       });
 
       // Trip viewer
@@ -77,7 +78,9 @@
       this.loadingManager?.show("Initializing Visits Page");
 
       try {
-        await this.mapController.initialize(window.VisitsHelpers.getCurrentTheme());
+        await this.mapController.initialize(
+          window.VisitsHelpers.getCurrentTheme(),
+        );
         this.map = this.mapController.getMap();
 
         // Initialize drawing with the map
@@ -99,7 +102,7 @@
         // Start stats animation
         this.updateStatsCounts();
         this.statsManager.startStatsAnimation(this.places.size, () =>
-          this.updateStatsCounts()
+          this.updateStatsCounts(),
         );
 
         this.loadingManager?.hide();
@@ -158,7 +161,7 @@
         const customStats = await this.dataLoader.loadPlaceStatistics();
         const totalVisits = customStats.reduce(
           (sum, p) => sum + (p.totalVisits || 0),
-          0
+          0,
         );
         this.statsManager.updateStatsCounts(this.places.size, totalVisits);
       } catch (error) {
@@ -180,7 +183,8 @@
       }
 
       try {
-        const statsList = statsData || (await this.dataLoader.loadPlaceStatistics());
+        const statsList =
+          statsData || (await this.dataLoader.loadPlaceStatistics());
         statsList.sort((a, b) => b.totalVisits - a.totalVisits);
 
         const validResults = statsList.map((d) => ({
@@ -194,7 +198,7 @@
 
         this.chartManager.update(validResults, (placeName) => {
           const placeEntry = Array.from(this.places.entries()).find(
-            ([, placeData]) => placeData.name === placeName
+            ([, placeData]) => placeData.name === placeName,
           );
           if (placeEntry) {
             const [placeId] = placeEntry;
@@ -206,7 +210,10 @@
         this.statsManager.updateInsights(statsList);
       } catch (error) {
         console.error("Error updating place statistics:", error);
-        window.notificationManager?.show("Error updating place statistics", "danger");
+        window.notificationManager?.show(
+          "Error updating place statistics",
+          "danger",
+        );
       } finally {
         this.loadingManager?.hide();
       }
@@ -219,8 +226,8 @@
       });
 
       try {
-        const { customStats, otherStats }
-          = await this.dataLoader.filterByTimeframe(timeframe);
+        const { customStats, otherStats } =
+          await this.dataLoader.filterByTimeframe(timeframe);
 
         this.updateVisitsData(customStats);
         this.nonCustomVisitsTable?.clear().rows.add(otherStats).draw();
@@ -244,7 +251,7 @@
       if (!placeName) {
         window.VisitsHelpers.showInputError(
           placeNameInput,
-          "Please enter a name for the place."
+          "Please enter a name for the place.",
         );
         return null;
       }
@@ -277,7 +284,7 @@
           await this.updateVisitsData();
           this.uiManager.refreshManagePlacesModal(this.places);
           this.updateStatsCounts();
-        }
+        },
       );
 
       return success;
@@ -292,8 +299,10 @@
       const placeBeingEdited = this.drawing.getPlaceBeingEdited();
 
       // Only include geometry if editing the same place that was started for edit
-      const newGeometry
-        = currentPolygon && placeBeingEdited === placeId ? currentPolygon.geometry : null;
+      const newGeometry =
+        currentPolygon && placeBeingEdited === placeId
+          ? currentPolygon.geometry
+          : null;
 
       const updatedPlace = await this.actions.saveEditedPlace({
         placeId,
@@ -357,14 +366,15 @@
       this.visitsTable = window.VisitsTableFactory.createVisitsTable({
         onPlaceSelected: (placeId) => this.uiManager.toggleView(placeId),
       });
-      this.nonCustomVisitsTable
-        = window.VisitsTableFactory.createNonCustomVisitsTable();
+      this.nonCustomVisitsTable =
+        window.VisitsTableFactory.createNonCustomVisitsTable();
       this.tripsTable = window.VisitsTableFactory.createTripsTable({
         onTripSelected: (tripId) => this.confirmViewTripOnMap(tripId),
       });
       this.suggestionsTable = window.VisitsTableFactory.createSuggestionsTable({
         onCreatePlace: (suggestion) => this.applySuggestion(suggestion),
-        onPreview: (suggestion) => this.mapController.previewSuggestion(suggestion),
+        onPreview: (suggestion) =>
+          this.mapController.previewSuggestion(suggestion),
       });
     }
 
@@ -418,7 +428,10 @@
 
     zoomToFitAllPlaces() {
       if (!this.map) {
-        window.notificationManager?.show("No custom places found to zoom to.", "info");
+        window.notificationManager?.show(
+          "No custom places found to zoom to.",
+          "info",
+        );
         return;
       }
       this.mapController.zoomToFitAllPlaces();

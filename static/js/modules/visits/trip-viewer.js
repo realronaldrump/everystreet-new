@@ -7,8 +7,8 @@
       this.tripViewMap = null;
       this.startMarker = null;
       this.endMarker = null;
-      this.currentTheme
-        = document.documentElement.getAttribute("data-bs-theme") || "dark";
+      this.currentTheme =
+        document.documentElement.getAttribute("data-bs-theme") || "dark";
     }
 
     showTrip(trip) {
@@ -33,8 +33,8 @@
 
       let formattedDistance = "Unknown";
       if (trip.distance) {
-        let distanceValue
-          = typeof trip.distance === "object" && trip.distance.value !== undefined
+        let distanceValue =
+          typeof trip.distance === "object" && trip.distance.value !== undefined
             ? trip.distance.value
             : trip.distance;
         distanceValue = parseFloat(distanceValue);
@@ -44,10 +44,12 @@
       }
 
       const transactionId = trip.transactionId || trip.id || trip._id;
-      const startLocation
-        = trip.startLocation?.formatted_address || trip.startPlace || "Unknown";
-      const endLocation
-        = trip.destination?.formatted_address || trip.destinationPlace || "Unknown";
+      const startLocation =
+        trip.startLocation?.formatted_address || trip.startPlace || "Unknown";
+      const endLocation =
+        trip.destination?.formatted_address ||
+        trip.destinationPlace ||
+        "Unknown";
 
       tripInfoContainer.innerHTML = `
         <div class="trip-details">
@@ -89,11 +91,18 @@
       `;
 
       const modal = bootstrap.Modal.getOrCreateInstance(modalElement);
-      modalElement.removeEventListener("shown.bs.modal", this._handleTripModalShown);
+      modalElement.removeEventListener(
+        "shown.bs.modal",
+        this._handleTripModalShown,
+      );
       this._handleTripModalShown = () => this._initializeOrUpdateTripMap(trip);
-      modalElement.addEventListener("shown.bs.modal", this._handleTripModalShown, {
-        once: true,
-      });
+      modalElement.addEventListener(
+        "shown.bs.modal",
+        this._handleTripModalShown,
+        {
+          once: true,
+        },
+      );
 
       modal.show();
     }
@@ -104,8 +113,8 @@
         return;
       }
 
-      const styleUrl
-        = this.currentTheme === "light"
+      const styleUrl =
+        this.currentTheme === "light"
           ? "mapbox://styles/mapbox/light-v11"
           : "mapbox://styles/mapbox/dark-v11";
 
@@ -135,8 +144,8 @@
         mapContainer.innerHTML = "";
         mapContainer.appendChild(mapElement);
 
-        const styleUrl
-          = this.currentTheme === "light"
+        const styleUrl =
+          this.currentTheme === "light"
             ? "mapbox://styles/mapbox/light-v11"
             : "mapbox://styles/mapbox/dark-v11";
 
@@ -213,7 +222,9 @@
               scale: 1.2,
             })
               .setLngLat(startCoord)
-              .setPopup(new mapboxgl.Popup({ offset: 25 }).setText("Trip Start"))
+              .setPopup(
+                new mapboxgl.Popup({ offset: 25 }).setText("Trip Start"),
+              )
               .addTo(this.tripViewMap);
           }
 
@@ -229,7 +240,7 @@
 
           const bounds = coordinates.reduce(
             (b, c) => b.extend(c),
-            new mapboxgl.LngLatBounds(coordinates[0], coordinates[0])
+            new mapboxgl.LngLatBounds(coordinates[0], coordinates[0]),
           );
           this.tripViewMap.fitBounds(bounds, {
             padding: 50,
@@ -237,13 +248,13 @@
             duration: 1000,
           });
         } catch (error) {
-          document.getElementById("trip-info").innerHTML
-            += '<div class="alert alert-danger mt-3"><i class="fas fa-exclamation-triangle me-2"></i>Error displaying trip route.</div>';
+          document.getElementById("trip-info").innerHTML +=
+            '<div class="alert alert-danger mt-3"><i class="fas fa-exclamation-triangle me-2"></i>Error displaying trip route.</div>';
           console.error("Error processing trip geometry:", error);
         }
       } else {
-        document.getElementById("trip-info").innerHTML
-          += '<div class="alert alert-warning mt-3"><i class="fas fa-info-circle me-2"></i>No route data available for this trip.</div>';
+        document.getElementById("trip-info").innerHTML +=
+          '<div class="alert alert-warning mt-3"><i class="fas fa-info-circle me-2"></i>No route data available for this trip.</div>';
         this.tripViewMap.setCenter([-95.7129, 37.0902]);
         this.tripViewMap.setZoom(4);
       }

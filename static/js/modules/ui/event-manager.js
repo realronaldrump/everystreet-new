@@ -14,7 +14,8 @@ const eventManager = {
    * - options: { passive: true, leftClickOnly: true }
    */
   add(element, events, handler, options = {}) {
-    const el = typeof element === "string" ? state.getElement(element) : element;
+    const el =
+      typeof element === "string" ? state.getElement(element) : element;
     if (!el) {
       return false;
     }
@@ -31,8 +32,8 @@ const eventManager = {
         return;
       } // already registered
 
-      const wrapped
-        = options.leftClickOnly && eventType === "click"
+      const wrapped =
+        options.leftClickOnly && eventType === "click"
           ? (e) => {
               if (e.button === 0) {
                 handler(e);
@@ -43,7 +44,7 @@ const eventManager = {
       el.addEventListener(
         eventType,
         wrapped,
-        options.passive ? { passive: true } : false
+        options.passive ? { passive: true } : false,
       );
       elementListeners.set(key, { handler: wrapped, eventType });
     });
@@ -55,8 +56,8 @@ const eventManager = {
    * Event delegation.
    */
   delegate(container, selector, eventType, handler) {
-    const containerEl
-      = typeof container === "string" ? state.getElement(container) : container;
+    const containerEl =
+      typeof container === "string" ? state.getElement(container) : container;
     if (!containerEl) {
       return false;
     }
@@ -76,7 +77,8 @@ const eventManager = {
    * One–time listener.
    */
   once(element, event, handler) {
-    const el = typeof element === "string" ? state.getElement(element) : element;
+    const el =
+      typeof element === "string" ? state.getElement(element) : element;
     if (!el) {
       return false;
     }

@@ -43,10 +43,11 @@ class AppState {
     this.ui = {
       theme: null,
       isMobile:
-        typeof window !== "undefined" && window.innerWidth < CONFIG.UI.mobileBreakpoint,
+        typeof window !== "undefined" &&
+        window.innerWidth < CONFIG.UI.mobileBreakpoint,
       reducedMotion:
-        typeof window !== "undefined"
-        && window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+        typeof window !== "undefined" &&
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches,
       controlsMinimized: false,
       filtersOpen: false,
       activeModals: new Set(),
@@ -82,7 +83,10 @@ class AppState {
         controlsMinimized: this.ui.controlsMinimized,
         filtersOpen: this.ui.filtersOpen,
       };
-      localStorage.setItem(CONFIG.STORAGE_KEYS.uiState, JSON.stringify(persistable));
+      localStorage.setItem(
+        CONFIG.STORAGE_KEYS.uiState,
+        JSON.stringify(persistable),
+      );
     } catch (e) {
       console.warn("Failed to save UI state:", e);
     }
@@ -94,9 +98,11 @@ class AppState {
       return this.dom.get(selector);
     }
     const el = document.querySelector(
-      selector.startsWith("#") || selector.includes(" ") || selector.startsWith(".")
+      selector.startsWith("#") ||
+        selector.includes(" ") ||
+        selector.startsWith(".")
         ? selector
-        : `#${selector}`
+        : `#${selector}`,
     );
     if (el) {
       this.dom.set(selector, el);
