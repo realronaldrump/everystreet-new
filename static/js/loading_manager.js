@@ -102,7 +102,9 @@ class LoadingManager {
         : message;
 
     const blocking =
-      typeof messageOptions.blocking === "boolean" ? messageOptions.blocking : false;
+      typeof messageOptions.blocking === "boolean"
+        ? messageOptions.blocking
+        : false;
     const compact = blocking
       ? false
       : typeof messageOptions.compact === "boolean"
@@ -202,7 +204,9 @@ class LoadingManager {
     }
 
     // Ensure minimum show time to prevent flicker
-    const elapsed = this.showStartTime ? Date.now() - this.showStartTime : Infinity;
+    const elapsed = this.showStartTime
+      ? Date.now() - this.showStartTime
+      : Infinity;
     const delay = Math.max(0, this.minShowTime - elapsed);
 
     this.hideTimeout = setTimeout(() => {
@@ -340,6 +344,9 @@ class LoadingManager {
 }
 
 // Create singleton instance
-if (!window.loadingManager || typeof window.loadingManager.show !== "function") {
+if (
+  !window.loadingManager ||
+  typeof window.loadingManager.show !== "function"
+) {
   window.loadingManager = new LoadingManager();
 }

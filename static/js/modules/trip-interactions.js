@@ -65,7 +65,7 @@ const tripInteractions = {
           hour: "numeric",
           minute: "2-digit",
           hour12: true,
-        })
+        }),
       );
 
     let duration = props.duration || props.drivingTime;
@@ -207,12 +207,18 @@ const tripInteractions = {
     }
 
     try {
-      const response = await utils.fetchWithRetry(`/api/matched_trips/${tripId}`, {
-        method: "DELETE",
-      });
+      const response = await utils.fetchWithRetry(
+        `/api/matched_trips/${tripId}`,
+        {
+          method: "DELETE",
+        },
+      );
       if (response) {
         popup.remove();
-        window.notificationManager.show("Matched trip deleted successfully", "success");
+        window.notificationManager.show(
+          "Matched trip deleted successfully",
+          "success",
+        );
         const dataManager = (await import("./data-manager.js")).default;
         await dataManager.updateMap();
       }
@@ -253,14 +259,20 @@ const tripInteractions = {
   async rematchTrip(tripId, popup) {
     try {
       window.notificationManager.show("Starting map matching...", "info");
-      const response = await utils.fetchWithRetry(`/api/process_trip/${tripId}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ map_match: true }),
-      });
+      const response = await utils.fetchWithRetry(
+        `/api/process_trip/${tripId}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ map_match: true }),
+        },
+      );
       if (response) {
         popup.remove();
-        window.notificationManager.show("Trip map matching completed", "success");
+        window.notificationManager.show(
+          "Trip map matching completed",
+          "success",
+        );
 
         // Clear API cache for matched trips to ensure fresh data
         if (utils._apiCache) {
@@ -299,7 +311,7 @@ const tripInteractions = {
               state.map.setLayoutProperty(
                 "matchedTrips-layer",
                 "visibility",
-                "visible"
+                "visible",
               );
             }
             mapManager.refreshTripStyles();

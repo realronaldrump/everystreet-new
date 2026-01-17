@@ -74,9 +74,11 @@
             legend: { display: false },
             tooltip: {
               backgroundColor: "rgba(30, 30, 30, 0.95)",
-              titleColor: window.MapStyles?.MAP_LAYER_COLORS?.customPlaces?.fill,
+              titleColor:
+                window.MapStyles?.MAP_LAYER_COLORS?.customPlaces?.fill,
               bodyColor: "rgba(255, 255, 255, 0.9)",
-              borderColor: window.MapStyles?.MAP_LAYER_COLORS?.customPlaces?.outline,
+              borderColor:
+                window.MapStyles?.MAP_LAYER_COLORS?.customPlaces?.outline,
               borderWidth: 1,
               padding: 12,
               cornerRadius: 8,
@@ -107,11 +109,14 @@
       };
 
       this.chart.options.onHover = (_event, elements) => {
-        this.chart.canvas.style.cursor = elements.length > 0 ? "pointer" : "default";
+        this.chart.canvas.style.cursor =
+          elements.length > 0 ? "pointer" : "default";
       };
 
       this.chart.data.labels = stats.slice(0, 10).map((d) => d.name);
-      this.chart.data.datasets[0].data = stats.slice(0, 10).map((d) => d.totalVisits);
+      this.chart.data.datasets[0].data = stats
+        .slice(0, 10)
+        .map((d) => d.totalVisits);
       this.chart.update("active");
     }
 

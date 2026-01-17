@@ -54,7 +54,8 @@ class TurnByTurnGPS {
 
     this.watchId = geolocationService.watchPosition(
       (position) => {
-        const { latitude, longitude, accuracy, heading, speed } = position.coords;
+        const { latitude, longitude, accuracy, heading, speed } =
+          position.coords;
         if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
           return;
         }
@@ -75,7 +76,7 @@ class TurnByTurnGPS {
         enableHighAccuracy: true,
         timeout: 10000,
         maximumAge: 1000,
-      }
+      },
     );
   }
 
@@ -122,12 +123,15 @@ class TurnByTurnGPS {
     if (!heading && this.lastPosition) {
       heading = bearing(
         [this.lastPosition.lon, this.lastPosition.lat],
-        [fix.lon, fix.lat]
+        [fix.lon, fix.lat],
       );
     }
 
     if (!heading && closest && closest.index < routeCoords.length - 1) {
-      heading = bearing(routeCoords[closest.index], routeCoords[closest.index + 1]);
+      heading = bearing(
+        routeCoords[closest.index],
+        routeCoords[closest.index + 1],
+      );
     }
 
     this.lastHeading = heading;
@@ -150,7 +154,7 @@ class TurnByTurnGPS {
       if (deltaTime > 0) {
         const distance = distanceMeters(
           [this.lastPosition.lon, this.lastPosition.lat],
-          [fix.lon, fix.lat]
+          [fix.lon, fix.lat],
         );
         speedMps = distance / deltaTime;
       }
@@ -198,9 +202,12 @@ class TurnByTurnGPS {
     }
 
     // Rule 1: Reject large backward jumps unless confirmed by multiple samples
-    if (this.lastValidProgress - rawProgress > this.config.maxBackwardJumpMeters) {
+    if (
+      this.lastValidProgress - rawProgress >
+      this.config.maxBackwardJumpMeters
+    ) {
       const backwardCount = this.progressHistory.filter(
-        (p) => p < this.lastValidProgress - this.config.maxBackwardJumpMeters
+        (p) => p < this.lastValidProgress - this.config.maxBackwardJumpMeters,
       ).length;
 
       // Require 3+ confirmations before accepting regression
@@ -218,7 +225,8 @@ class TurnByTurnGPS {
 
     // Rule 3: Weighted moving average for smoothness
     const avg =
-      this.progressHistory.reduce((a, b) => a + b, 0) / this.progressHistory.length;
+      this.progressHistory.reduce((a, b) => a + b, 0) /
+      this.progressHistory.length;
 
     // Blend: 70% current, 30% average
     const smoothed = clampedProgress * 0.7 + avg * 0.3;

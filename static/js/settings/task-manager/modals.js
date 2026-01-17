@@ -216,7 +216,8 @@ export function showTaskLogsModal(entry) {
   const contentDiv = modal.querySelector("#taskLogsContent");
 
   // Format the result/error for display
-  let resultHtml = '<div class="text-muted fst-italic">No result data available</div>';
+  let resultHtml =
+    '<div class="text-muted fst-italic">No result data available</div>';
   let summaryHtml = "";
 
   if (entry.result) {
@@ -237,9 +238,11 @@ export function showTaskLogsModal(entry) {
           typeof val === "boolean"
         ) {
           // Skip internal or uninteresting keys if needed, but for now show all top-level primitives
-          const label = key.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
+          const label = key
+            .replace(/_/g, " ")
+            .replace(/\b\w/g, (l) => l.toUpperCase());
           metrics.push(
-            `<div class="col-md-4 mb-2"><strong>${escapeHtml(label)}:</strong> ${escapeHtml(String(val))}</div>`
+            `<div class="col-md-4 mb-2"><strong>${escapeHtml(label)}:</strong> ${escapeHtml(String(val))}</div>`,
           );
         }
       });

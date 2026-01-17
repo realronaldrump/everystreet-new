@@ -51,7 +51,9 @@ const getByPath = (obj, path) => {
   if (!path) {
     return undefined;
   }
-  return path.split(".").reduce((acc, key) => (acc ? acc[key] : undefined), obj);
+  return path
+    .split(".")
+    .reduce((acc, key) => (acc ? acc[key] : undefined), obj);
 };
 
 const setByPath = (obj, path, value) => {
@@ -364,7 +366,9 @@ class ESStore {
     }
 
     const visibility = this.state.layers.visibility || {};
-    const visibleLayers = Object.keys(visibility).filter((name) => visibility[name]);
+    const visibleLayers = Object.keys(visibility).filter(
+      (name) => visibility[name],
+    );
     if (visibleLayers.length) {
       url.searchParams.set("layers", visibleLayers.join(","));
     } else {

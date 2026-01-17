@@ -53,7 +53,9 @@ export class DrivingNavigationAPI {
    * @returns {Promise<Object>} GeoJSON FeatureCollection of undriven streets
    */
   async fetchUndrivenStreets(areaId) {
-    return apiClient.get(`/api/coverage/areas/${areaId}/streets/all?status=undriven`);
+    return apiClient.get(
+      `/api/coverage/areas/${areaId}/streets/all?status=undriven`,
+    );
   }
 
   /**
@@ -86,7 +88,7 @@ export class DrivingNavigationAPI {
    */
   async findEfficientClusters(
     areaId,
-    { currentLat, currentLon, topN = 3, minClusterSize = 2 }
+    { currentLat, currentLon, topN = 3, minClusterSize = 2 },
   ) {
     const params = new URLSearchParams({
       current_lat: currentLat,

@@ -94,7 +94,8 @@ export function formatDistance(miles) {
  * @returns {string} Formatted distance (e.g., "1.5 mi" or "500 ft")
  */
 export function distanceInUserUnits(meters, fixed = 2) {
-  const safeMeters = typeof meters === "number" && !Number.isNaN(meters) ? meters : 0;
+  const safeMeters =
+    typeof meters === "number" && !Number.isNaN(meters) ? meters : 0;
   const miles = safeMeters * 0.000621371;
   return miles < 0.1
     ? `${(safeMeters * 3.28084).toFixed(0)} ft`
@@ -286,7 +287,10 @@ export function formatDateToString(date) {
  * @param {Object} options - Intl.DateTimeFormat options
  * @returns {string} Formatted date string
  */
-export function formatForDisplay(dateString, options = { dateStyle: "medium" }) {
+export function formatForDisplay(
+  dateString,
+  options = { dateStyle: "medium" },
+) {
   const d = typeof dayjs !== "undefined" ? dayjs(dateString) : null;
   if (!d || !d.isValid()) {
     return dateString || "";
@@ -308,7 +312,11 @@ export function formatWeekRange(weekStr) {
   }
 
   const [year, week] = weekStr.split("-W");
-  const simple = new Date(parseInt(year, 10), 0, 1 + (parseInt(week, 10) - 1) * 7);
+  const simple = new Date(
+    parseInt(year, 10),
+    0,
+    1 + (parseInt(week, 10) - 1) * 7,
+  );
   const dow = simple.getDay();
   const ISOweekStart = simple;
   if (dow <= 4) {
@@ -442,7 +450,9 @@ export function sanitizeLocation(location) {
     return (
       location.formatted_address ||
       location.name ||
-      [location.street, location.city, location.state].filter(Boolean).join(", ") ||
+      [location.street, location.city, location.state]
+        .filter(Boolean)
+        .join(", ") ||
       "Unknown"
     );
   }

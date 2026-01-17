@@ -17,7 +17,8 @@
         const themeObserver = new MutationObserver((mutations) => {
           mutations.forEach((mutation) => {
             if (mutation.attributeName === "data-bs-theme") {
-              const newTheme = document.documentElement.getAttribute("data-bs-theme");
+              const newTheme =
+                document.documentElement.getAttribute("data-bs-theme");
               window.visitsManager?.updateMapTheme(newTheme);
             }
           });
@@ -68,6 +69,6 @@
         document.body.prepend(errorDiv);
       }
     },
-    { route: "/visits" }
+    { route: "/visits" },
   );
 })();

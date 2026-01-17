@@ -60,7 +60,8 @@ window.utils?.onPageLoad(
         type: "line",
         source: tripsSourceId,
         paint: {
-          "line-color": window.MapStyles?.getTripStyle?.("default")?.color || "#3388ff",
+          "line-color":
+            window.MapStyles?.getTripStyle?.("default")?.color || "#3388ff",
           "line-width": 3,
           "line-opacity": 0.8,
         },
@@ -105,7 +106,9 @@ window.utils?.onPageLoad(
 
     function initializeControls() {
       if (!editMap || typeof MapboxDraw === "undefined") {
-        console.error("MapboxDraw is missing. Ensure mapbox-gl-draw.js is included.");
+        console.error(
+          "MapboxDraw is missing. Ensure mapbox-gl-draw.js is included.",
+        );
         return;
       }
 
@@ -209,7 +212,7 @@ window.utils?.onPageLoad(
         // Validate date range
         if (!window.DateUtils.isValidDateRange(startDate, endDate)) {
           throw new Error(
-            "Invalid date range. Start date must be before or equal to end date."
+            "Invalid date range. Start date must be before or equal to end date.",
           );
         }
 
@@ -245,7 +248,7 @@ window.utils?.onPageLoad(
         if (window.notificationManager) {
           window.notificationManager.show(
             `Error loading trips: ${error.message}`,
-            "danger"
+            "danger",
           );
         }
       }
@@ -350,7 +353,7 @@ window.utils?.onPageLoad(
       // Update feature state for styling
       editMap.setFeatureState(
         { source: tripsSourceId, id: feature.id },
-        { selected: styleType === "selected" }
+        { selected: styleType === "selected" },
       );
 
       // Update layer paint properties
@@ -498,7 +501,7 @@ window.utils?.onPageLoad(
       const source = editMap.getSource(tripsSourceId);
       if (source) {
         const features = tripFeatures.map((f) =>
-          f.id === currentTrip.id ? currentTrip : f
+          f.id === currentTrip.id ? currentTrip : f,
         );
         source.setData({
           type: "FeatureCollection",
@@ -509,7 +512,10 @@ window.utils?.onPageLoad(
 
     async function saveTripChanges() {
       if (!currentTrip) {
-        window.notificationManager?.show("No trip selected to save.", "warning");
+        window.notificationManager?.show(
+          "No trip selected to save.",
+          "warning",
+        );
         return;
       }
 
@@ -521,7 +527,7 @@ window.utils?.onPageLoad(
           console.error("Error: transactionId is undefined.", currentTrip);
           window.notificationManager?.show(
             "Error: Could not find the trip ID to save changes.",
-            "danger"
+            "danger",
           );
           return;
         }
@@ -544,12 +550,15 @@ window.utils?.onPageLoad(
           throw new Error(`Failed to save trip changes: ${response.status}`);
         }
 
-        window.notificationManager?.show("Trip changes saved successfully.", "success");
+        window.notificationManager?.show(
+          "Trip changes saved successfully.",
+          "success",
+        );
       } catch (error) {
         console.error("Error saving trip:", error);
         window.notificationManager?.show(
           `Error saving trip: ${error.message}`,
-          "danger"
+          "danger",
         );
       }
     }
@@ -572,5 +581,5 @@ window.utils?.onPageLoad(
       });
     }
   },
-  { route: "/edit_trips" }
+  { route: "/edit_trips" },
 );

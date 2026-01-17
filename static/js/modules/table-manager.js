@@ -49,7 +49,8 @@ export class TableManager {
   }
 
   _createControls() {
-    const wrapper = this.table.closest(".table-responsive") || this.table.parentElement;
+    const wrapper =
+      this.table.closest(".table-responsive") || this.table.parentElement;
 
     // Create pagination controls
     const paginationContainer = document.createElement("div");
@@ -378,7 +379,7 @@ export class TableManager {
 
   getSelectedRows(checkboxSelector = ".row-checkbox:checked") {
     return Array.from(this.tbody.querySelectorAll(checkboxSelector)).map(
-      (cb) => cb.value
+      (cb) => cb.value,
     );
   }
 

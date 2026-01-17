@@ -74,7 +74,8 @@ export function processSSEUpdates(updates, context) {
         const runButton = row.querySelector(".run-now-btn");
         if (runButton) {
           const manualOnly = row.dataset.manualOnly === "true";
-          runButton.disabled = manualOnly || ["RUNNING", "PENDING"].includes(newStatus);
+          runButton.disabled =
+            manualOnly || ["RUNNING", "PENDING"].includes(newStatus);
           runButton.title = manualOnly
             ? "Use the manual fetch form below"
             : "Run task now";
@@ -91,7 +92,8 @@ export function processSSEUpdates(updates, context) {
           (newStatus === "COMPLETED" || newStatus === "FAILED")
         ) {
           const taskName = row.querySelector(".task-name-display").textContent;
-          const notificationType = newStatus === "COMPLETED" ? "success" : "danger";
+          const notificationType =
+            newStatus === "COMPLETED" ? "success" : "danger";
           const message =
             newStatus === "COMPLETED"
               ? `Task ${taskName} completed successfully`
@@ -100,7 +102,7 @@ export function processSSEUpdates(updates, context) {
           notifier.show(
             newStatus === "COMPLETED" ? "Success" : "Error",
             message,
-            notificationType
+            notificationType,
           );
         }
       }
@@ -144,7 +146,11 @@ export function updateActiveTasksMapFromSSE(updates, activeTasksMap, notifier) {
         if (row) {
           const displayName =
             row.querySelector(".task-name-display")?.textContent || taskId;
-          notifier.show("Task Started", `Task ${displayName} is now running`, "info");
+          notifier.show(
+            "Task Started",
+            `Task ${displayName} is now running`,
+            "info",
+          );
         }
       }
     }
@@ -162,7 +168,9 @@ export function updateActiveTasksMapFromSSE(updates, activeTasksMap, notifier) {
               row.querySelector(".task-name-display")?.textContent || taskId;
             if (taskStatus === "COMPLETED" || taskStatus === "FAILED") {
               const type = taskStatus === "COMPLETED" ? "success" : "danger";
-              const runTime = Math.round((Date.now() - taskState.startTime) / 1000);
+              const runTime = Math.round(
+                (Date.now() - taskState.startTime) / 1000,
+              );
               const message =
                 taskStatus === "COMPLETED"
                   ? `Task ${displayName} completed successfully in ${runTime}s`
@@ -185,7 +193,11 @@ export function updateActiveTasksMapFromSSE(updates, activeTasksMap, notifier) {
  * @param {Map} activeTasksMap - Map tracking active task states
  * @param {Object} notifier - Notifier for showing messages
  */
-export function updateActiveTasksMapFromConfig(config, activeTasksMap, notifier) {
+export function updateActiveTasksMapFromConfig(
+  config,
+  activeTasksMap,
+  notifier,
+) {
   const runningTasks = new Set();
 
   for (const [taskId, taskConfig] of Object.entries(config.tasks)) {
@@ -217,7 +229,7 @@ export function updateActiveTasksMapFromConfig(config, activeTasksMap, notifier)
     ) {
       const type = status === "COMPLETED" ? "success" : "danger";
       const runTime = Math.round(
-        (Date.now() - activeTasksMap.get(taskId).startTime) / 1000
+        (Date.now() - activeTasksMap.get(taskId).startTime) / 1000,
       );
       const message =
         status === "COMPLETED"

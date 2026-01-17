@@ -73,7 +73,8 @@ const dateManager = {
       if (detail.source === "filters") {
         return;
       }
-      const nextStart = detail.startDate || store.get("filters.startDate") || startDate;
+      const nextStart =
+        detail.startDate || store.get("filters.startDate") || startDate;
       const nextEnd = detail.endDate || store.get("filters.endDate") || endDate;
       if (!nextStart || !nextEnd) {
         return;
@@ -158,7 +159,10 @@ const dateManager = {
       if (startDate && endDate) {
         this.updateInputs(startDate, endDate);
         uiState.getAllElements(".quick-select-btn").forEach((b) => {
-          b.classList.toggle(CONFIG.UI.classes.active, b.dataset.range === range);
+          b.classList.toggle(
+            CONFIG.UI.classes.active,
+            b.dataset.range === range,
+          );
         });
         uiState.uiState.lastFilterPreset = range;
         uiState.saveUIState();
@@ -168,7 +172,10 @@ const dateManager = {
       }
     } catch (err) {
       console.error("Error setting date range:", err);
-      utils.showNotification(`Error setting date range: ${err.message}`, "danger");
+      utils.showNotification(
+        `Error setting date range: ${err.message}`,
+        "danger",
+      );
     } finally {
       if (btn) {
         btn.classList.remove("btn-loading");
@@ -233,10 +240,13 @@ const dateManager = {
       return;
     }
     const savedStartDate =
-      utils.getStorage(CONFIG.STORAGE_KEYS.startDate) || dateUtils.getCurrentDate();
+      utils.getStorage(CONFIG.STORAGE_KEYS.startDate) ||
+      dateUtils.getCurrentDate();
     const savedEndDate =
-      utils.getStorage(CONFIG.STORAGE_KEYS.endDate) || dateUtils.getCurrentDate();
-    const fmt = (d) => dateUtils.formatForDisplay(d, { dateStyle: "medium" }) || d;
+      utils.getStorage(CONFIG.STORAGE_KEYS.endDate) ||
+      dateUtils.getCurrentDate();
+    const fmt = (d) =>
+      dateUtils.formatForDisplay(d, { dateStyle: "medium" }) || d;
     const preset = this.detectPreset(savedStartDate, savedEndDate);
     if (preset) {
       span.textContent =
@@ -278,7 +288,7 @@ const dateManager = {
     try {
       store.updateFilters(
         { startDate: startDateVal, endDate: endDateVal },
-        { push: true, source: "filters" }
+        { push: true, source: "filters" },
       );
       this.updateIndicator();
       await panelManager.close("filters");
@@ -286,7 +296,7 @@ const dateManager = {
       utils.showNotification(
         `Filters applied: ${fd(startDateVal)} to ${fd(endDateVal)}`,
         "success",
-        3000
+        3000,
       );
     } finally {
       if (btn) {
@@ -302,7 +312,9 @@ const dateManager = {
     uiState.getAllElements(".quick-select-btn").forEach((btn) => {
       btn.classList.remove(CONFIG.UI.classes.active);
     });
-    const todayBtn = uiState.getElement('.quick-select-btn[data-range="today"]');
+    const todayBtn = uiState.getElement(
+      '.quick-select-btn[data-range="today"]',
+    );
     if (todayBtn) {
       todayBtn.classList.add(CONFIG.UI.classes.active);
     }

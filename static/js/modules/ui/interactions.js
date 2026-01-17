@@ -75,7 +75,7 @@ const interactions = {
     const containers = document.querySelectorAll("[data-stagger]");
     containers.forEach((container) => {
       const items = Array.from(container.children).filter(
-        (child) => child.nodeType === 1
+        (child) => child.nodeType === 1,
       );
       items.forEach((item, index) => {
         if (item.classList.contains("stagger-item")) {

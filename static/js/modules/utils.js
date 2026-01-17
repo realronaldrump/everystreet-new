@@ -260,14 +260,21 @@ export function onPageLoad(callback, options = {}) {
       }
     };
 
-    const result = callback({ signal: controller.signal, cleanup: registerCleanup });
+    const result = callback({
+      signal: controller.signal,
+      cleanup: registerCleanup,
+    });
     if (typeof result === "function") {
       cleanup = result;
     }
   };
 
   const handleUnload = (event) => {
-    if (options.route && event?.detail?.path && event.detail.path !== options.route) {
+    if (
+      options.route &&
+      event?.detail?.path &&
+      event.detail.path !== options.route
+    ) {
       return;
     }
     if (!activeRoute) {
@@ -349,7 +356,7 @@ export async function fetchWithRetry(
   options = {},
   retries = 3,
   cacheTime = 30000,
-  abortKey = null
+  abortKey = null,
 ) {
   const cacheKey = `${url}_${JSON.stringify(options)}`;
 
@@ -377,7 +384,9 @@ export async function fetchWithRetry(
 
     if (!response.ok) {
       if (retries > 0 && response.status >= 500) {
-        await new Promise((resolve) => setTimeout(resolve, 1000 * (4 - retries)));
+        await new Promise((resolve) =>
+          setTimeout(resolve, 1000 * (4 - retries)),
+        );
         return fetchWithRetry(url, options, retries - 1, cacheTime, abortKey);
       }
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -556,7 +565,10 @@ export async function measurePerformance(name, fn) {
     return await fn();
   } catch (error) {
     const duration = performance.now() - startTime;
-    console.error(`Performance: ${name} failed after ${duration.toFixed(2)}ms`, error);
+    console.error(
+      `Performance: ${name} failed after ${duration.toFixed(2)}ms`,
+      error,
+    );
     throw error;
   }
 }
@@ -573,7 +585,12 @@ export async function measurePerformance(name, fn) {
  * @param {Function|null} onComplete - Callback after handling
  * @returns {Error} The error object
  */
-export function handleError(error, context = "", level = "error", onComplete = null) {
+export function handleError(
+  error,
+  context = "",
+  level = "error",
+  onComplete = null,
+) {
   const errorObj = typeof error === "string" ? new Error(error) : error;
 
   if (level === "error") {
@@ -590,12 +607,17 @@ export function handleError(error, context = "", level = "error", onComplete = n
       errorObj.message.includes("fetch") ||
       errorObj.message.includes("network")
     ) {
-      userMessage = "Network error: Please check your connection and try again.";
+      userMessage =
+        "Network error: Please check your connection and try again.";
     } else if (errorObj.message.includes("timeout")) {
       userMessage = "The operation timed out. Please try again.";
     } else if (errorObj.message.includes("permission")) {
-      userMessage = "Permission denied: You don't have access to this resource.";
-    } else if (errorObj.message.includes("not found") || errorObj.status === 404) {
+      userMessage =
+        "Permission denied: You don't have access to this resource.";
+    } else if (
+      errorObj.message.includes("not found") ||
+      errorObj.status === 404
+    ) {
       userMessage = "Resource not found: The requested item doesn't exist.";
     } else if (errorObj.status >= 500) {
       userMessage = "Server error: Please try again later.";

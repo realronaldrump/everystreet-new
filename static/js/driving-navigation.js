@@ -44,5 +44,5 @@ onPageLoad(
       cleanup(() => navigation.destroy?.());
     }
   },
-  { route: "/coverage-navigator" }
+  { route: "/coverage-navigator" },
 );

@@ -53,7 +53,8 @@ const MetricAnimator = {
       return;
     }
 
-    const startValue = Number(element.textContent.replace(/[^0-9.-]/g, "")) || 0;
+    const startValue =
+      Number(element.textContent.replace(/[^0-9.-]/g, "")) || 0;
     const startTime = performance.now();
     const targetDuration = duration * 1000;
 

@@ -83,8 +83,12 @@ export function displayTripsInModal(trips, timeType, timeValue) {
           trip.startLocation?.name ||
           "Unknown";
         const destLoc =
-          trip.destination?.formatted_address || trip.destination?.name || "Unknown";
-        const maxSpeed = trip.maxSpeed ? `${trip.maxSpeed.toFixed(1)} mph` : "-";
+          trip.destination?.formatted_address ||
+          trip.destination?.name ||
+          "Unknown";
+        const maxSpeed = trip.maxSpeed
+          ? `${trip.maxSpeed.toFixed(1)} mph`
+          : "-";
         const tripId = trip.transactionId || trip._id?.$oid || trip._id || "-";
 
         return `
