@@ -66,10 +66,11 @@ async def get_persisted_app_settings() -> AppSettings:
         if settings is None:
             settings = AppSettings(**DEFAULT_APP_SETTINGS)
             await settings.insert()
-        return settings
     except Exception as e:
-        logger.exception("Error fetching app settings: %s", e)
+        logger.exception("Error fetching app settings")
         return AppSettings(**DEFAULT_APP_SETTINGS)
+    else:
+        return settings
 
 
 @router.get(
@@ -84,13 +85,14 @@ async def get_app_settings_endpoint():
         settings = await get_persisted_app_settings()
         payload = settings.model_dump()
         payload.pop("mapbox_access_token", None)
-        return payload
     except Exception as e:
-        logger.exception("Error fetching app settings via API: %s", e)
+        logger.exception("Error fetching app settings via API")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve application settings.",
         )
+    else:
+        return payload
 
 
 @router.post(
@@ -101,15 +103,15 @@ async def get_app_settings_endpoint():
     description="Persist application settings. Fields omitted in payload remain unchanged.",
 )
 async def update_app_settings_endpoint(settings: Annotated[dict, Body()]):
-    try:
-        if not isinstance(settings, dict):
-            raise HTTPException(status_code=400, detail="Invalid payload")
-        if "mapbox_access_token" in settings:
-            raise HTTPException(
-                status_code=400,
-                detail=MAPBOX_SETTINGS_ERROR,
-            )
+    if not isinstance(settings, dict):
+        raise HTTPException(status_code=400, detail="Invalid payload")
+    if "mapbox_access_token" in settings:
+        raise HTTPException(
+            status_code=400,
+            detail=MAPBOX_SETTINGS_ERROR,
+        )
 
+    try:
         existing = await AppSettings.find_one()
         if existing:
             for key, value in settings.items():
@@ -119,70 +121,66 @@ async def update_app_settings_endpoint(settings: Annotated[dict, Body()]):
             payload = DEFAULT_APP_SETTINGS.copy()
             payload.update(settings)
             await AppSettings(**payload).insert()
-
-        return await get_persisted_app_settings()
     except Exception as e:
-        logger.exception("Error updating app settings via API: %s", e)
+        logger.exception("Error updating app settings via API")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to update application settings.",
         )
+    else:
+        return await get_persisted_app_settings()
 
 
 @router.post("/api/database/clear-collection")
 async def clear_collection(data: CollectionModel):
+    name = data.collection
+    if not name:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Missing 'collection' field",
+        )
+
+    # Use Beanie models for known collections
+    model = COLLECTION_TO_MODEL.get(name)
+    if model is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "Unknown collection "
+                f"'{name}'. Supported: {list(COLLECTION_TO_MODEL.keys())}"
+            ),
+        )
+
     try:
-        name = data.collection
-        if not name:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Missing 'collection' field",
-            )
-
-        # Use Beanie models for known collections
-        model = COLLECTION_TO_MODEL.get(name)
-        if model is None:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Unknown collection '{name}'. Supported: {list(COLLECTION_TO_MODEL.keys())}",
-            )
-
         result = await model.find_all().delete()
         deleted_count = result.deleted_count if result else 0
-
+    except Exception as e:
+        logger.exception("Error clearing collection %s", name)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        )
+    else:
         return {
             "message": f"Successfully cleared collection {name}",
             "deleted_count": deleted_count,
         }
 
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.exception(
-            "Error clearing collection: %s",
-            str(e),
-        )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
-        )
-
 
 @router.get("/api/database/storage-info")
 async def get_storage_info():
     try:
-        return {
+        payload = {
             "used_mb": None,
         }
     except Exception as e:
-        logger.exception(
-            "Error getting storage info: %s",
-            str(e),
-        )
+        logger.exception("Error getting storage info")
         return {
             "used_mb": 0,
             "error": str(e),
         }
+    else:
+        return payload
 
 
 @router.post("/api/validate_location")
@@ -208,7 +206,11 @@ async def validate_location(
             detail="Validation timed out. Please try again.",
         ) from exc
     except Exception as exc:
-        logger.exception("Location validation failed: %s", exc)
+        logger.exception(
+            "Location validation failed for location=%s type=%s",
+            data.location,
+            data.locationType,
+        )
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="Unable to validate location at this time.",
@@ -241,10 +243,7 @@ async def get_first_trip_date():
             "first_trip_date": start_time.isoformat().replace("+00:00", "Z"),
         }
     except Exception as e:
-        logger.exception(
-            "get_first_trip_date error: %s",
-            str(e),
-        )
+        logger.exception("get_first_trip_date error")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),

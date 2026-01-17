@@ -18,10 +18,7 @@ async def get_driving_insights(request: Request):
         query = await build_query_from_request(request)
         return await DashboardService.get_driving_insights(query)
     except Exception as e:
-        logger.exception(
-            "Error in get_driving_insights: %s",
-            str(e),
-        )
+        logger.exception("Error in get_driving_insights")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),
@@ -35,7 +32,7 @@ async def get_metrics(request: Request):
         query = await build_query_from_request(request)
         return await DashboardService.get_metrics(query)
     except Exception as e:
-        logger.exception("Error in get_metrics: %s", e)
+        logger.exception("Error in get_metrics")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),
