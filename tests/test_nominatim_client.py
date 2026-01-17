@@ -8,7 +8,9 @@ from tests.http_fakes import FakeResponse, FakeSession
 
 
 @pytest.mark.asyncio
-async def test_nominatim_search_normalizes_results(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_nominatim_search_normalizes_results(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     response = FakeResponse(
         status=200,
         json_data=[
@@ -42,7 +44,9 @@ async def test_nominatim_search_normalizes_results(monkeypatch: pytest.MonkeyPat
 
 
 @pytest.mark.asyncio
-async def test_nominatim_search_raises_on_error(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_nominatim_search_raises_on_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     response = FakeResponse(status=500, text_data="boom")
     session = FakeSession(get_responses=[response])
     monkeypatch.setattr(
@@ -91,7 +95,9 @@ async def test_nominatim_reverse_returns_none_on_404(
 
 
 @pytest.mark.asyncio
-async def test_nominatim_reverse_raises_on_error(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_nominatim_reverse_raises_on_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     response = FakeResponse(status=500, text_data="oops")
     session = FakeSession(get_responses=[response])
     monkeypatch.setattr(
