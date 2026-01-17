@@ -585,6 +585,8 @@ class BouncieCredentials(Document):
     redirect_uri: str | None = None
     authorization_code: str | None = None
     webhook_key: str | None = None
+    last_webhook_at: datetime | None = None
+    last_webhook_event_type: str | None = None
     authorized_devices: list[str] = Field(default_factory=list)
     fetch_concurrency: int = 12
     access_token: str | None = None

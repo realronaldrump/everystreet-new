@@ -55,6 +55,7 @@ class LiveTripTracker {
     this.setLiveTripActive(false);
     this.initialize();
     this.startFreshnessMonitor();
+    this.startWebhookStatusMonitor();
   }
 
   // --- Setup ------------------------------------------------------------
@@ -63,6 +64,11 @@ class LiveTripTracker {
     this.ws = null;
     this.pollingTimer = null;
     this.pollingInterval = LIVE_TRACKING_DEFAULTS.pollingInterval;
+    this.webhookStatusTimer = null;
+    this.webhookStatusPending = false;
+    this.webhookStatusInterval = 15000;
+    this.webhookActiveWindowMs = 90 * 1000;
+    this.webhookIdleWindowMs = 30 * 60 * 1000;
 
     this.sourceId = LIVE_TRACKING_LAYER_IDS.source;
     this.lineGlowLayerId = LIVE_TRACKING_LAYER_IDS.lineGlow;
@@ -106,6 +112,8 @@ class LiveTripTracker {
     this.hudAvgSpeedElem = document.getElementById("live-trip-avg-speed");
     this.followToggle = document.getElementById("live-trip-follow-toggle");
     this.followLabel = this.followToggle?.querySelector(".follow-label");
+    this.webhookIndicator = document.getElementById("bouncie-webhook-indicator");
+    this.webhookStatusText = document.getElementById("bouncie-webhook-text");
   }
 
   // --- Map layers -------------------------------------------------------
@@ -1416,6 +1424,85 @@ class LiveTripTracker {
     }
   }
 
+  startWebhookStatusMonitor() {
+    if (!this.webhookIndicator || !this.webhookStatusText) {
+      return;
+    }
+    if (this.webhookStatusTimer) {
+      clearInterval(this.webhookStatusTimer);
+    }
+    this.refreshWebhookStatus();
+    this.webhookStatusTimer = setInterval(
+      () => this.refreshWebhookStatus(),
+      this.webhookStatusInterval
+    );
+  }
+
+  stopWebhookStatusMonitor() {
+    if (this.webhookStatusTimer) {
+      clearInterval(this.webhookStatusTimer);
+      this.webhookStatusTimer = null;
+    }
+  }
+
+  async refreshWebhookStatus() {
+    if (!this.webhookIndicator || !this.webhookStatusText || this.webhookStatusPending) {
+      return;
+    }
+    this.webhookStatusPending = true;
+    try {
+      const response = await fetch("/api/webhooks/bouncie/status", {
+        cache: "no-store",
+      });
+      if (!response.ok) {
+        throw new Error("Failed to fetch webhook status");
+      }
+      const data = await response.json();
+      const lastReceived = data.last_received ? new Date(data.last_received) : null;
+      if (!lastReceived || Number.isNaN(lastReceived.getTime())) {
+        this.setWebhookStatusIndicator("disconnected", "No webhook received yet");
+        return;
+      }
+
+      const ageMs = Date.now() - lastReceived.getTime();
+      const windowMs = this.hasActiveTrip
+        ? this.webhookActiveWindowMs
+        : this.webhookIdleWindowMs;
+      const timeAgo = DateUtils?.formatTimeAgo(lastReceived, true) || "just now";
+      const eventLabel = data.event_type ? `${data.event_type} ${timeAgo}` : `webhook ${timeAgo}`;
+
+      if (ageMs <= windowMs) {
+        this.setWebhookStatusIndicator("connected", `Last ${eventLabel}`);
+      } else {
+        this.setWebhookStatusIndicator(
+          "stale",
+          `No recent webhooks (last ${eventLabel})`
+        );
+      }
+    } catch (error) {
+      this.setWebhookStatusIndicator("disconnected", "Webhook status unavailable");
+    } finally {
+      this.webhookStatusPending = false;
+    }
+  }
+
+  setWebhookStatusIndicator(state, message) {
+    if (!this.webhookIndicator || !this.webhookStatusText) {
+      return;
+    }
+    this.webhookIndicator.classList.remove(
+      "connected",
+      "stale",
+      "disconnected",
+      "connecting",
+      "fresh"
+    );
+    if (state) {
+      this.webhookIndicator.classList.add(state);
+    }
+    this.webhookStatusText.textContent = message;
+  }
+
   // --- Cleanup ----------------------------------------------------------
   _removeLayer(layerId) {
     if (!this.map?.getLayer(layerId)) {
@@ -1434,6 +1521,7 @@ class LiveTripTracker {
   destroy() {
     this.stopPolling();
     this.stopPulseAnimation();
+    this.stopWebhookStatusMonitor();
     if (this.freshnessTimer) {
       clearInterval(this.freshnessTimer);
       this.freshnessTimer = null;

@@ -8,11 +8,13 @@ from __future__ import annotations
 
 import json
 import logging
+from datetime import UTC, datetime
 from typing import Any, Awaitable, Callable
 
 from fastapi import APIRouter, BackgroundTasks, Request, Response, status
 
 from bouncie_credentials import get_bouncie_credentials, update_bouncie_credentials
+from bouncie_webhook_status import get_webhook_status, record_webhook_event
 from live_tracking import (
     process_trip_data,
     process_trip_end,
@@ -53,6 +55,7 @@ async def _dispatch_event(payload: dict[str, Any], auth_header: str | None) -> N
         )
 
     event_type = payload.get("eventType")
+    await record_webhook_event(event_type)
     handler = TRIP_EVENT_HANDLERS.get(event_type)
     if not handler:
         if event_type:
@@ -111,3 +114,12 @@ async def bouncie_webhook(
     except Exception as exc:
         logger.exception("Unhandled error in Bouncie webhook: %s", exc)
         return Response(status_code=status.HTTP_200_OK)
+
+
+@router.get("/api/webhooks/bouncie/status")
+async def bouncie_webhook_status() -> dict[str, Any]:
+    """Return the most recent webhook receipt information."""
+    status_payload = await get_webhook_status()
+    status_payload["status"] = "success"
+    status_payload["server_time"] = datetime.now(UTC).isoformat()
+    return status_payload
