@@ -1,15 +1,30 @@
 /**
- * Data Manager Module
- * Handles all API data fetching with proper caching and abort handling
+ * DataManager - API Data Fetching Module
+ *
+ * This module handles:
+ * - Fetching trip, street, and metrics data from APIs
+ * - Caching and abort handling
+ * - Loading indicator management
+ * - Triggering layer updates after data loads
+ *
+ * Data flow:
+ * 1. Fetch data from API
+ * 2. Store in state.mapLayers[layerName].layer
+ * 3. Call layerManager.updateMapLayer() to render
+ * 4. Emit events for other modules to respond
  */
+
 import { CONFIG } from "./config.js";
 import layerManager from "./layer-manager.js";
-import mapManager from "./map-manager.js";
 import metricsManager from "./metrics-manager.js";
 import state from "./state.js";
 import { utils } from "./utils.js";
 
 const dateUtils = window.DateUtils;
+
+// ============================================================
+// Loading Indicator
+// ============================================================
 
 const mapLoadingIndicator = (() => {
   let indicatorEl = null;
@@ -25,37 +40,39 @@ const mapLoadingIndicator = (() => {
 
   return {
     show(message = "Loading map data...") {
-      if (!ensureElements()) {
-        return;
-      }
+      if (!ensureElements()) return;
       indicatorEl.classList.remove("d-none");
       indicatorEl.setAttribute("aria-busy", "true");
       indicatorEl.setAttribute("aria-live", "polite");
       this.update(message);
     },
+
     update(message) {
-      if (!ensureElements()) {
-        return;
-      }
+      if (!ensureElements()) return;
       if (textEl) {
         textEl.textContent = message;
       }
     },
+
     hide() {
-      if (!ensureElements()) {
-        return;
-      }
+      if (!ensureElements()) return;
       indicatorEl.classList.add("d-none");
       indicatorEl.removeAttribute("aria-busy");
     },
   };
 })();
 
+// ============================================================
+// Data Manager
+// ============================================================
+
 const dataManager = {
+  /**
+   * Fetch trips data and update the trips layer
+   * @returns {Promise<Object|null>} GeoJSON FeatureCollection or null
+   */
   async fetchTrips() {
-    if (!state.mapInitialized) {
-      return null;
-    }
+    if (!state.mapInitialized) return null;
 
     const { loadingManager } = window;
     loadingManager?.show("Loading trips...", { blocking: false, compact: true });
@@ -83,17 +100,22 @@ const dataManager = {
       loadingManager?.updateMessage(`Rendering ${tripData.features.length} trips...`);
       mapLoadingIndicator.update(`Rendering ${tripData.features.length} trips...`);
 
+      // Update map layer
       await layerManager.updateMapLayer("trips", tripData);
 
       loadingManager?.updateMessage("Finalizing...");
-      mapManager.refreshTripStyles();
+
+      // Emit event for trip styles refresh (handled by app-controller)
+      document.dispatchEvent(new CustomEvent("tripsDataLoaded", {
+        detail: { featureCount: tripData.features.length },
+      }));
+
+      // Update metrics table
       metricsManager.updateTripsTable(tripData);
 
       return tripData;
     } catch (error) {
-      if (error?.name === "AbortError") {
-        return null;
-      }
+      if (error?.name === "AbortError") return null;
       loadingManager?.hide();
       window.notificationManager?.show("Failed to load trips", "danger");
       return null;
@@ -103,11 +125,14 @@ const dataManager = {
     }
   },
 
+  /**
+   * Fetch matched trips data and update the layer
+   * @returns {Promise<Object|null>} GeoJSON FeatureCollection or null
+   */
   async fetchMatchedTrips() {
-    if (!state.mapInitialized) {
-      return null;
-    }
-    window.loadingManager.pulse("Loading matched trips...");
+    if (!state.mapInitialized) return null;
+
+    window.loadingManager?.pulse("Loading matched trips...");
 
     try {
       const { start, end } = dateUtils.getCachedDateRange();
@@ -127,43 +152,57 @@ const dataManager = {
 
       if (data?.type === "FeatureCollection") {
         // Tag recent matched trips
-        try {
-          const now = Date.now();
-          const threshold = CONFIG.MAP.recentTripThreshold;
-          data.features.forEach((f) => {
-            const endTime = f?.properties?.endTime;
-            const endTs = endTime ? new Date(endTime).getTime() : null;
-            f.properties = f.properties || {};
-            f.properties.isRecent
-              = typeof endTs === "number" && !Number.isNaN(endTs)
-                ? now - endTs <= threshold
-                : false;
-          });
-        } catch (err) {
-          console.warn("Failed to tag recent matched trips:", err);
-        }
+        this._tagRecentTrips(data);
 
         state.mapLayers.matchedTrips.layer = data;
         await layerManager.updateMapLayer("matchedTrips", data);
         return data;
       }
+
       return null;
     } catch (error) {
-      if (error?.name === "AbortError") {
-        return null;
-      }
+      if (error?.name === "AbortError") return null;
       console.error("Error fetching matched trips:", error);
       return null;
     }
   },
 
+  /**
+   * Tag trips as recent based on threshold
+   * @private
+   */
+  _tagRecentTrips(data) {
+    try {
+      const now = Date.now();
+      const threshold = CONFIG.MAP.recentTripThreshold;
+
+      data.features.forEach((f) => {
+        const endTime = f?.properties?.endTime;
+        const endTs = endTime ? new Date(endTime).getTime() : null;
+        f.properties = f.properties || {};
+        f.properties.isRecent =
+          typeof endTs === "number" && !Number.isNaN(endTs)
+            ? now - endTs <= threshold
+            : false;
+      });
+    } catch (err) {
+      console.warn("Failed to tag recent matched trips:", err);
+    }
+  },
+
+  /**
+   * Fetch undriven streets for selected coverage area
+   * @returns {Promise<Object|null>}
+   */
   async fetchUndrivenStreets() {
     const selectedLocationId = utils.getStorage(CONFIG.STORAGE_KEYS.selectedLocation);
+
     if (!selectedLocationId || !state.mapInitialized || state.undrivenStreetsLoaded) {
       return null;
     }
 
-    window.loadingManager.pulse("Loading undriven streets...");
+    window.loadingManager?.pulse("Loading undriven streets...");
+
     try {
       const data = await utils.fetchWithRetry(
         CONFIG.API.coverageAreaStreets(selectedLocationId, "undriven=true"),
@@ -179,24 +218,29 @@ const dataManager = {
         await layerManager.updateMapLayer("undrivenStreets", data);
         return data;
       }
+
       return null;
     } catch (error) {
-      if (error?.name === "AbortError") {
-        return null;
-      }
+      if (error?.name === "AbortError") return null;
       console.error("Error fetching undriven streets:", error);
       state.undrivenStreetsLoaded = false;
       return null;
     }
   },
 
+  /**
+   * Fetch driven streets for selected coverage area
+   * @returns {Promise<Object|null>}
+   */
   async fetchDrivenStreets() {
     const selectedLocationId = utils.getStorage(CONFIG.STORAGE_KEYS.selectedLocation);
+
     if (!selectedLocationId || !state.mapInitialized || state.drivenStreetsLoaded) {
       return null;
     }
 
-    window.loadingManager.pulse("Loading driven streets...");
+    window.loadingManager?.pulse("Loading driven streets...");
+
     try {
       const data = await utils.fetchWithRetry(
         CONFIG.API.coverageAreaStreets(selectedLocationId, "driven=true"),
@@ -212,24 +256,29 @@ const dataManager = {
         await layerManager.updateMapLayer("drivenStreets", data);
         return data;
       }
+
       return null;
     } catch (error) {
-      if (error?.name === "AbortError") {
-        return null;
-      }
+      if (error?.name === "AbortError") return null;
       console.error("Error fetching driven streets:", error);
       state.drivenStreetsLoaded = false;
       return null;
     }
   },
 
+  /**
+   * Fetch all streets for selected coverage area
+   * @returns {Promise<Object|null>}
+   */
   async fetchAllStreets() {
     const selectedLocationId = utils.getStorage(CONFIG.STORAGE_KEYS.selectedLocation);
+
     if (!selectedLocationId || !state.mapInitialized || state.allStreetsLoaded) {
       return null;
     }
 
-    window.loadingManager.pulse("Loading all streets...");
+    window.loadingManager?.pulse("Loading all streets...");
+
     try {
       const data = await utils.fetchWithRetry(
         CONFIG.API.coverageAreaStreets(selectedLocationId),
@@ -245,17 +294,20 @@ const dataManager = {
         await layerManager.updateMapLayer("allStreets", data);
         return data;
       }
+
       return null;
     } catch (error) {
-      if (error?.name === "AbortError") {
-        return null;
-      }
+      if (error?.name === "AbortError") return null;
       console.error("Error fetching all streets:", error);
       state.allStreetsLoaded = false;
       return null;
     }
   },
 
+  /**
+   * Fetch metrics/analytics data
+   * @returns {Promise<Object|null>}
+   */
   async fetchMetrics() {
     try {
       const { start, end } = dateUtils.getCachedDateRange();
@@ -272,20 +324,21 @@ const dataManager = {
       if (data) {
         document.dispatchEvent(new CustomEvent("metricsUpdated", { detail: data }));
       }
+
       return data;
     } catch (error) {
-      if (error?.name === "AbortError") {
-        return null;
-      }
+      if (error?.name === "AbortError") return null;
       console.error("Error fetching metrics:", error);
       return null;
     }
   },
 
+  /**
+   * Update all map data (refresh visible layers)
+   * @param {boolean} fitBounds - Whether to fit bounds after loading
+   */
   async updateMap(fitBounds = false) {
-    if (!state.mapInitialized) {
-      return;
-    }
+    if (!state.mapInitialized) return;
 
     const { loadingManager } = window;
     loadingManager?.show("Updating map...");
@@ -296,6 +349,7 @@ const dataManager = {
 
       const promises = [];
 
+      // Fetch data for visible layers
       if (state.mapLayers.trips.visible) {
         promises.push(this.fetchTrips());
       }
@@ -317,6 +371,7 @@ const dataManager = {
 
       loadingManager?.updateMessage("Rendering layers...");
 
+      // Ensure visibility is applied after data loads
       await new Promise((resolve) => {
         requestAnimationFrame(() => {
           Object.entries(state.mapLayers).forEach(([name, info]) => {
@@ -335,17 +390,52 @@ const dataManager = {
         });
       });
 
+      // Emit event for fit bounds (handled by app-controller)
       if (fitBounds) {
-        await mapManager.fitBounds();
+        document.dispatchEvent(new CustomEvent("mapDataLoaded", {
+          detail: { fitBounds: true },
+        }));
       }
 
       state.metrics.renderTime = Date.now() - state.metrics.loadStartTime;
-    } catch {
+    } catch (error) {
+      console.error("Error updating map:", error);
       window.notificationManager?.show("Error updating map data", "danger");
     } finally {
       loadingManager?.hide();
     }
   },
+
+  /**
+   * Handle layer data needed event (from layer-manager)
+   * @param {string} layerName - Name of layer needing data
+   */
+  async handleLayerDataNeeded(layerName) {
+    switch (layerName) {
+      case "matchedTrips":
+        await this.fetchMatchedTrips();
+        break;
+      case "undrivenStreets":
+        await this.fetchUndrivenStreets();
+        break;
+      case "drivenStreets":
+        await this.fetchDrivenStreets();
+        break;
+      case "allStreets":
+        await this.fetchAllStreets();
+        break;
+      default:
+        console.warn(`Unknown layer data requested: ${layerName}`);
+    }
+  },
 };
+
+// Listen for layer data needed events
+document.addEventListener("layerDataNeeded", (e) => {
+  const { layerName } = e.detail || {};
+  if (layerName) {
+    dataManager.handleLayerDataNeeded(layerName);
+  }
+});
 
 export default dataManager;
