@@ -162,7 +162,7 @@ class ExportService:
             )
 
         except Exception as exc:
-            logger.exception("Export job %s failed: %s", job_id, exc)
+            logger.exception("Export job %s failed", job_id)
             await cls._update_job(
                 job,
                 status="failed",

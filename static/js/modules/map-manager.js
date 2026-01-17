@@ -34,8 +34,8 @@ const mapManager = {
       mapboxgl.accessToken = token;
 
       if (!mapboxgl.supported()) {
-        mapElement.innerHTML =
-          '<div class="webgl-unsupported-message p-4 text-center">WebGL is not supported by your browser.</div>';
+        mapElement.innerHTML
+          = '<div class="webgl-unsupported-message p-4 text-center">WebGL is not supported by your browser.</div>';
         throw new Error("WebGL not supported");
       }
 
@@ -52,10 +52,10 @@ const mapManager = {
       const latParam = parseFloat(urlParams.get("lat"));
       const lngParam = parseFloat(urlParams.get("lng"));
       const zoomParam = parseFloat(urlParams.get("zoom"));
-      const savedView =
-        store.get("map.view") || utils.getStorage(CONFIG.STORAGE_KEYS.mapView);
-      const mapCenter =
-        !Number.isNaN(latParam) && !Number.isNaN(lngParam)
+      const savedView
+        = store.get("map.view") || utils.getStorage(CONFIG.STORAGE_KEYS.mapView);
+      const mapCenter
+        = !Number.isNaN(latParam) && !Number.isNaN(lngParam)
           ? [lngParam, latParam]
           : savedView?.center || CONFIG.MAP.defaultCenter;
       const mapZoom = !Number.isNaN(zoomParam)
@@ -65,8 +65,8 @@ const mapManager = {
       // Determine initial map style - respect stored preference or use theme
       const storedMapType = utils.getStorage("mapType");
       const initialMapType = storedMapType || theme;
-      const initialStyle =
-        CONFIG.MAP.styles[initialMapType] || CONFIG.MAP.styles[theme];
+      const initialStyle
+        = CONFIG.MAP.styles[initialMapType] || CONFIG.MAP.styles[theme];
 
       loadingManager?.updateMessage("Creating map instance...");
 
@@ -201,8 +201,8 @@ const mapManager = {
     } else if (!state.mapLayers.trips?.isHeatmap && state.map.getLayer("trips-layer")) {
       queryLayers.push("trips-layer");
     } else if (
-      state.mapLayers.trips?.isHeatmap &&
-      state.map.getLayer("trips-layer-1")
+      state.mapLayers.trips?.isHeatmap
+      && state.map.getLayer("trips-layer-1")
     ) {
       queryLayers.push("trips-layer-1");
     }
@@ -318,10 +318,10 @@ const mapManager = {
     };
 
     if (
-      !selectedId ||
-      state.selectedTripLayer !== "trips" ||
-      !state.mapLayers.trips?.isHeatmap ||
-      !state.mapLayers.trips?.visible
+      !selectedId
+      || state.selectedTripLayer !== "trips"
+      || !state.mapLayers.trips?.isHeatmap
+      || !state.mapLayers.trips?.visible
     ) {
       removeOverlay();
       return;
@@ -329,11 +329,11 @@ const mapManager = {
 
     const tripLayer = state.mapLayers.trips?.layer;
     const matchingFeature = tripLayer?.features?.find((feature) => {
-      const featureId =
-        feature?.properties?.transactionId ||
-        feature?.properties?.id ||
-        feature?.properties?.tripId ||
-        feature?.id;
+      const featureId
+        = feature?.properties?.transactionId
+        || feature?.properties?.id
+        || feature?.properties?.tripId
+        || feature?.id;
       return featureId != null && String(featureId) === selectedId;
     });
 
@@ -348,8 +348,8 @@ const mapManager = {
       properties: matchingFeature.properties || {},
     };
 
-    const highlightColor =
-      window.MapStyles?.MAP_LAYER_COLORS?.trips?.selected || "#FFD700";
+    const highlightColor
+      = window.MapStyles?.MAP_LAYER_COLORS?.trips?.selected || "#FFD700";
     const highlightWidth = [
       "interpolate",
       ["linear"],
@@ -448,8 +448,8 @@ const mapManager = {
 
     const { features } = state.mapLayers.trips.layer;
     const tripFeature = features.find((f) => {
-      const fId =
-        f.properties?.transactionId || f.properties?.id || f.properties?.tripId || f.id;
+      const fId
+        = f.properties?.transactionId || f.properties?.id || f.properties?.tripId || f.id;
       return String(fId) === String(tripId);
     });
 
@@ -516,9 +516,9 @@ const mapManager = {
     }
 
     if (
-      lastCoord?.length === 2 &&
-      !Number.isNaN(lastCoord[0]) &&
-      !Number.isNaN(lastCoord[1])
+      lastCoord?.length === 2
+      && !Number.isNaN(lastCoord[0])
+      && !Number.isNaN(lastCoord[1])
     ) {
       state.map.flyTo({
         center: lastCoord,

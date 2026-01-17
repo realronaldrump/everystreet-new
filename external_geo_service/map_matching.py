@@ -214,20 +214,23 @@ class MapMatchingService:
                 geometry = result.get("geometry")
                 coords = geometry.get("coordinates", []) if geometry else []
                 if not geometry or not coords:
-                    return {
+                    response = {
                         "code": "Error",
                         "message": f"Valhalla returned no geometry (input: {len(shape)} points).",
                     }
-                return {
-                    "code": "Ok",
-                    "matchings": [{"geometry": geometry}],
-                    "coordinates": coords,
-                }
+                else:
+                    response = {
+                        "code": "Ok",
+                        "matchings": [{"geometry": geometry}],
+                        "coordinates": coords,
+                    }
             except ExternalServiceException:
                 if attempt < max_attempts:
                     await asyncio.sleep(min_backoff * (2 ** (attempt - 1)))
                     continue
                 raise
+            else:
+                return response
 
         return {"code": "Error", "message": "All retry attempts failed"}
 

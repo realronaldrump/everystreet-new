@@ -38,7 +38,7 @@ async def write_json_array(
 
 def _serialize_csv_value(value: Any) -> Any:
     normalized = normalize_value(value)
-    if isinstance(normalized, (dict, list)):
+    if isinstance(normalized, dict | list):
         return json.dumps(normalized, separators=(",", ":"), ensure_ascii=True)
     return normalized
 

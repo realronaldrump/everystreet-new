@@ -63,8 +63,8 @@ async def validate_location_osm(
                 response.status,
             )
             return None
-    except Exception as e:
-        logger.exception("Error validating location: %s", e)
+    except Exception:
+        logger.exception("Error validating location")
         raise
 
 

@@ -36,8 +36,8 @@ async def _publish_trip_snapshot(
 
     try:
         await publish_trip_state(transaction_id, trip_dict, status=status)
-    except Exception as e:
-        logger.exception("Failed to publish trip %s: %s", transaction_id, e)
+    except Exception:
+        logger.exception("Failed to publish trip %s", transaction_id)
 
 
 def _parse_timestamp(timestamp_str: str | None) -> datetime | None:
@@ -505,8 +505,8 @@ async def get_active_trip() -> Trip | None:
         return (
             await Trip.find(Trip.status == "active").sort("-lastUpdate").first_or_none()
         )
-    except Exception as e:
-        logger.exception("Error fetching active trip: %s", e)
+    except Exception:
+        logger.exception("Error fetching active trip")
         return None
 
 

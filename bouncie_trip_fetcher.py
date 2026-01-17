@@ -70,12 +70,8 @@ async def fetch_trips_for_device(
                     imei,
                 )
             return trips
-    except Exception as e:
-        logger.exception(
-            "Error fetching trips for device %s: %s",
-            imei,
-            e,
-        )
+    except Exception:
+        logger.exception("Error fetching trips for device %s", imei)
         return []
 
 
@@ -123,12 +119,8 @@ async def fetch_trip_by_transaction_id(
                     transaction_id,
                 )
             return trips
-    except Exception as e:
-        logger.exception(
-            "Error fetching trip for transactionId %s: %s",
-            transaction_id,
-            e,
-        )
+    except Exception:
+        logger.exception("Error fetching trip for transactionId %s", transaction_id)
         return []
 
 
@@ -178,11 +170,7 @@ async def fetch_bouncie_trip_by_transaction_id(
             progress_tracker=progress_tracker,
         )
     except Exception as e:
-        logger.error(
-            "Error in fetch_bouncie_trip_by_transaction_id: %s",
-            e,
-            exc_info=True,
-        )
+        logger.exception("Error in fetch_bouncie_trip_by_transaction_id")
         if progress_tracker is not None:
             progress_tracker["fetch_and_store_trips"]["status"] = "failed"
             progress_tracker["fetch_and_store_trips"]["message"] = f"Error: {e}"
@@ -317,11 +305,7 @@ async def fetch_bouncie_trips_in_range(
             if lst:
                 all_new_trips.extend(lst)
     except Exception as e:
-        logger.error(
-            "Error in fetch_bouncie_trips_in_range: %s",
-            e,
-            exc_info=True,
-        )
+        logger.exception("Error in fetch_bouncie_trips_in_range")
         if progress_tracker is not None:
             progress_tracker["fetch_and_store_trips"]["status"] = "failed"
             progress_tracker["fetch_and_store_trips"]["message"] = f"Error: {e}"

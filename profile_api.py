@@ -62,14 +62,14 @@ async def get_credentials():
                 else "***"
             )
         credentials.pop("webhook_key", None)
-
+    except Exception as e:
+        logger.exception("Error retrieving Bouncie credentials")
+        raise HTTPException(status_code=500, detail=str(e))
+    else:
         return {
             "status": "success",
             "credentials": credentials,
         }
-    except Exception as e:
-        logger.exception("Error retrieving Bouncie credentials")
-        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/api/profile/bouncie-credentials")
@@ -83,29 +83,29 @@ async def update_credentials(credentials: BouncieCredentials):
     Returns:
         Status of the update operation
     """
+    creds_dict = credentials.model_dump()
+
+    # Validate credentials
+    is_valid, error_msg = await validate_bouncie_credentials(creds_dict)
+    if not is_valid:
+        raise HTTPException(status_code=400, detail=error_msg)
+
     try:
-        creds_dict = credentials.model_dump()
-
-        # Validate credentials
-        is_valid, error_msg = await validate_bouncie_credentials(creds_dict)
-        if not is_valid:
-            raise HTTPException(status_code=400, detail=error_msg)
-
         # Update credentials in database
         success = await update_bouncie_credentials(creds_dict)
-
-        if success:
-            return {
-                "status": "success",
-                "message": "Bouncie credentials updated successfully",
-            }
-        return {
-            "status": "success",
-            "message": "No changes made to credentials",
-        }
     except Exception as e:
         logger.exception("Error updating Bouncie credentials")
         raise HTTPException(status_code=500, detail=str(e))
+
+    if success:
+        return {
+            "status": "success",
+            "message": "Bouncie credentials updated successfully",
+        }
+    return {
+        "status": "success",
+        "message": "No changes made to credentials",
+    }
 
 
 @router.get("/api/profile/bouncie-credentials/unmask")
@@ -118,13 +118,14 @@ async def get_credentials_unmasked():
     try:
         credentials = await get_bouncie_credentials()
         credentials.pop("webhook_key", None)
+    except Exception as e:
+        logger.exception("Error retrieving unmasked Bouncie credentials")
+        raise HTTPException(status_code=500, detail=str(e))
+    else:
         return {
             "status": "success",
             "credentials": credentials,
         }
-    except Exception as e:
-        logger.exception("Error retrieving unmasked Bouncie credentials")
-        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/api/profile/bouncie-credentials/sync-vehicles")
@@ -138,6 +139,9 @@ async def sync_vehicles_from_bouncie():
     3. Update the 'authorized_devices' list in credentials
     4. Create/Update records in the 'vehicles' collection
     """
+    def _raise_http(status_code: int, detail: str) -> None:
+        raise HTTPException(status_code=status_code, detail=detail)
+
     try:
         credentials = await get_bouncie_credentials()
         client_id = credentials.get("client_id")
@@ -146,7 +150,7 @@ async def sync_vehicles_from_bouncie():
         redirect_uri = credentials.get("redirect_uri")
 
         if not all([client_id, client_secret, auth_code]):
-            raise HTTPException(
+            _raise_http(
                 status_code=400,
                 detail="Bouncie credentials (Client ID, Secret, Auth Code) are missing",
             )
@@ -175,7 +179,7 @@ async def sync_vehicles_from_bouncie():
                     auth_response.status,
                     error_text,
                 )
-                raise HTTPException(
+                _raise_http(
                     status_code=400,
                     detail=f"Failed to authenticate with Bouncie: {error_text}",
                 )
@@ -183,7 +187,7 @@ async def sync_vehicles_from_bouncie():
             token = auth_data.get("access_token")
 
         if not token:
-            raise HTTPException(
+            _raise_http(
                 status_code=500,
                 detail="No access token received from Bouncie",
             )
@@ -202,7 +206,7 @@ async def sync_vehicles_from_bouncie():
                     resp.status,
                     error_text,
                 )
-                raise HTTPException(
+                _raise_http(
                     status_code=502,
                     detail=f"Failed to fetch vehicles from Bouncie: {error_text}",
                 )

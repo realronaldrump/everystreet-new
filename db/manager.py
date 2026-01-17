@@ -132,9 +132,9 @@ class DatabaseManager:
             self._connection_healthy = True
             logger.info("MongoDB client initialized successfully")
 
-        except Exception as e:
+        except Exception:
             self._connection_healthy = False
-            logger.exception("Failed to initialize MongoDB client: %s", str(e))
+            logger.exception("Failed to initialize MongoDB client")
             raise
 
     @staticmethod
@@ -296,8 +296,8 @@ class DatabaseManager:
             try:
                 logger.info("Closing MongoDB client connections...")
                 self._client.close()
-            except Exception as e:
-                logger.exception("Error closing MongoDB client: %s", str(e))
+            except Exception:
+                logger.exception("Error closing MongoDB client")
             finally:
                 self._client = None
                 self._db = None

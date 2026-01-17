@@ -25,12 +25,13 @@ Usage:
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, ClassVar
 
 from beanie import Document, Indexed, PydanticObjectId
 from beanie.odm.fields import IndexModel
 from pydantic import Field, field_validator, model_validator
 
+from coverage.models import CoverageArea, CoverageState, Job, Street
 from date_utils import parse_timestamp
 
 
@@ -146,9 +147,9 @@ class Trip(Document):
                     return False
                 try:
                     lon, lat = float(c[0]), float(c[1])
-                    return -180 <= lon <= 180 and -90 <= lat <= 90
                 except (ValueError, TypeError):
                     return False
+                return -180 <= lon <= 180 and -90 <= lat <= 90
 
             # Filter valid coordinates
             valid_coords = [c for c in v if valid_coord(c)]
@@ -261,7 +262,7 @@ class Trip(Document):
     class Settings:
         name = "trips"
         use_state_management = True
-        indexes = [
+        indexes: ClassVar[list[IndexModel]] = [
             IndexModel([("startTime", 1)], name="trips_startTime_asc_idx"),
             IndexModel([("endTime", 1)], name="trips_endTime_asc_idx"),
             IndexModel([("endTime", -1)], name="trips_endTime_desc_idx"),
@@ -326,7 +327,7 @@ class OsmData(Document):
 
     class Settings:
         name = "osm_data"
-        indexes = [
+        indexes: ClassVar[list[IndexModel]] = [
             IndexModel(
                 [("location", 1), ("type", 1)],
                 name="osm_data_location_type_idx",
@@ -393,7 +394,7 @@ class TaskHistory(Document):
 
     class Settings:
         name = "task_history"
-        indexes = [
+        indexes: ClassVar[list[IndexModel]] = [
             IndexModel(
                 [("task_id", 1), ("timestamp", -1)],
                 name="task_history_task_timestamp_idx",
@@ -452,7 +453,7 @@ class ExportJob(Document):
 
     class Settings:
         name = "export_jobs"
-        indexes = [
+        indexes: ClassVar[list[IndexModel]] = [
             IndexModel([("status", 1)], name="export_jobs_status_idx"),
             IndexModel([("created_at", -1)], name="export_jobs_created_idx"),
             IndexModel([("owner_key", 1)], name="export_jobs_owner_idx"),
@@ -503,7 +504,7 @@ class GasFillup(Document):
 
     class Settings:
         name = "gas_fillups"
-        indexes = [
+        indexes: ClassVar[list[IndexModel]] = [
             IndexModel(
                 [("imei", 1), ("fillup_time", -1)],
                 name="gas_fillups_imei_time_idx",
@@ -539,7 +540,7 @@ class Vehicle(Document):
 
     class Settings:
         name = "vehicles"
-        indexes = [
+        indexes: ClassVar[list[IndexModel]] = [
             IndexModel([("imei", 1)], name="vehicles_imei_idx", unique=True),
             IndexModel([("vin", 1)], name="vehicles_vin_idx", sparse=True),
             IndexModel([("is_active", 1)], name="vehicles_is_active_idx"),
@@ -579,7 +580,7 @@ class ServerLog(Document):
 
     class Settings:
         name = "server_logs"
-        indexes = [
+        indexes: ClassVar[list[IndexModel]] = [
             IndexModel([("level", 1)], name="server_logs_level_idx"),
             IndexModel(
                 [("timestamp", 1)],
@@ -611,7 +612,7 @@ class BouncieCredentials(Document):
 
     class Settings:
         name = "bouncie_credentials"
-        indexes = [IndexModel([("id", 1)], unique=True)]
+        indexes: ClassVar[list[IndexModel]] = [IndexModel([("id", 1)], unique=True)]
 
     class Config:
         extra = "allow"
@@ -652,9 +653,6 @@ class CountyTopology(Document):
         extra = "allow"
         populate_by_name = True
 
-
-# Import new coverage models
-from coverage.models import CoverageArea, CoverageState, Job, Street
 
 # List of all document models for Beanie initialization
 ALL_DOCUMENT_MODELS = [

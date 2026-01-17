@@ -10,8 +10,8 @@
     constructor(options = {}) {
       this.mapController = options.mapController;
       this.dataLoader = options.dataLoader;
-      this.notificationManager =
-        options.notificationManager || window.notificationManager;
+      this.notificationManager
+        = options.notificationManager || window.notificationManager;
       this.onViewTrips = options.onViewTrips || (() => {});
       this.onZoomToPlace = options.onZoomToPlace || (() => {});
     }

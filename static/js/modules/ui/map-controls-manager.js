@@ -30,9 +30,9 @@ const mapControlsManager = {
         return;
       }
       if (
-        state.map &&
-        state.mapInitialized &&
-        typeof state.map.setStyle === "function"
+        state.map
+        && state.mapInitialized
+        && typeof state.map.setStyle === "function"
       ) {
         settingsApplied = true;
         this.updateMapType(mapTypeSelect?.value);

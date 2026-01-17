@@ -119,11 +119,11 @@ window.utils?.onPageLoad(
       document.getElementById("total-count").textContent = data.total_count || 0;
       document.getElementById("debug-count").textContent = data.by_level?.DEBUG || 0;
       document.getElementById("info-count").textContent = data.by_level?.INFO || 0;
-      document.getElementById("warning-count").textContent =
-        data.by_level?.WARNING || 0;
+      document.getElementById("warning-count").textContent
+        = data.by_level?.WARNING || 0;
       document.getElementById("error-count").textContent = data.by_level?.ERROR || 0;
-      document.getElementById("critical-count").textContent =
-        data.by_level?.CRITICAL || 0;
+      document.getElementById("critical-count").textContent
+        = data.by_level?.CRITICAL || 0;
     }
 
     /**
@@ -450,8 +450,8 @@ window.utils?.onPageLoad(
       if (autoRefreshEnabled) {
         autoRefreshToggle.classList.remove("btn-outline-success");
         autoRefreshToggle.classList.add("btn-success");
-        autoRefreshToggle.innerHTML =
-          '<i class="fas fa-clock"></i> Auto-Refresh: ON (30s)';
+        autoRefreshToggle.innerHTML
+          = '<i class="fas fa-clock"></i> Auto-Refresh: ON (30s)';
 
         // Refresh every 30 seconds
         autoRefreshInterval = setInterval(() => {

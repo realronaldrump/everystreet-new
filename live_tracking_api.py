@@ -138,8 +138,8 @@ async def websocket_endpoint(websocket: WebSocket):
 
     except WebSocketDisconnect:
         logger.info("WebSocket disconnected")
-    except Exception as e:
-        logger.error("WebSocket error: %s", e, exc_info=True)
+    except Exception:
+        logger.exception("WebSocket error")
     finally:
         manager.disconnect(websocket)
         if pubsub:
@@ -175,9 +175,9 @@ async def active_trip_endpoint():
             server_time=datetime.now(UTC),
         )
 
-    except Exception as e:
+    except Exception:
         error_id = str(uuid.uuid4())
-        logger.exception("Error fetching active trip [%s]: %s", error_id, e)
+        logger.exception("Error fetching active trip [%s]", error_id)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail={
@@ -205,11 +205,9 @@ async def trip_updates_endpoint(response: Response):
 
         updates = await get_trip_updates()
         updates["server_time"] = datetime.now(UTC).isoformat()
-        return updates
-
-    except Exception as e:
+    except Exception:
         error_id = str(uuid.uuid4())
-        logger.exception("Error in trip_updates [%s]: %s", error_id, e)
+        logger.exception("Error in trip_updates [%s]", error_id)
 
         response.status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
         return {
@@ -219,3 +217,5 @@ async def trip_updates_endpoint(response: Response):
             "error_id": error_id,
             "server_time": datetime.now(UTC).isoformat(),
         }
+    else:
+        return updates

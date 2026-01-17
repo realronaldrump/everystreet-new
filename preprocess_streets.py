@@ -14,12 +14,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import os
 import sys
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from pathlib import Path
+from pathlib import Path
 
 import osmnx as ox
 from dotenv import load_dotenv
@@ -108,13 +104,13 @@ async def preprocess_streets(
 
         graph, file_path = await loop.run_in_executor(None, _download_and_save)
 
-        logger.info("Graph downloaded and saved for %s.", location_name)
-        return graph, file_path
-
-    except Exception as e:
-        logger.error("Failed to process %s: %s", location_name, e, exc_info=True)
+    except Exception:
+        logger.exception("Failed to process %s", location_name)
         # Re-raise to allow caller to handle error if needed
         raise
+    else:
+        logger.info("Graph downloaded and saved for %s.", location_name)
+        return graph, file_path
 
 
 async def preprocess_all_graphs() -> None:
@@ -151,6 +147,6 @@ if __name__ == "__main__":
     # Since db.py exports collections that are already using the global db_manager,
     # and db_manager initializes lazily, we just need to run the async loop.
     # Add current directory to path to ensure imports work
-    sys.path.insert(0, os.getcwd())
+    sys.path.insert(0, str(Path.cwd()))
 
     asyncio.run(preprocess_all_graphs())

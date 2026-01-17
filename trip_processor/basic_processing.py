@@ -102,7 +102,7 @@ class TripBasicProcessor:
 
             state_machine.set_state(TripState.PROCESSED)
             logger.debug("Completed basic processing for trip %s", transaction_id)
-            return True, processed_data
+            result = (True, processed_data)
 
         except Exception as e:
             error_message = f"Processing error: {e!s}"
@@ -112,6 +112,8 @@ class TripBasicProcessor:
             )
             state_machine.set_state(TripState.FAILED, error_message)
             return False, processed_data
+        else:
+            return result
 
     @staticmethod
     def _validate_point_coordinates(gps_coords: Any) -> bool:
@@ -185,7 +187,8 @@ def format_idle_time(seconds: Any) -> str:
         hrs = total_seconds // 3600
         mins = (total_seconds % 3600) // 60
         secs = total_seconds % 60
-        return f"{hrs:02d}:{mins:02d}:{secs:02d}"
     except (TypeError, ValueError):
         logger.exception("Invalid input for format_idle_time: %s", seconds)
         return "00:00:00"
+    else:
+        return f"{hrs:02d}:{mins:02d}:{secs:02d}"

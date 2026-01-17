@@ -45,10 +45,11 @@ async def get_redis_client() -> aioredis.Redis:
     if RedisClientState.client is not None:
         try:
             await RedisClientState.client.ping()
-            return RedisClientState.client
         except (RedisConnectionError, AttributeError):
             logger.warning("Redis client connection lost, reconnecting...")
             RedisClientState.client = None
+        else:
+            return RedisClientState.client
 
     # Get Redis URL using centralized configuration
     redis_url = get_redis_url()
@@ -59,11 +60,12 @@ async def get_redis_client() -> aioredis.Redis:
             decode_responses=True,
         )
         await RedisClientState.client.ping()
+    except RedisConnectionError:
+        logger.exception("Failed to connect to Redis")
+        raise
+    else:
         logger.info("Connected to Redis for trip event publishing")
         return RedisClientState.client
-    except RedisConnectionError as e:
-        logger.exception("Failed to connect to Redis: %s", e)
-        raise
 
 
 def json_serializer(obj: Any) -> Any:
@@ -114,13 +116,11 @@ async def publish_trip_state(
             status,
             subscribers,
         )
-
-        return True
-
-    except Exception as e:
+    except Exception:
         logger.exception(
-            "Failed to publish trip state for %s: %s",
+            "Failed to publish trip state for %s",
             transaction_id,
-            e,
         )
         return False
+    else:
+        return True

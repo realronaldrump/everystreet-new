@@ -73,12 +73,10 @@ async def _update_coverage_for_new_trips_logic() -> dict[str, Any]:
                 )
                 failed_areas += 1
 
-        except Exception as e:
-            logger.error(
-                "Error refreshing stats for '%s': %s",
+        except Exception:
+            logger.exception(
+                "Error refreshing stats for '%s'",
                 display_name,
-                e,
-                exc_info=True,
             )
             failed_areas += 1
 

@@ -77,6 +77,6 @@ class BouncieService:
                 )
                 return result
 
-        except Exception as e:
-            logger.exception("Error fetching vehicle status from Bouncie: %s", e)
+        except Exception:
+            logger.exception("Error fetching vehicle status from Bouncie")
             return None

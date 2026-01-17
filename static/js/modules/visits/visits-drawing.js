@@ -9,8 +9,8 @@
   class VisitsDrawing {
     constructor(mapController, options = {}) {
       this.mapController = mapController;
-      this.notificationManager =
-        options.notificationManager || window.notificationManager;
+      this.notificationManager
+        = options.notificationManager || window.notificationManager;
 
       this.draw = null;
       this.currentPolygon = null;

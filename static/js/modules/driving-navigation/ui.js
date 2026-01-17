@@ -160,12 +160,12 @@ export class DrivingNavigationUI {
 
     // Update step classes
     if (this.stepClustering) {
-      this.stepClustering.className =
-        step === "clustering" ? "step active" : "step completed";
+      this.stepClustering.className
+        = step === "clustering" ? "step active" : "step completed";
     }
     if (this.stepOptimizing) {
-      this.stepOptimizing.className =
-        step === "optimizing"
+      this.stepOptimizing.className
+        = step === "optimizing"
           ? "step active"
           : step === "rendering"
             ? "step completed"
@@ -264,8 +264,8 @@ export class DrivingNavigationUI {
     }
 
     const totalSegments = clusters.reduce((sum, c) => sum + c.segment_count, 0);
-    const totalLengthMiles =
-      clusters.reduce((sum, c) => sum + c.total_length_m, 0) / 1609.34;
+    const totalLengthMiles
+      = clusters.reduce((sum, c) => sum + c.total_length_m, 0) / 1609.34;
 
     routeDetailsContent.innerHTML = `
       <div class="cluster-summary mb-2">

@@ -26,7 +26,7 @@ class GeolocationService {
   /**
    * Get current position once
    */
-  async getCurrentPosition(options = {}) {
+  getCurrentPosition(options = {}) {
     if (!this.isSupported()) {
       throw new Error("Geolocation is not supported by this browser");
     }
@@ -109,9 +109,9 @@ class GeolocationService {
     const Δφ = ((lat2 - lat1) * Math.PI) / 180;
     const Δλ = ((lon2 - lon1) * Math.PI) / 180;
 
-    const a =
-      Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-      Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    const a
+      = Math.sin(Δφ / 2) * Math.sin(Δφ / 2)
+      + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
     return R * c; // Distance in meters
@@ -187,8 +187,8 @@ class GeolocationService {
       3: "Location request timeout. Please try again.",
     };
 
-    const message =
-      errorMessages[error.code] || "An unknown geolocation error occurred";
+    const message
+      = errorMessages[error.code] || "An unknown geolocation error occurred";
 
     return new Error(message);
   }
@@ -223,7 +223,7 @@ class GeolocationService {
         maximumAge: 60000, // Accept cached position up to 1 minute old
         ...fallbackOptions,
       };
-      return await this.getCurrentPosition(relaxedOptions);
+      return this.getCurrentPosition(relaxedOptions);
     }
   }
 }

@@ -114,11 +114,10 @@ async def _validate_trips_logic() -> dict[str, Any]:
 
                 await trip.save()
                 modified_count += 1
-            except Exception as save_err:
+            except Exception:
                 logger.exception(
-                    "Failed to save invalid trip %s: %s",
+                    "Failed to save invalid trip %s",
                     trip.id,
-                    save_err,
                 )
 
         if processed_count % 500 == 0:

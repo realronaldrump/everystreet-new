@@ -1,3 +1,4 @@
+/* global bootstrap, mapboxgl, GlobalJobTracker */
 /**
  * Coverage Management - New Simplified Version
  *
@@ -127,9 +128,9 @@ function setupEventListeners(signal) {
     "click",
     async () => {
       if (currentAreaId) {
-        const areaName =
-          document.getElementById("dashboard-location-name")?.textContent ||
-          "this area";
+        const areaName
+          = document.getElementById("dashboard-location-name")?.textContent
+          || "this area";
         await recalculateCoverage(currentAreaId, areaName);
       }
     },
@@ -140,9 +141,9 @@ function setupEventListeners(signal) {
     "click",
     async () => {
       if (currentAreaId) {
-        const areaName =
-          document.getElementById("dashboard-location-name")?.textContent ||
-          "this area";
+        const areaName
+          = document.getElementById("dashboard-location-name")?.textContent
+          || "this area";
         await rebuildArea(currentAreaId, areaName);
       }
     },
@@ -245,8 +246,8 @@ function updateMinimizedBadge() {
   }
 
   const title = document.getElementById("task-progress-title")?.textContent;
-  const pctText =
-    document.querySelector("#taskProgressModal .progress-bar")?.textContent || "0%";
+  const pctText
+    = document.querySelector("#taskProgressModal .progress-bar")?.textContent || "0%";
 
   const nameEl = badge.querySelector(".minimized-location-name");
   const pctEl = badge.querySelector(".minimized-progress-percent");
@@ -455,9 +456,9 @@ function renderStatus(area, job) {
   }
 
   if (
-    job &&
-    isJobActiveStatus(job.status) &&
-    (status === "initializing" || status === "rebuilding")
+    job
+    && isJobActiveStatus(job.status)
+    && (status === "initializing" || status === "rebuilding")
   ) {
     const percent = typeof job.progress === "number" ? Math.round(job.progress) : 0;
     const detailText = job.message
@@ -514,8 +515,8 @@ async function addArea() {
       });
 
       showNotification(
-        result.message ||
-          `Area "${displayName}" is being set up in the background. You can minimize this window and keep using the app.`,
+        result.message
+          || `Area "${displayName}" is being set up in the background. You can minimize this window and keep using the app.`,
         "info"
       );
     }
@@ -611,8 +612,8 @@ async function rebuildArea(areaId, displayName = null) {
       });
 
       showNotification(
-        result.message ||
-          "Rebuild started in the background. You can minimize this window and keep using the app.",
+        result.message
+          || "Rebuild started in the background. You can minimize this window and keep using the app.",
         "info"
       );
     }
@@ -626,8 +627,8 @@ async function recalculateCoverage(areaId, displayName) {
   const confirmed = await window.confirmationDialog?.show({
     title: "Recalculate Coverage",
     message:
-      `Recalculate coverage for "<strong>${escapeHtml(displayName)}</strong>" by matching all existing trips?<br><br>` +
-      `This will update coverage data without re-downloading streets from OSM. Use this if coverage seems incomplete.`,
+      `Recalculate coverage for "<strong>${escapeHtml(displayName)}</strong>" by matching all existing trips?<br><br>`
+      + `This will update coverage data without re-downloading streets from OSM. Use this if coverage seems incomplete.`,
     confirmText: "Recalculate",
     confirmButtonClass: "btn-info",
   });
@@ -802,8 +803,8 @@ function updateProgress(percent, message, detailMessage = null) {
   const bar = document.querySelector("#taskProgressModal .progress-bar");
   const msg = document.querySelector("#taskProgressModal .progress-message");
   const stage = document.querySelector("#taskProgressModal .progress-stage");
-  const resolvedDetail =
-    typeof detailMessage === "string" ? detailMessage : activeJob?.message || "";
+  const resolvedDetail
+    = typeof detailMessage === "string" ? detailMessage : activeJob?.message || "";
 
   if (bar) {
     bar.style.width = `${percent}%`;
@@ -867,7 +868,7 @@ async function viewArea(areaId) {
 
     // Initialize or update map
     if (data.bounding_box) {
-      await initOrUpdateMap(areaId, data.bounding_box);
+      initOrUpdateMap(areaId, data.bounding_box);
     }
 
     // Scroll to dashboard
@@ -880,7 +881,7 @@ async function viewArea(areaId) {
   }
 }
 
-async function initOrUpdateMap(areaId, bbox) {
+function initOrUpdateMap(areaId, bbox) {
   const container = document.getElementById("coverage-map");
   container.innerHTML = ""; // Clear loading spinner
 
@@ -1105,8 +1106,8 @@ function updateHighlightFilter() {
 function createStreetPopupContent(props) {
   const streetName = escapeHtml(props.street_name || "Unnamed Street");
   const segmentId = escapeHtml(props.segment_id || "Unknown");
-  const statusKey =
-    typeof props.status === "string" ? props.status.toLowerCase() : "unknown";
+  const statusKey
+    = typeof props.status === "string" ? props.status.toLowerCase() : "unknown";
   const statusLabel = formatStatus(statusKey);
   const lengthLabel = formatSegmentLength(props.length_miles);
   const highwayType = escapeHtml(formatHighwayType(props.highway_type));

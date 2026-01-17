@@ -3,9 +3,9 @@ import store from "./store.js";
 const loadedScripts = new Set();
 
 const prefersReducedMotion = () =>
-  typeof window !== "undefined" &&
-  window.matchMedia &&
-  window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  typeof window !== "undefined"
+  && window.matchMedia
+  && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 const shouldHandleClick = (event, link) => {
   if (!link || event.defaultPrevented) {
@@ -65,9 +65,9 @@ const router = {
       return;
     }
 
-    this.main =
-      document.getElementById("route-content") ||
-      document.getElementById("main-content");
+    this.main
+      = document.getElementById("route-content")
+      || document.getElementById("main-content");
     this.shell = document.getElementById("persistent-shell");
     this.scriptHost = document.getElementById("spa-scripts");
     this.announcer = document.getElementById("spa-announcer");
@@ -183,9 +183,9 @@ const router = {
       };
 
       if (
-        this.viewTransitionsEnabled &&
-        "startViewTransition" in document &&
-        !prefersReducedMotion()
+        this.viewTransitionsEnabled
+        && "startViewTransition" in document
+        && !prefersReducedMotion()
       ) {
         await document.startViewTransition(apply).finished;
       } else {
@@ -416,9 +416,9 @@ const router = {
   },
 
   restoreFocus() {
-    let focusTarget =
-      this.main.querySelector("[data-es-focus]") ||
-      this.main.querySelector("h1, h2, [role='heading']");
+    let focusTarget
+      = this.main.querySelector("[data-es-focus]")
+      || this.main.querySelector("h1, h2, [role='heading']");
 
     if (!focusTarget) {
       const globalFocus = document.querySelector("[data-es-focus]");
@@ -432,8 +432,8 @@ const router = {
     }
 
     if (focusTarget && typeof focusTarget.focus === "function") {
-      const isNaturallyFocusable =
-        focusTarget.matches?.(
+      const isNaturallyFocusable
+        = focusTarget.matches?.(
           "a[href], button, input, select, textarea, details, summary, [tabindex]"
         ) || false;
       if (!isNaturallyFocusable) {
@@ -466,10 +466,10 @@ const router = {
     const startMarker = document.querySelector('[data-es-head-boundary="start"]');
     const endMarker = document.querySelector('[data-es-head-boundary="end"]');
     if (
-      !startMarker ||
-      !endMarker ||
-      startMarker.parentNode !== document.head ||
-      endMarker.parentNode !== document.head
+      !startMarker
+      || !endMarker
+      || startMarker.parentNode !== document.head
+      || endMarker.parentNode !== document.head
     ) {
       return;
     }

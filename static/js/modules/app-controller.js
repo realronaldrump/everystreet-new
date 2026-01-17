@@ -44,11 +44,11 @@ const initializeLocationDropdown = async () => {
     areas.forEach((area) => {
       const option = document.createElement("option");
       option.value = area.id || area._id;
-      option.textContent =
-        area.display_name ||
-        area.location?.display_name ||
-        area.name ||
-        "Unknown Location";
+      option.textContent
+        = area.display_name
+        || area.location?.display_name
+        || area.name
+        || "Unknown Location";
       frag.appendChild(option);
     });
     dropdown.appendChild(frag);

@@ -59,8 +59,8 @@ export class OptimalRouteAPI {
       data.features.forEach((feature) => {
         const status = feature.properties?.status;
         const isDriven = status === "driven" || feature.properties?.driven === true;
-        const isUndriveable =
-          status === "undriveable" || feature.properties?.undriveable === true;
+        const isUndriveable
+          = status === "undriveable" || feature.properties?.undriveable === true;
 
         if (isDriven) {
           drivenFeatures.push(feature);
@@ -142,7 +142,7 @@ export class OptimalRouteAPI {
 
   async cancelTask(taskId) {
     if (!taskId) {
-      return;
+      return null;
     }
 
     try {

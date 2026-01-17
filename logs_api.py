@@ -1,7 +1,7 @@
 """API endpoints for viewing and managing server logs."""
 
 import logging
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any
 
 from fastapi import APIRouter, HTTPException, Query, status
@@ -109,7 +109,7 @@ async def clear_server_logs(
             delete_filter["level"] = level.upper()
 
         if older_than_days:
-            cutoff_date = datetime.utcnow() - timedelta(days=older_than_days)
+            cutoff_date = datetime.now(UTC) - timedelta(days=older_than_days)
             delete_filter["timestamp"] = {"$lt": cutoff_date}
 
         logs_to_delete = await ServerLog.find(delete_filter).to_list()
@@ -124,18 +124,18 @@ async def clear_server_logs(
             delete_filter,
         )
 
-        return {
-            "message": f"Successfully cleared {deleted_count} log entries",
-            "deleted_count": deleted_count,
-            "filter": delete_filter,
-        }
-
     except Exception as e:
         logger.exception("Error clearing server logs")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to clear server logs: {e!s}",
         )
+    else:
+        return {
+            "message": f"Successfully cleared {deleted_count} log entries",
+            "deleted_count": deleted_count,
+            "filter": delete_filter,
+        }
 
 
 @router.get("/api/server-logs/stats", response_model=LogsStatsResponse)

@@ -171,9 +171,9 @@ export class DrivingNavigation {
       const buttonsToEnable = [this.ui.findBtn, this.ui.findEfficientBtn];
       buttonsToEnable.forEach((btn) => {
         if (
-          btn?.disabled &&
-          btn.dataset.disabledReason === "no-location" &&
-          this.selectedArea
+          btn?.disabled
+          && btn.dataset.disabledReason === "no-location"
+          && this.selectedArea
         ) {
           btn.disabled = false;
           delete btn.dataset.disabledReason;
@@ -232,14 +232,12 @@ export class DrivingNavigation {
 
       if (areaMatch) {
         this.selectedArea = areaMatch;
-      } else {
+      } else if (selectedValue.trim().startsWith("{")) {
         // Fallback: try parsing if it looks like a JSON object
-        if (selectedValue.trim().startsWith("{")) {
-          this.selectedArea = JSON.parse(selectedValue);
-        } else {
-          console.warn("Could not find area for ID:", selectedValue);
-          this.selectedArea = null;
-        }
+        this.selectedArea = JSON.parse(selectedValue);
+      } else {
+        console.warn("Could not find area for ID:", selectedValue);
+        this.selectedArea = null;
       }
 
       if (!this.selectedArea) {
@@ -378,9 +376,9 @@ export class DrivingNavigation {
           notificationManager.show(data.message, "success");
         }
       } else if (
-        data.status === "success" &&
-        data.route_geometry &&
-        data.target_street
+        data.status === "success"
+        && data.route_geometry
+        && data.target_street
       ) {
         this.ui.setActiveStep("rendering");
         this.displayRoute(data);

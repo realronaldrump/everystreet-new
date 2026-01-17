@@ -97,7 +97,7 @@ async def run_task_with_history(
             runtime_ms=runtime_ms,
         )
         await update_task_failure(task_id, str(exc), end_time)
-        logger.exception("Task %s failed: %s", task_id, exc)
+        logger.exception("Task %s failed", task_id)
         raise
 
     end_time = datetime.now(UTC)
@@ -116,7 +116,7 @@ async def run_task_with_history(
 
 
 async def run_task_if_due(
-    ctx: dict[str, Any],
+    _ctx: dict[str, Any],
     task_id: str,
     func: Callable[[], Awaitable[dict[str, Any]]],
     *,

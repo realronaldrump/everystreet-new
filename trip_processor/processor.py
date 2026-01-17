@@ -183,7 +183,7 @@ class TripProcessor:
             if not self._state_machine.is_failed():
                 self._set_state(TripState.COMPLETED)
 
-            return self.processed_data
+            result = self.processed_data
 
         except Exception as e:
             error_message = f"Unexpected error: {e!s}"
@@ -193,6 +193,8 @@ class TripProcessor:
             )
             self._set_state(TripState.FAILED, error_message)
             return {}
+        else:
+            return result
 
     async def validate(self) -> bool:
         """

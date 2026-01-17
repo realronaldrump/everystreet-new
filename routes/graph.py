@@ -33,9 +33,10 @@ def pick_best_key(G: nx.Graph, u: int, v: int, weight: str = "length") -> int | 
             if w < best_w:
                 best_w = w
                 best_key = k
-        return best_key
     except Exception:
         return None
+    else:
+        return best_key
 
 
 def get_edge_geometry(

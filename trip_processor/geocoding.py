@@ -167,7 +167,7 @@ class TripGeocoder:
 
             state_machine.set_state(TripState.GEOCODED)
             logger.debug("Geocoded trip %s", transaction_id)
-            return True, processed_data
+            result = (True, processed_data)
 
         except Exception as e:
             error_message = f"Geocoding error: {e!s}"
@@ -177,6 +177,8 @@ class TripGeocoder:
             )
             state_machine.set_state(TripState.FAILED, error_message)
             return False, processed_data
+        else:
+            return result
 
     @staticmethod
     async def get_place_at_point(point: Point) -> Place | None:
@@ -194,8 +196,8 @@ class TripGeocoder:
 
         try:
             return await Place.find_one(query)
-        except Exception as e:
-            logger.exception("Error finding place at point: %s", str(e))
+        except Exception:
+            logger.exception("Error finding place at point")
             return None
 
     def _build_location_from_place(

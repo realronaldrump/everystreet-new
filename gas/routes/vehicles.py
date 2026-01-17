@@ -27,7 +27,7 @@ async def get_vehicles(
         return await VehicleService.get_vehicles(imei, vin, active_only)
 
     except Exception as e:
-        logger.exception("Error fetching vehicles: %s", e)
+        logger.exception("Error fetching vehicles")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -41,7 +41,7 @@ async def create_vehicle(vehicle_data: VehicleModel) -> Vehicle:
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        logger.exception("Error creating vehicle: %s", e)
+        logger.exception("Error creating vehicle")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -58,7 +58,7 @@ async def update_vehicle(imei: str, vehicle_data: VehicleModel) -> Vehicle:
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
-        logger.exception("Error updating vehicle: %s", e)
+        logger.exception("Error updating vehicle")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -71,5 +71,5 @@ async def delete_vehicle(imei: str) -> dict[str, str]:
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
-        logger.exception("Error deleting vehicle: %s", e)
+        logger.exception("Error deleting vehicle")
         raise HTTPException(status_code=500, detail=str(e))

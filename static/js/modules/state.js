@@ -45,8 +45,8 @@ class AppState {
       isMobile:
         typeof window !== "undefined" && window.innerWidth < CONFIG.UI.mobileBreakpoint,
       reducedMotion:
-        typeof window !== "undefined" &&
-        window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+        typeof window !== "undefined"
+        && window.matchMedia("(prefers-reduced-motion: reduce)").matches,
       controlsMinimized: false,
       filtersOpen: false,
       activeModals: new Set(),

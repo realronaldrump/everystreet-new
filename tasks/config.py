@@ -107,8 +107,8 @@ async def get_task_config() -> dict[str, Any]:
             "tasks": tasks_output,
         }
 
-    except Exception as e:
-        logger.exception("Error getting task config: %s", e)
+    except Exception:
+        logger.exception("Error getting task config")
         return {
             "disabled": False,
             "tasks": {},
@@ -170,14 +170,16 @@ async def check_dependencies(
                     "reason": f"Dependency '{dep_id}' failed recently",
                 }
 
-        return {"can_run": True}
+        can_run = {"can_run": True}
 
     except Exception as e:
-        logger.exception("Error checking dependencies for %s: %s", task_id, e)
+        logger.exception("Error checking dependencies for %s", task_id)
         return {
             "can_run": False,
             "reason": f"Error checking dependencies: {e}",
         }
+    else:
+        return can_run
 
 
 async def update_task_history_entry(
@@ -240,12 +242,11 @@ async def update_task_history_entry(
             history.error = str(error)
 
         await history.save()
-    except Exception as e:
+    except Exception:
         logger.exception(
-            "Error updating task history for %s (%s): %s",
+            "Error updating task history for %s (%s)",
             job_id,
             task_name,
-            e,
         )
 
 
@@ -353,15 +354,15 @@ async def update_task_schedule(task_config_update: dict[str, Any]) -> dict[str, 
             }
 
         logger.info("Task configuration updated: %s", "; ".join(changes))
+    except Exception as e:
+        logger.exception("Error updating task schedule")
+        return {
+            "status": "error",
+            "message": f"Error updating task schedule: {e}",
+        }
+    else:
         return {
             "status": "success",
             "message": "Task configuration updated successfully.",
             "changes": changes,
-        }
-
-    except Exception as e:
-        logger.exception("Error updating task schedule: %s", e)
-        return {
-            "status": "error",
-            "message": f"Error updating task schedule: {e}",
         }

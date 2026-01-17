@@ -602,8 +602,8 @@ class LiveTripTracker {
       return;
     }
 
-    const speedValue =
-      typeof trip.currentSpeed === "number"
+    const speedValue
+      = typeof trip.currentSpeed === "number"
         ? Math.max(0, Math.round(trip.currentSpeed))
         : 0;
     if (this.hudSpeedElem) {
@@ -624,8 +624,8 @@ class LiveTripTracker {
       this.hudDistanceElem.textContent = `${(trip.distance || 0).toFixed(2)} mi`;
     }
     if (this.hudAvgSpeedElem) {
-      this.hudAvgSpeedElem.textContent =
-        trip.avgSpeed > 0 ? `${trip.avgSpeed.toFixed(1)} mph` : "--";
+      this.hudAvgSpeedElem.textContent
+        = trip.avgSpeed > 0 ? `${trip.avgSpeed.toFixed(1)} mph` : "--";
     }
 
     if (this.hudLastUpdateElem) {
@@ -918,8 +918,8 @@ class LiveTripTracker {
       return;
     }
 
-    const isNewTrip =
-      !this.activeTrip || this.activeTrip.transactionId !== trip.transactionId;
+    const isNewTrip
+      = !this.activeTrip || this.activeTrip.transactionId !== trip.transactionId;
 
     this.activeTrip = trip;
 
@@ -931,8 +931,8 @@ class LiveTripTracker {
     }
 
     const rawHeading = LiveTripTracker.calculateHeading(coords);
-    const heading =
-      typeof rawHeading === "number"
+    const heading
+      = typeof rawHeading === "number"
         ? LiveTripTracker.smoothBearing(this.lastBearing, rawHeading, 0.28)
         : this.lastBearing;
     if (typeof heading === "number") {
@@ -1063,9 +1063,9 @@ class LiveTripTracker {
     const dLon = toRad(curr.lon - prev.lon);
 
     const y = Math.sin(dLon) * Math.cos(lat2);
-    const x =
-      Math.cos(lat1) * Math.sin(lat2) -
-      Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+    const x
+      = Math.cos(lat1) * Math.sin(lat2)
+      - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
     const bearing = toDeg(Math.atan2(y, x));
 
     return LiveTripTracker.normalizeBearing(bearing);
@@ -1273,8 +1273,8 @@ class LiveTripTracker {
     // Render metrics
     const baseHtml = this._renderMetricRows(metrics);
 
-    const optionalHtml =
-      Object.keys(optional).length > 0
+    const optionalHtml
+      = Object.keys(optional).length > 0
         ? `
         <div class="metric-section-divider"></div>
         <div class="metric-section-title">Trip Behavior</div>
@@ -1382,8 +1382,8 @@ class LiveTripTracker {
 
     this.statusIndicator.classList.toggle("connected", connected);
     this.statusIndicator.classList.toggle("disconnected", !connected);
-    const isConnecting =
-      typeof message === "string" && /reconnect|connect|sync/i.test(message);
+    const isConnecting
+      = typeof message === "string" && /reconnect|connect|sync/i.test(message);
     this.statusIndicator.classList.toggle("connecting", !connected && isConnecting);
 
     const statusMsg = message || (connected ? "Connected" : "Disconnected");
@@ -1447,9 +1447,9 @@ class LiveTripTracker {
 
   async refreshWebhookStatus() {
     if (
-      !this.webhookIndicator ||
-      !this.webhookStatusText ||
-      this.webhookStatusPending
+      !this.webhookIndicator
+      || !this.webhookStatusText
+      || this.webhookStatusPending
     ) {
       return;
     }
@@ -1485,7 +1485,7 @@ class LiveTripTracker {
           `No recent webhooks (last ${eventLabel})`
         );
       }
-    } catch (_error) {
+    } catch {
       this.setWebhookStatusIndicator("disconnected", "Webhook status unavailable");
     } finally {
       this.webhookStatusPending = false;

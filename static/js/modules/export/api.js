@@ -23,7 +23,7 @@ export async function fetchVehicles(signal) {
   }
 }
 
-export async function createExportJob(payload, signal) {
+export function createExportJob(payload, signal) {
   return fetchJson("/api/exports", {
     method: "POST",
     headers: {
@@ -34,6 +34,6 @@ export async function createExportJob(payload, signal) {
   });
 }
 
-export async function fetchExportStatus(jobId, signal) {
+export function fetchExportStatus(jobId, signal) {
   return fetchJson(`/api/exports/${jobId}`, { signal });
 }

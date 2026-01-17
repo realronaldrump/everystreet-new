@@ -10,7 +10,7 @@ import apiClient from "../api-client.js";
  * @param {URLSearchParams} params - Query parameters
  * @returns {Promise<Object>} Behavior data
  */
-export async function fetchBehavior(params) {
+export function fetchBehavior(params) {
   return apiClient.get(`/api/driver-behavior?${params}`, { cache: true });
 }
 
@@ -19,7 +19,7 @@ export async function fetchBehavior(params) {
  * @param {URLSearchParams} params - Query parameters
  * @returns {Promise<Object>} Insights data
  */
-export async function fetchInsights(params) {
+export function fetchInsights(params) {
   return apiClient.get(`/api/driving-insights?${params}`, { cache: true });
 }
 
@@ -28,7 +28,7 @@ export async function fetchInsights(params) {
  * @param {URLSearchParams} params - Query parameters
  * @returns {Promise<Object>} Analytics data
  */
-export async function fetchAnalytics(params) {
+export function fetchAnalytics(params) {
   return apiClient.get(`/api/trip-analytics?${params}`, { cache: true });
 }
 
@@ -37,7 +37,7 @@ export async function fetchAnalytics(params) {
  * @param {URLSearchParams} params - Query parameters
  * @returns {Promise<Object>} Metrics data
  */
-export async function fetchMetrics(params) {
+export function fetchMetrics(params) {
   return apiClient.get(`/api/metrics?${params}`, { cache: true });
 }
 
@@ -46,7 +46,7 @@ export async function fetchMetrics(params) {
  * @param {URLSearchParams} params - Query parameters
  * @returns {Promise<Array>} Trip data
  */
-export async function fetchTimePeriodTrips(params) {
+export function fetchTimePeriodTrips(params) {
   return apiClient.get(`/api/time-period-trips?${params}`);
 }
 
@@ -67,8 +67,8 @@ export async function loadAllData(dateRange, prevRange) {
     end_date: prevRange.end,
   });
 
-  const [behavior, insights, analytics, metrics, prevBehavior, prevInsights] =
-    await Promise.all([
+  const [behavior, insights, analytics, metrics, prevBehavior, prevInsights]
+    = await Promise.all([
       fetchBehavior(params),
       fetchInsights(params),
       fetchAnalytics(params),

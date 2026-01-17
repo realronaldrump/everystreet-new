@@ -68,25 +68,24 @@ class NominatimClient:
                 )
             results = await response.json()
 
-        normalized: list[dict[str, Any]] = []
-        for result in results:
-            normalized.append(
-                {
-                    "place_name": result.get("display_name", ""),
-                    "center": [float(result["lon"]), float(result["lat"])],
-                    "place_type": [result.get("type", "unknown")],
-                    "text": result.get("name", ""),
-                    "osm_id": result.get("osm_id"),
-                    "osm_type": result.get("osm_type"),
-                    "type": result.get("type"),
-                    "lat": result.get("lat"),
-                    "lon": result.get("lon"),
-                    "display_name": result.get("display_name"),
-                    "address": result.get("address", {}),
-                    "importance": result.get("importance", 0),
-                    "bbox": result.get("boundingbox"),
-                },
-            )
+        normalized = [
+            {
+                "place_name": result.get("display_name", ""),
+                "center": [float(result["lon"]), float(result["lat"])],
+                "place_type": [result.get("type", "unknown")],
+                "text": result.get("name", ""),
+                "osm_id": result.get("osm_id"),
+                "osm_type": result.get("osm_type"),
+                "type": result.get("type"),
+                "lat": result.get("lat"),
+                "lon": result.get("lon"),
+                "display_name": result.get("display_name"),
+                "address": result.get("address", {}),
+                "importance": result.get("importance", 0),
+                "bbox": result.get("boundingbox"),
+            }
+            for result in results
+        ]
         return normalized
 
     @retry_async(max_retries=3, retry_delay=2.0)

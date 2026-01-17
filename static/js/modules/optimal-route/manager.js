@@ -327,8 +327,8 @@ export class OptimalRoutesManager {
 
     // Load streets
     try {
-      const { drivenFeatures, undrivenFeatures } =
-        await this.api.loadStreetNetwork(nextAreaId);
+      const { drivenFeatures, undrivenFeatures }
+        = await this.api.loadStreetNetwork(nextAreaId);
       this.map.updateStreets(drivenFeatures, undrivenFeatures);
     } catch {
       // already logged in api
@@ -489,7 +489,7 @@ export class OptimalRoutesManager {
     window.open(url, "_blank");
   }
 
-  async replayAnimation() {
+  replayAnimation() {
     if (!this.currentRouteData?.coordinates) {
       return;
     }

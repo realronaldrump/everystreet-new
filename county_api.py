@@ -56,7 +56,7 @@ async def get_county_topology(projection: str | None = None) -> dict[str, Any]:
             "topology": document.get("topology"),
         }
     except Exception as e:
-        logger.exception("Error fetching county topology: %s", e)
+        logger.exception("Error fetching county topology")
         return {"success": False, "error": str(e)}
 
 
@@ -71,7 +71,17 @@ async def get_visited_counties() -> dict[str, Any]:
     try:
         # Try to get cached data using Beanie
         cache = await CountyVisitedCache.get("visited_counties")
-
+    except Exception as e:
+        logger.exception("Error fetching visited counties")
+        return {
+            "success": False,
+            "error": str(e),
+            "counties": {},
+            "stoppedCounties": {},
+            "totalVisited": 0,
+            "totalStopped": 0,
+        }
+    else:
         if cache:
             stopped = cache.stopped_counties or {}
             return {
@@ -97,17 +107,6 @@ async def get_visited_counties() -> dict[str, Any]:
             "message": "No cached data. Call POST /api/counties/recalculate to compute.",
         }
 
-    except Exception as e:
-        logger.exception("Error fetching visited counties: %s", e)
-        return {
-            "success": False,
-            "error": str(e),
-            "counties": {},
-            "stoppedCounties": {},
-            "totalVisited": 0,
-            "totalStopped": 0,
-        }
-
 
 @router.post("/recalculate")
 async def recalculate_visited_counties(
@@ -122,16 +121,16 @@ async def recalculate_visited_counties(
     try:
         # Start background calculation
         background_tasks.add_task(calculate_visited_counties_task)
-
-        return {
-            "success": True,
-            "message": "Recalculation started in background. Refresh the page in a few moments.",
-        }
     except Exception as e:
-        logger.exception("Error starting recalculation: %s", e)
+        logger.exception("Error starting recalculation")
         return {
             "success": False,
             "error": str(e),
+        }
+    else:
+        return {
+            "success": True,
+            "message": "Recalculation started in background. Refresh the page in a few moments.",
         }
 
 
@@ -144,11 +143,14 @@ async def calculate_visited_counties_task():
     logger.info("Starting county visited calculation...")
     start_time = datetime.now(UTC)
 
+    def _raise_runtime_error(message: str) -> None:
+        raise RuntimeError(message)
+
     try:
         topology_document = await get_county_topology_document()
         if not topology_document or "topology" not in topology_document:
             msg = "County topology could not be loaded from database"
-            raise RuntimeError(msg)
+            _raise_runtime_error(msg)
         topology = topology_document["topology"]
 
         # Convert TopoJSON to GeoJSON features
@@ -304,8 +306,8 @@ async def calculate_visited_counties_task():
             (datetime.now(UTC) - start_time).total_seconds(),
         )
 
-    except Exception as e:
-        logger.exception("Error in county calculation task: %s", e)
+    except Exception:
+        logger.exception("Error in county calculation task")
 
 
 def topojson_to_geojson(topology: dict, object_name: str) -> list[dict]:
@@ -507,10 +509,11 @@ async def get_cache_status() -> dict[str, Any]:
                 "lastUpdated": cache.updated_at,
                 "calculationTime": cache.calculation_time_seconds,
             }
+    except Exception as e:
+        logger.exception("Error getting cache status")
+        return {"error": str(e)}
+    else:
         return {
             "cached": False,
             "message": "No cache exists. Trigger recalculation.",
         }
-    except Exception as e:
-        logger.exception("Error getting cache status: %s", e)
-        return {"error": str(e)}

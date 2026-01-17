@@ -134,8 +134,8 @@ const dataManager = {
             const endTime = f?.properties?.endTime;
             const endTs = endTime ? new Date(endTime).getTime() : null;
             f.properties = f.properties || {};
-            f.properties.isRecent =
-              typeof endTs === "number" && !Number.isNaN(endTs)
+            f.properties.isRecent
+              = typeof endTs === "number" && !Number.isNaN(endTs)
                 ? now - endTs <= threshold
                 : false;
           });
@@ -340,7 +340,7 @@ const dataManager = {
       }
 
       state.metrics.renderTime = Date.now() - state.metrics.loadStartTime;
-    } catch (_error) {
+    } catch {
       window.notificationManager?.show("Error updating map data", "danger");
     } finally {
       loadingManager?.hide();

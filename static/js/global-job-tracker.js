@@ -1,3 +1,4 @@
+/* global bootstrap */
 /**
  * Global Job Tracker
  *
@@ -12,6 +13,14 @@ const API_BASE = "/api/coverage";
 // State
 let activeJob = null;
 let pollTimeout = null;
+
+function notify(message, type) {
+  if (window.utils?.showNotification) {
+    window.utils.showNotification(message, type);
+    return;
+  }
+  window.notificationManager?.show?.(message, type);
+}
 
 // =============================================================================
 // Initialization
@@ -182,7 +191,7 @@ async function cancelActiveJob() {
     await fetch(`${API_BASE}/jobs/${jobId}`, { method: "DELETE" });
     // UI update handled by polling or immediate cleanup
     stopTracking();
-    showNotification("Job cancelled", "info");
+    notify("Job cancelled", "info");
 
     // Dispatch event so page can refresh if needed
     document.dispatchEvent(
@@ -190,10 +199,10 @@ async function cancelActiveJob() {
     );
   } catch (e) {
     console.error("Failed to cancel job:", e);
-    showNotification("Failed to cancel job", "danger");
+    notify("Failed to cancel job", "danger");
     if (document.getElementById("task-progress-message")) {
-      document.getElementById("task-progress-message").textContent =
-        oldText || "Error cancelling";
+      document.getElementById("task-progress-message").textContent
+        = oldText || "Error cancelling";
     }
   }
 }
@@ -230,7 +239,7 @@ function handleJobFinished(job) {
     ? "completed successfully"
     : `failed: ${job.error || job.message}`;
 
-  showNotification(`${title} ${msg}`, success ? "success" : "danger");
+  notify(`${title} ${msg}`, success ? "success" : "danger");
 
   // Dispatch event so current page can refresh data
   document.dispatchEvent(

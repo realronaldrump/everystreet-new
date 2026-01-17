@@ -57,6 +57,9 @@ async def generate_optimal_route_with_progress(
         )
         logger.info("Route generation [%s][%d%%]: %s", task_id[:8], progress, message)
 
+    def _raise_value_error(message: str) -> None:
+        raise ValueError(message)
+
     try:
         await update_progress("initializing", 0, "Starting optimal route generation...")
 
@@ -68,7 +71,7 @@ async def generate_optimal_route_with_progress(
         coverage_area = await CoverageArea.get(location_id)
         if not coverage_area:
             msg = f"Coverage area {location_id} not found"
-            raise ValueError(msg)
+            _raise_value_error(msg)
 
         location_name = coverage_area.display_name
         if (
@@ -107,7 +110,7 @@ async def generate_optimal_route_with_progress(
             bbox = coverage_area.bounding_box
             if not (bbox and len(bbox) == 4):
                 msg = "No valid boundary for coverage area"
-                raise ValueError(msg)
+                _raise_value_error(msg)
 
         await update_progress(
             "loading_segments",
@@ -206,14 +209,12 @@ async def generate_optimal_route_with_progress(
                     "Graph downloaded successfully, loading...",
                 )
             except Exception as e:
-                logger.exception("Failed to auto-generate graph: %s", e)
+                logger.exception("Failed to auto-generate graph")
                 msg = (
                     f"Failed to download street network from OpenStreetMap: {e}. "
                     f"This may be due to rate limiting or network issues. Please try again later."
                 )
-                raise ValueError(
-                    msg,
-                )
+                _raise_value_error(msg)
 
         try:
             G = ox.load_graphml(graph_path)
@@ -227,9 +228,9 @@ async def generate_optimal_route_with_progress(
                 f"Loaded network: {G.number_of_nodes()} nodes, {G.number_of_edges()} edges",
             )
         except Exception as e:
-            logger.exception("Failed to load graph from disk: %s", e)
+            logger.exception("Failed to load graph from disk")
             msg = f"Failed to load street network: {e}"
-            raise ValueError(msg)
+            _raise_value_error(msg)
 
         total_segments = len(undriven)
         await update_progress(
@@ -451,8 +452,8 @@ async def generate_optimal_route_with_progress(
                             },
                         )
                         last_update = time.monotonic()
-            except Exception as e:
-                logger.exception("Batch spatial lookup failed: %s", e)
+            except Exception:
+                logger.exception("Batch spatial lookup failed")
                 # Fallback to individual lookup if batch fails (unlikely)
                 last_update = time.monotonic()
                 progress_interval = max(10, max(1, fallback_total) // 25)
@@ -495,7 +496,7 @@ async def generate_optimal_route_with_progress(
 
         if not required_reqs:
             msg = "Could not map any segments to street network"
-            raise ValueError(msg)
+            _raise_value_error(msg)
 
         await update_progress(
             "mapping_segments",
@@ -537,13 +538,13 @@ async def generate_optimal_route_with_progress(
                 req_segment_counts=req_segment_counts,
             )
         except Exception as e:
-            logger.error("Greedy solver failed: %s", e, exc_info=True)
+            logger.exception("Greedy solver failed")
             msg = f"Route solver failed: {e}"
-            raise ValueError(msg)
+            _raise_value_error(msg)
 
         if not route_coords:
             msg = "Failed to generate route coordinates"
-            raise ValueError(msg)
+            _raise_value_error(msg)
 
         # Fill gaps in the route with Valhalla driving directions
         await update_progress(
@@ -577,13 +578,13 @@ async def generate_optimal_route_with_progress(
         )
         if errors:
             msg = f"Validation failed: {'; '.join(errors)}"
-            raise ValueError(msg)
+            _raise_value_error(msg)
 
         logger.info("Route generation finished. Updating DB status to completed.")
         try:
             await tracker.complete("Route generation complete!")
-        except Exception as update_err:
-            logger.exception("Final DB progress update failed: %s", update_err)
+        except Exception:
+            logger.exception("Final DB progress update failed")
             # Use Beanie update
             update_query = OptimalRouteProgress.find_one(
                 OptimalRouteProgress.task_id == task_id,
@@ -685,5 +686,5 @@ async def save_optimal_route(
         )
         logger.info("Saved optimal route to CoverageArea %s", location_id)
 
-    except Exception as e:
-        logger.exception("Failed to save optimal route: %s", e)
+    except Exception:
+        logger.exception("Failed to save optimal route")

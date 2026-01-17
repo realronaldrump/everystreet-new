@@ -72,8 +72,8 @@ const searchManager = {
         this.navigateResults(-1);
       } else if (e.key === "Enter") {
         e.preventDefault();
-        const index =
-          this.selectedIndex >= 0
+        const index
+          = this.selectedIndex >= 0
             ? this.selectedIndex
             : this.currentResults.length > 0
               ? 0
@@ -99,8 +99,8 @@ const searchManager = {
     // Click outside to close
     document.addEventListener("click", (e) => {
       if (
-        !this.searchInput.contains(e.target) &&
-        !this.searchResults.contains(e.target)
+        !this.searchInput.contains(e.target)
+        && !this.searchResults.contains(e.target)
       ) {
         this.hideResults();
       }
@@ -188,11 +188,11 @@ const searchManager = {
       const features = data.features || [];
 
       return features.map((feature) => {
-        const locationName =
-          feature.properties.location ||
-          (locationId ? `Location ${locationId}` : "Unknown location");
-        const streetName =
-          feature.properties.street_name || feature.properties.name || "Unnamed Street";
+        const locationName
+          = feature.properties.location
+          || (locationId ? `Location ${locationId}` : "Unknown location");
+        const streetName
+          = feature.properties.street_name || feature.properties.name || "Unnamed Street";
         const segmentCount = feature.properties.segment_count;
         const segmentInfo = segmentCount
           ? ` - ${segmentCount} segment${segmentCount > 1 ? "s" : ""}`
@@ -329,8 +329,8 @@ const searchManager = {
     const spaceBelow = viewportHeight - inputRect.bottom;
     const spaceAbove = inputRect.top;
 
-    const showAbove =
-      spaceBelow < Math.min(dropdownHeight + 20, 200) && spaceAbove > spaceBelow;
+    const showAbove
+      = spaceBelow < Math.min(dropdownHeight + 20, 200) && spaceAbove > spaceBelow;
 
     if (showAbove) {
       this.searchResults.style.top = "auto";
@@ -374,8 +374,8 @@ const searchManager = {
     this.updateSelectedItem();
 
     if (
-      this.selectedIndex !== previousIndex &&
-      this.currentResults[this.selectedIndex]
+      this.selectedIndex !== previousIndex
+      && this.currentResults[this.selectedIndex]
     ) {
       const result = this.currentResults[this.selectedIndex];
       utils.announce(`${result.type}: ${result.name}`, "polite");
@@ -452,8 +452,8 @@ const searchManager = {
       }
 
       // Fit bounds to the geometry
-      const coords =
-        geometry.type === "LineString"
+      const coords
+        = geometry.type === "LineString"
           ? geometry.coordinates
           : geometry.type === "MultiLineString"
             ? geometry.coordinates.flat()

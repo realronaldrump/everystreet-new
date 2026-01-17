@@ -1,3 +1,4 @@
+/* global bootstrap, mapboxgl */
 /**
  * Trips Page Logic
  * Handles trip listing, filtering, and bulk operations
@@ -309,9 +310,9 @@ function getFilterValues() {
 
 function setupFilterListeners() {
   const inputs = document.querySelectorAll(
-    "#trip-filter-vehicle, #trip-filter-distance-min, #trip-filter-distance-max, " +
-      "#trip-filter-speed-min, #trip-filter-speed-max, #trip-filter-fuel-min, #trip-filter-fuel-max, " +
-      "#trip-filter-has-fuel"
+    "#trip-filter-vehicle, #trip-filter-distance-min, #trip-filter-distance-max, "
+      + "#trip-filter-speed-min, #trip-filter-speed-max, #trip-filter-fuel-min, #trip-filter-fuel-max, "
+      + "#trip-filter-has-fuel"
   );
 
   inputs.forEach((input) => {
@@ -655,7 +656,7 @@ const playbackState = {
   headLayerId: "modal-trip-head-point",
 };
 
-async function openTripModal(tripId) {
+function openTripModal(tripId) {
   currentTripId = tripId;
 
   // Initialize modal instance if needed
@@ -690,7 +691,7 @@ async function openTripModal(tripId) {
   tripModalInstance.show();
 }
 
-async function initTripModalMap() {
+function initTripModalMap() {
   if (tripModalMap) {
     return;
   }
@@ -771,8 +772,8 @@ async function initTripModalMap() {
     });
   } catch (e) {
     console.error("Failed to init modal map", e);
-    document.getElementById("trip-modal-map").innerHTML =
-      '<div class="alert alert-danger m-3">Failed to load map.</div>';
+    document.getElementById("trip-modal-map").innerHTML
+      = '<div class="alert alert-danger m-3">Failed to load map.</div>';
   }
 }
 

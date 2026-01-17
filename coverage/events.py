@@ -37,7 +37,11 @@ def on_event(event_type: str):
         if event_type not in _handlers:
             _handlers[event_type] = []
         _handlers[event_type].append(func)
-        logger.debug(f"Registered handler {func.__name__} for event {event_type}")
+        logger.debug(
+            "Registered handler %s for event %s",
+            func.__name__,
+            event_type,
+        )
         return func
 
     return decorator
@@ -53,16 +57,20 @@ async def emit(event_type: str, **kwargs) -> None:
     handlers = _handlers.get(event_type, [])
 
     if not handlers:
-        logger.debug(f"No handlers registered for event {event_type}")
+        logger.debug("No handlers registered for event %s", event_type)
         return
 
-    logger.info(f"Emitting event {event_type} to {len(handlers)} handlers")
+    logger.info("Emitting event %s to %d handlers", event_type, len(handlers))
 
     async def run_handler(handler) -> None:
         try:
             await handler(**kwargs)
-        except Exception as e:
-            logger.exception(f"Handler {handler.__name__} failed for {event_type}: {e}")
+        except Exception:
+            logger.exception(
+                "Handler %s failed for %s",
+                handler.__name__,
+                event_type,
+            )
 
     await asyncio.gather(*[run_handler(h) for h in handlers])
 

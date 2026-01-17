@@ -285,8 +285,8 @@ class ESStore {
     const lat = parseFloat(params.get("lat"));
     const lng = parseFloat(params.get("lng"));
     const zoom = parseFloat(params.get("zoom"));
-    const hasMapParams =
-      !Number.isNaN(lat) && !Number.isNaN(lng) && !Number.isNaN(zoom);
+    const hasMapParams
+      = !Number.isNaN(lat) && !Number.isNaN(lng) && !Number.isNaN(zoom);
     if (hasMapParams) {
       this.state.map.view = { center: [lng, lat], zoom };
     }

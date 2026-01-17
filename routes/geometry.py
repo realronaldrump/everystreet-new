@@ -41,9 +41,10 @@ def _segment_midpoint(coords: list[list[float]]) -> tuple[float, float] | None:
         try:
             mx = float((coords[0][0] + coords[-1][0]) / 2.0)
             my = float((coords[0][1] + coords[-1][1]) / 2.0)
-            return (mx, my)
         except Exception:
             return None
+        else:
+            return (mx, my)
 
 
 def calculate_max_route_gap(route_coords: list[list[float]]) -> float:

@@ -396,5 +396,5 @@ class FillupService:
             await next_fillup.save()
             logger.info("Recalculated stats for fill-up %s", next_fillup.id)
 
-        except Exception as e:
-            logger.exception("Error recalculating subsequent fillup: %s", e)
+        except Exception:
+            logger.exception("Error recalculating subsequent fillup")

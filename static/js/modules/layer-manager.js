@@ -189,10 +189,10 @@ const layerManager = {
       div.style.cursor = "move";
 
       const checkboxId = `${name}-toggle`;
-      const supportsColorPicker =
-        info.supportsColorPicker !== false && name !== "customPlaces";
-      const supportsOpacitySlider =
-        info.supportsOpacitySlider !== false && name !== "customPlaces";
+      const supportsColorPicker
+        = info.supportsColorPicker !== false && name !== "customPlaces";
+      const supportsOpacitySlider
+        = info.supportsOpacitySlider !== false && name !== "customPlaces";
       const colorValue = typeof info.color === "string" ? info.color : "#ffffff";
 
       const controls = [];
@@ -288,11 +288,11 @@ const layerManager = {
     container.addEventListener("dragstart", (e) => {
       const { target } = e;
       if (
-        target.tagName === "INPUT" ||
-        target.tagName === "LABEL" ||
-        target.closest("input") ||
-        target.closest("label") ||
-        target.closest("button")
+        target.tagName === "INPUT"
+        || target.tagName === "LABEL"
+        || target.closest("input")
+        || target.closest("label")
+        || target.closest("button")
       ) {
         e.preventDefault();
         return;
@@ -590,11 +590,11 @@ const layerManager = {
 
     const uniqueTrips = new Set();
     rendered.forEach((feature, index) => {
-      const id =
-        feature.properties?.transactionId ??
-        feature.properties?.id ??
-        feature.id ??
-        `rendered-${index}`;
+      const id
+        = feature.properties?.transactionId
+        ?? feature.properties?.id
+        ?? feature.id
+        ?? `rendered-${index}`;
       uniqueTrips.add(String(id));
     });
 

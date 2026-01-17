@@ -30,7 +30,7 @@ def format_datetime(value: Any) -> str | None:
 def normalize_value(value: Any) -> Any:
     if isinstance(value, datetime):
         return value.isoformat()
-    if isinstance(value, (ObjectId, PydanticObjectId)):
+    if isinstance(value, ObjectId | PydanticObjectId):
         return str(value)
     if isinstance(value, dict):
         return {key: normalize_value(val) for key, val in value.items()}

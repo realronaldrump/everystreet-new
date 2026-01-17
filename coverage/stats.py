@@ -147,7 +147,7 @@ async def update_area_stats(area_id: PydanticObjectId) -> CoverageArea | None:
     """
     area = await CoverageArea.get(area_id)
     if not area:
-        logger.warning(f"Area {area_id} not found for stats update")
+        logger.warning("Area %s not found for stats update", area_id)
         return None
 
     stats = await calculate_area_stats(area_id, area.area_version)
@@ -163,9 +163,11 @@ async def update_area_stats(area_id: PydanticObjectId) -> CoverageArea | None:
     await area.save()
 
     logger.info(
-        f"Updated stats for area {area.display_name}: "
-        f"{stats['driven_segments']}/{stats['total_segments']} segments, "
-        f"{stats['coverage_percentage']}% coverage",
+        "Updated stats for area %s: %s/%s segments, %s%% coverage",
+        area.display_name,
+        stats["driven_segments"],
+        stats["total_segments"],
+        stats["coverage_percentage"],
     )
 
     return area

@@ -21,9 +21,9 @@
     mapboxgl.accessToken = accessToken || window.MAPBOX_ACCESS_TOKEN;
 
     const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
-    const defaultStyle =
-      style ||
-      (theme === "light"
+    const defaultStyle
+      = style
+      || (theme === "light"
         ? "mapbox://styles/mapbox/light-v11"
         : "mapbox://styles/mapbox/dark-v11");
 

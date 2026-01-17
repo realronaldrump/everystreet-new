@@ -184,7 +184,6 @@ class AreaSegmentIndex:
         if not self._built or not self.strtree or not self.segments:
             return set()
 
-        buffer_degrees = buffer_meters / 111139  # approx conversion
         matched_ids: set[str] = set()
 
         # Match each trip individually - faster than union + single query
@@ -193,18 +192,36 @@ class AreaSegmentIndex:
                 continue
 
             # Buffer the trip line
-            trip_buffer = trip_line.buffer(buffer_degrees)
+            trip_buffer_wgs84 = trip_line.buffer(buffer_meters / 111139)
+            trip_meters = transform(self.to_meters, trip_line)
+            trip_buffer_meters = trip_meters.buffer(buffer_meters)
 
             # Query STRtree for candidates
-            candidate_indices = self.strtree.query(trip_buffer)
+            candidate_indices = self.strtree.query(trip_buffer_wgs84)
 
             # Check each candidate
             for idx in candidate_indices:
                 segment_id = self.segments[idx].segment_id
                 if segment_id in matched_ids:
                     continue  # Already matched
-                segment_geom = self.segment_geoms[idx]
-                if trip_buffer.intersects(segment_geom):
+                segment_meters = self.segment_geoms_meters[idx]
+                if not trip_buffer_meters.intersects(segment_meters):
+                    continue
+
+                intersection = trip_buffer_meters.intersection(segment_meters)
+                if intersection.is_empty:
+                    continue
+
+                intersection_length = intersection.length
+                segment_length = segment_meters.length
+                if segment_length <= 0:
+                    continue
+
+                required_overlap = min(
+                    min_overlap_meters,
+                    segment_length * short_segment_ratio,
+                )
+                if intersection_length >= required_overlap:
                     matched_ids.add(segment_id)
 
         return matched_ids
@@ -406,12 +423,13 @@ def check_segment_overlap(
             min_overlap_meters,
             segment_length * short_segment_ratio,
         )
+        meets_overlap = intersection_length >= required_overlap
 
-        return intersection_length >= required_overlap
-
-    except Exception as e:
-        logger.debug(f"Error checking segment overlap: {e}")
+    except Exception:
+        logger.debug("Error checking segment overlap")
         return False
+    else:
+        return meets_overlap
 
 
 def _buffer_to_geojson(buffer_geom: BaseGeometry) -> dict[str, Any] | None:
@@ -458,14 +476,16 @@ async def find_matching_segments(
     if area_version is not None:
         query["area_version"] = area_version
 
-    matched_segment_ids = []
-
-    async for street in Street.find(query):
-        if check_segment_overlap(street.geometry, trip_buffer_meters, to_meters):
-            matched_segment_ids.append(street.segment_id)
+    matched_segment_ids = [
+        street.segment_id
+        async for street in Street.find(query)
+        if check_segment_overlap(street.geometry, trip_buffer_meters, to_meters)
+    ]
 
     logger.debug(
-        f"Found {len(matched_segment_ids)} matching segments for trip in area {area_id}",
+        "Found %d matching segments for trip in area %s",
+        len(matched_segment_ids),
+        area_id,
     )
 
     return matched_segment_ids

@@ -66,7 +66,7 @@ async def get_persisted_app_settings() -> AppSettings:
         if settings is None:
             settings = AppSettings(**DEFAULT_APP_SETTINGS)
             await settings.insert()
-    except Exception as e:
+    except Exception:
         logger.exception("Error fetching app settings")
         return AppSettings(**DEFAULT_APP_SETTINGS)
     else:
@@ -85,7 +85,7 @@ async def get_app_settings_endpoint():
         settings = await get_persisted_app_settings()
         payload = settings.model_dump()
         payload.pop("mapbox_access_token", None)
-    except Exception as e:
+    except Exception:
         logger.exception("Error fetching app settings via API")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -121,7 +121,7 @@ async def update_app_settings_endpoint(settings: Annotated[dict, Body()]):
             payload = DEFAULT_APP_SETTINGS.copy()
             payload.update(settings)
             await AppSettings(**payload).insert()
-    except Exception as e:
+    except Exception:
         logger.exception("Error updating app settings via API")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

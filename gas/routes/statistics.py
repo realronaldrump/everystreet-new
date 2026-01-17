@@ -22,7 +22,7 @@ async def get_gas_statistics(
         return await StatisticsService.get_gas_statistics(imei, start_date, end_date)
 
     except Exception as e:
-        logger.exception("Error calculating gas statistics: %s", e)
+        logger.exception("Error calculating gas statistics")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -33,5 +33,5 @@ async def sync_vehicles_from_trips() -> dict[str, Any]:
         return await StatisticsService.sync_vehicles_from_trips()
 
     except Exception as e:
-        logger.exception("Error syncing vehicles: %s", e)
+        logger.exception("Error syncing vehicles")
         raise HTTPException(status_code=500, detail=str(e))

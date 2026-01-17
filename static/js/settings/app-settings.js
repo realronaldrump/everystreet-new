@@ -57,8 +57,8 @@ export function setupAppSettingsForm() {
       widgetEditing,
     } = settings;
 
-    const isDarkMode =
-      document.documentElement.getAttribute("data-bs-theme") === "dark";
+    const isDarkMode
+      = document.documentElement.getAttribute("data-bs-theme") === "dark";
 
     // Apply settings to form elements
     if (darkModeToggle) {
@@ -86,26 +86,26 @@ export function setupAppSettingsForm() {
       }
     }
 
-    const storedAccent =
-      accentColor || localStorage.getItem("es:accent-color") || "#7c9d96";
+    const storedAccent
+      = accentColor || localStorage.getItem("es:accent-color") || "#7c9d96";
     if (accentColorPicker) {
       accentColorPicker.value = storedAccent;
     }
-    const densityValue =
-      uiDensity || localStorage.getItem("es:ui-density") || "comfortable";
+    const densityValue
+      = uiDensity || localStorage.getItem("es:ui-density") || "comfortable";
     densityOptions.forEach((input) => {
       input.checked = input.value === densityValue;
     });
-    const motionValue =
-      motionMode || localStorage.getItem("es:motion-mode") || "balanced";
+    const motionValue
+      = motionMode || localStorage.getItem("es:motion-mode") || "balanced";
     motionOptions.forEach((input) => {
       input.checked = input.value === motionValue;
     });
     if (widgetEditToggle) {
-      const storedWidgetEditing =
-        widgetEditing ?? localStorage.getItem("es:widget-editing");
-      widgetEditToggle.checked =
-        storedWidgetEditing === true || storedWidgetEditing === "true";
+      const storedWidgetEditing
+        = widgetEditing ?? localStorage.getItem("es:widget-editing");
+      widgetEditToggle.checked
+        = storedWidgetEditing === true || storedWidgetEditing === "true";
     }
 
     window.personalization?.applyPreferences?.({

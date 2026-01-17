@@ -1,3 +1,4 @@
+/* global module */
 (() => {
   const DEFAULT_FETCH_CONCURRENCY = 12;
 

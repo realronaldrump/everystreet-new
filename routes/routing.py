@@ -31,7 +31,7 @@ async def route_endpoint(payload: RouteRequest) -> dict[str, Any]:
             [(origin[0], origin[1]), (destination[0], destination[1])],
         )
     except Exception as exc:
-        logger.exception("Routing request failed: %s", exc)
+        logger.exception("Routing request failed")
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
     geometry = result.get("geometry")
@@ -53,7 +53,7 @@ async def eta_endpoint(payload: EtaRequest) -> dict[str, Any]:
     try:
         result = await client.route(payload.waypoints)
     except Exception as exc:
-        logger.exception("ETA request failed: %s", exc)
+        logger.exception("ETA request failed")
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
     return {"duration": result.get("duration_seconds", 0)}

@@ -41,10 +41,10 @@ export function setupManualFetchTripsForm(taskManager) {
     const endDate = new Date(endValue);
 
     if (
-      !startDate ||
-      !endDate ||
-      Number.isNaN(startDate.getTime()) ||
-      Number.isNaN(endDate.getTime())
+      !startDate
+      || !endDate
+      || Number.isNaN(startDate.getTime())
+      || Number.isNaN(endDate.getTime())
     ) {
       if (statusEl) {
         statusEl.textContent = "Invalid date selection.";
@@ -178,8 +178,8 @@ export function setupGeocodeTrips() {
           if (!progressResponse.ok) {
             clearInterval(pollInterval);
             geocodeBtn.disabled = false;
-            const errorMessage =
-              progressResponse.status === 404
+            const errorMessage
+              = progressResponse.status === 404
                 ? "Geocoding task not found."
                 : "Unable to retrieve geocoding progress.";
             if (statusEl) {

@@ -90,10 +90,10 @@ const TurnByTurnAPI = {
    */
   async fetchDirectionsToPoint(origin, destination) {
     const isValidCoord = (coord) =>
-      Array.isArray(coord) &&
-      coord.length === 2 &&
-      Number.isFinite(coord[0]) &&
-      Number.isFinite(coord[1]);
+      Array.isArray(coord)
+      && coord.length === 2
+      && Number.isFinite(coord[0])
+      && Number.isFinite(coord[1]);
 
     if (!isValidCoord(origin) || !isValidCoord(destination)) {
       return null;

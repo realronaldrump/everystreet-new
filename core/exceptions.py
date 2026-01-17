@@ -7,7 +7,7 @@ client-side error recovery.
 """
 
 
-class EveryStreetException(Exception):
+class EveryStreetError(Exception):
     """Base exception for all application-specific errors."""
 
     def __init__(self, message: str, details: dict | None = None) -> None:
@@ -16,29 +16,39 @@ class EveryStreetException(Exception):
         super().__init__(self.message)
 
 
-class ValidationException(EveryStreetException):
+class ValidationError(EveryStreetError):
     """Exception raised when data validation fails."""
 
 
-class ExternalServiceException(EveryStreetException):
+class ExternalServiceError(EveryStreetError):
     """Exception raised when external service calls fail."""
 
 
-class RateLimitException(ExternalServiceException):
+class RateLimitError(ExternalServiceError):
     """Exception raised when rate limits are exceeded."""
 
 
-class AuthenticationException(EveryStreetException):
+class AuthenticationError(EveryStreetError):
     """Exception raised when authentication fails."""
 
 
-class AuthorizationException(EveryStreetException):
+class AuthorizationError(EveryStreetError):
     """Exception raised when authorization fails."""
 
 
-class ResourceNotFoundException(EveryStreetException):
+class ResourceNotFoundError(EveryStreetError):
     """Exception raised when a requested resource is not found."""
 
 
-class DuplicateResourceException(EveryStreetException):
+class DuplicateResourceError(EveryStreetError):
     """Exception raised when attempting to create a duplicate resource."""
+
+
+EveryStreetException = EveryStreetError
+ValidationException = ValidationError
+ExternalServiceException = ExternalServiceError
+RateLimitException = RateLimitError
+AuthenticationException = AuthenticationError
+AuthorizationException = AuthorizationError
+ResourceNotFoundException = ResourceNotFoundError
+DuplicateResourceException = DuplicateResourceError

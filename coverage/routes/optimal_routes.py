@@ -100,6 +100,14 @@ async def get_worker_status():
     try:
         redis = await get_arq_pool()
         heartbeat = await redis.get("arq:worker:heartbeat")
+    except Exception as e:
+        logger.exception("Failed to check worker status")
+        return {
+            "status": "error",
+            "message": f"Failed to check worker status: {e}",
+            "workers": [],
+        }
+    else:
         if heartbeat:
             last_seen = (
                 heartbeat.decode("utf-8") if isinstance(heartbeat, bytes) else heartbeat
@@ -114,14 +122,6 @@ async def get_worker_status():
             "message": "No ARQ worker heartbeat detected. Worker may be offline.",
             "workers": [],
             "recommendation": "Check that the ARQ worker is running",
-        }
-
-    except Exception as e:
-        logger.exception("Failed to check worker status: %s", e)
-        return {
-            "status": "error",
-            "message": f"Failed to check worker status: {e}",
-            "workers": [],
         }
 
 
@@ -429,7 +429,7 @@ async def stream_optimal_route_progress(task_id: str):
                     break
 
             except Exception as e:
-                logger.error("SSE progress error: %s", e, exc_info=True)
+                logger.exception("SSE progress error")
                 error_data = {"error": str(e), "status": "failed"}
                 yield f"data: {json.dumps(error_data)}\n\n"
                 # If we hit a critical error, maybe we should break?

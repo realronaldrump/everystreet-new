@@ -89,7 +89,7 @@ def get_api_semaphore(loop: asyncio.AbstractEventLoop) -> asyncio.Semaphore:
 async def fetch_bridge_route(
     from_xy: tuple[float, float],
     to_xy: tuple[float, float],
-    timeout: float = 30.0,
+    request_timeout: float = 30.0,
 ) -> list[list[float]] | None:
     """
     Get driveable route between two points via Valhalla routing API.
@@ -97,7 +97,7 @@ async def fetch_bridge_route(
     Args:
         from_xy: (lon, lat) of start point
         to_xy: (lon, lat) of end point
-        timeout: Request timeout in seconds
+        request_timeout: Request timeout in seconds
 
     Returns:
         List of [lon, lat] coordinates for the route, or None if failed
@@ -117,7 +117,7 @@ async def fetch_bridge_route(
         semaphore = get_api_semaphore(loop)
         async with semaphore:
             client = await get_valhalla_client()
-            response = await client.post(url, json=payload, timeout=timeout)
+            response = await client.post(url, json=payload, timeout=request_timeout)
             response.raise_for_status()
             data = response.json()
 
@@ -142,9 +142,9 @@ async def fetch_bridge_route(
     except httpx.HTTPStatusError as e:
         logger.exception("Valhalla routing HTTP error: %s", e.response.status_code)
         return None
-    except httpx.RequestError as e:
-        logger.exception("Valhalla routing request error: %s", e)
+    except httpx.RequestError:
+        logger.exception("Valhalla routing request error")
         return None
-    except Exception as e:
-        logger.exception("Unexpected error fetching bridge route: %s", e)
+    except Exception:
+        logger.exception("Unexpected error fetching bridge route")
         return None

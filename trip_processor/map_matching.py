@@ -122,7 +122,7 @@ class TripMapMatcher:
             else:
                 logger.info("No valid matchedGps data for trip %s", transaction_id)
 
-            return True, processed_data
+            result = (True, processed_data)
 
         except Exception as e:
             error_message = f"Unexpected map matching error: {e!s}"
@@ -132,6 +132,8 @@ class TripMapMatcher:
             )
             state_machine.set_state(TripState.FAILED, error_message)
             return False, processed_data
+        else:
+            return result
 
     def _validate_matched_geometry(
         self,

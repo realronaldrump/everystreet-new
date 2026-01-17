@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from typing import ClassVar
 
 from arq import cron
 
@@ -57,7 +58,7 @@ async def on_shutdown(ctx: dict) -> None:
 
 
 class WorkerSettings:
-    functions = [
+    functions: ClassVar[list[object]] = [
         periodic_fetch_trips,
         fetch_trip_by_transaction_id,
         manual_fetch_trips_range,
@@ -69,7 +70,7 @@ class WorkerSettings:
         generate_optimal_route,
         worker_heartbeat,
     ]
-    cron_jobs = [
+    cron_jobs: ClassVar[list[object]] = [
         cron(cron_periodic_fetch_trips),
         cron(cron_cleanup_stale_trips),
         cron(cron_validate_trips),

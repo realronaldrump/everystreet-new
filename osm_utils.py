@@ -108,9 +108,10 @@ def _shape_from_geojson(geojson: dict[str, Any]) -> BaseGeometry | None:
         geom = shape(geojson)
         if not geom.is_valid:
             geom = geom.buffer(0)
-        return geom if not geom.is_empty else None
     except Exception:
         return None
+    else:
+        return geom if not geom.is_empty else None
 
 
 def _boundary_from_location(location: dict[str, Any]) -> BaseGeometry | None:
@@ -275,15 +276,11 @@ async def generate_geojson_osm(
                     osm_type_label,
                     bson_size_estimate,
                 )
-        except Exception as db_error:
-            logger.error(
-                "Error interacting with OSM data cache: %s",
-                db_error,
-                exc_info=True,
-            )
-
-        return geojson_data, None
+        except Exception:
+            logger.exception("Error interacting with OSM data cache")
 
     except Exception as e:
-        logger.exception("Unexpected error generating GeoJSON: %s", e)
+        logger.exception("Unexpected error generating GeoJSON")
         return None, f"Unexpected error generating GeoJSON: {e!s}"
+
+    return geojson_data, None

@@ -192,7 +192,7 @@ export class TaskManager {
    * @param {string} taskId - ID of the task to run
    * @returns {Promise<boolean>} True if task started successfully
    */
-  async runTask(taskId) {
+  runTask(taskId) {
     return apiRunTask(
       taskId,
       { notifier: this.notifier, activeTasksMap: this.activeTasksMap },
@@ -205,7 +205,7 @@ export class TaskManager {
    * @param {string} taskId - ID of the task to stop
    * @returns {Promise<boolean>} True if task stopped successfully
    */
-  async forceStopTask(taskId) {
+  forceStopTask(taskId) {
     return apiForceStopTask(taskId, { notifier: this.notifier }, () =>
       this.loadTaskConfig()
     );
@@ -218,7 +218,7 @@ export class TaskManager {
    * @param {boolean} mapMatch - Whether to map match the trips
    * @returns {Promise<boolean>} True if fetch scheduled successfully
    */
-  async scheduleManualFetch(startIso, endIso, mapMatch) {
+  scheduleManualFetch(startIso, endIso, mapMatch) {
     return apiScheduleManualFetch(
       startIso,
       endIso,
@@ -231,7 +231,7 @@ export class TaskManager {
   /**
    * Clear all task history
    */
-  async clearTaskHistory() {
+  clearTaskHistory() {
     return apiClearTaskHistory({ notifier: this.notifier }, async () => {
       this.currentHistoryPage = 1;
       await this.updateTaskHistory();

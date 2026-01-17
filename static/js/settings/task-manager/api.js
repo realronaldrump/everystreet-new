@@ -13,7 +13,7 @@ import { showDependencyErrorModal } from "./modals.js";
  * @returns {Promise<Object>} Task configuration object
  * @throws {Error} If the request fails
  */
-export async function fetchTaskConfig() {
+export function fetchTaskConfig() {
   return apiClient.get(API_ENDPOINTS.CONFIG);
 }
 
@@ -24,7 +24,7 @@ export async function fetchTaskConfig() {
  * @returns {Promise<Object>} History data with pagination info
  * @throws {Error} If the request fails
  */
-export async function fetchTaskHistory(page, limit) {
+export function fetchTaskHistory(page, limit) {
   return apiClient.get(`${API_ENDPOINTS.HISTORY}?page=${page}&limit=${limit}`);
 }
 
@@ -34,7 +34,7 @@ export async function fetchTaskHistory(page, limit) {
  * @returns {Promise<Object>} Server response
  * @throws {Error} If the request fails
  */
-export async function submitTaskConfigUpdate(config) {
+export function submitTaskConfigUpdate(config) {
   return apiClient.post(API_ENDPOINTS.CONFIG, config);
 }
 
@@ -123,8 +123,8 @@ export async function forceStopTask(taskId, context, onSuccess) {
   const confirmMessage = `Force stop task ${taskId}? This will reset its status.`;
 
   if (
-    window.confirmationDialog &&
-    typeof window.confirmationDialog.show === "function"
+    window.confirmationDialog
+    && typeof window.confirmationDialog.show === "function"
   ) {
     confirmed = await window.confirmationDialog.show({
       title: "Force Stop Task",
@@ -220,7 +220,7 @@ export async function scheduleManualFetch(
  * @returns {Promise<Object>} Task details
  * @throws {Error} If the request fails
  */
-export async function fetchTaskDetails(taskId) {
+export function fetchTaskDetails(taskId) {
   return apiClient.get(`${API_ENDPOINTS.DETAILS}/${taskId}`);
 }
 
@@ -236,8 +236,8 @@ export async function clearTaskHistory(context, onSuccess) {
   let confirmed = true;
 
   if (
-    window.confirmationDialog &&
-    typeof window.confirmationDialog.show === "function"
+    window.confirmationDialog
+    && typeof window.confirmationDialog.show === "function"
   ) {
     confirmed = await window.confirmationDialog.show({
       title: "Clear Task History",

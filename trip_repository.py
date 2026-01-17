@@ -175,8 +175,8 @@ class TripRepository:
             await self._emit_coverage_if_needed(trip)
             return str(trip.id)
 
-        except Exception as e:
-            logger.exception("Error saving trip: %s", e)
+        except Exception:
+            logger.exception("Error saving trip")
             return None
 
     @staticmethod
@@ -338,9 +338,12 @@ class TripRepository:
                 if existing_val is None or incoming[key] > existing_val:
                     setattr(trip, key, incoming[key])
 
-        if "startOdometer" in incoming and incoming["startOdometer"] is not None:
-            if existing.get("startOdometer") is None:
-                trip.startOdometer = incoming["startOdometer"]
+        if (
+            "startOdometer" in incoming
+            and incoming["startOdometer"] is not None
+            and existing.get("startOdometer") is None
+        ):
+            trip.startOdometer = incoming["startOdometer"]
 
         prefer_incoming = {
             "vin",

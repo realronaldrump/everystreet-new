@@ -66,16 +66,16 @@ export function calculateStateStats() {
         const lastVisit = visits.lastVisit ? new Date(visits.lastVisit) : null;
 
         if (
-          firstVisit &&
-          (!stateStats[stateFips].firstVisit ||
-            firstVisit < stateStats[stateFips].firstVisit)
+          firstVisit
+          && (!stateStats[stateFips].firstVisit
+            || firstVisit < stateStats[stateFips].firstVisit)
         ) {
           stateStats[stateFips].firstVisit = firstVisit;
         }
         if (
-          lastVisit &&
-          (!stateStats[stateFips].lastVisit ||
-            lastVisit > stateStats[stateFips].lastVisit)
+          lastVisit
+          && (!stateStats[stateFips].lastVisit
+            || lastVisit > stateStats[stateFips].lastVisit)
         ) {
           stateStats[stateFips].lastVisit = lastVisit;
         }
@@ -241,8 +241,8 @@ export function setupStateStatsToggle() {
 
       // Render stats on first open
       if (
-        (!isExpanded && content.innerHTML.trim() === "") ||
-        content.querySelector("#state-list").innerHTML.trim() === ""
+        (!isExpanded && content.innerHTML.trim() === "")
+        || content.querySelector("#state-list").innerHTML.trim() === ""
       ) {
         renderStateStatsList();
       }

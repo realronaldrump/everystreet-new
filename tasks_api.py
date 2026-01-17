@@ -108,7 +108,7 @@ async def _task_schedule_action(
     try:
         result = await update_task_schedule(payload)
     except Exception as exc:
-        logger.exception("Error attempting to %s: %s", action, exc)
+        logger.exception("Error attempting to %s", action)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(exc),
@@ -209,8 +209,7 @@ async def get_background_tasks_config():
         return await _build_task_snapshot()
     except Exception as e:
         logger.exception(
-            "Error getting task configuration: %s",
-            str(e),
+            "Error getting task configuration",
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -332,9 +331,13 @@ async def get_task_details(task_id: str):
     run_count = await TaskHistory.find(TaskHistory.task_id == task_id).count()
 
     next_run = None
-    if config.enabled and config.interval_minutes and config.interval_minutes > 0:
-        if config.last_run:
-            next_run = config.last_run + timedelta(minutes=int(config.interval_minutes))
+    if (
+        config.enabled
+        and config.interval_minutes
+        and config.interval_minutes > 0
+        and config.last_run
+    ):
+        next_run = config.last_run + timedelta(minutes=int(config.interval_minutes))
 
     return {
         "task_id": task_id,
@@ -388,7 +391,7 @@ async def get_task_history(page: int = 1, limit: int = 10):
             "limit": limit,
         }
     except Exception as e:
-        logger.exception("Error getting task history: %s", e)
+        logger.exception("Error getting task history")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),
@@ -404,16 +407,17 @@ async def clear_task_history():
             "Cleared %d task history entries",
             result.deleted_count,
         )
-        return {
-            "message": f"Successfully cleared {result.deleted_count} task history entries",
-            "deleted_count": result.deleted_count,
-        }
     except Exception as e:
-        logger.exception("Error clearing task history: %s", e)
+        logger.exception("Error clearing task history")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),
         )
+    else:
+        return {
+            "message": f"Successfully cleared {result.deleted_count} task history entries",
+            "deleted_count": result.deleted_count,
+        }
 
 
 @router.post("/api/background_tasks/force_stop")
@@ -490,7 +494,7 @@ async def fetch_trips_manual(data: FetchTripsRangeRequest):
             "job_id": result.get("job_id"),
         }
     except Exception as e:
-        logger.exception("Error fetching trips manually: %s", e)
+        logger.exception("Error fetching trips manually")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),
@@ -513,7 +517,7 @@ async def fetch_all_missing_trips(data: Annotated[dict, Body()]):
             "job_id": result.get("job_id"),
         }
     except Exception as e:
-        logger.exception("Error starting fetch_all_missing_trips: %s", e)
+        logger.exception("Error starting fetch_all_missing_trips")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),
@@ -563,8 +567,8 @@ async def stream_background_tasks_updates():
                 last_config = current_config
                 await asyncio.sleep(1)
 
-            except Exception as e:
-                logger.exception("Error in background tasks SSE: %s", e)
+            except Exception:
+                logger.exception("Error in background tasks SSE")
                 await asyncio.sleep(1)
 
     return StreamingResponse(

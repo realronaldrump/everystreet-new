@@ -29,8 +29,8 @@ export class DrivingNavigationAPI {
     // Check cache, but only use it if it has data
     // This prevents empty arrays from being permanently cached
     if (
-      Array.isArray(window.coverageNavigatorAreas) &&
-      window.coverageNavigatorAreas.length > 0
+      Array.isArray(window.coverageNavigatorAreas)
+      && window.coverageNavigatorAreas.length > 0
     ) {
       return window.coverageNavigatorAreas;
     }
@@ -52,7 +52,7 @@ export class DrivingNavigationAPI {
    * @param {string} areaId - Coverage area ID
    * @returns {Promise<Object>} GeoJSON FeatureCollection of undriven streets
    */
-  async fetchUndrivenStreets(areaId) {
+  fetchUndrivenStreets(areaId) {
     return apiClient.get(`/api/coverage/areas/${areaId}/streets/all?status=undriven`);
   }
 
@@ -64,7 +64,7 @@ export class DrivingNavigationAPI {
    * @param {string} [params.segmentId] - Optional specific segment to navigate to
    * @returns {Promise<Object>} Route data with geometry and target street info
    */
-  async findNextRoute({ location, currentPosition, segmentId }) {
+  findNextRoute({ location, currentPosition, segmentId }) {
     const requestPayload = {
       location,
       ...(currentPosition && { current_position: currentPosition }),
@@ -84,7 +84,7 @@ export class DrivingNavigationAPI {
    * @param {number} [params.minClusterSize=2] - Minimum cluster size
    * @returns {Promise<Object>} Cluster suggestions data
    */
-  async findEfficientClusters(
+  findEfficientClusters(
     areaId,
     { currentLat, currentLon, topN = 3, minClusterSize = 2 }
   ) {
@@ -108,7 +108,8 @@ export class DrivingNavigationAPI {
     let message = "An unknown error occurred.";
 
     if (error instanceof Error) {
-      message = error.message;
+      const { message: errorMessage } = error;
+      message = errorMessage;
     } else if (error instanceof Response) {
       try {
         const err = await error.json();

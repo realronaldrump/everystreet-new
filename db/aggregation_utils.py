@@ -184,9 +184,7 @@ def organize_by_multiple_dimensions(
                 row[dim] = result["_id"][dim]
 
         # Extract value fields
-        for key, value in result.items():
-            if key != "_id":
-                row[key] = value
+        row.update({key: value for key, value in result.items() if key != "_id"})
 
         output.append(row)
 

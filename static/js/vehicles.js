@@ -283,10 +283,10 @@
     }
 
     // Name and subtitle
-    const displayName =
-      vehicle.custom_name ||
-      `${vehicle.year || ""} ${vehicle.make || ""} ${vehicle.model || ""}`.trim() ||
-      "My Vehicle";
+    const displayName
+      = vehicle.custom_name
+      || `${vehicle.year || ""} ${vehicle.make || ""} ${vehicle.model || ""}`.trim()
+      || "My Vehicle";
     elements.vehicleName.textContent = displayName;
 
     const subtitle = vehicle.custom_name
@@ -296,11 +296,11 @@
 
     // Status badge
     if (vehicle.is_active) {
-      elements.vehicleStatusBadge.innerHTML =
-        '<span class="badge bg-success">Active</span>';
+      elements.vehicleStatusBadge.innerHTML
+        = '<span class="badge bg-success">Active</span>';
     } else {
-      elements.vehicleStatusBadge.innerHTML =
-        '<span class="badge bg-secondary">Inactive</span>';
+      elements.vehicleStatusBadge.innerHTML
+        = '<span class="badge bg-secondary">Inactive</span>';
     }
 
     // Info grid
@@ -328,8 +328,8 @@
       }
     } else {
       elements.currentOdometer.textContent = "--";
-      elements.odometerSource.innerHTML =
-        '<i class="fas fa-info-circle me-1"></i>No reading yet';
+      elements.odometerSource.innerHTML
+        = '<i class="fas fa-info-circle me-1"></i>No reading yet';
       elements.odometerUpdated.textContent = "";
     }
 
@@ -351,8 +351,8 @@
       return;
     }
 
-    elements.bouncieOdometer.innerHTML =
-      '<span class="spinner-border spinner-border-sm" role="status"></span>';
+    elements.bouncieOdometer.innerHTML
+      = '<span class="spinner-border spinner-border-sm" role="status"></span>';
     elements.useBouncieReadingBtn.disabled = true;
 
     try {
@@ -565,8 +565,8 @@
     elements.toastBody.textContent = message;
 
     // Update icon based on type
-    const iconClass =
-      type === "success"
+    const iconClass
+      = type === "success"
         ? "fa-check-circle text-success"
         : type === "error"
           ? "fa-exclamation-circle text-danger"

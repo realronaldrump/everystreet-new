@@ -55,8 +55,8 @@ const spotlightPlugin = {
         : applyAlpha(orig.borderColor);
 
       if (
-        dataset.backgroundColor !== nextBackground ||
-        dataset.borderColor !== nextBorder
+        dataset.backgroundColor !== nextBackground
+        || dataset.borderColor !== nextBorder
       ) {
         dataset.backgroundColor = nextBackground;
         dataset.borderColor = nextBorder;
@@ -511,13 +511,13 @@ export function updateTimeDistChart() {
     return;
   }
 
-  const labels =
-    state.currentTimeView === "hour"
+  const labels
+    = state.currentTimeView === "hour"
       ? Array.from({ length: 24 }, (_, i) => formatHourLabel(i))
       : ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-  const data =
-    state.currentTimeView === "hour"
+  const data
+    = state.currentTimeView === "hour"
       ? processHourlyData(analytics.time_distribution)
       : processDailyData(analytics.weekday_distribution);
 
@@ -639,8 +639,8 @@ function processDailyData(weekdayData) {
  * @param {Object} insights - Insights data
  */
 export function calculateFuelEfficiency(insights) {
-  const mpg =
-    insights.total_distance > 0 && insights.total_fuel_consumed > 0
+  const mpg
+    = insights.total_distance > 0 && insights.total_fuel_consumed > 0
       ? insights.total_distance / insights.total_fuel_consumed
       : 0;
 

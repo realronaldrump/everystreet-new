@@ -106,13 +106,14 @@ class APIClient {
         return response;
       } catch (error) {
         // Network errors - retry
-        if (i < attempts - 1 && !error.name === "AbortError") {
+        if (i < attempts - 1 && error.name !== "AbortError") {
           await this._delay(this.retryDelay * 2 ** i);
           continue;
         }
         throw error;
       }
     }
+    throw new Error("Retry attempts exhausted");
   }
 
   /**
@@ -126,8 +127,8 @@ class APIClient {
         const contentType = response.headers.get("content-type");
         if (contentType?.includes("application/json")) {
           const errorData = await response.json();
-          errorDetail =
-            errorData.detail || errorData.error || errorData.message || errorDetail;
+          errorDetail
+            = errorData.detail || errorData.error || errorData.message || errorDetail;
         } else {
           const text = await response.text();
           errorDetail = text || errorDetail;
@@ -147,12 +148,12 @@ class APIClient {
 
     // Parse response based on content type
     if (contentType.includes("application/json")) {
-      return await response.json();
+      return response.json();
     }
     if (contentType.includes("text/")) {
-      return await response.text();
+      return response.text();
     }
-    return await response.blob();
+    return response.blob();
   }
 
   /**
@@ -173,35 +174,35 @@ class APIClient {
   /**
    * GET request
    */
-  async get(url, options = {}) {
+  get(url, options = {}) {
     return this.request(url, { ...options, method: "GET" });
   }
 
   /**
    * POST request
    */
-  async post(url, body, options = {}) {
+  post(url, body, options = {}) {
     return this.request(url, { ...options, method: "POST", body });
   }
 
   /**
    * PUT request
    */
-  async put(url, body, options = {}) {
+  put(url, body, options = {}) {
     return this.request(url, { ...options, method: "PUT", body });
   }
 
   /**
    * PATCH request
    */
-  async patch(url, body, options = {}) {
+  patch(url, body, options = {}) {
     return this.request(url, { ...options, method: "PATCH", body });
   }
 
   /**
    * DELETE request
    */
-  async delete(url, options = {}) {
+  delete(url, options = {}) {
     return this.request(url, { ...options, method: "DELETE" });
   }
 

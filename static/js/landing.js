@@ -205,7 +205,8 @@
     }
 
     try {
-      let latitude, longitude;
+      let latitude,
+longitude;
 
       if (lastKnownLocation) {
         ({ latitude, longitude } = lastKnownLocation);
@@ -546,10 +547,10 @@
   function getInitialRecordIndex(entryCount) {
     const stored = getStoredValue(CONFIG.recordRotationStorageKey);
     if (
-      stored &&
-      Number.isInteger(stored.index) &&
-      stored.index >= 0 &&
-      stored.index < entryCount
+      stored
+      && Number.isInteger(stored.index)
+      && stored.index >= 0
+      && stored.index < entryCount
     ) {
       const elapsed = Date.now() - (stored.timestamp || 0);
       if (elapsed < CONFIG.recordRotationInterval) {
@@ -788,8 +789,8 @@
       if (trips.length > 0) {
         const lastTrip = trips[0];
         if (
-          lastTrip.destinationGeoPoint?.coordinates &&
-          lastTrip.destinationGeoPoint.coordinates.length >= 2
+          lastTrip.destinationGeoPoint?.coordinates
+          && lastTrip.destinationGeoPoint.coordinates.length >= 2
         ) {
           const [lon, lat] = lastTrip.destinationGeoPoint.coordinates;
           if (Number.isFinite(lat) && Number.isFinite(lon)) {

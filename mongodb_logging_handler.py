@@ -1,6 +1,6 @@
 import contextlib
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from db.models import ServerLog
@@ -64,7 +64,7 @@ class MongoDBHandler(logging.Handler):
     def _format_log_entry(self, record: logging.LogRecord) -> dict[str, Any]:
         """Format log record for Beanie ServerLog model."""
         log_entry = {
-            "timestamp": datetime.utcnow(),
+            "timestamp": datetime.now(UTC),
             "level": record.levelname,
             "logger_name": record.name,
             "message": record.getMessage(),

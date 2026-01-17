@@ -52,7 +52,7 @@ class TripValidator:
 
             state_machine.set_state(TripState.VALIDATED)
             logger.debug("Trip %s validated successfully", transaction_id)
-            return True, processed_data
+            result = (True, processed_data)
 
         except ValidationError as e:
             error_message = f"Validation error: {e}"
@@ -72,3 +72,5 @@ class TripValidator:
             )
             state_machine.set_state(TripState.FAILED, error_message)
             return False, {}
+        else:
+            return result

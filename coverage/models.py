@@ -14,7 +14,7 @@ Key models:
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, ClassVar
 
 from beanie import Document, Indexed, PydanticObjectId
 from beanie.odm.fields import IndexModel
@@ -66,7 +66,7 @@ class CoverageArea(Document):
 
     class Settings:
         name = "coverage_areas"
-        indexes = [
+        indexes: ClassVar[list[IndexModel]] = [
             IndexModel(
                 [("status", 1)],
                 name="coverage_areas_status_idx",
@@ -107,7 +107,7 @@ class Street(Document):
 
     class Settings:
         name = "streets"
-        indexes = [
+        indexes: ClassVar[list[IndexModel]] = [
             IndexModel(
                 [("area_id", 1), ("segment_id", 1)],
                 name="streets_area_segment_unique_idx",
@@ -153,7 +153,7 @@ class CoverageState(Document):
 
     class Settings:
         name = "coverage_state"
-        indexes = [
+        indexes: ClassVar[list[IndexModel]] = [
             IndexModel(
                 [("area_id", 1), ("segment_id", 1)],
                 name="coverage_state_area_segment_unique_idx",
@@ -203,7 +203,7 @@ class Job(Document):
 
     class Settings:
         name = "jobs"
-        indexes = [
+        indexes: ClassVar[list[IndexModel]] = [
             IndexModel(
                 [("area_id", 1), ("job_type", 1)],
                 name="jobs_area_type_idx",

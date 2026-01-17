@@ -57,23 +57,24 @@ async def _periodic_fetch_trips_logic(
         try:
             start_date_fetch = parse_timestamp(start_time_iso)
             end_date_fetch = parse_timestamp(end_time_iso)
-
-            if not start_date_fetch or not end_date_fetch:
-                msg = "Invalid start or end time format"
-                raise ValueError(msg)
-
-            logger.info(
-                "Event-Driven Fetch (%s): Using provided range %s to %s",
-                trigger_source,
-                start_date_fetch.isoformat(),
-                end_date_fetch.isoformat(),
-            )
-        except Exception as e:
+        except Exception:
             logger.exception(
-                "Failed to parse provided date range: %s. Falling back to default logic.",
-                e,
+                "Failed to parse provided date range. Falling back to default logic.",
             )
             start_date_fetch = None
+        else:
+            if not start_date_fetch or not end_date_fetch:
+                logger.warning(
+                    "Invalid start or end time format. Falling back to default logic.",
+                )
+                start_date_fetch = None
+            else:
+                logger.info(
+                    "Event-Driven Fetch (%s): Using provided range %s to %s",
+                    trigger_source,
+                    start_date_fetch.isoformat(),
+                    end_date_fetch.isoformat(),
+                )
     else:
         start_date_fetch = None
 
@@ -118,8 +119,8 @@ async def _periodic_fetch_trips_logic(
                     start_date_fetch.isoformat(),
                 )
 
-        except Exception as e:
-            logger.exception("Error finding latest trip: %s", e)
+        except Exception:
+            logger.exception("Error finding latest trip")
 
         if not start_date_fetch:
             start_date_fetch = now_utc - timedelta(hours=48)
@@ -161,8 +162,8 @@ async def _periodic_fetch_trips_logic(
         else:
             logger.info("Fetched %d trips in the date range", len(fetched_trips))
 
-    except Exception as fetch_err:
-        logger.exception("Error in fetch_bouncie_trips_in_range: %s", fetch_err)
+    except Exception:
+        logger.exception("Error in fetch_bouncie_trips_in_range")
         raise
 
     logger.info("Updating last_success_time in task config...")
@@ -183,8 +184,8 @@ async def _periodic_fetch_trips_logic(
         await task_config.save()
         logger.info("Successfully updated last_success_time")
 
-    except Exception as update_err:
-        logger.exception("Error updating task config: %s", update_err)
+    except Exception:
+        logger.exception("Error updating task config")
 
     try:
         trips_after_fetch = await Trip.find({"source": "bouncie"}).count()
@@ -203,8 +204,8 @@ async def _periodic_fetch_trips_logic(
             start_date_fetch.isoformat(),
             trips_recent,
         )
-    except Exception as count_err:
-        logger.exception("Error counting trips in database: %s", count_err)
+    except Exception:
+        logger.exception("Error counting trips in database")
 
     return {
         "status": "success",
@@ -367,8 +368,8 @@ async def get_earliest_trip_date() -> datetime | None:
         earliest_trip = await Trip.find().sort("startTime").first_or_none()
         if earliest_trip and earliest_trip.startTime:
             return earliest_trip.startTime
-    except Exception as e:
-        logger.exception("Error finding earliest trip date: %s", e)
+    except Exception:
+        logger.exception("Error finding earliest trip date")
     return None
 
 
@@ -416,8 +417,8 @@ async def _fetch_all_missing_trips_logic(
     try:
         initial_count = await Trip.count()
         logger.info("Current total trips in DB before fetch: %d", initial_count)
-    except Exception as e:
-        logger.exception("Error counting trips: %s", e)
+    except Exception:
+        logger.exception("Error counting trips")
 
     # We disable map matching for this bulk operation to be faster/safer,
     # or we could make it configurable. For now, let's default to False

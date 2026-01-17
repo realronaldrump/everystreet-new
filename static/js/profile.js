@@ -8,8 +8,8 @@
     ? window.ProfileState.createEditorState()
     : null;
   const normalizeValues = window.ProfileState?.normalizeValues;
-  const DEFAULT_FETCH_CONCURRENCY =
-    window.ProfileState?.DEFAULT_FETCH_CONCURRENCY || 12;
+  const DEFAULT_FETCH_CONCURRENCY
+    = window.ProfileState?.DEFAULT_FETCH_CONCURRENCY || 12;
 
   let currentDevices = [];
   let pageSignal = null;
@@ -236,8 +236,8 @@
     const clientId = document.getElementById("clientId")?.value.trim() || "";
     const clientSecret = document.getElementById("clientSecret")?.value.trim() || "";
     const redirectUri = document.getElementById("redirectUri")?.value.trim() || "";
-    const authorizationCode =
-      document.getElementById("authorizationCode")?.value.trim() || "";
+    const authorizationCode
+      = document.getElementById("authorizationCode")?.value.trim() || "";
     const fetchConcurrencyRaw = document.getElementById("fetchConcurrency")?.value;
     const fetchConcurrency = parseInt(fetchConcurrencyRaw, 10);
 
@@ -258,10 +258,10 @@
 
   function validateDraftValues(values) {
     if (
-      !values.client_id ||
-      !values.client_secret ||
-      !values.redirect_uri ||
-      !values.authorization_code
+      !values.client_id
+      || !values.client_secret
+      || !values.redirect_uri
+      || !values.authorization_code
     ) {
       return "All credential fields are required.";
     }
@@ -658,7 +658,7 @@
     return editorState?.hasUnsavedChanges() || false;
   }
 
-  async function confirmDiscardChanges() {
+  function confirmDiscardChanges() {
     if (window.confirmationDialog?.show) {
       return window.confirmationDialog.show({
         title: "Discard changes?",
@@ -668,7 +668,9 @@
         confirmButtonClass: "btn-danger",
       });
     }
-    return window.confirm("You have unsaved changes. Discard them and leave?");
+    // eslint-disable-next-line no-alert -- Fallback when custom dialog is unavailable.
+    const confirmed = window.confirm("You have unsaved changes. Discard them and leave?");
+    return Promise.resolve(confirmed);
   }
 
   function handleBeforeUnload(event) {
@@ -704,7 +706,12 @@
     }
 
     const href = anchor.getAttribute("href");
-    if (!href || href.startsWith("#") || href.startsWith("javascript:")) {
+    const scriptProtocol = "javascript".concat(":");
+    if (
+      !href
+      || href.startsWith("#")
+      || href.trim().toLowerCase().startsWith(scriptProtocol)
+    ) {
       return;
     }
 

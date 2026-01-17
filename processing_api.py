@@ -55,15 +55,15 @@ async def process_single_trip(
 @router.get("/api/trips/{trip_id}/status")
 async def get_trip_status(trip_id: str):
     """Get detailed processing status for a trip."""
+    trip = await Trip.find_one(Trip.transactionId == trip_id)
+
+    if not trip:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Trip not found",
+        )
+
     try:
-        trip = await Trip.find_one(Trip.transactionId == trip_id)
-
-        if not trip:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Trip not found",
-            )
-
         return {
             "transaction_id": trip_id,
             "collection": "trips",  # Static name
@@ -83,11 +83,7 @@ async def get_trip_status(trip_id: str):
         }
 
     except Exception as e:
-        logger.exception(
-            "Error getting trip status for %s: %s",
-            trip_id,
-            str(e),
-        )
+        logger.exception("Error getting trip status for %s", trip_id)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),
@@ -101,46 +97,42 @@ async def map_match_trips_endpoint(
     end_date: str | None = None,
 ):
     """Map match trips within a date range or a specific trip."""
-    try:
-        query = {}
-        if trip_id:
-            query["transactionId"] = trip_id
-        elif start_date and end_date:
-            # We must use proper datetime objects for Beanie queries if possible
-            # But TripService.remap_trips likely takes a query dict.
-            # Here we build criteria.
-            # If we are just calling remap_trips, we might delegate the query building?
-            # Existing code used build_calendar_date_expr which returns a Mongo $expr.
-            # Beanie find(query) supports raw mongo queries.
+    query = {}
+    if trip_id:
+        query["transactionId"] = trip_id
+    elif start_date and end_date:
+        # We must use proper datetime objects for Beanie queries if possible
+        # But TripService.remap_trips likely takes a query dict.
+        # Here we build criteria.
+        # If we are just calling remap_trips, we might delegate the query building?
+        # Existing code used build_calendar_date_expr which returns a Mongo $expr.
+        # Beanie find(query) supports raw mongo queries.
 
-            # Re-import helper if needed or construct manually
-            from db import build_calendar_date_expr
+        # Re-import helper if needed or construct manually
+        from db import build_calendar_date_expr
 
-            date_expr = build_calendar_date_expr(start_date, end_date)
-            if not date_expr:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Invalid date range",
-                )
-            query["$expr"] = date_expr
-        else:
+        date_expr = build_calendar_date_expr(start_date, end_date)
+        if not date_expr:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Either trip_id or date range is required",
+                detail="Invalid date range",
             )
+        query["$expr"] = date_expr
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Either trip_id or date range is required",
+        )
 
-        # Check if any exist first? using Beanie
-        # trip_service.remap_trips takes trip_ids list usually, or query?
-        # The previous code passed `trip_ids` list.
+    trips = await Trip.find(query).to_list()
 
-        trips = await Trip.find(query).to_list()  # Limit?
+    if not trips:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No trips found matching criteria",
+        )
 
-        if not trips:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="No trips found matching criteria",
-            )
-
+    try:
         trip_ids = [t.transactionId for t in trips if t.transactionId]
 
         result = await trip_service.remap_trips(trip_ids=trip_ids)
@@ -154,8 +146,7 @@ async def map_match_trips_endpoint(
 
     except Exception as e:
         logger.exception(
-            "Error in map_match_trips endpoint: %s",
-            str(e),
+            "Error in map_match_trips endpoint",
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -170,32 +161,32 @@ async def remap_matched_trips(
     """Remap matched trips, optionally within a date range."""
     # This function was doing complicated chunking and updates.
     # We should simplify using Beanie if possible, or just use the service.
+    if not data:
+        data = DateRangeModel(
+            start_date="",
+            end_date="",
+            interval_days=0,
+        )
+
+    from db import build_calendar_date_expr
+
+    if data.interval_days > 0:
+        end_dt = datetime.now(UTC)
+        start_dt = end_dt - timedelta(days=data.interval_days)
+        start_iso = start_dt.date().isoformat()
+        end_iso = end_dt.date().isoformat()
+
+        range_expr = build_calendar_date_expr(start_iso, end_iso)
+    else:
+        range_expr = build_calendar_date_expr(data.start_date, data.end_date)
+
+    if not range_expr:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid date range",
+        )
+
     try:
-        if not data:
-            data = DateRangeModel(
-                start_date="",
-                end_date="",
-                interval_days=0,
-            )
-
-        from db import build_calendar_date_expr
-
-        if data.interval_days > 0:
-            end_dt = datetime.now(UTC)
-            start_dt = end_dt - timedelta(days=data.interval_days)
-            start_iso = start_dt.date().isoformat()
-            end_iso = end_dt.date().isoformat()
-
-            range_expr = build_calendar_date_expr(start_iso, end_iso)
-        else:
-            range_expr = build_calendar_date_expr(data.start_date, data.end_date)
-
-        if not range_expr:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid date range",
-            )
-
         # Unset matched fields
         # Using Beanie update_many
 
@@ -226,8 +217,7 @@ async def remap_matched_trips(
 
     except Exception as e:
         logger.exception(
-            "Error in remap_matched_trips: %s",
-            str(e),
+            "Error in remap_matched_trips",
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

@@ -161,8 +161,8 @@ class ProgressTracker:
                 new_doc = self.document_model(**initial_data)
                 await new_doc.insert()
 
-        except Exception as e:
-            logger.exception("Task %s: Failed to update progress: %s", self.task_id, e)
+        except Exception:
+            logger.exception("Task %s: Failed to update progress", self.task_id)
 
     async def complete(self, message: str = "Completed") -> None:
         """
@@ -195,8 +195,8 @@ class ProgressTracker:
             doc = await self.document_model.find_one(self._get_filter())
             if doc:
                 await doc.update({"$set": update_data})
-        except Exception as e:
-            logger.exception("Task %s: Failed to mark complete: %s", self.task_id, e)
+        except Exception:
+            logger.exception("Task %s: Failed to mark complete", self.task_id)
 
     async def fail(self, error: str, message: str | None = None) -> None:
         """
@@ -231,5 +231,5 @@ class ProgressTracker:
             doc = await self.document_model.find_one(self._get_filter())
             if doc:
                 await doc.update({"$set": update_data})
-        except Exception as e:
-            logger.exception("Task %s: Failed to mark as failed: %s", self.task_id, e)
+        except Exception:
+            logger.exception("Task %s: Failed to mark as failed", self.task_id)

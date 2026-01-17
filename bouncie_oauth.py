@@ -139,8 +139,8 @@ class BouncieOAuth:
                 e.message,
             )
             return None
-        except Exception as e:
-            logger.exception("Error retrieving access token: %s", e)
+        except Exception:
+            logger.exception("Error retrieving access token")
             return None
 
     @staticmethod

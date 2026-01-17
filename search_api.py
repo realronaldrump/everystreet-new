@@ -73,10 +73,11 @@ async def geocode_search(
         )
 
         logger.info("Found %d results for query: %s", len(results), query)
-        return {"results": results, "query": query}
     except Exception as e:
-        logger.error("Error processing geocoding search: %s", e, exc_info=True)
+        logger.exception("Error processing geocoding search")
         raise HTTPException(status_code=500, detail=str(e)) from e
+    else:
+        return {"results": results, "query": query}
 
 
 @router.get("/streets")
@@ -152,10 +153,11 @@ async def search_streets(
 
         features = []
         for street_name, data in list(street_groups.items())[:limit]:
-            coordinates = []
-            for geom in data["geometries"]:
-                if geom.get("type") == "LineString":
-                    coordinates.append(geom.get("coordinates", []))
+            coordinates = [
+                geom.get("coordinates", [])
+                for geom in data["geometries"]
+                if geom.get("type") == "LineString"
+            ]
 
             if coordinates:
                 features.append(
@@ -182,7 +184,8 @@ async def search_streets(
             query,
             location_name,
         )
-        return features
     except Exception as e:
-        logger.exception("Error in search_streets: %s", e)
+        logger.exception("Error in search_streets")
         raise HTTPException(status_code=500, detail=str(e)) from e
+    else:
+        return features

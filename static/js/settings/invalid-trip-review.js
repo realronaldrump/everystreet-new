@@ -29,8 +29,8 @@ export class InvalidTripReview {
       this.renderPagination();
     } catch {
       if (this.tableBody) {
-        this.tableBody.innerHTML =
-          '<tr><td colspan="5" class="text-center text-danger">Failed to load invalid trips</td></tr>';
+        this.tableBody.innerHTML
+          = '<tr><td colspan="5" class="text-center text-danger">Failed to load invalid trips</td></tr>';
       }
     }
   }
@@ -45,8 +45,8 @@ export class InvalidTripReview {
     const pageTrips = this.trips.slice(start, end);
 
     if (pageTrips.length === 0) {
-      this.tableBody.innerHTML =
-        '<tr><td colspan="5" class="text-center">No invalid trips found</td></tr>';
+      this.tableBody.innerHTML
+        = '<tr><td colspan="5" class="text-center">No invalid trips found</td></tr>';
       return;
     }
 
