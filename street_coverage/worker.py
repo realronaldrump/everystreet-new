@@ -16,6 +16,7 @@ from typing import Any
 from beanie import PydanticObjectId
 from pymongo import UpdateOne
 
+from date_utils import get_current_utc_time, normalize_to_utc_datetime
 from street_coverage.constants import BACKFILL_BULK_WRITE_SIZE, BACKFILL_TRIP_BATCH_SIZE
 from street_coverage.events import CoverageEvents, emit_coverage_updated, on_event
 from street_coverage.matching import (
@@ -25,7 +26,6 @@ from street_coverage.matching import (
 )
 from street_coverage.models import CoverageArea, CoverageState
 from street_coverage.stats import update_area_stats
-from date_utils import get_current_utc_time, normalize_to_utc_datetime
 
 logger = logging.getLogger(__name__)
 
