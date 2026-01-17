@@ -1,8 +1,16 @@
+import sys
+from pathlib import Path
+
 import pytest
 from beanie import init_beanie
 from mongomock_motor import AsyncMongoMockClient
 
-from db.models import Trip
+ROOT = Path(__file__).resolve().parents[1]
+
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from db.models import Trip  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
