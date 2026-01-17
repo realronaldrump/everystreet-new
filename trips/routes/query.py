@@ -85,9 +85,11 @@ async def get_matched_trips(request: Request):
                     price_map,
                 ),
                 "matchStatus": trip_dict.get("matchStatus"),
-                "matched_at": trip_dict.get("matched_at").isoformat()
-                if trip_dict.get("matched_at")
-                else None,
+                "matched_at": (
+                    trip_dict.get("matched_at").isoformat()
+                    if trip_dict.get("matched_at")
+                    else None
+                ),
             }
             feature = GeometryService.feature_from_geometry(matched_geom, props)
             chunk = json.dumps(feature, separators=(",", ":"))
