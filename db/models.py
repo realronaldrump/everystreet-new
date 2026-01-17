@@ -407,17 +407,21 @@ class TaskHistory(Document):
 class ProgressStatus(Document):
     """Progress status document for long-running operations."""
 
-    # Use string ID for task_id (UUID strings)
-    id: str | None = Field(default=None, alias="_id")
+    # Allow MongoDB to auto-generate ObjectId for _id
     operation_id: str | None = None
     operation_type: str | None = None
     status: str | None = None
+    stage: str | None = None  # Added: used by geocoding service
     progress: float = 0.0
     message: str | None = None
+    error: str | None = None  # Added: used for error reporting
     started_at: datetime | None = None
     updated_at: datetime | None = None
     completed_at: datetime | None = None
     result: dict[str, Any] | None = None
+    metadata: dict[str, Any] = Field(
+        default_factory=dict
+    )  # Added: used for progress tracking
 
     class Settings:
         name = "progress_status"

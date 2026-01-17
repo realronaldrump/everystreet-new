@@ -35,59 +35,50 @@ async def get_bouncie_credentials() -> dict[str, Any]:
             - refresh_token: str | None
             - expires_at: float | None (timestamp)
     """
+    default_credentials = {
+        "client_id": "",
+        "client_secret": "",
+        "redirect_uri": "",
+        "authorization_code": "",
+        "webhook_key": "",
+        "authorized_devices": [],
+        "fetch_concurrency": 12,
+        "access_token": None,
+        "refresh_token": None,
+        "expires_at": None,
+    }
+
     try:
         credentials = await BouncieCredentials.find_one(
             BouncieCredentials.id == "bouncie_credentials",
         )
+    except Exception:
+        logger.exception("Error retrieving Bouncie credentials")
+        return default_credentials
 
-        if credentials:
-            logger.debug("Retrieved Bouncie credentials from database")
+    if credentials:
+        logger.debug("Retrieved Bouncie credentials from database")
 
-            fetch_concurrency = credentials.fetch_concurrency or 12
+        fetch_concurrency = credentials.fetch_concurrency or 12
 
-            return {
-                "client_id": credentials.client_id or "",
-                "client_secret": credentials.client_secret or "",
-                "redirect_uri": credentials.redirect_uri or "",
-                "authorization_code": credentials.authorization_code or "",
-                "webhook_key": credentials.webhook_key or "",
-                "authorized_devices": credentials.authorized_devices or [],
-                "fetch_concurrency": fetch_concurrency,
-                "access_token": credentials.access_token,
-                "refresh_token": credentials.refresh_token,
-                "expires_at": credentials.expires_at,
-            }
-
-        logger.warning(
-            "No Bouncie credentials found in database. "
-            "Please configure via profile page.",
-        )
         return {
-            "client_id": "",
-            "client_secret": "",
-            "redirect_uri": "",
-            "authorization_code": "",
-            "webhook_key": "",
-            "authorized_devices": [],
-            "fetch_concurrency": 12,
-            "access_token": None,
-            "refresh_token": None,
-            "expires_at": None,
+            "client_id": credentials.client_id or "",
+            "client_secret": credentials.client_secret or "",
+            "redirect_uri": credentials.redirect_uri or "",
+            "authorization_code": credentials.authorization_code or "",
+            "webhook_key": credentials.webhook_key or "",
+            "authorized_devices": credentials.authorized_devices or [],
+            "fetch_concurrency": fetch_concurrency,
+            "access_token": credentials.access_token,
+            "refresh_token": credentials.refresh_token,
+            "expires_at": credentials.expires_at,
         }
-    except Exception as e:
-        logger.exception("Error retrieving Bouncie credentials: %s", e)
-        return {
-            "client_id": "",
-            "client_secret": "",
-            "redirect_uri": "",
-            "authorization_code": "",
-            "webhook_key": "",
-            "authorized_devices": [],
-            "fetch_concurrency": 12,
-            "access_token": None,
-            "refresh_token": None,
-            "expires_at": None,
-        }
+
+    logger.warning(
+        "No Bouncie credentials found in database. "
+        "Please configure via profile page.",
+    )
+    return default_credentials
 
 
 async def update_bouncie_credentials(credentials: dict[str, Any]) -> bool:
@@ -105,6 +96,8 @@ async def update_bouncie_credentials(credentials: dict[str, Any]) -> bool:
     Returns:
         True if update was successful, False otherwise.
     """
+    created = False
+
     try:
         existing = await BouncieCredentials.find_one(
             BouncieCredentials.id == "bouncie_credentials",
@@ -150,55 +143,59 @@ async def update_bouncie_credentials(credentials: dict[str, Any]) -> bool:
                     existing.expires_at = value
 
             await existing.save()
-            logger.info("Successfully updated Bouncie credentials in database")
-            return True
-        new_creds = BouncieCredentials(id="bouncie_credentials")
-
-        if "client_id" in credentials:
-            new_creds.client_id = credentials["client_id"]
-        if "client_secret" in credentials:
-            new_creds.client_secret = credentials["client_secret"]
-        if "redirect_uri" in credentials:
-            new_creds.redirect_uri = credentials["redirect_uri"]
-        if "authorization_code" in credentials:
-            new_creds.authorization_code = credentials["authorization_code"]
-        if "webhook_key" in credentials and credentials["webhook_key"] is not None:
-            webhook_key = str(credentials["webhook_key"]).strip()
-            new_creds.webhook_key = webhook_key or None
-        if "authorized_devices" in credentials:
-            devices = credentials["authorized_devices"]
-            if isinstance(devices, str):
-                devices = [d.strip() for d in devices.split(",") if d.strip()]
-            elif not isinstance(devices, list):
-                devices = []
-            new_creds.authorized_devices = devices
-        if "fetch_concurrency" in credentials:
-            try:
-                fetch_concurrency = int(credentials["fetch_concurrency"])
-                if fetch_concurrency < 1:
-                    fetch_concurrency = 1
-                elif fetch_concurrency > 50:
-                    fetch_concurrency = 50
-                new_creds.fetch_concurrency = fetch_concurrency
-            except (ValueError, TypeError):
-                new_creds.fetch_concurrency = 12
         else:
-            new_creds.fetch_concurrency = 12
+            new_creds = BouncieCredentials(id="bouncie_credentials")
 
-        if "access_token" in credentials:
-            new_creds.access_token = credentials["access_token"]
-        if "refresh_token" in credentials:
-            new_creds.refresh_token = credentials["refresh_token"]
-        if "expires_at" in credentials:
-            new_creds.expires_at = credentials["expires_at"]
+            if "client_id" in credentials:
+                new_creds.client_id = credentials["client_id"]
+            if "client_secret" in credentials:
+                new_creds.client_secret = credentials["client_secret"]
+            if "redirect_uri" in credentials:
+                new_creds.redirect_uri = credentials["redirect_uri"]
+            if "authorization_code" in credentials:
+                new_creds.authorization_code = credentials["authorization_code"]
+            if "webhook_key" in credentials and credentials["webhook_key"] is not None:
+                webhook_key = str(credentials["webhook_key"]).strip()
+                new_creds.webhook_key = webhook_key or None
+            if "authorized_devices" in credentials:
+                devices = credentials["authorized_devices"]
+                if isinstance(devices, str):
+                    devices = [d.strip() for d in devices.split(",") if d.strip()]
+                elif not isinstance(devices, list):
+                    devices = []
+                new_creds.authorized_devices = devices
+            if "fetch_concurrency" in credentials:
+                try:
+                    fetch_concurrency = int(credentials["fetch_concurrency"])
+                    if fetch_concurrency < 1:
+                        fetch_concurrency = 1
+                    elif fetch_concurrency > 50:
+                        fetch_concurrency = 50
+                    new_creds.fetch_concurrency = fetch_concurrency
+                except (ValueError, TypeError):
+                    new_creds.fetch_concurrency = 12
+            else:
+                new_creds.fetch_concurrency = 12
 
-        await new_creds.insert()
-        logger.info("Successfully created Bouncie credentials in database")
-        return True
+            if "access_token" in credentials:
+                new_creds.access_token = credentials["access_token"]
+            if "refresh_token" in credentials:
+                new_creds.refresh_token = credentials["refresh_token"]
+            if "expires_at" in credentials:
+                new_creds.expires_at = credentials["expires_at"]
 
-    except Exception as e:
-        logger.exception("Error updating Bouncie credentials: %s", e)
+            await new_creds.insert()
+            created = True
+
+    except Exception:
+        logger.exception("Error updating Bouncie credentials")
         return False
+    else:
+        if created:
+            logger.info("Successfully created Bouncie credentials in database")
+        else:
+            logger.info("Successfully updated Bouncie credentials in database")
+        return True
 
 
 async def validate_bouncie_credentials(credentials: dict[str, Any]) -> tuple[bool, str]:
