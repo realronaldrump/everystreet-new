@@ -86,7 +86,8 @@ const mapControlsManager = {
         bearing: map.getBearing?.(),
         pitch: map.getPitch?.(),
       };
-      const styleChangeId = (this._styleChangeId = (this._styleChangeId || 0) + 1);
+      this._styleChangeId = (this._styleChangeId || 0) + 1;
+      const styleChangeId = this._styleChangeId;
       onStyleLoaded = () => {
         if (this._styleChangeId !== styleChangeId) {
           return;

@@ -31,7 +31,8 @@
         "noExtraBooleanCast": "error",
         "noUselessCatch": "error",
         "noUselessTypeConstraint": "error",
-        "noAdjacentSpacesInRegex": "error"
+        "noAdjacentSpacesInRegex": "error",
+        "noImportantStyles": "off"
       },
       "correctness": {
         "noUnusedVariables": "warn",
@@ -44,13 +45,15 @@
         "noParameterAssign": "warn",
         "useConst": "warn",
         "useTemplate": "warn",
-        "useImportType": "off"
+        "useImportType": "off",
+        "noDescendingSpecificity": "off"
       },
       "suspicious": {
         "noDoubleEquals": "warn",
         "noDebugger": "error",
         "noWith": "error",
-        "noConsole": { "level": "off", "options": { "allow": ["log"] } }
+        "noConsole": { "level": "off", "options": { "allow": ["log"] } },
+        "useIterableCallbackReturn": "off"
       }
     }
   },

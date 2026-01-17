@@ -330,7 +330,7 @@ class ESStore {
     });
   }
 
-  syncUrl({ push = false, replace = false } = {}) {
+  syncUrl({ push = false, replace: _replace = false } = {}) {
     if (!window.history?.replaceState) {
       return;
     }

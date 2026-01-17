@@ -22,20 +22,6 @@
   animation: modal-rise 0.4s var(--transition-spring) both;
 }
 
-.modal.show .modal-header,
-.modal.show .modal-body,
-.modal.show .modal-footer {
-  animation: modal-section-in 0.35s ease both;
-}
-
-.modal.show .modal-body {
-  animation-delay: 60ms;
-}
-
-.modal.show .modal-footer {
-  animation-delay: 120ms;
-}
-
 .modal.is-closing .modal-dialog {
   transform: translateY(10px) scale(0.98);
   opacity: 0;
@@ -72,6 +58,21 @@
   display: flex;
   gap: var(--space-3);
   justify-content: flex-end;
+}
+
+/* Animation variants - these have higher specificity intentionally */
+.modal.show .modal-header,
+.modal.show .modal-body,
+.modal.show .modal-footer {
+  animation: modal-section-in 0.35s ease both;
+}
+
+.modal.show .modal-body {
+  animation-delay: 60ms;
+}
+
+.modal.show .modal-footer {
+  animation-delay: 120ms;
 }
 
 .modal .focus-pulse {

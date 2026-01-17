@@ -49,7 +49,12 @@
   }
 }
 
-::view-transition-old(root),
+/* biome-ignore lint/correctness/noUnknownTypeSelector: 'root' is a valid view-transition-name */
+::view-transition-old(root) {
+  animation: none;
+}
+
+/* biome-ignore lint/correctness/noUnknownTypeSelector: 'root' is a valid view-transition-name */
 ::view-transition-new(root) {
   animation: none;
 }

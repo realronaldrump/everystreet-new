@@ -173,11 +173,19 @@ body[data-route="/map"] .route-content {
 }
 
 body.light-mode .hero-section {
-  background: linear-gradient(135deg, rgb(var(--primary-rgb), 0.08), rgb(var(--primary-rgb), 0.03));
+  background: linear-gradient(
+    135deg,
+    rgb(var(--primary-rgb), 0.08),
+    rgb(var(--primary-rgb), 0.03)
+  );
 }
 
 body.light-mode .hero-section::before {
-  background: radial-gradient(circle, rgb(var(--primary-rgb), 0.05) 0%, transparent 70%);
+  background: radial-gradient(
+    circle,
+    rgb(var(--primary-rgb), 0.05) 0%,
+    transparent 70%
+  );
 }
 
 /* === Stat Item (from coverage_management.html) === */
@@ -317,8 +325,8 @@ body.light-mode .live-tracking-panel-bg {
   color: var(--info);
 }
 
-/* Special highlighting for current speed */
-.metric-row:has(.metric-label:contains("Current Speed")) .metric-value {
+/* Special highlighting for current speed - use data attribute or class */
+.metric-row.metric-speed .metric-value {
   font-size: 1.1em;
   font-weight: 700;
   color: var(--warning);
