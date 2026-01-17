@@ -36,14 +36,14 @@ BackfillProgressCallback = Callable[[dict[str, Any]], Awaitable[None]]
 async def handle_trip_completed(
     trip_id: PydanticObjectId | str,
     trip_data: dict[str, Any] | None = None,
-    **kwargs,
+    **_kwargs,
 ) -> None:
     """
     Handle a trip_completed event by updating coverage.
 
     This is the main entry point for coverage updates.
     """
-    logger.info(f"Processing coverage for completed trip {trip_id}")
+    logger.info("Processing coverage for completed trip %s", trip_id)
 
     try:
         # Get trip data if not provided
@@ -52,7 +52,10 @@ async def handle_trip_completed(
 
             trip = await Trip.get(trip_id)
             if trip is None:
-                logger.warning(f"Trip {trip_id} not found, skipping coverage update")
+                logger.warning(
+                    "Trip %s not found, skipping coverage update",
+                    trip_id,
+                )
                 return
             trip_data = trip.model_dump()
 
@@ -62,7 +65,10 @@ async def handle_trip_completed(
         matches = await match_trip_to_streets(trip_data)
 
         if not matches:
-            logger.debug(f"Trip {trip_id} did not match any coverage areas")
+            logger.debug(
+                "Trip %s did not match any coverage areas",
+                trip_id,
+            )
             return
 
         # Update coverage for each area
@@ -85,12 +91,14 @@ async def handle_trip_completed(
             await emit_coverage_updated(area_id, updated)
 
         logger.info(
-            f"Trip {trip_id} updated {total_updated} segments "
-            f"across {len(matches)} areas",
+            "Trip %s updated %s segments across %s areas",
+            trip_id,
+            total_updated,
+            len(matches),
         )
 
     except Exception as e:
-        logger.exception(f"Error processing coverage for trip {trip_id}: {e}")
+        logger.exception("Error processing coverage for trip %s", trip_id)
         raise
 
 
@@ -320,6 +328,12 @@ async def backfill_coverage_for_area(
         if not progress_callback:
             return
         now = time.monotonic()
+        if (
+            not force
+            and progress_interval > 0
+            and processed_trips % progress_interval != 0
+        ):
+            return
         if not force and now - last_reported_time < progress_time_seconds:
             return
         await progress_callback(
@@ -366,9 +380,10 @@ async def backfill_coverage_for_area(
                 trip_lines.append(line)
                 # Track earliest trip date
                 trip_time = get_trip_driven_at(trip_data)
-                if trip_time:
-                    if earliest_driven_at is None or trip_time < earliest_driven_at:
-                        earliest_driven_at = trip_time
+                if trip_time and (
+                    earliest_driven_at is None or trip_time < earliest_driven_at
+                ):
+                    earliest_driven_at = trip_time
 
         processed_trips = chunk_end
         await report_progress(total_trips=total_trip_count)

@@ -778,6 +778,7 @@ async function initTripModalMap() {
 
 async function loadTripData(tripId) {
   const loadingEl = document.getElementById("trip-map-loading");
+  // Show loading overlay while fetching data
   if (loadingEl) {
     loadingEl.classList.remove("d-none");
   }
