@@ -38,6 +38,18 @@ class Trip(Document):
     """Trip document representing a driving trip record."""
 
     transactionId: Indexed(str, unique=True) | None = None
+
+    @field_validator("transactionId", mode="before")
+    @classmethod
+    def convert_object_id_to_string(cls, v: Any) -> str | None:
+        """Convert ObjectId to string for transactionId field."""
+        if v is None:
+            return None
+        # Handle ObjectId (from bson or PydanticObjectId)
+        if hasattr(v, "__str__") and not isinstance(v, str):
+            return str(v)
+        return v
+
     vin: str | None = None
     imei: str | None = None
     status: str | None = None
