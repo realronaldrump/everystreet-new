@@ -6,6 +6,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
 from config import get_mapbox_token, validate_mapbox_token
+from core.repo_info import get_repo_version_info
 from db.models import ALL_DOCUMENT_MODELS
 
 logger = logging.getLogger(__name__)
@@ -62,7 +63,11 @@ async def edit_trips_page(request: Request):
 @router.get("/settings", response_class=HTMLResponse)
 async def settings_page(request: Request):
     """Render settings page."""
-    return _render_page("settings.html", request)
+    return _render_page(
+        "settings.html",
+        request,
+        repo_version=get_repo_version_info(),
+    )
 
 
 @router.get("/profile", response_class=HTMLResponse)
