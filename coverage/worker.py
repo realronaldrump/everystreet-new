@@ -97,7 +97,7 @@ async def handle_trip_completed(
             len(matches),
         )
 
-    except Exception as e:
+    except Exception:
         logger.exception("Error processing coverage for trip %s", trip_id)
         raise
 
