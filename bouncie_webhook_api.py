@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import UTC, datetime
 from collections.abc import Awaitable, Callable
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, Request, Response, status
@@ -89,7 +89,7 @@ async def bouncie_webhook(
     """
     try:
         auth_header = request.headers.get(
-            "x-bouncie-authorization"
+            "x-bouncie-authorization",
         ) or request.headers.get("authorization")
 
         raw_body = await request.body()

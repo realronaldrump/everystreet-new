@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import csv
 import json
-from collections.abc import AsyncIterator, Callable
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from exports.serializers import normalize_value
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator, Callable
+    from pathlib import Path
 
 
 async def write_json_array(

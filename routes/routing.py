@@ -43,7 +43,7 @@ async def route_endpoint(payload: RouteRequest) -> dict[str, Any]:
             "geometry": geometry,
             "duration": result.get("duration_seconds", 0),
             "distance": result.get("distance_meters", 0),
-        }
+        },
     }
 
 

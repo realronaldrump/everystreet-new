@@ -7,12 +7,14 @@ Every Street - Export Data
 
 
 {% block extra_css %}
+
   <link rel="stylesheet"
         href="{{ url_for('static', path='css/export.css') | replace('http://', '//') }}" />
 {% endblock %}
 
 
 {% block content %}
+
   <div class="container-fluid export-page">
     <div class="hero-section">
       <div class="row align-items-center">
@@ -27,8 +29,12 @@ Every Street - Export Data
         </div>
         <div class="col-lg-4 text-lg-end mt-4 mt-lg-0">
           <div class="export-hero-meta">
-            <div class="text-secondary small">Format</div>
-            <div class="fw-semibold">Zip bundle with manifest.json</div>
+            <div class="text-secondary small">
+Format
+            </div>
+            <div class="fw-semibold">
+Zip bundle with manifest.json
+            </div>
           </div>
         </div>
       </div>
@@ -38,18 +44,26 @@ Every Street - Export Data
       <div class="col-xl-8">
         <div class="card export-card">
           <div class="card-header">
-            <h2 class="h5 mb-0">Export Configuration</h2>
+            <h2 class="h5 mb-0">
+Export Configuration
+            </h2>
           </div>
           <div class="card-body">
             <form id="export-form">
               <fieldset class="export-section">
-                <legend class="h6">Trip Data</legend>
+                <legend class="h6">
+Trip Data
+                </legend>
                 <div class="row g-3">
                   <div class="col-md-6">
                     <div class="form-check">
                       <input class="form-check-input" type="checkbox" id="export-trips" checked />
-                      <label class="form-check-label" for="export-trips">Trips</label>
-                      <div class="form-text">Raw GPS trips as stored in `trips`.</div>
+                      <label class="form-check-label" for="export-trips">
+Trips
+                      </label>
+                      <div class="form-text">
+Raw GPS trips as stored in `trips`.
+                      </div>
                     </div>
                   </div>
                   <div class="col-md-6">
@@ -58,18 +72,28 @@ Every Street - Export Data
                       <label class="form-check-label" for="export-matched-trips">
                         Matched Trips
                       </label>
-                      <div class="form-text">Trips with map-matched geometry.</div>
+                      <div class="form-text">
+Trips with map-matched geometry.
+                      </div>
                     </div>
                   </div>
                 </div>
 
                 <div class="row g-3 mt-2">
                   <div class="col-md-6">
-                    <label class="form-label" for="trip-format">Trip Export Format</label>
+                    <label class="form-label" for="trip-format">
+Trip Export Format
+                    </label>
                     <select class="form-select" id="trip-format">
-                      <option value="json" selected>JSON (full trip records)</option>
-                      <option value="csv">CSV (tabular)</option>
-                      <option value="geojson">GeoJSON (map-ready)</option>
+                      <option value="json" selected>
+JSON (full trip records)
+                      </option>
+                      <option value="csv">
+CSV (tabular)
+                      </option>
+                      <option value="geojson">
+GeoJSON (map-ready)
+                      </option>
                     </select>
                   </div>
                   <div class="col-md-6">
@@ -78,91 +102,139 @@ Every Street - Export Data
                       <label class="form-check-label" for="include-trip-geometry">
                         Include geometry in JSON/CSV
                       </label>
-                      <div class="form-text">Disabling keeps geometry fields as null.</div>
+                      <div class="form-text">
+Disabling keeps geometry fields as null.
+                      </div>
                     </div>
                   </div>
                 </div>
               </fieldset>
 
               <fieldset class="export-section">
-                <legend class="h6">Trip Filters</legend>
+                <legend class="h6">
+Trip Filters
+                </legend>
                 <div class="row g-3">
                   <div class="col-md-4">
-                    <label class="form-label" for="trip-start-date">Start Date</label>
+                    <label class="form-label" for="trip-start-date">
+Start Date
+                    </label>
                     <input type="date" class="form-control" id="trip-start-date" />
                   </div>
                   <div class="col-md-4">
-                    <label class="form-label" for="trip-end-date">End Date</label>
+                    <label class="form-label" for="trip-end-date">
+End Date
+                    </label>
                     <input type="date" class="form-control" id="trip-end-date" />
                   </div>
                   <div class="col-md-4 d-flex align-items-end">
                     <div class="form-check">
                       <input class="form-check-input" type="checkbox" id="trip-all-time" />
-                      <label class="form-check-label" for="trip-all-time">All time</label>
+                      <label class="form-check-label" for="trip-all-time">
+All time
+                      </label>
                     </div>
                   </div>
                 </div>
 
                 <div class="row g-3 mt-1">
                   <div class="col-md-4">
-                    <label class="form-label" for="trip-status">Trip Status</label>
+                    <label class="form-label" for="trip-status">
+Trip Status
+                    </label>
                     <select class="form-select" id="trip-status">
-                      <option value="">All statuses</option>
-                      <option value="processed">Processed</option>
-                      <option value="completed">Completed</option>
-                      <option value="active">Active</option>
+                      <option value="">
+All statuses
+                      </option>
+                      <option value="processed">
+Processed
+                      </option>
+                      <option value="completed">
+Completed
+                      </option>
+                      <option value="active">
+Active
+                      </option>
                     </select>
                   </div>
                   <div class="col-md-4">
-                    <label class="form-label" for="trip-vehicle">Vehicle (IMEI)</label>
-                    <input class="form-control" id="trip-vehicle" list="vehicle-options" placeholder="All vehicles" />
+                    <label class="form-label" for="trip-vehicle">
+Vehicle (IMEI)
+                    </label>
+                    <input class="form-control"
+                           id="trip-vehicle"
+                           list="vehicle-options"
+                           placeholder="All vehicles" />
                     <datalist id="vehicle-options"></datalist>
                   </div>
                   <div class="col-md-4 d-flex align-items-end">
                     <div class="form-check">
                       <input class="form-check-input" type="checkbox" id="trip-include-invalid" />
-                      <label class="form-check-label" for="trip-include-invalid">Include invalid trips</label>
+                      <label class="form-check-label" for="trip-include-invalid">
+Include invalid trips
+                      </label>
                     </div>
                   </div>
                 </div>
               </fieldset>
 
               <fieldset class="export-section">
-                <legend class="h6">Coverage Data</legend>
+                <legend class="h6">
+Coverage Data
+                </legend>
                 <div class="row g-3">
                   <div class="col-md-6">
                     <div class="form-check">
                       <input class="form-check-input" type="checkbox" id="export-streets" />
-                      <label class="form-check-label" for="export-streets">Streets</label>
-                      <div class="form-text">All street segments with status.</div>
+                      <label class="form-check-label" for="export-streets">
+Streets
+                      </label>
+                      <div class="form-text">
+All street segments with status.
+                      </div>
                     </div>
                   </div>
                   <div class="col-md-6">
                     <div class="form-check">
                       <input class="form-check-input" type="checkbox" id="export-boundaries" />
-                      <label class="form-check-label" for="export-boundaries">Boundary</label>
-                      <div class="form-text">Area polygon boundary.</div>
+                      <label class="form-check-label" for="export-boundaries">
+Boundary
+                      </label>
+                      <div class="form-text">
+Area polygon boundary.
+                      </div>
                     </div>
                   </div>
                   <div class="col-md-6">
                     <div class="form-check">
                       <input class="form-check-input" type="checkbox" id="export-undriven" />
-                      <label class="form-check-label" for="export-undriven">Undriven Streets</label>
-                      <div class="form-text">Only undriven segments.</div>
+                      <label class="form-check-label" for="export-undriven">
+Undriven Streets
+                      </label>
+                      <div class="form-text">
+Only undriven segments.
+                      </div>
                     </div>
                   </div>
                   <div class="col-md-6">
-                    <label class="form-label" for="coverage-area">Coverage Area</label>
+                    <label class="form-label" for="coverage-area">
+Coverage Area
+                    </label>
                     <select class="form-select" id="coverage-area">
-                      <option value="">Select an area</option>
+                      <option value="">
+Select an area
+                      </option>
                     </select>
                   </div>
                 </div>
-                <div class="form-text mt-2">Coverage exports are always GeoJSON.</div>
+                <div class="form-text mt-2">
+Coverage exports are always GeoJSON.
+                </div>
               </fieldset>
 
               <div class="export-actions">
-                <div class="alert alert-danger d-none" role="alert" id="export-error"></div>
+                <div class="alert alert-danger d-none" role="alert" id="export-error">
+                </div>
                 <div class="d-flex flex-wrap gap-2">
                   <button type="submit" class="btn btn-primary" id="export-submit">
                     <i class="fas fa-download me-2"></i>Create Export
@@ -180,13 +252,19 @@ Every Street - Export Data
       <div class="col-xl-4">
         <div class="card export-card export-status-card">
           <div class="card-header">
-            <h2 class="h5 mb-0">Export Status</h2>
+            <h2 class="h5 mb-0">
+Export Status
+            </h2>
           </div>
           <div class="card-body">
             <div id="export-summary" class="export-summary">
-              <div class="export-summary-title">Selected Items</div>
+              <div class="export-summary-title">
+Selected Items
+              </div>
               <ul class="list-unstyled mb-0" id="export-summary-list">
-                <li class="text-secondary">No items selected yet.</li>
+                <li class="text-secondary">
+No items selected yet.
+                </li>
               </ul>
             </div>
 
@@ -196,13 +274,18 @@ Every Street - Export Data
                 <span class="text-secondary" id="export-progress-percent">0%</span>
               </div>
               <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100">
-                <div class="progress-bar" id="export-progress-bar" style="width: 0%"></div>
+                <div class="progress-bar" id="export-progress-bar" style="width: 0%">
+                </div>
               </div>
             </div>
 
             <div class="export-result mt-4" id="export-result">
-              <div class="export-summary-title">Latest Export</div>
-              <div class="text-secondary" id="export-result-details">No export generated yet.</div>
+              <div class="export-summary-title">
+Latest Export
+              </div>
+              <div class="text-secondary" id="export-result-details">
+No export generated yet.
+              </div>
               <a class="btn btn-success mt-3 d-none" id="export-download" href="#">
                 <i class="fas fa-file-archive me-2"></i>Download Zip
               </a>
@@ -212,15 +295,23 @@ Every Street - Export Data
 
         <div class="card export-card export-help-card mt-4">
           <div class="card-body">
-            <h3 class="h6">How exports work</h3>
+            <h3 class="h6">
+How exports work
+            </h3>
             <p class="text-secondary small mb-2">
             Each export is generated from live data, packaged as a zip with a manifest and
             ready for spreadsheets or GIS tools.
             </p>
             <ul class="small text-secondary mb-0">
-              <li>Trips include map-matched data only when requested.</li>
-              <li>Coverage exports require a ready coverage area.</li>
-              <li>Manifests include schema version and record counts.</li>
+              <li>
+Trips include map-matched data only when requested.
+              </li>
+              <li>
+Coverage exports require a ready coverage area.
+              </li>
+              <li>
+Manifests include schema version and record counts.
+              </li>
             </ul>
           </div>
         </div>
@@ -230,7 +321,9 @@ Every Street - Export Data
 {% endblock %}
 
 
+
 {% block extra_js %}
+
   <script type="module"
           src="{{ url_for('static', path='js/modules/export/index.js') | replace('http://', '//') }}"></script>
 {% endblock %}

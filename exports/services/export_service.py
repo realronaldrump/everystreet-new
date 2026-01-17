@@ -6,7 +6,7 @@ import shutil
 import zipfile
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from beanie import PydanticObjectId
 from fastapi import HTTPException
@@ -20,7 +20,6 @@ from exports.constants import (
     EXPORT_SUBDIR_BY_ENTITY,
     TRIP_CSV_FIELDS,
 )
-from exports.models import ExportItem, ExportRequest
 from exports.serializers import (
     normalize_value,
     serialize_boundary_properties,
@@ -34,6 +33,9 @@ from exports.services.export_writer import (
     write_json_array,
 )
 from geometry_service import GeometryService
+
+if TYPE_CHECKING:
+    from exports.models import ExportItem, ExportRequest
 
 logger = logging.getLogger(__name__)
 
@@ -78,10 +80,7 @@ class ExportService:
 
         include_geometry = item.include_geometry
         if include_geometry is None:
-            if fmt == "csv":
-                include_geometry = False
-            else:
-                include_geometry = True
+            include_geometry = fmt != "csv"
 
         return {
             "entity": item.entity,
@@ -101,9 +100,7 @@ class ExportService:
         spec: dict[str, Any] = {
             "items": items,
             "trip_filters": (
-                request.trip_filters.model_dump()
-                if request.trip_filters
-                else None
+                request.trip_filters.model_dump() if request.trip_filters else None
             ),
             "area_id": str(request.area_id) if request.area_id else None,
             "created_at": now.isoformat(),
@@ -321,7 +318,8 @@ class ExportService:
         if entity == "boundaries":
             return await cls._write_boundary_export(file_path, area, progress)
 
-        raise ValueError(f"Unsupported export entity '{entity}'.")
+        msg = f"Unsupported export entity '{entity}'."
+        raise ValueError(msg)
 
     @classmethod
     async def _write_trip_export(
@@ -348,6 +346,7 @@ class ExportService:
                 progress.bump,
             )
         if fmt == "csv":
+
             def serializer(trip: Any) -> dict[str, Any]:
                 record = serialize_trip_record(
                     trip,
@@ -379,7 +378,8 @@ class ExportService:
 
             return await write_geojson_features(file_path, features())
 
-        raise ValueError(f"Unsupported trip export format '{fmt}'.")
+        msg = f"Unsupported trip export format '{fmt}'."
+        raise ValueError(msg)
 
     @classmethod
     async def _write_street_export(
@@ -390,7 +390,8 @@ class ExportService:
         progress: ExportProgress,
     ) -> int:
         if not area:
-            raise ValueError("Coverage area is required for street exports.")
+            msg = "Coverage area is required for street exports."
+            raise ValueError(msg)
 
         states = await CoverageState.find({"area_id": area.id}).to_list()
         state_map = {state.segment_id: state for state in states}
@@ -423,7 +424,8 @@ class ExportService:
         progress: ExportProgress,
     ) -> int:
         if not area:
-            raise ValueError("Coverage area is required for boundary exports.")
+            msg = "Coverage area is required for boundary exports."
+            raise ValueError(msg)
 
         async def features():
             yield GeometryService.feature_from_geometry(
@@ -435,7 +437,10 @@ class ExportService:
         return await write_geojson_features(file_path, features())
 
     @staticmethod
-    def _build_trip_query(filters: dict[str, Any], matched_only: bool) -> dict[str, Any]:
+    def _build_trip_query(
+        filters: dict[str, Any],
+        matched_only: bool,
+    ) -> dict[str, Any]:
         query: dict[str, Any] = {}
         if filters:
             start_date = filters.get("start_date")

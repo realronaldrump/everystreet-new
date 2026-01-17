@@ -1446,7 +1446,11 @@ class LiveTripTracker {
   }
 
   async refreshWebhookStatus() {
-    if (!this.webhookIndicator || !this.webhookStatusText || this.webhookStatusPending) {
+    if (
+      !this.webhookIndicator
+      || !this.webhookStatusText
+      || this.webhookStatusPending
+    ) {
       return;
     }
     this.webhookStatusPending = true;
@@ -1469,7 +1473,9 @@ class LiveTripTracker {
         ? this.webhookActiveWindowMs
         : this.webhookIdleWindowMs;
       const timeAgo = DateUtils?.formatTimeAgo(lastReceived, true) || "just now";
-      const eventLabel = data.event_type ? `${data.event_type} ${timeAgo}` : `webhook ${timeAgo}`;
+      const eventLabel = data.event_type
+        ? `${data.event_type} ${timeAgo}`
+        : `webhook ${timeAgo}`;
 
       if (ageMs <= windowMs) {
         this.setWebhookStatusIndicator("connected", `Last ${eventLabel}`);
@@ -1479,7 +1485,7 @@ class LiveTripTracker {
           `No recent webhooks (last ${eventLabel})`
         );
       }
-    } catch (error) {
+    } catch (_error) {
       this.setWebhookStatusIndicator("disconnected", "Webhook status unavailable");
     } finally {
       this.webhookStatusPending = false;

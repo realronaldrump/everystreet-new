@@ -1,18 +1,18 @@
 import unittest
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from bson import ObjectId
 
 from exports.serializers import (
     serialize_boundary_properties,
     serialize_street_properties,
-    serialize_trip_record,
     serialize_trip_properties,
+    serialize_trip_record,
 )
 
 
 class ExportSerializerTests(unittest.TestCase):
-    def test_serialize_trip_record_includes_expected_fields(self):
+    def test_serialize_trip_record_includes_expected_fields(self) -> None:
         trip_id = ObjectId()
         trip = {
             "_id": trip_id,
@@ -29,14 +29,14 @@ class ExportSerializerTests(unittest.TestCase):
 
         record = serialize_trip_record(trip, include_geometry=True)
 
-        self.assertEqual(record["tripId"], str(trip_id))
-        self.assertEqual(record["transactionId"], "tx-1")
-        self.assertEqual(record["durationSeconds"], 3600.0)
-        self.assertEqual(record["hardBrakingCounts"], 2)
-        self.assertEqual(record["startLocation"]["formatted_address"], "Start")
-        self.assertIsNotNone(record["gps"])
+        assert record["tripId"] == str(trip_id)
+        assert record["transactionId"] == "tx-1"
+        assert record["durationSeconds"] == 3600.0
+        assert record["hardBrakingCounts"] == 2
+        assert record["startLocation"]["formatted_address"] == "Start"
+        assert record["gps"] is not None
 
-    def test_serialize_trip_record_can_omit_geometry(self):
+    def test_serialize_trip_record_can_omit_geometry(self) -> None:
         trip = {
             "transactionId": "tx-2",
             "gps": {"type": "Point", "coordinates": [-97.0, 32.0]},
@@ -44,10 +44,10 @@ class ExportSerializerTests(unittest.TestCase):
         }
 
         record = serialize_trip_record(trip, include_geometry=False)
-        self.assertIsNone(record["gps"])
-        self.assertIsNone(record["matchedGps"])
+        assert record["gps"] is None
+        assert record["matchedGps"] is None
 
-    def test_serialize_trip_properties_for_geojson(self):
+    def test_serialize_trip_properties_for_geojson(self) -> None:
         trip = {
             "transactionId": "tx-3",
             "distance": 5.0,
@@ -55,11 +55,11 @@ class ExportSerializerTests(unittest.TestCase):
         }
 
         props = serialize_trip_properties(trip)
-        self.assertEqual(props["transactionId"], "tx-3")
-        self.assertEqual(props["distance"], 5.0)
-        self.assertEqual(props["status"], "completed")
+        assert props["transactionId"] == "tx-3"
+        assert props["distance"] == 5.0
+        assert props["status"] == "completed"
 
-    def test_serialize_street_properties(self):
+    def test_serialize_street_properties(self) -> None:
         street = {
             "segment_id": "seg-1",
             "area_id": ObjectId(),
@@ -71,19 +71,19 @@ class ExportSerializerTests(unittest.TestCase):
         }
         state = {
             "status": "driven",
-            "last_driven_at": datetime(2024, 1, 2, tzinfo=timezone.utc),
-            "first_driven_at": datetime(2024, 1, 1, tzinfo=timezone.utc),
+            "last_driven_at": datetime(2024, 1, 2, tzinfo=UTC),
+            "first_driven_at": datetime(2024, 1, 1, tzinfo=UTC),
             "manually_marked": True,
-            "marked_at": datetime(2024, 1, 3, tzinfo=timezone.utc),
+            "marked_at": datetime(2024, 1, 3, tzinfo=UTC),
         }
 
         props = serialize_street_properties(street, state)
-        self.assertEqual(props["segment_id"], "seg-1")
-        self.assertEqual(props["status"], "driven")
-        self.assertTrue(props["last_driven_at"].startswith("2024-01-02"))
-        self.assertTrue(props["manually_marked"])
+        assert props["segment_id"] == "seg-1"
+        assert props["status"] == "driven"
+        assert props["last_driven_at"].startswith("2024-01-02")
+        assert props["manually_marked"]
 
-    def test_serialize_boundary_properties(self):
+    def test_serialize_boundary_properties(self) -> None:
         area = {
             "id": ObjectId(),
             "display_name": "Test Area",
@@ -95,8 +95,8 @@ class ExportSerializerTests(unittest.TestCase):
         }
 
         props = serialize_boundary_properties(area)
-        self.assertEqual(props["display_name"], "Test Area")
-        self.assertEqual(props["coverage_percentage"], 42.0)
+        assert props["display_name"] == "Test Area"
+        assert props["coverage_percentage"] == 42.0
 
 
 if __name__ == "__main__":

@@ -27,7 +27,6 @@ from coverage_api import router as coverage_api_router
 from db import db_manager
 from driving_routes import router as driving_routes_router
 from exports import router as export_api_router
-from routes.routing import router as routing_router
 from gas import router as gas_api_router
 from live_tracking_api import router as live_tracking_api_router
 from logs_api import router as logs_api_router
@@ -35,9 +34,10 @@ from mongodb_logging_handler import MongoDBHandler
 from pages import router as pages_router
 from processing_api import router as processing_api_router
 from profile_api import router as profile_api_router
+from routes.routing import router as routing_router
 from search_api import router as search_api_router
-from tasks_api import router as tasks_api_router
 from tasks.arq import close_arq_pool
+from tasks_api import router as tasks_api_router
 from trips import router as trips_router
 from visits import router as visits_router
 

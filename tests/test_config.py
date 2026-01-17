@@ -2,40 +2,42 @@ import os
 import unittest
 from unittest.mock import patch
 
+import pytest
+
 import config
 
 
 class ValhallaConfigTests(unittest.TestCase):
-    def test_require_valhalla_route_url_missing(self):
+    def test_require_valhalla_route_url_missing(self) -> None:
         with patch.dict(os.environ, {}, clear=True):
-            with self.assertRaises(RuntimeError):
+            with pytest.raises(RuntimeError):
                 config.require_valhalla_route_url()
 
-    def test_require_valhalla_route_url_present(self):
+    def test_require_valhalla_route_url_present(self) -> None:
         with patch.dict(
             os.environ,
             {"VALHALLA_ROUTE_URL": "http://100.108.79.105:8004/route"},
             clear=True,
         ):
-            self.assertEqual(
-                config.require_valhalla_route_url(),
-                "http://100.108.79.105:8004/route",
+            assert (
+                config.require_valhalla_route_url()
+                == "http://100.108.79.105:8004/route"
             )
 
 
 class NominatimConfigTests(unittest.TestCase):
-    def test_require_nominatim_user_agent_missing(self):
+    def test_require_nominatim_user_agent_missing(self) -> None:
         with patch.dict(os.environ, {}, clear=True):
-            with self.assertRaises(RuntimeError):
+            with pytest.raises(RuntimeError):
                 config.require_nominatim_user_agent()
 
-    def test_require_nominatim_user_agent_present(self):
+    def test_require_nominatim_user_agent_present(self) -> None:
         with patch.dict(
             os.environ,
             {"NOMINATIM_USER_AGENT": "EveryStreet/1.0"},
             clear=True,
         ):
-            self.assertEqual(config.require_nominatim_user_agent(), "EveryStreet/1.0")
+            assert config.require_nominatim_user_agent() == "EveryStreet/1.0"
 
 
 if __name__ == "__main__":

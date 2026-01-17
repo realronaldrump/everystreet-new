@@ -10,9 +10,8 @@ refreshes of coverage statistics.
 
 from __future__ import annotations
 
-from typing import Any
-
 import logging
+from typing import Any
 
 from coverage.models import CoverageArea
 from coverage.stats import update_area_stats

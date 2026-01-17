@@ -1,6 +1,4 @@
-"""
-ARQ connection helpers and job status utilities.
-"""
+"""ARQ connection helpers and job status utilities."""
 
 from __future__ import annotations
 
@@ -84,7 +82,7 @@ async def fetch_job_status(redis: ArqRedis, job_id: str) -> dict[str, object]:
                     else:
                         error = str(
                             getattr(info, "exception", None)
-                            or getattr(info, "result", None)
+                            or getattr(info, "result", None),
                         )
             else:
                 result = await job.result()

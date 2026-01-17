@@ -14,7 +14,6 @@ import logging
 import httpx
 
 from config import require_valhalla_route_url
-from core.exceptions import ExternalServiceException
 
 logger = logging.getLogger(__name__)
 

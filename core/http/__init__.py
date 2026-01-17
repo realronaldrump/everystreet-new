@@ -7,11 +7,11 @@ from core.http.session import cleanup_session, get_session
 from core.http.valhalla import ValhallaClient
 
 __all__ = [
+    "NominatimClient",
+    "ValhallaClient",
     "cleanup_session",
     "get_session",
     "retry_async",
     "reverse_geocode_nominatim",
     "validate_location_osm",
-    "NominatimClient",
-    "ValhallaClient",
 ]

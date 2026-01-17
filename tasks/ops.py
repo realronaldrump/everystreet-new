@@ -1,15 +1,11 @@
-"""
-Task execution helpers for ARQ jobs.
-"""
+"""Task execution helpers for ARQ jobs."""
 
 from __future__ import annotations
 
 import logging
 import uuid
 from datetime import UTC, datetime, timedelta
-from typing import Any, Callable, Awaitable
-
-from arq.connections import ArqRedis
+from typing import TYPE_CHECKING, Any
 
 from tasks.arq import get_arq_pool
 from tasks.config import (
@@ -23,7 +19,13 @@ from tasks.config import (
 )
 from tasks.registry import is_manual_only
 
+if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
+
+    from arq.connections import ArqRedis
+
 logger = logging.getLogger(__name__)
+
 
 def _get_job_id(ctx: dict[str, Any]) -> str:
     job_id = None

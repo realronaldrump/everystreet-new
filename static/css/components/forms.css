@@ -112,7 +112,7 @@ body.light-mode .form-select {
   width: 1em;
   height: 1em;
   border-radius: 50%;
-  background-color: #ffffff;
+  background-color: #fff;
   top: 50%;
   left: 0.125em; /* Initial position */
   transform: translateY(-50%);

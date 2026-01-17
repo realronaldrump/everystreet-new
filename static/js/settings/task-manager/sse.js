@@ -74,8 +74,7 @@ export function processSSEUpdates(updates, context) {
         const runButton = row.querySelector(".run-now-btn");
         if (runButton) {
           const manualOnly = row.dataset.manualOnly === "true";
-          runButton.disabled = manualOnly
-            || ["RUNNING", "PENDING"].includes(newStatus);
+          runButton.disabled = manualOnly || ["RUNNING", "PENDING"].includes(newStatus);
           runButton.title = manualOnly
             ? "Use the manual fetch form below"
             : "Run task now";

@@ -18,7 +18,6 @@ let pollTimeout = null;
 // =============================================================================
 
 function initGlobalJobTracker() {
-
   setupGlobalUI();
 
   // Check for stored job or active jobs on server

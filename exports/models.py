@@ -1,11 +1,13 @@
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
-from beanie import PydanticObjectId
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from exports.constants import EXPORT_DEFAULT_FORMAT, EXPORT_FORMATS_BY_ENTITY
+
+if TYPE_CHECKING:
+    from beanie import PydanticObjectId
 
 ExportEntity = Literal[
     "trips",
@@ -49,16 +51,18 @@ class ExportRequest(BaseModel):
     area_id: PydanticObjectId | None = None
 
     @model_validator(mode="after")
-    def _validate_request(self) -> "ExportRequest":
+    def _validate_request(self) -> ExportRequest:
         if not self.items:
-            raise ValueError("At least one export item is required.")
+            msg = "At least one export item is required."
+            raise ValueError(msg)
 
         for item in self.items:
             allowed_formats = EXPORT_FORMATS_BY_ENTITY.get(item.entity, set())
             fmt = item.format or EXPORT_DEFAULT_FORMAT.get(item.entity)
             if fmt not in allowed_formats:
+                msg = f"Unsupported format '{fmt}' for entity '{item.entity}'."
                 raise ValueError(
-                    f"Unsupported format '{fmt}' for entity '{item.entity}'.",
+                    msg,
                 )
 
         needs_area = any(
@@ -66,7 +70,8 @@ class ExportRequest(BaseModel):
             for item in self.items
         )
         if needs_area and not self.area_id:
-            raise ValueError("area_id is required for coverage exports.")
+            msg = "area_id is required for coverage exports."
+            raise ValueError(msg)
 
         return self
 

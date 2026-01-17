@@ -9,14 +9,14 @@ class GeoIntegrationTests(unittest.TestCase):
         if not os.getenv("RUN_TAILNET_INTEGRATION"):
             self.skipTest("RUN_TAILNET_INTEGRATION not set")
 
-    def test_valhalla_status(self):
+    def test_valhalla_status(self) -> None:
         url = os.getenv("VALHALLA_STATUS_URL")
         if not url:
             self.skipTest("VALHALLA_STATUS_URL not set")
         response = httpx.get(url, timeout=10.0)
-        self.assertEqual(response.status_code, 200)
+        assert response.status_code == 200
 
-    def test_nominatim_search(self):
+    def test_nominatim_search(self) -> None:
         url = os.getenv("NOMINATIM_SEARCH_URL")
         if not url:
             self.skipTest("NOMINATIM_SEARCH_URL not set")
@@ -28,9 +28,9 @@ class GeoIntegrationTests(unittest.TestCase):
             },
             timeout=10.0,
         )
-        self.assertEqual(response.status_code, 200)
+        assert response.status_code == 200
 
-    def test_nominatim_reverse(self):
+    def test_nominatim_reverse(self) -> None:
         url = os.getenv("NOMINATIM_REVERSE_URL")
         if not url:
             self.skipTest("NOMINATIM_REVERSE_URL not set")
@@ -46,4 +46,4 @@ class GeoIntegrationTests(unittest.TestCase):
             },
             timeout=10.0,
         )
-        self.assertEqual(response.status_code, 200)
+        assert response.status_code == 200

@@ -1,6 +1,4 @@
-"""
-ARQ cron wrappers for scheduled tasks.
-"""
+"""ARQ cron wrappers for scheduled tasks."""
 
 from __future__ import annotations
 

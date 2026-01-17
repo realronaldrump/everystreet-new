@@ -453,10 +453,7 @@ async def _delayed_retry(
 
 async def _fetch_boundary(location_name: str) -> dict[str, Any]:
     """Fetch boundary polygon from Nominatim geocoding."""
-    from config import (
-        require_nominatim_search_url,
-        require_nominatim_user_agent,
-    )
+    from config import require_nominatim_search_url, require_nominatim_user_agent
 
     url = require_nominatim_search_url()
     params = {

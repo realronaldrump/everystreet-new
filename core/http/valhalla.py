@@ -10,15 +10,15 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from core.exceptions import ExternalServiceException
-from core.http.session import get_session
-from core.http.retry import retry_async
 from config import (
     require_valhalla_route_url,
     require_valhalla_status_url,
     require_valhalla_trace_attributes_url,
     require_valhalla_trace_route_url,
 )
+from core.exceptions import ExternalServiceException
+from core.http.retry import retry_async
+from core.http.session import get_session
 
 logger = logging.getLogger(__name__)
 
@@ -36,8 +36,9 @@ class ValhallaClient:
         async with session.get(self._status_url) as response:
             if response.status != 200:
                 body = await response.text()
+                msg = f"Valhalla status error: {response.status}"
                 raise ExternalServiceException(
-                    f"Valhalla status error: {response.status}",
+                    msg,
                     {"body": body},
                 )
             return await response.json()
@@ -50,8 +51,9 @@ class ValhallaClient:
         costing: str = "auto",
     ) -> dict[str, Any]:
         if len(locations) < 2:
+            msg = "Valhalla route requires at least two locations."
             raise ExternalServiceException(
-                "Valhalla route requires at least two locations.",
+                msg,
             )
         payload = {
             "locations": [{"lon": lon, "lat": lat} for lon, lat in locations],
@@ -64,8 +66,9 @@ class ValhallaClient:
         async with session.post(self._route_url, json=payload) as response:
             if response.status != 200:
                 body = await response.text()
+                msg = f"Valhalla route error: {response.status}"
                 raise ExternalServiceException(
-                    f"Valhalla route error: {response.status}",
+                    msg,
                     {"body": body},
                 )
             data = await response.json()
@@ -80,8 +83,9 @@ class ValhallaClient:
         use_timestamps: bool | None = None,
     ) -> dict[str, Any]:
         if len(shape) < 2:
+            msg = "Valhalla trace_route requires at least two points."
             raise ExternalServiceException(
-                "Valhalla trace_route requires at least two points.",
+                msg,
             )
         payload = {
             "shape": shape,
@@ -96,8 +100,9 @@ class ValhallaClient:
         async with session.post(self._trace_route_url, json=payload) as response:
             if response.status != 200:
                 body = await response.text()
+                msg = f"Valhalla trace_route error: {response.status}"
                 raise ExternalServiceException(
-                    f"Valhalla trace_route error: {response.status}",
+                    msg,
                     {"body": body},
                 )
             data = await response.json()
@@ -111,8 +116,9 @@ class ValhallaClient:
         costing: str = "auto",
     ) -> dict[str, Any]:
         if len(shape) < 2:
+            msg = "Valhalla trace_attributes requires at least two points."
             raise ExternalServiceException(
-                "Valhalla trace_attributes requires at least two points.",
+                msg,
             )
         payload = {
             "shape": shape,
@@ -125,12 +131,12 @@ class ValhallaClient:
         async with session.post(self._trace_attributes_url, json=payload) as response:
             if response.status != 200:
                 body = await response.text()
+                msg = f"Valhalla trace_attributes error: {response.status}"
                 raise ExternalServiceException(
-                    f"Valhalla trace_attributes error: {response.status}",
+                    msg,
                     {"body": body},
                 )
-            data = await response.json()
-        return data
+            return await response.json()
 
     @staticmethod
     def _normalize_route_response(data: dict[str, Any]) -> dict[str, Any]:

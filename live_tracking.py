@@ -7,7 +7,6 @@ access.
 """
 
 import logging
-import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any
 

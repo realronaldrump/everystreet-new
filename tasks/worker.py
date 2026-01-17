@@ -1,6 +1,4 @@
-"""
-ARQ worker settings and startup hooks.
-"""
+"""ARQ worker settings and startup hooks."""
 
 from __future__ import annotations
 

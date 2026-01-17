@@ -9,14 +9,14 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from config import (
+    require_nominatim_reverse_url,
+    require_nominatim_search_url,
+    require_nominatim_user_agent,
+)
 from core.exceptions import ExternalServiceException
 from core.http.retry import retry_async
 from core.http.session import get_session
-from config import (
-    require_nominatim_search_url,
-    require_nominatim_reverse_url,
-    require_nominatim_user_agent,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -61,8 +61,9 @@ class NominatimClient:
         ) as response:
             if response.status != 200:
                 body = await response.text()
+                msg = f"Nominatim search error: {response.status}"
                 raise ExternalServiceException(
-                    f"Nominatim search error: {response.status}",
+                    msg,
                     {"body": body},
                 )
             results = await response.json()
@@ -114,7 +115,8 @@ class NominatimClient:
             if response.status == 404:
                 return None
             body = await response.text()
+            msg = f"Nominatim reverse error: {response.status}"
             raise ExternalServiceException(
-                f"Nominatim reverse error: {response.status}",
+                msg,
                 {"body": body},
             )

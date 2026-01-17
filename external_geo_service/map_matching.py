@@ -106,7 +106,7 @@ class MapMatchingService:
             try:
                 use_timestamps = bool(
                     timestamps_chunk
-                    and any(timestamp is not None for timestamp in timestamps_chunk)
+                    and any(timestamp is not None for timestamp in timestamps_chunk),
                 )
                 return await self._execute_valhalla_request(
                     shape,
@@ -223,7 +223,7 @@ class MapMatchingService:
                     "matchings": [{"geometry": geometry}],
                     "coordinates": coords,
                 }
-            except ExternalServiceException as e:
+            except ExternalServiceException:
                 if attempt < max_attempts:
                     await asyncio.sleep(min_backoff * (2 ** (attempt - 1)))
                     continue

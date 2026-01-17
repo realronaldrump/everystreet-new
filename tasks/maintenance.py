@@ -10,10 +10,10 @@ This module provides ARQ jobs for maintaining trip data quality:
 from __future__ import annotations
 
 import asyncio
+import logging
 from datetime import UTC, datetime
 from typing import Any
 
-import logging
 from pydantic import ValidationError
 
 from db.models import Trip

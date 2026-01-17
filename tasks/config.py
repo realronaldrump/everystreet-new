@@ -8,10 +8,10 @@ updating task history.
 
 from __future__ import annotations
 
+import logging
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-import logging
 from beanie.operators import In
 
 from db.models import TaskConfig, TaskHistory
@@ -121,8 +121,8 @@ async def check_dependencies(
     """
     Checks if dependencies for a given task are met.
 
-    Dependencies are considered met if they are not currently running
-    or recently failed.
+    Dependencies are considered met if they are not currently running or
+    recently failed.
     """
     try:
         if task_id not in TASK_DEFINITIONS:
@@ -135,9 +135,13 @@ async def check_dependencies(
         if not dependencies:
             return {"can_run": True}
 
-        dep_histories = await TaskHistory.find(
-            In(TaskHistory.task_id, dependencies),
-        ).sort(-TaskHistory.timestamp).to_list()
+        dep_histories = (
+            await TaskHistory.find(
+                In(TaskHistory.task_id, dependencies),
+            )
+            .sort(-TaskHistory.timestamp)
+            .to_list()
+        )
 
         latest_by_task: dict[str, TaskHistory] = {}
         for history in dep_histories:
@@ -156,14 +160,15 @@ async def check_dependencies(
                     "reason": f"Dependency '{dep_id}' is currently {dep_status}",
                 }
 
-            if dep_status == "FAILED":
-                if history.timestamp and (
-                    datetime.now(UTC) - history.timestamp < timedelta(hours=1)
-                ):
-                    return {
-                        "can_run": False,
-                        "reason": f"Dependency '{dep_id}' failed recently",
-                    }
+            if (
+                dep_status == "FAILED"
+                and history.timestamp
+                and (datetime.now(UTC) - history.timestamp < timedelta(hours=1))
+            ):
+                return {
+                    "can_run": False,
+                    "reason": f"Dependency '{dep_id}' failed recently",
+                }
 
         return {"can_run": True}
 
@@ -186,9 +191,7 @@ async def update_task_history_entry(
     end_time: datetime | None = None,
     runtime_ms: float | None = None,
 ) -> None:
-    """
-    Creates or updates an entry in the task history collection.
-    """
+    """Creates or updates an entry in the task history collection."""
     try:
         now = datetime.now(UTC)
 
@@ -276,8 +279,7 @@ async def set_last_job_id(task_id: str, job_id: str) -> None:
 
 
 async def update_task_schedule(task_config_update: dict[str, Any]) -> dict[str, Any]:
-    """
-    Updates the task scheduling configuration (enabled status, interval) in the
+    """Updates the task scheduling configuration (enabled status, interval) in the
     database.
     """
     try:

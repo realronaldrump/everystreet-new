@@ -8,7 +8,8 @@
     ? window.ProfileState.createEditorState()
     : null;
   const normalizeValues = window.ProfileState?.normalizeValues;
-  const DEFAULT_FETCH_CONCURRENCY = window.ProfileState?.DEFAULT_FETCH_CONCURRENCY || 12;
+  const DEFAULT_FETCH_CONCURRENCY
+    = window.ProfileState?.DEFAULT_FETCH_CONCURRENCY || 12;
 
   let currentDevices = [];
   let pageSignal = null;
@@ -61,16 +62,8 @@
         handleSaveCredentials,
         signal ? { signal } : false
       );
-      form.addEventListener(
-        "input",
-        handleFormInput,
-        signal ? { signal } : false
-      );
-      form.addEventListener(
-        "change",
-        handleFormInput,
-        signal ? { signal } : false
-      );
+      form.addEventListener("input", handleFormInput, signal ? { signal } : false);
+      form.addEventListener("change", handleFormInput, signal ? { signal } : false);
     }
 
     const editBtn = document.getElementById("editProfileBtn");
@@ -80,12 +73,20 @@
 
     const cancelBtn = document.getElementById("cancelEditBtn");
     if (cancelBtn) {
-      cancelBtn.addEventListener("click", handleCancelEdit, signal ? { signal } : false);
+      cancelBtn.addEventListener(
+        "click",
+        handleCancelEdit,
+        signal ? { signal } : false
+      );
     }
 
     const loadBtn = document.getElementById("loadCredentialsBtn");
     if (loadBtn) {
-      loadBtn.addEventListener("click", () => loadCredentials(), signal ? { signal } : false);
+      loadBtn.addEventListener(
+        "click",
+        () => loadCredentials(),
+        signal ? { signal } : false
+      );
     }
 
     const unmaskBtn = document.getElementById("unmaskCredentialsBtn");
@@ -235,7 +236,8 @@
     const clientId = document.getElementById("clientId")?.value.trim() || "";
     const clientSecret = document.getElementById("clientSecret")?.value.trim() || "";
     const redirectUri = document.getElementById("redirectUri")?.value.trim() || "";
-    const authorizationCode = document.getElementById("authorizationCode")?.value.trim() || "";
+    const authorizationCode
+      = document.getElementById("authorizationCode")?.value.trim() || "";
     const fetchConcurrencyRaw = document.getElementById("fetchConcurrency")?.value;
     const fetchConcurrency = parseInt(fetchConcurrencyRaw, 10);
 
@@ -800,5 +802,4 @@
       showStatus(`Error syncing vehicles: ${error.message}`, "error");
     }
   }
-
 })();

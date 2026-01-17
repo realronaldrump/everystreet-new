@@ -264,8 +264,8 @@ async def cancel_optimal_route_task(task_id: str):
     """
     Cancel an in-progress route generation task.
 
-    Aborts the ARQ job and marks it as cancelled in the database.
-    Also cancels any other active tasks for the same location.
+    Aborts the ARQ job and marks it as cancelled in the database. Also
+    cancels any other active tasks for the same location.
     """
     from tasks.ops import abort_job
 

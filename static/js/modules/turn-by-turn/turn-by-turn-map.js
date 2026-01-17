@@ -113,8 +113,8 @@ class TurnByTurnMap {
           const currentStyle = this.map.getStyle();
           // Only change if style actually changed
           if (
-            currentStyle &&
-            !currentStyle.sprite?.includes(
+            currentStyle
+            && !currentStyle.sprite?.includes(
               newStyle.split("/").pop()?.replace("-v11", "")
             )
           ) {

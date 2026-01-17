@@ -98,7 +98,7 @@ class TripGeocoder:
             if not processed_data.get("startLocation"):
                 start_place = await self.get_place_at_point(start_pt)
                 if start_place:
-                    place_obj = cast(Any, start_place)
+                    place_obj = cast("Any", start_place)
                     start_place_data = (
                         place_obj.model_dump()
                         if hasattr(place_obj, "model_dump")
@@ -128,7 +128,7 @@ class TripGeocoder:
             if not processed_data.get("destination"):
                 end_place = await self.get_place_at_point(end_pt)
                 if end_place:
-                    place_obj = cast(Any, end_place)
+                    place_obj = cast("Any", end_place)
                     end_place_data = (
                         place_obj.model_dump()
                         if hasattr(place_obj, "model_dump")
@@ -140,7 +140,7 @@ class TripGeocoder:
                         transaction_id,
                     )
                     processed_data["destinationPlaceId"] = str(
-                        getattr(place_obj, "id", "")
+                        getattr(place_obj, "id", ""),
                     )
                 else:
                     rev_end = await self.geocoding_service.reverse_geocode(

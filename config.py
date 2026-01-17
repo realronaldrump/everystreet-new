@@ -1,9 +1,10 @@
 """
 Centralized configuration for external APIs.
 
-This module is the single source of truth for configuration used across the
-application. Sensitive tokens are sourced from environment variables (or a
-secrets manager) and are never stored in user-editable settings or the database.
+This module is the single source of truth for configuration used across
+the application. Sensitive tokens are sourced from environment variables
+(or a secrets manager) and are never stored in user-editable settings or
+the database.
 """
 
 from __future__ import annotations
@@ -33,8 +34,8 @@ def get_mapbox_token() -> str:
     """
     Get the Mapbox access token from environment variables.
 
-    This does not validate the token. Call require_mapbox_token() when
-    a structurally valid public token is required.
+    This does not validate the token. Call require_mapbox_token() when a
+    structurally valid public token is required.
     """
     return os.getenv(MAPBOX_TOKEN_ENV_VAR, "").strip()
 
@@ -42,17 +43,22 @@ def get_mapbox_token() -> str:
 def validate_mapbox_token(token: str) -> None:
     """Validate that the Mapbox token looks like a public token."""
     if not token:
+        msg = "MAPBOX_TOKEN is not set. Configure it in the environment before startup."
         raise RuntimeError(
-            "MAPBOX_TOKEN is not set. Configure it in the environment before startup.",
+            msg,
         )
     if not token.startswith("pk."):
-        raise RuntimeError(
+        msg = (
             "MAPBOX_TOKEN must be a public token starting with 'pk.' because it is "
-            "exposed to the client.",
+            "exposed to the client."
+        )
+        raise RuntimeError(
+            msg,
         )
     if len(token) < MAPBOX_TOKEN_MIN_LENGTH:
+        msg = "MAPBOX_TOKEN looks too short to be valid. Check the configured value."
         raise RuntimeError(
-            "MAPBOX_TOKEN looks too short to be valid. Check the configured value.",
+            msg,
         )
 
 
@@ -66,9 +72,12 @@ def require_mapbox_token() -> str:
 def _require_env_var(env_name: str, description: str) -> str:
     value = os.getenv(env_name, "").strip()
     if not value:
-        raise RuntimeError(
+        msg = (
             f"{env_name} is not set. Configure it in the environment before "
-            f"startup. {description}",
+            f"startup. {description}"
+        )
+        raise RuntimeError(
+            msg,
         )
     return value
 
@@ -200,24 +209,24 @@ __all__ = [
     "AUTH_URL",
     "get_bouncie_config",
     "get_mapbox_token",
-    "require_mapbox_token",
-    "validate_mapbox_token",
+    "get_nominatim_base_url",
+    "get_nominatim_reverse_url",
+    "get_nominatim_search_url",
+    "get_nominatim_user_agent",
     "get_valhalla_base_url",
     "get_valhalla_route_url",
     "get_valhalla_status_url",
-    "get_valhalla_trace_route_url",
     "get_valhalla_trace_attributes_url",
+    "get_valhalla_trace_route_url",
+    "require_mapbox_token",
+    "require_nominatim_base_url",
+    "require_nominatim_reverse_url",
+    "require_nominatim_search_url",
+    "require_nominatim_user_agent",
     "require_valhalla_base_url",
     "require_valhalla_route_url",
     "require_valhalla_status_url",
-    "require_valhalla_trace_route_url",
     "require_valhalla_trace_attributes_url",
-    "get_nominatim_base_url",
-    "get_nominatim_search_url",
-    "get_nominatim_reverse_url",
-    "get_nominatim_user_agent",
-    "require_nominatim_base_url",
-    "require_nominatim_search_url",
-    "require_nominatim_reverse_url",
-    "require_nominatim_user_agent",
+    "require_valhalla_trace_route_url",
+    "validate_mapbox_token",
 ]

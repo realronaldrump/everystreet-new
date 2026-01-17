@@ -1,8 +1,8 @@
 # Background Jobs (ARQ)
 
-EveryStreet uses ARQ (asyncio-native) for background jobs and scheduled
-cron tasks. The web app enqueues jobs into Redis; a separate ARQ worker
-process executes them and runs cron checks.
+EveryStreet uses ARQ (asyncio-native) for background jobs and scheduled cron
+tasks. The web app enqueues jobs into Redis; a separate ARQ worker process
+executes them and runs cron checks.
 
 ## Required services
 
@@ -29,8 +29,8 @@ immediately.
 ## Worker status
 
 The optimal-route UI checks `/api/optimal-routes/worker-status`, which uses a
-Redis heartbeat written by the ARQ worker (key: `arq:worker:heartbeat`).
-If the heartbeat is missing, the UI warns that workers may be offline.
+Redis heartbeat written by the ARQ worker (key: `arq:worker:heartbeat`). If the
+heartbeat is missing, the UI warns that workers may be offline.
 
 ## Task manager API
 

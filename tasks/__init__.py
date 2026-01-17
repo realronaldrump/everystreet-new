@@ -1,3 +1,1 @@
-"""
-Background tasks implementation using ARQ.
-"""
+"""Background tasks implementation using ARQ."""

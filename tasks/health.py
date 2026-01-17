@@ -1,6 +1,4 @@
-"""
-Worker health utilities for ARQ.
-"""
+"""Worker health utilities for ARQ."""
 
 from __future__ import annotations
 

@@ -1,6 +1,4 @@
-"""
-Task registry and metadata for background jobs.
-"""
+"""Task registry and metadata for background jobs."""
 
 from __future__ import annotations
 

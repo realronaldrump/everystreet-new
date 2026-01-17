@@ -1,15 +1,24 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from beanie import PydanticObjectId
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request, status
 from fastapi.responses import FileResponse
 
 from db.models import ExportJob
 from exports.auth import enforce_owner, get_owner_key
-from exports.models import ExportJobResponse, ExportRequest, ExportResult, ExportStatusResponse
+from exports.models import (
+    ExportJobResponse,
+    ExportRequest,
+    ExportResult,
+    ExportStatusResponse,
+)
 from exports.services.export_service import ExportService
+
+if TYPE_CHECKING:
+    from beanie import PydanticObjectId
+
 router = APIRouter(prefix="/api/exports", tags=["exports"])
 
 
@@ -44,7 +53,10 @@ async def get_export_job(job_id: PydanticObjectId, request: Request):
     owner_key = get_owner_key(request)
     job = await ExportJob.get(job_id)
     if not job:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Job not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Job not found",
+        )
 
     enforce_owner(job.owner_key, owner_key)
 
@@ -80,7 +92,10 @@ async def download_export_job(job_id: PydanticObjectId, request: Request):
     owner_key = get_owner_key(request)
     job = await ExportJob.get(job_id)
     if not job:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Job not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Job not found",
+        )
 
     enforce_owner(job.owner_key, owner_key)
 

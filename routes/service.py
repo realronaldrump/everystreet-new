@@ -597,7 +597,7 @@ async def generate_optimal_route_with_progress(
                     },
                 },
             )
-            await cast(Any, update_query)
+            await cast("Any", update_query)
 
         return {
             "status": "success",

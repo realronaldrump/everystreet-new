@@ -83,7 +83,8 @@ TRIP_BASE_FIELDS: Final[list[str]] = [
     "coverage_emitted_at",
 ]
 
-TRIP_JSON_FIELDS: Final[list[str]] = TRIP_BASE_FIELDS + [
+TRIP_JSON_FIELDS: Final[list[str]] = [
+    *TRIP_BASE_FIELDS,
     "startGeoPoint",
     "destinationGeoPoint",
     "gps",
@@ -92,14 +93,16 @@ TRIP_JSON_FIELDS: Final[list[str]] = TRIP_BASE_FIELDS + [
     "processing_history",
 ]
 
-TRIP_CSV_FIELDS: Final[list[str]] = TRIP_BASE_FIELDS + [
+TRIP_CSV_FIELDS: Final[list[str]] = [
+    *TRIP_BASE_FIELDS,
     "startGeoPoint",
     "destinationGeoPoint",
     "gps",
     "matchedGps",
 ]
 
-TRIP_GEOJSON_PROPERTIES_FIELDS: Final[list[str]] = TRIP_BASE_FIELDS + [
+TRIP_GEOJSON_PROPERTIES_FIELDS: Final[list[str]] = [
+    *TRIP_BASE_FIELDS,
     "startGeoPoint",
     "destinationGeoPoint",
 ]

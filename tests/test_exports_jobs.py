@@ -1,9 +1,10 @@
 import tempfile
 import unittest
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
+import pytest
 from bson import ObjectId
 from fastapi import HTTPException
 from starlette.requests import Request
@@ -14,7 +15,7 @@ from exports.services.export_service import ExportService
 
 
 class FakeJob:
-    def __init__(self):
+    def __init__(self) -> None:
         self.id = ObjectId()
         self.owner_key = "default"
         self.status = "pending"
@@ -23,7 +24,7 @@ class FakeJob:
         self.spec = {"items": [], "trip_filters": None, "area_id": None}
         self.result = None
         self.error = None
-        self.created_at = datetime.now(timezone.utc)
+        self.created_at = datetime.now(UTC)
         self.started_at = None
         self.completed_at = None
         self.updated_at = None
@@ -33,68 +34,76 @@ class FakeJob:
 
 
 class ExportJobLifecycleTests(unittest.IsolatedAsyncioTestCase):
-    async def test_run_job_marks_completed(self):
+    async def test_run_job_marks_completed(self) -> None:
         job = FakeJob()
         with tempfile.TemporaryDirectory() as temp_dir:
             export_root = Path(temp_dir)
-            with patch(
-                "exports.services.export_service.EXPORT_ROOT",
-                export_root,
-            ):
-                with patch(
+            with (
+                patch(
+                    "exports.services.export_service.EXPORT_ROOT",
+                    export_root,
+                ),
+                patch(
                     "exports.services.export_service.ExportJob.get",
                     new=AsyncMock(return_value=job),
-                ):
-                    with patch.object(
-                        ExportService,
-                        "_write_exports",
-                        new=AsyncMock(return_value={"records": {}, "files": [], "area": None}),
-                    ):
-                        await ExportService.run_job(str(job.id))
+                ),
+                patch.object(
+                    ExportService,
+                    "_write_exports",
+                    new=AsyncMock(
+                        return_value={"records": {}, "files": [], "area": None},
+                    ),
+                ),
+            ):
+                await ExportService.run_job(str(job.id))
 
-        self.assertEqual(job.status, "completed")
-        self.assertIsNotNone(job.result)
-        self.assertIsNotNone(job.started_at)
-        self.assertIsNotNone(job.completed_at)
+        assert job.status == "completed"
+        assert job.result is not None
+        assert job.started_at is not None
+        assert job.completed_at is not None
 
-    async def test_run_job_marks_failed(self):
+    async def test_run_job_marks_failed(self) -> None:
         job = FakeJob()
         with tempfile.TemporaryDirectory() as temp_dir:
             export_root = Path(temp_dir)
-            with patch(
-                "exports.services.export_service.EXPORT_ROOT",
-                export_root,
-            ):
-                with patch(
+            with (
+                patch(
+                    "exports.services.export_service.EXPORT_ROOT",
+                    export_root,
+                ),
+                patch(
                     "exports.services.export_service.ExportJob.get",
                     new=AsyncMock(return_value=job),
-                ):
-                    with patch.object(
-                        ExportService,
-                        "_write_exports",
-                        new=AsyncMock(side_effect=RuntimeError("boom")),
-                    ):
-                        await ExportService.run_job(str(job.id))
+                ),
+                patch.object(
+                    ExportService,
+                    "_write_exports",
+                    new=AsyncMock(side_effect=RuntimeError("boom")),
+                ),
+            ):
+                await ExportService.run_job(str(job.id))
 
-        self.assertEqual(job.status, "failed")
-        self.assertEqual(job.error, "boom")
+        assert job.status == "failed"
+        assert job.error == "boom"
 
-    async def test_download_requires_completed_job(self):
+    async def test_download_requires_completed_job(self) -> None:
         job = FakeJob()
         job.status = "running"
         scope = {"type": "http", "headers": []}
         request = Request(scope)
 
-        with patch(
-            "exports.routes.exports.ExportJob.get",
-            new=AsyncMock(return_value=job),
+        with (
+            patch(
+                "exports.routes.exports.ExportJob.get",
+                new=AsyncMock(return_value=job),
+            ),
+            pytest.raises(HTTPException) as context,
         ):
-            with self.assertRaises(HTTPException) as context:
-                await download_export_job(job.id, request)
+            await download_export_job(job.id, request)
 
-        self.assertEqual(context.exception.status_code, 409)
+        assert context.value.status_code == 409
 
-    async def test_download_returns_file_response(self):
+    async def test_download_returns_file_response(self) -> None:
         job = FakeJob()
         job.status = "completed"
 
@@ -118,18 +127,18 @@ class ExportJobLifecycleTests(unittest.IsolatedAsyncioTestCase):
             ):
                 response = await download_export_job(job.id, request)
 
-        self.assertEqual(response.status_code, 200)
+        assert response.status_code == 200
         content_disposition = response.headers.get("content-disposition", "")
-        self.assertIn("export_test.zip", content_disposition)
+        assert "export_test.zip" in content_disposition
 
-    def test_owner_helpers(self):
+    def test_owner_helpers(self) -> None:
         scope = {"type": "http", "headers": [(b"x-export-owner", b"user-a")]}
         request = Request(scope)
-        self.assertEqual(get_owner_key(request), "user-a")
+        assert get_owner_key(request) == "user-a"
 
-        with self.assertRaises(HTTPException) as context:
+        with pytest.raises(HTTPException) as context:
             enforce_owner("user-a", "user-b")
-        self.assertEqual(context.exception.status_code, 403)
+        assert context.value.status_code == 403
 
 
 if __name__ == "__main__":
