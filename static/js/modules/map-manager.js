@@ -1,212 +1,123 @@
+/**
+ * MapManager - View State and Trip Selection Management
+ *
+ * This module handles:
+ * - Map view state persistence (center, zoom)
+ * - Trip selection and highlighting
+ * - Zoom/pan navigation helpers
+ *
+ * Map initialization is handled by map-core.js
+ */
+
 /* global mapboxgl */
 
 import { CONFIG } from "./config.js";
-import { waitForMapboxToken } from "./mapbox-token.js";
+import mapCore from "./map-core.js";
 import store from "./spa/store.js";
 import state from "./state.js";
 import { utils } from "./utils.js";
 
-// NOTE: this is extracted verbatim from `app.js` to keep behaviour identical.
-// Future refactors can safely trim dependencies now that the code is isolated.
+// Debounced view state saver
+let saveViewStateDebounced = null;
 
 const mapManager = {
+  // Track if view state listener is bound
+  _viewListenerBound: false,
+
+  /**
+   * Initialize the map using MapCore and set up view state management
+   * @returns {Promise<boolean>}
+   */
   async initialize() {
-    try {
-      const { loadingManager } = window;
-      loadingManager?.show("Initializing map...");
+    const success = await mapCore.initialize();
 
-      const mapElement = utils.getElement("map");
-      const mapCanvas = utils.getElement("map-canvas");
-      if (!mapElement || !mapCanvas || state.map) {
-        loadingManager?.hide();
-        return state.mapInitialized;
-      }
-
-      const token = await waitForMapboxToken();
-
-      mapboxgl.accessToken = token;
-
-      if (!mapboxgl.supported()) {
-        mapElement.innerHTML =
-          '<div class="webgl-unsupported-message p-4 text-center">WebGL is not supported by your browser.</div>';
-        throw new Error("WebGL not supported");
-      }
-
-      loadingManager?.updateMessage("Configuring map...");
-
-      // Disable telemetry for performance
-      mapboxgl.config.REPORT_MAP_LOAD_TIMES = false;
-      mapboxgl.config.COLLECT_RESOURCE_TIMING = false;
-
-      const theme =
-        document.documentElement.getAttribute("data-bs-theme") || "dark";
-
-      // Determine initial map view
-      const urlParams = new URLSearchParams(window.location.search);
-      const latParam = parseFloat(urlParams.get("lat"));
-      const lngParam = parseFloat(urlParams.get("lng"));
-      const zoomParam = parseFloat(urlParams.get("zoom"));
-      const savedView =
-        store.get("map.view") || utils.getStorage(CONFIG.STORAGE_KEYS.mapView);
-      const mapCenter =
-        !Number.isNaN(latParam) && !Number.isNaN(lngParam)
-          ? [lngParam, latParam]
-          : savedView?.center || CONFIG.MAP.defaultCenter;
-      const mapZoom = !Number.isNaN(zoomParam)
-        ? zoomParam
-        : savedView?.zoom || CONFIG.MAP.defaultZoom;
-
-      // Determine initial map style - respect stored preference or use theme
-      const storedMapType = utils.getStorage("mapType");
-      const initialMapType = storedMapType || theme;
-      const initialStyle =
-        CONFIG.MAP.styles[initialMapType] || CONFIG.MAP.styles[theme];
-
-      loadingManager?.updateMessage("Creating map instance...");
-
-      // Clear container to prevent Mapbox warning
-      if (mapCanvas.hasChildNodes()) {
-        mapCanvas.innerHTML = "";
-      }
-
-      state.map = new mapboxgl.Map({
-        container: "map-canvas",
-        style: initialStyle,
-        center: mapCenter,
-        zoom: mapZoom,
-        maxZoom: CONFIG.MAP.maxZoom,
-        attributionControl: false,
-        logoPosition: "bottom-right",
-        ...CONFIG.MAP.performanceOptions,
-        transformRequest: (url) => {
-          if (typeof url === "string") {
-            try {
-              // Use window.location.origin for base in case of relative URLs
-              const parsed = new URL(url, window.location.origin);
-              if (parsed.hostname === "events.mapbox.com") {
-                return { url: undefined };
-              }
-            } catch {
-              // Ignore parse errors, do not block
-            }
-          }
-          return { url };
-        },
-      });
-
-      window.map = state.map;
-
-      loadingManager?.updateMessage("Adding controls...");
-
-      // Add controls
-      state.map.addControl(new mapboxgl.NavigationControl(), "top-right");
-
-      // Setup event handlers
-      const saveViewState = utils.debounce(() => {
-        if (!state.map) {
-          return;
-        }
-        const center = state.map.getCenter();
-        const zoom = state.map.getZoom();
-        store.updateMapView(
-          {
-            center: [center.lng, center.lat],
-            zoom,
-          },
-          { source: "map" },
-        );
-      }, CONFIG.MAP.debounceDelay);
-
-      state.map.on("moveend", saveViewState);
-      state.map.on("click", this.handleMapClick.bind(this));
-
-      // Wait for map to load
-      await new Promise((resolve) => {
-        state.map.on("load", () => {
-          loadingManager?.hide();
-          resolve();
-        });
-      });
-
-      state.mapInitialized = true;
-      state.metrics.mapLoadTime = Date.now() - state.metrics.loadStartTime;
-
-      document.dispatchEvent(new CustomEvent("mapInitialized"));
-
-      if (!this._viewListenerBound) {
-        document.addEventListener("es:map-view-change", (event) => {
-          if (!state.map) {
-            return;
-          }
-          if (event.detail?.source === "map") {
-            return;
-          }
-          const view = event.detail?.view;
-          if (
-            !view ||
-            !Array.isArray(view.center) ||
-            !Number.isFinite(view.zoom)
-          ) {
-            return;
-          }
-          try {
-            state.map.jumpTo({ center: view.center, zoom: view.zoom });
-          } catch (err) {
-            console.warn("Failed to apply map view from store:", err);
-          }
-        });
-        this._viewListenerBound = true;
-      }
-
-      return true;
-    } catch (error) {
-      console.error("Map initialization error:", error);
-      window.loadingManager?.hide();
-      window.notificationManager.show(
-        `Map initialization failed: ${error.message}`,
-        "danger",
-      );
-      return false;
+    if (success) {
+      this._setupViewStateManagement();
+      this._setupClickHandler();
+      this._setupViewChangeListener();
     }
+
+    return success;
   },
 
-  updateUrlState() {
-    if (!state.map || !window.history?.replaceState) {
-      return;
-    }
+  /**
+   * Set up debounced view state persistence
+   * @private
+   */
+  _setupViewStateManagement() {
+    if (!state.map) return;
 
-    try {
+    saveViewStateDebounced = utils.debounce(() => {
+      if (!state.map) return;
+
       const center = state.map.getCenter();
       const zoom = state.map.getZoom();
-      const url = new URL(window.location.href);
 
-      url.searchParams.set("zoom", zoom.toFixed(2));
-      url.searchParams.set("lat", center.lat.toFixed(5));
-      url.searchParams.set("lng", center.lng.toFixed(5));
+      store.updateMapView(
+        {
+          center: [center.lng, center.lat],
+          zoom,
+        },
+        { source: "map" }
+      );
+    }, CONFIG.MAP.debounceDelay);
 
-      window.history.replaceState({}, "", url.toString());
-    } catch (error) {
-      console.warn("Failed to update URL:", error);
-    }
+    state.map.on("moveend", saveViewStateDebounced);
   },
 
-  handleMapClick(e) {
-    // Clear selections when clicking on an empty area.
-    // Only query non-heatmap layers that support feature selection
+  /**
+   * Set up click handler for trip deselection
+   * @private
+   */
+  _setupClickHandler() {
+    if (!state.map) return;
+    state.map.on("click", this._handleMapClick.bind(this));
+  },
+
+  /**
+   * Set up listener for external view change events
+   * @private
+   */
+  _setupViewChangeListener() {
+    if (this._viewListenerBound) return;
+
+    document.addEventListener("es:map-view-change", (event) => {
+      if (!state.map) return;
+
+      // Ignore events we triggered ourselves
+      if (event.detail?.source === "map") return;
+
+      const view = event.detail?.view;
+      if (!view || !Array.isArray(view.center) || !Number.isFinite(view.zoom)) {
+        return;
+      }
+
+      try {
+        state.map.jumpTo({ center: view.center, zoom: view.zoom });
+      } catch (err) {
+        console.warn("Failed to apply map view from store:", err);
+      }
+    });
+
+    this._viewListenerBound = true;
+  },
+
+  /**
+   * Handle click on empty map area (deselect trips)
+   * @private
+   */
+  _handleMapClick(e) {
+    // Build list of queryable layers
     const queryLayers = [];
+
     if (state.map.getLayer("trips-hitbox")) {
       queryLayers.push("trips-hitbox");
-    } else if (
-      !state.mapLayers.trips?.isHeatmap &&
-      state.map.getLayer("trips-layer")
-    ) {
+    } else if (!state.mapLayers.trips?.isHeatmap && state.map.getLayer("trips-layer")) {
       queryLayers.push("trips-layer");
-    } else if (
-      state.mapLayers.trips?.isHeatmap &&
-      state.map.getLayer("trips-layer-1")
-    ) {
+    } else if (state.mapLayers.trips?.isHeatmap && state.map.getLayer("trips-layer-1")) {
       queryLayers.push("trips-layer-1");
     }
+
     if (state.map.getLayer("matchedTrips-hitbox")) {
       queryLayers.push("matchedTrips-hitbox");
     } else if (state.map.getLayer("matchedTrips-layer")) {
@@ -227,19 +138,41 @@ const mapManager = {
       layers: queryLayers,
     });
 
-    if (features.length === 0) {
-      if (state.selectedTripId) {
-        state.selectedTripId = null;
-        state.selectedTripLayer = null;
-        this.refreshTripStyles();
-      }
+    // Clear selection if clicked on empty space
+    if (features.length === 0 && state.selectedTripId) {
+      state.selectedTripId = null;
+      state.selectedTripLayer = null;
+      this.refreshTripStyles();
     }
   },
 
-  refreshTripStyles: utils.throttle(() => {
-    if (!state.map || !state.mapInitialized) {
-      return;
+  /**
+   * Update URL with current map state
+   */
+  updateUrlState() {
+    if (!state.map || !window.history?.replaceState) return;
+
+    try {
+      const center = state.map.getCenter();
+      const zoom = state.map.getZoom();
+      const url = new URL(window.location.href);
+
+      url.searchParams.set("zoom", zoom.toFixed(2));
+      url.searchParams.set("lat", center.lat.toFixed(5));
+      url.searchParams.set("lng", center.lng.toFixed(5));
+
+      window.history.replaceState({}, "", url.toString());
+    } catch (error) {
+      console.warn("Failed to update URL:", error);
     }
+  },
+
+  /**
+   * Refresh trip styling based on selection state
+   * Throttled to prevent excessive updates
+   */
+  refreshTripStyles: utils.throttle(function () {
+    if (!state.map || !state.mapInitialized) return;
 
     const selectedId = state.selectedTripId
       ? String(state.selectedTripId)
@@ -247,33 +180,24 @@ const mapManager = {
 
     ["trips", "matchedTrips"].forEach((layerName) => {
       const layerInfo = state.mapLayers[layerName];
-      if (!layerInfo?.visible) {
-        return;
-      }
+      if (!layerInfo?.visible) return;
 
       // Skip heatmap layers - they don't support trip selection styling
-      if (layerInfo.isHeatmap) {
-        return;
-      }
+      if (layerInfo.isHeatmap) return;
 
       const layerId = `${layerName}-layer`;
-      if (!state.map.getLayer(layerId)) {
-        return;
-      }
+      if (!state.map.getLayer(layerId)) return;
 
       const baseColor = layerInfo.color || "#4A90D9";
       const baseWeight = layerInfo.weight || 2;
 
-      // Simple styling: highlight selected trip, otherwise use base color
+      // Build color expression
       const colorExpr = selectedId
         ? [
             "case",
             [
               "==",
-              [
-                "to-string",
-                ["coalesce", ["get", "transactionId"], ["get", "id"]],
-              ],
+              ["to-string", ["coalesce", ["get", "transactionId"], ["get", "id"]]],
               selectedId,
             ],
             layerInfo.highlightColor || "#FFD700",
@@ -281,15 +205,13 @@ const mapManager = {
           ]
         : baseColor;
 
+      // Build width expression
       const widthExpr = selectedId
         ? [
             "case",
             [
               "==",
-              [
-                "to-string",
-                ["coalesce", ["get", "transactionId"], ["get", "id"]],
-              ],
+              ["to-string", ["coalesce", ["get", "transactionId"], ["get", "id"]]],
               selectedId,
             ],
             baseWeight * 2,
@@ -306,13 +228,16 @@ const mapManager = {
       }
     });
 
-    mapManager._updateSelectedTripOverlay(selectedId);
+    // Update overlay for heatmap selected trip
+    this._updateSelectedTripOverlay(selectedId);
   }, CONFIG.MAP.throttleDelay),
 
+  /**
+   * Update or remove the selected trip overlay (for heatmap mode)
+   * @private
+   */
   _updateSelectedTripOverlay(selectedId) {
-    if (!state.map || !state.mapInitialized) {
-      return;
-    }
+    if (!state.map || !state.mapInitialized) return;
 
     const sourceId = "selected-trip-source";
     const layerId = "selected-trip-layer";
@@ -326,6 +251,7 @@ const mapManager = {
       }
     };
 
+    // Remove overlay if no selection or not in heatmap mode
     if (
       !selectedId ||
       state.selectedTripLayer !== "trips" ||
@@ -336,6 +262,7 @@ const mapManager = {
       return;
     }
 
+    // Find the matching feature
     const tripLayer = state.mapLayers.trips?.layer;
     const matchingFeature = tripLayer?.features?.find((feature) => {
       const featureId =
@@ -359,22 +286,19 @@ const mapManager = {
 
     const highlightColor =
       window.MapStyles?.MAP_LAYER_COLORS?.trips?.selected || "#FFD700";
+
     const highlightWidth = [
       "interpolate",
       ["linear"],
       ["zoom"],
-      6,
-      2,
-      10,
-      4,
-      14,
-      6,
-      18,
-      10,
-      22,
-      14,
+      6, 2,
+      10, 4,
+      14, 6,
+      18, 10,
+      22, 14,
     ];
 
+    // Create or update source
     if (!state.map.getSource(sourceId)) {
       state.map.addSource(sourceId, {
         type: "geojson",
@@ -387,6 +311,7 @@ const mapManager = {
       });
     }
 
+    // Create or update layer
     if (!state.map.getLayer(layerId)) {
       state.map.addLayer({
         id: layerId,
@@ -408,10 +333,12 @@ const mapManager = {
     }
   },
 
+  /**
+   * Fit map bounds to show all visible features
+   * @param {boolean} animate - Whether to animate the transition
+   */
   async fitBounds(animate = true) {
-    if (!state.map || !state.mapInitialized) {
-      return;
-    }
+    if (!state.map || !state.mapInitialized) return;
 
     await utils.measurePerformance("fitBounds", () => {
       const bounds = new mapboxgl.LngLatBounds();
@@ -445,10 +372,12 @@ const mapManager = {
     });
   },
 
+  /**
+   * Zoom to a specific trip by ID
+   * @param {string|number} tripId - The trip ID to zoom to
+   */
   async zoomToTrip(tripId) {
-    if (!state.map || !state.mapLayers.trips?.layer?.features) {
-      return;
-    }
+    if (!state.map || !state.mapLayers.trips?.layer?.features) return;
 
     // Wait for features to be loaded if they aren't yet
     if (state.mapLayers.trips.layer.features.length === 0) {
@@ -486,25 +415,26 @@ const mapManager = {
         duration: 2000,
       });
 
-      // Also select it
+      // Select the trip
       state.selectedTripId = tripId;
       state.selectedTripLayer = "trips";
       this.refreshTripStyles();
     }
   },
 
+  /**
+   * Zoom to the most recent trip
+   * @param {number} targetZoom - Zoom level to use
+   */
   zoomToLastTrip(targetZoom = 14) {
-    if (!state.map || !state.mapLayers.trips?.layer?.features) {
-      return;
-    }
+    if (!state.map || !state.mapLayers.trips?.layer?.features) return;
 
     const { features } = state.mapLayers.trips.layer;
 
+    // Find the trip with the most recent end time
     const lastTripFeature = features.reduce((latest, feature) => {
       const endTime = feature.properties?.endTime;
-      if (!endTime) {
-        return latest;
-      }
+      if (!endTime) return latest;
 
       const time = new Date(endTime).getTime();
       const latestTime = latest?.properties?.endTime
@@ -514,9 +444,7 @@ const mapManager = {
       return time > latestTime ? feature : latest;
     }, null);
 
-    if (!lastTripFeature?.geometry) {
-      return;
-    }
+    if (!lastTripFeature?.geometry) return;
 
     let lastCoord = null;
     const { type, coordinates } = lastTripFeature.geometry;
@@ -538,6 +466,47 @@ const mapManager = {
         duration: 2000,
         essential: true,
       });
+    }
+  },
+
+  /**
+   * Pan to a specific location
+   * @param {Array<number>} center - [lng, lat] coordinates
+   * @param {number} zoom - Optional zoom level
+   */
+  panTo(center, zoom) {
+    if (!state.map) return;
+
+    const options = { center, duration: 1000 };
+    if (typeof zoom === "number") {
+      options.zoom = zoom;
+    }
+
+    state.map.flyTo(options);
+  },
+
+  /**
+   * Get current map view state
+   * @returns {Object|null}
+   */
+  getViewState() {
+    if (!state.map) return null;
+
+    const center = state.map.getCenter();
+    return {
+      center: [center.lng, center.lat],
+      zoom: state.map.getZoom(),
+      bearing: state.map.getBearing(),
+      pitch: state.map.getPitch(),
+    };
+  },
+
+  /**
+   * Clean up event listeners
+   */
+  cleanup() {
+    if (state.map && saveViewStateDebounced) {
+      state.map.off("moveend", saveViewStateDebounced);
     }
   },
 };

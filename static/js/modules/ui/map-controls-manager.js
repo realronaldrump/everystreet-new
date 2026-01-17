@@ -1,4 +1,17 @@
+/**
+ * MapControlsManager - Map Style and Display Controls
+ *
+ * This module handles:
+ * - Map style switching (dark/light/satellite/streets)
+ * - View preservation during style changes
+ * - Style preference persistence
+ *
+ * Initialization is coordinated by app-controller via mapInitialized event.
+ * No polling fallbacks - relies on deterministic event-based initialization.
+ */
+
 import { CONFIG } from "../config.js";
+import mapCore from "../map-core.js";
 import state from "../state.js";
 import uiState from "../ui-state.js";
 import { utils } from "../utils.js";
@@ -6,127 +19,165 @@ import eventManager from "./event-manager.js";
 
 const mapControlsManager = {
   _initialized: false,
+  _styleChangeId: 0,
 
+  /**
+   * Initialize map controls
+   * Should be called after map is initialized
+   */
   init() {
+    if (this._initialized) return;
+
     const mapTypeSelect = uiState.getElement(CONFIG.UI.selectors.mapTypeSelect);
-    if (mapTypeSelect) {
-      if (this._initialized) {
-        return;
-      }
-      this._initialized = true;
-      // Default to dark mode, but respect user's stored preference
-      const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
-      const defaultMapType = utils.getStorage(CONFIG.STORAGE_KEYS.mapType) || theme;
-      mapTypeSelect.value = defaultMapType;
-      mapTypeSelect.addEventListener("change", (e) =>
-        this.updateMapType(e.target.value)
-      );
+    if (!mapTypeSelect) return;
+
+    this._initialized = true;
+
+    // Set initial value from stored preference or theme
+    const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
+    const defaultMapType = utils.getStorage(CONFIG.STORAGE_KEYS.mapType) || theme;
+    mapTypeSelect.value = defaultMapType;
+
+    // Set up change handler
+    mapTypeSelect.addEventListener("change", (e) => {
+      this.updateMapType(e.target.value);
+    });
+
+    // Apply initial style if map is ready
+    if (mapCore.isReady()) {
+      this._applyInitialStyle(mapTypeSelect.value);
     }
-
-    // Apply persisted settings on load - wait for map to be initialized
-    let settingsApplied = false;
-    const applySettings = () => {
-      if (settingsApplied) {
-        return;
-      }
-      if (
-        state.map
-        && state.mapInitialized
-        && typeof state.map.setStyle === "function"
-      ) {
-        settingsApplied = true;
-        this.updateMapType(mapTypeSelect?.value);
-      }
-    };
-
-    // Try immediately if map is already ready
-    applySettings();
-
-    // Listen for mapInitialized event
-    document.addEventListener("mapInitialized", applySettings, { once: true });
-
-    // Fallback: check periodically (max 5 seconds)
-    let attempts = 0;
-    const maxAttempts = 50;
-    const checkInterval = setInterval(() => {
-      attempts++;
-      applySettings();
-      if (settingsApplied || attempts >= maxAttempts) {
-        clearInterval(checkInterval);
-      }
-    }, 100);
   },
 
+  /**
+   * Apply initial map style
+   * @private
+   */
+  _applyInitialStyle(mapType) {
+    // Only apply if different from current
+    const map = state.map;
+    if (!map) return;
+
+    const currentStyle = map.getStyle()?.name?.toLowerCase() || "";
+    const requestedStyle = mapType.toLowerCase();
+
+    // Style names may not match exactly, so we just ensure it's set
+    if (!currentStyle.includes(requestedStyle)) {
+      this.updateMapType(mapType);
+    }
+  },
+
+  /**
+   * Toggle control panel visibility
+   */
   toggleControlPanel() {
     const panel = uiState.getElement(CONFIG.UI.selectors.mapControls);
-    if (!panel) {
-      return;
-    }
+    if (!panel) return;
+
     panel.classList.toggle(CONFIG.UI.classes.open);
     const isOpen = panel.classList.contains(CONFIG.UI.classes.open);
     utils.setStorage(CONFIG.STORAGE_KEYS.mapControlsOpen, isOpen);
     eventManager.emit("mapControlsToggled", { open: isOpen });
   },
 
+  /**
+   * Update map style/type
+   * @param {string} type - Style type (dark, light, satellite, streets)
+   */
   updateMapType(type = "dark") {
     const map = state.map || window.map;
-    if (!map || !state.mapInitialized) {
-      return;
-    }
-    if (typeof map.setStyle !== "function") {
-      console.warn("Map setStyle method not available yet");
-      return;
-    }
-    utils.setStorage(CONFIG.STORAGE_KEYS.mapType, type);
-    let onStyleLoaded = null;
-    try {
-      const currentView = {
-        center: map.getCenter?.(),
-        zoom: map.getZoom?.(),
-        bearing: map.getBearing?.(),
-        pitch: map.getPitch?.(),
-      };
-      this._styleChangeId = (this._styleChangeId || 0) + 1;
-      const styleChangeId = this._styleChangeId;
-      onStyleLoaded = () => {
-        if (this._styleChangeId !== styleChangeId) {
-          return;
-        }
-        if (currentView.center) {
-          map.jumpTo({
-            center: currentView.center,
-            zoom: currentView.zoom,
-            bearing: currentView.bearing,
-            pitch: currentView.pitch,
-          });
-        }
-        if (typeof map.resize === "function") {
-          setTimeout(() => map.resize(), 100);
-        }
-        document.dispatchEvent(
-          new CustomEvent("mapStyleLoaded", { detail: { mapType: type } })
-        );
-      };
 
+    if (!map || !state.mapInitialized) {
+      console.warn("Map not ready for style change");
+      return;
+    }
+
+    if (typeof map.setStyle !== "function") {
+      console.warn("Map setStyle method not available");
+      return;
+    }
+
+    // Save preference
+    utils.setStorage(CONFIG.STORAGE_KEYS.mapType, type);
+
+    // Capture current view
+    const currentView = {
+      center: map.getCenter?.(),
+      zoom: map.getZoom?.(),
+      bearing: map.getBearing?.(),
+      pitch: map.getPitch?.(),
+    };
+
+    // Track style change to prevent stale callbacks
+    this._styleChangeId += 1;
+    const styleChangeId = this._styleChangeId;
+
+    // Set up style load handler
+    const onStyleLoaded = () => {
+      // Ignore if a newer style change was initiated
+      if (this._styleChangeId !== styleChangeId) return;
+
+      // Restore view
+      if (currentView.center) {
+        map.jumpTo({
+          center: currentView.center,
+          zoom: currentView.zoom,
+          bearing: currentView.bearing,
+          pitch: currentView.pitch,
+        });
+      }
+
+      // Trigger resize to ensure proper rendering
+      if (typeof map.resize === "function") {
+        setTimeout(() => map.resize(), 100);
+      }
+
+      // Dispatch event for layer restoration
+      document.dispatchEvent(
+        new CustomEvent("mapStyleLoaded", { detail: { mapType: type } })
+      );
+    };
+
+    try {
+      // Listen for style data event
       if (typeof map.once === "function") {
         map.once("styledata", onStyleLoaded);
       }
-      // Use style from CONFIG if available, fallback to default pattern
-      const styleUrl = CONFIG.MAP.styles[type] || `mapbox://styles/mapbox/${type}-v11`;
+
+      // Get style URL
+      const styleUrl =
+        CONFIG.MAP.styles[type] || `mapbox://styles/mapbox/${type}-v11`;
+
+      // Apply new style
       map.setStyle(styleUrl);
+
+      // Emit event
       eventManager.emit("mapTypeChanged", { type });
     } catch (error) {
-      if (typeof map.off === "function" && onStyleLoaded) {
+      // Clean up listener on error
+      if (typeof map.off === "function") {
         map.off("styledata", onStyleLoaded);
       }
       console.error("Error updating map type:", error);
     }
   },
+
+  /**
+   * Reset initialization state (for testing)
+   */
+  reset() {
+    this._initialized = false;
+    this._styleChangeId = 0;
+  },
 };
 
+// Listen for page load event to initialize
 document.addEventListener("es:page-load", (event) => {
   if (event.detail?.path === "/map") {
-    mapControlsManager.init();
+    // Wait for map to be ready before initializing controls
+    mapCore.onReady(() => {
+      mapControlsManager.init();
+    });
   }
 });
 
