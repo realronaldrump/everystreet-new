@@ -24,7 +24,7 @@ const mapManager = {
       let token = window.MAPBOX_ACCESS_TOKEN;
       if (!token) {
         // Give inline scripts time to execute during SPA navigation
-        await new Promise(resolve => setTimeout(resolve, 50));
+        await new Promise((resolve) => setTimeout(resolve, 50));
         token = window.MAPBOX_ACCESS_TOKEN;
       }
       if (!token) {
