@@ -30,3 +30,4 @@ pycln
 osmnx
 networkx
 tenacity
+pytest
