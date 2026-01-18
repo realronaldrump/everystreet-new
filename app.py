@@ -1,6 +1,7 @@
 import logging
 import os
 import uuid
+from pathlib import Path
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request, status
@@ -175,7 +176,21 @@ async def startup_event():
         require_nominatim_search_url()
         require_nominatim_reverse_url()
         require_nominatim_user_agent()
-        require_osm_data_path()
+        osm_data_path = Path(require_osm_data_path())
+        if not osm_data_path.exists():
+            msg = f"OSM data file not found: {osm_data_path}"
+            raise RuntimeError(msg)
+        if osm_data_path.suffix.lower() not in {".osm", ".xml", ".pbf"}:
+            msg = (
+                "OSM_DATA_PATH must point to an OSM extract (.osm, .xml, or .pbf). "
+                f"Got: {osm_data_path}"
+            )
+            raise RuntimeError(msg)
+        graph_dir = Path("data/graphs")
+        graph_dir.mkdir(parents=True, exist_ok=True)
+        if not graph_dir.is_dir():
+            msg = f"Graph storage directory is not a directory: {graph_dir}"
+            raise RuntimeError(msg)
         logger.info(
             "Valhalla, Nominatim, and local OSM extract configuration validated successfully.",
         )

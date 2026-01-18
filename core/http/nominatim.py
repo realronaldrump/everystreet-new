@@ -15,6 +15,7 @@ from config import (
     require_nominatim_user_agent,
 )
 from core.exceptions import ExternalServiceException
+from core.http.request import request_json
 from core.http.retry import retry_async
 from core.http.session import get_session
 
@@ -29,6 +30,38 @@ class NominatimClient:
 
     def _headers(self) -> dict[str, str]:
         return {"User-Agent": self._user_agent}
+
+    @retry_async()
+    async def search_raw(
+        self,
+        *,
+        query: str,
+        limit: int = 1,
+        polygon_geojson: bool = False,
+        addressdetails: bool = True,
+    ) -> list[dict[str, Any]]:
+        params = {
+            "q": query,
+            "format": "json",
+            "limit": limit,
+            "addressdetails": int(addressdetails),
+        }
+        if polygon_geojson:
+            params["polygon_geojson"] = 1
+
+        session = await get_session()
+        results = await request_json(
+            "GET",
+            self._search_url,
+            session=session,
+            params=params,
+            headers=self._headers(),
+            service_name="Nominatim search",
+        )
+        if not isinstance(results, list):
+            msg = "Nominatim search error: unexpected response"
+            raise ExternalServiceException(msg, {"url": self._search_url})
+        return results
 
     @retry_async()
     async def search(
@@ -54,19 +87,17 @@ class NominatimClient:
             params["viewbox"] = "-125,49,-66,24"
 
         session = await get_session()
-        async with session.get(
+        results = await request_json(
+            "GET",
             self._search_url,
+            session=session,
             params=params,
             headers=self._headers(),
-        ) as response:
-            if response.status != 200:
-                body = await response.text()
-                msg = f"Nominatim search error: {response.status}"
-                raise ExternalServiceException(
-                    msg,
-                    {"body": body},
-                )
-            results = await response.json()
+            service_name="Nominatim search",
+        )
+        if not isinstance(results, list):
+            msg = "Nominatim search error: unexpected response"
+            raise ExternalServiceException(msg, {"url": self._search_url})
 
         normalized = [
             {
@@ -104,18 +135,18 @@ class NominatimClient:
             "addressdetails": 1,
         }
         session = await get_session()
-        async with session.get(
+        data = await request_json(
+            "GET",
             self._reverse_url,
+            session=session,
             params=params,
             headers=self._headers(),
-        ) as response:
-            if response.status == 200:
-                return await response.json()
-            if response.status == 404:
-                return None
-            body = await response.text()
-            msg = f"Nominatim reverse error: {response.status}"
-            raise ExternalServiceException(
-                msg,
-                {"body": body},
-            )
+            service_name="Nominatim reverse",
+            none_on=(404,),
+        )
+        if data is None:
+            return None
+        if not isinstance(data, dict):
+            msg = "Nominatim reverse error: unexpected response"
+            raise ExternalServiceException(msg, {"url": self._reverse_url})
+        return data

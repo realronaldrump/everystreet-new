@@ -8,12 +8,10 @@ points, used by the route solver to fill gaps in generated routes.
 from __future__ import annotations
 
 import asyncio
-import contextlib
 import logging
 
-import httpx
-
-from config import require_valhalla_route_url
+from core.exceptions import ExternalServiceException
+from core.http.valhalla import ValhallaClient
 
 logger = logging.getLogger(__name__)
 
@@ -24,46 +22,35 @@ MAX_CONCURRENT_API_CALLS = 5
 class ValhallaClientState:
     """State container for Valhalla API client to avoid global variables."""
 
-    client: httpx.AsyncClient | None = None
+    client: ValhallaClient | None = None
     client_lock: asyncio.Lock | None = None
     client_loop: asyncio.AbstractEventLoop | None = None
     api_semaphore: asyncio.Semaphore | None = None
     api_semaphore_loop: asyncio.AbstractEventLoop | None = None
 
 
-async def get_valhalla_client() -> httpx.AsyncClient:
-    """Get or create a shared httpx client with connection pooling."""
+async def get_valhalla_client() -> ValhallaClient:
+    """Get or create a shared Valhalla client."""
     loop = asyncio.get_running_loop()
 
-    # Initialize lock if it doesn't exist or is for a different loop
     if (
         ValhallaClientState.client_lock is None
         or ValhallaClientState.client_loop is not loop
         or loop.is_closed()
     ):
-        if ValhallaClientState.client and not ValhallaClientState.client.is_closed:
-            with contextlib.suppress(Exception):
-                await ValhallaClientState.client.aclose()
         ValhallaClientState.client = None
         ValhallaClientState.client_loop = loop
         ValhallaClientState.client_lock = asyncio.Lock()
 
-    # At this point, client_lock is guaranteed to be initialized
     lock = ValhallaClientState.client_lock
     if lock is None:
         lock = asyncio.Lock()
         ValhallaClientState.client_lock = lock
 
     async with lock:
-        if ValhallaClientState.client is None or ValhallaClientState.client.is_closed:
-            ValhallaClientState.client = httpx.AsyncClient(
-                limits=httpx.Limits(
-                    max_connections=10,
-                    max_keepalive_connections=5,
-                ),
-                timeout=httpx.Timeout(30.0, connect=10.0),
-            )
-            logger.debug("Created new shared httpx client for Valhalla API")
+        if ValhallaClientState.client is None:
+            ValhallaClientState.client = ValhallaClient()
+            logger.debug("Created shared Valhalla client")
         return ValhallaClientState.client
 
 
@@ -102,49 +89,32 @@ async def fetch_bridge_route(
     Returns:
         List of [lon, lat] coordinates for the route, or None if failed
     """
-    url = require_valhalla_route_url()
-    payload = {
-        "locations": [
-            {"lon": from_xy[0], "lat": from_xy[1]},
-            {"lon": to_xy[0], "lat": to_xy[1]},
-        ],
-        "costing": "auto",
-        "shape_format": "geojson",
-    }
-
     try:
         loop = asyncio.get_running_loop()
         semaphore = get_api_semaphore(loop)
         async with semaphore:
             client = await get_valhalla_client()
-            response = await client.post(url, json=payload, timeout=request_timeout)
-            response.raise_for_status()
-            data = response.json()
-
-            trip = data.get("trip") or {}
-            shape = trip.get("shape") or {}
-            coords = shape.get("coordinates") or []
-            if coords:
-                distance_km = 0.0
-                legs = trip.get("legs") or []
-                summary = legs[0].get("summary") if legs else {}
-                distance_km = summary.get("length", 0) if summary else 0
-                logger.info(
-                    "Fetched bridge route with %d coordinates (%.2f miles)",
-                    len(coords),
-                    distance_km * 0.621371,
-                )
-                return coords
-
-            logger.warning("No route found by Valhalla routing API")
-            return None
-
-    except httpx.HTTPStatusError as e:
-        logger.exception("Valhalla routing HTTP error: %s", e.response.status_code)
-        return None
-    except httpx.RequestError:
-        logger.exception("Valhalla routing request error")
+            result = await client.route(
+                [from_xy, to_xy],
+                timeout=request_timeout,
+            )
+    except ExternalServiceException as exc:
+        logger.exception("Valhalla routing error: %s", exc.message)
         return None
     except Exception:
         logger.exception("Unexpected error fetching bridge route")
         return None
+
+    geometry = result.get("geometry") if isinstance(result, dict) else None
+    coords = geometry.get("coordinates") if geometry else []
+    if coords:
+        distance_m = result.get("distance_meters", 0) if isinstance(result, dict) else 0
+        logger.info(
+            "Fetched bridge route with %d coordinates (%.2f miles)",
+            len(coords),
+            (distance_m or 0) * 0.000621371,
+        )
+        return coords
+
+    logger.warning("No route found by Valhalla routing API")
+    return None

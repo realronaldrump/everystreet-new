@@ -1,4 +1,5 @@
 import pytest
+import pytest
 
 from core.exceptions import ExternalServiceException
 from core.http.valhalla import ValhallaClient

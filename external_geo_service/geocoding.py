@@ -45,13 +45,9 @@ class GeocodingService:
         proximity: tuple[float, float] | None = None,
         country_codes: str = "us",
     ) -> list[dict[str, Any]]:
-        try:
-            return await self._client.search(
-                query,
-                limit=limit,
-                proximity=proximity,
-                country_codes=country_codes,
-            )
-        except Exception as e:
-            logger.warning("Nominatim forward geocoding error: %s", e)
-            return []
+        return await self._client.search(
+            query,
+            limit=limit,
+            proximity=proximity,
+            country_codes=country_codes,
+        )

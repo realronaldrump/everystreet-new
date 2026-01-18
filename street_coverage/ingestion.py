@@ -18,7 +18,6 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-import aiohttp
 from beanie import PydanticObjectId
 from shapely.geometry import LineString, MultiLineString, mapping, shape
 from shapely.ops import transform
@@ -45,6 +44,7 @@ _background_tasks: set[asyncio.Task] = set()
 def _track_task(task: asyncio.Task) -> None:
     _background_tasks.add(task)
     task.add_done_callback(_background_tasks.discard)
+
 
 BACKFILL_PROGRESS_START = 75.0
 BACKFILL_PROGRESS_END = 99.0
@@ -455,26 +455,14 @@ async def _delayed_retry(
 
 async def _fetch_boundary(location_name: str) -> dict[str, Any]:
     """Fetch boundary polygon from Nominatim geocoding."""
-    from config import require_nominatim_search_url, require_nominatim_user_agent
+    from core.http.nominatim import NominatimClient
 
-    url = require_nominatim_search_url()
-    params = {
-        "q": location_name,
-        "format": "json",
-        "polygon_geojson": 1,
-        "limit": 1,
-    }
-    headers = {
-        "User-Agent": require_nominatim_user_agent(),
-    }
-
-    async with aiohttp.ClientSession() as session, session.get(
-        url,
-        params=params,
-        headers=headers,
-    ) as response:
-        response.raise_for_status()
-        data = await response.json()
+    client = NominatimClient()
+    data = await client.search_raw(
+        query=location_name,
+        limit=1,
+        polygon_geojson=True,
+    )
 
     if not data:
         msg = f"Location not found: {location_name}"
@@ -610,10 +598,7 @@ async def _load_osm_streets_from_graph(
     Gu = ox.convert.to_undirected(G)
 
     boundary_geojson = area.boundary
-    if (
-        isinstance(boundary_geojson, dict)
-        and boundary_geojson.get("type") == "Feature"
-    ):
+    if isinstance(boundary_geojson, dict) and boundary_geojson.get("type") == "Feature":
         boundary_geojson = boundary_geojson.get("geometry")
     boundary_shape = shape(boundary_geojson) if boundary_geojson else None
 

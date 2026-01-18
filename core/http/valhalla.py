@@ -17,6 +17,7 @@ from config import (
     require_valhalla_trace_route_url,
 )
 from core.exceptions import ExternalServiceException
+from core.http.request import request_json
 from core.http.retry import retry_async
 from core.http.session import get_session
 
@@ -33,15 +34,16 @@ class ValhallaClient:
     @retry_async()
     async def status(self) -> dict[str, Any]:
         session = await get_session()
-        async with session.get(self._status_url) as response:
-            if response.status != 200:
-                body = await response.text()
-                msg = f"Valhalla status error: {response.status}"
-                raise ExternalServiceException(
-                    msg,
-                    {"body": body},
-                )
-            return await response.json()
+        data = await request_json(
+            "GET",
+            self._status_url,
+            session=session,
+            service_name="Valhalla status",
+        )
+        if not isinstance(data, dict):
+            msg = "Valhalla status error: unexpected response"
+            raise ExternalServiceException(msg, {"url": self._status_url})
+        return data
 
     @retry_async()
     async def route(
@@ -49,6 +51,7 @@ class ValhallaClient:
         locations: list[tuple[float, float]],
         *,
         costing: str = "auto",
+        timeout: float | None = None,
     ) -> dict[str, Any]:
         if len(locations) < 2:
             msg = "Valhalla route requires at least two locations."
@@ -62,16 +65,17 @@ class ValhallaClient:
             "shape_format": "geojson",
         }
         session = await get_session()
-
-        async with session.post(self._route_url, json=payload) as response:
-            if response.status != 200:
-                body = await response.text()
-                msg = f"Valhalla route error: {response.status}"
-                raise ExternalServiceException(
-                    msg,
-                    {"body": body},
-                )
-            data = await response.json()
+        data = await request_json(
+            "POST",
+            self._route_url,
+            session=session,
+            json=payload,
+            service_name="Valhalla route",
+            timeout=timeout,
+        )
+        if not isinstance(data, dict):
+            msg = "Valhalla route error: unexpected response"
+            raise ExternalServiceException(msg, {"url": self._route_url})
         return self._normalize_route_response(data)
 
     @retry_async()
@@ -96,16 +100,16 @@ class ValhallaClient:
         if use_timestamps is not None:
             payload["use_timestamps"] = use_timestamps
         session = await get_session()
-
-        async with session.post(self._trace_route_url, json=payload) as response:
-            if response.status != 200:
-                body = await response.text()
-                msg = f"Valhalla trace_route error: {response.status}"
-                raise ExternalServiceException(
-                    msg,
-                    {"body": body},
-                )
-            data = await response.json()
+        data = await request_json(
+            "POST",
+            self._trace_route_url,
+            session=session,
+            json=payload,
+            service_name="Valhalla trace_route",
+        )
+        if not isinstance(data, dict):
+            msg = "Valhalla trace_route error: unexpected response"
+            raise ExternalServiceException(msg, {"url": self._trace_route_url})
         return self._normalize_trace_response(data)
 
     @retry_async()
@@ -127,16 +131,17 @@ class ValhallaClient:
             "shape_format": "geojson",
         }
         session = await get_session()
-
-        async with session.post(self._trace_attributes_url, json=payload) as response:
-            if response.status != 200:
-                body = await response.text()
-                msg = f"Valhalla trace_attributes error: {response.status}"
-                raise ExternalServiceException(
-                    msg,
-                    {"body": body},
-                )
-            return await response.json()
+        data = await request_json(
+            "POST",
+            self._trace_attributes_url,
+            session=session,
+            json=payload,
+            service_name="Valhalla trace_attributes",
+        )
+        if not isinstance(data, dict):
+            msg = "Valhalla trace_attributes error: unexpected response"
+            raise ExternalServiceException(msg, {"url": self._trace_attributes_url})
+        return data
 
     @staticmethod
     def _normalize_route_response(data: dict[str, Any]) -> dict[str, Any]:
@@ -206,6 +211,8 @@ class ValhallaClient:
                 if not isinstance(point, list | tuple) or len(point) < 2:
                     continue
                 lon, lat = point[0], point[1]
+            if lon is None or lat is None:
+                continue
             try:
                 normalized.append([float(lon), float(lat)])
             except (TypeError, ValueError):

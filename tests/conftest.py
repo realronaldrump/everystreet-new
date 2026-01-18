@@ -6,6 +6,8 @@ import pytest
 from beanie import init_beanie
 from mongomock_motor import AsyncMongoMockClient
 
+from tests.network_blocker import install_network_blocker
+
 ROOT = Path(__file__).resolve().parents[1]
 
 if str(ROOT) not in sys.path:
@@ -55,6 +57,8 @@ def _default_test_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("NOMINATIM_SEARCH_URL", "http://nominatim.test/search")
     monkeypatch.setenv("NOMINATIM_REVERSE_URL", "http://nominatim.test/reverse")
     monkeypatch.setenv("NOMINATIM_USER_AGENT", "EveryStreet/1.0 (test)")
+    monkeypatch.setenv("OSM_DATA_PATH", "/data/osm/test.osm")
+    install_network_blocker(monkeypatch)
 
 
 @pytest.fixture
