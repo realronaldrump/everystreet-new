@@ -175,10 +175,11 @@ async def rebuild_area(area_id: PydanticObjectId) -> Job:
 @on_event(CoverageEvents.AREA_CREATED)
 async def handle_area_created(
     area_id: PydanticObjectId | str,
-    _display_name: str,
+    display_name: str | None = None,
     **_kwargs,
 ) -> None:
     """Handle area_created event by running the ingestion pipeline."""
+    _ = display_name
     area_id = PydanticObjectId(area_id) if isinstance(area_id, str) else area_id
 
     # Create ingestion job
