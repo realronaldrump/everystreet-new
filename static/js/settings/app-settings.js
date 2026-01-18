@@ -35,6 +35,9 @@ export function setupAppSettingsForm() {
   const polylineOpacity = document.getElementById("polyline-opacity");
   const opacityValue = document.getElementById("opacity-value");
   const geocodeTripsOnFetch = document.getElementById("geocode-trips-on-fetch");
+  const mapMatchTripsOnFetch = document.getElementById(
+    "map-match-trips-on-fetch"
+  );
   const form = document.getElementById("app-settings-form");
   const themeToggleCheckbox = document.getElementById("theme-toggle-checkbox");
   const accentColorPicker = document.getElementById("accent-color-picker");
@@ -51,6 +54,7 @@ export function setupAppSettingsForm() {
       polylineColor: pc,
       polylineOpacity: po,
       geocodeTripsOnFetch: gtof,
+      mapMatchTripsOnFetch: mmtof,
       accentColor,
       uiDensity,
       motionMode,
@@ -75,6 +79,9 @@ export function setupAppSettingsForm() {
     }
     if (geocodeTripsOnFetch) {
       geocodeTripsOnFetch.checked = gtof !== false;
+    }
+    if (mapMatchTripsOnFetch) {
+      mapMatchTripsOnFetch.checked = mmtof === true;
     }
     if (polylineColor) {
       polylineColor.value = pc || localStorage.getItem("polylineColor") || "#00FF00";
@@ -150,6 +157,7 @@ export function setupAppSettingsForm() {
       polylineColor: polylineColor?.value,
       polylineOpacity: polylineOpacity?.value,
       geocodeTripsOnFetch: geocodeTripsOnFetch?.checked,
+      mapMatchTripsOnFetch: mapMatchTripsOnFetch?.checked,
       accentColor: accentColorPicker?.value,
       uiDensity: densityValue || "comfortable",
       motionMode: motionValue || "balanced",

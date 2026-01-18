@@ -57,6 +57,7 @@ DEFAULT_APP_SETTINGS: dict[str, Any] = {
     "polylineColor": "#00FF00",
     "polylineOpacity": 0.8,
     "geocodeTripsOnFetch": True,
+    "mapMatchTripsOnFetch": False,
 }
 
 

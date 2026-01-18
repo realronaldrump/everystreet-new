@@ -13,6 +13,7 @@ import logging
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from admin_api import get_persisted_app_settings
 from bouncie_trip_fetcher import (
     fetch_bouncie_trip_by_transaction_id,
     fetch_bouncie_trips_in_range,
@@ -145,12 +146,23 @@ async def _periodic_fetch_trips_logic(
         (end_date_fetch if "end_date_fetch" in locals() else now_utc).isoformat(),
     )
 
+    map_match_on_fetch = False
+    try:
+        app_settings = await get_persisted_app_settings()
+        map_match_on_fetch = bool(
+            app_settings.model_dump().get("mapMatchTripsOnFetch", False),
+        )
+    except Exception:
+        logger.exception(
+            "Failed to load map match preference; defaulting to disabled",
+        )
+
     logger.info("Calling fetch_bouncie_trips_in_range...")
     try:
         fetched_trips = await fetch_bouncie_trips_in_range(
             start_date_fetch,
             end_date_fetch if "end_date_fetch" in locals() else now_utc,
-            do_map_match=False,
+            do_map_match=map_match_on_fetch,
         )
         logger.info(
             "fetch_bouncie_trips_in_range returned %d trips",
@@ -258,7 +270,21 @@ async def _fetch_trip_by_transaction_id_logic(
         trigger_source,
     )
 
-    processed_ids = await fetch_bouncie_trip_by_transaction_id(transaction_id)
+    map_match_on_fetch = False
+    try:
+        app_settings = await get_persisted_app_settings()
+        map_match_on_fetch = bool(
+            app_settings.model_dump().get("mapMatchTripsOnFetch", False),
+        )
+    except Exception:
+        logger.exception(
+            "Failed to load map match preference; defaulting to disabled",
+        )
+
+    processed_ids = await fetch_bouncie_trip_by_transaction_id(
+        transaction_id,
+        do_map_match=map_match_on_fetch,
+    )
     return {
         "status": "success",
         "message": f"Fetched trip {transaction_id}",
