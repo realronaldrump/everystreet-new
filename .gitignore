@@ -31,3 +31,5 @@ data/*
 .coverage
 .gitignore
 coverage.lcov
+everystreet-data/us-9states.osm.pbf
+version.json

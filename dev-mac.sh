@@ -32,6 +32,14 @@ set -a
 source .env
 set +a
 
+# Use the local Mac PBF even if .env points to the mini PC path.
+LOCAL_OSM_PBF="$PWD/everystreet-data/us-9states.osm.pbf"
+if [ -f "$LOCAL_OSM_PBF" ]; then
+    export OSM_DATA_PATH="$LOCAL_OSM_PBF"
+else
+    echo "Warning: local OSM PBF not found at $LOCAL_OSM_PBF; using OSM_DATA_PATH from .env"
+fi
+
 # Cleanup function to kill background processes on exit
 cleanup() {
     echo ""
