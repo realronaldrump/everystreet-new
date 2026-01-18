@@ -189,7 +189,8 @@ def require_nominatim_user_agent() -> str:
 def require_osm_data_path() -> str:
     return _require_env_var(
         OSM_DATA_PATH_ENV_VAR,
-        "Expected local OSM XML path used by Valhalla/Nominatim (e.g. /data/osm/region.osm).",
+        "Expected local OSM extract path used by Valhalla/Nominatim "
+        "(e.g. /data/osm/region.osm or /data/osm/region.pbf).",
     )
 
 

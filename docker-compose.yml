@@ -11,6 +11,7 @@ services:
     command: uvicorn app:app --host 0.0.0.0 --port 8080 --proxy-headers --forwarded-allow-ips='*'
     volumes:
       - .:/app
+      - /srv/geoservices/osm/merged:/osm:ro
     depends_on:
       - mongo
       - redis
@@ -24,6 +25,7 @@ services:
     env_file: .env
     volumes:
       - .:/app
+      - /srv/geoservices/osm/merged:/osm:ro
     depends_on:
       - mongo
       - redis
@@ -37,12 +39,6 @@ services:
       - '6379:6379'
     volumes:
       - redis_data:/data
-    # Apply kernel settings to fix memory overcommit warning
-    # ---- CHANGE IS HERE ----
-    # The following lines have been commented out because the setting
-    # has been applied to the host machine directly.
-    # sysctls:
-    #   - vm.overcommit_memory=1
     networks:
       - default
 
@@ -53,17 +49,14 @@ services:
       - '27017:27017'
     volumes:
       - mongo_data:/data/db
-    # Increase file descriptor limit to recommended value
     ulimits:
       nofile:
         soft: 64000
         hard: 64000
-    # Command to start MongoDB as a replica set named 'rs0'
     command: mongod --replSet rs0 --bind_ip_all
     networks:
       - default
 
-  # This new service runs only once to initialize the replica set
   mongo-init:
     image: mongo:7
     depends_on:

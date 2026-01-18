@@ -13,6 +13,7 @@ numpy
 pydantic
 pymongo
 pyproj
+pyrosm
 python-dotenv
 python_dateutil
 pytz

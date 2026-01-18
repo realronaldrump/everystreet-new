@@ -364,7 +364,7 @@ Key stylesheets:
 
 ### Local OSM Extract (self-hosted)
 
-- **OSM XML Extract**: Street geometry source for coverage/graphs (OSM_DATA_PATH)
+- **OSM Extract (XML/PBF)**: Street geometry source for coverage/graphs (OSM_DATA_PATH)
 - **Data Types**: Roads, boundaries
 
 ---

@@ -212,7 +212,7 @@ async def generate_optimal_route_with_progress(
                 logger.exception("Failed to auto-generate graph")
                 msg = (
                     f"Failed to build street network from local OSM extract: {e}. "
-                    "Ensure OSM_DATA_PATH points to the same OSM XML extract used by Valhalla/Nominatim."
+                    "Ensure OSM_DATA_PATH points to the same OSM extract used by Valhalla/Nominatim."
                 )
                 _raise_value_error(msg)
 
