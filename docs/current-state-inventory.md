@@ -1,6 +1,7 @@
 # Current-State Inventory - EveryStreet
 
 ## Snapshot Overview
+
 - Backend runtime: Python 3.12 with FastAPI (app entrypoint in `app.py`).
 - Frontend: Jinja2-rendered HTML templates with static CSS/JS; Mapbox token injected server-side.
 - Background work: ARQ worker process (`tasks/worker.py`) using Redis for queues and heartbeats.
@@ -8,6 +9,7 @@
 - External geo services: self-hosted Valhalla (routing/map match) and Nominatim (geocoding).
 
 ## Entrypoints and Runtime Processes
+
 - `app.py`: FastAPI app setup, router wiring, CORS, static files, startup/shutdown hooks.
 - `tasks/worker.py`: ARQ worker, cron schedules, and startup/shutdown hooks.
 - `Dockerfile`: Builds Python image, installs deps, runs Gunicorn with Uvicorn workers.
@@ -16,6 +18,7 @@
 - `deploy.sh`: Deployment script for Docker + Cloudflare tunnel workflow.
 
 ## Configuration and Environment Variables
+
 - App/CORS/port: `CORS_ALLOWED_ORIGINS`, `PORT`.
 - Mapbox: `MAPBOX_TOKEN` (client-side rendering only; validated in `config.py`).
 - Valhalla: `VALHALLA_BASE_URL`, `VALHALLA_STATUS_URL`, `VALHALLA_ROUTE_URL`, `VALHALLA_TRACE_ROUTE_URL`, `VALHALLA_TRACE_ATTRIBUTES_URL`.
@@ -28,7 +31,9 @@
 - Tests/integration: `RUN_TAILNET_INTEGRATION` (see `TESTING.md`).
 
 ## Architecture Diagrams
+
 ### System overview
+
 ```txt
 [Browser/UI]
     | HTTP + WS + SSE
@@ -45,6 +50,7 @@
 ```
 
 ### Data flow: trip ingestion and coverage
+
 ```txt
 [Bouncie API] --periodic fetch--> [ARQ task] --> [TripProcessor] --> [MongoDB.trips]
 [TripProcessor] --map match--> [Valhalla] --> [matchedGps in MongoDB]
@@ -54,6 +60,7 @@
 ```
 
 ### Data flow: optimal route generation
+
 ```txt
 [UI] --POST /api/coverage/areas/{area_id}/optimal-route--> [FastAPI] --> [ARQ task]
 [ARQ task] --> [routes/service + OSMnx]
@@ -63,7 +70,9 @@
 ```
 
 ## API Surface (FastAPI)
+
 ### Conventions
+
 - Default response type is JSON; errors use HTTP status with JSON `detail`.
 - Dates and timestamps are ISO 8601 strings (UTC unless otherwise noted).
 - Streaming endpoints use `application/geo+json` or `text/event-stream`.
@@ -71,6 +80,7 @@
 - Query filters like `start_date`, `end_date`, and `imei` are supported where noted.
 
 ### HTML pages (Jinja2 templates)
+
 - GET `/` Request: none. Response: HTML landing page.
 - GET `/map` Request: none. Response: HTML map page with Mapbox token injected.
 - GET `/edit_trips` Request: none. Response: HTML trip editor with Mapbox token injected.
@@ -90,6 +100,7 @@
 - GET `/app-settings` Request: none. Response: 301 redirect to `/settings`.
 
 ### Admin and database tools
+
 - GET `/api/app_settings` Request: none. Response: JSON settings (mapbox token omitted).
 - POST `/api/app_settings` Request: JSON partial settings. Response: persisted settings.
 - POST `/api/database/clear-collection` Request: JSON `{collection}`. Response: `{message, deleted_count}`.
@@ -98,6 +109,7 @@
 - GET `/api/first_trip_date` Request: none. Response: `{first_trip_date}` ISO string.
 
 ### Analytics
+
 - GET `/api/trip-analytics` Request: query `start_date`, `end_date`, `imei` (required unless `$expr`). Response: aggregated trip analytics (service-defined).
 - GET `/api/time-period-trips` Request: query `time_type`, `time_value`, plus optional filters. Response: trips or aggregates for the period.
 - GET `/api/driver-behavior` Request: optional query filters. Response: driver behavior stats.
@@ -106,16 +118,19 @@
 - GET `/api/metrics` Request: optional query filters. Response: metrics summary payload.
 
 ### Bouncie webhooks
+
 - POST `/api/webhooks/bouncie` (aliases: `/api/webhooks/bouncie/`, `/webhook/bouncie`, `/webhook/bouncie/`, `/bouncie-webhook`, `/bouncie-webhook/`) Request: JSON webhook payload, optional header `x-bouncie-authorization` or `authorization`. Response: 200 `{status:"ok"}` (processing happens async).
 - GET `/api/webhooks/bouncie/status` Request: none. Response: `{status:"success", last_received, event_type, server_time}`.
 
 ### Counties
+
 - GET `/api/counties/topology` Request: query `projection` (optional). Response: `{success, projection, source, updatedAt, topology}`.
 - GET `/api/counties/visited` Request: none. Response: `{success, counties, stoppedCounties, totalVisited, totalStopped, lastUpdated, totalTripsAnalyzed, cached}`.
 - POST `/api/counties/recalculate` Request: none. Response: `{success, message}` (background calculation).
 - GET `/api/counties/cache-status` Request: none. Response: `{cached, totalVisited, totalStopped, tripsAnalyzed, lastUpdated, calculationTime}`.
 
 ### Coverage management (street_coverage)
+
 - GET `/api/coverage/areas` Request: none. Response: `{success, areas:[...]}` with stats and timestamps.
 - POST `/api/coverage/areas` Request: `{display_name, area_type?, boundary?}`. Response: `{success, area_id, job_id?, message}`.
 - GET `/api/coverage/areas/{area_id}` Request: none. Response: `{success, area, bounding_box?, has_optimal_route}`.
@@ -134,6 +149,7 @@
 - DELETE `/api/coverage/jobs/{job_id}` Request: none. Response: `{success, message}`.
 
 ### Optimal routes (coverage completion)
+
 - POST `/api/coverage/areas/{area_id}/optimal-route` Request: query `start_lon`, `start_lat` (optional). Response: `{task_id, status:"started"}`.
 - GET `/api/coverage/areas/{area_id}/optimal-route` Request: none. Response: `{status:"success", location_name, ...route data}` or 404.
 - GET `/api/coverage/areas/{area_id}/optimal-route/gpx` Request: none. Response: GPX download (`application/gpx+xml`).
@@ -145,15 +161,18 @@
 - DELETE `/api/optimal-routes/{task_id}` Request: none. Response: `{status:"cancelled", message}`.
 
 ### Driving navigation helpers
+
 - POST `/api/driving-navigation/next-route` Request: `{location:{id,...}, current_position?, segment_id?}`. Response: route payload with target segment or `{status:"completed"}`.
 - GET `/api/driving-navigation/suggest-next-street/{area_id}` Request: query `current_lat`, `current_lon`, `top_n?`, `min_cluster_size?`. Response: `{status, suggested_clusters}`.
 
 ### Exports
+
 - POST `/api/exports` Request: `{items:[{entity, format?, include_geometry?}], trip_filters?, area_id?}`; header `X-Export-Owner` (optional). Response: `{id, status, progress, message, created_at}`.
 - GET `/api/exports/{job_id}` Request: header `X-Export-Owner` (optional). Response: `{id, status, progress, message, created_at, started_at, completed_at, error, result, download_url}`.
 - GET `/api/exports/{job_id}/download` Request: header `X-Export-Owner` (optional). Response: ZIP file (`application/zip`) or 404/409.
 
 ### Gas and vehicles
+
 - GET `/api/vehicles` Request: query `imei?`, `vin?`, `active_only?`. Response: list of Vehicle records.
 - POST `/api/vehicles` Request: VehicleModel JSON. Response: created Vehicle record.
 - PUT `/api/vehicles/{imei}` Request: VehicleModel JSON. Response: updated Vehicle record.
@@ -169,34 +188,40 @@
 - POST `/api/vehicles/sync-from-trips` Request: none. Response: `{status, synced, updated, total_vehicles}`.
 
 ### Live tracking
+
 - WebSocket `/ws/trips` Request: WS upgrade. Response: JSON messages `{type:"trip_state", trip:{...}, status, transaction_id?}`.
 - GET `/api/active_trip` Request: none. Response: `{status:"success", has_active_trip, trip?, server_time, message?}`.
 - GET `/api/trip_updates` Request: none. Response: polling payload `{status, has_update, trip?, server_time}`.
 
 ### Logs
+
 - GET `/api/server-logs` Request: query `limit`, `level?`, `search?`. Response: `{logs, total_count, returned_count, limit}`.
 - DELETE `/api/server-logs` Request: query `level?`, `older_than_days?`. Response: `{message, deleted_count, filter}`.
 - GET `/api/server-logs/stats` Request: none. Response: `{total_count, by_level, oldest_timestamp, newest_timestamp}`.
 
 ### Trip processing
+
 - POST `/api/process_trip/{trip_id}` Request: `{map_match?, validate_only?, geocode_only?}`. Response: processing status and `saved_id` when applicable.
 - GET `/api/trips/{trip_id}/status` Request: none. Response: processing status fields (validation/geocode/map-match timestamps, flags).
 - POST `/api/map_match_trips` Request: query `trip_id` or `start_date` + `end_date`. Response: `{status, message, processed_count, failed_count}`.
 - POST `/api/matched_trips/remap` Request: `{start_date?, end_date?, interval_days?}`. Response: `{status, message, deleted_count}`.
 
 ### Profile and Bouncie credentials
+
 - GET `/api/profile/bouncie-credentials` Request: none. Response: `{status, credentials}` with masked secrets.
 - POST `/api/profile/bouncie-credentials` Request: `{client_id, client_secret, redirect_uri, authorization_code, authorized_devices, fetch_concurrency?}`. Response: `{status, message}`.
 - GET `/api/profile/bouncie-credentials/unmask` Request: none. Response: `{status, credentials}` with full secrets.
 - POST `/api/profile/bouncie-credentials/sync-vehicles` Request: none. Response: `{status, message, vehicles, authorized_devices}`.
 
 ### Routing and search
+
 - POST `/api/routing/route` Request: `{origin:[lon,lat], destination:[lon,lat]}`. Response: `{route:{geometry, duration, distance}}`.
 - POST `/api/routing/eta` Request: `{waypoints:[[lon,lat], ...]}`. Response: `{duration}`.
 - GET `/api/search/geocode` Request: query `query`, `limit?`, `proximity_lon?`, `proximity_lat?`. Response: `{results, query}`.
 - GET `/api/search/streets` Request: query `query`, `location_id?`, `limit?`. Response: list of GeoJSON features grouped by street name.
 
 ### Background tasks control
+
 - GET `/api/background_tasks/config` Request: none. Response: current task config snapshot with `tasks` map.
 - POST `/api/background_tasks/config` Request: JSON task config updates. Response: `{status, message}`.
 - POST `/api/background_tasks/pause` Request: `{duration}` optional. Response: `{status, message}`.
@@ -215,6 +240,7 @@
 - GET `/api/background_tasks/sse` Request: none. Response: `text/event-stream` task updates.
 
 ### Trips CRUD and analytics
+
 - GET `/api/trips` Request: query `start_date?`, `end_date?`, `imei?`, `matched_only?`. Response: streaming GeoJSON FeatureCollection.
 - GET `/api/matched_trips` Request: query `start_date?`, `end_date?`, `imei?`. Response: streaming GeoJSON FeatureCollection (matchedGps geometry).
 - POST `/api/trips/datatable` Request: DataTables payload (`draw`, `start`, `length`, `order`, `columns`, `filters`, `start_date?`, `end_date?`). Response: `{draw, recordsTotal, recordsFiltered, data}`.
@@ -230,6 +256,7 @@
 - POST `/api/trips/{trip_id}/regeocode` Request: none. Response: `{status, message}`.
 
 ### Visits and places
+
 - GET `/api/places` Request: none. Response: list of PlaceResponse.
 - POST `/api/places` Request: `{name, geometry}`. Response: PlaceResponse.
 - PATCH `/api/places/{place_id}` Request: `{name?, geometry?}`. Response: PlaceResponse.
@@ -241,6 +268,7 @@
 - GET `/api/non_custom_places_visits` Request: query `timeframe?`. Response: list of NonCustomPlaceVisit payloads.
 
 ## Background Jobs and Scheduling (ARQ)
+
 - Worker config: `tasks/worker.py` (cron + task registry).
 - Task definitions in `tasks/registry.py`:
   - `periodic_fetch_trips`, `cleanup_stale_trips`, `validate_trips`, `remap_unmatched_trips`,
@@ -252,7 +280,9 @@
 - Worker heartbeat: Redis key `arq:worker:heartbeat` (used by `/api/optimal-routes/worker-status`).
 
 ## Data Stores and Collections
+
 ### MongoDB collections (Beanie models)
+
 - `trips`: core trip data, GPS, derived geocoding fields, validation state.
 - `matched_trips`: map-matched geometry for trips.
 - `osm_data`: OSM boundary/geojson cache.
@@ -274,10 +304,12 @@
   - `jobs`: coverage ingestion/rebuild job tracking.
 
 ### Redis usage
+
 - ARQ job queue + worker heartbeat.
 - Pub/Sub channel `trip_updates` for live tracking (`trip_event_publisher.py`).
 
 ### File-based data and caches
+
 - `everystreet-data/us-9states.osm.pbf`: local OSM extract.
 - `data/graphs/*.graphml`: per-area OSMnx graph cache for optimal routes.
 - `cache/*.json`: cached artifacts (geocoding, intermediate results, etc.).
@@ -286,6 +318,7 @@
 - `reports/`: autofix and tooling reports.
 
 ## Core Subsystems and Modules
+
 - Trip ingestion and processing:
   - `bouncie_trip_fetcher.py`: pulls trips via Bouncie API.
   - `trip_processor/`: validation, geocoding, map matching pipeline.
@@ -309,17 +342,20 @@
   - `geometry_service.py`, `date_utils.py`, `core/math_utils.py`, `core/api.py`.
 
 ## Frontend Assets and Templates
+
 - Templates: `templates/*.html` (landing, map, trips, coverage, visits, gas, settings, etc.).
 - Static assets: `static/css/`, `static/js/`, `static/favicon.ico`.
 - Data tables and map UIs are server-rendered and call API endpoints for data.
 
 ## Tooling, Tests, and Quality
+
 - Python tests: `pytest` (see `TESTING.md`); mocks via `mongomock-motor`.
 - JS tests: `npm test` (Node built-in test runner).
 - Lint/format: Ruff (`pyproject.toml`), Biome (`biome.json`), ESLint (`eslint.config.mjs`), Stylelint.
 - Coverage output: `coverage.lcov`.
 
 ## Top-Level Directory Map (Selected)
+
 - `analytics/`: analytics routes and services.
 - `core/`: shared utilities, HTTP clients, exceptions.
 - `db/`: MongoDB manager, models, query utilities.
