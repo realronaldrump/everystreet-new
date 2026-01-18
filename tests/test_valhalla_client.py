@@ -39,8 +39,44 @@ def test_normalize_route_response_extracts_geometry() -> None:
     assert normalized["distance_meters"] == 1200
 
 
+def test_normalize_route_response_extracts_geometry_from_leg() -> None:
+    data = {
+        "trip": {
+            "legs": [
+                {
+                    "summary": {"length": 1.2, "time": 300},
+                    "shape": {"coordinates": [[0.0, 0.0], [1.0, 1.0]]},
+                },
+            ],
+        },
+    }
+
+    normalized = ValhallaClient._normalize_route_response(data)
+
+    assert normalized["geometry"]["type"] == "LineString"
+    assert normalized["geometry"]["coordinates"] == [[0.0, 0.0], [1.0, 1.0]]
+
+
 def test_normalize_trace_response_extracts_geometry() -> None:
     data = {"trip": {"shape": {"coordinates": [[0.0, 0.0], [1.0, 1.0]]}}}
+
+    normalized = ValhallaClient._normalize_trace_response(data)
+
+    assert normalized["geometry"]["type"] == "LineString"
+    assert normalized["geometry"]["coordinates"] == [[0.0, 0.0], [1.0, 1.0]]
+
+
+def test_normalize_trace_response_extracts_geometry_from_leg() -> None:
+    data = {"trip": {"legs": [{"shape": {"coordinates": [[0.0, 0.0], [1.0, 1.0]]}}]}}
+
+    normalized = ValhallaClient._normalize_trace_response(data)
+
+    assert normalized["geometry"]["type"] == "LineString"
+    assert normalized["geometry"]["coordinates"] == [[0.0, 0.0], [1.0, 1.0]]
+
+
+def test_normalize_trace_response_extracts_geometry_from_top_level() -> None:
+    data = {"shape": {"coordinates": [[0.0, 0.0], [1.0, 1.0]]}}
 
     normalized = ValhallaClient._normalize_trace_response(data)
 

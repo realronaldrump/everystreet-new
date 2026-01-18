@@ -102,12 +102,12 @@ class MapMatchingService:
             timestamps_chunk: list[int | None] | None = None,
         ) -> dict[str, Any]:
             """Call Valhalla trace_route API."""
-            shape = self._build_shape_points(coords, timestamps_chunk)
+            use_timestamps = self._should_use_timestamps(coords, timestamps_chunk)
+            shape = self._build_shape_points(
+                coords,
+                timestamps_chunk if use_timestamps else None,
+            )
             try:
-                use_timestamps = bool(
-                    timestamps_chunk
-                    and any(timestamp is not None for timestamp in timestamps_chunk),
-                )
                 return await self._execute_valhalla_request(
                     shape,
                     use_timestamps=use_timestamps,
@@ -191,6 +191,22 @@ class MapMatchingService:
                     point["time"] = int(timestamp)
             shape.append(point)
         return shape
+
+    @staticmethod
+    def _should_use_timestamps(
+        coords: list[list[float]],
+        timestamps_chunk: list[int | None] | None,
+    ) -> bool:
+        if not timestamps_chunk or len(timestamps_chunk) != len(coords):
+            return False
+        last_ts: int | None = None
+        for timestamp in timestamps_chunk:
+            if timestamp is None:
+                return False
+            if last_ts is not None and timestamp < last_ts:
+                return False
+            last_ts = timestamp
+        return True
 
     async def _execute_valhalla_request(
         self,

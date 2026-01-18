@@ -143,12 +143,8 @@ class ValhallaClient:
         trip = data.get("trip") or {}
         legs = trip.get("legs") or []
         summary = legs[0].get("summary") if legs else {}
-        geometry = None
-        if trip.get("shape"):
-            geometry = {
-                "type": "LineString",
-                "coordinates": trip.get("shape", {}).get("coordinates", []),
-            }
+        coords = ValhallaClient._extract_shape_coordinates(data)
+        geometry = {"type": "LineString", "coordinates": coords} if coords else None
         distance_km = summary.get("length", 0) if summary else 0
         return {
             "geometry": geometry,
@@ -159,13 +155,60 @@ class ValhallaClient:
 
     @staticmethod
     def _normalize_trace_response(data: dict[str, Any]) -> dict[str, Any]:
-        trip = data.get("trip") or {}
-        shape = trip.get("shape") or {}
-        coords = shape.get("coordinates", [])
-
-        # Return None geometry if no coordinates
-        geometry = None
-        if coords:
-            geometry = {"type": "LineString", "coordinates": coords}
-
+        coords = ValhallaClient._extract_shape_coordinates(data)
+        geometry = {"type": "LineString", "coordinates": coords} if coords else None
         return {"geometry": geometry, "raw": data}
+
+    @staticmethod
+    def _extract_shape_coordinates(data: dict[str, Any]) -> list[list[float]]:
+        trip = data.get("trip") if isinstance(data, dict) else None
+        candidates: list[Any] = []
+
+        if isinstance(trip, dict):
+            candidates.append(trip.get("shape"))
+            legs = trip.get("legs")
+            if isinstance(legs, list) and legs:
+                first_leg = legs[0]
+                if isinstance(first_leg, dict):
+                    candidates.append(first_leg.get("shape"))
+
+        if isinstance(data, dict):
+            candidates.append(data.get("shape"))
+
+        for shape in candidates:
+            coords = ValhallaClient._coerce_shape_coordinates(shape)
+            if coords:
+                return coords
+
+        return []
+
+    @staticmethod
+    def _coerce_shape_coordinates(shape: Any) -> list[list[float]]:
+        if shape is None:
+            return []
+
+        if isinstance(shape, dict):
+            coords = shape.get("coordinates")
+        elif isinstance(shape, list):
+            coords = shape
+        else:
+            return []
+
+        if not isinstance(coords, list):
+            return []
+
+        normalized: list[list[float]] = []
+        for point in coords:
+            if isinstance(point, dict):
+                lon = point.get("lon")
+                lat = point.get("lat")
+            else:
+                if not isinstance(point, list | tuple) or len(point) < 2:
+                    continue
+                lon, lat = point[0], point[1]
+            try:
+                normalized.append([float(lon), float(lat)])
+            except (TypeError, ValueError):
+                continue
+
+        return normalized
