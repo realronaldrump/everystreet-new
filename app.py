@@ -16,6 +16,7 @@ from config import (
     require_nominatim_reverse_url,
     require_nominatim_search_url,
     require_nominatim_user_agent,
+    require_osm_data_path,
     require_valhalla_route_url,
     require_valhalla_status_url,
     require_valhalla_trace_attributes_url,
@@ -174,7 +175,10 @@ async def startup_event():
         require_nominatim_search_url()
         require_nominatim_reverse_url()
         require_nominatim_user_agent()
-        logger.info("Valhalla and Nominatim configuration validated successfully.")
+        require_osm_data_path()
+        logger.info(
+            "Valhalla, Nominatim, and local OSM extract configuration validated successfully.",
+        )
 
         # Register coverage event handlers
         from street_coverage.events import register_handlers

@@ -316,7 +316,7 @@ class MatchedTrip(Document):
 
 
 class OsmData(Document):
-    """OpenStreetMap data cache document."""
+    """OSM data cache document."""
 
     location: dict[str, Any] | None = None
     type: str | None = None

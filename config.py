@@ -28,6 +28,7 @@ NOMINATIM_BASE_URL_ENV_VAR: Final[str] = "NOMINATIM_BASE_URL"
 NOMINATIM_SEARCH_URL_ENV_VAR: Final[str] = "NOMINATIM_SEARCH_URL"
 NOMINATIM_REVERSE_URL_ENV_VAR: Final[str] = "NOMINATIM_REVERSE_URL"
 NOMINATIM_USER_AGENT_ENV_VAR: Final[str] = "NOMINATIM_USER_AGENT"
+OSM_DATA_PATH_ENV_VAR: Final[str] = "OSM_DATA_PATH"
 
 
 def get_mapbox_token() -> str:
@@ -153,6 +154,10 @@ def get_nominatim_user_agent() -> str:
     return os.getenv(NOMINATIM_USER_AGENT_ENV_VAR, "").strip()
 
 
+def get_osm_data_path() -> str:
+    return os.getenv(OSM_DATA_PATH_ENV_VAR, "").strip()
+
+
 def require_nominatim_base_url() -> str:
     return _require_env_var(
         NOMINATIM_BASE_URL_ENV_VAR,
@@ -178,6 +183,13 @@ def require_nominatim_user_agent() -> str:
     return _require_env_var(
         NOMINATIM_USER_AGENT_ENV_VAR,
         "Expected a Nominatim User-Agent string (EveryStreet/1.0 ...).",
+    )
+
+
+def require_osm_data_path() -> str:
+    return _require_env_var(
+        OSM_DATA_PATH_ENV_VAR,
+        "Expected local OSM XML path used by Valhalla/Nominatim (e.g. /data/osm/region.osm).",
     )
 
 
@@ -213,6 +225,7 @@ __all__ = [
     "get_nominatim_reverse_url",
     "get_nominatim_search_url",
     "get_nominatim_user_agent",
+    "get_osm_data_path",
     "get_valhalla_base_url",
     "get_valhalla_route_url",
     "get_valhalla_status_url",
@@ -223,6 +236,7 @@ __all__ = [
     "require_nominatim_reverse_url",
     "require_nominatim_search_url",
     "require_nominatim_user_agent",
+    "require_osm_data_path",
     "require_valhalla_base_url",
     "require_valhalla_route_url",
     "require_valhalla_status_url",

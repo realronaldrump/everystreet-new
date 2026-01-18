@@ -187,7 +187,7 @@ async def generate_optimal_route_with_progress(
             await update_progress(
                 "loading_graph",
                 42,
-                "Downloading street network from OpenStreetMap (one-time setup)...",
+                "Building street network from local OSM extract (one-time setup)...",
             )
 
             try:
@@ -206,13 +206,13 @@ async def generate_optimal_route_with_progress(
                 await update_progress(
                     "loading_graph",
                     44,
-                    "Graph downloaded successfully, loading...",
+                    "Graph built successfully, loading...",
                 )
             except Exception as e:
                 logger.exception("Failed to auto-generate graph")
                 msg = (
-                    f"Failed to download street network from OpenStreetMap: {e}. "
-                    f"This may be due to rate limiting or network issues. Please try again later."
+                    f"Failed to build street network from local OSM extract: {e}. "
+                    "Ensure OSM_DATA_PATH points to the same OSM XML extract used by Valhalla/Nominatim."
                 )
                 _raise_value_error(msg)
 

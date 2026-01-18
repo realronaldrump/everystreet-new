@@ -198,7 +198,7 @@ async def add_area(request: CreateAreaRequest):
     Simply provide the name (e.g., "Waco, TX") and the system
     handles everything else automatically:
     - Fetches boundary from geocoding
-    - Downloads streets from OpenStreetMap
+    - Loads streets from the local OSM extract
     - Calculates coverage from existing trips
 
     No configuration options - the system "just works".
@@ -263,7 +263,7 @@ async def trigger_rebuild(area_id: PydanticObjectId):
     Trigger a rebuild of an area with fresh OSM data.
 
     Use this when:
-    - New streets have been added to OpenStreetMap
+    - New streets have been added to your local OSM extract
     - The area data is more than 90 days old
     - You want to reset and recalculate everything
 

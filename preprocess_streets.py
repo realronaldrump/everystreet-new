@@ -6,7 +6,8 @@ This script:
 2. For each area:
     a. Gets the boundary polygon.
     b. Buffers it slightly (ROUTING_BUFFER_FT).
-    c. Downloads the driveable street network using osmnx.
+    c. Loads the driveable street network from a local OSM XML extract
+       (configured via OSM_DATA_PATH).
     d. Saves the graph as a .graphml file to `data/graphs/{location_id}.graphml`.
 """
 
@@ -17,12 +18,15 @@ import logging
 import sys
 from pathlib import Path
 
+import networkx as nx
 import osmnx as ox
 from dotenv import load_dotenv
 from shapely.geometry import box, shape
 
 from routes.constants import GRAPH_STORAGE_DIR, ROUTING_BUFFER_FT
 from routes.geometry import _buffer_polygon_for_routing
+from config import require_osm_data_path
+from street_coverage.osm_filters import get_driveable_highway
 
 logger = logging.getLogger(__name__)
 
@@ -81,8 +85,8 @@ async def preprocess_streets(
         # 2. Buffer Polygon
         routing_polygon = _buffer_polygon_for_routing(polygon, ROUTING_BUFFER_FT)
 
-        # 3. Download Graph
-        logger.info("Downloading OSM graph for %s...", location_name)
+        # 3. Load Graph from local extract
+        logger.info("Loading OSM graph from local extract for %s...", location_name)
 
         # Run synchronous ox operations in a thread pool to avoid blocking the event loop
         # distinct from the main thread if running in an async context
@@ -90,13 +94,34 @@ async def preprocess_streets(
 
         def _download_and_save():
             GRAPH_STORAGE_DIR.mkdir(parents=True, exist_ok=True)
-            G = ox.graph_from_polygon(
-                routing_polygon,
-                network_type="drive",
+            osm_path = Path(require_osm_data_path())
+            if not osm_path.exists():
+                msg = f"OSM data file not found: {osm_path}"
+                raise FileNotFoundError(msg)
+            if osm_path.suffix.lower() not in {".osm", ".xml"}:
+                msg = (
+                    "OSM_DATA_PATH must point to an OSM XML file (.osm or .xml) "
+                    "exported from your Valhalla/Nominatim data."
+                )
+                raise ValueError(msg)
+            G = ox.graph_from_xml(
+                osm_path,
                 simplify=True,
-                truncate_by_edge=True,
                 retain_all=True,
             )
+            G = ox.truncate.truncate_graph_polygon(
+                G,
+                routing_polygon,
+                truncate_by_edge=True,
+            )
+            non_driveable = [
+                (u, v, k)
+                for u, v, k, data in G.edges(keys=True, data=True)
+                if get_driveable_highway(data.get("highway")) is None
+            ]
+            if non_driveable:
+                G.remove_edges_from(non_driveable)
+                G.remove_nodes_from(list(nx.isolates(G)))
             # 4. Save to Disk
             file_path = GRAPH_STORAGE_DIR / f"{location_id}.graphml"
             ox.save_graphml(G, filepath=file_path)
@@ -109,7 +134,7 @@ async def preprocess_streets(
         # Re-raise to allow caller to handle error if needed
         raise
     else:
-        logger.info("Graph downloaded and saved for %s.", location_name)
+        logger.info("Graph built and saved for %s.", location_name)
         return graph, file_path
 
 

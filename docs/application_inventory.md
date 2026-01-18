@@ -53,7 +53,7 @@ matching, and visualizes street coverage on interactive maps.
 | **Mapbox**        | Map rendering (tiles/styles) |
 | **Valhalla**      | Routing, map matching        |
 | **Nominatim**     | Geocoding                    |
-| **OpenStreetMap** | Street geometry data         |
+| **Local OSM Extract** | Street geometry data     |
 
 ---
 
@@ -84,7 +84,7 @@ graph TB
         Mapbox[Mapbox Tiles]
         Valhalla[Valhalla]
         Nominatim[Nominatim]
-        OSM[OpenStreetMap]
+        OSM[Local OSM Extract]
     end
 
     subgraph Storage
@@ -214,7 +214,7 @@ graph TB
 | ------------- | --------------- | ----------------------------- |
 | `Trip`        | `trips`         | Raw trip records from Bouncie |
 | `MatchedTrip` | `matched_trips` | Map-matched GPS coordinates   |
-| `OsmData`     | `osm_data`      | Cached OpenStreetMap data     |
+| `OsmData`     | `osm_data`      | Cached OSM data               |
 | `Place`       | `places`        | Visited locations             |
 | `TaskConfig`  | `task_config`   | Scheduled task configuration  |
 | `TaskHistory` | `task_history`  | Task execution history        |
@@ -362,9 +362,9 @@ Key stylesheets:
 
 - **Geocoding**: Forward/reverse lookup
 
-### OpenStreetMap
+### Local OSM Extract (self-hosted)
 
-- **Overpass API**: Street geometry fetch
+- **OSM XML Extract**: Street geometry source for coverage/graphs (OSM_DATA_PATH)
 - **Data Types**: Roads, boundaries
 
 ---

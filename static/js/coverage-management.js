@@ -587,7 +587,7 @@ async function rebuildArea(areaId, displayName = null) {
   const confirmed = await window.confirmationDialog?.show({
     title: "Rebuild Coverage Area",
     message:
-      "Rebuild this area with fresh data from OpenStreetMap?<br><br>This may take a few minutes.",
+      "Rebuild this area with fresh data from the local OSM extract?<br><br>This may take a few minutes.",
     confirmText: "Rebuild",
     confirmButtonClass: "btn-warning",
   });
@@ -628,7 +628,7 @@ async function recalculateCoverage(areaId, displayName) {
     title: "Recalculate Coverage",
     message:
       `Recalculate coverage for "<strong>${escapeHtml(displayName)}</strong>" by matching all existing trips?<br><br>`
-      + `This will update coverage data without re-downloading streets from OSM. Use this if coverage seems incomplete.`,
+      + `This will update coverage data without reloading the local OSM extract. Use this if coverage seems incomplete.`,
     confirmText: "Recalculate",
     confirmButtonClass: "btn-info",
   });

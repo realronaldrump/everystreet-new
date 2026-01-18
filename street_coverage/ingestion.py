@@ -3,7 +3,7 @@ Area ingestion pipeline.
 
 This module handles the complete lifecycle of adding a coverage area:
 1. Fetch boundary from geocoding/Nominatim
-2. Fetch streets from OSM Overpass API
+2. Load streets from a local OSM graph extract
 3. Segment streets and store in database
 4. Initialize coverage state for all segments
 5. Backfill with historical trips
@@ -15,11 +15,12 @@ import asyncio
 import logging
 import math
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 import aiohttp
 from beanie import PydanticObjectId
-from shapely.geometry import LineString, mapping, shape
+from shapely.geometry import LineString, MultiLineString, mapping, shape
 from shapely.ops import transform
 
 from street_coverage.constants import (
@@ -33,6 +34,7 @@ from street_coverage.constants import (
 from street_coverage.events import CoverageEvents, emit_area_created, on_event
 from street_coverage.geo_utils import geodesic_length_meters, get_local_transformers
 from street_coverage.models import CoverageArea, CoverageState, Job, Street
+from street_coverage.osm_filters import get_driveable_highway
 from street_coverage.stats import update_area_stats
 from street_coverage.worker import backfill_coverage_for_area
 
@@ -43,24 +45,6 @@ _background_tasks: set[asyncio.Task] = set()
 def _track_task(task: asyncio.Task) -> None:
     _background_tasks.add(task)
     task.add_done_callback(_background_tasks.discard)
-
-# OSM highway types to include (driveable roads)
-DRIVEABLE_HIGHWAY_TYPES = {
-    "motorway",
-    "trunk",
-    "primary",
-    "secondary",
-    "tertiary",
-    "unclassified",
-    "residential",
-    "motorway_link",
-    "trunk_link",
-    "primary_link",
-    "secondary_link",
-    "tertiary_link",
-    "living_street",
-    "service",
-}
 
 BACKFILL_PROGRESS_START = 75.0
 BACKFILL_PROGRESS_END = 99.0
@@ -258,16 +242,16 @@ async def _run_ingestion_pipeline(
 
         await update_job(message="Boundary ready")
 
-        # Stage 2: Fetch streets from OSM
+        # Stage 2: Load streets from local OSM graph
         await update_job(
-            stage="Fetching streets from OpenStreetMap",
+            stage="Loading streets from local OSM graph",
             progress=20,
-            message="Querying Overpass API",
+            message="Loading graph data",
         )
 
-        osm_ways = await _fetch_osm_streets(area.boundary)
+        osm_ways = await _load_osm_streets_from_graph(area, job.id)
         logger.info(
-            "Fetched %s ways from OSM for %s",
+            "Loaded %s ways from local graph for %s",
             len(osm_ways),
             area.display_name,
         )
@@ -519,122 +503,147 @@ def _calculate_bounding_box(boundary: dict[str, Any]) -> list[float]:
     return [minx, miny, maxx, maxy]
 
 
-def _split_bounding_box(
-    minx: float,
-    miny: float,
-    maxx: float,
-    maxy: float,
-    rows: int = 2,
-    cols: int = 2,
-) -> list[list[float]]:
-    """Split bounding box into smaller boxes for parallel fetching."""
-    dx = (maxx - minx) / cols
-    dy = (maxy - miny) / rows
-    boxes = []
-    for i in range(rows):
-        for j in range(cols):
-            sub_minx = minx + j * dx
-            sub_maxx = minx + (j + 1) * dx
-            sub_miny = miny + i * dy
-            sub_maxy = miny + (i + 1) * dy
-            boxes.append([sub_minx, sub_miny, sub_maxx, sub_maxy])
-    return boxes
-
-
-async def _fetch_single_box(
-    highway_filter: str,
-    minx: float,
-    miny: float,
-    maxx: float,
-    maxy: float,
-) -> dict[str, Any]:
-    """Fetch OSM data for a single bounding box with retry."""
-    query = f"""
-    [out:json][timeout:300];
-    (
-      way["highway"~"^({highway_filter})$"]({miny},{minx},{maxy},{maxx});
-    );
-    out body;
-    >;
-    out skel qt;
-    """
-
-    url = "https://overpass-api.de/api/interpreter"
-    max_retries = 3
-    for attempt in range(max_retries):
-        try:
-            async with aiohttp.ClientSession() as session, session.post(
-                url,
-                data={"data": query},
-            ) as response:
-                response.raise_for_status()
-                return await response.json()
-        except aiohttp.ClientResponseError as e:
-            if e.status in (504, 502, 503) and attempt < max_retries - 1:
-                await asyncio.sleep(30 * (2**attempt))  # exponential backoff
+def _coerce_osm_id(value: Any) -> int | None:
+    if value is None:
+        return None
+    if isinstance(value, list | tuple | set):
+        for item in value:
+            try:
+                return int(item)
+            except (TypeError, ValueError):
                 continue
-            raise
-    msg = "Max retries exceeded"
-    raise RuntimeError(msg)
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
 
 
-async def _fetch_osm_streets(boundary: dict[str, Any]) -> list[dict[str, Any]]:
-    """Fetch street ways from OSM Overpass API within a boundary."""
-    geom = shape(boundary)
-    minx, miny, maxx, maxy = geom.bounds
-    area = geom.area  # in degrees²
+def _coerce_line_geometry(geom: Any) -> Any | None:
+    if geom is None or geom.is_empty:
+        return None
+    if geom.geom_type in ("LineString", "MultiLineString"):
+        return geom
+    if geom.geom_type == "GeometryCollection":
+        lines = []
+        for item in geom.geoms:
+            if item.geom_type == "LineString":
+                lines.append(item)
+            elif item.geom_type == "MultiLineString":
+                lines.extend(list(item.geoms))
+        if not lines:
+            return None
+        if len(lines) == 1:
+            return lines[0]
+        return MultiLineString(lines)
+    return None
 
-    highway_filter = "|".join(DRIVEABLE_HIGHWAY_TYPES)
 
-    if area > 0.05:  # approx 600 km², split into 4
-        boxes = _split_bounding_box(minx, miny, maxx, maxy, rows=2, cols=2)
-        tasks = [_fetch_single_box(highway_filter, *box) for box in boxes]
-        responses = await asyncio.gather(*tasks)
-        # Merge elements
-        all_elements = []
-        for resp in responses:
-            all_elements.extend(resp.get("elements", []))
-    else:
-        data = await _fetch_single_box(highway_filter, minx, miny, maxx, maxy)
-        all_elements = data.get("elements", [])
+def _edge_geometry(G: Any, u: Any, v: Any, data: dict[str, Any]) -> Any | None:
+    geom = data.get("geometry")
+    if geom is not None:
+        return geom
+    try:
+        return LineString(
+            [
+                (float(G.nodes[u]["x"]), float(G.nodes[u]["y"])),
+                (float(G.nodes[v]["x"]), float(G.nodes[v]["y"])),
+            ],
+        )
+    except Exception:
+        return None
 
-    # Parse response into ways with geometries
-    nodes = {}
-    ways = []
 
-    for element in all_elements:
-        if element["type"] == "node":
-            nodes[element["id"]] = (element["lon"], element["lat"])
-        elif element["type"] == "way":
-            ways.append(element)
+def _coerce_name(value: Any) -> str | None:
+    if value is None:
+        return None
+    if isinstance(value, list | tuple | set):
+        for item in value:
+            if item is None:
+                continue
+            return str(item)
+        return None
+    return str(value)
 
-    # Remove duplicate ways by osm_id
-    ways_dict = {way["id"]: way for way in ways}
-    ways = list(ways_dict.values())
 
-    # Build way geometries
-    result = []
-    boundary_shape = shape(boundary)
+async def _ensure_area_graph(
+    area: CoverageArea,
+    job_id: PydanticObjectId | None = None,
+) -> Path:
+    from routes.constants import GRAPH_STORAGE_DIR
 
-    for way in ways:
-        coords = [
-            nodes[node_id] for node_id in way.get("nodes", []) if node_id in nodes
-        ]
+    graph_path = GRAPH_STORAGE_DIR / f"{area.id}.graphml"
+    if graph_path.exists():
+        return graph_path
 
-        if len(coords) >= 2:
-            line = LineString(coords)
+    from preprocess_streets import preprocess_streets
 
-            # Clip to boundary
-            if boundary_shape.intersects(line):
-                clipped = boundary_shape.intersection(line)
-                if not clipped.is_empty:
-                    result.append(
-                        {
-                            "osm_id": way["id"],
-                            "tags": way.get("tags", {}),
-                            "geometry": mapping(clipped),
-                        },
-                    )
+    loc_data = {
+        "_id": str(area.id),
+        "id": str(area.id),
+        "display_name": area.display_name,
+        "boundary": area.boundary,
+        "bounding_box": area.bounding_box,
+    }
+    await preprocess_streets(loc_data, task_id=str(job_id) if job_id else None)
+
+    if not graph_path.exists():
+        msg = f"Graph file was not created: {graph_path}"
+        raise FileNotFoundError(msg)
+
+    return graph_path
+
+
+async def _load_osm_streets_from_graph(
+    area: CoverageArea,
+    job_id: PydanticObjectId | None = None,
+) -> list[dict[str, Any]]:
+    """Load street ways from the local graph built from self-hosted OSM data."""
+    import networkx as nx
+    import osmnx as ox
+
+    graph_path = await _ensure_area_graph(area, job_id)
+    G = ox.load_graphml(graph_path)
+    if not isinstance(G, nx.MultiDiGraph):
+        G = nx.MultiDiGraph(G)
+
+    Gu = ox.convert.to_undirected(G)
+
+    boundary_geojson = area.boundary
+    if (
+        isinstance(boundary_geojson, dict)
+        and boundary_geojson.get("type") == "Feature"
+    ):
+        boundary_geojson = boundary_geojson.get("geometry")
+    boundary_shape = shape(boundary_geojson) if boundary_geojson else None
+
+    result: list[dict[str, Any]] = []
+    for u, v, _k, data in Gu.edges(keys=True, data=True):
+        highway_type = get_driveable_highway(data.get("highway"))
+        if highway_type is None:
+            continue
+
+        line = _edge_geometry(Gu, u, v, data)
+        if line is None:
+            continue
+
+        if boundary_shape is not None:
+            if not boundary_shape.intersects(line):
+                continue
+            line = _coerce_line_geometry(boundary_shape.intersection(line))
+            if line is None:
+                continue
+
+        result.append(
+            {
+                "osm_id": _coerce_osm_id(data.get("osmid")),
+                "tags": {
+                    "name": _coerce_name(data.get("name")),
+                    "highway": highway_type,
+                },
+                "geometry": mapping(line),
+            },
+        )
 
     return result
 

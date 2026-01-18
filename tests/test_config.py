@@ -58,5 +58,20 @@ class MapboxConfigTests(unittest.TestCase):
             assert config.require_mapbox_token() == "pk.test-token-12345678901234567890"
 
 
+class OsmDataPathTests(unittest.TestCase):
+    def test_require_osm_data_path_missing(self) -> None:
+        with patch.dict(os.environ, {}, clear=True):
+            with pytest.raises(RuntimeError):
+                config.require_osm_data_path()
+
+    def test_require_osm_data_path_present(self) -> None:
+        with patch.dict(
+            os.environ,
+            {"OSM_DATA_PATH": "/data/osm/test.osm"},
+            clear=True,
+        ):
+            assert config.require_osm_data_path() == "/data/osm/test.osm"
+
+
 if __name__ == "__main__":
     unittest.main()
