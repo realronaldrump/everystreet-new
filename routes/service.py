@@ -9,9 +9,9 @@ import networkx as nx
 import osmnx as ox
 from beanie import PydanticObjectId
 
-from street_coverage.models import CoverageArea, CoverageState, Street
 from db.models import OptimalRouteProgress
 from progress_tracker import ProgressTracker
+from street_coverage.models import CoverageArea, CoverageState, Street
 
 from .constants import GRAPH_STORAGE_DIR, MAX_SEGMENTS
 from .core import make_req_id, solve_greedy_route

@@ -46,6 +46,7 @@ def _track_task(task: asyncio.Task) -> None:
     _background_tasks.add(task)
     task.add_done_callback(_background_tasks.discard)
 
+
 BACKFILL_PROGRESS_START = 75.0
 BACKFILL_PROGRESS_END = 99.0
 
@@ -610,10 +611,7 @@ async def _load_osm_streets_from_graph(
     Gu = ox.convert.to_undirected(G)
 
     boundary_geojson = area.boundary
-    if (
-        isinstance(boundary_geojson, dict)
-        and boundary_geojson.get("type") == "Feature"
-    ):
+    if isinstance(boundary_geojson, dict) and boundary_geojson.get("type") == "Feature":
         boundary_geojson = boundary_geojson.get("geometry")
     boundary_shape = shape(boundary_geojson) if boundary_geojson else None
 

@@ -47,13 +47,13 @@ matching, and visualizes street coverage on interactive maps.
 
 ### External Services
 
-| Service           | Purpose                      |
-| ----------------- | ---------------------------- |
-| **Bouncie API**   | Vehicle tracking & trip data |
-| **Mapbox**        | Map rendering (tiles/styles) |
-| **Valhalla**      | Routing, map matching        |
-| **Nominatim**     | Geocoding                    |
-| **Local OSM Extract** | Street geometry data     |
+| Service               | Purpose                      |
+| --------------------- | ---------------------------- |
+| **Bouncie API**       | Vehicle tracking & trip data |
+| **Mapbox**            | Map rendering (tiles/styles) |
+| **Valhalla**          | Routing, map matching        |
+| **Nominatim**         | Geocoding                    |
+| **Local OSM Extract** | Street geometry data         |
 
 ---
 
