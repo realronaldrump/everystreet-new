@@ -1,4 +1,12 @@
-"""OpenStreetMap (OSM) utilities for boundary and streets GeoJSON."""
+"""OpenStreetMap (OSM) utilities for boundary and streets GeoJSON.
+
+NOTE:
+This module is currently not used by the running application.
+It historically relied on OSMnx's geocoding/Overpass defaults, which may
+issue network calls. It is intentionally retained only for reference.
+"""
+
+from __future__ import annotations
 
 import asyncio
 import json

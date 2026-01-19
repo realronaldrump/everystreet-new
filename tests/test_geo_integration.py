@@ -4,8 +4,9 @@ import unittest
 import httpx
 import pytest
 
+pytestmark = pytest.mark.integration
 
-@pytest.mark.integration
+
 class GeoIntegrationTests(unittest.TestCase):
     def setUp(self) -> None:
         if not os.getenv("RUN_TAILNET_INTEGRATION"):

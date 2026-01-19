@@ -85,7 +85,11 @@ async def create_area(
     logger.info("Created coverage area: %s (%s)", display_name, area.id)
 
     # Emit event to trigger async ingestion
-    await emit_area_created(area.id, display_name)
+    if area.id is None:
+        msg = "Coverage area insert failed (missing id)"
+        raise RuntimeError(msg)
+    area_id: PydanticObjectId = area.id
+    await emit_area_created(area_id, display_name)
 
     return area
 

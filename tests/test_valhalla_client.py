@@ -10,7 +10,7 @@ async def test_valhalla_route_requires_two_locations() -> None:
     client = ValhallaClient()
 
     with pytest.raises(ExternalServiceException) as raised:
-        await client.route([(0.0, 0.0)])
+        await client.route([[0.0, 0.0]])
 
     assert "at least two locations" in raised.value.message
 

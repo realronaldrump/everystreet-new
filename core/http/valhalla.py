@@ -48,18 +48,28 @@ class ValhallaClient:
     @retry_async()
     async def route(
         self,
-        locations: list[tuple[float, float]],
+        locations: list[tuple[float, float]] | list[list[float]],
         *,
         costing: str = "auto",
         timeout: float | None = None,
     ) -> dict[str, Any]:
-        if len(locations) < 2:
+        normalized_locations: list[tuple[float, float]] = []
+        for item in locations:
+            try:
+                lon = float(item[0])
+                lat = float(item[1])
+            except (TypeError, ValueError, IndexError):
+                continue
+            normalized_locations.append((lon, lat))
+
+        if len(normalized_locations) < 2:
             msg = "Valhalla route requires at least two locations."
-            raise ExternalServiceException(
-                msg,
-            )
+            raise ExternalServiceException(msg)
+
         payload = {
-            "locations": [{"lon": lon, "lat": lat} for lon, lat in locations],
+            "locations": [
+                {"lon": lon, "lat": lat} for lon, lat in normalized_locations
+            ],
             "costing": costing,
             "directions_options": {"units": "kilometers"},
             "shape_format": "geojson",
