@@ -198,7 +198,7 @@ async function loadRegions() {
           </div>
         </td>
       </tr>
-    `
+    `,
       )
       .join("");
   } catch (error) {
@@ -221,7 +221,11 @@ function renderStatusBadge(status) {
       icon: "cloud-download-alt",
       text: "Not Downloaded",
     },
-    downloading: { class: "info", icon: "spinner fa-spin", text: "Downloading" },
+    downloading: {
+      class: "info",
+      icon: "spinner fa-spin",
+      text: "Downloading",
+    },
     downloaded: { class: "primary", icon: "check", text: "Downloaded" },
     not_built: { class: "secondary", icon: "hammer", text: "Not Built" },
     building: { class: "warning", icon: "cog fa-spin", text: "Building" },
@@ -335,7 +339,7 @@ async function loadGeofabrikRegions(parent = "") {
           ${region.has_children ? '<i class="fas fa-chevron-right ms-2"></i>' : ""}
         </div>
       </div>
-    `
+    `,
       )
       .join("");
 
@@ -433,7 +437,7 @@ function updateBreadcrumb() {
       <li class="breadcrumb-item ${index === items.length - 1 ? "active" : ""}">
         ${index === items.length - 1 ? item.name : `<a href="#" data-region="${item.id}">${item.name}</a>`}
       </li>
-    `
+    `,
       )
       .join("");
   }
@@ -470,8 +474,7 @@ async function downloadSelectedRegion() {
 
   const btn = document.getElementById("download-region-btn");
   btn.disabled = true;
-  btn.innerHTML =
-    '<i class="fas fa-spinner fa-spin"></i> Starting download...';
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Starting download...';
 
   try {
     const response = await fetch(`${API_BASE}/regions/download`, {
@@ -488,13 +491,13 @@ async function downloadSelectedRegion() {
     if (data.success) {
       // Close modal and refresh
       const modal = bootstrap.Modal.getInstance(
-        document.getElementById("addRegionModal")
+        document.getElementById("addRegionModal"),
       );
       modal?.hide();
 
       window.notificationManager?.show(
         `Download started for ${selectedRegion.name}`,
-        "success"
+        "success",
       );
 
       // Refresh regions and jobs
@@ -503,7 +506,7 @@ async function downloadSelectedRegion() {
     } else {
       window.notificationManager?.show(
         data.detail || "Failed to start download",
-        "danger"
+        "danger",
       );
     }
   } catch (error) {
@@ -521,7 +524,7 @@ async function buildNominatim(regionId) {
       `${API_BASE}/regions/${regionId}/build/nominatim`,
       {
         method: "POST",
-      }
+      },
     );
 
     const data = await response.json();
@@ -533,7 +536,7 @@ async function buildNominatim(regionId) {
     } else {
       window.notificationManager?.show(
         data.detail || "Failed to start build",
-        "danger"
+        "danger",
       );
     }
   } catch (error) {
@@ -548,7 +551,7 @@ async function buildValhalla(regionId) {
       `${API_BASE}/regions/${regionId}/build/valhalla`,
       {
         method: "POST",
-      }
+      },
     );
 
     const data = await response.json();
@@ -560,7 +563,7 @@ async function buildValhalla(regionId) {
     } else {
       window.notificationManager?.show(
         data.detail || "Failed to start build",
-        "danger"
+        "danger",
       );
     }
   } catch (error) {
@@ -573,7 +576,7 @@ function deleteRegion(regionId, regionName) {
   deleteRegionId = regionId;
   document.getElementById("delete-region-name").textContent = regionName;
   const modal = new bootstrap.Modal(
-    document.getElementById("deleteRegionModal")
+    document.getElementById("deleteRegionModal"),
   );
   modal.show();
 }
@@ -597,7 +600,7 @@ async function confirmDeleteRegion() {
 
       // Close modal
       const modal = bootstrap.Modal.getInstance(
-        document.getElementById("deleteRegionModal")
+        document.getElementById("deleteRegionModal"),
       );
       modal?.hide();
 
@@ -606,7 +609,7 @@ async function confirmDeleteRegion() {
     } else {
       window.notificationManager?.show(
         data.detail || "Failed to delete region",
-        "danger"
+        "danger",
       );
     }
   } catch (error) {
@@ -708,7 +711,7 @@ async function cancelJob(jobId) {
     } else {
       window.notificationManager?.show(
         data.detail || "Failed to cancel job",
-        "danger"
+        "danger",
       );
     }
   } catch (error) {

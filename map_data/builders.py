@@ -80,16 +80,25 @@ async def build_nominatim_data(
         pbf_container_path = f"/nominatim/data/{region.pbf_path}"
 
         import_cmd = [
-            "docker", "exec", container_name,
-            "nominatim", "import",
-            "--osm-file", pbf_container_path,
-            "--threads", "4",
+            "docker",
+            "exec",
+            container_name,
+            "nominatim",
+            "import",
+            "--osm-file",
+            pbf_container_path,
+            "--threads",
+            "4",
         ]
 
         logger.info("Running Nominatim import: %s", " ".join(import_cmd))
 
         if progress_callback:
-            await _safe_callback(progress_callback, 15, "Running Nominatim import (this may take a while)...")
+            await _safe_callback(
+                progress_callback,
+                15,
+                "Running Nominatim import (this may take a while)...",
+            )
 
         # Run the import command
         # This is a long-running process, so we run it asynchronously
@@ -110,7 +119,9 @@ async def build_nominatim_data(
             # We simulate progress based on time elapsed
             progress = min(progress + 5, 90)
             if progress_callback:
-                await _safe_callback(progress_callback, progress, "Nominatim import in progress...")
+                await _safe_callback(
+                    progress_callback, progress, "Nominatim import in progress..."
+                )
 
             await asyncio.sleep(PROGRESS_UPDATE_INTERVAL)
 
@@ -129,7 +140,9 @@ async def build_nominatim_data(
             raise RuntimeError(f"Nominatim import failed: {error_msg}")
 
         if progress_callback:
-            await _safe_callback(progress_callback, 95, "Restarting Nominatim service...")
+            await _safe_callback(
+                progress_callback, 95, "Restarting Nominatim service..."
+            )
 
         # Restart Nominatim to pick up new data
         await _restart_container("nominatim")
@@ -184,7 +197,9 @@ async def build_valhalla_tiles(
         # Our docker-compose mounts osm_extracts:/data/osm:ro
 
         if progress_callback:
-            await _safe_callback(progress_callback, 10, "Starting Valhalla tile build...")
+            await _safe_callback(
+                progress_callback, 10, "Starting Valhalla tile build..."
+            )
 
         container_name = _get_container_name("valhalla")
 
@@ -193,16 +208,23 @@ async def build_valhalla_tiles(
         pbf_container_path = f"/data/osm/{region.pbf_path}"
 
         build_cmd = [
-            "docker", "exec", container_name,
+            "docker",
+            "exec",
+            container_name,
             "valhalla_build_tiles",
-            "-c", "/custom_files/valhalla.json",
+            "-c",
+            "/custom_files/valhalla.json",
             pbf_container_path,
         ]
 
         logger.info("Running Valhalla build: %s", " ".join(build_cmd))
 
         if progress_callback:
-            await _safe_callback(progress_callback, 15, "Building Valhalla tiles (this may take a while)...")
+            await _safe_callback(
+                progress_callback,
+                15,
+                "Building Valhalla tiles (this may take a while)...",
+            )
 
         # Run the build command
         process = await asyncio.create_subprocess_exec(
@@ -219,7 +241,9 @@ async def build_valhalla_tiles(
 
             progress = min(progress + 5, 90)
             if progress_callback:
-                await _safe_callback(progress_callback, progress, "Building Valhalla tiles...")
+                await _safe_callback(
+                    progress_callback, progress, "Building Valhalla tiles..."
+                )
 
             await asyncio.sleep(PROGRESS_UPDATE_INTERVAL)
 
@@ -236,7 +260,9 @@ async def build_valhalla_tiles(
             raise RuntimeError(f"Valhalla build failed: {error_msg}")
 
         if progress_callback:
-            await _safe_callback(progress_callback, 95, "Restarting Valhalla service...")
+            await _safe_callback(
+                progress_callback, 95, "Restarting Valhalla service..."
+            )
 
         # Restart Valhalla to pick up new tiles
         await _restart_container("valhalla")
@@ -268,7 +294,14 @@ def _get_container_name(service_name: str) -> str:
     # Try to find the container using docker ps
     try:
         result = subprocess.run(
-            ["docker", "ps", "--filter", f"name={service_name}", "--format", "{{.Names}}"],
+            [
+                "docker",
+                "ps",
+                "--filter",
+                f"name={service_name}",
+                "--format",
+                "{{.Names}}",
+            ],
             capture_output=True,
             text=True,
             timeout=10,
@@ -301,7 +334,9 @@ async def _restart_container(service_name: str) -> None:
         logger.info("Restarting container: %s", container_name)
 
         process = await asyncio.create_subprocess_exec(
-            "docker", "restart", container_name,
+            "docker",
+            "restart",
+            container_name,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
@@ -310,7 +345,9 @@ async def _restart_container(service_name: str) -> None:
 
         if process.returncode != 0:
             error_msg = stderr.decode() if stderr else "Unknown error"
-            logger.warning("Failed to restart container %s: %s", container_name, error_msg)
+            logger.warning(
+                "Failed to restart container %s: %s", container_name, error_msg
+            )
         else:
             logger.info("Container restarted: %s", container_name)
 
@@ -347,7 +384,15 @@ async def check_container_running(service_name: str) -> bool:
     """
     try:
         result = subprocess.run(
-            ["docker", "ps", "--filter", f"name={service_name}", "--filter", "status=running", "-q"],
+            [
+                "docker",
+                "ps",
+                "--filter",
+                f"name={service_name}",
+                "--filter",
+                "status=running",
+                "-q",
+            ],
             capture_output=True,
             text=True,
             timeout=10,

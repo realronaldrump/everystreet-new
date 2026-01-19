@@ -65,7 +65,9 @@ async def stream_download_region(
     logger.info("Starting download: %s -> %s", source_url, output_path)
 
     try:
-        async with httpx.AsyncClient(timeout=DOWNLOAD_TIMEOUT, follow_redirects=True) as client:
+        async with httpx.AsyncClient(
+            timeout=DOWNLOAD_TIMEOUT, follow_redirects=True
+        ) as client:
             async with client.stream("GET", source_url) as response:
                 response.raise_for_status()
 
@@ -221,11 +223,13 @@ async def get_download_progress(region_id: str) -> dict[str, Any]:
         return {"error": "Region not found"}
 
     # Find active download job
-    job = await MapDataJob.find_one({
-        "region_id": region.id,
-        "job_type": MapDataJob.JOB_DOWNLOAD,
-        "status": {"$in": [MapDataJob.STATUS_PENDING, MapDataJob.STATUS_RUNNING]},
-    })
+    job = await MapDataJob.find_one(
+        {
+            "region_id": region.id,
+            "job_type": MapDataJob.JOB_DOWNLOAD,
+            "status": {"$in": [MapDataJob.STATUS_PENDING, MapDataJob.STATUS_RUNNING]},
+        }
+    )
 
     return {
         "region_id": str(region.id),
@@ -233,13 +237,15 @@ async def get_download_progress(region_id: str) -> dict[str, Any]:
         "status": region.status,
         "progress": region.download_progress,
         "file_size_mb": region.file_size_mb,
-        "job": {
-            "id": str(job.id),
-            "status": job.status,
-            "stage": job.stage,
-            "progress": job.progress,
-            "message": job.message,
-        }
-        if job
-        else None,
+        "job": (
+            {
+                "id": str(job.id),
+                "status": job.status,
+                "stage": job.stage,
+                "progress": job.progress,
+                "message": job.message,
+            }
+            if job
+            else None
+        ),
     }

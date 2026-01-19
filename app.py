@@ -174,13 +174,15 @@ async def startup_event():
         # Note: Services may not be ready yet if this is a fresh deployment
         # The Map Data Management UI allows downloading and building data
         from config import (
-            get_valhalla_route_url,
-            get_valhalla_status_url,
             get_nominatim_search_url,
             get_osm_data_path,
+            get_valhalla_route_url,
+            get_valhalla_status_url,
         )
 
-        valhalla_configured = bool(get_valhalla_route_url() and get_valhalla_status_url())
+        valhalla_configured = bool(
+            get_valhalla_route_url() and get_valhalla_status_url()
+        )
         nominatim_configured = bool(get_nominatim_search_url())
         osm_path = get_osm_data_path()
 

@@ -142,7 +142,10 @@ async def get_geofabrik_regions(parent: str | None = None) -> list[dict[str, Any
 
     # Check cache
     now = time.time()
-    if _geofabrik_cache["data"] and (now - _geofabrik_cache["timestamp"]) < GEOFABRIK_CACHE_TTL:
+    if (
+        _geofabrik_cache["data"]
+        and (now - _geofabrik_cache["timestamp"]) < GEOFABRIK_CACHE_TTL
+    ):
         index = _geofabrik_cache["data"]
     else:
         # Fetch fresh index
@@ -244,13 +247,15 @@ async def _parse_geofabrik_html(
             if continent_id in ["technical", "index", ".."]:
                 continue
 
-            regions.append({
-                "id": continent_id,
-                "name": continent_name,
-                "parent": "",
-                "type": "continent",
-                "has_children": True,
-            })
+            regions.append(
+                {
+                    "id": continent_id,
+                    "name": continent_name,
+                    "parent": "",
+                    "type": "continent",
+                    "has_children": True,
+                }
+            )
 
     except Exception as e:
         logger.exception("Failed to parse Geofabrik HTML")
@@ -299,7 +304,8 @@ async def download_region(
         mirror = get_geofabrik_mirror()
         region_info = {
             "id": geofabrik_id,
-            "name": display_name or geofabrik_id.split("/")[-1].replace("-", " ").title(),
+            "name": display_name
+            or geofabrik_id.split("/")[-1].replace("-", " ").title(),
             "pbf_url": f"{mirror}/{geofabrik_id}-latest.osm.pbf",
         }
 
@@ -364,7 +370,9 @@ async def build_nominatim(
         raise ValueError(f"Region not found: {region_id}")
 
     if region.status not in (MapRegion.STATUS_DOWNLOADED, MapRegion.STATUS_READY):
-        raise ValueError(f"Region must be downloaded first. Current status: {region.status}")
+        raise ValueError(
+            f"Region must be downloaded first. Current status: {region.status}"
+        )
 
     # Update region status
     region.nominatim_status = "building"
@@ -373,7 +381,11 @@ async def build_nominatim(
     await region.save()
 
     # Create job
-    job_type = MapDataJob.JOB_BUILD_ALL if then_build_valhalla else MapDataJob.JOB_BUILD_NOMINATIM
+    job_type = (
+        MapDataJob.JOB_BUILD_ALL
+        if then_build_valhalla
+        else MapDataJob.JOB_BUILD_NOMINATIM
+    )
     job = MapDataJob(
         job_type=job_type,
         region_id=region.id,
@@ -407,8 +419,14 @@ async def build_valhalla(region_id: str) -> MapDataJob:
     if not region:
         raise ValueError(f"Region not found: {region_id}")
 
-    if region.status not in (MapRegion.STATUS_DOWNLOADED, MapRegion.STATUS_READY, MapRegion.STATUS_BUILDING_NOMINATIM):
-        raise ValueError(f"Region must be downloaded first. Current status: {region.status}")
+    if region.status not in (
+        MapRegion.STATUS_DOWNLOADED,
+        MapRegion.STATUS_READY,
+        MapRegion.STATUS_BUILDING_NOMINATIM,
+    ):
+        raise ValueError(
+            f"Region must be downloaded first. Current status: {region.status}"
+        )
 
     # Update region status
     region.valhalla_status = "building"
@@ -452,10 +470,12 @@ async def delete_region(region_id: str) -> None:
         raise ValueError(f"Region not found: {region_id}")
 
     # Check for active jobs
-    active_job = await MapDataJob.find_one({
-        "region_id": region.id,
-        "status": {"$in": [MapDataJob.STATUS_PENDING, MapDataJob.STATUS_RUNNING]},
-    })
+    active_job = await MapDataJob.find_one(
+        {
+            "region_id": region.id,
+            "status": {"$in": [MapDataJob.STATUS_PENDING, MapDataJob.STATUS_RUNNING]},
+        }
+    )
     if active_job:
         raise ValueError("Cannot delete region with active jobs. Cancel the job first.")
 
@@ -495,7 +515,11 @@ async def cancel_job(job_id: str) -> MapDataJob:
     if not job:
         raise ValueError(f"Job not found: {job_id}")
 
-    if job.status in (MapDataJob.STATUS_COMPLETED, MapDataJob.STATUS_FAILED, MapDataJob.STATUS_CANCELLED):
+    if job.status in (
+        MapDataJob.STATUS_COMPLETED,
+        MapDataJob.STATUS_FAILED,
+        MapDataJob.STATUS_CANCELLED,
+    ):
         raise ValueError(f"Cannot cancel job with status: {job.status}")
 
     job.status = MapDataJob.STATUS_CANCELLED

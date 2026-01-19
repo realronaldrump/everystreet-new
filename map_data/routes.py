@@ -164,7 +164,9 @@ async def list_regions() -> dict[str, Any]:
                     "nominatim_status": r.nominatim_status,
                     "valhalla_status": r.valhalla_status,
                     "file_size_mb": r.file_size_mb,
-                    "downloaded_at": r.downloaded_at.isoformat() if r.downloaded_at else None,
+                    "downloaded_at": (
+                        r.downloaded_at.isoformat() if r.downloaded_at else None
+                    ),
                     "last_error": r.last_error,
                     "bounding_box": r.bounding_box,
                 }
@@ -188,10 +190,14 @@ async def get_region(region_id: str) -> RegionDetailResponse:
             raise HTTPException(status_code=404, detail="Region not found")
 
         # Get active job if any
-        active_job = await MapDataJob.find_one({
-            "region_id": region.id,
-            "status": {"$in": [MapDataJob.STATUS_PENDING, MapDataJob.STATUS_RUNNING]},
-        })
+        active_job = await MapDataJob.find_one(
+            {
+                "region_id": region.id,
+                "status": {
+                    "$in": [MapDataJob.STATUS_PENDING, MapDataJob.STATUS_RUNNING]
+                },
+            }
+        )
 
         return RegionDetailResponse(
             region={
@@ -205,28 +211,42 @@ async def get_region(region_id: str) -> RegionDetailResponse:
                 "pbf_path": region.pbf_path,
                 "file_size_mb": region.file_size_mb,
                 "download_progress": region.download_progress,
-                "downloaded_at": region.downloaded_at.isoformat() if region.downloaded_at else None,
+                "downloaded_at": (
+                    region.downloaded_at.isoformat() if region.downloaded_at else None
+                ),
                 "nominatim_status": region.nominatim_status,
-                "nominatim_built_at": region.nominatim_built_at.isoformat() if region.nominatim_built_at else None,
+                "nominatim_built_at": (
+                    region.nominatim_built_at.isoformat()
+                    if region.nominatim_built_at
+                    else None
+                ),
                 "nominatim_error": region.nominatim_error,
                 "valhalla_status": region.valhalla_status,
-                "valhalla_built_at": region.valhalla_built_at.isoformat() if region.valhalla_built_at else None,
+                "valhalla_built_at": (
+                    region.valhalla_built_at.isoformat()
+                    if region.valhalla_built_at
+                    else None
+                ),
                 "valhalla_error": region.valhalla_error,
                 "bounding_box": region.bounding_box,
                 "last_error": region.last_error,
                 "created_at": region.created_at.isoformat(),
-                "updated_at": region.updated_at.isoformat() if region.updated_at else None,
+                "updated_at": (
+                    region.updated_at.isoformat() if region.updated_at else None
+                ),
             },
-            active_job={
-                "id": str(active_job.id),
-                "job_type": active_job.job_type,
-                "status": active_job.status,
-                "stage": active_job.stage,
-                "progress": active_job.progress,
-                "message": active_job.message,
-            }
-            if active_job
-            else None,
+            active_job=(
+                {
+                    "id": str(active_job.id),
+                    "job_type": active_job.job_type,
+                    "status": active_job.status,
+                    "stage": active_job.stage,
+                    "progress": active_job.progress,
+                    "message": active_job.message,
+                }
+                if active_job
+                else None
+            ),
         )
     except HTTPException:
         raise
@@ -349,9 +369,20 @@ async def list_jobs(active_only: bool = True) -> dict[str, Any]:
     """Get map data jobs, optionally filtered to active only."""
     try:
         if active_only:
-            jobs = await MapDataJob.find({
-                "status": {"$in": [MapDataJob.STATUS_PENDING, MapDataJob.STATUS_RUNNING]}
-            }).sort("-created_at").to_list()
+            jobs = (
+                await MapDataJob.find(
+                    {
+                        "status": {
+                            "$in": [
+                                MapDataJob.STATUS_PENDING,
+                                MapDataJob.STATUS_RUNNING,
+                            ]
+                        }
+                    }
+                )
+                .sort("-created_at")
+                .to_list()
+            )
         else:
             jobs = await MapDataJob.find_all().sort("-created_at").limit(50).to_list()
 
@@ -369,7 +400,9 @@ async def list_jobs(active_only: bool = True) -> dict[str, Any]:
                     "error": j.error,
                     "created_at": j.created_at.isoformat(),
                     "started_at": j.started_at.isoformat() if j.started_at else None,
-                    "completed_at": j.completed_at.isoformat() if j.completed_at else None,
+                    "completed_at": (
+                        j.completed_at.isoformat() if j.completed_at else None
+                    ),
                 }
                 for j in jobs
             ],
@@ -443,14 +476,22 @@ async def get_service_health() -> ServiceHealthResponse:
         return ServiceHealthResponse(
             nominatim={
                 "healthy": health.nominatim_healthy,
-                "last_check": health.nominatim_last_check.isoformat() if health.nominatim_last_check else None,
+                "last_check": (
+                    health.nominatim_last_check.isoformat()
+                    if health.nominatim_last_check
+                    else None
+                ),
                 "response_time_ms": health.nominatim_response_time_ms,
                 "error": health.nominatim_error,
                 "version": health.nominatim_version,
             },
             valhalla={
                 "healthy": health.valhalla_healthy,
-                "last_check": health.valhalla_last_check.isoformat() if health.valhalla_last_check else None,
+                "last_check": (
+                    health.valhalla_last_check.isoformat()
+                    if health.valhalla_last_check
+                    else None
+                ),
                 "response_time_ms": health.valhalla_response_time_ms,
                 "error": health.valhalla_error,
                 "version": health.valhalla_version,
