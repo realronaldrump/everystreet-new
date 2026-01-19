@@ -104,18 +104,21 @@ services:
       - default
 
   # Nominatim - Self-hosted geocoding service
+  # NOTE: This service starts without data. Use the app's Map Data UI to download
+  # and import OSM extracts. The service will be unavailable until data is imported.
   nominatim:
     image: mediagis/nominatim:4.4
-    restart: unless-stopped
+    restart: "no"  # Don't restart - will fail without data, user imports via UI
     environment:
-      PBF_PATH: /nominatim/data/us-9states.osm.pbf
+      # Don't specify PBF_PATH or PBF_URL - data will be imported via app UI
+      # The container will exit if no data is provided, which is expected
       REPLICATION_URL: ""
       IMPORT_STYLE: street
       THREADS: "4"
     volumes:
       - nominatim_data:/var/lib/postgresql/14/main
       - nominatim_flatnode:/nominatim/flatnode
-      - osm_extracts:/nominatim/data:ro
+      - osm_extracts:/nominatim/data
     ports:
       - "7070:8080"
     healthcheck:
@@ -123,15 +126,17 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 60s
+      start_period: 120s
     networks:
       - default
     shm_size: 1g
 
   # Valhalla - Self-hosted routing engine
+  # NOTE: This service starts without tiles. Use the app's Map Data UI to download
+  # OSM extracts and build routing tiles. The service will be unavailable until tiles are built.
   valhalla:
     image: ghcr.io/gis-ops/docker-valhalla/valhalla:3.5.1
-    restart: unless-stopped
+    restart: "no"  # Don't restart - will fail without tiles, user builds via UI
     environment:
       tile_urls: ""
       serve_tiles: "True"
@@ -139,6 +144,7 @@ services:
       build_admins: "True"
       build_time_zones: "True"
       use_tiles_ignore_pbf: "True"
+      force_rebuild: "False"
     volumes:
       - valhalla_tiles:/custom_files
       - osm_extracts:/data/osm:ro
@@ -149,7 +155,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 30s
+      start_period: 60s
     networks:
       - default
 
