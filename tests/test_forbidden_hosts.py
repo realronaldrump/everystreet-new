@@ -1,9 +1,10 @@
 from unittest.mock import AsyncMock
+
 import pytest
+from http_fakes import FakeResponse, FakeSession
 
 from core.http.blocklist import DEFAULT_FORBIDDEN_HOSTS, is_forbidden_host
 from core.http.request import request_json
-from http_fakes import FakeResponse, FakeSession
 
 
 def test_is_forbidden_host_matches_known_hosts() -> None:

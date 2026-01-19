@@ -2,9 +2,9 @@ import time
 from unittest.mock import AsyncMock
 
 import pytest
+from http_fakes import FakeResponse, FakeSession
 
 from bouncie_oauth import BouncieOAuth
-from http_fakes import FakeResponse, FakeSession
 
 
 @pytest.mark.asyncio

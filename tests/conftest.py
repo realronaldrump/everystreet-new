@@ -10,7 +10,6 @@ if str(ROOT) not in sys.path:
 import pytest
 from beanie import init_beanie
 from mongomock_motor import AsyncMongoMockClient
-
 from network_blocker import install_network_blocker
 
 

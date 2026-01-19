@@ -1,10 +1,10 @@
 from unittest.mock import AsyncMock
 
 import pytest
+from http_fakes import FakeResponse, FakeSession
 
 from core.exceptions import ExternalServiceException
 from core.http.nominatim import NominatimClient
-from http_fakes import FakeResponse, FakeSession
 
 
 @pytest.mark.asyncio
