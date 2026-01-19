@@ -202,7 +202,7 @@ window.utils?.onPageLoad(
             hour12: true,
           });
           const level = log.level || "INFO";
-          const logger = log.logger || "unknown";
+          const logger = log.logger_name || "unknown";
           const message = escapeHtml(log.message || "");
           const module = log.module || "";
           const func = log.function || "";
@@ -340,7 +340,7 @@ window.utils?.onPageLoad(
             hour12: true,
           });
           const level = log.level || "INFO";
-          const logger = log.logger || "unknown";
+          const logger = log.logger_name || "unknown";
           const message = log.message || "";
 
           allLogsText += `[${index + 1}/${currentLogs.length}] [${timestamp}] [${level}] [${logger}]\n`;
