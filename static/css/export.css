@@ -5,6 +5,7 @@
 .export-card {
   border: 1px solid var(--border-color);
   box-shadow: var(--shadow-sm);
+  border-radius: var(--radius-xl);
 }
 
 .export-section {
@@ -25,7 +26,7 @@
 
 .export-summary {
   border: 1px solid var(--border-color-light);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-lg);
   padding: var(--space-4);
   background: var(--surface-1);
 }

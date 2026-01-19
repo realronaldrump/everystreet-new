@@ -10,14 +10,15 @@
 /* === Tab Navigation === */
 .settings-tabs {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--space-2);
-  background: var(--surface-1);
+  margin-bottom: var(--space-5);
   border-bottom: 1px solid var(--border-color);
-  margin-bottom: var(--space-4);
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  border-radius: var(--radius-lg);
-  padding: var(--space-2);
+  padding-bottom: var(--space-2);
+}
+
+.settings-tabs .settings-tab {
+  border-radius: var(--radius-pill);
 }
 
 .settings-tab {
@@ -53,6 +54,11 @@
 
 .settings-tab-content {
   display: none;
+  animation: fadeInUp 0.4s ease;
+}
+
+.settings-tab-content .bento-grid {
+  gap: var(--space-4);
 }
 
 .settings-tab-content.active {
@@ -62,10 +68,10 @@
 /* === Settings Groups (Cards) === */
 .settings-group {
   background: var(--surface-1);
+  border-radius: var(--radius-xl);
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  padding: var(--space-4);
-  margin-bottom: var(--space-4);
+  padding: var(--space-5);
+  box-shadow: var(--shadow-sm);
 }
 
 .settings-group-title {
@@ -160,16 +166,19 @@
 .option-pill {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-1);
-  padding: var(--space-1) var(--space-3);
+  gap: var(--space-2);
+  padding: 6px 12px;
   border-radius: var(--radius-pill);
-  font-size: var(--font-size-xs);
-  color: var(--text-secondary);
+  border: 1px solid var(--border-color-light);
+  background: var(--surface-2);
   cursor: pointer;
-  position: relative;
-  transition:
-    background var(--transition-fast),
-    color var(--transition-fast);
+  transition: var(--transition-fast);
+  color: var(--text-secondary);
+}
+
+.option-pill input:checked + span {
+  color: var(--text-primary);
+  font-weight: var(--font-weight-semibold);
 }
 
 .option-pill input {

@@ -1,182 +1,239 @@
 /* ============================
-   CSS Variables & Design Tokens
+   Design Tokens: Modern Soft-Tech
+   Palette (Matte Neon-Pastels)
+   - Mint:   #55d6c2
+   - Purple: #b88cff
+   - Coral:  #ff7c85
+   - Sky:    #76c7ff
+   - Amber:  #ffbf65
+   - Lime:   #b5f06f
+
+   Radii
+   - Containers/cards: 20-24px
+   - Controls: 16px
+   - Pills: 9999px
+
+   Spacing
+   - 4px grid (0.25rem - 4rem)
+
+   Typography
+   - Font: Inter (400-800)
+   - Tight headings, weight-driven hierarchy
    ============================ */
 
-/* === CSS Variables === */
 :root {
-  /* Minimalist Color System - Soothing & Nature-Inspired */
-  --primary: #7c9d96;
-  --primary-light: #a0bdb7;
-  --primary-dark: #5f7d78;
-  --primary-rgb: 124, 157, 150;
-  --secondary: #8a8f98;
-  --secondary-light: #a8adb5;
-  --secondary-dark: #6b7079;
-  --secondary-rgb: 138, 143, 152;
-  --success: #6b9d8a;
-  --success-light: #8eb9a8;
-  --success-dark: #4f7a6a;
-  --success-rgb: 107, 157, 138;
-  --warning: #d4a574;
-  --warning-light: #e3c09a;
-  --warning-dark: #b88a59;
-  --warning-rgb: 212, 165, 116;
-  --danger: #d48584;
-  --danger-light: #e3a9a8;
-  --danger-dark: #b86665;
-  --danger-rgb: 212, 133, 132;
-  --info: #8b9dc3;
-  --info-light: #abb9d6;
-  --info-dark: #6a7ea3;
-  --info-rgb: 139, 157, 195;
+  /* Categorical Palette */
+  --cat-mint: #55d6c2;
+  --cat-mint-rgb: 85, 214, 194;
+  --cat-purple: #b88cff;
+  --cat-purple-rgb: 184, 140, 255;
+  --cat-coral: #ff7c85;
+  --cat-coral-rgb: 255, 124, 133;
+  --cat-sky: #76c7ff;
+  --cat-sky-rgb: 118, 199, 255;
+  --cat-amber: #ffbf65;
+  --cat-amber-rgb: 255, 191, 101;
+  --cat-lime: #b5f06f;
+  --cat-lime-rgb: 181, 240, 111;
 
-  /* Gradients */
-  --primary-gradient: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  /* Semantic Colors */
+  --primary: var(--cat-mint);
+  --primary-light: #8ce8d8;
+  --primary-dark: #2bb29e;
+  --primary-rgb: var(--cat-mint-rgb);
+  --secondary: var(--cat-purple);
+  --secondary-light: #d4b8ff;
+  --secondary-dark: #8f5fe0;
+  --secondary-rgb: var(--cat-purple-rgb);
+  --success: var(--cat-lime);
+  --success-light: #d6f8a9;
+  --success-dark: #84c84c;
+  --success-rgb: var(--cat-lime-rgb);
+  --warning: var(--cat-amber);
+  --warning-light: #ffd9a3;
+  --warning-dark: #e19a38;
+  --warning-rgb: var(--cat-amber-rgb);
+  --danger: var(--cat-coral);
+  --danger-light: #ffb0b5;
+  --danger-dark: #db5862;
+  --danger-rgb: var(--cat-coral-rgb);
+  --info: var(--cat-sky);
+  --info-light: #b4e0ff;
+  --info-dark: #4aa6e6;
+  --info-rgb: var(--cat-sky-rgb);
+
+  /* Subtle Gradients */
+  --primary-gradient: linear-gradient(
+    135deg,
+    rgb(var(--primary-rgb) / 92%),
+    rgb(var(--primary-rgb) / 78%)
+  );
   --secondary-gradient: linear-gradient(
     135deg,
-    var(--secondary),
-    var(--secondary-dark)
+    rgb(var(--secondary-rgb) / 90%),
+    rgb(var(--secondary-rgb) / 75%)
   );
-  --success-gradient: linear-gradient(135deg, var(--success), var(--success-dark));
-  --danger-gradient: linear-gradient(135deg, var(--danger), var(--danger-dark));
-  --warning-gradient: linear-gradient(135deg, var(--warning), var(--warning-dark));
-  --info-gradient: linear-gradient(135deg, var(--info), var(--info-dark));
+  --success-gradient: linear-gradient(
+    135deg,
+    rgb(var(--success-rgb) / 90%),
+    rgb(var(--success-rgb) / 75%)
+  );
+  --warning-gradient: linear-gradient(
+    135deg,
+    rgb(var(--warning-rgb) / 92%),
+    rgb(var(--warning-rgb) / 75%)
+  );
+  --danger-gradient: linear-gradient(
+    135deg,
+    rgb(var(--danger-rgb) / 92%),
+    rgb(var(--danger-rgb) / 75%)
+  );
+  --info-gradient: linear-gradient(
+    135deg,
+    rgb(var(--info-rgb) / 92%),
+    rgb(var(--info-rgb) / 75%)
+  );
 
-  /* Warm Dark Mode Colors (Default) - Softer & More Comfortable */
-  --surface-0: #1a1d23; /* Base background - warm charcoal */
-  --surface-1: #25282f; /* Cards, elevated surfaces */
-  --surface-2: #2f3239; /* Slightly more elevated, or card headers */
-  --surface-3: #3a3d45; /* Inputs, controls */
-  --surface-4: #45484f; /* Hover states for controls */
-  --surface-glass: rgb(37 40 47 / 85%); /* For glassmorphism effects */
-  --text-primary: rgb(225 227 230 / 90%);
-  --text-secondary: rgb(180 185 192 / 78%);
-  --text-tertiary: rgb(160 165 172 / 55%);
-  --text-on-primary: #fafafa; /* Text on primary-bg buttons */
-  --text-on-secondary: #fafafa; /* Text on secondary-bg buttons */
-  --text-on-dark: #fafafa;
-  --text-on-light: #1a1d23;
-  --border-color: rgb(160 165 172 / 15%);
-  --border-color-light: rgb(
-    160 165 172 /
-    28%
-  ); /* For focused elements or stronger divisions */
-  --divider-color: rgb(160 165 172 / 10%);
-  --surface-rgb: 37, 40, 47;
-  --text-rgb: 225, 227, 230;
-  --border-rgb: 160, 165, 172;
+  /* Dark Mode Surfaces (Default) */
+  --surface-0: #0f1116;
+  --surface-1: #171a21;
+  --surface-2: #1f232c;
+  --surface-3: #272c36;
+  --surface-4: #303543;
+  --surface-elevated: #232833;
+  --surface-glass: rgb(23 26 33 / 82%);
+  --surface-rgb: 23, 26, 33;
+  --text-primary: rgb(242 245 248 / 92%);
+  --text-secondary: rgb(200 206 214 / 78%);
+  --text-tertiary: rgb(160 168 179 / 55%);
+  --text-on-primary: #0c1412;
+  --text-on-secondary: #140f24;
+  --text-on-dark: #0e1218;
+  --text-on-light: #101217;
+  --border-color: rgb(160 170 185 / 22%);
+  --border-color-light: rgb(160 170 185 / 36%);
+  --divider-color: rgb(160 170 185 / 12%);
+  --border-rgb: 160, 170, 185;
+  --text-rgb: 242, 245, 248;
 
   /* Typography */
-  --font-family: "Sora", "Helvetica Neue", "Segoe UI", sans-serif;
-  --font-family-display: "Sora", "Helvetica Neue", "Segoe UI", sans-serif;
-  --font-family-mono: "IBM Plex Mono", "SFMono-Regular", menlo, monospace;
-  --font-size-xs: clamp(0.7rem, 0.66rem + 0.2vw, 0.8rem); /* 11px-13px */
-  --font-size-sm: clamp(0.82rem, 0.78rem + 0.2vw, 0.95rem); /* 13px-15px */
-  --font-size-md: clamp(0.95rem, 0.9rem + 0.25vw, 1.05rem); /* 15px-17px */
-  --font-size-lg: clamp(1.05rem, 1rem + 0.3vw, 1.2rem); /* 17px-19px */
-  --font-size-xl: clamp(1.2rem, 1.1rem + 0.5vw, 1.4rem); /* 19px-22px */
-  --font-size-2xl: clamp(1.4rem, 1.25rem + 0.8vw, 1.8rem); /* 22px-29px */
-  --font-size-3xl: clamp(1.7rem, 1.5rem + 1vw, 2.2rem); /* 27px-35px */
-  --font-size-4xl: clamp(2.1rem, 1.8rem + 1.5vw, 2.8rem); /* 34px-45px */
-  --font-size-display: clamp(2.5rem, 2rem + 2.2vw, 3.6rem); /* 40px-58px */
+  --font-family: "Inter", "Segoe UI", "Helvetica Neue", sans-serif;
+  --font-family-display: "Inter", "Segoe UI", "Helvetica Neue", sans-serif;
+  --font-family-mono:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  --font-size-xs: clamp(0.72rem, 0.68rem + 0.2vw, 0.82rem);
+  --font-size-sm: clamp(0.84rem, 0.8rem + 0.2vw, 0.98rem);
+  --font-size-md: clamp(0.98rem, 0.94rem + 0.25vw, 1.08rem);
+  --font-size-base: var(--font-size-md);
+  --font-size-lg: clamp(1.08rem, 1.02rem + 0.3vw, 1.26rem);
+  --font-size-xl: clamp(1.26rem, 1.14rem + 0.5vw, 1.48rem);
+  --font-size-2xl: clamp(1.48rem, 1.32rem + 0.8vw, 1.92rem);
+  --font-size-3xl: clamp(1.8rem, 1.55rem + 1vw, 2.35rem);
+  --font-size-4xl: clamp(2.2rem, 1.9rem + 1.4vw, 2.9rem);
+  --font-size-display: clamp(2.6rem, 2.1rem + 2.1vw, 3.6rem);
   --font-weight-light: 300;
   --font-weight-regular: 400;
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
   --font-weight-bold: 700;
-  --line-height-tight: 1.2;
+  --font-weight-extrabold: 800;
+  --line-height-tight: 1.15;
   --line-height-normal: 1.5;
-  --line-height-relaxed: 1.75;
+  --line-height-relaxed: 1.7;
 
-  /* Spacing System (based on 4px grid) */
-  --space-1: 0.25rem; /* 4px */
-  --space-2: 0.5rem; /* 8px */
-  --space-3: 0.75rem; /* 12px */
-  --space-4: 1rem; /* 16px */
-  --space-5: 1.25rem; /* 20px */
-  --space-6: 1.5rem; /* 24px */
-  --space-8: 2rem; /* 32px */
-  --space-10: 2.5rem; /* 40px */
-  --space-12: 3rem; /* 48px */
-  --space-16: 4rem; /* 64px */
+  /* Spacing System (4px grid) */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
 
   /* Layout */
   --header-height: 64px;
   --content-max-width: 1440px;
   --sidebar-width: 280px;
-  --panel-width: 340px;
+  --panel-width: 360px;
 
-  /* Effects - Minimal & Subtle */
-  --transition-fast: 140ms ease-out;
-  --transition-normal: 220ms ease-out;
-  --transition-slow: 300ms ease-out;
+  /* Effects */
+  --transition-fast: 140ms cubic-bezier(0.2, 0, 0, 1);
+  --transition-normal: 220ms cubic-bezier(0.2, 0, 0, 1);
+  --transition-slow: 320ms cubic-bezier(0.2, 0, 0, 1);
   --transition-spring: 260ms cubic-bezier(0.2, 0, 0, 1);
   --transition-spring-fast: 180ms cubic-bezier(0.2, 0, 0, 1);
-  --shadow-xs: 0 1px 2px rgb(0 0 0 / 4%);
-  --shadow-sm: 0 1px 2px rgb(0 0 0 / 7%);
-  --shadow-md: 0 3px 8px rgb(0 0 0 / 9%);
-  --shadow-lg: 0 6px 16px rgb(0 0 0 / 12%);
-  --shadow-xl: 0 12px 28px rgb(0 0 0 / 14%);
-  --shadow-inset: inset 0 1px 3px rgb(0 0 0 / 6%);
-  --shadow-elevation-1: 0 2px 6px rgb(0 0 0 / 10%);
-  --shadow-elevation-2: 0 6px 14px rgb(0 0 0 / 12%), 0 0 10px rgb(0 0 0 / 6%);
-  --shadow-elevation-3: 0 10px 24px rgb(0 0 0 / 14%), 0 0 14px rgb(0 0 0 / 8%);
-  --shadow-elevation-4: 0 16px 32px rgb(0 0 0 / 18%), 0 0 18px rgb(0 0 0 / 10%);
-  --shadow-elevation-5: 0 22px 48px rgb(0 0 0 / 20%), 0 0 22px rgb(0 0 0 / 12%);
+  --shadow-xs: 0 1px 2px rgb(0 0 0 / 10%);
+  --shadow-sm: 0 4px 12px rgb(0 0 0 / 14%);
+  --shadow-md: 0 10px 24px rgb(0 0 0 / 18%);
+  --shadow-lg: 0 16px 36px rgb(0 0 0 / 22%);
+  --shadow-xl: 0 24px 52px rgb(0 0 0 / 26%);
+  --shadow-inset: inset 0 1px 2px rgb(0 0 0 / 16%);
+  --shadow-elevation-1: 0 6px 16px rgb(0 0 0 / 14%);
+  --shadow-elevation-2: 0 12px 24px rgb(0 0 0 / 18%);
+  --shadow-elevation-3: 0 18px 36px rgb(0 0 0 / 22%);
+  --shadow-elevation-4: 0 26px 48px rgb(0 0 0 / 25%);
+  --shadow-elevation-5: 0 34px 60px rgb(0 0 0 / 28%);
 
-  /* Immersive Effects - Glow & Ambient */
-  --glow-primary: 0 0 12px rgb(var(--primary-rgb) / 25%);
-  --glow-primary-intense: 0 0 20px rgb(var(--primary-rgb) / 35%);
-  --glow-success: 0 0 12px rgb(var(--success-rgb) / 28%);
-  --glow-success-intense: 0 0 20px rgb(var(--success-rgb) / 40%);
-  --glow-warning: 0 0 12px rgb(var(--warning-rgb) / 28%);
-  --glow-danger: 0 0 12px rgb(var(--danger-rgb) / 28%);
-  --glow-info: 0 0 12px rgb(var(--info-rgb) / 28%);
+  /* Glow + Ambient */
+  --glow-primary: 0 0 14px rgb(var(--primary-rgb) / 35%);
+  --glow-primary-intense: 0 0 26px rgb(var(--primary-rgb) / 45%);
+  --glow-success: 0 0 14px rgb(var(--success-rgb) / 35%);
+  --glow-success-intense: 0 0 24px rgb(var(--success-rgb) / 45%);
+  --glow-warning: 0 0 14px rgb(var(--warning-rgb) / 35%);
+  --glow-danger: 0 0 14px rgb(var(--danger-rgb) / 35%);
+  --glow-info: 0 0 14px rgb(var(--info-rgb) / 35%);
 
-  /* Ambient gradients for immersive backgrounds */
   --accent: var(--primary);
   --accent-rgb: var(--primary-rgb);
   --section-accent: var(--accent);
   --section-accent-rgb: var(--accent-rgb);
-  --ambient-tint: rgb(var(--section-accent-rgb) / 6%);
+  --ambient-tint: rgb(var(--section-accent-rgb) / 8%);
   --gradient-ambient: linear-gradient(
     135deg,
-    var(--ambient-tint) 0%,
+    rgb(var(--section-accent-rgb) / 10%) 0%,
     transparent 55%,
-    rgb(var(--info-rgb) / 4%) 100%
+    rgb(var(--info-rgb) / 6%) 100%
   );
   --gradient-accent-bar: linear-gradient(
     90deg,
-    rgb(var(--section-accent-rgb) / 45%) 0%,
-    rgb(var(--info-rgb) / 30%) 100%
+    rgb(var(--section-accent-rgb) / 55%) 0%,
+    rgb(var(--info-rgb) / 35%) 100%
   );
   --gradient-surface-glow: radial-gradient(
     ellipse at top left,
-    rgb(var(--primary-rgb) / 7%) 0%,
-    transparent 55%
+    rgb(var(--primary-rgb) / 10%) 0%,
+    transparent 60%
   );
 
-  /* Interactive lift shadows for hover states */
-  --shadow-lift: 0 6px 16px rgb(0 0 0 / 14%);
-  --shadow-lift-intense: 0 10px 24px rgb(0 0 0 / 18%);
+  /* Interactive lift shadows */
+  --shadow-lift: 0 12px 26px rgb(0 0 0 / 22%);
+  --shadow-lift-intense: 0 18px 36px rgb(0 0 0 / 26%);
 
-  /* Glass + blur system */
-  --blur-subtle: 6px;
-  --blur-strong: 12px;
-  --blur-modal: 18px;
+  /* Glass + Blur */
+  --blur-subtle: 10px;
+  --blur-strong: 16px;
+  --blur-modal: 22px;
   --glass-1: rgb(var(--surface-rgb) / 78%);
   --glass-2: rgb(var(--surface-rgb) / 86%);
   --glass-3: rgb(var(--surface-rgb) / 94%);
   --glass-border: rgb(var(--border-rgb) / 25%);
 
-  /* Border Radius - Minimal */
-  --radius-xs: 2px;
-  --radius-sm: 3px;
-  --radius-md: 4px;
-  --radius-lg: 6px;
-  --radius-xl: 8px;
+  /* Border Radius */
+  --radius-xs: 10px;
+  --radius-sm: 12px;
+  --radius-md: 16px;
+  --radius-lg: 20px;
+  --radius-xl: 24px;
   --radius-full: 9999px;
   --radius-pill: 9999px;
+
+  /* Focus */
+  --focus-ring: 0 0 0 3px rgb(var(--accent-rgb) / 24%);
+  --focus-ring-strong: 0 0 0 4px rgb(var(--accent-rgb) / 32%);
+  --focus-outline: 2px solid rgb(var(--accent-rgb) / 60%);
 
   /* Touch targets */
   --touch-target: 44px;
@@ -191,49 +248,97 @@
   --z-modal: 1050;
   --z-popover: 1060;
   --z-tooltip: 1070;
-  --z-overlay: 1080; /* For general overlays like mobile nav backdrop */
+  --z-overlay: 1080;
   --z-loading-overlay: 9999;
 
   /* Scrollbar */
-  --scrollbar-thumb-color: rgb(160 165 172 / 30%);
+  --scrollbar-thumb-color: rgb(160 170 185 / 35%);
   --scrollbar-track-color: transparent;
-  --scrollbar-thumb-hover-color: rgb(160 165 172 / 45%);
+  --scrollbar-thumb-hover-color: rgb(160 170 185 / 55%);
+
+  /* Utility Aliases */
+  --text-color: var(--text-primary);
+  --primary-color: var(--primary);
+  --font-mono: var(--font-family-mono);
+
+  /* Bootstrap Bridge */
+  --bs-body-font-family: var(--font-family);
+  --bs-body-font-size: var(--font-size-md);
+  --bs-body-bg: var(--surface-0);
+  --bs-body-bg-rgb: var(--surface-rgb);
+  --bs-body-color: var(--text-primary);
+  --bs-secondary-color: var(--text-secondary);
+  --bs-tertiary-color: var(--text-tertiary);
+  --bs-secondary-bg: var(--surface-2);
+  --bs-tertiary-bg: var(--surface-3);
+  --bs-border-color: var(--border-color);
+  --bs-border-radius: var(--radius-lg);
+  --bs-border-radius-sm: var(--radius-md);
+  --bs-border-radius-lg: var(--radius-xl);
+  --bs-border-radius-xl: var(--radius-xl);
+  --bs-border-radius-xxl: calc(var(--radius-xl) + 4px);
+  --bs-border-radius-pill: var(--radius-pill);
+  --bs-primary: var(--primary);
+  --bs-primary-rgb: var(--primary-rgb);
+  --bs-secondary: var(--secondary);
+  --bs-secondary-rgb: var(--secondary-rgb);
+  --bs-success: var(--success);
+  --bs-success-rgb: var(--success-rgb);
+  --bs-info: var(--info);
+  --bs-info-rgb: var(--info-rgb);
+  --bs-warning: var(--warning);
+  --bs-warning-rgb: var(--warning-rgb);
+  --bs-danger: var(--danger);
+  --bs-danger-rgb: var(--danger-rgb);
+  --bs-light: var(--surface-2);
+  --bs-dark: var(--surface-4);
+  --bs-link-color: var(--primary);
+  --bs-link-hover-color: var(--primary-dark);
+  --bs-box-shadow: var(--shadow-sm);
+  --bs-focus-ring-color: rgb(var(--accent-rgb) / 25%);
 }
 
-/* === Light Mode Overrides - Warm & Soft === */
+/* Light Mode Overrides */
 body.light-mode {
-  --surface-0: #fafaf8;
-  --surface-1: #fff;
-  --surface-2: #f5f5f3;
-  --surface-3: #ebebe8;
-  --surface-4: #ddddd8;
-  --surface-glass: rgb(250 250 248 / 88%);
-  --text-primary: rgb(40 42 45 / 90%);
-  --text-secondary: rgb(80 82 88 / 75%);
-  --text-tertiary: rgb(110 112 118 / 55%);
-  --text-on-primary: #fafafa;
-  --text-on-secondary: #fafafa;
-  --border-color: rgb(40 42 45 / 10%);
-  --border-color-light: rgb(40 42 45 / 20%);
-  --divider-color: rgb(40 42 45 / 8%);
-  --shadow-xs: 0 1px 2px rgb(40 42 45 / 5%);
-  --shadow-sm: 0 1px 2px rgb(40 42 45 / 7%);
-  --shadow-md: 0 3px 8px rgb(40 42 45 / 9%);
-  --shadow-lg: 0 8px 16px rgb(40 42 45 / 12%);
-  --shadow-xl: 0 14px 28px rgb(40 42 45 / 14%);
-  --shadow-elevation-1: 0 2px 6px rgb(40 42 45 / 10%);
-  --shadow-elevation-2: 0 6px 14px rgb(40 42 45 / 12%), 0 0 10px rgb(40 42 45 / 6%);
-  --shadow-elevation-3: 0 10px 24px rgb(40 42 45 / 14%), 0 0 14px rgb(40 42 45 / 8%);
-  --shadow-elevation-4: 0 16px 32px rgb(40 42 45 / 16%), 0 0 18px rgb(40 42 45 / 10%);
-  --shadow-elevation-5: 0 22px 48px rgb(40 42 45 / 20%), 0 0 22px rgb(40 42 45 / 12%);
-  --scrollbar-thumb-color: rgb(124 157 150 / 25%);
-  --scrollbar-track-color: rgb(160 165 172 / 15%);
-  --scrollbar-thumb-hover-color: rgb(124 157 150 / 40%);
-  --surface-rgb: 250, 250, 248;
-  --text-rgb: 40, 42, 45;
-  --border-rgb: 160, 165, 172;
+  --surface-0: #f5f7fb;
+  --surface-1: #ffffff;
+  --surface-2: #edf0f6;
+  --surface-3: #e1e6ef;
+  --surface-4: #d5dbe7;
+  --surface-elevated: #f0f3f9;
+  --surface-glass: rgb(255 255 255 / 88%);
+  --surface-rgb: 245, 247, 251;
+  --text-primary: rgb(22 24 29 / 92%);
+  --text-secondary: rgb(66 72 83 / 75%);
+  --text-tertiary: rgb(96 104 118 / 55%);
+  --border-color: rgb(20 24 32 / 12%);
+  --border-color-light: rgb(20 24 32 / 22%);
+  --divider-color: rgb(20 24 32 / 8%);
+  --border-rgb: 20, 24, 32;
+  --text-rgb: 22, 24, 29;
+  --shadow-xs: 0 1px 2px rgb(20 24 32 / 6%);
+  --shadow-sm: 0 4px 12px rgb(20 24 32 / 10%);
+  --shadow-md: 0 10px 24px rgb(20 24 32 / 14%);
+  --shadow-lg: 0 16px 36px rgb(20 24 32 / 16%);
+  --shadow-xl: 0 24px 52px rgb(20 24 32 / 18%);
+  --shadow-elevation-1: 0 6px 16px rgb(20 24 32 / 10%);
+  --shadow-elevation-2: 0 12px 24px rgb(20 24 32 / 12%);
+  --shadow-elevation-3: 0 18px 36px rgb(20 24 32 / 14%);
+  --shadow-elevation-4: 0 26px 48px rgb(20 24 32 / 16%);
+  --shadow-elevation-5: 0 34px 60px rgb(20 24 32 / 18%);
+  --scrollbar-thumb-color: rgb(85 214 194 / 30%);
+  --scrollbar-track-color: rgb(20 24 32 / 6%);
+  --scrollbar-thumb-hover-color: rgb(85 214 194 / 45%);
   --glass-1: rgb(var(--surface-rgb) / 82%);
   --glass-2: rgb(var(--surface-rgb) / 90%);
   --glass-3: rgb(var(--surface-rgb) / 96%);
-  --glass-border: rgb(var(--border-rgb) / 20%);
+  --glass-border: rgb(var(--border-rgb) / 18%);
 }
+
+/* Changelog: Modern Soft-Tech UI
+   - Before: minimalist palette, tight radii, row-based layouts.
+   - After: matte neon-pastel categories, pill controls, 20-24px radii.
+   - Layout: Bento grid widgets with consistent headers/accents and staggered reveal.
+   - Coverage Navigator: stacked widget panel + tokenized map legend accents.
+   - Insights/Visits/Search: legacy duplicates removed, motion softened, tokens normalized.
+*/

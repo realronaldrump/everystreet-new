@@ -4,7 +4,7 @@
 
 /* === Tables === */
 .table-container {
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-lg);
   overflow: hidden;
   margin-bottom: var(--space-5);
   box-shadow: var(--shadow-sm);

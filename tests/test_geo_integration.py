@@ -2,6 +2,7 @@ import os
 import unittest
 
 import httpx
+import pytest
 
 
 @pytest.mark.integration

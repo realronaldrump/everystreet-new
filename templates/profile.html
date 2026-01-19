@@ -18,23 +18,29 @@ Profile Settings
 {% block content %}
 
   <div class="container-fluid settings-container">
-    <h2 class="mb-4">
-      <i class="fas fa-user-circle"></i> Profile Settings
-    </h2>
+    <div class="bento-grid" data-stagger>
+      <div class="bento-span-12 widget" data-accent="purple">
+        <div class="widget-header">
+          <h2 class="widget-title">
+            <i class="fas fa-user-circle" aria-hidden="true"></i>
+            Profile Settings
+          </h2>
+        </div>
+      </div>
 
-    <!-- Credentials Status Banner -->
-    <div id="credentials-status-banner"
-         class="credentials-status"
-         style="display: none"
-         role="status"
-         aria-live="polite"
-         aria-atomic="true">
-      <i class="fas fa-info-circle"></i>
-      <span id="credentials-status-text"></span>
-    </div>
+      <!-- Credentials Status Banner -->
+      <div id="credentials-status-banner"
+           class="credentials-status bento-span-12"
+           style="display: none"
+           role="status"
+           aria-live="polite"
+           aria-atomic="true">
+        <i class="fas fa-info-circle"></i>
+        <span id="credentials-status-text"></span>
+      </div>
 
-    <!-- Bouncie API Credentials -->
-    <div class="settings-group">
+      <!-- Bouncie API Credentials -->
+      <div class="settings-group bento-span-12">
       <h3 class="settings-group-title">
         <i class="fas fa-key"></i>
       Bouncie API Credentials
@@ -233,7 +239,7 @@ Bouncie credentials
 </div>
 
 <!-- Vehicle Management Link -->
-<div class="settings-group">
+<div class="settings-group bento-span-6">
   <h3 class="settings-group-title">
     <i class="fas fa-car"></i>
       Vehicle Management
@@ -247,7 +253,7 @@ Bouncie credentials
 </div>
 
 <!-- Help/Documentation -->
-<div class="settings-group">
+<div class="settings-group bento-span-6">
   <h3 class="settings-group-title">
     <i class="fas fa-question-circle"></i>
       How to Get Your Credentials
@@ -284,6 +290,8 @@ Bouncie credentials
   </p>
 </div>
 </div>
+  </div>
+  </div>
 
 {% endblock %}
 

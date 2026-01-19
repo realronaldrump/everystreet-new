@@ -19,129 +19,141 @@ Every Street - Trips
 {% block content %}
 
   <div class="container-fluid px-4 py-3">
-    <h1 class="mb-4">
-Trips
-    </h1>
-
-    <div class="card mb-4 filter-panel">
-      <div class="card-body">
-        <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
+    <div class="bento-grid" data-stagger>
+      <div class="bento-span-12 widget" data-accent="sky">
+        <div class="widget-header">
           <div>
-            <div class="filter-title">
-Filter and narrow down your trips
+            <h1 class="widget-title">
+              <i class="fas fa-road" aria-hidden="true"></i>
+              Trips
+            </h1>
+            <div class="widget-meta">
+              Review, filter, and manage your driving history.
             </div>
-            <div class="filter-subtitle">
-            Choose a vehicle, date window, and any performance limits. Apply to
-            see instant results.
-            </div>
-            <div id="active-filter-chips" class="filter-chip-row mt-2">
-            </div>
-          </div>
-
-        </div>
-
-        <div class="row g-3 align-items-end">
-          <div class="col-md-3 col-lg-2">
-            <label for="trip-filter-vehicle" class="form-label">
-Vehicle
-            </label>
-            <select id="trip-filter-vehicle" class="form-select">
-              <option value="">
-All vehicles
-              </option>
-            </select>
-          </div>
-
-
-
-          <div class="col-md-3 col-lg-2">
-            <label class="form-label">
-Distance (mi)
-            </label>
-            <div class="input-group">
-              <span class="input-group-text"><i class="fas fa-road"></i></span>
-              <input type="number"
-                     class="form-control"
-                     id="trip-filter-distance-min"
-                     placeholder="Min"
-                     step="0.1" />
-              <span class="input-group-text">-</span>
-              <input type="number"
-                     class="form-control"
-                     id="trip-filter-distance-max"
-                     placeholder="Max"
-                     step="0.1" />
-            </div>
-          </div>
-          <div class="col-md-3 col-lg-2">
-            <label class="form-label">
-Max Speed (mph)
-            </label>
-            <div class="input-group">
-              <span class="input-group-text"><i class="fas fa-tachometer-alt"></i></span>
-              <input type="number"
-                     class="form-control"
-                     id="trip-filter-speed-min"
-                     placeholder="Min"
-                     step="1" />
-              <span class="input-group-text">-</span>
-              <input type="number"
-                     class="form-control"
-                     id="trip-filter-speed-max"
-                     placeholder="Max"
-                     step="1" />
-            </div>
-          </div>
-          <div class="col-md-3 col-lg-2">
-            <label class="form-label">
-Fuel (gal)
-            </label>
-            <div class="input-group">
-              <span class="input-group-text"><i class="fas fa-gas-pump"></i></span>
-              <input type="number"
-                     class="form-control"
-                     id="trip-filter-fuel-min"
-                     placeholder="Min"
-                     step="0.01" />
-              <span class="input-group-text">-</span>
-              <input type="number"
-                     class="form-control"
-                     id="trip-filter-fuel-max"
-                     placeholder="Max"
-                     step="0.01" />
-            </div>
-          </div>
-          <div class="col-md-3 col-lg-1 d-flex align-items-center">
-            <div class="form-check mt-4">
-              <input class="form-check-input" type="checkbox" id="trip-filter-has-fuel" />
-              <label class="form-check-label" for="trip-filter-has-fuel">
-              Has Fuel
-              </label>
-            </div>
-          </div>
-        </div>
-        <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mt-3">
-          <div class="filter-helper-text" id="filter-helper-text">
-          Adjust filters then apply to refresh results. Active filters appear as
-          chips above.
-          </div>
-          <div class="d-flex gap-2">
-            <button class="btn btn-primary" id="trip-filter-apply">
-              <i class="fas fa-check"></i> Apply filters
-            </button>
-            <button class="btn btn-outline-secondary" id="trip-filter-reset">
-              <i class="fas fa-undo"></i> Reset
-            </button>
           </div>
         </div>
       </div>
-    </div>
 
-    <!-- Single Trips Container - CSS handles responsive layout -->
-    <div class="trips-container">
-      <div class="card">
-        <div class="card-body">
-          <!-- Bulk Actions Bar -->
+      <div class="bento-span-12 widget" data-accent="mint">
+        <div class="widget-header">
+          <div>
+            <h2 class="widget-title">
+              <i class="fas fa-sliders-h" aria-hidden="true"></i>
+              Filters
+            </h2>
+            <div class="widget-meta">
+              Choose vehicle, date window, and performance limits.
+            </div>
+          </div>
+        </div>
+        <div class="widget-body">
+          <div id="active-filter-chips" class="filter-chip-row">
+          </div>
+          <div class="row g-3 align-items-end">
+            <div class="col-md-3 col-lg-2">
+              <label for="trip-filter-vehicle" class="form-label">
+Vehicle
+              </label>
+              <select id="trip-filter-vehicle" class="form-select">
+                <option value="">
+All vehicles
+                </option>
+              </select>
+            </div>
+            <div class="col-md-3 col-lg-2">
+              <label class="form-label">
+Distance (mi)
+              </label>
+              <div class="input-group">
+                <span class="input-group-text"><i class="fas fa-road"></i></span>
+                <input type="number"
+                       class="form-control"
+                       id="trip-filter-distance-min"
+                       placeholder="Min"
+                       step="0.1" />
+                <span class="input-group-text">-</span>
+                <input type="number"
+                       class="form-control"
+                       id="trip-filter-distance-max"
+                       placeholder="Max"
+                       step="0.1" />
+              </div>
+            </div>
+            <div class="col-md-3 col-lg-2">
+              <label class="form-label">
+Max Speed (mph)
+              </label>
+              <div class="input-group">
+                <span class="input-group-text"><i class="fas fa-tachometer-alt"></i></span>
+                <input type="number"
+                       class="form-control"
+                       id="trip-filter-speed-min"
+                       placeholder="Min"
+                       step="1" />
+                <span class="input-group-text">-</span>
+                <input type="number"
+                       class="form-control"
+                       id="trip-filter-speed-max"
+                       placeholder="Max"
+                       step="1" />
+              </div>
+            </div>
+            <div class="col-md-3 col-lg-2">
+              <label class="form-label">
+Fuel (gal)
+              </label>
+              <div class="input-group">
+                <span class="input-group-text"><i class="fas fa-gas-pump"></i></span>
+                <input type="number"
+                       class="form-control"
+                       id="trip-filter-fuel-min"
+                       placeholder="Min"
+                       step="0.01" />
+                <span class="input-group-text">-</span>
+                <input type="number"
+                       class="form-control"
+                       id="trip-filter-fuel-max"
+                       placeholder="Max"
+                       step="0.01" />
+              </div>
+            </div>
+            <div class="col-md-3 col-lg-1 d-flex align-items-center">
+              <div class="form-check mt-4">
+                <input class="form-check-input" type="checkbox" id="trip-filter-has-fuel" />
+                <label class="form-check-label" for="trip-filter-has-fuel">
+                Has Fuel
+                </label>
+              </div>
+            </div>
+          </div>
+          <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+            <div class="filter-helper-text" id="filter-helper-text">
+            Adjust filters then apply to refresh results. Active filters appear as
+            chips above.
+            </div>
+            <div class="d-flex gap-2">
+              <button class="btn btn-primary" id="trip-filter-apply">
+                <i class="fas fa-check"></i> Apply filters
+              </button>
+              <button class="btn btn-outline-secondary" id="trip-filter-reset">
+                <i class="fas fa-undo"></i> Reset
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="bento-span-12 widget" data-accent="purple">
+        <div class="widget-header">
+          <div>
+            <h2 class="widget-title">
+              <i class="fas fa-table" aria-hidden="true"></i>
+              Trip History
+            </h2>
+            <div class="widget-meta">Manage trips, bulk actions, and details.</div>
+          </div>
+        </div>
+        <div class="widget-body">
           <div class="trips-actions-bar">
             <label class="trips-select-all">
               <input type="checkbox" id="select-all-trips" />
@@ -158,7 +170,6 @@ Fuel (gal)
               </button>
             </div>
           </div>
-
           <div class="table-responsive">
             <table id="trips-table" class="table table-striped table-hover w-100">
               <thead>
@@ -270,7 +281,7 @@ Distance
 
                 <div class="d-flex align-items-center mb-4">
                   <div class="me-3 text-center" style="width: 40px;">
-                    <i class="far fa-clock fa-lg text-info"></i>
+                    <i class="fas fa-clock fa-lg text-info"></i>
                   </div>
                   <div>
                     <div class="small text-muted">

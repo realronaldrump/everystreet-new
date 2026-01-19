@@ -19,19 +19,19 @@ Driving Insights & Analytics
 {% block content %}
 
   <div class="container-fluid">
-    <!-- Hero Section with Key Metrics -->
-    <div class="insights-hero">
-      <div class="row align-items-center">
-        <div class="col-lg-8">
-          <h1 class="display-4 fw-bold mb-3">
-          Driving Insights & Analytics
-            <span class="live-indicator"></span>
-          </h1>
-          <p class="lead text-secondary mb-4">
-          Comprehensive analysis of your driving patterns and behaviors
-          </p>
-        </div>
-        <div class="col-lg-4 text-center">
+    <div class="bento-grid" data-stagger>
+      <div class="bento-span-12 widget" data-accent="lime">
+        <div class="widget-header">
+          <div>
+            <h1 class="widget-title">
+              <i class="fas fa-chart-line" aria-hidden="true"></i>
+              Driving Insights & Analytics
+              <span class="live-indicator"></span>
+            </h1>
+            <div class="widget-meta">
+              Comprehensive analysis of your driving patterns and behaviors.
+            </div>
+          </div>
           <div class="hero-stat">
             <div class="display-3 text-primary counter" id="hero-total-miles">
             0
@@ -42,172 +42,171 @@ Total Miles Driven
           </div>
         </div>
       </div>
-    </div>
 
-    <!-- Primary Metrics Grid -->
-    <div class="row g-4 mb-5" data-widget-container="insights-metrics">
-      <div class="col-md-6 col-lg-3" data-widget-id="trips">
-        <div class="metric-card" data-metric="trips">
-          <div class="metric-icon">
-            <i class="fas fa-route"></i>
-          </div>
-          <div class="metric-value counter" id="total-trips">
-0
-          </div>
-          <div class="metric-label">
-Total Trips
-          </div>
-          <div class="metric-trend positive">
-            <i class="fas fa-arrow-up"></i> 12%
-          </div>
-          <div class="stat-comparison" id="trips-comparison">
-            <small>Daily Average: <span class="fw-bold">0</span></small>
-          </div>
-        </div>
-      </div>
-
-      <div class="col-md-6 col-lg-3" data-widget-id="distance">
-        <div class="metric-card" data-metric="distance">
-          <div class="metric-icon">
-            <i class="fas fa-road"></i>
-          </div>
-          <div class="metric-value">
-            <span class="counter" id="total-distance">0</span>
-            <small style="font-size: 0.5em">miles</small>
-          </div>
-          <div class="metric-label">
-Distance Traveled
-          </div>
-          <div class="metric-trend positive">
-            <i class="fas fa-arrow-up"></i> 8%
-          </div>
-          <div class="stat-comparison" id="distance-comparison">
-            <small>Avg per Trip: <span class="fw-bold">0</span> miles</small>
-          </div>
-        </div>
-      </div>
-
-      <div class="col-md-6 col-lg-3" data-widget-id="fuel">
-        <div class="metric-card" data-metric="fuel">
-          <div class="metric-icon">
-            <i class="fas fa-gas-pump"></i>
-          </div>
-          <div class="metric-value">
-            <span class="counter" id="total-fuel">0</span>
-            <small style="font-size: 0.5em">gal</small>
-          </div>
-          <div class="metric-label">
-Fuel Consumed
-          </div>
-          <div class="metric-trend negative">
-            <i class="fas fa-arrow-down"></i> 5%
-          </div>
-          <div class="stat-comparison" id="fuel-comparison">
-            <small>Efficiency: <span class="fw-bold">0</span> MPG</small>
-          </div>
-        </div>
-      </div>
-
-      <div class="col-md-6 col-lg-3" data-widget-id="time">
-        <div class="metric-card" data-metric="time">
-          <div class="metric-icon">
-            <i class="fas fa-clock"></i>
-          </div>
-          <div class="metric-value" id="total-time">
-0h 0m
-          </div>
-          <div class="metric-label">
-Time on Road
-          </div>
-          <div class="metric-trend neutral">
-            <i class="fas fa-minus"></i> 0%
-          </div>
-          <div class="stat-comparison" id="time-comparison">
-            <small>Avg Speed: <span class="fw-bold">0</span> mph</small>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Behavior Metrics -->
-    <div class="row g-4 mb-5">
-      <div class="col-md-4">
-        <div class="insight-card">
-          <div class="insight-icon bg-danger bg-opacity-10 text-danger">
-            <i class="fas fa-exclamation-triangle"></i>
-          </div>
-          <div class="insight-content">
-            <h4>
-Aggressive Events
-            </h4>
-            <p>
-              <span class="counter" id="hard-braking">0</span> Hard Brakes |
-              <span class="counter" id="hard-accel">0</span> Hard Accels
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <div class="col-md-4">
-        <div class="insight-card">
-          <div class="insight-icon bg-warning bg-opacity-10 text-warning">
-            <i class="fas fa-tachometer-alt"></i>
-          </div>
-          <div class="insight-content">
-            <h4>
-Speed Statistics
-            </h4>
-            <p>
-            Max: <span class="counter" id="max-speed">0</span> mph | Avg:
-              <span class="counter" id="avg-speed">0</span> mph
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <div class="col-md-4">
-        <div class="insight-card">
-          <div class="insight-icon bg-info bg-opacity-10 text-info">
-            <i class="fas fa-pause-circle"></i>
-          </div>
-          <div class="insight-content">
-            <h4>
-Idle Time
-            </h4>
-            <p id="idle-time">
-0h 0m
-            </p>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Charts Section -->
-    <div class="row g-4 mb-5">
-      <!-- Combined Trends Chart -->
-      <div class="col-lg-8">
-        <div class="chart-container">
-          <div class="chart-header">
-            <h3 class="chart-title">
-Driving Trends
-            </h3>
-            <div class="chart-controls">
-              <div class="toggle-group">
-                <button class="toggle-btn active" data-view="daily">
-Daily
-                </button>
-                <button class="toggle-btn" data-view="weekly">
-Weekly
-                </button>
-                <button class="toggle-btn" data-view="monthly">
-Monthly
-                </button>
+      <div class="bento-span-12" data-widget-container="insights-metrics">
+        <div class="row g-4">
+          <div class="col-md-6 col-lg-3" data-widget-id="trips">
+            <div class="metric-card" data-metric="trips">
+              <div class="metric-icon">
+                <i class="fas fa-route"></i>
               </div>
-              <button class="btn btn-sm btn-outline" id="export-chart">
-                <i class="fas fa-download"></i>
-              </button>
+              <div class="metric-value counter" id="total-trips">
+0
+              </div>
+              <div class="metric-label">
+Total Trips
+              </div>
+              <div class="metric-trend positive">
+                <i class="fas fa-arrow-up"></i> 12%
+              </div>
+              <div class="stat-comparison" id="trips-comparison">
+                <small>Daily Average: <span class="fw-bold">0</span></small>
+              </div>
             </div>
           </div>
+
+          <div class="col-md-6 col-lg-3" data-widget-id="distance">
+            <div class="metric-card" data-metric="distance">
+              <div class="metric-icon">
+                <i class="fas fa-road"></i>
+              </div>
+              <div class="metric-value">
+                <span class="counter" id="total-distance">0</span>
+                <small style="font-size: 0.5em">miles</small>
+              </div>
+              <div class="metric-label">
+Distance Traveled
+              </div>
+              <div class="metric-trend positive">
+                <i class="fas fa-arrow-up"></i> 8%
+              </div>
+              <div class="stat-comparison" id="distance-comparison">
+                <small>Avg per Trip: <span class="fw-bold">0</span> miles</small>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-md-6 col-lg-3" data-widget-id="fuel">
+            <div class="metric-card" data-metric="fuel">
+              <div class="metric-icon">
+                <i class="fas fa-gas-pump"></i>
+              </div>
+              <div class="metric-value">
+                <span class="counter" id="total-fuel">0</span>
+                <small style="font-size: 0.5em">gal</small>
+              </div>
+              <div class="metric-label">
+Fuel Consumed
+              </div>
+              <div class="metric-trend negative">
+                <i class="fas fa-arrow-down"></i> 5%
+              </div>
+              <div class="stat-comparison" id="fuel-comparison">
+                <small>Efficiency: <span class="fw-bold">0</span> MPG</small>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-md-6 col-lg-3" data-widget-id="time">
+            <div class="metric-card" data-metric="time">
+              <div class="metric-icon">
+                <i class="fas fa-clock"></i>
+              </div>
+              <div class="metric-value" id="total-time">
+0h 0m
+              </div>
+              <div class="metric-label">
+Time on Road
+              </div>
+              <div class="metric-trend neutral">
+                <i class="fas fa-minus"></i> 0%
+              </div>
+              <div class="stat-comparison" id="time-comparison">
+                <small>Avg Speed: <span class="fw-bold">0</span> mph</small>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="bento-span-12">
+        <div class="row g-4">
+          <div class="col-md-4">
+            <div class="insight-card" data-accent="coral">
+              <div class="insight-icon bg-danger bg-opacity-10 text-danger">
+                <i class="fas fa-exclamation-triangle"></i>
+              </div>
+              <div class="insight-content">
+                <h4>
+Aggressive Events
+                </h4>
+                <p>
+                  <span class="counter" id="hard-braking">0</span> Hard Brakes |
+                  <span class="counter" id="hard-accel">0</span> Hard Accels
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-md-4">
+            <div class="insight-card" data-accent="amber">
+              <div class="insight-icon bg-warning bg-opacity-10 text-warning">
+                <i class="fas fa-tachometer-alt"></i>
+              </div>
+              <div class="insight-content">
+                <h4>
+Speed Statistics
+                </h4>
+                <p>
+                Max: <span class="counter" id="max-speed">0</span> mph | Avg:
+                  <span class="counter" id="avg-speed">0</span> mph
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-md-4">
+            <div class="insight-card" data-accent="sky">
+              <div class="insight-icon bg-info bg-opacity-10 text-info">
+                <i class="fas fa-pause-circle"></i>
+              </div>
+              <div class="insight-content">
+                <h4>
+Idle Time
+                </h4>
+                <p id="idle-time">
+0h 0m
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="bento-span-8 widget" data-accent="purple">
+        <div class="widget-header">
+          <h3 class="widget-title">
+            <i class="fas fa-wave-square" aria-hidden="true"></i>
+            Driving Trends
+          </h3>
+          <div class="chart-controls">
+            <div class="toggle-group">
+              <button class="toggle-btn active" data-view="daily">
+Daily
+              </button>
+              <button class="toggle-btn" data-view="weekly">
+Weekly
+              </button>
+              <button class="toggle-btn" data-view="monthly">
+Monthly
+              </button>
+            </div>
+            <button class="btn btn-sm btn-outline" id="export-chart">
+              <i class="fas fa-download"></i>
+            </button>
+          </div>
+        </div>
+        <div class="widget-body">
           <div class="chart-loading" id="trends-loading">
             <div class="chart-loading-spinner">
             </div>
@@ -216,55 +215,51 @@ Monthly
         </div>
       </div>
 
-      <!-- Efficiency Gauges -->
-      <div class="col-lg-4">
-        <div class="chart-container">
-          <div class="chart-header">
-            <h3 class="chart-title">
-Efficiency Metrics
-            </h3>
-          </div>
+      <div class="bento-span-4 widget" data-accent="mint">
+        <div class="widget-header">
+          <h3 class="widget-title">
+            <i class="fas fa-gauge" aria-hidden="true"></i>
+            Efficiency Metrics
+          </h3>
+        </div>
+        <div class="widget-body">
           <canvas id="efficiencyChart" height="400"></canvas>
         </div>
       </div>
-    </div>
 
-    <!-- Time Distribution -->
-    <div class="row g-4 mb-5">
-      <div class="col-lg-12">
-        <div class="chart-container time-dist-container">
-          <div class="chart-header">
-            <h3 class="chart-title">
-Time Distribution
-            </h3>
-            <div class="chart-controls">
-              <div class="toggle-group">
-                <button class="toggle-btn active" data-time="hour">
-                By Hour
-                </button>
-                <button class="toggle-btn" data-time="day">
+      <div class="bento-span-12 widget" data-accent="sky">
+        <div class="widget-header">
+          <h3 class="widget-title">
+            <i class="fas fa-clock" aria-hidden="true"></i>
+            Time Distribution
+          </h3>
+          <div class="chart-controls">
+            <div class="toggle-group">
+              <button class="toggle-btn active" data-time="hour">
+              By Hour
+              </button>
+              <button class="toggle-btn" data-time="day">
 By Day
-                </button>
-              </div>
+              </button>
             </div>
           </div>
+        </div>
+        <div class="widget-body">
           <canvas id="timeDistChart" height="320"></canvas>
         </div>
       </div>
-    </div>
 
-    <!-- Destinations & Routes -->
-    <div class="row g-4 mb-5">
-      <div class="col-12">
-        <div class="chart-container">
-          <div class="chart-header">
-            <h3 class="chart-title">
-Frequently Visited Locations
-            </h3>
-            <button class="btn btn-sm btn-primary" id="view-map">
-              <i class="fas fa-map"></i> View on Trips Page
-            </button>
-          </div>
+      <div class="bento-span-12 widget" data-accent="mint">
+        <div class="widget-header">
+          <h3 class="widget-title">
+            <i class="fas fa-map-marker-alt" aria-hidden="true"></i>
+            Frequently Visited Locations
+          </h3>
+          <button class="btn btn-sm btn-primary" id="view-map">
+            <i class="fas fa-map"></i> View on Trips Page
+          </button>
+        </div>
+        <div class="widget-body">
           <div class="table-responsive">
             <table class="data-table" id="destinations-table">
               <thead>
@@ -278,31 +273,28 @@ Visits
                   <th data-bs-toggle="tooltip"
                       title="Sum of miles driven to this location during the selected date range">
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           Total Distance&nbsp;<i class="fas fa-question-circle text-muted"></i>
-                </th>
-                <th>
+                  </th>
+                  <th>
 Avg Duration
-                </th>
-                <th>
+                  </th>
+                  <th>
 Last Visit
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              <!-- Dynamic content -->
-            </tbody>
-          </table>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <!-- Dynamic content -->
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
-    </div>
-  </div>
 
-  <!-- Detailed Analytics Table -->
-  <div class="row g-4 mb-5">
-    <div class="col-12">
-      <div class="chart-container">
-        <div class="chart-header">
-          <h3 class="chart-title">
-Detailed Trip Analytics
+      <div class="bento-span-12 widget" data-accent="purple">
+        <div class="widget-header">
+          <h3 class="widget-title">
+            <i class="fas fa-table" aria-hidden="true"></i>
+            Detailed Trip Analytics
           </h3>
           <div class="chart-controls">
             <button class="btn btn-sm btn-outline" id="export-data">
@@ -310,41 +302,45 @@ Detailed Trip Analytics
             </button>
           </div>
         </div>
-        <div class="table-responsive">
-          <table class="data-table" id="analytics-table">
-            <thead>
-              <tr>
-                <th>
+        <div class="widget-body">
+          <div class="table-responsive">
+            <table class="data-table" id="analytics-table">
+              <thead>
+                <tr>
+                  <th>
 Period
-                </th>
-                <th>
+                  </th>
+                  <th>
 Trips
-                </th>
-                <th>
+                  </th>
+                  <th>
 Distance
-                </th>
-                <th>
+                  </th>
+                  <th>
 Duration
-                </th>
-                <th>
+                  </th>
+                  <th>
 Fuel
-                </th>
-                <th>
+                  </th>
+                  <th>
 Hard Events
-                </th>
-                <th>
+                  </th>
+                  <th>
 Efficiency
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              <!-- Dynamic content -->
-            </tbody>
-          </table>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <!-- Dynamic content -->
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
   </div>
+
+
 
   <!-- Floating Action Button -->
   <div class="fab-container">

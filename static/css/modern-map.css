@@ -10,7 +10,7 @@
   display: flex;
   position: relative; /* For absolutely positioned children like controls */
   overflow: hidden; /* Prevent scrollbars if map resizes weirdly */
-  border-radius: var(--radius-lg); /* Consistent with cards */
+  border-radius: var(--radius-xl); /* Consistent with cards */
   box-shadow: var(--shadow-md);
   border: 1px solid var(--border-color);
 }
@@ -42,11 +42,21 @@
 /* === Mapbox GL JS Control Styling === */
 .mapboxgl-ctrl-group {
   background-color: var(--surface-1);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   box-shadow: var(--shadow-md);
   border: 1px solid var(--border-color);
   margin: var(--space-3);
   overflow: hidden; /* Ensures rounded corners are respected by buttons */
+}
+
+.mapboxgl-ctrl-group button:first-child {
+  border-top-left-radius: var(--radius-lg);
+  border-top-right-radius: var(--radius-lg);
+}
+
+.mapboxgl-ctrl-group button:last-child {
+  border-bottom-left-radius: var(--radius-lg);
+  border-bottom-right-radius: var(--radius-lg);
 }
 
 .mapboxgl-ctrl-group button {
@@ -71,8 +81,9 @@
 }
 
 .mapboxgl-ctrl-group button:focus-visible {
-  outline: 2px solid var(--primary);
+  outline: var(--focus-outline);
   outline-offset: -2px; /* Inset outline */
+  box-shadow: var(--focus-ring);
   z-index: 1; /* Ensure focus outline is visible */
 }
 
@@ -84,9 +95,7 @@
 /* Compass Control */
 .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
   background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg width='29' height='29' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg' fill='%23fff'%3E%3Cpath d='M10.213 0l4.904 12.36L10 20l-4.787-7.4L10.213 0z' opacity='.25'/%3E%3Cpath d='M10.213 0L10 20l-.213-20z' opacity='.25'/%3E%3Cpath d='M10 3.875l3.438 8.5L10 16.125 6.562 12.5 10 3.875z' fill-rule='evenodd'/%3E%3C/svg%3E");
-  filter: var(
-    --text-primary
-  ); /* Will be inverted by body.light-mode if needed */
+  filter: var(--text-primary); /* Will be inverted by body.light-mode if needed */
 }
 
 body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
@@ -97,9 +106,13 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
 .mapboxgl-ctrl-attrib {
   background-color: var(--surface-glass);
   backdrop-filter: blur(var(--blur-subtle));
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-lg);
   padding: var(--space-1) var(--space-2);
   box-shadow: var(--shadow-sm);
+}
+
+.mapboxgl-ctrl-attrib-inner {
+  border-radius: var(--radius-pill);
 }
 
 .mapboxgl-ctrl-attrib a,
@@ -499,7 +512,7 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
 .btn-quick-action {
   background: var(--surface-2);
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-full);
   padding: var(--space-3);
   color: var(--text-secondary);
   cursor: pointer;
@@ -1169,7 +1182,7 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
   display: grid;
   gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
-  border-radius: 18px;
+  border-radius: var(--radius-xl);
   border: 1px solid var(--border-color);
   background: var(--surface-glass);
   box-shadow:

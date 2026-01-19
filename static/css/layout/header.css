@@ -27,6 +27,14 @@
     box-shadow var(--transition-normal);
 }
 
+.app-header::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgb(var(--primary-rgb) / 6%), transparent 60%);
+  pointer-events: none;
+}
+
 .app-header.scrolled {
   box-shadow: var(--shadow-sm);
   background-color: var(--surface-1);
@@ -133,10 +141,11 @@
 .nav-item.active a::after {
   content: "";
   position: absolute;
-  bottom: 0;
+  bottom: 6px;
   left: var(--space-4);
   right: var(--space-4);
-  height: 2px;
+  height: 3px;
+  border-radius: var(--radius-pill);
   background: var(--primary);
 }
 
@@ -150,7 +159,7 @@
 .dropdown-menu {
   background-color: var(--surface-1);
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-lg);
   box-shadow: var(--shadow-md);
   padding: var(--space-2) 0;
   min-width: 220px;
@@ -256,7 +265,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 var(--space-1); /* Adjust padding for icons */
+  padding: 0 var(--space-1);
 }
 
 .theme-slider::before {

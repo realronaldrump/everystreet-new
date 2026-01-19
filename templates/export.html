@@ -16,18 +16,18 @@ Every Street - Export Data
 {% block content %}
 
   <div class="container-fluid export-page">
-    <div class="hero-section">
-      <div class="row align-items-center">
-        <div class="col-lg-8">
-          <h1 class="mb-3">
-            <i class="fas fa-file-export me-3"></i>Export Data
-          </h1>
-          <p class="lead mb-0">
-          Generate clean exports aligned to the current trips and coverage data model. Exports run in the
-          background and download as a packaged zip with a manifest.
-          </p>
-        </div>
-        <div class="col-lg-4 text-lg-end mt-4 mt-lg-0">
+    <div class="bento-grid" data-stagger>
+      <div class="bento-span-12 widget" data-accent="mint">
+        <div class="widget-header">
+          <div>
+            <h1 class="widget-title">
+              <i class="fas fa-file-export" aria-hidden="true"></i>
+              Export Data
+            </h1>
+            <div class="widget-meta">
+              Generate clean exports aligned to the current trips and coverage data model.
+            </div>
+          </div>
           <div class="export-hero-meta">
             <div class="text-secondary small">
 Format
@@ -38,18 +38,16 @@ Zip bundle with manifest.json
           </div>
         </div>
       </div>
-    </div>
 
-    <div class="row g-4">
-      <div class="col-xl-8">
-        <div class="card export-card">
-          <div class="card-header">
-            <h2 class="h5 mb-0">
-Export Configuration
-            </h2>
-          </div>
-          <div class="card-body">
-            <form id="export-form">
+      <div class="bento-span-8 widget" data-accent="purple">
+        <div class="widget-header">
+          <h2 class="widget-title">
+            <i class="fas fa-sliders-h" aria-hidden="true"></i>
+            Export Configuration
+          </h2>
+        </div>
+        <div class="widget-body">
+          <form id="export-form">
               <fieldset class="export-section">
                 <legend class="h6">
 Trip Data
@@ -249,76 +247,79 @@ Coverage exports are always GeoJSON.
         </div>
       </div>
 
-      <div class="col-xl-4">
-        <div class="card export-card export-status-card">
-          <div class="card-header">
-            <h2 class="h5 mb-0">
-Export Status
-            </h2>
-          </div>
-          <div class="card-body">
-            <div id="export-summary" class="export-summary">
-              <div class="export-summary-title">
-Selected Items
-              </div>
-              <ul class="list-unstyled mb-0" id="export-summary-list">
-                <li class="text-secondary">
-No items selected yet.
-                </li>
-              </ul>
-            </div>
-
-            <div class="export-progress" id="export-progress">
-              <div class="d-flex justify-content-between align-items-center mb-2">
-                <span class="text-secondary" id="export-status-text">No export running</span>
-                <span class="text-secondary" id="export-progress-percent">0%</span>
-              </div>
-              <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100">
-                <div class="progress-bar" id="export-progress-bar" style="width: 0%">
-                </div>
-              </div>
-            </div>
-
-            <div class="export-result mt-4" id="export-result">
-              <div class="export-summary-title">
-Latest Export
-              </div>
-              <div class="text-secondary" id="export-result-details">
-No export generated yet.
-              </div>
-              <a class="btn btn-success mt-3 d-none" id="export-download" href="#">
-                <i class="fas fa-file-archive me-2"></i>Download Zip
-              </a>
-            </div>
-          </div>
+      <div class="bento-span-4 widget" data-accent="sky">
+        <div class="widget-header">
+          <h2 class="widget-title">
+            <i class="fas fa-signal" aria-hidden="true"></i>
+            Export Status
+          </h2>
         </div>
-
-        <div class="card export-card export-help-card mt-4">
-          <div class="card-body">
-            <h3 class="h6">
-How exports work
-            </h3>
-            <p class="text-secondary small mb-2">
-            Each export is generated from live data, packaged as a zip with a manifest and
-            ready for spreadsheets or GIS tools.
-            </p>
-            <ul class="small text-secondary mb-0">
-              <li>
-Trips include map-matched data only when requested.
-              </li>
-              <li>
-Coverage exports require a ready coverage area.
-              </li>
-              <li>
-Manifests include schema version and record counts.
+        <div class="widget-body">
+          <div id="export-summary" class="export-summary">
+            <div class="export-summary-title">
+Selected Items
+            </div>
+            <ul class="list-unstyled mb-0" id="export-summary-list">
+              <li class="text-secondary">
+No items selected yet.
               </li>
             </ul>
           </div>
+
+          <div class="export-progress" id="export-progress">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <span class="text-secondary" id="export-status-text">No export running</span>
+              <span class="text-secondary" id="export-progress-percent">0%</span>
+            </div>
+            <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100">
+              <div class="progress-bar" id="export-progress-bar" style="width: 0%">
+              </div>
+            </div>
+          </div>
+
+          <div class="export-result mt-4" id="export-result">
+            <div class="export-summary-title">
+Latest Export
+            </div>
+            <div class="text-secondary" id="export-result-details">
+No export generated yet.
+            </div>
+            <a class="btn btn-success mt-3 d-none" id="export-download" href="#">
+              <i class="fas fa-file-archive me-2"></i>Download Zip
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <div class="bento-span-4 widget" data-accent="amber">
+        <div class="widget-header">
+          <h3 class="widget-title">
+            <i class="fas fa-circle-info" aria-hidden="true"></i>
+            How exports work
+          </h3>
+        </div>
+        <div class="widget-body">
+          <p class="text-secondary small mb-2">
+          Each export is generated from live data, packaged as a zip with a manifest and
+          ready for spreadsheets or GIS tools.
+          </p>
+          <ul class="small text-secondary mb-0">
+            <li>
+Trips include map-matched data only when requested.
+            </li>
+            <li>
+Coverage exports require a ready coverage area.
+            </li>
+            <li>
+Manifests include schema version and record counts.
+            </li>
+          </ul>
         </div>
       </div>
     </div>
   </div>
 {% endblock %}
+
 
 
 

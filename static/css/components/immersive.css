@@ -97,25 +97,30 @@ body[data-route="/"] .nav-breadcrumb {
 }
 
 body[data-route="/trips"] {
-  --section-accent-rgb: var(--info-rgb);
+  --section-accent-rgb: var(--cat-sky-rgb);
 }
 
 body[data-route="/insights"] {
-  --section-accent-rgb: var(--success-rgb);
+  --section-accent-rgb: var(--cat-lime-rgb);
 }
 
 body[data-route="/coverage-management"],
 body[data-route="/coverage-navigator"],
 body[data-route="/turn-by-turn"] {
-  --section-accent-rgb: var(--warning-rgb);
+  --section-accent-rgb: var(--cat-amber-rgb);
 }
 
 body[data-route="/gas-tracking"] {
-  --section-accent-rgb: var(--danger-rgb);
+  --section-accent-rgb: var(--cat-coral-rgb);
 }
 
 body[data-route="/visits"] {
-  --section-accent-rgb: var(--primary-rgb);
+  --section-accent-rgb: var(--cat-mint-rgb);
+}
+
+body[data-route="/vehicles"],
+body[data-route="/profile"] {
+  --section-accent-rgb: var(--cat-purple-rgb);
 }
 
 body[data-time-of-day="morning"] {

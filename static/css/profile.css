@@ -1,5 +1,5 @@
 .credential-input {
-  font-family: Monaco, Consolas, monospace;
+  font-family: var(--font-family-mono);
 }
 
 .profile-edit-bar {
@@ -11,7 +11,7 @@
   padding: var(--space-2) var(--space-3);
   background: rgb(var(--primary-rgb) / 8%);
   border: 1px solid rgb(var(--primary-rgb) / 20%);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   margin-bottom: var(--space-3);
 }
 
@@ -88,7 +88,7 @@
   margin-bottom: 10px;
   padding: 10px;
   background: var(--surface-2);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
 }
 
 .device-list-item input {
@@ -101,7 +101,7 @@
 
 .credentials-status {
   padding: var(--space-3);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   margin-bottom: var(--space-3);
 }
 
@@ -126,7 +126,7 @@
 .vehicle-item-container {
   background: var(--surface-2);
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-xl);
   padding: var(--space-3);
   margin-bottom: var(--space-3);
   transition: all 0.2s ease;

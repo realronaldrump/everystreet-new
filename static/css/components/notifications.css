@@ -17,7 +17,7 @@
 
 .notification {
   background-color: var(--surface-1);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-lg);
   padding: var(--space-3) var(--space-4);
   box-shadow: var(--shadow-md);
   transform: translateX(120%);
@@ -27,7 +27,7 @@
     opacity 0.3s ease;
   pointer-events: auto;
   border: 1px solid var(--border-color);
-  border-left: 3px solid var(--primary);
+  border-left: 4px solid var(--primary);
   display: flex;
   align-items: flex-start;
   width: 100%;
@@ -148,7 +148,7 @@
 
 /* === Alerts - Minimal === */
 .alert {
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-lg);
   border: 1px solid transparent;
   padding: var(--space-3) var(--space-4);
   margin-bottom: var(--space-4);

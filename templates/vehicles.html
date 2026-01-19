@@ -16,83 +16,92 @@ My Vehicles
 {% block content %}
 
   <div class="container-fluid vehicles-page py-4">
-    <!-- Hero Section -->
-    <div class="vehicle-hero card border-0 mb-4">
-      <div class="card-body p-5">
-        <h1 class="display-5 fw-bold mb-3">
-          <i class="fas fa-car me-3"></i>My Vehicles
-        </h1>
-        <p class="lead mb-0">
-          View your vehicle details and manage odometer settings.
-        </p>
-      </div>
-    </div>
-
-    <!-- Loading State -->
-    <div id="loading-state" class="text-center py-5">
-      <div class="spinner-border text-primary" role="status">
-        <span class="visually-hidden">Loading...</span>
-      </div>
-      <p class="text-muted mt-3">
-Loading vehicles...
-      </p>
-    </div>
-
-    <!-- Empty State -->
-    <div id="empty-state" class="text-center py-5" style="display: none;">
-      <div class="empty-icon mb-4">
-        <i class="fas fa-car-side fa-4x text-muted"></i>
-      </div>
-      <h3 class="text-muted mb-3">
-No Vehicles Found
-      </h3>
-      <p class="text-secondary mb-4">
-        Sync your vehicles from Bouncie to get started.
-      </p>
-      <button type="button" class="btn btn-primary btn-lg" id="sync-from-empty-btn">
-        <i class="fas fa-sync me-2"></i>Sync from Bouncie
-      </button>
-    </div>
-
-    <!-- Vehicle Content -->
-    <div id="vehicle-content" style="display: none;">
-      <div class="row justify-content-center">
-        <div class="col-lg-8 col-xl-6">
-
-          <!-- Vehicle Selector (shown when multiple vehicles) -->
-          <div class="card vehicle-selector-card mb-4"
-               id="vehicle-selector-card"
-               style="display: none">
-            <div class="card-body p-3">
-              <label for="vehicle-select" class="form-label mb-2">
-                <i class="fas fa-car-side me-2 text-primary"></i>Select Vehicle
-              </label>
-              <select class="form-select form-select-lg" id="vehicle-select">
-                <!-- Options populated by JS -->
-              </select>
+    <div class="bento-grid" data-stagger>
+      <div class="bento-span-12 widget" data-accent="purple">
+        <div class="widget-header">
+          <div>
+            <h1 class="widget-title">
+              <i class="fas fa-car" aria-hidden="true"></i>
+              My Vehicles
+            </h1>
+            <div class="widget-meta">
+              View your vehicle details and manage odometer settings.
             </div>
           </div>
+        </div>
+      </div>
 
-          <!-- Vehicle Card -->
-          <div class="card vehicle-card mb-4">
-            <div class="card-body p-4">
-              <!-- Vehicle Header -->
-              <div class="vehicle-header mb-4">
-                <div class="vehicle-icon">
-                  <i class="fas fa-car"></i>
-                </div>
-                <div class="vehicle-title-section">
-                  <h2 class="vehicle-name mb-1" id="vehicle-name">
+      <!-- Loading State -->
+      <div class="bento-span-12" id="loading-state">
+        <div class="widget" data-accent="mint">
+          <div class="widget-body text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+              <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="text-muted mt-3">
+Loading vehicles...
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Empty State -->
+      <div class="bento-span-12" id="empty-state" style="display: none;">
+        <div class="widget" data-accent="sky">
+          <div class="widget-body text-center py-5">
+            <div class="empty-icon mb-4">
+              <i class="fas fa-car-side fa-4x text-muted"></i>
+            </div>
+            <h3 class="text-muted mb-3">
+No Vehicles Found
+            </h3>
+            <p class="text-secondary mb-4">
+              Sync your vehicles from Bouncie to get started.
+            </p>
+            <button type="button" class="btn btn-primary btn-lg" id="sync-from-empty-btn">
+              <i class="fas fa-sync me-2"></i>Sync from Bouncie
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Vehicle Content -->
+      <div class="bento-span-12" id="vehicle-content" style="display: none;">
+        <div class="row justify-content-center">
+          <div class="col-lg-8 col-xl-6">
+
+            <!-- Vehicle Selector (shown when multiple vehicles) -->
+            <div class="widget mb-4" data-accent="mint" id="vehicle-selector-card" style="display: none">
+              <div class="widget-body">
+                <label for="vehicle-select" class="form-label mb-2">
+                  <i class="fas fa-car-side me-2 text-primary"></i>Select Vehicle
+                </label>
+                <select class="form-select form-select-lg" id="vehicle-select">
+                  <!-- Options populated by JS -->
+                </select>
+              </div>
+            </div>
+
+            <!-- Vehicle Card -->
+            <div class="widget mb-4" data-accent="purple">
+              <div class="widget-body">
+                <!-- Vehicle Header -->
+                <div class="vehicle-header mb-4">
+                  <div class="vehicle-icon">
+                    <i class="fas fa-car"></i>
+                  </div>
+                  <div class="vehicle-title-section">
+                    <h2 class="vehicle-name mb-1" id="vehicle-name">
 --
-                  </h2>
-                  <div class="vehicle-subtitle text-muted" id="vehicle-subtitle">
+                    </h2>
+                    <div class="vehicle-subtitle text-muted" id="vehicle-subtitle">
 --
+                    </div>
+                  </div>
+                  <div class="vehicle-status-badge" id="vehicle-status-badge">
+                    <span class="badge bg-success">Active</span>
                   </div>
                 </div>
-                <div class="vehicle-status-badge" id="vehicle-status-badge">
-                  <span class="badge bg-success">Active</span>
-                </div>
-              </div>
 
               <!-- Vehicle Info Grid -->
               <div class="vehicle-info-grid mb-4">
@@ -247,8 +256,8 @@ This name will be shown throughout the app.
           </div>
 
           <!-- Actions Card -->
-          <div class="card actions-card">
-            <div class="card-body p-4">
+          <div class="widget" data-accent="amber">
+            <div class="widget-body">
               <h4 class="section-title mb-3">
                 <i class="fas fa-tools text-primary me-2"></i>Actions
               </h4>
@@ -265,6 +274,7 @@ This name will be shown throughout the app.
         </div>
       </div>
     </div>
+  </div>
   </div>
 
   <!-- Toast Container -->

@@ -1,7 +1,7 @@
 body {
   font-family: var(--font-family);
   font-size: var(--font-size-md);
-  letter-spacing: 0.01em;
+  letter-spacing: 0.005em;
 }
 
 h1,
@@ -16,7 +16,8 @@ h6,
 .display-4,
 .display-5 {
   font-family: var(--font-family-display);
-  letter-spacing: -0.01em;
+  letter-spacing: -0.015em;
+  line-height: var(--line-height-tight);
 }
 
 p,
@@ -28,7 +29,7 @@ p,
 .route-content .lead,
 .route-content .text-muted,
 .route-content .text-secondary {
-  max-width: 70ch;
+  max-width: 72ch;
 }
 
 [data-numeric],

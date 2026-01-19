@@ -78,6 +78,77 @@
   overflow: hidden; /* Changed from auto to hidden to prevent double scrollbars if body handles scrolling */
 }
 
+/* === Bento Grid === */
+.bento-grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: var(--space-5);
+  align-items: stretch;
+}
+
+.bento-grid > * {
+  min-width: 0;
+}
+
+.bento-span-12 {
+  grid-column: span 12;
+}
+
+.bento-span-8 {
+  grid-column: span 8;
+}
+
+.bento-span-7 {
+  grid-column: span 7;
+}
+
+.bento-span-6 {
+  grid-column: span 6;
+}
+
+.bento-span-5 {
+  grid-column: span 5;
+}
+
+.bento-span-4 {
+  grid-column: span 4;
+}
+
+.bento-span-3 {
+  grid-column: span 3;
+}
+
+.bento-span-2 {
+  grid-column: span 2;
+}
+
+.bento-span-1 {
+  grid-column: span 1;
+}
+
+@media (width <= 1200px) {
+  .bento-grid {
+    grid-template-columns: repeat(8, minmax(0, 1fr));
+  }
+}
+
+@media (width <= 992px) {
+  .bento-grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+}
+
+@media (width <= 768px) {
+  .bento-grid {
+    grid-template-columns: 1fr;
+    gap: var(--space-4);
+  }
+
+  .bento-grid > * {
+    grid-column: 1 / -1;
+  }
+}
+
 @media (width <= 768px) {
   .main-content {
     padding-bottom: calc(72px + env(safe-area-inset-bottom));
@@ -145,13 +216,17 @@ body[data-route="/map"] .route-content {
 
 /* === Hero Section - Minimal === */
 .hero-section {
-  background: rgb(var(--primary-rgb) / 6%);
-  border-radius: var(--radius-md);
+  background: linear-gradient(
+    135deg,
+    rgb(var(--primary-rgb) / 12%),
+    rgb(var(--secondary-rgb) / 8%)
+  );
+  border-radius: var(--radius-xl);
   padding: var(--space-8) var(--space-6);
   margin-bottom: var(--space-6);
   position: relative;
   color: var(--text-primary);
-  border: 1px solid rgb(var(--primary-rgb) / 10%);
+  border: 1px solid rgb(var(--primary-rgb) / 14%);
 }
 
 .hero-section h1 {
@@ -192,7 +267,7 @@ body.light-mode .hero-section::before {
 .stat-item {
   padding: var(--space-4);
   background: var(--surface-1);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-lg);
   text-align: center;
   border: 1px solid var(--border-color);
 }
@@ -391,7 +466,7 @@ body.light-mode .live-tracking-panel-bg {
 .quick-select-btn {
   background-color: var(--surface-2);
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-pill);
   padding: var(--space-2);
   font-size: var(--font-size-xs);
   color: var(--text-secondary);

@@ -29,54 +29,47 @@ Every Street - Visits
 {% block content %}
 
   <div id="visits-page" class="container-fluid px-4 py-4">
-    <div class="row mb-4 fade-in-up">
-      <div class="col-12">
-        <div class="hero-section"
-             style="background: linear-gradient(135deg, rgba(var(--primary-rgb), 0.15), rgba(var(--secondary-rgb), 0.1));
-                    padding: var(--space-6) var(--space-5)">
-          <div class="row align-items-center">
-            <div class="col-lg-8">
-              <h1 class="display-4 fw-bold mb-3">
-                <i class="fas fa-map-marked-alt me-3 text-primary"></i>
+    <div class="bento-grid" data-stagger>
+      <div class="bento-span-12 widget" data-accent="mint">
+        <div class="widget-header">
+          <div>
+            <h1 class="widget-title">
+              <i class="fas fa-map-marked-alt" aria-hidden="true"></i>
               Your Places & Visits
-              </h1>
-              <p class="lead text-secondary mb-0">
-              Track and analyze your visits to custom places. Draw boundaries on the map to define your special locations and monitor your visit patterns over time.
-              </p>
+            </h1>
+            <div class="widget-meta">
+              Track and analyze your visits to custom places and monitor patterns over time.
             </div>
-            <div class="col-lg-4 text-lg-end">
-              <div class="d-inline-flex align-items-center">
-                <div class="me-4">
-                  <div class="h2 mb-0 text-primary fw-bold">
-                    <span id="total-places-count">0</span>
-                  </div>
-                  <div class="text-secondary small">
+          </div>
+          <div class="d-inline-flex align-items-center">
+            <div class="me-4">
+              <div class="h2 mb-0 text-primary fw-bold">
+                <span id="total-places-count">0</span>
+              </div>
+              <div class="text-secondary small">
 Custom Places
-                  </div>
-                </div>
-                <div>
-                  <div class="h2 mb-0 text-success fw-bold">
-                    <span id="total-visits-count">0</span>
-                  </div>
-                  <div class="text-secondary small">
+              </div>
+            </div>
+            <div>
+              <div class="h2 mb-0 text-success fw-bold">
+                <span id="total-visits-count">0</span>
+              </div>
+              <div class="text-secondary small">
 Place Visits
-                  </div>
-                </div>
               </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <div class="row">
-      <div class="col-lg-4 mb-4">
-        <div class="place-management-panel scale-in">
-          <h3 class="h4 mb-4 fw-bold">
-            <i class="fas fa-layer-group me-2 text-primary"></i>
-          Places Management
+      <div class="bento-span-4 widget" data-accent="purple">
+        <div class="widget-header">
+          <h3 class="widget-title">
+            <i class="fas fa-layer-group" aria-hidden="true"></i>
+            Places Management
           </h3>
-
+        </div>
+        <div class="widget-body">
           <div class="mb-4">
             <label for="place-name" class="form-label fw-semibold mb-3">
               <i class="fas fa-tag me-2 text-primary"></i>
@@ -152,329 +145,317 @@ This Month
         </div>
       </div>
 
-      <div class="col-lg-8 mb-4">
-        <div class="card visits-card scale-in">
-          <div class="card-header d-flex justify-content-between align-items-center py-3">
-            <h3 class="h4 mb-0 fw-bold">
-              <i class="fas fa-map me-2 text-primary"></i>
+      <div class="bento-span-8 widget" data-accent="sky">
+        <div class="widget-header">
+          <h3 class="widget-title">
+            <i class="fas fa-map" aria-hidden="true"></i>
             Places Map
-            </h3>
-            <div class="d-flex align-items-center gap-2">
-              <span class="badge bg-primary-subtle text-primary px-3 py-2">
-                <i class="fas fa-mouse-pointer me-1"></i>
-              Interactive Map
-              </span>
-            </div>
-          </div>
-          <div class="card-body p-0 position-relative">
-            <div id="map" class="map-container" style="min-height: 600px;">
-            </div>
-            <div class="map-controls-enhanced">
-              <button type="button"
-                      class="map-control-btn"
-                      id="zoom-to-fit"
-                      title="Zoom to fit all places"
-                      data-bs-toggle="tooltip">
-                <i class="fas fa-expand-arrows-alt"></i>
-              </button>
-              <button type="button"
-                      class="map-control-btn"
-                      id="clear-drawing"
-                      title="Clear current drawing"
-                      data-bs-toggle="tooltip">
-                <i class="fas fa-eraser"></i>
-              </button>
-              <button type="button"
-                      class="map-control-btn"
-                      id="map-style-toggle"
-                      title="Toggle map style"
-                      data-bs-toggle="tooltip">
-                <i class="fas fa-palette"></i>
-              </button>
-            </div>
-            <div id="map-loading"
-                 class="position-absolute top-0 start-0 end-0 bottom-0 d-flex align-items-center justify-content-center bg-dark bg-opacity-75"
-                 style="z-index: 20;
-                        display: none">
-              <div class="text-center">
-                <div class="spinner-border text-primary mb-3" role="status">
-                  <span class="visually-hidden">Loading...</span>
-                </div>
-                <p class="text-secondary">
-Loading map data...
-                </p>
-              </div>
-            </div>
+          </h3>
+          <div class="d-flex align-items-center gap-2">
+            <span class="badge bg-primary-subtle text-primary px-3 py-2">
+              <i class="fas fa-mouse-pointer me-1"></i>
+            Interactive Map
+            </span>
           </div>
         </div>
-      </div>
-
-      <div class="col-12 fade-in-up" id="visits-table-container">
-        <div class="card visits-card">
-          <div class="card-header">
-            <div class="row align-items-center">
-              <div class="col-md-6">
-                <h3 class="h4 mb-0 fw-bold">
-                  <i class="fas fa-chart-line me-2 text-primary"></i>
-                Visit Statistics
-                </h3>
-              </div>
-              <div class="col-md-6 text-md-end">
-                <div class="d-inline-flex align-items-center gap-3">
-                  <select class="form-select form-select-sm" id="time-filter" style="width: auto;">
-                    <option value="all">
-All Time
-                    </option>
-                    <option value="year">
-This Year
-                    </option>
-                    <option value="month">
-This Month
-                    </option>
-                    <option value="week">
-This Week
-                    </option>
-                  </select>
-                </div>
-              </div>
-            </div>
+        <div class="widget-body p-0 position-relative">
+          <div id="map" class="map-container" style="min-height: 600px;">
           </div>
-          <div class="card-body">
-            <ul class="nav visits-nav-tabs" id="visitsTab" role="tablist">
-              <li class="nav-item" role="presentation">
-                <button class="nav-link active"
-                        id="custom-places-tab"
-                        data-bs-toggle="tab"
-                        data-bs-target="#custom-places-content"
-                        type="button"
-                        role="tab">
-                  <i class="fas fa-map-marker-alt me-2"></i>
-                Custom Places
-                </button>
-              </li>
-              <li class="nav-item" role="presentation">
-                <button class="nav-link"
-                        id="non-custom-places-tab"
-                        data-bs-toggle="tab"
-                        data-bs-target="#non-custom-places-content"
-                        type="button"
-                        role="tab">
-                  <i class="fas fa-globe me-2"></i>
-                Other Locations
-                </button>
-              </li>
-              <li class="nav-item" role="presentation">
-                <button class="nav-link"
-                        id="suggested-places-tab"
-                        data-bs-toggle="tab"
-                        data-bs-target="#suggested-places-content"
-                        type="button"
-                        role="tab">
-                  <i class="fas fa-magic me-2"></i>
-                Suggestions
-                </button>
-              </li>
-              <li class="nav-item ms-auto" role="presentation">
-                <button class="nav-link"
-                        id="insights-tab"
-                        data-bs-toggle="tab"
-                        data-bs-target="#insights-content"
-                        type="button"
-                        role="tab">
-                  <i class="fas fa-lightbulb me-2"></i>
-                Insights
-                </button>
-              </li>
-            </ul>
-
-            <div class="tab-content" id="visitsTabContent">
-              <div class="tab-pane fade show active" id="custom-places-content" role="tabpanel">
-                <div class="row">
-                  <div class="col-lg-5 mb-4 mb-lg-0">
-                    <div class="chart-container">
-                      <h5 class="text-center mb-3 fw-semibold">
-Visit Distribution
-                      </h5>
-                      <canvas id="visitsChart" style="max-height: 350px"></canvas>
-                    </div>
-                  </div>
-                  <div class="col-lg-7">
-                    <div class="table-responsive">
-                      <table id="visits-table" class="table visits-table" style="width: 100%">
-                        <thead>
-                          <tr>
-                            <th>
-Place
-                            </th>
-                            <th class="text-end">
-Visits
-                            </th>
-                            <th>
-First Visit
-                            </th>
-                            <th>
-Last Visit
-                            </th>
-                            <th class="text-end">
-Avg Duration
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div class="tab-pane fade" id="non-custom-places-content" role="tabpanel">
-                <div class="table-responsive">
-                  <table id="non-custom-visits-table" class="table visits-table" style="width: 100%">
-                    <thead>
-                      <tr>
-                        <th>
-Location
-                        </th>
-                        <th class="text-end">
-Visits
-                        </th>
-                        <th>
-First Visit
-                        </th>
-                        <th>
-Last Visit
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              <div class="tab-pane fade" id="suggested-places-content" role="tabpanel">
-                <div class="table-responsive">
-                  <table id="suggested-places-table" class="table visits-table" style="width: 100%">
-                    <thead>
-                      <tr>
-                        <th>
-Suggested Name
-                        </th>
-                        <th class="text-end">
-Visits
-                        </th>
-                        <th>
-First Visit
-                        </th>
-                        <th>
-Last Visit
-                        </th>
-                        <th class="text-center">
-Actions
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              <div class="tab-pane fade" id="insights-content" role="tabpanel">
-                <div class="row g-4">
-                  <div class="col-md-4">
-                    <div class="text-center p-4 bg-body-secondary rounded-3">
-                      <div class="progress-ring mb-3">
-                        <svg width="120" height="120">
-<circle cx="60" cy="60" r="54" stroke="var(--surface-3)" stroke-width="4" fill="none" />
-<circle class="progress-ring-circle" cx="60" cy="60" r="54" />
-                        </svg>
-                      </div>
-                      <h6 class="fw-semibold">
-Most Visited
-                      </h6>
-                      <p class="text-primary fw-bold mb-0" id="most-visited-place">
--
-                      </p>
-                    </div>
-                  </div>
-                  <div class="col-md-4">
-                    <div class="text-center p-4 bg-body-secondary rounded-3">
-                      <i class="fas fa-clock fa-3x text-warning mb-3"></i>
-                      <h6 class="fw-semibold">
-Average Visit Duration
-                      </h6>
-                      <p class="text-warning fw-bold mb-0" id="avg-visit-duration">
--
-                      </p>
-                    </div>
-                  </div>
-                  <div class="col-md-4">
-                    <div class="text-center p-4 bg-body-secondary rounded-3">
-                      <i class="fas fa-calendar-alt fa-3x text-info mb-3"></i>
-                      <h6 class="fw-semibold">
-Visit Frequency
-                      </h6>
-                      <p class="text-info fw-bold mb-0" id="visit-frequency">
--
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="col-12 mt-4 fade-in-up"
-           id="trips-for-place-container"
-           style="display: none">
-        <div class="card visits-card">
-          <div class="card-header d-flex justify-content-between align-items-center">
-            <h3 class="h4 mb-0 fw-bold">
-              <i class="fas fa-route me-2 text-primary"></i>
-            Trips for
-              <span id="selected-place-name" class="text-primary"></span>
-            </h3>
-            <button id="back-to-places-btn" class="btn btn-outline-secondary">
-              <i class="fas fa-arrow-left me-2"></i>
-            Back to Places
+          <div class="map-controls-enhanced">
+            <button type="button"
+                    class="map-control-btn"
+                    id="zoom-to-fit"
+                    title="Zoom to fit all places"
+                    data-bs-toggle="tooltip">
+              <i class="fas fa-expand-arrows-alt"></i>
+            </button>
+            <button type="button"
+                    class="map-control-btn"
+                    id="clear-drawing"
+                    title="Clear current drawing"
+                    data-bs-toggle="tooltip">
+              <i class="fas fa-eraser"></i>
+            </button>
+            <button type="button"
+                    class="map-control-btn"
+                    id="map-style-toggle"
+                    title="Toggle map style"
+                    data-bs-toggle="tooltip">
+              <i class="fas fa-palette"></i>
             </button>
           </div>
-          <div class="card-body">
-            <div class="table-responsive">
-              <table id="trips-for-place-table" class="table visits-table" style="width: 100%">
-                <thead>
-                  <tr>
-                    <th>
-Trip ID
-                    </th>
-                    <th>
-Date
-                    </th>
-                    <th>
-Arrival
-                    </th>
-                    <th>
-Departure
-                    </th>
-                    <th class="text-end">
-Duration
-                    </th>
-                    <th class="text-end">
-Since Last
-                    </th>
-                    <th class="text-center">
-Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                </tbody>
-              </table>
+          <div id="map-loading"
+               class="position-absolute top-0 start-0 end-0 bottom-0 d-flex align-items-center justify-content-center bg-dark bg-opacity-75"
+               style="z-index: 20;
+                      display: none">
+            <div class="text-center">
+              <div class="spinner-border text-primary mb-3" role="status">
+                <span class="visually-hidden">Loading...</span>
+              </div>
+              <p class="text-secondary">
+Loading map data...
+              </p>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="bento-span-12 widget" data-accent="lime" id="visits-table-container">
+        <div class="widget-header">
+          <div class="d-flex flex-wrap align-items-center justify-content-between w-100 gap-3">
+            <h3 class="widget-title">
+              <i class="fas fa-chart-line" aria-hidden="true"></i>
+              Visit Statistics
+            </h3>
+            <select class="form-select form-select-sm" id="time-filter" style="width: auto;">
+              <option value="all">
+All Time
+              </option>
+              <option value="year">
+This Year
+              </option>
+              <option value="month">
+This Month
+              </option>
+              <option value="week">
+This Week
+              </option>
+            </select>
+          </div>
+        </div>
+        <div class="widget-body">
+          <ul class="nav visits-nav-tabs" id="visitsTab" role="tablist">
+            <li class="nav-item" role="presentation">
+              <button class="nav-link active"
+                      id="custom-places-tab"
+                      data-bs-toggle="tab"
+                      data-bs-target="#custom-places-content"
+                      type="button"
+                      role="tab">
+                <i class="fas fa-map-marker-alt me-2"></i>
+              Custom Places
+              </button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link"
+                      id="non-custom-places-tab"
+                      data-bs-toggle="tab"
+                      data-bs-target="#non-custom-places-content"
+                      type="button"
+                      role="tab">
+                <i class="fas fa-globe me-2"></i>
+              Other Locations
+              </button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link"
+                      id="suggested-places-tab"
+                      data-bs-toggle="tab"
+                      data-bs-target="#suggested-places-content"
+                      type="button"
+                      role="tab">
+                <i class="fas fa-magic me-2"></i>
+              Suggestions
+              </button>
+            </li>
+            <li class="nav-item ms-auto" role="presentation">
+              <button class="nav-link"
+                      id="insights-tab"
+                      data-bs-toggle="tab"
+                      data-bs-target="#insights-content"
+                      type="button"
+                      role="tab">
+                <i class="fas fa-lightbulb me-2"></i>
+              Insights
+              </button>
+            </li>
+          </ul>
+
+          <div class="tab-content" id="visitsTabContent">
+            <div class="tab-pane fade show active" id="custom-places-content" role="tabpanel">
+              <div class="row">
+                <div class="col-lg-5 mb-4 mb-lg-0">
+                  <div class="chart-container">
+                    <h5 class="text-center mb-3 fw-semibold">
+Visit Distribution
+                    </h5>
+                    <canvas id="visitsChart" style="max-height: 350px"></canvas>
+                  </div>
+                </div>
+                <div class="col-lg-7">
+                  <div class="table-responsive">
+                    <table id="visits-table" class="table visits-table" style="width: 100%">
+                      <thead>
+                        <tr>
+                          <th>
+Place
+                          </th>
+                          <th class="text-end">
+Visits
+                          </th>
+                          <th>
+First Visit
+                          </th>
+                          <th>
+Last Visit
+                          </th>
+                          <th class="text-end">
+Avg Duration
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="tab-pane fade" id="non-custom-places-content" role="tabpanel">
+              <div class="table-responsive">
+                <table id="non-custom-visits-table" class="table visits-table" style="width: 100%">
+                  <thead>
+                    <tr>
+                      <th>
+Location
+                      </th>
+                      <th class="text-end">
+Visits
+                      </th>
+                      <th>
+First Visit
+                      </th>
+                      <th>
+Last Visit
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="tab-pane fade" id="suggested-places-content" role="tabpanel">
+              <div class="table-responsive">
+                <table id="suggested-places-table" class="table visits-table" style="width: 100%">
+                  <thead>
+                    <tr>
+                      <th>
+Suggested Name
+                      </th>
+                      <th class="text-end">
+Visits
+                      </th>
+                      <th>
+First Visit
+                      </th>
+                      <th>
+Last Visit
+                      </th>
+                      <th class="text-center">
+Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="tab-pane fade" id="insights-content" role="tabpanel">
+              <div class="row g-4">
+                <div class="col-md-4">
+                  <div class="text-center p-4 bg-body-secondary rounded-3">
+                    <div class="progress-ring mb-3">
+                      <svg width="120" height="120">
+<circle cx="60" cy="60" r="54" stroke="var(--surface-3)" stroke-width="4" fill="none" />
+<circle class="progress-ring-circle" cx="60" cy="60" r="54" />
+                      </svg>
+                    </div>
+                    <h6 class="fw-semibold">
+Most Visited
+                    </h6>
+                    <p class="text-primary fw-bold mb-0" id="most-visited-place">
+-
+                    </p>
+                  </div>
+                </div>
+                <div class="col-md-4">
+                  <div class="text-center p-4 bg-body-secondary rounded-3">
+                    <i class="fas fa-clock fa-3x text-warning mb-3"></i>
+                    <h6 class="fw-semibold">
+Average Visit Duration
+                    </h6>
+                    <p class="text-warning fw-bold mb-0" id="avg-visit-duration">
+-
+                    </p>
+                  </div>
+                </div>
+                <div class="col-md-4">
+                  <div class="text-center p-4 bg-body-secondary rounded-3">
+                    <i class="fas fa-calendar-alt fa-3x text-info mb-3"></i>
+                    <h6 class="fw-semibold">
+Visit Frequency
+                    </h6>
+                    <p class="text-info fw-bold mb-0" id="visit-frequency">
+-
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="bento-span-12 widget" data-accent="amber"
+           id="trips-for-place-container"
+           style="display: none">
+        <div class="widget-header">
+          <h3 class="widget-title">
+            <i class="fas fa-route" aria-hidden="true"></i>
+            Trips for
+            <span id="selected-place-name" class="text-primary"></span>
+          </h3>
+          <button id="back-to-places-btn" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-2"></i>
+          Back to Places
+          </button>
+        </div>
+        <div class="widget-body">
+          <div class="table-responsive">
+            <table id="trips-for-place-table" class="table visits-table" style="width: 100%">
+              <thead>
+                <tr>
+                  <th>
+Trip ID
+                  </th>
+                  <th>
+Date
+                  </th>
+                  <th>
+Arrival
+                  </th>
+                  <th>
+Departure
+                  </th>
+                  <th class="text-end">
+Duration
+                  </th>
+                  <th class="text-end">
+Since Last
+                  </th>
+                  <th class="text-center">
+Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+              </tbody>
+            </table>
           </div>
         </div>
       </div>

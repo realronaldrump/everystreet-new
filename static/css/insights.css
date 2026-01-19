@@ -29,7 +29,7 @@
 /* Metric cards with hover effects */
 .metric-card {
   background: var(--surface-1);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-xl);
   padding: var(--space-4);
   border: 1px solid var(--border-color);
   transition:
@@ -44,16 +44,14 @@
 .metric-card::before {
   content: "";
   position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 6%), transparent);
-  transition: left 0.8s ease;
+  inset: 0;
+  background: linear-gradient(135deg, rgb(var(--primary-rgb) / 10%), transparent 60%);
+  opacity: 0;
+  transition: opacity var(--transition-normal);
 }
 
 .metric-card:hover::before {
-  left: 100%;
+  opacity: 0.8;
 }
 
 .metric-card:hover {
@@ -65,7 +63,7 @@
 .metric-icon {
   width: 48px;
   height: 48px;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -129,10 +127,9 @@
 
 /* Chart containers with glassmorphism */
 .chart-container {
-  background: var(--surface-glass);
-  backdrop-filter: blur(var(--blur-subtle));
+  background: var(--surface-1);
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-xl);
   padding: var(--space-5);
   box-shadow: var(--shadow-sm);
   transition:
@@ -187,7 +184,7 @@
 .toggle-group {
   display: inline-flex;
   background: var(--surface-2);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-pill);
   padding: var(--space-1);
   gap: var(--space-1);
 }
@@ -199,7 +196,7 @@
   color: var(--text-secondary);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-pill);
   cursor: pointer;
   transition:
     background-color var(--transition-fast),
@@ -258,7 +255,7 @@
   text-transform: uppercase;
   font-size: var(--font-size-xs);
   letter-spacing: 0.5px;
-  border-bottom: 2px solid var(--primary);
+  border-bottom: 2px solid rgb(var(--primary-rgb) / 45%);
   position: sticky;
   top: 0;
   z-index: 10;
@@ -443,14 +440,14 @@
   align-items: center;
   background: var(--surface-2);
   padding: var(--space-2);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-pill);
 }
 
 .period-preset {
   padding: var(--space-2) var(--space-3);
   background: transparent;
   border: 1px solid transparent;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-pill);
   color: var(--text-secondary);
   font-size: var(--font-size-sm);
   cursor: pointer;
@@ -473,8 +470,8 @@
 
 /* Data insight cards */
 .insight-card {
-  background: linear-gradient(135deg, var(--surface-1), var(--surface-2));
-  border-radius: var(--radius-lg);
+  background: var(--surface-1);
+  border-radius: var(--radius-xl);
   padding: var(--space-4);
   border: 1px solid var(--border-color);
   display: flex;

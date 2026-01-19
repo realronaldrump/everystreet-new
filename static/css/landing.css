@@ -93,6 +93,12 @@ body[data-route="/"] #filters-toggle {
   animation: fadeInUp 0.4s ease-out;
 }
 
+.landing-bento {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
 /* Greeting + context */
 .landing-greeting {
   display: flex;
@@ -137,7 +143,7 @@ body[data-route="/"] #filters-toggle {
 
 .delight-card {
   padding: var(--space-4);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-xl);
   background: var(--surface-1);
   border: 1px solid var(--border-color);
   box-shadow: var(--shadow-elevation-1);
@@ -226,8 +232,7 @@ body[data-route="/"] #filters-toggle {
   justify-content: center;
   gap: var(--space-8);
   padding: var(--space-8) var(--space-6);
-  background: var(--surface-glass);
-  backdrop-filter: blur(var(--blur-strong));
+  background: var(--surface-1);
   border-radius: var(--radius-xl);
   border: 1px solid var(--border-color);
   animation: fadeInUp 0.4s ease-out 0.1s both;
@@ -479,7 +484,22 @@ body[data-route="/"] #filters-toggle {
   border-radius: var(--radius-xl);
   border: 1px solid var(--border-color);
   overflow: hidden;
+  position: relative;
   animation: fadeInUp 0.4s ease-out 0.2s both;
+}
+
+.activity-section::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgb(var(--cat-sky-rgb) / 12%), transparent 60%);
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.activity-section > * {
+  position: relative;
+  z-index: 1;
 }
 
 .activity-header {
