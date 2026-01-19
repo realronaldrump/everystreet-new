@@ -33,7 +33,6 @@ def retry_async(
     backoff_factor: float = 2.0,
     retry_exceptions: tuple = (
         ClientConnectorError,
-        ClientResponseError,
         ServerDisconnectedError,
         ClientError,
         asyncio.TimeoutError,

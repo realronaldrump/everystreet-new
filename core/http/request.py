@@ -11,8 +11,6 @@ import logging
 from collections.abc import Iterable
 from typing import Any
 
-import aiohttp
-
 from core.exceptions import ExternalServiceException
 from core.http.blocklist import is_forbidden_host
 
@@ -68,11 +66,13 @@ async def request_json(
         if response.status == 429:
             retry_after = int(response.headers.get("Retry-After", 5))
             msg = f"{service_name} error: 429"
-            raise aiohttp.ClientResponseError(
-                request_info=response.request_info,
-                history=response.history,
-                status=429,
-                message=f"Rate limited. Retry after {retry_after}s",
+            raise ExternalServiceException(
+                msg,
+                {
+                    "status": 429,
+                    "retry_after": retry_after,
+                    "url": str(getattr(response, "url", url)),
+                },
             )
         if response.status not in expected:
             body = await response.text()

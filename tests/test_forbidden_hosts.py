@@ -3,7 +3,7 @@ import pytest
 
 from core.http.blocklist import DEFAULT_FORBIDDEN_HOSTS, is_forbidden_host
 from core.http.request import request_json
-from tests.http_fakes import FakeResponse, FakeSession
+from http_fakes import FakeResponse, FakeSession
 
 
 def test_is_forbidden_host_matches_known_hosts() -> None:
@@ -51,9 +51,9 @@ async def test_request_json_raises_on_rate_limit() -> None:
     )
     session = FakeSession(get_responses=[response])
 
-    from aiohttp import ClientResponseError
+    from core.exceptions import ExternalServiceException
 
-    with pytest.raises(ClientResponseError):
+    with pytest.raises(ExternalServiceException):
         await request_json(
             "GET",
             "http://nominatim.test/search",

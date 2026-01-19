@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock
 import pytest
 
 from bouncie_oauth import BouncieOAuth
-from tests.http_fakes import FakeResponse, FakeSession
+from http_fakes import FakeResponse, FakeSession
 
 
 @pytest.mark.asyncio

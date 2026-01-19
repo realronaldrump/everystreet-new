@@ -183,6 +183,10 @@ async def handle_area_created(
     )
     await job.insert()
 
+    if job.id is None:
+        logger.error("Coverage ingestion job insert failed (missing id)")
+        return
+
     # Run ingestion
     task = asyncio.create_task(_run_ingestion_pipeline(area_id, job.id))
     _track_task(task)
@@ -271,7 +275,12 @@ async def _run_ingestion_pipeline(
             message=f"Segmenting {len(osm_ways):,} OSM ways",
         )
 
-        segments = _segment_streets(osm_ways, area.id, area.area_version)
+        if area.id is None:
+            msg = "Coverage area missing id during ingestion"
+            raise RuntimeError(msg)
+        area_id = area.id
+
+        segments = _segment_streets(osm_ways, area_id, area.area_version)
         logger.info(
             "Created %s segments for %s",
             len(segments),
@@ -287,7 +296,7 @@ async def _run_ingestion_pipeline(
             message=f"Clearing data for version {area.area_version}",
         )
 
-        await _clear_existing_area_version_data(area.id, area.area_version)
+        await _clear_existing_area_version_data(area_id, area.area_version)
 
         # Stage 5: Store segments
         await update_job(
@@ -305,7 +314,7 @@ async def _run_ingestion_pipeline(
             message=f"Initializing {len(segments):,} segments",
         )
 
-        await _initialize_coverage_state(area.id, segments)
+        await _initialize_coverage_state(area_id, segments)
 
         # Stage 7: Update statistics
         await update_job(
@@ -315,7 +324,7 @@ async def _run_ingestion_pipeline(
         )
 
         await area.set({"osm_fetched_at": datetime.now(UTC)})
-        stats_area = await update_area_stats(area.id)
+        stats_area = await update_area_stats(area_id)
         if stats_area:
             await update_job(
                 message=(
@@ -383,7 +392,7 @@ async def _run_ingestion_pipeline(
             )
 
         segments_updated = await backfill_coverage_for_area(
-            area.id,
+            area_id,
             progress_callback=handle_backfill_progress,
         )
         backfill_state["segments_updated"] = segments_updated
@@ -591,7 +600,7 @@ async def _ensure_area_graph(
 
 
 async def _load_osm_streets_from_graph(
-    area: CoverageArea,
+    area: Any,
     job_id: PydanticObjectId | None = None,
 ) -> list[dict[str, Any]]:
     """Load street ways from the local graph built from self-hosted OSM data."""
@@ -864,6 +873,8 @@ async def refresh_stale_areas() -> int:
     areas = await check_areas_needing_refresh()
 
     for area in areas:
+        if area.id is None:
+            continue
         await rebuild_area(area.id)
 
     return len(areas)

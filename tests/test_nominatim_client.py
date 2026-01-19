@@ -4,7 +4,7 @@ import pytest
 
 from core.exceptions import ExternalServiceException
 from core.http.nominatim import NominatimClient
-from tests.http_fakes import FakeResponse, FakeSession
+from http_fakes import FakeResponse, FakeSession
 
 
 @pytest.mark.asyncio
