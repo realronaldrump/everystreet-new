@@ -63,11 +63,21 @@
    Let's rely on the badges and a subtle left highlight for important ones.
 */
 
-.log-entry.log-DEBUG { /* No special styling needed, standard */ }
-.log-entry.log-INFO { /* Standard */ }
-.log-entry.log-WARNING { background-color: rgb(var(--warning-rgb) / 5%); }
-.log-entry.log-ERROR { background-color: rgb(var(--danger-rgb) / 5%); }
-.log-entry.log-CRITICAL { background-color: rgb(var(--danger-rgb) / 10%); }
+.log-entry.log-DEBUG {
+  /* No special styling needed, standard */
+}
+.log-entry.log-INFO {
+  /* Standard */
+}
+.log-entry.log-WARNING {
+  background-color: rgb(var(--warning-rgb) / 5%);
+}
+.log-entry.log-ERROR {
+  background-color: rgb(var(--danger-rgb) / 5%);
+}
+.log-entry.log-CRITICAL {
+  background-color: rgb(var(--danger-rgb) / 10%);
+}
 
 .log-header {
   display: flex;
