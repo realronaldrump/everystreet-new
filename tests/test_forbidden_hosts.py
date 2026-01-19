@@ -27,7 +27,7 @@ async def test_request_json_raises_on_forbidden_host() -> None:
 
 
 @pytest.mark.asyncio
-async def test_request_json_allows_local_host(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_request_json_allows_local_host() -> None:
     session = FakeSession(
         get_responses=[FakeResponse(status=200, json_data={"ok": True})]
     )
@@ -45,15 +45,15 @@ async def test_request_json_allows_local_host(monkeypatch: pytest.MonkeyPatch) -
 
 
 @pytest.mark.asyncio
-async def test_request_json_raises_on_rate_limit(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+async def test_request_json_raises_on_rate_limit() -> None:
     response = FakeResponse(
         status=429, text_data="rate limited", headers={"Retry-After": "3"}
     )
     session = FakeSession(get_responses=[response])
 
-    with pytest.raises(Exception):
+    from aiohttp import ClientResponseError
+
+    with pytest.raises(ClientResponseError):
         await request_json(
             "GET",
             "http://nominatim.test/search",
