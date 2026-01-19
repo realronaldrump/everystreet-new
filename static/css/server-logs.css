@@ -115,7 +115,7 @@
 }
 
 .log-message {
-  color: var(--bs-light);
+  color: var(--text-primary);
   margin-top: 0.25rem;
   word-break: break-word;
 }
