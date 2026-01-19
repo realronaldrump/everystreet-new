@@ -7,7 +7,8 @@ Prereqs:
 
 Run the suite:
 ```bash
-pytest
+python -m pip install -r requirements.txt
+python -m pytest
 ```
 
 Coverage:
@@ -26,7 +27,7 @@ npm test
 ## Optional integration tests (real services)
 These are skipped by default:
 ```bash
-RUN_TAILNET_INTEGRATION=1 pytest tests/test_geo_integration.py
+RUN_TAILNET_INTEGRATION=1 python -m pytest tests/test_geo_integration.py -m integration
 ```
 
 Ensure these environment variables point at real services when enabled:

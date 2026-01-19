@@ -148,6 +148,10 @@ async def rebuild_area(area_id: PydanticObjectId) -> Job:
     )
     await job.insert()
 
+    if job.id is None:
+        msg = "Coverage ingestion job insert failed (missing id)"
+        raise RuntimeError(msg)
+
     # Queue the ingestion (fire and forget)
     task = asyncio.create_task(_run_ingestion_pipeline(area_id, job.id))
     _track_task(task)
