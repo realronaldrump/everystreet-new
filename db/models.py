@@ -31,9 +31,9 @@ from beanie import Document, Indexed, PydanticObjectId
 from beanie.odm.fields import IndexModel
 from pydantic import Field, field_validator, model_validator
 
-from street_coverage.models import CoverageArea, CoverageState, Job, Street
-from map_data.models import GeoServiceHealth, MapDataJob, MapRegion
 from date_utils import parse_timestamp
+from map_data.models import GeoServiceHealth, MapDataJob, MapRegion
+from street_coverage.models import CoverageArea, CoverageState, Job, Street
 
 
 class Trip(Document):
