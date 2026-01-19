@@ -809,4 +809,137 @@
       showStatus(`Error syncing vehicles: ${error.message}`, "error");
     }
   }
+
+  // ==========================================================================
+  // Service Configuration Handling
+  // ==========================================================================
+
+  /**
+   * Initialize service configuration form
+   */
+  function initServiceConfigForm(signal) {
+    const form = document.getElementById("serviceConfigForm");
+    if (!form) return;
+
+    form.addEventListener("submit", handleSaveServiceConfig, signal ? { signal } : false);
+
+    const reloadBtn = document.getElementById("reloadServiceConfigBtn");
+    if (reloadBtn) {
+      reloadBtn.addEventListener("click", loadServiceConfig, signal ? { signal } : false);
+    }
+
+    // Load settings on page load
+    loadServiceConfig();
+  }
+
+  /**
+   * Load service configuration from the server
+   */
+  async function loadServiceConfig() {
+    try {
+      const response = await fetch("/api/app_settings", withSignal());
+      if (!response.ok) {
+        throw new Error("Failed to load settings");
+      }
+
+      const settings = await response.json();
+      populateServiceConfigForm(settings);
+    } catch (error) {
+      if (error.name === "AbortError") return;
+      showServiceConfigStatus(`Error loading settings: ${error.message}`, "error");
+    }
+  }
+
+  /**
+   * Populate service config form with settings
+   */
+  function populateServiceConfigForm(settings) {
+    const mapboxToken = document.getElementById("mapboxToken");
+    const nominatimBaseUrl = document.getElementById("nominatimBaseUrl");
+    const nominatimUserAgent = document.getElementById("nominatimUserAgent");
+    const valhallaBaseUrl = document.getElementById("valhallaBaseUrl");
+    const geofabrikMirror = document.getElementById("geofabrikMirror");
+
+    if (mapboxToken) mapboxToken.value = settings.mapbox_token || "";
+    if (nominatimBaseUrl) nominatimBaseUrl.value = settings.nominatim_base_url || "";
+    if (nominatimUserAgent) nominatimUserAgent.value = settings.nominatim_user_agent || "";
+    if (valhallaBaseUrl) valhallaBaseUrl.value = settings.valhalla_base_url || "";
+    if (geofabrikMirror) geofabrikMirror.value = settings.geofabrik_mirror || "";
+  }
+
+  /**
+   * Handle save service configuration
+   */
+  async function handleSaveServiceConfig(event) {
+    event.preventDefault();
+    if (pageSignal?.aborted) return;
+
+    const mapboxToken = document.getElementById("mapboxToken")?.value.trim() || null;
+    const nominatimBaseUrl = document.getElementById("nominatimBaseUrl")?.value.trim() || "";
+    const nominatimUserAgent = document.getElementById("nominatimUserAgent")?.value.trim() || "";
+    const valhallaBaseUrl = document.getElementById("valhallaBaseUrl")?.value.trim() || "";
+    const geofabrikMirror = document.getElementById("geofabrikMirror")?.value.trim() || "";
+
+    // Validate Mapbox token format if provided
+    if (mapboxToken && !mapboxToken.startsWith("pk.")) {
+      showServiceConfigStatus("Mapbox token must start with 'pk.'", "error");
+      return;
+    }
+
+    try {
+      showServiceConfigStatus("Saving service configuration...", "info");
+
+      const response = await fetch("/api/app_settings", withSignal({
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mapbox_token: mapboxToken,
+          nominatim_base_url: nominatimBaseUrl,
+          nominatim_user_agent: nominatimUserAgent,
+          valhalla_base_url: valhallaBaseUrl,
+          geofabrik_mirror: geofabrikMirror,
+        }),
+      }));
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.detail || "Failed to save settings");
+      }
+
+      showServiceConfigStatus("Service configuration saved successfully!", "success");
+    } catch (error) {
+      if (error.name === "AbortError") return;
+      showServiceConfigStatus(`Error saving settings: ${error.message}`, "error");
+    }
+  }
+
+  /**
+   * Show service config status message
+   */
+  function showServiceConfigStatus(message, type) {
+    const statusEl = document.getElementById("serviceConfigStatus");
+    if (!statusEl) return;
+
+    statusEl.textContent = message;
+    statusEl.className = `alert alert-${getBootstrapClass(type)} mt-3`;
+    statusEl.style.display = "block";
+
+    if (type === "success" || type === "info") {
+      setTimeout(() => {
+        statusEl.style.display = "none";
+      }, 5000);
+    }
+  }
+
+  // Add service config initialization to page load
+  const origInitEventListeners = initializeEventListeners;
+  window.initializeEventListeners = function(signal) {
+    origInitEventListeners(signal);
+    initServiceConfigForm(signal);
+  };
+
+  // Also call it now if page is already loaded
+  if (document.getElementById("serviceConfigForm")) {
+    initServiceConfigForm(pageSignal);
+  }
 })();

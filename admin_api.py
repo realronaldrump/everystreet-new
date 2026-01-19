@@ -51,6 +51,7 @@ MAPBOX_SETTINGS_ERROR = (
 
 
 DEFAULT_APP_SETTINGS: dict[str, Any] = {
+    # UI Preferences
     "highlightRecentTrips": True,
     "autoCenter": True,
     "showLiveTracking": True,
@@ -58,6 +59,13 @@ DEFAULT_APP_SETTINGS: dict[str, Any] = {
     "polylineOpacity": 0.8,
     "geocodeTripsOnFetch": True,
     "mapMatchTripsOnFetch": False,
+    # Geo Service Configuration (defaults for Docker Compose)
+    "mapbox_token": None,
+    "nominatim_base_url": "http://nominatim:8080",
+    "nominatim_user_agent": "EveryStreet/1.0",
+    "valhalla_base_url": "http://valhalla:8002",
+    "geofabrik_mirror": "https://download.geofabrik.de",
+    "osm_extracts_path": "/osm",
 }
 
 
@@ -106,6 +114,7 @@ async def get_app_settings_endpoint():
 async def update_app_settings_endpoint(settings: Annotated[dict, Body()]):
     if not isinstance(settings, dict):
         raise HTTPException(status_code=400, detail="Invalid payload")
+    # Block the old deprecated field name
     if "mapbox_access_token" in settings:
         raise HTTPException(
             status_code=400,
@@ -122,6 +131,12 @@ async def update_app_settings_endpoint(settings: Annotated[dict, Body()]):
             payload = DEFAULT_APP_SETTINGS.copy()
             payload.update(settings)
             await AppSettings(**payload).insert()
+
+        # Clear the service config cache so new settings take effect immediately
+        from service_config import clear_config_cache
+
+        clear_config_cache()
+
     except Exception:
         logger.exception("Error updating app settings via API")
         raise HTTPException(

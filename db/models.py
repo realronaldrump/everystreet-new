@@ -552,12 +552,46 @@ class Vehicle(Document):
 
 
 class AppSettings(Document):
-    """Application settings document."""
+    """Application settings document.
 
-    # We define specific fields for known settings to allow validation,
-    # but allow extra fields for extensibility.
+    Stores both UI preferences and service configuration.
+    All geo service settings have sensible defaults for Docker Compose deployment.
+    """
+
     id: str = Field(default="default", alias="_id")
     updated_at: datetime | None = None
+
+    # UI Preferences
+    highlightRecentTrips: bool = True
+    autoCenter: bool = True
+    showLiveTracking: bool = True
+    polylineColor: str = "#00FF00"
+    polylineOpacity: float = 0.8
+    geocodeTripsOnFetch: bool = True
+    mapMatchTripsOnFetch: bool = False
+
+    # Map Configuration
+    mapbox_token: str | None = None
+
+    # Nominatim (Geocoding) Configuration
+    # Default URLs use Docker internal service names
+    nominatim_base_url: str = "http://nominatim:8080"
+    nominatim_search_url: str | None = None  # Defaults to {base_url}/search
+    nominatim_reverse_url: str | None = None  # Defaults to {base_url}/reverse
+    nominatim_user_agent: str = "EveryStreet/1.0"
+
+    # Valhalla (Routing) Configuration
+    valhalla_base_url: str = "http://valhalla:8002"
+    valhalla_status_url: str | None = None  # Defaults to {base_url}/status
+    valhalla_route_url: str | None = None  # Defaults to {base_url}/route
+    valhalla_trace_route_url: str | None = None  # Defaults to {base_url}/trace_route
+    valhalla_trace_attributes_url: str | None = (
+        None  # Defaults to {base_url}/trace_attributes
+    )
+
+    # OSM Data Configuration
+    geofabrik_mirror: str = "https://download.geofabrik.de"
+    osm_extracts_path: str = "/osm"
 
     class Settings:
         name = "app_settings"
@@ -565,6 +599,33 @@ class AppSettings(Document):
 
     class Config:
         extra = "allow"
+
+    def get_nominatim_search_url(self) -> str:
+        """Get Nominatim search URL, using base URL if not explicitly set."""
+        return self.nominatim_search_url or f"{self.nominatim_base_url}/search"
+
+    def get_nominatim_reverse_url(self) -> str:
+        """Get Nominatim reverse URL, using base URL if not explicitly set."""
+        return self.nominatim_reverse_url or f"{self.nominatim_base_url}/reverse"
+
+    def get_valhalla_status_url(self) -> str:
+        """Get Valhalla status URL, using base URL if not explicitly set."""
+        return self.valhalla_status_url or f"{self.valhalla_base_url}/status"
+
+    def get_valhalla_route_url(self) -> str:
+        """Get Valhalla route URL, using base URL if not explicitly set."""
+        return self.valhalla_route_url or f"{self.valhalla_base_url}/route"
+
+    def get_valhalla_trace_route_url(self) -> str:
+        """Get Valhalla trace_route URL, using base URL if not explicitly set."""
+        return self.valhalla_trace_route_url or f"{self.valhalla_base_url}/trace_route"
+
+    def get_valhalla_trace_attributes_url(self) -> str:
+        """Get Valhalla trace_attributes URL, using base URL if not explicitly set."""
+        return (
+            self.valhalla_trace_attributes_url
+            or f"{self.valhalla_base_url}/trace_attributes"
+        )
 
 
 class ServerLog(Document):
