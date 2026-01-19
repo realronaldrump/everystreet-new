@@ -10,7 +10,9 @@
   width: var(--panel-width);
   height: calc(100vh - var(--header-height));
   background-color: var(--surface-1);
-  z-index: var(--z-drawer); /* Same level as mobile drawer, manage visibility via JS */
+  z-index: var(
+    --z-drawer
+  ); /* Same level as mobile drawer, manage visibility via JS */
   transform: translateX(100%);
   transition: transform var(--transition-slow);
   box-shadow: var(--shadow-elevation-3);
@@ -248,11 +250,19 @@ body[data-route="/map"] .route-content {
 }
 
 body.light-mode .hero-section {
-  background: linear-gradient(135deg, rgb(var(--primary-rgb), 0.08), rgb(var(--primary-rgb), 0.03));
+  background: linear-gradient(
+    135deg,
+    rgb(var(--primary-rgb), 0.08),
+    rgb(var(--primary-rgb), 0.03)
+  );
 }
 
 body.light-mode .hero-section::before {
-  background: radial-gradient(circle, rgb(var(--primary-rgb), 0.05) 0%, transparent 70%);
+  background: radial-gradient(
+    circle,
+    rgb(var(--primary-rgb), 0.05) 0%,
+    transparent 70%
+  );
 }
 
 /* === Stat Item (from coverage_management.html) === */
@@ -451,7 +461,10 @@ body.light-mode .live-tracking-panel-bg {
 /* === Quick Selections (for filter panels) === */
 .quick-selections {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); /* Responsive columns */
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(80px, 1fr)
+  ); /* Responsive columns */
   gap: var(--space-2);
 }
 

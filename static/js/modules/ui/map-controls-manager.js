@@ -38,8 +38,10 @@ const mapControlsManager = {
     this._initialized = true;
 
     // Set initial value from stored preference or theme
-    const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
-    const defaultMapType = utils.getStorage(CONFIG.STORAGE_KEYS.mapType) || theme;
+    const theme =
+      document.documentElement.getAttribute("data-bs-theme") || "dark";
+    const defaultMapType =
+      utils.getStorage(CONFIG.STORAGE_KEYS.mapType) || theme;
     mapTypeSelect.value = defaultMapType;
 
     // Set up change handler
@@ -144,7 +146,7 @@ const mapControlsManager = {
 
       // Dispatch event for layer restoration
       document.dispatchEvent(
-        new CustomEvent("mapStyleLoaded", { detail: { mapType: type } })
+        new CustomEvent("mapStyleLoaded", { detail: { mapType: type } }),
       );
     };
 
@@ -155,7 +157,8 @@ const mapControlsManager = {
       }
 
       // Get style URL
-      const styleUrl = CONFIG.MAP.styles[type] || `mapbox://styles/mapbox/${type}-v11`;
+      const styleUrl =
+        CONFIG.MAP.styles[type] || `mapbox://styles/mapbox/${type}-v11`;
 
       // Apply new style
       map.setStyle(styleUrl);

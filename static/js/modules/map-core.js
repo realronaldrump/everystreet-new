@@ -127,9 +127,9 @@ const mapCore = {
 
       // Check WebGL support
       if (!mapboxgl.supported()) {
-        mapElement.innerHTML
-          = '<div class="webgl-unsupported-message p-4 text-center">'
-          + "WebGL is not supported by your browser. Please use a modern browser.</div>";
+        mapElement.innerHTML =
+          '<div class="webgl-unsupported-message p-4 text-center">' +
+          "WebGL is not supported by your browser. Please use a modern browser.</div>";
         throw new Error("WebGL not supported");
       }
 
@@ -142,7 +142,8 @@ const mapCore = {
       }
 
       // Determine theme and style
-      const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
+      const theme =
+        document.documentElement.getAttribute("data-bs-theme") || "dark";
       const storedMapType = utils.getStorage(CONFIG.STORAGE_KEYS.mapType);
       const mapType = storedMapType || theme;
       const mapStyle = CONFIG.MAP.styles[mapType] || CONFIG.MAP.styles[theme];
@@ -192,7 +193,7 @@ const mapCore = {
       document.dispatchEvent(
         new CustomEvent("mapInitialized", {
           detail: { map },
-        })
+        }),
       );
 
       // Invoke ready callbacks
@@ -206,7 +207,7 @@ const mapCore = {
 
       window.notificationManager?.show(
         `Map initialization failed: ${error.message}`,
-        "danger"
+        "danger",
       );
 
       return false;
@@ -363,8 +364,8 @@ const mapCore = {
       throw new Error("Map not initialized");
     }
 
-    const styleUrl
-      = CONFIG.MAP.styles[styleType] || `mapbox://styles/mapbox/${styleType}-v11`;
+    const styleUrl =
+      CONFIG.MAP.styles[styleType] || `mapbox://styles/mapbox/${styleType}-v11`;
 
     // Save current view
     const currentView = {
@@ -388,7 +389,7 @@ const mapCore = {
 
     // Dispatch event for layer restoration
     document.dispatchEvent(
-      new CustomEvent("mapStyleChanged", { detail: { styleType } })
+      new CustomEvent("mapStyleChanged", { detail: { styleType } }),
     );
   },
 

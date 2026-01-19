@@ -23,8 +23,17 @@
   display: grid;
   gap: var(--space-5);
   background:
-    radial-gradient(circle at 20% 20%, rgb(var(--section-accent-rgb) / 18%), transparent 55%),
-    radial-gradient(circle at 90% 0%, rgb(var(--info-rgb) / 18%), transparent 45%), var(--glass-2);
+    radial-gradient(
+      circle at 20% 20%,
+      rgb(var(--section-accent-rgb) / 18%),
+      transparent 55%
+    ),
+    radial-gradient(
+      circle at 90% 0%,
+      rgb(var(--info-rgb) / 18%),
+      transparent 45%
+    ),
+    var(--glass-2);
 }
 
 .not-found-card::after {

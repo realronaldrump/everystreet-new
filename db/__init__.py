@@ -70,8 +70,8 @@ from street_coverage.models import (
     CoverageArea,
     CoverageState,
     Job,
-    Street as NewStreet,
 )
+from street_coverage.models import Street as NewStreet
 
 logger = logging.getLogger(__name__)
 

@@ -1,352 +1,355 @@
-{% extends "base.html" %}
-
-{% block title %}
-
-Every Street - Trips
-{% endblock %}
-
+{% extends "base.html" %} {% block title %} Every Street - Trips {% endblock %}
 {% block extra_css %}
 
-  <!-- Mapbox GL CSS -->
-  <link rel="stylesheet" href="{{ CDN.mapbox_gl_css }}" />
-  <link rel="stylesheet"
-        href="{{ url_for('static', path='css/modern-map.css') | replace('http://', '//') }}" />
-  <link rel="stylesheet"
-        href="{{ url_for('static', path='css/trips.css') | replace('http://', '//') }}" />
-{% endblock %}
+<!-- Mapbox GL CSS -->
+<link rel="stylesheet" href="{{ CDN.mapbox_gl_css }}" />
+<link
+  rel="stylesheet"
+  href="{{ url_for('static', path='css/modern-map.css') | replace('http://', '//') }}"
+/>
+<link
+  rel="stylesheet"
+  href="{{ url_for('static', path='css/trips.css') | replace('http://', '//') }}"
+/>
+{% endblock %} {% block content %}
 
-
-{% block content %}
-
-  <div class="container-fluid px-4 py-3">
-    <div class="bento-grid" data-stagger>
-      <div class="bento-span-12 widget" data-accent="sky">
-        <div class="widget-header">
-          <div>
-            <h1 class="widget-title">
-              <i class="fas fa-road" aria-hidden="true"></i>
-              Trips
-            </h1>
-            <div class="widget-meta">
-              Review, filter, and manage your driving history.
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="bento-span-12 widget" data-accent="mint">
-        <div class="widget-header">
-          <div>
-            <h2 class="widget-title">
-              <i class="fas fa-sliders-h" aria-hidden="true"></i>
-              Filters
-            </h2>
-            <div class="widget-meta">
-              Choose vehicle, date window, and performance limits.
-            </div>
-          </div>
-        </div>
-        <div class="widget-body">
-          <div id="active-filter-chips" class="filter-chip-row">
-          </div>
-          <div class="row g-3 align-items-end">
-            <div class="col-md-3 col-lg-2">
-              <label for="trip-filter-vehicle" class="form-label">
-Vehicle
-              </label>
-              <select id="trip-filter-vehicle" class="form-select">
-                <option value="">
-All vehicles
-                </option>
-              </select>
-            </div>
-            <div class="col-md-3 col-lg-2">
-              <label class="form-label">
-Distance (mi)
-              </label>
-              <div class="input-group">
-                <span class="input-group-text"><i class="fas fa-road"></i></span>
-                <input type="number"
-                       class="form-control"
-                       id="trip-filter-distance-min"
-                       placeholder="Min"
-                       step="0.1" />
-                <span class="input-group-text">-</span>
-                <input type="number"
-                       class="form-control"
-                       id="trip-filter-distance-max"
-                       placeholder="Max"
-                       step="0.1" />
-              </div>
-            </div>
-            <div class="col-md-3 col-lg-2">
-              <label class="form-label">
-Max Speed (mph)
-              </label>
-              <div class="input-group">
-                <span class="input-group-text"><i class="fas fa-tachometer-alt"></i></span>
-                <input type="number"
-                       class="form-control"
-                       id="trip-filter-speed-min"
-                       placeholder="Min"
-                       step="1" />
-                <span class="input-group-text">-</span>
-                <input type="number"
-                       class="form-control"
-                       id="trip-filter-speed-max"
-                       placeholder="Max"
-                       step="1" />
-              </div>
-            </div>
-            <div class="col-md-3 col-lg-2">
-              <label class="form-label">
-Fuel (gal)
-              </label>
-              <div class="input-group">
-                <span class="input-group-text"><i class="fas fa-gas-pump"></i></span>
-                <input type="number"
-                       class="form-control"
-                       id="trip-filter-fuel-min"
-                       placeholder="Min"
-                       step="0.01" />
-                <span class="input-group-text">-</span>
-                <input type="number"
-                       class="form-control"
-                       id="trip-filter-fuel-max"
-                       placeholder="Max"
-                       step="0.01" />
-              </div>
-            </div>
-            <div class="col-md-3 col-lg-1 d-flex align-items-center">
-              <div class="form-check mt-4">
-                <input class="form-check-input" type="checkbox" id="trip-filter-has-fuel" />
-                <label class="form-check-label" for="trip-filter-has-fuel">
-                Has Fuel
-                </label>
-              </div>
-            </div>
-          </div>
-          <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
-            <div class="filter-helper-text" id="filter-helper-text">
-            Adjust filters then apply to refresh results. Active filters appear as
-            chips above.
-            </div>
-            <div class="d-flex gap-2">
-              <button class="btn btn-primary" id="trip-filter-apply">
-                <i class="fas fa-check"></i> Apply filters
-              </button>
-              <button class="btn btn-outline-secondary" id="trip-filter-reset">
-                <i class="fas fa-undo"></i> Reset
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="bento-span-12 widget" data-accent="purple">
-        <div class="widget-header">
-          <div>
-            <h2 class="widget-title">
-              <i class="fas fa-table" aria-hidden="true"></i>
-              Trip History
-            </h2>
-            <div class="widget-meta">
-Manage trips, bulk actions, and details.
-            </div>
-          </div>
-        </div>
-        <div class="widget-body">
-          <div class="trips-actions-bar">
-            <label class="trips-select-all">
-              <input type="checkbox" id="select-all-trips" />
-              <span class="trips-select-all-text">Select All</span>
-            </label>
-            <div class="trips-actions-buttons">
-              <button id="bulk-delete-trips-btn" class="btn btn-danger btn-sm" disabled>
-                <i class="fas fa-trash"></i>
-                <span class="btn-text">Delete Selected</span>
-              </button>
-              <button id="refresh-geocoding-btn" class="btn btn-primary btn-sm">
-                <i class="fas fa-sync"></i>
-                <span class="btn-text">Refresh Geocoding</span>
-              </button>
-            </div>
-          </div>
-          <div class="table-responsive">
-            <table id="trips-table" class="table table-striped table-hover w-100">
-              <thead>
-                <tr>
-                  <th class="col-checkbox">
-                    <!-- Select all moved to action bar -->
-                  </th>
-                  <th data-sortable="true">
-Trip
-                  </th>
-                  <th data-sortable="true">
-Date
-                  </th>
-                  <th data-sortable="true">
-Route
-                  </th>
-                  <th class="col-hide-mobile" data-sortable="true">
-Performance
-                  </th>
-                  <th class="col-hide-mobile" data-sortable="true">
-Fuel &amp; Cost
-                  </th>
-                  <th>
-Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                <!-- Data populated by DataTables -->
-              </tbody>
-            </table>
+<div class="container-fluid px-4 py-3">
+  <div class="bento-grid" data-stagger>
+    <div class="bento-span-12 widget" data-accent="sky">
+      <div class="widget-header">
+        <div>
+          <h1 class="widget-title">
+            <i class="fas fa-road" aria-hidden="true"></i>
+            Trips
+          </h1>
+          <div class="widget-meta">
+            Review, filter, and manage your driving history.
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Trip Details Modal -->
-    <div class="modal fade" id="tripDetailsModal" tabindex="-1" aria-hidden="true">
-      <div class="modal-dialog modal-xl modal-dialog-centered">
-        <div class="modal-content">
-          <div class="modal-header">
-            <div>
-              <h5 class="modal-title" id="tripModalTitle">
-Trip Details
-              </h5>
-              <div class="text-muted small" id="tripModalSubtitle">
-              </div>
+    <div class="bento-span-12 widget" data-accent="mint">
+      <div class="widget-header">
+        <div>
+          <h2 class="widget-title">
+            <i class="fas fa-sliders-h" aria-hidden="true"></i>
+            Filters
+          </h2>
+          <div class="widget-meta">
+            Choose vehicle, date window, and performance limits.
+          </div>
+        </div>
+      </div>
+      <div class="widget-body">
+        <div id="active-filter-chips" class="filter-chip-row"></div>
+        <div class="row g-3 align-items-end">
+          <div class="col-md-3 col-lg-2">
+            <label for="trip-filter-vehicle" class="form-label">
+              Vehicle
+            </label>
+            <select id="trip-filter-vehicle" class="form-select">
+              <option value="">All vehicles</option>
+            </select>
+          </div>
+          <div class="col-md-3 col-lg-2">
+            <label class="form-label"> Distance (mi) </label>
+            <div class="input-group">
+              <span class="input-group-text"><i class="fas fa-road"></i></span>
+              <input
+                type="number"
+                class="form-control"
+                id="trip-filter-distance-min"
+                placeholder="Min"
+                step="0.1"
+              />
+              <span class="input-group-text">-</span>
+              <input
+                type="number"
+                class="form-control"
+                id="trip-filter-distance-max"
+                placeholder="Max"
+                step="0.1"
+              />
             </div>
-            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close">
+          </div>
+          <div class="col-md-3 col-lg-2">
+            <label class="form-label"> Max Speed (mph) </label>
+            <div class="input-group">
+              <span class="input-group-text"
+                ><i class="fas fa-tachometer-alt"></i
+              ></span>
+              <input
+                type="number"
+                class="form-control"
+                id="trip-filter-speed-min"
+                placeholder="Min"
+                step="1"
+              />
+              <span class="input-group-text">-</span>
+              <input
+                type="number"
+                class="form-control"
+                id="trip-filter-speed-max"
+                placeholder="Max"
+                step="1"
+              />
+            </div>
+          </div>
+          <div class="col-md-3 col-lg-2">
+            <label class="form-label"> Fuel (gal) </label>
+            <div class="input-group">
+              <span class="input-group-text"
+                ><i class="fas fa-gas-pump"></i
+              ></span>
+              <input
+                type="number"
+                class="form-control"
+                id="trip-filter-fuel-min"
+                placeholder="Min"
+                step="0.01"
+              />
+              <span class="input-group-text">-</span>
+              <input
+                type="number"
+                class="form-control"
+                id="trip-filter-fuel-max"
+                placeholder="Max"
+                step="0.01"
+              />
+            </div>
+          </div>
+          <div class="col-md-3 col-lg-1 d-flex align-items-center">
+            <div class="form-check mt-4">
+              <input
+                class="form-check-input"
+                type="checkbox"
+                id="trip-filter-has-fuel"
+              />
+              <label class="form-check-label" for="trip-filter-has-fuel">
+                Has Fuel
+              </label>
+            </div>
+          </div>
+        </div>
+        <div
+          class="d-flex flex-wrap justify-content-between align-items-center gap-3"
+        >
+          <div class="filter-helper-text" id="filter-helper-text">
+            Adjust filters then apply to refresh results. Active filters appear
+            as chips above.
+          </div>
+          <div class="d-flex gap-2">
+            <button class="btn btn-primary" id="trip-filter-apply">
+              <i class="fas fa-check"></i> Apply filters
+            </button>
+            <button class="btn btn-outline-secondary" id="trip-filter-reset">
+              <i class="fas fa-undo"></i> Reset
             </button>
           </div>
-          <div class="modal-body p-0">
-            <div class="row g-0">
-              <!-- Map Column -->
-              <div class="col-lg-8 position-relative" style="min-height: 400px; height: 60vh;">
-                <div id="trip-modal-map" style="width: 100%; height: 100%;">
-                </div>
-                <div class="trip-playback-controls glass" aria-label="Trip playback controls">
-                  <button class="btn btn-sm btn-primary" id="trip-playback-toggle" aria-pressed="false">
-                    <i class="fas fa-play"></i>
-                    <span>Play</span>
-                  </button>
-                  <div class="trip-playback-speed">
-                    <label for="trip-playback-speed" class="form-label">
-Speed
-                    </label>
-                    <input type="range"
-                           class="form-range"
-                           id="trip-playback-speed"
-                           min="0.5"
-                           max="3"
-                           step="0.5"
-                           value="1" />
-                    <span id="trip-playback-speed-label" class="speed-label">1.0x</span>
-                  </div>
-                </div>
-                <!-- Loading Overlay for Map -->
-                <div id="trip-map-loading"
-                     class="position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center bg-dark bg-opacity-75 d-none"
-                     style="z-index: 10">
-                  <div class="text-center">
-                    <div class="spinner-border text-primary mb-2" role="status">
-                    </div>
-                    <div>
-Loading trip data...
-                    </div>
-                  </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="bento-span-12 widget" data-accent="purple">
+      <div class="widget-header">
+        <div>
+          <h2 class="widget-title">
+            <i class="fas fa-table" aria-hidden="true"></i>
+            Trip History
+          </h2>
+          <div class="widget-meta">
+            Manage trips, bulk actions, and details.
+          </div>
+        </div>
+      </div>
+      <div class="widget-body">
+        <div class="trips-actions-bar">
+          <label class="trips-select-all">
+            <input type="checkbox" id="select-all-trips" />
+            <span class="trips-select-all-text">Select All</span>
+          </label>
+          <div class="trips-actions-buttons">
+            <button
+              id="bulk-delete-trips-btn"
+              class="btn btn-danger btn-sm"
+              disabled
+            >
+              <i class="fas fa-trash"></i>
+              <span class="btn-text">Delete Selected</span>
+            </button>
+            <button id="refresh-geocoding-btn" class="btn btn-primary btn-sm">
+              <i class="fas fa-sync"></i>
+              <span class="btn-text">Refresh Geocoding</span>
+            </button>
+          </div>
+        </div>
+        <div class="table-responsive">
+          <table id="trips-table" class="table table-striped table-hover w-100">
+            <thead>
+              <tr>
+                <th class="col-checkbox">
+                  <!-- Select all moved to action bar -->
+                </th>
+                <th data-sortable="true">Trip</th>
+                <th data-sortable="true">Date</th>
+                <th data-sortable="true">Route</th>
+                <th class="col-hide-mobile" data-sortable="true">
+                  Performance
+                </th>
+                <th class="col-hide-mobile" data-sortable="true">
+                  Fuel &amp; Cost
+                </th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- Data populated by DataTables -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Trip Details Modal -->
+  <div
+    class="modal fade"
+    id="tripDetailsModal"
+    tabindex="-1"
+    aria-hidden="true"
+  >
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <div>
+            <h5 class="modal-title" id="tripModalTitle">Trip Details</h5>
+            <div class="text-muted small" id="tripModalSubtitle"></div>
+          </div>
+          <button
+            type="button"
+            class="btn-close"
+            data-bs-dismiss="modal"
+            aria-label="Close"
+          ></button>
+        </div>
+        <div class="modal-body p-0">
+          <div class="row g-0">
+            <!-- Map Column -->
+            <div
+              class="col-lg-8 position-relative"
+              style="min-height: 400px; height: 60vh"
+            >
+              <div id="trip-modal-map" style="width: 100%; height: 100%"></div>
+              <div
+                class="trip-playback-controls glass"
+                aria-label="Trip playback controls"
+              >
+                <button
+                  class="btn btn-sm btn-primary"
+                  id="trip-playback-toggle"
+                  aria-pressed="false"
+                >
+                  <i class="fas fa-play"></i>
+                  <span>Play</span>
+                </button>
+                <div class="trip-playback-speed">
+                  <label for="trip-playback-speed" class="form-label">
+                    Speed
+                  </label>
+                  <input
+                    type="range"
+                    class="form-range"
+                    id="trip-playback-speed"
+                    min="0.5"
+                    max="3"
+                    step="0.5"
+                    value="1"
+                  />
+                  <span id="trip-playback-speed-label" class="speed-label"
+                    >1.0x</span
+                  >
                 </div>
               </div>
-              <!-- Details Column -->
-              <div class="col-lg-4 p-4 overflow-auto" style="max-height: 60vh;">
-                <h6 class="text-uppercase text-secondary small fw-bold mb-3">
-Statistics
-                </h6>
-
-                <div class="d-flex align-items-center mb-4">
-                  <div class="me-3 text-center" style="width: 40px;">
-                    <i class="fas fa-road fa-lg text-primary"></i>
-                  </div>
-                  <div>
-                    <div class="small text-muted">
-Distance
-                    </div>
-                    <div class="fs-5 fw-medium" id="modal-distance">
---
-                    </div>
-                  </div>
+              <!-- Loading Overlay for Map -->
+              <div
+                id="trip-map-loading"
+                class="position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center bg-dark bg-opacity-75 d-none"
+                style="z-index: 10"
+              >
+                <div class="text-center">
+                  <div
+                    class="spinner-border text-primary mb-2"
+                    role="status"
+                  ></div>
+                  <div>Loading trip data...</div>
                 </div>
+              </div>
+            </div>
+            <!-- Details Column -->
+            <div class="col-lg-4 p-4 overflow-auto" style="max-height: 60vh">
+              <h6 class="text-uppercase text-secondary small fw-bold mb-3">
+                Statistics
+              </h6>
 
-                <div class="d-flex align-items-center mb-4">
-                  <div class="me-3 text-center" style="width: 40px;">
-                    <i class="fas fa-clock fa-lg text-info"></i>
-                  </div>
-                  <div>
-                    <div class="small text-muted">
-Duration
-                    </div>
-                    <div class="fs-5 fw-medium" id="modal-duration">
---
-                    </div>
-                  </div>
-                </div>
-
-                <div class="d-flex align-items-center mb-4">
-                  <div class="me-3 text-center" style="width: 40px;">
-                    <i class="fas fa-tachometer-alt fa-lg text-warning"></i>
-                  </div>
-                  <div>
-                    <div class="small text-muted">
-Max Speed
-                    </div>
-                    <div class="fs-5 fw-medium" id="modal-max-speed">
---
-                    </div>
-                  </div>
-                </div>
-
-                <div class="d-flex align-items-center mb-4">
-                  <div class="me-3 text-center" style="width: 40px;">
-                    <i class="fas fa-gas-pump fa-lg text-danger"></i>
-                  </div>
-                  <div>
-                    <div class="small text-muted">
-Fuel Consumed
-                    </div>
-                    <div class="fs-5 fw-medium" id="modal-fuel">
---
-                    </div>
-                  </div>
-                </div>
-
-                <hr />
-
-                <h6 class="text-uppercase text-secondary small fw-bold mb-3">
-Locations
-                </h6>
-                <div class="mb-3">
-                  <div class="small text-muted mb-1">
-Start
-                  </div>
-                  <div class="d-flex">
-                    <i class="fas fa-map-marker-alt text-success mt-1 me-2"></i>
-                    <span id="modal-start-loc">--</span>
-                  </div>
+              <div class="d-flex align-items-center mb-4">
+                <div class="me-3 text-center" style="width: 40px">
+                  <i class="fas fa-road fa-lg text-primary"></i>
                 </div>
                 <div>
-                  <div class="small text-muted mb-1">
-End
-                  </div>
-                  <div class="d-flex">
-                    <i class="fas fa-map-marker-alt text-danger mt-1 me-2"></i>
-                    <span id="modal-end-loc">--</span>
-                  </div>
+                  <div class="small text-muted">Distance</div>
+                  <div class="fs-5 fw-medium" id="modal-distance">--</div>
                 </div>
+              </div>
 
+              <div class="d-flex align-items-center mb-4">
+                <div class="me-3 text-center" style="width: 40px">
+                  <i class="fas fa-clock fa-lg text-info"></i>
+                </div>
+                <div>
+                  <div class="small text-muted">Duration</div>
+                  <div class="fs-5 fw-medium" id="modal-duration">--</div>
+                </div>
+              </div>
+
+              <div class="d-flex align-items-center mb-4">
+                <div class="me-3 text-center" style="width: 40px">
+                  <i class="fas fa-tachometer-alt fa-lg text-warning"></i>
+                </div>
+                <div>
+                  <div class="small text-muted">Max Speed</div>
+                  <div class="fs-5 fw-medium" id="modal-max-speed">--</div>
+                </div>
+              </div>
+
+              <div class="d-flex align-items-center mb-4">
+                <div class="me-3 text-center" style="width: 40px">
+                  <i class="fas fa-gas-pump fa-lg text-danger"></i>
+                </div>
+                <div>
+                  <div class="small text-muted">Fuel Consumed</div>
+                  <div class="fs-5 fw-medium" id="modal-fuel">--</div>
+                </div>
+              </div>
+
+              <hr />
+
+              <h6 class="text-uppercase text-secondary small fw-bold mb-3">
+                Locations
+              </h6>
+              <div class="mb-3">
+                <div class="small text-muted mb-1">Start</div>
+                <div class="d-flex">
+                  <i class="fas fa-map-marker-alt text-success mt-1 me-2"></i>
+                  <span id="modal-start-loc">--</span>
+                </div>
+              </div>
+              <div>
+                <div class="small text-muted mb-1">End</div>
+                <div class="d-flex">
+                  <i class="fas fa-map-marker-alt text-danger mt-1 me-2"></i>
+                  <span id="modal-end-loc">--</span>
+                </div>
               </div>
             </div>
           </div>
@@ -354,18 +357,18 @@ End
       </div>
     </div>
   </div>
-{% endblock %}
+</div>
+{% endblock %} {% block extra_js %}
 
+<!-- Mapbox GL JS -->
+<script src="{{ CDN.mapbox_gl_js }}"></script>
+<script src="{{ url_for('static', path='js/map-base.js') | replace('http://', '//') }}"></script>
+<script>
+  window.MAPBOX_ACCESS_TOKEN = "{{ MAPBOX_ACCESS_TOKEN }}";
+</script>
 
-{% block extra_js %}
-
-  <!-- Mapbox GL JS -->
-  <script src="{{ CDN.mapbox_gl_js }}"></script>
-  <script src="{{ url_for('static', path='js/map-base.js') | replace('http://', '//') }}"></script>
-  <script>
-      window.MAPBOX_ACCESS_TOKEN = "{{ MAPBOX_ACCESS_TOKEN }}";
-  </script>
-
-  <script type="module"
-          src="{{ url_for('static', path='js/trips.js') | replace('http://', '//') }}"></script>
+<script
+  type="module"
+  src="{{ url_for('static', path='js/trips.js') | replace('http://', '//') }}"
+></script>
 {% endblock %}

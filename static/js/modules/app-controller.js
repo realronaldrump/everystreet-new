@@ -77,11 +77,11 @@ const initializeLocationDropdown = async () => {
     areas.forEach((area) => {
       const option = document.createElement("option");
       option.value = area.id || area._id;
-      option.textContent
-        = area.display_name
-        || area.location?.display_name
-        || area.name
-        || "Unknown Location";
+      option.textContent =
+        area.display_name ||
+        area.location?.display_name ||
+        area.name ||
+        "Unknown Location";
       frag.appendChild(option);
     });
     dropdown.appendChild(frag);
@@ -92,7 +92,10 @@ const initializeLocationDropdown = async () => {
     }
   } catch (err) {
     console.error("Location dropdown error:", err);
-    window.notificationManager?.show("Failed to load coverage areas", "warning");
+    window.notificationManager?.show(
+      "Failed to load coverage areas",
+      "warning",
+    );
   }
 };
 
@@ -194,7 +197,9 @@ const AppController = {
    * @private
    */
   async _restoreStreetViewModes() {
-    const selectedLocationId = utils.getStorage(CONFIG.STORAGE_KEYS.selectedLocation);
+    const selectedLocationId = utils.getStorage(
+      CONFIG.STORAGE_KEYS.selectedLocation,
+    );
     if (!selectedLocationId) {
       return;
     }
@@ -228,7 +233,10 @@ const AppController = {
    * @private
    */
   async _loadInitialData() {
-    const fetchPromises = [dataManager.fetchTrips(), dataManager.fetchMetrics()];
+    const fetchPromises = [
+      dataManager.fetchTrips(),
+      dataManager.fetchMetrics(),
+    ];
 
     // Fetch matched trips if visible
     if (state.mapLayers.matchedTrips.visible) {
@@ -259,7 +267,9 @@ const AppController = {
    */
   _applyPostInitialization() {
     if (window.PRELOAD_TRIP_ID) {
-      requestAnimationFrame(() => mapManager.zoomToTrip(window.PRELOAD_TRIP_ID));
+      requestAnimationFrame(() =>
+        mapManager.zoomToTrip(window.PRELOAD_TRIP_ID),
+      );
     } else if (state.mapLayers.trips?.layer?.features?.length) {
       requestAnimationFrame(() => mapManager.zoomToLastTrip());
     }
@@ -316,7 +326,9 @@ const AppController = {
     const controlsToggle = utils.getElement("controls-toggle");
     const controlsContent = utils.getElement("controls-content");
     if (controlsToggle && controlsContent) {
-      const collapse = new bootstrap.Collapse(controlsContent, { toggle: false });
+      const collapse = new bootstrap.Collapse(controlsContent, {
+        toggle: false,
+      });
 
       controlsToggle.addEventListener("click", () => {
         collapse.toggle();
@@ -382,7 +394,9 @@ const AppController = {
           const isCurrentlyActive = btn.classList.contains("active");
           btn.classList.toggle("active");
 
-          let currentStates = utils.getStorage(CONFIG.STORAGE_KEYS.streetViewMode);
+          let currentStates = utils.getStorage(
+            CONFIG.STORAGE_KEYS.streetViewMode,
+          );
           if (typeof currentStates !== "object" || currentStates === null) {
             currentStates = {};
           }
@@ -398,9 +412,13 @@ const AppController = {
     const centerBtn = utils.getElement("center-on-location");
     if (centerBtn) {
       centerBtn.addEventListener("click", async () => {
-        const geolocationService = (await import("./geolocation-service.js")).default;
+        const geolocationService = (await import("./geolocation-service.js"))
+          .default;
         if (!geolocationService.isSupported()) {
-          window.notificationManager?.show("Geolocation is not supported", "warning");
+          window.notificationManager?.show(
+            "Geolocation is not supported",
+            "warning",
+          );
           return;
         }
         centerBtn.disabled = true;
@@ -417,7 +435,7 @@ const AppController = {
           console.error("Geolocation error:", err);
           window.notificationManager?.show(
             `Error getting location: ${err.message}`,
-            "danger"
+            "danger",
           );
         } finally {
           centerBtn.disabled = false;
@@ -487,7 +505,10 @@ const AppController = {
 
     // Keyboard shortcuts
     window.addEventListener("keydown", (e) => {
-      if (!state.map || document.activeElement.matches("input, textarea, select")) {
+      if (
+        !state.map ||
+        document.activeElement.matches("input, textarea, select")
+      ) {
         return;
       }
       const actions = {
@@ -536,8 +557,8 @@ const AppController = {
       const confirmed = await window.confirmationDialog?.show({
         title: "Map Match Trips",
         message:
-          "This will process all trips in the selected date range. "
-          + "This may take several minutes for large date ranges. Continue?",
+          "This will process all trips in the selected date range. " +
+          "This may take several minutes for large date ranges. Continue?",
         confirmText: "Start Map Matching",
         confirmButtonClass: "btn-primary",
       });
@@ -557,22 +578,30 @@ const AppController = {
       if (res) {
         window.notificationManager?.show(
           `Map matching completed: ${res.message}`,
-          "success"
+          "success",
         );
         await dataManager.updateMap();
       }
     } catch (err) {
       console.error("Map match error:", err);
-      window.notificationManager?.show(`Map matching error: ${err.message}`, "danger");
+      window.notificationManager?.show(
+        `Map matching error: ${err.message}`,
+        "danger",
+      );
     } finally {
       window.loadingManager?.hide();
     }
   },
 
   async handleStreetViewModeChange(mode, shouldHide = false) {
-    const selectedLocationId = utils.getStorage(CONFIG.STORAGE_KEYS.selectedLocation);
+    const selectedLocationId = utils.getStorage(
+      CONFIG.STORAGE_KEYS.selectedLocation,
+    );
     if (!selectedLocationId && !shouldHide) {
-      window.notificationManager?.show("Please select a location first", "warning");
+      window.notificationManager?.show(
+        "Please select a location first",
+        "warning",
+      );
       return;
     }
 

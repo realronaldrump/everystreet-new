@@ -62,7 +62,7 @@ const mapManager = {
           center: [center.lng, center.lat],
           zoom,
         },
-        { source: "map" }
+        { source: "map" },
       );
     }, CONFIG.MAP.debounceDelay);
 
@@ -124,11 +124,14 @@ const mapManager = {
 
     if (state.map.getLayer("trips-hitbox")) {
       queryLayers.push("trips-hitbox");
-    } else if (!state.mapLayers.trips?.isHeatmap && state.map.getLayer("trips-layer")) {
+    } else if (
+      !state.mapLayers.trips?.isHeatmap &&
+      state.map.getLayer("trips-layer")
+    ) {
       queryLayers.push("trips-layer");
     } else if (
-      state.mapLayers.trips?.isHeatmap
-      && state.map.getLayer("trips-layer-1")
+      state.mapLayers.trips?.isHeatmap &&
+      state.map.getLayer("trips-layer-1")
     ) {
       queryLayers.push("trips-layer-1");
     }
@@ -193,7 +196,9 @@ const mapManager = {
       return;
     }
 
-    const selectedId = state.selectedTripId ? String(state.selectedTripId) : null;
+    const selectedId = state.selectedTripId
+      ? String(state.selectedTripId)
+      : null;
 
     ["trips", "matchedTrips"].forEach((layerName) => {
       const layerInfo = state.mapLayers[layerName];
@@ -220,7 +225,10 @@ const mapManager = {
             "case",
             [
               "==",
-              ["to-string", ["coalesce", ["get", "transactionId"], ["get", "id"]]],
+              [
+                "to-string",
+                ["coalesce", ["get", "transactionId"], ["get", "id"]],
+              ],
               selectedId,
             ],
             layerInfo.highlightColor || "#FFD700",
@@ -234,7 +242,10 @@ const mapManager = {
             "case",
             [
               "==",
-              ["to-string", ["coalesce", ["get", "transactionId"], ["get", "id"]]],
+              [
+                "to-string",
+                ["coalesce", ["get", "transactionId"], ["get", "id"]],
+              ],
               selectedId,
             ],
             baseWeight * 2,
@@ -278,10 +289,10 @@ const mapManager = {
 
     // Remove overlay if no selection or not in heatmap mode
     if (
-      !selectedId
-      || state.selectedTripLayer !== "trips"
-      || !state.mapLayers.trips?.isHeatmap
-      || !state.mapLayers.trips?.visible
+      !selectedId ||
+      state.selectedTripLayer !== "trips" ||
+      !state.mapLayers.trips?.isHeatmap ||
+      !state.mapLayers.trips?.visible
     ) {
       removeOverlay();
       return;
@@ -290,11 +301,11 @@ const mapManager = {
     // Find the matching feature
     const tripLayer = state.mapLayers.trips?.layer;
     const matchingFeature = tripLayer?.features?.find((feature) => {
-      const featureId
-        = feature?.properties?.transactionId
-        || feature?.properties?.id
-        || feature?.properties?.tripId
-        || feature?.id;
+      const featureId =
+        feature?.properties?.transactionId ||
+        feature?.properties?.id ||
+        feature?.properties?.tripId ||
+        feature?.id;
       return featureId != null && String(featureId) === selectedId;
     });
 
@@ -309,8 +320,8 @@ const mapManager = {
       properties: matchingFeature.properties || {},
     };
 
-    const highlightColor
-      = window.MapStyles?.MAP_LAYER_COLORS?.trips?.selected || "#FFD700";
+    const highlightColor =
+      window.MapStyles?.MAP_LAYER_COLORS?.trips?.selected || "#FFD700";
 
     const highlightWidth = [
       "interpolate",
@@ -420,8 +431,11 @@ const mapManager = {
 
     const { features } = state.mapLayers.trips.layer;
     const tripFeature = features.find((f) => {
-      const fId
-        = f.properties?.transactionId || f.properties?.id || f.properties?.tripId || f.id;
+      const fId =
+        f.properties?.transactionId ||
+        f.properties?.id ||
+        f.properties?.tripId ||
+        f.id;
       return String(fId) === String(tripId);
     });
 
@@ -493,9 +507,9 @@ const mapManager = {
     }
 
     if (
-      lastCoord?.length === 2
-      && !Number.isNaN(lastCoord[0])
-      && !Number.isNaN(lastCoord[1])
+      lastCoord?.length === 2 &&
+      !Number.isNaN(lastCoord[0]) &&
+      !Number.isNaN(lastCoord[1])
     ) {
       state.map.flyTo({
         center: lastCoord,
