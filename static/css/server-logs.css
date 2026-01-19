@@ -14,32 +14,41 @@
   font-weight: 600;
 }
 
+/* Container: clear card background, no fixed height unless needed, standard font */
 .logs-container {
-  max-height: 600px;
+  max-height: 800px;
   overflow-y: auto;
-  background: var(--bs-dark);
-  font-family: "Courier New", monospace;
-  font-size: 0.875rem;
+  background-color: transparent; /* Use parent card background */
+  font-family: var(--font-family);
+  font-size: 0.95rem;
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
 }
 
 .log-entry {
-  padding: 0.75rem 1rem;
-  border-bottom: 1px solid var(--bs-border-color);
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--border-color-light);
   transition: background-color 0.2s;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.log-entry:last-child {
+  border-bottom: none;
 }
 
 .log-entry:hover {
-  background-color: rgb(255 255 255 / 5%);
+  background-color: var(--surface-1);
 }
 
+/* Copy button */
 .log-entry:hover .copy-log-btn {
   opacity: 1;
 }
 
 .copy-log-btn {
-  opacity: 0.6;
+  opacity: 0; /* Hidden by default for cleaner look */
   transition: opacity 0.2s;
-  min-width: 36px;
   padding: 0.25rem 0.5rem;
   font-size: 0.875rem;
 }
@@ -48,89 +57,104 @@
   opacity: 1;
 }
 
-.log-entry.log-DEBUG {
-  border-left: 3px solid var(--bs-secondary);
-}
+/* Log Level Indicators - Colored left borders + background tint on hover maybe? 
+   Actually, let's keep it simple with the pill, but we can add a subtle left border or indicator if preferred.
+   The original design had colorful left borders. Let's keep them but make them thinner/cleaner or rely on the badges.
+   Let's rely on the badges and a subtle left highlight for important ones.
+*/
 
-.log-entry.log-INFO {
-  border-left: 3px solid var(--bs-info);
-}
+.log-entry.log-DEBUG { /* No special styling needed, standard */ }
+.log-entry.log-INFO { /* Standard */ }
+.log-entry.log-WARNING { background-color: rgb(var(--warning-rgb) / 5%); }
+.log-entry.log-ERROR { background-color: rgb(var(--danger-rgb) / 5%); }
+.log-entry.log-CRITICAL { background-color: rgb(var(--danger-rgb) / 10%); }
 
-.log-entry.log-WARNING {
-  border-left: 3px solid var(--bs-warning);
-}
-
-.log-entry.log-ERROR {
-  border-left: 3px solid var(--bs-danger);
-}
-
-.log-entry.log-CRITICAL {
-  border-left: 3px solid #dc3545;
-  background-color: rgb(220 53 69 / 10%);
+.log-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.25rem;
+  flex-wrap: wrap;
 }
 
 .log-timestamp {
-  color: var(--bs-secondary);
-  font-weight: 600;
+  color: var(--text-tertiary);
+  font-size: 0.85rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
 }
 
+/* Log Level Badges (Modern Pills) */
 .log-level {
-  display: inline-block;
-  padding: 0.25rem 0.5rem;
-  border-radius: 0.25rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.2rem 0.6rem;
+  border-radius: var(--radius-pill);
   font-weight: 600;
-  font-size: 0.75rem;
-  margin-left: 0.5rem;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
 }
 
 .log-level.DEBUG {
-  background-color: var(--bs-secondary);
-  color: white;
+  background-color: var(--surface-3);
+  color: var(--text-secondary);
 }
 
 .log-level.INFO {
-  background-color: var(--bs-info);
-  color: white;
+  background-color: rgb(var(--info-rgb) / 15%);
+  color: var(--info-dark);
 }
 
 .log-level.WARNING {
-  background-color: var(--bs-warning);
-  color: black;
+  background-color: rgb(var(--warning-rgb) / 15%);
+  color: var(--warning-dark);
 }
 
 .log-level.ERROR {
-  background-color: var(--bs-danger);
-  color: white;
+  background-color: rgb(var(--danger-rgb) / 15%);
+  color: var(--danger-dark);
 }
 
 .log-level.CRITICAL {
-  background-color: #dc3545;
+  background-color: var(--danger);
   color: white;
-  font-weight: 700;
+  box-shadow: var(--glow-danger);
 }
 
 .log-logger {
-  color: var(--bs-cyan);
-  font-weight: 500;
+  color: var(--primary-dark);
+  font-size: 0.85rem;
+  font-weight: 600;
+  opacity: 0.8;
 }
 
+/* Message Typography */
 .log-message {
   color: var(--text-primary);
-  margin-top: 0.25rem;
+  font-size: 1rem; /* Slightly larger for readability */
+  line-height: 1.5;
   word-break: break-word;
 }
 
+/* Technical Details - Keep Monospace */
 .log-details {
-  color: var(--bs-gray-500);
+  font-family: var(--font-family-mono);
+  color: var(--text-tertiary);
   font-size: 0.75rem;
   margin-top: 0.25rem;
 }
 
 .log-exception {
-  background-color: rgb(220 53 69 / 20%);
-  padding: 0.5rem;
-  margin-top: 0.5rem;
-  border-radius: 0.25rem;
+  font-family: var(--font-family-mono);
+  background-color: var(--surface-0);
+  border: 1px solid var(--border-color);
+  padding: 1rem;
+  margin-top: 0.75rem;
+  border-radius: var(--radius-md);
   white-space: pre-wrap;
-  font-size: 0.75rem;
+  font-size: 0.8rem;
+  color: var(--danger-dark);
+  overflow-x: auto;
 }
