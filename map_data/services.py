@@ -344,6 +344,99 @@ async def download_region(
     return job
 
 
+async def download_and_build_all(
+    geofabrik_id: str,
+    display_name: str | None = None,
+) -> MapDataJob:
+    """
+    Download a region and automatically build both Nominatim and Valhalla.
+
+    This is a convenience function that chains:
+    1. Download the OSM PBF file
+    2. Import into Nominatim
+    3. Build Valhalla routing tiles
+
+    Args:
+        geofabrik_id: Geofabrik region ID (e.g., "north-america/us/texas")
+        display_name: Optional display name for the region
+
+    Returns:
+        The created MapDataJob for tracking progress
+    """
+    # Get region info from Geofabrik
+    mirror = get_geofabrik_mirror()
+    regions = await get_geofabrik_regions()
+    region_info = None
+    for r in regions:
+        if r.get("id") == geofabrik_id:
+            region_info = r
+            break
+
+    if not region_info:
+        # Check nested regions
+        parts = geofabrik_id.split("/")
+        for i in range(len(parts)):
+            parent = "/".join(parts[:i]) or None
+            children = await get_geofabrik_regions(parent=parent)
+            for child in children:
+                if child.get("id") == geofabrik_id:
+                    region_info = child
+                    break
+            if region_info:
+                break
+
+    if not region_info:
+        # Create basic region info
+        region_info = {
+            "id": geofabrik_id,
+            "name": display_name
+            or geofabrik_id.split("/")[-1].replace("-", " ").title(),
+            "pbf_url": f"{mirror}/{geofabrik_id}-latest.osm.pbf",
+        }
+
+    # Create or update MapRegion
+    existing = await MapRegion.find_one({"name": geofabrik_id})
+    if existing:
+        region = existing
+        region.status = MapRegion.STATUS_DOWNLOADING
+        region.download_progress = 0.0
+        region.nominatim_status = "not_built"
+        region.valhalla_status = "not_built"
+        region.last_error = None
+    else:
+        region = MapRegion(
+            name=geofabrik_id,
+            display_name=display_name or region_info.get("name", geofabrik_id),
+            source="geofabrik",
+            source_url=region_info.get("pbf_url"),
+            source_size_mb=region_info.get("pbf_size_mb"),
+            status=MapRegion.STATUS_DOWNLOADING,
+            bounding_box=region_info.get("bounding_box", []),
+        )
+        await region.insert()
+
+    region.updated_at = datetime.now(UTC)
+    await region.save()
+
+    # Create a special "download + build all" job
+    # We use a new job type to indicate the full pipeline
+    job = MapDataJob(
+        job_type="download_and_build_all",  # Special type for full pipeline
+        region_id=region.id,
+        status=MapDataJob.STATUS_PENDING,
+        stage="Queued for download and build",
+        message=f"Preparing to download and build {region.display_name}",
+    )
+    await job.insert()
+
+    # Enqueue background task with build_after flag
+    from tasks.map_data import enqueue_download_task
+
+    await enqueue_download_task(str(job.id), build_after=True)
+
+    return job
+
+
 async def build_nominatim(
     region_id: str,
     then_build_valhalla: bool = False,

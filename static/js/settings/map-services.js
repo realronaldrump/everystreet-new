@@ -493,10 +493,11 @@ async function downloadSelectedRegion() {
 
   const btn = document.getElementById("download-region-btn");
   btn.disabled = true;
-  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Starting download...';
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Starting download & build...';
 
   try {
-    const response = await fetch(`${API_BASE}/regions/download`, {
+    // Use the unified download-and-build endpoint for one-click setup
+    const response = await fetch(`${API_BASE}/regions/download-and-build`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -515,7 +516,8 @@ async function downloadSelectedRegion() {
       modal?.hide();
 
       window.notificationManager?.show(
-        `Download started for ${selectedRegion.name}`,
+        `Download & build started for ${selectedRegion.name}. ` +
+        "This will download OSM data, then build Nominatim and Valhalla automatically.",
         "success"
       );
 
@@ -743,6 +745,7 @@ async function cancelJob(jobId) {
 function formatJobType(type) {
   const types = {
     download: "Download",
+    download_and_build_all: "Download & Full Build",
     build_nominatim: "Nominatim Build",
     build_valhalla: "Valhalla Build",
     build_all: "Full Build",

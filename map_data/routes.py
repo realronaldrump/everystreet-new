@@ -283,6 +283,39 @@ async def download_new_region(request: DownloadRequest) -> JobResponse:
         )
 
 
+@router.post("/regions/download-and-build")
+async def download_and_build_new_region(request: DownloadRequest) -> JobResponse:
+    """
+    Download a region and automatically build both Nominatim and Valhalla.
+
+    This is a one-click setup endpoint that:
+    1. Downloads the OSM PBF file from Geofabrik
+    2. Imports into Nominatim for geocoding
+    3. Builds Valhalla tiles for routing
+
+    The entire pipeline runs automatically after triggering.
+    """
+    from map_data.services import download_and_build_all
+
+    try:
+        job = await download_and_build_all(
+            geofabrik_id=request.geofabrik_id,
+            display_name=request.display_name,
+        )
+        return JobResponse(
+            job_id=str(job.id),
+            message=f"Download and build started for {request.geofabrik_id}",
+        )
+    except Exception as e:
+        logger.exception(
+            "Failed to start download and build for %s", request.geofabrik_id
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to start download and build: {e!s}",
+        )
+
+
 @router.post("/regions/{region_id}/build/nominatim")
 async def trigger_nominatim_build(region_id: str) -> JobResponse:
     """Trigger Nominatim import for a downloaded region."""

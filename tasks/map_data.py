@@ -76,6 +76,26 @@ async def download_region_task(ctx: dict, job_id: str) -> dict:
         await job.save()
 
         logger.info("Download complete for region %s", region.display_name)
+
+        # Check if this is a full pipeline job - chain to build
+        if job.job_type == "download_and_build_all":
+            logger.info(
+                "Chaining to Nominatim + Valhalla build for region %s",
+                region.display_name,
+            )
+            # Create a new build_all job
+            from map_data.models import MapDataJob as MDJ
+
+            build_job = MDJ(
+                job_type=MDJ.JOB_BUILD_ALL,
+                region_id=region.id,
+                status=MDJ.STATUS_PENDING,
+                stage="Queued for Nominatim + Valhalla build",
+                message=f"Building geo services for {region.display_name}",
+            )
+            await build_job.insert()
+            await enqueue_nominatim_build_task(str(build_job.id))
+
         return {"success": True, "region_id": str(region.id)}
 
     except Exception as e:
@@ -306,13 +326,20 @@ async def build_valhalla_task(ctx: dict, job_id: str) -> dict:
 # =============================================================================
 
 
-async def enqueue_download_task(job_id: str) -> None:
-    """Enqueue a download task to the ARQ worker."""
+async def enqueue_download_task(job_id: str, build_after: bool = False) -> None:
+    """Enqueue a download task to the ARQ worker.
+
+    Args:
+        job_id: MapDataJob document ID
+        build_after: If True, will chain to build after download (for pipeline jobs)
+    """
     from tasks.arq import get_arq_pool
 
     pool = await get_arq_pool()
     await pool.enqueue_job("download_region_task", job_id)
-    logger.info("Enqueued download task for job %s", job_id)
+    logger.info(
+        "Enqueued download task for job %s (build_after=%s)", job_id, build_after
+    )
 
 
 async def enqueue_nominatim_build_task(job_id: str) -> None:
