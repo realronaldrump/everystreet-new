@@ -66,13 +66,13 @@ class MapRegion(Document):
     last_error: str | None = None
 
     # Status constants
-    STATUS_NOT_DOWNLOADED = "not_downloaded"
-    STATUS_DOWNLOADING = "downloading"
-    STATUS_DOWNLOADED = "downloaded"
-    STATUS_BUILDING_NOMINATIM = "building_nominatim"
-    STATUS_BUILDING_VALHALLA = "building_valhalla"
-    STATUS_READY = "ready"
-    STATUS_ERROR = "error"
+    STATUS_NOT_DOWNLOADED: ClassVar[str] = "not_downloaded"
+    STATUS_DOWNLOADING: ClassVar[str] = "downloading"
+    STATUS_DOWNLOADED: ClassVar[str] = "downloaded"
+    STATUS_BUILDING_NOMINATIM: ClassVar[str] = "building_nominatim"
+    STATUS_BUILDING_VALHALLA: ClassVar[str] = "building_valhalla"
+    STATUS_READY: ClassVar[str] = "ready"
+    STATUS_ERROR: ClassVar[str] = "error"
 
     class Settings:
         name = "map_regions"
@@ -138,17 +138,17 @@ class MapDataJob(Document):
     # - build: {"records_processed": 0, "total_records": 0}
 
     # Job type constants
-    JOB_DOWNLOAD = "download"
-    JOB_BUILD_NOMINATIM = "build_nominatim"
-    JOB_BUILD_VALHALLA = "build_valhalla"
-    JOB_BUILD_ALL = "build_all"
+    JOB_DOWNLOAD: ClassVar[str] = "download"
+    JOB_BUILD_NOMINATIM: ClassVar[str] = "build_nominatim"
+    JOB_BUILD_VALHALLA: ClassVar[str] = "build_valhalla"
+    JOB_BUILD_ALL: ClassVar[str] = "build_all"
 
     # Status constants
-    STATUS_PENDING = "pending"
-    STATUS_RUNNING = "running"
-    STATUS_COMPLETED = "completed"
-    STATUS_FAILED = "failed"
-    STATUS_CANCELLED = "cancelled"
+    STATUS_PENDING: ClassVar[str] = "pending"
+    STATUS_RUNNING: ClassVar[str] = "running"
+    STATUS_COMPLETED: ClassVar[str] = "completed"
+    STATUS_FAILED: ClassVar[str] = "failed"
+    STATUS_CANCELLED: ClassVar[str] = "cancelled"
 
     class Settings:
         name = "map_data_jobs"
