@@ -1,4 +1,5 @@
 from unittest.mock import AsyncMock
+
 import pytest
 
 from core.http.blocklist import DEFAULT_FORBIDDEN_HOSTS, is_forbidden_host
