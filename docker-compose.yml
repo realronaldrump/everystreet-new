@@ -7,17 +7,21 @@ services:
     build: .
     restart: unless-stopped
     ports:
-      - '8080:8080'
+      - "8080:8080"
     env_file: .env
     command: uvicorn app:app --host 0.0.0.0 --port 8080 --proxy-headers --forwarded-allow-ips='*'
     volumes:
       - .:/app
       - osm_extracts:/osm:ro
     depends_on:
-      - mongo
-      - redis
-      - nominatim
-      - valhalla
+      mongo-init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      nominatim:
+        condition: service_started
+      valhalla:
+        condition: service_started
     networks:
       - default
 
@@ -31,8 +35,10 @@ services:
       - osm_extracts:/osm:ro
       - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
-      - mongo
-      - redis
+      mongo-init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
     networks:
       - default
 
@@ -40,9 +46,15 @@ services:
     image: redis:7-alpine
     restart: unless-stopped
     ports:
-      - '6379:6379'
+      - "6379:6379"
     volumes:
       - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
     networks:
       - default
 
@@ -50,7 +62,7 @@ services:
     image: mongo:7
     restart: unless-stopped
     ports:
-      - '27017:27017'
+      - "27017:27017"
     volumes:
       - mongo_data:/data/db
     ulimits:
@@ -58,13 +70,20 @@ services:
         soft: 64000
         hard: 64000
     command: mongod --replSet rs0 --bind_ip_all
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --quiet --eval 'db.adminCommand({ ping: 1 }).ok' | grep 1 >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
     networks:
       - default
 
   mongo-init:
     image: mongo:7
     depends_on:
-      - mongo
+      mongo:
+        condition: service_healthy
     command: >
       sh -c "
         mongosh --host mongo:27017 --eval '
@@ -89,16 +108,16 @@ services:
     image: mediagis/nominatim:4.4
     restart: unless-stopped
     environment:
-      - PBF_PATH=/nominatim/data/region.osm.pbf
-      - REPLICATION_URL=
-      - IMPORT_STYLE=street
-      - THREADS=4
+      PBF_PATH: /nominatim/data/us-9states.osm.pbf
+      REPLICATION_URL: ""
+      IMPORT_STYLE: street
+      THREADS: "4"
     volumes:
       - nominatim_data:/var/lib/postgresql/14/main
       - nominatim_flatnode:/nominatim/flatnode
       - osm_extracts:/nominatim/data:ro
     ports:
-      - '7070:8080'
+      - "7070:8080"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/status"]
       interval: 30s
@@ -111,20 +130,20 @@ services:
 
   # Valhalla - Self-hosted routing engine
   valhalla:
-    image: ghcr.io/gis-ops/docker-valhalla:latest
+    image: ghcr.io/gis-ops/docker-valhalla/valhalla:3.5.1
     restart: unless-stopped
     environment:
-      - tile_urls=
-      - serve_tiles=True
-      - build_elevation=False
-      - build_admins=True
-      - build_time_zones=True
-      - use_tiles_ignore_pbf=True
+      tile_urls: ""
+      serve_tiles: "True"
+      build_elevation: "False"
+      build_admins: "True"
+      build_time_zones: "True"
+      use_tiles_ignore_pbf: "True"
     volumes:
       - valhalla_tiles:/custom_files
       - osm_extracts:/data/osm:ro
     ports:
-      - '8004:8002'
+      - "8004:8002"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8002/status"]
       interval: 30s
@@ -143,4 +162,4 @@ volumes:
   osm_extracts:
 
 networks:
-  default:
+  default: {}
