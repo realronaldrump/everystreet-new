@@ -200,5 +200,8 @@ min_confidence = 60
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-ra --cov=core.api --cov=core.exceptions --cov=core.http.geocoding --cov=core.http.nominatim --cov=core.http.retry --cov=core.http.session --cov=core.http.valhalla --cov=core.math_utils --cov=db.aggregation --cov=db.models --cov=db.query --cov=date_utils --cov=exports.auth --cov=exports.models --cov=exports.serializers --cov=exports.services.export_service --cov=exports.services.export_writer --cov=routes.routing --cov=bouncie_credentials --cov=bouncie_oauth --cov=bouncie_webhook_api --cov-report=term-missing --cov-report=lcov:coverage.lcov --cov-fail-under=35"
+addopts = "-ra --cov=core.api --cov=core.exceptions --cov=core.http.geocoding --cov=core.http.nominatim --cov=core.http.retry --cov=core.http.session --cov=core.http.valhalla --cov=core.math_utils --cov=db.aggregation --cov=db.models --cov=db.query --cov=date_utils --cov=exports.auth --cov=exports.models --cov=exports.serializers --cov=exports.services.export_service --cov=exports.services.export_writer --cov=routes.routing --cov=bouncie_credentials --cov=bouncie_oauth --cov=bouncie_webhook_api --cov-report=term-missing --cov-report=lcov:coverage.lcov --cov-fail-under=35 -m 'not integration'"
 asyncio_mode = "auto"
+markers = [
+  "integration: tests that require live Valhalla/Nominatim services",
+]
