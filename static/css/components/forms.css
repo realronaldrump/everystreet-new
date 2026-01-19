@@ -59,7 +59,9 @@ body.light-mode .form-select {
 
 .form-control-color {
   /* For color inputs */
-  height: calc(1.5em + var(--space-2) * 2 + 2px); /* Match height of other inputs */
+  height: calc(
+    1.5em + var(--space-2) * 2 + 2px
+  ); /* Match height of other inputs */
   padding: var(--space-2);
 }
 
@@ -68,8 +70,7 @@ body.light-mode .form-select {
   align-items: center;
   margin-bottom: var(--space-2);
   min-height: calc(
-    var(--font-size-sm) *
-    var(--line-height-normal)
+    var(--font-size-sm) * var(--line-height-normal)
   ); /* Ensure consistent height */
 }
 

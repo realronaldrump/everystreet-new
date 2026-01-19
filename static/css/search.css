@@ -359,7 +359,8 @@ body.light-mode .search-results-dropdown::-webkit-scrollbar-thumb,
 }
 
 body.light-mode .search-results-dropdown::-webkit-scrollbar-thumb:hover,
-[data-bs-theme="light"] .search-results-dropdown::-webkit-scrollbar-thumb:hover {
+[data-bs-theme="light"]
+  .search-results-dropdown::-webkit-scrollbar-thumb:hover {
   background: rgb(var(--border-rgb) / 55%);
 }
 

@@ -180,7 +180,11 @@ body[data-time-of-day="night"] {
 .es-ripple {
   position: absolute;
   border-radius: 50%;
-  background: radial-gradient(circle, rgb(var(--accent-rgb) / 35%) 0%, transparent 70%);
+  background: radial-gradient(
+    circle,
+    rgb(var(--accent-rgb) / 35%) 0%,
+    transparent 70%
+  );
   animation: ripple 600ms ease-out forwards;
   pointer-events: none;
 }

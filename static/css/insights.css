@@ -21,7 +21,11 @@
   right: -50%;
   width: 200%;
   height: 200%;
-  background: radial-gradient(circle, rgb(255 255 255 / 6%) 0%, transparent 70%);
+  background: radial-gradient(
+    circle,
+    rgb(255 255 255 / 6%) 0%,
+    transparent 70%
+  );
   animation: pulse-hero 16s ease-in-out infinite;
   pointer-events: none;
 }
@@ -45,7 +49,11 @@
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(135deg, rgb(var(--primary-rgb) / 10%), transparent 60%);
+  background: linear-gradient(
+    135deg,
+    rgb(var(--primary-rgb) / 10%),
+    transparent 60%
+  );
   opacity: 0;
   transition: opacity var(--transition-normal);
 }
