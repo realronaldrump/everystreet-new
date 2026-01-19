@@ -18,10 +18,8 @@ services:
         condition: service_completed_successfully
       redis:
         condition: service_healthy
-      nominatim:
-        condition: service_started
-      valhalla:
-        condition: service_started
+      # NOTE: nominatim and valhalla are NOT dependencies
+      # They may not start without data, and the web app handles their absence gracefully
     networks:
       - default
 
