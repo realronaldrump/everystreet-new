@@ -13,16 +13,6 @@ from fastapi.templating import Jinja2Templates
 from admin_api import router as admin_api_router
 from analytics import router as analytics_api_router
 from bouncie_webhook_api import router as bouncie_webhook_api_router
-from config import (
-    require_nominatim_reverse_url,
-    require_nominatim_search_url,
-    require_nominatim_user_agent,
-    require_osm_data_path,
-    require_valhalla_route_url,
-    require_valhalla_status_url,
-    require_valhalla_trace_attributes_url,
-    require_valhalla_trace_route_url,
-)
 from core.http.session import cleanup_session
 from county_api import router as county_api_router
 from coverage_api import router as coverage_api_router
@@ -174,13 +164,15 @@ async def startup_event():
         # Note: Services may not be ready yet if this is a fresh deployment
         # The Map Data Management UI allows downloading and building data
         from config import (
-            get_valhalla_route_url,
-            get_valhalla_status_url,
             get_nominatim_search_url,
             get_osm_data_path,
+            get_valhalla_route_url,
+            get_valhalla_status_url,
         )
 
-        valhalla_configured = bool(get_valhalla_route_url() and get_valhalla_status_url())
+        valhalla_configured = bool(
+            get_valhalla_route_url() and get_valhalla_status_url(),
+        )
         nominatim_configured = bool(get_nominatim_search_url())
         osm_path = get_osm_data_path()
 
@@ -188,7 +180,7 @@ async def startup_event():
             logger.info("Valhalla and Nominatim URLs configured.")
         else:
             logger.warning(
-                "Geo services not fully configured. Use Map Data Management to set up."
+                "Geo services not fully configured. Use Map Data Management to set up.",
             )
 
         # Check OSM data path (optional - can be set up later via UI)

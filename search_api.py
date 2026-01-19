@@ -11,8 +11,8 @@ from typing import Annotated
 from beanie import PydanticObjectId
 from fastapi import APIRouter, HTTPException, Query
 
-from street_coverage.models import CoverageArea, CoverageState, Street
 from external_geo_service import GeocodingService
+from street_coverage.models import CoverageArea, CoverageState, Street
 
 logger = logging.getLogger(__name__)
 

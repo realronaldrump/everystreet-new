@@ -18,7 +18,7 @@ class FakeCollection:
         self._cursor = cursor
         self._awaitable = awaitable
 
-    def aggregate(self, pipeline, **kwargs):  # noqa: ARG002
+    def aggregate(self, pipeline, **kwargs):
         if self._awaitable:
             return _return_async(self._cursor)
         return self._cursor

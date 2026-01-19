@@ -34,7 +34,8 @@ router = APIRouter()
 
 @router.get("/api/matched_trips", tags=["Trips API"])
 async def get_matched_trips(request: Request):
-    """Stream matched trips as GeoJSON.
+    """
+    Stream matched trips as GeoJSON.
 
     Returns trips that have matchedGps data, using the matched geometry
     as the primary geometry for each feature.
@@ -85,9 +86,11 @@ async def get_matched_trips(request: Request):
                     price_map,
                 ),
                 "matchStatus": trip_dict.get("matchStatus"),
-                "matched_at": trip_dict.get("matched_at").isoformat()
-                if trip_dict.get("matched_at")
-                else None,
+                "matched_at": (
+                    trip_dict.get("matched_at").isoformat()
+                    if trip_dict.get("matched_at")
+                    else None
+                ),
             }
             feature = GeometryService.feature_from_geometry(matched_geom, props)
             chunk = json.dumps(feature, separators=(",", ":"))

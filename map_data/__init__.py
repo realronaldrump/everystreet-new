@@ -13,4 +13,4 @@ Key features:
 
 from map_data.models import GeoServiceHealth, MapDataJob, MapRegion
 
-__all__ = ["MapRegion", "MapDataJob", "GeoServiceHealth"]
+__all__ = ["GeoServiceHealth", "MapDataJob", "MapRegion"]

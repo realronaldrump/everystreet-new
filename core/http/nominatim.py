@@ -99,7 +99,7 @@ class NominatimClient:
             msg = "Nominatim search error: unexpected response"
             raise ExternalServiceException(msg, {"url": self._search_url})
 
-        normalized = [
+        return [
             {
                 "place_name": result.get("display_name", ""),
                 "center": [float(result["lon"]), float(result["lat"])],
@@ -117,7 +117,6 @@ class NominatimClient:
             }
             for result in results
         ]
-        return normalized
 
     @retry_async(max_retries=3, retry_delay=2.0)
     async def reverse(

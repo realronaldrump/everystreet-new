@@ -24,9 +24,9 @@ import osmnx as ox
 from dotenv import load_dotenv
 from shapely.geometry import box, shape
 
+from config import require_osm_data_path
 from routes.constants import GRAPH_STORAGE_DIR, ROUTING_BUFFER_FT
 from routes.geometry import _buffer_polygon_for_routing
-from config import require_osm_data_path
 from street_coverage.osm_filters import get_driveable_highway
 
 logger = logging.getLogger(__name__)

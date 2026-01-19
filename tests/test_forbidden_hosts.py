@@ -1,9 +1,8 @@
-from unittest.mock import AsyncMock
 import pytest
+from http_fakes import FakeResponse, FakeSession
 
 from core.http.blocklist import DEFAULT_FORBIDDEN_HOSTS, is_forbidden_host
 from core.http.request import request_json
-from http_fakes import FakeResponse, FakeSession
 
 
 def test_is_forbidden_host_matches_known_hosts() -> None:
@@ -29,7 +28,7 @@ async def test_request_json_raises_on_forbidden_host() -> None:
 @pytest.mark.asyncio
 async def test_request_json_allows_local_host() -> None:
     session = FakeSession(
-        get_responses=[FakeResponse(status=200, json_data={"ok": True})]
+        get_responses=[FakeResponse(status=200, json_data={"ok": True})],
     )
 
     data = await request_json(
@@ -40,14 +39,17 @@ async def test_request_json_allows_local_host() -> None:
     )
     assert data == {"ok": True}
     assert not is_forbidden_host(
-        "http://nominatim.test/search", DEFAULT_FORBIDDEN_HOSTS
+        "http://nominatim.test/search",
+        DEFAULT_FORBIDDEN_HOSTS,
     )
 
 
 @pytest.mark.asyncio
 async def test_request_json_raises_on_rate_limit() -> None:
     response = FakeResponse(
-        status=429, text_data="rate limited", headers={"Retry-After": "3"}
+        status=429,
+        text_data="rate limited",
+        headers={"Retry-After": "3"},
     )
     session = FakeSession(get_responses=[response])
 

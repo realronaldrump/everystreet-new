@@ -3,9 +3,8 @@ from __future__ import annotations
 import json
 import subprocess
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Optional
 
 # Path to version file generated at build time
 VERSION_FILE = Path(__file__).parent.parent / "version.json"
@@ -18,7 +17,7 @@ class RepoVersionInfo:
     last_updated: str
 
 
-def _read_version_file() -> Optional[RepoVersionInfo]:
+def _read_version_file() -> RepoVersionInfo | None:
     """Try to read version info from a pre-generated JSON file."""
     try:
         if VERSION_FILE.exists():
@@ -33,7 +32,7 @@ def _read_version_file() -> Optional[RepoVersionInfo]:
     return None
 
 
-def _run_git_command(args: list[str]) -> Optional[str]:
+def _run_git_command(args: list[str]) -> str | None:
     try:
         result = subprocess.run(
             ["git", *args],
@@ -48,14 +47,14 @@ def _run_git_command(args: list[str]) -> Optional[str]:
     return result.stdout.strip() or None
 
 
-def _format_commit_datetime(commit_iso: Optional[str]) -> str:
+def _format_commit_datetime(commit_iso: str | None) -> str:
     if not commit_iso:
         return "Unknown"
     try:
         parsed = datetime.fromisoformat(commit_iso)
     except ValueError:
         return "Unknown"
-    return parsed.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    return parsed.astimezone(UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
 
 
 def get_repo_version_info() -> RepoVersionInfo:

@@ -7,7 +7,7 @@ services:
     build: .
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      - '8080:8080'
     env_file: .env
     command: uvicorn app:app --host 0.0.0.0 --port 8080 --proxy-headers --forwarded-allow-ips='*'
     volumes:
@@ -44,11 +44,11 @@ services:
     image: redis:7-alpine
     restart: unless-stopped
     ports:
-      - "6379:6379"
+      - '6379:6379'
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ['CMD', 'redis-cli', 'ping']
       interval: 10s
       timeout: 5s
       retries: 10
@@ -60,7 +60,7 @@ services:
     image: mongo:7
     restart: unless-stopped
     ports:
-      - "27017:27017"
+      - '27017:27017'
     volumes:
       - mongo_data:/data/db
     ulimits:
@@ -69,7 +69,11 @@ services:
         hard: 64000
     command: mongod --replSet rs0 --bind_ip_all
     healthcheck:
-      test: ["CMD-SHELL", "mongosh --quiet --eval 'db.adminCommand({ ping: 1 }).ok' | grep 1 >/dev/null"]
+      test:
+        [
+          'CMD-SHELL',
+          "mongosh --quiet --eval 'db.adminCommand({ ping: 1 }).ok' | grep 1 >/dev/null",
+        ]
       interval: 10s
       timeout: 5s
       retries: 30
@@ -106,21 +110,21 @@ services:
   # and import OSM extracts. The service will be unavailable until data is imported.
   nominatim:
     image: mediagis/nominatim:4.4
-    restart: "no"  # Don't restart - will fail without data, user imports via UI
+    restart: 'no' # Don't restart - will fail without data, user imports via UI
     environment:
       # Don't specify PBF_PATH or PBF_URL - data will be imported via app UI
       # The container will exit if no data is provided, which is expected
-      REPLICATION_URL: ""
+      REPLICATION_URL: ''
       IMPORT_STYLE: street
-      THREADS: "4"
+      THREADS: '4'
     volumes:
       - nominatim_data:/var/lib/postgresql/14/main
       - nominatim_flatnode:/nominatim/flatnode
       - osm_extracts:/nominatim/data
     ports:
-      - "7070:8080"
+      - '7070:8080'
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/status"]
+      test: ['CMD', 'curl', '-f', 'http://localhost:8080/status']
       interval: 30s
       timeout: 10s
       retries: 3
@@ -134,22 +138,22 @@ services:
   # OSM extracts and build routing tiles. The service will be unavailable until tiles are built.
   valhalla:
     image: ghcr.io/gis-ops/docker-valhalla/valhalla:3.5.1
-    restart: "no"  # Don't restart - will fail without tiles, user builds via UI
+    restart: 'no' # Don't restart - will fail without tiles, user builds via UI
     environment:
-      tile_urls: ""
-      serve_tiles: "True"
-      build_elevation: "False"
-      build_admins: "True"
-      build_time_zones: "True"
-      use_tiles_ignore_pbf: "True"
-      force_rebuild: "False"
+      tile_urls: ''
+      serve_tiles: 'True'
+      build_elevation: 'False'
+      build_admins: 'True'
+      build_time_zones: 'True'
+      use_tiles_ignore_pbf: 'True'
+      force_rebuild: 'False'
     volumes:
       - valhalla_tiles:/custom_files
       - osm_extracts:/data/osm:ro
     ports:
-      - "8004:8002"
+      - '8004:8002'
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8002/status"]
+      test: ['CMD', 'curl', '-f', 'http://localhost:8002/status']
       interval: 30s
       timeout: 10s
       retries: 3

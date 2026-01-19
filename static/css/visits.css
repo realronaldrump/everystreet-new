@@ -162,11 +162,7 @@
   left: -50%;
   width: 200%;
   height: 200%;
-  background: radial-gradient(
-    circle at 20% 20%,
-    rgb(var(--primary-rgb) / 10%),
-    transparent 60%
-  );
+  background: radial-gradient(circle at 20% 20%, rgb(var(--primary-rgb) / 10%), transparent 60%);
   opacity: 0.5;
   pointer-events: none;
 }

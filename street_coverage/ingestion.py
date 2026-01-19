@@ -15,8 +15,7 @@ import asyncio
 import logging
 import math
 from datetime import UTC, datetime
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from beanie import PydanticObjectId
 from shapely.geometry import LineString, MultiLineString, mapping, shape
@@ -36,6 +35,9 @@ from street_coverage.models import CoverageArea, CoverageState, Job, Street
 from street_coverage.osm_filters import get_driveable_highway
 from street_coverage.stats import update_area_stats
 from street_coverage.worker import backfill_coverage_for_area
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 logger = logging.getLogger(__name__)
 _background_tasks: set[asyncio.Task] = set()

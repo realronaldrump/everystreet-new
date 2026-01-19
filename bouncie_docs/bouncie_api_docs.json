@@ -957,9 +957,7 @@
                                       "type": ["array"],
                                       "items": { "type": ["string"] },
                                       "description": "DTC names",
-                                      "example": [
-                                        "Catalyst System Efficiency Below Threshold"
-                                      ]
+                                      "example": ["Catalyst System Efficiency Below Threshold"]
                                     }
                                   },
                                   "required": ["code", "name"]
@@ -986,12 +984,7 @@
                                 "description": "Status of battery for vehicle"
                               }
                             },
-                            "required": [
-                              "milOn",
-                              "lastUpdated",
-                              "qualifiedDtcList",
-                              "battery"
-                            ],
+                            "required": ["milOn", "lastUpdated", "qualifiedDtcList", "battery"],
                             "description": "Status of Malfunction Indicator Light (check engine light)"
                           }
                         },
@@ -1007,14 +1000,7 @@
                         "description": "Vehicle stats"
                       }
                     },
-                    "required": [
-                      "model",
-                      "nickName",
-                      "standardEngine",
-                      "vin",
-                      "imei",
-                      "stats"
-                    ]
+                    "required": ["model", "nickName", "standardEngine", "vin", "imei", "stats"]
                   }
                 }
               }

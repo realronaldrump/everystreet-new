@@ -31,9 +31,9 @@ from beanie import Document, Indexed, PydanticObjectId
 from beanie.odm.fields import IndexModel
 from pydantic import Field, field_validator, model_validator
 
-from street_coverage.models import CoverageArea, CoverageState, Job, Street
-from map_data.models import GeoServiceHealth, MapDataJob, MapRegion
 from date_utils import parse_timestamp
+from map_data.models import GeoServiceHealth, MapDataJob, MapRegion
+from street_coverage.models import CoverageArea, CoverageState, Job, Street
 
 
 class Trip(Document):
@@ -422,7 +422,7 @@ class ProgressStatus(Document):
     completed_at: datetime | None = None
     result: dict[str, Any] | None = None
     metadata: dict[str, Any] = Field(
-        default_factory=dict
+        default_factory=dict,
     )  # Added: used for progress tracking
 
     class Settings:
@@ -552,10 +552,12 @@ class Vehicle(Document):
 
 
 class AppSettings(Document):
-    """Application settings document.
+    """
+    Application settings document.
 
-    Stores both UI preferences and service configuration.
-    All geo service settings have sensible defaults for Docker Compose deployment.
+    Stores both UI preferences and service configuration. All geo
+    service settings have sensible defaults for Docker Compose
+    deployment.
     """
 
     id: str = Field(default="default", alias="_id")

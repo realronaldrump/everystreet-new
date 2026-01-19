@@ -24,10 +24,10 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # Cache for settings to avoid repeated DB calls
-_settings_cache: "AppSettings | None" = None
+_settings_cache: AppSettings | None = None
 
 
-async def get_service_config() -> "AppSettings":
+async def get_service_config() -> AppSettings:
     """
     Get service configuration from the database.
 
@@ -67,11 +67,12 @@ async def get_service_config() -> "AppSettings":
         return settings
 
 
-def _apply_env_overrides(settings: "AppSettings") -> None:
-    """Apply environment variable overrides to settings.
+def _apply_env_overrides(settings: AppSettings) -> None:
+    """
+    Apply environment variable overrides to settings.
 
-    Environment variables take precedence over database settings
-    for backward compatibility with existing .env deployments.
+    Environment variables take precedence over database settings for
+    backward compatibility with existing .env deployments.
     """
     # Mapbox
     env_mapbox = os.getenv("MAPBOX_TOKEN", "").strip()
@@ -126,7 +127,7 @@ def _apply_env_overrides(settings: "AppSettings") -> None:
         settings.osm_extracts_path = env_osm_path
 
 
-async def refresh_service_config() -> "AppSettings":
+async def refresh_service_config() -> AppSettings:
     """Force reload of service configuration from database."""
     global _settings_cache
     _settings_cache = None
@@ -134,7 +135,11 @@ async def refresh_service_config() -> "AppSettings":
 
 
 def clear_config_cache() -> None:
-    """Clear the settings cache. Called on settings update."""
+    """
+    Clear the settings cache.
+
+    Called on settings update.
+    """
     global _settings_cache
     _settings_cache = None
 

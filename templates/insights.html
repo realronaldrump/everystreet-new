@@ -272,158 +272,158 @@ Visits
                   </th>
                   <th data-bs-toggle="tooltip"
                       title="Sum of miles driven to this location during the selected date range">
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          Total Distance&nbsp;<i class="fas fa-question-circle text-muted"></i>
-                  </th>
-                  <th>
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              Total Distance&nbsp;<i class="fas fa-question-circle text-muted"></i>
+                </th>
+                <th>
 Avg Duration
-                  </th>
-                  <th>
+                </th>
+                <th>
 Last Visit
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                <!-- Dynamic content -->
-              </tbody>
-            </table>
-          </div>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- Dynamic content -->
+            </tbody>
+          </table>
         </div>
       </div>
+    </div>
 
-      <div class="bento-span-12 widget" data-accent="purple">
-        <div class="widget-header">
-          <h3 class="widget-title">
-            <i class="fas fa-table" aria-hidden="true"></i>
+    <div class="bento-span-12 widget" data-accent="purple">
+      <div class="widget-header">
+        <h3 class="widget-title">
+          <i class="fas fa-table" aria-hidden="true"></i>
             Detailed Trip Analytics
-          </h3>
-          <div class="chart-controls">
-            <button class="btn btn-sm btn-outline" id="export-data">
-              <i class="fas fa-file-export"></i> Export
-            </button>
-          </div>
+        </h3>
+        <div class="chart-controls">
+          <button class="btn btn-sm btn-outline" id="export-data">
+            <i class="fas fa-file-export"></i> Export
+          </button>
         </div>
-        <div class="widget-body">
-          <div class="table-responsive">
-            <table class="data-table" id="analytics-table">
-              <thead>
-                <tr>
-                  <th>
+      </div>
+      <div class="widget-body">
+        <div class="table-responsive">
+          <table class="data-table" id="analytics-table">
+            <thead>
+              <tr>
+                <th>
 Period
-                  </th>
-                  <th>
+                </th>
+                <th>
 Trips
-                  </th>
-                  <th>
+                </th>
+                <th>
 Distance
-                  </th>
-                  <th>
+                </th>
+                <th>
 Duration
-                  </th>
-                  <th>
+                </th>
+                <th>
 Fuel
-                  </th>
-                  <th>
+                </th>
+                <th>
 Hard Events
-                  </th>
-                  <th>
+                </th>
+                <th>
 Efficiency
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                <!-- Dynamic content -->
-              </tbody>
-            </table>
-          </div>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- Dynamic content -->
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
   </div>
+</div>
 
 
 
-  <!-- Floating Action Button -->
-  <div class="fab-container">
-    <div class="fab-menu" id="fab-menu">
-      <button class="fab mini-fab" title="Refresh Data" id="refresh-data">
-        <i class="fas fa-sync"></i>
-      </button>
-      <button class="fab mini-fab" title="Download Report" id="download-report">
-        <i class="fas fa-file-pdf"></i>
-      </button>
-      <button class="fab mini-fab" title="Share Insights" id="share-insights">
-        <i class="fas fa-share-alt"></i>
-      </button>
-    </div>
-    <button class="fab" id="fab-main">
-      <i class="fas fa-plus"></i>
+<!-- Floating Action Button -->
+<div class="fab-container">
+  <div class="fab-menu" id="fab-menu">
+    <button class="fab mini-fab" title="Refresh Data" id="refresh-data">
+      <i class="fas fa-sync"></i>
+    </button>
+    <button class="fab mini-fab" title="Download Report" id="download-report">
+      <i class="fas fa-file-pdf"></i>
+    </button>
+    <button class="fab mini-fab" title="Share Insights" id="share-insights">
+      <i class="fas fa-share-alt"></i>
     </button>
   </div>
+  <button class="fab" id="fab-main">
+    <i class="fas fa-plus"></i>
+  </button>
+</div>
 
-  <!-- Custom tooltip -->
-  <div class="custom-tooltip" id="custom-tooltip">
-  </div>
+<!-- Custom tooltip -->
+<div class="custom-tooltip" id="custom-tooltip">
+</div>
 
-  <!-- Trip Details Modal -->
-  <div class="modal fade"
-       id="tripDetailsModal"
-       tabindex="-1"
-       aria-labelledby="tripDetailsModalLabel"
-       aria-hidden="true">
-    <div class="modal-dialog modal-xl">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title" id="tripDetailsModalLabel">
+<!-- Trip Details Modal -->
+<div class="modal fade"
+     id="tripDetailsModal"
+     tabindex="-1"
+     aria-labelledby="tripDetailsModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-xl">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="tripDetailsModalLabel">
 Trips
-          </h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close">
-          </button>
-        </div>
-        <div class="modal-body">
-          <div class="table-responsive">
-            <table class="table table-striped" id="modal-trips-table">
-              <thead>
-                <tr>
-                  <th>
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close">
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="table-responsive">
+          <table class="table table-striped" id="modal-trips-table">
+            <thead>
+              <tr>
+                <th>
 Start Time
-                  </th>
-                  <th>
+                </th>
+                <th>
 End Time
-                  </th>
-                  <th>
+                </th>
+                <th>
 Duration
-                  </th>
-                  <th>
+                </th>
+                <th>
 Distance
-                  </th>
-                  <th>
+                </th>
+                <th>
 Start Location
-                  </th>
-                  <th>
+                </th>
+                <th>
 Destination
-                  </th>
-                  <th>
+                </th>
+                <th>
 Max Speed
-                  </th>
-                  <th>
+                </th>
+                <th>
 Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                <!-- Dynamic content -->
-              </tbody>
-            </table>
-          </div>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- Dynamic content -->
+            </tbody>
+          </table>
         </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
 Close
-          </button>
-        </div>
+        </button>
       </div>
     </div>
   </div>
+</div>
 </div>
 {% endblock %}
 

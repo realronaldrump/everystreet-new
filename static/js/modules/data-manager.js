@@ -40,7 +40,9 @@ const mapLoadingIndicator = (() => {
 
   return {
     show(message = "Loading map data...") {
-      if (!ensureElements()) return;
+      if (!ensureElements()) {
+        return;
+      }
       indicatorEl.classList.remove("d-none");
       indicatorEl.setAttribute("aria-busy", "true");
       indicatorEl.setAttribute("aria-live", "polite");
@@ -48,14 +50,18 @@ const mapLoadingIndicator = (() => {
     },
 
     update(message) {
-      if (!ensureElements()) return;
+      if (!ensureElements()) {
+        return;
+      }
       if (textEl) {
         textEl.textContent = message;
       }
     },
 
     hide() {
-      if (!ensureElements()) return;
+      if (!ensureElements()) {
+        return;
+      }
       indicatorEl.classList.add("d-none");
       indicatorEl.removeAttribute("aria-busy");
     },
@@ -72,7 +78,9 @@ const dataManager = {
    * @returns {Promise<Object|null>} GeoJSON FeatureCollection or null
    */
   async fetchTrips() {
-    if (!state.mapInitialized) return null;
+    if (!state.mapInitialized) {
+      return null;
+    }
 
     const { loadingManager } = window;
     loadingManager?.show("Loading trips...", { blocking: false, compact: true });
@@ -106,16 +114,20 @@ const dataManager = {
       loadingManager?.updateMessage("Finalizing...");
 
       // Emit event for trip styles refresh (handled by app-controller)
-      document.dispatchEvent(new CustomEvent("tripsDataLoaded", {
-        detail: { featureCount: tripData.features.length },
-      }));
+      document.dispatchEvent(
+        new CustomEvent("tripsDataLoaded", {
+          detail: { featureCount: tripData.features.length },
+        })
+      );
 
       // Update metrics table
       metricsManager.updateTripsTable(tripData);
 
       return tripData;
     } catch (error) {
-      if (error?.name === "AbortError") return null;
+      if (error?.name === "AbortError") {
+        return null;
+      }
       loadingManager?.hide();
       window.notificationManager?.show("Failed to load trips", "danger");
       return null;
@@ -130,7 +142,9 @@ const dataManager = {
    * @returns {Promise<Object|null>} GeoJSON FeatureCollection or null
    */
   async fetchMatchedTrips() {
-    if (!state.mapInitialized) return null;
+    if (!state.mapInitialized) {
+      return null;
+    }
 
     window.loadingManager?.pulse("Loading matched trips...");
 
@@ -161,7 +175,9 @@ const dataManager = {
 
       return null;
     } catch (error) {
-      if (error?.name === "AbortError") return null;
+      if (error?.name === "AbortError") {
+        return null;
+      }
       console.error("Error fetching matched trips:", error);
       return null;
     }
@@ -180,8 +196,8 @@ const dataManager = {
         const endTime = f?.properties?.endTime;
         const endTs = endTime ? new Date(endTime).getTime() : null;
         f.properties = f.properties || {};
-        f.properties.isRecent =
-          typeof endTs === "number" && !Number.isNaN(endTs)
+        f.properties.isRecent
+          = typeof endTs === "number" && !Number.isNaN(endTs)
             ? now - endTs <= threshold
             : false;
       });
@@ -221,7 +237,9 @@ const dataManager = {
 
       return null;
     } catch (error) {
-      if (error?.name === "AbortError") return null;
+      if (error?.name === "AbortError") {
+        return null;
+      }
       console.error("Error fetching undriven streets:", error);
       state.undrivenStreetsLoaded = false;
       return null;
@@ -259,7 +277,9 @@ const dataManager = {
 
       return null;
     } catch (error) {
-      if (error?.name === "AbortError") return null;
+      if (error?.name === "AbortError") {
+        return null;
+      }
       console.error("Error fetching driven streets:", error);
       state.drivenStreetsLoaded = false;
       return null;
@@ -297,7 +317,9 @@ const dataManager = {
 
       return null;
     } catch (error) {
-      if (error?.name === "AbortError") return null;
+      if (error?.name === "AbortError") {
+        return null;
+      }
       console.error("Error fetching all streets:", error);
       state.allStreetsLoaded = false;
       return null;
@@ -327,7 +349,9 @@ const dataManager = {
 
       return data;
     } catch (error) {
-      if (error?.name === "AbortError") return null;
+      if (error?.name === "AbortError") {
+        return null;
+      }
       console.error("Error fetching metrics:", error);
       return null;
     }
@@ -338,7 +362,9 @@ const dataManager = {
    * @param {boolean} fitBounds - Whether to fit bounds after loading
    */
   async updateMap(fitBounds = false) {
-    if (!state.mapInitialized) return;
+    if (!state.mapInitialized) {
+      return;
+    }
 
     const { loadingManager } = window;
     loadingManager?.show("Updating map...");
@@ -392,9 +418,11 @@ const dataManager = {
 
       // Emit event for fit bounds (handled by app-controller)
       if (fitBounds) {
-        document.dispatchEvent(new CustomEvent("mapDataLoaded", {
-          detail: { fitBounds: true },
-        }));
+        document.dispatchEvent(
+          new CustomEvent("mapDataLoaded", {
+            detail: { fitBounds: true },
+          })
+        );
       }
 
       state.metrics.renderTime = Date.now() - state.metrics.loadStartTime;

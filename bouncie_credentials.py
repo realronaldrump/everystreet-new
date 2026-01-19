@@ -75,8 +75,7 @@ async def get_bouncie_credentials() -> dict[str, Any]:
         }
 
     logger.warning(
-        "No Bouncie credentials found in database. "
-        "Please configure via profile page.",
+        "No Bouncie credentials found in database. Please configure via profile page.",
     )
     return default_credentials
 

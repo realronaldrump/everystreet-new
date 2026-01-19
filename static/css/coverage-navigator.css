@@ -477,11 +477,7 @@
 }
 
 .coverage-navigator .hud-panel {
-  background: linear-gradient(
-    135deg,
-    rgb(var(--surface-rgb) / 88%),
-    rgb(var(--surface-rgb) / 60%)
-  );
+  background: linear-gradient(135deg, rgb(var(--surface-rgb) / 88%), rgb(var(--surface-rgb) / 60%));
   border: 1px solid rgb(var(--border-rgb) / 25%);
   border-radius: var(--radius-lg);
   padding: 0.9rem;
@@ -614,11 +610,7 @@
   transform: translate(-50%, -50%);
   border-radius: 50%;
   border: 1px solid rgb(var(--primary-rgb) / 45%);
-  background: radial-gradient(
-    circle,
-    rgb(var(--primary-rgb) / 18%) 0%,
-    transparent 70%
-  );
+  background: radial-gradient(circle, rgb(var(--primary-rgb) / 18%) 0%, transparent 70%);
   box-shadow: 0 0 35px rgb(var(--primary-rgb) / 25%);
   animation: scan-pulse 2.6s ease-out infinite;
 }

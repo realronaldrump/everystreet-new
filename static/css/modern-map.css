@@ -339,9 +339,7 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
 .trip-path.selected,
 .trip-feature-selected {
   /* stroke-width: further increased by JS */
-  filter: drop-shadow(
-    0 0 6px var(--primary)
-  ); /* Use primary color for selection glow */
+  filter: drop-shadow(0 0 6px var(--primary)); /* Use primary color for selection glow */
 }
 
 .recent-trip,
@@ -357,9 +355,7 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
 }
 
 .undriven-street-feature:hover {
-  filter: drop-shadow(
-    0 0 5px rgb(var(--info-rgb), 0.8)
-  ); /* Info color for undriven hover */
+  filter: drop-shadow(0 0 5px rgb(var(--info-rgb), 0.8)); /* Info color for undriven hover */
 }
 
 /* === Map Control Panel (Floating Panel from index.html) === */
@@ -531,11 +527,7 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
   content: "";
   position: absolute;
   inset: 0;
-  background: radial-gradient(
-    circle at center,
-    rgb(var(--primary-rgb) / 15%) 0%,
-    transparent 70%
-  );
+  background: radial-gradient(circle at center, rgb(var(--primary-rgb) / 15%) 0%, transparent 70%);
   opacity: 0;
   transition: opacity var(--transition-fast);
 }

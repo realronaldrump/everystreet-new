@@ -134,7 +134,7 @@ async def recalculate_visited_counties(
         }
 
 
-async def calculate_visited_counties_task():
+async def calculate_visited_counties_task() -> None:
     """
     Background task to calculate which counties have been driven through.
 

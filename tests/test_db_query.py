@@ -3,7 +3,11 @@ from datetime import UTC, datetime
 import pytest
 from starlette.requests import Request
 
-from db.query import build_calendar_date_expr, build_query_from_request, parse_query_date
+from db.query import (
+    build_calendar_date_expr,
+    build_query_from_request,
+    parse_query_date,
+)
 
 
 def test_parse_query_date_handles_date_only() -> None:

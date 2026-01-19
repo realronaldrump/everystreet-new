@@ -10,12 +10,7 @@ from __future__ import annotations
 import asyncio
 import logging
 
-from aiohttp import (
-    ClientConnectorError,
-    ClientError,
-    ClientResponseError,
-    ServerDisconnectedError,
-)
+from aiohttp import ClientConnectorError, ClientError, ServerDisconnectedError
 from tenacity import (
     before_sleep_log,
     retry,

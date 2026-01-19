@@ -1,4 +1,5 @@
-"""OpenStreetMap (OSM) utilities for boundary and streets GeoJSON.
+"""
+OpenStreetMap (OSM) utilities for boundary and streets GeoJSON.
 
 NOTE:
 This module is currently not used by the running application.
@@ -13,14 +14,16 @@ import json
 import logging
 import math
 from datetime import UTC, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import geopandas as gpd
 import osmnx as ox
 from shapely.geometry import box, shape
-from shapely.geometry.base import BaseGeometry
 
 from db.models import OsmData
+
+if TYPE_CHECKING:
+    from shapely.geometry.base import BaseGeometry
 
 logger = logging.getLogger(__name__)
 

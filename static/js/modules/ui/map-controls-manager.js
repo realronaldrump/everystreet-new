@@ -26,10 +26,14 @@ const mapControlsManager = {
    * Should be called after map is initialized
    */
   init() {
-    if (this._initialized) return;
+    if (this._initialized) {
+      return;
+    }
 
     const mapTypeSelect = uiState.getElement(CONFIG.UI.selectors.mapTypeSelect);
-    if (!mapTypeSelect) return;
+    if (!mapTypeSelect) {
+      return;
+    }
 
     this._initialized = true;
 
@@ -55,8 +59,10 @@ const mapControlsManager = {
    */
   _applyInitialStyle(mapType) {
     // Only apply if different from current
-    const map = state.map;
-    if (!map) return;
+    const { map } = state;
+    if (!map) {
+      return;
+    }
 
     const currentStyle = map.getStyle()?.name?.toLowerCase() || "";
     const requestedStyle = mapType.toLowerCase();
@@ -72,7 +78,9 @@ const mapControlsManager = {
    */
   toggleControlPanel() {
     const panel = uiState.getElement(CONFIG.UI.selectors.mapControls);
-    if (!panel) return;
+    if (!panel) {
+      return;
+    }
 
     panel.classList.toggle(CONFIG.UI.classes.open);
     const isOpen = panel.classList.contains(CONFIG.UI.classes.open);
@@ -115,7 +123,9 @@ const mapControlsManager = {
     // Set up style load handler
     const onStyleLoaded = () => {
       // Ignore if a newer style change was initiated
-      if (this._styleChangeId !== styleChangeId) return;
+      if (this._styleChangeId !== styleChangeId) {
+        return;
+      }
 
       // Restore view
       if (currentView.center) {
@@ -145,8 +155,7 @@ const mapControlsManager = {
       }
 
       // Get style URL
-      const styleUrl =
-        CONFIG.MAP.styles[type] || `mapbox://styles/mapbox/${type}-v11`;
+      const styleUrl = CONFIG.MAP.styles[type] || `mapbox://styles/mapbox/${type}-v11`;
 
       // Apply new style
       map.setStyle(styleUrl);

@@ -35,9 +35,7 @@ export function setupAppSettingsForm() {
   const polylineOpacity = document.getElementById("polyline-opacity");
   const opacityValue = document.getElementById("opacity-value");
   const geocodeTripsOnFetch = document.getElementById("geocode-trips-on-fetch");
-  const mapMatchTripsOnFetch = document.getElementById(
-    "map-match-trips-on-fetch"
-  );
+  const mapMatchTripsOnFetch = document.getElementById("map-match-trips-on-fetch");
   const form = document.getElementById("app-settings-form");
   const themeToggleCheckbox = document.getElementById("theme-toggle-checkbox");
   const accentColorPicker = document.getElementById("accent-color-picker");

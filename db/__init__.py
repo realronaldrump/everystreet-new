@@ -32,13 +32,6 @@ from __future__ import annotations
 
 import logging
 
-# New coverage system models
-from street_coverage.models import (
-    CoverageArea,
-    CoverageState,
-    Job,
-    Street as NewStreet,
-)
 from db.manager import DatabaseManager, db_manager
 
 # ============================================================================
@@ -70,6 +63,14 @@ from db.query import (
     build_calendar_date_expr,
     build_query_from_request,
     parse_query_date,
+)
+
+# New coverage system models
+from street_coverage.models import (
+    CoverageArea,
+    CoverageState,
+    Job,
+    Street as NewStreet,
 )
 
 logger = logging.getLogger(__name__)

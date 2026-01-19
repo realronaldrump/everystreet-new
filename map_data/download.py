@@ -7,16 +7,19 @@ Handles streaming downloads from Geofabrik with progress tracking.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import os
 from datetime import UTC, datetime
-from pathlib import Path
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any
 
 import httpx
 
 from config import get_geofabrik_mirror, get_osm_extracts_path
 from map_data.models import MapDataJob, MapRegion
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +68,10 @@ async def stream_download_region(
     logger.info("Starting download: %s -> %s", source_url, output_path)
 
     try:
-        async with httpx.AsyncClient(timeout=DOWNLOAD_TIMEOUT, follow_redirects=True) as client:
+        async with httpx.AsyncClient(
+            timeout=DOWNLOAD_TIMEOUT,
+            follow_redirects=True,
+        ) as client:
             async with client.stream("GET", source_url) as response:
                 response.raise_for_status()
 
@@ -130,13 +136,11 @@ async def stream_download_region(
 
                 return output_filename
 
-    except Exception as e:
+    except Exception:
         # Clean up temp file on error
         if os.path.exists(temp_path):
-            try:
+            with contextlib.suppress(Exception):
                 os.remove(temp_path)
-            except Exception:
-                pass
 
         logger.exception("Download failed for %s", region.name)
         raise
@@ -199,7 +203,7 @@ async def validate_pbf_file(filepath: str) -> bool:
 
         return True
 
-    except Exception as e:
+    except Exception:
         logger.exception("Error validating PBF file: %s", filepath)
         return False
 
@@ -221,11 +225,13 @@ async def get_download_progress(region_id: str) -> dict[str, Any]:
         return {"error": "Region not found"}
 
     # Find active download job
-    job = await MapDataJob.find_one({
-        "region_id": region.id,
-        "job_type": MapDataJob.JOB_DOWNLOAD,
-        "status": {"$in": [MapDataJob.STATUS_PENDING, MapDataJob.STATUS_RUNNING]},
-    })
+    job = await MapDataJob.find_one(
+        {
+            "region_id": region.id,
+            "job_type": MapDataJob.JOB_DOWNLOAD,
+            "status": {"$in": [MapDataJob.STATUS_PENDING, MapDataJob.STATUS_RUNNING]},
+        },
+    )
 
     return {
         "region_id": str(region.id),
@@ -233,13 +239,15 @@ async def get_download_progress(region_id: str) -> dict[str, Any]:
         "status": region.status,
         "progress": region.download_progress,
         "file_size_mb": region.file_size_mb,
-        "job": {
-            "id": str(job.id),
-            "status": job.status,
-            "stage": job.stage,
-            "progress": job.progress,
-            "message": job.message,
-        }
-        if job
-        else None,
+        "job": (
+            {
+                "id": str(job.id),
+                "status": job.status,
+                "stage": job.stage,
+                "progress": job.progress,
+                "message": job.message,
+            }
+            if job
+            else None
+        ),
     }

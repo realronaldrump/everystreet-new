@@ -36,7 +36,7 @@ async def test_preprocess_and_ingestion_uses_driveable_graph(tmp_path: Path) -> 
                         [-97.144, 31.551],
                         [-97.147, 31.551],
                         [-97.147, 31.548],
-                    ]
+                    ],
                 ],
             },
         }

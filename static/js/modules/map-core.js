@@ -15,7 +15,7 @@
 /* global mapboxgl */
 
 import { CONFIG } from "./config.js";
-import { getMapboxToken, waitForMapboxToken } from "./mapbox-token.js";
+import { waitForMapboxToken } from "./mapbox-token.js";
 import state from "./state.js";
 import { utils } from "./utils.js";
 
@@ -127,9 +127,9 @@ const mapCore = {
 
       // Check WebGL support
       if (!mapboxgl.supported()) {
-        mapElement.innerHTML =
-          '<div class="webgl-unsupported-message p-4 text-center">' +
-          "WebGL is not supported by your browser. Please use a modern browser.</div>";
+        mapElement.innerHTML
+          = '<div class="webgl-unsupported-message p-4 text-center">'
+          + "WebGL is not supported by your browser. Please use a modern browser.</div>";
         throw new Error("WebGL not supported");
       }
 
@@ -142,12 +142,10 @@ const mapCore = {
       }
 
       // Determine theme and style
-      const theme =
-        document.documentElement.getAttribute("data-bs-theme") || "dark";
+      const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
       const storedMapType = utils.getStorage(CONFIG.STORAGE_KEYS.mapType);
       const mapType = storedMapType || theme;
-      const mapStyle =
-        CONFIG.MAP.styles[mapType] || CONFIG.MAP.styles[theme];
+      const mapStyle = CONFIG.MAP.styles[mapType] || CONFIG.MAP.styles[theme];
 
       // Determine initial view (URL params > saved state > defaults)
       const initialView = this._getInitialView(options);
@@ -191,9 +189,11 @@ const mapCore = {
       loadingManager?.hide();
 
       // Dispatch event for other modules
-      document.dispatchEvent(new CustomEvent("mapInitialized", {
-        detail: { map },
-      }));
+      document.dispatchEvent(
+        new CustomEvent("mapInitialized", {
+          detail: { map },
+        })
+      );
 
       // Invoke ready callbacks
       this._invokeReadyCallbacks(map);
@@ -273,7 +273,9 @@ const mapCore = {
       let settled = false;
 
       const cleanup = () => {
-        if (settled) return;
+        if (settled) {
+          return;
+        }
         settled = true;
         clearTimeout(timeoutId);
       };
@@ -323,7 +325,7 @@ const mapCore = {
    * @returns {Promise<void>}
    */
   async waitForStyleLoad() {
-    const map = state.map;
+    const { map } = state;
     if (!map) {
       throw new Error("Map not initialized");
     }
@@ -356,13 +358,13 @@ const mapCore = {
    * @returns {Promise<void>}
    */
   async setStyle(styleType) {
-    const map = state.map;
+    const { map } = state;
     if (!map || !state.mapInitialized) {
       throw new Error("Map not initialized");
     }
 
-    const styleUrl =
-      CONFIG.MAP.styles[styleType] || `mapbox://styles/mapbox/${styleType}-v11`;
+    const styleUrl
+      = CONFIG.MAP.styles[styleType] || `mapbox://styles/mapbox/${styleType}-v11`;
 
     // Save current view
     const currentView = {

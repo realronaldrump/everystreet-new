@@ -8,11 +8,13 @@ Valhalla and Nominatim clients.
 from __future__ import annotations
 
 import logging
-from collections.abc import Iterable
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from core.exceptions import ExternalServiceException
 from core.http.blocklist import is_forbidden_host
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 logger = logging.getLogger(__name__)
 

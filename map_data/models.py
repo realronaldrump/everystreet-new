@@ -24,8 +24,9 @@ class MapRegion(Document):
     """
     A geographic region for map data management.
 
-    Represents a downloadable OSM region from Geofabrik or other sources.
-    Tracks download status and build status for both Nominatim and Valhalla.
+    Represents a downloadable OSM region from Geofabrik or other
+    sources. Tracks download status and build status for both Nominatim
+    and Valhalla.
     """
 
     # Identity
@@ -108,7 +109,8 @@ class MapDataJob(Document):
     """
     Job tracking for map data operations.
 
-    Tracks progress of downloads and builds with detailed status information.
+    Tracks progress of downloads and builds with detailed status
+    information.
     """
 
     # Identity

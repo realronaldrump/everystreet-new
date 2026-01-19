@@ -63,7 +63,9 @@ const initializeLiveTracker = () => {
  */
 const initializeLocationDropdown = async () => {
   const dropdown = utils.getElement("streets-location");
-  if (!dropdown) return;
+  if (!dropdown) {
+    return;
+  }
 
   try {
     const response = await utils.fetchWithRetry("/api/coverage/areas");
@@ -75,11 +77,11 @@ const initializeLocationDropdown = async () => {
     areas.forEach((area) => {
       const option = document.createElement("option");
       option.value = area.id || area._id;
-      option.textContent =
-        area.display_name ||
-        area.location?.display_name ||
-        area.name ||
-        "Unknown Location";
+      option.textContent
+        = area.display_name
+        || area.location?.display_name
+        || area.name
+        || "Unknown Location";
       frag.appendChild(option);
     });
     dropdown.appendChild(frag);
@@ -106,11 +108,15 @@ const restoreLayerVisibility = () => {
     if (layerName === "trips") {
       // Trips layer is always visible by default
       state.mapLayers[layerName].visible = true;
-      if (toggle) toggle.checked = true;
+      if (toggle) {
+        toggle.checked = true;
+      }
     } else if (saved[layerName] !== undefined) {
       // Restore saved visibility state
       state.mapLayers[layerName].visible = saved[layerName];
-      if (toggle) toggle.checked = saved[layerName];
+      if (toggle) {
+        toggle.checked = saved[layerName];
+      }
     }
   });
 };
@@ -189,7 +195,9 @@ const AppController = {
    */
   async _restoreStreetViewModes() {
     const selectedLocationId = utils.getStorage(CONFIG.STORAGE_KEYS.selectedLocation);
-    if (!selectedLocationId) return;
+    if (!selectedLocationId) {
+      return;
+    }
 
     let savedStates = utils.getStorage(CONFIG.STORAGE_KEYS.streetViewMode);
 
@@ -220,10 +228,7 @@ const AppController = {
    * @private
    */
   async _loadInitialData() {
-    const fetchPromises = [
-      dataManager.fetchTrips(),
-      dataManager.fetchMetrics(),
-    ];
+    const fetchPromises = [dataManager.fetchTrips(), dataManager.fetchMetrics()];
 
     // Fetch matched trips if visible
     if (state.mapLayers.matchedTrips.visible) {
@@ -319,13 +324,17 @@ const AppController = {
 
       controlsContent.addEventListener("shown.bs.collapse", () => {
         const icon = controlsToggle.querySelector("i");
-        if (icon) icon.className = "fas fa-chevron-up";
+        if (icon) {
+          icon.className = "fas fa-chevron-up";
+        }
         controlsToggle.setAttribute("aria-expanded", "true");
       });
 
       controlsContent.addEventListener("hidden.bs.collapse", () => {
         const icon = controlsToggle.querySelector("i");
-        if (icon) icon.className = "fas fa-chevron-down";
+        if (icon) {
+          icon.className = "fas fa-chevron-down";
+        }
         controlsToggle.setAttribute("aria-expanded", "false");
       });
     }
@@ -365,7 +374,9 @@ const AppController = {
         const mode = btn.dataset.streetMode;
         const isActive = savedStates[mode] === true;
 
-        if (isActive) btn.classList.add("active");
+        if (isActive) {
+          btn.classList.add("active");
+        }
 
         btn.addEventListener("click", async () => {
           const isCurrentlyActive = btn.classList.contains("active");
@@ -417,7 +428,9 @@ const AppController = {
 
     // Map style reload event – re-apply layers
     document.addEventListener("mapStyleLoaded", async () => {
-      if (!state.map || !state.mapInitialized) return;
+      if (!state.map || !state.mapInitialized) {
+        return;
+      }
 
       window.loadingManager?.pulse("Applying new map style...");
 
@@ -523,12 +536,14 @@ const AppController = {
       const confirmed = await window.confirmationDialog?.show({
         title: "Map Match Trips",
         message:
-          "This will process all trips in the selected date range. " +
-          "This may take several minutes for large date ranges. Continue?",
+          "This will process all trips in the selected date range. "
+          + "This may take several minutes for large date ranges. Continue?",
         confirmText: "Start Map Matching",
         confirmButtonClass: "btn-primary",
       });
-      if (!confirmed) return;
+      if (!confirmed) {
+        return;
+      }
 
       window.loadingManager?.show("Starting map matching process...");
       const res = await utils.fetchWithRetry("/api/map_match_trips", {
@@ -580,7 +595,9 @@ const AppController = {
     };
 
     const config = layerMap[mode];
-    if (!config) return;
+    if (!config) {
+      return;
+    }
 
     if (shouldHide) {
       state.mapLayers[config.layer].visible = false;

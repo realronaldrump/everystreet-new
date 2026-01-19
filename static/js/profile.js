@@ -669,7 +669,9 @@
       });
     }
     // eslint-disable-next-line no-alert -- Fallback when custom dialog is unavailable.
-    const confirmed = window.confirm("You have unsaved changes. Discard them and leave?");
+    const confirmed = window.confirm(
+      "You have unsaved changes. Discard them and leave?"
+    );
     return Promise.resolve(confirmed);
   }
 
@@ -819,13 +821,23 @@
    */
   function initServiceConfigForm(signal) {
     const form = document.getElementById("serviceConfigForm");
-    if (!form) return;
+    if (!form) {
+      return;
+    }
 
-    form.addEventListener("submit", handleSaveServiceConfig, signal ? { signal } : false);
+    form.addEventListener(
+      "submit",
+      handleSaveServiceConfig,
+      signal ? { signal } : false
+    );
 
     const reloadBtn = document.getElementById("reloadServiceConfigBtn");
     if (reloadBtn) {
-      reloadBtn.addEventListener("click", loadServiceConfig, signal ? { signal } : false);
+      reloadBtn.addEventListener(
+        "click",
+        loadServiceConfig,
+        signal ? { signal } : false
+      );
     }
 
     // Load settings on page load
@@ -845,7 +857,9 @@
       const settings = await response.json();
       populateServiceConfigForm(settings);
     } catch (error) {
-      if (error.name === "AbortError") return;
+      if (error.name === "AbortError") {
+        return;
+      }
       showServiceConfigStatus(`Error loading settings: ${error.message}`, "error");
     }
   }
@@ -860,11 +874,21 @@
     const valhallaBaseUrl = document.getElementById("valhallaBaseUrl");
     const geofabrikMirror = document.getElementById("geofabrikMirror");
 
-    if (mapboxToken) mapboxToken.value = settings.mapbox_token || "";
-    if (nominatimBaseUrl) nominatimBaseUrl.value = settings.nominatim_base_url || "";
-    if (nominatimUserAgent) nominatimUserAgent.value = settings.nominatim_user_agent || "";
-    if (valhallaBaseUrl) valhallaBaseUrl.value = settings.valhalla_base_url || "";
-    if (geofabrikMirror) geofabrikMirror.value = settings.geofabrik_mirror || "";
+    if (mapboxToken) {
+      mapboxToken.value = settings.mapbox_token || "";
+    }
+    if (nominatimBaseUrl) {
+      nominatimBaseUrl.value = settings.nominatim_base_url || "";
+    }
+    if (nominatimUserAgent) {
+      nominatimUserAgent.value = settings.nominatim_user_agent || "";
+    }
+    if (valhallaBaseUrl) {
+      valhallaBaseUrl.value = settings.valhalla_base_url || "";
+    }
+    if (geofabrikMirror) {
+      geofabrikMirror.value = settings.geofabrik_mirror || "";
+    }
   }
 
   /**
@@ -872,13 +896,19 @@
    */
   async function handleSaveServiceConfig(event) {
     event.preventDefault();
-    if (pageSignal?.aborted) return;
+    if (pageSignal?.aborted) {
+      return;
+    }
 
     const mapboxToken = document.getElementById("mapboxToken")?.value.trim() || null;
-    const nominatimBaseUrl = document.getElementById("nominatimBaseUrl")?.value.trim() || "";
-    const nominatimUserAgent = document.getElementById("nominatimUserAgent")?.value.trim() || "";
-    const valhallaBaseUrl = document.getElementById("valhallaBaseUrl")?.value.trim() || "";
-    const geofabrikMirror = document.getElementById("geofabrikMirror")?.value.trim() || "";
+    const nominatimBaseUrl
+      = document.getElementById("nominatimBaseUrl")?.value.trim() || "";
+    const nominatimUserAgent
+      = document.getElementById("nominatimUserAgent")?.value.trim() || "";
+    const valhallaBaseUrl
+      = document.getElementById("valhallaBaseUrl")?.value.trim() || "";
+    const geofabrikMirror
+      = document.getElementById("geofabrikMirror")?.value.trim() || "";
 
     // Validate Mapbox token format if provided
     if (mapboxToken && !mapboxToken.startsWith("pk.")) {
@@ -889,17 +919,20 @@
     try {
       showServiceConfigStatus("Saving service configuration...", "info");
 
-      const response = await fetch("/api/app_settings", withSignal({
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          mapbox_token: mapboxToken,
-          nominatim_base_url: nominatimBaseUrl,
-          nominatim_user_agent: nominatimUserAgent,
-          valhalla_base_url: valhallaBaseUrl,
-          geofabrik_mirror: geofabrikMirror,
-        }),
-      }));
+      const response = await fetch(
+        "/api/app_settings",
+        withSignal({
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            mapbox_token: mapboxToken,
+            nominatim_base_url: nominatimBaseUrl,
+            nominatim_user_agent: nominatimUserAgent,
+            valhalla_base_url: valhallaBaseUrl,
+            geofabrik_mirror: geofabrikMirror,
+          }),
+        })
+      );
 
       if (!response.ok) {
         const data = await response.json();
@@ -908,7 +941,9 @@
 
       showServiceConfigStatus("Service configuration saved successfully!", "success");
     } catch (error) {
-      if (error.name === "AbortError") return;
+      if (error.name === "AbortError") {
+        return;
+      }
       showServiceConfigStatus(`Error saving settings: ${error.message}`, "error");
     }
   }
@@ -918,7 +953,9 @@
    */
   function showServiceConfigStatus(message, type) {
     const statusEl = document.getElementById("serviceConfigStatus");
-    if (!statusEl) return;
+    if (!statusEl) {
+      return;
+    }
 
     statusEl.textContent = message;
     statusEl.className = `alert alert-${getBootstrapClass(type)} mt-3`;
@@ -933,7 +970,7 @@
 
   // Add service config initialization to page load
   const origInitEventListeners = initializeEventListeners;
-  window.initializeEventListeners = function(signal) {
+  window.initializeEventListeners = (signal) => {
     origInitEventListeners(signal);
     initServiceConfigForm(signal);
   };

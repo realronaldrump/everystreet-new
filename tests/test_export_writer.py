@@ -3,7 +3,11 @@ import json
 
 import pytest
 
-from exports.services.export_writer import write_csv, write_geojson_features, write_json_array
+from exports.services.export_writer import (
+    write_csv,
+    write_geojson_features,
+    write_json_array,
+)
 
 
 async def _async_iter(items):

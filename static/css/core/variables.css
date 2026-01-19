@@ -88,11 +88,7 @@
     rgb(var(--danger-rgb) / 92%),
     rgb(var(--danger-rgb) / 75%)
   );
-  --info-gradient: linear-gradient(
-    135deg,
-    rgb(var(--info-rgb) / 92%),
-    rgb(var(--info-rgb) / 75%)
-  );
+  --info-gradient: linear-gradient(135deg, rgb(var(--info-rgb) / 92%), rgb(var(--info-rgb) / 75%));
 
   /* Dark Mode Surfaces (Default) */
   --surface-0: #0f1116;
@@ -120,7 +116,7 @@
   --font-family: "Inter", "Segoe UI", "Helvetica Neue", sans-serif;
   --font-family-display: "Inter", "Segoe UI", "Helvetica Neue", sans-serif;
   --font-family-mono:
-    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    ui-monospace, sfmono-regular, menlo, monaco, consolas, "Liberation Mono", monospace;
   --font-size-xs: clamp(0.72rem, 0.68rem + 0.2vw, 0.82rem);
   --font-size-sm: clamp(0.84rem, 0.8rem + 0.2vw, 0.98rem);
   --font-size-md: clamp(0.98rem, 0.94rem + 0.25vw, 1.08rem);
@@ -185,7 +181,6 @@
   --glow-warning: 0 0 14px rgb(var(--warning-rgb) / 35%);
   --glow-danger: 0 0 14px rgb(var(--danger-rgb) / 35%);
   --glow-info: 0 0 14px rgb(var(--info-rgb) / 35%);
-
   --accent: var(--primary);
   --accent-rgb: var(--primary-rgb);
   --section-accent: var(--accent);
@@ -301,7 +296,7 @@
 /* Light Mode Overrides */
 body.light-mode {
   --surface-0: #f5f7fb;
-  --surface-1: #ffffff;
+  --surface-1: #fff;
   --surface-2: #edf0f6;
   --surface-3: #e1e6ef;
   --surface-4: #d5dbe7;

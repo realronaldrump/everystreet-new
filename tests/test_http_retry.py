@@ -10,11 +10,11 @@ async def test_retry_async_retries_until_success() -> None:
     attempts = 0
 
     @retry_async(max_retries=2, retry_delay=0)
-    async def flaky():
+    async def flaky() -> str:
         nonlocal attempts
         attempts += 1
         if attempts < 3:
-            raise asyncio.TimeoutError()
+            raise TimeoutError
         return "ok"
 
     result = await flaky()
@@ -30,7 +30,7 @@ async def test_retry_async_raises_after_exhaustion() -> None:
     async def always_fail():
         nonlocal attempts
         attempts += 1
-        raise asyncio.TimeoutError()
+        raise TimeoutError
 
     with pytest.raises(asyncio.TimeoutError):
         await always_fail()

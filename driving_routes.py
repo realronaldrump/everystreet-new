@@ -8,11 +8,11 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
 from core.http.valhalla import ValhallaClient
-from street_coverage.constants import MILES_TO_METERS
-from street_coverage.models import CoverageArea, CoverageState, Street
 from db.models import Trip
 from geometry_service import GeometryService
 from live_tracking import get_active_trip
+from street_coverage.constants import MILES_TO_METERS
+from street_coverage.models import CoverageArea, CoverageState, Street
 
 logger = logging.getLogger(__name__)
 router = APIRouter()

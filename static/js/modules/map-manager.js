@@ -45,10 +45,14 @@ const mapManager = {
    * @private
    */
   _setupViewStateManagement() {
-    if (!state.map) return;
+    if (!state.map) {
+      return;
+    }
 
     saveViewStateDebounced = utils.debounce(() => {
-      if (!state.map) return;
+      if (!state.map) {
+        return;
+      }
 
       const center = state.map.getCenter();
       const zoom = state.map.getZoom();
@@ -70,7 +74,9 @@ const mapManager = {
    * @private
    */
   _setupClickHandler() {
-    if (!state.map) return;
+    if (!state.map) {
+      return;
+    }
     state.map.on("click", this._handleMapClick.bind(this));
   },
 
@@ -79,13 +85,19 @@ const mapManager = {
    * @private
    */
   _setupViewChangeListener() {
-    if (this._viewListenerBound) return;
+    if (this._viewListenerBound) {
+      return;
+    }
 
     document.addEventListener("es:map-view-change", (event) => {
-      if (!state.map) return;
+      if (!state.map) {
+        return;
+      }
 
       // Ignore events we triggered ourselves
-      if (event.detail?.source === "map") return;
+      if (event.detail?.source === "map") {
+        return;
+      }
 
       const view = event.detail?.view;
       if (!view || !Array.isArray(view.center) || !Number.isFinite(view.zoom)) {
@@ -114,7 +126,10 @@ const mapManager = {
       queryLayers.push("trips-hitbox");
     } else if (!state.mapLayers.trips?.isHeatmap && state.map.getLayer("trips-layer")) {
       queryLayers.push("trips-layer");
-    } else if (state.mapLayers.trips?.isHeatmap && state.map.getLayer("trips-layer-1")) {
+    } else if (
+      state.mapLayers.trips?.isHeatmap
+      && state.map.getLayer("trips-layer-1")
+    ) {
       queryLayers.push("trips-layer-1");
     }
 
@@ -150,7 +165,9 @@ const mapManager = {
    * Update URL with current map state
    */
   updateUrlState() {
-    if (!state.map || !window.history?.replaceState) return;
+    if (!state.map || !window.history?.replaceState) {
+      return;
+    }
 
     try {
       const center = state.map.getCenter();
@@ -172,21 +189,27 @@ const mapManager = {
    * Throttled to prevent excessive updates
    */
   refreshTripStyles: utils.throttle(function () {
-    if (!state.map || !state.mapInitialized) return;
+    if (!state.map || !state.mapInitialized) {
+      return;
+    }
 
-    const selectedId = state.selectedTripId
-      ? String(state.selectedTripId)
-      : null;
+    const selectedId = state.selectedTripId ? String(state.selectedTripId) : null;
 
     ["trips", "matchedTrips"].forEach((layerName) => {
       const layerInfo = state.mapLayers[layerName];
-      if (!layerInfo?.visible) return;
+      if (!layerInfo?.visible) {
+        return;
+      }
 
       // Skip heatmap layers - they don't support trip selection styling
-      if (layerInfo.isHeatmap) return;
+      if (layerInfo.isHeatmap) {
+        return;
+      }
 
       const layerId = `${layerName}-layer`;
-      if (!state.map.getLayer(layerId)) return;
+      if (!state.map.getLayer(layerId)) {
+        return;
+      }
 
       const baseColor = layerInfo.color || "#4A90D9";
       const baseWeight = layerInfo.weight || 2;
@@ -237,7 +260,9 @@ const mapManager = {
    * @private
    */
   _updateSelectedTripOverlay(selectedId) {
-    if (!state.map || !state.mapInitialized) return;
+    if (!state.map || !state.mapInitialized) {
+      return;
+    }
 
     const sourceId = "selected-trip-source";
     const layerId = "selected-trip-layer";
@@ -253,10 +278,10 @@ const mapManager = {
 
     // Remove overlay if no selection or not in heatmap mode
     if (
-      !selectedId ||
-      state.selectedTripLayer !== "trips" ||
-      !state.mapLayers.trips?.isHeatmap ||
-      !state.mapLayers.trips?.visible
+      !selectedId
+      || state.selectedTripLayer !== "trips"
+      || !state.mapLayers.trips?.isHeatmap
+      || !state.mapLayers.trips?.visible
     ) {
       removeOverlay();
       return;
@@ -265,11 +290,11 @@ const mapManager = {
     // Find the matching feature
     const tripLayer = state.mapLayers.trips?.layer;
     const matchingFeature = tripLayer?.features?.find((feature) => {
-      const featureId =
-        feature?.properties?.transactionId ||
-        feature?.properties?.id ||
-        feature?.properties?.tripId ||
-        feature?.id;
+      const featureId
+        = feature?.properties?.transactionId
+        || feature?.properties?.id
+        || feature?.properties?.tripId
+        || feature?.id;
       return featureId != null && String(featureId) === selectedId;
     });
 
@@ -284,18 +309,23 @@ const mapManager = {
       properties: matchingFeature.properties || {},
     };
 
-    const highlightColor =
-      window.MapStyles?.MAP_LAYER_COLORS?.trips?.selected || "#FFD700";
+    const highlightColor
+      = window.MapStyles?.MAP_LAYER_COLORS?.trips?.selected || "#FFD700";
 
     const highlightWidth = [
       "interpolate",
       ["linear"],
       ["zoom"],
-      6, 2,
-      10, 4,
-      14, 6,
-      18, 10,
-      22, 14,
+      6,
+      2,
+      10,
+      4,
+      14,
+      6,
+      18,
+      10,
+      22,
+      14,
     ];
 
     // Create or update source
@@ -338,7 +368,9 @@ const mapManager = {
    * @param {boolean} animate - Whether to animate the transition
    */
   async fitBounds(animate = true) {
-    if (!state.map || !state.mapInitialized) return;
+    if (!state.map || !state.mapInitialized) {
+      return;
+    }
 
     await utils.measurePerformance("fitBounds", () => {
       const bounds = new mapboxgl.LngLatBounds();
@@ -377,7 +409,9 @@ const mapManager = {
    * @param {string|number} tripId - The trip ID to zoom to
    */
   async zoomToTrip(tripId) {
-    if (!state.map || !state.mapLayers.trips?.layer?.features) return;
+    if (!state.map || !state.mapLayers.trips?.layer?.features) {
+      return;
+    }
 
     // Wait for features to be loaded if they aren't yet
     if (state.mapLayers.trips.layer.features.length === 0) {
@@ -386,11 +420,8 @@ const mapManager = {
 
     const { features } = state.mapLayers.trips.layer;
     const tripFeature = features.find((f) => {
-      const fId =
-        f.properties?.transactionId ||
-        f.properties?.id ||
-        f.properties?.tripId ||
-        f.id;
+      const fId
+        = f.properties?.transactionId || f.properties?.id || f.properties?.tripId || f.id;
       return String(fId) === String(tripId);
     });
 
@@ -427,14 +458,18 @@ const mapManager = {
    * @param {number} targetZoom - Zoom level to use
    */
   zoomToLastTrip(targetZoom = 14) {
-    if (!state.map || !state.mapLayers.trips?.layer?.features) return;
+    if (!state.map || !state.mapLayers.trips?.layer?.features) {
+      return;
+    }
 
     const { features } = state.mapLayers.trips.layer;
 
     // Find the trip with the most recent end time
     const lastTripFeature = features.reduce((latest, feature) => {
       const endTime = feature.properties?.endTime;
-      if (!endTime) return latest;
+      if (!endTime) {
+        return latest;
+      }
 
       const time = new Date(endTime).getTime();
       const latestTime = latest?.properties?.endTime
@@ -444,7 +479,9 @@ const mapManager = {
       return time > latestTime ? feature : latest;
     }, null);
 
-    if (!lastTripFeature?.geometry) return;
+    if (!lastTripFeature?.geometry) {
+      return;
+    }
 
     let lastCoord = null;
     const { type, coordinates } = lastTripFeature.geometry;
@@ -456,9 +493,9 @@ const mapManager = {
     }
 
     if (
-      lastCoord?.length === 2 &&
-      !Number.isNaN(lastCoord[0]) &&
-      !Number.isNaN(lastCoord[1])
+      lastCoord?.length === 2
+      && !Number.isNaN(lastCoord[0])
+      && !Number.isNaN(lastCoord[1])
     ) {
       state.map.flyTo({
         center: lastCoord,
@@ -475,7 +512,9 @@ const mapManager = {
    * @param {number} zoom - Optional zoom level
    */
   panTo(center, zoom) {
-    if (!state.map) return;
+    if (!state.map) {
+      return;
+    }
 
     const options = { center, duration: 1000 };
     if (typeof zoom === "number") {
@@ -490,7 +529,9 @@ const mapManager = {
    * @returns {Object|null}
    */
   getViewState() {
-    if (!state.map) return null;
+    if (!state.map) {
+      return null;
+    }
 
     const center = state.map.getCenter();
     return {

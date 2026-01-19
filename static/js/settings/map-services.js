@@ -64,9 +64,7 @@ function setupEventListeners() {
   document
     .getElementById("region-breadcrumb")
     ?.addEventListener("click", handleBreadcrumbClick);
-  document
-    .getElementById("region-list")
-    ?.addEventListener("click", handleRegionClick);
+  document.getElementById("region-list")?.addEventListener("click", handleRegionClick);
 
   // Load regions when modal opens
   const addRegionModal = document.getElementById("addRegionModal");
@@ -130,8 +128,8 @@ function updateHealthCard(service, health) {
   }
 
   if (tileCountSpan && health.tile_count !== undefined) {
-    tileCountSpan.textContent =
-      health.tile_count !== null ? health.tile_count.toLocaleString() : "--";
+    tileCountSpan.textContent
+      = health.tile_count !== null ? health.tile_count.toLocaleString() : "--";
   }
 }
 
@@ -155,7 +153,9 @@ async function refreshHealth() {
 
 async function loadRegions() {
   const tbody = document.getElementById("regions-table-body");
-  if (!tbody) return;
+  if (!tbody) {
+    return;
+  }
 
   try {
     const response = await fetch(`${API_BASE}/regions`);
@@ -163,7 +163,9 @@ async function loadRegions() {
 
     // Remove loading row
     const loadingRow = document.getElementById("regions-loading-row");
-    if (loadingRow) loadingRow.remove();
+    if (loadingRow) {
+      loadingRow.remove();
+    }
 
     if (!data.regions || data.regions.length === 0) {
       tbody.innerHTML = `
@@ -178,7 +180,9 @@ async function loadRegions() {
 
     // Remove no-regions row if it exists
     const noRegionsRow = document.getElementById("no-regions-row");
-    if (noRegionsRow) noRegionsRow.remove();
+    if (noRegionsRow) {
+      noRegionsRow.remove();
+    }
 
     tbody.innerHTML = data.regions
       .map(
@@ -239,7 +243,7 @@ function renderStatusBadge(status) {
     error: { class: "danger", icon: "exclamation-triangle", text: "Error" },
   };
 
-  const config = configs[status] || configs["not_downloaded"];
+  const config = configs[status] || configs.not_downloaded;
   return `<span class="badge bg-${config.class}"><i class="fas fa-${config.icon} me-1"></i>${config.text}</span>`;
 }
 
@@ -248,9 +252,9 @@ function renderRegionActions(region) {
 
   // Build actions for downloaded regions
   if (
-    region.status === "downloaded" ||
-    region.status === "ready" ||
-    region.status === "error"
+    region.status === "downloaded"
+    || region.status === "ready"
+    || region.status === "error"
   ) {
     if (region.nominatim_status !== "ready") {
       actions.push(`
@@ -284,7 +288,9 @@ function renderRegionActions(region) {
 
 async function loadGeofabrikRegions(parent = "") {
   const regionList = document.getElementById("region-list");
-  if (!regionList) return;
+  if (!regionList) {
+    return;
+  }
 
   regionList.innerHTML = `
     <div class="text-center py-3">
@@ -312,8 +318,12 @@ async function loadGeofabrikRegions(parent = "") {
 
     // Sort regions: folders first, then by name
     const sortedRegions = data.regions.sort((a, b) => {
-      if (a.has_children && !b.has_children) return -1;
-      if (!a.has_children && b.has_children) return 1;
+      if (a.has_children && !b.has_children) {
+        return -1;
+      }
+      if (!a.has_children && b.has_children) {
+        return 1;
+      }
       return a.name.localeCompare(b.name);
     });
 
@@ -353,10 +363,12 @@ async function loadGeofabrikRegions(parent = "") {
 
 function handleBreadcrumbClick(event) {
   const link = event.target.closest("a[data-region]");
-  if (!link) return;
+  if (!link) {
+    return;
+  }
 
   event.preventDefault();
-  const region = link.dataset.region;
+  const { region } = link.dataset;
 
   // Update path
   if (region === "") {
@@ -378,12 +390,14 @@ function handleBreadcrumbClick(event) {
 
 function handleRegionClick(event) {
   const item = event.target.closest(".region-item");
-  if (!item) return;
+  if (!item) {
+    return;
+  }
 
-  const regionId = item.dataset.regionId;
-  const regionName = item.dataset.regionName;
-  const regionSize = item.dataset.regionSize;
-  const regionUrl = item.dataset.regionUrl;
+  const { regionId } = item.dataset;
+  const { regionName } = item.dataset;
+  const { regionSize } = item.dataset;
+  const { regionUrl } = item.dataset;
   const hasChildren = item.dataset.hasChildren === "true";
 
   if (hasChildren) {
@@ -412,7 +426,9 @@ function handleRegionClick(event) {
 
 function updateBreadcrumb() {
   const breadcrumb = document.getElementById("region-breadcrumb");
-  if (!breadcrumb) return;
+  if (!breadcrumb) {
+    return;
+  }
 
   const items = [{ id: "", name: "World" }];
 
@@ -449,12 +465,17 @@ function updateSelectedRegionUI() {
   if (selectedRegion) {
     infoDiv?.classList.remove("d-none");
     downloadBtn.disabled = false;
-    if (nameSpan) nameSpan.textContent = selectedRegion.name;
-    if (sizeSpan)
+    if (nameSpan) {
+      nameSpan.textContent = selectedRegion.name;
+    }
+    if (sizeSpan) {
       sizeSpan.textContent = selectedRegion.size
         ? `${parseFloat(selectedRegion.size).toFixed(1)} MB`
         : "Unknown";
-    if (idSpan) idSpan.textContent = selectedRegion.id;
+    }
+    if (idSpan) {
+      idSpan.textContent = selectedRegion.id;
+    }
   } else {
     infoDiv?.classList.add("d-none");
     downloadBtn.disabled = true;
@@ -466,12 +487,13 @@ function updateSelectedRegionUI() {
 // =============================================================================
 
 async function downloadSelectedRegion() {
-  if (!selectedRegion) return;
+  if (!selectedRegion) {
+    return;
+  }
 
   const btn = document.getElementById("download-region-btn");
   btn.disabled = true;
-  btn.innerHTML =
-    '<i class="fas fa-spinner fa-spin"></i> Starting download...';
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Starting download...';
 
   try {
     const response = await fetch(`${API_BASE}/regions/download`, {
@@ -517,12 +539,9 @@ async function downloadSelectedRegion() {
 
 async function buildNominatim(regionId) {
   try {
-    const response = await fetch(
-      `${API_BASE}/regions/${regionId}/build/nominatim`,
-      {
-        method: "POST",
-      }
-    );
+    const response = await fetch(`${API_BASE}/regions/${regionId}/build/nominatim`, {
+      method: "POST",
+    });
 
     const data = await response.json();
 
@@ -544,12 +563,9 @@ async function buildNominatim(regionId) {
 
 async function buildValhalla(regionId) {
   try {
-    const response = await fetch(
-      `${API_BASE}/regions/${regionId}/build/valhalla`,
-      {
-        method: "POST",
-      }
-    );
+    const response = await fetch(`${API_BASE}/regions/${regionId}/build/valhalla`, {
+      method: "POST",
+    });
 
     const data = await response.json();
 
@@ -572,14 +588,14 @@ async function buildValhalla(regionId) {
 function deleteRegion(regionId, regionName) {
   deleteRegionId = regionId;
   document.getElementById("delete-region-name").textContent = regionName;
-  const modal = new bootstrap.Modal(
-    document.getElementById("deleteRegionModal")
-  );
+  const modal = new bootstrap.Modal(document.getElementById("deleteRegionModal"));
   modal.show();
 }
 
 async function confirmDeleteRegion() {
-  if (!deleteRegionId) return;
+  if (!deleteRegionId) {
+    return;
+  }
 
   const btn = document.getElementById("confirm-delete-region-btn");
   btn.disabled = true;
@@ -626,20 +642,26 @@ async function confirmDeleteRegion() {
 async function loadActiveJobs() {
   const jobsList = document.getElementById("active-jobs-list");
   const noJobsMsg = document.getElementById("no-active-jobs");
-  if (!jobsList) return;
+  if (!jobsList) {
+    return;
+  }
 
   try {
     const response = await fetch(`${API_BASE}/jobs?active_only=true`);
     const data = await response.json();
 
     if (!data.jobs || data.jobs.length === 0) {
-      if (noJobsMsg) noJobsMsg.style.display = "block";
+      if (noJobsMsg) {
+        noJobsMsg.style.display = "block";
+      }
       // Remove any job cards
       jobsList.querySelectorAll(".job-card").forEach((el) => el.remove());
       return;
     }
 
-    if (noJobsMsg) noJobsMsg.style.display = "none";
+    if (noJobsMsg) {
+      noJobsMsg.style.display = "none";
+    }
 
     // Update or create job cards
     for (const job of data.jobs) {
@@ -706,10 +728,7 @@ async function cancelJob(jobId) {
       await loadActiveJobs();
       await loadRegions();
     } else {
-      window.notificationManager?.show(
-        data.detail || "Failed to cancel job",
-        "danger"
-      );
+      window.notificationManager?.show(data.detail || "Failed to cancel job", "danger");
     }
   } catch (error) {
     console.error("Failed to cancel job:", error);
@@ -732,7 +751,9 @@ function formatJobType(type) {
 }
 
 function formatRelativeTime(isoString) {
-  if (!isoString) return "--";
+  if (!isoString) {
+    return "--";
+  }
 
   const date = new Date(isoString);
   const now = new Date();
@@ -741,14 +762,22 @@ function formatRelativeTime(isoString) {
   const diffMin = Math.floor(diffSec / 60);
   const diffHour = Math.floor(diffMin / 60);
 
-  if (diffSec < 60) return "just now";
-  if (diffMin < 60) return `${diffMin}m ago`;
-  if (diffHour < 24) return `${diffHour}h ago`;
+  if (diffSec < 60) {
+    return "just now";
+  }
+  if (diffMin < 60) {
+    return `${diffMin}m ago`;
+  }
+  if (diffHour < 24) {
+    return `${diffHour}h ago`;
+  }
   return date.toLocaleDateString();
 }
 
 function escapeHtml(text) {
-  if (!text) return "";
+  if (!text) {
+    return "";
+  }
   const div = document.createElement("div");
   div.textContent = text;
   return div.innerHTML;

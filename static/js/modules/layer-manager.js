@@ -15,7 +15,6 @@
 
 import { CONFIG } from "./config.js";
 import heatmapUtils from "./heatmap-utils.js";
-import mapCore from "./map-core.js";
 import store from "./spa/store.js";
 import state from "./state.js";
 import { utils } from "./utils.js";
@@ -81,11 +80,16 @@ const layerManager = {
       "interpolate",
       ["linear"],
       ["zoom"],
-      6, baseWidth * 0.6,
-      10, baseWidth,
-      14, baseWidth * 1.3,
-      18, baseWidth * 1.6,
-      22, baseWidth * 2,
+      6,
+      baseWidth * 0.6,
+      10,
+      baseWidth,
+      14,
+      baseWidth * 1.3,
+      18,
+      baseWidth * 1.6,
+      22,
+      baseWidth * 2,
     ];
   },
 
@@ -103,7 +107,9 @@ const layerManager = {
    * @private
    */
   _removeTripHitboxLayer(layerName) {
-    if (!state.map) return;
+    if (!state.map) {
+      return;
+    }
 
     const hitboxLayerId = `${layerName}-hitbox`;
 
@@ -238,7 +244,9 @@ const layerManager = {
    */
   initializeControls() {
     const container = utils.getElement("layer-toggles");
-    if (!container) return;
+    if (!container) {
+      return;
+    }
 
     // Load saved layer settings
     const settings = utils.getStorage(CONFIG.STORAGE_KEYS.layerSettings) || {};
@@ -267,10 +275,10 @@ const layerManager = {
       div.style.cursor = "move";
 
       const checkboxId = `${name}-toggle`;
-      const supportsColorPicker =
-        info.supportsColorPicker !== false && name !== "customPlaces";
-      const supportsOpacitySlider =
-        info.supportsOpacitySlider !== false && name !== "customPlaces";
+      const supportsColorPicker
+        = info.supportsColorPicker !== false && name !== "customPlaces";
+      const supportsOpacitySlider
+        = info.supportsOpacitySlider !== false && name !== "customPlaces";
       const colorValue = typeof info.color === "string" ? info.color : "#ffffff";
 
       const controls = [];
@@ -324,7 +332,9 @@ const layerManager = {
       utils.debounce((e) => {
         const input = e.target;
         const layerName = input.closest(".layer-control")?.dataset.layerName;
-        if (!layerName) return;
+        if (!layerName) {
+          return;
+        }
 
         if (input.type === "checkbox") {
           this.toggleLayer(layerName, input.checked);
@@ -350,11 +360,11 @@ const layerManager = {
       const { target } = e;
       // Prevent drag on interactive elements
       if (
-        target.tagName === "INPUT" ||
-        target.tagName === "LABEL" ||
-        target.closest("input") ||
-        target.closest("label") ||
-        target.closest("button")
+        target.tagName === "INPUT"
+        || target.tagName === "LABEL"
+        || target.closest("input")
+        || target.closest("label")
+        || target.closest("button")
       ) {
         e.preventDefault();
         return;
@@ -380,7 +390,9 @@ const layerManager = {
       e.preventDefault();
       e.dataTransfer.dropEffect = "move";
 
-      if (!draggedElement) return;
+      if (!draggedElement) {
+        return;
+      }
 
       const afterElement = this._getDragAfterElement(container, e.clientY);
       if (afterElement == null) {
@@ -424,7 +436,9 @@ const layerManager = {
    */
   _reorderLayersFromUI() {
     const container = utils.getElement("layer-toggles");
-    if (!container) return;
+    if (!container) {
+      return;
+    }
 
     // Update order in state
     Array.from(container.children).forEach((item, index) => {
@@ -463,10 +477,14 @@ const layerManager = {
    * Bind heatmap refresh events on map move
    */
   bindHeatmapEvents() {
-    if (this._heatmapEventsBound || !state.map) return;
+    if (this._heatmapEventsBound || !state.map) {
+      return;
+    }
 
     const refreshHeatmaps = utils.debounce(() => {
-      if (!state.map || !state.mapInitialized) return;
+      if (!state.map || !state.mapInitialized) {
+        return;
+      }
 
       Object.entries(state.mapLayers).forEach(([layerName, info]) => {
         if (info?.isHeatmap && info.visible) {
@@ -502,7 +520,9 @@ const layerManager = {
    */
   async toggleLayer(name, visible) {
     const layerInfo = state.mapLayers[name];
-    if (!layerInfo) return;
+    if (!layerInfo) {
+      return;
+    }
 
     layerInfo.visible = visible;
 
@@ -593,7 +613,9 @@ const layerManager = {
    * @private
    */
   _fadeLayer(layerId, visible, fallbackOpacity = 1) {
-    if (!state.map?.getLayer(layerId)) return;
+    if (!state.map?.getLayer(layerId)) {
+      return;
+    }
 
     const layerType = state.map.getLayer(layerId).type;
     const opacityProp = this._getOpacityProperty(layerType);
@@ -663,7 +685,9 @@ const layerManager = {
    */
   updateLayerStyle(name, property, value) {
     const layerInfo = state.mapLayers[name];
-    if (!layerInfo) return;
+    if (!layerInfo) {
+      return;
+    }
 
     layerInfo[property] = value;
 
@@ -717,21 +741,27 @@ const layerManager = {
    * @private
    */
   _getHeatmapTripCountInView(layerName, fallbackCount) {
-    if (!state.map || !state.mapInitialized) return fallbackCount;
+    if (!state.map || !state.mapInitialized) {
+      return fallbackCount;
+    }
 
     const layerId = `${layerName}-layer-1`;
-    if (!state.map.getLayer(layerId)) return fallbackCount;
+    if (!state.map.getLayer(layerId)) {
+      return fallbackCount;
+    }
 
     const rendered = state.map.queryRenderedFeatures({ layers: [layerId] });
-    if (!rendered?.length) return 0;
+    if (!rendered?.length) {
+      return 0;
+    }
 
     const uniqueTrips = new Set();
     rendered.forEach((feature, index) => {
-      const id =
-        feature.properties?.transactionId ??
-        feature.properties?.id ??
-        feature.id ??
-        `rendered-${index}`;
+      const id
+        = feature.properties?.transactionId
+        ?? feature.properties?.id
+        ?? feature.id
+        ?? `rendered-${index}`;
       uniqueTrips.add(String(id));
     });
 
@@ -744,7 +774,9 @@ const layerManager = {
    */
   _refreshHeatmapStyle(layerName) {
     const layerInfo = state.mapLayers[layerName];
-    if (!layerInfo?.isHeatmap || !layerInfo.layer || !state.map) return;
+    if (!layerInfo?.isHeatmap || !layerInfo.layer || !state.map) {
+      return;
+    }
 
     const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
     const totalTripCount = layerInfo.layer?.features?.length || 0;
@@ -758,14 +790,32 @@ const layerManager = {
 
     glowLayers.forEach((glowConfig, index) => {
       const glowLayerId = `${layerName}-layer-${index}`;
-      if (!state.map.getLayer(glowLayerId)) return;
+      if (!state.map.getLayer(glowLayerId)) {
+        return;
+      }
 
-      state.map.setPaintProperty(glowLayerId, "line-color", glowConfig.paint["line-color"]);
-      state.map.setPaintProperty(glowLayerId, "line-width", glowConfig.paint["line-width"]);
-      state.map.setPaintProperty(glowLayerId, "line-opacity", glowConfig.paint["line-opacity"]);
+      state.map.setPaintProperty(
+        glowLayerId,
+        "line-color",
+        glowConfig.paint["line-color"]
+      );
+      state.map.setPaintProperty(
+        glowLayerId,
+        "line-width",
+        glowConfig.paint["line-width"]
+      );
+      state.map.setPaintProperty(
+        glowLayerId,
+        "line-opacity",
+        glowConfig.paint["line-opacity"]
+      );
 
       if (glowConfig.paint["line-blur"] !== undefined) {
-        state.map.setPaintProperty(glowLayerId, "line-blur", glowConfig.paint["line-blur"]);
+        state.map.setPaintProperty(
+          glowLayerId,
+          "line-blur",
+          glowConfig.paint["line-blur"]
+        );
       }
     });
   },
@@ -776,7 +826,9 @@ const layerManager = {
    * @private
    */
   _scheduleHeatmapRefresh(layerName) {
-    if (!state.map) return;
+    if (!state.map) {
+      return;
+    }
 
     // Use only map idle event to prevent double refresh
     state.map.once("idle", () => {
@@ -794,7 +846,9 @@ const layerManager = {
    * @param {Object} data - GeoJSON data
    */
   async updateMapLayer(layerName, data) {
-    if (!state.map || !state.mapInitialized || !data) return;
+    if (!state.map || !state.mapInitialized || !data) {
+      return;
+    }
 
     const sourceId = `${layerName}-source`;
     const layerId = `${layerName}-layer`;
@@ -820,14 +874,19 @@ const layerManager = {
           layerInfo,
           data
         );
-        if (updateSuccess) return;
+        if (updateSuccess) {
+          return;
+        }
       }
 
       // Fallback: rebuild layer from scratch
       await this._rebuildLayer(layerName, layerId, sourceId, layerInfo, data);
     } catch (error) {
       console.error(`Error updating ${layerName} layer:`, error);
-      window.notificationManager?.show(`Failed to update ${layerName} layer`, "warning");
+      window.notificationManager?.show(
+        `Failed to update ${layerName} layer`,
+        "warning"
+      );
     }
   },
 
@@ -898,9 +957,12 @@ const layerManager = {
       "interpolate",
       ["linear"],
       ["zoom"],
-      10, layerInfo.weight * 0.5,
-      15, layerInfo.weight,
-      20, layerInfo.weight * 2,
+      10,
+      layerInfo.weight * 0.5,
+      15,
+      layerInfo.weight,
+      20,
+      layerInfo.weight * 2,
     ]);
   },
 
@@ -999,9 +1061,12 @@ const layerManager = {
           "interpolate",
           ["linear"],
           ["zoom"],
-          10, layerInfo.weight * 0.5,
-          15, layerInfo.weight,
-          20, layerInfo.weight * 2,
+          10,
+          layerInfo.weight * 0.5,
+          15,
+          layerInfo.weight,
+          20,
+          layerInfo.weight * 2,
         ],
       },
     };
@@ -1046,12 +1111,28 @@ const layerManager = {
         glowLayers.forEach((glowConfig, index) => {
           const glowLayerId = `${layerName}-layer-${index}`;
           if (state.map.getLayer(glowLayerId)) {
-            state.map.setPaintProperty(glowLayerId, "line-color", glowConfig.paint["line-color"]);
-            state.map.setPaintProperty(glowLayerId, "line-width", glowConfig.paint["line-width"]);
-            state.map.setPaintProperty(glowLayerId, "line-opacity", glowConfig.paint["line-opacity"]);
+            state.map.setPaintProperty(
+              glowLayerId,
+              "line-color",
+              glowConfig.paint["line-color"]
+            );
+            state.map.setPaintProperty(
+              glowLayerId,
+              "line-width",
+              glowConfig.paint["line-width"]
+            );
+            state.map.setPaintProperty(
+              glowLayerId,
+              "line-opacity",
+              glowConfig.paint["line-opacity"]
+            );
 
             if (glowConfig.paint["line-blur"] !== undefined) {
-              state.map.setPaintProperty(glowLayerId, "line-blur", glowConfig.paint["line-blur"]);
+              state.map.setPaintProperty(
+                glowLayerId,
+                "line-blur",
+                glowConfig.paint["line-blur"]
+              );
             }
 
             state.map.setLayoutProperty(
@@ -1071,7 +1152,10 @@ const layerManager = {
 
         return;
       } catch (updateError) {
-        console.warn(`Falling back to heatmap layer rebuild for ${layerName}:`, updateError);
+        console.warn(
+          `Falling back to heatmap layer rebuild for ${layerName}:`,
+          updateError
+        );
       }
     }
 
@@ -1138,7 +1222,9 @@ const layerManager = {
    * Clean up all event handlers and layers
    */
   cleanup() {
-    if (!state.map) return;
+    if (!state.map) {
+      return;
+    }
 
     // Remove heatmap refresh handler
     if (this._heatmapRefreshHandler) {

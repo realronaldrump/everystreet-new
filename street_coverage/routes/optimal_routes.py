@@ -15,8 +15,8 @@ from beanie import PydanticObjectId
 from fastapi import APIRouter, HTTPException, Query, Response
 from fastapi.responses import StreamingResponse
 
-from street_coverage.models import CoverageArea
 from db import OptimalRouteProgress
+from street_coverage.models import CoverageArea
 
 logger = logging.getLogger(__name__)
 

@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 from urllib.parse import urlparse
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 DEFAULT_FORBIDDEN_HOSTS = {
     "overpass-api.de",
@@ -22,7 +25,8 @@ class BlockedHost:
 
 
 def is_forbidden_host(
-    url: str, forbidden_hosts: Iterable[str] = DEFAULT_FORBIDDEN_HOSTS
+    url: str,
+    forbidden_hosts: Iterable[str] = DEFAULT_FORBIDDEN_HOSTS,
 ) -> bool:
     parsed = urlparse(url)
     host = (parsed.hostname or "").lower()

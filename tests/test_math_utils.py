@@ -7,7 +7,7 @@ def test_circular_average_handles_empty() -> None:
 
 def test_circular_average_wraps_midnight() -> None:
     avg = calculate_circular_average_hour([23.0, 0.0, 1.0])
-    assert 23.0 <= avg or avg <= 1.0
+    assert avg >= 23.0 or avg <= 1.0
 
 
 def test_circular_average_standard_case() -> None:

@@ -71,7 +71,10 @@ No Vehicles Found
           <div class="col-lg-8 col-xl-6">
 
             <!-- Vehicle Selector (shown when multiple vehicles) -->
-            <div class="widget mb-4" data-accent="mint" id="vehicle-selector-card" style="display: none">
+            <div class="widget mb-4"
+                 data-accent="mint"
+                 id="vehicle-selector-card"
+                 style="display: none">
               <div class="widget-body">
                 <label for="vehicle-select" class="form-label mb-2">
                   <i class="fas fa-car-side me-2 text-primary"></i>Select Vehicle
@@ -103,178 +106,178 @@ No Vehicles Found
                   </div>
                 </div>
 
-              <!-- Vehicle Info Grid -->
-              <div class="vehicle-info-grid mb-4">
-                <div class="info-item">
-                  <div class="info-label">
-                    <i class="fas fa-fingerprint text-primary me-2"></i>IMEI
-                  </div>
-                  <div class="info-value" id="vehicle-imei">
---
-                  </div>
-                </div>
-                <div class="info-item">
-                  <div class="info-label">
-                    <i class="fas fa-barcode text-primary me-2"></i>VIN
-                  </div>
-                  <div class="info-value" id="vehicle-vin">
---
-                  </div>
-                </div>
-                <div class="info-item">
-                  <div class="info-label">
-                    <i class="fas fa-industry text-primary me-2"></i>Make
-                  </div>
-                  <div class="info-value" id="vehicle-make">
---
-                  </div>
-                </div>
-                <div class="info-item">
-                  <div class="info-label">
-                    <i class="fas fa-car-alt text-primary me-2"></i>Model
-                  </div>
-                  <div class="info-value" id="vehicle-model">
---
-                  </div>
-                </div>
-                <div class="info-item">
-                  <div class="info-label">
-                    <i class="fas fa-calendar text-primary me-2"></i>Year
-                  </div>
-                  <div class="info-value" id="vehicle-year">
---
-                  </div>
-                </div>
-              </div>
-
-              <!-- Divider -->
-              <hr class="my-4" />
-
-              <!-- Odometer Section -->
-              <div class="odometer-section">
-                <h4 class="section-title mb-3">
-                  <i class="fas fa-tachometer-alt text-primary me-2"></i>Odometer
-                </h4>
-
-                <!-- Current Odometer Display -->
-                <div class="odometer-display mb-4">
-                  <div class="odometer-value-container">
-                    <span class="odometer-value" id="current-odometer">--</span>
-                    <span class="odometer-unit">miles</span>
-                  </div>
-                  <div class="odometer-meta">
-                    <span class="odometer-source" id="odometer-source">
-                      <i class="fas fa-info-circle me-1"></i>No reading yet
-                    </span>
-                    <span class="odometer-updated" id="odometer-updated"></span>
-                  </div>
-                </div>
-
-                <!-- Bouncie Live Reading -->
-                <div class="bouncie-reading-card mb-4" id="bouncie-reading-section">
-                  <div class="bouncie-reading-header">
-                    <span class="bouncie-label">
-                      <i class="fas fa-satellite-dish me-2"></i>Live Bouncie Reading
-                    </span>
-                    <button type="button" class="btn btn-sm btn-outline-primary" id="refresh-bouncie-btn">
-                      <i class="fas fa-sync-alt"></i>
-                    </button>
-                  </div>
-                  <div class="bouncie-reading-body">
-                    <div class="bouncie-value" id="bouncie-odometer">
-                      <span class="spinner-border spinner-border-sm" role="status"></span>
+                <!-- Vehicle Info Grid -->
+                <div class="vehicle-info-grid mb-4">
+                  <div class="info-item">
+                    <div class="info-label">
+                      <i class="fas fa-fingerprint text-primary me-2"></i>IMEI
                     </div>
-                    <button type="button"
-                            class="btn btn-primary btn-sm"
-                            id="use-bouncie-reading-btn"
-                            disabled>
+                    <div class="info-value" id="vehicle-imei">
+--
+                    </div>
+                  </div>
+                  <div class="info-item">
+                    <div class="info-label">
+                      <i class="fas fa-barcode text-primary me-2"></i>VIN
+                    </div>
+                    <div class="info-value" id="vehicle-vin">
+--
+                    </div>
+                  </div>
+                  <div class="info-item">
+                    <div class="info-label">
+                      <i class="fas fa-industry text-primary me-2"></i>Make
+                    </div>
+                    <div class="info-value" id="vehicle-make">
+--
+                    </div>
+                  </div>
+                  <div class="info-item">
+                    <div class="info-label">
+                      <i class="fas fa-car-alt text-primary me-2"></i>Model
+                    </div>
+                    <div class="info-value" id="vehicle-model">
+--
+                    </div>
+                  </div>
+                  <div class="info-item">
+                    <div class="info-label">
+                      <i class="fas fa-calendar text-primary me-2"></i>Year
+                    </div>
+                    <div class="info-value" id="vehicle-year">
+--
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Divider -->
+                <hr class="my-4" />
+
+                <!-- Odometer Section -->
+                <div class="odometer-section">
+                  <h4 class="section-title mb-3">
+                    <i class="fas fa-tachometer-alt text-primary me-2"></i>Odometer
+                  </h4>
+
+                  <!-- Current Odometer Display -->
+                  <div class="odometer-display mb-4">
+                    <div class="odometer-value-container">
+                      <span class="odometer-value" id="current-odometer">--</span>
+                      <span class="odometer-unit">miles</span>
+                    </div>
+                    <div class="odometer-meta">
+                      <span class="odometer-source" id="odometer-source">
+                        <i class="fas fa-info-circle me-1"></i>No reading yet
+                      </span>
+                      <span class="odometer-updated" id="odometer-updated"></span>
+                    </div>
+                  </div>
+
+                  <!-- Bouncie Live Reading -->
+                  <div class="bouncie-reading-card mb-4" id="bouncie-reading-section">
+                    <div class="bouncie-reading-header">
+                      <span class="bouncie-label">
+                        <i class="fas fa-satellite-dish me-2"></i>Live Bouncie Reading
+                      </span>
+                      <button type="button" class="btn btn-sm btn-outline-primary" id="refresh-bouncie-btn">
+                        <i class="fas fa-sync-alt"></i>
+                      </button>
+                    </div>
+                    <div class="bouncie-reading-body">
+                      <div class="bouncie-value" id="bouncie-odometer">
+                        <span class="spinner-border spinner-border-sm" role="status"></span>
+                      </div>
+                      <button type="button"
+                              class="btn btn-primary btn-sm"
+                              id="use-bouncie-reading-btn"
+                              disabled>
                       Use This Reading
-                    </button>
-                  </div>
-                </div>
-
-                <!-- Manual Entry -->
-                <div class="manual-entry-card">
-                  <div class="manual-entry-header">
-                    <span class="manual-label">
-                      <i class="fas fa-edit me-2"></i>Manual Entry
-                    </span>
-                  </div>
-                  <div class="manual-entry-body">
-                    <div class="input-group">
-                      <input type="number"
-                             class="form-control form-control-lg"
-                             id="manual-odometer-input"
-                             placeholder="Enter odometer reading"
-                             step="0.1"
-                             min="0" />
-                      <span class="input-group-text">miles</span>
+                      </button>
                     </div>
-                    <button type="button" class="btn btn-primary mt-3 w-100" id="save-manual-odometer-btn">
-                      <i class="fas fa-save me-2"></i>Save Odometer
-                    </button>
+                  </div>
+
+                  <!-- Manual Entry -->
+                  <div class="manual-entry-card">
+                    <div class="manual-entry-header">
+                      <span class="manual-label">
+                        <i class="fas fa-edit me-2"></i>Manual Entry
+                      </span>
+                    </div>
+                    <div class="manual-entry-body">
+                      <div class="input-group">
+                        <input type="number"
+                               class="form-control form-control-lg"
+                               id="manual-odometer-input"
+                               placeholder="Enter odometer reading"
+                               step="0.1"
+                               min="0" />
+                        <span class="input-group-text">miles</span>
+                      </div>
+                      <button type="button" class="btn btn-primary mt-3 w-100" id="save-manual-odometer-btn">
+                        <i class="fas fa-save me-2"></i>Save Odometer
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <!-- Divider -->
-              <hr class="my-4" />
+                <!-- Divider -->
+                <hr class="my-4" />
 
-              <!-- Vehicle Settings -->
-              <div class="vehicle-settings-section">
-                <h4 class="section-title mb-3">
-                  <i class="fas fa-cog text-primary me-2"></i>Settings
-                </h4>
+                <!-- Vehicle Settings -->
+                <div class="vehicle-settings-section">
+                  <h4 class="section-title mb-3">
+                    <i class="fas fa-cog text-primary me-2"></i>Settings
+                  </h4>
 
-                <!-- Custom Name -->
-                <div class="mb-3">
-                  <label for="custom-name-input" class="form-label">
+                  <!-- Custom Name -->
+                  <div class="mb-3">
+                    <label for="custom-name-input" class="form-label">
 Display Name
-                  </label>
-                  <input type="text"
-                         class="form-control"
-                         id="custom-name-input"
-                         placeholder="Enter a custom name for your vehicle" />
-                  <div class="form-text">
+                    </label>
+                    <input type="text"
+                           class="form-control"
+                           id="custom-name-input"
+                           placeholder="Enter a custom name for your vehicle" />
+                    <div class="form-text">
 This name will be shown throughout the app.
+                    </div>
                   </div>
-                </div>
 
-                <!-- Active Status -->
-                <div class="form-check form-switch mb-3">
-                  <input class="form-check-input" type="checkbox" id="active-status-toggle" checked />
-                  <label class="form-check-label" for="active-status-toggle">
+                  <!-- Active Status -->
+                  <div class="form-check form-switch mb-3">
+                    <input class="form-check-input" type="checkbox" id="active-status-toggle" checked />
+                    <label class="form-check-label" for="active-status-toggle">
                     Vehicle is active
-                  </label>
-                </div>
+                    </label>
+                  </div>
 
-                <button type="button" class="btn btn-primary w-100" id="save-settings-btn">
-                  <i class="fas fa-save me-2"></i>Save Settings
-                </button>
+                  <button type="button" class="btn btn-primary w-100" id="save-settings-btn">
+                    <i class="fas fa-save me-2"></i>Save Settings
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
 
-          <!-- Actions Card -->
-          <div class="widget" data-accent="amber">
-            <div class="widget-body">
-              <h4 class="section-title mb-3">
-                <i class="fas fa-tools text-primary me-2"></i>Actions
-              </h4>
-              <div class="d-grid gap-2">
-                <button type="button" class="btn btn-outline-primary" id="sync-vehicle-btn">
-                  <i class="fas fa-sync me-2"></i>Sync from Bouncie
-                </button>
-                <a href="/gas-tracking" class="btn btn-outline-secondary">
-                  <i class="fas fa-gas-pump me-2"></i>Go to Gas Tracking
-                </a>
+            <!-- Actions Card -->
+            <div class="widget" data-accent="amber">
+              <div class="widget-body">
+                <h4 class="section-title mb-3">
+                  <i class="fas fa-tools text-primary me-2"></i>Actions
+                </h4>
+                <div class="d-grid gap-2">
+                  <button type="button" class="btn btn-outline-primary" id="sync-vehicle-btn">
+                    <i class="fas fa-sync me-2"></i>Sync from Bouncie
+                  </button>
+                  <a href="/gas-tracking" class="btn btn-outline-secondary">
+                    <i class="fas fa-gas-pump me-2"></i>Go to Gas Tracking
+                  </a>
+                </div>
               </div>
             </div>
           </div>
         </div>
       </div>
     </div>
-  </div>
   </div>
 
   <!-- Toast Container -->

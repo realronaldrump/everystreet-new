@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any, Self
 
 import aiohttp
 from yarl import URL
+
+if TYPE_CHECKING:
+    from types import TracebackType
 
 
 @dataclass
@@ -40,10 +43,15 @@ class FakeResponse:
                 message=self.text_data or "error",
             )
 
-    async def __aenter__(self) -> FakeResponse:
+    async def __aenter__(self) -> Self:
         return self
 
-    async def __aexit__(self, exc_type, exc, tb) -> bool:
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        tb: TracebackType | None,
+    ) -> bool:
         return False
 
 
@@ -69,7 +77,8 @@ class FakeSession:
     @staticmethod
     def _next(queue: list[FakeResponse | Exception]) -> FakeResponse:
         if not queue:
-            raise AssertionError("No fake responses available")
+            msg = "No fake responses available"
+            raise AssertionError(msg)
         response = queue.pop(0)
         if isinstance(response, Exception):
             raise response
