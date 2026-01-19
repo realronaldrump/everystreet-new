@@ -1,5 +1,6 @@
 # /Users/davis/my-apps/everystreet-new/docker-compose.yml
 # Production setup for Linux mini PC
+# Includes self-hosted Nominatim (geocoding) and Valhalla (routing)
 
 services:
   web:
@@ -11,10 +12,12 @@ services:
     command: uvicorn app:app --host 0.0.0.0 --port 8080 --proxy-headers --forwarded-allow-ips='*'
     volumes:
       - .:/app
-      - /srv/geoservices/osm/merged:/osm:ro
+      - osm_extracts:/osm:ro
     depends_on:
       - mongo
       - redis
+      - nominatim
+      - valhalla
     networks:
       - default
 
@@ -25,7 +28,8 @@ services:
     env_file: .env
     volumes:
       - .:/app
-      - /srv/geoservices/osm/merged:/osm:ro
+      - osm_extracts:/osm:ro
+      - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       - mongo
       - redis
@@ -80,9 +84,63 @@ services:
     networks:
       - default
 
+  # Nominatim - Self-hosted geocoding service
+  nominatim:
+    image: mediagis/nominatim:4.4
+    restart: unless-stopped
+    environment:
+      - PBF_PATH=/nominatim/data/region.osm.pbf
+      - REPLICATION_URL=
+      - IMPORT_STYLE=street
+      - THREADS=4
+    volumes:
+      - nominatim_data:/var/lib/postgresql/14/main
+      - nominatim_flatnode:/nominatim/flatnode
+      - osm_extracts:/nominatim/data:ro
+    ports:
+      - '7070:8080'
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - default
+    shm_size: 1g
+
+  # Valhalla - Self-hosted routing engine
+  valhalla:
+    image: ghcr.io/gis-ops/docker-valhalla:latest
+    restart: unless-stopped
+    environment:
+      - tile_urls=
+      - serve_tiles=True
+      - build_elevation=False
+      - build_admins=True
+      - build_time_zones=True
+      - use_tiles_ignore_pbf=True
+    volumes:
+      - valhalla_tiles:/custom_files
+      - osm_extracts:/data/osm:ro
+    ports:
+      - '8004:8002'
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - default
+
 volumes:
   redis_data:
   mongo_data:
+  nominatim_data:
+  nominatim_flatnode:
+  valhalla_tiles:
+  osm_extracts:
 
 networks:
   default:

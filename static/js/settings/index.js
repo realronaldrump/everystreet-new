@@ -18,6 +18,7 @@ import {
   setupRemapMatchedTrips,
 } from "./geocode-remap.js";
 import { InvalidTripReview } from "./invalid-trip-review.js";
+import mapServices from "./map-services.js";
 import { initMobileUI } from "./mobile-ui.js";
 import { gatherTaskConfigFromUI, submitTaskConfigUpdate } from "./task-manager/api.js";
 import { showTaskDetails } from "./task-manager/modals.js";
@@ -434,6 +435,9 @@ function init({ cleanup } = {}) {
   // Initialize InvalidTripReview
   new InvalidTripReview();
 
+  // Initialize Map Services tab
+  mapServices.initMapServicesTab();
+
   // Load initial task config
   taskManager.loadTaskConfig();
 
@@ -445,6 +449,8 @@ function init({ cleanup } = {}) {
       if (window.taskManager) {
         window.taskManager.cleanup();
       }
+      // Cleanup map services
+      mapServices.cleanupMapServicesTab();
     });
   }
 }

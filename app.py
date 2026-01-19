@@ -32,6 +32,7 @@ from exports import router as export_api_router
 from gas import router as gas_api_router
 from live_tracking_api import router as live_tracking_api_router
 from logs_api import router as logs_api_router
+from map_data.routes import router as map_data_router
 from mongodb_logging_handler import MongoDBHandler
 from pages import router as pages_router
 from processing_api import router as processing_api_router
@@ -130,6 +131,7 @@ app.include_router(routing_router)
 app.include_router(gas_api_router)
 app.include_router(live_tracking_api_router)
 app.include_router(logs_api_router)
+app.include_router(map_data_router)
 
 app.include_router(processing_api_router)
 app.include_router(profile_api_router)
@@ -168,32 +170,48 @@ async def startup_event():
         root_logger.addHandler(AppState.mongo_handler)
         logger.info("MongoDB logging handler initialized and configured.")
 
-        # Validate Valhalla + Nominatim configuration early to fail fast
-        require_valhalla_route_url()
-        require_valhalla_status_url()
-        require_valhalla_trace_route_url()
-        require_valhalla_trace_attributes_url()
-        require_nominatim_search_url()
-        require_nominatim_reverse_url()
-        require_nominatim_user_agent()
-        osm_data_path = Path(require_osm_data_path())
-        if not osm_data_path.exists():
-            msg = f"OSM data file not found: {osm_data_path}"
-            raise RuntimeError(msg)
-        if osm_data_path.suffix.lower() not in {".osm", ".xml", ".pbf"}:
-            msg = (
-                "OSM_DATA_PATH must point to an OSM extract (.osm, .xml, or .pbf). "
-                f"Got: {osm_data_path}"
+        # Validate Valhalla + Nominatim configuration
+        # Note: Services may not be ready yet if this is a fresh deployment
+        # The Map Data Management UI allows downloading and building data
+        from config import (
+            get_valhalla_route_url,
+            get_valhalla_status_url,
+            get_nominatim_search_url,
+            get_osm_data_path,
+        )
+
+        valhalla_configured = bool(get_valhalla_route_url() and get_valhalla_status_url())
+        nominatim_configured = bool(get_nominatim_search_url())
+        osm_path = get_osm_data_path()
+
+        if valhalla_configured and nominatim_configured:
+            logger.info("Valhalla and Nominatim URLs configured.")
+        else:
+            logger.warning(
+                "Geo services not fully configured. Use Map Data Management to set up."
             )
-            raise RuntimeError(msg)
+
+        # Check OSM data path (optional - can be set up later via UI)
+        if osm_path:
+            osm_data_path = Path(osm_path)
+            if osm_data_path.exists():
+                if osm_data_path.suffix.lower() in {".osm", ".xml", ".pbf"}:
+                    logger.info("OSM data file found: %s", osm_data_path)
+                else:
+                    logger.warning(
+                        "OSM_DATA_PATH should point to .osm, .xml, or .pbf file. Got: %s",
+                        osm_data_path,
+                    )
+            else:
+                logger.info(
+                    "OSM data file not yet present at %s. "
+                    "Use Map Data Management to download.",
+                    osm_data_path,
+                )
+
         graph_dir = Path("data/graphs")
         graph_dir.mkdir(parents=True, exist_ok=True)
-        if not graph_dir.is_dir():
-            msg = f"Graph storage directory is not a directory: {graph_dir}"
-            raise RuntimeError(msg)
-        logger.info(
-            "Valhalla, Nominatim, and local OSM extract configuration validated successfully.",
-        )
+        logger.info("Graph storage directory ready: %s", graph_dir)
 
         # Register coverage event handlers
         from street_coverage.events import register_handlers

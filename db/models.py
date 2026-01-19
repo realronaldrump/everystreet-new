@@ -32,6 +32,7 @@ from beanie.odm.fields import IndexModel
 from pydantic import Field, field_validator, model_validator
 
 from street_coverage.models import CoverageArea, CoverageState, Job, Street
+from map_data.models import GeoServiceHealth, MapDataJob, MapRegion
 from date_utils import parse_timestamp
 
 
@@ -672,9 +673,13 @@ ALL_DOCUMENT_MODELS = [
     BouncieCredentials,
     CountyVisitedCache,
     CountyTopology,
-    # New coverage system models
+    # Coverage system models
     CoverageArea,
     CoverageState,
     Job,
     Street,
+    # Map data management models
+    MapRegion,
+    MapDataJob,
+    GeoServiceHealth,
 ]

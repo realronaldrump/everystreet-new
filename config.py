@@ -29,6 +29,14 @@ NOMINATIM_SEARCH_URL_ENV_VAR: Final[str] = "NOMINATIM_SEARCH_URL"
 NOMINATIM_REVERSE_URL_ENV_VAR: Final[str] = "NOMINATIM_REVERSE_URL"
 NOMINATIM_USER_AGENT_ENV_VAR: Final[str] = "NOMINATIM_USER_AGENT"
 OSM_DATA_PATH_ENV_VAR: Final[str] = "OSM_DATA_PATH"
+GEOFABRIK_MIRROR_ENV_VAR: Final[str] = "GEOFABRIK_MIRROR"
+OSM_EXTRACTS_PATH_ENV_VAR: Final[str] = "OSM_EXTRACTS_PATH"
+
+# Default URLs for Docker internal networking
+DEFAULT_NOMINATIM_URL: Final[str] = "http://nominatim:8080"
+DEFAULT_VALHALLA_URL: Final[str] = "http://valhalla:8002"
+DEFAULT_GEOFABRIK_MIRROR: Final[str] = "https://download.geofabrik.de"
+DEFAULT_OSM_EXTRACTS_PATH: Final[str] = "/osm"
 
 
 def get_mapbox_token() -> str:
@@ -158,6 +166,16 @@ def get_osm_data_path() -> str:
     return os.getenv(OSM_DATA_PATH_ENV_VAR, "").strip()
 
 
+def get_geofabrik_mirror() -> str:
+    """Get the Geofabrik mirror URL for downloading OSM extracts."""
+    return os.getenv(GEOFABRIK_MIRROR_ENV_VAR, DEFAULT_GEOFABRIK_MIRROR).strip()
+
+
+def get_osm_extracts_path() -> str:
+    """Get the path to the OSM extracts directory (inside container)."""
+    return os.getenv(OSM_EXTRACTS_PATH_ENV_VAR, DEFAULT_OSM_EXTRACTS_PATH).strip()
+
+
 def require_nominatim_base_url() -> str:
     return _require_env_var(
         NOMINATIM_BASE_URL_ENV_VAR,
@@ -221,12 +239,14 @@ __all__ = [
     "API_BASE_URL",
     "AUTH_URL",
     "get_bouncie_config",
+    "get_geofabrik_mirror",
     "get_mapbox_token",
     "get_nominatim_base_url",
     "get_nominatim_reverse_url",
     "get_nominatim_search_url",
     "get_nominatim_user_agent",
     "get_osm_data_path",
+    "get_osm_extracts_path",
     "get_valhalla_base_url",
     "get_valhalla_route_url",
     "get_valhalla_status_url",

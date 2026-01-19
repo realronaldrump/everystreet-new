@@ -27,6 +27,11 @@ from tasks.fetch import (
 )
 from tasks.health import worker_heartbeat
 from tasks.maintenance import cleanup_stale_trips, remap_unmatched_trips, validate_trips
+from tasks.map_data import (
+    build_nominatim_task,
+    build_valhalla_task,
+    download_region_task,
+)
 from tasks.routes import generate_optimal_route
 
 
@@ -69,6 +74,10 @@ class WorkerSettings:
         update_coverage_for_new_trips,
         generate_optimal_route,
         worker_heartbeat,
+        # Map data management tasks
+        download_region_task,
+        build_nominatim_task,
+        build_valhalla_task,
     ]
     cron_jobs: ClassVar[list[object]] = [
         cron(cron_periodic_fetch_trips),
