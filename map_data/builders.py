@@ -239,6 +239,8 @@ async def build_nominatim_data(
                 "Restarting Nominatim service...",
             )
 
+        await _mark_nominatim_import_finished(container_name)
+
         # Restart Nominatim to pick up new data
         await _restart_container("nominatim")
 
@@ -468,6 +470,38 @@ async def _restart_container(service_name: str) -> None:
 
     except Exception as e:
         logger.warning("Error restarting container %s: %s", container_name, e)
+
+
+async def _mark_nominatim_import_finished(container_name: str) -> None:
+    marker_cmd = [
+        "docker",
+        "exec",
+        container_name,
+        "sh",
+        "-c",
+        "if [ -d /var/lib/postgresql/16/main ]; then "
+        "touch /var/lib/postgresql/16/main/import-finished; "
+        "elif [ -d /var/lib/postgresql/14/main ]; then "
+        "touch /var/lib/postgresql/14/main/import-finished; "
+        "else "
+        "touch /var/lib/postgresql/import-finished; "
+        "fi",
+    ]
+
+    try:
+        process = await asyncio.create_subprocess_exec(
+            *marker_cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        _stdout, stderr = await process.communicate()
+        if process.returncode != 0:
+            error_msg = stderr.decode() if stderr else "Unknown error"
+            logger.warning("Failed to set Nominatim import marker: %s", error_msg)
+        else:
+            logger.info("Set Nominatim import finished marker")
+    except Exception as e:
+        logger.warning("Error setting Nominatim import marker: %s", e)
 
 
 async def _safe_callback(
