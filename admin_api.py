@@ -61,13 +61,22 @@ DEFAULT_APP_SETTINGS: dict[str, Any] = {
     "mapMatchTripsOnFetch": False,
     # Geo Service Configuration (defaults for Docker Compose)
     "mapbox_token": None,
-    "nominatim_base_url": "http://nominatim:8080",
     "nominatim_user_agent": "EveryStreet/1.0",
-    "valhalla_base_url": "http://valhalla:8002",
     "geofabrik_mirror": "https://download.geofabrik.de",
     "osm_extracts_path": "/osm",
     "setup_completed": False,
     "setup_completed_at": None,
+}
+
+DEPRECATED_APP_SETTINGS_FIELDS = {
+    "nominatim_base_url",
+    "nominatim_search_url",
+    "nominatim_reverse_url",
+    "valhalla_base_url",
+    "valhalla_status_url",
+    "valhalla_route_url",
+    "valhalla_trace_route_url",
+    "valhalla_trace_attributes_url",
 }
 
 
@@ -96,6 +105,8 @@ async def get_app_settings_endpoint():
         settings = await get_persisted_app_settings()
         payload = settings.model_dump()
         payload.pop("mapbox_access_token", None)
+        for key in DEPRECATED_APP_SETTINGS_FIELDS:
+            payload.pop(key, None)
     except Exception:
         logger.exception("Error fetching app settings via API")
         raise HTTPException(
@@ -122,6 +133,17 @@ async def update_app_settings_endpoint(settings: Annotated[dict, Body()]):
             status_code=400,
             detail=MAPBOX_SETTINGS_ERROR,
         )
+
+    deprecated_keys = [
+        key for key in DEPRECATED_APP_SETTINGS_FIELDS if key in settings
+    ]
+    if deprecated_keys:
+        logger.warning(
+            "Ignoring deprecated app settings fields: %s",
+            ", ".join(sorted(deprecated_keys)),
+        )
+        for key in deprecated_keys:
+            settings.pop(key, None)
 
     try:
         existing = await AppSettings.find_one()

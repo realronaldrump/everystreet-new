@@ -9,6 +9,7 @@ the database.
 
 from __future__ import annotations
 
+import logging
 import os
 from typing import Any, Final
 
@@ -35,8 +36,39 @@ OSM_EXTRACTS_PATH_ENV_VAR: Final[str] = "OSM_EXTRACTS_PATH"
 # Default URLs for Docker internal networking
 DEFAULT_NOMINATIM_URL: Final[str] = "http://nominatim:8080"
 DEFAULT_VALHALLA_URL: Final[str] = "http://valhalla:8002"
+DEFAULT_NOMINATIM_USER_AGENT: Final[str] = "EveryStreet/1.0"
 DEFAULT_GEOFABRIK_MIRROR: Final[str] = "https://download.geofabrik.de"
 DEFAULT_OSM_EXTRACTS_PATH: Final[str] = "/osm"
+
+logger = logging.getLogger(__name__)
+
+_DEPRECATED_SERVICE_ENV_VARS: Final[tuple[str, ...]] = (
+    VALHALLA_BASE_URL_ENV_VAR,
+    VALHALLA_STATUS_URL_ENV_VAR,
+    VALHALLA_ROUTE_URL_ENV_VAR,
+    VALHALLA_TRACE_ROUTE_URL_ENV_VAR,
+    VALHALLA_TRACE_ATTRIBUTES_URL_ENV_VAR,
+    NOMINATIM_BASE_URL_ENV_VAR,
+    NOMINATIM_SEARCH_URL_ENV_VAR,
+    NOMINATIM_REVERSE_URL_ENV_VAR,
+)
+_deprecated_env_warned = False
+
+
+def _warn_deprecated_service_env_vars() -> None:
+    global _deprecated_env_warned
+    if _deprecated_env_warned:
+        return
+    configured = [
+        env_name for env_name in _DEPRECATED_SERVICE_ENV_VARS if os.getenv(env_name)
+    ]
+    if configured:
+        logger.warning(
+            "Deprecated geo service env vars are ignored: %s. "
+            "Using internal Docker DNS endpoints instead.",
+            ", ".join(configured),
+        )
+    _deprecated_env_warned = True
 
 
 def get_mapbox_token() -> str:
@@ -92,74 +124,67 @@ def _require_env_var(env_name: str, description: str) -> str:
 
 
 def get_valhalla_base_url() -> str:
-    return os.getenv(VALHALLA_BASE_URL_ENV_VAR, "").strip()
+    _warn_deprecated_service_env_vars()
+    return DEFAULT_VALHALLA_URL
 
 
 def get_valhalla_status_url() -> str:
-    return os.getenv(VALHALLA_STATUS_URL_ENV_VAR, "").strip()
+    _warn_deprecated_service_env_vars()
+    return f"{DEFAULT_VALHALLA_URL}/status"
 
 
 def get_valhalla_route_url() -> str:
-    return os.getenv(VALHALLA_ROUTE_URL_ENV_VAR, "").strip()
+    _warn_deprecated_service_env_vars()
+    return f"{DEFAULT_VALHALLA_URL}/route"
 
 
 def get_valhalla_trace_route_url() -> str:
-    return os.getenv(VALHALLA_TRACE_ROUTE_URL_ENV_VAR, "").strip()
+    _warn_deprecated_service_env_vars()
+    return f"{DEFAULT_VALHALLA_URL}/trace_route"
 
 
 def get_valhalla_trace_attributes_url() -> str:
-    return os.getenv(VALHALLA_TRACE_ATTRIBUTES_URL_ENV_VAR, "").strip()
+    _warn_deprecated_service_env_vars()
+    return f"{DEFAULT_VALHALLA_URL}/trace_attributes"
 
 
 def require_valhalla_base_url() -> str:
-    return _require_env_var(
-        VALHALLA_BASE_URL_ENV_VAR,
-        "Expected Valhalla US9 base URL (e.g. http://100.108.79.105:8004).",
-    )
+    return get_valhalla_base_url()
 
 
 def require_valhalla_status_url() -> str:
-    return _require_env_var(
-        VALHALLA_STATUS_URL_ENV_VAR,
-        "Expected Valhalla /status URL (e.g. http://100.108.79.105:8004/status).",
-    )
+    return get_valhalla_status_url()
 
 
 def require_valhalla_route_url() -> str:
-    return _require_env_var(
-        VALHALLA_ROUTE_URL_ENV_VAR,
-        "Expected Valhalla /route URL (e.g. http://100.108.79.105:8004/route).",
-    )
+    return get_valhalla_route_url()
 
 
 def require_valhalla_trace_route_url() -> str:
-    return _require_env_var(
-        VALHALLA_TRACE_ROUTE_URL_ENV_VAR,
-        "Expected Valhalla /trace_route URL (e.g. http://100.108.79.105:8004/trace_route).",
-    )
+    return get_valhalla_trace_route_url()
 
 
 def require_valhalla_trace_attributes_url() -> str:
-    return _require_env_var(
-        VALHALLA_TRACE_ATTRIBUTES_URL_ENV_VAR,
-        "Expected Valhalla /trace_attributes URL (e.g. http://100.108.79.105:8004/trace_attributes).",
-    )
+    return get_valhalla_trace_attributes_url()
 
 
 def get_nominatim_base_url() -> str:
-    return os.getenv(NOMINATIM_BASE_URL_ENV_VAR, "").strip()
+    _warn_deprecated_service_env_vars()
+    return DEFAULT_NOMINATIM_URL
 
 
 def get_nominatim_search_url() -> str:
-    return os.getenv(NOMINATIM_SEARCH_URL_ENV_VAR, "").strip()
+    _warn_deprecated_service_env_vars()
+    return f"{DEFAULT_NOMINATIM_URL}/search"
 
 
 def get_nominatim_reverse_url() -> str:
-    return os.getenv(NOMINATIM_REVERSE_URL_ENV_VAR, "").strip()
+    _warn_deprecated_service_env_vars()
+    return f"{DEFAULT_NOMINATIM_URL}/reverse"
 
 
 def get_nominatim_user_agent() -> str:
-    return os.getenv(NOMINATIM_USER_AGENT_ENV_VAR, "").strip()
+    return os.getenv(NOMINATIM_USER_AGENT_ENV_VAR, DEFAULT_NOMINATIM_USER_AGENT).strip()
 
 
 def get_osm_data_path() -> str:
@@ -177,31 +202,19 @@ def get_osm_extracts_path() -> str:
 
 
 def require_nominatim_base_url() -> str:
-    return _require_env_var(
-        NOMINATIM_BASE_URL_ENV_VAR,
-        "Expected Nominatim base URL (e.g. http://100.108.79.105:7070).",
-    )
+    return get_nominatim_base_url()
 
 
 def require_nominatim_search_url() -> str:
-    return _require_env_var(
-        NOMINATIM_SEARCH_URL_ENV_VAR,
-        "Expected Nominatim /search URL (e.g. http://100.108.79.105:7070/search).",
-    )
+    return get_nominatim_search_url()
 
 
 def require_nominatim_reverse_url() -> str:
-    return _require_env_var(
-        NOMINATIM_REVERSE_URL_ENV_VAR,
-        "Expected Nominatim /reverse URL (e.g. http://100.108.79.105:7070/reverse).",
-    )
+    return get_nominatim_reverse_url()
 
 
 def require_nominatim_user_agent() -> str:
-    return _require_env_var(
-        NOMINATIM_USER_AGENT_ENV_VAR,
-        "Expected a Nominatim User-Agent string (EveryStreet/1.0 ...).",
-    )
+    return get_nominatim_user_agent()
 
 
 def require_osm_data_path() -> str:

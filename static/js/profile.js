@@ -869,25 +869,9 @@
    */
   function populateServiceConfigForm(settings) {
     const mapboxToken = document.getElementById("mapboxToken");
-    const nominatimBaseUrl = document.getElementById("nominatimBaseUrl");
-    const nominatimUserAgent = document.getElementById("nominatimUserAgent");
-    const valhallaBaseUrl = document.getElementById("valhallaBaseUrl");
-    const geofabrikMirror = document.getElementById("geofabrikMirror");
 
     if (mapboxToken) {
       mapboxToken.value = settings.mapbox_token || "";
-    }
-    if (nominatimBaseUrl) {
-      nominatimBaseUrl.value = settings.nominatim_base_url || "";
-    }
-    if (nominatimUserAgent) {
-      nominatimUserAgent.value = settings.nominatim_user_agent || "";
-    }
-    if (valhallaBaseUrl) {
-      valhallaBaseUrl.value = settings.valhalla_base_url || "";
-    }
-    if (geofabrikMirror) {
-      geofabrikMirror.value = settings.geofabrik_mirror || "";
     }
   }
 
@@ -901,14 +885,6 @@
     }
 
     const mapboxToken = document.getElementById("mapboxToken")?.value.trim() || null;
-    const nominatimBaseUrl
-      = document.getElementById("nominatimBaseUrl")?.value.trim() || "";
-    const nominatimUserAgent
-      = document.getElementById("nominatimUserAgent")?.value.trim() || "";
-    const valhallaBaseUrl
-      = document.getElementById("valhallaBaseUrl")?.value.trim() || "";
-    const geofabrikMirror
-      = document.getElementById("geofabrikMirror")?.value.trim() || "";
 
     // Validate Mapbox token format if provided
     if (mapboxToken && !mapboxToken.startsWith("pk.")) {
@@ -926,10 +902,6 @@
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             mapbox_token: mapboxToken,
-            nominatim_base_url: nominatimBaseUrl,
-            nominatim_user_agent: nominatimUserAgent,
-            valhalla_base_url: valhallaBaseUrl,
-            geofabrik_mirror: geofabrikMirror,
           }),
         })
       );

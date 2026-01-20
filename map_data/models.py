@@ -196,6 +196,8 @@ class GeoServiceHealth(Document):
     nominatim_error: str | None = None
     nominatim_version: str | None = None
     nominatim_data_timestamp: datetime | None = None
+    nominatim_container_running: bool = False
+    nominatim_has_data: bool = False
 
     # Valhalla health
     valhalla_healthy: bool = False
@@ -204,6 +206,8 @@ class GeoServiceHealth(Document):
     valhalla_error: str | None = None
     valhalla_version: str | None = None
     valhalla_tile_count: int | None = None
+    valhalla_container_running: bool = False
+    valhalla_has_data: bool = False
 
     # Overall status
     last_updated: datetime | None = None

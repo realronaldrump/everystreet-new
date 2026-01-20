@@ -35,6 +35,7 @@
   let mapPreview = null;
   let pageSignal = null;
   let regionControlsLocked = false;
+  let geoServiceStatus = null;
 
   window.utils?.onPageLoad(
     ({ signal, cleanup } = {}) => {
@@ -244,11 +245,13 @@
     setupState.bouncie = Boolean(setupStatus?.steps?.bouncie?.complete);
     setupState.mapbox = Boolean(setupStatus?.steps?.mapbox?.complete);
     setupState.region = Boolean(setupStatus?.steps?.region?.complete);
+    geoServiceStatus = setupStatus?.geo_services || null;
 
     const nextIndex = getStepIndexByKey(sessionState.current_step || "welcome");
     showStep(nextIndex >= 0 ? nextIndex : 0);
     updateStepIndicators();
     updateSummary();
+    updateGeoServiceStatus(geoServiceStatus);
     updateRegionFromSession(sessionState.step_states?.region);
     applyLockState();
     renderSessionBanner(payload);
@@ -309,6 +312,7 @@
       "region-back-btn",
       "region-continue-btn",
       "region-skip-btn",
+      "confirm-region-skip",
       "download-region-btn",
       "auto-region-btn",
       "complete-back-btn",
@@ -330,10 +334,6 @@
       "authorizationCode",
       "fetchConcurrency",
       "mapboxToken",
-      "nominatimBaseUrl",
-      "nominatimUserAgent",
-      "valhallaBaseUrl",
-      "geofabrikMirror",
     ].forEach((id) => {
       const input = document.getElementById(id);
       if (input) {
@@ -455,6 +455,9 @@
     document
       .getElementById("region-skip-btn")
       ?.addEventListener("click", handleRegionSkip);
+    document
+      .getElementById("confirm-region-skip")
+      ?.addEventListener("click", confirmRegionSkip);
 
     document
       .getElementById("complete-back-btn")
@@ -500,13 +503,7 @@
         ?.addEventListener("input", () => markDirty("bouncie"));
     });
 
-    [
-      "mapboxToken",
-      "nominatimBaseUrl",
-      "nominatimUserAgent",
-      "valhallaBaseUrl",
-      "geofabrikMirror",
-    ].forEach((id) => {
+    ["mapboxToken"].forEach((id) => {
       document.getElementById(id)?.addEventListener("input", () => markDirty("mapbox"));
     });
   }
@@ -843,11 +840,6 @@
         );
       }
       document.getElementById("mapboxToken").value = data.mapbox_token || "";
-      document.getElementById("nominatimBaseUrl").value = data.nominatim_base_url || "";
-      document.getElementById("nominatimUserAgent").value
-        = data.nominatim_user_agent || "";
-      document.getElementById("valhallaBaseUrl").value = data.valhalla_base_url || "";
-      document.getElementById("geofabrikMirror").value = data.geofabrik_mirror || "";
       handleMapboxInput();
       clearDirty("mapbox");
     } catch (_error) {
@@ -896,10 +888,6 @@
 
     const payload = {
       mapbox_token: token,
-      nominatim_base_url: document.getElementById("nominatimBaseUrl").value.trim(),
-      nominatim_user_agent: document.getElementById("nominatimUserAgent").value.trim(),
-      valhalla_base_url: document.getElementById("valhallaBaseUrl").value.trim(),
-      geofabrik_mirror: document.getElementById("geofabrikMirror").value.trim(),
     };
 
     setActionInFlight(true);
@@ -1266,7 +1254,109 @@
     }
   }
 
+  function updateGeoServiceStatus(geoServices) {
+    const stepStatus = document.getElementById("region-step-status");
+    const banner = document.getElementById("region-service-banner");
+    const title = document.getElementById("region-service-title");
+    const detail = document.getElementById("region-service-detail");
+    const completeBanner = document.getElementById("region-ready-banner");
+
+    if (!geoServices) {
+      if (stepStatus) {
+        stepStatus.textContent = "Service status unavailable";
+      }
+      if (title) {
+        title.textContent = "Map service status unavailable";
+      }
+      if (detail) {
+        detail.textContent = "";
+      }
+      if (completeBanner) {
+        completeBanner.classList.add("d-none");
+      }
+      return;
+    }
+
+    const nominatim = geoServices.nominatim || {};
+    const valhalla = geoServices.valhalla || {};
+    const containersRunning = Boolean(nominatim.container_running && valhalla.container_running);
+    const servicesReady = Boolean(nominatim.has_data && valhalla.has_data);
+
+    if (stepStatus) {
+      if (servicesReady) {
+        stepStatus.textContent = "Services ready";
+      } else if (containersRunning) {
+        stepStatus.textContent = "Services waiting for data";
+      } else {
+        stepStatus.textContent = "Containers offline";
+      }
+    }
+
+    if (title) {
+      if (servicesReady) {
+        title.textContent = "Map services are ready";
+      } else if (containersRunning) {
+        title.textContent = "Map services are waiting for data";
+      } else {
+        title.textContent = "Map service containers are offline";
+      }
+    }
+
+    if (detail) {
+      const nomContainer = nominatim.container_running ? "Running" : "Stopped";
+      const valContainer = valhalla.container_running ? "Running" : "Stopped";
+      const nomData = nominatim.has_data ? "Ready" : "Missing";
+      const valData = valhalla.has_data ? "Ready" : "Missing";
+      detail.textContent = `Containers: Nominatim ${nomContainer}, Valhalla ${valContainer} | Data: Nominatim ${nomData}, Valhalla ${valData}`;
+    }
+
+    if (banner) {
+      banner.classList.toggle("setup-region-alert-ready", servicesReady);
+    }
+    if (completeBanner) {
+      const showBanner = !setupState.region || !servicesReady;
+      completeBanner.classList.toggle("d-none", !showBanner);
+    }
+  }
+
   function handleRegionSkip() {
+    if (sessionReadOnly || actionInFlight || isStepLocked()) {
+      showRegionStatus("Setup is locked while another step is running.", true);
+      return;
+    }
+    const modalEl = document.getElementById("regionSkipModal");
+    if (modalEl && window.bootstrap?.Modal) {
+      const modal = window.bootstrap.Modal.getOrCreateInstance(modalEl);
+      modal.show();
+      return;
+    }
+    if (window.confirmationDialog?.show) {
+      window.confirmationDialog
+        .show({
+          title: "Skip map data setup?",
+          message:
+            "Geocoding and routing stay offline until you import a region. Continue anyway?",
+          confirmText: "Skip",
+          cancelText: "Keep setting up",
+          confirmButtonClass: "btn-warning",
+        })
+        .then((confirmed) => {
+          if (confirmed) {
+            handleStepNavigation("complete", { region_skipped: true });
+          }
+        });
+      return;
+    }
+    if (window.confirm("Skip map data setup? Map services will stay offline.")) {
+      handleStepNavigation("complete", { region_skipped: true });
+    }
+  }
+
+  function confirmRegionSkip() {
+    const modalEl = document.getElementById("regionSkipModal");
+    if (modalEl && window.bootstrap?.Modal) {
+      window.bootstrap.Modal.getInstance(modalEl)?.hide();
+    }
     handleStepNavigation("complete", { region_skipped: true });
   }
 
@@ -1282,8 +1372,8 @@
       ? "Configured"
       : "Missing";
     document.getElementById("summary-region").textContent = setupState.region
-      ? "Downloaded"
-      : "Skipped";
+      ? "Configured"
+      : "Needs data";
   }
 
   async function completeSetup() {

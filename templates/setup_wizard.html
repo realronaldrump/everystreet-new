@@ -26,8 +26,8 @@ EveryStreet Setup
 Get your streets online in minutes.
           </h1>
           <p class="setup-subtitle">
-            We will connect Bouncie, add a Mapbox token, and optionally download map
-            regions so the app is ready to go inside Docker.
+            We will connect Bouncie, add a Mapbox token, and download map
+            regions so geocoding and routing are ready inside Docker.
           </p>
         </div>
         <div class="setup-hero-card">
@@ -42,7 +42,7 @@ This wizard will configure:
               <i class="fas fa-map"></i> Mapbox token
             </li>
             <li>
-              <i class="fas fa-globe"></i> Optional map regions
+              <i class="fas fa-globe"></i> Map region data
             </li>
           </ul>
         </div>
@@ -111,7 +111,7 @@ Token + preview
 Map Region
                 </div>
                 <div class="step-note">
-Optional downloads
+                  <span id="region-step-status">Checking services...</span>
                 </div>
               </div>
             </li>
@@ -161,7 +161,7 @@ Welcome to EveryStreet
                 </div>
                 <div class="setup-check">
                   <i class="fas fa-check-circle"></i>
-                  <span>Optionally download a map region for matching + geocoding.</span>
+                  <span>Download a map region for matching + geocoding.</span>
                 </div>
               </div>
               <div class="setup-actions">
@@ -292,62 +292,6 @@ Mapbox Token
                 </div>
               </div>
 
-              <div class="setup-advanced">
-                <button class="btn btn-link"
-                        type="button"
-                        data-bs-toggle="collapse"
-                        data-bs-target="#advanced-service-config">
-                  Advanced service configuration
-                </button>
-                <div class="collapse" id="advanced-service-config">
-                  <div class="setup-advanced-card">
-                    <p class="text-muted">
-                      Defaults work for Docker Compose deployments. Override only if needed.
-                    </p>
-                    <div class="row">
-                      <div class="col-md-6 mb-3">
-                        <label for="nominatimBaseUrl" class="form-label">
-Nominatim Base URL
-                        </label>
-                        <input type="url"
-                               class="form-control"
-                               id="nominatimBaseUrl"
-                               placeholder="http://nominatim:8080" />
-                      </div>
-                      <div class="col-md-6 mb-3">
-                        <label for="nominatimUserAgent" class="form-label">
-Nominatim User Agent
-                        </label>
-                        <input type="text"
-                               class="form-control"
-                               id="nominatimUserAgent"
-                               placeholder="EveryStreet/1.0" />
-                      </div>
-                      <div class="col-md-6 mb-3">
-                        <label for="valhallaBaseUrl" class="form-label">
-Valhalla Base URL
-                        </label>
-                        <input type="url"
-                               class="form-control"
-                               id="valhallaBaseUrl"
-                               placeholder="http://valhalla:8002" />
-                      </div>
-                      <div class="col-md-6 mb-3">
-                        <label for="geofabrikMirror" class="form-label">
-Geofabrik Mirror
-                        </label>
-                        <input type="url"
-                               class="form-control"
-                               id="geofabrikMirror"
-                               placeholder="https://download.geofabrik.de" />
-                      </div>
-                    </div>
-                    <div id="serviceConfigStatus" class="setup-status" role="status">
-                    </div>
-                  </div>
-                </div>
-              </div>
-
               <div class="setup-actions">
                 <button class="btn btn-outline-light" id="mapbox-back-btn" type="button">
                   Back
@@ -362,12 +306,19 @@ Geofabrik Mirror
           <section class="setup-step" data-step="3">
             <div class="setup-card">
               <h2>
-Map Region (Optional)
+ Map Region
               </h2>
               <p>
                 Download an OpenStreetMap region to enable geocoding and map matching.
-                You can skip this step and configure later.
+                This step unlocks routing and place search in the app.
               </p>
+              <div class="setup-region-alert" id="region-service-banner">
+                <div class="setup-region-alert-title" id="region-service-title">
+                  Checking map service containers...
+                </div>
+                <div class="setup-region-alert-text" id="region-service-detail">
+                </div>
+              </div>
 
               <div class="setup-region-grid">
                 <div class="setup-region-panel">
@@ -440,6 +391,16 @@ Setup Complete
               <p>
 Review what is configured. When you finish, background tasks will start syncing trips.
               </p>
+              <div class="setup-region-alert setup-region-alert-warning d-none" id="region-ready-banner">
+                <div class="setup-region-alert-title">
+                  Map services need data
+                </div>
+                <div class="setup-region-alert-text">
+                  Nominatim and Valhalla are running, but they cannot serve searches until you
+                  download a region. You can finish setup now and return later, but the map
+                  services will stay offline.
+                </div>
+              </div>
 
               <div class="setup-summary">
                 <div class="summary-item">
@@ -470,6 +431,33 @@ Review what is configured. When you finish, background tasks will start syncing 
             </div>
           </section>
         </main>
+      </div>
+    </div>
+  </div>
+  <div class="modal fade" id="regionSkipModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content bg-dark text-white">
+        <div class="modal-header">
+          <h5 class="modal-title">
+            Skip map data setup?
+          </h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal">
+          </button>
+        </div>
+        <div class="modal-body">
+          <p>
+            Nominatim and Valhalla will stay offline until you download a region. You can return
+            to /setup later, but geocoding and routing will not work until data is imported.
+          </p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">
+            Keep setting up
+          </button>
+          <button type="button" class="btn btn-warning" id="confirm-region-skip">
+            Skip for now
+          </button>
+        </div>
       </div>
     </div>
   </div>

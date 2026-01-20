@@ -1,15 +1,9 @@
 """
 Service configuration loader.
 
-Provides async functions to load service configuration from the database
+Provides async functions to load user-specific configuration from the database
 with environment variable fallbacks. This allows runtime configuration
 through the UI while maintaining backward compatibility with .env files.
-
-Usage:
-    from service_config import get_service_config
-
-    config = await get_service_config()
-    nominatim_url = config.get_nominatim_search_url()
 """
 
 from __future__ import annotations
@@ -32,7 +26,7 @@ async def get_service_config() -> AppSettings:
     """
     Get service configuration from the database.
 
-    Returns AppSettings document with all geo service URLs and tokens.
+    Returns AppSettings document with user-specific settings.
     Falls back to defaults if no settings are saved yet.
 
     This function caches the settings for the lifetime of the request.
@@ -82,44 +76,6 @@ def _apply_env_overrides(settings: AppSettings) -> None:
     if env_mapbox:
         settings.mapbox_token = env_mapbox
 
-    # Nominatim
-    env_nominatim_base = os.getenv("NOMINATIM_BASE_URL", "").strip()
-    if env_nominatim_base:
-        settings.nominatim_base_url = env_nominatim_base
-
-    env_nominatim_search = os.getenv("NOMINATIM_SEARCH_URL", "").strip()
-    if env_nominatim_search:
-        settings.nominatim_search_url = env_nominatim_search
-
-    env_nominatim_reverse = os.getenv("NOMINATIM_REVERSE_URL", "").strip()
-    if env_nominatim_reverse:
-        settings.nominatim_reverse_url = env_nominatim_reverse
-
-    env_nominatim_ua = os.getenv("NOMINATIM_USER_AGENT", "").strip()
-    if env_nominatim_ua:
-        settings.nominatim_user_agent = env_nominatim_ua
-
-    # Valhalla
-    env_valhalla_base = os.getenv("VALHALLA_BASE_URL", "").strip()
-    if env_valhalla_base:
-        settings.valhalla_base_url = env_valhalla_base
-
-    env_valhalla_status = os.getenv("VALHALLA_STATUS_URL", "").strip()
-    if env_valhalla_status:
-        settings.valhalla_status_url = env_valhalla_status
-
-    env_valhalla_route = os.getenv("VALHALLA_ROUTE_URL", "").strip()
-    if env_valhalla_route:
-        settings.valhalla_route_url = env_valhalla_route
-
-    env_valhalla_trace = os.getenv("VALHALLA_TRACE_ROUTE_URL", "").strip()
-    if env_valhalla_trace:
-        settings.valhalla_trace_route_url = env_valhalla_trace
-
-    env_valhalla_attrs = os.getenv("VALHALLA_TRACE_ATTRIBUTES_URL", "").strip()
-    if env_valhalla_attrs:
-        settings.valhalla_trace_attributes_url = env_valhalla_attrs
-
     # OSM/Geofabrik
     env_geofabrik = os.getenv("GEOFABRIK_MIRROR", "").strip()
     if env_geofabrik:
@@ -142,18 +98,6 @@ def _set_env_value(key: str, value: str | None) -> None:
 def _apply_settings_to_env(settings: AppSettings) -> None:
     """Seed environment variables from stored settings."""
     _set_env_value("MAPBOX_TOKEN", settings.mapbox_token)
-    _set_env_value("NOMINATIM_BASE_URL", settings.nominatim_base_url)
-    _set_env_value("NOMINATIM_SEARCH_URL", settings.get_nominatim_search_url())
-    _set_env_value("NOMINATIM_REVERSE_URL", settings.get_nominatim_reverse_url())
-    _set_env_value("NOMINATIM_USER_AGENT", settings.nominatim_user_agent)
-    _set_env_value("VALHALLA_BASE_URL", settings.valhalla_base_url)
-    _set_env_value("VALHALLA_STATUS_URL", settings.get_valhalla_status_url())
-    _set_env_value("VALHALLA_ROUTE_URL", settings.get_valhalla_route_url())
-    _set_env_value("VALHALLA_TRACE_ROUTE_URL", settings.get_valhalla_trace_route_url())
-    _set_env_value(
-        "VALHALLA_TRACE_ATTRIBUTES_URL",
-        settings.get_valhalla_trace_attributes_url(),
-    )
     _set_env_value("GEOFABRIK_MIRROR", settings.geofabrik_mirror)
     _set_env_value("OSM_EXTRACTS_PATH", settings.osm_extracts_path)
 
@@ -180,27 +124,3 @@ async def get_mapbox_token_async() -> str:
     """Get Mapbox token from settings."""
     config = await get_service_config()
     return config.mapbox_token or ""
-
-
-async def get_nominatim_search_url_async() -> str:
-    """Get Nominatim search URL from settings."""
-    config = await get_service_config()
-    return config.get_nominatim_search_url()
-
-
-async def get_nominatim_reverse_url_async() -> str:
-    """Get Nominatim reverse URL from settings."""
-    config = await get_service_config()
-    return config.get_nominatim_reverse_url()
-
-
-async def get_valhalla_trace_route_url_async() -> str:
-    """Get Valhalla trace_route URL from settings."""
-    config = await get_service_config()
-    return config.get_valhalla_trace_route_url()
-
-
-async def get_valhalla_route_url_async() -> str:
-    """Get Valhalla route URL from settings."""
-    config = await get_service_config()
-    return config.get_valhalla_route_url()

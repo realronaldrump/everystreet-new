@@ -90,7 +90,12 @@ Active tasks: --
           <h3 class="widget-title">
             <i class="fas fa-search-location"></i> Nominatim
           </h3>
-          <span class="badge bg-secondary" id="nominatim-status-badge">--</span>
+          <div class="d-flex align-items-center gap-2">
+            <span class="badge bg-secondary" id="nominatim-status-badge">--</span>
+            <button class="btn btn-outline-light btn-sm" id="nominatim-restart-btn" type="button">
+              <i class="fas fa-rotate"></i> Restart
+            </button>
+          </div>
         </div>
         <div class="widget-body">
           <div id="nominatim-status-message">
@@ -106,7 +111,12 @@ Active tasks: --
           <h3 class="widget-title">
             <i class="fas fa-route"></i> Valhalla
           </h3>
-          <span class="badge bg-secondary" id="valhalla-status-badge">--</span>
+          <div class="d-flex align-items-center gap-2">
+            <span class="badge bg-secondary" id="valhalla-status-badge">--</span>
+            <button class="btn btn-outline-light btn-sm" id="valhalla-restart-btn" type="button">
+              <i class="fas fa-rotate"></i> Restart
+            </button>
+          </div>
         </div>
         <div class="widget-body">
           <div id="valhalla-status-message">

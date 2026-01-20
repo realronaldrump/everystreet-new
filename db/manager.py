@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+from typing import Final
 import threading
 from datetime import UTC
 from typing import Any, Self
@@ -18,6 +19,27 @@ import certifi
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 
 logger = logging.getLogger(__name__)
+
+DEFAULT_MONGO_URI: Final[str] = "mongodb://mongo:27017"
+_DEPRECATED_MONGO_ENV_VARS: Final[tuple[str, ...]] = (
+    "MONGO_URI",
+    "MONGO_HOST",
+    "MONGO_PORT",
+)
+_mongo_env_warned = False
+
+
+def _warn_deprecated_mongo_env_vars() -> None:
+    global _mongo_env_warned
+    if _mongo_env_warned:
+        return
+    configured = [env for env in _DEPRECATED_MONGO_ENV_VARS if os.getenv(env)]
+    if configured:
+        logger.warning(
+            "Deprecated MongoDB env vars are ignored: %s. Using internal Docker MongoDB.",
+            ", ".join(configured),
+        )
+    _mongo_env_warned = True
 
 
 class DatabaseManager:
@@ -30,9 +52,6 @@ class DatabaseManager:
     - Retry logic with exponential backoff
     - Thread-safe singleton pattern
     Environment Variables:
-        MONGO_URI: MongoDB connection URI
-        MONGO_HOST: MongoDB host (fallback if MONGO_URI not set)
-        MONGO_PORT: MongoDB port (fallback if MONGO_URI not set)
         MONGODB_DATABASE: Database name (default: every_street)
         MONGODB_MAX_POOL_SIZE: Connection pool size (default: 50)
         MONGODB_CONNECTION_TIMEOUT_MS: Connection timeout (default: 5000)
@@ -90,17 +109,8 @@ class DatabaseManager:
             Exception: If client initialization fails.
         """
         try:
-            mongo_uri = os.getenv("MONGO_URI")
-
-            if not mongo_uri:
-                mongo_host = os.getenv("MONGO_HOST", "mongo")
-                mongo_port = os.getenv("MONGO_PORT", "27017")
-                db_name = os.getenv("MONGODB_DATABASE", "every_street")
-                mongo_uri = f"mongodb://{mongo_host}:{mongo_port}/{db_name}"
-                logger.warning(
-                    "MONGO_URI not set, constructing from components: %s",
-                    mongo_uri,
-                )
+            _warn_deprecated_mongo_env_vars()
+            mongo_uri = DEFAULT_MONGO_URI
 
             logger.debug("Initializing MongoDB client with URI: %s", mongo_uri)
 

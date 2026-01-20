@@ -13,13 +13,16 @@ services:
     volumes:
       - .:/app
       - osm_extracts:/osm
+      - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       mongo-init:
         condition: service_completed_successfully
       redis:
         condition: service_healthy
-      # NOTE: nominatim and valhalla are NOT dependencies
-      # They may not start without data, and the web app handles their absence gracefully
+      nominatim:
+        condition: service_started
+      valhalla:
+        condition: service_started
     networks:
       - default
 
@@ -43,8 +46,8 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
-    ports:
-      - '6379:6379'
+    expose:
+      - '6379'
     volumes:
       - redis_data:/data
     healthcheck:
@@ -59,8 +62,8 @@ services:
   mongo:
     image: mongo:7
     restart: unless-stopped
-    ports:
-      - '27017:27017'
+    expose:
+      - '27017'
     volumes:
       - mongo_data:/data/db
     ulimits:
@@ -110,7 +113,7 @@ services:
   # and import OSM extracts. The service will be unavailable until data is imported.
   nominatim:
     image: mediagis/nominatim:4.4
-    restart: 'no' # Don't restart - will fail without data, user imports via UI
+    restart: unless-stopped
     environment:
       # Don't specify PBF_PATH or PBF_URL - data will be imported via app UI
       # The container will exit if no data is provided, which is expected
@@ -121,14 +124,14 @@ services:
       - nominatim_data:/var/lib/postgresql/14/main
       - nominatim_flatnode:/nominatim/flatnode
       - osm_extracts:/nominatim/data
-    ports:
-      - '7070:8080'
+    expose:
+      - '8080'
     healthcheck:
-      test: ['CMD', 'curl', '-f', 'http://localhost:8080/status']
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 120s
+      test: ['CMD', 'pgrep', '-f', 'postgres']
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     networks:
       - default
     shm_size: 1g
@@ -138,7 +141,7 @@ services:
   # OSM extracts and build routing tiles. The service will be unavailable until tiles are built.
   valhalla:
     image: ghcr.io/gis-ops/docker-valhalla/valhalla:3.5.1
-    restart: 'no' # Don't restart - will fail without tiles, user builds via UI
+    restart: unless-stopped
     environment:
       tile_urls: ''
       serve_tiles: 'True'
@@ -150,14 +153,14 @@ services:
     volumes:
       - valhalla_tiles:/custom_files
       - osm_extracts:/data/osm:ro
-    ports:
-      - '8004:8002'
+    expose:
+      - '8002'
     healthcheck:
-      test: ['CMD', 'curl', '-f', 'http://localhost:8002/status']
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
+      test: ['CMD', 'pgrep', '-f', 'valhalla']
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     networks:
       - default
 

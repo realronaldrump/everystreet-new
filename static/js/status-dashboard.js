@@ -37,6 +37,12 @@
     document
       .getElementById("status-refresh-btn")
       ?.addEventListener("click", () => loadStatus(true));
+    document
+      .getElementById("nominatim-restart-btn")
+      ?.addEventListener("click", () => restartService("nominatim"));
+    document
+      .getElementById("valhalla-restart-btn")
+      ?.addEventListener("click", () => restartService("valhalla"));
     loadStatus();
     refreshInterval = setInterval(loadStatus, 30000);
   }
@@ -156,5 +162,39 @@
     const div = document.createElement("div");
     div.textContent = text || "";
     return div.innerHTML;
+  }
+
+  async function restartService(serviceName) {
+    const button = document.getElementById(`${serviceName}-restart-btn`);
+    const icon = button?.querySelector("i");
+    if (button) {
+      button.disabled = true;
+    }
+    icon?.classList.add("fa-spin");
+    try {
+      const response = await fetch(
+        `/api/services/${encodeURIComponent(serviceName)}/restart`,
+        withSignal({ method: "POST" })
+      );
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data?.detail?.message || data?.message || "Restart failed");
+      }
+      window.notificationManager?.show?.(
+        data?.message || `Restarted ${serviceName}.`,
+        "success"
+      );
+      await loadStatus(true);
+    } catch (error) {
+      window.notificationManager?.show?.(
+        error.message || "Unable to restart service.",
+        "danger"
+      );
+    } finally {
+      icon?.classList.remove("fa-spin");
+      if (button) {
+        button.disabled = false;
+      }
+    }
   }
 })();

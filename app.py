@@ -207,18 +207,12 @@ async def startup_event():
             get_valhalla_status_url,
         )
 
-        valhalla_configured = bool(
-            get_valhalla_route_url() and get_valhalla_status_url(),
-        )
-        nominatim_configured = bool(get_nominatim_search_url())
+        _ = get_valhalla_route_url()
+        _ = get_valhalla_status_url()
+        _ = get_nominatim_search_url()
         osm_path = get_osm_data_path()
 
-        if valhalla_configured and nominatim_configured:
-            logger.info("Valhalla and Nominatim URLs configured.")
-        else:
-            logger.warning(
-                "Geo services not fully configured. Use Map Data Management to set up.",
-            )
+        logger.info("Geo services configured for Docker internal DNS.")
 
         # Check OSM data path (optional - can be set up later via UI)
         if osm_path:

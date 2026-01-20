@@ -8,28 +8,23 @@ import config
 
 
 class ValhallaConfigTests(unittest.TestCase):
-    def test_require_valhalla_route_url_missing(self) -> None:
+    def test_require_valhalla_route_url_defaults(self) -> None:
         with patch.dict(os.environ, {}, clear=True):
-            with pytest.raises(RuntimeError):
-                config.require_valhalla_route_url()
+            assert config.require_valhalla_route_url() == "http://valhalla:8002/route"
 
-    def test_require_valhalla_route_url_present(self) -> None:
+    def test_require_valhalla_route_url_ignores_env(self) -> None:
         with patch.dict(
             os.environ,
             {"VALHALLA_ROUTE_URL": "http://100.108.79.105:8004/route"},
             clear=True,
         ):
-            assert (
-                config.require_valhalla_route_url()
-                == "http://100.108.79.105:8004/route"
-            )
+            assert config.require_valhalla_route_url() == "http://valhalla:8002/route"
 
 
 class NominatimConfigTests(unittest.TestCase):
-    def test_require_nominatim_user_agent_missing(self) -> None:
+    def test_require_nominatim_user_agent_defaults(self) -> None:
         with patch.dict(os.environ, {}, clear=True):
-            with pytest.raises(RuntimeError):
-                config.require_nominatim_user_agent()
+            assert config.require_nominatim_user_agent() == "EveryStreet/1.0"
 
     def test_require_nominatim_user_agent_present(self) -> None:
         with patch.dict(

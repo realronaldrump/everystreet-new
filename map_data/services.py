@@ -9,8 +9,10 @@ Provides core business logic for:
 
 from __future__ import annotations
 
+import json
 import logging
 import re
+import subprocess
 import time
 from datetime import UTC, datetime
 from typing import Any
@@ -25,6 +27,62 @@ logger = logging.getLogger(__name__)
 # Cache for Geofabrik index (refreshed every hour)
 _geofabrik_cache: dict[str, Any] = {"data": None, "timestamp": 0}
 GEOFABRIK_CACHE_TTL = 3600  # 1 hour
+
+
+async def check_container_status(service_name: str) -> dict[str, Any]:
+    """Check if a docker compose service container is running."""
+    try:
+        result = subprocess.run(
+            [
+                "docker",
+                "compose",
+                "ps",
+                "--format",
+                "json",
+                service_name,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+    except Exception as exc:
+        logger.warning("Failed to check container status for %s: %s", service_name, exc)
+        return {"running": False, "status": "unknown"}
+
+    if result.returncode != 0:
+        status_text = (result.stderr or "").strip() or "unknown"
+        logger.warning("docker compose ps failed for %s: %s", service_name, status_text)
+        return {"running": False, "status": status_text}
+
+    output = (result.stdout or "").strip()
+    if not output:
+        return {"running": False, "status": "not running"}
+
+    entry: dict[str, Any] | None = None
+    try:
+        parsed = json.loads(output)
+        if isinstance(parsed, list):
+            entry = parsed[0] if parsed else None
+        elif isinstance(parsed, dict):
+            entry = parsed
+    except json.JSONDecodeError:
+        for line in output.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                entry = json.loads(line)
+                break
+            except json.JSONDecodeError:
+                continue
+
+    if not entry:
+        return {"running": False, "status": "unknown"}
+
+    status_text = str(entry.get("Status") or entry.get("State") or "unknown")
+    state_text = status_text.lower()
+    running = "running" in state_text or state_text.startswith("up")
+    return {"running": running, "status": status_text}
 
 
 async def check_service_health(force_refresh: bool = False) -> GeoServiceHealth:
@@ -46,96 +104,109 @@ async def check_service_health(force_refresh: bool = False) -> GeoServiceHealth:
             return health
 
     # Check Nominatim
+    nominatim_container = await check_container_status("nominatim")
+    health.nominatim_container_running = bool(nominatim_container.get("running"))
     nominatim_url = get_nominatim_base_url()
-    if nominatim_url:
-        try:
+    try:
+        if not health.nominatim_container_running:
+            health.nominatim_healthy = False
+            health.nominatim_has_data = False
+            health.nominatim_error = "Container stopped"
+            health.nominatim_last_check = datetime.now(UTC)
+            health.nominatim_response_time_ms = None
+            health.nominatim_version = None
+        else:
             start = time.monotonic()
             async with httpx.AsyncClient(timeout=10.0) as client:
                 response = await client.get(f"{nominatim_url}/status")
-                elapsed = (time.monotonic() - start) * 1000
+            elapsed = (time.monotonic() - start) * 1000
 
-                health.nominatim_healthy = response.status_code == 200
-                health.nominatim_response_time_ms = elapsed
-                health.nominatim_error = None
-                health.nominatim_last_check = datetime.now(UTC)
-
-                # Try to extract version from status response
-                if response.status_code == 200:
-                    try:
-                        # Nominatim status endpoint returns plain text
-                        text = response.text
-                        if "Nominatim" in text:
-                            health.nominatim_version = text.strip()
-                    except Exception:
-                        pass
-        except Exception as e:
-            health.nominatim_healthy = False
+            health.nominatim_has_data = response.status_code == 200
+            health.nominatim_healthy = health.nominatim_has_data
+            health.nominatim_response_time_ms = elapsed
             health.nominatim_last_check = datetime.now(UTC)
-            health.nominatim_response_time_ms = None
-            # Provide user-friendly error messages
-            error_str = str(e).lower()
-            if (
-                "name or service not known" in error_str
-                or "temporary failure" in error_str
-            ):
-                health.nominatim_error = "Service not running - Add a region to set up"
-            elif "connection refused" in error_str:
-                health.nominatim_error = "Service starting up..."
-            elif "timed out" in error_str or "timeout" in error_str:
-                health.nominatim_error = "Service not responding"
+            health.nominatim_error = None
+
+            if response.status_code == 200:
+                try:
+                    text = response.text
+                    if "Nominatim" in text:
+                        health.nominatim_version = text.strip()
+                except Exception:
+                    pass
             else:
-                health.nominatim_error = str(e)
-    else:
+                health.nominatim_error = "Waiting for data import"
+    except Exception as e:
         health.nominatim_healthy = False
-        health.nominatim_error = "Nominatim URL not configured"
+        health.nominatim_has_data = False
         health.nominatim_last_check = datetime.now(UTC)
+        health.nominatim_response_time_ms = None
+        health.nominatim_version = None
+        error_str = str(e).lower()
+        if "connection refused" in error_str:
+            health.nominatim_error = "Container running, service starting up"
+        elif "timed out" in error_str or "timeout" in error_str:
+            health.nominatim_error = "Service not responding"
+        else:
+            health.nominatim_error = str(e)
 
     # Check Valhalla
+    valhalla_container = await check_container_status("valhalla")
+    health.valhalla_container_running = bool(valhalla_container.get("running"))
     valhalla_url = get_valhalla_base_url()
-    if valhalla_url:
-        try:
+    try:
+        if not health.valhalla_container_running:
+            health.valhalla_healthy = False
+            health.valhalla_has_data = False
+            health.valhalla_error = "Container stopped"
+            health.valhalla_last_check = datetime.now(UTC)
+            health.valhalla_response_time_ms = None
+            health.valhalla_version = None
+            health.valhalla_tile_count = None
+        else:
             start = time.monotonic()
             async with httpx.AsyncClient(timeout=10.0) as client:
                 response = await client.get(f"{valhalla_url}/status")
-                elapsed = (time.monotonic() - start) * 1000
+            elapsed = (time.monotonic() - start) * 1000
 
-                health.valhalla_healthy = response.status_code == 200
-                health.valhalla_response_time_ms = elapsed
-                health.valhalla_error = None
-                health.valhalla_last_check = datetime.now(UTC)
-
-                # Try to extract info from status response
-                if response.status_code == 200:
-                    try:
-                        data = response.json()
-                        if isinstance(data, dict):
-                            health.valhalla_version = data.get("version")
-                            health.valhalla_tile_count = data.get("tileset", {}).get(
-                                "tile_count",
-                            )
-                    except Exception:
-                        pass
-        except Exception as e:
-            health.valhalla_healthy = False
+            health.valhalla_response_time_ms = elapsed
             health.valhalla_last_check = datetime.now(UTC)
-            health.valhalla_response_time_ms = None
-            # Provide user-friendly error messages
-            error_str = str(e).lower()
-            if (
-                "name or service not known" in error_str
-                or "temporary failure" in error_str
-            ):
-                health.valhalla_error = "Service not running - Add a region to set up"
-            elif "connection refused" in error_str:
-                health.valhalla_error = "Service starting up..."
-            elif "timed out" in error_str or "timeout" in error_str:
-                health.valhalla_error = "Service not responding"
-            else:
-                health.valhalla_error = str(e)
-    else:
+            health.valhalla_error = None
+            health.valhalla_has_data = False
+
+            if response.status_code == 200:
+                try:
+                    data = response.json()
+                    if isinstance(data, dict):
+                        health.valhalla_version = data.get("version")
+                        health.valhalla_tile_count = data.get("tileset", {}).get(
+                            "tile_count",
+                        )
+                        health.valhalla_has_data = bool(
+                            (health.valhalla_tile_count or 0) > 0,
+                        )
+                except Exception:
+                    pass
+
+            health.valhalla_healthy = response.status_code == 200 and health.valhalla_has_data
+            if response.status_code != 200:
+                health.valhalla_error = "Service unavailable"
+            elif not health.valhalla_has_data:
+                health.valhalla_error = "Waiting for routing tiles"
+    except Exception as e:
         health.valhalla_healthy = False
-        health.valhalla_error = "Valhalla URL not configured"
+        health.valhalla_has_data = False
         health.valhalla_last_check = datetime.now(UTC)
+        health.valhalla_response_time_ms = None
+        health.valhalla_version = None
+        health.valhalla_tile_count = None
+        error_str = str(e).lower()
+        if "connection refused" in error_str:
+            health.valhalla_error = "Container running, service starting up"
+        elif "timed out" in error_str or "timeout" in error_str:
+            health.valhalla_error = "Service not responding"
+        else:
+            health.valhalla_error = str(e)
 
     health.last_updated = datetime.now(UTC)
     await health.save()

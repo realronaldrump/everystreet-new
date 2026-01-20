@@ -35,8 +35,8 @@ async def start_container_on_demand(
     Start a Docker container using docker compose.
 
     This is used to start Nominatim/Valhalla containers on-demand before builds.
-    The containers are configured with restart: 'no' so they don't start with
-    docker compose up - we start them explicitly when needed.
+    Even with restart policies, containers may be stopped between imports, so we
+    explicitly start them when needed.
 
     Args:
         service_name: The service name from docker-compose.yml
@@ -142,7 +142,6 @@ async def build_nominatim_data(
 
     try:
         # Ensure the Nominatim container is running before we try to import
-        # This handles the case where containers start with restart: 'no'
         if progress_callback:
             await _safe_callback(
                 progress_callback,
@@ -292,7 +291,6 @@ async def build_valhalla_tiles(
 
     try:
         # Ensure the Valhalla container is running before we try to build
-        # This handles the case where containers start with restart: 'no'
         if progress_callback:
             await _safe_callback(progress_callback, 5, "Starting Valhalla container...")
 

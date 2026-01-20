@@ -111,6 +111,20 @@ async def get_setup_status() -> dict[str, Any]:
     region_count = await MapRegion.find_all().count()
     region_complete = region_count > 0
 
+    geo_health = await check_service_health()
+    geo_services = {
+        "nominatim": {
+            "container_running": geo_health.nominatim_container_running,
+            "has_data": geo_health.nominatim_has_data,
+            "ready": geo_health.nominatim_healthy,
+        },
+        "valhalla": {
+            "container_running": geo_health.valhalla_container_running,
+            "has_data": geo_health.valhalla_has_data,
+            "ready": geo_health.valhalla_healthy,
+        },
+    }
+
     return {
         "setup_completed": bool(settings.setup_completed),
         "setup_completed_at": (
@@ -136,6 +150,7 @@ async def get_setup_status() -> dict[str, Any]:
                 "required": False,
             },
         },
+        "geo_services": geo_services,
     }
 
 
@@ -873,18 +888,27 @@ def _status_label(status_value: str) -> str:
     }.get(status_value, "Unknown")
 
 
-def _derive_service_status(healthy: bool, error: str | None) -> str:
-    if healthy:
+def _derive_geo_status(
+    container_running: bool,
+    has_data: bool,
+    error: str | None,
+) -> str:
+    if not container_running:
+        return "error"
+    if has_data:
         return "healthy"
     if error:
-        lowered = error.lower()
-        if (
-            "not configured" in lowered
-            or "not running" in lowered
-            or "setup" in lowered
-        ):
-            return "warning"
-    return "error"
+        return "warning"
+    return "warning"
+
+
+def _format_geo_detail(container_running: bool, has_data: bool) -> str:
+    container_label = "Running" if container_running else "Stopped"
+    if not container_running:
+        service_label = "Unavailable"
+    else:
+        service_label = "Ready" if has_data else "Waiting for data"
+    return f"Container: {container_label} | Service: {service_label}"
 
 
 @router.get("/status/health")
@@ -970,27 +994,35 @@ async def get_status_health() -> dict[str, Any]:
     bouncie_detail = None
 
     geo_health = await check_service_health(force_refresh=True)
-    nominatim_status = _derive_service_status(
-        geo_health.nominatim_healthy,
+    nominatim_status = _derive_geo_status(
+        geo_health.nominatim_container_running,
+        geo_health.nominatim_has_data,
         geo_health.nominatim_error,
     )
     nominatim_message = (
-        "Healthy"
-        if geo_health.nominatim_healthy
-        else geo_health.nominatim_error or "Not ready"
+        "Service ready"
+        if geo_health.nominatim_has_data
+        else geo_health.nominatim_error or "Waiting for data"
     )
-    nominatim_detail = None
+    nominatim_detail = _format_geo_detail(
+        geo_health.nominatim_container_running,
+        geo_health.nominatim_has_data,
+    )
 
-    valhalla_status = _derive_service_status(
-        geo_health.valhalla_healthy,
+    valhalla_status = _derive_geo_status(
+        geo_health.valhalla_container_running,
+        geo_health.valhalla_has_data,
         geo_health.valhalla_error,
     )
     valhalla_message = (
-        "Healthy"
-        if geo_health.valhalla_healthy
-        else geo_health.valhalla_error or "Not ready"
+        "Service ready"
+        if geo_health.valhalla_has_data
+        else geo_health.valhalla_error or "Waiting for data"
     )
-    valhalla_detail = None
+    valhalla_detail = _format_geo_detail(
+        geo_health.valhalla_container_running,
+        geo_health.valhalla_has_data,
+    )
 
     sort_key = "-timestamp"
     recent_errors = (
@@ -1029,12 +1061,16 @@ async def get_status_health() -> dict[str, Any]:
             "label": _status_label(nominatim_status),
             "message": nominatim_message,
             "detail": nominatim_detail,
+            "container_running": geo_health.nominatim_container_running,
+            "has_data": geo_health.nominatim_has_data,
         },
         "valhalla": {
             "status": valhalla_status,
             "label": _status_label(valhalla_status),
             "message": valhalla_message,
             "detail": valhalla_detail,
+            "container_running": geo_health.valhalla_container_running,
+            "has_data": geo_health.valhalla_has_data,
         },
         "bouncie": {
             "status": bouncie_status,
@@ -1066,4 +1102,24 @@ async def get_status_health() -> dict[str, Any]:
         },
         "services": service_statuses,
         "recent_errors": recent_error_payload,
+    }
+
+
+@router.post("/services/{service_name}/restart")
+async def restart_service(service_name: str) -> dict[str, Any]:
+    service_name = service_name.strip().lower()
+    if service_name not in {"nominatim", "valhalla"}:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"message": "Unsupported service", "code": "invalid_service"},
+        )
+
+    from map_data.builders import _restart_container
+
+    await _restart_container(service_name)
+
+    return {
+        "success": True,
+        "message": f"{service_name.title()} restart triggered",
+        "service": service_name,
     }
