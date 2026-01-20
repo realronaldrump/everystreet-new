@@ -137,6 +137,7 @@ async def setup_guard(request: Request, call_next):
 
     return await call_next(request)
 
+
 # Include all the modular routers
 app.include_router(pages_router)
 app.include_router(admin_api_router)

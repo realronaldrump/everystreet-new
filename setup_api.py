@@ -23,8 +23,11 @@ from db.models import (
     TaskConfig,
     TaskHistory,
 )
-from map_data.services import check_service_health, download_and_build_all
-from map_data.services import suggest_region_from_first_trip
+from map_data.services import (
+    check_service_health,
+    download_and_build_all,
+    suggest_region_from_first_trip,
+)
 from service_config import clear_config_cache, get_service_config
 from tasks.arq import get_arq_pool
 from tasks.config import set_global_disable
@@ -113,7 +116,9 @@ async def get_setup_status() -> dict[str, Any]:
     return {
         "setup_completed": bool(settings.setup_completed),
         "setup_completed_at": (
-            settings.setup_completed_at.isoformat() if settings.setup_completed_at else None
+            settings.setup_completed_at.isoformat()
+            if settings.setup_completed_at
+            else None
         ),
         "required_complete": bouncie_complete and mapbox_complete,
         "steps": {
@@ -199,7 +204,9 @@ def _mark_step_idle(step_state: SetupStepState) -> None:
         step_state.interruptible = True
 
 
-async def _touch_session(session: SetupSession, client_id: str | None, now: datetime) -> None:
+async def _touch_session(
+    session: SetupSession, client_id: str | None, now: datetime
+) -> None:
     session.last_seen_at = now
     session.updated_at = now
     if client_id:
@@ -316,7 +323,9 @@ async def _build_session_payload(
         await session.save()
 
     first_required = _first_incomplete_required(status_payload)
-    if first_required and _step_index(session.current_step) > _step_index(first_required):
+    if first_required and _step_index(session.current_step) > _step_index(
+        first_required
+    ):
         session.current_step = first_required
         session.updated_at = now
         await session.save()
@@ -346,7 +355,9 @@ async def _build_session_payload(
         _mark_step_complete(bouncie_state, now)
     else:
         if bouncie_status.get("missing"):
-            bouncie_state.last_error = "Missing: " + ", ".join(bouncie_state.metadata["missing"])
+            bouncie_state.last_error = "Missing: " + ", ".join(
+                bouncie_state.metadata["missing"]
+            )
         if current_step == "bouncie":
             _mark_step_in_progress(bouncie_state)
         else:
@@ -391,7 +402,9 @@ async def _build_session_payload(
             region_state.progress = job_payload["progress"]
             region_state.in_flight = job.is_active
             region_state.interruptible = not job.is_active
-            stored_region = session.step_states.get("region") if session.step_states else None
+            stored_region = (
+                session.step_states.get("region") if session.step_states else None
+            )
             if stored_region and stored_region.in_flight and not job.is_active:
                 stored_region.in_flight = False
                 stored_region.interruptible = True
@@ -636,7 +649,10 @@ async def run_setup_step(
     _assert_session_active(session)
 
     run_key = f"run:{step_id}"
-    if payload.idempotency_key and session.idempotency_keys.get(run_key) == payload.idempotency_key:
+    if (
+        payload.idempotency_key
+        and session.idempotency_keys.get(run_key) == payload.idempotency_key
+    ):
         return await _build_session_payload(session, client_id)
 
     _assert_version(session, payload.version)
@@ -669,7 +685,10 @@ async def run_setup_step(
     if not region or not region.get("id"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"message": "Region selection is required", "code": "missing_region"},
+            detail={
+                "message": "Region selection is required",
+                "code": "missing_region",
+            },
         )
 
     try:
@@ -857,7 +876,11 @@ def _derive_service_status(healthy: bool, error: str | None) -> str:
         return "healthy"
     if error:
         lowered = error.lower()
-        if "not configured" in lowered or "not running" in lowered or "setup" in lowered:
+        if (
+            "not configured" in lowered
+            or "not running" in lowered
+            or "setup" in lowered
+        ):
             return "warning"
     return "error"
 
@@ -896,7 +919,9 @@ async def get_status_health() -> dict[str, Any]:
         heartbeat = await redis.get("arq:worker:heartbeat")
         if heartbeat:
             heartbeat_value = (
-                heartbeat.decode() if isinstance(heartbeat, (bytes, bytearray)) else str(heartbeat)
+                heartbeat.decode()
+                if isinstance(heartbeat, (bytes, bytearray))
+                else str(heartbeat)
             )
             heartbeat_dt = None
             try:
@@ -927,7 +952,12 @@ async def get_status_health() -> dict[str, Any]:
     bouncie_devices = _normalize_devices(credentials.get("authorized_devices"))
     bouncie_ready = all(
         credentials.get(field)
-        for field in ["client_id", "client_secret", "authorization_code", "redirect_uri"]
+        for field in [
+            "client_id",
+            "client_secret",
+            "authorization_code",
+            "redirect_uri",
+        ]
     ) and bool(bouncie_devices)
     bouncie_status = "healthy" if bouncie_ready else "warning"
     bouncie_message = (
@@ -942,7 +972,9 @@ async def get_status_health() -> dict[str, Any]:
         geo_health.nominatim_healthy, geo_health.nominatim_error
     )
     nominatim_message = (
-        "Healthy" if geo_health.nominatim_healthy else geo_health.nominatim_error or "Not ready"
+        "Healthy"
+        if geo_health.nominatim_healthy
+        else geo_health.nominatim_error or "Not ready"
     )
     nominatim_detail = None
 
@@ -950,16 +982,15 @@ async def get_status_health() -> dict[str, Any]:
         geo_health.valhalla_healthy, geo_health.valhalla_error
     )
     valhalla_message = (
-        "Healthy" if geo_health.valhalla_healthy else geo_health.valhalla_error or "Not ready"
+        "Healthy"
+        if geo_health.valhalla_healthy
+        else geo_health.valhalla_error or "Not ready"
     )
     valhalla_detail = None
 
     sort_key = "-timestamp"
     recent_errors = (
-        await TaskHistory.find({"status": "FAILED"})
-        .sort(sort_key)
-        .limit(5)
-        .to_list()
+        await TaskHistory.find({"status": "FAILED"}).sort(sort_key).limit(5).to_list()
     )
     recent_error_payload = [
         {

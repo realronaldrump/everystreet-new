@@ -140,7 +140,9 @@
   border-radius: var(--radius-lg);
   border: 1px solid var(--border-color);
   background: var(--surface-1);
-  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+  transition:
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast);
 }
 
 .setup-step-item.is-active {
@@ -336,7 +338,9 @@
   justify-content: space-between;
   gap: var(--space-2);
   cursor: pointer;
-  transition: border-color var(--transition-fast), background var(--transition-fast);
+  transition:
+    border-color var(--transition-fast),
+    background var(--transition-fast);
 }
 
 .region-item:hover {
