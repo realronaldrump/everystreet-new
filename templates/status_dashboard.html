@@ -1,179 +1,141 @@
-{% extends "base.html" %}
+{% extends "base.html" %} {% block title %} System Status {% endblock %} {%
+block content %}
 
-{% block title %}
-
-System Status
-{% endblock %}
-
-{% block content %}
-
-  <div class="container-fluid status-dashboard">
-    <div class="bento-grid" data-stagger>
-      <div class="bento-span-12 widget" data-accent="sky">
-        <div class="widget-header">
-          <div>
-            <h2 class="widget-title">
-              <i class="fas fa-heartbeat"></i>
-              System Status
-            </h2>
-            <div class="widget-meta" id="status-last-updated">
-Last updated: --
-            </div>
-          </div>
-          <button class="btn btn-outline-light btn-sm" id="status-refresh-btn">
-            <i class="fas fa-sync-alt"></i> Refresh
-          </button>
-        </div>
-        <div class="widget-body">
-          <div class="d-flex align-items-center gap-3 flex-wrap">
-            <span class="badge bg-secondary" id="overall-status-badge">--</span>
-            <span id="overall-status-message">Loading system health...</span>
+<div class="container-fluid status-dashboard">
+  <div class="bento-grid" data-stagger>
+    <div class="bento-span-12 widget" data-accent="sky">
+      <div class="widget-header">
+        <div>
+          <h2 class="widget-title">
+            <i class="fas fa-heartbeat"></i>
+            System Status
+          </h2>
+          <div class="widget-meta" id="status-last-updated">
+            Last updated: --
           </div>
         </div>
+        <button class="btn btn-outline-light btn-sm" id="status-refresh-btn">
+          <i class="fas fa-sync-alt"></i> Refresh
+        </button>
       </div>
-    </div>
-
-    <div class="bento-grid" data-stagger>
-      <div class="bento-span-4 widget" data-accent="mint">
-        <div class="widget-header">
-          <h3 class="widget-title">
-            <i class="fas fa-database"></i> MongoDB
-          </h3>
-          <span class="badge bg-secondary" id="mongodb-status-badge">--</span>
-        </div>
-        <div class="widget-body">
-          <div id="mongodb-status-message">
---
-          </div>
-          <div class="text-muted small" id="mongodb-status-detail">
-          </div>
-        </div>
-      </div>
-
-      <div class="bento-span-4 widget" data-accent="amber">
-        <div class="widget-header">
-          <h3 class="widget-title">
-            <i class="fas fa-network-wired"></i> Redis
-          </h3>
-          <span class="badge bg-secondary" id="redis-status-badge">--</span>
-        </div>
-        <div class="widget-body">
-          <div id="redis-status-message">
---
-          </div>
-          <div class="text-muted small" id="redis-status-detail">
-          </div>
-        </div>
-      </div>
-
-      <div class="bento-span-4 widget" data-accent="lime">
-        <div class="widget-header">
-          <h3 class="widget-title">
-            <i class="fas fa-robot"></i> Background Worker
-          </h3>
-          <span class="badge bg-secondary" id="worker-status-badge">--</span>
-        </div>
-        <div class="widget-body">
-          <div id="worker-status-message">
---
-          </div>
-          <div class="text-muted small" id="worker-status-detail">
-Active tasks: --
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="bento-grid" data-stagger>
-      <div class="bento-span-4 widget" data-accent="coral">
-        <div class="widget-header">
-          <h3 class="widget-title">
-            <i class="fas fa-search-location"></i> Nominatim
-          </h3>
-          <span class="badge bg-secondary" id="nominatim-status-badge">--</span>
-        </div>
-        <div class="widget-body">
-          <div id="nominatim-status-message">
---
-          </div>
-          <div class="text-muted small" id="nominatim-status-detail">
-          </div>
-        </div>
-      </div>
-
-      <div class="bento-span-4 widget" data-accent="purple">
-        <div class="widget-header">
-          <h3 class="widget-title">
-            <i class="fas fa-route"></i> Valhalla
-          </h3>
-          <span class="badge bg-secondary" id="valhalla-status-badge">--</span>
-        </div>
-        <div class="widget-body">
-          <div id="valhalla-status-message">
---
-          </div>
-          <div class="text-muted small" id="valhalla-status-detail">
-          </div>
-        </div>
-      </div>
-
-      <div class="bento-span-4 widget" data-accent="sky">
-        <div class="widget-header">
-          <h3 class="widget-title">
-            <i class="fas fa-car"></i> Bouncie
-          </h3>
-          <span class="badge bg-secondary" id="bouncie-status-badge">--</span>
-        </div>
-        <div class="widget-body">
-          <div id="bouncie-status-message">
---
-          </div>
-          <div class="text-muted small" id="bouncie-status-detail">
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="bento-grid" data-stagger>
-      <div class="bento-span-8 widget" data-accent="mint">
-        <div class="widget-header">
-          <h3 class="widget-title">
-            <i class="fas fa-triangle-exclamation"></i> Recent Errors
-          </h3>
-        </div>
-        <div class="widget-body" id="recent-errors-list">
-          <div class="text-muted">
-No recent errors.
-          </div>
-        </div>
-      </div>
-
-      <div class="bento-span-4 widget" data-accent="amber">
-        <div class="widget-header">
-          <h3 class="widget-title">
-            <i class="fas fa-bolt"></i> Quick Actions
-          </h3>
-        </div>
-        <div class="widget-body">
-          <div class="d-grid gap-2">
-            <a class="btn btn-outline-light" href="/setup">
-              <i class="fas fa-wand-magic-sparkles"></i> Re-run Setup
-            </a>
-            <a class="btn btn-outline-light" href="/settings">
-              <i class="fas fa-sliders-h"></i> Settings
-            </a>
-            <a class="btn btn-outline-light" href="/coverage-management">
-              <i class="fas fa-map-marked-alt"></i> Coverage Management
-            </a>
-          </div>
+      <div class="widget-body">
+        <div class="d-flex align-items-center gap-3 flex-wrap">
+          <span class="badge bg-secondary" id="overall-status-badge">--</span>
+          <span id="overall-status-message">Loading system health...</span>
         </div>
       </div>
     </div>
   </div>
-{% endblock %}
 
+  <div class="bento-grid" data-stagger>
+    <div class="bento-span-4 widget" data-accent="mint">
+      <div class="widget-header">
+        <h3 class="widget-title"><i class="fas fa-database"></i> MongoDB</h3>
+        <span class="badge bg-secondary" id="mongodb-status-badge">--</span>
+      </div>
+      <div class="widget-body">
+        <div id="mongodb-status-message">--</div>
+        <div class="text-muted small" id="mongodb-status-detail"></div>
+      </div>
+    </div>
 
-{% block extra_js %}
+    <div class="bento-span-4 widget" data-accent="amber">
+      <div class="widget-header">
+        <h3 class="widget-title"><i class="fas fa-network-wired"></i> Redis</h3>
+        <span class="badge bg-secondary" id="redis-status-badge">--</span>
+      </div>
+      <div class="widget-body">
+        <div id="redis-status-message">--</div>
+        <div class="text-muted small" id="redis-status-detail"></div>
+      </div>
+    </div>
 
-  <script src="{{ url_for('static', path='js/status-dashboard.js') | replace('http://', '//') }}"></script>
+    <div class="bento-span-4 widget" data-accent="lime">
+      <div class="widget-header">
+        <h3 class="widget-title">
+          <i class="fas fa-robot"></i> Background Worker
+        </h3>
+        <span class="badge bg-secondary" id="worker-status-badge">--</span>
+      </div>
+      <div class="widget-body">
+        <div id="worker-status-message">--</div>
+        <div class="text-muted small" id="worker-status-detail">
+          Active tasks: --
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="bento-grid" data-stagger>
+    <div class="bento-span-4 widget" data-accent="coral">
+      <div class="widget-header">
+        <h3 class="widget-title">
+          <i class="fas fa-search-location"></i> Nominatim
+        </h3>
+        <span class="badge bg-secondary" id="nominatim-status-badge">--</span>
+      </div>
+      <div class="widget-body">
+        <div id="nominatim-status-message">--</div>
+        <div class="text-muted small" id="nominatim-status-detail"></div>
+      </div>
+    </div>
+
+    <div class="bento-span-4 widget" data-accent="purple">
+      <div class="widget-header">
+        <h3 class="widget-title"><i class="fas fa-route"></i> Valhalla</h3>
+        <span class="badge bg-secondary" id="valhalla-status-badge">--</span>
+      </div>
+      <div class="widget-body">
+        <div id="valhalla-status-message">--</div>
+        <div class="text-muted small" id="valhalla-status-detail"></div>
+      </div>
+    </div>
+
+    <div class="bento-span-4 widget" data-accent="sky">
+      <div class="widget-header">
+        <h3 class="widget-title"><i class="fas fa-car"></i> Bouncie</h3>
+        <span class="badge bg-secondary" id="bouncie-status-badge">--</span>
+      </div>
+      <div class="widget-body">
+        <div id="bouncie-status-message">--</div>
+        <div class="text-muted small" id="bouncie-status-detail"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="bento-grid" data-stagger>
+    <div class="bento-span-8 widget" data-accent="mint">
+      <div class="widget-header">
+        <h3 class="widget-title">
+          <i class="fas fa-triangle-exclamation"></i> Recent Errors
+        </h3>
+      </div>
+      <div class="widget-body" id="recent-errors-list">
+        <div class="text-muted">No recent errors.</div>
+      </div>
+    </div>
+
+    <div class="bento-span-4 widget" data-accent="amber">
+      <div class="widget-header">
+        <h3 class="widget-title"><i class="fas fa-bolt"></i> Quick Actions</h3>
+      </div>
+      <div class="widget-body">
+        <div class="d-grid gap-2">
+          <a class="btn btn-outline-light" href="/setup">
+            <i class="fas fa-wand-magic-sparkles"></i> Re-run Setup
+          </a>
+          <a class="btn btn-outline-light" href="/settings">
+            <i class="fas fa-sliders-h"></i> Settings
+          </a>
+          <a class="btn btn-outline-light" href="/coverage-management">
+            <i class="fas fa-map-marked-alt"></i> Coverage Management
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %} {% block extra_js %}
+
+<script src="{{ url_for('static', path='js/status-dashboard.js') | replace('http://', '//') }}"></script>
 {% endblock %}

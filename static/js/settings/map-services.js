@@ -64,7 +64,9 @@ function setupEventListeners() {
   document
     .getElementById("region-breadcrumb")
     ?.addEventListener("click", handleBreadcrumbClick);
-  document.getElementById("region-list")?.addEventListener("click", handleRegionClick);
+  document
+    .getElementById("region-list")
+    ?.addEventListener("click", handleRegionClick);
 
   // Load regions when modal opens
   const addRegionModal = document.getElementById("addRegionModal");
@@ -106,8 +108,9 @@ function updateHealthCard(service, health) {
     errorDiv?.classList.add("d-none");
   } else {
     // Check if this is a "not running" state vs a real error
-    const isSetupRequired
-      = health.error?.includes("not running") || health.error?.includes("Add a region");
+    const isSetupRequired =
+      health.error?.includes("not running") ||
+      health.error?.includes("Add a region");
     const isStartingUp = health.error?.includes("starting up");
 
     if (isSetupRequired) {
@@ -142,8 +145,8 @@ function updateHealthCard(service, health) {
   }
 
   if (tileCountSpan && health.tile_count !== undefined) {
-    tileCountSpan.textContent
-      = health.tile_count !== null ? health.tile_count.toLocaleString() : "--";
+    tileCountSpan.textContent =
+      health.tile_count !== null ? health.tile_count.toLocaleString() : "--";
   }
 }
 
@@ -216,7 +219,7 @@ async function loadRegions() {
           </div>
         </td>
       </tr>
-    `
+    `,
       )
       .join("");
   } catch (error) {
@@ -239,7 +242,11 @@ function renderStatusBadge(status) {
       icon: "cloud-download-alt",
       text: "Not Downloaded",
     },
-    downloading: { class: "info", icon: "spinner fa-spin", text: "Downloading" },
+    downloading: {
+      class: "info",
+      icon: "spinner fa-spin",
+      text: "Downloading",
+    },
     downloaded: { class: "primary", icon: "check", text: "Downloaded" },
     not_built: { class: "secondary", icon: "hammer", text: "Not Built" },
     building: { class: "warning", icon: "cog fa-spin", text: "Building" },
@@ -266,9 +273,9 @@ function renderRegionActions(region) {
 
   // Build actions for downloaded regions
   if (
-    region.status === "downloaded"
-    || region.status === "ready"
-    || region.status === "error"
+    region.status === "downloaded" ||
+    region.status === "ready" ||
+    region.status === "error"
   ) {
     if (region.nominatim_status !== "ready") {
       actions.push(`
@@ -359,7 +366,7 @@ async function loadGeofabrikRegions(parent = "") {
           ${region.has_children ? '<i class="fas fa-chevron-right ms-2"></i>' : ""}
         </div>
       </div>
-    `
+    `,
       )
       .join("");
 
@@ -463,7 +470,7 @@ function updateBreadcrumb() {
       <li class="breadcrumb-item ${index === items.length - 1 ? "active" : ""}">
         ${index === items.length - 1 ? item.name : `<a href="#" data-region="${item.id}">${item.name}</a>`}
       </li>
-    `
+    `,
       )
       .join("");
   }
@@ -507,7 +514,8 @@ async function downloadSelectedRegion() {
 
   const btn = document.getElementById("download-region-btn");
   btn.disabled = true;
-  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Starting download & build...';
+  btn.innerHTML =
+    '<i class="fas fa-spinner fa-spin"></i> Starting download & build...';
 
   try {
     // Use the unified download-and-build endpoint for one-click setup
@@ -525,14 +533,14 @@ async function downloadSelectedRegion() {
     if (data.success) {
       // Close modal and refresh
       const modal = bootstrap.Modal.getInstance(
-        document.getElementById("addRegionModal")
+        document.getElementById("addRegionModal"),
       );
       modal?.hide();
 
       window.notificationManager?.show(
-        `Download & build started for ${selectedRegion.name}. `
-          + "This will download OSM data, then build Nominatim and Valhalla automatically.",
-        "success"
+        `Download & build started for ${selectedRegion.name}. ` +
+          "This will download OSM data, then build Nominatim and Valhalla automatically.",
+        "success",
       );
 
       // Refresh regions and jobs
@@ -541,7 +549,7 @@ async function downloadSelectedRegion() {
     } else {
       window.notificationManager?.show(
         data.detail || "Failed to start download",
-        "danger"
+        "danger",
       );
     }
   } catch (error) {
@@ -555,9 +563,12 @@ async function downloadSelectedRegion() {
 
 async function buildNominatim(regionId) {
   try {
-    const response = await fetch(`${API_BASE}/regions/${regionId}/build/nominatim`, {
-      method: "POST",
-    });
+    const response = await fetch(
+      `${API_BASE}/regions/${regionId}/build/nominatim`,
+      {
+        method: "POST",
+      },
+    );
 
     const data = await response.json();
 
@@ -568,7 +579,7 @@ async function buildNominatim(regionId) {
     } else {
       window.notificationManager?.show(
         data.detail || "Failed to start build",
-        "danger"
+        "danger",
       );
     }
   } catch (error) {
@@ -579,9 +590,12 @@ async function buildNominatim(regionId) {
 
 async function buildValhalla(regionId) {
   try {
-    const response = await fetch(`${API_BASE}/regions/${regionId}/build/valhalla`, {
-      method: "POST",
-    });
+    const response = await fetch(
+      `${API_BASE}/regions/${regionId}/build/valhalla`,
+      {
+        method: "POST",
+      },
+    );
 
     const data = await response.json();
 
@@ -592,7 +606,7 @@ async function buildValhalla(regionId) {
     } else {
       window.notificationManager?.show(
         data.detail || "Failed to start build",
-        "danger"
+        "danger",
       );
     }
   } catch (error) {
@@ -604,7 +618,9 @@ async function buildValhalla(regionId) {
 function deleteRegion(regionId, regionName) {
   deleteRegionId = regionId;
   document.getElementById("delete-region-name").textContent = regionName;
-  const modal = new bootstrap.Modal(document.getElementById("deleteRegionModal"));
+  const modal = new bootstrap.Modal(
+    document.getElementById("deleteRegionModal"),
+  );
   modal.show();
 }
 
@@ -629,7 +645,7 @@ async function confirmDeleteRegion() {
 
       // Close modal
       const modal = bootstrap.Modal.getInstance(
-        document.getElementById("deleteRegionModal")
+        document.getElementById("deleteRegionModal"),
       );
       modal?.hide();
 
@@ -638,7 +654,7 @@ async function confirmDeleteRegion() {
     } else {
       window.notificationManager?.show(
         data.detail || "Failed to delete region",
-        "danger"
+        "danger",
       );
     }
   } catch (error) {
@@ -744,7 +760,10 @@ async function cancelJob(jobId) {
       await loadActiveJobs();
       await loadRegions();
     } else {
-      window.notificationManager?.show(data.detail || "Failed to cancel job", "danger");
+      window.notificationManager?.show(
+        data.detail || "Failed to cancel job",
+        "danger",
+      );
     }
   } catch (error) {
     console.error("Failed to cancel job:", error);

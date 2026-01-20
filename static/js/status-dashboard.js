@@ -23,7 +23,7 @@
         });
       }
     },
-    { route: "/status" }
+    { route: "/status" },
   );
 
   function withSignal(options = {}) {
@@ -124,7 +124,7 @@
             </div>
             <div class="text-muted small">${formatTime(entry.timestamp)}</div>
           </div>
-        `
+        `,
       )
       .join("");
   }

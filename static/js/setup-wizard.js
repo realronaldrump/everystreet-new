@@ -49,7 +49,7 @@
         });
       }
     },
-    { route: "/setup" }
+    { route: "/setup" },
   );
 
   function withSignal(options = {}) {
@@ -157,7 +157,7 @@
       return false;
     }
     return Object.values(steps).some(
-      (state) => state?.in_flight || state?.interruptible === false
+      (state) => state?.in_flight || state?.interruptible === false,
     );
   }
 
@@ -176,13 +176,15 @@
       withSignal({
         method,
         headers: { "Content-Type": "application/json" },
-        body: isPost ? JSON.stringify({ client_id: sessionClientId }) : undefined,
-      })
+        body: isPost
+          ? JSON.stringify({ client_id: sessionClientId })
+          : undefined,
+      }),
     );
     const data = await readJsonResponse(response);
     if (!response.ok) {
       throw new Error(
-        responseErrorMessage(response, data, "Failed to load setup session")
+        responseErrorMessage(response, data, "Failed to load setup session"),
       );
     }
     return data;
@@ -260,7 +262,9 @@
     if (!startBtn) {
       return;
     }
-    const resume = Boolean(sessionState && sessionState.current_step !== "welcome");
+    const resume = Boolean(
+      sessionState && sessionState.current_step !== "welcome",
+    );
     startBtn.textContent = resume ? "Resume Setup" : "Get Started";
   }
 
@@ -276,8 +280,8 @@
 
     if (sessionReadOnly && ownerId) {
       banner.classList.remove("d-none");
-      message.textContent
-        = "Setup is active in another tab. This view is read-only until it finishes.";
+      message.textContent =
+        "Setup is active in another tab. This view is read-only until it finishes.";
       if (takeoverBtn) {
         takeoverBtn.classList.toggle("d-none", !ownerIsStale);
         takeoverBtn.onclick = ownerIsStale ? handleSessionTakeover : null;
@@ -294,7 +298,9 @@
 
   function applyLockState() {
     const locked = sessionReadOnly || actionInFlight || isStepLocked();
-    const activeCard = document.querySelector(".setup-step.is-active .setup-card");
+    const activeCard = document.querySelector(
+      ".setup-step.is-active .setup-card",
+    );
     activeCard?.classList.toggle("is-locked", locked);
     document.body.classList.toggle("setup-readonly", sessionReadOnly);
 
@@ -410,7 +416,7 @@
   function showNavigationBlockedNotice() {
     window.notificationManager?.show?.(
       "Setup is running. Please wait for the current step to finish.",
-      "warning"
+      "warning",
     );
   }
 
@@ -463,17 +469,23 @@
       .getElementById("complete-setup-btn")
       ?.addEventListener("click", completeSetup);
 
-    document.getElementById("addDeviceBtn")?.addEventListener("click", addDeviceInput);
+    document
+      .getElementById("addDeviceBtn")
+      ?.addEventListener("click", addDeviceInput);
     document
       .getElementById("syncVehiclesBtn")
       ?.addEventListener("click", syncVehiclesFromBouncie);
 
     document
       .getElementById("toggleClientSecret")
-      ?.addEventListener("click", () => togglePasswordVisibility("clientSecret"));
+      ?.addEventListener("click", () =>
+        togglePasswordVisibility("clientSecret"),
+      );
     document
       .getElementById("toggleAuthCode")
-      ?.addEventListener("click", () => togglePasswordVisibility("authorizationCode"));
+      ?.addEventListener("click", () =>
+        togglePasswordVisibility("authorizationCode"),
+      );
 
     document
       .getElementById("download-region-btn")
@@ -507,7 +519,9 @@
       "valhallaBaseUrl",
       "geofabrikMirror",
     ].forEach((id) => {
-      document.getElementById(id)?.addEventListener("input", () => markDirty("mapbox"));
+      document
+        .getElementById(id)
+        ?.addEventListener("input", () => markDirty("mapbox"));
     });
   }
 
@@ -538,12 +552,12 @@
             idempotency_key: createIdempotencyKey(),
             metadata,
           }),
-        })
+        }),
       );
       const data = await readJsonResponse(response);
       if (!response.ok) {
         throw new Error(
-          responseErrorMessage(response, data, "Failed to move setup step")
+          responseErrorMessage(response, data, "Failed to move setup step"),
         );
       }
       applySessionState(data);
@@ -569,12 +583,12 @@
             client_id: sessionClientId,
             force: true,
           }),
-        })
+        }),
       );
       const data = await readJsonResponse(response);
       if (!response.ok) {
         throw new Error(
-          responseErrorMessage(response, data, "Unable to claim setup session")
+          responseErrorMessage(response, data, "Unable to claim setup session"),
         );
       }
       applySessionState(data);
@@ -594,7 +608,10 @@
     currentStep = index;
     const stepKey = getStepKeyByIndex(index);
     if (stepKey === "region" && setupState.region) {
-      showRegionStatus("A region is already configured. Add another if needed.", false);
+      showRegionStatus(
+        "A region is already configured. Add another if needed.",
+        false,
+      );
     }
     if (stepKey === "complete") {
       updateSummary();
@@ -618,21 +635,22 @@
     try {
       const response = await fetch(
         `${PROFILE_API}/bouncie-credentials/unmask`,
-        withSignal()
+        withSignal(),
       );
       const data = await readJsonResponse(response);
       if (!response.ok) {
         throw new Error(
-          responseErrorMessage(response, data, "Unable to load credentials")
+          responseErrorMessage(response, data, "Unable to load credentials"),
         );
       }
       const creds = data.credentials || {};
       document.getElementById("clientId").value = creds.client_id || "";
       document.getElementById("clientSecret").value = creds.client_secret || "";
       document.getElementById("redirectUri").value = creds.redirect_uri || "";
-      document.getElementById("authorizationCode").value
-        = creds.authorization_code || "";
-      document.getElementById("fetchConcurrency").value = creds.fetch_concurrency || 12;
+      document.getElementById("authorizationCode").value =
+        creds.authorization_code || "";
+      document.getElementById("fetchConcurrency").value =
+        creds.fetch_concurrency || 12;
       currentDevices = Array.isArray(creds.authorized_devices)
         ? creds.authorized_devices
         : [];
@@ -685,7 +703,7 @@
       showStatus(
         "setup-bouncie-status",
         "Setup is locked while another step runs.",
-        true
+        true,
       );
       return;
     }
@@ -699,12 +717,16 @@
       showStatus(
         "setup-bouncie-status",
         "Setup is locked while another step runs.",
-        true
+        true,
       );
       return;
     }
     if (currentDevices.length <= 1) {
-      showStatus("setup-bouncie-status", "At least one device is required.", true);
+      showStatus(
+        "setup-bouncie-status",
+        "At least one device is required.",
+        true,
+      );
       return;
     }
     currentDevices.splice(index, 1);
@@ -715,36 +737,54 @@
   function getBouncieFormValues() {
     const fetchConcurrency = Number.parseInt(
       document.getElementById("fetchConcurrency").value,
-      10
+      10,
     );
     return {
       client_id: document.getElementById("clientId").value.trim(),
       client_secret: document.getElementById("clientSecret").value.trim(),
       redirect_uri: document.getElementById("redirectUri").value.trim(),
-      authorization_code: document.getElementById("authorizationCode").value.trim(),
+      authorization_code: document
+        .getElementById("authorizationCode")
+        .value.trim(),
       authorized_devices: currentDevices.map((device) => device.trim()),
-      fetch_concurrency: Number.isFinite(fetchConcurrency) ? fetchConcurrency : 12,
+      fetch_concurrency: Number.isFinite(fetchConcurrency)
+        ? fetchConcurrency
+        : 12,
     };
   }
 
   async function saveBouncieCredentials(advance = false) {
     if (!sessionId || !sessionVersion) {
-      showStatus("setup-bouncie-status", "Setup session is not ready yet.", true);
+      showStatus(
+        "setup-bouncie-status",
+        "Setup session is not ready yet.",
+        true,
+      );
       return;
     }
     if (sessionReadOnly || actionInFlight) {
       showStatus(
         "setup-bouncie-status",
         "Setup is locked while another step is running.",
-        true
+        true,
       );
       return;
     }
     const values = getBouncieFormValues();
-    const devices = values.authorized_devices.filter((device) => device.length > 0);
+    const devices = values.authorized_devices.filter(
+      (device) => device.length > 0,
+    );
 
-    if (!values.client_id || !values.client_secret || !values.authorization_code) {
-      showStatus("setup-bouncie-status", "All credential fields are required.", true);
+    if (
+      !values.client_id ||
+      !values.client_secret ||
+      !values.authorization_code
+    ) {
+      showStatus(
+        "setup-bouncie-status",
+        "All credential fields are required.",
+        true,
+      );
       return;
     }
     if (!values.redirect_uri) {
@@ -752,7 +792,11 @@
       return;
     }
     if (devices.length === 0) {
-      showStatus("setup-bouncie-status", "Add at least one authorized device.", true);
+      showStatus(
+        "setup-bouncie-status",
+        "Add at least one authorized device.",
+        true,
+      );
       return;
     }
 
@@ -769,16 +813,20 @@
             ...values,
             authorized_devices: devices,
           }),
-        })
+        }),
       );
       const data = await readJsonResponse(response);
       if (!response.ok) {
         throw new Error(
-          responseErrorMessage(response, data, "Failed to save credentials")
+          responseErrorMessage(response, data, "Failed to save credentials"),
         );
       }
       clearDirty("bouncie");
-      showStatus("setup-bouncie-status", data?.message || "Credentials saved.", false);
+      showStatus(
+        "setup-bouncie-status",
+        data?.message || "Credentials saved.",
+        false,
+      );
       shouldAdvance = advance;
     } catch (error) {
       showStatus("setup-bouncie-status", error.message, true);
@@ -795,7 +843,7 @@
       showStatus(
         "setup-bouncie-status",
         "Setup is locked while another step is running.",
-        true
+        true,
       );
       return;
     }
@@ -804,12 +852,12 @@
       showStatus("setup-bouncie-status", "Syncing vehicles...", false);
       const response = await fetch(
         `${PROFILE_API}/bouncie-credentials/sync-vehicles`,
-        withSignal({ method: "POST" })
+        withSignal({ method: "POST" }),
       );
       const data = await readJsonResponse(response);
       if (!response.ok) {
         throw new Error(
-          responseErrorMessage(response, data, "Failed to sync vehicles")
+          responseErrorMessage(response, data, "Failed to sync vehicles"),
         );
       }
       currentDevices = Array.isArray(data.authorized_devices)
@@ -817,7 +865,11 @@
         : currentDevices;
       renderDevices();
       clearDirty("bouncie");
-      showStatus("setup-bouncie-status", data?.message || "Vehicles synced.", false);
+      showStatus(
+        "setup-bouncie-status",
+        data?.message || "Vehicles synced.",
+        false,
+      );
     } catch (error) {
       showStatus("setup-bouncie-status", error.message, true);
     } finally {
@@ -839,19 +891,30 @@
       const data = await readJsonResponse(response);
       if (!response.ok) {
         throw new Error(
-          responseErrorMessage(response, data, "Unable to load Mapbox settings")
+          responseErrorMessage(
+            response,
+            data,
+            "Unable to load Mapbox settings",
+          ),
         );
       }
       document.getElementById("mapboxToken").value = data.mapbox_token || "";
-      document.getElementById("nominatimBaseUrl").value = data.nominatim_base_url || "";
-      document.getElementById("nominatimUserAgent").value
-        = data.nominatim_user_agent || "";
-      document.getElementById("valhallaBaseUrl").value = data.valhalla_base_url || "";
-      document.getElementById("geofabrikMirror").value = data.geofabrik_mirror || "";
+      document.getElementById("nominatimBaseUrl").value =
+        data.nominatim_base_url || "";
+      document.getElementById("nominatimUserAgent").value =
+        data.nominatim_user_agent || "";
+      document.getElementById("valhallaBaseUrl").value =
+        data.valhalla_base_url || "";
+      document.getElementById("geofabrikMirror").value =
+        data.geofabrik_mirror || "";
       handleMapboxInput();
       clearDirty("mapbox");
     } catch (_error) {
-      showStatus("setup-mapbox-status", "Unable to load Mapbox settings.", true);
+      showStatus(
+        "setup-mapbox-status",
+        "Unable to load Mapbox settings.",
+        true,
+      );
     }
   }
 
@@ -859,7 +922,11 @@
     const token = document.getElementById("mapboxToken").value.trim();
     if (!token) {
       destroyMapPreview();
-      showStatus("setup-mapbox-status", "Enter a Mapbox token to preview maps.", false);
+      showStatus(
+        "setup-mapbox-status",
+        "Enter a Mapbox token to preview maps.",
+        false,
+      );
       return;
     }
     if (!isValidMapboxToken(token)) {
@@ -867,7 +934,7 @@
       showStatus(
         "setup-mapbox-status",
         "Mapbox token must start with pk. and be valid length.",
-        true
+        true,
       );
       return;
     }
@@ -877,14 +944,18 @@
 
   async function saveMapboxSettings(advance = false) {
     if (!sessionId || !sessionVersion) {
-      showStatus("setup-mapbox-status", "Setup session is not ready yet.", true);
+      showStatus(
+        "setup-mapbox-status",
+        "Setup session is not ready yet.",
+        true,
+      );
       return;
     }
     if (sessionReadOnly || actionInFlight) {
       showStatus(
         "setup-mapbox-status",
         "Setup is locked while another step is running.",
-        true
+        true,
       );
       return;
     }
@@ -896,9 +967,15 @@
 
     const payload = {
       mapbox_token: token,
-      nominatim_base_url: document.getElementById("nominatimBaseUrl").value.trim(),
-      nominatim_user_agent: document.getElementById("nominatimUserAgent").value.trim(),
-      valhalla_base_url: document.getElementById("valhallaBaseUrl").value.trim(),
+      nominatim_base_url: document
+        .getElementById("nominatimBaseUrl")
+        .value.trim(),
+      nominatim_user_agent: document
+        .getElementById("nominatimUserAgent")
+        .value.trim(),
+      valhalla_base_url: document
+        .getElementById("valhallaBaseUrl")
+        .value.trim(),
       geofabrik_mirror: document.getElementById("geofabrikMirror").value.trim(),
     };
 
@@ -912,12 +989,12 @@
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
-        })
+        }),
       );
       const data = await readJsonResponse(response);
       if (!response.ok) {
         throw new Error(
-          responseErrorMessage(response, data, "Failed to save settings")
+          responseErrorMessage(response, data, "Failed to save settings"),
         );
       }
       clearDirty("mapbox");
@@ -963,7 +1040,7 @@
       showStatus(
         "setup-mapbox-status",
         "Map preview failed to load. Double-check the token.",
-        true
+        true,
       );
     });
   }
@@ -999,7 +1076,8 @@
       const data = await response.json();
 
       if (!data.regions || data.regions.length === 0) {
-        regionList.innerHTML = '<div class="text-muted">No regions found.</div>';
+        regionList.innerHTML =
+          '<div class="text-muted">No regions found.</div>';
         return;
       }
 
@@ -1030,12 +1108,13 @@
                 ${region.has_children ? '<i class="fas fa-chevron-right ms-2"></i>' : ""}
               </div>
             </div>
-          `
+          `,
         )
         .join("");
       updateBreadcrumb();
     } catch (_error) {
-      regionList.innerHTML = '<div class="text-danger">Failed to load regions.</div>';
+      regionList.innerHTML =
+        '<div class="text-danger">Failed to load regions.</div>';
     }
   }
 
@@ -1103,7 +1182,9 @@
       path = path ? `${path}/${segment}` : segment;
       items.push({
         id: path,
-        name: segment.replace(/-/g, " ").replace(/\b\w/g, (char) => char.toUpperCase()),
+        name: segment
+          .replace(/-/g, " ")
+          .replace(/\b\w/g, (char) => char.toUpperCase()),
       });
     }
     breadcrumb.innerHTML = items
@@ -1116,7 +1197,7 @@
               : `<a href="#" data-region="${item.id}">${item.name}</a>`
           }
         </li>
-      `
+      `,
       )
       .join("");
   }
@@ -1193,7 +1274,7 @@
         mode === "auto"
           ? "Searching for a suggested region..."
           : "Starting download and build...",
-        false
+        false,
       );
       const response = await fetch(
         `${SETUP_SESSION_API}/${sessionId}/step/region/run`,
@@ -1207,12 +1288,12 @@
             mode,
             region,
           }),
-        })
+        }),
       );
       const data = await readJsonResponse(response);
       if (!response.ok) {
         throw new Error(
-          responseErrorMessage(response, data, "Failed to start region setup")
+          responseErrorMessage(response, data, "Failed to start region setup"),
         );
       }
       applySessionState(data);
@@ -1250,7 +1331,8 @@
       progressWrap.classList.remove("d-none");
       progressBar.style.width = `${progress}%`;
       progressBar.textContent = `${Math.round(progress)}%`;
-      progressText.textContent = jobStatus.message || jobStatus.stage || "Working...";
+      progressText.textContent =
+        jobStatus.message || jobStatus.stage || "Working...";
     } else {
       progressWrap?.classList.add("d-none");
     }
@@ -1288,14 +1370,18 @@
 
   async function completeSetup() {
     if (sessionReadOnly || actionInFlight) {
-      showStatus("setup-complete-status", "Setup is locked in another tab.", true);
+      showStatus(
+        "setup-complete-status",
+        "Setup is locked in another tab.",
+        true,
+      );
       return;
     }
     if (!setupState.bouncie || !setupState.mapbox) {
       showStatus(
         "setup-complete-status",
         "Complete the required steps before finishing setup.",
-        true
+        true,
       );
       return;
     }
@@ -1304,15 +1390,19 @@
       showStatus("setup-complete-status", "Finalizing setup...", false);
       const response = await fetch(
         `${SETUP_API}/complete`,
-        withSignal({ method: "POST" })
+        withSignal({ method: "POST" }),
       );
       const data = await readJsonResponse(response);
       if (!response.ok) {
         throw new Error(
-          responseErrorMessage(response, data, "Failed to complete setup")
+          responseErrorMessage(response, data, "Failed to complete setup"),
         );
       }
-      showStatus("setup-complete-status", "Setup complete! Redirecting...", false);
+      showStatus(
+        "setup-complete-status",
+        "Setup complete! Redirecting...",
+        false,
+      );
       await refreshSetupSession();
       window.location.assign("/");
     } catch (error) {

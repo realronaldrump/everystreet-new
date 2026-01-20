@@ -1,306 +1,353 @@
-{% extends "base.html" %}
+{% extends "base.html" %} {% block title %} Gas Tracking {% endblock %} {% block
+extra_css %}
 
-{% block title %}
+<!-- Mapbox GL CSS -->
+<link rel="stylesheet" href="{{ CDN.mapbox_gl_css }}" />
+<link
+  rel="stylesheet"
+  href="{{ url_for('static', path='css/gas_tracking.css') | replace('http://', '//') }}"
+/>
+{% endblock %} {% block content %}
 
-Gas Tracking
-{% endblock %}
-
-
-{% block extra_css %}
-
-  <!-- Mapbox GL CSS -->
-  <link rel="stylesheet" href="{{ CDN.mapbox_gl_css }}" />
-  <link rel="stylesheet"
-        href="{{ url_for('static', path='css/gas_tracking.css') | replace('http://', '//') }}" />
-{% endblock %}
-
-
-{% block content %}
-
-  <div class="container-fluid gas-tracking-page py-4">
-    <div class="bento-grid" data-stagger>
-      <div class="bento-span-12 widget" data-accent="coral">
-        <div class="widget-header">
-          <div>
-            <h1 class="widget-title">
-              <i class="fas fa-gas-pump" aria-hidden="true"></i>
-              Gas Tracking
-            </h1>
-            <div class="widget-meta">
-              Track fuel consumption, monitor MPG, and calculate trip costs.
-            </div>
+<div class="container-fluid gas-tracking-page py-4">
+  <div class="bento-grid" data-stagger>
+    <div class="bento-span-12 widget" data-accent="coral">
+      <div class="widget-header">
+        <div>
+          <h1 class="widget-title">
+            <i class="fas fa-gas-pump" aria-hidden="true"></i>
+            Gas Tracking
+          </h1>
+          <div class="widget-meta">
+            Track fuel consumption, monitor MPG, and calculate trip costs.
           </div>
         </div>
       </div>
+    </div>
 
-      <div class="bento-span-3 widget is-compact" data-accent="mint">
-        <div class="widget-body text-center">
-          <div class="display-6 fw-bold text-primary mb-2" id="total-fillups">
-0
-          </div>
-          <div class="text-secondary small">
-Total Fill-ups
-          </div>
+    <div class="bento-span-3 widget is-compact" data-accent="mint">
+      <div class="widget-body text-center">
+        <div class="display-6 fw-bold text-primary mb-2" id="total-fillups">
+          0
         </div>
+        <div class="text-secondary small">Total Fill-ups</div>
       </div>
-      <div class="bento-span-3 widget is-compact" data-accent="purple">
-        <div class="widget-body text-center">
-          <div class="display-6 fw-bold text-primary mb-2" id="total-spent">
-$0
-          </div>
-          <div class="text-secondary small">
-Total Spent
-          </div>
+    </div>
+    <div class="bento-span-3 widget is-compact" data-accent="purple">
+      <div class="widget-body text-center">
+        <div class="display-6 fw-bold text-primary mb-2" id="total-spent">
+          $0
         </div>
+        <div class="text-secondary small">Total Spent</div>
       </div>
-      <div class="bento-span-3 widget is-compact" data-accent="amber">
-        <div class="widget-body text-center">
-          <div class="display-6 fw-bold text-primary mb-2" id="avg-mpg">
---
-          </div>
-          <div class="text-secondary small">
-Average MPG
-          </div>
+    </div>
+    <div class="bento-span-3 widget is-compact" data-accent="amber">
+      <div class="widget-body text-center">
+        <div class="display-6 fw-bold text-primary mb-2" id="avg-mpg">--</div>
+        <div class="text-secondary small">Average MPG</div>
+      </div>
+    </div>
+    <div class="bento-span-3 widget is-compact" data-accent="sky">
+      <div class="widget-body text-center">
+        <div class="display-6 fw-bold text-primary mb-2" id="cost-per-mile">
+          $0.00
         </div>
+        <div class="text-secondary small">Cost per Mile</div>
       </div>
-      <div class="bento-span-3 widget is-compact" data-accent="sky">
-        <div class="widget-body text-center">
-          <div class="display-6 fw-bold text-primary mb-2" id="cost-per-mile">
-$0.00
-          </div>
-          <div class="text-secondary small">
-Cost per Mile
-          </div>
-        </div>
-      </div>
+    </div>
 
-      <div class="bento-span-7 widget" data-accent="mint">
-        <div class="widget-header">
-          <h2 class="widget-title">
-            <i class="fas fa-clipboard-list" aria-hidden="true"></i>
-            Record Fill-Up
-          </h2>
-        </div>
-        <div class="widget-body">
-          <form id="gas-fillup-form">
-            <!-- Vehicle Selection -->
-            <div class="mb-4">
-              <h5 class="mb-3 d-flex align-items-center gap-2">
-                <span class="badge bg-primary d-flex align-items-center justify-content-center"
-                      style="width: 32px;
-                             height: 32px"><i class="fas fa-car"></i></span>
+    <div class="bento-span-7 widget" data-accent="mint">
+      <div class="widget-header">
+        <h2 class="widget-title">
+          <i class="fas fa-clipboard-list" aria-hidden="true"></i>
+          Record Fill-Up
+        </h2>
+      </div>
+      <div class="widget-body">
+        <form id="gas-fillup-form">
+          <!-- Vehicle Selection -->
+          <div class="mb-4">
+            <h5 class="mb-3 d-flex align-items-center gap-2">
+              <span
+                class="badge bg-primary d-flex align-items-center justify-content-center"
+                style="width: 32px; height: 32px"
+                ><i class="fas fa-car"></i
+              ></span>
               Vehicle
-              </h5>
-              <select class="form-select" id="vehicle-select" name="imei" required>
-                <option value="">
-Select Vehicle...
-                </option>
-              </select>
-              <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mt-2">
-                <div id="vehicle-status" class="vehicle-status small text-muted">
+            </h5>
+            <select
+              class="form-select"
+              id="vehicle-select"
+              name="imei"
+              required
+            >
+              <option value="">Select Vehicle...</option>
+            </select>
+            <div
+              class="d-flex align-items-center justify-content-between flex-wrap gap-2 mt-2"
+            >
+              <div id="vehicle-status" class="vehicle-status small text-muted">
                 We'll automatically detect your vehicles when possible.
-                </div>
-                <div id="vehicle-loading-state" class="vehicle-loading small" style="display: none;">
-                  <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                  <span id="vehicle-loading-text">Detecting vehicles...</span>
-                </div>
+              </div>
+              <div
+                id="vehicle-loading-state"
+                class="vehicle-loading small"
+                style="display: none"
+              >
+                <span
+                  class="spinner-border spinner-border-sm"
+                  role="status"
+                  aria-hidden="true"
+                ></span>
+                <span id="vehicle-loading-text">Detecting vehicles...</span>
               </div>
             </div>
+          </div>
 
-            <!-- Fill-up Time -->
-            <div class="mb-4">
-              <h5 class="mb-3 d-flex align-items-center gap-2">
-                <span class="badge bg-primary d-flex align-items-center justify-content-center"
-                      style="width: 32px;
-                             height: 32px"><i class="fas fa-calendar"></i></span>
+          <!-- Fill-up Time -->
+          <div class="mb-4">
+            <h5 class="mb-3 d-flex align-items-center gap-2">
+              <span
+                class="badge bg-primary d-flex align-items-center justify-content-center"
+                style="width: 32px; height: 32px"
+                ><i class="fas fa-calendar"></i
+              ></span>
               Fill-up Time
-              </h5>
-              <div class="row g-3">
-                <div class="col-md-6">
-                  <label class="form-label">
-Date & Time
-                  </label>
-                  <input type="datetime-local"
-                         class="form-control"
-                         id="fillup-time"
-                         name="fillup_time"
-                         required />
-                </div>
-                <div class="col-md-6 d-flex align-items-end gap-2">
-                  <button type="button" class="btn btn-outline-primary w-100" id="use-now-btn">
+            </h5>
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label class="form-label"> Date & Time </label>
+                <input
+                  type="datetime-local"
+                  class="form-control"
+                  id="fillup-time"
+                  name="fillup_time"
+                  required
+                />
+              </div>
+              <div class="col-md-6 d-flex align-items-end gap-2">
+                <button
+                  type="button"
+                  class="btn btn-outline-primary w-100"
+                  id="use-now-btn"
+                >
                   Use Now
-                  </button>
-                  <button type="button"
-                          class="btn btn-outline-secondary w-100"
-                          id="cancel-edit-btn"
-                          style="display: none">
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-outline-secondary w-100"
+                  id="cancel-edit-btn"
+                  style="display: none"
+                >
                   Cancel
+                </button>
+              </div>
+            </div>
+            <input type="hidden" id="fillup-id" name="fillup_id" />
+          </div>
+
+          <!-- Location Section -->
+          <div class="mb-4">
+            <h5 class="mb-3 d-flex align-items-center gap-2">
+              <span
+                class="badge bg-primary d-flex align-items-center justify-content-center"
+                style="width: 32px; height: 32px"
+                ><i class="fas fa-map-marker-alt"></i
+              ></span>
+              Location
+            </h5>
+
+            <div
+              id="fillup-map"
+              class="mb-3"
+              style="height: 300px; width: 100%"
+            ></div>
+
+            <!-- Location Info -->
+            <div class="p-3 location-info">
+              <div
+                class="d-flex justify-content-between align-items-center mb-2"
+              >
+                <strong
+                  ><i class="fas fa-map-marker-alt text-primary"></i>
+                  Location</strong
+                >
+                <span id="location-text" class="text-muted"
+                  >Select vehicle...</span
+                >
+              </div>
+              <div class="d-flex justify-content-between align-items-center">
+                <strong
+                  ><i class="fas fa-tachometer-alt text-primary"></i>
+                  Odometer</strong
+                >
+                <span id="odometer-display">--</span>
+              </div>
+              <!-- Debug Panel -->
+              <pre
+                id="location-debug"
+                class="mt-2 p-2 rounded small text-white bg-dark"
+                style="display: none; font-size: 0.7rem"
+              ></pre>
+            </div>
+          </div>
+
+          <!-- Fill-up Details -->
+          <div class="mb-4">
+            <h5 class="mb-3 d-flex align-items-center gap-2">
+              <span
+                class="badge bg-primary d-flex align-items-center justify-content-center"
+                style="width: 32px; height: 32px"
+                ><i class="fas fa-gas-pump"></i
+              ></span>
+              Fill-up Details
+            </h5>
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label class="form-label"> Gallons </label>
+                <input
+                  type="number"
+                  class="form-control"
+                  id="gallons"
+                  name="gallons"
+                  step="0.001"
+                  min="0"
+                  placeholder="0.000"
+                  required
+                />
+              </div>
+              <div class="col-md-6">
+                <label class="form-label"> Price per Gallon </label>
+                <div class="input-group">
+                  <span class="input-group-text">$</span>
+                  <input
+                    type="number"
+                    class="form-control"
+                    id="price-per-gallon"
+                    name="price_per_gallon"
+                    step="0.001"
+                    min="0"
+                    placeholder="0.000"
+                  />
+                </div>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label"> Total Cost </label>
+                <div class="input-group">
+                  <span class="input-group-text">$</span>
+                  <input
+                    type="number"
+                    class="form-control"
+                    id="total-cost"
+                    name="total_cost"
+                    step="0.01"
+                    min="0"
+                    placeholder="0.00"
+                    readonly
+                  />
+                </div>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label"> Odometer </label>
+                <div class="input-group">
+                  <input
+                    type="number"
+                    class="form-control"
+                    id="odometer"
+                    name="odometer"
+                    step="0.1"
+                    min="0"
+                    placeholder="miles"
+                  />
+                  <div class="input-group-text bg-transparent">
+                    <input
+                      class="form-check-input mt-0"
+                      type="checkbox"
+                      id="odometer-not-recorded"
+                      title="Odometer not recorded"
+                    />
+                    <label
+                      class="form-check-label ms-1 small"
+                      for="odometer-not-recorded"
+                    >
+                      No Rec
+                    </label>
+                  </div>
+                  <button
+                    class="btn btn-outline-secondary"
+                    type="button"
+                    id="auto-calc-odometer"
+                    title="Auto-calculate from trip history"
+                  >
+                    <i class="fas fa-magic"></i>
                   </button>
                 </div>
               </div>
-              <input type="hidden" id="fillup-id" name="fillup_id" />
-            </div>
-
-            <!-- Location Section -->
-            <div class="mb-4">
-              <h5 class="mb-3 d-flex align-items-center gap-2">
-                <span class="badge bg-primary d-flex align-items-center justify-content-center"
-                      style="width: 32px;
-                             height: 32px"><i class="fas fa-map-marker-alt"></i></span>
-              Location
-              </h5>
-
-              <div id="fillup-map" class="mb-3" style="height: 300px; width: 100%;">
-              </div>
-
-              <!-- Location Info -->
-              <div class="p-3 location-info">
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                  <strong><i class="fas fa-map-marker-alt text-primary"></i> Location</strong>
-                  <span id="location-text" class="text-muted">Select vehicle...</span>
-                </div>
-                <div class="d-flex justify-content-between align-items-center">
-                  <strong><i class="fas fa-tachometer-alt text-primary"></i> Odometer</strong>
-                  <span id="odometer-display">--</span>
-                </div>
-                <!-- Debug Panel -->
-                <pre id="location-debug"
-                     class="mt-2 p-2 rounded small text-white bg-dark"
-                     style="display:none;
-                            font-size: 0.7rem"></pre>
-              </div>
-            </div>
-
-            <!-- Fill-up Details -->
-            <div class="mb-4">
-              <h5 class="mb-3 d-flex align-items-center gap-2">
-                <span class="badge bg-primary d-flex align-items-center justify-content-center"
-                      style="width: 32px;
-                             height: 32px"><i class="fas fa-gas-pump"></i></span>
-              Fill-up Details
-              </h5>
-              <div class="row g-3">
-                <div class="col-md-6">
-                  <label class="form-label">
-Gallons
-                  </label>
-                  <input type="number"
-                         class="form-control"
-                         id="gallons"
-                         name="gallons"
-                         step="0.001"
-                         min="0"
-                         placeholder="0.000"
-                         required />
-                </div>
-                <div class="col-md-6">
-                  <label class="form-label">
-Price per Gallon
-                  </label>
-                  <div class="input-group">
-                    <span class="input-group-text">$</span>
-                    <input type="number"
-                           class="form-control"
-                           id="price-per-gallon"
-                           name="price_per_gallon"
-                           step="0.001"
-                           min="0"
-                           placeholder="0.000" />
-                  </div>
-                </div>
-                <div class="col-md-6">
-                  <label class="form-label">
-Total Cost
-                  </label>
-                  <div class="input-group">
-                    <span class="input-group-text">$</span>
-                    <input type="number"
-                           class="form-control"
-                           id="total-cost"
-                           name="total_cost"
-                           step="0.01"
-                           min="0"
-                           placeholder="0.00"
-                           readonly />
-                  </div>
-                </div>
-                <div class="col-md-6">
-                  <label class="form-label">
-Odometer
-                  </label>
-                  <div class="input-group">
-                    <input type="number"
-                           class="form-control"
-                           id="odometer"
-                           name="odometer"
-                           step="0.1"
-                           min="0"
-                           placeholder="miles" />
-                    <div class="input-group-text bg-transparent">
-                      <input class="form-check-input mt-0"
-                             type="checkbox"
-                             id="odometer-not-recorded"
-                             title="Odometer not recorded" />
-                      <label class="form-check-label ms-1 small" for="odometer-not-recorded">
-No Rec
-                      </label>
-                    </div>
-                    <button class="btn btn-outline-secondary"
-                            type="button"
-                            id="auto-calc-odometer"
-                            title="Auto-calculate from trip history">
-                      <i class="fas fa-magic"></i>
-                    </button>
-                  </div>
-                </div>
-                <div class="col-12">
-                  <div class="form-check">
-                    <input class="form-check-input"
-                           type="checkbox"
-                           id="full-tank"
-                           name="is_full_tank"
-                           checked />
-                    <label class="form-check-label" for="full-tank">
+              <div class="col-12">
+                <div class="form-check">
+                  <input
+                    class="form-check-input"
+                    type="checkbox"
+                    id="full-tank"
+                    name="is_full_tank"
+                    checked
+                  />
+                  <label class="form-check-label" for="full-tank">
                     Full Tank Fill-up
-                    </label>
-                  </div>
-                  <div class="form-check mt-1">
-                    <input class="form-check-input" type="checkbox" id="missed-previous" />
-                    <label class="form-check-label text-muted small" for="missed-previous">
-                    Missed previous fill-up?
-                      <i class="fas fa-info-circle ms-1"
-                         data-bs-toggle="tooltip"
-                         title="Check this if you forgot to log a fill-up. This will reset MPG calculations to prevent errors."></i>
-                    </label>
-                  </div>
-                </div>
-                <div class="col-12">
-                  <label class="form-label">
-Notes (optional)
                   </label>
-                  <textarea class="form-control"
-                            id="notes"
-                            name="notes"
-                            rows="2"
-                            placeholder="e.g., Gas station name, receipt number..."></textarea>
+                </div>
+                <div class="form-check mt-1">
+                  <input
+                    class="form-check-input"
+                    type="checkbox"
+                    id="missed-previous"
+                  />
+                  <label
+                    class="form-check-label text-muted small"
+                    for="missed-previous"
+                  >
+                    Missed previous fill-up?
+                    <i
+                      class="fas fa-info-circle ms-1"
+                      data-bs-toggle="tooltip"
+                      title="Check this if you forgot to log a fill-up. This will reset MPG calculations to prevent errors."
+                    ></i>
+                  </label>
                 </div>
               </div>
+              <div class="col-12">
+                <label class="form-label"> Notes (optional) </label>
+                <textarea
+                  class="form-control"
+                  id="notes"
+                  name="notes"
+                  rows="2"
+                  placeholder="e.g., Gas station name, receipt number..."
+                ></textarea>
+              </div>
+            </div>
 
-              <div id="calculated-mpg"
-                   class="alert alert-success mt-3 py-2 px-3 fw-bold d-inline-block"
-                   style="display: none">
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      Calculated MPG: <span id="mpg-value">--</span>
+            <div
+              id="calculated-mpg"
+              class="alert alert-success mt-3 py-2 px-3 fw-bold d-inline-block"
+              style="display: none"
+            >
+              Calculated MPG: <span id="mpg-value">--</span>
             </div>
           </div>
 
           <!-- Submit Button -->
-          <button type="submit"
-                  class="btn btn-primary w-100 py-3 fw-bold shadow-sm"
-                  id="submit-btn">
+          <button
+            type="submit"
+            class="btn btn-primary w-100 py-3 fw-bold shadow-sm"
+            id="submit-btn"
+          >
             <span id="submit-btn-text">Save Fill-Up</span>
-            <span class="loading-spinner spinner-border spinner-border-sm ms-2"
-                  role="status"
-                  style="display: none">
+            <span
+              class="loading-spinner spinner-border spinner-border-sm ms-2"
+              role="status"
+              style="display: none"
+            >
               <span class="visually-hidden">Loading...</span>
             </span>
           </button>
@@ -318,26 +365,21 @@ Notes (optional)
       </div>
       <div class="widget-body">
         <div id="fillup-list">
-          <p class="text-center text-muted">
-No fill-ups recorded yet
-          </p>
+          <p class="text-center text-muted">No fill-ups recorded yet</p>
         </div>
       </div>
     </div>
   </div>
 </div>
-{% endblock %}
+{% endblock %} {% block extra_js %}
 
+<!-- Mapbox GL JS -->
+<script src="{{ CDN.mapbox_gl_js }}"></script>
+<script src="{{ url_for('static', path='js/map-base.js') | replace('http://', '//') }}"></script>
+<script src="{{ url_for('static', path='js/modules/map-styles.js') | replace('http://', '//') }}"></script>
+<script>
+  window.MAPBOX_ACCESS_TOKEN = "{{ MAPBOX_ACCESS_TOKEN }}";
+</script>
 
-{% block extra_js %}
-
-  <!-- Mapbox GL JS -->
-  <script src="{{ CDN.mapbox_gl_js }}"></script>
-  <script src="{{ url_for('static', path='js/map-base.js') | replace('http://', '//') }}"></script>
-  <script src="{{ url_for('static', path='js/modules/map-styles.js') | replace('http://', '//') }}"></script>
-  <script>
-      window.MAPBOX_ACCESS_TOKEN = "{{ MAPBOX_ACCESS_TOKEN }}";
-  </script>
-
-  <script src="{{ url_for('static', path='js/gas_tracking.js') | replace('http://', '//') }}"></script>
+<script src="{{ url_for('static', path='js/gas_tracking.js') | replace('http://', '//') }}"></script>
 {% endblock %}
