@@ -239,8 +239,8 @@
   --z-sticky: 1020;
   --z-fixed: 1030;
   --z-drawer: 1040;
-  --z-modal-backdrop: 1045;
-  --z-modal: 1050;
+  --z-modal-backdrop: 1050;
+  --z-modal: 1055;
   --z-popover: 1060;
   --z-tooltip: 1070;
   --z-overlay: 1080;

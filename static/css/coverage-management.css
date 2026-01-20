@@ -350,7 +350,7 @@
   position: fixed;
   bottom: 20px;
   right: 20px;
-  z-index: 1060;
+  z-index: var(--z-drawer); /* Below modals */
   background: var(--surface-glass);
   color: var(--text-on-dark);
   padding: var(--space-2) var(--space-3);

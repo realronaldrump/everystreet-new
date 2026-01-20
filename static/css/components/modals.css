@@ -2,6 +2,15 @@
    Modal & Tooltip Components
    ============================ */
 
+/* === Modal z-index fix - ensure modals appear above all other content === */
+.modal {
+  z-index: var(--z-modal, 1055);
+}
+
+.modal-backdrop {
+  z-index: var(--z-modal-backdrop, 1050);
+}
+
 /* === Modal - Minimal === */
 .modal-content {
   background-color: var(--surface-1);
