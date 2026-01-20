@@ -70,9 +70,21 @@ async def check_service_health(force_refresh: bool = False) -> GeoServiceHealth:
                         pass
         except Exception as e:
             health.nominatim_healthy = False
-            health.nominatim_error = str(e)
             health.nominatim_last_check = datetime.now(UTC)
             health.nominatim_response_time_ms = None
+            # Provide user-friendly error messages
+            error_str = str(e).lower()
+            if (
+                "name or service not known" in error_str
+                or "temporary failure" in error_str
+            ):
+                health.nominatim_error = "Service not running - Add a region to set up"
+            elif "connection refused" in error_str:
+                health.nominatim_error = "Service starting up..."
+            elif "timed out" in error_str or "timeout" in error_str:
+                health.nominatim_error = "Service not responding"
+            else:
+                health.nominatim_error = str(e)
     else:
         health.nominatim_healthy = False
         health.nominatim_error = "Nominatim URL not configured"
@@ -105,9 +117,21 @@ async def check_service_health(force_refresh: bool = False) -> GeoServiceHealth:
                         pass
         except Exception as e:
             health.valhalla_healthy = False
-            health.valhalla_error = str(e)
             health.valhalla_last_check = datetime.now(UTC)
             health.valhalla_response_time_ms = None
+            # Provide user-friendly error messages
+            error_str = str(e).lower()
+            if (
+                "name or service not known" in error_str
+                or "temporary failure" in error_str
+            ):
+                health.valhalla_error = "Service not running - Add a region to set up"
+            elif "connection refused" in error_str:
+                health.valhalla_error = "Service starting up..."
+            elif "timed out" in error_str or "timeout" in error_str:
+                health.valhalla_error = "Service not responding"
+            else:
+                health.valhalla_error = str(e)
     else:
         health.valhalla_healthy = False
         health.valhalla_error = "Valhalla URL not configured"

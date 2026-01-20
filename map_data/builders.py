@@ -24,6 +24,84 @@ logger = logging.getLogger(__name__)
 # Build configuration
 BUILD_TIMEOUT = 7200  # 2 hours max build time
 PROGRESS_UPDATE_INTERVAL = 5.0  # Update progress every 5 seconds
+CONTAINER_START_TIMEOUT = 120  # seconds to wait for container to start
+
+
+async def start_container_on_demand(
+    service_name: str,
+    compose_file: str = "docker-compose.yml",
+) -> bool:
+    """
+    Start a Docker container using docker compose.
+
+    This is used to start Nominatim/Valhalla containers on-demand before builds.
+    The containers are configured with restart: 'no' so they don't start with
+    docker compose up - we start them explicitly when needed.
+
+    Args:
+        service_name: The service name from docker-compose.yml
+        compose_file: Path to docker-compose.yml
+
+    Returns:
+        True if container is running (started or was already running)
+
+    Raises:
+        RuntimeError: If container fails to start
+    """
+    # Check if already running
+    if await check_container_running(service_name):
+        logger.info("Container %s is already running", service_name)
+        return True
+
+    logger.info("Starting container %s on demand...", service_name)
+
+    try:
+        # Use docker compose up -d to start just this service
+        process = await asyncio.create_subprocess_exec(
+            "docker",
+            "compose",
+            "-f",
+            compose_file,
+            "up",
+            "-d",
+            service_name,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+
+        _, stderr = await process.communicate()
+
+        if process.returncode != 0:
+            error_msg = stderr.decode() if stderr else "Unknown error"
+            logger.error("Failed to start container %s: %s", service_name, error_msg)
+            msg = f"Failed to start {service_name}: {error_msg}"
+            raise RuntimeError(msg)
+
+        # Wait for container to be running
+        logger.info("Waiting for container %s to become ready...", service_name)
+        start_time = asyncio.get_event_loop().time()
+
+        while (asyncio.get_event_loop().time() - start_time) < CONTAINER_START_TIMEOUT:
+            if await check_container_running(service_name):
+                logger.info("Container %s is now running", service_name)
+                # Give the service a moment to initialize
+                await asyncio.sleep(5)
+                return True
+            await asyncio.sleep(2)
+
+        # Timeout - container didn't start
+        logger.error("Container %s did not start within timeout", service_name)
+        msg = (
+            f"Container {service_name} did not start within {CONTAINER_START_TIMEOUT}s"
+        )
+        raise RuntimeError(msg)
+
+    except RuntimeError:
+        raise
+    except Exception as e:
+        logger.exception("Error starting container %s", service_name)
+        msg = f"Error starting {service_name}: {e}"
+        raise RuntimeError(msg) from e
 
 
 async def build_nominatim_data(
@@ -60,15 +138,21 @@ async def build_nominatim_data(
     logger.info("Starting Nominatim build for %s", region.display_name)
 
     if progress_callback:
-        await _safe_callback(progress_callback, 5, "Preparing Nominatim import...")
+        await _safe_callback(progress_callback, 2, "Checking Nominatim container...")
 
     try:
+        # Ensure the Nominatim container is running before we try to import
+        # This handles the case where containers start with restart: 'no'
+        if progress_callback:
+            await _safe_callback(
+                progress_callback, 5, "Starting Nominatim container..."
+            )
+
+        await start_container_on_demand("nominatim")
+
         # The Nominatim container expects the PBF file at /nominatim/data/
         # Our docker-compose mounts osm_extracts:/nominatim/data:ro
         # So the file should be accessible inside the container
-
-        # For now, we'll use docker exec to run the import
-        # In production, you might want to use the Docker SDK for better control
 
         # Note: Nominatim import is a blocking operation that can take hours
         # for large regions. We simulate progress updates here.
@@ -202,9 +286,16 @@ async def build_valhalla_tiles(
     logger.info("Starting Valhalla build for %s", region.display_name)
 
     if progress_callback:
-        await _safe_callback(progress_callback, 5, "Preparing Valhalla tile build...")
+        await _safe_callback(progress_callback, 2, "Checking Valhalla container...")
 
     try:
+        # Ensure the Valhalla container is running before we try to build
+        # This handles the case where containers start with restart: 'no'
+        if progress_callback:
+            await _safe_callback(progress_callback, 5, "Starting Valhalla container...")
+
+        await start_container_on_demand("valhalla")
+
         # The Valhalla container expects PBF at /data/osm/
         # Our docker-compose mounts osm_extracts:/data/osm:ro
 

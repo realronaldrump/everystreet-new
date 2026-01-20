@@ -331,7 +331,10 @@ async function loadAreas() {
     }
 
     renderAreasTable(areasData.areas);
-    document.getElementById("total-areas-count").textContent = areasData.areas.length;
+    const totalAreasCountEl = document.getElementById("total-areas-count");
+    if (totalAreasCountEl) {
+      totalAreasCountEl.textContent = areasData.areas.length;
+    }
   } catch (error) {
     console.error("Failed to load areas:", error);
     showNotification(`Failed to load coverage areas: ${error.message}`, "danger");

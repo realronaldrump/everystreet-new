@@ -1126,9 +1126,18 @@ class ConfirmationDialog {
         resolve(false);
       };
 
+      // Blur focused element before modal starts hiding to prevent aria-hidden warning
+      const handleHide = () => {
+        const focusedElement = modalElement.querySelector(':focus');
+        if (focusedElement) {
+          focusedElement.blur();
+        }
+      };
+
       function cleanup() {
         confirmBtn?.removeEventListener("mousedown", handleConfirm);
         modalElement.removeEventListener("hidden.bs.modal", handleDismiss);
+        modalElement.removeEventListener("hide.bs.modal", handleHide);
       }
 
       confirmBtn?.addEventListener("mousedown", (e) => {
@@ -1138,6 +1147,7 @@ class ConfirmationDialog {
         handleConfirm();
       });
       modalElement.addEventListener("hidden.bs.modal", handleDismiss);
+      modalElement.addEventListener("hide.bs.modal", handleHide);
 
       try {
         this.activeModal = new bootstrap.Modal(modalElement);

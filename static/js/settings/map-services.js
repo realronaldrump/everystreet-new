@@ -105,8 +105,22 @@ function updateHealthCard(service, health) {
     badge.textContent = "Healthy";
     errorDiv?.classList.add("d-none");
   } else {
-    badge.className = "badge bg-danger";
-    badge.textContent = "Unhealthy";
+    // Check if this is a "not running" state vs a real error
+    const isSetupRequired = health.error?.includes("not running")
+      || health.error?.includes("Add a region");
+    const isStartingUp = health.error?.includes("starting up");
+
+    if (isSetupRequired) {
+      badge.className = "badge bg-warning text-dark";
+      badge.textContent = "Setup Required";
+    } else if (isStartingUp) {
+      badge.className = "badge bg-info";
+      badge.textContent = "Starting...";
+    } else {
+      badge.className = "badge bg-danger";
+      badge.textContent = "Unhealthy";
+    }
+
     if (errorDiv && health.error) {
       errorDiv.textContent = health.error;
       errorDiv.classList.remove("d-none");
