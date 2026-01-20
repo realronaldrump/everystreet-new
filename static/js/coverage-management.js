@@ -230,6 +230,11 @@ function _hideProgressModal() {
   if (!el) {
     return;
   }
+  // Blur focused element before hiding to prevent aria-hidden accessibility warning
+  const focusedElement = el.querySelector(':focus');
+  if (focusedElement) {
+    focusedElement.blur();
+  }
   const modal = bootstrap.Modal.getInstance(el);
   modal?.hide();
 }
@@ -485,8 +490,13 @@ async function addArea() {
   }
 
   try {
-    // Close add modal
-    bootstrap.Modal.getInstance(document.getElementById("addAreaModal"))?.hide();
+    // Blur focused element and close add modal
+    const addModal = document.getElementById("addAreaModal");
+    const focusedElement = addModal?.querySelector(':focus');
+    if (focusedElement) {
+      focusedElement.blur();
+    }
+    bootstrap.Modal.getInstance(addModal)?.hide();
 
     // Show progress modal (can be minimized)
     hideMinimizedBadge();

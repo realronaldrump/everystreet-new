@@ -324,6 +324,11 @@ function hideProgressModal() {
   if (!el) {
     return;
   }
+  // Blur focused element before hiding to prevent aria-hidden accessibility warning
+  const focusedElement = el.querySelector(':focus');
+  if (focusedElement) {
+    focusedElement.blur();
+  }
   const modal = bootstrap.Modal.getInstance(el);
   modal?.hide();
 }

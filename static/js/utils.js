@@ -1287,11 +1287,20 @@ class PromptDialog {
         input.focus();
       };
 
+      // Blur focused element before modal starts hiding to prevent aria-hidden warning
+      const handleHide = () => {
+        const focusedElement = modalElement.querySelector(':focus');
+        if (focusedElement) {
+          focusedElement.blur();
+        }
+      };
+
       function cleanup() {
         confirmBtn?.removeEventListener("mousedown", handleConfirm);
         input?.removeEventListener("keypress", handleKeypress);
         modalElement.removeEventListener("hidden.bs.modal", handleDismiss);
         modalElement.removeEventListener("shown.bs.modal", handleShown);
+        modalElement.removeEventListener("hide.bs.modal", handleHide);
       }
 
       confirmBtn?.addEventListener("mousedown", (e) => {
@@ -1303,6 +1312,7 @@ class PromptDialog {
       input?.addEventListener("keypress", handleKeypress);
       modalElement.addEventListener("hidden.bs.modal", handleDismiss);
       modalElement.addEventListener("shown.bs.modal", handleShown);
+      modalElement.addEventListener("hide.bs.modal", handleHide);
 
       try {
         this.activeModal = new bootstrap.Modal(modalElement);
