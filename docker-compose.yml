@@ -12,7 +12,7 @@ services:
     command: uvicorn app:app --host 0.0.0.0 --port 8080 --proxy-headers --forwarded-allow-ips='*'
     volumes:
       - .:/app
-      - osm_extracts:/osm:ro
+      - osm_extracts:/osm
     depends_on:
       mongo-init:
         condition: service_completed_successfully
@@ -30,7 +30,7 @@ services:
     env_file: .env
     volumes:
       - .:/app
-      - osm_extracts:/osm:ro
+      - osm_extracts:/osm
       - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       mongo-init:
