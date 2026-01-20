@@ -3,12 +3,31 @@
    ============================ */
 
 /* === Modal z-index fix - ensure modals appear above all other content === */
+/* These aggressive styles ensure modals escape any parent stacking contexts */
 .modal {
   z-index: var(--z-modal, 1055);
+  position: fixed;
+  inset: 0;
+  pointer-events: auto;
+  isolation: isolate;
 }
 
 .modal-backdrop {
   z-index: var(--z-modal-backdrop, 1050);
+  position: fixed;
+  inset: 0;
+  pointer-events: auto;
+}
+
+/* Ensure modal dialog and content are interactive */
+.modal-dialog {
+  pointer-events: auto;
+  position: relative;
+}
+
+.modal-content {
+  pointer-events: auto;
+  position: relative;
 }
 
 /* === Modal - Minimal === */
