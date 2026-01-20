@@ -562,6 +562,8 @@ class AppSettings(Document):
 
     id: str = Field(default="default", alias="_id")
     updated_at: datetime | None = None
+    setup_completed: bool = False
+    setup_completed_at: datetime | None = None
 
     # UI Preferences
     highlightRecentTrips: bool = True

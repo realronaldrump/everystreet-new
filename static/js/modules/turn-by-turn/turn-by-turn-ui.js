@@ -209,7 +209,7 @@ class TurnByTurnUI {
       this.elements.previewTurns.textContent = data.turnCount || 0;
     }
     if (this.elements.previewCoverage) {
-      this.elements.previewCoverage.textContent = `${(data.coveragePercent || 0).toFixed(1)}%`;
+      this.elements.previewCoverage.textContent = `${(data.coveragePercent || 0).toFixed(2)}%`;
     }
   }
 
@@ -448,7 +448,7 @@ class TurnByTurnUI {
       this.elements.coverageProgressLive.style.width = `${livePercent}%`;
     }
     if (this.elements.coverageProgressValue) {
-      this.elements.coverageProgressValue.textContent = `${livePercent.toFixed(1)}%`;
+      this.elements.coverageProgressValue.textContent = `${livePercent.toFixed(2)}%`;
     }
   }
 
@@ -475,7 +475,7 @@ class TurnByTurnUI {
       </div>
       <div class="summary-item">
         <span>Coverage</span>
-        <span>${coveragePercent.toFixed(1)}%</span>
+        <span>${coveragePercent.toFixed(2)}%</span>
       </div>
     `;
   }

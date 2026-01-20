@@ -18,6 +18,7 @@ from pydantic import BaseModel
 
 from street_coverage.ingestion import create_area, delete_area, rebuild_area
 from street_coverage.models import CoverageArea, Job
+from street_coverage.stats import update_area_stats
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/coverage", tags=["coverage"])
@@ -331,3 +332,34 @@ async def trigger_backfill(area_id: PydanticObjectId):
             "message": f"Backfill complete. Updated {segments_updated} segments.",
             "segments_updated": segments_updated,
         }
+
+
+@router.post("/areas/{area_id}/recalculate")
+async def trigger_recalculate(area_id: PydanticObjectId):
+    """
+    Recalculate coverage statistics for an area.
+
+    This refreshes the derived statistics without reloading OSM data
+    or reprocessing trips. Useful when values look stale.
+    """
+    area = await CoverageArea.get(area_id)
+    if not area:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Coverage area not found",
+        )
+
+    try:
+        updated_area = await update_area_stats(area_id)
+    except Exception as e:
+        logger.exception("Error recalculating stats for area %s", area.display_name)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        )
+
+    return {
+        "success": True,
+        "message": "Coverage statistics recalculated",
+        "coverage_percentage": updated_area.coverage_percentage if updated_area else 0,
+    }

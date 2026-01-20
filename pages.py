@@ -2,12 +2,14 @@ import logging
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request, status
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
-from config import get_mapbox_token, validate_mapbox_token
+from config import validate_mapbox_token
 from core.repo_info import get_repo_version_info
 from db.models import ALL_DOCUMENT_MODELS
+from service_config import get_mapbox_token_async
+from setup_api import get_setup_status
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -17,8 +19,8 @@ templates = Jinja2Templates(directory="templates")
 # Get Mapbox access token from centralized config (map rendering only)
 
 
-def _mapbox_token_for_render() -> str:
-    token = get_mapbox_token()
+async def _mapbox_token_for_render() -> str:
+    token = await get_mapbox_token_async()
     validate_mapbox_token(token)
     return token
 
@@ -37,6 +39,9 @@ def _render_page(template_name: str, request: Request, **context: Any) -> HTMLRe
 @router.get("/", response_class=HTMLResponse)
 async def landing(request: Request):
     """Render landing page."""
+    status = await get_setup_status()
+    if not status.get("setup_completed", False):
+        return RedirectResponse(url="/setup", status_code=302)
     return _render_page("landing.html", request)
 
 
@@ -46,7 +51,7 @@ async def map_page(request: Request):
     return _render_page(
         "index.html",
         request,
-        MAPBOX_ACCESS_TOKEN=_mapbox_token_for_render(),
+        MAPBOX_ACCESS_TOKEN=await _mapbox_token_for_render(),
     )
 
 
@@ -56,7 +61,7 @@ async def edit_trips_page(request: Request):
     return _render_page(
         "edit_trips.html",
         request,
-        MAPBOX_ACCESS_TOKEN=_mapbox_token_for_render(),
+        MAPBOX_ACCESS_TOKEN=await _mapbox_token_for_render(),
     )
 
 
@@ -93,7 +98,7 @@ async def visits_page(request: Request):
     return _render_page(
         "visits.html",
         request,
-        MAPBOX_ACCESS_TOKEN=_mapbox_token_for_render(),
+        MAPBOX_ACCESS_TOKEN=await _mapbox_token_for_render(),
     )
 
 
@@ -103,7 +108,7 @@ async def gas_tracking_page(request: Request):
     return _render_page(
         "gas_tracking.html",
         request,
-        MAPBOX_ACCESS_TOKEN=_mapbox_token_for_render(),
+        MAPBOX_ACCESS_TOKEN=await _mapbox_token_for_render(),
     )
 
 
@@ -122,7 +127,7 @@ async def coverage_management_page(request: Request):
     return _render_page(
         "coverage_management.html",
         request,
-        MAPBOX_ACCESS_TOKEN=_mapbox_token_for_render(),
+        MAPBOX_ACCESS_TOKEN=await _mapbox_token_for_render(),
     )
 
 
@@ -182,7 +187,7 @@ async def coverage_navigator_page(request: Request):
     return _render_page(
         "coverage_navigator.html",
         request,
-        MAPBOX_ACCESS_TOKEN=_mapbox_token_for_render(),
+        MAPBOX_ACCESS_TOKEN=await _mapbox_token_for_render(),
     )
 
 
@@ -195,7 +200,7 @@ async def turn_by_turn_page(request: Request):
     return _render_page(
         "turn_by_turn.html",
         request,
-        MAPBOX_ACCESS_TOKEN=_mapbox_token_for_render(),
+        MAPBOX_ACCESS_TOKEN=await _mapbox_token_for_render(),
     )
 
 
@@ -230,5 +235,17 @@ async def county_map_page(request: Request):
     return _render_page(
         "county_map.html",
         request,
-        MAPBOX_ACCESS_TOKEN=_mapbox_token_for_render(),
+        MAPBOX_ACCESS_TOKEN=await _mapbox_token_for_render(),
     )
+
+
+@router.get("/setup", response_class=HTMLResponse)
+async def setup_wizard_page(request: Request):
+    """Render the setup wizard."""
+    return _render_page("setup_wizard.html", request)
+
+
+@router.get("/status", response_class=HTMLResponse)
+async def status_dashboard(request: Request):
+    """Render system status dashboard."""
+    return _render_page("status_dashboard.html", request)

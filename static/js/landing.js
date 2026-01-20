@@ -649,7 +649,7 @@ longitude;
     if (!Number.isFinite(numeric) || numeric <= 0) {
       return null;
     }
-    return `${numeric.toFixed(1)}%`;
+    return `${numeric.toFixed(2)}%`;
   }
 
   function getRouteCounts() {

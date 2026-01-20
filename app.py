@@ -29,6 +29,7 @@ from processing_api import router as processing_api_router
 from profile_api import router as profile_api_router
 from routes.routing import router as routing_router
 from search_api import router as search_api_router
+from setup_api import router as setup_api_router
 from tasks.arq import close_arq_pool
 from tasks_api import router as tasks_api_router
 from trips import router as trips_router
@@ -126,6 +127,7 @@ app.include_router(map_data_router)
 app.include_router(processing_api_router)
 app.include_router(profile_api_router)
 app.include_router(search_api_router)
+app.include_router(setup_api_router)
 app.include_router(tasks_api_router)
 app.include_router(trips_router)
 app.include_router(visits_router)
@@ -146,6 +148,10 @@ async def startup_event():
         # Initialize Beanie ODM first
         await db_manager.init_beanie()
         logger.info("Beanie ODM initialized successfully.")
+
+        from service_config import get_service_config
+
+        await get_service_config()
 
         # Core database initialization is now handled by Beanie
         # await init_database()

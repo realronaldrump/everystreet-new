@@ -128,6 +128,10 @@ async def calculate_area_stats(
     if driveable_length > 0:
         coverage_pct = round((driven_length / driveable_length) * 100, 2)
 
+    if coverage_pct > 100.0:
+        logger.warning("Coverage exceeded 100%% for area %s", area_id)
+        coverage_pct = 100.0
+
     return {
         "total_segments": r.get("total_segments", 0),
         "driven_segments": r.get("driven_segments", 0),

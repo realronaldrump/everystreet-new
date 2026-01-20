@@ -180,6 +180,50 @@ async def get_geofabrik_regions(parent: str | None = None) -> list[dict[str, Any
     return [r for r in index if not r.get("parent")]
 
 
+async def suggest_region_from_first_trip() -> dict[str, Any] | None:
+    """
+    Suggest a Geofabrik region based on the first available trip.
+
+    Uses the first trip with usable GPS data and finds the smallest
+    Geofabrik region whose bounding box contains that coordinate.
+    """
+    from db.models import Trip
+
+    trip = (
+        await Trip.find({"gps": {"$ne": None}}).sort("startTime").first_or_none()
+    )
+    if not trip:
+        return None
+
+    coordinate = _extract_trip_coordinate(trip)
+    if not coordinate:
+        return None
+
+    await get_geofabrik_regions()
+    all_regions = _geofabrik_cache.get("data", []) or []
+
+    lon, lat = coordinate
+    candidates = [
+        region
+        for region in all_regions
+        if _bbox_contains(region.get("bounding_box"), lon, lat)
+    ]
+
+    if not candidates:
+        return None
+
+    candidates.sort(key=lambda region: _bbox_area(region.get("bounding_box")))
+    selected = candidates[0]
+
+    return {
+        "id": selected.get("id"),
+        "name": selected.get("name") or selected.get("id"),
+        "pbf_size_mb": _normalize_pbf_size(selected.get("pbf_size_mb")),
+        "pbf_url": selected.get("pbf_url"),
+        "bounding_box": _normalize_bbox(selected.get("bounding_box")),
+    }
+
+
 async def _fetch_geofabrik_index() -> list[dict[str, Any]]:
     """
     Fetch and parse the Geofabrik index.
@@ -289,6 +333,94 @@ def _bytes_to_mb(bytes_val: int | None) -> float | None:
     return round(bytes_val / (1024 * 1024), 2)
 
 
+def _normalize_pbf_size(value: Any) -> float | None:
+    if value is None:
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        stripped = value.strip()
+        if not stripped:
+            return None
+        try:
+            return float(stripped)
+        except ValueError:
+            return None
+    return None
+
+
+def _normalize_bbox(value: Any) -> list[float]:
+    if isinstance(value, (list, tuple)) and len(value) == 4:
+        try:
+            return [float(item) for item in value]
+        except (TypeError, ValueError):
+            return []
+    if isinstance(value, str):
+        parts = [part for part in re.split(r"[\s,]+", value.strip()) if part]
+        if len(parts) == 4:
+            try:
+                return [float(part) for part in parts]
+            except ValueError:
+                return []
+    return []
+
+
+def _bbox_contains(bbox: list[float] | None, lon: float, lat: float) -> bool:
+    if not bbox or len(bbox) != 4:
+        return False
+    min_lon, min_lat, max_lon, max_lat = bbox
+    return min_lon <= lon <= max_lon and min_lat <= lat <= max_lat
+
+
+def _bbox_area(bbox: list[float] | None) -> float:
+    if not bbox or len(bbox) != 4:
+        return float("inf")
+    min_lon, min_lat, max_lon, max_lat = bbox
+    return abs(max_lon - min_lon) * abs(max_lat - min_lat)
+
+
+def _extract_trip_coordinate(trip: Any) -> tuple[float, float] | None:
+    gps_candidates = [getattr(trip, "matchedGps", None), getattr(trip, "gps", None)]
+    for gps in gps_candidates:
+        if not isinstance(gps, dict):
+            continue
+        coords = gps.get("coordinates")
+        if not coords:
+            continue
+        if gps.get("type") == "Point":
+            return _normalize_coordinate(coords)
+        if gps.get("type") == "LineString" and isinstance(coords, list) and coords:
+            return _normalize_coordinate(coords[0])
+
+    coords_list = getattr(trip, "coordinates", None)
+    if isinstance(coords_list, list) and coords_list:
+        return _normalize_coordinate(coords_list[0])
+
+    return None
+
+
+def _normalize_coordinate(value: Any) -> tuple[float, float] | None:
+    if isinstance(value, (list, tuple)) and len(value) >= 2:
+        try:
+            lon = float(value[0])
+            lat = float(value[1])
+            return lon, lat
+        except (TypeError, ValueError):
+            return None
+
+    if isinstance(value, dict):
+        lon = value.get("lon") or value.get("lng") or value.get("longitude")
+        lat = value.get("lat") or value.get("latitude")
+        try:
+            if lon is None or lat is None:
+                return None
+            return float(lon), float(lat)
+        except (TypeError, ValueError):
+            return None
+
+    return None
+
+
 async def download_region(
     geofabrik_id: str,
     display_name: str | None = None,
@@ -336,14 +468,16 @@ async def download_region(
         region.download_progress = 0.0
         region.last_error = None
     else:
+        size_mb: float | None = _normalize_pbf_size(region_info.get("pbf_size_mb"))
+        bbox: list[float] = _normalize_bbox(region_info.get("bounding_box"))
         region = MapRegion(
             name=geofabrik_id,
             display_name=display_name or region_info.get("name", geofabrik_id),
             source="geofabrik",
             source_url=region_info.get("pbf_url"),
-            source_size_mb=region_info.get("pbf_size_mb"),
+            source_size_mb=size_mb,
             status=MapRegion.STATUS_DOWNLOADING,
-            bounding_box=region_info.get("bounding_box", []),
+            bounding_box=bbox,
         )
         await region.insert()
 
@@ -428,14 +562,16 @@ async def download_and_build_all(
         region.valhalla_status = "not_built"
         region.last_error = None
     else:
+        size_mb: float | None = _normalize_pbf_size(region_info.get("pbf_size_mb"))
+        bbox: list[float] = _normalize_bbox(region_info.get("bounding_box"))
         region = MapRegion(
             name=geofabrik_id,
             display_name=display_name or region_info.get("name", geofabrik_id),
             source="geofabrik",
             source_url=region_info.get("pbf_url"),
-            source_size_mb=region_info.get("pbf_size_mb"),
+            source_size_mb=size_mb,
             status=MapRegion.STATUS_DOWNLOADING,
-            bounding_box=region_info.get("bounding_box", []),
+            bounding_box=bbox,
         )
         await region.insert()
 

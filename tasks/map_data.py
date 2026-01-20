@@ -9,12 +9,17 @@ Handles:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import UTC, datetime
 
 from beanie import PydanticObjectId
 
-from map_data.builders import build_nominatim_data, build_valhalla_tiles
+from map_data.builders import (
+    build_nominatim_data,
+    build_valhalla_tiles,
+    start_container_on_demand,
+)
 from map_data.download import stream_download_region
 from map_data.models import MapDataJob, MapRegion
 
@@ -50,68 +55,117 @@ async def download_region_task(ctx: dict, job_id: str) -> dict:
         await job.save()
         return {"success": False, "error": "Region not found"}
 
-    try:
-        # Update job status to running
-        job.status = MapDataJob.STATUS_RUNNING
-        job.started_at = datetime.now(UTC)
-        job.stage = "Downloading"
-        await job.save()
+    retry_delays = [30, 60, 300]
+    max_retries = job.max_retries or 3
+    attempt = job.retry_count or 0
 
-        # Progress callback to update job
-        async def update_progress(progress: float, message: str) -> None:
-            job.progress = progress
-            job.message = message
-            region.download_progress = progress
+    while True:
+        if job.status == MapDataJob.STATUS_CANCELLED:
+            logger.info("Job was cancelled during retry: %s", job_id)
+            return {"success": False, "error": "Job cancelled"}
+
+        try:
+            # Update job status to running
+            job.status = MapDataJob.STATUS_RUNNING
+            job.started_at = job.started_at or datetime.now(UTC)
+            job.stage = "Downloading"
+            job.progress = 0
+            job.error = None
+            job.message = "Starting download"
+            job.retry_count = attempt
             await job.save()
+
+            region.status = MapRegion.STATUS_DOWNLOADING
+            region.last_error = None
+            region.download_progress = 0
+            region.updated_at = datetime.now(UTC)
             await region.save()
 
-        # Execute download
-        await stream_download_region(region, progress_callback=update_progress)
+            # Progress callback to update job
+            async def update_progress(progress: float, message: str) -> None:
+                job.progress = progress
+                job.message = message
+                region.download_progress = progress
+                await job.save()
+                await region.save()
 
-        # Mark job complete
-        job.status = MapDataJob.STATUS_COMPLETED
-        job.progress = 100
-        job.message = "Download complete"
-        job.completed_at = datetime.now(UTC)
-        await job.save()
+            # Execute download
+            await stream_download_region(region, progress_callback=update_progress)
 
-        logger.info("Download complete for region %s", region.display_name)
+            # Mark job complete
+            job.status = MapDataJob.STATUS_COMPLETED
+            job.progress = 100
+            job.message = "Download complete"
+            job.completed_at = datetime.now(UTC)
+            await job.save()
 
-        # Check if this is a full pipeline job - chain to build
-        if job.job_type == "download_and_build_all":
-            logger.info(
-                "Chaining to Nominatim + Valhalla build for region %s",
-                region.display_name,
-            )
-            # Create a new build_all job
-            from map_data.models import MapDataJob as MDJ
+            logger.info("Download complete for region %s", region.display_name)
 
-            build_job = MDJ(
-                job_type=MDJ.JOB_BUILD_ALL,
-                region_id=region.id,
-                status=MDJ.STATUS_PENDING,
-                stage="Queued for Nominatim + Valhalla build",
-                message=f"Building geo services for {region.display_name}",
-            )
-            await build_job.insert()
-            await enqueue_nominatim_build_task(str(build_job.id))
+            # Check if this is a full pipeline job - chain to build
+            if job.job_type == "download_and_build_all":
+                logger.info(
+                    "Chaining to Nominatim + Valhalla build for region %s",
+                    region.display_name,
+                )
+                # Create a new build_all job
+                from map_data.models import MapDataJob as MDJ
 
-        return {"success": True, "region_id": str(region.id)}
+                build_job = MDJ(
+                    job_type=MDJ.JOB_BUILD_ALL,
+                    region_id=region.id,
+                    status=MDJ.STATUS_PENDING,
+                    stage="Queued for Nominatim + Valhalla build",
+                    message=f"Building geo services for {region.display_name}",
+                )
+                await build_job.insert()
+                await enqueue_nominatim_build_task(str(build_job.id))
 
-    except Exception as e:
-        logger.exception("Download failed for job %s", job_id)
+            return {"success": True, "region_id": str(region.id)}
 
-        job.status = MapDataJob.STATUS_FAILED
-        job.error = str(e)
-        job.completed_at = datetime.now(UTC)
-        await job.save()
+        except Exception as e:
+            attempt += 1
+            job.retry_count = attempt
 
-        region.status = MapRegion.STATUS_ERROR
-        region.last_error = str(e)
-        region.updated_at = datetime.now(UTC)
-        await region.save()
+            if attempt <= max_retries:
+                delay = retry_delays[min(attempt - 1, len(retry_delays) - 1)]
+                logger.warning(
+                    "Download failed for job %s (attempt %s/%s): %s",
+                    job_id,
+                    attempt,
+                    max_retries,
+                    e,
+                )
 
-        return {"success": False, "error": str(e)}
+                job.status = MapDataJob.STATUS_RUNNING
+                job.stage = f"Retrying in {delay}s"
+                job.message = (
+                    f"Download failed. Retrying ({attempt}/{max_retries})"
+                )
+                job.error = str(e)
+                job.completed_at = None
+                await job.save()
+
+                region.last_error = str(e)
+                region.status = MapRegion.STATUS_DOWNLOADING
+                region.updated_at = datetime.now(UTC)
+                await region.save()
+
+                await asyncio.sleep(delay)
+                continue
+
+            logger.exception("Download failed for job %s", job_id)
+
+            job.status = MapDataJob.STATUS_FAILED
+            job.error = str(e)
+            job.completed_at = datetime.now(UTC)
+            await job.save()
+
+            region.status = MapRegion.STATUS_ERROR
+            region.last_error = str(e)
+            region.updated_at = datetime.now(UTC)
+            await region.save()
+
+            return {"success": False, "error": str(e)}
 
 
 async def build_nominatim_task(ctx: dict, job_id: str) -> dict:
@@ -147,8 +201,13 @@ async def build_nominatim_task(ctx: dict, job_id: str) -> dict:
         # Update job status
         job.status = MapDataJob.STATUS_RUNNING
         job.started_at = datetime.now(UTC)
-        job.stage = "Building Nominatim"
+        job.stage = "Starting Nominatim service"
+        job.message = "Ensuring Nominatim container is running"
         await job.save()
+
+        await start_container_on_demand("nominatim")
+
+        job.stage = "Building Nominatim"
 
         # Update region status
         region.nominatim_status = "building"
@@ -262,8 +321,13 @@ async def build_valhalla_task(ctx: dict, job_id: str) -> dict:
         # Update job status
         job.status = MapDataJob.STATUS_RUNNING
         job.started_at = datetime.now(UTC)
-        job.stage = "Building Valhalla tiles"
+        job.stage = "Starting Valhalla service"
+        job.message = "Ensuring Valhalla container is running"
         await job.save()
+
+        await start_container_on_demand("valhalla")
+
+        job.stage = "Building Valhalla tiles"
 
         # Update region status
         region.valhalla_status = "building"

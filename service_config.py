@@ -25,6 +25,7 @@ logger = logging.getLogger(__name__)
 
 # Cache for settings to avoid repeated DB calls
 _settings_cache: AppSettings | None = None
+_seeded_env_keys: set[str] = set()
 
 
 async def get_service_config() -> AppSettings:
@@ -55,6 +56,7 @@ async def get_service_config() -> AppSettings:
         # Apply environment variable overrides for backward compatibility
         # Environment variables take precedence if set
         _apply_env_overrides(settings)
+        _apply_settings_to_env(settings)
 
         _settings_cache = settings
         return settings
@@ -64,6 +66,7 @@ async def get_service_config() -> AppSettings:
         # Return a default settings object (not persisted)
         settings = AppSettings()
         _apply_env_overrides(settings)
+        _apply_settings_to_env(settings)
         return settings
 
 
@@ -125,6 +128,35 @@ def _apply_env_overrides(settings: AppSettings) -> None:
     env_osm_path = os.getenv("OSM_EXTRACTS_PATH", "").strip()
     if env_osm_path:
         settings.osm_extracts_path = env_osm_path
+
+
+def _set_env_value(key: str, value: str | None) -> None:
+    if not value:
+        return
+    existing = os.getenv(key)
+    if existing is None or key in _seeded_env_keys:
+        os.environ[key] = value
+        _seeded_env_keys.add(key)
+
+
+def _apply_settings_to_env(settings: AppSettings) -> None:
+    """Seed environment variables from stored settings."""
+    _set_env_value("MAPBOX_TOKEN", settings.mapbox_token)
+    _set_env_value("NOMINATIM_BASE_URL", settings.nominatim_base_url)
+    _set_env_value("NOMINATIM_SEARCH_URL", settings.get_nominatim_search_url())
+    _set_env_value("NOMINATIM_REVERSE_URL", settings.get_nominatim_reverse_url())
+    _set_env_value("NOMINATIM_USER_AGENT", settings.nominatim_user_agent)
+    _set_env_value("VALHALLA_BASE_URL", settings.valhalla_base_url)
+    _set_env_value("VALHALLA_STATUS_URL", settings.get_valhalla_status_url())
+    _set_env_value("VALHALLA_ROUTE_URL", settings.get_valhalla_route_url())
+    _set_env_value(
+        "VALHALLA_TRACE_ROUTE_URL", settings.get_valhalla_trace_route_url()
+    )
+    _set_env_value(
+        "VALHALLA_TRACE_ATTRIBUTES_URL", settings.get_valhalla_trace_attributes_url()
+    )
+    _set_env_value("GEOFABRIK_MIRROR", settings.geofabrik_mirror)
+    _set_env_value("OSM_EXTRACTS_PATH", settings.osm_extracts_path)
 
 
 async def refresh_service_config() -> AppSettings:

@@ -38,6 +38,10 @@ from tasks.routes import generate_optimal_route
 async def on_startup(ctx: dict) -> None:
     await db_manager.init_beanie()
 
+    from service_config import get_service_config
+
+    await get_service_config()
+
     handler = MongoDBHandler()
     await handler.setup_indexes()
     formatter = logging.Formatter(

@@ -61,7 +61,7 @@ export class OptimalRouteUI {
       const status = area.status || "";
       const isProcessing = this.isCoverageCalculationActive(status);
       option.value = String(areaId);
-      const coverage = area.coverage_percentage?.toFixed(1) || 0;
+      const coverage = area.coverage_percentage?.toFixed(2) || 0;
       const label = `${areaName} (${coverage}%)`;
       option.textContent = isProcessing ? `${label} (calculating coverage)` : label;
       option.dataset.coverage = coverage;
@@ -446,7 +446,7 @@ export class OptimalRouteUI {
     );
     document.getElementById("stat-deadhead-percent").textContent = `${(
       100 - (data.deadhead_percentage || 0)
-    ).toFixed(1)}%`;
+    ).toFixed(2)}%`;
 
     document.getElementById("results-section").style.display = "block";
 

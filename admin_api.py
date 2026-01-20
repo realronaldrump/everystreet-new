@@ -66,6 +66,8 @@ DEFAULT_APP_SETTINGS: dict[str, Any] = {
     "valhalla_base_url": "http://valhalla:8002",
     "geofabrik_mirror": "https://download.geofabrik.de",
     "osm_extracts_path": "/osm",
+    "setup_completed": False,
+    "setup_completed_at": None,
 }
 
 

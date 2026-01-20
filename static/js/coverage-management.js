@@ -392,7 +392,7 @@ function renderAreasTable(areas) {
             <td>
                 <div class="progress" style="height: 20px; min-width: 100px;">
                     <div class="progress-bar bg-success" style="width: ${area.coverage_percentage}%">
-                        ${area.coverage_percentage.toFixed(1)}%
+                        ${area.coverage_percentage.toFixed(2)}%
                     </div>
                 </div>
             </td>
@@ -869,7 +869,7 @@ async function viewArea(areaId) {
       suffix: " mi",
     });
     setMetricValue("dashboard-coverage-percentage", area.coverage_percentage, {
-      decimals: 1,
+      decimals: 2,
       suffix: "%",
     });
 
