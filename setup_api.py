@@ -13,8 +13,11 @@ from fastapi import APIRouter, HTTPException, status
 from bouncie_credentials import get_bouncie_credentials
 from config import validate_mapbox_token
 from db.models import AppSettings, MapRegion, TaskConfig, TaskHistory
-from map_data.services import check_service_health, download_and_build_all
-from map_data.services import suggest_region_from_first_trip
+from map_data.services import (
+    check_service_health,
+    download_and_build_all,
+    suggest_region_from_first_trip,
+)
 from service_config import clear_config_cache, get_service_config
 from tasks.arq import get_arq_pool
 from tasks.config import set_global_disable
@@ -72,7 +75,9 @@ async def get_setup_status() -> dict[str, Any]:
     return {
         "setup_completed": bool(settings.setup_completed),
         "setup_completed_at": (
-            settings.setup_completed_at.isoformat() if settings.setup_completed_at else None
+            settings.setup_completed_at.isoformat()
+            if settings.setup_completed_at
+            else None
         ),
         "required_complete": bouncie_complete and mapbox_complete,
         "steps": {
@@ -189,7 +194,11 @@ def _derive_service_status(healthy: bool, error: str | None) -> str:
         return "healthy"
     if error:
         lowered = error.lower()
-        if "not configured" in lowered or "not running" in lowered or "setup" in lowered:
+        if (
+            "not configured" in lowered
+            or "not running" in lowered
+            or "setup" in lowered
+        ):
             return "warning"
     return "error"
 
@@ -228,7 +237,9 @@ async def get_status_health() -> dict[str, Any]:
         heartbeat = await redis.get("arq:worker:heartbeat")
         if heartbeat:
             heartbeat_value = (
-                heartbeat.decode() if isinstance(heartbeat, (bytes, bytearray)) else str(heartbeat)
+                heartbeat.decode()
+                if isinstance(heartbeat, (bytes, bytearray))
+                else str(heartbeat)
             )
             heartbeat_dt = None
             try:
@@ -259,7 +270,12 @@ async def get_status_health() -> dict[str, Any]:
     bouncie_devices = _normalize_devices(credentials.get("authorized_devices"))
     bouncie_ready = all(
         credentials.get(field)
-        for field in ["client_id", "client_secret", "authorization_code", "redirect_uri"]
+        for field in [
+            "client_id",
+            "client_secret",
+            "authorization_code",
+            "redirect_uri",
+        ]
     ) and bool(bouncie_devices)
     bouncie_status = "healthy" if bouncie_ready else "warning"
     bouncie_message = (
@@ -274,7 +290,9 @@ async def get_status_health() -> dict[str, Any]:
         geo_health.nominatim_healthy, geo_health.nominatim_error
     )
     nominatim_message = (
-        "Healthy" if geo_health.nominatim_healthy else geo_health.nominatim_error or "Not ready"
+        "Healthy"
+        if geo_health.nominatim_healthy
+        else geo_health.nominatim_error or "Not ready"
     )
     nominatim_detail = None
 
@@ -282,16 +300,15 @@ async def get_status_health() -> dict[str, Any]:
         geo_health.valhalla_healthy, geo_health.valhalla_error
     )
     valhalla_message = (
-        "Healthy" if geo_health.valhalla_healthy else geo_health.valhalla_error or "Not ready"
+        "Healthy"
+        if geo_health.valhalla_healthy
+        else geo_health.valhalla_error or "Not ready"
     )
     valhalla_detail = None
 
     sort_key = "-timestamp"
     recent_errors = (
-        await TaskHistory.find({"status": "FAILED"})
-        .sort(sort_key)
-        .limit(5)
-        .to_list()
+        await TaskHistory.find({"status": "FAILED"}).sort(sort_key).limit(5).to_list()
     )
     recent_error_payload = [
         {

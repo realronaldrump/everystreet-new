@@ -31,7 +31,7 @@
         });
       }
     },
-    { route: "/setup" }
+    { route: "/setup" },
   );
 
   function withSignal(options = {}) {
@@ -98,10 +98,14 @@
 
     document
       .getElementById("toggleClientSecret")
-      ?.addEventListener("click", () => togglePasswordVisibility("clientSecret"));
+      ?.addEventListener("click", () =>
+        togglePasswordVisibility("clientSecret"),
+      );
     document
       .getElementById("toggleAuthCode")
-      ?.addEventListener("click", () => togglePasswordVisibility("authorizationCode"));
+      ?.addEventListener("click", () =>
+        togglePasswordVisibility("authorizationCode"),
+      );
 
     document
       .getElementById("download-region-btn")
@@ -125,7 +129,10 @@
     });
     currentStep = index;
     if (stepKeys[index] === "region" && setupState.region) {
-      showRegionStatus("A region is already configured. Add another if needed.", false);
+      showRegionStatus(
+        "A region is already configured. Add another if needed.",
+        false,
+      );
     }
     if (stepKeys[index] === "complete") {
       updateSummary();
@@ -167,17 +174,17 @@
     try {
       const response = await fetch(
         `${PROFILE_API}/bouncie-credentials/unmask`,
-        withSignal()
+        withSignal(),
       );
       const data = await response.json();
       const creds = data.credentials || {};
       document.getElementById("clientId").value = creds.client_id || "";
       document.getElementById("clientSecret").value = creds.client_secret || "";
       document.getElementById("redirectUri").value = creds.redirect_uri || "";
-      document.getElementById("authorizationCode").value
-        = creds.authorization_code || "";
-      document.getElementById("fetchConcurrency").value
-        = creds.fetch_concurrency || 12;
+      document.getElementById("authorizationCode").value =
+        creds.authorization_code || "";
+      document.getElementById("fetchConcurrency").value =
+        creds.fetch_concurrency || 12;
       currentDevices = Array.isArray(creds.authorized_devices)
         ? creds.authorized_devices
         : [];
@@ -228,7 +235,11 @@
 
   function removeDeviceInput(index) {
     if (currentDevices.length <= 1) {
-      showStatus("setup-bouncie-status", "At least one device is required.", true);
+      showStatus(
+        "setup-bouncie-status",
+        "At least one device is required.",
+        true,
+      );
       return;
     }
     currentDevices.splice(index, 1);
@@ -238,24 +249,38 @@
   function getBouncieFormValues() {
     const fetchConcurrency = Number.parseInt(
       document.getElementById("fetchConcurrency").value,
-      10
+      10,
     );
     return {
       client_id: document.getElementById("clientId").value.trim(),
       client_secret: document.getElementById("clientSecret").value.trim(),
       redirect_uri: document.getElementById("redirectUri").value.trim(),
-      authorization_code: document.getElementById("authorizationCode").value.trim(),
+      authorization_code: document
+        .getElementById("authorizationCode")
+        .value.trim(),
       authorized_devices: currentDevices.map((device) => device.trim()),
-      fetch_concurrency: Number.isFinite(fetchConcurrency) ? fetchConcurrency : 12,
+      fetch_concurrency: Number.isFinite(fetchConcurrency)
+        ? fetchConcurrency
+        : 12,
     };
   }
 
   async function saveBouncieCredentials(advance = false) {
     const values = getBouncieFormValues();
-    const devices = values.authorized_devices.filter((device) => device.length > 0);
+    const devices = values.authorized_devices.filter(
+      (device) => device.length > 0,
+    );
 
-    if (!values.client_id || !values.client_secret || !values.authorization_code) {
-      showStatus("setup-bouncie-status", "All credential fields are required.", true);
+    if (
+      !values.client_id ||
+      !values.client_secret ||
+      !values.authorization_code
+    ) {
+      showStatus(
+        "setup-bouncie-status",
+        "All credential fields are required.",
+        true,
+      );
       return;
     }
     if (!values.redirect_uri) {
@@ -263,7 +288,11 @@
       return;
     }
     if (devices.length === 0) {
-      showStatus("setup-bouncie-status", "Add at least one authorized device.", true);
+      showStatus(
+        "setup-bouncie-status",
+        "Add at least one authorized device.",
+        true,
+      );
       return;
     }
 
@@ -278,7 +307,7 @@
             ...values,
             authorized_devices: devices,
           }),
-        })
+        }),
       );
       const data = await response.json();
       if (!response.ok) {
@@ -286,7 +315,11 @@
       }
       setupState.bouncie = true;
       updateStepIndicators();
-      showStatus("setup-bouncie-status", data.message || "Credentials saved.", false);
+      showStatus(
+        "setup-bouncie-status",
+        data.message || "Credentials saved.",
+        false,
+      );
       if (advance) {
         showStep(2);
       }
@@ -300,7 +333,7 @@
       showStatus("setup-bouncie-status", "Syncing vehicles...", false);
       const response = await fetch(
         `${PROFILE_API}/bouncie-credentials/sync-vehicles`,
-        withSignal({ method: "POST" })
+        withSignal({ method: "POST" }),
       );
       const data = await response.json();
       if (!response.ok) {
@@ -313,7 +346,7 @@
       showStatus(
         "setup-bouncie-status",
         data.message || "Vehicles synced.",
-        false
+        false,
       );
     } catch (error) {
       showStatus("setup-bouncie-status", error.message, true);
@@ -333,13 +366,21 @@
       const response = await fetch(APP_SETTINGS_API, withSignal());
       const data = await response.json();
       document.getElementById("mapboxToken").value = data.mapbox_token || "";
-      document.getElementById("nominatimBaseUrl").value = data.nominatim_base_url || "";
-      document.getElementById("nominatimUserAgent").value = data.nominatim_user_agent || "";
-      document.getElementById("valhallaBaseUrl").value = data.valhalla_base_url || "";
-      document.getElementById("geofabrikMirror").value = data.geofabrik_mirror || "";
+      document.getElementById("nominatimBaseUrl").value =
+        data.nominatim_base_url || "";
+      document.getElementById("nominatimUserAgent").value =
+        data.nominatim_user_agent || "";
+      document.getElementById("valhallaBaseUrl").value =
+        data.valhalla_base_url || "";
+      document.getElementById("geofabrikMirror").value =
+        data.geofabrik_mirror || "";
       handleMapboxInput();
     } catch (error) {
-      showStatus("setup-mapbox-status", "Unable to load Mapbox settings.", true);
+      showStatus(
+        "setup-mapbox-status",
+        "Unable to load Mapbox settings.",
+        true,
+      );
     }
   }
 
@@ -350,7 +391,7 @@
       showStatus(
         "setup-mapbox-status",
         "Enter a Mapbox token to preview maps.",
-        false
+        false,
       );
       return;
     }
@@ -359,7 +400,7 @@
       showStatus(
         "setup-mapbox-status",
         "Mapbox token must start with pk. and be valid length.",
-        true
+        true,
       );
       return;
     }
@@ -376,9 +417,15 @@
 
     const payload = {
       mapbox_token: token,
-      nominatim_base_url: document.getElementById("nominatimBaseUrl").value.trim(),
-      nominatim_user_agent: document.getElementById("nominatimUserAgent").value.trim(),
-      valhalla_base_url: document.getElementById("valhallaBaseUrl").value.trim(),
+      nominatim_base_url: document
+        .getElementById("nominatimBaseUrl")
+        .value.trim(),
+      nominatim_user_agent: document
+        .getElementById("nominatimUserAgent")
+        .value.trim(),
+      valhalla_base_url: document
+        .getElementById("valhallaBaseUrl")
+        .value.trim(),
       geofabrik_mirror: document.getElementById("geofabrikMirror").value.trim(),
     };
 
@@ -390,7 +437,7 @@
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
-        })
+        }),
       );
       const data = await response.json();
       if (!response.ok) {
@@ -437,7 +484,7 @@
       showStatus(
         "setup-mapbox-status",
         "Map preview failed to load. Double-check the token.",
-        true
+        true,
       );
     });
   }
@@ -463,7 +510,7 @@
     if (!regionList) {
       return;
     }
-    regionList.innerHTML = "<div class=\"text-muted\">Loading regions...</div>";
+    regionList.innerHTML = '<div class="text-muted">Loading regions...</div>';
 
     try {
       const url = parent
@@ -473,7 +520,8 @@
       const data = await response.json();
 
       if (!data.regions || data.regions.length === 0) {
-        regionList.innerHTML = "<div class=\"text-muted\">No regions found.</div>";
+        regionList.innerHTML =
+          '<div class="text-muted">No regions found.</div>';
         return;
       }
 
@@ -504,12 +552,13 @@
                 ${region.has_children ? '<i class="fas fa-chevron-right ms-2"></i>' : ""}
               </div>
             </div>
-          `
+          `,
         )
         .join("");
       updateBreadcrumb();
     } catch (error) {
-      regionList.innerHTML = "<div class=\"text-danger\">Failed to load regions.</div>";
+      regionList.innerHTML =
+        '<div class="text-danger">Failed to load regions.</div>';
     }
   }
 
@@ -571,7 +620,9 @@
       path = path ? `${path}/${segment}` : segment;
       items.push({
         id: path,
-        name: segment.replace(/-/g, " ").replace(/\b\w/g, (char) => char.toUpperCase()),
+        name: segment
+          .replace(/-/g, " ")
+          .replace(/\b\w/g, (char) => char.toUpperCase()),
       });
     }
     breadcrumb.innerHTML = items
@@ -584,7 +635,7 @@
               : `<a href="#" data-region="${item.id}">${item.name}</a>`
           }
         </li>
-      `
+      `,
       )
       .join("");
   }
@@ -625,7 +676,7 @@
             geofabrik_id: selectedRegion.id,
             display_name: selectedRegion.name,
           }),
-        })
+        }),
       );
       const data = await response.json();
       if (!response.ok) {
@@ -642,11 +693,13 @@
       showRegionStatus("Searching for a suggested region...", false);
       const response = await fetch(
         `${SETUP_API}/auto-configure-region`,
-        withSignal({ method: "POST" })
+        withSignal({ method: "POST" }),
       );
       const data = await response.json();
       if (!response.ok || !data.success) {
-        throw new Error(data.message || data.detail || "No region suggestion found");
+        throw new Error(
+          data.message || data.detail || "No region suggestion found",
+        );
       }
       selectedRegion = data.region || selectedRegion;
       updateSelectedRegionUI();
@@ -666,12 +719,17 @@
     progressWrap?.classList.remove("d-none");
     progressBar.style.width = "0%";
     progressBar.textContent = "0%";
-    progressText.textContent = name ? `Downloading ${name}` : "Downloading region";
+    progressText.textContent = name
+      ? `Downloading ${name}`
+      : "Downloading region";
     stopRegionPolling();
 
     regionPollInterval = setInterval(async () => {
       try {
-        const response = await fetch(`${MAP_DATA_API}/jobs/${jobId}`, withSignal());
+        const response = await fetch(
+          `${MAP_DATA_API}/jobs/${jobId}`,
+          withSignal(),
+        );
         const data = await response.json();
         if (!response.ok) {
           throw new Error(data.detail || "Failed to read job status");
@@ -732,7 +790,7 @@
       showStatus(
         "setup-complete-status",
         "Complete the required steps before finishing setup.",
-        true
+        true,
       );
       return;
     }
@@ -740,13 +798,17 @@
       showStatus("setup-complete-status", "Finalizing setup...", false);
       const response = await fetch(
         `${SETUP_API}/complete`,
-        withSignal({ method: "POST" })
+        withSignal({ method: "POST" }),
       );
       const data = await response.json();
       if (!response.ok) {
         throw new Error(data.detail || "Failed to complete setup");
       }
-      showStatus("setup-complete-status", "Setup complete! Redirecting...", false);
+      showStatus(
+        "setup-complete-status",
+        "Setup complete! Redirecting...",
+        false,
+      );
       window.location.assign("/");
     } catch (error) {
       showStatus("setup-complete-status", error.message, true);

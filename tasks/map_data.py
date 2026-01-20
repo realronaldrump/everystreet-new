@@ -138,9 +138,7 @@ async def download_region_task(ctx: dict, job_id: str) -> dict:
 
                 job.status = MapDataJob.STATUS_RUNNING
                 job.stage = f"Retrying in {delay}s"
-                job.message = (
-                    f"Download failed. Retrying ({attempt}/{max_retries})"
-                )
+                job.message = f"Download failed. Retrying ({attempt}/{max_retries})"
                 job.error = str(e)
                 job.completed_at = None
                 await job.save()

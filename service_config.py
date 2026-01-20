@@ -149,9 +149,7 @@ def _apply_settings_to_env(settings: AppSettings) -> None:
     _set_env_value("VALHALLA_BASE_URL", settings.valhalla_base_url)
     _set_env_value("VALHALLA_STATUS_URL", settings.get_valhalla_status_url())
     _set_env_value("VALHALLA_ROUTE_URL", settings.get_valhalla_route_url())
-    _set_env_value(
-        "VALHALLA_TRACE_ROUTE_URL", settings.get_valhalla_trace_route_url()
-    )
+    _set_env_value("VALHALLA_TRACE_ROUTE_URL", settings.get_valhalla_trace_route_url())
     _set_env_value(
         "VALHALLA_TRACE_ATTRIBUTES_URL", settings.get_valhalla_trace_attributes_url()
     )
