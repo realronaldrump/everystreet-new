@@ -284,6 +284,17 @@
   overflow-y: auto;
 }
 
+.setup-region-list.is-disabled,
+#region-breadcrumb.is-disabled,
+.setup-region-actions.is-disabled {
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+.setup-region-list.is-disabled .region-item {
+  cursor: not-allowed;
+}
+
 .region-item {
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);

@@ -18,6 +18,7 @@
   let regionPollInterval = null;
   let mapPreview = null;
   let pageSignal = null;
+  let regionControlsLocked = false;
 
   window.utils?.onPageLoad(
     ({ signal, cleanup } = {}) => {
@@ -598,7 +599,7 @@
 
     if (selectedRegion) {
       info?.classList.remove("d-none");
-      downloadBtn.disabled = false;
+      downloadBtn.disabled = regionControlsLocked;
       nameEl.textContent = selectedRegion.name;
       idEl.textContent = selectedRegion.id;
       sizeEl.textContent = selectedRegion.size
@@ -610,10 +611,35 @@
     }
   }
 
+  function setRegionControlsLocked(locked) {
+    regionControlsLocked = locked;
+    const regionList = document.getElementById("region-list");
+    const breadcrumb = document.getElementById("region-breadcrumb");
+    const regionActions = document.querySelector(".setup-region-actions");
+    const controlIds = [
+      "auto-region-btn",
+      "region-back-btn",
+      "region-skip-btn",
+      "region-continue-btn",
+    ];
+
+    regionList?.classList.toggle("is-disabled", locked);
+    breadcrumb?.classList.toggle("is-disabled", locked);
+    regionActions?.classList.toggle("is-disabled", locked);
+    controlIds.forEach((id) => {
+      const btn = document.getElementById(id);
+      if (btn) {
+        btn.disabled = locked;
+      }
+    });
+    updateSelectedRegionUI();
+  }
+
   async function downloadSelectedRegion() {
     if (!selectedRegion) {
       return;
     }
+    setRegionControlsLocked(true);
     try {
       showRegionStatus("Starting download and build...", false);
       const response = await fetch(
@@ -633,11 +659,13 @@
       }
       startRegionJob(data.job_id, selectedRegion.name);
     } catch (error) {
+      setRegionControlsLocked(false);
       showRegionStatus(error.message, true);
     }
   }
 
   async function autoDetectRegion() {
+    setRegionControlsLocked(true);
     try {
       showRegionStatus("Searching for a suggested region...", false);
       const response = await fetch(
@@ -652,6 +680,7 @@
       updateSelectedRegionUI();
       startRegionJob(data.job_id, data.region?.name || "Suggested region");
     } catch (error) {
+      setRegionControlsLocked(false);
       showRegionStatus(error.message, true);
     }
   }
@@ -660,6 +689,7 @@
     if (!jobId) {
       return;
     }
+    setRegionControlsLocked(true);
     const progressWrap = document.getElementById("region-progress");
     const progressBar = document.getElementById("region-progress-bar");
     const progressText = document.getElementById("region-progress-text");
@@ -683,6 +713,7 @@
 
         if (["completed", "failed", "cancelled"].includes(data.status)) {
           stopRegionPolling();
+          setRegionControlsLocked(false);
           if (data.status === "completed") {
             setupState.region = true;
             showRegionStatus("Region download complete.", false);
@@ -693,6 +724,7 @@
         }
       } catch (error) {
         stopRegionPolling();
+        setRegionControlsLocked(false);
         showRegionStatus(error.message, true);
       }
     }, 2000);
