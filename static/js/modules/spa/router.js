@@ -112,6 +112,26 @@ const router = {
       return;
     }
 
+    const guard = window.ESRouteGuard;
+    if (typeof guard === "function") {
+      const allowed = await guard({
+        nextUrl: nextUrl.href,
+        nextPath: nextUrl.pathname,
+        currentUrl: window.location.href,
+        currentPath: window.location.pathname,
+        fromPopstate,
+      });
+      if (!allowed) {
+        if (fromPopstate) {
+          const lastEntry = this.routeHistory[this.routeHistory.length - 1];
+          if (lastEntry?.path && lastEntry.path !== nextUrl.pathname) {
+            window.history.pushState({ es: true }, "", lastEntry.path);
+          }
+        }
+        return;
+      }
+    }
+
     const previousUrl = window.location.href;
     const previousPath = window.location.pathname;
     this.lastNavigation = {

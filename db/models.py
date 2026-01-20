@@ -29,7 +29,7 @@ from typing import Any, ClassVar
 
 from beanie import Document, Indexed, PydanticObjectId
 from beanie.odm.fields import IndexModel
-from pydantic import Field, field_validator, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from date_utils import parse_timestamp
 from map_data.models import GeoServiceHealth, MapDataJob, MapRegion
@@ -551,6 +551,56 @@ class Vehicle(Document):
         extra = "allow"
 
 
+class SetupStepState(BaseModel):
+    """State tracking for each setup wizard step."""
+
+    status: str = "not_started"
+    progress: float = 0.0
+    interruptible: bool = True
+    in_flight: bool = False
+    lock_owner: str | None = None
+    idempotency_key: str | None = None
+    started_at: datetime | None = None
+    updated_at: datetime | None = None
+    completed_at: datetime | None = None
+    last_error: str | None = None
+    last_error_at: datetime | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+    class Config:
+        extra = "allow"
+
+
+class SetupSession(Document):
+    """Persistent setup wizard session state."""
+
+    scope_key: Indexed(str, unique=True)
+    status: str = "not_started"
+    current_step: str = "welcome"
+    step_states: dict[str, SetupStepState] = Field(default_factory=dict)
+    idempotency_keys: dict[str, str] = Field(default_factory=dict)
+    version: int = 1
+
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime | None = None
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+    last_seen_at: datetime | None = None
+
+    active_client_id: str | None = None
+    active_client_last_seen_at: datetime | None = None
+
+    class Settings:
+        name = "setup_sessions"
+        indexes: ClassVar[list[IndexModel]] = [
+            IndexModel([("status", 1)], name="setup_sessions_status_idx"),
+            IndexModel([("updated_at", -1)], name="setup_sessions_updated_idx"),
+        ]
+
+    class Config:
+        extra = "allow"
+
+
 class AppSettings(Document):
     """
     Application settings document.
@@ -733,6 +783,7 @@ ALL_DOCUMENT_MODELS = [
     OptimalRouteProgress,
     GasFillup,
     Vehicle,
+    SetupSession,
     AppSettings,
     ServerLog,
     BouncieCredentials,
