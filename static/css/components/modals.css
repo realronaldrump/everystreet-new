@@ -3,6 +3,7 @@
    ============================ */
 
 /* === Modal z-index fix - ensure modals appear above all other content === */
+
 /* These aggressive styles ensure modals escape any parent stacking contexts */
 .modal {
   z-index: var(--z-modal, 1055);

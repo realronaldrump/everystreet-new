@@ -325,7 +325,7 @@ function hideProgressModal() {
     return;
   }
   // Blur focused element before hiding to prevent aria-hidden accessibility warning
-  const focusedElement = el.querySelector(':focus');
+  const focusedElement = el.querySelector(":focus");
   if (focusedElement) {
     focusedElement.blur();
   }

@@ -189,9 +189,7 @@ async def suggest_region_from_first_trip() -> dict[str, Any] | None:
     """
     from db.models import Trip
 
-    trip = (
-        await Trip.find({"gps": {"$ne": None}}).sort("startTime").first_or_none()
-    )
+    trip = await Trip.find({"gps": {"$ne": None}}).sort("startTime").first_or_none()
     if not trip:
         return None
 

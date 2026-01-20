@@ -10,7 +10,7 @@
 
   const stepKeys = ["welcome", "bouncie", "mapbox", "region", "complete"];
   let currentStep = 0;
-  let setupState = {
+  const setupState = {
     bouncie: false,
     mapbox: false,
     region: false,
@@ -21,11 +21,11 @@
   let sessionVersion = null;
   let sessionClientId = null;
   let sessionReadOnly = false;
-  let sessionOwner = false;
+  let _sessionOwner = false;
   let sessionPollInterval = null;
   let navigationGuardCleanup = null;
   let actionInFlight = false;
-  let dirtyState = {
+  const dirtyState = {
     bouncie: false,
     mapbox: false,
   };
@@ -132,13 +132,13 @@
   }
 
   function markDirty(stepKey) {
-    if (Object.prototype.hasOwnProperty.call(dirtyState, stepKey)) {
+    if (Object.hasOwn(dirtyState, stepKey)) {
       dirtyState[stepKey] = true;
     }
   }
 
   function clearDirty(stepKey) {
-    if (Object.prototype.hasOwnProperty.call(dirtyState, stepKey)) {
+    if (Object.hasOwn(dirtyState, stepKey)) {
       dirtyState[stepKey] = false;
     }
   }
@@ -147,7 +147,7 @@
     return Boolean(dirtyState[stepKey]);
   }
 
-  function getCurrentStepState() {
+  function _getCurrentStepState() {
     return sessionState?.step_states?.[getCurrentStepKey()] || {};
   }
 
@@ -181,7 +181,9 @@
     );
     const data = await readJsonResponse(response);
     if (!response.ok) {
-      throw new Error(responseErrorMessage(response, data, "Failed to load setup session"));
+      throw new Error(
+        responseErrorMessage(response, data, "Failed to load setup session")
+      );
     }
     return data;
   }
@@ -231,7 +233,7 @@
     setupStatus = payload.setup_status || null;
     sessionId = sessionState.id;
     sessionVersion = sessionState.version;
-    sessionOwner = Boolean(payload.client?.is_owner);
+    _sessionOwner = Boolean(payload.client?.is_owner);
     sessionReadOnly = Boolean(payload.client && !payload.client.is_owner);
 
     if (setupStatus?.setup_completed) {
@@ -339,9 +341,11 @@
       }
     });
 
-    document.querySelectorAll("#devicesList input, #devicesList button").forEach((el) => {
-      el.disabled = locked;
-    });
+    document
+      .querySelectorAll("#devicesList input, #devicesList button")
+      .forEach((el) => {
+        el.disabled = locked;
+      });
 
     setRegionControlsLocked(locked || isStepLocked());
   }
@@ -459,9 +463,7 @@
       .getElementById("complete-setup-btn")
       ?.addEventListener("click", completeSetup);
 
-    document
-      .getElementById("addDeviceBtn")
-      ?.addEventListener("click", addDeviceInput);
+    document.getElementById("addDeviceBtn")?.addEventListener("click", addDeviceInput);
     document
       .getElementById("syncVehiclesBtn")
       ?.addEventListener("click", syncVehiclesFromBouncie);
@@ -493,7 +495,9 @@
       "authorizationCode",
       "fetchConcurrency",
     ].forEach((id) => {
-      document.getElementById(id)?.addEventListener("input", () => markDirty("bouncie"));
+      document
+        .getElementById(id)
+        ?.addEventListener("input", () => markDirty("bouncie"));
     });
 
     [
@@ -538,7 +542,9 @@
       );
       const data = await readJsonResponse(response);
       if (!response.ok) {
-        throw new Error(responseErrorMessage(response, data, "Failed to move setup step"));
+        throw new Error(
+          responseErrorMessage(response, data, "Failed to move setup step")
+        );
       }
       applySessionState(data);
     } catch (error) {
@@ -567,7 +573,9 @@
       );
       const data = await readJsonResponse(response);
       if (!response.ok) {
-        throw new Error(responseErrorMessage(response, data, "Unable to claim setup session"));
+        throw new Error(
+          responseErrorMessage(response, data, "Unable to claim setup session")
+        );
       }
       applySessionState(data);
     } catch (error) {
@@ -614,7 +622,9 @@
       );
       const data = await readJsonResponse(response);
       if (!response.ok) {
-        throw new Error(responseErrorMessage(response, data, "Unable to load credentials"));
+        throw new Error(
+          responseErrorMessage(response, data, "Unable to load credentials")
+        );
       }
       const creds = data.credentials || {};
       document.getElementById("clientId").value = creds.client_id || "";
@@ -622,14 +632,13 @@
       document.getElementById("redirectUri").value = creds.redirect_uri || "";
       document.getElementById("authorizationCode").value
         = creds.authorization_code || "";
-      document.getElementById("fetchConcurrency").value
-        = creds.fetch_concurrency || 12;
+      document.getElementById("fetchConcurrency").value = creds.fetch_concurrency || 12;
       currentDevices = Array.isArray(creds.authorized_devices)
         ? creds.authorized_devices
         : [];
       renderDevices();
       clearDirty("bouncie");
-    } catch (error) {
+    } catch (_error) {
       showStatus("setup-bouncie-status", "Unable to load credentials", true);
     }
   }
@@ -673,7 +682,11 @@
 
   function addDeviceInput() {
     if (sessionReadOnly || actionInFlight || isStepLocked()) {
-      showStatus("setup-bouncie-status", "Setup is locked while another step runs.", true);
+      showStatus(
+        "setup-bouncie-status",
+        "Setup is locked while another step runs.",
+        true
+      );
       return;
     }
     currentDevices.push("");
@@ -683,7 +696,11 @@
 
   function removeDeviceInput(index) {
     if (sessionReadOnly || actionInFlight || isStepLocked()) {
-      showStatus("setup-bouncie-status", "Setup is locked while another step runs.", true);
+      showStatus(
+        "setup-bouncie-status",
+        "Setup is locked while another step runs.",
+        true
+      );
       return;
     }
     if (currentDevices.length <= 1) {
@@ -756,14 +773,12 @@
       );
       const data = await readJsonResponse(response);
       if (!response.ok) {
-        throw new Error(responseErrorMessage(response, data, "Failed to save credentials"));
+        throw new Error(
+          responseErrorMessage(response, data, "Failed to save credentials")
+        );
       }
       clearDirty("bouncie");
-      showStatus(
-        "setup-bouncie-status",
-        data?.message || "Credentials saved.",
-        false
-      );
+      showStatus("setup-bouncie-status", data?.message || "Credentials saved.", false);
       shouldAdvance = advance;
     } catch (error) {
       showStatus("setup-bouncie-status", error.message, true);
@@ -793,18 +808,16 @@
       );
       const data = await readJsonResponse(response);
       if (!response.ok) {
-        throw new Error(responseErrorMessage(response, data, "Failed to sync vehicles"));
+        throw new Error(
+          responseErrorMessage(response, data, "Failed to sync vehicles")
+        );
       }
       currentDevices = Array.isArray(data.authorized_devices)
         ? data.authorized_devices
         : currentDevices;
       renderDevices();
       clearDirty("bouncie");
-      showStatus(
-        "setup-bouncie-status",
-        data?.message || "Vehicles synced.",
-        false
-      );
+      showStatus("setup-bouncie-status", data?.message || "Vehicles synced.", false);
     } catch (error) {
       showStatus("setup-bouncie-status", error.message, true);
     } finally {
@@ -825,16 +838,19 @@
       const response = await fetch(APP_SETTINGS_API, withSignal());
       const data = await readJsonResponse(response);
       if (!response.ok) {
-        throw new Error(responseErrorMessage(response, data, "Unable to load Mapbox settings"));
+        throw new Error(
+          responseErrorMessage(response, data, "Unable to load Mapbox settings")
+        );
       }
       document.getElementById("mapboxToken").value = data.mapbox_token || "";
       document.getElementById("nominatimBaseUrl").value = data.nominatim_base_url || "";
-      document.getElementById("nominatimUserAgent").value = data.nominatim_user_agent || "";
+      document.getElementById("nominatimUserAgent").value
+        = data.nominatim_user_agent || "";
       document.getElementById("valhallaBaseUrl").value = data.valhalla_base_url || "";
       document.getElementById("geofabrikMirror").value = data.geofabrik_mirror || "";
       handleMapboxInput();
       clearDirty("mapbox");
-    } catch (error) {
+    } catch (_error) {
       showStatus("setup-mapbox-status", "Unable to load Mapbox settings.", true);
     }
   }
@@ -843,11 +859,7 @@
     const token = document.getElementById("mapboxToken").value.trim();
     if (!token) {
       destroyMapPreview();
-      showStatus(
-        "setup-mapbox-status",
-        "Enter a Mapbox token to preview maps.",
-        false
-      );
+      showStatus("setup-mapbox-status", "Enter a Mapbox token to preview maps.", false);
       return;
     }
     if (!isValidMapboxToken(token)) {
@@ -904,7 +916,9 @@
       );
       const data = await readJsonResponse(response);
       if (!response.ok) {
-        throw new Error(responseErrorMessage(response, data, "Failed to save settings"));
+        throw new Error(
+          responseErrorMessage(response, data, "Failed to save settings")
+        );
       }
       clearDirty("mapbox");
       showStatus("setup-mapbox-status", "Mapbox settings saved.", false);
@@ -920,7 +934,7 @@
   }
 
   function isValidMapboxToken(token) {
-    return Boolean(token && token.startsWith("pk.") && token.length >= 20);
+    return Boolean(token?.startsWith("pk.") && token.length >= 20);
   }
 
   function renderMapPreview(token) {
@@ -975,7 +989,7 @@
     if (!regionList) {
       return;
     }
-    regionList.innerHTML = "<div class=\"text-muted\">Loading regions...</div>";
+    regionList.innerHTML = '<div class="text-muted">Loading regions...</div>';
 
     try {
       const url = parent
@@ -985,7 +999,7 @@
       const data = await response.json();
 
       if (!data.regions || data.regions.length === 0) {
-        regionList.innerHTML = "<div class=\"text-muted\">No regions found.</div>";
+        regionList.innerHTML = '<div class="text-muted">No regions found.</div>';
         return;
       }
 
@@ -1020,8 +1034,8 @@
         )
         .join("");
       updateBreadcrumb();
-    } catch (error) {
-      regionList.innerHTML = "<div class=\"text-danger\">Failed to load regions.</div>";
+    } catch (_error) {
+      regionList.innerHTML = '<div class="text-danger">Failed to load regions.</div>';
     }
   }
 
@@ -1197,7 +1211,9 @@
       );
       const data = await readJsonResponse(response);
       if (!response.ok) {
-        throw new Error(responseErrorMessage(response, data, "Failed to start region setup"));
+        throw new Error(
+          responseErrorMessage(response, data, "Failed to start region setup")
+        );
       }
       applySessionState(data);
     } catch (error) {
@@ -1234,8 +1250,7 @@
       progressWrap.classList.remove("d-none");
       progressBar.style.width = `${progress}%`;
       progressBar.textContent = `${Math.round(progress)}%`;
-      progressText.textContent
-        = jobStatus.message || jobStatus.stage || "Working...";
+      progressText.textContent = jobStatus.message || jobStatus.stage || "Working...";
     } else {
       progressWrap?.classList.add("d-none");
     }
@@ -1293,7 +1308,9 @@
       );
       const data = await readJsonResponse(response);
       if (!response.ok) {
-        throw new Error(responseErrorMessage(response, data, "Failed to complete setup"));
+        throw new Error(
+          responseErrorMessage(response, data, "Failed to complete setup")
+        );
       }
       showStatus("setup-complete-status", "Setup complete! Redirecting...", false);
       await refreshSetupSession();

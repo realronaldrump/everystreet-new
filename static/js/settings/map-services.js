@@ -106,8 +106,8 @@ function updateHealthCard(service, health) {
     errorDiv?.classList.add("d-none");
   } else {
     // Check if this is a "not running" state vs a real error
-    const isSetupRequired = health.error?.includes("not running")
-      || health.error?.includes("Add a region");
+    const isSetupRequired
+      = health.error?.includes("not running") || health.error?.includes("Add a region");
     const isStartingUp = health.error?.includes("starting up");
 
     if (isSetupRequired) {
@@ -530,8 +530,8 @@ async function downloadSelectedRegion() {
       modal?.hide();
 
       window.notificationManager?.show(
-        `Download & build started for ${selectedRegion.name}. ` +
-        "This will download OSM data, then build Nominatim and Valhalla automatically.",
+        `Download & build started for ${selectedRegion.name}. `
+          + "This will download OSM data, then build Nominatim and Valhalla automatically.",
         "success"
       );
 

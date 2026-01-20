@@ -308,7 +308,8 @@ async def download_and_build_new_region(request: DownloadRequest) -> JobResponse
         )
     except Exception as e:
         logger.exception(
-            "Failed to start download and build for %s", request.geofabrik_id
+            "Failed to start download and build for %s",
+            request.geofabrik_id,
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

@@ -113,15 +113,17 @@ app.add_middleware(
 @app.middleware("http")
 async def setup_guard(request: Request, call_next):
     path = request.url.path
-    if (
-        path.startswith("/static")
-        or path.startswith("/api")
-        or path.startswith("/setup")
-        or path.startswith("/status")
-        or path.startswith("/favicon")
-        or path.startswith("/docs")
-        or path.startswith("/openapi")
-        or path.startswith("/redoc")
+    if path.startswith(
+        (
+            "/static",
+            "/api",
+            "/setup",
+            "/status",
+            "/favicon",
+            "/docs",
+            "/openapi",
+            "/redoc",
+        ),
     ):
         return await call_next(request)
 
@@ -136,6 +138,7 @@ async def setup_guard(request: Request, call_next):
         return RedirectResponse(url="/setup", status_code=302)
 
     return await call_next(request)
+
 
 # Include all the modular routers
 app.include_router(pages_router)

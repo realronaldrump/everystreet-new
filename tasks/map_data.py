@@ -138,9 +138,7 @@ async def download_region_task(ctx: dict, job_id: str) -> dict:
 
                 job.status = MapDataJob.STATUS_RUNNING
                 job.stage = f"Retrying in {delay}s"
-                job.message = (
-                    f"Download failed. Retrying ({attempt}/{max_retries})"
-                )
+                job.message = f"Download failed. Retrying ({attempt}/{max_retries})"
                 job.error = str(e)
                 job.completed_at = None
                 await job.save()
@@ -391,7 +389,8 @@ async def build_valhalla_task(ctx: dict, job_id: str) -> dict:
 
 
 async def enqueue_download_task(job_id: str, build_after: bool = False) -> None:
-    """Enqueue a download task to the ARQ worker.
+    """
+    Enqueue a download task to the ARQ worker.
 
     Args:
         job_id: MapDataJob document ID
@@ -402,7 +401,9 @@ async def enqueue_download_task(job_id: str, build_after: bool = False) -> None:
     pool = await get_arq_pool()
     await pool.enqueue_job("download_region_task", job_id)
     logger.info(
-        "Enqueued download task for job %s (build_after=%s)", job_id, build_after
+        "Enqueued download task for job %s (build_after=%s)",
+        job_id,
+        build_after,
     )
 
 

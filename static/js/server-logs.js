@@ -16,10 +16,21 @@ window.utils?.onPageLoad(
     const searchFilter = document.getElementById("search-filter");
 
     // Guard: bail out if required elements are not found
-    if (!logsContainer || !refreshLogsBtn || !refreshStatsBtn || !clearLogsBtn || 
-        !exportLogsBtn || !applyFiltersBtn || !autoRefreshToggle || 
-        !levelFilter || !limitFilter || !searchFilter) {
-      console.warn("Server logs page: Required DOM elements not found, skipping initialization");
+    if (
+      !logsContainer
+      || !refreshLogsBtn
+      || !refreshStatsBtn
+      || !clearLogsBtn
+      || !exportLogsBtn
+      || !applyFiltersBtn
+      || !autoRefreshToggle
+      || !levelFilter
+      || !limitFilter
+      || !searchFilter
+    ) {
+      console.warn(
+        "Server logs page: Required DOM elements not found, skipping initialization"
+      );
       return;
     }
 

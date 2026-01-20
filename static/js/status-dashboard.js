@@ -62,7 +62,7 @@
       updateService("bouncie", data.services?.bouncie);
       updateRecentErrors(data.recent_errors || []);
       updateLastUpdated(data.overall?.last_updated);
-    } catch (error) {
+    } catch (_error) {
       updateOverall({
         status: "error",
         message: "Unable to load status dashboard.",

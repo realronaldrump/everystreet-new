@@ -145,7 +145,9 @@ async def build_nominatim_data(
         # This handles the case where containers start with restart: 'no'
         if progress_callback:
             await _safe_callback(
-                progress_callback, 5, "Starting Nominatim container..."
+                progress_callback,
+                5,
+                "Starting Nominatim container...",
             )
 
         await start_container_on_demand("nominatim")

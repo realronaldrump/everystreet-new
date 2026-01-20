@@ -149,11 +149,10 @@ def _apply_settings_to_env(settings: AppSettings) -> None:
     _set_env_value("VALHALLA_BASE_URL", settings.valhalla_base_url)
     _set_env_value("VALHALLA_STATUS_URL", settings.get_valhalla_status_url())
     _set_env_value("VALHALLA_ROUTE_URL", settings.get_valhalla_route_url())
+    _set_env_value("VALHALLA_TRACE_ROUTE_URL", settings.get_valhalla_trace_route_url())
     _set_env_value(
-        "VALHALLA_TRACE_ROUTE_URL", settings.get_valhalla_trace_route_url()
-    )
-    _set_env_value(
-        "VALHALLA_TRACE_ATTRIBUTES_URL", settings.get_valhalla_trace_attributes_url()
+        "VALHALLA_TRACE_ATTRIBUTES_URL",
+        settings.get_valhalla_trace_attributes_url(),
     )
     _set_env_value("GEOFABRIK_MIRROR", settings.geofabrik_mirror)
     _set_env_value("OSM_EXTRACTS_PATH", settings.osm_extracts_path)

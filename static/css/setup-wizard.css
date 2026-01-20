@@ -140,7 +140,9 @@
   border-radius: var(--radius-lg);
   border: 1px solid var(--border-color);
   background: var(--surface-1);
-  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+  transition:
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast);
 }
 
 .setup-step-item.is-active {
@@ -336,7 +338,9 @@
   justify-content: space-between;
   gap: var(--space-2);
   cursor: pointer;
-  transition: border-color var(--transition-fast), background var(--transition-fast);
+  transition:
+    border-color var(--transition-fast),
+    background var(--transition-fast);
 }
 
 .region-item:hover {
@@ -393,7 +397,7 @@
   border: 1px solid var(--border-color);
 }
 
-@media (max-width: 992px) {
+@media (width <= 992px) {
   .setup-hero {
     flex-direction: column;
   }
@@ -411,7 +415,7 @@
   }
 }
 
-@media (max-width: 640px) {
+@media (width <= 640px) {
   .setup-page {
     padding: var(--space-5) var(--space-4) var(--space-6);
   }

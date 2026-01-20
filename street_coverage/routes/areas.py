@@ -339,8 +339,8 @@ async def trigger_recalculate(area_id: PydanticObjectId):
     """
     Recalculate coverage statistics for an area.
 
-    This refreshes the derived statistics without reloading OSM data
-    or reprocessing trips. Useful when values look stale.
+    This refreshes the derived statistics without reloading OSM data or
+    reprocessing trips. Useful when values look stale.
     """
     area = await CoverageArea.get(area_id)
     if not area:

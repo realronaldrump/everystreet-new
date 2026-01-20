@@ -1128,7 +1128,7 @@ class ConfirmationDialog {
 
       // Blur focused element before modal starts hiding to prevent aria-hidden warning
       const handleHide = () => {
-        const focusedElement = modalElement.querySelector(':focus');
+        const focusedElement = modalElement.querySelector(":focus");
         if (focusedElement) {
           focusedElement.blur();
         }
@@ -1289,7 +1289,7 @@ class PromptDialog {
 
       // Blur focused element before modal starts hiding to prevent aria-hidden warning
       const handleHide = () => {
-        const focusedElement = modalElement.querySelector(':focus');
+        const focusedElement = modalElement.querySelector(":focus");
         if (focusedElement) {
           focusedElement.blur();
         }
