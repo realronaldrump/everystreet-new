@@ -42,6 +42,29 @@
     return options;
   }
 
+  async function readJsonResponse(response) {
+    const text = await response.text();
+    if (!text) {
+      return null;
+    }
+    try {
+      return JSON.parse(text);
+    } catch {
+      return null;
+    }
+  }
+
+  function responseErrorMessage(response, data, fallback) {
+    if (data && typeof data === "object") {
+      const detail = data.detail || data.message || data.error;
+      if (detail) {
+        return detail;
+      }
+    }
+    const statusText = response.statusText ? ` ${response.statusText}` : "";
+    return fallback || `Request failed (${response.status}${statusText})`;
+  }
+
   async function initializeSetup() {
     bindEventListeners();
     await loadSetupStatus();
@@ -653,9 +676,12 @@
           }),
         })
       );
-      const data = await response.json();
+      const data = await readJsonResponse(response);
       if (!response.ok) {
-        throw new Error(data.detail || "Failed to start download");
+        throw new Error(responseErrorMessage(response, data, "Failed to start download"));
+      }
+      if (!data || !data.job_id) {
+        throw new Error("Unexpected response from server.");
       }
       startRegionJob(data.job_id, selectedRegion.name);
     } catch (error) {
@@ -672,9 +698,12 @@
         `${SETUP_API}/auto-configure-region`,
         withSignal({ method: "POST" })
       );
-      const data = await response.json();
-      if (!response.ok || !data.success) {
-        throw new Error(data.message || data.detail || "No region suggestion found");
+      const data = await readJsonResponse(response);
+      if (!response.ok) {
+        throw new Error(responseErrorMessage(response, data, "No region suggestion found"));
+      }
+      if (!data || !data.success) {
+        throw new Error(data?.message || data?.detail || "No region suggestion found");
       }
       selectedRegion = data.region || selectedRegion;
       updateSelectedRegionUI();
@@ -702,9 +731,12 @@
     regionPollInterval = setInterval(async () => {
       try {
         const response = await fetch(`${MAP_DATA_API}/jobs/${jobId}`, withSignal());
-        const data = await response.json();
+        const data = await readJsonResponse(response);
         if (!response.ok) {
-          throw new Error(data.detail || "Failed to read job status");
+          throw new Error(responseErrorMessage(response, data, "Failed to read job status"));
+        }
+        if (!data) {
+          throw new Error("Unexpected response from server.");
         }
         const progress = Number(data.progress || 0);
         progressBar.style.width = `${progress}%`;
