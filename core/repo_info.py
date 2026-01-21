@@ -17,15 +17,29 @@ class RepoVersionInfo:
     last_updated: str
 
 
+def _format_display_date(iso_date: str) -> str:
+    """Format ISO date string to human readable display format."""
+    try:
+        dt = datetime.fromisoformat(iso_date)
+        # Use local time (astimezone() with no arg uses local system timezone)
+        return dt.astimezone().strftime("%B %d, %Y %I:%M %p")
+    except ValueError:
+        return _format_commit_datetime(iso_date)
+
+
 def _read_version_file() -> RepoVersionInfo | None:
     """Try to read version info from a pre-generated JSON file."""
     try:
         if VERSION_FILE.exists():
             data = json.loads(VERSION_FILE.read_text())
+            raw_date = data.get("last_updated", "Unknown")
+            last_updated = (
+                _format_display_date(raw_date) if raw_date != "Unknown" else "Unknown"
+            )
             return RepoVersionInfo(
                 commit_count=data.get("commit_count", "Unknown"),
                 commit_hash=data.get("commit_hash", "Unknown"),
-                last_updated=data.get("last_updated", "Unknown"),
+                last_updated=last_updated,
             )
     except (json.JSONDecodeError, OSError):
         pass
@@ -67,14 +81,9 @@ def get_repo_version_info() -> RepoVersionInfo:
     commit_count = _run_git_command(["rev-list", "--count", "HEAD"]) or "Unknown"
     commit_hash = _run_git_command(["rev-parse", "--short", "HEAD"]) or "Unknown"
     commit_iso = _run_git_command(["log", "-1", "--format=%cI"])
-    # Format date as "January 21, 2026 4:34:14 PM"
+
     if commit_iso:
-        try:
-            dt = datetime.fromisoformat(commit_iso)
-            # Use local time (astimezone() with no arg uses local system timezone)
-            last_updated = dt.astimezone().strftime("%B %d, %Y %I:%M %p")
-        except ValueError:
-            last_updated = _format_commit_datetime(commit_iso)
+        last_updated = _format_display_date(commit_iso)
     else:
         last_updated = "Unknown"
     return RepoVersionInfo(
