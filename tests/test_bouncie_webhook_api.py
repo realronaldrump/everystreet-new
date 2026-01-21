@@ -96,7 +96,7 @@ async def test_dispatch_event_catches_handler_exception(
     handler = AsyncMock(side_effect=ValueError("handler failed"))
 
     monkeypatch.setattr(webhook_api, "get_bouncie_credentials", get_creds)
-    monkeypatch.setattr(webhook_api, "record_webhook_event", record)
+    monkeypatch.setattr(webhook_api.TrackingService, "record_webhook_event", record)
     monkeypatch.setattr(webhook_api, "TRIP_EVENT_HANDLERS", {"tripStart": handler})
 
     # Should not raise
