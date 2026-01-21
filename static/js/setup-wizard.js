@@ -303,13 +303,12 @@
 
     const buttonIds = [
       "setup-start-btn",
-      "bouncie-back-btn",
       "bouncie-save-btn",
       "toggleClientSecret",
       "mapbox-back-btn",
       "mapbox-save-btn",
       "region-back-btn",
-      "region-continue-btn",
+      "region-finish-btn",
       "region-skip-btn",
       "confirm-region-skip",
       "download-region-btn",
@@ -505,8 +504,8 @@
       .getElementById("region-back-btn")
       ?.addEventListener("click", () => handleStepNavigation("mapbox"));
     document
-      .getElementById("region-continue-btn")
-      ?.addEventListener("click", () => handleStepNavigation("complete"));
+      .getElementById("region-finish-btn")
+      ?.addEventListener("click", completeSetup);
     document
       .getElementById("region-skip-btn")
       ?.addEventListener("click", handleRegionSkip);
@@ -1407,7 +1406,8 @@
     if (modalEl && window.bootstrap?.Modal) {
       window.bootstrap.Modal.getInstance(modalEl)?.hide();
     }
-    handleStepNavigation("complete", { region_skipped: true });
+    // Complete setup directly, skipping the region step
+    completeSetup();
   }
 
   function showRegionStatus(message, isError) {

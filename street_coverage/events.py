@@ -157,6 +157,8 @@ def register_handlers() -> None:
     This is called during application startup to ensure handlers are
     connected before events are emitted.
     """
-    # Import worker to register its handlers
+    # Import modules to register their @on_event handlers
+    from street_coverage import ingestion  # noqa: F401
+    from street_coverage import worker  # noqa: F401
 
     logger.info("Coverage event handlers registered")

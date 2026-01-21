@@ -71,19 +71,15 @@ Setup in progress
       <div class="setup-layout">
         <aside class="setup-sidebar">
           <ol class="setup-step-list">
-            <li class="setup-step-item is-active" data-step="0" data-step-key="welcome">
-              <span class="step-number">1</span>
+            <li class="setup-step-item d-none" data-step="0" data-step-key="welcome">
+              <span class="step-number">0</span>
               <div>
-                <div class="step-title">
-Welcome
-                </div>
-                <div class="step-note">
-Overview + checklist
-                </div>
+                <div class="step-title">Welcome</div>
+                <div class="step-note">Overview</div>
               </div>
             </li>
-            <li class="setup-step-item" data-step="1" data-step-key="bouncie">
-              <span class="step-number">2</span>
+            <li class="setup-step-item is-active" data-step="1" data-step-key="bouncie">
+              <span class="step-number">1</span>
               <div>
                 <div class="step-title">
 Bouncie
@@ -94,7 +90,7 @@ Credentials + vehicles
               </div>
             </li>
             <li class="setup-step-item" data-step="2" data-step-key="mapbox">
-              <span class="step-number">3</span>
+              <span class="step-number">2</span>
               <div>
                 <div class="step-title">
 Mapbox
@@ -105,7 +101,7 @@ Token + preview
               </div>
             </li>
             <li class="setup-step-item" data-step="3" data-step-key="region">
-              <span class="step-number">4</span>
+              <span class="step-number">3</span>
               <div>
                 <div class="step-title">
 Map Region
@@ -115,15 +111,11 @@ Map Region
                 </div>
               </div>
             </li>
-            <li class="setup-step-item" data-step="4" data-step-key="complete">
-              <span class="step-number">5</span>
+            <li class="setup-step-item d-none" data-step="4" data-step-key="complete">
+              <span class="step-number">4</span>
               <div>
-                <div class="step-title">
-Complete
-                </div>
-                <div class="step-note">
-Enable background tasks
-                </div>
+                <div class="step-title">Complete</div>
+                <div class="step-note">Finish</div>
               </div>
             </li>
           </ol>
@@ -249,9 +241,6 @@ Fetch Concurrency
               </form>
 
               <div class="setup-actions">
-                <button class="btn btn-outline-light" id="bouncie-back-btn" type="button">
-                  Back
-                </button>
                 <button class="btn btn-primary" id="bouncie-save-btn" type="button">
                   Save & Continue
                 </button>
@@ -367,15 +356,15 @@ Selected Region
                   <button class="btn btn-outline-secondary" id="region-skip-btn" type="button">
                     Skip for now
                   </button>
-                  <button class="btn btn-primary" id="region-continue-btn" type="button">
-                    Continue
+                  <button class="btn btn-success" id="region-finish-btn" type="button">
+                    <i class="fas fa-check"></i> Finish Setup
                   </button>
                 </div>
               </div>
             </div>
           </section>
 
-          <section class="setup-step" data-step="4">
+          <section class="setup-step d-none" data-step="4">
             <div class="setup-card">
               <h2>
 Setup Complete

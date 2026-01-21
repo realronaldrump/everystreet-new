@@ -38,6 +38,8 @@ SETUP_SCOPE_KEY = "default"
 SETUP_STEP_KEYS = ["welcome", "bouncie", "mapbox", "region", "complete"]
 REQUIRED_STEPS = ["bouncie", "mapbox"]
 ACTIVE_CLIENT_STALE_SECONDS = 45
+# Start at bouncie step by default (skip welcome)
+DEFAULT_START_STEP = "bouncie"
 
 
 class SetupSessionRequest(BaseModel):
@@ -243,7 +245,7 @@ async def _get_or_create_setup_session(client_id: str | None) -> SetupSession:
         session = SetupSession(
             scope_key=SETUP_SCOPE_KEY,
             status="not_started",
-            current_step="welcome",
+            current_step=DEFAULT_START_STEP,
             step_states=_default_step_states(),
             created_at=now,
             updated_at=now,
@@ -336,7 +338,7 @@ async def _build_session_payload(
     step_states = _clone_step_states(session)
 
     if session.current_step not in SETUP_STEP_KEYS:
-        session.current_step = "welcome"
+        session.current_step = DEFAULT_START_STEP
         session.updated_at = now
         await session.save()
 

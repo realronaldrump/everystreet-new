@@ -129,11 +129,12 @@ services:
     expose:
       - '8080'
     healthcheck:
-      test: ['CMD', 'pgrep', '-f', 'postgres']
+      # Check if PostgreSQL is running (required for imports) or Nominatim HTTP is responding
+      test: ['CMD-SHELL', 'pgrep -f postgres || curl -sf http://localhost:8080/status >/dev/null']
       interval: 15s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     networks:
       - default
     shm_size: 1g
@@ -160,11 +161,27 @@ services:
     expose:
       - '8002'
     healthcheck:
-      test: ['CMD', 'pgrep', '-f', 'valhalla']
+      # Container is healthy if entrypoint script is running (waiting for tiles) or valhalla_service is running
+      test: ['CMD-SHELL', 'pgrep -f "sleep 5" || pgrep -f valhalla_service || curl -sf http://localhost:8002/status >/dev/null']
       interval: 15s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - default
+
+  # Watchtower - Automatic container updates
+  # Monitors running containers and updates them when new images are available
+  watchtower:
+    image: containrrr/watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: --interval 300 --cleanup --include-restarting
+    environment:
+      WATCHTOWER_CLEANUP: 'true'
+      WATCHTOWER_INCLUDE_RESTARTING: 'true'
+      WATCHTOWER_ROLLING_RESTART: 'true'
     networks:
       - default
 
