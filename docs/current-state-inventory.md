@@ -492,7 +492,7 @@
   - `tasks/routes.py`: ARQ task wrapper for route generation.
 - External geo services:
   - `core/http/valhalla.py`, `core/http/nominatim.py`: HTTP clients.
-  - `external_geo_service/`: higher-level geocoding + map-matching utilities.
+  - `geo_service/`: higher-level geocoding + map-matching utilities.
 - Utilities:
   - `geometry_service.py`, `date_utils.py`, `core/math_utils.py`, `core/api.py`.
 
@@ -517,7 +517,7 @@
 - `core/`: shared utilities, HTTP clients, exceptions.
 - `db/`: MongoDB manager, models, query utilities.
 - `exports/`: export API, models, services, and spec.
-- `external_geo_service/`: geocoding and map-matching helpers.
+- `geo_service/`: geocoding and map-matching helpers.
 - `gas/`: gas tracking and vehicle management.
 - `routes/`: optimal route solver (RPP) and graph tooling.
 - `street_coverage/`: coverage ingestion, matching, stats, and routes.

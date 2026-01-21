@@ -11,7 +11,7 @@ from typing import Any, cast
 from shapely.geometry import Point
 
 from db import Place
-from external_geo_service import GeocodingService, get_empty_location_schema
+from geo_service import GeocodingService, get_empty_location_schema
 from trip_processor.state import TripState, TripStateMachine
 
 logger = logging.getLogger(__name__)

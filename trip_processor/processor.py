@@ -8,7 +8,7 @@ stages.
 import logging
 from typing import Any
 
-from external_geo_service import GeocodingService, MapMatchingService
+from geo_service import GeocodingService, MapMatchingService
 from trip_processor.basic_processing import TripBasicProcessor
 from trip_processor.geocoding import TripGeocoder
 from trip_processor.map_matching import TripMapMatcher

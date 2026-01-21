@@ -8,7 +8,7 @@ import logging
 from typing import Any
 
 from date_utils import get_current_utc_time
-from external_geo_service import MapMatchingService, extract_timestamps_for_coordinates
+from geo_service import MapMatchingService, extract_timestamps_for_coordinates
 from trip_processor.state import TripState, TripStateMachine
 
 logger = logging.getLogger(__name__)
