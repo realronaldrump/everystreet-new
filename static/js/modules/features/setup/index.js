@@ -404,28 +404,31 @@ function checkBouncieRedirectStatus() {
   const params = new URLSearchParams(window.location.search);
   const connected = params.get("bouncie_connected");
   const error = params.get("bouncie_error");
+  const vehiclesSynced = params.get("vehicles_synced");
 
   if (connected === "true") {
-    showStatus(
-      "setup-bouncie-status",
-      "Successfully connected to Bouncie! Click 'Sync Vehicles' to fetch your devices.",
-      false
-    );
+    // Vehicles are now synced automatically during OAuth callback
+    const vehicleCount = parseInt(vehiclesSynced, 10) || 0;
+    let message;
+    if (vehicleCount > 0) {
+      message = `Successfully connected to Bouncie! ${vehicleCount} vehicle(s) synced automatically. Click 'Save & Continue' to proceed.`;
+    } else {
+      message = "Successfully connected to Bouncie! No vehicles found in your account. You can add them later.";
+    }
+    showStatus("setup-bouncie-status", message, false);
     // Clear the query params from URL
     window.history.replaceState({}, document.title, window.location.pathname);
-    
-    // Automatically trigger vehicle sync
-    if (document.getElementById("syncVehiclesBtn")) {
-      syncVehiclesFromBouncie();
-    }
+
+    // Refresh setup session to update status
+    refreshSetupSession();
   } else if (error) {
     let errorMsg = "Failed to connect to Bouncie.";
     if (error === "missing_code") {
-      errorMsg = "OAuth callback did not receive authorization code.";
+      errorMsg = "OAuth callback did not receive authorization code. Check your redirect URI configuration.";
     } else if (error === "storage_failed") {
       errorMsg = "Failed to save authorization. Please try again.";
     } else {
-      errorMsg = `OAuth error: ${error}`;
+      errorMsg = `OAuth error: ${decodeURIComponent(error)}`;
     }
     showStatus("setup-bouncie-status", errorMsg, true);
     // Clear the query params from URL
@@ -646,11 +649,35 @@ async function loadBouncieCredentials() {
     const creds = data.credentials || {};
     document.getElementById("clientId").value = creds.client_id || "";
     document.getElementById("clientSecret").value = creds.client_secret || "";
-    document.getElementById("redirectUri").value = creds.redirect_uri || "";
+
+    // Auto-populate redirect URI if empty
+    let redirectUri = creds.redirect_uri || "";
+    if (!redirectUri) {
+      redirectUri = await getExpectedRedirectUri();
+    }
+    document.getElementById("redirectUri").value = redirectUri;
+
     clearDirty("bouncie");
   } catch (_error) {
     showStatus("setup-bouncie-status", "Unable to load credentials", true);
   }
+}
+
+async function getExpectedRedirectUri() {
+  try {
+    const response = await apiClient.raw(
+      `${PROFILE_API.replace("/profile", "/bouncie")}/redirect-uri`,
+      withSignal()
+    );
+    const data = await readJsonResponse(response);
+    if (response.ok && data?.redirect_uri) {
+      return data.redirect_uri;
+    }
+  } catch {
+    // Fall back to constructing from window.location
+  }
+  // Fallback: construct from current URL
+  return `${window.location.origin}/api/bouncie/callback`;
 }
 
 
