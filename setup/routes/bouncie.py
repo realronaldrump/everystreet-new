@@ -6,7 +6,7 @@ import logging
 from typing import Annotated, Any
 from urllib.parse import quote, urlencode
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Query
 from fastapi.responses import RedirectResponse
 
 from core.api import api_route
@@ -36,15 +36,17 @@ async def initiate_bouncie_auth() -> RedirectResponse:
     redirect_uri = credentials.get("redirect_uri")
 
     if not client_id:
-        raise HTTPException(
-            status_code=400,
-            detail="Bouncie client_id not configured. Please enter your credentials first.",
+        return RedirectResponse(
+            url="/setup?bouncie_error="
+            + quote("Please save your Client ID before connecting.", safe=""),
+            status_code=302,
         )
 
     if not redirect_uri:
-        raise HTTPException(
-            status_code=400,
-            detail="Bouncie redirect_uri not configured. Please enter your credentials first.",
+        return RedirectResponse(
+            url="/setup?bouncie_error="
+            + quote("Please save your Redirect URI before connecting.", safe=""),
+            status_code=302,
         )
 
     params = {
