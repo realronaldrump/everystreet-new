@@ -5,7 +5,7 @@ import geopandas as gpd
 import osmnx as ox
 from shapely.geometry import LineString
 
-from geometry_service import GeometryService
+from geo_service.geometry import GeometryService
 
 from .constants import FEET_PER_METER
 

@@ -243,7 +243,7 @@ async def get_bouncie_config() -> dict[str, Any]:
             - access_token: str | None
             - expires_at: float | None (timestamp)
     """
-    from bouncie_credentials import get_bouncie_credentials
+    from setup.services.bouncie_credentials import get_bouncie_credentials
 
     return await get_bouncie_credentials()
 

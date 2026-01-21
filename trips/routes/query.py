@@ -7,10 +7,10 @@ from fastapi import APIRouter, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
 
 from core.api import api_route
-from date_utils import parse_timestamp
+from core.date_utils import parse_timestamp
 from db import build_query_from_request
 from db.models import Trip
-from geometry_service import GeometryService
+from geo_service.geometry import GeometryService
 from trips.services import TripCostService, TripQueryService
 
 

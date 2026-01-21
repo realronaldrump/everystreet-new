@@ -11,7 +11,7 @@ from arq import create_pool
 from arq.connections import ArqRedis, RedisSettings
 from arq.jobs import Job
 
-from redis_config import get_redis_url
+from core.redis import get_redis_url
 
 logger = logging.getLogger(__name__)
 

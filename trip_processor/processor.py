@@ -14,7 +14,7 @@ from trip_processor.geocoding import TripGeocoder
 from trip_processor.map_matching import TripMapMatcher
 from trip_processor.state import TripState, TripStateMachine
 from trip_processor.validators import TripValidator
-from trip_repository import TripRepository
+from trips.services.trip_repository import TripRepository
 
 logger = logging.getLogger(__name__)
 

@@ -9,9 +9,11 @@ from __future__ import annotations
 
 import itertools
 import logging
+from functools import lru_cache
 from statistics import median
 from typing import TYPE_CHECKING, Any
 
+from beanie import PydanticObjectId
 from shapely.geometry import LineString, MultiLineString, mapping, shape
 from shapely.ops import transform
 from shapely.strtree import STRtree
@@ -28,7 +30,6 @@ from street_coverage.geo_utils import geodesic_distance_meters, get_local_transf
 from street_coverage.models import Street
 
 if TYPE_CHECKING:
-    from beanie import PydanticObjectId
     from shapely.geometry.base import BaseGeometry
 
 logger = logging.getLogger(__name__)
@@ -167,6 +168,24 @@ class AreaSegmentIndex:
                 continue
 
         return matched_ids
+
+
+@lru_cache(maxsize=10)
+def _get_area_segment_index(
+    area_id: PydanticObjectId,
+    area_version: int | None = None,
+) -> AreaSegmentIndex:
+    return AreaSegmentIndex(area_id, area_version)
+
+
+async def get_area_segment_index(
+    area_id: PydanticObjectId,
+    area_version: int | None = None,
+) -> AreaSegmentIndex:
+    index = _get_area_segment_index(area_id, area_version)
+    if not index._built:
+        await index.build()
+    return index
 
     def find_matching_segments_batch(
         self,

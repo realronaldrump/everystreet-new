@@ -4,7 +4,7 @@ import logging
 from datetime import UTC, datetime
 from typing import Any
 
-from date_utils import parse_timestamp
+from core.date_utils import parse_timestamp
 from db.aggregation import aggregate_to_list
 from db.models import GasFillup, Trip, Vehicle
 

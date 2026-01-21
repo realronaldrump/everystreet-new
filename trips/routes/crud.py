@@ -3,20 +3,13 @@
 import logging
 
 from fastapi import APIRouter, HTTPException, Request, status
-from pydantic import BaseModel
+from trips.models import TripUpdateRequest
 
 from core.api import api_route
 from trips.services import TripCrudService
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
-
-
-class TripUpdateRequest(BaseModel):
-    """A flexible model to handle trip updates from different parts of the UI."""
-
-    geometry: dict | str | None = None
-    properties: dict | None = None
 
 
 @router.get("/api/trips/{trip_id}", tags=["Trips API"])

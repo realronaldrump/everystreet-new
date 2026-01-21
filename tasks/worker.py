@@ -9,7 +9,7 @@ from arq import cron
 
 from core.http.session import cleanup_session
 from db import db_manager
-from mongodb_logging_handler import MongoDBHandler
+from db.logging_handler import MongoDBHandler
 from tasks.arq import get_redis_settings
 from tasks.coverage import update_coverage_for_new_trips
 from tasks.cron import (
@@ -38,7 +38,7 @@ from tasks.routes import generate_optimal_route
 async def on_startup(ctx: dict) -> None:
     await db_manager.init_beanie()
 
-    from service_config import get_service_config
+    from core.service_config import get_service_config
 
     await get_service_config()
 

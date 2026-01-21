@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-import preprocess_streets as preprocess_module
-from preprocess_streets import preprocess_streets
+import street_coverage.preprocessing as preprocess_module
+from street_coverage.preprocessing import preprocess_streets
 from routes import constants as routes_constants
 from street_coverage import ingestion as coverage_ingestion
 

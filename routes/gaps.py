@@ -1,7 +1,7 @@
 import logging
 from typing import Any
 
-from geometry_service import GeometryService
+from geo_service.geometry import GeometryService
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +28,7 @@ async def fill_route_gaps(
     if len(route_coords) < 2:
         return route_coords
 
-    from graph_connectivity import fetch_bridge_route
+    from routes.graph_connectivity import fetch_bridge_route
 
     gaps_to_fill: list[tuple[int, float]] = []  # (index, gap_ft)
 

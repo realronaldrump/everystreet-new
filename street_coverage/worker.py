@@ -16,11 +16,11 @@ from typing import Any
 from beanie import PydanticObjectId
 from pymongo import UpdateOne
 
-from date_utils import get_current_utc_time, normalize_to_utc_datetime
+from core.date_utils import get_current_utc_time, normalize_to_utc_datetime
 from street_coverage.constants import BACKFILL_BULK_WRITE_SIZE, BACKFILL_TRIP_BATCH_SIZE
 from street_coverage.events import CoverageEvents, emit_coverage_updated, on_event
 from street_coverage.matching import (
-    AreaSegmentIndex,
+    get_area_segment_index,
     match_trip_to_streets,
     trip_to_linestring,
 )
@@ -134,7 +134,7 @@ async def update_coverage_for_segments(
 
     driven_at = normalize_to_utc_datetime(driven_at) or get_current_utc_time()
 
-    updated = 0
+    operations = []
     for segment_id in segment_ids:
         update_pipeline = [
             {
@@ -165,27 +165,22 @@ async def update_coverage_for_segments(
                 },
             },
         ]
-
-        on_insert = CoverageState(
-            area_id=area_id,
-            segment_id=segment_id,
-            status="driven",
-            last_driven_at=driven_at,
-            first_driven_at=driven_at,
-            driven_by_trip_id=trip_id,
-            manually_marked=False,
+        operations.append(
+            UpdateOne(
+                {"area_id": area_id, "segment_id": segment_id},
+                update_pipeline,
+                upsert=True,
+            ),
         )
 
-        result = await CoverageState.find_one(
-            {"area_id": area_id, "segment_id": segment_id},
-        ).upsert(update_pipeline, on_insert=on_insert)
-
-        if hasattr(result, "modified_count"):
-            updated += result.modified_count
-        elif hasattr(result, "inserted_id"):
-            updated += 1
-        else:
-            updated += 1
+    updated = 0
+    if operations:
+        collection = CoverageState.get_motor_collection()
+        result = await collection.bulk_write(operations, ordered=False)
+        upserted_count = getattr(result, "upserted_count", None)
+        if upserted_count is None:
+            upserted_count = len(getattr(result, "upserted_ids", {}) or {})
+        updated = result.modified_count + upserted_count
 
     if updated:
         logger.debug(
@@ -281,8 +276,7 @@ async def backfill_coverage_for_area(
 
     # Build spatial index once for the entire backfill
     logger.info("Building spatial index for area %s", area.display_name)
-    segment_index = AreaSegmentIndex(area_id, area.area_version)
-    await segment_index.build()
+    segment_index = await get_area_segment_index(area_id, area.area_version)
 
     if not segment_index.segments:
         logger.warning("No segments found for area %s", area.display_name)
@@ -346,97 +340,76 @@ async def backfill_coverage_for_area(
         )
         last_reported_time = now
 
-    # Load ALL trips upfront for batch processing
-    logger.info("Loading all trips for area %s", area.display_name)
-    await report_progress(force=True)
-
-    all_trips = await Trip.find(query).to_list()
-    total_trip_count = len(all_trips)
-
+    total_trip_count = await Trip.find(query).count()
     logger.info(
-        "Loaded %d trips for area %s, starting batch matching",
+        "Processing %d trips for area %s in batches of %d",
         total_trip_count,
         area.display_name,
+        BACKFILL_TRIP_BATCH_SIZE,
     )
-
     await report_progress(total_trips=total_trip_count, force=True)
 
-    # Convert all trips to LineStrings in parallel using ProcessPoolExecutor
-    logger.info("Converting %d trips to geometries", total_trip_count)
-
-    trip_lines = []
+    mega_batch_size = 50
+    all_matched_segments: set[str] = set()
+    total_line_count = 0
     earliest_driven_at: datetime | None = None
+    skip = 0
 
-    # Process trips in chunks to convert to geometry
-    chunk_size = BACKFILL_TRIP_BATCH_SIZE
-    for chunk_start in range(0, total_trip_count, chunk_size):
-        chunk_end = min(chunk_start + chunk_size, total_trip_count)
-        chunk = all_trips[chunk_start:chunk_end]
+    while True:
+        batch = (
+            await Trip.find(query)
+            .skip(skip)
+            .limit(BACKFILL_TRIP_BATCH_SIZE)
+            .to_list()
+        )
+        if not batch:
+            break
 
-        for trip in chunk:
+        batch_lines: list[Any] = []
+        for trip in batch:
             trip_data = trip.model_dump()
             line = trip_to_linestring(trip_data)
             if line is not None:
-                trip_lines.append(line)
-                # Track earliest trip date
+                batch_lines.append(line)
+                total_line_count += 1
                 trip_time = get_trip_driven_at(trip_data)
                 if trip_time and (
                     earliest_driven_at is None or trip_time < earliest_driven_at
                 ):
                     earliest_driven_at = trip_time
 
-        processed_trips = chunk_end
+        for batch_start in range(0, len(batch_lines), mega_batch_size):
+            batch_end = min(batch_start + mega_batch_size, len(batch_lines))
+            batch_lines_slice = batch_lines[batch_start:batch_end]
+            if not batch_lines_slice:
+                continue
+            matched = segment_index.find_matching_segments_batch(batch_lines_slice)
+            all_matched_segments.update(matched)
+            matched_batches += 1
+            await report_progress(
+                total_trips=total_trip_count,
+                segments_found=len(all_matched_segments),
+            )
+
+        processed_trips += len(batch)
+        skip += len(batch)
         await report_progress(total_trips=total_trip_count)
 
     logger.info(
         "Converted %d/%d trips to valid geometries",
-        len(trip_lines),
+        total_line_count,
         total_trip_count,
     )
 
-    if not trip_lines:
+    if not total_line_count:
         logger.warning("No valid trip geometries found for area %s", area.display_name)
         await update_area_stats(area_id)
         return 0
 
-    # Process trip lines in smaller batches for geometry union matching
-    # 50 trips per batch is a good balance between speed and memory
-    mega_batch_size = 50
-    all_matched_segments: set[str] = set()
-    total_batches = (len(trip_lines) + mega_batch_size - 1) // mega_batch_size
-
-    logger.info(
-        "Starting batch matching: %d trips in %d batches",
-        len(trip_lines),
-        total_batches,
-    )
-
-    for batch_start in range(0, len(trip_lines), mega_batch_size):
-        batch_end = min(batch_start + mega_batch_size, len(trip_lines))
-        batch_lines = trip_lines[batch_start:batch_end]
-        batch_num = batch_start // mega_batch_size + 1
-
-        logger.debug(
-            "Processing batch %d/%d (%d trips)",
-            batch_num,
-            total_batches,
-            len(batch_lines),
-        )
-
-        # Use batch matching with geometry union
-        matched = segment_index.find_matching_segments_batch(batch_lines)
-        all_matched_segments.update(matched)
-        matched_batches += 1
-
-        await report_progress(
-            total_trips=total_trip_count,
-            segments_found=len(all_matched_segments),
-        )
-
     logger.info(
         "Batch matching complete: %d segments matched from %d trips",
         len(all_matched_segments),
-        len(trip_lines),
+        total_line_count,
     )
 
     # Bulk write all segment updates
@@ -511,7 +484,7 @@ async def backfill_coverage_for_area(
         "Backfill complete for area %s: %d segments from %d trips in %d batches",
         area.display_name,
         total_updated,
-        len(trip_lines),
+        total_line_count,
         matched_batches,
     )
 

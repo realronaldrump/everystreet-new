@@ -8,7 +8,7 @@ calculation.
 import logging
 from typing import Any
 
-from geometry_service import GeometryService
+from geo_service.geometry import GeometryService
 from trip_processor.state import TripState, TripStateMachine
 
 logger = logging.getLogger(__name__)

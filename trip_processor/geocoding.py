@@ -160,7 +160,7 @@ class TripGeocoder:
                             transaction_id,
                         )
 
-            from date_utils import get_current_utc_time
+            from core.date_utils import get_current_utc_time
 
             processed_data["location_schema_version"] = 2
             processed_data["geocoded_at"] = get_current_utc_time()

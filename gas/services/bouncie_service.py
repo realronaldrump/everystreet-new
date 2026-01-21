@@ -3,7 +3,7 @@
 import logging
 from typing import Any
 
-from bouncie_oauth import BouncieOAuth
+from setup.services.bouncie_oauth import BouncieOAuth
 from config import API_BASE_URL
 from core.http.session import get_session
 

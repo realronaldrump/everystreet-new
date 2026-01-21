@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock
 import pytest
 from http_fakes import FakeResponse, FakeSession
 
-from bouncie_oauth import BouncieOAuth
+from setup.services.bouncie_oauth import BouncieOAuth
 
 
 @pytest.mark.asyncio
@@ -93,7 +93,10 @@ async def test_get_access_token_saves_token(monkeypatch: pytest.MonkeyPatch) -> 
         ],
     )
     update = AsyncMock(return_value=True)
-    monkeypatch.setattr("bouncie_oauth.update_bouncie_credentials", update)
+    monkeypatch.setattr(
+        "setup.services.bouncie_oauth.update_bouncie_credentials",
+        update,
+    )
 
     token = await BouncieOAuth.get_access_token(
         session=session,

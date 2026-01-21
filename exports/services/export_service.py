@@ -32,7 +32,7 @@ from exports.services.export_writer import (
     write_geojson_features,
     write_json_array,
 )
-from geometry_service import GeometryService
+from geo_service.geometry import GeometryService
 
 if TYPE_CHECKING:
     from exports.models import ExportItem, ExportRequest

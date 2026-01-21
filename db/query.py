@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
-from date_utils import normalize_calendar_date, normalize_to_utc_datetime
+from core.date_utils import normalize_calendar_date, normalize_to_utc_datetime
 
 if TYPE_CHECKING:
     from datetime import datetime

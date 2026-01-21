@@ -6,7 +6,7 @@ from typing import Any
 from beanie import PydanticObjectId
 from bson import ObjectId
 
-from date_utils import parse_timestamp
+from core.date_utils import parse_timestamp
 from exports.constants import (
     BOUNDARY_PROPERTIES_FIELDS,
     STREET_PROPERTIES_FIELDS,

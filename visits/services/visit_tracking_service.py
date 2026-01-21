@@ -3,7 +3,7 @@
 import logging
 from typing import Any
 
-from date_utils import normalize_to_utc_datetime
+from core.date_utils import normalize_to_utc_datetime
 from db.aggregation import aggregate_to_list
 from db.models import Place, Trip
 from db.schemas import PlaceResponse

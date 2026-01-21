@@ -10,27 +10,25 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
+from admin import router as admin_api_router
 from analytics import router as analytics_api_router
-from api.admin_api import router as admin_api_router
-from api.bouncie_callback import router as bouncie_callback_router
-from api.bouncie_webhook_api import router as bouncie_webhook_api_router
-from api.county_api import router as county_api_router
 from api.coverage_api import router as coverage_api_router
-from api.driving_routes import router as driving_routes_router
-from api.live_tracking_api import router as live_tracking_api_router
-from api.logs_api import router as logs_api_router
 from api.pages import router as pages_router
-from api.processing_api import router as processing_api_router
-from api.profile_api import router as profile_api_router
-from api.search_api import router as search_api_router
-from api.setup_api import router as setup_api_router
-from api.tasks_api import router as tasks_api_router
+from county import router as county_api_router
+from driving import router as driving_routes_router
+from logs import router as logs_api_router
+from processing import router as processing_api_router
+from profile import router as profile_api_router
+from search import router as search_api_router
+from setup import router as setup_api_router
+from tasks.api import router as tasks_api_router
+from tracking import router as tracking_api_router
 from core.http.session import cleanup_session
 from db import db_manager
 from exports import router as export_api_router
 from gas import router as gas_api_router
 from map_data.routes import router as map_data_router
-from mongodb_logging_handler import MongoDBHandler
+from db.logging_handler import MongoDBHandler
 from routes.routing import router as routing_router
 from tasks.arq import close_arq_pool
 from trips import router as trips_router
@@ -119,15 +117,13 @@ app.add_middleware(
 app.include_router(pages_router)
 app.include_router(admin_api_router)
 app.include_router(analytics_api_router)
-app.include_router(bouncie_callback_router)
-app.include_router(bouncie_webhook_api_router)
 app.include_router(county_api_router)
 app.include_router(coverage_api_router)
 app.include_router(driving_routes_router)
 app.include_router(export_api_router)
 app.include_router(routing_router)
 app.include_router(gas_api_router)
-app.include_router(live_tracking_api_router)
+app.include_router(tracking_api_router)
 app.include_router(logs_api_router)
 app.include_router(map_data_router)
 
@@ -156,7 +152,7 @@ async def startup_event():
         await db_manager.init_beanie()
         logger.info("Beanie ODM initialized successfully.")
 
-        from service_config import get_service_config
+        from core.service_config import get_service_config
 
         await get_service_config()
 

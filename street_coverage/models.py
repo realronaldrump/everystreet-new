@@ -163,6 +163,14 @@ class CoverageState(Document):
                 [("area_id", 1), ("status", 1)],
                 name="coverage_state_area_status_idx",
             ),
+            IndexModel(
+                [("status", 1)],
+                name="coverage_state_status_idx",
+            ),
+            IndexModel(
+                [("first_driven_at", 1)],
+                name="coverage_state_first_driven_at_idx",
+            ),
         ]
 
     class Config:

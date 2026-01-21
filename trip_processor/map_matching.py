@@ -7,7 +7,7 @@ Handles map matching of trip GPS coordinates to road networks.
 import logging
 from typing import Any
 
-from date_utils import get_current_utc_time
+from core.date_utils import get_current_utc_time
 from geo_service import MapMatchingService, extract_timestamps_for_coordinates
 from trip_processor.state import TripState, TripStateMachine
 

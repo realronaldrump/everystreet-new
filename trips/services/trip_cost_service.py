@@ -2,7 +2,7 @@
 
 import bisect
 
-from date_utils import parse_timestamp
+from core.date_utils import parse_timestamp
 from db.models import GasFillup
 
 

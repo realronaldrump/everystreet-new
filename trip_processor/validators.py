@@ -9,7 +9,7 @@ from typing import Any
 
 from pydantic import ValidationError
 
-from date_utils import get_current_utc_time
+from core.date_utils import get_current_utc_time
 from db.models import Trip
 from trip_processor.state import TripState, TripStateMachine
 

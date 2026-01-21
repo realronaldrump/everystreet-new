@@ -4,10 +4,10 @@ import logging
 import uuid
 from datetime import UTC, datetime, timedelta
 
-from date_utils import normalize_calendar_date
+from core.date_utils import normalize_calendar_date
 from db import build_calendar_date_expr
 from db.models import ProgressStatus, Trip
-from trip_service import TripService
+from trips.services.trip_batch_service import TripService
 
 logger = logging.getLogger(__name__)
 

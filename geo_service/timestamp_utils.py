@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from date_utils import parse_timestamp
+from core.date_utils import parse_timestamp
 
 
 def extract_timestamps_for_coordinates(

@@ -583,7 +583,7 @@ async def _ensure_area_graph(
     if graph_path.exists():
         return graph_path
 
-    from preprocess_streets import preprocess_streets
+    from street_coverage.preprocessing import preprocess_streets
 
     loc_data = {
         "_id": str(area.id),

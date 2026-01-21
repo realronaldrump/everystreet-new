@@ -8,7 +8,7 @@ processing status.
 from enum import Enum
 from typing import Any
 
-from date_utils import get_current_utc_time
+from core.date_utils import get_current_utc_time
 
 
 class TripState(Enum):

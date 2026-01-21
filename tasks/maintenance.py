@@ -17,10 +17,10 @@ from typing import Any
 from pydantic import ValidationError
 
 from db.models import Trip
-from live_tracking import cleanup_stale_trips_logic
+from tracking.services.tracking_service import TrackingService
 from tasks.config import check_dependencies
 from tasks.ops import run_task_with_history
-from trip_service import TripService
+from trips.services.trip_batch_service import TripService
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 async def _cleanup_stale_trips_logic() -> dict[str, Any]:
     """Async logic for completing stale active trips."""
 
-    cleanup_result = await cleanup_stale_trips_logic()
+    cleanup_result = await TrackingService.cleanup_stale_trips()
 
     stale_completed_count = cleanup_result.get("stale_trips_archived", 0)
     old_removed_count = cleanup_result.get("old_archives_removed", 0)

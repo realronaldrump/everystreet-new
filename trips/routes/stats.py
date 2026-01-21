@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException, status
 
 from core.api import api_route
 from db.schemas import DateRangeModel
-from trip_service import TripService
+from trips.services.trip_batch_service import TripService
 from trips.services import TripStatsService
 
 logger = logging.getLogger(__name__)

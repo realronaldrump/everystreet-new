@@ -9,7 +9,7 @@ import networkx as nx
 from beanie import PydanticObjectId
 
 from db.models import OptimalRouteProgress
-from progress_tracker import ProgressTracker
+from core.progress import ProgressTracker
 from street_coverage.models import CoverageArea, CoverageState, Street
 
 from .constants import GRAPH_STORAGE_DIR, MAX_SEGMENTS
@@ -204,7 +204,7 @@ async def generate_optimal_route_with_progress(
                 GRAPH_STORAGE_DIR.mkdir(parents=True, exist_ok=True)
 
                 # Import here to avoid circular import
-                from preprocess_streets import preprocess_streets
+                from street_coverage.preprocessing import preprocess_streets
 
                 await preprocess_streets(loc_data, task_id)
 

@@ -7,7 +7,7 @@ from typing import Any
 
 from core.exceptions import ExternalServiceException
 from core.http.valhalla import ValhallaClient
-from geometry_service import GeometryService
+from geo_service.geometry import GeometryService
 
 logger = logging.getLogger(__name__)
 

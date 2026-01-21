@@ -4,11 +4,11 @@ import logging
 from typing import Any
 
 from core.exceptions import ValidationException
-from date_utils import parse_timestamp
+from core.date_utils import parse_timestamp
 from db.aggregation import aggregate_to_list
 from db.models import GasFillup, Trip
 from gas.services.bouncie_service import BouncieService
-from geometry_service import GeometryService
+from geo_service.geometry import GeometryService
 
 logger = logging.getLogger(__name__)
 

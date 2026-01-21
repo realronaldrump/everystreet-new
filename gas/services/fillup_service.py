@@ -7,7 +7,7 @@ from typing import Any
 from beanie import PydanticObjectId
 
 from core.exceptions import ResourceNotFoundException, ValidationException
-from date_utils import parse_timestamp
+from core.date_utils import parse_timestamp
 from db.models import GasFillup, Vehicle
 
 logger = logging.getLogger(__name__)

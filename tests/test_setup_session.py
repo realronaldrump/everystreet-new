@@ -3,8 +3,8 @@ from beanie import init_beanie
 from fastapi import HTTPException
 from mongomock_motor import AsyncMongoMockClient
 
-from api import setup_api
-from api.setup_api import (
+from setup.services import setup_service
+from setup.services.setup_service import (
     SetupSessionAdvanceRequest,
     SetupSessionRequest,
     advance_setup_session,
@@ -40,7 +40,7 @@ def _mock_setup_status(monkeypatch: pytest.MonkeyPatch) -> None:
             },
         }
 
-    monkeypatch.setattr(setup_api, "get_setup_status", fake_status)
+    monkeypatch.setattr(setup_service, "get_setup_status", fake_status)
 
 
 @pytest.mark.asyncio

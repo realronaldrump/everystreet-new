@@ -13,13 +13,13 @@ import logging
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from api.admin_api import get_persisted_app_settings
-from bouncie_trip_fetcher import (
+from admin.services.admin_service import AdminService
+from trips.services.bouncie_fetcher import (
     fetch_bouncie_trip_by_transaction_id,
     fetch_bouncie_trips_in_range,
 )
 from config import get_bouncie_config
-from date_utils import parse_timestamp
+from core.date_utils import parse_timestamp
 from db.models import Trip
 from tasks.ops import run_task_with_history
 
@@ -148,7 +148,7 @@ async def _periodic_fetch_trips_logic(
 
     map_match_on_fetch = False
     try:
-        app_settings = await get_persisted_app_settings()
+        app_settings = await AdminService.get_persisted_app_settings()
         map_match_on_fetch = bool(
             app_settings.model_dump().get("mapMatchTripsOnFetch", False),
         )
@@ -272,7 +272,7 @@ async def _fetch_trip_by_transaction_id_logic(
 
     map_match_on_fetch = False
     try:
-        app_settings = await get_persisted_app_settings()
+        app_settings = await AdminService.get_persisted_app_settings()
         map_match_on_fetch = bool(
             app_settings.model_dump().get("mapMatchTripsOnFetch", False),
         )
