@@ -114,7 +114,7 @@ services:
   nominatim:
     image: mediagis/nominatim:4.4
     restart: unless-stopped
-    entrypoint: ["/bin/sh", "/app/nominatim-entrypoint.sh"]
+    entrypoint: ['/bin/sh', '/app/nominatim-entrypoint.sh']
     environment:
       # Don't specify PBF_PATH or PBF_URL - data will be imported via app UI
       # The container will exit if no data is provided, which is expected
@@ -145,7 +145,7 @@ services:
   valhalla:
     image: ghcr.io/gis-ops/docker-valhalla/valhalla:3.5.1
     restart: unless-stopped
-    entrypoint: ["/bin/sh", "/valhalla/valhalla-entrypoint.sh"]
+    entrypoint: ['/bin/sh', '/valhalla/valhalla-entrypoint.sh']
     environment:
       tile_urls: ''
       serve_tiles: 'True'
@@ -162,7 +162,11 @@ services:
       - '8002'
     healthcheck:
       # Container is healthy if entrypoint script is running (waiting for tiles) or valhalla_service is running
-      test: ['CMD-SHELL', 'pgrep -f "sleep 5" || pgrep -f valhalla_service || curl -sf http://localhost:8002/status >/dev/null']
+      test:
+        [
+          'CMD-SHELL',
+          'pgrep -f "sleep 5" || pgrep -f valhalla_service || curl -sf http://localhost:8002/status >/dev/null',
+        ]
       interval: 15s
       timeout: 10s
       retries: 3

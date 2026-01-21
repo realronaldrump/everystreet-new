@@ -188,7 +188,9 @@ async def check_service_health(force_refresh: bool = False) -> GeoServiceHealth:
                 except Exception:
                     pass
 
-            health.valhalla_healthy = response.status_code == 200 and health.valhalla_has_data
+            health.valhalla_healthy = (
+                response.status_code == 200 and health.valhalla_has_data
+            )
             if response.status_code != 200:
                 health.valhalla_error = "Service unavailable"
             elif not health.valhalla_has_data:

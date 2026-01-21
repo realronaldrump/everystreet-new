@@ -134,9 +134,7 @@ async def update_app_settings_endpoint(settings: Annotated[dict, Body()]):
             detail=MAPBOX_SETTINGS_ERROR,
         )
 
-    deprecated_keys = [
-        key for key in DEPRECATED_APP_SETTINGS_FIELDS if key in settings
-    ]
+    deprecated_keys = [key for key in DEPRECATED_APP_SETTINGS_FIELDS if key in settings]
     if deprecated_keys:
         logger.warning(
             "Ignoring deprecated app settings fields: %s",

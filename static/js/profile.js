@@ -245,11 +245,7 @@
   }
 
   function validateDraftValues(values) {
-    if (
-      !values.client_id
-      || !values.client_secret
-      || !values.redirect_uri
-    ) {
+    if (!values.client_id || !values.client_secret || !values.redirect_uri) {
       return "All credential fields are required.";
     }
 
@@ -403,10 +399,8 @@
       if (clientSecretInput) {
         clientSecretInput.classList.add("credential-masked");
       }
-    } else {
-      if (clientSecretInput) {
-        clientSecretInput.classList.remove("credential-masked");
-      }
+    } else if (clientSecretInput) {
+      clientSecretInput.classList.remove("credential-masked");
     }
   }
 

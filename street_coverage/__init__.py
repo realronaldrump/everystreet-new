@@ -77,7 +77,8 @@ _LAZY_IMPORTS: dict[str, tuple[str, str | None]] = {
 def __getattr__(name: str):
     target = _LAZY_IMPORTS.get(name)
     if not target:
-        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+        msg = f"module {__name__!r} has no attribute {name!r}"
+        raise AttributeError(msg)
 
     module_name, attr_name = target
     module = import_module(module_name)

@@ -1,9 +1,10 @@
 """
 Service configuration loader.
 
-Provides async functions to load user-specific configuration from the database
-with environment variable fallbacks. This allows runtime configuration
-through the UI while maintaining backward compatibility with .env files.
+Provides async functions to load user-specific configuration from the
+database with environment variable fallbacks. This allows runtime
+configuration through the UI while maintaining backward compatibility
+with .env files.
 """
 
 from __future__ import annotations
@@ -26,8 +27,8 @@ async def get_service_config() -> AppSettings:
     """
     Get service configuration from the database.
 
-    Returns AppSettings document with user-specific settings.
-    Falls back to defaults if no settings are saved yet.
+    Returns AppSettings document with user-specific settings. Falls back
+    to defaults if no settings are saved yet.
 
     This function caches the settings for the lifetime of the request.
     Use refresh_service_config() to force a reload.

@@ -158,7 +158,5 @@ def register_handlers() -> None:
     connected before events are emitted.
     """
     # Import modules to register their @on_event handlers
-    from street_coverage import ingestion  # noqa: F401
-    from street_coverage import worker  # noqa: F401
 
     logger.info("Coverage event handlers registered")

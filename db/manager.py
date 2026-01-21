@@ -10,10 +10,9 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
-from typing import Final
 import threading
 from datetime import UTC
-from typing import Any, Self
+from typing import Any, Final, Self
 
 import certifi
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase

@@ -453,7 +453,10 @@
 
   async function updateBouncieConnectionStatus() {
     try {
-      const response = await fetch(`${PROFILE_API.replace('/profile', '/bouncie')}/status`, withSignal());
+      const response = await fetch(
+        `${PROFILE_API.replace("/profile", "/bouncie")}/status`,
+        withSignal()
+      );
       const data = await readJsonResponse(response);
       if (response.ok && data) {
         const connectBtn = document.getElementById("connectBouncieBtn");
@@ -467,10 +470,8 @@
           if (syncBtn) {
             syncBtn.disabled = false;
           }
-        } else {
-          if (syncBtn) {
-            syncBtn.disabled = true;
-          }
+        } else if (syncBtn) {
+          syncBtn.disabled = true;
         }
       }
     } catch (_error) {
@@ -528,8 +529,7 @@
     document
       .getElementById("toggleClientSecret")
       ?.addEventListener("click", () => togglePasswordVisibility("clientSecret"));
-    document
-
+    document;
 
     document
       .getElementById("download-region-btn")
@@ -544,12 +544,7 @@
       .getElementById("region-list")
       ?.addEventListener("click", handleRegionClick);
 
-    [
-      "clientId",
-      "clientSecret",
-      "redirectUri",
-      "fetchConcurrency",
-    ].forEach((id) => {
+    ["clientId", "clientSecret", "redirectUri", "fetchConcurrency"].forEach((id) => {
       document
         .getElementById(id)
         ?.addEventListener("input", () => markDirty("bouncie"));
@@ -1328,7 +1323,9 @@
 
     const nominatim = geoServices.nominatim || {};
     const valhalla = geoServices.valhalla || {};
-    const containersRunning = Boolean(nominatim.container_running && valhalla.container_running);
+    const containersRunning = Boolean(
+      nominatim.container_running && valhalla.container_running
+    );
     const servicesReady = Boolean(nominatim.has_data && valhalla.has_data);
 
     if (stepStatus) {

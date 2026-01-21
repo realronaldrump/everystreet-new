@@ -9,6 +9,7 @@ This module handles the OAuth authorization flow with Bouncie:
 from __future__ import annotations
 
 import logging
+from typing import Annotated
 from urllib.parse import quote, urlencode
 
 from fastapi import APIRouter, HTTPException, Query
@@ -62,8 +63,8 @@ async def initiate_bouncie_auth():
 
 @router.get("/callback")
 async def bouncie_oauth_callback(
-    code: str | None = Query(default=None),
-    error: str | None = Query(default=None),
+    code: Annotated[str | None, Query()] = None,
+    error: Annotated[str | None, Query()] = None,
 ):
     """
     Handle Bouncie OAuth callback.
