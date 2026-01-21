@@ -3,9 +3,9 @@ from beanie import init_beanie
 from fastapi import HTTPException
 from mongomock_motor import AsyncMongoMockClient
 
-import setup_api
+import api.setup_api as setup_api
 from db.models import SetupSession
-from setup_api import (
+from api.setup_api import (
     SetupSessionAdvanceRequest,
     SetupSessionRequest,
     advance_setup_session,

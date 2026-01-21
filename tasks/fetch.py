@@ -13,7 +13,7 @@ import logging
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from admin_api import get_persisted_app_settings
+from api.admin_api import get_persisted_app_settings
 from bouncie_trip_fetcher import (
     fetch_bouncie_trip_by_transaction_id,
     fetch_bouncie_trips_in_range,

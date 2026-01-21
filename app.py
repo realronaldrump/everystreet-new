@@ -10,29 +10,29 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from admin_api import router as admin_api_router
+from api.admin_api import router as admin_api_router
 from analytics import router as analytics_api_router
-from bouncie_callback import router as bouncie_callback_router
-from bouncie_webhook_api import router as bouncie_webhook_api_router
+from api.bouncie_callback import router as bouncie_callback_router
+from api.bouncie_webhook_api import router as bouncie_webhook_api_router
 from core.http.session import cleanup_session
-from county_api import router as county_api_router
-from coverage_api import router as coverage_api_router
+from api.county_api import router as county_api_router
+from api.coverage_api import router as coverage_api_router
 from db import db_manager
-from driving_routes import router as driving_routes_router
+from api.driving_routes import router as driving_routes_router
 from exports import router as export_api_router
 from gas import router as gas_api_router
-from live_tracking_api import router as live_tracking_api_router
-from logs_api import router as logs_api_router
+from api.live_tracking_api import router as live_tracking_api_router
+from api.logs_api import router as logs_api_router
 from map_data.routes import router as map_data_router
 from mongodb_logging_handler import MongoDBHandler
-from pages import router as pages_router
-from processing_api import router as processing_api_router
-from profile_api import router as profile_api_router
+from api.pages import router as pages_router
+from api.processing_api import router as processing_api_router
+from api.profile_api import router as profile_api_router
 from routes.routing import router as routing_router
-from search_api import router as search_api_router
-from setup_api import router as setup_api_router
+from api.search_api import router as search_api_router
+from api.setup_api import router as setup_api_router
 from tasks.arq import close_arq_pool
-from tasks_api import router as tasks_api_router
+from api.tasks_api import router as tasks_api_router
 from trips import router as trips_router
 from visits import router as visits_router
 

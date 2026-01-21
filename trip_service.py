@@ -9,7 +9,7 @@ from beanie.operators import In
 from fastapi import HTTPException, status
 from pydantic import BaseModel
 
-from admin_api import get_persisted_app_settings
+from api.admin_api import get_persisted_app_settings
 from config import require_nominatim_reverse_url, require_valhalla_trace_route_url
 from db.models import Trip
 from trip_processor import TripProcessor, TripState

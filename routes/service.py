@@ -6,7 +6,6 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, cast
 
 import networkx as nx
-import osmnx as ox
 from beanie import PydanticObjectId
 
 from db.models import OptimalRouteProgress
@@ -26,6 +25,12 @@ if TYPE_CHECKING:
     from .types import EdgeRef, ReqId
 
 logger = logging.getLogger(__name__)
+
+
+def _get_osmnx():
+    import osmnx as ox
+
+    return ox
 
 
 async def generate_optimal_route_with_progress(
@@ -217,6 +222,7 @@ async def generate_optimal_route_with_progress(
                 _raise_value_error(msg)
 
         try:
+            ox = _get_osmnx()
             G = ox.load_graphml(graph_path)
             # Ensure it's the correct type (OSMnx load_graphml returns MultiDiGraph usually)
             if not isinstance(G, nx.MultiDiGraph):
@@ -417,6 +423,7 @@ async def generate_optimal_route_with_progress(
             )
             try:
                 # Vectorized nearest edge lookup
+                ox = _get_osmnx()
                 nearest_edges = ox.distance.nearest_edges(G, X, Y)
                 last_update = time.monotonic()
                 progress_interval = max(10, max(1, fallback_total) // 25)
@@ -459,6 +466,7 @@ async def generate_optimal_route_with_progress(
                 progress_interval = max(10, max(1, fallback_total) // 25)
                 for i, _idx in enumerate(valid_unmatched_indices, start=1):
                     try:
+                        ox = _get_osmnx()
                         u, v, k = ox.distance.nearest_edges(G, X[i], Y[i])
                         edge = (int(u), int(v), int(k))
                         rid, options = make_req_id(G, edge)
@@ -518,7 +526,11 @@ async def generate_optimal_route_with_progress(
         if start_coords:
             with contextlib.suppress(Exception):
                 start_node_id = int(
-                    ox.distance.nearest_nodes(G, start_coords[0], start_coords[1]),
+                    _get_osmnx().distance.nearest_nodes(
+                        G,
+                        start_coords[0],
+                        start_coords[1],
+                    ),
                 )
 
         # NOTE: We no longer pre-bridge disconnected clusters with OSM downloads.

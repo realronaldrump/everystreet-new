@@ -7,6 +7,8 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+import numpy as np
+
 import pytest
 from beanie import init_beanie
 from mongomock_motor import AsyncMongoMockClient
@@ -37,6 +39,8 @@ def _install_local_coverage_package() -> None:
 
 
 _install_local_coverage_package()
+
+_ = np
 
 from db.models import Trip  # noqa: E402
 

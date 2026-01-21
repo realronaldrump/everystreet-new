@@ -20,7 +20,6 @@ from pathlib import Path
 from typing import Any
 
 import networkx as nx
-import osmnx as ox
 from dotenv import load_dotenv
 from shapely.geometry import box, shape
 
@@ -34,7 +33,14 @@ logger = logging.getLogger(__name__)
 OSM_EXTENSIONS = {".osm", ".xml", ".pbf"}
 
 
+def _get_osmnx():
+    import osmnx as ox
+
+    return ox
+
+
 def _graph_from_pbf(osm_path: Path) -> nx.MultiDiGraph:
+    ox = _get_osmnx()
     try:
         from pyrosm import OSM
     except ImportError as exc:
@@ -143,6 +149,7 @@ def _normalize_pyrosm_gdfs(nodes_gdf: Any, edges_gdf: Any) -> tuple[Any, Any]:
 
 
 def _load_graph_from_extract(osm_path: Path, routing_polygon: Any) -> nx.MultiDiGraph:
+    ox = _get_osmnx()
     suffix = osm_path.suffix.lower()
     if suffix in {".osm", ".xml"}:
         G = ox.graph_from_xml(
@@ -237,6 +244,7 @@ async def preprocess_streets(
         loop = asyncio.get_running_loop()
 
         def _download_and_save():
+            ox = _get_osmnx()
             GRAPH_STORAGE_DIR.mkdir(parents=True, exist_ok=True)
             osm_path = Path(require_osm_data_path())
             if not osm_path.exists():
