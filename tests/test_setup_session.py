@@ -61,8 +61,8 @@ async def test_setup_session_advance_idempotent(setup_session_db) -> None:
 
     advance_payload = SetupSessionAdvanceRequest(
         client_id="tab-1",
-        current_step="welcome",
-        next_step="bouncie",
+        current_step="bouncie",
+        next_step="mapbox",
         version=version,
         idempotency_key="advance-1",
     )
@@ -84,8 +84,8 @@ async def test_setup_session_rejects_stale_version(setup_session_db) -> None:
         session_id,
         SetupSessionAdvanceRequest(
             client_id="tab-1",
-            current_step="welcome",
-            next_step="bouncie",
+            current_step="bouncie",
+            next_step="mapbox",
             version=version,
             idempotency_key="advance-1",
         ),
@@ -96,8 +96,8 @@ async def test_setup_session_rejects_stale_version(setup_session_db) -> None:
             session_id,
             SetupSessionAdvanceRequest(
                 client_id="tab-1",
-                current_step="welcome",
-                next_step="bouncie",
+                current_step="bouncie",
+                next_step="mapbox",
                 version=version,
                 idempotency_key="advance-2",
             ),
