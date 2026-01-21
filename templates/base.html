@@ -661,6 +661,21 @@ Quick Selections
             {% endblock %}
 
           </div>
+          
+          <footer class="app-footer">
+            <div class="footer-content">
+              <div class="footer-version-info">
+                <span class="footer-version-item" title="Commit Hash">
+                  <i class="fas fa-code-branch"></i>
+                  {{ repo_version.commit_hash }}
+                </span>
+                <span class="footer-version-item" title="Last Updated">
+                  <i class="far fa-clock"></i>
+                  {{ repo_version.last_updated }}
+                </span>
+              </div>
+            </div>
+          </footer>
         </main>
 
         <nav id="bottom-nav" class="bottom-nav" aria-label="Primary">

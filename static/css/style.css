@@ -23,6 +23,7 @@
 @import url("layout/header.css");
 @import url("layout/layout.css");
 @import url("layout/mobile.css");
+@import url("layout/footer.css");
 
 /* === Component Styles === */
 @import url("components/buttons.css");

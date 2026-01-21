@@ -481,12 +481,3 @@
 }
 
 /* === Version Metadata === */
-.settings-version {
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--space-3);
-  color: var(--text-secondary);
-  font-size: var(--font-size-xs);
-  margin-top: var(--space-4);
-  flex-wrap: wrap;
-}

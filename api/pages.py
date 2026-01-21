@@ -30,6 +30,7 @@ def _render_page(template_name: str, request: Request, **context: Any) -> HTMLRe
         template_name,
         {
             "request": request,
+            "repo_version": get_repo_version_info(),
             **context,
         },
     )
@@ -64,11 +65,7 @@ async def edit_trips_page(request: Request):
 @router.get("/settings", response_class=HTMLResponse)
 async def settings_page(request: Request):
     """Render settings page."""
-    return _render_page(
-        "settings.html",
-        request,
-        repo_version=get_repo_version_info(),
-    )
+    return _render_page("settings.html", request)
 
 
 @router.get("/profile", response_class=HTMLResponse)
