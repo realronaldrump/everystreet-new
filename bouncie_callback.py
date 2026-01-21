@@ -9,7 +9,7 @@ This module handles the OAuth authorization flow with Bouncie:
 from __future__ import annotations
 
 import logging
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import RedirectResponse
@@ -73,9 +73,9 @@ async def bouncie_oauth_callback(
     """
     if error:
         logger.error("Bouncie OAuth error: %s", error)
-        # Redirect to setup with error message
+        # Redirect to setup with error message (URL-encoded to prevent XSS)
         return RedirectResponse(
-            url="/setup?bouncie_error=" + error,
+            url="/setup?bouncie_error=" + quote(error, safe=""),
             status_code=302,
         )
 
@@ -107,7 +107,7 @@ async def bouncie_oauth_callback(
     except Exception as e:
         logger.exception("Error storing Bouncie authorization code")
         return RedirectResponse(
-            url="/setup?bouncie_error=" + str(e),
+            url="/setup?bouncie_error=" + quote(str(e), safe=""),
             status_code=302,
         )
 

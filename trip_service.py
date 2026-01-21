@@ -323,12 +323,6 @@ class TripService:
                     if t.get("transactionId")
                 ]
 
-                incoming_ids = [
-                    t.get("transactionId")
-                    for t in unique_trips
-                    if t.get("transactionId")
-                ]
-
                 # Query existing trips to check their status using Beanie
                 existing_docs = (
                     await Trip.find(In(Trip.transactionId, incoming_ids))
@@ -336,7 +330,6 @@ class TripService:
                     .to_list()
                 )
 
-                existing_by_id = {**existing_by_id}
                 for d in existing_docs:
                     d_dict = d.model_dump() if hasattr(d, "model_dump") else dict(d)
                     transaction_id = d_dict.get("transactionId")

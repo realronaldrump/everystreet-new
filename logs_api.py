@@ -1,6 +1,7 @@
 """API endpoints for viewing and managing server logs."""
 
 import logging
+import re
 from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any
 
@@ -64,7 +65,9 @@ async def get_server_logs(
             query_filter["level"] = level.upper()
 
         if search:
-            query_filter["message"] = {"$regex": search, "$options": "i"}
+            # Escape regex metacharacters to prevent regex injection attacks
+            escaped_search = re.escape(search)
+            query_filter["message"] = {"$regex": escaped_search, "$options": "i"}
 
         logs = (
             await ServerLog.find(query_filter).sort("-timestamp").limit(limit).to_list()
