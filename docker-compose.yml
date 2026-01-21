@@ -4,7 +4,8 @@
 
 services:
   web:
-    image: ghcr.io/realronaldrump/everystreet-new:latest
+    image: ghcr.io/realronaldrump/everystreet-new:main
+
     restart: unless-stopped
     ports:
       - "8080:8080"
