@@ -496,6 +496,10 @@ function bindEventListeners() {
     ?.addEventListener("click", completeSetup);
 
   document
+    .getElementById("connectBouncieBtn")
+    ?.addEventListener("click", handleConnectBouncie);
+
+  document
     .getElementById("syncVehiclesBtn")
     ?.addEventListener("click", syncVehiclesFromBouncie);
 
@@ -732,6 +736,61 @@ async function syncVehiclesFromBouncie() {
   } catch (error) {
     showStatus("setup-bouncie-status", error.message, true);
   } finally {
+    setActionInFlight(false);
+  }
+}
+
+async function handleConnectBouncie(e) {
+  e.preventDefault();
+  if (sessionReadOnly || actionInFlight) {
+    showStatus(
+      "setup-bouncie-status",
+      "Setup is locked while another step is running.",
+      true
+    );
+    return;
+  }
+
+  // 1. Validate form values
+  const values = getBouncieFormValues();
+  if (!values.client_id || !values.client_secret || !values.redirect_uri) {
+    showStatus("setup-bouncie-status", "Please enter all credentials first.", true);
+    return;
+  }
+
+  // 2. Save credentials (without advancing step)
+  // We use saveBouncieCredentials but need to establish it doesn't navigate away
+  // saveBouncieCredentials(false) is what we want.
+  setActionInFlight(true);
+  try {
+    showStatus("setup-bouncie-status", "Saving credentials before connecting...", false);
+    
+    // Using the existing save function logic but inline or calling it?
+    // calling saveBouncieCredentials directly might be easier if it supports no-navigation.
+    // It does support `advance=false` as argument.
+    
+    const response = await apiClient.raw(
+      `${PROFILE_API}/bouncie-credentials`,
+      withSignal({
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...values }),
+      })
+    );
+    
+    if (!response.ok) {
+        const data = await readJsonResponse(response);
+        throw new Error(responseErrorMessage(response, data, "Failed to save credentials"));
+    }
+    
+    clearDirty("bouncie");
+    showStatus("setup-bouncie-status", "Redirecting to Bouncie...", false);
+    
+    // 3. Redirect to authorize
+    window.location.href = "/api/bouncie/authorize";
+    
+  } catch (error) {
+    showStatus("setup-bouncie-status", error.message, true);
     setActionInFlight(false);
   }
 }
