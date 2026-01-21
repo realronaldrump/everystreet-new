@@ -1,18 +1,20 @@
-# /Users/davis/my-apps/everystreet-new/docker-compose.yml
 # Production setup for Linux mini PC
 # Includes self-hosted Nominatim (geocoding) and Valhalla (routing)
+# Web/Worker pull prebuilt images from GHCR for hands-off updates via Watchtower
 
 services:
   web:
-    build: .
+    image: ghcr.io/realronaldrump/everystreet-new:latest
     restart: unless-stopped
     ports:
-      - '8080:8080'
+      - "8080:8080"
     env_file: .env
     command: uvicorn app:app --host 0.0.0.0 --port 8080 --proxy-headers --forwarded-allow-ips='*'
     volumes:
       - osm_extracts:/osm
       - /var/run/docker.sock:/var/run/docker.sock
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
     depends_on:
       mongo-init:
         condition: service_completed_successfully
@@ -26,13 +28,15 @@ services:
       - default
 
   worker:
-    build: .
+    image: ghcr.io/realronaldrump/everystreet-new:latest
     restart: unless-stopped
     command: arq tasks.worker.WorkerSettings
     env_file: .env
     volumes:
       - osm_extracts:/osm
       - /var/run/docker.sock:/var/run/docker.sock
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
     depends_on:
       mongo-init:
         condition: service_completed_successfully
@@ -45,11 +49,11 @@ services:
     image: redis:7-alpine
     restart: unless-stopped
     expose:
-      - '6379'
+      - "6379"
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ['CMD', 'redis-cli', 'ping']
+      test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -61,7 +65,7 @@ services:
     image: mongo:7
     restart: unless-stopped
     expose:
-      - '27017'
+      - "27017"
     volumes:
       - mongo_data:/data/db
     ulimits:
@@ -72,7 +76,7 @@ services:
     healthcheck:
       test:
         [
-          'CMD-SHELL',
+          "CMD-SHELL",
           "mongosh --quiet --eval 'db.adminCommand({ ping: 1 }).ok' | grep 1 >/dev/null",
         ]
       interval: 10s
@@ -107,28 +111,24 @@ services:
       - default
 
   # Nominatim - Self-hosted geocoding service
-  # NOTE: This service starts without data. Use the app's Map Data UI to download
-  # and import OSM extracts. The service will be unavailable until data is imported.
+  # NOTE: Starts without data. Use the app's Map Data UI to download/import OSM extracts.
   nominatim:
     image: mediagis/nominatim:4.4
     restart: unless-stopped
-    entrypoint: ['/bin/sh', '/app/nominatim-entrypoint.sh']
+    entrypoint: ["/bin/sh", "/app/nominatim-entrypoint.sh"]
     environment:
-      # Don't specify PBF_PATH or PBF_URL - data will be imported via app UI
-      # The container will exit if no data is provided, which is expected
-      REPLICATION_URL: ''
+      REPLICATION_URL: ""
       IMPORT_STYLE: street
-      THREADS: '4'
+      THREADS: "4"
     volumes:
       - nominatim_data:/var/lib/postgresql/14/main
       - nominatim_flatnode:/nominatim/flatnode
       - osm_extracts:/nominatim/data
       - ./docker/nominatim-entrypoint.sh:/app/nominatim-entrypoint.sh:ro
     expose:
-      - '8080'
+      - "8080"
     healthcheck:
-      # Check if PostgreSQL is running (required for imports) or Nominatim HTTP is responding
-      test: ['CMD-SHELL', 'pgrep -f postgres || curl -sf http://localhost:8080/status >/dev/null']
+      test: ["CMD-SHELL", "pgrep -f postgres || curl -sf http://localhost:8080/status >/dev/null"]
       interval: 15s
       timeout: 10s
       retries: 3
@@ -138,32 +138,30 @@ services:
     shm_size: 1g
 
   # Valhalla - Self-hosted routing engine
-  # NOTE: This service starts without tiles. Use the app's Map Data UI to download
-  # OSM extracts and build routing tiles. The service will be unavailable until tiles are built.
+  # NOTE: Starts without tiles. Use the app's Map Data UI to build tiles.
   valhalla:
     image: ghcr.io/gis-ops/docker-valhalla/valhalla:3.5.1
     restart: unless-stopped
-    entrypoint: ['/bin/sh', '/valhalla/valhalla-entrypoint.sh']
+    entrypoint: ["/bin/sh", "/valhalla/valhalla-entrypoint.sh"]
     environment:
-      tile_urls: ''
-      serve_tiles: 'True'
-      build_elevation: 'False'
-      build_admins: 'True'
-      build_time_zones: 'True'
-      use_tiles_ignore_pbf: 'True'
-      force_rebuild: 'False'
+      tile_urls: ""
+      serve_tiles: "True"
+      build_elevation: "False"
+      build_admins: "True"
+      build_time_zones: "True"
+      use_tiles_ignore_pbf: "True"
+      force_rebuild: "False"
     volumes:
       - valhalla_tiles:/custom_files
       - osm_extracts:/data/osm:ro
       - ./docker/valhalla-entrypoint.sh:/valhalla/valhalla-entrypoint.sh:ro
     expose:
-      - '8002'
+      - "8002"
     healthcheck:
-      # Container is healthy if entrypoint script is running (waiting for tiles) or valhalla_service is running
       test:
         [
-          'CMD-SHELL',
-          'pgrep -f "sleep 5" || pgrep -f valhalla_service || curl -sf http://localhost:8002/status >/dev/null',
+          "CMD-SHELL",
+          "pgrep -f \"sleep 5\" || pgrep -f valhalla_service || curl -sf http://localhost:8002/status >/dev/null",
         ]
       interval: 15s
       timeout: 10s
@@ -172,18 +170,13 @@ services:
     networks:
       - default
 
-  # Watchtower - Automatic container updates
-  # Monitors running containers and updates them when new images are available
+  # Watchtower - Automatic container updates (ONLY labeled containers)
   watchtower:
     image: containrrr/watchtower
     restart: unless-stopped
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-    command: --interval 300 --cleanup --include-restarting
-    environment:
-      WATCHTOWER_CLEANUP: 'true'
-      WATCHTOWER_INCLUDE_RESTARTING: 'true'
-      WATCHTOWER_ROLLING_RESTART: 'true'
+    command: --interval 300 --cleanup --include-restarting --rolling-restart --label-enable
     networks:
       - default
 
