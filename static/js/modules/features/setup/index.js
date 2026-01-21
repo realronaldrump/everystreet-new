@@ -391,6 +391,10 @@ function showNavigationBlockedNotice() {
 async function initializeSetup() {
   bindEventListeners();
   sessionClientId = getSessionClientId();
+
+  // Show the first step immediately to avoid blank state
+  showStep(1); // Default to Bouncie step
+
   await initSetupSession();
   await loadBouncieCredentials();
   await loadServiceConfig();
