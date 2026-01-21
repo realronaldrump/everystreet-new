@@ -420,6 +420,63 @@
     await loadServiceConfig();
     await loadGeofabrikRegions();
     updateResumeCta();
+    checkBouncieRedirectStatus();
+    await updateBouncieConnectionStatus();
+  }
+
+  function checkBouncieRedirectStatus() {
+    const params = new URLSearchParams(window.location.search);
+    const connected = params.get("bouncie_connected");
+    const error = params.get("bouncie_error");
+
+    if (connected === "true") {
+      showStatus(
+        "setup-bouncie-status",
+        "Successfully connected to Bouncie! Click 'Sync Vehicles' to fetch your devices.",
+        false
+      );
+      // Clear the query params from URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (error) {
+      let errorMsg = "Failed to connect to Bouncie.";
+      if (error === "missing_code") {
+        errorMsg = "OAuth callback did not receive authorization code.";
+      } else if (error === "storage_failed") {
+        errorMsg = "Failed to save authorization. Please try again.";
+      } else {
+        errorMsg = `OAuth error: ${error}`;
+      }
+      showStatus("setup-bouncie-status", errorMsg, true);
+      // Clear the query params from URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }
+
+  async function updateBouncieConnectionStatus() {
+    try {
+      const response = await fetch(`${PROFILE_API.replace('/profile', '/bouncie')}/status`, withSignal());
+      const data = await readJsonResponse(response);
+      if (response.ok && data) {
+        const connectBtn = document.getElementById("connectBouncieBtn");
+        const syncBtn = document.getElementById("syncVehiclesBtn");
+        if (data.connected) {
+          if (connectBtn) {
+            connectBtn.textContent = "Reconnect with Bouncie";
+            connectBtn.classList.remove("btn-success");
+            connectBtn.classList.add("btn-outline-success");
+          }
+          if (syncBtn) {
+            syncBtn.disabled = false;
+          }
+        } else {
+          if (syncBtn) {
+            syncBtn.disabled = true;
+          }
+        }
+      }
+    } catch (_error) {
+      // Silently fail - status check is optional
+    }
   }
 
   function bindEventListeners() {

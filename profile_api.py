@@ -18,7 +18,7 @@ from bouncie_credentials import (
     update_bouncie_credentials,
     validate_bouncie_credentials,
 )
-from config import API_BASE_URL, AUTH_URL
+from config import API_BASE_URL
 from core.http.session import get_session
 from db.models import Vehicle
 
@@ -145,52 +145,32 @@ async def sync_vehicles_from_bouncie():
 
     try:
         credentials = await get_bouncie_credentials()
-        client_id = credentials.get("client_id")
-        client_secret = credentials.get("client_secret")
-        auth_code = credentials.get("authorization_code")
-        redirect_uri = credentials.get("redirect_uri")
 
-        if not all([client_id, client_secret]):
+        if not credentials.get("client_id") or not credentials.get("client_secret"):
             _raise_http(
                 status_code=400,
                 detail="Bouncie credentials (Client ID, Secret) are missing",
             )
 
+        if not credentials.get("authorization_code"):
+            _raise_http(
+                status_code=400,
+                detail="Not connected to Bouncie. Please click 'Connect with Bouncie' first.",
+            )
+
+        # Use centralized OAuth service to get access token
+        from bouncie_oauth import BouncieOAuth
+
         session = await get_session()
-
-        # 1. Get Access Token
-        payload = {
-            "client_id": client_id,
-            "client_secret": client_secret,
-            "grant_type": "authorization_code",
-            "code": auth_code,
-            "redirect_uri": redirect_uri,
-        }
-
-        # Handle optional redirect_uri
-        if not redirect_uri:
-            payload.pop("redirect_uri", None)
-
-        token = None
-        async with session.post(AUTH_URL, data=payload) as auth_response:
-            if auth_response.status != 200:
-                error_text = await auth_response.text()
-                logger.error(
-                    "Bouncie auth failed: %s - %s",
-                    auth_response.status,
-                    error_text,
-                )
-                _raise_http(
-                    status_code=400,
-                    detail=f"Failed to authenticate with Bouncie: {error_text}",
-                )
-            auth_data = await auth_response.json()
-            token = auth_data.get("access_token")
+        token = await BouncieOAuth.get_access_token(
+            session=session,
+            credentials=credentials,
+        )
 
         if not token:
             _raise_http(
-                status_code=500,
-                detail="No access token received from Bouncie",
+                status_code=401,
+                detail="Failed to authenticate with Bouncie. Please reconnect.",
             )
 
         # 2. Fetch Vehicles
