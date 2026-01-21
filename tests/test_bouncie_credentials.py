@@ -26,6 +26,7 @@ async def test_validate_bouncie_credentials_missing_fields() -> None:
 
 @pytest.mark.asyncio
 async def test_validate_bouncie_credentials_requires_devices() -> None:
+    # It is now valid to have no devices
     ok, message = await validate_bouncie_credentials(
         {
             "client_id": "client",
@@ -34,8 +35,8 @@ async def test_validate_bouncie_credentials_requires_devices() -> None:
             "authorized_devices": [],
         },
     )
-    assert not ok
-    assert message == "At least one authorized device (IMEI) is required"
+    assert ok
+    assert message == ""
 
 
 @pytest.mark.asyncio
@@ -129,21 +130,21 @@ async def test_update_bouncie_credentials_updates_existing(bouncie_db) -> None:
     )
     assert creds.client_id == "updated-client"
     assert creds.client_secret == "old-secret"  # unchanged
-    assert creds.fetch_concurrency == 20
+    assert creds.fetch_concurrency == 12  # Should remain default
 
 
 @pytest.mark.asyncio
 async def test_update_bouncie_credentials_clamps_concurrency(bouncie_db) -> None:
-    """update_bouncie_credentials should clamp fetch_concurrency to valid range."""
+    """update_bouncie_credentials should ignore fetch_concurrency updates."""
     await update_bouncie_credentials({"fetch_concurrency": 100})
 
     creds = await BouncieCredentials.find_one(
         BouncieCredentials.id == "bouncie_credentials",
     )
-    assert creds.fetch_concurrency == 50  # max clamped
+    assert creds.fetch_concurrency == 12  # Should remain default
 
     await update_bouncie_credentials({"fetch_concurrency": 0})
     creds = await BouncieCredentials.find_one(
         BouncieCredentials.id == "bouncie_credentials",
     )
-    assert creds.fetch_concurrency == 1  # min clamped
+    assert creds.fetch_concurrency == 12  # Should remain default

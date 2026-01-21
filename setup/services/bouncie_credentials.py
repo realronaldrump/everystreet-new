@@ -124,16 +124,7 @@ async def update_bouncie_credentials(credentials: dict[str, Any]) -> bool:
                     elif not isinstance(devices, list):
                         devices = []
                     existing.authorized_devices = devices
-                elif key == "fetch_concurrency":
-                    try:
-                        fetch_concurrency = int(value)
-                        if fetch_concurrency < 1:
-                            fetch_concurrency = 1
-                        elif fetch_concurrency > 50:
-                            fetch_concurrency = 50
-                        existing.fetch_concurrency = fetch_concurrency
-                    except (ValueError, TypeError):
-                        pass
+                    existing.authorized_devices = devices
                 elif key == "access_token":
                     existing.access_token = value
                 elif key == "refresh_token":
@@ -163,18 +154,7 @@ async def update_bouncie_credentials(credentials: dict[str, Any]) -> bool:
                 elif not isinstance(devices, list):
                     devices = []
                 new_creds.authorized_devices = devices
-            if "fetch_concurrency" in credentials:
-                try:
-                    fetch_concurrency = int(credentials["fetch_concurrency"])
-                    if fetch_concurrency < 1:
-                        fetch_concurrency = 1
-                    elif fetch_concurrency > 50:
-                        fetch_concurrency = 50
-                    new_creds.fetch_concurrency = fetch_concurrency
-                except (ValueError, TypeError):
-                    new_creds.fetch_concurrency = 12
-            else:
-                new_creds.fetch_concurrency = 12
+            new_creds.fetch_concurrency = 12
 
             if "access_token" in credentials:
                 new_creds.access_token = credentials["access_token"]
@@ -216,9 +196,6 @@ async def validate_bouncie_credentials(credentials: dict[str, Any]) -> tuple[boo
     for field in required_fields:
         if not credentials.get(field):
             return False, f"Missing required field: {field}"
-
-    if not credentials.get("authorized_devices"):
-        return False, "At least one authorized device (IMEI) is required"
 
     return True, ""
 

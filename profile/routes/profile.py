@@ -36,8 +36,7 @@ class BouncieCredentials(BaseModel):
     client_secret: str
     redirect_uri: str
     authorization_code: str | None = None
-    authorized_devices: list[str] | str
-    fetch_concurrency: int | None = None
+    authorized_devices: list[str] | str | None = None
 
 
 @router.get("/api/profile/bouncie-credentials", response_model=dict[str, Any])

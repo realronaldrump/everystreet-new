@@ -41,7 +41,6 @@ const dirtyState = {
   bouncie: false,
   mapbox: false,
 };
-let currentDevices = [];
 let selectedRegion = null;
 let currentRegionPath = [];
 let mapPreview = null;
@@ -322,10 +321,6 @@ function applyLockState() {
     }
   });
 
-  document.querySelectorAll("#devicesList input, #devicesList button").forEach((el) => {
-    el.disabled = locked;
-  });
-
   setRegionControlsLocked(locked || isStepLocked());
 }
 
@@ -418,6 +413,11 @@ function checkBouncieRedirectStatus() {
     );
     // Clear the query params from URL
     window.history.replaceState({}, document.title, window.location.pathname);
+    
+    // Automatically trigger vehicle sync
+    if (document.getElementById("syncVehiclesBtn")) {
+      syncVehiclesFromBouncie();
+    }
   } else if (error) {
     let errorMsg = "Failed to connect to Bouncie.";
     if (error === "missing_code") {
@@ -439,22 +439,10 @@ async function updateBouncieConnectionStatus() {
       `${PROFILE_API.replace("/profile", "/bouncie")}/status`,
       withSignal()
     );
-    const data = await readJsonResponse(response);
     if (response.ok && data) {
-      const connectBtn = document.getElementById("connectBouncieBtn");
-      const syncBtn = document.getElementById("syncVehiclesBtn");
-      if (data.connected) {
-        if (connectBtn) {
-          connectBtn.textContent = "Reconnect with Bouncie";
-          connectBtn.classList.remove("btn-success");
-          connectBtn.classList.add("btn-outline-success");
-        }
         if (syncBtn) {
-          syncBtn.disabled = false;
+          syncBtn.disabled = !data.connected;
         }
-      } else if (syncBtn) {
-        syncBtn.disabled = true;
-      }
     }
   } catch (_error) {
     // Silently fail - status check is optional
@@ -501,7 +489,6 @@ function bindEventListeners() {
     .getElementById("complete-setup-btn")
     ?.addEventListener("click", completeSetup);
 
-  document.getElementById("addDeviceBtn")?.addEventListener("click", addDeviceInput);
   document
     .getElementById("syncVehiclesBtn")
     ?.addEventListener("click", syncVehiclesFromBouncie);
@@ -522,7 +509,7 @@ function bindEventListeners() {
     ?.addEventListener("click", handleBreadcrumbClick);
   document.getElementById("region-list")?.addEventListener("click", handleRegionClick);
 
-  ["clientId", "clientSecret", "redirectUri", "fetchConcurrency"].forEach((id) => {
+  ["clientId", "clientSecret", "redirectUri"].forEach((id) => {
     document.getElementById(id)?.addEventListener("input", () => markDirty("bouncie"));
   });
 
@@ -650,85 +637,12 @@ async function loadBouncieCredentials() {
     document.getElementById("clientId").value = creds.client_id || "";
     document.getElementById("clientSecret").value = creds.client_secret || "";
     document.getElementById("redirectUri").value = creds.redirect_uri || "";
-    document.getElementById("fetchConcurrency").value = creds.fetch_concurrency || 12;
-    currentDevices = Array.isArray(creds.authorized_devices)
-      ? creds.authorized_devices
-      : [];
-    renderDevices();
     clearDirty("bouncie");
   } catch (_error) {
     showStatus("setup-bouncie-status", "Unable to load credentials", true);
   }
 }
 
-function renderDevices() {
-  const container = document.getElementById("devicesList");
-  if (!container) {
-    return;
-  }
-  if (!Array.isArray(currentDevices) || currentDevices.length === 0) {
-    currentDevices = [""];
-  }
-  container.innerHTML = "";
-  currentDevices.forEach((device, index) => {
-    const wrapper = document.createElement("div");
-    wrapper.className = "input-group mb-2";
-
-    const input = document.createElement("input");
-    input.type = "text";
-    input.className = "form-control";
-    input.placeholder = "Enter device IMEI";
-    input.value = device || "";
-    input.disabled = sessionReadOnly || actionInFlight || isStepLocked();
-    input.addEventListener("input", (event) => {
-      currentDevices[index] = event.target.value;
-      markDirty("bouncie");
-    });
-
-    const removeBtn = document.createElement("button");
-    removeBtn.type = "button";
-    removeBtn.className = "btn btn-outline-danger";
-    removeBtn.innerHTML = '<i class="fas fa-trash"></i>';
-    removeBtn.disabled = sessionReadOnly || actionInFlight || isStepLocked();
-    removeBtn.addEventListener("click", () => removeDeviceInput(index));
-
-    wrapper.appendChild(input);
-    wrapper.appendChild(removeBtn);
-    container.appendChild(wrapper);
-  });
-}
-
-function addDeviceInput() {
-  if (sessionReadOnly || actionInFlight || isStepLocked()) {
-    showStatus(
-      "setup-bouncie-status",
-      "Setup is locked while another step runs.",
-      true
-    );
-    return;
-  }
-  currentDevices.push("");
-  markDirty("bouncie");
-  renderDevices();
-}
-
-function removeDeviceInput(index) {
-  if (sessionReadOnly || actionInFlight || isStepLocked()) {
-    showStatus(
-      "setup-bouncie-status",
-      "Setup is locked while another step runs.",
-      true
-    );
-    return;
-  }
-  if (currentDevices.length <= 1) {
-    showStatus("setup-bouncie-status", "At least one device is required.", true);
-    return;
-  }
-  currentDevices.splice(index, 1);
-  markDirty("bouncie");
-  renderDevices();
-}
 
 async function saveBouncieCredentials(advance = false) {
   if (!sessionId || !sessionVersion) {
@@ -743,8 +657,7 @@ async function saveBouncieCredentials(advance = false) {
     );
     return;
   }
-  const values = getBouncieFormValues(currentDevices);
-  const devices = values.authorized_devices.filter((device) => device.length > 0);
+  const values = getBouncieFormValues();
 
   if (!values.client_id || !values.client_secret) {
     showStatus("setup-bouncie-status", "All credential fields are required.", true);
@@ -754,12 +667,6 @@ async function saveBouncieCredentials(advance = false) {
     showStatus("setup-bouncie-status", "Redirect URI is required.", true);
     return;
   }
-  if (devices.length === 0) {
-    showStatus("setup-bouncie-status", "Add at least one authorized device.", true);
-    return;
-  }
-
-  setActionInFlight(true);
   let shouldAdvance = false;
   try {
     showStatus("setup-bouncie-status", "Saving credentials...", false);
@@ -770,7 +677,6 @@ async function saveBouncieCredentials(advance = false) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...values,
-          authorized_devices: devices,
         }),
       })
     );
@@ -810,13 +716,6 @@ async function syncVehiclesFromBouncie() {
       withSignal({ method: "POST" })
     );
     const data = await readJsonResponse(response);
-    if (!response.ok) {
-      throw new Error(responseErrorMessage(response, data, "Failed to sync vehicles"));
-    }
-    currentDevices = Array.isArray(data.authorized_devices)
-      ? data.authorized_devices
-      : currentDevices;
-    renderDevices();
     clearDirty("bouncie");
     showStatus("setup-bouncie-status", data?.message || "Vehicles synced.", false);
   } catch (error) {
