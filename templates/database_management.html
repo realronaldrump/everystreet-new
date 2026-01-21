@@ -109,5 +109,6 @@ N/A
 
 {% block extra_js %}
 
-  <script src="{{ url_for('static', path='js/database-management.js') | replace('http://', '//') }}"></script>
+  <script type="module"
+          src="{{ url_for('static', path='js/pages/database-management.js') | replace('http://', '//') }}"></script>
 {% endblock %}

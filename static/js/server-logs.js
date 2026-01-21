@@ -1,4 +1,9 @@
-window.utils?.onPageLoad(
+import apiClient from "./modules/core/api-client.js";
+import confirmationDialog from "./modules/ui/confirmation-dialog.js";
+import notificationManager from "./modules/ui/notifications.js";
+import { onPageLoad } from "./modules/utils.js";
+
+onPageLoad(
   ({ signal, cleanup } = {}) => {
     // DOM elements
     const logsContainer = document.getElementById("logs-container");
@@ -119,15 +124,10 @@ window.utils?.onPageLoad(
      */
     async function loadStats() {
       try {
-        const response = await fetch("/api/server-logs/stats");
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const data = await response.json();
+        const data = await apiClient.get("/api/server-logs/stats");
         updateStatsDisplay(data);
       } catch {
-        window.notificationManager?.show("Failed to load log statistics", "warning");
+        notificationManager.show("Failed to load log statistics", "warning");
       }
     }
 
@@ -172,12 +172,7 @@ window.utils?.onPageLoad(
           params.append("search", searchFilter.value.trim());
         }
 
-        const response = await fetch(`/api/server-logs?${params.toString()}`);
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const data = await response.json();
+        const data = await apiClient.get(`/api/server-logs?${params.toString()}`);
         currentLogs = data.logs;
         displayLogs(data);
       } catch {
@@ -190,7 +185,7 @@ window.utils?.onPageLoad(
           </button>
         </div>
       `;
-        window.notificationManager?.show("Failed to load logs", "danger");
+        notificationManager.show("Failed to load logs", "danger");
       }
     }
 
@@ -328,9 +323,9 @@ window.utils?.onPageLoad(
           copyBtn.classList.add("btn-outline-secondary");
         }, 1500);
 
-        window.notificationManager?.show("Log entry copied to clipboard", "success");
+        notificationManager.show("Log entry copied to clipboard", "success");
       } catch {
-        window.notificationManager?.show("Failed to copy log entry", "danger");
+        notificationManager.show("Failed to copy log entry", "danger");
       }
     }
 
@@ -339,7 +334,7 @@ window.utils?.onPageLoad(
      */
     async function copyAllLogs() {
       if (currentLogs.length === 0) {
-        window.notificationManager?.show(
+        notificationManager.show(
           "No logs to copy. Please load logs first.",
           "warning"
         );
@@ -378,12 +373,12 @@ window.utils?.onPageLoad(
 
         await navigator.clipboard.writeText(allLogsText);
 
-        window.notificationManager?.show(
+        notificationManager.show(
           `Copied ${currentLogs.length} log entries to clipboard`,
           "success"
         );
       } catch {
-        window.notificationManager?.show("Failed to copy logs", "danger");
+        notificationManager.show("Failed to copy logs", "danger");
       }
     }
 
@@ -392,7 +387,7 @@ window.utils?.onPageLoad(
      */
     async function clearLogs() {
       try {
-        const confirmed = await window.confirmationDialog.show({
+        const confirmed = await confirmationDialog.show({
           title: "Clear Server Logs",
           message:
             "Are you sure you want to clear all server logs? This action cannot be undone.",
@@ -406,17 +401,9 @@ window.utils?.onPageLoad(
 
         setButtonLoading(clearLogsBtn, true);
 
-        const response = await fetch("/api/server-logs", {
-          method: "DELETE",
-        });
+        const result = await apiClient.delete("/api/server-logs");
 
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const result = await response.json();
-
-        window.notificationManager?.show(
+        notificationManager.show(
           `Successfully cleared ${result.deleted_count} log entries`,
           "success"
         );
@@ -424,7 +411,7 @@ window.utils?.onPageLoad(
         // Reload logs and stats
         await Promise.all([loadLogs(), loadStats()]);
       } catch {
-        window.notificationManager?.show("Failed to clear logs", "danger");
+        notificationManager.show("Failed to clear logs", "danger");
       } finally {
         setButtonLoading(clearLogsBtn, false);
       }
@@ -435,7 +422,7 @@ window.utils?.onPageLoad(
      */
     function exportLogs() {
       if (currentLogs.length === 0) {
-        window.notificationManager?.show(
+        notificationManager.show(
           "No logs to export. Please load logs first.",
           "warning"
         );
@@ -454,9 +441,9 @@ window.utils?.onPageLoad(
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
 
-        window.notificationManager?.show("Logs exported successfully", "success");
+        notificationManager.show("Logs exported successfully", "success");
       } catch {
-        window.notificationManager?.show("Failed to export logs", "danger");
+        notificationManager.show("Failed to export logs", "danger");
       }
     }
 
@@ -478,7 +465,7 @@ window.utils?.onPageLoad(
           loadStats();
         }, 30000);
 
-        window.notificationManager?.show(
+        notificationManager.show(
           "Auto-refresh enabled (every 30 seconds)",
           "info"
         );
@@ -492,7 +479,7 @@ window.utils?.onPageLoad(
           autoRefreshInterval = null;
         }
 
-        window.notificationManager?.show("Auto-refresh disabled", "info");
+        notificationManager.show("Auto-refresh disabled", "info");
       }
     }
 

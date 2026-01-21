@@ -5,8 +5,11 @@
  */
 /* global mapboxgl */
 
-import { CONFIG } from "./config.js";
-import state from "./state.js";
+import { CONFIG } from "./core/config.js";
+import apiClient from "./core/api-client.js";
+import state from "./core/store.js";
+import MapStyles from "./map-styles.js";
+import notificationManager from "./ui/notifications.js";
 import { createElement, escapeHtml, utils } from "./utils.js";
 
 const searchManager = {
@@ -81,7 +84,7 @@ const searchManager = {
         if (index >= 0 && this.currentResults[index]) {
           this.selectResult(this.currentResults[index]);
         } else {
-          window.notificationManager?.show("No results to select", "warning", 2000);
+          notificationManager.show("No results to select", "warning", 2000);
         }
       } else if (e.key === "Escape") {
         this.hideResults();
@@ -154,7 +157,7 @@ const searchManager = {
       this.displayResults(results);
 
       if (!results || results.length === 0) {
-        window.notificationManager?.show("No results found", "info", 2000);
+        notificationManager.show("No results found", "info", 2000);
       }
     } catch (error) {
       if (error.name === "AbortError") {
@@ -173,18 +176,13 @@ const searchManager = {
       }
 
       const controller = state.createAbortController("search");
-      const response = await fetch(url, { signal: controller.signal });
+      const data = await apiClient.get(url, { signal: controller.signal });
 
       // Check if this search is still current
       if (searchId !== this.currentSearchId) {
         return [];
       }
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-
-      const data = await response.json();
       const features = data.features || [];
 
       return features.map((feature) => {
@@ -225,7 +223,7 @@ const searchManager = {
       }
 
       const controller = state.createAbortController("search");
-      const response = await fetch(
+      const data = await apiClient.get(
         `${CONFIG.API.searchGeocode}?query=${encodeURIComponent(query)}&limit=5${proximityParams}`,
         { signal: controller.signal }
       );
@@ -235,11 +233,6 @@ const searchManager = {
         return [];
       }
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-
-      const data = await response.json();
       const results = data.results || [];
 
       return results.map((result) => {
@@ -444,7 +437,7 @@ const searchManager = {
           source: this.highlightSourceId,
           paint: {
             "line-color":
-              window.MapStyles?.MAP_LAYER_COLORS?.trips?.selected || "#FFD700",
+              MapStyles.MAP_LAYER_COLORS?.trips?.selected || "#FFD700",
             "line-width": ["interpolate", ["linear"], ["zoom"], 10, 3, 15, 6, 20, 12],
             "line-opacity": 0.9,
           },
@@ -478,14 +471,14 @@ const searchManager = {
         ? ` (${result.feature.properties.segment_count} segments)`
         : "";
 
-      window.notificationManager?.show(
+      notificationManager.show(
         `Highlighted: ${escapeHtml(result.name)}${segmentInfo}`,
         "success",
         3000
       );
     } catch (error) {
       console.error("Error highlighting street:", error);
-      window.notificationManager?.show("Failed to highlight street", "warning", 3000);
+      notificationManager.show("Failed to highlight street", "warning", 3000);
     }
   },
 
@@ -511,7 +504,7 @@ const searchManager = {
     popupContent.appendChild(document.createTextNode(result.subtitle));
 
     this.searchMarkerId = new mapboxgl.Marker({
-      color: window.MapStyles?.MAP_LAYER_COLORS?.trips?.selected || "#FFD700",
+      color: MapStyles.MAP_LAYER_COLORS?.trips?.selected || "#FFD700",
     })
       .setLngLat([lng, lat])
       .setPopup(new mapboxgl.Popup({ offset: 25 }).setDOMContent(popupContent))
@@ -534,7 +527,7 @@ const searchManager = {
       state.map.flyTo({ center: [lng, lat], zoom: 14, duration: 1000 });
     }
 
-    window.notificationManager?.show(
+    notificationManager.show(
       `Navigated to: ${escapeHtml(result.name)}`,
       "success",
       3000

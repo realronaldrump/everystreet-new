@@ -1,6 +1,12 @@
 /* global mapboxgl, MapboxDraw */
 
-window.utils?.onPageLoad(
+import apiClient from "./modules/core/api-client.js";
+import { createMap } from "./modules/map-base.js";
+import MapStyles from "./modules/map-styles.js";
+import notificationManager from "./modules/ui/notifications.js";
+import { DateUtils, getStorage, onPageLoad, setStorage } from "./modules/utils.js";
+
+onPageLoad(
   ({ cleanup } = {}) => {
     let editMap = null;
     let draw = null;
@@ -25,7 +31,7 @@ window.utils?.onPageLoad(
         return;
       }
 
-      editMap = window.mapBase.createMap(mapEl.id, {
+      editMap = createMap(mapEl.id, {
         center: [-95.7129, 37.0902],
         zoom: 4,
       });
@@ -60,7 +66,7 @@ window.utils?.onPageLoad(
         type: "line",
         source: tripsSourceId,
         paint: {
-          "line-color": window.MapStyles?.getTripStyle?.("default")?.color || "#3388ff",
+          "line-color": MapStyles.getTripStyle?.("default")?.color || "#3388ff",
           "line-width": 3,
           "line-opacity": 0.8,
         },
@@ -199,22 +205,22 @@ window.utils?.onPageLoad(
         const endInput = document.getElementById("end-date");
         const startDate
           = startInput?.value
-          || window.utils.getStorage("startDate")
-          || window.DateUtils.getYesterday();
+          || getStorage("startDate")
+          || DateUtils.getYesterday();
         const endDate
           = endInput?.value
-          || window.utils.getStorage("endDate")
-          || window.DateUtils.getYesterday();
+          || getStorage("endDate")
+          || DateUtils.getYesterday();
 
         // Validate date range
-        if (!window.DateUtils.isValidDateRange(startDate, endDate)) {
+        if (!DateUtils.isValidDateRange(startDate, endDate)) {
           throw new Error(
             "Invalid date range. Start date must be before or equal to end date."
           );
         }
 
-        window.utils.setStorage("startDate", startDate);
-        window.utils.setStorage("endDate", endDate);
+        setStorage("startDate", startDate);
+        setStorage("endDate", endDate);
 
         const tripTypeSelect = document.getElementById("tripType");
         if (!tripTypeSelect) {
@@ -227,7 +233,7 @@ window.utils?.onPageLoad(
             ? `/api/matched_trips?start_date=${startDate}&end_date=${endDate}`
             : `/api/trips?start_date=${startDate}&end_date=${endDate}`;
 
-        const res = await fetch(url);
+        const res = await apiClient.raw(url);
         if (!res.ok) {
           throw new Error("Failed to fetch trips");
         }
@@ -242,12 +248,7 @@ window.utils?.onPageLoad(
         displayTripsOnMap(data.features);
       } catch (error) {
         console.error("Error loading trips:", error);
-        if (window.notificationManager) {
-          window.notificationManager.show(
-            `Error loading trips: ${error.message}`,
-            "danger"
-          );
-        }
+        notificationManager.show(`Error loading trips: ${error.message}`, "danger");
       }
     }
 
@@ -341,7 +342,7 @@ window.utils?.onPageLoad(
         return;
       }
 
-      const style = window.MapStyles?.getTripStyle?.(styleType) || {
+      const style = MapStyles.getTripStyle?.(styleType) || {
         color: styleType === "selected" ? "#ffd700" : "#3388ff",
         weight: 3,
         opacity: 0.8,
@@ -358,7 +359,7 @@ window.utils?.onPageLoad(
         "case",
         ["boolean", ["feature-state", "selected"], false],
         style.color,
-        window.MapStyles?.getTripStyle?.("default")?.color || "#3388ff",
+        MapStyles.getTripStyle?.("default")?.color || "#3388ff",
       ]);
       editMap.setPaintProperty(tripsLayerId, "line-width", [
         "case",
@@ -509,7 +510,7 @@ window.utils?.onPageLoad(
 
     async function saveTripChanges() {
       if (!currentTrip) {
-        window.notificationManager?.show("No trip selected to save.", "warning");
+        notificationManager.show("No trip selected to save.", "warning");
         return;
       }
 
@@ -519,7 +520,7 @@ window.utils?.onPageLoad(
 
         if (!tripId) {
           console.error("Error: transactionId is undefined.", currentTrip);
-          window.notificationManager?.show(
+          notificationManager.show(
             "Error: Could not find the trip ID to save changes.",
             "danger"
           );
@@ -531,7 +532,7 @@ window.utils?.onPageLoad(
         const baseUrl = isMatchedTrip ? "/api/matched_trips" : "/api/trips";
         const url = `${baseUrl}/${tripId}`;
 
-        const response = await fetch(url, {
+        const response = await apiClient.raw(url, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -544,10 +545,10 @@ window.utils?.onPageLoad(
           throw new Error(`Failed to save trip changes: ${response.status}`);
         }
 
-        window.notificationManager?.show("Trip changes saved successfully.", "success");
+        notificationManager.show("Trip changes saved successfully.", "success");
       } catch (error) {
         console.error("Error saving trip:", error);
-        window.notificationManager?.show(
+        notificationManager.show(
           `Error saving trip: ${error.message}`,
           "danger"
         );

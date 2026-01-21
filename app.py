@@ -12,7 +12,7 @@ from fastapi.templating import Jinja2Templates
 
 from admin import router as admin_api_router
 from analytics import router as analytics_api_router
-from api.coverage_api import router as coverage_api_router
+from street_coverage.routes.coverage import router as coverage_api_router
 from api.pages import router as pages_router
 from county import router as county_api_router
 from driving import router as driving_routes_router

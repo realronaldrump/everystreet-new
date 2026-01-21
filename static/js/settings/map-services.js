@@ -7,6 +7,9 @@
  * - Build job tracking
  */
 
+import apiClient from "../modules/core/api-client.js";
+import notificationManager from "../modules/ui/notifications.js";
+
 const API_BASE = "/api/map-data";
 
 // State
@@ -82,7 +85,7 @@ function setupEventListeners() {
 
 async function loadServiceHealth() {
   try {
-    const response = await fetch(`${API_BASE}/health`);
+    const response = await apiClient.raw(`${API_BASE}/health`);
     const data = await response.json();
 
     updateHealthCard("nominatim", data.nominatim);
@@ -153,7 +156,7 @@ async function refreshHealth() {
   btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Checking...';
 
   try {
-    await fetch(`${API_BASE}/health/refresh`, { method: "POST" });
+    await apiClient.raw(`${API_BASE}/health/refresh`, { method: "POST" });
     await loadServiceHealth();
   } finally {
     btn.disabled = false;
@@ -172,7 +175,7 @@ async function loadRegions() {
   }
 
   try {
-    const response = await fetch(`${API_BASE}/regions`);
+    const response = await apiClient.raw(`${API_BASE}/regions`);
     const data = await response.json();
 
     // Remove loading row
@@ -318,7 +321,7 @@ async function loadGeofabrikRegions(parent = "") {
       ? `${API_BASE}/geofabrik/regions?parent=${encodeURIComponent(parent)}`
       : `${API_BASE}/geofabrik/regions`;
 
-    const response = await fetch(url);
+    const response = await apiClient.raw(url);
     const data = await response.json();
 
     if (!data.regions || data.regions.length === 0) {
@@ -511,7 +514,7 @@ async function downloadSelectedRegion() {
 
   try {
     // Use the unified download-and-build endpoint for one-click setup
-    const response = await fetch(`${API_BASE}/regions/download-and-build`, {
+    const response = await apiClient.raw(`${API_BASE}/regions/download-and-build`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -529,7 +532,7 @@ async function downloadSelectedRegion() {
       );
       modal?.hide();
 
-      window.notificationManager?.show(
+      notificationManager.show(
         `Download & build started for ${selectedRegion.name}. `
           + "This will download OSM data, then build Nominatim and Valhalla automatically.",
         "success"
@@ -539,14 +542,14 @@ async function downloadSelectedRegion() {
       await loadRegions();
       await loadActiveJobs();
     } else {
-      window.notificationManager?.show(
+      notificationManager.show(
         data.detail || "Failed to start download",
         "danger"
       );
     }
   } catch (error) {
     console.error("Failed to start download:", error);
-    window.notificationManager?.show("Failed to start download", "danger");
+    notificationManager.show("Failed to start download", "danger");
   } finally {
     btn.disabled = false;
     btn.innerHTML = '<i class="fas fa-download"></i> Download & Build';
@@ -555,49 +558,49 @@ async function downloadSelectedRegion() {
 
 async function buildNominatim(regionId) {
   try {
-    const response = await fetch(`${API_BASE}/regions/${regionId}/build/nominatim`, {
+    const response = await apiClient.raw(`${API_BASE}/regions/${regionId}/build/nominatim`, {
       method: "POST",
     });
 
     const data = await response.json();
 
     if (data.success) {
-      window.notificationManager?.show("Nominatim build started", "success");
+      notificationManager.show("Nominatim build started", "success");
       await loadRegions();
       await loadActiveJobs();
     } else {
-      window.notificationManager?.show(
+      notificationManager.show(
         data.detail || "Failed to start build",
         "danger"
       );
     }
   } catch (error) {
     console.error("Failed to start Nominatim build:", error);
-    window.notificationManager?.show("Failed to start build", "danger");
+    notificationManager.show("Failed to start build", "danger");
   }
 }
 
 async function buildValhalla(regionId) {
   try {
-    const response = await fetch(`${API_BASE}/regions/${regionId}/build/valhalla`, {
+    const response = await apiClient.raw(`${API_BASE}/regions/${regionId}/build/valhalla`, {
       method: "POST",
     });
 
     const data = await response.json();
 
     if (data.success) {
-      window.notificationManager?.show("Valhalla build started", "success");
+      notificationManager.show("Valhalla build started", "success");
       await loadRegions();
       await loadActiveJobs();
     } else {
-      window.notificationManager?.show(
+      notificationManager.show(
         data.detail || "Failed to start build",
         "danger"
       );
     }
   } catch (error) {
     console.error("Failed to start Valhalla build:", error);
-    window.notificationManager?.show("Failed to start build", "danger");
+    notificationManager.show("Failed to start build", "danger");
   }
 }
 
@@ -618,14 +621,14 @@ async function confirmDeleteRegion() {
   btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Deleting...';
 
   try {
-    const response = await fetch(`${API_BASE}/regions/${deleteRegionId}`, {
+    const response = await apiClient.raw(`${API_BASE}/regions/${deleteRegionId}`, {
       method: "DELETE",
     });
 
     const data = await response.json();
 
     if (data.success) {
-      window.notificationManager?.show("Region deleted", "success");
+      notificationManager.show("Region deleted", "success");
 
       // Close modal
       const modal = bootstrap.Modal.getInstance(
@@ -636,14 +639,14 @@ async function confirmDeleteRegion() {
       // Refresh
       await loadRegions();
     } else {
-      window.notificationManager?.show(
+      notificationManager.show(
         data.detail || "Failed to delete region",
         "danger"
       );
     }
   } catch (error) {
     console.error("Failed to delete region:", error);
-    window.notificationManager?.show("Failed to delete region", "danger");
+    notificationManager.show("Failed to delete region", "danger");
   } finally {
     btn.disabled = false;
     btn.innerHTML = '<i class="fas fa-trash"></i> Delete';
@@ -663,7 +666,7 @@ async function loadActiveJobs() {
   }
 
   try {
-    const response = await fetch(`${API_BASE}/jobs?active_only=true`);
+    const response = await apiClient.raw(`${API_BASE}/jobs?active_only=true`);
     const data = await response.json();
 
     if (!data.jobs || data.jobs.length === 0) {
@@ -733,22 +736,22 @@ async function loadActiveJobs() {
 
 async function cancelJob(jobId) {
   try {
-    const response = await fetch(`${API_BASE}/jobs/${jobId}`, {
+    const response = await apiClient.raw(`${API_BASE}/jobs/${jobId}`, {
       method: "DELETE",
     });
 
     const data = await response.json();
 
     if (data.success) {
-      window.notificationManager?.show("Job cancelled", "success");
+      notificationManager.show("Job cancelled", "success");
       await loadActiveJobs();
       await loadRegions();
     } else {
-      window.notificationManager?.show(data.detail || "Failed to cancel job", "danger");
+      notificationManager.show(data.detail || "Failed to cancel job", "danger");
     }
   } catch (error) {
     console.error("Failed to cancel job:", error);
-    window.notificationManager?.show("Failed to cancel job", "danger");
+    notificationManager.show("Failed to cancel job", "danger");
   }
 }
 

@@ -1,5 +1,5 @@
-import { CONFIG } from "../config.js";
-import { uiState } from "../ui-state.js";
+import { CONFIG } from "../core/config.js";
+import store from "../core/store.js";
 import { utils } from "../utils.js";
 import eventManager from "./event-manager.js";
 
@@ -11,8 +11,8 @@ const panelManager = {
       mobile: CONFIG.UI.selectors.mobileDrawer,
       filters: CONFIG.UI.selectors.filtersPanel,
     };
-    const panel = uiState.getElement(panelMap[type]);
-    const overlay = uiState.getElement(CONFIG.UI.selectors.contentOverlay);
+    const panel = store.getElement(panelMap[type]);
+    const overlay = store.getElement(CONFIG.UI.selectors.contentOverlay);
     if (!panel || !panel.classList.contains(CONFIG.UI.classes.open)) {
       return;
     }
@@ -26,8 +26,8 @@ const panelManager = {
       document.body.style.paddingRight = "";
     }
     if (type === "filters") {
-      uiState.uiState.filtersOpen = false;
-      uiState.saveUIState();
+      store.set("ui.filtersOpen", false, { source: "ui" });
+      store.saveUIState();
     }
     setTimeout(() => {
       panel.style.transition = "";
@@ -39,8 +39,8 @@ const panelManager = {
       mobile: CONFIG.UI.selectors.mobileDrawer,
       filters: CONFIG.UI.selectors.filtersPanel,
     };
-    const panel = uiState.getElement(panelMap[type]);
-    const overlay = uiState.getElement(CONFIG.UI.selectors.contentOverlay);
+    const panel = store.getElement(panelMap[type]);
+    const overlay = store.getElement(CONFIG.UI.selectors.contentOverlay);
     if (!panel || panel.classList.contains(CONFIG.UI.classes.open)) {
       return;
     }
@@ -58,8 +58,8 @@ const panelManager = {
     }
     panel.classList.add(CONFIG.UI.classes.open);
     if (type === "filters") {
-      uiState.uiState.filtersOpen = true;
-      uiState.saveUIState();
+      store.set("ui.filtersOpen", true, { source: "ui" });
+      store.saveUIState();
       setTimeout(() => {
         const firstInput = panel.querySelector("input, select, button");
         if (firstInput) {
@@ -74,14 +74,14 @@ const panelManager = {
       filters: CONFIG.UI.selectors.filtersPanel,
       mobile: CONFIG.UI.selectors.mobileDrawer,
     };
-    const panel = uiState.getElement(panelMap[type]);
+    const panel = store.getElement(panelMap[type]);
     panel?.classList.contains(CONFIG.UI.classes.open)
       ? this.close(type)
       : this.open(type);
   },
 
   init() {
-    const mobileDrawer = uiState.getElement(CONFIG.UI.selectors.mobileDrawer);
+    const mobileDrawer = store.getElement(CONFIG.UI.selectors.mobileDrawer);
     if (mobileDrawer && "ontouchstart" in window) {
       this.initSwipeGestures(mobileDrawer, "mobile");
     }
@@ -113,7 +113,7 @@ const panelManager = {
       }
     });
 
-    if (uiState.uiState.filtersOpen) {
+    if (store.ui.filtersOpen) {
       setTimeout(() => this.open("filters"), 100);
     }
 

@@ -5,10 +5,14 @@
  * Uses vanilla JS TableManager instead of jQuery DataTables
  */
 
-import { CONFIG } from "./modules/config.js";
-import { optimisticAction } from "./modules/spa/optimistic.js";
-import store from "./modules/spa/store.js";
+import { CONFIG } from "./modules/core/config.js";
+import apiClient from "./modules/core/api-client.js";
+import { optimisticAction } from "./modules/core/store.js";
+import store from "./modules/core/store.js";
+import { createMap } from "./modules/map-base.js";
 import { TableManager } from "./modules/table-manager.js";
+import confirmationDialog from "./modules/ui/confirmation-dialog.js";
+import notificationManager from "./modules/ui/notifications.js";
 import {
   escapeHtml,
   formatDateTime,
@@ -27,7 +31,7 @@ onPageLoad(
     try {
       await initializePage(signal);
     } catch (e) {
-      window.notificationManager?.show(`Critical Error: ${e.message}`, "danger");
+      notificationManager.show(`Critical Error: ${e.message}`, "danger");
     }
   },
   { route: "/trips" }
@@ -57,12 +61,7 @@ async function loadVehicles() {
   }
 
   try {
-    const response = await fetch(`${CONFIG.API.vehicles}?active_only=true`);
-    if (!response.ok) {
-      throw new Error("Failed to load vehicles");
-    }
-
-    const vehicles = await response.json();
+    const vehicles = await apiClient.get(`${CONFIG.API.vehicles}?active_only=true`);
     vehicleSelect.innerHTML = '<option value="">All vehicles</option>';
 
     vehicles.forEach((v) => {
@@ -77,7 +76,7 @@ async function loadVehicles() {
       vehicleSelect.value = savedImei;
     }
   } catch {
-    window.notificationManager?.show("Failed to load vehicles list", "warning");
+    notificationManager.show("Failed to load vehicles list", "warning");
   }
 }
 
@@ -253,7 +252,7 @@ function initializeTable() {
           deleteBtn.innerHTML = '<i class="fas fa-trash"></i>';
           deleteBtn.addEventListener("click", async (e) => {
             e.stopPropagation();
-            const confirmed = await window.confirmationDialog.show({
+            const confirmed = await confirmationDialog.show({
               title: "Delete Trip",
               message: "Are you sure you want to delete this trip?",
               confirmText: "Delete",
@@ -489,7 +488,7 @@ function setupBulkActions() {
         return;
       }
 
-      const confirmed = await window.confirmationDialog.show({
+      const confirmed = await confirmationDialog.show({
         title: "Delete Trips",
         message: `Are you sure you want to delete ${selectedTripIds.size} trips?`,
         confirmText: "Delete All",
@@ -505,20 +504,11 @@ function setupBulkActions() {
     .getElementById("refresh-geocoding-btn")
     ?.addEventListener("click", async () => {
       try {
-        window.notificationManager?.show("Starting geocoding refresh...", "info");
-        const response = await fetch(CONFIG.API.geocodeTrips, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ interval_days: 7 }),
-        });
-        const result = await response.json();
-        if (response.ok) {
-          window.notificationManager?.show("Geocoding task started.", "success");
-        } else {
-          throw new Error(result.detail || "Failed to start geocoding");
-        }
+        notificationManager.show("Starting geocoding refresh...", "info");
+        await apiClient.post(CONFIG.API.geocodeTrips, { interval_days: 7 });
+        notificationManager.show("Geocoding task started.", "success");
       } catch (e) {
-        window.notificationManager?.show(e.message, "danger");
+        notificationManager.show(e.message, "danger");
       }
     });
 }
@@ -548,14 +538,11 @@ async function deleteTrip(id) {
         return snapshot;
       },
       request: async () => {
-        const response = await fetch(CONFIG.API.tripById(id), { method: "DELETE" });
-        if (!response.ok) {
-          throw new Error("Failed to delete trip");
-        }
-        return response;
+        await apiClient.delete(CONFIG.API.tripById(id));
+        return true;
       },
       commit: () => {
-        window.notificationManager?.show("Trip deleted successfully", "success");
+        notificationManager.show("Trip deleted successfully", "success");
         tripsTable.reload();
       },
       rollback: (snapshot) => {
@@ -565,7 +552,7 @@ async function deleteTrip(id) {
           tripsTable.state.totalPages = snapshot.totalPages;
           tripsTable._render();
         }
-        window.notificationManager?.show("Failed to delete trip", "danger");
+        notificationManager.show("Failed to delete trip", "danger");
       },
     });
   } catch {
@@ -606,19 +593,10 @@ async function bulkDeleteTrips(ids) {
         return snapshot;
       },
       request: async () => {
-        const response = await fetch(CONFIG.API.tripsBulkDelete, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ trip_ids: ids }),
-        });
-
-        if (!response.ok) {
-          throw new Error("Failed to bulk delete trips");
-        }
-        return response.json();
+        return apiClient.post(CONFIG.API.tripsBulkDelete, { trip_ids: ids });
       },
       commit: (result) => {
-        window.notificationManager?.show(result.message || "Trips deleted", "success");
+        notificationManager.show(result.message || "Trips deleted", "success");
         tripsTable.reload();
       },
       rollback: (snapshot) => {
@@ -628,7 +606,7 @@ async function bulkDeleteTrips(ids) {
           tripsTable.state.totalPages = snapshot.totalPages;
           tripsTable._render();
         }
-        window.notificationManager?.show("Failed to delete trips", "danger");
+        notificationManager.show("Failed to delete trips", "danger");
       },
     });
   } catch {
@@ -697,7 +675,6 @@ function initTripModalMap() {
   }
 
   try {
-    const { createMap } = window.mapBase;
     tripModalMap = createMap("trip-modal-map", {
       style: "mapbox://styles/mapbox/dark-v11", // Use dark mode by default for contrast
       zoom: 1,
@@ -796,11 +773,7 @@ async function loadTripData(tripId) {
 
   try {
     // Fetch trip details
-    const res = await fetch(CONFIG.API.tripById(tripId));
-    if (!res.ok) {
-      throw new Error("Failed to load trip details");
-    }
-    const data = await res.json();
+    const data = await apiClient.get(CONFIG.API.tripById(tripId));
     const trip = data.trip || data; // Handle wrapped response
 
     updateModalContent(trip);
@@ -819,7 +792,7 @@ async function loadTripData(tripId) {
     }
   } catch (e) {
     console.error(e);
-    window.notificationManager?.show("Failed to load trip data", "danger");
+    notificationManager.show("Failed to load trip data", "danger");
   } finally {
     if (loadingEl) {
       loadingEl.classList.add("d-none");

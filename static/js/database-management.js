@@ -1,6 +1,9 @@
-/* global confirmationDialog */
+import apiClient from "./modules/core/api-client.js";
+import confirmationDialog from "./modules/ui/confirmation-dialog.js";
+import notificationManager from "./modules/ui/notifications.js";
+import { onPageLoad } from "./modules/utils.js";
 
-window.utils?.onPageLoad(
+onPageLoad(
   ({ signal } = {}) => {
     const refreshStorageBtn = document.getElementById("refresh-storage");
     const storageText = document.querySelector(".storage-text");
@@ -33,26 +36,10 @@ window.utils?.onPageLoad(
 
     async function performDatabaseAction(endpoint, body = {}) {
       const method = endpoint.includes("storage-info") ? "GET" : "POST";
-
-      const options = {
-        method,
-        headers: {
-          "Content-Type": "application/json",
-        },
-      };
-
-      if (method === "POST") {
-        options.body = JSON.stringify(body);
+      if (method === "GET") {
+        return apiClient.get(endpoint, withSignal());
       }
-
-      const response = await fetch(endpoint, withSignal(options));
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
-      }
-
-      return response.json();
+      return apiClient.post(endpoint, body, withSignal());
     }
 
     function updateStorageDisplay(data) {
@@ -77,12 +64,12 @@ window.utils?.onPageLoad(
             setButtonLoading(refreshStorageBtn, true);
             const data = await performDatabaseAction("/api/database/storage-info");
             updateStorageDisplay(data);
-            window.notificationManager.show(
+            notificationManager.show(
               "Storage information updated successfully",
               "success"
             );
           } catch (error) {
-            window.notificationManager.show(
+            notificationManager.show(
               error.message || "Failed to perform database action",
               "danger"
             );
@@ -198,7 +185,7 @@ window.utils?.onPageLoad(
 
         setButtonLoading(currentButton, true, currentAction);
         const result = await performDatabaseAction(endpoint, body);
-        window.notificationManager.show(
+        notificationManager.show(
           result.message || "Operation completed successfully",
           "success"
         );
@@ -209,7 +196,7 @@ window.utils?.onPageLoad(
           }
         }, 1500);
       } catch (error) {
-        window.notificationManager.show(
+        notificationManager.show(
           error.message || "Failed to perform database action",
           "danger"
         );

@@ -1,10 +1,14 @@
 /* global mapboxgl */
-(() => {
-  class VisitsMapController {
-    constructor({ geometryUtils, mapStyles, onPlaceClicked }) {
-      this.geometryUtils = geometryUtils;
-      this.mapStyles = mapStyles;
-      this.onPlaceClicked = onPlaceClicked;
+
+import { createMap } from "../map-base.js";
+import MapStyles from "../map-styles.js";
+import { VisitsGeometry } from "./geometry.js";
+
+class VisitsMapController {
+  constructor({ geometryUtils = VisitsGeometry, mapStyles = MapStyles, onPlaceClicked } = {}) {
+    this.geometryUtils = geometryUtils;
+    this.mapStyles = mapStyles;
+    this.onPlaceClicked = onPlaceClicked;
       this.map = null;
       this.mapStyle = "dark";
       this.customPlacesData = { type: "FeatureCollection", features: [] };
@@ -16,7 +20,7 @@
       return new Promise((resolve, reject) => {
         try {
           this.mapStyle = theme || "dark";
-          this.map = window.mapBase.createMap("map", {
+          this.map = createMap("map", {
             library: "mapbox",
             style:
               this.mapStyle === "light"
@@ -393,5 +397,5 @@
     }
   }
 
-  window.VisitsMapController = VisitsMapController;
-})();
+export { VisitsMapController };
+export default VisitsMapController;

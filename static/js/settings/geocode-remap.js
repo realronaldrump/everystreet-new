@@ -4,6 +4,11 @@
  * Setup functions for trip geocoding and remapping functionality
  */
 
+import apiClient from "../modules/core/api-client.js";
+import loadingManager from "../modules/ui/loading-manager.js";
+import notificationManager from "../modules/ui/notifications.js";
+import { DateUtils } from "../modules/utils.js";
+
 export function setupManualFetchTripsForm(taskManager) {
   const form = document.getElementById("manualFetchTripsForm");
   if (!form) {
@@ -126,7 +131,7 @@ export function setupGeocodeTrips() {
       start_date = document.getElementById("geocode-start").value;
       end_date = document.getElementById("geocode-end").value;
       if (!start_date || !end_date) {
-        window.notificationManager.show(
+        notificationManager.show(
           "Please select both start and end dates",
           "danger"
         );
@@ -158,7 +163,7 @@ export function setupGeocodeTrips() {
       progressMessage.textContent = "Initializing...";
       progressMetrics.textContent = "";
 
-      const response = await fetch("/api/geocode_trips", {
+      const response = await apiClient.raw("/api/geocode_trips", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ start_date, end_date, interval_days }),
@@ -174,7 +179,7 @@ export function setupGeocodeTrips() {
       // Start polling for progress
       const pollInterval = setInterval(async () => {
         try {
-          const progressResponse = await fetch(`/api/geocode_trips/progress/${taskId}`);
+          const progressResponse = await apiClient.raw(`/api/geocode_trips/progress/${taskId}`);
           if (!progressResponse.ok) {
             clearInterval(pollInterval);
             geocodeBtn.disabled = false;
@@ -186,7 +191,7 @@ export function setupGeocodeTrips() {
               statusEl.textContent = errorMessage;
               statusEl.className = "mt-2 text-danger";
             }
-            window.notificationManager?.show(errorMessage, "danger");
+            notificationManager.show(errorMessage, "danger");
             return;
           }
 
@@ -226,7 +231,7 @@ export function setupGeocodeTrips() {
                 statusEl.textContent = `Geocoding completed: ${metrics.updated || 0} updated, ${metrics.skipped || 0} skipped`;
                 statusEl.className = "mt-2 text-success";
               }
-              window.notificationManager.show(
+              notificationManager.show(
                 `Geocoding completed: ${metrics.updated || 0} updated, ${metrics.skipped || 0} skipped`,
                 "success"
               );
@@ -242,7 +247,7 @@ export function setupGeocodeTrips() {
                 statusEl.textContent = `Error: ${progressData.error || "Unknown error"}`;
                 statusEl.className = "mt-2 text-danger";
               }
-              window.notificationManager.show(
+              notificationManager.show(
                 `Geocoding failed: ${progressData.error || "Unknown error"}`,
                 "danger"
               );
@@ -256,7 +261,7 @@ export function setupGeocodeTrips() {
             statusEl.textContent = "Lost connection while monitoring progress.";
             statusEl.className = "mt-2 text-warning";
           }
-          window.notificationManager?.show(
+          notificationManager.show(
             "Lost connection while monitoring geocoding progress",
             "warning"
           );
@@ -269,13 +274,13 @@ export function setupGeocodeTrips() {
         statusEl.textContent = "Error starting geocoding. See console.";
         statusEl.className = "mt-2 text-danger";
       }
-      window.notificationManager.show("Failed to start geocoding", "danger");
+      notificationManager.show("Failed to start geocoding", "danger");
     }
   });
 
   // Initialize date pickers
-  if (window.DateUtils?.initDatePicker) {
-    window.DateUtils.initDatePicker(".datepicker");
+  if (DateUtils?.initDatePicker) {
+    DateUtils.initDatePicker(".datepicker");
   } else if (typeof flatpickr !== "undefined") {
     flatpickr(".datepicker", {
       enableTime: false,
@@ -315,7 +320,7 @@ export function setupRemapMatchedTrips() {
       start_date = document.getElementById("remap-start").value;
       end_date = document.getElementById("remap-end").value;
       if (!start_date || !end_date) {
-        window.notificationManager.show(
+        notificationManager.show(
           "Please select both start and end dates",
           "danger"
         );
@@ -328,35 +333,35 @@ export function setupRemapMatchedTrips() {
       );
       const startDateObj = new Date();
       startDateObj.setDate(startDateObj.getDate() - interval_days);
-      start_date = window.DateUtils.formatDateToString(startDateObj);
-      end_date = window.DateUtils.formatDateToString(new Date());
+      start_date = DateUtils.formatDateToString(startDateObj);
+      end_date = DateUtils.formatDateToString(new Date());
     }
 
     try {
-      window.loadingManager?.show();
+      loadingManager.show();
       document.getElementById("remap-status").textContent = "Remapping trips...";
 
-      const response = await fetch("/api/matched_trips/remap", {
+      const response = await apiClient.raw("/api/matched_trips/remap", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ start_date, end_date, interval_days }),
       });
 
-      window.loadingManager?.hide();
+      loadingManager.hide();
 
       const data = await response.json();
 
       document.getElementById("remap-status").textContent = data.message;
-      window.notificationManager.show(data.message, "success");
+      notificationManager.show(data.message, "success");
     } catch {
-      window.loadingManager?.hide();
+      loadingManager.hide();
       document.getElementById("remap-status").textContent = "Error re-matching trips.";
-      window.notificationManager.show("Failed to re-match trips", "danger");
+      notificationManager.show("Failed to re-match trips", "danger");
     }
   });
 
-  if (window.DateUtils?.initDatePicker) {
-    window.DateUtils.initDatePicker(".datepicker");
+  if (DateUtils?.initDatePicker) {
+    DateUtils.initDatePicker(".datepicker");
   } else if (typeof flatpickr !== "undefined") {
     flatpickr(".datepicker", {
       enableTime: false,

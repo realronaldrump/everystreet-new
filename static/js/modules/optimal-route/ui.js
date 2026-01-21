@@ -1,3 +1,4 @@
+import notificationManager from "../ui/notifications.js";
 import { SCANNER_STAGES, STAGE_COPY } from "./constants.js";
 
 export class OptimalRouteUI {
@@ -487,10 +488,6 @@ export class OptimalRouteUI {
   }
 
   showNotification(message, type = "info") {
-    if (window.notificationManager) {
-      window.notificationManager.show(message, type);
-    } else {
-      console.log(`[${type}] ${message}`);
-    }
+    notificationManager.show(message, type);
   }
 }

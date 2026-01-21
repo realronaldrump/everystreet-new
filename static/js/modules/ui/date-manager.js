@@ -1,18 +1,17 @@
-import { CONFIG } from "../config.js";
-import store from "../spa/store.js";
-import { uiState } from "../ui-state.js";
-import { utils } from "../utils.js";
+import { CONFIG } from "../core/config.js";
+import store from "../core/store.js";
+import { DateUtils, utils } from "../utils.js";
 import eventManager from "./event-manager.js";
 import panelManager from "./panel-manager.js";
 
-const dateUtils = window.DateUtils;
+const dateUtils = DateUtils;
 
 const dateManager = {
   flatpickrInstances: new Map(),
 
   init() {
-    const startInput = uiState.getElement(CONFIG.UI.selectors.startDate);
-    const endInput = uiState.getElement(CONFIG.UI.selectors.endDate);
+    const startInput = store.getElement(CONFIG.UI.selectors.startDate);
+    const endInput = store.getElement(CONFIG.UI.selectors.endDate);
     if (!startInput || !endInput) {
       return;
     }
@@ -35,7 +34,7 @@ const dateManager = {
       maxDate: "today",
       disableMobile: true,
       allowInput: true,
-      animate: CONFIG.UI.animations.enabled && !uiState.reducedMotion,
+      animate: CONFIG.UI.animations.enabled && !store.ui.reducedMotion,
       locale: { firstDayOfWeek: 0 },
     };
 
@@ -83,13 +82,13 @@ const dateManager = {
     });
 
     // Bind quick-select buttons
-    uiState.getAllElements(".quick-select-btn").forEach((btn) => {
+    store.getAllElements(".quick-select-btn").forEach((btn) => {
       eventManager.add(btn, "click", () => this.setRange(btn.dataset.range));
     });
 
     // Bind apply and reset buttons
-    const applyBtn = uiState.getElement(CONFIG.UI.selectors.applyFiltersBtn);
-    const resetBtn = uiState.getElement(CONFIG.UI.selectors.resetFilters);
+    const applyBtn = store.getElement(CONFIG.UI.selectors.applyFiltersBtn);
+    const resetBtn = store.getElement(CONFIG.UI.selectors.resetFilters);
     if (applyBtn) {
       eventManager.add(applyBtn, "click", () => this.applyFilters());
     }
@@ -99,8 +98,8 @@ const dateManager = {
   },
 
   updateInputs(startDate, endDate) {
-    const startInputEl = uiState.getElement(CONFIG.UI.selectors.startDate);
-    const endInputEl = uiState.getElement(CONFIG.UI.selectors.endDate);
+    const startInputEl = store.getElement(CONFIG.UI.selectors.startDate);
+    const endInputEl = store.getElement(CONFIG.UI.selectors.endDate);
 
     // Helper to calculate "today" for diverse constraints if needed,
     // but here we just need to relax them effectively.
@@ -157,11 +156,11 @@ const dateManager = {
       const { startDate, endDate } = await dateUtils.getDateRangePreset(range);
       if (startDate && endDate) {
         this.updateInputs(startDate, endDate);
-        uiState.getAllElements(".quick-select-btn").forEach((b) => {
+        store.getAllElements(".quick-select-btn").forEach((b) => {
           b.classList.toggle(CONFIG.UI.classes.active, b.dataset.range === range);
         });
-        uiState.uiState.lastFilterPreset = range;
-        uiState.saveUIState();
+        store.set("ui.lastFilterPreset", range, { source: "ui" });
+        store.saveUIState();
         await this.applyFilters();
       } else {
         throw new Error("Invalid date range");
@@ -224,7 +223,7 @@ const dateManager = {
   },
 
   updateIndicator() {
-    const indicator = uiState.getElement(CONFIG.UI.selectors.filterIndicator);
+    const indicator = store.getElement(CONFIG.UI.selectors.filterIndicator);
     if (!indicator) {
       return;
     }
@@ -254,9 +253,9 @@ const dateManager = {
   },
 
   async applyFilters() {
-    const sIn = uiState.getElement(CONFIG.UI.selectors.startDate);
-    const eIn = uiState.getElement(CONFIG.UI.selectors.endDate);
-    const btn = uiState.getElement(CONFIG.UI.selectors.applyFiltersBtn);
+    const sIn = store.getElement(CONFIG.UI.selectors.startDate);
+    const eIn = store.getElement(CONFIG.UI.selectors.endDate);
+    const btn = store.getElement(CONFIG.UI.selectors.applyFiltersBtn);
     if (!sIn || !eIn) {
       utils.showNotification("Date input elements missing", "danger");
       return;
@@ -299,10 +298,10 @@ const dateManager = {
   reset() {
     const today = dateUtils.getCurrentDate();
     this.updateInputs(today, today);
-    uiState.getAllElements(".quick-select-btn").forEach((btn) => {
+    store.getAllElements(".quick-select-btn").forEach((btn) => {
       btn.classList.remove(CONFIG.UI.classes.active);
     });
-    const todayBtn = uiState.getElement('.quick-select-btn[data-range="today"]');
+    const todayBtn = store.getElement('.quick-select-btn[data-range="today"]');
     if (todayBtn) {
       todayBtn.classList.add(CONFIG.UI.classes.active);
     }

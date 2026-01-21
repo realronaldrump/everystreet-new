@@ -28,6 +28,7 @@ import {
   updateActiveTasksMapFromSSE,
 } from "./sse.js";
 import { renderTaskConfigTable, updateGlobalDisableSwitch } from "./ui.js";
+import notificationManager from "../../modules/ui/notifications.js";
 
 /**
  * TaskManager - Handles background task management, SSE updates, and UI rendering
@@ -36,7 +37,7 @@ export class TaskManager {
   constructor() {
     this.notifier = {
       show: (title, message, type = "info") => {
-        window.notificationManager.show(`${title}: ${message}`, type);
+        notificationManager.show(`${title}: ${message}`, type);
       },
     };
 

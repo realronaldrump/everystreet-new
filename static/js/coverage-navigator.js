@@ -1,3 +1,4 @@
+import { createMap } from "./modules/map-base.js";
 import { onPageLoad } from "./modules/utils.js";
 
 const baseConfig = window.coverageNavigatorConfig || {};
@@ -36,7 +37,7 @@ window.coverageNavigatorConfig = {
 
 onPageLoad(
   ({ cleanup } = {}) => {
-    if (!window.mapBase || typeof mapboxgl === "undefined") {
+    if (!createMap || typeof mapboxgl === "undefined") {
       console.error("Mapbox GL JS library not found. Coverage map cannot load.");
       return;
     }
@@ -47,7 +48,7 @@ onPageLoad(
     }
 
     if (!window.coverageMasterMap) {
-      window.coverageMasterMap = window.mapBase.createMap(mapContainerId, {
+      window.coverageMasterMap = createMap(mapContainerId, {
         center: [-96, 37.8],
         zoom: 4,
         accessToken: window.MAPBOX_ACCESS_TOKEN,

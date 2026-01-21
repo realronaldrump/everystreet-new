@@ -19,16 +19,20 @@
 
 /* global bootstrap */
 
-import { CONFIG } from "./config.js";
+import { CONFIG } from "./core/config.js";
 import dataManager from "./data-manager.js";
 import layerManager from "./layer-manager.js";
 import mapCore from "./map-core.js";
 import mapManager from "./map-manager.js";
 import searchManager from "./search-manager.js";
-import state from "./state.js";
-import { utils } from "./utils.js";
+import state from "./core/store.js";
+import LiveTripTracker from "./features/tracking/index.js";
+import confirmationDialog from "./ui/confirmation-dialog.js";
+import loadingManager from "./ui/loading-manager.js";
+import notificationManager from "./ui/notifications.js";
+import { DateUtils, utils } from "./utils.js";
 
-const dateUtils = window.DateUtils;
+const dateUtils = DateUtils;
 
 // ============================================================
 // Helper Functions
@@ -38,7 +42,7 @@ const dateUtils = window.DateUtils;
  * Initialize live trip tracker if available
  */
 const initializeLiveTracker = () => {
-  if (window.LiveTripTracker && state.map && !state.liveTracker) {
+  if (state.map && !state.liveTracker) {
     // Respect user preference to hide live tracking
     try {
       const show = window.localStorage.getItem("showLiveTracking") !== "false";
@@ -51,7 +55,7 @@ const initializeLiveTracker = () => {
     }
 
     try {
-      state.liveTracker = new window.LiveTripTracker(state.map);
+      state.liveTracker = new LiveTripTracker(state.map);
     } catch (err) {
       console.error("LiveTripTracker init error:", err);
     }
@@ -92,7 +96,7 @@ const initializeLocationDropdown = async () => {
     }
   } catch (err) {
     console.error("Location dropdown error:", err);
-    window.notificationManager?.show("Failed to load coverage areas", "warning");
+    notificationManager.show("Failed to load coverage areas", "warning");
   }
 };
 
@@ -133,7 +137,7 @@ const AppController = {
    */
   async initialize() {
     try {
-      window.loadingManager?.show("Initializing application...");
+      loadingManager.show("Initializing application...");
 
       // Only initialize map if we're on the map page
       if (utils.getElement("map") && !document.getElementById("visits-page")) {
@@ -169,7 +173,7 @@ const AppController = {
         await this._restoreStreetViewModes();
 
         // Phase 6: Load initial data
-        window.loadingManager?.updateMessage("Loading map data...");
+        loadingManager.updateMessage("Loading map data...");
         await this._loadInitialData();
 
         // Phase 7: Post-initialization
@@ -182,10 +186,10 @@ const AppController = {
       this._ensurePageState();
 
       document.dispatchEvent(new CustomEvent("appReady"));
-      setTimeout(() => window.loadingManager?.hide(), 300);
+      setTimeout(() => loadingManager.hide(), 300);
     } catch (err) {
       console.error("App initialization error:", err);
-      window.loadingManager?.error(`Initialization failed: ${err.message}`);
+      loadingManager.error(`Initialization failed: ${err.message}`);
     }
   },
 
@@ -400,7 +404,7 @@ const AppController = {
       centerBtn.addEventListener("click", async () => {
         const geolocationService = (await import("./geolocation-service.js")).default;
         if (!geolocationService.isSupported()) {
-          window.notificationManager?.show("Geolocation is not supported", "warning");
+          notificationManager.show("Geolocation is not supported", "warning");
           return;
         }
         centerBtn.disabled = true;
@@ -415,7 +419,7 @@ const AppController = {
           });
         } catch (err) {
           console.error("Geolocation error:", err);
-          window.notificationManager?.show(
+          notificationManager.show(
             `Error getting location: ${err.message}`,
             "danger"
           );
@@ -432,7 +436,7 @@ const AppController = {
         return;
       }
 
-      window.loadingManager?.pulse("Applying new map style...");
+      loadingManager.pulse("Applying new map style...");
 
       // Wait for style to be fully loaded
       await mapCore.waitForStyleLoad();
@@ -443,7 +447,7 @@ const AppController = {
           await layerManager.updateMapLayer(name, info.layer);
         }
       }
-      window.loadingManager?.hide();
+      loadingManager.hide();
     });
 
     // Refresh map button
@@ -510,7 +514,7 @@ const AppController = {
       if (document.hidden) {
         state.mapSettings.autoRefresh = false;
       } else if (state.hasPendingRequests()) {
-        window.notificationManager?.show("Refreshing data...", "info", 2000);
+        notificationManager.show("Refreshing data...", "info", 2000);
         dataManager.updateMap(false);
       }
     });
@@ -533,7 +537,7 @@ const AppController = {
 
   async mapMatchTrips() {
     try {
-      const confirmed = await window.confirmationDialog?.show({
+      const confirmed = await confirmationDialog.show({
         title: "Map Match Trips",
         message:
           "This will process all trips in the selected date range. "
@@ -545,7 +549,7 @@ const AppController = {
         return;
       }
 
-      window.loadingManager?.show("Starting map matching process...");
+      loadingManager.show("Starting map matching process...");
       const res = await utils.fetchWithRetry("/api/map_match_trips", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -555,7 +559,7 @@ const AppController = {
         }),
       });
       if (res) {
-        window.notificationManager?.show(
+        notificationManager.show(
           `Map matching completed: ${res.message}`,
           "success"
         );
@@ -563,16 +567,16 @@ const AppController = {
       }
     } catch (err) {
       console.error("Map match error:", err);
-      window.notificationManager?.show(`Map matching error: ${err.message}`, "danger");
+      notificationManager.show(`Map matching error: ${err.message}`, "danger");
     } finally {
-      window.loadingManager?.hide();
+      loadingManager.hide();
     }
   },
 
   async handleStreetViewModeChange(mode, shouldHide = false) {
     const selectedLocationId = utils.getStorage(CONFIG.STORAGE_KEYS.selectedLocation);
     if (!selectedLocationId && !shouldHide) {
-      window.notificationManager?.show("Please select a location first", "warning");
+      notificationManager.show("Please select a location first", "warning");
       return;
     }
 

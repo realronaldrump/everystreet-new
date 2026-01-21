@@ -23,9 +23,12 @@ import { initMobileUI } from "./mobile-ui.js";
 import { gatherTaskConfigFromUI, submitTaskConfigUpdate } from "./task-manager/api.js";
 import { showTaskDetails } from "./task-manager/modals.js";
 import { TaskManager } from "./task-manager/task-manager.js";
+import apiClient from "../modules/core/api-client.js";
+import loadingManager from "../modules/ui/loading-manager.js";
+import notificationManager from "../modules/ui/notifications.js";
+import { onPageLoad } from "../modules/utils.js";
 
-// Initialize task manager globally
-window.taskManager = null;
+let taskManager = null;
 
 /**
  * Setup task configuration event listeners (buttons, checkboxes, etc.)
@@ -49,14 +52,14 @@ function setupTaskConfigEventListeners(taskManager) {
       const config = gatherTaskConfigFromUI();
       submitTaskConfigUpdate(config)
         .then(() => {
-          window.notificationManager.show(
+          notificationManager.show(
             "Task configuration updated successfully",
             "success"
           );
           taskManager.loadTaskConfig();
         })
         .catch((error) => {
-          window.notificationManager.show(
+          notificationManager.show(
             `Error updating task config: ${error.message}`,
             "danger"
           );
@@ -71,23 +74,23 @@ function setupTaskConfigEventListeners(taskManager) {
         return;
       }
       try {
-        window.loadingManager?.show();
-        const response = await fetch("/api/background_tasks/reset", {
+        loadingManager.show();
+        const response = await apiClient.raw("/api/background_tasks/reset", {
           method: "POST",
         });
 
-        window.loadingManager?.hide();
+        loadingManager.hide();
 
         if (!response.ok) {
           throw new Error("Failed to reset tasks");
         }
 
         const result = await response.json();
-        window.notificationManager.show(result.message, "success");
+        notificationManager.show(result.message, "success");
         taskManager.loadTaskConfig();
       } catch {
-        window.loadingManager?.hide();
-        window.notificationManager.show("Failed to reset tasks", "danger");
+        loadingManager.hide();
+        notificationManager.show("Failed to reset tasks", "danger");
       }
     });
   }
@@ -99,20 +102,20 @@ function setupTaskConfigEventListeners(taskManager) {
       }
       const duration = document.getElementById("pauseDuration")?.value || 60;
       try {
-        window.loadingManager?.show();
-        const response = await fetch("/api/background_tasks/pause", {
+        loadingManager.show();
+        const response = await apiClient.raw("/api/background_tasks/pause", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ duration: parseInt(duration, 10) }),
         });
 
-        window.loadingManager?.hide();
+        loadingManager.hide();
 
         if (!response.ok) {
           throw new Error("Failed to pause tasks");
         }
 
-        window.notificationManager.show(
+        notificationManager.show(
           `Tasks paused for ${duration} minutes`,
           "success"
         );
@@ -126,8 +129,8 @@ function setupTaskConfigEventListeners(taskManager) {
 
         taskManager.loadTaskConfig();
       } catch {
-        window.loadingManager?.hide();
-        window.notificationManager.show("Failed to pause tasks", "danger");
+        loadingManager.hide();
+        notificationManager.show("Failed to pause tasks", "danger");
       }
     });
   }
@@ -138,22 +141,22 @@ function setupTaskConfigEventListeners(taskManager) {
         return;
       }
       try {
-        window.loadingManager?.show();
-        const response = await fetch("/api/background_tasks/resume", {
+        loadingManager.show();
+        const response = await apiClient.raw("/api/background_tasks/resume", {
           method: "POST",
         });
 
-        window.loadingManager?.hide();
+        loadingManager.hide();
 
         if (!response.ok) {
           throw new Error("Failed to resume tasks");
         }
 
-        window.notificationManager.show("Tasks resumed", "success");
+        notificationManager.show("Tasks resumed", "success");
         taskManager.loadTaskConfig();
       } catch {
-        window.loadingManager?.hide();
-        window.notificationManager.show("Failed to resume tasks", "danger");
+        loadingManager.hide();
+        notificationManager.show("Failed to resume tasks", "danger");
       }
     });
   }
@@ -164,22 +167,22 @@ function setupTaskConfigEventListeners(taskManager) {
         return;
       }
       try {
-        window.loadingManager?.show();
-        const response = await fetch("/api/background_tasks/stop", {
+        loadingManager.show();
+        const response = await apiClient.raw("/api/background_tasks/stop", {
           method: "POST",
         });
 
-        window.loadingManager?.hide();
+        loadingManager.hide();
 
         if (!response.ok) {
           throw new Error("Failed to stop tasks");
         }
 
-        window.notificationManager.show("All running tasks stopped", "success");
+        notificationManager.show("All running tasks stopped", "success");
         taskManager.loadTaskConfig();
       } catch {
-        window.loadingManager?.hide();
-        window.notificationManager.show("Failed to stop tasks", "danger");
+        loadingManager.hide();
+        notificationManager.show("Failed to stop tasks", "danger");
       }
     });
   }
@@ -190,22 +193,22 @@ function setupTaskConfigEventListeners(taskManager) {
         return;
       }
       try {
-        window.loadingManager?.show();
-        const response = await fetch("/api/background_tasks/enable", {
+        loadingManager.show();
+        const response = await apiClient.raw("/api/background_tasks/enable", {
           method: "POST",
         });
 
-        window.loadingManager?.hide();
+        loadingManager.hide();
 
         if (!response.ok) {
           throw new Error("Failed to enable all tasks");
         }
 
-        window.notificationManager.show("All tasks enabled", "success");
+        notificationManager.show("All tasks enabled", "success");
         taskManager.loadTaskConfig();
       } catch {
-        window.loadingManager?.hide();
-        window.notificationManager.show("Failed to enable tasks", "danger");
+        loadingManager.hide();
+        notificationManager.show("Failed to enable tasks", "danger");
       }
     });
   }
@@ -216,22 +219,22 @@ function setupTaskConfigEventListeners(taskManager) {
         return;
       }
       try {
-        window.loadingManager?.show();
-        const response = await fetch("/api/background_tasks/disable", {
+        loadingManager.show();
+        const response = await apiClient.raw("/api/background_tasks/disable", {
           method: "POST",
         });
 
-        window.loadingManager?.hide();
+        loadingManager.hide();
 
         if (!response.ok) {
           throw new Error("Failed to disable all tasks");
         }
 
-        window.notificationManager.show("All tasks disabled", "success");
+        notificationManager.show("All tasks disabled", "success");
         taskManager.loadTaskConfig();
       } catch {
-        window.loadingManager?.hide();
-        window.notificationManager.show("Failed to disable tasks", "danger");
+        loadingManager.hide();
+        notificationManager.show("Failed to disable tasks", "danger");
       }
     });
   }
@@ -250,10 +253,10 @@ function setupTaskConfigEventListeners(taskManager) {
       const config = gatherTaskConfigFromUI();
       submitTaskConfigUpdate(config)
         .then(() =>
-          window.notificationManager.show("Global disable toggled", "success")
+          notificationManager.show("Global disable toggled", "success")
         )
         .catch(() =>
-          window.notificationManager.show("Failed to toggle global disable", "danger")
+          notificationManager.show("Failed to toggle global disable", "danger")
         );
     });
   }
@@ -331,7 +334,7 @@ function setupFetchAllMissingModal(taskManager) {
   if (openFetchAllMissingModalBtn) {
     openFetchAllMissingModalBtn.addEventListener("click", async () => {
       try {
-        const response = await fetch("/api/trips/earliest_date");
+        const response = await apiClient.raw("/api/trips/earliest_date");
         if (response.ok) {
           const data = await response.json();
           if (data.earliest_date && fetchAllMissingStartInput) {
@@ -367,14 +370,14 @@ function setupFetchAllMissingModal(taskManager) {
           statusSpan.textContent = "Starting task...";
         }
 
-        window.loadingManager?.show();
-        const response = await fetch("/api/background_tasks/fetch_all_missing_trips", {
+        loadingManager.show();
+        const response = await apiClient.raw("/api/background_tasks/fetch_all_missing_trips", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ start_date: startDate }),
         });
         const result = await response.json();
-        window.loadingManager?.hide();
+        loadingManager.hide();
 
         if (response.ok && result.status === "success") {
           taskManager.notifier.show(
@@ -398,7 +401,7 @@ function setupFetchAllMissingModal(taskManager) {
           throw new Error(result.detail || result.message || "Failed to start task");
         }
       } catch (error) {
-        window.loadingManager?.hide();
+        loadingManager.hide();
         taskManager.notifier.show("Error", error.message, "danger");
         if (statusSpan) {
           statusSpan.textContent = "Error starting task";
@@ -416,8 +419,7 @@ function setupFetchAllMissingModal(taskManager) {
  */
 function init({ cleanup } = {}) {
   // Create TaskManager instance
-  const taskManager = new TaskManager();
-  window.taskManager = taskManager;
+  taskManager = new TaskManager();
 
   // Setup all event listeners and modules
   setupTaskConfigEventListeners(taskManager);
@@ -446,8 +448,8 @@ function init({ cleanup } = {}) {
       if (typeof mobileCleanup === "function") {
         mobileCleanup();
       }
-      if (window.taskManager) {
-        window.taskManager.cleanup();
+      if (taskManager) {
+        taskManager.cleanup();
       }
       // Cleanup map services
       mapServices.cleanupMapServicesTab();
@@ -455,4 +457,4 @@ function init({ cleanup } = {}) {
   }
 }
 
-window.utils?.onPageLoad(init, { route: "/settings" });
+onPageLoad(init, { route: "/settings" });

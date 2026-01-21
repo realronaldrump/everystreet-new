@@ -3,7 +3,7 @@
  * Handles all fetch requests to the backend driving navigation endpoints.
  */
 
-import apiClient from "../api-client.js";
+import apiClient from "../core/api-client.js";
 
 export class DrivingNavigationAPI {
   constructor() {

@@ -8,6 +8,10 @@ import {
   getStatusColor,
 } from "./task-manager/formatters.js";
 import { showErrorModal, showTaskDetails } from "./task-manager/modals.js";
+import apiClient from "../modules/core/api-client.js";
+import loadingManager from "../modules/ui/loading-manager.js";
+import notificationManager from "../modules/ui/notifications.js";
+import { DateUtils } from "../modules/utils.js";
 
 /**
  * Mobile UI module - handles all mobile-specific UI rendering and interactions
@@ -474,7 +478,7 @@ async function pollGeocodeProgress(context) {
   const { taskId, geocodeBtn, statusEl } = context;
 
   try {
-    const progressResponse = await fetch(`/api/geocode_trips/progress/${taskId}`);
+    const progressResponse = await apiClient.raw(`/api/geocode_trips/progress/${taskId}`);
     if (!progressResponse.ok) {
       handleGeocodeProgressError(context, progressResponse.status);
       return;
@@ -495,7 +499,7 @@ async function pollGeocodeProgress(context) {
       statusEl.classList.remove("info", "success");
       statusEl.classList.add("error");
     }
-    window.notificationManager?.show(
+    notificationManager.show(
       "Lost connection while monitoring geocoding progress",
       "warning"
     );
@@ -515,7 +519,7 @@ function handleGeocodeProgressError(context, status) {
     statusEl.classList.remove("info", "success");
     statusEl.classList.add("error");
   }
-  window.notificationManager?.show(errorMessage, "danger");
+  notificationManager.show(errorMessage, "danger");
 }
 
 function updateGeocodeProgressUI(context, progressData) {
@@ -549,13 +553,13 @@ function handleGeocodeCompletion(context, progressData) {
 
   if (stage === "completed") {
     updateGeocodeSuccessUI(statusEl, progressBar, metrics);
-    window.notificationManager.show(
+    notificationManager.show(
       `Geocoding completed: ${metrics.updated || 0} updated, ${metrics.skipped || 0} skipped`,
       "success"
     );
   } else {
     updateGeocodeErrorUI(statusEl, progressBar, progressData);
-    window.notificationManager.show(
+    notificationManager.show(
       `Geocoding failed: ${progressData.error || "Unknown error"}`,
       "danger"
     );
@@ -649,7 +653,7 @@ export function setupMobileGeocodeTrips() {
       start_date = document.getElementById("mobile-geocode-start")?.value || "";
       end_date = document.getElementById("mobile-geocode-end")?.value || "";
       if (!start_date || !end_date) {
-        window.notificationManager.show(
+        notificationManager.show(
           "Please select both start and end dates",
           "danger"
         );
@@ -690,7 +694,7 @@ export function setupMobileGeocodeTrips() {
         progressMetrics.textContent = "";
       }
 
-      const response = await fetch("/api/geocode_trips", {
+      const response = await apiClient.raw("/api/geocode_trips", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ start_date, end_date, interval_days }),
@@ -726,13 +730,13 @@ export function setupMobileGeocodeTrips() {
         statusEl.classList.remove("info");
         statusEl.classList.add("error");
       }
-      window.notificationManager.show("Failed to start geocoding", "danger");
+      notificationManager.show("Failed to start geocoding", "danger");
     }
   });
 
   // Initialize date pickers
-  if (window.DateUtils?.initDatePicker) {
-    window.DateUtils.initDatePicker(".datepicker");
+  if (DateUtils?.initDatePicker) {
+    DateUtils.initDatePicker(".datepicker");
   } else if (typeof flatpickr !== "undefined") {
     flatpickr(".datepicker", {
       enableTime: false,
@@ -781,7 +785,7 @@ export function setupMobileRemapTrips() {
         start_date = document.getElementById("mobile-remap-start").value;
         end_date = document.getElementById("mobile-remap-end").value;
         if (!start_date || !end_date) {
-          window.notificationManager.show(
+          notificationManager.show(
             "Please select both start and end dates",
             "danger"
           );
@@ -794,25 +798,25 @@ export function setupMobileRemapTrips() {
         );
         const startDateObj = new Date();
         startDateObj.setDate(startDateObj.getDate() - interval_days);
-        start_date = window.DateUtils.formatDateToString(startDateObj);
-        end_date = window.DateUtils.formatDateToString(new Date());
+        start_date = DateUtils.formatDateToString(startDateObj);
+        end_date = DateUtils.formatDateToString(new Date());
       }
 
       try {
-        window.loadingManager?.show();
+        loadingManager.show();
         if (remapStatus) {
           remapStatus.classList.remove("d-none", "success", "error");
           remapStatus.classList.add("info");
           remapStatus.textContent = "Remapping trips...";
         }
 
-        const response = await fetch("/api/matched_trips/remap", {
+        const response = await apiClient.raw("/api/matched_trips/remap", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ start_date, end_date, interval_days }),
         });
 
-        window.loadingManager?.hide();
+        loadingManager.hide();
         const data = await response.json();
 
         if (remapStatus) {
@@ -820,22 +824,22 @@ export function setupMobileRemapTrips() {
           remapStatus.classList.add("success");
           remapStatus.textContent = data.message;
         }
-        window.notificationManager.show(data.message, "success");
+        notificationManager.show(data.message, "success");
       } catch {
-        window.loadingManager?.hide();
+        loadingManager.hide();
         if (remapStatus) {
           remapStatus.classList.remove("info");
           remapStatus.classList.add("error");
           remapStatus.textContent = "Error re-matching trips.";
         }
-        window.notificationManager.show("Failed to re-match trips", "danger");
+        notificationManager.show("Failed to re-match trips", "danger");
       }
     });
   }
 
   // Initialize datepickers for mobile
-  if (window.DateUtils?.initDatePicker) {
-    window.DateUtils.initDatePicker(".mobile-form-input.datepicker");
+  if (DateUtils?.initDatePicker) {
+    DateUtils.initDatePicker(".mobile-form-input.datepicker");
   } else if (typeof flatpickr !== "undefined") {
     flatpickr(".mobile-form-input.datepicker", {
       enableTime: false,
@@ -879,7 +883,7 @@ export function setupMobileSaveFAB(taskManager) {
 
     submitTaskConfigUpdate(config)
       .then(() => {
-        window.notificationManager.show(
+        notificationManager.show(
           "Task configuration updated successfully",
           "success"
         );
@@ -889,7 +893,7 @@ export function setupMobileSaveFAB(taskManager) {
       })
       .catch((error) => {
         // Error updating task config - notification shown below
-        window.notificationManager.show(
+        notificationManager.show(
           `Error updating task config: ${error.message}`,
           "danger"
         );

@@ -10,6 +10,7 @@ import {
   DEFAULT_ROUTE_COLORS,
   DEFAULT_STREET_COLORS,
 } from "./constants.js";
+import MapStyles from "../map-styles.js";
 
 export class DrivingNavigationMap {
   /**
@@ -27,11 +28,11 @@ export class DrivingNavigationMap {
 
     // Get colors with fallbacks from MapStyles if available
     this.clusterColors
-      = window.MapStyles?.MAP_LAYER_COLORS?.clusters || DEFAULT_CLUSTER_COLORS;
+      = MapStyles.MAP_LAYER_COLORS?.clusters || DEFAULT_CLUSTER_COLORS;
     this.streetColors
-      = window.MapStyles?.MAP_LAYER_COLORS?.streets || DEFAULT_STREET_COLORS;
+      = MapStyles.MAP_LAYER_COLORS?.streets || DEFAULT_STREET_COLORS;
     this.routeColors
-      = window.MapStyles?.MAP_LAYER_COLORS?.routes || DEFAULT_ROUTE_COLORS;
+      = MapStyles.MAP_LAYER_COLORS?.routes || DEFAULT_ROUTE_COLORS;
   }
 
   /**

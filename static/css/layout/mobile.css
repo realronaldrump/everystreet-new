@@ -6,7 +6,7 @@
    respective component files:
    - Mobile search styles → search.css
    - Mobile header/nav styles → header.css
-   - Mobile map UI (bottom sheet, FAB, etc.) → modern-map.css
+   - Mobile map UI (bottom sheet, FAB, etc.) → features/map/controls.css
    - Responsive layout utilities → layout.css
 
    This file only contains truly global mobile rules that don't

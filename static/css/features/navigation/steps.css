@@ -1,0 +1,64 @@
+/* Navigation Steps */
+.nav-instruction-card {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 16px;
+  align-items: center;
+  padding: 16px 18px;
+  border-radius: var(--nav-radius-lg);
+  background: var(--nav-surface);
+  box-shadow: var(--nav-shadow);
+  backdrop-filter: blur(var(--blur-modal)) saturate(1.4);
+  pointer-events: auto;
+}
+
+.nav-turn-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: var(--nav-radius-md);
+  background: var(--primary-gradient);
+  color: var(--text-on-primary);
+  display: grid;
+  place-items: center;
+  font-size: 1.3rem;
+  box-shadow: var(--nav-glow), var(--nav-shadow);
+}
+
+.nav-turn-icon i {
+  transition: transform var(--nav-transition-normal);
+}
+
+.nav-turn-icon.off-route {
+  background: var(--danger-gradient);
+  box-shadow: var(--glow-danger), var(--nav-shadow);
+}
+
+.nav-turn-icon.arrive {
+  background: var(--success-gradient);
+  box-shadow: var(--glow-success), var(--nav-shadow);
+}
+
+.nav-instruction-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.nav-distance {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--nav-muted);
+  font-weight: 600;
+}
+
+.nav-primary {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--nav-text);
+}
+
+.nav-road {
+  font-size: 0.95rem;
+  color: var(--nav-muted);
+}

@@ -1,5 +1,17 @@
 /* global mapboxgl */
 
+import apiClient from "./modules/core/api-client.js";
+import store from "./modules/core/store.js";
+import { createMap } from "./modules/map-base.js";
+import confirmationDialog from "./modules/ui/confirmation-dialog.js";
+import notificationManager from "./modules/ui/notifications.js";
+import {
+  formatVehicleName,
+  getStorage,
+  onPageLoad,
+  setStorage,
+} from "./modules/utils.js";
+
 /**
  * Gas Tracking Module
  * Handles gas fill-up recording, MPG calculation, and statistics
@@ -14,11 +26,11 @@ let recentFillups = [];
 let vehicleDiscoveryAttempted = false;
 
 // Use shared notification manager
-const showSuccess = (msg) => window.notificationManager?.show(msg, "success");
-const showError = (msg) => window.notificationManager?.show(msg, "danger");
+const showSuccess = (msg) => notificationManager.show(msg, "success");
+const showError = (msg) => notificationManager.show(msg, "danger");
 
 // Initialize on page load
-window.utils?.onPageLoad(
+onPageLoad(
   async ({ signal, cleanup } = {}) => {
     try {
       await initializePage(signal, cleanup);
@@ -86,8 +98,8 @@ async function initializeMap() {
   }
 
   // Use the shared map factory if available to ensure consistent styling
-  if (window.mapBase?.createMap) {
-    map = window.mapBase.createMap("fillup-map", {
+  if (createMap) {
+    map = createMap("fillup-map", {
       center: [-95.7129, 37.0902],
       zoom: 4,
       attributionControl: false, // usually handled by css or small container
@@ -151,7 +163,6 @@ function toggleVehicleLoading(isLoading, message = "Detecting vehicles...") {
 }
 
 // Use shared utility
-const formatVehicleName = (v) => window.utils.formatVehicleName(v);
 
 /**
  * Load vehicles from API
@@ -164,7 +175,7 @@ async function loadVehicles(options = {}) {
     toggleVehicleLoading(true, "Loading vehicles...");
     setVehicleStatus("Loading your vehicles...", "muted");
 
-    const response = await fetch("/api/vehicles?active_only=true");
+    const response = await apiClient.raw("/api/vehicles?active_only=true");
     if (!response.ok) {
       throw new Error("Failed to load vehicles");
     }
@@ -199,7 +210,7 @@ async function loadVehicles(options = {}) {
       vehicleSelect.appendChild(option);
     });
 
-    const savedImei = window.utils?.getStorage("selectedVehicleImei");
+    const savedImei = getStorage("selectedVehicleImei");
     if (savedImei && vehicles.some((vehicle) => vehicle.imei === savedImei)) {
       vehicleSelect.value = savedImei;
       await updateLocationAndOdometer();
@@ -267,7 +278,7 @@ async function attemptVehicleDiscovery() {
   for (const step of discoverySteps) {
     try {
       toggleVehicleLoading(true, step.label);
-      const response = await fetch(step.url, { method: step.method });
+      const response = await apiClient.raw(step.url, { method: step.method });
 
       if (!response.ok) {
         if (step.tolerateStatuses?.includes(response.status)) {
@@ -321,7 +332,7 @@ async function updateLocationAndOdometer() {
       url += `&timestamp=${encodeURIComponent(new Date(fillupTime).toISOString())}`;
     }
 
-    const response = await fetch(url);
+    const response = await apiClient.raw(url);
 
     if (!response.ok) {
       // Handle specific error cases
@@ -450,8 +461,8 @@ function setupEventListeners(signal) {
     "change",
     async (event) => {
       const selected = event.target.value || null;
-      window.utils?.setStorage("selectedVehicleImei", selected);
-      window.ESStore?.updateFilters({ vehicle: selected }, { source: "vehicle" });
+      setStorage("selectedVehicleImei", selected);
+      store.updateFilters({ vehicle: selected }, { source: "vehicle" });
       await updateLocationAndOdometer();
       await loadRecentFillups();
       await loadStatistics();
@@ -513,6 +524,30 @@ function setupEventListeners(signal) {
   document
     .getElementById("auto-calc-odometer")
     .addEventListener("click", autoCalcOdometer, signal ? { signal } : false);
+
+  // Fill-up list actions (edit/delete)
+  const fillupList = document.getElementById("fillup-list");
+  fillupList?.addEventListener(
+    "click",
+    (event) => {
+      const target = event.target instanceof Element ? event.target : event.target?.parentElement;
+      const button = target?.closest("[data-fillup-action]");
+      if (!button) {
+        return;
+      }
+      const action = button.getAttribute("data-fillup-action");
+      const fillupId = button.getAttribute("data-fillup-id");
+      if (!fillupId) {
+        return;
+      }
+      if (action === "edit") {
+        editFillup(fillupId);
+      } else if (action === "delete") {
+        deleteFillup(fillupId);
+      }
+    },
+    signal ? { signal } : false
+  );
 }
 
 /**
@@ -541,7 +576,7 @@ async function autoCalcOdometer() {
     autoCalcBtn.disabled = true;
 
     const timestamp = new Date(fillupTime).toISOString();
-    const response = await fetch(
+    const response = await apiClient.raw(
       `/api/vehicles/estimate-odometer?imei=${encodeURIComponent(imei)}&timestamp=${encodeURIComponent(timestamp)}`
     );
 
@@ -626,7 +661,7 @@ async function handleFormSubmit(e) {
       method = "PUT";
     }
 
-    const response = await fetch(url, {
+    const response = await apiClient.raw(url, {
       method,
       headers: {
         "Content-Type": "application/json",
@@ -728,7 +763,7 @@ async function loadRecentFillups() {
       url += `&imei=${encodeURIComponent(vehicleSelect.value)}`;
     }
 
-    const response = await fetch(url);
+    const response = await apiClient.raw(url);
     if (!response.ok) {
       throw new Error("Failed to load fill-ups");
     }
@@ -777,10 +812,10 @@ function createFillupItem(fillup) {
                 </div>
                 <div class="d-flex align-items-center gap-2">
                     <span class="badge bg-primary me-2">${fillup.gallons.toFixed(2)} gal</span>
-                    <button class="btn btn-sm btn-outline-secondary" onclick="editFillup('${fillup._id}')" title="Edit">
+                    <button class="btn btn-sm btn-outline-secondary" data-fillup-action="edit" data-fillup-id="${fillup._id}" title="Edit">
                         ✏️
                     </button>
-                    <button class="btn btn-sm btn-outline-danger" onclick="deleteFillup('${fillup._id}')" title="Delete">
+                    <button class="btn btn-sm btn-outline-danger" data-fillup-action="delete" data-fillup-id="${fillup._id}" title="Delete">
                         🗑️
                     </button>
                 </div>
@@ -811,7 +846,7 @@ function createFillupItem(fillup) {
 /**
  * Edit a fill-up
  */
-window.editFillup = (id) => {
+function editFillup(id) {
   const fillup = recentFillups.find((f) => f._id === id);
   if (!fillup) {
     return;
@@ -876,13 +911,13 @@ window.editFillup = (id) => {
 
   // Scroll to form
   document.getElementById("gas-fillup-card").scrollIntoView({ behavior: "smooth" });
-};
+}
 
 /**
  * Delete a fill-up
  */
-window.deleteFillup = async (id) => {
-  const confirmed = await window.confirmationDialog.show({
+async function deleteFillup(id) {
+  const confirmed = await confirmationDialog.show({
     title: "Delete Fill-up",
     message: "Are you sure you want to delete this fill-up record?",
     confirmText: "Delete",
@@ -894,7 +929,7 @@ window.deleteFillup = async (id) => {
   }
 
   try {
-    const response = await fetch(`/api/gas-fillups/${id}`, {
+    const response = await apiClient.raw(`/api/gas-fillups/${id}`, {
       method: "DELETE",
     });
 
@@ -913,7 +948,7 @@ window.deleteFillup = async (id) => {
   } catch {
     showError("Failed to delete fill-up");
   }
-};
+}
 
 /**
  * Load statistics
@@ -927,7 +962,7 @@ async function loadStatistics() {
       url += `?imei=${encodeURIComponent(vehicleSelect.value)}`;
     }
 
-    const response = await fetch(url);
+    const response = await apiClient.raw(url);
     if (!response.ok) {
       throw new Error("Failed to load statistics");
     }

@@ -1,3 +1,7 @@
+import apiClient from "./modules/core/api-client.js";
+import store from "./modules/core/store.js";
+import { onPageLoad } from "./modules/utils.js";
+
 // Performance monitoring
 if ("PerformanceObserver" in window) {
   const observer = new PerformanceObserver((list) => {
@@ -23,7 +27,7 @@ function updateLiveTrackingVisibility() {
 }
 
 // Script for toggling chevron in metrics collapse
-window.utils?.onPageLoad(
+onPageLoad(
   ({ signal } = {}) => {
     const metricsButton = document.querySelector('[data-bs-target="#metrics-content"]');
     if (metricsButton) {
@@ -51,13 +55,10 @@ window.utils?.onPageLoad(
       // Fetch server-side setting once and reconcile localStorage
       (async () => {
         try {
-          const res = await fetch("/api/app_settings");
-          if (res.ok) {
-            const data = await res.json();
-            if (typeof data.showLiveTracking !== "undefined") {
-              window.localStorage.setItem("showLiveTracking", data.showLiveTracking);
-              updateLiveTrackingVisibility();
-            }
+          const data = await apiClient.get("/api/app_settings");
+          if (typeof data.showLiveTracking !== "undefined") {
+            window.localStorage.setItem("showLiveTracking", data.showLiveTracking);
+            updateLiveTrackingVisibility();
           }
         } catch (error) {
           console.warn("Failed to load app settings", error);
@@ -87,7 +88,7 @@ window.utils?.onPageLoad(
 
       const applyTilt = () => {
         ticking = false;
-        if (window.liveTripTracker?.followMode) {
+        if (store.liveTracker?.followMode) {
           return;
         }
         const scrollY = window.scrollY || 0;

@@ -1,0 +1,41 @@
+/* Map Layers */
+/* === Feature Styling (Trips, Streets) === */
+.trip-path {
+  /* Generic class for trip lines */
+  transition:
+    stroke-width 0.15s ease-out,
+    opacity 0.15s ease-out,
+    filter 0.15s ease-out;
+  cursor: pointer;
+
+  /* Default style set by JS, this is for interactions */
+}
+
+.trip-path:hover {
+  /* stroke-width: increased by JS or specific layer paint properties */
+  opacity: 1; /* Ensure hover is visible */
+  filter: drop-shadow(0 0 3px rgb(255 255 255 / 70%));
+}
+
+.trip-path.selected,
+.trip-feature-selected {
+  /* stroke-width: further increased by JS */
+  filter: drop-shadow(0 0 6px var(--primary)); /* Use primary color for selection glow */
+}
+
+.recent-trip,
+.trip-feature-recent {
+  /* Highlight recent trips */
+  filter: drop-shadow(0 0 4px rgb(var(--primary-rgb), 0.6));
+}
+
+.undriven-street-feature {
+  transition: filter 0.3s ease;
+
+  /* Default style set by JS */
+}
+
+.undriven-street-feature:hover {
+  filter: drop-shadow(0 0 5px rgb(var(--info-rgb), 0.8)); /* Info color for undriven hover */
+}
+

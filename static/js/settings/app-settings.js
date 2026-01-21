@@ -2,6 +2,9 @@
  * App Settings Module - Handles app preferences, tab switching, and settings form
  */
 
+import apiClient from "../modules/core/api-client.js";
+import notificationManager from "../modules/ui/notifications.js";
+
 export function setupTabSwitching() {
   const tabs = document.querySelectorAll(".settings-tab");
 
@@ -125,13 +128,8 @@ export function setupAppSettingsForm() {
   // Load settings from server
   (async () => {
     try {
-      const res = await fetch("/api/app_settings");
-      if (res.ok) {
-        const data = await res.json();
-        applySettings(data);
-      } else {
-        applySettings();
-      }
+      const data = await apiClient.get("/api/app_settings");
+      applySettings(data);
     } catch {
       applySettings();
     }
@@ -163,17 +161,9 @@ export function setupAppSettingsForm() {
     };
 
     try {
-      const resp = await fetch("/api/app_settings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      if (!resp.ok) {
-        throw new Error(`Server returned ${resp.status}`);
-      }
+      await apiClient.post("/api/app_settings", payload);
     } catch {
-      window.notificationManager?.show("Failed to save settings on server", "danger");
+      notificationManager.show("Failed to save settings on server", "danger");
       return;
     }
 
@@ -202,9 +192,7 @@ export function setupAppSettingsForm() {
     );
 
     // Show success
-    if (window.notificationManager) {
-      window.notificationManager.show("Settings saved successfully", "success");
-    }
+    notificationManager.show("Settings saved successfully", "success");
 
     // Update live tracker if active
     if (window.liveTracker) {

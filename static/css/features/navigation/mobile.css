@@ -1,0 +1,94 @@
+/* Navigation Mobile */
+@media (width <= 768px) {
+  .nav-top {
+    padding: calc(env(safe-area-inset-top) + 12px) 14px 0;
+  }
+
+  .nav-instruction-card {
+    padding: 14px;
+    gap: 12px;
+  }
+
+  .nav-primary {
+    font-size: 1.1rem;
+  }
+
+  .nav-turn-icon {
+    width: 48px;
+    height: 48px;
+  }
+
+  .nav-controls {
+    right: 12px;
+    top: calc(env(safe-area-inset-top) + 150px);
+  }
+
+  .nav-bottom {
+    left: 12px;
+    right: 12px;
+  }
+
+  .nav-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .nav-setup-card {
+    padding: 20px;
+  }
+
+  .nav-setup-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .turn-by-turn .mapboxgl-ctrl-bottom-right {
+    bottom: calc(env(safe-area-inset-bottom) + 230px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .nav-top,
+  .nav-bottom,
+  .nav-setup-card,
+  .nav-preview-card,
+  .nav-resume-prompt,
+  .nav-preview-start.at-start {
+    animation: none;
+  }
+
+  .nav-progress-fill,
+  .nav-control-btn,
+  .nav-primary-btn,
+  .nav-end-btn,
+  .nav-bottom-sheet,
+  .nav-progress-fill-baseline,
+  .nav-progress-fill-live {
+    transition: none;
+  }
+
+  .nav-signal-dot,
+  .nav-primary-btn.loading::after {
+    animation: none;
+  }
+}
+@media (width <= 768px) {
+  .nav-preview-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .preview-stat-value {
+    font-size: var(--font-size-lg);
+  }
+
+  .nav-bottom-sheet {
+    max-height: 60vh;
+  }
+
+  .nav-resume-prompt {
+    left: var(--nav-space-sm);
+    right: var(--nav-space-sm);
+    bottom: calc(env(safe-area-inset-bottom) + 180px);
+  }
+
+  .nav-resume-actions {
+    grid-template-columns: 1fr;
+  }
+}

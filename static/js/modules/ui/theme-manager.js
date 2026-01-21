@@ -1,5 +1,5 @@
-import { CONFIG } from "../config.js";
-import uiState from "../ui-state.js";
+import { CONFIG } from "../core/config.js";
+import store from "../core/store.js";
 import { utils } from "../utils.js";
 import eventManager from "./event-manager.js";
 
@@ -16,11 +16,11 @@ const themeManager = {
   },
 
   apply(theme, animate = true) {
-    if (uiState.currentTheme === theme) {
+    if (store.ui.theme === theme) {
       return;
     }
     const isLight = theme === "light";
-    uiState.currentTheme = theme;
+    store.ui.theme = theme;
 
     if (animate && CONFIG.UI.animations.enabled) {
       document.documentElement.style.transition
@@ -122,14 +122,14 @@ const themeManager = {
   },
 
   syncToggles(theme) {
-    const toggle = uiState.getElement(CONFIG.UI.selectors.themeToggle);
+    const toggle = store.getElement(CONFIG.UI.selectors.themeToggle);
     if (toggle) {
       toggle.checked = theme === "light";
     }
   },
 
   setupToggles() {
-    const toggle = uiState.getElement(CONFIG.UI.selectors.themeToggle);
+    const toggle = store.getElement(CONFIG.UI.selectors.themeToggle);
     if (toggle) {
       eventManager.add(toggle, "change", () =>
         this.apply(toggle.checked ? "light" : "dark")

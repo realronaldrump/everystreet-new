@@ -1,4 +1,6 @@
-import { uiState as state } from "../ui-state.js";
+import store from "../core/store.js";
+
+const elementListeners = new WeakMap();
 
 /**
  * Lightweight event management helper.
@@ -14,20 +16,20 @@ const eventManager = {
    * - options: { passive: true, leftClickOnly: true }
    */
   add(element, events, handler, options = {}) {
-    const el = typeof element === "string" ? state.getElement(element) : element;
+    const el = typeof element === "string" ? store.getElement(element) : element;
     if (!el) {
       return false;
     }
 
-    if (!state.listeners.has(el)) {
-      state.listeners.set(el, new Map());
+    if (!elementListeners.has(el)) {
+      elementListeners.set(el, new Map());
     }
     const eventList = Array.isArray(events) ? events : [events];
-    const elementListeners = state.listeners.get(el);
+    const elementListenersMap = elementListeners.get(el);
 
     eventList.forEach((eventType) => {
       const key = `${eventType}_${handler.name || Math.random()}`;
-      if (elementListeners.has(key)) {
+      if (elementListenersMap.has(key)) {
         return;
       } // already registered
 
@@ -45,7 +47,7 @@ const eventManager = {
         wrapped,
         options.passive ? { passive: true } : false
       );
-      elementListeners.set(key, { handler: wrapped, eventType });
+      elementListenersMap.set(key, { handler: wrapped, eventType });
     });
 
     return true;
@@ -56,7 +58,7 @@ const eventManager = {
    */
   delegate(container, selector, eventType, handler) {
     const containerEl
-      = typeof container === "string" ? state.getElement(container) : container;
+      = typeof container === "string" ? store.getElement(container) : container;
     if (!containerEl) {
       return false;
     }
@@ -76,7 +78,7 @@ const eventManager = {
    * One–time listener.
    */
   once(element, event, handler) {
-    const el = typeof element === "string" ? state.getElement(element) : element;
+    const el = typeof element === "string" ? store.getElement(element) : element;
     if (!el) {
       return false;
     }
@@ -94,7 +96,7 @@ const eventManager = {
    * Equivalent to: document.addEventListener(event, handler).
    */
   on(event, handler, target = document) {
-    const el = typeof target === "string" ? state.getElement(target) : target;
+    const el = typeof target === "string" ? store.getElement(target) : target;
     if (!el) {
       return false;
     }
@@ -107,7 +109,7 @@ const eventManager = {
    * Consumers can listen via: document.addEventListener(eventName, handler)
    */
   emit(event, detail = {}, target = document) {
-    const el = typeof target === "string" ? state.getElement(target) : target;
+    const el = typeof target === "string" ? store.getElement(target) : target;
     if (!el) {
       return false;
     }

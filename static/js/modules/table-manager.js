@@ -1,3 +1,4 @@
+import apiClient from "./core/api-client.js";
 import { escapeHtml } from "./utils.js";
 
 export class TableManager {
@@ -175,18 +176,9 @@ export class TableManager {
       filters,
     };
 
-    const response = await fetch(this.options.url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+    const result = await apiClient.post(this.options.url, payload, {
       signal: this.state.abortController.signal,
     });
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
-
-    const result = await response.json();
 
     this.state.data = result.data || [];
     const totalRecords = Number.isFinite(result.recordsFiltered)

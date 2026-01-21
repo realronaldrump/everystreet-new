@@ -4,6 +4,7 @@
  * Handles counter animations and metric updates for the driving insights page
  */
 
+import metricAnimator from "../ui/metric-animator.js";
 import { getCounter, getState, setCounter } from "./state.js";
 
 // Ensure CountUp is defined when using the UMD build
@@ -23,8 +24,8 @@ export function animateCounter(elementId, endValue, decimals = 0) {
     return;
   }
 
-  if (window.metricAnimator?.animateById) {
-    window.metricAnimator.animateById(elementId, endValue, { decimals });
+  if (metricAnimator?.animateById) {
+    metricAnimator.animateById(elementId, endValue, { decimals });
     return;
   }
 

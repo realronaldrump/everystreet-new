@@ -3,173 +3,175 @@
  * Handles data fetching and loading operations for places and visits
  */
 
-(() => {
-  class VisitsDataLoader {
-    constructor(options = {}) {
-      this.loadingManager = options.loadingManager || window.loadingManager;
-      this.notificationManager
-        = options.notificationManager || window.notificationManager;
-    }
+import loadingManager from "../ui/loading-manager.js";
+import notificationManager from "../ui/notifications.js";
+import VisitsDataService from "./data-service.js";
 
-    /**
-     * Load all places from the server
-     * @param {Function} onPlacesLoaded - Callback with places array
-     * @returns {Promise<Map>} Map of place ID to place data
-     */
-    async loadPlaces(onPlacesLoaded) {
-      this.loadingManager?.show("Loading Places");
+class VisitsDataLoader {
+  constructor(options = {}) {
+    this.loadingManager = options.loadingManager || loadingManager;
+    this.notificationManager = options.notificationManager || notificationManager;
+  }
 
-      try {
-        const places = await window.VisitsDataService.fetchPlaces();
-        const placesMap = new Map(places.map((place) => [place._id, place]));
+  /**
+   * Load all places from the server
+   * @param {Function} onPlacesLoaded - Callback with places array
+   * @returns {Promise<Map>} Map of place ID to place data
+   */
+  async loadPlaces(onPlacesLoaded) {
+    this.loadingManager?.show("Loading Places");
 
-        if (onPlacesLoaded) {
-          await onPlacesLoaded(places);
-        }
+    try {
+      const places = await VisitsDataService.fetchPlaces();
+      const placesMap = new Map(places.map((place) => [place._id, place]));
 
-        this.loadingManager?.hide();
-        return placesMap;
-      } catch (error) {
-        console.error("Error loading places:", error);
-        this.notificationManager?.show("Failed to load custom places", "danger");
-        this.loadingManager?.hide();
-        return new Map();
+      if (onPlacesLoaded) {
+        await onPlacesLoaded(places);
       }
-    }
 
-    /**
-     * Load non-custom places visits
-     * @param {Object} params - Query parameters
-     * @returns {Promise<Array>} Array of visit data
-     */
-    async loadNonCustomPlacesVisits(params = {}) {
-      this.loadingManager?.updateMessage("Loading other locations...");
-
-      try {
-        return await window.VisitsDataService.fetchNonCustomVisits(params);
-      } catch (error) {
-        console.error("Error fetching non-custom places visits:", error);
-        this.notificationManager?.show(
-          "Failed to load non-custom places visits",
-          "danger"
-        );
-        return [];
-      }
-    }
-
-    /**
-     * Load visit suggestions
-     * @param {Object} params - Query parameters
-     * @returns {Promise<Array>} Array of suggestions
-     */
-    async loadSuggestions(params = {}) {
-      try {
-        const tfSelect = document.getElementById("time-filter");
-        if (tfSelect?.value !== "all" && tfSelect?.value) {
-          params.timeframe = tfSelect.value;
-        }
-
-        return await window.VisitsDataService.fetchVisitSuggestions(params);
-      } catch (error) {
-        console.error("Error loading visit suggestions", error);
-        return [];
-      }
-    }
-
-    /**
-     * Load place statistics
-     * @param {Object} params - Query parameters
-     * @returns {Promise<Array>} Array of statistics
-     */
-    async loadPlaceStatistics(params = {}) {
-      try {
-        return await window.VisitsDataService.fetchPlaceStatistics(params);
-      } catch (error) {
-        console.error("Error loading place statistics:", error);
-        throw error;
-      }
-    }
-
-    /**
-     * Load detailed statistics for a specific place
-     * @param {string} placeId - Place ID
-     * @returns {Promise<Object>} Place statistics
-     */
-    async loadPlaceDetailStatistics(placeId) {
-      try {
-        return await window.VisitsDataService.fetchPlaceDetailStatistics(placeId);
-      } catch (error) {
-        console.error("Error fetching place statistics:", error);
-        throw error;
-      }
-    }
-
-    /**
-     * Load trips for a specific place
-     * @param {string} placeId - Place ID
-     * @returns {Promise<Object>} Trips data with trips array and place name
-     */
-    async loadPlaceTrips(placeId) {
-      this.loadingManager?.show("Loading Trips");
-
-      try {
-        const data = await window.VisitsDataService.fetchPlaceTrips(placeId);
-        this.loadingManager?.hide();
-        return data;
-      } catch (error) {
-        console.error(`Error fetching trips for place ${placeId}:`, error);
-        this.notificationManager?.show(
-          "Failed to fetch trips for the selected place.",
-          "danger"
-        );
-        this.loadingManager?.hide();
-        return { trips: [], name: null };
-      }
-    }
-
-    /**
-     * Load a specific trip
-     * @param {string} tripId - Trip ID
-     * @returns {Promise<Object>} Trip data
-     */
-    async loadTrip(tripId) {
-      this.loadingManager?.show("Loading Trip");
-
-      try {
-        const tripResponse = await window.VisitsDataService.fetchTrip(tripId);
-        this.loadingManager?.hide();
-        return tripResponse.trip || tripResponse;
-      } catch (error) {
-        console.error("Error fetching trip data:", error);
-        this.loadingManager?.hide();
-        this.notificationManager?.show(
-          "Error loading trip data. Please try again.",
-          "danger"
-        );
-        throw error;
-      }
-    }
-
-    /**
-     * Filter data by timeframe and reload relevant tables
-     * @param {string} timeframe - Timeframe filter value
-     * @returns {Promise<Object>} Object containing customStats and otherStats
-     */
-    async filterByTimeframe(timeframe) {
-      try {
-        const [customStats, otherStats] = await Promise.all([
-          window.VisitsDataService.fetchPlaceStatistics({ timeframe }),
-          window.VisitsDataService.fetchNonCustomVisits({ timeframe }),
-        ]);
-
-        return { customStats, otherStats };
-      } catch (error) {
-        console.error("Error filtering by timeframe:", error);
-        this.notificationManager?.show("Error filtering data", "danger");
-        throw error;
-      }
+      this.loadingManager?.hide();
+      return placesMap;
+    } catch (error) {
+      console.error("Error loading places:", error);
+      this.notificationManager?.show("Failed to load custom places", "danger");
+      this.loadingManager?.hide();
+      return new Map();
     }
   }
 
-  window.VisitsDataLoader = VisitsDataLoader;
-})();
+  /**
+   * Load non-custom places visits
+   * @param {Object} params - Query parameters
+   * @returns {Promise<Array>} Array of visit data
+   */
+  async loadNonCustomPlacesVisits(params = {}) {
+    this.loadingManager?.updateMessage("Loading other locations...");
+
+    try {
+      return await VisitsDataService.fetchNonCustomVisits(params);
+    } catch (error) {
+      console.error("Error fetching non-custom places visits:", error);
+      this.notificationManager?.show(
+        "Failed to load non-custom places visits",
+        "danger"
+      );
+      return [];
+    }
+  }
+
+  /**
+   * Load visit suggestions
+   * @param {Object} params - Query parameters
+   * @returns {Promise<Array>} Array of suggestions
+   */
+  async loadSuggestions(params = {}) {
+    try {
+      const tfSelect = document.getElementById("time-filter");
+      if (tfSelect?.value !== "all" && tfSelect?.value) {
+        params.timeframe = tfSelect.value;
+      }
+
+      return await VisitsDataService.fetchVisitSuggestions(params);
+    } catch (error) {
+      console.error("Error loading visit suggestions", error);
+      return [];
+    }
+  }
+
+  /**
+   * Load place statistics
+   * @param {Object} params - Query parameters
+   * @returns {Promise<Array>} Array of statistics
+   */
+  async loadPlaceStatistics(params = {}) {
+    try {
+      return await VisitsDataService.fetchPlaceStatistics(params);
+    } catch (error) {
+      console.error("Error loading place statistics:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Load detailed statistics for a specific place
+   * @param {string} placeId - Place ID
+   * @returns {Promise<Object>} Place statistics
+   */
+  async loadPlaceDetailStatistics(placeId) {
+    try {
+      return await VisitsDataService.fetchPlaceDetailStatistics(placeId);
+    } catch (error) {
+      console.error("Error fetching place statistics:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Load trips for a specific place
+   * @param {string} placeId - Place ID
+   * @returns {Promise<Object>} Trips data with trips array and place name
+   */
+  async loadPlaceTrips(placeId) {
+    this.loadingManager?.show("Loading Trips");
+
+    try {
+      const data = await VisitsDataService.fetchPlaceTrips(placeId);
+      this.loadingManager?.hide();
+      return data;
+    } catch (error) {
+      console.error(`Error fetching trips for place ${placeId}:`, error);
+      this.notificationManager?.show(
+        "Failed to fetch trips for the selected place.",
+        "danger"
+      );
+      this.loadingManager?.hide();
+      return { trips: [], name: null };
+    }
+  }
+
+  /**
+   * Load a specific trip
+   * @param {string} tripId - Trip ID
+   * @returns {Promise<Object>} Trip data
+   */
+  async loadTrip(tripId) {
+    this.loadingManager?.show("Loading Trip");
+
+    try {
+      const tripResponse = await VisitsDataService.fetchTrip(tripId);
+      this.loadingManager?.hide();
+      return tripResponse.trip || tripResponse;
+    } catch (error) {
+      console.error("Error fetching trip data:", error);
+      this.loadingManager?.hide();
+      this.notificationManager?.show(
+        "Error loading trip data. Please try again.",
+        "danger"
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Filter data by timeframe and reload relevant tables
+   * @param {string} timeframe - Timeframe filter value
+   * @returns {Promise<Object>} Object containing customStats and otherStats
+   */
+  async filterByTimeframe(timeframe) {
+    try {
+      const [customStats, otherStats] = await Promise.all([
+        VisitsDataService.fetchPlaceStatistics({ timeframe }),
+        VisitsDataService.fetchNonCustomVisits({ timeframe }),
+      ]);
+
+      return { customStats, otherStats };
+    } catch (error) {
+      console.error("Error filtering by timeframe:", error);
+      this.notificationManager?.show("Error filtering data", "danger");
+      throw error;
+    }
+  }
+}
+
+export { VisitsDataLoader };
+export default VisitsDataLoader;

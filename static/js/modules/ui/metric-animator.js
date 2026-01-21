@@ -9,7 +9,6 @@ const MetricAnimator = {
 
     if (typeof window !== "undefined") {
       window.CountUp = window.CountUp || window.countUp?.CountUp;
-      window.metricAnimator = this;
     }
 
     this.animateAll();

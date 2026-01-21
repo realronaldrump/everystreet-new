@@ -1,13 +1,13 @@
-import { CONFIG } from "../config.js";
-import uiState from "../ui-state.js";
+import { CONFIG } from "../core/config.js";
+import store from "../core/store.js";
 import dateManager from "./date-manager.js";
 import eventManager from "./event-manager.js";
 import panelManager from "./panel-manager.js";
 
 function ensureIndicator() {
-  let indicator = uiState.getElement(CONFIG.UI.selectors.filterIndicator);
+  let indicator = store.getElement(CONFIG.UI.selectors.filterIndicator);
   if (!indicator) {
-    const tools = uiState.getElement(CONFIG.UI.selectors.toolsSection);
+    const tools = store.getElement(CONFIG.UI.selectors.toolsSection);
     if (!tools) {
       return null;
     }
@@ -24,7 +24,7 @@ function ensureIndicator() {
 const filterIndicatorManager = {
   init() {
     const indicator = ensureIndicator();
-    const filtersBtn = uiState.getElement(CONFIG.UI.selectors.filterToggle);
+    const filtersBtn = store.getElement(CONFIG.UI.selectors.filterToggle);
     if (!indicator || !filtersBtn) {
       return;
     }

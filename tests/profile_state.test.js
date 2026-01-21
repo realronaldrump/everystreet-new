@@ -1,7 +1,11 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
 
-const profileState = require("../static/js/profile-state.js");
+let profileState;
+
+test.before(async () => {
+  profileState = await import("../static/js/profile-state.js");
+});
 
 const baseValues = {
   client_id: "client",

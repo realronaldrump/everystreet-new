@@ -3,7 +3,7 @@
  * Handles all network/API calls
  */
 
-import apiClient from "../api-client.js";
+import apiClient from "../core/api-client.js";
 
 const TurnByTurnAPI = {
   /**

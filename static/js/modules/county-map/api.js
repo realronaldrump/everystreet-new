@@ -3,13 +3,14 @@
  * Handles all API calls for the county map
  */
 
+import apiClient from "../core/api-client.js";
+
 /**
  * Fetch county topology data (TopoJSON)
  * @returns {Promise<Object>} Topology data
  */
 export async function fetchCountyTopology() {
-  const response = await fetch("/api/counties/topology");
-  const data = await response.json();
+  const data = await apiClient.get("/api/counties/topology");
 
   if (!data.success || !data.topology) {
     throw new Error(data.error || "Unable to load county topology");
@@ -23,8 +24,7 @@ export async function fetchCountyTopology() {
  * @returns {Promise<Object>} Visited counties response
  */
 export async function fetchVisitedCounties() {
-  const response = await fetch("/api/counties/visited");
-  return response.json();
+  return apiClient.get("/api/counties/visited");
 }
 
 /**
@@ -32,10 +32,7 @@ export async function fetchVisitedCounties() {
  * @returns {Promise<Object>} Recalculation response
  */
 export async function triggerRecalculation() {
-  const response = await fetch("/api/counties/recalculate", {
-    method: "POST",
-  });
-  return response.json();
+  return apiClient.post("/api/counties/recalculate");
 }
 
 /**
@@ -43,6 +40,5 @@ export async function triggerRecalculation() {
  * @returns {Promise<Object>} Cache status response
  */
 export async function fetchCacheStatus() {
-  const response = await fetch("/api/counties/cache-status");
-  return response.json();
+  return apiClient.get("/api/counties/cache-status");
 }

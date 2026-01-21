@@ -1,3 +1,6 @@
+import notificationManager from "./modules/ui/notifications.js";
+import { onPageLoad } from "./modules/utils.js";
+
 /* Mobile Map Interface - Simplified for Unified DOM
  *
  * This file handles mobile-specific behaviors for the map page:
@@ -493,9 +496,7 @@ class MobileMapInterface {
 
   showFeedback(message) {
     this.lastFeedbackMessage = message;
-    if (window.notificationManager) {
-      window.notificationManager.show(message, "info");
-    }
+    notificationManager?.show(message, "info");
   }
 
   static debounce(fn, wait = 150) {
@@ -526,20 +527,22 @@ class MobileMapInterface {
   }
 }
 
+let mobileMapInterface = null;
+
 const initMobileMap = ({ cleanup } = {}) => {
-  if (window.mobileMapInterface?.destroy) {
-    window.mobileMapInterface.destroy();
+  if (mobileMapInterface?.destroy) {
+    mobileMapInterface.destroy();
   }
-  window.mobileMapInterface = new MobileMapInterface();
+  mobileMapInterface = new MobileMapInterface();
 
   if (typeof cleanup === "function") {
     cleanup(() => {
-      if (window.mobileMapInterface?.destroy) {
-        window.mobileMapInterface.destroy();
+      if (mobileMapInterface?.destroy) {
+        mobileMapInterface.destroy();
       }
-      window.mobileMapInterface = null;
+      mobileMapInterface = null;
     });
   }
 };
 
-window.utils?.onPageLoad(initMobileMap, { route: "/map" });
+onPageLoad(initMobileMap, { route: "/map" });

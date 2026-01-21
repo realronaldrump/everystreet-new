@@ -3,7 +3,9 @@
  * Handles all API calls related to task management
  */
 
-import apiClient from "../../modules/api-client.js";
+import apiClient from "../../modules/core/api-client.js";
+import confirmationDialog from "../../modules/ui/confirmation-dialog.js";
+import loadingManager from "../../modules/ui/loading-manager.js";
 import { API_ENDPOINTS } from "./constants.js";
 import { getStatusHTML } from "./formatters.js";
 import { showDependencyErrorModal } from "./modals.js";
@@ -49,11 +51,11 @@ export async function runTask(taskId, context, onSuccess) {
   const { notifier, activeTasksMap } = context;
 
   try {
-    window.loadingManager?.show();
+    loadingManager.show();
 
     const result = await apiClient.post(API_ENDPOINTS.RUN, { task_id: taskId });
 
-    window.loadingManager?.hide();
+    loadingManager.hide();
 
     if (result.status === "success") {
       if (result.results?.length > 0) {
@@ -95,7 +97,7 @@ export async function runTask(taskId, context, onSuccess) {
     }
     throw new Error(result.message || "Failed to start task");
   } catch (error) {
-    window.loadingManager?.hide();
+    loadingManager.hide();
     notifier.show(
       "Error",
       `Failed to start task ${taskId}: ${error.message}`,
@@ -122,33 +124,21 @@ export async function forceStopTask(taskId, context, onSuccess) {
   let confirmed = true;
   const confirmMessage = `Force stop task ${taskId}? This will reset its status.`;
 
-  if (
-    window.confirmationDialog
-    && typeof window.confirmationDialog.show === "function"
-  ) {
-    confirmed = await window.confirmationDialog.show({
-      title: "Force Stop Task",
-      message: confirmMessage,
-      confirmLabel: "Force Stop",
-      confirmVariant: "danger",
-    });
-  } else {
-    confirmed = await window.confirmationDialog.show({
-      title: "Confirm Action",
-      message: confirmMessage,
-      confirmText: "Yes",
-      confirmButtonClass: "btn-primary",
-    });
-  }
+  confirmed = await confirmationDialog.show({
+    title: "Force Stop Task",
+    message: confirmMessage,
+    confirmText: "Force Stop",
+    confirmButtonClass: "btn-danger",
+  });
 
   if (!confirmed) {
     return false;
   }
 
   try {
-    window.loadingManager?.show();
+    loadingManager.show();
     const data = await apiClient.post(API_ENDPOINTS.FORCE_STOP, { task_id: taskId });
-    window.loadingManager?.hide();
+    loadingManager.hide();
 
     const message = data.message || `Task ${taskId} has been reset.`;
     notifier.show("Task Reset", message, "warning");
@@ -159,7 +149,7 @@ export async function forceStopTask(taskId, context, onSuccess) {
 
     return true;
   } catch (error) {
-    window.loadingManager?.hide();
+    loadingManager.hide();
     notifier.show(
       "Error",
       `Failed to force stop task ${taskId}: ${error.message}`,
@@ -188,13 +178,13 @@ export async function scheduleManualFetch(
   const { notifier } = context;
 
   try {
-    window.loadingManager?.show();
+    loadingManager.show();
     const result = await apiClient.post(API_ENDPOINTS.FETCH_TRIPS_RANGE, {
       start_date: startIso,
       end_date: endIso,
       map_match: mapMatch,
     });
-    window.loadingManager?.hide();
+    loadingManager.hide();
 
     notifier.show(
       "Success",
@@ -208,7 +198,7 @@ export async function scheduleManualFetch(
 
     return true;
   } catch (error) {
-    window.loadingManager?.hide();
+    loadingManager.hide();
     notifier.show("Error", `Failed to schedule fetch: ${error.message}`, "danger");
     throw error;
   }
@@ -235,27 +225,22 @@ export async function clearTaskHistory(context, onSuccess) {
 
   let confirmed = true;
 
-  if (
-    window.confirmationDialog
-    && typeof window.confirmationDialog.show === "function"
-  ) {
-    confirmed = await window.confirmationDialog.show({
-      title: "Clear Task History",
-      message:
-        "Are you sure you want to clear all task history? This cannot be undone.",
-      confirmLabel: "Clear History",
-      confirmVariant: "danger",
-    });
-  }
+  confirmed = await confirmationDialog.show({
+    title: "Clear Task History",
+    message:
+      "Are you sure you want to clear all task history? This cannot be undone.",
+    confirmText: "Clear History",
+    confirmButtonClass: "btn-danger",
+  });
 
   if (!confirmed) {
     return false;
   }
 
   try {
-    window.loadingManager?.show();
+    loadingManager.show();
     await apiClient.delete(API_ENDPOINTS.HISTORY);
-    window.loadingManager?.hide();
+    loadingManager.hide();
 
     notifier.show("Success", "Task history cleared", "success");
 
@@ -265,7 +250,7 @@ export async function clearTaskHistory(context, onSuccess) {
 
     return true;
   } catch (error) {
-    window.loadingManager?.hide();
+    loadingManager.hide();
     notifier.show("Error", `Failed to clear history: ${error.message}`, "danger");
     return false;
   }

@@ -1,3 +1,7 @@
+import apiClient from "./modules/core/api-client.js";
+import store from "./modules/core/store.js";
+import { getStorage, onPageLoad, setStorage } from "./modules/utils.js";
+
 /**
  * Vehicles Page JavaScript
  * Handles vehicle display and odometer management
@@ -17,7 +21,7 @@
   let elements = {};
 
   // Initialize
-  window.utils?.onPageLoad(
+  onPageLoad(
     ({ signal, cleanup } = {}) => {
       pageSignal = signal || null;
       cacheElements();
@@ -159,7 +163,7 @@
     showLoading();
 
     try {
-      const response = await fetch("/api/vehicles?active_only=false", withSignal());
+      const response = await apiClient.raw("/api/vehicles?active_only=false", withSignal());
       if (!response.ok) {
         throw new Error("Failed to fetch vehicles");
       }
@@ -183,7 +187,7 @@
       }
 
       // Determine which vehicle to display
-      const savedImei = window.utils?.getStorage(STORAGE_KEY);
+      const savedImei = getStorage(STORAGE_KEY);
       let vehicleToDisplay = null;
 
       // Try to find saved vehicle
@@ -259,8 +263,8 @@
     currentVehicle = vehicle;
 
     // Persist selection
-    window.utils?.setStorage(STORAGE_KEY, imei);
-    window.ESStore?.updateFilters({ vehicle: imei }, { source: "vehicle" });
+    setStorage(STORAGE_KEY, imei);
+    store.updateFilters({ vehicle: imei }, { source: "vehicle" });
 
     // Update dropdown selection
     if (elements.vehicleSelect) {
@@ -356,7 +360,7 @@
     elements.useBouncieReadingBtn.disabled = true;
 
     try {
-      const response = await fetch(
+      const response = await apiClient.raw(
         `/api/vehicle-location?imei=${currentVehicle.imei}&use_now=true`,
         withSignal()
       );
@@ -436,7 +440,7 @@
    * Update vehicle odometer via API
    */
   async function updateVehicleOdometer(reading, source) {
-    const response = await fetch(
+    const response = await apiClient.raw(
       `/api/vehicles/${currentVehicle.imei}`,
       withSignal({
         method: "PUT",
@@ -469,7 +473,7 @@
     const isActive = elements.activeStatusToggle.checked;
 
     try {
-      const response = await fetch(
+      const response = await apiClient.raw(
         `/api/vehicles/${currentVehicle.imei}`,
         withSignal({
           method: "PUT",
@@ -504,7 +508,7 @@
     showLoading();
 
     try {
-      const response = await fetch(
+      const response = await apiClient.raw(
         "/api/profile/bouncie-credentials/sync-vehicles",
         withSignal({
           method: "POST",

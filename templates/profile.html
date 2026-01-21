@@ -273,6 +273,6 @@ Bouncie credentials
 
 {% block extra_js %}
 
-  <script src="{{ url_for('static', path='js/profile-state.js') | replace('http://', '//') }}"></script>
-  <script src="{{ url_for('static', path='js/profile.js') | replace('http://', '//') }}"></script>
+  <script type="module"
+          src="{{ url_for('static', path='js/pages/profile.js') | replace('http://', '//') }}"></script>
 {% endblock %}

@@ -1,6 +1,8 @@
 /* global clients */
 
-const CACHE_VERSION = "v3";
+import apiClient from "./modules/core/api-client.js";
+
+const CACHE_VERSION = "v4";
 const APP_SHELL_CACHE = `everystreet-shell-${CACHE_VERSION}`;
 const API_CACHE = `everystreet-api-${CACHE_VERSION}`;
 const TILE_CACHE = `everystreet-tiles-${CACHE_VERSION}`;
@@ -12,12 +14,17 @@ const APP_SHELL_ASSETS = [
   "/static/css/style.css",
   "/static/css/animations.css",
   "/static/css/loading-styles.css",
-  "/static/js/utils.js",
-  "/static/js/loading_manager.js",
-  "/static/js/modules/app-controller.js",
+  "/static/js/app.js",
+  "/static/js/modules/core/api-client.js",
+  "/static/js/modules/core/config.js",
+  "/static/js/modules/core/router.js",
+  "/static/js/modules/core/store.js",
   "/static/js/modules/ui/ui-init.js",
-  "/static/js/modules/spa/router.js",
-  "/static/js/modules/spa/store.js",
+  "/static/js/modules/ui/loading-manager.js",
+  "/static/js/modules/ui/notifications.js",
+  "/static/js/modules/ui/confirmation-dialog.js",
+  "/static/js/modules/ui/global-job-tracker.js",
+  "/static/js/modules/utils.js",
 ];
 
 self.addEventListener("install", (event) => {
@@ -107,7 +114,7 @@ async function staleWhileRevalidate(request, cacheName) {
   const cache = await caches.open(cacheName);
   const cached = await cache.match(request);
 
-  const networkPromise = fetch(request)
+  const networkPromise = apiClient.raw(request)
     .then((response) => {
       if (shouldCacheTileResponse(response)) {
         cache.put(request, response.clone());
@@ -130,7 +137,7 @@ async function cacheFirst(request, cacheName) {
   if (cached) {
     return cached;
   }
-  const response = await fetch(request);
+  const response = await apiClient.raw(request);
   if (response?.ok) {
     cache.put(request, response.clone());
   }
@@ -161,7 +168,7 @@ function shouldCacheTileResponse(response) {
 function fetchWithTimeout(request, timeoutMs) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-  return fetch(request, { signal: controller.signal }).finally(() => {
+  return apiClient.raw(request, { signal: controller.signal }).finally(() => {
     clearTimeout(timeoutId);
   });
 }

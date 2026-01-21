@@ -1,0 +1,123 @@
+/* Map Popups */
+/* === Mapbox GL JS Popup Styling === */
+.mapboxgl-popup {
+  z-index: var(--z-popover);
+  animation: fadeInScale 0.2s ease-out; /* From map-enhancements */
+}
+
+/* Note: @keyframes fadeInScale moved to animations.css */
+
+.mapboxgl-popup-content {
+  font-family: var(--font-family);
+  background-color: var(--surface-glass);
+  color: var(--text-primary);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  padding: 0; /* Remove default padding, handle in custom content */
+  max-width: 350px;
+  border: 1px solid var(--border-color);
+  backdrop-filter: blur(var(--blur-subtle));
+}
+
+.mapboxgl-popup-tip {
+  border-top-color: var(--surface-glass); /* Match content background */
+
+  /* Adjust tip color if content has a border */
+}
+
+.mapboxgl-popup-tip::before {
+  /* If there's a border on content, this helps blend */
+  border-top-color: var(--border-color);
+}
+
+.mapboxgl-popup-close-button {
+  color: var(--text-secondary);
+  font-size: var(--font-size-lg);
+  padding: var(--space-2);
+  line-height: 1;
+  right: var(--space-2);
+  top: var(--space-2);
+  transition: all var(--transition-fast);
+  border-radius: var(--radius-full);
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mapboxgl-popup-close-button:hover {
+  color: var(--text-primary);
+  background: var(--surface-3);
+}
+
+/* Custom Popup Content Styling (from coverage_management.html) */
+.coverage-popup-content {
+  /* Class for your custom popup HTML structure */
+  padding: var(--space-4);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-normal);
+}
+
+.coverage-popup-content .popup-title {
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-lg);
+  margin-bottom: var(--space-3);
+  color: var(--primary); /* Use primary color for title */
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--divider-color);
+}
+
+.coverage-popup-content .popup-detail {
+  margin-bottom: var(--space-2);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.coverage-popup-content .popup-label {
+  color: var(--text-secondary);
+  margin-right: var(--space-2);
+  font-weight: var(--font-weight-medium);
+}
+
+.coverage-popup-content .popup-value {
+  color: var(--text-primary);
+  text-align: right;
+  font-weight: var(--font-weight-regular);
+}
+
+.coverage-popup-content .popup-value.status-driven {
+  color: var(--success);
+  font-weight: var(--font-weight-semibold);
+}
+
+.coverage-popup-content .popup-value.status-undriven {
+  color: var(--danger);
+  font-weight: var(--font-weight-semibold);
+}
+
+.coverage-popup-content .popup-value.status-undriveable {
+  color: var(--warning);
+}
+
+.coverage-popup-content .popup-value.segment-id {
+  color: var(--text-tertiary);
+  font-family: monospace;
+  font-size: var(--font-size-xs);
+}
+
+.coverage-popup-content .popup-actions {
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--divider-color);
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap; /* Allow buttons to wrap */
+}
+
+.coverage-popup-content .popup-actions .btn {
+  font-size: var(--font-size-xs);
+  padding: var(--space-1) var(--space-3);
+}
+

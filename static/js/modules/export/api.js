@@ -1,21 +1,13 @@
-async function fetchJson(url, options = {}) {
-  const response = await fetch(url, options);
-  if (!response.ok) {
-    const detail = await response.json().catch(() => ({}));
-    const message = detail?.detail || response.statusText;
-    throw new Error(message);
-  }
-  return response.json();
-}
+import apiClient from "../core/api-client.js";
 
 export async function fetchCoverageAreas(signal) {
-  const data = await fetchJson("/api/coverage/areas", { signal });
+  const data = await apiClient.get("/api/coverage/areas", { signal });
   return data?.areas || [];
 }
 
 export async function fetchVehicles(signal) {
   try {
-    const data = await fetchJson("/api/vehicles?active_only=true", { signal });
+    const data = await apiClient.get("/api/vehicles?active_only=true", { signal });
     return Array.isArray(data) ? data : [];
   } catch (error) {
     console.warn("Failed to load vehicles:", error);
@@ -24,16 +16,9 @@ export async function fetchVehicles(signal) {
 }
 
 export function createExportJob(payload, signal) {
-  return fetchJson("/api/exports", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-    signal,
-  });
+  return apiClient.post("/api/exports", payload, { signal });
 }
 
 export function fetchExportStatus(jobId, signal) {
-  return fetchJson(`/api/exports/${jobId}`, { signal });
+  return apiClient.get(`/api/exports/${jobId}`, { signal });
 }

@@ -13,10 +13,10 @@
  * Data fetching is handled by data-manager.js
  */
 
-import { CONFIG } from "./config.js";
+import { CONFIG } from "./core/config.js";
 import heatmapUtils from "./heatmap-utils.js";
-import store from "./spa/store.js";
-import state from "./state.js";
+import store from "./core/store.js";
+import notificationManager from "./ui/notifications.js";
 import { utils } from "./utils.js";
 
 // Layers that support trip click interactions
@@ -107,18 +107,18 @@ const layerManager = {
    * @private
    */
   _removeTripHitboxLayer(layerName) {
-    if (!state.map) {
+    if (!store.map) {
       return;
     }
 
     const hitboxLayerId = `${layerName}-hitbox`;
 
-    if (state.map.getLayer(hitboxLayerId)) {
+    if (store.map.getLayer(hitboxLayerId)) {
       // Remove event handlers first
       ["click", "mouseenter", "mouseleave"].forEach((event) => {
-        state.map.off(event, hitboxLayerId);
+        store.map.off(event, hitboxLayerId);
       });
-      state.map.removeLayer(hitboxLayerId);
+      store.map.removeLayer(hitboxLayerId);
     }
 
     this._layerCleanupMap.delete(hitboxLayerId);
@@ -129,7 +129,7 @@ const layerManager = {
    * @private
    */
   async _setupTripInteractions(layerName, sourceId, layerInfo) {
-    if (!state.map || !this._shouldEnableTripInteractions(layerName)) {
+    if (!store.map || !this._shouldEnableTripInteractions(layerName)) {
       return;
     }
 
@@ -154,21 +154,21 @@ const layerManager = {
     };
 
     // Create or update hitbox layer
-    if (!state.map.getLayer(hitboxLayerId)) {
-      state.map.addLayer(hitboxConfig);
+    if (!store.map.getLayer(hitboxLayerId)) {
+      store.map.addLayer(hitboxConfig);
     } else {
-      state.map.setLayoutProperty(
+      store.map.setLayoutProperty(
         hitboxLayerId,
         "visibility",
         layerInfo.visible ? "visible" : "none"
       );
-      state.map.setPaintProperty(
+      store.map.setPaintProperty(
         hitboxLayerId,
         "line-width",
         this._getTripHitboxWidth()
       );
       // Ensure hitbox is on top for interactivity
-      state.map.moveLayer(hitboxLayerId);
+      store.map.moveLayer(hitboxLayerId);
     }
 
     // Set up event handlers
@@ -180,12 +180,12 @@ const layerManager = {
         return;
       }
       // Ignore if map is being dragged
-      if (typeof state.map?.isMoving === "function" && state.map.isMoving()) {
+      if (typeof store.map?.isMoving === "function" && store.map.isMoving()) {
         return;
       }
       // For trips layer, check if matchedTrips hitbox is being clicked instead
-      if (layerName === "trips" && state.map.getLayer("matchedTrips-hitbox")) {
-        const matchedHits = state.map.queryRenderedFeatures(e.point, {
+      if (layerName === "trips" && store.map.getLayer("matchedTrips-hitbox")) {
+        const matchedHits = store.map.queryRenderedFeatures(e.point, {
           layers: ["matchedTrips-hitbox"],
         });
         if (matchedHits.length > 0) {
@@ -201,22 +201,22 @@ const layerManager = {
     };
 
     const mouseEnterHandler = () => {
-      state.map.getCanvas().style.cursor = "pointer";
+      store.map.getCanvas().style.cursor = "pointer";
     };
 
     const mouseLeaveHandler = () => {
-      state.map.getCanvas().style.cursor = "";
+      store.map.getCanvas().style.cursor = "";
     };
 
     // Remove existing handlers before adding new ones
     ["click", "mouseenter", "mouseleave"].forEach((event) => {
-      state.map.off(event, hitboxLayerId);
+      store.map.off(event, hitboxLayerId);
     });
 
     // Add new handlers
-    state.map.on("click", hitboxLayerId, clickHandler);
-    state.map.on("mouseenter", hitboxLayerId, mouseEnterHandler);
-    state.map.on("mouseleave", hitboxLayerId, mouseLeaveHandler);
+    store.map.on("click", hitboxLayerId, clickHandler);
+    store.map.on("mouseenter", hitboxLayerId, mouseEnterHandler);
+    store.map.on("mouseleave", hitboxLayerId, mouseLeaveHandler);
 
     // Track handlers for cleanup
     this._layerCleanupMap.set(hitboxLayerId, {
@@ -251,8 +251,8 @@ const layerManager = {
     // Load saved layer settings
     const settings = utils.getStorage(CONFIG.STORAGE_KEYS.layerSettings) || {};
     Object.entries(settings).forEach(([name, layerSettings]) => {
-      if (state.mapLayers[name]) {
-        Object.assign(state.mapLayers[name], layerSettings);
+      if (store.mapLayers[name]) {
+        Object.assign(store.mapLayers[name], layerSettings);
       }
     });
 
@@ -263,7 +263,7 @@ const layerManager = {
     const streetLayers = ["undrivenStreets", "drivenStreets", "allStreets"];
 
     // Sort layers by order
-    const sortedLayers = Object.entries(state.mapLayers)
+    const sortedLayers = Object.entries(store.mapLayers)
       .filter(([name]) => !streetLayers.includes(name))
       .sort(([, a], [, b]) => (a.order || 0) - (b.order || 0));
 
@@ -443,23 +443,23 @@ const layerManager = {
     // Update order in state
     Array.from(container.children).forEach((item, index) => {
       const { layerName } = item.dataset;
-      if (state.mapLayers[layerName]) {
-        state.mapLayers[layerName].order = index;
+      if (store.mapLayers[layerName]) {
+        store.mapLayers[layerName].order = index;
       }
     });
 
     // Reorder layers on map
-    if (state.map && state.mapInitialized) {
-      const sortedLayers = Object.entries(state.mapLayers).sort(
+    if (store.map && store.mapInitialized) {
+      const sortedLayers = Object.entries(store.mapLayers).sort(
         ([, a], [, b]) => (b.order || 0) - (a.order || 0)
       );
 
       let beforeLayer = null;
       sortedLayers.forEach(([name]) => {
         const layerId = `${name}-layer`;
-        if (state.map.getLayer(layerId)) {
+        if (store.map.getLayer(layerId)) {
           if (beforeLayer) {
-            state.map.moveLayer(layerId, beforeLayer);
+            store.map.moveLayer(layerId, beforeLayer);
           }
           beforeLayer = layerId;
         }
@@ -477,16 +477,16 @@ const layerManager = {
    * Bind heatmap refresh events on map move
    */
   bindHeatmapEvents() {
-    if (this._heatmapEventsBound || !state.map) {
+    if (this._heatmapEventsBound || !store.map) {
       return;
     }
 
     const refreshHeatmaps = utils.debounce(() => {
-      if (!state.map || !state.mapInitialized) {
+      if (!store.map || !store.mapInitialized) {
         return;
       }
 
-      Object.entries(state.mapLayers).forEach(([layerName, info]) => {
+      Object.entries(store.mapLayers).forEach(([layerName, info]) => {
         if (info?.isHeatmap && info.visible) {
           this._refreshHeatmapStyle(layerName);
         }
@@ -494,7 +494,7 @@ const layerManager = {
     }, 150);
 
     this._heatmapRefreshHandler = refreshHeatmaps;
-    state.map.on("moveend", refreshHeatmaps);
+    store.map.on("moveend", refreshHeatmaps);
     this._heatmapEventsBound = true;
   },
 
@@ -507,7 +507,7 @@ const layerManager = {
    */
   syncVisibilityToStore() {
     const visibility = {};
-    Object.entries(state.mapLayers).forEach(([layerName, info]) => {
+    Object.entries(store.mapLayers).forEach(([layerName, info]) => {
       visibility[layerName] = info.visible;
     });
     store.updateLayerVisibility(visibility, { source: "layers" });
@@ -519,7 +519,7 @@ const layerManager = {
    * @param {boolean} visible - Visibility state
    */
   async toggleLayer(name, visible) {
-    const layerInfo = state.mapLayers[name];
+    const layerInfo = store.mapLayers[name];
     if (!layerInfo) {
       return;
     }
@@ -560,7 +560,7 @@ const layerManager = {
   async _toggleHeatmapLayer(name, layerInfo, visible) {
     const firstGlowLayer = `${name}-layer-0`;
 
-    if (state.map?.getLayer(firstGlowLayer)) {
+    if (store.map?.getLayer(firstGlowLayer)) {
       this._updateHeatmapLayersVisibility(name, layerInfo, visible);
       if (visible) {
         this._scheduleHeatmapRefresh(name);
@@ -586,7 +586,7 @@ const layerManager = {
 
     for (let i = 0; i < 2; i++) {
       const glowLayerId = `${name}-layer-${i}`;
-      if (state.map.getLayer(glowLayerId)) {
+      if (store.map.getLayer(glowLayerId)) {
         this._fadeLayer(glowLayerId, visible, opacities[i]);
       }
     }
@@ -599,7 +599,7 @@ const layerManager = {
   async _toggleStandardLayer(name, layerInfo, visible) {
     const layerId = `${name}-layer`;
 
-    if (state.map?.getLayer(layerId)) {
+    if (store.map?.getLayer(layerId)) {
       this._fadeLayer(layerId, visible, layerInfo.opacity);
     } else if (visible && layerInfo.layer) {
       await this.updateMapLayer(name, layerInfo.layer);
@@ -613,15 +613,15 @@ const layerManager = {
    * @private
    */
   _fadeLayer(layerId, visible, fallbackOpacity = 1) {
-    if (!state.map?.getLayer(layerId)) {
+    if (!store.map?.getLayer(layerId)) {
       return;
     }
 
-    const layerType = state.map.getLayer(layerId).type;
+    const layerType = store.map.getLayer(layerId).type;
     const opacityProp = this._getOpacityProperty(layerType);
 
     if (!opacityProp) {
-      state.map.setLayoutProperty(layerId, "visibility", visible ? "visible" : "none");
+      store.map.setLayoutProperty(layerId, "visibility", visible ? "visible" : "none");
       return;
     }
 
@@ -629,16 +629,16 @@ const layerManager = {
     const targetOpacity = visible ? fallbackOpacity : 0;
 
     if (visible) {
-      state.map.setLayoutProperty(layerId, "visibility", "visible");
+      store.map.setLayoutProperty(layerId, "visibility", "visible");
     }
 
-    state.map.setPaintProperty(layerId, `${opacityProp}-transition`, transition);
-    state.map.setPaintProperty(layerId, opacityProp, targetOpacity);
+    store.map.setPaintProperty(layerId, `${opacityProp}-transition`, transition);
+    store.map.setPaintProperty(layerId, opacityProp, targetOpacity);
 
     if (!visible) {
       setTimeout(() => {
-        if (state.map?.getLayer(layerId)) {
-          state.map.setLayoutProperty(layerId, "visibility", "none");
+        if (store.map?.getLayer(layerId)) {
+          store.map.setLayoutProperty(layerId, "visibility", "none");
         }
       }, transition.duration);
     }
@@ -664,8 +664,8 @@ const layerManager = {
    */
   _updateHitboxVisibility(name, visible) {
     const hitboxLayerId = `${name}-hitbox`;
-    if (state.map?.getLayer(hitboxLayerId)) {
-      state.map.setLayoutProperty(
+    if (store.map?.getLayer(hitboxLayerId)) {
+      store.map.setLayoutProperty(
         hitboxLayerId,
         "visibility",
         visible ? "visible" : "none"
@@ -684,7 +684,7 @@ const layerManager = {
    * @param {*} value - New value
    */
   updateLayerStyle(name, property, value) {
-    const layerInfo = state.mapLayers[name];
+    const layerInfo = store.mapLayers[name];
     if (!layerInfo) {
       return;
     }
@@ -700,8 +700,8 @@ const layerManager = {
 
         for (let i = 0; i < 2; i++) {
           const glowLayerId = `${name}-layer-${i}`;
-          if (state.map?.getLayer(glowLayerId)) {
-            state.map.setPaintProperty(glowLayerId, "line-opacity", opacities[i]);
+          if (store.map?.getLayer(glowLayerId)) {
+            store.map.setPaintProperty(glowLayerId, "line-opacity", opacities[i]);
           }
         }
       }
@@ -710,9 +710,9 @@ const layerManager = {
 
     // Handle standard layers
     const layerId = `${name}-layer`;
-    if (state.map?.getLayer(layerId)) {
+    if (store.map?.getLayer(layerId)) {
       const paintProperty = property === "color" ? "line-color" : "line-opacity";
-      state.map.setPaintProperty(layerId, paintProperty, value);
+      store.map.setPaintProperty(layerId, paintProperty, value);
     }
   },
 
@@ -721,7 +721,7 @@ const layerManager = {
    */
   saveLayerSettings() {
     const settings = {};
-    Object.entries(state.mapLayers).forEach(([name, info]) => {
+    Object.entries(store.mapLayers).forEach(([name, info]) => {
       settings[name] = {
         visible: info.visible,
         color: info.color,
@@ -741,16 +741,16 @@ const layerManager = {
    * @private
    */
   _getHeatmapTripCountInView(layerName, fallbackCount) {
-    if (!state.map || !state.mapInitialized) {
+    if (!store.map || !store.mapInitialized) {
       return fallbackCount;
     }
 
     const layerId = `${layerName}-layer-1`;
-    if (!state.map.getLayer(layerId)) {
+    if (!store.map.getLayer(layerId)) {
       return fallbackCount;
     }
 
-    const rendered = state.map.queryRenderedFeatures({ layers: [layerId] });
+    const rendered = store.map.queryRenderedFeatures({ layers: [layerId] });
     if (!rendered?.length) {
       return 0;
     }
@@ -773,8 +773,8 @@ const layerManager = {
    * @private
    */
   _refreshHeatmapStyle(layerName) {
-    const layerInfo = state.mapLayers[layerName];
-    if (!layerInfo?.isHeatmap || !layerInfo.layer || !state.map) {
+    const layerInfo = store.mapLayers[layerName];
+    if (!layerInfo?.isHeatmap || !layerInfo.layer || !store.map) {
       return;
     }
 
@@ -790,28 +790,28 @@ const layerManager = {
 
     glowLayers.forEach((glowConfig, index) => {
       const glowLayerId = `${layerName}-layer-${index}`;
-      if (!state.map.getLayer(glowLayerId)) {
+      if (!store.map.getLayer(glowLayerId)) {
         return;
       }
 
-      state.map.setPaintProperty(
+      store.map.setPaintProperty(
         glowLayerId,
         "line-color",
         glowConfig.paint["line-color"]
       );
-      state.map.setPaintProperty(
+      store.map.setPaintProperty(
         glowLayerId,
         "line-width",
         glowConfig.paint["line-width"]
       );
-      state.map.setPaintProperty(
+      store.map.setPaintProperty(
         glowLayerId,
         "line-opacity",
         glowConfig.paint["line-opacity"]
       );
 
       if (glowConfig.paint["line-blur"] !== undefined) {
-        state.map.setPaintProperty(
+        store.map.setPaintProperty(
           glowLayerId,
           "line-blur",
           glowConfig.paint["line-blur"]
@@ -826,12 +826,12 @@ const layerManager = {
    * @private
    */
   _scheduleHeatmapRefresh(layerName) {
-    if (!state.map) {
+    if (!store.map) {
       return;
     }
 
     // Use only map idle event to prevent double refresh
-    state.map.once("idle", () => {
+    store.map.once("idle", () => {
       this._refreshHeatmapStyle(layerName);
     });
   },
@@ -846,13 +846,13 @@ const layerManager = {
    * @param {Object} data - GeoJSON data
    */
   async updateMapLayer(layerName, data) {
-    if (!state.map || !state.mapInitialized || !data) {
+    if (!store.map || !store.mapInitialized || !data) {
       return;
     }
 
     const sourceId = `${layerName}-source`;
     const layerId = `${layerName}-layer`;
-    const layerInfo = state.mapLayers[layerName];
+    const layerInfo = store.mapLayers[layerName];
 
     try {
       await this._ensureStyleLoaded();
@@ -862,8 +862,8 @@ const layerManager = {
         return;
       }
 
-      const existingSource = state.map.getSource(sourceId);
-      const existingLayer = state.map.getLayer(layerId);
+      const existingSource = store.map.getSource(sourceId);
+      const existingLayer = store.map.getLayer(layerId);
 
       // Try fast path: update existing source
       if (existingSource && existingLayer) {
@@ -883,7 +883,7 @@ const layerManager = {
       await this._rebuildLayer(layerName, layerId, sourceId, layerInfo, data);
     } catch (error) {
       console.error(`Error updating ${layerName} layer:`, error);
-      window.notificationManager?.show(
+      notificationManager.show(
         `Failed to update ${layerName} layer`,
         "warning"
       );
@@ -895,18 +895,18 @@ const layerManager = {
    * @private
    */
   async _ensureStyleLoaded() {
-    if (!state.map.isStyleLoaded()) {
+    if (!store.map.isStyleLoaded()) {
       await new Promise((resolve) => {
         const onStyleData = () => {
-          if (state.map.isStyleLoaded()) {
-            state.map.off("styledata", onStyleData);
+          if (store.map.isStyleLoaded()) {
+            store.map.off("styledata", onStyleData);
             resolve();
           }
         };
-        state.map.on("styledata", onStyleData);
+        store.map.on("styledata", onStyleData);
         // Fallback timeout
         setTimeout(() => {
-          state.map.off("styledata", onStyleData);
+          store.map.off("styledata", onStyleData);
           resolve();
         }, 2000);
       });
@@ -919,11 +919,11 @@ const layerManager = {
    */
   async _tryUpdateExistingLayer(layerName, layerId, sourceId, layerInfo, data) {
     try {
-      const existingSource = state.map.getSource(sourceId);
+      const existingSource = store.map.getSource(sourceId);
       existingSource.setData(data);
 
       this._updateLayerPaintProperties(layerId, layerInfo);
-      state.map.setLayoutProperty(
+      store.map.setLayoutProperty(
         layerId,
         "visibility",
         layerInfo.visible ? "visible" : "none"
@@ -951,9 +951,9 @@ const layerManager = {
       ? layerInfo.color
       : layerInfo.color || "#331107";
 
-    state.map.setPaintProperty(layerId, "line-color", colorValue);
-    state.map.setPaintProperty(layerId, "line-opacity", layerInfo.opacity);
-    state.map.setPaintProperty(layerId, "line-width", [
+    store.map.setPaintProperty(layerId, "line-color", colorValue);
+    store.map.setPaintProperty(layerId, "line-opacity", layerInfo.opacity);
+    store.map.setPaintProperty(layerId, "line-width", [
       "interpolate",
       ["linear"],
       ["zoom"],
@@ -979,8 +979,8 @@ const layerManager = {
     this._createSource(sourceId, data);
     this._createLayer(layerName, layerId, sourceId, layerInfo);
 
-    if (state.map.getLayer(layerId)) {
-      state.map.setLayoutProperty(
+    if (store.map.getLayer(layerId)) {
+      store.map.setLayoutProperty(
         layerId,
         "visibility",
         layerInfo.visible ? "visible" : "none"
@@ -999,8 +999,8 @@ const layerManager = {
    * @private
    */
   _removeExistingLayerAndSource(layerName, layerId, sourceId) {
-    const existingSource = state.map.getSource(sourceId);
-    const existingLayer = state.map.getLayer(layerId);
+    const existingSource = store.map.getSource(sourceId);
+    const existingLayer = store.map.getLayer(layerId);
 
     if (existingLayer || existingSource) {
       if (this._shouldEnableTripInteractions(layerName)) {
@@ -1010,13 +1010,13 @@ const layerManager = {
 
     if (existingLayer) {
       ["click", "mouseenter", "mouseleave"].forEach((event) => {
-        state.map.off(event, layerId);
+        store.map.off(event, layerId);
       });
-      state.map.removeLayer(layerId);
+      store.map.removeLayer(layerId);
     }
 
     if (existingSource) {
-      state.map.removeSource(sourceId);
+      store.map.removeSource(sourceId);
     }
   },
 
@@ -1025,7 +1025,7 @@ const layerManager = {
    * @private
    */
   _createSource(sourceId, data) {
-    state.map.addSource(sourceId, {
+    store.map.addSource(sourceId, {
       type: "geojson",
       data,
       tolerance: 0.375,
@@ -1075,7 +1075,7 @@ const layerManager = {
       layerConfig.paint["line-dasharray"] = [2, 2];
     }
 
-    state.map.addLayer(layerConfig);
+    store.map.addLayer(layerConfig);
   },
 
   // ============================================================
@@ -1099,9 +1099,9 @@ const layerManager = {
 
     const { glowLayers } = heatmapConfig;
 
-    const existingSource = state.map.getSource(sourceId);
+    const existingSource = store.map.getSource(sourceId);
     const firstGlowLayerId = `${layerName}-layer-0`;
-    const existingGlowLayer = state.map.getLayer(firstGlowLayerId);
+    const existingGlowLayer = store.map.getLayer(firstGlowLayerId);
 
     // Fast path: update existing source and layer paint properties
     if (existingSource && existingGlowLayer) {
@@ -1110,32 +1110,32 @@ const layerManager = {
 
         glowLayers.forEach((glowConfig, index) => {
           const glowLayerId = `${layerName}-layer-${index}`;
-          if (state.map.getLayer(glowLayerId)) {
-            state.map.setPaintProperty(
+          if (store.map.getLayer(glowLayerId)) {
+            store.map.setPaintProperty(
               glowLayerId,
               "line-color",
               glowConfig.paint["line-color"]
             );
-            state.map.setPaintProperty(
+            store.map.setPaintProperty(
               glowLayerId,
               "line-width",
               glowConfig.paint["line-width"]
             );
-            state.map.setPaintProperty(
+            store.map.setPaintProperty(
               glowLayerId,
               "line-opacity",
               glowConfig.paint["line-opacity"]
             );
 
             if (glowConfig.paint["line-blur"] !== undefined) {
-              state.map.setPaintProperty(
+              store.map.setPaintProperty(
                 glowLayerId,
                 "line-blur",
                 glowConfig.paint["line-blur"]
               );
             }
 
-            state.map.setLayoutProperty(
+            store.map.setLayoutProperty(
               glowLayerId,
               "visibility",
               layerInfo.visible ? "visible" : "none"
@@ -1166,19 +1166,19 @@ const layerManager = {
 
     for (let i = 0; i < 2; i++) {
       const glowLayerId = `${layerName}-layer-${i}`;
-      if (state.map.getLayer(glowLayerId)) {
-        state.map.removeLayer(glowLayerId);
+      if (store.map.getLayer(glowLayerId)) {
+        store.map.removeLayer(glowLayerId);
       }
     }
 
     if (existingSource) {
-      state.map.removeSource(sourceId);
+      store.map.removeSource(sourceId);
     }
 
     await new Promise((resolve) => requestAnimationFrame(resolve));
 
     // Create new source
-    state.map.addSource(sourceId, {
+    store.map.addSource(sourceId, {
       type: "geojson",
       data,
       tolerance: 0.375,
@@ -1191,7 +1191,7 @@ const layerManager = {
     glowLayers.forEach((glowConfig, index) => {
       const glowLayerId = `${layerName}-layer-${index}`;
 
-      state.map.addLayer({
+      store.map.addLayer({
         id: glowLayerId,
         type: "line",
         source: sourceId,
@@ -1222,13 +1222,13 @@ const layerManager = {
    * Clean up all event handlers and layers
    */
   cleanup() {
-    if (!state.map) {
+    if (!store.map) {
       return;
     }
 
     // Remove heatmap refresh handler
     if (this._heatmapRefreshHandler) {
-      state.map.off("moveend", this._heatmapRefreshHandler);
+      store.map.off("moveend", this._heatmapRefreshHandler);
       this._heatmapRefreshHandler = null;
       this._heatmapEventsBound = false;
     }
@@ -1238,18 +1238,18 @@ const layerManager = {
       for (const [layerId, entry] of this._layerCleanupMap) {
         const handlers = entry?.handlers || entry || {};
 
-        if (state.map.getLayer(layerId)) {
+        if (store.map.getLayer(layerId)) {
           Object.entries(handlers).forEach(([event, handler]) => {
-            state.map.off(event, layerId, handler);
+            store.map.off(event, layerId, handler);
           });
-          state.map.removeLayer(layerId);
+          store.map.removeLayer(layerId);
         }
 
         const sourceId = entry?.sourceId || layerId.replace("-layer", "-source");
         const removeSource = entry?.removeSource !== false;
 
-        if (removeSource && sourceId && state.map.getSource(sourceId)) {
-          state.map.removeSource(sourceId);
+        if (removeSource && sourceId && store.map.getSource(sourceId)) {
+          store.map.removeSource(sourceId);
         }
       }
 

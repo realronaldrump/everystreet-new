@@ -1,30 +1,33 @@
-(() => {
-  const STATUS_API = "/api/status/health";
-  const STATUS_CLASS = {
-    healthy: "success",
-    warning: "warning",
-    error: "danger",
-  };
+import apiClient from "./modules/core/api-client.js";
+import notificationManager from "./modules/ui/notifications.js";
+import { onPageLoad } from "./modules/utils.js";
 
-  let refreshInterval = null;
-  let pageSignal = null;
+const STATUS_API = "/api/status/health";
+const STATUS_CLASS = {
+  healthy: "success",
+  warning: "warning",
+  error: "danger",
+};
 
-  window.utils?.onPageLoad(
-    ({ signal, cleanup } = {}) => {
-      pageSignal = signal || null;
-      initialize();
-      if (typeof cleanup === "function") {
-        cleanup(() => {
-          pageSignal = null;
-          if (refreshInterval) {
-            clearInterval(refreshInterval);
-            refreshInterval = null;
-          }
-        });
-      }
-    },
-    { route: "/status" }
-  );
+let refreshInterval = null;
+let pageSignal = null;
+
+onPageLoad(
+  ({ signal, cleanup } = {}) => {
+    pageSignal = signal || null;
+    initialize();
+    if (typeof cleanup === "function") {
+      cleanup(() => {
+        pageSignal = null;
+        if (refreshInterval) {
+          clearInterval(refreshInterval);
+          refreshInterval = null;
+        }
+      });
+    }
+  },
+  { route: "/status" }
+);
 
   function withSignal(options = {}) {
     if (pageSignal) {
@@ -33,52 +36,48 @@
     return options;
   }
 
-  function initialize() {
-    document
-      .getElementById("status-refresh-btn")
-      ?.addEventListener("click", () => loadStatus(true));
-    document
-      .getElementById("nominatim-restart-btn")
-      ?.addEventListener("click", () => restartService("nominatim"));
-    document
-      .getElementById("valhalla-restart-btn")
-      ?.addEventListener("click", () => restartService("valhalla"));
-    loadStatus();
-    refreshInterval = setInterval(loadStatus, 30000);
+function initialize() {
+  document
+    .getElementById("status-refresh-btn")
+    ?.addEventListener("click", () => loadStatus(true));
+  document
+    .getElementById("nominatim-restart-btn")
+    ?.addEventListener("click", () => restartService("nominatim"));
+  document
+    .getElementById("valhalla-restart-btn")
+    ?.addEventListener("click", () => restartService("valhalla"));
+  loadStatus();
+  refreshInterval = setInterval(loadStatus, 30000);
+}
+
+async function loadStatus(isManual = false) {
+  const refreshBtn = document.getElementById("status-refresh-btn");
+  if (isManual && refreshBtn) {
+    refreshBtn.disabled = true;
   }
 
-  async function loadStatus(isManual = false) {
-    const refreshBtn = document.getElementById("status-refresh-btn");
+  try {
+    const data = await apiClient.get(STATUS_API, withSignal());
+    updateOverall(data.overall);
+    updateService("mongodb", data.services?.mongodb);
+    updateService("redis", data.services?.redis);
+    updateService("worker", data.services?.worker);
+    updateService("nominatim", data.services?.nominatim);
+    updateService("valhalla", data.services?.valhalla);
+    updateService("bouncie", data.services?.bouncie);
+    updateRecentErrors(data.recent_errors || []);
+    updateLastUpdated(data.overall?.last_updated);
+  } catch (_error) {
+    updateOverall({
+      status: "error",
+      message: "Unable to load status dashboard.",
+    });
+  } finally {
     if (isManual && refreshBtn) {
-      refreshBtn.disabled = true;
-    }
-
-    try {
-      const response = await fetch(STATUS_API, withSignal());
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.detail || "Failed to load status");
-      }
-      updateOverall(data.overall);
-      updateService("mongodb", data.services?.mongodb);
-      updateService("redis", data.services?.redis);
-      updateService("worker", data.services?.worker);
-      updateService("nominatim", data.services?.nominatim);
-      updateService("valhalla", data.services?.valhalla);
-      updateService("bouncie", data.services?.bouncie);
-      updateRecentErrors(data.recent_errors || []);
-      updateLastUpdated(data.overall?.last_updated);
-    } catch (_error) {
-      updateOverall({
-        status: "error",
-        message: "Unable to load status dashboard.",
-      });
-    } finally {
-      if (isManual && refreshBtn) {
-        refreshBtn.disabled = false;
-      }
+      refreshBtn.disabled = false;
     }
   }
+}
 
   function updateOverall(overall) {
     const badge = document.getElementById("overall-status-badge");
@@ -164,37 +163,30 @@
     return div.innerHTML;
   }
 
-  async function restartService(serviceName) {
-    const button = document.getElementById(`${serviceName}-restart-btn`);
-    const icon = button?.querySelector("i");
+async function restartService(serviceName) {
+  const button = document.getElementById(`${serviceName}-restart-btn`);
+  const icon = button?.querySelector("i");
+  if (button) {
+    button.disabled = true;
+  }
+  icon?.classList.add("fa-spin");
+  try {
+    const data = await apiClient.post(
+      `/api/services/${encodeURIComponent(serviceName)}/restart`,
+      null,
+      withSignal()
+    );
+    notificationManager.show(
+      data?.message || `Restarted ${serviceName}.`,
+      "success"
+    );
+    await loadStatus(true);
+  } catch (error) {
+    notificationManager.show(error.message || "Unable to restart service.", "danger");
+  } finally {
+    icon?.classList.remove("fa-spin");
     if (button) {
-      button.disabled = true;
-    }
-    icon?.classList.add("fa-spin");
-    try {
-      const response = await fetch(
-        `/api/services/${encodeURIComponent(serviceName)}/restart`,
-        withSignal({ method: "POST" })
-      );
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data?.detail?.message || data?.message || "Restart failed");
-      }
-      window.notificationManager?.show?.(
-        data?.message || `Restarted ${serviceName}.`,
-        "success"
-      );
-      await loadStatus(true);
-    } catch (error) {
-      window.notificationManager?.show?.(
-        error.message || "Unable to restart service.",
-        "danger"
-      );
-    } finally {
-      icon?.classList.remove("fa-spin");
-      if (button) {
-        button.disabled = false;
-      }
+      button.disabled = false;
     }
   }
-})();
+}

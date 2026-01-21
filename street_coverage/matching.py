@@ -169,24 +169,6 @@ class AreaSegmentIndex:
 
         return matched_ids
 
-
-@lru_cache(maxsize=10)
-def _get_area_segment_index(
-    area_id: PydanticObjectId,
-    area_version: int | None = None,
-) -> AreaSegmentIndex:
-    return AreaSegmentIndex(area_id, area_version)
-
-
-async def get_area_segment_index(
-    area_id: PydanticObjectId,
-    area_version: int | None = None,
-) -> AreaSegmentIndex:
-    index = _get_area_segment_index(area_id, area_version)
-    if not index._built:
-        await index.build()
-    return index
-
     def find_matching_segments_batch(
         self,
         trip_lines: list[BaseGeometry],
@@ -244,6 +226,24 @@ async def get_area_segment_index(
                     matched_ids.add(segment_id)
 
         return matched_ids
+
+
+@lru_cache(maxsize=10)
+def _get_area_segment_index(
+    area_id: PydanticObjectId,
+    area_version: int | None = None,
+) -> AreaSegmentIndex:
+    return AreaSegmentIndex(area_id, area_version)
+
+
+async def get_area_segment_index(
+    area_id: PydanticObjectId,
+    area_version: int | None = None,
+) -> AreaSegmentIndex:
+    index = _get_area_segment_index(area_id, area_version)
+    if not index._built:
+        await index.build()
+    return index
 
 
 def _coerce_coord_pair(value: Any) -> list[float] | None:

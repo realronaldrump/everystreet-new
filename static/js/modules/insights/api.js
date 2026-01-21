@@ -3,7 +3,7 @@
  * Handles all API calls for the driving insights page
  */
 
-import apiClient from "../api-client.js";
+import apiClient from "../core/api-client.js";
 
 /**
  * Fetch driver behavior data

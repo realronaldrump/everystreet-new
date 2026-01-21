@@ -1,0 +1,20 @@
+import AppController from "./modules/app-controller.js";
+import store from "./modules/core/store.js";
+import router from "./modules/core/router.js";
+import "./modules/ui/ui-init.js";
+import "./modules/ui/loading-manager.js";
+import "./modules/ui/notifications.js";
+import "./modules/ui/confirmation-dialog.js";
+import "./modules/ui/global-job-tracker.js";
+
+const start = () => {
+  store.init(window.location.href);
+  AppController.initialize();
+  router.init();
+};
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", start);
+} else {
+  start();
+}

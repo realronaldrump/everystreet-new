@@ -1,4 +1,5 @@
-import router from "../spa/router.js";
+import router from "../core/router.js";
+import loadingManager from "./loading-manager.js";
 
 const pullToRefresh = {
   init() {
@@ -89,7 +90,7 @@ const pullToRefresh = {
       this.indicator.classList.add("loading");
       this.indicator.querySelector(".pull-to-refresh-text").textContent
         = "Refreshing...";
-      window.loadingManager?.showBar?.("Refreshing...");
+      loadingManager.showBar("Refreshing...");
       router.navigate(window.location.href, { push: false, force: true });
     } else {
       this.reset();

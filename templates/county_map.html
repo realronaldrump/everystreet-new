@@ -192,12 +192,10 @@ Sort by Visited (High to Low)
 
   <!-- Mapbox GL JS -->
   <script src="{{ CDN.mapbox_gl_js }}"></script>
-  <script src="{{ url_for('static', path='js/map-base.js') | replace('http://', '//') }}"></script>
-  <script src="{{ url_for('static', path='js/modules/map-styles.js') | replace('http://', '//') }}"></script>
   <script src="{{ CDN.topojson }}"></script>
   <script>
       window.MAPBOX_ACCESS_TOKEN = "{{ MAPBOX_ACCESS_TOKEN }}";
   </script>
   <script type="module"
-          src="{{ url_for('static', path='js/county-map.js') | replace('http://', '//') }}"></script>
+          src="{{ url_for('static', path='js/pages/county-map.js') | replace('http://', '//') }}"></script>
 {% endblock %}

@@ -303,5 +303,6 @@ This name will be shown throughout the app.
 
 {% block extra_js %}
 
-  <script src="{{ url_for('static', path='js/vehicles.js') | replace('http://', '//') }}"></script>
+  <script type="module"
+          src="{{ url_for('static', path='js/pages/vehicles.js') | replace('http://', '//') }}"></script>
 {% endblock %}

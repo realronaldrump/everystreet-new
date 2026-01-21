@@ -319,7 +319,7 @@
   background-clip: text;
 }
 
-/* Visits-specific Popup Styles (base mapboxgl-popup styles in modern-map.css) */
+/* Visits-specific Popup Styles (base mapboxgl-popup styles in features/map/popups.css) */
 .custom-place-popup h6 {
   color: var(--primary);
   font-weight: var(--font-weight-bold);

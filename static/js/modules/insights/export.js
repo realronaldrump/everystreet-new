@@ -6,6 +6,7 @@
 
 import { formatDate } from "./formatters.js";
 import { getState } from "./state.js";
+import notificationManager from "../ui/notifications.js";
 
 /**
  * Show a notification message
@@ -13,9 +14,7 @@ import { getState } from "./state.js";
  * @param {string} type - Notification type (info, success, error)
  */
 export function showNotification(message, type = "info") {
-  if (window.notificationManager) {
-    window.notificationManager.show(message, type);
-  }
+  notificationManager.show(message, type);
 }
 
 /**

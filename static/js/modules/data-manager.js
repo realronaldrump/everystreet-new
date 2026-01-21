@@ -14,13 +14,15 @@
  * 4. Emit events for other modules to respond
  */
 
-import { CONFIG } from "./config.js";
+import { CONFIG } from "./core/config.js";
 import layerManager from "./layer-manager.js";
 import metricsManager from "./metrics-manager.js";
-import state from "./state.js";
-import { utils } from "./utils.js";
+import state from "./core/store.js";
+import loadingManager from "./ui/loading-manager.js";
+import notificationManager from "./ui/notifications.js";
+import { DateUtils, utils } from "./utils.js";
 
-const dateUtils = window.DateUtils;
+const dateUtils = DateUtils;
 
 // ============================================================
 // Loading Indicator
@@ -82,7 +84,6 @@ const dataManager = {
       return null;
     }
 
-    const { loadingManager } = window;
     loadingManager?.show("Loading trips...", { blocking: false, compact: true });
     mapLoadingIndicator.show("Loading trips...");
 
@@ -101,7 +102,7 @@ const dataManager = {
 
       if (!tripData || tripData?.type !== "FeatureCollection") {
         loadingManager?.hide();
-        window.notificationManager?.show("Failed to load valid trip data", "danger");
+        notificationManager.show("Failed to load valid trip data", "danger");
         return null;
       }
 
@@ -129,7 +130,7 @@ const dataManager = {
         return null;
       }
       loadingManager?.hide();
-      window.notificationManager?.show("Failed to load trips", "danger");
+      notificationManager.show("Failed to load trips", "danger");
       return null;
     } finally {
       loadingManager?.hide();
@@ -146,7 +147,7 @@ const dataManager = {
       return null;
     }
 
-    window.loadingManager?.pulse("Loading matched trips...");
+    loadingManager.pulse("Loading matched trips...");
 
     try {
       const { start, end } = dateUtils.getCachedDateRange();
@@ -217,7 +218,7 @@ const dataManager = {
       return null;
     }
 
-    window.loadingManager?.pulse("Loading undriven streets...");
+    loadingManager.pulse("Loading undriven streets...");
 
     try {
       const data = await utils.fetchWithRetry(
@@ -257,7 +258,7 @@ const dataManager = {
       return null;
     }
 
-    window.loadingManager?.pulse("Loading driven streets...");
+    loadingManager.pulse("Loading driven streets...");
 
     try {
       const data = await utils.fetchWithRetry(
@@ -297,7 +298,7 @@ const dataManager = {
       return null;
     }
 
-    window.loadingManager?.pulse("Loading all streets...");
+    loadingManager.pulse("Loading all streets...");
 
     try {
       const data = await utils.fetchWithRetry(
@@ -366,7 +367,6 @@ const dataManager = {
       return;
     }
 
-    const { loadingManager } = window;
     loadingManager?.show("Updating map...");
 
     try {
@@ -428,7 +428,7 @@ const dataManager = {
       state.metrics.renderTime = Date.now() - state.metrics.loadStartTime;
     } catch (error) {
       console.error("Error updating map:", error);
-      window.notificationManager?.show("Error updating map data", "danger");
+      notificationManager.show("Error updating map data", "danger");
     } finally {
       loadingManager?.hide();
     }

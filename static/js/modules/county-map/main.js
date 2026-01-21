@@ -4,6 +4,7 @@
  * Main entry point for the county map feature
  */
 
+import notificationManager from "../ui/notifications.js";
 import { onPageLoad } from "../utils.js";
 import * as CountyMapAPI from "./api.js";
 import { getStateName, MAP_CONFIG } from "./constants.js";
@@ -209,7 +210,7 @@ async function triggerRecalculate() {
       // Poll for completion
       setTimeout(() => startRecalculatePolling(startedAt), 3000);
     } else {
-      window.notificationManager.show(
+      notificationManager.show(
         `Error starting calculation: ${data.error}`,
         "danger"
       );

@@ -1,4 +1,4 @@
-import uiState from "../ui-state.js";
+import store from "../core/store.js";
 import { utils } from "../utils.js";
 import contextualUI from "./contextual-ui.js";
 import dateManager from "./date-manager.js";
@@ -18,7 +18,7 @@ import themeManager from "./theme-manager.js";
 import widgetManager from "./widget-manager.js";
 
 function init() {
-  if (uiState.initialized) {
+  if (store.ui.initialized) {
     return;
   }
 
@@ -49,7 +49,7 @@ function init() {
       setTimeout(runDeferred, 100);
     }
 
-    uiState.initialized = true;
+    store.ui.initialized = true;
     document.dispatchEvent(new CustomEvent("modernUIReady"));
   } catch (err) {
     console.error("Modern UI init error", err);

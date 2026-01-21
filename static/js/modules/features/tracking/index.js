@@ -1,0 +1,1519 @@
+/* global mapboxgl */
+
+import apiClient from "../../core/api-client.js";
+import { DateUtils, getDeviceProfile, getStorage, setStorage } from "../../utils.js";
+import { createFeatures } from "./ui.js";
+import { connectLiveWebSocket } from "./websocket.js";
+import {
+  COVERAGE_LAYER_IDS,
+  LIVE_TRACKING_DEFAULTS,
+  LIVE_TRACKING_LAYER_IDS,
+} from "./state.js";
+
+/**
+ * LiveTripTracker - Real-time trip visualization for Bouncie webhooks
+ *
+ * Simplified single-user implementation with WebSocket primary, polling fallback.
+ */
+
+class LiveTripTracker {
+  static instance = null;
+
+  constructor(map) {
+    // Enforce singleton
+    if (LiveTripTracker.instance) {
+      LiveTripTracker.instance.destroy();
+    }
+    LiveTripTracker.instance = this;
+
+    if (!map) {
+      console.error("LiveTripTracker: Map is required");
+      return;
+    }
+
+    this.map = map;
+
+    this._initializeState();
+    this._cacheDomElements();
+
+    this.initializeMapLayers();
+    this.bindHudControls();
+    this.bindMapInteractionHandlers();
+    this.setLiveTripActive(false);
+    this.initialize();
+    this.startFreshnessMonitor();
+    this.startWebhookStatusMonitor();
+  }
+
+  // --- Setup ------------------------------------------------------------
+  _initializeState() {
+    this.activeTrip = null;
+    this.ws = null;
+    this.pollingTimer = null;
+    this.pollingInterval = LIVE_TRACKING_DEFAULTS.pollingInterval;
+    this.webhookStatusTimer = null;
+    this.webhookStatusPending = false;
+    this.webhookStatusInterval = 15000;
+    this.webhookActiveWindowMs = 90 * 1000;
+    this.webhookIdleWindowMs = 30 * 60 * 1000;
+
+    this.sourceId = LIVE_TRACKING_LAYER_IDS.source;
+    this.lineGlowLayerId = LIVE_TRACKING_LAYER_IDS.lineGlow;
+    this.lineCasingLayerId = LIVE_TRACKING_LAYER_IDS.lineCasing;
+    this.lineLayerId = LIVE_TRACKING_LAYER_IDS.line;
+    this.trailSourceId = LIVE_TRACKING_LAYER_IDS.trailSource;
+    this.trailLayerId = LIVE_TRACKING_LAYER_IDS.trail;
+    this.markerLayerId = LIVE_TRACKING_LAYER_IDS.marker;
+    this.pulseLayerId = LIVE_TRACKING_LAYER_IDS.pulse;
+    this.arrowLayerId = LIVE_TRACKING_LAYER_IDS.arrow;
+    this.arrowImageId = LIVE_TRACKING_LAYER_IDS.arrowImage;
+
+    this.coverageLayerIds = [...COVERAGE_LAYER_IDS];
+
+    this.followStorageKey = LIVE_TRACKING_DEFAULTS.followStorageKey;
+    this.followPreference = this.loadFollowPreference();
+    this.followMode = false;
+    this.lastBearing = null;
+    this.lastCoord = null;
+    this.hasActiveTrip = false;
+    this.routeStyle = this.loadRouteStyle();
+    this.mapInteractionHandlers = [];
+    this.pulseAnimationFrame = null;
+    this.lastUpdateTimestamp = null;
+    this.freshnessTimer = null;
+  }
+
+  _cacheDomElements() {
+    this.statusIndicator = document.querySelector(".status-indicator");
+    this.statusText = document.querySelector(".live-status-text");
+    this.tripCountElem = document.querySelector("#active-trips-count");
+    this.metricsElem = document.querySelector(".live-trip-metrics");
+    this.liveBadge = document.getElementById("live-status-badge");
+    this.hudElem = document.getElementById("live-trip-hud");
+    this.hudLastUpdateElem = document.getElementById("live-trip-last-update");
+    this.hudSpeedElem = document.getElementById("live-trip-speed");
+    this.hudStreetElem = document.getElementById("live-trip-street");
+    this.hudCoverageElem = document.getElementById("live-trip-coverage");
+    this.hudDistanceElem = document.getElementById("live-trip-distance");
+    this.hudDurationElem = document.getElementById("live-trip-duration");
+    this.hudAvgSpeedElem = document.getElementById("live-trip-avg-speed");
+    this.followToggle = document.getElementById("live-trip-follow-toggle");
+    this.followLabel = this.followToggle?.querySelector(".follow-label");
+    this.webhookIndicator = document.getElementById("bouncie-webhook-indicator");
+    this.webhookStatusText = document.getElementById("bouncie-webhook-text");
+  }
+
+  // --- Map layers -------------------------------------------------------
+  initializeMapLayers() {
+    if (!this.map || !this.map.addSource) {
+      console.warn("Map not ready for layers");
+      return;
+    }
+
+    try {
+      const { lineWidth, casingWidth, glowWidth } = this._getRouteWidths();
+      const { color, opacity } = this.routeStyle;
+      const casingColor = this.getRouteCasingColor();
+
+      this._ensureLiveTripSource();
+      this._ensureRouteLayers({
+        lineWidth,
+        casingWidth,
+        glowWidth,
+        color,
+        opacity,
+        casingColor,
+      });
+      this._ensureTrailLayer(color);
+      this._ensurePulseLayer(color);
+      this._ensureMarkerLayer(color);
+      this.ensureArrowLayer();
+      this.startPulseAnimation();
+    } catch (error) {
+      console.error("Error initializing map layers:", error);
+    }
+  }
+
+  _getRouteWidths() {
+    return {
+      lineWidth: ["interpolate", ["linear"], ["zoom"], 10, 3.5, 14, 5, 18, 8],
+      casingWidth: ["interpolate", ["linear"], ["zoom"], 10, 6.5, 14, 9, 18, 13],
+      glowWidth: ["interpolate", ["linear"], ["zoom"], 10, 10, 14, 14, 18, 20],
+    };
+  }
+
+  _ensureLiveTripSource() {
+    if (this.map.getSource(this.sourceId)) {
+      return;
+    }
+    this.map.addSource(this.sourceId, {
+      type: "geojson",
+      data: { type: "FeatureCollection", features: [] },
+    });
+  }
+
+  _ensureRouteLayers({
+    lineWidth,
+    casingWidth,
+    glowWidth,
+    color,
+    opacity,
+    casingColor,
+  }) {
+    if (!this.map.getLayer(this.lineGlowLayerId)) {
+      this.map.addLayer({
+        id: this.lineGlowLayerId,
+        type: "line",
+        source: this.sourceId,
+        filter: ["==", ["get", "type"], "line"],
+        paint: {
+          "line-color": color,
+          "line-width": glowWidth,
+          "line-opacity": Math.min(0.45, opacity * 0.6),
+          "line-blur": 6,
+        },
+        layout: {
+          "line-cap": "round",
+          "line-join": "round",
+        },
+      });
+    }
+
+    if (!this.map.getLayer(this.lineCasingLayerId)) {
+      this.map.addLayer({
+        id: this.lineCasingLayerId,
+        type: "line",
+        source: this.sourceId,
+        filter: ["==", ["get", "type"], "line"],
+        paint: {
+          "line-color": casingColor,
+          "line-width": casingWidth,
+          "line-opacity": 0.85,
+          "line-blur": 0.6,
+        },
+        layout: {
+          "line-cap": "round",
+          "line-join": "round",
+        },
+      });
+    }
+
+    if (!this.map.getLayer(this.lineLayerId)) {
+      this.map.addLayer({
+        id: this.lineLayerId,
+        type: "line",
+        source: this.sourceId,
+        filter: ["==", ["get", "type"], "line"],
+        paint: {
+          "line-color": color,
+          "line-width": lineWidth,
+          "line-opacity": opacity,
+          "line-blur": 0.3,
+        },
+        layout: {
+          "line-cap": "round",
+          "line-join": "round",
+        },
+      });
+    }
+  }
+
+  _ensureTrailLayer(color) {
+    if (!this.map.getSource(this.trailSourceId)) {
+      this.map.addSource(this.trailSourceId, {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: [] },
+      });
+    }
+
+    if (!this.map.getLayer(this.trailLayerId)) {
+      this.map.addLayer({
+        id: this.trailLayerId,
+        type: "circle",
+        source: this.trailSourceId,
+        paint: {
+          "circle-color": color,
+          "circle-radius": ["interpolate", ["linear"], ["get", "age"], 0, 6, 1, 2],
+          "circle-opacity": ["interpolate", ["linear"], ["get", "age"], 0, 0.6, 1, 0],
+          "circle-blur": 0.4,
+        },
+      });
+    }
+  }
+
+  _ensurePulseLayer(color) {
+    if (this.map.getLayer(this.pulseLayerId)) {
+      return;
+    }
+    this.map.addLayer({
+      id: this.pulseLayerId,
+      type: "circle",
+      source: this.sourceId,
+      filter: ["==", ["get", "type"], "marker"],
+      paint: {
+        "circle-radius": 20,
+        "circle-color": "transparent",
+        "circle-stroke-width": 2,
+        "circle-stroke-color": color,
+        "circle-stroke-opacity": 0.4,
+      },
+    });
+  }
+
+  _ensureMarkerLayer(color) {
+    if (this.map.getLayer(this.markerLayerId)) {
+      return;
+    }
+    this.map.addLayer({
+      id: this.markerLayerId,
+      type: "circle",
+      source: this.sourceId,
+      filter: ["==", ["get", "type"], "marker"],
+      paint: {
+        "circle-radius": 9,
+        "circle-color": color,
+        "circle-stroke-width": 2.5,
+        "circle-stroke-color": "#ffffff",
+        "circle-blur": 0,
+      },
+    });
+  }
+
+  ensureArrowLayer() {
+    if (!this.map) {
+      return;
+    }
+
+    const addLayer = () => {
+      if (this.map.getLayer(this.arrowLayerId)) {
+        return;
+      }
+      this.map.addLayer({
+        id: this.arrowLayerId,
+        type: "symbol",
+        source: this.sourceId,
+        filter: ["==", ["get", "type"], "marker"],
+        layout: {
+          "icon-image": this.arrowImageId,
+          "icon-size": 0.55,
+          "icon-allow-overlap": true,
+          "icon-ignore-placement": true,
+          "icon-rotate": ["get", "heading"],
+          "icon-rotation-alignment": "map",
+        },
+        paint: {
+          "icon-color": this.routeStyle.color,
+        },
+      });
+    };
+
+    if (this.map.hasImage(this.arrowImageId)) {
+      addLayer();
+      return;
+    }
+
+    const svg = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+        <path d="M24 4L40 44L24 36L8 44Z" fill="black" />
+      </svg>
+    `;
+
+    const img = new Image();
+    img.onload = () => {
+      try {
+        if (!this.map.hasImage(this.arrowImageId)) {
+          this.map.addImage(this.arrowImageId, img, { sdf: true });
+        }
+        addLayer();
+      } catch (error) {
+        console.warn("Failed to add arrow image:", error);
+      }
+    };
+    img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+  }
+
+  loadRouteStyle() {
+    let color = LiveTripTracker.getCssVar("--primary", "#7c9d96");
+    let opacity = 0.9;
+
+    try {
+      const storedColor = localStorage.getItem("polylineColor");
+      const storedOpacity = localStorage.getItem("polylineOpacity");
+      if (storedColor) {
+        color = storedColor;
+      }
+      if (storedOpacity) {
+        const parsed = Number.parseFloat(storedOpacity);
+        if (Number.isFinite(parsed)) {
+          opacity = Math.min(Math.max(parsed, 0.1), 1);
+        }
+      }
+    } catch {
+      // Ignore storage errors
+    }
+
+    return { color, opacity };
+  }
+
+  loadFollowPreference() {
+    try {
+      const stored = getStorage(this.followStorageKey);
+      if (stored === true || stored === false) {
+        return stored;
+      }
+      if (stored === "true") {
+        return true;
+      }
+      if (stored === "false") {
+        return false;
+      }
+    } catch {
+      // Ignore storage errors
+    }
+
+    try {
+      const autoCenter = localStorage.getItem("autoCenter");
+      if (autoCenter === "false") {
+        return false;
+      }
+    } catch {
+      // Ignore storage errors
+    }
+
+    return true;
+  }
+
+  getRouteCasingColor() {
+    const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
+    return theme === "light" ? "rgba(15, 23, 42, 0.8)" : "rgba(248, 250, 252, 0.85)";
+  }
+
+  applyRouteStyle() {
+    if (!this.map) {
+      return;
+    }
+    const { color, opacity } = this.routeStyle;
+    if (this.map.getLayer(this.lineLayerId)) {
+      this.map.setPaintProperty(this.lineLayerId, "line-color", color);
+      this.map.setPaintProperty(this.lineLayerId, "line-opacity", opacity);
+    }
+    if (this.map.getLayer(this.lineGlowLayerId)) {
+      this.map.setPaintProperty(this.lineGlowLayerId, "line-color", color);
+      this.map.setPaintProperty(
+        this.lineGlowLayerId,
+        "line-opacity",
+        Math.min(0.45, opacity * 0.6)
+      );
+    }
+    if (this.map.getLayer(this.lineCasingLayerId)) {
+      this.map.setPaintProperty(
+        this.lineCasingLayerId,
+        "line-color",
+        this.getRouteCasingColor()
+      );
+    }
+  }
+
+  updatePolylineStyle(color, opacity) {
+    const nextColor = color || this.routeStyle.color;
+    const parsedOpacity = Number.parseFloat(opacity);
+    const nextOpacity = Number.isFinite(parsedOpacity)
+      ? Math.min(Math.max(parsedOpacity, 0.1), 1)
+      : this.routeStyle.opacity;
+    this.routeStyle = { color: nextColor, opacity: nextOpacity };
+    this.applyRouteStyle();
+  }
+
+  // --- HUD & follow -----------------------------------------------------
+  bindHudControls() {
+    if (!this.followToggle) {
+      return;
+    }
+
+    this.followToggleHandler = () => {
+      if (!this.hasActiveTrip) {
+        return;
+      }
+      const next = !this.followMode;
+      this.setFollowMode(next, { persist: true, resetCamera: !next });
+      if (next && this.lastCoord) {
+        this.followVehicle(this.lastCoord, this.lastBearing, { immediate: true });
+      }
+    };
+
+    this.followToggle.addEventListener("click", this.followToggleHandler);
+  }
+
+  bindMapInteractionHandlers() {
+    if (!this.map) {
+      return;
+    }
+
+    const disableFollow = (event) => {
+      if (!this.followMode || !this.hasActiveTrip) {
+        return;
+      }
+      if (!event?.originalEvent) {
+        return;
+      }
+      this.setFollowMode(false, { persist: true, resetCamera: false });
+    };
+
+    ["dragstart", "zoomstart", "rotatestart", "pitchstart"].forEach((evt) => {
+      this.map.on(evt, disableFollow);
+      this.mapInteractionHandlers.push({ evt, handler: disableFollow });
+    });
+  }
+
+  setLiveTripActive(isActive) {
+    this.hasActiveTrip = isActive;
+
+    if (this.hudElem) {
+      this.hudElem.classList.toggle("is-active", isActive);
+      this.hudElem.setAttribute("aria-hidden", isActive ? "false" : "true");
+    }
+
+    if (this.liveBadge) {
+      this.liveBadge.classList.toggle("d-none", !isActive);
+    }
+
+    if (!isActive) {
+      const wasFollowing = this.followMode;
+      this.followMode = false;
+      this.updateFollowToggle(false, { disabled: true });
+      this.clearHudValues();
+      if (wasFollowing) {
+        this.resetFollowCamera();
+      }
+      return;
+    }
+
+    this.updateFollowToggle(this.followMode, { disabled: false });
+  }
+
+  updateFollowToggle(isActive, { disabled = false } = {}) {
+    if (!this.followToggle) {
+      return;
+    }
+    this.followToggle.classList.toggle("is-active", isActive);
+    this.followToggle.setAttribute("aria-pressed", isActive ? "true" : "false");
+    this.followToggle.disabled = disabled;
+    if (this.followLabel) {
+      this.followLabel.textContent = isActive ? "Following" : "Follow";
+    }
+  }
+
+  setFollowMode(enabled, { persist = true, resetCamera = false, force = false } = {}) {
+    if (!force && this.followMode === enabled) {
+      this.updateFollowToggle(enabled);
+      return;
+    }
+
+    this.followMode = enabled;
+
+    if (persist) {
+      this.followPreference = enabled;
+      setStorage(this.followStorageKey, enabled);
+    }
+
+    this.updateFollowToggle(enabled);
+
+    if (!enabled && resetCamera) {
+      this.resetFollowCamera();
+    }
+  }
+
+  getFollowCameraConfig() {
+    const isMobile = getDeviceProfile().isMobile;
+    const prefersReducedMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)"
+    ).matches;
+    const containerHeight = this.map?.getContainer()?.clientHeight || 600;
+    const offsetY = Math.round(Math.min(180, Math.max(90, containerHeight * 0.22)));
+
+    return {
+      zoom: isMobile ? 16.8 : 15.8,
+      pitch: isMobile ? 58 : 52,
+      offset: [0, offsetY],
+      duration: prefersReducedMotion ? 0 : 850,
+    };
+  }
+
+  resetFollowCamera() {
+    if (!this.map) {
+      return;
+    }
+    const prefersReducedMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)"
+    ).matches;
+    this.map.easeTo({
+      pitch: 0,
+      bearing: 0,
+      duration: prefersReducedMotion ? 0 : 700,
+      essential: true,
+    });
+  }
+
+  clearHudValues() {
+    if (this.hudLastUpdateElem) {
+      this.hudLastUpdateElem.textContent = "Waiting for updates...";
+    }
+    if (this.hudSpeedElem) {
+      this.hudSpeedElem.textContent = "--";
+    }
+    if (this.hudStreetElem) {
+      this.hudStreetElem.textContent = "--";
+      this.hudStreetElem.title = "";
+    }
+    if (this.hudCoverageElem) {
+      this.hudCoverageElem.textContent = "Coverage: --";
+      this.hudCoverageElem.classList.remove(
+        "is-driven",
+        "is-undriven",
+        "is-undriveable"
+      );
+    }
+    if (this.hudDistanceElem) {
+      this.hudDistanceElem.textContent = "--";
+    }
+    if (this.hudDurationElem) {
+      this.hudDurationElem.textContent = "--";
+    }
+    if (this.hudAvgSpeedElem) {
+      this.hudAvgSpeedElem.textContent = "--";
+    }
+  }
+
+  updateHud(trip, coords) {
+    if (!this.hudElem || !trip) {
+      return;
+    }
+
+    const speedValue =
+      typeof trip.currentSpeed === "number"
+        ? Math.max(0, Math.round(trip.currentSpeed))
+        : 0;
+    if (this.hudSpeedElem) {
+      this.hudSpeedElem.textContent = `${speedValue}`;
+    }
+
+    const startTime = trip.startTime ? new Date(trip.startTime) : null;
+    const lastUpdate = trip.lastUpdate ? new Date(trip.lastUpdate) : null;
+    let duration = "--";
+    if (startTime && lastUpdate) {
+      duration = DateUtils.formatDurationHMS(startTime, lastUpdate);
+    }
+
+    if (this.hudDurationElem) {
+      this.hudDurationElem.textContent = duration;
+    }
+    if (this.hudDistanceElem) {
+      this.hudDistanceElem.textContent = `${(trip.distance || 0).toFixed(2)} mi`;
+    }
+    if (this.hudAvgSpeedElem) {
+      this.hudAvgSpeedElem.textContent =
+        trip.avgSpeed > 0 ? `${trip.avgSpeed.toFixed(1)} mph` : "--";
+    }
+
+    if (this.hudLastUpdateElem) {
+      this.hudLastUpdateElem.textContent = lastUpdate
+        ? `Updated ${DateUtils.formatTimeAgo(lastUpdate)}`
+        : "Updating...";
+    }
+
+    if (lastUpdate) {
+      this.lastUpdateTimestamp = lastUpdate.getTime();
+      this.updateFreshnessState();
+    }
+
+    const areaName = this.getCoverageAreaName();
+    const lastCoord = coords?.[coords.length - 1];
+    const coverageInfo = lastCoord ? this.getCoverageStreetInfo(lastCoord) : null;
+
+    if (coverageInfo?.streetName && this.hudStreetElem) {
+      this.hudStreetElem.textContent = coverageInfo.streetName;
+      this.hudStreetElem.title = coverageInfo.streetName;
+    } else if (this.hudStreetElem) {
+      const fallback = areaName ? "Outside coverage" : "--";
+      this.hudStreetElem.textContent = fallback;
+      this.hudStreetElem.title = fallback;
+    }
+
+    this.updateCoverageBadge(coverageInfo?.status, areaName);
+  }
+
+  updateParticleTrail(coords) {
+    if (!this.map?.getSource(this.trailSourceId)) {
+      return;
+    }
+
+    const trailLength = 18;
+    const recent = coords.slice(-trailLength);
+    const total = recent.length;
+    const features = recent.map((point, index) => ({
+      type: "Feature",
+      geometry: {
+        type: "Point",
+        coordinates: [point.lon, point.lat],
+      },
+      properties: {
+        age: total > 1 ? (total - 1 - index) / (total - 1) : 0,
+      },
+    }));
+
+    this.map.getSource(this.trailSourceId).setData({
+      type: "FeatureCollection",
+      features,
+    });
+  }
+
+  updateCoverageBadge(status, areaName) {
+    if (!this.hudCoverageElem) {
+      return;
+    }
+
+    this.hudCoverageElem.classList.remove("is-driven", "is-undriven", "is-undriveable");
+
+    if (!status) {
+      this.hudCoverageElem.textContent = areaName
+        ? `Coverage: ${areaName}`
+        : "Coverage: Not active";
+      return;
+    }
+
+    const normalized = String(status).toLowerCase();
+    let label = "Unknown";
+    if (normalized === "driven") {
+      label = "Driven";
+      this.hudCoverageElem.classList.add("is-driven");
+    } else if (normalized === "undriven") {
+      label = "Undriven";
+      this.hudCoverageElem.classList.add("is-undriven");
+    } else if (normalized === "undriveable") {
+      label = "Undriveable";
+      this.hudCoverageElem.classList.add("is-undriveable");
+    }
+
+    const suffix = areaName ? ` - ${areaName}` : "";
+    this.hudCoverageElem.textContent = `Coverage: ${label}${suffix}`;
+  }
+
+  getCoverageAreaName() {
+    const select = document.getElementById("streets-location");
+    if (!select || !select.value) {
+      return null;
+    }
+    const selected = select.options[select.selectedIndex];
+    const text = selected?.textContent?.trim();
+    if (!text || text === "Select a location...") {
+      return null;
+    }
+    return text;
+  }
+
+  getCoverageStreetInfo(coord) {
+    if (!this.map || !coord) {
+      return null;
+    }
+
+    const visibleLayers = this.coverageLayerIds.filter((layerId) => {
+      if (!this.map.getLayer(layerId)) {
+        return false;
+      }
+      const visibility = this.map.getLayoutProperty(layerId, "visibility");
+      return visibility !== "none";
+    });
+
+    if (visibleLayers.length === 0) {
+      return null;
+    }
+
+    const point = this.map.project([coord.lon, coord.lat]);
+    const radius = 8;
+    const bbox = [
+      [point.x - radius, point.y - radius],
+      [point.x + radius, point.y + radius],
+    ];
+    const features = this.map.queryRenderedFeatures(bbox, { layers: visibleLayers });
+
+    if (!features.length) {
+      return null;
+    }
+
+    const preferred = visibleLayers
+      .map((layerId) => features.find((feature) => feature.layer?.id === layerId))
+      .find(Boolean);
+    const feature = preferred || features[0];
+    const props = feature?.properties || {};
+    const streetName = props.street_name || props.name || null;
+    let status = props.status || null;
+
+    if (!status && feature?.layer?.id) {
+      if (feature.layer.id.includes("driven")) {
+        status = "driven";
+      } else if (feature.layer.id.includes("undriven")) {
+        status = "undriven";
+      }
+    }
+
+    if (!streetName) {
+      return null;
+    }
+
+    return { streetName, status };
+  }
+
+  // --- Live updates -----------------------------------------------------
+  async initialize() {
+    try {
+      // Load initial trip data
+      await this.loadInitialTrip();
+
+      // Start WebSocket connection
+      this.connectWebSocket();
+
+      // Re-layer on map updates
+      document.addEventListener("mapUpdated", () => {
+        // Live trip layers are always on top in Mapbox GL JS
+        console.debug("Map updated, live trip layers maintained");
+      });
+    } catch (error) {
+      console.error("Initialization error:", error);
+      this.updateStatus(false, "Failed to initialize");
+      this.startPolling();
+    }
+  }
+
+  async loadInitialTrip() {
+    try {
+      const data = await apiClient.get("/api/active_trip");
+
+      if (data.status === "success" && data.has_active_trip && data.trip) {
+        console.info(`Initial trip loaded: ${data.trip.transactionId}`);
+        this.updateTrip(data.trip);
+      } else {
+        // console.info("No active trip on startup");
+        this.clearTrip();
+      }
+    } catch (error) {
+      console.error("Failed to load initial trip:", error);
+      throw error;
+    }
+  }
+
+  connectWebSocket() {
+    if (this.ws) {
+      this.ws.close();
+      this.ws = null;
+    }
+
+    try {
+      this.ws = connectLiveWebSocket({
+        onOpen: () => {
+          this.stopPolling();
+          this.updateStatus(true);
+        },
+        onMessage: (data) => this.handleSocketMessage(data),
+        onClose: (event) => {
+          console.warn("WebSocket closed, switching to polling", event);
+          this.ws = null;
+          this.updateStatus(false, "Reconnecting...");
+          this.startPolling();
+        },
+        onError: (error) => {
+          console.error("WebSocket error:", error);
+          this.updateStatus(false, "Connection error");
+        },
+      });
+
+      if (!this.ws) {
+        console.warn("WebSocket not supported, using polling");
+        this.startPolling();
+      }
+    } catch (error) {
+      console.error("Failed to create WebSocket:", error);
+      this.startPolling();
+    }
+  }
+
+  handleSocketMessage(data) {
+    if (data.type === "trip_state" && data.trip) {
+      this.updateTrip(data.trip);
+    }
+  }
+
+  startPolling() {
+    if (this.pollingTimer) {
+      return;
+    }
+
+    console.info("Starting polling fallback");
+    this.poll();
+  }
+
+  stopPolling() {
+    if (this.pollingTimer) {
+      clearTimeout(this.pollingTimer);
+      this.pollingTimer = null;
+      console.info("Polling stopped");
+    }
+  }
+
+  async poll() {
+    try {
+      const data = await apiClient.get("/api/trip_updates");
+
+      if (data.status === "success") {
+        if (data.has_update && data.trip) {
+          this.updateTrip(data.trip);
+        } else if (!data.has_update && !this.activeTrip) {
+          this.clearTrip();
+        }
+        this.updateStatus(true);
+      }
+    } catch (error) {
+      console.error("Polling error:", error);
+      this.updateStatus(false, "Connection lost");
+    } finally {
+      this.pollingTimer = setTimeout(() => this.poll(), this.pollingInterval);
+    }
+  }
+
+  // --- Trip rendering ---------------------------------------------------
+  updateTrip(trip) {
+    if (!trip) {
+      return;
+    }
+
+    // Handle completed trips
+    if (trip.status === "completed") {
+      console.info(`Trip ${trip.transactionId} completed`);
+      this.clearTrip();
+      return;
+    }
+
+    const isNewTrip =
+      !this.activeTrip || this.activeTrip.transactionId !== trip.transactionId;
+
+    this.activeTrip = trip;
+
+    // Extract coordinates
+    const coords = LiveTripTracker.extractCoordinates(trip);
+    if (!coords || coords.length === 0) {
+      console.warn("No coordinates in trip update");
+      return;
+    }
+
+    const rawHeading = LiveTripTracker.calculateHeading(coords);
+    const heading =
+      typeof rawHeading === "number"
+        ? LiveTripTracker.smoothBearing(this.lastBearing, rawHeading, 0.28)
+        : this.lastBearing;
+    if (typeof heading === "number") {
+      this.lastBearing = heading;
+    }
+
+    // Create GeoJSON features
+    const features = createFeatures(coords, heading);
+
+    // Update map source
+    const source = this.map.getSource(this.sourceId);
+    if (source) {
+      source.setData({ type: "FeatureCollection", features });
+    }
+
+    // Update marker style based on speed
+    this.updateMarkerStyle(trip.currentSpeed || 0);
+
+    // Update metrics panel
+    this.updateMetrics(trip);
+    this.updateHud(trip, coords);
+    this.updateParticleTrail(coords);
+
+    // Update map view for new trips
+    if (isNewTrip) {
+      this.setLiveTripActive(true);
+      this.setFollowMode(this.followPreference, { persist: false, resetCamera: false });
+      if (this.followMode) {
+        this.followVehicle(coords[coords.length - 1], heading, { immediate: true });
+      } else {
+        this.fitTripBounds(coords);
+      }
+    } else if (this.followMode) {
+      this.followVehicle(coords[coords.length - 1], heading);
+    }
+
+    this.lastCoord = coords[coords.length - 1];
+
+    // Update UI
+    this.updateTripCount(1);
+    this.updateStatus(true, "Live tracking");
+
+    document.dispatchEvent(
+      new CustomEvent("liveTrackingUpdated", {
+        detail: {
+          trip,
+          coords,
+        },
+      })
+    );
+  }
+
+  static extractCoordinates(trip) {
+    let coords = [];
+
+    // Try coordinates array first (active trips)
+    if (Array.isArray(trip.coordinates) && trip.coordinates.length > 0) {
+      coords = trip.coordinates
+        .map((c) => {
+          if (c && c.lon !== undefined && c.lat !== undefined) {
+            return { lon: c.lon, lat: c.lat, timestamp: c.timestamp };
+          }
+          return null;
+        })
+        .filter(Boolean);
+    }
+
+    // Fallback to GeoJSON format
+    if (coords.length === 0 && trip.gps) {
+      const { gps } = trip;
+      if (gps.type === "Point" && Array.isArray(gps.coordinates)) {
+        coords = [{ lon: gps.coordinates[0], lat: gps.coordinates[1] }];
+      } else if (gps.type === "LineString" && Array.isArray(gps.coordinates)) {
+        coords = gps.coordinates.map((c) => ({ lon: c[0], lat: c[1] }));
+      }
+    }
+
+    return coords;
+  }
+
+  static calculateHeading(coords) {
+    if (!Array.isArray(coords) || coords.length < 2) {
+      return null;
+    }
+    const prev = coords[coords.length - 2];
+    const curr = coords[coords.length - 1];
+    if (!prev || !curr) {
+      return null;
+    }
+
+    const toRad = (value) => (value * Math.PI) / 180;
+    const toDeg = (value) => (value * 180) / Math.PI;
+
+    const lat1 = toRad(prev.lat);
+    const lat2 = toRad(curr.lat);
+    const dLon = toRad(curr.lon - prev.lon);
+
+    const y = Math.sin(dLon) * Math.cos(lat2);
+    const x =
+      Math.cos(lat1) * Math.sin(lat2) -
+      Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+    const bearing = toDeg(Math.atan2(y, x));
+
+    return LiveTripTracker.normalizeBearing(bearing);
+  }
+
+  static normalizeBearing(bearing) {
+    if (!Number.isFinite(bearing)) {
+      return 0;
+    }
+    return (bearing + 360) % 360;
+  }
+
+  static smoothBearing(previous, next, weight = 0.25) {
+    if (!Number.isFinite(next)) {
+      return previous;
+    }
+    if (!Number.isFinite(previous)) {
+      return LiveTripTracker.normalizeBearing(next);
+    }
+    const delta = ((next - previous + 540) % 360) - 180;
+    return LiveTripTracker.normalizeBearing(previous + delta * weight);
+  }
+
+  static getCssVar(name, fallback) {
+    try {
+      const value = getComputedStyle(document.documentElement)
+        .getPropertyValue(name)
+        .trim();
+      return value || fallback;
+    } catch {
+      return fallback;
+    }
+  }
+
+  updateMarkerStyle(speed) {
+    if (!this.map || !this.map.getLayer(this.markerLayerId)) {
+      return;
+    }
+
+    let color = "";
+    let radius = 0;
+    let strokeWidth = 0;
+
+    if (speed === 0) {
+      color = LiveTripTracker.getCssVar("--danger", "#d48584");
+      radius = 8;
+      strokeWidth = 2;
+    } else if (speed < 10) {
+      color = LiveTripTracker.getCssVar("--warning", "#d4a574");
+      radius = 8;
+      strokeWidth = 2;
+    } else if (speed < 35) {
+      color = LiveTripTracker.getCssVar("--info", "#8b9dc3");
+      radius = 9;
+      strokeWidth = 2.5;
+    } else {
+      color = LiveTripTracker.getCssVar("--primary", "#7c9d96");
+      radius = 10;
+      strokeWidth = 3;
+    }
+
+    // Update marker styling with smooth transition
+    this.map.setPaintProperty(this.markerLayerId, "circle-color", color);
+    this.map.setPaintProperty(this.markerLayerId, "circle-radius", radius);
+    this.map.setPaintProperty(this.markerLayerId, "circle-stroke-width", strokeWidth);
+
+    // Sync pulse ring color
+    if (this.map.getLayer(this.pulseLayerId)) {
+      this.map.setPaintProperty(this.pulseLayerId, "circle-stroke-color", color);
+    }
+
+    if (this.map.getLayer(this.arrowLayerId)) {
+      this.map.setPaintProperty(this.arrowLayerId, "icon-color", color);
+    }
+  }
+
+  /**
+   * Start animated pulse effect on the vehicle marker
+   */
+  startPulseAnimation() {
+    if (this.pulseAnimationFrame) {
+      return;
+    }
+
+    let pulseRadius = 20;
+    let pulseOpacity = 0.4;
+    let expanding = true;
+
+    const animate = () => {
+      if (!this.map || !this.map.getLayer(this.pulseLayerId)) {
+        this.stopPulseAnimation();
+        return;
+      }
+
+      // Animate radius between 20 and 35
+      if (expanding) {
+        pulseRadius += 0.3;
+        pulseOpacity -= 0.006;
+        if (pulseRadius >= 35) {
+          expanding = false;
+        }
+      } else {
+        pulseRadius -= 0.5;
+        pulseOpacity += 0.01;
+        if (pulseRadius <= 20) {
+          expanding = true;
+        }
+      }
+
+      try {
+        this.map.setPaintProperty(this.pulseLayerId, "circle-radius", pulseRadius);
+        this.map.setPaintProperty(
+          this.pulseLayerId,
+          "circle-stroke-opacity",
+          Math.max(0.1, pulseOpacity)
+        );
+      } catch {
+        // Layer might be removed during animation
+      }
+
+      this.pulseAnimationFrame = requestAnimationFrame(animate);
+    };
+
+    this.pulseAnimationFrame = requestAnimationFrame(animate);
+  }
+
+  /**
+   * Stop pulse animation
+   */
+  stopPulseAnimation() {
+    if (this.pulseAnimationFrame) {
+      cancelAnimationFrame(this.pulseAnimationFrame);
+      this.pulseAnimationFrame = null;
+    }
+  }
+
+  _renderMetricRows(metrics) {
+    return Object.entries(metrics)
+      .map(
+        ([label, value]) => `
+        <div class="metric-row">
+          <span class="metric-label">${label}:</span>
+          <span class="metric-value">${value}</span>
+        </div>
+      `
+      )
+      .join("");
+  }
+
+  updateMetrics(trip) {
+    if (!this.metricsElem || !trip) {
+      return;
+    }
+
+    const startTime = trip.startTime ? new Date(trip.startTime) : null;
+    const lastUpdate = trip.lastUpdate ? new Date(trip.lastUpdate) : null;
+
+    // Calculate duration
+    let duration = "0:00:00";
+    if (startTime && lastUpdate) {
+      duration = DateUtils.formatDurationHMS(startTime, lastUpdate);
+    }
+
+    // Build metrics HTML
+    const metrics = {
+      "Start Time": startTime
+        ? startTime.toLocaleString(undefined, {
+            month: "short",
+            day: "numeric",
+            hour: "numeric",
+            minute: "numeric",
+            second: "numeric",
+          })
+        : "N/A",
+      Duration: duration,
+      Distance: `${(trip.distance || 0).toFixed(2)} mi`,
+      "Current Speed": `${(trip.currentSpeed || 0).toFixed(1)} mph`,
+      "Points Recorded": trip.pointsRecorded || 0,
+      "Last Update": lastUpdate ? DateUtils.formatTimeAgo(lastUpdate) : "N/A",
+    };
+
+    // Optional metrics (only show if meaningful)
+    const optional = {};
+
+    if (trip.avgSpeed > 0) {
+      optional["Average Speed"] = `${trip.avgSpeed.toFixed(1)} mph`;
+    }
+
+    if (trip.maxSpeed > Math.max(trip.currentSpeed, 5)) {
+      optional["Max Speed"] = `${trip.maxSpeed.toFixed(1)} mph`;
+    }
+
+    if (trip.totalIdleDuration > 0) {
+      optional["Idling Time"] = DateUtils.formatSecondsToHMS(trip.totalIdleDuration);
+    }
+
+    if (trip.hardBrakingCounts > 0) {
+      optional["Hard Braking"] = trip.hardBrakingCounts;
+    }
+
+    if (trip.hardAccelerationCounts > 0) {
+      optional["Hard Acceleration"] = trip.hardAccelerationCounts;
+    }
+
+    // Render metrics
+    const baseHtml = this._renderMetricRows(metrics);
+
+    const optionalHtml =
+      Object.keys(optional).length > 0
+        ? `
+        <div class="metric-section-divider"></div>
+        <div class="metric-section-title">Trip Behavior</div>
+        ${this._renderMetricRows(optional)}
+      `
+        : "";
+
+    this.metricsElem.innerHTML = `
+      <div class="metric-section">
+        <div class="metric-section-title">Live Trip</div>
+        ${baseHtml}
+      </div>
+      ${optionalHtml}
+    `;
+
+    this.metricsElem.querySelectorAll(".metric-value").forEach((valueEl) => {
+      valueEl.classList.remove("value-flash");
+      void valueEl.offsetWidth;
+      valueEl.classList.add("value-flash");
+    });
+  }
+
+  fitTripBounds(coords) {
+    if (!coords || coords.length === 0) {
+      return;
+    }
+
+    const mapboxCoords = coords.map((c) => [c.lon, c.lat]);
+
+    if (mapboxCoords.length === 1) {
+      this.map.flyTo({ center: mapboxCoords[0], zoom: 15 });
+    } else {
+      try {
+        const bounds = new mapboxgl.LngLatBounds();
+        mapboxCoords.forEach((coord) => {
+          bounds.extend(coord);
+        });
+        this.map.fitBounds(bounds, { padding: 50 });
+      } catch (error) {
+        console.error("Error fitting bounds:", error);
+        this.map.flyTo({ center: mapboxCoords[0], zoom: 15 });
+      }
+    }
+  }
+
+  followVehicle(lastCoord, heading, { immediate = false } = {}) {
+    if (!lastCoord || !this.map) {
+      return;
+    }
+
+    const { zoom, pitch, offset, duration } = this.getFollowCameraConfig();
+    const bearing = typeof heading === "number" ? heading : this.map.getBearing() || 0;
+    const center = [lastCoord.lon, lastCoord.lat];
+
+    const cameraOptions = {
+      center,
+      zoom,
+      pitch,
+      bearing,
+      offset,
+      duration,
+      essential: true,
+    };
+
+    if (immediate) {
+      this.map.jumpTo(cameraOptions);
+    } else {
+      this.map.easeTo(cameraOptions);
+    }
+  }
+
+  clearTrip() {
+    this.activeTrip = null;
+    this.lastCoord = null;
+    this.lastBearing = null;
+    this.lastUpdateTimestamp = null;
+    this.updateFreshnessState();
+
+    // Clear map
+    const source = this.map.getSource(this.sourceId);
+    if (source) {
+      source.setData({ type: "FeatureCollection", features: [] });
+    }
+    const trailSource = this.map.getSource(this.trailSourceId);
+    if (trailSource) {
+      trailSource.setData({ type: "FeatureCollection", features: [] });
+    }
+
+    // Clear metrics
+    if (this.metricsElem) {
+      this.metricsElem.innerHTML = `
+        <div class="text-secondary small">No live trip in progress.</div>
+      `;
+    }
+
+    this.setLiveTripActive(false);
+    this.updateTripCount(0);
+    this.updateStatus(true, "Idle");
+  }
+
+  updateStatus(connected, message) {
+    if (!this.statusIndicator || !this.statusText) {
+      return;
+    }
+
+    this.statusIndicator.classList.toggle("connected", connected);
+    this.statusIndicator.classList.toggle("disconnected", !connected);
+    const isConnecting =
+      typeof message === "string" && /reconnect|connect|sync/i.test(message);
+    this.statusIndicator.classList.toggle("connecting", !connected && isConnecting);
+
+    const statusMsg = message || (connected ? "Connected" : "Disconnected");
+    this.statusText.textContent = statusMsg;
+
+    if (this.liveBadge) {
+      this.liveBadge.classList.toggle("disconnected", !connected);
+    }
+  }
+
+  updateTripCount(count) {
+    if (this.tripCountElem) {
+      this.tripCountElem.textContent = count;
+    }
+  }
+
+  startFreshnessMonitor() {
+    if (this.freshnessTimer) {
+      clearInterval(this.freshnessTimer);
+    }
+    this.freshnessTimer = setInterval(() => this.updateFreshnessState(), 4000);
+  }
+
+  updateFreshnessState() {
+    if (!this.statusIndicator) {
+      return;
+    }
+    const now = Date.now();
+    const age = this.lastUpdateTimestamp ? now - this.lastUpdateTimestamp : null;
+    const isStale = age !== null && age > 15000;
+    this.statusIndicator.classList.toggle("stale", isStale);
+    this.statusIndicator.classList.toggle("fresh", !isStale && age !== null);
+    if (this.hudElem) {
+      this.hudElem.classList.toggle("data-stale", isStale);
+    }
+    if (this.liveBadge) {
+      this.liveBadge.classList.toggle("stale", isStale);
+    }
+  }
+
+  startWebhookStatusMonitor() {
+    if (!this.webhookIndicator || !this.webhookStatusText) {
+      return;
+    }
+    if (this.webhookStatusTimer) {
+      clearInterval(this.webhookStatusTimer);
+    }
+    this.refreshWebhookStatus();
+    this.webhookStatusTimer = setInterval(
+      () => this.refreshWebhookStatus(),
+      this.webhookStatusInterval
+    );
+  }
+
+  stopWebhookStatusMonitor() {
+    if (this.webhookStatusTimer) {
+      clearInterval(this.webhookStatusTimer);
+      this.webhookStatusTimer = null;
+    }
+  }
+
+  async refreshWebhookStatus() {
+    if (
+      !this.webhookIndicator ||
+      !this.webhookStatusText ||
+      this.webhookStatusPending
+    ) {
+      return;
+    }
+    this.webhookStatusPending = true;
+    try {
+      const data = await apiClient.get("/api/webhooks/bouncie/status", {
+        cache: false,
+      });
+      const lastReceived = data.last_received ? new Date(data.last_received) : null;
+      if (!lastReceived || Number.isNaN(lastReceived.getTime())) {
+        this.setWebhookStatusIndicator("disconnected", "No webhook received yet");
+        return;
+      }
+
+      const ageMs = Date.now() - lastReceived.getTime();
+      const windowMs = this.hasActiveTrip
+        ? this.webhookActiveWindowMs
+        : this.webhookIdleWindowMs;
+      const timeAgo = DateUtils?.formatTimeAgo(lastReceived, true) || "just now";
+      const eventLabel = data.event_type
+        ? `${data.event_type} ${timeAgo}`
+        : `webhook ${timeAgo}`;
+
+      if (ageMs <= windowMs) {
+        this.setWebhookStatusIndicator("connected", `Last ${eventLabel}`);
+      } else {
+        this.setWebhookStatusIndicator(
+          "stale",
+          `No recent webhooks (last ${eventLabel})`
+        );
+      }
+    } catch {
+      this.setWebhookStatusIndicator("disconnected", "Webhook status unavailable");
+    } finally {
+      this.webhookStatusPending = false;
+    }
+  }
+
+  setWebhookStatusIndicator(state, message) {
+    if (!this.webhookIndicator || !this.webhookStatusText) {
+      return;
+    }
+    this.webhookIndicator.classList.remove(
+      "connected",
+      "stale",
+      "disconnected",
+      "connecting",
+      "fresh"
+    );
+    if (state) {
+      this.webhookIndicator.classList.add(state);
+    }
+    this.webhookStatusText.textContent = message;
+  }
+
+  // --- Cleanup ----------------------------------------------------------
+  _removeLayer(layerId) {
+    if (!this.map?.getLayer(layerId)) {
+      return;
+    }
+    this.map.removeLayer(layerId);
+  }
+
+  _removeSource(sourceId) {
+    if (!this.map?.getSource(sourceId)) {
+      return;
+    }
+    this.map.removeSource(sourceId);
+  }
+
+  destroy() {
+    this.stopPolling();
+    this.stopPulseAnimation();
+    this.stopWebhookStatusMonitor();
+    if (this.freshnessTimer) {
+      clearInterval(this.freshnessTimer);
+      this.freshnessTimer = null;
+    }
+
+    if (this.ws) {
+      this.ws.close();
+      this.ws = null;
+    }
+
+    if (this.followToggle && this.followToggleHandler) {
+      this.followToggle.removeEventListener("click", this.followToggleHandler);
+    }
+
+    if (this.map && this.mapInteractionHandlers.length > 0) {
+      this.mapInteractionHandlers.forEach(({ evt, handler }) => {
+        this.map.off(evt, handler);
+      });
+      this.mapInteractionHandlers = [];
+    }
+
+    // Remove map layers
+    if (this.map) {
+      try {
+        [
+          this.pulseLayerId,
+          this.arrowLayerId,
+          this.lineLayerId,
+          this.lineCasingLayerId,
+          this.lineGlowLayerId,
+          this.markerLayerId,
+        ].forEach((layerId) => this._removeLayer(layerId));
+        this._removeSource(this.sourceId);
+      } catch (error) {
+        console.warn("Error removing layers:", error);
+      }
+    }
+
+    this.clearTrip();
+    this.updateStatus(false, "Disconnected");
+
+    if (LiveTripTracker.instance === this) {
+      LiveTripTracker.instance = null;
+    }
+
+    console.info("LiveTripTracker destroyed");
+  }
+}
+
+export { LiveTripTracker };
+export default LiveTripTracker;

@@ -11,10 +11,10 @@
 
 /* global mapboxgl */
 
-import { CONFIG } from "./config.js";
+import { CONFIG } from "./core/config.js";
 import mapCore from "./map-core.js";
-import store from "./spa/store.js";
-import state from "./state.js";
+import store from "./core/store.js";
+import MapStyles from "./map-styles.js";
 import { utils } from "./utils.js";
 
 // Debounced view state saver
@@ -45,17 +45,17 @@ const mapManager = {
    * @private
    */
   _setupViewStateManagement() {
-    if (!state.map) {
+    if (!store.map) {
       return;
     }
 
     saveViewStateDebounced = utils.debounce(() => {
-      if (!state.map) {
+      if (!store.map) {
         return;
       }
 
-      const center = state.map.getCenter();
-      const zoom = state.map.getZoom();
+      const center = store.map.getCenter();
+      const zoom = store.map.getZoom();
 
       store.updateMapView(
         {
@@ -66,7 +66,7 @@ const mapManager = {
       );
     }, CONFIG.MAP.debounceDelay);
 
-    state.map.on("moveend", saveViewStateDebounced);
+    store.map.on("moveend", saveViewStateDebounced);
   },
 
   /**
@@ -74,10 +74,10 @@ const mapManager = {
    * @private
    */
   _setupClickHandler() {
-    if (!state.map) {
+    if (!store.map) {
       return;
     }
-    state.map.on("click", this._handleMapClick.bind(this));
+    store.map.on("click", this._handleMapClick.bind(this));
   },
 
   /**
@@ -90,7 +90,7 @@ const mapManager = {
     }
 
     document.addEventListener("es:map-view-change", (event) => {
-      if (!state.map) {
+      if (!store.map) {
         return;
       }
 
@@ -105,7 +105,7 @@ const mapManager = {
       }
 
       try {
-        state.map.jumpTo({ center: view.center, zoom: view.zoom });
+        store.map.jumpTo({ center: view.center, zoom: view.zoom });
       } catch (err) {
         console.warn("Failed to apply map view from store:", err);
       }
@@ -122,41 +122,41 @@ const mapManager = {
     // Build list of queryable layers
     const queryLayers = [];
 
-    if (state.map.getLayer("trips-hitbox")) {
+    if (store.map.getLayer("trips-hitbox")) {
       queryLayers.push("trips-hitbox");
-    } else if (!state.mapLayers.trips?.isHeatmap && state.map.getLayer("trips-layer")) {
+    } else if (!store.mapLayers.trips?.isHeatmap && store.map.getLayer("trips-layer")) {
       queryLayers.push("trips-layer");
     } else if (
-      state.mapLayers.trips?.isHeatmap
-      && state.map.getLayer("trips-layer-1")
+      store.mapLayers.trips?.isHeatmap
+      && store.map.getLayer("trips-layer-1")
     ) {
       queryLayers.push("trips-layer-1");
     }
 
-    if (state.map.getLayer("matchedTrips-hitbox")) {
+    if (store.map.getLayer("matchedTrips-hitbox")) {
       queryLayers.push("matchedTrips-hitbox");
-    } else if (state.map.getLayer("matchedTrips-layer")) {
+    } else if (store.map.getLayer("matchedTrips-layer")) {
       queryLayers.push("matchedTrips-layer");
     }
 
     if (queryLayers.length === 0) {
       // No queryable layers, just clear selection if needed
-      if (state.selectedTripId) {
-        state.selectedTripId = null;
-        state.selectedTripLayer = null;
+      if (store.selectedTripId) {
+        store.selectedTripId = null;
+        store.selectedTripLayer = null;
         this.refreshTripStyles();
       }
       return;
     }
 
-    const features = state.map.queryRenderedFeatures(e.point, {
+    const features = store.map.queryRenderedFeatures(e.point, {
       layers: queryLayers,
     });
 
     // Clear selection if clicked on empty space
-    if (features.length === 0 && state.selectedTripId) {
-      state.selectedTripId = null;
-      state.selectedTripLayer = null;
+    if (features.length === 0 && store.selectedTripId) {
+      store.selectedTripId = null;
+      store.selectedTripLayer = null;
       this.refreshTripStyles();
     }
   },
@@ -165,13 +165,13 @@ const mapManager = {
    * Update URL with current map state
    */
   updateUrlState() {
-    if (!state.map || !window.history?.replaceState) {
+    if (!store.map || !window.history?.replaceState) {
       return;
     }
 
     try {
-      const center = state.map.getCenter();
-      const zoom = state.map.getZoom();
+      const center = store.map.getCenter();
+      const zoom = store.map.getZoom();
       const url = new URL(window.location.href);
 
       url.searchParams.set("zoom", zoom.toFixed(2));
@@ -189,14 +189,14 @@ const mapManager = {
    * Throttled to prevent excessive updates
    */
   refreshTripStyles: utils.throttle(function () {
-    if (!state.map || !state.mapInitialized) {
+    if (!store.map || !store.mapInitialized) {
       return;
     }
 
-    const selectedId = state.selectedTripId ? String(state.selectedTripId) : null;
+    const selectedId = store.selectedTripId ? String(store.selectedTripId) : null;
 
     ["trips", "matchedTrips"].forEach((layerName) => {
-      const layerInfo = state.mapLayers[layerName];
+      const layerInfo = store.mapLayers[layerName];
       if (!layerInfo?.visible) {
         return;
       }
@@ -207,7 +207,7 @@ const mapManager = {
       }
 
       const layerId = `${layerName}-layer`;
-      if (!state.map.getLayer(layerId)) {
+      if (!store.map.getLayer(layerId)) {
         return;
       }
 
@@ -243,9 +243,9 @@ const mapManager = {
         : baseWeight;
 
       try {
-        state.map.setPaintProperty(layerId, "line-color", colorExpr);
-        state.map.setPaintProperty(layerId, "line-opacity", layerInfo.opacity);
-        state.map.setPaintProperty(layerId, "line-width", widthExpr);
+        store.map.setPaintProperty(layerId, "line-color", colorExpr);
+        store.map.setPaintProperty(layerId, "line-opacity", layerInfo.opacity);
+        store.map.setPaintProperty(layerId, "line-width", widthExpr);
       } catch (error) {
         console.warn("Failed to update trip styles:", error);
       }
@@ -260,7 +260,7 @@ const mapManager = {
    * @private
    */
   _updateSelectedTripOverlay(selectedId) {
-    if (!state.map || !state.mapInitialized) {
+    if (!store.map || !store.mapInitialized) {
       return;
     }
 
@@ -268,27 +268,27 @@ const mapManager = {
     const layerId = "selected-trip-layer";
 
     const removeOverlay = () => {
-      if (state.map.getLayer(layerId)) {
-        state.map.removeLayer(layerId);
+      if (store.map.getLayer(layerId)) {
+        store.map.removeLayer(layerId);
       }
-      if (state.map.getSource(sourceId)) {
-        state.map.removeSource(sourceId);
+      if (store.map.getSource(sourceId)) {
+        store.map.removeSource(sourceId);
       }
     };
 
     // Remove overlay if no selection or not in heatmap mode
     if (
       !selectedId
-      || state.selectedTripLayer !== "trips"
-      || !state.mapLayers.trips?.isHeatmap
-      || !state.mapLayers.trips?.visible
+      || store.selectedTripLayer !== "trips"
+      || !store.mapLayers.trips?.isHeatmap
+      || !store.mapLayers.trips?.visible
     ) {
       removeOverlay();
       return;
     }
 
     // Find the matching feature
-    const tripLayer = state.mapLayers.trips?.layer;
+    const tripLayer = store.mapLayers.trips?.layer;
     const matchingFeature = tripLayer?.features?.find((feature) => {
       const featureId
         = feature?.properties?.transactionId
@@ -309,8 +309,7 @@ const mapManager = {
       properties: matchingFeature.properties || {},
     };
 
-    const highlightColor
-      = window.MapStyles?.MAP_LAYER_COLORS?.trips?.selected || "#FFD700";
+    const highlightColor = MapStyles.MAP_LAYER_COLORS?.trips?.selected || "#FFD700";
 
     const highlightWidth = [
       "interpolate",
@@ -329,21 +328,21 @@ const mapManager = {
     ];
 
     // Create or update source
-    if (!state.map.getSource(sourceId)) {
-      state.map.addSource(sourceId, {
+    if (!store.map.getSource(sourceId)) {
+      store.map.addSource(sourceId, {
         type: "geojson",
         data: { type: "FeatureCollection", features: [selectedFeature] },
       });
     } else {
-      state.map.getSource(sourceId).setData({
+      store.map.getSource(sourceId).setData({
         type: "FeatureCollection",
         features: [selectedFeature],
       });
     }
 
     // Create or update layer
-    if (!state.map.getLayer(layerId)) {
-      state.map.addLayer({
+    if (!store.map.getLayer(layerId)) {
+      store.map.addLayer({
         id: layerId,
         type: "line",
         source: sourceId,
@@ -358,8 +357,8 @@ const mapManager = {
         },
       });
     } else {
-      state.map.setPaintProperty(layerId, "line-color", highlightColor);
-      state.map.setPaintProperty(layerId, "line-width", highlightWidth);
+      store.map.setPaintProperty(layerId, "line-color", highlightColor);
+      store.map.setPaintProperty(layerId, "line-width", highlightWidth);
     }
   },
 
@@ -368,7 +367,7 @@ const mapManager = {
    * @param {boolean} animate - Whether to animate the transition
    */
   async fitBounds(animate = true) {
-    if (!state.map || !state.mapInitialized) {
+    if (!store.map || !store.mapInitialized) {
       return;
     }
 
@@ -376,7 +375,7 @@ const mapManager = {
       const bounds = new mapboxgl.LngLatBounds();
       let hasFeatures = false;
 
-      Object.values(state.mapLayers).forEach(({ visible, layer }) => {
+      Object.values(store.mapLayers).forEach(({ visible, layer }) => {
         if (visible && layer?.features) {
           layer.features.forEach((feature) => {
             if (feature.geometry) {
@@ -395,7 +394,7 @@ const mapManager = {
       });
 
       if (hasFeatures && !bounds.isEmpty()) {
-        state.map.fitBounds(bounds, {
+        store.map.fitBounds(bounds, {
           padding: 50,
           maxZoom: 15,
           duration: animate ? 1000 : 0,
@@ -409,16 +408,16 @@ const mapManager = {
    * @param {string|number} tripId - The trip ID to zoom to
    */
   async zoomToTrip(tripId) {
-    if (!state.map || !state.mapLayers.trips?.layer?.features) {
+    if (!store.map || !store.mapLayers.trips?.layer?.features) {
       return;
     }
 
     // Wait for features to be loaded if they aren't yet
-    if (state.mapLayers.trips.layer.features.length === 0) {
+    if (store.mapLayers.trips.layer.features.length === 0) {
       await new Promise((resolve) => setTimeout(resolve, 500));
     }
 
-    const { features } = state.mapLayers.trips.layer;
+    const { features } = store.mapLayers.trips.layer;
     const tripFeature = features.find((f) => {
       const fId
         = f.properties?.transactionId || f.properties?.id || f.properties?.tripId || f.id;
@@ -440,15 +439,15 @@ const mapManager = {
     }
 
     if (!bounds.isEmpty()) {
-      state.map.fitBounds(bounds, {
+      store.map.fitBounds(bounds, {
         padding: 50,
         maxZoom: 15,
         duration: 2000,
       });
 
       // Select the trip
-      state.selectedTripId = tripId;
-      state.selectedTripLayer = "trips";
+      store.selectedTripId = tripId;
+      store.selectedTripLayer = "trips";
       this.refreshTripStyles();
     }
   },
@@ -458,11 +457,11 @@ const mapManager = {
    * @param {number} targetZoom - Zoom level to use
    */
   zoomToLastTrip(targetZoom = 14) {
-    if (!state.map || !state.mapLayers.trips?.layer?.features) {
+    if (!store.map || !store.mapLayers.trips?.layer?.features) {
       return;
     }
 
-    const { features } = state.mapLayers.trips.layer;
+    const { features } = store.mapLayers.trips.layer;
 
     // Find the trip with the most recent end time
     const lastTripFeature = features.reduce((latest, feature) => {
@@ -497,7 +496,7 @@ const mapManager = {
       && !Number.isNaN(lastCoord[0])
       && !Number.isNaN(lastCoord[1])
     ) {
-      state.map.flyTo({
+      store.map.flyTo({
         center: lastCoord,
         zoom: targetZoom,
         duration: 2000,
@@ -512,7 +511,7 @@ const mapManager = {
    * @param {number} zoom - Optional zoom level
    */
   panTo(center, zoom) {
-    if (!state.map) {
+    if (!store.map) {
       return;
     }
 
@@ -521,7 +520,7 @@ const mapManager = {
       options.zoom = zoom;
     }
 
-    state.map.flyTo(options);
+    store.map.flyTo(options);
   },
 
   /**
@@ -529,16 +528,16 @@ const mapManager = {
    * @returns {Object|null}
    */
   getViewState() {
-    if (!state.map) {
+    if (!store.map) {
       return null;
     }
 
-    const center = state.map.getCenter();
+    const center = store.map.getCenter();
     return {
       center: [center.lng, center.lat],
-      zoom: state.map.getZoom(),
-      bearing: state.map.getBearing(),
-      pitch: state.map.getPitch(),
+      zoom: store.map.getZoom(),
+      bearing: store.map.getBearing(),
+      pitch: store.map.getPitch(),
     };
   },
 
@@ -546,8 +545,8 @@ const mapManager = {
    * Clean up event listeners
    */
   cleanup() {
-    if (state.map && saveViewStateDebounced) {
-      state.map.off("moveend", saveViewStateDebounced);
+    if (store.map && saveViewStateDebounced) {
+      store.map.off("moveend", saveViewStateDebounced);
     }
   },
 };

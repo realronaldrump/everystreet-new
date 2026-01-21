@@ -1,57 +1,79 @@
 /* global bootstrap */
 
+import MapStyles from "../map-styles.js";
+import confirmationDialog from "../ui/confirmation-dialog.js";
+import loadingManager from "../ui/loading-manager.js";
+import notificationManager from "../ui/notifications.js";
+import VisitsChartManager from "./chart-manager.js";
+import VisitsDataLoader from "./visits-data-loader.js";
+import VisitsEvents from "./visits-events.js";
+import VisitsHelpers from "./visits-helpers.js";
+import VisitsMapController from "./map-controller.js";
+import VisitsPopup from "./visits-popup.js";
+import VisitsStatsManager from "./visits-stats-manager.js";
+import VisitsUIManager from "./visits-ui-manager.js";
+import VisitsActions from "./visits-actions.js";
+import VisitsDrawing from "./visits-drawing.js";
+import { VisitsGeometry } from "./geometry.js";
+import {
+  createNonCustomVisitsTable,
+  createSuggestionsTable,
+  createTripsTable,
+  createVisitsTable,
+} from "./table-factory.js";
+import TripViewer from "./trip-viewer.js";
+
 /**
  * Visits Manager - Main Orchestrator
  * Coordinates all visits management modules
  */
 
-(() => {
-  class VisitsManager {
+class VisitsManager {
     constructor() {
       // Core state
       this.map = null;
       this.places = new Map();
 
       // External managers
-      this.loadingManager = window.loadingManager;
-      this.chartManager = new window.VisitsChartManager("visitsChart");
-      this.statsManager = new window.VisitsStatsManager();
-      this.uiManager = new window.VisitsUIManager(this);
+      this.loadingManager = loadingManager;
+      this.chartManager = new VisitsChartManager("visitsChart");
+      this.statsManager = new VisitsStatsManager();
+      this.uiManager = new VisitsUIManager(this);
 
       // Map controller
-      this.mapController = new window.VisitsMapController({
-        geometryUtils: window.VisitsGeometry,
-        mapStyles: window.MapStyles,
+      this.mapController = new VisitsMapController({
+        geometryUtils: VisitsGeometry,
+        mapStyles: MapStyles,
         onPlaceClicked: (placeId, lngLat) => this.showPlaceStatistics(placeId, lngLat),
       });
 
       // Trip viewer
-      this.tripViewer = new window.TripViewer({
-        geometryUtils: window.VisitsGeometry,
-        mapStyles: window.MapStyles,
+      this.tripViewer = new TripViewer({
+        geometryUtils: VisitsGeometry,
+        mapStyles: MapStyles,
       });
 
       // Initialize new modular components
-      this.dataLoader = new window.VisitsDataLoader({
+      this.dataLoader = new VisitsDataLoader({
         loadingManager: this.loadingManager,
-        notificationManager: window.notificationManager,
+        notificationManager: notificationManager,
       });
 
-      this.actions = new window.VisitsActions({
+      this.actions = new VisitsActions({
         loadingManager: this.loadingManager,
-        notificationManager: window.notificationManager,
-        confirmationDialog: window.confirmationDialog,
+        notificationManager: notificationManager,
+        confirmationDialog: confirmationDialog,
       });
 
-      this.drawing = new window.VisitsDrawing(this.mapController, {
-        notificationManager: window.notificationManager,
+      this.drawing = new VisitsDrawing(this.mapController, {
+        notificationManager: notificationManager,
       });
 
-      this.events = new window.VisitsEvents(this);
+      this.events = new VisitsEvents(this);
 
-      this.popup = new window.VisitsPopup({
+      this.popup = new VisitsPopup({
         dataLoader: this.dataLoader,
-        notificationManager: window.notificationManager,
+        notificationManager: notificationManager,
         onViewTrips: (placeId) => this.uiManager.toggleView(placeId),
         onZoomToPlace: (placeId) => {
           const place = this.places.get(placeId);
@@ -68,16 +90,16 @@
       this.suggestionsTable = null;
 
       // Set up duration sorting and initialize
-      window.VisitsHelpers.setupDurationSorting();
+      VisitsHelpers.setupDurationSorting();
       this.initialize();
     }
 
     async initialize() {
-      window.VisitsHelpers.showInitialLoading();
+      VisitsHelpers.showInitialLoading();
       this.loadingManager?.show("Initializing Visits Page");
 
       try {
-        await this.mapController.initialize(window.VisitsHelpers.getCurrentTheme());
+        await this.mapController.initialize(VisitsHelpers.getCurrentTheme());
         this.map = this.mapController.getMap();
 
         // Initialize drawing with the map
@@ -103,11 +125,11 @@
         );
 
         this.loadingManager?.hide();
-        window.VisitsHelpers.hideInitialLoading();
+        VisitsHelpers.hideInitialLoading();
       } catch (error) {
         console.error("Error initializing visits page:", error);
         this.loadingManager?.hide();
-        window.VisitsHelpers.showErrorState();
+        VisitsHelpers.showErrorState();
       }
     }
 
@@ -206,7 +228,7 @@
         this.statsManager.updateInsights(statsList);
       } catch (error) {
         console.error("Error updating place statistics:", error);
-        window.notificationManager?.show("Error updating place statistics", "danger");
+        notificationManager?.show("Error updating place statistics", "danger");
       } finally {
         this.loadingManager?.hide();
       }
@@ -242,7 +264,7 @@
       const currentPolygon = this.drawing.getCurrentPolygon();
 
       if (!placeName) {
-        window.VisitsHelpers.showInputError(
+        VisitsHelpers.showInputError(
           placeNameInput,
           "Please enter a name for the place."
         );
@@ -332,7 +354,7 @@
     startEditingPlaceBoundary() {
       const placeId = document.getElementById("edit-place-id")?.value;
       const place = this.places.get(placeId);
-      this.drawing.startEditingPlaceBoundary(placeId, place, this.map);
+      this.drawing.startEditingPlaceBoundary(placeId, place);
     }
 
     applySuggestion(suggestion) {
@@ -354,15 +376,15 @@
     // --- Tables ---
 
     initializeTables() {
-      this.visitsTable = window.VisitsTableFactory.createVisitsTable({
+      this.visitsTable = createVisitsTable({
         onPlaceSelected: (placeId) => this.uiManager.toggleView(placeId),
       });
       this.nonCustomVisitsTable
-        = window.VisitsTableFactory.createNonCustomVisitsTable();
-      this.tripsTable = window.VisitsTableFactory.createTripsTable({
+        = createNonCustomVisitsTable();
+      this.tripsTable = createTripsTable({
         onTripSelected: (tripId) => this.confirmViewTripOnMap(tripId),
       });
-      this.suggestionsTable = window.VisitsTableFactory.createSuggestionsTable({
+      this.suggestionsTable = createSuggestionsTable({
         onCreatePlace: (suggestion) => this.applySuggestion(suggestion),
         onPreview: (suggestion) => this.mapController.previewSuggestion(suggestion),
       });
@@ -380,7 +402,7 @@
     async fetchAndShowTrip(tripId) {
       try {
         const trip = await this.dataLoader.loadTrip(tripId);
-        window.VisitsHelpers.extractTripGeometry(trip);
+        VisitsHelpers.extractTripGeometry(trip);
         this.tripViewer.showTrip(trip);
       } catch {
         // Error already handled in dataLoader
@@ -418,7 +440,7 @@
 
     zoomToFitAllPlaces() {
       if (!this.map) {
-        window.notificationManager?.show("No custom places found to zoom to.", "info");
+        notificationManager?.show("No custom places found to zoom to.", "info");
         return;
       }
       this.mapController.zoomToFitAllPlaces();
@@ -446,5 +468,5 @@
     }
   }
 
-  window.VisitsManager = VisitsManager;
-})();
+export { VisitsManager };
+export default VisitsManager;

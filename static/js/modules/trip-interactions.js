@@ -2,7 +2,9 @@
 
 import mapManager from "./map-manager.js";
 import metricsManager from "./metrics-manager.js";
-import state from "./state.js";
+import state from "./core/store.js";
+import confirmationDialog from "./ui/confirmation-dialog.js";
+import notificationManager from "./ui/notifications.js";
 import { utils } from "./utils.js";
 
 const tripInteractions = {
@@ -187,7 +189,7 @@ const tripInteractions = {
         }
       } catch (error) {
         console.error("Error handling popup action:", error);
-        window.notificationManager.show("Error performing action", "danger");
+        notificationManager.show("Error performing action", "danger");
       } finally {
         button.disabled = false;
         button.classList.remove("btn-loading");
@@ -196,7 +198,7 @@ const tripInteractions = {
   },
 
   async deleteMatchedTrip(tripId, popup) {
-    const confirmed = await window.confirmationDialog.show({
+    const confirmed = await confirmationDialog.show({
       title: "Delete Matched Trip",
       message: "Are you sure you want to delete this matched trip?",
       confirmText: "Delete",
@@ -212,18 +214,18 @@ const tripInteractions = {
       });
       if (response) {
         popup.remove();
-        window.notificationManager.show("Matched trip deleted successfully", "success");
+        notificationManager.show("Matched trip deleted successfully", "success");
         const dataManager = (await import("./data-manager.js")).default;
         await dataManager.updateMap();
       }
     } catch (error) {
       console.error("Error deleting matched trip:", error);
-      window.notificationManager.show(error.message, "danger");
+      notificationManager.show(error.message, "danger");
     }
   },
 
   async deleteTrip(tripId, popup) {
-    const confirmed = await window.confirmationDialog.show({
+    const confirmed = await confirmationDialog.show({
       title: "Delete Trip",
       message:
         "Are you sure you want to delete this trip? This action cannot be undone.",
@@ -240,19 +242,19 @@ const tripInteractions = {
       });
       if (response) {
         popup.remove();
-        window.notificationManager.show("Trip deleted successfully", "success");
+        notificationManager.show("Trip deleted successfully", "success");
         const dataManager = (await import("./data-manager.js")).default;
         await dataManager.updateMap();
       }
     } catch (error) {
       console.error("Error deleting trip:", error);
-      window.notificationManager.show(error.message, "danger");
+      notificationManager.show(error.message, "danger");
     }
   },
 
   async rematchTrip(tripId, popup) {
     try {
-      window.notificationManager.show("Starting map matching...", "info");
+      notificationManager.show("Starting map matching...", "info");
       const response = await utils.fetchWithRetry(`/api/process_trip/${tripId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -260,7 +262,7 @@ const tripInteractions = {
       });
       if (response) {
         popup.remove();
-        window.notificationManager.show("Trip map matching completed", "success");
+        notificationManager.show("Trip map matching completed", "success");
 
         // Clear API cache for matched trips to ensure fresh data
         if (utils._apiCache) {
@@ -309,7 +311,7 @@ const tripInteractions = {
       }
     } catch (error) {
       console.error("Error remapping trip:", error);
-      window.notificationManager.show(error.message, "danger");
+      notificationManager.show(error.message, "danger");
     }
   },
 };

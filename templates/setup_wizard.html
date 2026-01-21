@@ -457,5 +457,6 @@ Review what is configured. When you finish, background tasks will start syncing 
 {% block extra_js %}
 
   <script src="{{ CDN.mapbox_gl_js }}"></script>
-  <script src="{{ url_for('static', path='js/setup-wizard.js') | replace('http://', '//') }}"></script>
+  <script type="module"
+          src="{{ url_for('static', path='js/pages/setup.js') | replace('http://', '//') }}"></script>
 {% endblock %}

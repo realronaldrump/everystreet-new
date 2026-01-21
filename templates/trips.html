@@ -10,7 +10,7 @@ Every Street - Trips
   <!-- Mapbox GL CSS -->
   <link rel="stylesheet" href="{{ CDN.mapbox_gl_css }}" />
   <link rel="stylesheet"
-        href="{{ url_for('static', path='css/modern-map.css') | replace('http://', '//') }}" />
+        href="{{ url_for('static', path='css/features/map/index.css') | replace('http://', '//') }}" />
   <link rel="stylesheet"
         href="{{ url_for('static', path='css/trips.css') | replace('http://', '//') }}" />
 {% endblock %}
@@ -361,11 +361,10 @@ End
 
   <!-- Mapbox GL JS -->
   <script src="{{ CDN.mapbox_gl_js }}"></script>
-  <script src="{{ url_for('static', path='js/map-base.js') | replace('http://', '//') }}"></script>
   <script>
       window.MAPBOX_ACCESS_TOKEN = "{{ MAPBOX_ACCESS_TOKEN }}";
   </script>
 
   <script type="module"
-          src="{{ url_for('static', path='js/trips.js') | replace('http://', '//') }}"></script>
+          src="{{ url_for('static', path='js/pages/trips.js') | replace('http://', '//') }}"></script>
 {% endblock %}

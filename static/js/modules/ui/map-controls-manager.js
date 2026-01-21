@@ -10,10 +10,9 @@
  * No polling fallbacks - relies on deterministic event-based initialization.
  */
 
-import { CONFIG } from "../config.js";
+import { CONFIG } from "../core/config.js";
 import mapCore from "../map-core.js";
-import state from "../state.js";
-import uiState from "../ui-state.js";
+import store from "../core/store.js";
 import { utils } from "../utils.js";
 import eventManager from "./event-manager.js";
 
@@ -30,7 +29,7 @@ const mapControlsManager = {
       return;
     }
 
-    const mapTypeSelect = uiState.getElement(CONFIG.UI.selectors.mapTypeSelect);
+    const mapTypeSelect = store.getElement(CONFIG.UI.selectors.mapTypeSelect);
     if (!mapTypeSelect) {
       return;
     }
@@ -77,7 +76,7 @@ const mapControlsManager = {
    * Toggle control panel visibility
    */
   toggleControlPanel() {
-    const panel = uiState.getElement(CONFIG.UI.selectors.mapControls);
+    const panel = store.getElement(CONFIG.UI.selectors.mapControls);
     if (!panel) {
       return;
     }
@@ -93,9 +92,9 @@ const mapControlsManager = {
    * @param {string} type - Style type (dark, light, satellite, streets)
    */
   updateMapType(type = "dark") {
-    const map = state.map || window.map;
+    const map = store.map || window.map;
 
-    if (!map || !state.mapInitialized) {
+    if (!map || !store.mapInitialized) {
       console.warn("Map not ready for style change");
       return;
     }

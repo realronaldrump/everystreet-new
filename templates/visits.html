@@ -18,7 +18,7 @@ Every Street - Visits
   <!-- DataTables CSS -->
   <link rel="stylesheet" href="{{ CDN.datatables_css }}" />
   <link rel="stylesheet"
-        href="{{ url_for('static', path='css/modern-map.css') | replace('http://', '//') }}" />
+        href="{{ url_for('static', path='css/features/map/index.css') | replace('http://', '//') }}" />
   <link rel="stylesheet"
         href="{{ url_for('static', path='css/search.css') | replace('http://', '//') }}" />
   <link rel="stylesheet"
@@ -567,8 +567,6 @@ Actions
 
   <!-- Mapbox GL JS -->
   <script src="{{ CDN.mapbox_gl_js }}"></script>
-  <script src="{{ url_for('static', path='js/map-base.js') | replace('http://', '//') }}"></script>
-  <script src="{{ url_for('static', path='js/modules/map-styles.js') | replace('http://', '//') }}"></script>
   <script src="{{ CDN.mapbox_draw_js }}"></script>
   <script>
       // Make Mapbox access token available globally
@@ -578,24 +576,6 @@ Actions
   <script src="{{ CDN.jquery }}" crossorigin="anonymous"></script>
   <!-- DataTables JS -->
   <script src="{{ CDN.datatables_js }}"></script>
-  <!-- Visits Core Modules -->
-  <script src="{{ url_for('static', path='js/modules/visits/geometry.js') | replace('http://', '//') }}"></script>
-  <script src="{{ url_for('static', path='js/modules/visits/data-service.js') | replace('http://', '//') }}"></script>
-  <script src="{{ url_for('static', path='js/modules/visits/table-factory.js') | replace('http://', '//') }}"></script>
-  <script src="{{ url_for('static', path='js/modules/visits/chart-manager.js') | replace('http://', '//') }}"></script>
-  <script src="{{ url_for('static', path='js/modules/visits/map-controller.js') | replace('http://', '//') }}"></script>
-  <script src="{{ url_for('static', path='js/modules/visits/trip-viewer.js') | replace('http://', '//') }}"></script>
-  <!-- Visits Feature Modules -->
-  <script src="{{ url_for('static', path='js/modules/visits/visits-helpers.js') | replace('http://', '//') }}"></script>
-  <script src="{{ url_for('static', path='js/modules/visits/visits-data-loader.js') | replace('http://', '//') }}"></script>
-  <script src="{{ url_for('static', path='js/modules/visits/visits-drawing.js') | replace('http://', '//') }}"></script>
-  <script src="{{ url_for('static', path='js/modules/visits/visits-actions.js') | replace('http://', '//') }}"></script>
-  <script src="{{ url_for('static', path='js/modules/visits/visits-events.js') | replace('http://', '//') }}"></script>
-  <script src="{{ url_for('static', path='js/modules/visits/visits-popup.js') | replace('http://', '//') }}"></script>
-  <script src="{{ url_for('static', path='js/modules/visits/visits-stats-manager.js') | replace('http://', '//') }}"></script>
-  <script src="{{ url_for('static', path='js/modules/visits/visits-ui-manager.js') | replace('http://', '//') }}"></script>
-  <!-- Visits Manager (Main Orchestrator) -->
-  <script src="{{ url_for('static', path='js/modules/visits/visits-manager.js') | replace('http://', '//') }}"></script>
-
-  <script src="{{ url_for('static', path='js/visits.js') | replace('http://', '//') }}"></script>
+  <script type="module"
+          src="{{ url_for('static', path='js/pages/visits.js') | replace('http://', '//') }}"></script>
 {% endblock %}

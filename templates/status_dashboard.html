@@ -185,5 +185,6 @@ No recent errors.
 
 {% block extra_js %}
 
-  <script src="{{ url_for('static', path='js/status-dashboard.js') | replace('http://', '//') }}"></script>
+  <script type="module"
+          src="{{ url_for('static', path='js/pages/status-dashboard.js') | replace('http://', '//') }}"></script>
 {% endblock %}

@@ -1,6 +1,9 @@
 /**
  * InvalidTripReview - Handles display and management of invalid trips
  */
+import apiClient from "../modules/core/api-client.js";
+import confirmationDialog from "../modules/ui/confirmation-dialog.js";
+import notificationManager from "../modules/ui/notifications.js";
 export class InvalidTripReview {
   constructor() {
     this.tableBody = document.querySelector("#invalidTripsTable tbody");
@@ -18,7 +21,7 @@ export class InvalidTripReview {
 
   async fetchInvalidTrips() {
     try {
-      const response = await fetch("/api/trips/invalid");
+      const response = await apiClient.raw("/api/trips/invalid");
       if (!response.ok) {
         throw new Error("Failed to fetch invalid trips");
       }
@@ -93,7 +96,7 @@ export class InvalidTripReview {
 
   async restoreTrip(tripId) {
     try {
-      const response = await fetch(`/api/trips/invalid/${tripId}/restore`, {
+      const response = await apiClient.raw(`/api/trips/invalid/${tripId}/restore`, {
         method: "POST",
       });
 
@@ -101,10 +104,10 @@ export class InvalidTripReview {
         throw new Error("Failed to restore trip");
       }
 
-      window.notificationManager?.show("Trip restored successfully", "success");
+      notificationManager.show("Trip restored successfully", "success");
       this.fetchInvalidTrips();
     } catch (error) {
-      window.notificationManager?.show(
+      notificationManager.show(
         `Failed to restore trip: ${error.message}`,
         "danger"
       );
@@ -112,7 +115,7 @@ export class InvalidTripReview {
   }
 
   async deleteTrip(tripId) {
-    const confirmed = await window.confirmationDialog.show({
+    const confirmed = await confirmationDialog.show({
       title: "Delete Trip",
       message:
         "Are you sure you want to permanently delete this trip? This cannot be undone.",
@@ -125,7 +128,7 @@ export class InvalidTripReview {
     }
 
     try {
-      const response = await fetch(`/api/trips/invalid/${tripId}`, {
+      const response = await apiClient.raw(`/api/trips/invalid/${tripId}`, {
         method: "DELETE",
       });
 
@@ -133,10 +136,10 @@ export class InvalidTripReview {
         throw new Error("Failed to delete trip");
       }
 
-      window.notificationManager?.show("Trip deleted permanently", "success");
+      notificationManager.show("Trip deleted permanently", "success");
       this.fetchInvalidTrips();
     } catch (error) {
-      window.notificationManager?.show(
+      notificationManager.show(
         `Failed to delete trip: ${error.message}`,
         "danger"
       );

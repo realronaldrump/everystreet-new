@@ -1,4 +1,7 @@
-/* global mapboxgl, notificationManager */
+/* global mapboxgl */
+
+import notificationManager from "../ui/notifications.js";
+import confirmationDialog from "../ui/confirmation-dialog.js";
 
 /**
  * Main manager for Driving Navigation.
@@ -529,8 +532,8 @@ export class DrivingNavigation {
 
         setTimeout(async () => {
           // If confirmationDialog exists, ask user; otherwise navigate directly
-          if (window.confirmationDialog?.show) {
-            const confirmed = await window.confirmationDialog.show({
+          if (confirmationDialog.show) {
+            const confirmed = await confirmationDialog.show({
               title: "Navigate to Cluster",
               message: `Navigate to the top cluster with ${topCluster.segment_count} streets?`,
               confirmText: "Navigate",
