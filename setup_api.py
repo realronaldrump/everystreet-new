@@ -981,7 +981,6 @@ async def get_status_health() -> dict[str, Any]:
         for field in [
             "client_id",
             "client_secret",
-            "authorization_code",
             "redirect_uri",
         ]
     ) and bool(bouncie_devices)
