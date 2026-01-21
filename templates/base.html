@@ -665,9 +665,10 @@ Quick Selections
           <footer class="app-footer">
             <div class="footer-content">
               <div class="footer-version-info">
-                <span class="footer-version-item" title="Commit Hash">
+                <span class="footer-version-item" title="Current Version">
                   <i class="fas fa-code-branch"></i>
-                  {{ repo_version.commit_hash }}
+                  <span class="version-text">{{ repo_version.commit_count }} commits</span>
+                  <span class="version-hash text-muted">({{ repo_version.commit_hash }})</span>
                 </span>
                 <span class="footer-version-item" title="Last Updated">
                   <i class="far fa-clock"></i>

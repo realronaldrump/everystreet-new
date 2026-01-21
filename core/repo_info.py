@@ -72,7 +72,7 @@ def get_repo_version_info() -> RepoVersionInfo:
         try:
             dt = datetime.fromisoformat(commit_iso)
             # Use local time (astimezone() with no arg uses local system timezone)
-            last_updated = dt.astimezone().strftime("%B %d, %Y %I:%M:%S %p")
+            last_updated = dt.astimezone().strftime("%B %d, %Y %I:%M %p")
         except ValueError:
             last_updated = _format_commit_datetime(commit_iso)
     else:

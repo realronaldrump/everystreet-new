@@ -5,9 +5,11 @@
 .app-footer {
   padding: var(--space-4);
   text-align: center;
-  margin-top: auto; /* Push to bottom if flex container */
-  border-top: 1px solid var(--border-color);
-  background-color: var(--surface-1);
+  margin-top: auto;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  background-color: rgba(var(--surface-1-rgb), 0.7);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
 .footer-content {
@@ -16,26 +18,47 @@
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
-  font-size: var(--font-size-xs);
-  color: var(--text-secondary);
+  font-size: 0.75rem; /* Equivalent to xs generally, but explicit for control */
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  letter-spacing: -0.01em;
 }
 
 .footer-version-info {
   display: flex;
-  gap: var(--space-3);
+  gap: var(--space-4);
   flex-wrap: wrap;
   justify-content: center;
+  align-items: center;
 }
 
 .footer-version-item {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-1);
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  transition: color 0.2s ease, background-color 0.2s ease;
+}
+
+.footer-version-item:hover {
+  color: var(--text-secondary);
+  background-color: rgba(255, 255, 255, 0.03);
+}
+
+.footer-version-item i {
+  font-size: 0.85em;
+  opacity: 0.7;
+}
+
+.version-hash {
+  opacity: 0.5;
+  font-size: 0.9em;
 }
 
 /* Mobile adjustments */
 @media (width <= 768px) {
   .app-footer {
-    padding-bottom: calc(var(--space-4) + 60px); /* Account for bottom nav */
+    padding-bottom: calc(var(--space-4) + 65px); /* Account for bottom nav */
   }
 }
