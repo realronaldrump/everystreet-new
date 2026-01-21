@@ -172,13 +172,16 @@ services:
 
   # Watchtower - Automatic container updates (ONLY labeled containers)
   watchtower:
-    image: containrrr/watchtower
+    image: nickfedor/watchtower:latest
     restart: unless-stopped
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+      # Only needed if your GHCR package is private:
+      # - /home/davis/.docker/config.json:/config.json:ro
     command: --interval 300 --cleanup --include-restarting --rolling-restart --label-enable
     networks:
       - default
+
 
 volumes:
   redis_data:

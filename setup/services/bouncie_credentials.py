@@ -118,12 +118,13 @@ async def update_bouncie_credentials(credentials: dict[str, Any]) -> bool:
                     webhook_key = str(value).strip()
                     existing.webhook_key = webhook_key or None
                 elif key == "authorized_devices":
+                    if value is None:
+                        continue
                     devices = value
                     if isinstance(devices, str):
                         devices = [d.strip() for d in devices.split(",") if d.strip()]
                     elif not isinstance(devices, list):
                         devices = []
-                    existing.authorized_devices = devices
                     existing.authorized_devices = devices
                 elif key == "access_token":
                     existing.access_token = value
@@ -149,6 +150,8 @@ async def update_bouncie_credentials(credentials: dict[str, Any]) -> bool:
                 new_creds.webhook_key = webhook_key or None
             if "authorized_devices" in credentials:
                 devices = credentials["authorized_devices"]
+                if devices is None:
+                    devices = []
                 if isinstance(devices, str):
                     devices = [d.strip() for d in devices.split(",") if d.strip()]
                 elif not isinstance(devices, list):

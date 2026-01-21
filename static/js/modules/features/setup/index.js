@@ -434,15 +434,21 @@ function checkBouncieRedirectStatus() {
 }
 
 async function updateBouncieConnectionStatus() {
+  const syncBtn = document.getElementById("syncVehiclesBtn");
+  if (!syncBtn) {
+    return;
+  }
   try {
     const response = await apiClient.raw(
       `${PROFILE_API.replace("/profile", "/bouncie")}/status`,
       withSignal()
     );
-    if (response.ok && data) {
-        if (syncBtn) {
-          syncBtn.disabled = !data.connected;
-        }
+    const data = await readJsonResponse(response);
+    if (!response.ok || !data) {
+      return;
+    }
+    if (typeof data.connected === "boolean") {
+      syncBtn.disabled = !data.connected;
     }
   } catch (_error) {
     // Silently fail - status check is optional
@@ -716,6 +722,11 @@ async function syncVehiclesFromBouncie() {
       withSignal({ method: "POST" })
     );
     const data = await readJsonResponse(response);
+    if (!response.ok) {
+      throw new Error(
+        responseErrorMessage(response, data, "Failed to sync vehicles")
+      );
+    }
     clearDirty("bouncie");
     showStatus("setup-bouncie-status", data?.message || "Vehicles synced.", false);
   } catch (error) {

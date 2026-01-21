@@ -86,7 +86,7 @@ async def update_credentials(credentials: BouncieCredentials):
     Returns:
         Status of the update operation
     """
-    creds_dict = credentials.model_dump()
+    creds_dict = credentials.model_dump(exclude_none=True)
 
     # Validate credentials
     is_valid, error_msg = await validate_bouncie_credentials(creds_dict)
