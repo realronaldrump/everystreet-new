@@ -6,7 +6,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -110,34 +110,8 @@ app.add_middleware(
 )
 
 
-@app.middleware("http")
-async def setup_guard(request: Request, call_next):
-    path = request.url.path
-    if path.startswith(
-        (
-            "/static",
-            "/api",
-            "/setup",
-            "/status",
-            "/favicon",
-            "/docs",
-            "/openapi",
-            "/redoc",
-        ),
-    ):
-        return await call_next(request)
-
-    from setup_api import get_setup_status
-
-    try:
-        status = await get_setup_status()
-    except Exception:
-        return await call_next(request)
-
-    if not status.get("setup_completed", False):
-        return RedirectResponse(url="/setup", status_code=302)
-
-    return await call_next(request)
+# Note: setup_guard middleware removed to allow users to navigate freely
+# Users can access the setup wizard at /setup when needed
 
 
 # Include all the modular routers

@@ -2,14 +2,13 @@ import logging
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request, status
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
 from config import validate_mapbox_token
 from core.repo_info import get_repo_version_info
 from db.models import ALL_DOCUMENT_MODELS
 from service_config import get_mapbox_token_async
-from setup_api import get_setup_status
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -39,9 +38,6 @@ def _render_page(template_name: str, request: Request, **context: Any) -> HTMLRe
 @router.get("/", response_class=HTMLResponse)
 async def landing(request: Request):
     """Render landing page."""
-    status = await get_setup_status()
-    if not status.get("setup_completed", False):
-        return RedirectResponse(url="/setup", status_code=302)
     return _render_page("landing.html", request)
 
 
