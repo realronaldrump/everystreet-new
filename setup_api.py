@@ -87,7 +87,7 @@ async def get_setup_status() -> dict[str, Any]:
     credentials = await get_bouncie_credentials()
 
     bouncie_missing = []
-    for field in ["client_id", "client_secret", "authorization_code", "redirect_uri"]:
+    for field in ["client_id", "client_secret", "redirect_uri"]:
         if not credentials.get(field):
             bouncie_missing.append(field)
 

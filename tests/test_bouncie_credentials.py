@@ -17,7 +17,6 @@ async def test_validate_bouncie_credentials_requires_devices() -> None:
             "client_id": "client",
             "client_secret": "secret",
             "redirect_uri": "https://example.com/callback",
-            "authorization_code": "authcode",
             "authorized_devices": [],
         },
     )
@@ -32,7 +31,6 @@ async def test_validate_bouncie_credentials_accepts_valid_payload() -> None:
             "client_id": "client",
             "client_secret": "secret",
             "redirect_uri": "https://example.com/callback",
-            "authorization_code": "authcode",
             "authorized_devices": ["111"],
         },
     )

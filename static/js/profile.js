@@ -116,15 +116,6 @@
       );
     }
 
-    const toggleAuthBtn = document.getElementById("toggleAuthCode");
-    if (toggleAuthBtn) {
-      toggleAuthBtn.addEventListener(
-        "click",
-        () => togglePasswordVisibility("authorizationCode", "toggleAuthCode"),
-        signal ? { signal } : false
-      );
-    }
-
     // Navigation protection for unsaved changes
     window.addEventListener(
       "beforeunload",
@@ -236,8 +227,6 @@
     const clientId = document.getElementById("clientId")?.value.trim() || "";
     const clientSecret = document.getElementById("clientSecret")?.value.trim() || "";
     const redirectUri = document.getElementById("redirectUri")?.value.trim() || "";
-    const authorizationCode
-      = document.getElementById("authorizationCode")?.value.trim() || "";
     const fetchConcurrencyRaw = document.getElementById("fetchConcurrency")?.value;
     const fetchConcurrency = parseInt(fetchConcurrencyRaw, 10);
 
@@ -248,7 +237,6 @@
       client_id: clientId,
       client_secret: clientSecret,
       redirect_uri: redirectUri,
-      authorization_code: authorizationCode,
       authorized_devices: devices,
       fetch_concurrency: Number.isFinite(fetchConcurrency)
         ? fetchConcurrency
@@ -261,7 +249,6 @@
       !values.client_id
       || !values.client_secret
       || !values.redirect_uri
-      || !values.authorization_code
     ) {
       return "All credential fields are required.";
     }
@@ -386,7 +373,6 @@
     const clientIdInput = document.getElementById("clientId");
     const clientSecretInput = document.getElementById("clientSecret");
     const redirectUriInput = document.getElementById("redirectUri");
-    const authCodeInput = document.getElementById("authorizationCode");
     const fetchConcurrencyInput = document.getElementById("fetchConcurrency");
 
     if (clientIdInput) {
@@ -398,9 +384,6 @@
     if (redirectUriInput) {
       redirectUriInput.value = normalized.redirect_uri || "";
     }
-    if (authCodeInput) {
-      authCodeInput.value = normalized.authorization_code || "";
-    }
     if (fetchConcurrencyInput) {
       fetchConcurrencyInput.value = String(
         normalized.fetch_concurrency || DEFAULT_FETCH_CONCURRENCY
@@ -408,7 +391,6 @@
     }
 
     resetPasswordToggle("clientSecret", "toggleClientSecret");
-    resetPasswordToggle("authorizationCode", "toggleAuthCode");
 
     // Handle devices
     currentDevices = Array.isArray(normalized.authorized_devices)
@@ -421,15 +403,9 @@
       if (clientSecretInput) {
         clientSecretInput.classList.add("credential-masked");
       }
-      if (authCodeInput) {
-        authCodeInput.classList.add("credential-masked");
-      }
     } else {
       if (clientSecretInput) {
         clientSecretInput.classList.remove("credential-masked");
-      }
-      if (authCodeInput) {
-        authCodeInput.classList.remove("credential-masked");
       }
     }
   }
@@ -576,7 +552,6 @@
             client_id: draftValues.client_id,
             client_secret: draftValues.client_secret,
             redirect_uri: draftValues.redirect_uri,
-            authorization_code: draftValues.authorization_code,
             authorized_devices: devices,
             fetch_concurrency: draftValues.fetch_concurrency,
           }),

@@ -306,7 +306,6 @@
       "bouncie-back-btn",
       "bouncie-save-btn",
       "toggleClientSecret",
-      "toggleAuthCode",
       "mapbox-back-btn",
       "mapbox-save-btn",
       "region-back-btn",
@@ -331,7 +330,6 @@
       "clientId",
       "clientSecret",
       "redirectUri",
-      "authorizationCode",
       "fetchConcurrency",
       "mapboxToken",
     ].forEach((id) => {
@@ -475,8 +473,7 @@
       .getElementById("toggleClientSecret")
       ?.addEventListener("click", () => togglePasswordVisibility("clientSecret"));
     document
-      .getElementById("toggleAuthCode")
-      ?.addEventListener("click", () => togglePasswordVisibility("authorizationCode"));
+
 
     document
       .getElementById("download-region-btn")
@@ -495,7 +492,6 @@
       "clientId",
       "clientSecret",
       "redirectUri",
-      "authorizationCode",
       "fetchConcurrency",
     ].forEach((id) => {
       document
@@ -627,8 +623,6 @@
       document.getElementById("clientId").value = creds.client_id || "";
       document.getElementById("clientSecret").value = creds.client_secret || "";
       document.getElementById("redirectUri").value = creds.redirect_uri || "";
-      document.getElementById("authorizationCode").value
-        = creds.authorization_code || "";
       document.getElementById("fetchConcurrency").value = creds.fetch_concurrency || 12;
       currentDevices = Array.isArray(creds.authorized_devices)
         ? creds.authorized_devices
@@ -718,7 +712,6 @@
       client_id: document.getElementById("clientId").value.trim(),
       client_secret: document.getElementById("clientSecret").value.trim(),
       redirect_uri: document.getElementById("redirectUri").value.trim(),
-      authorization_code: document.getElementById("authorizationCode").value.trim(),
       authorized_devices: currentDevices.map((device) => device.trim()),
       fetch_concurrency: Number.isFinite(fetchConcurrency) ? fetchConcurrency : 12,
     };
@@ -740,7 +733,7 @@
     const values = getBouncieFormValues();
     const devices = values.authorized_devices.filter((device) => device.length > 0);
 
-    if (!values.client_id || !values.client_secret || !values.authorization_code) {
+    if (!values.client_id || !values.client_secret) {
       showStatus("setup-bouncie-status", "All credential fields are required.", true);
       return;
     }

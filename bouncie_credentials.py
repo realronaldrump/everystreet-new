@@ -211,7 +211,6 @@ async def validate_bouncie_credentials(credentials: dict[str, Any]) -> tuple[boo
         "client_id",
         "client_secret",
         "redirect_uri",
-        "authorization_code",
     ]
 
     for field in required_fields:
