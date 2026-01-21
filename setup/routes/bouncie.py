@@ -10,7 +10,10 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import RedirectResponse
 
 from core.api import api_route
-from setup.services.bouncie_credentials import get_bouncie_credentials, update_bouncie_credentials
+from setup.services.bouncie_credentials import (
+    get_bouncie_credentials,
+    update_bouncie_credentials,
+)
 
 logger = logging.getLogger(__name__)
 

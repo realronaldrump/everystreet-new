@@ -8,7 +8,13 @@ function createVisitsTable({ onPlaceSelected }) {
     return null;
   }
 
-  const headers = ["Place", "Total Visits", "First Visit", "Last Visit", "Avg Time Spent"];
+  const headers = [
+    "Place",
+    "Total Visits",
+    "First Visit",
+    "Last Visit",
+    "Avg Time Spent",
+  ];
 
   const table = $(el).DataTable({
     responsive: true,
@@ -223,7 +229,8 @@ function createTripsTable({ onTripSelected }) {
       },
       {
         data: "departureTime",
-        render: (data) => (data ? DateUtils.formatForDisplay(data, { timeStyle: "short" }) : "N/A"),
+        render: (data) =>
+          data ? DateUtils.formatForDisplay(data, { timeStyle: "short" }) : "N/A",
         createdCell: (td, _cellData, _rowData, _row, col) => {
           $(td).attr("data-label", headers[col]);
         },
@@ -289,7 +296,13 @@ function createSuggestionsTable({ onCreatePlace, onPreview } = {}) {
     return null;
   }
 
-  const headers = ["Suggested Place", "Visit Count", "First Visit", "Last Visit", "Actions"];
+  const headers = [
+    "Suggested Place",
+    "Visit Count",
+    "First Visit",
+    "Last Visit",
+    "Actions",
+  ];
 
   const table = $(el).DataTable({
     responsive: true,
@@ -298,7 +311,8 @@ function createSuggestionsTable({ onCreatePlace, onPreview } = {}) {
     columns: [
       {
         data: "name",
-        render: (data) => `<i class="fas fa-map-marker-alt me-2 text-warning"></i>${data}`,
+        render: (data) =>
+          `<i class="fas fa-map-marker-alt me-2 text-warning"></i>${data}`,
         createdCell: (td, _cellData, _rowData, _row, col) => {
           $(td).attr("data-label", headers[col]);
         },

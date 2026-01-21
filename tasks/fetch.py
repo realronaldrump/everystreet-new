@@ -14,14 +14,14 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from admin.services.admin_service import AdminService
-from trips.services.bouncie_fetcher import (
-    fetch_bouncie_trip_by_transaction_id,
-    fetch_bouncie_trips_in_range,
-)
 from config import get_bouncie_config
 from core.date_utils import parse_timestamp
 from db.models import Trip
 from tasks.ops import run_task_with_history
+from trips.services.bouncie_fetcher import (
+    fetch_bouncie_trip_by_transaction_id,
+    fetch_bouncie_trips_in_range,
+)
 
 logger = logging.getLogger(__name__)
 

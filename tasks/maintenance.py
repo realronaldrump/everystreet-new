@@ -17,9 +17,9 @@ from typing import Any
 from pydantic import ValidationError
 
 from db.models import Trip
-from tracking.services.tracking_service import TrackingService
 from tasks.config import check_dependencies
 from tasks.ops import run_task_with_history
+from tracking.services.tracking_service import TrackingService
 from trips.services.trip_batch_service import TripService
 
 logger = logging.getLogger(__name__)

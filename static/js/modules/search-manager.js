@@ -5,8 +5,8 @@
  */
 /* global mapboxgl */
 
-import { CONFIG } from "./core/config.js";
 import apiClient from "./core/api-client.js";
+import { CONFIG } from "./core/config.js";
 import state from "./core/store.js";
 import MapStyles from "./map-styles.js";
 import notificationManager from "./ui/notifications.js";
@@ -436,8 +436,7 @@ const searchManager = {
           type: "line",
           source: this.highlightSourceId,
           paint: {
-            "line-color":
-              MapStyles.MAP_LAYER_COLORS?.trips?.selected || "#FFD700",
+            "line-color": MapStyles.MAP_LAYER_COLORS?.trips?.selected || "#FFD700",
             "line-width": ["interpolate", ["linear"], ["zoom"], 10, 3, 15, 6, 20, 12],
             "line-opacity": 0.9,
           },

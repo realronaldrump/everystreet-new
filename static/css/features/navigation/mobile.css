@@ -44,6 +44,7 @@
     bottom: calc(env(safe-area-inset-bottom) + 230px);
   }
 }
+
 @media (prefers-reduced-motion: reduce) {
   .nav-top,
   .nav-bottom,
@@ -69,6 +70,7 @@
     animation: none;
   }
 }
+
 @media (width <= 768px) {
   .nav-preview-stats {
     grid-template-columns: repeat(2, 1fr);

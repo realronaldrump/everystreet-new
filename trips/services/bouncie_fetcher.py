@@ -11,11 +11,11 @@ from datetime import datetime, timedelta
 
 import aiohttp
 
-from setup.services.bouncie_oauth import BouncieOAuth
 from config import API_BASE_URL, get_bouncie_config
+from core.date_utils import parse_timestamp
 from core.http.retry import retry_async
 from core.http.session import get_session
-from core.date_utils import parse_timestamp
+from setup.services.bouncie_oauth import BouncieOAuth
 from trips.services.trip_batch_service import TripService
 
 logger = logging.getLogger(__name__)
@@ -370,8 +370,8 @@ class BouncieTripFetcher:
 
 __all__ = [
     "BouncieTripFetcher",
-    "fetch_trips_for_device",
-    "fetch_trip_by_transaction_id",
     "fetch_bouncie_trip_by_transaction_id",
     "fetch_bouncie_trips_in_range",
+    "fetch_trip_by_transaction_id",
+    "fetch_trips_for_device",
 ]

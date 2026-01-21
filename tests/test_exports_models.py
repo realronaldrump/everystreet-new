@@ -1,5 +1,4 @@
 import pytest
-from beanie import PydanticObjectId
 from bson import ObjectId
 
 from exports.models import ExportItem, ExportRequest, TripFilters

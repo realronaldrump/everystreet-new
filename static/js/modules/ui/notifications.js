@@ -122,10 +122,8 @@ const notify = {
     notificationManager.show(message, "success", duration),
   warning: (message, duration) =>
     notificationManager.show(message, "warning", duration),
-  error: (message, duration) =>
-    notificationManager.show(message, "danger", duration),
-  info: (message, duration) =>
-    notificationManager.show(message, "info", duration),
+  error: (message, duration) => notificationManager.show(message, "danger", duration),
+  info: (message, duration) => notificationManager.show(message, "info", duration),
 };
 
 export { NotificationManager, notificationManager, notify };

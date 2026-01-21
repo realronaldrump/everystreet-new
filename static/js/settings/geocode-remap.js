@@ -131,10 +131,7 @@ export function setupGeocodeTrips() {
       start_date = document.getElementById("geocode-start").value;
       end_date = document.getElementById("geocode-end").value;
       if (!start_date || !end_date) {
-        notificationManager.show(
-          "Please select both start and end dates",
-          "danger"
-        );
+        notificationManager.show("Please select both start and end dates", "danger");
         return;
       }
     } else if (method === "interval") {
@@ -179,7 +176,9 @@ export function setupGeocodeTrips() {
       // Start polling for progress
       const pollInterval = setInterval(async () => {
         try {
-          const progressResponse = await apiClient.raw(`/api/geocode_trips/progress/${taskId}`);
+          const progressResponse = await apiClient.raw(
+            `/api/geocode_trips/progress/${taskId}`
+          );
           if (!progressResponse.ok) {
             clearInterval(pollInterval);
             geocodeBtn.disabled = false;
@@ -320,10 +319,7 @@ export function setupRemapMatchedTrips() {
       start_date = document.getElementById("remap-start").value;
       end_date = document.getElementById("remap-end").value;
       if (!start_date || !end_date) {
-        notificationManager.show(
-          "Please select both start and end dates",
-          "danger"
-        );
+        notificationManager.show("Please select both start and end dates", "danger");
         return;
       }
     } else {

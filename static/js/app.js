@@ -1,6 +1,6 @@
 import AppController from "./modules/app-controller.js";
-import store from "./modules/core/store.js";
 import router from "./modules/core/router.js";
+import store from "./modules/core/store.js";
 import "./modules/ui/ui-init.js";
 import "./modules/ui/loading-manager.js";
 import "./modules/ui/notifications.js";

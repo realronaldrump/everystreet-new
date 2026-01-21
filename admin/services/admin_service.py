@@ -7,8 +7,8 @@ from typing import Any
 
 from fastapi import HTTPException, status
 
-from core.http.geocoding import validate_location_osm
 from core.date_utils import ensure_utc
+from core.http.geocoding import validate_location_osm
 from core.service_config import clear_config_cache
 from db.models import (
     AppSettings,
@@ -196,9 +196,9 @@ class AdminService:
 
 
 __all__ = [
-    "AdminService",
     "COLLECTION_TO_MODEL",
-    "DEPRECATED_APP_SETTINGS_FIELDS",
     "DEFAULT_APP_SETTINGS",
+    "DEPRECATED_APP_SETTINGS_FIELDS",
     "MAPBOX_SETTINGS_ERROR",
+    "AdminService",
 ]

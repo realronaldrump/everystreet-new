@@ -163,7 +163,10 @@ import { getStorage, onPageLoad, setStorage } from "./modules/utils.js";
     showLoading();
 
     try {
-      const response = await apiClient.raw("/api/vehicles?active_only=false", withSignal());
+      const response = await apiClient.raw(
+        "/api/vehicles?active_only=false",
+        withSignal()
+      );
       if (!response.ok) {
         throw new Error("Failed to fetch vehicles");
       }

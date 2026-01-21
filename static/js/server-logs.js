@@ -334,10 +334,7 @@ onPageLoad(
      */
     async function copyAllLogs() {
       if (currentLogs.length === 0) {
-        notificationManager.show(
-          "No logs to copy. Please load logs first.",
-          "warning"
-        );
+        notificationManager.show("No logs to copy. Please load logs first.", "warning");
         return;
       }
 
@@ -465,10 +462,7 @@ onPageLoad(
           loadStats();
         }, 30000);
 
-        notificationManager.show(
-          "Auto-refresh enabled (every 30 seconds)",
-          "info"
-        );
+        notificationManager.show("Auto-refresh enabled (every 30 seconds)", "info");
       } else {
         autoRefreshToggle.classList.remove("btn-success");
         autoRefreshToggle.classList.add("btn-outline-success");

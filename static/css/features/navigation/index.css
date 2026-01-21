@@ -180,7 +180,6 @@ body.light-mode .turn-by-turn {
   box-shadow: var(--glow-danger);
 }
 
-
 .nav-controls {
   right: 16px;
   top: calc(env(safe-area-inset-top) + 170px);
@@ -595,8 +594,6 @@ body.light-mode .turn-by-turn {
     opacity: 1;
   }
 }
-
-
 
 /* ================================================
    Route Preview Screen

@@ -227,8 +227,7 @@ export async function clearTaskHistory(context, onSuccess) {
 
   confirmed = await confirmationDialog.show({
     title: "Clear Task History",
-    message:
-      "Are you sure you want to clear all task history? This cannot be undone.",
+    message: "Are you sure you want to clear all task history? This cannot be undone.",
     confirmText: "Clear History",
     confirmButtonClass: "btn-danger",
   });

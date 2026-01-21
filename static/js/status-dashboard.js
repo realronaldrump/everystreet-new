@@ -29,12 +29,12 @@ onPageLoad(
   { route: "/status" }
 );
 
-  function withSignal(options = {}) {
-    if (pageSignal) {
-      return { ...options, signal: pageSignal };
-    }
-    return options;
+function withSignal(options = {}) {
+  if (pageSignal) {
+    return { ...options, signal: pageSignal };
   }
+  return options;
+}
 
 function initialize() {
   document
@@ -79,49 +79,49 @@ async function loadStatus(isManual = false) {
   }
 }
 
-  function updateOverall(overall) {
-    const badge = document.getElementById("overall-status-badge");
-    const message = document.getElementById("overall-status-message");
-    if (!overall || !badge || !message) {
-      return;
-    }
-    const status = overall.status || "warning";
-    badge.className = `badge bg-${STATUS_CLASS[status] || "secondary"}`;
-    badge.textContent = status.replace(/^[a-z]/, (c) => c.toUpperCase());
-    message.textContent = overall.message || "Status unavailable";
+function updateOverall(overall) {
+  const badge = document.getElementById("overall-status-badge");
+  const message = document.getElementById("overall-status-message");
+  if (!overall || !badge || !message) {
+    return;
   }
+  const status = overall.status || "warning";
+  badge.className = `badge bg-${STATUS_CLASS[status] || "secondary"}`;
+  badge.textContent = status.replace(/^[a-z]/, (c) => c.toUpperCase());
+  message.textContent = overall.message || "Status unavailable";
+}
 
-  function updateService(key, data) {
-    if (!data) {
-      return;
-    }
-    const badge = document.getElementById(`${key}-status-badge`);
-    const message = document.getElementById(`${key}-status-message`);
-    const detail = document.getElementById(`${key}-status-detail`);
-    if (!badge || !message) {
-      return;
-    }
-    const status = data.status || "warning";
-    badge.className = `badge bg-${STATUS_CLASS[status] || "secondary"}`;
-    badge.textContent = data.label || status;
-    message.textContent = data.message || "--";
-    if (detail) {
-      detail.textContent = data.detail || "";
-    }
+function updateService(key, data) {
+  if (!data) {
+    return;
   }
+  const badge = document.getElementById(`${key}-status-badge`);
+  const message = document.getElementById(`${key}-status-message`);
+  const detail = document.getElementById(`${key}-status-detail`);
+  if (!badge || !message) {
+    return;
+  }
+  const status = data.status || "warning";
+  badge.className = `badge bg-${STATUS_CLASS[status] || "secondary"}`;
+  badge.textContent = data.label || status;
+  message.textContent = data.message || "--";
+  if (detail) {
+    detail.textContent = data.detail || "";
+  }
+}
 
-  function updateRecentErrors(errors) {
-    const list = document.getElementById("recent-errors-list");
-    if (!list) {
-      return;
-    }
-    if (!errors.length) {
-      list.innerHTML = '<div class="text-muted">No recent errors.</div>';
-      return;
-    }
-    list.innerHTML = errors
-      .map(
-        (entry) => `
+function updateRecentErrors(errors) {
+  const list = document.getElementById("recent-errors-list");
+  if (!list) {
+    return;
+  }
+  if (!errors.length) {
+    list.innerHTML = '<div class="text-muted">No recent errors.</div>';
+    return;
+  }
+  list.innerHTML = errors
+    .map(
+      (entry) => `
           <div class="d-flex justify-content-between align-items-start gap-3">
             <div>
               <div class="fw-semibold">${escapeHtml(entry.task_id || "Unknown task")}</div>
@@ -130,38 +130,38 @@ async function loadStatus(isManual = false) {
             <div class="text-muted small">${formatTime(entry.timestamp)}</div>
           </div>
         `
-      )
-      .join("");
-  }
+    )
+    .join("");
+}
 
-  function updateLastUpdated(timestamp) {
-    const el = document.getElementById("status-last-updated");
-    if (!el) {
-      return;
-    }
-    if (!timestamp) {
-      el.textContent = "Last updated: --";
-      return;
-    }
-    el.textContent = `Last updated: ${formatTime(timestamp)}`;
+function updateLastUpdated(timestamp) {
+  const el = document.getElementById("status-last-updated");
+  if (!el) {
+    return;
   }
+  if (!timestamp) {
+    el.textContent = "Last updated: --";
+    return;
+  }
+  el.textContent = `Last updated: ${formatTime(timestamp)}`;
+}
 
-  function formatTime(isoString) {
-    if (!isoString) {
-      return "--";
-    }
-    const date = new Date(isoString);
-    if (Number.isNaN(date.getTime())) {
-      return "--";
-    }
-    return date.toLocaleString();
+function formatTime(isoString) {
+  if (!isoString) {
+    return "--";
   }
+  const date = new Date(isoString);
+  if (Number.isNaN(date.getTime())) {
+    return "--";
+  }
+  return date.toLocaleString();
+}
 
-  function escapeHtml(text) {
-    const div = document.createElement("div");
-    div.textContent = text || "";
-    return div.innerHTML;
-  }
+function escapeHtml(text) {
+  const div = document.createElement("div");
+  div.textContent = text || "";
+  return div.innerHTML;
+}
 
 async function restartService(serviceName) {
   const button = document.getElementById(`${serviceName}-restart-btn`);
@@ -176,10 +176,7 @@ async function restartService(serviceName) {
       null,
       withSignal()
     );
-    notificationManager.show(
-      data?.message || `Restarted ${serviceName}.`,
-      "success"
-    );
+    notificationManager.show(data?.message || `Restarted ${serviceName}.`, "success");
     await loadStatus(true);
   } catch (error) {
     notificationManager.show(error.message || "Unable to restart service.", "danger");

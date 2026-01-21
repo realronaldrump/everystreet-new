@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from fastapi import APIRouter, HTTPException, status
 
-from admin.services.admin_service import AdminService, COLLECTION_TO_MODEL
+from admin.services.admin_service import COLLECTION_TO_MODEL, AdminService
 from core.api import api_route
-from db.schemas import CollectionModel
+
+if TYPE_CHECKING:
+    from db.schemas import CollectionModel
 
 logger = logging.getLogger(__name__)
 router = APIRouter()

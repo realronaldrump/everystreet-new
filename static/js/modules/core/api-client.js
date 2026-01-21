@@ -88,7 +88,12 @@ class APIClient {
    * Raw fetch that returns Response (used for non-JSON flows like HTML/SW)
    */
   async raw(url, options = {}) {
-    const { timeout = this.defaultTimeout, retry = true, signal, ...fetchOptions } = options;
+    const {
+      timeout = this.defaultTimeout,
+      retry = true,
+      signal,
+      ...fetchOptions
+    } = options;
     const controller = new AbortController();
     const timeoutId = timeout ? setTimeout(() => controller.abort(), timeout) : null;
 

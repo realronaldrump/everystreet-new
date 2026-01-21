@@ -4,9 +4,9 @@
  * Handles export, sharing, and report generation for the driving insights page
  */
 
+import notificationManager from "../ui/notifications.js";
 import { formatDate } from "./formatters.js";
 import { getState } from "./state.js";
-import notificationManager from "../ui/notifications.js";
 
 /**
  * Show a notification message

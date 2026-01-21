@@ -7,8 +7,8 @@ import apiClient from "./modules/core/api-client.js";
 import confirmationDialog from "./modules/ui/confirmation-dialog.js";
 import { onPageLoad } from "./modules/utils.js";
 import {
-  DEFAULT_FETCH_CONCURRENCY,
   createEditorState,
+  DEFAULT_FETCH_CONCURRENCY,
   normalizeValues,
 } from "./profile-state.js";
 
@@ -61,11 +61,7 @@ function getEditorSnapshot() {
 function initializeEventListeners(signal) {
   const form = document.getElementById("bouncieCredentialsForm");
   if (form) {
-    form.addEventListener(
-      "submit",
-      handleSaveCredentials,
-      signal ? { signal } : false
-    );
+    form.addEventListener("submit", handleSaveCredentials, signal ? { signal } : false);
     form.addEventListener("input", handleFormInput, signal ? { signal } : false);
     form.addEventListener("change", handleFormInput, signal ? { signal } : false);
   }
@@ -77,11 +73,7 @@ function initializeEventListeners(signal) {
 
   const cancelBtn = document.getElementById("cancelEditBtn");
   if (cancelBtn) {
-    cancelBtn.addEventListener(
-      "click",
-      handleCancelEdit,
-      signal ? { signal } : false
-    );
+    cancelBtn.addEventListener("click", handleCancelEdit, signal ? { signal } : false);
   }
 
   const loadBtn = document.getElementById("loadCredentialsBtn");
@@ -104,11 +96,7 @@ function initializeEventListeners(signal) {
 
   const addDeviceBtn = document.getElementById("addDeviceBtn");
   if (addDeviceBtn) {
-    addDeviceBtn.addEventListener(
-      "click",
-      addDeviceInput,
-      signal ? { signal } : false
-    );
+    addDeviceBtn.addEventListener("click", addDeviceInput, signal ? { signal } : false);
   }
 
   const toggleSecretBtn = document.getElementById("toggleClientSecret");
@@ -634,9 +622,7 @@ function confirmDiscardChanges() {
     });
   }
   // eslint-disable-next-line no-alert -- Fallback when custom dialog is unavailable.
-  const confirmed = window.confirm(
-    "You have unsaved changes. Discard them and leave?"
-  );
+  const confirmed = window.confirm("You have unsaved changes. Discard them and leave?");
   return Promise.resolve(confirmed);
 }
 
@@ -783,19 +769,11 @@ function initServiceConfigForm(signal) {
     return;
   }
 
-  form.addEventListener(
-    "submit",
-    handleSaveServiceConfig,
-    signal ? { signal } : false
-  );
+  form.addEventListener("submit", handleSaveServiceConfig, signal ? { signal } : false);
 
   const reloadBtn = document.getElementById("reloadServiceConfigBtn");
   if (reloadBtn) {
-    reloadBtn.addEventListener(
-      "click",
-      loadServiceConfig,
-      signal ? { signal } : false
-    );
+    reloadBtn.addEventListener("click", loadServiceConfig, signal ? { signal } : false);
   }
 
   // Load settings on page load
@@ -884,5 +862,5 @@ function showServiceConfigStatus(message, type) {
 }
 
 if (document.getElementById("serviceConfigForm")) {
-initServiceConfigForm(pageSignal);
+  initServiceConfigForm(pageSignal);
 }

@@ -41,6 +41,7 @@ async def check_container_status(service_name: str) -> dict[str, Any]:
                 "json",
                 service_name,
             ],
+            check=False,
             capture_output=True,
             text=True,
             timeout=10,
@@ -407,7 +408,7 @@ def _bytes_to_mb(bytes_val: int | None) -> float | None:
 def _normalize_pbf_size(value: Any) -> float | None:
     if value is None:
         return None
-    if isinstance(value, (int, float)):
+    if isinstance(value, int | float):
         return float(value)
     if isinstance(value, str):
         stripped = value.strip()
@@ -421,7 +422,7 @@ def _normalize_pbf_size(value: Any) -> float | None:
 
 
 def _normalize_bbox(value: Any) -> list[float]:
-    if isinstance(value, (list, tuple)) and len(value) == 4:
+    if isinstance(value, list | tuple) and len(value) == 4:
         try:
             return [float(item) for item in value]
         except (TypeError, ValueError):
@@ -471,7 +472,7 @@ def _extract_trip_coordinate(trip: Any) -> tuple[float, float] | None:
 
 
 def _normalize_coordinate(value: Any) -> tuple[float, float] | None:
-    if isinstance(value, (list, tuple)) and len(value) >= 2:
+    if isinstance(value, list | tuple) and len(value) >= 2:
         try:
             lon = float(value[0])
             lat = float(value[1])

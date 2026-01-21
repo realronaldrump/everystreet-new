@@ -1,4 +1,5 @@
 /* Map Base */
+
 /* === Map Container & Wrapper === */
 .map-wrapper {
   /* If you have a wrapper around the map */
@@ -34,7 +35,6 @@
   height: 100%;
   width: 100%;
 }
-
 
 /* === Map Canvas & Markers === */
 .mapboxgl-canvas-container {
@@ -103,4 +103,3 @@
 }
 
 /* Note: @keyframes pulse-marker moved to animations.css */
-

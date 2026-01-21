@@ -1,4 +1,5 @@
 /* Map Layers */
+
 /* === Feature Styling (Trips, Streets) === */
 .trip-path {
   /* Generic class for trip lines */
@@ -38,4 +39,3 @@
 .undriven-street-feature:hover {
   filter: drop-shadow(0 0 5px rgb(var(--info-rgb), 0.8)); /* Info color for undriven hover */
 }
-

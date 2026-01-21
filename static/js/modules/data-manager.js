@@ -15,9 +15,9 @@
  */
 
 import { CONFIG } from "./core/config.js";
+import state from "./core/store.js";
 import layerManager from "./layer-manager.js";
 import metricsManager from "./metrics-manager.js";
-import state from "./core/store.js";
 import loadingManager from "./ui/loading-manager.js";
 import notificationManager from "./ui/notifications.js";
 import { DateUtils, utils } from "./utils.js";

@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from beanie import PydanticObjectId
 from fastapi import HTTPException
 
 from geo_service import GeocodingService
 from street_coverage.models import CoverageArea, CoverageState, Street
+
+if TYPE_CHECKING:
+    from beanie import PydanticObjectId
 
 logger = logging.getLogger(__name__)
 

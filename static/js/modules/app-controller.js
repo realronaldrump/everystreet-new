@@ -20,13 +20,13 @@
 /* global bootstrap */
 
 import { CONFIG } from "./core/config.js";
+import state from "./core/store.js";
 import dataManager from "./data-manager.js";
+import LiveTripTracker from "./features/tracking/index.js";
 import layerManager from "./layer-manager.js";
 import mapCore from "./map-core.js";
 import mapManager from "./map-manager.js";
 import searchManager from "./search-manager.js";
-import state from "./core/store.js";
-import LiveTripTracker from "./features/tracking/index.js";
 import confirmationDialog from "./ui/confirmation-dialog.js";
 import loadingManager from "./ui/loading-manager.js";
 import notificationManager from "./ui/notifications.js";
@@ -419,10 +419,7 @@ const AppController = {
           });
         } catch (err) {
           console.error("Geolocation error:", err);
-          notificationManager.show(
-            `Error getting location: ${err.message}`,
-            "danger"
-          );
+          notificationManager.show(`Error getting location: ${err.message}`, "danger");
         } finally {
           centerBtn.disabled = false;
           centerBtn.classList.remove("btn-loading");
@@ -559,10 +556,7 @@ const AppController = {
         }),
       });
       if (res) {
-        notificationManager.show(
-          `Map matching completed: ${res.message}`,
-          "success"
-        );
+        notificationManager.show(`Map matching completed: ${res.message}`, "success");
         await dataManager.updateMap();
       }
     } catch (err) {

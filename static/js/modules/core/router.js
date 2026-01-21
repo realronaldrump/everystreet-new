@@ -1,6 +1,6 @@
+import loadingManager from "../ui/loading-manager.js";
 import apiClient from "./api-client.js";
 import store from "./store.js";
-import loadingManager from "../ui/loading-manager.js";
 
 const loadedScripts = new Set();
 

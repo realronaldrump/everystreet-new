@@ -114,7 +114,8 @@ async function staleWhileRevalidate(request, cacheName) {
   const cache = await caches.open(cacheName);
   const cached = await cache.match(request);
 
-  const networkPromise = apiClient.raw(request)
+  const networkPromise = apiClient
+    .raw(request)
     .then((response) => {
       if (shouldCacheTileResponse(response)) {
         cache.put(request, response.clone());

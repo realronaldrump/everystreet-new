@@ -14,15 +14,15 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+from config import API_BASE_URL
 from core.api import api_route
+from core.http.session import get_session
+from db.models import Vehicle
 from setup.services.bouncie_credentials import (
     get_bouncie_credentials,
     update_bouncie_credentials,
     validate_bouncie_credentials,
 )
-from config import API_BASE_URL
-from core.http.session import get_session
-from db.models import Vehicle
 
 logger = logging.getLogger(__name__)
 

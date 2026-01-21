@@ -1,7 +1,7 @@
 /* global DateUtils, $ */
 
-import { DateUtils as DateUtilsModule } from "../utils.js";
 import notificationManager from "../ui/notifications.js";
+import { DateUtils as DateUtilsModule } from "../utils.js";
 
 const DateUtilsRef = typeof DateUtils !== "undefined" ? DateUtils : DateUtilsModule;
 

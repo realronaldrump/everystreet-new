@@ -1,5 +1,5 @@
-import { DateUtils } from "../utils.js";
 import notificationManager from "../ui/notifications.js";
+import { DateUtils } from "../utils.js";
 import { VisitsGeometry } from "./geometry.js";
 
 /**

@@ -210,10 +210,7 @@ async function triggerRecalculate() {
       // Poll for completion
       setTimeout(() => startRecalculatePolling(startedAt), 3000);
     } else {
-      notificationManager.show(
-        `Error starting calculation: ${data.error}`,
-        "danger"
-      );
+      notificationManager.show(`Error starting calculation: ${data.error}`, "danger");
       clearRecalcState();
     }
   } catch {

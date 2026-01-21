@@ -6,6 +6,7 @@
  * to specialized modules.
  */
 
+import notificationManager from "../../modules/ui/notifications.js";
 import {
   clearTaskHistory as apiClearTaskHistory,
   forceStopTask as apiForceStopTask,
@@ -28,7 +29,6 @@ import {
   updateActiveTasksMapFromSSE,
 } from "./sse.js";
 import { renderTaskConfigTable, updateGlobalDisableSwitch } from "./ui.js";
-import notificationManager from "../../modules/ui/notifications.js";
 
 /**
  * TaskManager - Handles background task management, SSE updates, and UI rendering

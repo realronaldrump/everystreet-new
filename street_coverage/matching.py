@@ -13,7 +13,6 @@ from functools import lru_cache
 from statistics import median
 from typing import TYPE_CHECKING, Any
 
-from beanie import PydanticObjectId
 from shapely.geometry import LineString, MultiLineString, mapping, shape
 from shapely.ops import transform
 from shapely.strtree import STRtree
@@ -30,6 +29,7 @@ from street_coverage.geo_utils import geodesic_distance_meters, get_local_transf
 from street_coverage.models import Street
 
 if TYPE_CHECKING:
+    from beanie import PydanticObjectId
     from shapely.geometry.base import BaseGeometry
 
 logger = logging.getLogger(__name__)

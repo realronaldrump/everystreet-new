@@ -388,7 +388,7 @@ class ESStore {
 
   set(path, value, options = {}) {
     setByPath(this.state, path, value);
-    if (path && path.startsWith("ui.")) {
+    if (path?.startsWith("ui.")) {
       this._applyUIState(this.state.ui || {});
     }
     if (options.persist !== false) {

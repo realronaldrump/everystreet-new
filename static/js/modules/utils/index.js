@@ -1,16 +1,4 @@
 import {
-  announce,
-  batchDOMUpdates,
-  createElement,
-  fadeIn,
-  fadeOut,
-  getAllElements,
-  getElement,
-  measureScrollbarWidth,
-  onPageLoad,
-  yieldToBrowser,
-} from "./dom.js";
-import {
   clearOldCache,
   debounce,
   fetchWithRetry,
@@ -23,6 +11,19 @@ import {
   showNotification,
   throttle,
 } from "./data.js";
+import { DateUtils } from "./date-utils.js";
+import {
+  announce,
+  batchDOMUpdates,
+  createElement,
+  fadeIn,
+  fadeOut,
+  getAllElements,
+  getElement,
+  measureScrollbarWidth,
+  onPageLoad,
+  yieldToBrowser,
+} from "./dom.js";
 import {
   escapeHtml,
   formatDateTime,
@@ -32,7 +33,6 @@ import {
   formatVehicleName,
   sanitizeLocation,
 } from "./formatting.js";
-import { DateUtils } from "./date-utils.js";
 
 export {
   announce,

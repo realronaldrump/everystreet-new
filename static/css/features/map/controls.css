@@ -1,4 +1,5 @@
 /* Map Controls */
+
 /* === Mapbox GL JS Control Styling === */
 .mapboxgl-ctrl-group {
   background-color: var(--surface-1);
@@ -87,7 +88,6 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
   color: var(--text-primary);
   text-decoration: underline;
 }
-
 
 /* === Map Control Panel (Floating Panel from index.html) === */
 .control-panel#map-controls {

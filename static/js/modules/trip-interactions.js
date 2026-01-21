@@ -1,8 +1,8 @@
 /* global mapboxgl */
 
+import state from "./core/store.js";
 import mapManager from "./map-manager.js";
 import metricsManager from "./metrics-manager.js";
-import state from "./core/store.js";
 import confirmationDialog from "./ui/confirmation-dialog.js";
 import notificationManager from "./ui/notifications.js";
 import { utils } from "./utils.js";

@@ -263,8 +263,8 @@ function renderSessionBanner(payload) {
 
   if (sessionReadOnly && ownerId) {
     banner.classList.remove("d-none");
-    message.textContent =
-      "Setup is active in another tab. This view is read-only until it finishes.";
+    message.textContent
+      = "Setup is active in another tab. This view is read-only until it finishes.";
     if (takeoverBtn) {
       takeoverBtn.classList.toggle("d-none", !ownerIsStale);
       takeoverBtn.onclick = ownerIsStale ? handleSessionTakeover : null;

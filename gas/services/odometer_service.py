@@ -3,8 +3,8 @@
 import logging
 from typing import Any
 
-from core.exceptions import ValidationException
 from core.date_utils import parse_timestamp
+from core.exceptions import ValidationException
 from db.aggregation import aggregate_to_list
 from db.models import GasFillup, Trip
 from gas.services.bouncie_service import BouncieService

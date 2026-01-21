@@ -15,8 +15,8 @@ from fastapi import BackgroundTasks
 from shapely import STRtree
 from shapely.geometry import Point, shape
 
-from county.services.county_data_service import get_county_topology_document
 from core.date_utils import parse_timestamp
+from county.services.county_data_service import get_county_topology_document
 from db.models import CountyVisitedCache, Trip
 
 logger = logging.getLogger(__name__)

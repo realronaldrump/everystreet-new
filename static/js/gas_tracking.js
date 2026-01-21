@@ -530,7 +530,8 @@ function setupEventListeners(signal) {
   fillupList?.addEventListener(
     "click",
     (event) => {
-      const target = event.target instanceof Element ? event.target : event.target?.parentElement;
+      const target
+        = event.target instanceof Element ? event.target : event.target?.parentElement;
       const button = target?.closest("[data-fillup-action]");
       if (!button) {
         return;

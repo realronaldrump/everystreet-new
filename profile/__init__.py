@@ -1,8 +1,8 @@
 """Profile API package."""
 
-from fastapi import APIRouter
-
 from profile.routes import profile
+
+from fastapi import APIRouter
 
 router = APIRouter()
 router.include_router(profile.router, tags=["profile"])

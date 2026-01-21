@@ -7,6 +7,7 @@ from typing import Any
 
 from beanie.operators import In
 from fastapi import HTTPException, status
+
 from admin.services.admin_service import AdminService
 from config import require_nominatim_reverse_url, require_valhalla_trace_route_url
 from db.models import Trip

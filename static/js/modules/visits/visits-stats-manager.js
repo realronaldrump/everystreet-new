@@ -1,5 +1,5 @@
-import { DateUtils } from "../utils.js";
 import metricAnimator from "../ui/metric-animator.js";
+import { DateUtils } from "../utils.js";
 import VisitsDataService from "./data-service.js";
 
 class VisitsStatsManager {
@@ -100,8 +100,7 @@ class VisitsStatsManager {
       .map((s) => DateUtils.convertDurationToSeconds(s.averageTimeSpent));
 
     if (avgDurations.length > 0) {
-      const overallAvg
-        = avgDurations.reduce((a, b) => a + b, 0) / avgDurations.length;
+      const overallAvg = avgDurations.reduce((a, b) => a + b, 0) / avgDurations.length;
       const formatted = DateUtils.formatDuration(overallAvg * 1000);
       document.getElementById("avg-visit-duration").textContent = formatted;
     }

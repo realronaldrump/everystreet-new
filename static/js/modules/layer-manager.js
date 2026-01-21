@@ -14,8 +14,8 @@
  */
 
 import { CONFIG } from "./core/config.js";
-import heatmapUtils from "./heatmap-utils.js";
 import store from "./core/store.js";
+import heatmapUtils from "./heatmap-utils.js";
 import notificationManager from "./ui/notifications.js";
 import { utils } from "./utils.js";
 
@@ -883,10 +883,7 @@ const layerManager = {
       await this._rebuildLayer(layerName, layerId, sourceId, layerInfo, data);
     } catch (error) {
       console.error(`Error updating ${layerName} layer:`, error);
-      notificationManager.show(
-        `Failed to update ${layerName} layer`,
-        "warning"
-      );
+      notificationManager.show(`Failed to update ${layerName} layer`, "warning");
     }
   },
 

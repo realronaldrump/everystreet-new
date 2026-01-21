@@ -16,7 +16,10 @@ from fastapi import APIRouter, BackgroundTasks, Request, Response, status
 from fastapi.responses import JSONResponse
 
 from core.api import api_route
-from setup.services.bouncie_credentials import get_bouncie_credentials, update_bouncie_credentials
+from setup.services.bouncie_credentials import (
+    get_bouncie_credentials,
+    update_bouncie_credentials,
+)
 from tracking.services.tracking_service import TrackingService
 
 logger = logging.getLogger(__name__)

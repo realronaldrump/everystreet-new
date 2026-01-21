@@ -2,12 +2,12 @@ import pytest
 from beanie import init_beanie
 from mongomock_motor import AsyncMongoMockClient
 
+from db.models import BouncieCredentials
 from setup.services.bouncie_credentials import (
     get_bouncie_credentials,
     update_bouncie_credentials,
     validate_bouncie_credentials,
 )
-from db.models import BouncieCredentials
 
 
 @pytest.fixture

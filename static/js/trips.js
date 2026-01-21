@@ -5,10 +5,9 @@
  * Uses vanilla JS TableManager instead of jQuery DataTables
  */
 
-import { CONFIG } from "./modules/core/config.js";
 import apiClient from "./modules/core/api-client.js";
-import { optimisticAction } from "./modules/core/store.js";
-import store from "./modules/core/store.js";
+import { CONFIG } from "./modules/core/config.js";
+import store, { optimisticAction } from "./modules/core/store.js";
 import { createMap } from "./modules/map-base.js";
 import { TableManager } from "./modules/table-manager.js";
 import confirmationDialog from "./modules/ui/confirmation-dialog.js";
@@ -592,9 +591,8 @@ async function bulkDeleteTrips(ids) {
         updateBulkDeleteButton();
         return snapshot;
       },
-      request: async () => {
-        return apiClient.post(CONFIG.API.tripsBulkDelete, { trip_ids: ids });
-      },
+      request: async () =>
+        apiClient.post(CONFIG.API.tripsBulkDelete, { trip_ids: ids }),
       commit: (result) => {
         notificationManager.show(result.message || "Trips deleted", "success");
         tripsTable.reload();

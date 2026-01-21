@@ -11,8 +11,8 @@
  */
 
 import { CONFIG } from "../core/config.js";
-import mapCore from "../map-core.js";
 import store from "../core/store.js";
+import mapCore from "../map-core.js";
 import { utils } from "../utils.js";
 import eventManager from "./event-manager.js";
 

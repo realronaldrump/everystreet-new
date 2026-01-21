@@ -10,10 +10,10 @@ import time
 
 import aiohttp
 
-from setup.services.bouncie_credentials import update_bouncie_credentials
 from config import AUTH_URL, get_bouncie_config
 from core.http.retry import retry_async
 from core.http.session import get_session
+from setup.services.bouncie_credentials import update_bouncie_credentials
 
 logger = logging.getLogger(__name__)
 

@@ -3,9 +3,9 @@
 import logging
 
 from fastapi import APIRouter, HTTPException, Request, status
-from trips.models import TripUpdateRequest
 
 from core.api import api_route
+from trips.models import TripUpdateRequest
 from trips.services import TripCrudService
 
 logger = logging.getLogger(__name__)

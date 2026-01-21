@@ -1,5 +1,9 @@
 /* global bootstrap, flatpickr */
 
+import apiClient from "../modules/core/api-client.js";
+import loadingManager from "../modules/ui/loading-manager.js";
+import notificationManager from "../modules/ui/notifications.js";
+import { DateUtils } from "../modules/utils.js";
 import { submitTaskConfigUpdate } from "./task-manager/api.js";
 import {
   escapeHtml,
@@ -8,10 +12,6 @@ import {
   getStatusColor,
 } from "./task-manager/formatters.js";
 import { showErrorModal, showTaskDetails } from "./task-manager/modals.js";
-import apiClient from "../modules/core/api-client.js";
-import loadingManager from "../modules/ui/loading-manager.js";
-import notificationManager from "../modules/ui/notifications.js";
-import { DateUtils } from "../modules/utils.js";
 
 /**
  * Mobile UI module - handles all mobile-specific UI rendering and interactions
@@ -478,7 +478,9 @@ async function pollGeocodeProgress(context) {
   const { taskId, geocodeBtn, statusEl } = context;
 
   try {
-    const progressResponse = await apiClient.raw(`/api/geocode_trips/progress/${taskId}`);
+    const progressResponse = await apiClient.raw(
+      `/api/geocode_trips/progress/${taskId}`
+    );
     if (!progressResponse.ok) {
       handleGeocodeProgressError(context, progressResponse.status);
       return;
@@ -653,10 +655,7 @@ export function setupMobileGeocodeTrips() {
       start_date = document.getElementById("mobile-geocode-start")?.value || "";
       end_date = document.getElementById("mobile-geocode-end")?.value || "";
       if (!start_date || !end_date) {
-        notificationManager.show(
-          "Please select both start and end dates",
-          "danger"
-        );
+        notificationManager.show("Please select both start and end dates", "danger");
         return;
       }
     } else if (method === "interval") {
@@ -785,10 +784,7 @@ export function setupMobileRemapTrips() {
         start_date = document.getElementById("mobile-remap-start").value;
         end_date = document.getElementById("mobile-remap-end").value;
         if (!start_date || !end_date) {
-          notificationManager.show(
-            "Please select both start and end dates",
-            "danger"
-          );
+          notificationManager.show("Please select both start and end dates", "danger");
           return;
         }
       } else {
@@ -883,10 +879,7 @@ export function setupMobileSaveFAB(taskManager) {
 
     submitTaskConfigUpdate(config)
       .then(() => {
-        notificationManager.show(
-          "Task configuration updated successfully",
-          "success"
-        );
+        notificationManager.show("Task configuration updated successfully", "success");
         fab.classList.add("saved");
         setTimeout(() => fab.classList.remove("saved"), 2000);
         taskManager.loadTaskConfig();

@@ -3,6 +3,7 @@ from beanie import init_beanie
 from fastapi import HTTPException
 from mongomock_motor import AsyncMongoMockClient
 
+from db.models import SetupSession
 from setup.services import setup_service
 from setup.services.setup_service import (
     SetupSessionAdvanceRequest,
@@ -11,7 +12,6 @@ from setup.services.setup_service import (
     create_or_resume_setup_session,
     get_setup_session,
 )
-from db.models import SetupSession
 
 
 @pytest.fixture

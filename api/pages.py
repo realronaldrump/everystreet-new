@@ -7,8 +7,8 @@ from fastapi.templating import Jinja2Templates
 
 from config import validate_mapbox_token
 from core.repo_info import get_repo_version_info
-from db.models import ALL_DOCUMENT_MODELS
 from core.service_config import get_mapbox_token_async
+from db.models import ALL_DOCUMENT_MODELS
 
 logger = logging.getLogger(__name__)
 router = APIRouter()

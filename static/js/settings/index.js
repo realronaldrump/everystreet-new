@@ -11,6 +11,10 @@
  * - App Settings: Tab switching and preferences
  */
 
+import apiClient from "../modules/core/api-client.js";
+import loadingManager from "../modules/ui/loading-manager.js";
+import notificationManager from "../modules/ui/notifications.js";
+import { onPageLoad } from "../modules/utils.js";
 import { initAppSettings } from "./app-settings.js";
 import {
   setupGeocodeTrips,
@@ -23,10 +27,6 @@ import { initMobileUI } from "./mobile-ui.js";
 import { gatherTaskConfigFromUI, submitTaskConfigUpdate } from "./task-manager/api.js";
 import { showTaskDetails } from "./task-manager/modals.js";
 import { TaskManager } from "./task-manager/task-manager.js";
-import apiClient from "../modules/core/api-client.js";
-import loadingManager from "../modules/ui/loading-manager.js";
-import notificationManager from "../modules/ui/notifications.js";
-import { onPageLoad } from "../modules/utils.js";
 
 let taskManager = null;
 
@@ -115,10 +115,7 @@ function setupTaskConfigEventListeners(taskManager) {
           throw new Error("Failed to pause tasks");
         }
 
-        notificationManager.show(
-          `Tasks paused for ${duration} minutes`,
-          "success"
-        );
+        notificationManager.show(`Tasks paused for ${duration} minutes`, "success");
 
         const modal = bootstrap.Modal.getInstance(
           document.getElementById("pauseModal")
@@ -252,9 +249,7 @@ function setupTaskConfigEventListeners(taskManager) {
     globalSwitch.addEventListener("change", () => {
       const config = gatherTaskConfigFromUI();
       submitTaskConfigUpdate(config)
-        .then(() =>
-          notificationManager.show("Global disable toggled", "success")
-        )
+        .then(() => notificationManager.show("Global disable toggled", "success"))
         .catch(() =>
           notificationManager.show("Failed to toggle global disable", "danger")
         );
@@ -371,11 +366,14 @@ function setupFetchAllMissingModal(taskManager) {
         }
 
         loadingManager.show();
-        const response = await apiClient.raw("/api/background_tasks/fetch_all_missing_trips", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ start_date: startDate }),
-        });
+        const response = await apiClient.raw(
+          "/api/background_tasks/fetch_all_missing_trips",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ start_date: startDate }),
+          }
+        );
         const result = await response.json();
         loadingManager.hide();
 

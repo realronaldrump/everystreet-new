@@ -1,7 +1,7 @@
 /* global mapboxgl */
 
-import notificationManager from "../ui/notifications.js";
 import confirmationDialog from "../ui/confirmation-dialog.js";
+import notificationManager from "../ui/notifications.js";
 
 /**
  * Main manager for Driving Navigation.

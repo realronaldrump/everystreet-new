@@ -10,8 +10,8 @@ from beanie import PydanticObjectId
 from fastapi import HTTPException, status
 from pydantic import BaseModel, Field
 
-from setup.services.bouncie_credentials import get_bouncie_credentials
 from config import validate_mapbox_token
+from core.service_config import clear_config_cache, get_service_config
 from db.models import (
     AppSettings,
     MapDataJob,
@@ -26,7 +26,7 @@ from map_data.services import (
     download_and_build_all,
     suggest_region_from_first_trip,
 )
-from core.service_config import clear_config_cache, get_service_config
+from setup.services.bouncie_credentials import get_bouncie_credentials
 from tasks.arq import get_arq_pool
 from tasks.config import set_global_disable
 from tasks.ops import enqueue_task
@@ -936,7 +936,7 @@ async def get_status_health() -> dict[str, Any]:
         if heartbeat:
             heartbeat_value = (
                 heartbeat.decode()
-                if isinstance(heartbeat, (bytes, bytearray))
+                if isinstance(heartbeat, bytes | bytearray)
                 else str(heartbeat)
             )
             heartbeat_dt = None
@@ -1185,8 +1185,8 @@ class SetupService:
 
 __all__ = [
     "SetupService",
-    "SetupSessionRequest",
     "SetupSessionAdvanceRequest",
-    "SetupSessionStepRunRequest",
     "SetupSessionClaimRequest",
+    "SetupSessionRequest",
+    "SetupSessionStepRunRequest",
 ]

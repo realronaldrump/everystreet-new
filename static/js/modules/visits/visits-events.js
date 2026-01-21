@@ -74,12 +74,14 @@ class VisitsEvents {
       });
 
     // Navigation
-    document.getElementById("back-to-places-btn")?.addEventListener("mousedown", (e) => {
-      if (e.button !== 0) {
-        return;
-      }
-      this.manager.uiManager?.toggleView();
-    });
+    document
+      .getElementById("back-to-places-btn")
+      ?.addEventListener("mousedown", (e) => {
+        if (e.button !== 0) {
+          return;
+        }
+        this.manager.uiManager?.toggleView();
+      });
   }
 
   /**

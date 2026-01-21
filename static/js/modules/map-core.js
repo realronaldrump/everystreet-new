@@ -15,8 +15,8 @@
 /* global mapboxgl */
 
 import { CONFIG } from "./core/config.js";
-import { waitForMapboxToken } from "./mapbox-token.js";
 import state from "./core/store.js";
+import { waitForMapboxToken } from "./mapbox-token.js";
 import loadingManager from "./ui/loading-manager.js";
 import notificationManager from "./ui/notifications.js";
 import { utils } from "./utils.js";
@@ -204,10 +204,7 @@ const mapCore = {
       initializationError = error;
       loadingManager?.hide();
 
-      notificationManager.show(
-        `Map initialization failed: ${error.message}`,
-        "danger"
-      );
+      notificationManager.show(`Map initialization failed: ${error.message}`, "danger");
 
       return false;
     }

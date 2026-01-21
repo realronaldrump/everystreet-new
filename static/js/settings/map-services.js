@@ -542,10 +542,7 @@ async function downloadSelectedRegion() {
       await loadRegions();
       await loadActiveJobs();
     } else {
-      notificationManager.show(
-        data.detail || "Failed to start download",
-        "danger"
-      );
+      notificationManager.show(data.detail || "Failed to start download", "danger");
     }
   } catch (error) {
     console.error("Failed to start download:", error);
@@ -558,9 +555,12 @@ async function downloadSelectedRegion() {
 
 async function buildNominatim(regionId) {
   try {
-    const response = await apiClient.raw(`${API_BASE}/regions/${regionId}/build/nominatim`, {
-      method: "POST",
-    });
+    const response = await apiClient.raw(
+      `${API_BASE}/regions/${regionId}/build/nominatim`,
+      {
+        method: "POST",
+      }
+    );
 
     const data = await response.json();
 
@@ -569,10 +569,7 @@ async function buildNominatim(regionId) {
       await loadRegions();
       await loadActiveJobs();
     } else {
-      notificationManager.show(
-        data.detail || "Failed to start build",
-        "danger"
-      );
+      notificationManager.show(data.detail || "Failed to start build", "danger");
     }
   } catch (error) {
     console.error("Failed to start Nominatim build:", error);
@@ -582,9 +579,12 @@ async function buildNominatim(regionId) {
 
 async function buildValhalla(regionId) {
   try {
-    const response = await apiClient.raw(`${API_BASE}/regions/${regionId}/build/valhalla`, {
-      method: "POST",
-    });
+    const response = await apiClient.raw(
+      `${API_BASE}/regions/${regionId}/build/valhalla`,
+      {
+        method: "POST",
+      }
+    );
 
     const data = await response.json();
 
@@ -593,10 +593,7 @@ async function buildValhalla(regionId) {
       await loadRegions();
       await loadActiveJobs();
     } else {
-      notificationManager.show(
-        data.detail || "Failed to start build",
-        "danger"
-      );
+      notificationManager.show(data.detail || "Failed to start build", "danger");
     }
   } catch (error) {
     console.error("Failed to start Valhalla build:", error);
@@ -639,10 +636,7 @@ async function confirmDeleteRegion() {
       // Refresh
       await loadRegions();
     } else {
-      notificationManager.show(
-        data.detail || "Failed to delete region",
-        "danger"
-      );
+      notificationManager.show(data.detail || "Failed to delete region", "danger");
     }
   } catch (error) {
     console.error("Failed to delete region:", error);

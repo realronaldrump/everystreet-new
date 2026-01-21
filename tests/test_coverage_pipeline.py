@@ -5,9 +5,9 @@ from pathlib import Path
 import pytest
 
 import street_coverage.preprocessing as preprocess_module
-from street_coverage.preprocessing import preprocess_streets
 from routes import constants as routes_constants
 from street_coverage import ingestion as coverage_ingestion
+from street_coverage.preprocessing import preprocess_streets
 
 
 @pytest.mark.asyncio

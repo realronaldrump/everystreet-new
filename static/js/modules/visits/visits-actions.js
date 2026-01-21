@@ -57,10 +57,7 @@ class VisitsActions {
         geometry,
       });
 
-      this.notificationManager?.show(
-        `Place "${name}" saved successfully!`,
-        "success"
-      );
+      this.notificationManager?.show(`Place "${name}" saved successfully!`, "success");
 
       if (onSuccess) {
         await onSuccess(savedPlace);
@@ -210,11 +207,9 @@ class VisitsActions {
     if (input) {
       input.classList.add("is-invalid");
       input.focus();
-      input.addEventListener(
-        "input",
-        () => input.classList.remove("is-invalid"),
-        { once: true }
-      );
+      input.addEventListener("input", () => input.classList.remove("is-invalid"), {
+        once: true,
+      });
     }
     this.notificationManager?.show(message, "warning");
   }

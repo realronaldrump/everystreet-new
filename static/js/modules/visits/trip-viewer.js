@@ -1,7 +1,7 @@
 /* global bootstrap, mapboxgl */
 
-import { DateUtils } from "../utils.js";
 import MapStyles from "../map-styles.js";
+import { DateUtils } from "../utils.js";
 import { VisitsGeometry } from "./geometry.js";
 
 class TripViewer {
@@ -11,7 +11,8 @@ class TripViewer {
     this.tripViewMap = null;
     this.startMarker = null;
     this.endMarker = null;
-    this.currentTheme = document.documentElement.getAttribute("data-bs-theme") || "dark";
+    this.currentTheme
+      = document.documentElement.getAttribute("data-bs-theme") || "dark";
   }
 
   showTrip(trip) {
@@ -47,7 +48,8 @@ class TripViewer {
     }
 
     const transactionId = trip.transactionId || trip.id || trip._id;
-    const startLocation = trip.startLocation?.formatted_address || trip.startPlace || "Unknown";
+    const startLocation
+      = trip.startLocation?.formatted_address || trip.startPlace || "Unknown";
     const endLocation
       = trip.destination?.formatted_address || trip.destinationPlace || "Unknown";
 

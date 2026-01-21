@@ -107,10 +107,7 @@ export class InvalidTripReview {
       notificationManager.show("Trip restored successfully", "success");
       this.fetchInvalidTrips();
     } catch (error) {
-      notificationManager.show(
-        `Failed to restore trip: ${error.message}`,
-        "danger"
-      );
+      notificationManager.show(`Failed to restore trip: ${error.message}`, "danger");
     }
   }
 
@@ -139,10 +136,7 @@ export class InvalidTripReview {
       notificationManager.show("Trip deleted permanently", "success");
       this.fetchInvalidTrips();
     } catch (error) {
-      notificationManager.show(
-        `Failed to delete trip: ${error.message}`,
-        "danger"
-      );
+      notificationManager.show(`Failed to delete trip: ${error.message}`, "danger");
     }
   }
 

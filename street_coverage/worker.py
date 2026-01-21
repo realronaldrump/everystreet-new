@@ -357,10 +357,7 @@ async def backfill_coverage_for_area(
 
     while True:
         batch = (
-            await Trip.find(query)
-            .skip(skip)
-            .limit(BACKFILL_TRIP_BATCH_SIZE)
-            .to_list()
+            await Trip.find(query).skip(skip).limit(BACKFILL_TRIP_BATCH_SIZE).to_list()
         )
         if not batch:
             break

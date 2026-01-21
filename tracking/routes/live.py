@@ -18,6 +18,7 @@ from fastapi import (
 from starlette.websockets import WebSocketState
 
 from core.api import api_route
+from core.redis import get_redis_url
 from db import db_manager
 from db.schemas import (
     ActiveTripResponseUnion,
@@ -25,7 +26,6 @@ from db.schemas import (
     NoActiveTripResponse,
 )
 from tracking.services.tracking_service import TrackingService
-from core.redis import get_redis_url
 from trips.events import TRIP_UPDATES_CHANNEL, json_serializer
 
 logger = logging.getLogger(__name__)

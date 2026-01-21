@@ -204,13 +204,9 @@ onPageLoad(
         const startInput = document.getElementById("start-date");
         const endInput = document.getElementById("end-date");
         const startDate
-          = startInput?.value
-          || getStorage("startDate")
-          || DateUtils.getYesterday();
+          = startInput?.value || getStorage("startDate") || DateUtils.getYesterday();
         const endDate
-          = endInput?.value
-          || getStorage("endDate")
-          || DateUtils.getYesterday();
+          = endInput?.value || getStorage("endDate") || DateUtils.getYesterday();
 
         // Validate date range
         if (!DateUtils.isValidDateRange(startDate, endDate)) {
@@ -548,10 +544,7 @@ onPageLoad(
         notificationManager.show("Trip changes saved successfully.", "success");
       } catch (error) {
         console.error("Error saving trip:", error);
-        notificationManager.show(
-          `Error saving trip: ${error.message}`,
-          "danger"
-        );
+        notificationManager.show(`Error saving trip: ${error.message}`, "danger");
       }
     }
 

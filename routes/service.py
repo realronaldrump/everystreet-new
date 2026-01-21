@@ -8,8 +8,8 @@ from typing import TYPE_CHECKING, Any, cast
 import networkx as nx
 from beanie import PydanticObjectId
 
-from db.models import OptimalRouteProgress
 from core.progress import ProgressTracker
+from db.models import OptimalRouteProgress
 from street_coverage.models import CoverageArea, CoverageState, Street
 
 from .constants import GRAPH_STORAGE_DIR, MAX_SEGMENTS

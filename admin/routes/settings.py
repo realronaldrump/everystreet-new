@@ -1,18 +1,20 @@
 from __future__ import annotations
 
 import logging
-from typing import Annotated, Any
+from typing import TYPE_CHECKING, Annotated, Any
 
-from fastapi import APIRouter, Body, HTTPException, status
+from fastapi import APIRouter, Body, HTTPException
 
 from admin.services.admin_service import (
-    AdminService,
     DEPRECATED_APP_SETTINGS_FIELDS,
     MAPBOX_SETTINGS_ERROR,
+    AdminService,
 )
 from core.api import api_route
 from db.models import AppSettings
-from db.schemas import ValidateLocationModel
+
+if TYPE_CHECKING:
+    from db.schemas import ValidateLocationModel
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -39,7 +41,9 @@ async def get_app_settings_endpoint() -> dict[str, Any]:
     description="Persist application settings. Fields omitted in payload remain unchanged.",
 )
 @api_route(logger)
-async def update_app_settings_endpoint(settings: Annotated[dict, Body()]) -> AppSettings:
+async def update_app_settings_endpoint(
+    settings: Annotated[dict, Body()],
+) -> AppSettings:
     """Persist application settings changes."""
     if not isinstance(settings, dict):
         raise HTTPException(status_code=400, detail="Invalid payload")

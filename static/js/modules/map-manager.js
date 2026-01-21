@@ -12,8 +12,8 @@
 /* global mapboxgl */
 
 import { CONFIG } from "./core/config.js";
-import mapCore from "./map-core.js";
 import store from "./core/store.js";
+import mapCore from "./map-core.js";
 import MapStyles from "./map-styles.js";
 import { utils } from "./utils.js";
 

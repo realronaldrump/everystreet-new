@@ -5,12 +5,12 @@
  * Handles map initialization, layers, and map interactions.
  */
 
+import MapStyles from "../map-styles.js";
 import {
   DEFAULT_CLUSTER_COLORS,
   DEFAULT_ROUTE_COLORS,
   DEFAULT_STREET_COLORS,
 } from "./constants.js";
-import MapStyles from "../map-styles.js";
 
 export class DrivingNavigationMap {
   /**
@@ -27,12 +27,9 @@ export class DrivingNavigationMap {
     this.interactivityHandlers = null;
 
     // Get colors with fallbacks from MapStyles if available
-    this.clusterColors
-      = MapStyles.MAP_LAYER_COLORS?.clusters || DEFAULT_CLUSTER_COLORS;
-    this.streetColors
-      = MapStyles.MAP_LAYER_COLORS?.streets || DEFAULT_STREET_COLORS;
-    this.routeColors
-      = MapStyles.MAP_LAYER_COLORS?.routes || DEFAULT_ROUTE_COLORS;
+    this.clusterColors = MapStyles.MAP_LAYER_COLORS?.clusters || DEFAULT_CLUSTER_COLORS;
+    this.streetColors = MapStyles.MAP_LAYER_COLORS?.streets || DEFAULT_STREET_COLORS;
+    this.routeColors = MapStyles.MAP_LAYER_COLORS?.routes || DEFAULT_ROUTE_COLORS;
   }
 
   /**
