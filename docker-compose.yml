@@ -29,7 +29,7 @@ services:
       - default
 
   worker:
-    image: ghcr.io/realronaldrump/everystreet-new:latest
+    image: ghcr.io/realronaldrump/everystreet-new:main
     restart: unless-stopped
     command: arq tasks.worker.WorkerSettings
     env_file: .env

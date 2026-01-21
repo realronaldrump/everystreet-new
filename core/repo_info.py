@@ -67,7 +67,16 @@ def get_repo_version_info() -> RepoVersionInfo:
     commit_count = _run_git_command(["rev-list", "--count", "HEAD"]) or "Unknown"
     commit_hash = _run_git_command(["rev-parse", "--short", "HEAD"]) or "Unknown"
     commit_iso = _run_git_command(["log", "-1", "--format=%cI"])
-    last_updated = _format_commit_datetime(commit_iso)
+    # Format date as "January 21, 2026 4:34:14 PM"
+    if commit_iso:
+        try:
+            dt = datetime.fromisoformat(commit_iso)
+            # Use local time (astimezone() with no arg uses local system timezone)
+            last_updated = dt.astimezone().strftime("%B %d, %Y %I:%M:%S %p")
+        except ValueError:
+            last_updated = _format_commit_datetime(commit_iso)
+    else:
+        last_updated = "Unknown"
     return RepoVersionInfo(
         commit_count=commit_count,
         commit_hash=commit_hash,
