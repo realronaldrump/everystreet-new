@@ -11,7 +11,6 @@ services:
     env_file: .env
     command: uvicorn app:app --host 0.0.0.0 --port 8080 --proxy-headers --forwarded-allow-ips='*'
     volumes:
-      - .:/app
       - osm_extracts:/osm
       - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
@@ -32,7 +31,6 @@ services:
     command: arq tasks.worker.WorkerSettings
     env_file: .env
     volumes:
-      - .:/app
       - osm_extracts:/osm
       - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
