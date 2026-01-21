@@ -100,3 +100,71 @@ def test_normalize_trace_response_returns_none_for_empty_coords() -> None:
     data = {"trip": {"shape": {"coordinates": []}}}
     normalized = ValhallaClient._normalize_trace_response(data)
     assert normalized["geometry"] is None
+
+
+@pytest.mark.asyncio
+async def test_valhalla_trace_attributes_requires_two_points() -> None:
+    """trace_attributes should raise when given fewer than 2 points."""
+    client = ValhallaClient()
+
+    with pytest.raises(ExternalServiceException) as raised:
+        await client.trace_attributes([{"lat": 0.0, "lon": 0.0}])
+
+    assert "at least two points" in raised.value.message
+
+
+def test_coerce_shape_coordinates_handles_dict_points() -> None:
+    """_coerce_shape_coordinates should extract lon/lat from dict points."""
+    shape = [{"lon": 1.0, "lat": 2.0}, {"lon": 3.0, "lat": 4.0}]
+    coords = ValhallaClient._coerce_shape_coordinates(shape)
+    assert coords == [[1.0, 2.0], [3.0, 4.0]]
+
+
+def test_coerce_shape_coordinates_handles_list_points() -> None:
+    """_coerce_shape_coordinates should handle [lon, lat] list format."""
+    shape = [[1.0, 2.0], [3.0, 4.0]]
+    coords = ValhallaClient._coerce_shape_coordinates(shape)
+    assert coords == [[1.0, 2.0], [3.0, 4.0]]
+
+
+def test_coerce_shape_coordinates_handles_tuple_points() -> None:
+    """_coerce_shape_coordinates should handle (lon, lat) tuple format."""
+    shape = [(1.0, 2.0), (3.0, 4.0)]
+    coords = ValhallaClient._coerce_shape_coordinates(shape)
+    assert coords == [[1.0, 2.0], [3.0, 4.0]]
+
+
+def test_coerce_shape_coordinates_skips_invalid_points() -> None:
+    """_coerce_shape_coordinates should skip malformed points gracefully."""
+    shape = [
+        [1.0, 2.0],
+        "invalid",
+        None,
+        [3.0],  # too short
+        {"lon": None, "lat": 4.0},  # missing lon
+        [5.0, 6.0],
+    ]
+    coords = ValhallaClient._coerce_shape_coordinates(shape)
+    assert coords == [[1.0, 2.0], [5.0, 6.0]]
+
+
+def test_coerce_shape_coordinates_returns_empty_for_none() -> None:
+    """_coerce_shape_coordinates should return empty list for None input."""
+    assert ValhallaClient._coerce_shape_coordinates(None) == []
+
+
+def test_coerce_shape_coordinates_handles_shape_dict_wrapper() -> None:
+    """_coerce_shape_coordinates should unwrap dict with 'coordinates' key."""
+    shape = {"coordinates": [[1.0, 2.0], [3.0, 4.0]]}
+    coords = ValhallaClient._coerce_shape_coordinates(shape)
+    assert coords == [[1.0, 2.0], [3.0, 4.0]]
+
+
+def test_normalize_route_response_handles_missing_legs() -> None:
+    """_normalize_route_response should handle missing or empty legs."""
+    data = {"trip": {"legs": []}}
+    normalized = ValhallaClient._normalize_route_response(data)
+
+    assert normalized["geometry"] is None
+    assert normalized["duration_seconds"] == 0
+    assert normalized["distance_meters"] == 0
