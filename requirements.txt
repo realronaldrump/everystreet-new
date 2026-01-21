@@ -3,7 +3,6 @@ aiohttp
 beanie
 certifi
 fastapi
-geojson
 geopandas
 gpxpy
 httpx
@@ -18,8 +17,6 @@ python-dotenv
 python_dateutil
 pytz
 redis[hiredis]
-rtree
-scikit_learn
 Shapely
 uvicorn[standard]
 jinja2
