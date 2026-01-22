@@ -74,6 +74,22 @@ async def start_container_on_demand(
 
             _, stderr = await process.communicate()
 
+            error_msg = stderr.decode() if stderr else ""
+
+            # Check if the docker compose subcommand is not available
+            # This happens when Docker Compose V2 plugin is not installed
+            # and we run "docker compose" - docker interprets "compose" as
+            # a command and "-f" as a flag to docker itself
+            if process.returncode != 0 and (
+                "unknown shorthand flag" in error_msg
+                or "is not a docker command" in error_msg
+                or "'compose' is not a docker command" in error_msg
+            ):
+                logger.debug(
+                    "Docker Compose V2 not available, trying legacy docker-compose"
+                )
+                continue
+
             if process.returncode == 0:
                 # Command succeeded, wait for container to be running
                 logger.info("Waiting for container %s to become ready...", service_name)
@@ -97,14 +113,13 @@ async def start_container_on_demand(
                 )
                 raise RuntimeError(msg)
 
-            # Command failed, save error and try next
-            error_msg = stderr.decode() if stderr else "Unknown error"
-            last_error = error_msg
+            # Command failed for other reasons, save error and try next
+            last_error = error_msg or "Unknown error"
             logger.debug(
                 "Command %s failed for %s: %s, trying next",
                 cmd[0:2],
                 service_name,
-                error_msg,
+                last_error,
             )
         except FileNotFoundError:
             # docker-compose binary not found, try next command

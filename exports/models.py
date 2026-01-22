@@ -100,3 +100,7 @@ class ExportStatusResponse(BaseModel):
     error: str | None = None
     result: ExportResult | None = None
     download_url: str | None = None
+
+
+# Rebuild models to resolve forward references (e.g., PydanticObjectId)
+ExportRequest.model_rebuild()
