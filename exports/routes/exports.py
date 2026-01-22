@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING
 
+from beanie import PydanticObjectId
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request, status
 from fastapi.responses import FileResponse
 
@@ -15,9 +15,6 @@ from exports.models import (
     ExportStatusResponse,
 )
 from exports.services.export_service import ExportService
-
-if TYPE_CHECKING:
-    from beanie import PydanticObjectId
 
 router = APIRouter(prefix="/api/exports", tags=["exports"])
 
