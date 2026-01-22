@@ -59,6 +59,11 @@
     backdrop-filter var(--transition-normal);
 }
 
+.modal-backdrop:not(.show) {
+  /* Avoid invisible backdrops blocking interactions if left in DOM */
+  pointer-events: none;
+}
+
 .modal-header {
   border-bottom: 1px solid var(--divider-color);
   padding: var(--space-4);
