@@ -244,6 +244,29 @@ class TestBouncieOAuthCallback:
         assert "bouncie_error=state_mismatch" in response.headers["location"]
 
     @pytest.mark.asyncio
+    async def test_callback_missing_state(self, monkeypatch: pytest.MonkeyPatch):
+        """Test callback handling when state is missing."""
+        monkeypatch.setattr(
+            "setup.routes.bouncie.get_bouncie_credentials",
+            AsyncMock(
+                return_value={
+                    "oauth_state": "state123",
+                    "oauth_state_expires_at": time.time() + 300,
+                }
+            ),
+        )
+
+        response = await bouncie_oauth_callback(
+            code="test_code",
+            error=None,
+            state=None,
+        )
+
+        assert isinstance(response, RedirectResponse)
+        assert response.status_code == 302
+        assert "bouncie_error=missing_state" in response.headers["location"]
+
+    @pytest.mark.asyncio
     async def test_callback_state_expired(self, monkeypatch: pytest.MonkeyPatch):
         """Test callback handling when state is expired."""
         monkeypatch.setattr(
