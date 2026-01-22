@@ -2,7 +2,7 @@
 
 import apiClient from "./modules/core/api-client.js";
 
-const CACHE_VERSION = "v7";
+const CACHE_VERSION = "v8";
 const APP_SHELL_CACHE = `everystreet-shell-${CACHE_VERSION}`;
 const API_CACHE = `everystreet-api-${CACHE_VERSION}`;
 const TILE_CACHE = `everystreet-tiles-${CACHE_VERSION}`;
