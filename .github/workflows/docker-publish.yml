@@ -28,7 +28,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 1
+          fetch-depth: 0  # Full history needed for git rev-list --count
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -46,8 +46,7 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=ref,event=branch
+            type=raw,value=main
             type=sha,prefix=
 
       - name: Build and push
@@ -60,8 +59,8 @@ jobs:
           platforms: linux/amd64
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache
-          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache,mode=max,compression=zstd
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       # Trigger immediate update on remote server via Watchtower HTTP API
       - name: Trigger remote deployment
@@ -72,5 +71,4 @@ jobs:
             -H "Authorization: Bearer ${{ secrets.WATCHTOWER_TOKEN }}" \
             "${{ secrets.WATCHTOWER_URL }}/v1/update" \
             --connect-timeout 10 \
-            --max-time 30 || echo "Watchtower webhook not available, will poll in 30s"
-
+            --max-time 30 || echo "Watchtower webhook not available, will poll in 5min"

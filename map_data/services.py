@@ -31,7 +31,11 @@ GEOFABRIK_CACHE_TTL = 3600  # 1 hour
 
 
 async def check_container_status(service_name: str) -> dict[str, Any]:
-    """Check if a docker compose service container is running."""
+    """Check if a docker compose service container is running.
+
+    Tries docker compose ps first, then falls back to docker ps if unavailable.
+    """
+    # Try docker compose ps with --format json first
     try:
         result = subprocess.run(
             [
@@ -47,44 +51,69 @@ async def check_container_status(service_name: str) -> dict[str, Any]:
             text=True,
             timeout=10,
         )
+
+        if result.returncode == 0:
+            output = (result.stdout or "").strip()
+            if output:
+                entry: dict[str, Any] | None = None
+                try:
+                    parsed = json.loads(output)
+                    if isinstance(parsed, list):
+                        entry = parsed[0] if parsed else None
+                    elif isinstance(parsed, dict):
+                        entry = parsed
+                except json.JSONDecodeError:
+                    for line in output.splitlines():
+                        line = line.strip()
+                        if not line:
+                            continue
+                        try:
+                            entry = json.loads(line)
+                            break
+                        except json.JSONDecodeError:
+                            continue
+
+                if entry:
+                    status_text = str(
+                        entry.get("Status") or entry.get("State") or "unknown"
+                    )
+                    state_text = status_text.lower()
+                    running = "running" in state_text or state_text.startswith("up")
+                    return {"running": running, "status": status_text}
+    except Exception as exc:
+        logger.debug(
+            "docker compose ps failed for %s: %s, trying fallback", service_name, exc
+        )
+
+    # Fallback: use docker ps with container name pattern
+    try:
+        result = subprocess.run(
+            [
+                "docker",
+                "ps",
+                "--filter",
+                f"name=app-{service_name}",
+                "--format",
+                "{{.Status}}",
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+
+        if result.returncode == 0:
+            status_text = (result.stdout or "").strip()
+            if status_text:
+                # docker ps --format "{{.Status}}" returns something like "Up 2 hours (healthy)"
+                state_text = status_text.lower()
+                running = state_text.startswith("up")
+                return {"running": running, "status": status_text}
+            return {"running": False, "status": "not running"}
     except Exception as exc:
         logger.warning("Failed to check container status for %s: %s", service_name, exc)
-        return {"running": False, "status": "unknown"}
 
-    if result.returncode != 0:
-        status_text = (result.stderr or "").strip() or "unknown"
-        logger.warning("docker compose ps failed for %s: %s", service_name, status_text)
-        return {"running": False, "status": status_text}
-
-    output = (result.stdout or "").strip()
-    if not output:
-        return {"running": False, "status": "not running"}
-
-    entry: dict[str, Any] | None = None
-    try:
-        parsed = json.loads(output)
-        if isinstance(parsed, list):
-            entry = parsed[0] if parsed else None
-        elif isinstance(parsed, dict):
-            entry = parsed
-    except json.JSONDecodeError:
-        for line in output.splitlines():
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                entry = json.loads(line)
-                break
-            except json.JSONDecodeError:
-                continue
-
-    if not entry:
-        return {"running": False, "status": "unknown"}
-
-    status_text = str(entry.get("Status") or entry.get("State") or "unknown")
-    state_text = status_text.lower()
-    running = "running" in state_text or state_text.startswith("up")
-    return {"running": running, "status": status_text}
+    return {"running": False, "status": "unknown"}
 
 
 async def check_service_health(force_refresh: bool = False) -> GeoServiceHealth:

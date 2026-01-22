@@ -172,21 +172,23 @@ services:
       - default
 
   # Watchtower - Automatic container updates (ONLY labeled containers)
+  # Supports both HTTP API (for immediate GitHub webhook triggers) and polling (fallback)
   watchtower:
     image: containrrr/watchtower:latest
     restart: unless-stopped
     environment:
       - DOCKER_API_VERSION=1.44
       - WATCHTOWER_LABEL_ENABLE=true
-      - WATCHTOWER_POLL_INTERVAL=30
+      - WATCHTOWER_POLL_INTERVAL=300
       - WATCHTOWER_CLEANUP=true
       - WATCHTOWER_INCLUDE_RESTARTING=true
       - WATCHTOWER_ROLLING_RESTART=true
+      - WATCHTOWER_HTTP_API_UPDATE=true
+      - WATCHTOWER_HTTP_API_TOKEN=${WATCHTOWER_TOKEN:-changeme}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     ports:
       - "8090:8080"
-
     networks:
       - default
 
