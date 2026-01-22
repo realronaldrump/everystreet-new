@@ -9,13 +9,17 @@ export function setupTabSwitching() {
   const tabs = document.querySelectorAll(".settings-tab");
   const tabContents = document.querySelectorAll(".settings-tab-content");
   const TAB_STORAGE_KEY = "es:settings-active-tab";
+  const LEGACY_TAB_MAP = {
+    "background-tasks": "sync-settings",
+  };
 
   const normalizeTabName = (value) => {
     if (!value) {
       return "";
     }
     const name = value.replace(/^#/, "").trim();
-    return name.endsWith("-tab") ? name.slice(0, -4) : name;
+    const normalized = name.endsWith("-tab") ? name.slice(0, -4) : name;
+    return LEGACY_TAB_MAP[normalized] || normalized;
   };
 
   function setActiveTab(tabName, { persist = true, updateHash = false } = {}) {
@@ -106,8 +110,8 @@ export function setupAppSettingsForm() {
       widgetEditing,
     } = settings;
 
-    const isDarkMode
-      = document.documentElement.getAttribute("data-bs-theme") === "dark";
+    const isDarkMode =
+      document.documentElement.getAttribute("data-bs-theme") === "dark";
 
     // Apply settings to form elements
     if (darkModeToggle) {
@@ -138,26 +142,26 @@ export function setupAppSettingsForm() {
       }
     }
 
-    const storedAccent
-      = accentColor || localStorage.getItem("es:accent-color") || "#7c9d96";
+    const storedAccent =
+      accentColor || localStorage.getItem("es:accent-color") || "#7c9d96";
     if (accentColorPicker) {
       accentColorPicker.value = storedAccent;
     }
-    const densityValue
-      = uiDensity || localStorage.getItem("es:ui-density") || "comfortable";
+    const densityValue =
+      uiDensity || localStorage.getItem("es:ui-density") || "comfortable";
     densityOptions.forEach((input) => {
       input.checked = input.value === densityValue;
     });
-    const motionValue
-      = motionMode || localStorage.getItem("es:motion-mode") || "balanced";
+    const motionValue =
+      motionMode || localStorage.getItem("es:motion-mode") || "balanced";
     motionOptions.forEach((input) => {
       input.checked = input.value === motionValue;
     });
     if (widgetEditToggle) {
-      const storedWidgetEditing
-        = widgetEditing ?? localStorage.getItem("es:widget-editing");
-      widgetEditToggle.checked
-        = storedWidgetEditing === true || storedWidgetEditing === "true";
+      const storedWidgetEditing =
+        widgetEditing ?? localStorage.getItem("es:widget-editing");
+      widgetEditToggle.checked =
+        storedWidgetEditing === true || storedWidgetEditing === "true";
     }
 
     window.personalization?.applyPreferences?.({

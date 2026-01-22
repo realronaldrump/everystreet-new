@@ -287,6 +287,29 @@ Mapbox Token
                 </div>
               </div>
 
+              <div class="setup-region-header">
+                <div class="setup-region-tabs" role="tablist" aria-label="Region selection mode">
+                  <button class="btn btn-outline-light btn-sm is-active"
+                          id="region-view-us"
+                          type="button"
+                          data-region-view="us">
+                    United States (Recommended)
+                  </button>
+                  <button class="btn btn-outline-light btn-sm"
+                          id="region-view-global"
+                          type="button"
+                          data-region-view="global">
+                    Browse all regions
+                  </button>
+                </div>
+                <div class="setup-region-search" id="region-search-wrap">
+                  <input class="form-control form-control-sm"
+                         id="region-search-input"
+                         type="search"
+                         placeholder="Search states or regions" />
+                </div>
+              </div>
+
               <div class="setup-region-grid">
                 <div class="setup-region-panel">
                   <nav aria-label="Geofabrik region breadcrumb">
@@ -310,6 +333,8 @@ Selected Region
                     <div class="selected-region-meta">
                       <span id="selected-region-id">--</span>
                       <span id="selected-region-size">--</span>
+                    </div>
+                    <div class="selected-region-warning d-none" id="selected-region-warning">
                     </div>
                   </div>
                   <div class="setup-region-actions">
@@ -365,8 +390,8 @@ Selected Region
 Setup Complete
               </h2>
               <p>
-Review what is configured below, including credentials, tokens, and map data. When you
-finish, background tasks will start syncing trips.
+ Review what is configured below, including credentials, tokens, and map data. When you
+ finish, background sync will start fetching trips.
               </p>
               <div class="setup-region-alert setup-region-alert-warning d-none"
                    id="region-ready-banner">

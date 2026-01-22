@@ -27,6 +27,7 @@ from map_data.services import (
     delete_region,
     download_region,
     get_geofabrik_regions,
+    get_us_state_regions,
 )
 
 logger = logging.getLogger(__name__)
@@ -107,6 +108,7 @@ class JobStatusResponse(BaseModel):
     created_at: str
     started_at: str | None = None
     completed_at: str | None = None
+    last_progress_at: str | None = None
 
 
 class ServiceHealthResponse(BaseModel):
@@ -137,6 +139,20 @@ async def list_geofabrik_regions(parent: str | None = None) -> dict[str, Any]:
         return {"success": True, "regions": regions, "parent": parent}
     except Exception as e:
         logger.exception("Failed to fetch Geofabrik regions")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch regions: {e!s}",
+        )
+
+
+@router.get("/geofabrik/us-states")
+async def list_us_state_regions() -> dict[str, Any]:
+    """List US state regions from Geofabrik (recommended for US installs)."""
+    try:
+        regions = await get_us_state_regions()
+        return {"success": True, "regions": regions}
+    except Exception as e:
+        logger.exception("Failed to fetch US state regions")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to fetch regions: {e!s}",
@@ -244,6 +260,11 @@ async def get_region(region_id: str) -> RegionDetailResponse:
                     "stage": active_job.stage,
                     "progress": active_job.progress,
                     "message": active_job.message,
+                    "last_progress_at": (
+                        active_job.last_progress_at.isoformat()
+                        if active_job.last_progress_at
+                        else None
+                    ),
                 }
                 if active_job
                 else None
@@ -438,6 +459,9 @@ async def list_jobs(active_only: bool = True) -> dict[str, Any]:
                     "progress": j.progress,
                     "message": j.message,
                     "error": j.error,
+                    "last_progress_at": (
+                        j.last_progress_at.isoformat() if j.last_progress_at else None
+                    ),
                     "created_at": j.created_at.isoformat(),
                     "started_at": j.started_at.isoformat() if j.started_at else None,
                     "completed_at": (
@@ -476,6 +500,9 @@ async def get_job_status(job_id: str) -> JobStatusResponse:
             created_at=job.created_at.isoformat(),
             started_at=job.started_at.isoformat() if job.started_at else None,
             completed_at=job.completed_at.isoformat() if job.completed_at else None,
+            last_progress_at=(
+                job.last_progress_at.isoformat() if job.last_progress_at else None
+            ),
         )
     except HTTPException:
         raise

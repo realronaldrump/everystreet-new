@@ -48,6 +48,15 @@ TASK_DEFINITIONS: dict[str, dict[str, object]] = {
         "dependencies": ["periodic_fetch_trips"],
         "description": "Updates coverage calculations incrementally for new trips",
     },
+    "monitor_map_data_jobs": {
+        "display_name": "Monitor Map Data Jobs",
+        "default_interval_minutes": 15,
+        "dependencies": [],
+        "description": (
+            "Detects stalled map data downloads/builds and marks them as failed so they "
+            "can be retried."
+        ),
+    },
     "manual_fetch_trips_range": {
         "display_name": "Fetch Trips (Custom Range)",
         "default_interval_minutes": 0,

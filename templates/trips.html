@@ -34,6 +34,77 @@ Every Street - Trips
         </div>
       </div>
 
+      <div class="bento-span-12 widget trip-sync-widget" data-accent="amber">
+        <div class="widget-header">
+          <div>
+            <h2 class="widget-title">
+              <i class="fas fa-sync-alt" aria-hidden="true"></i>
+              Trip Sync
+            </h2>
+            <div class="widget-meta">
+              Refresh trips from your connected vehicle source.
+            </div>
+          </div>
+          <div class="trip-sync-actions">
+            <button class="btn btn-primary" id="sync-trips-btn">
+              <i class="fas fa-sync"></i>
+              Sync trips
+            </button>
+            <button class="btn btn-outline-secondary" id="sync-history-btn">
+              <i class="fas fa-cloud-download-alt"></i>
+              Import history
+            </button>
+            <a class="btn btn-outline-secondary" href="/settings#sync-settings">
+              <i class="fas fa-sliders-h"></i>
+              Sync settings
+            </a>
+          </div>
+        </div>
+        <div class="widget-body">
+          <div class="trip-sync-status-row">
+            <span class="trip-sync-pill" id="trip-sync-pill" data-state="idle" data-tone="success">
+              <i class="fas fa-check-circle"></i>
+              <span>Up to date</span>
+            </span>
+            <span class="trip-sync-status-text" id="trip-sync-status-text">
+              Trips are ready to explore.
+            </span>
+          </div>
+          <div class="trip-sync-meta-row">
+            <div class="trip-sync-meta">
+              <span class="trip-sync-meta-label">Last updated</span>
+              <span id="trip-sync-last-success">--</span>
+            </div>
+            <div class="trip-sync-meta">
+              <span class="trip-sync-meta-label">Last attempt</span>
+              <span id="trip-sync-last-attempt">--</span>
+            </div>
+          </div>
+          <div class="trip-sync-error d-none" id="trip-sync-error">
+            <div>
+              <div class="trip-sync-error-title">Action needed</div>
+              <div class="trip-sync-error-message" id="trip-sync-error-message">
+                Sync needs attention.
+              </div>
+            </div>
+            <a class="btn btn-outline-light btn-sm" id="trip-sync-error-cta" href="/settings#sync-settings">
+              Review
+            </a>
+          </div>
+          <div class="trip-sync-empty d-none" id="trip-sync-empty">
+            <div>
+              <div class="trip-sync-empty-title">No trips yet</div>
+              <div class="trip-sync-empty-message">
+                Sync trips to start building your history.
+              </div>
+            </div>
+            <button class="btn btn-primary btn-sm" id="trip-sync-empty-btn">
+              Sync trips
+            </button>
+          </div>
+        </div>
+      </div>
+
       <div class="bento-span-12 widget" data-accent="mint">
         <div class="widget-header">
           <div>
@@ -349,6 +420,34 @@ End
 
               </div>
             </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade" id="tripSyncHistoryModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Import trip history</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close">
+            </button>
+          </div>
+          <div class="modal-body">
+            <p class="text-muted">
+              Importing history fetches older trips in the background. You can keep using
+              the app while it runs.
+            </p>
+            <label for="trip-sync-history-start" class="form-label">Start date (optional)</label>
+            <input type="datetime-local" class="form-control" id="trip-sync-history-start" />
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+              Cancel
+            </button>
+            <button type="button" class="btn btn-primary" id="trip-sync-history-confirm">
+              Start import
+            </button>
           </div>
         </div>
       </div>

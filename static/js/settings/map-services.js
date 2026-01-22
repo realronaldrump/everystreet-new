@@ -12,6 +12,7 @@ import notificationManager from "../modules/ui/notifications.js";
 import { escapeHtml, formatTimeAgo } from "../modules/utils/formatting.js";
 
 const API_BASE = "/api/map-data";
+const LARGE_REGION_MB = 2000;
 
 import { confirm } from "../modules/ui/confirmation-dialog.js";
 
@@ -115,8 +116,8 @@ function updateHealthCard(service, health) {
   }
 
   const hasHealth = health && typeof health === "object";
-  const errorMessage
-    = hasHealth && typeof health.error === "string" ? health.error : "";
+  const errorMessage =
+    hasHealth && typeof health.error === "string" ? health.error : "";
 
   if (!hasHealth) {
     badge.className = "badge bg-secondary";
@@ -128,8 +129,8 @@ function updateHealthCard(service, health) {
     errorDiv?.classList.add("d-none");
   } else {
     // Check if this is a "not running" state vs a real error
-    const isSetupRequired
-      = errorMessage.includes("not running") || errorMessage.includes("Add a region");
+    const isSetupRequired =
+      errorMessage.includes("not running") || errorMessage.includes("Add a region");
     const isStartingUp = errorMessage.includes("starting up");
 
     if (isSetupRequired) {
@@ -173,8 +174,8 @@ function updateHealthCard(service, health) {
   }
 
   if (tileCountSpan && health?.tile_count !== undefined) {
-    tileCountSpan.textContent
-      = health.tile_count !== null ? health.tile_count.toLocaleString() : "--";
+    tileCountSpan.textContent =
+      health.tile_count !== null ? health.tile_count.toLocaleString() : "--";
   }
 }
 
@@ -310,11 +311,11 @@ function isRegionBusy(region) {
     return true;
   }
   return (
-    region.status === "downloading"
-    || region.status === "building_nominatim"
-    || region.status === "building_valhalla"
-    || region.nominatim_status === "building"
-    || region.valhalla_status === "building"
+    region.status === "downloading" ||
+    region.status === "building_nominatim" ||
+    region.status === "building_valhalla" ||
+    region.nominatim_status === "building" ||
+    region.valhalla_status === "building"
   );
 }
 
@@ -326,9 +327,9 @@ function renderRegionActions(region) {
 
   // Build actions for downloaded regions
   if (
-    region.status === "downloaded"
-    || region.status === "ready"
-    || region.status === "error"
+    region.status === "downloaded" ||
+    region.status === "ready" ||
+    region.status === "error"
   ) {
     if (region.nominatim_status !== "ready") {
       const nominatimTitle = isBusy ? busyTitle : "Build Nominatim (geocoding index)";
@@ -555,29 +556,41 @@ function updateSelectedRegionUI() {
   if (selectedRegion) {
     infoDiv?.classList.remove("d-none");
     let disableDownload = false;
-    let warningMessage = "";
+    const warnings = [];
     const existingRegion = regionsByName.get(selectedRegion.id);
 
     if (existingRegion) {
       if (isRegionBusy(existingRegion)) {
         disableDownload = true;
-        warningMessage
-          = "This region already has a job running. Wait for it to finish before starting another download.";
+        warnings.push(
+          "This region already has a job running. Wait for it to finish before starting another download."
+        );
       } else if (existingRegion.status === "error") {
-        warningMessage
-          = "Previous download or build failed. Starting again will retry the download and build.";
+        warnings.push(
+          "Previous download or build failed. Starting again will retry the download and build."
+        );
       } else {
-        warningMessage
-          = "This region is already configured. Starting again will replace existing data and rebuild services.";
+        warnings.push(
+          "This region is already configured. Starting again will replace existing data and rebuild services."
+        );
       }
+    }
+
+    const sizeValue = Number(selectedRegion.size);
+    if (Number.isFinite(sizeValue) && sizeValue >= LARGE_REGION_MB) {
+      warnings.push(
+        `Large download (~${sizeValue.toFixed(
+          1
+        )} MB). Plan for extra disk space and a long build time.`
+      );
     }
 
     if (downloadBtn) {
       downloadBtn.disabled = disableDownload;
     }
     if (warning) {
-      if (warningMessage) {
-        warning.textContent = warningMessage;
+      if (warnings.length > 0) {
+        warning.textContent = warnings.join(" ");
         warning.classList.remove("d-none");
       } else {
         warning.textContent = "";
@@ -627,9 +640,25 @@ async function downloadSelectedRegion() {
   if (existingRegion) {
     const confirmed = await confirm({
       title: "Rebuild Region?",
-      message: "This region is already configured. Starting again will replace existing data and rebuild services. Continue?",
+      message:
+        "This region is already configured. Starting again will replace existing data and rebuild services. Continue?",
       confirmText: "Rebuild",
-      confirmButtonClass: "btn-warning"
+      confirmButtonClass: "btn-warning",
+    });
+    if (!confirmed) {
+      return;
+    }
+  }
+
+  const sizeValue = Number(selectedRegion.size);
+  if (Number.isFinite(sizeValue) && sizeValue >= LARGE_REGION_MB) {
+    const confirmed = await confirm({
+      title: "Large download",
+      message: `This region is about ${sizeValue.toFixed(
+        1
+      )} MB. Large downloads can take hours and require plenty of disk space. Continue?`,
+      confirmText: "Download",
+      confirmButtonClass: "btn-warning",
     });
     if (!confirmed) {
       return;
@@ -661,9 +690,9 @@ async function downloadSelectedRegion() {
       modal?.hide();
 
       notificationManager.show(
-        `Download & build started for ${selectedRegion.name}. `
-          + "This will download OSM data, then build Nominatim and Valhalla automatically. "
-          + "It continues in the background while Everystreet is running.",
+        `Download & build started for ${selectedRegion.name}. ` +
+          "This will download OSM data, then build Nominatim and Valhalla automatically. " +
+          "It continues in the background while Everystreet is running.",
         "success"
       );
 
@@ -881,9 +910,10 @@ async function loadActiveJobs() {
 async function cancelJob(jobId) {
   const confirmed = await confirm({
     title: "Cancel Job?",
-    message: "Cancel this job? This will stop the download or build. You can restart it later.",
+    message:
+      "Cancel this job? This will stop the download or build. You can restart it later.",
     confirmText: "Stop Job",
-    confirmButtonClass: "btn-danger"
+    confirmButtonClass: "btn-danger",
   });
   if (!confirmed) {
     return;
@@ -915,7 +945,7 @@ async function cancelJob(jobId) {
 function formatJobType(type) {
   const types = {
     download: "Download",
-    download_and_build_all: "Download & Full Build",
+    download_and_build_all: "Download & Build",
     build_nominatim: "Nominatim Build",
     build_valhalla: "Valhalla Build",
     build_all: "Full Build",

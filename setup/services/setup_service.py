@@ -109,8 +109,8 @@ async def get_setup_status() -> dict[str, Any]:
         else:
             mapbox_complete = True
 
-    region_count = await MapRegion.find_all().count()
-    region_complete = region_count > 0
+    region_ready = await MapRegion.find_one(MapRegion.status == MapRegion.STATUS_READY)
+    region_complete = bool(region_ready)
 
     geo_health = await check_service_health()
     geo_services = {
@@ -404,59 +404,97 @@ async def _build_session_payload(
     region_state.metadata.setdefault("required", False)
     region_state.metadata.setdefault("skipped", False)
     job_id = region_state.metadata.get("job_id")
+    job = None
     if job_id:
-        job = None
         try:
             job = await MapDataJob.get(PydanticObjectId(job_id))
         except Exception:
             job = None
-        if job:
-            job_payload = {
-                "id": str(job.id),
-                "status": job.status,
-                "stage": job.stage,
-                "progress": float(job.progress or 0),
-                "message": job.message,
-                "error": job.error,
-            }
-            region_state.metadata["job_status"] = job_payload
-            region_state.progress = job_payload["progress"]
-            region_state.in_flight = job.is_active
-            region_state.interruptible = not job.is_active
-            stored_region = (
-                session.step_states.get("region") if session.step_states else None
+
+    selected_region = region_state.metadata.get("selected_region")
+    selected_region_id = None
+    if isinstance(selected_region, dict):
+        selected_region_id = selected_region.get("id")
+
+    region_doc = None
+    if job and job.region_id:
+        region_doc = await MapRegion.get(job.region_id)
+    elif selected_region_id:
+        region_doc = await MapRegion.find_one({"name": selected_region_id})
+
+    active_job = None
+    if region_doc:
+        active_job = await (
+            MapDataJob.find(
+                {
+                    "region_id": region_doc.id,
+                    "status": {
+                        "$in": [MapDataJob.STATUS_PENDING, MapDataJob.STATUS_RUNNING],
+                    },
+                },
             )
-            if stored_region and stored_region.in_flight and not job.is_active:
-                stored_region.in_flight = False
-                stored_region.interruptible = True
-                stored_region.updated_at = now
-                if job.status == "completed" and region_status.get("complete"):
-                    _mark_step_complete(stored_region, now)
-                elif job.status == "failed":
-                    stored_region.status = "error"
-                    stored_region.last_error = job.error or "Region setup failed."
-                    stored_region.last_error_at = now
-                elif job.status == "cancelled":
-                    stored_region.status = "blocked"
-                    stored_region.last_error = job.error or "Region setup cancelled."
-                    stored_region.last_error_at = now
-                session.updated_at = now
-                session.version += 1
-                await session.save()
-            if job.status in {"failed", "cancelled"}:
-                region_state.status = "error" if job.status == "failed" else "blocked"
-                region_state.last_error = job.error or "Region setup halted."
-            elif job.status == "completed":
-                if region_status.get("complete"):
-                    _mark_step_complete(region_state, now)
-                else:
-                    _mark_step_in_progress(region_state)
+            .sort("-created_at")
+            .first_or_none()
+        )
+
+    if active_job and (not job or not job.is_active):
+        job = active_job
+        if str(active_job.id) != job_id:
+            region_state.metadata["job_id"] = str(active_job.id)
+            session.updated_at = now
+            session.version += 1
+            await session.save()
+
+    if job:
+        job_payload = {
+            "id": str(job.id),
+            "status": job.status,
+            "stage": job.stage,
+            "progress": float(job.progress or 0),
+            "message": job.message,
+            "error": job.error,
+            "last_progress_at": (
+                job.last_progress_at.isoformat() if job.last_progress_at else None
+            ),
+        }
+        region_state.metadata["job_status"] = job_payload
+        region_state.progress = job_payload["progress"]
+        region_state.in_flight = job.is_active
+        region_state.interruptible = not job.is_active
+        stored_region = (
+            session.step_states.get("region") if session.step_states else None
+        )
+        if stored_region and stored_region.in_flight and not job.is_active:
+            stored_region.in_flight = False
+            stored_region.interruptible = True
+            stored_region.updated_at = now
+            if job.status == "completed" and region_status.get("complete"):
+                _mark_step_complete(stored_region, now)
+            elif job.status == "failed":
+                stored_region.status = "error"
+                stored_region.last_error = job.error or "Region setup failed."
+                stored_region.last_error_at = now
+            elif job.status == "cancelled":
+                stored_region.status = "blocked"
+                stored_region.last_error = job.error or "Region setup cancelled."
+                stored_region.last_error_at = now
+            session.updated_at = now
+            session.version += 1
+            await session.save()
+        if job.status in {"failed", "cancelled"}:
+            region_state.status = "error" if job.status == "failed" else "blocked"
+            region_state.last_error = job.error or "Region setup halted."
+        elif job.status == "completed":
+            if region_status.get("complete"):
+                _mark_step_complete(region_state, now)
             else:
                 _mark_step_in_progress(region_state)
         else:
-            region_state.metadata.pop("job_status", None)
-            region_state.in_flight = False
-            region_state.interruptible = True
+            _mark_step_in_progress(region_state)
+    else:
+        region_state.metadata.pop("job_status", None)
+        region_state.in_flight = False
+        region_state.interruptible = True
 
     if region_status.get("complete"):
         _mark_step_complete(region_state, now)
@@ -737,6 +775,7 @@ async def run_setup_step(
     region_state.metadata.update(
         {
             "job_id": str(job.id),
+            "region_id": str(job.region_id) if job.region_id else None,
             "selected_region": {
                 "id": region.get("id"),
                 "name": region.get("name"),
@@ -759,9 +798,9 @@ async def run_setup_step(
 
 async def cancel_setup_session(
     session_id: str,
-    payload: SetupSessionClaimRequest,
+    client_id: str | None = None,
 ) -> dict[str, Any]:
-    client_id = _require_client_id(payload.client_id)
+    client_id = _require_client_id(client_id)
     session = await _fetch_session(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Setup session not found")

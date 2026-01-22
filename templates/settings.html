@@ -30,20 +30,20 @@ Settings
           Settings
           </h2>
           <div class="widget-meta">
-Tune appearance, tasks, and data tools.
+ Tune appearance, sync, and data tools.
           </div>
         </div>
       </div>
     </div>
     <!-- Tab Navigation -->
     <div class="settings-tabs">
-      <button class="settings-tab" data-tab="preferences">
+      <button class="settings-tab active" data-tab="preferences">
         <i class="fas fa-sliders-h"></i>
         <span>Preferences</span>
       </button>
-      <button class="settings-tab active" data-tab="background-tasks">
-        <i class="fas fa-tasks"></i>
-        <span>Background Tasks</span>
+      <button class="settings-tab" data-tab="sync-settings">
+        <i class="fas fa-sync"></i>
+        <span>Sync Settings</span>
       </button>
       <button class="settings-tab" data-tab="data-management">
         <i class="fas fa-database"></i>
@@ -60,7 +60,7 @@ Tune appearance, tasks, and data tools.
     </div>
 
     <!-- Preferences Tab -->
-    <div class="settings-tab-content" id="preferences-tab">
+    <div class="settings-tab-content active" id="preferences-tab">
       <div class="preferences-section">
         <form id="app-settings-form">
           <div class="bento-grid" data-stagger>
@@ -330,9 +330,112 @@ Map Match Trips on Fetch
       </div>
     </div>
 
-    <!-- Background Tasks Tab -->
-    <div class="settings-tab-content active" id="background-tasks-tab">
+    <!-- Sync Settings Tab -->
+    <div class="settings-tab-content" id="sync-settings-tab">
       <div class="bento-grid" data-stagger>
+        <div class="settings-group bento-span-12">
+          <h3 class="settings-group-title">
+            <i class="fas fa-sync"></i>
+          Trip Sync
+          </h3>
+          <div class="setting-item">
+            <div class="setting-label">
+              <div class="setting-label-title">
+ Auto-sync trips
+              </div>
+              <div class="setting-label-description">
+              Keep trips updated automatically in the background.
+              </div>
+            </div>
+            <div class="setting-control">
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="sync-auto-toggle" />
+              </div>
+            </div>
+          </div>
+          <div class="setting-item">
+            <div class="setting-label">
+              <div class="setting-label-title">
+ Sync frequency
+              </div>
+              <div class="setting-label-description">
+              How often to refresh recent trips when auto-sync is enabled.
+              </div>
+            </div>
+            <div class="setting-control">
+              <select class="form-select" id="sync-interval-select">
+                <option value="5">Every 5 minutes</option>
+                <option value="15">Every 15 minutes</option>
+                <option value="60">Hourly</option>
+                <option value="180">Every 3 hours</option>
+                <option value="720">Twice daily</option>
+                <option value="1440">Daily</option>
+              </select>
+            </div>
+          </div>
+          <div class="setting-item">
+            <div class="setting-label">
+              <div class="setting-label-title">
+ Last successful sync
+              </div>
+              <div class="setting-label-description">
+              Latest time trips were refreshed successfully.
+              </div>
+            </div>
+            <div class="setting-control">
+              <span class="text-muted" id="sync-last-success">--</span>
+            </div>
+          </div>
+          <div class="setting-item">
+            <div class="setting-label">
+              <div class="setting-label-title">
+ Manual sync
+              </div>
+              <div class="setting-label-description">
+              Trigger an on-demand refresh or import older history.
+              </div>
+            </div>
+            <div class="setting-control sync-settings-actions">
+              <button class="btn btn-primary btn-sm" id="sync-now-btn">
+                <i class="fas fa-sync"></i> Sync trips now
+              </button>
+              <button class="btn btn-outline-secondary btn-sm" id="sync-import-btn">
+                <i class="fas fa-cloud-download-alt"></i> Import history
+              </button>
+            </div>
+          </div>
+          <div class="setting-item">
+            <div class="setting-label">
+              <div class="setting-label-title">
+ History start date
+              </div>
+              <div class="setting-label-description">
+              Optional start date for history import.
+              </div>
+            </div>
+            <div class="setting-control">
+              <input type="date" class="form-control" id="sync-history-start" />
+            </div>
+          </div>
+          <div class="sync-settings-alert d-none" id="sync-settings-alert">
+          </div>
+          <div class="sync-settings-actions-row">
+            <button class="btn btn-outline-secondary" id="sync-settings-reset">
+              <i class="fas fa-undo"></i> Reset
+            </button>
+            <button class="btn btn-primary" id="sync-settings-save">
+              <i class="fas fa-save"></i> Save Sync Settings
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <details class="sync-advanced-details" id="sync-advanced-details">
+        <summary>
+          <span>Advanced background tasks (Admin)</span>
+          <span class="sync-advanced-hint">Optional diagnostics and scheduling</span>
+        </summary>
+        <div class="bento-grid" data-stagger>
         <!-- Global Task Control -->
         <div class="settings-group bento-span-12">
           <h3 class="settings-group-title">
@@ -544,6 +647,7 @@ Details
           </div>
         </div>
       </div>
+      </details>
     </div>
 
     <!-- Data Management Tab -->

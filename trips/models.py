@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any
+from datetime import datetime
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict
 
@@ -40,3 +41,21 @@ class TripProcessingProjection(BaseModel):
     distance: float | None = None
 
     model_config = ConfigDict(extra="ignore")
+
+
+class TripSyncRequest(BaseModel):
+    """Request model for trip sync actions."""
+
+    mode: Literal["recent", "history", "range"] = "recent"
+    start_date: datetime | None = None
+    end_date: datetime | None = None
+    map_match: bool = False
+    force: bool = False
+    trigger_source: str | None = None
+
+
+class TripSyncConfigUpdate(BaseModel):
+    """Update model for trip sync settings."""
+
+    auto_sync_enabled: bool | None = None
+    interval_minutes: int | None = None

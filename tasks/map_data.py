@@ -12,6 +12,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+import os
 from datetime import UTC, datetime
 
 from beanie import PydanticObjectId
@@ -27,6 +28,7 @@ from map_data.download import (
     parallel_download_region,
 )
 from map_data.models import MapDataJob, MapRegion
+from tasks.ops import abort_job, run_task_with_history
 
 logger = logging.getLogger(__name__)
 
@@ -91,6 +93,7 @@ async def download_region_task(ctx: dict, job_id: str) -> dict:
         job.error = None
         job.message = "Starting download"
         job.retry_count = 0
+        job.last_progress_at = datetime.now(UTC)
         await job.save()
 
         region.status = MapRegion.STATUS_DOWNLOADING
@@ -105,7 +108,9 @@ async def download_region_task(ctx: dict, job_id: str) -> dict:
                 return
             job.progress = progress
             job.message = message
+            job.last_progress_at = datetime.now(UTC)
             region.download_progress = progress
+            region.updated_at = datetime.now(UTC)
             await job.save()
             await region.save()
 
@@ -121,6 +126,7 @@ async def download_region_task(ctx: dict, job_id: str) -> dict:
         job.progress = 100
         job.message = "Download complete"
         job.completed_at = datetime.now(UTC)
+        job.last_progress_at = datetime.now(UTC)
         await job.save()
 
         logger.info("Download complete for region %s", region.display_name)
@@ -147,22 +153,6 @@ async def download_region_task(ctx: dict, job_id: str) -> dict:
         return {"success": True, "region_id": str(region.id)}
 
     except DownloadCancelled:
-        raise
-    except Exception as e:
-        logger.exception("Download failed for job %s", job_id)
-
-        job.status = MapDataJob.STATUS_FAILED
-        job.error = str(e)
-        job.completed_at = datetime.now(UTC)
-        await job.save()
-
-        region.status = MapRegion.STATUS_ERROR
-        region.last_error = str(e)
-        region.updated_at = datetime.now(UTC)
-        await region.save()
-
-        return {"success": False, "error": str(e)}
-    except DownloadCancelled:
         logger.info("Download cancelled for job %s", job_id)
         refreshed_job = await MapDataJob.get(PydanticObjectId(job_id))
         if refreshed_job:
@@ -172,6 +162,7 @@ async def download_region_task(ctx: dict, job_id: str) -> dict:
             refreshed_job.message = "Download cancelled"
             refreshed_job.error = refreshed_job.error or "Cancelled by user"
             refreshed_job.completed_at = datetime.now(UTC)
+            refreshed_job.last_progress_at = datetime.now(UTC)
             await refreshed_job.save()
 
         if region:
@@ -191,6 +182,21 @@ async def download_region_task(ctx: dict, job_id: str) -> dict:
             await region.save()
 
         return {"success": False, "error": "Job cancelled"}
+    except Exception as e:
+        logger.exception("Download failed for job %s", job_id)
+
+        job.status = MapDataJob.STATUS_FAILED
+        job.error = str(e)
+        job.completed_at = datetime.now(UTC)
+        job.last_progress_at = datetime.now(UTC)
+        await job.save()
+
+        region.status = MapRegion.STATUS_ERROR
+        region.last_error = str(e)
+        region.updated_at = datetime.now(UTC)
+        await region.save()
+
+        return {"success": False, "error": str(e)}
     finally:
         cancel_watch.cancel()
         with contextlib.suppress(asyncio.CancelledError):
@@ -232,6 +238,7 @@ async def build_nominatim_task(ctx: dict, job_id: str) -> dict:
         job.started_at = datetime.now(UTC)
         job.stage = "Starting Nominatim service"
         job.message = "Ensuring Nominatim container is running"
+        job.last_progress_at = datetime.now(UTC)
         await job.save()
 
         await start_container_on_demand("nominatim")
@@ -248,6 +255,7 @@ async def build_nominatim_task(ctx: dict, job_id: str) -> dict:
         async def update_progress(progress: float, message: str) -> None:
             job.progress = progress
             job.message = message
+            job.last_progress_at = datetime.now(UTC)
             await job.save()
 
         # Execute build
@@ -257,6 +265,7 @@ async def build_nominatim_task(ctx: dict, job_id: str) -> dict:
         job.progress = 100
         job.message = "Nominatim build complete"
         job.completed_at = datetime.now(UTC)
+        job.last_progress_at = datetime.now(UTC)
 
         region.nominatim_status = "ready"
         region.nominatim_built_at = datetime.now(UTC)
@@ -268,6 +277,7 @@ async def build_nominatim_task(ctx: dict, job_id: str) -> dict:
             # Continue with Valhalla build
             job.stage = "Starting Valhalla build"
             job.progress = 50
+            job.last_progress_at = datetime.now(UTC)
             await job.save()
             await region.save()
 
@@ -291,6 +301,7 @@ async def build_nominatim_task(ctx: dict, job_id: str) -> dict:
 
         job.status = MapDataJob.STATUS_COMPLETED
         job.completed_at = datetime.now(UTC)
+        job.last_progress_at = datetime.now(UTC)
         await job.save()
 
         region.updated_at = datetime.now(UTC)
@@ -305,6 +316,7 @@ async def build_nominatim_task(ctx: dict, job_id: str) -> dict:
         job.status = MapDataJob.STATUS_FAILED
         job.error = str(e)
         job.completed_at = datetime.now(UTC)
+        job.last_progress_at = datetime.now(UTC)
         await job.save()
 
         region.nominatim_status = "error"
@@ -352,6 +364,7 @@ async def build_valhalla_task(ctx: dict, job_id: str) -> dict:
         job.started_at = datetime.now(UTC)
         job.stage = "Starting Valhalla service"
         job.message = "Ensuring Valhalla container is running"
+        job.last_progress_at = datetime.now(UTC)
         await job.save()
 
         await start_container_on_demand("valhalla")
@@ -368,6 +381,7 @@ async def build_valhalla_task(ctx: dict, job_id: str) -> dict:
         async def update_progress(progress: float, message: str) -> None:
             job.progress = progress
             job.message = message
+            job.last_progress_at = datetime.now(UTC)
             await job.save()
 
         # Execute build
@@ -378,6 +392,7 @@ async def build_valhalla_task(ctx: dict, job_id: str) -> dict:
         job.progress = 100
         job.message = "Valhalla build complete"
         job.completed_at = datetime.now(UTC)
+        job.last_progress_at = datetime.now(UTC)
         await job.save()
 
         region.valhalla_status = "ready"
@@ -402,6 +417,7 @@ async def build_valhalla_task(ctx: dict, job_id: str) -> dict:
         job.status = MapDataJob.STATUS_FAILED
         job.error = str(e)
         job.completed_at = datetime.now(UTC)
+        job.last_progress_at = datetime.now(UTC)
         await job.save()
 
         region.valhalla_status = "error"
@@ -417,6 +433,93 @@ async def build_valhalla_task(ctx: dict, job_id: str) -> dict:
 # =============================================================================
 # Task enqueueing functions (called from services.py)
 # =============================================================================
+
+
+async def _monitor_map_data_jobs_logic() -> dict[str, object]:
+    now = datetime.now(UTC)
+    running_threshold = int(os.getenv("MAP_DATA_JOB_STALLED_RUNNING_MINUTES", "20"))
+    pending_threshold = int(os.getenv("MAP_DATA_JOB_STALLED_PENDING_MINUTES", "30"))
+
+    jobs = await MapDataJob.find(
+        {
+            "status": {
+                "$in": [MapDataJob.STATUS_PENDING, MapDataJob.STATUS_RUNNING],
+            },
+        },
+    ).to_list()
+
+    stalled = []
+
+    for job in jobs:
+        last_activity = job.last_progress_at or job.started_at or job.created_at
+        if not last_activity:
+            continue
+
+        age_minutes = (now - last_activity).total_seconds() / 60
+        threshold = (
+            pending_threshold
+            if job.status == MapDataJob.STATUS_PENDING
+            else running_threshold
+        )
+        if age_minutes < threshold:
+            continue
+
+        reason = f"Job stalled: no progress for {int(age_minutes)} minutes"
+        job.status = MapDataJob.STATUS_FAILED
+        job.stage = "Stalled"
+        job.message = reason
+        job.error = reason
+        job.completed_at = now
+        job.last_progress_at = now
+        await job.save()
+
+        if job.arq_job_id:
+            with contextlib.suppress(Exception):
+                await abort_job(job.arq_job_id)
+
+        if job.region_id:
+            region = await MapRegion.get(job.region_id)
+            if region:
+                if job.job_type in (MapDataJob.JOB_DOWNLOAD, "download_and_build_all"):
+                    region.status = MapRegion.STATUS_ERROR
+                    region.last_error = reason
+                elif job.job_type == MapDataJob.JOB_BUILD_NOMINATIM:
+                    region.nominatim_status = "error"
+                    region.nominatim_error = reason
+                    region.status = MapRegion.STATUS_ERROR
+                    region.last_error = reason
+                elif job.job_type == MapDataJob.JOB_BUILD_VALHALLA:
+                    region.valhalla_status = "error"
+                    region.valhalla_error = reason
+                    region.status = MapRegion.STATUS_ERROR
+                    region.last_error = reason
+                elif job.job_type == MapDataJob.JOB_BUILD_ALL:
+                    region.nominatim_status = "error"
+                    region.valhalla_status = "error"
+                    region.status = MapRegion.STATUS_ERROR
+                    region.last_error = reason
+                region.updated_at = now
+                await region.save()
+
+        stalled.append({"job_id": str(job.id), "age_minutes": int(age_minutes)})
+
+    return {
+        "status": "success",
+        "stalled_jobs": stalled,
+        "checked": len(jobs),
+    }
+
+
+async def monitor_map_data_jobs(
+    ctx: dict,
+    manual_run: bool = False,
+) -> dict[str, object]:
+    return await run_task_with_history(
+        ctx,
+        "monitor_map_data_jobs",
+        _monitor_map_data_jobs_logic,
+        manual_run=manual_run,
+    )
 
 
 async def enqueue_download_task(job_id: str, build_after: bool = False) -> None:

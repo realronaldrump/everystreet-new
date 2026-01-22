@@ -89,7 +89,7 @@ class MapRegion(Document):
     def is_ready(self) -> bool:
         """Check if region is fully ready (downloaded and both services built)."""
         return (
-            self.status == self.STATUS_DOWNLOADED
+            self.status in (self.STATUS_READY, self.STATUS_DOWNLOADED)
             and self.nominatim_status == "ready"
             and self.valhalla_status == "ready"
         )
@@ -122,6 +122,7 @@ class MapDataJob(Document):
     stage: str = "Queued"  # User-friendly stage description
     progress: float = 0.0  # 0-100
     message: str = ""
+    last_progress_at: datetime | None = None
 
     # Timing
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))

@@ -14,6 +14,7 @@ import logging
 import re
 import subprocess
 import time
+from collections import Counter
 from datetime import UTC, datetime
 from typing import Any
 
@@ -283,9 +284,37 @@ async def get_geofabrik_regions(parent: str | None = None) -> list[dict[str, Any
     if parent:
         # Normalize parent path
         parent = parent.strip("/").lower()
-        return [r for r in index if r.get("parent", "").lower() == parent]
+        by_parent = [r for r in index if r.get("parent", "").lower() == parent]
+        if by_parent:
+            prefix_roots = {str(region.get("id", "")).lower() for region in by_parent}
+            by_parent = [
+                region
+                for region in by_parent
+                if "/" not in str(region.get("id", ""))
+                or str(region.get("id", "")).split("/")[0].lower() not in prefix_roots
+            ]
+            return by_parent
+
+        # Fallback: match prefix-based children (ex: "us" -> "us/texas")
+        parent_token = parent.split("/")[-1]
+        prefix = f"{parent_token}/"
+        by_prefix = [
+            r for r in index if str(r.get("id", "")).lower().startswith(prefix)
+        ]
+        if by_prefix:
+            return by_prefix
     # Return top-level regions (continents)
     return [r for r in index if not r.get("parent")]
+
+
+async def get_us_state_regions() -> list[dict[str, Any]]:
+    await get_geofabrik_regions()
+    all_regions = _geofabrik_cache.get("data", []) or []
+    return [
+        region
+        for region in all_regions
+        if str(region.get("id", "")).lower().startswith("us/")
+    ]
 
 
 async def suggest_region_from_first_trip() -> dict[str, Any] | None:
@@ -358,14 +387,7 @@ async def _fetch_geofabrik_index() -> list[dict[str, Any]]:
                 parent = props.get("parent", "")
 
                 # Extract bounding box from geometry
-                bbox = []
-                geometry = feature.get("geometry", {})
-                if geometry.get("type") == "Polygon":
-                    coords = geometry.get("coordinates", [[]])[0]
-                    if coords:
-                        lons = [c[0] for c in coords]
-                        lats = [c[1] for c in coords]
-                        bbox = [min(lons), min(lats), max(lons), max(lats)]
+                bbox = _extract_bbox_from_geometry(feature.get("geometry", {}))
 
                 region = {
                     "id": region_id,
@@ -386,7 +408,7 @@ async def _fetch_geofabrik_index() -> list[dict[str, Any]]:
         logger.exception("Failed to fetch Geofabrik index")
         # Return empty list on error - UI will show error state
 
-    return regions
+    return _hydrate_geofabrik_relationships(regions)
 
 
 async def _parse_geofabrik_html(
@@ -429,7 +451,76 @@ async def _parse_geofabrik_html(
     except Exception:
         logger.exception("Failed to parse Geofabrik HTML")
 
+    return _hydrate_geofabrik_relationships(regions)
+
+
+def _hydrate_geofabrik_relationships(
+    regions: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    if not regions:
+        return regions
+
+    parent_counts = Counter(
+        str(region.get("parent", "")).lower()
+        for region in regions
+        if region.get("parent")
+    )
+    prefix_parents = {
+        str(region.get("id", "")).split("/")[0].lower()
+        for region in regions
+        if "/" in str(region.get("id", ""))
+    }
+
+    for region in regions:
+        region_id = str(region.get("id", "")).lower()
+        has_children = bool(parent_counts.get(region_id)) or region_id in prefix_parents
+        if region.get("has_children"):
+            has_children = True
+        region["has_children"] = has_children
+
     return regions
+
+
+def _extract_bbox_from_geometry(geometry: dict[str, Any]) -> list[float]:
+    if not geometry:
+        return []
+
+    geom_type = geometry.get("type")
+    coords = geometry.get("coordinates")
+    if not coords:
+        return []
+
+    if geom_type == "Polygon":
+        polygons = [coords]
+    elif geom_type == "MultiPolygon":
+        polygons = coords
+    else:
+        return []
+
+    lons: list[float] = []
+    lats: list[float] = []
+
+    for polygon in polygons:
+        if not isinstance(polygon, list):
+            continue
+        for ring in polygon:
+            if not isinstance(ring, list):
+                continue
+            for coord in ring:
+                if not isinstance(coord, (list, tuple)) or len(coord) < 2:
+                    continue
+                try:
+                    lon = float(coord[0])
+                    lat = float(coord[1])
+                except (TypeError, ValueError):
+                    continue
+                lons.append(lon)
+                lats.append(lat)
+
+    if not lons or not lats:
+        return []
+
+    return [min(lons), min(lats), max(lons), max(lats)]
 
 
 def _bytes_to_mb(bytes_val: int | None) -> float | None:
@@ -453,6 +544,24 @@ def _normalize_pbf_size(value: Any) -> float | None:
         except ValueError:
             return None
     return None
+
+
+async def _get_geofabrik_region_info(
+    geofabrik_id: str,
+    display_name: str | None = None,
+) -> dict[str, Any]:
+    await get_geofabrik_regions()
+    all_regions = _geofabrik_cache.get("data", []) or []
+    for region in all_regions:
+        if region.get("id") == geofabrik_id:
+            return region
+
+    mirror = get_geofabrik_mirror()
+    return {
+        "id": geofabrik_id,
+        "name": display_name or geofabrik_id.split("/")[-1].replace("-", " ").title(),
+        "pbf_url": f"{mirror}/{geofabrik_id}-latest.osm.pbf",
+    }
 
 
 def _normalize_bbox(value: Any) -> list[float]:
@@ -544,27 +653,7 @@ async def download_region(
     Returns:
         The created MapDataJob for tracking progress
     """
-    # Get region info from cache
-    await get_geofabrik_regions()
-    region_info = None
-
-    # Search through all regions (need to search recursively)
-    # For now, search the flat list
-    all_regions = _geofabrik_cache.get("data", [])
-    for r in all_regions:
-        if r.get("id") == geofabrik_id:
-            region_info = r
-            break
-
-    if not region_info:
-        # Region not found in cache, construct basic info
-        mirror = get_geofabrik_mirror()
-        region_info = {
-            "id": geofabrik_id,
-            "name": display_name
-            or geofabrik_id.split("/")[-1].replace("-", " ").title(),
-            "pbf_url": f"{mirror}/{geofabrik_id}-latest.osm.pbf",
-        }
+    region_info = await _get_geofabrik_region_info(geofabrik_id, display_name)
 
     # Create or update MapRegion
     existing = await MapRegion.find_one({"name": geofabrik_id})
@@ -638,36 +727,7 @@ async def download_and_build_all(
     Returns:
         The created MapDataJob for tracking progress
     """
-    # Get region info from Geofabrik
-    mirror = get_geofabrik_mirror()
-    regions = await get_geofabrik_regions()
-    region_info = None
-    for r in regions:
-        if r.get("id") == geofabrik_id:
-            region_info = r
-            break
-
-    if not region_info:
-        # Check nested regions
-        parts = geofabrik_id.split("/")
-        for i in range(len(parts)):
-            parent = "/".join(parts[:i]) or None
-            children = await get_geofabrik_regions(parent=parent)
-            for child in children:
-                if child.get("id") == geofabrik_id:
-                    region_info = child
-                    break
-            if region_info:
-                break
-
-    if not region_info:
-        # Create basic region info
-        region_info = {
-            "id": geofabrik_id,
-            "name": display_name
-            or geofabrik_id.split("/")[-1].replace("-", " ").title(),
-            "pbf_url": f"{mirror}/{geofabrik_id}-latest.osm.pbf",
-        }
+    region_info = await _get_geofabrik_region_info(geofabrik_id, display_name)
 
     # Create or update MapRegion
     existing = await MapRegion.find_one({"name": geofabrik_id})
@@ -912,6 +972,7 @@ async def cancel_job(job_id: str) -> MapDataJob:
     job.message = "Cancelled by user"
     job.error = job.error or "Cancelled by user"
     job.completed_at = datetime.now(UTC)
+    job.last_progress_at = datetime.now(UTC)
     await job.save()
 
     arq_job_id = getattr(job, "arq_job_id", None)

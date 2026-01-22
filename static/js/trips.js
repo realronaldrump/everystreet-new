@@ -10,6 +10,7 @@ import { CONFIG } from "./modules/core/config.js";
 import store, { optimisticAction } from "./modules/core/store.js";
 import { createMap } from "./modules/map-base.js";
 import { TableManager } from "./modules/table-manager.js";
+import { initTripSync } from "./modules/trip-sync.js";
 import confirmationDialog from "./modules/ui/confirmation-dialog.js";
 import notificationManager from "./modules/ui/notifications.js";
 import {
@@ -42,6 +43,13 @@ async function initializePage(signal) {
   setupFilterListeners();
   setupBulkActions();
   updateFilterChips();
+  initTripSync({
+    onSyncComplete: () => {
+      if (tripsTable) {
+        tripsTable.reload({ resetPage: true });
+      }
+    },
+  });
 
   document.addEventListener(
     "filtersApplied",
@@ -308,9 +316,9 @@ function getFilterValues() {
 
 function setupFilterListeners() {
   const inputs = document.querySelectorAll(
-    "#trip-filter-vehicle, #trip-filter-distance-min, #trip-filter-distance-max, "
-      + "#trip-filter-speed-min, #trip-filter-speed-max, #trip-filter-fuel-min, #trip-filter-fuel-max, "
-      + "#trip-filter-has-fuel"
+    "#trip-filter-vehicle, #trip-filter-distance-min, #trip-filter-distance-max, " +
+      "#trip-filter-speed-min, #trip-filter-speed-max, #trip-filter-fuel-min, #trip-filter-fuel-max, " +
+      "#trip-filter-has-fuel"
   );
 
   inputs.forEach((input) => {
@@ -747,8 +755,8 @@ function initTripModalMap() {
     });
   } catch (e) {
     console.error("Failed to init modal map", e);
-    document.getElementById("trip-modal-map").innerHTML
-      = '<div class="alert alert-danger m-3">Failed to load map.</div>';
+    document.getElementById("trip-modal-map").innerHTML =
+      '<div class="alert alert-danger m-3">Failed to load map.</div>';
   }
 }
 

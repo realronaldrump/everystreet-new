@@ -55,6 +55,11 @@ export const CONFIG = {
     mapMatchTrips: "/api/map_match_trips",
     geocodeTrips: "/api/geocode_trips",
     tripAnalytics: "/api/trip-analytics",
+    tripSyncStatus: "/api/actions/trips/sync/status",
+    tripSyncStart: "/api/actions/trips/sync",
+    tripSyncCancel: (jobId) => `/api/actions/trips/sync/${jobId}`,
+    tripSyncSse: "/api/actions/trips/sync/sse",
+    tripSyncConfig: "/api/actions/trips/sync/config",
 
     // Coverage endpoints
     coverageAreas: "/api/coverage/areas",
@@ -201,8 +206,8 @@ export const CONFIG = {
     },
     animations: {
       enabled:
-        typeof window !== "undefined"
-        && !window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+        typeof window !== "undefined" &&
+        !window.matchMedia("(prefers-reduced-motion: reduce)").matches,
     },
   },
 };

@@ -15,7 +15,7 @@ The package is organized into:
 
 from fastapi import APIRouter
 
-from trips.routes import crud, pages, query, stats
+from trips.routes import crud, pages, query, stats, sync
 
 # Create main router that aggregates all trip-related routes
 router = APIRouter()
@@ -25,5 +25,6 @@ router.include_router(pages.router, tags=["pages"])
 router.include_router(query.router, tags=["trips-query"])
 router.include_router(crud.router, tags=["trips-crud"])
 router.include_router(stats.router, tags=["trips-stats"])
+router.include_router(sync.router, tags=["trips-sync"])
 
 __all__ = ["router"]

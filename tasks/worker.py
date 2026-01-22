@@ -14,6 +14,7 @@ from tasks.arq import get_redis_settings
 from tasks.coverage import update_coverage_for_new_trips
 from tasks.cron import (
     cron_cleanup_stale_trips,
+    cron_monitor_map_data_jobs,
     cron_periodic_fetch_trips,
     cron_remap_unmatched_trips,
     cron_update_coverage_for_new_trips,
@@ -31,6 +32,7 @@ from tasks.map_data import (
     build_nominatim_task,
     build_valhalla_task,
     download_region_task,
+    monitor_map_data_jobs,
 )
 from tasks.routes import generate_optimal_route
 
@@ -82,6 +84,7 @@ class WorkerSettings:
         download_region_task,
         build_nominatim_task,
         build_valhalla_task,
+        monitor_map_data_jobs,
     ]
     cron_jobs: ClassVar[list[object]] = [
         cron(cron_periodic_fetch_trips),
@@ -90,6 +93,7 @@ class WorkerSettings:
         cron(cron_remap_unmatched_trips),
         cron(cron_update_coverage_for_new_trips),
         cron(worker_heartbeat),
+        cron(cron_monitor_map_data_jobs),
     ]
     redis_settings = get_redis_settings()
     on_startup = on_startup

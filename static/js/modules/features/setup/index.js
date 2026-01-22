@@ -2,7 +2,7 @@
 import apiClient from "../../core/api-client.js";
 import confirmationDialog from "../../ui/confirmation-dialog.js";
 import notificationManager from "../../ui/notifications.js";
-import { onPageLoad } from "../../utils.js";
+import { formatTimeAgo, onPageLoad } from "../../utils.js";
 import { getBouncieFormValues } from "./steps/bouncie.js";
 import {
   destroyMapPreview,
@@ -19,6 +19,10 @@ const APP_SETTINGS_API = "/api/app_settings";
 const MAP_DATA_API = "/api/map-data";
 const SETUP_TAB_STORAGE_KEY = "es:setup-tab-id";
 const SESSION_POLL_INTERVAL_MS = 3500;
+const REGION_VIEW_US = "us";
+const REGION_VIEW_GLOBAL = "global";
+const REGION_LARGE_DOWNLOAD_MB = 2000;
+const REGION_STALE_PROGRESS_MINUTES = 15;
 
 const stepKeys = ["welcome", "bouncie", "mapbox", "region", "complete"];
 let currentStep = 0;
@@ -47,6 +51,10 @@ const dirtyState = {
 };
 let selectedRegion = null;
 let currentRegionPath = [];
+let regionView = REGION_VIEW_US;
+let regionSearchQuery = "";
+let currentRegionItems = [];
+let usRegionItems = [];
 let mapPreview = null;
 let pageSignal = null;
 let regionControlsLocked = false;
@@ -273,8 +281,8 @@ function renderSessionBanner(payload) {
 
   if (sessionReadOnly && ownerId) {
     banner.classList.remove("d-none");
-    message.textContent
-      = "Setup is active in another tab. This view is read-only until it finishes.";
+    message.textContent =
+      "Setup is active in another tab. This view is read-only until it finishes.";
     if (takeoverBtn) {
       takeoverBtn.classList.toggle("d-none", !ownerIsStale);
       takeoverBtn.onclick = ownerIsStale ? handleSessionTakeover : null;
@@ -444,7 +452,7 @@ async function initializeSetup() {
   await initSetupSession();
   await loadBouncieCredentials();
   await loadServiceConfig();
-  await loadGeofabrikRegions();
+  await loadRegionView();
   updateResumeCta();
   checkBouncieRedirectStatus();
   await updateBouncieConnectionStatus();
@@ -463,8 +471,8 @@ function checkBouncieRedirectStatus() {
     if (vehicleCount > 0) {
       message = `Successfully connected to Bouncie! ${vehicleCount} vehicle(s) synced automatically. Click 'Save & Continue' to proceed.`;
     } else {
-      message
-        = "Successfully connected to Bouncie! No vehicles found in your account. You can add them later.";
+      message =
+        "Successfully connected to Bouncie! No vehicles found in your account. You can add them later.";
     }
     showStatus("setup-bouncie-status", message, false);
     // Clear the query params from URL
@@ -475,11 +483,11 @@ function checkBouncieRedirectStatus() {
   } else if (error) {
     let errorMsg = "Failed to connect to Bouncie.";
     if (error === "missing_code") {
-      errorMsg
-        = "OAuth callback did not receive authorization code. Check your redirect URI configuration.";
+      errorMsg =
+        "OAuth callback did not receive authorization code. Check your redirect URI configuration.";
     } else if (error === "missing_state") {
-      errorMsg
-        = "OAuth callback did not include a valid state parameter. Please try connecting again.";
+      errorMsg =
+        "OAuth callback did not include a valid state parameter. Please try connecting again.";
     } else if (error === "state_mismatch") {
       errorMsg = "OAuth state mismatch detected. Please retry the connection.";
     } else if (error === "state_expired") {
@@ -487,11 +495,11 @@ function checkBouncieRedirectStatus() {
     } else if (error === "storage_failed") {
       errorMsg = "Failed to save authorization. Please try again.";
     } else if (error === "token_exchange_failed") {
-      errorMsg
-        = "Failed to exchange authorization code for an access token. Verify your client credentials and redirect URI.";
+      errorMsg =
+        "Failed to exchange authorization code for an access token. Verify your client credentials and redirect URI.";
     } else if (error === "vehicle_sync_failed") {
-      errorMsg
-        = "Connected to Bouncie, but vehicle sync failed. Please try syncing again.";
+      errorMsg =
+        "Connected to Bouncie, but vehicle sync failed. Please try syncing again.";
     } else {
       errorMsg = `OAuth error: ${decodeURIComponent(error)}`;
     }
@@ -587,6 +595,15 @@ function bindEventListeners() {
   document
     .getElementById("auto-region-btn")
     ?.addEventListener("click", autoDetectRegion);
+  document
+    .getElementById("region-view-us")
+    ?.addEventListener("click", () => setRegionView(REGION_VIEW_US));
+  document
+    .getElementById("region-view-global")
+    ?.addEventListener("click", () => setRegionView(REGION_VIEW_GLOBAL));
+  document
+    .getElementById("region-search-input")
+    ?.addEventListener("input", handleRegionSearch);
   document
     .getElementById("region-breadcrumb")
     ?.addEventListener("click", handleBreadcrumbClick);
@@ -1028,6 +1045,110 @@ async function saveMapboxSettings(advance = false) {
   }
 }
 
+async function loadRegionView() {
+  updateRegionViewControls();
+  if (regionView === REGION_VIEW_US) {
+    await loadUsRegions();
+  } else {
+    await loadGeofabrikRegions(currentRegionPath.join("/"));
+  }
+}
+
+function setRegionView(view) {
+  if (regionView === view) {
+    return;
+  }
+  regionView = view;
+  regionSearchQuery = "";
+  const searchInput = document.getElementById("region-search-input");
+  if (searchInput) {
+    searchInput.value = "";
+  }
+  selectedRegion = null;
+  updateSelectedRegionUI();
+  if (regionView === REGION_VIEW_US) {
+    currentRegionPath = [];
+    loadUsRegions();
+  } else {
+    loadGeofabrikRegions(currentRegionPath.join("/"));
+  }
+  updateRegionViewControls();
+}
+
+function updateRegionViewControls() {
+  const usBtn = document.getElementById("region-view-us");
+  const globalBtn = document.getElementById("region-view-global");
+  usBtn?.classList.toggle("is-active", regionView === REGION_VIEW_US);
+  globalBtn?.classList.toggle("is-active", regionView === REGION_VIEW_GLOBAL);
+
+  const breadcrumb = document.getElementById("region-breadcrumb");
+  if (breadcrumb && regionView === REGION_VIEW_US) {
+    breadcrumb.innerHTML = '<li class="breadcrumb-item active">United States</li>';
+  }
+
+  const searchWrap = document.getElementById("region-search-wrap");
+  const searchInput = document.getElementById("region-search-input");
+  if (searchWrap) {
+    searchWrap.classList.remove("d-none");
+  }
+  if (searchInput) {
+    searchInput.placeholder =
+      regionView === REGION_VIEW_US ? "Search states" : "Search regions";
+  }
+}
+
+function handleRegionSearch(event) {
+  regionSearchQuery = event.target.value || "";
+  applyRegionFilter();
+}
+
+function applyRegionFilter() {
+  const regionList = document.getElementById("region-list");
+  if (!regionList) {
+    return;
+  }
+  const query = regionSearchQuery.trim().toLowerCase();
+  if (!query) {
+    renderRegionList(regionList, currentRegionItems);
+    return;
+  }
+  const filtered = currentRegionItems.filter((region) => {
+    const name = String(region.name || "").toLowerCase();
+    const id = String(region.id || "").toLowerCase();
+    return name.includes(query) || id.includes(query);
+  });
+  renderRegionList(regionList, filtered);
+}
+
+async function loadUsRegions() {
+  const regionList = document.getElementById("region-list");
+  if (!regionList) {
+    return;
+  }
+  if (usRegionItems.length > 0) {
+    currentRegionItems = usRegionItems;
+    applyRegionFilter();
+    updateBreadcrumb();
+    return;
+  }
+  regionList.innerHTML = '<div class="text-muted">Loading regions...</div>';
+
+  try {
+    const data = await apiClient.get(
+      `${MAP_DATA_API}/geofabrik/us-states`,
+      withSignal()
+    );
+    const sorted = sortRegions(data?.regions || []);
+    usRegionItems = sorted;
+    currentRegionItems = sorted;
+    applyRegionFilter();
+    updateBreadcrumb();
+  } catch (_error) {
+    currentRegionItems = [];
+    regionList.innerHTML = '<div class="text-danger">Failed to load regions.</div>';
+  }
+}
+
 async function loadGeofabrikRegions(parent = "") {
   const regionList = document.getElementById("region-list");
   if (!regionList) {
@@ -1041,15 +1162,20 @@ async function loadGeofabrikRegions(parent = "") {
       : `${MAP_DATA_API}/geofabrik/regions`;
     const data = await apiClient.get(url, withSignal());
     const sorted = sortRegions(data?.regions || []);
-    renderRegionList(regionList, sorted);
+    currentRegionItems = sorted;
+    applyRegionFilter();
     updateBreadcrumb();
   } catch (_error) {
+    currentRegionItems = [];
     regionList.innerHTML = '<div class="text-danger">Failed to load regions.</div>';
   }
 }
 
 function handleBreadcrumbClick(event) {
   if (regionControlsLocked) {
+    return;
+  }
+  if (regionView === REGION_VIEW_US) {
     return;
   }
   const link = event.target.closest("a[data-region]");
@@ -1093,6 +1219,7 @@ function handleRegionClick(event) {
     id: regionId,
     name: regionName,
     size: regionSize,
+    has_children: hasChildren,
   };
   updateSelectedRegionUI();
   document.querySelectorAll(".region-item").forEach((el) => {
@@ -1104,6 +1231,10 @@ function handleRegionClick(event) {
 function updateBreadcrumb() {
   const breadcrumb = document.getElementById("region-breadcrumb");
   if (!breadcrumb) {
+    return;
+  }
+  if (regionView === REGION_VIEW_US) {
+    breadcrumb.innerHTML = '<li class="breadcrumb-item active">United States</li>';
     return;
   }
   const items = [{ id: "", name: "World" }];
@@ -1136,6 +1267,7 @@ function updateSelectedRegionUI() {
   const idEl = document.getElementById("selected-region-id");
   const sizeEl = document.getElementById("selected-region-size");
   const downloadBtn = document.getElementById("download-region-btn");
+  const warningEl = document.getElementById("selected-region-warning");
 
   if (selectedRegion) {
     info?.classList.remove("d-none");
@@ -1145,9 +1277,29 @@ function updateSelectedRegionUI() {
     sizeEl.textContent = selectedRegion.size
       ? `${parseFloat(selectedRegion.size).toFixed(1)} MB`
       : "Unknown";
+    const warnings = [];
+    const sizeValue = Number(selectedRegion.size);
+    if (Number.isFinite(sizeValue) && sizeValue >= REGION_LARGE_DOWNLOAD_MB) {
+      warnings.push(
+        `Large download (~${sizeValue.toFixed(1)} MB). Plan for extra disk space and a long build time.`
+      );
+    }
+    if (warningEl) {
+      if (warnings.length > 0) {
+        warningEl.textContent = warnings.join(" ");
+        warningEl.classList.remove("d-none");
+      } else {
+        warningEl.textContent = "";
+        warningEl.classList.add("d-none");
+      }
+    }
   } else {
     info?.classList.add("d-none");
     downloadBtn.disabled = true;
+    if (warningEl) {
+      warningEl.textContent = "";
+      warningEl.classList.add("d-none");
+    }
   }
 }
 
@@ -1176,6 +1328,9 @@ function setRegionControlsLocked(locked) {
     "region-back-btn",
     "region-skip-btn",
     "region-continue-btn",
+    "region-view-us",
+    "region-view-global",
+    "region-search-input",
   ];
 
   regionList?.classList.toggle("is-disabled", isLocked);
@@ -1194,6 +1349,23 @@ function setRegionControlsLocked(locked) {
 async function downloadSelectedRegion() {
   if (!selectedRegion) {
     return;
+  }
+  const sizeValue = Number(selectedRegion.size);
+  if (Number.isFinite(sizeValue) && sizeValue >= REGION_LARGE_DOWNLOAD_MB) {
+    if (confirmationDialog) {
+      const confirmed = await confirmationDialog.show({
+        title: "Large download",
+        message: `This region is about ${sizeValue.toFixed(
+          1
+        )} MB. Large downloads can take hours and require plenty of disk space. Continue?`,
+        confirmText: "Download",
+        cancelText: "Cancel",
+        confirmButtonClass: "btn-warning",
+      });
+      if (!confirmed) {
+        return;
+      }
+    }
   }
   await runRegionStep("download", selectedRegion);
 }
@@ -1318,13 +1490,24 @@ function updateRegionFromSession(stepState) {
   const progressBar = document.getElementById("region-progress-bar");
   const progressText = document.getElementById("region-progress-text");
   const backgroundNote = document.getElementById("region-background-note");
+  let lastProgressAgeMinutes = null;
 
   if (jobStatus && progressWrap && progressBar && progressText) {
     const progress = Number(jobStatus.progress || 0);
     progressWrap.classList.remove("d-none");
     progressBar.style.width = `${progress}%`;
     progressBar.textContent = `${Math.round(progress)}%`;
-    progressText.textContent = jobStatus.message || jobStatus.stage || "Working...";
+    const message = jobStatus.message || jobStatus.stage || "Working...";
+    const lastProgressAt = jobStatus.last_progress_at
+      ? new Date(jobStatus.last_progress_at)
+      : null;
+    if (lastProgressAt && !Number.isNaN(lastProgressAt.getTime())) {
+      lastProgressAgeMinutes = (Date.now() - lastProgressAt.getTime()) / 60000;
+      const timeAgo = formatTimeAgo(lastProgressAt.toISOString(), true);
+      progressText.textContent = `${message} (updated ${timeAgo})`;
+    } else {
+      progressText.textContent = message;
+    }
   } else {
     progressWrap?.classList.add("d-none");
   }
@@ -1336,10 +1519,22 @@ function updateRegionFromSession(stepState) {
   updateRegionCancelUI(stepState);
 
   if (jobStatus && !["completed", "failed", "cancelled"].includes(jobStatus.status)) {
-    showRegionStatus(
-      "Download is running in the background. You can close this tab or browser and return later.",
-      false
-    );
+    if (
+      lastProgressAgeMinutes !== null &&
+      lastProgressAgeMinutes >= REGION_STALE_PROGRESS_MINUTES
+    ) {
+      showRegionStatus(
+        `No progress updates in ${Math.round(
+          lastProgressAgeMinutes
+        )} minutes. The worker may be stalled. Try canceling and restarting the download.`,
+        true
+      );
+    } else {
+      showRegionStatus(
+        "Download is running in the background. You can close this tab or browser and return later.",
+        false
+      );
+    }
   }
   if (jobStatus?.status === "completed") {
     showRegionStatus("Region download complete.", false);
@@ -1517,8 +1712,8 @@ function buildBouncieSummaryDetail() {
   const clientIdLabel = clientId
     ? maskValue(clientId, 4, 4)
     : setupState.bouncie
-        ? "Set"
-        : "Not set";
+      ? "Set"
+      : "Not set";
   const redirectLabel = redirectUri || (setupState.bouncie ? "Set" : "Not set");
   parts.push(`Client ID: ${clientIdLabel}`);
   parts.push(`Redirect URI: ${redirectLabel}`);
@@ -1540,8 +1735,8 @@ function buildMapboxSummaryDetail() {
   const tokenLabel = token
     ? maskValue(token, 8, 4)
     : mapboxStep.complete
-        ? "Set"
-        : "Not set";
+      ? "Set"
+      : "Not set";
   parts.push(`Token: ${tokenLabel}`);
   if (mapboxStep.error) {
     parts.push(`Error: ${truncateText(mapboxStep.error, 90)}`);
@@ -1580,8 +1775,8 @@ function buildRegionSummaryDetail() {
     let jobLabel = `Download: ${jobStatus.status}`;
     const progress = Number(jobStatus.progress || 0);
     if (
-      ["pending", "running"].includes(jobStatus.status)
-      && Number.isFinite(progress)
+      ["pending", "running"].includes(jobStatus.status) &&
+      Number.isFinite(progress)
     ) {
       jobLabel = `${jobLabel} (${Math.round(progress)}%)`;
     }
