@@ -140,7 +140,7 @@
 /* === Slide Animations === */
 @keyframes slideUp {
   from {
-    transform: none;
+    transform: translateY(12px);
     opacity: 0;
   }
 
@@ -152,7 +152,7 @@
 
 @keyframes slideDown {
   from {
-    transform: none;
+    transform: translateY(-12px);
     opacity: 0;
   }
 
@@ -165,7 +165,7 @@
 @keyframes slideInUp {
   from {
     opacity: 0;
-    transform: none;
+    transform: translateY(12px);
   }
 
   to {
@@ -177,7 +177,7 @@
 @keyframes slideInDown {
   from {
     opacity: 0;
-    transform: none;
+    transform: translateY(-12px);
   }
 
   to {
