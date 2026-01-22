@@ -20,7 +20,7 @@ from map_data.builders import (
     build_valhalla_tiles,
     start_container_on_demand,
 )
-from map_data.download import stream_download_region
+from map_data.download import parallel_download_region
 from map_data.models import MapDataJob, MapRegion
 
 logger = logging.getLogger(__name__)
@@ -90,7 +90,7 @@ async def download_region_task(ctx: dict, job_id: str) -> dict:
                 await region.save()
 
             # Execute download
-            await stream_download_region(region, progress_callback=update_progress)
+            await parallel_download_region(region, progress_callback=update_progress)
 
             # Mark job complete
             job.status = MapDataJob.STATUS_COMPLETED

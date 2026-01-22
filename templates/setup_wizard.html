@@ -429,6 +429,36 @@ Review what is configured. When you finish, background tasks will start syncing 
       </div>
     </div>
   </div>
+  <div class="modal fade"
+       id="bouncieRedirectModal"
+       tabindex="-1"
+       aria-hidden="true"
+       data-bs-backdrop="static"
+       data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content bouncie-redirect-modal">
+        <div class="modal-body">
+          <div class="bouncie-redirect-header">
+            <div class="bouncie-redirect-icon" aria-hidden="true">
+              <i class="fas fa-plug"></i>
+            </div>
+            <div>
+              <h5 class="bouncie-redirect-title">
+                Redirecting to Bouncie
+              </h5>
+              <p class="bouncie-redirect-description">
+                We are opening the secure Bouncie authorization page so you can approve access.
+              </p>
+            </div>
+          </div>
+          <div class="bouncie-redirect-progress" role="status" aria-live="polite">
+            <span class="bouncie-redirect-spinner spinner" aria-hidden="true"></span>
+            <span>Taking you there now...</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 {% endblock %}
 
 

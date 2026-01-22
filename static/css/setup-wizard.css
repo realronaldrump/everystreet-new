@@ -263,6 +263,70 @@
   border-color: rgb(var(--success-rgb) / 35%);
 }
 
+.bouncie-redirect-modal {
+  background: linear-gradient(
+      135deg,
+      rgb(var(--primary-rgb) / 18%),
+      rgb(var(--surface-rgb) / 92%)
+    );
+  border: 1px solid rgb(var(--primary-rgb) / 35%);
+  color: var(--text-primary);
+  box-shadow: var(--glow-primary);
+}
+
+.bouncie-redirect-modal .modal-body {
+  padding: var(--space-5);
+}
+
+.bouncie-redirect-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.bouncie-redirect-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: var(--radius-lg);
+  display: grid;
+  place-items: center;
+  background: rgb(var(--primary-rgb) / 20%);
+  color: rgb(var(--primary-rgb));
+  box-shadow: var(--glow-primary);
+}
+
+.bouncie-redirect-icon i {
+  font-size: 1.35rem;
+}
+
+.bouncie-redirect-title {
+  margin: 0;
+  font-size: 1.1rem;
+  color: var(--text-primary);
+}
+
+.bouncie-redirect-description {
+  margin: var(--space-2) 0 0;
+  color: var(--text-secondary);
+}
+
+.bouncie-redirect-progress {
+  margin-top: var(--space-4);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-tertiary);
+  font-size: 0.95rem;
+}
+
+.bouncie-redirect-spinner {
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  border: 2px solid rgb(var(--primary-rgb) / 30%);
+  border-top-color: rgb(var(--primary-rgb));
+}
+
 .mapbox-preview {
   height: 200px;
   border-radius: var(--radius-lg);

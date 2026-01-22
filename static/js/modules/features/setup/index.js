@@ -37,6 +37,7 @@ let _sessionOwner = false;
 let sessionPollInterval = null;
 let navigationGuardCleanup = null;
 let actionInFlight = false;
+let allowExternalRedirect = false;
 const dirtyState = {
   bouncie: false,
   mapbox: false,
@@ -327,6 +328,9 @@ function applyLockState() {
 function registerNavigationGuard() {
   teardownNavigationGuard();
   const guard = async () => {
+    if (allowExternalRedirect) {
+      return true;
+    }
     if (sessionReadOnly) {
       return true;
     }
@@ -351,6 +355,9 @@ function registerNavigationGuard() {
   };
 
   const handleBeforeUnload = (event) => {
+    if (allowExternalRedirect) {
+      return undefined;
+    }
     if (actionInFlight || isStepLocked()) {
       event.preventDefault();
       event.returnValue = "Setup is running. Leaving may interrupt it.";
@@ -386,6 +393,16 @@ function showNavigationBlockedNotice() {
     "Setup is running. Please wait for the current step to finish.",
     "warning"
   );
+}
+
+function showBouncieRedirectModal() {
+  const modalEl = document.getElementById("bouncieRedirectModal");
+  if (!modalEl || !window.bootstrap?.Modal) {
+    return false;
+  }
+  const modal = window.bootstrap.Modal.getOrCreateInstance(modalEl);
+  modal.show();
+  return true;
 }
 
 async function initializeSetup() {
@@ -793,6 +810,7 @@ async function handleConnectBouncie(e) {
     );
     return;
   }
+  allowExternalRedirect = false;
 
   // 1. Validate form values
   const values = getBouncieFormValues();
@@ -836,9 +854,15 @@ async function handleConnectBouncie(e) {
     showStatus("setup-bouncie-status", "Redirecting to Bouncie...", false);
 
     // 3. Redirect to authorize
-    window.location.href = "/api/bouncie/authorize";
+    allowExternalRedirect = true;
+    const modalShown = showBouncieRedirectModal();
+    const redirectDelay = modalShown ? 450 : 0;
+    window.setTimeout(() => {
+      window.location.href = "/api/bouncie/authorize";
+    }, redirectDelay);
   } catch (error) {
     showStatus("setup-bouncie-status", error.message, true);
+    allowExternalRedirect = false;
     setActionInFlight(false);
   }
 }
