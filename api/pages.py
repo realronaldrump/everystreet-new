@@ -1,8 +1,8 @@
 import logging
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Request, status
-from fastapi.responses import HTMLResponse
+from fastapi import APIRouter, Request
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from config import validate_mapbox_token
@@ -36,6 +36,39 @@ def _render_page(template_name: str, request: Request, **context: Any) -> HTMLRe
     )
 
 
+async def _database_management_context() -> dict[str, Any]:
+    """Build database management statistics context."""
+    try:
+        collections_info = []
+        collection_models = {}
+        for model in ALL_DOCUMENT_MODELS:
+            collection_models.setdefault(model.get_collection_name(), model)
+
+        for collection_name in sorted(collection_models):
+            model = collection_models[collection_name]
+            document_count = await model.find_all().count()
+            collections_info.append(
+                {
+                    "name": collection_name,
+                    "document_count": document_count,
+                    "size_mb": None,
+                },
+            )
+
+        return {
+            "storage_used_mb": None,
+            "collections": collections_info,
+            "database_error": None,
+        }
+    except Exception as exc:
+        logger.exception("Error loading database management data")
+        return {
+            "storage_used_mb": None,
+            "collections": [],
+            "database_error": str(exc),
+        }
+
+
 @router.get("/", response_class=HTMLResponse)
 async def landing(request: Request):
     """Render landing page."""
@@ -65,7 +98,11 @@ async def edit_trips_page(request: Request):
 @router.get("/settings", response_class=HTMLResponse)
 async def settings_page(request: Request):
     """Render settings page."""
-    return _render_page("settings.html", request)
+    return _render_page(
+        "settings.html",
+        request,
+        **(await _database_management_context()),
+    )
 
 
 @router.get("/profile", response_class=HTMLResponse)
@@ -124,37 +161,10 @@ async def coverage_management_page(request: Request):
     )
 
 
-@router.get("/database-management", response_class=HTMLResponse)
+@router.get("/database-management", response_class=RedirectResponse)
 async def database_management_page(request: Request):
-    """Render database management page with statistics."""
-    try:
-        collections_info = []
-        collection_models = {}
-        for model in ALL_DOCUMENT_MODELS:
-            collection_models.setdefault(model.get_collection_name(), model)
-
-        for collection_name in sorted(collection_models):
-            model = collection_models[collection_name]
-            document_count = await model.find_all().count()
-            collections_info.append(
-                {
-                    "name": collection_name,
-                    "document_count": document_count,
-                    "size_mb": None,
-                },
-            )
-        return _render_page(
-            "database_management.html",
-            request,
-            storage_used_mb=None,
-            collections=collections_info,
-        )
-    except Exception as e:
-        logger.exception("Error loading database management page")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
-        )
+    """Redirect database management to settings tab."""
+    return RedirectResponse(url="/settings#database", status_code=301)
 
 
 @router.get("/app-settings", response_class=HTMLResponse)

@@ -15,6 +15,7 @@ import apiClient from "../modules/core/api-client.js";
 import loadingManager from "../modules/ui/loading-manager.js";
 import notificationManager from "../modules/ui/notifications.js";
 import { onPageLoad } from "../modules/utils.js";
+import { initDatabaseManagement } from "../database-management.js";
 import { initAppSettings } from "./app-settings.js";
 import {
   setupGeocodeTrips,
@@ -29,6 +30,37 @@ import { showTaskDetails } from "./task-manager/modals.js";
 import { TaskManager } from "./task-manager/task-manager.js";
 
 let taskManager = null;
+const SETTINGS_MODAL_IDS = [
+  "addRegionModal",
+  "deleteRegionModal",
+  "taskDetailsModal",
+  "pauseModal",
+  "clearHistoryModal",
+  "fetchAllMissingModal",
+];
+
+function moveSettingsModals() {
+  const modalsContainer = document.getElementById("modals-container");
+  if (!modalsContainer) {
+    return;
+  }
+
+  SETTINGS_MODAL_IDS.forEach((id) => {
+    const routeModal = document.querySelector(`#route-content #${id}`);
+    const modal = routeModal || document.getElementById(id);
+    if (!modal) {
+      return;
+    }
+
+    const existing = modalsContainer.querySelector(`#${id}`);
+    if (existing && existing !== modal) {
+      existing.remove();
+    }
+    if (!modalsContainer.contains(modal)) {
+      modalsContainer.appendChild(modal);
+    }
+  });
+}
 
 /**
  * Setup task configuration event listeners (buttons, checkboxes, etc.)
@@ -415,7 +447,10 @@ function setupFetchAllMissingModal(taskManager) {
 /**
  * Main initialization function
  */
-function init({ cleanup } = {}) {
+function init({ cleanup, signal } = {}) {
+  // Keep settings modals outside layout stacking contexts so they remain clickable.
+  moveSettingsModals();
+
   // Create TaskManager instance
   taskManager = new TaskManager();
 
@@ -431,6 +466,9 @@ function init({ cleanup } = {}) {
 
   // Initialize app settings (tabs, preferences)
   initAppSettings();
+
+  // Initialize database management tab
+  initDatabaseManagement({ signal });
 
   // Initialize InvalidTripReview
   new InvalidTripReview();

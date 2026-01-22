@@ -10,7 +10,15 @@ export function setupTabSwitching() {
   const tabContents = document.querySelectorAll(".settings-tab-content");
   const TAB_STORAGE_KEY = "es:settings-active-tab";
 
-  function setActiveTab(tabName, { persist = true } = {}) {
+  const normalizeTabName = (value) => {
+    if (!value) {
+      return "";
+    }
+    const name = value.replace(/^#/, "").trim();
+    return name.endsWith("-tab") ? name.slice(0, -4) : name;
+  };
+
+  function setActiveTab(tabName, { persist = true, updateHash = false } = {}) {
     if (!tabName) {
       return false;
     }
@@ -36,20 +44,34 @@ export function setupTabSwitching() {
       localStorage.setItem(TAB_STORAGE_KEY, tabName);
     }
 
+    if (updateHash) {
+      const url = new URL(window.location.href);
+      url.hash = tabName;
+      window.history.replaceState(null, "", url);
+    }
+
     return true;
   }
 
-  const storedTab = localStorage.getItem(TAB_STORAGE_KEY);
-  if (storedTab && !setActiveTab(storedTab, { persist: false })) {
-    localStorage.removeItem(TAB_STORAGE_KEY);
+  const hashTab = normalizeTabName(window.location.hash);
+  if (!hashTab || !setActiveTab(hashTab, { persist: true })) {
+    const storedTab = localStorage.getItem(TAB_STORAGE_KEY);
+    if (storedTab && !setActiveTab(storedTab, { persist: false })) {
+      localStorage.removeItem(TAB_STORAGE_KEY);
+    }
   }
 
   tabs.forEach((tab) => {
     tab.addEventListener("click", function () {
       const tabName = this.dataset.tab;
 
-      setActiveTab(tabName);
+      setActiveTab(tabName, { updateHash: true });
     });
+  });
+
+  window.addEventListener("hashchange", () => {
+    const tabName = normalizeTabName(window.location.hash);
+    setActiveTab(tabName);
   });
 }
 

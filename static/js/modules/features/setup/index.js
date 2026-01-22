@@ -1478,9 +1478,18 @@ async function completeSetup() {
     if (!response.ok) {
       throw new Error(responseErrorMessage(response, data, "Failed to complete setup"));
     }
-    showStatus("setup-complete-status", "Setup complete! Redirecting...", false);
+    const alreadyCompleted = Boolean(data?.already_completed);
+    showStatus(
+      "setup-complete-status",
+      alreadyCompleted
+        ? "Setup is already completed. You can review settings here."
+        : "Setup complete! Redirecting...",
+      false
+    );
     await refreshSetupSession();
-    window.location.assign("/");
+    if (!alreadyCompleted) {
+      window.location.assign("/");
+    }
   } catch (error) {
     showStatus("setup-complete-status", error.message, true);
   } finally {
