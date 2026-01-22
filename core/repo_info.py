@@ -6,7 +6,6 @@ import re
 import subprocess
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from functools import lru_cache
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -71,10 +70,9 @@ def _run_git_command(args: list[str]) -> str | None:
     return result.stdout.strip() or None
 
 
-@lru_cache(maxsize=1)
-def _get_github_commit_count() -> str | None:
+def _get_github_repo_info() -> tuple[str | None, str | None]:
     if not GITHUB_REPO:
-        return None
+        return None, None
     url = (
         f"https://api.github.com/repos/{GITHUB_REPO}/commits"
         f"?sha={GITHUB_BRANCH}&per_page=1"
@@ -83,6 +81,7 @@ def _get_github_commit_count() -> str | None:
         url,
         headers={
             "Accept": "application/vnd.github+json",
+            "Cache-Control": "no-cache",
             "User-Agent": "everystreet-repo-info",
         },
     )
@@ -91,22 +90,31 @@ def _get_github_commit_count() -> str | None:
             link_header = response.headers.get("Link", "")
             body = response.read()
     except (HTTPError, URLError, TimeoutError, ValueError):
-        return None
+        return None, None
 
+    commit_count = None
     if link_header:
         for part in link_header.split(","):
             if 'rel="last"' in part:
                 match = re.search(r"[?&]page=(\d+)", part)
                 if match:
-                    return match.group(1)
+                    commit_count = match.group(1)
+                    break
 
     try:
         data = json.loads(body)
     except json.JSONDecodeError:
-        return None
-    if isinstance(data, list):
-        return str(len(data))
-    return None
+        return commit_count, None
+
+    latest_iso = None
+    if isinstance(data, list) and data:
+        latest = data[0]
+        commit = latest.get("commit", {})
+        committer = commit.get("committer") or commit.get("author") or {}
+        latest_iso = committer.get("date")
+        if commit_count is None:
+            commit_count = str(len(data))
+    return commit_count, latest_iso
 
 
 def _format_commit_datetime(commit_iso: str | None) -> str:
@@ -120,15 +128,18 @@ def _format_commit_datetime(commit_iso: str | None) -> str:
 
 
 def get_repo_version_info() -> RepoVersionInfo:
-    github_commit_count = _get_github_commit_count()
+    github_commit_count, github_commit_iso = _get_github_repo_info()
+    github_last_updated = (
+        _format_display_date(github_commit_iso) if github_commit_iso else None
+    )
     # First try to read from version file (for Docker deployments)
     version_info = _read_version_file()
     if version_info:
-        if github_commit_count:
+        if github_commit_count or github_last_updated:
             return RepoVersionInfo(
-                commit_count=github_commit_count,
+                commit_count=github_commit_count or version_info.commit_count,
                 commit_hash=version_info.commit_hash,
-                last_updated=version_info.last_updated,
+                last_updated=github_last_updated or version_info.last_updated,
             )
         return version_info
 
@@ -141,7 +152,9 @@ def get_repo_version_info() -> RepoVersionInfo:
     commit_hash = _run_git_command(["rev-parse", "--short", "HEAD"]) or "Unknown"
     commit_iso = _run_git_command(["log", "-1", "--format=%cI"])
 
-    last_updated = _format_display_date(commit_iso) if commit_iso else "Unknown"
+    last_updated = github_last_updated or (
+        _format_display_date(commit_iso) if commit_iso else "Unknown"
+    )
     return RepoVersionInfo(
         commit_count=commit_count,
         commit_hash=commit_hash,

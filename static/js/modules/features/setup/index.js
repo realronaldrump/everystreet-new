@@ -582,6 +582,9 @@ function bindEventListeners() {
     .getElementById("download-region-btn")
     ?.addEventListener("click", downloadSelectedRegion);
   document
+    .getElementById("region-cancel-btn")
+    ?.addEventListener("click", cancelRegionDownload);
+  document
     .getElementById("auto-region-btn")
     ?.addEventListener("click", autoDetectRegion);
   document
@@ -1179,6 +1182,59 @@ async function autoDetectRegion() {
   await runRegionStep("auto", null);
 }
 
+async function cancelRegionDownload() {
+  const jobStatus = getRegionJobStatus();
+  const jobId = jobStatus?.id;
+  if (!jobId) {
+    showRegionStatus("No active download to cancel.", true);
+    return;
+  }
+  if (sessionReadOnly || actionInFlight) {
+    showRegionStatus("Setup is locked while another step is running.", true);
+    return;
+  }
+  let confirmed = false;
+  if (confirmationDialog?.show) {
+    confirmed = await confirmationDialog.show({
+      title: "Cancel map download?",
+      message:
+        "This stops the download and removes any partial files. You can restart it later.",
+      confirmText: "Cancel download",
+      cancelText: "Keep downloading",
+      confirmButtonClass: "btn-danger",
+    });
+  } else {
+    confirmed = window.confirm(
+      "Cancel the map download and remove any partial files?"
+    );
+  }
+  if (!confirmed) {
+    return;
+  }
+  setActionInFlight(true);
+  try {
+    showRegionStatus("Cancelling download and cleaning up files...", false);
+    const response = await apiClient.raw(
+      `${MAP_DATA_API}/jobs/${jobId}`,
+      withSignal({
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+      })
+    );
+    const data = await readJsonResponse(response);
+    if (!response.ok) {
+      throw new Error(
+        responseErrorMessage(response, data, "Failed to cancel download")
+      );
+    }
+    await refreshSetupSession();
+  } catch (error) {
+    showRegionStatus(error.message, true);
+  } finally {
+    setActionInFlight(false);
+  }
+}
+
 async function runRegionStep(mode, region) {
   if (!sessionId || !sessionVersion) {
     showRegionStatus("Setup session is not ready yet.", true);
@@ -1260,6 +1316,8 @@ function updateRegionFromSession(stepState) {
   if (backgroundNote) {
     backgroundNote.classList.toggle("d-none", !stepState.in_flight);
   }
+
+  updateRegionCancelUI(stepState);
 
   if (jobStatus && !["completed", "failed", "cancelled"].includes(jobStatus.status)) {
     showRegionStatus(
