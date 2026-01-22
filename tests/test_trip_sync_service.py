@@ -45,13 +45,14 @@ async def test_sync_status_requires_auth(beanie_db_with_tasks) -> None:
 async def test_sync_status_running(beanie_db_with_tasks) -> None:
     await seed_credentials()
     now = datetime.now(UTC)
-    await TaskHistory(
-        _id="job-running",
+    running = TaskHistory(
         task_id="periodic_fetch_trips",
         status="RUNNING",
         timestamp=now,
         start_time=now,
-    ).insert()
+    )
+    running.id = "job-running"
+    await running.insert()
     status = await TripSyncService.get_sync_status()
     assert status["state"] == "syncing"
     assert status["current_job_id"] == "job-running"
@@ -63,20 +64,23 @@ async def test_sync_status_error_when_failure_is_newer(beanie_db_with_tasks) -> 
     success_time = datetime.now(UTC) - timedelta(hours=4)
     failure_time = datetime.now(UTC) - timedelta(minutes=15)
 
-    await TaskHistory(
-        _id="job-success",
+    success = TaskHistory(
         task_id="periodic_fetch_trips",
         status="COMPLETED",
         timestamp=success_time,
         end_time=success_time,
-    ).insert()
-    await TaskHistory(
-        _id="job-failed",
+    )
+    success.id = "job-success"
+    await success.insert()
+
+    failure = TaskHistory(
         task_id="periodic_fetch_trips",
         status="FAILED",
         timestamp=failure_time,
         error="Trip sync failed",
-    ).insert()
+    )
+    failure.id = "job-failed"
+    await failure.insert()
 
     status = await TripSyncService.get_sync_status()
     assert status["state"] == "error"

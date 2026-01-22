@@ -57,7 +57,7 @@ export function setupTabSwitching() {
 
   const hashTab = normalizeTabName(window.location.hash);
   if (!hashTab || !setActiveTab(hashTab, { persist: true })) {
-    const storedTab = localStorage.getItem(TAB_STORAGE_KEY);
+    const storedTab = normalizeTabName(localStorage.getItem(TAB_STORAGE_KEY));
     if (storedTab && !setActiveTab(storedTab, { persist: false })) {
       localStorage.removeItem(TAB_STORAGE_KEY);
     }

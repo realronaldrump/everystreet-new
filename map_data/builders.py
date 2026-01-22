@@ -172,6 +172,8 @@ async def build_nominatim_data(
         import_cmd = [
             "docker",
             "exec",
+            "--user",
+            "nominatim",
             container_name,
             "nominatim",
             "import",

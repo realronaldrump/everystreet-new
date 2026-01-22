@@ -18,11 +18,13 @@ from datetime import UTC, datetime
 from beanie import PydanticObjectId
 
 from map_data.builders import (
+    BUILD_TIMEOUT,
     build_nominatim_data,
     build_valhalla_tiles,
     start_container_on_demand,
 )
 from map_data.download import (
+    TOTAL_TIMEOUT,
     DownloadCancelled,
     cleanup_download_artifacts,
     parallel_download_region,
@@ -31,6 +33,13 @@ from map_data.models import MapDataJob, MapRegion
 from tasks.ops import abort_job, run_task_with_history
 
 logger = logging.getLogger(__name__)
+
+DOWNLOAD_JOB_TIMEOUT_SECONDS = int(
+    os.getenv("MAP_DATA_DOWNLOAD_JOB_TIMEOUT_SECONDS", str(TOTAL_TIMEOUT)),
+)
+BUILD_JOB_TIMEOUT_SECONDS = int(
+    os.getenv("MAP_DATA_BUILD_JOB_TIMEOUT_SECONDS", str(BUILD_TIMEOUT)),
+)
 
 
 async def _watch_job_cancelled(
@@ -533,7 +542,11 @@ async def enqueue_download_task(job_id: str, build_after: bool = False) -> None:
     from tasks.arq import get_arq_pool
 
     pool = await get_arq_pool()
-    arq_job = await pool.enqueue_job("download_region_task", job_id)
+    arq_job = await pool.enqueue_job(
+        "download_region_task",
+        job_id,
+        _job_timeout=DOWNLOAD_JOB_TIMEOUT_SECONDS,
+    )
     arq_job_id = (
         getattr(arq_job, "job_id", None) or getattr(arq_job, "id", None) or str(arq_job)
     )
@@ -556,7 +569,11 @@ async def enqueue_nominatim_build_task(job_id: str) -> None:
     from tasks.arq import get_arq_pool
 
     pool = await get_arq_pool()
-    arq_job = await pool.enqueue_job("build_nominatim_task", job_id)
+    arq_job = await pool.enqueue_job(
+        "build_nominatim_task",
+        job_id,
+        _job_timeout=BUILD_JOB_TIMEOUT_SECONDS,
+    )
     arq_job_id = (
         getattr(arq_job, "job_id", None) or getattr(arq_job, "id", None) or str(arq_job)
     )
@@ -575,7 +592,11 @@ async def enqueue_valhalla_build_task(job_id: str) -> None:
     from tasks.arq import get_arq_pool
 
     pool = await get_arq_pool()
-    arq_job = await pool.enqueue_job("build_valhalla_task", job_id)
+    arq_job = await pool.enqueue_job(
+        "build_valhalla_task",
+        job_id,
+        _job_timeout=BUILD_JOB_TIMEOUT_SECONDS,
+    )
     arq_job_id = (
         getattr(arq_job, "job_id", None) or getattr(arq_job, "id", None) or str(arq_job)
     )
