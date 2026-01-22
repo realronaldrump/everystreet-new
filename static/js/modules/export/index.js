@@ -95,7 +95,7 @@ function updateGeometryToggle(elements) {
   }
 
   elements.tripFormat.disabled = false;
-  elements.includeTripGeometry.disabled = format === "geojson";
+  elements.includeTripGeometry.disabled = format === "geojson" || format === "gpx";
 }
 
 function setDateDefaults(elements) {

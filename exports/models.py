@@ -17,7 +17,7 @@ ExportEntity = Literal[
     "undriven_streets",
 ]
 
-ExportFormat = Literal["json", "csv", "geojson"]
+ExportFormat = Literal["json", "csv", "geojson", "gpx"]
 
 
 class TripFilters(BaseModel):

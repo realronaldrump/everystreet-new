@@ -13,8 +13,8 @@ EXPORT_ENTITIES: Final[set[str]] = {
 }
 
 EXPORT_FORMATS_BY_ENTITY: Final[dict[str, set[str]]] = {
-    "trips": {"json", "csv", "geojson"},
-    "matched_trips": {"json", "csv", "geojson"},
+    "trips": {"json", "csv", "geojson", "gpx"},
+    "matched_trips": {"json", "csv", "geojson", "gpx"},
     "streets": {"geojson"},
     "boundaries": {"geojson"},
     "undriven_streets": {"geojson"},

@@ -24,15 +24,18 @@ from exports.serializers import (
     normalize_value,
     serialize_boundary_properties,
     serialize_street_properties,
+    serialize_trip_base,
     serialize_trip_properties,
     serialize_trip_record,
 )
 from exports.services.export_writer import (
     write_csv,
+    write_gpx_tracks,
     write_geojson_features,
     write_json_array,
 )
 from geo_service.geometry import GeometryService
+from geo_service.timestamp_utils import extract_timestamps_for_coordinates
 
 if TYPE_CHECKING:
     from exports.models import ExportItem, ExportRequest
@@ -361,6 +364,74 @@ class ExportService:
                 file_path,
                 cursor,
                 TRIP_CSV_FIELDS,
+                serializer,
+                progress.bump,
+            )
+        if fmt == "gpx":
+            geometry_field = "matchedGps" if matched_only else "gps"
+
+            def serializer(trip: Any) -> dict[str, Any]:
+                geometry = GeometryService.parse_geojson(
+                    getattr(trip, geometry_field, None),
+                )
+                coords: list[list[float]] = []
+                if geometry:
+                    geom_type = geometry.get("type")
+                    raw_coords = geometry.get("coordinates")
+                    if geom_type == "Point":
+                        raw_coords = (
+                            [raw_coords] if isinstance(raw_coords, list) else []
+                        )
+                    elif geom_type == "LineString":
+                        raw_coords = raw_coords if isinstance(raw_coords, list) else []
+                    else:
+                        raw_coords = []
+
+                    for coord in raw_coords:
+                        is_valid, pair = GeometryService.validate_coordinate_pair(coord)
+                        if is_valid and pair is not None:
+                            coords.append(pair)
+
+                timestamps: list[int | None] = []
+                if coords:
+                    timestamps = extract_timestamps_for_coordinates(
+                        coords,
+                        {
+                            "coordinates": getattr(trip, "coordinates", None),
+                            "startTime": getattr(trip, "startTime", None),
+                            "endTime": getattr(trip, "endTime", None),
+                        },
+                    )
+
+                base = serialize_trip_base(trip)
+                trip_id = base.get("tripId") or base.get("transactionId")
+                name = f"Trip {trip_id}" if trip_id else None
+
+                description_parts = []
+                if base.get("startTime"):
+                    description_parts.append(f"start: {base['startTime']}")
+                if base.get("endTime"):
+                    description_parts.append(f"end: {base['endTime']}")
+                if base.get("distance") is not None:
+                    description_parts.append(f"distance_mi: {base['distance']}")
+                if base.get("imei"):
+                    description_parts.append(f"imei: {base['imei']}")
+                if base.get("vin"):
+                    description_parts.append(f"vin: {base['vin']}")
+                description = (
+                    " | ".join(description_parts) if description_parts else None
+                )
+
+                return {
+                    "coordinates": coords,
+                    "timestamps": timestamps,
+                    "name": name,
+                    "description": description,
+                }
+
+            return await write_gpx_tracks(
+                file_path,
+                cursor,
                 serializer,
                 progress.bump,
             )
