@@ -731,6 +731,7 @@ onPageLoad(
 
       const selectedContainers = getSelectedContainerNames();
       if (selectedContainers.length === 0) {
+        currentDockerLogs = [];
         dockerLogsContainer.innerHTML = `
           <div class="text-center py-5 text-muted">
             <i class="fab fa-docker fa-3x mb-3"></i>
@@ -829,6 +830,7 @@ onPageLoad(
           );
         }
       } catch {
+        currentDockerLogs = [];
         dockerLogsContainer.innerHTML = `
           <div class="text-center py-5 text-danger">
             <i class="fas fa-exclamation-triangle fa-3x mb-3"></i>
