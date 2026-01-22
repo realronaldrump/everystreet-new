@@ -232,32 +232,114 @@ Loading logs...
 
       <!-- Docker Container Logs Tab -->
       <div class="tab-pane fade" id="docker-logs-pane" role="tabpanel" aria-labelledby="docker-logs-tab">
-        <!-- Container Selection Card -->
+        <!-- Statistics Card (Client-side calculated) -->
+        <div class="card mb-4">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <h2 class="h5 mb-0">
+Log Statistics (Client-Side)
+            </h2>
+            <button id="refresh-docker-stats" class="btn btn-sm btn-outline-primary" style="display: none;">
+              <!-- This button might not be needed if stats update with logs, but keeping for symmetry/potential future use -->
+              <i class="fas fa-sync-alt"></i> Refresh
+            </button>
+          </div>
+          <div class="card-body">
+            <div class="row" id="docker-log-stats">
+              <div class="col-md-2">
+                <div class="stat-item">
+                  <div class="stat-label">
+Total Lines
+                  </div>
+                  <div class="stat-value" id="docker-total-count">
+-
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-2">
+                <div class="stat-item">
+                  <div class="stat-label">
+DEBUG
+                  </div>
+                  <div class="stat-value text-secondary" id="docker-debug-count">
+0
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-2">
+                <div class="stat-item">
+                  <div class="stat-label">
+INFO
+                  </div>
+                  <div class="stat-value text-info" id="docker-info-count">
+0
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-2">
+                <div class="stat-item">
+                  <div class="stat-label">
+WARNING
+                  </div>
+                  <div class="stat-value text-warning" id="docker-warning-count">
+0
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-2">
+                <div class="stat-item">
+                  <div class="stat-label">
+ERROR
+                  </div>
+                  <div class="stat-value text-danger" id="docker-error-count">
+0
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-2">
+                <div class="stat-item">
+                  <div class="stat-label">
+CRITICAL
+                  </div>
+                  <div class="stat-value text-danger" id="docker-critical-count">
+0
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Filters and Actions Card -->
         <div class="card mb-4">
           <div class="card-header">
             <h2 class="h5 mb-0">
-              <i class="fab fa-docker me-2"></i>Container Selection
+Filters &amp; Actions
             </h2>
           </div>
           <div class="card-body">
             <div class="row g-3">
-              <div class="col-md-4">
-                <label for="container-select" class="form-label">
-Select Containers
+              <div class="col-md-3">
+                <label class="form-label">
+Containers
                 </label>
-                <select id="container-select" class="form-select" multiple size="6">
-                  <option value="" disabled>Loading containers...</option>
-                </select>
-                <div class="form-text">
-Use Ctrl/Cmd to select multiple containers.
-                </div>
-                <div class="btn-group btn-group-sm mt-2" role="group">
-                  <button id="docker-select-all" type="button" class="btn btn-outline-secondary">
-Select All
+                <!-- Custom Multi-Select Dropdown Container -->
+                <div class="multi-select-container" id="container-multi-select">
+                  <button type="button" class="form-select text-start multi-select-button" id="container-select-btn">
+                    Select Containers...
                   </button>
-                  <button id="docker-clear-selection" type="button" class="btn btn-outline-secondary">
-Clear
-                  </button>
+                  <div class="multi-select-dropdown" id="container-select-dropdown">
+                    <div class="multi-select-actions p-2 border-bottom">
+                      <div class="btn-group w-100 btn-group-sm">
+                        <button type="button" class="btn btn-outline-secondary" id="docker-select-all">Select All</button>
+                        <button type="button" class="btn btn-outline-secondary" id="docker-clear-selection">Clear</button>
+                      </div>
+                    </div>
+                    <div class="multi-select-options p-1" id="container-select-options">
+                      <!-- Options populated by JS -->
+                      <div class="text-center p-2 text-muted">Loading...</div>
+                    </div>
+                  </div>
+                  <!-- Hidden input to store values for form submission if needed, or just state in JS -->
                 </div>
               </div>
               <div class="col-md-2">
@@ -298,7 +380,7 @@ Lines
                   <option value="5000">5000</option>
                 </select>
               </div>
-              <div class="col-md-2">
+              <div class="col-md-3">
                 <label for="docker-since-filter" class="form-label">
 Since
                 </label>
@@ -318,22 +400,24 @@ Since
                 </button>
               </div>
             </div>
+            
             <div class="row mt-3 g-3">
               <div class="col-md-10">
                 <label for="docker-search-filter" class="form-label">
-Search Message
+Search Message (Local Filter)
                 </label>
                 <input type="text"
                        id="docker-search-filter"
                        class="form-control"
-                       placeholder="Search log messages..." />
+                       placeholder="Filter loaded logs..." />
               </div>
               <div class="col-md-2 d-flex align-items-end">
                 <button id="apply-docker-filters" class="btn btn-primary w-100">
-                  <i class="fas fa-filter"></i> Apply
+                  <i class="fas fa-filter"></i> Apply Local
                 </button>
               </div>
             </div>
+
             <div class="row mt-3">
               <div class="col-12">
                 <div class="btn-group" role="group">
@@ -355,7 +439,7 @@ Search Message
           </div>
         </div>
 
-        <!-- Container Status Card -->
+        <!-- Container Status Card (Hidden initially) -->
         <div class="card mb-4" id="container-status-card" style="display: none;">
           <div class="card-body py-2">
             <div class="d-flex align-items-center">
@@ -371,7 +455,7 @@ Search Message
             <h2 class="h5 mb-0">
 Container Logs
             </h2>
-            <small class="text-muted" id="docker-logs-info">Select one or more containers to view logs</small>
+            <small class="text-muted" id="docker-logs-info">Select containers to view logs</small>
           </div>
           <div class="card-body p-0">
             <div id="docker-logs-container" class="logs-container">

@@ -504,9 +504,15 @@ onPageLoad(
     // =========================================================================
 
     // Docker logs DOM elements
-    const containerSelect = document.getElementById("container-select");
+    const containerSelectBtn = document.getElementById("container-select-btn");
+    const containerSelectDropdown = document.getElementById("container-select-dropdown");
+    const containerSelectOptions = document.getElementById("container-select-options");
     const dockerSelectAllBtn = document.getElementById("docker-select-all");
     const dockerClearSelectionBtn = document.getElementById("docker-clear-selection");
+    
+    // Legacy select element (kept for reference or if needed, but we use the custom one now)
+    // const containerSelect = document.getElementById("container-select"); 
+
     const dockerLevelFilter = document.getElementById("docker-level-filter");
     const dockerLimitFilter = document.getElementById("docker-limit-filter");
     const dockerSinceFilter = document.getElementById("docker-since-filter");
@@ -524,12 +530,22 @@ onPageLoad(
     const containerImageInfo = document.getElementById("container-image-info");
     const dockerLogsTab = document.getElementById("docker-logs-tab");
 
+    // Stats elements
+    const dockerTotalCount = document.getElementById("docker-total-count");
+    const dockerDebugCount = document.getElementById("docker-debug-count");
+    const dockerInfoCount = document.getElementById("docker-info-count");
+    const dockerWarningCount = document.getElementById("docker-warning-count");
+    const dockerErrorCount = document.getElementById("docker-error-count");
+    const dockerCriticalCount = document.getElementById("docker-critical-count");
+    const refreshDockerStatsBtn = document.getElementById("refresh-docker-stats");
+
     // Docker logs state
     let dockerAutoRefreshInterval = null;
     let dockerAutoRefreshEnabled = false;
     let rawDockerLogs = [];
     let currentDockerLogs = [];
     let containersData = [];
+    let selectedContainerNames = new Set(); // Track selected containers
 
     // Initialize Docker logs when tab is clicked
     if (dockerLogsTab) {
@@ -544,23 +560,33 @@ onPageLoad(
       );
     }
 
-    // Docker logs event listeners
-    if (containerSelect) {
-      containerSelect.addEventListener(
-        "change",
-        () => {
-          loadDockerLogs();
-        },
-        signal ? { signal } : false
-      );
+    // Toggle dropdown
+    if (containerSelectBtn) {
+      containerSelectBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        containerSelectDropdown.classList.toggle("show");
+      });
     }
 
+    // Close dropdown when clicking outside
+    document.addEventListener("click", (e) => {
+      if (containerSelectDropdown && containerSelectDropdown.classList.contains("show")) {
+        if (!e.target.closest(".multi-select-container")) {
+          containerSelectDropdown.classList.remove("show");
+        }
+      }
+    });
+
+    // Docker logs event listeners
     if (dockerSelectAllBtn) {
       dockerSelectAllBtn.addEventListener(
         "click",
         (e) => {
           e.preventDefault();
+          e.stopPropagation();
           selectAllContainers();
+          updateMultiSelectUI();
           loadDockerLogs();
         },
         signal ? { signal } : false
@@ -572,8 +598,10 @@ onPageLoad(
         "click",
         (e) => {
           e.preventDefault();
+          e.stopPropagation();
           clearContainerSelection();
-          loadDockerLogs();
+          updateMultiSelectUI();
+          loadDockerLogs(); // Will show empty state
         },
         signal ? { signal } : false
       );
@@ -584,7 +612,7 @@ onPageLoad(
         "click",
         (e) => {
           e.preventDefault();
-          loadDockerLogs();
+          applyDockerFilters();
         },
         signal ? { signal } : false
       );
@@ -595,7 +623,7 @@ onPageLoad(
         "keypress",
         (e) => {
           if (e.key === "Enter") {
-            loadDockerLogs();
+             applyDockerFilters();
           }
         },
         signal ? { signal } : false
@@ -611,6 +639,14 @@ onPageLoad(
         },
         signal ? { signal } : false
       );
+    }
+    
+    if (refreshDockerStatsBtn) {
+        refreshDockerStatsBtn.addEventListener("click", (e) => {
+            e.preventDefault();
+            // Stats are client side based on loaded logs, so just re-calculating or re-loading logs
+             loadDockerLogs();
+        }, signal ? { signal } : false);
     }
 
     if (dockerAutoRefreshToggle) {
@@ -658,51 +694,58 @@ onPageLoad(
     }
 
     function getSelectedContainerNames() {
-      if (!containerSelect) {
-        return [];
-      }
-
-      return Array.from(containerSelect.selectedOptions)
-        .map((option) => option.value)
-        .filter((value) => value);
+      return Array.from(selectedContainerNames);
     }
 
     function setContainerSelectionEnabled(isEnabled) {
       const shouldEnable = Boolean(isEnabled);
-
-      if (containerSelect) {
-        containerSelect.disabled = !shouldEnable;
+      if (containerSelectBtn) {
+         if (shouldEnable) {
+             containerSelectBtn.classList.remove("disabled");
+             containerSelectBtn.removeAttribute("disabled");
+         } else {
+             containerSelectBtn.classList.add("disabled");
+             containerSelectBtn.setAttribute("disabled", "true");
+         }
       }
-
-      if (dockerSelectAllBtn) {
-        dockerSelectAllBtn.disabled = !shouldEnable;
-      }
-
-      if (dockerClearSelectionBtn) {
-        dockerClearSelectionBtn.disabled = !shouldEnable;
-      }
+      if (dockerSelectAllBtn) dockerSelectAllBtn.disabled = !shouldEnable;
+      if (dockerClearSelectionBtn) dockerClearSelectionBtn.disabled = !shouldEnable;
     }
 
     function selectAllContainers() {
-      if (!containerSelect) {
-        return;
-      }
-
-      Array.from(containerSelect.options).forEach((option) => {
-        if (!option.disabled) {
-          option.selected = true;
-        }
-      });
+      containersData.forEach(c => selectedContainerNames.add(c.name));
     }
 
     function clearContainerSelection() {
-      if (!containerSelect) {
-        return;
-      }
+      selectedContainerNames.clear();
+    }
 
-      Array.from(containerSelect.options).forEach((option) => {
-        option.selected = false;
-      });
+    function updateMultiSelectUI() {
+        if (!containerSelectBtn || !containerSelectOptions) return;
+
+        // Update button text
+        const count = selectedContainerNames.size;
+        
+        if (count === 0) {
+            containerSelectBtn.textContent = "Select Containers...";
+        } else if (count === containersData.length && count > 0) {
+            containerSelectBtn.innerHTML = `All Containers (${count}) <span class="container-count-badge">${count}</span>`;
+        } else {
+            const names = Array.from(selectedContainerNames);
+            const label = names.length === 1 ? names[0] : `${names.length} Containers Selected`;
+            containerSelectBtn.innerHTML = `${escapeHtml(label)} <span class="container-count-badge">${count}</span>`;
+        }
+
+        // Update checkboxes
+        const checkboxes = containerSelectOptions.querySelectorAll("input[type='checkbox']");
+        checkboxes.forEach(cb => {
+            cb.checked = selectedContainerNames.has(cb.value);
+            const row = cb.closest(".multi-select-option");
+            if (row) {
+                if (cb.checked) row.classList.add("selected");
+                else row.classList.remove("selected");
+            }
+        });
     }
 
     function getDockerLogLevel(message) {
@@ -750,9 +793,47 @@ onPageLoad(
       };
     }
 
-    function applyDockerFilters({ selectedContainers = [] } = {}) {
+    /**
+     * Update Docker application-like statistics locally
+     */
+    function updateDockerStats(logGroups) {
+        let total = 0;
+        const counts = {
+            DEBUG: 0,
+            INFO: 0,
+            WARNING: 0,
+            ERROR: 0,
+            CRITICAL: 0
+        };
+
+        logGroups.forEach(group => {
+            const logs = group.logs || [];
+            total += logs.length;
+            
+            logs.forEach(line => {
+                const { level } = parseDockerLogLine(line);
+                if (counts[level] !== undefined) {
+                    counts[level]++;
+                } else {
+                    // Fallback
+                    counts.INFO++;
+                }
+            });
+        });
+
+        if (dockerTotalCount) dockerTotalCount.textContent = total;
+        if (dockerDebugCount) dockerDebugCount.textContent = counts.DEBUG;
+        if (dockerInfoCount) dockerInfoCount.textContent = counts.INFO;
+        if (dockerWarningCount) dockerWarningCount.textContent = counts.WARNING;
+        if (dockerErrorCount) dockerErrorCount.textContent = counts.ERROR;
+        if (dockerCriticalCount) dockerCriticalCount.textContent = counts.CRITICAL;
+    }
+
+    function applyDockerFilters() {
+      // Local filter on already loaded logs
       const levelFilterValue = dockerLevelFilter?.value || "";
       const searchValue = dockerSearchFilter?.value?.trim().toLowerCase() || "";
+      const sinceValue = dockerSinceFilter?.value; // Not used for local filter, used in fetch
 
       const filteredGroups = rawDockerLogs.map((group) => {
         const filteredLogs = (group.logs || []).filter((line) => {
@@ -777,6 +858,12 @@ onPageLoad(
       });
 
       currentDockerLogs = filteredGroups;
+      // We update stats based on what is VISIBLE/Reference or what is FETCHED?
+      // Usually statistics show total available. Here we are doing client side stats on FETCHED.
+      // Let's update stats based on filtered results to show "what's on screen" which is more intuitive for client-side filtering.
+      updateDockerStats(filteredGroups);
+      
+      const selectedContainers = getSelectedContainerNames();
       displayDockerLogs(filteredGroups, { selectedContainers });
     }
 
@@ -784,23 +871,25 @@ onPageLoad(
      * Load available Docker containers
      */
     async function loadContainers() {
-      if (!containerSelect) {
+      if (!containerSelectOptions) {
         return;
       }
 
       try {
         setContainerSelectionEnabled(false);
-        containerSelect.innerHTML = '<option value="" disabled>Loading containers...</option>';
+        containerSelectOptions.innerHTML = '<div class="text-center p-2 text-muted">Loading containers...</div>';
 
         const data = await apiClient.get("/api/docker-logs/containers");
         containersData = data.containers || [];
+        selectedContainerNames.clear();
 
         if (containersData.length === 0) {
-          containerSelect.innerHTML = '<option value="" disabled>No containers found</option>';
+          containerSelectOptions.innerHTML = '<div class="text-center p-2 text-muted">No containers found</div>';
+          updateMultiSelectUI();
           return;
         }
 
-        // Build options with running containers first
+        // Build options UI
         const runningContainers = containersData.filter((c) =>
           c.status.toLowerCase().includes("up")
         );
@@ -808,28 +897,62 @@ onPageLoad(
           (c) => !c.status.toLowerCase().includes("up")
         );
 
-        let optionsHtml = "";
+        let html = "";
 
         if (runningContainers.length > 0) {
-          optionsHtml += '<optgroup label="Running">';
+          html += '<div class="multi-select-optgroup">Running</div>';
           runningContainers.forEach((c) => {
-            optionsHtml += `<option value="${escapeHtml(c.name)}">${escapeHtml(c.name)}</option>`;
+            html += `
+              <div class="multi-select-option" data-value="${escapeHtml(c.name)}">
+                <input type="checkbox" value="${escapeHtml(c.name)}" tabindex="-1">
+                <span class="multi-select-option-label">${escapeHtml(c.name)}</span>
+              </div>
+            `;
           });
-          optionsHtml += "</optgroup>";
         }
 
         if (stoppedContainers.length > 0) {
-          optionsHtml += '<optgroup label="Stopped">';
-          stoppedContainers.forEach((c) => {
-            optionsHtml += `<option value="${escapeHtml(c.name)}">${escapeHtml(c.name)}</option>`;
-          });
-          optionsHtml += "</optgroup>";
+            html += '<div class="multi-select-optgroup">Stopped</div>';
+            stoppedContainers.forEach((c) => {
+              html += `
+                <div class="multi-select-option" data-value="${escapeHtml(c.name)}">
+                  <input type="checkbox" value="${escapeHtml(c.name)}" tabindex="-1">
+                  <span class="multi-select-option-label">${escapeHtml(c.name)}</span>
+                </div>
+              `;
+            });
         }
 
-        containerSelect.innerHTML = optionsHtml;
+        containerSelectOptions.innerHTML = html;
         setContainerSelectionEnabled(true);
-      } catch {
-        containerSelect.innerHTML = '<option value="" disabled>Error loading containers</option>';
+        updateMultiSelectUI();
+
+        // Attach click handlers to options
+        const options = containerSelectOptions.querySelectorAll(".multi-select-option");
+        options.forEach(opt => {
+            opt.addEventListener("click", (e) => {
+                // Prevent bubbling if clicking checkbox directly (handled naturally)
+                // If clicking row, toggle checkbox
+                const cb = opt.querySelector("input[type='checkbox']");
+                const value = opt.dataset.value;
+                
+                if (e.target !== cb) {
+                    cb.checked = !cb.checked;
+                }
+
+                if (cb.checked) {
+                    selectedContainerNames.add(value);
+                } else {
+                    selectedContainerNames.delete(value);
+                }
+                updateMultiSelectUI();
+                loadDockerLogs();
+            });
+        });
+
+      } catch (err) {
+        console.error(err);
+        containerSelectOptions.innerHTML = '<div class="text-center p-2 text-danger">Error loading containers</div>';
         setContainerSelectionEnabled(false);
         notificationManager.show("Failed to load Docker containers", "warning");
       }
@@ -839,7 +962,7 @@ onPageLoad(
      * Load Docker container logs
      */
     async function loadDockerLogs() {
-      if (!containerSelect || !dockerLogsContainer) {
+      if (!dockerLogsContainer) {
         return;
       }
 
@@ -847,6 +970,7 @@ onPageLoad(
       if (selectedContainers.length === 0) {
         rawDockerLogs = [];
         currentDockerLogs = [];
+        updateDockerStats([]); // Reset stats
         dockerLogsContainer.innerHTML = `
           <div class="text-center py-5 text-muted">
             <i class="fab fa-docker fa-3x mb-3"></i>
@@ -915,6 +1039,7 @@ onPageLoad(
         if (logGroups.length === 0) {
           rawDockerLogs = [];
           currentDockerLogs = [];
+          updateDockerStats([]);
           dockerLogsContainer.innerHTML = `
             <div class="text-center py-5 text-danger">
               <i class="fas fa-exclamation-triangle fa-3x mb-3"></i>
@@ -948,6 +1073,7 @@ onPageLoad(
       } catch {
         rawDockerLogs = [];
         currentDockerLogs = [];
+        updateDockerStats([]);
         dockerLogsContainer.innerHTML = `
           <div class="text-center py-5 text-danger">
             <i class="fas fa-exclamation-triangle fa-3x mb-3"></i>
