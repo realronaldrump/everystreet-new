@@ -845,6 +845,7 @@ onPageLoad(
 
       const selectedContainers = getSelectedContainerNames();
       if (selectedContainers.length === 0) {
+        rawDockerLogs = [];
         currentDockerLogs = [];
         dockerLogsContainer.innerHTML = `
           <div class="text-center py-5 text-muted">
@@ -911,7 +912,8 @@ onPageLoad(
           }
         });
 
-        currentDockerLogs = logGroups;
+        rawDockerLogs = logGroups;
+        applyDockerFilters({ selectedContainers });
 
         if (selectedContainers.length === 1) {
           updateContainerStatus(selectedContainers[0]);
@@ -932,11 +934,6 @@ onPageLoad(
           return;
         }
 
-        displayDockerLogs(logGroups, {
-          selectedContainers,
-          failedContainers,
-        });
-
         if (failedContainers.length > 0) {
           notificationManager.show(
             `Failed to load logs for: ${failedContainers.join(", ")}`,
@@ -944,6 +941,7 @@ onPageLoad(
           );
         }
       } catch {
+        rawDockerLogs = [];
         currentDockerLogs = [];
         dockerLogsContainer.innerHTML = `
           <div class="text-center py-5 text-danger">
