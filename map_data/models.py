@@ -17,7 +17,7 @@ from typing import Any, ClassVar
 
 from beanie import Document, Indexed, PydanticObjectId
 from beanie.odm.fields import IndexModel
-from pydantic import Field
+from pydantic import ConfigDict, Field
 
 
 class MapRegion(Document):
@@ -83,8 +83,7 @@ class MapRegion(Document):
             IndexModel([("created_at", -1)], name="map_regions_created_idx"),
         ]
 
-    class Config:
-        extra = "allow"
+    model_config = ConfigDict(extra="allow")
 
     @property
     def is_ready(self) -> bool:
@@ -164,8 +163,7 @@ class MapDataJob(Document):
             IndexModel([("created_at", -1)], name="map_jobs_created_idx"),
         ]
 
-    class Config:
-        extra = "allow"
+    model_config = ConfigDict(extra="allow")
 
     @property
     def is_active(self) -> bool:
@@ -216,8 +214,7 @@ class GeoServiceHealth(Document):
     class Settings:
         name = "geo_service_health"
 
-    class Config:
-        extra = "allow"
+    model_config = ConfigDict(extra="allow")
 
     @property
     def overall_healthy(self) -> bool:

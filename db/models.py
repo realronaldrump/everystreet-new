@@ -29,7 +29,7 @@ from typing import Any, ClassVar
 
 from beanie import Document, Indexed, PydanticObjectId
 from beanie.odm.fields import IndexModel
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from core.date_utils import parse_timestamp
 from map_data.models import GeoServiceHealth, MapDataJob, MapRegion
@@ -296,8 +296,7 @@ class Trip(Document):
             ),
         ]
 
-    class Config:
-        extra = "allow"
+    model_config = ConfigDict(extra="allow")
 
 
 class MatchedTrip(Document):
@@ -312,8 +311,7 @@ class MatchedTrip(Document):
     class Settings:
         name = "matched_trips"
 
-    class Config:
-        extra = "allow"
+    model_config = ConfigDict(extra="allow")
 
 
 class OsmData(Document):
@@ -335,8 +333,7 @@ class OsmData(Document):
             ),
         ]
 
-    class Config:
-        extra = "allow"
+    model_config = ConfigDict(extra="allow")
 
 
 class Place(Document):
@@ -353,8 +350,7 @@ class Place(Document):
     class Settings:
         name = "places"
 
-    class Config:
-        extra = "allow"
+    model_config = ConfigDict(extra="allow")
 
 
 class TaskConfig(Document):
@@ -373,8 +369,7 @@ class TaskConfig(Document):
     class Settings:
         name = "task_config"
 
-    class Config:
-        extra = "allow"
+    model_config = ConfigDict(extra="allow")
 
 
 class TaskHistory(Document):
@@ -402,8 +397,7 @@ class TaskHistory(Document):
             ),
         ]
 
-    class Config:
-        extra = "allow"
+    model_config = ConfigDict(extra="allow")
 
 
 class ProgressStatus(Document):
@@ -428,8 +422,7 @@ class ProgressStatus(Document):
     class Settings:
         name = "progress_status"
 
-    class Config:
-        extra = "allow"
+    model_config = ConfigDict(extra="allow")
 
 
 class ExportJob(Document):
@@ -460,8 +453,7 @@ class ExportJob(Document):
             IndexModel([("owner_key", 1)], name="export_jobs_owner_idx"),
         ]
 
-    class Config:
-        extra = "allow"
+    model_config = ConfigDict(extra="allow")
 
 
 class OptimalRouteProgress(Document):
@@ -483,8 +475,7 @@ class OptimalRouteProgress(Document):
     class Settings:
         name = "optimal_route_progress"
 
-    class Config:
-        extra = "allow"
+    model_config = ConfigDict(extra="allow")
 
 
 class GasFillup(Document):
@@ -517,8 +508,7 @@ class GasFillup(Document):
             IndexModel([("vin", 1)], name="gas_fillups_vin_idx", sparse=True),
         ]
 
-    class Config:
-        extra = "allow"
+    model_config = ConfigDict(extra="allow")
 
 
 class Vehicle(Document):
@@ -547,8 +537,7 @@ class Vehicle(Document):
             IndexModel([("is_active", 1)], name="vehicles_is_active_idx"),
         ]
 
-    class Config:
-        extra = "allow"
+    model_config = ConfigDict(extra="allow")
 
 
 class SetupStepState(BaseModel):
@@ -567,8 +556,7 @@ class SetupStepState(BaseModel):
     last_error_at: datetime | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
 
-    class Config:
-        extra = "allow"
+    model_config = ConfigDict(extra="allow")
 
 
 class SetupSession(Document):
@@ -597,8 +585,7 @@ class SetupSession(Document):
             IndexModel([("updated_at", -1)], name="setup_sessions_updated_idx"),
         ]
 
-    class Config:
-        extra = "allow"
+    model_config = ConfigDict(extra="allow")
 
 
 class AppSettings(Document):
@@ -636,8 +623,7 @@ class AppSettings(Document):
         name = "app_settings"
         use_state_management = True
 
-    class Config:
-        extra = "allow"
+    model_config = ConfigDict(extra="allow")
 
 
 class ServerLog(Document):
@@ -663,8 +649,7 @@ class ServerLog(Document):
             ),
         ]
 
-    class Config:
-        extra = "allow"
+    model_config = ConfigDict(extra="allow")
 
 
 class BouncieCredentials(Document):
@@ -690,8 +675,7 @@ class BouncieCredentials(Document):
         name = "bouncie_credentials"
         indexes: ClassVar[list[IndexModel]] = [IndexModel([("id", 1)], unique=True)]
 
-    class Config:
-        extra = "allow"
+    model_config = ConfigDict(extra="allow")
 
 
 class CountyVisitedCache(Document):
@@ -708,8 +692,7 @@ class CountyVisitedCache(Document):
     class Settings:
         name = "county_visited_cache"
 
-    class Config:
-        extra = "allow"
+    model_config = ConfigDict(extra="allow")
 
 
 class CountyTopology(Document):
@@ -725,9 +708,10 @@ class CountyTopology(Document):
     class Settings:
         name = "county_topology"
 
-    class Config:
-        extra = "allow"
-        populate_by_name = True
+    model_config = ConfigDict(
+        extra="allow",
+        populate_by_name=True,
+    )
 
 
 # List of all document models for Beanie initialization

@@ -18,7 +18,7 @@ from typing import Any, ClassVar
 
 from beanie import Document, Indexed, PydanticObjectId
 from beanie.odm.fields import IndexModel
-from pydantic import Field
+from pydantic import ConfigDict, Field
 
 
 class CoverageArea(Document):
@@ -77,8 +77,7 @@ class CoverageArea(Document):
             ),
         ]
 
-    class Config:
-        extra = "allow"
+    model_config = ConfigDict(extra="allow")
 
 
 class Street(Document):
@@ -123,8 +122,7 @@ class Street(Document):
             ),
         ]
 
-    class Config:
-        extra = "allow"
+    model_config = ConfigDict(extra="allow")
 
 
 class CoverageState(Document):
@@ -173,8 +171,7 @@ class CoverageState(Document):
             ),
         ]
 
-    class Config:
-        extra = "allow"
+    model_config = ConfigDict(extra="allow")
 
 
 class Job(Document):
@@ -226,5 +223,4 @@ class Job(Document):
             ),
         ]
 
-    class Config:
-        extra = "allow"
+    model_config = ConfigDict(extra="allow")
