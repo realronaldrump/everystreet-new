@@ -62,3 +62,15 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache
           cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache,mode=max,compression=zstd
+
+      # Trigger immediate update on remote server via Watchtower HTTP API
+      - name: Trigger remote deployment
+        if: success()
+        continue-on-error: true
+        run: |
+          curl -sf -X POST \
+            -H "Authorization: Bearer ${{ secrets.WATCHTOWER_TOKEN }}" \
+            "${{ secrets.WATCHTOWER_URL }}/v1/update" \
+            --connect-timeout 10 \
+            --max-time 30 || echo "Watchtower webhook not available, will poll in 30s"
+

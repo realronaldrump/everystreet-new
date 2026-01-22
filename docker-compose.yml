@@ -173,13 +173,23 @@ services:
 
   # Watchtower - Automatic container updates (ONLY labeled containers)
   watchtower:
-    image: nickfedor/watchtower:latest
+    image: containrrr/watchtower:latest
     restart: unless-stopped
+    environment:
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_INCLUDE_RESTARTING=true
+      - WATCHTOWER_ROLLING_RESTART=true
+      - WATCHTOWER_LABEL_ENABLE=true
+      - WATCHTOWER_POLL_INTERVAL=30
+      # HTTP API for on-demand updates via webhook
+      - WATCHTOWER_HTTP_API_UPDATE=true
+      - WATCHTOWER_HTTP_API_TOKEN=${WATCHTOWER_TOKEN:-update-token}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       # Only needed if your GHCR package is private:
       # - /home/davis/.docker/config.json:/config.json:ro
-    command: --interval 300 --cleanup --include-restarting --rolling-restart --label-enable
+    ports:
+      - "8090:8080"
     networks:
       - default
 

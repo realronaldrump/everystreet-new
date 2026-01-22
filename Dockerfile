@@ -5,6 +5,7 @@ RUN apt-get update && apt-get install -y \
     libexpat1 \
     libexpat1-dev \
     git \
+    docker.io \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY . ./
