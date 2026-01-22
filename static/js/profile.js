@@ -5,6 +5,7 @@
 
 import apiClient from "./modules/core/api-client.js";
 import confirmationDialog from "./modules/ui/confirmation-dialog.js";
+import { notify } from "./modules/ui/notifications.js";
 import { onPageLoad } from "./modules/utils.js";
 import {
   createEditorState,
@@ -277,7 +278,7 @@ function handleCancelEdit() {
   }
   editorState?.cancelEditing();
   applyEditorStateUI();
-  showStatus("Changes discarded.", "info");
+  notify.info("Changes discarded.");
   loadCredentials();
 }
 
@@ -295,10 +296,10 @@ async function loadCredentials(options = {}) {
 
   try {
     if (!silent) {
-      showStatus(
-        masked ? "Loading credentials..." : "Loading unmasked credentials...",
-        "info"
-      );
+       // Optional: could show a loading toast if desired, but usually we just wait for success/error
+       // unless it's a long process. For now, we'll skip the "loading" toast to reduce noise
+       // or use a loading spinner elsewhere.
+       // notify.info(masked ? "Loading credentials..." : "Loading unmasked credentials...");
     }
 
     const data = await apiClient.get(endpoint, withSignal());
@@ -319,27 +320,21 @@ async function loadCredentials(options = {}) {
 
       if (!silent) {
         if (forEdit) {
-          showStatus("Editing enabled. Credentials unlocked.", "success");
+          notify.success("Editing enabled. Credentials unlocked.");
         } else if (data.credentials) {
-          showStatus("Credentials loaded successfully", "success");
+          notify.success("Credentials loaded successfully");
         } else {
-          showStatus(
-            "No credentials found. Enter your Bouncie credentials to save.",
-            "warning"
-          );
+          notify.warning("No credentials found. Enter your Bouncie credentials to save.");
         }
       }
     } else {
-      showStatus(
-        "No credentials found. Enter your Bouncie credentials to save.",
-        "warning"
-      );
+      notify.warning("No credentials found. Enter your Bouncie credentials to save.");
     }
   } catch (error) {
     if (pageSignal?.aborted) {
       return;
     }
-    showStatus(`Error loading credentials: ${error.message}`, "error");
+    notify.error(`Error loading credentials: ${error.message}`);
   }
 }
 
@@ -481,7 +476,7 @@ function syncDevicesFromInputs() {
 function addDeviceInput() {
   const state = getEditorSnapshot();
   if (!state.isEditing) {
-    showStatus("Enable editing to modify devices.", "warning");
+    notify.warning("Enable editing to modify devices.");
     return;
   }
   syncDevicesFromInputs();
@@ -507,7 +502,7 @@ function removeDevice(index) {
     renderDevices();
     updateDraftState();
   } else {
-    showStatus("At least one device is required", "warning");
+    notify.warning("At least one device is required");
   }
 }
 
@@ -523,7 +518,7 @@ async function handleSaveCredentials(event) {
 
   const state = getEditorSnapshot();
   if (!state.isEditing) {
-    showStatus("Enable editing to make changes.", "warning");
+    notify.warning("Enable editing to make changes.");
     return;
   }
 
@@ -533,7 +528,7 @@ async function handleSaveCredentials(event) {
 
   const validationError = validateDraftValues(draftValues);
   if (validationError) {
-    showStatus(validationError, "error");
+    notify.error(validationError);
     return;
   }
 
@@ -557,7 +552,7 @@ async function handleSaveCredentials(event) {
     );
 
     if (data.status === "success") {
-      showStatus("Credentials saved successfully!", "success");
+      notify.success("Credentials saved successfully!");
       currentDevices = draftValues.authorized_devices;
       editorState?.commitDraft();
       editorState?.cancelEditing();
@@ -570,16 +565,13 @@ async function handleSaveCredentials(event) {
         }
       }, 1500);
     } else {
-      showStatus(
-        `Error saving credentials: ${data.detail || data.message || "Unknown error"}`,
-        "error"
-      );
+      notify.error(`Error saving credentials: ${data.detail || data.message || "Unknown error"}`);
     }
   } catch (error) {
     if (pageSignal?.aborted) {
       return;
     }
-    showStatus(`Error saving credentials: ${error.message}`, "error");
+    notify.error(`Error saving credentials: ${error.message}`);
   }
 }
 
@@ -694,56 +686,8 @@ function handleNavigationAttempt(event) {
 }
 
 /**
- * Show status message
- * @param {string} message - Status message
- * @param {string} type - Status type (success, error, warning, info)
+ * Deleted showStatus and getBootstrapClass functions as they are replaced by notify module
  */
-function showStatus(message, type) {
-  const statusEl = document.getElementById("credentialsSaveStatus");
-  const bannerEl = document.getElementById("credentials-status-banner");
-  const bannerTextEl = document.getElementById("credentials-status-text");
-  const isError = type === "error";
-
-  if (statusEl) {
-    statusEl.textContent = message;
-    statusEl.className = `alert alert-${getBootstrapClass(type)} mt-3`;
-    statusEl.style.display = "block";
-    statusEl.setAttribute("role", isError ? "alert" : "status");
-    statusEl.setAttribute("aria-live", isError ? "assertive" : "polite");
-
-    setTimeout(() => {
-      statusEl.style.display = "none";
-    }, 5000);
-  }
-
-  if (bannerEl && bannerTextEl) {
-    bannerTextEl.textContent = message;
-    bannerEl.className = `credentials-status ${type}`;
-    bannerEl.style.display = "block";
-    bannerEl.setAttribute("role", isError ? "alert" : "status");
-    bannerEl.setAttribute("aria-live", isError ? "assertive" : "polite");
-
-    if (type === "success") {
-      setTimeout(() => {
-        bannerEl.style.display = "none";
-      }, 5000);
-    }
-  }
-}
-
-/**
- * Map status type to Bootstrap class
- * @param {string} type - Status type
- */
-function getBootstrapClass(type) {
-  const map = {
-    success: "success",
-    error: "danger",
-    warning: "warning",
-    info: "info",
-  };
-  return map[type] || "info";
-}
 
 /**
  * Sync vehicles from Bouncie (updates authorized devices in credentials)
@@ -753,7 +697,7 @@ async function syncVehiclesFromBouncie() {
     return;
   }
   try {
-    showStatus("Syncing vehicles from Bouncie...", "info");
+    notify.info("Syncing vehicles from Bouncie...");
 
     const data = await apiClient.post(
       "/api/profile/bouncie-credentials/sync-vehicles",
@@ -761,7 +705,7 @@ async function syncVehiclesFromBouncie() {
       withSignal()
     );
 
-    showStatus(data.message || "Vehicles synced successfully!", "success");
+    notify.success(data.message || "Vehicles synced successfully!");
 
     // Reload credentials to update authorized devices
     await loadCredentials();
@@ -769,7 +713,7 @@ async function syncVehiclesFromBouncie() {
     if (pageSignal?.aborted) {
       return;
     }
-    showStatus(`Error syncing vehicles: ${error.message}`, "error");
+    notify.error(`Error syncing vehicles: ${error.message}`);
   }
 }
 
@@ -808,7 +752,7 @@ async function loadServiceConfig() {
     if (pageSignal?.aborted) {
       return;
     }
-    showServiceConfigStatus(`Error loading settings: ${error.message}`, "error");
+    notify.error(`Error loading settings: ${error.message}`);
   }
 }
 
@@ -836,12 +780,12 @@ async function handleSaveServiceConfig(event) {
 
   // Validate Mapbox token format if provided
   if (mapboxToken && !mapboxToken.startsWith("pk.")) {
-    showServiceConfigStatus("Mapbox token must start with 'pk.'", "error");
+    notify.error("Mapbox token must start with 'pk.'");
     return;
   }
 
   try {
-    showServiceConfigStatus("Saving service configuration...", "info");
+    notify.info("Saving service configuration...");
 
     await apiClient.post(
       "/api/app_settings",
@@ -849,34 +793,21 @@ async function handleSaveServiceConfig(event) {
       withSignal()
     );
 
-    showServiceConfigStatus("Service configuration saved successfully!", "success");
+    notify.success("Service configuration saved successfully!");
   } catch (error) {
     if (pageSignal?.aborted) {
       return;
     }
-    showServiceConfigStatus(`Error saving settings: ${error.message}`, "error");
+    notify.error(`Error saving settings: ${error.message}`);
   }
 }
 
 /**
  * Show service config status message
  */
-function showServiceConfigStatus(message, type) {
-  const statusEl = document.getElementById("serviceConfigStatus");
-  if (!statusEl) {
-    return;
-  }
-
-  statusEl.textContent = message;
-  statusEl.className = `alert alert-${getBootstrapClass(type)} mt-3`;
-  statusEl.style.display = "block";
-
-  if (type === "success" || type === "info") {
-    setTimeout(() => {
-      statusEl.style.display = "none";
-    }, 5000);
-  }
-}
+/**
+ * Deleted showServiceConfigStatus as it is replaced by notify module
+ */
 
 if (document.getElementById("serviceConfigForm")) {
   initServiceConfigForm(pageSignal);

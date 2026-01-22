@@ -111,27 +111,29 @@ class ConfirmationDialog {
         }
       };
 
-      function cleanup() {
-        confirmBtn?.removeEventListener("mousedown", handleConfirm);
-        modalElement.removeEventListener("hidden.bs.modal", handleDismiss);
-        modalElement.removeEventListener("hide.bs.modal", handleHide);
-      }
-
-      confirmBtn?.addEventListener("mousedown", (e) => {
+      const handleMouseDown = (e) => {
         if (e.button !== 0) {
           return;
         }
         handleConfirm();
-      });
-      // Handle Enter key on the modal
-      const keyHandler = (e) => {
+      };
+
+      const handleKeyDown = (e) => {
         if (e.key === "Enter" && this.activeModal && modalElement.classList.contains("show")) {
           e.preventDefault();
           handleConfirm();
-          modalElement.removeEventListener("keydown", keyHandler);
         }
       };
-      modalElement.addEventListener("keydown", keyHandler);
+
+      function cleanup() {
+        confirmBtn?.removeEventListener("mousedown", handleMouseDown);
+        modalElement.removeEventListener("keydown", handleKeyDown);
+        modalElement.removeEventListener("hidden.bs.modal", handleDismiss);
+        modalElement.removeEventListener("hide.bs.modal", handleHide);
+      }
+
+      confirmBtn?.addEventListener("mousedown", handleMouseDown);
+      modalElement.addEventListener("keydown", handleKeyDown);
       
       modalElement.addEventListener("hidden.bs.modal", handleDismiss);
       modalElement.addEventListener("hide.bs.modal", handleHide);
