@@ -505,6 +505,8 @@ onPageLoad(
 
     // Docker logs DOM elements
     const containerSelect = document.getElementById("container-select");
+    const dockerSelectAllBtn = document.getElementById("docker-select-all");
+    const dockerClearSelectionBtn = document.getElementById("docker-clear-selection");
     const dockerLimitFilter = document.getElementById("docker-limit-filter");
     const dockerSinceFilter = document.getElementById("docker-since-filter");
     const refreshDockerLogsBtn = document.getElementById("refresh-docker-logs");
@@ -542,6 +544,30 @@ onPageLoad(
       containerSelect.addEventListener(
         "change",
         () => {
+          loadDockerLogs();
+        },
+        signal ? { signal } : false
+      );
+    }
+
+    if (dockerSelectAllBtn) {
+      dockerSelectAllBtn.addEventListener(
+        "click",
+        (e) => {
+          e.preventDefault();
+          selectAllContainers();
+          loadDockerLogs();
+        },
+        signal ? { signal } : false
+      );
+    }
+
+    if (dockerClearSelectionBtn) {
+      dockerClearSelectionBtn.addEventListener(
+        "click",
+        (e) => {
+          e.preventDefault();
+          clearContainerSelection();
           loadDockerLogs();
         },
         signal ? { signal } : false
@@ -592,6 +618,54 @@ onPageLoad(
       );
     }
 
+    function getSelectedContainerNames() {
+      if (!containerSelect) {
+        return [];
+      }
+
+      return Array.from(containerSelect.selectedOptions)
+        .map((option) => option.value)
+        .filter((value) => value);
+    }
+
+    function setContainerSelectionEnabled(isEnabled) {
+      const shouldEnable = Boolean(isEnabled);
+
+      if (containerSelect) {
+        containerSelect.disabled = !shouldEnable;
+      }
+
+      if (dockerSelectAllBtn) {
+        dockerSelectAllBtn.disabled = !shouldEnable;
+      }
+
+      if (dockerClearSelectionBtn) {
+        dockerClearSelectionBtn.disabled = !shouldEnable;
+      }
+    }
+
+    function selectAllContainers() {
+      if (!containerSelect) {
+        return;
+      }
+
+      Array.from(containerSelect.options).forEach((option) => {
+        if (!option.disabled) {
+          option.selected = true;
+        }
+      });
+    }
+
+    function clearContainerSelection() {
+      if (!containerSelect) {
+        return;
+      }
+
+      Array.from(containerSelect.options).forEach((option) => {
+        option.selected = false;
+      });
+    }
+
     /**
      * Load available Docker containers
      */
@@ -601,13 +675,14 @@ onPageLoad(
       }
 
       try {
-        containerSelect.innerHTML = '<option value="">Loading containers...</option>';
+        setContainerSelectionEnabled(false);
+        containerSelect.innerHTML = '<option value="" disabled>Loading containers...</option>';
 
         const data = await apiClient.get("/api/docker-logs/containers");
         containersData = data.containers || [];
 
         if (containersData.length === 0) {
-          containerSelect.innerHTML = '<option value="">No containers found</option>';
+          containerSelect.innerHTML = '<option value="" disabled>No containers found</option>';
           return;
         }
 
@@ -619,7 +694,7 @@ onPageLoad(
           (c) => !c.status.toLowerCase().includes("up")
         );
 
-        let optionsHtml = '<option value="">Select a container...</option>';
+        let optionsHtml = "";
 
         if (runningContainers.length > 0) {
           optionsHtml += '<optgroup label="Running">';
@@ -638,8 +713,10 @@ onPageLoad(
         }
 
         containerSelect.innerHTML = optionsHtml;
+        setContainerSelectionEnabled(true);
       } catch {
-        containerSelect.innerHTML = '<option value="">Error loading containers</option>';
+        containerSelect.innerHTML = '<option value="" disabled>Error loading containers</option>';
+        setContainerSelectionEnabled(false);
         notificationManager.show("Failed to load Docker containers", "warning");
       }
     }
@@ -652,16 +729,16 @@ onPageLoad(
         return;
       }
 
-      const containerName = containerSelect.value;
-      if (!containerName) {
+      const selectedContainers = getSelectedContainerNames();
+      if (selectedContainers.length === 0) {
         dockerLogsContainer.innerHTML = `
           <div class="text-center py-5 text-muted">
             <i class="fab fa-docker fa-3x mb-3"></i>
-            <p>Select a container from the dropdown above to view its logs.</p>
+            <p>Select one or more containers from the list above to view logs.</p>
           </div>
         `;
         if (dockerLogsInfo) {
-          dockerLogsInfo.textContent = "Select a container to view logs";
+          dockerLogsInfo.textContent = "Select one or more containers to view logs";
         }
         if (containerStatusCard) {
           containerStatusCard.style.display = "none";
@@ -671,12 +748,16 @@ onPageLoad(
 
       try {
         // Show loading state
+        const loadingLabel = selectedContainers.length === 1
+          ? `Loading logs for ${escapeHtml(selectedContainers[0])}...`
+          : `Loading logs for ${selectedContainers.length} containers...`;
+
         dockerLogsContainer.innerHTML = `
           <div class="text-center py-5">
             <div class="spinner-border text-primary" role="status">
               <span class="visually-hidden">Loading...</span>
             </div>
-            <p class="mt-2">Loading logs for ${escapeHtml(containerName)}...</p>
+            <p class="mt-2">${loadingLabel}</p>
           </div>
         `;
 
@@ -688,22 +769,70 @@ onPageLoad(
           params.append("since", dockerSinceFilter.value);
         }
 
-        const data = await apiClient.get(
-          `/api/docker-logs/${encodeURIComponent(containerName)}?${params.toString()}`
+        const logRequests = selectedContainers.map((containerName) =>
+          apiClient.get(
+            `/api/docker-logs/${encodeURIComponent(containerName)}?${params.toString()}`
+          )
         );
 
-        currentDockerLogs = data.logs || [];
+        const results = await Promise.allSettled(logRequests);
+        const logGroups = [];
+        const failedContainers = [];
 
-        // Update container status
-        updateContainerStatus(containerName);
+        results.forEach((result, index) => {
+          const containerName = selectedContainers[index];
+          if (result.status === "fulfilled") {
+            const data = result.value || {};
+            logGroups.push({
+              container: data.container || containerName,
+              logs: data.logs || [],
+              line_count: Number.isFinite(data.line_count)
+                ? data.line_count
+                : (data.logs || []).length,
+              truncated: Boolean(data.truncated),
+            });
+          } else {
+            failedContainers.push(containerName);
+          }
+        });
 
-        // Display logs
-        displayDockerLogs(data);
+        currentDockerLogs = logGroups;
+
+        if (selectedContainers.length === 1) {
+          updateContainerStatus(selectedContainers[0]);
+        } else if (containerStatusCard) {
+          containerStatusCard.style.display = "none";
+        }
+
+        if (logGroups.length === 0) {
+          dockerLogsContainer.innerHTML = `
+            <div class="text-center py-5 text-danger">
+              <i class="fas fa-exclamation-triangle fa-3x mb-3"></i>
+              <p>Failed to load logs for the selected containers.</p>
+            </div>
+          `;
+          if (dockerLogsInfo) {
+            dockerLogsInfo.textContent = "No logs loaded";
+          }
+          return;
+        }
+
+        displayDockerLogs(logGroups, {
+          selectedContainers,
+          failedContainers,
+        });
+
+        if (failedContainers.length > 0) {
+          notificationManager.show(
+            `Failed to load logs for: ${failedContainers.join(", ")}`,
+            "warning"
+          );
+        }
       } catch {
         dockerLogsContainer.innerHTML = `
           <div class="text-center py-5 text-danger">
             <i class="fas fa-exclamation-triangle fa-3x mb-3"></i>
-            <p>Failed to load logs for ${escapeHtml(containerName)}. Please try again.</p>
+            <p>Failed to load Docker logs. Please try again.</p>
           </div>
         `;
         notificationManager.show("Failed to load Docker logs", "danger");

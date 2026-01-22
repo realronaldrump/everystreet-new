@@ -243,11 +243,22 @@ Loading logs...
             <div class="row g-3">
               <div class="col-md-4">
                 <label for="container-select" class="form-label">
-Select Container
+Select Containers
                 </label>
-                <select id="container-select" class="form-select">
-                  <option value="">Loading containers...</option>
+                <select id="container-select" class="form-select" multiple size="6">
+                  <option value="" disabled>Loading containers...</option>
                 </select>
+                <div class="form-text">
+Use Ctrl/Cmd to select multiple containers.
+                </div>
+                <div class="btn-group btn-group-sm mt-2" role="group">
+                  <button id="docker-select-all" type="button" class="btn btn-outline-secondary">
+Select All
+                  </button>
+                  <button id="docker-clear-selection" type="button" class="btn btn-outline-secondary">
+Clear
+                  </button>
+                </div>
               </div>
               <div class="col-md-3">
                 <label for="docker-limit-filter" class="form-label">
@@ -316,13 +327,13 @@ Since
             <h2 class="h5 mb-0">
 Container Logs
             </h2>
-            <small class="text-muted" id="docker-logs-info">Select a container to view logs</small>
+            <small class="text-muted" id="docker-logs-info">Select one or more containers to view logs</small>
           </div>
           <div class="card-body p-0">
             <div id="docker-logs-container" class="logs-container">
               <div class="text-center py-5 text-muted">
                 <i class="fab fa-docker fa-3x mb-3"></i>
-                <p>Select a container from the dropdown above to view its logs.</p>
+                <p>Select one or more containers from the list above to view logs.</p>
               </div>
             </div>
           </div>
