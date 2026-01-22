@@ -8,9 +8,10 @@ Provides:
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
-import subprocess
+
 import time
 from datetime import UTC, datetime
 from typing import Any
@@ -32,6 +33,8 @@ async def check_container_status(service_name: str) -> dict[str, Any]:
     Tries Docker Compose v2 (docker compose) first, then falls back to
     Docker Compose v1 (docker-compose) if unavailable, then finally
     falls back to docker ps if both fail.
+
+    Uses asyncio subprocesses to avoid blocking the event loop.
     """
     # Try Docker Compose v2 (plugin) and v1 (standalone) in order
     compose_commands = [
@@ -41,16 +44,24 @@ async def check_container_status(service_name: str) -> dict[str, Any]:
 
     for cmd in compose_commands:
         try:
-            result = subprocess.run(
-                cmd,
-                check=False,
-                capture_output=True,
-                text=True,
-                timeout=10,
+            process = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
             )
 
-            if result.returncode == 0:
-                output = (result.stdout or "").strip()
+            try:
+                stdout, _ = await asyncio.wait_for(process.communicate(), timeout=10.0)
+            except asyncio.TimeoutError:
+                try:
+                    process.kill()
+                except ProcessLookupError:
+                    pass
+                logger.warning("Timeout checking container status with %s", cmd[0])
+                continue
+
+            if process.returncode == 0:
+                output = stdout.decode().strip()
                 if output:
                     entry: dict[str, Any] | None = None
                     try:
@@ -92,23 +103,32 @@ async def check_container_status(service_name: str) -> dict[str, Any]:
 
     # Fall back to docker ps as last resort
     try:
-        result = subprocess.run(
-            [
-                "docker",
-                "ps",
-                "--filter",
-                f"name=app-{service_name}",
-                "--format",
-                "{{.Status}}",
-            ],
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=10,
+        cmd = [
+            "docker",
+            "ps",
+            "--filter",
+            f"name=app-{service_name}",
+            "--format",
+            "{{.Status}}",
+        ]
+
+        process = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
         )
 
-        if result.returncode == 0:
-            status_text = (result.stdout or "").strip()
+        try:
+            stdout, _ = await asyncio.wait_for(process.communicate(), timeout=10.0)
+        except asyncio.TimeoutError:
+            try:
+                process.kill()
+            except ProcessLookupError:
+                pass
+            return {"running": False, "status": "unknown"}
+
+        if process.returncode == 0:
+            status_text = stdout.decode().strip()
             if status_text:
                 state_text = status_text.lower()
                 running = state_text.startswith("up")
