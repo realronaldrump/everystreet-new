@@ -86,6 +86,7 @@ function renderAutoStatus(status) {
   container.innerHTML = `
     <div class="map-services-auto">
       ${renderStatusHeader(status)}
+      ${renderMapboxConfig()}
       ${renderServicesStatus(status)}
       ${renderStatesCoverage(status)}
       ${renderProgressSection(status)}
@@ -94,6 +95,78 @@ function renderAutoStatus(status) {
   `;
 
   attachEventListeners();
+  loadMapboxToken(); // Load the token when rendering
+}
+
+/**
+ * Render Mapbox configuration section
+ */
+function renderMapboxConfig() {
+  return `
+    <div class="mapbox-config-section mb-4">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <label for="mapbox-token-input" class="form-label mb-0 fw-bold">Mapbox Access Token</label>
+        <button class="btn btn-sm btn-outline-primary" id="save-mapbox-token-btn" disabled>
+          Save Token
+        </button>
+      </div>
+      <div class="input-group">
+        <span class="input-group-text"><i class="fas fa-key"></i></span>
+        <input type="password" class="form-control" id="mapbox-token-input" placeholder="pk.eyJ..." />
+        <button class="btn btn-outline-secondary" type="button" id="toggle-mapbox-token">
+          <i class="fas fa-eye"></i>
+        </button>
+      </div>
+      <div class="form-text">
+        Required for map tiles and static images. Changes take effect immediately.
+      </div>
+    </div>
+  `;
+}
+
+/**
+ * Load Mapbox token from settings
+ */
+async function loadMapboxToken() {
+  try {
+    const response = await apiClient.get("/api/app_settings");
+    const tokenInput = document.getElementById("mapbox-token-input");
+    if (tokenInput && response.mapbox_token) {
+      tokenInput.value = response.mapbox_token;
+    }
+  } catch (error) {
+    console.error("Failed to load Mapbox token", error);
+  }
+}
+
+/**
+ * Save Mapbox token
+ */
+async function saveMapboxToken() {
+  const tokenInput = document.getElementById("mapbox-token-input");
+  const saveBtn = document.getElementById("save-mapbox-token-btn");
+  if (!tokenInput || !saveBtn) return;
+
+  const token = tokenInput.value.trim();
+  if (!token) return;
+
+  try {
+    saveBtn.disabled = true;
+    saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+    
+    await apiClient.post("/api/app_settings", { mapbox_token: token });
+    
+    notificationManager.show("Mapbox token saved successfully", "success");
+    saveBtn.innerHTML = "Saved!";
+    setTimeout(() => {
+      saveBtn.innerHTML = "Save Token";
+      saveBtn.disabled = false;
+    }, 2000);
+  } catch (error) {
+    notificationManager.show("Failed to save Mapbox token", "danger");
+    saveBtn.innerHTML = "Save Token";
+    saveBtn.disabled = false;
+  }
 }
 
 /**
@@ -329,6 +402,30 @@ function attachEventListeners() {
   document.getElementById("cancel-setup-btn")?.addEventListener("click", cancelSetup);
   document.getElementById("retry-btn")?.addEventListener("click", triggerProvisioning);
   document.getElementById("refresh-btn")?.addEventListener("click", handleRefresh);
+
+  // Mapbox token listeners
+  const tokenInput = document.getElementById("mapbox-token-input");
+  const saveBtn = document.getElementById("save-mapbox-token-btn");
+  const toggleBtn = document.getElementById("toggle-mapbox-token");
+
+  if (tokenInput) {
+    tokenInput.addEventListener("input", () => {
+      if (saveBtn) saveBtn.disabled = false;
+    });
+  }
+
+  if (saveBtn) {
+    saveBtn.addEventListener("click", saveMapboxToken);
+  }
+
+  if (toggleBtn && tokenInput) {
+    toggleBtn.addEventListener("click", () => {
+      const type = tokenInput.getAttribute("type") === "password" ? "text" : "password";
+      tokenInput.setAttribute("type", type);
+      toggleBtn.querySelector("i").classList.toggle("fa-eye");
+      toggleBtn.querySelector("i").classList.toggle("fa-eye-slash");
+    });
+  }
 }
 
 /**

@@ -24,6 +24,7 @@ import {
   setupManualFetchTripsForm,
   setupRemapMatchedTrips,
 } from "./geocode-remap.js";
+import { setupBouncieSettings } from "./bouncie-settings.js";
 import { InvalidTripReview } from "./invalid-trip-review.js";
 import mapServices from "./map-services.js";
 import { initMobileUI } from "./mobile-ui.js";
@@ -599,6 +600,7 @@ function init({ cleanup, signal } = {}) {
   setupRemapMatchedTrips();
   setupFetchAllMissingModal(taskManager);
   setupTripSyncSettings();
+  setupBouncieSettings();
 
   // Initialize mobile UI
   const mobileCleanup = initMobileUI(taskManager);

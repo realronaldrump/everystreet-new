@@ -41,7 +41,9 @@
 .notification-icon {
   font-size: var(--font-size-xl);
   margin-right: var(--space-3);
-  margin-top: var(--space-1); /* Align icon better with text */
+  display: flex;
+  align-items: center;
+  height: calc(var(--font-size-sm) * var(--line-height-normal));
   flex-shrink: 0; /* Prevent icon from shrinking */
 }
 
