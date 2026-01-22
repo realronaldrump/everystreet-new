@@ -197,6 +197,11 @@ function updateProgress() {
   const progressText = document.getElementById("map-coverage-progress-text");
   const messageEl = document.getElementById("map-coverage-message");
   const cancelBtn = document.getElementById("map-coverage-cancel-btn");
+  const saveBtn = document.getElementById("map-coverage-save-btn");
+  const changeBtn = document.getElementById("map-coverage-change-btn");
+  const rebuildBtn = document.getElementById("map-coverage-rebuild-btn");
+  const locked =
+    status?.status === "downloading" || status?.status === "building";
 
   if (progressBar) {
     const percent = Number(status?.progress || 0);
@@ -219,6 +224,20 @@ function updateProgress() {
   if (cancelBtn) {
     cancelBtn.classList.toggle("d-none", !showProgress);
   }
+  if (saveBtn) {
+    saveBtn.disabled = locked;
+  }
+  if (changeBtn) {
+    changeBtn.disabled = locked;
+  }
+  if (rebuildBtn) {
+    rebuildBtn.disabled = locked;
+  }
+  document
+    .querySelectorAll('#map-coverage-state-selector input[type="checkbox"]')
+    .forEach((input) => {
+      input.disabled = locked;
+    });
 }
 
 function maybeStartPolling() {

@@ -519,11 +519,15 @@ async function startMapSetup() {
   }
   try {
     showStatus("coverage-status", "Starting map setup...", false);
-    await apiClient.raw(`${MAP_SERVICES_API}/configure`, {
+    const response = await apiClient.raw(`${MAP_SERVICES_API}/configure`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ states: Array.from(selectedStates) }),
     });
+    const data = await readJsonResponse(response);
+    if (!response.ok) {
+      throw new Error(responseErrorMessage(response, data, "Setup failed."));
+    }
     await refreshMapServicesStatus();
     startStatusPolling();
   } catch (error) {
@@ -534,7 +538,13 @@ async function startMapSetup() {
 async function cancelMapSetup() {
   try {
     showStatus("coverage-status", "Cancelling setup...", false);
-    await apiClient.raw(`${MAP_SERVICES_API}/cancel`, { method: "POST" });
+    const response = await apiClient.raw(`${MAP_SERVICES_API}/cancel`, {
+      method: "POST",
+    });
+    const data = await readJsonResponse(response);
+    if (!response.ok) {
+      throw new Error(responseErrorMessage(response, data, "Cancel failed."));
+    }
     await refreshMapServicesStatus();
   } catch (error) {
     showStatus("coverage-status", error.message || "Cancel failed.", true);
@@ -578,6 +588,20 @@ function updateMapCoverageUI() {
   if (finishBtn) {
     const canFinish = status?.status === "ready" && setupStatus?.required_complete;
     finishBtn.classList.toggle("d-none", !canFinish);
+  }
+
+  const locked = status?.status === "downloading" || status?.status === "building";
+  document
+    .querySelectorAll('#state-selection input[type="checkbox"]')
+    .forEach((input) => {
+      input.disabled = locked;
+    });
+  const mapSetupBtn = document.getElementById("map-setup-btn");
+  if (mapSetupBtn) {
+    const credentialsComplete =
+      setupStatus?.steps?.bouncie?.complete && setupStatus?.steps?.mapbox?.complete;
+    mapSetupBtn.disabled =
+      locked || !selectedStates.size || !credentialsComplete;
   }
 
   const infoEl = document.getElementById("coverage-status-pill");

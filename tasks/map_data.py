@@ -70,7 +70,7 @@ def _normalize_states(states: list[str]) -> list[str]:
         if not code or code in seen:
             continue
         if not get_state(code):
-            continue
+            raise ValueError(f"Invalid state code: {code}")
         normalized.append(code)
         seen.add(code)
     return normalized
