@@ -2,9 +2,11 @@ import csv
 import json
 
 import pytest
+import gpxpy
 
 from exports.services.export_writer import (
     write_csv,
+    write_gpx_tracks,
     write_geojson_features,
     write_json_array,
 )
@@ -60,3 +62,30 @@ async def test_write_geojson_features(tmp_path) -> None:
     payload = json.loads(path.read_text())
     assert payload["type"] == "FeatureCollection"
     assert len(payload["features"]) == 2
+
+
+@pytest.mark.asyncio
+async def test_write_gpx_tracks(tmp_path) -> None:
+    items = [
+        {
+            "coordinates": [[-122.0, 47.0], [-122.1, 47.1]],
+            "name": "Trip 1",
+            "description": "start: 2024-01-01T00:00:00Z",
+        },
+        {
+            "coordinates": [],
+            "name": "Empty Trip",
+        },
+    ]
+    path = tmp_path / "trips.gpx"
+
+    count = await write_gpx_tracks(
+        path,
+        _async_iter(items),
+        serializer=lambda item: item,
+    )
+
+    assert count == 1
+    gpx = gpxpy.parse(path.read_text())
+    assert len(gpx.tracks) == 1
+    assert gpx.tracks[0].name == "Trip 1"

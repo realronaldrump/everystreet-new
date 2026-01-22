@@ -38,3 +38,9 @@ def test_export_request_accepts_valid_payload() -> None:
     item = ExportItem(entity="trips", format="json")
     request = ExportRequest(items=[item])
     assert request.items[0].entity == "trips"
+
+
+def test_export_request_accepts_gpx_trip_format() -> None:
+    item = ExportItem(entity="trips", format="gpx")
+    request = ExportRequest(items=[item])
+    assert request.items[0].format == "gpx"

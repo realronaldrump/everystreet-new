@@ -80,5 +80,8 @@ def test_entity_file_path_returns_correct_extension() -> None:
     path = ExportService._entity_file_path(export_dir, "trips", "json")
     assert path.name == "trips.json"
 
+    path = ExportService._entity_file_path(export_dir, "trips", "gpx")
+    assert path.name == "trips.gpx"
+
     path = ExportService._entity_file_path(export_dir, "streets", "geojson")
     assert path.name == "streets.geojson"
