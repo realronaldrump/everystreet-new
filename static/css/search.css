@@ -2,8 +2,8 @@
 
 #map-search-input {
   padding-right: 2rem;
-  background-color: rgb(var(--surface-rgb), 0.9);
-  border: 1px solid rgb(var(--border-rgb), 0.3);
+  background-color: rgb(var(--surface-rgb) / 0.9);
+  border: 1px solid rgb(var(--border-rgb) / 0.3);
   color: var(--text-primary);
   transition: all 0.2s ease;
   position: relative;
@@ -12,7 +12,7 @@
 }
 
 #map-search-input:focus {
-  background-color: rgb(var(--surface-rgb), 1);
+  background-color: rgb(var(--surface-rgb) / 1);
   border-color: var(--primary);
   box-shadow: var(--focus-ring);
   color: var(--text-primary);
@@ -40,8 +40,8 @@
   position: fixed;
   max-height: min(400px, 50vh);
   overflow: hidden auto;
-  background-color: rgb(var(--surface-rgb), 0.96);
-  border: 1px solid rgb(var(--border-rgb), 0.35);
+  background-color: rgb(var(--surface-rgb) / 0.96);
+  border: 1px solid rgb(var(--border-rgb) / 0.35);
   border-radius: var(--radius-lg);
   box-shadow:
     0 8px 24px rgb(0 0 0 / 40%),
@@ -69,7 +69,7 @@
 .search-result-item {
   padding: 0.875rem 1.125rem;
   cursor: pointer;
-  border-bottom: 1px solid rgb(var(--border-rgb), 0.2);
+  border-bottom: 1px solid rgb(var(--border-rgb) / 0.2);
   transition: all 0.2s ease;
   color: var(--text-primary);
   position: relative;
@@ -88,7 +88,7 @@
 
 .search-result-item:hover,
 .search-result-item.active {
-  background-color: rgb(var(--primary-rgb), 0.18);
+  background-color: rgb(var(--primary-rgb) / 0.18);
   transform: translateX(2px);
 }
 
@@ -131,17 +131,17 @@
 }
 
 .search-result-type.place {
-  background-color: rgb(var(--success-rgb), 0.22);
+  background-color: rgb(var(--success-rgb) / 0.22);
   color: var(--success);
 }
 
 .search-result-type.street {
-  background-color: rgb(var(--info-rgb), 0.22);
+  background-color: rgb(var(--info-rgb) / 0.22);
   color: var(--info);
 }
 
 .search-result-type.address {
-  background-color: rgb(var(--warning-rgb), 0.22);
+  background-color: rgb(var(--warning-rgb) / 0.22);
   color: var(--warning);
 }
 
@@ -200,7 +200,7 @@
 
 /* Keyboard navigation highlight */
 .search-result-item[aria-selected="true"] {
-  background-color: rgb(var(--primary-rgb), 0.32);
+  background-color: rgb(var(--primary-rgb) / 0.32);
   outline: var(--focus-outline);
   outline-offset: -2px;
   z-index: 1;

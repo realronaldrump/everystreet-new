@@ -7,7 +7,7 @@
 .gas-hero {
   background: var(--primary-gradient);
   color: var(--text-on-primary);
-  border: 1px solid rgb(var(--border-rgb), 0.2);
+  border: 1px solid rgb(var(--border-rgb) / 0.2);
   box-shadow: var(--shadow-lg);
 }
 
@@ -44,7 +44,7 @@
   border-radius: var(--radius-xl);
   overflow: hidden;
   min-height: 280px;
-  box-shadow: inset 0 0 0 1px rgb(var(--border-rgb), 0.2);
+  box-shadow: inset 0 0 0 1px rgb(var(--border-rgb) / 0.2);
 }
 
 .location-info {

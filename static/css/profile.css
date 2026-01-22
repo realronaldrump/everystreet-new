@@ -106,19 +106,19 @@
 }
 
 .credentials-status.success {
-  background: rgb(var(--success-rgb), 0.15);
+  background: rgb(var(--success-rgb) / 0.15);
   border: 1px solid var(--success);
   color: var(--success);
 }
 
 .credentials-status.warning {
-  background: rgb(var(--warning-rgb), 0.15);
+  background: rgb(var(--warning-rgb) / 0.15);
   border: 1px solid var(--warning);
   color: var(--warning);
 }
 
 .credentials-status.error {
-  background: rgb(var(--danger-rgb), 0.15);
+  background: rgb(var(--danger-rgb) / 0.15);
   border: 1px solid var(--danger);
   color: var(--danger);
 }

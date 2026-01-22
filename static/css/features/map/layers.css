@@ -27,7 +27,7 @@
 .recent-trip,
 .trip-feature-recent {
   /* Highlight recent trips */
-  filter: drop-shadow(0 0 4px rgb(var(--primary-rgb), 0.6));
+  filter: drop-shadow(0 0 4px rgb(var(--primary-rgb) / 0.6));
 }
 
 .undriven-street-feature {
@@ -37,5 +37,5 @@
 }
 
 .undriven-street-feature:hover {
-  filter: drop-shadow(0 0 5px rgb(var(--info-rgb), 0.8)); /* Info color for undriven hover */
+  filter: drop-shadow(0 0 5px rgb(var(--info-rgb) / 0.8)); /* Info color for undriven hover */
 }
