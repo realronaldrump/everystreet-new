@@ -477,6 +477,10 @@
   margin-top: var(--space-3);
 }
 
+.setup-region-progress-actions {
+  margin-top: var(--space-2);
+}
+
 .setup-region-note {
   margin-top: var(--space-2);
   padding: var(--space-2) var(--space-3);

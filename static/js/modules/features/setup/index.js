@@ -124,6 +124,10 @@ function isRegionJobInFlight() {
   return Boolean(getRegionStepState()?.in_flight);
 }
 
+function getRegionJobStatus() {
+  return getRegionStepState()?.metadata?.job_status || null;
+}
+
 function markDirty(stepKey) {
   if (Object.hasOwn(dirtyState, stepKey)) {
     dirtyState[stepKey] = true;
@@ -1124,6 +1128,20 @@ function updateSelectedRegionUI() {
   }
 }
 
+function updateRegionCancelUI(stepState) {
+  const cancelWrap = document.getElementById("region-cancel-wrap");
+  const cancelBtn = document.getElementById("region-cancel-btn");
+  if (!cancelWrap || !cancelBtn) {
+    return;
+  }
+  const jobStatus = stepState?.metadata?.job_status;
+  const canCancel = Boolean(
+    jobStatus && ["pending", "running"].includes(jobStatus.status)
+  );
+  cancelWrap.classList.toggle("d-none", !canCancel);
+  cancelBtn.disabled = !canCancel || sessionReadOnly || actionInFlight;
+}
+
 function setRegionControlsLocked(locked) {
   const isLocked = Boolean(locked || sessionReadOnly || actionInFlight);
   regionControlsLocked = isLocked;
@@ -1147,6 +1165,7 @@ function setRegionControlsLocked(locked) {
     }
   });
   updateSelectedRegionUI();
+  updateRegionCancelUI(getRegionStepState());
 }
 
 async function downloadSelectedRegion() {
