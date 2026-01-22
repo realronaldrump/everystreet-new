@@ -9,7 +9,7 @@
 
 import apiClient from "../modules/core/api-client.js";
 import notificationManager from "../modules/ui/notifications.js";
-import { escapeHtml, formatTimeAgo } from "../modules/utils.js";
+import { escapeHtml, formatTimeAgo } from "../modules/utils/formatting.js";
 
 const API_BASE = "/api/map-data";
 
