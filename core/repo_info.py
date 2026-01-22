@@ -4,6 +4,7 @@ import json
 import subprocess
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from zoneinfo import ZoneInfo
 from pathlib import Path
 
 # Path to version file generated at build time
@@ -18,11 +19,12 @@ class RepoVersionInfo:
 
 
 def _format_display_date(iso_date: str) -> str:
-    """Format ISO date string to human readable display format."""
+    """Format ISO date string to human readable display format in Central time."""
     try:
         dt = datetime.fromisoformat(iso_date)
-        # Use local time (astimezone() with no arg uses local system timezone)
-        return dt.astimezone().strftime("%B %d, %Y %I:%M %p")
+        # Use Central timezone explicitly
+        central = ZoneInfo("America/Chicago")
+        return dt.astimezone(central).strftime("%B %d, %Y %I:%M %p")
     except ValueError:
         return _format_commit_datetime(iso_date)
 
