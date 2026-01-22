@@ -1042,28 +1042,49 @@ onPageLoad(
      * Copy all Docker logs to clipboard
      */
     async function copyDockerLogs() {
-      if (currentDockerLogs.length === 0) {
+      const totalLines = currentDockerLogs.reduce(
+        (sum, group) => sum + (group.logs?.length || 0),
+        0
+      );
+
+      if (currentDockerLogs.length === 0 || totalLines === 0) {
         notificationManager.show("No logs to copy. Please load logs first.", "warning");
         return;
       }
 
       try {
-        const containerName = containerSelect?.value || "unknown";
-        let allLogsText = `Docker Container Logs: ${containerName}\n`;
+        const containerNames = currentDockerLogs
+          .map((group) => group.container)
+          .filter(Boolean);
+        const containerLabel = containerNames.length > 1
+          ? `Containers: ${containerNames.join(", ")}`
+          : `Container: ${containerNames[0] || "unknown"}`;
+
+        let allLogsText = "Docker Container Logs\n";
+        allLogsText += `${containerLabel}\n`;
         allLogsText += `Generated: ${new Date().toLocaleString("en-US", {
           hour12: true,
         })}\n`;
-        allLogsText += `Total Lines: ${currentDockerLogs.length}\n`;
+        allLogsText += `Total Lines: ${totalLines}\n`;
         allLogsText += `${"=".repeat(80)}\n\n`;
 
-        currentDockerLogs.forEach((line) => {
-          allLogsText += `${line}\n`;
+        currentDockerLogs.forEach((group) => {
+          const lineCount = group.logs?.length || 0;
+          allLogsText += `Container: ${group.container}\n`;
+          allLogsText += `Lines: ${lineCount}${group.truncated ? " (truncated)" : ""}\n`;
+          allLogsText += `${"-".repeat(80)}\n`;
+
+          group.logs.forEach((line) => {
+            allLogsText += `${line}\n`;
+          });
+
+          allLogsText += "\n";
         });
 
         await navigator.clipboard.writeText(allLogsText);
 
         notificationManager.show(
-          `Copied ${currentDockerLogs.length} log lines to clipboard`,
+          `Copied ${totalLines} log lines to clipboard`,
           "success"
         );
       } catch {
@@ -1075,7 +1096,12 @@ onPageLoad(
      * Export Docker logs to file
      */
     function exportDockerLogs() {
-      if (currentDockerLogs.length === 0) {
+      const totalLines = currentDockerLogs.reduce(
+        (sum, group) => sum + (group.logs?.length || 0),
+        0
+      );
+
+      if (currentDockerLogs.length === 0 || totalLines === 0) {
         notificationManager.show(
           "No logs to export. Please load logs first.",
           "warning"
@@ -1084,13 +1110,36 @@ onPageLoad(
       }
 
       try {
-        const containerName = containerSelect?.value || "unknown";
-        const dataStr = currentDockerLogs.join("\n");
+        const containerNames = currentDockerLogs
+          .map((group) => group.container)
+          .filter(Boolean);
+        const fileSuffix = containerNames.length === 1
+          ? `docker-${containerNames[0]}-logs`
+          : "docker-containers-logs";
+        const containerLabel = containerNames.length > 1
+          ? `Containers: ${containerNames.join(", ")}`
+          : `Container: ${containerNames[0] || "unknown"}`;
+
+        let dataStr = "Docker Container Logs\n";
+        dataStr += `${containerLabel}\n`;
+        dataStr += `Generated: ${new Date().toLocaleString("en-US", {
+          hour12: true,
+        })}\n`;
+        dataStr += `Total Lines: ${totalLines}\n`;
+        dataStr += `${"=".repeat(80)}\n\n`;
+
+        currentDockerLogs.forEach((group) => {
+          const lineCount = group.logs?.length || 0;
+          dataStr += `Container: ${group.container}\n`;
+          dataStr += `Lines: ${lineCount}${group.truncated ? " (truncated)" : ""}\n`;
+          dataStr += `${"-".repeat(80)}\n`;
+          dataStr += `${group.logs.join("\n")}\n\n`;
+        });
         const dataBlob = new Blob([dataStr], { type: "text/plain" });
         const url = URL.createObjectURL(dataBlob);
         const link = document.createElement("a");
         link.href = url;
-        link.download = `docker-${containerName}-logs-${new Date().toISOString()}.log`;
+        link.download = `${fileSuffix}-${new Date().toISOString()}.log`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);

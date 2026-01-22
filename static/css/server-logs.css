@@ -24,6 +24,27 @@
   border-radius: 0 0 var(--radius-lg) var(--radius-lg);
 }
 
+.docker-log-group {
+  border-bottom: 1px solid var(--border-color-light);
+}
+
+.docker-log-group:last-child {
+  border-bottom: none;
+}
+
+.docker-log-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1.5rem;
+  background-color: var(--surface-0);
+  gap: 1rem;
+}
+
+.docker-log-group-title {
+  font-weight: 600;
+}
+
 .log-entry {
   padding: 1rem 1.5rem;
   border-bottom: 1px solid var(--border-color-light);
