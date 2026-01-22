@@ -499,6 +499,405 @@ onPageLoad(
       }
     }
 
+    // =========================================================================
+    // Docker Container Logs Functionality
+    // =========================================================================
+
+    // Docker logs DOM elements
+    const containerSelect = document.getElementById("container-select");
+    const dockerLimitFilter = document.getElementById("docker-limit-filter");
+    const dockerSinceFilter = document.getElementById("docker-since-filter");
+    const refreshDockerLogsBtn = document.getElementById("refresh-docker-logs");
+    const dockerAutoRefreshToggle = document.getElementById("docker-auto-refresh-toggle");
+    const copyDockerLogsBtn = document.getElementById("copy-docker-logs");
+    const exportDockerLogsBtn = document.getElementById("export-docker-logs");
+    const dockerLogsContainer = document.getElementById("docker-logs-container");
+    const dockerLogsInfo = document.getElementById("docker-logs-info");
+    const containerStatusCard = document.getElementById("container-status-card");
+    const containerStatusBadge = document.getElementById("container-status-badge");
+    const containerImageInfo = document.getElementById("container-image-info");
+    const dockerLogsTab = document.getElementById("docker-logs-tab");
+
+    // Docker logs state
+    let dockerAutoRefreshInterval = null;
+    let dockerAutoRefreshEnabled = false;
+    let currentDockerLogs = [];
+    let containersData = [];
+
+    // Initialize Docker logs when tab is clicked
+    if (dockerLogsTab) {
+      dockerLogsTab.addEventListener(
+        "click",
+        () => {
+          if (containersData.length === 0) {
+            loadContainers();
+          }
+        },
+        signal ? { signal } : false
+      );
+    }
+
+    // Docker logs event listeners
+    if (containerSelect) {
+      containerSelect.addEventListener(
+        "change",
+        () => {
+          loadDockerLogs();
+        },
+        signal ? { signal } : false
+      );
+    }
+
+    if (refreshDockerLogsBtn) {
+      refreshDockerLogsBtn.addEventListener(
+        "click",
+        (e) => {
+          e.preventDefault();
+          loadDockerLogs();
+        },
+        signal ? { signal } : false
+      );
+    }
+
+    if (dockerAutoRefreshToggle) {
+      dockerAutoRefreshToggle.addEventListener(
+        "click",
+        (e) => {
+          e.preventDefault();
+          toggleDockerAutoRefresh();
+        },
+        signal ? { signal } : false
+      );
+    }
+
+    if (copyDockerLogsBtn) {
+      copyDockerLogsBtn.addEventListener(
+        "click",
+        (e) => {
+          e.preventDefault();
+          copyDockerLogs();
+        },
+        signal ? { signal } : false
+      );
+    }
+
+    if (exportDockerLogsBtn) {
+      exportDockerLogsBtn.addEventListener(
+        "click",
+        (e) => {
+          e.preventDefault();
+          exportDockerLogs();
+        },
+        signal ? { signal } : false
+      );
+    }
+
+    /**
+     * Load available Docker containers
+     */
+    async function loadContainers() {
+      if (!containerSelect) {
+        return;
+      }
+
+      try {
+        containerSelect.innerHTML = '<option value="">Loading containers...</option>';
+
+        const data = await apiClient.get("/api/docker-logs/containers");
+        containersData = data.containers || [];
+
+        if (containersData.length === 0) {
+          containerSelect.innerHTML = '<option value="">No containers found</option>';
+          return;
+        }
+
+        // Build options with running containers first
+        const runningContainers = containersData.filter((c) =>
+          c.status.toLowerCase().includes("up")
+        );
+        const stoppedContainers = containersData.filter(
+          (c) => !c.status.toLowerCase().includes("up")
+        );
+
+        let optionsHtml = '<option value="">Select a container...</option>';
+
+        if (runningContainers.length > 0) {
+          optionsHtml += '<optgroup label="Running">';
+          runningContainers.forEach((c) => {
+            optionsHtml += `<option value="${escapeHtml(c.name)}">${escapeHtml(c.name)}</option>`;
+          });
+          optionsHtml += "</optgroup>";
+        }
+
+        if (stoppedContainers.length > 0) {
+          optionsHtml += '<optgroup label="Stopped">';
+          stoppedContainers.forEach((c) => {
+            optionsHtml += `<option value="${escapeHtml(c.name)}">${escapeHtml(c.name)}</option>`;
+          });
+          optionsHtml += "</optgroup>";
+        }
+
+        containerSelect.innerHTML = optionsHtml;
+      } catch {
+        containerSelect.innerHTML = '<option value="">Error loading containers</option>';
+        notificationManager.show("Failed to load Docker containers", "warning");
+      }
+    }
+
+    /**
+     * Load Docker container logs
+     */
+    async function loadDockerLogs() {
+      if (!containerSelect || !dockerLogsContainer) {
+        return;
+      }
+
+      const containerName = containerSelect.value;
+      if (!containerName) {
+        dockerLogsContainer.innerHTML = `
+          <div class="text-center py-5 text-muted">
+            <i class="fab fa-docker fa-3x mb-3"></i>
+            <p>Select a container from the dropdown above to view its logs.</p>
+          </div>
+        `;
+        if (dockerLogsInfo) {
+          dockerLogsInfo.textContent = "Select a container to view logs";
+        }
+        if (containerStatusCard) {
+          containerStatusCard.style.display = "none";
+        }
+        return;
+      }
+
+      try {
+        // Show loading state
+        dockerLogsContainer.innerHTML = `
+          <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+              <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-2">Loading logs for ${escapeHtml(containerName)}...</p>
+          </div>
+        `;
+
+        // Build query parameters
+        const params = new URLSearchParams();
+        params.append("tail", dockerLimitFilter?.value || "500");
+
+        if (dockerSinceFilter?.value) {
+          params.append("since", dockerSinceFilter.value);
+        }
+
+        const data = await apiClient.get(
+          `/api/docker-logs/${encodeURIComponent(containerName)}?${params.toString()}`
+        );
+
+        currentDockerLogs = data.logs || [];
+
+        // Update container status
+        updateContainerStatus(containerName);
+
+        // Display logs
+        displayDockerLogs(data);
+      } catch {
+        dockerLogsContainer.innerHTML = `
+          <div class="text-center py-5 text-danger">
+            <i class="fas fa-exclamation-triangle fa-3x mb-3"></i>
+            <p>Failed to load logs for ${escapeHtml(containerName)}. Please try again.</p>
+          </div>
+        `;
+        notificationManager.show("Failed to load Docker logs", "danger");
+      }
+    }
+
+    /**
+     * Update container status display
+     */
+    function updateContainerStatus(containerName) {
+      if (!containerStatusCard || !containerStatusBadge || !containerImageInfo) {
+        return;
+      }
+
+      const container = containersData.find((c) => c.name === containerName);
+      if (!container) {
+        containerStatusCard.style.display = "none";
+        return;
+      }
+
+      containerStatusCard.style.display = "block";
+
+      const isRunning = container.status.toLowerCase().includes("up");
+      containerStatusBadge.className = `badge rounded-pill me-2 ${isRunning ? "bg-success" : "bg-secondary"}`;
+      containerStatusBadge.textContent = container.status;
+      containerImageInfo.textContent = `Image: ${container.image}`;
+    }
+
+    /**
+     * Display Docker logs in the container
+     */
+    function displayDockerLogs(data) {
+      if (!dockerLogsContainer || !dockerLogsInfo) {
+        return;
+      }
+
+      const { logs, line_count, truncated } = data;
+
+      // Update info text
+      dockerLogsInfo.textContent = `Showing ${line_count} lines${truncated ? " (truncated)" : ""}`;
+
+      // If no logs, show empty state
+      if (logs.length === 0) {
+        dockerLogsContainer.innerHTML = `
+          <div class="text-center py-5 text-muted">
+            <i class="fas fa-inbox fa-3x mb-3"></i>
+            <p>No logs found for this container with the current filters.</p>
+          </div>
+        `;
+        return;
+      }
+
+      // Build logs HTML
+      const logsHtml = logs
+        .map((line) => {
+          // Try to parse timestamp and message
+          let timestamp = "";
+          let message = line;
+
+          // Docker timestamps look like: 2024-01-22T16:00:00.000000000Z
+          const timestampMatch = line.match(/^(\d{4}-\d{2}-\d{2}T[\d:.]+Z?)\s+(.*)$/);
+          if (timestampMatch) {
+            try {
+              const date = new Date(timestampMatch[1]);
+              timestamp = date.toLocaleString("en-US", { hour12: true });
+              message = timestampMatch[2];
+            } catch {
+              // Keep original line
+            }
+          }
+
+          // Determine log level for styling
+          let levelClass = "";
+          const lowerMessage = message.toLowerCase();
+          if (lowerMessage.includes("error") || lowerMessage.includes("exception")) {
+            levelClass = "log-ERROR";
+          } else if (lowerMessage.includes("warn")) {
+            levelClass = "log-WARNING";
+          } else if (lowerMessage.includes("debug")) {
+            levelClass = "log-DEBUG";
+          }
+
+          return `
+            <div class="log-entry ${levelClass}">
+              ${timestamp ? `<span class="log-timestamp">${escapeHtml(timestamp)}</span>` : ""}
+              <span class="log-message">${escapeHtml(message)}</span>
+            </div>
+          `;
+        })
+        .join("");
+
+      dockerLogsContainer.innerHTML = logsHtml;
+    }
+
+    /**
+     * Toggle Docker auto-refresh
+     */
+    function toggleDockerAutoRefresh() {
+      if (!dockerAutoRefreshToggle) {
+        return;
+      }
+
+      dockerAutoRefreshEnabled = !dockerAutoRefreshEnabled;
+
+      if (dockerAutoRefreshEnabled) {
+        dockerAutoRefreshToggle.classList.remove("btn-outline-success");
+        dockerAutoRefreshToggle.classList.add("btn-success");
+        dockerAutoRefreshToggle.innerHTML
+          = '<i class="fas fa-clock"></i> Auto-Refresh: ON (10s)';
+
+        // Refresh every 10 seconds for Docker logs
+        dockerAutoRefreshInterval = setInterval(() => {
+          loadDockerLogs();
+        }, 10000);
+
+        notificationManager.show("Auto-refresh enabled (every 10 seconds)", "info");
+      } else {
+        dockerAutoRefreshToggle.classList.remove("btn-success");
+        dockerAutoRefreshToggle.classList.add("btn-outline-success");
+        dockerAutoRefreshToggle.innerHTML = '<i class="fas fa-clock"></i> Auto-Refresh: OFF';
+
+        if (dockerAutoRefreshInterval) {
+          clearInterval(dockerAutoRefreshInterval);
+          dockerAutoRefreshInterval = null;
+        }
+
+        notificationManager.show("Auto-refresh disabled", "info");
+      }
+    }
+
+    /**
+     * Copy all Docker logs to clipboard
+     */
+    async function copyDockerLogs() {
+      if (currentDockerLogs.length === 0) {
+        notificationManager.show("No logs to copy. Please load logs first.", "warning");
+        return;
+      }
+
+      try {
+        const containerName = containerSelect?.value || "unknown";
+        let allLogsText = `Docker Container Logs: ${containerName}\n`;
+        allLogsText += `Generated: ${new Date().toLocaleString("en-US", {
+          hour12: true,
+        })}\n`;
+        allLogsText += `Total Lines: ${currentDockerLogs.length}\n`;
+        allLogsText += `${"=".repeat(80)}\n\n`;
+
+        currentDockerLogs.forEach((line) => {
+          allLogsText += `${line}\n`;
+        });
+
+        await navigator.clipboard.writeText(allLogsText);
+
+        notificationManager.show(
+          `Copied ${currentDockerLogs.length} log lines to clipboard`,
+          "success"
+        );
+      } catch {
+        notificationManager.show("Failed to copy logs", "danger");
+      }
+    }
+
+    /**
+     * Export Docker logs to file
+     */
+    function exportDockerLogs() {
+      if (currentDockerLogs.length === 0) {
+        notificationManager.show(
+          "No logs to export. Please load logs first.",
+          "warning"
+        );
+        return;
+      }
+
+      try {
+        const containerName = containerSelect?.value || "unknown";
+        const dataStr = currentDockerLogs.join("\n");
+        const dataBlob = new Blob([dataStr], { type: "text/plain" });
+        const url = URL.createObjectURL(dataBlob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `docker-${containerName}-logs-${new Date().toISOString()}.log`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+
+        notificationManager.show("Docker logs exported successfully", "success");
+      } catch {
+        notificationManager.show("Failed to export logs", "danger");
+      }
+    }
+
     if (typeof cleanup === "function") {
       cleanup(() => {
         if (autoRefreshInterval) {
@@ -506,6 +905,11 @@ onPageLoad(
           autoRefreshInterval = null;
         }
         autoRefreshEnabled = false;
+        if (dockerAutoRefreshInterval) {
+          clearInterval(dockerAutoRefreshInterval);
+          dockerAutoRefreshInterval = null;
+        }
+        dockerAutoRefreshEnabled = false;
       });
     }
   },

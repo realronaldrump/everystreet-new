@@ -1,5 +1,6 @@
 """API endpoints for viewing and managing server logs."""
 
+import asyncio
 import logging
 import re
 from datetime import UTC, datetime, timedelta
@@ -185,4 +186,176 @@ async def get_logs_stats() -> dict[str, Any]:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to retrieve log statistics: {e!s}",
+        )
+
+
+# =============================================================================
+# Docker Container Logs API
+# =============================================================================
+
+
+class ContainerInfo(BaseModel):
+    """Information about a Docker container."""
+
+    name: str
+    status: str
+    image: str
+    created: str | None = None
+
+
+class ContainersResponse(BaseModel):
+    """Response model for listing Docker containers."""
+
+    containers: list[ContainerInfo]
+
+
+class DockerLogsResponse(BaseModel):
+    """Response model for Docker container logs."""
+
+    container: str
+    logs: list[str]
+    line_count: int
+    truncated: bool
+
+
+async def _run_docker_command(args: list[str]) -> tuple[str, str, int]:
+    """Run a docker command and return stdout, stderr, and return code."""
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "docker",
+            *args,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, stderr = await proc.communicate()
+        return (
+            stdout.decode("utf-8", errors="replace"),
+            stderr.decode("utf-8", errors="replace"),
+            proc.returncode or 0,
+        )
+    except FileNotFoundError:
+        return "", "Docker command not found", 1
+    except Exception as e:
+        return "", str(e), 1
+
+
+@router.get("/api/docker-logs/containers", response_model=ContainersResponse)
+@api_route(logger)
+async def list_docker_containers() -> dict[str, Any]:
+    """
+    List available Docker containers.
+
+    Returns:
+        Dictionary containing list of containers with their info
+    """
+    try:
+        # Get container info in JSON format
+        stdout, stderr, returncode = await _run_docker_command(
+            [
+                "ps",
+                "-a",
+                "--format",
+                "{{.Names}}\t{{.Status}}\t{{.Image}}\t{{.CreatedAt}}",
+            ]
+        )
+
+        if returncode != 0:
+            logger.warning("Docker ps command failed: %s", stderr)
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=f"Docker command failed: {stderr or 'Unknown error'}",
+            )
+
+        containers = []
+        for line in stdout.strip().split("\n"):
+            if not line.strip():
+                continue
+            parts = line.split("\t")
+            if len(parts) >= 3:
+                containers.append(
+                    ContainerInfo(
+                        name=parts[0],
+                        status=parts[1],
+                        image=parts[2],
+                        created=parts[3] if len(parts) > 3 else None,
+                    )
+                )
+
+        return {"containers": containers}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Error listing Docker containers")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to list containers: {e!s}",
+        )
+
+
+@router.get("/api/docker-logs/{container_name}", response_model=DockerLogsResponse)
+@api_route(logger)
+async def get_docker_container_logs(
+    container_name: str,
+    tail: Annotated[int, Query(ge=1, le=10000)] = 500,
+    since: Annotated[str | None, Query()] = None,
+) -> dict[str, Any]:
+    """
+    Get logs for a specific Docker container.
+
+    Args:
+        container_name: Name of the container to get logs from
+        tail: Number of lines to return from the end (1-10000, default 500)
+        since: Only return logs since this timestamp (e.g., "1h", "30m", "2024-01-01")
+
+    Returns:
+        Dictionary containing container logs and metadata
+    """
+    try:
+        # Build docker logs command
+        args = ["logs", "--tail", str(tail), "--timestamps"]
+
+        if since:
+            args.extend(["--since", since])
+
+        args.append(container_name)
+
+        stdout, stderr, returncode = await _run_docker_command(args)
+
+        if returncode != 0:
+            # Check if container doesn't exist
+            if "No such container" in stderr or "no such container" in stderr.lower():
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Container '{container_name}' not found",
+                )
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=f"Docker logs command failed: {stderr or 'Unknown error'}",
+            )
+
+        # Docker logs may output to stdout or stderr depending on the container
+        # Combine both and split into lines
+        combined_output = stdout + stderr
+        lines = [line for line in combined_output.split("\n") if line.strip()]
+
+        # Limit to requested tail (docker might return more due to timing)
+        truncated = len(lines) > tail
+        if truncated:
+            lines = lines[-tail:]
+
+        return {
+            "container": container_name,
+            "logs": lines,
+            "line_count": len(lines),
+            "truncated": truncated,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Error fetching Docker container logs for %s", container_name)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to retrieve container logs: {e!s}",
         )
