@@ -62,6 +62,8 @@ async def test_get_bouncie_credentials_returns_defaults(bouncie_db) -> None:
     assert result["client_secret"] == ""
     assert result["fetch_concurrency"] == 12
     assert result["authorized_devices"] == []
+    assert result["oauth_state"] is None
+    assert result["oauth_state_expires_at"] is None
 
 
 @pytest.mark.asyncio
@@ -131,6 +133,24 @@ async def test_update_bouncie_credentials_updates_existing(bouncie_db) -> None:
     assert creds.client_id == "updated-client"
     assert creds.client_secret == "old-secret"  # unchanged
     assert creds.fetch_concurrency == 12  # Should remain default
+
+
+@pytest.mark.asyncio
+async def test_update_bouncie_credentials_sets_oauth_state(bouncie_db) -> None:
+    """update_bouncie_credentials should store oauth state values."""
+    result = await update_bouncie_credentials(
+        {
+            "oauth_state": "state123",
+            "oauth_state_expires_at": 12345.0,
+        },
+    )
+
+    assert result is True
+    creds = await BouncieCredentials.find_one(
+        BouncieCredentials.id == "bouncie_credentials",
+    )
+    assert creds.oauth_state == "state123"
+    assert creds.oauth_state_expires_at == 12345.0
 
 
 @pytest.mark.asyncio

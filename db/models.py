@@ -675,6 +675,8 @@ class BouncieCredentials(Document):
     client_secret: str | None = None
     redirect_uri: str | None = None
     authorization_code: str | None = None
+    oauth_state: str | None = None
+    oauth_state_expires_at: float | None = None
     webhook_key: str | None = None
     last_webhook_at: datetime | None = None
     last_webhook_event_type: str | None = None

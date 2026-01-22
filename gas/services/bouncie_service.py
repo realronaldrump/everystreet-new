@@ -1,5 +1,6 @@
 """Bouncie API integration service for real-time vehicle data."""
 
+import asyncio
 import logging
 from typing import Any
 
@@ -46,36 +47,66 @@ class BouncieService:
             url = f"{API_BASE_URL}/vehicles"
             params = {"imei": imei}
 
-            async with session.get(url, headers=headers, params=params) as response:
-                if response.status != 200:
-                    logger.warning("Bouncie vehicles API failed: %s", response.status)
-                    return None
+            for attempt in range(2):
+                async with session.get(url, headers=headers, params=params) as response:
+                    if response.status in {401, 403} and attempt == 0:
+                        logger.info("Bouncie API unauthorized; refreshing token")
+                        token = await BouncieOAuth.get_access_token(
+                            session=session,
+                            force_refresh=True,
+                        )
+                        if not token:
+                            logger.warning("Failed to refresh Bouncie access token")
+                            return None
+                        headers["Authorization"] = token
+                        continue
+                    if response.status == 429 and attempt == 0:
+                        retry_after = response.headers.get("Retry-After")
+                        delay = 1
+                        if retry_after:
+                            try:
+                                delay = max(1, int(retry_after))
+                            except ValueError:
+                                delay = 1
+                        logger.warning(
+                            "Bouncie API rate limited. Retrying in %d seconds.",
+                            delay,
+                        )
+                        await asyncio.sleep(delay)
+                        continue
+                    if response.status != 200:
+                        logger.warning(
+                            "Bouncie vehicles API failed: %s",
+                            response.status,
+                        )
+                        return None
 
-                vehicles = await response.json()
-                if not vehicles:
-                    logger.warning("No vehicle found for IMEI %s", imei)
-                    return None
+                    vehicles = await response.json()
+                    if not vehicles:
+                        logger.warning("No vehicle found for IMEI %s", imei)
+                        return None
 
-                vehicle = vehicles[0]  # API returns array
-                stats = vehicle.get("stats", {})
-                location = stats.get("location", {})
+                    vehicle = vehicles[0]  # API returns array
+                    stats = vehicle.get("stats", {})
+                    location = stats.get("location", {})
 
-                result = {
-                    "latitude": location.get("lat"),
-                    "longitude": location.get("lon"),
-                    "address": location.get("address"),
-                    "odometer": stats.get("odometer"),
-                    "timestamp": stats.get("lastUpdated"),
-                    "source": "bouncie_api",
-                }
+                    result = {
+                        "latitude": location.get("lat"),
+                        "longitude": location.get("lon"),
+                        "address": location.get("address"),
+                        "odometer": stats.get("odometer"),
+                        "timestamp": stats.get("lastUpdated"),
+                        "source": "bouncie_api",
+                    }
 
-                logger.info(
-                    "Bouncie API: IMEI %s - Odo: %s, Updated: %s",
-                    imei,
-                    result["odometer"],
-                    result["timestamp"],
-                )
-                return result
+                    logger.info(
+                        "Bouncie API: IMEI %s - Odo: %s, Updated: %s",
+                        imei,
+                        result["odometer"],
+                        result["timestamp"],
+                    )
+                    return result
+            return None
 
         except Exception:
             logger.exception("Error fetching vehicle status from Bouncie")

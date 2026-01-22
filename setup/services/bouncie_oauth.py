@@ -18,6 +18,14 @@ from setup.services.bouncie_credentials import update_bouncie_credentials
 logger = logging.getLogger(__name__)
 
 
+def _mask_value(value: str | None, keep: int = 4) -> str:
+    if not value:
+        return "<empty>"
+    if len(value) <= keep:
+        return "*" * len(value)
+    return f"{value[:keep]}...{value[-keep:]}"
+
+
 class BouncieOAuth:
     """
     Centralized OAuth handler for Bouncie API.
@@ -35,6 +43,8 @@ class BouncieOAuth:
     async def get_access_token(
         session: aiohttp.ClientSession | None = None,
         credentials: dict | None = None,
+        *,
+        force_refresh: bool = False,
     ) -> str | None:
         """
         Get an access token, using cached token if still valid.
@@ -42,6 +52,7 @@ class BouncieOAuth:
         Args:
             session: Optional aiohttp session (will create if not provided)
             credentials: Optional pre-fetched credentials (will fetch if not provided)
+            force_refresh: If True, bypass cached token and request a new one
 
         Returns:
             Access token string or None if authentication fails
@@ -58,7 +69,7 @@ class BouncieOAuth:
         access_token = credentials.get("access_token")
         expires_at = credentials.get("expires_at")
 
-        if access_token and expires_at:
+        if not force_refresh and access_token and expires_at:
             if expires_at > time.time() + 300:  # 5 minute buffer
                 logger.debug(
                     "Using cached access token (valid for %d more seconds)",
@@ -66,6 +77,8 @@ class BouncieOAuth:
                 )
                 return access_token
             logger.info("Access token expired or expiring soon, getting new one...")
+        elif force_refresh:
+            logger.info("Forcing refresh of Bouncie access token")
 
         # Get new access token using authorization code
         client_id = credentials.get("client_id")
@@ -96,39 +109,50 @@ class BouncieOAuth:
         }
 
         try:
+            logger.debug(
+                "Requesting Bouncie access token: client_id=%s redirect_uri=%s auth_code_len=%d",
+                _mask_value(client_id),
+                redirect_uri,
+                len(str(auth_code)),
+            )
             async with session.post(
                 AUTH_URL,
                 json=payload,
                 headers=headers,
             ) as response:
-                if response.status == 401:
+                if response.status >= 400:
                     text = await response.text()
                     logger.error(
-                        "Authorization failed (401). The authorization code may be invalid. "
-                        "Please re-authorize via Bouncie Developer Portal. Response: %s",
+                        "Access token exchange failed: status=%s client_id=%s redirect_uri=%s response=%s",
+                        response.status,
+                        _mask_value(client_id),
+                        redirect_uri,
                         text,
                     )
                     return None
 
-                response.raise_for_status()
                 data = await response.json()
 
                 new_access_token = data.get("access_token")
                 expires_in = data.get("expires_in", 3600)
 
                 if not new_access_token:
-                    logger.error("Access token not found in response: %s", data)
+                    logger.error(
+                        "Access token not found in response for client_id=%s redirect_uri=%s",
+                        _mask_value(client_id),
+                        redirect_uri,
+                    )
                     return None
 
                 # Save new token to storage
                 await BouncieOAuth._save_token(
                     credentials,
                     new_access_token,
-                    expires_in,
+                    int(expires_in) if expires_in is not None else 3600,
                 )
                 logger.info(
                     "Successfully obtained new access token (expires in %d seconds)",
-                    expires_in,
+                    int(expires_in) if expires_in is not None else 3600,
                 )
                 return new_access_token
 

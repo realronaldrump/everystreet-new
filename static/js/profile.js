@@ -303,6 +303,12 @@ async function loadCredentials(options = {}) {
 
     const data = await apiClient.get(endpoint, withSignal());
     const credentials = data.credentials || {};
+    if (!credentials.redirect_uri) {
+      const expectedRedirectUri = await getExpectedRedirectUri();
+      if (expectedRedirectUri) {
+        credentials.redirect_uri = expectedRedirectUri;
+      }
+    }
 
     if (data.status === "success") {
       populateForm(credentials, masked);
@@ -335,6 +341,18 @@ async function loadCredentials(options = {}) {
     }
     showStatus(`Error loading credentials: ${error.message}`, "error");
   }
+}
+
+async function getExpectedRedirectUri() {
+  try {
+    const data = await apiClient.get("/api/bouncie/redirect-uri", withSignal());
+    if (data?.redirect_uri) {
+      return data.redirect_uri;
+    }
+  } catch (_error) {
+    // Fall back to constructing from window.location
+  }
+  return `${window.location.origin}/api/bouncie/callback`;
 }
 
 /**

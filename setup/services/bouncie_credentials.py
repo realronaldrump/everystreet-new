@@ -40,6 +40,8 @@ async def get_bouncie_credentials() -> dict[str, Any]:
         "client_secret": "",
         "redirect_uri": "",
         "authorization_code": "",
+        "oauth_state": None,
+        "oauth_state_expires_at": None,
         "webhook_key": "",
         "authorized_devices": [],
         "fetch_concurrency": 12,
@@ -66,6 +68,8 @@ async def get_bouncie_credentials() -> dict[str, Any]:
             "client_secret": credentials.client_secret or "",
             "redirect_uri": credentials.redirect_uri or "",
             "authorization_code": credentials.authorization_code or "",
+            "oauth_state": credentials.oauth_state,
+            "oauth_state_expires_at": credentials.oauth_state_expires_at,
             "webhook_key": credentials.webhook_key or "",
             "authorized_devices": credentials.authorized_devices or [],
             "fetch_concurrency": fetch_concurrency,
@@ -112,6 +116,10 @@ async def update_bouncie_credentials(credentials: dict[str, Any]) -> bool:
                     existing.redirect_uri = value
                 elif key == "authorization_code":
                     existing.authorization_code = value
+                elif key == "oauth_state":
+                    existing.oauth_state = value
+                elif key == "oauth_state_expires_at":
+                    existing.oauth_state_expires_at = value
                 elif key == "webhook_key":
                     if value is None:
                         continue
@@ -145,6 +153,10 @@ async def update_bouncie_credentials(credentials: dict[str, Any]) -> bool:
                 new_creds.redirect_uri = credentials["redirect_uri"]
             if "authorization_code" in credentials:
                 new_creds.authorization_code = credentials["authorization_code"]
+            if "oauth_state" in credentials:
+                new_creds.oauth_state = credentials["oauth_state"]
+            if "oauth_state_expires_at" in credentials:
+                new_creds.oauth_state_expires_at = credentials["oauth_state_expires_at"]
             if "webhook_key" in credentials and credentials["webhook_key"] is not None:
                 webhook_key = str(credentials["webhook_key"]).strip()
                 new_creds.webhook_key = webhook_key or None

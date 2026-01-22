@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import logging
+import secrets
+import time
 from typing import Annotated, Any
 from urllib.parse import quote, urlencode
 
@@ -14,12 +16,31 @@ from setup.services.bouncie_credentials import (
     get_bouncie_credentials,
     update_bouncie_credentials,
 )
+from setup.services.bouncie_api import (
+    BouncieApiError,
+    BouncieRateLimitError,
+    BouncieUnauthorizedError,
+    fetch_all_vehicles,
+)
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/bouncie", tags=["bouncie-oauth"])
 
 BOUNCIE_AUTH_BASE = "https://auth.bouncie.com/dialog/authorize"
+OAUTH_STATE_TTL_SECONDS = 10 * 60
+
+
+def _generate_oauth_state() -> str:
+    return secrets.token_urlsafe(32)
+
+
+def _state_expired(expires_at: float | None) -> bool:
+    return bool(expires_at and expires_at < time.time())
+
+
+class BouncieVehicleSyncError(RuntimeError):
+    """Raised when automatic vehicle sync fails."""
 
 
 def _build_redirect_uri(request: Request) -> str:
@@ -32,7 +53,7 @@ def _build_redirect_uri(request: Request) -> str:
 
 @router.get("/authorize", response_model=None)
 @api_route(logger)
-async def initiate_bouncie_auth() -> RedirectResponse:
+async def initiate_bouncie_auth(request: Request) -> RedirectResponse:
     """
     Initiate Bouncie OAuth flow.
 
@@ -57,14 +78,72 @@ async def initiate_bouncie_auth() -> RedirectResponse:
             status_code=302,
         )
 
+    expected_redirect = _build_redirect_uri(request)
+    if redirect_uri != expected_redirect:
+        logger.warning(
+            "Configured redirect URI does not match expected callback. stored=%s expected=%s",
+            redirect_uri,
+            expected_redirect,
+        )
+
+    # Idempotent: if already authorized, skip new auth flow and sync vehicles if needed
+    if credentials.get("authorization_code"):
+        from core.http.session import get_session
+        from setup.services.bouncie_oauth import BouncieOAuth
+
+        session = await get_session()
+        token = await BouncieOAuth.get_access_token(
+            session=session,
+            credentials=credentials,
+        )
+        if token:
+            try:
+                vehicle_count = 0
+                if not credentials.get("authorized_devices"):
+                    vehicle_count = await _sync_vehicles_after_auth(
+                        session,
+                        token,
+                        credentials=credentials,
+                    )
+                logger.info(
+                    "Bouncie already authorized; skipping OAuth flow (vehicles_synced=%d).",
+                    vehicle_count,
+                )
+                return RedirectResponse(
+                    url=f"/setup?bouncie_connected=true&vehicles_synced={vehicle_count}",
+                    status_code=302,
+                )
+            except BouncieVehicleSyncError:
+                return RedirectResponse(
+                    url="/setup?bouncie_error=vehicle_sync_failed",
+                    status_code=302,
+                )
+
+        logger.warning(
+            "Existing Bouncie authorization code did not produce a token; starting new OAuth flow.",
+        )
+
+    state = _generate_oauth_state()
+    state_expires_at = time.time() + OAUTH_STATE_TTL_SECONDS
+    saved = await update_bouncie_credentials(
+        {"oauth_state": state, "oauth_state_expires_at": state_expires_at},
+    )
+    if not saved:
+        return RedirectResponse(
+            url="/setup?bouncie_error="
+            + quote("Failed to save OAuth state. Please try again.", safe=""),
+            status_code=302,
+        )
+
     params = {
         "client_id": client_id,
         "redirect_uri": redirect_uri,
         "response_type": "code",
+        "state": state,
     }
 
     auth_url = f"{BOUNCIE_AUTH_BASE}?{urlencode(params)}"
-    logger.info("Redirecting to Bouncie authorization: %s", auth_url)
+    logger.info("Redirecting to Bouncie authorization (redirect_uri=%s)", redirect_uri)
 
     return RedirectResponse(url=auth_url, status_code=302)
 
@@ -74,6 +153,7 @@ async def initiate_bouncie_auth() -> RedirectResponse:
 async def bouncie_oauth_callback(
     code: Annotated[str | None, Query()] = None,
     error: Annotated[str | None, Query()] = None,
+    state: Annotated[str | None, Query()] = None,
 ) -> RedirectResponse:
     """
     Handle Bouncie OAuth callback.
@@ -83,15 +163,59 @@ async def bouncie_oauth_callback(
     2. Immediately exchanges it for an access token (to fail fast if invalid)
     3. Automatically fetches and syncs vehicles (hands-off setup)
     """
+    credentials = await get_bouncie_credentials()
+    stored_state = credentials.get("oauth_state")
+    stored_state_expires_at = credentials.get("oauth_state_expires_at")
+
     if error:
         logger.error("Bouncie OAuth error: %s", error)
+        await update_bouncie_credentials(
+            {"oauth_state": None, "oauth_state_expires_at": None},
+        )
         return RedirectResponse(
             url="/setup?bouncie_error=" + quote(error, safe=""),
             status_code=302,
         )
 
+    if stored_state:
+        if not state:
+            logger.error("Bouncie OAuth callback missing state parameter")
+            await update_bouncie_credentials(
+                {"oauth_state": None, "oauth_state_expires_at": None},
+            )
+            return RedirectResponse(
+                url="/setup?bouncie_error=missing_state",
+                status_code=302,
+            )
+        if state != stored_state:
+            logger.error("Bouncie OAuth state mismatch")
+            await update_bouncie_credentials(
+                {"oauth_state": None, "oauth_state_expires_at": None},
+            )
+            return RedirectResponse(
+                url="/setup?bouncie_error=state_mismatch",
+                status_code=302,
+            )
+        if _state_expired(stored_state_expires_at):
+            logger.error("Bouncie OAuth state expired")
+            await update_bouncie_credentials(
+                {"oauth_state": None, "oauth_state_expires_at": None},
+            )
+            return RedirectResponse(
+                url="/setup?bouncie_error=state_expired",
+                status_code=302,
+            )
+    else:
+        if state:
+            logger.warning("Bouncie OAuth callback received unexpected state")
+        else:
+            logger.warning("Bouncie OAuth callback missing state; no stored state found")
+
     if not code:
         logger.error("Bouncie OAuth callback missing code parameter")
+        await update_bouncie_credentials(
+            {"oauth_state": None, "oauth_state_expires_at": None},
+        )
         return RedirectResponse(
             url="/setup?bouncie_error=missing_code",
             status_code=302,
@@ -99,7 +223,13 @@ async def bouncie_oauth_callback(
 
     try:
         # 1. Store the authorization code
-        success = await update_bouncie_credentials({"authorization_code": code})
+        success = await update_bouncie_credentials(
+            {
+                "authorization_code": code,
+                "oauth_state": None,
+                "oauth_state_expires_at": None,
+            },
+        )
         if not success:
             logger.error("Failed to store authorization code")
             return RedirectResponse(
@@ -107,7 +237,10 @@ async def bouncie_oauth_callback(
                 status_code=302,
             )
 
-        logger.info("Successfully stored Bouncie authorization code")
+        logger.info(
+            "Successfully stored Bouncie authorization code (length=%d)",
+            len(code),
+        )
 
         # 2. Immediately exchange for access token to verify it's valid
         from core.http.session import get_session
@@ -119,20 +252,30 @@ async def bouncie_oauth_callback(
         token = await BouncieOAuth.get_access_token(
             session=session,
             credentials=credentials,
+            force_refresh=True,
         )
 
         if not token:
             logger.error("Failed to exchange authorization code for access token")
             return RedirectResponse(
-                url="/setup?bouncie_error="
-                + quote("Failed to get access token. Please verify your credentials.", safe=""),
+                url="/setup?bouncie_error=token_exchange_failed",
                 status_code=302,
             )
 
         logger.info("Successfully obtained access token from authorization code")
 
         # 3. Automatically fetch and sync vehicles (hands-off setup)
-        vehicle_count = await _sync_vehicles_after_auth(session, token)
+        try:
+            vehicle_count = await _sync_vehicles_after_auth(
+                session,
+                token,
+                credentials=credentials,
+            )
+        except BouncieVehicleSyncError:
+            return RedirectResponse(
+                url="/setup?bouncie_error=vehicle_sync_failed",
+                status_code=302,
+            )
 
         logger.info(
             "OAuth flow complete. Synced %d vehicles automatically.",
@@ -152,7 +295,12 @@ async def bouncie_oauth_callback(
         )
 
 
-async def _sync_vehicles_after_auth(session, token: str) -> int:
+async def _sync_vehicles_after_auth(
+    session,
+    token: str,
+    *,
+    credentials: dict[str, Any] | None = None,
+) -> int:
     """
     Automatically sync vehicles after successful OAuth.
 
@@ -160,26 +308,39 @@ async def _sync_vehicles_after_auth(session, token: str) -> int:
     """
     from datetime import UTC, datetime
 
-    from config import API_BASE_URL
     from db.models import Vehicle
 
     try:
-        headers = {
-            "Authorization": token,
-            "Content-Type": "application/json",
-        }
-
-        async with session.get(f"{API_BASE_URL}/vehicles", headers=headers) as resp:
-            if resp.status != 200:
-                error_text = await resp.text()
+        try:
+            vehicles_data = await fetch_all_vehicles(session, token)
+        except BouncieUnauthorizedError as exc:
+            if not credentials:
                 logger.warning(
-                    "Auto-sync vehicles failed: %s - %s",
-                    resp.status,
-                    error_text,
+                    "Auto-sync vehicles unauthorized and no credentials to refresh: %s",
+                    exc,
                 )
-                return 0
+                raise BouncieVehicleSyncError("unauthorized") from exc
 
-            vehicles_data = await resp.json()
+            from setup.services.bouncie_oauth import BouncieOAuth
+
+            logger.info("Refreshing access token after 401/403 during vehicle sync")
+            refreshed_token = await BouncieOAuth.get_access_token(
+                session=session,
+                credentials=credentials,
+                force_refresh=True,
+            )
+            if not refreshed_token:
+                logger.error("Failed to refresh access token during vehicle sync")
+                raise BouncieVehicleSyncError("unauthorized") from exc
+
+            token = refreshed_token
+            vehicles_data = await fetch_all_vehicles(session, token)
+        except BouncieRateLimitError as exc:
+            logger.error("Bouncie API rate limited during vehicle sync: %s", exc)
+            raise BouncieVehicleSyncError("rate_limited") from exc
+        except BouncieApiError as exc:
+            logger.error("Bouncie API error during vehicle sync: %s", exc)
+            raise BouncieVehicleSyncError("api_error") from exc
 
         if not vehicles_data:
             logger.info("No vehicles found in Bouncie account")
@@ -239,9 +400,11 @@ async def _sync_vehicles_after_auth(session, token: str) -> int:
 
         return len(found_imeis)
 
+    except BouncieVehicleSyncError:
+        raise
     except Exception:
         logger.exception("Error during automatic vehicle sync")
-        return 0
+        raise BouncieVehicleSyncError("unexpected_error")
 
 
 @router.get("/status", response_model=dict[str, Any])
@@ -259,7 +422,7 @@ async def get_bouncie_auth_status() -> dict[str, Any]:
 
     return {
         "configured": has_client_id and has_client_secret and has_redirect_uri,
-        "connected": has_auth_code and has_access_token,
+        "connected": has_auth_code and has_client_id and has_client_secret and has_redirect_uri,
         "has_token": has_access_token,
         "has_devices": has_devices,
         "device_count": len(credentials.get("authorized_devices", [])),

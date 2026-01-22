@@ -14,10 +14,15 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from config import API_BASE_URL
 from core.api import api_route
 from core.http.session import get_session
 from db.models import Vehicle
+from setup.services.bouncie_api import (
+    BouncieApiError,
+    BouncieRateLimitError,
+    BouncieUnauthorizedError,
+    fetch_all_vehicles,
+)
 from setup.services.bouncie_credentials import (
     get_bouncie_credentials,
     update_bouncie_credentials,
@@ -182,25 +187,33 @@ async def sync_vehicles_from_bouncie():
             )
 
         # 2. Fetch Vehicles
-        headers = {
-            "Authorization": token,
-            "Content-Type": "application/json",
-        }
-        # Call without params to get all vehicles
-        async with session.get(f"{API_BASE_URL}/vehicles", headers=headers) as resp:
-            if resp.status != 200:
-                error_text = await resp.text()
-                logger.error(
-                    "Failed to fetch vehicles: %s - %s",
-                    resp.status,
-                    error_text,
-                )
+        try:
+            vehicles_data = await fetch_all_vehicles(session, token)
+        except BouncieUnauthorizedError:
+            logger.info("Bouncie API unauthorized; attempting token refresh")
+            token = await BouncieOAuth.get_access_token(
+                session=session,
+                credentials=credentials,
+                force_refresh=True,
+            )
+            if not token:
                 _raise_http(
-                    status_code=502,
-                    detail=f"Failed to fetch vehicles from Bouncie: {error_text}",
+                    status_code=401,
+                    detail="Failed to refresh Bouncie access token. Please reconnect.",
                 )
-
-            vehicles_data = await resp.json()
+            vehicles_data = await fetch_all_vehicles(session, token)
+        except BouncieRateLimitError as exc:
+            logger.error("Bouncie API rate limited while fetching vehicles: %s", exc)
+            _raise_http(
+                status_code=503,
+                detail="Bouncie API rate limited. Please try again shortly.",
+            )
+        except BouncieApiError as exc:
+            logger.error("Failed to fetch vehicles from Bouncie: %s", exc)
+            _raise_http(
+                status_code=502,
+                detail=f"Failed to fetch vehicles from Bouncie: {exc}",
+            )
 
         if not vehicles_data:
             return {

@@ -106,3 +106,37 @@ async def test_get_access_token_saves_token(monkeypatch: pytest.MonkeyPatch) -> 
     assert token == "new-token"
     assert credentials["access_token"] == "new-token"
     assert credentials["expires_at"] > time.time()
+
+
+@pytest.mark.asyncio
+async def test_get_access_token_force_refresh(monkeypatch: pytest.MonkeyPatch) -> None:
+    credentials = {
+        "client_id": "client",
+        "client_secret": "secret",
+        "redirect_uri": "https://example.com",
+        "authorization_code": "auth",
+        "access_token": "cached",
+        "expires_at": time.time() + 1000,
+    }
+    session = FakeSession(
+        post_responses=[
+            FakeResponse(
+                status=200,
+                json_data={"access_token": "new-token", "expires_in": 120},
+            ),
+        ],
+    )
+    update = AsyncMock(return_value=True)
+    monkeypatch.setattr(
+        "setup.services.bouncie_oauth.update_bouncie_credentials",
+        update,
+    )
+
+    token = await BouncieOAuth.get_access_token(
+        session=session,
+        credentials=credentials,
+        force_refresh=True,
+    )
+
+    assert token == "new-token"
+    assert credentials["access_token"] == "new-token"

@@ -429,8 +429,18 @@ function checkBouncieRedirectStatus() {
     let errorMsg = "Failed to connect to Bouncie.";
     if (error === "missing_code") {
       errorMsg = "OAuth callback did not receive authorization code. Check your redirect URI configuration.";
+    } else if (error === "missing_state") {
+      errorMsg = "OAuth callback did not include a valid state parameter. Please try connecting again.";
+    } else if (error === "state_mismatch") {
+      errorMsg = "OAuth state mismatch detected. Please retry the connection.";
+    } else if (error === "state_expired") {
+      errorMsg = "OAuth session expired before completion. Please try again.";
     } else if (error === "storage_failed") {
       errorMsg = "Failed to save authorization. Please try again.";
+    } else if (error === "token_exchange_failed") {
+      errorMsg = "Failed to exchange authorization code for an access token. Verify your client credentials and redirect URI.";
+    } else if (error === "vehicle_sync_failed") {
+      errorMsg = "Connected to Bouncie, but vehicle sync failed. Please try syncing again.";
     } else {
       errorMsg = `OAuth error: ${decodeURIComponent(error)}`;
     }
