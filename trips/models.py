@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class TripUpdateRequest(BaseModel):
@@ -22,8 +22,7 @@ class TripStatusProjection(BaseModel):
     processing_state: str | None = None
     matchedGps: Any | None = None
 
-    class Config:
-        extra = "ignore"
+    model_config = ConfigDict(extra="ignore")
 
 
 class TripProcessingProjection(BaseModel):
@@ -40,5 +39,4 @@ class TripProcessingProjection(BaseModel):
     source: str | None = None
     distance: float | None = None
 
-    class Config:
-        extra = "ignore"
+    model_config = ConfigDict(extra="ignore")

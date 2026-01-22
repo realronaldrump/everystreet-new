@@ -9,7 +9,7 @@ documents.
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from db.models import Trip
 
@@ -29,8 +29,7 @@ class LocationModel(BaseModel):
     min_match_length_feet: float | None = None
     min_match_length_meters: float | None = None
 
-    class Config:
-        extra = "allow"
+    model_config = ConfigDict(extra="allow")
 
 
 class CustomBoundaryModel(BaseModel):
@@ -49,8 +48,7 @@ class CustomBoundaryModel(BaseModel):
     min_match_length_feet: float | None = None
     min_match_length_meters: float | None = None
 
-    class Config:
-        extra = "allow"
+    model_config = ConfigDict(extra="allow")
 
 
 class DeleteCoverageAreaModel(BaseModel):
@@ -102,8 +100,7 @@ class CoordinatePointModel(BaseModel):
     lon: float
     speed: float | None = None
 
-    class Config:
-        extra = "allow"
+    model_config = ConfigDict(extra="allow")
 
 
 class ActiveTripSuccessResponse(BaseModel):
@@ -141,8 +138,7 @@ class GasFillupCreateModel(BaseModel):
     is_full_tank: bool = True
     notes: str | None = None
 
-    class Config:
-        extra = "allow"
+    model_config = ConfigDict(extra="allow")
 
 
 # ============================================================================
@@ -158,8 +154,7 @@ class PlaceResponse(BaseModel):
     geometry: dict[str, Any] | None = None
     created_at: datetime | None = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class PlaceStatisticsResponse(BaseModel):
@@ -229,5 +224,4 @@ class VehicleModel(BaseModel):
     odometer_reading: float | None = None
     odometer_source: str | None = None  # 'bouncie', 'manual', 'trip'
 
-    class Config:
-        extra = "allow"
+    model_config = ConfigDict(extra="allow")
