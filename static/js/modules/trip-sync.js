@@ -255,6 +255,12 @@ function setupPullToRefresh(elements) {
   window.addEventListener("touchstart", onTouchStart, { passive: true });
   window.addEventListener("touchmove", onTouchMove, { passive: true });
   window.addEventListener("touchend", onTouchEnd, { passive: true });
+
+  return () => {
+    window.removeEventListener("touchstart", onTouchStart);
+    window.removeEventListener("touchmove", onTouchMove);
+    window.removeEventListener("touchend", onTouchEnd);
+  };
 }
 
 function connectSse(elements, onSyncComplete) {
@@ -289,6 +295,13 @@ function connectSse(elements, onSyncComplete) {
   };
 }
 
+function stopSse() {
+  if (eventSource) {
+    eventSource.close();
+    eventSource = null;
+  }
+}
+
 function startPolling(elements, onSyncComplete) {
   if (pollingInterval) {
     clearInterval(pollingInterval);
@@ -299,6 +312,13 @@ function startPolling(elements, onSyncComplete) {
       handleStatusUpdate(status, elements, onSyncComplete);
     }
   }, POLL_INTERVAL_MS);
+}
+
+function stopPolling() {
+  if (pollingInterval) {
+    clearInterval(pollingInterval);
+    pollingInterval = null;
+  }
 }
 
 function handleStatusUpdate(status, elements, onSyncComplete) {
@@ -325,7 +345,7 @@ function handleStatusUpdate(status, elements, onSyncComplete) {
   }
 }
 
-export function initTripSync({ onSyncComplete } = {}) {
+export function initTripSync({ onSyncComplete, cleanup } = {}) {
   const elements = {
     pill: getElement("trip-sync-pill"),
     statusText: getElement("trip-sync-status-text"),
@@ -344,25 +364,38 @@ export function initTripSync({ onSyncComplete } = {}) {
     return;
   }
 
-  elements.syncButton?.addEventListener("click", () => {
+  const cleanupHandlers = [];
+  const handleSyncClick = () => {
     startSync(elements, { mode: "recent" });
-  });
+  };
 
-  elements.emptyButton?.addEventListener("click", () => {
-    startSync(elements, { mode: "recent" });
+  elements.syncButton?.addEventListener("click", handleSyncClick);
+  elements.emptyButton?.addEventListener("click", handleSyncClick);
+  cleanupHandlers.push(() => {
+    elements.syncButton?.removeEventListener("click", handleSyncClick);
+    elements.emptyButton?.removeEventListener("click", handleSyncClick);
   });
 
   setupHistoryModal(elements);
-  setupPullToRefresh(elements);
+  const pullCleanup = setupPullToRefresh(elements);
+  if (pullCleanup) {
+    cleanupHandlers.push(pullCleanup);
+  }
 
-  window.addEventListener("online", () => {
+  const handleOnline = () => {
     fetchStatus(elements, { showError: true }).then((status) => {
       if (status) {
         handleStatusUpdate(status, elements, onSyncComplete);
       }
     });
+  };
+  const handleOffline = () => updateOfflineUI(elements);
+  window.addEventListener("online", handleOnline);
+  window.addEventListener("offline", handleOffline);
+  cleanupHandlers.push(() => {
+    window.removeEventListener("online", handleOnline);
+    window.removeEventListener("offline", handleOffline);
   });
-  window.addEventListener("offline", () => updateOfflineUI(elements));
 
   fetchStatus(elements, { showError: true }).then((status) => {
     if (status) {
@@ -370,6 +403,19 @@ export function initTripSync({ onSyncComplete } = {}) {
     }
   });
   connectSse(elements, onSyncComplete);
+
+  const cleanupFn = () => {
+    cleanupHandlers.forEach((handler) => handler());
+    stopSse();
+    stopPolling();
+    autoSyncTriggered = false;
+  };
+
+  if (typeof cleanup === "function") {
+    cleanup(cleanupFn);
+  }
+
+  return cleanupFn;
 }
 
 export default initTripSync;

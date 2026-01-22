@@ -27,9 +27,9 @@ import {
 let tripsTable = null;
 const selectedTripIds = new Set();
 onPageLoad(
-  async ({ signal } = {}) => {
+  async ({ signal, cleanup } = {}) => {
     try {
-      await initializePage(signal);
+      await initializePage(signal, cleanup);
     } catch (e) {
       notificationManager.show(`Critical Error: ${e.message}`, "danger");
     }
@@ -37,7 +37,7 @@ onPageLoad(
   { route: "/trips" }
 );
 
-async function initializePage(signal) {
+async function initializePage(signal, cleanup) {
   await loadVehicles();
   initializeTable();
   setupFilterListeners();
@@ -49,6 +49,7 @@ async function initializePage(signal) {
         tripsTable.reload({ resetPage: true });
       }
     },
+    cleanup,
   });
 
   document.addEventListener(
