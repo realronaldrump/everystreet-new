@@ -88,7 +88,7 @@
   position: relative;
 }
 
-@media (max-width: 768px) {
+@media (width <= 768px) {
   .map-container-standard {
     height: 400px;
   }

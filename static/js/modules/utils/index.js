@@ -26,6 +26,7 @@ import {
   yieldToBrowser,
 } from "./dom.js";
 import {
+  distanceInUserUnits,
   escapeHtml,
   formatDateTime,
   formatDateToString,
@@ -38,7 +39,6 @@ import {
   formatTimeAgo,
   formatVehicleName,
   formatWeekRange,
-  distanceInUserUnits,
   sanitizeLocation,
 } from "./formatting.js";
 

@@ -12,8 +12,7 @@ import {
   DEFAULT_STREET_COLORS,
 } from "./constants.js";
 
-const isColorValue = (value) =>
-  typeof value === "string" && value.trim().length > 0;
+const isColorValue = (value) => typeof value === "string" && value.trim().length > 0;
 
 const pickColor = (...values) => {
   for (const value of values) {
@@ -26,9 +25,7 @@ const pickColor = (...values) => {
 
 const normalizeClusterColors = (clusterColors) => {
   if (Array.isArray(clusterColors)) {
-    const filtered = clusterColors
-      .filter(isColorValue)
-      .map((color) => color.trim());
+    const filtered = clusterColors.filter(isColorValue).map((color) => color.trim());
     return filtered.length > 0 ? filtered : DEFAULT_CLUSTER_COLORS;
   }
   if (clusterColors && typeof clusterColors === "object") {

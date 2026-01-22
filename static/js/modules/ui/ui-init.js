@@ -37,7 +37,9 @@ function init() {
         .forEach((modal) => {
           const instance = window.bootstrap?.Modal?.getInstance(modal);
           if (instance && modal.classList.contains("show")) {
-            modal.addEventListener("hidden.bs.modal", () => modal.remove(), { once: true });
+            modal.addEventListener("hidden.bs.modal", () => modal.remove(), {
+              once: true,
+            });
             instance.hide();
             return;
           }
