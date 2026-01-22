@@ -342,10 +342,6 @@ function registerNavigationGuard() {
     if (sessionReadOnly) {
       return true;
     }
-    if (actionInFlight || isStepLocked()) {
-      showNavigationBlockedNotice();
-      return false;
-    }
     const stepKey = getCurrentStepKey();
     if (isStepDirty(stepKey)) {
       if (confirmationDialog) {
@@ -359,6 +355,17 @@ function registerNavigationGuard() {
       }
       return window.confirm("You have unsaved changes. Leave setup?");
     }
+    if (actionInFlight) {
+      showNavigationBlockedNotice();
+      return false;
+    }
+    if (isStepLocked()) {
+      if (isRegionJobInFlight()) {
+        return true;
+      }
+      showNavigationBlockedNotice();
+      return false;
+    }
     return true;
   };
 
@@ -366,14 +373,19 @@ function registerNavigationGuard() {
     if (allowExternalRedirect) {
       return undefined;
     }
-    if (actionInFlight || isStepLocked()) {
+    if (actionInFlight) {
       event.preventDefault();
-      event.returnValue = "Setup is running. Leaving may interrupt it.";
+      event.returnValue = "Setup is saving. Leaving may interrupt it.";
       return event.returnValue;
     }
     if (isStepDirty(getCurrentStepKey())) {
       event.preventDefault();
       event.returnValue = "You have unsaved setup changes.";
+      return event.returnValue;
+    }
+    if (isStepLocked() && !isRegionJobInFlight()) {
+      event.preventDefault();
+      event.returnValue = "Setup is running. Leaving may interrupt it.";
       return event.returnValue;
     }
     return undefined;
@@ -397,6 +409,13 @@ function teardownNavigationGuard() {
 }
 
 function showNavigationBlockedNotice() {
+  if (isRegionJobInFlight()) {
+    notificationManager.show(
+      "Map data is downloading in the background. You can close this tab and return later. Setup steps stay locked until it finishes.",
+      "info"
+    );
+    return;
+  }
   notificationManager.show(
     "Setup is running. Please wait for the current step to finish.",
     "warning"
@@ -1155,7 +1174,7 @@ async function runRegionStep(mode, region) {
     showRegionStatus(
       mode === "auto"
         ? "Searching for a suggested region..."
-        : "Starting download and build...",
+        : "Starting download and build. This runs in the background, so it is safe to close this tab or browser.",
       false
     );
     const response = await apiClient.raw(
@@ -1207,6 +1226,7 @@ function updateRegionFromSession(stepState) {
   const progressWrap = document.getElementById("region-progress");
   const progressBar = document.getElementById("region-progress-bar");
   const progressText = document.getElementById("region-progress-text");
+  const backgroundNote = document.getElementById("region-background-note");
 
   if (jobStatus && progressWrap && progressBar && progressText) {
     const progress = Number(jobStatus.progress || 0);
@@ -1218,6 +1238,16 @@ function updateRegionFromSession(stepState) {
     progressWrap?.classList.add("d-none");
   }
 
+  if (backgroundNote) {
+    backgroundNote.classList.toggle("d-none", !stepState.in_flight);
+  }
+
+  if (jobStatus && !["completed", "failed", "cancelled"].includes(jobStatus.status)) {
+    showRegionStatus(
+      "Download is running in the background. You can close this tab or browser and return later.",
+      false
+    );
+  }
   if (jobStatus?.status === "completed") {
     showRegionStatus("Region download complete.", false);
   }

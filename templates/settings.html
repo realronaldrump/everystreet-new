@@ -862,6 +862,9 @@ All Time
               <i class="fas fa-plus"></i> Add Region
             </button>
           </div>
+          <p class="text-muted small mb-3">
+            Downloads and builds run in the background while Everystreet is running. You can close this tab and return later.
+          </p>
 
           <div class="table-responsive">
             <table class="table table-dark table-hover" id="regionsTable">
@@ -908,6 +911,9 @@ Actions
           Active Jobs
           </h3>
           <div id="active-jobs-list">
+            <p class="text-muted small mb-2" id="active-jobs-note">
+Jobs keep running in the background while Everystreet is running.
+            </p>
             <p class="text-muted small" id="no-active-jobs">
 No active jobs.
             </p>
@@ -973,10 +979,15 @@ Selected Region
                 <div class="small text-muted">
                                                                                                                                                 ID: <span id="selected-region-id">--</span>
               </div>
+                <div class="small text-warning mt-2 d-none" id="selected-region-warning">
+                </div>
             </div>
           </div>
         </div>
       </div>
+            <p class="text-muted small mb-0">
+              Downloads keep running in the background while Everystreet is running.
+            </p>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
 Cancel
