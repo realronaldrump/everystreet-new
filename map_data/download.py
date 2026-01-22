@@ -28,7 +28,8 @@ except ImportError as exc:
 HAS_HTTP2 = True
 
 from config import get_geofabrik_mirror, get_osm_extracts_path
-from map_data.models import MapDataJob, MapRegion
+if TYPE_CHECKING:
+    from map_data.models import MapDataJob, MapRegion
 
 if TYPE_CHECKING:
     from collections.abc import Callable

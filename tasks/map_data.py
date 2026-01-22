@@ -1,11 +1,4 @@
-"""
-Background tasks for map data operations.
-
-Handles:
-- Region downloads from Geofabrik
-- Nominatim data imports
-- Valhalla tile builds
-"""
+"""Unified map setup pipeline tasks."""
 
 from __future__ import annotations
 
@@ -13,586 +6,587 @@ import asyncio
 import contextlib
 import logging
 import os
-from datetime import UTC, datetime
+import shutil
+import subprocess
+import time
+from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
-from beanie import PydanticObjectId
+import httpx
 
-from map_data.builders import (
-    BUILD_TIMEOUT,
-    build_nominatim_data,
-    build_valhalla_tiles,
-    start_container_on_demand,
-)
-from map_data.download import (
-    TOTAL_TIMEOUT,
-    DownloadCancelled,
-    cleanup_download_artifacts,
-    parallel_download_region,
-)
-from map_data.models import MapDataJob, MapRegion
+from config import get_geofabrik_mirror, get_osm_extracts_path
+from map_data.builders import build_nominatim_data, build_valhalla_tiles
+from map_data.models import MapBuildProgress, MapServiceConfig
+from map_data.services import check_service_health
+from map_data.us_states import build_geofabrik_path, get_state
+from tasks.arq import get_arq_pool
 from tasks.ops import abort_job, run_task_with_history
 
 logger = logging.getLogger(__name__)
 
-DOWNLOAD_JOB_TIMEOUT_SECONDS = int(
-    os.getenv("MAP_DATA_DOWNLOAD_JOB_TIMEOUT_SECONDS", str(TOTAL_TIMEOUT)),
+SETUP_JOB_TIMEOUT_SECONDS = int(
+    os.getenv("MAP_SERVICE_SETUP_JOB_TIMEOUT_SECONDS", str(10 * 60 * 60)),
 )
-BUILD_JOB_TIMEOUT_SECONDS = int(
-    os.getenv("MAP_DATA_BUILD_JOB_TIMEOUT_SECONDS", str(BUILD_TIMEOUT)),
-)
+STALL_THRESHOLD_MINUTES = int(os.getenv("MAP_SERVICE_STALL_MINUTES", "25"))
+RETRY_BASE_SECONDS = int(os.getenv("MAP_SERVICE_RETRY_BASE_SECONDS", "90"))
+RETRY_MAX_SECONDS = int(os.getenv("MAP_SERVICE_RETRY_MAX_SECONDS", "900"))
+MAX_RETRIES = int(os.getenv("MAP_SERVICE_MAX_RETRIES", "3"))
+
+DOWNLOAD_PROGRESS_END = 40.0
+MERGE_PROGRESS_END = 45.0
+NOMINATIM_PROGRESS_END = 70.0
+VALHALLA_PROGRESS_END = 95.0
+VERIFY_PROGRESS_END = 100.0
+
+CHUNK_SIZE = 4 * 1024 * 1024
 
 
-async def _watch_job_cancelled(
-    job_id: str,
-    cancel_event: asyncio.Event,
-    interval: float = 1.0,
+class MapSetupCancelled(RuntimeError):
+    """Raised when map setup is cancelled."""
+
+
+@dataclass
+class DownloadTracker:
+    total_bytes: int
+    downloaded_bytes: int = 0
+    last_update: float = 0.0
+
+    def percent(self) -> float:
+        if self.total_bytes <= 0:
+            return 0.0
+        return (self.downloaded_bytes / self.total_bytes) * 100.0
+
+
+def _normalize_states(states: list[str]) -> list[str]:
+    normalized: list[str] = []
+    seen = set()
+    for state in states:
+        code = str(state or "").strip().upper()
+        if not code or code in seen:
+            continue
+        if not get_state(code):
+            continue
+        normalized.append(code)
+        seen.add(code)
+    return normalized
+
+
+def _state_filename(geofabrik_id: str) -> str:
+    safe_id = geofabrik_id.replace("/", "-")
+    return f"{safe_id}.osm.pbf"
+
+
+def _state_download_url(geofabrik_id: str) -> str:
+    mirror = get_geofabrik_mirror()
+    path = build_geofabrik_path(geofabrik_id)
+    return f"{mirror}/{path}-latest.osm.pbf"
+
+
+def _retry_delay_seconds(retry_count: int) -> int:
+    if retry_count <= 0:
+        return 0
+    return min(RETRY_BASE_SECONDS * (2 ** (retry_count - 1)), RETRY_MAX_SECONDS)
+
+
+async def _update_progress(
+    config: MapServiceConfig,
+    progress: MapBuildProgress,
+    *,
+    status: str | None = None,
+    message: str | None = None,
+    overall_progress: float | None = None,
+    phase: str | None = None,
+    phase_progress: float | None = None,
+    geocoding_ready: bool | None = None,
+    routing_ready: bool | None = None,
+    last_error: str | None = None,
 ) -> None:
-    while not cancel_event.is_set():
-        await asyncio.sleep(interval)
-        job = await MapDataJob.get(PydanticObjectId(job_id))
-        if not job:
-            return
-        if job.status == MapDataJob.STATUS_CANCELLED:
-            cancel_event.set()
-            return
-
-
-async def download_region_task(ctx: dict, job_id: str) -> dict:
-    """
-    Execute region download in background.
-
-    Args:
-        ctx: ARQ context
-        job_id: MapDataJob document ID
-
-    Returns:
-        Result dictionary with status
-    """
-    logger.info("Starting download task for job %s", job_id)
-
-    job = await MapDataJob.get(PydanticObjectId(job_id))
-    if not job:
-        logger.error("Job not found: %s", job_id)
-        return {"success": False, "error": "Job not found"}
-
-    if job.status == MapDataJob.STATUS_CANCELLED:
-        logger.info("Job was cancelled: %s", job_id)
-        return {"success": False, "error": "Job cancelled"}
-
-    region = await MapRegion.get(job.region_id)
-    if not region:
-        job.status = MapDataJob.STATUS_FAILED
-        job.error = "Region not found"
-        await job.save()
-        return {"success": False, "error": "Region not found"}
-
-    cancel_event = asyncio.Event()
-    cancel_watch = asyncio.create_task(_watch_job_cancelled(job_id, cancel_event))
-
-    try:
-        if cancel_event.is_set():
-            msg = "Download cancelled"
-            raise DownloadCancelled(msg)
-
-        # Update job status to running
-        job.status = MapDataJob.STATUS_RUNNING
-        job.started_at = job.started_at or datetime.now(UTC)
-        job.stage = "Downloading"
-        job.progress = 0
-        job.error = None
-        job.message = "Starting download"
-        job.retry_count = 0
-        job.last_progress_at = datetime.now(UTC)
-        await job.save()
-
-        region.status = MapRegion.STATUS_DOWNLOADING
-        region.last_error = None
-        region.download_progress = 0
-        region.updated_at = datetime.now(UTC)
-        await region.save()
-
-        # Progress callback to update job
-        async def update_progress(progress: float, message: str) -> None:
-            if cancel_event.is_set():
-                return
-            job.progress = progress
-            job.message = message
-            job.last_progress_at = datetime.now(UTC)
-            region.download_progress = progress
-            region.updated_at = datetime.now(UTC)
-            await job.save()
-            await region.save()
-
-        # Execute download
-        await parallel_download_region(
-            region,
-            progress_callback=update_progress,
-            cancel_event=cancel_event,
-        )
-
-        # Mark job complete
-        job.status = MapDataJob.STATUS_COMPLETED
-        job.progress = 100
-        job.message = "Download complete"
-        job.completed_at = datetime.now(UTC)
-        job.last_progress_at = datetime.now(UTC)
-        await job.save()
-
-        logger.info("Download complete for region %s", region.display_name)
-
-        # Check if this is a full pipeline job - chain to build
-        if job.job_type == "download_and_build_all":
-            logger.info(
-                "Chaining to Nominatim + Valhalla build for region %s",
-                region.display_name,
-            )
-            # Create a new build_all job
-            from map_data.models import MapDataJob as MDJ
-
-            build_job = MDJ(
-                job_type=MDJ.JOB_BUILD_ALL,
-                region_id=region.id,
-                status=MDJ.STATUS_PENDING,
-                stage="Queued for Nominatim + Valhalla build",
-                message=f"Building geo services for {region.display_name}",
-            )
-            await build_job.insert()
-            await enqueue_nominatim_build_task(str(build_job.id))
-
-        return {"success": True, "region_id": str(region.id)}
-
-    except DownloadCancelled:
-        logger.info("Download cancelled for job %s", job_id)
-        refreshed_job = await MapDataJob.get(PydanticObjectId(job_id))
-        if refreshed_job:
-            if refreshed_job.status != MapDataJob.STATUS_CANCELLED:
-                refreshed_job.status = MapDataJob.STATUS_CANCELLED
-            refreshed_job.stage = "Cancelled by user"
-            refreshed_job.message = "Download cancelled"
-            refreshed_job.error = refreshed_job.error or "Cancelled by user"
-            refreshed_job.completed_at = datetime.now(UTC)
-            refreshed_job.last_progress_at = datetime.now(UTC)
-            await refreshed_job.save()
-
-        if region:
-            cleanup_download_artifacts(
-                region,
-                remove_output=region.downloaded_at is None,
-            )
-            region.status = MapRegion.STATUS_NOT_DOWNLOADED
-            region.download_progress = 0
-            region.pbf_path = None
-            region.file_size_mb = None
-            region.downloaded_at = None
-            region.nominatim_status = "not_built"
-            region.valhalla_status = "not_built"
-            region.last_error = "Download cancelled"
-            region.updated_at = datetime.now(UTC)
-            await region.save()
-
-        return {"success": False, "error": "Job cancelled"}
-    except Exception as e:
-        logger.exception("Download failed for job %s", job_id)
-
-        job.status = MapDataJob.STATUS_FAILED
-        job.error = str(e)
-        job.completed_at = datetime.now(UTC)
-        job.last_progress_at = datetime.now(UTC)
-        await job.save()
-
-        region.status = MapRegion.STATUS_ERROR
-        region.last_error = str(e)
-        region.updated_at = datetime.now(UTC)
-        await region.save()
-
-        return {"success": False, "error": str(e)}
-    finally:
-        cancel_watch.cancel()
-        with contextlib.suppress(asyncio.CancelledError):
-            await cancel_watch
-
-
-async def build_nominatim_task(ctx: dict, job_id: str) -> dict:
-    """
-    Execute Nominatim import in background.
-
-    Args:
-        ctx: ARQ context
-        job_id: MapDataJob document ID
-
-    Returns:
-        Result dictionary with status
-    """
-    logger.info("Starting Nominatim build task for job %s", job_id)
-
-    job = await MapDataJob.get(PydanticObjectId(job_id))
-    if not job:
-        logger.error("Job not found: %s", job_id)
-        return {"success": False, "error": "Job not found"}
-
-    if job.status == MapDataJob.STATUS_CANCELLED:
-        logger.info("Job was cancelled: %s", job_id)
-        return {"success": False, "error": "Job cancelled"}
-
-    region = await MapRegion.get(job.region_id)
-    if not region:
-        job.status = MapDataJob.STATUS_FAILED
-        job.error = "Region not found"
-        await job.save()
-        return {"success": False, "error": "Region not found"}
-
-    try:
-        # Update job status
-        job.status = MapDataJob.STATUS_RUNNING
-        job.started_at = datetime.now(UTC)
-        job.stage = "Starting Nominatim service"
-        job.message = "Ensuring Nominatim container is running"
-        job.last_progress_at = datetime.now(UTC)
-        await job.save()
-
-        await start_container_on_demand("nominatim")
-
-        job.stage = "Building Nominatim"
-
-        # Update region status
-        region.nominatim_status = "building"
-        region.status = MapRegion.STATUS_BUILDING_NOMINATIM
-        region.updated_at = datetime.now(UTC)
-        await region.save()
-
-        # Progress callback
-        async def update_progress(progress: float, message: str) -> None:
-            job.progress = progress
-            job.message = message
-            job.last_progress_at = datetime.now(UTC)
-            await job.save()
-
-        # Execute build
-        await build_nominatim_data(region, progress_callback=update_progress)
-
-        # Mark complete
-        job.progress = 100
-        job.message = "Nominatim build complete"
-        job.completed_at = datetime.now(UTC)
-        job.last_progress_at = datetime.now(UTC)
-
-        region.nominatim_status = "ready"
-        region.nominatim_built_at = datetime.now(UTC)
-        region.nominatim_error = None
-        region.updated_at = datetime.now(UTC)
-
-        # Check if this was a "build all" job
-        if job.job_type == MapDataJob.JOB_BUILD_ALL:
-            # Continue with Valhalla build
-            job.stage = "Starting Valhalla build"
-            job.progress = 50
-            job.last_progress_at = datetime.now(UTC)
-            await job.save()
-            await region.save()
-
-            # Build Valhalla
-            region.valhalla_status = "building"
-            region.status = MapRegion.STATUS_BUILDING_VALHALLA
-            await region.save()
-
-            await build_valhalla_tiles(region, progress_callback=update_progress)
-
-            region.valhalla_status = "ready"
-            region.valhalla_built_at = datetime.now(UTC)
-            region.valhalla_error = None
-            region.status = MapRegion.STATUS_READY
-            job.message = "Full build complete"
-        else:
-            # Just Nominatim was built
-            region.status = MapRegion.STATUS_DOWNLOADED
-            if region.valhalla_status == "ready":
-                region.status = MapRegion.STATUS_READY
-
-        job.status = MapDataJob.STATUS_COMPLETED
-        job.completed_at = datetime.now(UTC)
-        job.last_progress_at = datetime.now(UTC)
-        await job.save()
-
-        region.updated_at = datetime.now(UTC)
-        await region.save()
-
-        logger.info("Nominatim build complete for region %s", region.display_name)
-        return {"success": True, "region_id": str(region.id)}
-
-    except Exception as e:
-        logger.exception("Nominatim build failed for job %s", job_id)
-
-        job.status = MapDataJob.STATUS_FAILED
-        job.error = str(e)
-        job.completed_at = datetime.now(UTC)
-        job.last_progress_at = datetime.now(UTC)
-        await job.save()
-
-        region.nominatim_status = "error"
-        region.nominatim_error = str(e)
-        region.status = MapRegion.STATUS_ERROR
-        region.last_error = str(e)
-        region.updated_at = datetime.now(UTC)
-        await region.save()
-
-        return {"success": False, "error": str(e)}
-
-
-async def build_valhalla_task(ctx: dict, job_id: str) -> dict:
-    """
-    Execute Valhalla tile build in background.
-
-    Args:
-        ctx: ARQ context
-        job_id: MapDataJob document ID
-
-    Returns:
-        Result dictionary with status
-    """
-    logger.info("Starting Valhalla build task for job %s", job_id)
-
-    job = await MapDataJob.get(PydanticObjectId(job_id))
-    if not job:
-        logger.error("Job not found: %s", job_id)
-        return {"success": False, "error": "Job not found"}
-
-    if job.status == MapDataJob.STATUS_CANCELLED:
-        logger.info("Job was cancelled: %s", job_id)
-        return {"success": False, "error": "Job cancelled"}
-
-    region = await MapRegion.get(job.region_id)
-    if not region:
-        job.status = MapDataJob.STATUS_FAILED
-        job.error = "Region not found"
-        await job.save()
-        return {"success": False, "error": "Region not found"}
-
-    try:
-        # Update job status
-        job.status = MapDataJob.STATUS_RUNNING
-        job.started_at = datetime.now(UTC)
-        job.stage = "Starting Valhalla service"
-        job.message = "Ensuring Valhalla container is running"
-        job.last_progress_at = datetime.now(UTC)
-        await job.save()
-
-        await start_container_on_demand("valhalla")
-
-        job.stage = "Building Valhalla tiles"
-
-        # Update region status
-        region.valhalla_status = "building"
-        region.status = MapRegion.STATUS_BUILDING_VALHALLA
-        region.updated_at = datetime.now(UTC)
-        await region.save()
-
-        # Progress callback
-        async def update_progress(progress: float, message: str) -> None:
-            job.progress = progress
-            job.message = message
-            job.last_progress_at = datetime.now(UTC)
-            await job.save()
-
-        # Execute build
-        await build_valhalla_tiles(region, progress_callback=update_progress)
-
-        # Mark complete
-        job.status = MapDataJob.STATUS_COMPLETED
-        job.progress = 100
-        job.message = "Valhalla build complete"
-        job.completed_at = datetime.now(UTC)
-        job.last_progress_at = datetime.now(UTC)
-        await job.save()
-
-        region.valhalla_status = "ready"
-        region.valhalla_built_at = datetime.now(UTC)
-        region.valhalla_error = None
-
-        # Update overall status
-        if region.nominatim_status == "ready":
-            region.status = MapRegion.STATUS_READY
-        else:
-            region.status = MapRegion.STATUS_DOWNLOADED
-
-        region.updated_at = datetime.now(UTC)
-        await region.save()
-
-        logger.info("Valhalla build complete for region %s", region.display_name)
-        return {"success": True, "region_id": str(region.id)}
-
-    except Exception as e:
-        logger.exception("Valhalla build failed for job %s", job_id)
-
-        job.status = MapDataJob.STATUS_FAILED
-        job.error = str(e)
-        job.completed_at = datetime.now(UTC)
-        job.last_progress_at = datetime.now(UTC)
-        await job.save()
-
-        region.valhalla_status = "error"
-        region.valhalla_error = str(e)
-        region.status = MapRegion.STATUS_ERROR
-        region.last_error = str(e)
-        region.updated_at = datetime.now(UTC)
-        await region.save()
-
-        return {"success": False, "error": str(e)}
-
-
-# =============================================================================
-# Task enqueueing functions (called from services.py)
-# =============================================================================
-
-
-async def _monitor_map_data_jobs_logic() -> dict[str, object]:
     now = datetime.now(UTC)
-    running_threshold = int(os.getenv("MAP_DATA_JOB_STALLED_RUNNING_MINUTES", "20"))
-    pending_threshold = int(os.getenv("MAP_DATA_JOB_STALLED_PENDING_MINUTES", "30"))
+    if status is not None:
+        config.status = status
+    if message is not None:
+        config.message = message
+    if overall_progress is not None:
+        config.progress = float(overall_progress)
+        progress.total_progress = float(overall_progress)
+    if geocoding_ready is not None:
+        config.geocoding_ready = geocoding_ready
+    if routing_ready is not None:
+        config.routing_ready = routing_ready
+    if last_error is not None:
+        config.last_error = last_error
+        config.last_error_at = now
+    config.last_updated = now
 
-    jobs = await MapDataJob.find(
-        {
-            "status": {
-                "$in": [MapDataJob.STATUS_PENDING, MapDataJob.STATUS_RUNNING],
-            },
-        },
-    ).to_list()
+    if phase is not None:
+        progress.phase = phase
+    if phase_progress is not None:
+        progress.phase_progress = float(phase_progress)
+    progress.last_progress_at = now
 
-    stalled = []
+    await config.save()
+    await progress.save()
 
-    for job in jobs:
-        last_activity = job.last_progress_at or job.started_at or job.created_at
-        if not last_activity:
+
+def _check_cancel(progress: MapBuildProgress) -> None:
+    if progress.cancellation_requested:
+        raise MapSetupCancelled("Setup cancelled")
+
+
+async def _download_state(
+    client: httpx.AsyncClient,
+    url: str,
+    destination: str,
+    tracker: DownloadTracker,
+    progress_callback: Any,
+    progress_doc: MapBuildProgress,
+) -> None:
+    temp_path = f"{destination}.downloading"
+    os.makedirs(os.path.dirname(destination), exist_ok=True)
+
+    async with client.stream("GET", url) as response:
+        response.raise_for_status()
+        with open(temp_path, "wb") as handle:
+            async for chunk in response.aiter_bytes(CHUNK_SIZE):
+                _check_cancel(progress_doc)
+                handle.write(chunk)
+                tracker.downloaded_bytes += len(chunk)
+                now = time.monotonic()
+                if (now - tracker.last_update) >= 0.8:
+                    tracker.last_update = now
+                    await progress_callback()
+
+    os.replace(temp_path, destination)
+    await progress_callback(force=True)
+
+
+async def _download_states(
+    states: list[str],
+    config: MapServiceConfig,
+    progress: MapBuildProgress,
+) -> list[str]:
+    total_bytes = 0
+    download_plan: list[tuple[str, str]] = []
+    for code in states:
+        state = get_state(code)
+        if not state:
             continue
+        size_mb = int(state.get("size_mb") or 0)
+        total_bytes += size_mb * 1024 * 1024
+        geofabrik_id = str(state.get("geofabrik_id"))
+        filename = _state_filename(geofabrik_id)
+        download_plan.append((geofabrik_id, filename))
 
-        age_minutes = (now - last_activity).total_seconds() / 60
-        threshold = (
-            pending_threshold
-            if job.status == MapDataJob.STATUS_PENDING
-            else running_threshold
+    tracker = DownloadTracker(total_bytes=max(total_bytes, 1))
+    extracts_path = get_osm_extracts_path()
+    states_dir = os.path.join(extracts_path, "states")
+    os.makedirs(states_dir, exist_ok=True)
+
+    async def progress_callback(force: bool = False) -> None:
+        percent = tracker.percent()
+        overall = DOWNLOAD_PROGRESS_END * (percent / 100.0)
+        if force:
+            overall = min(DOWNLOAD_PROGRESS_END, overall)
+        await _update_progress(
+            config,
+            progress,
+            status=MapServiceConfig.STATUS_DOWNLOADING,
+            message="Downloading map data...",
+            overall_progress=overall,
+            phase=MapBuildProgress.PHASE_DOWNLOADING,
+            phase_progress=percent,
         )
-        if age_minutes < threshold:
-            continue
 
-        reason = f"Job stalled: no progress for {int(age_minutes)} minutes"
-        job.status = MapDataJob.STATUS_FAILED
-        job.stage = "Stalled"
-        job.message = reason
-        job.error = reason
-        job.completed_at = now
-        job.last_progress_at = now
-        await job.save()
+    async with httpx.AsyncClient(timeout=httpx.Timeout(120.0, connect=30.0)) as client:
+        for geofabrik_id, filename in download_plan:
+            _check_cancel(progress)
+            url = _state_download_url(geofabrik_id)
+            dest_path = os.path.join(states_dir, filename)
+            if os.path.exists(dest_path) and os.path.getsize(dest_path) > 0:
+                tracker.downloaded_bytes += os.path.getsize(dest_path)
+                await progress_callback(force=True)
+                continue
+            await _update_progress(
+                config,
+                progress,
+                status=MapServiceConfig.STATUS_DOWNLOADING,
+                message=f"Downloading {geofabrik_id.split('/')[-1].replace('-', ' ').title()}...",
+            )
+            await _download_state(client, url, dest_path, tracker, progress_callback, progress)
 
-        if job.arq_job_id:
-            with contextlib.suppress(Exception):
-                await abort_job(job.arq_job_id)
+    await _update_progress(
+        config,
+        progress,
+        status=MapServiceConfig.STATUS_DOWNLOADING,
+        message="Download complete",
+        overall_progress=DOWNLOAD_PROGRESS_END,
+        phase=MapBuildProgress.PHASE_DOWNLOADING,
+        phase_progress=100.0,
+    )
 
-        if job.region_id:
-            region = await MapRegion.get(job.region_id)
-            if region:
-                if job.job_type in (MapDataJob.JOB_DOWNLOAD, "download_and_build_all"):
-                    region.status = MapRegion.STATUS_ERROR
-                    region.last_error = reason
-                elif job.job_type == MapDataJob.JOB_BUILD_NOMINATIM:
-                    region.nominatim_status = "error"
-                    region.nominatim_error = reason
-                    region.status = MapRegion.STATUS_ERROR
-                    region.last_error = reason
-                elif job.job_type == MapDataJob.JOB_BUILD_VALHALLA:
-                    region.valhalla_status = "error"
-                    region.valhalla_error = reason
-                    region.status = MapRegion.STATUS_ERROR
-                    region.last_error = reason
-                elif job.job_type == MapDataJob.JOB_BUILD_ALL:
-                    region.nominatim_status = "error"
-                    region.valhalla_status = "error"
-                    region.status = MapRegion.STATUS_ERROR
-                    region.last_error = reason
-                region.updated_at = now
-                await region.save()
+    return [os.path.join(states_dir, filename) for _, filename in download_plan]
 
-        stalled.append({"job_id": str(job.id), "age_minutes": int(age_minutes)})
+
+async def _merge_pbf_files(
+    files: list[str],
+    config: MapServiceConfig,
+    progress: MapBuildProgress,
+) -> str:
+    extracts_path = get_osm_extracts_path()
+    merged_dir = os.path.join(extracts_path, "merged")
+    os.makedirs(merged_dir, exist_ok=True)
+    output_path = os.path.join(merged_dir, "us-states.osm.pbf")
+    temp_output = f"{output_path}.tmp"
+
+    await _update_progress(
+        config,
+        progress,
+        status=MapServiceConfig.STATUS_DOWNLOADING,
+        message="Merging map files...",
+        overall_progress=DOWNLOAD_PROGRESS_END + 2.0,
+        phase=MapBuildProgress.PHASE_DOWNLOADING,
+        phase_progress=100.0,
+    )
+
+    if len(files) == 1:
+        src = files[0]
+        if src != output_path:
+            with contextlib.suppress(FileNotFoundError):
+                os.remove(temp_output)
+            with contextlib.suppress(FileNotFoundError):
+                os.remove(output_path)
+            try:
+                os.link(src, output_path)
+            except OSError:
+                shutil.copy2(src, output_path)
+        await _update_progress(
+            config,
+            progress,
+            status=MapServiceConfig.STATUS_DOWNLOADING,
+            message="Map files ready",
+            overall_progress=MERGE_PROGRESS_END,
+        )
+        return output_path
+
+    with contextlib.suppress(FileNotFoundError):
+        os.remove(temp_output)
+    with contextlib.suppress(FileNotFoundError):
+        os.remove(output_path)
+
+    cmd = ["osmium", "merge", "-o", temp_output, *files]
+    logger.info("Running osmium merge: %s", " ".join(cmd))
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise RuntimeError(result.stderr.strip() or "osmium merge failed")
+
+    os.replace(temp_output, output_path)
+    await _update_progress(
+        config,
+        progress,
+        status=MapServiceConfig.STATUS_DOWNLOADING,
+        message="Map files ready",
+        overall_progress=MERGE_PROGRESS_END,
+    )
+    return output_path
+
+
+async def _build_nominatim(
+    pbf_relative: str,
+    config: MapServiceConfig,
+    progress: MapBuildProgress,
+) -> None:
+    async def progress_callback(phase_progress: float, message: str) -> None:
+        overall = MERGE_PROGRESS_END + (phase_progress / 100.0) * (
+            NOMINATIM_PROGRESS_END - MERGE_PROGRESS_END
+        )
+        await _update_progress(
+            config,
+            progress,
+            status=MapServiceConfig.STATUS_BUILDING,
+            message="Setting up address lookup...",
+            overall_progress=overall,
+            phase=MapBuildProgress.PHASE_BUILDING_GEOCODER,
+            phase_progress=phase_progress,
+        )
+
+    await _update_progress(
+        config,
+        progress,
+        status=MapServiceConfig.STATUS_BUILDING,
+        message="Setting up address lookup...",
+        overall_progress=MERGE_PROGRESS_END,
+        phase=MapBuildProgress.PHASE_BUILDING_GEOCODER,
+        phase_progress=0.0,
+    )
+    await build_nominatim_data(
+        pbf_relative,
+        label="selected states",
+        progress_callback=progress_callback,
+    )
+
+
+async def _build_valhalla(
+    pbf_relative: str,
+    config: MapServiceConfig,
+    progress: MapBuildProgress,
+) -> None:
+    async def progress_callback(phase_progress: float, message: str) -> None:
+        overall = NOMINATIM_PROGRESS_END + (phase_progress / 100.0) * (
+            VALHALLA_PROGRESS_END - NOMINATIM_PROGRESS_END
+        )
+        await _update_progress(
+            config,
+            progress,
+            status=MapServiceConfig.STATUS_BUILDING,
+            message="Setting up route planning...",
+            overall_progress=overall,
+            phase=MapBuildProgress.PHASE_BUILDING_ROUTER,
+            phase_progress=phase_progress,
+        )
+
+    await _update_progress(
+        config,
+        progress,
+        status=MapServiceConfig.STATUS_BUILDING,
+        message="Setting up route planning...",
+        overall_progress=NOMINATIM_PROGRESS_END,
+        phase=MapBuildProgress.PHASE_BUILDING_ROUTER,
+        phase_progress=0.0,
+    )
+    await build_valhalla_tiles(
+        pbf_relative,
+        label="selected states",
+        progress_callback=progress_callback,
+    )
+
+
+async def _verify_health(
+    config: MapServiceConfig,
+    progress: MapBuildProgress,
+) -> None:
+    await _update_progress(
+        config,
+        progress,
+        status=MapServiceConfig.STATUS_BUILDING,
+        message="Finalizing services...",
+        overall_progress=VALHALLA_PROGRESS_END,
+    )
+
+    for attempt in range(10):
+        _check_cancel(progress)
+        health = await check_service_health(force_refresh=True)
+        await _update_progress(
+            config,
+            progress,
+            status=MapServiceConfig.STATUS_BUILDING,
+            message="Finalizing services...",
+            overall_progress=VALHALLA_PROGRESS_END + 2 + attempt,
+            geocoding_ready=health.nominatim_healthy,
+            routing_ready=health.valhalla_healthy,
+        )
+        if health.nominatim_healthy and health.valhalla_healthy:
+            await _update_progress(
+                config,
+                progress,
+                status=MapServiceConfig.STATUS_READY,
+                message="Maps ready",
+                overall_progress=VERIFY_PROGRESS_END,
+                geocoding_ready=True,
+                routing_ready=True,
+            )
+            return
+        await asyncio.sleep(5)
+
+    await _update_progress(
+        config,
+        progress,
+        status=MapServiceConfig.STATUS_READY,
+        message="Map services starting up...",
+        overall_progress=VERIFY_PROGRESS_END,
+    )
+
+
+async def setup_map_data_task(ctx: dict, states: list[str]) -> dict[str, Any]:
+    job_id = ctx.get("job_id") or ctx.get("id")
+
+    async def run_pipeline() -> dict[str, Any]:
+        config = await MapServiceConfig.get_or_create()
+        progress = await MapBuildProgress.get_or_create()
+
+        normalized = _normalize_states(states)
+        if not normalized:
+            raise ValueError("No valid states selected.")
+
+        progress.active_job_id = str(job_id) if job_id else None
+        progress.cancellation_requested = False
+        progress.started_at = progress.started_at or datetime.now(UTC)
+        progress.last_progress_at = datetime.now(UTC)
+        await progress.save()
+
+        try:
+            await _update_progress(
+                config,
+                progress,
+                status=MapServiceConfig.STATUS_DOWNLOADING,
+                message="Downloading map data...",
+                overall_progress=0.0,
+                phase=MapBuildProgress.PHASE_DOWNLOADING,
+                phase_progress=0.0,
+                geocoding_ready=False,
+                routing_ready=False,
+            )
+
+            files = await _download_states(normalized, config, progress)
+            _check_cancel(progress)
+
+            merged = await _merge_pbf_files(files, config, progress)
+            _check_cancel(progress)
+
+            extracts_path = get_osm_extracts_path()
+            pbf_relative = os.path.relpath(merged, extracts_path)
+
+            await _build_nominatim(pbf_relative, config, progress)
+            _check_cancel(progress)
+            await _build_valhalla(pbf_relative, config, progress)
+            _check_cancel(progress)
+
+            await _verify_health(config, progress)
+
+            config.retry_count = 0
+            config.last_error = None
+            config.last_error_at = None
+            await config.save()
+
+            progress.phase = MapBuildProgress.PHASE_IDLE
+            progress.phase_progress = 100.0
+            progress.total_progress = VERIFY_PROGRESS_END
+            progress.active_job_id = None
+            progress.cancellation_requested = False
+            progress.last_progress_at = datetime.now(UTC)
+            await progress.save()
+
+            return {"success": True}
+        except MapSetupCancelled as exc:
+            await _update_progress(
+                config,
+                progress,
+                status=MapServiceConfig.STATUS_NOT_CONFIGURED,
+                message="Setup cancelled",
+                overall_progress=0.0,
+                last_error=str(exc),
+            )
+            progress.phase = MapBuildProgress.PHASE_IDLE
+            progress.phase_progress = 0.0
+            progress.total_progress = 0.0
+            progress.active_job_id = None
+            progress.cancellation_requested = False
+            progress.last_progress_at = datetime.now(UTC)
+            await progress.save()
+            return {"success": False, "error": str(exc)}
+        except Exception as exc:
+            logger.exception("Map setup failed")
+            config.retry_count += 1
+            await _update_progress(
+                config,
+                progress,
+                status=MapServiceConfig.STATUS_ERROR,
+                message="Setup paused, will retry automatically",
+                overall_progress=config.progress,
+                last_error=str(exc),
+            )
+            progress.phase = MapBuildProgress.PHASE_IDLE
+            progress.phase_progress = 0.0
+            progress.active_job_id = None
+            progress.last_progress_at = datetime.now(UTC)
+            await progress.save()
+            return {"success": False, "error": str(exc)}
+
+    return await run_task_with_history(
+        ctx,
+        "setup_map_data_task",
+        run_pipeline,
+    )
+
+
+async def _enqueue_setup_job(states: list[str]) -> str:
+    pool = await get_arq_pool()
+    arq_job = await pool.enqueue_job("setup_map_data_task", states)
+    return (
+        getattr(arq_job, "job_id", None) or getattr(arq_job, "id", None) or str(arq_job)
+    )
+
+
+async def _monitor_map_services_logic() -> dict[str, Any]:
+    config = await MapServiceConfig.get_or_create()
+    progress = await MapBuildProgress.get_or_create()
+    now = datetime.now(UTC)
+
+    restarted = False
+    retried = False
+
+    if config.status in {
+        MapServiceConfig.STATUS_DOWNLOADING,
+        MapServiceConfig.STATUS_BUILDING,
+    }:
+        last_progress = progress.last_progress_at or progress.started_at
+        if last_progress and now - last_progress > timedelta(
+            minutes=STALL_THRESHOLD_MINUTES,
+        ):
+            progress.cancellation_requested = True
+            await progress.save()
+            if progress.active_job_id:
+                with contextlib.suppress(Exception):
+                    await abort_job(progress.active_job_id)
+            config.status = MapServiceConfig.STATUS_ERROR
+            config.last_error = "Setup stalled, restarting"
+            config.last_error_at = now
+            config.message = "Setup paused, will retry automatically"
+            config.last_updated = now
+            await config.save()
+            restarted = True
+
+    if (
+        config.status == MapServiceConfig.STATUS_ERROR
+        and config.retry_count > 0
+        and config.retry_count <= MAX_RETRIES
+        and config.selected_states
+    ):
+        delay_seconds = _retry_delay_seconds(config.retry_count)
+        if config.last_error_at and now >= config.last_error_at + timedelta(
+            seconds=delay_seconds,
+        ):
+            progress.phase = MapBuildProgress.PHASE_DOWNLOADING
+            progress.phase_progress = 0.0
+            progress.total_progress = 0.0
+            progress.cancellation_requested = False
+            progress.started_at = now
+            progress.last_progress_at = now
+            job_id = await _enqueue_setup_job(config.selected_states)
+            progress.active_job_id = job_id
+            await progress.save()
+
+            config.status = MapServiceConfig.STATUS_DOWNLOADING
+            config.message = "Retrying map setup..."
+            config.progress = 0.0
+            config.last_updated = now
+            await config.save()
+            retried = True
 
     return {
         "status": "success",
-        "stalled_jobs": stalled,
-        "checked": len(jobs),
+        "restarted": restarted,
+        "retried": retried,
     }
 
 
-async def monitor_map_data_jobs(
+async def monitor_map_services(
     ctx: dict,
     manual_run: bool = False,
-) -> dict[str, object]:
+) -> dict[str, Any]:
     return await run_task_with_history(
         ctx,
         "monitor_map_data_jobs",
-        _monitor_map_data_jobs_logic,
+        _monitor_map_services_logic,
         manual_run=manual_run,
     )
-
-
-async def enqueue_download_task(job_id: str, build_after: bool = False) -> None:
-    """
-    Enqueue a download task to the ARQ worker.
-
-    Args:
-        job_id: MapDataJob document ID
-        build_after: If True, will chain to build after download (for pipeline jobs)
-    """
-    from tasks.arq import get_arq_pool
-
-    pool = await get_arq_pool()
-    arq_job = await pool.enqueue_job("download_region_task", job_id)
-    arq_job_id = (
-        getattr(arq_job, "job_id", None) or getattr(arq_job, "id", None) or str(arq_job)
-    )
-    try:
-        stored_job = await MapDataJob.get(PydanticObjectId(job_id))
-        if stored_job:
-            stored_job.arq_job_id = arq_job_id
-            await stored_job.save()
-    except Exception as exc:
-        logger.warning("Failed to store ARQ job id for %s: %s", job_id, exc)
-    logger.info(
-        "Enqueued download task for job %s (build_after=%s)",
-        job_id,
-        build_after,
-    )
-
-
-async def enqueue_nominatim_build_task(job_id: str) -> None:
-    """Enqueue a Nominatim build task to the ARQ worker."""
-    from tasks.arq import get_arq_pool
-
-    pool = await get_arq_pool()
-    arq_job = await pool.enqueue_job("build_nominatim_task", job_id)
-    arq_job_id = (
-        getattr(arq_job, "job_id", None) or getattr(arq_job, "id", None) or str(arq_job)
-    )
-    try:
-        stored_job = await MapDataJob.get(PydanticObjectId(job_id))
-        if stored_job:
-            stored_job.arq_job_id = arq_job_id
-            await stored_job.save()
-    except Exception as exc:
-        logger.warning("Failed to store ARQ job id for %s: %s", job_id, exc)
-    logger.info("Enqueued Nominatim build task for job %s", job_id)
-
-
-async def enqueue_valhalla_build_task(job_id: str) -> None:
-    """Enqueue a Valhalla build task to the ARQ worker."""
-    from tasks.arq import get_arq_pool
-
-    pool = await get_arq_pool()
-    arq_job = await pool.enqueue_job("build_valhalla_task", job_id)
-    arq_job_id = (
-        getattr(arq_job, "job_id", None) or getattr(arq_job, "id", None) or str(arq_job)
-    )
-    try:
-        stored_job = await MapDataJob.get(PydanticObjectId(job_id))
-        if stored_job:
-            stored_job.arq_job_id = arq_job_id
-            await stored_job.save()
-    except Exception as exc:
-        logger.warning("Failed to store ARQ job id for %s: %s", job_id, exc)
-    logger.info("Enqueued Valhalla build task for job %s", job_id)

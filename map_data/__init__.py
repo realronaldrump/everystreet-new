@@ -11,6 +11,6 @@ Key features:
 - Track download and build progress
 """
 
-from map_data.models import GeoServiceHealth, MapDataJob, MapRegion
+from map_data.models import GeoServiceHealth, MapBuildProgress, MapServiceConfig
 
-__all__ = ["GeoServiceHealth", "MapDataJob", "MapRegion"]
+__all__ = ["GeoServiceHealth", "MapBuildProgress", "MapServiceConfig"]

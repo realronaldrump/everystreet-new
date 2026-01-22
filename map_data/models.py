@@ -1,183 +1,84 @@
-"""
-Map data management models.
-
-Tracks geographic regions, their OSM data status, and build jobs
-for Nominatim and Valhalla services.
-
-Key models:
-- MapRegion: A geographic region with downloadable OSM data
-- MapDataJob: Job tracking for downloads and builds
-- GeoServiceHealth: Health status for Nominatim and Valhalla
-"""
+"""Map services models for simplified setup and health tracking."""
 
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import Any, ClassVar
+from typing import ClassVar
 
-from beanie import Document, Indexed, PydanticObjectId
-from beanie.odm.fields import IndexModel
+from beanie import Document
 from pydantic import ConfigDict, Field
 
 
-class MapRegion(Document):
-    """
-    A geographic region for map data management.
+class MapServiceConfig(Document):
+    """Singleton configuration for map services."""
 
-    Represents a downloadable OSM region from Geofabrik or other
-    sources. Tracks download status and build status for both Nominatim
-    and Valhalla.
-    """
+    id: str = Field(default="map_service_config", alias="_id")
 
-    # Identity
-    name: Indexed(str, unique=True)  # Geofabrik ID, e.g., "north-america/us/texas"
-    display_name: str  # Human-readable name, e.g., "Texas, United States"
-    source: str = "geofabrik"  # "geofabrik", "planet", "custom"
-
-    # Source metadata
-    source_url: str | None = None  # Full download URL
-    source_size_mb: float | None = None  # Size reported by source
-    source_last_modified: datetime | None = None  # Last modified date from source
-
-    # Download status
-    status: str = "not_downloaded"  # See STATUS_* constants below
-    pbf_path: str | None = None  # Path relative to osm_extracts volume
-    download_progress: float = 0.0  # 0-100 during download
-    downloaded_at: datetime | None = None
-    file_size_mb: float | None = None  # Actual downloaded file size
-
-    # Nominatim build status
-    nominatim_status: str = "not_built"  # "not_built", "building", "ready", "error"
-    nominatim_built_at: datetime | None = None
-    nominatim_error: str | None = None
-
-    # Valhalla build status
-    valhalla_status: str = "not_built"  # "not_built", "building", "ready", "error"
-    valhalla_built_at: datetime | None = None
-    valhalla_error: str | None = None
-
-    # Geographic bounds [min_lon, min_lat, max_lon, max_lat]
-    bounding_box: list[float] = Field(default_factory=list)
-
-    # Timestamps
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    updated_at: datetime | None = None
-
-    # Error tracking
+    selected_states: list[str] = Field(default_factory=list)
+    status: str = "not_configured"
+    progress: float = 0.0
+    message: str = ""
+    geocoding_ready: bool = False
+    routing_ready: bool = False
     last_error: str | None = None
+    retry_count: int = 0
+    last_updated: datetime | None = None
+    last_error_at: datetime | None = None
 
-    # Status constants
-    STATUS_NOT_DOWNLOADED: ClassVar[str] = "not_downloaded"
+    STATUS_NOT_CONFIGURED: ClassVar[str] = "not_configured"
     STATUS_DOWNLOADING: ClassVar[str] = "downloading"
-    STATUS_DOWNLOADED: ClassVar[str] = "downloaded"
-    STATUS_BUILDING_NOMINATIM: ClassVar[str] = "building_nominatim"
-    STATUS_BUILDING_VALHALLA: ClassVar[str] = "building_valhalla"
+    STATUS_BUILDING: ClassVar[str] = "building"
     STATUS_READY: ClassVar[str] = "ready"
     STATUS_ERROR: ClassVar[str] = "error"
 
     class Settings:
-        name = "map_regions"
-        indexes: ClassVar[list[IndexModel]] = [
-            IndexModel([("status", 1)], name="map_regions_status_idx"),
-            IndexModel([("source", 1)], name="map_regions_source_idx"),
-            IndexModel([("created_at", -1)], name="map_regions_created_idx"),
-        ]
+        name = "map_service_config"
 
     model_config = ConfigDict(extra="allow")
 
     @property
     def is_ready(self) -> bool:
-        """Check if region is fully ready (downloaded and both services built)."""
-        return (
-            self.status in (self.STATUS_READY, self.STATUS_DOWNLOADED)
-            and self.nominatim_status == "ready"
-            and self.valhalla_status == "ready"
-        )
+        return self.status == self.STATUS_READY
 
-    @property
-    def has_error(self) -> bool:
-        """Check if region has any errors."""
-        return (
-            self.status == self.STATUS_ERROR
-            or self.nominatim_status == "error"
-            or self.valhalla_status == "error"
-        )
+    @classmethod
+    async def get_or_create(cls) -> MapServiceConfig:
+        config = await cls.find_one({"_id": "map_service_config"})
+        if not config:
+            config = cls()
+            await config.insert()
+        return config
 
 
-class MapDataJob(Document):
-    """
-    Job tracking for map data operations.
+class MapBuildProgress(Document):
+    """Singleton progress tracker for active map builds."""
 
-    Tracks progress of downloads and builds with detailed status
-    information.
-    """
+    id: str = Field(default="map_build_progress", alias="_id")
 
-    # Identity
-    job_type: str  # "download", "build_nominatim", "build_valhalla", "build_all"
-    region_id: PydanticObjectId | None = None
-    arq_job_id: str | None = None
-
-    # State
-    status: str = "pending"  # "pending", "running", "completed", "failed", "cancelled"
-    stage: str = "Queued"  # User-friendly stage description
-    progress: float = 0.0  # 0-100
-    message: str = ""
-    last_progress_at: datetime | None = None
-
-    # Timing
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    phase: str = "idle"
+    phase_progress: float = 0.0
+    total_progress: float = 0.0
     started_at: datetime | None = None
-    completed_at: datetime | None = None
+    cancellation_requested: bool = False
+    last_progress_at: datetime | None = None
+    active_job_id: str | None = None
 
-    # Error handling
-    error: str | None = None
-    retry_count: int = 0
-    max_retries: int = 3
-
-    # Metrics (for download/build tracking)
-    metrics: dict[str, Any] = Field(default_factory=dict)
-    # Example metrics:
-    # - download: {"bytes_downloaded": 0, "total_bytes": 0, "speed_mbps": 0}
-    # - build: {"records_processed": 0, "total_records": 0}
-
-    # Job type constants
-    JOB_DOWNLOAD: ClassVar[str] = "download"
-    JOB_BUILD_NOMINATIM: ClassVar[str] = "build_nominatim"
-    JOB_BUILD_VALHALLA: ClassVar[str] = "build_valhalla"
-    JOB_BUILD_ALL: ClassVar[str] = "build_all"
-
-    # Status constants
-    STATUS_PENDING: ClassVar[str] = "pending"
-    STATUS_RUNNING: ClassVar[str] = "running"
-    STATUS_COMPLETED: ClassVar[str] = "completed"
-    STATUS_FAILED: ClassVar[str] = "failed"
-    STATUS_CANCELLED: ClassVar[str] = "cancelled"
+    PHASE_IDLE: ClassVar[str] = "idle"
+    PHASE_DOWNLOADING: ClassVar[str] = "downloading"
+    PHASE_BUILDING_GEOCODER: ClassVar[str] = "building_geocoder"
+    PHASE_BUILDING_ROUTER: ClassVar[str] = "building_router"
 
     class Settings:
-        name = "map_data_jobs"
-        indexes: ClassVar[list[IndexModel]] = [
-            IndexModel(
-                [("region_id", 1), ("job_type", 1)],
-                name="map_jobs_region_type_idx",
-            ),
-            IndexModel([("status", 1)], name="map_jobs_status_idx"),
-            IndexModel([("created_at", -1)], name="map_jobs_created_idx"),
-        ]
+        name = "map_build_progress"
 
     model_config = ConfigDict(extra="allow")
 
-    @property
-    def is_active(self) -> bool:
-        """Check if job is currently active (pending or running)."""
-        return self.status in (self.STATUS_PENDING, self.STATUS_RUNNING)
-
-    @property
-    def duration_seconds(self) -> float | None:
-        """Calculate job duration in seconds."""
-        if not self.started_at:
-            return None
-        end_time = self.completed_at or datetime.now(UTC)
-        return (end_time - self.started_at).total_seconds()
+    @classmethod
+    async def get_or_create(cls) -> MapBuildProgress:
+        progress = await cls.find_one({"_id": "map_build_progress"})
+        if not progress:
+            progress = cls()
+            await progress.insert()
+        return progress
 
 
 class GeoServiceHealth(Document):

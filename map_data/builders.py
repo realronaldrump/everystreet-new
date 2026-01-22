@@ -17,8 +17,6 @@ from config import get_osm_extracts_path
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from map_data.models import MapRegion
-
 logger = logging.getLogger(__name__)
 
 # Build configuration
@@ -105,7 +103,9 @@ async def start_container_on_demand(
 
 
 async def build_nominatim_data(
-    region: MapRegion,
+    pbf_path: str,
+    *,
+    label: str = "selected states",
     progress_callback: Callable[[float, str], Any] | None = None,
 ) -> bool:
     """
@@ -114,7 +114,8 @@ async def build_nominatim_data(
     This executes the nominatim import command inside the Nominatim container.
 
     Args:
-        region: MapRegion with downloaded PBF file
+        pbf_path: Relative PBF path inside the osm extracts volume
+        label: Human-readable label for logging
         progress_callback: Optional callback(progress_pct, message) for updates
 
     Returns:
@@ -124,18 +125,13 @@ async def build_nominatim_data(
         ValueError: If region doesn't have a downloaded PBF
         RuntimeError: If build fails
     """
-    if not region.pbf_path:
-        msg = "Region has no downloaded PBF file"
-        raise ValueError(msg)
-
-    extracts_path = get_osm_extracts_path()
-    pbf_full_path = os.path.join(extracts_path, region.pbf_path)
+    pbf_full_path, pbf_relative = _resolve_pbf_path(pbf_path)
 
     if not os.path.exists(pbf_full_path):
         msg = f"PBF file not found: {pbf_full_path}"
         raise ValueError(msg)
 
-    logger.info("Starting Nominatim build for %s", region.display_name)
+    logger.info("Starting Nominatim build for %s", label)
 
     if progress_callback:
         await _safe_callback(progress_callback, 2, "Checking Nominatim container...")
@@ -167,7 +163,7 @@ async def build_nominatim_data(
 
         # Build the import command
         # The PBF path inside container is /nominatim/data/{filename}
-        pbf_container_path = f"/nominatim/data/{region.pbf_path}"
+        pbf_container_path = f"/nominatim/data/{pbf_relative}"
 
         import_cmd = [
             "docker",
@@ -249,16 +245,18 @@ async def build_nominatim_data(
         if progress_callback:
             await _safe_callback(progress_callback, 100, "Nominatim build complete")
 
-        logger.info("Nominatim build complete for %s", region.display_name)
+        logger.info("Nominatim build complete for %s", label)
         return True
 
     except Exception:
-        logger.exception("Nominatim build failed for %s", region.display_name)
+        logger.exception("Nominatim build failed for %s", label)
         raise
 
 
 async def build_valhalla_tiles(
-    region: MapRegion,
+    pbf_path: str,
+    *,
+    label: str = "selected states",
     progress_callback: Callable[[float, str], Any] | None = None,
 ) -> bool:
     """
@@ -267,7 +265,8 @@ async def build_valhalla_tiles(
     This executes the valhalla_build_tiles command inside the Valhalla container.
 
     Args:
-        region: MapRegion with downloaded PBF file
+        pbf_path: Relative PBF path inside the osm extracts volume
+        label: Human-readable label for logging
         progress_callback: Optional callback(progress_pct, message) for updates
 
     Returns:
@@ -277,18 +276,13 @@ async def build_valhalla_tiles(
         ValueError: If region doesn't have a downloaded PBF
         RuntimeError: If build fails
     """
-    if not region.pbf_path:
-        msg = "Region has no downloaded PBF file"
-        raise ValueError(msg)
-
-    extracts_path = get_osm_extracts_path()
-    pbf_full_path = os.path.join(extracts_path, region.pbf_path)
+    pbf_full_path, pbf_relative = _resolve_pbf_path(pbf_path)
 
     if not os.path.exists(pbf_full_path):
         msg = f"PBF file not found: {pbf_full_path}"
         raise ValueError(msg)
 
-    logger.info("Starting Valhalla build for %s", region.display_name)
+    logger.info("Starting Valhalla build for %s", label)
 
     if progress_callback:
         await _safe_callback(progress_callback, 2, "Checking Valhalla container...")
@@ -314,7 +308,7 @@ async def build_valhalla_tiles(
 
         # Build command for Valhalla
         # The PBF path inside container is /data/osm/{filename}
-        pbf_container_path = f"/data/osm/{region.pbf_path}"
+        pbf_container_path = f"/data/osm/{pbf_relative}"
 
         build_cmd = [
             "docker",
@@ -384,12 +378,28 @@ async def build_valhalla_tiles(
         if progress_callback:
             await _safe_callback(progress_callback, 100, "Valhalla build complete")
 
-        logger.info("Valhalla build complete for %s", region.display_name)
+        logger.info("Valhalla build complete for %s", label)
         return True
 
     except Exception:
-        logger.exception("Valhalla build failed for %s", region.display_name)
+        logger.exception("Valhalla build failed for %s", label)
         raise
+
+
+def _resolve_pbf_path(pbf_path: str) -> tuple[str, str]:
+    extracts_path = get_osm_extracts_path()
+    if os.path.isabs(pbf_path):
+        pbf_full_path = pbf_path
+        pbf_relative = os.path.relpath(pbf_full_path, extracts_path)
+    else:
+        pbf_relative = pbf_path
+        pbf_full_path = os.path.join(extracts_path, pbf_path)
+
+    if pbf_relative.startswith(".."):
+        msg = f"PBF path must be within extracts volume: {pbf_path}"
+        raise ValueError(msg)
+
+    return pbf_full_path, pbf_relative
 
 
 def _get_container_name(service_name: str) -> str:

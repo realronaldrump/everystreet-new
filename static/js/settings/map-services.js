@@ -1,972 +1,285 @@
 /**
  * Map Services Tab - Settings Page
  *
- * Manages:
- * - Service health monitoring (Nominatim, Valhalla)
- * - Region browsing and downloading from Geofabrik
- * - Build job tracking
+ * Provides map coverage selection and unified status display.
  */
 
 import apiClient from "../modules/core/api-client.js";
 import notificationManager from "../modules/ui/notifications.js";
-import { escapeHtml, formatTimeAgo } from "../modules/utils/formatting.js";
 
-const API_BASE = "/api/map-data";
-const LARGE_REGION_MB = 2000;
+const MAP_SERVICES_API = "/api/map-services";
 
-import { confirm } from "../modules/ui/confirmation-dialog.js";
-
-// State
-let selectedRegion = null;
-let currentRegionPath = [];
-let healthCheckInterval = null;
-let jobPollInterval = null;
-let deleteRegionId = null;
-let activeJobsByRegion = new Map();
-let regionsById = new Map();
-let regionsByName = new Map();
-let activeJobCount = 0;
-
-// =============================================================================
-// Initialization
-// =============================================================================
+let stateCatalog = null;
+let selectedStates = new Set();
+let mapStatus = null;
+let pollTimer = null;
 
 export function initMapServicesTab() {
-  setupEventListeners();
-  loadServiceHealth();
-  loadRegions();
-  loadActiveJobs();
-
-  // Start health check polling (every 30 seconds)
-  healthCheckInterval = setInterval(loadServiceHealth, 30000);
-
-  // Start job polling (every 3 seconds when there are active jobs)
-  jobPollInterval = setInterval(loadActiveJobs, 3000);
+  bindEvents();
+  loadStateCatalog();
+  refreshMapStatus();
 }
 
 export function cleanupMapServicesTab() {
-  if (healthCheckInterval) {
-    clearInterval(healthCheckInterval);
-    healthCheckInterval = null;
-  }
-  if (jobPollInterval) {
-    clearInterval(jobPollInterval);
-    jobPollInterval = null;
+  if (pollTimer) {
+    clearInterval(pollTimer);
+    pollTimer = null;
   }
 }
 
-function setupEventListeners() {
-  // Health refresh button
+function bindEvents() {
   document
-    .getElementById("refresh-health-btn")
-    ?.addEventListener("click", refreshHealth);
-
-  // Download region button
+    .getElementById("map-coverage-change-btn")
+    ?.addEventListener("click", toggleCoverageEditor);
   document
-    .getElementById("download-region-btn")
-    ?.addEventListener("click", downloadSelectedRegion);
-
-  // Delete region confirmation
+    .getElementById("map-coverage-rebuild-btn")
+    ?.addEventListener("click", rebuildCoverage);
   document
-    .getElementById("confirm-delete-region-btn")
-    ?.addEventListener("click", confirmDeleteRegion);
-
-  // Region browser navigation
+    .getElementById("map-coverage-save-btn")
+    ?.addEventListener("click", saveCoverage);
   document
-    .getElementById("region-breadcrumb")
-    ?.addEventListener("click", handleBreadcrumbClick);
-  document.getElementById("region-list")?.addEventListener("click", handleRegionClick);
+    .getElementById("map-coverage-cancel-btn")
+    ?.addEventListener("click", cancelCoverageSetup);
+}
 
-  // Load regions when modal opens
-  const addRegionModal = document.getElementById("addRegionModal");
-  addRegionModal?.addEventListener("show.bs.modal", () => {
-    currentRegionPath = [];
-    selectedRegion = null;
-    updateSelectedRegionUI();
-    loadGeofabrikRegions();
+async function loadStateCatalog() {
+  try {
+    const response = await apiClient.raw(`${MAP_SERVICES_API}/states`);
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data?.detail || "Unable to load state catalog.");
+    }
+    stateCatalog = data;
+    renderStateSelector();
+  } catch (error) {
+    const container = document.getElementById("map-coverage-state-selector");
+    if (container) {
+      container.innerHTML = `<div class="text-danger">${error.message}</div>`;
+    }
+  }
+}
+
+async function refreshMapStatus() {
+  try {
+    const response = await apiClient.raw(`${MAP_SERVICES_API}/status`);
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data?.detail || "Unable to load map status.");
+    }
+    mapStatus = data;
+    applySelectedStatesFromStatus();
+    updateMapSummary();
+    updateProgress();
+    maybeStartPolling();
+  } catch (error) {
+    notificationManager.show(error.message, "danger");
+  }
+}
+
+function renderStateSelector() {
+  const container = document.getElementById("map-coverage-state-selector");
+  if (!container || !stateCatalog?.regions || !stateCatalog?.states) {
+    return;
+  }
+
+  const stateMap = new Map();
+  stateCatalog.states.forEach((state) => {
+    stateMap.set(state.code, state);
+  });
+
+  container.innerHTML = Object.entries(stateCatalog.regions)
+    .map(([regionName, codes]) => {
+      const items = codes
+        .map((code) => {
+          const state = stateMap.get(code);
+          if (!state) {
+            return "";
+          }
+          const size = Number(state.size_mb || 0);
+          return `
+            <label class="state-option">
+              <input type="checkbox" value="${state.code}" data-size="${size}" />
+              <span class="state-name">${state.name}</span>
+              <span class="state-size">${size ? `${size} MB` : "--"}</span>
+            </label>
+          `;
+        })
+        .join("");
+      return `
+        <div class="state-region">
+          <div class="state-region-title">${regionName}</div>
+          <div class="state-region-grid">${items}</div>
+        </div>
+      `;
+    })
+    .join("");
+
+  container.querySelectorAll('input[type="checkbox"]').forEach((input) => {
+    input.addEventListener("change", () => {
+      const code = input.value;
+      if (input.checked) {
+        selectedStates.add(code);
+      } else {
+        selectedStates.delete(code);
+      }
+      updateStateSelectionUI();
+      updateSelectionSummary();
+    });
+  });
+
+  applySelectedStatesFromStatus();
+  updateSelectionSummary();
+  updateStateSelectionUI();
+}
+
+function applySelectedStatesFromStatus() {
+  const configured = mapStatus?.config?.selected_states || [];
+  if (!configured.length) {
+    return;
+  }
+  selectedStates = new Set(configured);
+  updateStateSelectionUI();
+  updateSelectionSummary();
+}
+
+function updateStateSelectionUI() {
+  const container = document.getElementById("map-coverage-state-selector");
+  if (!container) {
+    return;
+  }
+  container.querySelectorAll('input[type="checkbox"]').forEach((input) => {
+    const selected = selectedStates.has(input.value);
+    input.checked = selected;
+    input.closest(".state-option")?.classList.toggle("is-selected", selected);
   });
 }
 
-// =============================================================================
-// Service Health
-// =============================================================================
-
-async function loadServiceHealth() {
-  try {
-    const response = await apiClient.raw(`${API_BASE}/health`);
-    const data = await response.json();
-
-    updateHealthCard("nominatim", data.nominatim);
-    updateHealthCard("valhalla", data.valhalla);
-  } catch (error) {
-    console.error("Failed to load service health:", error);
+function updateSelectionSummary() {
+  const totalSize = Array.from(selectedStates).reduce((sum, code) => {
+    const state = stateCatalog?.states?.find((item) => item.code === code);
+    return sum + Number(state?.size_mb || 0);
+  }, 0);
+  const sizeEl = document.getElementById("map-coverage-total-size");
+  if (sizeEl) {
+    sizeEl.textContent = totalSize ? `${totalSize.toLocaleString()} MB` : "--";
   }
 }
 
-function updateHealthCard(service, health) {
-  const badge = document.getElementById(`${service}-status-badge`);
-  const responseTime = document.getElementById(`${service}-response-time`);
-  const lastCheck = document.getElementById(`${service}-last-check`);
-  const errorDiv = document.getElementById(`${service}-error`);
-  const versionSpan = document.getElementById(`${service}-version`);
-  const tileCountSpan = document.getElementById(`${service}-tile-count`);
-
-  if (!badge) {
+function updateMapSummary() {
+  const status = mapStatus?.config;
+  const summary = document.getElementById("map-coverage-summary");
+  if (!summary) {
     return;
   }
+  const states = status?.selected_state_names?.length
+    ? status.selected_state_names.join(", ")
+    : "None selected";
+  const statusText = status?.status
+    ? status.status.replace("_", " ")
+    : "not configured";
+  const lastUpdated = status?.last_updated
+    ? new Date(status.last_updated).toLocaleString()
+    : "--";
 
-  const hasHealth = health && typeof health === "object";
-  const errorMessage =
-    hasHealth && typeof health.error === "string" ? health.error : "";
-
-  if (!hasHealth) {
-    badge.className = "badge bg-secondary";
-    badge.textContent = "Unknown";
-    errorDiv?.classList.add("d-none");
-  } else if (health.healthy) {
-    badge.className = "badge bg-success";
-    badge.textContent = "Healthy";
-    errorDiv?.classList.add("d-none");
-  } else {
-    // Check if this is a "not running" state vs a real error
-    const isSetupRequired =
-      errorMessage.includes("not running") || errorMessage.includes("Add a region");
-    const isStartingUp = errorMessage.includes("starting up");
-
-    if (isSetupRequired) {
-      badge.className = "badge bg-warning text-dark";
-      badge.textContent = "Setup Required";
-    } else if (isStartingUp) {
-      badge.className = "badge bg-info";
-      badge.textContent = "Starting...";
-    } else {
-      badge.className = "badge bg-danger";
-      badge.textContent = "Unhealthy";
-    }
-
-    if (errorDiv && errorMessage) {
-      errorDiv.textContent = errorMessage;
-      errorDiv.classList.remove("d-none");
-    } else if (errorDiv) {
-      errorDiv.classList.add("d-none");
-    }
-  }
-
-  if (responseTime) {
-    responseTime.textContent = Number.isFinite(health?.response_time_ms)
-      ? `${health.response_time_ms.toFixed(0)}ms`
-      : "--";
-  }
-
-  if (lastCheck && health?.last_check) {
-    const timeAgo = formatTimeAgo(health.last_check, true);
-    if (/^\d+s ago$/.test(timeAgo)) {
-      lastCheck.textContent = "just now";
-    } else if (/^\d+d ago$/.test(timeAgo)) {
-      lastCheck.textContent = new Date(health.last_check).toLocaleDateString();
-    } else {
-      lastCheck.textContent = timeAgo;
-    }
-  }
-
-  if (versionSpan && health?.version) {
-    versionSpan.textContent = health.version;
-  }
-
-  if (tileCountSpan && health?.tile_count !== undefined) {
-    tileCountSpan.textContent =
-      health.tile_count !== null ? health.tile_count.toLocaleString() : "--";
-  }
-}
-
-async function refreshHealth() {
-  const btn = document.getElementById("refresh-health-btn");
-  btn.disabled = true;
-  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Checking...';
-
-  try {
-    await apiClient.raw(`${API_BASE}/health/refresh`, { method: "POST" });
-    await loadServiceHealth();
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = '<i class="fas fa-sync-alt"></i> Refresh Health';
-  }
-}
-
-// =============================================================================
-// Region Management
-// =============================================================================
-
-async function loadRegions() {
-  const tbody = document.getElementById("regions-table-body");
-  if (!tbody) {
-    return;
-  }
-
-  try {
-    const response = await apiClient.raw(`${API_BASE}/regions`);
-    const data = await response.json();
-    const regions = Array.isArray(data.regions) ? data.regions : [];
-
-    regionsById = new Map();
-    regionsByName = new Map();
-    regions.forEach((region) => {
-      regionsById.set(region.id, region);
-      regionsByName.set(region.name, region);
-    });
-
-    // Remove loading row
-    const loadingRow = document.getElementById("regions-loading-row");
-    if (loadingRow) {
-      loadingRow.remove();
-    }
-
-    if (regions.length === 0) {
-      tbody.innerHTML = `
-        <tr id="no-regions-row">
-          <td colspan="6" class="text-center text-muted py-4">
-            No regions configured. Click "Add Region" to download OSM data.
-          </td>
-        </tr>
-      `;
-      updateSelectedRegionUI();
-      return;
-    }
-
-    // Remove no-regions row if it exists
-    const noRegionsRow = document.getElementById("no-regions-row");
-    if (noRegionsRow) {
-      noRegionsRow.remove();
-    }
-
-    tbody.innerHTML = regions
-      .map(
-        (region) => `
-      <tr data-region-id="${region.id}">
-        <td>
-          <strong>${escapeHtml(region.display_name)}</strong>
-          <div class="small text-muted">${escapeHtml(region.name)}</div>
-        </td>
-        <td>${region.file_size_mb ? `${region.file_size_mb.toFixed(1)} MB` : "--"}</td>
-        <td>${renderStatusBadge(region.status)}</td>
-        <td>${renderStatusBadge(region.nominatim_status)}</td>
-        <td>${renderStatusBadge(region.valhalla_status)}</td>
-        <td>
-          <div class="d-flex flex-wrap gap-1">
-            ${renderRegionActions(region)}
-          </div>
-        </td>
-      </tr>
-    `
-      )
-      .join("");
-    updateSelectedRegionUI();
-  } catch (error) {
-    console.error("Failed to load regions:", error);
-    const loadingRow = document.getElementById("regions-loading-row");
-    if (loadingRow) {
-      loadingRow.innerHTML = `
-        <td colspan="6" class="text-center text-danger py-4">
-          Failed to load regions. <a href="#" onclick="window.mapServices?.loadRegions()">Retry</a>
-        </td>
-      `;
-    }
-  }
-}
-
-function renderStatusBadge(status) {
-  const configs = {
-    not_downloaded: {
-      class: "secondary",
-      icon: "cloud-download-alt",
-      text: "Not Downloaded",
-    },
-    downloading: { class: "info", icon: "spinner fa-spin", text: "Downloading" },
-    downloaded: { class: "primary", icon: "check", text: "Downloaded" },
-    not_built: { class: "secondary", icon: "hammer", text: "Not Built" },
-    building: { class: "warning", icon: "cog fa-spin", text: "Building" },
-    building_nominatim: {
-      class: "warning",
-      icon: "cog fa-spin",
-      text: "Building",
-    },
-    building_valhalla: {
-      class: "warning",
-      icon: "cog fa-spin",
-      text: "Building",
-    },
-    ready: { class: "success", icon: "check-circle", text: "Ready" },
-    error: { class: "danger", icon: "exclamation-triangle", text: "Error" },
-  };
-
-  const config = configs[status] || configs.not_downloaded;
-  return `<span class="badge bg-${config.class}"><i class="fas fa-${config.icon} me-1"></i>${config.text}</span>`;
-}
-
-function isRegionBusy(region) {
-  if (!region) {
-    return false;
-  }
-  if (activeJobsByRegion.has(region.id)) {
-    return true;
-  }
-  return (
-    region.status === "downloading" ||
-    region.status === "building_nominatim" ||
-    region.status === "building_valhalla" ||
-    region.nominatim_status === "building" ||
-    region.valhalla_status === "building"
-  );
-}
-
-function renderRegionActions(region) {
-  const actions = [];
-  const isBusy = isRegionBusy(region);
-  const busyAttr = isBusy ? 'disabled aria-disabled="true"' : "";
-  const busyTitle = "Action disabled while a job is running.";
-
-  // Build actions for downloaded regions
-  if (
-    region.status === "downloaded" ||
-    region.status === "ready" ||
-    region.status === "error"
-  ) {
-    if (region.nominatim_status !== "ready") {
-      const nominatimTitle = isBusy ? busyTitle : "Build Nominatim (geocoding index)";
-      const nominatimClick = isBusy
-        ? ""
-        : `onclick="window.mapServices.buildNominatim('${region.id}')"`;
-      actions.push(`
-        <button class="btn btn-outline-info btn-sm" ${busyAttr} ${nominatimClick} title="${nominatimTitle}">
-          <i class="fas fa-search-location"></i>
-          <span class="ms-1">Build Nominatim</span>
-        </button>
-      `);
-    }
-    if (region.valhalla_status !== "ready") {
-      const valhallaTitle = isBusy ? busyTitle : "Build Valhalla (routing tiles)";
-      const valhallaClick = isBusy
-        ? ""
-        : `onclick="window.mapServices.buildValhalla('${region.id}')"`;
-      actions.push(`
-        <button class="btn btn-outline-warning btn-sm" ${busyAttr} ${valhallaClick} title="${valhallaTitle}">
-          <i class="fas fa-route"></i>
-          <span class="ms-1">Build Valhalla</span>
-        </button>
-      `);
-    }
-  }
-
-  // Delete action (always available)
-  const deleteTitle = isBusy ? busyTitle : "Delete region and data";
-  const deleteClick = isBusy
-    ? ""
-    : `onclick="window.mapServices.deleteRegion('${region.id}', '${escapeHtml(region.display_name)}')"`;
-  actions.push(`
-    <button class="btn btn-outline-danger btn-sm" ${busyAttr} ${deleteClick} title="${deleteTitle}">
-      <i class="fas fa-trash"></i>
-      <span class="ms-1">Delete</span>
-    </button>
-  `);
-
-  return actions.join("");
-}
-
-// =============================================================================
-// Geofabrik Browser
-// =============================================================================
-
-async function loadGeofabrikRegions(parent = "") {
-  const regionList = document.getElementById("region-list");
-  if (!regionList) {
-    return;
-  }
-
-  regionList.innerHTML = `
-    <div class="text-center py-3">
-      <div class="spinner-border spinner-border-sm me-2" role="status"></div>
-      Loading regions...
-    </div>
+  summary.innerHTML = `
+    <div class="map-coverage-line"><strong>Coverage:</strong> ${states}</div>
+    <div class="map-coverage-line"><strong>Status:</strong> ${statusText}</div>
+    <div class="map-coverage-line"><strong>Last updated:</strong> ${lastUpdated}</div>
   `;
+}
 
+function updateProgress() {
+  const status = mapStatus?.config;
+  const progressWrap = document.getElementById("map-coverage-progress");
+  const progressBar = document.getElementById("map-coverage-progress-bar");
+  const progressText = document.getElementById("map-coverage-progress-text");
+  const messageEl = document.getElementById("map-coverage-message");
+  const cancelBtn = document.getElementById("map-coverage-cancel-btn");
+
+  if (progressBar) {
+    const percent = Number(status?.progress || 0);
+    progressBar.style.width = `${Math.min(100, percent)}%`;
+  }
+  if (progressText) {
+    const percent = Number(status?.progress || 0);
+    progressText.textContent = percent ? `${percent.toFixed(0)}%` : "";
+  }
+  if (messageEl) {
+    messageEl.textContent = status?.message || "Select states to begin.";
+  }
+  const showProgress =
+    status?.status === "downloading" || status?.status === "building";
+  if (progressWrap) {
+    progressWrap.classList.toggle("d-none", !showProgress);
+  }
+  if (cancelBtn) {
+    cancelBtn.classList.toggle("d-none", !showProgress);
+  }
+}
+
+function maybeStartPolling() {
+  const status = mapStatus?.config?.status;
+  const shouldPoll = status === "downloading" || status === "building";
+  if (shouldPoll && !pollTimer) {
+    pollTimer = setInterval(refreshMapStatus, 4000);
+  } else if (!shouldPoll && pollTimer) {
+    clearInterval(pollTimer);
+    pollTimer = null;
+  }
+}
+
+function toggleCoverageEditor() {
+  const editor = document.getElementById("map-coverage-editor");
+  if (!editor) {
+    return;
+  }
+  editor.classList.toggle("d-none");
+}
+
+async function saveCoverage() {
+  if (!selectedStates.size) {
+    notificationManager.show("Select at least one state.", "warning");
+    return;
+  }
   try {
-    const url = parent
-      ? `${API_BASE}/geofabrik/regions?parent=${encodeURIComponent(parent)}`
-      : `${API_BASE}/geofabrik/regions`;
-
-    const response = await apiClient.raw(url);
-    const data = await response.json();
-
-    if (!data.regions || data.regions.length === 0) {
-      regionList.innerHTML = `
-        <div class="text-center text-muted py-3">
-          No sub-regions available.
-        </div>
-      `;
-      return;
-    }
-
-    // Sort regions: folders first, then by name
-    const sortedRegions = data.regions.sort((a, b) => {
-      if (a.has_children && !b.has_children) {
-        return -1;
-      }
-      if (!a.has_children && b.has_children) {
-        return 1;
-      }
-      return a.name.localeCompare(b.name);
-    });
-
-    regionList.innerHTML = sortedRegions
-      .map(
-        (region) => `
-      <div class="region-item d-flex justify-content-between align-items-center p-2 border-bottom"
-           data-region-id="${escapeHtml(region.id)}"
-           data-region-name="${escapeHtml(region.name)}"
-           data-region-size="${region.pbf_size_mb || ""}"
-           data-region-url="${escapeHtml(region.pbf_url || "")}"
-           data-has-children="${region.has_children}">
-        <div class="d-flex align-items-center">
-          ${region.has_children ? '<i class="fas fa-folder text-warning me-2"></i>' : '<i class="fas fa-map text-info me-2"></i>'}
-          <span>${escapeHtml(region.name)}</span>
-        </div>
-        <div class="text-muted small">
-          ${region.pbf_size_mb ? `${region.pbf_size_mb.toFixed(1)} MB` : ""}
-          ${region.has_children ? '<i class="fas fa-chevron-right ms-2"></i>' : ""}
-        </div>
-      </div>
-    `
-      )
-      .join("");
-
-    // Update breadcrumb
-    updateBreadcrumb();
-  } catch (error) {
-    console.error("Failed to load Geofabrik regions:", error);
-    regionList.innerHTML = `
-      <div class="text-center text-danger py-3">
-        Failed to load regions. Please try again.
-      </div>
-    `;
-  }
-}
-
-function handleBreadcrumbClick(event) {
-  const link = event.target.closest("a[data-region]");
-  if (!link) {
-    return;
-  }
-
-  event.preventDefault();
-  const { region } = link.dataset;
-
-  // Update path
-  if (region === "") {
-    currentRegionPath = [];
-  } else {
-    const index = currentRegionPath.indexOf(region);
-    if (index >= 0) {
-      currentRegionPath = currentRegionPath.slice(0, index + 1);
-    }
-  }
-
-  // Clear selection when navigating
-  selectedRegion = null;
-  updateSelectedRegionUI();
-
-  // Load regions for this path
-  loadGeofabrikRegions(currentRegionPath.join("/"));
-}
-
-function handleRegionClick(event) {
-  const item = event.target.closest(".region-item");
-  if (!item) {
-    return;
-  }
-
-  const { regionId } = item.dataset;
-  const { regionName } = item.dataset;
-  const { regionSize } = item.dataset;
-  const { regionUrl } = item.dataset;
-  const hasChildren = item.dataset.hasChildren === "true";
-
-  if (hasChildren) {
-    // Navigate into folder
-    currentRegionPath.push(regionId);
-    selectedRegion = null;
-    updateSelectedRegionUI();
-    loadGeofabrikRegions(currentRegionPath.join("/"));
-  } else {
-    // Select this region for download
-    selectedRegion = {
-      id: regionId,
-      name: regionName,
-      size: regionSize,
-      url: regionUrl,
-    };
-    updateSelectedRegionUI();
-
-    // Highlight selected item
-    document.querySelectorAll(".region-item").forEach((el) => {
-      el.classList.remove("bg-primary", "text-white");
-    });
-    item.classList.add("bg-primary", "text-white");
-  }
-}
-
-function updateBreadcrumb() {
-  const breadcrumb = document.getElementById("region-breadcrumb");
-  if (!breadcrumb) {
-    return;
-  }
-
-  const items = [{ id: "", name: "World" }];
-
-  let path = "";
-  for (const segment of currentRegionPath) {
-    path = path ? `${path}/${segment}` : segment;
-    items.push({
-      id: path,
-      name: segment.replace(/-/g, " ").replace(/\b\w/g, (l) => l.toUpperCase()),
-    });
-  }
-
-  const ol = breadcrumb.querySelector("ol");
-  if (ol) {
-    ol.innerHTML = items
-      .map(
-        (item, index) => `
-      <li class="breadcrumb-item ${index === items.length - 1 ? "active" : ""}">
-        ${index === items.length - 1 ? item.name : `<a href="#" data-region="${item.id}">${item.name}</a>`}
-      </li>
-    `
-      )
-      .join("");
-  }
-}
-
-function updateSelectedRegionUI() {
-  const infoDiv = document.getElementById("selected-region-info");
-  const downloadBtn = document.getElementById("download-region-btn");
-  const nameSpan = document.getElementById("selected-region-name");
-  const sizeSpan = document.getElementById("selected-region-size");
-  const idSpan = document.getElementById("selected-region-id");
-  const warning = document.getElementById("selected-region-warning");
-
-  if (selectedRegion) {
-    infoDiv?.classList.remove("d-none");
-    let disableDownload = false;
-    const warnings = [];
-    const existingRegion = regionsByName.get(selectedRegion.id);
-
-    if (existingRegion) {
-      if (isRegionBusy(existingRegion)) {
-        disableDownload = true;
-        warnings.push(
-          "This region already has a job running. Wait for it to finish before starting another download."
-        );
-      } else if (existingRegion.status === "error") {
-        warnings.push(
-          "Previous download or build failed. Starting again will retry the download and build."
-        );
-      } else {
-        warnings.push(
-          "This region is already configured. Starting again will replace existing data and rebuild services."
-        );
-      }
-    }
-
-    const sizeValue = Number(selectedRegion.size);
-    if (Number.isFinite(sizeValue) && sizeValue >= LARGE_REGION_MB) {
-      warnings.push(
-        `Large download (~${sizeValue.toFixed(
-          1
-        )} MB). Plan for extra disk space and a long build time.`
-      );
-    }
-
-    if (downloadBtn) {
-      downloadBtn.disabled = disableDownload;
-    }
-    if (warning) {
-      if (warnings.length > 0) {
-        warning.textContent = warnings.join(" ");
-        warning.classList.remove("d-none");
-      } else {
-        warning.textContent = "";
-        warning.classList.add("d-none");
-      }
-    }
-    if (nameSpan) {
-      nameSpan.textContent = selectedRegion.name;
-    }
-    if (sizeSpan) {
-      sizeSpan.textContent = selectedRegion.size
-        ? `${parseFloat(selectedRegion.size).toFixed(1)} MB`
-        : "Unknown";
-    }
-    if (idSpan) {
-      idSpan.textContent = selectedRegion.id;
-    }
-  } else {
-    infoDiv?.classList.add("d-none");
-    if (downloadBtn) {
-      downloadBtn.disabled = true;
-    }
-    if (warning) {
-      warning.textContent = "";
-      warning.classList.add("d-none");
-    }
-  }
-}
-
-// =============================================================================
-// Download & Build Actions
-// =============================================================================
-
-async function downloadSelectedRegion() {
-  if (!selectedRegion) {
-    return;
-  }
-
-  const existingRegion = regionsByName.get(selectedRegion.id);
-  if (existingRegion && isRegionBusy(existingRegion)) {
-    notificationManager.show(
-      "That region already has a job running. Wait for it to finish before starting another download.",
-      "warning"
-    );
-    return;
-  }
-  if (existingRegion) {
-    const confirmed = await confirm({
-      title: "Rebuild Region?",
-      message:
-        "This region is already configured. Starting again will replace existing data and rebuild services. Continue?",
-      confirmText: "Rebuild",
-      confirmButtonClass: "btn-warning",
-    });
-    if (!confirmed) {
-      return;
-    }
-  }
-
-  const sizeValue = Number(selectedRegion.size);
-  if (Number.isFinite(sizeValue) && sizeValue >= LARGE_REGION_MB) {
-    const confirmed = await confirm({
-      title: "Large download",
-      message: `This region is about ${sizeValue.toFixed(
-        1
-      )} MB. Large downloads can take hours and require plenty of disk space. Continue?`,
-      confirmText: "Download",
-      confirmButtonClass: "btn-warning",
-    });
-    if (!confirmed) {
-      return;
-    }
-  }
-
-  const btn = document.getElementById("download-region-btn");
-  btn.disabled = true;
-  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Starting download & build...';
-
-  try {
-    // Use the unified download-and-build endpoint for one-click setup
-    const response = await apiClient.raw(`${API_BASE}/regions/download-and-build`, {
+    await apiClient.raw(`${MAP_SERVICES_API}/configure`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        geofabrik_id: selectedRegion.id,
-        display_name: selectedRegion.name,
-      }),
+      body: JSON.stringify({ states: Array.from(selectedStates) }),
     });
-
-    const data = await response.json();
-
-    if (data.success) {
-      // Close modal and refresh
-      const modal = bootstrap.Modal.getInstance(
-        document.getElementById("addRegionModal")
-      );
-      modal?.hide();
-
-      notificationManager.show(
-        `Download & build started for ${selectedRegion.name}. ` +
-          "This will download OSM data, then build Nominatim and Valhalla automatically. " +
-          "It continues in the background while Everystreet is running.",
-        "success"
-      );
-
-      // Refresh regions and jobs
-      await loadRegions();
-      await loadActiveJobs();
-    } else {
-      notificationManager.show(data.detail || "Failed to start download", "danger");
-    }
+    notificationManager.show("Map setup started.", "success");
+    await refreshMapStatus();
+    toggleCoverageEditor();
   } catch (error) {
-    console.error("Failed to start download:", error);
-    notificationManager.show("Failed to start download", "danger");
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = '<i class="fas fa-download"></i> Download & Build';
+    notificationManager.show(error.message || "Unable to start setup.", "danger");
   }
 }
 
-async function buildNominatim(regionId) {
-  try {
-    const response = await apiClient.raw(
-      `${API_BASE}/regions/${regionId}/build/nominatim`,
-      {
-        method: "POST",
-      }
-    );
-
-    const data = await response.json();
-
-    if (data.success) {
-      notificationManager.show("Nominatim build started", "success");
-      await loadRegions();
-      await loadActiveJobs();
-    } else {
-      notificationManager.show(data.detail || "Failed to start build", "danger");
-    }
-  } catch (error) {
-    console.error("Failed to start Nominatim build:", error);
-    notificationManager.show("Failed to start build", "danger");
-  }
-}
-
-async function buildValhalla(regionId) {
-  try {
-    const response = await apiClient.raw(
-      `${API_BASE}/regions/${regionId}/build/valhalla`,
-      {
-        method: "POST",
-      }
-    );
-
-    const data = await response.json();
-
-    if (data.success) {
-      notificationManager.show("Valhalla build started", "success");
-      await loadRegions();
-      await loadActiveJobs();
-    } else {
-      notificationManager.show(data.detail || "Failed to start build", "danger");
-    }
-  } catch (error) {
-    console.error("Failed to start Valhalla build:", error);
-    notificationManager.show("Failed to start build", "danger");
-  }
-}
-
-function deleteRegion(regionId, regionName) {
-  deleteRegionId = regionId;
-  document.getElementById("delete-region-name").textContent = regionName;
-  const modal = new bootstrap.Modal(document.getElementById("deleteRegionModal"));
-  modal.show();
-}
-
-async function confirmDeleteRegion() {
-  if (!deleteRegionId) {
-    return;
-  }
-
-  const btn = document.getElementById("confirm-delete-region-btn");
-  btn.disabled = true;
-  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Deleting...';
-
-  try {
-    const response = await apiClient.raw(`${API_BASE}/regions/${deleteRegionId}`, {
-      method: "DELETE",
-    });
-
-    const data = await response.json();
-
-    if (data.success) {
-      notificationManager.show("Region deleted", "success");
-
-      // Close modal
-      const modal = bootstrap.Modal.getInstance(
-        document.getElementById("deleteRegionModal")
-      );
-      modal?.hide();
-
-      // Refresh
-      await loadRegions();
-    } else {
-      notificationManager.show(data.detail || "Failed to delete region", "danger");
-    }
-  } catch (error) {
-    console.error("Failed to delete region:", error);
-    notificationManager.show("Failed to delete region", "danger");
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = '<i class="fas fa-trash"></i> Delete';
-    deleteRegionId = null;
-  }
-}
-
-// =============================================================================
-// Active Jobs
-// =============================================================================
-
-async function loadActiveJobs() {
-  const jobsList = document.getElementById("active-jobs-list");
-  const noJobsMsg = document.getElementById("no-active-jobs");
-  if (!jobsList) {
-    return;
-  }
-
-  try {
-    const response = await apiClient.raw(`${API_BASE}/jobs?active_only=true`);
-    const data = await response.json();
-    const jobs = Array.isArray(data.jobs) ? data.jobs : [];
-    const hadJobs = activeJobCount > 0;
-    activeJobCount = jobs.length;
-    activeJobsByRegion = new Map();
-    jobs.forEach((job) => {
-      if (job.region_id) {
-        activeJobsByRegion.set(job.region_id, job);
-      }
-    });
-
-    if (jobs.length === 0) {
-      if (noJobsMsg) {
-        noJobsMsg.style.display = "block";
-      }
-      // Remove any job cards
-      jobsList.querySelectorAll(".job-card").forEach((el) => el.remove());
-      updateSelectedRegionUI();
-      if (hadJobs) {
-        await loadRegions();
-      }
-      return;
-    }
-
-    if (noJobsMsg) {
-      noJobsMsg.style.display = "none";
-    }
-
-    // Update or create job cards
-    for (const job of jobs) {
-      let card = jobsList.querySelector(`[data-job-id="${job.id}"]`);
-      const regionName = job.region_id
-        ? regionsById.get(job.region_id)?.display_name
-        : null;
-      const regionLine = regionName
-        ? `<div class="small text-muted">${escapeHtml(regionName)}</div>`
-        : "";
-
-      if (!card) {
-        card = document.createElement("div");
-        card.className = "job-card card bg-darker mb-2";
-        card.dataset.jobId = job.id;
-        jobsList.appendChild(card);
-      }
-
-      card.innerHTML = `
-        <div class="card-body py-2">
-          <div class="d-flex justify-content-between align-items-center mb-2">
-            <div>
-              <strong>${formatJobType(job.job_type)}</strong>
-              <span class="badge bg-${job.status === "running" ? "primary" : "secondary"} ms-2">${job.status}</span>
-              ${regionLine}
-            </div>
-            <button class="btn btn-sm btn-outline-danger" onclick="window.mapServices.cancelJob('${job.id}')" title="Cancel job">
-              <i class="fas fa-times"></i>
-              <span class="ms-1">Cancel</span>
-            </button>
-          </div>
-          <div class="progress mb-2" style="height: 20px;">
-            <div class="progress-bar progress-bar-striped progress-bar-animated"
-                 role="progressbar"
-                 style="width: ${job.progress}%"
-                 aria-valuenow="${job.progress}"
-                 aria-valuemin="0"
-                 aria-valuemax="100">
-              ${job.progress.toFixed(0)}%
-            </div>
-          </div>
-          <div class="small text-muted">${escapeHtml(job.message || job.stage)}</div>
-        </div>
-      `;
-    }
-
-    // Remove cards for jobs that are no longer active
-    const activeJobIds = new Set(jobs.map((j) => j.id));
-    jobsList.querySelectorAll(".job-card").forEach((card) => {
-      if (!activeJobIds.has(card.dataset.jobId)) {
-        card.remove();
-      }
-    });
-
-    // Also refresh regions to show updated status
-    await loadRegions();
-  } catch (error) {
-    console.error("Failed to load active jobs:", error);
-  }
-}
-
-async function cancelJob(jobId) {
-  const confirmed = await confirm({
-    title: "Cancel Job?",
-    message:
-      "Cancel this job? This will stop the download or build. You can restart it later.",
-    confirmText: "Stop Job",
-    confirmButtonClass: "btn-danger",
-  });
-  if (!confirmed) {
+async function rebuildCoverage() {
+  const currentStates = mapStatus?.config?.selected_states || [];
+  if (!currentStates.length) {
+    notificationManager.show("Select coverage before rebuilding.", "warning");
     return;
   }
   try {
-    const response = await apiClient.raw(`${API_BASE}/jobs/${jobId}`, {
-      method: "DELETE",
+    await apiClient.raw(`${MAP_SERVICES_API}/configure`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ states: currentStates, force: true }),
     });
-
-    const data = await response.json();
-
-    if (data.success) {
-      notificationManager.show("Job cancelled", "success");
-      await loadActiveJobs();
-      await loadRegions();
-    } else {
-      notificationManager.show(data.detail || "Failed to cancel job", "danger");
-    }
+    notificationManager.show("Rebuild started.", "success");
+    await refreshMapStatus();
   } catch (error) {
-    console.error("Failed to cancel job:", error);
-    notificationManager.show("Failed to cancel job", "danger");
+    notificationManager.show(error.message || "Unable to rebuild.", "danger");
   }
 }
 
-// =============================================================================
-// Utilities
-// =============================================================================
-
-function formatJobType(type) {
-  const types = {
-    download: "Download",
-    download_and_build_all: "Download & Build",
-    build_nominatim: "Nominatim Build",
-    build_valhalla: "Valhalla Build",
-    build_all: "Full Build",
-  };
-  return types[type] || type;
+async function cancelCoverageSetup() {
+  try {
+    await apiClient.raw(`${MAP_SERVICES_API}/cancel`, { method: "POST" });
+    notificationManager.show("Setup cancelled.", "success");
+    await refreshMapStatus();
+  } catch (error) {
+    notificationManager.show(error.message || "Unable to cancel.", "danger");
+  }
 }
-
-// =============================================================================
-// Export for global access
-// =============================================================================
-
-// Make functions available globally for onclick handlers
-window.mapServices = {
-  loadRegions,
-  buildNominatim,
-  buildValhalla,
-  deleteRegion,
-  cancelJob,
-};
-
-export default {
-  initMapServicesTab,
-  cleanupMapServicesTab,
-};

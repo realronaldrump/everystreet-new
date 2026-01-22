@@ -28,14 +28,7 @@ from tasks.fetch import (
 )
 from tasks.health import worker_heartbeat
 from tasks.maintenance import cleanup_stale_trips, remap_unmatched_trips, validate_trips
-from tasks.map_data import (
-    BUILD_JOB_TIMEOUT_SECONDS,
-    DOWNLOAD_JOB_TIMEOUT_SECONDS,
-    build_nominatim_task,
-    build_valhalla_task,
-    download_region_task,
-    monitor_map_data_jobs,
-)
+from tasks.map_data import SETUP_JOB_TIMEOUT_SECONDS, monitor_map_services, setup_map_data_task
 from tasks.routes import generate_optimal_route
 
 
@@ -82,11 +75,9 @@ class WorkerSettings:
         update_coverage_for_new_trips,
         generate_optimal_route,
         worker_heartbeat,
-        # Map data management tasks
-        func(download_region_task, timeout=DOWNLOAD_JOB_TIMEOUT_SECONDS),
-        func(build_nominatim_task, timeout=BUILD_JOB_TIMEOUT_SECONDS),
-        func(build_valhalla_task, timeout=BUILD_JOB_TIMEOUT_SECONDS),
-        monitor_map_data_jobs,
+        # Map services setup tasks
+        func(setup_map_data_task, timeout=SETUP_JOB_TIMEOUT_SECONDS),
+        monitor_map_services,
     ]
     cron_jobs: ClassVar[list[object]] = [
         cron(cron_periodic_fetch_trips),

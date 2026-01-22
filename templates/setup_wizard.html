@@ -26,8 +26,8 @@ EveryStreet Setup
 Get your streets online in minutes.
           </h1>
           <p class="setup-subtitle">
-            We will connect Bouncie, add a Mapbox token, and download map
-            regions so geocoding and routing are ready inside Docker.
+            Add your credentials once, pick the states you care about, and we will
+            set up geocoding and routing in the background.
           </p>
         </div>
         <div class="setup-hero-card">
@@ -36,93 +36,37 @@ This wizard will configure:
           </div>
           <ul class="setup-hero-list">
             <li>
-              <i class="fas fa-key"></i> Bouncie credentials
+              <i class="fas fa-key"></i> Bouncie + Mapbox credentials
             </li>
             <li>
-              <i class="fas fa-map"></i> Mapbox token
-            </li>
-            <li>
-              <i class="fas fa-globe"></i> Map region data
+              <i class="fas fa-map"></i> US state coverage
             </li>
           </ul>
-        </div>
-      </div>
-
-      <div class="setup-session-banner d-none"
-           id="setup-session-banner"
-           role="status"
-           aria-live="polite">
-        <div>
-          <div class="setup-session-banner-title">
-Setup in progress
-          </div>
-          <div class="setup-session-banner-message" id="setup-session-banner-message">
-          </div>
-        </div>
-        <div class="setup-session-banner-actions">
-          <button class="btn btn-outline-light btn-sm d-none"
-                  id="setup-session-takeover-btn"
-                  type="button">
-            Take over
-          </button>
         </div>
       </div>
 
       <div class="setup-layout">
         <aside class="setup-sidebar">
           <ol class="setup-step-list">
-            <li class="setup-step-item d-none" data-step="0" data-step-key="welcome">
-              <span class="step-number">0</span>
-              <div>
-                <div class="step-title">
-Welcome
-                </div>
-                <div class="step-note">
-Overview
-                </div>
-              </div>
-            </li>
-            <li class="setup-step-item is-active" data-step="1" data-step-key="bouncie">
+            <li class="setup-step-item is-active" data-step="0" data-step-key="credentials">
               <span class="step-number">1</span>
               <div>
                 <div class="step-title">
-Bouncie
+Credentials
                 </div>
                 <div class="step-note">
-Credentials + vehicles
+Bouncie + Mapbox
                 </div>
               </div>
             </li>
-            <li class="setup-step-item" data-step="2" data-step-key="mapbox">
+            <li class="setup-step-item" data-step="1" data-step-key="coverage">
               <span class="step-number">2</span>
               <div>
                 <div class="step-title">
-Mapbox
+Map Coverage
                 </div>
                 <div class="step-note">
-Token + preview
-                </div>
-              </div>
-            </li>
-            <li class="setup-step-item" data-step="3" data-step-key="region">
-              <span class="step-number">3</span>
-              <div>
-                <div class="step-title">
-Map Region
-                </div>
-                <div class="step-note">
-                  <span id="region-step-status">Checking services...</span>
-                </div>
-              </div>
-            </li>
-            <li class="setup-step-item d-none" data-step="4" data-step-key="complete">
-              <span class="step-number">4</span>
-              <div>
-                <div class="step-title">
-Complete
-                </div>
-                <div class="step-note">
-Finish
+Pick your states
                 </div>
               </div>
             </li>
@@ -141,314 +85,168 @@ Visit the live status dashboard to confirm service health.
         </aside>
 
         <main class="setup-content">
-          <section class="setup-step" data-step="0">
-            <div class="setup-card">
-              <h2>
-Welcome to EveryStreet
-              </h2>
-              <p>
-                EveryStreet helps you track the streets you have driven. This wizard
-                sets up the required services so the app starts syncing immediately.
-              </p>
-              <div class="setup-checklist">
-                <div class="setup-check">
-                  <i class="fas fa-check-circle"></i>
-                  <span>Securely store Bouncie credentials in MongoDB.</span>
-                </div>
-                <div class="setup-check">
-                  <i class="fas fa-check-circle"></i>
-                  <span>Save Mapbox token for map rendering.</span>
-                </div>
-                <div class="setup-check">
-                  <i class="fas fa-check-circle"></i>
-                  <span>Download a map region for matching + geocoding.</span>
-                </div>
-              </div>
-              <div class="setup-actions">
-                <button class="btn btn-primary" id="setup-start-btn">
-                  Get Started
-                </button>
-              </div>
-            </div>
-          </section>
-
-          <section class="setup-step is-active" data-step="1">
+          <section class="setup-step is-active" data-step="0">
             <div class="setup-card">
               <div class="setup-card-header">
                 <div>
                   <h2>
-Bouncie Credentials
+Credentials
                   </h2>
                   <p>
-                    Enter your Bouncie OAuth details and sync vehicle IMEIs.
-                    <a href="https://bouncie.dev" target="_blank" rel="noopener">
-                      Open the developer portal.
-                    </a>
+                    Save your Bouncie OAuth details and Mapbox token once. We will validate
+                    everything before moving on.
                   </p>
                 </div>
-                <a href="#" class="btn btn-success" id="connectBouncieBtn" role="button">
-                  <i class="fas fa-plug"></i> Connect with Bouncie
-                </a>
-                <button class="btn btn-outline-light" id="syncVehiclesBtn" type="button">
-                  <i class="fas fa-sync"></i> Sync Vehicles
-                </button>
               </div>
 
-              <form id="bouncieCredentialsForm" class="setup-form" novalidate>
-                <div class="row">
-                  <div class="col-md-6 mb-3">
-                    <label for="clientId" class="form-label">
+              <div class="setup-credentials-grid">
+                <div class="setup-card-section">
+                  <div class="setup-card-section-header">
+                    <div>
+                      <h3>
+Bouncie Credentials
+                      </h3>
+                      <p>
+                        Enter your Bouncie OAuth details and sync vehicle IMEIs.
+                        <a href="https://bouncie.dev" target="_blank" rel="noopener">
+                          Open the developer portal.
+                        </a>
+                      </p>
+                    </div>
+                    <a href="#" class="btn btn-success" id="connectBouncieBtn" role="button">
+                      <i class="fas fa-plug"></i> Connect with Bouncie
+                    </a>
+                    <button class="btn btn-outline-light" id="syncVehiclesBtn" type="button">
+                      <i class="fas fa-sync"></i> Sync Vehicles
+                    </button>
+                  </div>
+
+                  <form id="bouncieCredentialsForm" class="setup-form" novalidate>
+                    <div class="row">
+                      <div class="col-md-6 mb-3">
+                        <label for="clientId" class="form-label">
 Client ID
-                    </label>
-                    <input type="text" class="form-control" id="clientId" required />
-                  </div>
-                  <div class="col-md-6 mb-3">
-                    <label for="clientSecret" class="form-label">
+                        </label>
+                        <input type="text" class="form-control" id="clientId" required />
+                      </div>
+                      <div class="col-md-6 mb-3">
+                        <label for="clientSecret" class="form-label">
 Client Secret
-                    </label>
-                    <div class="input-group">
-                      <input type="password" class="form-control" id="clientSecret" required />
-                      <button class="btn btn-outline-secondary" type="button" id="toggleClientSecret">
-                        <i class="fas fa-eye"></i>
-                      </button>
-                    </div>
-                  </div>
-                  <div class="col-md-6 mb-3">
-                    <label for="redirectUri" class="form-label">
+                        </label>
+                        <div class="input-group">
+                          <input type="password" class="form-control" id="clientSecret" required />
+                          <button class="btn btn-outline-secondary" type="button" id="toggleClientSecret">
+                            <i class="fas fa-eye"></i>
+                          </button>
+                        </div>
+                      </div>
+                      <div class="col-md-6 mb-3">
+                        <label for="redirectUri" class="form-label">
 Redirect URI
-                    </label>
-                    <input type="url" class="form-control" id="redirectUri" required />
-                  </div>
-                </div>
-
-
-                <div id="setup-bouncie-status" class="setup-status" role="status">
-                </div>
-              </form>
-
-              <div class="setup-actions">
-                <button class="btn btn-primary" id="bouncie-save-btn" type="button">
-                  Save & Continue
-                </button>
-              </div>
-            </div>
-          </section>
-
-          <section class="setup-step" data-step="2">
-            <div class="setup-card">
-              <h2>
-Mapbox Token
-              </h2>
-              <p>
-                Add a public Mapbox token (pk.*) so EveryStreet can render maps.
-              </p>
-              <div class="mb-3">
-                <label for="mapboxToken" class="form-label">
-Mapbox Token
-                </label>
-                <input type="text" class="form-control" id="mapboxToken" placeholder="pk.eyJ1..." />
-                <div class="form-text">
-                  Create a token at <a href="https://mapbox.com" target="_blank" rel="noopener">mapbox.com</a>.
-                </div>
-              </div>
-              <div id="setup-mapbox-status" class="setup-status" role="status">
-              </div>
-              <div class="mapbox-preview" id="mapbox-preview">
-                <div class="mapbox-preview-placeholder">
-                  Map preview will appear here once the token is valid.
-                </div>
-              </div>
-
-              <div class="setup-actions">
-                <button class="btn btn-outline-light" id="mapbox-back-btn" type="button">
-                  Back
-                </button>
-                <button class="btn btn-primary" id="mapbox-save-btn" type="button">
-                  Save & Continue
-                </button>
-              </div>
-            </div>
-          </section>
-
-          <section class="setup-step" data-step="3">
-            <div class="setup-card">
-              <h2>
- Map Region
-              </h2>
-              <p>
-                Download an OpenStreetMap region to enable geocoding and map matching.
-                This step unlocks routing and place search in the app.
-              </p>
-              <div class="setup-region-alert" id="region-service-banner">
-                <div class="setup-region-alert-title" id="region-service-title">
-                  Checking map service containers...
-                </div>
-                <div class="setup-region-alert-text" id="region-service-detail">
-                </div>
-              </div>
-
-              <div class="setup-region-header">
-                <div class="setup-region-tabs" role="tablist" aria-label="Region selection mode">
-                  <button class="btn btn-outline-light btn-sm is-active"
-                          id="region-view-us"
-                          type="button"
-                          data-region-view="us">
-                    United States (Recommended)
-                  </button>
-                  <button class="btn btn-outline-light btn-sm"
-                          id="region-view-global"
-                          type="button"
-                          data-region-view="global">
-                    Browse all regions
-                  </button>
-                </div>
-                <div class="setup-region-search" id="region-search-wrap">
-                  <input class="form-control form-control-sm"
-                         id="region-search-input"
-                         type="search"
-                         placeholder="Search states or regions" />
-                </div>
-              </div>
-
-              <div class="setup-region-grid">
-                <div class="setup-region-panel">
-                  <nav aria-label="Geofabrik region breadcrumb">
-                    <ol class="breadcrumb" id="region-breadcrumb">
-                      <li class="breadcrumb-item active">
-World
-                      </li>
-                    </ol>
-                  </nav>
-                  <div id="region-list" class="setup-region-list">
-                  </div>
-                </div>
-                <div class="setup-region-panel">
-                  <div id="selected-region-info" class="selected-region-card d-none">
-                    <h3>
-Selected Region
-                    </h3>
-                    <div class="selected-region-name" id="selected-region-name">
---
-                    </div>
-                    <div class="selected-region-meta">
-                      <span id="selected-region-id">--</span>
-                      <span id="selected-region-size">--</span>
-                    </div>
-                    <div class="selected-region-warning d-none" id="selected-region-warning">
-                    </div>
-                  </div>
-                  <div class="setup-region-actions">
-                    <button class="btn btn-primary" id="download-region-btn" type="button" disabled>
-                      <i class="fas fa-download"></i> Download & Build
-                    </button>
-                    <button class="btn btn-outline-light" id="auto-region-btn" type="button">
-                      <i class="fas fa-magic"></i> Auto-detect from trips
-                    </button>
-                  </div>
-                  <div class="setup-region-progress d-none" id="region-progress">
-                    <div class="progress">
-                      <div class="progress-bar" id="region-progress-bar" style="width: 0%">
-0%
+                        </label>
+                        <input type="url" class="form-control" id="redirectUri" required />
                       </div>
                     </div>
-                    <div class="small text-muted" id="region-progress-text">
+                  </form>
+                </div>
+
+                <div class="setup-card-section">
+                  <h3>
+Mapbox Token
+                  </h3>
+                  <p>
+                    Add a Mapbox public token so map tiles can render.
+                    <a href="https://account.mapbox.com/access-tokens" target="_blank" rel="noopener">
+                      Get a token.
+                    </a>
+                  </p>
+                  <div class="row">
+                    <div class="col-md-6 mb-3">
+                      <label for="mapboxToken" class="form-label">
+Mapbox Access Token
+                      </label>
+                      <input type="password" class="form-control" id="mapboxToken" />
                     </div>
                   </div>
-                  <div class="setup-region-progress-actions d-none" id="region-cancel-wrap">
-                    <button class="btn btn-outline-danger" id="region-cancel-btn" type="button">
-                      <i class="fas fa-ban"></i> Cancel download
-                    </button>
-                  </div>
-                  <div class="setup-region-note d-none" id="region-background-note">
-                    Download and build keep running in the background while Everystreet is running.
-                    You can close this tab or browser and return later.
-                  </div>
-                  <div id="region-status" class="setup-status" role="status">
+
+                  <div class="setup-mapbox-preview">
+                    <div id="mapbox-preview" class="mapbox-preview">
+                      <div class="mapbox-preview-placeholder">
+                        <div>
+                          <i class="fas fa-map"></i>
+                          <span>Map preview will appear here.</span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
 
+              <div id="credentials-status" class="setup-status" role="status">
+              </div>
+
               <div class="setup-actions">
-                <button class="btn btn-outline-light" id="region-back-btn" type="button">
-                  Back
+                <button class="btn btn-primary" id="credentials-continue-btn" type="button">
+                  Verify & Continue
                 </button>
-                <div class="setup-actions-split">
-                  <button class="btn btn-outline-secondary" id="region-skip-btn" type="button">
-                    Skip for now
-                  </button>
-                  <button class="btn btn-success" id="region-finish-btn" type="button">
-                    <i class="fas fa-check"></i> Finish Setup
-                  </button>
-                </div>
               </div>
             </div>
           </section>
 
-          <section class="setup-step" data-step="4">
+          <section class="setup-step" data-step="1">
             <div class="setup-card">
-              <h2>
-Setup Complete
-              </h2>
-              <p>
- Review what is configured below, including credentials, tokens, and map data. When you
- finish, background sync will start fetching trips.
-              </p>
-              <div class="setup-region-alert setup-region-alert-warning d-none"
-                   id="region-ready-banner">
-                <div class="setup-region-alert-title">
-                  Map services need data
+              <div class="setup-card-header">
+                <div>
+                  <h2>
+Map Coverage
+                  </h2>
+                  <p>
+                    Pick the states you want online. This will download and rebuild all map
+                    services, and Everystreet will keep running while setup completes.
+                  </p>
                 </div>
-                <div class="setup-region-alert-text">
-                  Nominatim and Valhalla are running, but they cannot serve searches until you
-                  download a region. You can finish setup now and return later, but the map
-                  services will stay offline.
+                <div class="setup-pill" id="coverage-status-pill">
+Not configured
                 </div>
               </div>
 
-              <div class="setup-summary">
-                <div class="summary-item">
-                  <div class="summary-item-content">
-                    <div class="summary-item-title">
-Bouncie
-                    </div>
-                    <div class="summary-item-detail" id="summary-bouncie-detail">
---
-                    </div>
-                  </div>
-                  <span class="summary-item-status" id="summary-bouncie">--</span>
+              <div class="state-selector" id="state-selection">
+                <div class="text-muted">Loading states...</div>
+              </div>
+
+              <div class="coverage-summary">
+                <div>
+                  <span class="coverage-label">Total size</span>
+                  <span id="coverage-total-size">--</span>
                 </div>
-                <div class="summary-item">
-                  <div class="summary-item-content">
-                    <div class="summary-item-title">
-Mapbox
-                    </div>
-                    <div class="summary-item-detail" id="summary-mapbox-detail">
---
-                    </div>
-                  </div>
-                  <span class="summary-item-status" id="summary-mapbox">--</span>
-                </div>
-                <div class="summary-item">
-                  <div class="summary-item-content">
-                    <div class="summary-item-title">
-Map Region
-                    </div>
-                    <div class="summary-item-detail" id="summary-region-detail">
---
-                    </div>
-                  </div>
-                  <span class="summary-item-status" id="summary-region">--</span>
+                <div>
+                  <span class="coverage-label">Estimated time</span>
+                  <span id="coverage-time-estimate">--</span>
                 </div>
               </div>
 
-              <div id="setup-complete-status" class="setup-status" role="status">
+              <div class="setup-progress d-none" id="map-setup-progress">
+                <div class="progress">
+                  <div class="progress-bar" id="map-setup-progress-bar" style="width: 0%">
+                  </div>
+                </div>
+                <div class="progress-meta">
+                  <span id="map-setup-progress-text"></span>
+                  <span id="map-setup-message">Select states to begin.</span>
+                </div>
+              </div>
+
+              <div id="coverage-status" class="setup-status" role="status">
               </div>
 
               <div class="setup-actions">
-                <button class="btn btn-outline-light" id="complete-back-btn" type="button">
-                  Back
+                <button class="btn btn-primary" id="map-setup-btn" type="button">
+                  Start Setup
                 </button>
-                <button class="btn btn-success" id="complete-setup-btn" type="button">
+                <button class="btn btn-outline-light d-none" id="map-cancel-btn" type="button">
+                  Cancel Setup
+                </button>
+                <button class="btn btn-success d-none" id="finish-setup-btn" type="button">
                   Finish Setup
                 </button>
               </div>
@@ -458,69 +256,6 @@ Map Region
       </div>
     </div>
   </div>
-  <div class="modal fade" id="regionSkipModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog">
-      <div class="modal-content bg-dark text-white">
-        <div class="modal-header">
-          <h5 class="modal-title">
-            Skip map data setup?
-          </h5>
-          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal">
-          </button>
-        </div>
-        <div class="modal-body">
-          <p>
-            Nominatim and Valhalla will stay offline until you download a region. You can return
-            to /setup-wizard later, but geocoding and routing will not work until data is imported.
-          </p>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">
-            Keep setting up
-          </button>
-          <button type="button" class="btn btn-warning" id="confirm-region-skip">
-            Skip for now
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-  <div class="modal fade"
-       id="bouncieRedirectModal"
-       tabindex="-1"
-       aria-hidden="true"
-       data-bs-backdrop="static"
-       data-bs-keyboard="false">
-    <div class="modal-dialog modal-dialog-centered">
-      <div class="modal-content bouncie-redirect-modal">
-        <div class="modal-body">
-          <div class="bouncie-redirect-header">
-            <div class="bouncie-redirect-icon" aria-hidden="true">
-              <i class="fas fa-plug"></i>
-            </div>
-            <div>
-              <h5 class="bouncie-redirect-title">
-                Redirecting to Bouncie
-              </h5>
-              <p class="bouncie-redirect-description">
-                We are opening the secure Bouncie authorization page so you can approve access.
-              </p>
-            </div>
-          </div>
-          <div class="bouncie-redirect-progress" role="status" aria-live="polite">
-            <span class="bouncie-redirect-spinner spinner" aria-hidden="true"></span>
-            <span>Taking you there now...</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
+
 {% endblock %}
 
-
-{% block extra_js %}
-
-  <script src="{{ CDN.mapbox_gl_js }}"></script>
-  <script type="module"
-          src="{{ url_for('static', path='js/pages/setup.js') | replace('http://', '//') }}"></script>
-{% endblock %}

@@ -49,13 +49,19 @@ TASK_DEFINITIONS: dict[str, dict[str, object]] = {
         "description": "Updates coverage calculations incrementally for new trips",
     },
     "monitor_map_data_jobs": {
-        "display_name": "Monitor Map Data Jobs",
+        "display_name": "Monitor Map Services",
         "default_interval_minutes": 15,
         "dependencies": [],
         "description": (
-            "Detects stalled map data downloads/builds and marks them as failed so they "
-            "can be retried."
+            "Detects stalled map setup runs and triggers automatic retries."
         ),
+    },
+    "setup_map_data_task": {
+        "display_name": "Setup Map Services",
+        "default_interval_minutes": 0,
+        "dependencies": [],
+        "description": "Downloads state extracts, merges data, and builds Nominatim/Valhalla.",
+        "manual_only": True,
     },
     "manual_fetch_trips_range": {
         "display_name": "Fetch Trips (Custom Range)",
