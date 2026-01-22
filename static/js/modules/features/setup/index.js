@@ -116,6 +116,14 @@ function getCurrentStepKey() {
   return getStepKeyByIndex(currentStep);
 }
 
+function getRegionStepState() {
+  return sessionState?.step_states?.region || null;
+}
+
+function isRegionJobInFlight() {
+  return Boolean(getRegionStepState()?.in_flight);
+}
+
 function markDirty(stepKey) {
   if (Object.hasOwn(dirtyState, stepKey)) {
     dirtyState[stepKey] = true;
