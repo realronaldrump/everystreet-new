@@ -129,7 +129,7 @@ async def detect_trip_states() -> dict[str, Any]:
         {"$project": {"gps": 1}},
     ]
 
-    async for trip_doc in Trip.aggregate(pipeline):
+    async for trip_doc in await Trip.aggregate(pipeline).to_list(None):
         gps = trip_doc.get("gps")
         if not gps or "coordinates" not in gps:
             continue
@@ -167,7 +167,7 @@ async def detect_trip_states() -> dict[str, Any]:
         {"$project": {"destinationGeoPoint": 1}},
     ]
 
-    async for trip_doc in Trip.aggregate(dest_pipeline):
+    async for trip_doc in await Trip.aggregate(dest_pipeline).to_list(None):
         dest = trip_doc.get("destinationGeoPoint")
         if dest and "coordinates" in dest:
             coords = dest["coordinates"]
@@ -187,12 +187,14 @@ async def detect_trip_states() -> dict[str, Any]:
     for code, count in sorted_states:
         state_info = get_state(code)
         if state_info:
-            state_details.append({
-                "code": code,
-                "name": state_info.get("name", code),
-                "trip_count": count,
-                "size_mb": state_info.get("size_mb", 0),
-            })
+            state_details.append(
+                {
+                    "code": code,
+                    "name": state_info.get("name", code),
+                    "trip_count": count,
+                    "size_mb": state_info.get("size_mb", 0),
+                }
+            )
 
     return {
         "detected_states": [s["code"] for s in state_details],
@@ -364,11 +366,13 @@ async def get_auto_provision_status() -> dict[str, Any]:
     missing_details = []
     for code in sorted(missing_states):
         if code in state_map:
-            missing_details.append({
-                "code": code,
-                "name": state_map[code].get("name", code),
-                "size_mb": state_map[code].get("size_mb", 0),
-            })
+            missing_details.append(
+                {
+                    "code": code,
+                    "name": state_map[code].get("name", code),
+                    "size_mb": state_map[code].get("size_mb", 0),
+                }
+            )
 
     is_ready = (
         config.status == MapServiceConfig.STATUS_READY

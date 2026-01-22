@@ -259,4 +259,7 @@ Loading states...
     </div>
   </div>
 
+{% block extra_js %}
+  <script type="module" src="{{ url_for('static', path='js/pages/setup.js') | replace('http://', '//') }}"></script>
+{% endblock %}
 {% endblock %}
