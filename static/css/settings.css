@@ -285,6 +285,50 @@
   margin-bottom: var(--space-1);
 }
 
+/* === Inline Status === */
+.settings-status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-color);
+  background: var(--surface-2);
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: 1.4;
+  max-width: 100%;
+  flex-wrap: wrap;
+}
+
+.settings-status.is-hidden {
+  display: none;
+}
+
+.settings-status[data-tone="info"] {
+  background: rgb(var(--info-rgb) / 12%);
+  border-color: rgb(var(--info-rgb) / 35%);
+  color: var(--info-dark);
+}
+
+.settings-status[data-tone="success"] {
+  background: rgb(var(--success-rgb) / 12%);
+  border-color: rgb(var(--success-rgb) / 35%);
+  color: var(--success-dark);
+}
+
+.settings-status[data-tone="warning"] {
+  background: rgb(var(--warning-rgb) / 12%);
+  border-color: rgb(var(--warning-rgb) / 35%);
+  color: var(--warning-dark);
+}
+
+.settings-status[data-tone="danger"] {
+  background: rgb(var(--danger-rgb) / 12%);
+  border-color: rgb(var(--danger-rgb) / 35%);
+  color: var(--danger-dark);
+}
+
 /* === Mobile Responsive === */
 @media (width <= 768px) {
   .settings-container {

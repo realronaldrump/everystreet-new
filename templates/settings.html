@@ -440,7 +440,7 @@ Actions
           Schedule an on-demand trip fetch for a specific date range. Map matching
           can be toggled for the fetched trips.
           </p>
-          <form id="manualFetchTripsForm" class="row g-3">
+          <form id="manualFetchTripsForm" class="row g-3" novalidate>
             <div class="col-md-4">
               <label for="manual-fetch-start" class="form-label">
  Start
@@ -465,7 +465,11 @@ Actions
               <button type="submit" class="btn btn-success" id="manual-fetch-submit">
                 <i class="fas fa-cloud-download-alt"></i> Fetch Trips
               </button>
-              <span class="text-muted" id="manual-fetch-status"></span>
+              <span class="settings-status is-hidden"
+                    id="manual-fetch-status"
+                    role="status"
+                    aria-live="polite"
+                    aria-atomic="true"></span>
             </div>
           </form>
         </div>
@@ -487,7 +491,11 @@ Actions
                     id="openFetchAllMissingModalBtn">
               <i class="fas fa-sync-alt"></i> Fetch All Missing Trips
             </button>
-            <span class="text-muted" id="fetchAllMissingStatus"></span>
+            <span class="settings-status is-hidden"
+                  id="fetchAllMissingStatus"
+                  role="status"
+                  aria-live="polite"
+                  aria-atomic="true"></span>
           </div>
         </div>
 
@@ -663,7 +671,11 @@ Last 2 Years
             <button id="geocode-trips-btn" class="btn btn-warning">
               <i class="fas fa-sync-alt"></i> Re-geocode Trips
             </button>
-            <div id="geocode-trips-status" class="mt-2">
+            <div id="geocode-trips-status"
+                 class="settings-status is-hidden mt-2"
+                 role="status"
+                 aria-live="polite"
+                 aria-atomic="true">
             </div>
           </div>
 
@@ -776,7 +788,11 @@ All Time
             <button id="remap-btn" class="btn btn-warning">
               <i class="fas fa-route"></i> Re-Match Trips
             </button>
-            <div id="remap-status" class="mt-2">
+            <div id="remap-status"
+                 class="settings-status is-hidden mt-2"
+                 role="status"
+                 aria-live="polite"
+                 aria-atomic="true">
             </div>
           </div>
         </div>

@@ -8,6 +8,19 @@ import apiClient from "../modules/core/api-client.js";
 import loadingManager from "../modules/ui/loading-manager.js";
 import notificationManager from "../modules/ui/notifications.js";
 import { DateUtils } from "../modules/utils.js";
+import { clearInlineStatus, setInlineStatus } from "./status-utils.js";
+
+function setInputInvalid(input, isInvalid) {
+  if (!input) {
+    return;
+  }
+  input.classList.toggle("is-invalid", isInvalid);
+  if (isInvalid) {
+    input.setAttribute("aria-invalid", "true");
+  } else {
+    input.removeAttribute("aria-invalid");
+  }
+}
 
 export function setupManualFetchTripsForm(taskManager) {
   const form = document.getElementById("manualFetchTripsForm");
@@ -20,6 +33,28 @@ export function setupManualFetchTripsForm(taskManager) {
   const mapMatchInput = document.getElementById("manual-fetch-map-match");
   const statusEl = document.getElementById("manual-fetch-status");
 
+  const clearInputErrors = () => {
+    setInputInvalid(startInput, false);
+    setInputInvalid(endInput, false);
+  };
+
+  const clearErrorStatus = () => {
+    const tone = statusEl?.dataset.tone;
+    if (tone === "danger" || tone === "warning") {
+      clearInlineStatus(statusEl);
+    }
+  };
+
+  [startInput, endInput].forEach((input) => {
+    if (!input) {
+      return;
+    }
+    input.addEventListener("input", () => {
+      setInputInvalid(input, false);
+      clearErrorStatus();
+    });
+  });
+
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     if (!taskManager) {
@@ -29,14 +64,17 @@ export function setupManualFetchTripsForm(taskManager) {
     const startValue = startInput?.value;
     const endValue = endInput?.value;
 
-    if (statusEl) {
-      statusEl.textContent = "";
-    }
+    clearInputErrors();
+    clearInlineStatus(statusEl);
 
     if (!startValue || !endValue) {
-      if (statusEl) {
-        statusEl.textContent = "Please select both start and end dates.";
-      }
+      setInputInvalid(startInput, !startValue);
+      setInputInvalid(endInput, !endValue);
+      setInlineStatus(
+        statusEl,
+        "Please select both start and end dates.",
+        "danger"
+      );
       return;
     }
 
@@ -51,37 +89,30 @@ export function setupManualFetchTripsForm(taskManager) {
       || Number.isNaN(startDate.getTime())
       || Number.isNaN(endDate.getTime())
     ) {
-      if (statusEl) {
-        statusEl.textContent = "Invalid date selection.";
-      }
+      setInputInvalid(startInput, true);
+      setInputInvalid(endInput, true);
+      setInlineStatus(statusEl, "Invalid date selection.", "danger");
       return;
     }
 
     if (endDate.getTime() <= startDate.getTime()) {
-      if (statusEl) {
-        statusEl.textContent = "End date must be after the start date.";
-      }
+      setInputInvalid(endInput, true);
+      setInlineStatus(statusEl, "End date must be after the start date.", "danger");
       return;
     }
 
     const mapMatchEnabled = Boolean(mapMatchInput?.checked);
 
     try {
-      if (statusEl) {
-        statusEl.textContent = "Scheduling fetch...";
-      }
+      setInlineStatus(statusEl, "Scheduling fetch...", "info");
       await taskManager.scheduleManualFetch(
         startDate.toISOString(),
         endDate.toISOString(),
         mapMatchEnabled
       );
-      if (statusEl) {
-        statusEl.textContent = "Fetch scheduled successfully.";
-      }
+      setInlineStatus(statusEl, "Fetch scheduled successfully.", "success");
     } catch (error) {
-      if (statusEl) {
-        statusEl.textContent = `Error: ${error.message}`;
-      }
+      setInlineStatus(statusEl, `Error: ${error.message}`, "danger");
     }
   });
 }
@@ -91,6 +122,8 @@ export function setupGeocodeTrips() {
   const dateRangeDiv = document.getElementById("geocode-date-range");
   const intervalDiv = document.getElementById("geocode-interval");
   const geocodeBtn = document.getElementById("geocode-trips-btn");
+  const geocodeStartInput = document.getElementById("geocode-start");
+  const geocodeEndInput = document.getElementById("geocode-end");
   const progressPanel = document.getElementById("geocode-progress-panel");
   const progressBar = document.getElementById("geocode-progress-bar");
   const progressMessage = document.getElementById("geocode-progress-message");
@@ -114,6 +147,9 @@ export function setupGeocodeTrips() {
       dateRangeDiv.style.display = "none";
       intervalDiv.style.display = "none";
     }
+    setInputInvalid(geocodeStartInput, false);
+    setInputInvalid(geocodeEndInput, false);
+    clearInlineStatus(statusEl);
   });
 
   // Handle button click
@@ -128,9 +164,16 @@ export function setupGeocodeTrips() {
     let interval_days = 0;
 
     if (method === "date") {
-      start_date = document.getElementById("geocode-start").value;
-      end_date = document.getElementById("geocode-end").value;
+      start_date = geocodeStartInput?.value || "";
+      end_date = geocodeEndInput?.value || "";
       if (!start_date || !end_date) {
+        setInputInvalid(geocodeStartInput, !start_date);
+        setInputInvalid(geocodeEndInput, !end_date);
+        setInlineStatus(
+          statusEl,
+          "Please select both start and end dates.",
+          "danger"
+        );
         notificationManager.show("Please select both start and end dates", "danger");
         return;
       }
@@ -142,11 +185,10 @@ export function setupGeocodeTrips() {
     }
 
     try {
+      setInputInvalid(geocodeStartInput, false);
+      setInputInvalid(geocodeEndInput, false);
       geocodeBtn.disabled = true;
-      if (statusEl) {
-        statusEl.textContent = "Starting geocoding...";
-        statusEl.className = "mt-2 text-info";
-      }
+      setInlineStatus(statusEl, "Starting geocoding...", "info");
       progressPanel.style.display = "block";
       progressBar.style.width = "0%";
       progressBar.textContent = "0%";
@@ -186,10 +228,7 @@ export function setupGeocodeTrips() {
               = progressResponse.status === 404
                 ? "Geocoding task not found."
                 : "Unable to retrieve geocoding progress.";
-            if (statusEl) {
-              statusEl.textContent = errorMessage;
-              statusEl.className = "mt-2 text-danger";
-            }
+            setInlineStatus(statusEl, errorMessage, "danger");
             notificationManager.show(errorMessage, "danger");
             return;
           }
@@ -226,10 +265,11 @@ export function setupGeocodeTrips() {
                 "bg-danger"
               );
               progressBar.classList.add("bg-success");
-              if (statusEl) {
-                statusEl.textContent = `Geocoding completed: ${metrics.updated || 0} updated, ${metrics.skipped || 0} skipped`;
-                statusEl.className = "mt-2 text-success";
-              }
+              setInlineStatus(
+                statusEl,
+                `Geocoding completed: ${metrics.updated || 0} updated, ${metrics.skipped || 0} skipped`,
+                "success"
+              );
               notificationManager.show(
                 `Geocoding completed: ${metrics.updated || 0} updated, ${metrics.skipped || 0} skipped`,
                 "success"
@@ -242,10 +282,11 @@ export function setupGeocodeTrips() {
                 "bg-success"
               );
               progressBar.classList.add("bg-danger");
-              if (statusEl) {
-                statusEl.textContent = `Error: ${progressData.error || "Unknown error"}`;
-                statusEl.className = "mt-2 text-danger";
-              }
+              setInlineStatus(
+                statusEl,
+                `Error: ${progressData.error || "Unknown error"}`,
+                "danger"
+              );
               notificationManager.show(
                 `Geocoding failed: ${progressData.error || "Unknown error"}`,
                 "danger"
@@ -256,10 +297,11 @@ export function setupGeocodeTrips() {
           // Error polling progress - silently ignore
           clearInterval(pollInterval);
           geocodeBtn.disabled = false;
-          if (statusEl) {
-            statusEl.textContent = "Lost connection while monitoring progress.";
-            statusEl.className = "mt-2 text-warning";
-          }
+          setInlineStatus(
+            statusEl,
+            "Lost connection while monitoring progress.",
+            "warning"
+          );
           notificationManager.show(
             "Lost connection while monitoring geocoding progress",
             "warning"
@@ -269,10 +311,7 @@ export function setupGeocodeTrips() {
     } catch {
       // Error starting geocoding - silently ignore
       geocodeBtn.disabled = false;
-      if (statusEl) {
-        statusEl.textContent = "Error starting geocoding. See console.";
-        statusEl.className = "mt-2 text-danger";
-      }
+      setInlineStatus(statusEl, "Error starting geocoding. See console.", "danger");
       notificationManager.show("Failed to start geocoding", "danger");
     }
   });
@@ -292,6 +331,9 @@ export function setupRemapMatchedTrips() {
   const remapType = document.getElementById("remap-type");
   const dateRangeDiv = document.getElementById("remap-date-range");
   const intervalDiv = document.getElementById("remap-interval");
+  const remapStartInput = document.getElementById("remap-start");
+  const remapEndInput = document.getElementById("remap-end");
+  const remapStatus = document.getElementById("remap-status");
   if (!remapType || !dateRangeDiv || !intervalDiv) {
     return;
   }
@@ -299,6 +341,9 @@ export function setupRemapMatchedTrips() {
   remapType.addEventListener("change", function () {
     dateRangeDiv.style.display = this.value === "date" ? "block" : "none";
     intervalDiv.style.display = this.value === "date" ? "none" : "block";
+    setInputInvalid(remapStartInput, false);
+    setInputInvalid(remapEndInput, false);
+    clearInlineStatus(remapStatus);
   });
 
   const remapBtn = document.getElementById("remap-btn");
@@ -316,13 +361,22 @@ export function setupRemapMatchedTrips() {
     let interval_days = 0;
 
     if (method === "date") {
-      start_date = document.getElementById("remap-start").value;
-      end_date = document.getElementById("remap-end").value;
+      start_date = remapStartInput?.value || "";
+      end_date = remapEndInput?.value || "";
       if (!start_date || !end_date) {
+        setInputInvalid(remapStartInput, !start_date);
+        setInputInvalid(remapEndInput, !end_date);
+        setInlineStatus(
+          remapStatus,
+          "Please select both start and end dates.",
+          "danger"
+        );
         notificationManager.show("Please select both start and end dates", "danger");
         return;
       }
     } else {
+      setInputInvalid(remapStartInput, false);
+      setInputInvalid(remapEndInput, false);
       interval_days = parseInt(
         document.getElementById("remap-interval-select").value,
         10
@@ -335,7 +389,7 @@ export function setupRemapMatchedTrips() {
 
     try {
       loadingManager.show();
-      document.getElementById("remap-status").textContent = "Remapping trips...";
+      setInlineStatus(remapStatus, "Remapping trips...", "info");
 
       const response = await apiClient.raw("/api/matched_trips/remap", {
         method: "POST",
@@ -347,11 +401,11 @@ export function setupRemapMatchedTrips() {
 
       const data = await response.json();
 
-      document.getElementById("remap-status").textContent = data.message;
+      setInlineStatus(remapStatus, data.message, "success");
       notificationManager.show(data.message, "success");
     } catch {
       loadingManager.hide();
-      document.getElementById("remap-status").textContent = "Error re-matching trips.";
+      setInlineStatus(remapStatus, "Error re-matching trips.", "danger");
       notificationManager.show("Failed to re-match trips", "danger");
     }
   });

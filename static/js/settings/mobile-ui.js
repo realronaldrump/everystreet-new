@@ -12,6 +12,7 @@ import {
   getStatusColor,
 } from "./task-manager/formatters.js";
 import { showErrorModal, showTaskDetails } from "./task-manager/modals.js";
+import { clearInlineStatus, setInlineStatus } from "./status-utils.js";
 
 /**
  * Mobile UI module - handles all mobile-specific UI rendering and interactions
@@ -400,17 +401,14 @@ export function setupMobileManualFetch(taskManager) {
     const startValue = startInput?.value;
     const endValue = endInput?.value;
 
-    if (statusEl) {
-      statusEl.classList.remove("d-none", "success", "error");
-      statusEl.textContent = "";
-    }
+    clearInlineStatus(statusEl);
 
     if (!startValue || !endValue) {
-      if (statusEl) {
-        statusEl.classList.add("error");
-        statusEl.textContent = "Please select both start and end dates.";
-        statusEl.classList.remove("d-none");
-      }
+      setInlineStatus(
+        statusEl,
+        "Please select both start and end dates.",
+        "danger"
+      );
       return;
     }
 
@@ -423,47 +421,27 @@ export function setupMobileManualFetch(taskManager) {
       || Number.isNaN(startDate.getTime())
       || Number.isNaN(endDate.getTime())
     ) {
-      if (statusEl) {
-        statusEl.classList.add("error");
-        statusEl.textContent = "Invalid date selection.";
-        statusEl.classList.remove("d-none");
-      }
+      setInlineStatus(statusEl, "Invalid date selection.", "danger");
       return;
     }
 
     if (endDate.getTime() <= startDate.getTime()) {
-      if (statusEl) {
-        statusEl.classList.add("error");
-        statusEl.textContent = "End date must be after the start date.";
-        statusEl.classList.remove("d-none");
-      }
+      setInlineStatus(statusEl, "End date must be after the start date.", "danger");
       return;
     }
 
     const mapMatchEnabled = Boolean(mapMatchInput?.checked);
 
     try {
-      if (statusEl) {
-        statusEl.classList.add("info");
-        statusEl.textContent = "Scheduling fetch...";
-        statusEl.classList.remove("d-none");
-      }
+      setInlineStatus(statusEl, "Scheduling fetch...", "info");
       await taskManager.scheduleManualFetch(
         startDate.toISOString(),
         endDate.toISOString(),
         mapMatchEnabled
       );
-      if (statusEl) {
-        statusEl.classList.remove("info");
-        statusEl.classList.add("success");
-        statusEl.textContent = "Fetch scheduled successfully.";
-      }
+      setInlineStatus(statusEl, "Fetch scheduled successfully.", "success");
     } catch (error) {
-      if (statusEl) {
-        statusEl.classList.remove("info");
-        statusEl.classList.add("error");
-        statusEl.textContent = `Error: ${error.message}`;
-      }
+      setInlineStatus(statusEl, `Error: ${error.message}`, "danger");
     }
   });
 }
@@ -496,11 +474,11 @@ async function pollGeocodeProgress(context) {
     // Error polling progress - silently ignore
     clearInterval(pollGeocodeProgress.pollInterval);
     geocodeBtn.disabled = false;
-    if (statusEl) {
-      statusEl.textContent = "Lost connection while monitoring progress.";
-      statusEl.classList.remove("info", "success");
-      statusEl.classList.add("error");
-    }
+    setInlineStatus(
+      statusEl,
+      "Lost connection while monitoring progress.",
+      "warning"
+    );
     notificationManager.show(
       "Lost connection while monitoring geocoding progress",
       "warning"
@@ -516,11 +494,7 @@ function handleGeocodeProgressError(context, status) {
     = status === 404
       ? "Geocoding task not found."
       : "Unable to retrieve geocoding progress.";
-  if (statusEl) {
-    statusEl.textContent = errorMessage;
-    statusEl.classList.remove("info", "success");
-    statusEl.classList.add("error");
-  }
+  setInlineStatus(statusEl, errorMessage, "danger");
   notificationManager.show(errorMessage, "danger");
 }
 
@@ -579,9 +553,11 @@ function updateGeocodeSuccessUI(statusEl, progressBar, metrics) {
     progressBar.classList.add("bg-success");
   }
   if (statusEl) {
-    statusEl.textContent = `Geocoding completed: ${metrics.updated || 0} updated, ${metrics.skipped || 0} skipped`;
-    statusEl.classList.remove("info");
-    statusEl.classList.add("success");
+    setInlineStatus(
+      statusEl,
+      `Geocoding completed: ${metrics.updated || 0} updated, ${metrics.skipped || 0} skipped`,
+      "success"
+    );
   }
 }
 
@@ -596,9 +572,11 @@ function updateGeocodeErrorUI(statusEl, progressBar, progressData) {
     progressBar.classList.add("bg-danger");
   }
   if (statusEl) {
-    statusEl.textContent = `Error: ${progressData.error || "Unknown error"}`;
-    statusEl.classList.remove("info");
-    statusEl.classList.add("error");
+    setInlineStatus(
+      statusEl,
+      `Error: ${progressData.error || "Unknown error"}`,
+      "danger"
+    );
   }
 }
 
@@ -667,11 +645,7 @@ export function setupMobileGeocodeTrips() {
 
     try {
       geocodeBtn.disabled = true;
-      if (statusEl) {
-        statusEl.textContent = "Starting geocoding...";
-        statusEl.classList.remove("d-none", "success", "error");
-        statusEl.classList.add("info");
-      }
+      setInlineStatus(statusEl, "Starting geocoding...", "info");
       if (progressPanel) {
         progressPanel.style.display = "block";
       }
@@ -724,11 +698,7 @@ export function setupMobileGeocodeTrips() {
       pollGeocodeProgress.pollInterval = pollInterval;
     } catch {
       geocodeBtn.disabled = false;
-      if (statusEl) {
-        statusEl.textContent = "Error starting geocoding. See console.";
-        statusEl.classList.remove("info");
-        statusEl.classList.add("error");
-      }
+      setInlineStatus(statusEl, "Error starting geocoding. See console.", "danger");
       notificationManager.show("Failed to start geocoding", "danger");
     }
   });
@@ -800,11 +770,7 @@ export function setupMobileRemapTrips() {
 
       try {
         loadingManager.show();
-        if (remapStatus) {
-          remapStatus.classList.remove("d-none", "success", "error");
-          remapStatus.classList.add("info");
-          remapStatus.textContent = "Remapping trips...";
-        }
+        setInlineStatus(remapStatus, "Remapping trips...", "info");
 
         const response = await apiClient.raw("/api/matched_trips/remap", {
           method: "POST",
@@ -815,19 +781,11 @@ export function setupMobileRemapTrips() {
         loadingManager.hide();
         const data = await response.json();
 
-        if (remapStatus) {
-          remapStatus.classList.remove("info");
-          remapStatus.classList.add("success");
-          remapStatus.textContent = data.message;
-        }
+        setInlineStatus(remapStatus, data.message, "success");
         notificationManager.show(data.message, "success");
       } catch {
         loadingManager.hide();
-        if (remapStatus) {
-          remapStatus.classList.remove("info");
-          remapStatus.classList.add("error");
-          remapStatus.textContent = "Error re-matching trips.";
-        }
+        setInlineStatus(remapStatus, "Error re-matching trips.", "danger");
         notificationManager.show("Failed to re-match trips", "danger");
       }
     });

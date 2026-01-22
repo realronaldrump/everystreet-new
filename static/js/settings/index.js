@@ -25,6 +25,7 @@ import {
 import { InvalidTripReview } from "./invalid-trip-review.js";
 import mapServices from "./map-services.js";
 import { initMobileUI } from "./mobile-ui.js";
+import { clearInlineStatus, setInlineStatus } from "./status-utils.js";
 import { gatherTaskConfigFromUI, submitTaskConfigUpdate } from "./task-manager/api.js";
 import { showTaskDetails } from "./task-manager/modals.js";
 import { TaskManager } from "./task-manager/task-manager.js";
@@ -393,9 +394,8 @@ function setupFetchAllMissingModal(taskManager) {
         if (openFetchAllMissingModalBtn) {
           openFetchAllMissingModalBtn.disabled = true;
         }
-        if (statusSpan) {
-          statusSpan.textContent = "Starting task...";
-        }
+        clearInlineStatus(statusSpan);
+        setInlineStatus(statusSpan, "Starting task...", "info");
 
         loadingManager.show();
         const response = await apiClient.raw(
@@ -415,13 +415,9 @@ function setupFetchAllMissingModal(taskManager) {
             "Fetch all missing trips task started",
             "success"
           );
-          if (statusSpan) {
-            statusSpan.textContent = "Task started!";
-          }
+          setInlineStatus(statusSpan, "Task started!", "success");
           setTimeout(() => {
-            if (statusSpan) {
-              statusSpan.textContent = "";
-            }
+            clearInlineStatus(statusSpan);
             if (openFetchAllMissingModalBtn) {
               openFetchAllMissingModalBtn.disabled = false;
             }
@@ -433,9 +429,7 @@ function setupFetchAllMissingModal(taskManager) {
       } catch (error) {
         loadingManager.hide();
         taskManager.notifier.show("Error", error.message, "danger");
-        if (statusSpan) {
-          statusSpan.textContent = "Error starting task";
-        }
+        setInlineStatus(statusSpan, "Error starting task", "danger");
         if (openFetchAllMissingModalBtn) {
           openFetchAllMissingModalBtn.disabled = false;
         }

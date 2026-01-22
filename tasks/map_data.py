@@ -31,14 +31,6 @@ from map_data.models import MapDataJob, MapRegion
 logger = logging.getLogger(__name__)
 
 
-async def _wait_for_cancel(cancel_event: asyncio.Event, delay: float) -> bool:
-    try:
-        await asyncio.wait_for(cancel_event.wait(), timeout=delay)
-        return True
-    except TimeoutError:
-        return False
-
-
 async def _watch_job_cancelled(
     job_id: str,
     cancel_event: asyncio.Event,
@@ -83,128 +75,93 @@ async def download_region_task(ctx: dict, job_id: str) -> dict:
         await job.save()
         return {"success": False, "error": "Region not found"}
 
-    retry_delays = [30, 60, 300]
-    max_retries = job.max_retries or 3
-    attempt = job.retry_count or 0
     cancel_event = asyncio.Event()
     cancel_watch = asyncio.create_task(_watch_job_cancelled(job_id, cancel_event))
 
     try:
-        while True:
+        if cancel_event.is_set():
+            msg = "Download cancelled"
+            raise DownloadCancelled(msg)
+
+        # Update job status to running
+        job.status = MapDataJob.STATUS_RUNNING
+        job.started_at = job.started_at or datetime.now(UTC)
+        job.stage = "Downloading"
+        job.progress = 0
+        job.error = None
+        job.message = "Starting download"
+        job.retry_count = 0
+        await job.save()
+
+        region.status = MapRegion.STATUS_DOWNLOADING
+        region.last_error = None
+        region.download_progress = 0
+        region.updated_at = datetime.now(UTC)
+        await region.save()
+
+        # Progress callback to update job
+        async def update_progress(progress: float, message: str) -> None:
             if cancel_event.is_set():
-                msg = "Download cancelled"
-                raise DownloadCancelled(msg)
+                return
+            job.progress = progress
+            job.message = message
+            region.download_progress = progress
+            await job.save()
+            await region.save()
 
-            try:
-                # Update job status to running
-                job.status = MapDataJob.STATUS_RUNNING
-                job.started_at = job.started_at or datetime.now(UTC)
-                job.stage = "Downloading"
-                job.progress = 0
-                job.error = None
-                job.message = "Starting download"
-                job.retry_count = attempt
-                await job.save()
+        # Execute download
+        await parallel_download_region(
+            region,
+            progress_callback=update_progress,
+            cancel_event=cancel_event,
+        )
 
-                region.status = MapRegion.STATUS_DOWNLOADING
-                region.last_error = None
-                region.download_progress = 0
-                region.updated_at = datetime.now(UTC)
-                await region.save()
+        # Mark job complete
+        job.status = MapDataJob.STATUS_COMPLETED
+        job.progress = 100
+        job.message = "Download complete"
+        job.completed_at = datetime.now(UTC)
+        await job.save()
 
-                # Progress callback to update job
-                async def update_progress(progress: float, message: str) -> None:
-                    if cancel_event.is_set():
-                        return
-                    job.progress = progress
-                    job.message = message
-                    region.download_progress = progress
-                    await job.save()
-                    await region.save()
+        logger.info("Download complete for region %s", region.display_name)
 
-                # Execute download
-                await parallel_download_region(
-                    region,
-                    progress_callback=update_progress,
-                    cancel_event=cancel_event,
-                )
+        # Check if this is a full pipeline job - chain to build
+        if job.job_type == "download_and_build_all":
+            logger.info(
+                "Chaining to Nominatim + Valhalla build for region %s",
+                region.display_name,
+            )
+            # Create a new build_all job
+            from map_data.models import MapDataJob as MDJ
 
-                # Mark job complete
-                job.status = MapDataJob.STATUS_COMPLETED
-                job.progress = 100
-                job.message = "Download complete"
-                job.completed_at = datetime.now(UTC)
-                await job.save()
+            build_job = MDJ(
+                job_type=MDJ.JOB_BUILD_ALL,
+                region_id=region.id,
+                status=MDJ.STATUS_PENDING,
+                stage="Queued for Nominatim + Valhalla build",
+                message=f"Building geo services for {region.display_name}",
+            )
+            await build_job.insert()
+            await enqueue_nominatim_build_task(str(build_job.id))
 
-                logger.info("Download complete for region %s", region.display_name)
+        return {"success": True, "region_id": str(region.id)}
 
-                # Check if this is a full pipeline job - chain to build
-                if job.job_type == "download_and_build_all":
-                    logger.info(
-                        "Chaining to Nominatim + Valhalla build for region %s",
-                        region.display_name,
-                    )
-                    # Create a new build_all job
-                    from map_data.models import MapDataJob as MDJ
+    except DownloadCancelled:
+        raise
+    except Exception as e:
+        logger.exception("Download failed for job %s", job_id)
 
-                    build_job = MDJ(
-                        job_type=MDJ.JOB_BUILD_ALL,
-                        region_id=region.id,
-                        status=MDJ.STATUS_PENDING,
-                        stage="Queued for Nominatim + Valhalla build",
-                        message=f"Building geo services for {region.display_name}",
-                    )
-                    await build_job.insert()
-                    await enqueue_nominatim_build_task(str(build_job.id))
+        job.status = MapDataJob.STATUS_FAILED
+        job.error = str(e)
+        job.completed_at = datetime.now(UTC)
+        await job.save()
 
-                return {"success": True, "region_id": str(region.id)}
+        region.status = MapRegion.STATUS_ERROR
+        region.last_error = str(e)
+        region.updated_at = datetime.now(UTC)
+        await region.save()
 
-            except DownloadCancelled:
-                raise
-            except Exception as e:
-                attempt += 1
-                job.retry_count = attempt
-
-                if attempt <= max_retries:
-                    delay = retry_delays[min(attempt - 1, len(retry_delays) - 1)]
-                    logger.warning(
-                        "Download failed for job %s (attempt %s/%s): %s",
-                        job_id,
-                        attempt,
-                        max_retries,
-                        e,
-                    )
-
-                    job.status = MapDataJob.STATUS_RUNNING
-                    job.stage = f"Retrying in {delay}s"
-                    job.message = f"Download failed. Retrying ({attempt}/{max_retries})"
-                    job.error = str(e)
-                    job.completed_at = None
-                    await job.save()
-
-                    region.last_error = str(e)
-                    region.status = MapRegion.STATUS_DOWNLOADING
-                    region.updated_at = datetime.now(UTC)
-                    await region.save()
-
-                    if await _wait_for_cancel(cancel_event, delay):
-                        msg = "Download cancelled"
-                        raise DownloadCancelled(msg)
-                    continue
-
-                logger.exception("Download failed for job %s", job_id)
-
-                job.status = MapDataJob.STATUS_FAILED
-                job.error = str(e)
-                job.completed_at = datetime.now(UTC)
-                await job.save()
-
-                region.status = MapRegion.STATUS_ERROR
-                region.last_error = str(e)
-                region.updated_at = datetime.now(UTC)
-                await region.save()
-
-                return {"success": False, "error": str(e)}
+        return {"success": False, "error": str(e)}
     except DownloadCancelled:
         logger.info("Download cancelled for job %s", job_id)
         refreshed_job = await MapDataJob.get(PydanticObjectId(job_id))
