@@ -12,8 +12,8 @@ Version: 1
 
 ## Formats
 
-- `trips`: `json`, `csv`, `geojson`
-- `matched_trips`: `json`, `csv`, `geojson`
+- `trips`: `json`, `csv`, `geojson`, `gpx`
+- `matched_trips`: `json`, `csv`, `geojson`, `gpx`
 - `streets`: `geojson`
 - `boundaries`: `geojson`
 - `undriven_streets`: `geojson`
@@ -30,8 +30,8 @@ All exports are delivered as a zip archive with this structure:
 
 ```
 manifest.json
-trips.{json|csv|geojson}
-matched_trips.{json|csv|geojson}
+trips.{json|csv|geojson|gpx}
+matched_trips.{json|csv|geojson|gpx}
 coverage/streets.geojson
 coverage/boundaries.geojson
 coverage/undriven_streets.geojson
