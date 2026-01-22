@@ -7,6 +7,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
 from config import validate_mapbox_token
+from core.repo_info import get_repo_version_info
 from core.service_config import get_mapbox_token_async
 
 logger = logging.getLogger(__name__)
@@ -26,5 +27,6 @@ async def trips_page(request: Request):
         {
             "request": request,
             "MAPBOX_ACCESS_TOKEN": token,
+            "repo_version": get_repo_version_info(),
         },
     )

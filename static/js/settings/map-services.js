@@ -9,6 +9,7 @@
 
 import apiClient from "../modules/core/api-client.js";
 import notificationManager from "../modules/ui/notifications.js";
+import { escapeHtml, formatTimeAgo } from "../modules/utils.js";
 
 const API_BASE = "/api/map-data";
 
@@ -155,7 +156,14 @@ function updateHealthCard(service, health) {
   }
 
   if (lastCheck && health?.last_check) {
-    lastCheck.textContent = formatRelativeTime(health.last_check);
+    const timeAgo = formatTimeAgo(health.last_check, true);
+    if (/^\d+s ago$/.test(timeAgo)) {
+      lastCheck.textContent = "just now";
+    } else if (/^\d+d ago$/.test(timeAgo)) {
+      lastCheck.textContent = new Date(health.last_check).toLocaleDateString();
+    } else {
+      lastCheck.textContent = timeAgo;
+    }
   }
 
   if (versionSpan && health?.version) {
@@ -905,39 +913,6 @@ function formatJobType(type) {
     build_all: "Full Build",
   };
   return types[type] || type;
-}
-
-function formatRelativeTime(isoString) {
-  if (!isoString) {
-    return "--";
-  }
-
-  const date = new Date(isoString);
-  const now = new Date();
-  const diffMs = now - date;
-  const diffSec = Math.floor(diffMs / 1000);
-  const diffMin = Math.floor(diffSec / 60);
-  const diffHour = Math.floor(diffMin / 60);
-
-  if (diffSec < 60) {
-    return "just now";
-  }
-  if (diffMin < 60) {
-    return `${diffMin}m ago`;
-  }
-  if (diffHour < 24) {
-    return `${diffHour}h ago`;
-  }
-  return date.toLocaleDateString();
-}
-
-function escapeHtml(text) {
-  if (!text) {
-    return "";
-  }
-  const div = document.createElement("div");
-  div.textContent = text;
-  return div.innerHTML;
 }
 
 // =============================================================================

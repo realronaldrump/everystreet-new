@@ -12,15 +12,30 @@ import {
   DEFAULT_STREET_COLORS,
 } from "./constants.js";
 
+const isColorValue = (value) =>
+  typeof value === "string" && value.trim().length > 0;
+
+const pickColor = (...values) => {
+  for (const value of values) {
+    if (isColorValue(value)) {
+      return value.trim();
+    }
+  }
+  return "";
+};
+
 const normalizeClusterColors = (clusterColors) => {
   if (Array.isArray(clusterColors)) {
-    return clusterColors;
+    const filtered = clusterColors
+      .filter(isColorValue)
+      .map((color) => color.trim());
+    return filtered.length > 0 ? filtered : DEFAULT_CLUSTER_COLORS;
   }
   if (clusterColors && typeof clusterColors === "object") {
     const ordered = [
-      clusterColors.small,
-      clusterColors.medium,
-      clusterColors.large,
+      pickColor(clusterColors.small),
+      pickColor(clusterColors.medium),
+      pickColor(clusterColors.large),
     ].filter(Boolean);
     if (ordered.length > 0) {
       return ordered.concat(
@@ -32,8 +47,8 @@ const normalizeClusterColors = (clusterColors) => {
 };
 
 const normalizeStreetColors = (streetColors) => ({
-  undriven: streetColors?.undriven || DEFAULT_STREET_COLORS.undriven,
-  driven: streetColors?.driven || DEFAULT_STREET_COLORS.driven,
+  undriven: pickColor(streetColors?.undriven, DEFAULT_STREET_COLORS.undriven),
+  driven: pickColor(streetColors?.driven, DEFAULT_STREET_COLORS.driven),
 });
 
 const normalizeRouteColors = (routeColors) => {
@@ -41,16 +56,18 @@ const normalizeRouteColors = (routeColors) => {
     return { ...DEFAULT_ROUTE_COLORS };
   }
   return {
-    calculated:
-      routeColors.calculated
-      || routeColors.active
-      || routeColors.default
-      || DEFAULT_ROUTE_COLORS.calculated,
-    target:
-      routeColors.target
-      || routeColors.completed
-      || routeColors.default
-      || DEFAULT_ROUTE_COLORS.target,
+    calculated: pickColor(
+      routeColors.calculated,
+      routeColors.active,
+      routeColors.default,
+      DEFAULT_ROUTE_COLORS.calculated
+    ),
+    target: pickColor(
+      routeColors.target,
+      routeColors.completed,
+      routeColors.default,
+      DEFAULT_ROUTE_COLORS.target
+    ),
   };
 };
 
@@ -161,6 +178,10 @@ export class DrivingNavigationMap {
     if (!this.map) {
       return;
     }
+
+    this.clusterColors = normalizeClusterColors(this.clusterColors);
+    this.streetColors = normalizeStreetColors(this.streetColors);
+    this.routeColors = normalizeRouteColors(this.routeColors);
 
     const emptyGeoJSON = { type: "FeatureCollection", features: [] };
 

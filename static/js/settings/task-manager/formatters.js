@@ -9,7 +9,7 @@ import {
   escapeHtml,
   formatDateTime,
   formatDurationMs,
-} from "../../modules/formatters.js";
+} from "../../modules/utils.js";
 import { STATUS_COLORS } from "./constants.js";
 
 export { escapeHtml, formatDateTime, formatDurationMs };

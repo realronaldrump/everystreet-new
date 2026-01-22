@@ -15,6 +15,7 @@ from admin import router as admin_api_router
 from analytics import router as analytics_api_router
 from api.pages import router as pages_router
 from core.http.session import cleanup_session
+from core.repo_info import get_repo_version_info
 from county import router as county_api_router
 from db import db_manager
 from db.logging_handler import MongoDBHandler
@@ -249,7 +250,11 @@ async def not_found_handler(request: Request, exc: HTTPException):
     if _prefers_html(request):
         return templates.TemplateResponse(
             "404.html",
-            {"request": request, "path": request.url.path},
+            {
+                "request": request,
+                "path": request.url.path,
+                "repo_version": get_repo_version_info(),
+            },
             status_code=status.HTTP_404_NOT_FOUND,
         )
     return JSONResponse(

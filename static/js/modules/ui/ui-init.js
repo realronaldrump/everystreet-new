@@ -1,5 +1,5 @@
 import store from "../core/store.js";
-import { utils } from "../utils.js";
+import { moveModalsToContainer, utils } from "../utils.js";
 import contextualUI from "./contextual-ui.js";
 import dateManager from "./date-manager.js";
 import filterIndicatorManager from "./filter-indicator-manager.js";
@@ -23,6 +23,28 @@ function init() {
   }
 
   try {
+    const cleanupModalsForRoute = (event) => {
+      const route = event?.detail?.path || document.body?.dataset?.route;
+      if (!route) {
+        return;
+      }
+      const container = document.getElementById("modals-container");
+      if (!container) {
+        return;
+      }
+      container
+        .querySelectorAll(`.modal[data-es-modal-route="${route}"]`)
+        .forEach((modal) => {
+          const instance = window.bootstrap?.Modal?.getInstance(modal);
+          if (instance && modal.classList.contains("show")) {
+            modal.addEventListener("hidden.bs.modal", () => modal.remove(), { once: true });
+            instance.hide();
+            return;
+          }
+          modal.remove();
+        });
+    };
+
     themeManager.init();
     panelManager.init();
     interactions.init();
@@ -38,6 +60,10 @@ function init() {
     mapControlsManager.init?.();
     filterIndicatorManager.init?.();
     perf.init?.();
+
+    moveModalsToContainer();
+    document.addEventListener("es:page-load", () => moveModalsToContainer());
+    document.addEventListener("es:page-unload", cleanupModalsForRoute);
 
     // Defer heavier init (date pickers & events)
     const runDeferred = () => {

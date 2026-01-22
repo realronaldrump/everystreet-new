@@ -3,7 +3,7 @@
  * Pure geo/math utility functions (stateless)
  */
 
-import { distanceInUserUnits } from "../formatters.js";
+import { distanceInUserUnits } from "../utils.js";
 import {
   INSTRUCTION_LABELS,
   TURN_ANGLE_THRESHOLDS,

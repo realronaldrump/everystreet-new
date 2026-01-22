@@ -29,32 +29,10 @@ class VisitsStatsManager {
       return;
     }
 
-    if (metricAnimator?.animateById) {
-      metricAnimator.animateById(elementId, targetValue, {
-        decimals: 0,
-        duration: duration / 1000,
-      });
-      return;
-    }
-
-    const startValue = parseInt(element.textContent, 10) || 0;
-    const increment = (targetValue - startValue) / (duration / 16);
-    let currentValue = startValue;
-
-    const animate = () => {
-      currentValue += increment;
-      if (
-        (increment > 0 && currentValue >= targetValue)
-        || (increment < 0 && currentValue <= targetValue)
-      ) {
-        element.textContent = Math.round(targetValue);
-      } else {
-        element.textContent = Math.round(currentValue);
-        requestAnimationFrame(animate);
-      }
-    };
-
-    requestAnimationFrame(animate);
+    metricAnimator.animate(element, targetValue, {
+      decimals: 0,
+      duration: duration / 1000,
+    });
   }
 
   async updateMonthlyVisits() {

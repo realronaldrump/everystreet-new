@@ -146,6 +146,60 @@ document.addEventListener("es:page-unload", () => {
 });
 
 /**
+ * Move modals out of content containers to avoid stacking context issues.
+ * @param {Object} options
+ * @param {string} options.containerSelector
+ * @param {string[]} options.rootSelectors
+ * @param {string} options.route
+ * @returns {HTMLElement[]} Moved modals
+ */
+export function moveModalsToContainer(options = {}) {
+  const {
+    containerSelector = "#modals-container",
+    rootSelectors = ["#route-content", "#persistent-shell"],
+    route = document.body?.dataset?.route || "",
+  } = options;
+
+  const container = document.querySelector(containerSelector);
+  if (!container) {
+    return [];
+  }
+
+  const roots = rootSelectors
+    .map((selector) => document.querySelector(selector))
+    .filter(Boolean);
+  if (!roots.length) {
+    return [];
+  }
+
+  const moved = [];
+  roots.forEach((root) => {
+    root.querySelectorAll(".modal").forEach((modal) => {
+      if (!(modal instanceof HTMLElement)) {
+        return;
+      }
+      if (modal.id) {
+        const existing = container.querySelector(`#${CSS.escape(modal.id)}`);
+        if (existing && existing !== modal) {
+          existing.remove();
+        }
+      }
+      if (!container.contains(modal)) {
+        container.appendChild(modal);
+      }
+      if (route) {
+        modal.dataset.esModalRoute = route;
+      } else {
+        modal.removeAttribute("data-es-modal-route");
+      }
+      moved.push(modal);
+    });
+  });
+
+  return moved;
+}
+
+/**
  * Fade in an element
  * @param {HTMLElement} el - Element to fade in
  * @param {number} duration - Animation duration in milliseconds

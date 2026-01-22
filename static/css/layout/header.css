@@ -8,8 +8,6 @@
   flex-direction: column;
   min-height: 100vh;
   position: relative;
-
-  /* Removed z-index: 1 - it created a stacking context that trapped modals behind the backdrop */
 }
 
 /* === Header === */

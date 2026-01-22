@@ -274,22 +274,22 @@ const AppController = {
    * @private
    */
   _ensurePageState() {
-    const currentRoute = document.body.dataset.route;
+    const currentRoute = document.body.dataset.route || window.location.pathname;
+    if (currentRoute !== "/map") {
+      return;
+    }
 
-    if (currentRoute === "/map" || utils.getElement("map")) {
-      document.body.dataset.route = "/map";
-      document.body.classList.add("map-page");
+    document.body.classList.add("map-page");
 
-      const persistentShell = document.getElementById("persistent-shell");
-      if (persistentShell) {
-        persistentShell.style.display = "flex";
-      }
+    const persistentShell = document.getElementById("persistent-shell");
+    if (persistentShell) {
+      persistentShell.style.display = "";
+    }
 
-      const controlsPanel = document.getElementById("map-controls");
-      if (controlsPanel) {
-        controlsPanel.style.display = "";
-        controlsPanel.style.visibility = "visible";
-      }
+    const controlsPanel = document.getElementById("map-controls");
+    if (controlsPanel) {
+      controlsPanel.style.display = "";
+      controlsPanel.style.visibility = "visible";
     }
   },
 

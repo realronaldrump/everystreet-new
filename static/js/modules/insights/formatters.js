@@ -10,7 +10,7 @@ import {
   formatHourLabel,
   formatMonth,
   formatWeekRange,
-} from "../formatters.js";
+} from "../utils.js";
 import { getStorage } from "../utils.js";
 
 // Re-export common formatters
