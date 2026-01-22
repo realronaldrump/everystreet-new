@@ -707,14 +707,16 @@ export function setupMobileGeocodeTrips() {
 }
 
 export function setupMobileRemapTrips() {
-  const dateTab = document.querySelector('.mobile-date-method-tab[data-method="date"]');
+  const dateTab = document.querySelector(
+    '.mobile-date-method-tab[data-target="remap"][data-method="date"]'
+  );
   const intervalTab = document.querySelector(
-    '.mobile-date-method-tab[data-method="interval"]'
+    '.mobile-date-method-tab[data-target="remap"][data-method="interval"]'
   );
   const dateRange = document.getElementById("mobile-remap-date-range");
   const intervalDiv = document.getElementById("mobile-remap-interval");
 
-  if (dateTab && intervalTab) {
+  if (dateTab && intervalTab && dateRange && intervalDiv) {
     dateTab.addEventListener("click", () => {
       dateTab.classList.add("active");
       intervalTab.classList.remove("active");
@@ -736,7 +738,9 @@ export function setupMobileRemapTrips() {
   if (remapBtn) {
     remapBtn.addEventListener("click", async () => {
       const method
-        = document.querySelector(".mobile-date-method-tab.active")?.dataset.method
+        = document.querySelector(
+          '.mobile-date-method-tab[data-target="remap"].active'
+        )?.dataset.method
         || "date";
       let start_date = "";
       let end_date = "";

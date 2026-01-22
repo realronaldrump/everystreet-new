@@ -778,6 +778,38 @@ const layerManager = {
       return;
     }
 
+    const firstGlowLayerId = `${layerName}-layer-0`;
+    const secondGlowLayerId = `${layerName}-layer-1`;
+    const missingGlowLayers
+      = !store.map.getLayer(firstGlowLayerId)
+      || !store.map.getLayer(secondGlowLayerId);
+
+    if (missingGlowLayers) {
+      if (!store.map.isStyleLoaded()) {
+        store.map.once("styledata", () => {
+          this._refreshHeatmapStyle(layerName);
+        });
+        return;
+      }
+
+      if (layerInfo._heatmapRebuildInProgress) {
+        return;
+      }
+
+      layerInfo._heatmapRebuildInProgress = true;
+      const sourceId = `${layerName}-source`;
+      const layerId = `${layerName}-layer`;
+
+      this._updateHeatmapLayer(layerName, layerInfo.layer, sourceId, layerId, layerInfo)
+        .catch((error) => {
+          console.warn(`Failed to rebuild heatmap layer ${layerName}:`, error);
+        })
+        .finally(() => {
+          layerInfo._heatmapRebuildInProgress = false;
+        });
+      return;
+    }
+
     const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
     const totalTripCount = layerInfo.layer?.features?.length || 0;
     const visibleTripCount = this._getHeatmapTripCountInView(layerName, totalTripCount);

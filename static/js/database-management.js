@@ -43,6 +43,19 @@ export function initDatabaseManagement({ signal } = {}) {
     return apiClient.post(endpoint, body, withSignal());
   }
 
+  function resolveCollectionName(button) {
+    if (!button) {
+      return "";
+    }
+    const fromDataset = button.dataset.collection || button.getAttribute("data-collection");
+    if (fromDataset) {
+      return fromDataset;
+    }
+    const row = button.closest("tr");
+    const cell = row?.querySelector("td[data-value]") || row?.querySelector("td");
+    return cell?.dataset?.value || cell?.textContent?.trim() || "";
+  }
+
   function updateStorageDisplay(data) {
     if (!data) {
       return;
@@ -93,8 +106,16 @@ export function initDatabaseManagement({ signal } = {}) {
 
       if (clearButton) {
         currentAction = "clear";
-        currentCollection = clearButton.dataset.collection;
+        currentCollection = resolveCollectionName(clearButton);
         currentButton = clearButton;
+
+        if (!currentCollection) {
+          notificationManager.show(
+            "Could not determine which collection to clear.",
+            "danger"
+          );
+          return;
+        }
 
         const confirmed = await confirmationDialog.show({
           message: `Are you sure you want to clear all documents from the ${currentCollection} collection? This action cannot be undone.`,
