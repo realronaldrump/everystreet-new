@@ -70,11 +70,7 @@ export function setupManualFetchTripsForm(taskManager) {
     if (!startValue || !endValue) {
       setInputInvalid(startInput, !startValue);
       setInputInvalid(endInput, !endValue);
-      setInlineStatus(
-        statusEl,
-        "Please select both start and end dates.",
-        "danger"
-      );
+      setInlineStatus(statusEl, "Please select both start and end dates.", "danger");
       return;
     }
 
@@ -169,11 +165,7 @@ export function setupGeocodeTrips() {
       if (!start_date || !end_date) {
         setInputInvalid(geocodeStartInput, !start_date);
         setInputInvalid(geocodeEndInput, !end_date);
-        setInlineStatus(
-          statusEl,
-          "Please select both start and end dates.",
-          "danger"
-        );
+        setInlineStatus(statusEl, "Please select both start and end dates.", "danger");
         notificationManager.show("Please select both start and end dates", "danger");
         return;
       }

@@ -354,7 +354,9 @@ import {
 
     // Pre-fill manual input with current reading
     if (vehicle.odometer_reading) {
-      elements.manualOdometerInput.placeholder = formatOdometer(vehicle.odometer_reading);
+      elements.manualOdometerInput.placeholder = formatOdometer(
+        vehicle.odometer_reading
+      );
     }
   }
 
@@ -595,5 +597,4 @@ import {
     const toast = new window.bootstrap.Toast(elements.notificationToast);
     toast.show();
   }
-
 })();

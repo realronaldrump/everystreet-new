@@ -6,6 +6,7 @@
   width: 100%;
   height: calc(100vh - 60px);
   overflow: hidden;
+
   --county-success: var(--county-success);
   --county-success-rgb: 16, 185, 129;
   --county-success-deep: var(--county-success-deep);
@@ -113,17 +114,29 @@
 }
 
 .stat-card--primary {
-  background: linear-gradient(135deg, rgb(var(--county-success-rgb) / 20%), rgb(var(--county-success-rgb) / 10%));
+  background: linear-gradient(
+    135deg,
+    rgb(var(--county-success-rgb) / 20%),
+    rgb(var(--county-success-rgb) / 10%)
+  );
   border: 1px solid rgb(var(--county-success-rgb) / 30%);
 }
 
 .stat-card--secondary {
-  background: linear-gradient(135deg, rgb(var(--county-indigo-rgb) / 20%), rgb(var(--county-indigo-rgb) / 10%));
+  background: linear-gradient(
+    135deg,
+    rgb(var(--county-indigo-rgb) / 20%),
+    rgb(var(--county-indigo-rgb) / 10%)
+  );
   border: 1px solid rgb(var(--county-indigo-rgb) / 30%);
 }
 
 .stat-card--accent {
-  background: linear-gradient(135deg, rgb(var(--county-amber-rgb) / 20%), rgb(var(--county-amber-rgb) / 10%));
+  background: linear-gradient(
+    135deg,
+    rgb(var(--county-amber-rgb) / 20%),
+    rgb(var(--county-amber-rgb) / 10%)
+  );
   border: 1px solid rgb(var(--county-amber-rgb) / 30%);
 }
 
@@ -278,7 +291,11 @@
 
 .state-stat-item--complete {
   border-color: rgb(var(--county-success-rgb) / 30%);
-  background: linear-gradient(135deg, rgb(var(--county-success-rgb) / 10%), rgb(var(--county-success-rgb) / 5%));
+  background: linear-gradient(
+    135deg,
+    rgb(var(--county-success-rgb) / 10%),
+    rgb(var(--county-success-rgb) / 5%)
+  );
 }
 
 .state-stat-header {

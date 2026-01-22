@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import csv
 import json
 from datetime import UTC, datetime
@@ -121,13 +122,11 @@ async def write_gpx_tracks(
                 continue
             point = gpxpy.gpx.GPXTrackPoint(lat, lon)
             if idx < len(timestamps) and timestamps[idx] is not None:
-                try:
+                with contextlib.suppress(TypeError, ValueError, OSError):
                     point.time = datetime.fromtimestamp(
                         int(timestamps[idx]),
                         tz=UTC,
                     )
-                except (TypeError, ValueError, OSError):
-                    pass
             segment.points.append(point)
 
         if segment.points:

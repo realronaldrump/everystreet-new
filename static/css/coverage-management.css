@@ -19,7 +19,6 @@
   color: var(--text-secondary);
 }
 
-
 .map-info-panel {
   position: absolute;
   top: var(--space-3);

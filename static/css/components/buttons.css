@@ -28,6 +28,7 @@
   color: var(--btn-color, var(--text-primary));
   border-color: var(--btn-border, transparent);
   box-shadow: var(--btn-shadow, none);
+
   --btn-loading-color: var(--btn-color, var(--text-primary));
 }
 
@@ -37,7 +38,7 @@
   cursor: not-allowed;
 }
 
-.btn:hover:not(:disabled):not(.disabled) {
+.btn:hover:not(:disabled, .disabled) {
   background-color: var(--btn-bg-hover, var(--btn-bg, transparent));
   color: var(--btn-color-hover, var(--btn-color, var(--text-primary)));
   border-color: var(--btn-border-hover, var(--btn-border, transparent));
@@ -159,6 +160,7 @@
   --btn-border: transparent;
   --btn-color: var(--text-secondary);
   --btn-color-hover: var(--text-primary);
+
   text-decoration: none;
 }
 

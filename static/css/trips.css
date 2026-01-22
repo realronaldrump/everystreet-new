@@ -201,10 +201,11 @@
   font-size: var(--font-size-sm);
 }
 
-@media (max-width: 768px) {
+@media (width <= 768px) {
   .trip-sync-actions {
     width: 100%;
   }
+
   .trip-sync-actions .btn {
     flex: 1 1 auto;
   }

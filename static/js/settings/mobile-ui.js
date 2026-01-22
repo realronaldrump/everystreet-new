@@ -4,6 +4,7 @@ import apiClient from "../modules/core/api-client.js";
 import loadingManager from "../modules/ui/loading-manager.js";
 import notificationManager from "../modules/ui/notifications.js";
 import { DateUtils } from "../modules/utils.js";
+import { clearInlineStatus, setInlineStatus } from "./status-utils.js";
 import { submitTaskConfigUpdate } from "./task-manager/api.js";
 import {
   escapeHtml,
@@ -12,7 +13,6 @@ import {
   getStatusColor,
 } from "./task-manager/formatters.js";
 import { showErrorModal, showTaskDetails } from "./task-manager/modals.js";
-import { clearInlineStatus, setInlineStatus } from "./status-utils.js";
 
 /**
  * Mobile UI module - handles all mobile-specific UI rendering and interactions
@@ -404,11 +404,7 @@ export function setupMobileManualFetch(taskManager) {
     clearInlineStatus(statusEl);
 
     if (!startValue || !endValue) {
-      setInlineStatus(
-        statusEl,
-        "Please select both start and end dates.",
-        "danger"
-      );
+      setInlineStatus(statusEl, "Please select both start and end dates.", "danger");
       return;
     }
 
@@ -474,11 +470,7 @@ async function pollGeocodeProgress(context) {
     // Error polling progress - silently ignore
     clearInterval(pollGeocodeProgress.pollInterval);
     geocodeBtn.disabled = false;
-    setInlineStatus(
-      statusEl,
-      "Lost connection while monitoring progress.",
-      "warning"
-    );
+    setInlineStatus(statusEl, "Lost connection while monitoring progress.", "warning");
     notificationManager.show(
       "Lost connection while monitoring geocoding progress",
       "warning"

@@ -2,9 +2,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import Iterable
 from datetime import UTC, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from fastapi import HTTPException, status
 from pymongo.errors import OperationFailure
@@ -29,12 +28,15 @@ from db.models import (
     Vehicle,
 )
 
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+
 logger = logging.getLogger(__name__)
 
 _MB_BYTES = 1024 * 1024
 
 
-def _bytes_to_mb(size_bytes: int | float | None) -> float:
+def _bytes_to_mb(size_bytes: float | None) -> float:
     if not size_bytes:
         return 0.0
     return round(size_bytes / _MB_BYTES, 2)

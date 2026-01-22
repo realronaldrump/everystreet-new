@@ -70,7 +70,8 @@ def _normalize_states(states: list[str]) -> list[str]:
         if not code or code in seen:
             continue
         if not get_state(code):
-            raise ValueError(f"Invalid state code: {code}")
+            msg = f"Invalid state code: {code}"
+            raise ValueError(msg)
         normalized.append(code)
         seen.add(code)
     return normalized
@@ -135,7 +136,8 @@ async def _update_progress(
 
 def _check_cancel(progress: MapBuildProgress) -> None:
     if progress.cancellation_requested:
-        raise MapSetupCancelled("Setup cancelled")
+        msg = "Setup cancelled"
+        raise MapSetupCancelled(msg)
 
 
 async def _download_state(
@@ -220,7 +222,14 @@ async def _download_states(
                 status=MapServiceConfig.STATUS_DOWNLOADING,
                 message=f"Downloading {geofabrik_id.split('/')[-1].replace('-', ' ').title()}...",
             )
-            await _download_state(client, url, dest_path, tracker, progress_callback, progress)
+            await _download_state(
+                client,
+                url,
+                dest_path,
+                tracker,
+                progress_callback,
+                progress,
+            )
 
     await _update_progress(
         config,
@@ -423,7 +432,8 @@ async def setup_map_data_task(ctx: dict, states: list[str]) -> dict[str, Any]:
 
         normalized = _normalize_states(states)
         if not normalized:
-            raise ValueError("No valid states selected.")
+            msg = "No valid states selected."
+            raise ValueError(msg)
 
         progress.active_job_id = str(job_id) if job_id else None
         progress.cancellation_requested = False

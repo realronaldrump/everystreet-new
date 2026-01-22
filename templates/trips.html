@@ -62,7 +62,10 @@ Every Street - Trips
         </div>
         <div class="widget-body">
           <div class="trip-sync-status-row">
-            <span class="trip-sync-pill" id="trip-sync-pill" data-state="idle" data-tone="success">
+            <span class="trip-sync-pill"
+                  id="trip-sync-pill"
+                  data-state="idle"
+                  data-tone="success">
               <i class="fas fa-check-circle"></i>
               <span>Up to date</span>
             </span>
@@ -82,18 +85,24 @@ Every Street - Trips
           </div>
           <div class="trip-sync-error d-none" id="trip-sync-error">
             <div>
-              <div class="trip-sync-error-title">Action needed</div>
+              <div class="trip-sync-error-title">
+Action needed
+              </div>
               <div class="trip-sync-error-message" id="trip-sync-error-message">
                 Sync needs attention.
               </div>
             </div>
-            <a class="btn btn-outline-light btn-sm" id="trip-sync-error-cta" href="/settings#sync-settings">
+            <a class="btn btn-outline-light btn-sm"
+               id="trip-sync-error-cta"
+               href="/settings#sync-settings">
               Review
             </a>
           </div>
           <div class="trip-sync-empty d-none" id="trip-sync-empty">
             <div>
-              <div class="trip-sync-empty-title">No trips yet</div>
+              <div class="trip-sync-empty-title">
+No trips yet
+              </div>
               <div class="trip-sync-empty-message">
                 Sync trips to start building your history.
               </div>
@@ -429,7 +438,9 @@ End
       <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
           <div class="modal-header">
-            <h5 class="modal-title">Import trip history</h5>
+            <h5 class="modal-title">
+Import trip history
+            </h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close">
             </button>
           </div>
@@ -438,7 +449,9 @@ End
               Importing history fetches older trips in the background. You can keep using
               the app while it runs.
             </p>
-            <label for="trip-sync-history-start" class="form-label">Start date (optional)</label>
+            <label for="trip-sync-history-start" class="form-label">
+Start date (optional)
+            </label>
             <input type="datetime-local" class="form-control" id="trip-sync-history-start" />
           </div>
           <div class="modal-footer">

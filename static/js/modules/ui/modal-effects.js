@@ -4,7 +4,9 @@ const modalEffects = {
       if (document.querySelector(".modal.show")) {
         return;
       }
-      document.querySelectorAll(".modal-backdrop").forEach((backdrop) => backdrop.remove());
+      document
+        .querySelectorAll(".modal-backdrop")
+        .forEach((backdrop) => backdrop.remove());
       document.body.classList.remove("modal-open");
       document.body.style.removeProperty("padding-right");
     };

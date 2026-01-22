@@ -52,12 +52,13 @@ export function formatNumber(num, decimalsOrOptions = 0) {
   if (num === null || num === undefined || Number.isNaN(num)) {
     return "--";
   }
-  const options = typeof decimalsOrOptions === "number"
-    ? {
-        minimumFractionDigits: decimalsOrOptions,
-        maximumFractionDigits: decimalsOrOptions,
-      }
-    : { ...decimalsOrOptions };
+  const options
+    = typeof decimalsOrOptions === "number"
+      ? {
+          minimumFractionDigits: decimalsOrOptions,
+          maximumFractionDigits: decimalsOrOptions,
+        }
+      : { ...decimalsOrOptions };
   return Number(num).toLocaleString(undefined, options);
 }
 
@@ -84,8 +85,11 @@ export function formatPercentage(value, decimals = 1) {
  * @returns {string} Formatted distance or "--" if invalid
  */
 export function formatDistance(miles, options = 1) {
-  const { decimals = 1, unit = "mi", fallback = "--" }
-    = typeof options === "number" ? { decimals: options } : options;
+  const {
+    decimals = 1,
+    unit = "mi",
+    fallback = "--",
+  } = typeof options === "number" ? { decimals: options } : options;
   if (miles === null || miles === undefined) {
     return fallback;
   }

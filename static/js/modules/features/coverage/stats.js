@@ -1,5 +1,5 @@
-import { formatDistance, formatRelativeTimeShort } from "../../utils.js";
 import metricAnimator from "../../ui/metric-animator.js";
+import { formatDistance, formatRelativeTimeShort } from "../../utils.js";
 
 export function setMetricValue(elementId, value, { decimals = 0, suffix = "" } = {}) {
   const element = document.getElementById(elementId);

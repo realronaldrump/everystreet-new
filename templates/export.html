@@ -1,17 +1,21 @@
 {% extends "base.html" %}
 
 {% block title %}
+
 Every Street - Export Data
 {% endblock %}
 
 
 {% block extra_css %}
+
   <link rel="stylesheet"
         href="{{ url_for('static', path='css/export.css') | replace('http://', '//') }}" />
 {% endblock %}
 
 
+
 {% block content %}
+
   <div class="export-page">
     <div class="bento-grid" data-stagger>
       <!-- Header Widget -->
@@ -27,8 +31,12 @@ Every Street - Export Data
             </div>
           </div>
           <div class="export-hero-meta">
-            <div class="meta-label">Output Format</div>
-            <div class="meta-value">Zip bundle with manifest.json</div>
+            <div class="meta-label">
+Output Format
+            </div>
+            <div class="meta-value">
+Zip bundle with manifest.json
+            </div>
           </div>
         </div>
       </div>
@@ -60,7 +68,9 @@ Every Street - Export Data
                     <div class="export-option-icon">
                       <i class="fas fa-car"></i>
                     </div>
-                    <div class="export-option-title">Trips</div>
+                    <div class="export-option-title">
+Trips
+                    </div>
                   </div>
                   <div class="export-option-desc">
                     Raw GPS trips as stored in database.
@@ -76,7 +86,9 @@ Every Street - Export Data
                     <div class="export-option-icon">
                       <i class="fas fa-map-marked-alt"></i>
                     </div>
-                    <div class="export-option-title">Matched Trips</div>
+                    <div class="export-option-title">
+Matched Trips
+                    </div>
                   </div>
                   <div class="export-option-desc">
                     Trips with map-matched geometry.
@@ -86,7 +98,9 @@ Every Street - Export Data
 
               <div class="export-toggle-row" style="margin-top: var(--space-4);">
                 <div class="export-toggle-label">
-                  <div class="export-toggle-title">Export Format</div>
+                  <div class="export-toggle-title">
+Export Format
+                  </div>
                 </div>
                 <div class="format-selector">
                   <label class="format-pill">
@@ -104,16 +118,26 @@ Every Street - Export Data
                 </div>
                 <!-- Hidden select for JS compatibility -->
                 <select class="d-none" id="trip-format">
-                  <option value="json" selected>JSON</option>
-                  <option value="csv">CSV</option>
-                  <option value="geojson">GeoJSON</option>
+                  <option value="json" selected>
+JSON
+                  </option>
+                  <option value="csv">
+CSV
+                  </option>
+                  <option value="geojson">
+GeoJSON
+                  </option>
                 </select>
               </div>
 
               <div class="export-toggle-row">
                 <div class="export-toggle-label">
-                  <div class="export-toggle-title">Include Geometry</div>
-                  <div class="export-toggle-desc">Include coordinates in JSON/CSV exports</div>
+                  <div class="export-toggle-title">
+Include Geometry
+                  </div>
+                  <div class="export-toggle-desc">
+Include coordinates in JSON/CSV exports
+                  </div>
                 </div>
                 <div class="form-check form-switch">
                   <input class="form-check-input" type="checkbox" id="include-trip-geometry" checked />
@@ -130,24 +154,40 @@ Every Street - Export Data
 
               <div class="export-filters">
                 <div class="export-filter-group">
-                  <label class="export-filter-label" for="trip-start-date">Start Date</label>
+                  <label class="export-filter-label" for="trip-start-date">
+Start Date
+                  </label>
                   <input type="date" class="export-filter-control" id="trip-start-date" />
                 </div>
                 <div class="export-filter-group">
-                  <label class="export-filter-label" for="trip-end-date">End Date</label>
+                  <label class="export-filter-label" for="trip-end-date">
+End Date
+                  </label>
                   <input type="date" class="export-filter-control" id="trip-end-date" />
                 </div>
                 <div class="export-filter-group">
-                  <label class="export-filter-label" for="trip-status">Status</label>
+                  <label class="export-filter-label" for="trip-status">
+Status
+                  </label>
                   <select class="export-filter-control" id="trip-status">
-                    <option value="">All statuses</option>
-                    <option value="processed">Processed</option>
-                    <option value="completed">Completed</option>
-                    <option value="active">Active</option>
+                    <option value="">
+All statuses
+                    </option>
+                    <option value="processed">
+Processed
+                    </option>
+                    <option value="completed">
+Completed
+                    </option>
+                    <option value="active">
+Active
+                    </option>
                   </select>
                 </div>
                 <div class="export-filter-group">
-                  <label class="export-filter-label" for="trip-vehicle">Vehicle</label>
+                  <label class="export-filter-label" for="trip-vehicle">
+Vehicle
+                  </label>
                   <input class="export-filter-control"
                          id="trip-vehicle"
                          list="vehicle-options"
@@ -158,8 +198,12 @@ Every Street - Export Data
 
               <div class="export-toggle-row">
                 <div class="export-toggle-label">
-                  <div class="export-toggle-title">All Time</div>
-                  <div class="export-toggle-desc">Ignore date range filters</div>
+                  <div class="export-toggle-title">
+All Time
+                  </div>
+                  <div class="export-toggle-desc">
+Ignore date range filters
+                  </div>
                 </div>
                 <div class="form-check form-switch">
                   <input class="form-check-input" type="checkbox" id="trip-all-time" />
@@ -168,8 +212,12 @@ Every Street - Export Data
 
               <div class="export-toggle-row">
                 <div class="export-toggle-label">
-                  <div class="export-toggle-title">Include Invalid Trips</div>
-                  <div class="export-toggle-desc">Include trips marked as invalid</div>
+                  <div class="export-toggle-title">
+Include Invalid Trips
+                  </div>
+                  <div class="export-toggle-desc">
+Include trips marked as invalid
+                  </div>
                 </div>
                 <div class="form-check form-switch">
                   <input class="form-check-input" type="checkbox" id="trip-include-invalid" />
@@ -194,7 +242,9 @@ Every Street - Export Data
                     <div class="export-option-icon">
                       <i class="fas fa-road"></i>
                     </div>
-                    <div class="export-option-title">Streets</div>
+                    <div class="export-option-title">
+Streets
+                    </div>
                   </div>
                   <div class="export-option-desc">
                     All street segments with status.
@@ -210,7 +260,9 @@ Every Street - Export Data
                     <div class="export-option-icon">
                       <i class="fas fa-draw-polygon"></i>
                     </div>
-                    <div class="export-option-title">Boundary</div>
+                    <div class="export-option-title">
+Boundary
+                    </div>
                   </div>
                   <div class="export-option-desc">
                     Area polygon boundary.
@@ -226,7 +278,9 @@ Every Street - Export Data
                     <div class="export-option-icon">
                       <i class="fas fa-route"></i>
                     </div>
-                    <div class="export-option-title">Undriven Streets</div>
+                    <div class="export-option-title">
+Undriven Streets
+                    </div>
                   </div>
                   <div class="export-option-desc">
                     Only undriven segments.
@@ -236,11 +290,17 @@ Every Street - Export Data
 
               <div class="export-toggle-row" style="margin-top: var(--space-4);">
                 <div class="export-toggle-label">
-                  <div class="export-toggle-title">Coverage Area</div>
-                  <div class="export-toggle-desc">Required for coverage exports</div>
+                  <div class="export-toggle-title">
+Coverage Area
+                  </div>
+                  <div class="export-toggle-desc">
+Required for coverage exports
+                  </div>
                 </div>
                 <select class="export-filter-control" id="coverage-area" style="min-width: 200px;">
-                  <option value="">Select an area</option>
+                  <option value="">
+Select an area
+                  </option>
                 </select>
               </div>
 
@@ -281,9 +341,13 @@ Every Street - Export Data
         </div>
         <div class="widget-body">
           <div class="export-summary">
-            <div class="export-summary-title">Selected Items</div>
+            <div class="export-summary-title">
+Selected Items
+            </div>
             <ul class="export-summary-list" id="export-summary-list">
-              <li class="empty">No items selected yet.</li>
+              <li class="empty">
+No items selected yet.
+              </li>
             </ul>
           </div>
 
@@ -293,12 +357,15 @@ Every Street - Export Data
               <span class="export-progress-percent" id="export-progress-percent">0%</span>
             </div>
             <div class="export-progress-bar-container">
-              <div class="export-progress-bar" id="export-progress-bar" style="width: 0%"></div>
+              <div class="export-progress-bar" id="export-progress-bar" style="width: 0%">
+              </div>
             </div>
           </div>
 
           <div class="export-result" id="export-result">
-            <div class="export-result-title">Latest Export</div>
+            <div class="export-result-title">
+Latest Export
+            </div>
             <div class="export-result-details" id="export-result-details">
               No export generated yet.
             </div>
@@ -343,37 +410,39 @@ Every Street - Export Data
 {% endblock %}
 
 
+
 {% block extra_js %}
+
   <script type="module"
           src="{{ url_for('static', path='js/modules/export/index.js') | replace('http://', '//') }}"></script>
   <script>
-    // Sync radio buttons to hidden select for JS compatibility
-    document.querySelectorAll('input[name="trip-format-radio"]').forEach(radio => {
-      radio.addEventListener('change', () => {
-        document.getElementById('trip-format').value = radio.value;
-        document.getElementById('trip-format').dispatchEvent(new Event('change'));
+      // Sync radio buttons to hidden select for JS compatibility
+      document.querySelectorAll('input[name="trip-format-radio"]').forEach(radio => {
+          radio.addEventListener('change', () => {
+              document.getElementById('trip-format').value = radio.value;
+              document.getElementById('trip-format').dispatchEvent(new Event('change'));
+          });
       });
-    });
 
-    // Toggle selected state on option cards
-    document.querySelectorAll('.export-option-card input[type="checkbox"]').forEach(checkbox => {
-      const card = checkbox.closest('.export-option-card');
-      const updateState = () => {
-        card.classList.toggle('selected', checkbox.checked);
-      };
-      checkbox.addEventListener('change', updateState);
-      updateState();
-    });
+      // Toggle selected state on option cards
+      document.querySelectorAll('.export-option-card input[type="checkbox"]').forEach(checkbox => {
+          const card = checkbox.closest('.export-option-card');
+          const updateState = () => {
+              card.classList.toggle('selected', checkbox.checked);
+          };
+          checkbox.addEventListener('change', updateState);
+          updateState();
+      });
 
-    // Update format pill active states
-    document.querySelectorAll('.format-pill input').forEach(radio => {
-      const pill = radio.closest('.format-pill');
-      const updateState = () => {
-        document.querySelectorAll('.format-pill').forEach(p => p.classList.remove('active'));
-        if (radio.checked) pill.classList.add('active');
-      };
-      radio.addEventListener('change', updateState);
-      updateState();
-    });
+      // Update format pill active states
+      document.querySelectorAll('.format-pill input').forEach(radio => {
+          const pill = radio.closest('.format-pill');
+          const updateState = () => {
+              document.querySelectorAll('.format-pill').forEach(p => p.classList.remove('active'));
+              if (radio.checked) pill.classList.add('active');
+          };
+          radio.addEventListener('change', updateState);
+          updateState();
+      });
   </script>
 {% endblock %}

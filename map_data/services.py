@@ -215,9 +215,7 @@ async def check_service_health(force_refresh: bool = False) -> GeoServiceHealth:
             health.valhalla_healthy = (
                 response.status_code == 200 and health.valhalla_has_data
             )
-            if response.status_code != 200:
-                health.valhalla_error = "Routing starting..."
-            elif not health.valhalla_has_data:
+            if response.status_code != 200 or not health.valhalla_has_data:
                 health.valhalla_error = "Routing starting..."
     except Exception as exc:
         health.valhalla_healthy = False
@@ -263,18 +261,25 @@ async def configure_map_services(
 ) -> dict[str, Any]:
     selected_states, invalid = normalize_state_codes(states)
     if invalid:
-        raise ValueError(f"Invalid state codes: {', '.join(invalid)}.")
+        msg = f"Invalid state codes: {', '.join(invalid)}."
+        raise ValueError(msg)
     if not selected_states:
-        raise ValueError("Select at least one state.")
+        msg = "Select at least one state."
+        raise ValueError(msg)
 
     config = await MapServiceConfig.get_or_create()
     progress = await MapBuildProgress.get_or_create()
 
-    if config.status in {
-        MapServiceConfig.STATUS_DOWNLOADING,
-        MapServiceConfig.STATUS_BUILDING,
-    } and not progress.cancellation_requested:
-        raise RuntimeError("Map setup already in progress.")
+    if (
+        config.status
+        in {
+            MapServiceConfig.STATUS_DOWNLOADING,
+            MapServiceConfig.STATUS_BUILDING,
+        }
+        and not progress.cancellation_requested
+    ):
+        msg = "Map setup already in progress."
+        raise RuntimeError(msg)
 
     if (
         not force

@@ -200,8 +200,7 @@ function updateProgress() {
   const saveBtn = document.getElementById("map-coverage-save-btn");
   const changeBtn = document.getElementById("map-coverage-change-btn");
   const rebuildBtn = document.getElementById("map-coverage-rebuild-btn");
-  const locked =
-    status?.status === "downloading" || status?.status === "building";
+  const locked = status?.status === "downloading" || status?.status === "building";
 
   if (progressBar) {
     const percent = Number(status?.progress || 0);
@@ -214,10 +213,10 @@ function updateProgress() {
   if (messageEl) {
     messageEl.textContent = status?.message || "Select states to begin.";
   }
-  const showProgress =
-    status?.status === "downloading" ||
-    status?.status === "building" ||
-    status?.status === "error";
+  const showProgress
+    = status?.status === "downloading"
+    || status?.status === "building"
+    || status?.status === "error";
   if (progressWrap) {
     progressWrap.classList.toggle("d-none", !showProgress);
   }

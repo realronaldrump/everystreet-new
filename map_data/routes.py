@@ -77,4 +77,3 @@ async def cancel_map_services_setup() -> dict[str, Any]:
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to cancel map setup: {exc!s}",
         )
-

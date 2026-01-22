@@ -142,7 +142,7 @@ function shouldAutoSync(status) {
   return Date.now() - lastSuccess > staleMinutes * 60 * 1000;
 }
 
-async function fetchStatus(elements, { showError = false } = {}) {
+async function fetchStatus(_elements, { showError = false } = {}) {
   try {
     const status = await apiClient.get(CONFIG.API.tripSyncStatus);
     return status;

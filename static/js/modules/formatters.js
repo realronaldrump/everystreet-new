@@ -3,8 +3,8 @@
  * Keep legacy imports to /static/js/modules/formatters.js working.
  */
 
-import * as formatting from "./utils/formatting.js";
 import { getStorage, removeStorage, setStorage } from "./utils/data.js";
+import * as formatting from "./utils/formatting.js";
 
 const formatters = {
   ...formatting,

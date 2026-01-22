@@ -6,11 +6,7 @@
 import apiClient from "../../core/api-client.js";
 import metricAnimator from "../../ui/metric-animator.js";
 import notificationManager from "../../ui/notifications.js";
-import {
-  formatNumber,
-  formatRelativeTimeShort,
-  onPageLoad,
-} from "../../utils.js";
+import { formatNumber, formatRelativeTimeShort, onPageLoad } from "../../utils.js";
 import { animateValue } from "./animations.js";
 import { bindWidgetEditToggle, updateGreeting } from "./hero.js";
 

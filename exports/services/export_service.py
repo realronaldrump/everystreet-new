@@ -30,8 +30,8 @@ from exports.serializers import (
 )
 from exports.services.export_writer import (
     write_csv,
-    write_gpx_tracks,
     write_geojson_features,
+    write_gpx_tracks,
     write_json_array,
 )
 from geo_service.geometry import GeometryService

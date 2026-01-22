@@ -28,7 +28,11 @@ from tasks.fetch import (
 )
 from tasks.health import worker_heartbeat
 from tasks.maintenance import cleanup_stale_trips, remap_unmatched_trips, validate_trips
-from tasks.map_data import SETUP_JOB_TIMEOUT_SECONDS, monitor_map_services, setup_map_data_task
+from tasks.map_data import (
+    SETUP_JOB_TIMEOUT_SECONDS,
+    monitor_map_services,
+    setup_map_data_task,
+)
 from tasks.routes import generate_optimal_route
 
 

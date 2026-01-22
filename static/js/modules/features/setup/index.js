@@ -69,24 +69,16 @@ function bindEvents() {
   document
     .getElementById("connectBouncieBtn")
     ?.addEventListener("click", handleConnectBouncie);
-  document
-    .getElementById("syncVehiclesBtn")
-    ?.addEventListener("click", syncVehicles);
+  document.getElementById("syncVehiclesBtn")?.addEventListener("click", syncVehicles);
 
   document
     .getElementById("toggleClientSecret")
     ?.addEventListener("click", () => togglePasswordVisibility("clientSecret"));
 
-  document
-    .getElementById("mapboxToken")
-    ?.addEventListener("input", handleMapboxInput);
+  document.getElementById("mapboxToken")?.addEventListener("input", handleMapboxInput);
 
-  document
-    .getElementById("map-setup-btn")
-    ?.addEventListener("click", startMapSetup);
-  document
-    .getElementById("map-cancel-btn")
-    ?.addEventListener("click", cancelMapSetup);
+  document.getElementById("map-setup-btn")?.addEventListener("click", startMapSetup);
+  document.getElementById("map-cancel-btn")?.addEventListener("click", cancelMapSetup);
   document
     .getElementById("finish-setup-btn")
     ?.addEventListener("click", completeSetupAndExit);
@@ -228,7 +220,9 @@ function goToStep(stepIndex) {
     step.classList.toggle("is-active", index === currentStep);
   });
   updateStepList(
-    Boolean(setupStatus?.steps?.bouncie?.complete && setupStatus?.steps?.mapbox?.complete),
+    Boolean(
+      setupStatus?.steps?.bouncie?.complete && setupStatus?.steps?.mapbox?.complete
+    ),
     Boolean(setupStatus?.steps?.coverage?.complete)
   );
 }
@@ -385,11 +379,7 @@ function handleBouncieRedirectParams() {
     showStatus("credentials-status", `Bouncie error: ${error}`, true);
   } else if (connected) {
     const count = synced ? ` (${synced} vehicles synced)` : "";
-    showStatus(
-      "credentials-status",
-      `Bouncie connected${count}.`,
-      false
-    );
+    showStatus("credentials-status", `Bouncie connected${count}.`, false);
   }
 
   if (error || connected) {
@@ -572,7 +562,8 @@ function updateMapCoverageUI() {
     progressText.textContent = percent ? `${percent.toFixed(0)}%` : "";
   }
   if (progressWrap) {
-    const showProgress = status?.status === "downloading" || status?.status === "building";
+    const showProgress
+      = status?.status === "downloading" || status?.status === "building";
     progressWrap.classList.toggle("d-none", !showProgress);
   }
 
@@ -598,10 +589,9 @@ function updateMapCoverageUI() {
     });
   const mapSetupBtn = document.getElementById("map-setup-btn");
   if (mapSetupBtn) {
-    const credentialsComplete =
-      setupStatus?.steps?.bouncie?.complete && setupStatus?.steps?.mapbox?.complete;
-    mapSetupBtn.disabled =
-      locked || !selectedStates.size || !credentialsComplete;
+    const credentialsComplete
+      = setupStatus?.steps?.bouncie?.complete && setupStatus?.steps?.mapbox?.complete;
+    mapSetupBtn.disabled = locked || !selectedStates.size || !credentialsComplete;
   }
 
   const infoEl = document.getElementById("coverage-status-pill");
@@ -612,9 +602,9 @@ function updateMapCoverageUI() {
   }
 
   if (
-    status?.status === "downloading" ||
-    status?.status === "building" ||
-    progress?.phase === "downloading"
+    status?.status === "downloading"
+    || status?.status === "building"
+    || progress?.phase === "downloading"
   ) {
     startStatusPolling();
   } else {

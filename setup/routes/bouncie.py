@@ -196,27 +196,27 @@ async def bouncie_oauth_callback(
                 {"oauth_state": None, "oauth_state_expires_at": None},
             )
             return RedirectResponse(
-            url=f"{SETUP_WIZARD_PATH}?bouncie_error=missing_state",
-            status_code=302,
-        )
+                url=f"{SETUP_WIZARD_PATH}?bouncie_error=missing_state",
+                status_code=302,
+            )
         if state != stored_state:
             logger.error("Bouncie OAuth state mismatch")
             await update_bouncie_credentials(
                 {"oauth_state": None, "oauth_state_expires_at": None},
             )
             return RedirectResponse(
-            url=f"{SETUP_WIZARD_PATH}?bouncie_error=state_mismatch",
-            status_code=302,
-        )
+                url=f"{SETUP_WIZARD_PATH}?bouncie_error=state_mismatch",
+                status_code=302,
+            )
         if _state_expired(stored_state_expires_at):
             logger.error("Bouncie OAuth state expired")
             await update_bouncie_credentials(
                 {"oauth_state": None, "oauth_state_expires_at": None},
             )
             return RedirectResponse(
-            url=f"{SETUP_WIZARD_PATH}?bouncie_error=state_expired",
-            status_code=302,
-        )
+                url=f"{SETUP_WIZARD_PATH}?bouncie_error=state_expired",
+                status_code=302,
+            )
     elif state:
         logger.warning("Bouncie OAuth callback received unexpected state")
     else:

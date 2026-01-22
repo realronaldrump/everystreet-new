@@ -64,9 +64,8 @@ async def get_setup_status() -> dict[str, Any]:
             mapbox_complete = True
 
     map_config = await MapServiceConfig.get_or_create()
-    coverage_complete = (
-        map_config.status == MapServiceConfig.STATUS_READY
-        and bool(map_config.selected_states)
+    coverage_complete = map_config.status == MapServiceConfig.STATUS_READY and bool(
+        map_config.selected_states,
     )
 
     return {
@@ -422,8 +421,8 @@ class SetupService:
 
 __all__ = [
     "SetupService",
-    "get_setup_status",
     "complete_setup",
     "get_service_health",
+    "get_setup_status",
     "restart_service",
 ]

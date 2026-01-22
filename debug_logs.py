@@ -1,5 +1,5 @@
 import asyncio
-import os
+
 from dotenv import load_dotenv
 
 # Load env vars first
@@ -9,7 +9,7 @@ from db.manager import db_manager
 from db.models import ServerLog
 
 
-async def main():
+async def main() -> None:
     try:
         await db_manager.init_beanie()
         print("Connected to MongoDB.")

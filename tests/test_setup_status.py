@@ -37,8 +37,16 @@ def _mock_dependencies(monkeypatch: pytest.MonkeyPatch) -> None:
         }
 
     monkeypatch.setattr(setup_service, "get_service_config", fake_service_config)
-    monkeypatch.setattr(setup_service, "validate_mapbox_token", fake_validate_mapbox_token)
-    monkeypatch.setattr(setup_service, "get_bouncie_credentials", fake_bouncie_credentials)
+    monkeypatch.setattr(
+        setup_service,
+        "validate_mapbox_token",
+        fake_validate_mapbox_token,
+    )
+    monkeypatch.setattr(
+        setup_service,
+        "get_bouncie_credentials",
+        fake_bouncie_credentials,
+    )
 
 
 @pytest.mark.asyncio

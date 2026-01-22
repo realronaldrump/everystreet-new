@@ -1,14 +1,12 @@
 from datetime import UTC, datetime, timedelta
 
-from datetime import UTC, datetime, timedelta
-
 import pytest
 from beanie import init_beanie
 from mongomock_motor import AsyncMongoMockClient
 
 from db.models import BouncieCredentials, TaskConfig, TaskHistory, Trip
 from trips.models import TripSyncRequest
-import trips.services.trip_sync_service as trip_sync_service
+from trips.services import trip_sync_service
 from trips.services.trip_sync_service import TripSyncService
 
 

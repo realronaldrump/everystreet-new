@@ -28,8 +28,7 @@ except ImportError as exc:
 HAS_HTTP2 = True
 
 from config import get_geofabrik_mirror, get_osm_extracts_path
-if TYPE_CHECKING:
-    from map_data.models import MapDataJob, MapRegion
+from map_data.models import MapDataJob, MapRegion
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -546,7 +545,10 @@ async def _report_merge_progress(
             merge_progress = MERGE_PROGRESS_START + (
                 (MERGE_PROGRESS_END - MERGE_PROGRESS_START) * merge_fraction
             )
-            merge_progress = min(max(merge_progress, MERGE_PROGRESS_START), MERGE_PROGRESS_END)
+            merge_progress = min(
+                max(merge_progress, MERGE_PROGRESS_START),
+                MERGE_PROGRESS_END,
+            )
 
             message = (
                 f"Merging segments {segment_label}: "

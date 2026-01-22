@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from fastapi import HTTPException, status
 
@@ -17,7 +17,9 @@ from tasks.config import (
     update_task_schedule,
 )
 from tasks.ops import abort_job, enqueue_task
-from trips.models import TripSyncConfigUpdate, TripSyncRequest
+
+if TYPE_CHECKING:
+    from trips.models import TripSyncConfigUpdate, TripSyncRequest
 
 logger = logging.getLogger(__name__)
 
@@ -194,7 +196,7 @@ class TripSyncService:
             "interval_minutes": task_config.interval_minutes,
             "global_disabled": await get_global_disable(),
             "last_success_at": _serialize_datetime(
-                task_config.config.get("last_success_time")
+                task_config.config.get("last_success_time"),
             ),
         }
 

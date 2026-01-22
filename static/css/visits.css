@@ -144,6 +144,7 @@
   --btn-color: var(--warning);
   --btn-border: rgb(var(--warning-rgb) / 45%);
   --btn-border-hover: rgb(var(--warning-rgb) / 60%);
+
   box-shadow: none;
 }
 
