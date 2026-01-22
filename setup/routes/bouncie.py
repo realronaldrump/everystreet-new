@@ -29,6 +29,7 @@ router = APIRouter(prefix="/api/bouncie", tags=["bouncie-oauth"])
 
 BOUNCIE_AUTH_BASE = "https://auth.bouncie.com/dialog/authorize"
 OAUTH_STATE_TTL_SECONDS = 10 * 60
+SETUP_WIZARD_PATH = "/setup-wizard"
 
 
 def _generate_oauth_state() -> str:
@@ -67,21 +68,21 @@ async def initiate_bouncie_auth(request: Request) -> RedirectResponse:
 
     if not client_id:
         return RedirectResponse(
-            url="/setup?bouncie_error="
+            url=f"{SETUP_WIZARD_PATH}?bouncie_error="
             + quote("Please save your Client ID before connecting.", safe=""),
             status_code=302,
         )
 
     if not redirect_uri:
         return RedirectResponse(
-            url="/setup?bouncie_error="
+            url=f"{SETUP_WIZARD_PATH}?bouncie_error="
             + quote("Please save your Redirect URI before connecting.", safe=""),
             status_code=302,
         )
 
     if not client_secret:
         return RedirectResponse(
-            url="/setup?bouncie_error="
+            url=f"{SETUP_WIZARD_PATH}?bouncie_error="
             + quote("Please save your Client Secret before connecting.", safe=""),
             status_code=302,
         )
@@ -118,12 +119,15 @@ async def initiate_bouncie_auth(request: Request) -> RedirectResponse:
                     vehicle_count,
                 )
                 return RedirectResponse(
-                    url=f"/setup?bouncie_connected=true&vehicles_synced={vehicle_count}",
+                    url=(
+                        f"{SETUP_WIZARD_PATH}"
+                        f"?bouncie_connected=true&vehicles_synced={vehicle_count}"
+                    ),
                     status_code=302,
                 )
             except BouncieVehicleSyncError:
                 return RedirectResponse(
-                    url="/setup?bouncie_error=vehicle_sync_failed",
+                    url=f"{SETUP_WIZARD_PATH}?bouncie_error=vehicle_sync_failed",
                     status_code=302,
                 )
 
@@ -138,7 +142,7 @@ async def initiate_bouncie_auth(request: Request) -> RedirectResponse:
     )
     if not saved:
         return RedirectResponse(
-            url="/setup?bouncie_error="
+            url=f"{SETUP_WIZARD_PATH}?bouncie_error="
             + quote("Failed to save OAuth state. Please try again.", safe=""),
             status_code=302,
         )
@@ -181,7 +185,7 @@ async def bouncie_oauth_callback(
             {"oauth_state": None, "oauth_state_expires_at": None},
         )
         return RedirectResponse(
-            url="/setup?bouncie_error=" + quote(error, safe=""),
+            url=f"{SETUP_WIZARD_PATH}?bouncie_error=" + quote(error, safe=""),
             status_code=302,
         )
 
@@ -192,27 +196,27 @@ async def bouncie_oauth_callback(
                 {"oauth_state": None, "oauth_state_expires_at": None},
             )
             return RedirectResponse(
-                url="/setup?bouncie_error=missing_state",
-                status_code=302,
-            )
+            url=f"{SETUP_WIZARD_PATH}?bouncie_error=missing_state",
+            status_code=302,
+        )
         if state != stored_state:
             logger.error("Bouncie OAuth state mismatch")
             await update_bouncie_credentials(
                 {"oauth_state": None, "oauth_state_expires_at": None},
             )
             return RedirectResponse(
-                url="/setup?bouncie_error=state_mismatch",
-                status_code=302,
-            )
+            url=f"{SETUP_WIZARD_PATH}?bouncie_error=state_mismatch",
+            status_code=302,
+        )
         if _state_expired(stored_state_expires_at):
             logger.error("Bouncie OAuth state expired")
             await update_bouncie_credentials(
                 {"oauth_state": None, "oauth_state_expires_at": None},
             )
             return RedirectResponse(
-                url="/setup?bouncie_error=state_expired",
-                status_code=302,
-            )
+            url=f"{SETUP_WIZARD_PATH}?bouncie_error=state_expired",
+            status_code=302,
+        )
     elif state:
         logger.warning("Bouncie OAuth callback received unexpected state")
     else:
@@ -226,7 +230,7 @@ async def bouncie_oauth_callback(
             {"oauth_state": None, "oauth_state_expires_at": None},
         )
         return RedirectResponse(
-            url="/setup?bouncie_error=missing_code",
+            url=f"{SETUP_WIZARD_PATH}?bouncie_error=missing_code",
             status_code=302,
         )
 
@@ -242,7 +246,7 @@ async def bouncie_oauth_callback(
         if not success:
             logger.error("Failed to store authorization code")
             return RedirectResponse(
-                url="/setup?bouncie_error=storage_failed",
+                url=f"{SETUP_WIZARD_PATH}?bouncie_error=storage_failed",
                 status_code=302,
             )
 
@@ -267,7 +271,7 @@ async def bouncie_oauth_callback(
         if not token:
             logger.error("Failed to exchange authorization code for access token")
             return RedirectResponse(
-                url="/setup?bouncie_error=token_exchange_failed",
+                url=f"{SETUP_WIZARD_PATH}?bouncie_error=token_exchange_failed",
                 status_code=302,
             )
 
@@ -282,7 +286,7 @@ async def bouncie_oauth_callback(
             )
         except BouncieVehicleSyncError:
             return RedirectResponse(
-                url="/setup?bouncie_error=vehicle_sync_failed",
+                url=f"{SETUP_WIZARD_PATH}?bouncie_error=vehicle_sync_failed",
                 status_code=302,
             )
 
@@ -292,14 +296,17 @@ async def bouncie_oauth_callback(
         )
 
         return RedirectResponse(
-            url=f"/setup?bouncie_connected=true&vehicles_synced={vehicle_count}",
+            url=(
+                f"{SETUP_WIZARD_PATH}"
+                f"?bouncie_connected=true&vehicles_synced={vehicle_count}"
+            ),
             status_code=302,
         )
 
     except Exception as exc:
         logger.exception("Error in Bouncie OAuth callback")
         return RedirectResponse(
-            url="/setup?bouncie_error=" + quote(str(exc), safe=""),
+            url=f"{SETUP_WIZARD_PATH}?bouncie_error=" + quote(str(exc), safe=""),
             status_code=302,
         )
 

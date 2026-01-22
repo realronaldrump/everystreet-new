@@ -247,10 +247,16 @@ async def county_map_page(request: Request):
     )
 
 
-@router.get("/setup", response_class=HTMLResponse)
+@router.get("/setup-wizard", response_class=HTMLResponse)
 async def setup_wizard_page(request: Request):
     """Render the setup wizard."""
     return _render_page("setup_wizard.html", request)
+
+
+@router.get("/setup", response_class=RedirectResponse)
+async def setup_wizard_redirect():
+    """Redirect legacy setup path to the current wizard route."""
+    return RedirectResponse(url="/setup-wizard", status_code=308)
 
 
 @router.get("/status", response_class=HTMLResponse)

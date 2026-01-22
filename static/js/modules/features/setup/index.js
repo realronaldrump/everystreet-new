@@ -62,7 +62,7 @@ onPageLoad(
       });
     }
   },
-  { route: "/setup" }
+  { route: "/setup-wizard" }
 );
 
 function withSignal(options = {}) {
