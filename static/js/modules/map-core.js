@@ -385,6 +385,9 @@ const mapCore = {
 
     // Dispatch event for layer restoration
     document.dispatchEvent(
+      new CustomEvent("mapStyleLoaded", { detail: { styleType } })
+    );
+    document.dispatchEvent(
       new CustomEvent("mapStyleChanged", { detail: { styleType } })
     );
   },

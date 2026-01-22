@@ -9,6 +9,8 @@ Key features:
 - Build Nominatim and Valhalla data from downloaded extracts
 - Monitor service health
 - Track download and build progress
+- Automatic state detection from trip data
+- Auto-provisioning of map data for new trip regions
 """
 
 from map_data.models import GeoServiceHealth, MapBuildProgress, MapServiceConfig

@@ -618,3 +618,53 @@ async def monitor_map_services(
         _monitor_map_services_logic,
         manual_run=manual_run,
     )
+
+
+async def _auto_provision_logic() -> dict[str, Any]:
+    """
+    Check for trips in unconfigured states and auto-provision if needed.
+
+    This runs periodically to ensure map services stay in sync with trip data.
+    """
+    from map_data.auto_provision import should_auto_provision, auto_provision_map_data
+
+    try:
+        check = await should_auto_provision()
+
+        if not check.get("should_provision"):
+            return {
+                "status": "no_action",
+                "reason": check.get("reason", "No provisioning needed"),
+            }
+
+        # Auto-provision detected states
+        result = await auto_provision_map_data()
+        return {
+            "status": "provisioning_triggered",
+            "result": result,
+        }
+
+    except Exception as e:
+        logger.exception("Auto-provision check failed: %s", e)
+        return {
+            "status": "error",
+            "error": str(e),
+        }
+
+
+async def auto_provision_check(
+    ctx: dict,
+    manual_run: bool = False,
+) -> dict[str, Any]:
+    """
+    Background task to check for and auto-provision map data.
+
+    Runs periodically to detect trips in unconfigured states and
+    automatically trigger map data downloads.
+    """
+    return await run_task_with_history(
+        ctx,
+        "auto_provision_map_data",
+        _auto_provision_logic,
+        manual_run=manual_run,
+    )

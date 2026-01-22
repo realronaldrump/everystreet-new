@@ -773,7 +773,7 @@ Details
           </div>
         </div>
         <div class="mobile-fab-container d-md-none">
-          <button class="mobile-fab"
+          <button class="btn btn-primary mobile-fab"
                   id="mobile-save-config-fab"
                   type="button"
                   aria-label="Save task configuration">
@@ -1345,63 +1345,19 @@ N/A
   <div class="bento-grid" data-stagger>
     <div class="settings-group bento-span-12">
       <h3 class="settings-group-title">
-        <i class="fas fa-map"></i>
-        Map Coverage
+        <i class="fas fa-globe"></i>
+        Map Services
       </h3>
       <p class="text-muted small mb-3">
-        Select the states you want online. Changing coverage rebuilds all map data,
-        and the previous data stays available until the new build finishes.
+        Map services are configured automatically based on your trip locations.
+        Address lookup and route planning work seamlessly once configured.
       </p>
 
-      <div id="map-coverage-summary" class="map-coverage-summary">
-        <div class="map-coverage-line">
-          <strong>Coverage:</strong> --
-        </div>
-        <div class="map-coverage-line">
-          <strong>Status:</strong> --
-        </div>
-        <div class="map-coverage-line">
-          <strong>Last updated:</strong> --
-        </div>
-      </div>
-
-      <div class="map-coverage-actions">
-        <button class="btn btn-outline-light btn-sm" id="map-coverage-change-btn">
-          Change Coverage
-        </button>
-        <button class="btn btn-outline-primary btn-sm" id="map-coverage-rebuild-btn">
-          Rebuild Data
-        </button>
-      </div>
-
-      <div class="map-coverage-progress d-none" id="map-coverage-progress">
-        <div class="progress">
-          <div class="progress-bar" id="map-coverage-progress-bar" style="width: 0%">
-          </div>
-        </div>
-        <div class="progress-meta">
-          <span id="map-coverage-progress-text"></span>
-          <span id="map-coverage-message"></span>
-        </div>
-        <button class="btn btn-outline-light btn-sm mt-2 d-none" id="map-coverage-cancel-btn">
-          Cancel Setup
-        </button>
-      </div>
-
-      <div class="map-coverage-editor d-none" id="map-coverage-editor">
-        <div id="map-coverage-state-selector">
-          <div class="text-muted">
-Loading states...
-          </div>
-        </div>
-        <div class="map-coverage-meta">
-          <span class="text-muted">Total size:</span>
-          <span id="map-coverage-total-size">--</span>
-        </div>
-        <div class="map-coverage-actions">
-          <button class="btn btn-success btn-sm" id="map-coverage-save-btn">
-            Save Coverage
-          </button>
+      <!-- Dynamic content rendered by JavaScript -->
+      <div id="map-services-content">
+        <div class="map-services-loading">
+          <i class="fas fa-spinner fa-spin"></i>
+          <span>Loading map services status...</span>
         </div>
       </div>
     </div>

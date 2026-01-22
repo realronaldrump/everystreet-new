@@ -5,7 +5,7 @@ from __future__ import annotations
 from tasks.coverage import update_coverage_for_new_trips
 from tasks.fetch import periodic_fetch_trips
 from tasks.maintenance import cleanup_stale_trips, remap_unmatched_trips, validate_trips
-from tasks.map_data import monitor_map_services
+from tasks.map_data import auto_provision_check, monitor_map_services
 from tasks.ops import run_task_if_due
 
 
@@ -54,4 +54,18 @@ async def cron_monitor_map_data_jobs(ctx: dict) -> dict | None:
         ctx,
         "monitor_map_data_jobs",
         lambda: monitor_map_services(ctx),
+    )
+
+
+async def cron_auto_provision_map_data(ctx: dict) -> dict | None:
+    """
+    Periodically check for trips in unconfigured states.
+
+    If trips are found in states without map data, automatically
+    triggers provisioning to download and build map data.
+    """
+    return await run_task_if_due(
+        ctx,
+        "auto_provision_map_data",
+        lambda: auto_provision_check(ctx),
     )

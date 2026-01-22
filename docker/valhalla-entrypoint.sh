@@ -5,19 +5,66 @@ log() {
   printf "[valhalla-entrypoint] %s\n" "$*"
 }
 
+CUSTOM_FILES="/custom_files"
+VALHALLA_CONFIG="$CUSTOM_FILES/valhalla.json"
+TILE_DIR="$CUSTOM_FILES/valhalla_tiles"
+
+# Ensure directories exist
+mkdir -p "$CUSTOM_FILES"
+mkdir -p "$TILE_DIR"
+
 # Generate default config if it doesn't exist
-if [ ! -f /custom_files/valhalla.json ]; then
-  log "Generating default Valhalla configuration"
+if [ ! -f "$VALHALLA_CONFIG" ]; then
+  log "Generating default Valhalla configuration..."
+
+  # Try using the configure script first
   if [ -x /valhalla/scripts/configure_valhalla.sh ]; then
-    /valhalla/scripts/configure_valhalla.sh || true
+    /valhalla/scripts/configure_valhalla.sh 2>&1 || log "configure_valhalla.sh warning"
+  fi
+
+  # If config still doesn't exist, generate manually
+  if [ ! -f "$VALHALLA_CONFIG" ]; then
+    log "Generating config with valhalla_build_config..."
+    if command -v valhalla_build_config >/dev/null 2>&1; then
+      valhalla_build_config \
+        --mjolnir-tile-dir "$TILE_DIR" \
+        --mjolnir-timezone "$CUSTOM_FILES/timezones.sqlite" \
+        --mjolnir-admin "$CUSTOM_FILES/admin_data.sqlite" \
+        > "$VALHALLA_CONFIG" 2>/dev/null || log "valhalla_build_config warning"
+    fi
   fi
 fi
 
-log "Starting Valhalla service"
+# Check for existing tiles
+TILE_COUNT=0
+if [ -d "$TILE_DIR" ]; then
+  TILE_COUNT=$(find "$TILE_DIR" -name "*.gph" 2>/dev/null | wc -l)
+fi
+
+if [ "$TILE_COUNT" -gt 0 ]; then
+  log "Found $TILE_COUNT routing tiles - ready to serve requests"
+else
+  log "No routing tiles found - will need to build from OSM data"
+fi
+
+log "Starting Valhalla service..."
+
+# Try different run scripts depending on container version
 if [ -x /valhalla/scripts/run.sh ]; then
   exec /valhalla/scripts/run.sh
-fi
-if [ -x /valhalla/scripts/valhalla_run.sh ]; then
+elif [ -x /valhalla/scripts/valhalla_run.sh ]; then
   exec /valhalla/scripts/valhalla_run.sh
+elif command -v valhalla_service >/dev/null 2>&1; then
+  # Run valhalla_service directly with config
+  if [ -f "$VALHALLA_CONFIG" ]; then
+    exec valhalla_service "$VALHALLA_CONFIG"
+  else
+    log "Error: No valid config file found"
+    # Keep container running for debugging
+    while true; do sleep 5; done
+  fi
+else
+  log "Error: No Valhalla service executable found"
+  # Keep container running for debugging
+  while true; do sleep 5; done
 fi
-exec /valhalla/scripts/valhalla_service

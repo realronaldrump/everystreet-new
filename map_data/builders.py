@@ -179,29 +179,51 @@ async def build_nominatim_data(
 
         await start_container_on_demand("nominatim")
 
-        # The Nominatim container expects the PBF file at /nominatim/data/
-        # Our docker-compose mounts osm_extracts:/nominatim/data:ro
-        # So the file should be accessible inside the container
+        # Wait for PostgreSQL to be ready inside the container
+        if progress_callback:
+            await _safe_callback(
+                progress_callback,
+                8,
+                "Waiting for database to be ready...",
+            )
 
-        # Note: Nominatim import is a blocking operation that can take hours
-        # for large regions. We simulate progress updates here.
+        await _wait_for_nominatim_db_ready()
 
         if progress_callback:
             await _safe_callback(progress_callback, 10, "Starting Nominatim import...")
 
-        # Execute nominatim import command
-        # The container name is 'nominatim' based on docker-compose service name
         container_name = _get_container_name("nominatim")
-
-        # Build the import command
-        # The PBF path inside container is /nominatim/data/{filename}
         pbf_container_path = f"/nominatim/data/{pbf_relative}"
 
+        # First, check if the file is accessible in the container
+        check_cmd = [
+            "docker",
+            "exec",
+            container_name,
+            "ls",
+            "-la",
+            pbf_container_path,
+        ]
+        check_result = subprocess.run(
+            check_cmd,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        if check_result.returncode != 0:
+            msg = f"PBF file not accessible in container: {pbf_container_path}"
+            raise ValueError(msg)
+
+        logger.info("PBF file verified in container: %s", pbf_container_path)
+
+        # Build the import command with proper flags
         import_cmd = [
             "docker",
             "exec",
-            "--user",
-            "nominatim",
+            "-e",
+            "NOMINATIM_QUERY_TIMEOUT=600",
+            "-e",
+            "NOMINATIM_REQUEST_TIMEOUT=600",
             container_name,
             "nominatim",
             "import",
@@ -217,50 +239,101 @@ async def build_nominatim_data(
             await _safe_callback(
                 progress_callback,
                 15,
-                "Running Nominatim import (this may take a while)...",
+                "Importing map data (this may take a while)...",
             )
 
-        # Run the import command
-        # This is a long-running process, so we run it asynchronously
+        # Run the import command with output streaming for better progress
         process = await asyncio.create_subprocess_exec(
             *import_cmd,
             stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.STDOUT,
         )
 
-        # Monitor progress by reading output
+        # Monitor progress by reading output lines
         progress = 15
+        last_log_time = asyncio.get_event_loop().time()
+        output_lines = []
+
         while True:
-            # Check if process is still running
-            if process.returncode is not None:
-                break
-
-            # Update progress estimate (Nominatim doesn't provide real progress)
-            # We simulate progress based on time elapsed
-            progress = min(progress + 5, 90)
-            if progress_callback:
-                await _safe_callback(
-                    progress_callback,
-                    progress,
-                    "Nominatim import in progress...",
-                )
-
-            await asyncio.sleep(PROGRESS_UPDATE_INTERVAL)
-
-            # Poll for completion
             try:
-                await asyncio.wait_for(process.wait(), timeout=PROGRESS_UPDATE_INTERVAL)
-            except TimeoutError:
-                continue
+                line = await asyncio.wait_for(
+                    process.stdout.readline(),
+                    timeout=PROGRESS_UPDATE_INTERVAL,
+                )
+                if line:
+                    decoded = line.decode("utf-8", errors="replace").strip()
+                    if decoded:
+                        output_lines.append(decoded)
+                        # Keep only last 50 lines
+                        if len(output_lines) > 50:
+                            output_lines.pop(0)
 
-        # Get final output
-        _stdout, stderr = await process.communicate()
+                        # Update progress based on Nominatim output stages
+                        if "Importing OSM" in decoded or "Loading data" in decoded:
+                            progress = max(progress, 25)
+                        elif "Building index" in decoded or "Indexing" in decoded:
+                            progress = max(progress, 50)
+                        elif "Ranking" in decoded:
+                            progress = max(progress, 70)
+                        elif "Analysing" in decoded:
+                            progress = max(progress, 80)
+
+                        now = asyncio.get_event_loop().time()
+                        if now - last_log_time >= PROGRESS_UPDATE_INTERVAL:
+                            last_log_time = now
+                            if progress_callback:
+                                # Extract meaningful stage from output
+                                stage = "Processing..."
+                                for line_text in reversed(output_lines[-5:]):
+                                    if any(
+                                        kw in line_text.lower()
+                                        for kw in [
+                                            "import",
+                                            "index",
+                                            "load",
+                                            "analys",
+                                            "rank",
+                                        ]
+                                    ):
+                                        stage = (
+                                            line_text[:60] + "..."
+                                            if len(line_text) > 60
+                                            else line_text
+                                        )
+                                        break
+                                await _safe_callback(progress_callback, progress, stage)
+                elif process.returncode is not None:
+                    break
+            except TimeoutError:
+                # Timeout just means no output, check if process is still running
+                if process.returncode is not None:
+                    break
+                # Still running, update progress slowly
+                progress = min(progress + 1, 88)
+                if progress_callback:
+                    await _safe_callback(
+                        progress_callback,
+                        progress,
+                        "Import in progress...",
+                    )
+
+        # Wait for process to complete
+        await process.wait()
 
         if process.returncode != 0:
-            error_msg = stderr.decode() if stderr else "Unknown error"
-            logger.error("Nominatim import failed: %s", error_msg)
-            msg = f"Nominatim import failed: {error_msg}"
+            error_output = "\n".join(output_lines[-20:])
+            logger.error("Nominatim import failed. Last output:\n%s", error_output)
+            msg = f"Nominatim import failed (exit code {process.returncode})"
             raise RuntimeError(msg)
+
+        if progress_callback:
+            await _safe_callback(
+                progress_callback,
+                92,
+                "Finalizing import...",
+            )
+
+        await _mark_nominatim_import_finished(container_name)
 
         if progress_callback:
             await _safe_callback(
@@ -269,10 +342,18 @@ async def build_nominatim_data(
                 "Restarting Nominatim service...",
             )
 
-        await _mark_nominatim_import_finished(container_name)
-
         # Restart Nominatim to pick up new data
         await _restart_container("nominatim")
+
+        # Wait for service to become healthy
+        if progress_callback:
+            await _safe_callback(
+                progress_callback,
+                98,
+                "Verifying service is ready...",
+            )
+
+        await _wait_for_nominatim_healthy()
 
         if progress_callback:
             await _safe_callback(progress_callback, 100, "Nominatim build complete")
@@ -280,9 +361,67 @@ async def build_nominatim_data(
         logger.info("Nominatim build complete for %s", label)
         return True
 
-    except Exception:
-        logger.exception("Nominatim build failed for %s", label)
+    except Exception as e:
+        logger.exception("Nominatim build failed for %s: %s", label, e)
         raise
+
+
+async def _wait_for_nominatim_db_ready(timeout: int = 120) -> None:
+    """Wait for PostgreSQL to be ready inside the Nominatim container."""
+    container_name = _get_container_name("nominatim")
+    start_time = asyncio.get_event_loop().time()
+
+    while (asyncio.get_event_loop().time() - start_time) < timeout:
+        try:
+            check_cmd = [
+                "docker",
+                "exec",
+                container_name,
+                "pg_isready",
+                "-U",
+                "nominatim",
+                "-d",
+                "nominatim",
+            ]
+            result = subprocess.run(
+                check_cmd,
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            if result.returncode == 0:
+                logger.info("PostgreSQL is ready in Nominatim container")
+                return
+        except Exception as e:
+            logger.debug("pg_isready check failed: %s", e)
+
+        await asyncio.sleep(5)
+
+    logger.warning("Timeout waiting for PostgreSQL, proceeding anyway")
+
+
+async def _wait_for_nominatim_healthy(timeout: int = 120) -> None:
+    """Wait for Nominatim service to become healthy after restart."""
+    import httpx
+
+    from config import get_nominatim_base_url
+
+    nominatim_url = get_nominatim_base_url()
+    start_time = asyncio.get_event_loop().time()
+
+    while (asyncio.get_event_loop().time() - start_time) < timeout:
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.get(f"{nominatim_url}/status")
+                if response.status_code == 200:
+                    logger.info("Nominatim service is healthy")
+                    return
+        except Exception as e:
+            logger.debug("Nominatim health check failed: %s", e)
+
+        await asyncio.sleep(5)
+
+    logger.warning("Timeout waiting for Nominatim health, proceeding anyway")
 
 
 async def build_valhalla_tiles(
@@ -326,21 +465,104 @@ async def build_valhalla_tiles(
 
         await start_container_on_demand("valhalla")
 
-        # The Valhalla container expects PBF at /data/osm/
-        # Our docker-compose mounts osm_extracts:/data/osm:ro
+        # Wait a moment for container to stabilize
+        await asyncio.sleep(5)
 
         if progress_callback:
             await _safe_callback(
                 progress_callback,
-                10,
-                "Starting Valhalla tile build...",
+                8,
+                "Verifying configuration...",
             )
 
         container_name = _get_container_name("valhalla")
-
-        # Build command for Valhalla
-        # The PBF path inside container is /data/osm/{filename}
         pbf_container_path = f"/data/osm/{pbf_relative}"
+
+        # Verify PBF file is accessible
+        check_cmd = [
+            "docker",
+            "exec",
+            container_name,
+            "ls",
+            "-la",
+            pbf_container_path,
+        ]
+        check_result = subprocess.run(
+            check_cmd,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        if check_result.returncode != 0:
+            msg = f"PBF file not accessible in Valhalla container: {pbf_container_path}"
+            raise ValueError(msg)
+
+        logger.info("PBF file verified in container: %s", pbf_container_path)
+
+        # Ensure valhalla.json config exists
+        config_check = [
+            "docker",
+            "exec",
+            container_name,
+            "ls",
+            "/custom_files/valhalla.json",
+        ]
+        config_result = subprocess.run(
+            config_check,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+
+        if config_result.returncode != 0:
+            # Generate config if missing
+            logger.info("Generating Valhalla configuration...")
+            if progress_callback:
+                await _safe_callback(
+                    progress_callback,
+                    10,
+                    "Generating routing configuration...",
+                )
+
+            gen_config = [
+                "docker",
+                "exec",
+                container_name,
+                "/bin/sh",
+                "-c",
+                "valhalla_build_config --mjolnir-tile-dir /custom_files/valhalla_tiles "
+                "--mjolnir-timezone /custom_files/timezones.sqlite "
+                "--mjolnir-admin /custom_files/admin_data.sqlite "
+                "> /custom_files/valhalla.json",
+            ]
+            gen_result = subprocess.run(
+                gen_config,
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+            if gen_result.returncode != 0:
+                logger.warning(
+                    "Config generation returned non-zero, trying alternative method"
+                )
+                # Try running the configure script if available
+                alt_config = [
+                    "docker",
+                    "exec",
+                    container_name,
+                    "/bin/sh",
+                    "-c",
+                    "[ -x /valhalla/scripts/configure_valhalla.sh ] && "
+                    "/valhalla/scripts/configure_valhalla.sh || true",
+                ]
+                subprocess.run(alt_config, capture_output=True, timeout=60)
+
+        if progress_callback:
+            await _safe_callback(
+                progress_callback,
+                12,
+                "Starting tile build...",
+            )
 
         build_cmd = [
             "docker",
@@ -358,44 +580,98 @@ async def build_valhalla_tiles(
             await _safe_callback(
                 progress_callback,
                 15,
-                "Building Valhalla tiles (this may take a while)...",
+                "Building routing tiles...",
             )
 
-        # Run the build command
+        # Run the build command with output streaming
         process = await asyncio.create_subprocess_exec(
             *build_cmd,
             stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.STDOUT,
         )
 
-        # Monitor progress
+        # Monitor progress by reading output lines
         progress = 15
+        last_log_time = asyncio.get_event_loop().time()
+        output_lines = []
+
         while True:
-            if process.returncode is not None:
-                break
-
-            progress = min(progress + 5, 90)
-            if progress_callback:
-                await _safe_callback(
-                    progress_callback,
-                    progress,
-                    "Building Valhalla tiles...",
-                )
-
-            await asyncio.sleep(PROGRESS_UPDATE_INTERVAL)
-
             try:
-                await asyncio.wait_for(process.wait(), timeout=PROGRESS_UPDATE_INTERVAL)
-            except TimeoutError:
-                continue
+                line = await asyncio.wait_for(
+                    process.stdout.readline(),
+                    timeout=PROGRESS_UPDATE_INTERVAL,
+                )
+                if line:
+                    decoded = line.decode("utf-8", errors="replace").strip()
+                    if decoded:
+                        output_lines.append(decoded)
+                        if len(output_lines) > 50:
+                            output_lines.pop(0)
 
-        _stdout, stderr = await process.communicate()
+                        # Update progress based on Valhalla output stages
+                        if "Parsing" in decoded:
+                            progress = max(progress, 25)
+                        elif "Building" in decoded:
+                            progress = max(progress, 40)
+                        elif "Adding" in decoded:
+                            progress = max(progress, 55)
+                        elif "Forming" in decoded:
+                            progress = max(progress, 70)
+                        elif "Enhancing" in decoded:
+                            progress = max(progress, 80)
+                        elif "Finished" in decoded:
+                            progress = max(progress, 90)
+
+                        now = asyncio.get_event_loop().time()
+                        if now - last_log_time >= PROGRESS_UPDATE_INTERVAL:
+                            last_log_time = now
+                            if progress_callback:
+                                stage = "Building tiles..."
+                                for line_text in reversed(output_lines[-5:]):
+                                    if any(
+                                        kw in line_text
+                                        for kw in [
+                                            "Parsing",
+                                            "Building",
+                                            "Adding",
+                                            "Forming",
+                                            "Enhancing",
+                                        ]
+                                    ):
+                                        stage = (
+                                            line_text[:60] + "..."
+                                            if len(line_text) > 60
+                                            else line_text
+                                        )
+                                        break
+                                await _safe_callback(progress_callback, progress, stage)
+                elif process.returncode is not None:
+                    break
+            except TimeoutError:
+                if process.returncode is not None:
+                    break
+                progress = min(progress + 1, 88)
+                if progress_callback:
+                    await _safe_callback(
+                        progress_callback,
+                        progress,
+                        "Tile build in progress...",
+                    )
+
+        await process.wait()
 
         if process.returncode != 0:
-            error_msg = stderr.decode() if stderr else "Unknown error"
-            logger.error("Valhalla build failed: %s", error_msg)
-            msg = f"Valhalla build failed: {error_msg}"
+            error_output = "\n".join(output_lines[-20:])
+            logger.error("Valhalla build failed. Last output:\n%s", error_output)
+            msg = f"Valhalla build failed (exit code {process.returncode})"
             raise RuntimeError(msg)
+
+        if progress_callback:
+            await _safe_callback(
+                progress_callback,
+                92,
+                "Finalizing tiles...",
+            )
 
         if progress_callback:
             await _safe_callback(
@@ -407,15 +683,53 @@ async def build_valhalla_tiles(
         # Restart Valhalla to pick up new tiles
         await _restart_container("valhalla")
 
+        # Wait for service to become healthy
+        if progress_callback:
+            await _safe_callback(
+                progress_callback,
+                98,
+                "Verifying service is ready...",
+            )
+
+        await _wait_for_valhalla_healthy()
+
         if progress_callback:
             await _safe_callback(progress_callback, 100, "Valhalla build complete")
 
         logger.info("Valhalla build complete for %s", label)
         return True
 
-    except Exception:
-        logger.exception("Valhalla build failed for %s", label)
+    except Exception as e:
+        logger.exception("Valhalla build failed for %s: %s", label, e)
         raise
+
+
+async def _wait_for_valhalla_healthy(timeout: int = 120) -> None:
+    """Wait for Valhalla service to become healthy after restart."""
+    import httpx
+
+    from config import get_valhalla_base_url
+
+    valhalla_url = get_valhalla_base_url()
+    start_time = asyncio.get_event_loop().time()
+
+    while (asyncio.get_event_loop().time() - start_time) < timeout:
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.get(f"{valhalla_url}/status")
+                if response.status_code == 200:
+                    data = response.json()
+                    if isinstance(data, dict) and data.get("tileset", {}).get(
+                        "tile_count", 0
+                    ) > 0:
+                        logger.info("Valhalla service is healthy with tiles")
+                        return
+        except Exception as e:
+            logger.debug("Valhalla health check failed: %s", e)
+
+        await asyncio.sleep(5)
+
+    logger.warning("Timeout waiting for Valhalla health, proceeding anyway")
 
 
 def _resolve_pbf_path(pbf_path: str) -> tuple[str, str]:
