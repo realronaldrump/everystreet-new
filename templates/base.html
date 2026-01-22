@@ -791,56 +791,16 @@ Quick Selections
       </div>
 
 
-      <!-- Service Worker Registration -->
+      <!-- Service Worker Disabled (no caching) -->
       <script>
-          if ("serviceWorker" in navigator && location.protocol === "https:") {
-              window.addEventListener("load", () => {
-                  const swUrl = "/static/js/sw.js?v=9";
+          if ("serviceWorker" in navigator) {
+              window.addEventListener("load", async () => {
                   const hadController = Boolean(navigator.serviceWorker.controller);
-                  let refreshing = false;
-
-                  navigator.serviceWorker
-                      .register(swUrl, {
-                          type: "module"
-                      })
-                      .then((reg) => {
-                          console.log("SW registered:", reg.scope);
-                          if (typeof reg.update === "function") {
-                              reg.update();
-                          }
-
-                          if (reg.waiting) {
-                              reg.waiting.postMessage({
-                                  type: "SKIP_WAITING"
-                              });
-                          }
-
-                          reg.addEventListener("updatefound", () => {
-                              const newWorker = reg.installing;
-                              if (!newWorker) {
-                                  return;
-                              }
-                              newWorker.addEventListener("statechange", () => {
-                                  if (
-                                      newWorker.state === "installed" &&
-                                      navigator.serviceWorker.controller
-                                  ) {
-                                      newWorker.postMessage({
-                                          type: "SKIP_WAITING"
-                                      });
-                                  }
-                              });
-                          });
-
-                          navigator.serviceWorker.addEventListener("controllerchange", () => {
-                              if (!hadController || refreshing) {
-                                  return;
-                              }
-                              refreshing = true;
-                              window.location.reload();
-                          });
-                      })
-                      .catch((err) => console.error("SW registration failed:", err));
+                  const registrations = await navigator.serviceWorker.getRegistrations();
+                  await Promise.all(registrations.map((reg) => reg.unregister()));
+                  if (hadController) {
+                      window.location.reload();
+                  }
               });
           }
       </script>
