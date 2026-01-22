@@ -134,9 +134,6 @@ function renderStateSelector() {
 
 function applySelectedStatesFromStatus() {
   const configured = mapStatus?.config?.selected_states || [];
-  if (!configured.length) {
-    return;
-  }
   selectedStates = new Set(configured);
   updateStateSelectionUI();
   updateSelectionSummary();

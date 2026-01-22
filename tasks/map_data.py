@@ -16,7 +16,11 @@ from typing import Any
 import httpx
 
 from config import get_geofabrik_mirror, get_osm_extracts_path
-from map_data.builders import build_nominatim_data, build_valhalla_tiles
+from map_data.builders import (
+    build_nominatim_data,
+    build_valhalla_tiles,
+    start_container_on_demand,
+)
 from map_data.models import MapBuildProgress, MapServiceConfig
 from map_data.services import check_service_health
 from map_data.us_states import build_geofabrik_path, get_state
@@ -572,6 +576,17 @@ async def _monitor_map_services_logic() -> dict[str, Any]:
             config.last_updated = now
             await config.save()
             retried = True
+
+    if config.status == MapServiceConfig.STATUS_READY and config.selected_states:
+        health = await check_service_health(force_refresh=True)
+        if not health.nominatim_container_running:
+            with contextlib.suppress(Exception):
+                await start_container_on_demand("nominatim")
+                restarted = True
+        if not health.valhalla_container_running:
+            with contextlib.suppress(Exception):
+                await start_container_on_demand("valhalla")
+                restarted = True
 
     return {
         "status": "success",

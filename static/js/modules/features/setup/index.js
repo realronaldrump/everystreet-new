@@ -57,6 +57,7 @@ async function initializeSetup() {
     refreshMapServicesStatus(),
   ]);
   updateStepState();
+  updateMapCoverageUI();
 }
 
 function bindEvents() {
@@ -434,9 +435,6 @@ function renderStateGrid() {
 
 function applySelectedStatesFromStatus() {
   const configured = mapServiceStatus?.config?.selected_states || [];
-  if (!configured.length) {
-    return;
-  }
   selectedStates = new Set(configured);
   updateStateSelectionUI();
   updateSelectionSummary();

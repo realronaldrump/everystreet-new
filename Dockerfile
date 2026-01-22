@@ -10,6 +10,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     build-essential \
     python3-dev \
+    osmium-tool \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Docker CLI (static binary - much faster than apt)
