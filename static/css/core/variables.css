@@ -24,17 +24,17 @@
 :root {
   /* Categorical Palette - Muted & Sophisticated */
   --cat-sage: #4a9e8c;
-  --cat-sage-rgb: 74, 158, 140;
+  --cat-sage-rgb: 74 158 140;
   --cat-slate: #6b7280;
-  --cat-slate-rgb: 107, 114, 128;
+  --cat-slate-rgb: 107 114 128;
   --cat-rose: #b45555;
-  --cat-rose-rgb: 180, 85, 85;
+  --cat-rose-rgb: 180 85 85;
   --cat-steel: #6b8eb8;
-  --cat-steel-rgb: 107, 142, 184;
+  --cat-steel-rgb: 107 142 184;
   --cat-ochre: #b89b5a;
-  --cat-ochre-rgb: 184, 155, 90;
+  --cat-ochre-rgb: 184 155 90;
   --cat-olive: #6b8f5c;
-  --cat-olive-rgb: 107, 143, 92;
+  --cat-olive-rgb: 107 143 92;
 
   /* Semantic Colors */
   --primary: var(--cat-sage);
@@ -78,7 +78,7 @@
   --surface-4: #303543;
   --surface-elevated: #232833;
   --surface-glass: rgb(23 26 33 / 82%);
-  --surface-rgb: 23, 26, 33;
+  --surface-rgb: 23 26 33;
   --text-primary: rgb(242 245 248 / 92%);
   --text-secondary: rgb(200 206 214 / 78%);
   --text-tertiary: rgb(160 168 179 / 55%);
@@ -89,8 +89,8 @@
   --border-color: rgb(160 170 185 / 22%);
   --border-color-light: rgb(160 170 185 / 36%);
   --divider-color: rgb(160 170 185 / 12%);
-  --border-rgb: 160, 170, 185;
-  --text-rgb: 242, 245, 248;
+  --border-rgb: 160 170 185;
+  --text-rgb: 242 245 248;
 
   /* Typography */
   --font-family: "Geist Sans", "Geist", system-ui, -apple-system, sans-serif;
@@ -269,15 +269,15 @@ body.light-mode {
   --surface-4: #d5dbe7;
   --surface-elevated: #f0f3f9;
   --surface-glass: rgb(255 255 255 / 88%);
-  --surface-rgb: 245, 247, 251;
+  --surface-rgb: 245 247 251;
   --text-primary: rgb(22 24 29 / 92%);
   --text-secondary: rgb(66 72 83 / 75%);
   --text-tertiary: rgb(96 104 118 / 55%);
   --border-color: rgb(20 24 32 / 12%);
   --border-color-light: rgb(20 24 32 / 22%);
   --divider-color: rgb(20 24 32 / 8%);
-  --border-rgb: 20, 24, 32;
-  --text-rgb: 22, 24, 29;
+  --border-rgb: 20 24 32;
+  --text-rgb: 22 24 29;
   --shadow-xs: 0 1px 2px rgb(20 24 32 / 6%);
   --shadow-sm: 0 4px 12px rgb(20 24 32 / 10%);
   --shadow-md: 0 10px 24px rgb(20 24 32 / 14%);
