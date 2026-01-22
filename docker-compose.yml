@@ -176,18 +176,16 @@ services:
     image: containrrr/watchtower:latest
     restart: unless-stopped
     environment:
+      - DOCKER_API_VERSION=1.44
       - WATCHTOWER_CLEANUP=true
       - WATCHTOWER_INCLUDE_RESTARTING=true
       - WATCHTOWER_ROLLING_RESTART=true
       - WATCHTOWER_LABEL_ENABLE=true
       - WATCHTOWER_POLL_INTERVAL=30
-      # HTTP API for on-demand updates via webhook
       - WATCHTOWER_HTTP_API_UPDATE=true
       - WATCHTOWER_HTTP_API_TOKEN=${WATCHTOWER_TOKEN:-update-token}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      # Only needed if your GHCR package is private:
-      # - /home/davis/.docker/config.json:/config.json:ro
     ports:
       - "8090:8080"
     networks:
