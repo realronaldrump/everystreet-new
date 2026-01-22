@@ -1,10 +1,11 @@
 import pytest
+from beanie import PydanticObjectId
 from bson import ObjectId
 
 from exports.models import ExportItem, ExportRequest, TripFilters
 
 # Resolve forward reference for PydanticObjectId
-ExportRequest.model_rebuild()
+ExportRequest.model_rebuild(_types_namespace={"PydanticObjectId": PydanticObjectId})
 
 
 def test_trip_filters_normalizes_status() -> None:
