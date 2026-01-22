@@ -7,24 +7,48 @@ import notificationManager from "../modules/ui/notifications.js";
 
 export function setupTabSwitching() {
   const tabs = document.querySelectorAll(".settings-tab");
+  const tabContents = document.querySelectorAll(".settings-tab-content");
+  const TAB_STORAGE_KEY = "es:settings-active-tab";
+
+  function setActiveTab(tabName, { persist = true } = {}) {
+    if (!tabName) {
+      return false;
+    }
+
+    const tabButton = document.querySelector(
+      `.settings-tab[data-tab="${tabName}"]`
+    );
+    const tabContent = document.getElementById(`${tabName}-tab`);
+
+    if (!tabButton || !tabContent) {
+      return false;
+    }
+
+    tabs.forEach((t) => {
+      t.classList.toggle("active", t.dataset.tab === tabName);
+    });
+
+    tabContents.forEach((content) => {
+      content.classList.toggle("active", content.id === `${tabName}-tab`);
+    });
+
+    if (persist) {
+      localStorage.setItem(TAB_STORAGE_KEY, tabName);
+    }
+
+    return true;
+  }
+
+  const storedTab = localStorage.getItem(TAB_STORAGE_KEY);
+  if (storedTab && !setActiveTab(storedTab, { persist: false })) {
+    localStorage.removeItem(TAB_STORAGE_KEY);
+  }
 
   tabs.forEach((tab) => {
     tab.addEventListener("click", function () {
       const tabName = this.dataset.tab;
 
-      // Update tab buttons
-      document.querySelectorAll(".settings-tab").forEach((t) => {
-        t.classList.toggle("active", t.dataset.tab === tabName);
-      });
-
-      // Update tab content
-      document.querySelectorAll(".settings-tab-content").forEach((content) => {
-        content.classList.remove("active");
-      });
-      const tabContent = document.getElementById(`${tabName}-tab`);
-      if (tabContent) {
-        tabContent.classList.add("active");
-      }
+      setActiveTab(tabName);
     });
   });
 }
