@@ -233,10 +233,6 @@ function applySessionState(payload) {
   _sessionOwner = Boolean(payload.client?.is_owner);
   sessionReadOnly = Boolean(payload.client && !payload.client.is_owner);
 
-  if (setupStatus?.setup_completed) {
-    window.location.assign("/");
-    return;
-  }
 
   setupState.bouncie = Boolean(setupStatus?.steps?.bouncie?.complete);
   setupState.mapbox = Boolean(setupStatus?.steps?.mapbox?.complete);
