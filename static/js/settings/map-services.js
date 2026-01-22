@@ -13,6 +13,8 @@ import { escapeHtml, formatTimeAgo } from "../modules/utils/formatting.js";
 
 const API_BASE = "/api/map-data";
 
+import { confirm } from "../modules/ui/confirmation-dialog.js";
+
 // State
 let selectedRegion = null;
 let currentRegionPath = [];
@@ -623,9 +625,12 @@ async function downloadSelectedRegion() {
     return;
   }
   if (existingRegion) {
-    const confirmed = window.confirm(
-      "This region is already configured. Starting again will replace existing data and rebuild services. Continue?"
-    );
+    const confirmed = await confirm({
+      title: "Rebuild Region?",
+      message: "This region is already configured. Starting again will replace existing data and rebuild services. Continue?",
+      confirmText: "Rebuild",
+      confirmButtonClass: "btn-warning"
+    });
     if (!confirmed) {
       return;
     }
@@ -874,9 +879,12 @@ async function loadActiveJobs() {
 }
 
 async function cancelJob(jobId) {
-  const confirmed = window.confirm(
-    "Cancel this job? This will stop the download or build. You can restart it later."
-  );
+  const confirmed = await confirm({
+    title: "Cancel Job?",
+    message: "Cancel this job? This will stop the download or build. You can restart it later.",
+    confirmText: "Stop Job",
+    confirmButtonClass: "btn-danger"
+  });
   if (!confirmed) {
     return;
   }
