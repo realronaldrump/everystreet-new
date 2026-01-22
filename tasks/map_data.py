@@ -10,6 +10,7 @@ Handles:
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 from datetime import UTC, datetime
 
@@ -20,10 +21,37 @@ from map_data.builders import (
     build_valhalla_tiles,
     start_container_on_demand,
 )
-from map_data.download import parallel_download_region
+from map_data.download import (
+    DownloadCancelled,
+    cleanup_download_artifacts,
+    parallel_download_region,
+)
 from map_data.models import MapDataJob, MapRegion
 
 logger = logging.getLogger(__name__)
+
+
+async def _wait_for_cancel(cancel_event: asyncio.Event, delay: float) -> bool:
+    try:
+        await asyncio.wait_for(cancel_event.wait(), timeout=delay)
+        return True
+    except asyncio.TimeoutError:
+        return False
+
+
+async def _watch_job_cancelled(
+    job_id: str,
+    cancel_event: asyncio.Event,
+    interval: float = 1.0,
+) -> None:
+    while not cancel_event.is_set():
+        await asyncio.sleep(interval)
+        job = await MapDataJob.get(PydanticObjectId(job_id))
+        if not job:
+            return
+        if job.status == MapDataJob.STATUS_CANCELLED:
+            cancel_event.set()
+            return
 
 
 async def download_region_task(ctx: dict, job_id: str) -> dict:

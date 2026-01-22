@@ -11,6 +11,7 @@ import asyncio
 import contextlib
 import logging
 import os
+import shutil
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
@@ -42,6 +43,41 @@ TOTAL_TIMEOUT = 7200  # 2 hour max for entire download
 # Chunk sizes
 CHUNK_SIZE = 1024 * 1024  # 1MB chunks for streaming
 PROGRESS_UPDATE_INTERVAL = 0.5  # Update progress every 0.5 seconds for responsiveness
+
+
+class DownloadCancelled(Exception):
+    """Raised when a download is cancelled."""
+
+
+def _resolve_download_paths(region: MapRegion) -> tuple[str, str, str]:
+    extracts_path = get_osm_extracts_path()
+    output_filename = region.pbf_path
+    if not output_filename:
+        safe_name = region.name.replace("/", "_").replace(" ", "_")
+        output_filename = f"{safe_name}.osm.pbf"
+    output_path = os.path.join(extracts_path, output_filename)
+    temp_dir = f"{output_path}.parts"
+    temp_path = f"{output_path}.downloading"
+    return output_path, temp_dir, temp_path
+
+
+def cleanup_download_artifacts(region: MapRegion, remove_output: bool = False) -> None:
+    output_path, temp_dir, temp_path = _resolve_download_paths(region)
+
+    if os.path.exists(temp_path):
+        with contextlib.suppress(Exception):
+            os.remove(temp_path)
+        logger.info("Deleted download temp file: %s", temp_path)
+
+    if os.path.isdir(temp_dir):
+        with contextlib.suppress(Exception):
+            shutil.rmtree(temp_dir, ignore_errors=True)
+        logger.info("Deleted download temp directory: %s", temp_dir)
+
+    if remove_output and os.path.exists(output_path):
+        with contextlib.suppress(Exception):
+            os.remove(output_path)
+        logger.info("Deleted download output file: %s", output_path)
 
 
 @dataclass
@@ -89,6 +125,7 @@ class DownloadProgress:
 async def parallel_download_region(
     region: MapRegion,
     progress_callback: Callable[[float, str], Any] | None = None,
+    cancel_event: asyncio.Event | None = None,
 ) -> str:
     """
     Download a region using parallel connections for maximum speed.
@@ -99,6 +136,7 @@ async def parallel_download_region(
     Args:
         region: MapRegion document with source_url
         progress_callback: Optional callback(progress_pct, message) for updates
+        cancel_event: Optional asyncio.Event to cancel the download
 
     Returns:
         Path to the downloaded file (relative to osm_extracts)
@@ -107,6 +145,9 @@ async def parallel_download_region(
         ValueError: If region doesn't have a source URL
         httpx.HTTPError: If download fails
     """
+    if cancel_event and cancel_event.is_set():
+        raise DownloadCancelled("Download cancelled")
+
     if not region.source_url:
         mirror = get_geofabrik_mirror()
         region.source_url = f"{mirror}/{region.name}-latest.osm.pbf"
@@ -141,7 +182,11 @@ async def parallel_download_region(
             logger.info(
                 "Server doesn't support ranges or file too small, using single stream"
             )
-            return await stream_download_region(region, progress_callback)
+            return await stream_download_region(
+                region,
+                progress_callback,
+                cancel_event=cancel_event,
+            )
 
         # Create segments directory
         os.makedirs(temp_dir, exist_ok=True)
@@ -182,6 +227,9 @@ async def parallel_download_region(
 
         progress.start_time = asyncio.get_event_loop().time()
 
+        if cancel_event and cancel_event.is_set():
+            raise DownloadCancelled("Download cancelled")
+
         # Start progress reporter task
         progress_task = asyncio.create_task(
             _report_progress(progress, progress_callback)
@@ -191,7 +239,12 @@ async def parallel_download_region(
         try:
             await asyncio.gather(
                 *[
-                    _download_segment(source_url, segment, progress)
+                    _download_segment(
+                        source_url,
+                        segment,
+                        progress,
+                        cancel_event=cancel_event,
+                    )
                     for segment in progress.segments
                 ]
             )
@@ -200,6 +253,9 @@ async def parallel_download_region(
             with contextlib.suppress(asyncio.CancelledError):
                 await progress_task
 
+        if cancel_event and cancel_event.is_set():
+            raise DownloadCancelled("Download cancelled")
+
         # Check for segment errors
         failed_segments = [s for s in progress.segments if s.error]
         if failed_segments:
@@ -207,6 +263,9 @@ async def parallel_download_region(
             raise RuntimeError(f"Download failed: {errors}")
 
         # Merge segments into final file
+        if cancel_event and cancel_event.is_set():
+            raise DownloadCancelled("Download cancelled")
+
         if progress_callback:
             await _safe_callback(progress_callback, 99, "Merging segments...")
 
@@ -248,6 +307,12 @@ async def parallel_download_region(
 
         return output_filename
 
+    except DownloadCancelled:
+        cleanup_download_artifacts(region, remove_output=True)
+        raise
+    except asyncio.CancelledError:
+        cleanup_download_artifacts(region, remove_output=True)
+        raise
     except Exception:
         # Cleanup on error
         if os.path.exists(temp_dir):
@@ -265,8 +330,11 @@ async def _download_segment(
     url: str,
     segment: DownloadSegment,
     progress: DownloadProgress,
+    cancel_event: asyncio.Event | None = None,
 ) -> None:
     """Download a single segment using range request."""
+    if cancel_event and cancel_event.is_set():
+        raise DownloadCancelled("Download cancelled")
     headers = {"Range": f"bytes={segment.start_byte}-{segment.end_byte}"}
 
     # Check for existing partial download
@@ -312,11 +380,19 @@ async def _download_segment(
                 mode = "ab" if segment.downloaded > 0 else "wb"
                 with open(segment.temp_path, mode) as f:
                     async for chunk in response.aiter_bytes(chunk_size=CHUNK_SIZE):
+                        if cancel_event and cancel_event.is_set():
+                            raise DownloadCancelled("Download cancelled")
                         f.write(chunk)
                         segment.downloaded += len(chunk)
 
         segment.complete = True
 
+    except DownloadCancelled:
+        segment.error = "cancelled"
+        raise
+    except asyncio.CancelledError:
+        segment.error = "cancelled"
+        raise
     except Exception as e:
         segment.error = str(e)
         logger.warning("Segment %d failed: %s", segment.index, e)
@@ -374,6 +450,7 @@ async def _merge_segments(segments: list[DownloadSegment], output_path: str) -> 
 async def stream_download_region(
     region: MapRegion,
     progress_callback: Callable[[float, str], Any] | None = None,
+    cancel_event: asyncio.Event | None = None,
 ) -> str:
     """
     Stream download a region's PBF file from Geofabrik (single connection fallback).
@@ -381,6 +458,7 @@ async def stream_download_region(
     Args:
         region: MapRegion document with source_url
         progress_callback: Optional callback(progress_pct, message) for updates
+        cancel_event: Optional asyncio.Event to cancel the download
 
     Returns:
         Path to the downloaded file (relative to osm_extracts)
@@ -389,6 +467,9 @@ async def stream_download_region(
         ValueError: If region doesn't have a source URL
         httpx.HTTPError: If download fails
     """
+    if cancel_event and cancel_event.is_set():
+        raise DownloadCancelled("Download cancelled")
+
     if not region.source_url:
         mirror = get_geofabrik_mirror()
         region.source_url = f"{mirror}/{region.name}-latest.osm.pbf"
@@ -437,6 +518,8 @@ async def stream_download_region(
 
                 with open(temp_path, "wb") as f:
                     async for chunk in response.aiter_bytes(chunk_size=CHUNK_SIZE):
+                        if cancel_event and cancel_event.is_set():
+                            raise DownloadCancelled("Download cancelled")
                         f.write(chunk)
                         downloaded += len(chunk)
 
@@ -485,6 +568,12 @@ async def stream_download_region(
 
                 return output_filename
 
+    except DownloadCancelled:
+        cleanup_download_artifacts(region, remove_output=True)
+        raise
+    except asyncio.CancelledError:
+        cleanup_download_artifacts(region, remove_output=True)
+        raise
     except Exception:
         if os.path.exists(temp_path):
             with contextlib.suppress(Exception):
