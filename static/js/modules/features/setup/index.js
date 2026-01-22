@@ -417,7 +417,8 @@ function checkBouncieRedirectStatus() {
     if (vehicleCount > 0) {
       message = `Successfully connected to Bouncie! ${vehicleCount} vehicle(s) synced automatically. Click 'Save & Continue' to proceed.`;
     } else {
-      message = "Successfully connected to Bouncie! No vehicles found in your account. You can add them later.";
+      message
+        = "Successfully connected to Bouncie! No vehicles found in your account. You can add them later.";
     }
     showStatus("setup-bouncie-status", message, false);
     // Clear the query params from URL
@@ -428,9 +429,11 @@ function checkBouncieRedirectStatus() {
   } else if (error) {
     let errorMsg = "Failed to connect to Bouncie.";
     if (error === "missing_code") {
-      errorMsg = "OAuth callback did not receive authorization code. Check your redirect URI configuration.";
+      errorMsg
+        = "OAuth callback did not receive authorization code. Check your redirect URI configuration.";
     } else if (error === "missing_state") {
-      errorMsg = "OAuth callback did not include a valid state parameter. Please try connecting again.";
+      errorMsg
+        = "OAuth callback did not include a valid state parameter. Please try connecting again.";
     } else if (error === "state_mismatch") {
       errorMsg = "OAuth state mismatch detected. Please retry the connection.";
     } else if (error === "state_expired") {
@@ -438,9 +441,11 @@ function checkBouncieRedirectStatus() {
     } else if (error === "storage_failed") {
       errorMsg = "Failed to save authorization. Please try again.";
     } else if (error === "token_exchange_failed") {
-      errorMsg = "Failed to exchange authorization code for an access token. Verify your client credentials and redirect URI.";
+      errorMsg
+        = "Failed to exchange authorization code for an access token. Verify your client credentials and redirect URI.";
     } else if (error === "vehicle_sync_failed") {
-      errorMsg = "Connected to Bouncie, but vehicle sync failed. Please try syncing again.";
+      errorMsg
+        = "Connected to Bouncie, but vehicle sync failed. Please try syncing again.";
     } else {
       errorMsg = `OAuth error: ${decodeURIComponent(error)}`;
     }
@@ -694,7 +699,6 @@ async function getExpectedRedirectUri() {
   return `${window.location.origin}/api/bouncie/callback`;
 }
 
-
 async function saveBouncieCredentials(advance = false) {
   if (!sessionId || !sessionVersion) {
     showStatus("setup-bouncie-status", "Setup session is not ready yet.", true);
@@ -768,9 +772,7 @@ async function syncVehiclesFromBouncie() {
     );
     const data = await readJsonResponse(response);
     if (!response.ok) {
-      throw new Error(
-        responseErrorMessage(response, data, "Failed to sync vehicles")
-      );
+      throw new Error(responseErrorMessage(response, data, "Failed to sync vehicles"));
     }
     clearDirty("bouncie");
     showStatus("setup-bouncie-status", data?.message || "Vehicles synced.", false);
@@ -804,12 +806,16 @@ async function handleConnectBouncie(e) {
   // saveBouncieCredentials(false) is what we want.
   setActionInFlight(true);
   try {
-    showStatus("setup-bouncie-status", "Saving credentials before connecting...", false);
-    
+    showStatus(
+      "setup-bouncie-status",
+      "Saving credentials before connecting...",
+      false
+    );
+
     // Using the existing save function logic but inline or calling it?
     // calling saveBouncieCredentials directly might be easier if it supports no-navigation.
     // It does support `advance=false` as argument.
-    
+
     const response = await apiClient.raw(
       `${PROFILE_API}/bouncie-credentials`,
       withSignal({
@@ -818,18 +824,19 @@ async function handleConnectBouncie(e) {
         body: JSON.stringify({ ...values }),
       })
     );
-    
+
     if (!response.ok) {
-        const data = await readJsonResponse(response);
-        throw new Error(responseErrorMessage(response, data, "Failed to save credentials"));
+      const data = await readJsonResponse(response);
+      throw new Error(
+        responseErrorMessage(response, data, "Failed to save credentials")
+      );
     }
-    
+
     clearDirty("bouncie");
     showStatus("setup-bouncie-status", "Redirecting to Bouncie...", false);
-    
+
     // 3. Redirect to authorize
     window.location.href = "/api/bouncie/authorize";
-    
   } catch (error) {
     showStatus("setup-bouncie-status", error.message, true);
     setActionInFlight(false);

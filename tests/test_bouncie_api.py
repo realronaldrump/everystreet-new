@@ -3,8 +3,8 @@ from __future__ import annotations
 from unittest.mock import AsyncMock
 
 import pytest
-
 from http_fakes import FakeResponse, FakeSession
+
 from setup.services.bouncie_api import (
     BouncieRateLimitError,
     BouncieUnauthorizedError,

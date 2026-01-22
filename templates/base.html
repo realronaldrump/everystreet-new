@@ -661,7 +661,7 @@ Quick Selections
             {% endblock %}
 
           </div>
-          
+
           <footer class="app-footer">
             <div class="footer-content">
               <div class="footer-version-info">
@@ -826,7 +826,9 @@ Quick Selections
                   let refreshing = false;
 
                   navigator.serviceWorker
-                      .register(swUrl, { type: "module" })
+                      .register(swUrl, {
+                          type: "module"
+                      })
                       .then((reg) => {
                           console.log("SW registered:", reg.scope);
                           if (typeof reg.update === "function") {

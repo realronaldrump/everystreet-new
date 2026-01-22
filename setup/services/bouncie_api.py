@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any
-
-import aiohttp
+from typing import TYPE_CHECKING, Any
 
 from config import API_BASE_URL
+
+if TYPE_CHECKING:
+    import aiohttp
 
 logger = logging.getLogger(__name__)
 
@@ -73,8 +74,9 @@ async def _fetch_vehicle_page(
                 )
                 if attempt >= MAX_RATE_LIMIT_RETRIES:
                     error_text = await response.text()
+                    msg = f"Rate limited by Bouncie API after {attempt + 1} attempts: {error_text}"
                     raise BouncieRateLimitError(
-                        f"Rate limited by Bouncie API after {attempt + 1} attempts: {error_text}",
+                        msg,
                         status=response.status,
                     )
                 await asyncio.sleep(retry_after)
@@ -82,22 +84,25 @@ async def _fetch_vehicle_page(
 
             if response.status in {401, 403}:
                 error_text = await response.text()
+                msg = f"Bouncie API unauthorized: {error_text}"
                 raise BouncieUnauthorizedError(
-                    f"Bouncie API unauthorized: {error_text}",
+                    msg,
                     status=response.status,
                 )
 
             if response.status != 200:
                 error_text = await response.text()
+                msg = f"Bouncie API error {response.status}: {error_text}"
                 raise BouncieApiError(
-                    f"Bouncie API error {response.status}: {error_text}",
+                    msg,
                     status=response.status,
                 )
 
             payload = await response.json()
             if not isinstance(payload, list):
+                msg = "Unexpected vehicles response format; expected list"
                 raise BouncieApiError(
-                    "Unexpected vehicles response format; expected list",
+                    msg,
                     status=response.status,
                 )
             logger.debug(
@@ -108,7 +113,8 @@ async def _fetch_vehicle_page(
             )
             return payload
 
-    raise BouncieRateLimitError("Rate limited by Bouncie API", status=429)
+    msg = "Rate limited by Bouncie API"
+    raise BouncieRateLimitError(msg, status=429)
 
 
 async def fetch_all_vehicles(

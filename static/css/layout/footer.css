@@ -6,10 +6,10 @@
   padding: var(--space-4);
   text-align: center;
   margin-top: auto;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
-  background-color: rgba(var(--surface-1-rgb), 0.7);
+  border-top: 1px solid rgb(255 255 255 / 5%);
+  background-color: rgb(var(--surface-1-rgb), 0.7);
   backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
 }
 
 .footer-content {
@@ -38,12 +38,14 @@
   gap: var(--space-2);
   padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-sm);
-  transition: color 0.2s ease, background-color 0.2s ease;
+  transition:
+    color 0.2s ease,
+    background-color 0.2s ease;
 }
 
 .footer-version-item:hover {
   color: var(--text-secondary);
-  background-color: rgba(255, 255, 255, 0.03);
+  background-color: rgb(255 255 255 / 3%);
 }
 
 .footer-version-item i {

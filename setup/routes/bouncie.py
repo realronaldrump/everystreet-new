@@ -12,15 +12,15 @@ from fastapi import APIRouter, Query, Request
 from fastapi.responses import RedirectResponse
 
 from core.api import api_route
-from setup.services.bouncie_credentials import (
-    get_bouncie_credentials,
-    update_bouncie_credentials,
-)
 from setup.services.bouncie_api import (
     BouncieApiError,
     BouncieRateLimitError,
     BouncieUnauthorizedError,
     fetch_all_vehicles,
+)
+from setup.services.bouncie_credentials import (
+    get_bouncie_credentials,
+    update_bouncie_credentials,
 )
 
 logger = logging.getLogger(__name__)
@@ -213,11 +213,12 @@ async def bouncie_oauth_callback(
                 url="/setup?bouncie_error=state_expired",
                 status_code=302,
             )
+    elif state:
+        logger.warning("Bouncie OAuth callback received unexpected state")
     else:
-        if state:
-            logger.warning("Bouncie OAuth callback received unexpected state")
-        else:
-            logger.warning("Bouncie OAuth callback missing state; no stored state found")
+        logger.warning(
+            "Bouncie OAuth callback missing state; no stored state found",
+        )
 
     if not code:
         logger.error("Bouncie OAuth callback missing code parameter")
@@ -327,7 +328,8 @@ async def _sync_vehicles_after_auth(
                     "Auto-sync vehicles unauthorized and no credentials to refresh: %s",
                     exc,
                 )
-                raise BouncieVehicleSyncError("unauthorized") from exc
+                msg = "unauthorized"
+                raise BouncieVehicleSyncError(msg) from exc
 
             from setup.services.bouncie_oauth import BouncieOAuth
 
@@ -338,17 +340,20 @@ async def _sync_vehicles_after_auth(
                 force_refresh=True,
             )
             if not refreshed_token:
-                logger.error("Failed to refresh access token during vehicle sync")
-                raise BouncieVehicleSyncError("unauthorized") from exc
+                logger.exception("Failed to refresh access token during vehicle sync")
+                msg = "unauthorized"
+                raise BouncieVehicleSyncError(msg) from exc
 
             token = refreshed_token
             vehicles_data = await fetch_all_vehicles(session, token)
         except BouncieRateLimitError as exc:
-            logger.error("Bouncie API rate limited during vehicle sync: %s", exc)
-            raise BouncieVehicleSyncError("rate_limited") from exc
+            logger.exception("Bouncie API rate limited during vehicle sync: %s", exc)
+            msg = "rate_limited"
+            raise BouncieVehicleSyncError(msg) from exc
         except BouncieApiError as exc:
-            logger.error("Bouncie API error during vehicle sync: %s", exc)
-            raise BouncieVehicleSyncError("api_error") from exc
+            logger.exception("Bouncie API error during vehicle sync: %s", exc)
+            msg = "api_error"
+            raise BouncieVehicleSyncError(msg) from exc
 
         if not vehicles_data:
             logger.info("No vehicles found in Bouncie account")
@@ -373,7 +378,11 @@ async def _sync_vehicles_after_auth(
                 make = v.get("make")
                 year = v.get("year")
 
-            custom_name = v.get("nickName") or f"{year or ''} {make or ''} {model_name or ''}".strip() or f"Vehicle {imei}"
+            custom_name = (
+                v.get("nickName")
+                or f"{year or ''} {make or ''} {model_name or ''}".strip()
+                or f"Vehicle {imei}"
+            )
 
             existing_vehicle = await Vehicle.find_one({"imei": imei})
             if existing_vehicle:
@@ -412,7 +421,8 @@ async def _sync_vehicles_after_auth(
         raise
     except Exception:
         logger.exception("Error during automatic vehicle sync")
-        raise BouncieVehicleSyncError("unexpected_error")
+        msg = "unexpected_error"
+        raise BouncieVehicleSyncError(msg)
 
 
 @router.get("/status", response_model=dict[str, Any])
@@ -430,7 +440,10 @@ async def get_bouncie_auth_status() -> dict[str, Any]:
 
     return {
         "configured": has_client_id and has_client_secret and has_redirect_uri,
-        "connected": has_auth_code and has_client_id and has_client_secret and has_redirect_uri,
+        "connected": has_auth_code
+        and has_client_id
+        and has_client_secret
+        and has_redirect_uri,
         "has_token": has_access_token,
         "has_devices": has_devices,
         "device_count": len(credentials.get("authorized_devices", [])),
@@ -443,8 +456,8 @@ async def get_expected_redirect_uri(request: Request) -> dict[str, str]:
     """
     Return the expected redirect URI for this installation.
 
-    Users should copy this value to their Bouncie Developer Portal
-    when setting up the application redirect URIs.
+    Users should copy this value to their Bouncie Developer Portal when
+    setting up the application redirect URIs.
     """
     redirect_uri = _build_redirect_uri(request)
     return {

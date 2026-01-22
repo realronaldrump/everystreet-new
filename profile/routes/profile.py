@@ -203,13 +203,16 @@ async def sync_vehicles_from_bouncie():
                 )
             vehicles_data = await fetch_all_vehicles(session, token)
         except BouncieRateLimitError as exc:
-            logger.error("Bouncie API rate limited while fetching vehicles: %s", exc)
+            logger.exception(
+                "Bouncie API rate limited while fetching vehicles: %s",
+                exc,
+            )
             _raise_http(
                 status_code=503,
                 detail="Bouncie API rate limited. Please try again shortly.",
             )
         except BouncieApiError as exc:
-            logger.error("Failed to fetch vehicles from Bouncie: %s", exc)
+            logger.exception("Failed to fetch vehicles from Bouncie: %s", exc)
             _raise_http(
                 status_code=502,
                 detail=f"Failed to fetch vehicles from Bouncie: {exc}",

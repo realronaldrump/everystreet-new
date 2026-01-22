@@ -11,12 +11,12 @@ from fastapi import Request
 from fastapi.responses import RedirectResponse
 
 from setup.routes.bouncie import (
+    BOUNCIE_AUTH_BASE,
+    BouncieVehicleSyncError,
     _build_redirect_uri,
     _sync_vehicles_after_auth,
     bouncie_oauth_callback,
     initiate_bouncie_auth,
-    BOUNCIE_AUTH_BASE,
-    BouncieVehicleSyncError,
 )
 
 
@@ -46,12 +46,12 @@ def mock_request_with_proxy():
 class TestBuildRedirectUri:
     """Tests for _build_redirect_uri helper."""
 
-    def test_direct_request(self, mock_request):
+    def test_direct_request(self, mock_request) -> None:
         """Test redirect URI building for direct requests."""
         uri = _build_redirect_uri(mock_request)
         assert uri == "https://example.com/api/bouncie/callback"
 
-    def test_proxied_request(self, mock_request_with_proxy):
+    def test_proxied_request(self, mock_request_with_proxy) -> None:
         """Test redirect URI building for proxied requests."""
         uri = _build_redirect_uri(mock_request_with_proxy)
         assert uri == "https://myapp.example.com/api/bouncie/callback"
@@ -65,7 +65,7 @@ class TestBouncieAuthorize:
         self,
         monkeypatch: pytest.MonkeyPatch,
         mock_request,
-    ):
+    ) -> None:
         monkeypatch.setattr(
             "setup.routes.bouncie.get_bouncie_credentials",
             AsyncMock(
@@ -74,12 +74,15 @@ class TestBouncieAuthorize:
                     "client_secret": "secret",
                     "redirect_uri": "https://example.com/api/bouncie/callback",
                     "authorization_code": "",
-                }
+                },
             ),
         )
         update = AsyncMock(return_value=True)
         monkeypatch.setattr("setup.routes.bouncie.update_bouncie_credentials", update)
-        monkeypatch.setattr("setup.routes.bouncie._generate_oauth_state", lambda: "state123")
+        monkeypatch.setattr(
+            "setup.routes.bouncie._generate_oauth_state",
+            lambda: "state123",
+        )
 
         response = await initiate_bouncie_auth(mock_request)
 
@@ -99,7 +102,7 @@ class TestBouncieAuthorize:
         self,
         monkeypatch: pytest.MonkeyPatch,
         mock_request,
-    ):
+    ) -> None:
         monkeypatch.setattr(
             "setup.routes.bouncie.get_bouncie_credentials",
             AsyncMock(
@@ -109,7 +112,7 @@ class TestBouncieAuthorize:
                     "redirect_uri": "https://example.com/api/bouncie/callback",
                     "authorization_code": "auth_code",
                     "authorized_devices": ["imei-1"],
-                }
+                },
             ),
         )
         monkeypatch.setattr(
@@ -134,7 +137,7 @@ class TestBouncieOAuthCallback:
     """Tests for the OAuth callback handler."""
 
     @pytest.mark.asyncio
-    async def test_callback_with_error(self):
+    async def test_callback_with_error(self) -> None:
         """Test callback handling when OAuth returns an error."""
         response = await bouncie_oauth_callback(code=None, error="access_denied")
 
@@ -143,7 +146,7 @@ class TestBouncieOAuthCallback:
         assert "bouncie_error=access_denied" in response.headers["location"]
 
     @pytest.mark.asyncio
-    async def test_callback_missing_code(self):
+    async def test_callback_missing_code(self) -> None:
         """Test callback handling when code is missing."""
         response = await bouncie_oauth_callback(code=None, error=None)
 
@@ -152,7 +155,10 @@ class TestBouncieOAuthCallback:
         assert "bouncie_error=missing_code" in response.headers["location"]
 
     @pytest.mark.asyncio
-    async def test_callback_storage_failure(self, monkeypatch: pytest.MonkeyPatch):
+    async def test_callback_storage_failure(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
         """Test callback handling when credential storage fails."""
         monkeypatch.setattr(
             "setup.routes.bouncie.update_bouncie_credentials",
@@ -164,7 +170,7 @@ class TestBouncieOAuthCallback:
                 return_value={
                     "oauth_state": "state123",
                     "oauth_state_expires_at": time.time() + 300,
-                }
+                },
             ),
         )
 
@@ -180,8 +186,9 @@ class TestBouncieOAuthCallback:
 
     @pytest.mark.asyncio
     async def test_callback_token_exchange_failure(
-        self, monkeypatch: pytest.MonkeyPatch
-    ):
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
         """Test callback handling when token exchange fails."""
         monkeypatch.setattr(
             "setup.routes.bouncie.update_bouncie_credentials",
@@ -197,13 +204,14 @@ class TestBouncieOAuthCallback:
                     "authorization_code": "test_code",
                     "oauth_state": "state123",
                     "oauth_state_expires_at": time.time() + 300,
-                }
+                },
             ),
         )
 
         mock_session = AsyncMock()
         monkeypatch.setattr(
-            "core.http.session.get_session", AsyncMock(return_value=mock_session)
+            "core.http.session.get_session",
+            AsyncMock(return_value=mock_session),
         )
 
         # Mock BouncieOAuth to return None (failure)
@@ -222,7 +230,10 @@ class TestBouncieOAuthCallback:
         assert "bouncie_error=token_exchange_failed" in response.headers["location"]
 
     @pytest.mark.asyncio
-    async def test_callback_state_mismatch(self, monkeypatch: pytest.MonkeyPatch):
+    async def test_callback_state_mismatch(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
         """Test callback handling when state does not match."""
         monkeypatch.setattr(
             "setup.routes.bouncie.get_bouncie_credentials",
@@ -230,7 +241,7 @@ class TestBouncieOAuthCallback:
                 return_value={
                     "oauth_state": "state123",
                     "oauth_state_expires_at": time.time() + 300,
-                }
+                },
             ),
         )
 
@@ -245,7 +256,10 @@ class TestBouncieOAuthCallback:
         assert "bouncie_error=state_mismatch" in response.headers["location"]
 
     @pytest.mark.asyncio
-    async def test_callback_missing_state(self, monkeypatch: pytest.MonkeyPatch):
+    async def test_callback_missing_state(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
         """Test callback handling when state is missing."""
         monkeypatch.setattr(
             "setup.routes.bouncie.get_bouncie_credentials",
@@ -253,7 +267,7 @@ class TestBouncieOAuthCallback:
                 return_value={
                     "oauth_state": "state123",
                     "oauth_state_expires_at": time.time() + 300,
-                }
+                },
             ),
         )
 
@@ -268,7 +282,10 @@ class TestBouncieOAuthCallback:
         assert "bouncie_error=missing_state" in response.headers["location"]
 
     @pytest.mark.asyncio
-    async def test_callback_state_expired(self, monkeypatch: pytest.MonkeyPatch):
+    async def test_callback_state_expired(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
         """Test callback handling when state is expired."""
         monkeypatch.setattr(
             "setup.routes.bouncie.get_bouncie_credentials",
@@ -276,7 +293,7 @@ class TestBouncieOAuthCallback:
                 return_value={
                     "oauth_state": "state123",
                     "oauth_state_expires_at": time.time() - 10,
-                }
+                },
             ),
         )
 
@@ -292,8 +309,9 @@ class TestBouncieOAuthCallback:
 
     @pytest.mark.asyncio
     async def test_callback_success_with_vehicles(
-        self, monkeypatch: pytest.MonkeyPatch
-    ):
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
         """Test successful callback with automatic vehicle sync."""
         monkeypatch.setattr(
             "setup.routes.bouncie.update_bouncie_credentials",
@@ -309,13 +327,14 @@ class TestBouncieOAuthCallback:
                     "authorization_code": "test_code",
                     "oauth_state": "state123",
                     "oauth_state_expires_at": time.time() + 300,
-                }
+                },
             ),
         )
 
         mock_session = AsyncMock()
         monkeypatch.setattr(
-            "core.http.session.get_session", AsyncMock(return_value=mock_session)
+            "core.http.session.get_session",
+            AsyncMock(return_value=mock_session),
         )
 
         # Mock BouncieOAuth to return a token
@@ -349,7 +368,7 @@ class TestBouncieOAuthEndToEnd:
         self,
         monkeypatch: pytest.MonkeyPatch,
         mock_request,
-    ):
+    ) -> None:
         store = {
             "client_id": "client",
             "client_secret": "secret",
@@ -363,13 +382,19 @@ class TestBouncieOAuthEndToEnd:
         async def fake_get():
             return dict(store)
 
-        async def fake_update(update_data):
+        async def fake_update(update_data) -> bool:
             store.update(update_data)
             return True
 
         monkeypatch.setattr("setup.routes.bouncie.get_bouncie_credentials", fake_get)
-        monkeypatch.setattr("setup.routes.bouncie.update_bouncie_credentials", fake_update)
-        monkeypatch.setattr("setup.routes.bouncie._generate_oauth_state", lambda: "state123")
+        monkeypatch.setattr(
+            "setup.routes.bouncie.update_bouncie_credentials",
+            fake_update,
+        )
+        monkeypatch.setattr(
+            "setup.routes.bouncie._generate_oauth_state",
+            lambda: "state123",
+        )
         monkeypatch.setattr(
             "core.http.session.get_session",
             AsyncMock(return_value=AsyncMock()),
@@ -399,11 +424,12 @@ class TestBouncieOAuthEndToEnd:
         assert store["authorization_code"] == "test_code"
         assert store["oauth_state"] is None
 
+
 class TestSyncVehiclesAfterAuth:
     """Tests for the automatic vehicle sync."""
 
     @pytest.mark.asyncio
-    async def test_sync_no_vehicles(self, monkeypatch: pytest.MonkeyPatch):
+    async def test_sync_no_vehicles(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test sync when no vehicles are returned."""
         monkeypatch.setattr(
             "setup.routes.bouncie.fetch_all_vehicles",
@@ -416,7 +442,7 @@ class TestSyncVehiclesAfterAuth:
         assert count == 0
 
     @pytest.mark.asyncio
-    async def test_sync_api_error(self, monkeypatch: pytest.MonkeyPatch):
+    async def test_sync_api_error(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test sync when API returns an error."""
         from setup.services.bouncie_api import BouncieUnauthorizedError
 
@@ -430,7 +456,7 @@ class TestSyncVehiclesAfterAuth:
             await _sync_vehicles_after_auth(mock_session, "test_token")
 
     @pytest.mark.asyncio
-    async def test_sync_with_vehicles(self, monkeypatch: pytest.MonkeyPatch):
+    async def test_sync_with_vehicles(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test successful sync with vehicles."""
         vehicles = [
             {
@@ -475,7 +501,10 @@ class TestSyncVehiclesAfterAuth:
         assert count == 2
 
     @pytest.mark.asyncio
-    async def test_sync_exception_handling(self, monkeypatch: pytest.MonkeyPatch):
+    async def test_sync_exception_handling(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
         """Test that sync handles exceptions gracefully."""
         monkeypatch.setattr(
             "setup.routes.bouncie.fetch_all_vehicles",

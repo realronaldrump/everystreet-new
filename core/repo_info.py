@@ -4,8 +4,8 @@ import json
 import subprocess
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from zoneinfo import ZoneInfo
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 # Path to version file generated at build time
 VERSION_FILE = Path(__file__).parent.parent / "version.json"
@@ -84,10 +84,7 @@ def get_repo_version_info() -> RepoVersionInfo:
     commit_hash = _run_git_command(["rev-parse", "--short", "HEAD"]) or "Unknown"
     commit_iso = _run_git_command(["log", "-1", "--format=%cI"])
 
-    if commit_iso:
-        last_updated = _format_display_date(commit_iso)
-    else:
-        last_updated = "Unknown"
+    last_updated = _format_display_date(commit_iso) if commit_iso else "Unknown"
     return RepoVersionInfo(
         commit_count=commit_count,
         commit_hash=commit_hash,

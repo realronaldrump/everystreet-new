@@ -2,11 +2,11 @@ name: Build and Push Docker Image (GHCR)
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ['main']
     paths-ignore:
-      - "*.md"
-      - "docs/**"
-      - ".gitignore"
+      - '*.md'
+      - 'docs/**'
+      - '.gitignore'
   workflow_dispatch:
 
 permissions:
