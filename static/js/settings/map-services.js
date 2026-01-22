@@ -27,6 +27,11 @@ export function cleanupMapServicesTab() {
   }
 }
 
+export default {
+  initMapServicesTab,
+  cleanupMapServicesTab,
+};
+
 function bindEvents() {
   document
     .getElementById("map-coverage-change-btn")
@@ -205,7 +210,9 @@ function updateProgress() {
     messageEl.textContent = status?.message || "Select states to begin.";
   }
   const showProgress =
-    status?.status === "downloading" || status?.status === "building";
+    status?.status === "downloading" ||
+    status?.status === "building" ||
+    status?.status === "error";
   if (progressWrap) {
     progressWrap.classList.toggle("d-none", !showProgress);
   }

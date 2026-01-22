@@ -240,18 +240,20 @@ async def check_service_health(force_refresh: bool = False) -> GeoServiceHealth:
     return health
 
 
-def normalize_state_codes(states: list[str]) -> list[str]:
+def normalize_state_codes(states: list[str]) -> tuple[list[str], list[str]]:
     normalized: list[str] = []
+    invalid: list[str] = []
     seen = set()
     for state in states:
         code = str(state or "").strip().upper()
         if not code or code in seen:
             continue
         if not get_state(code):
+            invalid.append(code)
             continue
         normalized.append(code)
         seen.add(code)
-    return normalized
+    return normalized, invalid
 
 
 async def configure_map_services(
@@ -259,7 +261,9 @@ async def configure_map_services(
     *,
     force: bool = False,
 ) -> dict[str, Any]:
-    selected_states = normalize_state_codes(states)
+    selected_states, invalid = normalize_state_codes(states)
+    if invalid:
+        raise ValueError(f"Invalid state codes: {', '.join(invalid)}.")
     if not selected_states:
         raise ValueError("Select at least one state.")
 
@@ -353,6 +357,10 @@ async def get_map_services_status(force_refresh: bool = False) -> dict[str, Any]
             config.routing_ready = routing_ready
         config.last_updated = datetime.now(UTC)
         await config.save()
+    elif config.status == MapServiceConfig.STATUS_NOT_CONFIGURED and not config.message:
+        config.message = "Select states to begin."
+        config.last_updated = datetime.now(UTC)
+        await config.save()
 
     selected_names = _state_names_for_codes(config.selected_states)
     total_size = total_size_mb(config.selected_states)
@@ -396,4 +404,3 @@ async def get_map_services_status(force_refresh: bool = False) -> dict[str, Any]
         },
         "total_size_mb": total_size,
     }
-

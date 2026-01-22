@@ -202,7 +202,10 @@ async def _download_states(
             phase_progress=percent,
         )
 
-    async with httpx.AsyncClient(timeout=httpx.Timeout(120.0, connect=30.0)) as client:
+    async with httpx.AsyncClient(
+        timeout=httpx.Timeout(120.0, connect=30.0),
+        follow_redirects=True,
+    ) as client:
         for geofabrik_id, filename in download_plan:
             _check_cancel(progress)
             url = _state_download_url(geofabrik_id)

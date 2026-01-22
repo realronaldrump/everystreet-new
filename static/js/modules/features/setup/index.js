@@ -56,6 +56,7 @@ async function initializeSetup() {
     loadStateCatalog(),
     refreshMapServicesStatus(),
   ]);
+  handleBouncieRedirectParams();
   updateStepState();
   updateMapCoverageUI();
 }
@@ -374,6 +375,32 @@ function buildRedirectUri() {
   return `${window.location.origin}/api/bouncie/callback`;
 }
 
+function handleBouncieRedirectParams() {
+  const params = new URLSearchParams(window.location.search);
+  const error = params.get("bouncie_error");
+  const connected = params.get("bouncie_connected");
+  const synced = params.get("vehicles_synced");
+
+  if (error) {
+    showStatus("credentials-status", `Bouncie error: ${error}`, true);
+  } else if (connected) {
+    const count = synced ? ` (${synced} vehicles synced)` : "";
+    showStatus(
+      "credentials-status",
+      `Bouncie connected${count}.`,
+      false
+    );
+  }
+
+  if (error || connected) {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("bouncie_error");
+    url.searchParams.delete("bouncie_connected");
+    url.searchParams.delete("vehicles_synced");
+    window.history.replaceState({}, document.title, url.pathname);
+  }
+}
+
 function renderStateGrid() {
   const container = document.getElementById("state-selection");
   if (!container || !stateCatalog?.regions || !stateCatalog?.states) {
@@ -568,6 +595,14 @@ function updateMapCoverageUI() {
     startStatusPolling();
   } else {
     stopStatusPolling();
+  }
+
+  if (status?.status === "error") {
+    showStatus("coverage-status", status.message || "Setup failed.", true);
+  } else if (status?.status === "ready") {
+    showStatus("coverage-status", "Map coverage is ready.", false);
+  } else {
+    showStatus("coverage-status", "", false);
   }
 }
 

@@ -34,8 +34,6 @@ import { TaskManager } from "./task-manager/task-manager.js";
 
 let taskManager = null;
 const SETTINGS_MODAL_IDS = [
-  "addRegionModal",
-  "deleteRegionModal",
   "taskDetailsModal",
   "pauseModal",
   "clearHistoryModal",
