@@ -352,7 +352,7 @@ function registerNavigationGuard() {
           confirmButtonClass: "btn-danger",
         });
       }
-      return window.confirm("You have unsaved changes. Leave setup?");
+      return false; // Safe default
     }
     if (actionInFlight) {
       showNavigationBlockedNotice();
@@ -1189,7 +1189,7 @@ async function cancelRegionDownload() {
     return;
   }
   let confirmed = false;
-  if (confirmationDialog?.show) {
+  if (confirmationDialog) {
     confirmed = await confirmationDialog.show({
       title: "Cancel map download?",
       message:
@@ -1198,8 +1198,6 @@ async function cancelRegionDownload() {
       cancelText: "Keep downloading",
       confirmButtonClass: "btn-danger",
     });
-  } else {
-    confirmed = window.confirm("Cancel the map download and remove any partial files?");
   }
   if (!confirmed) {
     return;
@@ -1407,7 +1405,7 @@ function handleRegionSkip() {
     modal.show();
     return;
   }
-  if (confirmationDialog?.show) {
+  if (confirmationDialog) {
     confirmationDialog
       .show({
         title: "Skip map data setup?",
@@ -1422,10 +1420,6 @@ function handleRegionSkip() {
           handleStepNavigation("complete", { region_skipped: true });
         }
       });
-    return;
-  }
-  if (window.confirm("Skip map data setup? Map services will stay offline.")) {
-    handleStepNavigation("complete", { region_skipped: true });
   }
 }
 
