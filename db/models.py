@@ -32,7 +32,7 @@ from beanie.odm.fields import IndexModel
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from core.date_utils import parse_timestamp
-from map_data.models import GeoServiceHealth, MapDataJob, MapRegion
+from map_data.models import GeoServiceHealth, MapBuildProgress, MapServiceConfig
 from street_coverage.models import CoverageArea, CoverageState, Job, Street
 
 
@@ -739,7 +739,7 @@ ALL_DOCUMENT_MODELS = [
     Job,
     Street,
     # Map data management models
-    MapRegion,
-    MapDataJob,
+    MapServiceConfig,
+    MapBuildProgress,
     GeoServiceHealth,
 ]
