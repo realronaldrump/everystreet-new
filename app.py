@@ -139,7 +139,6 @@ app.include_router(visits_router)
 
 # Global Configuration and Constants (imported from config.py)
 
-
 # Database collections (for startup initialization)
 # Note: Raw collection initialization removed in favor of Beanie models
 
