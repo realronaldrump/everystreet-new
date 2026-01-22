@@ -81,8 +81,6 @@
   justify-content: flex-end;
 }
 
-
-
 .btn-close-white {
   /* Ensure close button is visible in dark mode */
   filter: invert(1) grayscale(100%) brightness(200%);

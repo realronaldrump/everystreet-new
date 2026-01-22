@@ -95,7 +95,8 @@
   /* Typography */
   --font-family: "Geist Sans", "Geist", system-ui, -apple-system, sans-serif;
   --font-family-display: "Geist Sans", "Geist", system-ui, -apple-system, sans-serif;
-  --font-family-mono: "Geist Mono", ui-monospace, sfmono-regular, menlo, monaco, consolas, monospace;
+  --font-family-mono:
+    "Geist Mono", ui-monospace, sfmono-regular, menlo, monaco, consolas, monospace;
   --font-size-xs: clamp(0.72rem, 0.68rem + 0.2vw, 0.82rem);
   --font-size-sm: clamp(0.84rem, 0.8rem + 0.2vw, 0.98rem);
   --font-size-md: clamp(0.98rem, 0.94rem + 0.25vw, 1.08rem);

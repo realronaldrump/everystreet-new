@@ -31,9 +31,11 @@ GEOFABRIK_CACHE_TTL = 3600  # 1 hour
 
 
 async def check_container_status(service_name: str) -> dict[str, Any]:
-    """Check if a docker compose service container is running.
+    """
+    Check if a docker compose service container is running.
 
-    Tries docker compose ps first, then falls back to docker ps if unavailable.
+    Tries docker compose ps first, then falls back to docker ps if
+    unavailable.
     """
     # Try docker compose ps with --format json first
     try:
@@ -75,14 +77,16 @@ async def check_container_status(service_name: str) -> dict[str, Any]:
 
                 if entry:
                     status_text = str(
-                        entry.get("Status") or entry.get("State") or "unknown"
+                        entry.get("Status") or entry.get("State") or "unknown",
                     )
                     state_text = status_text.lower()
                     running = "running" in state_text or state_text.startswith("up")
                     return {"running": running, "status": status_text}
     except Exception as exc:
         logger.debug(
-            "docker compose ps failed for %s: %s, trying fallback", service_name, exc
+            "docker compose ps failed for %s: %s, trying fallback",
+            service_name,
+            exc,
         )
 
     # Fallback: use docker ps with container name pattern

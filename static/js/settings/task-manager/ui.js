@@ -51,13 +51,17 @@ export function renderTaskConfigTable(config, intervalOptions = INTERVAL_OPTIONS
       // Update last run cell
       const lastRunCell = row.querySelector(".task-last-run");
       if (lastRunCell) {
-        lastRunCell.textContent = task.last_run ? formatDateTime(task.last_run) : "Never";
+        lastRunCell.textContent = task.last_run
+          ? formatDateTime(task.last_run)
+          : "Never";
       }
 
       // Update next run cell
       const nextRunCell = row.querySelector(".task-next-run");
       if (nextRunCell) {
-        nextRunCell.textContent = task.next_run ? formatDateTime(task.next_run) : "Not scheduled";
+        nextRunCell.textContent = task.next_run
+          ? formatDateTime(task.next_run)
+          : "Not scheduled";
       }
 
       // Update button states (but not form inputs!)

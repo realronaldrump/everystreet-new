@@ -146,7 +146,8 @@ async def parallel_download_region(
         httpx.HTTPError: If download fails
     """
     if cancel_event and cancel_event.is_set():
-        raise DownloadCancelled("Download cancelled")
+        msg = "Download cancelled"
+        raise DownloadCancelled(msg)
 
     if not region.source_url:
         mirror = get_geofabrik_mirror()
@@ -180,7 +181,7 @@ async def parallel_download_region(
 
         if not supports_ranges or total_size < MIN_PARALLEL_SIZE:
             logger.info(
-                "Server doesn't support ranges or file too small, using single stream"
+                "Server doesn't support ranges or file too small, using single stream",
             )
             return await stream_download_region(
                 region,
@@ -228,11 +229,12 @@ async def parallel_download_region(
         progress.start_time = asyncio.get_event_loop().time()
 
         if cancel_event and cancel_event.is_set():
-            raise DownloadCancelled("Download cancelled")
+            msg = "Download cancelled"
+            raise DownloadCancelled(msg)
 
         # Start progress reporter task
         progress_task = asyncio.create_task(
-            _report_progress(progress, progress_callback)
+            _report_progress(progress, progress_callback),
         )
 
         # Download all segments in parallel
@@ -246,7 +248,7 @@ async def parallel_download_region(
                         cancel_event=cancel_event,
                     )
                     for segment in progress.segments
-                ]
+                ],
             )
         finally:
             progress_task.cancel()
@@ -254,17 +256,20 @@ async def parallel_download_region(
                 await progress_task
 
         if cancel_event and cancel_event.is_set():
-            raise DownloadCancelled("Download cancelled")
+            msg = "Download cancelled"
+            raise DownloadCancelled(msg)
 
         # Check for segment errors
         failed_segments = [s for s in progress.segments if s.error]
         if failed_segments:
             errors = "; ".join(f"Segment {s.index}: {s.error}" for s in failed_segments)
-            raise RuntimeError(f"Download failed: {errors}")
+            msg = f"Download failed: {errors}"
+            raise RuntimeError(msg)
 
         # Merge segments into final file
         if cancel_event and cancel_event.is_set():
-            raise DownloadCancelled("Download cancelled")
+            msg = "Download cancelled"
+            raise DownloadCancelled(msg)
 
         if progress_callback:
             await _safe_callback(progress_callback, 99, "Merging segments...")
@@ -340,7 +345,8 @@ async def _download_segment(
 ) -> None:
     """Download a single segment using range request."""
     if cancel_event and cancel_event.is_set():
-        raise DownloadCancelled("Download cancelled")
+        msg = "Download cancelled"
+        raise DownloadCancelled(msg)
     headers = {"Range": f"bytes={segment.start_byte}-{segment.end_byte}"}
 
     # Check for existing partial download
@@ -353,7 +359,7 @@ async def _download_segment(
             segment.complete = True
             logger.debug("Segment %d already complete", segment.index)
             return
-        elif existing_size > 0:
+        if existing_size > 0:
             # Resume from where we left off
             segment.start_byte += existing_size
             segment.downloaded = existing_size
@@ -387,7 +393,8 @@ async def _download_segment(
                 with open(segment.temp_path, mode) as f:
                     async for chunk in response.aiter_bytes(chunk_size=CHUNK_SIZE):
                         if cancel_event and cancel_event.is_set():
-                            raise DownloadCancelled("Download cancelled")
+                            msg = "Download cancelled"
+                            raise DownloadCancelled(msg)
                         f.write(chunk)
                         segment.downloaded += len(chunk)
 
@@ -474,7 +481,8 @@ async def stream_download_region(
         httpx.HTTPError: If download fails
     """
     if cancel_event and cancel_event.is_set():
-        raise DownloadCancelled("Download cancelled")
+        msg = "Download cancelled"
+        raise DownloadCancelled(msg)
 
     if not region.source_url:
         mirror = get_geofabrik_mirror()
@@ -525,7 +533,8 @@ async def stream_download_region(
                 with open(temp_path, "wb") as f:
                     async for chunk in response.aiter_bytes(chunk_size=CHUNK_SIZE):
                         if cancel_event and cancel_event.is_set():
-                            raise DownloadCancelled("Download cancelled")
+                            msg = "Download cancelled"
+                            raise DownloadCancelled(msg)
                         f.write(chunk)
                         downloaded += len(chunk)
 

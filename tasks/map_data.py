@@ -35,7 +35,7 @@ async def _wait_for_cancel(cancel_event: asyncio.Event, delay: float) -> bool:
     try:
         await asyncio.wait_for(cancel_event.wait(), timeout=delay)
         return True
-    except asyncio.TimeoutError:
+    except TimeoutError:
         return False
 
 
@@ -92,7 +92,8 @@ async def download_region_task(ctx: dict, job_id: str) -> dict:
     try:
         while True:
             if cancel_event.is_set():
-                raise DownloadCancelled("Download cancelled")
+                msg = "Download cancelled"
+                raise DownloadCancelled(msg)
 
             try:
                 # Update job status to running
@@ -187,7 +188,8 @@ async def download_region_task(ctx: dict, job_id: str) -> dict:
                     await region.save()
 
                     if await _wait_for_cancel(cancel_event, delay):
-                        raise DownloadCancelled("Download cancelled")
+                        msg = "Download cancelled"
+                        raise DownloadCancelled(msg)
                     continue
 
                 logger.exception("Download failed for job %s", job_id)

@@ -188,7 +188,7 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     ports:
-      - "8090:8080"
+      - '8090:8080'
     networks:
       - default
 

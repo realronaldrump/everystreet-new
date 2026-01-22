@@ -233,7 +233,6 @@ function applySessionState(payload) {
   _sessionOwner = Boolean(payload.client?.is_owner);
   sessionReadOnly = Boolean(payload.client && !payload.client.is_owner);
 
-
   setupState.bouncie = Boolean(setupStatus?.steps?.bouncie?.complete);
   setupState.mapbox = Boolean(setupStatus?.steps?.mapbox?.complete);
   setupState.region = Boolean(setupStatus?.steps?.region?.complete);
@@ -1200,9 +1199,7 @@ async function cancelRegionDownload() {
       confirmButtonClass: "btn-danger",
     });
   } else {
-    confirmed = window.confirm(
-      "Cancel the map download and remove any partial files?"
-    );
+    confirmed = window.confirm("Cancel the map download and remove any partial files?");
   }
   if (!confirmed) {
     return;

@@ -107,15 +107,27 @@ function updateHealthCard(service, health) {
   const versionSpan = document.getElementById(`${service}-version`);
   const tileCountSpan = document.getElementById(`${service}-tile-count`);
 
-  if (health.healthy) {
+  if (!badge) {
+    return;
+  }
+
+  const hasHealth = health && typeof health === "object";
+  const errorMessage
+    = hasHealth && typeof health.error === "string" ? health.error : "";
+
+  if (!hasHealth) {
+    badge.className = "badge bg-secondary";
+    badge.textContent = "Unknown";
+    errorDiv?.classList.add("d-none");
+  } else if (health.healthy) {
     badge.className = "badge bg-success";
     badge.textContent = "Healthy";
     errorDiv?.classList.add("d-none");
   } else {
     // Check if this is a "not running" state vs a real error
     const isSetupRequired
-      = health.error?.includes("not running") || health.error?.includes("Add a region");
-    const isStartingUp = health.error?.includes("starting up");
+      = errorMessage.includes("not running") || errorMessage.includes("Add a region");
+    const isStartingUp = errorMessage.includes("starting up");
 
     if (isSetupRequired) {
       badge.className = "badge bg-warning text-dark";
@@ -128,27 +140,29 @@ function updateHealthCard(service, health) {
       badge.textContent = "Unhealthy";
     }
 
-    if (errorDiv && health.error) {
-      errorDiv.textContent = health.error;
+    if (errorDiv && errorMessage) {
+      errorDiv.textContent = errorMessage;
       errorDiv.classList.remove("d-none");
+    } else if (errorDiv) {
+      errorDiv.classList.add("d-none");
     }
   }
 
   if (responseTime) {
-    responseTime.textContent = health.response_time_ms
+    responseTime.textContent = Number.isFinite(health?.response_time_ms)
       ? `${health.response_time_ms.toFixed(0)}ms`
       : "--";
   }
 
-  if (lastCheck && health.last_check) {
+  if (lastCheck && health?.last_check) {
     lastCheck.textContent = formatRelativeTime(health.last_check);
   }
 
-  if (versionSpan && health.version) {
+  if (versionSpan && health?.version) {
     versionSpan.textContent = health.version;
   }
 
-  if (tileCountSpan && health.tile_count !== undefined) {
+  if (tileCountSpan && health?.tile_count !== undefined) {
     tileCountSpan.textContent
       = health.tile_count !== null ? health.tile_count.toLocaleString() : "--";
   }
@@ -307,9 +321,7 @@ function renderRegionActions(region) {
     || region.status === "error"
   ) {
     if (region.nominatim_status !== "ready") {
-      const nominatimTitle = isBusy
-        ? busyTitle
-        : "Build Nominatim (geocoding index)";
+      const nominatimTitle = isBusy ? busyTitle : "Build Nominatim (geocoding index)";
       const nominatimClick = isBusy
         ? ""
         : `onclick="window.mapServices.buildNominatim('${region.id}')"`;
