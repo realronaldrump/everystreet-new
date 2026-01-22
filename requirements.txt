@@ -5,7 +5,7 @@ certifi
 fastapi
 geopandas
 gpxpy
-httpx
+httpx[http2]
 arq
 motor
 numpy
