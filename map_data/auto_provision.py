@@ -129,7 +129,7 @@ async def detect_trip_states() -> dict[str, Any]:
         {"$project": {"gps": 1}},
     ]
 
-    for trip_doc in await Trip.aggregate(pipeline).to_list(None):
+    async for trip_doc in Trip.aggregate(pipeline):
         gps = trip_doc.get("gps")
         if not gps or "coordinates" not in gps:
             continue
@@ -167,7 +167,7 @@ async def detect_trip_states() -> dict[str, Any]:
         {"$project": {"destinationGeoPoint": 1}},
     ]
 
-    for trip_doc in await Trip.aggregate(dest_pipeline).to_list(None):
+    async for trip_doc in Trip.aggregate(dest_pipeline):
         dest = trip_doc.get("destinationGeoPoint")
         if dest and "coordinates" in dest:
             coords = dest["coordinates"]
