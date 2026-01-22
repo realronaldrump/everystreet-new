@@ -119,6 +119,7 @@ async def fetch_all_vehicles(
 ) -> list[dict[str, Any]]:
     """Fetch all vehicles, handling pagination and rate limiting."""
     all_vehicles: list[dict[str, Any]] = []
+    limit = max(1, limit)
     skip = 0
 
     while True:
