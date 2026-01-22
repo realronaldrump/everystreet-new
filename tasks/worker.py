@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import ClassVar
 
-from arq import cron
+from arq import cron, func
 
 from core.http.session import cleanup_session
 from db import db_manager
@@ -29,6 +29,8 @@ from tasks.fetch import (
 from tasks.health import worker_heartbeat
 from tasks.maintenance import cleanup_stale_trips, remap_unmatched_trips, validate_trips
 from tasks.map_data import (
+    BUILD_JOB_TIMEOUT_SECONDS,
+    DOWNLOAD_JOB_TIMEOUT_SECONDS,
     build_nominatim_task,
     build_valhalla_task,
     download_region_task,
@@ -81,9 +83,9 @@ class WorkerSettings:
         generate_optimal_route,
         worker_heartbeat,
         # Map data management tasks
-        download_region_task,
-        build_nominatim_task,
-        build_valhalla_task,
+        func(download_region_task, timeout=DOWNLOAD_JOB_TIMEOUT_SECONDS),
+        func(build_nominatim_task, timeout=BUILD_JOB_TIMEOUT_SECONDS),
+        func(build_valhalla_task, timeout=BUILD_JOB_TIMEOUT_SECONDS),
         monitor_map_data_jobs,
     ]
     cron_jobs: ClassVar[list[object]] = [

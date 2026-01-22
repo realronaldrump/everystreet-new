@@ -542,11 +542,7 @@ async def enqueue_download_task(job_id: str, build_after: bool = False) -> None:
     from tasks.arq import get_arq_pool
 
     pool = await get_arq_pool()
-    arq_job = await pool.enqueue_job(
-        "download_region_task",
-        job_id,
-        _job_timeout=DOWNLOAD_JOB_TIMEOUT_SECONDS,
-    )
+    arq_job = await pool.enqueue_job("download_region_task", job_id)
     arq_job_id = (
         getattr(arq_job, "job_id", None) or getattr(arq_job, "id", None) or str(arq_job)
     )
@@ -569,11 +565,7 @@ async def enqueue_nominatim_build_task(job_id: str) -> None:
     from tasks.arq import get_arq_pool
 
     pool = await get_arq_pool()
-    arq_job = await pool.enqueue_job(
-        "build_nominatim_task",
-        job_id,
-        _job_timeout=BUILD_JOB_TIMEOUT_SECONDS,
-    )
+    arq_job = await pool.enqueue_job("build_nominatim_task", job_id)
     arq_job_id = (
         getattr(arq_job, "job_id", None) or getattr(arq_job, "id", None) or str(arq_job)
     )
@@ -592,11 +584,7 @@ async def enqueue_valhalla_build_task(job_id: str) -> None:
     from tasks.arq import get_arq_pool
 
     pool = await get_arq_pool()
-    arq_job = await pool.enqueue_job(
-        "build_valhalla_task",
-        job_id,
-        _job_timeout=BUILD_JOB_TIMEOUT_SECONDS,
-    )
+    arq_job = await pool.enqueue_job("build_valhalla_task", job_id)
     arq_job_id = (
         getattr(arq_job, "job_id", None) or getattr(arq_job, "id", None) or str(arq_job)
     )
