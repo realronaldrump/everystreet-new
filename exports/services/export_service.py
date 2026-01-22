@@ -84,6 +84,8 @@ class ExportService:
         include_geometry = item.include_geometry
         if include_geometry is None:
             include_geometry = fmt != "csv"
+        if fmt == "gpx":
+            include_geometry = True
 
         return {
             "entity": item.entity,
