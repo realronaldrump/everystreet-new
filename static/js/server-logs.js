@@ -912,16 +912,9 @@ onPageLoad(
           }
         });
 
-        rawDockerLogs = logGroups;
-        applyDockerFilters({ selectedContainers });
-
-        if (selectedContainers.length === 1) {
-          updateContainerStatus(selectedContainers[0]);
-        } else if (containerStatusCard) {
-          containerStatusCard.style.display = "none";
-        }
-
         if (logGroups.length === 0) {
+          rawDockerLogs = [];
+          currentDockerLogs = [];
           dockerLogsContainer.innerHTML = `
             <div class="text-center py-5 text-danger">
               <i class="fas fa-exclamation-triangle fa-3x mb-3"></i>
@@ -931,7 +924,19 @@ onPageLoad(
           if (dockerLogsInfo) {
             dockerLogsInfo.textContent = "No logs loaded";
           }
+          if (containerStatusCard) {
+            containerStatusCard.style.display = "none";
+          }
           return;
+        }
+
+        rawDockerLogs = logGroups;
+        applyDockerFilters({ selectedContainers });
+
+        if (selectedContainers.length === 1) {
+          updateContainerStatus(selectedContainers[0]);
+        } else if (containerStatusCard) {
+          containerStatusCard.style.display = "none";
         }
 
         if (failedContainers.length > 0) {
