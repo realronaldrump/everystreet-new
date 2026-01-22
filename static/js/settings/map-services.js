@@ -18,6 +18,9 @@ let currentRegionPath = [];
 let healthCheckInterval = null;
 let jobPollInterval = null;
 let deleteRegionId = null;
+let activeJobsByRegion = new Map();
+let regionsById = new Map();
+let regionsByName = new Map();
 
 // =============================================================================
 // Initialization
@@ -177,6 +180,14 @@ async function loadRegions() {
   try {
     const response = await apiClient.raw(`${API_BASE}/regions`);
     const data = await response.json();
+    const regions = Array.isArray(data.regions) ? data.regions : [];
+
+    regionsById = new Map();
+    regionsByName = new Map();
+    regions.forEach((region) => {
+      regionsById.set(region.id, region);
+      regionsByName.set(region.name, region);
+    });
 
     // Remove loading row
     const loadingRow = document.getElementById("regions-loading-row");
@@ -184,7 +195,7 @@ async function loadRegions() {
       loadingRow.remove();
     }
 
-    if (!data.regions || data.regions.length === 0) {
+    if (regions.length === 0) {
       tbody.innerHTML = `
         <tr id="no-regions-row">
           <td colspan="6" class="text-center text-muted py-4">
@@ -192,6 +203,7 @@ async function loadRegions() {
           </td>
         </tr>
       `;
+      updateSelectedRegionUI();
       return;
     }
 
@@ -201,7 +213,7 @@ async function loadRegions() {
       noRegionsRow.remove();
     }
 
-    tbody.innerHTML = data.regions
+    tbody.innerHTML = regions
       .map(
         (region) => `
       <tr data-region-id="${region.id}">
@@ -214,7 +226,7 @@ async function loadRegions() {
         <td>${renderStatusBadge(region.nominatim_status)}</td>
         <td>${renderStatusBadge(region.valhalla_status)}</td>
         <td>
-          <div class="btn-group btn-group-sm">
+          <div class="d-flex flex-wrap gap-1">
             ${renderRegionActions(region)}
           </div>
         </td>
@@ -222,6 +234,7 @@ async function loadRegions() {
     `
       )
       .join("");
+    updateSelectedRegionUI();
   } catch (error) {
     console.error("Failed to load regions:", error);
     const loadingRow = document.getElementById("regions-loading-row");
@@ -264,8 +277,27 @@ function renderStatusBadge(status) {
   return `<span class="badge bg-${config.class}"><i class="fas fa-${config.icon} me-1"></i>${config.text}</span>`;
 }
 
+function isRegionBusy(region) {
+  if (!region) {
+    return false;
+  }
+  if (activeJobsByRegion.has(region.id)) {
+    return true;
+  }
+  return (
+    region.status === "downloading"
+    || region.status === "building_nominatim"
+    || region.status === "building_valhalla"
+    || region.nominatim_status === "building"
+    || region.valhalla_status === "building"
+  );
+}
+
 function renderRegionActions(region) {
   const actions = [];
+  const isBusy = isRegionBusy(region);
+  const busyAttr = isBusy ? 'disabled aria-disabled="true"' : "";
+  const busyTitle = "Action disabled while a job is running.";
 
   // Build actions for downloaded regions
   if (
@@ -274,25 +306,42 @@ function renderRegionActions(region) {
     || region.status === "error"
   ) {
     if (region.nominatim_status !== "ready") {
+      const nominatimTitle = isBusy
+        ? busyTitle
+        : "Build Nominatim (geocoding index)";
+      const nominatimClick = isBusy
+        ? ""
+        : `onclick="window.mapServices.buildNominatim('${region.id}')"`;
       actions.push(`
-        <button class="btn btn-outline-info" onclick="window.mapServices.buildNominatim('${region.id}')" title="Build Nominatim">
+        <button class="btn btn-outline-info btn-sm" ${busyAttr} ${nominatimClick} title="${nominatimTitle}">
           <i class="fas fa-search-location"></i>
+          <span class="ms-1">Build Nominatim</span>
         </button>
       `);
     }
     if (region.valhalla_status !== "ready") {
+      const valhallaTitle = isBusy ? busyTitle : "Build Valhalla (routing tiles)";
+      const valhallaClick = isBusy
+        ? ""
+        : `onclick="window.mapServices.buildValhalla('${region.id}')"`;
       actions.push(`
-        <button class="btn btn-outline-warning" onclick="window.mapServices.buildValhalla('${region.id}')" title="Build Valhalla">
+        <button class="btn btn-outline-warning btn-sm" ${busyAttr} ${valhallaClick} title="${valhallaTitle}">
           <i class="fas fa-route"></i>
+          <span class="ms-1">Build Valhalla</span>
         </button>
       `);
     }
   }
 
   // Delete action (always available)
+  const deleteTitle = isBusy ? busyTitle : "Delete region and data";
+  const deleteClick = isBusy
+    ? ""
+    : `onclick="window.mapServices.deleteRegion('${region.id}', '${escapeHtml(region.display_name)}')"`;
   actions.push(`
-    <button class="btn btn-outline-danger" onclick="window.mapServices.deleteRegion('${region.id}', '${escapeHtml(region.display_name)}')" title="Delete">
+    <button class="btn btn-outline-danger btn-sm" ${busyAttr} ${deleteClick} title="${deleteTitle}">
       <i class="fas fa-trash"></i>
+      <span class="ms-1">Delete</span>
     </button>
   `);
 
@@ -478,10 +527,40 @@ function updateSelectedRegionUI() {
   const nameSpan = document.getElementById("selected-region-name");
   const sizeSpan = document.getElementById("selected-region-size");
   const idSpan = document.getElementById("selected-region-id");
+  const warning = document.getElementById("selected-region-warning");
 
   if (selectedRegion) {
     infoDiv?.classList.remove("d-none");
-    downloadBtn.disabled = false;
+    let disableDownload = false;
+    let warningMessage = "";
+    const existingRegion = regionsByName.get(selectedRegion.id);
+
+    if (existingRegion) {
+      if (isRegionBusy(existingRegion)) {
+        disableDownload = true;
+        warningMessage
+          = "This region already has a job running. Wait for it to finish before starting another download.";
+      } else if (existingRegion.status === "error") {
+        warningMessage
+          = "Previous download or build failed. Starting again will retry the download and build.";
+      } else {
+        warningMessage
+          = "This region is already configured. Starting again will replace existing data and rebuild services.";
+      }
+    }
+
+    if (downloadBtn) {
+      downloadBtn.disabled = disableDownload;
+    }
+    if (warning) {
+      if (warningMessage) {
+        warning.textContent = warningMessage;
+        warning.classList.remove("d-none");
+      } else {
+        warning.textContent = "";
+        warning.classList.add("d-none");
+      }
+    }
     if (nameSpan) {
       nameSpan.textContent = selectedRegion.name;
     }
@@ -495,7 +574,13 @@ function updateSelectedRegionUI() {
     }
   } else {
     infoDiv?.classList.add("d-none");
-    downloadBtn.disabled = true;
+    if (downloadBtn) {
+      downloadBtn.disabled = true;
+    }
+    if (warning) {
+      warning.textContent = "";
+      warning.classList.add("d-none");
+    }
   }
 }
 
@@ -506,6 +591,23 @@ function updateSelectedRegionUI() {
 async function downloadSelectedRegion() {
   if (!selectedRegion) {
     return;
+  }
+
+  const existingRegion = regionsByName.get(selectedRegion.id);
+  if (existingRegion && isRegionBusy(existingRegion)) {
+    notificationManager.show(
+      "That region already has a job running. Wait for it to finish before starting another download.",
+      "warning"
+    );
+    return;
+  }
+  if (existingRegion) {
+    const confirmed = window.confirm(
+      "This region is already configured. Starting again will replace existing data and rebuild services. Continue?"
+    );
+    if (!confirmed) {
+      return;
+    }
   }
 
   const btn = document.getElementById("download-region-btn");
@@ -534,7 +636,8 @@ async function downloadSelectedRegion() {
 
       notificationManager.show(
         `Download & build started for ${selectedRegion.name}. `
-          + "This will download OSM data, then build Nominatim and Valhalla automatically.",
+          + "This will download OSM data, then build Nominatim and Valhalla automatically. "
+          + "It continues in the background while Everystreet is running.",
         "success"
       );
 
