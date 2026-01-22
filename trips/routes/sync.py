@@ -5,16 +5,13 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from typing import TYPE_CHECKING
 
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 
 from core.api import api_route
+from trips.models import TripSyncConfigUpdate, TripSyncRequest
 from trips.services.trip_sync_service import TripSyncService
-
-if TYPE_CHECKING:
-    from trips.models import TripSyncConfigUpdate, TripSyncRequest
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
