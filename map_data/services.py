@@ -29,60 +29,68 @@ async def check_container_status(service_name: str) -> dict[str, Any]:
     """
     Check if a docker compose service container is running.
 
-    Tries docker compose ps first, then falls back to docker ps if
-    unavailable.
+    Tries Docker Compose v2 (docker compose) first, then falls back to
+    Docker Compose v1 (docker-compose) if unavailable, then finally
+    falls back to docker ps if both fail.
     """
-    try:
-        result = subprocess.run(
-            [
-                "docker",
-                "compose",
-                "ps",
-                "--format",
-                "json",
+    # Try Docker Compose v2 (plugin) and v1 (standalone) in order
+    compose_commands = [
+        ["docker", "compose", "ps", "--format", "json", service_name],
+        ["docker-compose", "ps", "--format", "json", service_name],
+    ]
+
+    for cmd in compose_commands:
+        try:
+            result = subprocess.run(
+                cmd,
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+
+            if result.returncode == 0:
+                output = (result.stdout or "").strip()
+                if output:
+                    entry: dict[str, Any] | None = None
+                    try:
+                        parsed = json.loads(output)
+                        if isinstance(parsed, list):
+                            entry = parsed[0] if parsed else None
+                        elif isinstance(parsed, dict):
+                            entry = parsed
+                    except json.JSONDecodeError:
+                        for line in output.splitlines():
+                            line = line.strip()
+                            if not line:
+                                continue
+                            try:
+                                entry = json.loads(line)
+                                break
+                            except json.JSONDecodeError:
+                                continue
+
+                    if entry:
+                        status_text = str(
+                            entry.get("Status") or entry.get("State") or "unknown",
+                        )
+                        state_text = status_text.lower()
+                        running = "running" in state_text or state_text.startswith("up")
+                        return {"running": running, "status": status_text}
+        except FileNotFoundError:
+            # Command not found (e.g., docker-compose not installed)
+            logger.debug("Command %s not found, trying next", cmd[0])
+            continue
+        except Exception as exc:
+            logger.debug(
+                "Command %s failed for %s: %s, trying next",
+                cmd[0:2],
                 service_name,
-            ],
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=10,
-        )
+                exc,
+            )
+            continue
 
-        if result.returncode == 0:
-            output = (result.stdout or "").strip()
-            if output:
-                entry: dict[str, Any] | None = None
-                try:
-                    parsed = json.loads(output)
-                    if isinstance(parsed, list):
-                        entry = parsed[0] if parsed else None
-                    elif isinstance(parsed, dict):
-                        entry = parsed
-                except json.JSONDecodeError:
-                    for line in output.splitlines():
-                        line = line.strip()
-                        if not line:
-                            continue
-                        try:
-                            entry = json.loads(line)
-                            break
-                        except json.JSONDecodeError:
-                            continue
-
-                if entry:
-                    status_text = str(
-                        entry.get("Status") or entry.get("State") or "unknown",
-                    )
-                    state_text = status_text.lower()
-                    running = "running" in state_text or state_text.startswith("up")
-                    return {"running": running, "status": status_text}
-    except Exception as exc:
-        logger.debug(
-            "docker compose ps failed for %s: %s, trying fallback",
-            service_name,
-            exc,
-        )
-
+    # Fall back to docker ps as last resort
     try:
         result = subprocess.run(
             [

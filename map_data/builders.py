@@ -36,6 +36,8 @@ async def start_container_on_demand(
     Even with restart policies, containers may be stopped between imports, so we
     explicitly start them when needed.
 
+    Supports both Docker Compose v2 (docker compose) and v1 (docker-compose).
+
     Args:
         service_name: The service name from docker-compose.yml
         compose_file: Path to docker-compose.yml
@@ -53,53 +55,68 @@ async def start_container_on_demand(
 
     logger.info("Starting container %s on demand...", service_name)
 
-    try:
-        # Use docker compose up -d to start just this service
-        process = await asyncio.create_subprocess_exec(
-            "docker",
-            "compose",
-            "-f",
-            compose_file,
-            "up",
-            "-d",
-            service_name,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
+    # Try modern docker compose first, then fall back to legacy docker-compose
+    compose_commands = [
+        # Docker Compose v2 (plugin): docker compose
+        ["docker", "compose", "-f", compose_file, "up", "-d", service_name],
+        # Docker Compose v1 (standalone): docker-compose
+        ["docker-compose", "-f", compose_file, "up", "-d", service_name],
+    ]
 
-        _, stderr = await process.communicate()
+    last_error = None
+    for cmd in compose_commands:
+        try:
+            process = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
 
-        if process.returncode != 0:
+            _, stderr = await process.communicate()
+
+            if process.returncode == 0:
+                # Command succeeded, wait for container to be running
+                logger.info("Waiting for container %s to become ready...", service_name)
+                start_time = asyncio.get_event_loop().time()
+
+                while (
+                    asyncio.get_event_loop().time() - start_time
+                ) < CONTAINER_START_TIMEOUT:
+                    if await check_container_running(service_name):
+                        logger.info("Container %s is now running", service_name)
+                        # Give the service a moment to initialize
+                        await asyncio.sleep(5)
+                        return True
+                    await asyncio.sleep(2)
+
+                # Timeout - container didn't start
+                logger.error("Container %s did not start within timeout", service_name)
+                msg = (
+                    f"Container {service_name} did not start within "
+                    f"{CONTAINER_START_TIMEOUT}s"
+                )
+                raise RuntimeError(msg)
+
+            # Command failed, save error and try next
             error_msg = stderr.decode() if stderr else "Unknown error"
-            logger.error("Failed to start container %s: %s", service_name, error_msg)
-            msg = f"Failed to start {service_name}: {error_msg}"
-            raise RuntimeError(msg)
+            last_error = error_msg
+            logger.debug(
+                "Command %s failed for %s: %s, trying next",
+                cmd[0:2],
+                service_name,
+                error_msg,
+            )
+        except FileNotFoundError:
+            # docker-compose binary not found, try next command
+            logger.debug("Command %s not found, trying next", cmd[0])
+            continue
+        except RuntimeError:
+            raise
 
-        # Wait for container to be running
-        logger.info("Waiting for container %s to become ready...", service_name)
-        start_time = asyncio.get_event_loop().time()
-
-        while (asyncio.get_event_loop().time() - start_time) < CONTAINER_START_TIMEOUT:
-            if await check_container_running(service_name):
-                logger.info("Container %s is now running", service_name)
-                # Give the service a moment to initialize
-                await asyncio.sleep(5)
-                return True
-            await asyncio.sleep(2)
-
-        # Timeout - container didn't start
-        logger.error("Container %s did not start within timeout", service_name)
-        msg = (
-            f"Container {service_name} did not start within {CONTAINER_START_TIMEOUT}s"
-        )
-        raise RuntimeError(msg)
-
-    except RuntimeError:
-        raise
-    except Exception as e:
-        logger.exception("Error starting container %s", service_name)
-        msg = f"Error starting {service_name}: {e}"
-        raise RuntimeError(msg) from e
+    # All commands failed
+    logger.error("Failed to start container %s: %s", service_name, last_error)
+    msg = f"Failed to start {service_name}: {last_error}"
+    raise RuntimeError(msg)
 
 
 async def build_nominatim_data(
