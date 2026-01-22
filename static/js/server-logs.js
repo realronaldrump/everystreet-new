@@ -978,40 +978,83 @@ onPageLoad(
     /**
      * Display Docker logs in the container
      */
-    function renderDockerLogLine(line) {
-      // Try to parse timestamp and message
-      let timestamp = "";
-      let message = line;
-
-      // Docker timestamps look like: 2024-01-22T16:00:00.000000000Z
-      const timestampMatch = line.match(/^(\d{4}-\d{2}-\d{2}T[\d:.]+Z?)\s+(.*)$/);
-      if (timestampMatch) {
-        try {
-          const date = new Date(timestampMatch[1]);
-          timestamp = date.toLocaleString("en-US", { hour12: true });
-          message = timestampMatch[2];
-        } catch {
-          // Keep original line
-        }
-      }
-
-      // Determine log level for styling
-      let levelClass = "";
-      const lowerMessage = message.toLowerCase();
-      if (lowerMessage.includes("error") || lowerMessage.includes("exception")) {
-        levelClass = "log-ERROR";
-      } else if (lowerMessage.includes("warn")) {
-        levelClass = "log-WARNING";
-      } else if (lowerMessage.includes("debug")) {
-        levelClass = "log-DEBUG";
-      }
+    function renderDockerLogLine(line, containerName) {
+      const parsedLine = parseDockerLogLine(line);
+      const level = parsedLine.level || "INFO";
+      const logData = JSON.stringify({
+        timestamp: parsedLine.timestamp,
+        level,
+        container: containerName,
+        message: parsedLine.message,
+      });
+      const loggerLabel = containerName ? `[${containerName}]` : "";
 
       return `
-        <div class="log-entry ${levelClass}">
-          ${timestamp ? `<span class="log-timestamp">${escapeHtml(timestamp)}</span>` : ""}
-          <span class="log-message">${escapeHtml(message)}</span>
+        <div class="log-entry log-${level}" data-docker-log='${escapeHtml(logData)}'>
+          <div class="d-flex justify-content-between align-items-start">
+            <div class="flex-grow-1">
+              <div>
+                ${parsedLine.timestamp ? `<span class="log-timestamp">${escapeHtml(parsedLine.timestamp)}</span>` : ""}
+                <span class="log-level ${level}">${level}</span>
+                ${loggerLabel ? `<span class="log-logger ms-2">${escapeHtml(loggerLabel)}</span>` : ""}
+              </div>
+              <div class="log-message">${escapeHtml(parsedLine.message)}</div>
+            </div>
+            <button class="btn btn-sm btn-outline-secondary copy-log-btn copy-docker-log-btn ms-2" title="Copy log entry" aria-label="Copy log entry">
+              <i class="fas fa-copy"></i>
+            </button>
+          </div>
         </div>
       `;
+    }
+
+    async function copyDockerLogEntry(logEntry) {
+      try {
+        const logDataStr = logEntry.getAttribute("data-docker-log");
+        const logData = JSON.parse(logDataStr);
+        const timestamp = logData.timestamp || "Unknown time";
+        const level = logData.level || "INFO";
+        const container = logData.container ? ` [${logData.container}]` : "";
+
+        let logText = `[${timestamp}] [${level}]${container}\n`;
+        logText += `${logData.message}\n`;
+
+        await navigator.clipboard.writeText(logText);
+
+        const copyBtn = logEntry.querySelector(".copy-docker-log-btn");
+        const originalHtml = copyBtn.innerHTML;
+        copyBtn.innerHTML = '<i class="fas fa-check"></i>';
+        copyBtn.classList.add("btn-success");
+        copyBtn.classList.remove("btn-outline-secondary");
+
+        setTimeout(() => {
+          copyBtn.innerHTML = originalHtml;
+          copyBtn.classList.remove("btn-success");
+          copyBtn.classList.add("btn-outline-secondary");
+        }, 1500);
+
+        notificationManager.show("Log entry copied to clipboard", "success");
+      } catch {
+        notificationManager.show("Failed to copy log entry", "danger");
+      }
+    }
+
+    function attachDockerCopyHandlers() {
+      if (!dockerLogsContainer) {
+        return;
+      }
+
+      const copyButtons = dockerLogsContainer.querySelectorAll(".copy-docker-log-btn");
+      copyButtons.forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const logEntry = btn.closest(".log-entry");
+          if (logEntry) {
+            copyDockerLogEntry(logEntry);
+          }
+        });
+      });
     }
 
     function displayDockerLogs(logGroups, { selectedContainers = [] } = {}) {
@@ -1049,7 +1092,10 @@ onPageLoad(
           return;
         }
 
-        dockerLogsContainer.innerHTML = group.logs.map(renderDockerLogLine).join("");
+        dockerLogsContainer.innerHTML = group.logs
+          .map((line) => renderDockerLogLine(line, group.container))
+          .join("");
+        attachDockerCopyHandlers();
         return;
       }
 
@@ -1087,7 +1133,7 @@ onPageLoad(
           }
 
           const groupLogsHtml = group.logs.length > 0
-            ? group.logs.map(renderDockerLogLine).join("")
+            ? group.logs.map((line) => renderDockerLogLine(line, group.container)).join("")
             : `
               <div class="px-3 pb-3 text-muted">
                 No logs found for this container with the current filters.
@@ -1114,6 +1160,7 @@ onPageLoad(
         .join("");
 
       dockerLogsContainer.innerHTML = logsHtml;
+      attachDockerCopyHandlers();
     }
 
     /**
@@ -1262,6 +1309,71 @@ onPageLoad(
         notificationManager.show("Docker logs exported successfully", "success");
       } catch {
         notificationManager.show("Failed to export logs", "danger");
+      }
+    }
+
+    /**
+     * Clear Docker logs for selected containers
+     */
+    async function clearDockerLogs() {
+      const selectedContainers = getSelectedContainerNames();
+
+      if (selectedContainers.length === 0) {
+        notificationManager.show(
+          "Select at least one container to clear logs.",
+          "warning"
+        );
+        return;
+      }
+
+      try {
+        const confirmed = await confirmationDialog.show({
+          title: "Clear Docker Logs",
+          message:
+            "Are you sure you want to clear logs for the selected containers? This may not be supported for all log drivers.",
+          confirmText: "Clear Logs",
+          confirmButtonClass: "btn-danger",
+        });
+
+        if (!confirmed) {
+          return;
+        }
+
+        setButtonLoading(clearDockerLogsBtn, true);
+
+        const results = await Promise.allSettled(
+          selectedContainers.map((containerName) =>
+            apiClient.delete(`/api/docker-logs/${encodeURIComponent(containerName)}`)
+          )
+        );
+
+        const failedContainers = [];
+        results.forEach((result, index) => {
+          if (result.status === "rejected") {
+            failedContainers.push(selectedContainers[index]);
+          }
+        });
+
+        const successCount = selectedContainers.length - failedContainers.length;
+        if (successCount > 0) {
+          notificationManager.show(
+            `Cleared logs for ${successCount} container${successCount === 1 ? "" : "s"}`,
+            "success"
+          );
+        }
+
+        if (failedContainers.length > 0) {
+          notificationManager.show(
+            `Failed to clear logs for: ${failedContainers.join(", ")}`,
+            "warning"
+          );
+        }
+
+        await loadDockerLogs();
+      } catch {
+        notificationManager.show("Failed to clear Docker logs", "danger");
+      } finally {
+        setButtonLoading(clearDockerLogsBtn, false);
       }
     }
 

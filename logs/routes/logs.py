@@ -3,6 +3,7 @@
 import asyncio
 import logging
 import re
+from pathlib import Path
 from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any
 
@@ -218,6 +219,14 @@ class DockerLogsResponse(BaseModel):
     truncated: bool
 
 
+class DockerClearResponse(BaseModel):
+    """Response model for clearing Docker container logs."""
+
+    container: str
+    log_driver: str
+    cleared: bool
+
+
 async def _run_docker_command(args: list[str]) -> tuple[str, str, int]:
     """Run a docker command and return stdout, stderr, and return code."""
     try:
@@ -358,4 +367,94 @@ async def get_docker_container_logs(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to retrieve container logs: {e!s}",
+        )
+
+
+@router.delete("/api/docker-logs/{container_name}", response_model=DockerClearResponse)
+@api_route(logger)
+async def clear_docker_container_logs(container_name: str) -> dict[str, Any]:
+    """
+    Clear logs for a specific Docker container.
+
+    Args:
+        container_name: Name of the container to clear logs for
+
+    Returns:
+        Dictionary containing clear status metadata
+    """
+    try:
+        stdout, stderr, returncode = await _run_docker_command(
+            [
+                "inspect",
+                "--format",
+                "{{.HostConfig.LogConfig.Type}}\t{{.LogPath}}",
+                container_name,
+            ]
+        )
+
+        if returncode != 0:
+            if "No such container" in stderr or "no such container" in stderr.lower():
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Container '{container_name}' not found",
+                )
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=f"Docker inspect command failed: {stderr or 'Unknown error'}",
+            )
+
+        parts = stdout.strip().split("\t")
+        if len(parts) < 2:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to determine container log configuration",
+            )
+
+        log_driver = parts[0].strip()
+        log_path = parts[1].strip()
+
+        if log_driver not in {"json-file", "local"}:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    "Clearing logs is only supported for json-file or local log drivers "
+                    f"(found '{log_driver}')"
+                ),
+            )
+
+        if not log_path:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Log path not available for this container",
+            )
+
+        log_file = Path(log_path)
+        if not log_file.exists():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Log file not found for this container",
+            )
+
+        try:
+            log_file.write_bytes(b"")
+        except OSError as exc:
+            logger.exception("Error clearing Docker logs for %s", container_name)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to clear container logs: {exc!s}",
+            )
+
+        return {
+            "container": container_name,
+            "log_driver": log_driver,
+            "cleared": True,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Error clearing Docker container logs for %s", container_name)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to clear container logs: {e!s}",
         )
