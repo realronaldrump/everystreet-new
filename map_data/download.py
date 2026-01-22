@@ -12,6 +12,7 @@ import contextlib
 import logging
 import os
 import shutil
+import threading
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
@@ -52,6 +53,9 @@ TOTAL_TIMEOUT = 7200  # 2 hour max for entire download
 # Chunk sizes
 CHUNK_SIZE = 1024 * 1024  # 1MB chunks for streaming
 PROGRESS_UPDATE_INTERVAL = 0.5  # Update progress every 0.5 seconds for responsiveness
+DOWNLOAD_PROGRESS_MAX = 95.0  # Reserve final % for merge steps
+MERGE_PROGRESS_START = DOWNLOAD_PROGRESS_MAX
+MERGE_PROGRESS_END = 100.0
 
 
 class DownloadCancelled(Exception):
@@ -129,6 +133,40 @@ class DownloadProgress:
         if elapsed < 0.1:
             return 0.0
         return (self.downloaded / (1024 * 1024)) / elapsed
+
+
+@dataclass
+class MergeProgress:
+    """Track merge progress for segment stitching."""
+
+    total_size: int
+    total_segments: int
+    merged_bytes: int = 0
+    current_segment: int = 0
+    start_time: float = 0.0
+    lock: threading.Lock = field(default_factory=threading.Lock)
+
+    def add_bytes(self, size: int) -> None:
+        with self.lock:
+            self.merged_bytes += size
+
+    def set_segment(self, segment_index: int) -> None:
+        with self.lock:
+            self.current_segment = segment_index
+
+    def snapshot(self) -> tuple[int, int]:
+        with self.lock:
+            return self.merged_bytes, self.current_segment
+
+    @property
+    def speed_mbps(self) -> float:
+        if self.start_time == 0:
+            return 0.0
+        elapsed = asyncio.get_event_loop().time() - self.start_time
+        if elapsed < 0.1:
+            return 0.0
+        merged_bytes, _ = self.snapshot()
+        return (merged_bytes / (1024 * 1024)) / elapsed
 
 
 async def parallel_download_region(
@@ -281,9 +319,36 @@ async def parallel_download_region(
             raise DownloadCancelled(msg)
 
         if progress_callback:
-            await _safe_callback(progress_callback, 99, "Merging segments...")
+            await _safe_callback(
+                progress_callback,
+                MERGE_PROGRESS_START,
+                "Merging segments...",
+            )
 
-        await _merge_segments(progress.segments, output_path)
+        merge_progress = None
+        merge_task = None
+        if progress_callback:
+            merge_progress = MergeProgress(
+                total_size=progress.total_size,
+                total_segments=len(progress.segments),
+            )
+            merge_progress.start_time = asyncio.get_event_loop().time()
+            merge_task = asyncio.create_task(
+                _report_merge_progress(merge_progress, progress_callback),
+            )
+
+        try:
+            await _merge_segments(
+                progress.segments,
+                output_path,
+                progress=merge_progress,
+                cancel_event=cancel_event,
+            )
+        finally:
+            if merge_task:
+                merge_task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await merge_task
 
         # Cleanup temp directory
         for segment in progress.segments:
@@ -442,13 +507,64 @@ async def _report_progress(
                 f"({speed:.1f} MB/s, {active} active)"
             )
 
-            await _safe_callback(callback, progress.percent, message)
+            scaled_progress = min(
+                progress.percent * (DOWNLOAD_PROGRESS_MAX / 100.0),
+                DOWNLOAD_PROGRESS_MAX,
+            )
+            await _safe_callback(callback, scaled_progress, message)
 
     except asyncio.CancelledError:
         pass
 
 
-async def _merge_segments(segments: list[DownloadSegment], output_path: str) -> None:
+async def _report_merge_progress(
+    progress: MergeProgress,
+    callback: Callable[[float, str], Any] | None,
+) -> None:
+    """Periodically report merge progress."""
+    if not callback:
+        return
+
+    try:
+        while True:
+            await asyncio.sleep(PROGRESS_UPDATE_INTERVAL)
+            merged_bytes, current_segment = progress.snapshot()
+
+            total_mb = progress.total_size / (1024 * 1024) if progress.total_size else 0
+            merged_mb = merged_bytes / (1024 * 1024)
+            speed = progress.speed_mbps
+            segment_label = (
+                f"{current_segment}/{progress.total_segments}"
+                if progress.total_segments
+                else "--"
+            )
+            if progress.total_size > 0:
+                merge_fraction = merged_bytes / progress.total_size
+            else:
+                merge_fraction = 0.0
+            merge_progress = MERGE_PROGRESS_START + (
+                (MERGE_PROGRESS_END - MERGE_PROGRESS_START) * merge_fraction
+            )
+            merge_progress = min(max(merge_progress, MERGE_PROGRESS_START), MERGE_PROGRESS_END)
+
+            message = (
+                f"Merging segments {segment_label}: "
+                f"{merged_mb:.1f} / {total_mb:.1f} MB "
+                f"({speed:.1f} MB/s)"
+            )
+
+            await _safe_callback(callback, merge_progress, message)
+
+    except asyncio.CancelledError:
+        pass
+
+
+async def _merge_segments(
+    segments: list[DownloadSegment],
+    output_path: str,
+    progress: MergeProgress | None = None,
+    cancel_event: asyncio.Event | None = None,
+) -> None:
     """Merge downloaded segments into final file."""
     # Sort by index to ensure correct order
     sorted_segments = sorted(segments, key=lambda s: s.index)
@@ -458,13 +574,23 @@ async def _merge_segments(segments: list[DownloadSegment], output_path: str) -> 
 
     def _do_merge() -> None:
         with open(output_path, "wb") as outfile:
-            for segment in sorted_segments:
+            for idx, segment in enumerate(sorted_segments, start=1):
+                if cancel_event and cancel_event.is_set():
+                    msg = "Download cancelled"
+                    raise DownloadCancelled(msg)
+                if progress:
+                    progress.set_segment(idx)
                 with open(segment.temp_path, "rb") as infile:
                     while True:
+                        if cancel_event and cancel_event.is_set():
+                            msg = "Download cancelled"
+                            raise DownloadCancelled(msg)
                         chunk = infile.read(CHUNK_SIZE)
                         if not chunk:
                             break
                         outfile.write(chunk)
+                        if progress:
+                            progress.add_bytes(len(chunk))
 
     await loop.run_in_executor(None, _do_merge)
 

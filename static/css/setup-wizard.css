@@ -495,11 +495,35 @@
 
 .summary-item {
   display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
   justify-content: space-between;
   padding: var(--space-3);
   border-radius: var(--radius-lg);
   background: var(--surface-0);
   border: 1px solid var(--border-color);
+}
+
+.summary-item-content {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.summary-item-title {
+  font-weight: 600;
+}
+
+.summary-item-detail {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.summary-item-status {
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
 }
 
 @media (width <= 992px) {

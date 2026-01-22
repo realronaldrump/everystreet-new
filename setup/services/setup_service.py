@@ -295,8 +295,12 @@ def _assert_version(session: SetupSession, version: int) -> None:
         )
 
 
-def _assert_session_active(session: SetupSession) -> None:
-    if session.status == "completed":
+def _assert_session_active(
+    session: SetupSession,
+    *,
+    allow_completed: bool = False,
+) -> None:
+    if session.status == "completed" and not allow_completed:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail={
@@ -563,7 +567,7 @@ async def advance_setup_session(
         raise HTTPException(status_code=404, detail="Setup session not found")
 
     _assert_session_owner(session, client_id)
-    _assert_session_active(session)
+    _assert_session_active(session, allow_completed=True)
 
     if payload.idempotency_key:
         last_key = session.idempotency_keys.get("advance")
@@ -657,7 +661,7 @@ async def run_setup_step(
         raise HTTPException(status_code=404, detail="Setup session not found")
 
     _assert_session_owner(session, client_id)
-    _assert_session_active(session)
+    _assert_session_active(session, allow_completed=True)
 
     run_key = f"run:{step_id}"
     if (

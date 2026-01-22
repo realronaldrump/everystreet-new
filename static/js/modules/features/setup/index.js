@@ -38,6 +38,9 @@ let sessionPollInterval = null;
 let navigationGuardCleanup = null;
 let actionInFlight = false;
 let allowExternalRedirect = false;
+let bouncieStatus = null;
+let bouncieDetails = { client_id: "", redirect_uri: "" };
+let mapboxTokenValue = "";
 const dirtyState = {
   bouncie: false,
   mapbox: false,
@@ -241,9 +244,9 @@ function applySessionState(payload) {
   const nextIndex = getStepIndexByKey(sessionState.current_step || "welcome");
   showStep(nextIndex >= 0 ? nextIndex : 0);
   updateStepIndicators();
-  updateSummary();
   updateGeoServiceStatus(geoServiceStatus);
   updateRegionFromSession(sessionState.step_states?.region);
+  updateSummary();
   applyLockState();
   renderSessionBanner(payload);
   updateResumeCta();
@@ -512,9 +515,11 @@ async function updateBouncieConnectionStatus() {
     if (!response.ok || !data) {
       return;
     }
+    bouncieStatus = data;
     if (typeof data.connected === "boolean") {
       syncBtn.disabled = !data.connected;
     }
+    updateSummary();
   } catch (_error) {
     // Silently fail - status check is optional
   }
@@ -722,6 +727,11 @@ async function loadBouncieCredentials() {
     }
     document.getElementById("redirectUri").value = redirectUri;
 
+    bouncieDetails = {
+      client_id: creds.client_id || "",
+      redirect_uri: redirectUri || "",
+    };
+    updateSummary();
     clearDirty("bouncie");
   } catch (_error) {
     showStatus("setup-bouncie-status", "Unable to load credentials", true);
@@ -787,6 +797,11 @@ async function saveBouncieCredentials(advance = false) {
         responseErrorMessage(response, data, "Failed to save credentials")
       );
     }
+    bouncieDetails = {
+      client_id: values.client_id,
+      redirect_uri: values.redirect_uri,
+    };
+    updateSummary();
     clearDirty("bouncie");
     showStatus("setup-bouncie-status", data?.message || "Credentials saved.", false);
     shouldAdvance = advance;
@@ -822,6 +837,7 @@ async function syncVehiclesFromBouncie() {
     }
     clearDirty("bouncie");
     showStatus("setup-bouncie-status", data?.message || "Vehicles synced.", false);
+    await updateBouncieConnectionStatus();
   } catch (error) {
     showStatus("setup-bouncie-status", error.message, true);
   } finally {
@@ -879,6 +895,11 @@ async function handleConnectBouncie(e) {
       );
     }
 
+    bouncieDetails = {
+      client_id: values.client_id,
+      redirect_uri: values.redirect_uri,
+    };
+    updateSummary();
     clearDirty("bouncie");
     showStatus("setup-bouncie-status", "Redirecting to Bouncie...", false);
 
@@ -913,8 +934,10 @@ async function loadServiceConfig() {
         responseErrorMessage(response, data, "Unable to load Mapbox settings")
       );
     }
-    document.getElementById("mapboxToken").value = data.mapbox_token || "";
+    mapboxTokenValue = data.mapbox_token || "";
+    document.getElementById("mapboxToken").value = mapboxTokenValue;
     handleMapboxInput();
+    updateSummary();
     clearDirty("mapbox");
   } catch (_error) {
     showStatus("setup-mapbox-status", "Unable to load Mapbox settings.", true);
@@ -990,6 +1013,8 @@ async function saveMapboxSettings(advance = false) {
     if (!response.ok) {
       throw new Error(responseErrorMessage(response, data, "Failed to save settings"));
     }
+    mapboxTokenValue = token;
+    updateSummary();
     clearDirty("mapbox");
     showStatus("setup-mapbox-status", "Mapbox settings saved.", false);
     shouldAdvance = advance;
@@ -1436,16 +1461,167 @@ function showRegionStatus(message, isError) {
   showStatus("region-status", message, isError);
 }
 
+function maskValue(value, head = 4, tail = 4) {
+  if (!value) {
+    return "";
+  }
+  const text = String(value);
+  if (text.length <= head + tail) {
+    return text;
+  }
+  return `${text.slice(0, head)}...${text.slice(-tail)}`;
+}
+
+function truncateText(value, maxLength = 100) {
+  if (!value) {
+    return "";
+  }
+  const text = String(value);
+  if (text.length <= maxLength) {
+    return text;
+  }
+  return `${text.slice(0, maxLength - 3)}...`;
+}
+
+function formatRegionSize(value) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    return "";
+  }
+  return `${parsed.toFixed(1)} MB`;
+}
+
+function getGeoServiceSummary(geoServices) {
+  if (!geoServices) {
+    return "";
+  }
+  const nominatim = geoServices.nominatim || {};
+  const valhalla = geoServices.valhalla || {};
+  const containersRunning = Boolean(
+    nominatim.container_running && valhalla.container_running
+  );
+  const servicesReady = Boolean(nominatim.has_data && valhalla.has_data);
+  if (servicesReady) {
+    return "Ready";
+  }
+  if (containersRunning) {
+    return "Waiting for data";
+  }
+  return "Offline";
+}
+
+function buildBouncieSummaryDetail() {
+  const parts = [];
+  const clientId = bouncieDetails?.client_id?.trim() || "";
+  const redirectUri = bouncieDetails?.redirect_uri?.trim() || "";
+  const clientIdLabel = clientId
+    ? maskValue(clientId, 4, 4)
+    : setupState.bouncie
+        ? "Set"
+        : "Not set";
+  const redirectLabel = redirectUri || (setupState.bouncie ? "Set" : "Not set");
+  parts.push(`Client ID: ${clientIdLabel}`);
+  parts.push(`Redirect URI: ${redirectLabel}`);
+  if (bouncieStatus) {
+    if (typeof bouncieStatus.connected === "boolean") {
+      parts.push(`Connected: ${bouncieStatus.connected ? "Yes" : "No"}`);
+    }
+    if (typeof bouncieStatus.device_count === "number") {
+      parts.push(`Vehicles: ${bouncieStatus.device_count}`);
+    }
+  }
+  return parts.join(" | ");
+}
+
+function buildMapboxSummaryDetail() {
+  const parts = [];
+  const token = mapboxTokenValue?.trim();
+  const mapboxStep = setupStatus?.steps?.mapbox || {};
+  const tokenLabel = token
+    ? maskValue(token, 8, 4)
+    : mapboxStep.complete
+        ? "Set"
+        : "Not set";
+  parts.push(`Token: ${tokenLabel}`);
+  if (mapboxStep.error) {
+    parts.push(`Error: ${truncateText(mapboxStep.error, 90)}`);
+  } else if (typeof mapboxStep.complete === "boolean") {
+    parts.push(`Valid: ${mapboxStep.complete ? "Yes" : "No"}`);
+  }
+  return parts.join(" | ");
+}
+
+function buildRegionSummaryDetail() {
+  const parts = [];
+  const regionState = sessionState?.step_states?.region || {};
+  const metadata = regionState?.metadata || {};
+  if (metadata.skipped) {
+    parts.push("Skipped for now");
+  }
+
+  if (selectedRegion?.name || selectedRegion?.id) {
+    let label = selectedRegion.name || selectedRegion.id;
+    if (selectedRegion.name && selectedRegion.id) {
+      label = `${selectedRegion.name} (${selectedRegion.id})`;
+    }
+    const sizeLabel = formatRegionSize(selectedRegion.size);
+    if (sizeLabel) {
+      label = `${label} - ${sizeLabel}`;
+    }
+    parts.push(`Selected: ${label}`);
+  } else if (setupState.region) {
+    parts.push("Selected: Previously configured");
+  } else {
+    parts.push("Selected: Not set");
+  }
+
+  const jobStatus = metadata.job_status;
+  if (jobStatus?.status) {
+    let jobLabel = `Download: ${jobStatus.status}`;
+    const progress = Number(jobStatus.progress || 0);
+    if (
+      ["pending", "running"].includes(jobStatus.status)
+      && Number.isFinite(progress)
+    ) {
+      jobLabel = `${jobLabel} (${Math.round(progress)}%)`;
+    }
+    parts.push(jobLabel);
+  }
+
+  const serviceSummary = getGeoServiceSummary(geoServiceStatus);
+  if (serviceSummary) {
+    parts.push(`Services: ${serviceSummary}`);
+  }
+
+  return parts.join(" | ");
+}
+
 function updateSummary() {
-  document.getElementById("summary-bouncie").textContent = setupState.bouncie
-    ? "Configured"
-    : "Missing";
-  document.getElementById("summary-mapbox").textContent = setupState.mapbox
-    ? "Configured"
-    : "Missing";
-  document.getElementById("summary-region").textContent = setupState.region
-    ? "Configured"
-    : "Needs data";
+  const bouncieStatusEl = document.getElementById("summary-bouncie");
+  if (bouncieStatusEl) {
+    bouncieStatusEl.textContent = setupState.bouncie ? "Configured" : "Missing";
+  }
+  const mapboxStatusEl = document.getElementById("summary-mapbox");
+  if (mapboxStatusEl) {
+    mapboxStatusEl.textContent = setupState.mapbox ? "Configured" : "Missing";
+  }
+  const regionStatusEl = document.getElementById("summary-region");
+  if (regionStatusEl) {
+    regionStatusEl.textContent = setupState.region ? "Configured" : "Needs data";
+  }
+
+  const bouncieDetailEl = document.getElementById("summary-bouncie-detail");
+  if (bouncieDetailEl) {
+    bouncieDetailEl.textContent = buildBouncieSummaryDetail() || "--";
+  }
+  const mapboxDetailEl = document.getElementById("summary-mapbox-detail");
+  if (mapboxDetailEl) {
+    mapboxDetailEl.textContent = buildMapboxSummaryDetail() || "--";
+  }
+  const regionDetailEl = document.getElementById("summary-region-detail");
+  if (regionDetailEl) {
+    regionDetailEl.textContent = buildRegionSummaryDetail() || "--";
+  }
 }
 
 async function completeSetup() {
