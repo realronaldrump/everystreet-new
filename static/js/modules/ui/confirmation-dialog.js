@@ -119,7 +119,11 @@ class ConfirmationDialog {
       };
 
       const handleKeyDown = (e) => {
-        if (e.key === "Enter" && this.activeModal && modalElement.classList.contains("show")) {
+        if (
+          e.key === "Enter"
+          && this.activeModal
+          && modalElement.classList.contains("show")
+        ) {
           e.preventDefault();
           handleConfirm();
         }
@@ -134,7 +138,7 @@ class ConfirmationDialog {
 
       confirmBtn?.addEventListener("mousedown", handleMouseDown);
       modalElement.addEventListener("keydown", handleKeyDown);
-      
+
       modalElement.addEventListener("hidden.bs.modal", handleDismiss);
       modalElement.addEventListener("hide.bs.modal", handleHide);
 
@@ -158,16 +162,17 @@ class ConfirmationDialog {
    * @returns {Promise<void>}
    */
   async alert(messageOrOptions) {
-    const options = typeof messageOrOptions === "string"
-      ? { message: messageOrOptions }
-      : messageOrOptions;
-    
+    const options
+      = typeof messageOrOptions === "string"
+        ? { message: messageOrOptions }
+        : messageOrOptions;
+
     await this.show({
       title: "Alert",
       confirmText: "OK",
       confirmButtonClass: "btn-primary",
       showCancel: false,
-      ...options
+      ...options,
     });
   }
 

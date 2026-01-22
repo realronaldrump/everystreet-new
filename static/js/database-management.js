@@ -121,9 +121,7 @@ export function initDatabaseManagement({ signal } = {}) {
         () => {
           const column = th.dataset.sort;
           const dir
-            = currentSort.column === column && currentSort.dir === "asc"
-              ? "desc"
-              : "asc";
+            = currentSort.column === column && currentSort.dir === "asc" ? "desc" : "asc";
 
           // Update Sort State
           currentSort = { column, dir };

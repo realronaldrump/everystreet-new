@@ -23,9 +23,7 @@ export function setupTabSwitching() {
       return false;
     }
 
-    const tabButton = document.querySelector(
-      `.settings-tab[data-tab="${tabName}"]`
-    );
+    const tabButton = document.querySelector(`.settings-tab[data-tab="${tabName}"]`);
     const tabContent = document.getElementById(`${tabName}-tab`);
 
     if (!tabButton || !tabContent) {

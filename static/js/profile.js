@@ -296,10 +296,10 @@ async function loadCredentials(options = {}) {
 
   try {
     if (!silent) {
-       // Optional: could show a loading toast if desired, but usually we just wait for success/error
-       // unless it's a long process. For now, we'll skip the "loading" toast to reduce noise
-       // or use a loading spinner elsewhere.
-       // notify.info(masked ? "Loading credentials..." : "Loading unmasked credentials...");
+      // Optional: could show a loading toast if desired, but usually we just wait for success/error
+      // unless it's a long process. For now, we'll skip the "loading" toast to reduce noise
+      // or use a loading spinner elsewhere.
+      // notify.info(masked ? "Loading credentials..." : "Loading unmasked credentials...");
     }
 
     const data = await apiClient.get(endpoint, withSignal());
@@ -324,7 +324,9 @@ async function loadCredentials(options = {}) {
         } else if (data.credentials) {
           notify.success("Credentials loaded successfully");
         } else {
-          notify.warning("No credentials found. Enter your Bouncie credentials to save.");
+          notify.warning(
+            "No credentials found. Enter your Bouncie credentials to save."
+          );
         }
       }
     } else {
@@ -565,7 +567,9 @@ async function handleSaveCredentials(event) {
         }
       }, 1500);
     } else {
-      notify.error(`Error saving credentials: ${data.detail || data.message || "Unknown error"}`);
+      notify.error(
+        `Error saving credentials: ${data.detail || data.message || "Unknown error"}`
+      );
     }
   } catch (error) {
     if (pageSignal?.aborted) {

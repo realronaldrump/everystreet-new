@@ -11,11 +11,11 @@
  * - App Settings: Tab switching and preferences
  */
 
+import { initDatabaseManagement } from "../database-management.js";
 import apiClient from "../modules/core/api-client.js";
 import loadingManager from "../modules/ui/loading-manager.js";
 import notificationManager from "../modules/ui/notifications.js";
 import { onPageLoad } from "../modules/utils.js";
-import { initDatabaseManagement } from "../database-management.js";
 import { initAppSettings } from "./app-settings.js";
 import {
   setupGeocodeTrips,

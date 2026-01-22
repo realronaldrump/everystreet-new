@@ -826,13 +826,13 @@ N/A
               <thead>
                 <tr>
                   <th data-sort="name" style="cursor: pointer">
-                  Collection <i class="fas fa-sort small text-muted ms-1"></i>
+                                                      Collection <i class="fas fa-sort small text-muted ms-1"></i>
                 </th>
                 <th data-sort="count" style="cursor: pointer">
-                Documents <i class="fas fa-sort small text-muted ms-1"></i>
+                                                Documents <i class="fas fa-sort small text-muted ms-1"></i>
               </th>
               <th data-sort="size" style="cursor: pointer">
-              Size (MB) <i class="fas fa-sort small text-muted ms-1"></i>
+                                          Size (MB) <i class="fas fa-sort small text-muted ms-1"></i>
             </th>
             <th>
 Actions
@@ -878,228 +878,228 @@ N/A
       </table>
     </div>
   </div>
-      </div>
-    </div>
+</div>
+</div>
 
-    <!-- Map Services Tab -->
-    <div class="settings-tab-content" id="map-services-tab">
-      <div class="bento-grid" data-stagger>
-        <!-- Service Health Status -->
-        <div class="settings-group bento-span-12">
-          <h3 class="settings-group-title">
-            <i class="fas fa-heartbeat"></i>
+<!-- Map Services Tab -->
+<div class="settings-tab-content" id="map-services-tab">
+  <div class="bento-grid" data-stagger>
+    <!-- Service Health Status -->
+    <div class="settings-group bento-span-12">
+      <h3 class="settings-group-title">
+        <i class="fas fa-heartbeat"></i>
           Service Health
-          </h3>
-          <div class="row" id="service-health-cards">
-            <!-- Nominatim Card -->
-            <div class="col-md-6 mb-3">
-              <div class="card bg-darker" id="nominatim-health-card">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                  <span><i class="fas fa-search-location me-2"></i>Nominatim (Geocoding)</span>
-                  <span class="badge bg-secondary" id="nominatim-status-badge">Checking...</span>
-                </div>
-                <div class="card-body">
-                  <div class="mb-2">
-                    <small class="text-muted">Response Time:</small>
-                    <span id="nominatim-response-time">--</span>
-                  </div>
-                  <div class="mb-2">
-                    <small class="text-muted">Last Check:</small>
-                    <span id="nominatim-last-check">--</span>
-                  </div>
-                  <div class="mb-2">
-                    <small class="text-muted">Version:</small>
-                    <span id="nominatim-version">--</span>
-                  </div>
-                  <div id="nominatim-error" class="text-danger small d-none">
-                  </div>
-                </div>
-              </div>
+      </h3>
+      <div class="row" id="service-health-cards">
+        <!-- Nominatim Card -->
+        <div class="col-md-6 mb-3">
+          <div class="card bg-darker" id="nominatim-health-card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+              <span><i class="fas fa-search-location me-2"></i>Nominatim (Geocoding)</span>
+              <span class="badge bg-secondary" id="nominatim-status-badge">Checking...</span>
             </div>
-
-            <!-- Valhalla Card -->
-            <div class="col-md-6 mb-3">
-              <div class="card bg-darker" id="valhalla-health-card">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                  <span><i class="fas fa-route me-2"></i>Valhalla (Routing)</span>
-                  <span class="badge bg-secondary" id="valhalla-status-badge">Checking...</span>
-                </div>
-                <div class="card-body">
-                  <div class="mb-2">
-                    <small class="text-muted">Response Time:</small>
-                    <span id="valhalla-response-time">--</span>
-                  </div>
-                  <div class="mb-2">
-                    <small class="text-muted">Tiles Loaded:</small>
-                    <span id="valhalla-tile-count">--</span>
-                  </div>
-                  <div class="mb-2">
-                    <small class="text-muted">Last Check:</small>
-                    <span id="valhalla-last-check">--</span>
-                  </div>
-                  <div id="valhalla-error" class="text-danger small d-none">
-                  </div>
-                </div>
+            <div class="card-body">
+              <div class="mb-2">
+                <small class="text-muted">Response Time:</small>
+                <span id="nominatim-response-time">--</span>
+              </div>
+              <div class="mb-2">
+                <small class="text-muted">Last Check:</small>
+                <span id="nominatim-last-check">--</span>
+              </div>
+              <div class="mb-2">
+                <small class="text-muted">Version:</small>
+                <span id="nominatim-version">--</span>
+              </div>
+              <div id="nominatim-error" class="text-danger small d-none">
               </div>
             </div>
           </div>
-          <button class="btn btn-outline-primary btn-sm" id="refresh-health-btn">
-            <i class="fas fa-sync-alt"></i> Refresh Health
-          </button>
         </div>
 
-        <!-- Managed Regions -->
-        <div class="settings-group bento-span-12">
-          <h3 class="settings-group-title">
-            <i class="fas fa-map"></i>
+        <!-- Valhalla Card -->
+        <div class="col-md-6 mb-3">
+          <div class="card bg-darker" id="valhalla-health-card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+              <span><i class="fas fa-route me-2"></i>Valhalla (Routing)</span>
+              <span class="badge bg-secondary" id="valhalla-status-badge">Checking...</span>
+            </div>
+            <div class="card-body">
+              <div class="mb-2">
+                <small class="text-muted">Response Time:</small>
+                <span id="valhalla-response-time">--</span>
+              </div>
+              <div class="mb-2">
+                <small class="text-muted">Tiles Loaded:</small>
+                <span id="valhalla-tile-count">--</span>
+              </div>
+              <div class="mb-2">
+                <small class="text-muted">Last Check:</small>
+                <span id="valhalla-last-check">--</span>
+              </div>
+              <div id="valhalla-error" class="text-danger small d-none">
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <button class="btn btn-outline-primary btn-sm" id="refresh-health-btn">
+        <i class="fas fa-sync-alt"></i> Refresh Health
+      </button>
+    </div>
+
+    <!-- Managed Regions -->
+    <div class="settings-group bento-span-12">
+      <h3 class="settings-group-title">
+        <i class="fas fa-map"></i>
           Map Data Regions
-          </h3>
-          <div class="d-flex justify-content-between align-items-center mb-3">
-            <p class="text-muted small mb-0">
+      </h3>
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <p class="text-muted small mb-0">
             Manage OSM data extracts for geocoding and routing services.
-            </p>
-            <button class="btn btn-success btn-sm"
-                    data-bs-toggle="modal"
-                    data-bs-target="#addRegionModal">
-              <i class="fas fa-plus"></i> Add Region
-            </button>
-          </div>
-          <p class="text-muted small mb-3">
+        </p>
+        <button class="btn btn-success btn-sm"
+                data-bs-toggle="modal"
+                data-bs-target="#addRegionModal">
+          <i class="fas fa-plus"></i> Add Region
+        </button>
+      </div>
+      <p class="text-muted small mb-3">
             Downloads and builds run in the background while Everystreet is running. You can close this tab and return later.
-          </p>
+      </p>
 
-          <div class="table-responsive">
-            <table class="table table-dark table-hover" id="regionsTable">
-              <thead>
-                <tr>
-                  <th>
+      <div class="table-responsive">
+        <table class="table table-dark table-hover" id="regionsTable">
+          <thead>
+            <tr>
+              <th>
 Region
-                  </th>
-                  <th>
+              </th>
+              <th>
 Size
-                  </th>
-                  <th>
+              </th>
+              <th>
 Download
-                  </th>
-                  <th>
+              </th>
+              <th>
 Nominatim
-                  </th>
-                  <th>
+              </th>
+              <th>
 Valhalla
-                  </th>
-                  <th>
+              </th>
+              <th>
 Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody id="regions-table-body">
-                <!-- Populated by JavaScript -->
-                <tr id="regions-loading-row">
-                  <td colspan="6" class="text-center py-4">
-                    <div class="spinner-border spinner-border-sm me-2" role="status">
-                    </div>
+              </th>
+            </tr>
+          </thead>
+          <tbody id="regions-table-body">
+            <!-- Populated by JavaScript -->
+            <tr id="regions-loading-row">
+              <td colspan="6" class="text-center py-4">
+                <div class="spinner-border spinner-border-sm me-2" role="status">
+                </div>
                   Loading regions...
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <!-- Active Jobs -->
-        <div class="settings-group bento-span-12" id="active-jobs-section">
-          <h3 class="settings-group-title">
-            <i class="fas fa-tasks"></i>
-          Active Jobs
-          </h3>
-          <div id="active-jobs-list">
-            <p class="text-muted small mb-2" id="active-jobs-note">
-Jobs keep running in the background while Everystreet is running.
-            </p>
-            <p class="text-muted small" id="no-active-jobs">
-No active jobs.
-            </p>
-            <!-- Jobs will be populated by JavaScript -->
-          </div>
-        </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
 
-    <!-- Add Region Modal -->
-    <div class="modal fade" id="addRegionModal" tabindex="-1">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
-        <div class="modal-content bg-dark text-white">
-          <div class="modal-header">
-            <h5 class="modal-title">
-              <i class="fas fa-download me-2"></i>Download Map Region
-            </h5>
-            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal">
-            </button>
-          </div>
-          <div class="modal-body">
-            <div class="mb-3">
-              <label class="form-label">
-Browse Geofabrik Regions
-              </label>
-              <p class="text-muted small">
-Select a geographic region to download OSM data for geocoding and routing.
-              </p>
-              <div id="region-browser" class="region-browser">
-                <div class="region-breadcrumb mb-2" id="region-breadcrumb">
-                  <nav aria-label="breadcrumb">
-                    <ol class="breadcrumb mb-0">
-                      <li class="breadcrumb-item">
-                        <a href="#" data-region="">World</a>
-                      </li>
-                    </ol>
-                  </nav>
-                </div>
-                <div class="region-list border rounded p-2"
-                     id="region-list"
-                     style="max-height: 300px;
-                            overflow-y: auto">
-                  <div class="text-center py-3">
-                    <div class="spinner-border spinner-border-sm me-2" role="status">
-                    </div>
-                Loading regions...
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div id="selected-region-info" class="d-none">
-              <hr />
-              <h6>
-Selected Region
-              </h6>
-              <div class="card bg-secondary">
-                <div class="card-body">
-                  <strong id="selected-region-name"></strong>
-                  <div class="small text-muted mt-1">
-                                                        Size: <span id="selected-region-size">--</span>
-                </div>
-                <div class="small text-muted">
-                                                    ID: <span id="selected-region-id">--</span>
-              </div>
-              <div class="small text-warning mt-2 d-none" id="selected-region-warning">
-              </div>
-            </div>
-          </div>
-        </div>
-        <p class="text-muted small mb-0">
-              Downloads keep running in the background while Everystreet is running.
+    <!-- Active Jobs -->
+    <div class="settings-group bento-span-12" id="active-jobs-section">
+      <h3 class="settings-group-title">
+        <i class="fas fa-tasks"></i>
+          Active Jobs
+      </h3>
+      <div id="active-jobs-list">
+        <p class="text-muted small mb-2" id="active-jobs-note">
+Jobs keep running in the background while Everystreet is running.
         </p>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-Cancel
-        </button>
-        <button type="button" class="btn btn-success" id="download-region-btn" disabled>
-          <i class="fas fa-download"></i> Download & Build
-        </button>
+        <p class="text-muted small" id="no-active-jobs">
+No active jobs.
+        </p>
+        <!-- Jobs will be populated by JavaScript -->
       </div>
     </div>
   </div>
+</div>
+
+<!-- Add Region Modal -->
+<div class="modal fade" id="addRegionModal" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content bg-dark text-white">
+      <div class="modal-header">
+        <h5 class="modal-title">
+          <i class="fas fa-download me-2"></i>Download Map Region
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal">
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label">
+Browse Geofabrik Regions
+          </label>
+          <p class="text-muted small">
+Select a geographic region to download OSM data for geocoding and routing.
+          </p>
+          <div id="region-browser" class="region-browser">
+            <div class="region-breadcrumb mb-2" id="region-breadcrumb">
+              <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-0">
+                  <li class="breadcrumb-item">
+                    <a href="#" data-region="">World</a>
+                  </li>
+                </ol>
+              </nav>
+            </div>
+            <div class="region-list border rounded p-2"
+                 id="region-list"
+                 style="max-height: 300px;
+                        overflow-y: auto">
+              <div class="text-center py-3">
+                <div class="spinner-border spinner-border-sm me-2" role="status">
+                </div>
+                Loading regions...
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div id="selected-region-info" class="d-none">
+          <hr />
+          <h6>
+Selected Region
+          </h6>
+          <div class="card bg-secondary">
+            <div class="card-body">
+              <strong id="selected-region-name"></strong>
+              <div class="small text-muted mt-1">
+                                                                                    Size: <span id="selected-region-size">--</span>
+            </div>
+            <div class="small text-muted">
+                                                                            ID: <span id="selected-region-id">--</span>
+          </div>
+          <div class="small text-warning mt-2 d-none" id="selected-region-warning">
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="text-muted small mb-0">
+              Downloads keep running in the background while Everystreet is running.
+    </p>
+  </div>
+  <div class="modal-footer">
+    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+Cancel
+    </button>
+    <button type="button" class="btn btn-success" id="download-region-btn" disabled>
+      <i class="fas fa-download"></i> Download & Build
+    </button>
+  </div>
+</div>
+</div>
 </div>
 
 <!-- Delete Region Confirmation Modal -->
