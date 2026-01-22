@@ -5,12 +5,12 @@ import sys
 # Add project root to path
 sys.path.append(os.getcwd())
 
-from db.database import init_db
+from db.manager import db_manager
 from db.models import AppSettings
 
 
 async def check_settings():
-    await init_db()
+    await db_manager.init_beanie()
     settings = await AppSettings.find_one()
     if settings:
         print(f"Setup Completed: {settings.setup_completed}")
