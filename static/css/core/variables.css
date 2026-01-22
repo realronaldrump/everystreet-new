@@ -1,94 +1,74 @@
 /* ============================
-   Design Tokens: Modern Soft-Tech
-   Palette (Matte Neon-Pastels)
-   - Mint:   #55d6c2
-   - Purple: #b88cff
-   - Coral:  #ff7c85
-   - Sky:    #76c7ff
-   - Amber:  #ffbf65
-   - Lime:   #b5f06f
+   Design Tokens: Refined Minimal
+   Palette (Muted, Sophisticated)
+   - Sage:   #4a9e8c (primary)
+   - Slate:  #6b7280 (secondary)
+   - Rose:   #b45555 (danger)
+   - Steel:  #6b8eb8 (info)
+   - Ochre:  #b89b5a (warning)
+   - Olive:  #6b8f5c (success)
 
    Radii
-   - Containers/cards: 20-24px
-   - Controls: 16px
+   - Containers/cards: 8-12px
+   - Controls: 6px
    - Pills: 9999px
 
    Spacing
    - 4px grid (0.25rem - 4rem)
 
    Typography
-   - Font: Inter (400-800)
-   - Tight headings, weight-driven hierarchy
+   - Font: Geist Sans (400-700)
+   - Clean hierarchy, restrained weights
    ============================ */
 
 :root {
-  /* Categorical Palette */
-  --cat-mint: #55d6c2;
-  --cat-mint-rgb: 85, 214, 194;
-  --cat-purple: #b88cff;
-  --cat-purple-rgb: 184, 140, 255;
-  --cat-coral: #ff7c85;
-  --cat-coral-rgb: 255, 124, 133;
-  --cat-sky: #76c7ff;
-  --cat-sky-rgb: 118, 199, 255;
-  --cat-amber: #ffbf65;
-  --cat-amber-rgb: 255, 191, 101;
-  --cat-lime: #b5f06f;
-  --cat-lime-rgb: 181, 240, 111;
+  /* Categorical Palette - Muted & Sophisticated */
+  --cat-sage: #4a9e8c;
+  --cat-sage-rgb: 74, 158, 140;
+  --cat-slate: #6b7280;
+  --cat-slate-rgb: 107, 114, 128;
+  --cat-rose: #b45555;
+  --cat-rose-rgb: 180, 85, 85;
+  --cat-steel: #6b8eb8;
+  --cat-steel-rgb: 107, 142, 184;
+  --cat-ochre: #b89b5a;
+  --cat-ochre-rgb: 184, 155, 90;
+  --cat-olive: #6b8f5c;
+  --cat-olive-rgb: 107, 143, 92;
 
   /* Semantic Colors */
-  --primary: var(--cat-mint);
-  --primary-light: #8ce8d8;
-  --primary-dark: #2bb29e;
-  --primary-rgb: var(--cat-mint-rgb);
-  --secondary: var(--cat-purple);
-  --secondary-light: #d4b8ff;
-  --secondary-dark: #8f5fe0;
-  --secondary-rgb: var(--cat-purple-rgb);
-  --success: var(--cat-lime);
-  --success-light: #d6f8a9;
-  --success-dark: #84c84c;
-  --success-rgb: var(--cat-lime-rgb);
-  --warning: var(--cat-amber);
-  --warning-light: #ffd9a3;
-  --warning-dark: #e19a38;
-  --warning-rgb: var(--cat-amber-rgb);
-  --danger: var(--cat-coral);
-  --danger-light: #ffb0b5;
-  --danger-dark: #db5862;
-  --danger-rgb: var(--cat-coral-rgb);
-  --info: var(--cat-sky);
-  --info-light: #b4e0ff;
-  --info-dark: #4aa6e6;
-  --info-rgb: var(--cat-sky-rgb);
+  --primary: var(--cat-sage);
+  --primary-light: #6bb5a5;
+  --primary-dark: #3a7d6f;
+  --primary-rgb: var(--cat-sage-rgb);
+  --secondary: var(--cat-slate);
+  --secondary-light: #9ca3af;
+  --secondary-dark: #4b5563;
+  --secondary-rgb: var(--cat-slate-rgb);
+  --success: var(--cat-olive);
+  --success-light: #8aab7a;
+  --success-dark: #567548;
+  --success-rgb: var(--cat-olive-rgb);
+  --warning: var(--cat-ochre);
+  --warning-light: #d4b876;
+  --warning-dark: #9a8048;
+  --warning-rgb: var(--cat-ochre-rgb);
+  --danger: var(--cat-rose);
+  --danger-light: #c87a7a;
+  --danger-dark: #8f4444;
+  --danger-rgb: var(--cat-rose-rgb);
+  --info: var(--cat-steel);
+  --info-light: #8fa9c9;
+  --info-dark: #5571a3;
+  --info-rgb: var(--cat-steel-rgb);
 
-  /* Subtle Gradients */
-  --primary-gradient: linear-gradient(
-    135deg,
-    rgb(var(--primary-rgb) / 92%),
-    rgb(var(--primary-rgb) / 78%)
-  );
-  --secondary-gradient: linear-gradient(
-    135deg,
-    rgb(var(--secondary-rgb) / 90%),
-    rgb(var(--secondary-rgb) / 75%)
-  );
-  --success-gradient: linear-gradient(
-    135deg,
-    rgb(var(--success-rgb) / 90%),
-    rgb(var(--success-rgb) / 75%)
-  );
-  --warning-gradient: linear-gradient(
-    135deg,
-    rgb(var(--warning-rgb) / 92%),
-    rgb(var(--warning-rgb) / 75%)
-  );
-  --danger-gradient: linear-gradient(
-    135deg,
-    rgb(var(--danger-rgb) / 92%),
-    rgb(var(--danger-rgb) / 75%)
-  );
-  --info-gradient: linear-gradient(135deg, rgb(var(--info-rgb) / 92%), rgb(var(--info-rgb) / 75%));
+  /* Flat colors - no gradients */
+  --primary-gradient: var(--primary);
+  --secondary-gradient: var(--secondary);
+  --success-gradient: var(--success);
+  --warning-gradient: var(--warning);
+  --danger-gradient: var(--danger);
+  --info-gradient: var(--info);
 
   /* Dark Mode Surfaces (Default) */
   --surface-0: #0f1116;
@@ -113,10 +93,9 @@
   --text-rgb: 242, 245, 248;
 
   /* Typography */
-  --font-family: "Inter", "Segoe UI", "Helvetica Neue", sans-serif;
-  --font-family-display: "Inter", "Segoe UI", "Helvetica Neue", sans-serif;
-  --font-family-mono:
-    ui-monospace, sfmono-regular, menlo, monaco, consolas, "Liberation Mono", monospace;
+  --font-family: "Geist Sans", "Geist", system-ui, -apple-system, sans-serif;
+  --font-family-display: "Geist Sans", "Geist", system-ui, -apple-system, sans-serif;
+  --font-family-mono: "Geist Mono", ui-monospace, sfmono-regular, menlo, monaco, consolas, monospace;
   --font-size-xs: clamp(0.72rem, 0.68rem + 0.2vw, 0.82rem);
   --font-size-sm: clamp(0.84rem, 0.8rem + 0.2vw, 0.98rem);
   --font-size-md: clamp(0.98rem, 0.94rem + 0.25vw, 1.08rem);
@@ -173,35 +152,22 @@
   --shadow-elevation-4: 0 26px 48px rgb(0 0 0 / 25%);
   --shadow-elevation-5: 0 34px 60px rgb(0 0 0 / 28%);
 
-  /* Glow + Ambient */
-  --glow-primary: 0 0 14px rgb(var(--primary-rgb) / 35%);
-  --glow-primary-intense: 0 0 26px rgb(var(--primary-rgb) / 45%);
-  --glow-success: 0 0 14px rgb(var(--success-rgb) / 35%);
-  --glow-success-intense: 0 0 24px rgb(var(--success-rgb) / 45%);
-  --glow-warning: 0 0 14px rgb(var(--warning-rgb) / 35%);
-  --glow-danger: 0 0 14px rgb(var(--danger-rgb) / 35%);
-  --glow-info: 0 0 14px rgb(var(--info-rgb) / 35%);
+  /* Accents - no glows, flat colors */
+  --glow-primary: none;
+  --glow-primary-intense: none;
+  --glow-success: none;
+  --glow-success-intense: none;
+  --glow-warning: none;
+  --glow-danger: none;
+  --glow-info: none;
   --accent: var(--primary);
   --accent-rgb: var(--primary-rgb);
   --section-accent: var(--accent);
   --section-accent-rgb: var(--accent-rgb);
-  --ambient-tint: rgb(var(--section-accent-rgb) / 8%);
-  --gradient-ambient: linear-gradient(
-    135deg,
-    rgb(var(--section-accent-rgb) / 10%) 0%,
-    transparent 55%,
-    rgb(var(--info-rgb) / 6%) 100%
-  );
-  --gradient-accent-bar: linear-gradient(
-    90deg,
-    rgb(var(--section-accent-rgb) / 55%) 0%,
-    rgb(var(--info-rgb) / 35%) 100%
-  );
-  --gradient-surface-glow: radial-gradient(
-    ellipse at top left,
-    rgb(var(--primary-rgb) / 10%) 0%,
-    transparent 60%
-  );
+  --ambient-tint: transparent;
+  --gradient-ambient: transparent;
+  --gradient-accent-bar: var(--primary);
+  --gradient-surface-glow: transparent;
 
   /* Interactive lift shadows */
   --shadow-lift: 0 12px 26px rgb(0 0 0 / 22%);
@@ -216,12 +182,12 @@
   --glass-3: rgb(var(--surface-rgb) / 94%);
   --glass-border: rgb(var(--border-rgb) / 25%);
 
-  /* Border Radius */
-  --radius-xs: 10px;
-  --radius-sm: 12px;
-  --radius-md: 16px;
-  --radius-lg: 20px;
-  --radius-xl: 24px;
+  /* Border Radius - More subtle */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 12px;
   --radius-full: 9999px;
   --radius-pill: 9999px;
 

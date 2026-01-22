@@ -27,14 +27,6 @@
     box-shadow var(--transition-normal);
 }
 
-.app-header::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(135deg, rgb(var(--primary-rgb) / 6%), transparent 60%);
-  pointer-events: none;
-}
-
 .app-header.scrolled {
   box-shadow: var(--shadow-sm);
   background-color: var(--surface-1);
