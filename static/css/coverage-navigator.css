@@ -324,20 +324,13 @@
 }
 
 .coverage-navigator #generate-route-btn {
-  background: var(--secondary-gradient);
-  border: none;
   font-weight: 600;
-  transition: all 0.3s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .coverage-navigator #generate-route-btn:hover:not(:disabled) {
-  background: linear-gradient(
-    135deg,
-    rgb(var(--secondary-rgb) / 95%) 0%,
-    rgb(var(--secondary-rgb) / 75%) 100%
-  );
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgb(var(--secondary-rgb) / 35%);
+  box-shadow: var(--shadow-sm);
 }
 
 .coverage-navigator #generate-route-btn:disabled {

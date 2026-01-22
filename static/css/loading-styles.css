@@ -144,7 +144,7 @@ body.light-mode .loading-text,
   top: 50%;
   left: 50%;
   margin: -0.5em 0 0 -0.5em;
-  border: 2px solid currentcolor;
+  border: 2px solid var(--btn-loading-color, var(--text-primary));
   border-radius: 50%;
   border-top-color: transparent;
   animation: loading-spin 0.6s linear infinite;
@@ -152,10 +152,7 @@ body.light-mode .loading-text,
 }
 
 /* Filled buttons need white spinner */
-.btn-primary.btn-loading::after,
-.btn-success.btn-loading::after,
-.btn-danger.btn-loading::after,
-.btn-warning.btn-loading::after {
+.btn-primary.btn-loading::after {
   border-color: rgb(255 255 255 / 30%);
   border-top-color: #fff;
 }

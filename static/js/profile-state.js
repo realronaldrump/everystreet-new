@@ -27,6 +27,7 @@ function normalizeValues(values = {}) {
     client_id: String(values.client_id || "").trim(),
     client_secret: String(values.client_secret || "").trim(),
     redirect_uri: String(values.redirect_uri || "").trim(),
+    authorization_code: String(values.authorization_code || "").trim(),
     authorized_devices: devices,
     fetch_concurrency: normalizeConcurrency(values.fetch_concurrency),
   };
@@ -54,6 +55,9 @@ function areValuesEqual(left, right) {
     return false;
   }
   if (a.redirect_uri !== b.redirect_uri) {
+    return false;
+  }
+  if (a.authorization_code !== b.authorization_code) {
     return false;
   }
   if (a.fetch_concurrency !== b.fetch_concurrency) {

@@ -1,6 +1,12 @@
 import apiClient from "./modules/core/api-client.js";
 import store from "./modules/core/store.js";
-import { getStorage, onPageLoad, setStorage } from "./modules/utils.js";
+import {
+  formatNumber,
+  formatRelativeTimeLong,
+  getStorage,
+  onPageLoad,
+  setStorage,
+} from "./modules/utils.js";
 
 /**
  * Vehicles Page JavaScript
@@ -16,6 +22,8 @@ import { getStorage, onPageLoad, setStorage } from "./modules/utils.js";
 
   // LocalStorage key for persisting selected vehicle
   const STORAGE_KEY = "selectedVehicleImei";
+  const formatOdometer = (value) =>
+    formatNumber(value, { minimumFractionDigits: 0, maximumFractionDigits: 1 });
 
   // DOM Elements
   let elements = {};
@@ -319,7 +327,7 @@ import { getStorage, onPageLoad, setStorage } from "./modules/utils.js";
 
     // Odometer
     if (vehicle.odometer_reading) {
-      elements.currentOdometer.textContent = formatNumber(vehicle.odometer_reading);
+      elements.currentOdometer.textContent = formatOdometer(vehicle.odometer_reading);
 
       const sourceLabels = {
         bouncie: "From Bouncie",
@@ -331,7 +339,7 @@ import { getStorage, onPageLoad, setStorage } from "./modules/utils.js";
 
       if (vehicle.odometer_updated_at) {
         const updatedDate = new Date(vehicle.odometer_updated_at);
-        elements.odometerUpdated.textContent = `Updated ${formatRelativeTime(updatedDate)}`;
+        elements.odometerUpdated.textContent = `Updated ${formatRelativeTimeLong(updatedDate)}`;
       }
     } else {
       elements.currentOdometer.textContent = "--";
@@ -346,7 +354,7 @@ import { getStorage, onPageLoad, setStorage } from "./modules/utils.js";
 
     // Pre-fill manual input with current reading
     if (vehicle.odometer_reading) {
-      elements.manualOdometerInput.placeholder = formatNumber(vehicle.odometer_reading);
+      elements.manualOdometerInput.placeholder = formatOdometer(vehicle.odometer_reading);
     }
   }
 
@@ -371,7 +379,7 @@ import { getStorage, onPageLoad, setStorage } from "./modules/utils.js";
 
       if (data.odometer) {
         bouncieOdometer = data.odometer;
-        elements.bouncieOdometer.textContent = `${formatNumber(data.odometer)} miles`;
+        elements.bouncieOdometer.textContent = `${formatOdometer(data.odometer)} miles`;
         elements.bouncieOdometer.classList.remove("error");
         elements.useBouncieReadingBtn.disabled = false;
       } else {
@@ -588,47 +596,4 @@ import { getStorage, onPageLoad, setStorage } from "./modules/utils.js";
     toast.show();
   }
 
-  /**
-   * Format number with commas
-   */
-  function formatNumber(num) {
-    if (num === null || num === undefined) {
-      return "--";
-    }
-    return Number(num).toLocaleString("en-US", {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 1,
-    });
-  }
-
-  /**
-   * Format relative time (e.g., "2 hours ago")
-   */
-  function formatRelativeTime(date) {
-    if (!date) {
-      return "";
-    }
-
-    const now = new Date();
-    const diffMs = now - date;
-    const diffSecs = Math.floor(diffMs / 1000);
-    const diffMins = Math.floor(diffSecs / 60);
-    const diffHours = Math.floor(diffMins / 60);
-    const diffDays = Math.floor(diffHours / 24);
-
-    if (diffSecs < 60) {
-      return "just now";
-    }
-    if (diffMins < 60) {
-      return `${diffMins} minute${diffMins > 1 ? "s" : ""} ago`;
-    }
-    if (diffHours < 24) {
-      return `${diffHours} hour${diffHours > 1 ? "s" : ""} ago`;
-    }
-    if (diffDays < 7) {
-      return `${diffDays} day${diffDays > 1 ? "s" : ""} ago`;
-    }
-
-    return date.toLocaleDateString();
-  }
 })();

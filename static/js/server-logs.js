@@ -1,7 +1,7 @@
 import apiClient from "./modules/core/api-client.js";
 import confirmationDialog from "./modules/ui/confirmation-dialog.js";
 import notificationManager from "./modules/ui/notifications.js";
-import { onPageLoad } from "./modules/utils.js";
+import { escapeHtml, onPageLoad } from "./modules/utils.js";
 
 onPageLoad(
   ({ signal, cleanup } = {}) => {
@@ -497,15 +497,6 @@ onPageLoad(
           button.innerHTML = originalContent;
         }
       }
-    }
-
-    /**
-     * Escape HTML to prevent XSS
-     */
-    function escapeHtml(text) {
-      const div = document.createElement("div");
-      div.textContent = text;
-      return div.innerHTML;
     }
 
     if (typeof cleanup === "function") {

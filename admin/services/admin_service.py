@@ -2,14 +2,17 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Iterable
 from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import HTTPException, status
+from pymongo.errors import OperationFailure
 
 from core.date_utils import ensure_utc
 from core.http.geocoding import validate_location_osm
 from core.service_config import clear_config_cache
+from db.manager import db_manager
 from db.models import (
     AppSettings,
     GasFillup,
@@ -27,6 +30,29 @@ from db.models import (
 )
 
 logger = logging.getLogger(__name__)
+
+_MB_BYTES = 1024 * 1024
+
+
+def _bytes_to_mb(size_bytes: int | float | None) -> float:
+    if not size_bytes:
+        return 0.0
+    return round(size_bytes / _MB_BYTES, 2)
+
+
+def _total_size_bytes(stats: dict[str, Any], index_key: str, data_key: str) -> int:
+    total_size = stats.get("totalSize")
+    if total_size is not None and total_size > 0:
+        return int(total_size)
+
+    storage_size = stats.get("storageSize") or 0
+    index_size = stats.get(index_key) or 0
+    combined = storage_size + index_size
+    if combined > 0:
+        return int(combined)
+
+    return int(stats.get(data_key, 0) or 0)
+
 
 # Map collection names to Beanie Document models for admin operations
 COLLECTION_TO_MODEL = {
@@ -140,9 +166,35 @@ class AdminService:
 
     @staticmethod
     async def get_storage_info() -> dict[str, Any]:
-        return {
-            "used_mb": None,
-        }
+        stats = await db_manager.db.command("dbStats")
+        used_bytes = _total_size_bytes(stats, "indexSize", "dataSize")
+        return {"used_mb": _bytes_to_mb(used_bytes)}
+
+    @staticmethod
+    async def get_collection_sizes_mb(
+        collection_names: Iterable[str],
+    ) -> dict[str, float | None]:
+        db = db_manager.db
+        sizes: dict[str, float | None] = {}
+        for collection in collection_names:
+            try:
+                stats = await db.command({"collStats": collection})
+            except OperationFailure as exc:
+                if getattr(exc, "code", None) == 26:
+                    sizes[collection] = 0.0
+                    continue
+                logger.warning(
+                    "Failed to fetch stats for collection %s: %s",
+                    collection,
+                    exc,
+                )
+                sizes[collection] = None
+                continue
+
+            size_bytes = _total_size_bytes(stats, "totalIndexSize", "size")
+            sizes[collection] = _bytes_to_mb(size_bytes)
+
+        return sizes
 
     @staticmethod
     async def validate_location(location: str, location_type: str) -> dict[str, Any]:

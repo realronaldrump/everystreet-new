@@ -56,9 +56,9 @@ export function initDatabaseManagement({ signal } = {}) {
 
   if (refreshStorageBtn) {
     refreshStorageBtn.addEventListener(
-      "mousedown",
+      "click",
       async (e) => {
-        if (e.button !== 0) {
+        if (typeof e.button === "number" && e.button !== 0) {
           return;
         }
         try {
@@ -84,9 +84,9 @@ export function initDatabaseManagement({ signal } = {}) {
   }
 
   document.body.addEventListener(
-    "mousedown",
+    "click",
     async (event) => {
-      if (event.button !== 0) {
+      if (typeof event.button === "number" && event.button !== 0) {
         return;
       }
       const clearButton = event.target.closest(".clear-collection");

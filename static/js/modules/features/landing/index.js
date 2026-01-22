@@ -6,13 +6,12 @@
 import apiClient from "../../core/api-client.js";
 import metricAnimator from "../../ui/metric-animator.js";
 import notificationManager from "../../ui/notifications.js";
-import { onPageLoad } from "../../utils.js";
 import {
-  animateValue,
-  formatMiles,
   formatNumber,
-  formatTimeAgo,
-} from "./animations.js";
+  formatRelativeTimeShort,
+  onPageLoad,
+} from "../../utils.js";
+import { animateValue } from "./animations.js";
 import { bindWidgetEditToggle, updateGreeting } from "./hero.js";
 
 // Configuration
@@ -709,7 +708,7 @@ async function loadMetrics() {
       metricAnimator.animate(elements.statMiles, miles, { decimals: 0 });
       metricAnimator.animate(elements.statTrips, trips, { decimals: 0 });
     } else {
-      animateValue(elements.statMiles, miles, formatMiles, CONFIG.animationDuration);
+      animateValue(elements.statMiles, miles, formatNumber, CONFIG.animationDuration);
       animateValue(elements.statTrips, trips, formatNumber, CONFIG.animationDuration);
     }
   } catch {
@@ -751,7 +750,7 @@ async function loadRecentTrips() {
       if (lastTripTime) {
         const valueEl = elements.recentTrip.querySelector(".meta-value");
         if (valueEl) {
-          valueEl.textContent = formatTimeAgo(new Date(lastTripTime));
+          valueEl.textContent = formatRelativeTimeShort(new Date(lastTripTime));
         }
       }
     }
@@ -841,7 +840,7 @@ function populateActivityFeed(trips) {
       const distance = trip.distance ? parseFloat(trip.distance).toFixed(1) : "?";
       const destination = formatDestination(trip.destination);
       const time = trip.endTime || trip.startTime;
-      const timeAgo = time ? formatTimeAgo(new Date(time)) : "";
+      const timeAgo = time ? formatRelativeTimeShort(new Date(time)) : "";
 
       return `
       <div class="swipe-item" data-swipe-actions data-trip-id="${trip.transactionId || ""}">

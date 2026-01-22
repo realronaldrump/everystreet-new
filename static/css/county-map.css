@@ -6,6 +6,14 @@
   width: 100%;
   height: calc(100vh - 60px);
   overflow: hidden;
+  --county-success: #10b981;
+  --county-success-rgb: 16, 185, 129;
+  --county-success-deep: #059669;
+  --county-danger: #f87171;
+  --county-danger-strong: #dc2626;
+  --county-danger-rgb: 239, 68, 68;
+  --county-indigo-rgb: 99, 102, 241;
+  --county-amber-rgb: 245, 158, 11;
 }
 
 .county-map-container {

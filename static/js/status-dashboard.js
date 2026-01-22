@@ -1,6 +1,6 @@
 import apiClient from "./modules/core/api-client.js";
 import notificationManager from "./modules/ui/notifications.js";
-import { onPageLoad } from "./modules/utils.js";
+import { escapeHtml, onPageLoad } from "./modules/utils.js";
 
 const STATUS_API = "/api/status/health";
 const STATUS_CLASS = {
@@ -155,12 +155,6 @@ function formatTime(isoString) {
     return "--";
   }
   return date.toLocaleString();
-}
-
-function escapeHtml(text) {
-  const div = document.createElement("div");
-  div.textContent = text || "";
-  return div.innerHTML;
 }
 
 async function restartService(serviceName) {

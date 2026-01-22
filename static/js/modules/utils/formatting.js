@@ -48,14 +48,17 @@ export function escapeHtml(str) {
  * @param {number} decimals - Decimal places (default 0)
  * @returns {string} Formatted number or "--" if invalid
  */
-export function formatNumber(num, decimals = 0) {
+export function formatNumber(num, decimalsOrOptions = 0) {
   if (num === null || num === undefined || Number.isNaN(num)) {
     return "--";
   }
-  return Number(num).toLocaleString(undefined, {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
-  });
+  const options = typeof decimalsOrOptions === "number"
+    ? {
+        minimumFractionDigits: decimalsOrOptions,
+        maximumFractionDigits: decimalsOrOptions,
+      }
+    : { ...decimalsOrOptions };
+  return Number(num).toLocaleString(undefined, options);
 }
 
 /**
@@ -80,11 +83,17 @@ export function formatPercentage(value, decimals = 1) {
  * @param {number} miles - Distance in miles
  * @returns {string} Formatted distance or "--" if invalid
  */
-export function formatDistance(miles) {
+export function formatDistance(miles, options = 1) {
+  const { decimals = 1, unit = "mi", fallback = "--" }
+    = typeof options === "number" ? { decimals: options } : options;
   if (miles === null || miles === undefined) {
-    return "--";
+    return fallback;
   }
-  return `${parseFloat(miles).toFixed(1)} mi`;
+  const numeric = Number(miles);
+  if (!Number.isFinite(numeric)) {
+    return fallback;
+  }
+  return `${numeric.toFixed(decimals)} ${unit}`;
 }
 
 /**
@@ -402,6 +411,93 @@ export function formatTimeAgo(dateInput, abbreviated = false) {
     return `${minutes} minute${minutes > 1 ? "s" : ""} ago`;
   }
   return "Just now";
+}
+
+/**
+ * Format relative time in a short, compact form (e.g., "2h", "3d ago").
+ * @param {string|Date} dateInput - Date to format
+ * @param {Object} [options]
+ * @param {string} [options.suffix] - Optional suffix (e.g., " ago")
+ * @param {boolean} [options.capitalize] - Capitalize "just now"
+ * @param {string} [options.fallback] - Fallback string for invalid inputs
+ * @returns {string} Relative time string
+ */
+export function formatRelativeTimeShort(
+  dateInput,
+  { suffix = "", capitalize = false, fallback = "" } = {}
+) {
+  if (!dateInput) {
+    return fallback;
+  }
+  const date = dateInput instanceof Date ? dateInput : new Date(dateInput);
+  if (Number.isNaN(date.getTime())) {
+    return fallback;
+  }
+
+  const now = new Date();
+  const diffMs = now - date;
+  const seconds = Math.max(0, Math.floor(diffMs / 1000));
+  if (seconds < 60) {
+    return capitalize ? "Just now" : "just now";
+  }
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) {
+    return `${minutes}m${suffix}`;
+  }
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) {
+    return `${hours}h${suffix}`;
+  }
+  const days = Math.floor(hours / 24);
+  if (days < 7) {
+    return `${days}d${suffix}`;
+  }
+  if (days < 30) {
+    return `${Math.floor(days / 7)}w${suffix}`;
+  }
+  return `${Math.floor(days / 30)}mo${suffix}`;
+}
+
+/**
+ * Format relative time with full units (e.g., "2 hours ago").
+ * @param {string|Date} dateInput - Date to format
+ * @param {Object} [options]
+ * @param {boolean} [options.capitalize] - Capitalize "just now"
+ * @param {number} [options.maxDays] - Max day count before showing date string
+ * @param {string} [options.fallback] - Fallback string for invalid inputs
+ * @returns {string} Relative time string
+ */
+export function formatRelativeTimeLong(
+  dateInput,
+  { capitalize = false, maxDays = 7, fallback = "" } = {}
+) {
+  if (!dateInput) {
+    return fallback;
+  }
+  const date = dateInput instanceof Date ? dateInput : new Date(dateInput);
+  if (Number.isNaN(date.getTime())) {
+    return fallback;
+  }
+
+  const now = new Date();
+  const diffMs = now - date;
+  const seconds = Math.max(0, Math.floor(diffMs / 1000));
+  if (seconds < 60) {
+    return capitalize ? "Just now" : "just now";
+  }
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) {
+    return `${minutes} minute${minutes === 1 ? "" : "s"} ago`;
+  }
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) {
+    return `${hours} hour${hours === 1 ? "" : "s"} ago`;
+  }
+  const days = Math.floor(hours / 24);
+  if (days < maxDays) {
+    return `${days} day${days === 1 ? "" : "s"} ago`;
+  }
+  return date.toLocaleDateString();
 }
 
 // ============================================================================

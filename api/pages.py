@@ -5,6 +5,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
+from admin.services.admin_service import AdminService
 from config import validate_mapbox_token
 from core.repo_info import get_repo_version_info
 from core.service_config import get_mapbox_token_async
@@ -44,19 +45,23 @@ async def _database_management_context() -> dict[str, Any]:
         for model in ALL_DOCUMENT_MODELS:
             collection_models.setdefault(model.get_collection_name(), model)
 
-        for collection_name in sorted(collection_models):
+        collection_names = sorted(collection_models)
+        collection_sizes = await AdminService.get_collection_sizes_mb(collection_names)
+        storage_info = await AdminService.get_storage_info()
+
+        for collection_name in collection_names:
             model = collection_models[collection_name]
             document_count = await model.find_all().count()
             collections_info.append(
                 {
                     "name": collection_name,
                     "document_count": document_count,
-                    "size_mb": None,
+                    "size_mb": collection_sizes.get(collection_name),
                 },
             )
 
         return {
-            "storage_used_mb": None,
+            "storage_used_mb": storage_info.get("used_mb"),
             "collections": collections_info,
             "database_error": None,
         }

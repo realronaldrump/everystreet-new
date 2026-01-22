@@ -134,13 +134,17 @@
 }
 
 .action-button:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgb(var(--primary-rgb), 0.3);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
 }
 
 .draw-button.active {
-  background: linear-gradient(135deg, var(--warning), var(--warning-dark));
-  box-shadow: 0 4px 15px rgb(var(--warning-rgb), 0.3);
+  --btn-bg: rgb(var(--warning-rgb) / 18%);
+  --btn-bg-hover: rgb(var(--warning-rgb) / 24%);
+  --btn-color: var(--warning);
+  --btn-border: rgb(var(--warning-rgb) / 45%);
+  --btn-border-hover: rgb(var(--warning-rgb) / 60%);
+  box-shadow: none;
 }
 
 /* Enhanced Chart Container */

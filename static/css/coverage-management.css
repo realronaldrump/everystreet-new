@@ -19,17 +19,6 @@
   color: var(--text-secondary);
 }
 
-.stats-info .text-info {
-  color: var(--info);
-}
-
-.stats-info .text-success {
-  color: var(--success);
-}
-
-.stats-info .text-primary {
-  color: var(--primary);
-}
 
 .map-info-panel {
   position: absolute;
@@ -52,22 +41,6 @@
 
 .map-info-panel strong {
   color: var(--text-on-dark);
-}
-
-.map-info-panel .text-success {
-  color: var(--success);
-}
-
-.map-info-panel .text-danger {
-  color: var(--danger);
-}
-
-.map-info-panel .text-info {
-  color: var(--info);
-}
-
-.map-info-panel .text-warning {
-  color: var(--warning);
 }
 
 .map-info-panel .text-muted {
@@ -379,18 +352,6 @@
 
 .minimized-progress-badge .fa-cog {
   color: var(--info);
-}
-
-@keyframes slideInUp {
-  from {
-    opacity: 0;
-    transform: none;
-  }
-
-  to {
-    opacity: 1;
-    transform: none;
-  }
 }
 
 /* Coverage Map Card - Use flexbox for proper sizing */
