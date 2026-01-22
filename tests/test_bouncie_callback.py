@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
 import time
 from unittest.mock import AsyncMock, MagicMock
 from urllib.parse import parse_qs, urlparse
