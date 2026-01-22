@@ -507,12 +507,16 @@ onPageLoad(
     const containerSelect = document.getElementById("container-select");
     const dockerSelectAllBtn = document.getElementById("docker-select-all");
     const dockerClearSelectionBtn = document.getElementById("docker-clear-selection");
+    const dockerLevelFilter = document.getElementById("docker-level-filter");
     const dockerLimitFilter = document.getElementById("docker-limit-filter");
     const dockerSinceFilter = document.getElementById("docker-since-filter");
+    const dockerSearchFilter = document.getElementById("docker-search-filter");
+    const applyDockerFiltersBtn = document.getElementById("apply-docker-filters");
     const refreshDockerLogsBtn = document.getElementById("refresh-docker-logs");
     const dockerAutoRefreshToggle = document.getElementById("docker-auto-refresh-toggle");
     const copyDockerLogsBtn = document.getElementById("copy-docker-logs");
     const exportDockerLogsBtn = document.getElementById("export-docker-logs");
+    const clearDockerLogsBtn = document.getElementById("clear-docker-logs");
     const dockerLogsContainer = document.getElementById("docker-logs-container");
     const dockerLogsInfo = document.getElementById("docker-logs-info");
     const containerStatusCard = document.getElementById("container-status-card");
@@ -523,6 +527,7 @@ onPageLoad(
     // Docker logs state
     let dockerAutoRefreshInterval = null;
     let dockerAutoRefreshEnabled = false;
+    let rawDockerLogs = [];
     let currentDockerLogs = [];
     let containersData = [];
 
@@ -574,6 +579,29 @@ onPageLoad(
       );
     }
 
+    if (applyDockerFiltersBtn) {
+      applyDockerFiltersBtn.addEventListener(
+        "click",
+        (e) => {
+          e.preventDefault();
+          loadDockerLogs();
+        },
+        signal ? { signal } : false
+      );
+    }
+
+    if (dockerSearchFilter) {
+      dockerSearchFilter.addEventListener(
+        "keypress",
+        (e) => {
+          if (e.key === "Enter") {
+            loadDockerLogs();
+          }
+        },
+        signal ? { signal } : false
+      );
+    }
+
     if (refreshDockerLogsBtn) {
       refreshDockerLogsBtn.addEventListener(
         "click",
@@ -613,6 +641,17 @@ onPageLoad(
         (e) => {
           e.preventDefault();
           exportDockerLogs();
+        },
+        signal ? { signal } : false
+      );
+    }
+
+    if (clearDockerLogsBtn) {
+      clearDockerLogsBtn.addEventListener(
+        "click",
+        (e) => {
+          e.preventDefault();
+          clearDockerLogs();
         },
         signal ? { signal } : false
       );
@@ -664,6 +703,81 @@ onPageLoad(
       Array.from(containerSelect.options).forEach((option) => {
         option.selected = false;
       });
+    }
+
+    function getDockerLogLevel(message) {
+      const lowerMessage = message.toLowerCase();
+
+      if (lowerMessage.includes("critical") || lowerMessage.includes("fatal")) {
+        return "CRITICAL";
+      }
+      if (lowerMessage.includes("error") || lowerMessage.includes("exception")) {
+        return "ERROR";
+      }
+      if (lowerMessage.includes("warn")) {
+        return "WARNING";
+      }
+      if (lowerMessage.includes("debug")) {
+        return "DEBUG";
+      }
+      if (lowerMessage.includes("info")) {
+        return "INFO";
+      }
+
+      return "INFO";
+    }
+
+    function parseDockerLogLine(line) {
+      let timestamp = "";
+      let message = line;
+
+      // Docker timestamps look like: 2024-01-22T16:00:00.000000000Z
+      const timestampMatch = line.match(/^(\d{4}-\d{2}-\d{2}T[\d:.]+Z?)\s+(.*)$/);
+      if (timestampMatch) {
+        try {
+          const date = new Date(timestampMatch[1]);
+          timestamp = date.toLocaleString("en-US", { hour12: true });
+          message = timestampMatch[2];
+        } catch {
+          // Keep original line
+        }
+      }
+
+      return {
+        timestamp,
+        message,
+        level: getDockerLogLevel(message),
+      };
+    }
+
+    function applyDockerFilters({ selectedContainers = [] } = {}) {
+      const levelFilterValue = dockerLevelFilter?.value || "";
+      const searchValue = dockerSearchFilter?.value?.trim().toLowerCase() || "";
+
+      const filteredGroups = rawDockerLogs.map((group) => {
+        const filteredLogs = (group.logs || []).filter((line) => {
+          const parsedLine = parseDockerLogLine(line);
+
+          if (levelFilterValue && parsedLine.level !== levelFilterValue) {
+            return false;
+          }
+
+          if (searchValue && !parsedLine.message.toLowerCase().includes(searchValue)) {
+            return false;
+          }
+
+          return true;
+        });
+
+        return {
+          ...group,
+          logs: filteredLogs,
+          line_count: filteredLogs.length,
+        };
+      });
+
+      currentDockerLogs = filteredGroups;
+      displayDockerLogs(filteredGroups, { selectedContainers });
     }
 
     /**

@@ -260,7 +260,32 @@ Clear
                   </button>
                 </div>
               </div>
-              <div class="col-md-3">
+              <div class="col-md-2">
+                <label for="docker-level-filter" class="form-label">
+Log Level
+                </label>
+                <select id="docker-level-filter" class="form-select">
+                  <option value="">
+All Levels
+                  </option>
+                  <option value="DEBUG">
+DEBUG
+                  </option>
+                  <option value="INFO">
+INFO
+                  </option>
+                  <option value="WARNING">
+WARNING
+                  </option>
+                  <option value="ERROR">
+ERROR
+                  </option>
+                  <option value="CRITICAL">
+CRITICAL
+                  </option>
+                </select>
+              </div>
+              <div class="col-md-2">
                 <label for="docker-limit-filter" class="form-label">
 Lines
                 </label>
@@ -273,7 +298,7 @@ Lines
                   <option value="5000">5000</option>
                 </select>
               </div>
-              <div class="col-md-3">
+              <div class="col-md-2">
                 <label for="docker-since-filter" class="form-label">
 Since
                 </label>
@@ -293,6 +318,22 @@ Since
                 </button>
               </div>
             </div>
+            <div class="row mt-3 g-3">
+              <div class="col-md-10">
+                <label for="docker-search-filter" class="form-label">
+Search Message
+                </label>
+                <input type="text"
+                       id="docker-search-filter"
+                       class="form-control"
+                       placeholder="Search log messages..." />
+              </div>
+              <div class="col-md-2 d-flex align-items-end">
+                <button id="apply-docker-filters" class="btn btn-primary w-100">
+                  <i class="fas fa-filter"></i> Apply
+                </button>
+              </div>
+            </div>
             <div class="row mt-3">
               <div class="col-12">
                 <div class="btn-group" role="group">
@@ -304,6 +345,9 @@ Since
                   </button>
                   <button id="export-docker-logs" class="btn btn-secondary">
                     <i class="fas fa-download"></i> Export
+                  </button>
+                  <button id="clear-docker-logs" class="btn btn-danger">
+                    <i class="fas fa-trash"></i> Clear Logs
                   </button>
                 </div>
               </div>
