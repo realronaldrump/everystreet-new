@@ -36,6 +36,26 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# Cache HTTP/2 availability and allow runtime fallback if a deployment lacks h2.
+_HTTP2_ENABLED = HAS_HTTP2
+
+
+def _http2_enabled() -> bool:
+    return _HTTP2_ENABLED
+
+
+def _disable_http2(reason: str) -> None:
+    global _HTTP2_ENABLED
+    if _HTTP2_ENABLED:
+        _HTTP2_ENABLED = False
+        logger.warning("Disabling HTTP/2 for downloads: %s", reason)
+
+
+def _is_missing_h2_error(exc: Exception) -> bool:
+    message = str(exc).lower()
+    return "http2" in message and "h2" in message and "not installed" in message
+
+
 # =============================================================================
 # Download Configuration - Optimized for gigabit connections
 # =============================================================================
@@ -380,7 +400,7 @@ async def _download_segment(
                 segment.start_byte,
             )
 
-    try:
+    async def _perform_download(http2: bool) -> None:
         timeout = httpx.Timeout(
             connect=CONNECT_TIMEOUT,
             read=READ_TIMEOUT,
@@ -391,7 +411,7 @@ async def _download_segment(
         async with httpx.AsyncClient(
             timeout=timeout,
             follow_redirects=True,
-            http2=HAS_HTTP2,  # Enable HTTP/2 if available
+            http2=http2,  # Enable HTTP/2 if available
         ) as client:
             async with client.stream("GET", url, headers=headers) as response:
                 # Accept both 200 (full) and 206 (partial content)
@@ -410,15 +430,24 @@ async def _download_segment(
 
         segment.complete = True
 
-    except DownloadCancelled:
-        segment.error = "cancelled"
-        raise
-    except asyncio.CancelledError:
-        segment.error = "cancelled"
-        raise
-    except Exception as e:
-        segment.error = str(e)
-        logger.warning("Segment %d failed: %s", segment.index, e)
+    for attempt in range(2):
+        use_http2 = _http2_enabled() if attempt == 0 else False
+        try:
+            await _perform_download(use_http2)
+            return
+        except DownloadCancelled:
+            segment.error = "cancelled"
+            raise
+        except asyncio.CancelledError:
+            segment.error = "cancelled"
+            raise
+        except Exception as e:
+            if use_http2 and _is_missing_h2_error(e):
+                _disable_http2(str(e))
+                continue
+            segment.error = str(e)
+            logger.warning("Segment %d failed: %s", segment.index, e)
+            return
 
 
 async def _report_progress(
@@ -511,7 +540,7 @@ async def stream_download_region(
 
     logger.info("Starting single-stream download: %s -> %s", source_url, output_path)
 
-    try:
+    async def _perform_stream(http2: bool) -> str:
         timeout = httpx.Timeout(
             connect=CONNECT_TIMEOUT,
             read=READ_TIMEOUT,
@@ -522,7 +551,7 @@ async def stream_download_region(
         async with httpx.AsyncClient(
             timeout=timeout,
             follow_redirects=True,
-            http2=HAS_HTTP2,
+            http2=http2,
         ) as client:
             async with client.stream("GET", source_url) as response:
                 response.raise_for_status()
@@ -592,6 +621,17 @@ async def stream_download_region(
                 )
 
                 return output_filename
+
+    try:
+        for attempt in range(2):
+            use_http2 = _http2_enabled() if attempt == 0 else False
+            try:
+                return await _perform_stream(use_http2)
+            except Exception as e:
+                if use_http2 and _is_missing_h2_error(e):
+                    _disable_http2(str(e))
+                    continue
+                raise
 
     except DownloadCancelled:
         cleanup_download_artifacts(
