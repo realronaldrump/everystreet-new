@@ -12,6 +12,48 @@ import {
   DEFAULT_STREET_COLORS,
 } from "./constants.js";
 
+const normalizeClusterColors = (clusterColors) => {
+  if (Array.isArray(clusterColors)) {
+    return clusterColors;
+  }
+  if (clusterColors && typeof clusterColors === "object") {
+    const ordered = [
+      clusterColors.small,
+      clusterColors.medium,
+      clusterColors.large,
+    ].filter(Boolean);
+    if (ordered.length > 0) {
+      return ordered.concat(
+        DEFAULT_CLUSTER_COLORS.filter((color) => !ordered.includes(color))
+      );
+    }
+  }
+  return DEFAULT_CLUSTER_COLORS;
+};
+
+const normalizeStreetColors = (streetColors) => ({
+  undriven: streetColors?.undriven || DEFAULT_STREET_COLORS.undriven,
+  driven: streetColors?.driven || DEFAULT_STREET_COLORS.driven,
+});
+
+const normalizeRouteColors = (routeColors) => {
+  if (!routeColors || typeof routeColors !== "object") {
+    return { ...DEFAULT_ROUTE_COLORS };
+  }
+  return {
+    calculated:
+      routeColors.calculated
+      || routeColors.active
+      || routeColors.default
+      || DEFAULT_ROUTE_COLORS.calculated,
+    target:
+      routeColors.target
+      || routeColors.completed
+      || routeColors.default
+      || DEFAULT_ROUTE_COLORS.target,
+  };
+};
+
 export class DrivingNavigationMap {
   /**
    * @param {string} containerId - The DOM container ID for the map
@@ -27,9 +69,9 @@ export class DrivingNavigationMap {
     this.interactivityHandlers = null;
 
     // Get colors with fallbacks from MapStyles if available
-    this.clusterColors = MapStyles.MAP_LAYER_COLORS?.clusters || DEFAULT_CLUSTER_COLORS;
-    this.streetColors = MapStyles.MAP_LAYER_COLORS?.streets || DEFAULT_STREET_COLORS;
-    this.routeColors = MapStyles.MAP_LAYER_COLORS?.routes || DEFAULT_ROUTE_COLORS;
+    this.clusterColors = normalizeClusterColors(MapStyles.MAP_LAYER_COLORS?.clusters);
+    this.streetColors = normalizeStreetColors(MapStyles.MAP_LAYER_COLORS?.streets);
+    this.routeColors = normalizeRouteColors(MapStyles.MAP_LAYER_COLORS?.routes);
   }
 
   /**

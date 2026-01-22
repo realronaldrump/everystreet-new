@@ -40,20 +40,12 @@
 }
 
 .modal.fade .modal-dialog {
-  transform: translateY(12px) scale(0.98);
-  transition:
-    transform var(--transition-spring),
-    opacity var(--transition-normal);
+  opacity: 0;
+  transition: opacity var(--transition-normal);
 }
 
 .modal.show .modal-dialog {
-  transform: translateY(0) scale(1);
-  animation: modal-rise 0.4s var(--transition-spring) both;
-}
-
-.modal.is-closing .modal-dialog {
-  transform: translateY(10px) scale(0.98);
-  opacity: 0;
+  opacity: 1;
 }
 
 .modal.swipe-active .modal-dialog {
@@ -89,24 +81,7 @@
   justify-content: flex-end;
 }
 
-/* Animation variants - these have higher specificity intentionally */
-.modal.show .modal-header,
-.modal.show .modal-body,
-.modal.show .modal-footer {
-  animation: modal-section-in 0.35s ease both;
-}
 
-.modal.show .modal-body {
-  animation-delay: 60ms;
-}
-
-.modal.show .modal-footer {
-  animation-delay: 120ms;
-}
-
-.modal .focus-pulse {
-  animation: focus-glow 0.6s ease-out;
-}
 
 .btn-close-white {
   /* Ensure close button is visible in dark mode */
