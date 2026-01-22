@@ -18,6 +18,16 @@ from typing import TYPE_CHECKING, Any
 
 import httpx
 
+try:
+    import h2
+
+    HAS_HTTP2 = True
+except ImportError:
+    HAS_HTTP2 = False
+    logger = logging.getLogger(__name__)
+    logger.warning("h2 package not found. HTTP/2 support will be disabled.")
+
+
 from config import get_geofabrik_mirror, get_osm_extracts_path
 from map_data.models import MapDataJob, MapRegion
 
@@ -381,7 +391,7 @@ async def _download_segment(
         async with httpx.AsyncClient(
             timeout=timeout,
             follow_redirects=True,
-            http2=True,  # Enable HTTP/2 for better performance
+            http2=HAS_HTTP2,  # Enable HTTP/2 if available
         ) as client:
             async with client.stream("GET", url, headers=headers) as response:
                 # Accept both 200 (full) and 206 (partial content)
@@ -512,7 +522,7 @@ async def stream_download_region(
         async with httpx.AsyncClient(
             timeout=timeout,
             follow_redirects=True,
-            http2=True,
+            http2=HAS_HTTP2,
         ) as client:
             async with client.stream("GET", source_url) as response:
                 response.raise_for_status()
