@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from exports.constants import EXPORT_DEFAULT_FORMAT, EXPORT_FORMATS_BY_ENTITY
 
-if TYPE_CHECKING:
-    from beanie import PydanticObjectId
+from beanie import PydanticObjectId
+
 
 ExportEntity = Literal[
     "trips",
