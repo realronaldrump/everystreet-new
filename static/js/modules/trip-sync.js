@@ -190,7 +190,7 @@ async function startSync(
 function setupHistoryModal(elements) {
   const modalEl = getElement("tripSyncHistoryModal");
   if (!modalEl || !elements.historyButton) {
-    return;
+    return null;
   }
   const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
   const startInput = getElement("trip-sync-history-start");
@@ -201,11 +201,11 @@ function setupHistoryModal(elements) {
     startInput.value = defaultDate.toISOString().slice(0, 16);
   }
 
-  elements.historyButton.addEventListener("click", () => {
+  const handleOpen = () => {
     modal.show();
-  });
+  };
 
-  confirmBtn?.addEventListener("click", async () => {
+  const handleConfirm = async () => {
     modal.hide();
     const startValue = startInput?.value;
     const startDate = startValue ? new Date(startValue) : null;
@@ -213,7 +213,15 @@ function setupHistoryModal(elements) {
       mode: "history",
       startDate: startDate && !Number.isNaN(startDate.getTime()) ? startDate : null,
     });
-  });
+  };
+
+  elements.historyButton.addEventListener("click", handleOpen);
+  confirmBtn?.addEventListener("click", handleConfirm);
+
+  return () => {
+    elements.historyButton?.removeEventListener("click", handleOpen);
+    confirmBtn?.removeEventListener("click", handleConfirm);
+  };
 }
 
 function setupPullToRefresh(elements) {
@@ -376,7 +384,10 @@ export function initTripSync({ onSyncComplete, cleanup } = {}) {
     elements.emptyButton?.removeEventListener("click", handleSyncClick);
   });
 
-  setupHistoryModal(elements);
+  const historyCleanup = setupHistoryModal(elements);
+  if (historyCleanup) {
+    cleanupHandlers.push(historyCleanup);
+  }
   const pullCleanup = setupPullToRefresh(elements);
   if (pullCleanup) {
     cleanupHandlers.push(pullCleanup);
