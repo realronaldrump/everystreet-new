@@ -21,6 +21,7 @@ let deleteRegionId = null;
 let activeJobsByRegion = new Map();
 let regionsById = new Map();
 let regionsByName = new Map();
+let activeJobCount = 0;
 
 // =============================================================================
 // Initialization
@@ -765,13 +766,26 @@ async function loadActiveJobs() {
   try {
     const response = await apiClient.raw(`${API_BASE}/jobs?active_only=true`);
     const data = await response.json();
+    const jobs = Array.isArray(data.jobs) ? data.jobs : [];
+    const hadJobs = activeJobCount > 0;
+    activeJobCount = jobs.length;
+    activeJobsByRegion = new Map();
+    jobs.forEach((job) => {
+      if (job.region_id) {
+        activeJobsByRegion.set(job.region_id, job);
+      }
+    });
 
-    if (!data.jobs || data.jobs.length === 0) {
+    if (jobs.length === 0) {
       if (noJobsMsg) {
         noJobsMsg.style.display = "block";
       }
       // Remove any job cards
       jobsList.querySelectorAll(".job-card").forEach((el) => el.remove());
+      updateSelectedRegionUI();
+      if (hadJobs) {
+        await loadRegions();
+      }
       return;
     }
 
@@ -780,8 +794,14 @@ async function loadActiveJobs() {
     }
 
     // Update or create job cards
-    for (const job of data.jobs) {
+    for (const job of jobs) {
       let card = jobsList.querySelector(`[data-job-id="${job.id}"]`);
+      const regionName = job.region_id
+        ? regionsById.get(job.region_id)?.display_name
+        : null;
+      const regionLine = regionName
+        ? `<div class="small text-muted">${escapeHtml(regionName)}</div>`
+        : "";
 
       if (!card) {
         card = document.createElement("div");
@@ -796,9 +816,11 @@ async function loadActiveJobs() {
             <div>
               <strong>${formatJobType(job.job_type)}</strong>
               <span class="badge bg-${job.status === "running" ? "primary" : "secondary"} ms-2">${job.status}</span>
+              ${regionLine}
             </div>
-            <button class="btn btn-sm btn-outline-danger" onclick="window.mapServices.cancelJob('${job.id}')" title="Cancel">
+            <button class="btn btn-sm btn-outline-danger" onclick="window.mapServices.cancelJob('${job.id}')" title="Cancel job">
               <i class="fas fa-times"></i>
+              <span class="ms-1">Cancel</span>
             </button>
           </div>
           <div class="progress mb-2" style="height: 20px;">
@@ -817,7 +839,7 @@ async function loadActiveJobs() {
     }
 
     // Remove cards for jobs that are no longer active
-    const activeJobIds = new Set(data.jobs.map((j) => j.id));
+    const activeJobIds = new Set(jobs.map((j) => j.id));
     jobsList.querySelectorAll(".job-card").forEach((card) => {
       if (!activeJobIds.has(card.dataset.jobId)) {
         card.remove();
@@ -832,6 +854,12 @@ async function loadActiveJobs() {
 }
 
 async function cancelJob(jobId) {
+  const confirmed = window.confirm(
+    "Cancel this job? This will stop the download or build. You can restart it later."
+  );
+  if (!confirmed) {
+    return;
+  }
   try {
     const response = await apiClient.raw(`${API_BASE}/jobs/${jobId}`, {
       method: "DELETE",

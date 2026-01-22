@@ -535,6 +535,17 @@ async def download_region(
     # Create or update MapRegion
     existing = await MapRegion.find_one({"name": geofabrik_id})
     if existing:
+        active_job = await MapDataJob.find_one(
+            {
+                "region_id": existing.id,
+                "status": {
+                    "$in": [MapDataJob.STATUS_PENDING, MapDataJob.STATUS_RUNNING],
+                },
+            },
+        )
+        if active_job:
+            msg = "Region already has an active job running."
+            raise ValueError(msg)
         region = existing
         region.status = MapRegion.STATUS_DOWNLOADING
         region.download_progress = 0.0
@@ -627,6 +638,17 @@ async def download_and_build_all(
     # Create or update MapRegion
     existing = await MapRegion.find_one({"name": geofabrik_id})
     if existing:
+        active_job = await MapDataJob.find_one(
+            {
+                "region_id": existing.id,
+                "status": {
+                    "$in": [MapDataJob.STATUS_PENDING, MapDataJob.STATUS_RUNNING],
+                },
+            },
+        )
+        if active_job:
+            msg = "Region already has an active job running."
+            raise ValueError(msg)
         region = existing
         region.status = MapRegion.STATUS_DOWNLOADING
         region.download_progress = 0.0

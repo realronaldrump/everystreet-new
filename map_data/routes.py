@@ -275,6 +275,8 @@ async def download_new_region(request: DownloadRequest) -> JobResponse:
             job_id=str(job.id),
             message=f"Download started for {request.geofabrik_id}",
         )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:
         logger.exception("Failed to start download for %s", request.geofabrik_id)
         raise HTTPException(
@@ -306,6 +308,8 @@ async def download_and_build_new_region(request: DownloadRequest) -> JobResponse
             job_id=str(job.id),
             message=f"Download and build started for {request.geofabrik_id}",
         )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:
         logger.exception(
             "Failed to start download and build for %s",
