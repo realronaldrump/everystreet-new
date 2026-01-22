@@ -86,112 +86,153 @@ async def download_region_task(ctx: dict, job_id: str) -> dict:
     retry_delays = [30, 60, 300]
     max_retries = job.max_retries or 3
     attempt = job.retry_count or 0
+    cancel_event = asyncio.Event()
+    cancel_watch = asyncio.create_task(_watch_job_cancelled(job_id, cancel_event))
 
-    while True:
-        if job.status == MapDataJob.STATUS_CANCELLED:
-            logger.info("Job was cancelled during retry: %s", job_id)
-            return {"success": False, "error": "Job cancelled"}
+    try:
+        while True:
+            if cancel_event.is_set():
+                raise DownloadCancelled("Download cancelled")
 
-        try:
-            # Update job status to running
-            job.status = MapDataJob.STATUS_RUNNING
-            job.started_at = job.started_at or datetime.now(UTC)
-            job.stage = "Downloading"
-            job.progress = 0
-            job.error = None
-            job.message = "Starting download"
-            job.retry_count = attempt
-            await job.save()
-
-            region.status = MapRegion.STATUS_DOWNLOADING
-            region.last_error = None
-            region.download_progress = 0
-            region.updated_at = datetime.now(UTC)
-            await region.save()
-
-            # Progress callback to update job
-            async def update_progress(progress: float, message: str) -> None:
-                job.progress = progress
-                job.message = message
-                region.download_progress = progress
-                await job.save()
-                await region.save()
-
-            # Execute download
-            await parallel_download_region(region, progress_callback=update_progress)
-
-            # Mark job complete
-            job.status = MapDataJob.STATUS_COMPLETED
-            job.progress = 100
-            job.message = "Download complete"
-            job.completed_at = datetime.now(UTC)
-            await job.save()
-
-            logger.info("Download complete for region %s", region.display_name)
-
-            # Check if this is a full pipeline job - chain to build
-            if job.job_type == "download_and_build_all":
-                logger.info(
-                    "Chaining to Nominatim + Valhalla build for region %s",
-                    region.display_name,
-                )
-                # Create a new build_all job
-                from map_data.models import MapDataJob as MDJ
-
-                build_job = MDJ(
-                    job_type=MDJ.JOB_BUILD_ALL,
-                    region_id=region.id,
-                    status=MDJ.STATUS_PENDING,
-                    stage="Queued for Nominatim + Valhalla build",
-                    message=f"Building geo services for {region.display_name}",
-                )
-                await build_job.insert()
-                await enqueue_nominatim_build_task(str(build_job.id))
-
-            return {"success": True, "region_id": str(region.id)}
-
-        except Exception as e:
-            attempt += 1
-            job.retry_count = attempt
-
-            if attempt <= max_retries:
-                delay = retry_delays[min(attempt - 1, len(retry_delays) - 1)]
-                logger.warning(
-                    "Download failed for job %s (attempt %s/%s): %s",
-                    job_id,
-                    attempt,
-                    max_retries,
-                    e,
-                )
-
+            try:
+                # Update job status to running
                 job.status = MapDataJob.STATUS_RUNNING
-                job.stage = f"Retrying in {delay}s"
-                job.message = f"Download failed. Retrying ({attempt}/{max_retries})"
-                job.error = str(e)
-                job.completed_at = None
+                job.started_at = job.started_at or datetime.now(UTC)
+                job.stage = "Downloading"
+                job.progress = 0
+                job.error = None
+                job.message = "Starting download"
+                job.retry_count = attempt
                 await job.save()
 
-                region.last_error = str(e)
                 region.status = MapRegion.STATUS_DOWNLOADING
+                region.last_error = None
+                region.download_progress = 0
                 region.updated_at = datetime.now(UTC)
                 await region.save()
 
-                await asyncio.sleep(delay)
-                continue
+                # Progress callback to update job
+                async def update_progress(progress: float, message: str) -> None:
+                    if cancel_event.is_set():
+                        return
+                    job.progress = progress
+                    job.message = message
+                    region.download_progress = progress
+                    await job.save()
+                    await region.save()
 
-            logger.exception("Download failed for job %s", job_id)
+                # Execute download
+                await parallel_download_region(
+                    region,
+                    progress_callback=update_progress,
+                    cancel_event=cancel_event,
+                )
 
-            job.status = MapDataJob.STATUS_FAILED
-            job.error = str(e)
-            job.completed_at = datetime.now(UTC)
-            await job.save()
+                # Mark job complete
+                job.status = MapDataJob.STATUS_COMPLETED
+                job.progress = 100
+                job.message = "Download complete"
+                job.completed_at = datetime.now(UTC)
+                await job.save()
 
-            region.status = MapRegion.STATUS_ERROR
-            region.last_error = str(e)
+                logger.info("Download complete for region %s", region.display_name)
+
+                # Check if this is a full pipeline job - chain to build
+                if job.job_type == "download_and_build_all":
+                    logger.info(
+                        "Chaining to Nominatim + Valhalla build for region %s",
+                        region.display_name,
+                    )
+                    # Create a new build_all job
+                    from map_data.models import MapDataJob as MDJ
+
+                    build_job = MDJ(
+                        job_type=MDJ.JOB_BUILD_ALL,
+                        region_id=region.id,
+                        status=MDJ.STATUS_PENDING,
+                        stage="Queued for Nominatim + Valhalla build",
+                        message=f"Building geo services for {region.display_name}",
+                    )
+                    await build_job.insert()
+                    await enqueue_nominatim_build_task(str(build_job.id))
+
+                return {"success": True, "region_id": str(region.id)}
+
+            except DownloadCancelled:
+                raise
+            except Exception as e:
+                attempt += 1
+                job.retry_count = attempt
+
+                if attempt <= max_retries:
+                    delay = retry_delays[min(attempt - 1, len(retry_delays) - 1)]
+                    logger.warning(
+                        "Download failed for job %s (attempt %s/%s): %s",
+                        job_id,
+                        attempt,
+                        max_retries,
+                        e,
+                    )
+
+                    job.status = MapDataJob.STATUS_RUNNING
+                    job.stage = f"Retrying in {delay}s"
+                    job.message = f"Download failed. Retrying ({attempt}/{max_retries})"
+                    job.error = str(e)
+                    job.completed_at = None
+                    await job.save()
+
+                    region.last_error = str(e)
+                    region.status = MapRegion.STATUS_DOWNLOADING
+                    region.updated_at = datetime.now(UTC)
+                    await region.save()
+
+                    if await _wait_for_cancel(cancel_event, delay):
+                        raise DownloadCancelled("Download cancelled")
+                    continue
+
+                logger.exception("Download failed for job %s", job_id)
+
+                job.status = MapDataJob.STATUS_FAILED
+                job.error = str(e)
+                job.completed_at = datetime.now(UTC)
+                await job.save()
+
+                region.status = MapRegion.STATUS_ERROR
+                region.last_error = str(e)
+                region.updated_at = datetime.now(UTC)
+                await region.save()
+
+                return {"success": False, "error": str(e)}
+    except DownloadCancelled:
+        logger.info("Download cancelled for job %s", job_id)
+        refreshed_job = await MapDataJob.get(PydanticObjectId(job_id))
+        if refreshed_job:
+            if refreshed_job.status != MapDataJob.STATUS_CANCELLED:
+                refreshed_job.status = MapDataJob.STATUS_CANCELLED
+            refreshed_job.stage = "Cancelled by user"
+            refreshed_job.message = "Download cancelled"
+            refreshed_job.error = refreshed_job.error or "Cancelled by user"
+            refreshed_job.completed_at = datetime.now(UTC)
+            await refreshed_job.save()
+
+        if region:
+            cleanup_download_artifacts(region, remove_output=True)
+            region.status = MapRegion.STATUS_NOT_DOWNLOADED
+            region.download_progress = 0
+            region.pbf_path = None
+            region.file_size_mb = None
+            region.downloaded_at = None
+            region.nominatim_status = "not_built"
+            region.valhalla_status = "not_built"
+            region.last_error = "Download cancelled"
             region.updated_at = datetime.now(UTC)
             await region.save()
 
-            return {"success": False, "error": str(e)}
+        return {"success": False, "error": "Job cancelled"}
+    finally:
+        cancel_watch.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await cancel_watch
 
 
 async def build_nominatim_task(ctx: dict, job_id: str) -> dict:
@@ -427,7 +468,17 @@ async def enqueue_download_task(job_id: str, build_after: bool = False) -> None:
     from tasks.arq import get_arq_pool
 
     pool = await get_arq_pool()
-    await pool.enqueue_job("download_region_task", job_id)
+    arq_job = await pool.enqueue_job("download_region_task", job_id)
+    arq_job_id = (
+        getattr(arq_job, "job_id", None) or getattr(arq_job, "id", None) or str(arq_job)
+    )
+    try:
+        stored_job = await MapDataJob.get(PydanticObjectId(job_id))
+        if stored_job:
+            stored_job.arq_job_id = arq_job_id
+            await stored_job.save()
+    except Exception as exc:
+        logger.warning("Failed to store ARQ job id for %s: %s", job_id, exc)
     logger.info(
         "Enqueued download task for job %s (build_after=%s)",
         job_id,
@@ -440,7 +491,17 @@ async def enqueue_nominatim_build_task(job_id: str) -> None:
     from tasks.arq import get_arq_pool
 
     pool = await get_arq_pool()
-    await pool.enqueue_job("build_nominatim_task", job_id)
+    arq_job = await pool.enqueue_job("build_nominatim_task", job_id)
+    arq_job_id = (
+        getattr(arq_job, "job_id", None) or getattr(arq_job, "id", None) or str(arq_job)
+    )
+    try:
+        stored_job = await MapDataJob.get(PydanticObjectId(job_id))
+        if stored_job:
+            stored_job.arq_job_id = arq_job_id
+            await stored_job.save()
+    except Exception as exc:
+        logger.warning("Failed to store ARQ job id for %s: %s", job_id, exc)
     logger.info("Enqueued Nominatim build task for job %s", job_id)
 
 
@@ -449,5 +510,15 @@ async def enqueue_valhalla_build_task(job_id: str) -> None:
     from tasks.arq import get_arq_pool
 
     pool = await get_arq_pool()
-    await pool.enqueue_job("build_valhalla_task", job_id)
+    arq_job = await pool.enqueue_job("build_valhalla_task", job_id)
+    arq_job_id = (
+        getattr(arq_job, "job_id", None) or getattr(arq_job, "id", None) or str(arq_job)
+    )
+    try:
+        stored_job = await MapDataJob.get(PydanticObjectId(job_id))
+        if stored_job:
+            stored_job.arq_job_id = arq_job_id
+            await stored_job.save()
+    except Exception as exc:
+        logger.warning("Failed to store ARQ job id for %s: %s", job_id, exc)
     logger.info("Enqueued Valhalla build task for job %s", job_id)
