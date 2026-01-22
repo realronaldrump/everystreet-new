@@ -31,12 +31,13 @@ class ConfirmationDialog {
       modal.setAttribute("data-bs-backdrop", "static");
     }
 
+    // Using .modal-content style from modals.css which uses --surface-1, etc.
     modal.innerHTML = `
       <div class="modal-dialog">
-        <div class="modal-content bg-dark text-white">
+        <div class="modal-content">
           <div class="modal-header">
             <h5 class="modal-title"></h5>
-            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
           </div>
           <div class="modal-body"></div>
           <div class="modal-footer">
@@ -50,6 +51,11 @@ class ConfirmationDialog {
     document.body.appendChild(modal);
   }
 
+  /**
+   * Show a confirmation dialog
+   * @param {Object} options
+   * @returns {Promise<boolean>}
+   */
   show(options = {}) {
     return new Promise((resolve) => {
       const modalElement = document.getElementById(this.modalId);
@@ -65,6 +71,7 @@ class ConfirmationDialog {
       const cancelText = options.cancelText || this.config.defaultCancelText;
       const confirmButtonClass
         = options.confirmButtonClass || this.config.defaultConfirmButtonClass;
+      const showCancel = options.showCancel !== false; // Default true
 
       modalElement.querySelector(".modal-title").textContent = title;
       modalElement.querySelector(".modal-body").innerHTML = message;
@@ -75,10 +82,12 @@ class ConfirmationDialog {
       if (confirmBtn) {
         confirmBtn.textContent = confirmText;
         confirmBtn.className = `btn confirm-btn ${confirmButtonClass}`;
+        confirmBtn.style.display = ""; // Ensure visible
       }
 
       if (cancelBtn) {
         cancelBtn.textContent = cancelText;
+        cancelBtn.style.display = showCancel ? "" : "none";
       }
 
       const handleConfirm = () => {
@@ -114,6 +123,16 @@ class ConfirmationDialog {
         }
         handleConfirm();
       });
+      // Handle Enter key on the modal
+      const keyHandler = (e) => {
+        if (e.key === "Enter" && this.activeModal && modalElement.classList.contains("show")) {
+          e.preventDefault();
+          handleConfirm();
+          modalElement.removeEventListener("keydown", keyHandler);
+        }
+      };
+      modalElement.addEventListener("keydown", keyHandler);
+      
       modalElement.addEventListener("hidden.bs.modal", handleDismiss);
       modalElement.addEventListener("hide.bs.modal", handleHide);
 
@@ -121,11 +140,32 @@ class ConfirmationDialog {
         this.activeModal = new bootstrap.Modal(modalElement);
         modalElement.removeAttribute("aria-hidden");
         this.activeModal.show();
+        // Focus confirm button by default for a11y/usability
+        setTimeout(() => confirmBtn?.focus(), 100);
       } catch (error) {
         console.error("Error showing modal:", error);
         cleanup();
         resolve(false);
       }
+    });
+  }
+
+  /**
+   * Show an alert dialog (no cancel option)
+   * @param {string|Object} messageOrOptions - Message string or options object
+   * @returns {Promise<void>}
+   */
+  async alert(messageOrOptions) {
+    const options = typeof messageOrOptions === "string"
+      ? { message: messageOrOptions }
+      : messageOrOptions;
+    
+    await this.show({
+      title: "Alert",
+      confirmText: "OK",
+      confirmButtonClass: "btn-primary",
+      showCancel: false,
+      ...options
     });
   }
 
@@ -140,6 +180,7 @@ class ConfirmationDialog {
 const confirmationDialog = new ConfirmationDialog();
 
 const confirm = (options = {}) => confirmationDialog.show(options);
+const alert = (messageOrOptions) => confirmationDialog.alert(messageOrOptions);
 
-export { ConfirmationDialog, confirmationDialog, confirm };
+export { ConfirmationDialog, confirmationDialog, confirm, alert };
 export default confirmationDialog;

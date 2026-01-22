@@ -639,9 +639,8 @@ function confirmDiscardChanges() {
       confirmButtonClass: "btn-danger",
     });
   }
-  // eslint-disable-next-line no-alert -- Fallback when custom dialog is unavailable.
-  const confirmed = window.confirm("You have unsaved changes. Discard them and leave?");
-  return Promise.resolve(confirmed);
+  console.warn("Confirmation dialog module not available");
+  return Promise.resolve(true); // Allow navigation if dialog fails, rather than blocking or using ugly alert
 }
 
 function handleBeforeUnload(event) {

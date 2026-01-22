@@ -26,10 +26,10 @@ export function showErrorModal(errorMessage) {
     modal.setAttribute("tabindex", "-1");
     modal.innerHTML = `
       <div class="modal-dialog">
-        <div class="modal-content bg-dark text-white">
+        <div class="modal-content">
           <div class="modal-header">
             <h5 class="modal-title">Task Error Details</h5>
-            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
           </div>
           <div class="modal-body">
             <pre class="error-details p-3 bg-dark text-danger border border-danger rounded" style="white-space: pre-wrap;"></pre>
@@ -63,7 +63,7 @@ export function showDependencyErrorModal(errorMessage) {
     modal.setAttribute("tabindex", "-1");
     modal.innerHTML = `
       <div class="modal-dialog">
-        <div class="modal-content bg-dark text-white">
+        <div class="modal-content">
           <div class="modal-header bg-warning text-dark">
             <h5 class="modal-title"><i class="fas fa-exclamation-triangle"></i> Task Dependency Error</h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
@@ -196,10 +196,10 @@ export function showTaskLogsModal(entry) {
     modal.setAttribute("tabindex", "-1");
     modal.innerHTML = `
       <div class="modal-dialog modal-lg">
-        <div class="modal-content bg-dark text-white">
+        <div class="modal-content">
           <div class="modal-header">
             <h5 class="modal-title">Task Execution Logs</h5>
-            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
           </div>
           <div class="modal-body">
             <div id="taskLogsContent"></div>
