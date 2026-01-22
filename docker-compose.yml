@@ -173,10 +173,9 @@ services:
 
   # Watchtower - Automatic container updates (ONLY labeled containers)
   watchtower:
-    image: containrrr/watchtower:1.7.1
+    image: containrrr/watchtower:latest
     restart: unless-stopped
     environment:
-      - DOCKER_API_VERSION=1.44
       - WATCHTOWER_CLEANUP=true
       - WATCHTOWER_INCLUDE_RESTARTING=true
       - WATCHTOWER_ROLLING_RESTART=true
