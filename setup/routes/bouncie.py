@@ -62,6 +62,7 @@ async def initiate_bouncie_auth(request: Request) -> RedirectResponse:
     """
     credentials = await get_bouncie_credentials()
     client_id = credentials.get("client_id")
+    client_secret = credentials.get("client_secret")
     redirect_uri = credentials.get("redirect_uri")
 
     if not client_id:
@@ -75,6 +76,13 @@ async def initiate_bouncie_auth(request: Request) -> RedirectResponse:
         return RedirectResponse(
             url="/setup?bouncie_error="
             + quote("Please save your Redirect URI before connecting.", safe=""),
+            status_code=302,
+        )
+
+    if not client_secret:
+        return RedirectResponse(
+            url="/setup?bouncie_error="
+            + quote("Please save your Client Secret before connecting.", safe=""),
             status_code=302,
         )
 

@@ -71,6 +71,7 @@ class TestBouncieAuthorize:
             AsyncMock(
                 return_value={
                     "client_id": "client",
+                    "client_secret": "secret",
                     "redirect_uri": "https://example.com/api/bouncie/callback",
                     "authorization_code": "",
                 }
@@ -104,6 +105,7 @@ class TestBouncieAuthorize:
             AsyncMock(
                 return_value={
                     "client_id": "client",
+                    "client_secret": "secret",
                     "redirect_uri": "https://example.com/api/bouncie/callback",
                     "authorization_code": "auth_code",
                     "authorized_devices": ["imei-1"],
