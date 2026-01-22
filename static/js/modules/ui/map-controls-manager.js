@@ -58,7 +58,7 @@ const mapControlsManager = {
    */
   _applyInitialStyle(mapType) {
     // Only apply if different from current
-    const { map } = state;
+    const map = store.map || window.map;
     if (!map) {
       return;
     }
