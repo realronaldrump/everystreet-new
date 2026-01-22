@@ -102,7 +102,7 @@ async function loadMapboxSettings() {
         responseErrorMessage(response, data, "Unable to load Mapbox settings")
       );
     }
-    const token = data.mapbox_token || "";
+    const token = data?.mapbox_token || "";
     const input = document.getElementById("mapboxToken");
     if (input) {
       input.value = token;
@@ -125,17 +125,20 @@ async function loadBouncieCredentials() {
         responseErrorMessage(response, data, "Unable to load Bouncie credentials")
       );
     }
+    const credentials = data?.credentials || data || {};
     const clientId = document.getElementById("clientId");
     const clientSecret = document.getElementById("clientSecret");
     const redirectUri = document.getElementById("redirectUri");
     if (clientId) {
-      clientId.value = data.client_id || "";
+      clientId.value = credentials.client_id || "";
     }
     if (clientSecret) {
-      clientSecret.value = data.client_secret || "";
+      clientSecret.value = credentials.client_secret || "";
     }
     if (redirectUri) {
-      redirectUri.value = data.redirect_uri || buildRedirectUri();
+      const expectedRedirect =
+        credentials.redirect_uri || (await getExpectedRedirectUri());
+      redirectUri.value = expectedRedirect;
     }
   } catch (_error) {
     showStatus("credentials-status", "Unable to load Bouncie credentials.", true);
@@ -265,19 +268,55 @@ function handleMapboxInput() {
 
 async function handleCredentialsContinue() {
   const bouncieOk = await saveBouncieCredentials();
+  if (!bouncieOk) {
+    await loadSetupStatus();
+    updateStepState();
+    return;
+  }
+
   const mapboxOk = await saveMapboxSettings();
   await loadSetupStatus();
   updateStepState();
 
-  if (bouncieOk && mapboxOk && setupStatus?.steps?.bouncie?.complete) {
+  if (!mapboxOk) {
+    return;
+  }
+
+  const bouncieComplete = setupStatus?.steps?.bouncie?.complete;
+  const mapboxComplete = setupStatus?.steps?.mapbox?.complete;
+
+  if (bouncieComplete && mapboxComplete) {
     goToStep(1);
-  } else {
+    return;
+  }
+
+  const missing = setupStatus?.steps?.bouncie?.missing || [];
+  if (missing.includes("authorized_devices")) {
     showStatus(
       "credentials-status",
-      "Finish credentials and sync vehicles before continuing.",
+      "Sync vehicles before continuing to map coverage.",
       true
     );
+    return;
   }
+
+  if (missing.length) {
+    const missingLabel = missing.map((item) => item.replace(/_/g, " ")).join(", ");
+    showStatus("credentials-status", `Missing Bouncie fields: ${missingLabel}.`, true);
+    return;
+  }
+
+  if (!mapboxComplete) {
+    const mapboxError = setupStatus?.steps?.mapbox?.error;
+    showStatus(
+      "credentials-status",
+      mapboxError || "Enter a valid Mapbox token before continuing.",
+      true
+    );
+    return;
+  }
+
+  showStatus("credentials-status", "Finish credentials before continuing.", true);
 }
 
 async function saveBouncieCredentials() {
@@ -367,6 +406,19 @@ async function handleConnectBouncie(event) {
 
 function buildRedirectUri() {
   return `${window.location.origin}/api/bouncie/callback`;
+}
+
+async function getExpectedRedirectUri() {
+  try {
+    const response = await apiClient.raw("/api/bouncie/redirect-uri", withSignal());
+    const data = await readJsonResponse(response);
+    if (response.ok && data?.redirect_uri) {
+      return data.redirect_uri;
+    }
+  } catch (_error) {
+    // Fall back to origin-based redirect URI.
+  }
+  return buildRedirectUri();
 }
 
 function handleBouncieRedirectParams() {
@@ -562,8 +614,8 @@ function updateMapCoverageUI() {
     progressText.textContent = percent ? `${percent.toFixed(0)}%` : "";
   }
   if (progressWrap) {
-    const showProgress
-      = status?.status === "downloading" || status?.status === "building";
+    const showProgress =
+      status?.status === "downloading" || status?.status === "building";
     progressWrap.classList.toggle("d-none", !showProgress);
   }
 
@@ -589,8 +641,8 @@ function updateMapCoverageUI() {
     });
   const mapSetupBtn = document.getElementById("map-setup-btn");
   if (mapSetupBtn) {
-    const credentialsComplete
-      = setupStatus?.steps?.bouncie?.complete && setupStatus?.steps?.mapbox?.complete;
+    const credentialsComplete =
+      setupStatus?.steps?.bouncie?.complete && setupStatus?.steps?.mapbox?.complete;
     mapSetupBtn.disabled = locked || !selectedStates.size || !credentialsComplete;
   }
 
@@ -602,9 +654,9 @@ function updateMapCoverageUI() {
   }
 
   if (
-    status?.status === "downloading"
-    || status?.status === "building"
-    || progress?.phase === "downloading"
+    status?.status === "downloading" ||
+    status?.status === "building" ||
+    progress?.phase === "downloading"
   ) {
     startStatusPolling();
   } else {

@@ -864,61 +864,136 @@ onPageLoad(
     /**
      * Display Docker logs in the container
      */
-    function displayDockerLogs(data) {
+    function renderDockerLogLine(line) {
+      // Try to parse timestamp and message
+      let timestamp = "";
+      let message = line;
+
+      // Docker timestamps look like: 2024-01-22T16:00:00.000000000Z
+      const timestampMatch = line.match(/^(\d{4}-\d{2}-\d{2}T[\d:.]+Z?)\s+(.*)$/);
+      if (timestampMatch) {
+        try {
+          const date = new Date(timestampMatch[1]);
+          timestamp = date.toLocaleString("en-US", { hour12: true });
+          message = timestampMatch[2];
+        } catch {
+          // Keep original line
+        }
+      }
+
+      // Determine log level for styling
+      let levelClass = "";
+      const lowerMessage = message.toLowerCase();
+      if (lowerMessage.includes("error") || lowerMessage.includes("exception")) {
+        levelClass = "log-ERROR";
+      } else if (lowerMessage.includes("warn")) {
+        levelClass = "log-WARNING";
+      } else if (lowerMessage.includes("debug")) {
+        levelClass = "log-DEBUG";
+      }
+
+      return `
+        <div class="log-entry ${levelClass}">
+          ${timestamp ? `<span class="log-timestamp">${escapeHtml(timestamp)}</span>` : ""}
+          <span class="log-message">${escapeHtml(message)}</span>
+        </div>
+      `;
+    }
+
+    function displayDockerLogs(logGroups, { selectedContainers = [] } = {}) {
       if (!dockerLogsContainer || !dockerLogsInfo) {
         return;
       }
 
-      const { logs, line_count, truncated } = data;
-
-      // Update info text
-      dockerLogsInfo.textContent = `Showing ${line_count} lines${truncated ? " (truncated)" : ""}`;
-
-      // If no logs, show empty state
-      if (logs.length === 0) {
+      if (!Array.isArray(logGroups) || logGroups.length === 0) {
+        dockerLogsInfo.textContent = "No logs loaded";
         dockerLogsContainer.innerHTML = `
           <div class="text-center py-5 text-muted">
             <i class="fas fa-inbox fa-3x mb-3"></i>
-            <p>No logs found for this container with the current filters.</p>
+            <p>No logs found for the selected containers.</p>
           </div>
         `;
         return;
       }
 
-      // Build logs HTML
-      const logsHtml = logs
-        .map((line) => {
-          // Try to parse timestamp and message
-          let timestamp = "";
-          let message = line;
+      const isMulti = selectedContainers.length > 1 || logGroups.length > 1;
 
-          // Docker timestamps look like: 2024-01-22T16:00:00.000000000Z
-          const timestampMatch = line.match(/^(\d{4}-\d{2}-\d{2}T[\d:.]+Z?)\s+(.*)$/);
-          if (timestampMatch) {
-            try {
-              const date = new Date(timestampMatch[1]);
-              timestamp = date.toLocaleString("en-US", { hour12: true });
-              message = timestampMatch[2];
-            } catch {
-              // Keep original line
-            }
+      if (!isMulti) {
+        const group = logGroups[0];
+        const lineCount = Number.isFinite(group.line_count)
+          ? group.line_count
+          : group.logs.length;
+        dockerLogsInfo.textContent = `Showing ${lineCount} lines${group.truncated ? " (truncated)" : ""}`;
+
+        if (group.logs.length === 0) {
+          dockerLogsContainer.innerHTML = `
+            <div class="text-center py-5 text-muted">
+              <i class="fas fa-inbox fa-3x mb-3"></i>
+              <p>No logs found for this container with the current filters.</p>
+            </div>
+          `;
+          return;
+        }
+
+        dockerLogsContainer.innerHTML = group.logs.map(renderDockerLogLine).join("");
+        return;
+      }
+
+      const totalLines = logGroups.reduce(
+        (sum, group) => sum + (group.logs?.length || 0),
+        0
+      );
+      const truncatedCount = logGroups.filter((group) => group.truncated).length;
+      const selectedCount = selectedContainers.length || logGroups.length;
+      const loadedCount = logGroups.length;
+
+      let infoText = `Showing ${totalLines} lines across ${loadedCount} container${loadedCount !== 1 ? "s" : ""}`;
+      if (selectedCount > 0 && loadedCount !== selectedCount) {
+        infoText += ` (loaded ${loadedCount} of ${selectedCount})`;
+      }
+      if (truncatedCount > 0) {
+        infoText += `, ${truncatedCount} truncated`;
+      }
+      dockerLogsInfo.textContent = infoText;
+
+      const logsHtml = logGroups
+        .map((group) => {
+          const lineCount = Number.isFinite(group.line_count)
+            ? group.line_count
+            : group.logs.length;
+          const containerInfo = containersData.find((c) => c.name === group.container);
+          let statusBadgeHtml = "";
+          if (containerInfo?.status) {
+            const isRunning = containerInfo.status.toLowerCase().includes("up");
+            statusBadgeHtml = `
+              <span class="badge ${isRunning ? "bg-success" : "bg-secondary"}">
+                ${escapeHtml(containerInfo.status)}
+              </span>
+            `;
           }
 
-          // Determine log level for styling
-          let levelClass = "";
-          const lowerMessage = message.toLowerCase();
-          if (lowerMessage.includes("error") || lowerMessage.includes("exception")) {
-            levelClass = "log-ERROR";
-          } else if (lowerMessage.includes("warn")) {
-            levelClass = "log-WARNING";
-          } else if (lowerMessage.includes("debug")) {
-            levelClass = "log-DEBUG";
-          }
+          const groupLogsHtml = group.logs.length > 0
+            ? group.logs.map(renderDockerLogLine).join("")
+            : `
+              <div class="px-3 pb-3 text-muted">
+                No logs found for this container with the current filters.
+              </div>
+            `;
 
           return `
-            <div class="log-entry ${levelClass}">
-              ${timestamp ? `<span class="log-timestamp">${escapeHtml(timestamp)}</span>` : ""}
-              <span class="log-message">${escapeHtml(message)}</span>
+            <div class="docker-log-group">
+              <div class="docker-log-group-header">
+                <div class="d-flex align-items-center gap-2">
+                  <span class="docker-log-group-title">${escapeHtml(group.container)}</span>
+                  ${statusBadgeHtml}
+                </div>
+                <small class="text-muted">
+                  ${lineCount} lines${group.truncated ? " (truncated)" : ""}
+                </small>
+              </div>
+              <div class="docker-log-group-body">
+                ${groupLogsHtml}
+              </div>
             </div>
           `;
         })
