@@ -295,15 +295,6 @@ Data
 System
                     </li>
                     <li role="none">
-                      <a class="dropdown-item {% if request.url.path == '/database-management' %}active{% endif %}"
-                         href="/settings#database"
-                         role="menuitem"
-                         {% if request.url.path == '/database-management' %}aria-current="page"{% endif %}>
-                        <i class="fas fa-database me-2" aria-hidden="true"></i>
-                      Database
-                      </a>
-                    </li>
-                    <li role="none">
                       <a class="dropdown-item {% if request.url.path == '/server-logs' %}active{% endif %}"
                          href="/server-logs"
                          role="menuitem"
@@ -512,13 +503,6 @@ System
                 <i class="fas fa-chevron-down drawer-nav-section-chevron" aria-hidden="true"></i>
               </button>
               <ul class="drawer-nav-section-list" id="nav-section-system" role="list">
-                <li role="none">
-                  <a href="/settings#database"
-                     class="{% if request.url.path == '/database-management' %}active{% endif %}"
-                     {% if request.url.path == '/database-management' %}aria-current="page"{% endif %}>
-                    <i class="fas fa-database me-2" aria-hidden="true"></i> Database
-                  </a>
-                </li>
                 <li role="none">
                   <a href="/server-logs"
                      class="{% if request.url.path == '/server-logs' %}active{% endif %}"

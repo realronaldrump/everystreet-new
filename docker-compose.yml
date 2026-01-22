@@ -178,6 +178,7 @@ services:
     restart: unless-stopped
     environment:
       - DOCKER_API_VERSION=1.44
+      - WATCHTOWER_HTTP_API_PERIODIC_POLLS=true
       - WATCHTOWER_LABEL_ENABLE=true
       - WATCHTOWER_POLL_INTERVAL=300
       - WATCHTOWER_CLEANUP=true
