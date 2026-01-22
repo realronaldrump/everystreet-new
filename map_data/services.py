@@ -20,6 +20,7 @@ from typing import Any
 import httpx
 
 from config import get_geofabrik_mirror, get_nominatim_base_url, get_valhalla_base_url
+from map_data.download import cleanup_download_artifacts
 from map_data.models import GeoServiceHealth, MapDataJob, MapRegion
 
 logger = logging.getLogger(__name__)
@@ -872,17 +873,38 @@ async def cancel_job(job_id: str) -> MapDataJob:
         msg = f"Cannot cancel job with status: {job.status}"
         raise ValueError(msg)
 
+    previous_status = job.status
     job.status = MapDataJob.STATUS_CANCELLED
     job.stage = "Cancelled by user"
+    job.message = "Cancelled by user"
+    job.error = job.error or "Cancelled by user"
     job.completed_at = datetime.now(UTC)
     await job.save()
+
+    arq_job_id = getattr(job, "arq_job_id", None)
+    if arq_job_id:
+        try:
+            from tasks.ops import abort_job
+
+            await abort_job(arq_job_id)
+        except Exception as exc:
+            logger.warning("Failed to abort ARQ job %s: %s", arq_job_id, exc)
 
     # Update region status if needed
     if job.region_id:
         region = await MapRegion.get(job.region_id)
         if region:
-            if job.job_type == MapDataJob.JOB_DOWNLOAD:
+            if job.job_type in (MapDataJob.JOB_DOWNLOAD, "download_and_build_all"):
+                if previous_status != MapDataJob.STATUS_RUNNING:
+                    cleanup_download_artifacts(region, remove_output=True)
                 region.status = MapRegion.STATUS_NOT_DOWNLOADED
+                region.download_progress = 0.0
+                region.pbf_path = None
+                region.file_size_mb = None
+                region.downloaded_at = None
+                region.nominatim_status = "not_built"
+                region.valhalla_status = "not_built"
+                region.last_error = "Download cancelled"
             elif job.job_type == MapDataJob.JOB_BUILD_NOMINATIM:
                 region.nominatim_status = "not_built"
                 region.status = MapRegion.STATUS_DOWNLOADED

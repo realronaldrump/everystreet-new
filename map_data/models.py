@@ -116,6 +116,7 @@ class MapDataJob(Document):
     # Identity
     job_type: str  # "download", "build_nominatim", "build_valhalla", "build_all"
     region_id: PydanticObjectId | None = None
+    arq_job_id: str | None = None
 
     # State
     status: str = "pending"  # "pending", "running", "completed", "failed", "cancelled"
