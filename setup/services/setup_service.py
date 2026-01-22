@@ -707,6 +707,11 @@ async def run_setup_step(
             geofabrik_id=region["id"],
             display_name=region.get("name"),
         )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"message": str(exc), "code": "region_in_flight"},
+        )
     except Exception as exc:
         logger.exception("Failed to start region build")
         raise HTTPException(
