@@ -216,7 +216,10 @@ async def download_region_task(ctx: dict, job_id: str) -> dict:
             await refreshed_job.save()
 
         if region:
-            cleanup_download_artifacts(region, remove_output=True)
+            cleanup_download_artifacts(
+                region,
+                remove_output=region.downloaded_at is None,
+            )
             region.status = MapRegion.STATUS_NOT_DOWNLOADED
             region.download_progress = 0
             region.pbf_path = None

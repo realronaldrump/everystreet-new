@@ -1181,7 +1181,7 @@ class SetupService:
 
     @staticmethod
     async def get_service_health() -> dict[str, Any]:
-        return await get_service_health()
+        return await get_status_health()
 
     @staticmethod
     async def restart_service(service_name: str) -> dict[str, Any]:

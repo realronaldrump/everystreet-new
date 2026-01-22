@@ -308,10 +308,16 @@ async def parallel_download_region(
         return output_filename
 
     except DownloadCancelled:
-        cleanup_download_artifacts(region, remove_output=True)
+        cleanup_download_artifacts(
+            region,
+            remove_output=region.downloaded_at is None,
+        )
         raise
     except asyncio.CancelledError:
-        cleanup_download_artifacts(region, remove_output=True)
+        cleanup_download_artifacts(
+            region,
+            remove_output=region.downloaded_at is None,
+        )
         raise
     except Exception:
         # Cleanup on error
@@ -569,10 +575,16 @@ async def stream_download_region(
                 return output_filename
 
     except DownloadCancelled:
-        cleanup_download_artifacts(region, remove_output=True)
+        cleanup_download_artifacts(
+            region,
+            remove_output=region.downloaded_at is None,
+        )
         raise
     except asyncio.CancelledError:
-        cleanup_download_artifacts(region, remove_output=True)
+        cleanup_download_artifacts(
+            region,
+            remove_output=region.downloaded_at is None,
+        )
         raise
     except Exception:
         if os.path.exists(temp_path):

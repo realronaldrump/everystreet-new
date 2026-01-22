@@ -896,7 +896,10 @@ async def cancel_job(job_id: str) -> MapDataJob:
         if region:
             if job.job_type in (MapDataJob.JOB_DOWNLOAD, "download_and_build_all"):
                 if previous_status != MapDataJob.STATUS_RUNNING:
-                    cleanup_download_artifacts(region, remove_output=True)
+                    cleanup_download_artifacts(
+                        region,
+                        remove_output=region.downloaded_at is None,
+                    )
                 region.status = MapRegion.STATUS_NOT_DOWNLOADED
                 region.download_progress = 0.0
                 region.pbf_path = None
