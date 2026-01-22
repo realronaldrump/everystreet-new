@@ -19,7 +19,9 @@ eslint.config.mjs
 reports/
 
 scripts/autofix.sh
-scripts/
+scripts/autofix1.sh
+scripts/bootstrap.sh
+
 .stylelintrc.json
 
 cache/

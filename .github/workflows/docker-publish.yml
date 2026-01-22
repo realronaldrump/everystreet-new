@@ -63,12 +63,32 @@ jobs:
           cache-to: type=gha,mode=max
 
       # Trigger immediate update on remote server via Watchtower HTTP API
+      # Uses Cloudflare Tunnel to reach home server securely
       - name: Trigger remote deployment
         if: success()
-        continue-on-error: true
+        env:
+          WATCHTOWER_URL: ${{ secrets.WATCHTOWER_URL }}
+          WATCHTOWER_TOKEN: ${{ secrets.WATCHTOWER_TOKEN }}
         run: |
-          curl -sf -X POST \
-            -H "Authorization: Bearer ${{ secrets.WATCHTOWER_TOKEN }}" \
-            "${{ secrets.WATCHTOWER_URL }}/v1/update" \
-            --connect-timeout 10 \
-            --max-time 30 || echo "Watchtower webhook not available, will poll in 5min"
+          if [ -z "$WATCHTOWER_URL" ] || [ -z "$WATCHTOWER_TOKEN" ]; then
+            echo "::warning::WATCHTOWER_URL or WATCHTOWER_TOKEN not configured. Skipping instant deploy."
+            exit 0
+          fi
+
+          echo "Triggering deployment via Cloudflare Tunnel..."
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+            -H "Authorization: Bearer $WATCHTOWER_TOKEN" \
+            "$WATCHTOWER_URL/v1/update" \
+            --connect-timeout 15 \
+            --max-time 60)
+
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "Deployment triggered successfully!"
+            echo "$BODY"
+          else
+            echo "::warning::Watchtower returned HTTP $HTTP_CODE. Containers will update on next poll cycle."
+            echo "$BODY"
+          fi
