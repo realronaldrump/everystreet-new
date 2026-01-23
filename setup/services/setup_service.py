@@ -14,10 +14,10 @@ from db.models import AppSettings, TaskConfig, TaskHistory
 from map_data.models import MapServiceConfig
 from map_data.services import check_service_health
 from setup.services.bouncie_credentials import get_bouncie_credentials
-from tasks.arq import get_arq_pool, get_job_status
+from tasks.arq import get_arq_pool
 from tasks.config import set_global_disable
 from tasks.ops import enqueue_task
-from tasks.registry import TASK_REGISTRY
+from tasks.registry import TASK_DEFINITIONS
 
 logger = logging.getLogger(__name__)
 
@@ -481,7 +481,7 @@ async def get_service_logs(service_name: str, tail: int = 100) -> dict[str, Any]
 
 async def trigger_task(task_name: str) -> dict[str, Any]:
     """Manually trigger a background task."""
-    if task_name not in TASK_REGISTRY:
+    if task_name not in TASK_DEFINITIONS:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Unknown task: {task_name}",
