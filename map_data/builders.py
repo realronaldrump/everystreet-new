@@ -86,7 +86,7 @@ async def start_container_on_demand(
                 or "'compose' is not a docker command" in error_msg
             ):
                 logger.debug(
-                    "Docker Compose V2 not available, trying legacy docker-compose"
+                    "Docker Compose V2 not available, trying legacy docker-compose",
                 )
                 continue
 
@@ -543,7 +543,7 @@ async def build_valhalla_tiles(
             )
             if gen_result.returncode != 0:
                 logger.warning(
-                    "Config generation returned non-zero, trying alternative method"
+                    "Config generation returned non-zero, trying alternative method",
                 )
                 # Try running the configure script if available
                 alt_config = [
@@ -719,9 +719,10 @@ async def _wait_for_valhalla_healthy(timeout: int = 120) -> None:
                 response = await client.get(f"{valhalla_url}/status")
                 if response.status_code == 200:
                     data = response.json()
-                    if isinstance(data, dict) and data.get("tileset", {}).get(
-                        "tile_count", 0
-                    ) > 0:
+                    if (
+                        isinstance(data, dict)
+                        and data.get("tileset", {}).get("tile_count", 0) > 0
+                    ):
                         logger.info("Valhalla service is healthy with tiles")
                         return
         except Exception as e:

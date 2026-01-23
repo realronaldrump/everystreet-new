@@ -70,12 +70,12 @@
 }
 
 .metric-trend.positive {
-  background: rgb(var(--success-rgb) / 0.2);
+  background: rgb(var(--success-rgb) / 20%);
   color: var(--success);
 }
 
 .metric-trend.negative {
-  background: rgb(var(--danger-rgb) / 0.2);
+  background: rgb(var(--danger-rgb) / 20%);
   color: var(--danger);
 }
 

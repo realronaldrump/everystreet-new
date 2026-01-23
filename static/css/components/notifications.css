@@ -182,8 +182,8 @@
 }
 
 .alert-primary {
-  background-color: rgb(var(--primary-rgb) / 0.1);
-  border-color: rgb(var(--primary-rgb) / 0.3);
+  background-color: rgb(var(--primary-rgb) / 10%);
+  border-color: rgb(var(--primary-rgb) / 30%);
   color: var(--primary-dark);
 }
 
@@ -197,8 +197,8 @@ body.light-mode .alert-primary {
 } /* Ensure text contrast */
 
 .alert-success {
-  background-color: rgb(var(--success-rgb) / 0.1);
-  border-color: rgb(var(--success-rgb) / 0.3);
+  background-color: rgb(var(--success-rgb) / 10%);
+  border-color: rgb(var(--success-rgb) / 30%);
   color: var(--success-dark);
 }
 
@@ -212,8 +212,8 @@ body.light-mode .alert-success {
 }
 
 .alert-danger {
-  background-color: rgb(var(--danger-rgb) / 0.1);
-  border-color: rgb(var(--danger-rgb) / 0.3);
+  background-color: rgb(var(--danger-rgb) / 10%);
+  border-color: rgb(var(--danger-rgb) / 30%);
   color: var(--danger-dark);
 }
 
@@ -227,8 +227,8 @@ body.light-mode .alert-danger {
 }
 
 .alert-warning {
-  background-color: rgb(var(--warning-rgb) / 0.1);
-  border-color: rgb(var(--warning-rgb) / 0.3);
+  background-color: rgb(var(--warning-rgb) / 10%);
+  border-color: rgb(var(--warning-rgb) / 30%);
   color: var(--warning-dark);
 }
 
@@ -242,8 +242,8 @@ body.light-mode .alert-warning {
 }
 
 .alert-info {
-  background-color: rgb(var(--info-rgb) / 0.1);
-  border-color: rgb(var(--info-rgb) / 0.3);
+  background-color: rgb(var(--info-rgb) / 10%);
+  border-color: rgb(var(--info-rgb) / 30%);
   color: var(--info-dark);
 }
 

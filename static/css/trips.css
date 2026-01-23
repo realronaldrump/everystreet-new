@@ -250,7 +250,7 @@
   padding: 3px 8px;
   border-radius: var(--radius-pill);
   font-size: var(--font-size-xs);
-  background: rgb(var(--primary-rgb) / 0.1);
+  background: rgb(var(--primary-rgb) / 10%);
   color: var(--primary);
 }
 

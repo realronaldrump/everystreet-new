@@ -781,8 +781,7 @@ const layerManager = {
     const firstGlowLayerId = `${layerName}-layer-0`;
     const secondGlowLayerId = `${layerName}-layer-1`;
     const missingGlowLayers
-      = !store.map.getLayer(firstGlowLayerId)
-      || !store.map.getLayer(secondGlowLayerId);
+      = !store.map.getLayer(firstGlowLayerId) || !store.map.getLayer(secondGlowLayerId);
 
     if (missingGlowLayers) {
       if (!store.map.isStyleLoaded()) {

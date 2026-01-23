@@ -338,7 +338,7 @@
 .settings-group .form-select:focus {
   background: var(--surface-3);
   border-color: var(--primary);
-  box-shadow: 0 0 0 2px rgb(var(--primary-rgb) / 0.2);
+  box-shadow: 0 0 0 2px rgb(var(--primary-rgb) / 20%);
 }
 
 .settings-group .form-label {
@@ -571,7 +571,7 @@
 }
 
 .form-check.form-switch .form-check-input:focus {
-  box-shadow: 0 0 0 2px rgb(var(--primary-rgb) / 0.2);
+  box-shadow: 0 0 0 2px rgb(var(--primary-rgb) / 20%);
 }
 
 .form-check.form-switch .form-check-input::before {

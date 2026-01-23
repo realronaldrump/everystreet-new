@@ -48,7 +48,7 @@ if TYPE_CHECKING:
 
         async def save(self) -> None: ...
         @classmethod
-        async def get(cls, id: Any) -> "MapRegion | None": ...
+        async def get(cls, id: Any) -> MapRegion | None: ...
 
     class MapDataJob:
         JOB_DOWNLOAD: str
@@ -61,7 +61,8 @@ if TYPE_CHECKING:
         message: str
 
         @classmethod
-        async def find_one(cls, query: dict) -> "MapDataJob | None": ...
+        async def find_one(cls, query: dict) -> MapDataJob | None: ...
+
 
 logger = logging.getLogger(__name__)
 

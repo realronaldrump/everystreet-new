@@ -194,7 +194,6 @@
   overflow-x: auto;
 }
 
-
 /* Custom Multi-Select Dropdown */
 .multi-select-container {
   position: relative;
@@ -213,7 +212,7 @@
 }
 
 .multi-select-button::after {
-  /* This mimics the default select arrow, usually handled by form-select class, 
+  /* This mimics the default select arrow, usually handled by form-select class,
      but since it's a button we ensure it looks right */
   margin-left: auto;
 }

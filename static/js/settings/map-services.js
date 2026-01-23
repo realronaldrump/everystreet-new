@@ -11,7 +11,7 @@ import notificationManager from "../modules/ui/notifications.js";
 
 const MAP_SERVICES_API = "/api/map-services";
 
-let lastStatus = null;
+let _lastStatus = null;
 let pollTimer = null;
 
 export function initMapServicesTab() {
@@ -55,7 +55,7 @@ async function refreshAutoStatus() {
     if (!response.ok) {
       throw new Error(data?.detail || "Unable to load map status.");
     }
-    lastStatus = data;
+    _lastStatus = data;
     renderAutoStatus(data);
     adjustPolling(data);
   } catch (error) {
@@ -81,7 +81,9 @@ function adjustPolling(status) {
  */
 function renderAutoStatus(status) {
   const container = document.getElementById("map-services-content");
-  if (!container) return;
+  if (!container) {
+    return;
+  }
 
   container.innerHTML = `
     <div class="map-services-auto">
@@ -145,24 +147,28 @@ async function loadMapboxToken() {
 async function saveMapboxToken() {
   const tokenInput = document.getElementById("mapbox-token-input");
   const saveBtn = document.getElementById("save-mapbox-token-btn");
-  if (!tokenInput || !saveBtn) return;
+  if (!tokenInput || !saveBtn) {
+    return;
+  }
 
   const token = tokenInput.value.trim();
-  if (!token) return;
+  if (!token) {
+    return;
+  }
 
   try {
     saveBtn.disabled = true;
     saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
-    
+
     await apiClient.post("/api/app_settings", { mapbox_token: token });
-    
+
     notificationManager.show("Mapbox token saved successfully", "success");
     saveBtn.innerHTML = "Saved!";
     setTimeout(() => {
       saveBtn.innerHTML = "Save Token";
       saveBtn.disabled = false;
     }, 2000);
-  } catch (error) {
+  } catch (_error) {
     notificationManager.show("Failed to save Mapbox token", "danger");
     saveBtn.innerHTML = "Save Token";
     saveBtn.disabled = false;
@@ -175,7 +181,9 @@ async function saveMapboxToken() {
 function renderStatusHeader(status) {
   const { is_ready, is_building, status: rawStatus, message } = status;
 
-  let icon, label, tone;
+  let icon,
+label,
+tone;
   if (is_ready) {
     icon = "fa-check-circle";
     label = "Map Services Ready";
@@ -264,9 +272,9 @@ function renderStatesCoverage(status) {
 
   // Don't show if no data at all
   if (
-    configured_state_names.length === 0 &&
-    missing_state_details.length === 0 &&
-    detected_states.length === 0
+    configured_state_names.length === 0
+    && missing_state_details.length === 0
+    && detected_states.length === 0
   ) {
     return `
       <div class="map-services-empty">
@@ -318,7 +326,9 @@ function renderStatesCoverage(status) {
  * Render progress section during builds
  */
 function renderProgressSection(status) {
-  if (!status.is_building) return "";
+  if (!status.is_building) {
+    return "";
+  }
 
   const progress = Math.round(status.progress || 0);
   const message = status.message || "Processing...";
@@ -342,7 +352,7 @@ function renderProgressSection(status) {
 function renderActions(status) {
   const { is_building, needs_provisioning, last_error, retry_count } = status;
 
-  let buttons = [];
+  const buttons = [];
 
   if (is_building) {
     buttons.push(`
@@ -374,7 +384,9 @@ function renderActions(status) {
     </button>
   `);
 
-  if (buttons.length === 0) return "";
+  if (buttons.length === 0) {
+    return "";
+  }
 
   return `
     <div class="map-services-actions">
@@ -398,7 +410,9 @@ function renderActions(status) {
  * Attach event listeners to buttons
  */
 function attachEventListeners() {
-  document.getElementById("provision-btn")?.addEventListener("click", triggerProvisioning);
+  document
+    .getElementById("provision-btn")
+    ?.addEventListener("click", triggerProvisioning);
   document.getElementById("cancel-setup-btn")?.addEventListener("click", cancelSetup);
   document.getElementById("retry-btn")?.addEventListener("click", triggerProvisioning);
   document.getElementById("refresh-btn")?.addEventListener("click", handleRefresh);
@@ -410,7 +424,9 @@ function attachEventListeners() {
 
   if (tokenInput) {
     tokenInput.addEventListener("input", () => {
-      if (saveBtn) saveBtn.disabled = false;
+      if (saveBtn) {
+        saveBtn.disabled = false;
+      }
     });
   }
 
@@ -451,7 +467,8 @@ async function handleRefresh() {
  * Trigger automatic provisioning
  */
 async function triggerProvisioning() {
-  const btn = document.getElementById("provision-btn") || document.getElementById("retry-btn");
+  const btn
+    = document.getElementById("provision-btn") || document.getElementById("retry-btn");
   if (btn) {
     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Starting...';
@@ -494,7 +511,8 @@ async function cancelSetup() {
   } finally {
     if (btn) {
       btn.disabled = false;
-      btn.innerHTML = '<i class="fas fa-times"></i> <span class="btn-text">Cancel</span>';
+      btn.innerHTML
+        = '<i class="fas fa-times"></i> <span class="btn-text">Cancel</span>';
     }
   }
 }
@@ -504,7 +522,9 @@ async function cancelSetup() {
  */
 function renderError(message) {
   const container = document.getElementById("map-services-content");
-  if (!container) return;
+  if (!container) {
+    return;
+  }
 
   container.innerHTML = `
     <div class="map-services-error-state">
@@ -516,14 +536,18 @@ function renderError(message) {
     </div>
   `;
 
-  document.getElementById("error-retry-btn")?.addEventListener("click", refreshAutoStatus);
+  document
+    .getElementById("error-retry-btn")
+    ?.addEventListener("click", refreshAutoStatus);
 }
 
 /**
  * Format size in MB to human readable
  */
 function formatSize(mb) {
-  if (!mb || mb === 0) return "";
+  if (!mb || mb === 0) {
+    return "";
+  }
   if (mb >= 1000) {
     return `${(mb / 1000).toFixed(1)} GB`;
   }
@@ -534,16 +558,22 @@ function formatSize(mb) {
  * Truncate string to max length
  */
 function truncate(str, maxLen) {
-  if (!str) return "";
-  if (str.length <= maxLen) return str;
-  return str.substring(0, maxLen) + "...";
+  if (!str) {
+    return "";
+  }
+  if (str.length <= maxLen) {
+    return str;
+  }
+  return `${str.substring(0, maxLen)}...`;
 }
 
 /**
  * Escape HTML special characters
  */
 function escapeHtml(str) {
-  if (!str) return "";
+  if (!str) {
+    return "";
+  }
   return String(str)
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")

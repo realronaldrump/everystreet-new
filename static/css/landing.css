@@ -333,7 +333,7 @@ body[data-route="/"] #filters-toggle {
   inset: 0;
   opacity: 0;
   transition: opacity var(--transition-normal);
-  background: linear-gradient(135deg, rgb(var(--primary-rgb) / 0.05) 0%, transparent 55%);
+  background: linear-gradient(135deg, rgb(var(--primary-rgb) / 5%) 0%, transparent 55%);
 }
 
 .nav-tile:hover .tile-bg {
@@ -406,18 +406,18 @@ body[data-route="/"] #filters-toggle {
 
 .live-dot.active {
   background: var(--success);
-  box-shadow: 0 0 0 3px rgb(var(--success-rgb) / 0.16);
+  box-shadow: 0 0 0 3px rgb(var(--success-rgb) / 16%);
   animation: livePulse 3s ease-in-out infinite;
 }
 
 @keyframes livePulse {
   0%,
   100% {
-    box-shadow: 0 0 0 3px rgb(var(--success-rgb) / 0.16);
+    box-shadow: 0 0 0 3px rgb(var(--success-rgb) / 16%);
   }
 
   50% {
-    box-shadow: 0 0 0 6px rgb(var(--success-rgb) / 0.08);
+    box-shadow: 0 0 0 6px rgb(var(--success-rgb) / 8%);
   }
 }
 

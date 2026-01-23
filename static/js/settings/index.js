@@ -19,12 +19,12 @@ import loadingManager from "../modules/ui/loading-manager.js";
 import notificationManager from "../modules/ui/notifications.js";
 import { formatDateTime, onPageLoad } from "../modules/utils.js";
 import { initAppSettings } from "./app-settings.js";
+import { setupBouncieSettings } from "./bouncie-settings.js";
 import {
   setupGeocodeTrips,
   setupManualFetchTripsForm,
   setupRemapMatchedTrips,
 } from "./geocode-remap.js";
-import { setupBouncieSettings } from "./bouncie-settings.js";
 import { InvalidTripReview } from "./invalid-trip-review.js";
 import mapServices from "./map-services.js";
 import { initMobileUI } from "./mobile-ui.js";

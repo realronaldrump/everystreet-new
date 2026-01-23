@@ -1616,7 +1616,7 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  background: rgb(var(--success-rgb) / 0.15);
+  background: rgb(var(--success-rgb) / 15%);
   color: var(--success);
   padding: var(--space-1) var(--space-3);
   border-radius: 20px;
@@ -1625,12 +1625,12 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
 }
 
 .mobile-live-badge.disconnected {
-  background: rgb(var(--danger-rgb) / 0.15);
+  background: rgb(var(--danger-rgb) / 15%);
   color: var(--danger);
 }
 
 .mobile-live-badge.stale {
-  background: rgb(var(--warning-rgb) / 0.18);
+  background: rgb(var(--warning-rgb) / 18%);
   color: var(--warning);
 }
 

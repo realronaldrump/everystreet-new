@@ -47,7 +47,8 @@ export function initDatabaseManagement({ signal } = {}) {
     if (!button) {
       return "";
     }
-    const fromDataset = button.dataset.collection || button.getAttribute("data-collection");
+    const fromDataset
+      = button.dataset.collection || button.getAttribute("data-collection");
     if (fromDataset) {
       return fromDataset;
     }

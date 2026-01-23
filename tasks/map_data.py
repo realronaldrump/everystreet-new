@@ -624,9 +624,10 @@ async def _auto_provision_logic() -> dict[str, Any]:
     """
     Check for trips in unconfigured states and auto-provision if needed.
 
-    This runs periodically to ensure map services stay in sync with trip data.
+    This runs periodically to ensure map services stay in sync with trip
+    data.
     """
-    from map_data.auto_provision import should_auto_provision, auto_provision_map_data
+    from map_data.auto_provision import auto_provision_map_data, should_auto_provision
 
     try:
         check = await should_auto_provision()

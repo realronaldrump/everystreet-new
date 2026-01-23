@@ -136,8 +136,8 @@ async function loadBouncieCredentials() {
       clientSecret.value = credentials.client_secret || "";
     }
     if (redirectUri) {
-      const expectedRedirect =
-        credentials.redirect_uri || (await getExpectedRedirectUri());
+      const expectedRedirect
+        = credentials.redirect_uri || (await getExpectedRedirectUri());
       redirectUri.value = expectedRedirect;
     }
   } catch (_error) {
@@ -614,8 +614,8 @@ function updateMapCoverageUI() {
     progressText.textContent = percent ? `${percent.toFixed(0)}%` : "";
   }
   if (progressWrap) {
-    const showProgress =
-      status?.status === "downloading" || status?.status === "building";
+    const showProgress
+      = status?.status === "downloading" || status?.status === "building";
     progressWrap.classList.toggle("d-none", !showProgress);
   }
 
@@ -641,8 +641,8 @@ function updateMapCoverageUI() {
     });
   const mapSetupBtn = document.getElementById("map-setup-btn");
   if (mapSetupBtn) {
-    const credentialsComplete =
-      setupStatus?.steps?.bouncie?.complete && setupStatus?.steps?.mapbox?.complete;
+    const credentialsComplete
+      = setupStatus?.steps?.bouncie?.complete && setupStatus?.steps?.mapbox?.complete;
     mapSetupBtn.disabled = locked || !selectedStates.size || !credentialsComplete;
   }
 
@@ -654,9 +654,9 @@ function updateMapCoverageUI() {
   }
 
   if (
-    status?.status === "downloading" ||
-    status?.status === "building" ||
-    progress?.phase === "downloading"
+    status?.status === "downloading"
+    || status?.status === "building"
+    || progress?.phase === "downloading"
   ) {
     startStatusPolling();
   } else {

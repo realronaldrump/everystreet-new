@@ -3,8 +3,8 @@
 import asyncio
 import logging
 import re
-from pathlib import Path
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Annotated, Any
 
 from fastapi import APIRouter, HTTPException, Query, status
@@ -265,7 +265,7 @@ async def list_docker_containers() -> dict[str, Any]:
                 "-a",
                 "--format",
                 "{{.Names}}\t{{.Status}}\t{{.Image}}\t{{.CreatedAt}}",
-            ]
+            ],
         )
 
         if returncode != 0:
@@ -287,7 +287,7 @@ async def list_docker_containers() -> dict[str, Any]:
                         status=parts[1],
                         image=parts[2],
                         created=parts[3] if len(parts) > 3 else None,
-                    )
+                    ),
                 )
 
         return {"containers": containers}
@@ -389,7 +389,7 @@ async def clear_docker_container_logs(container_name: str) -> dict[str, Any]:
                 "--format",
                 "{{.HostConfig.LogConfig.Type}}\t{{.LogPath}}",
                 container_name,
-            ]
+            ],
         )
 
         if returncode != 0:

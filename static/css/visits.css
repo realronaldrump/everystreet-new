@@ -24,9 +24,9 @@
   inset: 0;
   background: linear-gradient(
     135deg,
-    rgb(var(--primary-rgb) / 0.05) 0%,
+    rgb(var(--primary-rgb) / 5%) 0%,
     transparent 50%,
-    rgb(var(--secondary-rgb) / 0.05) 100%
+    rgb(var(--secondary-rgb) / 5%) 100%
   );
   pointer-events: none;
   z-index: 1;
@@ -81,7 +81,7 @@
   right: -50%;
   width: 200%;
   height: 200%;
-  background: radial-gradient(circle, rgb(var(--primary-rgb) / 0.1) 0%, transparent 70%);
+  background: radial-gradient(circle, rgb(var(--primary-rgb) / 10%) 0%, transparent 70%);
   opacity: 0.45;
   pointer-events: none;
 }
@@ -98,7 +98,7 @@
 .place-name-input:focus {
   background: var(--surface-2);
   border-color: var(--primary);
-  box-shadow: 0 0 0 0.25rem rgb(var(--primary-rgb) / 0.15);
+  box-shadow: 0 0 0 0.25rem rgb(var(--primary-rgb) / 15%);
   transform: translateY(-1px);
 }
 
@@ -165,7 +165,7 @@
   left: -50%;
   width: 200%;
   height: 200%;
-  background: radial-gradient(circle at 20% 20%, rgb(var(--primary-rgb) / 0.1), transparent 60%);
+  background: radial-gradient(circle at 20% 20%, rgb(var(--primary-rgb) / 10%), transparent 60%);
   opacity: 0.5;
   pointer-events: none;
 }
@@ -187,7 +187,7 @@
 }
 
 .visits-table tbody tr:hover {
-  background: rgb(var(--primary-rgb) / 0.05);
+  background: rgb(var(--primary-rgb) / 5%);
   box-shadow: 0 2px 8px rgb(0 0 0 / 5%);
 }
 
@@ -248,13 +248,13 @@
 
 .visits-nav-tabs .nav-link:hover {
   color: var(--text-primary);
-  background: rgb(var(--primary-rgb) / 0.05);
+  background: rgb(var(--primary-rgb) / 5%);
 }
 
 .visits-nav-tabs .nav-link.active {
   background: var(--primary-gradient);
   color: var(--text-on-primary);
-  box-shadow: 0 2px 8px rgb(var(--primary-rgb) / 0.3);
+  box-shadow: 0 2px 8px rgb(var(--primary-rgb) / 30%);
 }
 
 .visits-nav-tabs .nav-link.active::before {
@@ -286,10 +286,10 @@
 }
 
 .map-control-btn:hover {
-  background: rgb(var(--primary-rgb) / 0.15);
+  background: rgb(var(--primary-rgb) / 15%);
   border-color: var(--primary);
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgb(var(--primary-rgb) / 0.2);
+  box-shadow: 0 4px 12px rgb(var(--primary-rgb) / 20%);
 }
 
 .map-control-btn i {
@@ -299,7 +299,7 @@
 /* Enhanced Modal Styles */
 .visits-modal .modal-content {
   background: linear-gradient(135deg, var(--surface-1), var(--surface-2));
-  border: 1px solid rgb(var(--primary-rgb) / 0.2);
+  border: 1px solid rgb(var(--primary-rgb) / 20%);
   box-shadow: 0 20px 60px rgb(0 0 0 / 30%);
   border-radius: var(--radius-xl);
   overflow: hidden;
@@ -308,8 +308,8 @@
 .visits-modal .modal-header {
   background: linear-gradient(
     135deg,
-    rgb(var(--primary-rgb) / 0.1),
-    rgb(var(--secondary-rgb) / 0.05)
+    rgb(var(--primary-rgb) / 10%),
+    rgb(var(--secondary-rgb) / 5%)
   );
   border-bottom: 1px solid var(--border-color);
   padding: var(--space-5);
@@ -430,7 +430,7 @@
   font-weight: var(--font-weight-semibold);
   background: var(--primary-gradient);
   color: var(--text-on-primary);
-  box-shadow: 0 2px 8px rgb(var(--primary-rgb) / 0.3);
+  box-shadow: 0 2px 8px rgb(var(--primary-rgb) / 30%);
 }
 
 /* Empty State */

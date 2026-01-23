@@ -738,10 +738,8 @@ export function setupMobileRemapTrips() {
   if (remapBtn) {
     remapBtn.addEventListener("click", async () => {
       const method
-        = document.querySelector(
-          '.mobile-date-method-tab[data-target="remap"].active'
-        )?.dataset.method
-        || "date";
+        = document.querySelector('.mobile-date-method-tab[data-target="remap"].active')
+          ?.dataset.method || "date";
       let start_date = "";
       let end_date = "";
       let interval_days = 0;

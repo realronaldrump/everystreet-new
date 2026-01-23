@@ -9,9 +9,9 @@ Provides:
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
-
 import time
 from datetime import UTC, datetime
 from typing import Any
@@ -52,11 +52,9 @@ async def check_container_status(service_name: str) -> dict[str, Any]:
 
             try:
                 stdout, _ = await asyncio.wait_for(process.communicate(), timeout=10.0)
-            except asyncio.TimeoutError:
-                try:
+            except TimeoutError:
+                with contextlib.suppress(ProcessLookupError):
                     process.kill()
-                except ProcessLookupError:
-                    pass
                 logger.warning("Timeout checking container status with %s", cmd[0])
                 continue
 
@@ -120,11 +118,9 @@ async def check_container_status(service_name: str) -> dict[str, Any]:
 
         try:
             stdout, _ = await asyncio.wait_for(process.communicate(), timeout=10.0)
-        except asyncio.TimeoutError:
-            try:
+        except TimeoutError:
+            with contextlib.suppress(ProcessLookupError):
                 process.kill()
-            except ProcessLookupError:
-                pass
             return {"running": False, "status": "unknown"}
 
         if process.returncode == 0:

@@ -79,8 +79,8 @@ def get_state_for_coordinate(lon: float, lat: float) -> str | None:
     """
     Determine which US state a coordinate falls within.
 
-    Uses bounding box checks for fast approximate detection.
-    Returns state code (e.g., 'CA') or None if not in any US state.
+    Uses bounding box checks for fast approximate detection. Returns
+    state code (e.g., 'CA') or None if not in any US state.
     """
     for state_code, (min_lon, min_lat, max_lon, max_lat) in US_STATE_BOUNDS.items():
         if min_lon <= lon <= max_lon and min_lat <= lat <= max_lat:
@@ -196,7 +196,7 @@ async def detect_trip_states() -> dict[str, Any]:
                     "name": state_info.get("name", code),
                     "trip_count": count,
                     "size_mb": state_info.get("size_mb", 0),
-                }
+                },
             )
 
     return {
@@ -231,7 +231,7 @@ async def should_auto_provision() -> dict[str, Any]:
         Dictionary with provisioning decision and details
     """
     config = await MapServiceConfig.get_or_create()
-    progress = await MapBuildProgress.get_or_create()
+    await MapBuildProgress.get_or_create()
 
     # Don't provision if already in progress
     if config.status in {
@@ -336,7 +336,7 @@ async def get_auto_provision_status() -> dict[str, Any]:
     - Service health
     - Any pending provisioning needs
     """
-    from map_data.services import check_service_health, get_map_services_status
+    from map_data.services import check_service_health
 
     config = await MapServiceConfig.get_or_create()
     health = await check_service_health()
@@ -374,7 +374,7 @@ async def get_auto_provision_status() -> dict[str, Any]:
                     "code": code,
                     "name": state_map[code].get("name", code),
                     "size_mb": state_map[code].get("size_mb", 0),
-                }
+                },
             )
 
     is_ready = (

@@ -90,7 +90,8 @@ async def get_auto_status() -> dict[str, Any]:
     Get automatic provisioning status.
 
     Returns comprehensive status for the hands-off map services UI,
-    including detected trip states, configured states, and service health.
+    including detected trip states, configured states, and service
+    health.
     """
     try:
         return await get_auto_provision_status()
@@ -107,8 +108,8 @@ async def detect_states_from_trips() -> dict[str, Any]:
     """
     Detect which US states contain trip data.
 
-    Analyzes trip GPS coordinates to determine which states
-    the user has traveled in.
+    Analyzes trip GPS coordinates to determine which states the user has
+    traveled in.
     """
     try:
         return await detect_trip_states()
@@ -125,8 +126,8 @@ async def trigger_auto_provision() -> dict[str, Any]:
     """
     Trigger automatic map data provisioning.
 
-    Detects states from trip data and configures map services
-    for all detected states that aren't already configured.
+    Detects states from trip data and configures map services for all
+    detected states that aren't already configured.
     """
     try:
         return await auto_provision_map_data()

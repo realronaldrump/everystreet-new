@@ -1,14 +1,19 @@
 import apiClient from "../modules/core/api-client.js";
+import {
+  readJsonResponse,
+  responseErrorMessage,
+} from "../modules/features/setup/validation.js";
 import notificationManager from "../modules/ui/notifications.js";
-import { readJsonResponse, responseErrorMessage } from "../modules/features/setup/validation.js";
 
 export function setupBouncieSettings() {
   const form = document.getElementById("settings-bouncie-form");
-  const saveBtn = document.getElementById("settings-saveBouncieBtn");
+  const _saveBtn = document.getElementById("settings-saveBouncieBtn");
   const toggleBtn = document.getElementById("settings-toggleClientSecret");
   const secretInput = document.getElementById("settings-clientSecret");
 
-  if (!form) return;
+  if (!form) {
+    return;
+  }
 
   loadBouncieCredentials();
 
@@ -19,7 +24,8 @@ export function setupBouncieSettings() {
 
   if (toggleBtn && secretInput) {
     toggleBtn.addEventListener("click", () => {
-      const type = secretInput.getAttribute("type") === "password" ? "text" : "password";
+      const type
+        = secretInput.getAttribute("type") === "password" ? "text" : "password";
       secretInput.setAttribute("type", type);
       toggleBtn.querySelector("i").classList.toggle("fa-eye");
       toggleBtn.querySelector("i").classList.toggle("fa-eye-slash");
@@ -42,16 +48,22 @@ async function loadBouncieCredentials() {
   try {
     const response = await apiClient.raw("/api/profile/bouncie-credentials/unmask");
     const data = await readJsonResponse(response);
-    
+
     if (response.ok) {
       const creds = data.credentials || data;
       const clientId = document.getElementById("settings-clientId");
       const clientSecret = document.getElementById("settings-clientSecret");
       const redirectUri = document.getElementById("settings-redirectUri");
 
-      if (clientId) clientId.value = creds.client_id || "";
-      if (clientSecret) clientSecret.value = creds.client_secret || "";
-      if (redirectUri) redirectUri.value = creds.redirect_uri || "";
+      if (clientId) {
+        clientId.value = creds.client_id || "";
+      }
+      if (clientSecret) {
+        clientSecret.value = creds.client_secret || "";
+      }
+      if (redirectUri) {
+        redirectUri.value = creds.redirect_uri || "";
+      }
     }
   } catch (error) {
     console.error("Failed to load Bouncie credentials", error);
@@ -90,7 +102,9 @@ async function saveBouncieCredentials() {
     const data = await readJsonResponse(response);
 
     if (!response.ok) {
-      throw new Error(responseErrorMessage(response, data, "Failed to save credentials"));
+      throw new Error(
+        responseErrorMessage(response, data, "Failed to save credentials")
+      );
     }
 
     notificationManager.show("Bouncie credentials saved", "success");

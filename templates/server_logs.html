@@ -22,12 +22,26 @@ Server Logs
     <!-- Log Type Tabs -->
     <ul class="nav nav-tabs mb-4" id="log-type-tabs" role="tablist">
       <li class="nav-item" role="presentation">
-        <button class="nav-link active" id="app-logs-tab" data-bs-toggle="tab" data-bs-target="#app-logs-pane" type="button" role="tab" aria-controls="app-logs-pane" aria-selected="true">
+        <button class="nav-link active"
+                id="app-logs-tab"
+                data-bs-toggle="tab"
+                data-bs-target="#app-logs-pane"
+                type="button"
+                role="tab"
+                aria-controls="app-logs-pane"
+                aria-selected="true">
           <i class="fas fa-code me-1"></i> Application Logs
         </button>
       </li>
       <li class="nav-item" role="presentation">
-        <button class="nav-link" id="docker-logs-tab" data-bs-toggle="tab" data-bs-target="#docker-logs-pane" type="button" role="tab" aria-controls="docker-logs-pane" aria-selected="false">
+        <button class="nav-link"
+                id="docker-logs-tab"
+                data-bs-toggle="tab"
+                data-bs-target="#docker-logs-pane"
+                type="button"
+                role="tab"
+                aria-controls="docker-logs-pane"
+                aria-selected="false">
           <i class="fab fa-docker me-1"></i> Docker Container Logs
         </button>
       </li>
@@ -35,7 +49,10 @@ Server Logs
 
     <div class="tab-content" id="log-type-content">
       <!-- Application Logs Tab -->
-      <div class="tab-pane fade show active" id="app-logs-pane" role="tabpanel" aria-labelledby="app-logs-tab">
+      <div class="tab-pane fade show active"
+           id="app-logs-pane"
+           role="tabpanel"
+           aria-labelledby="app-logs-tab">
         <!-- Statistics Card -->
         <div class="card mb-4">
           <div class="card-header d-flex justify-content-between align-items-center">
@@ -231,14 +248,19 @@ Loading logs...
       </div>
 
       <!-- Docker Container Logs Tab -->
-      <div class="tab-pane fade" id="docker-logs-pane" role="tabpanel" aria-labelledby="docker-logs-tab">
+      <div class="tab-pane fade"
+           id="docker-logs-pane"
+           role="tabpanel"
+           aria-labelledby="docker-logs-tab">
         <!-- Statistics Card (Client-side calculated) -->
         <div class="card mb-4">
           <div class="card-header d-flex justify-content-between align-items-center">
             <h2 class="h5 mb-0">
 Log Statistics (Client-Side)
             </h2>
-            <button id="refresh-docker-stats" class="btn btn-sm btn-outline-primary" style="display: none;">
+            <button id="refresh-docker-stats"
+                    class="btn btn-sm btn-outline-primary"
+                    style="display: none">
               <!-- This button might not be needed if stats update with logs, but keeping for symmetry/potential future use -->
               <i class="fas fa-sync-alt"></i> Refresh
             </button>
@@ -324,19 +346,27 @@ Containers
                 </label>
                 <!-- Custom Multi-Select Dropdown Container -->
                 <div class="multi-select-container" id="container-multi-select">
-                  <button type="button" class="form-select text-start multi-select-button" id="container-select-btn">
+                  <button type="button"
+                          class="form-select text-start multi-select-button"
+                          id="container-select-btn">
                     Select Containers...
                   </button>
                   <div class="multi-select-dropdown" id="container-select-dropdown">
                     <div class="multi-select-actions p-2 border-bottom">
                       <div class="btn-group w-100 btn-group-sm">
-                        <button type="button" class="btn btn-outline-secondary" id="docker-select-all">Select All</button>
-                        <button type="button" class="btn btn-outline-secondary" id="docker-clear-selection">Clear</button>
+                        <button type="button" class="btn btn-outline-secondary" id="docker-select-all">
+Select All
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary" id="docker-clear-selection">
+Clear
+                        </button>
                       </div>
                     </div>
                     <div class="multi-select-options p-1" id="container-select-options">
                       <!-- Options populated by JS -->
-                      <div class="text-center p-2 text-muted">Loading...</div>
+                      <div class="text-center p-2 text-muted">
+Loading...
+                      </div>
                     </div>
                   </div>
                   <!-- Hidden input to store values for form submission if needed, or just state in JS -->
@@ -372,12 +402,24 @@ CRITICAL
 Lines
                 </label>
                 <select id="docker-limit-filter" class="form-select">
-                  <option value="100">100</option>
-                  <option value="250">250</option>
-                  <option value="500" selected>500</option>
-                  <option value="1000">1000</option>
-                  <option value="2500">2500</option>
-                  <option value="5000">5000</option>
+                  <option value="100">
+100
+                  </option>
+                  <option value="250">
+250
+                  </option>
+                  <option value="500" selected>
+500
+                  </option>
+                  <option value="1000">
+1000
+                  </option>
+                  <option value="2500">
+2500
+                  </option>
+                  <option value="5000">
+5000
+                  </option>
                 </select>
               </div>
               <div class="col-md-3">
@@ -385,13 +427,27 @@ Lines
 Since
                 </label>
                 <select id="docker-since-filter" class="form-select">
-                  <option value="">All time</option>
-                  <option value="5m">Last 5 minutes</option>
-                  <option value="15m">Last 15 minutes</option>
-                  <option value="1h" selected>Last 1 hour</option>
-                  <option value="6h">Last 6 hours</option>
-                  <option value="24h">Last 24 hours</option>
-                  <option value="7d">Last 7 days</option>
+                  <option value="">
+All time
+                  </option>
+                  <option value="5m">
+Last 5 minutes
+                  </option>
+                  <option value="15m">
+Last 15 minutes
+                  </option>
+                  <option value="1h" selected>
+Last 1 hour
+                  </option>
+                  <option value="6h">
+Last 6 hours
+                  </option>
+                  <option value="24h">
+Last 24 hours
+                  </option>
+                  <option value="7d">
+Last 7 days
+                  </option>
                 </select>
               </div>
               <div class="col-md-2 d-flex align-items-end">
@@ -400,7 +456,7 @@ Since
                 </button>
               </div>
             </div>
-            
+
             <div class="row mt-3 g-3">
               <div class="col-md-10">
                 <label for="docker-search-filter" class="form-label">
@@ -461,7 +517,9 @@ Container Logs
             <div id="docker-logs-container" class="logs-container">
               <div class="text-center py-5 text-muted">
                 <i class="fab fa-docker fa-3x mb-3"></i>
-                <p>Select one or more containers from the list above to view logs.</p>
+                <p>
+Select one or more containers from the list above to view logs.
+                </p>
               </div>
             </div>
           </div>
