@@ -61,6 +61,17 @@ if [ $RETRIES -eq 0 ]; then
   log "Warning: PostgreSQL may not be fully ready"
 fi
 
+# Ensure the nominatim role exists for imports
+ROLE_EXISTS=$(sudo -u postgres psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='nominatim'" 2>/dev/null || echo "0")
+if [ "$ROLE_EXISTS" != "1" ]; then
+  log "Creating PostgreSQL role 'nominatim'..."
+  if command -v createuser >/dev/null 2>&1; then
+    sudo -u postgres createuser -s nominatim 2>&1 || log "createuser warning"
+  else
+    sudo -u postgres psql -c "CREATE USER nominatim WITH SUPERUSER" 2>&1 || log "create user warning"
+  fi
+fi
+
 # Check if nominatim database exists
 DB_EXISTS=$(sudo -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname='nominatim'" 2>/dev/null || echo "0")
 if [ "$DB_EXISTS" = "1" ]; then
