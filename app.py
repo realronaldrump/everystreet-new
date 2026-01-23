@@ -26,6 +26,7 @@ from logs import router as logs_api_router
 from map_data.routes import router as map_data_router
 from processing import router as processing_api_router
 from routes.routing import router as routing_router
+from routes.status import router as status_router
 from search import router as search_api_router
 from setup import router as setup_api_router
 from street_coverage.routes.coverage import router as coverage_api_router
@@ -132,6 +133,7 @@ app.include_router(processing_api_router)
 app.include_router(profile_api_router)
 app.include_router(search_api_router)
 app.include_router(setup_api_router)
+app.include_router(status_router)
 app.include_router(tasks_api_router)
 app.include_router(trips_router)
 app.include_router(visits_router)
