@@ -440,6 +440,9 @@ const dataManager = {
    */
   async handleLayerDataNeeded(layerName) {
     switch (layerName) {
+      case "trips":
+        await this.fetchTrips();
+        break;
       case "matchedTrips":
         await this.fetchMatchedTrips();
         break;
