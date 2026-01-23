@@ -93,16 +93,27 @@ def build_calendar_date_expr(
     if not start_str and not end_str:
         return None
 
-    # Build timezone expression that handles edge cases
+    # Build timezone expression that handles edge cases and validates timezone format
+    # Attempts to match IANA-like timezone strings (Area/Location) or UTC/GMT
+    # If invalid, falls back to UTC to prevent $dateToString from crashing
     tz_expr: dict[str, Any] = {
         "$switch": {
             "branches": [
                 {
-                    "case": {"$in": ["$timeZone", ["", "0000"]]},
+                    "case": {"$in": ["$timeZone", ["", "0000", None]]},
                     "then": "UTC",
                 },
+                {
+                    "case": {
+                        "$regexMatch": {
+                            "input": "$timeZone",
+                            "regex": r"^[a-zA-Z_]+/[a-zA-Z0-9_+\-]+$|^UTC$|^GMT$",
+                        }
+                    },
+                    "then": "$timeZone",
+                },
             ],
-            "default": {"$ifNull": ["$timeZone", "UTC"]},
+            "default": "UTC",
         },
     }
 
