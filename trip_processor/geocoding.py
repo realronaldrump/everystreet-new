@@ -12,6 +12,7 @@ from shapely.geometry import Point
 
 from db import Place
 from geo_service import GeocodingService, get_empty_location_schema
+from map_data.models import GeoServiceHealth
 from trip_processor.state import TripState, TripStateMachine
 
 logger = logging.getLogger(__name__)
@@ -94,6 +95,10 @@ class TripGeocoder:
             start_pt = Point(start_coord[0], start_coord[1])
             end_pt = Point(end_coord[0], end_coord[1])
 
+            # Check if Nominatim service is healthy before attempting external geocoding
+            health = await GeoServiceHealth.get_or_create()
+            nominatim_available = health.nominatim_healthy
+
             # Geocode start location
             if not processed_data.get("startLocation"):
                 start_place = await self.get_place_at_point(start_pt)
@@ -112,10 +117,17 @@ class TripGeocoder:
                     processed_data["startPlaceId"] = str(getattr(place_obj, "id", ""))
                 else:
                     # Use external geocoding service
-                    rev_start = await self.geocoding_service.reverse_geocode(
-                        start_coord[1],
-                        start_coord[0],
-                    )
+                    rev_start = None
+                    if nominatim_available:
+                        rev_start = await self.geocoding_service.reverse_geocode(
+                            start_coord[1],
+                            start_coord[0],
+                        )
+                    else:
+                        logger.warning(
+                            "Trip %s: Nominatim unavailable, skipping start geocode",
+                            transaction_id,
+                        )
                     if rev_start:
                         processed_data["startLocation"] = (
                             self.geocoding_service.parse_geocode_response(
@@ -143,10 +155,17 @@ class TripGeocoder:
                         getattr(place_obj, "id", ""),
                     )
                 else:
-                    rev_end = await self.geocoding_service.reverse_geocode(
-                        end_coord[1],
-                        end_coord[0],
-                    )
+                    rev_end = None
+                    if nominatim_available:
+                        rev_end = await self.geocoding_service.reverse_geocode(
+                            end_coord[1],
+                            end_coord[0],
+                        )
+                    else:
+                        logger.warning(
+                            "Trip %s: Nominatim unavailable, skipping destination geocode",
+                            transaction_id,
+                        )
                     if rev_end:
                         processed_data["destination"] = (
                             self.geocoding_service.parse_geocode_response(

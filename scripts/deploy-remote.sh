@@ -29,12 +29,17 @@ fi
 
 echo "🚀 Deploying to $TARGET:$REMOTE_DIR..."
 
-# 1. Sync configuration files
-echo "📂 Syncing configuration files..."
+# 1. Sync configuration files and source code
+echo "📂 Syncing source code..."
 rsync -avz --progress \
-  docker-compose.yml \
-  .env \
-  docker \
+  --exclude 'venv' \
+  --exclude '.git' \
+  --exclude '__pycache__' \
+  --exclude 'node_modules' \
+  --exclude 'osm_extracts' \
+  --exclude 'everystreet-data' \
+  --exclude '.DS_Store' \
+  ./ \
   "$TARGET:$REMOTE_DIR/"
 
 # 2. Fix permissions for Valhalla (runs as uid 59999)
