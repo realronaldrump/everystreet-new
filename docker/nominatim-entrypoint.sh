@@ -70,4 +70,10 @@ else
 fi
 
 log "Starting Nominatim service..."
-exec /app/start.sh
+if [ "$DB_EXISTS" = "1" ]; then
+  exec /app/start.sh
+else
+  log "Nominatim database not found. Waiting for data import..."
+  log "Container will remain up (PostgreSQL is running). Use 'docker exec' to import data."
+  tail -f /dev/null
+fi

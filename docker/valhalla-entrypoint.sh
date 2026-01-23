@@ -43,28 +43,29 @@ fi
 
 if [ "$TILE_COUNT" -gt 0 ]; then
   log "Found $TILE_COUNT routing tiles - ready to serve requests"
-else
-  log "No routing tiles found - will need to build from OSM data"
-fi
-
-log "Starting Valhalla service..."
-
-# Try different run scripts depending on container version
-if [ -x /valhalla/scripts/run.sh ]; then
-  exec /valhalla/scripts/run.sh
-elif [ -x /valhalla/scripts/valhalla_run.sh ]; then
-  exec /valhalla/scripts/valhalla_run.sh
-elif command -v valhalla_service >/dev/null 2>&1; then
-  # Run valhalla_service directly with config
-  if [ -f "$VALHALLA_CONFIG" ]; then
-    exec valhalla_service "$VALHALLA_CONFIG"
+  log "Starting Valhalla service..."
+  
+  # Try different run scripts depending on container version
+  if [ -x /valhalla/scripts/run.sh ]; then
+    exec /valhalla/scripts/run.sh "$VALHALLA_CONFIG"
+  elif [ -x /valhalla/scripts/valhalla_run.sh ]; then
+    exec /valhalla/scripts/valhalla_run.sh "$VALHALLA_CONFIG"
+  elif command -v valhalla_service >/dev/null 2>&1; then
+    # Run valhalla_service directly with config
+    if [ -f "$VALHALLA_CONFIG" ]; then
+      exec valhalla_service "$VALHALLA_CONFIG"
+    else
+      log "Error: No valid config file found"
+      # Keep container running for debugging
+      while true; do sleep 5; done
+    fi
   else
-    log "Error: No valid config file found"
+    log "Error: No Valhalla service executable found"
     # Keep container running for debugging
     while true; do sleep 5; done
   fi
 else
-  log "Error: No Valhalla service executable found"
-  # Keep container running for debugging
+  log "No routing tiles found. Waiting for data build..."
+  log "Container will remain up. Use 'docker exec' to build tiles."
   while true; do sleep 5; done
 fi
