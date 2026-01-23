@@ -13,6 +13,7 @@ import logging
 from datetime import UTC, datetime
 from typing import Any
 
+from db.aggregation import aggregate_to_list
 from map_data.models import MapBuildProgress, MapServiceConfig
 from map_data.us_states import get_state, list_states
 
@@ -129,7 +130,8 @@ async def detect_trip_states() -> dict[str, Any]:
         {"$project": {"gps": 1}},
     ]
 
-    async for trip_doc in Trip.aggregate(pipeline):
+    trip_results = await aggregate_to_list(Trip, pipeline)
+    for trip_doc in trip_results:
         gps = trip_doc.get("gps")
         if not gps or "coordinates" not in gps:
             continue
@@ -167,7 +169,8 @@ async def detect_trip_states() -> dict[str, Any]:
         {"$project": {"destinationGeoPoint": 1}},
     ]
 
-    async for trip_doc in Trip.aggregate(dest_pipeline):
+    dest_results = await aggregate_to_list(Trip, dest_pipeline)
+    for trip_doc in dest_results:
         dest = trip_doc.get("destinationGeoPoint")
         if dest and "coordinates" in dest:
             coords = dest["coordinates"]

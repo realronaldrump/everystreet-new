@@ -28,10 +28,40 @@ except ImportError as exc:
 HAS_HTTP2 = True
 
 from config import get_geofabrik_mirror, get_osm_extracts_path
-from map_data.models import MapDataJob, MapRegion
 
+# NOTE: MapDataJob and MapRegion models were planned but never implemented.
+# This module is currently unused - the actual download logic is in tasks/map_data.py.
+# Keeping this code for reference but guarding the missing imports.
 if TYPE_CHECKING:
     from collections.abc import Callable
+
+    # Type stubs for unimplemented models - these don't exist at runtime
+    class MapRegion:
+        STATUS_DOWNLOADED: str
+        name: str
+        source_url: str | None
+        pbf_path: str | None
+        file_size_mb: float
+        downloaded_at: datetime | None
+        download_progress: float
+        updated_at: datetime
+
+        async def save(self) -> None: ...
+        @classmethod
+        async def get(cls, id: Any) -> "MapRegion | None": ...
+
+    class MapDataJob:
+        JOB_DOWNLOAD: str
+        STATUS_PENDING: str
+        STATUS_RUNNING: str
+        id: Any
+        status: str
+        stage: str
+        progress: float
+        message: str
+
+        @classmethod
+        async def find_one(cls, query: dict) -> "MapDataJob | None": ...
 
 logger = logging.getLogger(__name__)
 
