@@ -1,190 +1,185 @@
 {% extends "base.html" %}
 
 {% block title %}
-
-System Status
+System Control Panel
 {% endblock %}
 
 {% block content %}
-
-  <div class="container-fluid status-dashboard">
-    <div class="bento-grid" data-stagger>
-      <div class="bento-span-12 widget" data-accent="sky">
-        <div class="widget-header">
-          <div>
-            <h2 class="widget-title">
-              <i class="fas fa-heartbeat"></i>
-              System Status
-            </h2>
-            <div class="widget-meta" id="status-last-updated">
-Last updated: --
-            </div>
-          </div>
-          <button class="btn btn-outline-light btn-sm" id="status-refresh-btn">
-            <i class="fas fa-sync-alt"></i> Refresh
-          </button>
-        </div>
-        <div class="widget-body">
-          <div class="d-flex align-items-center gap-3 flex-wrap">
-            <span class="badge bg-secondary" id="overall-status-badge">--</span>
-            <span id="overall-status-message">Loading system health...</span>
-          </div>
-        </div>
+<div class="container-fluid status-dashboard pb-5">
+  <!-- Header -->
+  <div class="d-flex justify-content-between align-items-end mb-4">
+    <div>
+      <h1 class="display-6 fw-bold mb-1">
+        <i class="fas fa-microchip text-primary me-2"></i>System Status
+      </h1>
+      <div class="text-muted small" id="status-last-updated">
+        Last updated: --
       </div>
     </div>
-
-    <div class="bento-grid" data-stagger>
-      <div class="bento-span-4 widget" data-accent="mint">
-        <div class="widget-header">
-          <h3 class="widget-title">
-            <i class="fas fa-database"></i> MongoDB
-          </h3>
-          <span class="badge bg-secondary" id="mongodb-status-badge">--</span>
-        </div>
-        <div class="widget-body">
-          <div id="mongodb-status-message">
---
-          </div>
-          <div class="text-muted small" id="mongodb-status-detail">
-          </div>
-        </div>
-      </div>
-
-      <div class="bento-span-4 widget" data-accent="amber">
-        <div class="widget-header">
-          <h3 class="widget-title">
-            <i class="fas fa-network-wired"></i> Redis
-          </h3>
-          <span class="badge bg-secondary" id="redis-status-badge">--</span>
-        </div>
-        <div class="widget-body">
-          <div id="redis-status-message">
---
-          </div>
-          <div class="text-muted small" id="redis-status-detail">
-          </div>
-        </div>
-      </div>
-
-      <div class="bento-span-4 widget" data-accent="lime">
-        <div class="widget-header">
-          <h3 class="widget-title">
-            <i class="fas fa-robot"></i> Background Worker
-          </h3>
-          <span class="badge bg-secondary" id="worker-status-badge">--</span>
-        </div>
-        <div class="widget-body">
-          <div id="worker-status-message">
---
-          </div>
-          <div class="text-muted small" id="worker-status-detail">
-Active tasks: --
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="bento-grid" data-stagger>
-      <div class="bento-span-4 widget" data-accent="coral">
-        <div class="widget-header">
-          <h3 class="widget-title">
-            <i class="fas fa-search-location"></i> Nominatim
-          </h3>
-          <div class="d-flex align-items-center gap-2">
-            <span class="badge bg-secondary" id="nominatim-status-badge">--</span>
-            <button class="btn btn-outline-light btn-sm" id="nominatim-restart-btn" type="button">
-              <i class="fas fa-rotate"></i> Restart
-            </button>
-          </div>
-        </div>
-        <div class="widget-body">
-          <div id="nominatim-status-message">
---
-          </div>
-          <div class="text-muted small" id="nominatim-status-detail">
-          </div>
-        </div>
-      </div>
-
-      <div class="bento-span-4 widget" data-accent="purple">
-        <div class="widget-header">
-          <h3 class="widget-title">
-            <i class="fas fa-route"></i> Valhalla
-          </h3>
-          <div class="d-flex align-items-center gap-2">
-            <span class="badge bg-secondary" id="valhalla-status-badge">--</span>
-            <button class="btn btn-outline-light btn-sm" id="valhalla-restart-btn" type="button">
-              <i class="fas fa-rotate"></i> Restart
-            </button>
-          </div>
-        </div>
-        <div class="widget-body">
-          <div id="valhalla-status-message">
---
-          </div>
-          <div class="text-muted small" id="valhalla-status-detail">
-          </div>
-        </div>
-      </div>
-
-      <div class="bento-span-4 widget" data-accent="sky">
-        <div class="widget-header">
-          <h3 class="widget-title">
-            <i class="fas fa-car"></i> Bouncie
-          </h3>
-          <span class="badge bg-secondary" id="bouncie-status-badge">--</span>
-        </div>
-        <div class="widget-body">
-          <div id="bouncie-status-message">
---
-          </div>
-          <div class="text-muted small" id="bouncie-status-detail">
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="bento-grid" data-stagger>
-      <div class="bento-span-8 widget" data-accent="mint">
-        <div class="widget-header">
-          <h3 class="widget-title">
-            <i class="fas fa-triangle-exclamation"></i> Recent Errors
-          </h3>
-        </div>
-        <div class="widget-body" id="recent-errors-list">
-          <div class="text-muted">
-No recent errors.
-          </div>
-        </div>
-      </div>
-
-      <div class="bento-span-4 widget" data-accent="amber">
-        <div class="widget-header">
-          <h3 class="widget-title">
-            <i class="fas fa-bolt"></i> Quick Actions
-          </h3>
-        </div>
-        <div class="widget-body">
-          <div class="d-grid gap-2">
-            <a class="btn btn-outline-light" href="/setup-wizard">
-              <i class="fas fa-wand-magic-sparkles"></i> Re-run Setup
-            </a>
-            <a class="btn btn-outline-light" href="/settings">
-              <i class="fas fa-sliders-h"></i> Settings
-            </a>
-            <a class="btn btn-outline-light" href="/coverage-management">
-              <i class="fas fa-map-marked-alt"></i> Coverage Management
-            </a>
-          </div>
-        </div>
-      </div>
+    <div class="d-flex gap-2">
+      <button class="btn btn-outline-secondary btn-sm" id="status-refresh-btn">
+        <i class="fas fa-sync-alt me-1"></i> Refresh
+      </button>
     </div>
   </div>
+
+  <div class="row g-4">
+    <!-- Left Column: Services & Logs -->
+    <div class="col-lg-8">
+      
+      <!-- Services Grid -->
+      <div class="bento-grid mb-4" data-stagger>
+        <!-- MongoDB -->
+        <div class="widget bento-span-4" data-accent="mint">
+          <div class="widget-header">
+            <h3 class="widget-title"><i class="fas fa-database text-mint"></i> MongoDB</h3>
+            <span class="badge bg-secondary" id="mongodb-status-badge">--</span>
+          </div>
+          <div class="widget-body">
+            <div id="mongodb-status-message" class="mb-2 fw-medium">--</div>
+            <div class="d-flex justify-content-between align-items-end">
+                <small class="text-muted" id="mongodb-status-detail"></small>
+                <div class="btn-group btn-group-sm">
+                   <button class="btn btn-light btn-sm text-muted view-logs-btn" data-service="mongodb" title="View Logs"><i class="fas fa-terminal"></i></button>
+                </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Redis -->
+        <div class="widget bento-span-4" data-accent="amber">
+          <div class="widget-header">
+            <h3 class="widget-title"><i class="fas fa-network-wired text-amber"></i> Redis</h3>
+             <span class="badge bg-secondary" id="redis-status-badge">--</span>
+          </div>
+          <div class="widget-body">
+            <div id="redis-status-message" class="mb-2 fw-medium">--</div>
+             <div class="d-flex justify-content-between align-items-end">
+                <small class="text-muted" id="redis-status-detail"></small>
+                 <div class="btn-group btn-group-sm">
+                   <button class="btn btn-light btn-sm text-muted view-logs-btn" data-service="redis" title="View Logs"><i class="fas fa-terminal"></i></button>
+                </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Worker -->
+        <div class="widget bento-span-4" data-accent="lime">
+          <div class="widget-header">
+            <h3 class="widget-title"><i class="fas fa-robot text-lime"></i> Worker</h3>
+            <span class="badge bg-secondary" id="worker-status-badge">--</span>
+          </div>
+          <div class="widget-body">
+            <div id="worker-status-message" class="mb-2 fw-medium">--</div>
+            <div class="d-flex justify-content-between align-items-end">
+                <small class="text-muted" id="worker-status-detail"></small>
+                 <div class="btn-group btn-group-sm">
+                   <button class="btn btn-light btn-sm text-muted view-logs-btn" data-service="worker" title="View Logs"><i class="fas fa-terminal"></i></button>
+                </div>
+            </div>
+          </div>
+        </div>
+        
+         <!-- Nominatim -->
+        <div class="widget bento-span-6" data-accent="coral">
+          <div class="widget-header d-flex justify-content-between">
+            <h3 class="widget-title"><i class="fas fa-search-location text-coral"></i> Nominatim</h3>
+            <span class="badge bg-secondary" id="nominatim-status-badge">--</span>
+          </div>
+          <div class="widget-body">
+             <div id="nominatim-status-message" class="mb-2 fw-medium">--</div>
+             <div class="d-flex justify-content-between align-items-end mt-3">
+               <small class="text-muted" id="nominatim-status-detail">--</small>
+               <div class="btn-group btn-group-sm">
+                 <button class="btn btn-outline-danger btn-sm restart-service-btn" data-service="nominatim" title="Restart Service"><i class="fas fa-power-off"></i></button>
+                 <button class="btn btn-light btn-sm text-muted view-logs-btn" data-service="nominatim" title="View Logs"><i class="fas fa-terminal"></i></button>
+               </div>
+             </div>
+          </div>
+        </div>
+
+        <!-- Valhalla -->
+        <div class="widget bento-span-6" data-accent="purple">
+          <div class="widget-header d-flex justify-content-between">
+            <h3 class="widget-title"><i class="fas fa-route text-purple"></i> Valhalla</h3>
+            <span class="badge bg-secondary" id="valhalla-status-badge">--</span>
+          </div>
+           <div class="widget-body">
+             <div id="valhalla-status-message" class="mb-2 fw-medium">--</div>
+             <div class="d-flex justify-content-between align-items-end mt-3">
+               <small class="text-muted" id="valhalla-status-detail">--</small>
+               <div class="btn-group btn-group-sm">
+                 <button class="btn btn-outline-danger btn-sm restart-service-btn" data-service="valhalla" title="Restart Service"><i class="fas fa-power-off"></i></button>
+                 <button class="btn btn-light btn-sm text-muted view-logs-btn" data-service="valhalla" title="View Logs"><i class="fas fa-terminal"></i></button>
+               </div>
+             </div>
+          </div>
+        </div>
+      </div>
+
+       <!-- Log Viewer (Hidden by default) -->
+      <div class="card bg-dark text-light shadow-sm mb-4 d-none" id="log-viewer-card">
+        <div class="card-header border-secondary d-flex justify-content-between align-items-center bg-transparent py-2">
+           <div class="small fw-bold text-uppercase ls-1">
+             <i class="fas fa-terminal me-2 text-mono"></i> <span id="log-viewer-title">System Logs</span>
+           </div>
+           <button class="btn btn-sm btn-link text-muted p-0" id="close-logs-btn"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="card-body p-0">
+          <pre class="m-0 p-3 text-mono small overflow-auto" style="max-height: 400px; color: #a9b7c6;" id="log-viewer-content">Select a service to view logs...</pre>
+        </div>
+        <div class="card-footer border-secondary bg-transparent py-1 px-3 d-flex justify-content-between">
+            <small class="text-muted" id="log-timestamp">--</small>
+            <button class="btn btn-link btn-sm text-muted p-0 text-decoration-none" id="refresh-logs-btn">Refresh Logs</button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Right Column: Actions & Tasks -->
+    <div class="col-lg-4">
+      
+      <!-- Quick Actions -->
+      <div class="widget mb-4" data-accent="sky">
+        <div class="widget-header">
+           <h3 class="widget-title"><i class="fas fa-bolt text-sky"></i> Quick Actions</h3>
+        </div>
+        <div class="widget-body">
+           <div class="d-grid gap-2">
+             <button class="btn btn-outline-light text-start trigger-task-btn" data-task="periodic_fetch_trips">
+               <i class="fas fa-download me-2 text-muted"></i> Fetch Recent Trips (Sync)
+             </button>
+             <button class="btn btn-outline-light text-start trigger-task-btn" data-task="setup_map_data_task">
+               <i class="fas fa-map me-2 text-muted"></i> Process Map Data
+             </button>
+              <button class="btn btn-outline-light text-start trigger-task-btn" data-task="cleanup_stale_trips">
+               <i class="fas fa-broom me-2 text-muted"></i> Cleanup Stale Data
+             </button>
+             <hr class="my-2 border-secondary opacity-25">
+             <a class="btn btn-light btn-sm text-muted text-start" href="/setup-wizard">
+               <i class="fas fa-wand-magic-sparkles me-2"></i> Re-run Setup Wizard
+             </a>
+           </div>
+        </div>
+      </div>
+
+       <!-- Recent Activity -->
+       <div class="widget" data-accent="gray">
+        <div class="widget-header">
+           <h3 class="widget-title"><i class="fas fa-history text-muted"></i> Recent Activity</h3>
+        </div>
+        <div class="widget-body p-0">
+           <div class="list-group list-group-flush bg-transparent" id="recent-activity-list">
+             <div class="list-group-item bg-transparent text-muted small fst-italic py-3">Loading history...</div>
+           </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
 {% endblock %}
 
-
 {% block extra_js %}
-
-  <script type="module"
-          src="{{ url_for('static', path='js/pages/status-dashboard.js') | replace('http://', '//') }}"></script>
+  <script type="module" src="{{ url_for('static', path='js/pages/status-dashboard.js') }}"></script>
 {% endblock %}
