@@ -290,7 +290,7 @@ async def _merge_pbf_files(
     with contextlib.suppress(FileNotFoundError):
         os.remove(output_path)
 
-    cmd = ["osmium", "merge", "-o", temp_output, *files]
+    cmd = ["osmium", "merge", "-f", "pbf", "-o", temp_output, *files]
     logger.info("Running osmium merge: %s", " ".join(cmd))
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0:
