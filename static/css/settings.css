@@ -8,48 +8,62 @@
 }
 
 /* === Tab Navigation === */
-.settings-tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
+/* === Tab Navigation === */
+.settings-nav-container {
   margin-bottom: var(--space-5);
   border-bottom: 1px solid var(--border-color);
-  padding-bottom: var(--space-2);
+  padding-bottom: 0;
 }
 
-.settings-tabs .settings-tab {
-  border-radius: var(--radius-pill);
+.settings-tabs {
+  display: flex;
+  gap: var(--space-4);
+  position: relative;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none; /* Firefox */
+}
+
+.settings-tabs::-webkit-scrollbar {
+  display: none; /* Chrome/Safari */
 }
 
 .settings-tab {
-  padding: var(--space-2) var(--space-4);
-  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) 0;
   background: transparent;
-  border: 1px solid var(--border-color);
+  border: none;
+  border-bottom: 2px solid transparent;
   color: var(--text-secondary);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
   transition: all 0.2s ease;
   white-space: nowrap;
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
+  margin-bottom: -1px; /* Overlap border-bottom */
 }
 
 .settings-tab:hover {
-  background: var(--surface-2);
   color: var(--text-primary);
 }
 
 .settings-tab.active {
-  background: var(--primary);
-  border-color: var(--primary);
-  color: white;
+  color: var(--primary);
+  border-bottom-color: var(--primary);
 }
 
 .settings-tab i {
   font-size: var(--font-size-md);
+  /* Slight opacity for icon when inactive */
+  opacity: 0.8;
+  transition: opacity 0.2s ease;
+}
+
+.settings-tab:hover i,
+.settings-tab.active i {
+  opacity: 1;
 }
 
 .settings-tab-content {

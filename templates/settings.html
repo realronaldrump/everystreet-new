@@ -36,27 +36,29 @@ Settings
       </div>
     </div>
     <!-- Tab Navigation -->
-    <div class="settings-tabs">
-      <button class="settings-tab active" data-tab="preferences">
-        <i class="fas fa-sliders-h"></i>
-        <span>Preferences</span>
-      </button>
-      <button class="settings-tab" data-tab="sync-settings">
-        <i class="fas fa-sync"></i>
-        <span>Sync Settings</span>
-      </button>
-      <button class="settings-tab" data-tab="data-management">
-        <i class="fas fa-database"></i>
-        <span>Data Management</span>
-      </button>
-      <button class="settings-tab" data-tab="database">
-        <i class="fas fa-server"></i>
-        <span>Database</span>
-      </button>
-      <button class="settings-tab" data-tab="map-services">
-        <i class="fas fa-globe"></i>
-        <span>Map Services</span>
-      </button>
+    <div class="settings-nav-container">
+      <nav class="settings-tabs" role="tablist">
+        <button class="settings-tab active" data-tab="preferences" role="tab" aria-selected="true" aria-controls="preferences-tab">
+          <i class="fas fa-sliders-h"></i>
+          <span>Preferences</span>
+        </button>
+        <button class="settings-tab" data-tab="sync-settings" role="tab" aria-selected="false" aria-controls="sync-settings-tab">
+          <i class="fas fa-sync"></i>
+          <span>Sync</span>
+        </button>
+        <button class="settings-tab" data-tab="data-management" role="tab" aria-selected="false" aria-controls="data-management-tab">
+          <i class="fas fa-database"></i>
+          <span>Data</span>
+        </button>
+        <button class="settings-tab" data-tab="database" role="tab" aria-selected="false" aria-controls="database-tab">
+          <i class="fas fa-server"></i>
+          <span>Database</span>
+        </button>
+        <button class="settings-tab" data-tab="map-services" role="tab" aria-selected="false" aria-controls="map-services-tab">
+          <i class="fas fa-globe"></i>
+          <span>Map Services</span>
+        </button>
+      </nav>
     </div>
 
     <!-- Preferences Tab -->
