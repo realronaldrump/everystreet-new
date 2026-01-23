@@ -6,8 +6,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 from exports.constants import EXPORT_DEFAULT_FORMAT, EXPORT_FORMATS_BY_ENTITY
 
-if TYPE_CHECKING:
-    from beanie import PydanticObjectId
+from beanie import PydanticObjectId
 
 ExportEntity = Literal[
     "trips",
