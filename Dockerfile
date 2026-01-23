@@ -14,7 +14,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Docker CLI (static binary - much faster than apt)
-RUN curl -fsSL https://download.docker.com/linux/static/stable/x86_64/docker-26.1.4.tgz \
+# Install Docker CLI (static binary)
+# Detect architecture (amd64 or arm64/aarch64) and download appropriate binary
+RUN set -eux; \
+    ARCH="$(uname -m)"; \
+    case "$ARCH" in \
+        x86_64) DOC_ARCH='x86_64' ;; \
+        aarch64|arm64) DOC_ARCH='aarch64' ;; \
+        *) echo >&2 "error: unsupported architecture '$ARCH'"; exit 1 ;; \
+    esac; \
+    curl -fsSL "https://download.docker.com/linux/static/stable/${DOC_ARCH}/docker-26.1.4.tgz" \
     | tar xz -C /usr/local/bin --strip-components=1 docker/docker
 
 WORKDIR /app
