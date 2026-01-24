@@ -58,7 +58,13 @@ async def get_matched_trips(request: Request):
         try:
             async for trip in trip_cursor:
                 try:
-                    trip_dict = trip.model_dump() if isinstance(trip, Trip) else trip
+                    if hasattr(trip, "model_dump"):
+                        trip_dict = trip.model_dump()
+                    elif hasattr(trip, "dict"):
+                        trip_dict = trip.dict()
+                    else:
+                        trip_dict = dict(trip)
+
                     st = parse_timestamp(trip_dict.get("startTime"))
                     et = parse_timestamp(trip_dict.get("endTime"))
                     duration = (et - st).total_seconds() if st and et else None
@@ -137,7 +143,13 @@ async def get_trips(request: Request):
             async for trip in trip_cursor:
                 try:
                     # Convert Beanie model to dict for processing
-                    trip_dict = trip.model_dump() if isinstance(trip, Trip) else trip
+                    if hasattr(trip, "model_dump"):
+                        trip_dict = trip.model_dump()
+                    elif hasattr(trip, "dict"):
+                        trip_dict = trip.dict()
+                    else:
+                        trip_dict = dict(trip)
+
                     st = parse_timestamp(trip_dict.get("startTime"))
                     et = parse_timestamp(trip_dict.get("endTime"))
                     duration = (et - st).total_seconds() if st and et else None
