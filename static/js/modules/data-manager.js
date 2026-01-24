@@ -103,14 +103,22 @@ const dataManager = {
       const tripData = this._coerceFeatureCollection(rawTripData);
       if (!tripData) {
         loadingManager?.hide();
-        const sample
-          = typeof rawTripData === "string" ? rawTripData.slice(0, 200) : rawTripData;
-        console.error("Trip data validation failed:", {
-          received: sample,
-          type: typeof rawTripData,
-          hasType: rawTripData?.type,
-          url: `${CONFIG.API.trips}?${params}`,
-        });
+        // Enhanced error logging for debugging
+        console.group("Trip data validation failed");
+        console.error("The API returned data that could not be coerced into a FeatureCollection.");
+        console.info("Request URL:", `${CONFIG.API.trips}?${params}`);
+        console.info("Data type:", typeof rawTripData);
+        
+        if (typeof rawTripData === 'object') {
+             console.dir(rawTripData);
+             if (rawTripData?.features && !Array.isArray(rawTripData.features)) {
+                 console.warn("Issue: 'features' property exists but is not an array.");
+             }
+        } else {
+             console.log("Raw output (truncated):", String(rawTripData).slice(0, 500));
+        }
+        console.groupEnd();
+
         notificationManager.show("Failed to load valid trip data", "danger");
         return null;
       }
