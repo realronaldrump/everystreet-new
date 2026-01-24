@@ -138,6 +138,7 @@ class ESStore {
     this.listeners = new Set();
     this.pathListeners = new Map();
     this.initialized = false;
+    this.appReady = false;
 
     this._loadPersistedUIState();
   }

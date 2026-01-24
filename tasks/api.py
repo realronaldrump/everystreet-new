@@ -583,6 +583,8 @@ async def stream_background_tasks_updates():
 
                     if updates:
                         yield f"data: {json.dumps(updates)}\n\n"
+                    elif poll_count % 15 == 0:
+                        yield ": keepalive\n\n"
 
                 last_config = current_config
                 await asyncio.sleep(1)

@@ -73,6 +73,12 @@ export function onPageLoad(callback, options = {}) {
       return;
     }
 
+    // Wait for app to be ready if it isn't already
+    if (!store.appReady && !options.skipAppReady) {
+      document.addEventListener("appReady", run, { once: true });
+      return;
+    }
+
     if (cleanup) {
       cleanup();
       cleanup = null;
@@ -115,9 +121,13 @@ export function onPageLoad(callback, options = {}) {
   };
 
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", run, { once: true });
+    document.addEventListener("DOMContentLoaded", () => {
+      // Small delay to allow store to init
+      setTimeout(run, 0);
+    }, { once: true });
   } else {
-    run();
+    // Small delay to allow store to init
+    setTimeout(run, 0);
   }
 
   document.addEventListener("es:page-load", run);

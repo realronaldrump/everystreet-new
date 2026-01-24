@@ -184,7 +184,8 @@ const AppController = {
 
       // Ensure page state is correct
       this._ensurePageState();
-
+      
+      state.appReady = true;
       document.dispatchEvent(new CustomEvent("appReady"));
       setTimeout(() => loadingManager.hide(), 300);
     } catch (err) {

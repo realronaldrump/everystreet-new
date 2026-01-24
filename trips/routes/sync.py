@@ -72,6 +72,8 @@ async def stream_trip_sync_updates():
                 if payload_json != last_payload:
                     yield f"data: {payload_json}\n\n"
                     last_payload = payload_json
+                elif poll_count % 7 == 0:
+                    yield ": keepalive\n\n"
                 await asyncio.sleep(2)
             except Exception:
                 logger.exception("Error streaming trip sync status")

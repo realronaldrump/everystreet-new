@@ -7,9 +7,9 @@ import "./modules/ui/notifications.js";
 import "./modules/ui/confirmation-dialog.js";
 import "./modules/ui/global-job-tracker.js";
 
-const start = () => {
+const start = async () => {
   store.init(window.location.href);
-  AppController.initialize();
+  await AppController.initialize();
   router.init();
 };
 

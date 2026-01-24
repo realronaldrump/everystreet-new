@@ -737,7 +737,7 @@ Quick Selections
 
       <!-- App bootstrap -->
       <script type="module"
-              src="{{ url_for('static', path='js/app.js') | replace('http://', '//') }}"></script>
+              src="{{ url_for('static', path='js/app.js') | replace('http://', '//') }}?v={{ repo_version.commit_count }}"></script>
 
       {% block extra_js %}
 
