@@ -5,6 +5,7 @@
 services:
   web:
     image: ghcr.io/realronaldrump/everystreet-new:main
+    platform: linux/amd64
 
     restart: unless-stopped
     ports:
@@ -31,6 +32,7 @@ services:
 
   worker:
     image: ghcr.io/realronaldrump/everystreet-new:main
+    platform: linux/amd64
     restart: unless-stopped
     command: arq tasks.worker.WorkerSettings
     env_file: .env
@@ -117,6 +119,7 @@ services:
   # NOTE: Starts without data. Use the app's Map Data UI to download/import OSM extracts.
   nominatim:
     image: mediagis/nominatim:4.4
+    platform: linux/amd64
     restart: unless-stopped
     entrypoint: ['/bin/sh', '/app/nominatim-entrypoint.sh']
     environment:
