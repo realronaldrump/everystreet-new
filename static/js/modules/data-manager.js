@@ -92,7 +92,7 @@ const dataManager = {
       const params = new URLSearchParams({ start_date: start, end_date: end });
       loadingManager?.updateMessage(`Loading trips from ${start} to ${end}...`);
 
-      const tripData = await utils.fetchWithRetry(
+      const rawTripData = await utils.fetchWithRetry(
         `${CONFIG.API.trips}?${params}`,
         {},
         CONFIG.API.retryAttempts,
@@ -100,12 +100,15 @@ const dataManager = {
         "fetchTrips"
       );
 
-      if (!tripData || tripData?.type !== "FeatureCollection") {
+      const tripData = this._coerceFeatureCollection(rawTripData);
+      if (!tripData) {
         loadingManager?.hide();
+        const sample
+          = typeof rawTripData === "string" ? rawTripData.slice(0, 200) : rawTripData;
         console.error("Trip data validation failed:", {
-          received: tripData,
-          type: typeof tripData,
-          hasType: tripData?.type,
+          received: sample,
+          type: typeof rawTripData,
+          hasType: rawTripData?.type,
           url: `${CONFIG.API.trips}?${params}`,
         });
         notificationManager.show("Failed to load valid trip data", "danger");
@@ -163,7 +166,7 @@ const dataManager = {
         format: "geojson",
       });
 
-      const data = await utils.fetchWithRetry(
+      const rawData = await utils.fetchWithRetry(
         `${CONFIG.API.matchedTrips}?${params}`,
         {},
         CONFIG.API.retryAttempts,
@@ -171,7 +174,8 @@ const dataManager = {
         "fetchMatchedTrips"
       );
 
-      if (data?.type === "FeatureCollection") {
+      const data = this._coerceFeatureCollection(rawData);
+      if (data) {
         // Tag recent matched trips
         this._tagRecentTrips(data);
 
@@ -226,10 +230,65 @@ const dataManager = {
       return "";
     }
     const candidates = Object.keys(state.mapLayers || {});
-    const match = candidates.find(
+    if (!candidates.length) {
+      return rawName;
+    }
+
+    const directMatch = candidates.find(
       (candidate) => candidate.toLowerCase() === rawName.toLowerCase()
     );
-    return match || rawName;
+    if (directMatch) {
+      return directMatch;
+    }
+
+    const normalizedKey = (value) =>
+      value.toLowerCase().replace(/[^a-z0-9]/g, "");
+    const cleanedName = rawName.replace(/[-_ ]*layer(?:[-_ ]*\d+)?$/i, "").trim();
+    const cleanedKey = normalizedKey(cleanedName || rawName);
+
+    const keyMatch = candidates.find(
+      (candidate) => normalizedKey(candidate) === cleanedKey
+    );
+    if (keyMatch) {
+      return keyMatch;
+    }
+
+    const labelMatch = candidates.find((candidate) => {
+      const label = state.mapLayers?.[candidate]?.name;
+      return label && normalizedKey(label) === normalizedKey(rawName);
+    });
+    if (labelMatch) {
+      return labelMatch;
+    }
+
+    return rawName;
+  },
+
+  /**
+   * Normalize GeoJSON FeatureCollection payloads.
+   * @private
+   */
+  _coerceFeatureCollection(data) {
+    if (!data) {
+      return null;
+    }
+
+    const type = typeof data?.type === "string" ? data.type.toLowerCase() : "";
+    const hasFeatures = Array.isArray(data?.features);
+
+    if (type === "featurecollection" && hasFeatures) {
+      return data;
+    }
+
+    if (hasFeatures) {
+      return { ...data, type: "FeatureCollection" };
+    }
+
+    if (Array.isArray(data)) {
+      return { type: "FeatureCollection", features: data };
+    }
+
+    return null;
   },
 
   /**
