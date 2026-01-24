@@ -500,6 +500,7 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
   border: 1px solid var(--border-color);
   transition: all var(--transition-fast);
   user-select: none;
+  gap: var(--space-2);
 }
 
 .layer-control:hover {
@@ -520,6 +521,26 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
 
 .layer-control:hover .fa-grip-vertical {
   opacity: 1;
+}
+
+.layer-control .form-check {
+  margin-bottom: 0;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.layer-control .form-check-input {
+  flex: 0 0 auto;
+  min-width: 2.6em;
+}
+
+.layer-control .form-check-label {
+  min-width: 0;
+}
+
+.layer-control .form-control-color,
+.layer-control .form-range {
+  flex: 0 0 auto;
 }
 
 /* Street Mode Buttons */
