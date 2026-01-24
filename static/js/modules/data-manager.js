@@ -456,7 +456,11 @@ const dataManager = {
         await this.fetchAllStreets();
         break;
       default:
-        console.warn(`Unknown layer data requested: ${layerName}`);
+        console.warn(`Unknown layer data requested: "${layerName}"`, {
+          type: typeof layerName,
+          value: layerName,
+          stack: new Error().stack,
+        });
     }
   },
 };

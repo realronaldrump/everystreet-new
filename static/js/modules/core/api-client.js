@@ -179,7 +179,7 @@ class APIClient {
     }
 
     // Parse response based on content type
-    if (contentType.includes("application/json")) {
+    if (contentType.includes("application/json") || contentType.includes("geo+json")) {
       return response.json();
     }
     if (contentType.includes("text/")) {
