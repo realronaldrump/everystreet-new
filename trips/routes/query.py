@@ -102,11 +102,11 @@ async def get_matched_trips(request: Request):
                         yield ","
                     yield chunk
                     first = False
-                except Exception as e:
-                    logger.error(f"Error processing matched trip: {e}", exc_info=True)
+                except Exception:
+                    logger.exception("Error processing matched trip")
                     continue
-        except Exception as e:
-            logger.error(f"Error in matched trips stream: {e}", exc_info=True)
+        except Exception:
+            logger.exception("Error in matched trips stream")
         finally:
             yield "]}"
 
@@ -200,11 +200,11 @@ async def get_trips(request: Request):
                         yield ","
                     yield chunk
                     first = False
-                except Exception as e:
-                    logger.error(f"Error processing trip: {e}", exc_info=True)
+                except Exception:
+                    logger.exception("Error processing trip")
                     continue
-        except Exception as e:
-            logger.error(f"Error in trips stream: {e}", exc_info=True)
+        except Exception:
+            logger.exception("Error in trips stream")
         finally:
             yield "]}"
 
