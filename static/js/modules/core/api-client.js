@@ -180,7 +180,19 @@ class APIClient {
 
     // Parse response based on content type
     if (contentType.includes("application/json") || contentType.includes("geo+json")) {
-      return response.json();
+      // For streaming responses, we need to read the full body first
+      // This handles both regular JSON and streamed GeoJSON
+      try {
+        const text = await response.text();
+        if (!text || text.trim() === "") {
+          console.warn("Empty response body received from:", response.url);
+          return null;
+        }
+        return JSON.parse(text);
+      } catch (parseError) {
+        console.error("JSON parse error:", parseError, "Response URL:", response.url);
+        throw new Error(`Failed to parse JSON response: ${parseError.message}`);
+      }
     }
     if (contentType.includes("text/")) {
       return response.text();

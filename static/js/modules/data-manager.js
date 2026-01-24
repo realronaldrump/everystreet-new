@@ -102,6 +102,12 @@ const dataManager = {
 
       if (!tripData || tripData?.type !== "FeatureCollection") {
         loadingManager?.hide();
+        console.error("Trip data validation failed:", {
+          received: tripData,
+          type: typeof tripData,
+          hasType: tripData?.type,
+          url: `${CONFIG.API.trips}?${params}`,
+        });
         notificationManager.show("Failed to load valid trip data", "danger");
         return null;
       }

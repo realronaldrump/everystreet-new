@@ -51,14 +51,23 @@ function stopPolling() {
 async function refreshAutoStatus() {
   try {
     const response = await apiClient.raw(`${MAP_SERVICES_API}/auto-status`);
-    const data = await response.json();
+    const text = await response.text();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch (parseError) {
+      console.error("[MapServices] Failed to parse auto-status response:", parseError, "Raw:", text);
+      throw new Error("Invalid response from server");
+    }
     if (!response.ok) {
       throw new Error(data?.detail || "Unable to load map status.");
     }
+    console.log("[MapServices] Auto-status loaded:", data);
     _lastStatus = data;
     renderAutoStatus(data);
     adjustPolling(data);
   } catch (error) {
+    console.error("[MapServices] refreshAutoStatus error:", error);
     renderError(error.message);
   }
 }
@@ -467,6 +476,7 @@ async function handleRefresh() {
  * Trigger automatic provisioning
  */
 async function triggerProvisioning() {
+  console.log("[MapServices] triggerProvisioning called");
   const btn
     = document.getElementById("provision-btn") || document.getElementById("retry-btn");
   if (btn) {
@@ -475,18 +485,23 @@ async function triggerProvisioning() {
   }
 
   try {
+    console.log("[MapServices] Calling auto-provision API...");
     const response = await apiClient.raw(`${MAP_SERVICES_API}/auto-provision`, {
       method: "POST",
     });
 
+    console.log("[MapServices] Response status:", response.status);
+    const data = await response.json();
+    console.log("[MapServices] Response data:", data);
+
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.detail || "Failed to start provisioning");
+      throw new Error(data.detail || "Failed to start provisioning");
     }
 
     notificationManager.show("Map setup started.", "success");
     await refreshAutoStatus();
   } catch (error) {
+    console.error("[MapServices] Error:", error);
     notificationManager.show(error.message, "danger");
     await refreshAutoStatus();
   }
