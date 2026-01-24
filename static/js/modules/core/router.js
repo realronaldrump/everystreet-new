@@ -387,9 +387,32 @@ const router = {
     }
     document.body.dataset.route = path;
     document.body.classList.toggle("map-page", path === "/map");
+    const isMap = path === "/map";
     if (this.shell) {
-      const isMap = path === "/map";
+      if (!isMap) {
+        const focusedElement = this.shell.querySelector(":focus");
+        if (focusedElement && typeof focusedElement.blur === "function") {
+          focusedElement.blur();
+        }
+      }
       this.shell.setAttribute("aria-hidden", isMap ? "false" : "true");
+      if (typeof this.shell.toggleAttribute === "function") {
+        this.shell.toggleAttribute("inert", !isMap);
+      } else if (!isMap) {
+        this.shell.setAttribute("inert", "");
+      } else {
+        this.shell.removeAttribute("inert");
+      }
+    }
+    const mapCanvas = document.getElementById("map-canvas");
+    if (mapCanvas) {
+      if (isMap) {
+        mapCanvas.removeAttribute("aria-hidden");
+        mapCanvas.removeAttribute("inert");
+      } else {
+        mapCanvas.setAttribute("aria-hidden", "true");
+        mapCanvas.setAttribute("inert", "");
+      }
     }
     if (this.announcer) {
       this.announcer.textContent = `Navigated to ${document.title}`;

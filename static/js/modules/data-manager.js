@@ -214,6 +214,25 @@ const dataManager = {
   },
 
   /**
+   * Normalize a layer name to match known map layer keys.
+   * @private
+   */
+  _normalizeLayerName(layerName) {
+    const rawName
+      = typeof layerName === "string"
+        ? layerName.trim()
+        : String(layerName ?? "").trim();
+    if (!rawName) {
+      return "";
+    }
+    const candidates = Object.keys(state.mapLayers || {});
+    const match = candidates.find(
+      (candidate) => candidate.toLowerCase() === rawName.toLowerCase()
+    );
+    return match || rawName;
+  },
+
+  /**
    * Fetch undriven streets for selected coverage area
    * @returns {Promise<Object|null>}
    */
@@ -445,7 +464,8 @@ const dataManager = {
    * @param {string} layerName - Name of layer needing data
    */
   async handleLayerDataNeeded(layerName) {
-    switch (layerName) {
+    const normalizedLayerName = this._normalizeLayerName(layerName);
+    switch (normalizedLayerName) {
       case "trips":
         await this.fetchTrips();
         break;
@@ -462,9 +482,10 @@ const dataManager = {
         await this.fetchAllStreets();
         break;
       default:
-        console.warn(`Unknown layer data requested: "${layerName}"`, {
+        console.warn(`Unknown layer data requested: "${normalizedLayerName || layerName}"`, {
           type: typeof layerName,
           value: layerName,
+          normalized: normalizedLayerName,
           stack: new Error().stack,
         });
     }
