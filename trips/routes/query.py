@@ -55,50 +55,60 @@ async def get_matched_trips(request: Request):
     async def stream():
         yield '{"type":"FeatureCollection","features":['
         first = True
-        async for trip in trip_cursor:
-            trip_dict = trip.model_dump() if isinstance(trip, Trip) else trip
-            st = parse_timestamp(trip_dict.get("startTime"))
-            et = parse_timestamp(trip_dict.get("endTime"))
-            duration = (et - st).total_seconds() if st and et else None
+        try:
+            async for trip in trip_cursor:
+                try:
+                    trip_dict = trip.model_dump() if isinstance(trip, Trip) else trip
+                    st = parse_timestamp(trip_dict.get("startTime"))
+                    et = parse_timestamp(trip_dict.get("endTime"))
+                    duration = (et - st).total_seconds() if st and et else None
 
-            matched_geom = GeometryService.parse_geojson(trip_dict.get("matchedGps"))
-            if not matched_geom:
-                continue  # Skip trips without valid matched geometry
+                    matched_geom = GeometryService.parse_geojson(
+                        trip_dict.get("matchedGps")
+                    )
+                    if not matched_geom:
+                        continue  # Skip trips without valid matched geometry
 
-            coords = matched_geom.get("coordinates", []) if matched_geom else []
-            num_points = len(coords) if isinstance(coords, list) else 0
+                    coords = matched_geom.get("coordinates", []) if matched_geom else []
+                    num_points = len(coords) if isinstance(coords, list) else 0
 
-            props = {
-                "transactionId": trip_dict.get("transactionId"),
-                "imei": trip_dict.get("imei"),
-                "startTime": st.isoformat() if st else None,
-                "endTime": et.isoformat() if et else None,
-                "duration": duration,
-                "distance": _safe_float(trip_dict.get("distance"), 0),
-                "maxSpeed": _safe_float(trip_dict.get("maxSpeed"), 0),
-                "startLocation": trip_dict.get("startLocation"),
-                "destination": trip_dict.get("destination"),
-                "fuelConsumed": _safe_float(trip_dict.get("fuelConsumed"), 0),
-                "source": trip_dict.get("source"),
-                "pointsRecorded": num_points,
-                "estimated_cost": TripCostService.calculate_trip_cost(
-                    trip_dict,
-                    price_map,
-                ),
-                "matchStatus": trip_dict.get("matchStatus"),
-                "matched_at": (
-                    trip_dict.get("matched_at").isoformat()
-                    if trip_dict.get("matched_at")
-                    else None
-                ),
-            }
-            feature = GeometryService.feature_from_geometry(matched_geom, props)
-            chunk = json.dumps(feature, separators=(",", ":"))
-            if not first:
-                yield ","
-            yield chunk
-            first = False
-        yield "]}"
+                    props = {
+                        "transactionId": trip_dict.get("transactionId"),
+                        "imei": trip_dict.get("imei"),
+                        "startTime": st.isoformat() if st else None,
+                        "endTime": et.isoformat() if et else None,
+                        "duration": duration,
+                        "distance": _safe_float(trip_dict.get("distance"), 0),
+                        "maxSpeed": _safe_float(trip_dict.get("maxSpeed"), 0),
+                        "startLocation": trip_dict.get("startLocation"),
+                        "destination": trip_dict.get("destination"),
+                        "fuelConsumed": _safe_float(trip_dict.get("fuelConsumed"), 0),
+                        "source": trip_dict.get("source"),
+                        "pointsRecorded": num_points,
+                        "estimated_cost": TripCostService.calculate_trip_cost(
+                            trip_dict,
+                            price_map,
+                        ),
+                        "matchStatus": trip_dict.get("matchStatus"),
+                        "matched_at": (
+                            trip_dict.get("matched_at").isoformat()
+                            if trip_dict.get("matched_at")
+                            else None
+                        ),
+                    }
+                    feature = GeometryService.feature_from_geometry(matched_geom, props)
+                    chunk = json.dumps(feature, separators=(",", ":"))
+                    if not first:
+                        yield ","
+                    yield chunk
+                    first = False
+                except Exception as e:
+                    logger.error(f"Error processing matched trip: {e}", exc_info=True)
+                    continue
+        except Exception as e:
+            logger.error(f"Error in matched trips stream: {e}", exc_info=True)
+        finally:
+            yield "]}"
 
     return StreamingResponse(stream(), media_type="application/geo+json")
 
@@ -123,70 +133,80 @@ async def get_trips(request: Request):
     async def stream():
         yield '{"type":"FeatureCollection","features":['
         first = True
-        async for trip in trip_cursor:
-            # Convert Beanie model to dict for processing
-            trip_dict = trip.model_dump() if isinstance(trip, Trip) else trip
-            st = parse_timestamp(trip_dict.get("startTime"))
-            et = parse_timestamp(trip_dict.get("endTime"))
-            duration = (et - st).total_seconds() if st and et else None
+        try:
+            async for trip in trip_cursor:
+                try:
+                    # Convert Beanie model to dict for processing
+                    trip_dict = trip.model_dump() if isinstance(trip, Trip) else trip
+                    st = parse_timestamp(trip_dict.get("startTime"))
+                    et = parse_timestamp(trip_dict.get("endTime"))
+                    duration = (et - st).total_seconds() if st and et else None
 
-            geom = GeometryService.parse_geojson(trip_dict.get("gps"))
-            matched_geom = GeometryService.parse_geojson(trip_dict.get("matchedGps"))
+                    geom = GeometryService.parse_geojson(trip_dict.get("gps"))
+                    matched_geom = GeometryService.parse_geojson(
+                        trip_dict.get("matchedGps")
+                    )
 
-            # Use matched geometry as the main feature geometry if requested
-            final_geom = geom
-            if matched_only and matched_geom:
-                final_geom = matched_geom
+                    # Use matched geometry as the main feature geometry if requested
+                    final_geom = geom
+                    if matched_only and matched_geom:
+                        final_geom = matched_geom
 
-            coords = (
-                final_geom.get("coordinates", [])
-                if isinstance(final_geom, dict)
-                else []
-            )
-            num_points = len(coords) if isinstance(coords, list) else 0
-            total_idle_duration = trip_dict.get("totalIdleDuration")
-            if total_idle_duration is None:
-                total_idle_duration = trip_dict.get("totalIdlingTime")
-            avg_speed = trip_dict.get("averageSpeed")
-            if avg_speed is None:
-                avg_speed = trip_dict.get("avgSpeed")
+                    coords = (
+                        final_geom.get("coordinates", [])
+                        if isinstance(final_geom, dict)
+                        else []
+                    )
+                    num_points = len(coords) if isinstance(coords, list) else 0
+                    total_idle_duration = trip_dict.get("totalIdleDuration")
+                    if total_idle_duration is None:
+                        total_idle_duration = trip_dict.get("totalIdlingTime")
+                    avg_speed = trip_dict.get("averageSpeed")
+                    if avg_speed is None:
+                        avg_speed = trip_dict.get("avgSpeed")
 
-            props = {
-                "transactionId": trip_dict.get("transactionId"),
-                "imei": trip_dict.get("imei"),
-                "startTime": st.isoformat() if st else None,
-                "endTime": et.isoformat() if et else None,
-                "duration": duration,
-                "distance": _safe_float(trip_dict.get("distance"), 0),
-                "maxSpeed": _safe_float(trip_dict.get("maxSpeed"), 0),
-                "timeZone": trip_dict.get("timeZone"),
-                "startLocation": trip_dict.get("startLocation"),
-                "destination": trip_dict.get("destination"),
-                "totalIdleDuration": total_idle_duration,
-                "fuelConsumed": _safe_float(trip_dict.get("fuelConsumed"), 0),
-                "source": trip_dict.get("source"),
-                "hardBrakingCount": trip_dict.get("hardBrakingCount"),
-                "hardAccelerationCount": trip_dict.get("hardAccelerationCount"),
-                "startOdometer": trip_dict.get("startOdometer"),
-                "endOdometer": trip_dict.get("endOdometer"),
-                "averageSpeed": avg_speed,
-                "avgSpeed": avg_speed,
-                "pointsRecorded": num_points,
-                "estimated_cost": TripCostService.calculate_trip_cost(
-                    trip_dict,
-                    price_map,
-                ),
-                "matchedGps": matched_geom,
-                "matchStatus": trip_dict.get("matchStatus"),
-            }
-            feature = GeometryService.feature_from_geometry(final_geom, props)
-            # Use standard json.dumps - Beanie models are already serializable
-            chunk = json.dumps(feature, separators=(",", ":"))
-            if not first:
-                yield ","
-            yield chunk
-            first = False
-        yield "]}"
+                    props = {
+                        "transactionId": trip_dict.get("transactionId"),
+                        "imei": trip_dict.get("imei"),
+                        "startTime": st.isoformat() if st else None,
+                        "endTime": et.isoformat() if et else None,
+                        "duration": duration,
+                        "distance": _safe_float(trip_dict.get("distance"), 0),
+                        "maxSpeed": _safe_float(trip_dict.get("maxSpeed"), 0),
+                        "timeZone": trip_dict.get("timeZone"),
+                        "startLocation": trip_dict.get("startLocation"),
+                        "destination": trip_dict.get("destination"),
+                        "totalIdleDuration": total_idle_duration,
+                        "fuelConsumed": _safe_float(trip_dict.get("fuelConsumed"), 0),
+                        "source": trip_dict.get("source"),
+                        "hardBrakingCount": trip_dict.get("hardBrakingCount"),
+                        "hardAccelerationCount": trip_dict.get("hardAccelerationCount"),
+                        "startOdometer": trip_dict.get("startOdometer"),
+                        "endOdometer": trip_dict.get("endOdometer"),
+                        "averageSpeed": avg_speed,
+                        "avgSpeed": avg_speed,
+                        "pointsRecorded": num_points,
+                        "estimated_cost": TripCostService.calculate_trip_cost(
+                            trip_dict,
+                            price_map,
+                        ),
+                        "matchedGps": matched_geom,
+                        "matchStatus": trip_dict.get("matchStatus"),
+                    }
+                    feature = GeometryService.feature_from_geometry(final_geom, props)
+                    # Use standard json.dumps - Beanie models are already serializable
+                    chunk = json.dumps(feature, separators=(",", ":"))
+                    if not first:
+                        yield ","
+                    yield chunk
+                    first = False
+                except Exception as e:
+                    logger.error(f"Error processing trip: {e}", exc_info=True)
+                    continue
+        except Exception as e:
+            logger.error(f"Error in trips stream: {e}", exc_info=True)
+        finally:
+            yield "]}"
 
     return StreamingResponse(stream(), media_type="application/geo+json")
 
