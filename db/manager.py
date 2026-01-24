@@ -20,6 +20,7 @@ from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 logger = logging.getLogger(__name__)
 
 DEFAULT_MONGO_URI: Final[str] = "mongodb://mongo:27017"
+MONGODB_URI_ENV_VAR: Final[str] = "MONGODB_URI"
 _DEPRECATED_MONGO_ENV_VARS: Final[tuple[str, ...]] = (
     "MONGO_URI",
     "MONGO_HOST",
@@ -35,10 +36,20 @@ def _warn_deprecated_mongo_env_vars() -> None:
     configured = [env for env in _DEPRECATED_MONGO_ENV_VARS if os.getenv(env)]
     if configured:
         logger.warning(
-            "Deprecated MongoDB env vars are ignored: %s. Using internal Docker MongoDB.",
+            "Deprecated MongoDB env vars are ignored: %s. "
+            "Set %s to override the MongoDB connection.",
             ", ".join(configured),
+            MONGODB_URI_ENV_VAR,
         )
     _mongo_env_warned = True
+
+
+def _get_mongo_uri() -> str:
+    mongo_uri = os.getenv(MONGODB_URI_ENV_VAR, "").strip()
+    if mongo_uri:
+        return mongo_uri
+    _warn_deprecated_mongo_env_vars()
+    return DEFAULT_MONGO_URI
 
 
 class DatabaseManager:
@@ -51,6 +62,7 @@ class DatabaseManager:
     - Retry logic with exponential backoff
     - Thread-safe singleton pattern
     Environment Variables:
+        MONGODB_URI: Optional MongoDB URI override
         MONGODB_DATABASE: Database name (default: every_street)
         MONGODB_MAX_POOL_SIZE: Connection pool size (default: 50)
         MONGODB_CONNECTION_TIMEOUT_MS: Connection timeout (default: 5000)
@@ -108,8 +120,7 @@ class DatabaseManager:
             Exception: If client initialization fails.
         """
         try:
-            _warn_deprecated_mongo_env_vars()
-            mongo_uri = DEFAULT_MONGO_URI
+            mongo_uri = _get_mongo_uri()
 
             logger.debug("Initializing MongoDB client with URI: %s", mongo_uri)
 

@@ -198,7 +198,9 @@ export function initDatabaseManagement({ signal } = {}) {
       let body = {};
 
       if (currentAction === "clear") {
-        endpoint = "/api/database/clear-collection";
+        endpoint = `/api/database/clear-collection?collection=${encodeURIComponent(
+          currentCollection
+        )}`;
         body = { collection: currentCollection };
       } else {
         throw new Error("Invalid action");
