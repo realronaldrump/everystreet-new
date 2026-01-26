@@ -179,7 +179,6 @@ export const CONFIG = {
       resetFilters: "#reset-filters",
       header: ".app-header",
       mapControls: "#map-controls",
-      centerOnLocationButton: "#center-on-location",
       controlsToggle: "#controls-toggle",
       controlsContent: "#controls-content",
       filterIndicator: "#filter-indicator",

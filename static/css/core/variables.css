@@ -1,65 +1,77 @@
 /* ============================
-   Design Tokens: Refined Minimal
-   Palette (Muted, Sophisticated)
-   - Sage:   #4a9e8c (primary)
-   - Slate:  #6b7280 (secondary)
-   - Rose:   #b45555 (danger)
-   - Steel:  #6b8eb8 (info)
-   - Ochre:  #b89b5a (warning)
-   - Olive:  #6b8f5c (success)
+   Design Tokens: Carbon Signal
+   Palette (Bold, Professional)
+   - Signal Teal: #1fb6ad (primary)
+   - Slate:       #5b6b82 (secondary)
+   - Ember:       #e25555 (danger)
+   - Cobalt:      #4f7cff (info)
+   - Amber:       #f2b94b (warning)
+   - Verdant:     #2fb86d (success)
 
    Radii
-   - Containers/cards: 8-12px
-   - Controls: 6px
+   - Containers/cards: 7-12px
+   - Controls: 5-7px
    - Pills: 9999px
 
    Spacing
    - 4px grid (0.25rem - 4rem)
 
    Typography
-   - Font: Geist Sans (400-700)
-   - Clean hierarchy, restrained weights
+   - Font: IBM Plex Sans + Chivo
+   - Dense, confident hierarchy
    ============================ */
 
 :root {
-  /* Categorical Palette - Muted & Sophisticated */
-  --cat-sage: #4a9e8c;
-  --cat-sage-rgb: 74 158 140;
-  --cat-slate: #6b7280;
-  --cat-slate-rgb: 107 114 128;
-  --cat-rose: #b45555;
-  --cat-rose-rgb: 180 85 85;
-  --cat-steel: #6b8eb8;
-  --cat-steel-rgb: 107 142 184;
-  --cat-ochre: #b89b5a;
-  --cat-ochre-rgb: 184 155 90;
-  --cat-olive: #6b8f5c;
-  --cat-olive-rgb: 107 143 92;
+  /* Categorical Palette - Bold & Professional */
+  --cat-sage: #1fb6ad;
+  --cat-sage-rgb: 31 182 173;
+  --cat-slate: #5b6b82;
+  --cat-slate-rgb: 91 107 130;
+  --cat-rose: #e25555;
+  --cat-rose-rgb: 226 85 85;
+  --cat-steel: #4f7cff;
+  --cat-steel-rgb: 79 124 255;
+  --cat-ochre: #f2b94b;
+  --cat-ochre-rgb: 242 185 75;
+  --cat-olive: #2fb86d;
+  --cat-olive-rgb: 47 184 109;
+  --cat-sky: #4aa8ff;
+  --cat-sky-rgb: 74 168 255;
+  --cat-lime: #8edc3f;
+  --cat-lime-rgb: 142 220 63;
+  --cat-amber: #f2b94b;
+  --cat-amber-rgb: 242 185 75;
+  --cat-coral: #f06b4f;
+  --cat-coral-rgb: 240 107 79;
+  --cat-mint: #29d3c2;
+  --cat-mint-rgb: 41 211 194;
+  --cat-purple: #4f62d6;
+  --cat-purple-rgb: 79 98 214;
 
   /* Semantic Colors */
   --primary: var(--cat-sage);
-  --primary-light: #6bb5a5;
-  --primary-dark: #3a7d6f;
+  --primary-light: #39d2c7;
+  --primary-dark: #138d86;
   --primary-rgb: var(--cat-sage-rgb);
   --secondary: var(--cat-slate);
-  --secondary-light: #9ca3af;
-  --secondary-dark: #4b5563;
+  --secondary-light: #8a9bb3;
+  --secondary-dark: #3e4a5f;
   --secondary-rgb: var(--cat-slate-rgb);
   --success: var(--cat-olive);
-  --success-light: #8aab7a;
-  --success-dark: #567548;
+  --success-light: #45d384;
+  --success-dark: #21814d;
   --success-rgb: var(--cat-olive-rgb);
   --warning: var(--cat-ochre);
-  --warning-light: #d4b876;
-  --warning-dark: #9a8048;
+  --warning-light: #f6c96d;
+  --warning-dark: #d89624;
   --warning-rgb: var(--cat-ochre-rgb);
   --danger: var(--cat-rose);
-  --danger-light: #c87a7a;
-  --danger-dark: #8f4444;
+  --danger-light: #ef7b7b;
+  --danger-dark: #b23b3b;
   --danger-rgb: var(--cat-rose-rgb);
   --info: var(--cat-steel);
-  --info-light: #8fa9c9;
-  --info-dark: #5571a3;
+  --info-light: #7aa0ff;
+  --info-dark: #2f55d6;
   --info-rgb: var(--cat-steel-rgb);
 
   /* Flat colors - no gradients */
@@ -71,32 +83,32 @@
   --info-gradient: var(--info);
 
   /* Dark Mode Surfaces (Default) */
-  --surface-0: #0f1116;
-  --surface-1: #171a21;
-  --surface-2: #1f232c;
-  --surface-3: #272c36;
-  --surface-4: #303543;
-  --surface-elevated: #232833;
-  --surface-glass: rgb(23 26 33 / 82%);
-  --surface-rgb: 23 26 33;
-  --text-primary: rgb(242 245 248 / 92%);
-  --text-secondary: rgb(200 206 214 / 78%);
-  --text-tertiary: rgb(160 168 179 / 55%);
-  --text-on-primary: #0c1412;
-  --text-on-secondary: #140f24;
-  --text-on-dark: #0e1218;
-  --text-on-light: #101217;
-  --border-color: rgb(160 170 185 / 22%);
-  --border-color-light: rgb(160 170 185 / 36%);
-  --divider-color: rgb(160 170 185 / 12%);
-  --border-rgb: 160 170 185;
-  --text-rgb: 242 245 248;
+  --surface-0: #0b0f14;
+  --surface-1: #0f1520;
+  --surface-2: #141c2a;
+  --surface-3: #1a2435;
+  --surface-4: #223049;
+  --surface-elevated: #121a27;
+  --surface-glass: rgb(15 21 32 / 82%);
+  --surface-rgb: 15 21 32;
+  --text-primary: rgb(242 247 252 / 92%);
+  --text-secondary: rgb(196 209 226 / 78%);
+  --text-tertiary: rgb(136 150 170 / 55%);
+  --text-on-primary: #061316;
+  --text-on-secondary: #0b1520;
+  --text-on-dark: #0b1016;
+  --text-on-light: #0f141a;
+  --border-color: rgb(120 138 160 / 28%);
+  --border-color-light: rgb(120 138 160 / 45%);
+  --divider-color: rgb(120 138 160 / 16%);
+  --border-rgb: 120 138 160;
+  --text-rgb: 242 247 252;
 
   /* Typography */
-  --font-family: "Geist Sans", "Geist", system-ui, -apple-system, sans-serif;
-  --font-family-display: "Geist Sans", "Geist", system-ui, -apple-system, sans-serif;
+  --font-family: "IBM Plex Sans", "Chivo", system-ui, -apple-system, sans-serif;
+  --font-family-display: "Chivo", "IBM Plex Sans", system-ui, -apple-system, sans-serif;
   --font-family-mono:
-    "Geist Mono", ui-monospace, sfmono-regular, menlo, monaco, consolas, monospace;
+    "IBM Plex Mono", ui-monospace, sfmono-regular, menlo, monaco, consolas, monospace;
   --font-size-xs: clamp(0.72rem, 0.68rem + 0.2vw, 0.82rem);
   --font-size-sm: clamp(0.84rem, 0.8rem + 0.2vw, 0.98rem);
   --font-size-md: clamp(0.98rem, 0.94rem + 0.25vw, 1.08rem);
@@ -178,23 +190,23 @@
   );
   --gradient-ambient: radial-gradient(
     ellipse at top,
-    rgb(var(--primary-rgb) / 6%) 0%,
+    rgb(var(--primary-rgb) / 10%) 0%,
     transparent 60%
   );
   --app-bg: radial-gradient(
       1200px circle at 10% -10%,
-      rgb(var(--primary-rgb) / 14%),
-      transparent 60%
+      rgb(var(--primary-rgb) / 22%),
+      transparent 65%
     ),
     radial-gradient(
-      1000px circle at 90% 0%,
-      rgb(var(--secondary-rgb) / 12%),
-      transparent 55%
+      1000px circle at 110% 10%,
+      rgb(var(--info-rgb) / 18%),
+      transparent 60%
     ),
     radial-gradient(
       900px circle at 50% 120%,
-      rgb(var(--info-rgb) / 10%),
-      transparent 60%
+      rgb(var(--warning-rgb) / 10%),
+      transparent 65%
     );
 
   /* Interactive lift shadows */
@@ -233,15 +245,15 @@
   --toggle-track-on: var(--primary);
 
   /* Glass shadows */
-  --shadow-glass-sm: 0 2px 8px rgb(0 0 0 / 25%), inset 0 1px 0 rgb(255 255 255 / 5%);
-  --shadow-glass-md: 0 8px 24px rgb(0 0 0 / 30%), inset 0 1px 0 rgb(255 255 255 / 5%);
-  --shadow-glass-lg: 0 16px 48px rgb(0 0 0 / 35%), inset 0 1px 0 rgb(255 255 255 / 5%);
+  --shadow-glass-sm: 0 2px 10px rgb(0 0 0 / 28%), inset 0 1px 0 rgb(255 255 255 / 6%);
+  --shadow-glass-md: 0 10px 26px rgb(0 0 0 / 32%), inset 0 1px 0 rgb(255 255 255 / 6%);
+  --shadow-glass-lg: 0 18px 56px rgb(0 0 0 / 36%), inset 0 1px 0 rgb(255 255 255 / 6%);
 
   /* Border Radius - More subtle */
-  --radius-xs: 4px;
-  --radius-sm: 6px;
-  --radius-md: 8px;
-  --radius-lg: 10px;
+  --radius-xs: 3px;
+  --radius-sm: 5px;
+  --radius-md: 7px;
+  --radius-lg: 9px;
   --radius-xl: 12px;
   --radius-full: 9999px;
   --radius-pill: 9999px;
@@ -268,9 +280,9 @@
   --z-loading-overlay: 9999;
 
   /* Scrollbar */
-  --scrollbar-thumb-color: rgb(160 170 185 / 35%);
+  --scrollbar-thumb-color: rgb(var(--primary-rgb) / 35%);
   --scrollbar-track-color: transparent;
-  --scrollbar-thumb-hover-color: rgb(160 170 185 / 55%);
+  --scrollbar-thumb-hover-color: rgb(var(--primary-rgb) / 55%);
 
   /* Utility Aliases */
   --text-color: var(--text-primary);
@@ -316,39 +328,54 @@
 
 /* Light Mode Overrides */
 body.light-mode {
-  --surface-0: #f5f7fb;
+  --surface-0: #f4f6fa;
   --surface-1: #fff;
-  --surface-2: #edf0f6;
-  --surface-3: #e1e6ef;
-  --surface-4: #d5dbe7;
-  --surface-elevated: #f0f3f9;
-  --surface-glass: rgb(255 255 255 / 88%);
-  --surface-rgb: 245 247 251;
-  --text-primary: rgb(22 24 29 / 92%);
-  --text-secondary: rgb(66 72 83 / 75%);
-  --text-tertiary: rgb(96 104 118 / 55%);
-  --border-color: rgb(20 24 32 / 12%);
-  --border-color-light: rgb(20 24 32 / 22%);
-  --divider-color: rgb(20 24 32 / 8%);
-  --border-rgb: 20 24 32;
-  --text-rgb: 22 24 29;
-  --shadow-xs: 0 1px 2px rgb(20 24 32 / 6%);
-  --shadow-sm: 0 4px 12px rgb(20 24 32 / 10%);
-  --shadow-md: 0 10px 24px rgb(20 24 32 / 14%);
-  --shadow-lg: 0 16px 36px rgb(20 24 32 / 16%);
-  --shadow-xl: 0 24px 52px rgb(20 24 32 / 18%);
-  --shadow-elevation-1: 0 6px 16px rgb(20 24 32 / 10%);
-  --shadow-elevation-2: 0 12px 24px rgb(20 24 32 / 12%);
-  --shadow-elevation-3: 0 18px 36px rgb(20 24 32 / 14%);
-  --shadow-elevation-4: 0 26px 48px rgb(20 24 32 / 16%);
-  --shadow-elevation-5: 0 34px 60px rgb(20 24 32 / 18%);
-  --scrollbar-thumb-color: rgb(85 214 194 / 30%);
-  --scrollbar-track-color: rgb(20 24 32 / 6%);
-  --scrollbar-thumb-hover-color: rgb(85 214 194 / 45%);
+  --surface-2: #edf1f7;
+  --surface-3: #e3e9f2;
+  --surface-4: #d6dfec;
+  --surface-elevated: #eef2f8;
+  --surface-glass: rgb(255 255 255 / 90%);
+  --surface-rgb: 244 246 250;
+  --text-primary: rgb(15 22 33 / 92%);
+  --text-secondary: rgb(54 64 80 / 75%);
+  --text-tertiary: rgb(86 99 118 / 55%);
+  --border-color: rgb(15 22 33 / 12%);
+  --border-color-light: rgb(15 22 33 / 22%);
+  --divider-color: rgb(15 22 33 / 8%);
+  --border-rgb: 15 22 33;
+  --text-rgb: 15 22 33;
+  --shadow-xs: 0 1px 2px rgb(15 22 33 / 6%);
+  --shadow-sm: 0 4px 12px rgb(15 22 33 / 10%);
+  --shadow-md: 0 10px 24px rgb(15 22 33 / 14%);
+  --shadow-lg: 0 16px 36px rgb(15 22 33 / 16%);
+  --shadow-xl: 0 24px 52px rgb(15 22 33 / 18%);
+  --shadow-elevation-1: 0 6px 16px rgb(15 22 33 / 10%);
+  --shadow-elevation-2: 0 12px 24px rgb(15 22 33 / 12%);
+  --shadow-elevation-3: 0 18px 36px rgb(15 22 33 / 14%);
+  --shadow-elevation-4: 0 26px 48px rgb(15 22 33 / 16%);
+  --shadow-elevation-5: 0 34px 60px rgb(15 22 33 / 18%);
+  --scrollbar-thumb-color: rgb(var(--primary-rgb) / 30%);
+  --scrollbar-track-color: rgb(15 22 33 / 6%);
+  --scrollbar-thumb-hover-color: rgb(var(--primary-rgb) / 45%);
   --glass-1: rgb(var(--surface-rgb) / 82%);
   --glass-2: rgb(var(--surface-rgb) / 90%);
   --glass-3: rgb(var(--surface-rgb) / 96%);
   --glass-border: rgb(var(--border-rgb) / 18%);
+  --app-bg: radial-gradient(
+      1200px circle at 10% -10%,
+      rgb(var(--primary-rgb) / 12%),
+      transparent 65%
+    ),
+    radial-gradient(
+      1000px circle at 110% 10%,
+      rgb(var(--info-rgb) / 10%),
+      transparent 60%
+    ),
+    radial-gradient(
+      900px circle at 50% 120%,
+      rgb(var(--warning-rgb) / 8%),
+      transparent 65%
+    );
   --app-bg: radial-gradient(
       1200px circle at 10% -10%,
       rgb(var(--primary-rgb) / 10%),

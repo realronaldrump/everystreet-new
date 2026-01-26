@@ -1,4 +1,3 @@
-import notificationManager from "./modules/ui/notifications.js";
 import { onPageLoad } from "./modules/utils.js";
 
 /* Mobile Map Interface - Simplified for Unified DOM
@@ -72,7 +71,6 @@ class MobileMapInterface {
     this.setState(this.currentState, { immediate: true });
 
     this.setupDragInteractions();
-    this.setupFABActions();
     this.setupMapPanGuard();
 
     window.addEventListener("resize", this.resizeHandler);
@@ -93,22 +91,6 @@ class MobileMapInterface {
   addBodyClass() {
     document.body.classList.add("map-page");
     this.bodyClassApplied = true;
-  }
-
-  setupFABActions() {
-    const centerBtn = document.getElementById("mobile-center-location");
-    this.bind(centerBtn, "click", () =>
-      document.getElementById("center-on-location")?.click()
-    );
-
-    const fitBtn = document.getElementById("mobile-fit-bounds");
-    this.bind(fitBtn, "click", () => document.getElementById("fit-bounds")?.click());
-
-    const refreshBtn = document.getElementById("mobile-refresh");
-    this.bind(refreshBtn, "click", () => {
-      document.getElementById("refresh-map")?.click();
-      this.showFeedback("Refreshing map...");
-    });
   }
 
   setupMapPanGuard() {
@@ -492,11 +474,6 @@ class MobileMapInterface {
     }
     target.addEventListener(event, handler);
     this.cleanupCallbacks.push(() => target.removeEventListener(event, handler));
-  }
-
-  showFeedback(message) {
-    this.lastFeedbackMessage = message;
-    notificationManager?.show(message, "info");
   }
 
   static debounce(fn, wait = 150) {

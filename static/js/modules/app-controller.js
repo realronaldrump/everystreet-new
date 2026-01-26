@@ -399,35 +399,6 @@ const AppController = {
       });
     }
 
-    // Center-on-location button (geolocation)
-    const centerBtn = utils.getElement("center-on-location");
-    if (centerBtn) {
-      centerBtn.addEventListener("click", async () => {
-        const geolocationService = (await import("./geolocation-service.js")).default;
-        if (!geolocationService.isSupported()) {
-          notificationManager.show("Geolocation is not supported", "warning");
-          return;
-        }
-        centerBtn.disabled = true;
-        centerBtn.classList.add("btn-loading");
-        try {
-          const position = await geolocationService.getCurrentPosition();
-          const { coords } = position;
-          state.map?.flyTo({
-            center: [coords.longitude, coords.latitude],
-            zoom: 14,
-            duration: 1000,
-          });
-        } catch (err) {
-          console.error("Geolocation error:", err);
-          notificationManager.show(`Error getting location: ${err.message}`, "danger");
-        } finally {
-          centerBtn.disabled = false;
-          centerBtn.classList.remove("btn-loading");
-        }
-      });
-    }
-
     // Map style reload event – re-apply layers
     document.addEventListener("mapStyleLoaded", async () => {
       if (!state.map || !state.mapInitialized) {
@@ -447,28 +418,6 @@ const AppController = {
       }
       loadingManager.hide();
     });
-
-    // Refresh map button
-    const refreshBtn = utils.getElement("refresh-map");
-    if (refreshBtn) {
-      refreshBtn.addEventListener("click", async () => {
-        refreshBtn.disabled = true;
-        refreshBtn.classList.add("btn-loading");
-        try {
-          state.apiCache.clear();
-          await dataManager.updateMap(false);
-        } finally {
-          refreshBtn.disabled = false;
-          refreshBtn.classList.remove("btn-loading");
-        }
-      });
-    }
-
-    // Fit-bounds button
-    const fitBoundsBtn = utils.getElement("fit-bounds");
-    if (fitBoundsBtn) {
-      fitBoundsBtn.addEventListener("click", () => mapManager.fitBounds());
-    }
 
     // Highlight recent trips toggle
     const highlightToggle = utils.getElement("highlight-recent-trips");
@@ -497,9 +446,6 @@ const AppController = {
         "=": () => state.map.zoomIn(),
         "-": () => state.map.zoomOut(),
         _: () => state.map.zoomOut(),
-        f: () => mapManager.fitBounds(),
-        r: () => refreshBtn?.click(),
-        l: () => centerBtn?.click(),
       };
       if (actions[e.key]) {
         actions[e.key]();

@@ -230,45 +230,6 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
   background: var(--surface-4, var(--surface-3));
 }
 
-/* Quick Actions Bar */
-.quick-actions-bar {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: var(--space-2);
-  padding: var(--space-3);
-  background: transparent;
-  border-bottom: 1px solid var(--glass-border-subtle);
-  position: relative;
-  z-index: 1;
-}
-
-.btn-quick-action {
-  background: var(--glass-input);
-  border: 1px solid var(--glass-border-subtle);
-  border-radius: var(--radius-lg);
-  padding: var(--space-2);
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: var(--font-size-md);
-  aspect-ratio: 1;
-}
-
-.btn-quick-action:hover {
-  background: var(--glass-input-focus);
-  color: var(--text-primary);
-  border-color: var(--glass-border-medium);
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-glass-sm);
-}
-
-.btn-quick-action:active {
-  transform: translateY(0);
-}
-
 /* Control Sections */
 .control-sections {
   display: flex;
@@ -1477,45 +1438,6 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
   padding: var(--space-4);
   -webkit-overflow-scrolling: touch;
   scroll-behavior: smooth;
-}
-
-/* Floating Action Buttons */
-.mobile-fab-container {
-  position: fixed;
-  right: var(--space-3);
-  bottom: calc(200px + env(safe-area-inset-bottom, 0));
-  z-index: calc(var(--z-drawer) - 1);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
-.mobile-fab {
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  background: var(--primary);
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 4px 12px rgb(0 0 0 / 30%);
-  border: none;
-  cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-  font-size: var(--font-size-xl);
-}
-
-.mobile-fab:active {
-  transform: scale(0.95);
-}
-
-.mobile-fab.secondary {
-  width: 48px;
-  height: 48px;
-  background: var(--surface-2);
-  color: var(--text-primary);
-  font-size: var(--font-size-lg);
 }
 
 /* iOS-style sections */
