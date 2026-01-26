@@ -261,6 +261,31 @@ async def build_nominatim_data(
 
         logger.info("PBF file verified in container: %s", pbf_container_path)
 
+        # Drop existing database if it exists (to ensure clean import)
+        logger.info(
+            "Ensuring clean state: Dropping existing 'nominatim' database if present..."
+        )
+        drop_cmd = [
+            "docker",
+            "exec",
+            "-u",
+            "postgres",
+            container_name,
+            "dropdb",
+            "--if-exists",
+            "nominatim",
+        ]
+        drop_process = await asyncio.create_subprocess_exec(
+            *drop_cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        await drop_process.wait()
+        if drop_process.returncode == 0:
+            logger.info("Database drop command completed successfully")
+        else:
+            logger.warning("Database drop command returned non-zero (may be benign)")
+
         # Build the import command
         # Note: We do NOT use -u nominatim here. The nominatim CLI handles
         # user switching internally when needed. Running as root allows

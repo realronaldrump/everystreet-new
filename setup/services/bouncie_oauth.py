@@ -5,6 +5,7 @@ Handles OAuth token acquisition and caching for the Bouncie API. All
 Bouncie API integrations should use this service for authentication.
 """
 
+import json
 import logging
 import time
 
@@ -33,7 +34,7 @@ class BouncieOAuth:
     Provides token caching and automatic refresh using authorization_code flow.
 
     Bouncie OAuth Flow (per API docs):
-    - Authorization codes do NOT expire
+    - Authorization codes can be invalidated if a new code is issued
     - To get a new access token, re-use the same authorization code
     - There are NO refresh tokens in Bouncie's API
     """
@@ -122,6 +123,20 @@ class BouncieOAuth:
             ) as response:
                 if response.status >= 400:
                     text = await response.text()
+                    error_code = None
+                    error_description = None
+                    try:
+                        payload = json.loads(text)
+                    except json.JSONDecodeError:
+                        payload = None
+                    if isinstance(payload, dict):
+                        error_code = payload.get("error")
+                        error_description = payload.get("error_description")
+                    if error_code == "invalid_grant":
+                        await BouncieOAuth._clear_invalid_authorization(
+                            credentials,
+                            reason=error_description,
+                        )
                     logger.error(
                         "Access token exchange failed: status=%s client_id=%s redirect_uri=%s response=%s",
                         response.status,
@@ -190,3 +205,25 @@ class BouncieOAuth:
             current_credentials["expires_at"] = expires_at
         else:
             logger.error("Failed to save access token to database")
+
+    @staticmethod
+    async def _clear_invalid_authorization(
+        current_credentials: dict,
+        *,
+        reason: str | None = None,
+    ) -> None:
+        """Clear stored auth code and token after invalid_grant responses."""
+        update_data = {
+            "authorization_code": None,
+            "access_token": None,
+            "expires_at": None,
+        }
+        success = await update_bouncie_credentials(update_data)
+        if success:
+            current_credentials["authorization_code"] = ""
+            current_credentials["access_token"] = None
+            current_credentials["expires_at"] = None
+        message = "Cleared stored authorization code after invalid_grant"
+        if reason:
+            message = f"{message}: {reason}"
+        logger.error(message)
