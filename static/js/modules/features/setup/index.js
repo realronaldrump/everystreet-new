@@ -25,6 +25,7 @@ let selectedStates = new Set();
 let pollingTimer = null;
 let currentStep = 0;
 let coverageView = "select";
+let mapSetupInFlight = false;
 
 onPageLoad(
   ({ signal, cleanup } = {}) => {
@@ -727,11 +728,16 @@ function filterStateList(query) {
 }
 
 async function startMapSetup() {
+  if (mapSetupInFlight) {
+    return;
+  }
   if (!selectedStates.size) {
     showStatus("coverage-status", "Select at least one state.", true);
     return;
   }
   try {
+    mapSetupInFlight = true;
+    updateMapCoverageUI();
     showStatus("coverage-status", "Starting map setup...", false);
     const response = await apiClient.raw(`${MAP_SERVICES_API}/configure`, {
       method: "POST",
@@ -746,6 +752,8 @@ async function startMapSetup() {
     updateCoverageView("run");
     startStatusPolling();
   } catch (error) {
+    mapSetupInFlight = false;
+    updateMapCoverageUI();
     showStatus("coverage-status", error.message || "Setup failed.", true);
   }
 }
@@ -816,7 +824,11 @@ function updateMapCoverageUI() {
   if (mapSetupBtn) {
     const credentialsComplete
       = setupStatus?.steps?.bouncie?.complete && setupStatus?.steps?.mapbox?.complete;
-    mapSetupBtn.disabled = locked || !selectedStates.size || !credentialsComplete;
+    const running = status?.status === "downloading" || status?.status === "building";
+    const ready = status?.status === "ready";
+    mapSetupBtn.classList.toggle("d-none", running || ready || mapSetupInFlight);
+    mapSetupBtn.disabled
+      = locked || !selectedStates.size || !credentialsComplete || mapSetupInFlight;
   }
 
   const infoEl = document.getElementById("coverage-status-pill");
@@ -828,7 +840,8 @@ function updateMapCoverageUI() {
 
   const running
     = status?.status === "downloading" || status?.status === "building";
-  if (running || status?.status === "ready") {
+  const ready = status?.status === "ready";
+  if (running || ready) {
     updateCoverageView("run");
   }
 
@@ -848,6 +861,15 @@ function updateMapCoverageUI() {
     showStatus("coverage-status", "Map coverage is ready.", false);
   } else {
     showStatus("coverage-status", "", false);
+  }
+
+  if (!running && !ready) {
+    mapSetupInFlight = false;
+  }
+
+  const runBtn = document.getElementById("coverage-run-btn");
+  if (runBtn) {
+    runBtn.disabled = running || ready || mapSetupInFlight || !selectedStates.size;
   }
 }
 
