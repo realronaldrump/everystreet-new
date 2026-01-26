@@ -87,20 +87,25 @@ def _apply_env_overrides(settings: AppSettings) -> None:
         settings.osm_extracts_path = env_osm_path
 
 
-def _set_env_value(key: str, value: str | None) -> None:
+def _set_env_value(key: str, value: str | None, *, force: bool = False) -> None:
     if not value:
         return
     existing = os.getenv(key)
-    if existing is None or key in _seeded_env_keys:
+    if force or existing is None or key in _seeded_env_keys:
         os.environ[key] = value
         _seeded_env_keys.add(key)
 
 
-def _apply_settings_to_env(settings: AppSettings) -> None:
+def _apply_settings_to_env(settings: AppSettings, *, force: bool = False) -> None:
     """Seed environment variables from stored settings."""
-    _set_env_value("MAPBOX_TOKEN", settings.mapbox_token)
-    _set_env_value("GEOFABRIK_MIRROR", settings.geofabrik_mirror)
-    _set_env_value("OSM_EXTRACTS_PATH", settings.osm_extracts_path)
+    _set_env_value("MAPBOX_TOKEN", settings.mapbox_token, force=force)
+    _set_env_value("GEOFABRIK_MIRROR", settings.geofabrik_mirror, force=force)
+    _set_env_value("OSM_EXTRACTS_PATH", settings.osm_extracts_path, force=force)
+
+
+def apply_settings_to_env(settings: AppSettings, *, force: bool = False) -> None:
+    """Public helper to sync settings into env vars for the running process."""
+    _apply_settings_to_env(settings, force=force)
 
 
 async def refresh_service_config() -> AppSettings:

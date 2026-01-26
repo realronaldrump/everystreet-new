@@ -249,23 +249,25 @@ async def _run_docker_command(args: list[str]) -> tuple[str, str, int]:
         return "", str(e), 1
 
 
+COMPOSE_SERVICES = (
+    "mongo-init",
+    "nominatim",
+    "valhalla",
+    "watchtower",
+    "worker",
+    "redis",
+    "mongo",
+    "web",
+)
+
+
 async def _infer_compose_project() -> str | None:
     """Infer the docker compose project name for this app."""
     env_project = os.getenv("COMPOSE_PROJECT_NAME", "").strip()
     if env_project:
         return env_project
 
-    candidate_services = (
-        "web",
-        "worker",
-        "redis",
-        "mongo",
-        "mongo-init",
-        "nominatim",
-        "valhalla",
-        "watchtower",
-    )
-    for service in candidate_services:
+    for service in COMPOSE_SERVICES:
         stdout, _, returncode = await _run_docker_command(
             [
                 "ps",
@@ -282,6 +284,70 @@ async def _infer_compose_project() -> str | None:
             value = line.strip()
             if value:
                 return value
+
+    return None
+
+
+def _extract_compose_index(container_name: str) -> str | None:
+    """Extract the trailing compose index from a container name."""
+    parts = container_name.split("-")
+    if parts and parts[-1].isdigit():
+        return parts[-1]
+    return None
+
+
+def _extract_compose_service(container_name: str) -> str | None:
+    """Infer service name from a container name using known service list."""
+    lower_name = container_name.lower()
+    for service in COMPOSE_SERVICES:
+        token = service.lower()
+        if (
+            lower_name == token
+            or lower_name.startswith(f"{token}-")
+            or lower_name.endswith(f"-{token}")
+            or f"-{token}-" in lower_name
+        ):
+            return service
+    return None
+
+
+async def _list_container_names(filter_args: list[str] | None = None) -> list[str]:
+    """List container names via docker ps."""
+    cmd = ["ps", "-a", "--format", "{{.Names}}"]
+    if filter_args:
+        cmd.extend(filter_args)
+
+    stdout, _, returncode = await _run_docker_command(cmd)
+    if returncode != 0:
+        return []
+    return [line.strip() for line in stdout.splitlines() if line.strip()]
+
+
+async def _resolve_container_name(container_name: str) -> str | None:
+    """Resolve a possibly stale container name to an existing container."""
+    names = await _list_container_names()
+    if container_name in names:
+        return container_name
+
+    service = _extract_compose_service(container_name)
+    if service:
+        candidates = await _list_container_names(
+            ["--filter", f"label=com.docker.compose.service={service}"]
+        )
+        if candidates:
+            index = _extract_compose_index(container_name)
+            if index:
+                for candidate in candidates:
+                    if candidate.endswith(f"-{index}"):
+                        return candidate
+
+            project = await _infer_compose_project()
+            if project:
+                for candidate in candidates:
+                    if candidate.startswith(f"{project}-"):
+                        return candidate
+
+            return candidates[0]
 
     return None
 
@@ -362,13 +428,15 @@ async def get_docker_container_logs(
         Dictionary containing container logs and metadata
     """
     try:
+        resolved_name = await _resolve_container_name(container_name) or container_name
+
         # Build docker logs command
         args = ["logs", "--tail", str(tail), "--timestamps"]
 
         if since:
             args.extend(["--since", since])
 
-        args.append(container_name)
+        args.append(resolved_name)
 
         stdout, stderr, returncode = await _run_docker_command(args)
 
@@ -395,7 +463,7 @@ async def get_docker_container_logs(
             lines = lines[-tail:]
 
         return {
-            "container": container_name,
+            "container": resolved_name,
             "logs": lines,
             "line_count": len(lines),
             "truncated": truncated,
@@ -424,12 +492,14 @@ async def clear_docker_container_logs(container_name: str) -> dict[str, Any]:
         Dictionary containing clear status metadata
     """
     try:
+        resolved_name = await _resolve_container_name(container_name) or container_name
+
         stdout, stderr, returncode = await _run_docker_command(
             [
                 "inspect",
                 "--format",
                 "{{.HostConfig.LogConfig.Type}}\t{{.LogPath}}",
-                container_name,
+                resolved_name,
             ],
         )
 
@@ -486,7 +556,7 @@ async def clear_docker_container_logs(container_name: str) -> dict[str, Any]:
             )
 
         return {
-            "container": container_name,
+            "container": resolved_name,
             "log_driver": log_driver,
             "cleared": True,
         }

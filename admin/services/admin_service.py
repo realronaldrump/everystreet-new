@@ -10,7 +10,7 @@ from pymongo.errors import OperationFailure
 
 from core.date_utils import ensure_utc
 from core.http.geocoding import validate_location_osm
-from core.service_config import clear_config_cache
+from core.service_config import apply_settings_to_env, clear_config_cache
 from db.manager import db_manager
 from db.models import (
     AppSettings,
@@ -143,7 +143,9 @@ class AdminService:
             await AppSettings(**payload).insert()
 
         clear_config_cache()
-        return await AdminService.get_persisted_app_settings()
+        updated = await AdminService.get_persisted_app_settings()
+        apply_settings_to_env(updated, force=True)
+        return updated
 
     @staticmethod
     async def clear_collection(collection: str) -> dict[str, Any]:
