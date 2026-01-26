@@ -58,6 +58,10 @@
   flex-direction: row;
 }
 
+.flex-grow-1 {
+  flex-grow: 1;
+}
+
 .align-items-start {
   align-items: flex-start;
 }
