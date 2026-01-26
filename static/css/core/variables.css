@@ -153,22 +153,27 @@
   --shadow-elevation-4: 0 26px 48px rgb(0 0 0 / 25%);
   --shadow-elevation-5: 0 34px 60px rgb(0 0 0 / 28%);
 
-  /* Accents - no glows, flat colors */
-  --glow-primary: none;
-  --glow-primary-intense: none;
-  --glow-success: none;
-  --glow-success-intense: none;
-  --glow-warning: none;
-  --glow-danger: none;
-  --glow-info: none;
+  /* Accent colors */
   --accent: var(--primary);
   --accent-rgb: var(--primary-rgb);
-  --section-accent: var(--accent);
-  --section-accent-rgb: var(--accent-rgb);
-  --ambient-tint: transparent;
-  --gradient-ambient: transparent;
   --gradient-accent-bar: var(--primary);
-  --gradient-surface-glow: transparent;
+
+  /* Subtle glows for interactive states */
+  --glow-primary: 0 0 20px rgb(var(--primary-rgb) / 25%);
+  --glow-success: 0 0 16px rgb(var(--success-rgb) / 25%);
+  --glow-accent: 0 0 12px rgb(var(--accent-rgb) / 20%);
+
+  /* Gradient surfaces for glassmorphism */
+  --gradient-surface-glow: linear-gradient(
+    135deg,
+    rgb(255 255 255 / 3%) 0%,
+    transparent 50%
+  );
+  --gradient-ambient: radial-gradient(
+    ellipse at top,
+    rgb(var(--primary-rgb) / 6%) 0%,
+    transparent 60%
+  );
 
   /* Interactive lift shadows */
   --shadow-lift: 0 12px 26px rgb(0 0 0 / 22%);
@@ -182,6 +187,33 @@
   --glass-2: rgb(var(--surface-rgb) / 86%);
   --glass-3: rgb(var(--surface-rgb) / 94%);
   --glass-border: rgb(var(--border-rgb) / 25%);
+
+  /* Extended Glass Palette */
+  --glass-panel: rgb(var(--surface-rgb) / 72%);
+  --glass-panel-hover: rgb(var(--surface-rgb) / 78%);
+  --glass-dropdown: rgb(var(--surface-rgb) / 85%);
+  --glass-input: rgb(var(--surface-rgb) / 45%);
+  --glass-input-focus: rgb(var(--surface-rgb) / 55%);
+
+  /* Glass borders - enhanced */
+  --glass-border-subtle: rgb(var(--border-rgb) / 8%);
+  --glass-border-medium: rgb(var(--border-rgb) / 15%);
+  --glass-border-strong: rgb(var(--border-rgb) / 22%);
+
+  /* Semantic street colors */
+  --color-undriven: #00bfff;
+  --color-undriven-rgb: 0 191 255;
+  --color-driven: var(--success);
+
+  /* Toggle/switch */
+  --toggle-knob: var(--surface-1);
+  --toggle-track-off: rgb(var(--border-rgb) / 25%);
+  --toggle-track-on: var(--primary);
+
+  /* Glass shadows */
+  --shadow-glass-sm: 0 2px 8px rgb(0 0 0 / 25%), inset 0 1px 0 rgb(255 255 255 / 5%);
+  --shadow-glass-md: 0 8px 24px rgb(0 0 0 / 30%), inset 0 1px 0 rgb(255 255 255 / 5%);
+  --shadow-glass-lg: 0 16px 48px rgb(0 0 0 / 35%), inset 0 1px 0 rgb(255 255 255 / 5%);
 
   /* Border Radius - More subtle */
   --radius-xs: 4px;
@@ -295,6 +327,24 @@ body.light-mode {
   --glass-2: rgb(var(--surface-rgb) / 90%);
   --glass-3: rgb(var(--surface-rgb) / 96%);
   --glass-border: rgb(var(--border-rgb) / 18%);
+
+  /* Extended glass for light mode */
+  --glass-panel: rgb(var(--surface-rgb) / 75%);
+  --glass-panel-hover: rgb(var(--surface-rgb) / 82%);
+  --glass-dropdown: rgb(var(--surface-rgb) / 88%);
+  --glass-input: rgb(var(--surface-rgb) / 50%);
+  --glass-input-focus: rgb(var(--surface-rgb) / 60%);
+  --toggle-knob: var(--surface-0);
+
+  /* Light mode glass borders */
+  --glass-border-subtle: rgb(var(--border-rgb) / 6%);
+  --glass-border-medium: rgb(var(--border-rgb) / 12%);
+  --glass-border-strong: rgb(var(--border-rgb) / 18%);
+
+  /* Light mode glass shadows */
+  --shadow-glass-sm: 0 2px 8px rgb(0 0 0 / 10%), inset 0 1px 0 rgb(255 255 255 / 50%);
+  --shadow-glass-md: 0 8px 24px rgb(0 0 0 / 12%), inset 0 1px 0 rgb(255 255 255 / 50%);
+  --shadow-glass-lg: 0 16px 48px rgb(0 0 0 / 15%), inset 0 1px 0 rgb(255 255 255 / 50%);
 }
 
 /* Changelog: Modern Soft-Tech UI

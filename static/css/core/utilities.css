@@ -128,21 +128,21 @@
   display: inline-block;
   width: 18px;
   height: 3px;
-  margin-right: 3px;
+  margin-right: var(--space-1);
   border-radius: var(--radius-pill);
 }
 
 .legend-indicator--undriven {
-  background-color: #00bfff;
-  border: 1px dashed rgb(255 255 255 / 30%);
+  background-color: var(--color-undriven);
+  border: 1px dashed rgb(var(--color-undriven-rgb) / 50%);
 }
 
 body.light-mode .legend-indicator--undriven {
-  border-color: rgb(0 0 0 / 20%);
+  border-color: rgb(var(--color-undriven-rgb) / 30%);
 }
 
 .legend-indicator--driven {
-  background-color: var(--success);
+  background-color: var(--color-driven);
 }
 
 .legend-indicator--all {
@@ -150,12 +150,12 @@ body.light-mode .legend-indicator--undriven {
 }
 
 .legend-text-small {
-  font-size: 0.75rem;
+  font-size: var(--font-size-xs);
 }
 
 /* === Clear Button Styles === */
 .btn-clear-search {
-  padding: 0.25rem 0.5rem;
+  padding: var(--space-1) var(--space-2);
   z-index: 10;
 }
 

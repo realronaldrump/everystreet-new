@@ -440,9 +440,11 @@ body.light-mode .live-tracking-panel-bg {
 }
 
 /* === Status Indicators === */
-.status-indicator {
-  display: inline-block; /* Allow use in text flow */
-  width: 10px; /* Smaller default size */
+/* Note: Main status-indicator styles are in features/map/controls.css */
+/* This provides fallback/simple status indicators for non-map contexts */
+.status-indicator-simple {
+  display: inline-block;
+  width: 10px;
   height: 10px;
   border-radius: 50%;
   background-color: var(--warning);
@@ -451,17 +453,12 @@ body.light-mode .live-tracking-panel-bg {
   vertical-align: middle;
 }
 
-.status-indicator.connected {
+.status-indicator-simple.connected {
   background-color: var(--success);
 }
 
-.status-indicator.disconnected {
+.status-indicator-simple.disconnected {
   background-color: var(--danger);
-}
-
-.status-indicator.processing {
-  background-color: var(--info);
-  animation: pulse-indicator 1.5s infinite ease-in-out;
 }
 
 /* === Quick Selections (for filter panels) === */

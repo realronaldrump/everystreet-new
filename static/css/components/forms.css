@@ -19,23 +19,26 @@
 .form-select {
   width: 100%;
   padding: var(--space-2) var(--space-3);
-  background-color: var(--surface-2);
-  border: 1px solid var(--border-color);
+  background: var(--glass-input);
+  border: 1px solid var(--glass-border-subtle);
   border-radius: var(--radius-md);
   color: var(--text-primary);
   font-size: var(--font-size-sm);
   line-height: var(--line-height-normal);
-  transition:
-    border-color var(--transition-fast),
-    box-shadow var(--transition-fast),
-    background-color var(--transition-fast);
+  transition: all var(--transition-fast);
+}
+
+.form-control:hover,
+.form-select:hover {
+  border-color: var(--glass-border-medium);
 }
 
 .form-control:focus,
 .form-select:focus {
   border-color: var(--primary);
   outline: 0;
-  background-color: var(--surface-1);
+  background: var(--glass-input-focus);
+  box-shadow: var(--glow-accent);
 }
 
 .form-control::placeholder {
@@ -74,13 +77,10 @@ body.light-mode .form-select {
   height: 1.25em;
   margin-top: 0;
   margin-right: var(--space-2);
-  background-color: var(--surface-3);
-  border: 1px solid var(--border-color);
+  background: var(--glass-input);
+  border: 1px solid var(--glass-border-subtle);
   border-radius: var(--radius-sm);
-  transition:
-    background-color var(--transition-fast),
-    border-color var(--transition-fast),
-    box-shadow var(--transition-fast);
+  transition: all var(--transition-fast);
 }
 
 .form-check-input:checked {
@@ -114,13 +114,12 @@ body.light-mode .form-select {
   width: 1.05em;
   height: 1.05em;
   border-radius: 50%;
-  background-color: #fff;
+  background-color: var(--toggle-knob);
   top: 50%;
   left: 0.18em;
   transform: translateY(-50%);
-  transition:
-    transform var(--transition-fast),
-    background-color var(--transition-fast);
+  box-shadow: 0 2px 4px rgb(0 0 0 / 25%);
+  transition: all var(--transition-fast);
 }
 
 .form-switch .form-check-input:checked::before {

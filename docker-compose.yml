@@ -62,6 +62,8 @@ services:
         condition: service_completed_successfully
       redis:
         condition: service_healthy
+    healthcheck:
+      disable: true
     networks:
       - default
 
@@ -170,6 +172,7 @@ services:
   # NOTE: Starts without tiles. Use the app's Map Data UI to build tiles.
   valhalla:
     image: ghcr.io/gis-ops/docker-valhalla/valhalla:3.5.1
+    user: "0:0"
     restart: unless-stopped
     entrypoint: ['/bin/sh', '/valhalla/valhalla-entrypoint.sh']
     environment:
