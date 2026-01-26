@@ -38,15 +38,23 @@ def _serialize_datetime(dt: datetime | str | None) -> str | None:
     return dt.isoformat()
 
 
-def _credentials_ready(credentials: dict[str, Any]) -> bool:
+def _credentials_configured(credentials: dict[str, Any]) -> bool:
     required = [
         "client_id",
         "client_secret",
         "redirect_uri",
-        "authorization_code",
     ]
-    has_required = all(credentials.get(field) for field in required)
-    return has_required and bool(credentials.get("authorized_devices"))
+    return all(credentials.get(field) for field in required)
+
+
+def _auth_connected(credentials: dict[str, Any]) -> bool:
+    return _credentials_configured(credentials) and bool(
+        credentials.get("authorization_code"),
+    )
+
+
+def _devices_configured(credentials: dict[str, Any]) -> bool:
+    return bool(credentials.get("authorized_devices"))
 
 
 class TripSyncService:
@@ -55,7 +63,10 @@ class TripSyncService:
     @staticmethod
     async def get_sync_status() -> dict[str, Any]:
         credentials = await get_bouncie_config()
-        auth_ready = _credentials_ready(credentials)
+        credentials_ready = _credentials_configured(credentials)
+        auth_connected = _auth_connected(credentials)
+        devices_ready = _devices_configured(credentials)
+        last_auth_error = credentials.get("last_auth_error")
         global_disabled = await get_global_disable()
         trip_count = await Trip.count()
 
@@ -133,7 +144,37 @@ class TripSyncService:
             "error": None,
         }
 
-        if not auth_ready:
+        if not credentials_ready:
+            status_payload.update(
+                {
+                    "state": "paused",
+                    "pause_reason": "credentials_missing",
+                    "error": {
+                        "code": "credentials_missing",
+                        "message": "Bouncie credentials are incomplete.",
+                        "cta_label": "Update credentials",
+                        "cta_href": "/profile",
+                    },
+                },
+            )
+            return status_payload
+
+        if last_auth_error in {"auth_invalid", "token_exchange_failed", "redirect_uri_mismatch"}:
+            status_payload.update(
+                {
+                    "state": "paused",
+                    "pause_reason": "auth_invalid",
+                    "error": {
+                        "code": "auth_invalid",
+                        "message": "Bouncie authorization expired. Reconnect to continue syncing.",
+                        "cta_label": "Reconnect",
+                        "cta_href": "/api/bouncie/authorize",
+                    },
+                },
+            )
+            return status_payload
+
+        if not auth_connected:
             status_payload.update(
                 {
                     "state": "paused",
@@ -142,6 +183,21 @@ class TripSyncService:
                         "code": "auth_required",
                         "message": "Connect Bouncie to sync trips.",
                         "cta_label": "Connect",
+                        "cta_href": "/api/bouncie/authorize",
+                    },
+                },
+            )
+            return status_payload
+
+        if not devices_ready:
+            status_payload.update(
+                {
+                    "state": "paused",
+                    "pause_reason": "devices_required",
+                    "error": {
+                        "code": "devices_required",
+                        "message": "Sync vehicles to enable trip fetching.",
+                        "cta_label": "Sync vehicles",
                         "cta_href": "/profile",
                     },
                 },

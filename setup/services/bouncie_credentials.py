@@ -42,6 +42,9 @@ async def get_bouncie_credentials() -> dict[str, Any]:
         "authorization_code": "",
         "oauth_state": None,
         "oauth_state_expires_at": None,
+        "last_auth_error": None,
+        "last_auth_error_detail": None,
+        "last_auth_error_at": None,
         "webhook_key": "",
         "authorized_devices": [],
         "fetch_concurrency": 12,
@@ -70,6 +73,9 @@ async def get_bouncie_credentials() -> dict[str, Any]:
             "authorization_code": credentials.authorization_code or "",
             "oauth_state": credentials.oauth_state,
             "oauth_state_expires_at": credentials.oauth_state_expires_at,
+            "last_auth_error": credentials.last_auth_error,
+            "last_auth_error_detail": credentials.last_auth_error_detail,
+            "last_auth_error_at": credentials.last_auth_error_at,
             "webhook_key": credentials.webhook_key or "",
             "authorized_devices": credentials.authorized_devices or [],
             "fetch_concurrency": fetch_concurrency,
@@ -94,7 +100,7 @@ async def update_bouncie_credentials(credentials: dict[str, Any]) -> bool:
             Can include: client_id, client_secret, redirect_uri,
             authorization_code, authorized_devices (list or comma-separated string),
             fetch_concurrency (int, optional), access_token, refresh_token, expires_at,
-            webhook_key
+            webhook_key, last_auth_error, last_auth_error_detail, last_auth_error_at
 
     Returns:
         True if update was successful, False otherwise.
@@ -120,6 +126,12 @@ async def update_bouncie_credentials(credentials: dict[str, Any]) -> bool:
                     existing.oauth_state = value
                 elif key == "oauth_state_expires_at":
                     existing.oauth_state_expires_at = value
+                elif key == "last_auth_error":
+                    existing.last_auth_error = value
+                elif key == "last_auth_error_detail":
+                    existing.last_auth_error_detail = value
+                elif key == "last_auth_error_at":
+                    existing.last_auth_error_at = value
                 elif key == "webhook_key":
                     if value is None:
                         continue
@@ -157,6 +169,12 @@ async def update_bouncie_credentials(credentials: dict[str, Any]) -> bool:
                 new_creds.oauth_state = credentials["oauth_state"]
             if "oauth_state_expires_at" in credentials:
                 new_creds.oauth_state_expires_at = credentials["oauth_state_expires_at"]
+            if "last_auth_error" in credentials:
+                new_creds.last_auth_error = credentials["last_auth_error"]
+            if "last_auth_error_detail" in credentials:
+                new_creds.last_auth_error_detail = credentials["last_auth_error_detail"]
+            if "last_auth_error_at" in credentials:
+                new_creds.last_auth_error_at = credentials["last_auth_error_at"]
             if "webhook_key" in credentials and credentials["webhook_key"] is not None:
                 webhook_key = str(credentials["webhook_key"]).strip()
                 new_creds.webhook_key = webhook_key or None

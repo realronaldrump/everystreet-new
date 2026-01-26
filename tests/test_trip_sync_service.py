@@ -33,10 +33,40 @@ async def seed_credentials() -> None:
 
 
 @pytest.mark.asyncio
+async def test_sync_status_requires_credentials(beanie_db_with_tasks) -> None:
+    status = await TripSyncService.get_sync_status()
+    assert status["state"] == "paused"
+    assert status["pause_reason"] == "credentials_missing"
+
+
+@pytest.mark.asyncio
 async def test_sync_status_requires_auth(beanie_db_with_tasks) -> None:
+    creds = BouncieCredentials(
+        client_id="client",
+        client_secret="secret",
+        redirect_uri="https://example.com/callback",
+        authorization_code=None,
+        authorized_devices=["device-123"],
+    )
+    await creds.insert()
     status = await TripSyncService.get_sync_status()
     assert status["state"] == "paused"
     assert status["pause_reason"] == "auth_required"
+
+
+@pytest.mark.asyncio
+async def test_sync_status_requires_devices(beanie_db_with_tasks) -> None:
+    creds = BouncieCredentials(
+        client_id="client",
+        client_secret="secret",
+        redirect_uri="https://example.com/callback",
+        authorization_code="auth-code",
+        authorized_devices=[],
+    )
+    await creds.insert()
+    status = await TripSyncService.get_sync_status()
+    assert status["state"] == "paused"
+    assert status["pause_reason"] == "devices_required"
 
 
 @pytest.mark.asyncio

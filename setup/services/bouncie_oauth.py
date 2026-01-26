@@ -40,6 +40,24 @@ class BouncieOAuth:
     """
 
     @staticmethod
+    async def _set_auth_error(
+        current_credentials: dict,
+        *,
+        code: str,
+        detail: str | None = None,
+    ) -> None:
+        update_data = {
+            "last_auth_error": code,
+            "last_auth_error_detail": detail,
+            "last_auth_error_at": time.time(),
+        }
+        success = await update_bouncie_credentials(update_data)
+        if success:
+            current_credentials["last_auth_error"] = code
+            current_credentials["last_auth_error_detail"] = detail
+            current_credentials["last_auth_error_at"] = update_data["last_auth_error_at"]
+
+    @staticmethod
     @retry_async(max_retries=3, retry_delay=1.5)
     async def get_access_token(
         session: aiohttp.ClientSession | None = None,
@@ -92,11 +110,21 @@ class BouncieOAuth:
                 "No authorization code configured. Please set up Bouncie credentials "
                 "via the profile page.",
             )
+            await BouncieOAuth._set_auth_error(
+                credentials,
+                code="auth_required",
+                detail="Missing authorization code",
+            )
             return None
 
         if not all([client_id, client_secret, redirect_uri]):
             logger.error(
                 "Missing required OAuth credentials (client_id, client_secret, or redirect_uri)",
+            )
+            await BouncieOAuth._set_auth_error(
+                credentials,
+                code="credentials_missing",
+                detail="Missing client_id, client_secret, or redirect_uri",
             )
             return None
 
@@ -136,6 +164,12 @@ class BouncieOAuth:
                         await BouncieOAuth._clear_invalid_authorization(
                             credentials,
                             reason=error_description,
+                        )
+                    else:
+                        await BouncieOAuth._set_auth_error(
+                            credentials,
+                            code="token_exchange_failed",
+                            detail=error_description or text,
                         )
                     logger.error(
                         "Access token exchange failed: status=%s client_id=%s redirect_uri=%s response=%s",
@@ -194,6 +228,9 @@ class BouncieOAuth:
         update_data = {
             "access_token": access_token,
             "expires_at": expires_at,
+            "last_auth_error": None,
+            "last_auth_error_detail": None,
+            "last_auth_error_at": None,
         }
 
         success = await update_bouncie_credentials(update_data)
@@ -203,6 +240,9 @@ class BouncieOAuth:
             # Update in-memory dict for current session
             current_credentials["access_token"] = access_token
             current_credentials["expires_at"] = expires_at
+            current_credentials["last_auth_error"] = None
+            current_credentials["last_auth_error_detail"] = None
+            current_credentials["last_auth_error_at"] = None
         else:
             logger.error("Failed to save access token to database")
 
@@ -217,12 +257,18 @@ class BouncieOAuth:
             "authorization_code": None,
             "access_token": None,
             "expires_at": None,
+            "last_auth_error": "auth_invalid",
+            "last_auth_error_detail": reason,
+            "last_auth_error_at": time.time(),
         }
         success = await update_bouncie_credentials(update_data)
         if success:
             current_credentials["authorization_code"] = ""
             current_credentials["access_token"] = None
             current_credentials["expires_at"] = None
+            current_credentials["last_auth_error"] = "auth_invalid"
+            current_credentials["last_auth_error_detail"] = reason
+            current_credentials["last_auth_error_at"] = update_data["last_auth_error_at"]
         message = "Cleared stored authorization code after invalid_grant"
         if reason:
             message = f"{message}: {reason}"

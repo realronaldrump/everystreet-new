@@ -582,6 +582,9 @@ class BouncieCredentials(Document):
     authorization_code: str | None = None
     oauth_state: str | None = None
     oauth_state_expires_at: float | None = None
+    last_auth_error: str | None = None
+    last_auth_error_detail: str | None = None
+    last_auth_error_at: float | None = None
     webhook_key: str | None = None
     last_webhook_at: datetime | None = None
     last_webhook_event_type: str | None = None

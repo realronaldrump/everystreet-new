@@ -285,23 +285,33 @@ async function handleCredentialsContinue() {
   const bouncieComplete = setupStatus?.steps?.bouncie?.complete;
   const mapboxComplete = setupStatus?.steps?.mapbox?.complete;
 
-  if (bouncieComplete && mapboxComplete) {
+  const missing = setupStatus?.steps?.bouncie?.missing || [];
+  const missingNonDevice = missing.filter((item) => item !== "authorized_devices");
+
+  if ((bouncieComplete || missingNonDevice.length === 0) && mapboxComplete) {
+    if (missing.includes("authorized_devices")) {
+      showStatus(
+        "credentials-status",
+        "You can sync vehicles later from your profile.",
+        false
+      );
+    }
     goToStep(1);
     return;
   }
 
-  const missing = setupStatus?.steps?.bouncie?.missing || [];
   if (missing.includes("authorized_devices")) {
     showStatus(
       "credentials-status",
-      "Sync vehicles before continuing to map coverage.",
-      true
+      "You can sync vehicles later from your profile.",
+      false
     );
-    return;
   }
 
-  if (missing.length) {
-    const missingLabel = missing.map((item) => item.replace(/_/g, " ")).join(", ");
+  if (missingNonDevice.length) {
+    const missingLabel = missingNonDevice
+      .map((item) => item.replace(/_/g, " "))
+      .join(", ");
     showStatus("credentials-status", `Missing Bouncie fields: ${missingLabel}.`, true);
     return;
   }

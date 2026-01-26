@@ -248,9 +248,6 @@ function validateDraftValues(values) {
   }
 
   const devices = values.authorized_devices.filter((val) => val.length > 0);
-  if (devices.length === 0) {
-    return "At least one authorized device is required.";
-  }
 
   if (values.fetch_concurrency < 1 || values.fetch_concurrency > 50) {
     return "Fetch concurrency must be between 1 and 50.";
