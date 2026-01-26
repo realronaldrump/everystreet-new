@@ -140,6 +140,7 @@ services:
     restart: unless-stopped
     entrypoint: ['/bin/sh', '/app/nominatim-entrypoint.sh']
     environment:
+      PBF_PATH: /nominatim/data/region.osm.pbf
       REPLICATION_URL: ''
       IMPORT_STYLE: street
       THREADS: '4'
