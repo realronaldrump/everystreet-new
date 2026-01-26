@@ -1675,7 +1675,7 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
   width: 27px;
   height: 27px;
   border-radius: 50%;
-  background: white;
+  background: var(--toggle-knob);
   top: 2px;
   left: 2px;
   transition: transform 0.3s;
