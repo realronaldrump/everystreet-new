@@ -16,8 +16,8 @@ name: ${COMPOSE_PROJECT_NAME:-everystreet}
 
 services:
   web:
-    build: .
-    # image: ghcr.io/realronaldrump/everystreet-new:main
+    image: ghcr.io/realronaldrump/everystreet-new:main
+    pull_policy: always
     restart: unless-stopped
     ports:
       - '8080:8080'
@@ -26,9 +26,8 @@ services:
     volumes:
       - osm_extracts:/osm
       - /var/run/docker.sock:/var/run/docker.sock
-      - .:/app
     labels:
-      - 'com.centurylinklabs.watchtower.enable=${WATCHTOWER_ENABLE:-false}'
+      - 'com.centurylinklabs.watchtower.enable=true'
     depends_on:
       mongo-init:
         condition: service_completed_successfully
@@ -48,17 +47,16 @@ services:
       start_period: 15s
 
   worker:
-    build: .
-    # image: ghcr.io/realronaldrump/everystreet-new:main
+    image: ghcr.io/realronaldrump/everystreet-new:main
+    pull_policy: always
     restart: unless-stopped
     command: arq tasks.worker.WorkerSettings
     env_file: .env
     volumes:
       - osm_extracts:/osm
       - /var/run/docker.sock:/var/run/docker.sock
-      - .:/app
     labels:
-      - 'com.centurylinklabs.watchtower.enable=${WATCHTOWER_ENABLE:-false}'
+      - 'com.centurylinklabs.watchtower.enable=true'
     depends_on:
       mongo-init:
         condition: service_completed_successfully

@@ -639,6 +639,28 @@ Quick Selections
 
         <!-- Main Content Area -->
         <main id="main-content" class="main-content" role="main" tabindex="-1">
+          <aside class="setup-required-banner d-none" id="setup-required-banner" role="status" aria-live="polite">
+            <div class="setup-required-card">
+              <div class="setup-required-icon" aria-hidden="true">
+                <i class="fas fa-triangle-exclamation"></i>
+              </div>
+              <div class="setup-required-body">
+                <div class="setup-required-title">Setup required</div>
+                <p class="setup-required-message" id="setup-required-message">
+                  Run the setup wizard to connect Bouncie and your self-hosted services.
+                </p>
+                <ul class="setup-required-list" id="setup-required-list" aria-label="Setup checklist">
+                </ul>
+              </div>
+              <div class="setup-required-actions">
+                <a class="btn btn-primary" href="/setup-wizard" id="setup-required-cta">
+                  <i class="fas fa-wand-magic-sparkles me-2" aria-hidden="true"></i>
+                  Run Setup Wizard
+                </a>
+                <span class="setup-required-footnote">Takes ~5 minutes.</span>
+              </div>
+            </div>
+          </aside>
           <div id="nav-breadcrumb" class="nav-breadcrumb" aria-label="Breadcrumb">
             <div id="nav-trail" class="nav-trail">
             </div>

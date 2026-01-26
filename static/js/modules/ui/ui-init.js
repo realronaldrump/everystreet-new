@@ -12,6 +12,7 @@ import panelManager from "./panel-manager.js";
 import perf from "./performance-optimisations.js";
 import personalization from "./personalization.js";
 import pullToRefresh from "./pull-to-refresh.js";
+import setupRequired from "./setup-required.js";
 import swipeActions from "./swipe-actions.js";
 import swipeDismiss from "./swipe-dismiss.js";
 import themeManager from "./theme-manager.js";
@@ -61,6 +62,7 @@ function init() {
     contextualUI.init?.();
     mapControlsManager.init?.();
     filterIndicatorManager.init?.();
+    setupRequired.init?.();
     perf.init?.();
 
     moveModalsToContainer();
