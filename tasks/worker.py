@@ -70,7 +70,7 @@ async def on_shutdown(ctx: dict) -> None:
 
 
 class WorkerSettings:
-    functions: ClassVar[list[object]] = [
+    functions: ClassVar[list[object]] = [  # noqa: V107
         periodic_fetch_trips,
         fetch_trip_by_transaction_id,
         manual_fetch_trips_range,
@@ -86,7 +86,7 @@ class WorkerSettings:
         monitor_map_services,
         auto_provision_check,
     ]
-    cron_jobs: ClassVar[list[object]] = [
+    cron_jobs: ClassVar[list[object]] = [  # noqa: V107
         cron(cron_periodic_fetch_trips),
         cron(cron_cleanup_stale_trips),
         cron(cron_validate_trips),
@@ -96,6 +96,6 @@ class WorkerSettings:
         cron(cron_monitor_map_data_jobs),
         cron(cron_auto_provision_map_data),
     ]
-    redis_settings = get_redis_settings()
+    redis_settings = get_redis_settings()  # noqa: V107
     on_startup = on_startup
     on_shutdown = on_shutdown

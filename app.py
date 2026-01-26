@@ -49,7 +49,7 @@ logger = logging.getLogger(__name__)
 class StaticFileFilter(logging.Filter):
     """Filter to suppress noisy static file request logs."""
 
-    def filter(self, record: logging.LogRecord) -> bool:
+    def filter(self, record: logging.LogRecord) -> bool:  # noqa: V105
         # Filter out static file requests and favicon
         message = record.getMessage()
         if "/static/" in message or "/favicon.ico" in message:

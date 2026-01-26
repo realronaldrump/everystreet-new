@@ -177,30 +177,49 @@ class ValhallaClient:
     @staticmethod
     def _extract_shape_coordinates(data: dict[str, Any]) -> list[list[float]]:
         trip = data.get("trip") if isinstance(data, dict) else None
+        shape_format: str | None = None
         candidates: list[Any] = []
 
         if isinstance(trip, dict):
+            shape_format = trip.get("shape_format") or shape_format
             candidates.append(trip.get("shape"))
             legs = trip.get("legs")
             if isinstance(legs, list) and legs:
                 first_leg = legs[0]
                 if isinstance(first_leg, dict):
+                    shape_format = (
+                        first_leg.get("shape_format") or shape_format
+                    )
                     candidates.append(first_leg.get("shape"))
 
         if isinstance(data, dict):
+            shape_format = data.get("shape_format") or shape_format
             candidates.append(data.get("shape"))
 
         for shape in candidates:
-            coords = ValhallaClient._coerce_shape_coordinates(shape)
+            coords = ValhallaClient._coerce_shape_coordinates(
+                shape,
+                shape_format=shape_format,
+            )
             if coords:
                 return coords
 
         return []
 
     @staticmethod
-    def _coerce_shape_coordinates(shape: Any) -> list[list[float]]:
+    def _coerce_shape_coordinates(
+        shape: Any,
+        *,
+        shape_format: str | None = None,
+    ) -> list[list[float]]:
         if shape is None:
             return []
+
+        if isinstance(shape, str):
+            return ValhallaClient._decode_polyline_shape(
+                shape,
+                shape_format=shape_format,
+            )
 
         if isinstance(shape, dict):
             coords = shape.get("coordinates")
@@ -229,3 +248,73 @@ class ValhallaClient:
                 continue
 
         return normalized
+
+    @staticmethod
+    def _decode_polyline_shape(
+        shape: str,
+        *,
+        shape_format: str | None = None,
+    ) -> list[list[float]]:
+        if not shape:
+            return []
+
+        precisions: list[int]
+        if shape_format == "polyline5":
+            precisions = [5]
+        elif shape_format == "polyline6":
+            precisions = [6]
+        else:
+            precisions = [6, 5]
+
+        for precision in precisions:
+            coords = ValhallaClient._decode_polyline(shape, precision)
+            if coords and ValhallaClient._coords_in_range(coords):
+                return coords
+
+        return []
+
+    @staticmethod
+    def _coords_in_range(coords: list[list[float]]) -> bool:
+        for lon, lat in coords:
+            if not (-180.0 <= lon <= 180.0 and -90.0 <= lat <= 90.0):
+                return False
+        return True
+
+    @staticmethod
+    def _decode_polyline(encoded: str, precision: int) -> list[list[float]]:
+        if not encoded:
+            return []
+
+        coords: list[list[float]] = []
+        index = 0
+        lat = 0
+        lon = 0
+        length = len(encoded)
+        factor = float(10**precision)
+
+        def next_value() -> int:
+            nonlocal index
+            result = 0
+            shift = 0
+            while True:
+                if index >= length:
+                    raise ValueError("Invalid polyline encoding")
+                b = ord(encoded[index]) - 63
+                index += 1
+                result |= (b & 0x1F) << shift
+                shift += 5
+                if b < 0x20:
+                    break
+            if result & 1:
+                return ~(result >> 1)
+            return result >> 1
+
+        try:
+            while index < length:
+                lat += next_value()
+                lon += next_value()
+                coords.append([lon / factor, lat / factor])
+        except ValueError:
+            return []
+
+        return coords

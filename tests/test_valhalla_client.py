@@ -160,6 +160,13 @@ def test_coerce_shape_coordinates_handles_shape_dict_wrapper() -> None:
     assert coords == [[1.0, 2.0], [3.0, 4.0]]
 
 
+def test_coerce_shape_coordinates_handles_encoded_polyline() -> None:
+    """_coerce_shape_coordinates should decode encoded polyline strings."""
+    shape = "__c`|@~bl_xD_ibE~hbE"
+    coords = ValhallaClient._coerce_shape_coordinates(shape)
+    assert coords == [[-97.0, 32.0], [-97.1, 32.1]]
+
+
 def test_normalize_route_response_handles_missing_legs() -> None:
     """_normalize_route_response should handle missing or empty legs."""
     data = {"trip": {"legs": []}}
@@ -168,3 +175,16 @@ def test_normalize_route_response_handles_missing_legs() -> None:
     assert normalized["geometry"] is None
     assert normalized["duration_seconds"] == 0
     assert normalized["distance_meters"] == 0
+
+
+def test_normalize_route_response_decodes_polyline_shape() -> None:
+    data = {
+        "trip": {
+            "legs": [{"summary": {"length": 1.2, "time": 300}}],
+            "shape": "__c`|@~bl_xD_ibE~hbE",
+        },
+    }
+
+    normalized = ValhallaClient._normalize_route_response(data)
+
+    assert normalized["geometry"]["coordinates"] == [[-97.0, 32.0], [-97.1, 32.1]]

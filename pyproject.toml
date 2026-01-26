@@ -172,6 +172,12 @@ exclude = [
     "__pycache__",
     "static",
     "scripts",
+    "tests",
+    "db/models.py",
+    "db/schemas.py",
+    "exports/models.py",
+    "street_coverage/models.py",
+    "trips/models.py",
     "whitelist.py"  # Don't scan the whitelist file itself as code
 ]
 
@@ -182,6 +188,8 @@ ignore_names = [
     "*_page",
     "*_route",
     "*_task",
+    "*_last_check",
+    "*_response_time_ms",
     "startup_event",
     "shutdown_event",
     "on_starting",   # Gunicorn
@@ -189,7 +197,42 @@ ignore_names = [
     "post_fork",     # Gunicorn
     "worker_abort",  # Gunicorn
     "Config",        # Pydantic/SQLAlchemy
-    "Meta"           # Pydantic/SQLAlchemy
+    "Meta",          # Pydantic/SQLAlchemy
+    "Settings",      # Pydantic/Beanie
+    "model_config",  # Pydantic v2 config
+    "indexes",       # Beanie index definitions
+    "from_attributes",
+    "total_in_viewport",
+    "overall_healthy",
+    "nominatim_data_timestamp",
+    "nominatim_version",
+    "valhalla_version",
+    "WorkerSettings",
+    "_state",
+    "last_modified",
+    "creator",
+    "miles_since_last_fillup",
+    "odometer_updated_at",
+    "avgSpeed",
+    "totalIdleDuration",
+    "hardBrakingCounts",
+    "hardAccelerationCounts",
+    "endTimeZone",
+    "fuelConsumed",
+    "closed_reason",
+    "driven_by_trip_id",
+    "manually_marked",
+    "marked_at",
+    "nickName",
+    "last_synced_at",
+    "__getattr__",
+    "__dir__",
+]
+
+# Decorators that imply runtime usage (FastAPI)
+ignore_decorators = [
+    "@router.*",
+    "@app.*",
 ]
 
 # Paths to scan (current directory)
