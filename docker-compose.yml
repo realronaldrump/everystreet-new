@@ -1,3 +1,5 @@
+name: ${COMPOSE_PROJECT_NAME:-everystreet}
+
 # EveryStreet - Self-hosted street coverage tracking application
 #
 # Features:
@@ -167,6 +169,9 @@ services:
     networks:
       - default
     shm_size: 1g
+    # Resource guidance:
+    # - Nominatim imports are memory intensive. For large states, allocate 8-16 GB RAM to Docker.
+    # - If you see exit code 137 / OOM, lower NOMINATIM_IMPORT_THREADS in .env.
 
   # Valhalla - Self-hosted routing engine (route planning)
   # Supports both amd64 and arm64 architectures
@@ -205,6 +210,9 @@ services:
       start_period: 60s
     networks:
       - default
+    # Resource guidance:
+    # - Valhalla tile builds also need significant RAM.
+    # - If builds fail, set VALHALLA_BUILD_TILES_ARGS in .env to reduce concurrency.
 
   # Watchtower - Automatic container updates
   # Updates web and worker containers when new images are pushed to GHCR

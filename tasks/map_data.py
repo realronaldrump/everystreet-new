@@ -511,12 +511,17 @@ async def setup_map_data_task(ctx: dict, states: list[str]) -> dict[str, Any]:
             return {"success": False, "error": str(exc)}
         except Exception as exc:
             logger.exception("Map setup failed")
-            config.retry_count += 1
+            config.retry_count = min(config.retry_count + 1, MAX_RETRIES)
+            retry_exhausted = config.retry_count >= MAX_RETRIES
             await _update_progress(
                 config,
                 progress,
                 status=MapServiceConfig.STATUS_ERROR,
-                message="Setup paused, will retry automatically",
+                message=(
+                    "Setup failed, retry limit reached"
+                    if retry_exhausted
+                    else "Setup paused, will retry automatically"
+                ),
                 overall_progress=config.progress,
                 last_error=str(exc),
             )
@@ -574,7 +579,7 @@ async def _monitor_map_services_logic() -> dict[str, Any]:
     if (
         config.status == MapServiceConfig.STATUS_ERROR
         and config.retry_count > 0
-        and config.retry_count <= MAX_RETRIES
+        and config.retry_count < MAX_RETRIES
         and config.selected_states
     ):
         delay_seconds = _retry_delay_seconds(config.retry_count)

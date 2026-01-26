@@ -12,6 +12,7 @@ import asyncio
 import contextlib
 import json
 import logging
+import os
 import time
 from datetime import UTC, datetime
 from typing import Any
@@ -25,6 +26,130 @@ from tasks.arq import get_arq_pool
 
 logger = logging.getLogger(__name__)
 
+DOCKER_CMD_TIMEOUT = 10.0
+MAX_RETRIES = int(os.getenv("MAP_SERVICE_MAX_RETRIES", "3"))
+
+
+def _is_docker_unavailable_error(error_text: str) -> bool:
+    lowered = error_text.lower()
+    return any(
+        phrase in lowered
+        for phrase in [
+            "cannot connect to the docker daemon",
+            "permission denied",
+            "docker is not running",
+            "error during connect",
+            "dial unix",
+        ]
+    )
+
+
+async def _run_docker_cmd(cmd: list[str]) -> tuple[int, str, str]:
+    try:
+        process = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        try:
+            stdout, stderr = await asyncio.wait_for(
+                process.communicate(),
+                timeout=DOCKER_CMD_TIMEOUT,
+            )
+        except TimeoutError:
+            with contextlib.suppress(ProcessLookupError):
+                process.kill()
+            return 124, "", "timeout"
+        return (
+            process.returncode,
+            stdout.decode(errors="replace").strip(),
+            stderr.decode(errors="replace").strip(),
+        )
+    except FileNotFoundError as exc:
+        return 127, "", str(exc)
+
+
+async def _infer_compose_project(service_name: str) -> str | None:
+    env_project = os.getenv("COMPOSE_PROJECT_NAME", "").strip()
+    if env_project:
+        return env_project
+
+    cmd = [
+        "docker",
+        "ps",
+        "-a",
+        "--filter",
+        f"label=com.docker.compose.service={service_name}",
+        "--format",
+        '{{.Label "com.docker.compose.project"}}',
+    ]
+    rc, stdout, stderr = await _run_docker_cmd(cmd)
+    if rc != 0:
+        if _is_docker_unavailable_error(stderr):
+            return None
+        return None
+    for line in stdout.splitlines():
+        value = line.strip()
+        if value:
+            return value
+    return None
+
+
+async def _find_container_names(service_name: str) -> tuple[list[str], str | None]:
+    project = await _infer_compose_project(service_name)
+
+    if project:
+        cmd = [
+            "docker",
+            "ps",
+            "-a",
+            "--filter",
+            f"label=com.docker.compose.project={project}",
+            "--filter",
+            f"label=com.docker.compose.service={service_name}",
+            "--format",
+            "{{.Names}}",
+        ]
+        rc, stdout, stderr = await _run_docker_cmd(cmd)
+        if rc == 0 and stdout:
+            return stdout.splitlines(), None
+        if _is_docker_unavailable_error(stderr):
+            return [], stderr or "docker unavailable"
+
+    cmd = [
+        "docker",
+        "ps",
+        "-a",
+        "--filter",
+        f"name={service_name}",
+        "--format",
+        "{{.Names}}",
+    ]
+    rc, stdout, stderr = await _run_docker_cmd(cmd)
+    if rc == 0 and stdout:
+        return stdout.splitlines(), None
+    if _is_docker_unavailable_error(stderr):
+        return [], stderr or "docker unavailable"
+    return [], None
+
+
+async def _inspect_container(container_name: str) -> dict[str, Any]:
+    cmd = ["docker", "inspect", container_name]
+    rc, stdout, stderr = await _run_docker_cmd(cmd)
+    if rc != 0:
+        if _is_docker_unavailable_error(stderr):
+            return {"error": stderr or "docker unavailable"}
+        return {"error": stderr or "inspect failed"}
+    try:
+        data = json.loads(stdout)
+        if isinstance(data, list) and data:
+            return data[0]
+        if isinstance(data, dict):
+            return data
+    except json.JSONDecodeError:
+        return {"error": "inspect returned invalid json"}
+    return {"error": "inspect returned no data"}
+
 
 async def check_container_status(service_name: str) -> dict[str, Any]:
     """
@@ -37,103 +162,43 @@ async def check_container_status(service_name: str) -> dict[str, Any]:
     Uses asyncio subprocesses to avoid blocking the event loop.
     """
     # Try Docker Compose v2 (plugin) and v1 (standalone) in order
-    compose_commands = [
-        ["docker", "compose", "ps", "--format", "json", service_name],
-        ["docker-compose", "ps", "--format", "json", service_name],
-    ]
+    names, error = await _find_container_names(service_name)
+    if error:
+        return {
+            "running": False,
+            "status": "docker unavailable",
+            "error": error,
+            "container": None,
+        }
 
-    for cmd in compose_commands:
-        try:
-            process = await asyncio.create_subprocess_exec(
-                *cmd,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
+    if not names:
+        return {
+            "running": False,
+            "status": "not found",
+            "container": None,
+        }
 
-            try:
-                stdout, _ = await asyncio.wait_for(process.communicate(), timeout=10.0)
-            except TimeoutError:
-                with contextlib.suppress(ProcessLookupError):
-                    process.kill()
-                logger.warning("Timeout checking container status with %s", cmd[0])
-                continue
+    container_name = names[0]
+    inspect = await _inspect_container(container_name)
+    state = inspect.get("State") if isinstance(inspect, dict) else {}
+    running = bool(state.get("Running"))
+    status_text = str(state.get("Status") or "unknown")
+    restart_count = inspect.get("RestartCount") if isinstance(inspect, dict) else None
+    oom_killed = bool(state.get("OOMKilled")) if isinstance(state, dict) else False
+    exit_code = state.get("ExitCode") if isinstance(state, dict) else None
 
-            if process.returncode == 0:
-                output = stdout.decode().strip()
-                if output:
-                    entry: dict[str, Any] | None = None
-                    try:
-                        parsed = json.loads(output)
-                        if isinstance(parsed, list):
-                            entry = parsed[0] if parsed else None
-                        elif isinstance(parsed, dict):
-                            entry = parsed
-                    except json.JSONDecodeError:
-                        for line in output.splitlines():
-                            line = line.strip()
-                            if not line:
-                                continue
-                            try:
-                                entry = json.loads(line)
-                                break
-                            except json.JSONDecodeError:
-                                continue
-
-                    if entry:
-                        status_text = str(
-                            entry.get("Status") or entry.get("State") or "unknown",
-                        )
-                        state_text = status_text.lower()
-                        running = "running" in state_text or state_text.startswith("up")
-                        return {"running": running, "status": status_text}
-        except FileNotFoundError:
-            # Command not found (e.g., docker-compose not installed)
-            logger.debug("Command %s not found, trying next", cmd[0])
-            continue
-        except Exception as exc:
-            logger.debug(
-                "Command %s failed for %s: %s, trying next",
-                cmd[0:2],
-                service_name,
-                exc,
-            )
-            continue
-
-    # Fall back to docker ps as last resort
-    try:
-        cmd = [
-            "docker",
-            "ps",
-            "--filter",
-            f"name=app-{service_name}",
-            "--format",
-            "{{.Status}}",
-        ]
-
-        process = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-
-        try:
-            stdout, _ = await asyncio.wait_for(process.communicate(), timeout=10.0)
-        except TimeoutError:
-            with contextlib.suppress(ProcessLookupError):
-                process.kill()
-            return {"running": False, "status": "unknown"}
-
-        if process.returncode == 0:
-            status_text = stdout.decode().strip()
-            if status_text:
-                state_text = status_text.lower()
-                running = state_text.startswith("up")
-                return {"running": running, "status": status_text}
-            return {"running": False, "status": "not running"}
-    except Exception as exc:
-        logger.warning("Failed to check container status for %s: %s", service_name, exc)
-
-    return {"running": False, "status": "unknown"}
+    return {
+        "running": running,
+        "status": status_text,
+        "container": {
+            "name": container_name,
+            "status": status_text,
+            "oom_killed": oom_killed,
+            "exit_code": exit_code,
+            "restart_count": restart_count,
+            "error": inspect.get("error") if isinstance(inspect, dict) else None,
+        },
+    }
 
 
 async def check_service_health(force_refresh: bool = False) -> GeoServiceHealth:
@@ -160,7 +225,13 @@ async def check_service_health(force_refresh: bool = False) -> GeoServiceHealth:
         if not health.nominatim_container_running:
             health.nominatim_healthy = False
             health.nominatim_has_data = False
-            health.nominatim_error = "Address lookup offline"
+            container_info = nominatim_container.get("container") or {}
+            if container_info.get("oom_killed"):
+                health.nominatim_error = "Address lookup failed (OOM)"
+            elif nominatim_container.get("status") == "docker unavailable":
+                health.nominatim_error = "Docker unavailable (socket/permissions)"
+            else:
+                health.nominatim_error = "Address lookup offline"
             health.nominatim_last_check = datetime.now(UTC)
             health.nominatim_response_time_ms = None
             health.nominatim_version = None
@@ -206,7 +277,13 @@ async def check_service_health(force_refresh: bool = False) -> GeoServiceHealth:
         if not health.valhalla_container_running:
             health.valhalla_healthy = False
             health.valhalla_has_data = False
-            health.valhalla_error = "Routing offline"
+            container_info = valhalla_container.get("container") or {}
+            if container_info.get("oom_killed"):
+                health.valhalla_error = "Routing failed (OOM)"
+            elif valhalla_container.get("status") == "docker unavailable":
+                health.valhalla_error = "Docker unavailable (socket/permissions)"
+            else:
+                health.valhalla_error = "Routing offline"
             health.valhalla_last_check = datetime.now(UTC)
             health.valhalla_response_time_ms = None
             health.valhalla_version = None
@@ -376,6 +453,8 @@ async def get_map_services_status(force_refresh: bool = False) -> dict[str, Any]
     progress = await MapBuildProgress.get_or_create()
 
     health = await check_service_health(force_refresh=force_refresh)
+    nominatim_container = await check_container_status("nominatim")
+    valhalla_container = await check_container_status("valhalla")
     geocoding_ready = bool(health.nominatim_healthy)
     routing_ready = bool(health.valhalla_healthy)
 
@@ -406,6 +485,7 @@ async def get_map_services_status(force_refresh: bool = False) -> dict[str, Any]
             "routing_ready": config.routing_ready,
             "last_error": config.last_error,
             "retry_count": config.retry_count,
+            "max_retries": MAX_RETRIES,
             "last_updated": (
                 config.last_updated.isoformat() if config.last_updated else None
             ),
@@ -424,11 +504,13 @@ async def get_map_services_status(force_refresh: bool = False) -> dict[str, Any]
                 "healthy": health.nominatim_healthy,
                 "has_data": health.nominatim_has_data,
                 "error": health.nominatim_error,
+                "container": nominatim_container.get("container"),
             },
             "valhalla": {
                 "healthy": health.valhalla_healthy,
                 "has_data": health.valhalla_has_data,
                 "error": health.valhalla_error,
+                "container": valhalla_container.get("container"),
             },
         },
         "total_size_mb": total_size,

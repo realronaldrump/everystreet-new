@@ -336,10 +336,12 @@ async def get_auto_provision_status() -> dict[str, Any]:
     - Service health
     - Any pending provisioning needs
     """
-    from map_data.services import check_service_health
+    from map_data.services import MAX_RETRIES, check_container_status, check_service_health
 
     config = await MapServiceConfig.get_or_create()
     health = await check_service_health()
+    nominatim_container = await check_container_status("nominatim")
+    valhalla_container = await check_container_status("valhalla")
     detection = await detect_trip_states()
 
     configured_states = set(config.selected_states)
@@ -408,15 +410,18 @@ async def get_auto_provision_status() -> dict[str, Any]:
                 "ready": health.nominatim_healthy,
                 "has_data": health.nominatim_has_data,
                 "error": health.nominatim_error,
+                "container": nominatim_container.get("container"),
             },
             "routing": {
                 "ready": health.valhalla_healthy,
                 "has_data": health.valhalla_has_data,
                 "error": health.valhalla_error,
+                "container": valhalla_container.get("container"),
             },
         },
         "last_error": config.last_error,
         "retry_count": config.retry_count,
+        "max_retries": MAX_RETRIES,
         "last_updated": (
             config.last_updated.isoformat() if config.last_updated else None
         ),

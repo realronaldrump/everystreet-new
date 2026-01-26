@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import shlex
 import subprocess
 from typing import TYPE_CHECKING, Any
 
@@ -23,6 +24,17 @@ logger = logging.getLogger(__name__)
 BUILD_TIMEOUT = 7200  # 2 hours max build time
 PROGRESS_UPDATE_INTERVAL = 5.0  # Update progress every 5 seconds
 CONTAINER_START_TIMEOUT = 120  # seconds to wait for container to start
+
+
+def _get_int_env(name: str, default: int) -> int:
+    value = os.getenv(name, "").strip()
+    if not value:
+        return default
+    try:
+        parsed = int(value)
+        return parsed if parsed > 0 else default
+    except ValueError:
+        return default
 
 
 async def start_container_on_demand(
@@ -52,6 +64,61 @@ async def start_container_on_demand(
     if await check_container_running(service_name):
         logger.info("Container %s is already running", service_name)
         return True
+
+    # If a stopped container exists, start it directly (avoid docker compose dependency)
+    container_name = await _get_container_name(service_name)
+    if container_name:
+        exists_cmd = [
+            "docker",
+            "ps",
+            "-a",
+            "--filter",
+            f"name={container_name}",
+            "--format",
+            "{{.Names}}",
+        ]
+        try:
+            exists_process = await asyncio.create_subprocess_exec(
+                *exists_cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            stdout, _ = await exists_process.communicate()
+            container_exists = bool(stdout.decode().strip())
+        except Exception:
+            container_exists = False
+    else:
+        container_exists = False
+
+    if container_exists:
+        try:
+            process = await asyncio.create_subprocess_exec(
+                "docker",
+                "start",
+                container_name,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            _, stderr = await process.communicate()
+            if process.returncode == 0:
+                logger.info("Started existing container %s", container_name)
+                start_time = asyncio.get_event_loop().time()
+                while (
+                    asyncio.get_event_loop().time() - start_time
+                ) < CONTAINER_START_TIMEOUT:
+                    if await check_container_running(service_name):
+                        logger.info("Container %s is now running", service_name)
+                        await asyncio.sleep(5)
+                        return True
+                    await asyncio.sleep(2)
+            else:
+                logger.warning(
+                    "docker start failed for %s: %s",
+                    container_name,
+                    stderr.decode(errors="replace").strip() if stderr else "unknown",
+                )
+        except Exception as exc:
+            logger.warning("Failed to docker start %s: %s", container_name, exc)
 
     logger.info("Starting container %s on demand...", service_name)
 
@@ -290,6 +357,7 @@ async def build_nominatim_data(
         # Note: We do NOT use -u nominatim here. The nominatim CLI handles
         # user switching internally when needed. Running as root allows
         # proper access to files and the PostgreSQL socket.
+        threads = _get_int_env("NOMINATIM_IMPORT_THREADS", 2)
         import_cmd = [
             "docker",
             "exec",
@@ -305,7 +373,7 @@ async def build_nominatim_data(
             "--osm-file",
             pbf_container_path,
             "--threads",
-            "4",
+            str(threads),
         ]
 
         logger.info("Running Nominatim import: %s", " ".join(import_cmd))
@@ -687,8 +755,11 @@ async def build_valhalla_tiles(
             "valhalla_build_tiles",
             "-c",
             "/custom_files/valhalla.json",
-            pbf_container_path,
         ]
+        extra_args = os.getenv("VALHALLA_BUILD_TILES_ARGS", "").strip()
+        if extra_args:
+            build_cmd.extend(shlex.split(extra_args))
+        build_cmd.append(pbf_container_path)
 
         logger.info("Running Valhalla build: %s", " ".join(build_cmd))
 
@@ -878,36 +949,73 @@ async def _get_container_name(service_name: str) -> str:
     Returns:
         The container name to use with docker exec
     """
-    # Try to find the container using docker ps
+    env_project = os.getenv("COMPOSE_PROJECT_NAME", "").strip()
+
+    # Prefer compose labels (works across platforms and naming schemes)
     try:
+        if env_project:
+            cmd = [
+                "docker",
+                "ps",
+                "-a",
+                "--filter",
+                f"label=com.docker.compose.project={env_project}",
+                "--filter",
+                f"label=com.docker.compose.service={service_name}",
+                "--format",
+                "{{.Names}}",
+            ]
+            process = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            stdout, _ = await process.communicate()
+            if process.returncode == 0 and stdout.strip():
+                return stdout.decode().strip().split("\n")[0]
+
         cmd = [
             "docker",
             "ps",
+            "-a",
             "--filter",
-            f"name={service_name}",
+            f"label=com.docker.compose.service={service_name}",
             "--format",
             "{{.Names}}",
         ]
-
         process = await asyncio.create_subprocess_exec(
             *cmd,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
         stdout, _ = await process.communicate()
-
         if process.returncode == 0 and stdout.strip():
-            # Return the first matching container
-            containers = stdout.decode().strip().split("\n")
-            for container in containers:
-                if service_name in container:
-                    return container
+            return stdout.decode().strip().split("\n")[0]
+    except Exception as e:
+        logger.warning("Failed to lookup container by labels: %s", e)
+
+    # Fallback: name search
+    try:
+        cmd = [
+            "docker",
+            "ps",
+            "-a",
+            "--filter",
+            f"name={service_name}",
+            "--format",
+            "{{.Names}}",
+        ]
+        process = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, _ = await process.communicate()
+        if process.returncode == 0 and stdout.strip():
+            return stdout.decode().strip().split("\n")[0]
     except Exception as e:
         logger.warning("Failed to lookup container name: %s", e)
 
-    # Fallback: try common naming patterns
-    # Modern docker-compose uses project-service-1
-    # Older versions use project_service_1
     return service_name
 
 

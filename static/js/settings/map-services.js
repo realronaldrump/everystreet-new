@@ -364,7 +364,15 @@ function renderProgressSection(status) {
  * - "Check Status" (muted link): Manual status refresh - icon only, subtle
  */
 function renderActions(status) {
-  const { is_building, needs_provisioning, last_error, retry_count } = status;
+  const {
+    is_building,
+    needs_provisioning,
+    last_error,
+    retry_count,
+    max_retries,
+  } = status;
+  const retryCap = typeof max_retries === "number" && max_retries > 0 ? max_retries : 3;
+  const displayAttempt = Math.min(retry_count || 0, retryCap);
 
   const buttons = [];
 
@@ -414,7 +422,11 @@ function renderActions(status) {
         <div class="map-services-error-message mt-2">
           <i class="fas fa-exclamation-circle text-warning"></i>
           <span>${escapeHtml(truncate(last_error, 100))}</span>
-          ${retry_count > 0 ? `<small class="text-muted ms-2">(Attempt ${retry_count}/3)</small>` : ""}
+          ${
+            retry_count > 0
+              ? `<small class="text-muted ms-2">(Attempt ${displayAttempt}/${retryCap}${retry_count > retryCap ? ", attempts exceeded" : ""})</small>`
+              : ""
+          }
         </div>
       `
           : ""
