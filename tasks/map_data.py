@@ -319,11 +319,17 @@ async def _build_nominatim(
     config: MapServiceConfig,
     progress: MapBuildProgress,
 ) -> None:
+    last_determinate = 0.0
+
     async def progress_callback(phase_progress: float, message: str) -> None:
+        nonlocal last_determinate
+        if phase_progress is not None and phase_progress >= 0:
+            last_determinate = phase_progress
+        effective = last_determinate
         detail = (message or "").strip() or "Import in progress..."
         if not detail.lower().startswith(("geocoding:", "nominatim:", "geocoder:")):
             detail = f"Geocoding: {detail}"
-        overall = MERGE_PROGRESS_END + (phase_progress / 100.0) * (
+        overall = MERGE_PROGRESS_END + (effective / 100.0) * (
             NOMINATIM_PROGRESS_END - MERGE_PROGRESS_END
         )
         await _update_progress(
@@ -357,11 +363,17 @@ async def _build_valhalla(
     config: MapServiceConfig,
     progress: MapBuildProgress,
 ) -> None:
+    last_determinate = 0.0
+
     async def progress_callback(phase_progress: float, message: str) -> None:
+        nonlocal last_determinate
+        if phase_progress is not None and phase_progress >= 0:
+            last_determinate = phase_progress
+        effective = last_determinate
         detail = (message or "").strip() or "Building tiles..."
         if not detail.lower().startswith(("routing:", "valhalla:", "router:")):
             detail = f"Routing: {detail}"
-        overall = NOMINATIM_PROGRESS_END + (phase_progress / 100.0) * (
+        overall = NOMINATIM_PROGRESS_END + (effective / 100.0) * (
             VALHALLA_PROGRESS_END - NOMINATIM_PROGRESS_END
         )
         await _update_progress(

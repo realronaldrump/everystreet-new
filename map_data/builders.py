@@ -411,6 +411,7 @@ async def build_nominatim_data(
 
         # Monitor progress by reading output lines
         progress = 15
+        quiet_ticks = 0
         last_log_time = asyncio.get_event_loop().time()
         output_lines = []
 
@@ -423,6 +424,7 @@ async def build_nominatim_data(
                 if line:
                     decoded = line.decode("utf-8", errors="replace").strip()
                     if decoded:
+                        quiet_ticks = 0
                         output_lines.append(decoded)
                         # Keep only last 50 lines
                         if len(output_lines) > 50:
@@ -468,14 +470,23 @@ async def build_nominatim_data(
                 # Timeout just means no output, check if process is still running
                 if process.returncode is not None:
                     break
-                # Still running, update progress slowly
-                progress = min(progress + 1, 88)
-                if progress_callback:
-                    await _safe_callback(
-                        progress_callback,
-                        progress,
-                        "Import in progress...",
-                    )
+                # Still running, update progress slowly unless we're in a long quiet phase
+                quiet_ticks += 1
+                if progress >= 80 and quiet_ticks >= 3:
+                    if progress_callback:
+                        await _safe_callback(
+                            progress_callback,
+                            -1,
+                            "Import in progress (quiet period)...",
+                        )
+                else:
+                    progress = min(progress + 1, 88)
+                    if progress_callback:
+                        await _safe_callback(
+                            progress_callback,
+                            progress,
+                            "Import in progress...",
+                        )
 
         # Wait for process to complete
         await process.wait()
@@ -796,6 +807,7 @@ async def build_valhalla_tiles(
 
         # Monitor progress by reading output lines
         progress = 15
+        quiet_ticks = 0
         last_log_time = asyncio.get_event_loop().time()
         output_lines = []
 
@@ -808,6 +820,7 @@ async def build_valhalla_tiles(
                 if line:
                     decoded = line.decode("utf-8", errors="replace").strip()
                     if decoded:
+                        quiet_ticks = 0
                         output_lines.append(decoded)
                         if len(output_lines) > 50:
                             output_lines.pop(0)
@@ -854,13 +867,22 @@ async def build_valhalla_tiles(
             except TimeoutError:
                 if process.returncode is not None:
                     break
-                progress = min(progress + 1, 88)
-                if progress_callback:
-                    await _safe_callback(
-                        progress_callback,
-                        progress,
-                        "Tile build in progress...",
-                    )
+                quiet_ticks += 1
+                if progress >= 80 and quiet_ticks >= 3:
+                    if progress_callback:
+                        await _safe_callback(
+                            progress_callback,
+                            -1,
+                            "Tile build in progress (quiet period)...",
+                        )
+                else:
+                    progress = min(progress + 1, 88)
+                    if progress_callback:
+                        await _safe_callback(
+                            progress_callback,
+                            progress,
+                            "Tile build in progress...",
+                        )
 
         await process.wait()
 

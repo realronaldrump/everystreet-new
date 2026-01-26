@@ -64,6 +64,13 @@ if [ -d "/nominatim/flatnode" ]; then
   chmod -R u+rwX /nominatim/flatnode 2>/dev/null || true
 fi
 
+# Ensure tokenizer workspace exists and is writable for the import step
+if [ -d "/app" ]; then
+  mkdir -p /app/tokenizer 2>/dev/null || true
+  chown -R postgres:postgres /app/tokenizer 2>/dev/null || true
+  chmod -R u+rwX /app/tokenizer 2>/dev/null || true
+fi
+
 # Initialize PostgreSQL if needed
 if [ -n "$INITDB_BIN" ] && [ -x "$INITDB_BIN" ] && [ ! -f "${PG_DATA}/PG_VERSION" ]; then
   log "Initializing PostgreSQL $PG_VERSION data directory..."

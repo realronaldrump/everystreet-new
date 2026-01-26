@@ -311,8 +311,9 @@ function renderProgressSection(status) {
   const build = status.build || {};
   const phase = build.phase || status.status || "building";
   const phaseLabel = getBuildPhaseLabel(phase);
-  const phaseProgress = Number.isFinite(build.phase_progress)
-    ? clampNumber(build.phase_progress, 0, 100)
+  const rawPhaseProgress = Number(build.phase_progress);
+  const phaseProgress = Number.isFinite(rawPhaseProgress) && rawPhaseProgress >= 0
+    ? clampNumber(rawPhaseProgress, 0, 100)
     : null;
   const phasePercent = phaseProgress === null ? "—" : `${Math.round(phaseProgress)}%`;
   const startedAt = build.started_at;

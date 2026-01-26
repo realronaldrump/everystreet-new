@@ -791,9 +791,13 @@ function updateMapCoverageUI() {
       if (phaseLabel) {
         details.push(phaseLabel);
       }
-      const phasePct = Number(progress?.phase_progress || 0);
-      if (phasePct > 0) {
-        details.push(`${Math.round(phasePct)}%`);
+      const phasePct = Number(progress?.phase_progress ?? 0);
+      if (Number.isFinite(phasePct)) {
+        if (phasePct > 0) {
+          details.push(`${Math.round(phasePct)}%`);
+        } else if (phasePct < 0) {
+          details.push("in progress");
+        }
       }
       const updated = formatRelativeTime(status?.last_updated);
       if (updated) {
