@@ -223,6 +223,8 @@ async def build_nominatim_data(
         import_cmd = [
             "docker",
             "exec",
+            "-u",
+            "postgres",
             "-e",
             "NOMINATIM_QUERY_TIMEOUT=600",
             "-e",
