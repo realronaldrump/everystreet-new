@@ -140,7 +140,7 @@ def get_valhalla_route_url() -> str:
 
 def get_valhalla_trace_route_url() -> str:
     _warn_deprecated_service_env_vars()
-    return f"{DEFAULT_VALHALLA_URL}/trace_route"
+    return f"{DEFAULT_VALHALLA_URL}/trace_routes"
 
 
 def get_valhalla_trace_attributes_url() -> str:

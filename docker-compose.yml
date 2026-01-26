@@ -142,7 +142,7 @@ services:
     environment:
       PBF_PATH: /nominatim/data/region.osm.pbf
       REPLICATION_URL: ''
-      IMPORT_STYLE: street
+      NOMINATIM_IMPORT_STYLE: street
       THREADS: '4'
     volumes:
       - nominatim_data:/var/lib/postgresql/16/main
