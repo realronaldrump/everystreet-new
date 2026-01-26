@@ -14,7 +14,7 @@
 */
 
 /* Desktop: Hide mobile-only elements globally */
-@media (width >= 769px) {
+@media (width > 768px) {
   .mobile-map-overlay,
   .mobile-fab-container,
   .mobile-bottom-sheet,

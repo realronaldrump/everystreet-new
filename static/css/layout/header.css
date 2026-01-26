@@ -8,6 +8,7 @@
   flex-direction: column;
   min-height: 100vh;
   position: relative;
+  z-index: 1;
 }
 
 /* === Header === */
@@ -37,10 +38,11 @@
   align-items: center;
   justify-content: space-between;
   height: 100%;
-  padding: 0 var(--space-4);
+  padding: 0 var(--page-gutter);
   max-width: var(--content-max-width);
   margin: 0 auto;
   width: 100%;
+  gap: var(--space-3);
 }
 
 /* === Brand Section === */
@@ -50,11 +52,11 @@
 }
 
 .menu-toggle-btn {
-  display: flex;
+  display: none;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: var(--touch-target);
+  height: var(--touch-target);
   border-radius: var(--radius-full);
   border: none;
   background: transparent;
@@ -105,37 +107,50 @@
   list-style: none;
   margin: 0;
   padding: 0;
+  gap: var(--space-1);
 }
 
 .nav-item {
   height: 100%;
   position: relative;
+  display: flex;
+  align-items: center;
 }
 
 .nav-item a {
   display: flex;
   align-items: center;
-  height: 100%;
-  padding: 0 var(--space-4);
+  height: 40px;
+  padding: 0 var(--space-3);
   color: var(--text-secondary);
   text-decoration: none;
-  transition: color var(--transition-fast);
+  transition:
+    color var(--transition-fast),
+    background-color var(--transition-fast);
   font-weight: var(--font-weight-medium);
   font-size: var(--font-size-sm);
+  border-radius: var(--radius-pill);
+  background-color: transparent;
+  position: relative;
 }
 
 .nav-item.active a,
 .nav-item a:hover {
   color: var(--text-primary);
+  background-color: var(--surface-3);
+}
+
+.nav-item.active a {
+  background-color: rgb(var(--primary-rgb) / 12%);
 }
 
 .nav-item.active a::after {
   content: "";
   position: absolute;
-  bottom: 6px;
-  left: var(--space-4);
-  right: var(--space-4);
-  height: 3px;
+  bottom: 4px;
+  left: var(--space-3);
+  right: var(--space-3);
+  height: 2px;
   border-radius: var(--radius-pill);
   background: var(--primary);
 }
@@ -216,8 +231,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: var(--touch-target);
+  height: var(--touch-target);
   border-radius: var(--radius-full);
   border: none;
   background: transparent;
@@ -589,7 +604,7 @@
   }
 
   .header-container {
-    padding: 0 var(--space-3);
+    padding: 0 var(--page-gutter-tight);
   }
 
   .side-panel {
@@ -600,7 +615,7 @@
 @media (width <= 768px) {
   /* Mobile landscape and smaller */
   .header-container {
-    padding: 0 var(--space-2);
+    padding: 0 var(--page-gutter-tight);
   }
 
   .brand-text {

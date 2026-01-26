@@ -129,6 +129,13 @@
   --space-12: 3rem;
   --space-16: 4rem;
 
+  /* Layout rhythm */
+  --page-gutter: clamp(1rem, 2.6vw, 2.75rem);
+  --page-gutter-tight: clamp(0.75rem, 2.1vw, 1.5rem);
+  --section-gap: clamp(1.25rem, 2.4vw, 2.5rem);
+  --card-padding: clamp(1rem, 1.6vw, 1.5rem);
+  --card-padding-lg: clamp(1.25rem, 2.1vw, 2rem);
+
   /* Layout */
   --header-height: 64px;
   --content-max-width: 1440px;
@@ -174,6 +181,21 @@
     rgb(var(--primary-rgb) / 6%) 0%,
     transparent 60%
   );
+  --app-bg: radial-gradient(
+      1200px circle at 10% -10%,
+      rgb(var(--primary-rgb) / 14%),
+      transparent 60%
+    ),
+    radial-gradient(
+      1000px circle at 90% 0%,
+      rgb(var(--secondary-rgb) / 12%),
+      transparent 55%
+    ),
+    radial-gradient(
+      900px circle at 50% 120%,
+      rgb(var(--info-rgb) / 10%),
+      transparent 60%
+    );
 
   /* Interactive lift shadows */
   --shadow-lift: 0 12px 26px rgb(0 0 0 / 22%);
@@ -327,6 +349,21 @@ body.light-mode {
   --glass-2: rgb(var(--surface-rgb) / 90%);
   --glass-3: rgb(var(--surface-rgb) / 96%);
   --glass-border: rgb(var(--border-rgb) / 18%);
+  --app-bg: radial-gradient(
+      1200px circle at 10% -10%,
+      rgb(var(--primary-rgb) / 10%),
+      transparent 60%
+    ),
+    radial-gradient(
+      1000px circle at 90% 0%,
+      rgb(var(--secondary-rgb) / 8%),
+      transparent 55%
+    ),
+    radial-gradient(
+      900px circle at 50% 120%,
+      rgb(var(--info-rgb) / 8%),
+      transparent 60%
+    );
 
   /* Extended glass for light mode */
   --glass-panel: rgb(var(--surface-rgb) / 75%);

@@ -45,6 +45,14 @@
   box-shadow: var(--btn-shadow-hover, var(--btn-shadow, none));
 }
 
+.btn:focus-visible {
+  box-shadow: var(--focus-ring-strong);
+}
+
+.btn:active:not(:disabled, .disabled) {
+  transform: translateY(1px);
+}
+
 .btn i {
   font-size: 1.1em; /* Slightly larger icons in buttons */
 }

@@ -5,6 +5,8 @@
 /* === Cards - Refined === */
 .card {
   background-color: var(--surface-1);
+  background-image: var(--gradient-surface-glow);
+  background-repeat: no-repeat;
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-elevation-1);
   border: 1px solid var(--border-color);
@@ -28,7 +30,7 @@
 
 .card-header {
   background-color: transparent;
-  padding: var(--space-4) var(--space-5);
+  padding: var(--card-padding) var(--card-padding-lg);
   border-bottom: 1px solid var(--divider-color);
   display: flex;
   align-items: center;
@@ -37,12 +39,12 @@
 }
 
 .card-body {
-  padding: var(--space-5);
+  padding: var(--card-padding-lg);
 }
 
 .card-footer {
   background-color: transparent;
-  padding: var(--space-4) var(--space-5);
+  padding: var(--card-padding) var(--card-padding-lg);
   border-top: 1px solid var(--divider-color);
 }
 
@@ -55,10 +57,12 @@
 /* === Widget === */
 .widget {
   background: var(--surface-1);
+  background-image: var(--gradient-surface-glow);
+  background-repeat: no-repeat;
   border-radius: var(--radius-xl);
   border: 1px solid var(--border-color);
   box-shadow: var(--shadow-elevation-1);
-  padding: var(--space-5);
+  padding: var(--card-padding-lg);
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
@@ -164,7 +168,7 @@
 }
 
 .widget.is-compact {
-  padding: var(--space-4);
+  padding: var(--card-padding);
   border-radius: var(--radius-lg);
 }
 

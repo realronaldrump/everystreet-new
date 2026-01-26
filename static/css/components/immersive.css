@@ -69,7 +69,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  padding: var(--space-1) var(--space-4);
+  padding: var(--space-1) var(--page-gutter);
   background: var(--glass-1);
   border-bottom: 1px solid var(--divider-color);
   backdrop-filter: blur(var(--blur-subtle));
@@ -214,6 +214,23 @@ body[data-route="/map"] .nav-breadcrumb {
   display: none;
 }
 
+body[data-route="/coverage-navigator"] .nav-breadcrumb,
+body[data-route="/turn-by-turn"] .nav-breadcrumb,
+body[data-route="/county-map"] .nav-breadcrumb {
+  display: none;
+}
+
+body[data-route="/map"] .ambient-background,
+body[data-route="/map"] .noise-overlay,
+body[data-route="/coverage-navigator"] .ambient-background,
+body[data-route="/coverage-navigator"] .noise-overlay,
+body[data-route="/turn-by-turn"] .ambient-background,
+body[data-route="/turn-by-turn"] .noise-overlay,
+body[data-route="/county-map"] .ambient-background,
+body[data-route="/county-map"] .noise-overlay {
+  display: none;
+}
+
 /* Bottom navigation (mobile) */
 .bottom-nav {
   position: fixed;
@@ -223,6 +240,7 @@ body[data-route="/map"] .nav-breadcrumb {
   display: none;
   align-items: center;
   justify-content: space-around;
+  gap: var(--space-2);
   padding: var(--space-2) var(--space-3) calc(var(--space-2) + env(safe-area-inset-bottom));
   background: var(--glass-2);
   border-top: 1px solid var(--divider-color);
@@ -245,7 +263,10 @@ body[data-route="/map"] .nav-breadcrumb {
   background: none;
   border: none;
   font-size: var(--font-size-xs);
+  min-height: var(--touch-target);
+  padding: var(--space-1) var(--space-2);
   min-width: 64px;
+  position: relative;
 }
 
 .bottom-nav-item i {
@@ -263,6 +284,19 @@ body[data-route="/map"] .nav-breadcrumb {
 .bottom-nav-item.active i,
 .bottom-nav-item:hover i {
   color: var(--accent);
+}
+
+.bottom-nav-item.active::after {
+  content: "";
+  position: absolute;
+  bottom: 2px;
+  left: 50%;
+  width: 28px;
+  height: 2px;
+  transform: translateX(-50%);
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  box-shadow: 0 0 12px rgb(var(--accent-rgb) / 35%);
 }
 
 @media (width <= 768px) {
