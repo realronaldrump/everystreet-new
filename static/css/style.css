@@ -18,6 +18,7 @@
 @import url("core/reset.css");
 @import url("core/typography.css");
 @import url("core/utilities.css");
+@import url("core/compat.css");
 
 /* === Layout Styles === */
 @import url("layout/header.css");
@@ -28,10 +29,13 @@
 /* === Component Styles === */
 @import url("components/buttons.css");
 @import url("components/cards.css");
+@import url("components/chips.css");
 @import url("components/forms.css");
 @import url("components/tables.css");
 @import url("components/notifications.css");
+@import url("components/lists.css");
 @import url("components/modals.css");
+@import url("components/progress.css");
 @import url("components/steps.css");
 @import url("components/mapbox-overrides.css");
 @import url("components/immersive.css");

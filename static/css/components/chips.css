@@ -1,0 +1,58 @@
+/* ============================
+   Chips & Pills
+   ============================ */
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  font-size: var(--font-size-xs);
+  line-height: 1.1;
+  border: 1px solid var(--border-color);
+}
+
+.chip--surface {
+  background: var(--surface-2);
+  color: var(--text-secondary);
+}
+
+.chip--shadow {
+  background: var(--surface-2);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.chip--muted {
+  background: var(--surface-0);
+  color: var(--text-tertiary);
+}
+
+.chip--accent {
+  background: rgb(var(--accent-rgb) / 10%);
+  color: var(--accent);
+  border-color: rgb(var(--accent-rgb) / 30%);
+}
+
+/* Pill variants (compact chips) */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  border-radius: var(--radius-pill);
+  font-size: var(--font-size-xs);
+  background: rgb(var(--primary-rgb) / 10%);
+  color: var(--primary);
+}
+
+.pill-subtle {
+  background: var(--surface-2);
+  color: var(--text-secondary);
+}
+
+.pill-muted {
+  background: var(--surface-0);
+  color: var(--text-tertiary);
+}

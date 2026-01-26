@@ -1,4 +1,3 @@
-/* global mapboxgl */
 import apiClient from "../../core/api-client.js";
 import {
   fetchBouncieCredentials as fetchBouncieCredentialsShared,

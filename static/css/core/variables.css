@@ -254,6 +254,7 @@
   /* Z-Index */
   --z-base: 1;
   --z-dropdown: 1000;
+  --z-tooltip: 1010;
   --z-sticky: 1020;
   --z-fixed: 1030;
   --z-drawer: 1040;

@@ -1,3 +1,4 @@
+/* global mapboxgl */
 import { isValidMapboxToken as isValidMapboxTokenShared } from "../../../settings/credentials.js";
 
 export function isValidMapboxToken(token) {

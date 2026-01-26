@@ -21,6 +21,10 @@
   color: var(--text-secondary);
 } /* Note: this is different from --secondary color */
 
+.text-muted {
+  color: var(--text-tertiary);
+}
+
 .text-success {
   color: var(--success);
 }
@@ -40,6 +44,10 @@
 .text-light {
   color: var(--text-tertiary);
 } /* For lighter text on dark backgrounds */
+
+.text-white {
+  color: #fff;
+}
 
 .badge {
   border-radius: var(--radius-pill);
@@ -63,8 +71,34 @@
   color: var(--text-primary);
 } /* For darker text on light backgrounds */
 
+.text-uppercase {
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* === Font Size & Weight Utilities === */
+.small {
+  font-size: var(--font-size-xs);
+}
+
+.fw-normal {
+  font-weight: var(--font-weight-regular);
+}
+
+.fw-medium {
+  font-weight: var(--font-weight-medium);
+}
+
+.fw-semibold {
+  font-weight: var(--font-weight-semibold);
+}
+
+.fw-bold {
+  font-weight: var(--font-weight-bold);
+}
+
 .bg-primary {
-  background-color: var(--primary);
+  background-color: rgb(var(--primary-rgb) / var(--bg-opacity, 1));
   color: var(--text-on-primary);
 }
 
@@ -117,6 +151,15 @@
 .spinner {
   animation: spin 0.8s linear infinite;
 } /* Generic spinner class */
+
+.spinner-border {
+  width: 2rem;
+  height: 2rem;
+  border: 3px solid rgb(var(--border-rgb) / 30%);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
 
 /* === Icon Transitions === */
 .icon-chevron-transition {
