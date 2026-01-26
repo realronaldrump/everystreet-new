@@ -74,7 +74,10 @@ async def start_container_on_demand(
 
             _, stderr = await process.communicate()
 
-            error_msg = stderr.decode() if stderr else ""
+            if stderr:
+                error_msg = stderr.decode(errors="replace").strip()
+            else:
+                error_msg = "No error output from docker command"
 
             # Check if the docker compose subcommand is not available
             # This happens when Docker Compose V2 plugin is not installed
@@ -131,7 +134,7 @@ async def start_container_on_demand(
     # All commands failed, try direct docker start as fallback
     # This handles cases where docker-compose/plugin is not installed (like in the worker)
     # but the container was already created by the main deployment.
-    container_name = _get_container_name(service_name)
+    container_name = await _get_container_name(service_name)
     logger.info(
         "Docker compose commands failed, trying fallback: docker start %s",
         container_name,
@@ -160,8 +163,12 @@ async def start_container_on_demand(
                     return True
                 await asyncio.sleep(2)
 
-        error_msg = stderr.decode() if stderr else "Unknown error"
-        last_error = f"Fallback failed: {error_msg}"
+        if stderr:
+            fallback_error = stderr.decode(errors="replace").strip()
+        else:
+            fallback_error = "No error output from docker start"
+
+        last_error = f"Fallback failed: {fallback_error}"
 
     except Exception as e:
         last_error = f"Fallback error: {e}"
@@ -229,7 +236,7 @@ async def build_nominatim_data(
         if progress_callback:
             await _safe_callback(progress_callback, 10, "Starting Nominatim import...")
 
-        container_name = _get_container_name("nominatim")
+        container_name = await _get_container_name("nominatim")
         pbf_container_path = f"/nominatim/data/{pbf_relative}"
 
         # First, check if the file is accessible in the container
@@ -241,12 +248,13 @@ async def build_nominatim_data(
             "-la",
             pbf_container_path,
         ]
-        check_result = subprocess.run(
-            check_cmd,
-            capture_output=True,
-            text=True,
-            timeout=30,
+        check_result = await asyncio.create_subprocess_exec(
+            *check_cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
         )
+        await check_result.wait()
+
         if check_result.returncode != 0:
             msg = f"PBF file not accessible in container: {pbf_container_path}"
             raise ValueError(msg)
@@ -417,7 +425,7 @@ async def _wait_for_nominatim_db_ready(timeout: int = 120) -> None:
     The 'nominatim' database is created DURING the import process, so we
     cannot require it to exist before import.
     """
-    container_name = _get_container_name("nominatim")
+    container_name = await _get_container_name("nominatim")
     start_time = asyncio.get_event_loop().time()
 
     while (asyncio.get_event_loop().time() - start_time) < timeout:
@@ -432,13 +440,14 @@ async def _wait_for_nominatim_db_ready(timeout: int = 120) -> None:
                 "-d",
                 "postgres",
             ]
-            result = subprocess.run(
-                check_cmd,
-                capture_output=True,
-                text=True,
-                timeout=10,
+            process = await asyncio.create_subprocess_exec(
+                *check_cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
             )
-            if result.returncode == 0:
+            await process.wait()
+
+            if process.returncode == 0:
                 logger.info("PostgreSQL is accepting connections")
 
                 # Verify the nominatim role exists (created by entrypoint)
@@ -455,13 +464,14 @@ async def _wait_for_nominatim_db_ready(timeout: int = 120) -> None:
                     "-tAc",
                     "SELECT 1 FROM pg_roles WHERE rolname='nominatim'",
                 ]
-                role_result = subprocess.run(
-                    role_check,
-                    capture_output=True,
-                    text=True,
-                    timeout=10,
+                role_process = await asyncio.create_subprocess_exec(
+                    *role_check,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
                 )
-                if role_result.stdout.strip() == "1":
+                stdout, _ = await role_process.communicate()
+
+                if role_process.returncode == 0 and stdout.decode().strip() == "1":
                     logger.info("Nominatim role exists, PostgreSQL ready for import")
                     return
                 logger.debug("Nominatim role not found yet, waiting...")
@@ -549,7 +559,7 @@ async def build_valhalla_tiles(
                 "Verifying configuration...",
             )
 
-        container_name = _get_container_name("valhalla")
+        container_name = await _get_container_name("valhalla")
         pbf_container_path = f"/data/osm/{pbf_relative}"
 
         # Verify PBF file is accessible
@@ -561,12 +571,13 @@ async def build_valhalla_tiles(
             "-la",
             pbf_container_path,
         ]
-        check_result = subprocess.run(
-            check_cmd,
-            capture_output=True,
-            text=True,
-            timeout=30,
+        check_result = await asyncio.create_subprocess_exec(
+            *check_cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
         )
+        await check_result.wait()
+
         if check_result.returncode != 0:
             msg = f"PBF file not accessible in Valhalla container: {pbf_container_path}"
             raise ValueError(msg)
@@ -581,12 +592,12 @@ async def build_valhalla_tiles(
             "ls",
             "/custom_files/valhalla.json",
         ]
-        config_result = subprocess.run(
-            config_check,
-            capture_output=True,
-            text=True,
-            timeout=30,
+        config_result = await asyncio.create_subprocess_exec(
+            *config_check,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
         )
+        await config_result.wait()
 
         if config_result.returncode != 0:
             # Generate config if missing
@@ -609,13 +620,14 @@ async def build_valhalla_tiles(
                 "--mjolnir-admin /custom_files/admin_data.sqlite "
                 "> /custom_files/valhalla.json",
             ]
-            gen_result = subprocess.run(
-                gen_config,
-                capture_output=True,
-                text=True,
-                timeout=60,
+            gen_process = await asyncio.create_subprocess_exec(
+                *gen_config,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
             )
-            if gen_result.returncode != 0:
+            await gen_process.wait()
+
+            if gen_process.returncode != 0:
                 logger.warning(
                     "Config generation returned non-zero, trying alternative method",
                 )
@@ -629,7 +641,12 @@ async def build_valhalla_tiles(
                     "[ -x /valhalla/scripts/configure_valhalla.sh ] && "
                     "/valhalla/scripts/configure_valhalla.sh || true",
                 ]
-                subprocess.run(alt_config, capture_output=True, timeout=60)
+                alt_process = await asyncio.create_subprocess_exec(
+                    *alt_config,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                )
+                await alt_process.wait()
 
         if progress_callback:
             await _safe_callback(
@@ -823,7 +840,7 @@ def _resolve_pbf_path(pbf_path: str) -> tuple[str, str]:
     return pbf_full_path, pbf_relative
 
 
-def _get_container_name(service_name: str) -> str:
+async def _get_container_name(service_name: str) -> str:
     """
     Get the Docker container name for a service.
 
@@ -838,23 +855,25 @@ def _get_container_name(service_name: str) -> str:
     """
     # Try to find the container using docker ps
     try:
-        result = subprocess.run(
-            [
-                "docker",
-                "ps",
-                "--filter",
-                f"name={service_name}",
-                "--format",
-                "{{.Names}}",
-            ],
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=10,
+        cmd = [
+            "docker",
+            "ps",
+            "--filter",
+            f"name={service_name}",
+            "--format",
+            "{{.Names}}",
+        ]
+
+        process = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
         )
-        if result.returncode == 0 and result.stdout.strip():
+        stdout, _ = await process.communicate()
+
+        if process.returncode == 0 and stdout.strip():
             # Return the first matching container
-            containers = result.stdout.strip().split("\n")
+            containers = stdout.decode().strip().split("\n")
             for container in containers:
                 if service_name in container:
                     return container
@@ -874,7 +893,7 @@ async def _restart_container(service_name: str) -> None:
     Args:
         service_name: The service name to restart
     """
-    container_name = _get_container_name(service_name)
+    container_name = await _get_container_name(service_name)
 
     try:
         logger.info("Restarting container: %s", container_name)

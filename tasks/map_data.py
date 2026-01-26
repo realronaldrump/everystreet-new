@@ -292,9 +292,17 @@ async def _merge_pbf_files(
 
     cmd = ["osmium", "merge", "-f", "pbf", "-o", temp_output, *files]
     logger.info("Running osmium merge: %s", " ".join(cmd))
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    if result.returncode != 0:
-        raise RuntimeError(result.stderr.strip() or "osmium merge failed")
+
+    process = await asyncio.create_subprocess_exec(
+        *cmd,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    stdout, stderr = await process.communicate()
+
+    if process.returncode != 0:
+        error_msg = stderr.decode().strip() if stderr else "osmium merge failed"
+        raise RuntimeError(error_msg)
 
     os.replace(temp_output, output_path)
     await _update_progress(
