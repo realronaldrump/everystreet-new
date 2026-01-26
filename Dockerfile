@@ -1,4 +1,9 @@
 FROM python:3.12-slim
+
+# Build arguments for multi-platform support
+ARG TARGETPLATFORM
+ARG TARGETARCH
+
 ENV PYTHONUNBUFFERED=1
 ENV UVICORN_CMD_ARGS="--proxy-headers --forwarded-allow-ips=*"
 
@@ -14,14 +19,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Docker CLI (static binary - much faster than apt)
-# Install Docker CLI (static binary)
-# Detect architecture (amd64 or arm64/aarch64) and download appropriate binary
+# Uses TARGETARCH from buildx for proper multi-platform support
 RUN set -eux; \
-    ARCH="$(uname -m)"; \
-    case "$ARCH" in \
-        x86_64) DOC_ARCH='x86_64' ;; \
-        aarch64|arm64) DOC_ARCH='aarch64' ;; \
-        *) echo >&2 "error: unsupported architecture '$ARCH'"; exit 1 ;; \
+    case "${TARGETARCH:-$(uname -m)}" in \
+        amd64|x86_64) DOC_ARCH='x86_64' ;; \
+        arm64|aarch64) DOC_ARCH='aarch64' ;; \
+        *) echo >&2 "error: unsupported architecture '${TARGETARCH}'"; exit 1 ;; \
     esac; \
     curl -fsSL "https://download.docker.com/linux/static/stable/${DOC_ARCH}/docker-26.1.4.tgz" \
     | tar xz -C /usr/local/bin --strip-components=1 docker/docker
@@ -41,5 +44,9 @@ COPY . ./
 RUN echo "{\"commit_count\": \"$(git rev-list --count HEAD 2>/dev/null || echo Unknown)\", \
 \"commit_hash\": \"$(git rev-parse --short HEAD 2>/dev/null || echo Unknown)\", \
 \"last_updated\": \"$(git log -1 --format=%cI 2>/dev/null || echo Unknown)\"}" > version.json
+
+# Health check for container orchestration
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+    CMD curl -sf http://localhost:${PORT:-8080}/api/status/health || exit 1
 
 CMD ["sh", "-c", "gunicorn app:app -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:${PORT:-8080} --workers 1"]
