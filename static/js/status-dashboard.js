@@ -1,6 +1,7 @@
 /* global bootstrap */
 
 import apiClient from "./modules/core/api-client.js";
+import confirmationDialog from "./modules/ui/confirmation-dialog.js";
 import notificationManager from "./modules/ui/notifications.js";
 import { escapeHtml, formatDateTime, onPageLoad } from "./modules/utils.js";
 import { setupManualFetchTripsForm } from "./settings/geocode-remap.js";
@@ -588,7 +589,15 @@ async function loadContainerLogs(containerName) {
 }
 
 async function restartService(serviceName) {
-  if (!confirm(`Restart ${serviceName}?`)) {
+  const confirmed = await confirmationDialog.show({
+    title: "Restart service?",
+    message: `Restart <strong>${escapeHtml(serviceName)}</strong>?`,
+    confirmText: "Restart",
+    cancelText: "Cancel",
+    confirmButtonClass: "btn-danger",
+  });
+
+  if (!confirmed) {
     return;
   }
   try {
