@@ -14,13 +14,23 @@ Server Logs
 
 {% block content %}
 
-  <div class="container-fluid py-4">
-    <h1 class="mb-4">
-      <i class="fas fa-file-alt me-2"></i>Server Logs
-    </h1>
+  <div class="container-fluid server-logs-page py-4">
+    <div class="bento-grid mb-4" data-stagger>
+      <div class="bento-span-12 widget" data-accent="slate">
+        <div class="widget-header">
+          <h1 class="widget-title">
+            <i class="fas fa-file-alt" aria-hidden="true"></i>
+            Server Logs
+          </h1>
+          <div class="widget-meta">
+            Monitor application events and container activity in one place.
+          </div>
+        </div>
+      </div>
+    </div>
 
     <!-- Log Type Tabs -->
-    <ul class="nav nav-tabs mb-4" id="log-type-tabs" role="tablist">
+    <ul class="nav nav-tabs log-tabs mb-4" id="log-type-tabs" role="tablist">
       <li class="nav-item" role="presentation">
         <button class="nav-link active"
                 id="app-logs-tab"
@@ -54,7 +64,7 @@ Server Logs
            role="tabpanel"
            aria-labelledby="app-logs-tab">
         <!-- Statistics Card -->
-        <div class="card mb-4">
+        <div class="card log-card mb-4">
           <div class="card-header d-flex justify-content-between align-items-center">
             <h2 class="h5 mb-0">
 Log Statistics
@@ -65,7 +75,7 @@ Log Statistics
           </div>
           <div class="card-body">
             <div class="row" id="log-stats">
-              <div class="col-md-2">
+              <div class="col-6 col-md-2">
                 <div class="stat-item">
                   <div class="stat-label">
 Total Logs
@@ -75,7 +85,7 @@ Total Logs
                   </div>
                 </div>
               </div>
-              <div class="col-md-2">
+              <div class="col-6 col-md-2">
                 <div class="stat-item">
                   <div class="stat-label">
 DEBUG
@@ -85,7 +95,7 @@ DEBUG
                   </div>
                 </div>
               </div>
-              <div class="col-md-2">
+              <div class="col-6 col-md-2">
                 <div class="stat-item">
                   <div class="stat-label">
 INFO
@@ -95,7 +105,7 @@ INFO
                   </div>
                 </div>
               </div>
-              <div class="col-md-2">
+              <div class="col-6 col-md-2">
                 <div class="stat-item">
                   <div class="stat-label">
 WARNING
@@ -105,7 +115,7 @@ WARNING
                   </div>
                 </div>
               </div>
-              <div class="col-md-2">
+              <div class="col-6 col-md-2">
                 <div class="stat-item">
                   <div class="stat-label">
 ERROR
@@ -115,7 +125,7 @@ ERROR
                   </div>
                 </div>
               </div>
-              <div class="col-md-2">
+              <div class="col-6 col-md-2">
                 <div class="stat-item">
                   <div class="stat-label">
 CRITICAL
@@ -130,7 +140,7 @@ CRITICAL
         </div>
 
         <!-- Filters and Actions Card -->
-        <div class="card mb-4">
+        <div class="card log-card mb-4">
           <div class="card-header">
             <h2 class="h5 mb-0">
 Filters &amp; Actions
@@ -202,7 +212,7 @@ Search Message
             </div>
             <div class="row mt-3">
               <div class="col-12">
-                <div class="btn-group" role="group">
+                <div class="log-actions" role="group" aria-label="Server log actions">
                   <button id="refresh-logs" class="btn btn-success">
                     <i class="fas fa-sync-alt"></i> Refresh Logs
                   </button>
@@ -225,12 +235,12 @@ Search Message
         </div>
 
         <!-- Logs Display Card -->
-        <div class="card">
+        <div class="card log-card">
           <div class="card-header d-flex justify-content-between align-items-center">
             <h2 class="h5 mb-0">
 Log Entries
             </h2>
-            <small class="text-muted" id="logs-info">Loading...</small>
+            <small class="text-muted" id="logs-info" aria-live="polite">Loading...</small>
           </div>
           <div class="card-body p-0">
             <div id="logs-container" class="logs-container">
@@ -253,7 +263,7 @@ Loading logs...
            role="tabpanel"
            aria-labelledby="docker-logs-tab">
         <!-- Statistics Card (Client-side calculated) -->
-        <div class="card mb-4">
+        <div class="card log-card mb-4">
           <div class="card-header d-flex justify-content-between align-items-center">
             <h2 class="h5 mb-0">
 Log Statistics (Client-Side)
@@ -267,7 +277,7 @@ Log Statistics (Client-Side)
           </div>
           <div class="card-body">
             <div class="row" id="docker-log-stats">
-              <div class="col-md-2">
+              <div class="col-6 col-md-2">
                 <div class="stat-item">
                   <div class="stat-label">
 Total Lines
@@ -277,7 +287,7 @@ Total Lines
                   </div>
                 </div>
               </div>
-              <div class="col-md-2">
+              <div class="col-6 col-md-2">
                 <div class="stat-item">
                   <div class="stat-label">
 DEBUG
@@ -287,7 +297,7 @@ DEBUG
                   </div>
                 </div>
               </div>
-              <div class="col-md-2">
+              <div class="col-6 col-md-2">
                 <div class="stat-item">
                   <div class="stat-label">
 INFO
@@ -297,7 +307,7 @@ INFO
                   </div>
                 </div>
               </div>
-              <div class="col-md-2">
+              <div class="col-6 col-md-2">
                 <div class="stat-item">
                   <div class="stat-label">
 WARNING
@@ -307,7 +317,7 @@ WARNING
                   </div>
                 </div>
               </div>
-              <div class="col-md-2">
+              <div class="col-6 col-md-2">
                 <div class="stat-item">
                   <div class="stat-label">
 ERROR
@@ -317,7 +327,7 @@ ERROR
                   </div>
                 </div>
               </div>
-              <div class="col-md-2">
+              <div class="col-6 col-md-2">
                 <div class="stat-item">
                   <div class="stat-label">
 CRITICAL
@@ -332,7 +342,7 @@ CRITICAL
         </div>
 
         <!-- Filters and Actions Card -->
-        <div class="card mb-4">
+        <div class="card log-card mb-4">
           <div class="card-header">
             <h2 class="h5 mb-0">
 Filters &amp; Actions
@@ -341,14 +351,17 @@ Filters &amp; Actions
           <div class="card-body">
             <div class="row g-3">
               <div class="col-md-3">
-                <label class="form-label">
+                <label for="container-select-btn" class="form-label">
 Containers
                 </label>
                 <!-- Custom Multi-Select Dropdown Container -->
                 <div class="multi-select-container" id="container-multi-select">
                   <button type="button"
                           class="form-select text-start multi-select-button"
-                          id="container-select-btn">
+                          id="container-select-btn"
+                          aria-haspopup="listbox"
+                          aria-expanded="false"
+                          aria-controls="container-select-dropdown">
                     Select Containers...
                   </button>
                   <div class="multi-select-dropdown" id="container-select-dropdown">
@@ -362,7 +375,7 @@ Clear
                         </button>
                       </div>
                     </div>
-                    <div class="multi-select-options p-1" id="container-select-options">
+                    <div class="multi-select-options p-1" id="container-select-options" role="listbox">
                       <!-- Options populated by JS -->
                       <div class="text-center p-2 text-muted">
 Loading...
@@ -476,7 +489,7 @@ Search Message (Local Filter)
 
             <div class="row mt-3">
               <div class="col-12">
-                <div class="btn-group" role="group">
+                <div class="log-actions" role="group" aria-label="Docker log actions">
                   <button id="docker-auto-refresh-toggle" class="btn btn-outline-success">
                     <i class="fas fa-clock"></i> Auto-Refresh: OFF
                   </button>
@@ -496,7 +509,7 @@ Search Message (Local Filter)
         </div>
 
         <!-- Container Status Card (Hidden initially) -->
-        <div class="card mb-4" id="container-status-card" style="display: none;">
+        <div class="card log-card mb-4" id="container-status-card" style="display: none;">
           <div class="card-body py-2">
             <div class="d-flex align-items-center">
               <span class="badge rounded-pill me-2" id="container-status-badge">Unknown</span>
@@ -506,12 +519,12 @@ Search Message (Local Filter)
         </div>
 
         <!-- Docker Logs Display Card -->
-        <div class="card">
+        <div class="card log-card">
           <div class="card-header d-flex justify-content-between align-items-center">
             <h2 class="h5 mb-0">
 Container Logs
             </h2>
-            <small class="text-muted" id="docker-logs-info">Select containers to view logs</small>
+            <small class="text-muted" id="docker-logs-info" aria-live="polite">Select containers to view logs</small>
           </div>
           <div class="card-body p-0">
             <div id="docker-logs-container" class="logs-container">

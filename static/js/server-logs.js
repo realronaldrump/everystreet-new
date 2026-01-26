@@ -569,7 +569,11 @@ onPageLoad(
       containerSelectBtn.addEventListener("click", (e) => {
         e.preventDefault();
         e.stopPropagation();
-        containerSelectDropdown.classList.toggle("show");
+        if (!containerSelectDropdown) {
+          return;
+        }
+        const isOpen = containerSelectDropdown.classList.toggle("show");
+        containerSelectBtn.setAttribute("aria-expanded", isOpen ? "true" : "false");
       });
     }
 
@@ -578,6 +582,9 @@ onPageLoad(
       if (containerSelectDropdown?.classList.contains("show")) {
         if (!e.target.closest(".multi-select-container")) {
           containerSelectDropdown.classList.remove("show");
+          if (containerSelectBtn) {
+            containerSelectBtn.setAttribute("aria-expanded", "false");
+          }
         }
       }
     });
@@ -711,9 +718,12 @@ onPageLoad(
         if (shouldEnable) {
           containerSelectBtn.classList.remove("disabled");
           containerSelectBtn.removeAttribute("disabled");
+          containerSelectBtn.removeAttribute("aria-disabled");
         } else {
           containerSelectBtn.classList.add("disabled");
           containerSelectBtn.setAttribute("disabled", "true");
+          containerSelectBtn.setAttribute("aria-disabled", "true");
+          containerSelectBtn.setAttribute("aria-expanded", "false");
         }
       }
       if (dockerSelectAllBtn) {
@@ -761,8 +771,10 @@ onPageLoad(
         if (row) {
           if (cb.checked) {
             row.classList.add("selected");
+            row.setAttribute("aria-selected", "true");
           } else {
             row.classList.remove("selected");
+            row.setAttribute("aria-selected", "false");
           }
         }
       });
@@ -937,7 +949,7 @@ onPageLoad(
           html += '<div class="multi-select-optgroup">Running</div>';
           runningContainers.forEach((c) => {
             html += `
-              <div class="multi-select-option" data-value="${escapeHtml(c.name)}">
+              <div class="multi-select-option" role="option" aria-selected="false" data-value="${escapeHtml(c.name)}">
                 <input type="checkbox" value="${escapeHtml(c.name)}" tabindex="-1">
                 <span class="multi-select-option-label">${escapeHtml(c.name)}</span>
               </div>
@@ -949,7 +961,7 @@ onPageLoad(
           html += '<div class="multi-select-optgroup">Stopped</div>';
           stoppedContainers.forEach((c) => {
             html += `
-                <div class="multi-select-option" data-value="${escapeHtml(c.name)}">
+                <div class="multi-select-option" role="option" aria-selected="false" data-value="${escapeHtml(c.name)}">
                   <input type="checkbox" value="${escapeHtml(c.name)}" tabindex="-1">
                   <span class="multi-select-option-label">${escapeHtml(c.name)}</span>
                 </div>
@@ -959,6 +971,7 @@ onPageLoad(
 
         containerSelectOptions.innerHTML = html;
         setContainerSelectionEnabled(true);
+        selectAllContainers();
         updateMultiSelectUI();
 
         // Attach click handlers to options
@@ -983,6 +996,7 @@ onPageLoad(
             loadDockerLogs();
           });
         });
+        loadDockerLogs();
       } catch (err) {
         console.error(err);
         containerSelectOptions.innerHTML
@@ -1091,7 +1105,7 @@ onPageLoad(
         }
 
         rawDockerLogs = logGroups;
-        applyDockerFilters({ selectedContainers });
+        applyDockerFilters();
 
         if (selectedContainers.length === 1) {
           updateContainerStatus(selectedContainers[0]);

@@ -1,17 +1,68 @@
 .stat-item {
   text-align: center;
-  padding: 1rem;
+  padding: var(--space-4);
 }
 
 .stat-label {
-  font-size: 0.875rem;
-  color: var(--bs-secondary);
-  margin-bottom: 0.5rem;
+  font-size: var(--font-size-sm);
+  color: var(--text-tertiary);
+  margin-bottom: var(--space-2);
 }
 
 .stat-value {
-  font-size: 1.5rem;
+  font-size: var(--font-size-lg);
   font-weight: 600;
+}
+
+/* Page header + tabs alignment */
+.server-logs-page .widget-title {
+  font-size: var(--font-size-xl);
+}
+
+.log-tabs {
+  background: var(--surface-2);
+  border-radius: var(--radius-lg);
+  padding: var(--space-1);
+  border: 1px solid var(--border-color);
+  gap: var(--space-1);
+  flex-wrap: wrap;
+  border-bottom: none;
+}
+
+.log-tabs .nav-link {
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-4);
+  color: var(--text-secondary);
+  font-weight: var(--font-weight-medium);
+  transition: all var(--transition-fast);
+  border: none;
+  position: relative;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.log-tabs .nav-link:hover {
+  color: var(--text-primary);
+  background: rgb(var(--primary-rgb) / 8%);
+}
+
+.log-tabs .nav-link.active {
+  background: var(--primary-gradient);
+  color: var(--text-on-primary);
+  box-shadow: 0 2px 10px rgb(var(--primary-rgb) / 30%);
+}
+
+/* Action rows should wrap cleanly on small screens */
+.log-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--space-2);
+}
+
+.log-actions .btn {
+  width: 100%;
 }
 
 /* Container: clear card background, no fixed height unless needed, standard font */
@@ -20,7 +71,7 @@
   overflow-y: auto;
   background-color: transparent; /* Use parent card background */
   font-family: var(--font-family);
-  font-size: 0.95rem;
+  font-size: var(--font-size-sm);
   border-radius: 0 0 var(--radius-lg) var(--radius-lg);
 }
 
@@ -168,7 +219,7 @@
 /* Message Typography */
 .log-message {
   color: var(--text-primary);
-  font-size: 1rem; /* Slightly larger for readability */
+  font-size: var(--font-size-md); /* Slightly larger for readability */
   line-height: 1.5;
   word-break: break-word;
 }
@@ -177,7 +228,7 @@
 .log-details {
   font-family: var(--font-family-mono);
   color: var(--text-tertiary);
-  font-size: 0.75rem;
+  font-size: var(--font-size-xs);
   margin-top: 0.25rem;
 }
 
@@ -209,6 +260,11 @@
   width: 100%;
   display: block; /* Ensure it behaves like a block-level select */
   text-align: left;
+}
+
+.multi-select-button:focus-visible {
+  outline: 2px solid rgb(var(--primary-rgb) / 45%);
+  outline-offset: 2px;
 }
 
 .multi-select-button::after {
@@ -263,6 +319,7 @@
 .multi-select-option input[type="checkbox"] {
   cursor: pointer;
   margin: 0;
+  accent-color: var(--primary);
 }
 
 .multi-select-option-label {

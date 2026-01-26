@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import os
 import re
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -248,6 +249,43 @@ async def _run_docker_command(args: list[str]) -> tuple[str, str, int]:
         return "", str(e), 1
 
 
+async def _infer_compose_project() -> str | None:
+    """Infer the docker compose project name for this app."""
+    env_project = os.getenv("COMPOSE_PROJECT_NAME", "").strip()
+    if env_project:
+        return env_project
+
+    candidate_services = (
+        "web",
+        "worker",
+        "redis",
+        "mongo",
+        "mongo-init",
+        "nominatim",
+        "valhalla",
+        "watchtower",
+    )
+    for service in candidate_services:
+        stdout, _, returncode = await _run_docker_command(
+            [
+                "ps",
+                "-a",
+                "--filter",
+                f"label=com.docker.compose.service={service}",
+                "--format",
+                '{{.Label "com.docker.compose.project"}}',
+            ],
+        )
+        if returncode != 0:
+            continue
+        for line in stdout.splitlines():
+            value = line.strip()
+            if value:
+                return value
+
+    return None
+
+
 @router.get("/api/docker-logs/containers", response_model=ContainersResponse)
 @api_route(logger)
 async def list_docker_containers() -> dict[str, Any]:
@@ -259,14 +297,17 @@ async def list_docker_containers() -> dict[str, Any]:
     """
     try:
         # Get container info in JSON format
-        stdout, stderr, returncode = await _run_docker_command(
-            [
-                "ps",
-                "-a",
-                "--format",
-                "{{.Names}}\t{{.Status}}\t{{.Image}}\t{{.CreatedAt}}",
-            ],
-        )
+        project = await _infer_compose_project()
+        cmd = [
+            "ps",
+            "-a",
+            "--format",
+            "{{.Names}}\t{{.Status}}\t{{.Image}}\t{{.CreatedAt}}",
+        ]
+        if project:
+            cmd.extend(["--filter", f"label=com.docker.compose.project={project}"])
+
+        stdout, stderr, returncode = await _run_docker_command(cmd)
 
         if returncode != 0:
             logger.warning("Docker ps command failed: %s", stderr)
