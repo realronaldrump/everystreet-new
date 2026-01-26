@@ -19,7 +19,7 @@ import loadingManager from "../modules/ui/loading-manager.js";
 import notificationManager from "../modules/ui/notifications.js";
 import { formatDateTime, onPageLoad } from "../modules/utils.js";
 import { initAppSettings } from "./app-settings.js";
-import { setupBouncieSettings } from "./bouncie-settings.js";
+import { setupCredentialsSettings } from "./credentials-settings.js";
 import {
   setupGeocodeTrips,
   setupManualFetchTripsForm,
@@ -600,7 +600,7 @@ function init({ cleanup, signal } = {}) {
   setupRemapMatchedTrips();
   setupFetchAllMissingModal(taskManager);
   setupTripSyncSettings();
-  setupBouncieSettings();
+  setupCredentialsSettings({ signal });
 
   // Initialize mobile UI
   const mobileCleanup = initMobileUI(taskManager);

@@ -70,10 +70,17 @@
 /* Allow dropdowns to extend outside cards */
 .server-logs-page .log-card--filters {
   overflow: visible;
+  position: relative;
+  z-index: 2;
 }
 
 .server-logs-page .log-card--filters .card-body {
   overflow: visible;
+}
+
+.server-logs-page .log-card--filters .multi-select-container {
+  position: relative;
+  z-index: 3;
 }
 
 /* Action rows should wrap cleanly on small screens */
@@ -300,20 +307,27 @@
   top: 100%;
   left: 0;
   width: 100%;
-  z-index: 1000;
+  z-index: 1100;
   background-color: var(--surface-0);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-lg);
   display: none; /* Hidden by default */
   margin-top: 0.25rem;
-  max-height: min(360px, 60vh);
+  max-height: min(420px, 70vh);
   overflow-y: auto;
   overscroll-behavior: contain;
 }
 
 .multi-select-dropdown.show {
   display: block;
+}
+
+/* When open, let the dropdown take space so it can extend past the card */
+.multi-select-container.is-open .multi-select-dropdown {
+  position: static;
+  margin-top: var(--space-2);
+  max-height: min(420px, 70vh);
 }
 
 .multi-select-options {

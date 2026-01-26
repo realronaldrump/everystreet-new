@@ -8,11 +8,16 @@ import {
   isValidMapboxToken,
   renderMapPreview,
 } from "./steps/mapbox.js";
+import {
+  fetchBouncieCredentials as fetchBouncieCredentialsShared,
+  fetchMapboxToken,
+  saveBouncieCredentials as saveBouncieCredentialsShared,
+  saveMapboxToken,
+} from "../../settings/credentials.js";
 import { readJsonResponse, responseErrorMessage } from "./validation.js";
 
 const SETUP_STATUS_API = "/api/setup/status";
 const PROFILE_API = "/api/profile";
-const APP_SETTINGS_API = "/api/app_settings";
 const MAP_SERVICES_API = "/api/map-services";
 const SUGGESTED_STATES = new Set(["CA", "TX", "NY"]);
 
@@ -135,14 +140,7 @@ async function loadSetupStatus() {
 
 async function loadMapboxSettings() {
   try {
-    const response = await apiClient.raw(APP_SETTINGS_API, withSignal());
-    const data = await readJsonResponse(response);
-    if (!response.ok) {
-      throw new Error(
-        responseErrorMessage(response, data, "Unable to load Mapbox settings")
-      );
-    }
-    const token = data?.mapbox_token || "";
+    const token = await fetchMapboxToken(withSignal());
     const input = document.getElementById("mapboxToken");
     if (input) {
       input.value = token;
@@ -155,17 +153,7 @@ async function loadMapboxSettings() {
 
 async function loadBouncieCredentials() {
   try {
-    const response = await apiClient.raw(
-      `${PROFILE_API}/bouncie-credentials/unmask`,
-      withSignal()
-    );
-    const data = await readJsonResponse(response);
-    if (!response.ok) {
-      throw new Error(
-        responseErrorMessage(response, data, "Unable to load Bouncie credentials")
-      );
-    }
-    const credentials = data?.credentials || data || {};
+    const credentials = await fetchBouncieCredentialsShared(withSignal());
     const clientId = document.getElementById("clientId");
     const clientSecret = document.getElementById("clientSecret");
     const redirectUri = document.getElementById("redirectUri");
@@ -351,7 +339,7 @@ async function handleCredentialsContinue() {
     if (missing.includes("authorized_devices")) {
       showStatus(
         "credentials-status",
-        "You can sync vehicles later from your profile.",
+        "You can sync vehicles later from Settings > Credentials.",
         false
       );
     }
@@ -362,7 +350,7 @@ async function handleCredentialsContinue() {
   if (missing.includes("authorized_devices")) {
     showStatus(
       "credentials-status",
-      "You can sync vehicles later from your profile.",
+      "You can sync vehicles later from Settings > Credentials.",
       false
     );
   }
@@ -396,20 +384,7 @@ async function saveBouncieCredentials() {
   }
   try {
     showStatus("credentials-status", "Saving credentials...", false);
-    const response = await apiClient.raw(
-      `${PROFILE_API}/bouncie-credentials`,
-      withSignal({
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      })
-    );
-    const data = await readJsonResponse(response);
-    if (!response.ok) {
-      throw new Error(
-        responseErrorMessage(response, data, "Failed to save credentials")
-      );
-    }
+    const data = await saveBouncieCredentialsShared(payload, withSignal());
     showStatus("credentials-status", data?.message || "Credentials saved.", false);
     return true;
   } catch (error) {
@@ -425,18 +400,7 @@ async function saveMapboxSettings() {
     return false;
   }
   try {
-    const response = await apiClient.raw(
-      APP_SETTINGS_API,
-      withSignal({
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mapbox_token: token }),
-      })
-    );
-    const data = await readJsonResponse(response);
-    if (!response.ok) {
-      throw new Error(responseErrorMessage(response, data, "Failed to save settings"));
-    }
+    await saveMapboxToken(token, withSignal());
     showStatus("credentials-status", "Mapbox settings saved.", false);
     return true;
   } catch (error) {

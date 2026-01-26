@@ -22,6 +22,16 @@ let pageSignal = null;
 onPageLoad(
   ({ signal, cleanup } = {}) => {
     pageSignal = signal || null;
+    const hasCredentialsForm = Boolean(document.getElementById("bouncieCredentialsForm"));
+    if (!hasCredentialsForm) {
+      if (typeof cleanup === "function") {
+        cleanup(() => {
+          pageSignal = null;
+        });
+      }
+      return;
+    }
+
     initializeEventListeners(signal);
     initServiceConfigForm(signal);
     applyEditorStateUI();

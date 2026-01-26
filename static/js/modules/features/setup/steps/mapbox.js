@@ -1,5 +1,7 @@
+import { isValidMapboxToken as isValidMapboxTokenShared } from "../../../settings/credentials.js";
+
 export function isValidMapboxToken(token) {
-  return Boolean(token?.startsWith("pk.") && token.length >= 20);
+  return isValidMapboxTokenShared(token);
 }
 
 export function renderMapPreview({ token, onError, containerId = "mapbox-preview" }) {

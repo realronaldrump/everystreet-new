@@ -20,7 +20,7 @@ async def get_bouncie_credentials() -> dict[str, Any]:
     Retrieve Bouncie credentials from database.
 
     This is a single-user app. All credentials are stored in MongoDB and
-    configured via profile page. No environment variable fallbacks.
+    configured via Settings. No environment variable fallbacks.
 
     Returns:
         Dictionary containing:
@@ -85,7 +85,7 @@ async def get_bouncie_credentials() -> dict[str, Any]:
         }
 
     logger.warning(
-        "No Bouncie credentials found in database. Please configure via profile page.",
+        "No Bouncie credentials found in database. Please configure via Settings.",
     )
     return default_credentials
 

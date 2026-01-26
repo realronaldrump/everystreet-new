@@ -42,9 +42,13 @@ Settings
           <i class="fas fa-sliders-h"></i>
           <span>Preferences</span>
         </button>
+        <button class="settings-tab" data-tab="credentials" role="tab" aria-selected="false" aria-controls="credentials-tab">
+          <i class="fas fa-key"></i>
+          <span>Credentials</span>
+        </button>
         <button class="settings-tab" data-tab="sync-settings" role="tab" aria-selected="false" aria-controls="sync-settings-tab">
           <i class="fas fa-sync"></i>
-          <span>Bouncie</span>
+          <span>Sync</span>
         </button>
         <button class="settings-tab" data-tab="data-management" role="tab" aria-selected="false" aria-controls="data-management-tab">
           <i class="fas fa-database"></i>
@@ -332,69 +336,121 @@ Map Match Trips on Fetch
       </div>
     </div>
 
-    <!-- Sync Settings Tab -->
-    <div class="settings-tab-content" id="sync-settings-tab">
+    <!-- Credentials Tab -->
+    <div class="settings-tab-content" id="credentials-tab">
       <div class="bento-grid" data-stagger>
-        <!-- Bouncie Credentials Section -->
         <div class="settings-group bento-span-12">
           <h3 class="settings-group-title">
             <i class="fas fa-key"></i>
+            Credentials
+          </h3>
+          <p class="text-muted small">
+            Manage Mapbox and Bouncie credentials in one place.
+          </p>
+        </div>
+
+        <div class="settings-group bento-span-12">
+          <h3 class="settings-group-title">
+            <i class="fas fa-plug"></i>
             Bouncie Credentials
           </h3>
           <p class="text-muted small">
             Configure your Bouncie API credentials for trip fetching.
           </p>
-          <form id="settings-bouncie-form">
+          <form id="credentials-bouncie-form">
             <div class="row">
               <div class="col-md-6 mb-3">
-                <label for="settings-clientId" class="form-label">
+                <label for="credentials-clientId" class="form-label">
 Client ID
                 </label>
                 <input type="text"
                        class="form-control"
-                       id="settings-clientId"
+                       id="credentials-clientId"
                        placeholder="Enter Client ID" />
               </div>
               <div class="col-md-6 mb-3">
-                <label for="settings-clientSecret" class="form-label">
+                <label for="credentials-clientSecret" class="form-label">
 Client Secret
                 </label>
                 <div class="input-group">
                   <input type="password"
                          class="form-control"
-                         id="settings-clientSecret"
+                         id="credentials-clientSecret"
                          placeholder="Enter Client Secret" />
                   <button class="btn btn-outline-secondary"
                           type="button"
-                          id="settings-toggleClientSecret">
+                          id="credentials-toggle-client-secret">
                     <i class="fas fa-eye"></i>
                   </button>
                 </div>
               </div>
               <div class="col-12 mb-3">
-                <label for="settings-redirectUri" class="form-label">
+                <label for="credentials-redirectUri" class="form-label">
 Redirect URI
                 </label>
                 <input type="url"
                        class="form-control"
-                       id="settings-redirectUri"
+                       id="credentials-redirectUri"
                        placeholder="https://your-domain.com/api/bouncie/callback" />
               </div>
             </div>
-            <div class="d-flex justify-content-end gap-2">
+            <div class="d-flex justify-content-end gap-2 flex-wrap">
+              <button type="button"
+                      class="btn btn-outline-secondary"
+                      id="credentials-sync-vehicles-btn">
+                <i class="fas fa-sync"></i> Sync Vehicles
+              </button>
               <a href="/api/bouncie/authorize"
                  class="btn btn-outline-primary"
-                 id="settings-connectBouncieBtn"
+                 id="credentials-connect-bouncie-btn"
                  data-es-no-spa>
                 <i class="fas fa-plug"></i> Connect/Authorize
               </a>
-              <button type="submit" class="btn btn-primary" id="settings-saveBouncieBtn">
+              <button type="submit" class="btn btn-primary" id="credentials-save-bouncie-btn">
                 <i class="fas fa-save"></i> Save Credentials
               </button>
             </div>
           </form>
         </div>
 
+        <div class="settings-group bento-span-12">
+          <h3 class="settings-group-title">
+            <i class="fas fa-globe"></i>
+            Mapbox Token
+          </h3>
+          <p class="text-muted small">
+            Required for map tiles and static imagery across the app.
+          </p>
+          <div class="mapbox-config-section">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <label for="mapbox-token-input" class="form-label mb-0 fw-bold">
+Mapbox Access Token
+              </label>
+              <button class="btn btn-sm btn-outline-primary" id="save-mapbox-token-btn" disabled>
+                <i class="fas fa-save"></i> Save Token
+              </button>
+            </div>
+            <div class="input-group">
+              <span class="input-group-text"><i class="fas fa-key"></i></span>
+              <input type="password"
+                     class="form-control"
+                     id="mapbox-token-input"
+                     placeholder="pk.eyJ..." />
+              <button class="btn btn-outline-secondary" type="button" id="toggle-mapbox-token">
+                <i class="fas fa-eye"></i>
+              </button>
+            </div>
+            <div class="form-text">
+              Changes take effect immediately after saving.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sync Settings Tab -->
+    <div class="settings-tab-content" id="sync-settings-tab">
+      <div class="bento-grid" data-stagger>
         <div class="settings-group bento-span-12">
           <h3 class="settings-group-title">
             <i class="fas fa-sync"></i>

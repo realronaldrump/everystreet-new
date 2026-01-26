@@ -574,6 +574,9 @@ onPageLoad(
         }
         const isOpen = containerSelectDropdown.classList.toggle("show");
         containerSelectBtn.setAttribute("aria-expanded", isOpen ? "true" : "false");
+        containerSelectBtn
+          .closest(".multi-select-container")
+          ?.classList.toggle("is-open", isOpen);
       });
     }
 
@@ -585,6 +588,9 @@ onPageLoad(
           if (containerSelectBtn) {
             containerSelectBtn.setAttribute("aria-expanded", "false");
           }
+          containerSelectDropdown
+            .closest(".multi-select-container")
+            ?.classList.remove("is-open");
         }
       }
     });
@@ -779,6 +785,7 @@ onPageLoad(
         }
       });
     }
+
 
     function getDockerLogLevel(message) {
       const lowerMessage = message.toLowerCase();

@@ -11,6 +11,7 @@ export function setupTabSwitching() {
   const TAB_STORAGE_KEY = "es:settings-active-tab";
   const LEGACY_TAB_MAP = {
     "background-tasks": "sync-settings",
+    bouncie: "credentials",
   };
 
   const normalizeTabName = (value) => {

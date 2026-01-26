@@ -765,6 +765,34 @@
   line-height: 1.5;
 }
 
+.map-services-credentials {
+  margin: var(--space-3) 0 var(--space-4);
+}
+
+.map-services-credentials-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-color);
+  background: var(--surface-1);
+}
+
+.map-services-credentials-copy {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.map-services-credentials-copy strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
 /* Service Indicators */
 .map-services-indicators {
   display: flex;
@@ -1021,5 +1049,12 @@
   .map-services-actions .action-buttons .btn {
     width: 100%;
     justify-content: center;
+  }
+}
+
+@media (max-width: 768px) {
+  .map-services-credentials-card {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }
