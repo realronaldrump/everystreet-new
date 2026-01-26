@@ -113,30 +113,37 @@ const dataManager = {
         }
         // Enhanced error logging for debugging
         console.group("Trip data validation failed");
-        console.error("The API returned data that could not be coerced into a FeatureCollection.");
+        console.error(
+          "The API returned data that could not be coerced into a FeatureCollection."
+        );
         console.info("Request URL:", `${CONFIG.API.trips}?${params}`);
         console.info("Data type:", typeof rawTripData);
         console.info("Data is null/undefined:", rawTripData == null);
 
         if (rawTripData == null) {
-             console.warn("Issue: Response was null or undefined - check network tab for actual response");
-        } else if (typeof rawTripData === 'object') {
-             console.info("Object keys:", Object.keys(rawTripData));
-             console.info("type property:", rawTripData?.type);
-             console.info("features property type:", typeof rawTripData?.features);
-             console.info("features is array:", Array.isArray(rawTripData?.features));
-             if (rawTripData?.features && !Array.isArray(rawTripData.features)) {
-                 console.warn("Issue: 'features' property exists but is not an array:", rawTripData.features);
-             }
-             if (!rawTripData?.type) {
-                 console.warn("Issue: Missing 'type' property");
-             }
-             console.dir(rawTripData);
-        } else if (typeof rawTripData === 'string') {
-             console.warn("Issue: Response is a string, not parsed JSON");
-             console.log("String content (first 500 chars):", rawTripData.slice(0, 500));
+          console.warn(
+            "Issue: Response was null or undefined - check network tab for actual response"
+          );
+        } else if (typeof rawTripData === "object") {
+          console.info("Object keys:", Object.keys(rawTripData));
+          console.info("type property:", rawTripData?.type);
+          console.info("features property type:", typeof rawTripData?.features);
+          console.info("features is array:", Array.isArray(rawTripData?.features));
+          if (rawTripData?.features && !Array.isArray(rawTripData.features)) {
+            console.warn(
+              "Issue: 'features' property exists but is not an array:",
+              rawTripData.features
+            );
+          }
+          if (!rawTripData?.type) {
+            console.warn("Issue: Missing 'type' property");
+          }
+          console.dir(rawTripData);
+        } else if (typeof rawTripData === "string") {
+          console.warn("Issue: Response is a string, not parsed JSON");
+          console.log("String content (first 500 chars):", rawTripData.slice(0, 500));
         } else {
-             console.log("Raw output:", rawTripData);
+          console.log("Raw output:", rawTripData);
         }
         console.groupEnd();
 
@@ -260,9 +267,7 @@ const dataManager = {
    */
   _normalizeLayerName(layerName) {
     const rawName
-      = typeof layerName === "string"
-        ? layerName.trim()
-        : String(layerName ?? "").trim();
+      = typeof layerName === "string" ? layerName.trim() : String(layerName ?? "").trim();
     if (!rawName) {
       return "";
     }
@@ -278,8 +283,7 @@ const dataManager = {
       return directMatch;
     }
 
-    const normalizedKey = (value) =>
-      value.toLowerCase().replace(/[^a-z0-9]/g, "");
+    const normalizedKey = (value) => value.toLowerCase().replace(/[^a-z0-9]/g, "");
     const cleanedName = rawName.replace(/[-_ ]*layer(?:[-_ ]*\d+)?$/i, "").trim();
     const cleanedKey = normalizedKey(cleanedName || rawName);
 
@@ -578,12 +582,15 @@ const dataManager = {
         await this.fetchAllStreets();
         break;
       default:
-        console.warn(`Unknown layer data requested: "${normalizedLayerName || layerName}"`, {
-          type: typeof layerName,
-          value: layerName,
-          normalized: normalizedLayerName,
-          stack: new Error().stack,
-        });
+        console.warn(
+          `Unknown layer data requested: "${normalizedLayerName || layerName}"`,
+          {
+            type: typeof layerName,
+            value: layerName,
+            normalized: normalizedLayerName,
+            stack: new Error().stack,
+          }
+        );
     }
   },
 };

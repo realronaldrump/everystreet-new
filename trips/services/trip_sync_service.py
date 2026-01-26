@@ -159,7 +159,11 @@ class TripSyncService:
             )
             return status_payload
 
-        if last_auth_error in {"auth_invalid", "token_exchange_failed", "redirect_uri_mismatch"}:
+        if last_auth_error in {
+            "auth_invalid",
+            "token_exchange_failed",
+            "redirect_uri_mismatch",
+        }:
             status_payload.update(
                 {
                     "state": "paused",

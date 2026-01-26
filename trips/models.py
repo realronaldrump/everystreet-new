@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import BaseModel, ConfigDict
 
-
-from datetime import datetime
+if TYPE_CHECKING:
+    from datetime import datetime
 
 
 class TripUpdateRequest(BaseModel):

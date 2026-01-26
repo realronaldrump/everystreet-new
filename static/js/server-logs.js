@@ -786,7 +786,6 @@ onPageLoad(
       });
     }
 
-
     function getDockerLogLevel(message) {
       const lowerMessage = message.toLowerCase();
 

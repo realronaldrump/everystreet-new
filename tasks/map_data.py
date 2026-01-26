@@ -7,7 +7,6 @@ import contextlib
 import logging
 import os
 import shutil
-import subprocess
 import time
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta

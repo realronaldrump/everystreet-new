@@ -55,7 +55,9 @@ class BouncieOAuth:
         if success:
             current_credentials["last_auth_error"] = code
             current_credentials["last_auth_error_detail"] = detail
-            current_credentials["last_auth_error_at"] = update_data["last_auth_error_at"]
+            current_credentials["last_auth_error_at"] = update_data[
+                "last_auth_error_at"
+            ]
 
     @staticmethod
     @retry_async(max_retries=3, retry_delay=1.5)
@@ -268,7 +270,9 @@ class BouncieOAuth:
             current_credentials["expires_at"] = None
             current_credentials["last_auth_error"] = "auth_invalid"
             current_credentials["last_auth_error_detail"] = reason
-            current_credentials["last_auth_error_at"] = update_data["last_auth_error_at"]
+            current_credentials["last_auth_error_at"] = update_data[
+                "last_auth_error_at"
+            ]
         message = "Cleared stored authorization code after invalid_grant"
         if reason:
             message = f"{message}: {reason}"

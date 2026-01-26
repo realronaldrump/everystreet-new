@@ -108,7 +108,7 @@ def build_calendar_date_expr(
                         "$regexMatch": {
                             "input": "$timeZone",
                             "regex": r"^[a-zA-Z_]+/[a-zA-Z0-9_+\-]+$|^UTC$|^GMT$",
-                        }
+                        },
                     },
                     "then": "$timeZone",
                 },

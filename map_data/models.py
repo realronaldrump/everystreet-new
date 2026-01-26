@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from typing import ClassVar
+from typing import TYPE_CHECKING, ClassVar
 
 from beanie import Document
 from pydantic import ConfigDict, Field
 
-
-from datetime import datetime
+if TYPE_CHECKING:
+    from datetime import datetime
 
 
 class MapServiceConfig(Document):

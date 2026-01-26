@@ -330,7 +330,7 @@ async def build_nominatim_data(
 
         # Drop existing database if it exists (to ensure clean import)
         logger.info(
-            "Ensuring clean state: Dropping existing 'nominatim' database if present..."
+            "Ensuring clean state: Dropping existing 'nominatim' database if present...",
         )
         drop_cmd = [
             "docker",

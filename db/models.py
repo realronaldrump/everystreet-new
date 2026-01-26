@@ -232,8 +232,6 @@ class Trip(Document):
     model_config = ConfigDict(extra="allow")
 
 
-
-
 class OsmData(Document):
     """OSM data cache document."""
 

@@ -151,7 +151,9 @@ class TripProcessor:
         )
 
     async def process(
-        self, do_map_match: bool = True, do_geocode: bool = True
+        self,
+        do_map_match: bool = True,
+        do_geocode: bool = True,
     ) -> dict[str, Any]:
         """
         Process the trip through all appropriate stages based on current state.

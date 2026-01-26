@@ -22,7 +22,9 @@ let pageSignal = null;
 onPageLoad(
   ({ signal, cleanup } = {}) => {
     pageSignal = signal || null;
-    const hasCredentialsForm = Boolean(document.getElementById("bouncieCredentialsForm"));
+    const hasCredentialsForm = Boolean(
+      document.getElementById("bouncieCredentialsForm")
+    );
     if (!hasCredentialsForm) {
       if (typeof cleanup === "function") {
         cleanup(() => {
@@ -257,7 +259,7 @@ function validateDraftValues(values) {
     return "Enter a valid redirect URL.";
   }
 
-  const devices = values.authorized_devices.filter((val) => val.length > 0);
+  const _devices = values.authorized_devices.filter((val) => val.length > 0);
 
   if (values.fetch_concurrency < 1 || values.fetch_concurrency > 50) {
     return "Fetch concurrency must be between 1 and 50.";

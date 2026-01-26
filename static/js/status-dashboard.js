@@ -3,9 +3,12 @@
 import apiClient from "./modules/core/api-client.js";
 import notificationManager from "./modules/ui/notifications.js";
 import { escapeHtml, formatDateTime, onPageLoad } from "./modules/utils.js";
-import mapServices from "./settings/map-services.js";
 import { setupManualFetchTripsForm } from "./settings/geocode-remap.js";
-import { gatherTaskConfigFromUI, submitTaskConfigUpdate } from "./settings/task-manager/api.js";
+import mapServices from "./settings/map-services.js";
+import {
+  gatherTaskConfigFromUI,
+  submitTaskConfigUpdate,
+} from "./settings/task-manager/api.js";
 import { showTaskDetails } from "./settings/task-manager/modals.js";
 import { TaskManager } from "./settings/task-manager/task-manager.js";
 
@@ -60,30 +63,30 @@ function initialize() {
     .getElementById("status-refresh-btn")
     ?.addEventListener("click", () => loadAll(true));
 
-  document.getElementById("quick-refresh-services")?.addEventListener("click", () =>
-    loadStatus(true)
-  );
-
-  document.getElementById("quick-run-all")?.addEventListener("click", () =>
-    runAllTasks()
-  );
+  document
+    .getElementById("quick-refresh-services")
+    ?.addEventListener("click", () => loadStatus(true));
 
   document
-    .getElementById("quick-open-setup")
-    ?.addEventListener("click", () => {
-      window.location.href = "/setup-wizard";
-    });
+    .getElementById("quick-run-all")
+    ?.addEventListener("click", () => runAllTasks());
+
+  document.getElementById("quick-open-setup")?.addEventListener("click", () => {
+    window.location.href = "/setup-wizard";
+  });
 
   document.querySelectorAll(".restart-service-btn").forEach((btn) => {
     btn.addEventListener("click", (event) => {
-      const service = event.currentTarget.dataset.service;
-      if (service) restartService(service);
+      const { service } = event.currentTarget.dataset;
+      if (service) {
+        restartService(service);
+      }
     });
   });
 
   document.querySelectorAll(".view-logs-btn").forEach((btn) => {
     btn.addEventListener("click", (event) => {
-      const service = event.currentTarget.dataset.service;
+      const { service } = event.currentTarget.dataset;
       if (service) {
         const select = document.getElementById("service-log-select");
         if (select) {
@@ -98,25 +101,21 @@ function initialize() {
     });
   });
 
-  document.getElementById("refresh-app-logs")?.addEventListener("click", () =>
-    loadAppLogs(true)
-  );
   document
-    .getElementById("refresh-service-logs")
-    ?.addEventListener("click", () => {
-      const service = document.getElementById("service-log-select")?.value;
-      if (service) {
-        loadServiceLogs(service);
-      }
-    });
-  document
-    .getElementById("refresh-container-logs")
-    ?.addEventListener("click", () => {
-      const container = document.getElementById("container-log-select")?.value;
-      if (container) {
-        loadContainerLogs(container);
-      }
-    });
+    .getElementById("refresh-app-logs")
+    ?.addEventListener("click", () => loadAppLogs(true));
+  document.getElementById("refresh-service-logs")?.addEventListener("click", () => {
+    const service = document.getElementById("service-log-select")?.value;
+    if (service) {
+      loadServiceLogs(service);
+    }
+  });
+  document.getElementById("refresh-container-logs")?.addEventListener("click", () => {
+    const container = document.getElementById("container-log-select")?.value;
+    if (container) {
+      loadContainerLogs(container);
+    }
+  });
 
   document.getElementById("service-log-select")?.addEventListener("change", (e) => {
     const service = e.target.value;
@@ -125,36 +124,34 @@ function initialize() {
     }
   });
 
-  document
-    .getElementById("container-log-select")
-    ?.addEventListener("change", (e) => {
-      const container = e.target.value;
-      if (container) {
-        loadContainerLogs(container);
-      }
-    });
+  document.getElementById("container-log-select")?.addEventListener("change", (e) => {
+    const container = e.target.value;
+    if (container) {
+      loadContainerLogs(container);
+    }
+  });
 
-  document.getElementById("pauseTasksBtn")?.addEventListener("click", () =>
-    pauseTasks()
-  );
-  document.getElementById("resumeTasksBtn")?.addEventListener("click", () =>
-    resumeTasks()
-  );
-  document.getElementById("stopAllTasksBtn")?.addEventListener("click", () =>
-    stopAllTasks()
-  );
-  document.getElementById("runAllTasksBtn")?.addEventListener("click", () =>
-    runAllTasks()
-  );
-  document.getElementById("resetTasksBtn")?.addEventListener("click", () =>
-    resetTasks()
-  );
-  document.getElementById("saveTaskConfigBtn")?.addEventListener("click", () =>
-    saveTaskConfig()
-  );
-  document.getElementById("clearHistoryBtn")?.addEventListener("click", () =>
-    clearTaskHistory()
-  );
+  document
+    .getElementById("pauseTasksBtn")
+    ?.addEventListener("click", () => pauseTasks());
+  document
+    .getElementById("resumeTasksBtn")
+    ?.addEventListener("click", () => resumeTasks());
+  document
+    .getElementById("stopAllTasksBtn")
+    ?.addEventListener("click", () => stopAllTasks());
+  document
+    .getElementById("runAllTasksBtn")
+    ?.addEventListener("click", () => runAllTasks());
+  document
+    .getElementById("resetTasksBtn")
+    ?.addEventListener("click", () => resetTasks());
+  document
+    .getElementById("saveTaskConfigBtn")
+    ?.addEventListener("click", () => saveTaskConfig());
+  document
+    .getElementById("clearHistoryBtn")
+    ?.addEventListener("click", () => clearTaskHistory());
 
   document.getElementById("globalDisableSwitch")?.addEventListener("change", (e) => {
     if (e.target.checked) {
@@ -185,7 +182,7 @@ function initialize() {
   if (taskDetailsModal) {
     const runBtn = taskDetailsModal.querySelector(".run-task-btn");
     runBtn?.addEventListener("click", async (event) => {
-      const taskId = event.currentTarget.dataset.taskId;
+      const { taskId } = event.currentTarget.dataset;
       if (taskId) {
         await taskManager?.runTask(taskId);
         bootstrap.Modal.getInstance(taskDetailsModal)?.hide();
@@ -193,9 +190,9 @@ function initialize() {
     });
   }
 
-  document.getElementById("fetchAllMissingBtn")?.addEventListener("click", () =>
-    fetchAllMissingTrips()
-  );
+  document
+    .getElementById("fetchAllMissingBtn")
+    ?.addEventListener("click", () => fetchAllMissingTrips());
 
   taskManager = new TaskManager();
   setupManualFetchTripsForm(taskManager);
@@ -241,7 +238,7 @@ async function loadStatus(isManual = false) {
     updateService("bouncie", data.services?.bouncie);
     updateActivityList(data.recent_errors || []);
     updateLastUpdated(data.overall?.last_updated);
-  } catch (error) {
+  } catch (_error) {
     if (isManual) {
       notificationManager.show("Failed to refresh system status.", "warning");
     }
@@ -249,7 +246,9 @@ async function loadStatus(isManual = false) {
 }
 
 function updateOverview(data) {
-  if (!data) return;
+  if (!data) {
+    return;
+  }
 
   const overall = data.overall || {};
   const overallBadge = document.getElementById("overall-status-badge");
@@ -268,7 +267,8 @@ function updateOverview(data) {
   }
 
   if (overallDetail) {
-    overallDetail.textContent = overall.detail || "Monitor services and tasks in real time.";
+    overallDetail.textContent
+      = overall.detail || "Monitor services and tasks in real time.";
   }
 
   const tasksSummary = data.tasks?.summary || {};
@@ -323,13 +323,17 @@ function updateOverview(data) {
 }
 
 function updateService(key, data) {
-  if (!data) return;
+  if (!data) {
+    return;
+  }
 
   const badge = document.getElementById(`${key}-status-badge`);
   const message = document.getElementById(`${key}-status-message`);
   const detail = document.getElementById(`${key}-status-detail`);
 
-  if (!badge || !message) return;
+  if (!badge || !message) {
+    return;
+  }
 
   const status = data.status || "warning";
   const statusColor = STATUS_CLASS[status] || "secondary";
@@ -347,11 +351,13 @@ function updateService(key, data) {
 
 function updateActivityList(errors) {
   const list = document.getElementById("recent-activity-list");
-  if (!list) return;
+  if (!list) {
+    return;
+  }
 
   if (!errors || errors.length === 0) {
-    list.innerHTML =
-      '<div class="list-group-item bg-transparent text-muted small fst-italic py-3">No recent errors or warnings.</div>';
+    list.innerHTML
+      = '<div class="list-group-item bg-transparent text-muted small fst-italic py-3">No recent errors or warnings.</div>';
     return;
   }
 
@@ -380,7 +386,9 @@ function updateActivityList(errors) {
 
 function updatePlaybooks(data) {
   const container = document.getElementById("playbook-list");
-  if (!container) return;
+  if (!container) {
+    return;
+  }
 
   const playbooks = [];
   const services = data?.services || {};
@@ -426,12 +434,19 @@ function updatePlaybooks(data) {
     });
   }
 
-  if (mapConfig?.last_error || mapConfig?.status === "error" || mapConfig?.status === "not_configured") {
+  if (
+    mapConfig?.last_error
+    || mapConfig?.status === "error"
+    || mapConfig?.status === "not_configured"
+  ) {
     playbooks.push({
       title: "Map services incomplete",
       body: "Map data needs provisioning or retry.",
       actions: [
-        { label: "Open Map Services", action: () => scrollToSection("map-services-content") },
+        {
+          label: "Open Map Services",
+          action: () => scrollToSection("map-services-content"),
+        },
       ],
     });
   }
@@ -440,13 +455,18 @@ function updatePlaybooks(data) {
     playbooks.push({
       title: "Tasks failing",
       body: "Recent tasks failed. Inspect task history and retry after fixes.",
-      actions: [{ label: "View Task History", action: () => scrollToSection("taskHistoryTable") }],
+      actions: [
+        {
+          label: "View Task History",
+          action: () => scrollToSection("taskHistoryTable"),
+        },
+      ],
     });
   }
 
   if (playbooks.length === 0) {
-    container.innerHTML =
-      '<div class="text-muted small">All systems look steady. No active playbooks.</div>';
+    container.innerHTML
+      = '<div class="text-muted small">All systems look steady. No active playbooks.</div>';
     return;
   }
 
@@ -482,7 +502,9 @@ function updatePlaybooks(data) {
 
 async function loadAppLogs(showSpinner = false) {
   const output = document.getElementById("app-log-output");
-  if (!output) return;
+  if (!output) {
+    return;
+  }
 
   const level = document.getElementById("app-log-level")?.value || "";
   const search = document.getElementById("app-log-search")?.value || "";
@@ -493,10 +515,18 @@ async function loadAppLogs(showSpinner = false) {
 
   try {
     const query = new URLSearchParams({ limit: "200" });
-    if (level) query.set("level", level);
-    if (search) query.set("search", search);
-    const data = await apiClient.get(`${SERVER_LOGS_API}?${query.toString()}`, withSignal());
-    const lines = data.logs?.map((log) => `[${log.timestamp}] ${log.level}: ${log.message}`) || [];
+    if (level) {
+      query.set("level", level);
+    }
+    if (search) {
+      query.set("search", search);
+    }
+    const data = await apiClient.get(
+      `${SERVER_LOGS_API}?${query.toString()}`,
+      withSignal()
+    );
+    const lines
+      = data.logs?.map((log) => `[${log.timestamp}] ${log.level}: ${log.message}`) || [];
     output.textContent = lines.join("\n") || "No logs found.";
   } catch (error) {
     output.textContent = `Failed to load logs: ${error.message}`;
@@ -505,10 +535,15 @@ async function loadAppLogs(showSpinner = false) {
 
 async function loadServiceLogs(serviceName) {
   const output = document.getElementById("service-log-output");
-  if (!output) return;
+  if (!output) {
+    return;
+  }
   output.textContent = "Loading logs...";
   try {
-    const data = await apiClient.get(`${LOGS_API_BASE}/${encodeURIComponent(serviceName)}`, withSignal());
+    const data = await apiClient.get(
+      `${LOGS_API_BASE}/${encodeURIComponent(serviceName)}`,
+      withSignal()
+    );
     output.textContent = data.logs || "No logs available.";
   } catch (error) {
     output.textContent = `Failed to load logs: ${error.message}`;
@@ -517,7 +552,9 @@ async function loadServiceLogs(serviceName) {
 
 async function loadContainerList() {
   const select = document.getElementById("container-log-select");
-  if (!select) return;
+  if (!select) {
+    return;
+  }
   try {
     const data = await apiClient.get(CONTAINER_LIST_API, withSignal());
     const containers = data.containers || [];
@@ -535,10 +572,15 @@ async function loadContainerList() {
 
 async function loadContainerLogs(containerName) {
   const output = document.getElementById("container-log-output");
-  if (!output) return;
+  if (!output) {
+    return;
+  }
   output.textContent = "Loading logs...";
   try {
-    const data = await apiClient.get(`${CONTAINER_LOGS_API}/${encodeURIComponent(containerName)}?tail=200`, withSignal());
+    const data = await apiClient.get(
+      `${CONTAINER_LOGS_API}/${encodeURIComponent(containerName)}?tail=200`,
+      withSignal()
+    );
     output.textContent = data.logs?.join("\n") || "No logs available.";
   } catch (error) {
     output.textContent = `Failed to load logs: ${error.message}`;
@@ -550,7 +592,11 @@ async function restartService(serviceName) {
     return;
   }
   try {
-    const data = await apiClient.post(`/api/services/${encodeURIComponent(serviceName)}/restart`, null, withSignal());
+    const data = await apiClient.post(
+      `/api/services/${encodeURIComponent(serviceName)}/restart`,
+      null,
+      withSignal()
+    );
     notificationManager.show(data?.message || `Restarted ${serviceName}.`, "success");
     await loadStatus(true);
   } catch (error) {
@@ -620,7 +666,9 @@ async function saveTaskConfig() {
 }
 
 async function clearTaskHistory() {
-  if (!taskManager) return;
+  if (!taskManager) {
+    return;
+  }
   await taskManager.clearTaskHistory();
 }
 

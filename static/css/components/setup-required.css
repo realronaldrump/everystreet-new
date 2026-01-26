@@ -26,11 +26,7 @@
 }
 
 .setup-required-card {
-  background: linear-gradient(
-    140deg,
-    rgb(var(--warning-rgb) / 16%),
-    rgb(var(--surface-rgb) / 80%)
-  );
+  background: linear-gradient(140deg, rgb(var(--warning-rgb) / 16%), rgb(var(--surface-rgb) / 80%));
   border: 1px solid rgb(var(--warning-rgb) / 30%);
   border-left: 4px solid rgb(var(--warning-rgb) / 80%);
   border-radius: var(--radius-xl);
@@ -145,7 +141,9 @@
   display: grid;
   place-items: center;
   cursor: pointer;
-  transition: color var(--transition-fast), border-color var(--transition-fast);
+  transition:
+    color var(--transition-fast),
+    border-color var(--transition-fast);
 }
 
 .setup-required-toggle:hover {
@@ -175,7 +173,7 @@
   border-color: rgb(var(--warning-rgb) / 65%);
 }
 
-@media (min-width: 900px) {
+@media (width >= 900px) {
   .setup-required-card {
     grid-template-columns: auto 1fr auto;
     align-items: center;
@@ -186,15 +184,14 @@
   }
 }
 
-@media (max-width: 899px) {
+@media (width <= 899px) {
   .setup-required-card {
     grid-template-columns: auto 1fr;
   }
 
   .setup-required-actions {
     grid-column: 1 / -1;
-    flex-direction: row;
-    flex-wrap: wrap;
+    flex-flow: row wrap;
     justify-content: space-between;
     align-items: center;
   }
@@ -204,7 +201,7 @@
   }
 }
 
-@media (max-width: 600px) {
+@media (width <= 600px) {
   .setup-required-card {
     grid-template-columns: 1fr;
   }

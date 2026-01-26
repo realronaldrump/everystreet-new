@@ -89,9 +89,10 @@ function renderChecklist(listEl, steps) {
     if (complete) {
       detail.textContent = "Complete";
     } else {
-      const missing = Array.isArray(step.missing) && step.missing.length
-        ? `Missing: ${step.missing.join(", ")}`
-        : meta.detail;
+      const missing
+        = Array.isArray(step.missing) && step.missing.length
+          ? `Missing: ${step.missing.join(", ")}`
+          : meta.detail;
       detail.textContent = missing;
     }
     text.appendChild(title);
@@ -144,7 +145,10 @@ function applyCollapsedState(modal, fab) {
     return;
   }
   toggle.setAttribute("aria-expanded", collapsed ? "false" : "true");
-  toggle.setAttribute("aria-label", collapsed ? "Expand setup modal" : "Minimize setup modal");
+  toggle.setAttribute(
+    "aria-label",
+    collapsed ? "Expand setup modal" : "Minimize setup modal"
+  );
   toggle.setAttribute("title", collapsed ? "Expand" : "Minimize");
   toggle.textContent = collapsed ? "+" : "-";
 }

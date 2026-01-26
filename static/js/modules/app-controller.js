@@ -168,7 +168,8 @@ const AppController = {
    * Initialize the application
    */
   async initialize() {
-    const isMapPage = Boolean(utils.getElement("map")) && !document.getElementById("visits-page");
+    const isMapPage
+      = Boolean(utils.getElement("map")) && !document.getElementById("visits-page");
     const mapLoading = isMapPage ? createMapLoadingHelper() : null;
 
     try {
@@ -223,7 +224,7 @@ const AppController = {
 
       // Ensure page state is correct
       this._ensurePageState();
-      
+
       state.appReady = true;
       document.dispatchEvent(new CustomEvent("appReady"));
       if (mapLoading) {

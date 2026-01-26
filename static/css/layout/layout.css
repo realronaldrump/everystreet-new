@@ -443,7 +443,9 @@ body.light-mode .live-tracking-panel-bg {
 }
 
 /* === Status Indicators === */
+
 /* Note: Main status-indicator styles are in features/map/controls.css */
+
 /* This provides fallback/simple status indicators for non-map contexts */
 .status-indicator-simple {
   display: inline-block;

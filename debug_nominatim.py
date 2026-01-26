@@ -52,7 +52,7 @@ async def start_container_on_demand(
 
     scenario_idx = 0
 
-    for cmd in compose_commands:
+    for _cmd in compose_commands:
         try:
             # consumes one scenario
             if scenario_idx >= len(mock_scenarios):
@@ -66,7 +66,7 @@ async def start_container_on_demand(
             # In real code: await asyncio.create_subprocess_exec(...)
 
             # Simulate communicate
-            stdout, stderr = (b"", stderr_bytes)
+            _stdout, stderr = (b"", stderr_bytes)
 
             error_msg = stderr.decode() if stderr else ""
 
@@ -92,7 +92,6 @@ async def start_container_on_demand(
             raise
 
     # Fallback logic
-    container_name = "nominatim"  # simplified
     logger.info("Fallback...")
 
     try:
@@ -102,7 +101,7 @@ async def start_container_on_demand(
             scenario_idx += 1
 
             # Simulate process
-            stdout, stderr = (b"", stderr_bytes)
+            _stdout, stderr = (b"", stderr_bytes)
 
             if rc == 0:
                 return True
@@ -117,9 +116,8 @@ async def start_container_on_demand(
         last_error = f"Fallback error: {e}"
 
     logger.error("Failed to start container %s: %s", service_name, last_error)
-    msg = f"Failed to start {service_name}: {last_error}"
+    return f"Failed to start {service_name}: {last_error}"
     # raise RuntimeError(msg)
-    return msg
 
 
 async def run_tests():

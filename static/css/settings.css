@@ -55,6 +55,7 @@
 
 .settings-tab i {
   font-size: var(--font-size-md);
+
   /* Slight opacity for icon when inactive */
   opacity: 0.8;
   transition: opacity 0.2s ease;
@@ -413,6 +414,7 @@
   /* Tab Navigation Mobile Adjustments */
   .settings-tabs {
     gap: var(--space-2);
+
     /* Ensure scroll container doesn't get messed up */
     padding-bottom: 0;
   }
@@ -1052,7 +1054,7 @@
   }
 }
 
-@media (max-width: 768px) {
+@media (width <= 768px) {
   .map-services-credentials-card {
     flex-direction: column;
     align-items: flex-start;

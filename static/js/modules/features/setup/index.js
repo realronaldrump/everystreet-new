@@ -1,5 +1,11 @@
 /* global mapboxgl */
 import apiClient from "../../core/api-client.js";
+import {
+  fetchBouncieCredentials as fetchBouncieCredentialsShared,
+  fetchMapboxToken,
+  saveBouncieCredentials as saveBouncieCredentialsShared,
+  saveMapboxToken,
+} from "../../settings/credentials.js";
 import notificationManager from "../../ui/notifications.js";
 import { onPageLoad } from "../../utils.js";
 import { getBouncieFormValues } from "./steps/bouncie.js";
@@ -8,12 +14,6 @@ import {
   isValidMapboxToken,
   renderMapPreview,
 } from "./steps/mapbox.js";
-import {
-  fetchBouncieCredentials as fetchBouncieCredentialsShared,
-  fetchMapboxToken,
-  saveBouncieCredentials as saveBouncieCredentialsShared,
-  saveMapboxToken,
-} from "../../settings/credentials.js";
 import { readJsonResponse, responseErrorMessage } from "./validation.js";
 
 const SETUP_STATUS_API = "/api/setup/status";
@@ -29,7 +29,7 @@ let stateCatalog = null;
 let selectedStates = new Set();
 let pollingTimer = null;
 let currentStep = 0;
-let coverageView = "select";
+let _coverageView = "select";
 let mapSetupInFlight = false;
 
 onPageLoad(
@@ -662,7 +662,7 @@ function updateCoverageLists() {
 }
 
 function updateCoverageView(view) {
-  coverageView = view;
+  _coverageView = view;
   document.querySelectorAll(".setup-coverage-view").forEach((panel) => {
     panel.classList.toggle("is-active", panel.dataset.coverageView === view);
   });
@@ -802,8 +802,7 @@ function updateMapCoverageUI() {
       : "not configured";
   }
 
-  const running
-    = status?.status === "downloading" || status?.status === "building";
+  const running = status?.status === "downloading" || status?.status === "building";
   const ready = status?.status === "ready";
   if (running || ready) {
     updateCoverageView("run");

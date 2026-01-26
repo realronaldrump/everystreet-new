@@ -113,7 +113,7 @@ async def write_gpx_tracks(
         segment = gpxpy.gpx.GPXTrackSegment()
         timestamps = track_data.get("timestamps") or []
         for idx, coord in enumerate(coords):
-            if not isinstance(coord, (list, tuple)) or len(coord) < 2:
+            if not isinstance(coord, list | tuple) or len(coord) < 2:
                 continue
             try:
                 lon = float(coord[0])

@@ -1,5 +1,4 @@
 import apiClient from "../modules/core/api-client.js";
-import notificationManager from "../modules/ui/notifications.js";
 import {
   fetchBouncieCredentials,
   fetchMapboxToken,
@@ -8,6 +7,7 @@ import {
   saveMapboxToken,
   syncBouncieVehicles,
 } from "../modules/settings/credentials.js";
+import notificationManager from "../modules/ui/notifications.js";
 
 const BOUNCIE_AUTHORIZE_URL = "/api/bouncie/authorize";
 const BOUNCIE_REDIRECT_URI_API = "/api/bouncie/redirect-uri";
@@ -91,15 +91,20 @@ async function setupBouncieCredentials({ signal } = {}) {
       secretInput.value = creds.client_secret || "";
     }
     if (redirectUri) {
-      redirectUri.value = creds.redirect_uri || (await getExpectedRedirectUri({ signal }));
+      redirectUri.value
+        = creds.redirect_uri || (await getExpectedRedirectUri({ signal }));
     }
   } catch (error) {
-    notificationManager.show(`Failed to load Bouncie credentials: ${error.message}`, "danger");
+    notificationManager.show(
+      `Failed to load Bouncie credentials: ${error.message}`,
+      "danger"
+    );
   }
 
   if (toggleBtn && secretInput) {
     toggleBtn.addEventListener("click", () => {
-      const type = secretInput.getAttribute("type") === "password" ? "text" : "password";
+      const type
+        = secretInput.getAttribute("type") === "password" ? "text" : "password";
       secretInput.setAttribute("type", type);
       toggleBtn.querySelector("i")?.classList.toggle("fa-eye");
       toggleBtn.querySelector("i")?.classList.toggle("fa-eye-slash");

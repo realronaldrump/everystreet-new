@@ -70,7 +70,7 @@ async def get_matched_trips(request: Request):
                     duration = (et - st).total_seconds() if st and et else None
 
                     matched_geom = GeometryService.parse_geojson(
-                        trip_dict.get("matchedGps")
+                        trip_dict.get("matchedGps"),
                     )
                     # Skip trips without valid matched geometry
                     if not matched_geom or not matched_geom.get("coordinates"):
@@ -101,7 +101,9 @@ async def get_matched_trips(request: Request):
                         "matched_at": (
                             matched_at.isoformat()
                             if hasattr(matched_at, "isoformat")
-                            else str(matched_at) if matched_at else None
+                            else str(matched_at)
+                            if matched_at
+                            else None
                         ),
                     }
                     feature = GeometryService.feature_from_geometry(matched_geom, props)
@@ -159,7 +161,7 @@ async def get_trips(request: Request):
 
                     geom = GeometryService.parse_geojson(trip_dict.get("gps"))
                     matched_geom = GeometryService.parse_geojson(
-                        trip_dict.get("matchedGps")
+                        trip_dict.get("matchedGps"),
                     )
 
                     # Use matched geometry as the main feature geometry if requested

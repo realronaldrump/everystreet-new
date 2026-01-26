@@ -450,7 +450,7 @@ async def get_service_logs(service_name: str, tail: int = 100) -> dict[str, Any]
         if process.returncode != 0:
             # Fallback to simple docker logs if compose fails or container not found via compose
             # (Sometimes service names differ from container names)
-            cmd_fallback = [
+            [
                 "docker",
                 "logs",
                 "--tail",
@@ -489,7 +489,9 @@ async def trigger_task(task_name: str) -> dict[str, Any]:
 
     try:
         job = await enqueue_task(
-            task_name, manual_run=True, trigger_source="admin_dashboard"
+            task_name,
+            manual_run=True,
+            trigger_source="admin_dashboard",
         )
         return {
             "success": True,
@@ -499,7 +501,8 @@ async def trigger_task(task_name: str) -> dict[str, Any]:
     except Exception as exc:
         logger.exception("Failed to trigger task %s", task_name)
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
         )
 
 
@@ -535,8 +538,8 @@ __all__ = [
     "SetupService",
     "complete_setup",
     "get_service_health",
+    "get_service_logs",
     "get_setup_status",
     "restart_service",
-    "get_service_logs",
     "trigger_task",
 ]

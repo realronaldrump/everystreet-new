@@ -4,7 +4,7 @@
 .mapboxgl-ctrl-group {
   background: var(--glass-panel);
   backdrop-filter: blur(var(--blur-strong));
-  -webkit-backdrop-filter: blur(var(--blur-strong));
+  backdrop-filter: blur(var(--blur-strong));
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-glass-md);
   border: 1px solid var(--glass-border-medium);
@@ -104,7 +104,7 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
   border-radius: var(--radius-xl);
   background: var(--glass-panel);
   backdrop-filter: blur(var(--blur-strong));
-  -webkit-backdrop-filter: blur(var(--blur-strong));
+  backdrop-filter: blur(var(--blur-strong));
   border: 1px solid var(--glass-border-medium);
   box-shadow: var(--shadow-glass-lg);
   transition: all var(--transition-normal);

@@ -5,9 +5,9 @@ from typing import Any
 
 from fastapi import APIRouter
 
+from admin.services.admin_service import AdminService
 from core.api import api_route
 from core.repo_info import get_repo_version_info
-from admin.services.admin_service import AdminService
 from logs.routes.logs import list_docker_containers
 from map_data.services import get_map_services_status
 from setup.services.setup_service import SetupService
@@ -52,7 +52,9 @@ async def get_status_overview() -> dict[str, Any]:
         docker_detail = str(exc)
 
     bouncie_step = setup_status.get("steps", {}).get("bouncie", {})
-    integrations_summary = "Bouncie connected" if bouncie_step.get("complete") else "Bouncie needs setup"
+    integrations_summary = (
+        "Bouncie connected" if bouncie_step.get("complete") else "Bouncie needs setup"
+    )
 
     version_info = get_repo_version_info()
 
@@ -71,7 +73,9 @@ async def get_status_overview() -> dict[str, Any]:
                 "total": len(tasks),
                 "running": running_count,
                 "failed": failed_count,
-                "disabled": bool(tasks_snapshot.get("disabled")) if isinstance(tasks_snapshot, dict) else False,
+                "disabled": bool(tasks_snapshot.get("disabled"))
+                if isinstance(tasks_snapshot, dict)
+                else False,
             },
             "config": tasks_snapshot,
         },
@@ -79,7 +83,8 @@ async def get_status_overview() -> dict[str, Any]:
         "docker": {
             "available": docker_available,
             "container_count": container_count,
-            "detail": docker_detail or ("Docker online" if docker_available else "Docker unavailable"),
+            "detail": docker_detail
+            or ("Docker online" if docker_available else "Docker unavailable"),
         },
         "integrations": {
             "summary": integrations_summary,

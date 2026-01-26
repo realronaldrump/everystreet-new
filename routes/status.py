@@ -8,7 +8,7 @@ provides the logs endpoint.
 from __future__ import annotations
 
 import logging
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter
@@ -45,7 +45,7 @@ async def get_service_logs(service_name: str) -> dict[str, Any]:
         # Fallback to ServerLog - this only captures Python logs that go through the handler
         db_logs = (
             await ServerLog.find(
-                ServerLog.level != "DEBUG"  # Filter out debug noise
+                ServerLog.level != "DEBUG",  # Filter out debug noise
             )
             .sort("-timestamp")
             .limit(limit)

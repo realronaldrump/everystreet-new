@@ -56,7 +56,12 @@ async function refreshAutoStatus() {
     try {
       data = JSON.parse(text);
     } catch (parseError) {
-      console.error("[MapServices] Failed to parse auto-status response:", parseError, "Raw:", text);
+      console.error(
+        "[MapServices] Failed to parse auto-status response:",
+        parseError,
+        "Raw:",
+        text
+      );
       throw new Error("Invalid response from server");
     }
     if (!response.ok) {
@@ -307,13 +312,8 @@ function renderProgressSection(status) {
  * - "Check Status" (muted link): Manual status refresh - icon only, subtle
  */
 function renderActions(status) {
-  const {
-    is_building,
-    needs_provisioning,
-    last_error,
-    retry_count,
-    max_retries,
-  } = status;
+  const { is_building, needs_provisioning, last_error, retry_count, max_retries }
+    = status;
   const retryCap = typeof max_retries === "number" && max_retries > 0 ? max_retries : 3;
   const displayAttempt = Math.min(retry_count || 0, retryCap);
 

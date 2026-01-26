@@ -336,7 +336,11 @@ async def get_auto_provision_status() -> dict[str, Any]:
     - Service health
     - Any pending provisioning needs
     """
-    from map_data.services import MAX_RETRIES, check_container_status, check_service_health
+    from map_data.services import (
+        MAX_RETRIES,
+        check_container_status,
+        check_service_health,
+    )
 
     config = await MapServiceConfig.get_or_create()
     health = await check_service_health()

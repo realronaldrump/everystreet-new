@@ -121,10 +121,14 @@ export function onPageLoad(callback, options = {}) {
   };
 
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", () => {
-      // Small delay to allow store to init
-      setTimeout(run, 0);
-    }, { once: true });
+    document.addEventListener(
+      "DOMContentLoaded",
+      () => {
+        // Small delay to allow store to init
+        setTimeout(run, 0);
+      },
+      { once: true }
+    );
   } else {
     // Small delay to allow store to init
     setTimeout(run, 0);
