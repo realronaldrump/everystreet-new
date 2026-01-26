@@ -1316,7 +1316,6 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
 
   /* Hide mobile elements on desktop */
   .mobile-map-overlay,
-  .mobile-fab-container,
   .mobile-bottom-sheet,
   .mobile-sheet-handle,
   .mobile-sheet-backdrop {
@@ -1742,10 +1741,6 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
   .mobile-bottom-sheet {
     padding-bottom: calc(env(safe-area-inset-bottom) + var(--space-2));
   }
-
-  .mobile-fab-container {
-    bottom: calc(200px + env(safe-area-inset-bottom));
-  }
 }
 
 /* Expand hint in collapsed state */
@@ -1861,17 +1856,6 @@ body.light-mode .mobile-select {
 
 /* Very small devices */
 @media (width <= 375px) {
-  .mobile-fab {
-    width: 50px;
-    height: 50px;
-    font-size: var(--font-size-lg);
-  }
-
-  .mobile-fab.secondary {
-    width: 44px;
-    height: 44px;
-  }
-
   .mobile-metrics-grid {
     grid-template-columns: 1fr;
   }
