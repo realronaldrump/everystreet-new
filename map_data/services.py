@@ -490,12 +490,31 @@ async def get_map_services_status(force_refresh: bool = False) -> dict[str, Any]
                 config.last_updated.isoformat() if config.last_updated else None
             ),
         },
+        "build": {
+            "phase": progress.phase,
+            "phase_progress": progress.phase_progress,
+            "total_progress": progress.total_progress,
+            "started_at": (
+                progress.started_at.isoformat() if progress.started_at else None
+            ),
+            "last_progress_at": (
+                progress.last_progress_at.isoformat()
+                if progress.last_progress_at
+                else None
+            ),
+            "active_job_id": progress.active_job_id,
+        },
         "progress": {
             "phase": progress.phase,
             "phase_progress": progress.phase_progress,
             "total_progress": progress.total_progress,
             "started_at": (
                 progress.started_at.isoformat() if progress.started_at else None
+            ),
+            "last_progress_at": (
+                progress.last_progress_at.isoformat()
+                if progress.last_progress_at
+                else None
             ),
             "cancellation_requested": progress.cancellation_requested,
         },

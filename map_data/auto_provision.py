@@ -343,6 +343,7 @@ async def get_auto_provision_status() -> dict[str, Any]:
     )
 
     config = await MapServiceConfig.get_or_create()
+    progress = await MapBuildProgress.get_or_create()
     health = await check_service_health()
     nominatim_container = await check_container_status("nominatim")
     valhalla_container = await check_container_status("valhalla")
@@ -401,6 +402,20 @@ async def get_auto_provision_status() -> dict[str, Any]:
         "is_building": is_building,
         "progress": config.progress,
         "message": config.message,
+        "build": {
+            "phase": progress.phase,
+            "phase_progress": progress.phase_progress,
+            "total_progress": progress.total_progress,
+            "started_at": (
+                progress.started_at.isoformat() if progress.started_at else None
+            ),
+            "last_progress_at": (
+                progress.last_progress_at.isoformat()
+                if progress.last_progress_at
+                else None
+            ),
+            "active_job_id": progress.active_job_id,
+        },
         "configured_states": list(configured_states),
         "configured_state_names": configured_names,
         "configured_size_mb": configured_size,

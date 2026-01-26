@@ -178,6 +178,9 @@ function renderServicesStatus(status) {
   const services = status.services || {};
   const geocoding = services.geocoding || {};
   const routing = services.routing || {};
+  const build = status.build || {};
+  const phase = build.phase || status.status;
+  const phaseMessage = (status.message || "").trim();
   const isBuilding
     = status.is_building || status.status === "building" || status.status === "downloading";
 
@@ -194,8 +197,24 @@ function renderServicesStatus(status) {
 
   const geocodingError = !geocoding.ready && !isBuilding ? geocoding.error : null;
   const routingError = !routing.ready && !isBuilding ? routing.error : null;
-  const geocodingNote = !geocoding.ready && isBuilding ? "Building data..." : null;
-  const routingNote = !routing.ready && isBuilding ? "Building data..." : null;
+
+  let geocodingNote = null;
+  let routingNote = null;
+  if (isBuilding) {
+    if (phase === "building_geocoder") {
+      geocodingNote = phaseMessage || "Importing map data...";
+      routingNote = "Queued after geocoder";
+    } else if (phase === "building_router") {
+      geocodingNote = geocoding.ready ? "Ready" : "Geocoder ready";
+      routingNote = phaseMessage || "Building routing tiles...";
+    } else if (phase === "downloading") {
+      geocodingNote = "Downloading extracts...";
+      routingNote = "Downloading extracts...";
+    } else {
+      geocodingNote = "Preparing setup...";
+      routingNote = "Preparing setup...";
+    }
+  }
 
   return `
     <div class="map-services-indicators">
@@ -287,17 +306,55 @@ function renderProgressSection(status) {
     return "";
   }
 
-  const progress = Math.round(status.progress || 0);
+  const progress = clampNumber(status.progress || 0, 0, 100);
   const message = status.message || "Processing...";
+  const build = status.build || {};
+  const phase = build.phase || status.status || "building";
+  const phaseLabel = getBuildPhaseLabel(phase);
+  const phaseProgress = Number.isFinite(build.phase_progress)
+    ? clampNumber(build.phase_progress, 0, 100)
+    : null;
+  const phasePercent = phaseProgress === null ? "—" : `${Math.round(phaseProgress)}%`;
+  const startedAt = build.started_at;
+  const lastProgressAt = build.last_progress_at || status.last_updated;
+  const elapsed = startedAt ? formatDuration(Date.now() - Date.parse(startedAt)) : "—";
+  const lastUpdate = lastProgressAt ? timeAgo(lastProgressAt) : "—";
+  const isStale = lastProgressAt
+    ? Date.now() - Date.parse(lastProgressAt) > 90 * 1000
+    : false;
 
   return `
-    <div class="map-services-progress">
-      <div class="progress-bar-container">
-        <div class="progress-bar" style="width: ${progress}%"></div>
+    <div class="map-services-progress is-active">
+      <div class="progress-block">
+        <div class="progress-label">
+          <span>Overall Progress</span>
+          <span class="progress-percent">${Math.round(progress)}%</span>
+        </div>
+        <div class="progress-bar-container">
+          <div class="progress-bar" style="width: ${progress}%"></div>
+        </div>
       </div>
-      <div class="progress-info">
+      <div class="progress-block">
+        <div class="progress-label">
+          <span>${escapeHtml(phaseLabel)}</span>
+          <span class="progress-percent">${phasePercent}</span>
+        </div>
+        <div class="progress-bar-container is-secondary">
+          <div class="progress-bar ${
+            phaseProgress === null ? "is-indeterminate" : ""
+          }" style="width: ${phaseProgress === null ? 100 : phaseProgress}%"></div>
+        </div>
+      </div>
+      <div class="progress-meta">
+        <span class="meta-chip">Phase: ${escapeHtml(phaseLabel)}</span>
+        <span class="meta-chip">Elapsed: ${elapsed}</span>
+        <span class="meta-chip">Last update: ${lastUpdate}</span>
+      </div>
+      <div class="progress-status">
         <span class="progress-message">${escapeHtml(message)}</span>
-        <span class="progress-percent">${progress}%</span>
+        <span class="progress-activity ${isStale ? "is-stale" : ""}">
+          ${isStale ? "Working (quiet period)" : "Active"}
+        </span>
       </div>
     </div>
   `;
@@ -517,6 +574,74 @@ function truncate(str, maxLen) {
     return str;
   }
   return `${str.substring(0, maxLen)}...`;
+}
+
+function clampNumber(value, min, max) {
+  const numberValue = Number(value);
+  if (!Number.isFinite(numberValue)) {
+    return min;
+  }
+  return Math.min(Math.max(numberValue, min), max);
+}
+
+function getBuildPhaseLabel(phase) {
+  switch (phase) {
+    case "downloading":
+      return "Downloading map data";
+    case "building_geocoder":
+      return "Geocoder import";
+    case "building_router":
+      return "Routing tiles";
+    case "idle":
+      return "Preparing";
+    default:
+      return "In progress";
+  }
+}
+
+function formatDuration(ms) {
+  if (!Number.isFinite(ms) || ms <= 0) {
+    return "—";
+  }
+  const totalSeconds = Math.floor(ms / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  if (hours > 0) {
+    return `${hours}h ${minutes}m`;
+  }
+  if (minutes > 0) {
+    return `${minutes}m ${seconds}s`;
+  }
+  return `${seconds}s`;
+}
+
+function timeAgo(isoString) {
+  if (!isoString) {
+    return "—";
+  }
+  const timestamp = Date.parse(isoString);
+  if (!Number.isFinite(timestamp)) {
+    return "—";
+  }
+  const diffSeconds = Math.max(0, Math.floor((Date.now() - timestamp) / 1000));
+  if (diffSeconds < 10) {
+    return "just now";
+  }
+  if (diffSeconds < 60) {
+    return `${diffSeconds}s ago`;
+  }
+  const minutes = Math.floor(diffSeconds / 60);
+  if (minutes < 60) {
+    return `${minutes}m ago`;
+  }
+  const hours = Math.floor(minutes / 60);
+  const remMinutes = minutes % 60;
+  if (hours < 24) {
+    return `${hours}h ${remMinutes}m ago`;
+  }
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
 }
 
 /**

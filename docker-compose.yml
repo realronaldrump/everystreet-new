@@ -136,7 +136,7 @@ services:
   # Supports both amd64 and arm64 architectures
   # NOTE: Starts without data. Use the app's Map Data UI to download/import OSM extracts.
   nominatim:
-    image: mediagis/nominatim:4.4
+    image: mediagis/nominatim:5.2-2025-12-04T14-31
     restart: unless-stopped
     entrypoint: ['/bin/sh', '/app/nominatim-entrypoint.sh']
     environment:
@@ -145,7 +145,7 @@ services:
       IMPORT_STYLE: street
       THREADS: '4'
     volumes:
-      - nominatim_data:/var/lib/postgresql/14/main
+      - nominatim_data:/var/lib/postgresql/16/main
       - nominatim_flatnode:/nominatim/flatnode
       - osm_extracts:/nominatim/data
       - ./docker/nominatim-entrypoint.sh:/app/nominatim-entrypoint.sh:ro
@@ -175,7 +175,7 @@ services:
   # Supports both amd64 and arm64 architectures
   # NOTE: Starts without tiles. Use the app's Map Data UI to build tiles.
   valhalla:
-    image: ghcr.io/gis-ops/docker-valhalla/valhalla:3.5.1
+    image: ghcr.io/gis-ops/docker-valhalla/valhalla:latest
     user: '0:0'
     restart: unless-stopped
     entrypoint: ['/bin/sh', '/valhalla/valhalla-entrypoint.sh']

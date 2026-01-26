@@ -320,6 +320,9 @@ async def _build_nominatim(
     progress: MapBuildProgress,
 ) -> None:
     async def progress_callback(phase_progress: float, message: str) -> None:
+        detail = (message or "").strip() or "Import in progress..."
+        if not detail.lower().startswith(("geocoding:", "nominatim:", "geocoder:")):
+            detail = f"Geocoding: {detail}"
         overall = MERGE_PROGRESS_END + (phase_progress / 100.0) * (
             NOMINATIM_PROGRESS_END - MERGE_PROGRESS_END
         )
@@ -327,7 +330,7 @@ async def _build_nominatim(
             config,
             progress,
             status=MapServiceConfig.STATUS_BUILDING,
-            message="Setting up address lookup...",
+            message=detail,
             overall_progress=overall,
             phase=MapBuildProgress.PHASE_BUILDING_GEOCODER,
             phase_progress=phase_progress,
@@ -337,7 +340,7 @@ async def _build_nominatim(
         config,
         progress,
         status=MapServiceConfig.STATUS_BUILDING,
-        message="Setting up address lookup...",
+        message="Geocoding: Preparing import...",
         overall_progress=MERGE_PROGRESS_END,
         phase=MapBuildProgress.PHASE_BUILDING_GEOCODER,
         phase_progress=0.0,
@@ -355,6 +358,9 @@ async def _build_valhalla(
     progress: MapBuildProgress,
 ) -> None:
     async def progress_callback(phase_progress: float, message: str) -> None:
+        detail = (message or "").strip() or "Building tiles..."
+        if not detail.lower().startswith(("routing:", "valhalla:", "router:")):
+            detail = f"Routing: {detail}"
         overall = NOMINATIM_PROGRESS_END + (phase_progress / 100.0) * (
             VALHALLA_PROGRESS_END - NOMINATIM_PROGRESS_END
         )
@@ -362,7 +368,7 @@ async def _build_valhalla(
             config,
             progress,
             status=MapServiceConfig.STATUS_BUILDING,
-            message="Setting up route planning...",
+            message=detail,
             overall_progress=overall,
             phase=MapBuildProgress.PHASE_BUILDING_ROUTER,
             phase_progress=phase_progress,
@@ -372,7 +378,7 @@ async def _build_valhalla(
         config,
         progress,
         status=MapServiceConfig.STATUS_BUILDING,
-        message="Setting up route planning...",
+        message="Routing: Preparing tiles...",
         overall_progress=NOMINATIM_PROGRESS_END,
         phase=MapBuildProgress.PHASE_BUILDING_ROUTER,
         phase_progress=0.0,

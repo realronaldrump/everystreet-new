@@ -926,12 +926,53 @@
   border-radius: var(--radius-lg);
 }
 
+.map-services-progress.is-active .progress-bar {
+  position: relative;
+  overflow: hidden;
+}
+
+.map-services-progress.is-active .progress-bar::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    120deg,
+    transparent 0%,
+    rgb(var(--primary-rgb) / 25%) 45%,
+    rgb(var(--primary-rgb) / 45%) 55%,
+    transparent 100%
+  );
+  transform: translateX(-120%);
+  animation: map-services-progress-sheen 1.6s linear infinite;
+}
+
+.map-services-progress .progress-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.map-services-progress .progress-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
 .map-services-progress .progress-bar-container {
   height: 8px;
   background: var(--surface-3);
   border-radius: var(--radius-pill);
   overflow: hidden;
-  margin-bottom: var(--space-2);
+}
+
+.map-services-progress .progress-bar-container.is-secondary {
+  height: 6px;
+  background: rgb(var(--primary-rgb) / 12%);
 }
 
 .map-services-progress .progress-bar {
@@ -941,11 +982,15 @@
   transition: width 0.3s ease;
 }
 
-.map-services-progress .progress-info {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: var(--font-size-sm);
+.map-services-progress .progress-bar.is-indeterminate {
+  width: 100%;
+  background: linear-gradient(
+    90deg,
+    rgb(var(--primary-rgb) / 40%) 0%,
+    rgb(var(--primary-rgb) / 80%) 50%,
+    rgb(var(--primary-rgb) / 40%) 100%
+  );
+  animation: map-services-progress-indeterminate 1.3s ease-in-out infinite;
 }
 
 .map-services-progress .progress-message {
@@ -955,6 +1000,70 @@
 .map-services-progress .progress-percent {
   font-weight: var(--font-weight-semibold);
   color: var(--primary);
+}
+
+.map-services-progress .progress-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}
+
+.map-services-progress .meta-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--surface-3);
+  border: 1px solid var(--border-color);
+}
+
+.map-services-progress .progress-status {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: var(--font-size-sm);
+}
+
+.map-services-progress .progress-activity {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.map-services-progress .progress-activity.is-stale {
+  color: var(--warning);
+}
+
+@keyframes map-services-progress-sheen {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(120%);
+  }
+}
+
+@keyframes map-services-progress-indeterminate {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 0.85;
+  }
+}
+
+@media (min-width: 640px) {
+  .map-services-progress .progress-status {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
 }
 
 /* Actions */
