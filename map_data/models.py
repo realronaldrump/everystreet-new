@@ -118,6 +118,12 @@ class GeoServiceHealth(Document):
     class Settings:
         name = "geo_service_health"
 
+
+# Ensure forward references resolve correctly under Pydantic v2
+MapServiceConfig.model_rebuild()
+MapBuildProgress.model_rebuild()
+GeoServiceHealth.model_rebuild()
+
     model_config = ConfigDict(extra="allow")
 
     @property
