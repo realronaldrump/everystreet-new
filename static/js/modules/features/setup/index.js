@@ -24,6 +24,7 @@ let stateCatalog = null;
 let selectedStates = new Set();
 let pollingTimer = null;
 let currentStep = 0;
+let coverageView = "select";
 
 onPageLoad(
   ({ signal, cleanup } = {}) => {
@@ -59,6 +60,7 @@ async function initializeSetup() {
   handleBouncieRedirectParams();
   updateStepState();
   updateMapCoverageUI();
+  updateCoverageView("select");
 }
 
 function bindEvents() {
@@ -82,6 +84,43 @@ function bindEvents() {
   document
     .getElementById("finish-setup-btn")
     ?.addEventListener("click", completeSetupAndExit);
+
+  document.querySelectorAll(".setup-step-button").forEach((button) => {
+    button.addEventListener("click", () => {
+      const target = Number(button.dataset.stepTarget || 0);
+      if (Number.isNaN(target)) {
+        return;
+      }
+      if (target <= currentStep) {
+        goToStep(target);
+      }
+    });
+  });
+
+  document.getElementById("coverage-review-btn")?.addEventListener("click", () => {
+    updateCoverageView("review");
+  });
+
+  document.getElementById("coverage-back-btn")?.addEventListener("click", () => {
+    updateCoverageView("select");
+  });
+
+  document.getElementById("coverage-run-btn")?.addEventListener("click", () => {
+    updateCoverageView("run");
+    startMapSetup();
+  });
+
+  document.querySelectorAll(".setup-tab").forEach((tab) => {
+    tab.addEventListener("click", () => {
+      const target = tab.dataset.coverageTab || "select";
+      updateCoverageView(target);
+    });
+  });
+
+  document.getElementById("state-search")?.addEventListener("input", (event) => {
+    const query = event.target?.value || "";
+    filterStateList(query);
+  });
 }
 
 async function loadSetupStatus() {
@@ -196,6 +235,8 @@ function updateStepState() {
     goToStep(0);
   }
 
+  updateHeroMeta();
+
   const mapSetupBtn = document.getElementById("map-setup-btn");
   if (mapSetupBtn) {
     mapSetupBtn.disabled = !credentialsComplete;
@@ -228,6 +269,23 @@ function goToStep(stepIndex) {
     ),
     Boolean(setupStatus?.steps?.coverage?.complete)
   );
+  updateHeroMeta();
+}
+
+function updateHeroMeta() {
+  const currentStepEl = document.getElementById("setup-current-step");
+  const nextStepEl = document.getElementById("setup-next-step");
+  if (currentStepEl) {
+    currentStepEl.textContent = `${currentStep + 1} of 2`;
+  }
+  if (!nextStepEl) {
+    return;
+  }
+  if (currentStep === 0) {
+    nextStepEl.textContent = "Save credentials, then choose coverage.";
+  } else {
+    nextStepEl.textContent = "Select coverage, then start the build.";
+  }
 }
 
 function togglePasswordVisibility(inputId) {
@@ -486,8 +544,11 @@ function renderStateGrid() {
         })
         .join("");
       return `
-        <div class="state-region">
-          <div class="state-region-title">${regionName}</div>
+        <div class="state-region" data-region="${regionName}">
+          <div class="state-region-header" role="button" tabindex="0">
+            <div class="state-region-title">${regionName}</div>
+            <span class="state-region-toggle">Collapse</span>
+          </div>
           <div class="state-region-grid">${items}</div>
         </div>
       `;
@@ -507,9 +568,31 @@ function renderStateGrid() {
     });
   });
 
+  container.querySelectorAll(".state-region-header").forEach((header) => {
+    header.addEventListener("click", () => toggleRegion(header));
+    header.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        toggleRegion(header);
+      }
+    });
+  });
+
   applySelectedStatesFromStatus();
   updateSelectionSummary();
   updateStateSelectionUI();
+}
+
+function toggleRegion(header) {
+  const region = header.closest(".state-region");
+  if (!region) {
+    return;
+  }
+  const collapsed = region.classList.toggle("is-collapsed");
+  const toggle = region.querySelector(".state-region-toggle");
+  if (toggle) {
+    toggle.textContent = collapsed ? "Expand" : "Collapse";
+  }
 }
 
 function applySelectedStatesFromStatus() {
@@ -547,6 +630,28 @@ function updateSelectionSummary() {
     const hours = totalSize / 500;
     timeEl.textContent = formatDuration(hours);
   }
+
+  const sizeReviewEl = document.getElementById("coverage-total-size-review");
+  if (sizeReviewEl) {
+    sizeReviewEl.textContent = totalSize ? `${totalSize.toLocaleString()} MB` : "--";
+  }
+
+  const timeReviewEl = document.getElementById("coverage-time-estimate-review");
+  if (timeReviewEl) {
+    const hours = totalSize / 500;
+    timeReviewEl.textContent = formatDuration(hours);
+  }
+
+  const reviewBtn = document.getElementById("coverage-review-btn");
+  if (reviewBtn) {
+    reviewBtn.disabled = selectedStates.size === 0;
+  }
+  const runBtn = document.getElementById("coverage-run-btn");
+  if (runBtn) {
+    runBtn.disabled = selectedStates.size === 0;
+  }
+
+  updateCoverageLists();
 }
 
 function formatDuration(hours) {
@@ -562,6 +667,63 @@ function formatDuration(hours) {
     return `${wholeHours} hour${wholeHours === 1 ? "" : "s"}`;
   }
   return `${wholeHours}h ${minutes}m`;
+}
+
+function updateCoverageLists() {
+  const summaryList = document.getElementById("coverage-summary-list");
+  const reviewList = document.getElementById("coverage-review-list");
+  const selected = Array.from(selectedStates);
+  const items = selected
+    .map((code) => stateCatalog?.states?.find((item) => item.code === code))
+    .filter(Boolean)
+    .map((state) => {
+      const size = Number(state.size_mb || 0);
+      return `
+        <div class="setup-selection-pill">
+          <span>${state.name}</span>
+          <span>${size ? `${size} MB` : "--"}</span>
+        </div>
+      `;
+    })
+    .join("");
+
+  const empty = '<div class="text-muted">No states selected yet.</div>';
+  if (summaryList) {
+    summaryList.innerHTML = items || empty;
+  }
+  if (reviewList) {
+    reviewList.innerHTML = items || empty;
+  }
+}
+
+function updateCoverageView(view) {
+  coverageView = view;
+  document.querySelectorAll(".setup-coverage-view").forEach((panel) => {
+    panel.classList.toggle("is-active", panel.dataset.coverageView === view);
+  });
+  document.querySelectorAll(".setup-tab").forEach((tab) => {
+    tab.classList.toggle("is-active", tab.dataset.coverageTab === view);
+  });
+}
+
+function filterStateList(query) {
+  const normalized = query.trim().toLowerCase();
+  const container = document.getElementById("state-selection");
+  if (!container) {
+    return;
+  }
+
+  container.querySelectorAll(".state-option").forEach((option) => {
+    const name = option.querySelector(".state-name")?.textContent?.toLowerCase() || "";
+    const visible = !normalized || name.includes(normalized);
+    option.style.display = visible ? "grid" : "none";
+  });
+
+  container.querySelectorAll(".state-region").forEach((region) => {
+    const options = Array.from(region.querySelectorAll(".state-option"));
+    const hasVisible = options.some((option) => option.style.display !== "none");
+    region.style.display = hasVisible ? "block" : "none";
+  });
 }
 
 async function startMapSetup() {
@@ -581,6 +743,7 @@ async function startMapSetup() {
       throw new Error(responseErrorMessage(response, data, "Setup failed."));
     }
     await refreshMapServicesStatus();
+    updateCoverageView("run");
     startStatusPolling();
   } catch (error) {
     showStatus("coverage-status", error.message || "Setup failed.", true);
@@ -663,6 +826,12 @@ function updateMapCoverageUI() {
       : "not configured";
   }
 
+  const running
+    = status?.status === "downloading" || status?.status === "building";
+  if (running || status?.status === "ready") {
+    updateCoverageView("run");
+  }
+
   if (
     status?.status === "downloading"
     || status?.status === "building"
@@ -723,4 +892,6 @@ function showStatus(elementId, message, isError) {
   }
   el.textContent = message;
   el.classList.toggle("is-error", Boolean(isError));
+  el.classList.toggle("is-success", !isError && Boolean(message));
+  el.style.display = message ? "block" : "none";
 }

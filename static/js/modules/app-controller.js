@@ -35,6 +35,38 @@ import { DateUtils, utils } from "./utils.js";
 const dateUtils = DateUtils;
 
 // ============================================================
+// Map Loading Indicator Helper
+// ============================================================
+
+const createMapLoadingHelper = () => {
+  const indicatorEl = document.getElementById("map-loading-indicator");
+  const textEl = indicatorEl?.querySelector(".map-loading-text") || indicatorEl;
+
+  if (!indicatorEl) {
+    return null;
+  }
+
+  return {
+    show(message) {
+      indicatorEl.classList.remove("d-none");
+      indicatorEl.setAttribute("aria-busy", "true");
+      if (textEl && message) {
+        textEl.textContent = message;
+      }
+    },
+    update(message) {
+      if (textEl && message) {
+        textEl.textContent = message;
+      }
+    },
+    hide() {
+      indicatorEl.classList.add("d-none");
+      indicatorEl.removeAttribute("aria-busy");
+    },
+  };
+};
+
+// ============================================================
 // Helper Functions
 // ============================================================
 
@@ -136,11 +168,18 @@ const AppController = {
    * Initialize the application
    */
   async initialize() {
+    const isMapPage = Boolean(utils.getElement("map")) && !document.getElementById("visits-page");
+    const mapLoading = isMapPage ? createMapLoadingHelper() : null;
+
     try {
-      loadingManager.show("Initializing application...");
+      if (mapLoading) {
+        mapLoading.show("Initializing map...");
+      } else {
+        loadingManager.show("Initializing application...");
+      }
 
       // Only initialize map if we're on the map page
-      if (utils.getElement("map") && !document.getElementById("visits-page")) {
+      if (isMapPage) {
         // Phase 1: Initialize map
         const mapOk = await mapManager.initialize();
         if (!mapOk) {
@@ -173,7 +212,7 @@ const AppController = {
         await this._restoreStreetViewModes();
 
         // Phase 6: Load initial data
-        loadingManager.updateMessage("Loading map data...");
+        mapLoading?.update("Loading map data...");
         await this._loadInitialData();
 
         // Phase 7: Post-initialization
@@ -187,10 +226,19 @@ const AppController = {
       
       state.appReady = true;
       document.dispatchEvent(new CustomEvent("appReady"));
-      setTimeout(() => loadingManager.hide(), 300);
+      if (mapLoading) {
+        mapLoading.hide();
+      } else {
+        setTimeout(() => loadingManager.hide(), 300);
+      }
     } catch (err) {
       console.error("App initialization error:", err);
-      loadingManager.error(`Initialization failed: ${err.message}`);
+      if (mapLoading) {
+        mapLoading.hide();
+        notificationManager.show(`Initialization failed: ${err.message}`, "danger");
+      } else {
+        loadingManager.error(`Initialization failed: ${err.message}`);
+      }
     }
   },
 

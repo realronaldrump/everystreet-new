@@ -84,13 +84,19 @@ const dataManager = {
       return null;
     }
 
-    loadingManager?.show("Loading trips...", { blocking: false, compact: true });
+    const useGlobalLoading = !document.getElementById("map-loading-indicator");
+
+    if (useGlobalLoading) {
+      loadingManager?.show("Loading trips...", { blocking: false, compact: true });
+    }
     mapLoadingIndicator.show("Loading trips...");
 
     try {
       const { start, end } = dateUtils.getCachedDateRange();
       const params = new URLSearchParams({ start_date: start, end_date: end });
-      loadingManager?.updateMessage(`Loading trips from ${start} to ${end}...`);
+      if (useGlobalLoading) {
+        loadingManager?.updateMessage(`Loading trips from ${start} to ${end}...`);
+      }
 
       const rawTripData = await utils.fetchWithRetry(
         `${CONFIG.API.trips}?${params}`,
@@ -102,7 +108,9 @@ const dataManager = {
 
       const tripData = this._coerceFeatureCollection(rawTripData);
       if (!tripData) {
-        loadingManager?.hide();
+        if (useGlobalLoading) {
+          loadingManager?.hide();
+        }
         // Enhanced error logging for debugging
         console.group("Trip data validation failed");
         console.error("The API returned data that could not be coerced into a FeatureCollection.");
@@ -136,13 +144,17 @@ const dataManager = {
         return null;
       }
 
-      loadingManager?.updateMessage(`Rendering ${tripData.features.length} trips...`);
+      if (useGlobalLoading) {
+        loadingManager?.updateMessage(`Rendering ${tripData.features.length} trips...`);
+      }
       mapLoadingIndicator.update(`Rendering ${tripData.features.length} trips...`);
 
       // Update map layer
       await layerManager.updateMapLayer("trips", tripData);
 
-      loadingManager?.updateMessage("Finalizing...");
+      if (useGlobalLoading) {
+        loadingManager?.updateMessage("Finalizing...");
+      }
 
       // Emit event for trip styles refresh (handled by app-controller)
       document.dispatchEvent(
@@ -159,11 +171,15 @@ const dataManager = {
       if (error?.name === "AbortError") {
         return null;
       }
-      loadingManager?.hide();
+      if (useGlobalLoading) {
+        loadingManager?.hide();
+      }
       notificationManager.show("Failed to load trips", "danger");
       return null;
     } finally {
-      loadingManager?.hide();
+      if (useGlobalLoading) {
+        loadingManager?.hide();
+      }
       mapLoadingIndicator.hide();
     }
   },
