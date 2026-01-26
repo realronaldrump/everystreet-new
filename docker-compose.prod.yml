@@ -1,0 +1,22 @@
+name: ${COMPOSE_PROJECT_NAME:-everystreet}
+
+services:
+  web:
+    image: ghcr.io/realronaldrump/everystreet-new:main
+    build: null
+    pull_policy: always
+    volumes:
+      - osm_extracts:/osm
+      - /var/run/docker.sock:/var/run/docker.sock
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+
+  worker:
+    image: ghcr.io/realronaldrump/everystreet-new:main
+    build: null
+    pull_policy: always
+    volumes:
+      - osm_extracts:/osm
+      - /var/run/docker.sock:/var/run/docker.sock
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"

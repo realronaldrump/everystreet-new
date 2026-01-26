@@ -49,7 +49,7 @@ ssh "$TARGET" "docker run --rm -v app_valhalla_tiles:/custom_files busybox chown
 # 3. Update and restart services
 echo "🔄 Updating services..."
 
-ssh "$TARGET" "cd $REMOTE_DIR && docker compose up -d"
+ssh "$TARGET" "cd $REMOTE_DIR && docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d"
 
 echo "✅ Deployment complete!"
 echo "   - Valhalla and Nominatim should be starting up."
