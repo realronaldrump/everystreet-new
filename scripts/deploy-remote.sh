@@ -2,9 +2,9 @@
 set -e
 
 # Configuration
-REMOTE_HOST="100.96.182.111"
-REMOTE_DIR="/home/davis/app"
-REMOTE_USER="root" # Defaulting to root based on previous context, but can be overridden
+REMOTE_HOST="${REMOTE_HOST:-100.96.182.111}"
+REMOTE_DIR="${REMOTE_DIR:-/home/davis/app}"
+REMOTE_USER="${REMOTE_USER:-root}" # Defaulting to root based on previous context, but can be overridden
 
 # Check if we can connect
 echo "Checking connection to $REMOTE_HOST..."
@@ -28,6 +28,7 @@ if [ -n "$REMOTE_USER" ]; then
 fi
 
 echo "🚀 Deploying to $TARGET:$REMOTE_DIR..."
+echo "   (Run this from your local machine, not on the remote host)"
 
 # 1. Sync configuration files and source code
 echo "📂 Syncing source code..."

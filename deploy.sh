@@ -1,30 +1,42 @@
 #!/bin/bash
 # /home/davis/app/deploy.sh
-# Simple deployment script for Cloudflare Tunnel setup
+# Simple deployment script for Cloudflare Tunnel setup (production)
 
 set -e
 
 cd /home/davis/app
 
-echo "Pulling latest code..."
-git pull origin main
+if [ -d ".git" ]; then
+    echo "Pulling latest code..."
+    git pull origin main
+else
+    echo "⚠️  Not a git repo. This script expects /home/davis/app to be a git clone."
+    echo "   - Option A: git clone the repo into /home/davis/app"
+    echo "   - Option B: run scripts/deploy-remote.sh from your Mac to rsync files"
+    echo ""
+fi
 
-echo "Rebuilding and restarting containers..."
-docker compose down
-docker compose up -d --build
+if [ ! -f "docker-compose.prod.yml" ]; then
+    echo "❌ Missing docker-compose.prod.yml. Update this directory from GitHub or rsync first."
+    exit 1
+fi
+
+echo "Pulling latest images and restarting containers..."
+docker compose -f docker-compose.yml -f docker-compose.prod.yml pull
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 
 echo "Waiting for web service to start..."
 sleep 5
 
 echo "Checking container status..."
-docker compose ps
+docker compose -f docker-compose.yml -f docker-compose.prod.yml ps
 
 echo "Checking web container logs..."
 echo "--- Last 20 lines of web container logs ---"
-docker compose logs --tail=20 web
+docker compose -f docker-compose.yml -f docker-compose.prod.yml logs --tail=20 web
 
 echo "Checking if web container is healthy..."
-if docker compose ps web | grep -q "Up"; then
+if docker compose -f docker-compose.yml -f docker-compose.prod.yml ps web | grep -q "Up"; then
     echo "✓ Web container is running"
 
     echo "Testing web container connectivity..."
