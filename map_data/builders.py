@@ -63,7 +63,7 @@ async def start_container_on_demand(
         ["docker-compose", "-f", compose_file, "up", "-d", service_name],
     ]
 
-    last_error = None
+    last_error = "No docker compose command found"
     for cmd in compose_commands:
         try:
             process = await asyncio.create_subprocess_exec(
@@ -128,7 +128,44 @@ async def start_container_on_demand(
         except RuntimeError:
             raise
 
-    # All commands failed
+    # All commands failed, try direct docker start as fallback
+    # This handles cases where docker-compose/plugin is not installed (like in the worker)
+    # but the container was already created by the main deployment.
+    container_name = _get_container_name(service_name)
+    logger.info(
+        "Docker compose commands failed, trying fallback: docker start %s",
+        container_name,
+    )
+
+    try:
+        process = await asyncio.create_subprocess_exec(
+            "docker",
+            "start",
+            container_name,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        _, stderr = await process.communicate()
+
+        if process.returncode == 0:
+            logger.info("Fallback: Started container %s", container_name)
+            # Wait for container to be ready
+            start_time = asyncio.get_event_loop().time()
+            while (
+                asyncio.get_event_loop().time() - start_time
+            ) < CONTAINER_START_TIMEOUT:
+                if await check_container_running(service_name):
+                    logger.info("Container %s is now running", service_name)
+                    await asyncio.sleep(5)
+                    return True
+                await asyncio.sleep(2)
+
+        error_msg = stderr.decode() if stderr else "Unknown error"
+        last_error = f"Fallback failed: {error_msg}"
+
+    except Exception as e:
+        last_error = f"Fallback error: {e}"
+
     logger.error("Failed to start container %s: %s", service_name, last_error)
     msg = f"Failed to start {service_name}: {last_error}"
     raise RuntimeError(msg)
