@@ -178,18 +178,38 @@ function renderServicesStatus(status) {
   const services = status.services || {};
   const geocoding = services.geocoding || {};
   const routing = services.routing || {};
+  const isBuilding
+    = status.is_building || status.status === "building" || status.status === "downloading";
+
+  const geocodingIcon = geocoding.ready
+    ? "fa-check"
+    : isBuilding
+      ? "fa-spinner fa-spin"
+      : "fa-clock";
+  const routingIcon = routing.ready
+    ? "fa-check"
+    : isBuilding
+      ? "fa-spinner fa-spin"
+      : "fa-clock";
+
+  const geocodingError = !geocoding.ready && !isBuilding ? geocoding.error : null;
+  const routingError = !routing.ready && !isBuilding ? routing.error : null;
+  const geocodingNote = !geocoding.ready && isBuilding ? "Building data..." : null;
+  const routingNote = !routing.ready && isBuilding ? "Building data..." : null;
 
   return `
     <div class="map-services-indicators">
       <div class="service-indicator ${geocoding.ready ? "is-ready" : "is-pending"}">
-        <i class="fas ${geocoding.ready ? "fa-check" : "fa-clock"}"></i>
+        <i class="fas ${geocodingIcon}"></i>
         <span>Address Lookup</span>
-        ${geocoding.error && !geocoding.ready ? `<small class="service-error">${escapeHtml(truncate(geocoding.error, 40))}</small>` : ""}
+        ${geocodingError ? `<small class="service-error">${escapeHtml(truncate(geocodingError, 40))}</small>` : ""}
+        ${!geocodingError && geocodingNote ? `<small class="service-note">${escapeHtml(geocodingNote)}</small>` : ""}
       </div>
       <div class="service-indicator ${routing.ready ? "is-ready" : "is-pending"}">
-        <i class="fas ${routing.ready ? "fa-check" : "fa-clock"}"></i>
+        <i class="fas ${routingIcon}"></i>
         <span>Route Planning</span>
-        ${routing.error && !routing.ready ? `<small class="service-error">${escapeHtml(truncate(routing.error, 40))}</small>` : ""}
+        ${routingError ? `<small class="service-error">${escapeHtml(truncate(routingError, 40))}</small>` : ""}
+        ${!routingError && routingNote ? `<small class="service-note">${escapeHtml(routingNote)}</small>` : ""}
       </div>
     </div>
   `;

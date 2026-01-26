@@ -39,8 +39,6 @@
   --cat-sky-rgb: 74 168 255;
   --cat-lime: #8edc3f;
   --cat-lime-rgb: 142 220 63;
-  --cat-amber: #f2b94b;
-  --cat-amber-rgb: 242 185 75;
   --cat-coral: #f06b4f;
   --cat-coral-rgb: 240 107 79;
   --cat-mint: #29d3c2;
@@ -181,6 +179,8 @@
   --glow-primary: 0 0 20px rgb(var(--primary-rgb) / 25%);
   --glow-success: 0 0 16px rgb(var(--success-rgb) / 25%);
   --glow-accent: 0 0 12px rgb(var(--accent-rgb) / 20%);
+  --glow-warning: 0 0 16px rgb(var(--warning-rgb) / 30%);
+  --glow-danger: 0 0 18px rgb(var(--danger-rgb) / 35%);
 
   /* Gradient surfaces for glassmorphism */
   --gradient-surface-glow: linear-gradient(135deg, rgb(255 255 255 / 3%) 0%, transparent 50%);
@@ -312,6 +312,7 @@
 }
 
 /* Light Mode Overrides */
+:root[data-bs-theme="light"],
 body.light-mode {
   --surface-0: #f4f6fa;
   --surface-1: #fff;
@@ -346,10 +347,6 @@ body.light-mode {
   --glass-2: rgb(var(--surface-rgb) / 90%);
   --glass-3: rgb(var(--surface-rgb) / 96%);
   --glass-border: rgb(var(--border-rgb) / 18%);
-  --app-bg:
-    radial-gradient(1200px circle at 10% -10%, rgb(var(--primary-rgb) / 12%), transparent 65%),
-    radial-gradient(1000px circle at 110% 10%, rgb(var(--info-rgb) / 10%), transparent 60%),
-    radial-gradient(900px circle at 50% 120%, rgb(var(--warning-rgb) / 8%), transparent 65%);
   --app-bg:
     radial-gradient(1200px circle at 10% -10%, rgb(var(--primary-rgb) / 10%), transparent 60%),
     radial-gradient(1000px circle at 90% 0%, rgb(var(--secondary-rgb) / 8%), transparent 55%),

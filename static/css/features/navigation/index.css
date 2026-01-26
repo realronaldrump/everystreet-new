@@ -167,7 +167,7 @@ body.light-mode .turn-by-turn {
   border-radius: 50%;
   background: var(--nav-warning);
   box-shadow: var(--glow-warning);
-  animation: pulse 1.8s ease-in-out infinite;
+  animation: nav-pulse 1.8s ease-in-out infinite;
 }
 
 .nav-signal.good .nav-signal-dot {
@@ -539,7 +539,7 @@ body.light-mode .turn-by-turn {
   }
 }
 
-@keyframes pulse {
+@keyframes nav-pulse {
   0% {
     transform: scale(1);
     opacity: 0.65;

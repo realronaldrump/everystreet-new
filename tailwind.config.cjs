@@ -1,7 +1,55 @@
 module.exports = {
   content: ["./templates/**/*.html", "./static/js/**/*.js"],
   theme: {
-    extend: {},
+    screens: {
+      sm: "576px",
+      md: "768px",
+      lg: "992px",
+      xl: "1200px",
+      "2xl": "1440px",
+    },
+    extend: {
+      colors: {
+        primary: "var(--primary)",
+        secondary: "var(--secondary)",
+        success: "var(--success)",
+        warning: "var(--warning)",
+        danger: "var(--danger)",
+        info: "var(--info)",
+        surface0: "var(--surface-0)",
+        surface1: "var(--surface-1)",
+        surface2: "var(--surface-2)",
+        surface3: "var(--surface-3)",
+        surface4: "var(--surface-4)",
+        textPrimary: "var(--text-primary)",
+        textSecondary: "var(--text-secondary)",
+        textTertiary: "var(--text-tertiary)",
+        border: "var(--border-color)",
+      },
+      fontFamily: {
+        sans: "var(--font-family)",
+        display: "var(--font-family-display)",
+        mono: "var(--font-family-mono)",
+      },
+      borderRadius: {
+        xs: "var(--radius-xs)",
+        sm: "var(--radius-sm)",
+        md: "var(--radius-md)",
+        lg: "var(--radius-lg)",
+        xl: "var(--radius-xl)",
+        full: "var(--radius-full)",
+      },
+      boxShadow: {
+        xs: "var(--shadow-xs)",
+        sm: "var(--shadow-sm)",
+        md: "var(--shadow-md)",
+        lg: "var(--shadow-lg)",
+        xl: "var(--shadow-xl)",
+      },
+    },
+  },
+  corePlugins: {
+    preflight: false,
   },
   plugins: [],
 };

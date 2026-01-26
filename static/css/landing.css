@@ -25,15 +25,15 @@ body[data-route="/"] #filters-toggle {
   z-index: 0;
 }
 
-.ambient-orb {
+.landing-orb {
   position: absolute;
   border-radius: 50%;
   filter: blur(70px);
   opacity: 0.1;
-  animation: ambientFloat 40s ease-in-out infinite;
+  animation: landingAmbientFloat 40s ease-in-out infinite;
 }
 
-.ambient-orb-1 {
+.landing-orb-1 {
   width: 480px;
   height: 480px;
   background: var(--primary);
@@ -42,7 +42,7 @@ body[data-route="/"] #filters-toggle {
   animation-delay: 0s;
 }
 
-.ambient-orb-2 {
+.landing-orb-2 {
   width: 420px;
   height: 420px;
   background: var(--info);
@@ -51,7 +51,7 @@ body[data-route="/"] #filters-toggle {
   animation-delay: -7s;
 }
 
-.ambient-orb-3 {
+.landing-orb-3 {
   width: 340px;
   height: 340px;
   background: var(--success);
@@ -61,7 +61,7 @@ body[data-route="/"] #filters-toggle {
   animation-delay: -14s;
 }
 
-@keyframes ambientFloat {
+@keyframes landingAmbientFloat {
   0%,
   100% {
     transform: translate(0, 0) scale(1);
@@ -90,7 +90,7 @@ body[data-route="/"] #filters-toggle {
   display: flex;
   flex-direction: column;
   gap: var(--space-6);
-  animation: fadeInUp 0.4s ease-out;
+  animation: landingFadeInUp 0.4s ease-out;
 }
 
 .landing-bento {
@@ -213,7 +213,7 @@ body[data-route="/"] #filters-toggle {
   color: var(--text-primary);
 }
 
-@keyframes fadeInUp {
+@keyframes landingFadeInUp {
   from {
     opacity: 0;
     transform: none;
@@ -235,7 +235,7 @@ body[data-route="/"] #filters-toggle {
   background: var(--surface-1);
   border-radius: var(--radius-xl);
   border: 1px solid var(--border-color);
-  animation: fadeInUp 0.4s ease-out 0.1s both;
+  animation: landingFadeInUp 0.4s ease-out 0.1s both;
 }
 
 .stat-pulse {
@@ -481,7 +481,7 @@ body[data-route="/"] #filters-toggle {
   border: 1px solid var(--border-color);
   overflow: hidden;
   position: relative;
-  animation: fadeInUp 0.4s ease-out 0.2s both;
+  animation: landingFadeInUp 0.4s ease-out 0.2s both;
 }
 
 .activity-section::before {
@@ -541,10 +541,10 @@ body[data-route="/"] #filters-toggle {
   height: 40px;
   border-radius: 50%;
   background: var(--surface-2);
-  animation: loadingPulse 2s ease-in-out infinite;
+  animation: landingLoadingPulse 2s ease-in-out infinite;
 }
 
-@keyframes loadingPulse {
+@keyframes landingLoadingPulse {
   0%,
   100% {
     transform: scale(0.98);
@@ -800,48 +800,48 @@ body[data-route="/"] #filters-toggle {
 
 /* === Staggered Animation Delays === */
 .nav-tile:nth-child(1) {
-  animation: fadeInUp 0.35s ease-out 0.08s both;
+  animation: landingFadeInUp 0.35s ease-out 0.08s both;
 }
 
 .nav-tile:nth-child(2) {
-  animation: fadeInUp 0.35s ease-out 0.12s both;
+  animation: landingFadeInUp 0.35s ease-out 0.12s both;
 }
 
 .nav-tile:nth-child(3) {
-  animation: fadeInUp 0.35s ease-out 0.16s both;
+  animation: landingFadeInUp 0.35s ease-out 0.16s both;
 }
 
 .nav-tile:nth-child(4) {
-  animation: fadeInUp 0.35s ease-out 0.2s both;
+  animation: landingFadeInUp 0.35s ease-out 0.2s both;
 }
 
 .nav-tile:nth-child(5) {
-  animation: fadeInUp 0.35s ease-out 0.24s both;
+  animation: landingFadeInUp 0.35s ease-out 0.24s both;
 }
 
 .nav-tile:nth-child(6) {
-  animation: fadeInUp 0.35s ease-out 0.28s both;
+  animation: landingFadeInUp 0.35s ease-out 0.28s both;
 }
 
 .nav-tile:nth-child(7) {
-  animation: fadeInUp 0.35s ease-out 0.32s both;
+  animation: landingFadeInUp 0.35s ease-out 0.32s both;
 }
 
 .nav-tile:nth-child(8) {
-  animation: fadeInUp 0.35s ease-out 0.34s both;
+  animation: landingFadeInUp 0.35s ease-out 0.34s both;
 }
 
 .nav-tile:nth-child(9) {
-  animation: fadeInUp 0.35s ease-out 0.36s both;
+  animation: landingFadeInUp 0.35s ease-out 0.36s both;
 }
 
 .nav-tile:nth-child(10) {
-  animation: fadeInUp 0.35s ease-out 0.38s both;
+  animation: landingFadeInUp 0.35s ease-out 0.38s both;
 }
 
 /* === Reduce Motion === */
 @media (prefers-reduced-motion: reduce) {
-  .ambient-orb,
+  .landing-orb,
   .live-dot.active,
   .activity-live-dot,
   .loading-pulse {

@@ -131,38 +131,38 @@
 }
 
 /* Widget accent mappings - using new muted palette */
-[data-accent='"mint"'],
-[data-accent='"sage"'] {
+[data-accent="mint"],
+[data-accent="sage"] {
   --widget-accent: var(--cat-sage);
   --widget-accent-rgb: var(--cat-sage-rgb);
 }
 
-[data-accent='"purple"'],
-[data-accent='"slate"'] {
+[data-accent="purple"],
+[data-accent="slate"] {
   --widget-accent: var(--cat-slate);
   --widget-accent-rgb: var(--cat-slate-rgb);
 }
 
-[data-accent='"coral"'],
-[data-accent='"rose"'] {
+[data-accent="coral"],
+[data-accent="rose"] {
   --widget-accent: var(--cat-rose);
   --widget-accent-rgb: var(--cat-rose-rgb);
 }
 
-[data-accent='"sky"'],
-[data-accent='"steel"'] {
+[data-accent="sky"],
+[data-accent="steel"] {
   --widget-accent: var(--cat-steel);
   --widget-accent-rgb: var(--cat-steel-rgb);
 }
 
-[data-accent='"amber"'],
-[data-accent='"ochre"'] {
+[data-accent="amber"],
+[data-accent="ochre"] {
   --widget-accent: var(--cat-ochre);
   --widget-accent-rgb: var(--cat-ochre-rgb);
 }
 
-[data-accent='"lime"'],
-[data-accent='"olive"'] {
+[data-accent="lime"],
+[data-accent="olive"] {
   --widget-accent: var(--cat-olive);
   --widget-accent-rgb: var(--cat-olive-rgb);
 }

@@ -809,6 +809,13 @@
   margin-top: var(--space-1);
 }
 
+.service-indicator .service-note {
+  display: block;
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  margin-top: var(--space-1);
+}
+
 /* Empty State */
 .map-services-empty {
   display: flex;

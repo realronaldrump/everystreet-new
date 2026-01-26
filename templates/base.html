@@ -93,6 +93,8 @@ Every Street
       <link rel="stylesheet" href="{{ CDN.fontawesome }}" crossorigin="anonymous" />
       <!-- Core CSS -->
       <link rel="stylesheet"
+            href="{{ url_for('static', path='css/tailwind-output.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}" />
+      <link rel="stylesheet"
             href="{{ url_for('static', path='css/style.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}" />
       <link rel="stylesheet"
             href="{{ url_for('static', path='css/animations.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}" />

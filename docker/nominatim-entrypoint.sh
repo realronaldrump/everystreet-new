@@ -24,19 +24,30 @@ has_nominatim_tables() {
     2>/dev/null | tr -d '[:space:]'
 }
 
+table_exists() {
+  sudo -u postgres psql -d nominatim -tAc \
+    "SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='$1'" \
+    2>/dev/null | tr -d '[:space:]'
+}
+
 has_tokenizer_property() {
   # Nominatim requires a tokenizer property to be set after a successful import.
   # Check both possible property tables to guard against partial imports.
-  TOKENIZER=$(sudo -u postgres psql -d nominatim -tAc \
-    "SELECT value FROM properties WHERE property='tokenizer'" \
-    2>/dev/null | tr -d '[:space:]')
+  TOKENIZER=""
+  if [ "$(table_exists properties)" = "1" ]; then
+    TOKENIZER=$(sudo -u postgres psql -d nominatim -tAc \
+      "SELECT value FROM properties WHERE property='tokenizer'" \
+      2>/dev/null | tr -d '[:space:]')
+  fi
   if [ -n "$TOKENIZER" ]; then
     echo "1"
     return
   fi
-  TOKENIZER=$(sudo -u postgres psql -d nominatim -tAc \
-    "SELECT value FROM nominatim_properties WHERE property='tokenizer'" \
-    2>/dev/null | tr -d '[:space:]')
+  if [ "$(table_exists nominatim_properties)" = "1" ]; then
+    TOKENIZER=$(sudo -u postgres psql -d nominatim -tAc \
+      "SELECT value FROM nominatim_properties WHERE property='tokenizer'" \
+      2>/dev/null | tr -d '[:space:]')
+  fi
   if [ -n "$TOKENIZER" ]; then
     echo "1"
     return
@@ -48,6 +59,10 @@ has_tokenizer_property() {
 mkdir -p "$PG_DATA"
 chown -R postgres:postgres "$(dirname "$PG_DATA")" 2>/dev/null || true
 chown -R postgres:postgres "$PG_DATA" 2>/dev/null || true
+if [ -d "/nominatim/flatnode" ]; then
+  chown -R postgres:postgres /nominatim/flatnode 2>/dev/null || true
+  chmod -R u+rwX /nominatim/flatnode 2>/dev/null || true
+fi
 
 # Initialize PostgreSQL if needed
 if [ -n "$INITDB_BIN" ] && [ -x "$INITDB_BIN" ] && [ ! -f "${PG_DATA}/PG_VERSION" ]; then

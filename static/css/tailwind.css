@@ -1,0 +1,27 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-family: var(--font-family);
+  }
+}
+
+@layer components {
+  .es-widget {
+    @apply rounded-xl border border-[color:var(--border-color)] bg-[color:var(--surface-1)] shadow-[var(--shadow-elevation-1)] transition-[box-shadow,border-color] duration-200;
+  }
+
+  .es-widget-header {
+    @apply flex items-center justify-between gap-3;
+  }
+
+  .es-widget-title {
+    @apply flex items-center gap-2 text-lg font-semibold;
+  }
+
+  .es-widget-meta {
+    @apply text-xs text-[color:var(--text-tertiary)];
+  }
+}

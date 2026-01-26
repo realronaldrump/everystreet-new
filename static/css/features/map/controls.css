@@ -1525,19 +1525,6 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
   animation: mobile-pulse 2s infinite;
 }
 
-@keyframes mobile-pulse {
-  0%,
-  100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-
-  50% {
-    opacity: 0.5;
-    transform: scale(0.9);
-  }
-}
-
 /* Metrics grid */
 .mobile-metrics-grid {
   display: grid;
@@ -1758,17 +1745,6 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
 
 .mobile-sheet-expand-hint i {
   animation: mobile-bounce 2s infinite;
-}
-
-@keyframes mobile-bounce {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-
-  50% {
-    transform: translateY(-4px);
-  }
 }
 
 .mobile-bottom-sheet:not(.collapsed) .mobile-sheet-expand-hint {

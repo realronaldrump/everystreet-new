@@ -634,6 +634,46 @@ function formatDuration(hours) {
   return `${wholeHours}h ${minutes}m`;
 }
 
+function formatPhaseLabel(phase) {
+  switch (phase) {
+    case "downloading":
+      return "Downloading data";
+    case "building_geocoder":
+      return "Building address lookup";
+    case "building_router":
+      return "Building route planning";
+    default:
+      return "";
+  }
+}
+
+function formatRelativeTime(timestamp) {
+  if (!timestamp) {
+    return "";
+  }
+  const parsed = new Date(timestamp);
+  if (Number.isNaN(parsed.getTime())) {
+    return "";
+  }
+  const diffMs = Date.now() - parsed.getTime();
+  if (diffMs < 0) {
+    return "";
+  }
+  const minutes = Math.floor(diffMs / 60000);
+  if (minutes < 1) {
+    return "just now";
+  }
+  if (minutes < 60) {
+    return `${minutes}m ago`;
+  }
+  const hours = Math.floor(minutes / 60);
+  const remaining = minutes % 60;
+  if (!remaining) {
+    return `${hours}h ago`;
+  }
+  return `${hours}h ${remaining}m ago`;
+}
+
 function updateCoverageLists() {
   const summaryList = document.getElementById("coverage-summary-list");
   const reviewList = document.getElementById("coverage-review-list");
@@ -741,10 +781,30 @@ async function cancelMapSetup() {
 function updateMapCoverageUI() {
   const status = mapServiceStatus?.config;
   const progress = mapServiceStatus?.progress;
+  const running = status?.status === "downloading" || status?.status === "building";
 
   const messageEl = document.getElementById("map-setup-message");
   if (messageEl) {
-    messageEl.textContent = status?.message || "Select states to begin.";
+    let message = status?.message || "Select states to begin.";
+    if (running) {
+      const details = [];
+      const phaseLabel = formatPhaseLabel(progress?.phase);
+      if (phaseLabel) {
+        details.push(phaseLabel);
+      }
+      const phasePct = Number(progress?.phase_progress || 0);
+      if (phasePct > 0) {
+        details.push(`${Math.round(phasePct)}%`);
+      }
+      const updated = formatRelativeTime(status?.last_updated);
+      if (updated) {
+        details.push(`last update ${updated}`);
+      }
+      if (details.length) {
+        message = `${message} (${details.join(" | ")})`;
+      }
+    }
+    messageEl.textContent = message;
   }
 
   const progressWrap = document.getElementById("map-setup-progress");
@@ -802,7 +862,6 @@ function updateMapCoverageUI() {
       : "not configured";
   }
 
-  const running = status?.status === "downloading" || status?.status === "building";
   const ready = status?.status === "ready";
   if (running || ready) {
     updateCoverageView("run");

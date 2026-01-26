@@ -306,6 +306,24 @@ async def build_nominatim_data(
         container_name = await _get_container_name("nominatim")
         pbf_container_path = f"/nominatim/data/{pbf_relative}"
 
+        # Ensure flatnode dir is writable for postgres (Nominatim import needs it).
+        fix_perm_cmd = [
+            "docker",
+            "exec",
+            container_name,
+            "sh",
+            "-c",
+            "if [ -d /nominatim/flatnode ]; then chown -R postgres:postgres /nominatim/flatnode 2>/dev/null || true; chmod -R u+rwX /nominatim/flatnode 2>/dev/null || true; fi",
+        ]
+        fix_perm_proc = await asyncio.create_subprocess_exec(
+            *fix_perm_cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        await fix_perm_proc.wait()
+        if fix_perm_proc.returncode != 0:
+            logger.warning("Could not adjust flatnode permissions before import")
+
         # First, check if the file is accessible in the container
         check_cmd = [
             "docker",
@@ -354,9 +372,8 @@ async def build_nominatim_data(
             logger.warning("Database drop command returned non-zero (may be benign)")
 
         # Build the import command
-        # Note: We do NOT use -u nominatim here. The nominatim CLI handles
-        # user switching internally when needed. Running as root allows
-        # proper access to files and the PostgreSQL socket.
+        # Note: We run as the postgres OS user because the container uses peer
+        # auth on the local socket.
         threads = _get_int_env("NOMINATIM_IMPORT_THREADS", 2)
         import_cmd = [
             "docker",
