@@ -18,6 +18,12 @@ fi
 
 IMPORT_MARKER="${PG_DATA}/import-finished"
 
+has_nominatim_tables() {
+  sudo -u postgres psql -d nominatim -tAc \
+    "SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='country_name'" \
+    2>/dev/null | tr -d '[:space:]'
+}
+
 # Ensure data directory exists with proper ownership
 mkdir -p "$PG_DATA"
 chown -R postgres:postgres "$(dirname "$PG_DATA")" 2>/dev/null || true
@@ -90,8 +96,13 @@ if [ -f "$IMPORT_MARKER" ]; then
   log "Import marker found - checking database..."
   DB_EXISTS=$(sudo -u postgres psql -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname='nominatim'" 2>/dev/null || echo "0")
   if [ "$DB_EXISTS" = "1" ]; then
-    log "Nominatim database exists - starting web service"
-    exec /app/start.sh
+    TABLE_READY=$(has_nominatim_tables || echo "0")
+    if [ "$TABLE_READY" = "1" ]; then
+      log "Nominatim database exists - starting web service"
+      exec /app/start.sh
+    fi
+    log "WARNING: Nominatim database missing required tables. Removing stale marker."
+    rm -f "$IMPORT_MARKER"
   else
     log "WARNING: Import marker exists but database not found. Removing stale marker."
     rm -f "$IMPORT_MARKER"
@@ -101,9 +112,13 @@ fi
 # Check if database exists without marker (previous import completed but marker missing)
 DB_EXISTS=$(sudo -u postgres psql -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname='nominatim'" 2>/dev/null || echo "0")
 if [ "$DB_EXISTS" = "1" ]; then
-  log "Nominatim database found (no marker) - creating marker and starting service"
-  touch "$IMPORT_MARKER"
-  exec /app/start.sh
+  TABLE_READY=$(has_nominatim_tables || echo "0")
+  if [ "$TABLE_READY" = "1" ]; then
+    log "Nominatim database found (no marker) - creating marker and starting service"
+    touch "$IMPORT_MARKER"
+    exec /app/start.sh
+  fi
+  log "WARNING: Nominatim database missing required tables. Waiting for import."
 fi
 
 # No import completed yet - keep PostgreSQL running and wait for external import
@@ -119,8 +134,12 @@ while true; do
     sleep 2
     DB_EXISTS=$(sudo -u postgres psql -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname='nominatim'" 2>/dev/null || echo "0")
     if [ "$DB_EXISTS" = "1" ]; then
-      log "Import complete - restarting to serve requests..."
-      exec /app/start.sh
+      TABLE_READY=$(has_nominatim_tables || echo "0")
+      if [ "$TABLE_READY" = "1" ]; then
+        log "Import complete - restarting to serve requests..."
+        exec /app/start.sh
+      fi
+      log "Marker found but database tables not ready yet, continuing to wait..."
     else
       log "Marker found but database not ready yet, continuing to wait..."
     fi
@@ -129,9 +148,13 @@ while true; do
   # Also check if database appeared without marker
   DB_EXISTS=$(sudo -u postgres psql -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname='nominatim'" 2>/dev/null || echo "0")
   if [ "$DB_EXISTS" = "1" ]; then
-    log "Database appeared - creating marker and starting service..."
-    touch "$IMPORT_MARKER"
-    exec /app/start.sh
+    TABLE_READY=$(has_nominatim_tables || echo "0")
+    if [ "$TABLE_READY" = "1" ]; then
+      log "Database appeared - creating marker and starting service..."
+      touch "$IMPORT_MARKER"
+      exec /app/start.sh
+    fi
+    log "Database appeared but tables not ready yet, continuing to wait..."
   fi
 
   sleep 10
