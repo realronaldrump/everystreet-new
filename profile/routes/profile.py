@@ -33,6 +33,9 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+FETCH_CONCURRENCY_MIN = 1
+FETCH_CONCURRENCY_MAX = 50
+
 
 class BouncieCredentials(BaseModel):
     """Model for Bouncie API credentials."""
@@ -42,6 +45,7 @@ class BouncieCredentials(BaseModel):
     redirect_uri: str
     authorization_code: str | None = None
     authorized_devices: list[str] | str | None = None
+    fetch_concurrency: int | None = None
 
 
 @router.get("/api/profile/bouncie-credentials", response_model=dict[str, Any])
@@ -92,6 +96,25 @@ async def update_credentials(credentials: BouncieCredentials):
         Status of the update operation
     """
     creds_dict = credentials.model_dump(exclude_none=True)
+
+    fetch_concurrency = creds_dict.get("fetch_concurrency")
+    if fetch_concurrency is not None:
+        if not isinstance(fetch_concurrency, int):
+            raise HTTPException(
+                status_code=400,
+                detail="Fetch concurrency must be an integer.",
+            )
+        if (
+            fetch_concurrency < FETCH_CONCURRENCY_MIN
+            or fetch_concurrency > FETCH_CONCURRENCY_MAX
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Fetch concurrency must be between "
+                    f"{FETCH_CONCURRENCY_MIN} and {FETCH_CONCURRENCY_MAX}."
+                ),
+            )
 
     existing = await get_bouncie_credentials()
 

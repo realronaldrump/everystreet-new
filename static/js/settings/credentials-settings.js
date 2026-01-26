@@ -8,9 +8,35 @@ import {
   syncBouncieVehicles,
 } from "../modules/settings/credentials.js";
 import notificationManager from "../modules/ui/notifications.js";
+import { DEFAULT_FETCH_CONCURRENCY } from "../profile-state.js";
 
 const BOUNCIE_AUTHORIZE_URL = "/api/bouncie/authorize";
 const BOUNCIE_REDIRECT_URI_API = "/api/bouncie/redirect-uri";
+const FETCH_CONCURRENCY_MIN = 1;
+const FETCH_CONCURRENCY_MAX = 50;
+
+function normalizeFetchConcurrency(value) {
+  const parsed = parseInt(value, 10);
+  if (!Number.isFinite(parsed) || parsed < FETCH_CONCURRENCY_MIN) {
+    return DEFAULT_FETCH_CONCURRENCY;
+  }
+  return parsed;
+}
+
+function parseFetchConcurrencyInput(value) {
+  if (value === "" || value === undefined || value === null) {
+    return DEFAULT_FETCH_CONCURRENCY;
+  }
+  const parsed = parseInt(value, 10);
+  return Number.isFinite(parsed) ? parsed : NaN;
+}
+
+function validateFetchConcurrency(value) {
+  if (!Number.isFinite(value)) {
+    return false;
+  }
+  return value >= FETCH_CONCURRENCY_MIN && value <= FETCH_CONCURRENCY_MAX;
+}
 
 export function setupCredentialsSettings({ signal } = {}) {
   setupMapboxCredentials({ signal });
@@ -77,6 +103,9 @@ async function setupBouncieCredentials({ signal } = {}) {
   const secretInput = document.getElementById("credentials-clientSecret");
   const clientId = document.getElementById("credentials-clientId");
   const redirectUri = document.getElementById("credentials-redirectUri");
+  const fetchConcurrencyInput = document.getElementById(
+    "credentials-fetchConcurrency"
+  );
 
   if (!form || !saveBtn) {
     return;
@@ -93,6 +122,11 @@ async function setupBouncieCredentials({ signal } = {}) {
     if (redirectUri) {
       redirectUri.value
         = creds.redirect_uri || (await getExpectedRedirectUri({ signal }));
+    }
+    if (fetchConcurrencyInput) {
+      fetchConcurrencyInput.value = String(
+        normalizeFetchConcurrency(creds.fetch_concurrency)
+      );
     }
   } catch (error) {
     notificationManager.show(
@@ -113,10 +147,21 @@ async function setupBouncieCredentials({ signal } = {}) {
 
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
+    const fetchConcurrency = parseFetchConcurrencyInput(
+      fetchConcurrencyInput?.value
+    );
+    if (fetchConcurrencyInput && !validateFetchConcurrency(fetchConcurrency)) {
+      notificationManager.show(
+        `Fetch concurrency must be between ${FETCH_CONCURRENCY_MIN} and ${FETCH_CONCURRENCY_MAX}.`,
+        "danger"
+      );
+      return;
+    }
     const payload = {
       client_id: clientId?.value?.trim() || "",
       client_secret: secretInput?.value?.trim() || "",
       redirect_uri: redirectUri?.value?.trim() || "",
+      fetch_concurrency: fetchConcurrency,
     };
 
     try {
@@ -142,10 +187,21 @@ async function setupBouncieCredentials({ signal } = {}) {
   if (connectBtn) {
     connectBtn.addEventListener("click", async (event) => {
       event.preventDefault();
+      const fetchConcurrency = parseFetchConcurrencyInput(
+        fetchConcurrencyInput?.value
+      );
+      if (fetchConcurrencyInput && !validateFetchConcurrency(fetchConcurrency)) {
+        notificationManager.show(
+          `Fetch concurrency must be between ${FETCH_CONCURRENCY_MIN} and ${FETCH_CONCURRENCY_MAX}.`,
+          "danger"
+        );
+        return;
+      }
       const payload = {
         client_id: clientId?.value?.trim() || "",
         client_secret: secretInput?.value?.trim() || "",
         redirect_uri: redirectUri?.value?.trim() || "",
+        fetch_concurrency: fetchConcurrency,
       };
       try {
         await saveBouncieCredentials(payload, { signal });
