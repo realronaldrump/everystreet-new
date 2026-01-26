@@ -14,7 +14,8 @@
 
 services:
   web:
-    image: ghcr.io/realronaldrump/everystreet-new:main
+    build: .
+    # image: ghcr.io/realronaldrump/everystreet-new:main
     restart: unless-stopped
     ports:
       - '8080:8080'
@@ -45,7 +46,8 @@ services:
       start_period: 15s
 
   worker:
-    image: ghcr.io/realronaldrump/everystreet-new:main
+    build: .
+    # image: ghcr.io/realronaldrump/everystreet-new:main
     restart: unless-stopped
     command: arq tasks.worker.WorkerSettings
     env_file: .env
