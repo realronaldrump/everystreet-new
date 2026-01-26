@@ -93,6 +93,27 @@ async def update_credentials(credentials: BouncieCredentials):
     """
     creds_dict = credentials.model_dump(exclude_none=True)
 
+    existing = await get_bouncie_credentials()
+
+    def _normalized(value: str | None) -> str:
+        return (value or "").strip()
+
+    credentials_changed = any(
+        _normalized(existing.get(field)) != _normalized(creds_dict.get(field))
+        for field in ("client_id", "client_secret", "redirect_uri")
+    )
+    if credentials_changed:
+        creds_dict.update(
+            {
+                "authorization_code": None,
+                "access_token": None,
+                "refresh_token": None,
+                "expires_at": None,
+                "oauth_state": None,
+                "oauth_state_expires_at": None,
+            },
+        )
+
     # Validate credentials
     is_valid, error_msg = await validate_bouncie_credentials(creds_dict)
     if not is_valid:
@@ -106,9 +127,12 @@ async def update_credentials(credentials: BouncieCredentials):
         raise HTTPException(status_code=500, detail=str(e))
 
     if success:
+        message = "Bouncie credentials updated successfully"
+        if credentials_changed:
+            message = "Bouncie credentials updated. Reconnect to authorize access."
         return {
             "status": "success",
-            "message": "Bouncie credentials updated successfully",
+            "message": message,
         }
     return {
         "status": "success",
