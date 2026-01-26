@@ -571,6 +571,7 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: var(--space-3);
   padding: var(--space-3);
   background: var(--glass-input);
   border-radius: var(--radius-md);
@@ -586,7 +587,7 @@ body.light-mode .mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
 .custom-switch-label {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: var(--space-2);
   cursor: pointer;
   flex: 1;
   margin: 0;
