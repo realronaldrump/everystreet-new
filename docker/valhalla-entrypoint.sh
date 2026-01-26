@@ -23,21 +23,19 @@ generate_config() {
   if [ ! -f "$VALHALLA_CONFIG" ]; then
     log "Generating default Valhalla configuration..."
 
-    # Try using the configure script first
-    if [ -x /valhalla/scripts/configure_valhalla.sh ]; then
-      /valhalla/scripts/configure_valhalla.sh 2>&1 || log "configure_valhalla.sh warning"
+    # Prefer valhalla_build_config to avoid noisy configure script when no PBFs exist yet.
+    if command -v valhalla_build_config >/dev/null 2>&1; then
+      log "Generating config with valhalla_build_config..."
+      valhalla_build_config \
+        --mjolnir-tile-dir "$TILE_DIR" \
+        --mjolnir-timezone "$CUSTOM_FILES/timezones.sqlite" \
+        --mjolnir-admin "$CUSTOM_FILES/admin_data.sqlite" \
+        > "$VALHALLA_CONFIG" 2>/dev/null || log "valhalla_build_config warning"
     fi
 
-    # If config still doesn't exist, generate manually
-    if [ ! -f "$VALHALLA_CONFIG" ]; then
-      log "Generating config with valhalla_build_config..."
-      if command -v valhalla_build_config >/dev/null 2>&1; then
-        valhalla_build_config \
-          --mjolnir-tile-dir "$TILE_DIR" \
-          --mjolnir-timezone "$CUSTOM_FILES/timezones.sqlite" \
-          --mjolnir-admin "$CUSTOM_FILES/admin_data.sqlite" \
-          > "$VALHALLA_CONFIG" 2>/dev/null || log "valhalla_build_config warning"
-      fi
+    # If config still doesn't exist, fall back to configure script.
+    if [ ! -f "$VALHALLA_CONFIG" ] && [ -x /valhalla/scripts/configure_valhalla.sh ]; then
+      /valhalla/scripts/configure_valhalla.sh 2>&1 || log "configure_valhalla.sh warning"
     fi
   fi
 }

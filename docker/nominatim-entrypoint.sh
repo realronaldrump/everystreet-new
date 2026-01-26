@@ -156,20 +156,20 @@ if [ -f "$IMPORT_MARKER" ]; then
   fi
 fi
 
-# Check if database exists without marker (previous import completed but marker missing)
+# Check if database exists without marker (wait for explicit import marker)
 DB_EXISTS=$(sudo -u postgres psql -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname='nominatim'" 2>/dev/null || echo "0")
 if [ "$DB_EXISTS" = "1" ]; then
   TABLE_READY=$(has_nominatim_tables || echo "0")
   if [ "$TABLE_READY" = "1" ]; then
     TOKENIZER_OK=$(has_tokenizer_property || echo "0")
     if [ "$TOKENIZER_OK" = "1" ]; then
-      log "Nominatim database found (no marker) - creating marker and starting service"
-      touch "$IMPORT_MARKER"
-      exec /app/start.sh
+      log "Nominatim database found without import marker; waiting for marker before starting service"
+    else
+      log "WARNING: Nominatim database missing tokenizer property. Waiting for import."
     fi
-    log "WARNING: Nominatim database missing tokenizer property. Waiting for import."
+  else
+    log "WARNING: Nominatim database missing required tables. Waiting for import."
   fi
-  log "WARNING: Nominatim database missing required tables. Waiting for import."
 fi
 
 # No import completed yet - keep PostgreSQL running and wait for external import
@@ -196,16 +196,16 @@ while true; do
     fi
   fi
 
-  # Also check if database appeared without marker
+  # Also report database readiness without marker (do not start service)
   DB_EXISTS=$(sudo -u postgres psql -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname='nominatim'" 2>/dev/null || echo "0")
   if [ "$DB_EXISTS" = "1" ]; then
     TABLE_READY=$(has_nominatim_tables || echo "0")
     if [ "$TABLE_READY" = "1" ]; then
       TOKENIZER_OK=$(has_tokenizer_property || echo "0")
       if [ "$TOKENIZER_OK" = "1" ]; then
-        log "Database appeared - creating marker and starting service..."
-        touch "$IMPORT_MARKER"
-        exec /app/start.sh
+        log "Database appears ready but import marker not present. Waiting for import marker."
+        sleep 10
+        continue
       fi
       log "Database appeared but tokenizer property missing, continuing to wait..."
     fi
