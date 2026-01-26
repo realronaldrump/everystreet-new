@@ -24,6 +24,26 @@ has_nominatim_tables() {
     2>/dev/null | tr -d '[:space:]'
 }
 
+has_tokenizer_property() {
+  # Nominatim requires a tokenizer property to be set after a successful import.
+  # Check both possible property tables to guard against partial imports.
+  TOKENIZER=$(sudo -u postgres psql -d nominatim -tAc \
+    "SELECT value FROM properties WHERE property='tokenizer'" \
+    2>/dev/null | tr -d '[:space:]')
+  if [ -n "$TOKENIZER" ]; then
+    echo "1"
+    return
+  fi
+  TOKENIZER=$(sudo -u postgres psql -d nominatim -tAc \
+    "SELECT value FROM nominatim_properties WHERE property='tokenizer'" \
+    2>/dev/null | tr -d '[:space:]')
+  if [ -n "$TOKENIZER" ]; then
+    echo "1"
+    return
+  fi
+  echo "0"
+}
+
 # Ensure data directory exists with proper ownership
 mkdir -p "$PG_DATA"
 chown -R postgres:postgres "$(dirname "$PG_DATA")" 2>/dev/null || true
@@ -98,8 +118,13 @@ if [ -f "$IMPORT_MARKER" ]; then
   if [ "$DB_EXISTS" = "1" ]; then
     TABLE_READY=$(has_nominatim_tables || echo "0")
     if [ "$TABLE_READY" = "1" ]; then
-      log "Nominatim database exists - starting web service"
-      exec /app/start.sh
+      TOKENIZER_OK=$(has_tokenizer_property || echo "0")
+      if [ "$TOKENIZER_OK" = "1" ]; then
+        log "Nominatim database exists - starting web service"
+        exec /app/start.sh
+      fi
+      log "WARNING: Nominatim database missing tokenizer property. Removing stale marker."
+      rm -f "$IMPORT_MARKER"
     fi
     log "WARNING: Nominatim database missing required tables. Removing stale marker."
     rm -f "$IMPORT_MARKER"
@@ -114,9 +139,13 @@ DB_EXISTS=$(sudo -u postgres psql -d postgres -tAc "SELECT 1 FROM pg_database WH
 if [ "$DB_EXISTS" = "1" ]; then
   TABLE_READY=$(has_nominatim_tables || echo "0")
   if [ "$TABLE_READY" = "1" ]; then
-    log "Nominatim database found (no marker) - creating marker and starting service"
-    touch "$IMPORT_MARKER"
-    exec /app/start.sh
+    TOKENIZER_OK=$(has_tokenizer_property || echo "0")
+    if [ "$TOKENIZER_OK" = "1" ]; then
+      log "Nominatim database found (no marker) - creating marker and starting service"
+      touch "$IMPORT_MARKER"
+      exec /app/start.sh
+    fi
+    log "WARNING: Nominatim database missing tokenizer property. Waiting for import."
   fi
   log "WARNING: Nominatim database missing required tables. Waiting for import."
 fi
@@ -150,9 +179,13 @@ while true; do
   if [ "$DB_EXISTS" = "1" ]; then
     TABLE_READY=$(has_nominatim_tables || echo "0")
     if [ "$TABLE_READY" = "1" ]; then
-      log "Database appeared - creating marker and starting service..."
-      touch "$IMPORT_MARKER"
-      exec /app/start.sh
+      TOKENIZER_OK=$(has_tokenizer_property || echo "0")
+      if [ "$TOKENIZER_OK" = "1" ]; then
+        log "Database appeared - creating marker and starting service..."
+        touch "$IMPORT_MARKER"
+        exec /app/start.sh
+      fi
+      log "Database appeared but tokenizer property missing, continuing to wait..."
     fi
     log "Database appeared but tables not ready yet, continuing to wait..."
   fi

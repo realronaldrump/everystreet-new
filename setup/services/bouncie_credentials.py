@@ -57,6 +57,12 @@ async def get_bouncie_credentials() -> dict[str, Any]:
         credentials = await BouncieCredentials.find_one(
             BouncieCredentials.id == "bouncie_credentials",
         )
+        if credentials is None:
+            credentials = await BouncieCredentials.find_one()
+            if credentials is not None:
+                logger.warning(
+                    "Bouncie credentials found without expected id; using fallback document",
+                )
     except Exception:
         logger.exception("Error retrieving Bouncie credentials")
         return default_credentials
@@ -111,6 +117,12 @@ async def update_bouncie_credentials(credentials: dict[str, Any]) -> bool:
         existing = await BouncieCredentials.find_one(
             BouncieCredentials.id == "bouncie_credentials",
         )
+        if existing is None:
+            existing = await BouncieCredentials.find_one()
+            if existing is not None:
+                logger.warning(
+                    "Updating fallback Bouncie credentials document without expected id",
+                )
 
         if existing:
             for key, value in credentials.items():

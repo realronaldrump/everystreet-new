@@ -10,7 +10,11 @@ from pymongo.errors import OperationFailure
 
 from core.date_utils import ensure_utc
 from core.http.geocoding import validate_location_osm
-from core.service_config import apply_settings_to_env, clear_config_cache
+from core.service_config import (
+    apply_settings_to_env,
+    clear_config_cache,
+    get_service_config,
+)
 from db.manager import db_manager
 from db.models import (
     AppSettings,
@@ -128,6 +132,12 @@ class AdminService:
         payload.pop("mapbox_access_token", None)
         for key in DEPRECATED_APP_SETTINGS_FIELDS:
             payload.pop(key, None)
+        try:
+            effective = await get_service_config()
+            if effective.mapbox_token:
+                payload["mapbox_token"] = effective.mapbox_token
+        except Exception:
+            logger.exception("Failed to load effective mapbox token for settings payload")
         return payload
 
     @staticmethod
