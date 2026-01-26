@@ -134,7 +134,14 @@ services:
     expose:
       - '8080'
     healthcheck:
-      test: ['CMD-SHELL', 'pgrep -f postgres || curl -sf http://localhost:8080/status >/dev/null']
+      # Health check passes if:
+      # 1. Nominatim web service is responding, OR
+      # 2. PostgreSQL is running (container is waiting for data import)
+      test:
+        [
+          'CMD-SHELL',
+          'curl -sf http://localhost:8080/status >/dev/null || sudo -u postgres pg_isready -d postgres -q',
+        ]
       interval: 15s
       timeout: 10s
       retries: 3
@@ -164,10 +171,13 @@ services:
     expose:
       - '8002'
     healthcheck:
+      # Health check passes if:
+      # 1. Valhalla service is responding, OR
+      # 2. Config file exists (container is waiting for tile build)
       test:
         [
           'CMD-SHELL',
-          'pgrep -f "sleep 5" || pgrep -f valhalla_service || curl -sf http://localhost:8002/status >/dev/null',
+          'curl -sf http://localhost:8002/status >/dev/null || test -f /custom_files/valhalla.json',
         ]
       interval: 15s
       timeout: 10s

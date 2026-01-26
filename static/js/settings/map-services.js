@@ -357,6 +357,11 @@ function renderProgressSection(status) {
 
 /**
  * Render action buttons
+ *
+ * Button design:
+ * - "Download Map Data" (primary): Starts initial provisioning
+ * - "Retry Setup" (warning): Retries after an error - distinct from refresh
+ * - "Check Status" (muted link): Manual status refresh - icon only, subtle
  */
 function renderActions(status) {
   const { is_building, needs_provisioning, last_error, retry_count } = status;
@@ -377,21 +382,24 @@ function renderActions(status) {
     `);
   }
 
-  // Show retry button if there was an error
+  // Show retry button if there was an error (distinct from refresh)
   if (last_error && !is_building && !needs_provisioning) {
     buttons.push(`
-      <button class="btn btn-secondary" id="retry-btn">
-        <i class="fas fa-redo"></i> <span class="btn-text">Retry</span>
+      <button class="btn btn-warning" id="retry-btn" title="Retry the failed setup">
+        <i class="fas fa-redo-alt"></i> <span class="btn-text">Retry Setup</span>
       </button>
     `);
   }
 
-  // Refresh button
-  buttons.push(`
-    <button class="btn btn-ghost" id="refresh-btn" title="Refresh status">
-      <i class="fas fa-sync-alt"></i>
-    </button>
-  `);
+  // Refresh button - only show when not building (auto-polls during build)
+  // Use muted styling to differentiate from action buttons
+  if (!is_building) {
+    buttons.push(`
+      <button class="btn btn-link btn-sm text-muted" id="refresh-btn" title="Check current status">
+        <i class="fas fa-sync"></i>
+      </button>
+    `);
+  }
 
   if (buttons.length === 0) {
     return "";
@@ -399,14 +407,14 @@ function renderActions(status) {
 
   return `
     <div class="map-services-actions">
-      <div class="action-buttons">${buttons.join("")}</div>
+      <div class="action-buttons d-flex gap-2 align-items-center">${buttons.join("")}</div>
       ${
         last_error
           ? `
-        <div class="map-services-error-message">
-          <i class="fas fa-exclamation-circle"></i>
+        <div class="map-services-error-message mt-2">
+          <i class="fas fa-exclamation-circle text-warning"></i>
           <span>${escapeHtml(truncate(last_error, 100))}</span>
-          ${retry_count > 0 ? `<small>(Retry ${retry_count}/3)</small>` : ""}
+          ${retry_count > 0 ? `<small class="text-muted ms-2">(Attempt ${retry_count}/3)</small>` : ""}
         </div>
       `
           : ""

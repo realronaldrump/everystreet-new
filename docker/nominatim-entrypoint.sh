@@ -16,25 +16,17 @@ if [ -d /var/lib/postgresql/16/main ] || [ -x /usr/lib/postgresql/16/bin/initdb 
   PG_VERSION="16"
 fi
 
-if [ ! -x "$INITDB_BIN" ]; then
-  INITDB_BIN=""
-  log "Warning: initdb not found, database may not initialize properly"
-fi
+IMPORT_MARKER="${PG_DATA}/import-finished"
 
-# Ensure data directory exists
+# Ensure data directory exists with proper ownership
 mkdir -p "$PG_DATA"
+chown -R postgres:postgres "$(dirname "$PG_DATA")" 2>/dev/null || true
+chown -R postgres:postgres "$PG_DATA" 2>/dev/null || true
 
 # Initialize PostgreSQL if needed
-if [ -n "$INITDB_BIN" ] && [ ! -f "${PG_DATA}/PG_VERSION" ]; then
+if [ -n "$INITDB_BIN" ] && [ -x "$INITDB_BIN" ] && [ ! -f "${PG_DATA}/PG_VERSION" ]; then
   log "Initializing PostgreSQL $PG_VERSION data directory..."
-  chown -R postgres:postgres "$(dirname "$PG_DATA")"
-  chown -R postgres:postgres "$PG_DATA"
   sudo -u postgres "$INITDB_BIN" -D "$PG_DATA" 2>&1 || log "initdb warning (may be ok if already initialized)"
-fi
-
-# Ensure proper ownership
-if [ -d "$PG_DATA" ]; then
-  chown -R postgres:postgres "$PG_DATA" 2>/dev/null || true
 fi
 
 # Start PostgreSQL service
@@ -42,15 +34,18 @@ log "Starting PostgreSQL service..."
 if command -v service >/dev/null 2>&1; then
   service postgresql start 2>&1 || log "PostgreSQL start warning"
 elif command -v pg_ctl >/dev/null 2>&1; then
+  mkdir -p /var/log/postgresql
+  chown postgres:postgres /var/log/postgresql
   sudo -u postgres pg_ctl -D "$PG_DATA" -l /var/log/postgresql/startup.log start 2>&1 || log "pg_ctl start warning"
 fi
 
-# Wait for PostgreSQL to be ready
-log "Waiting for PostgreSQL to become ready..."
-RETRIES=30
+# Wait for PostgreSQL to accept connections (use postgres database, NOT nominatim)
+# The postgres database always exists - nominatim database is created during import
+log "Waiting for PostgreSQL to accept connections..."
+RETRIES=60
 while [ $RETRIES -gt 0 ]; do
-  if sudo -u postgres pg_isready -q 2>/dev/null; then
-    log "PostgreSQL is ready"
+  if sudo -u postgres pg_isready -d postgres -q 2>/dev/null; then
+    log "PostgreSQL is accepting connections"
     break
   fi
   sleep 2
@@ -58,33 +53,86 @@ while [ $RETRIES -gt 0 ]; do
 done
 
 if [ $RETRIES -eq 0 ]; then
-  log "Warning: PostgreSQL may not be fully ready"
+  log "ERROR: PostgreSQL failed to start within timeout"
+  exit 1
 fi
 
-# Ensure the nominatim role exists for imports
-ROLE_EXISTS=$(sudo -u postgres psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='nominatim'" 2>/dev/null || echo "0")
+# Ensure the nominatim role exists (required for import)
+# This MUST be done before any import attempt
+log "Ensuring required PostgreSQL roles exist..."
+ROLE_EXISTS=$(sudo -u postgres psql -d postgres -tAc "SELECT 1 FROM pg_roles WHERE rolname='nominatim'" 2>/dev/null || echo "0")
 if [ "$ROLE_EXISTS" != "1" ]; then
   log "Creating PostgreSQL role 'nominatim'..."
-  if command -v createuser >/dev/null 2>&1; then
-    sudo -u postgres createuser -s nominatim 2>&1 || log "createuser warning"
+  sudo -u postgres psql -d postgres -c "CREATE ROLE nominatim WITH SUPERUSER CREATEDB CREATEROLE LOGIN" 2>&1 || log "Role nominatim may already exist"
+fi
+
+# Ensure www-data role exists (needed by Nominatim web interface)
+WWW_ROLE_EXISTS=$(sudo -u postgres psql -d postgres -tAc "SELECT 1 FROM pg_roles WHERE rolname='www-data'" 2>/dev/null || echo "0")
+if [ "$WWW_ROLE_EXISTS" != "1" ]; then
+  log "Creating PostgreSQL role 'www-data'..."
+  sudo -u postgres psql -d postgres -c "CREATE ROLE \"www-data\" WITH LOGIN" 2>&1 || log "Role www-data may already exist"
+fi
+
+# Verify roles were created successfully
+log "Verifying roles..."
+NOMINATIM_OK=$(sudo -u postgres psql -d postgres -tAc "SELECT 1 FROM pg_roles WHERE rolname='nominatim'" 2>/dev/null || echo "0")
+WWWDATA_OK=$(sudo -u postgres psql -d postgres -tAc "SELECT 1 FROM pg_roles WHERE rolname='www-data'" 2>/dev/null || echo "0")
+if [ "$NOMINATIM_OK" = "1" ] && [ "$WWWDATA_OK" = "1" ]; then
+  log "All required PostgreSQL roles are ready"
+else
+  log "WARNING: Some roles may not have been created properly"
+  log "  nominatim role: $NOMINATIM_OK"
+  log "  www-data role: $WWWDATA_OK"
+fi
+
+# Check if import has been completed (marker file exists)
+if [ -f "$IMPORT_MARKER" ]; then
+  log "Import marker found - checking database..."
+  DB_EXISTS=$(sudo -u postgres psql -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname='nominatim'" 2>/dev/null || echo "0")
+  if [ "$DB_EXISTS" = "1" ]; then
+    log "Nominatim database exists - starting web service"
+    exec /app/start.sh
   else
-    sudo -u postgres psql -c "CREATE USER nominatim WITH SUPERUSER" 2>&1 || log "create user warning"
+    log "WARNING: Import marker exists but database not found. Removing stale marker."
+    rm -f "$IMPORT_MARKER"
   fi
 fi
 
-# Check if nominatim database exists
-DB_EXISTS=$(sudo -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname='nominatim'" 2>/dev/null || echo "0")
+# Check if database exists without marker (previous import completed but marker missing)
+DB_EXISTS=$(sudo -u postgres psql -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname='nominatim'" 2>/dev/null || echo "0")
 if [ "$DB_EXISTS" = "1" ]; then
-  log "Nominatim database exists - ready to serve requests"
-else
-  log "Nominatim database not found - will need to import data"
+  log "Nominatim database found (no marker) - creating marker and starting service"
+  touch "$IMPORT_MARKER"
+  exec /app/start.sh
 fi
 
-log "Starting Nominatim service..."
-if [ "$DB_EXISTS" = "1" ]; then
-  exec /app/start.sh
-else
-  log "Nominatim database not found. Waiting for data import..."
-  log "Container will remain up (PostgreSQL is running). Use 'docker exec' to import data."
-  tail -f /dev/null
-fi
+# No import completed yet - keep PostgreSQL running and wait for external import
+log "Nominatim database not imported yet."
+log "PostgreSQL is running and ready for import."
+log "Container will remain up for import command via 'docker exec'."
+
+# Wait for import to complete (detected by marker file or database existence)
+while true; do
+  # Check if import marker was created (by builders.py after successful import)
+  if [ -f "$IMPORT_MARKER" ]; then
+    log "Import marker detected! Verifying database..."
+    sleep 2
+    DB_EXISTS=$(sudo -u postgres psql -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname='nominatim'" 2>/dev/null || echo "0")
+    if [ "$DB_EXISTS" = "1" ]; then
+      log "Import complete - restarting to serve requests..."
+      exec /app/start.sh
+    else
+      log "Marker found but database not ready yet, continuing to wait..."
+    fi
+  fi
+
+  # Also check if database appeared without marker
+  DB_EXISTS=$(sudo -u postgres psql -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname='nominatim'" 2>/dev/null || echo "0")
+  if [ "$DB_EXISTS" = "1" ]; then
+    log "Database appeared - creating marker and starting service..."
+    touch "$IMPORT_MARKER"
+    exec /app/start.sh
+  fi
+
+  sleep 10
+done

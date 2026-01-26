@@ -216,12 +216,13 @@ async def build_nominatim_data(
 
         logger.info("PBF file verified in container: %s", pbf_container_path)
 
-        # Build the import command with proper flags
+        # Build the import command
+        # Note: We do NOT use -u nominatim here. The nominatim CLI handles
+        # user switching internally when needed. Running as root allows
+        # proper access to files and the PostgreSQL socket.
         import_cmd = [
             "docker",
             "exec",
-            "-u",
-            "nominatim",
             "-e",
             "NOMINATIM_QUERY_TIMEOUT=600",
             "-e",
@@ -369,21 +370,28 @@ async def build_nominatim_data(
 
 
 async def _wait_for_nominatim_db_ready(timeout: int = 120) -> None:
-    """Wait for PostgreSQL to be ready inside the Nominatim container."""
+    """
+    Wait for PostgreSQL to be ready inside the Nominatim container.
+
+    NOTE: This checks that PostgreSQL is accepting connections using the
+    'postgres' database (which always exists), NOT the 'nominatim' database.
+    The 'nominatim' database is created DURING the import process, so we
+    cannot require it to exist before import.
+    """
     container_name = _get_container_name("nominatim")
     start_time = asyncio.get_event_loop().time()
 
     while (asyncio.get_event_loop().time() - start_time) < timeout:
         try:
+            # Check PostgreSQL readiness using the 'postgres' database
+            # which always exists, not 'nominatim' which is created during import
             check_cmd = [
                 "docker",
                 "exec",
                 container_name,
                 "pg_isready",
-                "-U",
-                "nominatim",
                 "-d",
-                "nominatim",
+                "postgres",
             ]
             result = subprocess.run(
                 check_cmd,
@@ -392,14 +400,39 @@ async def _wait_for_nominatim_db_ready(timeout: int = 120) -> None:
                 timeout=10,
             )
             if result.returncode == 0:
-                logger.info("PostgreSQL is ready in Nominatim container")
-                return
+                logger.info("PostgreSQL is accepting connections")
+
+                # Verify the nominatim role exists (created by entrypoint)
+                role_check = [
+                    "docker",
+                    "exec",
+                    container_name,
+                    "sudo",
+                    "-u",
+                    "postgres",
+                    "psql",
+                    "-d",
+                    "postgres",
+                    "-tAc",
+                    "SELECT 1 FROM pg_roles WHERE rolname='nominatim'",
+                ]
+                role_result = subprocess.run(
+                    role_check,
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                )
+                if role_result.stdout.strip() == "1":
+                    logger.info("Nominatim role exists, PostgreSQL ready for import")
+                    return
+                logger.debug("Nominatim role not found yet, waiting...")
         except Exception as e:
             logger.debug("pg_isready check failed: %s", e)
 
         await asyncio.sleep(5)
 
-    logger.warning("Timeout waiting for PostgreSQL, proceeding anyway")
+    # If we timeout, log a warning but proceed - let the import try anyway
+    logger.warning("Timeout waiting for PostgreSQL, proceeding with import attempt")
 
 
 async def _wait_for_nominatim_healthy(timeout: int = 120) -> None:
