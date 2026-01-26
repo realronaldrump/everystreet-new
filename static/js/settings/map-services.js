@@ -102,7 +102,6 @@ function renderAutoStatus(status) {
   container.innerHTML = `
     <div class="map-services-auto">
       ${renderStatusHeader(status)}
-      ${renderCredentialsCta()}
       ${renderServicesStatus(status)}
       ${renderStatesCoverage(status)}
       ${renderProgressSection(status)}
@@ -111,25 +110,6 @@ function renderAutoStatus(status) {
   `;
 
   attachEventListeners();
-}
-
-/**
- * Render credentials CTA
- */
-function renderCredentialsCta() {
-  return `
-    <div class="map-services-credentials">
-      <div class="map-services-credentials-card">
-        <div class="map-services-credentials-copy">
-          <strong>Mapbox token</strong>
-          <span>Managed in Settings → Credentials.</span>
-        </div>
-        <a class="btn btn-sm btn-outline-primary" href="/settings#credentials" data-es-no-spa>
-          Manage credentials
-        </a>
-      </div>
-    </div>
-  `;
 }
 
 /**
