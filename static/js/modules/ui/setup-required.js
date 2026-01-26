@@ -4,10 +4,12 @@ import { onPageLoad } from "../utils.js";
 const SETUP_STATUS_API = "/api/setup/status";
 const SETUP_ROUTE = "/setup-wizard";
 const CACHE_WINDOW_MS = 30000;
+const COLLAPSE_KEY = "es:setup-modal-collapsed";
 
 let lastFetchAt = 0;
 let cachedStatus = null;
 let inFlight = null;
+let boundToggle = false;
 
 const STEP_META = [
   {
@@ -100,38 +102,88 @@ function renderChecklist(listEl, steps) {
   });
 }
 
-function updateBanner(status) {
-  const banner = document.getElementById("setup-required-banner");
-  if (!banner) {
+function updateUI(status) {
+  const modal = document.getElementById("setup-required-modal");
+  const fab = document.getElementById("setup-required-fab");
+  if (!modal || !fab) {
     return;
   }
-  if (shouldSkipBanner()) {
-    banner.classList.add("d-none");
-    return;
-  }
-
-  if (!shouldShowBanner(status)) {
-    banner.classList.add("d-none");
+  if (shouldSkipBanner() || !shouldShowBanner(status)) {
+    modal.classList.add("d-none");
+    fab.classList.add("d-none");
     return;
   }
 
   const listEl = document.getElementById("setup-required-list");
   renderChecklist(listEl, status.steps || {});
-  banner.classList.remove("d-none");
+  applyCollapsedState(modal, fab);
+}
+
+function getCollapsedPreference() {
+  try {
+    return window.localStorage.getItem(COLLAPSE_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+function setCollapsedPreference(value) {
+  try {
+    window.localStorage.setItem(COLLAPSE_KEY, value ? "true" : "false");
+  } catch {
+    // Ignore storage errors
+  }
+}
+
+function applyCollapsedState(modal, fab) {
+  const collapsed = getCollapsedPreference();
+  modal.classList.toggle("d-none", collapsed);
+  fab.classList.toggle("d-none", !collapsed);
+  const toggle = document.getElementById("setup-required-toggle");
+  if (!toggle) {
+    return;
+  }
+  toggle.setAttribute("aria-expanded", collapsed ? "false" : "true");
+  toggle.setAttribute("aria-label", collapsed ? "Expand setup modal" : "Minimize setup modal");
+  toggle.setAttribute("title", collapsed ? "Expand" : "Minimize");
+  toggle.textContent = collapsed ? "+" : "-";
+}
+
+function bindToggleHandler() {
+  if (boundToggle) {
+    return;
+  }
+  const modal = document.getElementById("setup-required-modal");
+  const toggle = document.getElementById("setup-required-toggle");
+  const fab = document.getElementById("setup-required-fab");
+  if (!modal || !toggle || !fab) {
+    return;
+  }
+  toggle.addEventListener("click", () => {
+    const collapsed = !getCollapsedPreference();
+    setCollapsedPreference(collapsed);
+    applyCollapsedState(modal, fab);
+  });
+  fab.addEventListener("click", () => {
+    setCollapsedPreference(false);
+    applyCollapsedState(modal, fab);
+  });
+  boundToggle = true;
 }
 
 function initSetupRequiredBanner() {
   onPageLoad(async ({ signal } = {}) => {
     if (shouldSkipBanner()) {
-      updateBanner(null);
+      updateUI(null);
       return;
     }
     try {
+      bindToggleHandler();
       const status = await fetchSetupStatus(signal);
-      updateBanner(status);
+      updateUI(status);
     } catch (error) {
       console.warn("Setup status check failed", error);
-      updateBanner(null);
+      updateUI(null);
     }
   });
 }

@@ -639,28 +639,6 @@ Quick Selections
 
         <!-- Main Content Area -->
         <main id="main-content" class="main-content" role="main" tabindex="-1">
-          <aside class="setup-required-banner d-none" id="setup-required-banner" role="status" aria-live="polite">
-            <div class="setup-required-card">
-              <div class="setup-required-icon" aria-hidden="true">
-                <i class="fas fa-triangle-exclamation"></i>
-              </div>
-              <div class="setup-required-body">
-                <div class="setup-required-title">Setup required</div>
-                <p class="setup-required-message" id="setup-required-message">
-                  Run the setup wizard to connect Bouncie and your self-hosted services.
-                </p>
-                <ul class="setup-required-list" id="setup-required-list" aria-label="Setup checklist">
-                </ul>
-              </div>
-              <div class="setup-required-actions">
-                <a class="btn btn-primary" href="/setup-wizard" id="setup-required-cta">
-                  <i class="fas fa-wand-magic-sparkles me-2" aria-hidden="true"></i>
-                  Run Setup Wizard
-                </a>
-                <span class="setup-required-footnote">Takes ~5 minutes.</span>
-              </div>
-            </div>
-          </aside>
           <div id="nav-breadcrumb" class="nav-breadcrumb" aria-label="Breadcrumb">
             <div id="nav-trail" class="nav-trail">
             </div>
@@ -732,6 +710,43 @@ Quick Selections
 
       <div id="modals-container">
       </div>
+      <div class="setup-required-modal d-none" id="setup-required-modal" role="dialog" aria-modal="true" aria-labelledby="setup-required-title">
+        <div class="setup-required-backdrop" aria-hidden="true"></div>
+        <div class="setup-required-dialog" role="document">
+          <div class="setup-required-card">
+            <button class="setup-required-toggle"
+                    type="button"
+                    id="setup-required-toggle"
+                    aria-expanded="true"
+                    aria-label="Minimize setup modal"
+                    title="Minimize">
+              -
+            </button>
+            <div class="setup-required-icon" aria-hidden="true">
+              <i class="fas fa-triangle-exclamation"></i>
+            </div>
+            <div class="setup-required-body">
+              <div class="setup-required-title" id="setup-required-title">Setup required</div>
+              <p class="setup-required-message" id="setup-required-message">
+                Run the setup wizard to connect Bouncie and your self-hosted services.
+              </p>
+              <ul class="setup-required-list" id="setup-required-list" aria-label="Setup checklist">
+              </ul>
+            </div>
+            <div class="setup-required-actions">
+              <a class="btn btn-primary" href="/setup-wizard" id="setup-required-cta">
+                <i class="fas fa-wand-magic-sparkles me-2" aria-hidden="true"></i>
+                Run Setup Wizard
+              </a>
+              <span class="setup-required-footnote">Takes ~5 minutes.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <button class="setup-required-fab d-none" id="setup-required-fab" type="button" aria-label="Open setup wizard reminder">
+        <i class="fas fa-wand-magic-sparkles" aria-hidden="true"></i>
+        <span>Setup required</span>
+      </button>
       <div id="spa-announcer" class="visually-hidden" role="status" aria-live="polite">
       </div>
       <div id="spa-scripts" aria-hidden="true">
