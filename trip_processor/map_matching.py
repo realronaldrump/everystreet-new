@@ -52,11 +52,12 @@ class TripMapMatcher:
 
             gps_data = processed_data.get("gps")
             if not gps_data or not isinstance(gps_data, dict):
-                state_machine.set_state(
-                    TripState.FAILED,
-                    "Invalid or missing GPS data for map matching",
+                # No GPS data - just continue without map matching
+                logger.debug(
+                    "Trip %s has no GPS data for map matching",
+                    transaction_id,
                 )
-                return False, processed_data
+                return True, processed_data
 
             gps_type = gps_data.get("type")
 
@@ -125,13 +126,13 @@ class TripMapMatcher:
             result = (True, processed_data)
 
         except Exception as e:
-            error_message = f"Unexpected map matching error: {e!s}"
-            logger.exception(
-                "Error map matching trip %s",
+            # Map matching errors should not fail the trip - just log and continue
+            logger.warning(
+                "Map matching error for trip %s (continuing): %s",
                 processed_data.get("transactionId", "unknown"),
+                e,
             )
-            state_machine.set_state(TripState.FAILED, error_message)
-            return False, processed_data
+            return True, processed_data
         else:
             return result
 

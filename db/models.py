@@ -127,11 +127,11 @@ class Trip(Document):
     @field_validator("gps", mode="before")
     @classmethod
     def validate_gps_data(cls, v: Any) -> dict[str, Any] | None:
-        """Validate and standardize GPS data."""
+        """Validate GPS data is valid GeoJSON - store as-is from Bouncie."""
         if v is None:
             return None
 
-        # Handle string input
+        # Handle string input (parse JSON)
         if isinstance(v, str):
             try:
                 import json
@@ -140,81 +140,14 @@ class Trip(Document):
             except json.JSONDecodeError:
                 return None
 
-        # Handle list input (convert to GeoJSON)
+        # Handle list input (convert to GeoJSON LineString)
         if isinstance(v, list):
-            # Basic coordinate validation helper
-            def valid_coord(c):
-                if not isinstance(c, list | tuple) or len(c) < 2:
-                    return False
-                try:
-                    lon, lat = float(c[0]), float(c[1])
-                except (ValueError, TypeError):
-                    return False
-                return -180 <= lon <= 180 and -90 <= lat <= 90
-
-            # Filter valid coordinates
-            valid_coords = [c for c in v if valid_coord(c)]
-
-            # Deduplicate consecutive points
-            unique_coords = []
-            for c in valid_coords:
-                c_list = [float(c[0]), float(c[1])]
-                if not unique_coords or c_list != unique_coords[-1]:
-                    unique_coords.append(c_list)
-
-            if not unique_coords:
+            if not v:
                 return None
+            return {"type": "LineString", "coordinates": v}
 
-            if len(unique_coords) == 1:
-                return {"type": "Point", "coordinates": unique_coords[0]}
-            return {"type": "LineString", "coordinates": unique_coords}
-
-        # Handle dict input (GeoJSON)
+        # Handle dict input (GeoJSON) - store as-is
         if isinstance(v, dict):
-            if "type" not in v or "coordinates" not in v:
-                return v  # Return as is, let Pydantic handle or skip
-
-            geom_type = v["type"]
-            coords = v["coordinates"]
-
-            if geom_type not in ["Point", "LineString"]:
-                return v
-
-            if not isinstance(coords, list):
-                return v
-
-            # Validate based on type
-            if geom_type == "Point":
-                if len(coords) >= 2:
-                    try:
-                        lon, lat = float(coords[0]), float(coords[1])
-                        if -180 <= lon <= 180 and -90 <= lat <= 90:
-                            v["coordinates"] = [lon, lat]
-                    except (ValueError, TypeError):
-                        pass
-            elif geom_type == "LineString":
-                validated = []
-                for point in coords:
-                    if not isinstance(point, list) or len(point) < 2:
-                        continue
-                    try:
-                        lon, lat = float(point[0]), float(point[1])
-                        if -180 <= lon <= 180 and -90 <= lat <= 90:
-                            validated.append([lon, lat])
-                    except (ValueError, TypeError):
-                        continue
-
-                # Deduplicate
-                final_coords = []
-                for p in validated:
-                    if not final_coords or p != final_coords[-1]:
-                        final_coords.append(p)
-
-                if final_coords:
-                    if len(final_coords) == 1:
-                        return {"type": "Point", "coordinates": final_coords[0]}
-                    v["coordinates"] = final_coords
-
             return v
 
         return None
@@ -299,19 +232,6 @@ class Trip(Document):
     model_config = ConfigDict(extra="allow")
 
 
-class MatchedTrip(Document):
-    """Matched trip document with map-matched GPS coordinates."""
-
-    transactionId: Indexed(str, unique=True) | None = None
-    startTime: Indexed(datetime) | None = None
-    matchedGps: dict[str, Any] | None = None
-    matchStatus: str | None = None
-    matched_at: datetime | None = None
-
-    class Settings:
-        name = "matched_trips"
-
-    model_config = ConfigDict(extra="allow")
 
 
 class OsmData(Document):
@@ -717,7 +637,6 @@ class CountyTopology(Document):
 # List of all document models for Beanie initialization
 ALL_DOCUMENT_MODELS = [
     Trip,
-    MatchedTrip,
     OsmData,
     Place,
     TaskConfig,

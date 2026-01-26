@@ -108,14 +108,27 @@ const dataManager = {
         console.error("The API returned data that could not be coerced into a FeatureCollection.");
         console.info("Request URL:", `${CONFIG.API.trips}?${params}`);
         console.info("Data type:", typeof rawTripData);
-        
-        if (typeof rawTripData === 'object') {
-             console.dir(rawTripData);
+        console.info("Data is null/undefined:", rawTripData == null);
+
+        if (rawTripData == null) {
+             console.warn("Issue: Response was null or undefined - check network tab for actual response");
+        } else if (typeof rawTripData === 'object') {
+             console.info("Object keys:", Object.keys(rawTripData));
+             console.info("type property:", rawTripData?.type);
+             console.info("features property type:", typeof rawTripData?.features);
+             console.info("features is array:", Array.isArray(rawTripData?.features));
              if (rawTripData?.features && !Array.isArray(rawTripData.features)) {
-                 console.warn("Issue: 'features' property exists but is not an array.");
+                 console.warn("Issue: 'features' property exists but is not an array:", rawTripData.features);
              }
+             if (!rawTripData?.type) {
+                 console.warn("Issue: Missing 'type' property");
+             }
+             console.dir(rawTripData);
+        } else if (typeof rawTripData === 'string') {
+             console.warn("Issue: Response is a string, not parsed JSON");
+             console.log("String content (first 500 chars):", rawTripData.slice(0, 500));
         } else {
-             console.log("Raw output (truncated):", String(rawTripData).slice(0, 500));
+             console.log("Raw output:", rawTripData);
         }
         console.groupEnd();
 

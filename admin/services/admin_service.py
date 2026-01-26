@@ -15,7 +15,6 @@ from db.manager import db_manager
 from db.models import (
     AppSettings,
     GasFillup,
-    MatchedTrip,
     OptimalRouteProgress,
     OsmData,
     Place,
@@ -59,7 +58,6 @@ def _total_size_bytes(stats: dict[str, Any], index_key: str, data_key: str) -> i
 # Map collection names to Beanie Document models for admin operations
 COLLECTION_TO_MODEL = {
     "trips": Trip,
-    "matched_trips": MatchedTrip,
     "streets": Street,
     "osm_data": OsmData,
     "places": Place,

@@ -72,12 +72,14 @@ async def get_matched_trips(request: Request):
                     matched_geom = GeometryService.parse_geojson(
                         trip_dict.get("matchedGps")
                     )
-                    if not matched_geom:
-                        continue  # Skip trips without valid matched geometry
+                    # Skip trips without valid matched geometry
+                    if not matched_geom or not matched_geom.get("coordinates"):
+                        continue
 
-                    coords = matched_geom.get("coordinates", []) if matched_geom else []
+                    coords = matched_geom.get("coordinates", [])
                     num_points = len(coords) if isinstance(coords, list) else 0
 
+                    matched_at = trip_dict.get("matched_at")
                     props = {
                         "transactionId": trip_dict.get("transactionId"),
                         "imei": trip_dict.get("imei"),
@@ -97,13 +99,14 @@ async def get_matched_trips(request: Request):
                         ),
                         "matchStatus": trip_dict.get("matchStatus"),
                         "matched_at": (
-                            trip_dict.get("matched_at").isoformat()
-                            if trip_dict.get("matched_at")
-                            else None
+                            matched_at.isoformat()
+                            if hasattr(matched_at, "isoformat")
+                            else str(matched_at) if matched_at else None
                         ),
                     }
                     feature = GeometryService.feature_from_geometry(matched_geom, props)
-                    chunk = json.dumps(feature, separators=(",", ":"))
+                    # Use default=str to handle any non-serializable types
+                    chunk = json.dumps(feature, separators=(",", ":"), default=str)
                     if not first:
                         yield ","
                     yield chunk
@@ -177,6 +180,14 @@ async def get_trips(request: Request):
                     if avg_speed is None:
                         avg_speed = trip_dict.get("avgSpeed")
 
+                    # Skip trips without valid geometry
+                    if not final_geom or not final_geom.get("coordinates"):
+                        logger.debug(
+                            "Skipping trip %s: no valid geometry",
+                            trip_dict.get("transactionId"),
+                        )
+                        continue
+
                     props = {
                         "transactionId": trip_dict.get("transactionId"),
                         "imei": trip_dict.get("imei"),
@@ -202,12 +213,11 @@ async def get_trips(request: Request):
                             trip_dict,
                             price_map,
                         ),
-                        "matchedGps": matched_geom,
                         "matchStatus": trip_dict.get("matchStatus"),
                     }
                     feature = GeometryService.feature_from_geometry(final_geom, props)
-                    # Use standard json.dumps - Beanie models are already serializable
-                    chunk = json.dumps(feature, separators=(",", ":"))
+                    # Use default=str to handle any non-serializable types
+                    chunk = json.dumps(feature, separators=(",", ":"), default=str)
                     if not first:
                         yield ","
                     yield chunk

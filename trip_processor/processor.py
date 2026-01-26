@@ -150,12 +150,15 @@ class TripProcessor:
             self.trip_data.get("transactionId", "unknown"),
         )
 
-    async def process(self, do_map_match: bool = True) -> dict[str, Any]:
+    async def process(
+        self, do_map_match: bool = True, do_geocode: bool = True
+    ) -> dict[str, Any]:
         """
         Process the trip through all appropriate stages based on current state.
 
         Args:
             do_map_match: Whether to perform map matching
+            do_geocode: Whether to perform geocoding
 
         Returns:
             The processed trip data
@@ -173,12 +176,30 @@ class TripProcessor:
             if self._state_machine.is_failed():
                 return {}
 
-            await self.geocode()
-            if self._state_machine.is_failed():
-                return {}
+            # Geocoding is optional - don't fail the trip if it fails
+            if do_geocode:
+                try:
+                    await self.geocode()
+                except Exception as e:
+                    logger.warning(
+                        "Geocoding failed for trip %s, continuing: %s",
+                        self.trip_data.get("transactionId", "unknown"),
+                        e,
+                    )
+                    # Reset state if geocoding failed, continue processing
+                    if self._state_machine.is_failed():
+                        self._state_machine._state = TripState.PROCESSED
 
+            # Map matching is optional - don't fail the trip if it fails
             if do_map_match:
-                await self.map_match()
+                try:
+                    await self.map_match()
+                except Exception as e:
+                    logger.warning(
+                        "Map matching failed for trip %s, continuing: %s",
+                        self.trip_data.get("transactionId", "unknown"),
+                        e,
+                    )
 
             if not self._state_machine.is_failed():
                 self._set_state(TripState.COMPLETED)

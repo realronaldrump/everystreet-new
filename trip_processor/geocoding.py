@@ -54,23 +54,13 @@ class TripGeocoder:
             transaction_id = processed_data.get("transactionId", "unknown")
             logger.debug("Geocoding trip %s", transaction_id)
 
-            # Clear any previous location data for fresh geocoding
-            for field in (
-                "startLocation",
-                "destination",
-                "startPlaceId",
-                "destinationPlaceId",
-            ):
-                processed_data.pop(field, None)
-
             # Extract start and end coordinates from gps field
             gps_data = processed_data.get("gps")
             if not gps_data or "coordinates" not in gps_data:
-                state_machine.set_state(
-                    TripState.FAILED,
-                    "Missing GPS data for geocoding",
-                )
-                return False, processed_data
+                # No GPS data - just mark as geocoded and continue
+                logger.debug("Trip %s has no GPS data for geocoding", transaction_id)
+                state_machine.set_state(TripState.GEOCODED)
+                return True, processed_data
 
             gps_type = gps_data.get("type")
             gps_coords = gps_data["coordinates"]
@@ -86,11 +76,14 @@ class TripGeocoder:
                 start_coord = gps_coords[0]
                 end_coord = gps_coords[-1]
             else:
-                state_machine.set_state(
-                    TripState.FAILED,
-                    f"Invalid GPS type or coordinates for geocoding: {gps_type}",
+                # Invalid GPS type - just mark as geocoded and continue
+                logger.debug(
+                    "Trip %s has invalid GPS type for geocoding: %s",
+                    transaction_id,
+                    gps_type,
                 )
-                return False, processed_data
+                state_machine.set_state(TripState.GEOCODED)
+                return True, processed_data
 
             start_pt = Point(start_coord[0], start_coord[1])
             end_pt = Point(end_coord[0], end_coord[1])
@@ -189,13 +182,14 @@ class TripGeocoder:
             result = (True, processed_data)
 
         except Exception as e:
-            error_message = f"Geocoding error: {e!s}"
-            logger.exception(
-                "Error geocoding trip %s",
+            # Geocoding errors should not fail the trip - just log and continue
+            logger.warning(
+                "Geocoding error for trip %s (continuing): %s",
                 processed_data.get("transactionId", "unknown"),
+                e,
             )
-            state_machine.set_state(TripState.FAILED, error_message)
-            return False, processed_data
+            state_machine.set_state(TripState.GEOCODED)
+            return True, processed_data
         else:
             return result
 

@@ -149,45 +149,11 @@ class TripService:
                 "saved_id": saved_id,
             }
 
-        # Optimized configurable pipeline
-        await processor.validate()
-
-        if processor.state != TripState.VALIDATED:
-            saved_id = await processor.save(_map_match_result=False)
-            processing_status = processor.get_processing_status()
-            return {
-                "status": "success",
-                "processing_status": processing_status,
-                "completed": processing_status["state"] == TripState.COMPLETED.value,
-                "saved_id": saved_id,
-            }
-
-        await processor.process_basic()
-        if processor.state == TripState.FAILED:
-            saved_id = await processor.save(_map_match_result=False)
-            processing_status = processor.get_processing_status()
-            return {
-                "status": "success",
-                "processing_status": processing_status,
-                "completed": processing_status["state"] == TripState.COMPLETED.value,
-                "saved_id": saved_id,
-            }
-
-        if options.geocode:
-            await processor.geocode()
-            if processor.state == TripState.FAILED:
-                saved_id = await processor.save(_map_match_result=False)
-                processing_status = processor.get_processing_status()
-                return {
-                    "status": "success",
-                    "processing_status": processing_status,
-                    "completed": processing_status["state"]
-                    == TripState.COMPLETED.value,
-                    "saved_id": saved_id,
-                }
-
-        if options.map_match:
-            await processor.map_match()
+        # Streamlined processing pipeline - geocoding and map matching are non-blocking
+        await processor.process(
+            do_map_match=options.map_match,
+            do_geocode=options.geocode,
+        )
 
         saved_id = await processor.save(_map_match_result=options.map_match)
         processing_status = processor.get_processing_status()
