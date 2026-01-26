@@ -11,7 +11,6 @@ Driving Insights & Analytics
   <link rel="stylesheet"
         href="{{ url_for('static', path='css/insights.css') | replace('http://', '//') }}" />
   <link rel="stylesheet" href="{{ CDN.datatables_css }}" />
-  <link rel="stylesheet" href="{{ CDN.datatables_bs5_css }}" />
 
 {% endblock %}
 
@@ -439,7 +438,6 @@ Close
 
   <!-- DataTables -->
   <script src="{{ CDN.datatables_js }}"></script>
-  <script src="{{ CDN.datatables_bs5_js }}"></script>
 
   <!-- CountUp.js for number animations -->
   <script src="{{ CDN.countup }}"></script>

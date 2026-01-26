@@ -54,6 +54,11 @@
   margin: 0;
 }
 
+.card-text {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
 /* === Widget === */
 .widget {
   background: var(--surface-1);

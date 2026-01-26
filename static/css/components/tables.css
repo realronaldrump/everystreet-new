@@ -9,6 +9,14 @@
   -webkit-overflow-scrolling: touch;
 }
 
+@media (width <= 992px) {
+  .table-responsive-lg {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
 .table-container {
   border-radius: var(--radius-lg);
   overflow: hidden;

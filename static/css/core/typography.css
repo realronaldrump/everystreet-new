@@ -32,6 +32,30 @@ p,
   max-width: 72ch;
 }
 
+.display-1 {
+  font-size: var(--font-size-display);
+}
+
+.display-2 {
+  font-size: var(--font-size-4xl);
+}
+
+.display-3 {
+  font-size: var(--font-size-3xl);
+}
+
+.display-4 {
+  font-size: var(--font-size-2xl);
+}
+
+.display-5 {
+  font-size: var(--font-size-xl);
+}
+
+.display-6 {
+  font-size: var(--font-size-lg);
+}
+
 [data-numeric],
 .counter,
 .metric-value,
