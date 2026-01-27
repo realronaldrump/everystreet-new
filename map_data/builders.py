@@ -561,11 +561,11 @@ async def _wait_for_nominatim_db_ready(timeout: int = 120) -> None:
             check_cmd = [
                 "docker",
                 "exec",
+                "-u",
+                "postgres",
                 container_name,
                 "pg_isready",
                 "-d",
-                "postgres",
-                "-U",
                 "postgres",
             ]
             process = await asyncio.create_subprocess_exec(
