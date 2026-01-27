@@ -60,6 +60,10 @@ async function initializePage(signal, cleanup) {
     },
     signal ? { signal } : false
   );
+
+  if (window.PRELOAD_TRIP_ID) {
+    requestAnimationFrame(() => openTripModal(window.PRELOAD_TRIP_ID));
+  }
 }
 
 async function loadVehicles() {
