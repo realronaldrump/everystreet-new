@@ -1,5 +1,8 @@
+/* global mapboxgl */
+
 import apiClient from "../modules/core/api-client.js";
 import { CONFIG } from "../modules/core/config.js";
+import mapBase from "../modules/map-base.js";
 import notificationManager from "../modules/ui/notifications.js";
 import { DateUtils } from "../modules/utils.js";
 import { clearInlineStatus, setInlineStatus } from "../settings/status-utils.js";
@@ -22,6 +25,12 @@ const elements = {
   previewPanel: document.getElementById("map-match-preview-panel"),
   previewSummary: document.getElementById("map-match-preview-summary"),
   previewBody: document.getElementById("map-match-preview-body"),
+  previewMapBtn: document.getElementById("map-match-preview-map-btn"),
+  previewMapStatus: document.getElementById("map-match-preview-map-status"),
+  previewMapSummary: document.getElementById("map-match-preview-map-summary"),
+  previewMapBody: document.getElementById("map-match-preview-map-body"),
+  previewMapEmpty: document.getElementById("map-match-preview-map-empty"),
+  previewMap: document.getElementById("map-match-preview-map"),
   submitStatus: document.getElementById("map-match-submit-status"),
   submitBtn: document.getElementById("map-match-submit"),
   refreshBtn: document.getElementById("map-match-refresh"),
@@ -34,9 +43,16 @@ const elements = {
 };
 
 let currentJobId = null;
+let currentJobStage = null;
 let pollTimer = null;
 let previewSignature = null;
 let previewPayload = null;
+let matchedPreviewMap = null;
+let matchedPreviewMapReady = false;
+let matchedPreviewPendingGeojson = null;
+let matchedPreviewFeaturesById = new Map();
+let matchedPreviewSelectedId = null;
+let lastAutoPreviewJobId = null;
 
 function setModeUI(mode) {
   const isDate = mode === "date_range";
@@ -57,11 +73,13 @@ function updateProgressUI(progress) {
   if (!progress) {
     elements.currentPanel.classList.add("d-none");
     elements.currentEmpty.classList.remove("d-none");
+    currentJobStage = null;
     return;
   }
 
   elements.currentPanel.classList.remove("d-none");
   elements.currentEmpty.classList.add("d-none");
+  currentJobStage = progress.stage || null;
 
   const pct = Math.min(100, Math.max(0, progress.progress || 0));
   elements.progressBar.style.width = `${pct}%`;
@@ -117,6 +135,10 @@ async function fetchJob(jobId) {
     if (["completed", "failed", "error"].includes(data.stage)) {
       stopPolling();
     }
+    if (data.stage === "completed" && jobId && lastAutoPreviewJobId !== jobId) {
+      lastAutoPreviewJobId = jobId;
+      loadMatchedPreview(jobId, { silent: true });
+    }
   } catch (error) {
     console.error("Failed to fetch job", error);
     stopPolling();
@@ -125,6 +147,7 @@ async function fetchJob(jobId) {
 
 function startPolling(jobId) {
   currentJobId = jobId;
+  lastAutoPreviewJobId = null;
   fetchJob(jobId);
   stopPolling();
   pollTimer = setInterval(() => fetchJob(jobId), 1000);
@@ -152,6 +175,7 @@ function renderJobs(jobs) {
       const status = job.stage || "unknown";
       const progress = job.progress ?? 0;
       const updated = job.updated_at ? new Date(job.updated_at).toLocaleString() : "";
+      const previewDisabled = status !== "completed" && status !== "failed";
       return `
         <tr>
           <td class="text-truncate" style="max-width: 220px">${job.job_id || ""}</td>
@@ -162,6 +186,10 @@ function renderJobs(jobs) {
           <td>
             <button class="btn btn-sm btn-outline-secondary" data-job-id="${job.job_id}">
               View
+            </button>
+            <button class="btn btn-sm btn-outline-primary ms-2" data-preview-job-id="${job.job_id}"
+                    ${previewDisabled ? "disabled" : ""}>
+              Preview
             </button>
           </td>
         </tr>
@@ -336,6 +364,9 @@ function wireEvents() {
 
   elements.form.addEventListener("submit", submitForm);
   elements.previewBtn?.addEventListener("click", previewTrips);
+  elements.previewMapBtn?.addEventListener("click", () => {
+    loadMatchedPreview(currentJobId);
+  });
 
   elements.refreshBtn?.addEventListener("click", () => {
     loadJobs();
@@ -343,6 +374,15 @@ function wireEvents() {
 
   elements.jobsBody?.addEventListener("click", (event) => {
     const button = event.target.closest("button[data-job-id]");
+    const previewButton = event.target.closest("button[data-preview-job-id]");
+    if (previewButton) {
+      const jobId = previewButton.dataset.previewJobId;
+      if (jobId) {
+        startPolling(jobId);
+        loadMatchedPreview(jobId);
+      }
+      return;
+    }
     if (!button) {
       return;
     }
@@ -350,6 +390,18 @@ function wireEvents() {
     if (jobId) {
       startPolling(jobId);
     }
+  });
+
+  elements.previewMapBody?.addEventListener("click", (event) => {
+    const row = event.target.closest("tr[data-trip-id]");
+    if (!row) {
+      return;
+    }
+    const tripId = row.dataset.tripId;
+    elements.previewMapBody.querySelectorAll("tr").forEach((tr) => {
+      tr.classList.toggle("is-selected", tr === row);
+    });
+    focusMatchedPreviewTrip(tripId);
   });
 
   const invalidateTargets = [
@@ -378,6 +430,280 @@ function initDatePickers() {
       enableTime: false,
       dateFormat: "Y-m-d",
     });
+  }
+}
+
+function ensureMapboxToken() {
+  if (window.MAPBOX_ACCESS_TOKEN) {
+    return true;
+  }
+  const meta = document.querySelector('meta[name="mapbox-access-token"]');
+  if (meta?.content) {
+    window.MAPBOX_ACCESS_TOKEN = meta.content;
+    return true;
+  }
+  return false;
+}
+
+function getMatchedPreviewColor() {
+  if (!elements.previewMap) {
+    return CONFIG.LAYER_DEFAULTS.matchedTrips.color;
+  }
+  const widget = elements.previewMap.closest(".map-matching-preview");
+  if (!widget) {
+    return CONFIG.LAYER_DEFAULTS.matchedTrips.color;
+  }
+  const color = getComputedStyle(widget).getPropertyValue("--matched-preview-color");
+  return color?.trim() || CONFIG.LAYER_DEFAULTS.matchedTrips.color;
+}
+
+function ensureMatchedPreviewMap() {
+  if (!elements.previewMap) {
+    return null;
+  }
+  if (matchedPreviewMap) {
+    return matchedPreviewMap;
+  }
+  if (typeof mapboxgl === "undefined") {
+    setInlineStatus(elements.previewMapStatus, "Mapbox GL is not loaded.", "danger");
+    return null;
+  }
+  if (!ensureMapboxToken()) {
+    setInlineStatus(elements.previewMapStatus, "Mapbox token is missing.", "danger");
+    return null;
+  }
+
+  matchedPreviewMap = mapBase.createMap("map-match-preview-map", {
+    center: [-96.5, 37.5],
+    zoom: 3.4,
+    interactive: true,
+  });
+
+  matchedPreviewMap.scrollZoom.disable();
+  matchedPreviewMap.boxZoom.disable();
+  matchedPreviewMap.dragRotate.disable();
+  matchedPreviewMap.keyboard.disable();
+  matchedPreviewMap.doubleClickZoom.disable();
+  matchedPreviewMap.touchZoomRotate.disableRotation();
+
+  matchedPreviewMap.on("load", () => {
+    matchedPreviewMapReady = true;
+    if (matchedPreviewPendingGeojson) {
+      updateMatchedPreviewMap(matchedPreviewPendingGeojson);
+      matchedPreviewPendingGeojson = null;
+    }
+  });
+
+  return matchedPreviewMap;
+}
+
+function updateMatchedPreviewEmptyState(message) {
+  if (!elements.previewMapEmpty) {
+    return;
+  }
+  if (message) {
+    elements.previewMapEmpty.textContent = message;
+    elements.previewMapEmpty.classList.remove("d-none");
+  } else {
+    elements.previewMapEmpty.classList.add("d-none");
+  }
+}
+
+function buildBoundsFromGeojson(geojson) {
+  if (!geojson?.features?.length || typeof mapboxgl === "undefined") {
+    return null;
+  }
+  const bounds = new mapboxgl.LngLatBounds();
+  let hasPoint = false;
+  geojson.features.forEach((feature) => {
+    const geometry = feature?.geometry;
+    if (!geometry) {
+      return;
+    }
+    const { type, coordinates } = geometry;
+    if (type === "LineString") {
+      coordinates.forEach((coord) => {
+        bounds.extend(coord);
+        hasPoint = true;
+      });
+    } else if (type === "MultiLineString") {
+      coordinates.forEach((line) => {
+        line.forEach((coord) => {
+          bounds.extend(coord);
+          hasPoint = true;
+        });
+      });
+    } else if (type === "Point") {
+      bounds.extend(coordinates);
+      hasPoint = true;
+    }
+  });
+  return hasPoint ? bounds : null;
+}
+
+function updateMatchedPreviewMap(geojson) {
+  const map = ensureMatchedPreviewMap();
+  if (!map || !geojson) {
+    return;
+  }
+  matchedPreviewFeaturesById = new Map();
+  (geojson.features || []).forEach((feature) => {
+    const tripId = feature?.properties?.transactionId;
+    if (tripId) {
+      matchedPreviewFeaturesById.set(String(tripId), feature);
+    }
+  });
+  if (!matchedPreviewMapReady) {
+    matchedPreviewPendingGeojson = geojson;
+    return;
+  }
+
+  const sourceId = "matched-preview-source";
+  const layerId = "matched-preview-layer";
+  const highlightId = "matched-preview-highlight";
+  const color = getMatchedPreviewColor();
+  const highlightColor = CONFIG.LAYER_DEFAULTS.matchedTrips.highlightColor;
+
+  if (map.getSource(sourceId)) {
+    map.getSource(sourceId).setData(geojson);
+  } else {
+    map.addSource(sourceId, {
+      type: "geojson",
+      data: geojson,
+      promoteId: "transactionId",
+    });
+    map.addLayer({
+      id: layerId,
+      type: "line",
+      source: sourceId,
+      layout: { "line-join": "round", "line-cap": "round" },
+      paint: {
+        "line-color": color,
+        "line-opacity": 0.8,
+        "line-width": 3,
+      },
+    });
+    map.addLayer({
+      id: highlightId,
+      type: "line",
+      source: sourceId,
+      layout: { "line-join": "round", "line-cap": "round" },
+      paint: {
+        "line-color": highlightColor || "#40E0D0",
+        "line-opacity": 0.95,
+        "line-width": 6,
+      },
+      filter: ["==", ["get", "transactionId"], ""],
+    });
+  }
+
+  if (map.getLayer(highlightId)) {
+    map.setFilter(
+      highlightId,
+      matchedPreviewSelectedId
+        ? ["==", ["get", "transactionId"], matchedPreviewSelectedId]
+        : ["==", ["get", "transactionId"], ""]
+    );
+  }
+
+  const bounds = buildBoundsFromGeojson(geojson);
+  if (bounds) {
+    map.fitBounds(bounds, { padding: 40, duration: 600 });
+    updateMatchedPreviewEmptyState(null);
+  } else {
+    updateMatchedPreviewEmptyState("No matched geometry to display.");
+  }
+}
+
+function updateMatchedPreviewTable(data) {
+  if (!elements.previewMapBody || !elements.previewMapSummary) {
+    return;
+  }
+
+  const total = data?.total || 0;
+  const sample = data?.sample || [];
+  const stage = data?.stage ? ` (${data.stage})` : "";
+  const windowLabel = data?.window?.start && data?.window?.end
+    ? ` • Window: ${new Date(data.window.start).toLocaleDateString()} → ${new Date(
+        data.window.end
+      ).toLocaleDateString()}`
+    : "";
+  elements.previewMapSummary.textContent = total
+    ? `Matched ${total} trips${stage}. Showing ${sample.length}.${windowLabel}`
+    : `No matched trips found for this job.${windowLabel}`;
+  if (!total) {
+    updateMatchedPreviewEmptyState("No matched trips found for this job.");
+  }
+
+  matchedPreviewFeaturesById = new Map();
+
+  elements.previewMapBody.innerHTML = sample
+    .map((trip) => {
+      const tripId = trip.transactionId || "";
+      const matchedAt = trip.matched_at
+        ? new Date(trip.matched_at).toLocaleString()
+        : "--";
+      let distance = "--";
+      if (trip.distance != null && !Number.isNaN(Number(trip.distance))) {
+        distance = `${Number(trip.distance).toFixed(2)} mi`;
+      }
+      const status = trip.matchStatus || (trip.matchedGps ? "Matched" : "Unmatched");
+      return `\n        <tr data-trip-id="${tripId}">\n          <td class=\"text-truncate\" style=\"max-width: 200px\">${tripId}</td>\n          <td>${matchedAt}</td>\n          <td>${distance}</td>\n          <td>${status}</td>\n        </tr>\n      `;
+    })
+    .join("");
+}
+
+async function loadMatchedPreview(jobId, { silent = false } = {}) {
+  if (!jobId) {
+    if (!silent) {
+      setInlineStatus(
+        elements.previewMapStatus,
+        "Select a job to preview matched trips.",
+        "warning"
+      );
+    }
+    return;
+  }
+
+  clearInlineStatus(elements.previewMapStatus);
+  try {
+    matchedPreviewSelectedId = null;
+    elements.previewMapBody?.querySelectorAll("tr").forEach((tr) => {
+      tr.classList.remove("is-selected");
+    });
+    setInlineStatus(elements.previewMapStatus, "Loading matched preview...", "info");
+    const response = await apiClient.get(CONFIG.API.mapMatchingJobMatches(jobId));
+    updateMatchedPreviewTable(response);
+    if (response?.geojson) {
+      updateMatchedPreviewMap(response.geojson);
+    } else {
+      updateMatchedPreviewEmptyState("No matched geometry to display.");
+    }
+    setInlineStatus(elements.previewMapStatus, "Preview loaded.", "success");
+  } catch (error) {
+    setInlineStatus(elements.previewMapStatus, error.message, "danger");
+  }
+}
+
+function focusMatchedPreviewTrip(tripId) {
+  if (!tripId) {
+    return;
+  }
+  matchedPreviewSelectedId = String(tripId);
+  const map = ensureMatchedPreviewMap();
+  if (map && map.getLayer("matched-preview-highlight")) {
+    map.setFilter("matched-preview-highlight", [
+      "==",
+      ["get", "transactionId"],
+      matchedPreviewSelectedId,
+    ]);
+  }
+  const feature = matchedPreviewFeaturesById.get(matchedPreviewSelectedId);
+  if (feature) {
+    const bounds = buildBoundsFromGeojson({ type: "FeatureCollection", features: [feature] });
+    if (bounds) {
+      map.fitBounds(bounds, { padding: 60, duration: 500 });
+    }
   }
 }
 

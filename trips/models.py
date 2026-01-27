@@ -35,6 +35,7 @@ class TripPreviewProjection(BaseModel):
     distance: float | None = None
     matchStatus: str | None = None
     matchedGps: Any | None = None
+    matched_at: Any | None = None
 
     model_config = ConfigDict(extra="ignore")
 

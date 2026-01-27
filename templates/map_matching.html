@@ -6,8 +6,23 @@ Every Street - Map Matching
 {% endblock %}
 
 {% block extra_css %}
+  <link rel="stylesheet" href="{{ CDN.mapbox_gl_css }}" />
   <link rel="stylesheet"
         href="{{ url_for('static', path='css/map-matching.css') | replace('http://', '//') }}" />
+{% endblock %}
+
+{% block head_content %}
+  <meta name="mapbox-access-token" content="{{ MAPBOX_ACCESS_TOKEN }}" />
+  <script>
+      window.MAPBOX_ACCESS_TOKEN = "{{ MAPBOX_ACCESS_TOKEN }}";
+      document.dispatchEvent(
+          new CustomEvent("es:mapbox-token-ready", {
+              detail: {
+                  token: window.MAPBOX_ACCESS_TOKEN
+              },
+          }),
+      );
+  </script>
 {% endblock %}
 
 {% block content %}
@@ -212,11 +227,65 @@ Every Street - Map Matching
           </div>
         </div>
       </div>
+
+      <div class="bento-span-12 widget map-matching-preview" data-accent="sky">
+        <div class="widget-header">
+          <div>
+            <h2 class="widget-title">
+              <i class="fas fa-map-marked-alt" aria-hidden="true"></i>
+              Matched Preview
+            </h2>
+            <div class="widget-meta">
+              Visual verification for matched geometry.
+            </div>
+          </div>
+          <div class="d-flex flex-wrap gap-2 align-items-center">
+            <button class="btn btn-outline-secondary btn-sm" id="map-match-preview-map-btn">
+              <i class="fas fa-search-location"></i>
+              Load Preview
+            </button>
+            <span class="settings-status is-hidden" id="map-match-preview-map-status" role="status"></span>
+          </div>
+        </div>
+        <div class="widget-body">
+          <div class="matched-preview-grid">
+            <div class="matched-preview-map-card">
+              <div class="matched-preview-map" id="map-match-preview-map" aria-label="Matched trips preview map"></div>
+              <div id="map-match-preview-map-empty" class="matched-preview-empty">
+                Select a job to preview matched trips on the map.
+              </div>
+              <div class="matched-preview-legend">
+                <span class="legend-swatch"></span>
+                Matched path
+              </div>
+            </div>
+            <div class="matched-preview-list">
+              <div class="preview-summary" id="map-match-preview-map-summary">
+                No preview loaded yet.
+              </div>
+              <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                  <thead>
+                    <tr>
+                      <th>Trip ID</th>
+                      <th>Matched</th>
+                      <th>Distance</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody id="map-match-preview-map-body"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 {% endblock %}
 
 {% block extra_js %}
+  <script src="{{ CDN.mapbox_gl_js }}"></script>
   <script type="module"
           src="{{ url_for('static', path='js/pages/map-matching.js') | replace('http://', '//') }}"></script>
 {% endblock %}

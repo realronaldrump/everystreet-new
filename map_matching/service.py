@@ -11,6 +11,7 @@ from fastapi import HTTPException, status
 from core.date_utils import normalize_calendar_date
 from db import build_calendar_date_expr
 from db.models import ProgressStatus, Trip
+from geo_service.geometry import GeometryService
 from map_matching.schemas import MapMatchJobRequest
 from tasks.ops import enqueue_task
 from trips.models import TripPreviewProjection, TripStatusProjection
@@ -130,6 +131,144 @@ class MapMatchingJobService:
         return {
             "total": total,
             "sample": sample,
+        }
+
+    async def preview_matches(
+        self,
+        job_id: str,
+        limit: int = 120,
+    ) -> dict[str, Any]:
+        progress = await ProgressStatus.find_one(
+            ProgressStatus.operation_id == job_id,
+            ProgressStatus.operation_type == "map_matching",
+        )
+        if not progress:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Job not found",
+            )
+
+        metadata = progress.metadata or {}
+        mode = metadata.get("mode") or "unmatched"
+
+        query: dict[str, Any] = {"invalid": {"$ne": True}, "matchedGps": {"$ne": None}}
+        window: dict[str, Any] | None = None
+
+        if mode == "trip_id":
+            trip_id = metadata.get("trip_id")
+            if not trip_id:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Trip ID not available for this job",
+                )
+            query["transactionId"] = trip_id
+        elif mode == "trip_ids":
+            trip_ids = metadata.get("trip_ids")
+            if not trip_ids:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Trip IDs not available for this job",
+                )
+            query["transactionId"] = {"$in": trip_ids}
+        elif mode == "date_range":
+            start_iso = normalize_calendar_date(metadata.get("start_date"))
+            end_iso = normalize_calendar_date(metadata.get("end_date"))
+            interval_days = int(metadata.get("interval_days") or 0)
+            if interval_days > 0 and (not start_iso or not end_iso):
+                anchor = progress.started_at or datetime.now(UTC)
+                end_dt = anchor.date()
+                start_dt = (anchor - timedelta(days=interval_days)).date()
+                start_iso = start_dt.isoformat()
+                end_iso = end_dt.isoformat()
+            if not start_iso or not end_iso:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Date range not available for this job",
+                )
+            range_expr = build_calendar_date_expr(start_iso, end_iso)
+            if not range_expr:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Invalid date range for preview",
+                )
+            query["$expr"] = range_expr
+            window = {"start": start_iso, "end": end_iso}
+        elif mode == "unmatched":
+            if not progress.started_at:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Job timing not available for preview",
+                )
+            start_dt = progress.started_at
+            end_dt = progress.updated_at or datetime.now(UTC)
+            query["matched_at"] = {"$gte": start_dt, "$lte": end_dt}
+            window = {"start": start_dt.isoformat(), "end": end_dt.isoformat()}
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Unsupported preview mode",
+            )
+
+        total = await Trip.find(query).count()
+        trips = (
+            await Trip.find(query)
+            .sort(-Trip.matched_at)
+            .project(TripPreviewProjection)
+            .limit(limit)
+            .to_list()
+        )
+
+        sample: list[dict[str, Any]] = []
+        features: list[dict[str, Any]] = []
+        skipped = 0
+
+        for trip in trips:
+            trip_dict = trip.model_dump() if hasattr(trip, "model_dump") else dict(trip)
+            matched_geom = GeometryService.parse_geojson(trip_dict.get("matchedGps"))
+            if not matched_geom or not matched_geom.get("coordinates"):
+                skipped += 1
+                continue
+
+            sample.append(
+                {
+                    "transactionId": trip_dict.get("transactionId"),
+                    "startTime": trip_dict.get("startTime"),
+                    "endTime": trip_dict.get("endTime"),
+                    "distance": trip_dict.get("distance"),
+                    "matchStatus": trip_dict.get("matchStatus"),
+                    "matched_at": trip_dict.get("matched_at"),
+                },
+            )
+            features.append(
+                GeometryService.feature_from_geometry(
+                    matched_geom,
+                    {
+                        "transactionId": trip_dict.get("transactionId"),
+                        "matchStatus": trip_dict.get("matchStatus"),
+                        "startTime": (
+                            trip_dict.get("startTime").isoformat()
+                            if hasattr(trip_dict.get("startTime"), "isoformat")
+                            else trip_dict.get("startTime")
+                        ),
+                        "endTime": (
+                            trip_dict.get("endTime").isoformat()
+                            if hasattr(trip_dict.get("endTime"), "isoformat")
+                            else trip_dict.get("endTime")
+                        ),
+                        "distance": trip_dict.get("distance"),
+                    },
+                ),
+            )
+
+        return {
+            "job_id": job_id,
+            "stage": progress.stage or "unknown",
+            "mode": mode,
+            "window": window,
+            "total": total,
+            "sample": sample,
+            "skipped": skipped,
+            "geojson": {"type": "FeatureCollection", "features": features},
         }
 
     @staticmethod

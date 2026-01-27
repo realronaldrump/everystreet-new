@@ -80,3 +80,22 @@ async def preview_map_matching_jobs(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(exc),
         )
+
+
+@router.get("/api/map_matching/jobs/{job_id}/matches", response_model=dict[str, object])
+@api_route(logger)
+async def preview_map_matching_results(
+    job_id: str,
+    limit: int = Query(120, ge=1, le=300),
+):
+    """Preview matched trips for a completed job."""
+    try:
+        return await service.preview_matches(job_id, limit=limit)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Failed to preview map matching results")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
+        )
