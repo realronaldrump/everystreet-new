@@ -66,6 +66,9 @@ function updateProgressUI(progress) {
   const pct = Math.min(100, Math.max(0, progress.progress || 0));
   elements.progressBar.style.width = `${pct}%`;
   elements.progressBar.textContent = `${pct}%`;
+  elements.progressBar.setAttribute("aria-valuenow", `${pct}`);
+  elements.progressBar.setAttribute("aria-valuemin", "0");
+  elements.progressBar.setAttribute("aria-valuemax", "100");
   elements.progressMessage.textContent = progress.message || "";
 
   const metrics = progress.metrics || {};
@@ -73,6 +76,27 @@ function updateProgressUI(progress) {
     elements.progressMetrics.textContent = `Total: ${metrics.total} | Processed: ${metrics.processed || 0} | Matched: ${metrics.map_matched || 0} | Failed: ${metrics.failed || 0}`;
   } else {
     elements.progressMetrics.textContent = "";
+  }
+
+  const stage = progress.stage || "unknown";
+  elements.progressBar.classList.remove(
+    "bg-success",
+    "bg-danger",
+    "bg-warning",
+    "bg-secondary",
+    "bg-primary",
+    "progress-bar-striped",
+    "progress-bar-animated"
+  );
+
+  if (stage === "completed") {
+    elements.progressBar.classList.add("bg-success");
+  } else if (stage === "failed" || stage === "error") {
+    elements.progressBar.classList.add("bg-danger");
+  } else if (stage === "queued") {
+    elements.progressBar.classList.add("bg-secondary");
+  } else {
+    elements.progressBar.classList.add("bg-primary", "progress-bar-striped", "progress-bar-animated");
   }
 }
 

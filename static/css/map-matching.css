@@ -1,29 +1,52 @@
-.map-matching-page .widget {
-  border-radius: 16px;
+.map-matching-hero {
+  position: relative;
+  overflow: hidden;
+  border-color: rgb(var(--widget-accent-rgb) / 45%);
+  background:
+    radial-gradient(640px circle at 12% 10%, rgb(var(--widget-accent-rgb) / 28%),
+      transparent 62%),
+    linear-gradient(120deg, rgb(var(--widget-accent-rgb) / 18%), transparent 58%),
+    var(--surface-1);
+}
+
+.map-matching-hero::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgb(var(--widget-accent-rgb) / 55%),
+    transparent
+  );
+  opacity: 0.6;
 }
 
 .map-matching-hero .widget-title {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
+  font-size: var(--font-size-3xl);
+  letter-spacing: -0.01em;
 }
 
-.map-matching-form .form-label,
-.map-matching-progress .widget-title,
-.map-matching-history .widget-title {
-  font-weight: 600;
+.map-matching-hero .widget-title i {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-lg);
+  box-shadow: inset 0 0 0 1px rgb(var(--widget-accent-rgb) / 40%),
+    0 0 18px rgb(var(--widget-accent-rgb) / 22%);
 }
 
-.map-matching-form .settings-status {
-  font-size: 0.9rem;
+.map-matching-form .settings-status,
+.map-matching-progress .settings-status {
+  font-size: var(--font-size-sm);
 }
 
 .map-matching-form .wizard-step {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  font-weight: 600;
-  margin-bottom: 0.75rem;
+  gap: var(--space-3);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
 }
 
 .map-matching-form .step-pill {
@@ -31,36 +54,46 @@
   align-items: center;
   justify-content: center;
   min-width: 62px;
-  padding: 0.2rem 0.6rem;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.12);
-  font-size: 0.75rem;
+  padding: 0.2rem 0.7rem;
+  border-radius: var(--radius-pill);
+  background: rgb(var(--widget-accent-rgb) / 18%);
+  color: var(--widget-accent);
+  font-size: var(--font-size-xxs);
   letter-spacing: 0.08em;
   text-transform: uppercase;
+  box-shadow: inset 0 0 0 1px rgb(var(--widget-accent-rgb) / 28%);
 }
 
 .map-matching-form .preview-panel {
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
-  padding: 0.75rem;
-  background: rgba(15, 18, 25, 0.4);
+  border: 1px solid rgb(var(--border-rgb) / 18%);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3);
+  background: var(--surface-2);
+  box-shadow: var(--shadow-elevation-1);
 }
 
 .map-matching-form .preview-summary {
-  font-weight: 600;
-  margin-bottom: 0.5rem;
+  font-weight: var(--font-weight-semibold);
+  margin-bottom: var(--space-2);
+  color: var(--text-secondary);
 }
 
 .map-matching-progress .empty-state {
-  padding: 1rem;
+  padding: var(--space-4);
   text-align: center;
-  color: var(--bs-secondary-color, #6c757d);
-  border: 1px dashed rgba(255, 255, 255, 0.15);
-  border-radius: 12px;
+  color: var(--text-tertiary);
+  border: 1px dashed rgb(var(--border-rgb) / 25%);
+  border-radius: var(--radius-lg);
+}
+
+.map-matching-progress .progress {
+  background: rgb(var(--widget-accent-rgb) / 8%);
+  border: 1px solid rgb(var(--widget-accent-rgb) / 24%);
 }
 
 .map-matching-progress #map-match-progress-message {
   min-height: 1.2rem;
+  color: var(--text-secondary);
 }
 
 .map-matching-history table th,
@@ -68,19 +101,22 @@
   vertical-align: middle;
 }
 
-.map-matching-history .job-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.2rem 0.6rem;
-  border-radius: 999px;
-  font-size: 0.8rem;
-  font-weight: 600;
+.map-matching-history .table thead th {
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
-@media (max-width: 992px) {
-  .map-matching-page .bento-span-7,
-  .map-matching-page .bento-span-5 {
-    grid-column: span 12;
+@media (width <= 992px) {
+  .map-matching-form .preview-panel {
+    padding: var(--space-3) var(--space-2);
+  }
+}
+
+@media (width <= 768px) {
+  .map-matching-history table td,
+  .map-matching-history table th {
+    white-space: nowrap;
   }
 }
