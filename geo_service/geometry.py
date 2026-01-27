@@ -82,24 +82,6 @@ class GeometryService:
                 value = json.loads(value)
             except json.JSONDecodeError:
                 return None
-        if isinstance(value, list):
-            if not value:
-                return None
-            if all(isinstance(item, (list, tuple)) and len(item) >= 2 for item in value):
-                return GeometryService.geometry_from_coordinate_pairs(
-                    value,
-                    allow_point=True,
-                    dedupe=False,
-                    validate=True,
-                )
-            if all(isinstance(item, dict) for item in value):
-                return GeometryService.geometry_from_coordinate_dicts(
-                    value,
-                    allow_point=True,
-                    dedupe=False,
-                    validate=True,
-                )
-            return None
         if isinstance(value, dict):
             if value.get("type") == "Feature":
                 geometry = value.get("geometry")
