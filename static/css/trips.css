@@ -264,6 +264,7 @@ body[data-route="/trips"] .trips-page > * {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
+  align-items: center;
   padding: var(--space-3);
   border-radius: var(--radius-lg);
   background: var(--surface-2);
@@ -490,6 +491,10 @@ body[data-route="/trips"] .trips-page > * {
   padding-right: 2.25rem;
 }
 
+#trips-table th[data-sortable]:hover {
+  color: var(--text-primary);
+}
+
 #trips-table th[data-sortable]::after {
   content: "";
   position: absolute;
@@ -502,6 +507,10 @@ body[data-route="/trips"] .trips-page > * {
   border-top: 6px solid var(--text-tertiary);
   transform: translateY(-40%);
   opacity: 0.4;
+}
+
+#trips-table th[data-sortable]:hover::after {
+  opacity: 0.8;
 }
 
 #trips-table th.sorted-asc,
@@ -526,6 +535,10 @@ body[data-route="/trips"] .trips-page > * {
   vertical-align: middle;
   border-bottom: 1px solid var(--border-color);
   background: var(--surface-1);
+}
+
+#trips-table tbody tr {
+  transition: background-color var(--transition-fast);
 }
 
 #trips-table tbody tr:hover td {
