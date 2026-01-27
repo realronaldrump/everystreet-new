@@ -99,7 +99,7 @@ body[data-route="/insights"] {
 body[data-route="/coverage-management"],
 body[data-route="/coverage-navigator"],
 body[data-route="/turn-by-turn"] {
-  --section-accent-rgb: var(--cat-ochre-rgb);
+  --section-accent-rgb: var(--cat-amber-rgb);
 }
 
 body[data-route="/gas-tracking"] {
@@ -175,6 +175,12 @@ body[data-time-of-day="night"] {
   background: radial-gradient(circle, rgb(var(--accent-rgb) / 35%) 0%, transparent 70%);
   animation: ripple 600ms ease-out forwards;
   pointer-events: none;
+}
+
+/* Staggered reveal helpers */
+.stagger-item {
+  opacity: 0;
+  animation: fadeInUp 0.5s ease forwards;
 }
 
 .nav-trail {

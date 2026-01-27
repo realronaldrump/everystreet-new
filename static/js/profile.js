@@ -548,7 +548,7 @@ async function handleSaveCredentials(event) {
     .filter((val) => val.length > 0);
 
   try {
-    notify.info("Saving credentials...");
+    showStatus("Saving credentials...", "info");
 
     const data = await apiClient.post(
       "/api/profile/bouncie-credentials",

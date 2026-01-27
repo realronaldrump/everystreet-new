@@ -1,4 +1,3 @@
-/* global dayjs */
 import apiClient from "../core/api-client.js";
 import { getStorage, setStorage } from "./data.js";
 

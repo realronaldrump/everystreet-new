@@ -320,13 +320,11 @@
 @keyframes mobile-pulse {
   0%,
   100% {
-    opacity: 1;
-    transform: scale(1);
+    opacity: 0.8;
   }
 
   50% {
-    opacity: 0.5;
-    transform: scale(0.9);
+    opacity: 1;
   }
 }
 
@@ -565,7 +563,7 @@
   }
 
   50% {
-    transform: translateY(-4px);
+    transform: translateY(-3px);
   }
 }
 

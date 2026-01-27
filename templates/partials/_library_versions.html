@@ -20,6 +20,7 @@
 
 {# CDN URL Templates #}
 {% set CDN = {
+    'bootstrap_css': 'https://cdn.jsdelivr.net/npm/bootstrap@' ~ LIB_VERSIONS.bootstrap ~ '/dist/css/bootstrap.min.css',
     'bootstrap_js': 'https://cdn.jsdelivr.net/npm/bootstrap@' ~ LIB_VERSIONS.bootstrap ~ '/dist/js/bootstrap.bundle.min.js',
     'fontawesome': 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/' ~ LIB_VERSIONS.fontawesome ~ '/css/all.min.css',
     'jquery': 'https://code.jquery.com/jquery-' ~ LIB_VERSIONS.jquery ~ '.min.js',
@@ -37,6 +38,8 @@
     'countup': 'https://cdn.jsdelivr.net/npm/countup.js@' ~ LIB_VERSIONS.countup ~ '/dist/countUp.umd.js',
     'datatables_css': 'https://cdn.datatables.net/' ~ LIB_VERSIONS.datatables ~ '/css/dataTables.dataTables.min.css',
     'datatables_js': 'https://cdn.datatables.net/' ~ LIB_VERSIONS.datatables ~ '/js/dataTables.min.js',
+    'datatables_bs5_css': 'https://cdn.datatables.net/' ~ LIB_VERSIONS.datatables ~ '/css/dataTables.bootstrap5.min.css',
+    'datatables_bs5_js': 'https://cdn.datatables.net/' ~ LIB_VERSIONS.datatables ~ '/js/dataTables.bootstrap5.min.js',
     'datatables_buttons_css': 'https://cdn.datatables.net/buttons/' ~ LIB_VERSIONS.datatables_buttons ~ '/css/buttons.dataTables.min.css',
     'datatables_buttons_js': 'https://cdn.datatables.net/buttons/' ~ LIB_VERSIONS.datatables_buttons ~ '/js/dataTables.buttons.min.js',
     'datatables_buttons_colvis': 'https://cdn.datatables.net/buttons/' ~ LIB_VERSIONS.datatables_buttons ~ '/js/buttons.colVis.min.js',

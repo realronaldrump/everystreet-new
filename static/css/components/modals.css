@@ -11,11 +11,6 @@
   inset: 0;
   pointer-events: auto;
   isolation: isolate;
-  display: none;
-  align-items: center;
-  justify-content: center;
-  padding: var(--space-4);
-  overflow-y: auto;
 }
 
 .modal-backdrop {
@@ -23,36 +18,17 @@
   position: fixed;
   inset: 0;
   pointer-events: auto;
-  display: none;
-  opacity: 0;
 }
 
 /* Ensure modal dialog and content are interactive */
 .modal-dialog {
   pointer-events: auto;
   position: relative;
-  width: calc(100% - var(--space-6));
-  max-width: 600px;
-  margin: var(--space-6) auto;
 }
 
 .modal-content {
   pointer-events: auto;
   position: relative;
-}
-
-.modal-dialog-centered {
-  display: flex;
-  align-items: center;
-  min-height: calc(100% - (var(--space-6) * 2));
-}
-
-.modal-lg {
-  max-width: 900px;
-}
-
-.modal-xl {
-  max-width: 1140px;
 }
 
 /* === Modal - Minimal === */
@@ -72,10 +48,6 @@
   opacity: 1;
 }
 
-.modal.show {
-  display: flex;
-}
-
 .modal.swipe-active .modal-dialog {
   transition: none;
 }
@@ -85,16 +57,6 @@
   transition:
     opacity var(--transition-normal),
     backdrop-filter var(--transition-normal);
-}
-
-.modal-backdrop:not(.show) {
-  /* Avoid invisible backdrops blocking interactions if left in DOM */
-  pointer-events: none;
-}
-
-.modal-backdrop.show {
-  display: block;
-  opacity: 1;
 }
 
 .modal-header {
@@ -119,30 +81,6 @@
   justify-content: flex-end;
 }
 
-.btn-close {
-  border: none;
-  background: transparent;
-  color: var(--text-secondary);
-  width: 32px;
-  height: 32px;
-  border-radius: var(--radius-full);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  transition: background-color var(--transition-fast), color var(--transition-fast);
-}
-
-.btn-close::before {
-  content: \"×\";
-  font-size: 1.4rem;
-  line-height: 1;
-}
-
-.btn-close:hover {
-  background-color: var(--surface-2);
-  color: var(--text-primary);
-}
-
 .btn-close-white {
   /* Ensure close button is visible in dark mode */
   filter: invert(1) grayscale(100%) brightness(200%);
@@ -161,12 +99,6 @@ body.light-mode .btn-close-white {
   color: var(--text-primary);
   border-radius: var(--radius-md);
   font-size: var(--font-size-xs);
-}
-
-.tooltip {
-  position: absolute;
-  z-index: var(--z-tooltip, 1080);
-  opacity: 0;
 }
 
 .tooltip.show {

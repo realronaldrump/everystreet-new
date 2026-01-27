@@ -366,7 +366,7 @@ function updateFilterChips(triggerReload = false) {
 
   const addChip = (label, value, onRemove) => {
     const chip = document.createElement("span");
-    chip.className = "filter-chip chip chip--shadow";
+    chip.className = "filter-chip";
 
     const labelEl = document.createElement("strong");
     labelEl.textContent = `${label}: `;

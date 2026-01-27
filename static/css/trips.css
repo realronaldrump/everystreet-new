@@ -48,6 +48,18 @@
   flex-wrap: wrap;
 }
 
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  background: var(--surface-2);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-pill);
+  padding: 6px 12px;
+  color: var(--text-primary);
+  box-shadow: var(--shadow-sm);
+}
+
 .filter-chip button {
   background: transparent;
   border: none;
@@ -230,6 +242,28 @@
   color: var(--text-primary);
 }
 
+/* === Pills === */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  border-radius: var(--radius-pill);
+  font-size: var(--font-size-xs);
+  background: rgb(var(--primary-rgb) / 10%);
+  color: var(--primary);
+}
+
+.pill-subtle {
+  background: var(--surface-2);
+  color: var(--text-secondary);
+}
+
+.pill-muted {
+  background: var(--surface-0);
+  color: var(--text-tertiary);
+}
+
 /* === Trip Cells (Table Data Styling) === */
 .trip-cell {
   display: flex;
@@ -383,6 +417,9 @@
     justify-content: flex-start;
   }
 
+  .filter-panel .row {
+    flex-direction: column;
+  }
 }
 
 /* === Responsive: Mobile === */
@@ -476,9 +513,8 @@
 /* === Responsive: Very small mobile === */
 @media (width <= 480px) {
   /* Stack filter panel elements */
-  .filter-actions {
+  .filter-panel .d-flex {
     flex-direction: column;
-    align-items: stretch;
   }
 
   .filter-quick-ranges {

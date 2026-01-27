@@ -20,6 +20,7 @@
   height: var(--header-height);
   background: var(--glass-panel);
   backdrop-filter: blur(var(--blur-strong));
+  backdrop-filter: blur(var(--blur-strong));
   border-bottom: 1px solid var(--glass-border-subtle);
   box-shadow: var(--shadow-glass-sm);
   z-index: var(--z-fixed);
@@ -162,10 +163,6 @@
 
 /* === Dropdown Menus - Glassmorphic === */
 .dropdown-menu {
-  display: none;
-  position: absolute;
-  top: calc(100% + var(--space-2));
-  right: 0;
   background: var(--glass-dropdown);
   backdrop-filter: blur(var(--blur-modal));
   backdrop-filter: blur(var(--blur-modal));
@@ -175,15 +172,6 @@
   padding: var(--space-2) 0;
   min-width: 220px;
   z-index: var(--z-dropdown);
-}
-
-.dropdown-menu-end {
-  right: 0;
-  left: auto;
-}
-
-.dropdown-menu.show {
-  display: block;
 }
 
 .dropdown-item {

@@ -234,9 +234,3 @@
 .btn-group > .btn:hover {
   z-index: 1; /* Bring hovered button to front */
 }
-
-.btn-group-sm .btn {
-  padding: var(--space-1) var(--space-3);
-  font-size: var(--font-size-xs);
-  border-radius: var(--radius-sm);
-}

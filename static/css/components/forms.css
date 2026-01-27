@@ -133,46 +133,6 @@ body.light-mode .form-select {
   margin-top: var(--space-1);
 }
 
-.form-range {
-  width: 100%;
-  accent-color: var(--primary);
-}
-
-/* === Input Groups === */
-.input-group {
-  display: flex;
-  align-items: stretch;
-  width: 100%;
-}
-
-.input-group > .form-control,
-.input-group > .form-select,
-.input-group > .form-control-color {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-.input-group-text {
-  display: flex;
-  align-items: center;
-  padding: var(--space-2) var(--space-3);
-  background: var(--surface-2);
-  border: 1px solid var(--glass-border-subtle);
-  color: var(--text-secondary);
-  border-radius: var(--radius-md);
-}
-
-.input-group > :not(:first-child) {
-  margin-left: -1px;
-  border-top-left-radius: 0;
-  border-bottom-left-radius: 0;
-}
-
-.input-group > :not(:last-child) {
-  border-top-right-radius: 0;
-  border-bottom-right-radius: 0;
-}
-
 .invalid-feedback {
   display: none;
   width: 100%;

@@ -89,10 +89,9 @@ Every Street
             rel="stylesheet" />
 
       <!-- Critical CSS -->
+      <link rel="stylesheet" href="{{ CDN.bootstrap_css }}" crossorigin="anonymous" />
       <link rel="stylesheet" href="{{ CDN.fontawesome }}" crossorigin="anonymous" />
       <!-- Core CSS -->
-      <link rel="stylesheet"
-            href="{{ url_for('static', path='css/tailwind-output.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}" />
       <link rel="stylesheet"
             href="{{ url_for('static', path='css/style.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}" />
       <link rel="stylesheet"

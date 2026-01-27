@@ -25,15 +25,15 @@ body[data-route="/"] #filters-toggle {
   z-index: 0;
 }
 
-.landing-orb {
+.ambient-orb {
   position: absolute;
   border-radius: 50%;
   filter: blur(70px);
   opacity: 0.1;
-  animation: landingAmbientFloat 40s ease-in-out infinite;
+  animation: ambientFloat 40s ease-in-out infinite;
 }
 
-.landing-orb-1 {
+.ambient-orb-1 {
   width: 480px;
   height: 480px;
   background: var(--primary);
@@ -42,7 +42,7 @@ body[data-route="/"] #filters-toggle {
   animation-delay: 0s;
 }
 
-.landing-orb-2 {
+.ambient-orb-2 {
   width: 420px;
   height: 420px;
   background: var(--info);
@@ -51,7 +51,7 @@ body[data-route="/"] #filters-toggle {
   animation-delay: -7s;
 }
 
-.landing-orb-3 {
+.ambient-orb-3 {
   width: 340px;
   height: 340px;
   background: var(--success);
@@ -61,7 +61,7 @@ body[data-route="/"] #filters-toggle {
   animation-delay: -14s;
 }
 
-@keyframes landingAmbientFloat {
+@keyframes ambientFloat {
   0%,
   100% {
     transform: translate(0, 0) scale(1);
@@ -123,6 +123,15 @@ body[data-route="/"] #filters-toggle {
   display: flex;
   gap: var(--space-2);
   flex-wrap: wrap;
+}
+
+.greeting-chip {
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-pill);
+  background: var(--surface-2);
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  border: 1px solid var(--border-color);
 }
 
 /* Delight cards */
@@ -832,7 +841,7 @@ body[data-route="/"] #filters-toggle {
 
 /* === Reduce Motion === */
 @media (prefers-reduced-motion: reduce) {
-  .landing-orb,
+  .ambient-orb,
   .live-dot.active,
   .activity-live-dot,
   .loading-pulse {

@@ -370,64 +370,27 @@ const AppController = {
     const controlsToggle = utils.getElement("controls-toggle");
     const controlsContent = utils.getElement("controls-content");
     if (controlsToggle && controlsContent) {
-      const bootstrapApi = window.bootstrap;
-      if (bootstrapApi?.Collapse) {
-        const collapse = new bootstrapApi.Collapse(controlsContent, { toggle: false });
+      const collapse = new bootstrap.Collapse(controlsContent, { toggle: false });
 
-        controlsToggle.addEventListener("click", () => {
-          collapse.toggle();
-        });
+      controlsToggle.addEventListener("click", () => {
+        collapse.toggle();
+      });
 
-        controlsContent.addEventListener("shown.bs.collapse", () => {
-          const icon = controlsToggle.querySelector("i");
-          if (icon) {
-            icon.className = "fas fa-chevron-up";
-          }
-          controlsToggle.setAttribute("aria-expanded", "true");
-        });
+      controlsContent.addEventListener("shown.bs.collapse", () => {
+        const icon = controlsToggle.querySelector("i");
+        if (icon) {
+          icon.className = "fas fa-chevron-up";
+        }
+        controlsToggle.setAttribute("aria-expanded", "true");
+      });
 
-        controlsContent.addEventListener("hidden.bs.collapse", () => {
-          const icon = controlsToggle.querySelector("i");
-          if (icon) {
-            icon.className = "fas fa-chevron-down";
-          }
-          controlsToggle.setAttribute("aria-expanded", "false");
-        });
-      } else {
-        const updateToggleIcon = (isExpanded) => {
-          const icon = controlsToggle.querySelector("i");
-          if (icon) {
-            icon.className = isExpanded ? "fas fa-chevron-up" : "fas fa-chevron-down";
-          }
-        };
-
-        controlsToggle.addEventListener("click", () => {
-          const isExpanded = controlsContent.classList.contains("show");
-          controlsContent.classList.toggle("show", !isExpanded);
-          controlsToggle.setAttribute("aria-expanded", String(!isExpanded));
-          updateToggleIcon(!isExpanded);
-        });
-
-        // Initialize icon state for fallback
-        updateToggleIcon(controlsContent.classList.contains("show"));
-
-        // Fallback for section collapses when Bootstrap JS isn't available
-        document
-          .querySelectorAll('[data-bs-toggle="collapse"][data-bs-target]')
-          .forEach((trigger) => {
-            const targetSelector = trigger.getAttribute("data-bs-target");
-            const target = targetSelector ? document.querySelector(targetSelector) : null;
-            if (!target) {
-              return;
-            }
-            trigger.addEventListener("click", (event) => {
-              event.preventDefault();
-              const expanded = trigger.getAttribute("aria-expanded") === "true";
-              target.classList.toggle("show", !expanded);
-              trigger.setAttribute("aria-expanded", String(!expanded));
-            });
-          });
-      }
+      controlsContent.addEventListener("hidden.bs.collapse", () => {
+        const icon = controlsToggle.querySelector("i");
+        if (icon) {
+          icon.className = "fas fa-chevron-down";
+        }
+        controlsToggle.setAttribute("aria-expanded", "false");
+      });
     }
 
     // Location dropdown change

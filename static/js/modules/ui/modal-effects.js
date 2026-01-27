@@ -1,16 +1,5 @@
 const modalEffects = {
   init() {
-    const cleanupBackdrops = () => {
-      if (document.querySelector(".modal.show")) {
-        return;
-      }
-      document
-        .querySelectorAll(".modal-backdrop")
-        .forEach((backdrop) => backdrop.remove());
-      document.body.classList.remove("modal-open");
-      document.body.style.removeProperty("padding-right");
-    };
-
     document.addEventListener("shown.bs.modal", (event) => {
       const modal = event.target;
       if (!modal) {
@@ -39,11 +28,7 @@ const modalEffects = {
       if (modal) {
         modal.classList.remove("is-closing");
       }
-      cleanupBackdrops();
     });
-
-    document.addEventListener("es:page-load", cleanupBackdrops);
-    document.addEventListener("es:page-unload", cleanupBackdrops);
   },
 };
 
