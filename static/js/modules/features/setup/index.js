@@ -866,7 +866,8 @@ function updateTripSyncStatusUI() {
   }
 
   if (importBtn) {
-    importBtn.disabled = state === "syncing";
+    const disableImport = state === "syncing" || state === "paused";
+    importBtn.disabled = disableImport;
     importBtn.textContent = state === "syncing" ? "Importing..." : "Import trips";
     importBtn.title = tripSyncStatus.error?.message || "";
   }
