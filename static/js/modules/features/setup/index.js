@@ -132,6 +132,9 @@ function bindEvents() {
 
   document.querySelectorAll(".setup-tab").forEach((tab) => {
     tab.addEventListener("click", () => {
+      if (tab.disabled || tab.classList.contains("is-disabled")) {
+        return;
+      }
       const target = tab.dataset.coverageTab || "select";
       updateCoverageView(target);
     });
@@ -172,6 +175,7 @@ async function loadTripSyncStatus() {
   } catch (_error) {
     tripSyncStatus = null;
   }
+  updateTripSyncStatusUI();
 }
 
 async function loadMapboxSettings() {
@@ -661,6 +665,9 @@ function updateStateSelectionUI() {
 }
 
 function updateSelectionSummary() {
+  const requiresSelection = !(coverageMode === "trips" || coverageMode === "auto");
+  const selectionMissing = requiresSelection && !selectedStates.size;
+  const noTrips = shouldBlockCoverageSetup();
   const totalSize = Array.from(selectedStates).reduce((sum, code) => {
     const state = stateCatalog?.states?.find((item) => item.code === code);
     return sum + Number(state?.size_mb || 0);
@@ -690,11 +697,11 @@ function updateSelectionSummary() {
 
   const reviewBtn = document.getElementById("coverage-review-btn");
   if (reviewBtn) {
-    reviewBtn.disabled = selectedStates.size === 0;
+    reviewBtn.disabled = selectionMissing || noTrips;
   }
   const runBtn = document.getElementById("coverage-run-btn");
   if (runBtn) {
-    runBtn.disabled = selectedStates.size === 0;
+    runBtn.disabled = selectionMissing || noTrips;
   }
 
   updateCoverageLists();
@@ -753,6 +760,116 @@ function formatRelativeTime(timestamp) {
     return `${hours}h ago`;
   }
   return `${hours}h ${remaining}m ago`;
+}
+
+function updateTripSyncStatusUI() {
+  const countEl = document.getElementById("trip-sync-count");
+  const lastSuccessEl = document.getElementById("trip-sync-last-success");
+  const lastAttemptEl = document.getElementById("trip-sync-last-attempt");
+  const statePill = document.getElementById("trip-sync-state-pill");
+  const hintEl = document.getElementById("trip-sync-hint");
+  const bannerTitle = document.getElementById("coverage-trips-title");
+  const bannerMessage = document.getElementById("coverage-trips-message");
+  const importBtn = document.getElementById("coverage-import-trips-btn");
+
+  if (!tripSyncStatus) {
+    if (countEl) {
+      countEl.textContent = "--";
+    }
+    if (lastSuccessEl) {
+      lastSuccessEl.textContent = "--";
+    }
+    if (lastAttemptEl) {
+      lastAttemptEl.textContent = "--";
+    }
+    if (statePill) {
+      statePill.textContent = "Idle";
+      statePill.classList.remove("is-warning", "is-danger", "is-success");
+      statePill.classList.add("is-muted");
+    }
+    if (hintEl) {
+      hintEl.textContent = "";
+      hintEl.classList.add("d-none");
+    }
+    return;
+  }
+
+  const tripCount = Number(tripSyncStatus.trip_count || 0);
+  if (countEl) {
+    countEl.textContent = Number.isFinite(tripCount) ? tripCount.toLocaleString() : "--";
+  }
+
+  const lastSuccess = tripSyncStatus.last_success_at
+    ? formatRelativeTime(tripSyncStatus.last_success_at)
+    : "Never";
+  const lastAttempt = tripSyncStatus.last_attempt_at
+    ? formatRelativeTime(tripSyncStatus.last_attempt_at)
+    : "Never";
+  if (lastSuccessEl) {
+    lastSuccessEl.textContent = lastSuccess || "Never";
+  }
+  if (lastAttemptEl) {
+    lastAttemptEl.textContent = lastAttempt || "Never";
+  }
+
+  const state = tripSyncStatus.state || "idle";
+  let label = "Idle";
+  let pillClass = "is-muted";
+  if (state === "syncing") {
+    label = "Syncing";
+    pillClass = "is-warning";
+  } else if (state === "paused") {
+    label = "Paused";
+    pillClass = "is-warning";
+  } else if (state === "error") {
+    label = "Attention";
+    pillClass = "is-danger";
+  } else if (tripCount > 0) {
+    label = "Ready";
+    pillClass = "is-success";
+  }
+
+  if (statePill) {
+    statePill.textContent = label;
+    statePill.classList.remove("is-muted", "is-warning", "is-danger", "is-success");
+    statePill.classList.add(pillClass);
+  }
+
+  let hint = "";
+  if (tripSyncStatus.error?.message) {
+    hint = tripSyncStatus.error.message;
+  } else if (state === "syncing") {
+    hint = "Trip import is running. Coverage will update automatically.";
+  }
+  if (hintEl) {
+    hintEl.textContent = hint;
+    hintEl.classList.toggle("d-none", !hint);
+  }
+
+  if (bannerTitle && bannerMessage) {
+    if (state === "syncing") {
+      bannerTitle.textContent = "Importing trips";
+      bannerMessage.textContent
+        = "Trip import is running. Coverage will update automatically.";
+    } else if (state === "error") {
+      bannerTitle.textContent = "Trip sync needs attention";
+      bannerMessage.textContent = tripSyncStatus.error?.message || "Trip sync failed.";
+    } else if (state === "paused") {
+      bannerTitle.textContent = "Trip sync is paused";
+      bannerMessage.textContent
+        = tripSyncStatus.error?.message || "Complete setup to import trips.";
+    } else {
+      bannerTitle.textContent = "Import trips first";
+      bannerMessage.textContent
+        = "We need at least one trip to calculate coverage. Sync trips to continue.";
+    }
+  }
+
+  if (importBtn) {
+    importBtn.disabled = state === "syncing";
+    importBtn.textContent = state === "syncing" ? "Importing..." : "Import trips";
+    importBtn.title = tripSyncStatus.error?.message || "";
+  }
 }
 
 function updateCoverageLists() {
@@ -875,6 +992,8 @@ function updateMapCoverageUI() {
   const progress = mapServiceStatus?.progress;
   const running = status?.status === "downloading" || status?.status === "building";
   const noTrips = shouldBlockCoverageSetup();
+  const selectionMissing
+    = !(coverageMode === "trips" || coverageMode === "auto") && !selectedStates.size;
 
   const messageEl = document.getElementById("map-setup-message");
   if (messageEl) {
@@ -956,7 +1075,7 @@ function updateMapCoverageUI() {
         || !credentialsComplete
         || mapSetupInFlight
         || noTrips
-        || (!(coverageMode === "trips" || coverageMode === "auto") && !selectedStates.size);
+        || selectionMissing;
     mapSetupBtn.title = noTrips ? "Import trips first" : "";
   }
 
@@ -1001,22 +1120,26 @@ function updateMapCoverageUI() {
         || ready
         || mapSetupInFlight
         || noTrips
-        || (!(coverageMode === "trips" || coverageMode === "auto") && !selectedStates.size);
+        || selectionMissing;
     runBtn.title = noTrips ? "Import trips first" : "";
   }
 
   const reviewBtn = document.getElementById("coverage-review-btn");
   if (reviewBtn) {
     reviewBtn.disabled
-      = reviewBtn.disabled
-        || noTrips
-        || (!(coverageMode === "trips" || coverageMode === "auto") && !selectedStates.size);
+      = reviewBtn.disabled || noTrips || selectionMissing;
     reviewBtn.title = noTrips ? "Import trips first" : "";
   }
 
   const banner = document.getElementById("coverage-trips-banner");
   if (banner) {
     banner.classList.toggle("d-none", !noTrips);
+  }
+
+  const searchWrap = document.getElementById("coverage-search");
+  if (searchWrap) {
+    const hideSearch = coverageMode === "trips" || coverageMode === "auto";
+    searchWrap.classList.toggle("d-none", hideSearch);
   }
 
   const hint = document.getElementById("coverage-select-hint");
@@ -1040,9 +1163,38 @@ function updateMapCoverageUI() {
   if (modePill) {
     modePill.textContent = coverageMode === "states" ? "Full states" : "Trip coverage";
   }
+
+  const stepDescription = document.getElementById("coverage-step-description");
+  if (stepDescription) {
+    if (coverageMode === "states") {
+      stepDescription.textContent
+        = "Choose the states you need now. Coverage can be expanded later as you travel.";
+    } else {
+      stepDescription.textContent
+        = "Coverage is built from your trips so geocoding stays local and fast. Import trips first, then we will auto-detect the right coverage.";
+    }
+  }
+
+  const tabs = document.querySelectorAll(".setup-tab");
+  const disableTabs = (noTrips || selectionMissing) && !running && !ready;
+  tabs.forEach((tab) => {
+    const target = tab.dataset.coverageTab || "select";
+    if (target === "select") {
+      tab.classList.remove("is-disabled");
+      tab.disabled = false;
+      tab.removeAttribute("aria-disabled");
+      return;
+    }
+    tab.classList.toggle("is-disabled", disableTabs);
+    tab.disabled = disableTabs;
+    tab.setAttribute("aria-disabled", disableTabs ? "true" : "false");
+  });
 }
 
 function shouldBlockCoverageSetup() {
+  if (!(coverageMode === "trips" || coverageMode === "auto")) {
+    return false;
+  }
   const configured = mapServiceStatus?.config?.selected_states || [];
   const detected = mapServiceStatus?.detected_states || [];
   hasTripsForCoverage = detected.length > 0;

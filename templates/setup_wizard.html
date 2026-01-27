@@ -26,8 +26,8 @@ EveryStreet Setup
 Get your streets online in minutes.
           </h1>
           <p class="setup-subtitle">
-            Add your credentials once, pick the states you care about, and we will
-            set up geocoding and routing in the background.
+            Add your credentials once, import trips, and we will auto-detect coverage
+            while geocoding and routing are built in the background.
           </p>
           <div class="setup-hero-meta">
             <div class="setup-hero-step">
@@ -37,7 +37,7 @@ Get your streets online in minutes.
             <div class="setup-hero-step">
               <span class="setup-hero-step-label">What happens next</span>
               <span class="setup-hero-step-value" id="setup-next-step">
-                Save credentials, then choose coverage.
+                Save credentials, then import trips for coverage.
               </span>
             </div>
           </div>
@@ -51,7 +51,7 @@ This wizard will configure:
               <i class="fas fa-key"></i> Bouncie + Mapbox credentials
             </li>
             <li>
-              <i class="fas fa-map"></i> US state coverage
+              <i class="fas fa-map"></i> Trip-based coverage area
             </li>
           </ul>
         </div>
@@ -81,7 +81,7 @@ Bouncie + Mapbox
 Map Coverage
                   </div>
                   <div class="step-note">
-Pick your states
+Coverage area
                   </div>
                 </div>
               </button>
@@ -223,7 +223,7 @@ Mapbox Access Token
                   <h2>
 Map Coverage
                   </h2>
-                  <p>
+                  <p id="coverage-step-description">
                     Coverage is built from your trips so geocoding stays local and fast.
                     Import trips first, then we’ll auto-detect the right coverage.
                   </p>
@@ -242,8 +242,8 @@ Not configured
               </div>
               <div class="setup-banner d-none" id="coverage-trips-banner">
                 <div>
-                  <strong>Import trips first</strong>
-                  <div class="text-muted">
+                  <strong id="coverage-trips-title">Import trips first</strong>
+                  <div class="text-muted" id="coverage-trips-message">
                     We need at least one trip to calculate coverage. Sync trips to continue.
                   </div>
                 </div>
@@ -279,7 +279,7 @@ Select states
                           Coverage is auto-detected from trips in trip coverage mode.
                         </div>
                       </div>
-                      <div class="setup-coverage-search">
+                      <div class="setup-coverage-search" id="coverage-search">
                         <label class="form-label" for="state-search">Search states</label>
                         <input class="form-control" id="state-search" type="search" placeholder="Search by name" />
                       </div>
@@ -293,6 +293,29 @@ Loading states...
                   </div>
 
                   <aside class="setup-coverage-panel">
+                    <div class="setup-trip-status">
+                      <div class="setup-trip-status-header">
+                        <h3>
+Trip status
+                        </h3>
+                        <span class="setup-pill is-muted" id="trip-sync-state-pill">Idle</span>
+                      </div>
+                      <div class="setup-trip-status-grid">
+                        <div>
+                          <span class="coverage-label">Trips imported</span>
+                          <span class="setup-trip-value" id="trip-sync-count">--</span>
+                        </div>
+                        <div>
+                          <span class="coverage-label">Last sync</span>
+                          <span class="setup-trip-value" id="trip-sync-last-success">--</span>
+                        </div>
+                        <div>
+                          <span class="coverage-label">Last attempt</span>
+                          <span class="setup-trip-value" id="trip-sync-last-attempt">--</span>
+                        </div>
+                      </div>
+                      <div class="setup-hint" id="trip-sync-hint"></div>
+                    </div>
                     <h3>
 Selection summary
                     </h3>
