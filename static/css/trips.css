@@ -251,6 +251,15 @@ body[data-route="/trips"] .trips-page > * {
   gap: var(--space-4);
 }
 
+.trips-filter-grid {
+  padding: var(--space-2) 0;
+}
+
+.trips-filter-actions {
+  padding-top: var(--space-2);
+  border-top: 1px dashed var(--divider-color);
+}
+
 .filter-chip-row {
   display: flex;
   flex-wrap: wrap;
