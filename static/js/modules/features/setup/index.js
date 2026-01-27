@@ -1064,11 +1064,21 @@ function updateMapCoverageUI() {
   }
 
   const locked = status?.status === "downloading" || status?.status === "building";
+  const coverageLocked = coverageMode === "trips" || coverageMode === "auto";
+  const selectionLocked = locked || coverageLocked;
+  const selectionContainer = document.getElementById("state-selection");
+  if (selectionContainer) {
+    selectionContainer.classList.toggle("is-locked", selectionLocked);
+  }
   document
     .querySelectorAll('#state-selection input[type="checkbox"]')
     .forEach((input) => {
-      input.disabled = locked;
+      input.disabled = selectionLocked;
     });
+  const searchInput = document.getElementById("state-search");
+  if (searchInput) {
+    searchInput.disabled = selectionLocked;
+  }
   const mapSetupBtn = document.getElementById("map-setup-btn");
   if (mapSetupBtn) {
     const credentialsComplete
@@ -1133,7 +1143,7 @@ function updateMapCoverageUI() {
   const reviewBtn = document.getElementById("coverage-review-btn");
   if (reviewBtn) {
     reviewBtn.disabled
-      = reviewBtn.disabled || noTrips || selectionMissing;
+      = running || ready || mapSetupInFlight || noTrips || selectionMissing;
     reviewBtn.title = noTrips ? "Import trips first" : "";
   }
 
