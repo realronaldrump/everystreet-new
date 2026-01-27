@@ -16,8 +16,9 @@ name: ${COMPOSE_PROJECT_NAME:-everystreet}
 
 services:
   web:
-    image: ghcr.io/realronaldrump/everystreet-new:main
-    pull_policy: always
+    build:
+      context: .
+    image: everystreet-local:dev
     restart: unless-stopped
     ports:
       - '8080:8080'
@@ -26,8 +27,6 @@ services:
     volumes:
       - osm_extracts:/osm
       - /var/run/docker.sock:/var/run/docker.sock
-    labels:
-      - 'com.centurylinklabs.watchtower.enable=true'
     depends_on:
       mongo-init:
         condition: service_completed_successfully
@@ -47,16 +46,15 @@ services:
       start_period: 15s
 
   worker:
-    image: ghcr.io/realronaldrump/everystreet-new:main
-    pull_policy: always
+    build:
+      context: .
+    image: everystreet-local:dev
     restart: unless-stopped
     command: arq tasks.worker.WorkerSettings
     env_file: .env
     volumes:
       - osm_extracts:/osm
       - /var/run/docker.sock:/var/run/docker.sock
-    labels:
-      - 'com.centurylinklabs.watchtower.enable=true'
     depends_on:
       mongo-init:
         condition: service_completed_successfully
@@ -217,6 +215,7 @@ services:
   # Supports both immediate updates (via HTTP API) and polling (every 5 minutes)
   watchtower:
     image: containrrr/watchtower:latest
+    profiles: ["watchtower"]
     restart: unless-stopped
     environment:
       - DOCKER_API_VERSION=1.44
