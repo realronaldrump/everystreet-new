@@ -50,6 +50,9 @@ class TripMapMatcher:
             transaction_id = processed_data.get("transactionId", "unknown")
             logger.debug("Starting map matching for trip %s", transaction_id)
 
+            def set_match_status(value: str) -> None:
+                processed_data["matchStatus"] = value
+
             gps_data = processed_data.get("gps")
             if not gps_data or not isinstance(gps_data, dict):
                 # No GPS data - just continue without map matching
@@ -57,6 +60,7 @@ class TripMapMatcher:
                     "Trip %s has no GPS data for map matching",
                     transaction_id,
                 )
+                set_match_status("skipped:no-gps")
                 return True, processed_data
 
             gps_type = gps_data.get("type")
@@ -66,6 +70,7 @@ class TripMapMatcher:
                     "Trip %s: GPS is a single Point, skipping map matching",
                     transaction_id,
                 )
+                set_match_status("skipped:single-point")
                 return True, processed_data
 
             if gps_type == "LineString":
@@ -75,6 +80,7 @@ class TripMapMatcher:
                         "Trip %s: Insufficient coordinates for map matching",
                         transaction_id,
                     )
+                    set_match_status("skipped:insufficient-coordinates")
                     return True, processed_data
             else:
                 logger.warning(
@@ -82,6 +88,7 @@ class TripMapMatcher:
                     transaction_id,
                     gps_type,
                 )
+                set_match_status(f"skipped:unsupported-gps-type:{gps_type}")
                 return True, processed_data
 
             # Extract timestamps and call map matching service
@@ -104,6 +111,7 @@ class TripMapMatcher:
                 state_machine.errors["map_match"] = (
                     f"Map matching API failed: {error_msg}"
                 )
+                set_match_status(f"error:{error_msg}")
                 return (
                     True,
                     processed_data,
@@ -118,10 +126,13 @@ class TripMapMatcher:
             if validated_matched_gps:
                 processed_data["matchedGps"] = validated_matched_gps
                 processed_data["matched_at"] = get_current_utc_time()
+                geom_type = validated_matched_gps.get("type", "unknown")
+                set_match_status(f"matched:{str(geom_type).lower()}")
                 state_machine.set_state(TripState.MAP_MATCHED)
                 logger.debug("Map matched trip %s successfully", transaction_id)
             else:
                 logger.info("No valid matchedGps data for trip %s", transaction_id)
+                set_match_status("no-valid-geometry")
 
             result = (True, processed_data)
 
@@ -132,6 +143,7 @@ class TripMapMatcher:
                 processed_data.get("transactionId", "unknown"),
                 e,
             )
+            processed_data["matchStatus"] = "error:exception"
             return True, processed_data
         else:
             return result

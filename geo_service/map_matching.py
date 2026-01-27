@@ -176,11 +176,13 @@ class MapMatchingService:
     def _build_shape_points(
         coords: list[list[float]],
         timestamps_chunk: list[int | None] | None,
-    ) -> list[dict[str, float | int]]:
+    ) -> list[dict[str, float | int | str]]:
         """Build Valhalla shape points with optional timestamps."""
         shape = []
+        last_idx = len(coords) - 1
         for i, (lon, lat) in enumerate(coords):
             point: dict[str, float | int] = {"lon": lon, "lat": lat}
+            point["type"] = "break" if i in (0, last_idx) else "via"
             if (
                 timestamps_chunk
                 and i < len(timestamps_chunk)
@@ -210,7 +212,7 @@ class MapMatchingService:
 
     async def _execute_valhalla_request(
         self,
-        shape: list[dict[str, float | int]],
+        shape: list[dict[str, float | int | str]],
         *,
         use_timestamps: bool = False,
     ) -> dict[str, Any]:

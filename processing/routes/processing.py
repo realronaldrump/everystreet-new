@@ -1,7 +1,7 @@
 import logging
 from datetime import UTC, datetime, timedelta
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Body, HTTPException, status
 from pydantic import BaseModel
 
 from core.api import api_route
@@ -99,8 +99,16 @@ async def map_match_trips_endpoint(
     trip_id: str | None = None,
     start_date: str | None = None,
     end_date: str | None = None,
+    data: DateRangeModel | None = Body(default=None),
 ):
     """Map match trips within a date range or a specific trip."""
+    if data:
+        if not start_date and data.start_date:
+            start_date = data.start_date
+        if not end_date and data.end_date:
+            end_date = data.end_date
+    start_date = start_date or None
+    end_date = end_date or None
     query = {}
     if trip_id:
         query["transactionId"] = trip_id

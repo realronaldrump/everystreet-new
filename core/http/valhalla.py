@@ -91,7 +91,7 @@ class ValhallaClient:
     @retry_async()
     async def trace_route(
         self,
-        shape: list[dict[str, float | int]],
+        shape: list[dict[str, float | int | str]],
         *,
         costing: str = "auto",
         use_timestamps: bool | None = None,
@@ -125,7 +125,7 @@ class ValhallaClient:
     @retry_async()
     async def trace_attributes(
         self,
-        shape: list[dict[str, float]],
+        shape: list[dict[str, float | int | str]],
         *,
         costing: str = "auto",
     ) -> dict[str, Any]:
