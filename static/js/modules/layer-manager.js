@@ -28,6 +28,7 @@ const FADE_DURATION = 320;
 const layerManager = {
   // Event handler tracking for proper cleanup
   _layerCleanupMap: new Map(),
+  _layerUpdateQueue: new Map(),
   _heatmapEventsBound: false,
   _heatmapRefreshHandler: null,
 
@@ -881,6 +882,31 @@ const layerManager = {
       return;
     }
 
+    const queued = this._layerUpdateQueue.get(layerName) || Promise.resolve();
+    const task = queued
+      .catch(() => {})
+      .then(() => this._updateMapLayerInternal(layerName, data));
+
+    this._layerUpdateQueue.set(layerName, task);
+
+    try {
+      await task;
+    } finally {
+      if (this._layerUpdateQueue.get(layerName) === task) {
+        this._layerUpdateQueue.delete(layerName);
+      }
+    }
+  },
+
+  /**
+   * Internal update logic (serialized per layer)
+   * @private
+   */
+  async _updateMapLayerInternal(layerName, data) {
+    if (!store.map || !store.mapInitialized || !data) {
+      return;
+    }
+
     const sourceId = `${layerName}-source`;
     const layerId = `${layerName}-layer`;
     const layerInfo = store.mapLayers[layerName];
@@ -1206,18 +1232,54 @@ const layerManager = {
     await new Promise((resolve) => requestAnimationFrame(resolve));
 
     // Create new source
-    store.map.addSource(sourceId, {
-      type: "geojson",
-      data,
-      tolerance: 0.375,
-      buffer: 64,
-      maxzoom: 18,
-      lineMetrics: true,
-    });
+    const refreshedSource = store.map.getSource(sourceId);
+    if (refreshedSource) {
+      refreshedSource.setData(data);
+    } else {
+      store.map.addSource(sourceId, {
+        type: "geojson",
+        data,
+        tolerance: 0.375,
+        buffer: 64,
+        maxzoom: 18,
+        lineMetrics: true,
+      });
+    }
 
     // Create stacked glow layers
     glowLayers.forEach((glowConfig, index) => {
       const glowLayerId = `${layerName}-layer-${index}`;
+
+      if (store.map.getLayer(glowLayerId)) {
+        store.map.setPaintProperty(
+          glowLayerId,
+          "line-color",
+          glowConfig.paint["line-color"]
+        );
+        store.map.setPaintProperty(
+          glowLayerId,
+          "line-width",
+          glowConfig.paint["line-width"]
+        );
+        store.map.setPaintProperty(
+          glowLayerId,
+          "line-opacity",
+          glowConfig.paint["line-opacity"]
+        );
+        if (glowConfig.paint["line-blur"] !== undefined) {
+          store.map.setPaintProperty(
+            glowLayerId,
+            "line-blur",
+            glowConfig.paint["line-blur"]
+          );
+        }
+        store.map.setLayoutProperty(
+          glowLayerId,
+          "visibility",
+          layerInfo.visible ? "visible" : "none"
+        );
+        return;
+      }
 
       store.map.addLayer({
         id: glowLayerId,

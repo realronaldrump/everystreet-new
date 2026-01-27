@@ -30,6 +30,8 @@ const readyCallbacks = [];
  * MapCore singleton - manages map lifecycle
  */
 const mapCore = {
+  _telemetryPatched: false,
+
   /**
    * Check if map is ready for use
    * @returns {boolean}
@@ -135,11 +137,7 @@ const mapCore = {
 
       loadingManager?.updateMessage("Configuring map...");
 
-      // Disable telemetry for performance
-      if (typeof mapboxgl.config === "object") {
-        mapboxgl.config.REPORT_MAP_LOAD_TIMES = false;
-        mapboxgl.config.COLLECT_RESOURCE_TIMING = false;
-      }
+      this._disableTelemetry();
 
       // Determine theme and style
       const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
@@ -242,21 +240,92 @@ const mapCore = {
   },
 
   /**
-   * Create transform request function to filter telemetry
+   * Disable Mapbox telemetry and event reporting when available
+   * @private
+   */
+  _disableTelemetry() {
+    const telemetryApiAvailable = typeof mapboxgl?.setTelemetryEnabled === "function";
+    if (telemetryApiAvailable) {
+      mapboxgl.setTelemetryEnabled(false);
+    }
+
+    if (typeof mapboxgl?.config === "object") {
+      mapboxgl.config.REPORT_MAP_LOAD_TIMES = false;
+      mapboxgl.config.COLLECT_RESOURCE_TIMING = false;
+      if ("EVENTS_URL" in mapboxgl.config) {
+        mapboxgl.config.EVENTS_URL = null;
+      }
+    }
+
+    if (!telemetryApiAvailable) {
+      this._patchTelemetryRequests();
+    }
+  },
+
+  /**
+   * Patch telemetry requests when Mapbox telemetry API is unavailable
+   * @private
+   */
+  _patchTelemetryRequests() {
+    if (this._telemetryPatched) {
+      return;
+    }
+
+    const telemetryHost = "events.mapbox.com";
+    const baseUrl
+      = typeof window !== "undefined" && window.location?.origin
+        ? window.location.origin
+        : "http://localhost";
+    let patched = false;
+
+    if (typeof navigator !== "undefined" && typeof navigator.sendBeacon === "function") {
+      const originalSendBeacon = navigator.sendBeacon.bind(navigator);
+      navigator.sendBeacon = (url, data) => {
+        try {
+          const parsed = new URL(url, baseUrl);
+          if (parsed.hostname === telemetryHost) {
+            return true;
+          }
+        } catch {
+          // Ignore URL parsing errors
+        }
+        return originalSendBeacon(url, data);
+      };
+      patched = true;
+    }
+
+    if (typeof window !== "undefined" && typeof window.fetch === "function") {
+      const originalFetch = window.fetch.bind(window);
+      window.fetch = (input, init) => {
+        const url = typeof input === "string" ? input : input?.url;
+        if (typeof url === "string") {
+          try {
+            const parsed = new URL(url, baseUrl);
+            if (parsed.hostname === telemetryHost) {
+              return Promise.resolve(
+                new Response(null, { status: 204, statusText: "No Content" })
+              );
+            }
+          } catch {
+            // Ignore URL parsing errors
+          }
+        }
+        return originalFetch(input, init);
+      };
+      patched = true;
+    }
+
+    if (patched) {
+      this._telemetryPatched = true;
+    }
+  },
+
+  /**
+   * Create transform request function
    * @private
    */
   _createTransformRequest() {
     return (url) => {
-      if (typeof url === "string") {
-        try {
-          const parsed = new URL(url, window.location.origin);
-          if (parsed.hostname === "events.mapbox.com") {
-            return { url: undefined };
-          }
-        } catch {
-          // Ignore parse errors
-        }
-      }
       return { url };
     };
   },
