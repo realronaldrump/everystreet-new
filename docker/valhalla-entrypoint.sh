@@ -44,19 +44,22 @@ generate_config() {
 start_service() {
   log "Starting Valhalla service..."
 
-  # Try different run scripts depending on container version
-  if [ -x /valhalla/scripts/run.sh ]; then
-    exec /valhalla/scripts/run.sh "$VALHALLA_CONFIG"
-  elif [ -x /valhalla/scripts/valhalla_run.sh ]; then
-    exec /valhalla/scripts/valhalla_run.sh "$VALHALLA_CONFIG"
-  elif command -v valhalla_service >/dev/null 2>&1; then
-    # Run valhalla_service directly with config
+  # Prefer running valhalla_service directly to avoid UID/GID checks in run.sh.
+  if command -v valhalla_service >/dev/null 2>&1; then
     if [ -f "$VALHALLA_CONFIG" ]; then
-      exec valhalla_service "$VALHALLA_CONFIG"
+      THREADS="${server_threads:-$(nproc)}"
+      exec valhalla_service "$VALHALLA_CONFIG" "$THREADS"
     else
       log "ERROR: No valid config file found"
       return 1
     fi
+  fi
+
+  # Fall back to bundled run scripts if valhalla_service is unavailable
+  if [ -x /valhalla/scripts/run.sh ]; then
+    exec /valhalla/scripts/run.sh "$VALHALLA_CONFIG"
+  elif [ -x /valhalla/scripts/valhalla_run.sh ]; then
+    exec /valhalla/scripts/valhalla_run.sh "$VALHALLA_CONFIG"
   else
     log "ERROR: No Valhalla service executable found"
     return 1

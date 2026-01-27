@@ -310,6 +310,10 @@ async def check_service_health(force_refresh: bool = False) -> GeoServiceHealth:
                         health.valhalla_has_data = bool(
                             (health.valhalla_tile_count or 0) > 0,
                         )
+                        if not health.valhalla_has_data:
+                            tileset_last_modified = data.get("tileset_last_modified")
+                            if tileset_last_modified:
+                                health.valhalla_has_data = True
                 except Exception:
                     pass
 
