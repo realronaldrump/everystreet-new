@@ -15,6 +15,7 @@ from typing import Any
 import httpx
 
 from config import get_geofabrik_mirror, get_osm_extracts_path
+from core.service_config import get_service_config
 from map_data.builders import (
     build_nominatim_data,
     build_valhalla_tiles,
@@ -92,10 +93,6 @@ def _retry_delay_seconds(retry_count: int) -> int:
     if retry_count <= 0:
         return 0
     return min(RETRY_BASE_SECONDS * (2 ** (retry_count - 1)), RETRY_MAX_SECONDS)
-
-
-def _coverage_mode() -> str:
-    return os.getenv("MAP_COVERAGE_MODE", "trips").strip().lower()
 
 
 async def _update_progress(
@@ -324,8 +321,21 @@ async def _maybe_build_coverage_extract(
     config: MapServiceConfig,
     progress: MapBuildProgress,
 ) -> str:
-    if _coverage_mode() not in {"trips", "auto"}:
+    settings = await get_service_config()
+    mode = str(getattr(settings, "mapCoverageMode", "trips") or "trips").lower()
+    if mode not in {"trips", "auto"}:
         return merged_pbf
+
+    buffer_miles = float(
+        getattr(settings, "mapCoverageBufferMiles", 10.0) or 10.0,
+    )
+    simplify_feet = float(
+        getattr(settings, "mapCoverageSimplifyFeet", 150.0) or 0.0,
+    )
+    max_points = int(
+        getattr(settings, "mapCoverageMaxPointsPerTrip", 2000) or 2000,
+    )
+    batch_size = int(getattr(settings, "mapCoverageBatchSize", 200) or 200)
 
     await _update_progress(
         config,
@@ -338,7 +348,13 @@ async def _maybe_build_coverage_extract(
     )
 
     try:
-        extract_path = await build_trip_coverage_extract(merged_pbf)
+        extract_path = await build_trip_coverage_extract(
+            merged_pbf,
+            buffer_miles=buffer_miles,
+            simplify_feet=simplify_feet,
+            max_points_per_trip=max_points,
+            batch_size=batch_size,
+        )
     except Exception as exc:
         logger.warning("Coverage extract failed: %s", exc)
         return merged_pbf

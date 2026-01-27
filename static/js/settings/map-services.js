@@ -10,12 +10,15 @@ import apiClient from "../modules/core/api-client.js";
 import notificationManager from "../modules/ui/notifications.js";
 
 const MAP_SERVICES_API = "/api/map-services";
+const APP_SETTINGS_API = "/api/app_settings";
 
 let _lastStatus = null;
 let pollTimer = null;
 let lastDbSample = null;
+let _coverageSettings = null;
 
 export function initMapServicesTab() {
+  loadCoverageSettings();
   refreshAutoStatus();
 }
 
@@ -51,6 +54,7 @@ function stopPolling() {
  */
 async function refreshAutoStatus() {
   try {
+    ensureMapServicesLayout();
     const response = await apiClient.raw(`${MAP_SERVICES_API}/auto-status`);
     const text = await response.text();
     let data;
@@ -95,12 +99,12 @@ function adjustPolling(status) {
  * Render the automatic status UI
  */
 function renderAutoStatus(status) {
-  const container = document.getElementById("map-services-content");
-  if (!container) {
+  const statusContainer = ensureMapServicesLayout();
+  if (!statusContainer) {
     return;
   }
 
-  container.innerHTML = `
+  statusContainer.innerHTML = `
     <div class="map-services-auto">
       ${renderStatusHeader(status)}
       ${renderServicesStatus(status)}
@@ -571,12 +575,12 @@ async function cancelSetup() {
  * Render error state
  */
 function renderError(message) {
-  const container = document.getElementById("map-services-content");
-  if (!container) {
+  const statusContainer = ensureMapServicesLayout();
+  if (!statusContainer) {
     return;
   }
 
-  container.innerHTML = `
+  statusContainer.innerHTML = `
     <div class="map-services-error-state">
       <i class="fas fa-exclamation-triangle"></i>
       <p>${escapeHtml(message)}</p>
@@ -589,6 +593,224 @@ function renderError(message) {
   document
     .getElementById("error-retry-btn")
     ?.addEventListener("click", refreshAutoStatus);
+}
+
+function ensureMapServicesLayout() {
+  const container = document.getElementById("map-services-content");
+  if (!container) {
+    return null;
+  }
+  if (!container.dataset.layoutReady) {
+    container.innerHTML = `
+      <div id="map-services-settings"></div>
+      <div id="map-services-status"></div>
+    `;
+    container.dataset.layoutReady = "true";
+  }
+  return document.getElementById("map-services-status");
+}
+
+async function loadCoverageSettings() {
+  try {
+    ensureMapServicesLayout();
+    const data = await apiClient.get(APP_SETTINGS_API);
+    _coverageSettings = data || {};
+  } catch (error) {
+    console.warn("[MapServices] Failed to load app settings:", error);
+    _coverageSettings = _coverageSettings || {};
+  }
+  renderCoverageSettings(_coverageSettings);
+}
+
+function renderCoverageSettings(settings) {
+  const container = document.getElementById("map-services-settings");
+  if (!container) {
+    return;
+  }
+
+  const mode = (settings.mapCoverageMode || "trips").toLowerCase();
+  const bufferMiles = sanitizeNumber(settings.mapCoverageBufferMiles, 10);
+  const simplifyFeet = sanitizeNumber(settings.mapCoverageSimplifyFeet, 150);
+  const maxPoints = sanitizeInt(settings.mapCoverageMaxPointsPerTrip, 2000);
+  const batchSize = sanitizeInt(settings.mapCoverageBatchSize, 200);
+
+  container.innerHTML = `
+    <div class="settings-group map-services-settings-card">
+      <h3 class="settings-group-title">
+        <i class="fas fa-layer-group"></i>
+        Coverage Settings
+      </h3>
+      <p class="text-muted small mb-3">
+        Build map data from your actual trip coverage. All distances are in miles or feet.
+        Changes apply the next time you run map setup.
+      </p>
+      <form id="map-coverage-settings-form">
+        <div class="setting-item">
+          <div class="setting-label">
+            <div class="setting-label-title">Coverage Mode</div>
+            <div class="setting-label-description">
+              Trip coverage builds a smaller extract around your trips. Full states is slower but broader.
+            </div>
+          </div>
+          <div class="setting-control">
+            <select id="map-coverage-mode" class="form-select">
+              <option value="trips"${mode === "trips" ? " selected" : ""}>
+                Trip coverage (recommended)
+              </option>
+              <option value="states"${mode === "states" ? " selected" : ""}>
+                Full states
+              </option>
+            </select>
+          </div>
+        </div>
+
+        <div class="setting-item">
+          <div class="setting-label">
+            <div class="setting-label-title">Coverage Buffer (miles)</div>
+            <div class="setting-label-description">
+              Extra margin around trip paths to avoid edge misses.
+            </div>
+          </div>
+          <div class="setting-control">
+            <input
+              type="number"
+              class="form-control"
+              id="map-coverage-buffer-miles"
+              min="0"
+              step="0.5"
+              value="${bufferMiles}"
+            />
+          </div>
+        </div>
+
+        <div class="setting-item">
+          <div class="setting-label">
+            <div class="setting-label-title">Coverage Simplify (feet)</div>
+            <div class="setting-label-description">
+              Simplify the polygon to speed extraction; 0 keeps full detail.
+            </div>
+          </div>
+          <div class="setting-control">
+            <input
+              type="number"
+              class="form-control"
+              id="map-coverage-simplify-feet"
+              min="0"
+              step="10"
+              value="${simplifyFeet}"
+            />
+          </div>
+        </div>
+
+        <div class="setting-item">
+          <div class="setting-label">
+            <div class="setting-label-title">Max Points per Trip</div>
+            <div class="setting-label-description">
+              Downsamples long traces to keep coverage building fast.
+            </div>
+          </div>
+          <div class="setting-control">
+            <input
+              type="number"
+              class="form-control"
+              id="map-coverage-max-points"
+              min="100"
+              step="100"
+              value="${maxPoints}"
+            />
+          </div>
+        </div>
+
+        <div class="setting-item">
+          <div class="setting-label">
+            <div class="setting-label-title">Batch Size</div>
+            <div class="setting-label-description">
+              Controls how many trip shapes are merged at a time.
+            </div>
+          </div>
+          <div class="setting-control">
+            <input
+              type="number"
+              class="form-control"
+              id="map-coverage-batch-size"
+              min="50"
+              step="50"
+              value="${batchSize}"
+            />
+          </div>
+        </div>
+
+        <div class="d-flex gap-2 align-items-center mt-3">
+          <button class="btn btn-primary" type="submit">
+            <i class="fas fa-save"></i> Save Coverage Settings
+          </button>
+          <span class="text-muted small" id="coverage-settings-status"></span>
+        </div>
+      </form>
+    </div>
+  `;
+
+  attachCoverageSettingsListeners();
+}
+
+function attachCoverageSettingsListeners() {
+  const form = document.getElementById("map-coverage-settings-form");
+  if (!form || form.dataset.bound === "true") {
+    return;
+  }
+  form.dataset.bound = "true";
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const modeInput = document.getElementById("map-coverage-mode");
+    const bufferInput = document.getElementById("map-coverage-buffer-miles");
+    const simplifyInput = document.getElementById("map-coverage-simplify-feet");
+    const maxPointsInput = document.getElementById("map-coverage-max-points");
+    const batchInput = document.getElementById("map-coverage-batch-size");
+    const statusEl = document.getElementById("coverage-settings-status");
+
+    const mode = (modeInput?.value || "trips").toLowerCase();
+    const bufferMiles = Math.max(0, sanitizeNumber(bufferInput?.value, 10));
+    const simplifyFeet = Math.max(0, sanitizeNumber(simplifyInput?.value, 150));
+    const maxPoints = Math.max(100, sanitizeInt(maxPointsInput?.value, 2000));
+    const batchSize = Math.max(50, sanitizeInt(batchInput?.value, 200));
+
+    const payload = {
+      mapCoverageMode: mode,
+      mapCoverageBufferMiles: bufferMiles,
+      mapCoverageSimplifyFeet: simplifyFeet,
+      mapCoverageMaxPointsPerTrip: maxPoints,
+      mapCoverageBatchSize: batchSize,
+    };
+
+    if (statusEl) {
+      statusEl.textContent = "Saving...";
+    }
+
+    try {
+      await apiClient.post(APP_SETTINGS_API, payload);
+      _coverageSettings = { ...(_coverageSettings || {}), ...payload };
+      notificationManager.show("Coverage settings saved.", "success");
+      if (statusEl) {
+        statusEl.textContent = "Saved. Re-run map setup to apply.";
+      }
+    } catch (error) {
+      console.error("[MapServices] Failed to save coverage settings:", error);
+      notificationManager.show("Failed to save coverage settings.", "danger");
+      if (statusEl) {
+        statusEl.textContent = "Save failed.";
+      }
+    }
+  });
+}
+
+function sanitizeNumber(value, fallback) {
+  const parsed = parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function sanitizeInt(value, fallback) {
+  const parsed = parseInt(value, 10);
+  return Number.isFinite(parsed) ? parsed : fallback;
 }
 
 /**

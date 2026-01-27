@@ -3,6 +3,7 @@ Trip coverage extraction for local/offline geocoding.
 
 Builds a buffered coverage polygon from trip GPS geometries and uses osmium
 to extract a smaller OSM PBF for Nominatim/Valhalla imports.
+All configuration uses imperial units (miles/feet).
 """
 
 from __future__ import annotations
@@ -29,42 +30,8 @@ class CoverageStats:
     points_used: int = 0
 
 
-def _get_env_int(name: str, default: int) -> int:
-    raw = os.getenv(name, "").strip()
-    if not raw:
-        return default
-    try:
-        value = int(raw)
-    except ValueError:
-        return default
-    return value if value > 0 else default
-
-
-def _get_env_float(name: str, default: float) -> float:
-    raw = os.getenv(name, "").strip()
-    if not raw:
-        return default
-    try:
-        value = float(raw)
-    except ValueError:
-        return default
-    return value if value > 0 else default
-
-
-def _coverage_buffer_meters() -> float:
-    miles = os.getenv("MAP_COVERAGE_BUFFER_MILES", "").strip()
-    if miles:
-        try:
-            return float(miles) * 1609.344
-        except ValueError:
-            pass
-    meters = os.getenv("MAP_COVERAGE_BUFFER_METERS", "").strip()
-    if meters:
-        try:
-            return float(meters)
-        except ValueError:
-            pass
-    return 16093.44  # 10 miles default
+_FEET_PER_MILE = 5280.0
+_PROJECTED_UNITS_PER_FOOT = 0.3048
 
 
 def _build_trip_geometry(
@@ -110,14 +77,22 @@ def _merge_batch(
         return combined.union(batch_union)
 
 
-async def build_trip_coverage_polygon() -> tuple[Any | None, CoverageStats]:
+async def build_trip_coverage_polygon(
+    *,
+    buffer_miles: float,
+    simplify_feet: float,
+    max_points_per_trip: int,
+    batch_size: int,
+) -> tuple[Any | None, CoverageStats]:
     from db.models import Trip
 
     stats = CoverageStats()
-    buffer_meters = _coverage_buffer_meters()
-    max_points = _get_env_int("MAP_COVERAGE_MAX_POINTS_PER_TRIP", 2000)
-    batch_size = _get_env_int("MAP_COVERAGE_BATCH_SIZE", 200)
-    simplify_meters = _get_env_float("MAP_COVERAGE_SIMPLIFY_METERS", 50.0)
+    buffer_miles = max(buffer_miles, 0.0)
+    simplify_feet = max(simplify_feet, 0.0)
+    max_points_per_trip = max(int(max_points_per_trip), 1)
+    batch_size = max(int(batch_size), 1)
+    buffer_units = buffer_miles * _FEET_PER_MILE * _PROJECTED_UNITS_PER_FOOT
+    simplify_units = simplify_feet * _PROJECTED_UNITS_PER_FOOT
 
     to_3857 = Transformer.from_crs("EPSG:4326", "EPSG:3857", always_xy=True)
     to_4326 = Transformer.from_crs("EPSG:3857", "EPSG:4326", always_xy=True)
@@ -139,7 +114,7 @@ async def build_trip_coverage_polygon() -> tuple[Any | None, CoverageStats]:
 
     async for doc in cursor:
         stats.trips_seen += 1
-        geom, points = _build_trip_geometry(doc.get("gps"), max_points)
+        geom, points = _build_trip_geometry(doc.get("gps"), max_points_per_trip)
         if geom is None:
             continue
         try:
@@ -158,9 +133,9 @@ async def build_trip_coverage_polygon() -> tuple[Any | None, CoverageStats]:
         logger.warning("No trip geometries available for coverage polygon.")
         return None, stats
 
-    buffered = combined.buffer(buffer_meters)
-    if simplify_meters > 0:
-        buffered = buffered.simplify(simplify_meters)
+    buffered = combined.buffer(buffer_units)
+    if simplify_units > 0:
+        buffered = buffered.simplify(simplify_units)
     coverage = transform(unproject, buffered)
     return coverage, stats
 
@@ -176,9 +151,18 @@ def write_coverage_geojson(geometry: Any, output_path: str) -> None:
 async def build_trip_coverage_extract(
     source_pbf: str,
     *,
+    buffer_miles: float,
+    simplify_feet: float,
+    max_points_per_trip: int,
+    batch_size: int,
     coverage_dir: str | None = None,
 ) -> str | None:
-    coverage, stats = await build_trip_coverage_polygon()
+    coverage, stats = await build_trip_coverage_polygon(
+        buffer_miles=buffer_miles,
+        simplify_feet=simplify_feet,
+        max_points_per_trip=max_points_per_trip,
+        batch_size=batch_size,
+    )
     if coverage is None:
         return None
 
