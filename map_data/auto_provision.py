@@ -435,7 +435,13 @@ async def get_auto_provision_status() -> dict[str, Any]:
         "missing_states": missing_states,
         "missing_state_details": missing_details,
         "missing_size_mb": missing_size,
-        "needs_provisioning": len(missing_states) > 0 and not is_building,
+        "needs_provisioning": (
+            (len(missing_states) > 0 or (
+                config.selected_states
+                and config.status == MapServiceConfig.STATUS_NOT_CONFIGURED
+            ))
+            and not is_building
+        ),
         "services": {
             "geocoding": {
                 "ready": health.nominatim_healthy,

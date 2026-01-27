@@ -111,6 +111,8 @@ const mapCore = {
         throw new Error("Map container elements not found");
       }
 
+      await this._waitForMapboxGL();
+
       // Prevent double initialization
       if (state.map) {
         loadingManager?.hide();
@@ -206,6 +208,71 @@ const mapCore = {
 
       return false;
     }
+  },
+
+  /**
+   * Wait for Mapbox GL JS to be available
+   * @private
+   */
+  _waitForMapboxGL(timeoutMs = 10000) {
+    if (typeof mapboxgl !== "undefined") {
+      return Promise.resolve(true);
+    }
+
+    if (typeof document === "undefined") {
+      return Promise.reject(new Error("Mapbox GL JS not loaded"));
+    }
+
+    return new Promise((resolve, reject) => {
+      let settled = false;
+      let intervalId = null;
+      let timeoutId = null;
+      let scriptEl = null;
+
+      const cleanup = () => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
+        if (intervalId) {
+          clearInterval(intervalId);
+        }
+        document.removeEventListener("es:mapbox-gl-ready", checkReady);
+        if (scriptEl) {
+          scriptEl.removeEventListener("load", checkReady);
+          scriptEl.removeEventListener("error", handleError);
+        }
+      };
+
+      const checkReady = () => {
+        if (typeof mapboxgl !== "undefined") {
+          cleanup();
+          resolve(true);
+        }
+      };
+
+      const handleError = () => {
+        cleanup();
+        reject(new Error("Mapbox GL JS failed to load"));
+      };
+
+      timeoutId = setTimeout(() => {
+        cleanup();
+        reject(new Error("Mapbox GL JS not loaded"));
+      }, timeoutMs);
+
+      scriptEl = document.querySelector('script[src*="mapbox-gl.js"]');
+      if (scriptEl) {
+        scriptEl.addEventListener("load", checkReady, { once: true });
+        scriptEl.addEventListener("error", handleError, { once: true });
+      }
+
+      document.addEventListener("es:mapbox-gl-ready", checkReady);
+      intervalId = setInterval(checkReady, 50);
+    });
   },
 
   /**

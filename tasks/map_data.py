@@ -120,6 +120,18 @@ def _retry_delay_seconds(retry_count: int) -> int:
     return min(RETRY_BASE_SECONDS * (2 ** (retry_count - 1)), RETRY_MAX_SECONDS)
 
 
+async def _sync_cancellation_flag(
+    progress: MapBuildProgress,
+    *,
+    raise_on_cancel: bool = False,
+) -> None:
+    latest = await MapBuildProgress.get_or_create()
+    progress.cancellation_requested = bool(latest.cancellation_requested)
+    if raise_on_cancel and progress.cancellation_requested:
+        msg = "Setup cancelled"
+        raise MapSetupCancelled(msg)
+
+
 async def _update_progress(
     config: MapServiceConfig,
     progress: MapBuildProgress,
@@ -132,7 +144,9 @@ async def _update_progress(
     geocoding_ready: bool | None = None,
     routing_ready: bool | None = None,
     last_error: str | None = None,
+    allow_cancel: bool = True,
 ) -> None:
+    await _sync_cancellation_flag(progress, raise_on_cancel=allow_cancel)
     now = datetime.now(UTC)
     if status is not None:
         config.status = status
@@ -160,10 +174,8 @@ async def _update_progress(
     await progress.save()
 
 
-def _check_cancel(progress: MapBuildProgress) -> None:
-    if progress.cancellation_requested:
-        msg = "Setup cancelled"
-        raise MapSetupCancelled(msg)
+async def _check_cancel(progress: MapBuildProgress) -> None:
+    await _sync_cancellation_flag(progress, raise_on_cancel=True)
 
 
 async def _download_state(
@@ -187,7 +199,7 @@ async def _download_state(
                 pass
         with open(temp_path, "wb") as handle:
             async for chunk in response.aiter_bytes(CHUNK_SIZE):
-                _check_cancel(progress_doc)
+                await _check_cancel(progress_doc)
                 handle.write(chunk)
                 tracker.downloaded_bytes += len(chunk)
                 now = time.monotonic()
@@ -272,7 +284,7 @@ async def _download_states(
         follow_redirects=True,
     ) as client:
         for target in download_plan:
-            _check_cancel(progress)
+            await _check_cancel(progress)
             url = _state_download_url(target.geofabrik_id)
             dest_path = os.path.join(states_dir, target.filename)
             if os.path.exists(dest_path) and os.path.getsize(dest_path) > 0:
@@ -545,7 +557,7 @@ async def _verify_health(
     )
 
     for attempt in range(10):
-        _check_cancel(progress)
+        await _check_cancel(progress)
         health = await check_service_health(force_refresh=True)
         await _update_progress(
             config,
@@ -647,10 +659,10 @@ async def setup_map_data_task(ctx: dict, states: list[str]) -> dict[str, Any]:
                 progress,
                 coverage_by_state=coverage_by_state or None,
             )
-            _check_cancel(progress)
+            await _check_cancel(progress)
 
             merged = await _merge_pbf_files(files, config, progress)
-            _check_cancel(progress)
+            await _check_cancel(progress)
 
             extracts_path = get_osm_extracts_path()
             coverage_pbf = await _maybe_build_coverage_extract(
@@ -659,13 +671,13 @@ async def setup_map_data_task(ctx: dict, states: list[str]) -> dict[str, Any]:
                 progress,
                 coverage_geometry=coverage_geometry,
             )
-            _check_cancel(progress)
+            await _check_cancel(progress)
             pbf_relative = os.path.relpath(coverage_pbf, extracts_path)
 
             await _build_nominatim(pbf_relative, config, progress)
-            _check_cancel(progress)
+            await _check_cancel(progress)
             await _build_valhalla(pbf_relative, config, progress)
-            _check_cancel(progress)
+            await _check_cancel(progress)
 
             await _verify_health(config, progress)
 
@@ -684,13 +696,15 @@ async def setup_map_data_task(ctx: dict, states: list[str]) -> dict[str, Any]:
 
             return {"success": True}
         except MapSetupCancelled as exc:
+            config.last_error = None
+            config.last_error_at = None
             await _update_progress(
                 config,
                 progress,
                 status=MapServiceConfig.STATUS_NOT_CONFIGURED,
                 message="Setup cancelled",
                 overall_progress=0.0,
-                last_error=str(exc),
+                allow_cancel=False,
             )
             progress.phase = MapBuildProgress.PHASE_IDLE
             progress.phase_progress = 0.0

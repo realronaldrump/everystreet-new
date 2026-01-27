@@ -23,6 +23,7 @@ from config import get_nominatim_base_url, get_valhalla_base_url
 from map_data.models import GeoServiceHealth, MapBuildProgress, MapServiceConfig
 from map_data.us_states import get_state, total_size_mb
 from tasks.arq import get_arq_pool
+from tasks.ops import abort_job
 
 logger = logging.getLogger(__name__)
 
@@ -431,14 +432,39 @@ async def cancel_map_setup() -> dict[str, Any]:
     progress = await MapBuildProgress.get_or_create()
     config = await MapServiceConfig.get_or_create()
 
+    if config.status not in {
+        MapServiceConfig.STATUS_DOWNLOADING,
+        MapServiceConfig.STATUS_BUILDING,
+    }:
+        return await get_map_services_status()
+
     now = datetime.now(UTC)
     progress.cancellation_requested = True
     progress.last_progress_at = now
     await progress.save()
 
-    config.message = "Cancelling setup..."
+    aborted = False
+    if progress.active_job_id:
+        with contextlib.suppress(Exception):
+            aborted = await abort_job(progress.active_job_id)
+
+    config.status = MapServiceConfig.STATUS_NOT_CONFIGURED
+    config.message = "Setup cancelled"
+    config.progress = 0.0
+    config.last_error = None
+    config.last_error_at = None
+    config.retry_count = 0
     config.last_updated = now
     await config.save()
+
+    progress.phase = MapBuildProgress.PHASE_IDLE
+    progress.phase_progress = 0.0
+    progress.total_progress = 0.0
+    if aborted:
+        progress.active_job_id = None
+    progress.started_at = None
+    progress.last_progress_at = now
+    await progress.save()
 
     return await get_map_services_status()
 

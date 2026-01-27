@@ -1220,6 +1220,10 @@ async def _safe_callback(
         if asyncio.iscoroutine(result):
             await result
     except Exception as e:
+        if isinstance(e, asyncio.CancelledError):
+            raise
+        if e.__class__.__name__ == "MapSetupCancelled":
+            raise
         logger.warning("Progress callback failed: %s", e)
 
 
