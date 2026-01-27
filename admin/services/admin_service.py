@@ -93,6 +93,11 @@ DEFAULT_APP_SETTINGS: dict[str, Any] = {
     "nominatim_user_agent": "EveryStreet/1.0",
     "geofabrik_mirror": "https://download.geofabrik.de",
     "osm_extracts_path": "/osm",
+    "mapCoverageMode": "trips",
+    "mapCoverageBufferMiles": 10.0,
+    "mapCoverageSimplifyFeet": 150.0,
+    "mapCoverageMaxPointsPerTrip": 2000,
+    "mapCoverageBatchSize": 200,
     "setup_completed": False,
     "setup_completed_at": None,
 }

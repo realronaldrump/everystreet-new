@@ -537,6 +537,13 @@ class AppSettings(Document):
     geofabrik_mirror: str = "https://download.geofabrik.de"
     osm_extracts_path: str = "/osm"
 
+    # Map Coverage Configuration (imperial units)
+    mapCoverageMode: str = "trips"
+    mapCoverageBufferMiles: float = 10.0
+    mapCoverageSimplifyFeet: float = 150.0
+    mapCoverageMaxPointsPerTrip: int = 2000
+    mapCoverageBatchSize: int = 200
+
     class Settings:
         name = "app_settings"
         use_state_management = True
