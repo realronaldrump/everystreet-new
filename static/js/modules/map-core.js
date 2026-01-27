@@ -250,15 +250,35 @@ const mapCore = {
     }
 
     if (typeof mapboxgl?.config === "object") {
-      mapboxgl.config.REPORT_MAP_LOAD_TIMES = false;
-      mapboxgl.config.COLLECT_RESOURCE_TIMING = false;
-      if ("EVENTS_URL" in mapboxgl.config) {
-        mapboxgl.config.EVENTS_URL = null;
-      }
+      this._safeSetMapboxConfig(mapboxgl.config, "REPORT_MAP_LOAD_TIMES", false);
+      this._safeSetMapboxConfig(mapboxgl.config, "COLLECT_RESOURCE_TIMING", false);
+      this._safeSetMapboxConfig(mapboxgl.config, "EVENTS_URL", null);
     }
 
     if (!telemetryApiAvailable) {
       this._patchTelemetryRequests();
+    }
+  },
+
+  /**
+   * Safely update Mapbox config fields without throwing on read-only props
+   * @private
+   */
+  _safeSetMapboxConfig(config, key, value) {
+    try {
+      const descriptor = Object.getOwnPropertyDescriptor(config, key);
+      if (descriptor) {
+        if (descriptor.writable || typeof descriptor.set === "function") {
+          config[key] = value;
+        }
+        return;
+      }
+
+      if (Object.isExtensible(config)) {
+        config[key] = value;
+      }
+    } catch {
+      // Ignore config mutation errors
     }
   },
 
