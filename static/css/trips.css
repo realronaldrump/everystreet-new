@@ -591,8 +591,8 @@ body[data-route="/trips"] .trips-page > * {
   background: var(--surface-3);
   border: 1px solid var(--border-color);
   color: var(--text-secondary);
-  min-width: 36px;
-  min-height: 36px;
+  min-width: 44px;
+  min-height: 44px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -814,6 +814,11 @@ body[data-route="/trips"] .trips-page > * {
     justify-content: flex-end;
   }
 
+  .table-pagination .page-link {
+    min-width: 36px;
+    min-height: 36px;
+  }
+
   .trip-playback-controls {
     left: var(--space-4);
     right: auto;
@@ -826,7 +831,7 @@ body[data-route="/trips"] .trips-page > * {
   }
 }
 
-@media (width <= 768px) {
+@media (width < 768px) {
   .col-hide-mobile,
   #trips-table th.col-hide-mobile,
   #trips-table td:nth-child(5),
