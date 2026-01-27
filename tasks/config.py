@@ -32,7 +32,7 @@ async def _get_or_create_task_config(task_id: str) -> TaskConfig:
     )
     task_config = TaskConfig(
         task_id=task_id,
-        enabled=True,
+        enabled=(task_id == "periodic_fetch_trips"),
         interval_minutes=default_interval,
         config={
             "last_error": None,
