@@ -107,6 +107,7 @@ class MapMatchingJobService:
         total = await Trip.find(query).count()
         trips = (
             await Trip.find(query)
+            .sort(-Trip.endTime)
             .project(TripPreviewProjection)
             .limit(limit)
             .to_list()
