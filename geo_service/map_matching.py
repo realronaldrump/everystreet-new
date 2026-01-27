@@ -181,7 +181,7 @@ class MapMatchingService:
         shape = []
         last_idx = len(coords) - 1
         for i, (lon, lat) in enumerate(coords):
-            point: dict[str, float | int] = {"lon": lon, "lat": lat}
+            point: dict[str, float | int | str] = {"lon": lon, "lat": lat}
             point["type"] = "break" if i in (0, last_idx) else "via"
             if (
                 timestamps_chunk
