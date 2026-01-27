@@ -238,6 +238,24 @@ async def should_auto_provision() -> dict[str, Any]:
             "current_status": config.status,
         }
 
+    if (
+        config.status == MapServiceConfig.STATUS_NOT_CONFIGURED
+        and config.selected_states
+    ):
+        total_size = 0
+        for code in config.selected_states:
+            state_info = get_state(code)
+            if state_info:
+                total_size += int(state_info.get("size_mb", 0))
+        return {
+            "should_provision": True,
+            "reason": "Restarting cancelled setup",
+            "current_states": config.selected_states,
+            "new_states": [],
+            "combined_states": list(config.selected_states),
+            "estimated_size_mb": total_size,
+        }
+
     detection = await detect_trip_states()
     detected = set(detection["detected_states"])
     if not detected:

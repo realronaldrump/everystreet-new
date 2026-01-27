@@ -14,6 +14,7 @@ const BOUNCIE_AUTHORIZE_URL = "/api/bouncie/authorize";
 const BOUNCIE_REDIRECT_URI_API = "/api/bouncie/redirect-uri";
 const FETCH_CONCURRENCY_MIN = 1;
 const FETCH_CONCURRENCY_MAX = 50;
+const isAbortError = (error) => error?.name === "AbortError";
 
 function normalizeFetchConcurrency(value) {
   const parsed = parseInt(value, 10);
@@ -57,7 +58,12 @@ async function setupMapboxCredentials({ signal } = {}) {
     tokenInput.value = token;
     saveBtn.disabled = true;
   } catch (error) {
-    notificationManager.show(`Failed to load Mapbox token: ${error.message}`, "danger");
+    if (!isAbortError(error)) {
+      notificationManager.show(
+        `Failed to load Mapbox token: ${error.message}`,
+        "danger"
+      );
+    }
   }
 
   tokenInput.addEventListener("input", () => {
@@ -78,7 +84,9 @@ async function setupMapboxCredentials({ signal } = {}) {
         saveBtn.disabled = !isValidMapboxToken(tokenInput.value.trim());
       }, 2000);
     } catch (error) {
-      notificationManager.show(error.message, "danger");
+      if (!isAbortError(error)) {
+        notificationManager.show(error.message, "danger");
+      }
       saveBtn.innerHTML = '<i class="fas fa-save"></i> Save Token';
       saveBtn.disabled = !isValidMapboxToken(tokenInput.value.trim());
     }
@@ -129,10 +137,12 @@ async function setupBouncieCredentials({ signal } = {}) {
       );
     }
   } catch (error) {
-    notificationManager.show(
-      `Failed to load Bouncie credentials: ${error.message}`,
-      "danger"
-    );
+    if (!isAbortError(error)) {
+      notificationManager.show(
+        `Failed to load Bouncie credentials: ${error.message}`,
+        "danger"
+      );
+    }
   }
 
   if (toggleBtn && secretInput) {
@@ -178,7 +188,9 @@ async function setupBouncieCredentials({ signal } = {}) {
         saveBtn.disabled = false;
       }, 2000);
     } catch (error) {
-      notificationManager.show(error.message, "danger");
+      if (!isAbortError(error)) {
+        notificationManager.show(error.message, "danger");
+      }
       saveBtn.innerHTML = '<i class="fas fa-save"></i> Save Credentials';
       saveBtn.disabled = false;
     }
@@ -207,7 +219,9 @@ async function setupBouncieCredentials({ signal } = {}) {
         await saveBouncieCredentials(payload, { signal });
         window.location.href = BOUNCIE_AUTHORIZE_URL;
       } catch (error) {
-        notificationManager.show(error.message, "danger");
+        if (!isAbortError(error)) {
+          notificationManager.show(error.message, "danger");
+        }
       }
     });
   }
@@ -223,7 +237,9 @@ async function setupBouncieCredentials({ signal } = {}) {
           "success"
         );
       } catch (error) {
-        notificationManager.show(error.message, "danger");
+        if (!isAbortError(error)) {
+          notificationManager.show(error.message, "danger");
+        }
       } finally {
         syncBtn.innerHTML = '<i class="fas fa-sync"></i> Sync Vehicles';
         syncBtn.disabled = false;

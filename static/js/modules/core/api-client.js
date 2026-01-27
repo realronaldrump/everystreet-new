@@ -52,12 +52,19 @@ class APIClient {
 
     // Execute with timeout and retry
     const controller = new AbortController();
-    const timeoutId = timeout ? setTimeout(() => controller.abort(), timeout) : null;
+    const activeSignal = signal || controller.signal;
+    let timeoutTriggered = false;
+    const timeoutId = timeout && !signal
+      ? setTimeout(() => {
+        timeoutTriggered = true;
+        controller.abort();
+      }, timeout)
+      : null;
 
     try {
       const response = await this._fetchWithRetry(
         url,
-        { ...fetchOptions, signal: signal || controller.signal },
+        { ...fetchOptions, signal: activeSignal },
         retry ? this.retryAttempts : 1
       );
 
@@ -80,6 +87,11 @@ class APIClient {
       if (timeoutId) {
         clearTimeout(timeoutId);
       }
+      if (timeoutTriggered && error?.name === "AbortError") {
+        const timeoutError = new Error(`Request timeout: ${url}`);
+        timeoutError.name = "TimeoutError";
+        throw timeoutError;
+      }
       throw this._handleError(error, url);
     }
   }
@@ -95,16 +107,28 @@ class APIClient {
       ...fetchOptions
     } = options;
     const controller = new AbortController();
-    const timeoutId = timeout ? setTimeout(() => controller.abort(), timeout) : null;
+    const activeSignal = signal || controller.signal;
+    let timeoutTriggered = false;
+    const timeoutId = timeout && !signal
+      ? setTimeout(() => {
+        timeoutTriggered = true;
+        controller.abort();
+      }, timeout)
+      : null;
 
     try {
       const response = await this._fetchWithRetry(
         url,
-        { ...fetchOptions, signal: signal || controller.signal },
+        { ...fetchOptions, signal: activeSignal },
         retry ? this.retryAttempts : 1
       );
       return response;
     } catch (error) {
+      if (timeoutTriggered && error?.name === "AbortError") {
+        const timeoutError = new Error(`Request timeout: ${url}`);
+        timeoutError.name = "TimeoutError";
+        throw timeoutError;
+      }
       throw this._handleError(error, url);
     } finally {
       if (timeoutId) {
@@ -190,6 +214,9 @@ class APIClient {
         }
         return JSON.parse(text);
       } catch (parseError) {
+        if (parseError?.name === "AbortError") {
+          throw parseError;
+        }
         console.error("JSON parse error:", parseError, "Response URL:", response.url);
         throw new Error(`Failed to parse JSON response: ${parseError.message}`);
       }
@@ -204,8 +231,8 @@ class APIClient {
    * Handle and normalize errors
    */
   _handleError(error, url) {
-    if (error.name === "AbortError") {
-      return new Error(`Request timeout: ${url}`);
+    if (error?.name === "AbortError") {
+      return error;
     }
 
     if (error instanceof TypeError && error.message.includes("Failed to fetch")) {
