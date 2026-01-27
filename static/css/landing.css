@@ -659,9 +659,17 @@ body[data-route="/"] #filters-toggle {
   text-overflow: ellipsis;
 }
 
+.activity-feed .activity-description {
+  color: var(--text-primary) !important;
+}
+
 .activity-time {
   font-size: var(--font-size-xs);
   color: var(--text-tertiary);
+}
+
+.activity-feed .activity-time {
+  color: var(--text-secondary) !important;
 }
 
 .activity-empty {
