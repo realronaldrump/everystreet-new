@@ -24,6 +24,7 @@ from exports import router as export_api_router
 from gas import router as gas_api_router
 from logs import router as logs_api_router
 from map_data.routes import router as map_data_router
+from map_matching.routes import router as map_matching_router
 from processing import router as processing_api_router
 from routes.routing import router as routing_router
 from routes.status import router as status_router
@@ -128,6 +129,7 @@ app.include_router(gas_api_router)
 app.include_router(tracking_api_router)
 app.include_router(logs_api_router)
 app.include_router(map_data_router)
+app.include_router(map_matching_router)
 
 app.include_router(processing_api_router)
 app.include_router(profile_api_router)

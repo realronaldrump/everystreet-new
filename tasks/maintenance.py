@@ -9,6 +9,7 @@ This module provides ARQ jobs for maintaining trip data quality:
 
 from __future__ import annotations
 
+import uuid
 import asyncio
 import logging
 from datetime import UTC, datetime
@@ -16,11 +17,12 @@ from typing import Any
 
 from pydantic import ValidationError
 
+from map_matching.schemas import MapMatchJobRequest
+from map_matching.service import MapMatchingJobRunner
 from db.models import Trip
 from tasks.config import check_dependencies
 from tasks.ops import run_task_with_history
 from tracking.services.tracking_service import TrackingService
-from trips.services.trip_batch_service import TripService
 
 logger = logging.getLogger(__name__)
 
@@ -152,10 +154,8 @@ async def validate_trips(
     )
 
 
-async def _remap_unmatched_trips_logic() -> dict[str, Any]:
+async def _remap_unmatched_trips_logic(job_id: str) -> dict[str, Any]:
     """Async logic for attempting to map-match trips that previously failed."""
-    remap_count = 0
-    failed_count = 0
     limit = 50
 
     # Check dependencies first
@@ -181,14 +181,22 @@ async def _remap_unmatched_trips_logic() -> dict[str, Any]:
         limit,
     )
 
-    trip_service = TripService()
     # Beanie trips are objects, access attribute directly
     trip_ids = [trip.transactionId for trip in trips_to_process if trip.transactionId]
+    if not trip_ids:
+        return {
+            "status": "success",
+            "remapped_count": 0,
+            "failed_count": 0,
+            "message": "No unmatched trips found.",
+        }
 
-    result = await trip_service.remap_trips(trip_ids=trip_ids, limit=len(trip_ids))
+    runner = MapMatchingJobRunner()
+    request = MapMatchJobRequest(mode="trip_ids", trip_ids=trip_ids)
+    result = await runner.run(job_id, request)
 
-    remap_count = result["map_matched"]
-    failed_count = result["failed"]
+    remap_count = int(result.get("map_matched", 0) or 0)
+    failed_count = int(result.get("failed", 0) or 0)
 
     logger.info(
         "Remapping attempt finished. Succeeded: %d, Failed: %d",
@@ -212,9 +220,16 @@ async def remap_unmatched_trips(
     manual_run: bool = False,
 ) -> dict[str, Any]:
     """ARQ job for remapping unmatched trips."""
+    job_id = None
+    if isinstance(ctx, dict):
+        job_id = ctx.get("job_id") or ctx.get("id")
+    if not job_id:
+        job_id = str(uuid.uuid4())
+        if isinstance(ctx, dict):
+            ctx["job_id"] = job_id
     return await run_task_with_history(
         ctx,
         "remap_unmatched_trips",
-        _remap_unmatched_trips_logic,
+        lambda: _remap_unmatched_trips_logic(job_id),
         manual_run=manual_run,
     )

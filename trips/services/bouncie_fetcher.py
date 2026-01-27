@@ -143,6 +143,12 @@ async def fetch_bouncie_trip_by_transaction_id(
             "Starting trip fetch by transactionId"
         )
 
+    if do_map_match:
+        logger.warning(
+            "Inline map matching on fetch is deprecated; queuing jobs instead.",
+        )
+        do_map_match = False
+
     try:
         credentials = await get_bouncie_config()
         session = await get_session()
@@ -201,6 +207,12 @@ async def fetch_bouncie_trips_in_range(
         progress_tracker["fetch_and_store_trips"]["status"] = "running"
         progress_tracker["fetch_and_store_trips"]["progress"] = 0
         progress_tracker["fetch_and_store_trips"]["message"] = "Starting trip fetch"
+    if do_map_match:
+        logger.warning(
+            "Inline map matching on fetch is deprecated; queuing jobs instead.",
+        )
+        do_map_match = False
+
     try:
         # Get Bouncie credentials from database or environment
         credentials = await get_bouncie_config()

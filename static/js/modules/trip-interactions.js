@@ -254,60 +254,18 @@ const tripInteractions = {
 
   async rematchTrip(tripId, popup) {
     try {
-      notificationManager.show("Starting map matching...", "info");
-      const response = await utils.fetchWithRetry(`/api/process_trip/${tripId}`, {
+      notificationManager.show("Queueing map matching...", "info");
+      const response = await utils.fetchWithRetry("/api/map_matching/jobs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ map_match: true }),
+        body: JSON.stringify({ mode: "trip_id", trip_id: tripId }),
       });
       if (response) {
         popup.remove();
-        notificationManager.show("Trip map matching completed", "success");
-
-        // Clear API cache for matched trips to ensure fresh data
-        if (utils._apiCache) {
-          // Clear all cached entries for matched trips
-          for (const [key] of utils._apiCache) {
-            if (key.includes("/api/matched_trips")) {
-              utils._apiCache.delete(key);
-            }
-          }
-        }
-
-        const dataManager = (await import("./data-manager.js")).default;
-
-        // Ensure matched trips layer is visible so user can see the newly matched trip
-        const wasVisible = state.mapLayers.matchedTrips.visible;
-        if (!wasVisible) {
-          state.mapLayers.matchedTrips.visible = true;
-          const toggle = document.getElementById("matchedTrips-toggle");
-          if (toggle) {
-            toggle.checked = true;
-          }
-        }
-
-        // Force refresh matched trips layer (fetchMatchedTrips now works regardless of visibility)
-        await dataManager.fetchMatchedTrips();
-
-        // Also refresh trips layer in case the original trip was updated
-        if (state.mapLayers.trips.visible) {
-          await dataManager.fetchTrips();
-        }
-
-        // Apply visibility and refresh styles
-        await new Promise((resolve) => {
-          requestAnimationFrame(() => {
-            if (state.map?.getLayer("matchedTrips-layer")) {
-              state.map.setLayoutProperty(
-                "matchedTrips-layer",
-                "visibility",
-                "visible"
-              );
-            }
-            mapManager.refreshTripStyles();
-            resolve();
-          });
-        });
+        notificationManager.show(
+          "Map matching job queued. View progress in Map Matching.",
+          "success"
+        );
       }
     } catch (error) {
       console.error("Error remapping trip:", error);

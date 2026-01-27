@@ -153,6 +153,12 @@ async def export_page(request: Request):
     return _render_page("export.html", request)
 
 
+@router.get("/map-matching", response_class=HTMLResponse)
+async def map_matching_page(request: Request):
+    """Render map matching job page."""
+    return _render_page("map_matching.html", request)
+
+
 @router.get(
     "/coverage-management",
     response_class=HTMLResponse,

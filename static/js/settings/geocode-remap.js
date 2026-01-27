@@ -204,7 +204,7 @@ export function setupGeocodeTrips() {
         throw new Error("Failed to start geocoding");
       }
 
-      const data = await response.json();
+      await response.json();
       const taskId = data.task_id;
 
       // Start polling for progress
@@ -383,18 +383,32 @@ export function setupRemapMatchedTrips() {
       loadingManager.show();
       setInlineStatus(remapStatus, "Remapping trips...", "info");
 
-      const response = await apiClient.raw("/api/matched_trips/remap", {
+      const response = await apiClient.raw("/api/map_matching/jobs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ start_date, end_date, interval_days }),
+        body: JSON.stringify({
+          mode: "date_range",
+          start_date,
+          end_date,
+          interval_days,
+          unmatched_only: false,
+          rematch: true,
+        }),
       });
 
       loadingManager.hide();
 
       const data = await response.json();
 
-      setInlineStatus(remapStatus, data.message, "success");
-      notificationManager.show(data.message, "success");
+      setInlineStatus(
+        remapStatus,
+        "Rematch job queued. View progress in Map Matching.",
+        "success"
+      );
+      notificationManager.show(
+        "Rematch job queued. View progress in Map Matching.",
+        "success"
+      );
     } catch {
       loadingManager.hide();
       setInlineStatus(remapStatus, "Error re-matching trips.", "danger");

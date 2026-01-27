@@ -542,18 +542,22 @@ const AppController = {
         return;
       }
 
-      loadingManager.show("Starting map matching process...");
-      const res = await utils.fetchWithRetry("/api/map_match_trips", {
+      loadingManager.show("Queueing map matching job...");
+      const res = await utils.fetchWithRetry("/api/map_matching/jobs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          mode: "date_range",
           start_date: dateUtils.getStartDate(),
           end_date: dateUtils.getEndDate(),
+          unmatched_only: true,
         }),
       });
       if (res) {
-        notificationManager.show(`Map matching completed: ${res.message}`, "success");
-        await dataManager.updateMap();
+        notificationManager.show(
+          "Map matching job queued. View progress in Map Matching.",
+          "success"
+        );
       }
     } catch (err) {
       console.error("Map match error:", err);

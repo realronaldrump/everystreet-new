@@ -42,6 +42,13 @@ TASK_DEFINITIONS: dict[str, dict[str, object]] = {
         "dependencies": ["periodic_fetch_trips"],
         "description": "Attempts to map-match trips that previously failed",
     },
+    "map_match_trips": {
+        "display_name": "Map Match Trips",
+        "default_interval_minutes": 0,
+        "dependencies": [],
+        "description": "Runs map matching jobs created from the Map Matching page",
+        "manual_only": True,
+    },
     "update_coverage_for_new_trips": {
         "display_name": "Incremental Progress Updates",
         "default_interval_minutes": 180,

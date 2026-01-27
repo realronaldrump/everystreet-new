@@ -173,6 +173,14 @@ Every Street
                     <span>Trips</span>
                   </a>
                 </li>
+                <li class="nav-item {% if request.url.path == '/map-matching' %}active{% endif %}">
+                  <a href="/map-matching"
+                     title="Map Matching"
+                     {% if request.url.path == '/map-matching' %}aria-current="page"{% endif %}>
+                    <i class="fas fa-route" aria-hidden="true"></i>
+                    <span>Map Matching</span>
+                  </a>
+                </li>
                 <li class="nav-item {% if request.url.path == '/insights' %}active{% endif %}">
                   <a href="/insights"
                      title="Insights"

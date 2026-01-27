@@ -29,6 +29,7 @@ from tasks.fetch import (
 )
 from tasks.health import worker_heartbeat
 from tasks.maintenance import cleanup_stale_trips, remap_unmatched_trips, validate_trips
+from tasks.map_matching import map_match_trips
 from tasks.map_data import (
     SETUP_JOB_TIMEOUT_SECONDS,
     auto_provision_check,
@@ -78,6 +79,7 @@ class WorkerSettings:
         cleanup_stale_trips,
         validate_trips,
         remap_unmatched_trips,
+        map_match_trips,
         update_coverage_for_new_trips,
         generate_optimal_route,
         worker_heartbeat,

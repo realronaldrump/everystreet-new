@@ -1,5 +1,4 @@
 import logging
-from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Body, HTTPException, status
 from pydantic import BaseModel
@@ -7,6 +6,8 @@ from pydantic import BaseModel
 from core.api import api_route
 from db.models import Trip
 from db.schemas import DateRangeModel
+from map_matching.schemas import MapMatchJobRequest
+from map_matching.service import MapMatchingJobService
 from trips.services.trip_batch_service import ProcessingOptions, TripService
 
 # Setup
@@ -15,6 +16,7 @@ router = APIRouter()
 
 # Initialize TripService
 trip_service = TripService()
+map_matching_service = MapMatchingJobService()
 
 
 class ProcessTripOptions(BaseModel):
@@ -46,12 +48,25 @@ async def process_single_trip(
     processing_options = ProcessingOptions(
         validate=True,
         geocode=True,
-        map_match=options.map_match,
+        map_match=False,
         validate_only=options.validate_only,
         geocode_only=options.geocode_only,
     )
 
-    return await trip_service.process_single_trip(trip_dict, processing_options, source)
+    response = await trip_service.process_single_trip(
+        trip_dict,
+        processing_options,
+        source,
+    )
+
+    if options.map_match and not options.validate_only and not options.geocode_only:
+        job = await map_matching_service.enqueue_job(
+            MapMatchJobRequest(mode="trip_id", trip_id=trip_id),
+            source="api",
+        )
+        response["map_match_job"] = job
+
+    return response
 
 
 @router.get("/api/trips/{trip_id}/status", response_model=dict[str, object])
@@ -102,58 +117,43 @@ async def map_match_trips_endpoint(
     data: DateRangeModel | None = Body(default=None),
 ):
     """Map match trips within a date range or a specific trip."""
+    interval_days = 0
     if data:
         if not start_date and data.start_date:
             start_date = data.start_date
         if not end_date and data.end_date:
             end_date = data.end_date
+        interval_days = data.interval_days or 0
     start_date = start_date or None
     end_date = end_date or None
-    query = {}
-    if trip_id:
-        query["transactionId"] = trip_id
-    elif start_date and end_date:
-        # We must use proper datetime objects for Beanie queries if possible
-        # But TripService.remap_trips likely takes a query dict.
-        # Here we build criteria.
-        # If we are just calling remap_trips, we might delegate the query building?
-        # Existing code used build_calendar_date_expr which returns a Mongo $expr.
-        # Beanie find(query) supports raw mongo queries.
-
-        # Re-import helper if needed or construct manually
-        from db import build_calendar_date_expr
-
-        date_expr = build_calendar_date_expr(start_date, end_date)
-        if not date_expr:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid date range",
-            )
-        query["$expr"] = date_expr
-    else:
+    if not trip_id and not (start_date and end_date) and interval_days <= 0:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Either trip_id or date range is required",
         )
 
-    trips = await Trip.find(query).to_list()
-
-    if not trips:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="No trips found matching criteria",
-        )
-
     try:
-        trip_ids = [t.transactionId for t in trips if t.transactionId]
-
-        result = await trip_service.remap_trips(trip_ids=trip_ids)
+        if trip_id:
+            job = await map_matching_service.enqueue_job(
+                MapMatchJobRequest(mode="trip_id", trip_id=trip_id),
+                source="api",
+            )
+        else:
+            job = await map_matching_service.enqueue_job(
+                MapMatchJobRequest(
+                    mode="date_range",
+                    start_date=start_date,
+                    end_date=end_date,
+                    interval_days=interval_days,
+                    unmatched_only=True,
+                ),
+                source="api",
+            )
 
         return {
-            "status": "success",
-            "message": f"Map matching completed: {result['map_matched']} successful, {result['failed']} failed.",
-            "processed_count": result["map_matched"],
-            "failed_count": result["failed"],
+            "status": "queued",
+            "job_id": job.get("job_id"),
+            "message": "Map matching job queued",
         }
 
     except Exception as e:
@@ -172,66 +172,31 @@ async def remap_matched_trips(
     data: DateRangeModel | None = None,
 ):
     """Remap matched trips, optionally within a date range."""
-    # This function was doing complicated chunking and updates.
-    # We should simplify using Beanie if possible, or just use the service.
     if not data:
         data = DateRangeModel(
             start_date="",
             end_date="",
             interval_days=0,
         )
-
-    from db import build_calendar_date_expr
-
-    if data.interval_days > 0:
-        end_dt = datetime.now(UTC)
-        start_dt = end_dt - timedelta(days=data.interval_days)
-        start_iso = start_dt.date().isoformat()
-        end_iso = end_dt.date().isoformat()
-
-        range_expr = build_calendar_date_expr(start_iso, end_iso)
-    else:
-        range_expr = build_calendar_date_expr(data.start_date, data.end_date)
-
-    if not range_expr:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid date range",
-        )
-
     try:
-        # Unset matched fields
-        # Using Beanie update_many
-
-        # Beanie's `find(query).update(update_query)`
-        update_result = Trip.find({"$expr": range_expr}).update_many(
-            {"$unset": {"matchedGps": "", "matchStatus": "", "matched_at": ""}},
+        job = await map_matching_service.enqueue_job(
+            MapMatchJobRequest(
+                mode="date_range",
+                start_date=data.start_date or None,
+                end_date=data.end_date or None,
+                interval_days=data.interval_days,
+                unmatched_only=False,
+                rematch=True,
+            ),
+            source="api",
         )
-        update_result = await update_result
-
-        total_deleted_count = int(getattr(update_result, "modified_count", 0) or 0)
-
-        # Now re-process
-        # Gather IDs? if too many, we might want to let remap_trips handle the query.
-        # But remap_trips takes trip_ids.
-        # If there are thousands, this might be slow.
-        # Let's limit to 1000 as per old code.
-
-        trips = await Trip.find({"$expr": range_expr}).limit(1000).to_list()
-        trip_ids = [t.transactionId for t in trips if t.transactionId]
-
-        result = await trip_service.remap_trips(trip_ids=trip_ids)
-
         return {
-            "status": "success",
-            "message": f"Re-matching completed. Processed {result['map_matched']} trips.",
-            "deleted_count": total_deleted_count,
+            "status": "queued",
+            "job_id": job.get("job_id"),
+            "message": "Rematch job queued",
         }
-
     except Exception as e:
-        logger.exception(
-            "Error in remap_matched_trips",
-        )
+        logger.exception("Error in remap_matched_trips")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error re-matching trips: {e}",

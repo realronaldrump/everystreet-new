@@ -53,6 +53,8 @@ export const CONFIG = {
     tripsBulkDelete: "/api/trips/bulk_delete",
     matchedTrips: "/api/matched_trips",
     mapMatchTrips: "/api/map_match_trips",
+    mapMatchingJobs: "/api/map_matching/jobs",
+    mapMatchingJob: (id) => `/api/map_matching/jobs/${id}`,
     geocodeTrips: "/api/geocode_trips",
     tripAnalytics: "/api/trip-analytics",
     tripSyncStatus: "/api/actions/trips/sync/status",

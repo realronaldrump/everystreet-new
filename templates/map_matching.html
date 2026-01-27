@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+
+{% block title %}
+
+Every Street - Map Matching
+{% endblock %}
+
+{% block extra_css %}
+  <link rel="stylesheet"
+        href="{{ url_for('static', path='css/map-matching.css') | replace('http://', '//') }}" />
+{% endblock %}
+
+{% block content %}
+  <div class="container-fluid px-4 py-3 map-matching-page">
+    <div class="bento-grid" data-stagger>
+      <div class="bento-span-12 widget map-matching-hero" data-accent="sky">
+        <div class="widget-header">
+          <div>
+            <h1 class="widget-title">
+              <i class="fas fa-route" aria-hidden="true"></i>
+              Map Matching
+            </h1>
+            <div class="widget-meta">
+              Queue map matching jobs and track progress in one place.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="bento-span-7 widget map-matching-form" data-accent="mint">
+        <div class="widget-header">
+          <div>
+            <h2 class="widget-title">
+              <i class="fas fa-sliders-h" aria-hidden="true"></i>
+              New Map Matching Job
+            </h2>
+            <div class="widget-meta">
+              Choose the scope and enqueue a job.
+            </div>
+          </div>
+        </div>
+        <div class="widget-body">
+          <form id="map-matching-form">
+            <div class="mb-3">
+              <label class="form-label" for="map-match-mode">Mode</label>
+              <select id="map-match-mode" class="form-select">
+                <option value="unmatched">Unmatched trips</option>
+                <option value="date_range">Date range</option>
+                <option value="trip_id">Specific trip</option>
+              </select>
+            </div>
+
+            <div id="map-match-date-controls" class="d-none">
+              <div class="mb-3">
+                <label class="form-label" for="map-match-date-mode">Date input</label>
+                <select id="map-match-date-mode" class="form-select">
+                  <option value="date">Date range</option>
+                  <option value="interval">Interval</option>
+                </select>
+              </div>
+
+              <div id="map-match-date-range" class="mb-3">
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <label class="form-label" for="map-match-start">Start date</label>
+                    <input type="text" id="map-match-start" class="form-control datepicker" />
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label" for="map-match-end">End date</label>
+                    <input type="text" id="map-match-end" class="form-control datepicker" />
+                  </div>
+                </div>
+              </div>
+
+              <div id="map-match-interval" class="mb-3 d-none">
+                <label class="form-label" for="map-match-interval-select">Interval</label>
+                <select id="map-match-interval-select" class="form-select">
+                  <option value="1">Last Day</option>
+                  <option value="3">Last 3 Days</option>
+                  <option value="7">Last Week</option>
+                  <option value="30">Last Month</option>
+                  <option value="90">Last 3 Months</option>
+                  <option value="180">Last 6 Months</option>
+                  <option value="365">Last Year</option>
+                  <option value="730">Last 2 Years</option>
+                </select>
+              </div>
+
+              <div class="form-check form-switch mb-3">
+                <input class="form-check-input" type="checkbox" role="switch" id="map-match-unmatched-only" checked />
+                <label class="form-check-label" for="map-match-unmatched-only">
+                  Only map match unmatched trips
+                </label>
+              </div>
+            </div>
+
+            <div id="map-match-trip-controls" class="d-none mb-3">
+              <label class="form-label" for="map-match-trip-id">Trip ID</label>
+              <input type="text" id="map-match-trip-id" class="form-control" placeholder="transactionId" />
+            </div>
+
+            <div class="d-flex flex-wrap gap-2 align-items-center">
+              <button type="submit" class="btn btn-primary" id="map-match-submit">
+                <i class="fas fa-play"></i>
+                Start Map Matching
+              </button>
+              <span class="settings-status is-hidden" id="map-match-submit-status" role="status"></span>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <div class="bento-span-5 widget map-matching-progress" data-accent="amber">
+        <div class="widget-header">
+          <div>
+            <h2 class="widget-title">
+              <i class="fas fa-tasks" aria-hidden="true"></i>
+              Current Job
+            </h2>
+            <div class="widget-meta">
+              Live progress for the active job.
+            </div>
+          </div>
+        </div>
+        <div class="widget-body">
+          <div id="map-match-current-empty" class="empty-state">
+            No job selected.
+          </div>
+          <div id="map-match-current-panel" class="d-none">
+            <div class="progress mb-2" style="height: 22px">
+              <div id="map-match-progress-bar"
+                   class="progress-bar progress-bar-striped progress-bar-animated"
+                   role="progressbar"
+                   style="width: 0%">
+                0%
+              </div>
+            </div>
+            <div id="map-match-progress-message" class="small mb-2"></div>
+            <div id="map-match-progress-metrics" class="small text-muted"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="bento-span-12 widget map-matching-history" data-accent="slate">
+        <div class="widget-header">
+          <div>
+            <h2 class="widget-title">
+              <i class="fas fa-history" aria-hidden="true"></i>
+              Recent Jobs
+            </h2>
+            <div class="widget-meta">
+              Latest map matching activity.
+            </div>
+          </div>
+          <button class="btn btn-outline-secondary btn-sm" id="map-match-refresh">
+            <i class="fas fa-sync"></i>
+            Refresh
+          </button>
+        </div>
+        <div class="widget-body">
+          <div class="table-responsive">
+            <table class="table table-hover align-middle">
+              <thead>
+                <tr>
+                  <th>Job ID</th>
+                  <th>Status</th>
+                  <th>Progress</th>
+                  <th>Updated</th>
+                  <th>Message</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="map-match-jobs-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{{ url_for('static', path='js/pages/map-matching.js') | replace('http://', '//') }}"></script>
+{% endblock %}
