@@ -5,11 +5,13 @@ const SETUP_STATUS_API = "/api/setup/status";
 const SETUP_ROUTE = "/setup-wizard";
 const CACHE_WINDOW_MS = 30000;
 const COLLAPSE_KEY = "es:setup-modal-collapsed";
+const REFRESH_KEY = "es:setup-status-refresh";
 
 let lastFetchAt = 0;
 let cachedStatus = null;
 let inFlight = null;
 let boundToggle = false;
+let refreshListenerBound = false;
 
 const STEP_META = [
   {
@@ -33,13 +35,13 @@ function shouldSkipBanner() {
   return document.body?.dataset?.route === SETUP_ROUTE;
 }
 
-async function fetchSetupStatus(signal) {
+async function fetchSetupStatus(signal, { force = false } = {}) {
   const now = Date.now();
-  if (cachedStatus && now - lastFetchAt < CACHE_WINDOW_MS) {
+  if (!force && cachedStatus && now - lastFetchAt < CACHE_WINDOW_MS) {
     return cachedStatus;
   }
 
-  if (inFlight) {
+  if (!force && inFlight) {
     return inFlight;
   }
 
@@ -136,6 +138,19 @@ function setCollapsedPreference(value) {
   }
 }
 
+function consumeRefreshFlag() {
+  try {
+    const flag = window.localStorage.getItem(REFRESH_KEY);
+    if (!flag) {
+      return false;
+    }
+    window.localStorage.removeItem(REFRESH_KEY);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function applyCollapsedState(modal, fab) {
   const collapsed = getCollapsedPreference();
   modal.classList.toggle("d-none", collapsed);
@@ -175,21 +190,37 @@ function bindToggleHandler() {
   boundToggle = true;
 }
 
+async function refreshStatus({ signal, force = false } = {}) {
+  try {
+    const status = await fetchSetupStatus(signal, { force });
+    updateUI(status);
+  } catch (error) {
+    console.warn("Setup status check failed", error);
+    updateUI(null);
+  }
+}
+
 function initSetupRequiredBanner() {
   onPageLoad(async ({ signal } = {}) => {
     if (shouldSkipBanner()) {
       updateUI(null);
       return;
     }
-    try {
-      bindToggleHandler();
-      const status = await fetchSetupStatus(signal);
-      updateUI(status);
-    } catch (error) {
-      console.warn("Setup status check failed", error);
-      updateUI(null);
-    }
+    bindToggleHandler();
+    const force = consumeRefreshFlag();
+    await refreshStatus({ signal, force });
   });
+
+  if (refreshListenerBound) {
+    return;
+  }
+  document.addEventListener("es:setup-status-refresh", () => {
+    lastFetchAt = 0;
+    cachedStatus = null;
+    inFlight = null;
+    refreshStatus({ force: true });
+  });
+  refreshListenerBound = true;
 }
 
 export default { init: initSetupRequiredBanner };

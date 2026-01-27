@@ -1354,6 +1354,12 @@ async function completeSetupAndExit() {
     if (!response.ok) {
       throw new Error(responseErrorMessage(response, data, "Unable to finish setup"));
     }
+    try {
+      window.localStorage.setItem("es:setup-status-refresh", String(Date.now()));
+    } catch {
+      // Ignore storage errors
+    }
+    document.dispatchEvent(new CustomEvent("es:setup-status-refresh"));
     window.location.href = "/";
   } catch (error) {
     notificationManager.show(error.message || "Unable to finish setup.", "danger");

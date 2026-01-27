@@ -93,7 +93,7 @@ class TripGeocoder:
             nominatim_available = health.nominatim_healthy
 
             # Geocode start location
-            if not processed_data.get("startLocation"):
+            if self._needs_geocode(processed_data.get("startLocation")):
                 start_place = await self.get_place_at_point(start_pt)
                 if start_place:
                     place_obj = cast("Any", start_place)
@@ -122,15 +122,15 @@ class TripGeocoder:
                             transaction_id,
                         )
                     if rev_start:
-                        processed_data["startLocation"] = (
-                            self.geocoding_service.parse_geocode_response(
-                                rev_start,
-                                start_coord,
+                            processed_data["startLocation"] = (
+                                self.geocoding_service.parse_geocode_response(
+                                    rev_start,
+                                    start_coord,
+                                )
                             )
-                        )
 
             # Geocode destination
-            if not processed_data.get("destination"):
+            if self._needs_geocode(processed_data.get("destination")):
                 end_place = await self.get_place_at_point(end_pt)
                 if end_place:
                     place_obj = cast("Any", end_place)
@@ -192,6 +192,29 @@ class TripGeocoder:
             return True, processed_data
         else:
             return result
+
+    @staticmethod
+    def _needs_geocode(location: Any) -> bool:
+        """Return True when location is missing or just a placeholder."""
+        if location is None:
+            return True
+        if isinstance(location, str):
+            normalized = location.strip().lower()
+            return normalized in {"", "unknown", "n/a", "na"}
+        if isinstance(location, dict):
+            formatted = str(location.get("formatted_address") or "").strip()
+            if formatted:
+                return False
+            name = str(location.get("name") or "").strip()
+            if name:
+                return False
+            components = location.get("address_components")
+            if isinstance(components, dict) and any(
+                str(value).strip() for value in components.values()
+            ):
+                return False
+            return True
+        return True
 
     @staticmethod
     async def get_place_at_point(point: Point) -> Place | None:

@@ -363,11 +363,26 @@ class TripRepository:
             "validated_at",
             "destinationPlaceId",
             "destinationPlaceName",
+            "startPlaceId",
+            "location_schema_version",
+            "geocoded_at",
             "saved_at",
         }
         for key in prefer_incoming:
             if key in incoming and incoming[key] is not None:
                 setattr(trip, key, incoming[key])
+
+        for field in ("startLocation", "destination"):
+            if field not in incoming:
+                continue
+            incoming_val = incoming.get(field)
+            if incoming_val is None:
+                continue
+            existing_val = existing.get(field)
+            if self._has_meaningful_location(incoming_val) or not self._has_meaningful_location(
+                existing_val
+            ):
+                setattr(trip, field, incoming_val)
 
         if (
             gps_changed
@@ -405,6 +420,25 @@ class TripRepository:
         ):
             trip.coverage_emitted_at = incoming.get("coverage_emitted_at")
 
+    @staticmethod
+    def _has_meaningful_location(value: Any) -> bool:
+        if value is None:
+            return False
+        if isinstance(value, str):
+            normalized = value.strip().lower()
+            return normalized not in {"", "unknown", "n/a", "na"}
+        if isinstance(value, dict):
+            formatted = str(value.get("formatted_address") or "").strip()
+            if formatted:
+                return True
+            name = str(value.get("name") or "").strip()
+            if name:
+                return True
+            components = value.get("address_components")
+            if isinstance(components, dict):
+                return any(str(item).strip() for item in components.values())
+            return False
+        return False
     async def _emit_coverage_if_needed(self, trip: Trip) -> None:
         should_emit = (
             getattr(trip, "gps", None) is not None

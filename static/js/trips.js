@@ -511,12 +511,24 @@ function setupBulkActions() {
   document
     .getElementById("refresh-geocoding-btn")
     ?.addEventListener("click", async () => {
+      const geocodeBtn = document.getElementById("refresh-geocoding-btn");
       try {
+        if (geocodeBtn) {
+          geocodeBtn.disabled = true;
+        }
         notificationManager.show("Starting geocoding refresh...", "info");
-        await apiClient.post(CONFIG.API.geocodeTrips, { interval_days: 7 });
-        notificationManager.show("Geocoding task started.", "success");
+        const result = await apiClient.post(CONFIG.API.geocodeTrips, { interval_days: 7 });
+        notificationManager.show(
+          result?.message || "Geocoding refresh completed.",
+          "success"
+        );
+        tripsTable?.reload({ resetPage: false });
       } catch (e) {
         notificationManager.show(e.message, "danger");
+      } finally {
+        if (geocodeBtn) {
+          geocodeBtn.disabled = false;
+        }
       }
     });
 }
