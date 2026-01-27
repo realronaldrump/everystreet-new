@@ -1237,6 +1237,17 @@ function updateCoverageModeUI() {
   if (modePill) {
     modePill.textContent = coverageMode === "states" ? "Full states" : "Trip coverage";
   }
+
+  const stepDescription = document.getElementById("coverage-step-description");
+  if (stepDescription) {
+    if (coverageMode === "states") {
+      stepDescription.textContent
+        = "Choose the states you need now. Coverage can be expanded later as you travel.";
+    } else {
+      stepDescription.textContent
+        = "Coverage is built from your trips so geocoding stays local and fast. Import trips first, then we will auto-detect the right coverage.";
+    }
+  }
 }
 
 function startStatusPolling() {
@@ -1245,6 +1256,7 @@ function startStatusPolling() {
   }
   pollingTimer = setInterval(async () => {
     await refreshMapServicesStatus();
+    await loadTripSyncStatus();
     await loadSetupStatus();
     updateStepState();
   }, 4000);
