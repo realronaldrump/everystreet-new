@@ -5,7 +5,7 @@ This package provides a modular trip processing system with:
 - State machine for tracking processing status
 - Validation using Pydantic models
 - Basic GPS data processing
-- Geocoding via external services
+- Geocoding via local services
 - Map matching via Valhalla
 
 Usage:

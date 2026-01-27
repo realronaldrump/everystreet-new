@@ -18,7 +18,7 @@ class TripMapMatcher:
     """
     Handles map matching for trip GPS coordinates.
 
-    Uses external map matching services to snap GPS coordinates to road
+    Uses the local map matching service to snap GPS coordinates to road
     networks.
     """
 

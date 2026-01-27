@@ -1,8 +1,8 @@
 """
-External Geo Service Package.
+Geo Service Package.
 
 This package provides geocoding and map matching services using
-Nominatim and Valhalla APIs.
+local Nominatim and Valhalla APIs.
 """
 
 from .geocoding import GeocodingService

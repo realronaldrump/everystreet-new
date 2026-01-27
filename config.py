@@ -1,5 +1,5 @@
 """
-Centralized configuration for external APIs.
+Centralized configuration for network APIs.
 
 This module is the single source of truth for configuration used across
 the application. Sensitive tokens are sourced from environment variables

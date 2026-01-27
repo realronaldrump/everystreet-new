@@ -1,5 +1,5 @@
 """
-Shared HTTP request helpers for external services.
+Shared HTTP request helpers for service backends.
 
 Keeps JSON request/response handling and error mapping consistent across
 Valhalla and Nominatim clients.
@@ -29,7 +29,7 @@ async def request_json(
     headers: dict[str, str] | None = None,
     expected_status: int | Iterable[int] = 200,
     none_on: Iterable[int] | None = None,
-    service_name: str = "External service",
+    service_name: str = "Service",
     timeout: Any | None = None,
 ) -> Any | None:
     method_upper = method.upper()

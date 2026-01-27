@@ -24,7 +24,7 @@ class TripProcessor:
     Orchestrates trip processing including validation, geocoding, and map matching.
 
     Uses a state machine approach to track processing status and
-    delegates to specialized services for external API calls and
+    delegates to specialized services for local API calls and
     database persistence.
     """
 

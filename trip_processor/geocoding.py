@@ -1,7 +1,7 @@
 """
 Trip Geocoding Module.
 
-Handles geocoding of trip start and end points using external services
+Handles geocoding of trip start and end points using local services
 and custom places.
 """
 
@@ -22,8 +22,8 @@ class TripGeocoder:
     """
     Handles geocoding for trip start and end points.
 
-    Uses custom places database and falls back to external geocoding
-    services.
+    Uses custom places database and falls back to the local geocoding
+    service.
     """
 
     def __init__(self, geocoding_service: GeocodingService) -> None:
@@ -88,7 +88,7 @@ class TripGeocoder:
             start_pt = Point(start_coord[0], start_coord[1])
             end_pt = Point(end_coord[0], end_coord[1])
 
-            # Check if Nominatim service is healthy before attempting external geocoding
+            # Check if Nominatim service is healthy before attempting geocoding
             health = await GeoServiceHealth.get_or_create()
             nominatim_available = health.nominatim_healthy
 
@@ -109,7 +109,7 @@ class TripGeocoder:
                     )
                     processed_data["startPlaceId"] = str(getattr(place_obj, "id", ""))
                 else:
-                    # Use external geocoding service
+                    # Use local geocoding service
                     rev_start = None
                     if nominatim_available:
                         rev_start = await self.geocoding_service.reverse_geocode(

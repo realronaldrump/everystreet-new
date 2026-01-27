@@ -21,7 +21,7 @@ class ValidationError(EveryStreetError):
 
 
 class ExternalServiceError(EveryStreetError):
-    """Exception raised when external service calls fail."""
+    """Exception raised when service calls fail."""
 
 
 class RateLimitError(ExternalServiceError):
