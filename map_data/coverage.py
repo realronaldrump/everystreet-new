@@ -148,6 +148,50 @@ def write_coverage_geojson(geometry: Any, output_path: str) -> None:
         json.dump(data, handle)
 
 
+async def build_trip_coverage_extract_from_geometry(
+    source_pbf: str,
+    geometry: Any,
+    *,
+    coverage_dir: str | None = None,
+) -> str | None:
+    extracts_path = get_osm_extracts_path()
+    coverage_dir = coverage_dir or os.path.join(extracts_path, "coverage")
+    os.makedirs(coverage_dir, exist_ok=True)
+    polygon_path = os.path.join(coverage_dir, "coverage.geojson")
+    output_pbf = os.path.join(coverage_dir, "coverage.osm.pbf")
+
+    write_coverage_geojson(geometry, polygon_path)
+
+    logger.info("Extracting coverage PBF from %s", source_pbf)
+
+    cmd = [
+        "osmium",
+        "extract",
+        "-p",
+        polygon_path,
+        "-o",
+        output_pbf,
+        "--overwrite",
+        source_pbf,
+    ]
+
+    import asyncio
+
+    process = await asyncio.create_subprocess_exec(
+        *cmd,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    stdout, stderr = await process.communicate()
+    if process.returncode != 0:
+        error_msg = stderr.decode().strip() if stderr else "osmium extract failed"
+        logger.warning("Coverage extract failed: %s", error_msg)
+        return None
+    if stdout:
+        logger.info("osmium extract: %s", stdout.decode().strip())
+    return output_pbf
+
+
 async def build_trip_coverage_extract(
     source_pbf: str,
     *,
@@ -180,10 +224,6 @@ async def build_trip_coverage_extract(
     extracts_path = get_osm_extracts_path()
     coverage_dir = coverage_dir or os.path.join(extracts_path, "coverage")
     os.makedirs(coverage_dir, exist_ok=True)
-    polygon_path = os.path.join(coverage_dir, "coverage.geojson")
-    output_pbf = os.path.join(coverage_dir, "coverage.osm.pbf")
-
-    write_coverage_geojson(coverage, polygon_path)
 
     logger.info(
         "Coverage polygon built: trips=%d geometries=%d points=%d",
@@ -191,31 +231,8 @@ async def build_trip_coverage_extract(
         stats.geometries_used,
         stats.points_used,
     )
-    logger.info("Extracting coverage PBF from %s", source_pbf)
-
-    cmd = [
-        "osmium",
-        "extract",
-        "-p",
-        polygon_path,
-        "-o",
-        output_pbf,
-        "--overwrite",
+    return await build_trip_coverage_extract_from_geometry(
         source_pbf,
-    ]
-
-    import asyncio
-
-    process = await asyncio.create_subprocess_exec(
-        *cmd,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
+        coverage,
+        coverage_dir=coverage_dir,
     )
-    stdout, stderr = await process.communicate()
-    if process.returncode != 0:
-        error_msg = stderr.decode().strip() if stderr else "osmium extract failed"
-        logger.warning("Coverage extract failed: %s", error_msg)
-        return None
-    if stdout:
-        logger.info("osmium extract: %s", stdout.decode().strip())
-    return output_pbf

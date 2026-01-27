@@ -13,6 +13,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import httpx
+from shapely.geometry import box
 
 from config import get_geofabrik_mirror, get_osm_extracts_path
 from core.service_config import get_service_config
@@ -21,7 +22,13 @@ from map_data.builders import (
     build_valhalla_tiles,
     start_container_on_demand,
 )
-from map_data.coverage import build_trip_coverage_extract
+from map_data.auto_provision import US_STATE_BOUNDS
+from map_data.coverage import (
+    build_trip_coverage_extract,
+    build_trip_coverage_extract_from_geometry,
+    build_trip_coverage_polygon,
+)
+from map_data.geofabrik_index import find_smallest_covering_extract, load_geofabrik_index
 from map_data.models import MapBuildProgress, MapServiceConfig
 from map_data.services import check_service_health
 from map_data.us_states import build_geofabrik_path, get_state
@@ -63,6 +70,13 @@ class DownloadTracker:
         return (self.downloaded_bytes / self.total_bytes) * 100.0
 
 
+@dataclass(frozen=True)
+class DownloadTarget:
+    geofabrik_id: str
+    filename: str
+    label: str
+
+
 def _normalize_states(states: list[str]) -> list[str]:
     normalized: list[str] = []
     seen = set()
@@ -87,6 +101,17 @@ def _state_download_url(geofabrik_id: str) -> str:
     mirror = get_geofabrik_mirror()
     path = build_geofabrik_path(geofabrik_id)
     return f"{mirror}/{path}-latest.osm.pbf"
+
+
+def _format_extract_label(geofabrik_id: str, fallback: str) -> str:
+    parts = [part for part in geofabrik_id.split("/") if part]
+    if parts and parts[0] == "north-america":
+        parts = parts[1:]
+    if parts[:1] == ["us"] and len(parts) > 1:
+        parts = parts[1:]
+    if not parts:
+        return fallback
+    return " / ".join(segment.replace("-", " ").title() for segment in parts)
 
 
 def _retry_delay_seconds(retry_count: int) -> int:
@@ -154,6 +179,12 @@ async def _download_state(
 
     async with client.stream("GET", url) as response:
         response.raise_for_status()
+        content_length = response.headers.get("Content-Length")
+        if content_length:
+            try:
+                tracker.total_bytes += max(0, int(content_length))
+            except ValueError:
+                pass
         with open(temp_path, "wb") as handle:
             async for chunk in response.aiter_bytes(CHUNK_SIZE):
                 _check_cancel(progress_doc)
@@ -172,23 +203,54 @@ async def _download_states(
     states: list[str],
     config: MapServiceConfig,
     progress: MapBuildProgress,
+    *,
+    coverage_by_state: dict[str, Any] | None = None,
 ) -> list[str]:
-    total_bytes = 0
-    download_plan: list[tuple[str, str]] = []
+    download_plan: list[DownloadTarget] = []
+    selected_ids: set[str] = set()
+    index_data = None
+
+    if coverage_by_state:
+        index_data = await load_geofabrik_index()
+
     for code in states:
         state = get_state(code)
         if not state:
             continue
-        size_mb = int(state.get("size_mb") or 0)
-        total_bytes += size_mb * 1024 * 1024
         geofabrik_id = str(state.get("geofabrik_id"))
-        filename = _state_filename(geofabrik_id)
-        download_plan.append((geofabrik_id, filename))
+        target_id = geofabrik_id
+        coverage_geom = coverage_by_state.get(code) if coverage_by_state else None
+        if coverage_geom is not None and index_data:
+            path_prefix = build_geofabrik_path(geofabrik_id)
+            candidate = find_smallest_covering_extract(
+                index_data,
+                path_prefix=path_prefix,
+                coverage_geometry=coverage_geom,
+            )
+            if candidate:
+                target_id = candidate
+                if target_id != geofabrik_id:
+                    logger.info("Using smaller extract %s for %s", target_id, code)
 
-    tracker = DownloadTracker(total_bytes=max(total_bytes, 1))
+        if target_id in selected_ids:
+            continue
+        selected_ids.add(target_id)
+
+        filename = _state_filename(target_id)
+        label = _format_extract_label(target_id, state.get("name", code))
+        download_plan.append(DownloadTarget(target_id, filename, label))
+
     extracts_path = get_osm_extracts_path()
     states_dir = os.path.join(extracts_path, "states")
     os.makedirs(states_dir, exist_ok=True)
+    existing_bytes = 0
+    for target in download_plan:
+        dest_path = os.path.join(states_dir, target.filename)
+        if os.path.exists(dest_path) and os.path.getsize(dest_path) > 0:
+            existing_bytes += os.path.getsize(dest_path)
+
+    tracker = DownloadTracker(total_bytes=max(existing_bytes, 1))
+    tracker.downloaded_bytes = existing_bytes
 
     async def progress_callback(force: bool = False) -> None:
         percent = tracker.percent()
@@ -209,19 +271,18 @@ async def _download_states(
         timeout=httpx.Timeout(120.0, connect=30.0),
         follow_redirects=True,
     ) as client:
-        for geofabrik_id, filename in download_plan:
+        for target in download_plan:
             _check_cancel(progress)
-            url = _state_download_url(geofabrik_id)
-            dest_path = os.path.join(states_dir, filename)
+            url = _state_download_url(target.geofabrik_id)
+            dest_path = os.path.join(states_dir, target.filename)
             if os.path.exists(dest_path) and os.path.getsize(dest_path) > 0:
-                tracker.downloaded_bytes += os.path.getsize(dest_path)
                 await progress_callback(force=True)
                 continue
             await _update_progress(
                 config,
                 progress,
                 status=MapServiceConfig.STATUS_DOWNLOADING,
-                message=f"Downloading {geofabrik_id.split('/')[-1].replace('-', ' ').title()}...",
+                message=f"Downloading {target.label}...",
             )
             await _download_state(
                 client,
@@ -242,7 +303,7 @@ async def _download_states(
         phase_progress=100.0,
     )
 
-    return [os.path.join(states_dir, filename) for _, filename in download_plan]
+    return [os.path.join(states_dir, target.filename) for target in download_plan]
 
 
 async def _merge_pbf_files(
@@ -320,6 +381,8 @@ async def _maybe_build_coverage_extract(
     merged_pbf: str,
     config: MapServiceConfig,
     progress: MapBuildProgress,
+    *,
+    coverage_geometry: Any | None = None,
 ) -> str:
     settings = await get_service_config()
     mode = str(getattr(settings, "mapCoverageMode", "trips") or "trips").lower()
@@ -348,13 +411,19 @@ async def _maybe_build_coverage_extract(
     )
 
     try:
-        extract_path = await build_trip_coverage_extract(
-            merged_pbf,
-            buffer_miles=buffer_miles,
-            simplify_feet=simplify_feet,
-            max_points_per_trip=max_points,
-            batch_size=batch_size,
-        )
+        if coverage_geometry is not None:
+            extract_path = await build_trip_coverage_extract_from_geometry(
+                merged_pbf,
+                coverage_geometry,
+            )
+        else:
+            extract_path = await build_trip_coverage_extract(
+                merged_pbf,
+                buffer_miles=buffer_miles,
+                simplify_feet=simplify_feet,
+                max_points_per_trip=max_points,
+                batch_size=batch_size,
+            )
     except Exception as exc:
         logger.warning("Coverage extract failed: %s", exc)
         return merged_pbf
@@ -521,6 +590,38 @@ async def setup_map_data_task(ctx: dict, states: list[str]) -> dict[str, Any]:
             msg = "No valid states selected."
             raise ValueError(msg)
 
+        settings = await get_service_config()
+        mode = str(getattr(settings, "mapCoverageMode", "trips") or "trips").lower()
+        buffer_miles = float(
+            getattr(settings, "mapCoverageBufferMiles", 10.0) or 10.0,
+        )
+        simplify_feet = float(
+            getattr(settings, "mapCoverageSimplifyFeet", 150.0) or 0.0,
+        )
+        max_points = int(
+            getattr(settings, "mapCoverageMaxPointsPerTrip", 2000) or 2000,
+        )
+        batch_size = int(getattr(settings, "mapCoverageBatchSize", 200) or 200)
+
+        coverage_geometry = None
+        coverage_by_state: dict[str, Any] = {}
+        if mode in {"trips", "auto"}:
+            coverage_geometry, _stats = await build_trip_coverage_polygon(
+                buffer_miles=buffer_miles,
+                simplify_feet=simplify_feet,
+                max_points_per_trip=max_points,
+                batch_size=batch_size,
+            )
+            if coverage_geometry is not None:
+                for code in normalized:
+                    bounds = US_STATE_BOUNDS.get(code)
+                    if not bounds:
+                        continue
+                    state_box = box(*bounds)
+                    intersection = coverage_geometry.intersection(state_box)
+                    if not intersection.is_empty:
+                        coverage_by_state[code] = intersection
+
         progress.active_job_id = str(job_id) if job_id else None
         progress.cancellation_requested = False
         progress.started_at = progress.started_at or datetime.now(UTC)
@@ -540,14 +641,24 @@ async def setup_map_data_task(ctx: dict, states: list[str]) -> dict[str, Any]:
                 routing_ready=False,
             )
 
-            files = await _download_states(normalized, config, progress)
+            files = await _download_states(
+                normalized,
+                config,
+                progress,
+                coverage_by_state=coverage_by_state or None,
+            )
             _check_cancel(progress)
 
             merged = await _merge_pbf_files(files, config, progress)
             _check_cancel(progress)
 
             extracts_path = get_osm_extracts_path()
-            coverage_pbf = await _maybe_build_coverage_extract(merged, config, progress)
+            coverage_pbf = await _maybe_build_coverage_extract(
+                merged,
+                config,
+                progress,
+                coverage_geometry=coverage_geometry,
+            )
             _check_cancel(progress)
             pbf_relative = os.path.relpath(coverage_pbf, extracts_path)
 
