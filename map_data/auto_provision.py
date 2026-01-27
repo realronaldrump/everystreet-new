@@ -9,6 +9,7 @@ Provides hands-off map service configuration by:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import UTC, datetime
 from typing import Any
@@ -395,6 +396,11 @@ async def get_auto_provision_status() -> dict[str, Any]:
         MapServiceConfig.STATUS_BUILDING,
     }
 
+    nominatim_progress = None
+    if is_building and progress.phase == MapBuildProgress.PHASE_BUILDING_GEOCODER:
+        container_name = (nominatim_container.get("container") or {}).get("name")
+        nominatim_progress = await _get_nominatim_progress_snapshot(container_name)
+
     return {
         "mode": "automatic",
         "status": config.status,
@@ -416,6 +422,7 @@ async def get_auto_provision_status() -> dict[str, Any]:
             ),
             "active_job_id": progress.active_job_id,
         },
+        "geocoder_progress": nominatim_progress,
         "configured_states": list(configured_states),
         "configured_state_names": configured_names,
         "configured_size_mb": configured_size,
@@ -444,4 +451,87 @@ async def get_auto_provision_status() -> dict[str, Any]:
         "last_updated": (
             config.last_updated.isoformat() if config.last_updated else None
         ),
+    }
+
+
+async def _run_docker_psql(container_name: str, sql: str) -> str | None:
+    if not container_name:
+        return None
+    cmd = [
+        "docker",
+        "exec",
+        "-u",
+        "postgres",
+        container_name,
+        "psql",
+        "-d",
+        "postgres",
+        "-A",
+        "-F",
+        "|",
+        "-tAc",
+        sql,
+    ]
+    try:
+        process = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, _stderr = await process.communicate()
+        if process.returncode != 0:
+            return None
+        return stdout.decode().strip()
+    except Exception:
+        return None
+
+
+async def _get_nominatim_progress_snapshot(
+    container_name: str | None,
+) -> dict[str, Any] | None:
+    if not container_name:
+        return None
+
+    size_output = await _run_docker_psql(
+        container_name,
+        "SELECT pg_database_size('nominatim');",
+    )
+    size_bytes = None
+    if size_output and size_output.isdigit():
+        size_bytes = int(size_output)
+
+    activity_output = await _run_docker_psql(
+        container_name,
+        (
+            "SELECT state, COALESCE(wait_event_type,''), COALESCE(wait_event,''), query "
+            "FROM pg_stat_activity "
+            "WHERE datname='nominatim' AND pid <> pg_backend_pid() "
+            "ORDER BY (state='active') DESC, pid "
+            "LIMIT 1;"
+        ),
+    )
+
+    active_state = None
+    wait_event_type = None
+    wait_event = None
+    active_query = None
+
+    if activity_output:
+        parts = activity_output.split("|", 3)
+        if len(parts) >= 4:
+            active_state = parts[0] or None
+            wait_event_type = parts[1] or None
+            wait_event = parts[2] or None
+            active_query = " ".join(parts[3].split()) if parts[3] else None
+
+    if size_bytes is None and not active_query:
+        return None
+
+    return {
+        "db_size_bytes": size_bytes,
+        "db_size_at": datetime.now(UTC).isoformat(),
+        "active_state": active_state,
+        "active_wait_event_type": wait_event_type,
+        "active_wait_event": wait_event,
+        "active_query": active_query,
     }

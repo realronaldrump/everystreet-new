@@ -13,6 +13,7 @@ const MAP_SERVICES_API = "/api/map-services";
 
 let _lastStatus = null;
 let pollTimer = null;
+let lastDbSample = null;
 
 export function initMapServicesTab() {
   refreshAutoStatus();
@@ -303,6 +304,7 @@ function renderStatesCoverage(status) {
  */
 function renderProgressSection(status) {
   if (!status.is_building) {
+    lastDbSample = null;
     return "";
   }
 
@@ -323,6 +325,23 @@ function renderProgressSection(status) {
   const isStale = lastProgressAt
     ? Date.now() - Date.parse(lastProgressAt) > 90 * 1000
     : false;
+  const geocoderProgress = status.geocoder_progress || {};
+  const dbSizeBytes = Number(geocoderProgress.db_size_bytes);
+  const dbSizeLabel = Number.isFinite(dbSizeBytes) ? formatBytes(dbSizeBytes) : null;
+  const dbSizeAt = geocoderProgress.db_size_at;
+  const activityDetail = buildActivityDetail(geocoderProgress);
+
+  let dbDeltaLabel = null;
+  if (Number.isFinite(dbSizeBytes)) {
+    const sampleAt = dbSizeAt ? Date.parse(dbSizeAt) : Date.now();
+    if (lastDbSample && dbSizeBytes >= lastDbSample.bytes) {
+      const delta = dbSizeBytes - lastDbSample.bytes;
+      if (delta > 0) {
+        dbDeltaLabel = `+${formatBytes(delta)}`;
+      }
+    }
+    lastDbSample = { bytes: dbSizeBytes, at: sampleAt };
+  }
 
   return `
     <div class="map-services-progress is-active">
@@ -350,11 +369,32 @@ function renderProgressSection(status) {
         <span class="meta-chip">Phase: ${escapeHtml(phaseLabel)}</span>
         <span class="meta-chip">Elapsed: ${elapsed}</span>
         <span class="meta-chip">Last update: ${lastUpdate}</span>
+        ${
+          dbSizeLabel
+            ? `<span class="meta-chip">DB size: ${dbSizeLabel}${dbDeltaLabel ? ` (${dbDeltaLabel})` : ""}</span>`
+            : ""
+        }
+        ${
+          activityDetail
+            ? `<span class="meta-chip">DB activity: ${escapeHtml(activityDetail)}</span>`
+            : ""
+        }
       </div>
       <div class="progress-status">
         <span class="progress-message">${escapeHtml(message)}</span>
-        <span class="progress-activity ${isStale ? "is-stale" : ""}">
-          ${isStale ? "Working (quiet period)" : "Active"}
+        ${
+          activityDetail
+            ? `<span class="progress-detail">${escapeHtml(activityDetail)}</span>`
+            : ""
+        }
+        <span class="progress-activity ${isStale && !dbDeltaLabel ? "is-stale" : ""}">
+          ${
+            isStale
+              ? dbDeltaLabel
+                ? `DB growing (${dbDeltaLabel})`
+                : "No new log output yet"
+              : "Active"
+          }
         </span>
       </div>
     </div>
@@ -562,6 +602,62 @@ function formatSize(mb) {
     return `${(mb / 1000).toFixed(1)} GB`;
   }
   return `${mb} MB`;
+}
+
+function formatBytes(bytes) {
+  if (!Number.isFinite(bytes) || bytes <= 0) {
+    return "";
+  }
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let value = bytes;
+  let unitIndex = 0;
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024;
+    unitIndex += 1;
+  }
+  const precision = value >= 100 || unitIndex === 0 ? 0 : value >= 10 ? 1 : 2;
+  return `${value.toFixed(precision)} ${units[unitIndex]}`;
+}
+
+function buildActivityDetail(progress) {
+  const query = progress?.active_query;
+  if (!query) {
+    return "";
+  }
+  const summarized = summarizePgQuery(query);
+  const state = progress?.active_state;
+  const waitType = progress?.active_wait_event_type;
+  const waitEvent = progress?.active_wait_event;
+  const waitDetail = waitType ? `${waitType}${waitEvent ? `/${waitEvent}` : ""}` : null;
+  const stateDetail = state ? state : null;
+  const suffixParts = [stateDetail, waitDetail].filter(Boolean);
+  return suffixParts.length > 0
+    ? `${summarized} (${suffixParts.join(", ")})`
+    : summarized;
+}
+
+function summarizePgQuery(query) {
+  const cleaned = query.replace(/\s+/g, " ").trim();
+  const patterns = [
+    /^COPY\s+("?[\w."]+"?)/i,
+    /^ANALYZE\s+("?[\w."]+"?)/i,
+    /^VACUUM\s+("?[\w."]+"?)/i,
+    /^CREATE\s+TABLE\s+("?[\w."]+"?)/i,
+    /^INSERT\s+INTO\s+("?[\w."]+"?)/i,
+    /^UPDATE\s+("?[\w."]+"?)/i,
+    /^SELECT\s+/i,
+  ];
+  for (const pattern of patterns) {
+    const match = cleaned.match(pattern);
+    if (match) {
+      const verb = cleaned.split(" ", 1)[0].toUpperCase();
+      if (match[1]) {
+        return `${verb} ${match[1].replace(/\"/g, "")}`;
+      }
+      return verb;
+    }
+  }
+  return cleaned.length > 80 ? `${cleaned.slice(0, 77)}...` : cleaned;
 }
 
 /**

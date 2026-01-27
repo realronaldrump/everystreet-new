@@ -1028,6 +1028,11 @@
   font-size: var(--font-size-sm);
 }
 
+.map-services-progress .progress-detail {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}
+
 .map-services-progress .progress-activity {
   font-size: var(--font-size-xs);
   color: var(--text-tertiary);
