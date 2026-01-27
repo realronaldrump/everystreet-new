@@ -241,19 +241,13 @@ System Control Center
 
           <div class="status-task-forms">
             <form id="manualFetchTripsForm" class="row g-3" novalidate>
-              <div class="col-md-4">
+              <div class="col-md-6">
                 <label for="manual-fetch-start" class="form-label">Start</label>
                 <input type="datetime-local" class="form-control" id="manual-fetch-start" required />
               </div>
-              <div class="col-md-4">
+              <div class="col-md-6">
                 <label for="manual-fetch-end" class="form-label">End</label>
                 <input type="datetime-local" class="form-control" id="manual-fetch-end" required />
-              </div>
-              <div class="col-md-4 d-flex align-items-end">
-                <div class="form-check form-switch">
-                  <input class="form-check-input" type="checkbox" id="manual-fetch-map-match" />
-                  <label class="form-check-label" for="manual-fetch-map-match">Enable map matching</label>
-                </div>
               </div>
               <div class="col-12 d-flex align-items-center gap-3 flex-wrap">
                 <button type="submit" class="btn btn-success" id="manual-fetch-submit">

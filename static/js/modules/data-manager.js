@@ -218,7 +218,23 @@ const dataManager = {
         "fetchMatchedTrips"
       );
 
-      const data = this._coerceFeatureCollection(rawData);
+      let data = this._coerceFeatureCollection(rawData);
+      if (!data) {
+        const fallbackParams = new URLSearchParams({
+          start_date: start,
+          end_date: end,
+          format: "geojson",
+          matched_only: "true",
+        });
+        const fallbackData = await utils.fetchWithRetry(
+          `${CONFIG.API.trips}?${fallbackParams}`,
+          {},
+          CONFIG.API.retryAttempts,
+          CONFIG.API.cacheTime,
+          "fetchMatchedTripsFallback"
+        );
+        data = this._coerceFeatureCollection(fallbackData);
+      }
       if (data) {
         // Tag recent matched trips
         this._tagRecentTrips(data);

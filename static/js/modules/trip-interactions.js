@@ -131,17 +131,11 @@ const tripInteractions = {
           ${
             isMatched
               ? `
-            <button class="btn btn-sm btn-warning rematch-trip-btn" data-trip-id="${tripId}">
-              <i class="fas fa-redo"></i> Rematch
-            </button>
             <button class="btn btn-sm btn-danger delete-matched-trip-btn" data-trip-id="${tripId}">
               <i class="fas fa-trash"></i> Delete Matched
             </button>
           `
               : `
-            <button class="btn btn-sm btn-info map-match-btn" data-trip-id="${tripId}">
-              <i class="fas fa-route"></i> Map Match
-            </button>
             <button class="btn btn-sm btn-danger delete-trip-btn" data-trip-id="${tripId}">
               <i class="fas fa-trash"></i> Delete
             </button>
@@ -181,11 +175,6 @@ const tripInteractions = {
           await this.deleteMatchedTrip(tripId, popup);
         } else if (button.classList.contains("delete-trip-btn")) {
           await this.deleteTrip(tripId, popup);
-        } else if (
-          button.classList.contains("rematch-trip-btn")
-          || button.classList.contains("map-match-btn")
-        ) {
-          await this.rematchTrip(tripId, popup);
         }
       } catch (error) {
         console.error("Error handling popup action:", error);
@@ -248,27 +237,6 @@ const tripInteractions = {
       }
     } catch (error) {
       console.error("Error deleting trip:", error);
-      notificationManager.show(error.message, "danger");
-    }
-  },
-
-  async rematchTrip(tripId, popup) {
-    try {
-      notificationManager.show("Queueing map matching...", "info");
-      const response = await utils.fetchWithRetry("/api/map_matching/jobs", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: "trip_id", trip_id: tripId }),
-      });
-      if (response) {
-        popup.remove();
-        notificationManager.show(
-          "Map matching job queued. View progress in Map Matching.",
-          "success"
-        );
-      }
-    } catch (error) {
-      console.error("Error remapping trip:", error);
       notificationManager.show(error.message, "danger");
     }
   },
