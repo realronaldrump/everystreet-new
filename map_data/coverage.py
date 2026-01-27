@@ -157,6 +157,17 @@ async def build_trip_coverage_extract(
     batch_size: int,
     coverage_dir: str | None = None,
 ) -> str | None:
+    from db.models import Trip
+
+    collection = Trip.get_pymongo_collection()
+    has_trip = await collection.find_one(
+        {"gps": {"$exists": True, "$ne": None}},
+        {"_id": 1},
+    )
+    if not has_trip:
+        logger.info("No trips found yet; skipping coverage extract.")
+        return None
+
     coverage, stats = await build_trip_coverage_polygon(
         buffer_miles=buffer_miles,
         simplify_feet=simplify_feet,

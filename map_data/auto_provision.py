@@ -238,9 +238,16 @@ async def should_auto_provision() -> dict[str, Any]:
             "current_status": config.status,
         }
 
-    # Get unconfigured states with trips
-    unconfigured = await get_unconfigured_trip_states()
+    detection = await detect_trip_states()
+    detected = set(detection["detected_states"])
+    if not detected:
+        return {
+            "should_provision": False,
+            "reason": "No trips found yet",
+            "configured_states": config.selected_states,
+        }
 
+    unconfigured = list(detected - set(config.selected_states))
     if not unconfigured:
         return {
             "should_provision": False,
@@ -389,6 +396,11 @@ async def get_auto_provision_status() -> dict[str, Any]:
         MapServiceConfig.STATUS_BUILDING,
     }
 
+    no_trip_data = not detected_states and not config.selected_states and not is_building
+    message = config.message
+    if no_trip_data:
+        message = "No trips found yet. Map data will build after trips are imported."
+
     nominatim_progress = None
     if is_building and progress.phase == MapBuildProgress.PHASE_BUILDING_GEOCODER:
         container_name = (nominatim_container.get("container") or {}).get("name")
@@ -400,7 +412,7 @@ async def get_auto_provision_status() -> dict[str, Any]:
         "is_ready": is_ready,
         "is_building": is_building,
         "progress": config.progress,
-        "message": config.message,
+        "message": message,
         "build": {
             "phase": progress.phase,
             "phase_progress": progress.phase_progress,
@@ -428,13 +440,13 @@ async def get_auto_provision_status() -> dict[str, Any]:
             "geocoding": {
                 "ready": health.nominatim_healthy,
                 "has_data": health.nominatim_has_data,
-                "error": health.nominatim_error,
+                "error": None if no_trip_data else health.nominatim_error,
                 "container": nominatim_container.get("container"),
             },
             "routing": {
                 "ready": health.valhalla_healthy,
                 "has_data": health.valhalla_has_data,
-                "error": health.valhalla_error,
+                "error": None if no_trip_data else health.valhalla_error,
                 "container": valhalla_container.get("container"),
             },
         },
