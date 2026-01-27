@@ -44,11 +44,25 @@ class BouncieVehicleSyncError(RuntimeError):
     """Raised when automatic vehicle sync fails."""
 
 
+def _first_forwarded_value(value: str | None) -> str | None:
+    if not value:
+        return None
+    first = value.split(",")[0].strip()
+    return first or None
+
+
 def _build_redirect_uri(request: Request) -> str:
     """Build the expected redirect URI from the current request."""
-    # Use X-Forwarded headers if behind a proxy
-    scheme = request.headers.get("x-forwarded-proto", request.url.scheme)
-    host = request.headers.get("x-forwarded-host", request.url.netloc)
+    # Use X-Forwarded headers if behind a proxy (take first if multiple values).
+    scheme = _first_forwarded_value(request.headers.get("x-forwarded-proto"))
+    host = _first_forwarded_value(request.headers.get("x-forwarded-host"))
+    port = _first_forwarded_value(request.headers.get("x-forwarded-port"))
+
+    scheme = scheme or request.url.scheme
+    host = host or request.url.netloc
+    if port and host and ":" not in host:
+        host = f"{host}:{port}"
+
     return f"{scheme}://{host}/api/bouncie/callback"
 
 
@@ -64,7 +78,7 @@ async def initiate_bouncie_auth(request: Request) -> RedirectResponse:
     credentials = await get_bouncie_credentials()
     client_id = credentials.get("client_id")
     client_secret = credentials.get("client_secret")
-    redirect_uri = credentials.get("redirect_uri")
+    redirect_uri = (credentials.get("redirect_uri") or "").strip()
     expected_redirect = _build_redirect_uri(request)
 
     if not client_id:
@@ -81,32 +95,19 @@ async def initiate_bouncie_auth(request: Request) -> RedirectResponse:
             status_code=302,
         )
 
+    if not redirect_uri:
+        return RedirectResponse(
+            url=f"{SETUP_WIZARD_PATH}?bouncie_error="
+            + quote("Please save your Redirect URI before connecting.", safe=""),
+            status_code=302,
+        )
+
     if redirect_uri != expected_redirect:
-        logger.warning(
-            "Configured redirect URI does not match expected callback. stored=%s expected=%s",
+        logger.info(
+            "Stored redirect URI differs from request-derived callback; using stored value. stored=%s expected=%s",
             redirect_uri,
             expected_redirect,
         )
-        await update_bouncie_credentials(
-            {
-                "redirect_uri": expected_redirect,
-                "authorization_code": None,
-                "access_token": None,
-                "refresh_token": None,
-                "expires_at": None,
-                "oauth_state": None,
-                "oauth_state_expires_at": None,
-                "last_auth_error": "redirect_uri_mismatch",
-                "last_auth_error_detail": (
-                    f"Updated redirect URI to {expected_redirect}"
-                ),
-                "last_auth_error_at": time.time(),
-            },
-        )
-        credentials = await get_bouncie_credentials()
-        redirect_uri = credentials.get("redirect_uri")
-        client_id = credentials.get("client_id")
-        client_secret = credentials.get("client_secret")
 
     # Idempotent: if already authorized, skip new auth flow and sync vehicles if needed
     if credentials.get("authorization_code"):

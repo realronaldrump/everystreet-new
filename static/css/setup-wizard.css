@@ -907,8 +907,13 @@
   background: rgb(var(--primary-rgb) / 8%);
 }
 
-.state-option.is-suggested {
-  border-color: rgb(var(--warning-rgb) / 40%);
+.state-empty {
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px dashed var(--border-color);
+  text-align: center;
+  background: var(--surface-1);
+  color: var(--text-tertiary);
 }
 
 .state-name {
@@ -918,16 +923,6 @@
 .state-size {
   font-size: var(--font-size-xs);
   color: var(--text-secondary);
-}
-
-.state-tag {
-  position: absolute;
-  top: 0.35rem;
-  right: 0.5rem;
-  font-size: 0.65rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: rgb(var(--warning-rgb));
 }
 
 .coverage-summary {

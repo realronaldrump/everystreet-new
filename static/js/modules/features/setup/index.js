@@ -23,7 +23,6 @@ const MAP_SERVICES_AUTO_STATUS_API = "/api/map-services/auto-status";
 const APP_SETTINGS_API = "/api/app_settings";
 const TRIP_SYNC_STATUS_API = "/api/actions/trips/sync/status";
 const TRIP_SYNC_START_API = "/api/actions/trips/sync";
-const SUGGESTED_STATES = new Set(["CO", "TX"]);
 
 let pageSignal = null;
 let mapPreview = null;
@@ -39,6 +38,8 @@ let coverageMode = "trips";
 let tripSyncStatus = null;
 let detectedStates = [];
 let hasTripsForCoverage = false;
+let bouncieConnected = false;
+let lastCoverageRestricted = false;
 
 onPageLoad(
   ({ signal, cleanup } = {}) => {
@@ -208,9 +209,26 @@ async function loadBouncieCredentials() {
         = credentials.redirect_uri || (await getExpectedRedirectUri());
       redirectUri.value = expectedRedirect;
     }
+    bouncieConnected = Boolean(credentials.authorization_code);
+    updateBouncieActions();
   } catch (_error) {
     showStatus("credentials-status", "Unable to load Bouncie credentials.", true);
+    bouncieConnected = false;
+    updateBouncieActions();
   }
+}
+
+function updateBouncieActions() {
+  const syncBtn = document.getElementById("syncVehiclesBtn");
+  if (!syncBtn) {
+    return;
+  }
+  const canSync = Boolean(bouncieConnected);
+  syncBtn.disabled = !canSync;
+  syncBtn.setAttribute("aria-disabled", String(!canSync));
+  syncBtn.title = canSync
+    ? "Sync vehicles from Bouncie"
+    : "Connect with Bouncie to enable vehicle sync.";
 }
 
 async function loadStateCatalog() {
@@ -480,6 +498,14 @@ async function saveMapboxSettings() {
 
 async function syncVehicles() {
   try {
+    if (!bouncieConnected) {
+      showStatus(
+        "credentials-status",
+        "Connect with Bouncie before syncing vehicles.",
+        true
+      );
+      return;
+    }
     showStatus("credentials-status", "Syncing vehicles...", false);
     const response = await apiClient.raw(
       `${PROFILE_API}/bouncie-credentials/sync-vehicles`,
@@ -565,14 +591,11 @@ function renderStateGrid() {
             return "";
           }
           const size = Number(state.size_mb || 0);
-          const suggested = SUGGESTED_STATES.has(code);
-          const label = suggested ? "Suggested" : "";
           return `
-            <label class="state-option ${suggested ? "is-suggested" : ""}">
+            <label class="state-option">
               <input type="checkbox" value="${state.code}" data-size="${size}" />
               <span class="state-name">${state.name}</span>
               <span class="state-size">${size ? `${size} MB` : "--"}</span>
-              ${label ? `<span class="state-tag">${label}</span>` : ""}
             </label>
           `;
         })
@@ -588,6 +611,12 @@ function renderStateGrid() {
       `;
     })
     .join("");
+
+  const emptyState = document.createElement("div");
+  emptyState.className = "state-empty text-muted d-none";
+  emptyState.id = "state-empty";
+  emptyState.textContent = "No trip coverage detected yet.";
+  container.appendChild(emptyState);
 
   container.querySelectorAll('input[type="checkbox"]').forEach((input) => {
     input.addEventListener("change", () => {
@@ -662,6 +691,32 @@ function updateStateSelectionUI() {
   if (searchInput) {
     searchInput.disabled = locked;
   }
+
+  const emptyState = document.getElementById("state-empty");
+  if (locked) {
+    container.querySelectorAll(".state-option").forEach((option) => {
+      const code = option.querySelector('input[type="checkbox"]')?.value;
+      const visible = code && selectedStates.has(code);
+      option.style.display = visible ? "grid" : "none";
+    });
+    container.querySelectorAll(".state-region").forEach((region) => {
+      const options = Array.from(region.querySelectorAll(".state-option"));
+      const hasVisible = options.some((option) => option.style.display !== "none");
+      region.style.display = hasVisible ? "block" : "none";
+    });
+    if (emptyState) {
+      emptyState.classList.toggle("d-none", selectedStates.size > 0);
+    }
+  } else {
+    if (lastCoverageRestricted) {
+      const query = searchInput?.value || "";
+      filterStateList(query);
+    }
+    if (emptyState) {
+      emptyState.classList.add("d-none");
+    }
+  }
+  lastCoverageRestricted = locked;
 }
 
 function updateSelectionSummary() {
@@ -914,6 +969,9 @@ function updateCoverageView(view) {
 }
 
 function filterStateList(query) {
+  if (coverageMode === "trips" || coverageMode === "auto") {
+    return;
+  }
   const normalized = query.trim().toLowerCase();
   const container = document.getElementById("state-selection");
   if (!container) {
@@ -1188,7 +1246,7 @@ function updateMapCoverageUI() {
         = "Choose the states you need now. Coverage can be expanded later as you travel.";
     } else {
       stepDescription.textContent
-        = "Coverage is built from your trips so geocoding stays local and fast. Import trips first, then we will auto-detect the right coverage.";
+        = "Coverage is built from your trips so geocoding stays local and fast. We download the smallest extract that fully covers your trip area.";
     }
   }
 
@@ -1262,7 +1320,7 @@ function updateCoverageModeUI() {
         = "Choose the states you need now. Coverage can be expanded later as you travel.";
     } else {
       stepDescription.textContent
-        = "Coverage is built from your trips so geocoding stays local and fast. Import trips first, then we will auto-detect the right coverage.";
+        = "Coverage is built from your trips so geocoding stays local and fast. We download the smallest extract that fully covers your trip area.";
     }
   }
 }
