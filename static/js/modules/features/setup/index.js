@@ -19,7 +19,11 @@ import { readJsonResponse, responseErrorMessage } from "./validation.js";
 const SETUP_STATUS_API = "/api/setup/status";
 const PROFILE_API = "/api/profile";
 const MAP_SERVICES_API = "/api/map-services";
-const SUGGESTED_STATES = new Set(["CA", "TX", "NY"]);
+const MAP_SERVICES_AUTO_STATUS_API = "/api/map-services/auto-status";
+const APP_SETTINGS_API = "/api/app_settings";
+const TRIP_SYNC_STATUS_API = "/api/actions/trips/sync/status";
+const TRIP_SYNC_START_API = "/api/actions/trips/sync";
+const SUGGESTED_STATES = new Set(["CO", "TX"]);
 
 let pageSignal = null;
 let mapPreview = null;
@@ -31,6 +35,10 @@ let pollingTimer = null;
 let currentStep = 0;
 let _coverageView = "select";
 let mapSetupInFlight = false;
+let coverageMode = "trips";
+let tripSyncStatus = null;
+let detectedStates = [];
+let hasTripsForCoverage = false;
 
 onPageLoad(
   ({ signal, cleanup } = {}) => {
@@ -60,6 +68,8 @@ async function initializeSetup() {
     loadSetupStatus(),
     loadMapboxSettings(),
     loadBouncieCredentials(),
+    loadCoverageSettings(),
+    loadTripSyncStatus(),
     loadStateCatalog(),
     refreshMapServicesStatus(),
   ]);
@@ -116,6 +126,10 @@ function bindEvents() {
     startMapSetup();
   });
 
+  document
+    .getElementById("coverage-import-trips-btn")
+    ?.addEventListener("click", importTripsForCoverage);
+
   document.querySelectorAll(".setup-tab").forEach((tab) => {
     tab.addEventListener("click", () => {
       const target = tab.dataset.coverageTab || "select";
@@ -135,6 +149,28 @@ async function loadSetupStatus() {
     setupStatus = data;
   } catch (_error) {
     setupStatus = null;
+  }
+}
+
+async function loadCoverageSettings() {
+  try {
+    const data = await apiClient.get(APP_SETTINGS_API, withSignal());
+    coverageMode = String(data?.mapCoverageMode || "trips").toLowerCase();
+  } catch (_error) {
+    coverageMode = "trips";
+  }
+  updateCoverageModeUI();
+  if (mapServiceStatus) {
+    applySelectedStatesFromStatus();
+    updateMapCoverageUI();
+  }
+}
+
+async function loadTripSyncStatus() {
+  try {
+    tripSyncStatus = await apiClient.get(TRIP_SYNC_STATUS_API, withSignal());
+  } catch (_error) {
+    tripSyncStatus = null;
   }
 }
 
@@ -194,19 +230,48 @@ async function loadStateCatalog() {
 
 async function refreshMapServicesStatus() {
   try {
-    const response = await apiClient.raw(`${MAP_SERVICES_API}/status`, withSignal());
+    const response = await apiClient.raw(
+      MAP_SERVICES_AUTO_STATUS_API,
+      withSignal()
+    );
     const data = await readJsonResponse(response);
     if (!response.ok) {
       throw new Error(
         responseErrorMessage(response, data, "Unable to load map status")
       );
     }
-    mapServiceStatus = data;
+    mapServiceStatus = normalizeMapServiceStatus(data);
     applySelectedStatesFromStatus();
     updateMapCoverageUI();
   } catch (_error) {
     mapServiceStatus = null;
   }
+}
+
+function normalizeMapServiceStatus(data) {
+  if (!data) {
+    return null;
+  }
+  return {
+    config: {
+      selected_states: data.configured_states || [],
+      status: data.status,
+      progress: data.progress,
+      message: data.message,
+      last_updated: data.last_updated,
+    },
+    progress: {
+      phase: data.build?.phase,
+      phase_progress: data.build?.phase_progress,
+      total_progress: data.build?.total_progress,
+      started_at: data.build?.started_at,
+      last_progress_at: data.build?.last_progress_at,
+    },
+    detected_states: data.detected_states || [],
+    missing_states: data.missing_states || [],
+    needs_provisioning: data.needs_provisioning,
+    raw: data,
+  };
 }
 
 function updateStepState() {
@@ -271,9 +336,9 @@ function updateHeroMeta() {
     return;
   }
   if (currentStep === 0) {
-    nextStepEl.textContent = "Save credentials, then choose coverage.";
+    nextStepEl.textContent = "Save credentials, then import trips for coverage.";
   } else {
-    nextStepEl.textContent = "Select coverage, then start the build.";
+    nextStepEl.textContent = "Review coverage, then start the build.";
   }
 }
 
@@ -562,7 +627,14 @@ function toggleRegion(header) {
 
 function applySelectedStatesFromStatus() {
   const configured = mapServiceStatus?.config?.selected_states || [];
-  selectedStates = new Set(configured);
+  detectedStates = mapServiceStatus?.detected_states || [];
+  const preferDetected = coverageMode === "trips" || coverageMode === "auto";
+  const selection = preferDetected
+    ? detectedStates.length
+      ? detectedStates
+      : configured
+    : configured;
+  selectedStates = new Set(selection);
   updateStateSelectionUI();
   updateSelectionSummary();
 }
@@ -572,11 +644,20 @@ function updateStateSelectionUI() {
   if (!container) {
     return;
   }
+  const locked = coverageMode === "trips" || coverageMode === "auto";
+  container.classList.toggle("is-locked", locked);
+
   container.querySelectorAll('input[type="checkbox"]').forEach((input) => {
     const selected = selectedStates.has(input.value);
     input.checked = selected;
+    input.disabled = locked;
     input.closest(".state-option")?.classList.toggle("is-selected", selected);
   });
+
+  const searchInput = document.getElementById("state-search");
+  if (searchInput) {
+    searchInput.disabled = locked;
+  }
 }
 
 function updateSelectionSummary() {
@@ -678,6 +759,7 @@ function updateCoverageLists() {
   const summaryList = document.getElementById("coverage-summary-list");
   const reviewList = document.getElementById("coverage-review-list");
   const selected = Array.from(selectedStates);
+  const noTrips = shouldBlockCoverageSetup();
   const items = selected
     .map((code) => stateCatalog?.states?.find((item) => item.code === code))
     .filter(Boolean)
@@ -692,7 +774,9 @@ function updateCoverageLists() {
     })
     .join("");
 
-  const empty = '<div class="text-muted">No states selected yet.</div>';
+  const empty = noTrips
+    ? '<div class="text-muted">No trips imported yet.</div>'
+    : '<div class="text-muted">No states selected yet.</div>';
   if (summaryList) {
     summaryList.innerHTML = items || empty;
   }
@@ -735,7 +819,11 @@ async function startMapSetup() {
   if (mapSetupInFlight) {
     return;
   }
-  if (!selectedStates.size) {
+  if (shouldBlockCoverageSetup()) {
+    showStatus("coverage-status", "Import trips first to build coverage.", true);
+    return;
+  }
+  if (!(coverageMode === "trips" || coverageMode === "auto") && !selectedStates.size) {
     showStatus("coverage-status", "Select at least one state.", true);
     return;
   }
@@ -743,11 +831,15 @@ async function startMapSetup() {
     mapSetupInFlight = true;
     updateMapCoverageUI();
     showStatus("coverage-status", "Starting map setup...", false);
-    const response = await apiClient.raw(`${MAP_SERVICES_API}/configure`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ states: Array.from(selectedStates) }),
-    });
+    const useAuto = coverageMode === "trips" || coverageMode === "auto";
+    const response = await apiClient.raw(
+      useAuto ? `${MAP_SERVICES_API}/auto-provision` : `${MAP_SERVICES_API}/configure`,
+      {
+        method: "POST",
+        headers: useAuto ? undefined : { "Content-Type": "application/json" },
+        body: useAuto ? undefined : JSON.stringify({ states: Array.from(selectedStates) }),
+      }
+    );
     const data = await readJsonResponse(response);
     if (!response.ok) {
       throw new Error(responseErrorMessage(response, data, "Setup failed."));
@@ -782,10 +874,14 @@ function updateMapCoverageUI() {
   const status = mapServiceStatus?.config;
   const progress = mapServiceStatus?.progress;
   const running = status?.status === "downloading" || status?.status === "building";
+  const noTrips = shouldBlockCoverageSetup();
 
   const messageEl = document.getElementById("map-setup-message");
   if (messageEl) {
     let message = status?.message || "Select states to begin.";
+    if (noTrips) {
+      message = "Import trips first to detect coverage.";
+    }
     if (running) {
       const details = [];
       const phaseLabel = formatPhaseLabel(progress?.phase);
@@ -856,7 +952,12 @@ function updateMapCoverageUI() {
     const ready = status?.status === "ready";
     mapSetupBtn.classList.toggle("d-none", running || ready || mapSetupInFlight);
     mapSetupBtn.disabled
-      = locked || !selectedStates.size || !credentialsComplete || mapSetupInFlight;
+      = locked
+        || !credentialsComplete
+        || mapSetupInFlight
+        || noTrips
+        || (!(coverageMode === "trips" || coverageMode === "auto") && !selectedStates.size);
+    mapSetupBtn.title = noTrips ? "Import trips first" : "";
   }
 
   const infoEl = document.getElementById("coverage-status-pill");
@@ -895,7 +996,94 @@ function updateMapCoverageUI() {
 
   const runBtn = document.getElementById("coverage-run-btn");
   if (runBtn) {
-    runBtn.disabled = running || ready || mapSetupInFlight || !selectedStates.size;
+    runBtn.disabled
+      = running
+        || ready
+        || mapSetupInFlight
+        || noTrips
+        || (!(coverageMode === "trips" || coverageMode === "auto") && !selectedStates.size);
+    runBtn.title = noTrips ? "Import trips first" : "";
+  }
+
+  const reviewBtn = document.getElementById("coverage-review-btn");
+  if (reviewBtn) {
+    reviewBtn.disabled
+      = reviewBtn.disabled
+        || noTrips
+        || (!(coverageMode === "trips" || coverageMode === "auto") && !selectedStates.size);
+    reviewBtn.title = noTrips ? "Import trips first" : "";
+  }
+
+  const banner = document.getElementById("coverage-trips-banner");
+  if (banner) {
+    banner.classList.toggle("d-none", !noTrips);
+  }
+
+  const hint = document.getElementById("coverage-select-hint");
+  if (hint) {
+    hint.classList.toggle("d-none", !(coverageMode === "trips" || coverageMode === "auto"));
+  }
+
+  const selectTitle = document.getElementById("coverage-select-title");
+  const selectDesc = document.getElementById("coverage-select-description");
+  if (selectTitle && selectDesc) {
+    if (coverageMode === "trips" || coverageMode === "auto") {
+      selectTitle.textContent = "Detected coverage";
+      selectDesc.textContent = "States are inferred from your trip paths.";
+    } else {
+      selectTitle.textContent = "Select states";
+      selectDesc.textContent = "Start with the states you need now. You can add more later.";
+    }
+  }
+
+  const modePill = document.getElementById("coverage-mode-pill");
+  if (modePill) {
+    modePill.textContent = coverageMode === "states" ? "Full states" : "Trip coverage";
+  }
+}
+
+function shouldBlockCoverageSetup() {
+  const configured = mapServiceStatus?.config?.selected_states || [];
+  const detected = mapServiceStatus?.detected_states || [];
+  hasTripsForCoverage = detected.length > 0;
+  if (configured.length > 0) {
+    return false;
+  }
+  return !hasTripsForCoverage;
+}
+
+async function importTripsForCoverage() {
+  const btn = document.getElementById("coverage-import-trips-btn");
+  if (btn) {
+    btn.disabled = true;
+  }
+  try {
+    showStatus("coverage-status", "Starting trip import...", false);
+    const response = await apiClient.raw(TRIP_SYNC_START_API, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode: "recent", trigger_source: "setup" }),
+    });
+    const data = await readJsonResponse(response);
+    if (!response.ok) {
+      throw new Error(responseErrorMessage(response, data, "Trip import failed."));
+    }
+    notificationManager.show("Trip import started.", "success");
+    await loadTripSyncStatus();
+    await refreshMapServicesStatus();
+  } catch (error) {
+    showStatus("coverage-status", error.message || "Trip import failed.", true);
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+    }
+  }
+}
+
+function updateCoverageModeUI() {
+  const modePill = document.getElementById("coverage-mode-pill");
+  if (modePill) {
+    modePill.textContent = coverageMode === "states" ? "Full states" : "Trip coverage";
   }
 }
 

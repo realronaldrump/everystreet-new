@@ -218,22 +218,38 @@ Mapbox Access Token
 
           <section class="setup-step" data-step="1">
             <div class="setup-card">
-              <div class="setup-card-header">
+                <div class="setup-card-header">
                 <div>
                   <h2>
 Map Coverage
                   </h2>
                   <p>
-                    Pick the states you want online. This will download and rebuild all map
-                    services, and Everystreet will keep running while setup completes.
+                    Coverage is built from your trips so geocoding stays local and fast.
+                    Import trips first, then we’ll auto-detect the right coverage.
                   </p>
                 </div>
-                <div class="setup-pill" id="coverage-status-pill">
+                <div class="setup-pill-group">
+                  <div class="setup-pill" id="coverage-mode-pill">
+Trip coverage
+                  </div>
+                  <div class="setup-pill" id="coverage-status-pill">
 Not configured
+                  </div>
                 </div>
               </div>
 
               <div id="coverage-status" class="setup-status" role="status" aria-live="polite">
+              </div>
+              <div class="setup-banner d-none" id="coverage-trips-banner">
+                <div>
+                  <strong>Import trips first</strong>
+                  <div class="text-muted">
+                    We need at least one trip to calculate coverage. Sync trips to continue.
+                  </div>
+                </div>
+                <button class="btn btn-outline-light btn-sm" id="coverage-import-trips-btn" type="button">
+                  Import trips
+                </button>
               </div>
 
               <div class="setup-coverage-tabs" role="tablist" aria-label="Coverage flow">
@@ -253,12 +269,15 @@ Not configured
                   <div class="setup-coverage-panel">
                     <div class="setup-coverage-header">
                       <div>
-                        <h3>
+                        <h3 id="coverage-select-title">
 Select states
                         </h3>
-                        <p class="text-muted">
+                        <p class="text-muted" id="coverage-select-description">
                           Start with the states you need now. You can add more later.
                         </p>
+                        <div class="setup-hint d-none" id="coverage-select-hint">
+                          Coverage is auto-detected from trips in trip coverage mode.
+                        </div>
                       </div>
                       <div class="setup-coverage-search">
                         <label class="form-label" for="state-search">Search states</label>

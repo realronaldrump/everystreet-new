@@ -418,6 +418,8 @@ function renderActions(status) {
     = status;
   const retryCap = typeof max_retries === "number" && max_retries > 0 ? max_retries : 3;
   const displayAttempt = Math.min(retry_count || 0, retryCap);
+  const noTrips
+    = !(status?.detected_states || []).length && !(status?.configured_states || []).length;
 
   const buttons = [];
 
@@ -431,6 +433,12 @@ function renderActions(status) {
     buttons.push(`
       <button class="btn btn-primary" id="provision-btn">
         <i class="fas fa-download"></i> <span class="btn-text">Download Map Data</span>
+      </button>
+    `);
+  } else if (noTrips && !last_error) {
+    buttons.push(`
+      <button class="btn btn-primary" id="provision-btn" disabled title="Import trips first">
+        <i class="fas fa-download"></i> <span class="btn-text">Import trips first</span>
       </button>
     `);
   }

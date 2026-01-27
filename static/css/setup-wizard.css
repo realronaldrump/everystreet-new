@@ -750,10 +750,45 @@
   text-transform: capitalize;
 }
 
+.setup-pill-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.setup-banner {
+  margin-top: var(--space-3);
+  padding: var(--space-3);
+  border-radius: var(--radius-lg);
+  border: 1px solid rgb(var(--warning-rgb) / 30%);
+  background: rgb(var(--warning-rgb) / 10%);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.setup-hint {
+  margin-top: var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}
+
 .state-selector {
   display: grid;
   gap: var(--space-4);
   margin: var(--space-4) 0;
+}
+
+.state-selector.is-locked {
+  opacity: 0.6;
+  pointer-events: none;
+  filter: grayscale(0.2);
+}
+
+.state-selector.is-locked .state-option {
+  cursor: not-allowed;
 }
 
 .state-region {
