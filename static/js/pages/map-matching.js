@@ -17,7 +17,13 @@ const elements = {
   unmatchedOnly: document.getElementById("map-match-unmatched-only"),
   tripControls: document.getElementById("map-match-trip-controls"),
   tripIdInput: document.getElementById("map-match-trip-id"),
+  previewBtn: document.getElementById("map-match-preview-btn"),
+  previewStatus: document.getElementById("map-match-preview-status"),
+  previewPanel: document.getElementById("map-match-preview-panel"),
+  previewSummary: document.getElementById("map-match-preview-summary"),
+  previewBody: document.getElementById("map-match-preview-body"),
   submitStatus: document.getElementById("map-match-submit-status"),
+  submitBtn: document.getElementById("map-match-submit"),
   refreshBtn: document.getElementById("map-match-refresh"),
   jobsBody: document.getElementById("map-match-jobs-body"),
   currentEmpty: document.getElementById("map-match-current-empty"),
@@ -29,20 +35,22 @@ const elements = {
 
 let currentJobId = null;
 let pollTimer = null;
+let previewSignature = null;
+let previewPayload = null;
 
 function setModeUI(mode) {
   const isDate = mode === "date_range";
   const isTrip = mode === "trip_id";
   elements.dateControls.classList.toggle("d-none", !isDate);
   elements.tripControls.classList.toggle("d-none", !isTrip);
-  clearInlineStatus(elements.submitStatus);
+  invalidatePreview();
 }
 
 function setDateModeUI(mode) {
   const isInterval = mode === "interval";
   elements.dateRange.classList.toggle("d-none", isInterval);
   elements.interval.classList.toggle("d-none", !isInterval);
-  clearInlineStatus(elements.submitStatus);
+  invalidatePreview();
 }
 
 function updateProgressUI(progress) {
@@ -180,14 +188,103 @@ function buildPayload() {
   };
 }
 
+function invalidatePreview() {
+  previewSignature = null;
+  previewPayload = null;
+  clearInlineStatus(elements.previewStatus);
+  clearInlineStatus(elements.submitStatus);
+  elements.previewPanel?.classList.add("d-none");
+  if (elements.previewBody) {
+    elements.previewBody.innerHTML = "";
+  }
+  if (elements.previewSummary) {
+    elements.previewSummary.textContent = "";
+  }
+  if (elements.submitBtn) {
+    elements.submitBtn.disabled = true;
+  }
+}
+
+function renderPreview(data) {
+  if (!data || !elements.previewPanel) {
+    return;
+  }
+
+  const total = data.total || 0;
+  const sample = data.sample || [];
+  if (total === 0) {
+    elements.previewSummary.textContent = "No trips found for this selection.";
+  } else {
+    elements.previewSummary.textContent = `Found ${total} trips. Showing ${sample.length}.`;
+  }
+
+  elements.previewBody.innerHTML = sample
+    .map((trip) => {
+      const start = trip.startTime ? new Date(trip.startTime).toLocaleString() : "--";
+      const end = trip.endTime ? new Date(trip.endTime).toLocaleString() : "--";
+      let distance = "--";
+      if (trip.distance != null && !Number.isNaN(Number(trip.distance))) {
+        distance = `${Number(trip.distance).toFixed(2)} mi`;
+      }
+      const status = trip.matchedGps ? "Matched" : "Unmatched";
+      return `\n        <tr>\n          <td class=\"text-truncate\" style=\"max-width: 220px\">${trip.transactionId || ""}</td>\n          <td>${start}</td>\n          <td>${end}</td>\n          <td>${distance}</td>\n          <td>${status}</td>\n        </tr>\n      `;
+    })
+    .join("");
+
+  elements.previewPanel.classList.remove("d-none");
+}
+
+async function previewTrips() {
+  clearInlineStatus(elements.previewStatus);
+  try {
+    const payload = buildPayload();
+    const signature = JSON.stringify(payload);
+    setInlineStatus(elements.previewStatus, "Loading preview...", "info");
+    const response = await apiClient.post(
+      `${CONFIG.API.mapMatchingJobs}/preview?limit=25`,
+      payload
+    );
+    previewSignature = signature;
+    previewPayload = payload;
+    renderPreview(response);
+    setInlineStatus(elements.previewStatus, "Preview loaded.", "success");
+    if (elements.submitBtn) {
+      elements.submitBtn.disabled = (response.total || 0) === 0;
+    }
+  } catch (error) {
+    setInlineStatus(elements.previewStatus, error.message, "danger");
+  }
+}
+
 async function submitForm(event) {
   event.preventDefault();
   clearInlineStatus(elements.submitStatus);
 
   try {
-    const payload = buildPayload();
+    if (!previewPayload || !previewSignature) {
+      setInlineStatus(
+        elements.submitStatus,
+        "Preview trips before starting.",
+        "warning"
+      );
+      return;
+    }
+
+    const currentPayload = buildPayload();
+    if (JSON.stringify(currentPayload) !== previewSignature) {
+      setInlineStatus(
+        elements.submitStatus,
+        "Preview is out of date. Please preview again.",
+        "warning"
+      );
+      return;
+    }
+
     setInlineStatus(elements.submitStatus, "Queueing job...", "info");
-    const result = await apiClient.post(CONFIG.API.mapMatchingJobs, payload);
+    const result = await apiClient.post(
+      CONFIG.API.mapMatchingJobs,
+      previewPayload
+    );
     setInlineStatus(elements.submitStatus, "Job queued.", "success");
     notificationManager.show("Map matching job queued", "success");
     if (result?.job_id) {
@@ -214,6 +311,7 @@ function wireEvents() {
   });
 
   elements.form.addEventListener("submit", submitForm);
+  elements.previewBtn?.addEventListener("click", previewTrips);
 
   elements.refreshBtn?.addEventListener("click", () => {
     loadJobs();
@@ -228,6 +326,23 @@ function wireEvents() {
     if (jobId) {
       startPolling(jobId);
     }
+  });
+
+  const invalidateTargets = [
+    elements.modeSelect,
+    elements.dateModeSelect,
+    elements.startInput,
+    elements.endInput,
+    elements.intervalSelect,
+    elements.unmatchedOnly,
+    elements.tripIdInput,
+  ];
+  invalidateTargets.forEach((el) => {
+    if (!el) {
+      return;
+    }
+    el.addEventListener("input", invalidatePreview);
+    el.addEventListener("change", invalidatePreview);
   });
 }
 
@@ -258,6 +373,7 @@ function init() {
   }
   setModeUI(elements.modeSelect.value);
   setDateModeUI(elements.dateModeSelect.value);
+  invalidatePreview();
   wireEvents();
   initDatePickers();
   loadJobs();

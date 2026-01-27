@@ -13,7 +13,7 @@ from db import build_calendar_date_expr
 from db.models import ProgressStatus, Trip
 from map_matching.schemas import MapMatchJobRequest
 from tasks.ops import enqueue_task
-from trips.models import TripStatusProjection
+from trips.models import TripPreviewProjection, TripStatusProjection
 from trips.services.trip_batch_service import TripService
 
 logger = logging.getLogger(__name__)
@@ -95,6 +95,41 @@ class MapMatchingJobService:
             ProgressStatus.operation_type == "map_matching",
         ).count()
         return {"total": total, "jobs": jobs}
+
+    async def preview(
+        self,
+        request: MapMatchJobRequest,
+        limit: int = 25,
+    ) -> dict[str, Any]:
+        normalized = self._normalize_request(request)
+        query = MapMatchingJobRunner._build_query(normalized)
+
+        total = await Trip.find(query).count()
+        trips = (
+            await Trip.find(query)
+            .project(TripPreviewProjection)
+            .limit(limit)
+            .to_list()
+        )
+
+        sample = []
+        for trip in trips:
+            trip_dict = trip.model_dump() if hasattr(trip, "model_dump") else dict(trip)
+            sample.append(
+                {
+                    "transactionId": trip_dict.get("transactionId"),
+                    "startTime": trip_dict.get("startTime"),
+                    "endTime": trip_dict.get("endTime"),
+                    "distance": trip_dict.get("distance"),
+                    "matchStatus": trip_dict.get("matchStatus"),
+                    "matchedGps": trip_dict.get("matchedGps"),
+                },
+            )
+
+        return {
+            "total": total,
+            "sample": sample,
+        }
 
     @staticmethod
     def _normalize_request(request: MapMatchJobRequest) -> MapMatchJobRequest:

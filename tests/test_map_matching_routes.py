@@ -52,3 +52,17 @@ def test_list_map_matching_jobs() -> None:
 
     assert response.status_code == 200
     assert response.json()["total"] == 1
+
+
+def test_preview_map_matching_jobs() -> None:
+    app = _create_app()
+
+    with patch(
+        "map_matching.routes.service.preview",
+        new=AsyncMock(return_value={"total": 0, "sample": []}),
+    ):
+        client = TestClient(app)
+        response = client.post("/api/map_matching/jobs/preview", json={"mode": "unmatched"})
+
+    assert response.status_code == 200
+    assert response.json()["total"] == 0

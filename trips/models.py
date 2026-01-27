@@ -26,6 +26,19 @@ class TripStatusProjection(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
 
+class TripPreviewProjection(BaseModel):
+    """Projection model for map matching previews."""
+
+    transactionId: str | None = None
+    startTime: Any | None = None
+    endTime: Any | None = None
+    distance: float | None = None
+    matchStatus: str | None = None
+    matchedGps: Any | None = None
+
+    model_config = ConfigDict(extra="ignore")
+
+
 class TripProcessingProjection(BaseModel):
     """Projection model for batch trip processing."""
 

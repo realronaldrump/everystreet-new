@@ -18,6 +18,39 @@
   font-size: 0.9rem;
 }
 
+.map-matching-form .wizard-step {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+}
+
+.map-matching-form .step-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 62px;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.map-matching-form .preview-panel {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 0.75rem;
+  background: rgba(15, 18, 25, 0.4);
+}
+
+.map-matching-form .preview-summary {
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
 .map-matching-progress .empty-state {
   padding: 1rem;
   text-align: center;
