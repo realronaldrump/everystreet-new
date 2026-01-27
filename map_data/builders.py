@@ -306,6 +306,11 @@ async def build_nominatim_data(
         container_name = await _get_container_name("nominatim")
         pbf_container_path = f"/nominatim/data/{pbf_relative}"
 
+        # Stop Nominatim web workers and clear marker to avoid DB locks during re-import.
+        await _stop_nominatim_service(container_name)
+        await _terminate_nominatim_connections(container_name)
+        await _clear_nominatim_import_marker(container_name)
+
         # Ensure flatnode dir is writable for postgres (Nominatim import needs it).
         fix_perm_cmd = [
             "docker",
@@ -560,6 +565,8 @@ async def _wait_for_nominatim_db_ready(timeout: int = 120) -> None:
                 "pg_isready",
                 "-d",
                 "postgres",
+                "-U",
+                "postgres",
             ]
             process = await asyncio.create_subprocess_exec(
                 *check_cmd,
@@ -603,6 +610,79 @@ async def _wait_for_nominatim_db_ready(timeout: int = 120) -> None:
 
     # If we timeout, log a warning but proceed - let the import try anyway
     logger.warning("Timeout waiting for PostgreSQL, proceeding with import attempt")
+
+
+async def _stop_nominatim_service(container_name: str) -> None:
+    """Stop Nominatim web workers if running to release DB locks."""
+    stop_cmd = [
+        "docker",
+        "exec",
+        container_name,
+        "sh",
+        "-c",
+        "if [ -f /tmp/gunicorn.pid ]; then kill -TERM $(cat /tmp/gunicorn.pid) 2>/dev/null || true; fi",
+    ]
+    try:
+        process = await asyncio.create_subprocess_exec(
+            *stop_cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        await process.wait()
+    except Exception as e:
+        logger.debug("Failed to stop Nominatim service: %s", e)
+
+
+async def _terminate_nominatim_connections(container_name: str) -> None:
+    """Terminate active connections to the Nominatim database to allow dropdb."""
+    term_cmd = [
+        "docker",
+        "exec",
+        "-u",
+        "postgres",
+        container_name,
+        "psql",
+        "-d",
+        "postgres",
+        "-tAc",
+        (
+            "SELECT pg_terminate_backend(pid) "
+            "FROM pg_stat_activity "
+            "WHERE datname='nominatim' AND pid <> pg_backend_pid();"
+        ),
+    ]
+    try:
+        process = await asyncio.create_subprocess_exec(
+            *term_cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        await process.wait()
+    except Exception as e:
+        logger.debug("Failed to terminate Nominatim connections: %s", e)
+
+
+async def _clear_nominatim_import_marker(container_name: str) -> None:
+    """Remove import marker so the entrypoint doesn't assume data is ready."""
+    clear_cmd = [
+        "docker",
+        "exec",
+        container_name,
+        "sh",
+        "-c",
+        "rm -f /var/lib/postgresql/16/main/import-finished "
+        "/var/lib/postgresql/14/main/import-finished "
+        "/var/lib/postgresql/import-finished",
+    ]
+    try:
+        process = await asyncio.create_subprocess_exec(
+            *clear_cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        await process.wait()
+    except Exception as e:
+        logger.debug("Failed to clear Nominatim import marker: %s", e)
 
 
 async def _wait_for_nominatim_healthy(timeout: int = 120) -> None:
