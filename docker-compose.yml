@@ -18,7 +18,7 @@ services:
   web:
     build:
       context: .
-    image: everystreet-local:dev
+    image: ${EVERYSTREET_IMAGE:-ghcr.io/realronaldrump/everystreet-new:main}
     restart: unless-stopped
     ports:
       - '8080:8080'
@@ -44,11 +44,13 @@ services:
       timeout: 10s
       retries: 3
       start_period: 15s
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
 
   worker:
     build:
       context: .
-    image: everystreet-local:dev
+    image: ${EVERYSTREET_IMAGE:-ghcr.io/realronaldrump/everystreet-new:main}
     restart: unless-stopped
     command: arq tasks.worker.WorkerSettings
     env_file: .env
@@ -64,6 +66,8 @@ services:
       disable: true
     networks:
       - default
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
 
   redis:
     image: redis:7-alpine
@@ -215,7 +219,6 @@ services:
   # Supports both immediate updates (via HTTP API) and polling (every 5 minutes)
   watchtower:
     image: containrrr/watchtower:latest
-    profiles: ["watchtower"]
     restart: unless-stopped
     environment:
       - DOCKER_API_VERSION=1.44
