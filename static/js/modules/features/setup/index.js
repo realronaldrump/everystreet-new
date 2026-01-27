@@ -999,7 +999,13 @@ function updateMapCoverageUI() {
   if (messageEl) {
     let message = status?.message || "Select states to begin.";
     if (noTrips) {
-      message = "Import trips first to detect coverage.";
+      if (tripSyncStatus?.state === "syncing") {
+        message = "Importing trips now. Coverage will update automatically.";
+      } else if (tripSyncStatus?.error?.message) {
+        message = tripSyncStatus.error.message;
+      } else {
+        message = "Import trips first to detect coverage.";
+      }
     }
     if (running) {
       const details = [];
