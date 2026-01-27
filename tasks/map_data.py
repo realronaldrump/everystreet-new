@@ -20,6 +20,7 @@ from map_data.builders import (
     build_valhalla_tiles,
     start_container_on_demand,
 )
+from map_data.coverage import build_trip_coverage_extract
 from map_data.models import MapBuildProgress, MapServiceConfig
 from map_data.services import check_service_health
 from map_data.us_states import build_geofabrik_path, get_state
@@ -91,6 +92,10 @@ def _retry_delay_seconds(retry_count: int) -> int:
     if retry_count <= 0:
         return 0
     return min(RETRY_BASE_SECONDS * (2 ** (retry_count - 1)), RETRY_MAX_SECONDS)
+
+
+def _coverage_mode() -> str:
+    return os.getenv("MAP_COVERAGE_MODE", "trips").strip().lower()
 
 
 async def _update_progress(
@@ -314,6 +319,46 @@ async def _merge_pbf_files(
     return output_path
 
 
+async def _maybe_build_coverage_extract(
+    merged_pbf: str,
+    config: MapServiceConfig,
+    progress: MapBuildProgress,
+) -> str:
+    if _coverage_mode() not in {"trips", "auto"}:
+        return merged_pbf
+
+    await _update_progress(
+        config,
+        progress,
+        status=MapServiceConfig.STATUS_DOWNLOADING,
+        message="Preparing coverage extract...",
+        overall_progress=MERGE_PROGRESS_END + 1.0,
+        phase=MapBuildProgress.PHASE_DOWNLOADING,
+        phase_progress=100.0,
+    )
+
+    try:
+        extract_path = await build_trip_coverage_extract(merged_pbf)
+    except Exception as exc:
+        logger.warning("Coverage extract failed: %s", exc)
+        return merged_pbf
+
+    if not extract_path:
+        logger.warning("Coverage extract unavailable; using merged PBF.")
+        return merged_pbf
+
+    await _update_progress(
+        config,
+        progress,
+        status=MapServiceConfig.STATUS_DOWNLOADING,
+        message="Coverage extract ready",
+        overall_progress=MERGE_PROGRESS_END + 2.0,
+        phase=MapBuildProgress.PHASE_DOWNLOADING,
+        phase_progress=100.0,
+    )
+    return extract_path
+
+
 async def _build_nominatim(
     pbf_relative: str,
     config: MapServiceConfig,
@@ -486,7 +531,9 @@ async def setup_map_data_task(ctx: dict, states: list[str]) -> dict[str, Any]:
             _check_cancel(progress)
 
             extracts_path = get_osm_extracts_path()
-            pbf_relative = os.path.relpath(merged, extracts_path)
+            coverage_pbf = await _maybe_build_coverage_extract(merged, config, progress)
+            _check_cancel(progress)
+            pbf_relative = os.path.relpath(coverage_pbf, extracts_path)
 
             await _build_nominatim(pbf_relative, config, progress)
             _check_cancel(progress)

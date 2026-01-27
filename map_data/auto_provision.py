@@ -12,6 +12,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import UTC, datetime
+import os
 from typing import Any
 
 from db.aggregation import aggregate_to_list
@@ -81,12 +82,27 @@ def get_state_for_coordinate(lon: float, lat: float) -> str | None:
     Determine which US state a coordinate falls within.
 
     Uses bounding box checks for fast approximate detection. Returns
-    state code (e.g., 'CA') or None if not in any US state.
+    the first matching state code (e.g., 'CA') or None if not in any
+    US state.
     """
     for state_code, (min_lon, min_lat, max_lon, max_lat) in US_STATE_BOUNDS.items():
         if min_lon <= lon <= max_lon and min_lat <= lat <= max_lat:
             return state_code
     return None
+
+
+def get_states_for_coordinate(lon: float, lat: float) -> set[str]:
+    """
+    Return all states whose bounding boxes include the coordinate.
+
+    This is conservative (may include neighbor states near borders),
+    but avoids missing coverage when bounding boxes overlap.
+    """
+    states: set[str] = set()
+    for state_code, (min_lon, min_lat, max_lon, max_lat) in US_STATE_BOUNDS.items():
+        if min_lon <= lon <= max_lon and min_lat <= lat <= max_lat:
+            states.add(state_code)
+    return states
 
 
 def get_states_for_coordinates(
@@ -103,9 +119,7 @@ def get_states_for_coordinates(
     """
     states = set()
     for lon, lat in coordinates:
-        state = get_state_for_coordinate(lon, lat)
-        if state:
-            states.add(state)
+        states.update(get_states_for_coordinate(lon, lat))
     return states
 
 
@@ -124,61 +138,84 @@ async def detect_trip_states() -> dict[str, Any]:
     detected_states: dict[str, int] = {}
     sample_size = 0
 
-    # Get a sample of trips with GPS data
-    pipeline = [
-        {"$match": {"gps": {"$exists": True, "$ne": None}}},
-        {"$sample": {"size": 1000}},
-        {"$project": {"gps": 1}},
-    ]
+    def _bump_state(lon: float, lat: float) -> None:
+        for state in get_states_for_coordinate(lon, lat):
+            detected_states[state] = detected_states.get(state, 0) + 1
 
-    trip_results = await aggregate_to_list(Trip, pipeline)
-    for trip_doc in trip_results:
-        gps = trip_doc.get("gps")
-        if not gps or "coordinates" not in gps:
-            continue
-
-        sample_size += 1
+    def _sample_gps_points(gps: dict[str, Any]) -> list[list[float]]:
         coords = gps.get("coordinates", [])
         geom_type = gps.get("type", "")
-
         if geom_type == "Point" and len(coords) >= 2:
-            state = get_state_for_coordinate(coords[0], coords[1])
-            if state:
-                detected_states[state] = detected_states.get(state, 0) + 1
-        elif geom_type == "LineString" and coords:
-            # Sample start, middle, and end points
-            sample_points = [coords[0]]
+            return [coords]
+        if geom_type == "LineString" and coords:
+            points = [coords[0]]
             if len(coords) > 2:
-                sample_points.append(coords[len(coords) // 2])
+                points.append(coords[len(coords) // 2])
             if len(coords) > 1:
-                sample_points.append(coords[-1])
+                points.append(coords[-1])
+            return points
+        return []
 
-            for point in sample_points:
+    sample_size_env = int(os.getenv("MAP_TRIP_STATE_SAMPLE_SIZE", "1000"))
+    full_scan = os.getenv("MAP_COVERAGE_MODE", "trips").strip().lower() in {
+        "trips",
+        "auto",
+    } or sample_size_env <= 0
+
+    if full_scan:
+        collection = Trip.get_pymongo_collection()
+        cursor = collection.find(
+            {"gps": {"$exists": True, "$ne": None}},
+            {"gps": 1, "destinationGeoPoint": 1, "_id": 0},
+        )
+        async for trip_doc in cursor:
+            gps = trip_doc.get("gps") or {}
+            for point in _sample_gps_points(gps):
                 if len(point) >= 2:
-                    state = get_state_for_coordinate(point[0], point[1])
-                    if state:
-                        detected_states[state] = detected_states.get(state, 0) + 1
+                    _bump_state(point[0], point[1])
+                    sample_size += 1
 
-    # Also check distinct destination states from geocoded trips
-    dest_pipeline = [
-        {
-            "$match": {
-                "destinationGeoPoint": {"$exists": True, "$ne": None},
+            dest = trip_doc.get("destinationGeoPoint")
+            if dest and "coordinates" in dest:
+                coords = dest["coordinates"]
+                if len(coords) >= 2:
+                    _bump_state(coords[0], coords[1])
+                    sample_size += 1
+    else:
+        # Get a sample of trips with GPS data
+        pipeline = [
+            {"$match": {"gps": {"$exists": True, "$ne": None}}},
+            {"$sample": {"size": sample_size_env}},
+            {"$project": {"gps": 1}},
+        ]
+
+        trip_results = await aggregate_to_list(Trip, pipeline)
+        for trip_doc in trip_results:
+            gps = trip_doc.get("gps") or {}
+            for point in _sample_gps_points(gps):
+                if len(point) >= 2:
+                    _bump_state(point[0], point[1])
+                    sample_size += 1
+
+        # Also check distinct destination states from geocoded trips
+        dest_pipeline = [
+            {
+                "$match": {
+                    "destinationGeoPoint": {"$exists": True, "$ne": None},
+                },
             },
-        },
-        {"$sample": {"size": 500}},
-        {"$project": {"destinationGeoPoint": 1}},
-    ]
+            {"$sample": {"size": 500}},
+            {"$project": {"destinationGeoPoint": 1}},
+        ]
 
-    dest_results = await aggregate_to_list(Trip, dest_pipeline)
-    for trip_doc in dest_results:
-        dest = trip_doc.get("destinationGeoPoint")
-        if dest and "coordinates" in dest:
-            coords = dest["coordinates"]
-            if len(coords) >= 2:
-                state = get_state_for_coordinate(coords[0], coords[1])
-                if state:
-                    detected_states[state] = detected_states.get(state, 0) + 1
+        dest_results = await aggregate_to_list(Trip, dest_pipeline)
+        for trip_doc in dest_results:
+            dest = trip_doc.get("destinationGeoPoint")
+            if dest and "coordinates" in dest:
+                coords = dest["coordinates"]
+                if len(coords) >= 2:
+                    _bump_state(coords[0], coords[1])
+                    sample_size += 1
 
     # Sort by trip count (most trips first)
     sorted_states = sorted(
