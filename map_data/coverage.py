@@ -11,8 +11,9 @@ from __future__ import annotations
 import json
 import logging
 import os
+import time
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Callable
 
 from pyproj import Transformer
 from shapely.geometry import LineString, Point, mapping
@@ -83,6 +84,9 @@ async def build_trip_coverage_polygon(
     simplify_feet: float,
     max_points_per_trip: int,
     batch_size: int,
+    progress_callback: Callable[[CoverageStats], Any] | None = None,
+    progress_every: int = 500,
+    progress_interval: float = 2.0,
 ) -> tuple[Any | None, CoverageStats]:
     from db.models import Trip
 
@@ -91,6 +95,8 @@ async def build_trip_coverage_polygon(
     simplify_feet = max(simplify_feet, 0.0)
     max_points_per_trip = max(int(max_points_per_trip), 1)
     batch_size = max(int(batch_size), 1)
+    progress_every = max(int(progress_every), 1)
+    progress_interval = max(float(progress_interval), 0.1)
     buffer_units = buffer_miles * _FEET_PER_MILE * _PROJECTED_UNITS_PER_FOOT
     simplify_units = simplify_feet * _PROJECTED_UNITS_PER_FOOT
 
@@ -105,6 +111,10 @@ async def build_trip_coverage_polygon(
 
     batch: list[Any] = []
     combined: Any | None = None
+    last_progress = time.monotonic()
+
+    if progress_callback:
+        await progress_callback(stats)
 
     collection = Trip.get_pymongo_collection()
     cursor = collection.find(
@@ -116,10 +126,14 @@ async def build_trip_coverage_polygon(
         stats.trips_seen += 1
         geom, points = _build_trip_geometry(doc.get("gps"), max_points_per_trip)
         if geom is None:
+            if progress_callback and stats.trips_seen % progress_every == 0:
+                await progress_callback(stats)
             continue
         try:
             projected = transform(project, geom)
         except Exception:
+            if progress_callback and stats.trips_seen % progress_every == 0:
+                await progress_callback(stats)
             continue
         stats.geometries_used += 1
         stats.points_used += points
@@ -128,10 +142,21 @@ async def build_trip_coverage_polygon(
             combined = _merge_batch(combined, batch)
             batch = []
 
+        if progress_callback:
+            now = time.monotonic()
+            if stats.trips_seen % progress_every == 0 or (
+                now - last_progress >= progress_interval
+            ):
+                last_progress = now
+                await progress_callback(stats)
+
     combined = _merge_batch(combined, batch)
     if combined is None:
         logger.warning("No trip geometries available for coverage polygon.")
         return None, stats
+
+    if progress_callback:
+        await progress_callback(stats)
 
     buffered = combined.buffer(buffer_units)
     if simplify_units > 0:

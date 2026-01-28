@@ -14,12 +14,13 @@ import json
 import logging
 import os
 import time
+from pathlib import Path
 from datetime import UTC, datetime
 from typing import Any
 
 import httpx
 
-from config import get_nominatim_base_url, get_valhalla_base_url
+from config import get_nominatim_base_url, get_osm_extracts_path, get_valhalla_base_url
 from map_data.models import GeoServiceHealth, MapBuildProgress, MapServiceConfig
 from map_data.us_states import get_state, total_size_mb
 from tasks.arq import get_arq_pool
@@ -29,6 +30,52 @@ logger = logging.getLogger(__name__)
 
 DOCKER_CMD_TIMEOUT = 10.0
 MAX_RETRIES = int(os.getenv("MAP_SERVICE_MAX_RETRIES", "3"))
+
+
+def _cleanup_map_setup_artifacts() -> dict[str, int]:
+    removed = {"states": 0, "temps": 0, "merged": 0, "coverage": 0}
+    extracts_path = Path(get_osm_extracts_path())
+    if not extracts_path.exists():
+        return removed
+
+    states_dir = extracts_path / "states"
+    if states_dir.exists():
+        for path in states_dir.glob("*.downloading"):
+            with contextlib.suppress(OSError):
+                path.unlink()
+                removed["temps"] += 1
+        for path in states_dir.glob("*.tmp"):
+            with contextlib.suppress(OSError):
+                path.unlink()
+                removed["temps"] += 1
+        for path in states_dir.glob("*.osm.pbf"):
+            with contextlib.suppress(OSError):
+                path.unlink()
+                removed["states"] += 1
+
+    merged_dir = extracts_path / "merged"
+    if merged_dir.exists():
+        for name in ("us-states.osm.pbf", "us-states.osm.pbf.tmp"):
+            with contextlib.suppress(OSError):
+                (merged_dir / name).unlink()
+                removed["merged"] += 1
+        for path in merged_dir.glob("*.tmp"):
+            with contextlib.suppress(OSError):
+                path.unlink()
+                removed["merged"] += 1
+
+    coverage_dir = extracts_path / "coverage"
+    if coverage_dir.exists():
+        for name in ("coverage.osm.pbf", "coverage.geojson", "coverage.osm.pbf.tmp"):
+            with contextlib.suppress(OSError):
+                (coverage_dir / name).unlink()
+                removed["coverage"] += 1
+        for path in coverage_dir.glob("*.tmp"):
+            with contextlib.suppress(OSError):
+                path.unlink()
+                removed["coverage"] += 1
+
+    return removed
 
 
 def _is_docker_unavailable_error(error_text: str) -> bool:
@@ -448,6 +495,9 @@ async def cancel_map_setup() -> dict[str, Any]:
         with contextlib.suppress(Exception):
             aborted = await abort_job(progress.active_job_id)
 
+    cleanup_result = _cleanup_map_setup_artifacts()
+    logger.info("Map setup cleanup removed artifacts: %s", cleanup_result)
+
     config.status = MapServiceConfig.STATUS_NOT_CONFIGURED
     config.message = "Setup cancelled"
     config.progress = 0.0
@@ -460,8 +510,7 @@ async def cancel_map_setup() -> dict[str, Any]:
     progress.phase = MapBuildProgress.PHASE_IDLE
     progress.phase_progress = 0.0
     progress.total_progress = 0.0
-    if aborted:
-        progress.active_job_id = None
+    progress.active_job_id = None
     progress.started_at = None
     progress.last_progress_at = now
     await progress.save()

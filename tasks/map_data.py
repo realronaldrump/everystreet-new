@@ -44,6 +44,9 @@ STALL_THRESHOLD_MINUTES = int(os.getenv("MAP_SERVICE_STALL_MINUTES", "25"))
 RETRY_BASE_SECONDS = int(os.getenv("MAP_SERVICE_RETRY_BASE_SECONDS", "90"))
 RETRY_MAX_SECONDS = int(os.getenv("MAP_SERVICE_RETRY_MAX_SECONDS", "900"))
 MAX_RETRIES = int(os.getenv("MAP_SERVICE_MAX_RETRIES", "3"))
+COVERAGE_BUILD_TIMEOUT_SECONDS = int(
+    os.getenv("MAP_SERVICE_COVERAGE_TIMEOUT_SECONDS", "600"),
+)
 
 DOWNLOAD_PROGRESS_END = 40.0
 MERGE_PROGRESS_END = 45.0
@@ -615,15 +618,67 @@ async def setup_map_data_task(ctx: dict, states: list[str]) -> dict[str, Any]:
         )
         batch_size = int(getattr(settings, "mapCoverageBatchSize", 200) or 200)
 
+        initial_message = (
+            "Analyzing trip coverage..."
+            if mode in {"trips", "auto"}
+            else "Preparing downloads..."
+        )
+        await _update_progress(
+            config,
+            progress,
+            status=MapServiceConfig.STATUS_DOWNLOADING,
+            message=initial_message,
+            overall_progress=0.0,
+            phase=MapBuildProgress.PHASE_DOWNLOADING,
+            phase_progress=0.0,
+            geocoding_ready=False,
+            routing_ready=False,
+        )
+
         coverage_geometry = None
         coverage_by_state: dict[str, Any] = {}
         if mode in {"trips", "auto"}:
-            coverage_geometry, _stats = await build_trip_coverage_polygon(
-                buffer_miles=buffer_miles,
-                simplify_feet=simplify_feet,
-                max_points_per_trip=max_points,
-                batch_size=batch_size,
-            )
+            async def coverage_progress(stats: Any) -> None:
+                await _update_progress(
+                    config,
+                    progress,
+                    status=MapServiceConfig.STATUS_DOWNLOADING,
+                    message=(
+                        "Analyzing trip coverage... "
+                        f"trips={stats.trips_seen:,} "
+                        f"geometries={stats.geometries_used:,}"
+                    ),
+                    overall_progress=0.0,
+                    phase=MapBuildProgress.PHASE_DOWNLOADING,
+                    phase_progress=0.0,
+                )
+
+            try:
+                coverage_geometry, _stats = await asyncio.wait_for(
+                    build_trip_coverage_polygon(
+                        buffer_miles=buffer_miles,
+                        simplify_feet=simplify_feet,
+                        max_points_per_trip=max_points,
+                        batch_size=batch_size,
+                        progress_callback=coverage_progress,
+                    ),
+                    timeout=COVERAGE_BUILD_TIMEOUT_SECONDS,
+                )
+            except asyncio.TimeoutError:
+                logger.warning(
+                    "Coverage polygon build timed out after %s seconds",
+                    COVERAGE_BUILD_TIMEOUT_SECONDS,
+                )
+                await _update_progress(
+                    config,
+                    progress,
+                    status=MapServiceConfig.STATUS_DOWNLOADING,
+                    message="Coverage analysis timed out; downloading full extracts...",
+                    overall_progress=0.0,
+                    phase=MapBuildProgress.PHASE_DOWNLOADING,
+                    phase_progress=0.0,
+                )
+
             if coverage_geometry is not None:
                 for code in normalized:
                     bounds = US_STATE_BOUNDS.get(code)
