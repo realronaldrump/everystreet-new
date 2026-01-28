@@ -28,7 +28,7 @@ Every Street - Map Matching
 {% block content %}
   <div class="container-fluid px-4 py-3 map-matching-page">
     <div class="bento-grid" data-stagger>
-      <div class="bento-span-12 widget map-matching-hero" data-accent="sky">
+      <div class="bento-span-12 widget map-matching-hero" data-accent="mint">
         <div class="widget-header">
           <div>
             <h1 class="widget-title">
@@ -36,7 +36,7 @@ Every Street - Map Matching
               Map Matching
             </h1>
             <div class="widget-meta">
-              Queue map matching jobs and track progress in one place.
+              Snap your trips to real roads for cleaner, more accurate routes.
             </div>
           </div>
         </div>
@@ -46,18 +46,18 @@ Every Street - Map Matching
         <div class="widget-header">
           <div>
             <h2 class="widget-title">
-              <i class="fas fa-sliders-h" aria-hidden="true"></i>
-              New Map Matching Job
+              <i class="fas fa-magic" aria-hidden="true"></i>
+              Start Matching
             </h2>
             <div class="widget-meta">
-              Choose the scope and enqueue a job.
+              Pick which trips you want to process.
             </div>
           </div>
         </div>
         <div class="widget-body">
           <div class="wizard-step">
-            <span class="step-pill">Step 1</span>
-            <span>Choose matching scope</span>
+            <span class="step-pill">1</span>
+            <span>What would you like to match?</span>
           </div>
           <form id="map-matching-form">
             <div class="mb-3">
@@ -119,8 +119,8 @@ Every Street - Map Matching
             </div>
 
             <div class="wizard-step mt-4">
-              <span class="step-pill">Step 2</span>
-              <span>Preview trips to be matched</span>
+              <span class="step-pill">2</span>
+              <span>Preview what will be matched</span>
             </div>
             <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
               <button type="button" class="btn btn-outline-secondary" id="map-match-preview-btn">
@@ -148,8 +148,8 @@ Every Street - Map Matching
             </div>
 
             <div class="wizard-step mt-4">
-              <span class="step-pill">Step 3</span>
-              <span>Start map matching</span>
+              <span class="step-pill">3</span>
+              <span>Ready? Let's go!</span>
             </div>
             <div class="d-flex flex-wrap gap-2 align-items-center">
               <button type="submit" class="btn btn-primary" id="map-match-submit" disabled>
@@ -166,17 +166,17 @@ Every Street - Map Matching
         <div class="widget-header">
           <div>
             <h2 class="widget-title">
-              <i class="fas fa-tasks" aria-hidden="true"></i>
-              Current Job
+              <i class="fas fa-spinner" aria-hidden="true"></i>
+              Progress
             </h2>
             <div class="widget-meta">
-              Live progress for the active job.
+              Watch your trips get matched in real time.
             </div>
           </div>
         </div>
         <div class="widget-body">
           <div id="map-match-current-empty" class="empty-state">
-            No job selected.
+            Nothing running yet
           </div>
           <div id="map-match-current-panel" class="d-none">
             <div class="progress mb-2" style="height: 22px">
@@ -197,11 +197,11 @@ Every Street - Map Matching
         <div class="widget-header">
           <div>
             <h2 class="widget-title">
-              <i class="fas fa-history" aria-hidden="true"></i>
-              Recent Jobs
+              <i class="fas fa-clock" aria-hidden="true"></i>
+              History
             </h2>
             <div class="widget-meta">
-              Latest map matching activity.
+              Your recent matching activity.
             </div>
           </div>
           <button class="btn btn-outline-secondary btn-sm" id="map-match-refresh">
@@ -233,10 +233,10 @@ Every Street - Map Matching
           <div>
             <h2 class="widget-title">
               <i class="fas fa-map-marked-alt" aria-hidden="true"></i>
-              Matched Preview
+              Results Preview
             </h2>
             <div class="widget-meta">
-              Visual verification for matched geometry.
+              See your matched routes on the map.
             </div>
           </div>
           <div class="d-flex flex-wrap gap-2 align-items-center">
@@ -252,7 +252,7 @@ Every Street - Map Matching
             <div class="matched-preview-map-card">
               <div class="matched-preview-map" id="map-match-preview-map" aria-label="Matched trips preview map"></div>
               <div id="map-match-preview-map-empty" class="matched-preview-empty">
-                Select a job to preview matched trips on the map.
+                Select a completed job to see matched routes
               </div>
               <div class="matched-preview-legend">
                 <span class="legend-swatch"></span>
@@ -261,7 +261,7 @@ Every Street - Map Matching
             </div>
             <div class="matched-preview-list">
               <div class="preview-summary" id="map-match-preview-map-summary">
-                No preview loaded yet.
+                No results to show yet
               </div>
               <div class="table-responsive">
                 <table class="table table-hover align-middle mb-0">
