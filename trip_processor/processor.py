@@ -203,8 +203,11 @@ class TripProcessor:
                         e,
                     )
 
+            # Only set COMPLETED if we're not already in a terminal success state
+            # (MAP_MATCHED is a success state that should be preserved)
             if not self._state_machine.is_failed():
-                self._set_state(TripState.COMPLETED)
+                if self._state_machine.state != TripState.MAP_MATCHED:
+                    self._set_state(TripState.COMPLETED)
 
             result = self.processed_data
 

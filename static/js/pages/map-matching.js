@@ -91,7 +91,22 @@ function updateProgressUI(progress) {
 
   const metrics = progress.metrics || {};
   if (metrics.total != null) {
-    elements.progressMetrics.textContent = `Total: ${metrics.total} | Processed: ${metrics.processed || 0} | Matched: ${metrics.map_matched || 0} | Failed: ${metrics.failed || 0}`;
+    // Build a clear metrics display
+    const parts = [];
+    parts.push(`Total: ${metrics.total}`);
+    if (metrics.processed != null) {
+      parts.push(`Processed: ${metrics.processed}`);
+    }
+    // Use either 'matched' (new format) or 'map_matched' (old format)
+    const matchedCount = metrics.matched ?? metrics.map_matched ?? 0;
+    parts.push(`Matched: ${matchedCount}`);
+    if (metrics.skipped != null && metrics.skipped > 0) {
+      parts.push(`Skipped: ${metrics.skipped}`);
+    }
+    if (metrics.failed != null && metrics.failed > 0) {
+      parts.push(`Failed: ${metrics.failed}`);
+    }
+    elements.progressMetrics.textContent = parts.join(" | ");
   } else {
     elements.progressMetrics.textContent = "";
   }

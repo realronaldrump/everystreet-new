@@ -57,6 +57,19 @@ class TripProcessingProjection(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
 
+class TripMapMatchProjection(BaseModel):
+    """Minimal projection for map matching - only GPS data needed."""
+
+    transactionId: str | None = None
+    gps: dict[str, Any] | None = None
+    coordinates: list[dict[str, Any]] | None = None
+    startTime: Any | None = None
+    endTime: Any | None = None
+    matchedGps: dict[str, Any] | None = None
+
+    model_config = ConfigDict(extra="ignore")
+
+
 class TripSyncRequest(BaseModel):
     """Request model for trip sync actions."""
 

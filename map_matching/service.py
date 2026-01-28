@@ -8,18 +8,18 @@ from typing import Any
 
 from fastapi import HTTPException, status
 
-from core.date_utils import normalize_calendar_date
+from core.date_utils import get_current_utc_time, normalize_calendar_date
 from db import build_calendar_date_expr
 from db.models import ProgressStatus, Trip
+from geo_service import MapMatchingService, extract_timestamps_for_coordinates
 from geo_service.geometry import GeometryService
 from map_matching.schemas import MapMatchJobRequest
 from tasks.ops import enqueue_task
-from trips.models import TripPreviewProjection, TripStatusProjection
-from trips.services.trip_batch_service import TripService
+from trips.models import TripMapMatchProjection, TripPreviewProjection, TripStatusProjection
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_BATCH_SIZE = 100
+DEFAULT_BATCH_SIZE = 50  # Smaller batches for better progress feedback
 
 
 class MapMatchingJobService:
@@ -337,122 +337,68 @@ class MapMatchingJobRunner:
     """Execute map matching jobs and update progress."""
 
     def __init__(self) -> None:
-        self._trip_service = TripService()
+        self._map_matching_service = MapMatchingService()
 
     async def run(self, job_id: str, request: MapMatchJobRequest) -> dict[str, Any]:
-        progress = await ProgressStatus.find_one(
-            ProgressStatus.operation_id == job_id,
-            ProgressStatus.operation_type == "map_matching",
-        )
-        if not progress:
-            progress = ProgressStatus(
-                operation_id=job_id,
-                operation_type="map_matching",
-                status="running",
-                stage="initializing",
-                progress=0,
-                message="Initializing map matching job",
-                started_at=datetime.now(UTC),
-                updated_at=datetime.now(UTC),
-                metadata={},
-            )
-            await progress.insert()
-        else:
-            progress.status = "running"
-            progress.stage = "initializing"
-            progress.progress = 0
-            progress.message = "Finding trips to map match..."
-            progress.updated_at = datetime.now(UTC)
-            await progress.save()
+        """
+        Run map matching directly on trips without going through full processing.
+
+        This is a streamlined flow that:
+        1. Loads trips with GPS data
+        2. Calls Valhalla directly for each trip
+        3. Updates the matchedGps field in the database
+        """
+        progress = await self._get_or_create_progress(job_id)
 
         try:
+            # Find trips to process
             query = self._build_query(request)
-            trips_list = (
-                await Trip.find(query)
-                .project(TripStatusProjection)
-                .to_list()
+            trips = await Trip.find(query).project(TripMapMatchProjection).to_list()
+
+            total_trips = len(trips)
+            await self._update_progress(
+                progress,
+                stage="processing",
+                message=f"Found {total_trips} trips to map match",
+                total=total_trips,
             )
 
-            trip_ids = [
-                str(trip.transactionId)
-                for trip in trips_list
-                if trip.transactionId
-            ]
-
-            total_trips = len(trip_ids)
-            progress.stage = "processing"
-            progress.message = f"Found {total_trips} trips to process"
-            progress.metadata = {
-                **(progress.metadata or {}),
-                "total": total_trips,
-                "processed": 0,
-                "map_matched": 0,
-                "failed": 0,
-            }
-            progress.updated_at = datetime.now(UTC)
-            await progress.save()
-
             if total_trips == 0:
-                progress.status = "completed"
-                progress.stage = "completed"
-                progress.progress = 100
-                progress.message = "No trips found matching criteria"
-                progress.updated_at = datetime.now(UTC)
-                await progress.save()
+                await self._update_progress(
+                    progress,
+                    status="completed",
+                    stage="completed",
+                    progress_pct=100,
+                    message="No trips found matching criteria",
+                )
                 return {
                     "status": "success",
                     "message": "No trips found matching criteria",
                     "total": 0,
                     "map_matched": 0,
                     "failed": 0,
+                    "skipped": 0,
                 }
 
-            processed = 0
-            matched = 0
-            failed = 0
+            # Process trips directly
+            results = await self._process_trips_directly(trips, progress, total_trips)
 
-            for chunk in _chunked(trip_ids, DEFAULT_BATCH_SIZE):
-                result = await self._trip_service.remap_trips(
-                    trip_ids=chunk,
-                    limit=len(chunk),
-                )
-                processed += len(chunk)
-                matched += int(result.get("map_matched", 0) or 0)
-                failed += int(result.get("failed", 0) or 0)
-
-                progress.progress = int((processed / total_trips) * 100)
-                progress.message = f"Processed {processed} of {total_trips} trips"
-                progress.metadata = {
-                    **(progress.metadata or {}),
-                    "total": total_trips,
-                    "processed": processed,
-                    "map_matched": matched,
-                    "failed": failed,
-                }
-                progress.updated_at = datetime.now(UTC)
-                await progress.save()
-
-            progress.status = "completed"
-            progress.stage = "completed"
-            progress.progress = 100
-            progress.message = (
-                f"Completed: {matched} matched, {failed} failed"
+            # Final update
+            await self._update_progress(
+                progress,
+                status="completed",
+                stage="completed",
+                progress_pct=100,
+                message=f"Done: {results['matched']} matched, {results['skipped']} skipped, {results['failed']} failed",
+                **results,
             )
-            progress.metadata = {
-                **(progress.metadata or {}),
-                "total": total_trips,
-                "processed": processed,
-                "map_matched": matched,
-                "failed": failed,
-            }
-            progress.updated_at = datetime.now(UTC)
-            await progress.save()
 
             return {
                 "status": "success",
                 "total": total_trips,
-                "map_matched": matched,
-                "failed": failed,
+                "map_matched": results["matched"],
+                "failed": results["failed"],
+                "skipped": results["skipped"],
             }
 
         except Exception as exc:
@@ -465,6 +411,185 @@ class MapMatchingJobRunner:
             progress.updated_at = datetime.now(UTC)
             await progress.save()
             raise
+
+    async def _process_trips_directly(
+        self,
+        trips: list[TripMapMatchProjection],
+        progress: ProgressStatus,
+        total: int,
+    ) -> dict[str, int]:
+        """Process trips directly without going through the complex pipeline."""
+        matched = 0
+        failed = 0
+        skipped = 0
+        processed = 0
+
+        for trip in trips:
+            processed += 1
+            trip_id = trip.transactionId or "unknown"
+
+            try:
+                result = await self._map_match_single_trip(trip)
+
+                if result == "matched":
+                    matched += 1
+                elif result == "skipped":
+                    skipped += 1
+                else:
+                    failed += 1
+
+            except Exception as e:
+                logger.warning("Map matching failed for trip %s: %s", trip_id, e)
+                failed += 1
+
+            # Update progress every trip (for responsiveness)
+            if processed % 5 == 0 or processed == total:
+                await self._update_progress(
+                    progress,
+                    progress_pct=int((processed / total) * 100),
+                    message=f"Processing: {processed}/{total} trips",
+                    matched=matched,
+                    failed=failed,
+                    skipped=skipped,
+                    processed=processed,
+                    total=total,
+                )
+
+        return {"matched": matched, "failed": failed, "skipped": skipped, "processed": processed}
+
+    async def _map_match_single_trip(self, trip: TripMapMatchProjection) -> str:
+        """
+        Map match a single trip and update it in the database.
+
+        Returns: "matched", "skipped", or "failed"
+        """
+        trip_id = trip.transactionId
+        gps_data = trip.gps
+
+        # Check if we have valid GPS data
+        if not gps_data or not isinstance(gps_data, dict):
+            logger.debug("Trip %s: No GPS data, skipping", trip_id)
+            await self._update_trip_match_status(trip_id, "skipped:no-gps")
+            return "skipped"
+
+        gps_type = gps_data.get("type")
+        coords = gps_data.get("coordinates", [])
+
+        if gps_type == "Point":
+            logger.debug("Trip %s: Single point GPS, skipping", trip_id)
+            await self._update_trip_match_status(trip_id, "skipped:single-point")
+            return "skipped"
+
+        if gps_type != "LineString":
+            logger.debug("Trip %s: Unsupported GPS type '%s', skipping", trip_id, gps_type)
+            await self._update_trip_match_status(trip_id, f"skipped:unsupported-type:{gps_type}")
+            return "skipped"
+
+        if not coords or len(coords) < 2:
+            logger.debug("Trip %s: Insufficient coordinates, skipping", trip_id)
+            await self._update_trip_match_status(trip_id, "skipped:insufficient-coords")
+            return "skipped"
+
+        # Extract timestamps for better matching
+        trip_dict = trip.model_dump()
+        timestamps = extract_timestamps_for_coordinates(coords, trip_dict)
+
+        # Call Valhalla
+        logger.debug("Trip %s: Calling Valhalla with %d coordinates", trip_id, len(coords))
+        result = await self._map_matching_service.map_match_coordinates(coords, timestamps)
+
+        if result.get("code") != "Ok":
+            error_msg = result.get("message", "Unknown error")
+            logger.warning("Trip %s: Map matching failed: %s", trip_id, error_msg)
+            await self._update_trip_match_status(trip_id, f"error:{error_msg[:50]}")
+            return "failed"
+
+        # Extract matched geometry
+        matchings = result.get("matchings", [])
+        if not matchings or not matchings[0].get("geometry"):
+            logger.warning("Trip %s: No geometry returned", trip_id)
+            await self._update_trip_match_status(trip_id, "error:no-geometry")
+            return "failed"
+
+        matched_geometry = matchings[0]["geometry"]
+        geom_type = matched_geometry.get("type", "unknown")
+
+        # Update the trip in the database
+        await self._update_trip_matched_gps(trip_id, matched_geometry)
+        logger.debug("Trip %s: Successfully matched", trip_id)
+        return "matched"
+
+    async def _update_trip_match_status(self, trip_id: str, status: str) -> None:
+        """Update just the match status for a trip."""
+        trip = await Trip.find_one(Trip.transactionId == trip_id)
+        if trip:
+            trip.matchStatus = status
+            trip.matched_at = get_current_utc_time()
+            await trip.save()
+
+    async def _update_trip_matched_gps(self, trip_id: str, geometry: dict[str, Any]) -> None:
+        """Update the matched GPS geometry for a trip."""
+        trip = await Trip.find_one(Trip.transactionId == trip_id)
+        if trip:
+            trip.matchedGps = geometry
+            trip.matchStatus = f"matched:{geometry.get('type', 'unknown').lower()}"
+            trip.matched_at = get_current_utc_time()
+            await trip.save()
+
+    async def _get_or_create_progress(self, job_id: str) -> ProgressStatus:
+        """Get existing progress or create new one."""
+        progress = await ProgressStatus.find_one(
+            ProgressStatus.operation_id == job_id,
+            ProgressStatus.operation_type == "map_matching",
+        )
+        if not progress:
+            progress = ProgressStatus(
+                operation_id=job_id,
+                operation_type="map_matching",
+                status="running",
+                stage="initializing",
+                progress=0,
+                message="Starting map matching...",
+                started_at=datetime.now(UTC),
+                updated_at=datetime.now(UTC),
+                metadata={},
+            )
+            await progress.insert()
+        else:
+            progress.status = "running"
+            progress.stage = "initializing"
+            progress.progress = 0
+            progress.message = "Finding trips to map match..."
+            progress.updated_at = datetime.now(UTC)
+            await progress.save()
+        return progress
+
+    async def _update_progress(
+        self,
+        progress: ProgressStatus,
+        *,
+        status: str | None = None,
+        stage: str | None = None,
+        progress_pct: int | None = None,
+        message: str | None = None,
+        **metrics: Any,
+    ) -> None:
+        """Update progress with given values."""
+        if status:
+            progress.status = status
+        if stage:
+            progress.stage = stage
+        if progress_pct is not None:
+            progress.progress = progress_pct
+        if message:
+            progress.message = message
+
+        # Merge metrics into metadata
+        if metrics:
+            progress.metadata = {**(progress.metadata or {}), **metrics}
+
+        progress.updated_at = datetime.now(UTC)
+        await progress.save()
 
     @staticmethod
     def _build_query(request: MapMatchJobRequest) -> dict[str, Any]:
