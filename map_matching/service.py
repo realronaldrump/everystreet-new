@@ -423,6 +423,7 @@ class MapMatchingJobRunner:
                 progress.progress = int((processed / total_trips) * 100)
                 progress.message = f"Processed {processed} of {total_trips} trips"
                 progress.metadata = {
+                    **(progress.metadata or {}),
                     "total": total_trips,
                     "processed": processed,
                     "map_matched": matched,
@@ -437,6 +438,13 @@ class MapMatchingJobRunner:
             progress.message = (
                 f"Completed: {matched} matched, {failed} failed"
             )
+            progress.metadata = {
+                **(progress.metadata or {}),
+                "total": total_trips,
+                "processed": processed,
+                "map_matched": matched,
+                "failed": failed,
+            }
             progress.updated_at = datetime.now(UTC)
             await progress.save()
 
