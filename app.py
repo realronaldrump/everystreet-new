@@ -7,7 +7,7 @@ from profile import router as profile_api_router
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -80,6 +80,21 @@ app.mount(
     name="static",
 )
 templates = Jinja2Templates(directory="templates")
+
+# Root-level icon requests (browser defaults)
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon() -> RedirectResponse:
+    return RedirectResponse(url="/static/favicon.ico")
+
+
+@app.get("/apple-touch-icon.png", include_in_schema=False)
+async def apple_touch_icon() -> RedirectResponse:
+    return RedirectResponse(url="/static/apple-touch-icon.png")
+
+
+@app.get("/apple-touch-icon-precomposed.png", include_in_schema=False)
+async def apple_touch_icon_precomposed() -> RedirectResponse:
+    return RedirectResponse(url="/static/apple-touch-icon.png")
 
 # CORS Middleware Configuration
 # Get allowed origins from environment variable or use defaults

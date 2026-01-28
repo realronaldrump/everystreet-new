@@ -40,6 +40,46 @@ generate_config() {
   fi
 }
 
+# Remove tile/traffic extract references when archives are not present.
+strip_missing_extracts() {
+  if [ ! -f "$VALHALLA_CONFIG" ]; then
+    return
+  fi
+
+  export VALHALLA_CONFIG
+  python3 - <<'PY'
+import json
+import os
+
+config_path = os.environ.get("VALHALLA_CONFIG")
+if not config_path or not os.path.exists(config_path):
+    raise SystemExit(0)
+
+tile_extract = "/data/valhalla/tiles.tar"
+traffic_extract = "/data/valhalla/traffic.tar"
+
+with open(config_path, "r", encoding="utf-8") as handle:
+    data = json.load(handle)
+
+mjolnir = data.get("mjolnir") or {}
+changed = False
+
+if mjolnir.get("tile_extract") and not os.path.exists(tile_extract):
+    mjolnir.pop("tile_extract", None)
+    changed = True
+
+if mjolnir.get("traffic_extract") and not os.path.exists(traffic_extract):
+    mjolnir.pop("traffic_extract", None)
+    changed = True
+
+if changed:
+    data["mjolnir"] = mjolnir
+    with open(config_path, "w", encoding="utf-8") as handle:
+        json.dump(data, handle, indent=2)
+    print("[valhalla-entrypoint] Removed missing tile/traffic extracts from config.")
+PY
+}
+
 # Start the Valhalla service
 start_service() {
   log "Starting Valhalla service..."
@@ -68,6 +108,7 @@ start_service() {
 
 # Generate configuration
 generate_config
+strip_missing_extracts
 
 # Check for existing tiles
 TILE_COUNT=$(count_tiles)

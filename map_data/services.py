@@ -228,7 +228,11 @@ async def check_container_status(service_name: str) -> dict[str, Any]:
 
     container_name = names[0]
     inspect = await _inspect_container(container_name)
-    state = inspect.get("State") if isinstance(inspect, dict) else {}
+    state = (
+        inspect.get("State")
+        if isinstance(inspect, dict) and isinstance(inspect.get("State"), dict)
+        else {}
+    )
     running = bool(state.get("Running"))
     status_text = str(state.get("Status") or "unknown")
     restart_count = inspect.get("RestartCount") if isinstance(inspect, dict) else None

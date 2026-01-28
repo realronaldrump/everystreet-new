@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from typing import ClassVar
 
 from arq import cron, func
@@ -38,6 +39,10 @@ from tasks.map_data import (
 )
 from tasks.routes import generate_optimal_route
 
+PERIODIC_FETCH_TIMEOUT_SECONDS = int(
+    os.getenv("TRIP_FETCH_JOB_TIMEOUT_SECONDS", str(15 * 60)),
+)
+
 
 async def on_startup(ctx: dict) -> None:
     await db_manager.init_beanie()
@@ -72,7 +77,7 @@ async def on_shutdown(ctx: dict) -> None:
 
 class WorkerSettings:
     functions: ClassVar[list[object]] = [  # noqa: V107
-        periodic_fetch_trips,
+        func(periodic_fetch_trips, timeout=PERIODIC_FETCH_TIMEOUT_SECONDS),
         fetch_trip_by_transaction_id,
         manual_fetch_trips_range,
         fetch_all_missing_trips,
@@ -89,7 +94,7 @@ class WorkerSettings:
         auto_provision_check,
     ]
     cron_jobs: ClassVar[list[object]] = [  # noqa: V107
-        cron(cron_periodic_fetch_trips),
+        cron(cron_periodic_fetch_trips, timeout=PERIODIC_FETCH_TIMEOUT_SECONDS),
         cron(cron_cleanup_stale_trips),
         cron(cron_validate_trips),
         cron(cron_remap_unmatched_trips),

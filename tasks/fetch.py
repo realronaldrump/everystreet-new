@@ -172,7 +172,7 @@ async def _periodic_fetch_trips_logic(
         )
 
         if not fetched_trips:
-            logger.warning("No trips were fetched in the date range")
+            logger.info("No trips were fetched in the date range")
         else:
             logger.info("Fetched %d trips in the date range", len(fetched_trips))
             if map_match_on_fetch:

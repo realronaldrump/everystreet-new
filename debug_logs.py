@@ -5,6 +5,8 @@ from dotenv import load_dotenv
 # Load env vars first
 load_dotenv()
 
+from beanie.operators import In
+
 from db.manager import db_manager
 from db.models import ServerLog
 
@@ -16,7 +18,7 @@ async def main() -> None:
 
         # Fetch last 20 error/warning logs
         logs = (
-            await ServerLog.find(ServerLog.level.in_(["ERROR", "CRITICAL", "WARNING"]))
+            await ServerLog.find(In(ServerLog.level, ["ERROR", "CRITICAL", "WARNING"]))
             .sort("-timestamp")
             .limit(20)
             .to_list()

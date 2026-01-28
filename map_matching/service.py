@@ -13,6 +13,7 @@ from db import build_calendar_date_expr
 from db.models import ProgressStatus, Trip
 from geo_service import MapMatchingService, extract_timestamps_for_coordinates
 from geo_service.geometry import GeometryService
+from map_data.services import check_service_health
 from map_matching.schemas import MapMatchJobRequest
 from tasks.ops import enqueue_task
 from trips.models import TripMapMatchProjection, TripPreviewProjection, TripStatusProjection
@@ -351,6 +352,28 @@ class MapMatchingJobRunner:
         progress = await self._get_or_create_progress(job_id)
 
         try:
+            health = await check_service_health(force_refresh=True)
+            if not health.valhalla_healthy:
+                message = (
+                    f"Valhalla not ready: {health.valhalla_error or 'routing unavailable'}"
+                )
+                await self._update_progress(
+                    progress,
+                    status="failed",
+                    stage="blocked",
+                    progress_pct=0,
+                    message=message,
+                )
+                logger.warning("Map matching blocked: %s", message)
+                return {
+                    "status": "blocked",
+                    "message": message,
+                    "total": 0,
+                    "map_matched": 0,
+                    "failed": 0,
+                    "skipped": 0,
+                }
+
             # Find trips to process
             query = self._build_query(request)
             trips = await Trip.find(query).project(TripMapMatchProjection).to_list()

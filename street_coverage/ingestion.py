@@ -21,6 +21,7 @@ from beanie import PydanticObjectId
 from shapely.geometry import LineString, MultiLineString, mapping, shape
 from shapely.ops import transform
 
+from map_data.us_states import get_state
 from street_coverage.constants import (
     BATCH_SIZE,
     MAX_INGESTION_RETRIES,
@@ -477,11 +478,54 @@ async def _fetch_boundary(location_name: str) -> dict[str, Any]:
     from core.http.nominatim import NominatimClient
 
     client = NominatimClient()
-    data = await client.search_raw(
-        query=location_name,
-        limit=1,
-        polygon_geojson=True,
-    )
+    data: list[dict[str, Any]] = []
+
+    def _candidate_queries(name: str) -> list[str]:
+        base = " ".join((name or "").split())
+        if not base:
+            return []
+
+        candidates = [base]
+
+        title = ", ".join(part.strip().title() for part in base.split(","))
+        if title and title not in candidates:
+            candidates.append(title)
+
+        parts = [part.strip() for part in base.split(",") if part.strip()]
+        if len(parts) >= 2:
+            city = parts[0].title()
+            state_raw = parts[-1]
+            state_code = state_raw.strip().upper()
+            state_info = get_state(state_code)
+            if state_info and state_info.get("name"):
+                state_name = str(state_info["name"])
+                expanded = f"{city}, {state_name}"
+                if expanded not in candidates:
+                    candidates.append(expanded)
+                expanded_us = f"{expanded}, USA"
+                if expanded_us not in candidates:
+                    candidates.append(expanded_us)
+            state_code_query = f"{city}, {state_code}"
+            if state_code_query not in candidates:
+                candidates.append(state_code_query)
+
+        for candidate in list(candidates):
+            lower = candidate.lower()
+            if "usa" not in lower and "united states" not in lower:
+                with_country = f"{candidate}, USA"
+                if with_country not in candidates:
+                    candidates.append(with_country)
+
+        return candidates
+
+    for query in _candidate_queries(location_name):
+        data = await client.search_raw(
+            query=query,
+            limit=1,
+            polygon_geojson=True,
+        )
+        if data:
+            break
 
     if not data:
         msg = f"Location not found: {location_name}"
@@ -489,6 +533,30 @@ async def _fetch_boundary(location_name: str) -> dict[str, Any]:
 
     result = data[0]
     geojson = result.get("geojson")
+
+    if not geojson:
+        bbox = result.get("boundingbox")
+        if isinstance(bbox, list) and len(bbox) == 4:
+            try:
+                south, north, west, east = map(float, bbox)
+                geojson = {
+                    "type": "Polygon",
+                    "coordinates": [
+                        [
+                            [west, south],
+                            [west, north],
+                            [east, north],
+                            [east, south],
+                            [west, south],
+                        ],
+                    ],
+                }
+                logger.warning(
+                    "Using bounding box fallback for %s due to missing polygon",
+                    location_name,
+                )
+            except (TypeError, ValueError):
+                geojson = None
 
     if not geojson:
         msg = f"No boundary polygon for: {location_name}"
