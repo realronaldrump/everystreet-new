@@ -53,6 +53,34 @@ let matchedPreviewPendingGeojson = null;
 let matchedPreviewFeaturesById = new Map();
 let matchedPreviewSelectedId = null;
 let lastAutoPreviewJobId = null;
+let jobsPollTimer = null;
+
+const LAST_JOB_STORAGE_KEY = "map_matching:last_job_id";
+const TERMINAL_STAGES = new Set(["completed", "failed", "error"]);
+
+function storeLastJobId(jobId) {
+  if (!jobId) {
+    return;
+  }
+  try {
+    window.localStorage.setItem(LAST_JOB_STORAGE_KEY, jobId);
+  } catch (error) {
+    console.warn("Unable to persist map matching job id", error);
+  }
+}
+
+function getStoredJobId() {
+  try {
+    return window.localStorage.getItem(LAST_JOB_STORAGE_KEY);
+  } catch (error) {
+    console.warn("Unable to read stored map matching job id", error);
+    return null;
+  }
+}
+
+function isTerminalStage(stage) {
+  return stage ? TERMINAL_STAGES.has(stage) : false;
+}
 
 function setModeUI(mode) {
   const isDate = mode === "date_range";
@@ -138,6 +166,10 @@ function stopPolling() {
     clearInterval(pollTimer);
     pollTimer = null;
   }
+  if (jobsPollTimer) {
+    clearInterval(jobsPollTimer);
+    jobsPollTimer = null;
+  }
 }
 
 async function fetchJob(jobId) {
@@ -147,25 +179,29 @@ async function fetchJob(jobId) {
   try {
     const data = await apiClient.get(CONFIG.API.mapMatchingJob(jobId));
     updateProgressUI(data);
-    if (["completed", "failed", "error"].includes(data.stage)) {
+    if (isTerminalStage(data.stage)) {
       stopPolling();
     }
     if (data.stage === "completed" && jobId && lastAutoPreviewJobId !== jobId) {
       lastAutoPreviewJobId = jobId;
       loadMatchedPreview(jobId, { silent: true });
     }
+    return data;
   } catch (error) {
     console.error("Failed to fetch job", error);
     stopPolling();
+    return null;
   }
 }
 
 function startPolling(jobId) {
   currentJobId = jobId;
   lastAutoPreviewJobId = null;
+  storeLastJobId(jobId);
   fetchJob(jobId);
   stopPolling();
   pollTimer = setInterval(() => fetchJob(jobId), 1000);
+  jobsPollTimer = setInterval(() => loadJobs(), 5000);
 
   const url = new URL(window.location.href);
   url.searchParams.set("job", jobId);
@@ -176,8 +212,10 @@ async function loadJobs() {
   try {
     const data = await apiClient.get(CONFIG.API.mapMatchingJobs);
     renderJobs(data.jobs || []);
+    return data.jobs || [];
   } catch (error) {
     console.error("Failed to load jobs", error);
+    return [];
   }
 }
 
@@ -722,17 +760,36 @@ function focusMatchedPreviewTrip(tripId) {
   }
 }
 
-function initFromURL() {
+function getJobIdFromURL() {
   const params = new URLSearchParams(window.location.search);
-  const jobId = params.get("job");
-  if (jobId) {
-    startPolling(jobId);
-  } else {
-    updateProgressUI(null);
-  }
+  return params.get("job");
 }
 
-function init() {
+function findActiveJob(jobs) {
+  if (!Array.isArray(jobs)) {
+    return null;
+  }
+  return jobs.find((job) => job && !isTerminalStage(job.stage));
+}
+
+async function resumeFromJobs(jobs) {
+  if (currentJobId) {
+    return;
+  }
+  const active = findActiveJob(jobs);
+  if (active?.job_id) {
+    startPolling(active.job_id);
+    return;
+  }
+  const storedJobId = getStoredJobId();
+  if (storedJobId) {
+    startPolling(storedJobId);
+    return;
+  }
+  updateProgressUI(null);
+}
+
+async function init() {
   if (!elements.form || !elements.modeSelect || !elements.dateModeSelect) {
     return;
   }
@@ -741,8 +798,14 @@ function init() {
   invalidatePreview();
   wireEvents();
   initDatePickers();
-  loadJobs();
-  initFromURL();
+  const jobFromUrl = getJobIdFromURL();
+  if (jobFromUrl) {
+    startPolling(jobFromUrl);
+  }
+  const jobs = await loadJobs();
+  if (!jobFromUrl) {
+    await resumeFromJobs(jobs);
+  }
 }
 
 init();
