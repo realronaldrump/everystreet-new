@@ -119,6 +119,24 @@ async def delete_map_matching_job(
         )
 
 
+@router.post("/api/map_matching/jobs/{job_id}/cancel", response_model=dict[str, object])
+@api_route(logger)
+async def cancel_map_matching_job(
+    job_id: str,
+):
+    """Cancel a running map matching job."""
+    try:
+        return await service.cancel_job(job_id)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Failed to cancel map matching job")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
+        )
+
+
 @router.get("/api/map_matching/jobs/{job_id}/matches", response_model=dict[str, object])
 @api_route(logger)
 async def preview_map_matching_results(

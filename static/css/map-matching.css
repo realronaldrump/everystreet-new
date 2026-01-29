@@ -575,6 +575,10 @@
   stroke: var(--danger);
 }
 
+.progress-ring-fill.is-cancelled {
+  stroke: var(--text-tertiary);
+}
+
 .progress-ring-text {
   position: absolute;
   inset: 0;
@@ -602,6 +606,12 @@
 .progress-metrics {
   font-size: var(--font-size-xs);
   color: var(--text-tertiary);
+}
+
+.progress-actions {
+  margin-top: var(--space-3);
+  display: flex;
+  justify-content: center;
 }
 
 /* === History Widget === */
@@ -716,6 +726,10 @@
 
 .history-job-status.is-queued {
   background: var(--text-tertiary);
+}
+
+.history-job-status.is-cancelled {
+  background: rgb(var(--border-rgb) / 45%);
 }
 
 @keyframes pulse-status {

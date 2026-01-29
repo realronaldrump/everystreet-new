@@ -57,6 +57,7 @@ export const CONFIG = {
     mapMatchTrips: "/api/map_match_trips",
     mapMatchingJobs: "/api/map_matching/jobs",
     mapMatchingJob: (id) => `/api/map_matching/jobs/${id}`,
+    mapMatchingJobCancel: (id) => `/api/map_matching/jobs/${id}/cancel`,
     mapMatchingJobMatches: (id) => `/api/map_matching/jobs/${id}/matches`,
     geocodeTrips: "/api/geocode_trips",
     tripAnalytics: "/api/trip-analytics",

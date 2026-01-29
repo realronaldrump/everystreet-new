@@ -15,13 +15,14 @@ from geo_service import MapMatchingService, extract_timestamps_for_coordinates
 from geo_service.geometry import GeometryService
 from map_data.services import check_service_health
 from map_matching.schemas import MapMatchJobRequest
-from tasks.ops import enqueue_task
+from tasks.config import update_task_history_entry
+from tasks.ops import abort_job, enqueue_task
 from trips.models import TripMapMatchProjection, TripPreviewProjection, TripStatusProjection
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_BATCH_SIZE = 50  # Smaller batches for better progress feedback
-TERMINAL_STAGES = {"completed", "failed", "error"}
+TERMINAL_STAGES = {"completed", "failed", "error", "cancelled"}
 
 
 def _is_terminal_stage(stage: str | None) -> bool:
@@ -131,6 +132,71 @@ class MapMatchingJobService:
 
         await progress.delete()
         return {"status": "success", "deleted": 1}
+
+    async def cancel_job(
+        self,
+        job_id: str,
+        *,
+        reason: str = "Cancelled by user",
+    ) -> dict[str, Any]:
+        progress = await ProgressStatus.find_one(
+            ProgressStatus.operation_id == job_id,
+            ProgressStatus.operation_type == "map_matching",
+        )
+        if not progress:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Job not found",
+            )
+
+        if _is_terminal_progress(progress):
+            return {
+                "status": (
+                    "cancelled"
+                    if progress.stage == "cancelled" or progress.status == "cancelled"
+                    else "already_finished"
+                ),
+                "job": await self.get_job(job_id),
+            }
+
+        aborted = False
+        try:
+            aborted = await abort_job(job_id)
+        except Exception as exc:
+            logger.warning("Failed to abort map matching job %s: %s", job_id, exc)
+
+        now = datetime.now(UTC)
+        progress.status = "cancelled"
+        progress.stage = "cancelled"
+        progress.message = reason
+        progress.updated_at = now
+        progress.completed_at = now
+        metadata = progress.metadata or {}
+        metadata["cancelled"] = True
+        progress.metadata = metadata
+        await progress.save()
+
+        try:
+            await update_task_history_entry(
+                job_id=job_id,
+                task_name="map_match_trips",
+                status="CANCELLED",
+                manual_run=bool(metadata.get("source") == "manual"),
+                error=reason,
+                end_time=now,
+            )
+        except Exception as exc:
+            logger.warning(
+                "Failed to update task history for cancelled map matching job %s: %s",
+                job_id,
+                exc,
+            )
+
+        return {
+            "status": "cancelled",
+            "aborted": aborted,
+            "job": await self.get_job(job_id),
+        }
 
     async def clear_history(self, *, include_active: bool = False) -> dict[str, Any]:
         entries = await ProgressStatus.find(
@@ -406,6 +472,14 @@ class MapMatchingJobRunner:
         3. Updates the matchedGps field in the database
         """
         progress = await self._get_or_create_progress(job_id)
+        if progress.stage == "cancelled" or progress.status == "cancelled":
+            return {
+                "status": "cancelled",
+                "total": 0,
+                "map_matched": 0,
+                "failed": 0,
+                "skipped": 0,
+            }
 
         try:
             health = await check_service_health(force_refresh=True)
@@ -460,7 +534,34 @@ class MapMatchingJobRunner:
                 }
 
             # Process trips directly
-            results = await self._process_trips_directly(trips, progress, total_trips)
+            results = await self._process_trips_directly(
+                trips,
+                progress,
+                total_trips,
+                job_id,
+            )
+
+            if results.get("cancelled"):
+                progress_pct = (
+                    int((results.get("processed", 0) / total_trips) * 100)
+                    if total_trips
+                    else 0
+                )
+                await self._update_progress(
+                    progress,
+                    status="cancelled",
+                    stage="cancelled",
+                    progress_pct=progress_pct,
+                    message="Cancelled by user",
+                    **results,
+                )
+                return {
+                    "status": "cancelled",
+                    "total": total_trips,
+                    "map_matched": results["matched"],
+                    "failed": results["failed"],
+                    "skipped": results["skipped"],
+                }
 
             # Final update
             await self._update_progress(
@@ -496,7 +597,8 @@ class MapMatchingJobRunner:
         trips: list[TripMapMatchProjection],
         progress: ProgressStatus,
         total: int,
-    ) -> dict[str, int]:
+        job_id: str,
+    ) -> dict[str, int | bool]:
         """Process trips directly without going through the complex pipeline."""
         matched = 0
         failed = 0
@@ -504,6 +606,14 @@ class MapMatchingJobRunner:
         processed = 0
 
         for trip in trips:
+            if processed % 5 == 0 and await self._is_cancelled(job_id):
+                return {
+                    "matched": matched,
+                    "failed": failed,
+                    "skipped": skipped,
+                    "processed": processed,
+                    "cancelled": True,
+                }
             processed += 1
             trip_id = trip.transactionId or "unknown"
 
@@ -523,6 +633,14 @@ class MapMatchingJobRunner:
 
             # Update progress every trip (for responsiveness)
             if processed % 5 == 0 or processed == total:
+                if await self._is_cancelled(job_id):
+                    return {
+                        "matched": matched,
+                        "failed": failed,
+                        "skipped": skipped,
+                        "processed": processed,
+                        "cancelled": True,
+                    }
                 await self._update_progress(
                     progress,
                     progress_pct=int((processed / total) * 100),
@@ -635,6 +753,8 @@ class MapMatchingJobRunner:
             )
             await progress.insert()
         else:
+            if _is_terminal_progress(progress):
+                return progress
             progress.status = "running"
             progress.stage = "initializing"
             progress.progress = 0
@@ -642,6 +762,15 @@ class MapMatchingJobRunner:
             progress.updated_at = datetime.now(UTC)
             await progress.save()
         return progress
+
+    async def _is_cancelled(self, job_id: str) -> bool:
+        progress = await ProgressStatus.find_one(
+            ProgressStatus.operation_id == job_id,
+            ProgressStatus.operation_type == "map_matching",
+        )
+        if not progress:
+            return False
+        return progress.stage == "cancelled" or progress.status == "cancelled"
 
     async def _update_progress(
         self,

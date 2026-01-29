@@ -50,6 +50,7 @@ const elements = {
   progressPercent: document.getElementById("map-match-progress-percent"),
   progressMessage: document.getElementById("map-match-progress-message"),
   progressMetrics: document.getElementById("map-match-progress-metrics"),
+  cancelBtn: document.getElementById("map-match-cancel-btn"),
   previewSelectAll: document.getElementById("map-match-preview-select-all"),
   previewSelectionCount: document.getElementById("map-match-preview-selection-count"),
   previewClearSelection: document.getElementById("map-match-preview-clear-selection"),
@@ -79,7 +80,7 @@ let matchedSelection = new Set();
 let selectedQuickPick = null;
 
 const LAST_JOB_STORAGE_KEY = "map_matching:last_job_id";
-const TERMINAL_STAGES = new Set(["completed", "failed", "error"]);
+const TERMINAL_STAGES = new Set(["completed", "failed", "error", "cancelled"]);
 const PROGRESS_RING_CIRCUMFERENCE = 2 * Math.PI * 42; // r=42
 
 // Friendly messages for different stages
@@ -89,6 +90,7 @@ const FRIENDLY_MESSAGES = {
   completed: "All done!",
   failed: "Something went wrong",
   error: "Something went wrong",
+  cancelled: "Cancelled by user",
 };
 
 function storeLastJobId(jobId) {
@@ -189,6 +191,10 @@ function updateProgressUI(progress) {
     elements.currentPanel.classList.add("d-none");
     elements.currentEmpty.classList.remove("d-none");
     currentJobStage = null;
+    if (elements.cancelBtn) {
+      elements.cancelBtn.classList.add("d-none");
+      elements.cancelBtn.disabled = true;
+    }
     return;
   }
 
@@ -216,6 +222,12 @@ function updateProgressUI(progress) {
   const friendlyMsg = FRIENDLY_MESSAGES[stage] || progress.message || "";
   elements.progressMessage.textContent = friendlyMsg;
 
+  if (elements.cancelBtn) {
+    const canCancel = !isTerminalStage(stage);
+    elements.cancelBtn.classList.toggle("d-none", !canCancel);
+    elements.cancelBtn.disabled = !canCancel;
+  }
+
   // Simplified metrics
   const metrics = progress.metrics || {};
   if (metrics.total != null) {
@@ -228,11 +240,13 @@ function updateProgressUI(progress) {
 
   // Update ring color based on state
   if (elements.progressRing) {
-    elements.progressRing.classList.remove("is-success", "is-error");
+    elements.progressRing.classList.remove("is-success", "is-error", "is-cancelled");
     if (stage === "completed") {
       elements.progressRing.classList.add("is-success");
     } else if (stage === "failed" || stage === "error") {
       elements.progressRing.classList.add("is-error");
+    } else if (stage === "cancelled") {
+      elements.progressRing.classList.add("is-cancelled");
     }
   }
 }
@@ -317,7 +331,9 @@ function renderJobs(jobs) {
           const updated = formatFriendlyDate(job.updated_at);
           const isTerminal = isTerminalStage(status);
           const statusClass = status === "completed" ? "is-completed" :
-            (status === "processing" || status === "queued") ? "is-processing" : "is-failed";
+            status === "cancelled" ? "is-cancelled" :
+              (status === "processing" || status === "queued") ? "is-processing" : "is-failed";
+          const canCancel = !isTerminal;
 
           // Friendly status message
           let message = job.message || "";
@@ -325,6 +341,8 @@ function renderJobs(jobs) {
             const metrics = job.metrics || {};
             const matched = metrics.matched ?? metrics.map_matched ?? 0;
             message = `${matched} trips improved`;
+          } else if (status === "cancelled") {
+            message = job.message || "Cancelled";
           } else if (status === "processing") {
             message = "Improving routes...";
           } else if (status === "queued") {
@@ -345,6 +363,9 @@ function renderJobs(jobs) {
                 </button>
                 <button class="btn btn-ghost btn-sm" data-action="preview" data-job-id="${job.job_id}" title="Show results" ${!isTerminal ? "disabled" : ""}>
                   <i class="fas fa-map"></i>
+                </button>
+                <button class="btn btn-ghost btn-sm text-danger" data-action="cancel" data-job-id="${job.job_id}" title="Cancel" ${!canCancel ? "disabled" : ""}>
+                  <i class="fas fa-stop"></i>
                 </button>
                 <button class="btn btn-ghost btn-sm" data-action="delete" data-job-id="${job.job_id}" title="Remove" ${!isTerminal ? "disabled" : ""}>
                   <i class="fas fa-trash"></i>
@@ -375,6 +396,7 @@ function renderJobs(jobs) {
             <td>
               <button class="btn btn-sm btn-outline-secondary" data-job-id="${job.job_id}">View</button>
               <button class="btn btn-sm btn-outline-primary ms-2" data-preview-job-id="${job.job_id}" ${!isTerminal ? "disabled" : ""}>Preview</button>
+              <button class="btn btn-sm btn-outline-danger ms-2" data-cancel-job-id="${job.job_id}" ${isTerminal ? "disabled" : ""}>Cancel</button>
               <button class="btn btn-sm btn-outline-danger ms-2" data-delete-job-id="${job.job_id}" ${!isTerminal ? "disabled" : ""}>Remove</button>
             </td>
           </tr>
@@ -601,6 +623,8 @@ function wireEvents() {
     } else if (action === "preview" && jobId) {
       startPolling(jobId);
       loadMatchedPreview(jobId);
+    } else if (action === "cancel" && jobId) {
+      cancelJob(jobId);
     } else if (action === "delete" && jobId) {
       deleteJobHistory(jobId);
     }
@@ -619,6 +643,10 @@ function wireEvents() {
   elements.previewBtn?.addEventListener("click", previewTrips);
   elements.previewMapBtn?.addEventListener("click", () => {
     loadMatchedPreview(currentJobId);
+  });
+
+  elements.cancelBtn?.addEventListener("click", () => {
+    cancelJob(currentJobId);
   });
 
   elements.refreshBtn?.addEventListener("click", (e) => {
@@ -651,11 +679,19 @@ function wireEvents() {
   elements.jobsBody?.addEventListener("click", (event) => {
     const button = event.target.closest("button[data-job-id]");
     const previewButton = event.target.closest("button[data-preview-job-id]");
+    const cancelButton = event.target.closest("button[data-cancel-job-id]");
     const deleteButton = event.target.closest("button[data-delete-job-id]");
     if (deleteButton) {
       const jobId = deleteButton.dataset.deleteJobId;
       if (jobId) {
         deleteJobHistory(jobId);
+      }
+      return;
+    }
+    if (cancelButton) {
+      const jobId = cancelButton.dataset.cancelJobId;
+      if (jobId) {
+        cancelJob(jobId);
       }
       return;
     }
@@ -1253,6 +1289,52 @@ async function deleteTrips(tripIds, { silent = false } = {}) {
   } catch (error) {
     console.error("Failed to delete trips", error);
     setInlineStatus(elements.previewActionsStatus, error.message, "danger");
+  }
+}
+
+async function cancelJob(jobId) {
+  if (!jobId) {
+    return;
+  }
+  const confirmed = await confirmationDialog.show({
+    title: "Cancel map matching job",
+    message:
+      "Stop this job? Trips already improved will remain, and remaining trips will be skipped.",
+    confirmText: "Cancel job",
+    confirmButtonClass: "btn-danger",
+  });
+  if (!confirmed) {
+    return;
+  }
+
+  const disableCancelBtn = Boolean(elements.cancelBtn && currentJobId === jobId);
+  try {
+    if (disableCancelBtn) {
+      elements.cancelBtn.disabled = true;
+    }
+    setInlineStatus(elements.historyStatus, "Cancelling...", "info");
+    const response = await apiClient.post(CONFIG.API.mapMatchingJobCancel(jobId));
+    if (response?.status === "already_finished") {
+      notificationManager.show("Job already finished", "info");
+    } else {
+      notificationManager.show("Job cancelled", "info");
+    }
+    await loadJobs();
+    if (currentJobId === jobId) {
+      if (response?.job) {
+        updateProgressUI(response.job);
+      } else {
+        await fetchJob(jobId);
+      }
+      stopPolling();
+    }
+    clearInlineStatus(elements.historyStatus);
+  } catch (error) {
+    console.error("Failed to cancel job", error);
+    setInlineStatus(elements.historyStatus, error.message, "danger");
+    if (disableCancelBtn) {
+      elements.cancelBtn.disabled = false;
+    }
   }
 }
 
