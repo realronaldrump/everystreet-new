@@ -20,6 +20,13 @@ class ValhallaConfigTests(unittest.TestCase):
         ):
             assert config.require_valhalla_route_url() == "http://valhalla:8002/route"
 
+    def test_require_valhalla_trace_route_url_defaults(self) -> None:
+        with patch.dict(os.environ, {}, clear=True):
+            assert (
+                config.require_valhalla_trace_route_url()
+                == "http://valhalla:8002/trace_route"
+            )
+
 
 class NominatimConfigTests(unittest.TestCase):
     def test_require_nominatim_user_agent_defaults(self) -> None:

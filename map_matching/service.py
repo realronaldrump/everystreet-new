@@ -322,6 +322,7 @@ class MapMatchingJobService:
                 "end_date": request.end_date,
                 "interval_days": request.interval_days,
                 "trip_id": request.trip_id,
+                "trip_ids": request.trip_ids,
                 "trip_ids_count": len(request.trip_ids or []),
                 "unmatched_only": request.unmatched_only,
                 "rematch": request.rematch,
