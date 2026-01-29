@@ -11,6 +11,7 @@ import { clearInlineStatus, setInlineStatus } from "../settings/status-utils.js"
 const elements = {
   form: document.getElementById("map-matching-form"),
   modeSelect: document.getElementById("map-match-mode"),
+  selectionCards: document.getElementById("map-match-selection-cards"),
   dateModeSelect: document.getElementById("map-match-date-mode"),
   dateControls: document.getElementById("map-match-date-controls"),
   dateRange: document.getElementById("map-match-date-range"),
@@ -37,10 +38,16 @@ const elements = {
   refreshBtn: document.getElementById("map-match-refresh"),
   historyClearBtn: document.getElementById("map-match-history-clear"),
   historyStatus: document.getElementById("map-match-history-status"),
+  historyToggle: document.getElementById("map-match-history-toggle"),
+  historyBody: document.getElementById("map-match-history-body"),
+  historyCount: document.getElementById("map-match-history-count"),
+  jobsList: document.getElementById("map-match-jobs-list"),
   jobsBody: document.getElementById("map-match-jobs-body"),
   currentEmpty: document.getElementById("map-match-current-empty"),
   currentPanel: document.getElementById("map-match-current-panel"),
   progressBar: document.getElementById("map-match-progress-bar"),
+  progressRing: document.getElementById("map-match-progress-ring"),
+  progressPercent: document.getElementById("map-match-progress-percent"),
   progressMessage: document.getElementById("map-match-progress-message"),
   progressMetrics: document.getElementById("map-match-progress-metrics"),
   previewSelectAll: document.getElementById("map-match-preview-select-all"),
@@ -49,6 +56,11 @@ const elements = {
   previewUnmatchSelected: document.getElementById("map-match-preview-unmatch-selected"),
   previewDeleteSelected: document.getElementById("map-match-preview-delete-selected"),
   previewActionsStatus: document.getElementById("map-match-preview-actions-status"),
+  advancedToggle: document.getElementById("map-match-advanced-toggle"),
+  advancedOptions: document.getElementById("map-match-advanced-options"),
+  resultsTrips: document.getElementById("map-match-results-trips"),
+  resultsCount: document.getElementById("map-match-results-count"),
+  bulkActions: document.getElementById("map-match-bulk-actions"),
 };
 
 let currentJobId = null;
@@ -64,9 +76,20 @@ let matchedPreviewSelectedId = null;
 let lastAutoPreviewJobId = null;
 let jobsPollTimer = null;
 let matchedSelection = new Set();
+let selectedQuickPick = null;
 
 const LAST_JOB_STORAGE_KEY = "map_matching:last_job_id";
 const TERMINAL_STAGES = new Set(["completed", "failed", "error"]);
+const PROGRESS_RING_CIRCUMFERENCE = 2 * Math.PI * 42; // r=42
+
+// Friendly messages for different stages
+const FRIENDLY_MESSAGES = {
+  queued: "Getting ready...",
+  processing: "Improving your routes...",
+  completed: "All done!",
+  failed: "Something went wrong",
+  error: "Something went wrong",
+};
 
 function storeLastJobId(jobId) {
   if (!jobId) {
@@ -92,19 +115,73 @@ function isTerminalStage(stage) {
   return stage ? TERMINAL_STAGES.has(stage) : false;
 }
 
+function formatFriendlyDate(dateStr) {
+  if (!dateStr) return "";
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diff = now - date;
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+
+  if (days === 0) {
+    return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  } else if (days === 1) {
+    return "Yesterday";
+  } else if (days < 7) {
+    return date.toLocaleDateString([], { weekday: "long" });
+  }
+  return date.toLocaleDateString([], { month: "short", day: "numeric" });
+}
+
+function formatTripDate(startTime, endTime) {
+  if (!startTime) return "Unknown date";
+  const start = new Date(startTime);
+  const dateStr = start.toLocaleDateString([], {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+  const timeStr = start.toLocaleTimeString([], {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+  return `${dateStr} at ${timeStr}`;
+}
+
 function setModeUI(mode) {
   const isDate = mode === "date_range";
   const isTrip = mode === "trip_id";
   elements.dateControls.classList.toggle("d-none", !isDate);
   elements.tripControls.classList.toggle("d-none", !isTrip);
+
+  // Update selection cards
+  document.querySelectorAll(".selection-card").forEach((card) => {
+    const cardMode = card.dataset.mode;
+    card.classList.toggle("is-selected", cardMode === mode);
+    const radio = card.querySelector('input[type="radio"]');
+    if (radio) {
+      radio.checked = cardMode === mode;
+    }
+  });
+
+  // Sync hidden select
+  if (elements.modeSelect) {
+    elements.modeSelect.value = mode;
+  }
+
   invalidatePreview();
 }
 
 function setDateModeUI(mode) {
   const isInterval = mode === "interval";
-  elements.dateRange.classList.toggle("d-none", isInterval);
-  elements.interval.classList.toggle("d-none", !isInterval);
+  elements.dateRange?.classList.toggle("d-none", isInterval);
+  elements.interval?.classList.toggle("d-none", !isInterval);
   invalidatePreview();
+}
+
+function updateProgressRing(pct) {
+  if (!elements.progressRing) return;
+  const offset = PROGRESS_RING_CIRCUMFERENCE - (pct / 100) * PROGRESS_RING_CIRCUMFERENCE;
+  elements.progressRing.style.strokeDashoffset = offset;
 }
 
 function updateProgressUI(progress) {
@@ -120,54 +197,43 @@ function updateProgressUI(progress) {
   currentJobStage = progress.stage || null;
 
   const pct = Math.min(100, Math.max(0, progress.progress || 0));
-  elements.progressBar.style.width = `${pct}%`;
-  elements.progressBar.textContent = `${pct}%`;
-  elements.progressBar.setAttribute("aria-valuenow", `${pct}`);
-  elements.progressBar.setAttribute("aria-valuemin", "0");
-  elements.progressBar.setAttribute("aria-valuemax", "100");
-  elements.progressMessage.textContent = progress.message || "";
 
+  // Update progress ring
+  updateProgressRing(pct);
+  if (elements.progressPercent) {
+    elements.progressPercent.textContent = `${pct}%`;
+  }
+
+  // Update legacy progress bar (hidden but kept for compatibility)
+  if (elements.progressBar) {
+    elements.progressBar.style.width = `${pct}%`;
+    elements.progressBar.textContent = `${pct}%`;
+    elements.progressBar.setAttribute("aria-valuenow", `${pct}`);
+  }
+
+  // Friendly message
+  const stage = progress.stage || "unknown";
+  const friendlyMsg = FRIENDLY_MESSAGES[stage] || progress.message || "";
+  elements.progressMessage.textContent = friendlyMsg;
+
+  // Simplified metrics
   const metrics = progress.metrics || {};
   if (metrics.total != null) {
-    // Build a clear metrics display
-    const parts = [];
-    parts.push(`Total: ${metrics.total}`);
-    if (metrics.processed != null) {
-      parts.push(`Processed: ${metrics.processed}`);
-    }
-    // Use either 'matched' (new format) or 'map_matched' (old format)
     const matchedCount = metrics.matched ?? metrics.map_matched ?? 0;
-    parts.push(`Matched: ${matchedCount}`);
-    if (metrics.skipped != null && metrics.skipped > 0) {
-      parts.push(`Skipped: ${metrics.skipped}`);
-    }
-    if (metrics.failed != null && metrics.failed > 0) {
-      parts.push(`Failed: ${metrics.failed}`);
-    }
-    elements.progressMetrics.textContent = parts.join(" | ");
+    const processed = metrics.processed ?? 0;
+    elements.progressMetrics.textContent = `${matchedCount} of ${metrics.total} trips improved`;
   } else {
     elements.progressMetrics.textContent = "";
   }
 
-  const stage = progress.stage || "unknown";
-  elements.progressBar.classList.remove(
-    "bg-success",
-    "bg-danger",
-    "bg-warning",
-    "bg-secondary",
-    "bg-primary",
-    "progress-bar-striped",
-    "progress-bar-animated"
-  );
-
-  if (stage === "completed") {
-    elements.progressBar.classList.add("bg-success");
-  } else if (stage === "failed" || stage === "error") {
-    elements.progressBar.classList.add("bg-danger");
-  } else if (stage === "queued") {
-    elements.progressBar.classList.add("bg-secondary");
-  } else {
-    elements.progressBar.classList.add("bg-primary", "progress-bar-striped", "progress-bar-animated");
+  // Update ring color based on state
+  if (elements.progressRing) {
+    elements.progressRing.classList.remove("is-success", "is-error");
+    if (stage === "completed") {
+      elements.progressRing.classList.add("is-success");
+    } else if (stage === "failed" || stage === "error") {
+      elements.progressRing.classList.add("is-error");
+    }
   }
 }
 
@@ -230,41 +296,92 @@ async function loadJobs() {
 }
 
 function renderJobs(jobs) {
-  if (!elements.jobsBody) {
-    return;
+  // Update count badge
+  if (elements.historyCount) {
+    elements.historyCount.textContent = jobs.length;
   }
-  elements.jobsBody.innerHTML = jobs
-    .map((job) => {
-      const status = job.stage || "unknown";
-      const progress = job.progress ?? 0;
-      const updated = job.updated_at ? new Date(job.updated_at).toLocaleString() : "";
-      const isTerminal = isTerminalStage(status);
-      const previewDisabled = !isTerminal;
-      const removeDisabled = !isTerminal;
-      return `
-        <tr>
-          <td class="text-truncate" style="max-width: 220px">${job.job_id || ""}</td>
-          <td>${status}</td>
-          <td>${progress}%</td>
-          <td>${updated}</td>
-          <td class="text-truncate" style="max-width: 260px">${job.message || ""}</td>
-          <td>
-            <button class="btn btn-sm btn-outline-secondary" data-job-id="${job.job_id}">
-              View
-            </button>
-            <button class="btn btn-sm btn-outline-primary ms-2" data-preview-job-id="${job.job_id}"
-                    ${previewDisabled ? "disabled" : ""}>
-              Preview
-            </button>
-            <button class="btn btn-sm btn-outline-danger ms-2" data-delete-job-id="${job.job_id}"
-                    ${removeDisabled ? "disabled" : ""}>
-              Remove
-            </button>
-          </td>
-        </tr>
+
+  // Render as cards in the new UI
+  if (elements.jobsList) {
+    if (jobs.length === 0) {
+      elements.jobsList.innerHTML = `
+        <div class="history-empty" style="padding: var(--space-4); text-align: center; color: var(--text-tertiary); font-size: var(--font-size-sm);">
+          No recent activity
+        </div>
       `;
-    })
-    .join("");
+    } else {
+      elements.jobsList.innerHTML = jobs
+        .map((job) => {
+          const status = job.stage || "unknown";
+          const progress = job.progress ?? 0;
+          const updated = formatFriendlyDate(job.updated_at);
+          const isTerminal = isTerminalStage(status);
+          const statusClass = status === "completed" ? "is-completed" :
+            (status === "processing" || status === "queued") ? "is-processing" : "is-failed";
+
+          // Friendly status message
+          let message = job.message || "";
+          if (status === "completed") {
+            const metrics = job.metrics || {};
+            const matched = metrics.matched ?? metrics.map_matched ?? 0;
+            message = `${matched} trips improved`;
+          } else if (status === "processing") {
+            message = "Improving routes...";
+          } else if (status === "queued") {
+            message = "Waiting to start";
+          }
+
+          return `
+            <div class="history-job" data-job-id="${job.job_id}">
+              <div class="history-job-status ${statusClass}"></div>
+              <div class="history-job-info">
+                <div class="history-job-time">${updated}</div>
+                <div class="history-job-message">${message}</div>
+              </div>
+              <div class="history-job-progress">${progress}%</div>
+              <div class="history-job-actions">
+                <button class="btn btn-ghost btn-sm" data-action="view" data-job-id="${job.job_id}" title="View">
+                  <i class="fas fa-eye"></i>
+                </button>
+                <button class="btn btn-ghost btn-sm" data-action="preview" data-job-id="${job.job_id}" title="Show results" ${!isTerminal ? "disabled" : ""}>
+                  <i class="fas fa-map"></i>
+                </button>
+                <button class="btn btn-ghost btn-sm" data-action="delete" data-job-id="${job.job_id}" title="Remove" ${!isTerminal ? "disabled" : ""}>
+                  <i class="fas fa-trash"></i>
+                </button>
+              </div>
+            </div>
+          `;
+        })
+        .join("");
+    }
+  }
+
+  // Also update legacy table for compatibility
+  if (elements.jobsBody) {
+    elements.jobsBody.innerHTML = jobs
+      .map((job) => {
+        const status = job.stage || "unknown";
+        const progress = job.progress ?? 0;
+        const updated = job.updated_at ? new Date(job.updated_at).toLocaleString() : "";
+        const isTerminal = isTerminalStage(status);
+        return `
+          <tr>
+            <td class="text-truncate" style="max-width: 220px">${job.job_id || ""}</td>
+            <td>${status}</td>
+            <td>${progress}%</td>
+            <td>${updated}</td>
+            <td class="text-truncate" style="max-width: 260px">${job.message || ""}</td>
+            <td>
+              <button class="btn btn-sm btn-outline-secondary" data-job-id="${job.job_id}">View</button>
+              <button class="btn btn-sm btn-outline-primary ms-2" data-preview-job-id="${job.job_id}" ${!isTerminal ? "disabled" : ""}>Preview</button>
+              <button class="btn btn-sm btn-outline-danger ms-2" data-delete-job-id="${job.job_id}" ${!isTerminal ? "disabled" : ""}>Remove</button>
+            </td>
+          </tr>
+        `;
+      })
+      .join("");
+  }
 }
 
 function buildPayload() {
@@ -281,25 +398,22 @@ function buildPayload() {
     return { mode: "trip_id", trip_id: tripId };
   }
 
-  const dateMode = elements.dateModeSelect.value;
   const unmatchedOnly = Boolean(elements.unmatchedOnly.checked);
 
-  if (dateMode === "interval") {
-    const interval = parseInt(elements.intervalSelect.value, 10);
-    if (!interval || interval < 1) {
-      throw new Error("Interval must be selected");
-    }
+  // Check if using quick pick interval
+  if (selectedQuickPick) {
     return {
       mode: "date_range",
-      interval_days: interval,
+      interval_days: selectedQuickPick,
       unmatched_only: unmatchedOnly,
     };
   }
 
+  // Custom date range
   const start = elements.startInput.value.trim();
   const end = elements.endInput.value.trim();
   if (!start || !end) {
-    throw new Error("Start and end dates are required");
+    throw new Error("Please select a date range or quick pick option");
   }
   return {
     mode: "date_range",
@@ -321,9 +435,7 @@ function invalidatePreview() {
   if (elements.previewSummary) {
     elements.previewSummary.textContent = "";
   }
-  if (elements.submitBtn) {
-    elements.submitBtn.disabled = true;
-  }
+  // Don't disable submit button - allow direct submission
 }
 
 function renderPreview(data) {
@@ -336,19 +448,22 @@ function renderPreview(data) {
   if (total === 0) {
     elements.previewSummary.textContent = "No trips found for this selection.";
   } else {
-    elements.previewSummary.textContent = `Found ${total} trips. Showing ${sample.length}.`;
+    elements.previewSummary.textContent = `Found ${total} trip${total !== 1 ? "s" : ""} to improve`;
   }
 
   elements.previewBody.innerHTML = sample
     .map((trip) => {
-      const start = trip.startTime ? new Date(trip.startTime).toLocaleString() : "--";
-      const end = trip.endTime ? new Date(trip.endTime).toLocaleString() : "--";
-      let distance = "--";
+      const dateStr = formatTripDate(trip.startTime);
+      let distance = "";
       if (trip.distance != null && !Number.isNaN(Number(trip.distance))) {
-        distance = `${Number(trip.distance).toFixed(2)} mi`;
+        distance = `${Number(trip.distance).toFixed(1)} mi`;
       }
-      const status = trip.matchedGps ? "Matched" : "Unmatched";
-      return `\n        <tr>\n          <td class=\"text-truncate\" style=\"max-width: 220px\">${trip.transactionId || ""}</td>\n          <td>${start}</td>\n          <td>${end}</td>\n          <td>${distance}</td>\n          <td>${status}</td>\n        </tr>\n      `;
+      return `
+        <tr>
+          <td>${dateStr}</td>
+          <td style="text-align: right; color: var(--text-tertiary);">${distance}</td>
+        </tr>
+      `;
     })
     .join("");
 
@@ -368,10 +483,7 @@ async function previewTrips() {
     previewSignature = signature;
     previewPayload = payload;
     renderPreview(response);
-    setInlineStatus(elements.previewStatus, "Preview loaded.", "success");
-    if (elements.submitBtn) {
-      elements.submitBtn.disabled = (response.total || 0) === 0;
-    }
+    clearInlineStatus(elements.previewStatus);
   } catch (error) {
     setInlineStatus(elements.previewStatus, error.message, "danger");
   }
@@ -382,32 +494,24 @@ async function submitForm(event) {
   clearInlineStatus(elements.submitStatus);
 
   try {
-    if (!previewPayload || !previewSignature) {
-      setInlineStatus(
-        elements.submitStatus,
-        "Preview trips before starting.",
-        "warning"
-      );
-      return;
+    // Build payload fresh if not previewed
+    let payload;
+    if (previewPayload && previewSignature) {
+      const currentPayload = buildPayload();
+      if (JSON.stringify(currentPayload) !== previewSignature) {
+        // Preview is stale, use fresh payload
+        payload = currentPayload;
+      } else {
+        payload = previewPayload;
+      }
+    } else {
+      payload = buildPayload();
     }
 
-    const currentPayload = buildPayload();
-    if (JSON.stringify(currentPayload) !== previewSignature) {
-      setInlineStatus(
-        elements.submitStatus,
-        "Preview is out of date. Please preview again.",
-        "warning"
-      );
-      return;
-    }
-
-    setInlineStatus(elements.submitStatus, "Queueing job...", "info");
-    const result = await apiClient.post(
-      CONFIG.API.mapMatchingJobs,
-      previewPayload
-    );
-    setInlineStatus(elements.submitStatus, "Job queued.", "success");
-    notificationManager.show("Map matching job queued", "success");
+    setInlineStatus(elements.submitStatus, "Starting...", "info");
+    const result = await apiClient.post(CONFIG.API.mapMatchingJobs, payload);
+    clearInlineStatus(elements.submitStatus);
+    notificationManager.show("Route improvement started!", "success");
     if (result?.job_id) {
       startPolling(result.job_id);
       loadJobs();
@@ -423,11 +527,91 @@ function wireEvents() {
     return;
   }
 
-  elements.modeSelect.addEventListener("change", (e) => {
+  // Selection cards
+  document.querySelectorAll(".selection-card").forEach((card) => {
+    card.addEventListener("click", () => {
+      const mode = card.dataset.mode;
+      if (mode) {
+        setModeUI(mode);
+      }
+    });
+  });
+
+  // Quick pick buttons
+  document.querySelectorAll(".quick-pick-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const days = parseInt(btn.dataset.days, 10);
+      selectedQuickPick = days;
+
+      // Clear custom date inputs
+      if (elements.startInput) elements.startInput.value = "";
+      if (elements.endInput) elements.endInput.value = "";
+
+      // Update button states
+      document.querySelectorAll(".quick-pick-btn").forEach((b) => {
+        b.classList.toggle("is-active", b === btn);
+      });
+
+      // Update legacy selects for compatibility
+      if (elements.dateModeSelect) elements.dateModeSelect.value = "interval";
+      if (elements.intervalSelect) elements.intervalSelect.value = String(days);
+
+      invalidatePreview();
+    });
+  });
+
+  // Custom date inputs clear quick pick
+  [elements.startInput, elements.endInput].forEach((input) => {
+    if (input) {
+      input.addEventListener("change", () => {
+        selectedQuickPick = null;
+        document.querySelectorAll(".quick-pick-btn").forEach((b) => {
+          b.classList.remove("is-active");
+        });
+        if (elements.dateModeSelect) elements.dateModeSelect.value = "date";
+        invalidatePreview();
+      });
+    }
+  });
+
+  // Advanced toggle
+  elements.advancedToggle?.addEventListener("click", () => {
+    const isOpen = elements.advancedOptions?.classList.toggle("d-none") === false;
+    elements.advancedToggle.classList.toggle("is-open", isOpen);
+  });
+
+  // History toggle (collapse/expand)
+  elements.historyToggle?.addEventListener("click", (e) => {
+    // Don't toggle if clicking on action buttons
+    if (e.target.closest("button")) return;
+    const historyWidget = elements.historyToggle.closest(".map-matching-history");
+    historyWidget?.classList.toggle("is-collapsed");
+  });
+
+  // History job actions
+  elements.jobsList?.addEventListener("click", (event) => {
+    const btn = event.target.closest("button[data-action]");
+    if (!btn) return;
+
+    const action = btn.dataset.action;
+    const jobId = btn.dataset.jobId;
+
+    if (action === "view" && jobId) {
+      startPolling(jobId);
+    } else if (action === "preview" && jobId) {
+      startPolling(jobId);
+      loadMatchedPreview(jobId);
+    } else if (action === "delete" && jobId) {
+      deleteJobHistory(jobId);
+    }
+  });
+
+  // Legacy support
+  elements.modeSelect?.addEventListener("change", (e) => {
     setModeUI(e.target.value);
   });
 
-  elements.dateModeSelect.addEventListener("change", (e) => {
+  elements.dateModeSelect?.addEventListener("change", (e) => {
     setDateModeUI(e.target.value);
   });
 
@@ -437,11 +621,13 @@ function wireEvents() {
     loadMatchedPreview(currentJobId);
   });
 
-  elements.refreshBtn?.addEventListener("click", () => {
+  elements.refreshBtn?.addEventListener("click", (e) => {
+    e.stopPropagation();
     loadJobs();
   });
 
-  elements.historyClearBtn?.addEventListener("click", () => {
+  elements.historyClearBtn?.addEventListener("click", (e) => {
+    e.stopPropagation();
     clearHistory();
   });
 
@@ -461,6 +647,7 @@ function wireEvents() {
     deleteTrips(Array.from(matchedSelection));
   });
 
+  // Legacy table events
   elements.jobsBody?.addEventListener("click", (event) => {
     const button = event.target.closest("button[data-job-id]");
     const previewButton = event.target.closest("button[data-preview-job-id]");
@@ -489,6 +676,34 @@ function wireEvents() {
     }
   });
 
+  // Results trip cards
+  elements.resultsTrips?.addEventListener("click", (event) => {
+    const actionButton = event.target.closest("button[data-action]");
+    if (actionButton) {
+      const tripId = actionButton.dataset.tripId;
+      const action = actionButton.dataset.action;
+      if (tripId && action === "unmatch") {
+        clearMatchedTrips([tripId]);
+      } else if (tripId && action === "delete") {
+        deleteTrips([tripId]);
+      }
+      return;
+    }
+
+    const checkbox = event.target.closest(".result-trip-select input");
+    if (checkbox) {
+      setSelection(checkbox.dataset.tripId, checkbox.checked);
+      return;
+    }
+
+    const card = event.target.closest(".result-trip[data-trip-id]");
+    if (card) {
+      const tripId = card.dataset.tripId;
+      focusMatchedPreviewTrip(tripId);
+    }
+  });
+
+  // Legacy table for matched preview
   elements.previewMapBody?.addEventListener("click", (event) => {
     const actionButton = event.target.closest("button[data-action]");
     if (actionButton) {
@@ -512,9 +727,6 @@ function wireEvents() {
       return;
     }
     const tripId = row.dataset.tripId;
-    elements.previewMapBody.querySelectorAll("tr").forEach((tr) => {
-      tr.classList.toggle("is-selected", tr === row);
-    });
     focusMatchedPreviewTrip(tripId);
   });
 
@@ -624,7 +836,8 @@ function updateMatchedPreviewEmptyState(message) {
     return;
   }
   if (message) {
-    elements.previewMapEmpty.textContent = message;
+    const content = elements.previewMapEmpty.querySelector(".empty-map-content span");
+    if (content) content.textContent = message;
     elements.previewMapEmpty.classList.remove("d-none");
   } else {
     elements.previewMapEmpty.classList.add("d-none");
@@ -632,13 +845,18 @@ function updateMatchedPreviewEmptyState(message) {
 }
 
 function updateMatchedSelectionUI() {
-  const total = elements.previewMapBody
-    ? elements.previewMapBody.querySelectorAll(".matched-preview-select").length
+  const total = elements.resultsTrips
+    ? elements.resultsTrips.querySelectorAll(".result-trip-select input").length
     : 0;
   const selectedCount = matchedSelection.size;
 
   if (elements.previewSelectionCount) {
     elements.previewSelectionCount.textContent = `${selectedCount} selected`;
+  }
+
+  // Show/hide bulk actions
+  if (elements.bulkActions) {
+    elements.bulkActions.classList.toggle("d-none", selectedCount === 0);
   }
 
   if (elements.previewSelectAll) {
@@ -657,6 +875,53 @@ function updateMatchedSelectionUI() {
   }
   if (elements.previewDeleteSelected) {
     elements.previewDeleteSelected.disabled = disableActions;
+  }
+}
+
+function syncSelectionStyles() {
+  if (elements.resultsTrips) {
+    elements.resultsTrips.querySelectorAll(".result-trip").forEach((card) => {
+      const tripId = String(card.dataset.tripId || "");
+      const isSelected = matchedSelection.has(tripId);
+      card.classList.toggle("is-selected", isSelected);
+      const checkbox = card.querySelector(".result-trip-select input");
+      if (checkbox) {
+        checkbox.checked = isSelected;
+      }
+    });
+  }
+  if (elements.previewMapBody) {
+    elements.previewMapBody
+      .querySelectorAll("tr[data-trip-id]")
+      .forEach((row) => {
+        const tripId = String(row.dataset.tripId || "");
+        const isSelected = matchedSelection.has(tripId);
+        row.classList.toggle("is-selected", isSelected);
+        const checkbox = row.querySelector(".matched-preview-select");
+        if (checkbox) {
+          checkbox.checked = isSelected;
+        }
+      });
+  }
+}
+
+function setFocusedTripUI(tripId) {
+  const normalized = tripId ? String(tripId) : null;
+  if (elements.resultsTrips) {
+    elements.resultsTrips.querySelectorAll(".result-trip").forEach((card) => {
+      const cardId = String(card.dataset.tripId || "");
+      const isFocused = normalized !== null && cardId === normalized;
+      card.classList.toggle("is-focused", isFocused);
+    });
+  }
+  if (elements.previewMapBody) {
+    elements.previewMapBody
+      .querySelectorAll("tr[data-trip-id]")
+      .forEach((row) => {
+        const rowId = String(row.dataset.tripId || "");
+        const isFocused = normalized !== null && rowId === normalized;
+        row.classList.toggle("is-focused", isFocused);
+      });
   }
 }
 
@@ -679,34 +944,40 @@ function setSelection(tripId, checked) {
     matchedSelection.delete(normalized);
   }
   clearInlineStatus(elements.previewActionsStatus);
+  syncSelectionStyles();
   updateMatchedSelectionUI();
 }
 
 function clearSelection() {
   matchedSelection = new Set();
-  if (elements.previewMapBody) {
-    elements.previewMapBody
-      .querySelectorAll(".matched-preview-select")
-      .forEach((checkbox) => {
-        checkbox.checked = false;
-      });
-  }
+  syncSelectionStyles();
   clearInlineStatus(elements.previewActionsStatus);
   updateMatchedSelectionUI();
 }
 
 function selectAllVisible(checked) {
   matchedSelection = new Set();
-  if (elements.previewMapBody) {
-    elements.previewMapBody
-      .querySelectorAll(".matched-preview-select")
+  if (checked && elements.resultsTrips) {
+    elements.resultsTrips
+      .querySelectorAll(".result-trip-select input")
       .forEach((checkbox) => {
-        checkbox.checked = checked;
-        if (checked) {
-          matchedSelection.add(String(checkbox.dataset.tripId || ""));
+        const tripId = String(checkbox.dataset.tripId || "");
+        if (tripId) {
+          matchedSelection.add(tripId);
         }
       });
   }
+  if (checked && elements.previewMapBody) {
+    elements.previewMapBody
+      .querySelectorAll(".matched-preview-select")
+      .forEach((checkbox) => {
+        const tripId = String(checkbox.dataset.tripId || "");
+        if (tripId) {
+          matchedSelection.add(tripId);
+        }
+      });
+  }
+  syncSelectionStyles();
   clearInlineStatus(elements.previewActionsStatus);
   updateMatchedSelectionUI();
 }
@@ -813,47 +1084,100 @@ function updateMatchedPreviewMap(geojson) {
     map.fitBounds(bounds, { padding: 40, duration: 600 });
     updateMatchedPreviewEmptyState(null);
   } else {
-    updateMatchedPreviewEmptyState("No matched geometry to display.");
+    updateMatchedPreviewEmptyState("No routes to display");
   }
 }
 
 function updateMatchedPreviewTable(data) {
-  if (!elements.previewMapBody || !elements.previewMapSummary) {
-    return;
-  }
-
   const total = data?.total || 0;
   const sample = data?.sample || [];
-  const stage = data?.stage ? ` (${data.stage})` : "";
-  const windowLabel = data?.window?.start && data?.window?.end
-    ? ` • Window: ${new Date(data.window.start).toLocaleDateString()} → ${new Date(
-        data.window.end
-      ).toLocaleDateString()}`
-    : "";
-  elements.previewMapSummary.textContent = total
-    ? `Matched ${total} trips${stage}. Showing ${sample.length}.${windowLabel}`
-    : `No matched trips found for this job.${windowLabel}`;
+
+  // Update summary
+  if (elements.previewMapSummary) {
+    if (total > 0) {
+      elements.previewMapSummary.textContent = `${total} improved trip${total !== 1 ? "s" : ""}`;
+    } else {
+      elements.previewMapSummary.textContent = "No improved trips yet";
+    }
+  }
+
+  // Update results count
+  if (elements.resultsCount) {
+    elements.resultsCount.textContent = total > 0 ? `${total} trip${total !== 1 ? "s" : ""}` : "No trips yet";
+  }
+
   if (!total) {
-    updateMatchedPreviewEmptyState("No matched trips found for this job.");
+    updateMatchedPreviewEmptyState("No improved trips yet");
   }
 
   matchedPreviewFeaturesById = new Map();
 
-  elements.previewMapBody.innerHTML = sample
-    .map((trip) => {
-      const tripId = trip.transactionId || "";
-      const matchedAt = trip.matched_at
-        ? new Date(trip.matched_at).toLocaleString()
-        : "--";
-      let distance = "--";
-      if (trip.distance != null && !Number.isNaN(Number(trip.distance))) {
-        distance = `${Number(trip.distance).toFixed(2)} mi`;
-      }
-      const status = trip.matchStatus || (trip.matchedGps ? "Matched" : "Unmatched");
-      const isSelected = matchedSelection.has(String(tripId));
-      return `\n        <tr data-trip-id="${tripId}">\n          <td class="matched-preview-select-cell">\n            <input class="form-check-input matched-preview-select" type="checkbox" data-trip-id="${tripId}" aria-label="Select trip ${tripId}" ${isSelected ? "checked" : ""} />\n          </td>\n          <td class=\"text-truncate\" style=\"max-width: 200px\">${tripId}</td>\n          <td>${matchedAt}</td>\n          <td>${distance}</td>\n          <td>${status}</td>\n          <td class="matched-preview-actions-cell">\n            <button class="btn btn-sm btn-outline-secondary" data-action="unmatch" data-trip-id="${tripId}">\n              Clear\n            </button>\n            <button class="btn btn-sm btn-outline-danger" data-action="delete" data-trip-id="${tripId}">\n              Delete\n            </button>\n          </td>\n        </tr>\n      `;
-    })
-    .join("");
+  // Render as cards in new UI
+  if (elements.resultsTrips) {
+    elements.resultsTrips.innerHTML = sample
+      .map((trip) => {
+        const tripId = trip.transactionId || "";
+        const dateStr = formatTripDate(trip.startTime);
+        let distance = "";
+        if (trip.distance != null && !Number.isNaN(Number(trip.distance))) {
+          distance = `${Number(trip.distance).toFixed(1)} mi`;
+        }
+        const isSelected = matchedSelection.has(String(tripId));
+        return `
+          <div class="result-trip ${isSelected ? "is-selected" : ""}" data-trip-id="${tripId}">
+            <div class="result-trip-select">
+              <input type="checkbox" class="form-check-input" data-trip-id="${tripId}" ${isSelected ? "checked" : ""} />
+            </div>
+            <div class="result-trip-info">
+              <div class="result-trip-date">${dateStr}</div>
+              <div class="result-trip-details">${distance}</div>
+            </div>
+            <div class="result-trip-actions">
+              <button class="btn btn-ghost btn-sm" data-action="unmatch" data-trip-id="${tripId}" title="Remove improvement">
+                <i class="fas fa-undo"></i>
+              </button>
+              <button class="btn btn-ghost btn-sm text-danger" data-action="delete" data-trip-id="${tripId}" title="Delete trip">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+          </div>
+        `;
+      })
+      .join("");
+  }
+
+  // Legacy table
+  if (elements.previewMapBody) {
+    elements.previewMapBody.innerHTML = sample
+      .map((trip) => {
+        const tripId = trip.transactionId || "";
+        const matchedAt = trip.matched_at
+          ? new Date(trip.matched_at).toLocaleString()
+          : "--";
+        let distance = "--";
+        if (trip.distance != null && !Number.isNaN(Number(trip.distance))) {
+          distance = `${Number(trip.distance).toFixed(2)} mi`;
+        }
+        const status = trip.matchStatus || (trip.matchedGps ? "Matched" : "Unmatched");
+        const isSelected = matchedSelection.has(String(tripId));
+        return `
+          <tr data-trip-id="${tripId}">
+            <td class="matched-preview-select-cell">
+              <input class="form-check-input matched-preview-select" type="checkbox" data-trip-id="${tripId}" aria-label="Select trip ${tripId}" ${isSelected ? "checked" : ""} />
+            </td>
+            <td class="text-truncate" style="max-width: 200px">${tripId}</td>
+            <td>${matchedAt}</td>
+            <td>${distance}</td>
+            <td>${status}</td>
+            <td class="matched-preview-actions-cell">
+              <button class="btn btn-sm btn-outline-secondary" data-action="unmatch" data-trip-id="${tripId}">Clear</button>
+              <button class="btn btn-sm btn-outline-danger" data-action="delete" data-trip-id="${tripId}">Delete</button>
+            </td>
+          </tr>
+        `;
+      })
+      .join("");
+  }
 
   syncSelectionWithRows(sample.map((trip) => String(trip.transactionId || "")));
 }
@@ -864,10 +1188,10 @@ async function clearMatchedTrips(tripIds, { silent = false } = {}) {
   }
 
   const confirmed = await confirmationDialog.show({
-    title: "Clear matched route",
+    title: "Remove improvement",
     message:
-      "This keeps the trip but removes the snapped route. You can rematch it later.",
-    confirmText: "Clear match",
+      "This keeps your trip but removes the route improvement. You can re-improve it later.",
+    confirmText: "Remove",
     confirmButtonClass: "btn-primary",
   });
   if (!confirmed) {
@@ -875,7 +1199,7 @@ async function clearMatchedTrips(tripIds, { silent = false } = {}) {
   }
 
   try {
-    setInlineStatus(elements.previewActionsStatus, "Clearing matches...", "info");
+    setInlineStatus(elements.previewActionsStatus, "Removing...", "info");
     if (tripIds.length === 1) {
       await apiClient.delete(CONFIG.API.matchedTripById(tripIds[0]));
     } else {
@@ -884,11 +1208,11 @@ async function clearMatchedTrips(tripIds, { silent = false } = {}) {
       });
     }
     if (!silent) {
-      notificationManager.show("Match cleared.", "success");
+      notificationManager.show("Improvement removed", "success");
     }
     clearSelection();
     await loadMatchedPreview(currentJobId, { silent: true });
-    setInlineStatus(elements.previewActionsStatus, "Matches cleared.", "success");
+    clearInlineStatus(elements.previewActionsStatus);
   } catch (error) {
     console.error("Failed to clear matches", error);
     setInlineStatus(elements.previewActionsStatus, error.message, "danger");
@@ -904,7 +1228,7 @@ async function deleteTrips(tripIds, { silent = false } = {}) {
     title: "Delete trips",
     message:
       "This permanently deletes the trips and cannot be undone. Are you sure?",
-    confirmText: "Delete trips",
+    confirmText: "Delete",
     confirmButtonClass: "btn-danger",
   });
   if (!confirmed) {
@@ -912,7 +1236,7 @@ async function deleteTrips(tripIds, { silent = false } = {}) {
   }
 
   try {
-    setInlineStatus(elements.previewActionsStatus, "Deleting trips...", "info");
+    setInlineStatus(elements.previewActionsStatus, "Deleting...", "info");
     if (tripIds.length === 1) {
       await apiClient.delete(CONFIG.API.tripById(tripIds[0]));
     } else {
@@ -921,11 +1245,11 @@ async function deleteTrips(tripIds, { silent = false } = {}) {
       });
     }
     if (!silent) {
-      notificationManager.show("Trips deleted.", "success");
+      notificationManager.show("Trips deleted", "success");
     }
     clearSelection();
     await loadMatchedPreview(currentJobId, { silent: true });
-    setInlineStatus(elements.previewActionsStatus, "Trips deleted.", "success");
+    clearInlineStatus(elements.previewActionsStatus);
   } catch (error) {
     console.error("Failed to delete trips", error);
     setInlineStatus(elements.previewActionsStatus, error.message, "danger");
@@ -937,9 +1261,9 @@ async function deleteJobHistory(jobId) {
     return;
   }
   const confirmed = await confirmationDialog.show({
-    title: "Remove history entry",
+    title: "Remove from history",
     message:
-      "This removes the job from the history list. Running jobs will keep going.",
+      "Remove this from your activity list? Running jobs will continue.",
     confirmText: "Remove",
     confirmButtonClass: "btn-danger",
   });
@@ -948,7 +1272,7 @@ async function deleteJobHistory(jobId) {
   }
 
   try {
-    setInlineStatus(elements.historyStatus, "Removing history entry...", "info");
+    setInlineStatus(elements.historyStatus, "Removing...", "info");
     await apiClient.delete(CONFIG.API.mapMatchingJob(jobId));
     if (currentJobId === jobId) {
       currentJobId = null;
@@ -956,7 +1280,7 @@ async function deleteJobHistory(jobId) {
       updateProgressUI(null);
     }
     await loadJobs();
-    setInlineStatus(elements.historyStatus, "History entry removed.", "success");
+    clearInlineStatus(elements.historyStatus);
   } catch (error) {
     console.error("Failed to delete history entry", error);
     setInlineStatus(elements.historyStatus, error.message, "danger");
@@ -967,8 +1291,8 @@ async function clearHistory() {
   const confirmed = await confirmationDialog.show({
     title: "Clear history",
     message:
-      "This removes completed map matching records from the list. Active jobs stay running.",
-    confirmText: "Clear history",
+      "Clear completed jobs from your activity list? Active jobs will continue running.",
+    confirmText: "Clear",
     confirmButtonClass: "btn-primary",
   });
   if (!confirmed) {
@@ -976,21 +1300,16 @@ async function clearHistory() {
   }
 
   try {
-    setInlineStatus(elements.historyStatus, "Clearing history...", "info");
+    setInlineStatus(elements.historyStatus, "Clearing...", "info");
     const response = await apiClient.delete(
       `${CONFIG.API.mapMatchingJobs}?include_active=false`
     );
     await loadJobs();
+    clearInlineStatus(elements.historyStatus);
     const deleted = response?.deleted ?? 0;
-    const skipped = response?.skipped_active ?? 0;
-    const suffix = skipped ? " Active jobs kept." : "";
-    setInlineStatus(
-      elements.historyStatus,
-      deleted
-        ? `Cleared ${deleted} entries.${suffix}`
-        : `No completed jobs to clear.${suffix}`,
-      "success"
-    );
+    if (deleted > 0) {
+      notificationManager.show(`Cleared ${deleted} completed job${deleted !== 1 ? "s" : ""}`, "success");
+    }
   } catch (error) {
     console.error("Failed to clear history", error);
     setInlineStatus(elements.historyStatus, error.message, "danger");
@@ -1002,7 +1321,7 @@ async function loadMatchedPreview(jobId, { silent = false } = {}) {
     if (!silent) {
       setInlineStatus(
         elements.previewMapStatus,
-        "Select a job to preview matched trips.",
+        "Select a job to see results",
         "warning"
       );
     }
@@ -1013,18 +1332,18 @@ async function loadMatchedPreview(jobId, { silent = false } = {}) {
   clearInlineStatus(elements.previewActionsStatus);
   try {
     matchedPreviewSelectedId = null;
-    elements.previewMapBody?.querySelectorAll("tr").forEach((tr) => {
-      tr.classList.remove("is-selected");
-    });
-    setInlineStatus(elements.previewMapStatus, "Loading matched preview...", "info");
+    setFocusedTripUI(null);
+    if (!silent) {
+      setInlineStatus(elements.previewMapStatus, "Loading...", "info");
+    }
     const response = await apiClient.get(CONFIG.API.mapMatchingJobMatches(jobId));
     updateMatchedPreviewTable(response);
     if (response?.geojson) {
       updateMatchedPreviewMap(response.geojson);
     } else {
-      updateMatchedPreviewEmptyState("No matched geometry to display.");
+      updateMatchedPreviewEmptyState("No routes to display");
     }
-    setInlineStatus(elements.previewMapStatus, "Preview loaded.", "success");
+    clearInlineStatus(elements.previewMapStatus);
   } catch (error) {
     setInlineStatus(elements.previewMapStatus, error.message, "danger");
   }
@@ -1035,6 +1354,7 @@ function focusMatchedPreviewTrip(tripId) {
     return;
   }
   matchedPreviewSelectedId = String(tripId);
+  setFocusedTripUI(matchedPreviewSelectedId);
   const map = ensureMatchedPreviewMap();
   if (map && map.getLayer("matched-preview-highlight")) {
     map.setFilter("matched-preview-highlight", [
@@ -1082,15 +1402,21 @@ async function resumeFromJobs(jobs) {
 }
 
 async function init() {
-  if (!elements.form || !elements.modeSelect || !elements.dateModeSelect) {
+  if (!elements.form || !elements.modeSelect) {
     return;
   }
   setModeUI(elements.modeSelect.value);
-  setDateModeUI(elements.dateModeSelect.value);
   invalidatePreview();
   updateMatchedSelectionUI();
   wireEvents();
   initDatePickers();
+
+  // Initialize progress ring
+  if (elements.progressRing) {
+    elements.progressRing.style.strokeDasharray = PROGRESS_RING_CIRCUMFERENCE;
+    elements.progressRing.style.strokeDashoffset = PROGRESS_RING_CIRCUMFERENCE;
+  }
+
   const jobFromUrl = getJobIdFromURL();
   if (jobFromUrl) {
     startPolling(jobFromUrl);
