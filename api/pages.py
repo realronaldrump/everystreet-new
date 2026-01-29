@@ -156,7 +156,11 @@ async def export_page(request: Request):
 @router.get("/map-matching", response_class=HTMLResponse)
 async def map_matching_page(request: Request):
     """Render map matching job page."""
-    return _render_page("map_matching.html", request)
+    return _render_page(
+        "map_matching.html",
+        request,
+        MAPBOX_ACCESS_TOKEN=await _mapbox_token_for_render(),
+    )
 
 
 @router.get(
