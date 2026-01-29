@@ -43,6 +43,21 @@ async def delete_trip(trip_id: str):
         )
 
 
+@router.delete("/api/matched_trips/{trip_id}", tags=["Trips API"])
+@api_route(logger)
+async def unmatch_trip(trip_id: str):
+    """Clear matched GPS data for a trip."""
+    try:
+        return await TripCrudService.unmatch_trip(trip_id)
+    except ValueError as e:
+        if "not found" in str(e).lower():
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        )
+
+
 @router.put("/api/trips/{trip_id}", tags=["Trips API"])
 @api_route(logger)
 async def update_trip(trip_id: str, update_data: TripUpdateRequest):
@@ -73,6 +88,19 @@ async def bulk_delete_trips(request: Request):
 
     try:
         return await TripCrudService.bulk_delete_trips(trip_ids)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@router.post("/api/matched_trips/bulk_unmatch", tags=["Trips API"])
+@api_route(logger)
+async def bulk_unmatch_trips(request: Request):
+    """Bulk clear matched GPS data for trips."""
+    body = await request.json()
+    trip_ids = body.get("trip_ids", [])
+
+    try:
+        return await TripCrudService.bulk_unmatch_trips(trip_ids)
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 

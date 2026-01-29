@@ -204,10 +204,17 @@ Every Street - Map Matching
               Your recent matching activity.
             </div>
           </div>
-          <button class="btn btn-outline-secondary btn-sm" id="map-match-refresh">
-            <i class="fas fa-sync"></i>
-            Refresh
-          </button>
+          <div class="map-matching-history-actions">
+            <button class="btn btn-outline-secondary btn-sm" id="map-match-refresh">
+              <i class="fas fa-sync"></i>
+              Refresh
+            </button>
+            <button class="btn btn-outline-secondary btn-sm" id="map-match-history-clear">
+              <i class="fas fa-broom"></i>
+              Clear History
+            </button>
+            <span class="settings-status is-hidden" id="map-match-history-status" role="status"></span>
+          </div>
         </div>
         <div class="widget-body">
           <div class="table-responsive">
@@ -263,14 +270,40 @@ Every Street - Map Matching
               <div class="preview-summary" id="map-match-preview-map-summary">
                 No results to show yet
               </div>
+              <div class="matched-preview-controls">
+                <div class="matched-preview-selection">
+                  <label class="form-check form-check-inline matched-preview-select-all">
+                    <input class="form-check-input" type="checkbox" id="map-match-preview-select-all" />
+                    <span class="form-check-label">Select all</span>
+                  </label>
+                  <span class="matched-preview-count" id="map-match-preview-selection-count">0 selected</span>
+                  <button class="btn btn-outline-secondary btn-sm" id="map-match-preview-clear-selection" disabled>
+                    Clear selection
+                  </button>
+                </div>
+                <div class="matched-preview-actions">
+                  <button class="btn btn-outline-secondary btn-sm" id="map-match-preview-unmatch-selected" disabled>
+                    Clear match
+                  </button>
+                  <button class="btn btn-outline-danger btn-sm" id="map-match-preview-delete-selected" disabled>
+                    Delete trips
+                  </button>
+                  <span class="settings-status is-hidden" id="map-match-preview-actions-status" role="status"></span>
+                </div>
+                <div class="matched-preview-note">
+                  Clearing a match keeps the trip but removes the snapped route.
+                </div>
+              </div>
               <div class="table-responsive">
                 <table class="table table-hover align-middle mb-0">
                   <thead>
                     <tr>
+                      <th class="matched-preview-select-col"></th>
                       <th>Trip ID</th>
                       <th>Matched</th>
                       <th>Distance</th>
                       <th>Status</th>
+                      <th class="matched-preview-actions-col">Actions</th>
                     </tr>
                   </thead>
                   <tbody id="map-match-preview-map-body"></tbody>

@@ -132,7 +132,7 @@ const tripInteractions = {
             isMatched
               ? `
             <button class="btn btn-sm btn-danger delete-matched-trip-btn" data-trip-id="${tripId}">
-              <i class="fas fa-trash"></i> Delete Matched
+              <i class="fas fa-eraser"></i> Clear Match
             </button>
           `
               : `
@@ -188,10 +188,11 @@ const tripInteractions = {
 
   async deleteMatchedTrip(tripId, popup) {
     const confirmed = await confirmationDialog.show({
-      title: "Delete Matched Trip",
-      message: "Are you sure you want to delete this matched trip?",
-      confirmText: "Delete",
-      confirmButtonClass: "btn-danger",
+      title: "Clear matched route",
+      message:
+        "This keeps the trip but removes the snapped route. You can rematch it later.",
+      confirmText: "Clear match",
+      confirmButtonClass: "btn-primary",
     });
     if (!confirmed) {
       return;
@@ -203,7 +204,7 @@ const tripInteractions = {
       });
       if (response) {
         popup.remove();
-        notificationManager.show("Matched trip deleted successfully", "success");
+        notificationManager.show("Matched route cleared", "success");
         const dataManager = (await import("./data-manager.js")).default;
         await dataManager.updateMap();
       }

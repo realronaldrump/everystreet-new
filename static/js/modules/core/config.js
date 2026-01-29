@@ -52,6 +52,8 @@ export const CONFIG = {
     tripsDataTable: "/api/trips/datatable",
     tripsBulkDelete: "/api/trips/bulk_delete",
     matchedTrips: "/api/matched_trips",
+    matchedTripById: (id) => `/api/matched_trips/${id}`,
+    matchedTripsBulkUnmatch: "/api/matched_trips/bulk_unmatch",
     mapMatchTrips: "/api/map_match_trips",
     mapMatchingJobs: "/api/map_matching/jobs",
     mapMatchingJob: (id) => `/api/map_matching/jobs/${id}`,

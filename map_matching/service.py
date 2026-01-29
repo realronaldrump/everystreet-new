@@ -21,6 +21,15 @@ from trips.models import TripMapMatchProjection, TripPreviewProjection, TripStat
 logger = logging.getLogger(__name__)
 
 DEFAULT_BATCH_SIZE = 50  # Smaller batches for better progress feedback
+TERMINAL_STAGES = {"completed", "failed", "error"}
+
+
+def _is_terminal_stage(stage: str | None) -> bool:
+    return stage in TERMINAL_STAGES
+
+
+def _is_terminal_progress(progress: ProgressStatus) -> bool:
+    return _is_terminal_stage(progress.stage) or _is_terminal_stage(progress.status)
 
 
 class MapMatchingJobService:
@@ -97,6 +106,52 @@ class MapMatchingJobService:
             ProgressStatus.operation_type == "map_matching",
         ).count()
         return {"total": total, "jobs": jobs}
+
+    async def delete_job(
+        self,
+        job_id: str,
+        *,
+        allow_active: bool = False,
+    ) -> dict[str, Any]:
+        progress = await ProgressStatus.find_one(
+            ProgressStatus.operation_id == job_id,
+            ProgressStatus.operation_type == "map_matching",
+        )
+        if not progress:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Job not found",
+            )
+
+        if not allow_active and not _is_terminal_progress(progress):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Job is still running",
+            )
+
+        await progress.delete()
+        return {"status": "success", "deleted": 1}
+
+    async def clear_history(self, *, include_active: bool = False) -> dict[str, Any]:
+        entries = await ProgressStatus.find(
+            ProgressStatus.operation_type == "map_matching",
+        ).to_list()
+
+        deletable = [
+            entry
+            for entry in entries
+            if include_active or _is_terminal_progress(entry)
+        ]
+
+        for entry in deletable:
+            await entry.delete()
+
+        skipped = len(entries) - len(deletable)
+        return {
+            "status": "success",
+            "deleted": len(deletable),
+            "skipped_active": skipped,
+        }
 
     async def preview(
         self,

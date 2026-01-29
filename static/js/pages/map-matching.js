@@ -4,6 +4,7 @@ import apiClient from "../modules/core/api-client.js";
 import { CONFIG } from "../modules/core/config.js";
 import mapBase from "../modules/map-base.js";
 import notificationManager from "../modules/ui/notifications.js";
+import confirmationDialog from "../modules/ui/confirmation-dialog.js";
 import { DateUtils } from "../modules/utils.js";
 import { clearInlineStatus, setInlineStatus } from "../settings/status-utils.js";
 
@@ -34,12 +35,20 @@ const elements = {
   submitStatus: document.getElementById("map-match-submit-status"),
   submitBtn: document.getElementById("map-match-submit"),
   refreshBtn: document.getElementById("map-match-refresh"),
+  historyClearBtn: document.getElementById("map-match-history-clear"),
+  historyStatus: document.getElementById("map-match-history-status"),
   jobsBody: document.getElementById("map-match-jobs-body"),
   currentEmpty: document.getElementById("map-match-current-empty"),
   currentPanel: document.getElementById("map-match-current-panel"),
   progressBar: document.getElementById("map-match-progress-bar"),
   progressMessage: document.getElementById("map-match-progress-message"),
   progressMetrics: document.getElementById("map-match-progress-metrics"),
+  previewSelectAll: document.getElementById("map-match-preview-select-all"),
+  previewSelectionCount: document.getElementById("map-match-preview-selection-count"),
+  previewClearSelection: document.getElementById("map-match-preview-clear-selection"),
+  previewUnmatchSelected: document.getElementById("map-match-preview-unmatch-selected"),
+  previewDeleteSelected: document.getElementById("map-match-preview-delete-selected"),
+  previewActionsStatus: document.getElementById("map-match-preview-actions-status"),
 };
 
 let currentJobId = null;
@@ -54,6 +63,7 @@ let matchedPreviewFeaturesById = new Map();
 let matchedPreviewSelectedId = null;
 let lastAutoPreviewJobId = null;
 let jobsPollTimer = null;
+let matchedSelection = new Set();
 
 const LAST_JOB_STORAGE_KEY = "map_matching:last_job_id";
 const TERMINAL_STAGES = new Set(["completed", "failed", "error"]);
@@ -228,7 +238,9 @@ function renderJobs(jobs) {
       const status = job.stage || "unknown";
       const progress = job.progress ?? 0;
       const updated = job.updated_at ? new Date(job.updated_at).toLocaleString() : "";
-      const previewDisabled = status !== "completed" && status !== "failed";
+      const isTerminal = isTerminalStage(status);
+      const previewDisabled = !isTerminal;
+      const removeDisabled = !isTerminal;
       return `
         <tr>
           <td class="text-truncate" style="max-width: 220px">${job.job_id || ""}</td>
@@ -243,6 +255,10 @@ function renderJobs(jobs) {
             <button class="btn btn-sm btn-outline-primary ms-2" data-preview-job-id="${job.job_id}"
                     ${previewDisabled ? "disabled" : ""}>
               Preview
+            </button>
+            <button class="btn btn-sm btn-outline-danger ms-2" data-delete-job-id="${job.job_id}"
+                    ${removeDisabled ? "disabled" : ""}>
+              Remove
             </button>
           </td>
         </tr>
@@ -425,9 +441,37 @@ function wireEvents() {
     loadJobs();
   });
 
+  elements.historyClearBtn?.addEventListener("click", () => {
+    clearHistory();
+  });
+
+  elements.previewSelectAll?.addEventListener("change", (event) => {
+    selectAllVisible(event.target.checked);
+  });
+
+  elements.previewClearSelection?.addEventListener("click", () => {
+    clearSelection();
+  });
+
+  elements.previewUnmatchSelected?.addEventListener("click", () => {
+    clearMatchedTrips(Array.from(matchedSelection));
+  });
+
+  elements.previewDeleteSelected?.addEventListener("click", () => {
+    deleteTrips(Array.from(matchedSelection));
+  });
+
   elements.jobsBody?.addEventListener("click", (event) => {
     const button = event.target.closest("button[data-job-id]");
     const previewButton = event.target.closest("button[data-preview-job-id]");
+    const deleteButton = event.target.closest("button[data-delete-job-id]");
+    if (deleteButton) {
+      const jobId = deleteButton.dataset.deleteJobId;
+      if (jobId) {
+        deleteJobHistory(jobId);
+      }
+      return;
+    }
     if (previewButton) {
       const jobId = previewButton.dataset.previewJobId;
       if (jobId) {
@@ -446,6 +490,23 @@ function wireEvents() {
   });
 
   elements.previewMapBody?.addEventListener("click", (event) => {
+    const actionButton = event.target.closest("button[data-action]");
+    if (actionButton) {
+      const tripId = actionButton.dataset.tripId;
+      const action = actionButton.dataset.action;
+      if (tripId && action === "unmatch") {
+        clearMatchedTrips([tripId]);
+      } else if (tripId && action === "delete") {
+        deleteTrips([tripId]);
+      }
+      return;
+    }
+
+    const checkbox = event.target.closest(".matched-preview-select");
+    if (checkbox) {
+      return;
+    }
+
     const row = event.target.closest("tr[data-trip-id]");
     if (!row) {
       return;
@@ -455,6 +516,14 @@ function wireEvents() {
       tr.classList.toggle("is-selected", tr === row);
     });
     focusMatchedPreviewTrip(tripId);
+  });
+
+  elements.previewMapBody?.addEventListener("change", (event) => {
+    const checkbox = event.target.closest(".matched-preview-select");
+    if (!checkbox) {
+      return;
+    }
+    setSelection(checkbox.dataset.tripId, checkbox.checked);
   });
 
   const invalidateTargets = [
@@ -560,6 +629,86 @@ function updateMatchedPreviewEmptyState(message) {
   } else {
     elements.previewMapEmpty.classList.add("d-none");
   }
+}
+
+function updateMatchedSelectionUI() {
+  const total = elements.previewMapBody
+    ? elements.previewMapBody.querySelectorAll(".matched-preview-select").length
+    : 0;
+  const selectedCount = matchedSelection.size;
+
+  if (elements.previewSelectionCount) {
+    elements.previewSelectionCount.textContent = `${selectedCount} selected`;
+  }
+
+  if (elements.previewSelectAll) {
+    const allSelected = total > 0 && selectedCount === total;
+    elements.previewSelectAll.checked = allSelected;
+    elements.previewSelectAll.indeterminate = selectedCount > 0 && !allSelected;
+    elements.previewSelectAll.disabled = total === 0;
+  }
+
+  const disableActions = selectedCount === 0;
+  if (elements.previewClearSelection) {
+    elements.previewClearSelection.disabled = disableActions;
+  }
+  if (elements.previewUnmatchSelected) {
+    elements.previewUnmatchSelected.disabled = disableActions;
+  }
+  if (elements.previewDeleteSelected) {
+    elements.previewDeleteSelected.disabled = disableActions;
+  }
+}
+
+function syncSelectionWithRows(tripIds) {
+  const allowed = new Set(tripIds.filter(Boolean).map(String));
+  matchedSelection = new Set(
+    Array.from(matchedSelection).filter((id) => allowed.has(id))
+  );
+  updateMatchedSelectionUI();
+}
+
+function setSelection(tripId, checked) {
+  if (!tripId) {
+    return;
+  }
+  const normalized = String(tripId);
+  if (checked) {
+    matchedSelection.add(normalized);
+  } else {
+    matchedSelection.delete(normalized);
+  }
+  clearInlineStatus(elements.previewActionsStatus);
+  updateMatchedSelectionUI();
+}
+
+function clearSelection() {
+  matchedSelection = new Set();
+  if (elements.previewMapBody) {
+    elements.previewMapBody
+      .querySelectorAll(".matched-preview-select")
+      .forEach((checkbox) => {
+        checkbox.checked = false;
+      });
+  }
+  clearInlineStatus(elements.previewActionsStatus);
+  updateMatchedSelectionUI();
+}
+
+function selectAllVisible(checked) {
+  matchedSelection = new Set();
+  if (elements.previewMapBody) {
+    elements.previewMapBody
+      .querySelectorAll(".matched-preview-select")
+      .forEach((checkbox) => {
+        checkbox.checked = checked;
+        if (checked) {
+          matchedSelection.add(String(checkbox.dataset.tripId || ""));
+        }
+      });
+  }
+  clearInlineStatus(elements.previewActionsStatus);
+  updateMatchedSelectionUI();
 }
 
 function buildBoundsFromGeojson(geojson) {
@@ -701,9 +850,151 @@ function updateMatchedPreviewTable(data) {
         distance = `${Number(trip.distance).toFixed(2)} mi`;
       }
       const status = trip.matchStatus || (trip.matchedGps ? "Matched" : "Unmatched");
-      return `\n        <tr data-trip-id="${tripId}">\n          <td class=\"text-truncate\" style=\"max-width: 200px\">${tripId}</td>\n          <td>${matchedAt}</td>\n          <td>${distance}</td>\n          <td>${status}</td>\n        </tr>\n      `;
+      const isSelected = matchedSelection.has(String(tripId));
+      return `\n        <tr data-trip-id="${tripId}">\n          <td class="matched-preview-select-cell">\n            <input class="form-check-input matched-preview-select" type="checkbox" data-trip-id="${tripId}" aria-label="Select trip ${tripId}" ${isSelected ? "checked" : ""} />\n          </td>\n          <td class=\"text-truncate\" style=\"max-width: 200px\">${tripId}</td>\n          <td>${matchedAt}</td>\n          <td>${distance}</td>\n          <td>${status}</td>\n          <td class="matched-preview-actions-cell">\n            <button class="btn btn-sm btn-outline-secondary" data-action="unmatch" data-trip-id="${tripId}">\n              Clear\n            </button>\n            <button class="btn btn-sm btn-outline-danger" data-action="delete" data-trip-id="${tripId}">\n              Delete\n            </button>\n          </td>\n        </tr>\n      `;
     })
     .join("");
+
+  syncSelectionWithRows(sample.map((trip) => String(trip.transactionId || "")));
+}
+
+async function clearMatchedTrips(tripIds, { silent = false } = {}) {
+  if (!tripIds.length) {
+    return;
+  }
+
+  const confirmed = await confirmationDialog.show({
+    title: "Clear matched route",
+    message:
+      "This keeps the trip but removes the snapped route. You can rematch it later.",
+    confirmText: "Clear match",
+    confirmButtonClass: "btn-primary",
+  });
+  if (!confirmed) {
+    return;
+  }
+
+  try {
+    setInlineStatus(elements.previewActionsStatus, "Clearing matches...", "info");
+    if (tripIds.length === 1) {
+      await apiClient.delete(CONFIG.API.matchedTripById(tripIds[0]));
+    } else {
+      await apiClient.post(CONFIG.API.matchedTripsBulkUnmatch, {
+        trip_ids: tripIds,
+      });
+    }
+    if (!silent) {
+      notificationManager.show("Match cleared.", "success");
+    }
+    clearSelection();
+    await loadMatchedPreview(currentJobId, { silent: true });
+    setInlineStatus(elements.previewActionsStatus, "Matches cleared.", "success");
+  } catch (error) {
+    console.error("Failed to clear matches", error);
+    setInlineStatus(elements.previewActionsStatus, error.message, "danger");
+  }
+}
+
+async function deleteTrips(tripIds, { silent = false } = {}) {
+  if (!tripIds.length) {
+    return;
+  }
+
+  const confirmed = await confirmationDialog.show({
+    title: "Delete trips",
+    message:
+      "This permanently deletes the trips and cannot be undone. Are you sure?",
+    confirmText: "Delete trips",
+    confirmButtonClass: "btn-danger",
+  });
+  if (!confirmed) {
+    return;
+  }
+
+  try {
+    setInlineStatus(elements.previewActionsStatus, "Deleting trips...", "info");
+    if (tripIds.length === 1) {
+      await apiClient.delete(CONFIG.API.tripById(tripIds[0]));
+    } else {
+      await apiClient.post(CONFIG.API.tripsBulkDelete, {
+        trip_ids: tripIds,
+      });
+    }
+    if (!silent) {
+      notificationManager.show("Trips deleted.", "success");
+    }
+    clearSelection();
+    await loadMatchedPreview(currentJobId, { silent: true });
+    setInlineStatus(elements.previewActionsStatus, "Trips deleted.", "success");
+  } catch (error) {
+    console.error("Failed to delete trips", error);
+    setInlineStatus(elements.previewActionsStatus, error.message, "danger");
+  }
+}
+
+async function deleteJobHistory(jobId) {
+  if (!jobId) {
+    return;
+  }
+  const confirmed = await confirmationDialog.show({
+    title: "Remove history entry",
+    message:
+      "This removes the job from the history list. Running jobs will keep going.",
+    confirmText: "Remove",
+    confirmButtonClass: "btn-danger",
+  });
+  if (!confirmed) {
+    return;
+  }
+
+  try {
+    setInlineStatus(elements.historyStatus, "Removing history entry...", "info");
+    await apiClient.delete(CONFIG.API.mapMatchingJob(jobId));
+    if (currentJobId === jobId) {
+      currentJobId = null;
+      stopPolling();
+      updateProgressUI(null);
+    }
+    await loadJobs();
+    setInlineStatus(elements.historyStatus, "History entry removed.", "success");
+  } catch (error) {
+    console.error("Failed to delete history entry", error);
+    setInlineStatus(elements.historyStatus, error.message, "danger");
+  }
+}
+
+async function clearHistory() {
+  const confirmed = await confirmationDialog.show({
+    title: "Clear history",
+    message:
+      "This removes completed map matching records from the list. Active jobs stay running.",
+    confirmText: "Clear history",
+    confirmButtonClass: "btn-primary",
+  });
+  if (!confirmed) {
+    return;
+  }
+
+  try {
+    setInlineStatus(elements.historyStatus, "Clearing history...", "info");
+    const response = await apiClient.delete(
+      `${CONFIG.API.mapMatchingJobs}?include_active=false`
+    );
+    await loadJobs();
+    const deleted = response?.deleted ?? 0;
+    const skipped = response?.skipped_active ?? 0;
+    const suffix = skipped ? " Active jobs kept." : "";
+    setInlineStatus(
+      elements.historyStatus,
+      deleted
+        ? `Cleared ${deleted} entries.${suffix}`
+        : `No completed jobs to clear.${suffix}`,
+      "success"
+    );
+  } catch (error) {
+    console.error("Failed to clear history", error);
+    setInlineStatus(elements.historyStatus, error.message, "danger");
+  }
 }
 
 async function loadMatchedPreview(jobId, { silent = false } = {}) {
@@ -719,6 +1010,7 @@ async function loadMatchedPreview(jobId, { silent = false } = {}) {
   }
 
   clearInlineStatus(elements.previewMapStatus);
+  clearInlineStatus(elements.previewActionsStatus);
   try {
     matchedPreviewSelectedId = null;
     elements.previewMapBody?.querySelectorAll("tr").forEach((tr) => {
@@ -796,6 +1088,7 @@ async function init() {
   setModeUI(elements.modeSelect.value);
   setDateModeUI(elements.dateModeSelect.value);
   invalidatePreview();
+  updateMatchedSelectionUI();
   wireEvents();
   initDatePickers();
   const jobFromUrl = getJobIdFromURL();

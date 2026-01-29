@@ -81,6 +81,69 @@ class TripCrudService:
         }
 
     @staticmethod
+    async def unmatch_trip(trip_id: str):
+        """
+        Clear matched GPS data for a single trip.
+
+        Args:
+            trip_id: Transaction ID of the trip
+
+        Returns:
+            Result with status and count
+
+        Raises:
+            ValueError: If trip not found
+        """
+        trip = await Trip.find_one(Trip.transactionId == trip_id)
+        if not trip:
+            msg = "Trip not found"
+            raise ValueError(msg)
+
+        trip.matchedGps = None
+        trip.matchStatus = None
+        trip.matched_at = None
+        trip.last_modified = datetime.now(UTC)
+        await trip.save()
+
+        return {
+            "status": "success",
+            "message": "Matched data cleared",
+            "updated_trips": 1,
+        }
+
+    @staticmethod
+    async def bulk_unmatch_trips(trip_ids: list[str]):
+        """
+        Bulk clear matched GPS data for trips.
+
+        Args:
+            trip_ids: List of transaction IDs
+
+        Returns:
+            Result with status and count
+
+        Raises:
+            ValueError: If no trip IDs provided
+        """
+        if not trip_ids:
+            msg = "No trip IDs provided"
+            raise ValueError(msg)
+
+        trips = await Trip.find(In(Trip.transactionId, trip_ids)).to_list()
+        for trip in trips:
+            trip.matchedGps = None
+            trip.matchStatus = None
+            trip.matched_at = None
+            trip.last_modified = datetime.now(UTC)
+            await trip.save()
+
+        return {
+            "status": "success",
+            "updated_trips": len(trips),
+            "message": f"Cleared matched data for {len(trips)} trips",
+        }
+
+    @staticmethod
     async def update_trip(trip_id: str, geometry_data=None, properties_data=None):
         """
         Update a trip's details, such as its geometry or properties.

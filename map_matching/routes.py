@@ -63,6 +63,24 @@ async def list_map_matching_jobs(
         )
 
 
+@router.delete("/api/map_matching/jobs", response_model=dict[str, object])
+@api_route(logger)
+async def clear_map_matching_history(
+    include_active: bool = Query(False),
+):
+    """Delete map matching job history entries."""
+    try:
+        return await service.clear_history(include_active=include_active)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Failed to clear map matching history")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
+        )
+
+
 @router.post("/api/map_matching/jobs/preview", response_model=dict[str, object])
 @api_route(logger)
 async def preview_map_matching_jobs(
@@ -76,6 +94,25 @@ async def preview_map_matching_jobs(
         raise
     except Exception as exc:
         logger.exception("Failed to preview map matching job")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
+        )
+
+
+@router.delete("/api/map_matching/jobs/{job_id}", response_model=dict[str, object])
+@api_route(logger)
+async def delete_map_matching_job(
+    job_id: str,
+    force: bool = Query(False),
+):
+    """Delete a map matching job entry from history."""
+    try:
+        return await service.delete_job(job_id, allow_active=force)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Failed to delete map matching job")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(exc),
