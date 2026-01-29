@@ -24,6 +24,7 @@ from config import get_nominatim_base_url, get_osm_extracts_path, get_valhalla_b
 from map_data.models import GeoServiceHealth, MapBuildProgress, MapServiceConfig
 from map_data.us_states import get_state, total_size_mb
 from tasks.arq import get_arq_pool
+from tasks.config import get_task_config_entry
 from tasks.ops import abort_job
 
 logger = logging.getLogger(__name__)
@@ -426,6 +427,12 @@ async def configure_map_services(
 
     config = await MapServiceConfig.get_or_create()
     progress = await MapBuildProgress.get_or_create()
+
+    monitor_config = await get_task_config_entry("monitor_map_data_jobs")
+    if not monitor_config.enabled and monitor_config.last_updated is None:
+        monitor_config.enabled = True
+        monitor_config.last_updated = datetime.now(UTC)
+        await monitor_config.save()
 
     if (
         config.status

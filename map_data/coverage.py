@@ -8,6 +8,7 @@ All configuration uses imperial units (miles/feet).
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 import os
@@ -178,6 +179,9 @@ async def build_trip_coverage_extract_from_geometry(
     geometry: Any,
     *,
     coverage_dir: str | None = None,
+    heartbeat_callback: Callable[[], Any] | None = None,
+    heartbeat_interval: float = 15.0,
+    timeout_seconds: int | None = None,
 ) -> str | None:
     extracts_path = get_osm_extracts_path()
     coverage_dir = coverage_dir or os.path.join(extracts_path, "coverage")
@@ -202,18 +206,59 @@ async def build_trip_coverage_extract_from_geometry(
 
     import asyncio
 
+    if timeout_seconds is not None and timeout_seconds <= 0:
+        timeout_seconds = None
+    heartbeat_interval = max(float(heartbeat_interval), 1.0)
+
     process = await asyncio.create_subprocess_exec(
         *cmd,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
-    stdout, stderr = await process.communicate()
+
+    start_time = time.monotonic()
+    communicate_task = asyncio.create_task(process.communicate())
+    stdout = b""
+    stderr = b""
+
+    while True:
+        done, _ = await asyncio.wait(
+            {communicate_task},
+            timeout=heartbeat_interval,
+        )
+        if done:
+            stdout, stderr = await communicate_task
+            break
+
+        if heartbeat_callback:
+            with contextlib.suppress(Exception):
+                await heartbeat_callback()
+
+        if timeout_seconds is not None:
+            elapsed = time.monotonic() - start_time
+            if elapsed >= timeout_seconds:
+                logger.warning(
+                    "Coverage extract timed out after %.0f seconds",
+                    timeout_seconds,
+                )
+                with contextlib.suppress(Exception):
+                    process.kill()
+                with contextlib.suppress(Exception):
+                    await process.wait()
+                with contextlib.suppress(Exception):
+                    communicate_task.cancel()
+                    await communicate_task
+                return None
+
     if process.returncode != 0:
         error_msg = stderr.decode().strip() if stderr else "osmium extract failed"
         logger.warning("Coverage extract failed: %s", error_msg)
         return None
     if stdout:
         logger.info("osmium extract: %s", stdout.decode().strip())
+    if not os.path.exists(output_pbf) or os.path.getsize(output_pbf) == 0:
+        logger.warning("Coverage extract output missing or empty.")
+        return None
     return output_pbf
 
 
@@ -225,6 +270,11 @@ async def build_trip_coverage_extract(
     max_points_per_trip: int,
     batch_size: int,
     coverage_dir: str | None = None,
+    progress_callback: Callable[[CoverageStats], Any] | None = None,
+    polygon_timeout_seconds: int | None = None,
+    extract_timeout_seconds: int | None = None,
+    extract_heartbeat: Callable[[], Any] | None = None,
+    extract_heartbeat_interval: float = 15.0,
 ) -> str | None:
     from db.models import Trip
 
@@ -237,12 +287,31 @@ async def build_trip_coverage_extract(
         logger.info("No trips found yet; skipping coverage extract.")
         return None
 
-    coverage, stats = await build_trip_coverage_polygon(
-        buffer_miles=buffer_miles,
-        simplify_feet=simplify_feet,
-        max_points_per_trip=max_points_per_trip,
-        batch_size=batch_size,
-    )
+    import asyncio
+
+    async def _build_polygon() -> tuple[Any | None, CoverageStats]:
+        return await build_trip_coverage_polygon(
+            buffer_miles=buffer_miles,
+            simplify_feet=simplify_feet,
+            max_points_per_trip=max_points_per_trip,
+            batch_size=batch_size,
+            progress_callback=progress_callback,
+        )
+
+    if polygon_timeout_seconds is not None and polygon_timeout_seconds > 0:
+        try:
+            coverage, stats = await asyncio.wait_for(
+                _build_polygon(),
+                timeout=polygon_timeout_seconds,
+            )
+        except asyncio.TimeoutError:
+            logger.warning(
+                "Coverage polygon build timed out after %s seconds",
+                polygon_timeout_seconds,
+            )
+            return None
+    else:
+        coverage, stats = await _build_polygon()
     if coverage is None:
         return None
 
@@ -260,4 +329,7 @@ async def build_trip_coverage_extract(
         source_pbf,
         coverage,
         coverage_dir=coverage_dir,
+        heartbeat_callback=extract_heartbeat,
+        heartbeat_interval=extract_heartbeat_interval,
+        timeout_seconds=extract_timeout_seconds,
     )

@@ -47,6 +47,12 @@ MAX_RETRIES = int(os.getenv("MAP_SERVICE_MAX_RETRIES", "3"))
 COVERAGE_BUILD_TIMEOUT_SECONDS = int(
     os.getenv("MAP_SERVICE_COVERAGE_TIMEOUT_SECONDS", "600"),
 )
+COVERAGE_EXTRACT_TIMEOUT_SECONDS = int(
+    os.getenv("MAP_SERVICE_COVERAGE_EXTRACT_TIMEOUT_SECONDS", "1800"),
+)
+COVERAGE_EXTRACT_HEARTBEAT_SECONDS = float(
+    os.getenv("MAP_SERVICE_COVERAGE_HEARTBEAT_SECONDS", "20"),
+)
 
 DOWNLOAD_PROGRESS_END = 40.0
 MERGE_PROGRESS_END = 45.0
@@ -398,10 +404,23 @@ async def _maybe_build_coverage_extract(
     progress: MapBuildProgress,
     *,
     coverage_geometry: Any | None = None,
+    skip_coverage_extract: bool = False,
 ) -> str:
     settings = await get_service_config()
     mode = str(getattr(settings, "mapCoverageMode", "trips") or "trips").lower()
     if mode not in {"trips", "auto"}:
+        return merged_pbf
+
+    if skip_coverage_extract:
+        await _update_progress(
+            config,
+            progress,
+            status=MapServiceConfig.STATUS_DOWNLOADING,
+            message="Coverage analysis timed out; using full extract.",
+            overall_progress=MERGE_PROGRESS_END + 2.0,
+            phase=MapBuildProgress.PHASE_DOWNLOADING,
+            phase_progress=100.0,
+        )
         return merged_pbf
 
     buffer_miles = float(
@@ -422,14 +441,44 @@ async def _maybe_build_coverage_extract(
         message="Preparing coverage extract...",
         overall_progress=MERGE_PROGRESS_END + 1.0,
         phase=MapBuildProgress.PHASE_DOWNLOADING,
-        phase_progress=100.0,
+        phase_progress=-1.0,
     )
+
+    async def coverage_progress(stats: Any) -> None:
+        await _update_progress(
+            config,
+            progress,
+            status=MapServiceConfig.STATUS_DOWNLOADING,
+            message=(
+                "Preparing coverage extract... "
+                f"trips={getattr(stats, 'trips_seen', 0):,} "
+                f"geometries={getattr(stats, 'geometries_used', 0):,}"
+            ),
+            overall_progress=MERGE_PROGRESS_END + 1.0,
+            phase=MapBuildProgress.PHASE_DOWNLOADING,
+            phase_progress=-1.0,
+        )
+
+    async def extract_heartbeat() -> None:
+        await _update_progress(
+            config,
+            progress,
+            status=MapServiceConfig.STATUS_DOWNLOADING,
+            message="Preparing coverage extract...",
+            overall_progress=MERGE_PROGRESS_END + 1.0,
+            phase=MapBuildProgress.PHASE_DOWNLOADING,
+            phase_progress=-1.0,
+            allow_cancel=False,
+        )
 
     try:
         if coverage_geometry is not None:
             extract_path = await build_trip_coverage_extract_from_geometry(
                 merged_pbf,
                 coverage_geometry,
+                heartbeat_callback=extract_heartbeat,
+                heartbeat_interval=COVERAGE_EXTRACT_HEARTBEAT_SECONDS,
+                timeout_seconds=COVERAGE_EXTRACT_TIMEOUT_SECONDS,
             )
         else:
             extract_path = await build_trip_coverage_extract(
@@ -438,13 +487,36 @@ async def _maybe_build_coverage_extract(
                 simplify_feet=simplify_feet,
                 max_points_per_trip=max_points,
                 batch_size=batch_size,
+                progress_callback=coverage_progress,
+                polygon_timeout_seconds=COVERAGE_BUILD_TIMEOUT_SECONDS,
+                extract_timeout_seconds=COVERAGE_EXTRACT_TIMEOUT_SECONDS,
+                extract_heartbeat=extract_heartbeat,
+                extract_heartbeat_interval=COVERAGE_EXTRACT_HEARTBEAT_SECONDS,
             )
     except Exception as exc:
         logger.warning("Coverage extract failed: %s", exc)
+        await _update_progress(
+            config,
+            progress,
+            status=MapServiceConfig.STATUS_DOWNLOADING,
+            message="Coverage extract failed; using merged PBF.",
+            overall_progress=MERGE_PROGRESS_END + 2.0,
+            phase=MapBuildProgress.PHASE_DOWNLOADING,
+            phase_progress=100.0,
+        )
         return merged_pbf
 
     if not extract_path:
         logger.warning("Coverage extract unavailable; using merged PBF.")
+        await _update_progress(
+            config,
+            progress,
+            status=MapServiceConfig.STATUS_DOWNLOADING,
+            message="Coverage extract unavailable; using merged PBF.",
+            overall_progress=MERGE_PROGRESS_END + 2.0,
+            phase=MapBuildProgress.PHASE_DOWNLOADING,
+            phase_progress=100.0,
+        )
         return merged_pbf
 
     await _update_progress(
@@ -636,6 +708,7 @@ async def setup_map_data_task(ctx: dict, states: list[str]) -> dict[str, Any]:
         )
 
         coverage_geometry = None
+        coverage_analysis_timed_out = False
         coverage_by_state: dict[str, Any] = {}
         if mode in {"trips", "auto"}:
             async def coverage_progress(stats: Any) -> None:
@@ -665,6 +738,7 @@ async def setup_map_data_task(ctx: dict, states: list[str]) -> dict[str, Any]:
                     timeout=COVERAGE_BUILD_TIMEOUT_SECONDS,
                 )
             except asyncio.TimeoutError:
+                coverage_analysis_timed_out = True
                 logger.warning(
                     "Coverage polygon build timed out after %s seconds",
                     COVERAGE_BUILD_TIMEOUT_SECONDS,
@@ -725,6 +799,7 @@ async def setup_map_data_task(ctx: dict, states: list[str]) -> dict[str, Any]:
                 config,
                 progress,
                 coverage_geometry=coverage_geometry,
+                skip_coverage_extract=coverage_analysis_timed_out,
             )
             await _check_cancel(progress)
             pbf_relative = os.path.relpath(coverage_pbf, extracts_path)
