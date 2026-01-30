@@ -131,10 +131,20 @@ function updateGreeting() {
 // SMART TITLE GENERATION
 // ==========================================
 
+function getLocationText(location) {
+  const text = sanitizeLocation(location);
+  if (!text || text === "Unknown" || text === "--") {
+    return "";
+  }
+  return text;
+}
+
 function generateSmartTitle(trip) {
   const distance = parseFloat(trip.distance) || 0;
-  const startLoc = (trip.startLocation || "").toLowerCase();
-  const endLoc = (trip.destination || "").toLowerCase();
+  const startLocText = getLocationText(trip.startLocation);
+  const endLocText = getLocationText(trip.destination);
+  const startLoc = startLocText.toLowerCase();
+  const endLoc = endLocText.toLowerCase();
   const startTime = new Date(trip.startTime);
   const hour = startTime.getHours();
   const day = startTime.getDay();
@@ -173,8 +183,8 @@ function generateSmartTitle(trip) {
   }
 
   // Use destination if available
-  if (trip.destination && trip.destination !== "--") {
-    const dest = trip.destination.split(",")[0];
+  if (endLocText) {
+    const dest = endLocText.split(",")[0];
     if (dest && dest.length < 30) {
       return `Trip to ${dest}`;
     }
@@ -790,10 +800,12 @@ function performSearch(query) {
   } else {
     const lowerQuery = query.toLowerCase();
     filteredTrips = tripsData.filter((trip) => {
+      const startLoc = getLocationText(trip.startLocation).toLowerCase();
+      const endLoc = getLocationText(trip.destination).toLowerCase();
       return (
         (trip.vehicleLabel || "").toLowerCase().includes(lowerQuery) ||
-        (trip.startLocation || "").toLowerCase().includes(lowerQuery) ||
-        (trip.destination || "").toLowerCase().includes(lowerQuery) ||
+        startLoc.includes(lowerQuery) ||
+        endLoc.includes(lowerQuery) ||
         (trip.transactionId || "").toLowerCase().includes(lowerQuery)
       );
     });
