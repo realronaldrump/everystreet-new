@@ -16,6 +16,20 @@ class VisitsEvents {
     this._setupFormListeners();
     this._setupToggleListeners();
     this._setupKeyboardShortcuts();
+    this._setupResizeHandler();
+  }
+
+  /**
+   * Set up window resize handler for map
+   */
+  _setupResizeHandler() {
+    let resizeTimeout;
+    window.addEventListener("resize", () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        this.manager.map?.resize();
+      }, 100);
+    });
   }
 
   /**

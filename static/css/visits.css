@@ -1,11 +1,22 @@
 /*
   visits.css
   -----------------------------------------------------------------------------
-  Dedicated stylesheet for the Visits page. Extracted from the inline <style>
-  blocks originally present in templates/visits.html.
+  Dedicated stylesheet for the Visits page with modern glassmorphism design.
+  Fixed map container height issues and enhanced UI with distinctive aesthetics.
 */
 
-/* Enhanced Map Containers */
+/* ============================================
+   MAP CONTAINER - FIXED HEIGHTS
+   ============================================ */
+
+/* CRITICAL FIX: Desktop height for map container */
+#visits-page .map-container--visits {
+  height: 600px;
+  min-height: 600px;
+  width: 100%;
+}
+
+/* Map container base styles with glassmorphism */
 #visits-page .map-container {
   border-radius: var(--radius-xl);
   background: linear-gradient(135deg, var(--surface-1), var(--surface-2));
@@ -14,64 +25,154 @@
   position: relative;
   z-index: 5;
   overflow: hidden;
-  box-shadow: var(--shadow-lg);
+  box-shadow:
+    0 4px 6px -1px rgb(0 0 0 / 10%),
+    0 2px 4px -1px rgb(0 0 0 / 6%),
+    inset 0 1px 0 rgb(255 255 255 / 5%);
   transition: all var(--transition-normal);
+  border: 1px solid rgb(var(--border-rgb) / 30%);
 }
 
+/* Ambient gradient overlay */
 #visits-page .map-container::before {
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(
-    135deg,
-    rgb(var(--primary-rgb) / 5%) 0%,
-    transparent 50%,
-    rgb(var(--secondary-rgb) / 5%) 100%
-  );
+  background:
+    radial-gradient(
+      ellipse at top left,
+      rgb(var(--primary-rgb) / 8%) 0%,
+      transparent 50%
+    ),
+    radial-gradient(
+      ellipse at bottom right,
+      rgb(var(--secondary-rgb) / 6%) 0%,
+      transparent 50%
+    );
   pointer-events: none;
   z-index: 1;
 }
 
-#trip-map-container {
-  height: 450px;
-  border-radius: var(--radius-lg);
-}
-
-/* Enhanced Card Styles */
-.visits-card {
-  border-radius: var(--radius-xl);
-  border: 1px solid var(--border-color);
-  box-shadow: var(--shadow-md);
-  background: var(--surface-1);
-  overflow: hidden;
-  position: relative;
-}
-
-.visits-card::before {
+/* Subtle grid pattern overlay */
+#visits-page .map-container::after {
   content: "";
   position: absolute;
-  inset: -2px;
-  background: linear-gradient(45deg, var(--primary), var(--secondary), var(--primary));
+  inset: 0;
+  background-image:
+    linear-gradient(rgb(var(--primary-rgb) / 3%) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(var(--primary-rgb) / 3%) 1px, transparent 1px);
+  background-size: 50px 50px;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.5;
+}
+
+/* Trip map in modal */
+#trip-map-container {
+  height: 450px;
+  min-height: 450px;
   border-radius: var(--radius-lg);
-  opacity: 0;
-  z-index: -1;
-  transition: opacity var(--transition-normal);
+  border: 1px solid rgb(var(--border-rgb) / 20%);
 }
 
-.visits-card:hover::before {
-  opacity: 0.15;
+/* ============================================
+   WIDGET ENHANCEMENTS
+   ============================================ */
+
+/* Widget body should expand for map */
+#visits-page .widget[data-accent="sky"] .widget-body {
+  flex: 1;
+  min-height: 0;
 }
 
-/* Enhanced Place Management Panel */
+/* Enhanced widget headers with distinctive accents */
+#visits-page .widget-header {
+  position: relative;
+  padding-bottom: var(--space-4);
+  margin-bottom: var(--space-2);
+}
+
+#visits-page .widget-header::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--widget-accent) 0%, transparent 70%);
+  opacity: 0.6;
+}
+
+#visits-page .widget-title {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: -0.02em;
+}
+
+#visits-page .widget-title i {
+  width: 44px;
+  height: 44px;
+  font-size: var(--font-size-lg);
+  background: linear-gradient(
+    135deg,
+    rgb(var(--widget-accent-rgb) / 20%),
+    rgb(var(--widget-accent-rgb) / 10%)
+  );
+  border: 1px solid rgb(var(--widget-accent-rgb) / 30%);
+  box-shadow:
+    0 4px 6px -1px rgb(var(--widget-accent-rgb) / 20%),
+    inset 0 1px 0 rgb(255 255 255 / 10%);
+}
+
+/* Stats display in header */
+#visits-page .widget-header .h2 {
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-bold);
+  background: linear-gradient(135deg, var(--text-primary), var(--text-secondary));
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  line-height: 1;
+}
+
+/* ============================================
+   PLACE MANAGEMENT PANEL - GLASSMORPHISM
+   ============================================ */
+
 .place-management-panel {
-  background: var(--surface-glass);
-  backdrop-filter: blur(var(--blur-modal));
+  background: linear-gradient(
+    135deg,
+    rgb(var(--surface-rgb) / 80%) 0%,
+    rgb(var(--surface-rgb) / 60%) 100%
+  );
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
   border-radius: var(--radius-xl);
   padding: var(--space-6);
-  box-shadow: 0 8px 32px rgb(0 0 0 / 10%);
-  border: 1px solid rgb(var(--border-rgb) / 25%);
+  box-shadow:
+    0 8px 32px rgb(0 0 0 / 12%),
+    0 2px 8px rgb(0 0 0 / 8%),
+    inset 0 1px 0 rgb(255 255 255 / 10%);
+  border: 1px solid rgb(var(--border-rgb) / 40%);
   position: relative;
   overflow: hidden;
+}
+
+/* Animated gradient orb */
+.place-management-panel::before {
+  content: "";
+  position: absolute;
+  top: -100px;
+  right: -100px;
+  width: 300px;
+  height: 300px;
+  background: radial-gradient(
+    circle,
+    rgb(var(--primary-rgb) / 20%) 0%,
+    transparent 70%
+  );
+  border-radius: 50%;
+  animation: orb-float 8s ease-in-out infinite;
+  pointer-events: none;
 }
 
 .place-management-panel::after {
@@ -81,36 +182,84 @@
   right: -50%;
   width: 200%;
   height: 200%;
-  background: radial-gradient(circle, rgb(var(--primary-rgb) / 10%) 0%, transparent 70%);
-  opacity: 0.45;
+  background: radial-gradient(circle, rgb(var(--primary-rgb) / 8%) 0%, transparent 70%);
+  opacity: 0.6;
   pointer-events: none;
 }
 
-/* Enhanced Form Controls */
+@keyframes orb-float {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(-30px, 30px) scale(1.1);
+  }
+}
+
+/* ============================================
+   FORM CONTROLS - ENHANCED
+   ============================================ */
+
 .place-name-input {
-  background: var(--surface-3);
-  border: 2px solid transparent;
+  background: linear-gradient(135deg, var(--surface-3), var(--surface-2));
+  border: 2px solid rgb(var(--border-rgb) / 40%);
+  border-radius: var(--radius-lg);
   transition: all var(--transition-normal);
   font-size: var(--font-size-md);
   padding: var(--space-3) var(--space-4);
+  box-shadow: inset 0 2px 4px rgb(0 0 0 / 5%);
 }
 
 .place-name-input:focus {
   background: var(--surface-2);
   border-color: var(--primary);
-  box-shadow: 0 0 0 0.25rem rgb(var(--primary-rgb) / 15%);
-  transform: translateY(-1px);
+  box-shadow:
+    0 0 0 0.25rem rgb(var(--primary-rgb) / 15%),
+    inset 0 2px 4px rgb(0 0 0 / 5%);
+  transform: translateY(-2px);
 }
 
-/* Enhanced Buttons */
+.place-name-input::placeholder {
+  color: var(--text-tertiary);
+  font-style: italic;
+}
+
+/* Form switch enhancement */
+.form-check.form-switch .form-check-input {
+  width: 3.5em;
+  height: 1.75em;
+  background-color: var(--surface-4);
+  border: 2px solid rgb(var(--border-rgb) / 30%);
+  cursor: pointer;
+  transition: all var(--transition-normal);
+}
+
+.form-check.form-switch .form-check-input:checked {
+  background-color: var(--primary);
+  border-color: var(--primary);
+}
+
+.form-check.form-switch .form-check-input:focus {
+  box-shadow: 0 0 0 0.25rem rgb(var(--primary-rgb) / 20%);
+}
+
+/* ============================================
+   BUTTONS - MODERN STYLES
+   ============================================ */
+
 .action-button {
   position: relative;
   overflow: hidden;
   transition: all var(--transition-normal);
   font-weight: var(--font-weight-semibold);
-  text-transform: uppercase;
   letter-spacing: 0.5px;
   padding: var(--space-3) var(--space-5);
+  border-radius: var(--radius-lg);
+  text-transform: none;
+  box-shadow:
+    0 4px 6px -1px rgb(0 0 0 / 10%),
+    0 2px 4px -1px rgb(0 0 0 / 6%);
 }
 
 .action-button::before {
@@ -121,11 +270,11 @@
   width: 0;
   height: 0;
   border-radius: 50%;
-  background: rgb(255 255 255 / 20%);
+  background: rgb(255 255 255 / 25%);
   transform: translate(-50%, -50%);
   transition:
-    width 0.6s,
-    height 0.6s;
+    width 0.6s ease,
+    height 0.6s ease;
 }
 
 .action-button:hover::before {
@@ -134,28 +283,76 @@
 }
 
 .action-button:hover {
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-sm);
+  transform: translateY(-2px);
+  box-shadow:
+    0 10px 15px -3px rgb(0 0 0 / 15%),
+    0 4px 6px -2px rgb(0 0 0 / 10%);
 }
 
+.action-button:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgb(0 0 0 / 10%);
+}
+
+/* Draw button active state */
 .draw-button.active {
-  --btn-bg: rgb(var(--warning-rgb) / 18%);
-  --btn-bg-hover: rgb(var(--warning-rgb) / 24%);
-  --btn-color: var(--warning);
-  --btn-border: rgb(var(--warning-rgb) / 45%);
-  --btn-border-hover: rgb(var(--warning-rgb) / 60%);
-
-  box-shadow: none;
+  background: linear-gradient(
+    135deg,
+    rgb(var(--warning-rgb) / 20%),
+    rgb(var(--warning-rgb) / 10%)
+  );
+  border-color: var(--warning);
+  color: var(--warning);
+  box-shadow:
+    0 0 0 3px rgb(var(--warning-rgb) / 20%),
+    0 4px 6px rgb(var(--warning-rgb) / 20%);
+  animation: pulse-draw 2s ease-in-out infinite;
 }
 
-/* Enhanced Chart Container */
+@keyframes pulse-draw {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 3px rgb(var(--warning-rgb) / 20%),
+      0 4px 6px rgb(var(--warning-rgb) / 20%);
+  }
+  50% {
+    box-shadow:
+      0 0 0 6px rgb(var(--warning-rgb) / 10%),
+      0 4px 6px rgb(var(--warning-rgb) / 20%);
+  }
+}
+
+/* Stats cards in management panel */
+.place-management-panel .bg-body-secondary {
+  background: linear-gradient(
+    135deg,
+    rgb(var(--surface-rgb) / 60%),
+    rgb(var(--surface-rgb) / 40%)
+  ) !important;
+  border: 1px solid rgb(var(--border-rgb) / 30%);
+  border-radius: var(--radius-lg);
+  backdrop-filter: blur(10px);
+}
+
+.place-management-panel .bg-body-secondary i {
+  filter: drop-shadow(0 2px 4px rgb(var(--primary-rgb) / 30%));
+}
+
+/* ============================================
+   CHART CONTAINER
+   ============================================ */
+
 .chart-container {
   background: linear-gradient(135deg, var(--surface-2), var(--surface-1));
   border-radius: var(--radius-lg);
   padding: var(--space-4);
-  box-shadow: inset 0 2px 8px rgb(0 0 0 / 10%);
+  box-shadow:
+    inset 0 2px 8px rgb(0 0 0 / 8%),
+    0 1px 2px rgb(0 0 0 / 5%);
   position: relative;
   overflow: hidden;
+  border: 1px solid rgb(var(--border-rgb) / 20%);
 }
 
 .chart-container::before {
@@ -165,38 +362,78 @@
   left: -50%;
   width: 200%;
   height: 200%;
-  background: radial-gradient(circle at 20% 20%, rgb(var(--primary-rgb) / 10%), transparent 60%);
-  opacity: 0.5;
+  background:
+    radial-gradient(circle at 20% 20%, rgb(var(--primary-rgb) / 8%), transparent 50%),
+    radial-gradient(circle at 80% 80%, rgb(var(--secondary-rgb) / 6%), transparent 50%);
+  opacity: 0.6;
   pointer-events: none;
 }
 
-/* Enhanced Table Styles */
+/* ============================================
+   TABLE STYLES - ENHANCED
+   ============================================ */
+
 .visits-table {
   border-radius: var(--radius-lg);
   overflow: hidden;
-  box-shadow: 0 4px 12px rgb(0 0 0 / 10%);
+  box-shadow:
+    0 4px 6px -1px rgb(0 0 0 / 10%),
+    0 2px 4px -1px rgb(0 0 0 / 6%);
+  border: 1px solid rgb(var(--border-rgb) / 20%);
 }
 
 .visits-table thead {
   background: linear-gradient(135deg, var(--surface-3), var(--surface-2));
+  border-bottom: 2px solid rgb(var(--primary-rgb) / 20%);
+}
+
+.visits-table thead th {
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  font-size: var(--font-size-xs);
+  letter-spacing: 0.05em;
+  padding: var(--space-3) var(--space-4);
+  color: var(--text-secondary);
 }
 
 .visits-table tbody tr {
   transition: all var(--transition-fast);
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid rgb(var(--border-rgb) / 30%);
+}
+
+.visits-table tbody tr:last-child {
+  border-bottom: none;
 }
 
 .visits-table tbody tr:hover {
-  background: rgb(var(--primary-rgb) / 5%);
-  box-shadow: 0 2px 8px rgb(0 0 0 / 5%);
+  background: linear-gradient(90deg, rgb(var(--primary-rgb) / 5%), transparent);
+  box-shadow: inset 0 1px 0 rgb(var(--primary-rgb) / 10%);
+  transform: translateX(4px);
 }
 
+.visits-table tbody td {
+  padding: var(--space-3) var(--space-4);
+  vertical-align: middle;
+}
+
+/* Place links with animated underline */
 .place-link {
   color: var(--primary);
   text-decoration: none;
-  font-weight: var(--font-weight-medium);
+  font-weight: var(--font-weight-semibold);
   position: relative;
   transition: all var(--transition-fast);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.place-link::before {
+  content: "\f3c5";
+  font-family: "Font Awesome 6 Free";
+  font-weight: 900;
+  font-size: 0.8em;
+  opacity: 0.7;
 }
 
 .place-link::after {
@@ -206,25 +443,48 @@
   left: 0;
   width: 0;
   height: 2px;
-  background: var(--primary-gradient);
+  background: linear-gradient(90deg, var(--primary), var(--secondary));
   transition: width var(--transition-normal);
+  border-radius: 1px;
+}
+
+.place-link:hover {
+  color: var(--primary);
+  text-shadow: 0 0 20px rgb(var(--primary-rgb) / 30%);
 }
 
 .place-link:hover::after {
   width: 100%;
 }
 
-/* Enhanced Tab Navigation */
+/* Table action buttons */
+.visits-table .btn-sm {
+  border-radius: var(--radius-md);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: 0.3px;
+  transition: all var(--transition-fast);
+}
+
+.visits-table .btn-sm:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgb(0 0 0 / 15%);
+}
+
+/* ============================================
+   TAB NAVIGATION - MODERN PILLS
+   ============================================ */
+
 .visits-nav-tabs {
-  background: var(--surface-2);
-  border-radius: var(--radius-lg);
-  padding: var(--space-1);
-  border: 1px solid var(--border-color);
+  background: linear-gradient(135deg, var(--surface-2), var(--surface-1));
+  border-radius: var(--radius-xl);
+  padding: var(--space-2);
+  border: 1px solid rgb(var(--border-rgb) / 30%);
   margin-bottom: var(--space-5);
+  box-shadow: inset 0 2px 4px rgb(0 0 0 / 5%);
 }
 
 .visits-nav-tabs .nav-link {
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   padding: var(--space-2) var(--space-4);
   color: var(--text-secondary);
   font-weight: var(--font-weight-medium);
@@ -232,36 +492,61 @@
   border: none;
   position: relative;
   overflow: hidden;
+  margin: 0 var(--space-1);
+}
+
+.visits-nav-tabs .nav-link:first-child {
+  margin-left: 0;
 }
 
 .visits-nav-tabs .nav-link::before {
   content: "";
   position: absolute;
-  bottom: 0;
-  left: 50%;
-  width: 0;
-  height: 3px;
-  background: var(--primary-gradient);
-  transform: translateX(-50%);
-  transition: width var(--transition-normal);
+  inset: 0;
+  background: linear-gradient(135deg, var(--primary), var(--secondary));
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+  z-index: 0;
 }
 
 .visits-nav-tabs .nav-link:hover {
   color: var(--text-primary);
-  background: rgb(var(--primary-rgb) / 5%);
+  background: rgb(var(--primary-rgb) / 8%);
+  transform: translateY(-1px);
 }
 
 .visits-nav-tabs .nav-link.active {
-  background: var(--primary-gradient);
+  background: transparent;
   color: var(--text-on-primary);
-  box-shadow: 0 2px 8px rgb(var(--primary-rgb) / 30%);
+  box-shadow:
+    0 4px 6px -1px rgb(var(--primary-rgb) / 30%),
+    0 2px 4px -1px rgb(var(--primary-rgb) / 20%);
+  transform: translateY(-1px);
 }
 
 .visits-nav-tabs .nav-link.active::before {
-  width: 100%;
+  opacity: 1;
 }
 
-/* Enhanced Map Controls */
+.visits-nav-tabs .nav-link.active span,
+.visits-nav-tabs .nav-link.active i {
+  position: relative;
+  z-index: 1;
+}
+
+/* Insights tab special styling */
+#insights-tab.active {
+  background: linear-gradient(135deg, var(--warning), rgb(var(--warning-rgb) / 80%));
+}
+
+#insights-tab:hover {
+  background: rgb(var(--warning-rgb) / 15%);
+}
+
+/* ============================================
+   MAP CONTROLS - FLOATING GLASS PANEL
+   ============================================ */
+
 .map-controls-enhanced {
   position: absolute;
   top: var(--space-4);
@@ -270,37 +555,76 @@
   flex-direction: column;
   gap: var(--space-2);
   z-index: 10;
+  background: linear-gradient(
+    135deg,
+    rgb(var(--surface-rgb) / 90%) 0%,
+    rgb(var(--surface-rgb) / 70%) 100%
+  );
+  backdrop-filter: blur(12px) saturate(180%);
+  padding: var(--space-2);
+  border-radius: var(--radius-xl);
+  border: 1px solid rgb(var(--border-rgb) / 40%);
+  box-shadow:
+    0 10px 15px -3px rgb(0 0 0 / 15%),
+    0 4px 6px -2px rgb(0 0 0 / 10%);
 }
 
 .map-control-btn {
-  background: var(--surface-2);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-pill);
+  background: linear-gradient(135deg, var(--surface-3), var(--surface-2));
+  border: 1px solid rgb(var(--border-rgb) / 40%);
+  border-radius: var(--radius-lg);
   color: var(--text-primary);
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: all var(--transition-fast);
+  box-shadow: 0 2px 4px rgb(0 0 0 / 10%);
 }
 
 .map-control-btn:hover {
-  background: rgb(var(--primary-rgb) / 15%);
+  background: linear-gradient(
+    135deg,
+    rgb(var(--primary-rgb) / 20%),
+    rgb(var(--primary-rgb) / 10%)
+  );
   border-color: var(--primary);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgb(var(--primary-rgb) / 20%);
+  color: var(--primary);
+  transform: translateY(-2px) scale(1.05);
+  box-shadow:
+    0 8px 12px -2px rgb(var(--primary-rgb) / 25%),
+    0 4px 6px -1px rgb(var(--primary-rgb) / 15%);
+}
+
+.map-control-btn:active {
+  transform: translateY(0) scale(1);
 }
 
 .map-control-btn i {
   font-size: var(--font-size-lg);
+  transition: transform var(--transition-fast);
 }
 
-/* Enhanced Modal Styles */
+.map-control-btn:hover i {
+  transform: scale(1.1);
+}
+
+/* ============================================
+   MODAL STYLES - GLASSMORPHISM
+   ============================================ */
+
 .visits-modal .modal-content {
-  background: linear-gradient(135deg, var(--surface-1), var(--surface-2));
-  border: 1px solid rgb(var(--primary-rgb) / 20%);
-  box-shadow: 0 20px 60px rgb(0 0 0 / 30%);
+  background: linear-gradient(
+    135deg,
+    rgb(var(--surface-rgb) / 95%) 0%,
+    rgb(var(--surface-rgb) / 85%) 100%
+  );
+  backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgb(var(--primary-rgb) / 30%);
+  box-shadow:
+    0 25px 50px -12px rgb(0 0 0 / 40%),
+    0 0 0 1px rgb(var(--primary-rgb) / 10%);
   border-radius: var(--radius-xl);
   overflow: hidden;
 }
@@ -308,159 +632,257 @@
 .visits-modal .modal-header {
   background: linear-gradient(
     135deg,
-    rgb(var(--primary-rgb) / 10%),
-    rgb(var(--secondary-rgb) / 5%)
+    rgb(var(--primary-rgb) / 15%) 0%,
+    rgb(var(--secondary-rgb) / 8%) 100%
   );
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid rgb(var(--border-rgb) / 40%);
   padding: var(--space-5);
+  position: relative;
+}
+
+.visits-modal .modal-header::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--primary), var(--secondary), var(--primary));
+  opacity: 0.8;
 }
 
 .visits-modal .modal-title {
   font-weight: var(--font-weight-bold);
-  background: var(--primary-gradient);
+  font-size: var(--font-size-xl);
+  background: linear-gradient(135deg, var(--primary), var(--secondary));
   -webkit-text-fill-color: transparent;
   background-clip: text;
-}
-
-/* Visits-specific Popup Styles (base mapboxgl-popup styles in features/map/popups.css) */
-.custom-place-popup h6 {
-  color: var(--primary);
-  font-weight: var(--font-weight-bold);
-  margin-bottom: var(--space-3);
-  font-size: var(--font-size-lg);
-}
-
-.custom-place-popup p {
-  margin-bottom: var(--space-2);
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: var(--space-1) 0;
-  border-bottom: 1px solid var(--border-color);
+  gap: var(--space-2);
 }
 
-.custom-place-popup p:last-of-type {
-  border-bottom: none;
+.visits-modal .modal-body {
+  padding: var(--space-5);
 }
 
-.custom-place-popup strong {
+.visits-modal .btn-close {
+  opacity: 0.6;
+  transition: all var(--transition-fast);
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  background-color: rgb(var(--surface-rgb) / 50%);
+}
+
+.visits-modal .btn-close:hover {
+  opacity: 1;
+  background-color: rgb(var(--danger-rgb) / 20%);
+  transform: rotate(90deg);
+}
+
+/* Modal table enhancements */
+.visits-modal .visits-table {
+  box-shadow: none;
+  border: 1px solid rgb(var(--border-rgb) / 20%);
+}
+
+/* ============================================
+   POPUP STYLES
+   ============================================ */
+
+.custom-popup-enhanced {
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.custom-popup-enhanced .mapboxgl-popup-content {
+  background: linear-gradient(
+    135deg,
+    rgb(var(--surface-rgb) / 95%) 0%,
+    rgb(var(--surface-rgb) / 90%) 100%
+  );
+  backdrop-filter: blur(12px);
+  border: 1px solid rgb(var(--primary-rgb) / 30%);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  box-shadow:
+    0 10px 15px -3px rgb(0 0 0 / 20%),
+    0 4px 6px -2px rgb(0 0 0 / 10%);
+}
+
+.custom-popup-enhanced .mapboxgl-popup-tip {
+  border-top-color: rgb(var(--surface-rgb) / 95%);
+  border-bottom-color: rgb(var(--surface-rgb) / 95%);
+}
+
+.place-popup-content,
+.custom-place-popup {
+  min-width: 200px;
+}
+
+.place-popup-content strong {
+  display: block;
+  font-size: var(--font-size-lg);
   color: var(--primary);
+  margin-bottom: var(--space-2);
+  font-weight: var(--font-weight-bold);
+}
+
+.custom-place-popup h6 {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-lg);
+  color: var(--primary);
+  margin: 0 0 var(--space-2);
+  font-weight: var(--font-weight-bold);
+}
+
+.custom-place-popup .stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.custom-place-popup .stats-grid p {
+  margin: 0;
+  padding: var(--space-2);
+  border-radius: var(--radius-md);
+  background: rgb(var(--surface-rgb) / 65%);
+  border: 1px solid rgb(var(--border-rgb) / 25%);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.custom-place-popup .stat-label {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.custom-place-popup .stat-value {
+  font-size: var(--font-size-md);
   font-weight: var(--font-weight-semibold);
 }
 
-/* Trip Details Enhanced */
+.place-popup-content .place-visits {
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.place-popup-content .place-visits::before {
+  content: "\f007";
+  font-family: "Font Awesome 6 Free";
+  font-weight: 900;
+  font-size: 0.9em;
+  color: var(--success);
+}
+
+/* ============================================
+   TRIP DETAILS
+   ============================================ */
+
 .trip-details {
-  background: var(--surface-2);
+  background: linear-gradient(135deg, var(--surface-2), var(--surface-1));
   border-radius: var(--radius-lg);
   padding: var(--space-4);
   margin-bottom: var(--space-4);
-  border: 1px solid var(--border-color);
+  border: 1px solid rgb(var(--border-rgb) / 30%);
+  box-shadow: inset 0 2px 4px rgb(0 0 0 / 5%);
 }
 
 .trip-details h6 {
   color: var(--primary);
   font-weight: var(--font-weight-bold);
   margin-bottom: var(--space-3);
+  font-size: var(--font-size-md);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.trip-details h6::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--primary);
 }
 
 .trip-details .row > div {
   margin-bottom: var(--space-2);
 }
 
-/* Loading States - uses skeleton-loader from loading-styles.css */
+/* ============================================
+   INSIGHTS CARDS
+   ============================================ */
 
-/* Responsive Enhancements */
-@media (width <= 992px) {
-  #visits-page .map-container--visits {
-    height: 450px;
-  }
-
-  .place-management-panel {
-    background: var(--surface-1);
-    border-radius: var(--radius-xl);
-    padding: var(--space-5);
-    border: 1px solid var(--border-color);
-    box-shadow: var(--shadow-md);
-  }
+#insights-content .bg-body-secondary {
+  background: linear-gradient(
+    135deg,
+    rgb(var(--surface-rgb) / 70%) 0%,
+    rgb(var(--surface-rgb) / 50%) 100%
+  ) !important;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgb(var(--border-rgb) / 30%);
+  border-radius: var(--radius-xl);
+  transition: all var(--transition-normal);
+  position: relative;
+  overflow: hidden;
 }
 
-@media (width <= 768px) {
-  #visits-page .map-container--visits {
-    height: 350px;
-  }
-
-  .map-controls-enhanced {
-    flex-direction: row;
-    inset: auto auto var(--space-4) 50%;
-    transform: translateX(-50%);
-  }
-
-  .place-management-panel {
-    padding: var(--space-3);
-  }
-
-  .visits-nav-tabs {
-    padding: var(--space-1) 0;
-    overflow-x: auto;
-    border-radius: 0;
-  }
-}
-
-/* Animation Classes */
-.fade-in-up {
-  animation: fadeInUp 0.4s ease-out forwards;
+#insights-content .bg-body-secondary::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--primary), var(--secondary));
   opacity: 0;
+  transition: opacity var(--transition-normal);
 }
 
-/* Note: @keyframes fadeInUp moved to animations.css */
-
-.scale-in {
-  animation: scaleIn 0.4s ease-out;
+#insights-content .bg-body-secondary:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px rgb(0 0 0 / 15%);
 }
 
-/* Note: @keyframes scaleIn moved to animations.css */
+#insights-content .bg-body-secondary:hover::before {
+  opacity: 1;
+}
 
-/* Status Badges */
-.visits-badge {
-  display: inline-flex;
-  align-items: center;
-  padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius-full);
-  font-size: var(--font-size-xs);
+#insights-content .bg-body-secondary i {
+  filter: drop-shadow(0 4px 8px currentColor);
+  transition: transform var(--transition-normal);
+}
+
+#insights-content .bg-body-secondary:hover i {
+  transform: scale(1.1);
+}
+
+#insights-content h6 {
   font-weight: var(--font-weight-semibold);
-  background: var(--primary-gradient);
-  color: var(--text-on-primary);
-  box-shadow: 0 2px 8px rgb(var(--primary-rgb) / 30%);
-}
-
-/* Empty State */
-.empty-state {
-  text-align: center;
-  padding: var(--space-8);
   color: var(--text-secondary);
-}
-
-.empty-state i {
-  font-size: 4rem;
-  color: var(--primary);
-  margin-bottom: var(--space-4);
-  opacity: 0.3;
-}
-
-.empty-state h5 {
-  color: var(--text-primary);
   margin-bottom: var(--space-2);
 }
 
-/* Progress Indicator */
-.progress-ring {
-  width: 120px;
-  height: 120px;
-  margin: 0 auto var(--space-4);
+#insights-content p {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
 }
 
+/* Progress ring animation */
 .progress-ring-circle {
-  stroke: var(--primary);
+  stroke: url(#progressGradient);
   stroke-width: 4;
   fill: none;
   stroke-dasharray: 339.292;
@@ -468,16 +890,282 @@
   animation: progress-fill 2s ease-out forwards;
   transform: rotate(-90deg);
   transform-origin: center;
+  stroke-linecap: round;
 }
 
-/* Note: @keyframes progress-fill moved to animations.css */
+@keyframes progress-fill {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
 
-/* Divider Gradient (extracted from bottom inline style) */
+/* ============================================
+   LOADING STATES
+   ============================================ */
+
+#map-loading {
+  background: linear-gradient(
+    135deg,
+    rgb(var(--surface-rgb) / 95%) 0%,
+    rgb(var(--surface-rgb) / 90%) 100%
+  ) !important;
+  backdrop-filter: blur(8px);
+}
+
+#map-loading .spinner-border {
+  width: 3rem;
+  height: 3rem;
+  border-width: 0.25em;
+  border-color: rgb(var(--primary-rgb) / 25%);
+  border-right-color: var(--primary);
+}
+
+/* ============================================
+   EMPTY STATES
+   ============================================ */
+
+.empty-state {
+  text-align: center;
+  padding: var(--space-8);
+  color: var(--text-secondary);
+  background: linear-gradient(135deg, var(--surface-2), var(--surface-1));
+  border-radius: var(--radius-xl);
+  border: 2px dashed rgb(var(--border-rgb) / 40%);
+}
+
+.empty-state i {
+  font-size: 4rem;
+  background: linear-gradient(135deg, var(--primary), var(--secondary));
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: var(--space-4);
+  opacity: 0.5;
+  filter: drop-shadow(0 4px 8px rgb(var(--primary-rgb) / 20%));
+}
+
+.empty-state h5 {
+  color: var(--text-primary);
+  margin-bottom: var(--space-2);
+  font-weight: var(--font-weight-semibold);
+}
+
+/* ============================================
+   STATUS BADGES
+   ============================================ */
+
+.visits-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  background: linear-gradient(135deg, var(--primary), var(--secondary));
+  color: var(--text-on-primary);
+  box-shadow: 0 4px 6px rgb(var(--primary-rgb) / 30%);
+  border: 1px solid rgb(255 255 255 / 20%);
+}
+
+.visits-badge::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 8px currentColor;
+}
+
+/* ============================================
+   DIVIDERS
+   ============================================ */
+
 .divider-gradient {
   height: 2px;
-  background: linear-gradient(90deg, transparent, var(--primary), transparent);
-  opacity: 0.3;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--primary) 20%,
+    var(--secondary) 50%,
+    var(--primary) 80%,
+    transparent 100%
+  );
+  opacity: 0.4;
+  border-radius: 1px;
 }
+
+/* ============================================
+   RESPONSIVE ENHANCEMENTS
+   ============================================ */
+
+@media (width <= 1200px) {
+  #visits-page .map-container--visits {
+    height: 550px;
+    min-height: 550px;
+  }
+}
+
+@media (width <= 992px) {
+  #visits-page .map-container--visits {
+    height: 450px;
+    min-height: 450px;
+  }
+
+  .place-management-panel {
+    background: linear-gradient(
+      135deg,
+      rgb(var(--surface-rgb) / 90%) 0%,
+      rgb(var(--surface-rgb) / 70%) 100%
+    );
+    backdrop-filter: blur(16px);
+  }
+
+  .place-management-panel::before {
+    display: none;
+  }
+
+  /* Stack stats vertically on smaller screens */
+  #visits-page .widget-header .d-inline-flex {
+    flex-direction: column;
+    gap: var(--space-3);
+    align-items: flex-start;
+  }
+}
+
+@media (width <= 768px) {
+  #visits-page .map-container--visits {
+    height: 350px;
+    min-height: 350px;
+  }
+
+  .map-controls-enhanced {
+    flex-direction: row;
+    top: auto;
+    bottom: var(--space-4);
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+  }
+
+  .place-management-panel {
+    padding: var(--space-4);
+  }
+
+  .visits-nav-tabs {
+    padding: var(--space-2);
+    overflow-x: auto;
+    border-radius: var(--radius-lg);
+    flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .visits-nav-tabs .nav-link {
+    white-space: nowrap;
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--font-size-sm);
+  }
+
+  /* Make buttons full width on mobile */
+  .action-button {
+    width: 100%;
+  }
+
+  /* Adjust widget padding */
+  #visits-page .widget {
+    padding: var(--space-4);
+  }
+}
+
+@media (width <= 576px) {
+  #visits-page .map-container--visits {
+    height: 300px;
+    min-height: 300px;
+  }
+
+  #visits-page .widget-title {
+    font-size: var(--font-size-lg);
+  }
+
+  #visits-page .widget-title i {
+    width: 36px;
+    height: 36px;
+    font-size: var(--font-size-md);
+  }
+
+  .map-control-btn {
+    width: 40px;
+    height: 40px;
+  }
+
+  .visits-modal .modal-header {
+    padding: var(--space-4);
+  }
+
+  .visits-modal .modal-body {
+    padding: var(--space-4);
+  }
+}
+
+/* ============================================
+   ANIMATION CLASSES
+   ============================================ */
+
+.fade-in-up {
+  animation: fadeInUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  opacity: 0;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.scale-in {
+  animation: scaleIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Stagger animation for grid items */
+[data-stagger] > * {
+  opacity: 0;
+  animation: fadeInUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+[data-stagger] > *:nth-child(1) {
+  animation-delay: 0ms;
+}
+[data-stagger] > *:nth-child(2) {
+  animation-delay: 100ms;
+}
+[data-stagger] > *:nth-child(3) {
+  animation-delay: 200ms;
+}
+[data-stagger] > *:nth-child(4) {
+  animation-delay: 300ms;
+}
+[data-stagger] > *:nth-child(5) {
+  animation-delay: 400ms;
+}
+
+/* ============================================
+   UTILITY CLASSES
+   ============================================ */
 
 /* Fix for toggle switch to prevent cutoff */
 .place-management-panel .form-check.form-switch {
@@ -485,13 +1173,12 @@
   align-items: center;
   width: 100%;
   box-sizing: border-box;
+  gap: var(--space-3);
 }
 
 .place-management-panel .form-check.form-switch .form-check-input {
   flex-shrink: 0;
-  margin: 0 var(--space-2) 0 0.25em;
-
-  /* Add small left margin to prevent knob cutoff */
+  margin: 0;
 }
 
 .place-management-panel .form-check.form-switch .form-check-label {
@@ -499,6 +1186,35 @@
   min-width: 0;
   overflow-wrap: break-word;
   margin: 0;
+  font-weight: var(--font-weight-medium);
+}
 
-  /* Ensure text wraps properly */
+/* Highlight animation for selected elements */
+.highlight-pulse {
+  animation: highlight-pulse 2s ease-in-out infinite;
+}
+
+@keyframes highlight-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgb(var(--primary-rgb) / 40%);
+  }
+  50% {
+    box-shadow: 0 0 0 10px rgb(var(--primary-rgb) / 0%);
+  }
+}
+
+/* Glass card effect */
+.glass-card {
+  background: linear-gradient(
+    135deg,
+    rgb(var(--surface-rgb) / 70%) 0%,
+    rgb(var(--surface-rgb) / 50%) 100%
+  );
+  backdrop-filter: blur(12px) saturate(180%);
+  border: 1px solid rgb(var(--border-rgb) / 30%);
+  border-radius: var(--radius-xl);
+  box-shadow:
+    0 8px 32px rgb(0 0 0 / 12%),
+    inset 0 1px 0 rgb(255 255 255 / 10%);
 }
