@@ -119,10 +119,13 @@ class VisitsManager {
       ]);
 
       // Start stats animation
+      // Stats are now handled by VisitsPageController in visits-new.js
+      /*
       this.updateStatsCounts();
       this.statsManager.startStatsAnimation(this.places.size, () =>
         this.updateStatsCounts()
       );
+      */
 
       this.loadingManager?.hide();
       VisitsHelpers.hideInitialLoading();

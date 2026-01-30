@@ -38,6 +38,7 @@ onPageLoad(
 
     // Initialize new visits page controller
     visitsPage = new VisitsPageController();
+    window.visitsPage = visitsPage; // Expose specifically for inline onclick handlers
 
     const themeObserver = new MutationObserver((mutations) => {
       mutations.forEach((mutation) => {
@@ -62,6 +63,3 @@ onPageLoad(
   },
   { route: "/visits" }
 );
-
-// Export for global access
-window.visitsPage = visitsPage;
