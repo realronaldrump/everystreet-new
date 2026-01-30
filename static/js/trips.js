@@ -41,13 +41,16 @@ const playbackState = {
   marker: null,
   frame: null,
   progress: 0,
-  speed: 1,
+  speed: 0.5,
   isPlaying: false,
   trailSourceId: "modal-trip-trail",
   trailLayerId: "modal-trip-trail-line",
   headSourceId: "modal-trip-head",
   headLayerId: "modal-trip-head-point",
 };
+
+const PLAYBACK_SPEED_BASE = 0.5;
+const PLAYBACK_STEP_PER_FRAME = 0.6;
 
 onPageLoad(
   async ({ signal, cleanup } = {}) => {
@@ -751,13 +754,14 @@ function setupSearchAndFilters() {
 
   // Filter toggle
   const filterToggle = document.getElementById("filter-toggle-btn");
-  const filtersPanel = document.getElementById("filters-panel");
+  const filtersPanel = document.getElementById("trips-filters-panel");
 
   if (filterToggle && filtersPanel) {
     filterToggle.addEventListener("click", () => {
       const isVisible = filtersPanel.style.display !== "none";
       filtersPanel.style.display = isVisible ? "none" : "block";
       filterToggle.classList.toggle("active", !isVisible);
+      filterToggle.setAttribute("aria-expanded", String(!isVisible));
     });
   }
 
@@ -771,6 +775,7 @@ function setupSearchAndFilters() {
     if (window.innerWidth < 768 && filtersPanel) {
       filtersPanel.style.display = "none";
       filterToggle?.classList.remove("active");
+      filterToggle?.setAttribute("aria-expanded", "false");
     }
   });
 
@@ -862,36 +867,33 @@ function getFilterValues() {
 }
 
 function getDateRange(range) {
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const today = dayjs().startOf("day");
 
   switch (range) {
     case "today":
       return {
-        start: today.toISOString(),
-        end: new Date(today.getTime() + 86400000).toISOString(),
+        start: today.format("YYYY-MM-DD"),
+        end: today.format("YYYY-MM-DD"),
       };
     case "yesterday": {
-      const yesterday = new Date(today);
-      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterday = today.subtract(1, "day");
       return {
-        start: yesterday.toISOString(),
-        end: today.toISOString(),
+        start: yesterday.format("YYYY-MM-DD"),
+        end: yesterday.format("YYYY-MM-DD"),
       };
     }
     case "week": {
-      const weekStart = new Date(today);
-      weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+      const weekStart = today.startOf("week");
       return {
-        start: weekStart.toISOString(),
-        end: now.toISOString(),
+        start: weekStart.format("YYYY-MM-DD"),
+        end: today.format("YYYY-MM-DD"),
       };
     }
     case "month": {
-      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      const monthStart = today.startOf("month");
       return {
-        start: monthStart.toISOString(),
-        end: now.toISOString(),
+        start: monthStart.format("YYYY-MM-DD"),
+        end: today.format("YYYY-MM-DD"),
       };
     }
     case "all":
@@ -936,13 +938,21 @@ function updateFilterChips() {
     });
   }
 
+  const formatFilterDate = (value) => {
+    if (!value) return "Any";
+    const dateStr = String(value);
+    const date = dateStr.includes("T")
+      ? new Date(dateStr)
+      : new Date(`${dateStr}T00:00:00`);
+    if (Number.isNaN(date.getTime())) {
+      return dateStr;
+    }
+    return date.toLocaleDateString();
+  };
+
   if (filters.start_date || filters.end_date) {
-    const start = filters.start_date
-      ? new Date(filters.start_date).toLocaleDateString()
-      : "Any";
-    const end = filters.end_date
-      ? new Date(filters.end_date).toLocaleDateString()
-      : "Any";
+    const start = formatFilterDate(filters.start_date);
+    const end = formatFilterDate(filters.end_date);
     addChip(`Date: ${start} → ${end}`, () => {
       setStorage("startDate", null);
       setStorage("endDate", null);
@@ -1378,6 +1388,11 @@ function setupTripPlaybackControls() {
   const speedInput = document.getElementById("trip-playback-speed");
   const speedLabel = document.getElementById("trip-playback-speed-label");
 
+  const updateSpeedLabel = () => {
+    if (!speedLabel) return;
+    speedLabel.textContent = `${getPlaybackSpeedMultiplier().toFixed(1)}x`;
+  };
+
   if (playBtn) {
     playBtn.addEventListener("click", () => {
       if (playbackState.isPlaying) {
@@ -1390,16 +1405,24 @@ function setupTripPlaybackControls() {
   }
 
   if (speedInput) {
+    playbackState.speed = Number(speedInput.value) || PLAYBACK_SPEED_BASE;
+    updateSpeedLabel();
     speedInput.addEventListener("input", () => {
-      playbackState.speed = Number(speedInput.value) || 1;
-      if (speedLabel) {
-        speedLabel.textContent = `${playbackState.speed.toFixed(1)}x`;
-      }
+      playbackState.speed = Number(speedInput.value) || PLAYBACK_SPEED_BASE;
+      updateSpeedLabel();
     });
   }
 
   playbackControlsBound = true;
   updatePlaybackUI();
+}
+
+function getPlaybackSpeedMultiplier() {
+  const speedValue
+    = Number.isFinite(playbackState.speed) && playbackState.speed > 0
+      ? playbackState.speed
+      : PLAYBACK_SPEED_BASE;
+  return speedValue / PLAYBACK_SPEED_BASE;
 }
 
 function setPlaybackRoute(geometry) {
@@ -1426,7 +1449,7 @@ function startPlayback() {
   const step = () => {
     if (!playbackState.isPlaying) return;
 
-    playbackState.progress += playbackState.speed * 0.6;
+    playbackState.progress += getPlaybackSpeedMultiplier() * PLAYBACK_STEP_PER_FRAME;
     const index = Math.min(
       playbackState.coords.length - 1,
       Math.floor(playbackState.progress)
@@ -1439,6 +1462,7 @@ function startPlayback() {
     }
 
     playbackState.marker.setLngLat(coord).addTo(tripModalMap);
+    tripModalMap.setCenter(coord);
     updatePlaybackHead(coord);
     updatePlaybackTrail(playbackState.coords.slice(0, index + 1));
 

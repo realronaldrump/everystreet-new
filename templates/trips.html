@@ -79,7 +79,7 @@
               <i class="fas fa-times"></i>
             </button>
           </div>
-          <button class="filter-toggle-btn" id="filter-toggle-btn">
+          <button class="filter-toggle-btn" id="filter-toggle-btn" aria-controls="trips-filters-panel" aria-expanded="false">
             <i class="fas fa-sliders-h"></i>
             <span>Filters</span>
             <span class="filter-badge" id="active-filter-count">0</span>
@@ -87,7 +87,7 @@
         </div>
 
         <!-- Expandable Filters Panel -->
-        <div class="filters-panel" id="filters-panel" style="display: none;">
+        <div class="filters-panel" id="trips-filters-panel" style="display: none;">
           <div class="filters-content">
             <div class="filter-group">
               <label class="filter-label">Vehicle</label>
@@ -278,7 +278,7 @@
                   </button>
                   <div class="playback-speed">
                     <label for="trip-playback-speed">Speed</label>
-                    <input type="range" id="trip-playback-speed" min="0.5" max="3" step="0.5" value="1" />
+                    <input type="range" id="trip-playback-speed" min="0.5" max="3" step="0.5" value="0.5" />
                     <span id="trip-playback-speed-label">1.0x</span>
                   </div>
                 </div>
