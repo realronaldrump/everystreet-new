@@ -1136,7 +1136,6 @@ function initTripModalMap() {
 
   try {
     tripModalMap = createMap("trip-modal-map", {
-      style: "mapbox://styles/mapbox/light-v11",
       zoom: 1,
       center: [-98.57, 39.82],
     });
