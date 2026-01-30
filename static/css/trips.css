@@ -4,7 +4,7 @@
 /* ============================================
    CSS VARIABLES
    ============================================ */
-:root {
+.trips-journal-page {
   /* App-aligned palette + typography */
   --trips-bg: var(--surface-0);
   --trips-bg-elevated: var(--surface-1);
