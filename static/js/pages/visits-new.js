@@ -734,7 +734,7 @@ class VisitsPageController {
     const rangeEnd = startIndex + countOnPage;
 
     if (this.elements.discoveriesPageInfo) {
-      this.elements.discoveriesPageInfo.textContent = `Showing ${rangeStart}–${rangeEnd} of ${total}`;
+      this.elements.discoveriesPageInfo.textContent = `Showing ${rangeStart}-${rangeEnd} of ${total}`;
     }
 
     if (this.elements.discoveriesPrev) {
