@@ -1882,7 +1882,8 @@ body.light-mode .mobile-select {
 .trip-stats-widget {
   position: absolute;
   top: var(--space-4);
-  left: var(--space-4);
+  right: var(--space-4);
+  left: auto;
   z-index: var(--z-overlay);
   width: min(320px, calc(100vw - (2 * var(--space-4))));
   pointer-events: none;
@@ -2015,6 +2016,27 @@ body.light-mode .mobile-select {
 .trip-stats-expanded {
   border-top: 1px solid var(--glass-border-subtle);
   background: rgb(var(--surface-rgb) / 25%);
+  max-height: 400px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--surface-3) transparent;
+}
+
+.trip-stats-expanded::-webkit-scrollbar {
+  width: 6px;
+}
+
+.trip-stats-expanded::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.trip-stats-expanded::-webkit-scrollbar-thumb {
+  background: var(--surface-3);
+  border-radius: var(--radius-full);
+}
+
+.trip-stats-expanded::-webkit-scrollbar-thumb:hover {
+  background: var(--surface-4, var(--surface-3));
 }
 
 .trip-stats-expanded-content {
@@ -2092,6 +2114,10 @@ body.light-mode .mobile-select {
     right: var(--space-3);
     top: calc(var(--space-3) + env(safe-area-inset-top, 0px));
     width: auto;
+  }
+
+  .trip-stats-expanded {
+    max-height: 50vh;
   }
 
   .trip-stats-compact {
