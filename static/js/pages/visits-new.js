@@ -1,3 +1,4 @@
+/* global mapboxgl */
 /* Visits Page Redesign - Main Controller
  * Integrates with real API endpoints and uses imperial units
  */
