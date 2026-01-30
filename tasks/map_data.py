@@ -14,6 +14,7 @@ from typing import Any
 
 import httpx
 from shapely.geometry import box
+from shapely.ops import unary_union
 
 from config import get_geofabrik_mirror, get_osm_extracts_path
 from core.service_config import get_service_config
@@ -79,6 +80,13 @@ class DownloadTracker:
         return (self.downloaded_bytes / self.total_bytes) * 100.0
 
 
+@dataclass
+class DownloadResult:
+    files: list[str]
+    used_covering_extract: bool = False
+    covering_extract_id: str | None = None
+
+
 @dataclass(frozen=True)
 class DownloadTarget:
     geofabrik_id: str
@@ -121,6 +129,19 @@ def _format_extract_label(geofabrik_id: str, fallback: str) -> str:
     if not parts:
         return fallback
     return " / ".join(segment.replace("-", " ").title() for segment in parts)
+
+
+def _build_state_bounds_union(states: list[str]) -> Any | None:
+    boxes = []
+    for code in states:
+        bounds = US_STATE_BOUNDS.get(code)
+        if bounds:
+            boxes.append(box(*bounds))
+    if not boxes:
+        return None
+    if len(boxes) == 1:
+        return boxes[0]
+    return unary_union(boxes)
 
 
 def _retry_delay_seconds(retry_count: int) -> int:
@@ -226,40 +247,62 @@ async def _download_states(
     progress: MapBuildProgress,
     *,
     coverage_by_state: dict[str, Any] | None = None,
-) -> list[str]:
+) -> DownloadResult:
     download_plan: list[DownloadTarget] = []
     selected_ids: set[str] = set()
     index_data = None
 
-    if coverage_by_state:
+    if len(states) > 1:
+        union_geometry = _build_state_bounds_union(states)
         index_data = await load_geofabrik_index()
-
-    for code in states:
-        state = get_state(code)
-        if not state:
-            continue
-        geofabrik_id = str(state.get("geofabrik_id"))
-        target_id = geofabrik_id
-        coverage_geom = coverage_by_state.get(code) if coverage_by_state else None
-        if coverage_geom is not None and index_data:
-            path_prefix = build_geofabrik_path(geofabrik_id)
-            candidate = find_smallest_covering_extract(
+        path_prefix = build_geofabrik_path("us")
+        covering_id = None
+        if union_geometry is not None:
+            covering_id = find_smallest_covering_extract(
                 index_data,
                 path_prefix=path_prefix,
-                coverage_geometry=coverage_geom,
+                coverage_geometry=union_geometry,
             )
-            if candidate:
-                target_id = candidate
-                if target_id != geofabrik_id:
-                    logger.info("Using smaller extract %s for %s", target_id, code)
+        if not covering_id:
+            covering_id = "us"
+            logger.info(
+                "Falling back to US extract for multi-state selection (no smaller covering extract found).",
+            )
+        label = _format_extract_label(covering_id, "Selected states")
+        download_plan.append(
+            DownloadTarget(covering_id, _state_filename(covering_id), label),
+        )
+        selected_ids.add(covering_id)
+    else:
+        if coverage_by_state:
+            index_data = await load_geofabrik_index()
 
-        if target_id in selected_ids:
-            continue
-        selected_ids.add(target_id)
+        for code in states:
+            state = get_state(code)
+            if not state:
+                continue
+            geofabrik_id = str(state.get("geofabrik_id"))
+            target_id = geofabrik_id
+            coverage_geom = coverage_by_state.get(code) if coverage_by_state else None
+            if coverage_geom is not None and index_data:
+                path_prefix = build_geofabrik_path(geofabrik_id)
+                candidate = find_smallest_covering_extract(
+                    index_data,
+                    path_prefix=path_prefix,
+                    coverage_geometry=coverage_geom,
+                )
+                if candidate:
+                    target_id = candidate
+                    if target_id != geofabrik_id:
+                        logger.info("Using smaller extract %s for %s", target_id, code)
 
-        filename = _state_filename(target_id)
-        label = _format_extract_label(target_id, state.get("name", code))
-        download_plan.append(DownloadTarget(target_id, filename, label))
+            if target_id in selected_ids:
+                continue
+            selected_ids.add(target_id)
+
+            filename = _state_filename(target_id)
+            label = _format_extract_label(target_id, state.get("name", code))
+            download_plan.append(DownloadTarget(target_id, filename, label))
 
     extracts_path = get_osm_extracts_path()
     states_dir = os.path.join(extracts_path, "states")
@@ -324,7 +367,11 @@ async def _download_states(
         phase_progress=100.0,
     )
 
-    return [os.path.join(states_dir, target.filename) for target in download_plan]
+    return DownloadResult(
+        files=[os.path.join(states_dir, target.filename) for target in download_plan],
+        used_covering_extract=len(states) > 1,
+        covering_extract_id=download_plan[0].geofabrik_id if len(states) > 1 else None,
+    )
 
 
 async def _merge_pbf_files(
@@ -404,131 +451,156 @@ async def _maybe_build_coverage_extract(
     progress: MapBuildProgress,
     *,
     coverage_geometry: Any | None = None,
+    state_bounds_geometry: Any | None = None,
     skip_coverage_extract: bool = False,
 ) -> str:
     settings = await get_service_config()
     mode = str(getattr(settings, "mapCoverageMode", "trips") or "trips").lower()
-    if mode not in {"trips", "auto"}:
-        return merged_pbf
+    extract_path = None
 
-    if skip_coverage_extract:
-        await _update_progress(
-            config,
-            progress,
-            status=MapServiceConfig.STATUS_DOWNLOADING,
-            message="Coverage analysis timed out; using full extract.",
-            overall_progress=MERGE_PROGRESS_END + 2.0,
-            phase=MapBuildProgress.PHASE_DOWNLOADING,
-            phase_progress=100.0,
-        )
-        return merged_pbf
+    if mode in {"trips", "auto"}:
+        if skip_coverage_extract:
+            await _update_progress(
+                config,
+                progress,
+                status=MapServiceConfig.STATUS_DOWNLOADING,
+                message="Coverage analysis timed out; falling back to state bounds.",
+                overall_progress=MERGE_PROGRESS_END + 2.0,
+                phase=MapBuildProgress.PHASE_DOWNLOADING,
+                phase_progress=100.0,
+            )
+        else:
+            buffer_miles = float(
+                getattr(settings, "mapCoverageBufferMiles", 10.0) or 10.0,
+            )
+            simplify_feet = float(
+                getattr(settings, "mapCoverageSimplifyFeet", 150.0) or 0.0,
+            )
+            max_points = int(
+                getattr(settings, "mapCoverageMaxPointsPerTrip", 2000) or 2000,
+            )
+            batch_size = int(getattr(settings, "mapCoverageBatchSize", 200) or 200)
 
-    buffer_miles = float(
-        getattr(settings, "mapCoverageBufferMiles", 10.0) or 10.0,
-    )
-    simplify_feet = float(
-        getattr(settings, "mapCoverageSimplifyFeet", 150.0) or 0.0,
-    )
-    max_points = int(
-        getattr(settings, "mapCoverageMaxPointsPerTrip", 2000) or 2000,
-    )
-    batch_size = int(getattr(settings, "mapCoverageBatchSize", 200) or 200)
+            await _update_progress(
+                config,
+                progress,
+                status=MapServiceConfig.STATUS_DOWNLOADING,
+                message="Preparing coverage extract...",
+                overall_progress=MERGE_PROGRESS_END + 1.0,
+                phase=MapBuildProgress.PHASE_DOWNLOADING,
+                phase_progress=-1.0,
+            )
 
-    await _update_progress(
-        config,
-        progress,
-        status=MapServiceConfig.STATUS_DOWNLOADING,
-        message="Preparing coverage extract...",
-        overall_progress=MERGE_PROGRESS_END + 1.0,
-        phase=MapBuildProgress.PHASE_DOWNLOADING,
-        phase_progress=-1.0,
-    )
+            async def coverage_progress(stats: Any) -> None:
+                await _update_progress(
+                    config,
+                    progress,
+                    status=MapServiceConfig.STATUS_DOWNLOADING,
+                    message=(
+                        "Preparing coverage extract... "
+                        f"trips={getattr(stats, 'trips_seen', 0):,} "
+                        f"geometries={getattr(stats, 'geometries_used', 0):,}"
+                    ),
+                    overall_progress=MERGE_PROGRESS_END + 1.0,
+                    phase=MapBuildProgress.PHASE_DOWNLOADING,
+                    phase_progress=-1.0,
+                )
 
-    async def coverage_progress(stats: Any) -> None:
-        await _update_progress(
-            config,
-            progress,
-            status=MapServiceConfig.STATUS_DOWNLOADING,
-            message=(
-                "Preparing coverage extract... "
-                f"trips={getattr(stats, 'trips_seen', 0):,} "
-                f"geometries={getattr(stats, 'geometries_used', 0):,}"
-            ),
-            overall_progress=MERGE_PROGRESS_END + 1.0,
-            phase=MapBuildProgress.PHASE_DOWNLOADING,
-            phase_progress=-1.0,
-        )
+            async def extract_heartbeat() -> None:
+                await _update_progress(
+                    config,
+                    progress,
+                    status=MapServiceConfig.STATUS_DOWNLOADING,
+                    message="Preparing coverage extract...",
+                    overall_progress=MERGE_PROGRESS_END + 1.0,
+                    phase=MapBuildProgress.PHASE_DOWNLOADING,
+                    phase_progress=-1.0,
+                    allow_cancel=False,
+                )
 
-    async def extract_heartbeat() -> None:
-        await _update_progress(
-            config,
-            progress,
-            status=MapServiceConfig.STATUS_DOWNLOADING,
-            message="Preparing coverage extract...",
-            overall_progress=MERGE_PROGRESS_END + 1.0,
-            phase=MapBuildProgress.PHASE_DOWNLOADING,
-            phase_progress=-1.0,
-            allow_cancel=False,
-        )
+            try:
+                if coverage_geometry is not None:
+                    extract_path = await build_trip_coverage_extract_from_geometry(
+                        merged_pbf,
+                        coverage_geometry,
+                        heartbeat_callback=extract_heartbeat,
+                        heartbeat_interval=COVERAGE_EXTRACT_HEARTBEAT_SECONDS,
+                        timeout_seconds=COVERAGE_EXTRACT_TIMEOUT_SECONDS,
+                    )
+                else:
+                    extract_path = await build_trip_coverage_extract(
+                        merged_pbf,
+                        buffer_miles=buffer_miles,
+                        simplify_feet=simplify_feet,
+                        max_points_per_trip=max_points,
+                        batch_size=batch_size,
+                        progress_callback=coverage_progress,
+                        polygon_timeout_seconds=COVERAGE_BUILD_TIMEOUT_SECONDS,
+                        extract_timeout_seconds=COVERAGE_EXTRACT_TIMEOUT_SECONDS,
+                        extract_heartbeat=extract_heartbeat,
+                        extract_heartbeat_interval=COVERAGE_EXTRACT_HEARTBEAT_SECONDS,
+                    )
+            except Exception as exc:
+                logger.warning("Coverage extract failed: %s", exc)
+                extract_path = None
 
-    try:
-        if coverage_geometry is not None:
+            if extract_path:
+                await _update_progress(
+                    config,
+                    progress,
+                    status=MapServiceConfig.STATUS_DOWNLOADING,
+                    message="Coverage extract ready",
+                    overall_progress=MERGE_PROGRESS_END + 2.0,
+                    phase=MapBuildProgress.PHASE_DOWNLOADING,
+                    phase_progress=100.0,
+                )
+                return extract_path
+            logger.warning("Coverage extract unavailable; falling back to state bounds.")
+
+    if state_bounds_geometry is not None:
+        try:
+            await _update_progress(
+                config,
+                progress,
+                status=MapServiceConfig.STATUS_DOWNLOADING,
+                message="Clipping extract to selected states...",
+                overall_progress=MERGE_PROGRESS_END + 1.0,
+                phase=MapBuildProgress.PHASE_DOWNLOADING,
+                phase_progress=100.0,
+            )
             extract_path = await build_trip_coverage_extract_from_geometry(
                 merged_pbf,
-                coverage_geometry,
-                heartbeat_callback=extract_heartbeat,
+                state_bounds_geometry,
                 heartbeat_interval=COVERAGE_EXTRACT_HEARTBEAT_SECONDS,
                 timeout_seconds=COVERAGE_EXTRACT_TIMEOUT_SECONDS,
             )
-        else:
-            extract_path = await build_trip_coverage_extract(
-                merged_pbf,
-                buffer_miles=buffer_miles,
-                simplify_feet=simplify_feet,
-                max_points_per_trip=max_points,
-                batch_size=batch_size,
-                progress_callback=coverage_progress,
-                polygon_timeout_seconds=COVERAGE_BUILD_TIMEOUT_SECONDS,
-                extract_timeout_seconds=COVERAGE_EXTRACT_TIMEOUT_SECONDS,
-                extract_heartbeat=extract_heartbeat,
-                extract_heartbeat_interval=COVERAGE_EXTRACT_HEARTBEAT_SECONDS,
-            )
-    except Exception as exc:
-        logger.warning("Coverage extract failed: %s", exc)
-        await _update_progress(
-            config,
-            progress,
-            status=MapServiceConfig.STATUS_DOWNLOADING,
-            message="Coverage extract failed; using merged PBF.",
-            overall_progress=MERGE_PROGRESS_END + 2.0,
-            phase=MapBuildProgress.PHASE_DOWNLOADING,
-            phase_progress=100.0,
-        )
-        return merged_pbf
+        except Exception as exc:
+            logger.warning("State bounds extract failed: %s", exc)
+            extract_path = None
 
-    if not extract_path:
-        logger.warning("Coverage extract unavailable; using merged PBF.")
-        await _update_progress(
-            config,
-            progress,
-            status=MapServiceConfig.STATUS_DOWNLOADING,
-            message="Coverage extract unavailable; using merged PBF.",
-            overall_progress=MERGE_PROGRESS_END + 2.0,
-            phase=MapBuildProgress.PHASE_DOWNLOADING,
-            phase_progress=100.0,
-        )
-        return merged_pbf
+        if extract_path:
+            await _update_progress(
+                config,
+                progress,
+                status=MapServiceConfig.STATUS_DOWNLOADING,
+                message="State bounds extract ready",
+                overall_progress=MERGE_PROGRESS_END + 2.0,
+                phase=MapBuildProgress.PHASE_DOWNLOADING,
+                phase_progress=100.0,
+            )
+            return extract_path
+        logger.warning("State bounds extract unavailable; using merged PBF.")
 
     await _update_progress(
         config,
         progress,
         status=MapServiceConfig.STATUS_DOWNLOADING,
-        message="Coverage extract ready",
+        message="Using full extract.",
         overall_progress=MERGE_PROGRESS_END + 2.0,
         phase=MapBuildProgress.PHASE_DOWNLOADING,
         phase_progress=100.0,
     )
-    return extract_path
+    return merged_pbf
 
 
 async def _build_nominatim(
@@ -782,7 +854,7 @@ async def setup_map_data_task(ctx: dict, states: list[str]) -> dict[str, Any]:
                 routing_ready=False,
             )
 
-            files = await _download_states(
+            download_result = await _download_states(
                 normalized,
                 config,
                 progress,
@@ -790,15 +862,32 @@ async def setup_map_data_task(ctx: dict, states: list[str]) -> dict[str, Any]:
             )
             await _check_cancel(progress)
 
-            merged = await _merge_pbf_files(files, config, progress)
+            if download_result.used_covering_extract:
+                await _update_progress(
+                    config,
+                    progress,
+                    status=MapServiceConfig.STATUS_DOWNLOADING,
+                    message="Using single covering extract to avoid duplicates...",
+                    overall_progress=DOWNLOAD_PROGRESS_END,
+                    phase=MapBuildProgress.PHASE_DOWNLOADING,
+                    phase_progress=100.0,
+                )
+
+            merged = await _merge_pbf_files(download_result.files, config, progress)
             await _check_cancel(progress)
 
             extracts_path = get_osm_extracts_path()
+            state_bounds_union = (
+                _build_state_bounds_union(normalized)
+                if download_result.used_covering_extract
+                else None
+            )
             coverage_pbf = await _maybe_build_coverage_extract(
                 merged,
                 config,
                 progress,
                 coverage_geometry=coverage_geometry,
+                state_bounds_geometry=state_bounds_union,
                 skip_coverage_extract=coverage_analysis_timed_out,
             )
             await _check_cancel(progress)
