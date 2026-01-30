@@ -103,24 +103,6 @@ def get_states_for_coordinate(lon: float, lat: float) -> set[str]:
     return states
 
 
-def get_states_for_coordinates(
-    coordinates: list[tuple[float, float]],
-) -> set[str]:
-    """
-    Get all US states that contain any of the given coordinates.
-
-    Args:
-        coordinates: List of (lon, lat) tuples
-
-    Returns:
-        Set of state codes (e.g., {'CA', 'NV', 'AZ'})
-    """
-    states = set()
-    for lon, lat in coordinates:
-        states.update(get_states_for_coordinate(lon, lat))
-    return states
-
-
 async def detect_trip_states() -> dict[str, Any]:
     """
     Detect which US states have trip data.

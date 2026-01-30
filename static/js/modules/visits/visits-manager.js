@@ -391,7 +391,7 @@ class VisitsManager {
       bootstrap.Tab.getOrCreateInstance(customTab).show();
     }
 
-    this.uiManager.previewSuggestion(suggestion);
+    this.uiManager.previewSuggestion?.(suggestion);
   }
 
   // --- Tables ---

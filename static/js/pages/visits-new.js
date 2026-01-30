@@ -3,6 +3,7 @@
  */
 
 import { onPageLoad } from "../modules/utils.js";
+import { VisitsGeometry } from "../modules/visits/geometry.js";
 import VisitsManager from "../modules/visits/visits-manager.js";
 
 // Configuration for imperial units
@@ -40,6 +41,9 @@ class VisitsPageController {
     this.nonCustomPlaces = [];
     this.currentView = "cards";
     this.currentSuggestionSize = 250; // feet (converted from 75m)
+    this.suggestionPage = 1;
+    this.suggestionPageSize = 6;
+    this.suggestionPreviewMaps = new Map();
 
     // DOM Elements
     this.elements = {};
@@ -80,6 +84,10 @@ class VisitsPageController {
       discoveriesSection: document.getElementById("discoveries-section"),
       discoveriesGrid: document.getElementById("discoveries-grid"),
       discoveriesEmptyState: document.getElementById("discoveries-empty-state"),
+      discoveriesPagination: document.getElementById("discoveries-pagination"),
+      discoveriesPrev: document.getElementById("discoveries-prev"),
+      discoveriesNext: document.getElementById("discoveries-next"),
+      discoveriesPageInfo: document.getElementById("discoveries-page-info"),
       suggestionSize: document.getElementById("suggestion-size"),
 
       // Map section
@@ -114,7 +122,16 @@ class VisitsPageController {
     // Suggestion size change
     this.elements.suggestionSize?.addEventListener("change", (e) => {
       this.currentSuggestionSize = parseInt(e.target.value);
+      this.suggestionPage = 1;
       this.loadSuggestions();
+    });
+
+    this.elements.discoveriesPrev?.addEventListener("click", () => {
+      this.setSuggestionPage(this.suggestionPage - 1);
+    });
+
+    this.elements.discoveriesNext?.addEventListener("click", () => {
+      this.setSuggestionPage(this.suggestionPage + 1);
     });
 
     // Back button
@@ -390,6 +407,7 @@ class VisitsPageController {
   async loadSuggestions() {
     try {
       this.suggestions = await this.fetchSuggestions(this.currentSuggestionSize);
+      this.suggestionPage = 1;
       this.renderSuggestions();
     } catch (error) {
       console.error("Error loading suggestions:", error);
@@ -397,23 +415,42 @@ class VisitsPageController {
   }
 
   renderSuggestions() {
+    this.clearSuggestionPreviewMaps();
+
     if (this.suggestions.length === 0) {
       this.elements.discoveriesGrid.style.display = "none";
       this.elements.discoveriesEmptyState.style.display = "block";
+      this.elements.discoveriesPagination.style.display = "none";
       return;
     }
 
     this.elements.discoveriesEmptyState.style.display = "none";
     this.elements.discoveriesSection.style.display = "block";
 
-    const suggestionsHTML = this.suggestions
-      .map((suggestion, index) => {
+    const totalPages = this.getSuggestionPageCount();
+    if (this.suggestionPage > totalPages) {
+      this.suggestionPage = totalPages;
+    }
+
+    const startIndex = (this.suggestionPage - 1) * this.suggestionPageSize;
+    const pageSuggestions = this.suggestions.slice(
+      startIndex,
+      startIndex + this.suggestionPageSize
+    );
+
+    const suggestionsHTML = pageSuggestions
+      .map((suggestion, pageIndex) => {
+        const index = startIndex + pageIndex;
         // Convert boundary size from meters to feet for display
         const boundarySizeFt = IMPERIAL_CONFIG.metersToFeet(this.currentSuggestionSize);
 
         return `
         <div class="discovery-card" data-suggestion-index="${index}">
-          <div class="discovery-map-preview">
+          <div class="discovery-map-preview" id="discovery-map-${index}">
+            <div class="map-preview-fallback">
+              <i class="fas fa-map-marked-alt"></i>
+              <span>Map preview unavailable</span>
+            </div>
             <span class="discovery-boundary-indicator"><i class="fas fa-ruler-combined"></i> ~${boundarySizeFt} ft boundary</span>
           </div>
           <div class="discovery-content">
@@ -435,6 +472,8 @@ class VisitsPageController {
 
     this.elements.discoveriesGrid.innerHTML = suggestionsHTML;
     this.elements.discoveriesGrid.style.display = "grid";
+    this.updateSuggestionPagination(pageSuggestions.length, startIndex);
+    this.renderSuggestionPreviewMaps(pageSuggestions, startIndex);
   }
 
   async loadOtherStops() {
@@ -653,12 +692,145 @@ class VisitsPageController {
   previewSuggestion(index) {
     const suggestion = this.suggestions[index];
     if (suggestion && suggestion.boundary) {
-      // Use VisitsManager to show boundary on map
-      this.visitsManager?.showSuggestionOnMap?.(suggestion);
+      // Show boundary on main map with editable controls
+      this.visitsManager?.applySuggestion?.(suggestion);
 
       // Scroll to map
       document.querySelector(".map-section").scrollIntoView({ behavior: "smooth" });
     }
+  }
+
+  getSuggestionPageCount() {
+    return Math.max(1, Math.ceil(this.suggestions.length / this.suggestionPageSize));
+  }
+
+  setSuggestionPage(page) {
+    const totalPages = this.getSuggestionPageCount();
+    const nextPage = Math.min(Math.max(page, 1), totalPages);
+    if (nextPage === this.suggestionPage) {
+      return;
+    }
+    this.suggestionPage = nextPage;
+    this.renderSuggestions();
+  }
+
+  updateSuggestionPagination(countOnPage, startIndex) {
+    if (!this.elements.discoveriesPagination) {
+      return;
+    }
+
+    const total = this.suggestions.length;
+    const totalPages = this.getSuggestionPageCount();
+    const showPagination = total > this.suggestionPageSize;
+
+    this.elements.discoveriesPagination.style.display = showPagination ? "flex" : "none";
+
+    if (!showPagination) {
+      return;
+    }
+
+    const rangeStart = startIndex + 1;
+    const rangeEnd = startIndex + countOnPage;
+
+    if (this.elements.discoveriesPageInfo) {
+      this.elements.discoveriesPageInfo.textContent = `Showing ${rangeStart}–${rangeEnd} of ${total}`;
+    }
+
+    if (this.elements.discoveriesPrev) {
+      this.elements.discoveriesPrev.disabled = this.suggestionPage <= 1;
+    }
+    if (this.elements.discoveriesNext) {
+      this.elements.discoveriesNext.disabled = this.suggestionPage >= totalPages;
+    }
+  }
+
+  clearSuggestionPreviewMaps() {
+    this.suggestionPreviewMaps.forEach((map) => {
+      try {
+        map.remove();
+      } catch {
+        // Ignore cleanup errors.
+      }
+    });
+    this.suggestionPreviewMaps.clear();
+  }
+
+  renderSuggestionPreviewMaps(pageSuggestions, startIndex) {
+    if (typeof mapboxgl === "undefined") {
+      return;
+    }
+
+    const token = window.MAPBOX_ACCESS_TOKEN;
+    if (!token) {
+      return;
+    }
+
+    mapboxgl.accessToken = token;
+    const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
+    const style =
+      theme === "light"
+        ? "mapbox://styles/mapbox/light-v11"
+        : "mapbox://styles/mapbox/dark-v11";
+
+    pageSuggestions.forEach((suggestion, pageIndex) => {
+      if (!suggestion?.boundary) {
+        return;
+      }
+      const mapId = `discovery-map-${startIndex + pageIndex}`;
+      const container = document.getElementById(mapId);
+      if (!container) {
+        return;
+      }
+
+      const previewMap = new mapboxgl.Map({
+        container,
+        style,
+        center: [-95.7129, 37.0902],
+        zoom: 3,
+        interactive: false,
+        attributionControl: false,
+      });
+
+      previewMap.on("load", () => {
+        previewMap.addSource("suggestion-preview", {
+          type: "geojson",
+          data: suggestion.boundary,
+        });
+
+        previewMap.addLayer({
+          id: "suggestion-preview-fill",
+          type: "fill",
+          source: "suggestion-preview",
+          paint: {
+            "fill-color": "#38bdf8",
+            "fill-opacity": 0.28,
+          },
+        });
+
+        previewMap.addLayer({
+          id: "suggestion-preview-outline",
+          type: "line",
+          source: "suggestion-preview",
+          paint: {
+            "line-color": "#38bdf8",
+            "line-width": 2,
+          },
+        });
+
+        VisitsGeometry.fitMapToGeometry(previewMap, suggestion.boundary, {
+          padding: 18,
+          duration: 0,
+        });
+
+        container.classList.add("has-map");
+      });
+
+      previewMap.on("error", () => {
+        container.classList.remove("has-map");
+      });
+
+      this.suggestionPreviewMaps.set(mapId, previewMap);
+    });
   }
 
   async addSuggestionAsPlace(index) {

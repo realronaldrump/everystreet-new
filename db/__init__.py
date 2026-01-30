@@ -69,7 +69,6 @@ from street_coverage.models import (
     CoverageArea,
     CoverageState,
     Job,
-    Street as NewStreet,
 )
 
 logger = logging.getLogger(__name__)
@@ -91,7 +90,6 @@ __all__ = [
     "ExportJob",
     "GasFillup",
     "Job",
-    "NewStreet",
     "OptimalRouteProgress",
     "OsmData",
     "Place",
