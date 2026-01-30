@@ -190,241 +190,129 @@ Avg Speed
       </div>
     </div>
 
-    <!-- Unified Control Panel - transforms based on viewport -->
+    <!-- Unified Control Panel - Redesigned -->
     <div id="map-controls"
-         class="control-panel shadow-lg"
+         class="control-panel"
          role="region"
          aria-label="Map controls">
-      <!-- Mobile sheet handle (hidden on desktop via CSS) -->
-      <div class="mobile-sheet-handle-container">
-        <div class="mobile-sheet-handle">
-        </div>
+      <!-- Mobile handle -->
+      <div class="mobile-sheet-handle-container" onclick="toggleMapControls()">
+        <div class="mobile-sheet-handle"></div>
       </div>
 
       <!-- Panel Header -->
       <div class="control-panel-header">
         <h2 class="control-panel-title">
-          <i class="fas fa-layer-group me-2" aria-hidden="true"></i>
+          <i class="fas fa-layer-group" aria-hidden="true"></i>
           Map Controls
         </h2>
         <div class="control-panel-actions">
-          <!-- Mobile live status badge (hidden on desktop) -->
+          <!-- Mobile live badge -->
           <span class="mobile-live-badge" id="live-status-badge">
             <span class="pulse-dot"></span>
             <span>Live</span>
           </span>
+          <!-- Desktop toggle -->
           <button id="controls-toggle"
                   class="btn btn-sm btn-icon-only"
                   aria-label="Toggle Controls"
                   aria-expanded="true"
-                  aria-controls="controls-content"
-                  title="Collapse panel">
+                  onclick="toggleMapControls()">
             <i class="fas fa-chevron-down" aria-hidden="true"></i>
           </button>
         </div>
       </div>
 
-      <div id="controls-content" class="collapse show control-panel-body">
-        <div class="control-sections">
-          <!-- Search Section -->
-          <div class="control-section">
-            <div class="search-container">
-              <div class="position-relative">
-                <i class="fas fa-search search-icon" aria-hidden="true"></i>
-                <input type="text"
-                       id="map-search-input"
-                       class="form-control search-input"
-                       placeholder="Search places, addresses..."
-                       autocomplete="off"
-                       aria-label="Search map" />
-                <button id="clear-search-btn"
-                        class="btn btn-sm btn-link btn-clear-search d-none"
-                        aria-label="Clear search"
-                        title="Clear search">
-                  <i class="fas fa-times" aria-hidden="true"></i>
-                </button>
-              </div>
+      <!-- Quick Actions -->
+      <div class="control-panel-quick-actions">
+        <button class="quick-action-btn active" data-street-mode="undriven" onclick="setStreetMode('undriven')">
+          <i class="fas fa-road"></i>
+          <span>Undriven</span>
+        </button>
+        <button class="quick-action-btn" data-street-mode="driven" onclick="setStreetMode('driven')">
+          <i class="fas fa-check-circle"></i>
+          <span>Driven</span>
+        </button>
+        <button class="quick-action-btn" data-street-mode="all" onclick="setStreetMode('all')">
+          <i class="fas fa-layer-group"></i>
+          <span>All</span>
+        </button>
+      </div>
+
+      <!-- Panel Body -->
+      <div class="control-panel-body">
+        <!-- Search -->
+        <div class="search-container">
+          <div class="search-wrapper">
+            <i class="fas fa-search search-icon" aria-hidden="true"></i>
+            <input type="text"
+                   id="map-search-input"
+                   class="search-input"
+                   placeholder="Search places, addresses..."
+                   autocomplete="off"
+                   aria-label="Search map" />
+          </div>
+        </div>
+
+        <!-- Live Tracking -->
+        <div class="control-section" id="live-tracking-panel">
+          <div class="live-status-compact">
+            <div class="live-status-indicator">
+              <span class="live-status-dot" id="live-status-dot"></span>
+              <span class="live-status-text" id="live-status-text">Connecting...</span>
+            </div>
+            <span class="badge" id="active-trips-count">0</span>
+          </div>
+          <div class="live-metrics-compact" id="live-metrics">
+            <div class="live-metric">
+              <div class="live-metric-value" id="live-metric-speed">--</div>
+              <div class="live-metric-label">mph</div>
+            </div>
+            <div class="live-metric">
+              <div class="live-metric-value" id="live-metric-distance">--</div>
+              <div class="live-metric-label">mi</div>
+            </div>
+            <div class="live-metric">
+              <div class="live-metric-value" id="live-metric-duration">--</div>
+              <div class="live-metric-label">min</div>
             </div>
           </div>
+        </div>
 
-          <!-- Live Tracking Section -->
-          <div class="control-section" id="live-tracking-panel">
-            <button class="section-header"
-                    type="button"
-                    data-bs-toggle="collapse"
-                    data-bs-target="#live-tracking-content"
-                    aria-expanded="false"
-                    aria-controls="live-tracking-content">
-              <div class="section-header-left">
-                <i class="fas fa-broadcast-tower section-icon" aria-hidden="true"></i>
-                <h3 class="section-title">
-Live Tracking
-                </h3>
-              </div>
-              <div class="section-header-right">
-                <div class="connection-status">
-                  <div class="status-indicator" role="status" aria-live="polite">
-                  </div>
-                  <span class="live-status-text">Connecting...</span>
-                </div>
-                <i class="fas fa-chevron-down section-chevron" aria-hidden="true"></i>
-              </div>
-            </button>
-            <div id="live-tracking-content" class="collapse section-body">
-              <div class="live-tracking-info">
-                <div class="d-flex align-items-center justify-content-between mb-2">
-                  <span class="text-secondary">Active Trips</span>
-                  <span id="active-trips-count"
-                        class="badge bg-primary rounded-pill"
-                        aria-live="polite">0</span>
-                </div>
-                <div class="live-webhook-status">
-                  <span class="text-secondary">Bouncie Webhook</span>
-                  <div class="connection-status" role="status" aria-live="polite">
-                    <div class="status-indicator" id="bouncie-webhook-indicator">
-                    </div>
-                    <span class="live-status-text" id="bouncie-webhook-text">
-                      Waiting for webhooks...
-                    </span>
-                  </div>
-                </div>
-                <div class="live-trip-metrics">
-                  <!-- Trip metrics will be inserted here dynamically -->
-                </div>
-                <div class="error-message alert alert-danger d-none mt-2 p-2"
-                     role="alert"
-                     aria-live="assertive">
-                  <!-- Error messages will be shown here -->
-                </div>
-              </div>
+        <!-- Layer Toggles -->
+        <div class="control-section">
+          <div class="layer-group">
+            <h3 class="layer-group-title">Layers</h3>
+            <div id="layer-toggles" class="layer-toggles-grid">
+              <!-- Layer toggles inserted by JavaScript -->
             </div>
           </div>
+        </div>
 
-          <!-- Layers & Display Section -->
-          <div class="control-section">
-            <button class="section-header"
-                    type="button"
-                    data-bs-toggle="collapse"
-                    data-bs-target="#layers-content"
-                    aria-expanded="true"
-                    aria-controls="layers-content">
-              <div class="section-header-left">
-                <i class="fas fa-layers section-icon" aria-hidden="true"></i>
-                <h3 class="section-title">
-Layers & Display
-                </h3>
-              </div>
-              <i class="fas fa-chevron-down section-chevron" aria-hidden="true"></i>
-            </button>
-            <div id="layers-content" class="collapse show section-body">
-              <!-- Layer Toggles -->
-              <div class="layer-group mb-3">
-                <h4 class="layer-group-title">
-Visible Layers
-                </h4>
-                <div id="layer-toggles"
-                     class="layer-toggles-grid"
-                     role="group"
-                     aria-label="Layer toggles">
-                  <!-- Layer toggles inserted by JavaScript -->
-                </div>
-              </div>
-
-              <!-- Street Coverage -->
-              <div class="layer-group mb-3" id="location-selector-container">
-                <h4 class="layer-group-title">
-Street Coverage
-                </h4>
-                <select id="streets-location"
-                        class="form-select form-select-sm mb-2"
-                        aria-label="Select coverage location">
-                  <option value="">
-Select a location...
-                  </option>
-                  <!-- Coverage areas will be loaded here -->
-                </select>
-
-                <!-- Street View Mode Selector -->
-                <div class="street-mode-buttons" role="group" aria-label="Street view mode">
-                  <button type="button"
-                          class="street-mode-btn"
-                          data-street-mode="undriven"
-                          title="Show undriven streets (dashed blue lines)">
-                    <i class="fas fa-road" aria-hidden="true"></i>
-                    <span>Undriven</span>
-                  </button>
-                  <button type="button"
-                          class="street-mode-btn"
-                          data-street-mode="driven"
-                          title="Show driven streets (solid green lines)">
-                    <i class="fas fa-check-circle" aria-hidden="true"></i>
-                    <span>Driven</span>
-                  </button>
-                  <button type="button"
-                          class="street-mode-btn"
-                          data-street-mode="all"
-                          title="Show all streets (single overlay)">
-                    <i class="fas fa-layer-group" aria-hidden="true"></i>
-                    <span>All</span>
-                  </button>
-                </div>
-
-                <!-- Color legend -->
-                <div class="street-legend">
-                  <div class="legend-item">
-                    <span class="legend-indicator legend-indicator--undriven"></span>
-                    <span>Undriven</span>
-                  </div>
-                  <div class="legend-item">
-                    <span class="legend-indicator legend-indicator--driven"></span>
-                    <span>Driven</span>
-                  </div>
-                  <div class="legend-item">
-                    <span class="legend-indicator legend-indicator--all"></span>
-                    <span>All</span>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Display Options -->
-              <div class="layer-group">
-                <div class="mb-3">
-                  <label for="map-type-select" class="form-label small text-secondary mb-1">
-                    Map Style
-                  </label>
-                  <select id="map-type-select"
-                          class="form-select form-select-sm"
-                          aria-label="Select map style">
-                    <option value="dark">
-Dark
-                    </option>
-                    <option value="light">
-Light
-                    </option>
-                    <option value="satellite">
-Satellite
-                    </option>
-                    <option value="streets">
-Streets
-                    </option>
-                  </select>
-                </div>
-                <div class="custom-switch">
-                  <input class="custom-switch-input"
-                         type="checkbox"
-                         role="switch"
-                         id="highlight-recent-trips"
-                         checked />
-                  <label class="custom-switch-label" for="highlight-recent-trips">
-                    <span class="switch-text">Highlight Recent Trips</span>
-                    <span class="switch-help">Last 6 hours</span>
-                  </label>
-                </div>
-              </div>
-            </div>
+        <!-- Location Selector -->
+        <div class="control-section" id="location-selector-container">
+          <div class="layer-group">
+            <h3 class="layer-group-title">Coverage Area</h3>
+            <select id="streets-location" class="search-input">
+              <option value="">Select location...</option>
+            </select>
           </div>
+        </div>
 
-
+        <!-- Legend -->
+        <div class="legend-bar">
+          <div class="legend-item">
+            <span class="legend-indicator driven"></span>
+            <span>Driven</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-indicator undriven"></span>
+            <span>Undriven</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-indicator all"></span>
+            <span>All</span>
+          </div>
         </div>
       </div>
     </div>
