@@ -5,83 +5,49 @@
    CSS VARIABLES
    ============================================ */
 :root {
-  /* Warm, muted color palette */
-  --trips-bg: #faf8f5;
-  --trips-bg-elevated: #ffffff;
-  --trips-bg-subtle: #f5f2ed;
-  --trips-bg-warm: #fdf9f3;
+  /* App-aligned palette + typography */
+  --trips-bg: var(--surface-0);
+  --trips-bg-elevated: var(--surface-1);
+  --trips-bg-subtle: var(--surface-2);
+  --trips-bg-warm: var(--surface-3);
 
-  /* Primary accent - warm coral/salmon */
-  --trips-primary: #e07a5f;
-  --trips-primary-light: #f4a896;
-  --trips-primary-dark: #c45a3f;
-  --trips-primary-rgb: 224, 122, 95;
+  --trips-primary: var(--primary);
+  --trips-primary-light: var(--primary-light);
+  --trips-primary-dark: var(--primary-dark);
+  --trips-primary-rgb: 31, 182, 173;
 
-  /* Secondary accents */
-  --trips-mint: #81b29a;
-  --trips-mint-rgb: 129, 178, 154;
-  --trips-sky: #87ceeb;
-  --trips-sky-rgb: 135, 206, 235;
-  --trips-gold: #f2cc8f;
-  --trips-gold-rgb: 242, 204, 143;
+  --trips-mint: var(--success);
+  --trips-mint-rgb: 47, 184, 109;
+  --trips-sky: var(--info);
+  --trips-sky-rgb: 79, 124, 255;
+  --trips-gold: var(--warning);
+  --trips-gold-rgb: 242, 185, 75;
 
-  /* Text colors */
-  --trips-text-primary: #2d3436;
-  --trips-text-secondary: #636e72;
-  --trips-text-tertiary: #b2bec3;
-  --trips-text-muted: #dfe6e9;
+  --trips-text-primary: var(--text-primary);
+  --trips-text-secondary: var(--text-secondary);
+  --trips-text-tertiary: var(--text-tertiary);
+  --trips-text-muted: var(--text-tertiary);
 
-  /* Semantic colors */
-  --trips-success: #81b29a;
-  --trips-warning: #f2cc8f;
-  --trips-danger: #e07a5f;
-  --trips-info: #87ceeb;
-
-  /* Shadows - soft and warm */
-  --shadow-sm: 0 1px 2px rgba(45, 52, 54, 0.04);
-  --shadow-md: 0 4px 12px rgba(45, 52, 54, 0.08);
-  --shadow-lg: 0 8px 24px rgba(45, 52, 54, 0.12);
-  --shadow-xl: 0 16px 48px rgba(45, 52, 54, 0.16);
+  --trips-success: var(--success);
+  --trips-warning: var(--warning);
+  --trips-danger: var(--danger);
+  --trips-danger-rgb: 226, 85, 85;
+  --trips-info: var(--info);
 
   /* Spacing */
-  --space-xs: 0.25rem;
-  --space-sm: 0.5rem;
-  --space-md: 1rem;
-  --space-lg: 1.5rem;
-  --space-xl: 2rem;
-  --space-2xl: 3rem;
-
-  /* Border radius */
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
-  --radius-xl: 24px;
-  --radius-pill: 9999px;
+  --space-xs: var(--space-1);
+  --space-sm: var(--space-2);
+  --space-md: var(--space-4);
+  --space-lg: var(--space-6);
+  --space-xl: var(--space-8);
+  --space-2xl: var(--space-12);
 
   /* Typography */
-  --font-display: "Playfair Display", Georgia, serif;
-  --font-body: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-display: var(--font-family-display);
+  --font-body: var(--font-family);
 
   /* Transitions */
-  --transition-fast: 150ms ease;
-  --transition-base: 250ms ease;
-  --transition-slow: 350ms ease;
-}
-
-/* Dark mode overrides */
-[data-bs-theme="dark"] {
-  --trips-bg: #1a1a2e;
-  --trips-bg-elevated: #16213e;
-  --trips-bg-subtle: #0f3460;
-  --trips-bg-warm: #1a1a2e;
-
-  --trips-text-primary: #eaeaea;
-  --trips-text-secondary: #a0a0a0;
-  --trips-text-tertiary: #6b6b6b;
-
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
+  --transition-base: var(--transition-normal);
 }
 
 /* ============================================
@@ -90,6 +56,8 @@
 .trips-journal-page {
   min-height: 100vh;
   background: var(--trips-bg);
+  color: var(--trips-text-primary);
+  font-family: var(--font-body);
   position: relative;
   overflow-x: hidden;
 }
@@ -617,7 +585,7 @@
 }
 
 .filter-chip button:hover {
-  background: rgba(var(--trips-danger), 0.1);
+  background: rgba(var(--trips-danger-rgb), 0.1);
   color: var(--trips-danger);
 }
 
@@ -856,7 +824,7 @@
 
 .trip-badge.frequent {
   background: rgba(var(--trips-gold-rgb), 0.2);
-  color: #b8860b;
+  color: var(--warning-dark);
 }
 
 /* Route Info */
@@ -963,7 +931,7 @@
 }
 
 .trip-action-btn.delete:hover {
-  background: rgba(var(--trips-danger), 0.1);
+  background: rgba(var(--trips-danger-rgb), 0.1);
   border-color: var(--trips-danger);
   color: var(--trips-danger);
 }
@@ -1073,7 +1041,7 @@
 .btn-primary {
   background: var(--trips-primary);
   border: 2px solid var(--trips-primary);
-  color: white;
+  color: var(--text-on-primary);
 }
 
 .btn-primary:hover {
@@ -1081,7 +1049,7 @@
   border-color: var(--trips-primary-dark);
   transform: translateY(-2px);
   box-shadow: var(--shadow-md);
-  color: white;
+  color: var(--text-on-primary);
 }
 
 .btn-secondary {
@@ -1245,14 +1213,14 @@
 }
 
 .bulk-btn.danger {
-  background: rgba(var(--trips-danger), 0.1);
-  border-color: rgba(var(--trips-danger), 0.3);
+  background: rgba(var(--trips-danger-rgb), 0.1);
+  border-color: rgba(var(--trips-danger-rgb), 0.3);
   color: var(--trips-danger);
 }
 
 .bulk-btn.danger:hover {
   background: var(--trips-danger);
-  color: white;
+  color: var(--text-on-primary);
 }
 
 .bulk-btn.close {
@@ -1320,7 +1288,7 @@
 }
 
 .btn-icon.danger:hover {
-  background: rgba(var(--trips-danger), 0.1);
+  background: rgba(var(--trips-danger-rgb), 0.1);
   border-color: var(--trips-danger);
   color: var(--trips-danger);
 }
@@ -1345,15 +1313,12 @@
   flex-direction: column;
   gap: var(--space-md);
   padding: var(--space-md);
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
+  background: var(--glass-panel);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(var(--blur-subtle));
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
   min-width: 180px;
-}
-
-[data-bs-theme="dark"] .trip-playback-controls {
-  background: rgba(26, 26, 46, 0.95);
 }
 
 .btn-playback {
@@ -1366,7 +1331,7 @@
   border-radius: var(--radius-md);
   font-size: 0.9375rem;
   font-weight: 600;
-  color: white;
+  color: var(--text-on-primary);
   cursor: pointer;
   transition: all var(--transition-fast);
 }
@@ -1401,7 +1366,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(var(--trips-bg-rgb), 0.9);
+  background: rgb(var(--surface-rgb) / 0.9);
   z-index: 10;
 }
 
