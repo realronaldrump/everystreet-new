@@ -493,15 +493,45 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
 }
 
-.discovery-map-preview::after {
+.discovery-map-preview:not(.has-map)::after {
   content: "\f3c5";
   font-family: "Font Awesome 6 Free", sans-serif;
   font-weight: 900;
   font-size: 2rem;
   color: var(--text-tertiary);
   opacity: 0.5;
+}
+
+.discovery-map-preview .map-preview-fallback {
+  display: grid;
+  place-items: center;
+  gap: var(--space-1);
+  text-align: center;
+  color: var(--text-tertiary);
+  font-size: var(--font-size-xs);
+  padding: var(--space-2);
+}
+
+.discovery-map-preview .map-preview-fallback i {
+  font-size: 1.2rem;
+}
+
+.discovery-map-preview.has-map .map-preview-fallback {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.discovery-map-preview .mapboxgl-map,
+.discovery-map-preview .mapboxgl-canvas {
+  width: 100%;
+  height: 100%;
+}
+
+.discovery-map-preview .mapboxgl-control-container {
+  display: none;
 }
 
 .discovery-boundary-indicator {
@@ -547,6 +577,48 @@
   font-size: var(--font-size-sm);
   cursor: pointer;
   transition: all var(--transition-fast);
+}
+
+.discoveries-pagination {
+  margin-top: var(--space-5);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  background: var(--surface-2);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3) var(--space-4);
+}
+
+.pagination-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  min-height: 44px;
+}
+
+.pagination-btn:hover {
+  border-color: var(--cat-sky);
+  color: var(--cat-sky);
+}
+
+.pagination-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.pagination-info {
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
 }
 
 .btn-preview {
@@ -1011,6 +1083,15 @@
   .section-header {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .discoveries-pagination {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .pagination-btn {
+    justify-content: center;
   }
 
   .modal-stats-row {

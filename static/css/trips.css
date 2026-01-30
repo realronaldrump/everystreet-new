@@ -464,7 +464,7 @@
 }
 
 /* Filters Panel - Enhanced */
-.filters-panel {
+#trips-filters-panel {
   border-top: 1px solid var(--trips-bg-subtle);
   background: linear-gradient(
     to bottom,
@@ -480,12 +480,12 @@
     padding 0.3s ease;
 }
 
-.filters-panel.is-open {
+#trips-filters-panel.is-open {
   max-height: 600px;
   opacity: 1;
 }
 
-.filters-panel.has-filters {
+#trips-filters-panel.has-filters {
   background: linear-gradient(
     to bottom,
     var(--trips-bg-warm) 0%,
@@ -505,7 +505,7 @@
     opacity 0.3s ease 0.1s;
 }
 
-.filters-panel.is-open .filters-content {
+#trips-filters-panel.is-open .filters-content {
   transform: translateY(0);
   opacity: 1;
 }
