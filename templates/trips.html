@@ -87,38 +87,68 @@
         </div>
 
         <!-- Expandable Filters Panel -->
-        <div class="filters-panel" id="trips-filters-panel" style="display: none;">
+        <div class="filters-panel" id="trips-filters-panel">
+          <div class="filters-header">
+            <span class="filters-header-title">
+              <i class="fas fa-filter"></i>
+              Filter Options
+            </span>
+            <span class="filters-header-status" id="filters-status" style="display: none;">
+              <span class="status-dot"></span>
+              Active
+            </span>
+          </div>
           <div class="filters-content">
             <div class="filter-group">
-              <label class="filter-label">Vehicle</label>
+              <label class="filter-label">
+                <i class="fas fa-car"></i>
+                Vehicle
+              </label>
               <select id="trip-filter-vehicle" class="filter-select">
                 <option value="">All vehicles</option>
               </select>
             </div>
             
             <div class="filter-group">
-              <label class="filter-label">Distance</label>
+              <label class="filter-label">
+                <i class="fas fa-road"></i>
+                Distance (miles)
+              </label>
               <div class="range-inputs">
-                <input type="number" id="trip-filter-distance-min" placeholder="Min mi" step="0.1" />
+                <input type="number" id="trip-filter-distance-min" placeholder="Min" step="0.1" min="0" />
                 <span>to</span>
-                <input type="number" id="trip-filter-distance-max" placeholder="Max mi" step="0.1" />
+                <input type="number" id="trip-filter-distance-max" placeholder="Max" step="0.1" min="0" />
               </div>
             </div>
 
             <div class="filter-group">
-              <label class="filter-label">Date Range</label>
+              <label class="filter-label">
+                <i class="fas fa-calendar-alt"></i>
+                Date Range
+              </label>
               <div class="quick-date-filters">
                 <button class="quick-filter-btn" data-range="today">Today</button>
                 <button class="quick-filter-btn" data-range="yesterday">Yesterday</button>
-                <button class="quick-filter-btn" data-range="week">This Week</button>
-                <button class="quick-filter-btn" data-range="month">This Month</button>
+                <button class="quick-filter-btn" data-range="week">Week</button>
+                <button class="quick-filter-btn" data-range="month">Month</button>
                 <button class="quick-filter-btn" data-range="all">All Time</button>
+              </div>
+              <div class="date-range-display hidden" id="date-range-display">
+                <i class="fas fa-calendar-check"></i>
+                <span id="date-range-text">Any date</span>
               </div>
             </div>
 
             <div class="filter-actions">
-              <button class="btn-apply" id="trip-filter-apply">Apply Filters</button>
-              <button class="btn-reset" id="trip-filter-reset">Reset</button>
+              <button class="btn-apply" id="trip-filter-apply">
+                <i class="fas fa-check" style="margin-right: 6px;"></i>
+                Apply Filters
+              </button>
+              <button class="btn-reset" id="trip-filter-reset">
+                <i class="fas fa-undo" style="margin-right: 6px;"></i>
+                Reset
+              </button>
+              <span class="filter-results-preview" id="filter-results-preview"></span>
             </div>
           </div>
         </div>

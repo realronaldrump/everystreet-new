@@ -17,31 +17,8 @@ const IMPERIAL_CONFIG = {
   },
 };
 
-// Place icon mapping based on name keywords
-const PLACE_ICONS = {
-  coffee: '<i class="fas fa-mug-hot"></i>',
-  cafe: '<i class="fas fa-mug-hot"></i>',
-  starbucks: '<i class="fas fa-mug-hot"></i>',
-  house: '<i class="fas fa-home"></i>',
-  home: '<i class="fas fa-home"></i>',
-  gym: '<i class="fas fa-dumbbell"></i>',
-  fitness: '<i class="fas fa-dumbbell"></i>',
-  library: '<i class="fas fa-book"></i>',
-  book: '<i class="fas fa-book"></i>',
-  store: '<i class="fas fa-shopping-cart"></i>',
-  market: '<i class="fas fa-shopping-cart"></i>',
-  food: '<i class="fas fa-utensils"></i>',
-  restaurant: '<i class="fas fa-utensils"></i>',
-  park: '<i class="fas fa-tree"></i>',
-  trail: '<i class="fas fa-hiking"></i>',
-  work: '<i class="fas fa-briefcase"></i>',
-  office: '<i class="fas fa-briefcase"></i>',
-  school: '<i class="fas fa-graduation-cap"></i>',
-  hospital: '<i class="fas fa-hospital"></i>',
-  doctor: '<i class="fas fa-hospital"></i>',
-  church: '<i class="fas fa-church"></i>',
-  default: '<i class="fas fa-map-marker-alt"></i>',
-};
+// Place icon - generic pin for all places
+const PLACE_ICON = "📍";
 
 // Day names for pattern detection
 const DAY_NAMES = [
@@ -547,11 +524,7 @@ class VisitsPageController {
 
   // Helper methods
   getPlaceIcon(name) {
-    const lowerName = name.toLowerCase();
-    for (const [keyword, icon] of Object.entries(PLACE_ICONS)) {
-      if (lowerName.includes(keyword)) return icon;
-    }
-    return PLACE_ICONS.default;
+    return PLACE_ICON;
   }
 
   getPlaceAccent(visits, maxVisits) {
