@@ -233,7 +233,7 @@ function updateProgressUI(progress) {
   if (metrics.total != null) {
     const matchedCount = metrics.matched ?? metrics.map_matched ?? 0;
     const processed = metrics.processed ?? 0;
-    elements.progressMetrics.textContent = `${matchedCount} of ${metrics.total} trips improved`;
+    elements.progressMetrics.textContent = `${matchedCount} of ${metrics.total} trips matched`;
   } else {
     elements.progressMetrics.textContent = "";
   }
@@ -340,7 +340,7 @@ function renderJobs(jobs) {
           if (status === "completed") {
             const metrics = job.metrics || {};
             const matched = metrics.matched ?? metrics.map_matched ?? 0;
-            message = `${matched} trips improved`;
+            message = `${matched} trips matched`;
           } else if (status === "cancelled") {
             message = job.message || "Cancelled";
           } else if (status === "processing") {
@@ -1131,9 +1131,9 @@ function updateMatchedPreviewTable(data) {
   // Update summary
   if (elements.previewMapSummary) {
     if (total > 0) {
-      elements.previewMapSummary.textContent = `${total} improved trip${total !== 1 ? "s" : ""}`;
+      elements.previewMapSummary.textContent = `${total} matched trip${total !== 1 ? "s" : ""}`;
     } else {
-      elements.previewMapSummary.textContent = "No improved trips yet";
+      elements.previewMapSummary.textContent = "No matched trips yet";
     }
   }
 
@@ -1143,7 +1143,7 @@ function updateMatchedPreviewTable(data) {
   }
 
   if (!total) {
-    updateMatchedPreviewEmptyState("No improved trips yet");
+    updateMatchedPreviewEmptyState("No matched trips yet");
   }
 
   matchedPreviewFeaturesById = new Map();
@@ -1299,7 +1299,7 @@ async function cancelJob(jobId) {
   const confirmed = await confirmationDialog.show({
     title: "Cancel map matching job",
     message:
-      "Stop this job? Trips already improved will remain, and remaining trips will be skipped.",
+      "Stop this job? Trips already matched will remain, and remaining trips will be skipped.",
     confirmText: "Cancel job",
     confirmButtonClass: "btn-danger",
   });
