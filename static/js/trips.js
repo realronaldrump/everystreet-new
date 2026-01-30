@@ -1063,7 +1063,7 @@ function updateFilteredInsights(trips) {
   // Animate insight card updates
   const longestEl = document.getElementById("insight-longest");
   const fuelEl = document.getElementById("insight-fuel");
-  const streetsEl = document.getElementById("insight-streets");
+
 
   if (longestEl) {
     longestEl.style.opacity = "0";
@@ -1081,17 +1081,7 @@ function updateFilteredInsights(trips) {
     }, 150);
   }
 
-  // New streets calculation (mock based on trip count for demo)
-  if (streetsEl) {
-    const estimatedNewStreets =
-      Math.floor(totalFuel * 2.5) || Math.floor(longestTrip * 0.5) || trips.length * 3;
-    streetsEl.style.opacity = "0";
-    setTimeout(() => {
-      streetsEl.textContent =
-        estimatedNewStreets > 0 ? estimatedNewStreets.toString() : "--";
-      streetsEl.style.opacity = "1";
-    }, 150);
-  }
+
 }
 
 function performSearch(query) {

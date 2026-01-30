@@ -850,8 +850,7 @@
 }
 
 #insight-longest,
-#insight-fuel,
-#insight-streets {
+#insight-fuel {
   transition: opacity 0.2s ease;
 }
 
