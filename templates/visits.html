@@ -30,24 +30,24 @@ Every Street - Visits
 
   <div id="visits-page" class="container-fluid px-4 py-4">
     <div class="bento-grid" data-stagger>
-      <div class="bento-span-12 widget" data-accent="mint">
+      <div class="bento-span-12 widget visits-hero" data-accent="mint">
         <div class="widget-header">
           <div>
             <h1 class="widget-title">
               <i class="fas fa-map-marked-alt" aria-hidden="true"></i>
-              Your Places & Visits
+              Your places, your story
             </h1>
             <div class="widget-meta">
-              Track and analyze your visits to custom places and monitor patterns over time.
+              Save the places you care about and see how often you return.
             </div>
           </div>
-          <div class="d-inline-flex align-items-center">
+          <div class="d-inline-flex align-items-center visits-hero-stats">
             <div class="me-4">
               <div class="h2 mb-0 text-primary fw-bold">
                 <span id="total-places-count">0</span>
               </div>
               <div class="text-secondary small">
-Custom Places
+Places saved
               </div>
             </div>
             <div>
@@ -55,7 +55,7 @@ Custom Places
                 <span id="total-visits-count">0</span>
               </div>
               <div class="text-secondary small">
-Place Visits
+Visits logged
               </div>
             </div>
           </div>
@@ -66,25 +66,25 @@ Place Visits
         <div class="widget-header">
           <h3 class="widget-title">
             <i class="fas fa-layer-group" aria-hidden="true"></i>
-            Places Management
+            Create a place
           </h3>
         </div>
         <div class="widget-body">
           <div class="mb-4">
             <label for="place-name" class="form-label fw-semibold mb-3">
               <i class="fas fa-tag me-2 text-primary"></i>
-            Place Name
+            Name this place
             </label>
             <input type="text"
                    id="place-name"
                    class="form-control form-control-lg place-name-input"
-                   placeholder="Enter a memorable name..." />
+                   placeholder="Coffee shop, home, gym..." />
             <div class="invalid-feedback">
               Please enter a name for the place.
             </div>
             <div class="form-text mt-2">
               <i class="fas fa-info-circle me-1"></i>
-            Choose a name that helps you remember this location
+            Something you'll recognize later (e.g., "Mom's house").
             </div>
           </div>
 
@@ -96,18 +96,54 @@ Place Visits
                    style="width: 3em;
                           height: 1.5em" />
             <label class="form-check-label ms-2 fw-medium" for="toggle-custom-places">
-            Show Custom Places on Map
+            Show places on map
             </label>
+          </div>
+
+          <div class="visit-steps">
+            <div class="visit-step">
+              <span class="step-index">1</span>
+              <div>
+                <div class="step-title">
+                Draw a boundary
+                </div>
+                <div class="step-text">
+                Use the map to trace the area you visit.
+                </div>
+              </div>
+            </div>
+            <div class="visit-step">
+              <span class="step-index">2</span>
+              <div>
+                <div class="step-title">
+                Name it
+                </div>
+                <div class="step-text">
+                Give it a friendly name you will remember.
+                </div>
+              </div>
+            </div>
+            <div class="visit-step">
+              <span class="step-index">3</span>
+              <div>
+                <div class="step-title">
+                Save and track
+                </div>
+                <div class="step-text">
+                We will keep count of your visits over time.
+                </div>
+              </div>
+            </div>
           </div>
 
           <div class="d-grid gap-3 mb-4">
             <button id="start-drawing" class="btn btn-lg btn-primary action-button draw-button">
               <i class="fas fa-draw-polygon me-2"></i>
-              <span>Draw Place Boundary</span>
+              <span>Draw on the map</span>
             </button>
             <button id="save-place" class="btn btn-lg btn-success action-button" disabled>
               <i class="fas fa-save me-2"></i>
-              <span>Save Place</span>
+              <span>Save this place</span>
             </button>
           </div>
 
@@ -116,7 +152,7 @@ Place Visits
 
           <button id="manage-places" class="btn btn-lg btn-outline-primary w-100 action-button">
             <i class="fas fa-cog me-2"></i>
-            <span>Manage All Places</span>
+            <span>Manage saved places</span>
           </button>
 
           <div class="mt-4 p-3 bg-body-secondary rounded-3">
@@ -125,7 +161,7 @@ Place Visits
                 <div class="p-2">
                   <i class="fas fa-map-pin text-primary mb-2" style="font-size: 1.5rem;"></i>
                   <div class="small text-secondary">
-Active Places
+Places saved
                   </div>
                   <div class="fw-bold" id="active-places-stat">
 0
@@ -136,7 +172,7 @@ Active Places
                 <div class="p-2">
                   <i class="fas fa-calendar-check text-success mb-2" style="font-size: 1.5rem;"></i>
                   <div class="small text-secondary">
-This Month
+Visits this month
                   </div>
                   <div class="fw-bold" id="month-visits-stat">
 0
@@ -148,16 +184,21 @@ This Month
         </div>
       </div>
 
-      <div class="bento-span-8 widget" data-accent="sky">
+      <div class="bento-span-8 widget visits-map-card" data-accent="sky">
         <div class="widget-header">
-          <h3 class="widget-title">
-            <i class="fas fa-map" aria-hidden="true"></i>
-            Places Map
-          </h3>
+          <div>
+            <h3 class="widget-title">
+              <i class="fas fa-map" aria-hidden="true"></i>
+              Explore your map
+            </h3>
+            <div class="widget-meta">
+              Tip: draw a boundary to save a place, then click a place to see visits.
+            </div>
+          </div>
           <div class="d-flex align-items-center gap-2">
             <span class="badge bg-primary-subtle text-primary px-3 py-2">
               <i class="fas fa-mouse-pointer me-1"></i>
-            Interactive Map
+            Draw and explore
             </span>
           </div>
         </div>
@@ -208,7 +249,7 @@ Loading map data...
           <div class="d-flex flex-wrap align-items-center justify-content-between w-100 gap-3">
             <h3 class="widget-title">
               <i class="fas fa-chart-line" aria-hidden="true"></i>
-              Visit Statistics
+              Visits and patterns
             </h3>
             <select class="form-select form-select-sm" id="time-filter" style="width: auto;">
               <option value="all">
@@ -236,7 +277,7 @@ This Week
                       type="button"
                       role="tab">
                 <i class="fas fa-map-marker-alt me-2"></i>
-                <span class="nav-label">Custom Places</span>
+                <span class="nav-label">Your places</span>
               </button>
             </li>
             <li class="nav-item" role="presentation">
@@ -247,7 +288,7 @@ This Week
                       type="button"
                       role="tab">
                 <i class="fas fa-globe me-2"></i>
-                <span class="nav-label">Other Locations</span>
+                <span class="nav-label">Other spots</span>
               </button>
             </li>
             <li class="nav-item" role="presentation">
@@ -280,7 +321,7 @@ This Week
                 <div class="col-lg-5 mb-4 mb-lg-0">
                   <div class="chart-container">
                     <h5 class="text-center mb-3 fw-semibold">
-Visit Distribution
+Visit mix
                     </h5>
                     <canvas id="visitsChart" style="max-height: 350px"></canvas>
                   </div>

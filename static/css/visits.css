@@ -1218,3 +1218,262 @@
     0 8px 32px rgb(0 0 0 / 12%),
     inset 0 1px 0 rgb(255 255 255 / 10%);
 }
+
+/* ============================================
+   FRIENDLY UI OVERRIDES
+   ============================================ */
+
+#visits-page {
+  background:
+    radial-gradient(
+      900px circle at 8% -10%,
+      rgb(var(--warning-rgb) / 12%),
+      transparent 60%
+    ),
+    radial-gradient(
+      900px circle at 100% 0%,
+      rgb(var(--primary-rgb) / 12%),
+      transparent 55%
+    );
+  border-radius: var(--radius-xl);
+}
+
+#visits-page .bento-grid {
+  gap: var(--space-6);
+}
+
+#visits-page .widget {
+  background: rgb(var(--surface-rgb) / 70%);
+  background-image: none;
+  border: 1px solid rgb(255 255 255 / 8%);
+  box-shadow: 0 12px 28px rgb(0 0 0 / 18%);
+}
+
+#visits-page .widget:hover {
+  box-shadow: 0 16px 32px rgb(0 0 0 / 22%);
+}
+
+#visits-page .widget-header {
+  align-items: flex-start;
+  gap: var(--space-4);
+}
+
+#visits-page .widget-header::after {
+  display: none;
+}
+
+#visits-page .widget-title {
+  font-size: var(--font-size-xl);
+  letter-spacing: -0.01em;
+}
+
+#visits-page .widget-title i {
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-full);
+  background: rgb(var(--widget-accent-rgb) / 12%);
+  box-shadow: none;
+}
+
+#visits-page .widget-meta {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+#visits-page .visits-hero .widget-title {
+  font-size: var(--font-size-3xl);
+}
+
+#visits-page .visits-hero .widget-meta {
+  max-width: 60ch;
+}
+
+#visits-page .visits-hero-stats {
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+#visits-page .visits-hero-stats .me-4 {
+  margin-right: 0 !important;
+}
+
+#visits-page .visits-hero-stats > div {
+  background: rgb(255 255 255 / 4%);
+  border: 1px solid rgb(255 255 255 / 8%);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3) var(--space-4);
+}
+
+#visits-page .visits-hero-stats .h2 {
+  font-size: var(--font-size-2xl);
+}
+
+#visits-page .place-name-input {
+  background: rgb(255 255 255 / 3%);
+  border: 1px solid rgb(255 255 255 / 10%);
+  box-shadow: none;
+}
+
+#visits-page .place-name-input:focus {
+  background: rgb(255 255 255 / 6%);
+  box-shadow: 0 0 0 0.2rem rgb(var(--primary-rgb) / 18%);
+  transform: none;
+}
+
+#visits-page .visit-steps {
+  display: grid;
+  gap: var(--space-3);
+  margin: var(--space-4) 0;
+}
+
+#visits-page .visit-step {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+  padding: var(--space-3);
+  border-radius: var(--radius-lg);
+  background: rgb(255 255 255 / 4%);
+  border: 1px solid rgb(255 255 255 / 8%);
+}
+
+#visits-page .visit-step .step-index {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: var(--font-weight-semibold);
+  color: var(--primary);
+  background: rgb(var(--primary-rgb) / 16%);
+}
+
+#visits-page .visit-step .step-title {
+  font-weight: var(--font-weight-semibold);
+  margin-bottom: 2px;
+}
+
+#visits-page .visit-step .step-text {
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+#visits-page .action-button {
+  box-shadow: none;
+  letter-spacing: 0;
+}
+
+#visits-page .action-button::before {
+  display: none;
+}
+
+#visits-page .action-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 12px rgb(0 0 0 / 18%);
+}
+
+#visits-page .map-container {
+  background: rgb(var(--surface-rgb) / 60%);
+  border: 1px solid rgb(255 255 255 / 8%);
+  box-shadow: 0 12px 28px rgb(0 0 0 / 18%);
+}
+
+#visits-page .map-container::before {
+  background: radial-gradient(
+    ellipse at top left,
+    rgb(var(--primary-rgb) / 10%) 0%,
+    transparent 60%
+  );
+}
+
+#visits-page .map-container::after {
+  background-image: none;
+}
+
+#visits-page .map-controls-enhanced {
+  background: rgb(var(--surface-rgb) / 80%);
+  border: 1px solid rgb(255 255 255 / 10%);
+  box-shadow: 0 8px 16px rgb(0 0 0 / 18%);
+}
+
+#visits-page .map-control-btn {
+  background: rgb(255 255 255 / 6%);
+  border: 1px solid rgb(255 255 255 / 12%);
+  box-shadow: none;
+}
+
+#visits-page .map-control-btn:hover {
+  background: rgb(var(--primary-rgb) / 12%);
+  border-color: rgb(var(--primary-rgb) / 30%);
+  color: var(--primary);
+  transform: translateY(-1px);
+  box-shadow: none;
+}
+
+#visits-page .visits-nav-tabs {
+  background: rgb(255 255 255 / 4%);
+  border: 1px solid rgb(255 255 255 / 8%);
+  box-shadow: none;
+}
+
+#visits-page .visits-nav-tabs .nav-link {
+  border-radius: 999px;
+  margin: 0 var(--space-1);
+  font-size: var(--font-size-sm);
+}
+
+#visits-page .visits-nav-tabs .nav-link::before {
+  display: none;
+}
+
+#visits-page .visits-nav-tabs .nav-link.active {
+  background: rgb(var(--primary-rgb) / 18%);
+  color: var(--text-primary);
+  box-shadow: none;
+}
+
+#visits-page .visits-table {
+  box-shadow: none;
+  border: 1px solid rgb(255 255 255 / 8%);
+  background: rgb(255 255 255 / 2%);
+}
+
+#visits-page .visits-table thead {
+  background: rgb(255 255 255 / 4%);
+  border-bottom: 1px solid rgb(255 255 255 / 6%);
+}
+
+#visits-page .visits-table thead th {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+#visits-page .visits-table tbody tr:hover {
+  background: rgb(255 255 255 / 4%);
+  transform: none;
+  box-shadow: none;
+}
+
+#visits-page .empty-state {
+  background: rgb(255 255 255 / 3%);
+  border: 1px dashed rgb(255 255 255 / 12%);
+}
+
+#visits-page .empty-state i {
+  filter: none;
+  opacity: 0.4;
+  font-size: 3rem;
+}
+
+#visits-page #insights-content .bg-body-secondary {
+  background: rgb(255 255 255 / 4%) !important;
+  border: 1px solid rgb(255 255 255 / 8%);
+  box-shadow: none;
+}
+
+#visits-page #insights-content .bg-body-secondary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px rgb(0 0 0 / 20%);
+}
