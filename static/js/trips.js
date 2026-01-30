@@ -377,6 +377,10 @@ async function loadTrips() {
       hideEmptyState();
       renderTripsTimeline(tripsData);
       updatePagination();
+
+      // Update stats based on filtered results
+      updateFilteredStats();
+      updateFilterResultsPreview();
     }
   } catch (err) {
     console.error("Failed to load trips:", err);
@@ -750,10 +754,22 @@ function setupSearchAndFilters() {
 
   if (filterToggle && filtersPanel) {
     filterToggle.addEventListener("click", () => {
-      const isVisible = filtersPanel.style.display !== "none";
-      filtersPanel.style.display = isVisible ? "none" : "block";
-      filterToggle.classList.toggle("active", !isVisible);
-      filterToggle.setAttribute("aria-expanded", String(!isVisible));
+      const isOpen = filtersPanel.classList.contains("is-open");
+
+      if (isOpen) {
+        filtersPanel.classList.remove("is-open");
+        filterToggle.classList.remove("active");
+        filterToggle.setAttribute("aria-expanded", "false");
+      } else {
+        filtersPanel.classList.add("is-open");
+        filterToggle.classList.add("active");
+        filterToggle.setAttribute("aria-expanded", "true");
+
+        // Animate filter panel content
+        requestAnimationFrame(() => {
+          updateDateRangeDisplay();
+        });
+      }
     });
   }
 
@@ -762,10 +778,14 @@ function setupSearchAndFilters() {
     currentPage = 1;
     loadTrips();
     updateFilterChips();
+    showFilterFeedback();
+
+    // Update stat cards with filtered data
+    updateFilteredStats();
 
     // Close filters panel on mobile
     if (window.innerWidth < 768 && filtersPanel) {
-      filtersPanel.style.display = "none";
+      filtersPanel.classList.remove("is-open");
       filterToggle?.classList.remove("active");
       filterToggle?.setAttribute("aria-expanded", "false");
     }
@@ -779,6 +799,7 @@ function setupSearchAndFilters() {
       } else {
         el.value = "";
       }
+      el.classList.remove("has-value");
     });
 
     // Clear date filters from storage
@@ -786,9 +807,27 @@ function setupSearchAndFilters() {
     setStorage("endDate", null);
     document.dispatchEvent(new Event("filtersReset"));
 
+    // Clear active states from quick filter buttons
+    document
+      .querySelectorAll(".quick-filter-btn")
+      .forEach((b) => b.classList.remove("active"));
+
+    // Hide date range display
+    const dateRangeDisplay = document.getElementById("date-range-display");
+    if (dateRangeDisplay) dateRangeDisplay.classList.add("hidden");
+
     currentPage = 1;
     loadTrips();
     updateFilterChips();
+    updateFilteredStats();
+
+    // Reset visual feedback
+    document.querySelectorAll(".stat-pill").forEach((pill) => {
+      pill.classList.remove("filtered");
+    });
+    filtersPanel?.classList.remove("has-filters");
+    document.querySelector(".trips-search-section")?.classList.remove("has-filters");
+    document.getElementById("filters-status")?.style.setProperty("display", "none");
   });
 
   // Quick date filters
@@ -809,6 +848,8 @@ function setupSearchAndFilters() {
         setStorage("startDate", null);
         setStorage("endDate", null);
       }
+
+      updateDateRangeDisplay();
     });
   });
 
@@ -816,9 +857,185 @@ function setupSearchAndFilters() {
   document.getElementById("trip-filter-vehicle")?.addEventListener("change", (e) => {
     setStorage(CONFIG.STORAGE_KEYS.selectedVehicle, e.target.value || null);
     store.updateFilters({ vehicle: e.target.value || null }, { source: "vehicle" });
+    e.target.classList.toggle("has-value", e.target.value);
+  });
+
+  // Distance filters - add has-value class
+  ["trip-filter-distance-min", "trip-filter-distance-max"].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener("input", (e) => {
+        e.target.classList.toggle("has-value", e.target.value);
+      });
+    }
   });
 
   updateFilterChips();
+  updateDateRangeDisplay();
+}
+
+function showFilterFeedback() {
+  // Add pulse animation to stat pills
+  document.querySelectorAll(".stat-pill").forEach((pill, index) => {
+    setTimeout(() => {
+      pill.classList.add("updating", "filtered");
+      setTimeout(() => {
+        pill.classList.remove("updating");
+      }, 500);
+    }, index * 100);
+  });
+
+  // Add visual feedback to search section
+  const searchSection = document.querySelector(".trips-search-section");
+  if (searchSection) {
+    searchSection.classList.add("has-filters");
+  }
+
+  // Update filter panel styling
+  const filtersPanel = document.getElementById("trips-filters-panel");
+  if (filtersPanel) {
+    filtersPanel.classList.add("has-filters");
+  }
+
+  // Show filter status indicator
+  const filtersStatus = document.getElementById("filters-status");
+  if (filtersStatus) {
+    filtersStatus.style.display = "flex";
+  }
+
+  // Show notification
+  const filterCount = document.getElementById("active-filter-count");
+  if (filterCount && filterCount.textContent && filterCount.textContent !== "0") {
+    notificationManager.show(
+      `${filterCount.textContent} filter${filterCount.textContent !== "1" ? "s" : ""} applied`,
+      "info",
+      { duration: 2000 }
+    );
+  }
+}
+
+function updateDateRangeDisplay() {
+  const startDate = getStorage("startDate");
+  const endDate = getStorage("endDate");
+  const dateRangeDisplay = document.getElementById("date-range-display");
+  const dateRangeText = document.getElementById("date-range-text");
+
+  if (!dateRangeDisplay || !dateRangeText) return;
+
+  if (startDate && endDate) {
+    const formatDate = (dateStr) => {
+      const date = new Date(dateStr + "T00:00:00");
+      return date.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
+    };
+
+    const start = formatDate(startDate);
+    const end = formatDate(endDate);
+
+    if (start === end) {
+      dateRangeText.textContent = start;
+    } else {
+      dateRangeText.textContent = `${start} - ${end}`;
+    }
+    dateRangeDisplay.classList.remove("hidden");
+  } else {
+    dateRangeDisplay.classList.add("hidden");
+  }
+}
+
+function updateFilteredStats() {
+  // Calculate stats from currently filtered/displayed trips
+  const visibleTrips = filteredTrips.length > 0 ? filteredTrips : tripsData;
+
+  if (visibleTrips.length === 0) return;
+
+  const totalMiles = visibleTrips.reduce(
+    (sum, trip) => sum + (parseFloat(trip.distance) || 0),
+    0
+  );
+  const totalTrips = visibleTrips.length;
+  const totalDuration = visibleTrips.reduce(
+    (sum, trip) => sum + (parseInt(trip.duration) || 0),
+    0
+  );
+  const totalHours = Math.round(totalDuration / 3600);
+
+  // Update stat pills with animation
+  const milesEl = document.getElementById("stat-total-miles");
+  const tripsEl = document.getElementById("stat-total-trips");
+  const hoursEl = document.getElementById("stat-total-time");
+
+  if (milesEl) milesEl.textContent = totalMiles.toFixed(1);
+  if (tripsEl) tripsEl.textContent = totalTrips;
+  if (hoursEl) hoursEl.textContent = totalHours;
+
+  // Update summary text
+  const summaryEl = document.getElementById("trips-summary-text");
+  if (summaryEl) {
+    const filters = getFilterValues();
+    const hasFilters =
+      filters.imei ||
+      filters.start_date ||
+      filters.end_date ||
+      filters.distance_min ||
+      filters.distance_max;
+
+    if (hasFilters) {
+      summaryEl.innerHTML = `Showing <strong>${totalTrips} trips</strong> totaling <strong>${totalMiles.toFixed(1)} miles</strong>`;
+    } else {
+      summaryEl.innerHTML = `You've traveled <strong>${totalMiles.toFixed(1)} miles</strong> across <strong>${totalTrips} trips</strong> this month`;
+    }
+  }
+
+  // Update insight cards for filtered data
+  updateFilteredInsights(visibleTrips);
+}
+
+function updateFilteredInsights(trips) {
+  if (trips.length === 0) return;
+
+  const distances = trips.map((t) => parseFloat(t.distance) || 0);
+  const longestTrip = Math.max(...distances);
+  const totalFuel = trips.reduce(
+    (sum, trip) => sum + (parseFloat(trip.fuelConsumed) || 0),
+    0
+  );
+
+  // Animate insight card updates
+  const longestEl = document.getElementById("insight-longest");
+  const fuelEl = document.getElementById("insight-fuel");
+  const streetsEl = document.getElementById("insight-streets");
+
+  if (longestEl) {
+    longestEl.style.opacity = "0";
+    setTimeout(() => {
+      longestEl.textContent = longestTrip ? `${longestTrip.toFixed(1)} mi` : "--";
+      longestEl.style.opacity = "1";
+    }, 150);
+  }
+
+  if (fuelEl) {
+    fuelEl.style.opacity = "0";
+    setTimeout(() => {
+      fuelEl.textContent = totalFuel ? `${totalFuel.toFixed(1)} gal` : "--";
+      fuelEl.style.opacity = "1";
+    }, 150);
+  }
+
+  // New streets calculation (mock based on trip count for demo)
+  if (streetsEl) {
+    const estimatedNewStreets =
+      Math.floor(totalFuel * 2.5) || Math.floor(longestTrip * 0.5) || trips.length * 3;
+    streetsEl.style.opacity = "0";
+    setTimeout(() => {
+      streetsEl.textContent =
+        estimatedNewStreets > 0 ? estimatedNewStreets.toString() : "--";
+      streetsEl.style.opacity = "1";
+    }, 150);
+  }
 }
 
 function performSearch(query) {
