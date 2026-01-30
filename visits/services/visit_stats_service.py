@@ -538,60 +538,99 @@ class VisitStatsService:
 
         labels = dbscan(points_m, cell_size_m, min_visits)
 
-        clusters: dict[int, dict[str, Any]] = {}
+        cluster_indices: dict[int, list[int]] = {}
         for idx, label in enumerate(labels):
             if label == -1:
                 continue
-            cluster = clusters.setdefault(
-                label,
-                {
-                    "points": [],
-                    "labels": Counter(),
-                    "firstVisit": None,
-                    "lastVisit": None,
-                },
+            cluster_indices.setdefault(label, []).append(idx)
+
+        def cluster_centroid_m(indices: list[int]) -> tuple[float, float]:
+            xs = [points_m[i][0] for i in indices]
+            ys = [points_m[i][1] for i in indices]
+            return (sum(xs) / len(xs), sum(ys) / len(ys))
+
+        def cluster_max_radius_m(indices: list[int]) -> float:
+            cx, cy = cluster_centroid_m(indices)
+            return max(
+                math.hypot(points_m[i][0] - cx, points_m[i][1] - cy) for i in indices
             )
 
-            candidate = candidates[idx]
-            cluster["points"].append((candidate["lng"], candidate["lat"]))
+        def refine_cluster(indices: list[int]) -> list[list[int]]:
+            if len(indices) < (min_visits * 2):
+                return [indices]
 
-            if candidate["label"]:
-                cluster["labels"][candidate["label"]] += 1
+            max_dist = cluster_max_radius_m(indices)
+            if max_dist <= (cell_size_m * 1.4):
+                return [indices]
 
-            end_time = candidate["endTime"]
-            if end_time:
-                if cluster["firstVisit"] is None or end_time < cluster["firstVisit"]:
-                    cluster["firstVisit"] = end_time
-                if cluster["lastVisit"] is None or end_time > cluster["lastVisit"]:
-                    cluster["lastVisit"] = end_time
+            refined_eps = max(60.0, min(cell_size_m * 0.55, max_dist * 0.4))
+            local_points = [points_m[i] for i in indices]
+            sub_labels = dbscan(local_points, refined_eps, min_visits)
+
+            subclusters: dict[int, list[int]] = {}
+            for local_idx, sub_label in enumerate(sub_labels):
+                if sub_label == -1:
+                    continue
+                subclusters.setdefault(sub_label, []).append(indices[local_idx])
+
+            if len(subclusters) <= 1:
+                return [indices]
+
+            return list(subclusters.values())
+
+        refined_clusters: list[list[int]] = []
+        for indices in cluster_indices.values():
+            refined_clusters.extend(refine_cluster(indices))
 
         suggestions: list[VisitSuggestion] = []
 
-        for cluster in clusters.values():
-            points = cluster["points"]
-            if len(points) < min_visits:
+        for indices in refined_clusters:
+            if len(indices) < min_visits:
                 continue
+
+            points: list[tuple[float, float]] = []
+            label_counts: Counter[str] = Counter()
+            first_visit = None
+            last_visit = None
+
+            for idx in indices:
+                candidate = candidates[idx]
+                points.append((candidate["lng"], candidate["lat"]))
+                if candidate["label"]:
+                    label_counts[candidate["label"]] += 1
+
+                end_time = candidate["endTime"]
+                if end_time:
+                    if first_visit is None or end_time < first_visit:
+                        first_visit = end_time
+                    if last_visit is None or end_time > last_visit:
+                        last_visit = end_time
 
             avg_lng = sum(p[0] for p in points) / len(points)
             avg_lat = sum(p[1] for p in points) / len(points)
 
-            if cluster["labels"]:
-                suggested_name = cluster["labels"].most_common(1)[0][0]
+            if label_counts:
+                suggested_name = label_counts.most_common(1)[0][0]
             else:
                 suggested_name = f"Area near {round(avg_lat, 4)}, {round(avg_lng, 4)}"
 
-            # Build cluster boundary using convex hull + buffered envelope in meters
+            # Build cluster boundary using convex hull + tighter buffered envelope in meters
             cluster_geom = MultiPoint(points)
             to_meters_cluster, to_wgs84_cluster = get_local_transformers(cluster_geom)
             cluster_geom_m = transform(to_meters_cluster, cluster_geom)
             hull_m = cluster_geom_m.convex_hull
 
             centroid_m = cluster_geom_m.centroid
-            max_dist = 0.0
-            for pt in cluster_geom_m.geoms:
-                max_dist = max(max_dist, centroid_m.distance(pt))
+            distances = sorted(
+                centroid_m.distance(pt) for pt in cluster_geom_m.geoms
+            )
+            if distances:
+                p70_idx = int(0.7 * (len(distances) - 1))
+                p70_dist = distances[p70_idx]
+            else:
+                p70_dist = 0.0
 
-            buffer_m = max(40.0, min(cell_size_m, max_dist * 0.6))
+            buffer_m = max(35.0, min(cell_size_m * 0.75, p70_dist * 0.9))
             hull_m = hull_m.buffer(buffer_m)
             boundary_geom = transform(to_wgs84_cluster, hull_m)
 
@@ -614,8 +653,8 @@ class VisitStatsService:
                 VisitSuggestion(
                     suggestedName=suggested_name,
                     totalVisits=len(points),
-                    firstVisit=cluster["firstVisit"],
-                    lastVisit=cluster["lastVisit"],
+                    firstVisit=first_visit,
+                    lastVisit=last_visit,
                     centroid=[avg_lng, avg_lat],
                     boundary=boundary_geojson,
                 ),
