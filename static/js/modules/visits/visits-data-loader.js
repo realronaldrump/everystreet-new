@@ -66,11 +66,7 @@ class VisitsDataLoader {
    */
   async loadSuggestions(params = {}) {
     try {
-      const tfSelect = document.getElementById("time-filter");
-      if (tfSelect?.value !== "all" && tfSelect?.value) {
-        params.timeframe = tfSelect.value;
-      }
-
+      // Timeframe filter removed in redesign - suggestions now always use all time
       const sizeSelect = document.getElementById("suggestion-size");
       if (sizeSelect && sizeSelect.value && sizeSelect.value !== "auto") {
         const size = Number.parseInt(sizeSelect.value, 10);

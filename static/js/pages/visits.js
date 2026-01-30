@@ -1,7 +1,9 @@
 /* global Chart, MapboxDraw, bootstrap, mapboxgl, $ */
 
 import { onPageLoad } from "../modules/utils.js";
-import VisitsManager from "../modules/visits/visits-manager.js";
+import VisitsPageController from "./visits-new.js";
+
+let visitsPage;
 
 onPageLoad(
   ({ cleanup } = {}) => {
@@ -34,13 +36,14 @@ onPageLoad(
       return;
     }
 
-    const visitsManager = new VisitsManager();
+    // Initialize new visits page controller
+    visitsPage = new VisitsPageController();
 
     const themeObserver = new MutationObserver((mutations) => {
       mutations.forEach((mutation) => {
         if (mutation.attributeName === "data-bs-theme") {
           const newTheme = document.documentElement.getAttribute("data-bs-theme");
-          visitsManager?.updateMapTheme(newTheme);
+          visitsPage?.visitsManager?.updateMapTheme?.(newTheme);
         }
       });
     });
@@ -53,9 +56,12 @@ onPageLoad(
     if (typeof cleanup === "function") {
       cleanup(() => {
         themeObserver.disconnect();
-        visitsManager?.destroy?.();
+        visitsPage?.visitsManager?.destroy?.();
       });
     }
   },
   { route: "/visits" }
 );
+
+// Export for global access
+window.visitsPage = visitsPage;

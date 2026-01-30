@@ -112,14 +112,8 @@ class VisitsEvents {
    * Set up toggle/filter listeners
    */
   _setupToggleListeners() {
-    document.getElementById("toggle-custom-places")?.addEventListener("change", (e) => {
-      this.manager.uiManager?.toggleCustomPlacesVisibility(e.target.checked);
-    });
-
-    document.getElementById("time-filter")?.addEventListener("change", (e) => {
-      this.manager.filterByTimeframe(e.target.value);
-    });
-
+    // Note: time-filter and toggle-custom-places removed in redesign
+    // Suggestion size change is now handled by VisitsPageController
     document.getElementById("suggestion-size")?.addEventListener("change", () => {
       this.manager.loadSuggestions();
     });

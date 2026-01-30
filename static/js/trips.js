@@ -113,21 +113,21 @@ async function initializePage(signal, cleanup) {
 function updateGreeting() {
   const hour = new Date().getHours();
   let greeting = "Good evening";
-  let icon = "🌙";
+  let iconHtml = '<i class="fas fa-moon text-info"></i>';
 
   if (hour >= 5 && hour < 12) {
     greeting = "Good morning";
-    icon = "☀️";
+    iconHtml = '<i class="fas fa-sun text-warning"></i>';
   } else if (hour >= 12 && hour < 17) {
     greeting = "Good afternoon";
-    icon = "👋";
+    iconHtml = '<i class="fas fa-hand-paper text-primary"></i>';
   }
 
   const greetingText = document.querySelector(".greeting-text");
   const greetingIcon = document.querySelector(".greeting-icon");
 
   if (greetingText) greetingText.textContent = greeting;
-  if (greetingIcon) greetingIcon.textContent = icon;
+  if (greetingIcon) greetingIcon.innerHTML = iconHtml;
 }
 
 // ==========================================
@@ -274,7 +274,8 @@ async function loadTripStats() {
     }
 
     const metrics = metricsResult.status === "fulfilled" ? metricsResult.value : null;
-    const insights = insightsResult.status === "fulfilled" ? insightsResult.value : null;
+    const insights =
+      insightsResult.status === "fulfilled" ? insightsResult.value : null;
 
     if (!metrics && !insights) {
       return;
@@ -289,17 +290,9 @@ async function loadTripStats() {
     };
 
     // Update welcome stats
-    const totalMiles = toNumber(
-      metrics?.total_distance ?? insights?.total_distance,
-      0
-    );
-    const totalTrips = toNumber(
-      metrics?.total_trips ?? insights?.total_trips,
-      0
-    );
-    const totalHours = Math.round(
-      toNumber(metrics?.total_duration_seconds, 0) / 3600
-    );
+    const totalMiles = toNumber(metrics?.total_distance ?? insights?.total_distance, 0);
+    const totalTrips = toNumber(metrics?.total_trips ?? insights?.total_trips, 0);
+    const totalHours = Math.round(toNumber(metrics?.total_duration_seconds, 0) / 3600);
 
     document.getElementById("stat-total-miles").textContent = totalMiles.toFixed(1);
     document.getElementById("stat-total-trips").textContent = totalTrips;
@@ -321,9 +314,7 @@ async function loadTripStats() {
     const totalFuel = toNumber(insights?.total_fuel_consumed, 0);
 
     if (longestEl) {
-      longestEl.textContent = longestTrip
-        ? `${longestTrip.toFixed(1)} mi`
-        : "--";
+      longestEl.textContent = longestTrip ? `${longestTrip.toFixed(1)} mi` : "--";
     }
     if (fuelEl) {
       fuelEl.textContent = totalFuel ? `${totalFuel.toFixed(1)} gal` : "--";
@@ -376,7 +367,8 @@ async function loadTrips() {
     });
 
     tripsData = response?.data || [];
-    totalTrips = response?.recordsFiltered ?? response?.recordsTotal ?? tripsData.length;
+    totalTrips =
+      response?.recordsFiltered ?? response?.recordsTotal ?? tripsData.length;
     filteredTrips = [...tripsData];
 
     if (tripsData.length === 0) {
@@ -1418,8 +1410,8 @@ function setupTripPlaybackControls() {
 }
 
 function getPlaybackSpeedMultiplier() {
-  const speedValue
-    = Number.isFinite(playbackState.speed) && playbackState.speed > 0
+  const speedValue =
+    Number.isFinite(playbackState.speed) && playbackState.speed > 0
       ? playbackState.speed
       : PLAYBACK_SPEED_BASE;
   return speedValue / PLAYBACK_SPEED_BASE;
