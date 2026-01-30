@@ -9,6 +9,7 @@ from core.date_utils import parse_timestamp
 from db import build_calendar_date_expr
 from db.aggregation import aggregate_to_list
 from db.models import Trip, Vehicle
+from geo_service.geometry import GeometryService
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +20,95 @@ def _safe_float(value, default: float = 0.0):
         return float(value)
     except (TypeError, ValueError):
         return default
+
+
+def _extract_preview_geometry(trip_dict: dict[str, Any]) -> dict[str, Any] | None:
+    geom = GeometryService.parse_geojson(
+        trip_dict.get("matchedGps") or trip_dict.get("gps"),
+    )
+    if geom:
+        return geom
+
+    coords = trip_dict.get("coordinates")
+    if isinstance(coords, list):
+        return GeometryService.geometry_from_coordinate_dicts(coords)
+
+    return None
+
+
+def _build_preview_path(
+    trip_dict: dict[str, Any],
+    *,
+    width: float = 100.0,
+    height: float = 40.0,
+    padding: float = 4.0,
+    max_points: int = 64,
+) -> str | None:
+    geom = _extract_preview_geometry(trip_dict)
+    if not geom:
+        return None
+
+    coords = geom.get("coordinates")
+    if not isinstance(coords, list) or not coords:
+        return None
+
+    raw_coords: list[Any] = []
+    if geom.get("type") == "LineString":
+        raw_coords = coords
+    elif geom.get("type") == "MultiLineString":
+        for line in coords:
+            if isinstance(line, list):
+                raw_coords.extend(line)
+    else:
+        return None
+
+    cleaned: list[list[float]] = []
+    for coord in raw_coords:
+        valid, pair = GeometryService.validate_coordinate_pair(coord)
+        if valid and pair:
+            cleaned.append(pair)
+
+    if len(cleaned) < 2:
+        return None
+
+    if len(cleaned) > max_points:
+        step = max(1, len(cleaned) // max_points)
+        sampled = cleaned[::step]
+        if sampled[-1] != cleaned[-1]:
+            sampled.append(cleaned[-1])
+        cleaned = sampled
+
+    lons = [pt[0] for pt in cleaned]
+    lats = [pt[1] for pt in cleaned]
+    min_lon = min(lons)
+    max_lon = max(lons)
+    min_lat = min(lats)
+    max_lat = max(lats)
+
+    if min_lon == max_lon:
+        min_lon -= 0.0001
+        max_lon += 0.0001
+    if min_lat == max_lat:
+        min_lat -= 0.0001
+        max_lat += 0.0001
+
+    span_lon = max_lon - min_lon
+    span_lat = max_lat - min_lat
+    if span_lon <= 0 or span_lat <= 0:
+        return None
+
+    scale_x = (width - (padding * 2)) / span_lon
+    scale_y = (height - (padding * 2)) / span_lat
+
+    def project(coord: list[float]) -> tuple[float, float]:
+        x = padding + (coord[0] - min_lon) * scale_x
+        y = padding + (max_lat - coord[1]) * scale_y
+        return x, y
+
+    points = [project(coord) for coord in cleaned]
+    path_parts = [f"M {points[0][0]:.1f},{points[0][1]:.1f}"]
+    path_parts.extend(f"L {x:.1f},{y:.1f}" for x, y in points[1:])
+    return " ".join(path_parts)
 
 
 class TripQueryService:
@@ -359,6 +449,7 @@ class TripQueryService:
                     trip_dict,
                     price_map,
                 ),
+                "previewPath": _build_preview_path(trip_dict),
             }
             formatted_data.append(formatted_trip)
 

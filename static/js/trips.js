@@ -578,6 +578,14 @@ function createTripCard(trip, allTrips) {
     </div>
   `;
 
+  const previewPath = getTripPreviewPath(trip);
+  if (previewPath) {
+    const routePath = card.querySelector(".trip-route-line path");
+    if (routePath) {
+      routePath.setAttribute("d", previewPath);
+    }
+  }
+
   // Event listeners
   card.addEventListener("click", (e) => {
     if (
@@ -623,6 +631,33 @@ function createTripCard(trip, allTrips) {
   });
 
   return card;
+}
+
+function getTripPreviewPath(trip) {
+  const previewPath = trip?.previewPath || trip?.preview_path;
+  return sanitizeSvgPath(previewPath);
+}
+
+function sanitizeSvgPath(value) {
+  if (!value || typeof value !== "string") return null;
+  const cleaned = value.trim().replace(/[^0-9MLml.,\s-]/g, "");
+  return cleaned.length > 0 ? cleaned : null;
+}
+
+function getThemeColor(variable, fallback) {
+  if (typeof window === "undefined") return fallback;
+  const value = getComputedStyle(document.documentElement)
+    .getPropertyValue(variable)
+    .trim();
+  return value || fallback;
+}
+
+function getTripUiColors() {
+  return {
+    primary: getThemeColor("--primary", "#1fb6ad"),
+    success: getThemeColor("--success", "#2fb86d"),
+    stroke: getThemeColor("--text-primary", "#f2f7fc"),
+  };
 }
 
 function formatRelativeTime(dateStr) {
@@ -1141,6 +1176,7 @@ function initTripModalMap() {
     });
 
     tripModalMap.on("load", () => {
+      const { primary, success, stroke } = getTripUiColors();
       tripModalMap.addSource("modal-trip", {
         type: "geojson",
         data: { type: "FeatureCollection", features: [] },
@@ -1155,7 +1191,7 @@ function initTripModalMap() {
           "line-cap": "round",
         },
         paint: {
-          "line-color": "#e07a5f",
+          "line-color": primary,
           "line-width": 4,
           "line-opacity": 0.9,
         },
@@ -1176,7 +1212,7 @@ function initTripModalMap() {
             "line-cap": "round",
           },
           paint: {
-            "line-color": "#81b29a",
+            "line-color": success,
             "line-width": 3,
             "line-opacity": 0.6,
           },
@@ -1195,10 +1231,10 @@ function initTripModalMap() {
           source: playbackState.headSourceId,
           paint: {
             "circle-radius": 6,
-            "circle-color": "#e07a5f",
+            "circle-color": primary,
             "circle-opacity": 0.9,
             "circle-stroke-width": 2,
-            "circle-stroke-color": "#fff",
+            "circle-stroke-color": stroke,
           },
         });
       }
@@ -1223,9 +1259,7 @@ async function loadTripData(tripId) {
 
     updateModalContent(trip);
 
-    if (trip.geometry) {
-      renderTripOnMap(trip);
-    }
+    renderTripOnMap(trip);
   } catch (err) {
     console.error("Failed to load trip data:", err);
     notificationManager.show("Failed to load trip details", "danger");
@@ -1273,9 +1307,12 @@ function renderTripOnMap(trip) {
     return;
   }
 
+  const geometry = extractTripGeometry(trip);
+  if (!geometry) return;
+
   const geojson = {
     type: "Feature",
-    geometry: trip.geometry,
+    geometry,
     properties: {},
   };
 
@@ -1284,14 +1321,14 @@ function renderTripOnMap(trip) {
     src.setData({ type: "FeatureCollection", features: [geojson] });
   }
 
-  setPlaybackRoute(trip.geometry);
+  setPlaybackRoute(geometry);
 
   const bounds = new mapboxgl.LngLatBounds();
-  const coords = trip.geometry.coordinates;
+  const coords = geometry.coordinates;
 
-  if (trip.geometry.type === "LineString") {
+  if (geometry.type === "LineString") {
     coords.forEach((c) => bounds.extend(c));
-  } else if (trip.geometry.type === "Point") {
+  } else if (geometry.type === "Point") {
     bounds.extend(coords);
   }
 
@@ -1303,6 +1340,31 @@ function renderTripOnMap(trip) {
       essential: true,
     });
   }
+}
+
+function extractTripGeometry(trip) {
+  if (!trip) return null;
+  const candidate = trip.geometry || trip.matchedGps || trip.gps;
+  if (!candidate) return null;
+
+  let parsed = candidate;
+  if (typeof candidate === "string") {
+    try {
+      parsed = JSON.parse(candidate);
+    } catch (err) {
+      return null;
+    }
+  }
+
+  if (parsed?.type === "Feature") {
+    parsed = parsed.geometry;
+  }
+
+  if (!parsed || !parsed.type || !parsed.coordinates) {
+    return null;
+  }
+
+  return parsed;
 }
 
 // ==========================================
@@ -1357,7 +1419,8 @@ function startPlayback() {
   playbackState.isPlaying = true;
 
   if (!playbackState.marker) {
-    playbackState.marker = new mapboxgl.Marker({ color: "#e07a5f" });
+    const { primary } = getTripUiColors();
+    playbackState.marker = new mapboxgl.Marker({ color: primary });
   }
 
   const step = () => {

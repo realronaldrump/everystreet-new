@@ -409,7 +409,7 @@
   height: 20px;
   padding: 0 6px;
   background: var(--trips-primary);
-  color: white;
+  color: var(--text-on-primary);
   font-size: 0.75rem;
   font-weight: 600;
   border-radius: var(--radius-pill);
@@ -500,7 +500,7 @@
 .quick-filter-btn.active {
   background: var(--trips-primary);
   border-color: var(--trips-primary);
-  color: white;
+  color: var(--text-on-primary);
 }
 
 .filter-actions {
@@ -524,7 +524,7 @@
 .btn-apply {
   background: var(--trips-primary);
   border: 2px solid var(--trips-primary);
-  color: white;
+  color: var(--text-on-primary);
 }
 
 .btn-apply:hover {
@@ -1145,7 +1145,7 @@
 .page-number.active {
   background: var(--trips-primary);
   border-color: var(--trips-primary);
-  color: white;
+  color: var(--text-on-primary);
 }
 
 /* ============================================
