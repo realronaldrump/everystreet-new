@@ -251,20 +251,44 @@ Loading map data...
               <i class="fas fa-chart-line" aria-hidden="true"></i>
               Visits and patterns
             </h3>
-            <select class="form-select form-select-sm" id="time-filter" style="width: auto;">
-              <option value="all">
+            <div class="visits-filters">
+              <label class="filter-label" for="time-filter">
+              Timeframe
+              </label>
+              <select class="form-select form-select-sm" id="time-filter">
+                <option value="all">
 All Time
-              </option>
-              <option value="year">
+                </option>
+                <option value="year">
 This Year
-              </option>
-              <option value="month">
+                </option>
+                <option value="month">
 This Month
-              </option>
-              <option value="week">
+                </option>
+                <option value="week">
 This Week
-              </option>
-            </select>
+                </option>
+              </select>
+            </div>
+            <div class="visits-filters">
+              <label class="filter-label" for="suggestion-size">
+              Suggestion size
+              </label>
+              <select class="form-select form-select-sm" id="suggestion-size">
+                <option value="auto" selected>
+Auto
+                </option>
+                <option value="45">
+Small (parking lot)
+                </option>
+                <option value="75">
+Medium
+                </option>
+                <option value="110">
+Large
+                </option>
+              </select>
+            </div>
           </div>
         </div>
         <div class="widget-body">

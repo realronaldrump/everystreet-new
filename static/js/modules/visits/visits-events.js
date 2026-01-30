@@ -119,6 +119,10 @@ class VisitsEvents {
     document.getElementById("time-filter")?.addEventListener("change", (e) => {
       this.manager.filterByTimeframe(e.target.value);
     });
+
+    document.getElementById("suggestion-size")?.addEventListener("change", () => {
+      this.manager.loadSuggestions();
+    });
   }
 
   /**

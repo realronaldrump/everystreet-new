@@ -71,6 +71,14 @@ class VisitsDataLoader {
         params.timeframe = tfSelect.value;
       }
 
+      const sizeSelect = document.getElementById("suggestion-size");
+      if (sizeSelect && sizeSelect.value && sizeSelect.value !== "auto") {
+        const size = Number.parseInt(sizeSelect.value, 10);
+        if (!Number.isNaN(size) && size > 0) {
+          params.cell_size_m = size;
+        }
+      }
+
       return await VisitsDataService.fetchVisitSuggestions(params);
     } catch (error) {
       console.error("Error loading visit suggestions", error);
