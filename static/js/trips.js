@@ -1188,6 +1188,54 @@ function updateFilterChips() {
     badge.textContent = filterCount;
     badge.style.display = filterCount > 0 ? "inline-flex" : "none";
   }
+
+  // Update filter toggle button styling
+  const filterToggle = document.getElementById("filter-toggle-btn");
+  if (filterToggle) {
+    filterToggle.classList.toggle("has-filters", filterCount > 0);
+  }
+
+  // Update filter panel styling
+  const filtersPanel = document.getElementById("trips-filters-panel");
+  if (filtersPanel) {
+    filtersPanel.classList.toggle("has-filters", filterCount > 0);
+  }
+
+  // Update filters status indicator
+  const filtersStatus = document.getElementById("filters-status");
+  if (filtersStatus) {
+    filtersStatus.style.display = filterCount > 0 ? "flex" : "none";
+  }
+}
+
+function updateFilterResultsPreview() {
+  const previewEl = document.getElementById("filter-results-preview");
+  if (!previewEl) return;
+
+  const visibleTrips = filteredTrips.length > 0 ? filteredTrips : tripsData;
+  const filters = getFilterValues();
+  const hasFilters =
+    filters.imei ||
+    filters.start_date ||
+    filters.end_date ||
+    filters.distance_min ||
+    filters.distance_max;
+
+  if (hasFilters && visibleTrips.length > 0) {
+    const totalMiles = visibleTrips.reduce(
+      (sum, trip) => sum + (parseFloat(trip.distance) || 0),
+      0
+    );
+    previewEl.innerHTML = `
+      <span class="results-count">${visibleTrips.length}</span> trips 
+      <span style="color: var(--trips-text-tertiary);">•</span> 
+      ${totalMiles.toFixed(1)} mi
+    `;
+    previewEl.style.display = "inline";
+  } else {
+    previewEl.textContent = "";
+    previewEl.style.display = "none";
+  }
 }
 
 // ==========================================

@@ -846,6 +846,13 @@
   font-weight: 700;
   color: var(--trips-text-primary);
   line-height: 1;
+  transition: opacity 0.3s ease;
+}
+
+#insight-longest,
+#insight-fuel,
+#insight-streets {
+  transition: opacity 0.2s ease;
 }
 
 .insight-label {
