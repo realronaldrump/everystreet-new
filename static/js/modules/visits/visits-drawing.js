@@ -288,10 +288,12 @@ class VisitsDrawing {
 
     this.resetDrawing(false);
 
+    const suggestionName =
+      suggestion.suggestedName || suggestion.name || "Suggested Place";
     const geoJson = {
       type: "Feature",
       geometry: suggestion.boundary,
-      properties: { name: suggestion.name || "Suggested Place" },
+      properties: { name: suggestionName },
     };
 
     this.draw.add(geoJson);
@@ -303,7 +305,7 @@ class VisitsDrawing {
       this.drawingEnabled = true;
       document.getElementById("start-drawing")?.classList.add("active");
       document.getElementById("save-place")?.removeAttribute("disabled");
-      document.getElementById("place-name").value = suggestion.name || "";
+      document.getElementById("place-name").value = suggestionName || "";
       document.getElementById("place-name")?.focus();
     }
   }

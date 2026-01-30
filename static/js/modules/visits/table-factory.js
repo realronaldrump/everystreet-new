@@ -291,7 +291,7 @@ function createTripsTable({ onTripSelected }) {
 }
 
 function createSuggestionsTable({ onCreatePlace, onPreview } = {}) {
-  const el = document.getElementById("suggestions-table");
+  const el = document.getElementById("suggested-places-table");
   if (!el || !window.$) {
     return null;
   }
@@ -310,9 +310,11 @@ function createSuggestionsTable({ onCreatePlace, onPreview } = {}) {
     pageLength: 10,
     columns: [
       {
-        data: "name",
-        render: (data) =>
-          `<i class="fas fa-map-marker-alt me-2 text-warning"></i>${data}`,
+        data: "suggestedName",
+        render: (data, _type, row) => {
+          const name = data || row?.name || "Suggested Place";
+          return `<i class="fas fa-map-marker-alt me-2 text-warning"></i>${name}`;
+        },
         createdCell: (td, _cellData, _rowData, _row, col) => {
           $(td).attr("data-label", headers[col]);
         },
@@ -353,17 +355,20 @@ function createSuggestionsTable({ onCreatePlace, onPreview } = {}) {
       },
       {
         data: null,
-        render: (data, type, row) =>
-          type === "display"
-            ? `<div class="btn-group btn-group-sm" role="group">
-                <button class="btn btn-sm btn-outline-info preview-suggestion-btn" data-place-id="${row._id}" title="Preview">
+        render: (data, type, row) => {
+          if (type !== "display") {
+            return data;
+          }
+          const suggestionId = row?.suggestionId || row?._id || row?.suggestedName || "";
+          return `<div class="btn-group btn-group-sm" role="group">
+                <button class="btn btn-sm btn-outline-info preview-suggestion-btn" data-place-id="${suggestionId}" title="Preview">
                   <i class="fas fa-eye"></i>
                 </button>
-                <button class="btn btn-sm btn-outline-warning add-suggested-btn" data-place-id="${row._id}" title="Add">
+                <button class="btn btn-sm btn-outline-warning add-suggested-btn" data-place-id="${suggestionId}" title="Add">
                   <i class="fas fa-plus"></i>
                 </button>
-              </div>`
-            : data,
+              </div>`;
+        },
         createdCell: (td, _cellData, _rowData, _row, col) => {
           $(td).attr("data-label", headers[col]);
         },
@@ -412,7 +417,7 @@ function createSuggestionsTable({ onCreatePlace, onPreview } = {}) {
     }
   });
 
-  $("#suggestions-table_filter input").addClass("form-control-sm");
+  $("#suggested-places-table_filter input").addClass("form-control-sm");
   return table;
 }
 

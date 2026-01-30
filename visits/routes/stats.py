@@ -54,9 +54,9 @@ async def get_visit_suggestions(
     """
     Suggest areas that are visited often but are not yet custom places.
 
-    This endpoint groups trip destinations without destinationPlaceId
-    by a spatial grid (default ~250m x 250m) and returns any cells that have
-    at least min_visits visits.  It supports an optional rolling
+    This endpoint clusters trip destinations without destinationPlaceId
+    using a distance-based approach (default radius ~250m) and returns
+    clusters that have at least min_visits visits. It supports an optional rolling
     timeframe (day/week/month/year) similar to other endpoints.
 
     The response is a list of dictionaries:
@@ -73,8 +73,8 @@ async def get_visit_suggestions(
             …
         ]
 
-    where boundary is a square cell polygon the frontend can edit/fine-tune
-    before saving as a real custom place.
+    where boundary is a polygon derived from the visit cluster that the
+    frontend can edit/fine-tune before saving as a real custom place.
     """
     try:
         return await VisitStatsService.get_visit_suggestions(
