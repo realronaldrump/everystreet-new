@@ -71,6 +71,9 @@ async function initializePage(signal, cleanup) {
   // Load vehicles for filter dropdown
   await loadVehicles();
 
+  // Restore saved filters before setting up listeners
+  restoreSavedFilters();
+
   // Setup all event listeners
   setupSearchAndFilters();
   setupBulkActions();
@@ -100,9 +103,62 @@ async function initializePage(signal, cleanup) {
   // Initial data load
   await Promise.all([loadTrips(), loadTripStats()]);
 
+  // Apply any saved filters after data loads
+  applySavedFilters();
+
   // Check if we need to open a specific trip (from URL param)
   if (window.PRELOAD_TRIP_ID) {
     requestAnimationFrame(() => openTripModal(window.PRELOAD_TRIP_ID));
+  }
+}
+
+function restoreSavedFilters() {
+  // Restore vehicle filter
+  const savedVehicle = getStorage(CONFIG.STORAGE_KEYS.selectedVehicle);
+  const vehicleSelect = document.getElementById("trip-filter-vehicle");
+  if (savedVehicle && vehicleSelect) {
+    vehicleSelect.value = savedVehicle;
+    vehicleSelect.classList.add("has-value");
+  }
+
+  // Restore date filters - quick buttons will be updated via updateDateRangeDisplay
+  const startDate = getStorage("startDate");
+  if (startDate) {
+    // Check which quick filter matches
+    const today = dayjs().startOf("day");
+    const savedStart = dayjs(startDate);
+
+    document.querySelectorAll(".quick-filter-btn").forEach((btn) => {
+      const range = btn.dataset.range;
+      const dates = getDateRange(range);
+      if (dates.start === startDate) {
+        btn.classList.add("active");
+      }
+    });
+  }
+}
+
+function applySavedFilters() {
+  const filters = getFilterValues();
+  const hasFilters =
+    filters.imei ||
+    filters.start_date ||
+    filters.end_date ||
+    filters.distance_min ||
+    filters.distance_max;
+
+  if (hasFilters) {
+    updateFilterChips();
+    updateDateRangeDisplay();
+    updateFilteredStats();
+
+    // Add visual feedback that filters are active
+    document.querySelectorAll(".stat-pill").forEach((pill) => {
+      pill.classList.add("filtered");
+    });
+    document.getElementById("trips-filters-panel")?.classList.add("has-filters");
+    document.querySelector(".trips-search-section")?.classList.add("has-filters");
+    document.getElementById("filters-status")?.style.setProperty("display", "flex");
   }
 }
 
