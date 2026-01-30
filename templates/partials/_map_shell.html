@@ -16,6 +16,104 @@ Map
       <span class="map-loading-text">Loading map...</span>
     </div>
 
+    <!-- Trip Statistics Widget (Top Left) -->
+    <div id="trip-stats-widget" class="trip-stats-widget" aria-label="Trip statistics">
+      <div class="trip-stats-card" id="trip-stats-card">
+        <!-- Compact View -->
+        <div class="trip-stats-compact" id="trip-stats-compact">
+          <div class="trip-stats-header">
+            <div class="trip-stats-icon">
+              <i class="fas fa-chart-bar" aria-hidden="true"></i>
+            </div>
+            <div class="trip-stats-title">Trip Stats</div>
+            <button class="trip-stats-toggle" id="trip-stats-toggle" type="button" aria-expanded="false" aria-label="Toggle statistics details">
+              <i class="fas fa-chevron-down" aria-hidden="true"></i>
+            </button>
+          </div>
+          <div class="trip-stats-summary">
+            <div class="trip-stats-summary-item">
+              <div class="trip-stats-summary-value" id="widget-total-trips">0</div>
+              <div class="trip-stats-summary-label">trips</div>
+            </div>
+            <div class="trip-stats-summary-divider"></div>
+            <div class="trip-stats-summary-item">
+              <div class="trip-stats-summary-value" id="widget-total-distance">0</div>
+              <div class="trip-stats-summary-label">miles</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Expanded View -->
+        <div class="trip-stats-expanded" id="trip-stats-expanded" style="display: none;">
+          <div class="trip-stats-expanded-content">
+            <div class="trip-stats-metric">
+              <div class="trip-stats-metric-icon">
+                <i class="fas fa-route" aria-hidden="true"></i>
+              </div>
+              <div class="trip-stats-metric-info">
+                <div class="trip-stats-metric-label">Total Trips</div>
+                <div class="trip-stats-metric-value" id="widget-detailed-trips">0</div>
+              </div>
+            </div>
+            <div class="trip-stats-metric">
+              <div class="trip-stats-metric-icon">
+                <i class="fas fa-road" aria-hidden="true"></i>
+              </div>
+              <div class="trip-stats-metric-info">
+                <div class="trip-stats-metric-label">Total Distance</div>
+                <div class="trip-stats-metric-value">
+                  <span id="widget-detailed-distance">0</span>
+                  <span class="trip-stats-metric-unit">mi</span>
+                </div>
+              </div>
+            </div>
+            <div class="trip-stats-metric">
+              <div class="trip-stats-metric-icon">
+                <i class="fas fa-balance-scale" aria-hidden="true"></i>
+              </div>
+              <div class="trip-stats-metric-info">
+                <div class="trip-stats-metric-label">Avg Distance</div>
+                <div class="trip-stats-metric-value">
+                  <span id="widget-detailed-avg-distance">0</span>
+                  <span class="trip-stats-metric-unit">mi</span>
+                </div>
+              </div>
+            </div>
+            <div class="trip-stats-metric">
+              <div class="trip-stats-metric-icon">
+                <i class="fas fa-tachometer-alt" aria-hidden="true"></i>
+              </div>
+              <div class="trip-stats-metric-info">
+                <div class="trip-stats-metric-label">Avg Speed</div>
+                <div class="trip-stats-metric-value">
+                  <span id="widget-detailed-avg-speed">0</span>
+                  <span class="trip-stats-metric-unit">mph</span>
+                </div>
+              </div>
+            </div>
+            <div class="trip-stats-metric">
+              <div class="trip-stats-metric-icon">
+                <i class="fas fa-clock" aria-hidden="true"></i>
+              </div>
+              <div class="trip-stats-metric-info">
+                <div class="trip-stats-metric-label">Avg Start Time</div>
+                <div class="trip-stats-metric-value" id="widget-detailed-avg-start">--:--</div>
+              </div>
+            </div>
+            <div class="trip-stats-metric">
+              <div class="trip-stats-metric-icon">
+                <i class="fas fa-hourglass-half" aria-hidden="true"></i>
+              </div>
+              <div class="trip-stats-metric-info">
+                <div class="trip-stats-metric-label">Avg Duration</div>
+                <div class="trip-stats-metric-value" id="widget-detailed-avg-duration">--:--</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Live Trip HUD -->
     <div id="live-trip-hud" class="live-trip-hud" aria-hidden="true">
       <div class="live-trip-hud-card">

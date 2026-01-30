@@ -113,6 +113,9 @@ export const CONFIG = {
       weight: 2,
       minzoom: 0,
       maxzoom: 22,
+      supportsColorPicker: false,
+      supportsOpacitySlider: true,
+      isHeatmap: true,
     },
     undrivenStreets: {
       order: 2,

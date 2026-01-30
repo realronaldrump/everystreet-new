@@ -135,8 +135,16 @@ const mapManager = {
 
     if (store.map.getLayer("matchedTrips-hitbox")) {
       queryLayers.push("matchedTrips-hitbox");
-    } else if (store.map.getLayer("matchedTrips-layer")) {
+    } else if (
+      !store.mapLayers.matchedTrips?.isHeatmap
+      && store.map.getLayer("matchedTrips-layer")
+    ) {
       queryLayers.push("matchedTrips-layer");
+    } else if (
+      store.mapLayers.matchedTrips?.isHeatmap
+      && store.map.getLayer("matchedTrips-layer-1")
+    ) {
+      queryLayers.push("matchedTrips-layer-1");
     }
 
     if (queryLayers.length === 0) {
@@ -277,18 +285,24 @@ const mapManager = {
     };
 
     // Remove overlay if no selection or not in heatmap mode
+    const selectedLayer = store.selectedTripLayer;
+    const validHeatmapLayer
+      = selectedLayer === "trips" || selectedLayer === "matchedTrips";
+    const layerInfo = validHeatmapLayer ? store.mapLayers[selectedLayer] : null;
+
     if (
       !selectedId
-      || store.selectedTripLayer !== "trips"
-      || !store.mapLayers.trips?.isHeatmap
-      || !store.mapLayers.trips?.visible
+      || !layerInfo
+      || !layerInfo.isHeatmap
+      || !layerInfo.visible
+      || !validHeatmapLayer
     ) {
       removeOverlay();
       return;
     }
 
     // Find the matching feature
-    const tripLayer = store.mapLayers.trips?.layer;
+    const tripLayer = layerInfo.layer;
     const matchingFeature = tripLayer?.features?.find((feature) => {
       const featureId
         = feature?.properties?.transactionId
@@ -309,7 +323,13 @@ const mapManager = {
       properties: matchingFeature.properties || {},
     };
 
-    const highlightColor = MapStyles.MAP_LAYER_COLORS?.trips?.selected || "#FFD700";
+    const fallbackHighlight = selectedLayer === "matchedTrips" ? "#40E0D0" : "#FFD700";
+    const highlightColor
+      = (selectedLayer === "matchedTrips"
+        ? MapStyles.MAP_LAYER_COLORS?.matchedTrips?.highlight
+        : MapStyles.MAP_LAYER_COLORS?.trips?.selected)
+      || layerInfo.highlightColor
+      || fallbackHighlight;
 
     const highlightWidth = [
       "interpolate",
