@@ -560,10 +560,10 @@ class VisitStatsService:
                 return [indices]
 
             max_dist = cluster_max_radius_m(indices)
-            if max_dist <= (cell_size_m * 1.4):
+            if max_dist <= (cell_size_m * 1.1):
                 return [indices]
 
-            refined_eps = max(60.0, min(cell_size_m * 0.55, max_dist * 0.4))
+            refined_eps = max(35.0, min(cell_size_m * 0.35, max_dist * 0.3))
             local_points = [points_m[i] for i in indices]
             sub_labels = dbscan(local_points, refined_eps, min_visits)
 
@@ -625,12 +625,12 @@ class VisitStatsService:
                 centroid_m.distance(pt) for pt in cluster_geom_m.geoms
             )
             if distances:
-                p70_idx = int(0.7 * (len(distances) - 1))
-                p70_dist = distances[p70_idx]
+                p60_idx = int(0.6 * (len(distances) - 1))
+                p60_dist = distances[p60_idx]
             else:
-                p70_dist = 0.0
+                p60_dist = 0.0
 
-            buffer_m = max(35.0, min(cell_size_m * 0.75, p70_dist * 0.9))
+            buffer_m = max(20.0, min(cell_size_m * 0.35, p60_dist * 0.6))
             hull_m = hull_m.buffer(buffer_m)
             boundary_geom = transform(to_wgs84_cluster, hull_m)
 
