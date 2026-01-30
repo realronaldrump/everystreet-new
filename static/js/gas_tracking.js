@@ -193,8 +193,8 @@ async function loadVehicles(options = {}) {
     }
 
     if (vehicles.length === 0) {
-      vehicleSelect.innerHTML
-        = '<option value="">No vehicles found. Go to Profile to sync/add.</option>';
+      vehicleSelect.innerHTML =
+        '<option value="">No vehicles found. Go to Profile to sync/add.</option>';
       setVehicleStatus(
         "No vehicles detected yet. Auto-discovery attempted—please sync from Profile.",
         "warning"
@@ -269,9 +269,9 @@ async function attemptVehicleDiscovery() {
       method: "POST",
       successMessage: "Created vehicles from your recorded trips.",
       hasVehicles: (data) =>
-        (data?.synced ?? 0) > 0
-        || (data?.updated ?? 0) > 0
-        || (data?.total_vehicles ?? 0) > 0,
+        (data?.synced ?? 0) > 0 ||
+        (data?.updated ?? 0) > 0 ||
+        (data?.total_vehicles ?? 0) > 0,
     },
   ];
 
@@ -360,8 +360,8 @@ async function updateLocationAndOdometer() {
     // Update map
     if (data.latitude && data.longitude) {
       updateMap(data.latitude, data.longitude);
-      locationText.textContent
-        = data.address || `${data.latitude.toFixed(6)}, ${data.longitude.toFixed(6)}`;
+      locationText.textContent =
+        data.address || `${data.latitude.toFixed(6)}, ${data.longitude.toFixed(6)}`;
       locationText.classList.remove("text-muted");
     } else {
       locationText.textContent = "Location not available (GPS data missing)";
@@ -430,8 +430,8 @@ function updateMap(lat, lon) {
  */
 function calculateTotalCost() {
   const gallons = parseFloat(document.getElementById("gallons").value) || 0;
-  const pricePerGallon
-    = parseFloat(document.getElementById("price-per-gallon").value) || 0;
+  const pricePerGallon =
+    parseFloat(document.getElementById("price-per-gallon").value) || 0;
   const totalCostInput = document.getElementById("total-cost");
 
   if (gallons > 0 && pricePerGallon > 0) {
@@ -530,8 +530,8 @@ function setupEventListeners(signal) {
   fillupList?.addEventListener(
     "click",
     (event) => {
-      const target
-        = event.target instanceof Element ? event.target : event.target?.parentElement;
+      const target =
+        event.target instanceof Element ? event.target : event.target?.parentElement;
       const button = target?.closest("[data-fillup-action]");
       if (!button) {
         return;
@@ -572,8 +572,8 @@ async function autoCalcOdometer() {
 
   try {
     // Show loading state
-    autoCalcBtn.innerHTML
-      = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
+    autoCalcBtn.innerHTML =
+      '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
     autoCalcBtn.disabled = true;
 
     const timestamp = new Date(fillupTime).toISOString();
@@ -773,15 +773,15 @@ async function loadRecentFillups() {
     recentFillups = fillups; // Store globally
 
     if (fillups.length === 0) {
-      fillupList.innerHTML
-        = '<p class="text-center text-muted">No fill-ups recorded yet</p>';
+      fillupList.innerHTML =
+        '<p class="text-center text-muted">No fill-ups recorded yet</p>';
       return;
     }
 
     fillupList.innerHTML = fillups.map((fillup) => createFillupItem(fillup)).join("");
   } catch {
-    fillupList.innerHTML
-      = '<p class="text-center text-danger">Error loading fill-ups</p>';
+    fillupList.innerHTML =
+      '<p class="text-center text-danger">Error loading fill-ups</p>';
   }
 }
 
@@ -814,10 +814,10 @@ function createFillupItem(fillup) {
                 <div class="d-flex align-items-center gap-2">
                     <span class="badge bg-primary me-2">${fillup.gallons.toFixed(2)} gal</span>
                     <button class="btn btn-sm btn-outline-secondary" data-fillup-action="edit" data-fillup-id="${fillup._id}" title="Edit">
-                        ✏️
+                        <i class="fas fa-edit"></i>
                     </button>
                     <button class="btn btn-sm btn-outline-danger" data-fillup-action="delete" data-fillup-id="${fillup._id}" title="Delete">
-                        🗑️
+                        <i class="fas fa-trash"></i>
                     </button>
                 </div>
             </div>
@@ -972,8 +972,8 @@ async function loadStatistics() {
 
     // Update stats display
     document.getElementById("total-fillups").textContent = stats.total_fillups || 0;
-    document.getElementById("total-spent").textContent
-      = `$${(stats.total_cost || 0).toFixed(2)}`;
+    document.getElementById("total-spent").textContent =
+      `$${(stats.total_cost || 0).toFixed(2)}`;
     document.getElementById("avg-mpg").textContent = stats.average_mpg
       ? stats.average_mpg.toFixed(1)
       : "--";
