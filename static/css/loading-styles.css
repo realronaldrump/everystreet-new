@@ -74,23 +74,25 @@ body.light-mode .loading-overlay,
   background-color: rgb(255 255 255 / 50%);
 }
 
-/* === Loading Indicator (floating pill design) === */
+/* === Loading Indicator - Glassmorphism Refined === */
 .loading-indicator {
   display: flex;
   align-items: center;
   gap: 12px;
   padding: 16px 24px;
-  background: var(--surface-1, #1e1e1e);
+  background: var(--glass-2);
   border-radius: 50px;
-  box-shadow: 0 8px 32px rgb(0 0 0 / 30%);
-  border: 1px solid rgb(255 255 255 / 10%);
+  box-shadow: var(--shadow-glass-lg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(var(--blur-strong));
+  -webkit-backdrop-filter: blur(var(--blur-strong));
 }
 
 body.light-mode .loading-indicator,
 [data-bs-theme="light"] .loading-indicator {
-  background: #fff;
-  box-shadow: 0 8px 32px rgb(0 0 0 / 15%);
-  border-color: rgb(0 0 0 / 10%);
+  background: var(--glass-2);
+  box-shadow: var(--shadow-glass-lg);
+  border-color: var(--glass-border);
 }
 
 /* === Spinner === */
@@ -157,34 +159,55 @@ body.light-mode .loading-text,
   border-top-color: #fff;
 }
 
-/* === Skeleton Loading === */
+/* === Skeleton Loading - Phase 3 Shimmer Effect === */
 .skeleton-loader {
   position: relative;
   overflow: hidden;
-  background-color: var(--surface-2, #2a2a2a);
-  border-radius: 4px;
+  background: linear-gradient(
+    90deg,
+    var(--surface-2) 0%,
+    var(--surface-3) 50%,
+    var(--surface-2) 100%
+  );
+  background-size: 200% 100%;
+  border-radius: var(--radius-sm);
+  animation: skeleton-shimmer 1.5s infinite;
 }
 
-.skeleton-loader::after {
-  content: none;
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
 }
 
 body.light-mode .skeleton-loader {
-  background-color: #e5e7eb;
-}
-
-body.light-mode .skeleton-loader::after {
-  content: none;
+  background: linear-gradient(
+    90deg,
+    var(--surface-2) 0%,
+    var(--surface-3) 50%,
+    var(--surface-2) 100%
+  );
+  background-size: 200% 100%;
 }
 
 .skeleton-text {
   height: 1em;
   margin: 0.25em 0;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
 }
 
 .skeleton-text:last-child {
   width: 70%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-loader {
+    animation: none;
+    background: var(--surface-2);
+  }
 }
 
 /* === Map-specific Loading (inline indicator) === */

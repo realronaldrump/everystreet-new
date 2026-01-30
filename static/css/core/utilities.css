@@ -219,6 +219,188 @@ body.light-mode .legend-indicator--undriven {
   }
 }
 
+/* === Phase 2 Refined Utilities === */
+
+/* Accent color utilities */
+.text-accent {
+  color: var(--accent);
+}
+
+.bg-accent {
+  background-color: var(--accent);
+  color: var(--text-on-primary);
+}
+
+.border-accent {
+  border-color: var(--accent);
+}
+
+/* Glassmorphism utility classes */
+.glass-panel {
+  background: var(--glass-panel);
+  backdrop-filter: blur(var(--blur-strong));
+  -webkit-backdrop-filter: blur(var(--blur-strong));
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+}
+
+.glass-subtle {
+  background: var(--glass-1);
+  backdrop-filter: blur(var(--blur-subtle));
+  -webkit-backdrop-filter: blur(var(--blur-subtle));
+  border: 1px solid var(--glass-border);
+}
+
+.glass-strong {
+  background: var(--glass-3);
+  backdrop-filter: blur(var(--blur-modal));
+  -webkit-backdrop-filter: blur(var(--blur-modal));
+  border: 1px solid var(--glass-border-medium);
+  box-shadow: var(--shadow-glass-lg);
+}
+
+/* Glow effects */
+.glow-primary {
+  box-shadow: var(--glow-primary);
+}
+
+.glow-accent {
+  box-shadow: var(--glow-accent);
+}
+
+/* Left border accent utilities */
+.border-left-accent {
+  border-left: 3px solid var(--accent);
+}
+
+.border-left-primary {
+  border-left: 3px solid var(--primary);
+}
+
+.border-left-success {
+  border-left: 3px solid var(--success);
+}
+
+.border-left-warning {
+  border-left: 3px solid var(--warning);
+}
+
+.border-left-danger {
+  border-left: 3px solid var(--danger);
+}
+
+/* Monospace text for data display */
+.font-mono {
+  font-family: var(--font-family-mono);
+}
+
+.text-mono-lg {
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-lg);
+}
+
+.text-mono-xl {
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-xl);
+}
+
+/* Display font for headlines */
+.font-display {
+  font-family: var(--font-family-display);
+}
+
+/* Status indicator dots */
+.status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--text-tertiary);
+}
+
+.status-dot.active {
+  background: var(--success);
+  box-shadow: var(--glow-success);
+}
+
+.status-dot.warning {
+  background: var(--warning);
+}
+
+.status-dot.error {
+  background: var(--danger);
+}
+
+/* === Accessibility - Phase 3 Compliance === */
+
+/* Skip link - visible on focus */
+.skip-link {
+  position: absolute;
+  top: -100%;
+  left: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  background: var(--glass-3);
+  backdrop-filter: blur(var(--blur-strong));
+  border: 1px solid var(--glass-border-medium);
+  border-radius: var(--radius-md);
+  z-index: calc(var(--z-modal) + 1);
+  transition: top var(--transition-fast);
+}
+
+.skip-link:focus {
+  top: var(--space-4);
+  outline: var(--focus-outline);
+  outline-offset: 2px;
+}
+
+/* High contrast mode enhancements */
+@media (prefers-contrast: high) {
+  :root {
+    --glass-border: rgb(var(--border-rgb) / 40%);
+    --glass-border-medium: rgb(var(--border-rgb) / 60%);
+    --border-color: rgb(var(--border-rgb) / 50%);
+    --divider-color: rgb(var(--border-rgb) / 40%);
+  }
+
+  .card,
+  .widget,
+  .table-container,
+  .modal-content,
+  .notification {
+    border-width: 2px;
+  }
+
+  .btn {
+    border-width: 2px;
+  }
+
+  .form-control,
+  .form-select {
+    border-width: 2px;
+    border-color: var(--border-color);
+  }
+
+  .table th,
+  .table td {
+    border-bottom-width: 2px;
+  }
+}
+
+/* Focus visible enhancements */
+:focus-visible {
+  outline: var(--focus-outline);
+  outline-offset: 2px;
+  box-shadow: var(--focus-ring);
+}
+
+/* Ensure sufficient touch targets */
+.min-touch-target {
+  min-width: var(--touch-target);
+  min-height: var(--touch-target);
+}
+
+/* Reduced motion preferences already defined in animations.css and utilities.css */
+
 /* === Print Styles === */
 @media print {
   body {

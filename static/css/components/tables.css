@@ -1,20 +1,23 @@
 /* ============================
-   Table Components
+   Table Components - Phase 2 Refined
    ============================ */
 
-/* === Tables === */
+/* === Tables - Glassmorphism Refined === */
 .table-container {
   border-radius: var(--radius-lg);
   overflow: hidden;
   margin-bottom: var(--space-5);
-  box-shadow: var(--shadow-sm);
-  border: 1px solid var(--border-color);
+  box-shadow: var(--glass-shadow);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-panel);
+  backdrop-filter: blur(var(--blur-strong));
+  -webkit-backdrop-filter: blur(var(--blur-strong));
 }
 
 .table {
   width: 100%;
   border-collapse: collapse;
-  background-color: var(--surface-1);
+  background-color: transparent;
   color: var(--text-primary);
   font-size: var(--font-size-sm);
   line-height: 1.4;
@@ -24,17 +27,24 @@
 .table td {
   padding: var(--space-3) var(--space-4);
   text-align: left;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--divider-color);
   vertical-align: middle;
+  transition: background-color var(--transition-fast);
 }
 
-.table th {
-  background-color: transparent;
+/* Glassmorphic sticky header */
+.table thead th {
+  background: var(--glass-2);
+  backdrop-filter: blur(var(--blur-strong));
+  -webkit-backdrop-filter: blur(var(--blur-strong));
   font-weight: var(--font-weight-semibold);
   color: var(--text-secondary);
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-xs);
   text-transform: uppercase;
   letter-spacing: 0.04em;
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
 .table td {
@@ -42,16 +52,37 @@
   word-break: break-word;
 }
 
+/* Hover with left border accent */
+.table-hover tbody tr {
+  position: relative;
+}
+
+.table-hover tbody tr::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: transparent;
+  transition: background-color var(--transition-fast);
+}
+
 .table-hover tbody tr:hover {
   background-color: var(--surface-2);
 }
 
+.table-hover tbody tr:hover::before {
+  background: var(--primary);
+}
+
+/* Subtle striping with glass effect */
 .table-striped tbody tr:nth-of-type(odd) {
-  background-color: var(--surface-0); /* Slightly different from surface-1 for striping */
+  background-color: rgb(var(--surface-rgb) / 40%);
 }
 
 body.light-mode .table-striped tbody tr:nth-of-type(odd) {
-  background-color: var(--surface-2);
+  background-color: rgb(var(--surface-rgb) / 50%);
 }
 
 .table .action-cell {
@@ -65,11 +96,12 @@ body.light-mode .table-striped tbody tr:nth-of-type(odd) {
 }
 
 .table-loading {
-  opacity: 0.5;
+  opacity: 0.6;
   pointer-events: none;
-  transition: opacity 0.2s ease;
+  transition: opacity var(--transition-normal);
 }
 
+/* Skeleton Loading States - Phase 3 */
 .table-skeleton-row td {
   padding: var(--space-3) var(--space-4);
 }
@@ -77,6 +109,30 @@ body.light-mode .table-striped tbody tr:nth-of-type(odd) {
 .table-skeleton-block {
   height: 0.9em;
   border-radius: var(--radius-sm);
+  background: linear-gradient(
+    90deg,
+    var(--surface-2) 0%,
+    var(--surface-3) 50%,
+    var(--surface-2) 100%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite;
+}
+
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .table-skeleton-block {
+    animation: none;
+    background: var(--surface-2);
+  }
 }
 
 .table-skeleton-block.wide {

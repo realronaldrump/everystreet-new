@@ -1,26 +1,71 @@
 /* ============================
-   Card Components
+   Card Components - Phase 2 Refined
    ============================ */
 
-/* === Cards - Refined === */
+/* === Cards - Glassmorphism Refined === */
 .card {
-  background-color: var(--surface-1);
-  background-image: var(--gradient-surface-glow);
-  background-repeat: no-repeat;
+  background: var(--glass-panel);
+  backdrop-filter: blur(var(--blur-strong));
+  -webkit-backdrop-filter: blur(var(--blur-strong));
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-elevation-1);
-  border: 1px solid var(--border-color);
+  box-shadow: var(--glass-shadow);
+  border: 1px solid var(--glass-border);
   overflow: hidden;
   transition:
     box-shadow var(--transition-normal),
-    border-color var(--transition-fast);
+    border-color var(--transition-fast),
+    transform var(--transition-fast);
   margin-bottom: var(--space-5);
   position: relative;
 }
 
 .card:hover {
   box-shadow: var(--shadow-elevation-2);
-  border-color: var(--border-color-light);
+  border-color: var(--glass-border-medium);
+  transform: translateY(-1px);
+}
+
+/* Card with left border accent */
+.card[data-accent]::before,
+.card.has-accent::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--card-accent, var(--primary));
+  border-radius: var(--radius-lg) 0 0 var(--radius-lg);
+}
+
+.card[data-accent="primary"],
+.card.has-accent-primary {
+  --card-accent: var(--primary);
+}
+
+.card[data-accent="success"],
+.card.has-accent-success {
+  --card-accent: var(--success);
+}
+
+.card[data-accent="warning"],
+.card.has-accent-warning {
+  --card-accent: var(--warning);
+}
+
+.card[data-accent="danger"],
+.card.has-accent-danger {
+  --card-accent: var(--danger);
+}
+
+.card[data-accent="info"],
+.card.has-accent-info {
+  --card-accent: var(--info);
+}
+
+.card[data-accent="accent"],
+.card.has-accent-indigo {
+  --card-accent: var(--accent);
 }
 
 .card.is-clickable,
@@ -54,14 +99,14 @@
   margin: 0;
 }
 
-/* === Widget === */
+/* === Widget - Glassmorphism Refined === */
 .widget {
-  background: var(--surface-1);
-  background-image: var(--gradient-surface-glow);
-  background-repeat: no-repeat;
+  background: var(--glass-panel);
+  backdrop-filter: blur(var(--blur-strong));
+  -webkit-backdrop-filter: blur(var(--blur-strong));
   border-radius: var(--radius-xl);
-  border: 1px solid var(--border-color);
-  box-shadow: var(--shadow-elevation-1);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
   padding: var(--card-padding-lg);
   display: flex;
   flex-direction: column;
@@ -70,12 +115,51 @@
   overflow: hidden;
   transition:
     box-shadow var(--transition-normal),
-    border-color var(--transition-fast);
+    border-color var(--transition-fast),
+    transform var(--transition-fast);
 }
 
 .widget:hover {
   box-shadow: var(--shadow-elevation-2);
-  border-color: var(--border-color-light);
+  border-color: var(--glass-border-medium);
+  transform: translateY(-2px);
+}
+
+/* Widget with left border accent */
+.widget[data-accent]::before,
+.widget.has-accent::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--widget-accent, var(--primary));
+  border-radius: var(--radius-xl) 0 0 var(--radius-xl);
+}
+
+.widget[data-accent="primary"] {
+  --widget-accent: var(--primary);
+}
+
+.widget[data-accent="success"] {
+  --widget-accent: var(--success);
+}
+
+.widget[data-accent="warning"] {
+  --widget-accent: var(--warning);
+}
+
+.widget[data-accent="danger"] {
+  --widget-accent: var(--danger);
+}
+
+.widget[data-accent="info"] {
+  --widget-accent: var(--info);
+}
+
+.widget[data-accent="accent"] {
+  --widget-accent: var(--accent);
 }
 
 .widget > * {

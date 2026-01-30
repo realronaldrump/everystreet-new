@@ -1,12 +1,21 @@
 /* ============================
-   Design Tokens: Carbon Signal
-   Palette (Bold, Professional)
-   - Signal Teal: #1fb6ad (primary)
+   Design Tokens: Carbon Signal Refinery
+   Phase 1: Refined Color & Typography Foundation
+   
+   Palette (Premium, Professional)
+   - Deep Teal:   #0d9488 (primary) - sophisticated, grounded
+   - Indigo:      #6366f1 (accent) - modern highlights
    - Slate:       #5b6b82 (secondary)
    - Ember:       #e25555 (danger)
    - Cobalt:      #4f7cff (info)
    - Amber:       #f2b94b (warning)
    - Verdant:     #2fb86d (success)
+
+   Refined Surfaces (Deeper, More Premium)
+   - Surface 0:   #030712 (deepest)
+   - Surface 1:   #0a0f14 (current default)
+   - Surface 2:   #111827
+   - Surface 3:   #1f2937
 
    Radii
    - Containers/cards: 7-12px
@@ -17,14 +26,15 @@
    - 4px grid (0.25rem - 4rem)
 
    Typography
-   - Font: IBM Plex Sans + Chivo
-   - Dense, confident hierarchy
+   - Display: Geist/Cal Sans (headlines)
+   - Body: IBM Plex Sans (excellent data legibility)
+   - Mono: JetBrains Mono (superior number clarity)
    ============================ */
 
 :root {
-  /* Categorical Palette - Bold & Professional */
-  --cat-sage: #1fb6ad;
-  --cat-sage-rgb: 31 182 173;
+  /* Categorical Palette - Premium & Refined (Phase 1) */
+  --cat-sage: #0d9488;
+  --cat-sage-rgb: 13 148 136;
   --cat-slate: #5b6b82;
   --cat-slate-rgb: 91 107 130;
   --cat-rose: #e25555;
@@ -45,13 +55,15 @@
   --cat-coral-rgb: 240 107 79;
   --cat-mint: #29d3c2;
   --cat-mint-rgb: 41 211 194;
-  --cat-purple: #4f62d6;
-  --cat-purple-rgb: 79 98 214;
+  --cat-purple: #6366f1;
+  --cat-purple-rgb: 99 102 241;
+  --cat-indigo: #6366f1;
+  --cat-indigo-rgb: 99 102 241;
 
-  /* Semantic Colors */
+  /* Semantic Colors - Refined (Phase 1) */
   --primary: var(--cat-sage);
-  --primary-light: #39d2c7;
-  --primary-dark: #138d86;
+  --primary-light: #14b8a6;
+  --primary-dark: #0f766e;
   --primary-rgb: var(--cat-sage-rgb);
   --secondary: var(--cat-slate);
   --secondary-light: #8a9bb3;
@@ -73,6 +85,10 @@
   --info-light: #7aa0ff;
   --info-dark: #2f55d6;
   --info-rgb: var(--cat-steel-rgb);
+  --accent: var(--cat-indigo);
+  --accent-light: #818cf8;
+  --accent-dark: #4f46e5;
+  --accent-rgb: var(--cat-indigo-rgb);
 
   /* Flat colors - no gradients */
   --primary-gradient: var(--primary);
@@ -82,43 +98,48 @@
   --danger-gradient: var(--danger);
   --info-gradient: var(--info);
 
-  /* Dark Mode Surfaces (Default) */
-  --surface-0: #0b0f14;
+  /* Dark Mode Surfaces (Default) - Refined Premium Palette (Phase 1) */
+  --surface-deep: #030712;
+  --surface-0: #0a0f14;
   --surface-1: #0f1520;
-  --surface-2: #141c2a;
-  --surface-3: #1a2435;
+  --surface-2: #111827;
+  --surface-3: #1f2937;
   --surface-4: #223049;
   --surface-elevated: #121a27;
-  --surface-glass: rgb(15 21 32 / 82%);
+  --surface-glass: rgb(15 21 32 / 72%);
   --surface-rgb: 15 21 32;
-  --text-primary: rgb(242 247 252 / 92%);
-  --text-secondary: rgb(196 209 226 / 78%);
-  --text-tertiary: rgb(136 150 170 / 55%);
-  --text-on-primary: #061316;
+  --text-primary: rgb(249 250 251 / 92%);
+  --text-secondary: rgb(209 213 219 / 78%);
+  --text-tertiary: rgb(107 114 128 / 55%);
+  --text-on-primary: #030712;
   --text-on-secondary: #0b1520;
-  --text-on-dark: #0b1016;
+  --text-on-dark: #030712;
   --text-on-light: #0f141a;
-  --border-color: rgb(120 138 160 / 28%);
-  --border-color-light: rgb(120 138 160 / 45%);
-  --divider-color: rgb(120 138 160 / 16%);
+  --border-color: rgb(120 138 160 / 22%);
+  --border-color-light: rgb(120 138 160 / 35%);
+  --divider-color: rgb(120 138 160 / 12%);
   --border-rgb: 120 138 160;
-  --text-rgb: 242 247 252;
+  --text-rgb: 249 250 251;
 
-  /* Typography */
-  --font-family: "IBM Plex Sans", "Chivo", system-ui, -apple-system, sans-serif;
-  --font-family-display: "Chivo", "IBM Plex Sans", system-ui, -apple-system, sans-serif;
+  /* Typography - Refined (Phase 1) */
+  --font-family: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
+  --font-family-display:
+    "Geist", "Cal Sans", "IBM Plex Sans", system-ui, -apple-system, sans-serif;
   --font-family-mono:
-    "IBM Plex Mono", ui-monospace, sfmono-regular, menlo, monaco, consolas, monospace;
+    "JetBrains Mono", "IBM Plex Mono", ui-monospace, sfmono-regular, menlo, monaco,
+    consolas, monospace;
+
+  /* Refined Font Size Hierarchy */
   --font-size-xs: clamp(0.72rem, 0.68rem + 0.2vw, 0.82rem);
   --font-size-sm: clamp(0.84rem, 0.8rem + 0.2vw, 0.98rem);
-  --font-size-md: clamp(0.98rem, 0.94rem + 0.25vw, 1.08rem);
+  --font-size-md: clamp(0.9375rem, 0.9rem + 0.2vw, 1rem);
   --font-size-base: var(--font-size-md);
   --font-size-lg: clamp(1.08rem, 1.02rem + 0.3vw, 1.26rem);
-  --font-size-xl: clamp(1.26rem, 1.14rem + 0.5vw, 1.48rem);
-  --font-size-2xl: clamp(1.48rem, 1.32rem + 0.8vw, 1.92rem);
+  --font-size-xl: clamp(1.125rem, 1.1rem + 0.3vw, 1.5rem);
+  --font-size-2xl: clamp(1.5rem, 1.4rem + 0.5vw, 2.25rem);
   --font-size-3xl: clamp(1.8rem, 1.55rem + 1vw, 2.35rem);
-  --font-size-4xl: clamp(2.2rem, 1.9rem + 1.4vw, 2.9rem);
-  --font-size-display: clamp(2.6rem, 2.1rem + 2.1vw, 3.6rem);
+  --font-size-4xl: clamp(2rem, 1.8rem + 1vw, 3.5rem);
+  --font-size-display: clamp(2.2rem, 2rem + 1.2vw, 3.6rem);
   --font-weight-light: 300;
   --font-weight-regular: 400;
   --font-weight-medium: 500;
@@ -154,12 +175,13 @@
   --sidebar-width: 280px;
   --panel-width: 360px;
 
-  /* Effects */
-  --transition-fast: 140ms cubic-bezier(0.2, 0, 0, 1);
-  --transition-normal: 220ms cubic-bezier(0.2, 0, 0, 1);
-  --transition-slow: 320ms cubic-bezier(0.2, 0, 0, 1);
-  --transition-spring: 260ms cubic-bezier(0.2, 0, 0, 1);
-  --transition-spring-fast: 180ms cubic-bezier(0.2, 0, 0, 1);
+  /* Effects - Phase 2 Refined Timing */
+  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-normal: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-smooth: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 300ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-spring: 400ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  --transition-spring-fast: 260ms cubic-bezier(0.34, 1.56, 0.64, 1);
   --shadow-xs: 0 1px 2px rgb(0 0 0 / 10%);
   --shadow-sm: 0 4px 12px rgb(0 0 0 / 14%);
   --shadow-md: 0 10px 24px rgb(0 0 0 / 18%);
@@ -173,9 +195,7 @@
   --shadow-elevation-5: 0 34px 60px rgb(0 0 0 / 28%);
 
   /* Accent colors */
-  --accent: var(--primary);
-  --accent-rgb: var(--primary-rgb);
-  --gradient-accent-bar: var(--primary);
+  --gradient-accent-bar: var(--accent);
 
   /* Subtle glows for interactive states */
   --glow-primary: 0 0 20px rgb(var(--primary-rgb) / 25%);
@@ -183,29 +203,46 @@
   --glow-accent: 0 0 12px rgb(var(--accent-rgb) / 20%);
 
   /* Gradient surfaces for glassmorphism */
-  --gradient-surface-glow: linear-gradient(135deg, rgb(255 255 255 / 3%) 0%, transparent 50%);
+  --gradient-surface-glow: linear-gradient(
+    135deg,
+    rgb(255 255 255 / 3%) 0%,
+    transparent 50%
+  );
   --gradient-ambient: radial-gradient(
     ellipse at top,
     rgb(var(--primary-rgb) / 10%) 0%,
     transparent 60%
   );
   --app-bg:
-    radial-gradient(1200px circle at 10% -10%, rgb(var(--primary-rgb) / 22%), transparent 65%),
-    radial-gradient(1000px circle at 110% 10%, rgb(var(--info-rgb) / 18%), transparent 60%),
-    radial-gradient(900px circle at 50% 120%, rgb(var(--warning-rgb) / 10%), transparent 65%);
+    radial-gradient(
+      1200px circle at 10% -10%,
+      rgb(var(--primary-rgb) / 22%),
+      transparent 65%
+    ),
+    radial-gradient(
+      1000px circle at 110% 10%,
+      rgb(var(--info-rgb) / 18%),
+      transparent 60%
+    ),
+    radial-gradient(
+      900px circle at 50% 120%,
+      rgb(var(--warning-rgb) / 10%),
+      transparent 65%
+    );
 
   /* Interactive lift shadows */
   --shadow-lift: 0 12px 26px rgb(0 0 0 / 22%);
   --shadow-lift-intense: 0 18px 36px rgb(0 0 0 / 26%);
 
-  /* Glass + Blur */
-  --blur-subtle: 10px;
-  --blur-strong: 16px;
-  --blur-modal: 22px;
-  --glass-1: rgb(var(--surface-rgb) / 78%);
-  --glass-2: rgb(var(--surface-rgb) / 86%);
-  --glass-3: rgb(var(--surface-rgb) / 94%);
-  --glass-border: rgb(var(--border-rgb) / 25%);
+  /* Glass + Blur - Refined (Phase 1) */
+  --blur-subtle: 8px;
+  --blur-strong: 12px;
+  --blur-modal: 18px;
+  --glass-1: rgb(var(--surface-rgb) / 70%);
+  --glass-2: rgb(var(--surface-rgb) / 80%);
+  --glass-3: rgb(var(--surface-rgb) / 90%);
+  --glass-border: rgb(255 255 255 / 8%);
+  --glass-shadow: 0 4px 24px rgb(0 0 0 / 25%), inset 0 1px 0 rgb(255 255 255 / 5%);
 
   /* Extended Glass Palette */
   --glass-panel: rgb(var(--surface-rgb) / 72%);
@@ -311,24 +348,24 @@
   --bs-focus-ring-color: rgb(var(--accent-rgb) / 25%);
 }
 
-/* Light Mode Overrides */
+/* Light Mode Overrides - Premium Feel (Phase 1) */
 body.light-mode {
-  --surface-0: #f4f6fa;
-  --surface-1: #fff;
-  --surface-2: #edf1f7;
-  --surface-3: #e3e9f2;
-  --surface-4: #d6dfec;
-  --surface-elevated: #eef2f8;
-  --surface-glass: rgb(255 255 255 / 90%);
-  --surface-rgb: 244 246 250;
-  --text-primary: rgb(15 22 33 / 92%);
-  --text-secondary: rgb(54 64 80 / 75%);
-  --text-tertiary: rgb(86 99 118 / 55%);
-  --border-color: rgb(15 22 33 / 12%);
-  --border-color-light: rgb(15 22 33 / 22%);
-  --divider-color: rgb(15 22 33 / 8%);
-  --border-rgb: 15 22 33;
-  --text-rgb: 15 22 33;
+  --surface-0: #fafafa;
+  --surface-1: #ffffff;
+  --surface-2: #f3f4f6;
+  --surface-3: #e5e7eb;
+  --surface-4: #d1d5db;
+  --surface-elevated: #f9fafb;
+  --surface-glass: rgb(255 255 255 / 88%);
+  --surface-rgb: 250 250 250;
+  --text-primary: rgb(17 24 39 / 92%);
+  --text-secondary: rgb(75 85 99 / 75%);
+  --text-tertiary: rgb(156 163 175 / 55%);
+  --border-color: rgb(0 0 0 / 6%);
+  --border-color-light: rgb(0 0 0 / 12%);
+  --divider-color: rgb(0 0 0 / 4%);
+  --border-rgb: 0 0 0;
+  --text-rgb: 17 24 39;
   --shadow-xs: 0 1px 2px rgb(15 22 33 / 6%);
   --shadow-sm: 0 4px 12px rgb(15 22 33 / 10%);
   --shadow-md: 0 10px 24px rgb(15 22 33 / 14%);
@@ -347,13 +384,21 @@ body.light-mode {
   --glass-3: rgb(var(--surface-rgb) / 96%);
   --glass-border: rgb(var(--border-rgb) / 18%);
   --app-bg:
-    radial-gradient(1200px circle at 10% -10%, rgb(var(--primary-rgb) / 12%), transparent 65%),
-    radial-gradient(1000px circle at 110% 10%, rgb(var(--info-rgb) / 10%), transparent 60%),
-    radial-gradient(900px circle at 50% 120%, rgb(var(--warning-rgb) / 8%), transparent 65%);
-  --app-bg:
-    radial-gradient(1200px circle at 10% -10%, rgb(var(--primary-rgb) / 10%), transparent 60%),
-    radial-gradient(1000px circle at 90% 0%, rgb(var(--secondary-rgb) / 8%), transparent 55%),
-    radial-gradient(900px circle at 50% 120%, rgb(var(--info-rgb) / 8%), transparent 60%);
+    radial-gradient(
+      1200px circle at 10% -10%,
+      rgb(var(--primary-rgb) / 10%),
+      transparent 60%
+    ),
+    radial-gradient(
+      1000px circle at 90% 0%,
+      rgb(var(--secondary-rgb) / 8%),
+      transparent 55%
+    ),
+    radial-gradient(
+      900px circle at 50% 120%,
+      rgb(var(--info-rgb) / 8%),
+      transparent 60%
+    );
 
   /* Extended glass for light mode */
   --glass-panel: rgb(var(--surface-rgb) / 75%);

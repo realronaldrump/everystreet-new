@@ -47,6 +47,12 @@
 
 .btn:focus-visible {
   box-shadow: var(--focus-ring-strong);
+  outline: none;
+}
+
+.btn:active:not(:disabled, .disabled) {
+  transform: translateY(1px);
+  transition: transform 0.1s ease;
 }
 
 .btn:active:not(:disabled, .disabled) {
@@ -61,8 +67,13 @@
   --btn-bg: var(--primary);
   --btn-bg-hover: var(--primary-dark);
   --btn-color: var(--text-on-primary);
-  --btn-border: rgb(var(--primary-rgb) / 55%);
-  --btn-border-hover: rgb(var(--primary-rgb) / 70%);
+  --btn-border: rgb(var(--primary-rgb) / 45%);
+  --btn-border-hover: rgb(var(--primary-rgb) / 60%);
+  --btn-shadow-hover: var(--glow-primary);
+}
+
+.btn-primary:hover:not(:disabled, .disabled) {
+  box-shadow: var(--glow-primary);
 }
 
 .btn-secondary {
@@ -170,6 +181,28 @@
   --btn-color-hover: var(--text-primary);
 
   text-decoration: none;
+}
+
+/* === Subtle Button (New - Phase 2) === */
+.btn-subtle {
+  --btn-bg: transparent;
+  --btn-bg-hover: var(--surface-2);
+  --btn-border: transparent;
+  --btn-border-hover: transparent;
+  --btn-color: var(--text-secondary);
+  --btn-color-hover: var(--text-primary);
+}
+
+.btn-subtle-primary {
+  --btn-color: var(--primary);
+  --btn-color-hover: var(--primary-light);
+  --btn-bg-hover: rgb(var(--primary-rgb) / 10%);
+}
+
+.btn-subtle-danger {
+  --btn-color: var(--danger);
+  --btn-color-hover: var(--danger-light);
+  --btn-bg-hover: rgb(var(--danger-rgb) / 10%);
 }
 
 .btn-block {
