@@ -57,6 +57,7 @@ onPageLoad(
     if (typeof cleanup === "function") {
       cleanup(() => {
         themeObserver.disconnect();
+        visitsPage?.clearSuggestionPreviewMaps?.();
         visitsPage?.visitsManager?.destroy?.();
       });
     }
