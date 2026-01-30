@@ -709,12 +709,5 @@ class VisitsPageController {
   }
 }
 
-// Initialize on page load
-let visitsPage;
-
-onPageLoad(
-  () => {
-    visitsPage = new VisitsPageController();
-  },
-  { route: "/visits" }
-);
+// Export the class
+export default VisitsPageController;
