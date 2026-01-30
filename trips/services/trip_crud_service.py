@@ -1,6 +1,5 @@
 """Business logic for trip CRUD operations."""
 
-import json
 import logging
 from datetime import UTC, datetime
 
@@ -147,49 +146,6 @@ class TripCrudService:
             "updated_trips": len(trips),
             "message": f"Cleared matched data for {len(trips)} trips",
         }
-
-    @staticmethod
-    async def update_trip(trip_id: str, geometry_data=None, properties_data=None):
-        """
-        Update a trip's details, such as its geometry or properties.
-
-        Args:
-            trip_id: Transaction ID of the trip
-            geometry_data: Optional geometry data (dict or JSON string)
-            properties_data: Optional properties dict
-
-        Returns:
-            Update result with status and message
-
-        Raises:
-            ValueError: If trip not found or invalid data
-        """
-        trip = await Trip.find_one(Trip.transactionId == trip_id)
-        if not trip:
-            msg = "Trip not found"
-            raise ValueError(msg)
-
-        if geometry_data:
-            if isinstance(geometry_data, str):
-                try:
-                    geometry_data = json.loads(geometry_data)
-                except json.JSONDecodeError:
-                    msg = "Invalid JSON format for geometry field."
-                    raise ValueError(msg)
-            trip.gps = geometry_data
-
-        if properties_data:
-            for key, value in properties_data.items():
-                if key not in ["_id", "transactionId"] and hasattr(trip, key):
-                    setattr(trip, key, value)
-
-        if not geometry_data and not properties_data:
-            return {"status": "no_change", "message": "No data provided to update."}
-
-        trip.last_modified = datetime.now(UTC)
-        await trip.save()
-
-        return {"status": "success", "message": "Trip updated successfully."}
 
     @staticmethod
     async def restore_trip(trip_id: str):

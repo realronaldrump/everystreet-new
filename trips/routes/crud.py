@@ -5,7 +5,6 @@ import logging
 from fastapi import APIRouter, HTTPException, Request, status
 
 from core.api import api_route
-from trips.models import TripUpdateRequest
 from trips.services import TripCrudService
 
 logger = logging.getLogger(__name__)
@@ -52,27 +51,6 @@ async def unmatch_trip(trip_id: str):
     except ValueError as e:
         if "not found" in str(e).lower():
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
-        )
-
-
-@router.put("/api/trips/{trip_id}", tags=["Trips API"])
-@api_route(logger)
-async def update_trip(trip_id: str, update_data: TripUpdateRequest):
-    """Update a trip's details, such as its geometry or properties."""
-    try:
-        return await TripCrudService.update_trip(
-            trip_id,
-            geometry_data=update_data.geometry,
-            properties_data=update_data.properties,
-        )
-    except ValueError as e:
-        if "not found" in str(e).lower():
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
-        if "invalid json" in str(e).lower():
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),

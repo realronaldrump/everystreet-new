@@ -8,13 +8,6 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict
 
 
-class TripUpdateRequest(BaseModel):
-    """A flexible model to handle trip updates from different parts of the UI."""
-
-    geometry: dict | str | None = None
-    properties: dict | None = None
-
-
 class TripStatusProjection(BaseModel):
     """Projection model for checking trip status."""
 

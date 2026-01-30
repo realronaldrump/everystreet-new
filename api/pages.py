@@ -90,16 +90,6 @@ async def map_page(request: Request):
     )
 
 
-@router.get("/edit_trips", response_class=HTMLResponse)
-async def edit_trips_page(request: Request):
-    """Render trip editing page."""
-    return _render_page(
-        "edit_trips.html",
-        request,
-        MAPBOX_ACCESS_TOKEN=await _mapbox_token_for_render(),
-    )
-
-
 @router.get("/settings", response_class=HTMLResponse)
 async def settings_page(request: Request):
     """Render settings page."""

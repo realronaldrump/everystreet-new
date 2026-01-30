@@ -283,15 +283,6 @@ Coverage & Routes
 Data
                     </li>
                     <li role="none">
-                      <a class="dropdown-item {% if request.url.path == '/edit_trips' %}active{% endif %}"
-                         href="/edit_trips"
-                         role="menuitem"
-                         {% if request.url.path == '/edit_trips' %}aria-current="page"{% endif %}>
-                        <i class="fas fa-edit me-2" aria-hidden="true"></i>
-                      Edit Trips
-                      </a>
-                    </li>
-                    <li role="none">
                       <a class="dropdown-item {% if request.url.path == '/export' %}active{% endif %}"
                          href="/export"
                          role="menuitem"
@@ -500,13 +491,6 @@ System
                 <i class="fas fa-chevron-down drawer-nav-section-chevron" aria-hidden="true"></i>
               </button>
               <ul class="drawer-nav-section-list" id="nav-section-data" role="list">
-                <li role="none">
-                  <a href="/edit_trips"
-                     class="{% if request.url.path == '/edit_trips' %}active{% endif %}"
-                     {% if request.url.path == '/edit_trips' %}aria-current="page"{% endif %}>
-                    <i class="fas fa-edit me-2" aria-hidden="true"></i> Edit Trips
-                  </a>
-                </li>
                 <li role="none">
                   <a href="/export"
                      class="{% if request.url.path == '/export' %}active{% endif %}"
