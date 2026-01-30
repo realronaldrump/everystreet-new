@@ -61,6 +61,8 @@ export const CONFIG = {
     mapMatchingJobMatches: (id) => `/api/map_matching/jobs/${id}/matches`,
     geocodeTrips: "/api/geocode_trips",
     tripAnalytics: "/api/trip-analytics",
+    tripMetrics: "/api/metrics",
+    drivingInsights: "/api/driving-insights",
     tripSyncStatus: "/api/actions/trips/sync/status",
     tripSyncStart: "/api/actions/trips/sync",
     tripSyncCancel: (jobId) => `/api/actions/trips/sync/${jobId}`,

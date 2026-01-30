@@ -1226,7 +1226,7 @@ async function clearMatchedTrips(tripIds, { silent = false } = {}) {
   const confirmed = await confirmationDialog.show({
     title: "Remove improvement",
     message:
-      "This keeps your trip but removes the route improvement. You can re-improve it later.",
+      "This keeps your trip but removes the route improvement. You can re-match it later.",
     confirmText: "Remove",
     confirmButtonClass: "btn-primary",
   });

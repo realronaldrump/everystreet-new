@@ -59,23 +59,50 @@ function formatTimestamp(value) {
   }
 }
 
-function setButtonsDisabled(disabled, elements) {
-  [elements.syncButton, elements.historyButton, elements.emptyButton].forEach((btn) => {
-    if (btn) {
-      btn.disabled = disabled;
+function getButtonList(elements) {
+  const buttons = [];
+  const addButtons = (value) => {
+    if (!value) {
+      return;
     }
+    if (Array.isArray(value)) {
+      value.forEach((btn) => {
+        if (btn) {
+          buttons.push(btn);
+        }
+      });
+    } else {
+      buttons.push(value);
+    }
+  };
+
+  addButtons(elements.syncButtons);
+  addButtons(elements.emptyButtons);
+  addButtons(elements.historyButton);
+  return buttons;
+}
+
+function setButtonsDisabled(disabled, elements) {
+  getButtonList(elements).forEach((btn) => {
+    btn.disabled = disabled;
+  });
+}
+
+function setSyncingState(state, elements) {
+  const isSyncing = state === "syncing";
+  (elements.syncButtons || []).forEach((btn) => {
+    btn.classList.toggle("syncing", isSyncing);
   });
 }
 
 function updateStatusUI(status, elements) {
-  if (!elements.pill) {
-    return;
-  }
-
   const meta = STATE_META[status.state] || STATE_META.idle;
-  elements.pill.dataset.state = status.state;
-  elements.pill.dataset.tone = meta.tone;
-  elements.pill.innerHTML = `<i class="${meta.icon}"></i><span>${meta.label}</span>`;
+
+  if (elements.pill) {
+    elements.pill.dataset.state = status.state;
+    elements.pill.dataset.tone = meta.tone;
+    elements.pill.innerHTML = `<i class="${meta.icon}"></i><span>${meta.label}</span>`;
+  }
 
   setText(
     elements.statusText,
@@ -109,6 +136,27 @@ function updateStatusUI(status, elements) {
     elements.emptyState.classList.toggle("d-none", !showEmpty);
   }
 
+  if (elements.miniIndicator) {
+    const indicatorState = status.state === "syncing"
+      ? "syncing"
+      : status.state === "error"
+        ? "error"
+        : "idle";
+    elements.miniIndicator.setAttribute("data-state", indicatorState);
+  }
+
+  if (elements.miniText) {
+    const text = status.state === "syncing"
+      ? "Syncing..."
+      : status.state === "error"
+        ? "Sync failed"
+        : status.last_success_at
+          ? `Updated ${formatTimestamp(status.last_success_at)}`
+          : "Up to date";
+    setText(elements.miniText, text);
+  }
+
+  setSyncingState(status.state, elements);
   setButtonsDisabled(status.state === "syncing" || status.state === "paused", elements);
 }
 
@@ -119,7 +167,14 @@ function updateOfflineUI(elements) {
     elements.pill.dataset.tone = meta.tone;
     elements.pill.innerHTML = `<i class="${meta.icon}"></i><span>${meta.label}</span>`;
   }
+  if (elements.miniIndicator) {
+    elements.miniIndicator.setAttribute("data-state", "error");
+  }
+  if (elements.miniText) {
+    setText(elements.miniText, "Offline");
+  }
   setText(elements.statusText, "You appear to be offline. Sync will resume online.");
+  setSyncingState("idle", elements);
   setButtonsDisabled(true, elements);
 }
 
@@ -156,7 +211,7 @@ async function fetchStatus(_elements, { showError = false } = {}) {
 
 async function startSync(
   elements,
-  { mode = "recent", startDate, endDate, trigger_source } = {}
+  { mode = "recent", startDate, endDate, trigger_source, onSyncError } = {}
 ) {
   if (!navigator.onLine) {
     notificationManager.show("You are offline. Connect to sync trips.", "warning");
@@ -178,11 +233,12 @@ async function startSync(
     notificationManager.show("Trip sync started.", "info");
     const status = await fetchStatus(elements);
     if (status) {
-      handleStatusUpdate(status, elements);
+      handleStatusUpdate(status, elements, null, onSyncError);
     }
     return result;
   } catch (error) {
     notificationManager.show(error.message, "danger");
+    onSyncError?.(error);
     return null;
   }
 }
@@ -271,7 +327,7 @@ function setupPullToRefresh(elements) {
   };
 }
 
-function connectSse(elements, onSyncComplete) {
+function connectSse(elements, onSyncComplete, onSyncError) {
   if (eventSource) {
     eventSource.close();
   }
@@ -283,14 +339,14 @@ function connectSse(elements, onSyncComplete) {
   }
 
   if (!eventSource) {
-    startPolling(elements, onSyncComplete);
+    startPolling(elements, onSyncComplete, onSyncError);
     return;
   }
 
   eventSource.onmessage = (event) => {
     try {
       const status = JSON.parse(event.data);
-      handleStatusUpdate(status, elements, onSyncComplete);
+      handleStatusUpdate(status, elements, onSyncComplete, onSyncError);
     } catch {
       // ignore parse failures
     }
@@ -299,7 +355,7 @@ function connectSse(elements, onSyncComplete) {
   eventSource.onerror = () => {
     eventSource.close();
     eventSource = null;
-    startPolling(elements, onSyncComplete);
+    startPolling(elements, onSyncComplete, onSyncError);
   };
 }
 
@@ -310,14 +366,14 @@ function stopSse() {
   }
 }
 
-function startPolling(elements, onSyncComplete) {
+function startPolling(elements, onSyncComplete, onSyncError) {
   if (pollingInterval) {
     clearInterval(pollingInterval);
   }
   pollingInterval = setInterval(async () => {
     const status = await fetchStatus(elements);
     if (status) {
-      handleStatusUpdate(status, elements, onSyncComplete);
+      handleStatusUpdate(status, elements, onSyncComplete, onSyncError);
     }
   }, POLL_INTERVAL_MS);
 }
@@ -329,7 +385,7 @@ function stopPolling() {
   }
 }
 
-function handleStatusUpdate(status, elements, onSyncComplete) {
+function handleStatusUpdate(status, elements, onSyncComplete, onSyncError) {
   const wasSyncing = currentStatus?.state === "syncing";
   currentStatus = status;
   if (!navigator.onLine) {
@@ -340,7 +396,11 @@ function handleStatusUpdate(status, elements, onSyncComplete) {
   if (shouldAutoSync(status)) {
     autoSyncTriggered = true;
     setTimeout(() => {
-      startSync(elements, { mode: "recent", trigger_source: "auto" });
+      startSync(elements, {
+        mode: "recent",
+        trigger_source: "auto",
+        onSyncError,
+      });
     }, 1200);
   }
   if (wasSyncing && status.state !== "syncing") {
@@ -349,11 +409,12 @@ function handleStatusUpdate(status, elements, onSyncComplete) {
       onSyncComplete?.();
     } else if (status.state === "error") {
       notificationManager.show("Trip sync failed.", "danger");
+      onSyncError?.(status);
     }
   }
 }
 
-export function initTripSync({ onSyncComplete, cleanup } = {}) {
+export function initTripSync({ onSyncComplete, onSyncError, cleanup } = {}) {
   const elements = {
     pill: getElement("trip-sync-pill"),
     statusText: getElement("trip-sync-status-text"),
@@ -363,25 +424,53 @@ export function initTripSync({ onSyncComplete, cleanup } = {}) {
     errorMessage: getElement("trip-sync-error-message"),
     errorCta: getElement("trip-sync-error-cta"),
     emptyState: getElement("trip-sync-empty"),
-    emptyButton: getElement("trip-sync-empty-btn"),
-    syncButton: getElement("sync-trips-btn"),
+    emptyButtons: [
+      getElement("trip-sync-empty-btn"),
+      getElement("empty-sync-btn"),
+    ].filter(Boolean),
+    syncButtons: [
+      getElement("sync-trips-btn"),
+      getElement("sync-now-btn"),
+    ].filter(Boolean),
     historyButton: getElement("sync-history-btn"),
+    miniIndicator: document.querySelector(".sync-indicator"),
+    miniText: document.querySelector(".sync-text"),
   };
 
-  if (!elements.pill) {
+  const hasUi = Boolean(
+    elements.pill
+      || elements.miniIndicator
+      || elements.miniText
+      || elements.syncButtons.length
+      || elements.emptyButtons.length
+  );
+
+  if (!hasUi) {
     return;
   }
 
   const cleanupHandlers = [];
   const handleSyncClick = () => {
-    startSync(elements, { mode: "recent" });
+    startSync(elements, {
+      mode: "recent",
+      trigger_source: "manual",
+      onSyncError,
+    });
   };
 
-  elements.syncButton?.addEventListener("click", handleSyncClick);
-  elements.emptyButton?.addEventListener("click", handleSyncClick);
+  elements.syncButtons.forEach((btn) => {
+    btn.addEventListener("click", handleSyncClick);
+  });
+  elements.emptyButtons.forEach((btn) => {
+    btn.addEventListener("click", handleSyncClick);
+  });
   cleanupHandlers.push(() => {
-    elements.syncButton?.removeEventListener("click", handleSyncClick);
-    elements.emptyButton?.removeEventListener("click", handleSyncClick);
+    elements.syncButtons.forEach((btn) => {
+      btn.removeEventListener("click", handleSyncClick);
+    });
+    elements.emptyButtons.forEach((btn) => {
+      btn.removeEventListener("click", handleSyncClick);
+    });
   });
 
   const historyCleanup = setupHistoryModal(elements);
@@ -396,7 +485,7 @@ export function initTripSync({ onSyncComplete, cleanup } = {}) {
   const handleOnline = () => {
     fetchStatus(elements, { showError: true }).then((status) => {
       if (status) {
-        handleStatusUpdate(status, elements, onSyncComplete);
+        handleStatusUpdate(status, elements, onSyncComplete, onSyncError);
       }
     });
   };
@@ -410,10 +499,10 @@ export function initTripSync({ onSyncComplete, cleanup } = {}) {
 
   fetchStatus(elements, { showError: true }).then((status) => {
     if (status) {
-      handleStatusUpdate(status, elements, onSyncComplete);
+      handleStatusUpdate(status, elements, onSyncComplete, onSyncError);
     }
   });
-  connectSse(elements, onSyncComplete);
+  connectSse(elements, onSyncComplete, onSyncError);
 
   const cleanupFn = () => {
     cleanupHandlers.forEach((handler) => handler());
