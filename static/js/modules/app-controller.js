@@ -27,6 +27,7 @@ import layerManager from "./layer-manager.js";
 import mapCore from "./map-core.js";
 import mapManager from "./map-manager.js";
 import searchManager from "./search-manager.js";
+import tripStatsWidget from "./trip-stats-widget.js";
 import confirmationDialog from "./ui/confirmation-dialog.js";
 import loadingManager from "./ui/loading-manager.js";
 import notificationManager from "./ui/notifications.js";
@@ -113,11 +114,11 @@ const initializeLocationDropdown = async () => {
     areas.forEach((area) => {
       const option = document.createElement("option");
       option.value = area.id || area._id;
-      option.textContent
-        = area.display_name
-        || area.location?.display_name
-        || area.name
-        || "Unknown Location";
+      option.textContent =
+        area.display_name ||
+        area.location?.display_name ||
+        area.name ||
+        "Unknown Location";
       frag.appendChild(option);
     });
     dropdown.appendChild(frag);
@@ -168,8 +169,8 @@ const AppController = {
    * Initialize the application
    */
   async initialize() {
-    const isMapPage
-      = Boolean(utils.getElement("map")) && !document.getElementById("visits-page");
+    const isMapPage =
+      Boolean(utils.getElement("map")) && !document.getElementById("visits-page");
     const mapLoading = isMapPage ? createMapLoadingHelper() : null;
 
     try {
@@ -200,6 +201,7 @@ const AppController = {
         await initializeLocationDropdown();
         initializeLiveTracker();
         searchManager.initialize();
+        tripStatsWidget.init();
 
         // Phase 4: Set up event listeners
         if (!this._listenersInitialized) {
@@ -533,8 +535,8 @@ const AppController = {
       const confirmed = await confirmationDialog.show({
         title: "Map Match Trips",
         message:
-          "This will process all trips in the selected date range. "
-          + "This may take several minutes for large date ranges. Continue?",
+          "This will process all trips in the selected date range. " +
+          "This may take several minutes for large date ranges. Continue?",
         confirmText: "Start Map Matching",
         confirmButtonClass: "btn-primary",
       });
