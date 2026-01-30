@@ -8,9 +8,9 @@ Profile Settings
 {% block extra_css %}
 
   <link rel="stylesheet"
-        href="{{ url_for('static', path='css/settings.css') | replace('http://', '//') }}" />
+        href="{{ url_for('static', path='css/settings.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}" />
   <link rel="stylesheet"
-        href="{{ url_for('static', path='css/profile.css') | replace('http://', '//') }}" />
+        href="{{ url_for('static', path='css/profile.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}" />
 
 {% endblock %}
 
@@ -103,5 +103,5 @@ Profile Settings
 {% block extra_js %}
 
   <script type="module"
-          src="{{ url_for('static', path='js/pages/profile.js') | replace('http://', '//') }}"></script>
+          src="{{ url_for('static', path='js/pages/profile.js') | replace('http://', '//') }}?v={{ repo_version.commit_count }}"></script>
 {% endblock %}

@@ -9,7 +9,7 @@ Every Street - Export Data
 {% block extra_css %}
 
   <link rel="stylesheet"
-        href="{{ url_for('static', path='css/export.css') | replace('http://', '//') }}" />
+        href="{{ url_for('static', path='css/export.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}" />
 {% endblock %}
 
 
@@ -394,7 +394,7 @@ Latest Export
 {% block extra_js %}
 
   <script type="module"
-          src="{{ url_for('static', path='js/modules/export/index.js') | replace('http://', '//') }}"></script>
+          src="{{ url_for('static', path='js/modules/export/index.js') | replace('http://', '//') }}?v={{ repo_version.commit_count }}"></script>
   <script>
       // Sync radio buttons to hidden select for JS compatibility
       document.querySelectorAll('input[name="trip-format-radio"]').forEach(radio => {

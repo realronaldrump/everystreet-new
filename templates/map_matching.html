@@ -7,7 +7,7 @@ Every Street - Route Improvement
 {% block extra_css %}
   <link rel="stylesheet" href="{{ CDN.mapbox_gl_css }}" />
   <link rel="stylesheet"
-        href="{{ url_for('static', path='css/map-matching.css') | replace('http://', '//') }}" />
+        href="{{ url_for('static', path='css/map-matching.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}" />
 {% endblock %}
 
 {% block head_content %}
@@ -396,5 +396,5 @@ Every Street - Route Improvement
 {% block extra_js %}
   <script src="{{ CDN.mapbox_gl_js }}"></script>
   <script type="module"
-          src="{{ url_for('static', path='js/pages/map-matching.js') | replace('http://', '//') }}"></script>
+          src="{{ url_for('static', path='js/pages/map-matching.js') | replace('http://', '//') }}?v={{ repo_version.commit_count }}"></script>
 {% endblock %}

@@ -8,7 +8,7 @@ Server Logs
 {% block extra_css %}
 
   <link rel="stylesheet"
-        href="{{ url_for('static', path='css/server-logs.css') | replace('http://', '//') }}" />
+        href="{{ url_for('static', path='css/server-logs.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}" />
 
 {% endblock %}
 
@@ -554,5 +554,5 @@ Select one or more containers from the list above to view logs.
 {% block extra_js %}
 
   <script type="module"
-          src="{{ url_for('static', path='js/pages/server-logs.js') | replace('http://', '//') }}?v=2"></script>
+          src="{{ url_for('static', path='js/pages/server-logs.js') | replace('http://', '//') }}?v={{ repo_version.commit_count }}"></script>
 {% endblock %}

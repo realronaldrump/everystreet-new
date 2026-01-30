@@ -9,7 +9,7 @@ My Vehicles
 {% block extra_css %}
 
   <link rel="stylesheet"
-        href="{{ url_for('static', path='css/vehicles.css') | replace('http://', '//') }}" />
+        href="{{ url_for('static', path='css/vehicles.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}" />
 {% endblock %}
 
 
@@ -304,5 +304,5 @@ This name will be shown throughout the app.
 {% block extra_js %}
 
   <script type="module"
-          src="{{ url_for('static', path='js/pages/vehicles.js') | replace('http://', '//') }}"></script>
+          src="{{ url_for('static', path='js/pages/vehicles.js') | replace('http://', '//') }}?v={{ repo_version.commit_count }}"></script>
 {% endblock %}

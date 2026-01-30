@@ -6,9 +6,9 @@ System Control Center
 
 {% block extra_css %}
   <link rel="stylesheet"
-        href="{{ url_for('static', path='css/settings.css') | replace('http://', '//') }}" />
+        href="{{ url_for('static', path='css/settings.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}" />
   <link rel="stylesheet"
-        href="{{ url_for('static', path='css/status-dashboard.css') | replace('http://', '//') }}" />
+        href="{{ url_for('static', path='css/status-dashboard.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}" />
 {% endblock %}
 
 {% block content %}
@@ -428,5 +428,5 @@ System Control Center
 {% endblock %}
 
 {% block extra_js %}
-  <script type="module" src="{{ url_for('static', path='js/pages/status-dashboard.js') }}"></script>
+  <script type="module" src="{{ url_for('static', path='js/pages/status-dashboard.js') }}?v={{ repo_version.commit_count }}"></script>
 {% endblock %}

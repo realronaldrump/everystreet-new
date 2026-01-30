@@ -11,7 +11,7 @@ Gas Tracking
   <!-- Mapbox GL CSS -->
   <link rel="stylesheet" href="{{ CDN.mapbox_gl_css }}" />
   <link rel="stylesheet"
-        href="{{ url_for('static', path='css/gas_tracking.css') | replace('http://', '//') }}" />
+        href="{{ url_for('static', path='css/gas_tracking.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}" />
 {% endblock %}
 
 
@@ -338,5 +338,5 @@ No fill-ups recorded yet
   </script>
 
   <script type="module"
-          src="{{ url_for('static', path='js/pages/gas-tracking.js') | replace('http://', '//') }}"></script>
+          src="{{ url_for('static', path='js/pages/gas-tracking.js') | replace('http://', '//') }}?v={{ repo_version.commit_count }}"></script>
 {% endblock %}

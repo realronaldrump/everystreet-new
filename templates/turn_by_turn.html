@@ -9,7 +9,7 @@ Turn-by-Turn Navigation
 
   <link rel="stylesheet" href="{{ CDN.mapbox_gl_css }}" />
   <link rel="stylesheet"
-        href="{{ url_for('static', path='css/features/navigation/index.css') | replace('http://', '//') }}" />
+        href="{{ url_for('static', path='css/features/navigation/index.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}" />
 {% endblock %}
 
 
@@ -281,7 +281,7 @@ Select a coverage area...
       window.MAPBOX_ACCESS_TOKEN = "{{ MAPBOX_ACCESS_TOKEN }}";
   </script>
   <script type="module"
-          src="{{ url_for('static', path='js/pages/turn-by-turn.js') | replace('http://', '//') }}"></script>
+          src="{{ url_for('static', path='js/pages/turn-by-turn.js') | replace('http://', '//') }}?v={{ repo_version.commit_count }}"></script>
   <script>
       document.body.classList.add("turn-by-turn-active");
   </script>

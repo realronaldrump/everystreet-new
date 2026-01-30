@@ -9,7 +9,7 @@ Page Not Found
 {% block extra_css %}
 
   <link rel="stylesheet"
-        href="{{ url_for('static', path='css/not-found.css') | replace('http://', '//') }}" />
+        href="{{ url_for('static', path='css/not-found.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}" />
 {% endblock %}
 
 

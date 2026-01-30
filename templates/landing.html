@@ -9,7 +9,7 @@ EveryStreet
 {% block extra_css %}
 
   <link rel="stylesheet"
-        href="{{ url_for('static', path='css/landing.css') | replace('http://', '//') }}" />
+        href="{{ url_for('static', path='css/landing.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}" />
 {% endblock %}
 
 
@@ -296,5 +296,5 @@ Quick Launch
 {% block extra_js %}
 
   <script type="module"
-          src="{{ url_for('static', path='js/pages/landing.js') | replace('http://', '//') }}"></script>
+          src="{{ url_for('static', path='js/pages/landing.js') | replace('http://', '//') }}?v={{ repo_version.commit_count }}"></script>
 {% endblock %}

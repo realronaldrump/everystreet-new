@@ -9,7 +9,7 @@ Driving Insights & Analytics
 {% block extra_css %}
 
   <link rel="stylesheet"
-        href="{{ url_for('static', path='css/insights.css') | replace('http://', '//') }}" />
+        href="{{ url_for('static', path='css/insights.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}" />
   <link rel="stylesheet" href="{{ CDN.datatables_css }}" />
   <link rel="stylesheet" href="{{ CDN.datatables_bs5_css }}" />
 
@@ -446,5 +446,5 @@ Close
 
   <!-- Driving Insights Modules (loaded in dependency order) -->
   <script type="module"
-          src="{{ url_for('static', path='js/pages/insights.js') | replace('http://', '//') }}"></script>
+          src="{{ url_for('static', path='js/pages/insights.js') | replace('http://', '//') }}?v={{ repo_version.commit_count }}"></script>
 {% endblock %}

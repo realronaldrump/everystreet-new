@@ -11,7 +11,7 @@ extra_css %}
 
 
   <link rel="stylesheet"
-        href="{{ url_for('static', path='css/settings.css') | replace('http://', '//') }}" />
+        href="{{ url_for('static', path='css/settings.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}" />
 {% endblock %}
 
 
@@ -1447,5 +1447,5 @@ Clear Task History
 
 
   <script type="module"
-          src="{{ url_for('static', path='js/settings/index.js') | replace('http://', '//') }}"></script>
+          src="{{ url_for('static', path='js/settings/index.js') | replace('http://', '//') }}?v={{ repo_version.commit_count }}"></script>
 {% endblock %}
