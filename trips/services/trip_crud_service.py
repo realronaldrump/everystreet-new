@@ -25,7 +25,12 @@ class TripCrudService:
         Returns:
             Trip model or None if not found
         """
-        return await Trip.find_one(Trip.transactionId == trip_id)
+        trip = await Trip.find_one(Trip.transactionId == trip_id)
+        if not trip:
+            return None
+        if trip.duration is None and trip.startTime and trip.endTime:
+            trip.duration = (trip.endTime - trip.startTime).total_seconds()
+        return trip
 
     @staticmethod
     async def delete_trip(trip_id: str):
