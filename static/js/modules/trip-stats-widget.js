@@ -16,7 +16,6 @@ const tripStatsWidget = {
   init() {
     this.cacheElements();
     this.bindEvents();
-    this.updateFromExistingData();
   },
 
   /**
@@ -144,52 +143,6 @@ const tripStatsWidget = {
 
     const metrics = this.calculateMetrics(geojson.features);
     this.updateDisplay(metrics);
-  },
-
-  /**
-   * Try to get data from existing page elements
-   */
-  updateFromExistingData() {
-    // Try to get values from the existing metrics section
-    const totalTrips = document.getElementById("total-trips");
-    const totalDistance = document.getElementById("total-distance");
-    const avgDistance = document.getElementById("avg-distance");
-    const avgSpeed = document.getElementById("avg-speed");
-    const avgStartTime = document.getElementById("avg-start-time");
-    const avgDrivingTime = document.getElementById("avg-driving-time");
-
-    if (totalTrips && this.elements.totalTripsCompact) {
-      this.elements.totalTripsCompact.textContent = totalTrips.textContent || "0";
-    }
-
-    if (totalDistance && this.elements.totalDistanceCompact) {
-      this.elements.totalDistanceCompact.textContent = totalDistance.textContent || "0";
-    }
-
-    if (this.elements.detailedTrips && totalTrips) {
-      this.elements.detailedTrips.textContent = totalTrips.textContent || "0";
-    }
-
-    if (this.elements.detailedDistance && totalDistance) {
-      this.elements.detailedDistance.textContent = totalDistance.textContent || "0";
-    }
-
-    if (this.elements.detailedAvgDistance && avgDistance) {
-      this.elements.detailedAvgDistance.textContent = avgDistance.textContent || "0";
-    }
-
-    if (this.elements.detailedAvgSpeed && avgSpeed) {
-      this.elements.detailedAvgSpeed.textContent = avgSpeed.textContent || "0";
-    }
-
-    if (this.elements.detailedAvgStart && avgStartTime) {
-      this.elements.detailedAvgStart.textContent = avgStartTime.textContent || "--:--";
-    }
-
-    if (this.elements.detailedAvgDuration && avgDrivingTime) {
-      this.elements.detailedAvgDuration.textContent
-        = avgDrivingTime.textContent || "--:--";
-    }
   },
 
   /**
@@ -342,11 +295,15 @@ const tripStatsWidget = {
     ];
 
     compactElements.forEach((el) => {
-      if (el) { el.textContent = "0"; }
+      if (el) {
+        el.textContent = "0";
+      }
     });
 
     expandedElements.forEach((el) => {
-      if (el) { el.textContent = "0"; }
+      if (el) {
+        el.textContent = "0";
+      }
     });
 
     if (this.elements.detailedAvgStart) {

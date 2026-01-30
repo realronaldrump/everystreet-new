@@ -26,56 +26,34 @@ function updateLiveTrackingVisibility() {
   liveTrackingPanel.classList.toggle("d-none", !shouldShow);
 }
 
-// Script for toggling chevron in metrics collapse
 onPageLoad(
   ({ signal } = {}) => {
-    const metricsButton = document.querySelector('[data-bs-target="#metrics-content"]');
-    if (metricsButton) {
-      const chevron = metricsButton.querySelector(".fa-chevron-down");
-      metricsButton.addEventListener(
-        "click",
-        () => {
-          const isExpanded = metricsButton.getAttribute("aria-expanded") === "true";
-          if (chevron) {
-            chevron.style.transform = isExpanded ? "rotate(0deg)" : "rotate(180deg)";
-          }
-        },
-        signal ? { signal } : false
-      );
-      // Initial state check for chevron if panel is collapsed by default
-      if (metricsButton.getAttribute("aria-expanded") === "false" && chevron) {
-        chevron.style.transform = "rotate(0deg)";
-      } else if (chevron) {
-        chevron.style.transform = "rotate(180deg)";
-      }
+    // Toggle Live Tracking Panel visibility based on user setting - initial state
+    updateLiveTrackingVisibility();
 
-      // Toggle Live Tracking Panel visibility based on user setting - initial state
-      updateLiveTrackingVisibility();
-
-      // Fetch server-side setting once and reconcile localStorage
-      (async () => {
-        try {
-          const data = await apiClient.get("/api/app_settings");
-          if (typeof data.showLiveTracking !== "undefined") {
-            window.localStorage.setItem("showLiveTracking", data.showLiveTracking);
-            updateLiveTrackingVisibility();
-          }
-        } catch (error) {
-          console.warn("Failed to load app settings", error);
+    // Fetch server-side setting once and reconcile localStorage
+    (async () => {
+      try {
+        const data = await apiClient.get("/api/app_settings");
+        if (typeof data.showLiveTracking !== "undefined") {
+          window.localStorage.setItem("showLiveTracking", data.showLiveTracking);
+          updateLiveTrackingVisibility();
         }
-      })();
+      } catch (error) {
+        console.warn("Failed to load app settings", error);
+      }
+    })();
 
-      // Respond to changes from other tabs/windows or settings page
-      window.addEventListener(
-        "storage",
-        (e) => {
-          if (e.key === "showLiveTracking") {
-            updateLiveTrackingVisibility();
-          }
-        },
-        signal ? { signal } : false
-      );
-    }
+    // Respond to changes from other tabs/windows or settings page
+    window.addEventListener(
+      "storage",
+      (e) => {
+        if (e.key === "showLiveTracking") {
+          updateLiveTrackingVisibility();
+        }
+      },
+      signal ? { signal } : false
+    );
 
     const setupMapTilt = () => {
       const map = window.map || window.coverageMasterMap;
