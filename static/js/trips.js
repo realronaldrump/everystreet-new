@@ -16,6 +16,7 @@ import {
   formatDateTime,
   formatDuration,
   formatVehicleName,
+  DateUtils,
   getStorage,
   onPageLoad,
   sanitizeLocation,
@@ -120,37 +121,13 @@ function restoreSavedFilters() {
     vehicleSelect.value = savedVehicle;
     vehicleSelect.classList.add("has-value");
   }
-
-  // Restore date filters - quick buttons will be updated via updateDateRangeDisplay
-  const startDate = getStorage("startDate");
-  if (startDate) {
-    // Check which quick filter matches
-    const today = dayjs().startOf("day");
-    const savedStart = dayjs(startDate);
-
-    document.querySelectorAll(".quick-filter-btn").forEach((btn) => {
-      const range = btn.dataset.range;
-      const dates = getDateRange(range);
-      if (dates.start === startDate) {
-        btn.classList.add("active");
-      }
-    });
-  }
 }
 
 function applySavedFilters() {
-  const filters = getFilterValues();
-  const hasFilters =
-    filters.imei ||
-    filters.start_date ||
-    filters.end_date ||
-    filters.distance_min ||
-    filters.distance_max;
+  const { hasLocalFilters, hasAnyFilters } = getFilterState();
 
-  if (hasFilters) {
+  if (hasLocalFilters) {
     updateFilterChips();
-    updateDateRangeDisplay();
-    updateFilteredStats();
 
     // Add visual feedback that filters are active
     document.querySelectorAll(".stat-pill").forEach((pill) => {
@@ -159,6 +136,10 @@ function applySavedFilters() {
     document.getElementById("trips-filters-panel")?.classList.add("has-filters");
     document.querySelector(".trips-search-section")?.classList.add("has-filters");
     document.getElementById("filters-status")?.style.setProperty("display", "flex");
+  }
+
+  if (hasAnyFilters) {
+    updateFilteredStats();
   }
 }
 
@@ -820,11 +801,6 @@ function setupSearchAndFilters() {
         filtersPanel.classList.add("is-open");
         filterToggle.classList.add("active");
         filterToggle.setAttribute("aria-expanded", "true");
-
-        // Animate filter panel content
-        requestAnimationFrame(() => {
-          updateDateRangeDisplay();
-        });
       }
     });
   }
@@ -858,20 +834,6 @@ function setupSearchAndFilters() {
       el.classList.remove("has-value");
     });
 
-    // Clear date filters from storage
-    setStorage("startDate", null);
-    setStorage("endDate", null);
-    document.dispatchEvent(new Event("filtersReset"));
-
-    // Clear active states from quick filter buttons
-    document
-      .querySelectorAll(".quick-filter-btn")
-      .forEach((b) => b.classList.remove("active"));
-
-    // Hide date range display
-    const dateRangeDisplay = document.getElementById("date-range-display");
-    if (dateRangeDisplay) dateRangeDisplay.classList.add("hidden");
-
     currentPage = 1;
     loadTrips();
     updateFilterChips();
@@ -884,29 +846,6 @@ function setupSearchAndFilters() {
     filtersPanel?.classList.remove("has-filters");
     document.querySelector(".trips-search-section")?.classList.remove("has-filters");
     document.getElementById("filters-status")?.style.setProperty("display", "none");
-  });
-
-  // Quick date filters
-  document.querySelectorAll(".quick-filter-btn").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      document
-        .querySelectorAll(".quick-filter-btn")
-        .forEach((b) => b.classList.remove("active"));
-      btn.classList.add("active");
-
-      const range = btn.dataset.range;
-      const dates = getDateRange(range);
-
-      if (dates.start && dates.end) {
-        setStorage("startDate", dates.start);
-        setStorage("endDate", dates.end);
-      } else {
-        setStorage("startDate", null);
-        setStorage("endDate", null);
-      }
-
-      updateDateRangeDisplay();
-    });
   });
 
   // Vehicle filter
@@ -927,7 +866,6 @@ function setupSearchAndFilters() {
   });
 
   updateFilterChips();
-  updateDateRangeDisplay();
 }
 
 function showFilterFeedback() {
@@ -970,38 +908,6 @@ function showFilterFeedback() {
   }
 }
 
-function updateDateRangeDisplay() {
-  const startDate = getStorage("startDate");
-  const endDate = getStorage("endDate");
-  const dateRangeDisplay = document.getElementById("date-range-display");
-  const dateRangeText = document.getElementById("date-range-text");
-
-  if (!dateRangeDisplay || !dateRangeText) return;
-
-  if (startDate && endDate) {
-    const formatDate = (dateStr) => {
-      const date = new Date(dateStr + "T00:00:00");
-      return date.toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-      });
-    };
-
-    const start = formatDate(startDate);
-    const end = formatDate(endDate);
-
-    if (start === end) {
-      dateRangeText.textContent = start;
-    } else {
-      dateRangeText.textContent = `${start} - ${end}`;
-    }
-    dateRangeDisplay.classList.remove("hidden");
-  } else {
-    dateRangeDisplay.classList.add("hidden");
-  }
-}
-
 function updateFilteredStats() {
   // Calculate stats from currently filtered/displayed trips
   const visibleTrips = filteredTrips.length > 0 ? filteredTrips : tripsData;
@@ -1031,15 +937,9 @@ function updateFilteredStats() {
   // Update summary text
   const summaryEl = document.getElementById("trips-summary-text");
   if (summaryEl) {
-    const filters = getFilterValues();
-    const hasFilters =
-      filters.imei ||
-      filters.start_date ||
-      filters.end_date ||
-      filters.distance_min ||
-      filters.distance_max;
+    const { hasAnyFilters } = getFilterState();
 
-    if (hasFilters) {
+    if (hasAnyFilters) {
       summaryEl.innerHTML = `Showing <strong>${totalTrips} trips</strong> totaling <strong>${totalMiles.toFixed(1)} miles</strong>`;
     } else {
       summaryEl.innerHTML = `You've traveled <strong>${totalMiles.toFixed(1)} miles</strong> across <strong>${totalTrips} trips</strong> this month`;
@@ -1111,57 +1011,52 @@ function performSearch(query) {
 
 function getFilterValues() {
   const getVal = (id) => document.getElementById(id)?.value?.trim() || null;
+  const dateRange = getDateRangeFilters();
 
   return {
     imei: getVal("trip-filter-vehicle"),
     distance_min: getVal("trip-filter-distance-min"),
     distance_max: getVal("trip-filter-distance-max"),
-    start_date: getStorage("startDate") || null,
-    end_date: getStorage("endDate") || null,
+    start_date: dateRange.start_date,
+    end_date: dateRange.end_date,
   };
 }
 
-function getDateRange(range) {
-  const today = dayjs().startOf("day");
+function getDateRangeFilters() {
+  const start_date = DateUtils.getStartDate?.() || null;
+  const end_date = DateUtils.getEndDate?.() || null;
+  return { start_date, end_date };
+}
 
-  switch (range) {
-    case "today":
-      return {
-        start: today.format("YYYY-MM-DD"),
-        end: today.format("YYYY-MM-DD"),
-      };
-    case "yesterday": {
-      const yesterday = today.subtract(1, "day");
-      return {
-        start: yesterday.format("YYYY-MM-DD"),
-        end: yesterday.format("YYYY-MM-DD"),
-      };
-    }
-    case "week": {
-      const weekStart = today.startOf("week");
-      return {
-        start: weekStart.format("YYYY-MM-DD"),
-        end: today.format("YYYY-MM-DD"),
-      };
-    }
-    case "month": {
-      const monthStart = today.startOf("month");
-      return {
-        start: monthStart.format("YYYY-MM-DD"),
-        end: today.format("YYYY-MM-DD"),
-      };
-    }
-    case "all":
-    default:
-      return { start: null, end: null };
-  }
+function getLocalFilterValues() {
+  const getVal = (id) => document.getElementById(id)?.value?.trim() || null;
+  return {
+    imei: getVal("trip-filter-vehicle"),
+    distance_min: getVal("trip-filter-distance-min"),
+    distance_max: getVal("trip-filter-distance-max"),
+  };
+}
+
+function getFilterState() {
+  const localFilters = getLocalFilterValues();
+  const dateRange = getDateRangeFilters();
+  const hasLocalFilters
+    = Boolean(localFilters.imei || localFilters.distance_min || localFilters.distance_max);
+  const hasDateRange = Boolean(dateRange.start_date || dateRange.end_date);
+  return {
+    localFilters,
+    dateRange,
+    hasLocalFilters,
+    hasDateRange,
+    hasAnyFilters: hasLocalFilters || hasDateRange,
+  };
 }
 
 function updateFilterChips() {
   const container = document.getElementById("active-filter-chips");
   if (!container) return;
 
-  const filters = getFilterValues();
+  const filters = getLocalFilterValues();
   container.innerHTML = "";
   let filterCount = 0;
 
@@ -1190,31 +1085,6 @@ function updateFilterChips() {
     addChip(`Vehicle: ${vehicleName}`, () => {
       document.getElementById("trip-filter-vehicle").value = "";
       setStorage(CONFIG.STORAGE_KEYS.selectedVehicle, null);
-    });
-  }
-
-  const formatFilterDate = (value) => {
-    if (!value) return "Any";
-    const dateStr = String(value);
-    const date = dateStr.includes("T")
-      ? new Date(dateStr)
-      : new Date(`${dateStr}T00:00:00`);
-    if (Number.isNaN(date.getTime())) {
-      return dateStr;
-    }
-    return date.toLocaleDateString();
-  };
-
-  if (filters.start_date || filters.end_date) {
-    const start = formatFilterDate(filters.start_date);
-    const end = formatFilterDate(filters.end_date);
-    addChip(`Date: ${start} → ${end}`, () => {
-      setStorage("startDate", null);
-      setStorage("endDate", null);
-      document.dispatchEvent(new Event("filtersReset"));
-      document
-        .querySelectorAll(".quick-filter-btn")
-        .forEach((b) => b.classList.remove("active"));
     });
   }
 
@@ -1259,15 +1129,9 @@ function updateFilterResultsPreview() {
   if (!previewEl) return;
 
   const visibleTrips = filteredTrips.length > 0 ? filteredTrips : tripsData;
-  const filters = getFilterValues();
-  const hasFilters =
-    filters.imei ||
-    filters.start_date ||
-    filters.end_date ||
-    filters.distance_min ||
-    filters.distance_max;
+  const { hasLocalFilters } = getFilterState();
 
-  if (hasFilters && visibleTrips.length > 0) {
+  if (hasLocalFilters && visibleTrips.length > 0) {
     const totalMiles = visibleTrips.reduce(
       (sum, trip) => sum + (parseFloat(trip.distance) || 0),
       0
