@@ -7,6 +7,9 @@ import { VisitsGeometry } from "../../visits/geometry.js";
 import VisitsManager from "../../visits/visits-manager.js";
 import confirmationDialog from "../../ui/confirmation-dialog.js";
 
+const mapboxgl = globalThis.mapboxgl;
+const bootstrap = globalThis.bootstrap;
+
 // Configuration for imperial units
 const IMPERIAL_CONFIG = {
   // Convert meters to feet (1 meter = 3.28084 feet)
@@ -728,7 +731,12 @@ class VisitsPageController {
         = timelineHTML || '<p class="text-secondary">No visits recorded</p>';
 
       // Show modal
-      const modal = new bootstrap.Modal(document.getElementById("place-detail-modal"));
+      const modalEl = document.getElementById("place-detail-modal");
+      if (!bootstrap?.Modal || !modalEl) {
+        console.warn("Bootstrap modal is unavailable for place details.");
+        return;
+      }
+      const modal = new bootstrap.Modal(modalEl);
       modal.show();
     } catch (error) {
       console.error("Error loading place detail:", error);

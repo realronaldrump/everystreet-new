@@ -9,6 +9,7 @@ import time
 from collections.abc import Iterable
 from typing import Any
 
+import asyncio
 import httpx
 from shapely.geometry import shape
 
@@ -53,11 +54,14 @@ async def _download_index(cache_path: str, url: str) -> None:
         client.stream("GET", url) as response,
     ):
         response.raise_for_status()
-        with open(temp_path, "wb") as handle:
+        handle = await asyncio.to_thread(open, temp_path, "wb")
+        try:
             async for chunk in response.aiter_bytes(INDEX_CHUNK_SIZE):
-                handle.write(chunk)
+                await asyncio.to_thread(handle.write, chunk)
+        finally:
+            await asyncio.to_thread(handle.close)
 
-    os.replace(temp_path, cache_path)
+    await asyncio.to_thread(os.replace, temp_path, cache_path)
 
 
 async def load_geofabrik_index(
@@ -72,8 +76,12 @@ async def load_geofabrik_index(
     try:
         if _needs_refresh(cache_path, max_age_seconds):
             await _download_index(cache_path, url)
-        with open(cache_path, encoding="utf-8") as handle:
-            return json.load(handle)
+
+        def _read_index(path: str) -> dict[str, Any]:
+            with open(path, encoding="utf-8") as handle:
+                return json.load(handle)
+
+        return await asyncio.to_thread(_read_index, cache_path)
     except Exception as exc:
         logger.warning("Unable to load Geofabrik index: %s", exc)
         return None

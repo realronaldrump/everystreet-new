@@ -8,6 +8,9 @@ import confirmationDialog from "../../ui/confirmation-dialog.js";
 import { DateUtils } from "../../utils.js";
 import { clearInlineStatus, setInlineStatus } from "../settings/status-utils.js";
 
+const mapboxgl = globalThis.mapboxgl;
+const flatpickr = globalThis.flatpickr;
+
 let elements = {};
 
 function cacheElements() {
@@ -944,7 +947,7 @@ function wireEvents(signal) {
 function initDatePickers() {
   if (DateUtils?.initDatePicker) {
     DateUtils.initDatePicker(".datepicker");
-  } else if (typeof flatpickr !== "undefined") {
+  } else if (flatpickr) {
     flatpickr(".datepicker", {
       enableTime: false,
       dateFormat: "Y-m-d",

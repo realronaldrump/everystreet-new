@@ -10,7 +10,6 @@ import asyncio
 import logging
 import os
 import shlex
-import subprocess
 from typing import TYPE_CHECKING, Any
 
 from config import get_osm_extracts_path
@@ -1238,23 +1237,27 @@ async def check_container_running(service_name: str) -> bool:
         True if container is running
     """
     try:
-        result = await asyncio.to_thread(
-            subprocess.run,
-            [
-                "docker",
-                "ps",
-                "--filter",
-                f"name={service_name}",
-                "--filter",
-                "status=running",
-                "-q",
-            ],
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=10,
+        process = await asyncio.create_subprocess_exec(
+            "docker",
+            "ps",
+            "--filter",
+            f"name={service_name}",
+            "--filter",
+            "status=running",
+            "-q",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
         )
-        return bool(result.stdout.strip())
+        try:
+            stdout, _ = await asyncio.wait_for(process.communicate(), timeout=10)
+        except TimeoutError:
+            process.kill()
+            await process.communicate()
+            logger.warning("Timed out checking container status for %s", service_name)
+            return False
+        if process.returncode != 0:
+            return False
+        return bool(stdout.decode().strip())
     except Exception as e:
         logger.warning("Failed to check container status: %s", e)
         return False

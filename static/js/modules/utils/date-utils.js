@@ -1,6 +1,9 @@
 import apiClient from "../core/api-client.js";
 import { getStorage, setStorage } from "./data.js";
 
+const dayjs = globalThis.dayjs;
+const flatpickr = globalThis.flatpickr;
+
 const DATE_STORAGE_KEYS = {
   startDate: "startDate",
   endDate: "endDate",
@@ -292,8 +295,8 @@ const DateUtils = {
   },
 
   initDatePicker(element, config) {
-    if (window.flatpickr) {
-      return window.flatpickr(element, config);
+    if (flatpickr) {
+      return flatpickr(element, config);
     }
     return null;
   },
