@@ -176,6 +176,166 @@ class ConfirmationDialog {
     });
   }
 
+  /**
+   * Show a prompt dialog (text input)
+   * @param {Object} options
+   * @returns {Promise<string|null>}
+   */
+  prompt(options = {}) {
+    return new Promise((resolve) => {
+      const modalElement = document.getElementById(this.modalId);
+      if (!modalElement) {
+        console.error("Confirmation modal not found");
+        resolve(null);
+        return;
+      }
+
+      const title = options.title || this.config.defaultTitle;
+      const message = options.message || "";
+      const inputLabel = options.inputLabel || "Input";
+      const defaultValue = options.defaultValue ?? "";
+      const placeholder = options.placeholder || "";
+      const confirmText = options.confirmText || this.config.defaultConfirmText;
+      const cancelText = options.cancelText || this.config.defaultCancelText;
+      const confirmButtonClass
+        = options.confirmButtonClass || this.config.defaultConfirmButtonClass;
+      const showCancel = options.showCancel !== false; // Default true
+      const allowEmpty = options.allowEmpty === true;
+      const inputType = options.inputType || "text";
+      const maxLength = options.maxLength;
+
+      modalElement.querySelector(".modal-title").textContent = title;
+
+      const body = modalElement.querySelector(".modal-body");
+      body.replaceChildren();
+
+      if (message) {
+        const messageEl = document.createElement("p");
+        messageEl.className = "mb-3";
+        messageEl.textContent = message;
+        body.appendChild(messageEl);
+      }
+
+      const inputWrapper = document.createElement("div");
+      inputWrapper.className = "mb-2";
+
+      const labelEl = document.createElement("label");
+      const inputId = `${this.modalId}-input`;
+      labelEl.className = "form-label";
+      labelEl.setAttribute("for", inputId);
+      labelEl.textContent = inputLabel;
+      inputWrapper.appendChild(labelEl);
+
+      const inputEl = document.createElement("input");
+      inputEl.className = "form-control";
+      inputEl.id = inputId;
+      inputEl.type = inputType;
+      inputEl.value = defaultValue;
+      if (placeholder) {
+        inputEl.placeholder = placeholder;
+      }
+      if (typeof maxLength === "number") {
+        inputEl.maxLength = maxLength;
+      }
+      inputWrapper.appendChild(inputEl);
+      body.appendChild(inputWrapper);
+
+      const confirmBtn = modalElement.querySelector(".confirm-btn");
+      const cancelBtn = modalElement.querySelector(".cancel-btn");
+
+      if (confirmBtn) {
+        confirmBtn.textContent = confirmText;
+        confirmBtn.className = `btn confirm-btn ${confirmButtonClass}`;
+        confirmBtn.style.display = "";
+        confirmBtn.disabled = !allowEmpty && !inputEl.value.trim();
+      }
+
+      if (cancelBtn) {
+        cancelBtn.textContent = cancelText;
+        cancelBtn.style.display = showCancel ? "" : "none";
+      }
+
+      const handleConfirm = () => {
+        const value = inputEl.value.trim();
+        if (!allowEmpty && !value) {
+          inputEl.focus();
+          return;
+        }
+        confirmBtn?.blur();
+        cleanup();
+        this.activeModal?.hide();
+        this.activeModal = null;
+        resolve(value);
+      };
+
+      const handleDismiss = () => {
+        cleanup();
+        this.activeModal = null;
+        resolve(null);
+      };
+
+      const handleHide = () => {
+        const focusedElement = modalElement.querySelector(":focus");
+        if (focusedElement) {
+          focusedElement.blur();
+        }
+      };
+
+      const handleMouseDown = (e) => {
+        if (e.button !== 0 || confirmBtn?.disabled) {
+          return;
+        }
+        handleConfirm();
+      };
+
+      const handleKeyDown = (e) => {
+        if (
+          e.key === "Enter"
+          && this.activeModal
+          && modalElement.classList.contains("show")
+        ) {
+          e.preventDefault();
+          handleConfirm();
+        }
+      };
+
+      const handleInput = () => {
+        if (!confirmBtn) {
+          return;
+        }
+        confirmBtn.disabled = !allowEmpty && !inputEl.value.trim();
+      };
+
+      function cleanup() {
+        confirmBtn?.removeEventListener("mousedown", handleMouseDown);
+        inputEl.removeEventListener("input", handleInput);
+        modalElement.removeEventListener("keydown", handleKeyDown);
+        modalElement.removeEventListener("hidden.bs.modal", handleDismiss);
+        modalElement.removeEventListener("hide.bs.modal", handleHide);
+      }
+
+      confirmBtn?.addEventListener("mousedown", handleMouseDown);
+      inputEl.addEventListener("input", handleInput);
+      modalElement.addEventListener("keydown", handleKeyDown);
+      modalElement.addEventListener("hidden.bs.modal", handleDismiss);
+      modalElement.addEventListener("hide.bs.modal", handleHide);
+
+      try {
+        this.activeModal = new bootstrap.Modal(modalElement);
+        modalElement.removeAttribute("aria-hidden");
+        this.activeModal.show();
+        setTimeout(() => {
+          inputEl.focus();
+          inputEl.select();
+        }, 100);
+      } catch (error) {
+        console.error("Error showing modal:", error);
+        cleanup();
+        resolve(null);
+      }
+    });
+  }
+
   hide() {
     if (this.activeModal) {
       this.activeModal.hide();
@@ -188,6 +348,7 @@ const confirmationDialog = new ConfirmationDialog();
 
 const confirm = (options = {}) => confirmationDialog.show(options);
 const alert = (messageOrOptions) => confirmationDialog.alert(messageOrOptions);
+const prompt = (options = {}) => confirmationDialog.prompt(options);
 
-export { ConfirmationDialog, confirmationDialog, confirm, alert };
+export { ConfirmationDialog, confirmationDialog, confirm, alert, prompt };
 export default confirmationDialog;

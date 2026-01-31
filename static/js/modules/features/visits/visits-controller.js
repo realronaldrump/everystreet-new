@@ -5,6 +5,7 @@
 
 import { VisitsGeometry } from "../../visits/geometry.js";
 import VisitsManager from "../../visits/visits-manager.js";
+import confirmationDialog from "../../ui/confirmation-dialog.js";
 
 // Configuration for imperial units
 const IMPERIAL_CONFIG = {
@@ -887,7 +888,7 @@ class VisitsPageController {
       return;
     }
 
-    const name = prompt("Name this place:", suggestion.suggestedName);
+    const name = await this.promptPlaceName(suggestion.suggestedName);
     if (!name) {
       return;
     }
@@ -906,7 +907,7 @@ class VisitsPageController {
 
   // Convert a non-custom place to a custom place
   async saveNonCustomPlace(name) {
-    const customName = prompt("Name this place:", name);
+    const customName = await this.promptPlaceName(name);
     if (!customName) {
       return;
     }
@@ -934,6 +935,24 @@ class VisitsPageController {
     } else {
       console.log(`[${type}] ${message}`);
     }
+  }
+
+  async promptPlaceName(defaultValue = "") {
+    if (!confirmationDialog?.prompt) {
+      this.showNotification("Unable to open naming dialog.", "error");
+      return null;
+    }
+
+    return confirmationDialog.prompt({
+      title: "Name this place",
+      message: "Enter a short, descriptive name.",
+      inputLabel: "Place name",
+      defaultValue,
+      placeholder: "e.g., Home, Downtown Market",
+      confirmText: "Save",
+      cancelText: "Cancel",
+      confirmButtonClass: "btn-primary",
+    });
   }
 }
 
