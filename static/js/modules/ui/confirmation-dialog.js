@@ -202,7 +202,7 @@ class ConfirmationDialog {
       const showCancel = options.showCancel !== false; // Default true
       const allowEmpty = options.allowEmpty === true;
       const inputType = options.inputType || "text";
-      const maxLength = options.maxLength;
+      const { maxLength } = options;
 
       modalElement.querySelector(".modal-title").textContent = title;
 
