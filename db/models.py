@@ -32,8 +32,8 @@ from beanie.odm.fields import IndexModel
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from core.date_utils import parse_timestamp
+from core.spatial import GeometryService
 from map_data.models import GeoServiceHealth, MapBuildProgress, MapServiceConfig
-from street_coverage.models import CoverageArea, CoverageState, Job, Street
 
 
 class Trip(Document):
@@ -140,11 +140,16 @@ class Trip(Document):
             except json.JSONDecodeError:
                 return None
 
-        # Handle list input (convert to GeoJSON LineString)
+        # Handle list input (convert to GeoJSON Point/LineString)
         if isinstance(v, list):
             if not v:
                 return None
-            return {"type": "LineString", "coordinates": v}
+            return GeometryService.geometry_from_coordinate_pairs(
+                v,
+                allow_point=True,
+                dedupe=True,
+                validate=True,
+            )
 
         # Handle dict input (GeoJSON) - store as-is
         if isinstance(v, dict):
@@ -267,6 +272,162 @@ class Place(Document):
 
     class Settings:
         name = "places"
+
+    model_config = ConfigDict(extra="allow")
+
+
+class CoverageArea(Document):
+    """
+    A geographic area for street coverage tracking.
+
+    Represents a coverage area with user-facing status and cached
+    statistics.
+    """
+
+    display_name: Indexed(str, unique=True)
+    area_type: str = "city"
+    boundary: dict[str, Any] = Field(default_factory=dict)
+    bounding_box: list[float] = Field(default_factory=list)
+    status: str = "initializing"
+    health: str = "unavailable"
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    last_synced: datetime | None = None
+    total_length_miles: float = 0.0
+    driveable_length_miles: float = 0.0
+    driven_length_miles: float = 0.0
+    coverage_percentage: float = 0.0
+    total_segments: int = 0
+    driven_segments: int = 0
+    area_version: int = 1
+    osm_fetched_at: datetime | None = None
+    last_error: str | None = None
+    optimal_route: dict[str, Any] | None = None
+    optimal_route_generated_at: datetime | None = None
+
+    class Settings:
+        name = "coverage_areas"
+        indexes: ClassVar[list[IndexModel]] = [
+            IndexModel([("status", 1)], name="coverage_areas_status_idx"),
+            IndexModel(
+                [("osm_fetched_at", 1)],
+                name="coverage_areas_osm_fetched_idx",
+            ),
+        ]
+
+    model_config = ConfigDict(extra="allow")
+
+
+class Street(Document):
+    """
+    Static street segment geometry derived from OSM.
+
+    This is immutable for a given area version. Geometry and properties
+    don't change unless the area is rebuilt with new OSM data.
+    """
+
+    segment_id: str
+    area_id: Indexed(PydanticObjectId)
+    area_version: int
+    geometry: dict[str, Any] = Field(default_factory=dict)
+    street_name: str | None = None
+    highway_type: str = "unclassified"
+    osm_id: int | None = None
+    length_miles: float = 0.0
+
+    class Settings:
+        name = "streets"
+        indexes: ClassVar[list[IndexModel]] = [
+            IndexModel(
+                [("area_id", 1), ("segment_id", 1)],
+                name="streets_area_segment_unique_idx",
+                unique=True,
+            ),
+            IndexModel(
+                [("area_id", 1), ("geometry", "2dsphere")],
+                name="streets_area_geo_idx",
+            ),
+            IndexModel(
+                [("area_id", 1), ("area_version", 1)],
+                name="streets_area_version_idx",
+            ),
+        ]
+
+    model_config = ConfigDict(extra="allow")
+
+
+class CoverageState(Document):
+    """
+    Dynamic coverage status for a street segment.
+
+    This is the mutable state that changes when trips are driven or when
+    users manually mark segments. Geometry is NOT stored here.
+    """
+
+    area_id: Indexed(PydanticObjectId)
+    segment_id: str
+    status: str = "undriven"
+    last_driven_at: datetime | None = None
+    first_driven_at: datetime | None = None
+    driven_by_trip_id: PydanticObjectId | None = None
+    manually_marked: bool = False
+    marked_at: datetime | None = None
+
+    class Settings:
+        name = "coverage_state"
+        indexes: ClassVar[list[IndexModel]] = [
+            IndexModel(
+                [("area_id", 1), ("segment_id", 1)],
+                name="coverage_state_area_segment_unique_idx",
+                unique=True,
+            ),
+            IndexModel(
+                [("area_id", 1), ("status", 1)],
+                name="coverage_state_area_status_idx",
+            ),
+            IndexModel(
+                [("status", 1)],
+                name="coverage_state_status_idx",
+            ),
+            IndexModel(
+                [("first_driven_at", 1)],
+                name="coverage_state_first_driven_at_idx",
+            ),
+        ]
+
+    model_config = ConfigDict(extra="allow")
+
+
+class Job(Document):
+    """
+    Unified job status tracking for all background work.
+    """
+
+    job_type: str
+    area_id: PydanticObjectId | None = None
+    status: str = "pending"
+    stage: str = "Queued"
+    progress: float = 0.0
+    message: str = ""
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+    error: str | None = None
+    retry_count: int = 0
+    max_retries: int = 3
+
+    class Settings:
+        name = "jobs"
+        indexes: ClassVar[list[IndexModel]] = [
+            IndexModel(
+                [("area_id", 1), ("job_type", 1)],
+                name="jobs_area_type_idx",
+            ),
+            IndexModel([("status", 1)], name="jobs_status_idx"),
+            IndexModel(
+                [("created_at", -1)],
+                name="jobs_created_idx",
+            ),
+        ]
 
     model_config = ConfigDict(extra="allow")
 

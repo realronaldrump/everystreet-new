@@ -9,20 +9,20 @@ This module provides ARQ jobs for maintaining trip data quality:
 
 from __future__ import annotations
 
-import uuid
 import asyncio
 import logging
+import uuid
 from datetime import UTC, datetime
 from typing import Any
 
 from pydantic import ValidationError
 
-from map_matching.schemas import MapMatchJobRequest
-from map_matching.service import MapMatchingJobRunner
 from db.models import Trip
 from tasks.config import check_dependencies
 from tasks.ops import run_task_with_history
 from tracking.services.tracking_service import TrackingService
+from trips.models import MapMatchJobRequest
+from trips.services.map_matching_jobs import MapMatchingJobRunner
 
 logger = logging.getLogger(__name__)
 

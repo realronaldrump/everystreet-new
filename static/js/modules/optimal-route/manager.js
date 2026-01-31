@@ -5,12 +5,11 @@ import { OptimalRouteUI } from "./ui.js";
 
 export class OptimalRoutesManager {
   constructor(options = {}) {
-    const globalConfig = window.coverageNavigatorConfig?.optimalRoutes || {};
     this.config = {
       ...OPTIMAL_ROUTES_DEFAULTS,
-      ...globalConfig,
       ...options,
     };
+    this.onCoverageAreasLoaded = options.onCoverageAreasLoaded || null;
 
     this.selectedAreaId = null;
     this.currentTaskId = null;
@@ -29,7 +28,7 @@ export class OptimalRoutesManager {
     });
 
     this.map = new OptimalRouteMap(this.config.mapContainerId, {
-      useSharedMap: this.config.useSharedMap,
+      sharedMap: this.config.sharedMap,
       addNavigationControl: this.config.addNavigationControl,
       onLayerReady: () => this.onMapLayersReady(),
     });
@@ -263,10 +262,15 @@ export class OptimalRoutesManager {
 
       this.coverageAreas = areas;
 
-      // Dispatch event
-      document.dispatchEvent(
-        new CustomEvent("coverageAreasLoaded", { detail: { areas } })
-      );
+      if (typeof this.onCoverageAreasLoaded === "function") {
+        this.onCoverageAreasLoaded(areas);
+      }
+
+      if (this.config.emitCoverageAreasLoaded !== false) {
+        document.dispatchEvent(
+          new CustomEvent("coverageAreasLoaded", { detail: { areas } })
+        );
+      }
 
       this.ui.populateAreaSelect(areas);
       this.ui.updateSavedRoutes(areas, (areaId) => this.onAreaSelect(areaId));

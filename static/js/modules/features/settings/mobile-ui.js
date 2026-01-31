@@ -1,0 +1,881 @@
+/* global bootstrap, flatpickr */
+
+import apiClient from "../../core/api-client.js";
+import loadingManager from "../../ui/loading-manager.js";
+import notificationManager from "../../ui/notifications.js";
+import { DateUtils } from "../../utils.js";
+import { clearInlineStatus, setInlineStatus } from "./status-utils.js";
+import { submitTaskConfigUpdate } from "./task-manager/api.js";
+import {
+  escapeHtml,
+  formatDateTime,
+  formatDurationMs,
+  getStatusColor,
+} from "./task-manager/formatters.js";
+import { showErrorModal, showTaskDetails } from "./task-manager/modals.js";
+
+/**
+ * Mobile UI module - handles all mobile-specific UI rendering and interactions
+ */
+
+export function setupMobileAccordions() {
+  const headers = document.querySelectorAll(".mobile-accordion-header");
+  headers.forEach((header) => {
+    header.addEventListener("click", () => {
+      const content = header.nextElementSibling;
+      const icon = header.querySelector(".mobile-accordion-icon");
+      if (content.classList.contains("expanded")) {
+        content.classList.remove("expanded");
+        icon?.classList.remove("expanded");
+      } else {
+        content.classList.add("expanded");
+        icon?.classList.add("expanded");
+      }
+    });
+  });
+}
+
+export function setupMobileTaskList(taskManager) {
+  // Hook into the existing updateTaskConfigTable function
+  const originalUpdate = taskManager?.updateTaskConfigTable;
+  if (!originalUpdate) {
+    return;
+  }
+
+  taskManager.updateTaskConfigTable = function (config) {
+    originalUpdate.call(this, config);
+    updateMobileTaskList(config, taskManager);
+  };
+}
+
+export function updateMobileTaskList(config, taskManager) {
+  const mobileList = document.getElementById("mobile-task-list");
+  if (!mobileList) {
+    return;
+  }
+
+  mobileList.innerHTML = "";
+
+  Object.entries(config.tasks).forEach(([taskId, task]) => {
+    if (!task.display_name) {
+      return;
+    }
+
+    const isManualOnly = Boolean(task.manual_only);
+    const taskStatus = task.status || "IDLE";
+
+    const card = document.createElement("div");
+    card.className = "mobile-task-card";
+    card.dataset.taskId = taskId;
+
+    const statusClass = taskStatus.toLowerCase();
+
+    card.innerHTML = `
+      <div class="mobile-task-card-header">
+        <div class="mobile-task-name">${task.display_name || taskId}</div>
+        <div class="mobile-task-id">${taskId}</div>
+        <div class="mobile-task-badges">
+          ${isManualOnly ? '<span class="mobile-task-badge manual">Manual</span>' : ""}
+          <span class="mobile-task-badge status ${statusClass}">${taskStatus}</span>
+        </div>
+      </div>
+      <div class="mobile-task-card-body">
+        <div class="mobile-task-info-grid">
+          ${
+            !isManualOnly
+              ? `
+          <div class="mobile-task-info-item">
+            <span class="mobile-task-info-label">Interval</span>
+            <div class="mobile-task-info-value">
+              <select class="mobile-interval-select" data-task-id="${taskId}">
+                ${taskManager.intervalOptions
+                  .map(
+                    (opt) => `
+                  <option value="${opt.value}" ${opt.value === task.interval_minutes ? "selected" : ""}>
+                    ${opt.label}
+                  </option>
+                `
+                  )
+                  .join("")}
+              </select>
+            </div>
+          </div>
+          <div class="mobile-task-info-item">
+            <span class="mobile-task-info-label">Enabled</span>
+            <div class="mobile-task-info-value">
+              <input type="checkbox" class="mobile-switch mobile-task-enabled"
+                data-task-id="${taskId}" ${task.enabled ? "checked" : ""} />
+            </div>
+          </div>
+          `
+              : `
+          <div class="mobile-task-info-item">
+            <span class="mobile-task-info-label">Trigger</span>
+            <div class="mobile-task-info-value">Manual Only</div>
+          </div>
+          <div class="mobile-task-info-item">
+            <span class="mobile-task-info-label">Status</span>
+            <div class="mobile-task-info-value">Always Enabled</div>
+          </div>
+          `
+          }
+
+          <div class="mobile-task-info-item">
+            <span class="mobile-task-info-label">Last Run</span>
+            <div class="mobile-task-info-value">${task.last_run ? formatDateTime(task.last_run) : "Never"}</div>
+          </div>
+          <div class="mobile-task-info-item full-width">
+            <span class="mobile-task-info-label">Next Run</span>
+            <div class="mobile-task-info-value">${task.next_run ? formatDateTime(task.next_run) : "Not scheduled"}</div>
+          </div>
+        </div>
+        <div class="mobile-task-actions">
+          <button class="btn btn-info btn-sm mobile-run-task" data-task-id="${taskId}"
+            ${isManualOnly || taskStatus === "RUNNING" ? "disabled" : ""}>
+            <i class="fas fa-play"></i> Run
+          </button>
+          <button class="btn btn-warning btn-sm mobile-stop-task" data-task-id="${taskId}"
+            ${["RUNNING", "PENDING"].includes(taskStatus) ? "" : "disabled"}>
+            <i class="fas fa-stop-circle"></i> Stop
+          </button>
+          <button class="btn btn-primary btn-sm mobile-view-task" data-task-id="${taskId}">
+            <i class="fas fa-info-circle"></i> Details
+          </button>
+        </div>
+      </div>
+    `;
+
+    mobileList.appendChild(card);
+  });
+
+  // Attach event listeners
+  mobileList.querySelectorAll(".mobile-run-task").forEach((btn) => {
+    btn.addEventListener("click", function () {
+      const { taskId } = this.dataset;
+      taskManager?.runTask(taskId);
+    });
+  });
+
+  mobileList.querySelectorAll(".mobile-stop-task").forEach((btn) => {
+    btn.addEventListener("click", function () {
+      const { taskId } = this.dataset;
+      taskManager?.forceStopTask(taskId);
+    });
+  });
+
+  mobileList.querySelectorAll(".mobile-view-task").forEach((btn) => {
+    btn.addEventListener("click", function () {
+      const { taskId } = this.dataset;
+      showTaskDetails(taskId);
+    });
+  });
+}
+
+export function setupMobileHistoryList(taskManager) {
+  const originalUpdate = taskManager?.updateTaskHistoryTable;
+  if (!originalUpdate) {
+    return;
+  }
+
+  taskManager.updateTaskHistoryTable = function (history) {
+    originalUpdate.call(this, history);
+    updateMobileHistoryList(history, taskManager);
+  };
+}
+
+export function updateMobileHistoryList(history, taskManager) {
+  const mobileList = document.getElementById("mobile-history-list");
+  if (!mobileList) {
+    return;
+  }
+
+  mobileList.innerHTML = "";
+
+  if (history.length === 0) {
+    mobileList.innerHTML = `
+      <div class="mobile-empty-state">
+        <i class="fas fa-inbox"></i>
+        <div class="mobile-empty-state-title">No History</div>
+        <div class="mobile-empty-state-text">Task execution history will appear here</div>
+      </div>
+    `;
+    return;
+  }
+
+  history.forEach((entry) => {
+    const card = document.createElement("div");
+    card.className = "mobile-history-card";
+
+    let durationText = "Unknown";
+    if (entry.runtime !== null && entry.runtime !== undefined) {
+      const runtimeMs = parseFloat(entry.runtime);
+      if (!Number.isNaN(runtimeMs)) {
+        durationText = formatDurationMs(runtimeMs);
+      }
+    } else if (entry.status === "RUNNING" && entry.timestamp) {
+      try {
+        const startTime = new Date(entry.timestamp);
+        const now = new Date();
+        const elapsedMs = now - startTime;
+        if (!Number.isNaN(elapsedMs) && elapsedMs >= 0) {
+          durationText = formatDurationMs(elapsedMs);
+          card.dataset.startTime = entry.timestamp;
+          card.dataset.isRunning = "true";
+        }
+      } catch {
+        // Error calculating elapsed time - silently ignore
+      }
+    }
+
+    let resultText = "N/A";
+    if (entry.status === "RUNNING") {
+      resultText = "Running";
+    } else if (entry.status === "PENDING") {
+      resultText = "Pending";
+    } else if (entry.status === "COMPLETED") {
+      resultText = entry.result ? "Success" : "Completed";
+    } else if (entry.status === "FAILED") {
+      resultText = "Failed";
+    } else {
+      resultText = "N/A";
+    }
+
+    const statusClass = getStatusColor(entry.status);
+
+    card.innerHTML = `
+      <div class="mobile-history-header">
+        <div>
+          <div class="mobile-history-task-name">${entry.task_id}</div>
+          <div class="mobile-history-time">${formatDateTime(entry.timestamp)}</div>
+        </div>
+        <span class="badge bg-${statusClass}">${entry.status}</span>
+      </div>
+      <div class="mobile-history-info">
+        <div class="mobile-history-info-item">
+          <span class="mobile-task-info-label">Duration</span>
+          <span class="mobile-task-info-value task-duration">${durationText}</span>
+        </div>
+        <div class="mobile-history-info-item">
+          <span class="mobile-task-info-label">Result</span>
+          <span class="mobile-task-info-value">${resultText}</span>
+        </div>
+      </div>
+      ${
+        entry.error
+          ? `
+      <button class="btn btn-danger btn-sm w-100 mt-2 mobile-view-error"
+        data-error="${escapeHtml(entry.error)}">
+        <i class="fas fa-exclamation-circle"></i> View Error
+      </button>
+      `
+          : ""
+      }
+    `;
+
+    mobileList.appendChild(card);
+  });
+
+  // Attach error button listeners
+  mobileList.querySelectorAll(".mobile-view-error").forEach((btn) => {
+    btn.addEventListener("click", function () {
+      const errorMessage = this.dataset.error;
+      showErrorModal(errorMessage);
+    });
+  });
+
+  // Update pagination
+  updateMobilePagination(taskManager);
+}
+
+export function updateMobilePagination(taskManager) {
+  const pagination = document.getElementById("mobile-history-pagination");
+  const prevBtn = document.getElementById("mobile-history-prev");
+  const nextBtn = document.getElementById("mobile-history-next");
+  const pageInfo = document.getElementById("mobile-history-page-info");
+
+  if (!pagination || !taskManager) {
+    return;
+  }
+
+  const { currentHistoryPage, historyTotalPages } = taskManager;
+
+  if (historyTotalPages <= 1) {
+    pagination.style.display = "none";
+    return;
+  }
+
+  pagination.style.display = "flex";
+  pageInfo.textContent = `Page ${currentHistoryPage} of ${historyTotalPages}`;
+
+  prevBtn.disabled = currentHistoryPage === 1;
+  nextBtn.disabled = currentHistoryPage === historyTotalPages;
+
+  prevBtn.onclick = () => {
+    if (taskManager.currentHistoryPage > 1) {
+      taskManager.currentHistoryPage--;
+      taskManager.updateTaskHistory();
+    }
+  };
+
+  nextBtn.onclick = () => {
+    if (taskManager.currentHistoryPage < taskManager.historyTotalPages) {
+      taskManager.currentHistoryPage++;
+      taskManager.updateTaskHistory();
+    }
+  };
+}
+
+export function setupMobileGlobalControls() {
+  // Global disable switch
+  const mobileGlobalSwitch = document.getElementById("mobile-globalDisableSwitch");
+  const desktopGlobalSwitch = document.getElementById("globalDisableSwitch");
+
+  if (mobileGlobalSwitch && desktopGlobalSwitch) {
+    mobileGlobalSwitch.checked = desktopGlobalSwitch.checked;
+
+    mobileGlobalSwitch.addEventListener("change", function () {
+      desktopGlobalSwitch.checked = this.checked;
+      desktopGlobalSwitch.dispatchEvent(new Event("change"));
+    });
+  }
+
+  // Action buttons
+  const actions = [
+    { id: "pauseBtn", requiresModal: true },
+    { id: "resumeBtn" },
+    { id: "stopAllBtn" },
+    { id: "resetTasksBtn" },
+    { id: "enableAllBtn" },
+    { id: "disableAllBtn" },
+    { id: "manualRunAllBtn" },
+  ];
+
+  actions.forEach(({ id, requiresModal }) => {
+    const mobileBtn = document.getElementById(`mobile-${id}`);
+    const desktopBtn = document.getElementById(id);
+
+    if (mobileBtn && desktopBtn) {
+      mobileBtn.addEventListener("click", () => {
+        if (requiresModal) {
+          const modal = document.getElementById("pauseModal");
+          if (modal) {
+            const bsModal = new bootstrap.Modal(modal);
+            bsModal.show();
+          }
+        } else {
+          desktopBtn.click();
+        }
+      });
+    }
+  });
+
+  // Clear history button
+  const mobileClearBtn = document.getElementById("mobile-clearHistoryBtn");
+  const desktopClearBtn = document.getElementById("clearHistoryBtn");
+
+  if (mobileClearBtn && desktopClearBtn) {
+    mobileClearBtn.addEventListener("click", () => {
+      const modal = new bootstrap.Modal(document.getElementById("clearHistoryModal"));
+      modal.show();
+    });
+  }
+}
+
+export function setupMobileManualFetch(taskManager) {
+  const form = document.getElementById("mobile-manualFetchTripsForm");
+  if (!form) {
+    return;
+  }
+
+  const startInput = document.getElementById("mobile-manual-fetch-start");
+  const endInput = document.getElementById("mobile-manual-fetch-end");
+  const mapMatchInput = document.getElementById("mobile-manual-fetch-map-match");
+  const statusEl = document.getElementById("mobile-manual-fetch-status");
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (!taskManager) {
+      return;
+    }
+
+    const startValue = startInput?.value;
+    const endValue = endInput?.value;
+
+    clearInlineStatus(statusEl);
+
+    if (!startValue || !endValue) {
+      setInlineStatus(statusEl, "Please select both start and end dates.", "danger");
+      return;
+    }
+
+    const startDate = new Date(startValue);
+    const endDate = new Date(endValue);
+
+    if (
+      !startDate
+      || !endDate
+      || Number.isNaN(startDate.getTime())
+      || Number.isNaN(endDate.getTime())
+    ) {
+      setInlineStatus(statusEl, "Invalid date selection.", "danger");
+      return;
+    }
+
+    if (endDate.getTime() <= startDate.getTime()) {
+      setInlineStatus(statusEl, "End date must be after the start date.", "danger");
+      return;
+    }
+
+    const mapMatchEnabled = Boolean(mapMatchInput?.checked);
+
+    try {
+      setInlineStatus(statusEl, "Scheduling fetch...", "info");
+      await taskManager.scheduleManualFetch(
+        startDate.toISOString(),
+        endDate.toISOString(),
+        mapMatchEnabled
+      );
+      setInlineStatus(statusEl, "Fetch scheduled successfully.", "success");
+    } catch (error) {
+      setInlineStatus(statusEl, `Error: ${error.message}`, "danger");
+    }
+  });
+}
+
+export function setupMobileDataManagement() {
+  setupMobileGeocodeTrips();
+  setupMobileRemapTrips();
+}
+
+// Helper function for geocode progress polling
+async function pollGeocodeProgress(context) {
+  const { taskId, geocodeBtn, statusEl } = context;
+
+  try {
+    const progressResponse = await apiClient.raw(
+      `/api/geocode_trips/progress/${taskId}`
+    );
+    if (!progressResponse.ok) {
+      handleGeocodeProgressError(context, progressResponse.status);
+      return;
+    }
+
+    const progressData = await progressResponse.json();
+    updateGeocodeProgressUI(context, progressData);
+
+    if (progressData.stage === "completed" || progressData.stage === "error") {
+      handleGeocodeCompletion(context, progressData);
+    }
+  } catch {
+    // Error polling progress - silently ignore
+    clearInterval(pollGeocodeProgress.pollInterval);
+    geocodeBtn.disabled = false;
+    setInlineStatus(statusEl, "Lost connection while monitoring progress.", "warning");
+    notificationManager.show(
+      "Lost connection while monitoring geocoding progress",
+      "warning"
+    );
+  }
+}
+
+function handleGeocodeProgressError(context, status) {
+  const { geocodeBtn, statusEl } = context;
+  clearInterval(pollGeocodeProgress.pollInterval);
+  geocodeBtn.disabled = false;
+  const errorMessage
+    = status === 404
+      ? "Geocoding task not found."
+      : "Unable to retrieve geocoding progress.";
+  setInlineStatus(statusEl, errorMessage, "danger");
+  notificationManager.show(errorMessage, "danger");
+}
+
+function updateGeocodeProgressUI(context, progressData) {
+  const { progressBar, progressMessage, progressMetrics } = context;
+  const progress = progressData.progress || 0;
+  const message = progressData.message || "";
+  const metrics = progressData.metrics || {};
+
+  if (progressBar) {
+    progressBar.style.width = `${progress}%`;
+    progressBar.textContent = `${progress}%`;
+    progressBar.setAttribute("aria-valuenow", progress);
+  }
+
+  if (progressMessage) {
+    progressMessage.textContent = message;
+  }
+
+  if (progressMetrics && metrics.total > 0) {
+    progressMetrics.textContent = `Total: ${metrics.total} | Updated: ${metrics.updated || 0} | Skipped: ${metrics.skipped || 0} | Failed: ${metrics.failed || 0}`;
+  }
+}
+
+function handleGeocodeCompletion(context, progressData) {
+  const { geocodeBtn, statusEl, progressBar } = context;
+  const { stage } = progressData;
+  const metrics = progressData.metrics || {};
+
+  clearInterval(pollGeocodeProgress.pollInterval);
+  geocodeBtn.disabled = false;
+
+  if (stage === "completed") {
+    updateGeocodeSuccessUI(statusEl, progressBar, metrics);
+    notificationManager.show(
+      `Geocoding completed: ${metrics.updated || 0} updated, ${metrics.skipped || 0} skipped`,
+      "success"
+    );
+  } else {
+    updateGeocodeErrorUI(statusEl, progressBar, progressData);
+    notificationManager.show(
+      `Geocoding failed: ${progressData.error || "Unknown error"}`,
+      "danger"
+    );
+  }
+}
+
+function updateGeocodeSuccessUI(statusEl, progressBar, metrics) {
+  if (progressBar) {
+    progressBar.classList.remove(
+      "progress-bar-animated",
+      "progress-bar-striped",
+      "bg-primary",
+      "bg-danger"
+    );
+    progressBar.classList.add("bg-success");
+  }
+  if (statusEl) {
+    setInlineStatus(
+      statusEl,
+      `Geocoding completed: ${metrics.updated || 0} updated, ${metrics.skipped || 0} skipped`,
+      "success"
+    );
+  }
+}
+
+function updateGeocodeErrorUI(statusEl, progressBar, progressData) {
+  if (progressBar) {
+    progressBar.classList.remove(
+      "progress-bar-animated",
+      "progress-bar-striped",
+      "bg-primary",
+      "bg-success"
+    );
+    progressBar.classList.add("bg-danger");
+  }
+  if (statusEl) {
+    setInlineStatus(
+      statusEl,
+      `Error: ${progressData.error || "Unknown error"}`,
+      "danger"
+    );
+  }
+}
+
+export function setupMobileGeocodeTrips() {
+  const geocodeTabs = document.querySelectorAll(
+    '.mobile-date-method-tab[data-target="geocode"]'
+  );
+  const geocodeDateRange = document.getElementById("mobile-geocode-date-range");
+  const geocodeInterval = document.getElementById("mobile-geocode-interval");
+  const geocodeBtn = document.getElementById("mobile-geocode-trips-btn");
+  const progressPanel = document.getElementById("mobile-geocode-progress-panel");
+  const progressBar = document.getElementById("mobile-geocode-progress-bar");
+  const progressMessage = document.getElementById("mobile-geocode-progress-message");
+  const progressMetrics = document.getElementById("mobile-geocode-progress-metrics");
+  const statusEl = document.getElementById("mobile-geocode-trips-status");
+
+  if (!geocodeBtn) {
+    return;
+  }
+
+  // Handle tab clicks
+  geocodeTabs.forEach((tab) => {
+    tab.addEventListener("click", () => {
+      geocodeTabs.forEach((t) => {
+        t.classList.remove("active");
+      });
+      tab.classList.add("active");
+      const { method } = tab.dataset;
+
+      if (method === "date") {
+        geocodeDateRange.style.display = "block";
+        geocodeInterval.style.display = "none";
+      } else if (method === "interval") {
+        geocodeDateRange.style.display = "none";
+        geocodeInterval.style.display = "block";
+      } else {
+        geocodeDateRange.style.display = "none";
+        geocodeInterval.style.display = "none";
+      }
+    });
+  });
+
+  // Handle button click
+  geocodeBtn.addEventListener("click", async () => {
+    const activeTab = document.querySelector(
+      '.mobile-date-method-tab[data-target="geocode"].active'
+    );
+    const method = activeTab?.dataset.method || "date";
+    let start_date = "";
+    let end_date = "";
+    let interval_days = 0;
+
+    if (method === "date") {
+      start_date = document.getElementById("mobile-geocode-start")?.value || "";
+      end_date = document.getElementById("mobile-geocode-end")?.value || "";
+      if (!start_date || !end_date) {
+        notificationManager.show("Please select both start and end dates", "danger");
+        return;
+      }
+    } else if (method === "interval") {
+      interval_days = parseInt(
+        document.getElementById("mobile-geocode-interval-select")?.value || "0",
+        10
+      );
+    }
+
+    try {
+      geocodeBtn.disabled = true;
+      setInlineStatus(statusEl, "Starting geocoding...", "info");
+      if (progressPanel) {
+        progressPanel.style.display = "block";
+      }
+      if (progressBar) {
+        progressBar.style.width = "0%";
+        progressBar.textContent = "0%";
+        progressBar.setAttribute("aria-valuenow", "0");
+        progressBar.classList.remove("bg-success", "bg-danger");
+        progressBar.classList.add(
+          "bg-primary",
+          "progress-bar-animated",
+          "progress-bar-striped"
+        );
+      }
+      if (progressMessage) {
+        progressMessage.textContent = "Initializing...";
+      }
+      if (progressMetrics) {
+        progressMetrics.textContent = "";
+      }
+
+      const response = await apiClient.raw("/api/geocode_trips", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ start_date, end_date, interval_days }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to start geocoding");
+      }
+
+      const data = await response.json();
+      const taskId = data.task_id;
+
+      // Start polling for progress
+      const pollInterval = setInterval(
+        pollGeocodeProgress.bind(null, {
+          taskId,
+          pollInterval: null,
+          geocodeBtn,
+          statusEl,
+          progressBar,
+          progressMessage,
+          progressMetrics,
+        }),
+        1000
+      );
+
+      // Update pollInterval reference for cleanup
+      pollGeocodeProgress.pollInterval = pollInterval;
+    } catch {
+      geocodeBtn.disabled = false;
+      setInlineStatus(statusEl, "Error starting geocoding. See console.", "danger");
+      notificationManager.show("Failed to start geocoding", "danger");
+    }
+  });
+
+  // Initialize date pickers
+  if (DateUtils?.initDatePicker) {
+    DateUtils.initDatePicker(".datepicker");
+  } else if (typeof flatpickr !== "undefined") {
+    flatpickr(".datepicker", {
+      enableTime: false,
+      dateFormat: "Y-m-d",
+    });
+  }
+}
+
+export function setupMobileRemapTrips() {
+  const dateTab = document.querySelector(
+    '.mobile-date-method-tab[data-target="remap"][data-method="date"]'
+  );
+  const intervalTab = document.querySelector(
+    '.mobile-date-method-tab[data-target="remap"][data-method="interval"]'
+  );
+  const dateRange = document.getElementById("mobile-remap-date-range");
+  const intervalDiv = document.getElementById("mobile-remap-interval");
+
+  if (dateTab && intervalTab && dateRange && intervalDiv) {
+    dateTab.addEventListener("click", () => {
+      dateTab.classList.add("active");
+      intervalTab.classList.remove("active");
+      dateRange.style.display = "block";
+      intervalDiv.style.display = "none";
+    });
+
+    intervalTab.addEventListener("click", () => {
+      intervalTab.classList.add("active");
+      dateTab.classList.remove("active");
+      dateRange.style.display = "none";
+      intervalDiv.style.display = "block";
+    });
+  }
+
+  const remapBtn = document.getElementById("mobile-remap-btn");
+  const remapStatus = document.getElementById("mobile-remap-status");
+
+  if (remapBtn) {
+    remapBtn.addEventListener("click", async () => {
+      const method
+        = document.querySelector('.mobile-date-method-tab[data-target="remap"].active')
+          ?.dataset.method || "date";
+      let start_date = "";
+      let end_date = "";
+      let interval_days = 0;
+
+      if (method === "date") {
+        start_date = document.getElementById("mobile-remap-start").value;
+        end_date = document.getElementById("mobile-remap-end").value;
+        if (!start_date || !end_date) {
+          notificationManager.show("Please select both start and end dates", "danger");
+          return;
+        }
+      } else {
+        interval_days = parseInt(
+          document.getElementById("mobile-remap-interval-select").value,
+          10
+        );
+        const startDateObj = new Date();
+        startDateObj.setDate(startDateObj.getDate() - interval_days);
+        start_date = DateUtils.formatDateToString(startDateObj);
+        end_date = DateUtils.formatDateToString(new Date());
+      }
+
+      try {
+        loadingManager.show();
+        setInlineStatus(remapStatus, "Queueing rematch job...", "info");
+
+        const response = await apiClient.raw("/api/map_matching/jobs", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            mode: "date_range",
+            start_date,
+            end_date,
+            interval_days,
+            unmatched_only: false,
+            rematch: true,
+          }),
+        });
+
+        loadingManager.hide();
+        await response.json();
+
+        setInlineStatus(
+          remapStatus,
+          "Rematch job queued. View progress in Map Matching.",
+          "success"
+        );
+        notificationManager.show(
+          "Rematch job queued. View progress in Map Matching.",
+          "success"
+        );
+      } catch {
+        loadingManager.hide();
+        setInlineStatus(remapStatus, "Error re-matching trips.", "danger");
+        notificationManager.show("Failed to re-match trips", "danger");
+      }
+    });
+  }
+
+  // Initialize datepickers for mobile
+  if (DateUtils?.initDatePicker) {
+    DateUtils.initDatePicker(".mobile-form-input.datepicker");
+  } else if (typeof flatpickr !== "undefined") {
+    flatpickr(".mobile-form-input.datepicker", {
+      enableTime: false,
+      dateFormat: "Y-m-d",
+    });
+  }
+}
+
+export function setupMobileSaveFAB(taskManager) {
+  const fab = document.getElementById("mobile-save-config-fab");
+  if (!fab) {
+    return;
+  }
+
+  fab.addEventListener("click", () => {
+    if (!taskManager) {
+      return;
+    }
+
+    // Gather mobile config
+    const mobileGlobalSwitch = document.getElementById("mobile-globalDisableSwitch");
+    const tasks = {};
+
+    document.querySelectorAll(".mobile-task-card").forEach((card) => {
+      const { taskId } = card.dataset;
+      const intervalSelect = card.querySelector(".mobile-interval-select");
+      const enabledSwitch = card.querySelector(".mobile-task-enabled");
+
+      if (intervalSelect && enabledSwitch) {
+        tasks[taskId] = {
+          interval_minutes: parseInt(intervalSelect.value, 10),
+          enabled: enabledSwitch.checked,
+        };
+      }
+    });
+
+    const config = {
+      globalDisable: mobileGlobalSwitch?.checked || false,
+      tasks,
+    };
+
+    submitTaskConfigUpdate(config)
+      .then(() => {
+        notificationManager.show("Task configuration updated successfully", "success");
+        fab.classList.add("saved");
+        setTimeout(() => fab.classList.remove("saved"), 2000);
+        taskManager.loadTaskConfig();
+      })
+      .catch((error) => {
+        // Error updating task config - notification shown below
+        notificationManager.show(
+          `Error updating task config: ${error.message}`,
+          "danger"
+        );
+      });
+  });
+}
+
+/**
+ * Initialize all mobile UI components
+ */
+export function initMobileUI(taskManager) {
+  setupMobileAccordions();
+  setupMobileTaskList(taskManager);
+  setupMobileHistoryList(taskManager);
+  setupMobileGlobalControls();
+  setupMobileManualFetch(taskManager);
+  setupMobileDataManagement();
+  setupMobileSaveFAB(taskManager);
+
+  return () => {
+    if (pollGeocodeProgress.pollInterval) {
+      clearInterval(pollGeocodeProgress.pollInterval);
+      pollGeocodeProgress.pollInterval = null;
+    }
+  };
+}

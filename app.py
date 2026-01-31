@@ -14,23 +14,22 @@ from fastapi.templating import Jinja2Templates
 from admin import router as admin_api_router
 from analytics import router as analytics_api_router
 from api.pages import router as pages_router
+from api.routing import router as routing_router
+from api.status import router as status_router
 from core.http.session import cleanup_session
 from core.repo_info import get_repo_version_info
 from county import router as county_api_router
 from db import db_manager
 from db.logging_handler import MongoDBHandler
-from driving import router as driving_routes_router
+from driving import router as driving_api_router
 from exports import router as export_api_router
 from gas import router as gas_api_router
 from logs import router as logs_api_router
-from map_data.routes import router as map_data_router
-from map_matching.routes import router as map_matching_router
+from map_data.api import router as map_data_router
 from processing import router as processing_api_router
-from routes.routing import router as routing_router
-from routes.status import router as status_router
 from search import router as search_api_router
 from setup import router as setup_api_router
-from street_coverage.routes.coverage import router as coverage_api_router
+from street_coverage.api import router as coverage_api_router
 from tasks.api import router as tasks_api_router
 from tasks.arq import close_arq_pool
 from tracking import router as tracking_api_router
@@ -50,7 +49,7 @@ logger = logging.getLogger(__name__)
 class StaticFileFilter(logging.Filter):
     """Filter to suppress noisy static file request logs."""
 
-    def filter(self, record: logging.LogRecord) -> bool:  # noqa: V105
+    def filter(self, record: logging.LogRecord) -> bool:
         # Filter out static file requests and favicon
         message = record.getMessage()
         if "/static/" in message or "/favicon.ico" in message:
@@ -81,6 +80,7 @@ app.mount(
 )
 templates = Jinja2Templates(directory="templates")
 
+
 # Root-level icon requests (browser defaults)
 @app.get("/favicon.ico", include_in_schema=False)
 async def favicon() -> RedirectResponse:
@@ -95,6 +95,7 @@ async def apple_touch_icon() -> RedirectResponse:
 @app.get("/apple-touch-icon-precomposed.png", include_in_schema=False)
 async def apple_touch_icon_precomposed() -> RedirectResponse:
     return RedirectResponse(url="/static/apple-touch-icon.png")
+
 
 # CORS Middleware Configuration
 # Get allowed origins from environment variable or use defaults
@@ -137,14 +138,13 @@ app.include_router(admin_api_router)
 app.include_router(analytics_api_router)
 app.include_router(county_api_router)
 app.include_router(coverage_api_router)
-app.include_router(driving_routes_router)
+app.include_router(driving_api_router)
 app.include_router(export_api_router)
 app.include_router(routing_router)
 app.include_router(gas_api_router)
 app.include_router(tracking_api_router)
 app.include_router(logs_api_router)
 app.include_router(map_data_router)
-app.include_router(map_matching_router)
 
 app.include_router(processing_api_router)
 app.include_router(profile_api_router)
@@ -226,12 +226,6 @@ async def startup_event():
         graph_dir = Path("data/graphs")
         graph_dir.mkdir(parents=True, exist_ok=True)
         logger.info("Graph storage directory ready: %s", graph_dir)
-
-        # Register coverage event handlers
-        from street_coverage.events import register_handlers
-
-        register_handlers()
-        logger.info("Coverage event handlers registered.")
 
         logger.info("Application startup completed successfully.")
 

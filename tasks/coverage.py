@@ -3,9 +3,8 @@ Coverage calculation tasks.
 
 This module provides ARQ jobs for coverage operations.
 
-In the new event-driven system, coverage updates happen automatically
-when trips complete. This task is kept for manual/scheduled full
-refreshes of coverage statistics.
+Coverage updates run inline during trip ingestion. This task is kept
+for manual/scheduled full refreshes of coverage statistics.
 """
 
 from __future__ import annotations
@@ -13,7 +12,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from street_coverage.models import CoverageArea
+from db.models import CoverageArea
 from street_coverage.stats import update_area_stats
 from tasks.ops import run_task_with_history
 
@@ -24,9 +23,8 @@ async def _update_coverage_for_new_trips_logic() -> dict[str, Any]:
     """
     Refresh coverage statistics for all areas.
 
-    In the new event-driven system, coverage updates happen automatically
-    when trips complete. This task recalculates stats for all areas,
-    which is useful for:
+    Coverage updates happen during trip ingestion. This task recalculates
+    stats for all areas, which is useful for:
     - Fixing any inconsistencies
     - After manual data corrections
     - Scheduled maintenance

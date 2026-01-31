@@ -171,8 +171,8 @@ class VisitsMapController {
 
   toggleMapStyle() {
     this.mapStyle = this.mapStyle === "satellite" ? "dark" : "satellite";
-    const styleUrl =
-      this.mapStyle === "satellite"
+    const styleUrl
+      = this.mapStyle === "satellite"
         ? "mapbox://styles/mapbox/satellite-streets-v12"
         : "mapbox://styles/mapbox/dark-v11";
 
@@ -187,8 +187,8 @@ class VisitsMapController {
 
   updateTheme(theme) {
     this.mapStyle = theme === "light" ? "light" : "dark";
-    const styleUrl =
-      this.mapStyle === "light"
+    const styleUrl
+      = this.mapStyle === "light"
         ? "mapbox://styles/mapbox/light-v11"
         : "mapbox://styles/mapbox/dark-v11";
 

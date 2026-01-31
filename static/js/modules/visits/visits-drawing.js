@@ -288,8 +288,8 @@ class VisitsDrawing {
 
     this.resetDrawing(false);
 
-    const suggestionName =
-      suggestion.suggestedName || suggestion.name || "Suggested Place";
+    const suggestionName
+      = suggestion.suggestedName || suggestion.name || "Suggested Place";
     const geoJson = {
       type: "Feature",
       geometry: suggestion.boundary,

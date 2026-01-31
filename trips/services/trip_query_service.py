@@ -6,10 +6,10 @@ from typing import Any
 from beanie.operators import In
 
 from core.date_utils import parse_timestamp
+from core.spatial import GeometryService
 from db import build_calendar_date_expr
 from db.aggregation import aggregate_to_list
 from db.models import Trip, Vehicle
-from geo_service.geometry import GeometryService
 
 logger = logging.getLogger(__name__)
 

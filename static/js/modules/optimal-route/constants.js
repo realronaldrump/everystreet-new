@@ -1,9 +1,10 @@
 export const OPTIMAL_ROUTES_DEFAULTS = {
   areaSelectId: "area-select",
   mapContainerId: "route-map",
-  useSharedMap: false,
+  sharedMap: null,
   addNavigationControl: true,
   populateAreaSelect: true,
+  emitCoverageAreasLoaded: true,
 };
 
 export const STAGE_COPY = {

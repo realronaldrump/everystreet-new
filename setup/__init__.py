@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter
 
-from setup.routes import bouncie, configuration, wizard
+from setup.api import bouncie, configuration, wizard
 
 router = APIRouter()
 router.include_router(wizard.router, tags=["setup"])

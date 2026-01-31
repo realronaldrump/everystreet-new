@@ -137,22 +137,24 @@ function updateStatusUI(status, elements) {
   }
 
   if (elements.miniIndicator) {
-    const indicatorState = status.state === "syncing"
-      ? "syncing"
-      : status.state === "error"
-        ? "error"
-        : "idle";
+    const indicatorState
+      = status.state === "syncing"
+        ? "syncing"
+        : status.state === "error"
+          ? "error"
+          : "idle";
     elements.miniIndicator.setAttribute("data-state", indicatorState);
   }
 
   if (elements.miniText) {
-    const text = status.state === "syncing"
-      ? "Syncing..."
-      : status.state === "error"
-        ? "Sync failed"
-        : status.last_success_at
-          ? `Updated ${formatTimestamp(status.last_success_at)}`
-          : "Up to date";
+    const text
+      = status.state === "syncing"
+        ? "Syncing..."
+        : status.state === "error"
+          ? "Sync failed"
+          : status.last_success_at
+            ? `Updated ${formatTimestamp(status.last_success_at)}`
+            : "Up to date";
     setText(elements.miniText, text);
   }
 
@@ -428,10 +430,9 @@ export function initTripSync({ onSyncComplete, onSyncError, cleanup } = {}) {
       getElement("trip-sync-empty-btn"),
       getElement("empty-sync-btn"),
     ].filter(Boolean),
-    syncButtons: [
-      getElement("sync-trips-btn"),
-      getElement("sync-now-btn"),
-    ].filter(Boolean),
+    syncButtons: [getElement("sync-trips-btn"), getElement("sync-now-btn")].filter(
+      Boolean
+    ),
     historyButton: getElement("sync-history-btn"),
     miniIndicator: document.querySelector(".sync-indicator"),
     miniText: document.querySelector(".sync-text"),

@@ -18,18 +18,21 @@ from shapely.ops import unary_union
 
 from config import get_geofabrik_mirror, get_osm_extracts_path
 from core.service_config import get_service_config
+from map_data.auto_provision import US_STATE_BOUNDS
 from map_data.builders import (
     build_nominatim_data,
     build_valhalla_tiles,
     start_container_on_demand,
 )
-from map_data.auto_provision import US_STATE_BOUNDS
 from map_data.coverage import (
     build_trip_coverage_extract,
     build_trip_coverage_extract_from_geometry,
     build_trip_coverage_polygon,
 )
-from map_data.geofabrik_index import find_smallest_covering_extract, load_geofabrik_index
+from map_data.geofabrik_index import (
+    find_smallest_covering_extract,
+    load_geofabrik_index,
+)
 from map_data.models import MapBuildProgress, MapServiceConfig
 from map_data.services import check_service_health
 from map_data.us_states import build_geofabrik_path, get_state
@@ -555,7 +558,9 @@ async def _maybe_build_coverage_extract(
                     phase_progress=100.0,
                 )
                 return extract_path
-            logger.warning("Coverage extract unavailable; falling back to state bounds.")
+            logger.warning(
+                "Coverage extract unavailable; falling back to state bounds."
+            )
 
     if state_bounds_geometry is not None:
         try:
@@ -783,6 +788,7 @@ async def setup_map_data_task(ctx: dict, states: list[str]) -> dict[str, Any]:
         coverage_analysis_timed_out = False
         coverage_by_state: dict[str, Any] = {}
         if mode in {"trips", "auto"}:
+
             async def coverage_progress(stats: Any) -> None:
                 await _update_progress(
                     config,
@@ -809,7 +815,7 @@ async def setup_map_data_task(ctx: dict, states: list[str]) -> dict[str, Any]:
                     ),
                     timeout=COVERAGE_BUILD_TIMEOUT_SECONDS,
                 )
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 coverage_analysis_timed_out = True
                 logger.warning(
                     "Coverage polygon build timed out after %s seconds",

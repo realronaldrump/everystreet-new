@@ -54,12 +54,13 @@ class APIClient {
     const controller = new AbortController();
     const activeSignal = signal || controller.signal;
     let timeoutTriggered = false;
-    const timeoutId = timeout && !signal
-      ? setTimeout(() => {
-        timeoutTriggered = true;
-        controller.abort();
-      }, timeout)
-      : null;
+    const timeoutId
+      = timeout && !signal
+        ? setTimeout(() => {
+            timeoutTriggered = true;
+            controller.abort();
+          }, timeout)
+        : null;
 
     try {
       const response = await this._fetchWithRetry(
@@ -109,12 +110,13 @@ class APIClient {
     const controller = new AbortController();
     const activeSignal = signal || controller.signal;
     let timeoutTriggered = false;
-    const timeoutId = timeout && !signal
-      ? setTimeout(() => {
-        timeoutTriggered = true;
-        controller.abort();
-      }, timeout)
-      : null;
+    const timeoutId
+      = timeout && !signal
+        ? setTimeout(() => {
+            timeoutTriggered = true;
+            controller.abort();
+          }, timeout)
+        : null;
 
     try {
       const response = await this._fetchWithRetry(

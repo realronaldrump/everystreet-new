@@ -396,7 +396,9 @@ async def get_auto_provision_status() -> dict[str, Any]:
         MapServiceConfig.STATUS_BUILDING,
     }
 
-    no_trip_data = not detected_states and not config.selected_states and not is_building
+    no_trip_data = (
+        not detected_states and not config.selected_states and not is_building
+    )
     message = config.message
     if no_trip_data:
         message = "No trips found yet. Map data will build after trips are imported."
@@ -436,10 +438,13 @@ async def get_auto_provision_status() -> dict[str, Any]:
         "missing_state_details": missing_details,
         "missing_size_mb": missing_size,
         "needs_provisioning": (
-            (len(missing_states) > 0 or (
-                config.selected_states
-                and config.status == MapServiceConfig.STATUS_NOT_CONFIGURED
-            ))
+            (
+                len(missing_states) > 0
+                or (
+                    config.selected_states
+                    and config.status == MapServiceConfig.STATUS_NOT_CONFIGURED
+                )
+            )
             and not is_building
         ),
         "services": {

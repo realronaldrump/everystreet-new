@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter
 
-from tracking.routes import live, webhooks
+from tracking.api import live, webhooks
 
 router = APIRouter()
 router.include_router(live.router, tags=["tracking-live"])

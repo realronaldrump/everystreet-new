@@ -1,10 +1,5 @@
 """County API package."""
 
-from fastapi import APIRouter
-
-from county.routes import county
-
-router = APIRouter()
-router.include_router(county.router, tags=["counties"])
+from county.api import router
 
 __all__ = ["router"]

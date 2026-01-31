@@ -24,8 +24,8 @@ from dotenv import load_dotenv
 from shapely.geometry import box, shape
 
 from config import require_osm_data_path
-from routes.constants import GRAPH_STORAGE_DIR, ROUTING_BUFFER_FT
-from routes.geometry import _buffer_polygon_for_routing
+from core.spatial import buffer_polygon_for_routing
+from routing.constants import GRAPH_STORAGE_DIR, ROUTING_BUFFER_FT
 from street_coverage.osm_filters import get_driveable_highway
 
 logger = logging.getLogger(__name__)
@@ -234,7 +234,7 @@ async def preprocess_streets(
                 return None
 
         # 2. Buffer Polygon
-        routing_polygon = _buffer_polygon_for_routing(polygon, ROUTING_BUFFER_FT)
+        routing_polygon = buffer_polygon_for_routing(polygon, ROUTING_BUFFER_FT)
 
         # 3. Load Graph from local extract
         logger.info("Loading OSM graph from local extract for %s...", location_name)
@@ -283,7 +283,7 @@ async def preprocess_streets(
 
 async def preprocess_all_graphs() -> None:
     """Main function to process all coverage areas."""
-    from street_coverage.models import CoverageArea
+    from db.models import CoverageArea
 
     load_dotenv()
 

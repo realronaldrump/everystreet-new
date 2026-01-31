@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 import street_coverage.preprocessing as preprocess_module
-from routes import constants as routes_constants
+from routing import constants as routing_constants
 from street_coverage import ingestion as coverage_ingestion
 from street_coverage.preprocessing import preprocess_streets
 
@@ -18,8 +18,8 @@ async def test_preprocess_and_ingestion_uses_driveable_graph(tmp_path: Path) -> 
     graph_dir = tmp_path / "graphs"
     graph_dir.mkdir(parents=True, exist_ok=True)
 
-    original_graph_dir = routes_constants.GRAPH_STORAGE_DIR
-    routes_constants.GRAPH_STORAGE_DIR = graph_dir
+    original_graph_dir = routing_constants.GRAPH_STORAGE_DIR
+    routing_constants.GRAPH_STORAGE_DIR = graph_dir
     preprocess_module.GRAPH_STORAGE_DIR = graph_dir
 
     try:
@@ -63,5 +63,5 @@ async def test_preprocess_and_ingestion_uses_driveable_graph(tmp_path: Path) -> 
         assert any(way["tags"]["highway"] == "residential" for way in ways)
         assert all(way["tags"]["highway"] != "footway" for way in ways)
     finally:
-        routes_constants.GRAPH_STORAGE_DIR = original_graph_dir
+        routing_constants.GRAPH_STORAGE_DIR = original_graph_dir
         preprocess_module.GRAPH_STORAGE_DIR = original_graph_dir

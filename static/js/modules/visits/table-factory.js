@@ -359,7 +359,8 @@ function createSuggestionsTable({ onCreatePlace, onPreview } = {}) {
           if (type !== "display") {
             return data;
           }
-          const suggestionId = row?.suggestionId || row?._id || row?.suggestedName || "";
+          const suggestionId
+            = row?.suggestionId || row?._id || row?.suggestedName || "";
           return `<div class="btn-group btn-group-sm" role="group">
                 <button class="btn btn-sm btn-outline-info preview-suggestion-btn" data-place-id="${suggestionId}" title="Preview">
                   <i class="fas fa-eye"></i>

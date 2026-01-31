@@ -223,7 +223,7 @@ async def get_service_health() -> dict[str, Any]:
         if heartbeat:
             heartbeat_value = (
                 heartbeat.decode()
-                if isinstance(heartbeat, bytes | bytearray)
+                if isinstance(heartbeat, (bytes, bytearray))
                 else str(heartbeat)
             )
             heartbeat_dt = None

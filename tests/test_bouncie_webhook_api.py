@@ -2,7 +2,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from tracking.routes import webhooks as webhook_api
+from tracking.api import webhooks as webhook_api
 
 
 @pytest.mark.asyncio

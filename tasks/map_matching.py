@@ -5,9 +5,9 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
-from map_matching.schemas import MapMatchJobRequest
-from map_matching.service import MapMatchingJobRunner
 from tasks.ops import run_task_with_history
+from trips.models import MapMatchJobRequest
+from trips.services.map_matching_jobs import MapMatchingJobRunner
 
 
 async def map_match_trips(

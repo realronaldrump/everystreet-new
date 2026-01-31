@@ -4,7 +4,7 @@ import test from "node:test";
 let profileState;
 
 test.before(async () => {
-  profileState = await import("../static/js/profile-state.js");
+  profileState = await import("../static/js/modules/features/profile/state.js");
 });
 
 const baseValues = {

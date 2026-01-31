@@ -21,6 +21,9 @@ from beanie import PydanticObjectId
 from shapely.geometry import LineString, MultiLineString, mapping, shape
 from shapely.ops import transform
 
+from core.coverage import backfill_coverage_for_area
+from core.spatial import geodesic_length_meters, get_local_transformers
+from db.models import CoverageArea, CoverageState, Job, Street
 from map_data.us_states import get_state
 from street_coverage.constants import (
     BATCH_SIZE,
@@ -30,12 +33,8 @@ from street_coverage.constants import (
     RETRY_BASE_DELAY_SECONDS,
     SEGMENT_LENGTH_METERS,
 )
-from street_coverage.events import CoverageEvents, emit_area_created, on_event
-from street_coverage.geo_utils import geodesic_length_meters, get_local_transformers
-from street_coverage.models import CoverageArea, CoverageState, Job, Street
 from street_coverage.osm_filters import get_driveable_highway
 from street_coverage.stats import update_area_stats
-from street_coverage.worker import backfill_coverage_for_area
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -87,12 +86,25 @@ async def create_area(
 
     logger.info("Created coverage area: %s (%s)", display_name, area.id)
 
-    # Emit event to trigger async ingestion
     if area.id is None:
         msg = "Coverage area insert failed (missing id)"
         raise RuntimeError(msg)
+
     area_id: PydanticObjectId = area.id
-    await emit_area_created(area_id, display_name)
+    job = Job(
+        job_type="area_ingestion",
+        area_id=area_id,
+        status="pending",
+        stage="Queued",
+    )
+    await job.insert()
+
+    if job.id is None:
+        logger.error("Coverage ingestion job insert failed (missing id)")
+        return area
+
+    task = asyncio.create_task(_run_ingestion_pipeline(area_id, job.id))
+    _track_task(task)
 
     return area
 
@@ -160,39 +172,6 @@ async def rebuild_area(area_id: PydanticObjectId) -> Job:
     _track_task(task)
 
     return job
-
-
-# =============================================================================
-# Event Handlers
-# =============================================================================
-
-
-@on_event(CoverageEvents.AREA_CREATED)
-async def handle_area_created(
-    area_id: PydanticObjectId | str,
-    display_name: str | None = None,
-    **_kwargs,
-) -> None:
-    """Handle area_created event by running the ingestion pipeline."""
-    _ = display_name
-    area_id = PydanticObjectId(area_id) if isinstance(area_id, str) else area_id
-
-    # Create ingestion job
-    job = Job(
-        job_type="area_ingestion",
-        area_id=area_id,
-        status="pending",
-        stage="Queued",
-    )
-    await job.insert()
-
-    if job.id is None:
-        logger.error("Coverage ingestion job insert failed (missing id)")
-        return
-
-    # Run ingestion
-    task = asyncio.create_task(_run_ingestion_pipeline(area_id, job.id))
-    _track_task(task)
 
 
 # =============================================================================
@@ -581,7 +560,7 @@ def _calculate_bounding_box(boundary: dict[str, Any]) -> list[float]:
 def _coerce_osm_id(value: Any) -> int | None:
     if value is None:
         return None
-    if isinstance(value, list | tuple | set):
+    if isinstance(value, (list, tuple, set)):
         for item in value:
             try:
                 return int(item)
@@ -632,7 +611,7 @@ def _edge_geometry(G: Any, u: Any, v: Any, data: dict[str, Any]) -> Any | None:
 def _coerce_name(value: Any) -> str | None:
     if value is None:
         return None
-    if isinstance(value, list | tuple | set):
+    if isinstance(value, (list, tuple, set)):
         for item in value:
             if item is None:
                 continue
@@ -645,7 +624,7 @@ async def _ensure_area_graph(
     area: CoverageArea,
     job_id: PydanticObjectId | None = None,
 ) -> Path:
-    from routes.constants import GRAPH_STORAGE_DIR
+    from routing.constants import GRAPH_STORAGE_DIR
 
     graph_path = GRAPH_STORAGE_DIR / f"{area.id}.graphml"
     if graph_path.exists():

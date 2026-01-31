@@ -1,6 +1,4 @@
-const version = new URL(import.meta.url).searchParams.get("v");
-const suffix = version ? `?v=${encodeURIComponent(version)}` : "";
+import { onPageLoad } from "../modules/utils.js";
+import initTripsPage from "../modules/features/trips/index.js";
 
-import(`../trips.js${suffix}`).catch((error) => {
-  console.error("Failed to load trips module", error);
-});
+onPageLoad(initTripsPage, { route: "/trips" });

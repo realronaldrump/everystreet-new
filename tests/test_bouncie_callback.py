@@ -10,7 +10,7 @@ import pytest
 from fastapi import Request
 from fastapi.responses import RedirectResponse
 
-from setup.routes.bouncie import (
+from setup.api.bouncie import (
     BOUNCIE_AUTH_BASE,
     BouncieVehicleSyncError,
     _build_redirect_uri,
@@ -67,7 +67,7 @@ class TestBouncieAuthorize:
         mock_request,
     ) -> None:
         monkeypatch.setattr(
-            "setup.routes.bouncie.get_bouncie_credentials",
+            "setup.api.bouncie.get_bouncie_credentials",
             AsyncMock(
                 return_value={
                     "client_id": "client",
@@ -78,9 +78,9 @@ class TestBouncieAuthorize:
             ),
         )
         update = AsyncMock(return_value=True)
-        monkeypatch.setattr("setup.routes.bouncie.update_bouncie_credentials", update)
+        monkeypatch.setattr("setup.api.bouncie.update_bouncie_credentials", update)
         monkeypatch.setattr(
-            "setup.routes.bouncie._generate_oauth_state",
+            "setup.api.bouncie._generate_oauth_state",
             lambda: "state123",
         )
 
@@ -104,7 +104,7 @@ class TestBouncieAuthorize:
         mock_request,
     ) -> None:
         monkeypatch.setattr(
-            "setup.routes.bouncie.get_bouncie_credentials",
+            "setup.api.bouncie.get_bouncie_credentials",
             AsyncMock(
                 return_value={
                     "client_id": "client",
@@ -123,7 +123,7 @@ class TestBouncieAuthorize:
         mock_oauth.get_access_token = AsyncMock(return_value="token")
         monkeypatch.setattr("setup.services.bouncie_oauth.BouncieOAuth", mock_oauth)
         sync = AsyncMock(return_value=1)
-        monkeypatch.setattr("setup.routes.bouncie._sync_vehicles_after_auth", sync)
+        monkeypatch.setattr("setup.api.bouncie._sync_vehicles_after_auth", sync)
 
         response = await initiate_bouncie_auth(mock_request)
 
@@ -161,11 +161,11 @@ class TestBouncieOAuthCallback:
     ) -> None:
         """Test callback handling when credential storage fails."""
         monkeypatch.setattr(
-            "setup.routes.bouncie.update_bouncie_credentials",
+            "setup.api.bouncie.update_bouncie_credentials",
             AsyncMock(return_value=False),
         )
         monkeypatch.setattr(
-            "setup.routes.bouncie.get_bouncie_credentials",
+            "setup.api.bouncie.get_bouncie_credentials",
             AsyncMock(
                 return_value={
                     "oauth_state": "state123",
@@ -191,11 +191,11 @@ class TestBouncieOAuthCallback:
     ) -> None:
         """Test callback handling when token exchange fails."""
         monkeypatch.setattr(
-            "setup.routes.bouncie.update_bouncie_credentials",
+            "setup.api.bouncie.update_bouncie_credentials",
             AsyncMock(return_value=True),
         )
         monkeypatch.setattr(
-            "setup.routes.bouncie.get_bouncie_credentials",
+            "setup.api.bouncie.get_bouncie_credentials",
             AsyncMock(
                 return_value={
                     "client_id": "test",
@@ -236,7 +236,7 @@ class TestBouncieOAuthCallback:
     ) -> None:
         """Test callback handling when state does not match."""
         monkeypatch.setattr(
-            "setup.routes.bouncie.get_bouncie_credentials",
+            "setup.api.bouncie.get_bouncie_credentials",
             AsyncMock(
                 return_value={
                     "oauth_state": "state123",
@@ -262,7 +262,7 @@ class TestBouncieOAuthCallback:
     ) -> None:
         """Test callback handling when state is missing."""
         monkeypatch.setattr(
-            "setup.routes.bouncie.get_bouncie_credentials",
+            "setup.api.bouncie.get_bouncie_credentials",
             AsyncMock(
                 return_value={
                     "oauth_state": "state123",
@@ -288,7 +288,7 @@ class TestBouncieOAuthCallback:
     ) -> None:
         """Test callback handling when state is expired."""
         monkeypatch.setattr(
-            "setup.routes.bouncie.get_bouncie_credentials",
+            "setup.api.bouncie.get_bouncie_credentials",
             AsyncMock(
                 return_value={
                     "oauth_state": "state123",
@@ -314,11 +314,11 @@ class TestBouncieOAuthCallback:
     ) -> None:
         """Test successful callback with automatic vehicle sync."""
         monkeypatch.setattr(
-            "setup.routes.bouncie.update_bouncie_credentials",
+            "setup.api.bouncie.update_bouncie_credentials",
             AsyncMock(return_value=True),
         )
         monkeypatch.setattr(
-            "setup.routes.bouncie.get_bouncie_credentials",
+            "setup.api.bouncie.get_bouncie_credentials",
             AsyncMock(
                 return_value={
                     "client_id": "test",
@@ -344,7 +344,7 @@ class TestBouncieOAuthCallback:
 
         # Mock vehicle sync to return 2 vehicles
         monkeypatch.setattr(
-            "setup.routes.bouncie._sync_vehicles_after_auth",
+            "setup.api.bouncie._sync_vehicles_after_auth",
             AsyncMock(return_value=2),
         )
 
@@ -386,13 +386,13 @@ class TestBouncieOAuthEndToEnd:
             store.update(update_data)
             return True
 
-        monkeypatch.setattr("setup.routes.bouncie.get_bouncie_credentials", fake_get)
+        monkeypatch.setattr("setup.api.bouncie.get_bouncie_credentials", fake_get)
         monkeypatch.setattr(
-            "setup.routes.bouncie.update_bouncie_credentials",
+            "setup.api.bouncie.update_bouncie_credentials",
             fake_update,
         )
         monkeypatch.setattr(
-            "setup.routes.bouncie._generate_oauth_state",
+            "setup.api.bouncie._generate_oauth_state",
             lambda: "state123",
         )
         monkeypatch.setattr(
@@ -403,7 +403,7 @@ class TestBouncieOAuthEndToEnd:
         mock_oauth.get_access_token = AsyncMock(return_value="token")
         monkeypatch.setattr("setup.services.bouncie_oauth.BouncieOAuth", mock_oauth)
         monkeypatch.setattr(
-            "setup.routes.bouncie._sync_vehicles_after_auth",
+            "setup.api.bouncie._sync_vehicles_after_auth",
             AsyncMock(return_value=2),
         )
 
@@ -432,7 +432,7 @@ class TestSyncVehiclesAfterAuth:
     async def test_sync_no_vehicles(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test sync when no vehicles are returned."""
         monkeypatch.setattr(
-            "setup.routes.bouncie.fetch_all_vehicles",
+            "setup.api.bouncie.fetch_all_vehicles",
             AsyncMock(return_value=[]),
         )
         mock_session = MagicMock()
@@ -447,7 +447,7 @@ class TestSyncVehiclesAfterAuth:
         from setup.services.bouncie_api import BouncieUnauthorizedError
 
         monkeypatch.setattr(
-            "setup.routes.bouncie.fetch_all_vehicles",
+            "setup.api.bouncie.fetch_all_vehicles",
             AsyncMock(side_effect=BouncieUnauthorizedError("unauthorized", status=401)),
         )
         mock_session = MagicMock()
@@ -473,7 +473,7 @@ class TestSyncVehiclesAfterAuth:
         ]
 
         monkeypatch.setattr(
-            "setup.routes.bouncie.fetch_all_vehicles",
+            "setup.api.bouncie.fetch_all_vehicles",
             AsyncMock(return_value=vehicles),
         )
 
@@ -492,7 +492,7 @@ class TestSyncVehiclesAfterAuth:
         )
 
         monkeypatch.setattr(
-            "setup.routes.bouncie.update_bouncie_credentials",
+            "setup.api.bouncie.update_bouncie_credentials",
             AsyncMock(return_value=True),
         )
 
@@ -507,7 +507,7 @@ class TestSyncVehiclesAfterAuth:
     ) -> None:
         """Test that sync handles exceptions gracefully."""
         monkeypatch.setattr(
-            "setup.routes.bouncie.fetch_all_vehicles",
+            "setup.api.bouncie.fetch_all_vehicles",
             AsyncMock(side_effect=Exception("Network error")),
         )
         mock_session = MagicMock()

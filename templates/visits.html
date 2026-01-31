@@ -1,385 +1,500 @@
-{% extends "base.html" %}
-
-{% block title %}Every Street - Places & Visits{% endblock %}
-
+{% extends "base.html" %} {% block title %}Every Street - Places & Visits{% endblock %}
 {% block head_content %}
-  <link rel="stylesheet" href="{{ CDN.mapbox_draw_css }}" crossorigin="anonymous" />
-{% endblock %}
+<link rel="stylesheet" href="{{ CDN.mapbox_draw_css }}" crossorigin="anonymous" />
+{% endblock %} {% block extra_css %}
+<!-- Mapbox GL CSS -->
+<link rel="stylesheet" href="{{ CDN.mapbox_gl_css }}" />
+<!-- DataTables CSS -->
+<link rel="stylesheet" href="{{ CDN.datatables_css }}" />
+<link
+  rel="stylesheet"
+  href="{{ url_for('static', path='css/features/map/index.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}"
+/>
+<link
+  rel="stylesheet"
+  href="{{ url_for('static', path='css/search.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}"
+/>
+<link
+  rel="stylesheet"
+  href="{{ url_for('static', path='css/visits.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}"
+/>
+<link
+  rel="stylesheet"
+  href="{{ url_for('static', path='css/visits-redesign.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}"
+/>
+{% endblock %} {% block content %}
+<div id="visits-page" class="visits-container">
+  <!-- Hero Section -->
+  <section class="visits-section hero-section" data-accent="mint">
+    <div class="hero-content">
+      <h1 class="hero-title">Your places, <span>your story</span></h1>
+      <p class="hero-subtitle">
+        Every visit is a moment captured. Here's what your journey data shows.
+      </p>
 
-{% block extra_css %}
-  <!-- Mapbox GL CSS -->
-  <link rel="stylesheet" href="{{ CDN.mapbox_gl_css }}" />
-  <!-- DataTables CSS -->
-  <link rel="stylesheet" href="{{ CDN.datatables_css }}" />
-  <link rel="stylesheet" href="{{ url_for('static', path='css/features/map/index.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}" />
-  <link rel="stylesheet" href="{{ url_for('static', path='css/search.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}" />
-  <link rel="stylesheet" href="{{ url_for('static', path='css/visits.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}" />
-  <link rel="stylesheet" href="{{ url_for('static', path='css/visits-redesign.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}" />
-{% endblock %}
-
-{% block content %}
-  <div id="visits-page" class="visits-container">
-    <!-- Hero Section -->
-    <section class="visits-section hero-section" data-accent="mint">
-      <div class="hero-content">
-        <h1 class="hero-title">Your places, <span>your story</span></h1>
-        <p class="hero-subtitle">Every visit is a moment captured. Here's what your journey data shows.</p>
-        
-        <div class="hero-stats" id="hero-stats">
-          <div class="stat-card">
-            <div class="stat-number" id="total-places-count">-</div>
-            <div class="stat-label">Places defined</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-number" id="total-visits-count">-</div>
-            <div class="stat-label">Visits captured</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-number" id="month-visits-count">-</div>
-            <div class="stat-label">This month</div>
-          </div>
-          <div class="stat-card highlight" id="streak-card" style="display: none;">
-            <div class="stat-number" id="visit-streak">-</div>
-            <div class="stat-label">Day streak</div>
-          </div>
+      <div class="hero-stats" id="hero-stats">
+        <div class="stat-card">
+          <div class="stat-number" id="total-places-count">-</div>
+          <div class="stat-label">Places defined</div>
         </div>
-      </div>
-    </section>
-
-    <!-- Your Places Section -->
-    <section class="visits-section places-section" data-accent="mint">
-      <div class="section-header">
-        <div class="section-title-wrapper">
-          <h2 class="section-title">
-            <i class="fas fa-map-marker-alt section-icon"></i>
-            Your places
-          </h2>
-          <p class="section-subtitle">Places you've defined with visit tracking</p>
+        <div class="stat-card">
+          <div class="stat-number" id="total-visits-count">-</div>
+          <div class="stat-label">Visits captured</div>
         </div>
-        <div class="view-toggle">
-          <button class="view-btn active" data-view="cards">Cards</button>
-          <button class="view-btn" data-view="list">List</button>
+        <div class="stat-card">
+          <div class="stat-number" id="month-visits-count">-</div>
+          <div class="stat-label">This month</div>
         </div>
-      </div>
-      
-      <!-- Cards View -->
-      <div class="places-grid" id="places-grid">
-        <!-- Place cards will be rendered here -->
-        <div class="places-loading">
-          <div class="spinner-border text-primary" role="status">
-            <span class="visually-hidden">Loading places...</span>
-          </div>
-          <p class="mt-2 text-secondary">Loading your places...</p>
-        </div>
-      </div>
-      
-      <!-- List View (Hidden by default) -->
-      <div class="places-list-view" id="places-list-view" style="display: none;">
-        <div class="table-responsive">
-          <table id="visits-table" class="table visits-table" style="width: 100%">
-            <thead>
-              <tr>
-                <th>Place</th>
-                <th class="text-end">Visits</th>
-                <th>First Visit</th>
-                <th>Last Visit</th>
-                <th class="text-end">Avg Duration</th>
-              </tr>
-            </thead>
-            <tbody></tbody>
-          </table>
-        </div>
-      </div>
-      
-      <!-- Empty State -->
-      <div class="empty-state" id="places-empty-state" style="display: none;">
-        <i class="fas fa-map-marked-alt empty-icon"></i>
-        <h3>No places yet</h3>
-        <p>Draw a boundary on the map to start tracking visits to places you care about.</p>
-        <button class="btn btn-primary btn-lg mt-3" onclick="document.getElementById('start-drawing-fab').click()">
-          <i class="fas fa-draw-polygon me-2"></i>Add your first place
-        </button>
-      </div>
-    </section>
-
-    <!-- Patterns Section -->
-    <section class="visits-section patterns-section" data-accent="purple" id="patterns-section" style="display: none;">
-      <div class="section-header">
-        <div class="section-title-wrapper">
-          <h2 class="section-title">
-            <i class="fas fa-calendar-check section-icon"></i>
-            Your routines
-          </h2>
-          <p class="section-subtitle">Places you visit with consistent patterns detected from your data</p>
-        </div>
-      </div>
-      
-      <div class="patterns-grid" id="patterns-grid">
-        <!-- Pattern cards will be rendered here -->
-      </div>
-    </section>
-
-    <!-- Discoveries Section -->
-    <section class="visits-section discoveries-section" data-accent="sky" id="discoveries-section" style="display: none;">
-      <div class="section-header">
-        <div class="section-title-wrapper">
-          <h2 class="section-title">
-            <i class="fas fa-lightbulb section-icon"></i>
-            Discoveries
-          </h2>
-          <p class="section-subtitle">Places detected from your trips that you haven't saved yet</p>
-        </div>
-        <div class="suggestion-size-control">
-          <label for="suggestion-size">Area size:</label>
-          <select id="suggestion-size" class="form-select form-select-sm">
-            <option value="150">Small (~150 ft)</option>
-            <option value="250" selected>Medium (~250 ft)</option>
-            <option value="360">Large (~360 ft)</option>
-          </select>
-        </div>
-      </div>
-      
-      <div class="discoveries-grid" id="discoveries-grid">
-        <!-- Discovery cards will be rendered here -->
-        <div class="discoveries-loading">
-          <div class="spinner-border text-info" role="status">
-            <span class="visually-hidden">Analyzing your trips...</span>
-          </div>
-          <p class="mt-2 text-secondary">Analyzing your trips for patterns...</p>
-        </div>
-      </div>
-
-      <div class="discoveries-pagination" id="discoveries-pagination" style="display: none;">
-        <button class="pagination-btn" id="discoveries-prev" type="button" aria-label="Previous page">
-          <i class="fas fa-chevron-left"></i>
-          Previous
-        </button>
-        <div class="pagination-info" id="discoveries-page-info"></div>
-        <button class="pagination-btn" id="discoveries-next" type="button" aria-label="Next page">
-          Next
-          <i class="fas fa-chevron-right"></i>
-        </button>
-      </div>
-      
-      <!-- Empty State -->
-      <div class="empty-state" id="discoveries-empty-state" style="display: none;">
-        <i class="fas fa-search empty-icon"></i>
-        <h3>No discoveries yet</h3>
-        <p>We need at least 5 visits to the same area to suggest a new place. Keep tracking your trips!</p>
-      </div>
-    </section>
-
-    <!-- Map Section -->
-    <section class="visits-section map-section" data-accent="lime">
-      <div class="section-header">
-        <div class="section-title-wrapper">
-          <h2 class="section-title">
-            <i class="fas fa-map section-icon"></i>
-            Your geography
-          </h2>
-          <p class="section-subtitle">Click a place to see details, or draw a boundary to add a new place</p>
-        </div>
-      </div>
-      
-      <div class="map-container-wrapper">
-        <div id="map" class="map-container map-container-standard map-container--visits"></div>
-        <div class="map-overlay-controls">
-          <button type="button" class="btn-control btn-draw" id="start-drawing" title="Draw a boundary">
-            <i class="fas fa-draw-polygon"></i>
-            <span>Draw</span>
-          </button>
-          <button type="button" class="btn-control" id="zoom-to-fit" title="Zoom to fit all places">
-            <i class="fas fa-expand-arrows-alt"></i>
-          </button>
-          <button type="button" class="btn-control" id="clear-drawing" title="Clear current drawing">
-            <i class="fas fa-eraser"></i>
-          </button>
-          <button type="button" class="btn-control" id="map-style-toggle" title="Toggle map style">
-            <i class="fas fa-palette"></i>
-          </button>
-        </div>
-        <div id="map-loading" class="map-loading-overlay" style="display: none;">
-          <div class="text-center">
-            <div class="spinner-border text-primary mb-3" role="status"></div>
-            <p class="text-secondary">Loading map...</p>
-          </div>
-        </div>
-      </div>
-      
-      <!-- Drawing Instructions -->
-      <div class="drawing-toast" id="drawing-toast" style="display: none;">
-        <div class="drawing-toast-content">
-          <i class="fas fa-info-circle text-warning"></i>
-          <span>Click points to draw a boundary. Press Enter or click first point to close.</span>
-        </div>
-        <button type="button" class="btn btn-sm btn-outline-secondary" id="cancel-drawing">Cancel</button>
-      </div>
-      
-      <!-- Save Place Form (appears after drawing) -->
-      <div class="save-place-form" id="save-place-form" style="display: none;">
-        <div class="form-group">
-          <label for="place-name">Name this place</label>
-          <input type="text" id="place-name" class="form-control" placeholder="e.g., Coffee shop, Mom's house, Gym..." />
-          <div class="invalid-feedback">Please enter a name for this place.</div>
-        </div>
-        <div class="form-actions">
-          <button type="button" class="btn btn-outline-secondary" id="discard-drawing">Discard</button>
-          <button type="button" class="btn btn-success" id="save-place" disabled>
-            <i class="fas fa-save me-2"></i>Save place
-          </button>
-        </div>
-      </div>
-    </section>
-
-    <!-- Other Stops Section -->
-    <section class="visits-section other-stops-section" data-accent="slate" id="other-stops-section" style="display: none;">
-      <div class="section-header">
-        <div class="section-title-wrapper">
-          <h2 class="section-title">
-            <i class="fas fa-globe section-icon"></i>
-            Other stops
-          </h2>
-          <p class="section-subtitle">Destinations from your trips that aren't saved as places</p>
-        </div>
-      </div>
-      
-      <div class="other-stops-list" id="other-stops-list">
-        <!-- Other stops will be rendered here -->
-      </div>
-    </section>
-
-    <!-- Trips for Place Section (shown when viewing specific place) -->
-    <section class="visits-section trips-section" data-accent="amber" id="trips-section" style="display: none;">
-      <div class="section-header">
-        <div class="section-title-wrapper">
-          <h2 class="section-title">
-            <i class="fas fa-route section-icon"></i>
-            Visits to <span id="selected-place-name" class="text-primary"></span>
-          </h2>
-        </div>
-        <button class="btn btn-outline-secondary" id="back-to-places-btn">
-          <i class="fas fa-arrow-left me-2"></i>Back to all places
-        </button>
-      </div>
-      
-      <div class="place-stats-summary" id="place-stats-summary">
-        <!-- Stats will be rendered here -->
-      </div>
-      
-      <div class="visit-timeline" id="visit-timeline">
-        <!-- Timeline will be rendered here -->
-      </div>
-    </section>
-  </div>
-
-  <!-- Floating Action Button -->
-  <div class="fab-container">
-    <button class="fab-btn" id="start-drawing-fab" title="Add a place">
-      <i class="fas fa-plus"></i>
-      <span>Add a place</span>
-    </button>
-  </div>
-
-  <!-- Place Detail Modal -->
-  <div class="modal fade visits-modal" id="place-detail-modal" tabindex="-1">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
-      <div class="modal-content">
-        <div class="modal-header" data-accent="mint">
-          <h5 class="modal-title">
-            <i class="fas fa-map-marker-alt me-2"></i>
-            <span id="modal-place-name">Place Details</span>
-          </h5>
-          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-        </div>
-        <div class="modal-body">
-          <div class="modal-stats-row" id="modal-stats-row">
-            <!-- Stats will be rendered here -->
-          </div>
-          <div class="visit-timeline-container">
-            <h6 class="timeline-title">Visit History</h6>
-            <div class="visit-timeline" id="modal-visit-timeline">
-              <!-- Timeline will be rendered here -->
-            </div>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-outline-primary" id="modal-edit-place">
-            <i class="fas fa-edit me-2"></i>Edit
-          </button>
-          <button type="button" class="btn btn-outline-danger" id="modal-delete-place">
-            <i class="fas fa-trash me-2"></i>Delete
-          </button>
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        <div class="stat-card highlight" id="streak-card" style="display: none">
+          <div class="stat-number" id="visit-streak">-</div>
+          <div class="stat-label">Day streak</div>
         </div>
       </div>
     </div>
-  </div>
+  </section>
 
-  <!-- Edit Place Modal -->
-  <div class="modal fade visits-modal" id="edit-place-modal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title">
-            <i class="fas fa-edit me-2"></i>Edit Place
-          </h5>
-          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+  <!-- Your Places Section -->
+  <section class="visits-section places-section" data-accent="mint">
+    <div class="section-header">
+      <div class="section-title-wrapper">
+        <h2 class="section-title">
+          <i class="fas fa-map-marker-alt section-icon"></i>
+          Your places
+        </h2>
+        <p class="section-subtitle">Places you've defined with visit tracking</p>
+      </div>
+      <div class="view-toggle">
+        <button class="view-btn active" data-view="cards">Cards</button>
+        <button class="view-btn" data-view="list">List</button>
+      </div>
+    </div>
+
+    <!-- Cards View -->
+    <div class="places-grid" id="places-grid">
+      <!-- Place cards will be rendered here -->
+      <div class="places-loading">
+        <div class="spinner-border text-primary" role="status">
+          <span class="visually-hidden">Loading places...</span>
         </div>
-        <div class="modal-body">
-          <form id="edit-place-form">
-            <input type="hidden" id="edit-place-id" />
-            <div class="mb-4">
-              <label for="edit-place-name" class="form-label fw-semibold">Place Name</label>
-              <input type="text" class="form-control form-control-lg" id="edit-place-name" required />
-            </div>
-            <div class="d-flex justify-content-between gap-3">
-              <button type="button" class="btn btn-outline-primary" id="edit-place-boundary">
-                <i class="fas fa-draw-polygon me-2"></i>Edit Boundary
-              </button>
-              <button type="submit" class="btn btn-success">
-                <i class="fas fa-save me-2"></i>Save Changes
-              </button>
-            </div>
-          </form>
+        <p class="mt-2 text-secondary">Loading your places...</p>
+      </div>
+    </div>
+
+    <!-- List View (Hidden by default) -->
+    <div class="places-list-view" id="places-list-view" style="display: none">
+      <div class="table-responsive">
+        <table id="visits-table" class="table visits-table" style="width: 100%">
+          <thead>
+            <tr>
+              <th>Place</th>
+              <th class="text-end">Visits</th>
+              <th>First Visit</th>
+              <th>Last Visit</th>
+              <th class="text-end">Avg Duration</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Empty State -->
+    <div class="empty-state" id="places-empty-state" style="display: none">
+      <i class="fas fa-map-marked-alt empty-icon"></i>
+      <h3>No places yet</h3>
+      <p>
+        Draw a boundary on the map to start tracking visits to places you care about.
+      </p>
+      <button
+        class="btn btn-primary btn-lg mt-3"
+        onclick="document.getElementById('start-drawing-fab').click()"
+      >
+        <i class="fas fa-draw-polygon me-2"></i>Add your first place
+      </button>
+    </div>
+  </section>
+
+  <!-- Patterns Section -->
+  <section
+    class="visits-section patterns-section"
+    data-accent="purple"
+    id="patterns-section"
+    style="display: none"
+  >
+    <div class="section-header">
+      <div class="section-title-wrapper">
+        <h2 class="section-title">
+          <i class="fas fa-calendar-check section-icon"></i>
+          Your routines
+        </h2>
+        <p class="section-subtitle">
+          Places you visit with consistent patterns detected from your data
+        </p>
+      </div>
+    </div>
+
+    <div class="patterns-grid" id="patterns-grid">
+      <!-- Pattern cards will be rendered here -->
+    </div>
+  </section>
+
+  <!-- Discoveries Section -->
+  <section
+    class="visits-section discoveries-section"
+    data-accent="sky"
+    id="discoveries-section"
+    style="display: none"
+  >
+    <div class="section-header">
+      <div class="section-title-wrapper">
+        <h2 class="section-title">
+          <i class="fas fa-lightbulb section-icon"></i>
+          Discoveries
+        </h2>
+        <p class="section-subtitle">
+          Places detected from your trips that you haven't saved yet
+        </p>
+      </div>
+      <div class="suggestion-size-control">
+        <label for="suggestion-size">Area size:</label>
+        <select id="suggestion-size" class="form-select form-select-sm">
+          <option value="150">Small (~150 ft)</option>
+          <option value="250" selected>Medium (~250 ft)</option>
+          <option value="360">Large (~360 ft)</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="discoveries-grid" id="discoveries-grid">
+      <!-- Discovery cards will be rendered here -->
+      <div class="discoveries-loading">
+        <div class="spinner-border text-info" role="status">
+          <span class="visually-hidden">Analyzing your trips...</span>
+        </div>
+        <p class="mt-2 text-secondary">Analyzing your trips for patterns...</p>
+      </div>
+    </div>
+
+    <div
+      class="discoveries-pagination"
+      id="discoveries-pagination"
+      style="display: none"
+    >
+      <button
+        class="pagination-btn"
+        id="discoveries-prev"
+        type="button"
+        aria-label="Previous page"
+      >
+        <i class="fas fa-chevron-left"></i>
+        Previous
+      </button>
+      <div class="pagination-info" id="discoveries-page-info"></div>
+      <button
+        class="pagination-btn"
+        id="discoveries-next"
+        type="button"
+        aria-label="Next page"
+      >
+        Next
+        <i class="fas fa-chevron-right"></i>
+      </button>
+    </div>
+
+    <!-- Empty State -->
+    <div class="empty-state" id="discoveries-empty-state" style="display: none">
+      <i class="fas fa-search empty-icon"></i>
+      <h3>No discoveries yet</h3>
+      <p>
+        We need at least 5 visits to the same area to suggest a new place. Keep tracking
+        your trips!
+      </p>
+    </div>
+  </section>
+
+  <!-- Map Section -->
+  <section class="visits-section map-section" data-accent="lime">
+    <div class="section-header">
+      <div class="section-title-wrapper">
+        <h2 class="section-title">
+          <i class="fas fa-map section-icon"></i>
+          Your geography
+        </h2>
+        <p class="section-subtitle">
+          Click a place to see details, or draw a boundary to add a new place
+        </p>
+      </div>
+    </div>
+
+    <div class="map-container-wrapper">
+      <div
+        id="map"
+        class="map-container map-container-standard map-container--visits"
+      ></div>
+      <div class="map-overlay-controls">
+        <button
+          type="button"
+          class="btn-control btn-draw"
+          id="start-drawing"
+          title="Draw a boundary"
+        >
+          <i class="fas fa-draw-polygon"></i>
+          <span>Draw</span>
+        </button>
+        <button
+          type="button"
+          class="btn-control"
+          id="zoom-to-fit"
+          title="Zoom to fit all places"
+        >
+          <i class="fas fa-expand-arrows-alt"></i>
+        </button>
+        <button
+          type="button"
+          class="btn-control"
+          id="clear-drawing"
+          title="Clear current drawing"
+        >
+          <i class="fas fa-eraser"></i>
+        </button>
+        <button
+          type="button"
+          class="btn-control"
+          id="map-style-toggle"
+          title="Toggle map style"
+        >
+          <i class="fas fa-palette"></i>
+        </button>
+      </div>
+      <div id="map-loading" class="map-loading-overlay" style="display: none">
+        <div class="text-center">
+          <div class="spinner-border text-primary mb-3" role="status"></div>
+          <p class="text-secondary">Loading map...</p>
         </div>
       </div>
     </div>
-  </div>
 
-  <!-- Trip Detail Modal -->
-  <div class="modal fade visits-modal" id="view-trip-modal" tabindex="-1">
-    <div class="modal-dialog modal-xl modal-dialog-centered">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title">
-            <i class="fas fa-route me-2"></i>Trip Details
-          </h5>
-          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+    <!-- Drawing Instructions -->
+    <div class="drawing-toast" id="drawing-toast" style="display: none">
+      <div class="drawing-toast-content">
+        <i class="fas fa-info-circle text-warning"></i>
+        <span
+          >Click points to draw a boundary. Press Enter or click first point to
+          close.</span
+        >
+      </div>
+      <button
+        type="button"
+        class="btn btn-sm btn-outline-secondary"
+        id="cancel-drawing"
+      >
+        Cancel
+      </button>
+    </div>
+
+    <!-- Save Place Form (appears after drawing) -->
+    <div class="save-place-form" id="save-place-form" style="display: none">
+      <div class="form-group">
+        <label for="place-name">Name this place</label>
+        <input
+          type="text"
+          id="place-name"
+          class="form-control"
+          placeholder="e.g., Coffee shop, Mom's house, Gym..."
+        />
+        <div class="invalid-feedback">Please enter a name for this place.</div>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn btn-outline-secondary" id="discard-drawing">
+          Discard
+        </button>
+        <button type="button" class="btn btn-success" id="save-place" disabled>
+          <i class="fas fa-save me-2"></i>Save place
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Other Stops Section -->
+  <section
+    class="visits-section other-stops-section"
+    data-accent="slate"
+    id="other-stops-section"
+    style="display: none"
+  >
+    <div class="section-header">
+      <div class="section-title-wrapper">
+        <h2 class="section-title">
+          <i class="fas fa-globe section-icon"></i>
+          Other stops
+        </h2>
+        <p class="section-subtitle">
+          Destinations from your trips that aren't saved as places
+        </p>
+      </div>
+    </div>
+
+    <div class="other-stops-list" id="other-stops-list">
+      <!-- Other stops will be rendered here -->
+    </div>
+  </section>
+
+  <!-- Trips for Place Section (shown when viewing specific place) -->
+  <section
+    class="visits-section trips-section"
+    data-accent="amber"
+    id="trips-section"
+    style="display: none"
+  >
+    <div class="section-header">
+      <div class="section-title-wrapper">
+        <h2 class="section-title">
+          <i class="fas fa-route section-icon"></i>
+          Visits to <span id="selected-place-name" class="text-primary"></span>
+        </h2>
+      </div>
+      <button class="btn btn-outline-secondary" id="back-to-places-btn">
+        <i class="fas fa-arrow-left me-2"></i>Back to all places
+      </button>
+    </div>
+
+    <div class="place-stats-summary" id="place-stats-summary">
+      <!-- Stats will be rendered here -->
+    </div>
+
+    <div class="visit-timeline" id="visit-timeline">
+      <!-- Timeline will be rendered here -->
+    </div>
+  </section>
+</div>
+
+<!-- Floating Action Button -->
+<div class="fab-container">
+  <button class="fab-btn" id="start-drawing-fab" title="Add a place">
+    <i class="fas fa-plus"></i>
+    <span>Add a place</span>
+  </button>
+</div>
+
+<!-- Place Detail Modal -->
+<div class="modal fade visits-modal" id="place-detail-modal" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header" data-accent="mint">
+        <h5 class="modal-title">
+          <i class="fas fa-map-marker-alt me-2"></i>
+          <span id="modal-place-name">Place Details</span>
+        </h5>
+        <button
+          type="button"
+          class="btn-close btn-close-white"
+          data-bs-dismiss="modal"
+        ></button>
+      </div>
+      <div class="modal-body">
+        <div class="modal-stats-row" id="modal-stats-row">
+          <!-- Stats will be rendered here -->
         </div>
-        <div class="modal-body">
-          <div id="trip-info" class="mb-4"></div>
-          <div id="trip-map-container" class="map-container map-container-standard"></div>
+        <div class="visit-timeline-container">
+          <h6 class="timeline-title">Visit History</h6>
+          <div class="visit-timeline" id="modal-visit-timeline">
+            <!-- Timeline will be rendered here -->
+          </div>
         </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-primary" id="modal-edit-place">
+          <i class="fas fa-edit me-2"></i>Edit
+        </button>
+        <button type="button" class="btn btn-outline-danger" id="modal-delete-place">
+          <i class="fas fa-trash me-2"></i>Delete
+        </button>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+          Close
+        </button>
       </div>
     </div>
   </div>
-{% endblock %}
+</div>
 
+<!-- Edit Place Modal -->
+<div class="modal fade visits-modal" id="edit-place-modal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="fas fa-edit me-2"></i>Edit Place</h5>
+        <button
+          type="button"
+          class="btn-close btn-close-white"
+          data-bs-dismiss="modal"
+        ></button>
+      </div>
+      <div class="modal-body">
+        <form id="edit-place-form">
+          <input type="hidden" id="edit-place-id" />
+          <div class="mb-4">
+            <label for="edit-place-name" class="form-label fw-semibold"
+              >Place Name</label
+            >
+            <input
+              type="text"
+              class="form-control form-control-lg"
+              id="edit-place-name"
+              required
+            />
+          </div>
+          <div class="d-flex justify-content-between gap-3">
+            <button
+              type="button"
+              class="btn btn-outline-primary"
+              id="edit-place-boundary"
+            >
+              <i class="fas fa-draw-polygon me-2"></i>Edit Boundary
+            </button>
+            <button type="submit" class="btn btn-success">
+              <i class="fas fa-save me-2"></i>Save Changes
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
 
+<!-- Trip Detail Modal -->
+<div class="modal fade visits-modal" id="view-trip-modal" tabindex="-1">
+  <div class="modal-dialog modal-xl modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="fas fa-route me-2"></i>Trip Details</h5>
+        <button
+          type="button"
+          class="btn-close btn-close-white"
+          data-bs-dismiss="modal"
+        ></button>
+      </div>
+      <div class="modal-body">
+        <div id="trip-info" class="mb-4"></div>
+        <div id="trip-map-container" class="map-container map-container-standard"></div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %} {% block extra_js %}
 
-{% block extra_js %}
-
-  <!-- Mapbox GL JS -->
-  <script src="{{ CDN.mapbox_gl_js }}"></script>
-  <script src="{{ CDN.mapbox_draw_js }}"></script>
-  <script>
-      // Make Mapbox access token available globally
-      window.MAPBOX_ACCESS_TOKEN = "{{ MAPBOX_ACCESS_TOKEN }}";
-  </script>
-  <script src="{{ CDN.chartjs }}"></script>
-  <script src="{{ CDN.jquery }}" crossorigin="anonymous"></script>
-  <!-- DataTables JS -->
-  <script src="{{ CDN.datatables_js }}"></script>
-  <script type="module"
-          src="{{ url_for('static', path='js/pages/visits.js') | replace('http://', '//') }}?v={{ repo_version.commit_count }}"></script>
+<!-- Mapbox GL JS -->
+<script src="{{ CDN.mapbox_gl_js }}"></script>
+<script src="{{ CDN.mapbox_draw_js }}"></script>
+<script>
+  // Make Mapbox access token available globally
+  window.MAPBOX_ACCESS_TOKEN = "{{ MAPBOX_ACCESS_TOKEN }}";
+</script>
+<script src="{{ CDN.chartjs }}"></script>
+<script src="{{ CDN.jquery }}" crossorigin="anonymous"></script>
+<!-- DataTables JS -->
+<script src="{{ CDN.datatables_js }}"></script>
+<script
+  type="module"
+  src="{{ url_for('static', path='js/pages/visits.js') | replace('http://', '//') }}?v={{ repo_version.commit_count }}"
+></script>
 {% endblock %}

@@ -21,6 +21,7 @@ reports/
 scripts/autofix.sh
 scripts/autofix1.sh
 scripts/bootstrap.sh
+scripts/autofix_safe.sh
 
 .stylelintrc.json
 

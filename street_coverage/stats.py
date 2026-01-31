@@ -12,7 +12,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 from db.aggregation import aggregate_to_list
-from street_coverage.models import CoverageArea, CoverageState, Street
+from db.models import CoverageArea, CoverageState, Street
 
 if TYPE_CHECKING:
     from beanie import PydanticObjectId

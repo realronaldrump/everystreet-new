@@ -5,8 +5,8 @@ from typing import TYPE_CHECKING, Any
 
 from fastapi import HTTPException
 
-from geo_service import GeocodingService
-from street_coverage.models import CoverageArea, CoverageState, Street
+from core.clients.nominatim import GeocodingService
+from db.models import CoverageArea, CoverageState, Street
 
 if TYPE_CHECKING:
     from beanie import PydanticObjectId

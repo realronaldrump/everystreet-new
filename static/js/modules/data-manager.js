@@ -251,8 +251,8 @@ const dataManager = {
         const endTime = f?.properties?.endTime;
         const endTs = endTime ? new Date(endTime).getTime() : null;
         f.properties = f.properties || {};
-        f.properties.isRecent =
-          typeof endTs === "number" && !Number.isNaN(endTs)
+        f.properties.isRecent
+          = typeof endTs === "number" && !Number.isNaN(endTs)
             ? now - endTs <= threshold
             : false;
       });
@@ -266,8 +266,8 @@ const dataManager = {
    * @private
    */
   _normalizeLayerName(layerName) {
-    const rawName =
-      typeof layerName === "string" ? layerName.trim() : String(layerName ?? "").trim();
+    const rawName
+      = typeof layerName === "string" ? layerName.trim() : String(layerName ?? "").trim();
     if (!rawName) {
       return "";
     }

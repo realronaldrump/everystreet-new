@@ -46,7 +46,6 @@ async def get_session() -> aiohttp.ClientSession:
         connector = aiohttp.TCPConnector(
             limit=HTTP_CONNECTION_LIMIT,
             force_close=False,
-            enable_cleanup_closed=True,
         )
         _session = aiohttp.ClientSession(
             timeout=timeout,

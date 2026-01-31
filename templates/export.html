@@ -394,7 +394,7 @@ Latest Export
 {% block extra_js %}
 
   <script type="module"
-          src="{{ url_for('static', path='js/modules/export/index.js') | replace('http://', '//') }}?v={{ repo_version.commit_count }}"></script>
+          src="{{ url_for('static', path='js/pages/export.js') | replace('http://', '//') }}?v={{ repo_version.commit_count }}"></script>
   <script>
       // Sync radio buttons to hidden select for JS compatibility
       document.querySelectorAll('input[name="trip-format-radio"]').forEach(radio => {

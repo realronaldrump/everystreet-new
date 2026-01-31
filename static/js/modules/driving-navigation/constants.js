@@ -6,7 +6,8 @@ export const DRIVING_NAV_DEFAULTS = {
   areaSelectId: "area-select",
   mapContainerId: "driving-map",
   populateAreaSelect: true,
-  useSharedMap: false,
+  sharedMap: null,
+  loadCoverageAreas: true,
 };
 
 /**

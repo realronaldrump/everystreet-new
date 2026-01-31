@@ -18,8 +18,6 @@ from config import get_bouncie_config
 from core.date_utils import parse_timestamp
 from db.models import Trip
 from tasks.ops import run_task_with_history
-from map_matching.schemas import MapMatchJobRequest
-from map_matching.service import MapMatchingJobService
 from trips.services.bouncie_fetcher import (
     fetch_bouncie_trip_by_transaction_id,
     fetch_bouncie_trips_in_range,
@@ -36,7 +34,7 @@ async def _periodic_fetch_trips_logic(
     """
     Async logic for fetching periodic trips since the last stored trip.
 
-    Can optionally accept specific start/end times for event-driven
+    Can optionally accept specific start/end times for explicit range
     fetches.
     """
 
@@ -55,7 +53,7 @@ async def _periodic_fetch_trips_logic(
     logger.info("Determining date range for fetching trips...")
     now_utc = datetime.now(UTC)
 
-    # Use provided range if available (Event-Driven Mode)
+    # Use provided range if available (explicit range mode)
     if start_time_iso and end_time_iso:
         try:
             start_date_fetch = parse_timestamp(start_time_iso)
@@ -73,7 +71,7 @@ async def _periodic_fetch_trips_logic(
                 start_date_fetch = None
             else:
                 logger.info(
-                    "Event-Driven Fetch (%s): Using provided range %s to %s",
+                    "Range Fetch (%s): Using provided range %s to %s",
                     trigger_source,
                     start_date_fetch.isoformat(),
                     end_date_fetch.isoformat(),
@@ -164,7 +162,7 @@ async def _periodic_fetch_trips_logic(
         fetched_trips = await fetch_bouncie_trips_in_range(
             start_date_fetch,
             end_date_fetch if "end_date_fetch" in locals() else now_utc,
-            do_map_match=False,
+            do_map_match=map_match_on_fetch,
         )
         logger.info(
             "fetch_bouncie_trips_in_range returned %d trips",
@@ -175,25 +173,6 @@ async def _periodic_fetch_trips_logic(
             logger.info("No trips were fetched in the date range")
         else:
             logger.info("Fetched %d trips in the date range", len(fetched_trips))
-            if map_match_on_fetch:
-                trip_ids = sorted(
-                    {
-                        t.get("transactionId")
-                        for t in fetched_trips
-                        if t.get("transactionId")
-                    },
-                )
-                if trip_ids:
-                    try:
-                        job_service = MapMatchingJobService()
-                        await job_service.enqueue_job(
-                            MapMatchJobRequest(mode="trip_ids", trip_ids=trip_ids),
-                            source="system",
-                        )
-                    except Exception:
-                        logger.exception(
-                            "Failed to enqueue map matching job after fetch",
-                        )
 
     except Exception:
         logger.exception("Error in fetch_bouncie_trips_in_range")
@@ -261,8 +240,7 @@ async def periodic_fetch_trips(
     """
     ARQ job for fetching periodic trips.
 
-    Accepts kwargs to support event-driven triggers with specific date
-    ranges.
+    Accepts kwargs to support explicit range triggers with specific date ranges.
     """
     return await run_task_with_history(
         ctx,
@@ -304,19 +282,8 @@ async def _fetch_trip_by_transaction_id_logic(
 
     processed_ids = await fetch_bouncie_trip_by_transaction_id(
         transaction_id,
-        do_map_match=False,
+        do_map_match=map_match_on_fetch,
     )
-    if map_match_on_fetch and processed_ids:
-        try:
-            job_service = MapMatchingJobService()
-            await job_service.enqueue_job(
-                MapMatchJobRequest(mode="trip_ids", trip_ids=processed_ids),
-                source="system",
-            )
-        except Exception:
-            logger.exception(
-                "Failed to enqueue map matching job after fetch",
-            )
     return {
         "status": "success",
         "message": f"Fetched trip {transaction_id}",
@@ -382,24 +349,8 @@ async def _manual_fetch_trips_range_logic(
     fetched_trips = await fetch_bouncie_trips_in_range(
         start_dt,
         end_dt,
-        do_map_match=False,
+        do_map_match=map_match,
     )
-
-    if map_match and fetched_trips:
-        trip_ids = sorted(
-            {t.get("transactionId") for t in fetched_trips if t.get("transactionId")},
-        )
-        if trip_ids:
-            try:
-                job_service = MapMatchingJobService()
-                await job_service.enqueue_job(
-                    MapMatchJobRequest(mode="trip_ids", trip_ids=trip_ids),
-                    source="manual",
-                )
-            except Exception:
-                logger.exception(
-                    "Failed to enqueue map matching job after fetch",
-                )
 
     logger.info("Manual fetch completed: %d trips", len(fetched_trips))
 

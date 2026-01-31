@@ -8,10 +8,9 @@ from fastapi import HTTPException
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
 from core.http.valhalla import ValhallaClient
-from db.models import Trip
-from geo_service.geometry import GeometryService
+from core.spatial import GeometryService
+from db.models import CoverageArea, CoverageState, Street, Trip
 from street_coverage.constants import MILES_TO_METERS
-from street_coverage.models import CoverageArea, CoverageState, Street
 from tracking.services.tracking_service import TrackingService
 
 logger = logging.getLogger(__name__)

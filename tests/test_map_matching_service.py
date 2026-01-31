@@ -1,8 +1,8 @@
 import pytest
 from fastapi import HTTPException
 
-from map_matching.schemas import MapMatchJobRequest
-from map_matching.service import MapMatchingJobRunner, MapMatchingJobService
+from trips.models import MapMatchJobRequest
+from trips.services.map_matching_jobs import MapMatchingJobRunner, MapMatchingJobService
 
 
 def test_normalize_request_requires_trip_id() -> None:

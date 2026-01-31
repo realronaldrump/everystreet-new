@@ -6,7 +6,7 @@
 import apiClient from "../../core/api-client.js";
 import metricAnimator from "../../ui/metric-animator.js";
 import notificationManager from "../../ui/notifications.js";
-import { formatNumber, formatRelativeTimeShort, onPageLoad } from "../../utils.js";
+import { formatNumber, formatRelativeTimeShort } from "../../utils.js";
 import { animateValue } from "./animations.js";
 import { bindWidgetEditToggle, updateGreeting } from "./hero.js";
 
@@ -38,11 +38,15 @@ let recordSources = {
 
 let pageSignal = null;
 let lastKnownLocation = null;
+const withSignal = (options = {}) =>
+  pageSignal ? { ...options, signal: pageSignal } : options;
+const apiGet = (url, options = {}) => apiClient.get(url, withSignal(options));
+const apiRaw = (url, options = {}) => apiClient.raw(url, withSignal(options));
 
 /**
  * Initialize the landing page
  */
-function init({ signal, cleanup } = {}) {
+export default function initLandingPage({ signal, cleanup } = {}) {
   pageSignal = signal || null;
   cacheElements();
   updateGreeting(elements);
@@ -55,11 +59,16 @@ function init({ signal, cleanup } = {}) {
   checkLiveTracking();
   bindSwipeActions();
   bindRecordCard();
+  const teardown = () => {
+    clearIntervals();
+    swipeActionsBound = false;
+    pageSignal = null;
+  };
+
   if (typeof cleanup === "function") {
-    cleanup(() => {
-      clearIntervals();
-      swipeActionsBound = false;
-    });
+    cleanup(teardown);
+  } else {
+    return teardown;
   }
 }
 
@@ -178,7 +187,7 @@ longitude;
       ({ latitude, longitude } = position.coords);
     }
     const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,weather_code&temperature_unit=fahrenheit&timezone=auto`;
-    const response = await apiClient.raw(url, { retry: false });
+    const response = await apiRaw(url, { retry: false });
     if (!response.ok) {
       throw new Error("Weather request failed");
     }
@@ -221,7 +230,7 @@ function bindRecordCard() {
 
 async function loadCountyStats() {
   try {
-    const data = await apiClient.get("/api/counties/visited");
+    const data = await apiGet("/api/counties/visited");
     if (data?.success) {
       setRecordSource("counties", data);
     }
@@ -232,7 +241,7 @@ async function loadCountyStats() {
 
 async function loadCoverageStats() {
   try {
-    const data = await apiClient.get("/api/coverage/areas");
+    const data = await apiGet("/api/coverage/areas");
     if (data?.areas) {
       setRecordSource("coverage", data);
     }
@@ -694,7 +703,7 @@ function mapWeatherCode(code) {
  */
 async function loadMetrics() {
   try {
-    const data = await apiClient.get("/api/metrics");
+    const data = await apiGet("/api/metrics");
 
     // Update stats with animation
     const miles = parseFloat(data.total_distance) || 0;
@@ -722,7 +731,7 @@ async function loadMetrics() {
  */
 async function loadRecentTrips() {
   try {
-    const data = await apiClient.get("/api/trips/history?limit=60");
+    const data = await apiGet("/api/trips/history?limit=60");
     const trips = data.trips || data || [];
 
     // Extract last known location from the most recent trip
@@ -763,7 +772,7 @@ async function loadRecentTrips() {
  */
 async function loadInsights() {
   try {
-    const data = await apiClient.get("/api/driving-insights");
+    const data = await apiGet("/api/driving-insights");
     setRecordSource("insights", data);
   } catch (error) {
     console.warn("Failed to load driving insights", error);
@@ -775,7 +784,7 @@ async function loadInsights() {
  */
 async function loadGasStats() {
   try {
-    const data = await apiClient.get("/api/gas-statistics");
+    const data = await apiGet("/api/gas-statistics");
     setRecordSource("gas", data);
 
     if (elements.lastFillup) {
@@ -794,7 +803,7 @@ async function loadGasStats() {
  */
 async function checkLiveTracking() {
   try {
-    const data = await apiClient.get("/api/active_trip");
+    const data = await apiGet("/api/active_trip");
 
     if (elements.liveIndicator) {
       if (data.trip && data.trip.status === "active") {
@@ -956,5 +965,3 @@ function clearIntervals() {
     recordRotationIntervalId = null;
   }
 }
-
-onPageLoad(init, { route: "/" });

@@ -8,13 +8,13 @@ This module provides modular functionality for:
 - Visit suggestions based on frequently visited areas
 
 The package is organized into:
-- routes/: API endpoint handlers organized by domain
+- api/: API endpoint handlers organized by domain
 - services/: Business logic and data processing
 """
 
 from fastapi import APIRouter
 
-from visits.routes import places, stats, visits
+from visits.api import places, stats, visits
 
 # Create main router that aggregates all visit-related routes
 # Note: No prefix here since individual routes already have /api/ paths

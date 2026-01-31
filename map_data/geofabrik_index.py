@@ -6,7 +6,8 @@ import json
 import logging
 import os
 import time
-from typing import Any, Iterable
+from collections.abc import Iterable
+from typing import Any
 
 import httpx
 from shapely.geometry import shape
@@ -44,15 +45,17 @@ async def _download_index(cache_path: str, url: str) -> None:
     os.makedirs(os.path.dirname(cache_path), exist_ok=True)
     temp_path = f"{cache_path}.tmp"
 
-    async with httpx.AsyncClient(
-        timeout=httpx.Timeout(120.0, connect=30.0),
-        follow_redirects=True,
-    ) as client:
-        async with client.stream("GET", url) as response:
-            response.raise_for_status()
-            with open(temp_path, "wb") as handle:
-                async for chunk in response.aiter_bytes(INDEX_CHUNK_SIZE):
-                    handle.write(chunk)
+    async with (
+        httpx.AsyncClient(
+            timeout=httpx.Timeout(120.0, connect=30.0),
+            follow_redirects=True,
+        ) as client,
+        client.stream("GET", url) as response,
+    ):
+        response.raise_for_status()
+        with open(temp_path, "wb") as handle:
+            async for chunk in response.aiter_bytes(INDEX_CHUNK_SIZE):
+                handle.write(chunk)
 
     os.replace(temp_path, cache_path)
 
@@ -69,7 +72,7 @@ async def load_geofabrik_index(
     try:
         if _needs_refresh(cache_path, max_age_seconds):
             await _download_index(cache_path, url)
-        with open(cache_path, "r", encoding="utf-8") as handle:
+        with open(cache_path, encoding="utf-8") as handle:
             return json.load(handle)
     except Exception as exc:
         logger.warning("Unable to load Geofabrik index: %s", exc)

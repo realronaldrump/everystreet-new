@@ -14,8 +14,8 @@ export class OptimalRouteMap {
   }
 
   initialize() {
-    if (this.options.useSharedMap && window.coverageMasterMap) {
-      this.map = window.coverageMasterMap;
+    if (this.options.sharedMap) {
+      this.map = this.options.sharedMap;
       this.ownsMap = false;
       return this.bindMapLoad();
     }

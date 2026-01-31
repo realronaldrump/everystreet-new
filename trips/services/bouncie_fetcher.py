@@ -2,7 +2,7 @@
 Bouncie_trip_fetcher.py.
 
 Fetches trip data from the Bouncie API, processes and validates each
-trip using the unified TripProcessor, and stores trips in MongoDB.
+trip using the unified TripPipeline, and stores trips in MongoDB.
 """
 
 import asyncio
@@ -12,9 +12,8 @@ from typing import Any
 
 import aiohttp
 
-from config import API_BASE_URL, get_bouncie_config
-from core.date_utils import parse_timestamp
-from core.http.retry import retry_async
+from config import get_bouncie_config
+from core.clients.bouncie import BouncieClient
 from core.http.session import get_session
 from setup.services.bouncie_oauth import BouncieOAuth
 from trips.services.trip_batch_service import TripService
@@ -22,107 +21,50 @@ from trips.services.trip_batch_service import TripService
 logger = logging.getLogger(__name__)
 
 
-@retry_async(max_retries=3, retry_delay=1.5)
 async def fetch_trips_for_device(
-    session: aiohttp.ClientSession,
+    session,
     token: str,
     imei: str,
     start_dt: datetime,
     end_dt: datetime,
 ) -> list:
     """Fetch trips for a single device between start_dt and end_dt."""
-    headers = {
-        "Authorization": token,
-        "Content-Type": "application/json",
-    }
-    params = {
-        "imei": imei,
-        "gps-format": "geojson",
-        "starts-after": start_dt.isoformat(),
-        "ends-before": end_dt.isoformat(),
-    }
-    url = f"{API_BASE_URL}/trips"
-
-    try:
-        async with session.get(
-            url,
-            headers=headers,
-            params=params,
-        ) as response:
-            response.raise_for_status()
-            trips = await response.json()
-
-            for trip in trips:
-                if "startTime" in trip:
-                    trip["startTime"] = parse_timestamp(trip["startTime"])
-                if "endTime" in trip:
-                    trip["endTime"] = parse_timestamp(trip["endTime"])
-
-            if trips:
-                logger.info(
-                    "Fetched %d trips for device %s",
-                    len(trips),
-                    imei,
-                )
-            else:
-                # Demote noisy 0-trip events to debug to avoid log spam
-                logger.info(
-                    "Fetched 0 trips for device %s",
-                    imei,
-                )
-            return trips
-    except Exception:
-        logger.exception("Error fetching trips for device %s", imei)
-        return []
+    client = BouncieClient(session)
+    trips = await client.fetch_trips_for_device(token, imei, start_dt, end_dt)
+    if trips:
+        logger.info(
+            "Fetched %d trips for device %s",
+            len(trips),
+            imei,
+        )
+    else:
+        logger.info(
+            "Fetched 0 trips for device %s",
+            imei,
+        )
+    return trips
 
 
-@retry_async(max_retries=3, retry_delay=1.5)
 async def fetch_trip_by_transaction_id(
-    session: aiohttp.ClientSession,
+    session,
     token: str,
     transaction_id: str,
 ) -> list:
     """Fetch a single trip by transactionId."""
-    headers = {
-        "Authorization": token,
-        "Content-Type": "application/json",
-    }
-    params = {
-        "transaction-id": transaction_id,
-        "gps-format": "geojson",
-    }
-    url = f"{API_BASE_URL}/trips"
-
-    try:
-        async with session.get(
-            url,
-            headers=headers,
-            params=params,
-        ) as response:
-            response.raise_for_status()
-            trips = await response.json()
-
-            for trip in trips:
-                if "startTime" in trip:
-                    trip["startTime"] = parse_timestamp(trip["startTime"])
-                if "endTime" in trip:
-                    trip["endTime"] = parse_timestamp(trip["endTime"])
-
-            if trips:
-                logger.info(
-                    "Fetched %d trips for transactionId %s",
-                    len(trips),
-                    transaction_id,
-                )
-            else:
-                logger.info(
-                    "Fetched 0 trips for transactionId %s",
-                    transaction_id,
-                )
-            return trips
-    except Exception:
-        logger.exception("Error fetching trip for transactionId %s", transaction_id)
-        return []
+    client = BouncieClient(session)
+    trips = await client.fetch_trip_by_transaction_id(token, transaction_id)
+    if trips:
+        logger.info(
+            "Fetched %d trips for transactionId %s",
+            len(trips),
+            transaction_id,
+        )
+    else:
+        logger.info(
+            "Fetched 0 trips for transactionId %s",
+            transaction_id,
+        )
+    return trips
 
 
 async def fetch_bouncie_trip_by_transaction_id(
@@ -142,12 +84,6 @@ async def fetch_bouncie_trip_by_transaction_id(
         progress_tracker["fetch_and_store_trips"]["message"] = (
             "Starting trip fetch by transactionId"
         )
-
-    if do_map_match:
-        logger.warning(
-            "Inline map matching on fetch is deprecated; queuing jobs instead.",
-        )
-        do_map_match = False
 
     try:
         credentials = await get_bouncie_config()
@@ -207,11 +143,6 @@ async def fetch_bouncie_trips_in_range(
         progress_tracker["fetch_and_store_trips"]["status"] = "running"
         progress_tracker["fetch_and_store_trips"]["progress"] = 0
         progress_tracker["fetch_and_store_trips"]["message"] = "Starting trip fetch"
-    if do_map_match:
-        logger.warning(
-            "Inline map matching on fetch is deprecated; queuing jobs instead.",
-        )
-        do_map_match = False
 
     try:
         # Get Bouncie credentials from database or environment

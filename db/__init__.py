@@ -37,12 +37,16 @@ from db.manager import DatabaseManager, db_manager
 # ============================================================================
 # Beanie Document Models
 # ============================================================================
+# New coverage system models
 from db.models import (
     ALL_DOCUMENT_MODELS,
     AppSettings,
     BouncieCredentials,
+    CoverageArea,
+    CoverageState,
     ExportJob,
     GasFillup,
+    Job,
     OptimalRouteProgress,
     OsmData,
     Place,
@@ -62,13 +66,6 @@ from db.query import (
     build_calendar_date_expr,
     build_query_from_request,
     parse_query_date,
-)
-
-# New coverage system models
-from street_coverage.models import (
-    CoverageArea,
-    CoverageState,
-    Job,
 )
 
 logger = logging.getLogger(__name__)

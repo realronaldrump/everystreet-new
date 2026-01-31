@@ -13,8 +13,9 @@ import json
 import logging
 import os
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any
 
 from pyproj import Transformer
 from shapely.geometry import LineString, Point, mapping
@@ -304,7 +305,7 @@ async def build_trip_coverage_extract(
                 _build_polygon(),
                 timeout=polygon_timeout_seconds,
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.warning(
                 "Coverage polygon build timed out after %s seconds",
                 polygon_timeout_seconds,

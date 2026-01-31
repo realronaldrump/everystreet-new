@@ -8,13 +8,13 @@ This package provides modular functionality for:
 - Driver behavior statistics
 
 The package is organized into:
-- routes/: API endpoint handlers organized by domain
+- api/: API endpoint handlers organized by domain
 - services/: Business logic and data processing
 """
 
 from fastapi import APIRouter
 
-from analytics.routes import dashboard, trips
+from analytics.api import dashboard, trips
 
 # Create main router that aggregates all analytics-related routes
 router = APIRouter()

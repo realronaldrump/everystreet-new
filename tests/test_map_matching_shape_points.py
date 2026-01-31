@@ -1,4 +1,4 @@
-from geo_service.map_matching import MapMatchingService
+from trips.services.matching import MapMatchingService
 
 
 def test_build_shape_points_sets_break_and_via_types() -> None:

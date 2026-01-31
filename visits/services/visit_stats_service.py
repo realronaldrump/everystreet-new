@@ -295,8 +295,8 @@ class VisitStatsService:
         Raises:
             ValueError: If timeframe is invalid
         """
-        from collections import Counter, deque, defaultdict
         import math
+        from collections import Counter, defaultdict, deque
 
         from shapely import STRtree
         from shapely.geometry import (
@@ -307,7 +307,7 @@ class VisitStatsService:
         )
         from shapely.ops import transform
 
-        from street_coverage.geo_utils import get_local_transformers
+        from core.spatial import get_local_transformers
 
         match_stage: dict[str, Any] = {
             "$and": [
@@ -392,7 +392,11 @@ class VisitStatsService:
             if isinstance(gps, dict):
                 gps_type = gps.get("type")
                 coords = gps.get("coordinates")
-                if gps_type == "Point" and isinstance(coords, list) and len(coords) >= 2:
+                if (
+                    gps_type == "Point"
+                    and isinstance(coords, list)
+                    and len(coords) >= 2
+                ):
                     return float(coords[0]), float(coords[1])
                 if (
                     gps_type == "LineString"
@@ -621,9 +625,7 @@ class VisitStatsService:
             hull_m = cluster_geom_m.convex_hull
 
             centroid_m = cluster_geom_m.centroid
-            distances = sorted(
-                centroid_m.distance(pt) for pt in cluster_geom_m.geoms
-            )
+            distances = sorted(centroid_m.distance(pt) for pt in cluster_geom_m.geoms)
             if distances:
                 p60_idx = int(0.6 * (len(distances) - 1))
                 p60_dist = distances[p60_idx]

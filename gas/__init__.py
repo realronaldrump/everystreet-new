@@ -9,14 +9,14 @@ This package provides modular functionality for:
 - Bouncie API integration for real-time vehicle data
 
 The package is organized into:
-- routes/: API endpoint handlers organized by domain
+- api/: API endpoint handlers organized by domain
 - services/: Business logic and data processing
 - serializers.py: Data transformation utilities
 """
 
 from fastapi import APIRouter
 
-from gas.routes import fillups, location, statistics, vehicles
+from gas.api import fillups, location, statistics, vehicles
 
 # Create main router that aggregates all gas-related routes
 router = APIRouter()

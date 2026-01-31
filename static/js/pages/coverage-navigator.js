@@ -1,3 +1,4 @@
-import "../coverage-navigator.js";
-import "../driving-navigation.js";
-import "../optimal-routes.js";
+import { onPageLoad } from "../modules/utils.js";
+import initCoverageNavigatorPage from "../modules/features/coverage-navigator/index.js";
+
+onPageLoad(initCoverageNavigatorPage, { route: "/coverage-navigator" });

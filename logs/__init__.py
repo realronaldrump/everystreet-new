@@ -1,10 +1,5 @@
 """Server logs API package."""
 
-from fastapi import APIRouter
-
-from logs.routes import logs
-
-router = APIRouter()
-router.include_router(logs.router, tags=["logs"])
+from logs.api import router
 
 __all__ = ["router"]

@@ -365,7 +365,10 @@ const mapCore = {
         : "http://localhost";
     let patched = false;
 
-    if (typeof navigator !== "undefined" && typeof navigator.sendBeacon === "function") {
+    if (
+      typeof navigator !== "undefined"
+      && typeof navigator.sendBeacon === "function"
+    ) {
       const originalSendBeacon = navigator.sendBeacon.bind(navigator);
       navigator.sendBeacon = (url, data) => {
         try {
@@ -412,9 +415,7 @@ const mapCore = {
    * @private
    */
   _createTransformRequest() {
-    return (url) => {
-      return { url };
-    };
+    return (url) => ({ url });
   },
 
   /**

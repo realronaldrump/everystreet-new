@@ -10,8 +10,8 @@ import apiClient from "../core/api-client.js";
  * @param {URLSearchParams} params - Query parameters
  * @returns {Promise<Object>} Behavior data
  */
-export function fetchBehavior(params) {
-  return apiClient.get(`/api/driver-behavior?${params}`, { cache: true });
+export function fetchBehavior(params, signal) {
+  return apiClient.get(`/api/driver-behavior?${params}`, { cache: true, signal });
 }
 
 /**
@@ -19,8 +19,8 @@ export function fetchBehavior(params) {
  * @param {URLSearchParams} params - Query parameters
  * @returns {Promise<Object>} Insights data
  */
-export function fetchInsights(params) {
-  return apiClient.get(`/api/driving-insights?${params}`, { cache: true });
+export function fetchInsights(params, signal) {
+  return apiClient.get(`/api/driving-insights?${params}`, { cache: true, signal });
 }
 
 /**
@@ -28,8 +28,8 @@ export function fetchInsights(params) {
  * @param {URLSearchParams} params - Query parameters
  * @returns {Promise<Object>} Analytics data
  */
-export function fetchAnalytics(params) {
-  return apiClient.get(`/api/trip-analytics?${params}`, { cache: true });
+export function fetchAnalytics(params, signal) {
+  return apiClient.get(`/api/trip-analytics?${params}`, { cache: true, signal });
 }
 
 /**
@@ -37,8 +37,8 @@ export function fetchAnalytics(params) {
  * @param {URLSearchParams} params - Query parameters
  * @returns {Promise<Object>} Metrics data
  */
-export function fetchMetrics(params) {
-  return apiClient.get(`/api/metrics?${params}`, { cache: true });
+export function fetchMetrics(params, signal) {
+  return apiClient.get(`/api/metrics?${params}`, { cache: true, signal });
 }
 
 /**
@@ -46,8 +46,8 @@ export function fetchMetrics(params) {
  * @param {URLSearchParams} params - Query parameters
  * @returns {Promise<Array>} Trip data
  */
-export function fetchTimePeriodTrips(params) {
-  return apiClient.get(`/api/time-period-trips?${params}`);
+export function fetchTimePeriodTrips(params, signal) {
+  return apiClient.get(`/api/time-period-trips?${params}`, { signal });
 }
 
 /**
@@ -56,7 +56,7 @@ export function fetchTimePeriodTrips(params) {
  * @param {Object} prevRange - Previous period date range
  * @returns {Promise<Object>} All fetched data
  */
-export async function loadAllData(dateRange, prevRange) {
+export async function loadAllData(dateRange, prevRange, signal) {
   const params = new URLSearchParams({
     start_date: dateRange.start,
     end_date: dateRange.end,
@@ -69,12 +69,12 @@ export async function loadAllData(dateRange, prevRange) {
 
   const [behavior, insights, analytics, metrics, prevBehavior, prevInsights]
     = await Promise.all([
-      fetchBehavior(params),
-      fetchInsights(params),
-      fetchAnalytics(params),
-      fetchMetrics(params),
-      fetchBehavior(paramsPrev),
-      fetchInsights(paramsPrev),
+      fetchBehavior(params, signal),
+      fetchInsights(params, signal),
+      fetchAnalytics(params, signal),
+      fetchMetrics(params, signal),
+      fetchBehavior(paramsPrev, signal),
+      fetchInsights(paramsPrev, signal),
     ]);
 
   return {

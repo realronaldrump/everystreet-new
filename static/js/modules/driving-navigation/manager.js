@@ -19,17 +19,15 @@ export class DrivingNavigation {
    * @param {Object} options - Configuration options
    */
   constructor(options = {}) {
-    const globalConfig = window.coverageNavigatorConfig?.drivingNavigation || {};
     this.config = {
       ...DRIVING_NAV_DEFAULTS,
-      ...globalConfig,
       ...options,
     };
 
     // Initialize modules
     this.api = new DrivingNavigationAPI();
     this.mapManager = new DrivingNavigationMap(this.config.mapContainerId, {
-      useSharedMap: this.config.useSharedMap,
+      sharedMap: this.config.sharedMap,
     });
     this.ui = new DrivingNavigationUI(this.config);
 
@@ -51,7 +49,9 @@ export class DrivingNavigation {
   async initialize() {
     await this.initMap();
     this.setupEventListeners();
-    await this.loadCoverageAreas();
+    if (this.config.loadCoverageAreas !== false) {
+      await this.loadCoverageAreas();
+    }
     this.ui.loadAutoFollowState();
   }
 
@@ -118,17 +118,6 @@ export class DrivingNavigation {
       signal ? { signal } : false
     );
 
-    // Listen for coverage areas being loaded by OptimalRoutesManager
-    document.addEventListener(
-      "coverageAreasLoaded",
-      (e) => {
-        if (e.detail?.areas) {
-          this.coverageAreas = e.detail.areas;
-        }
-      },
-      signal ? { signal } : false
-    );
-
     // Delegate click for dynamically created popup buttons
     document.addEventListener(
       "click",
@@ -154,6 +143,16 @@ export class DrivingNavigation {
       // Ignore abort errors.
     }
     this.mapManager?.destroy?.();
+  }
+
+  setCoverageAreas(areas = []) {
+    if (!Array.isArray(areas)) {
+      return;
+    }
+    this.coverageAreas = areas;
+    if (this.config.populateAreaSelect) {
+      this.ui.populateAreaDropdown(areas);
+    }
   }
 
   /**

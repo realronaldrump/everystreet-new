@@ -1,6 +1,6 @@
 from datetime import UTC, datetime, timedelta
 
-from geo_service.timestamp_utils import extract_timestamps_for_coordinates
+from core.spatial import extract_timestamps_for_coordinates
 
 
 def test_elapsed_from_coordinate_timestamps() -> None:

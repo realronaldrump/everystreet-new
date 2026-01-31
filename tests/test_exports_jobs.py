@@ -9,8 +9,8 @@ from bson import ObjectId
 from fastapi import HTTPException
 from starlette.requests import Request
 
+from exports.api import download_export_job
 from exports.auth import enforce_owner, get_owner_key
-from exports.routes.exports import download_export_job
 from exports.services.export_service import ExportService
 
 
@@ -94,7 +94,7 @@ class ExportJobLifecycleTests(unittest.IsolatedAsyncioTestCase):
 
         with (
             patch(
-                "exports.routes.exports.ExportJob.get",
+                "exports.api.ExportJob.get",
                 new=AsyncMock(return_value=job),
             ),
             pytest.raises(HTTPException) as context,
@@ -122,7 +122,7 @@ class ExportJobLifecycleTests(unittest.IsolatedAsyncioTestCase):
             request = Request(scope)
 
             with patch(
-                "exports.routes.exports.ExportJob.get",
+                "exports.api.ExportJob.get",
                 new=AsyncMock(return_value=job),
             ):
                 response = await download_export_job(job.id, request)

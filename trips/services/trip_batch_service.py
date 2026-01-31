@@ -7,13 +7,14 @@ from typing import Any
 
 from beanie.operators import In
 from fastapi import HTTPException, status
+from pydantic import ValidationError
 
 from admin.services.admin_service import AdminService
 from config import require_nominatim_reverse_url, require_valhalla_trace_route_url
+from core.date_utils import get_current_utc_time
 from db.models import Trip
-from trip_processor import TripProcessor, TripState
 from trips.models import TripProcessingProjection, TripStatusProjection
-from trips.services.trip_repository import TripRepository
+from trips.pipeline import TripPipeline
 
 logger = logging.getLogger(__name__)
 
@@ -107,11 +108,40 @@ class TripService:
     def __init__(self) -> None:
         require_valhalla_trace_route_url()
         require_nominatim_reverse_url()
+        self._pipeline = TripPipeline()
 
     @with_comprehensive_handling
     async def get_trip_by_id(self, trip_id: str) -> Trip | None:
         """Retrieve a trip by its ID."""
         return await Trip.find_one(Trip.transactionId == trip_id)
+
+    async def _merge_existing_trip(
+        self,
+        existing_trip: Trip,
+        trip_data: dict[str, Any],
+        source: str,
+    ) -> bool:
+        try:
+            validated = Trip(**trip_data)
+            incoming = validated.model_dump(exclude_unset=True)
+        except ValidationError as exc:
+            logger.warning(
+                "Skipping merge for trip %s due to validation error: %s",
+                trip_data.get("transactionId", "unknown"),
+                exc,
+            )
+            return False
+
+        incoming["source"] = source
+        incoming["saved_at"] = get_current_utc_time()
+        self._pipeline._merge_trip_fields(
+            existing_trip,
+            incoming,
+            mark_processed=False,
+            processing_state=None,
+        )
+        await existing_trip.save()
+        return True
 
     @with_comprehensive_handling
     async def process_single_trip(
@@ -119,50 +149,63 @@ class TripService:
         trip_data: dict[str, Any],
         options: ProcessingOptions,
         source: str = "api",
+        *,
+        do_coverage: bool = False,
     ) -> dict[str, Any]:
         """Process a single trip with specified options."""
-        processor = TripProcessor(source=source)
-        processor.set_trip_data(trip_data)
-
         if options.validate_only:
-            await processor.validate()
-            processing_status = processor.get_processing_status()
+            validation = await self._pipeline.validate_raw_trip(trip_data)
+            processing_status = validation.get("processing_status", {})
             return {
                 "status": "success",
                 "processing_status": processing_status,
-                "is_valid": processing_status["state"] == TripState.VALIDATED.value,
+                "is_valid": processing_status.get("state") == "validated",
             }
 
         if options.geocode_only:
-            await processor.validate()
-            if processor.state == TripState.VALIDATED:
-                await processor.process_basic()
-                if processor.state == TripState.PROCESSED:
-                    await processor.geocode()
-
-            saved_id = await processor.save()
-            processing_status = processor.get_processing_status()
+            trip = await self._pipeline.process_raw_trip(
+                trip_data,
+                source=source,
+                do_map_match=False,
+                do_geocode=True,
+                do_coverage=do_coverage,
+            )
+            processing_status = {
+                "state": getattr(trip, "processing_state", "completed")
+                if trip
+                else "failed",
+                "history": getattr(trip, "processing_history", []) if trip else [],
+                "errors": {},
+                "transaction_id": trip_data.get("transactionId", "unknown"),
+            }
             return {
                 "status": "success",
                 "processing_status": processing_status,
-                "geocoded": processing_status["state"] == TripState.GEOCODED.value,
-                "saved_id": saved_id,
+                "geocoded": bool(trip and getattr(trip, "geocoded_at", None)),
+                "saved_id": str(trip.id) if trip else None,
             }
 
-        # Streamlined processing pipeline - geocoding and map matching are non-blocking
-        await processor.process(
+        trip = await self._pipeline.process_raw_trip(
+            trip_data,
+            source=source,
             do_map_match=options.map_match,
             do_geocode=options.geocode,
+            do_coverage=do_coverage,
         )
-
-        saved_id = await processor.save(_map_match_result=options.map_match)
-        processing_status = processor.get_processing_status()
+        processing_status = {
+            "state": getattr(trip, "processing_state", "completed")
+            if trip
+            else "failed",
+            "history": getattr(trip, "processing_history", []) if trip else [],
+            "errors": {},
+            "transaction_id": trip_data.get("transactionId", "unknown"),
+        }
 
         return {
             "status": "success",
             "processing_status": processing_status,
-            "completed": processing_status["state"] == TripState.COMPLETED.value,
-            "saved_id": saved_id,
+            "completed": processing_status.get("state") in {"completed", "map_matched"},
+            "saved_id": str(trip.id) if trip else None,
         }
 
     @with_comprehensive_handling
@@ -209,13 +252,13 @@ class TripService:
                 processing_status = trip_result.get("processing_status", {})
                 state = processing_status.get("state")
 
-                if state == TripState.VALIDATED.value:
+                if state == "validated":
                     result.validated += 1
-                elif state == TripState.GEOCODED.value:
+                elif state == "geocoded":
                     result.geocoded += 1
-                elif state in {TripState.MAP_MATCHED.value, TripState.COMPLETED.value}:
+                elif state in {"map_matched", "completed"}:
                     result.map_matched += 1
-                elif state == TripState.FAILED.value:
+                elif state == "failed":
                     result.failed += 1
 
             except Exception as e:
@@ -260,8 +303,6 @@ class TripService:
                 "geocodeTripsOnFetch",
                 True,
             )
-
-            repository = TripRepository()
 
             # Deduplicate inputs by transactionId
             unique_trips: list[dict[str, Any]] = []
@@ -338,8 +379,7 @@ class TripService:
                 )
                 existing_processed = (
                     existing_status == "processed"
-                    or existing_processing_state
-                    in {TripState.COMPLETED.value, TripState.MAP_MATCHED.value}
+                    or existing_processing_state in {"completed", "map_matched"}
                 )
                 needs_processing = (
                     not existing_trip
@@ -359,6 +399,7 @@ class TripService:
                             trip,
                             options,
                             source="api",
+                            do_coverage=True,
                         )
                     except Exception:
                         logger.exception(
@@ -370,8 +411,19 @@ class TripService:
                             processed_trip_ids.append(transaction_id)
                             processed_count += 1
                 else:
-                    saved_id = await repository.merge_trip(trip, source="api")
-                    if saved_id:
+                    if not existing_trip:
+                        continue
+                    existing_doc = await Trip.find_one(
+                        Trip.transactionId == transaction_id,
+                    )
+                    if not existing_doc:
+                        continue
+                    merged = await self._merge_existing_trip(
+                        existing_doc,
+                        trip,
+                        source="api",
+                    )
+                    if merged:
                         processed_trip_ids.append(transaction_id)
                         merged_count += 1
             logger.info(

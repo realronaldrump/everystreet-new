@@ -187,9 +187,7 @@ class ValhallaClient:
             if isinstance(legs, list) and legs:
                 first_leg = legs[0]
                 if isinstance(first_leg, dict):
-                    shape_format = (
-                        first_leg.get("shape_format") or shape_format
-                    )
+                    shape_format = first_leg.get("shape_format") or shape_format
                     candidates.append(first_leg.get("shape"))
 
         if isinstance(data, dict):
@@ -237,7 +235,7 @@ class ValhallaClient:
                 lon = point.get("lon")
                 lat = point.get("lat")
             else:
-                if not isinstance(point, list | tuple) or len(point) < 2:
+                if not isinstance(point, (list, tuple)) or len(point) < 2:
                     continue
                 lon, lat = point[0], point[1]
             if lon is None or lat is None:

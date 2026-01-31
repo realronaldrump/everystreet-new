@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter
 
-from admin.routes import collections, settings
+from admin.api import collections, settings
 
 router = APIRouter()
 router.include_router(settings.router, tags=["admin-settings"])

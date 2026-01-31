@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Any
 from beanie import PydanticObjectId
 from fastapi import HTTPException
 
+from core.spatial import GeometryService, extract_timestamps_for_coordinates
 from db import CoverageArea, CoverageState, Street, Trip, build_calendar_date_expr
 from db.models import ExportJob
 from exports.constants import (
@@ -34,8 +35,6 @@ from exports.services.export_writer import (
     write_gpx_tracks,
     write_json_array,
 )
-from geo_service.geometry import GeometryService
-from geo_service.timestamp_utils import extract_timestamps_for_coordinates
 
 if TYPE_CHECKING:
     from exports.models import ExportItem, ExportRequest

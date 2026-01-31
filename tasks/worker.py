@@ -30,14 +30,14 @@ from tasks.fetch import (
 )
 from tasks.health import worker_heartbeat
 from tasks.maintenance import cleanup_stale_trips, remap_unmatched_trips, validate_trips
-from tasks.map_matching import map_match_trips
 from tasks.map_data import (
     SETUP_JOB_TIMEOUT_SECONDS,
     auto_provision_check,
     monitor_map_services,
     setup_map_data_task,
 )
-from tasks.routes import generate_optimal_route
+from tasks.map_matching import map_match_trips
+from tasks.optimal_routes import generate_optimal_route
 
 PERIODIC_FETCH_TIMEOUT_SECONDS = int(
     os.getenv("TRIP_FETCH_JOB_TIMEOUT_SECONDS", str(15 * 60)),
@@ -76,7 +76,7 @@ async def on_shutdown(ctx: dict) -> None:
 
 
 class WorkerSettings:
-    functions: ClassVar[list[object]] = [  # noqa: V107
+    functions: ClassVar[list[object]] = [
         func(periodic_fetch_trips, timeout=PERIODIC_FETCH_TIMEOUT_SECONDS),
         fetch_trip_by_transaction_id,
         manual_fetch_trips_range,
@@ -93,7 +93,7 @@ class WorkerSettings:
         monitor_map_services,
         auto_provision_check,
     ]
-    cron_jobs: ClassVar[list[object]] = [  # noqa: V107
+    cron_jobs: ClassVar[list[object]] = [
         cron(cron_periodic_fetch_trips, timeout=PERIODIC_FETCH_TIMEOUT_SECONDS),
         cron(cron_cleanup_stale_trips),
         cron(cron_validate_trips),
@@ -103,6 +103,6 @@ class WorkerSettings:
         cron(cron_monitor_map_data_jobs),
         cron(cron_auto_provision_map_data),
     ]
-    redis_settings = get_redis_settings()  # noqa: V107
+    redis_settings = get_redis_settings()
     on_startup = on_startup
     on_shutdown = on_shutdown

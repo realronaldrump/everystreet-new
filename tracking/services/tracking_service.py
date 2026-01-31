@@ -11,8 +11,8 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from core.date_utils import parse_timestamp
+from core.spatial import GeometryService
 from db.models import BouncieCredentials, Trip
-from geo_service.geometry import GeometryService
 from trips.events import publish_trip_state
 
 logger = logging.getLogger(__name__)
@@ -460,13 +460,10 @@ async def process_trip_end(data: dict[str, Any]) -> None:
     # Emit coverage event for automatic street coverage updates (only once)
     if not getattr(trip, "coverage_emitted_at", None) and getattr(trip, "gps", None):
         try:
-            from street_coverage.events import emit_trip_completed
+            from core.coverage import update_coverage_for_trip
 
             trip_data = trip.model_dump()
-            await emit_trip_completed(
-                trip_id=str(trip.id),
-                trip_data=trip_data,
-            )
+            await update_coverage_for_trip(trip_data, trip.id)
             trip.coverage_emitted_at = datetime.now(UTC)
             await trip.save()
         except Exception as coverage_err:

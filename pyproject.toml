@@ -148,7 +148,7 @@ max-doc-length = 88
 # Make isort compatible with black
 combine-as-imports = true
 force-wrap-aliases = true
-known-first-party = ["api", "core", "db", "routes", "tasks", "trips", "visits", "exports", "coverage", "analytics"]
+known-first-party = ["api", "core", "db", "routing", "tasks", "trips", "visits", "exports", "coverage", "analytics"]
 
 [tool.ruff.lint.pylint]
 max-args = 10
@@ -243,7 +243,7 @@ min_confidence = 60
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-ra --cov=core.api --cov=core.exceptions --cov=core.http.geocoding --cov=core.http.nominatim --cov=core.http.retry --cov=core.http.session --cov=core.http.valhalla --cov=core.math_utils --cov=db.aggregation --cov=db.models --cov=db.query --cov=core.date_utils --cov=exports.auth --cov=exports.models --cov=exports.serializers --cov=exports.services.export_service --cov=exports.services.export_writer --cov=routes.routing --cov=setup.services.bouncie_credentials --cov=setup.services.bouncie_oauth --cov=tracking.routes.webhooks --cov-report=term-missing --cov-report=lcov:coverage.lcov --cov-fail-under=80 -m 'not integration'"
+addopts = "-ra --cov=core.api --cov=core.exceptions --cov=core.http.geocoding --cov=core.http.nominatim --cov=core.http.retry --cov=core.http.session --cov=core.http.valhalla --cov=core.math_utils --cov=db.aggregation --cov=db.models --cov=db.query --cov=core.date_utils --cov=exports.auth --cov=exports.models --cov=exports.serializers --cov=exports.services.export_service --cov=exports.services.export_writer --cov=api.routing --cov=setup.services.bouncie_credentials --cov=setup.services.bouncie_oauth --cov=tracking.api.webhooks --cov-report=term-missing --cov-report=lcov:coverage.lcov --cov-fail-under=80 -m 'not integration'"
 asyncio_mode = "auto"
 markers = [
   "integration: tests that require live Valhalla/Nominatim services",

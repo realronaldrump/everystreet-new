@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, patch
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from map_matching.routes import router as map_matching_router
+from trips.api.map_matching import router as map_matching_router
 
 
 def _create_app() -> FastAPI:
@@ -16,7 +16,7 @@ def test_create_map_matching_job() -> None:
     app = _create_app()
 
     with patch(
-        "map_matching.routes.service.enqueue_job",
+        "trips.api.map_matching.service.enqueue_job",
         new=AsyncMock(return_value={"status": "queued", "job_id": "job-1"}),
     ):
         client = TestClient(app)
@@ -30,7 +30,7 @@ def test_get_map_matching_job() -> None:
     app = _create_app()
 
     with patch(
-        "map_matching.routes.service.get_job",
+        "trips.api.map_matching.service.get_job",
         new=AsyncMock(return_value={"job_id": "job-2", "stage": "running"}),
     ):
         client = TestClient(app)
@@ -44,7 +44,7 @@ def test_list_map_matching_jobs() -> None:
     app = _create_app()
 
     with patch(
-        "map_matching.routes.service.list_jobs",
+        "trips.api.map_matching.service.list_jobs",
         new=AsyncMock(return_value={"total": 1, "jobs": []}),
     ):
         client = TestClient(app)
@@ -58,11 +58,13 @@ def test_preview_map_matching_jobs() -> None:
     app = _create_app()
 
     with patch(
-        "map_matching.routes.service.preview",
+        "trips.api.map_matching.service.preview",
         new=AsyncMock(return_value={"total": 0, "sample": []}),
     ):
         client = TestClient(app)
-        response = client.post("/api/map_matching/jobs/preview", json={"mode": "unmatched"})
+        response = client.post(
+            "/api/map_matching/jobs/preview", json={"mode": "unmatched"}
+        )
 
     assert response.status_code == 200
     assert response.json()["total"] == 0

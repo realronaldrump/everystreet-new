@@ -170,10 +170,6 @@ async def update_bouncie_credentials(credentials: dict[str, Any]) -> bool:
                     elif not isinstance(devices, list):
                         devices = []
                     existing.authorized_devices = devices
-                elif key == "fetch_concurrency":
-                    parsed = _normalize_fetch_concurrency(value)
-                    if parsed is not None:
-                        existing.fetch_concurrency = parsed
                 elif key == "access_token":
                     existing.access_token = value
                 elif key == "refresh_token":
@@ -215,11 +211,7 @@ async def update_bouncie_credentials(credentials: dict[str, Any]) -> bool:
                 elif not isinstance(devices, list):
                     devices = []
                 new_creds.authorized_devices = devices
-            if "fetch_concurrency" in credentials:
-                parsed = _normalize_fetch_concurrency(credentials["fetch_concurrency"])
-                new_creds.fetch_concurrency = parsed if parsed is not None else 12
-            else:
-                new_creds.fetch_concurrency = 12
+            new_creds.fetch_concurrency = 12
 
             if "access_token" in credentials:
                 new_creds.access_token = credentials["access_token"]

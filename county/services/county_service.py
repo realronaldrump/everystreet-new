@@ -420,7 +420,7 @@ def _normalize_county_geometry(geom):
 
 
 def _coerce_point_coords(coords):
-    if not isinstance(coords, list | tuple) or len(coords) < 2:
+    if not isinstance(coords, (list, tuple)) or len(coords) < 2:
         return None
     try:
         return [float(coords[0]), float(coords[1])]

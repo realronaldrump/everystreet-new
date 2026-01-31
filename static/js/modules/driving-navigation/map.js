@@ -72,7 +72,7 @@ export class DrivingNavigationMap {
   /**
    * @param {string} containerId - The DOM container ID for the map
    * @param {Object} options - Configuration options
-   * @param {boolean} [options.useSharedMap=false] - Use shared map instance
+   * @param {Object} [options.sharedMap=null] - Shared map instance
    */
   constructor(containerId, options = {}) {
     this.containerId = containerId;
@@ -93,8 +93,8 @@ export class DrivingNavigationMap {
    * @returns {Promise<void>}
    */
   initialize() {
-    if (this.options.useSharedMap && window.coverageMasterMap) {
-      this.map = window.coverageMasterMap;
+    if (this.options.sharedMap) {
+      this.map = this.options.sharedMap;
       this.ownsMap = false;
       return this.bindMapLoad();
     }

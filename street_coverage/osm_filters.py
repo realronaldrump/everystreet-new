@@ -29,7 +29,7 @@ DRIVEABLE_HIGHWAY_TYPES = {
 def normalize_tag_values(value: Any) -> list[str]:
     if value is None:
         return []
-    if isinstance(value, list | tuple | set):
+    if isinstance(value, (list, tuple, set)):
         return [str(item) for item in value if item is not None]
     return [str(value)]
 
