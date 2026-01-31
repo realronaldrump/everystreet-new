@@ -39,8 +39,16 @@
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(ellipse at top left, rgb(var(--primary-rgb) / 8%) 0%, transparent 50%),
-    radial-gradient(ellipse at bottom right, rgb(var(--secondary-rgb) / 6%) 0%, transparent 50%);
+    radial-gradient(
+      ellipse at top left,
+      rgb(var(--primary-rgb) / 8%) 0%,
+      transparent 50%
+    ),
+    radial-gradient(
+      ellipse at bottom right,
+      rgb(var(--secondary-rgb) / 6%) 0%,
+      transparent 50%
+    );
   pointer-events: none;
   z-index: 1;
 }
@@ -157,7 +165,11 @@
   right: -100px;
   width: 300px;
   height: 300px;
-  background: radial-gradient(circle, rgb(var(--primary-rgb) / 20%) 0%, transparent 70%);
+  background: radial-gradient(
+    circle,
+    rgb(var(--primary-rgb) / 20%) 0%,
+    transparent 70%
+  );
   border-radius: 50%;
   animation: orb-float 8s ease-in-out infinite;
   pointer-events: none;
@@ -284,7 +296,11 @@
 
 /* Draw button active state */
 .draw-button.active {
-  background: linear-gradient(135deg, rgb(var(--warning-rgb) / 20%), rgb(var(--warning-rgb) / 10%));
+  background: linear-gradient(
+    135deg,
+    rgb(var(--warning-rgb) / 20%),
+    rgb(var(--warning-rgb) / 10%)
+  );
   border-color: var(--warning);
   color: var(--warning);
   box-shadow:
@@ -568,7 +584,11 @@
 }
 
 .map-control-btn:hover {
-  background: linear-gradient(135deg, rgb(var(--primary-rgb) / 20%), rgb(var(--primary-rgb) / 10%));
+  background: linear-gradient(
+    135deg,
+    rgb(var(--primary-rgb) / 20%),
+    rgb(var(--primary-rgb) / 10%)
+  );
   border-color: var(--primary);
   color: var(--primary);
   transform: translateY(-2px) scale(1.05);
@@ -978,111 +998,165 @@
    RESPONSIVE ENHANCEMENTS
    ============================================ */
 
-@media (width <= 1200px) {
+/* ============================================
+   RESPONSIVE ENHANCEMENTS - MOBILE FIRST
+   ============================================ */
+
+/* Mobile base styles */
+#visits-page .map-container--visits {
+  height: 300px;
+  min-height: 300px;
+}
+
+/* Small tablets and up */
+@media (min-width: 640px) {
   #visits-page .map-container--visits {
-    height: 550px;
-    min-height: 550px;
+    height: 400px;
+    min-height: 400px;
   }
 }
 
-@media (width <= 992px) {
+/* Tablets */
+@media (min-width: 768px) {
   #visits-page .map-container--visits {
     height: 450px;
     min-height: 450px;
   }
 
-  .place-management-panel {
-    background: linear-gradient(
-      135deg,
-      rgb(var(--surface-rgb) / 90%) 0%,
-      rgb(var(--surface-rgb) / 70%) 100%
-    );
-    backdrop-filter: blur(16px);
-  }
-
-  .place-management-panel::before {
-    display: none;
-  }
-
-  /* Stack stats vertically on smaller screens */
-  #visits-page .widget-header .d-inline-flex {
-    flex-direction: column;
-    gap: var(--space-3);
-    align-items: flex-start;
-  }
-}
-
-@media (width <= 768px) {
-  #visits-page .map-container--visits {
-    height: 350px;
-    min-height: 350px;
-  }
-
   .map-controls-enhanced {
-    flex-direction: row;
-    top: auto;
-    bottom: var(--space-4);
-    left: 50%;
-    right: auto;
-    transform: translateX(-50%);
+    flex-direction: column;
+    top: var(--space-4);
+    right: var(--space-4);
+    bottom: auto;
+    left: auto;
+    transform: none;
   }
 
   .place-management-panel {
-    padding: var(--space-4);
+    padding: var(--space-5);
   }
 
   .visits-nav-tabs {
     padding: var(--space-2);
-    overflow-x: auto;
-    border-radius: var(--radius-lg);
-    flex-wrap: nowrap;
-    -webkit-overflow-scrolling: touch;
+    overflow-x: visible;
+    flex-wrap: wrap;
   }
 
   .visits-nav-tabs .nav-link {
-    white-space: nowrap;
-    padding: var(--space-2) var(--space-3);
-    font-size: var(--font-size-sm);
-  }
-
-  /* Make buttons full width on mobile */
-  .action-button {
-    width: 100%;
+    white-space: normal;
+    padding: var(--space-2) var(--space-4);
+    font-size: var(--font-size-base);
   }
 
   /* Adjust widget padding */
   #visits-page .widget {
-    padding: var(--space-4);
+    padding: var(--space-5);
   }
 }
 
-@media (width <= 576px) {
+/* Laptops and up */
+@media (min-width: 1024px) {
   #visits-page .map-container--visits {
-    height: 300px;
-    min-height: 300px;
+    height: 550px;
+    min-height: 550px;
   }
 
+  .place-management-panel {
+    padding: var(--space-6);
+  }
+
+  /* Stack stats horizontally on larger screens */
+  #visits-page .widget-header .d-inline-flex {
+    flex-direction: row;
+    gap: var(--space-4);
+    align-items: center;
+  }
+}
+
+/* Large desktops */
+@media (min-width: 1200px) {
+  #visits-page .map-container--visits {
+    height: 600px;
+    min-height: 600px;
+  }
+}
+
+/* Mobile-first widget title sizes */
+#visits-page .widget-title {
+  font-size: var(--font-size-lg);
+}
+
+#visits-page .widget-title i {
+  width: 36px;
+  height: 36px;
+  font-size: var(--font-size-md);
+}
+
+@media (min-width: 768px) {
   #visits-page .widget-title {
-    font-size: var(--font-size-lg);
+    font-size: var(--font-size-xl);
   }
 
   #visits-page .widget-title i {
-    width: 36px;
-    height: 36px;
-    font-size: var(--font-size-md);
+    width: 44px;
+    height: 44px;
+    font-size: var(--font-size-lg);
   }
+}
 
+/* Mobile-first map control buttons */
+.map-control-btn {
+  width: 40px;
+  height: 40px;
+}
+
+@media (min-width: 768px) {
   .map-control-btn {
-    width: 40px;
-    height: 40px;
+    width: 44px;
+    height: 44px;
   }
+}
 
+/* Mobile-first modal padding */
+.visits-modal .modal-header {
+  padding: var(--space-4);
+}
+
+.visits-modal .modal-body {
+  padding: var(--space-4);
+}
+
+@media (min-width: 768px) {
   .visits-modal .modal-header {
-    padding: var(--space-4);
+    padding: var(--space-5);
   }
 
   .visits-modal .modal-body {
-    padding: var(--space-4);
+    padding: var(--space-5);
+  }
+}
+
+/* ============================================
+   FRIENDLY UI OVERRIDES
+   ============================================ */
+
+/* Mobile filters */
+#visits-page .visits-filters {
+  width: 100%;
+}
+
+#visits-page .visits-filters .form-select {
+  width: 100%;
+}
+
+@media (min-width: 768px) {
+  #visits-page .visits-filters {
+    width: auto;
+  }
+
+  #visits-page .visits-filters .form-select {
+    width: auto;
+    min-width: 170px;
   }
 }
 
@@ -1205,8 +1279,16 @@
 
 #visits-page {
   background:
-    radial-gradient(900px circle at 8% -10%, rgb(var(--warning-rgb) / 12%), transparent 60%),
-    radial-gradient(900px circle at 100% 0%, rgb(var(--primary-rgb) / 12%), transparent 55%);
+    radial-gradient(
+      900px circle at 8% -10%,
+      rgb(var(--warning-rgb) / 12%),
+      transparent 60%
+    ),
+    radial-gradient(
+      900px circle at 100% 0%,
+      rgb(var(--primary-rgb) / 12%),
+      transparent 55%
+    );
   border-radius: var(--radius-xl);
 }
 
