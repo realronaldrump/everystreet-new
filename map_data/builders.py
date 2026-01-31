@@ -1238,7 +1238,8 @@ async def check_container_running(service_name: str) -> bool:
         True if container is running
     """
     try:
-        result = subprocess.run(
+        result = await asyncio.to_thread(
+            subprocess.run,
             [
                 "docker",
                 "ps",
