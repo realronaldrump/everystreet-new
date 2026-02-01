@@ -530,6 +530,11 @@ async function triggerProvisioning() {
   console.log("[MapServices] triggerProvisioning called");
   const btn
     = document.getElementById("provision-btn") || document.getElementById("retry-btn");
+  const isRetry = btn?.id === "retry-btn";
+  const retryStates = Array.isArray(_lastStatus?.configured_states)
+    ? _lastStatus.configured_states
+    : [];
+  const useConfigure = isRetry && retryStates.length > 0;
   if (btn) {
     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Starting...';
@@ -537,19 +542,43 @@ async function triggerProvisioning() {
 
   try {
     console.log("[MapServices] Calling auto-provision API...");
-    const response = await apiClient.raw(`${MAP_SERVICES_API}/auto-provision`, {
+    const endpoint = useConfigure
+      ? `${MAP_SERVICES_API}/configure`
+      : `${MAP_SERVICES_API}/auto-provision`;
+    const response = await apiClient.raw(endpoint, {
       method: "POST",
+      headers: useConfigure ? { "Content-Type": "application/json" } : undefined,
+      body: useConfigure ? JSON.stringify({ states: retryStates, force: true }) : undefined,
     });
 
     console.log("[MapServices] Response status:", response.status);
-    const data = await response.json();
+    let data = null;
+    try {
+      data = await response.json();
+    } catch (parseError) {
+      console.warn("[MapServices] Failed to parse provisioning response:", parseError);
+    }
     console.log("[MapServices] Response data:", data);
 
     if (!response.ok) {
-      throw new Error(data.detail || "Failed to start provisioning");
+      throw new Error(data?.detail || data?.error || "Failed to start provisioning");
     }
 
-    notificationManager.show("Map setup started.", "success");
+    if (useConfigure) {
+      notificationManager.show("Map setup started.", "success");
+    } else {
+      const action = data?.action;
+      if (action === "none") {
+        notificationManager.show(
+          data?.reason || "No provisioning needed right now.",
+          "info"
+        );
+      } else if (action === "already_in_progress") {
+        notificationManager.show("Map setup already in progress.", "info");
+      } else {
+        notificationManager.show("Map setup started.", "success");
+      }
+    }
     await refreshAutoStatus();
   } catch (error) {
     console.error("[MapServices] Error:", error);
