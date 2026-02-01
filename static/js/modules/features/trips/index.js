@@ -12,11 +12,11 @@ import { initTripSync } from "../../trip-sync.js";
 import confirmationDialog from "../../ui/confirmation-dialog.js";
 import notificationManager from "../../ui/notifications.js";
 import {
+  DateUtils,
   escapeHtml,
   formatDateTime,
   formatDuration,
   formatVehicleName,
-  DateUtils,
   getStorage,
   sanitizeLocation,
   setStorage,
@@ -275,11 +275,11 @@ function generateSmartTitle(trip) {
   const isMorning = hour >= 6 && hour < 12;
   const isShort = distance < 5;
   const isLong = distance > 50;
-  const isCommute
-    = (startLoc.includes("home") && endLoc.includes("work"))
-    || (startLoc.includes("work") && endLoc.includes("home"))
-    || (startLoc.includes("home") && endLoc.includes("office"))
-    || (startLoc.includes("office") && endLoc.includes("home"));
+  const isCommute =
+    (startLoc.includes("home") && endLoc.includes("work")) ||
+    (startLoc.includes("work") && endLoc.includes("home")) ||
+    (startLoc.includes("home") && endLoc.includes("office")) ||
+    (startLoc.includes("office") && endLoc.includes("home"));
 
   // Smart title logic
   if (isCommute) {
@@ -393,8 +393,8 @@ async function loadTripStats() {
     }
 
     const metrics = metricsResult.status === "fulfilled" ? metricsResult.value : null;
-    const insights
-      = insightsResult.status === "fulfilled" ? insightsResult.value : null;
+    const insights =
+      insightsResult.status === "fulfilled" ? insightsResult.value : null;
 
     if (!metrics && !insights) {
       return;
@@ -502,8 +502,8 @@ async function loadTrips() {
     });
 
     tripsData = response?.data || [];
-    totalTrips
-      = response?.recordsFiltered ?? response?.recordsTotal ?? tripsData.length;
+    totalTrips =
+      response?.recordsFiltered ?? response?.recordsTotal ?? tripsData.length;
     filteredTrips = [...tripsData];
 
     if (tripsData.length === 0) {
@@ -652,8 +652,8 @@ function createTripCard(trip, allTrips) {
   const title = generateSmartTitle(trip);
   const badges = getTripBadges(trip, allTrips);
   const distance = parseFloat(trip.distance) || 0;
-  const maxDistance
-    = Math.max(...allTrips.map((t) => parseFloat(t.distance) || 0)) || 1;
+  const maxDistance =
+    Math.max(...allTrips.map((t) => parseFloat(t.distance) || 0)) || 1;
   const progressPercent = Math.min(100, (distance / Math.max(maxDistance, 50)) * 100);
 
   // Format times
@@ -737,8 +737,8 @@ function createTripCard(trip, allTrips) {
   // Event listeners
   card.addEventListener("click", (e) => {
     if (
-      e.target.closest(".trip-card-checkbox")
-      || e.target.closest(".trip-action-btn")
+      e.target.closest(".trip-card-checkbox") ||
+      e.target.closest(".trip-action-btn")
     ) {
       return;
     }
@@ -1137,10 +1137,10 @@ function performSearch(query) {
       const startLoc = getLocationText(trip.startLocation).toLowerCase();
       const endLoc = getLocationText(trip.destination).toLowerCase();
       return (
-        (trip.vehicleLabel || "").toLowerCase().includes(lowerQuery)
-        || startLoc.includes(lowerQuery)
-        || endLoc.includes(lowerQuery)
-        || (trip.transactionId || "").toLowerCase().includes(lowerQuery)
+        (trip.vehicleLabel || "").toLowerCase().includes(lowerQuery) ||
+        startLoc.includes(lowerQuery) ||
+        endLoc.includes(lowerQuery) ||
+        (trip.transactionId || "").toLowerCase().includes(lowerQuery)
       );
     });
   }
@@ -1222,8 +1222,8 @@ function updateFilterChips() {
 
   if (filters.imei) {
     const vehicleSelect = document.getElementById("trip-filter-vehicle");
-    const vehicleName
-      = vehicleSelect?.options[vehicleSelect.selectedIndex]?.text || filters.imei;
+    const vehicleName =
+      vehicleSelect?.options[vehicleSelect.selectedIndex]?.text || filters.imei;
     addChip(`Vehicle: ${vehicleName}`, () => {
       document.getElementById("trip-filter-vehicle").value = "";
       setStorage(CONFIG.STORAGE_KEYS.selectedVehicle, null);
@@ -1649,8 +1649,8 @@ function initTripModalMap() {
     });
   } catch (e) {
     console.error("Failed to init modal map:", e);
-    document.getElementById("trip-modal-map").innerHTML
-      = '<div style="padding: 20px; color: #dc3545;">Failed to load map.</div>';
+    document.getElementById("trip-modal-map").innerHTML =
+      '<div style="padding: 20px; color: #dc3545;">Failed to load map.</div>';
   }
 }
 
@@ -1678,13 +1678,17 @@ function updateModalContent(trip) {
   const title = generateSmartTitle(trip);
 
   const titleEl = document.getElementById("tripModalTitle");
-  const subtitleEl = document.getElementById("tripModalSubtitle");
+  const dateEl = document.getElementById("modal-date");
+  const tripIdEl = document.getElementById("modal-trip-id");
 
   if (titleEl) {
     titleEl.textContent = title;
   }
-  if (subtitleEl) {
-    subtitleEl.textContent = `${formatDateTime(trip.startTime)} • ${trip.transactionId}`;
+  if (dateEl) {
+    dateEl.textContent = formatDateTime(trip.startTime);
+  }
+  if (tripIdEl) {
+    tripIdEl.textContent = trip.transactionId;
   }
 
   const distanceEl = document.getElementById("modal-distance");
@@ -1711,10 +1715,14 @@ function updateModalContent(trip) {
       : "--";
   }
   if (startEl) {
-    startEl.textContent = sanitizeLocation(trip.startLocation);
+    const startLoc = sanitizeLocation(trip.startLocation);
+    startEl.textContent = startLoc;
+    startEl.classList.toggle("unknown", startLoc === "Unknown");
   }
   if (endEl) {
-    endEl.textContent = sanitizeLocation(trip.destination);
+    const endLoc = sanitizeLocation(trip.destination);
+    endEl.textContent = endLoc;
+    endEl.classList.toggle("unknown", endLoc === "Unknown");
   }
 }
 
@@ -1835,8 +1843,8 @@ function setupTripPlaybackControls() {
 }
 
 function getPlaybackSpeedMultiplier() {
-  const speedValue
-    = Number.isFinite(playbackState.speed) && playbackState.speed > 0
+  const speedValue =
+    Number.isFinite(playbackState.speed) && playbackState.speed > 0
       ? playbackState.speed
       : PLAYBACK_SPEED_BASE;
   return speedValue / PLAYBACK_SPEED_BASE;

@@ -279,7 +279,10 @@ block extra_css %}
         <div class="modal-header">
           <div class="modal-title-wrap">
             <h5 class="modal-title" id="tripModalTitle">Trip Details</h5>
-            <div class="modal-subtitle" id="tripModalSubtitle"></div>
+            <div class="modal-subtitle" id="tripModalSubtitle">
+              <span id="modal-date"></span>
+              <span class="trip-id" id="modal-trip-id"></span>
+            </div>
           </div>
           <div class="modal-actions">
             <button class="btn-icon" id="modal-share-btn" title="Share">
@@ -343,7 +346,6 @@ block extra_css %}
                         <span class="route-location" id="modal-start-loc">--</span>
                       </div>
                     </div>
-                    <div class="route-line"></div>
                     <div class="route-point end">
                       <i class="fas fa-map-marker-alt"></i>
                       <div class="route-info">
