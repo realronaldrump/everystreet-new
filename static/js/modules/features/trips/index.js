@@ -60,7 +60,7 @@ const playbackState = {
 };
 
 const PLAYBACK_SPEED_BASE = 0.5;
-const PLAYBACK_STEP_PER_FRAME = 0.15;
+const PLAYBACK_STEP_PER_FRAME = 0.05;
 
 const withSignal = (options = {}) =>
   pageSignal ? { ...options, signal: pageSignal } : options;
@@ -225,26 +225,29 @@ function updateOverviewStats({ totalMiles, totalTrips, totalHours }) {
   const milesEl = document.getElementById("stat-total-miles");
   const tripsEl = document.getElementById("stat-total-trips");
   const hoursEl = document.getElementById("stat-total-time");
+  const safeMiles = Number.isFinite(Number(totalMiles)) ? Number(totalMiles) : 0;
+  const safeTrips = Number.isFinite(Number(totalTrips)) ? Number(totalTrips) : 0;
+  const safeHours = Number.isFinite(Number(totalHours)) ? Number(totalHours) : 0;
 
   if (milesEl) {
-    milesEl.textContent = Number(totalMiles || 0).toFixed(1);
+    milesEl.textContent = safeMiles.toFixed(1);
   }
   if (tripsEl) {
-    tripsEl.textContent = Number(totalTrips || 0);
+    tripsEl.textContent = safeTrips;
   }
   if (hoursEl) {
-    hoursEl.textContent = Number(totalHours || 0);
+    hoursEl.textContent = safeHours;
   }
 
   const summaryEl = document.getElementById("trips-summary-text");
   if (summaryEl) {
     const { hasAnyFilters } = getFilterState();
-    const milesText = Number(totalMiles || 0).toFixed(1);
+    const milesText = safeMiles.toFixed(1);
 
     if (hasAnyFilters) {
-      summaryEl.innerHTML = `Showing <strong>${totalTrips} trips</strong> totaling <strong>${milesText} miles</strong>`;
+      summaryEl.innerHTML = `Showing <strong>${safeTrips} trips</strong> totaling <strong>${milesText} miles</strong>`;
     } else {
-      summaryEl.innerHTML = `You've traveled <strong>${milesText} miles</strong> across <strong>${totalTrips} trips</strong> this month`;
+      summaryEl.innerHTML = `You've traveled <strong>${milesText} miles</strong> across <strong>${safeTrips} trips</strong> this month`;
     }
   }
 }
