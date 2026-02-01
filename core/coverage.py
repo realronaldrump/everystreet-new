@@ -764,9 +764,12 @@ async def backfill_coverage_for_area(
             return
 
         now = time.time()
-        if not force and processed_trips % progress_interval != 0:
-            if now - last_reported_time < progress_time_seconds:
-                return
+        if (
+            not force
+            and processed_trips % progress_interval != 0
+            and now - last_reported_time < progress_time_seconds
+        ):
+            return
 
         payload = {
             "area_id": str(area_id),
