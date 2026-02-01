@@ -34,7 +34,9 @@ let isLoading = false;
 let tripModalMap = null;
 let tripModalInstance = null;
 let currentTripId = null;
+let currentTripData = null;
 let playbackControlsBound = false;
+let modalActionsBound = false;
 let pageSignal = null;
 
 const playbackState = {
@@ -69,7 +71,9 @@ function resetTripsState() {
   selectedTripIds.clear();
   isLoading = false;
   currentTripId = null;
+  currentTripData = null;
   playbackControlsBound = false;
+  modalActionsBound = false;
 
   pausePlayback();
   if (playbackState.marker) {
@@ -1468,6 +1472,7 @@ function openTripModal(tripId) {
 
       el.addEventListener("hidden.bs.modal", () => {
         resetPlayback();
+        currentTripData = null;
         if (tripModalMap) {
           const src = tripModalMap.getSource("modal-trip");
           if (src) {
@@ -1485,10 +1490,83 @@ function openTripModal(tripId) {
           loadTripData(currentTripId);
         }
       });
+
+      bindTripModalActions();
     }
   }
 
   tripModalInstance.show();
+}
+
+function bindTripModalActions() {
+  if (modalActionsBound) {
+    return;
+  }
+
+  const shareBtn = document.getElementById("modal-share-btn");
+  if (!shareBtn) {
+    return;
+  }
+
+  shareBtn.type = "button";
+  if (shareBtn) {
+    shareBtn.addEventListener(
+      "click",
+      () => {
+        const shareData = buildTripShareData(currentTripData);
+        if (navigator.share) {
+          navigator.share(shareData).catch((err) => {
+            if (err?.name === "AbortError") {
+              return;
+            }
+            notificationManager.show("Share failed", "danger");
+            console.warn("Share failed:", err);
+          });
+          return;
+        }
+
+        if (navigator.clipboard?.writeText && shareData.url) {
+          navigator.clipboard
+            .writeText(shareData.url)
+            .then(() => {
+              notificationManager.show("Trip link copied to clipboard", "success");
+            })
+            .catch((err) => {
+              notificationManager.show("Share is not available on this device", "info");
+              console.warn("Clipboard write failed:", err);
+            });
+          return;
+        }
+
+        notificationManager.show("Share is not available on this device", "info");
+      },
+      pageSignal ? { signal: pageSignal } : false
+    );
+  }
+
+  modalActionsBound = true;
+}
+
+function buildTripShareData(trip) {
+  const id = trip?.transactionId || currentTripId;
+  const distance = trip?.distance ? `${parseFloat(trip.distance).toFixed(1)} mi` : null;
+  const start = sanitizeLocation(trip?.startLocation);
+  const end = sanitizeLocation(trip?.destination);
+
+  let text = "Check out this trip.";
+  if (distance && start && end && start !== "--" && end !== "--") {
+    text = `${distance} from ${start} to ${end}`;
+  } else if (distance) {
+    text = `${distance} trip`;
+  }
+
+  return {
+    title: trip ? generateSmartTitle(trip) : "Every Street Trip",
+    text,
+    url: id
+      ? `${window.location.origin}/trips/${encodeURIComponent(id)}`
+      : `${window.location.origin}/trips`,
+  };
 }
 
 function initTripModalMap() {
@@ -1583,6 +1661,7 @@ async function loadTripData(tripId) {
   try {
     const data = await apiGet(CONFIG.API.tripById(tripId));
     const trip = data.trip || data;
+    currentTripData = trip;
 
     updateModalContent(trip);
 
