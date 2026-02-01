@@ -197,6 +197,18 @@ async function initializePage(signal, cleanup) {
     signal ? { signal } : false
   );
 
+  document.addEventListener(
+    "es:filters-change",
+    (event) => {
+      const source = event?.detail?.source;
+      if (source !== "filters" && source !== "url") {
+        return;
+      }
+      loadTripStats();
+    },
+    signal ? { signal } : false
+  );
+
   // Initial data load
   await Promise.all([loadTrips(), loadTripStats()]);
 
@@ -207,6 +219,46 @@ async function initializePage(signal, cleanup) {
   if (window.PRELOAD_TRIP_ID) {
     requestAnimationFrame(() => openTripModal(window.PRELOAD_TRIP_ID));
   }
+}
+
+function updateOverviewStats({ totalMiles, totalTrips, totalHours }) {
+  const milesEl = document.getElementById("stat-total-miles");
+  const tripsEl = document.getElementById("stat-total-trips");
+  const hoursEl = document.getElementById("stat-total-time");
+
+  if (milesEl) {
+    milesEl.textContent = Number(totalMiles || 0).toFixed(1);
+  }
+  if (tripsEl) {
+    tripsEl.textContent = Number(totalTrips || 0);
+  }
+  if (hoursEl) {
+    hoursEl.textContent = Number(totalHours || 0);
+  }
+
+  const summaryEl = document.getElementById("trips-summary-text");
+  if (summaryEl) {
+    const { hasAnyFilters } = getFilterState();
+    const milesText = Number(totalMiles || 0).toFixed(1);
+
+    if (hasAnyFilters) {
+      summaryEl.innerHTML = `Showing <strong>${totalTrips} trips</strong> totaling <strong>${milesText} miles</strong>`;
+    } else {
+      summaryEl.innerHTML = `You've traveled <strong>${milesText} miles</strong> across <strong>${totalTrips} trips</strong> this month`;
+    }
+  }
+}
+
+function getStatsQueryFilters() {
+  const dateRange = getDateRangeFilters();
+  const localFilters = getLocalFilterValues();
+  return {
+    start_date: dateRange.start_date,
+    end_date: dateRange.end_date,
+    imei: localFilters.imei,
+    distance_min: localFilters.distance_min,
+    distance_max: localFilters.distance_max,
+  };
 }
 
 function restoreSavedFilters() {
@@ -391,14 +443,28 @@ async function loadVehicles() {
 
 async function loadTripStats() {
   try {
-    // Fetch stats for current month
-    const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const statsFilters = getStatsQueryFilters();
+    if (statsFilters.distance_min || statsFilters.distance_max) {
+      return;
+    }
 
-    const params = new URLSearchParams({
-      start_date: startOfMonth.toISOString(),
-      end_date: now.toISOString(),
-    });
+    const params = new URLSearchParams();
+    if (statsFilters.start_date) {
+      params.set("start_date", statsFilters.start_date);
+    }
+    if (statsFilters.end_date) {
+      params.set("end_date", statsFilters.end_date);
+    }
+    if (statsFilters.imei) {
+      params.set("imei", statsFilters.imei);
+    }
+
+    if (!params.toString()) {
+      const now = new Date();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      params.set("start_date", DateUtils.formatDateToString(startOfMonth));
+      params.set("end_date", DateUtils.formatDateToString(now));
+    }
 
     const [metricsResult, insightsResult] = await Promise.allSettled([
       apiGet(`${CONFIG.API.tripMetrics}?${params}`),
@@ -428,20 +494,15 @@ async function loadTripStats() {
       return Number.isFinite(num) ? num : fallback;
     };
 
-    // Update welcome stats
     const totalMiles = toNumber(metrics?.total_distance ?? insights?.total_distance, 0);
     const totalTrips = toNumber(metrics?.total_trips ?? insights?.total_trips, 0);
     const totalHours = Math.round(toNumber(metrics?.total_duration_seconds, 0) / 3600);
 
-    document.getElementById("stat-total-miles").textContent = totalMiles.toFixed(1);
-    document.getElementById("stat-total-trips").textContent = totalTrips;
-    document.getElementById("stat-total-time").textContent = totalHours;
-
-    // Update summary text
-    const summaryEl = document.getElementById("trips-summary-text");
-    if (summaryEl) {
-      summaryEl.innerHTML = `You've traveled <strong>${totalMiles.toFixed(1)} miles</strong> across <strong>${totalTrips} trips</strong> this month`;
-    }
+    updateOverviewStats({
+      totalMiles,
+      totalTrips,
+      totalHours,
+    });
 
     // Update insight cards
     const longestEl = document.getElementById("insight-longest");
@@ -1064,10 +1125,6 @@ function updateFilteredStats() {
   // Calculate stats from currently filtered/displayed trips
   const visibleTrips = filteredTrips.length > 0 ? filteredTrips : tripsData;
 
-  if (visibleTrips.length === 0) {
-    return;
-  }
-
   const totalMiles = visibleTrips.reduce(
     (sum, trip) => sum + (parseFloat(trip.distance) || 0),
     0
@@ -1079,32 +1136,11 @@ function updateFilteredStats() {
   );
   const totalHours = Math.round(totalDuration / 3600);
 
-  // Update stat pills with animation
-  const milesEl = document.getElementById("stat-total-miles");
-  const tripsEl = document.getElementById("stat-total-trips");
-  const hoursEl = document.getElementById("stat-total-time");
-
-  if (milesEl) {
-    milesEl.textContent = totalMiles.toFixed(1);
-  }
-  if (tripsEl) {
-    tripsEl.textContent = totalTrips;
-  }
-  if (hoursEl) {
-    hoursEl.textContent = totalHours;
-  }
-
-  // Update summary text
-  const summaryEl = document.getElementById("trips-summary-text");
-  if (summaryEl) {
-    const { hasAnyFilters } = getFilterState();
-
-    if (hasAnyFilters) {
-      summaryEl.innerHTML = `Showing <strong>${totalTrips} trips</strong> totaling <strong>${totalMiles.toFixed(1)} miles</strong>`;
-    } else {
-      summaryEl.innerHTML = `You've traveled <strong>${totalMiles.toFixed(1)} miles</strong> across <strong>${totalTrips} trips</strong> this month`;
-    }
-  }
+  updateOverviewStats({
+    totalMiles,
+    totalTrips,
+    totalHours,
+  });
 
   // Update insight cards for filtered data
   updateFilteredInsights(visibleTrips);
@@ -1112,6 +1148,14 @@ function updateFilteredStats() {
 
 function updateFilteredInsights(trips) {
   if (trips.length === 0) {
+    const longestEl = document.getElementById("insight-longest");
+    const fuelEl = document.getElementById("insight-fuel");
+    if (longestEl) {
+      longestEl.textContent = "--";
+    }
+    if (fuelEl) {
+      fuelEl.textContent = "--";
+    }
     return;
   }
 
@@ -1529,36 +1573,55 @@ function bindTripModalActions() {
   }
 
   shareBtn.type = "button";
-  if (shareBtn) {
-    shareBtn.addEventListener(
-      "click",
-      () => {
-        const shareData = buildTripShareData(currentTripData);
-        if (navigator.share) {
-          navigator.share(shareData).catch((err) => {
-            if (err?.name === "AbortError") {
-              return;
-            }
-            notificationManager.show("Share failed", "danger");
-            console.warn("Share failed:", err);
+  shareBtn.addEventListener(
+    "click",
+    () => {
+      const shareData = buildTripShareData(currentTripData);
+      if (navigator.share) {
+        navigator.share(shareData).catch((err) => {
+          if (err?.name === "AbortError") {
+            return;
+          }
+          notificationManager.show("Share failed", "danger");
+          console.warn("Share failed:", err);
+        });
+        return;
+      }
+
+      if (navigator.clipboard?.writeText && shareData.url) {
+        navigator.clipboard
+          .writeText(shareData.url)
+          .then(() => {
+            notificationManager.show("Trip link copied to clipboard", "success");
+          })
+          .catch((err) => {
+            notificationManager.show("Share is not available on this device", "info");
+            console.warn("Clipboard write failed:", err);
           });
-          return;
-        }
+        return;
+      }
 
-        if (navigator.clipboard?.writeText && shareData.url) {
-          navigator.clipboard
-            .writeText(shareData.url)
-            .then(() => {
-              notificationManager.show("Trip link copied to clipboard", "success");
-            })
-            .catch((err) => {
-              notificationManager.show("Share is not available on this device", "info");
-              console.warn("Clipboard write failed:", err);
-            });
-          return;
-        }
+      notificationManager.show("Share is not available on this device", "info");
+    },
+    pageSignal ? { signal: pageSignal } : false
+  );
 
-        notificationManager.show("Share is not available on this device", "info");
+  const deleteBtn = document.getElementById("modal-delete-btn");
+  if (deleteBtn) {
+    deleteBtn.type = "button";
+    deleteBtn.addEventListener(
+      "click",
+      async () => {
+        const confirmed = await confirmationDialog.show({
+          title: "Delete Trip",
+          message: "Are you sure you want to delete this trip?",
+          confirmText: "Delete",
+          confirmButtonClass: "btn-danger",
+        });
+        if (confirmed && currentTripId) {
+          tripModalInstance?.hide();
+          deleteTrip(currentTripId);
+        }
       },
       pageSignal ? { signal: pageSignal } : false
     );
