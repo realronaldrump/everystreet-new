@@ -42,18 +42,25 @@ let pageSignal = null;
 const playbackState = {
   coords: [],
   marker: null,
+  startMarker: null,
+  endMarker: null,
   frame: null,
   progress: 0,
   speed: 0.5,
   isPlaying: false,
+  isComplete: false,
   trailSourceId: "modal-trip-trail",
   trailLayerId: "modal-trip-trail-line",
   headSourceId: "modal-trip-head",
   headLayerId: "modal-trip-head-point",
+  startSourceId: "modal-trip-start",
+  startLayerId: "modal-trip-start-point",
+  endSourceId: "modal-trip-end",
+  endLayerId: "modal-trip-end-point",
 };
 
 const PLAYBACK_SPEED_BASE = 0.5;
-const PLAYBACK_STEP_PER_FRAME = 0.6;
+const PLAYBACK_STEP_PER_FRAME = 0.15;
 
 const withSignal = (options = {}) =>
   pageSignal ? { ...options, signal: pageSignal } : options;
@@ -84,11 +91,24 @@ function resetTripsState() {
     }
     playbackState.marker = null;
   }
+  if (playbackState.startMarker) {
+    try {
+      playbackState.startMarker.remove();
+    } catch {}
+    playbackState.startMarker = null;
+  }
+  if (playbackState.endMarker) {
+    try {
+      playbackState.endMarker.remove();
+    } catch {}
+    playbackState.endMarker = null;
+  }
   playbackState.coords = [];
   playbackState.frame = null;
   playbackState.progress = 0;
   playbackState.speed = PLAYBACK_SPEED_BASE;
   playbackState.isPlaying = false;
+  playbackState.isComplete = false;
 
   if (tripModalMap) {
     try {
@@ -1635,10 +1655,52 @@ function initTripModalMap() {
           type: "circle",
           source: playbackState.headSourceId,
           paint: {
-            "circle-radius": 6,
+            "circle-radius": 8,
             "circle-color": primary,
             "circle-opacity": 0.9,
-            "circle-stroke-width": 2,
+            "circle-stroke-width": 3,
+            "circle-stroke-color": stroke,
+          },
+        });
+      }
+
+      // Add start point marker source and layer
+      if (!tripModalMap.getSource(playbackState.startSourceId)) {
+        tripModalMap.addSource(playbackState.startSourceId, {
+          type: "geojson",
+          data: { type: "FeatureCollection", features: [] },
+        });
+
+        tripModalMap.addLayer({
+          id: playbackState.startLayerId,
+          type: "circle",
+          source: playbackState.startSourceId,
+          paint: {
+            "circle-radius": 12,
+            "circle-color": "#10b981",
+            "circle-opacity": 1,
+            "circle-stroke-width": 3,
+            "circle-stroke-color": stroke,
+          },
+        });
+      }
+
+      // Add end point marker source and layer
+      if (!tripModalMap.getSource(playbackState.endSourceId)) {
+        tripModalMap.addSource(playbackState.endSourceId, {
+          type: "geojson",
+          data: { type: "FeatureCollection", features: [] },
+        });
+
+        tripModalMap.addLayer({
+          id: playbackState.endLayerId,
+          type: "circle",
+          source: playbackState.endSourceId,
+          paint: {
+            "circle-radius": 12,
+            "circle-color": "#8b5cf6",
+            "circle-opacity": 1,
+            "circle-stroke-width": 3,
             "circle-stroke-color": stroke,
           },
         });
@@ -1750,6 +1812,42 @@ function renderTripOnMap(trip) {
 
   setPlaybackRoute(geometry);
 
+  // Update start and end markers
+  if (geometry.type === "LineString" && geometry.coordinates.length >= 2) {
+    const startCoord = geometry.coordinates[0];
+    const endCoord = geometry.coordinates[geometry.coordinates.length - 1];
+
+    // Update start point
+    const startSrc = tripModalMap.getSource(playbackState.startSourceId);
+    if (startSrc) {
+      startSrc.setData({
+        type: "FeatureCollection",
+        features: [
+          {
+            type: "Feature",
+            geometry: { type: "Point", coordinates: startCoord },
+            properties: { label: "Start" },
+          },
+        ],
+      });
+    }
+
+    // Update end point
+    const endSrc = tripModalMap.getSource(playbackState.endSourceId);
+    if (endSrc) {
+      endSrc.setData({
+        type: "FeatureCollection",
+        features: [
+          {
+            type: "Feature",
+            geometry: { type: "Point", coordinates: endCoord },
+            properties: { label: "End" },
+          },
+        ],
+      });
+    }
+  }
+
   const bounds = new mapboxgl.LngLatBounds();
   const coords = geometry.coordinates;
 
@@ -1822,6 +1920,11 @@ function setupTripPlaybackControls() {
     playBtn.addEventListener("click", () => {
       if (playbackState.isPlaying) {
         pausePlayback();
+      } else if (playbackState.isComplete) {
+        // Replay from beginning
+        resetPlayback();
+        playbackState.isComplete = false;
+        startPlayback();
       } else {
         startPlayback();
       }
