@@ -1970,10 +1970,20 @@ function startPlayback() {
   }
 
   playbackState.isPlaying = true;
+  playbackState.isComplete = false;
 
+  // Create custom pulsing marker if not exists
   if (!playbackState.marker) {
-    const { primary } = getTripUiColors();
-    playbackState.marker = new mapboxgl.Marker({ color: primary });
+    const markerEl = document.createElement("div");
+    markerEl.className = "playback-marker";
+    markerEl.innerHTML = `
+      <div class="playback-marker-inner"></div>
+      <div class="playback-marker-pulse"></div>
+    `;
+    playbackState.marker = new mapboxgl.Marker({
+      element: markerEl,
+      anchor: "center",
+    });
   }
 
   const step = () => {
@@ -1989,7 +1999,7 @@ function startPlayback() {
     const coord = playbackState.coords[index];
 
     if (!coord) {
-      pausePlayback();
+      completePlayback();
       return;
     }
 
@@ -1999,7 +2009,7 @@ function startPlayback() {
     updatePlaybackTrail(playbackState.coords.slice(0, index + 1));
 
     if (index >= playbackState.coords.length - 1) {
-      pausePlayback();
+      completePlayback();
       return;
     }
 
@@ -2007,6 +2017,12 @@ function startPlayback() {
   };
 
   playbackState.frame = requestAnimationFrame(step);
+}
+
+function completePlayback() {
+  pausePlayback();
+  playbackState.isComplete = true;
+  updatePlaybackUI();
 }
 
 function pausePlayback() {
@@ -2071,6 +2087,7 @@ function updatePlaybackUI() {
 
   if (playbackState.isPlaying) {
     playBtn.classList.add("is-playing");
+    playBtn.classList.remove("is-complete");
     playBtn.setAttribute("aria-pressed", "true");
     if (icon) {
       icon.className = "fas fa-pause";
@@ -2078,8 +2095,18 @@ function updatePlaybackUI() {
     if (span) {
       span.textContent = "Pause";
     }
-  } else {
+  } else if (playbackState.isComplete) {
     playBtn.classList.remove("is-playing");
+    playBtn.classList.add("is-complete");
+    playBtn.setAttribute("aria-pressed", "false");
+    if (icon) {
+      icon.className = "fas fa-redo";
+    }
+    if (span) {
+      span.textContent = "Replay";
+    }
+  } else {
+    playBtn.classList.remove("is-playing", "is-complete");
     playBtn.setAttribute("aria-pressed", "false");
     if (icon) {
       icon.className = "fas fa-play";

@@ -1636,6 +1636,15 @@
   transform: translateY(0);
 }
 
+.btn-playback.is-complete {
+  background: linear-gradient(135deg, #10b981 0%, #34d399 100%);
+  box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+}
+
+.btn-playback.is-complete:hover {
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+}
+
 .playback-speed {
   display: flex;
   flex-direction: column;
@@ -1708,6 +1717,51 @@
   border-top-color: #6366f1;
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
+}
+
+/* Playback Marker with Pulse Animation */
+.playback-marker {
+  position: relative;
+  width: 24px;
+  height: 24px;
+}
+
+.playback-marker-inner {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 16px;
+  height: 16px;
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  border-radius: 50%;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.5);
+  z-index: 2;
+}
+
+.playback-marker-pulse {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 16px;
+  height: 16px;
+  background: rgba(99, 102, 241, 0.6);
+  border-radius: 50%;
+  z-index: 1;
+  animation: markerPulse 2s ease-out infinite;
+}
+
+@keyframes markerPulse {
+  0% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(3);
+    opacity: 0;
+  }
 }
 
 /* Side Panel */
