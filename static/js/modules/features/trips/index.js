@@ -445,6 +445,7 @@ async function loadTripStats() {
   try {
     const statsFilters = getStatsQueryFilters();
     if (statsFilters.distance_min || statsFilters.distance_max) {
+      updateFilteredStats();
       return;
     }
 
@@ -589,6 +590,8 @@ async function loadTrips() {
 
     if (tripsData.length === 0) {
       showEmptyState();
+      updateFilteredStats();
+      updateFilterResultsPreview();
     } else {
       hideEmptyState();
       renderTripsTimeline(tripsData);
