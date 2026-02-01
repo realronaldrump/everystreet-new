@@ -897,7 +897,7 @@ function bindSwipeActions() {
         window.location.href = "/trips";
       } else if (action === "share" && tripId) {
         const shareData = {
-          title: "EveryStreet Trip",
+          title: "Every Street Trip",
           text: "Check out this recent trip.",
           url: `${window.location.origin}/trips`,
         };
