@@ -1622,17 +1622,31 @@ function bindTripModalActions() {
 function showShareModal() {
   const shareData = buildTripShareData(currentTripData);
 
-  // Try native share first on mobile
-  if (navigator.share && /Mobi|Android/i.test(navigator.userAgent)) {
-    navigator.share(shareData).catch((err) => {
-      if (err?.name !== "AbortError") {
-        console.warn("Native share failed, showing modal:", err);
+  // Detect mobile/touch devices (iOS, Android, etc.)
+  const isMobile =
+    /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) ||
+    (navigator.maxTouchPoints && navigator.maxTouchPoints > 1);
+
+  // Use native share on mobile devices (iOS share sheet, Android share, etc.)
+  if (navigator.share && isMobile) {
+    navigator
+      .share(shareData)
+      .then(() => {
+        notificationManager.show("Shared successfully", "success");
+      })
+      .catch((err) => {
+        // User cancelled - don't show error
+        if (err?.name === "AbortError") {
+          return;
+        }
+        // Native share failed, fall back to copy modal
+        console.warn("Native share failed, showing copy modal:", err);
         displayShareModalUI(shareData);
-      }
-    });
+      });
     return;
   }
 
+  // Desktop: show copy modal
   displayShareModalUI(shareData);
 }
 
@@ -1647,7 +1661,7 @@ function displayShareModalUI(shareData) {
   modal.id = "shareModal";
   modal.tabIndex = -1;
   modal.innerHTML = `
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
       <div class="modal-content">
         <div class="modal-header">
           <h5 class="modal-title">
@@ -1656,26 +1670,12 @@ function displayShareModalUI(shareData) {
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body">
-          <p class="text-muted mb-3">${escapeHtml(shareData.text)}</p>
-          <div class="input-group mb-3">
-            <input type="text" class="form-control" id="share-url-input" value="${escapeHtml(shareData.url)}" readonly>
-            <button class="btn btn-primary" type="button" id="copy-share-url">
-              <i class="fas fa-copy"></i>
+          <p class="share-description text-muted mb-3">${escapeHtml(shareData.text)}</p>
+          <div class="share-url-container">
+            <input type="text" class="form-control share-url-input" id="share-url-input" value="${escapeHtml(shareData.url)}" readonly>
+            <button class="btn btn-primary copy-btn" type="button" id="copy-share-url">
+              <i class="fas fa-copy me-2"></i>Copy Link
             </button>
-          </div>
-          <div class="share-buttons d-flex gap-2 flex-wrap">
-            <a href="https://twitter.com/intent/tweet?url=${encodeURIComponent(shareData.url)}&text=${encodeURIComponent(shareData.text)}"
-               target="_blank" rel="noopener" class="btn btn-outline-secondary">
-              <i class="fab fa-twitter me-1"></i>Twitter
-            </a>
-            <a href="https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareData.url)}"
-               target="_blank" rel="noopener" class="btn btn-outline-secondary">
-              <i class="fab fa-facebook me-1"></i>Facebook
-            </a>
-            <a href="mailto:?subject=${encodeURIComponent(shareData.title)}&body=${encodeURIComponent(shareData.text + "\n\n" + shareData.url)}"
-               class="btn btn-outline-secondary">
-              <i class="fas fa-envelope me-1"></i>Email
-            </a>
           </div>
         </div>
       </div>
@@ -1689,22 +1689,28 @@ function displayShareModalUI(shareData) {
   const copyBtn = modal.querySelector("#copy-share-url");
   const urlInput = modal.querySelector("#share-url-input");
 
+  // Select all text when input is focused
+  urlInput.addEventListener("focus", () => urlInput.select());
+
   copyBtn.addEventListener("click", async () => {
     try {
       await navigator.clipboard.writeText(shareData.url);
-      copyBtn.innerHTML = '<i class="fas fa-check"></i>';
+      copyBtn.innerHTML = '<i class="fas fa-check me-2"></i>Copied!';
       copyBtn.classList.remove("btn-primary");
       copyBtn.classList.add("btn-success");
       notificationManager.show("Link copied to clipboard", "success");
       setTimeout(() => {
-        copyBtn.innerHTML = '<i class="fas fa-copy"></i>';
-        copyBtn.classList.remove("btn-success");
-        copyBtn.classList.add("btn-primary");
-      }, 2000);
+        shareModal.hide();
+      }, 1000);
     } catch {
+      // Fallback for older browsers
       urlInput.select();
+      urlInput.setSelectionRange(0, 99999);
       document.execCommand("copy");
       notificationManager.show("Link copied to clipboard", "success");
+      setTimeout(() => {
+        shareModal.hide();
+      }, 1000);
     }
   });
 

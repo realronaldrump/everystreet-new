@@ -2339,77 +2339,67 @@
    Share Modal Styles
    ============================ */
 
-#shareModal .modal-content {
-  max-width: 450px;
-  margin: 0 auto;
+#shareModal .modal-dialog {
+  max-width: 380px;
 }
 
 #shareModal .modal-title {
   display: flex;
   align-items: center;
-  gap: 8px;
+  font-size: 1.1rem;
 }
 
 #shareModal .modal-body {
   padding: var(--space-4);
 }
 
-#shareModal .text-muted {
+#shareModal .share-description {
   color: var(--text-secondary);
   font-size: 0.9rem;
+  margin-bottom: var(--space-3);
 }
 
-#shareModal .input-group {
-  border-radius: var(--radius-md);
-  overflow: hidden;
+#shareModal .share-url-container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
 }
 
-#shareModal .form-control {
+#shareModal .share-url-input {
   background: var(--glass-1);
   border: 1px solid var(--glass-border);
   color: var(--text-primary);
-  font-size: 0.85rem;
-  padding: 12px 16px;
+  font-size: 0.8rem;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  font-family: monospace;
+  text-overflow: ellipsis;
 }
 
-#shareModal .form-control:focus {
+#shareModal .share-url-input:focus {
   background: var(--glass-2);
   border-color: var(--accent-color);
   box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.1);
   outline: none;
 }
 
-#shareModal .input-group .btn {
-  border: 1px solid var(--glass-border);
-  border-left: none;
-  padding: 12px 16px;
-}
-
-#shareModal .share-buttons {
-  margin-top: var(--space-3);
-}
-
-#shareModal .share-buttons .btn {
-  flex: 1;
-  min-width: 100px;
-  padding: 10px 16px;
-  font-size: 0.85rem;
+#shareModal .copy-btn {
+  padding: 14px 20px;
+  font-size: 0.95rem;
+  font-weight: 500;
   border-radius: var(--radius-md);
   transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-#shareModal .share-buttons .btn:hover {
-  transform: translateY(-2px);
+#shareModal .copy-btn:hover {
+  transform: translateY(-1px);
   box-shadow: var(--shadow-glass-sm);
 }
 
-#shareModal .btn-outline-secondary {
-  background: var(--glass-1);
-  border-color: var(--glass-border);
-  color: var(--text-primary);
-}
-
-#shareModal .btn-outline-secondary:hover {
-  background: var(--glass-2);
-  border-color: var(--glass-border-medium);
+#shareModal .copy-btn.btn-success {
+  background: var(--success-color, #10b981);
+  border-color: var(--success-color, #10b981);
 }
