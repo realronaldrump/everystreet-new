@@ -40,7 +40,7 @@ async def get_session() -> aiohttp.ClientSession:
             sock_read=HTTP_TIMEOUT_SOCK_READ,
         )
         headers = {
-            "User-Agent": "EveryStreet/1.0",
+            "User-Agent": "Every Street/1.0",
             "Accept": "application/json",
         }
         connector = aiohttp.TCPConnector(

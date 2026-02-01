@@ -13,7 +13,7 @@ def build_gpx_from_coords(
 ) -> str:
     """Build GPX XML from coordinate list."""
     gpx = gpxpy.gpx.GPX()
-    gpx.creator = "EveryStreet"
+    gpx.creator = "Every Street"
 
     track = gpxpy.gpx.GPXTrack()
     track.name = name
