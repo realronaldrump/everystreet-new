@@ -5,6 +5,7 @@ from typing import Any
 
 from beanie.operators import In
 
+from core.casting import safe_float
 from core.date_utils import parse_timestamp
 from core.spatial import GeometryService
 from db import build_calendar_date_expr
@@ -12,14 +13,6 @@ from db.aggregation import aggregate_to_list
 from db.models import Trip, Vehicle
 
 logger = logging.getLogger(__name__)
-
-
-def _safe_float(value, default: float = 0.0):
-    """Safely cast value to float."""
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return default
 
 
 def _extract_preview_geometry(trip_dict: dict[str, Any]) -> dict[str, Any] | None:
@@ -439,12 +432,12 @@ class TripQueryService:
                 "startTime": start_time.isoformat() if start_time else None,
                 "endTime": end_time.isoformat() if end_time else None,
                 "duration": duration,
-                "distance": _safe_float(trip_dict.get("distance"), 0),
+                "distance": safe_float(trip_dict.get("distance"), 0),
                 "startLocation": start_location,
                 "destination": destination,
-                "maxSpeed": _safe_float(trip_dict.get("maxSpeed"), 0),
+                "maxSpeed": safe_float(trip_dict.get("maxSpeed"), 0),
                 "totalIdleDuration": total_idle_duration,
-                "fuelConsumed": _safe_float(trip_dict.get("fuelConsumed"), 0),
+                "fuelConsumed": safe_float(trip_dict.get("fuelConsumed"), 0),
                 "estimated_cost": TripCostService.calculate_trip_cost(
                     trip_dict,
                     price_map,

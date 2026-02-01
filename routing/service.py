@@ -3,14 +3,14 @@ import logging
 import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 import networkx as nx
 from beanie import PydanticObjectId
 
-from core.progress import ProgressTracker
+from core.jobs import JobHandle, create_job, find_job
 from core.spatial import segment_midpoint
-from db.models import CoverageArea, CoverageState, OptimalRouteProgress, Street
+from db.models import CoverageArea, CoverageState, Street
 
 from .constants import GRAPH_STORAGE_DIR, MAX_SEGMENTS
 from .core import make_req_id, solve_greedy_route
@@ -37,14 +37,33 @@ async def generate_optimal_route_with_progress(
     task_id: str,
     start_coords: tuple[float, float] | None = None,  # (lon, lat)
 ) -> dict[str, Any]:
-    # Create progress tracker for optimal route progress collection
-    # ProgressTracker expects a Beanie model
-    tracker = ProgressTracker(
-        task_id,
-        OptimalRouteProgress,
-        location_id=str(location_id),
-        use_task_id_field=True,
-    )
+    location_id_str = str(location_id)
+    existing_job = await find_job("optimal_route", task_id=task_id)
+    if existing_job:
+        if not existing_job.location:
+            existing_job.location = location_id_str
+        if isinstance(location_id, PydanticObjectId) and not existing_job.area_id:
+            existing_job.area_id = location_id
+        job_handle = JobHandle(existing_job)
+        await job_handle.update(
+            status="running",
+            stage="initializing",
+            progress=0,
+            message="Starting optimal route generation...",
+            started_at=existing_job.started_at or datetime.now(UTC),
+        )
+    else:
+        job_handle = await create_job(
+            "optimal_route",
+            task_id=task_id,
+            area_id=location_id if isinstance(location_id, PydanticObjectId) else None,
+            location=location_id_str,
+            status="running",
+            stage="initializing",
+            progress=0.0,
+            message="Starting optimal route generation...",
+            started_at=datetime.now(UTC),
+        )
 
     async def update_progress(
         stage: str,
@@ -52,10 +71,10 @@ async def generate_optimal_route_with_progress(
         message: str,
         metrics: dict[str, Any] | None = None,
     ) -> None:
-        await tracker.update(
-            stage,
-            progress,
-            message,
+        await job_handle.update(
+            stage=stage,
+            progress=progress,
+            message=message,
             status="running",
             metrics=metrics,
         )
@@ -170,7 +189,7 @@ async def generate_optimal_route_with_progress(
         # undriven is already a list from code above
 
         if not undriven:
-            await tracker.complete("All streets already driven!")
+            await job_handle.complete("All streets already driven!")
             return {
                 "status": "already_complete",
                 "message": "All streets already driven!",
@@ -593,23 +612,9 @@ async def generate_optimal_route_with_progress(
 
         logger.info("Route generation finished. Updating DB status to completed.")
         try:
-            await tracker.complete("Route generation complete!")
+            await job_handle.complete("Route generation complete!")
         except Exception:
-            logger.exception("Final DB progress update failed")
-            # Use Beanie update
-            update_query = OptimalRouteProgress.find_one(
-                OptimalRouteProgress.task_id == task_id,
-            ).update(
-                {
-                    "$set": {
-                        "status": "completed",
-                        "progress": 100,
-                        "stage": "complete",
-                        "completed_at": datetime.now(UTC),
-                    },
-                },
-            )
-            await cast("Any", update_query)
+            logger.exception("Final job progress update failed")
 
         return {
             "status": "success",
@@ -642,13 +647,13 @@ async def generate_optimal_route_with_progress(
                 "Ensure Valhalla routing is reachable so gap-filling can bridge "
                 "disconnected areas."
             )
-            await tracker.fail(error_msg, detailed_msg)
+            await job_handle.fail(error_msg, message=detailed_msg)
             # Re-raise with the enhanced message so it propagates clearly if needed,
             # though tracker.fail should handle the UI notification.
             # We'll re-raise a clean ValueError to avoid confusing tracebacks if this is caught upstream
             raise ValueError(detailed_msg) from e
 
-        await tracker.fail(error_msg, f"Route generation failed: {e}")
+        await job_handle.fail(error_msg, message=f"Route generation failed: {e}")
         raise
 
 

@@ -4,7 +4,7 @@ import logging
 from typing import Any
 
 from db.aggregation import aggregate_to_list
-from db.aggregation_utils import get_mongo_tz_expr
+from db.aggregation_utils import build_driver_behavior_fields_stage, get_mongo_tz_expr
 from db.models import Trip
 
 logger = logging.getLogger(__name__)
@@ -147,74 +147,7 @@ class TripAnalyticsService:
 
         pipeline = [
             {"$match": query},
-            {
-                "$addFields": {
-                    "numericDistance": {
-                        "$convert": {
-                            "input": "$distance",
-                            "to": "double",
-                            "onError": 0.0,
-                            "onNull": 0.0,
-                        },
-                    },
-                    "numericMaxSpeed": {
-                        "$convert": {
-                            "input": "$maxSpeed",
-                            "to": "double",
-                            "onError": 0.0,
-                            "onNull": 0.0,
-                        },
-                    },
-                    "speedValue": {
-                        "$convert": {
-                            "input": {"$ifNull": ["$avgSpeed", "$averageSpeed"]},
-                            "to": "double",
-                            "onError": None,
-                            "onNull": None,
-                        },
-                    },
-                    "hardBrakingVal": {
-                        "$ifNull": [
-                            "$hardBrakingCounts",
-                            {"$ifNull": ["$hardBrakingCount", 0]},
-                        ],
-                    },
-                    "hardAccelVal": {
-                        "$ifNull": [
-                            "$hardAccelerationCounts",
-                            {"$ifNull": ["$hardAccelerationCount", 0]},
-                        ],
-                    },
-                    "idleSeconds": {
-                        "$convert": {
-                            "input": {
-                                "$ifNull": [
-                                    "$totalIdleDuration",
-                                    "$totalIdlingTime",
-                                ],
-                            },
-                            "to": "double",
-                            "onError": 0.0,
-                            "onNull": 0.0,
-                        },
-                    },
-                    "fuelDouble": {
-                        "$convert": {
-                            "input": "$fuelConsumed",
-                            "to": "double",
-                            "onError": 0.0,
-                            "onNull": 0.0,
-                        },
-                    },
-                    "dtParts": {
-                        "$dateToParts": {
-                            "date": "$startTime",
-                            "timezone": tz_expr,
-                            "iso8601": True,
-                        },
-                    },
-                },
-            },
+            build_driver_behavior_fields_stage(tz_expr),
             {
                 "$facet": {
                     "totals": [

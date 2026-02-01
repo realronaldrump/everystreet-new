@@ -12,6 +12,7 @@ from pydantic import BaseModel
 
 from core.api import api_route
 from core.date_utils import normalize_to_utc_datetime
+from core.serialization import serialize_datetime
 from db.models import TaskHistory
 from db.schemas import BackgroundTasksConfigModel
 from tasks.config import (
@@ -34,12 +35,6 @@ class FetchTripsRangeRequest(BaseModel):
     start_date: datetime
     end_date: datetime
     map_match: bool = False
-
-
-def _serialize_datetime(dt: datetime | None) -> str | None:
-    if not dt:
-        return None
-    return dt.isoformat()
 
 
 async def _get_latest_history(task_ids: list[str]) -> dict[str, TaskHistory]:
@@ -93,7 +88,7 @@ async def _build_task_snapshot() -> dict[str, Any]:
             "last_updated",
         ]:
             if task_config.get(ts_field):
-                task_config[ts_field] = _serialize_datetime(task_config[ts_field])
+                task_config[ts_field] = serialize_datetime(task_config[ts_field])
 
     return config
 
@@ -355,8 +350,8 @@ async def get_task_details(task_id: str):
         "status": latest.status if latest and latest.status else "IDLE",
         "enabled": config.enabled,
         "interval_minutes": config.interval_minutes,
-        "last_run": _serialize_datetime(config.last_run),
-        "next_run": _serialize_datetime(next_run),
+        "last_run": serialize_datetime(config.last_run),
+        "next_run": serialize_datetime(next_run),
         "last_error": config.config.get("last_error"),
         "run_count": run_count,
     }

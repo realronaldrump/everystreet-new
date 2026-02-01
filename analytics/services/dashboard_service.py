@@ -8,7 +8,11 @@ import pytz
 
 from core.math_utils import calculate_circular_average_hour
 from db.aggregation import aggregate_to_list
-from db.aggregation_utils import get_mongo_tz_expr
+from db.aggregation_utils import (
+    build_trip_duration_fields_stage,
+    build_trip_numeric_fields_stage,
+    get_mongo_tz_expr,
+)
 from db.models import Trip
 
 logger = logging.getLogger(__name__)
@@ -126,104 +130,8 @@ class DashboardService:
         tz_expr = get_mongo_tz_expr()
         record_pipeline = [
             {"$match": query},
-            {
-                "$addFields": {
-                    "numericDistance": {
-                        "$convert": {
-                            "input": "$distance",
-                            "to": "double",
-                            "onError": 0.0,
-                            "onNull": 0.0,
-                        },
-                    },
-                    "numericMaxSpeed": {
-                        "$convert": {
-                            "input": "$maxSpeed",
-                            "to": "double",
-                            "onError": 0.0,
-                            "onNull": 0.0,
-                        },
-                    },
-                    "avgSpeedValue": {
-                        "$convert": {
-                            "input": {
-                                "$ifNull": [
-                                    "$avgSpeed",
-                                    "$averageSpeed",
-                                ],
-                            },
-                            "to": "double",
-                            "onError": 0.0,
-                            "onNull": 0.0,
-                        },
-                    },
-                    "idleSeconds": {
-                        "$convert": {
-                            "input": {
-                                "$ifNull": [
-                                    "$totalIdleDuration",
-                                    "$totalIdlingTime",
-                                ],
-                            },
-                            "to": "double",
-                            "onError": 0.0,
-                            "onNull": 0.0,
-                        },
-                    },
-                    "hardBrakingVal": {
-                        "$convert": {
-                            "input": {
-                                "$ifNull": [
-                                    "$hardBrakingCounts",
-                                    {"$ifNull": ["$hardBrakingCount", 0]},
-                                ],
-                            },
-                            "to": "double",
-                            "onError": 0.0,
-                            "onNull": 0.0,
-                        },
-                    },
-                    "hardAccelVal": {
-                        "$convert": {
-                            "input": {
-                                "$ifNull": [
-                                    "$hardAccelerationCounts",
-                                    {"$ifNull": ["$hardAccelerationCount", 0]},
-                                ],
-                            },
-                            "to": "double",
-                            "onError": 0.0,
-                            "onNull": 0.0,
-                        },
-                    },
-                    "duration_seconds": {
-                        "$cond": {
-                            "if": {
-                                "$and": [
-                                    {"$ifNull": ["$startTime", None]},
-                                    {"$ifNull": ["$endTime", None]},
-                                    {"$lt": ["$startTime", "$endTime"]},
-                                ],
-                            },
-                            "then": {
-                                "$divide": [
-                                    {"$subtract": ["$endTime", "$startTime"]},
-                                    1000,
-                                ],
-                            },
-                            "else": 0.0,
-                        },
-                    },
-                    "recorded_at": {"$ifNull": ["$endTime", "$startTime"]},
-                    "day_key": {
-                        "$dateToString": {
-                            "format": "%Y-%m-%d",
-                            "date": "$startTime",
-                            "timezone": tz_expr,
-                        },
-                    },
-                },
-            },
+            build_trip_numeric_fields_stage(),
+            build_trip_duration_fields_stage(tz_expr),
             {
                 "$facet": {
                     "longest_trip": [

@@ -7,18 +7,12 @@ from fastapi import APIRouter, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
 
 from core.api import api_route
+from core.casting import safe_float
 from core.date_utils import parse_timestamp
 from core.spatial import GeometryService
 from db import build_query_from_request
 from db.models import Trip
 from trips.services import TripCostService, TripQueryService
-
-
-def _safe_float(value, default: float = 0.0):
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return default
 
 
 def _safe_int(value, default: int = 0):
@@ -86,11 +80,11 @@ async def get_matched_trips(request: Request):
                         "startTime": st.isoformat() if st else None,
                         "endTime": et.isoformat() if et else None,
                         "duration": duration,
-                        "distance": _safe_float(trip_dict.get("distance"), 0),
-                        "maxSpeed": _safe_float(trip_dict.get("maxSpeed"), 0),
+                        "distance": safe_float(trip_dict.get("distance"), 0),
+                        "maxSpeed": safe_float(trip_dict.get("maxSpeed"), 0),
                         "startLocation": trip_dict.get("startLocation"),
                         "destination": trip_dict.get("destination"),
-                        "fuelConsumed": _safe_float(trip_dict.get("fuelConsumed"), 0),
+                        "fuelConsumed": safe_float(trip_dict.get("fuelConsumed"), 0),
                         "source": trip_dict.get("source"),
                         "pointsRecorded": num_points,
                         "estimated_cost": TripCostService.calculate_trip_cost(
@@ -196,13 +190,13 @@ async def get_trips(request: Request):
                         "startTime": st.isoformat() if st else None,
                         "endTime": et.isoformat() if et else None,
                         "duration": duration,
-                        "distance": _safe_float(trip_dict.get("distance"), 0),
-                        "maxSpeed": _safe_float(trip_dict.get("maxSpeed"), 0),
+                        "distance": safe_float(trip_dict.get("distance"), 0),
+                        "maxSpeed": safe_float(trip_dict.get("maxSpeed"), 0),
                         "timeZone": trip_dict.get("timeZone"),
                         "startLocation": trip_dict.get("startLocation"),
                         "destination": trip_dict.get("destination"),
                         "totalIdleDuration": total_idle_duration,
-                        "fuelConsumed": _safe_float(trip_dict.get("fuelConsumed"), 0),
+                        "fuelConsumed": safe_float(trip_dict.get("fuelConsumed"), 0),
                         "source": trip_dict.get("source"),
                         "hardBrakingCount": trip_dict.get("hardBrakingCount"),
                         "hardAccelerationCount": trip_dict.get("hardAccelerationCount"),

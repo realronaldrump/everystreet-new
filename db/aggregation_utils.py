@@ -29,6 +29,179 @@ def get_mongo_tz_expr() -> dict[str, Any]:
     }
 
 
+def build_trip_numeric_fields_stage() -> dict[str, Any]:
+    """Common numeric conversions for trip analytics pipelines."""
+    return {
+        "$addFields": {
+            "numericDistance": {
+                "$convert": {
+                    "input": "$distance",
+                    "to": "double",
+                    "onError": 0.0,
+                    "onNull": 0.0,
+                },
+            },
+            "numericMaxSpeed": {
+                "$convert": {
+                    "input": "$maxSpeed",
+                    "to": "double",
+                    "onError": 0.0,
+                    "onNull": 0.0,
+                },
+            },
+            "avgSpeedValue": {
+                "$convert": {
+                    "input": {"$ifNull": ["$avgSpeed", "$averageSpeed"]},
+                    "to": "double",
+                    "onError": 0.0,
+                    "onNull": 0.0,
+                },
+            },
+            "idleSeconds": {
+                "$convert": {
+                    "input": {"$ifNull": ["$totalIdleDuration", "$totalIdlingTime"]},
+                    "to": "double",
+                    "onError": 0.0,
+                    "onNull": 0.0,
+                },
+            },
+            "hardBrakingVal": {
+                "$convert": {
+                    "input": {
+                        "$ifNull": [
+                            "$hardBrakingCounts",
+                            {"$ifNull": ["$hardBrakingCount", 0]},
+                        ],
+                    },
+                    "to": "double",
+                    "onError": 0.0,
+                    "onNull": 0.0,
+                },
+            },
+            "hardAccelVal": {
+                "$convert": {
+                    "input": {
+                        "$ifNull": [
+                            "$hardAccelerationCounts",
+                            {"$ifNull": ["$hardAccelerationCount", 0]},
+                        ],
+                    },
+                    "to": "double",
+                    "onError": 0.0,
+                    "onNull": 0.0,
+                },
+            },
+        },
+    }
+
+
+def build_trip_duration_fields_stage(
+    tz_expr: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Common duration and date bucketing fields for trip analytics pipelines."""
+    tz_expr = tz_expr or get_mongo_tz_expr()
+    return {
+        "$addFields": {
+            "duration_seconds": {
+                "$cond": {
+                    "if": {
+                        "$and": [
+                            {"$ifNull": ["$startTime", None]},
+                            {"$ifNull": ["$endTime", None]},
+                            {"$lt": ["$startTime", "$endTime"]},
+                        ],
+                    },
+                    "then": {
+                        "$divide": [
+                            {"$subtract": ["$endTime", "$startTime"]},
+                            1000,
+                        ],
+                    },
+                    "else": 0.0,
+                },
+            },
+            "recorded_at": {"$ifNull": ["$endTime", "$startTime"]},
+            "day_key": {
+                "$dateToString": {
+                    "format": "%Y-%m-%d",
+                    "date": "$startTime",
+                    "timezone": tz_expr,
+                },
+            },
+        },
+    }
+
+
+def build_driver_behavior_fields_stage(
+    tz_expr: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Fields needed for driver behavior analytics (speed, braking, fuel, time)."""
+    tz_expr = tz_expr or get_mongo_tz_expr()
+    return {
+        "$addFields": {
+            "numericDistance": {
+                "$convert": {
+                    "input": "$distance",
+                    "to": "double",
+                    "onError": 0.0,
+                    "onNull": 0.0,
+                },
+            },
+            "numericMaxSpeed": {
+                "$convert": {
+                    "input": "$maxSpeed",
+                    "to": "double",
+                    "onError": 0.0,
+                    "onNull": 0.0,
+                },
+            },
+            "speedValue": {
+                "$convert": {
+                    "input": {"$ifNull": ["$avgSpeed", "$averageSpeed"]},
+                    "to": "double",
+                    "onError": None,
+                    "onNull": None,
+                },
+            },
+            "hardBrakingVal": {
+                "$ifNull": [
+                    "$hardBrakingCounts",
+                    {"$ifNull": ["$hardBrakingCount", 0]},
+                ],
+            },
+            "hardAccelVal": {
+                "$ifNull": [
+                    "$hardAccelerationCounts",
+                    {"$ifNull": ["$hardAccelerationCount", 0]},
+                ],
+            },
+            "idleSeconds": {
+                "$convert": {
+                    "input": {"$ifNull": ["$totalIdleDuration", "$totalIdlingTime"]},
+                    "to": "double",
+                    "onError": 0.0,
+                    "onNull": 0.0,
+                },
+            },
+            "fuelDouble": {
+                "$convert": {
+                    "input": "$fuelConsumed",
+                    "to": "double",
+                    "onError": 0.0,
+                    "onNull": 0.0,
+                },
+            },
+            "dtParts": {
+                "$dateToParts": {
+                    "date": "$startTime",
+                    "timezone": tz_expr,
+                    "iso8601": True,
+                },
+            },
+        },
+    }
+
+
 def build_date_grouping_stage(
     date_field: str = "$startTime",
     group_by: list[str] | None = None,

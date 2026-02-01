@@ -13,6 +13,6 @@ Key features:
 - Auto-provisioning of map data for new trip regions
 """
 
-from map_data.models import GeoServiceHealth, MapBuildProgress, MapServiceConfig
+from map_data.models import GeoServiceHealth, MapServiceConfig
 
-__all__ = ["GeoServiceHealth", "MapBuildProgress", "MapServiceConfig"]
+__all__ = ["GeoServiceHealth", "MapServiceConfig"]

@@ -15,8 +15,8 @@ from beanie import PydanticObjectId
 from fastapi import APIRouter, HTTPException, Query, Response
 from fastapi.responses import StreamingResponse
 
-from db import OptimalRouteProgress
-from db.models import CoverageArea
+from core.jobs import create_job
+from db.models import CoverageArea, Job
 
 logger = logging.getLogger(__name__)
 
@@ -71,17 +71,17 @@ async def start_optimal_route_generation(
 
     # Create initial progress document so SSE can track queued state
     # before worker picks up the task
-    progress = OptimalRouteProgress(
-        location=str(area_id),
+    await create_job(
+        "optimal_route",
         task_id=task_id,
+        area_id=area_id,
+        location=str(area_id),
         status="queued",
         stage="queued",
-        progress=0,
+        progress=0.0,
         message="Task queued, waiting for worker...",
-        created_at=datetime.now(UTC),
-        updated_at=datetime.now(UTC),
+        started_at=datetime.now(UTC),
     )
-    await progress.insert()
 
     logger.info(
         "Started optimal route generation task %s for location %s",
@@ -235,8 +235,9 @@ async def get_active_route_task(area_id: str):
     """
     # Find any active/pending task for this location
     # Sort by created_at descending to get the most recent task
-    progress = await OptimalRouteProgress.find_one(
+    progress = await Job.find_one(
         {
+            "job_type": "optimal_route",
             "location": area_id,
             "status": {"$in": ["queued", "running", "pending", "initializing"]},
         },
@@ -270,12 +271,12 @@ async def cancel_optimal_route_task(task_id: str):
     from tasks.ops import abort_job
 
     # Check if task exists
-    progress = await OptimalRouteProgress.find_one({"task_id": task_id})
+    progress = await Job.find_one({"job_type": "optimal_route", "task_id": task_id})
 
     if not progress:
         raise HTTPException(status_code=404, detail="Task not found")
 
-    location_id = progress.location
+    location_id = progress.location or (str(progress.area_id) if progress.area_id else None)
     current_status = progress.status or ""
 
     if current_status not in ("completed", "failed", "cancelled"):
@@ -289,8 +290,9 @@ async def cancel_optimal_route_task(task_id: str):
     # Cancel ALL active tasks for this location (not just this one)
     if location_id:
         active_statuses = ["queued", "running", "pending", "initializing"]
-        active_tasks = await OptimalRouteProgress.find(
+        active_tasks = await Job.find(
             {
+                "job_type": "optimal_route",
                 "location": location_id,
                 "status": {"$in": active_statuses},
             },
@@ -308,6 +310,8 @@ async def cancel_optimal_route_task(task_id: str):
                 task.status = "cancelled"
                 task.stage = "cancelled"
                 task.message = "Task cancelled by user"
+                task.completed_at = datetime.now(UTC)
+                task.updated_at = datetime.now(UTC)
                 await task.save()
                 cancelled_count += 1
 
@@ -323,14 +327,14 @@ async def cancel_optimal_route_task(task_id: str):
 @router.get("/api/optimal-routes/{task_id}/progress")
 async def get_optimal_route_progress(task_id: str):
     """Get current progress for an optimal route generation task."""
-    progress = await OptimalRouteProgress.find_one({"task_id": task_id})
+    progress = await Job.find_one({"job_type": "optimal_route", "task_id": task_id})
 
     if not progress:
         raise HTTPException(status_code=404, detail="Task not found")
 
     return {
         "task_id": task_id,
-        "location_id": progress.location,
+        "location_id": progress.location or (str(progress.area_id) if progress.area_id else None),
         "status": progress.status or "pending",
         "stage": progress.stage or "initializing",
         "progress": progress.progress or 0,
@@ -359,8 +363,8 @@ async def stream_optimal_route_progress(task_id: str):
             poll_count += 1
 
             try:
-                progress = await OptimalRouteProgress.find_one(
-                    {"task_id": task_id},
+                progress = await Job.find_one(
+                    {"job_type": "optimal_route", "task_id": task_id},
                 )
 
                 if not progress:

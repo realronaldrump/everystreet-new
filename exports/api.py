@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request, status
 from fastapi.responses import FileResponse
 
-from db.models import ExportJob
+from db.models import Job
 from exports.auth import enforce_owner, get_owner_key
 from exports.models import (
     ExportJobResponse,
@@ -51,8 +51,8 @@ async def create_export_job(
 @router.get("/{job_id}", response_model=ExportStatusResponse)
 async def get_export_job(job_id: PydanticObjectId, request: Request):
     owner_key = get_owner_key(request)
-    job = await ExportJob.get(job_id)
-    if not job:
+    job = await Job.get(job_id)
+    if not job or job.job_type != "export":
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Job not found",
@@ -90,8 +90,8 @@ async def get_export_job(job_id: PydanticObjectId, request: Request):
 @router.get("/{job_id}/download")
 async def download_export_job(job_id: PydanticObjectId, request: Request):
     owner_key = get_owner_key(request)
-    job = await ExportJob.get(job_id)
-    if not job:
+    job = await Job.get(job_id)
+    if not job or job.job_type != "export":
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Job not found",

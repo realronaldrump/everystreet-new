@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from config import get_osm_extracts_path
+from map_data.docker import get_container_name
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -72,7 +73,7 @@ async def start_container_on_demand(
         return True
 
     # If a stopped container exists, start it directly (avoid docker compose dependency)
-    container_name = await _get_container_name(service_name)
+    container_name = await get_container_name(service_name)
     if container_name:
         exists_cmd = [
             "docker",
@@ -207,7 +208,7 @@ async def start_container_on_demand(
     # All commands failed, try direct docker start as fallback
     # This handles cases where docker-compose/plugin is not installed (like in the worker)
     # but the container was already created by the main deployment.
-    container_name = await _get_container_name(service_name)
+    container_name = await get_container_name(service_name)
     logger.info(
         "Docker compose commands failed, trying fallback: docker start %s",
         container_name,
@@ -309,7 +310,7 @@ async def build_nominatim_data(
         if progress_callback:
             await _safe_callback(progress_callback, 10, "Starting Nominatim import...")
 
-        container_name = await _get_container_name("nominatim")
+        container_name = await get_container_name("nominatim")
         pbf_container_path = f"/nominatim/data/{pbf_relative}"
 
         # Stop Nominatim web workers and clear marker to avoid DB locks during re-import.
@@ -558,7 +559,7 @@ async def _wait_for_nominatim_db_ready(wait_timeout: int = 120) -> None:
     The 'nominatim' database is created DURING the import process, so we
     cannot require it to exist before import.
     """
-    container_name = await _get_container_name("nominatim")
+    container_name = await get_container_name("nominatim")
     start_time = asyncio.get_event_loop().time()
 
     while (asyncio.get_event_loop().time() - start_time) < wait_timeout:
@@ -767,7 +768,7 @@ async def build_valhalla_tiles(
                 "Verifying configuration...",
             )
 
-        container_name = await _get_container_name("valhalla")
+        container_name = await get_container_name("valhalla")
         pbf_container_path = f"/data/osm/{pbf_relative}"
 
         # Verify PBF file is accessible
@@ -1063,89 +1064,6 @@ def _resolve_pbf_path(pbf_path: str) -> tuple[str, str]:
     return pbf_full_path, pbf_relative
 
 
-async def _get_container_name(service_name: str) -> str:
-    """
-    Get the Docker container name for a service.
-
-    By default, docker-compose names containers as {project}_{service}_1
-    or {project}-{service}-1 depending on version.
-
-    Args:
-        service_name: The service name from docker-compose.yml
-
-    Returns:
-        The container name to use with docker exec
-    """
-    env_project = os.getenv("COMPOSE_PROJECT_NAME", "").strip()
-
-    # Prefer compose labels (works across platforms and naming schemes)
-    try:
-        if env_project:
-            cmd = [
-                "docker",
-                "ps",
-                "-a",
-                "--filter",
-                f"label=com.docker.compose.project={env_project}",
-                "--filter",
-                f"label=com.docker.compose.service={service_name}",
-                "--format",
-                "{{.Names}}",
-            ]
-            process = await asyncio.create_subprocess_exec(
-                *cmd,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
-            stdout, _ = await process.communicate()
-            if process.returncode == 0 and stdout.strip():
-                return stdout.decode().strip().split("\n")[0]
-
-        cmd = [
-            "docker",
-            "ps",
-            "-a",
-            "--filter",
-            f"label=com.docker.compose.service={service_name}",
-            "--format",
-            "{{.Names}}",
-        ]
-        process = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        stdout, _ = await process.communicate()
-        if process.returncode == 0 and stdout.strip():
-            return stdout.decode().strip().split("\n")[0]
-    except Exception as e:
-        logger.warning("Failed to lookup container by labels: %s", e)
-
-    # Fallback: name search
-    try:
-        cmd = [
-            "docker",
-            "ps",
-            "-a",
-            "--filter",
-            f"name={service_name}",
-            "--format",
-            "{{.Names}}",
-        ]
-        process = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        stdout, _ = await process.communicate()
-        if process.returncode == 0 and stdout.strip():
-            return stdout.decode().strip().split("\n")[0]
-    except Exception as e:
-        logger.warning("Failed to lookup container name: %s", e)
-
-    return service_name
-
-
 async def _restart_container(service_name: str) -> None:
     """
     Restart a Docker container.
@@ -1153,7 +1071,7 @@ async def _restart_container(service_name: str) -> None:
     Args:
         service_name: The service name to restart
     """
-    container_name = await _get_container_name(service_name)
+    container_name = await get_container_name(service_name)
 
     try:
         logger.info("Restarting container: %s", container_name)

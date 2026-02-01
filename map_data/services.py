@@ -8,7 +8,6 @@ Provides:
 
 from __future__ import annotations
 
-import asyncio
 import contextlib
 import json
 import logging
@@ -21,7 +20,9 @@ from typing import Any
 import httpx
 
 from config import get_nominatim_base_url, get_osm_extracts_path, get_valhalla_base_url
-from map_data.models import GeoServiceHealth, MapBuildProgress, MapServiceConfig
+from map_data.docker import is_docker_unavailable_error, run_docker
+from map_data.models import GeoServiceHealth, MapServiceConfig
+from map_data.progress import MapBuildProgress
 from map_data.us_states import get_state, total_size_mb
 from tasks.arq import get_arq_pool
 from tasks.config import get_task_config_entry
@@ -79,45 +80,6 @@ def _cleanup_map_setup_artifacts() -> dict[str, int]:
     return removed
 
 
-def _is_docker_unavailable_error(error_text: str) -> bool:
-    lowered = error_text.lower()
-    return any(
-        phrase in lowered
-        for phrase in [
-            "cannot connect to the docker daemon",
-            "permission denied",
-            "docker is not running",
-            "error during connect",
-            "dial unix",
-        ]
-    )
-
-
-async def _run_docker_cmd(cmd: list[str]) -> tuple[int, str, str]:
-    try:
-        process = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        try:
-            stdout, stderr = await asyncio.wait_for(
-                process.communicate(),
-                timeout=DOCKER_CMD_TIMEOUT,
-            )
-        except TimeoutError:
-            with contextlib.suppress(ProcessLookupError):
-                process.kill()
-            return 124, "", "timeout"
-        return (
-            process.returncode,
-            stdout.decode(errors="replace").strip(),
-            stderr.decode(errors="replace").strip(),
-        )
-    except FileNotFoundError as exc:
-        return 127, "", str(exc)
-
-
 async def _infer_compose_project(service_name: str) -> str | None:
     env_project = os.getenv("COMPOSE_PROJECT_NAME", "").strip()
     if env_project:
@@ -132,9 +94,9 @@ async def _infer_compose_project(service_name: str) -> str | None:
         "--format",
         '{{.Label "com.docker.compose.project"}}',
     ]
-    rc, stdout, stderr = await _run_docker_cmd(cmd)
+    rc, stdout, stderr = await run_docker(cmd, timeout=DOCKER_CMD_TIMEOUT)
     if rc != 0:
-        if _is_docker_unavailable_error(stderr):
+        if is_docker_unavailable_error(stderr):
             return None
         return None
     for line in stdout.splitlines():
@@ -159,10 +121,10 @@ async def _find_container_names(service_name: str) -> tuple[list[str], str | Non
             "--format",
             "{{.Names}}",
         ]
-        rc, stdout, stderr = await _run_docker_cmd(cmd)
+        rc, stdout, stderr = await run_docker(cmd, timeout=DOCKER_CMD_TIMEOUT)
         if rc == 0 and stdout:
             return stdout.splitlines(), None
-        if _is_docker_unavailable_error(stderr):
+        if is_docker_unavailable_error(stderr):
             return [], stderr or "docker unavailable"
 
     cmd = [
@@ -174,19 +136,19 @@ async def _find_container_names(service_name: str) -> tuple[list[str], str | Non
         "--format",
         "{{.Names}}",
     ]
-    rc, stdout, stderr = await _run_docker_cmd(cmd)
+    rc, stdout, stderr = await run_docker(cmd, timeout=DOCKER_CMD_TIMEOUT)
     if rc == 0 and stdout:
         return stdout.splitlines(), None
-    if _is_docker_unavailable_error(stderr):
+    if is_docker_unavailable_error(stderr):
         return [], stderr or "docker unavailable"
     return [], None
 
 
 async def _inspect_container(container_name: str) -> dict[str, Any]:
     cmd = ["docker", "inspect", container_name]
-    rc, stdout, stderr = await _run_docker_cmd(cmd)
+    rc, stdout, stderr = await run_docker(cmd, timeout=DOCKER_CMD_TIMEOUT)
     if rc != 0:
-        if _is_docker_unavailable_error(stderr):
+        if is_docker_unavailable_error(stderr):
             return {"error": stderr or "docker unavailable"}
         return {"error": stderr or "inspect failed"}
     try:

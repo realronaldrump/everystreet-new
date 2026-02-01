@@ -33,7 +33,8 @@ from map_data.geofabrik_index import (
     find_smallest_covering_extract,
     load_geofabrik_index,
 )
-from map_data.models import MapBuildProgress, MapServiceConfig
+from map_data.models import MapServiceConfig
+from map_data.progress import MapBuildProgress
 from map_data.services import check_service_health
 from map_data.us_states import build_geofabrik_path, get_state
 from tasks.arq import get_arq_pool

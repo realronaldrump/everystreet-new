@@ -13,7 +13,7 @@ from fastapi import HTTPException
 
 from core.spatial import GeometryService, extract_timestamps_for_coordinates
 from db import CoverageArea, CoverageState, Street, Trip, build_calendar_date_expr
-from db.models import ExportJob
+from db.models import Job
 from exports.constants import (
     EXPORT_DEFAULT_FORMAT,
     EXPORT_FORMATS_BY_ENTITY,
@@ -47,7 +47,7 @@ PROGRESS_UPDATE_EVERY = 500
 
 
 class ExportProgress:
-    def __init__(self, job: ExportJob, total_records: int) -> None:
+    def __init__(self, job: Job, total_records: int) -> None:
         self.job = job
         self.total_records = total_records
         self.processed = 0
@@ -97,7 +97,7 @@ class ExportService:
         cls,
         request: ExportRequest,
         owner_key: str,
-    ) -> ExportJob:
+    ) -> Job:
         now = datetime.now(UTC)
         items = [cls._normalize_item(item) for item in request.items]
 
@@ -110,9 +110,11 @@ class ExportService:
             "created_at": now.isoformat(),
         }
 
-        job = ExportJob(
+        job = Job(
+            job_type="export",
             owner_key=owner_key,
             status="pending",
+            stage="queued",
             progress=0.0,
             message="Queued",
             spec=spec,
@@ -125,8 +127,8 @@ class ExportService:
 
     @classmethod
     async def run_job(cls, job_id: str) -> None:
-        job = await ExportJob.get(job_id)
-        if not job:
+        job = await Job.get(job_id)
+        if not job or job.job_type != "export":
             logger.error("Export job %s not found", job_id)
             return
 
@@ -179,7 +181,7 @@ class ExportService:
 
     @staticmethod
     async def _update_job(
-        job: ExportJob,
+        job: Job,
         *,
         status: str | None = None,
         progress: float | None = None,
@@ -191,6 +193,10 @@ class ExportService:
     ) -> None:
         if status is not None:
             job.status = status
+            if status == "running":
+                job.stage = "running"
+            elif status in {"completed", "failed"}:
+                job.stage = status
         if progress is not None:
             job.progress = float(progress)
         if message is not None:
@@ -209,7 +215,7 @@ class ExportService:
     @classmethod
     async def _write_exports(
         cls,
-        job: ExportJob,
+        job: Job,
         export_dir: Path,
     ) -> dict[str, Any]:
         spec = job.spec or {}
@@ -570,7 +576,7 @@ class ExportService:
         return export_dir / filename
 
     @staticmethod
-    def _write_manifest(job: ExportJob, results: dict[str, Any], path: Path) -> None:
+    def _write_manifest(job: Job, results: dict[str, Any], path: Path) -> None:
         area = results.get("area")
         manifest = {
             "spec_version": EXPORT_SPEC_VERSION,

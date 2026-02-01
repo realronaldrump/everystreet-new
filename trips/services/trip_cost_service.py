@@ -2,17 +2,9 @@
 
 import bisect
 
+from core.casting import safe_float
 from core.date_utils import parse_timestamp
 from db.models import GasFillup
-
-
-def _safe_float(value, default: float = 0.0):
-    try:
-        if value is None:
-            return default
-        return float(value)
-    except (TypeError, ValueError):
-        return default
 
 
 class TripCostService:
@@ -85,7 +77,7 @@ class TripCostService:
         Returns:
             float | None: Estimated cost or None if data is missing
         """
-        fuel_consumed = _safe_float(trip.get("fuelConsumed"), None)
+        fuel_consumed = safe_float(trip.get("fuelConsumed"), None)
         imei = trip.get("imei")
         start_time = parse_timestamp(trip.get("startTime"))
 
@@ -103,7 +95,7 @@ class TripCostService:
             if idx > 0:
                 # We found a fill-up that happened before (or at) the trip start
                 relevant_price = prices[idx - 1]
-                return _safe_float(fuel_consumed, 0) * _safe_float(relevant_price, 0)
+                return safe_float(fuel_consumed, 0) * safe_float(relevant_price, 0)
         except (TypeError, ValueError):
             # Fallback for any remaining type comparison issues
             return None

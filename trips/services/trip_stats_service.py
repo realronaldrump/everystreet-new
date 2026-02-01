@@ -5,8 +5,9 @@ import uuid
 from datetime import UTC, datetime, timedelta
 
 from core.date_utils import normalize_calendar_date
+from core.jobs import create_job, find_job
 from db import build_calendar_date_expr
-from db.models import ProgressStatus, Trip
+from db.models import Trip
 from trips.services.trip_batch_service import TripService
 
 logger = logging.getLogger(__name__)
@@ -76,28 +77,25 @@ class TripStatsService:
                 raise ValueError(msg)
             query = {"$expr": range_expr}
 
-        # Initialize progress tracking
-        progress = ProgressStatus(
+        metrics = {
+            "total": 0,
+            "processed": 0,
+            "updated": 0,
+            "skipped": 0,
+            "failed": 0,
+        }
+        job_handle = await create_job(
+            "geocoding",
             operation_id=task_id,
-            operation_type="geocoding",
             status="running",
             stage="initializing",
-            progress=0,
+            progress=0.0,
             message="Finding trips to geocode...",
             started_at=datetime.now(UTC),
-            updated_at=datetime.now(UTC),
-            metadata={
-                "total": 0,
-                "processed": 0,
-                "updated": 0,
-                "skipped": 0,
-                "failed": 0,
-            },
+            metadata=metrics,
         )
 
         try:
-            await progress.insert()
-
             # Find trips matching query
             trips_list = await Trip.find(query).to_list()
             # Convert transactionId to string to handle ObjectId values from older data
@@ -108,19 +106,21 @@ class TripStatsService:
             total_trips = len(trip_ids)
 
             # Update progress with total count
-            progress.stage = "processing"
-            progress.message = f"Found {total_trips} trips to process"
-            progress.metadata["total"] = total_trips
-            progress.updated_at = datetime.now(UTC)
-            await progress.save()
+            metrics["total"] = total_trips
+            await job_handle.update(
+                stage="processing",
+                message=f"Found {total_trips} trips to process",
+                metadata_patch={"total": total_trips},
+            )
 
             if total_trips == 0:
-                progress.stage = "completed"
-                progress.status = "completed"
-                progress.progress = 100
-                progress.message = "No trips found matching criteria"
-                progress.updated_at = datetime.now(UTC)
-                await progress.save()
+                await job_handle.update(
+                    stage="completed",
+                    status="completed",
+                    progress=100,
+                    message="No trips found matching criteria",
+                    completed_at=datetime.now(UTC),
+                )
                 return {
                     "task_id": task_id,
                     "message": "No trips found matching criteria",
@@ -130,14 +130,16 @@ class TripStatsService:
             # Define progress callback
             async def progress_callback(current: int, total: int, trip_id: str) -> None:
                 progress_pct = int((current / total) * 100) if total > 0 else 0
-                progress.progress = progress_pct
-                progress.message = f"Geocoding trip {current} of {total}"
-                progress.metadata["current_trip_id"] = trip_id
-                progress.metadata["processed"] = (
-                    progress.metadata.get("processed", 0) + 1
+                metrics["processed"] = metrics.get("processed", 0) + 1
+                metrics["current_trip_id"] = trip_id
+                await job_handle.update(
+                    progress=progress_pct,
+                    message=f"Geocoding trip {current} of {total}",
+                    metadata_patch={
+                        "processed": metrics["processed"],
+                        "current_trip_id": trip_id,
+                    },
                 )
-                progress.updated_at = datetime.now(UTC)
-                await progress.save()
 
             # Process geocoding
             result = await self.trip_service.refresh_geocoding(
@@ -147,23 +149,26 @@ class TripStatsService:
             )
 
             # Update final progress
-            progress.stage = "completed"
-            progress.status = "completed"
-            progress.progress = 100
-            progress.message = (
+            message = (
                 f"Completed: {result['updated']} updated, "
                 f"{result['skipped']} skipped, "
                 f"{result['failed']} failed"
             )
-            progress.metadata = {
+            metrics = {
                 "total": result["total"],
                 "processed": result["total"],
                 "updated": result["updated"],
                 "skipped": result["skipped"],
                 "failed": result["failed"],
             }
-            progress.updated_at = datetime.now(UTC)
-            await progress.save()
+            await job_handle.update(
+                stage="completed",
+                status="completed",
+                progress=100,
+                message=message,
+                metadata_patch=metrics,
+                completed_at=datetime.now(UTC),
+            )
 
             return {
                 "task_id": task_id,
@@ -180,13 +185,14 @@ class TripStatsService:
         except Exception as e:
             logger.exception("Error in geocode_trips")
             # Update progress with error
-            progress.stage = "error"
-            progress.status = "failed"
-            progress.progress = 0
-            progress.message = f"Error: {e!s}"
-            progress.error = str(e)
-            progress.updated_at = datetime.now(UTC)
-            await progress.save()
+            await job_handle.update(
+                stage="error",
+                status="failed",
+                progress=0,
+                message=f"Error: {e!s}",
+                error=str(e),
+                completed_at=datetime.now(UTC),
+            )
             raise
 
     @staticmethod
@@ -203,10 +209,7 @@ class TripStatsService:
         Raises:
             ValueError: If task not found
         """
-        progress = await ProgressStatus.find_one(
-            ProgressStatus.operation_id == task_id,
-            ProgressStatus.operation_type == "geocoding",
-        )
+        progress = await find_job("geocoding", operation_id=task_id)
 
         if not progress:
             msg = "Task not found"

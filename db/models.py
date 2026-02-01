@@ -33,7 +33,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 from core.date_utils import parse_timestamp
 from core.spatial import GeometryService
-from map_data.models import GeoServiceHealth, MapBuildProgress, MapServiceConfig
+from map_data.models import GeoServiceHealth, MapServiceConfig
 
 
 class Trip(Document):
@@ -402,31 +402,52 @@ class Job(Document):
     Unified job status tracking for all background work.
     """
 
+    # Identity
     job_type: str
+    operation_id: str | None = None
+    task_id: str | None = None
+    owner_key: str | None = None
     area_id: PydanticObjectId | None = None
+    location: str | None = None
+    location_id: str | None = None
+
+    # State
     status: str = "pending"
     stage: str = "Queued"
     progress: float = 0.0
     message: str = ""
+
+    # Timing
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     started_at: datetime | None = None
     completed_at: datetime | None = None
+    updated_at: datetime | None = None
+    expires_at: datetime | None = None
+
+    # Error handling
     error: str | None = None
     retry_count: int = 0
     max_retries: int = 3
 
+    # Extra payloads
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    metrics: dict[str, Any] | None = None
+    spec: dict[str, Any] = Field(default_factory=dict)
+    result: dict[str, Any] | None = None
+
     class Settings:
         name = "jobs"
         indexes: ClassVar[list[IndexModel]] = [
+            IndexModel([("job_type", 1)], name="jobs_type_idx"),
+            IndexModel([("operation_id", 1)], name="jobs_operation_idx"),
+            IndexModel([("task_id", 1)], name="jobs_task_idx"),
+            IndexModel([("owner_key", 1)], name="jobs_owner_idx"),
             IndexModel(
                 [("area_id", 1), ("job_type", 1)],
                 name="jobs_area_type_idx",
             ),
             IndexModel([("status", 1)], name="jobs_status_idx"),
-            IndexModel(
-                [("created_at", -1)],
-                name="jobs_created_idx",
-            ),
+            IndexModel([("created_at", -1)], name="jobs_created_idx"),
         ]
 
     model_config = ConfigDict(extra="allow")
@@ -475,84 +496,6 @@ class TaskHistory(Document):
                 name="task_history_task_timestamp_idx",
             ),
         ]
-
-    model_config = ConfigDict(extra="allow")
-
-
-class ProgressStatus(Document):
-    """Progress status document for long-running operations."""
-
-    # Allow MongoDB to auto-generate ObjectId for _id
-    operation_id: str | None = None
-    operation_type: str | None = None
-    status: str | None = None
-    stage: str | None = None  # Added: used by geocoding service
-    progress: float = 0.0
-    message: str | None = None
-    error: str | None = None  # Added: used for error reporting
-    started_at: datetime | None = None
-    updated_at: datetime | None = None
-    completed_at: datetime | None = None
-    result: dict[str, Any] | None = None
-    metadata: dict[str, Any] = Field(
-        default_factory=dict,
-    )  # Added: used for progress tracking
-
-    class Settings:
-        name = "progress_status"
-
-    model_config = ConfigDict(extra="allow")
-
-
-class ExportJob(Document):
-    """Export job status and artifact tracking."""
-
-    owner_key: str | None = None
-    status: str = "pending"  # "pending", "running", "completed", "failed"
-    progress: float = 0.0
-    message: str | None = None
-    error: str | None = None
-
-    # Export specification and results
-    spec: dict[str, Any] = Field(default_factory=dict)
-    result: dict[str, Any] | None = None
-
-    # Timing
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    started_at: datetime | None = None
-    completed_at: datetime | None = None
-    updated_at: datetime | None = None
-    expires_at: datetime | None = None
-
-    class Settings:
-        name = "export_jobs"
-        indexes: ClassVar[list[IndexModel]] = [
-            IndexModel([("status", 1)], name="export_jobs_status_idx"),
-            IndexModel([("created_at", -1)], name="export_jobs_created_idx"),
-            IndexModel([("owner_key", 1)], name="export_jobs_owner_idx"),
-        ]
-
-    model_config = ConfigDict(extra="allow")
-
-
-class OptimalRouteProgress(Document):
-    """Optimal route calculation progress document."""
-
-    location: str | None = None
-    task_id: str | None = None
-    status: str | None = None
-    stage: str | None = None
-    progress: float = 0.0
-    message: str | None = None
-    error: str | None = None
-    metrics: dict[str, Any] | None = None
-    created_at: datetime | None = None
-    updated_at: datetime | None = None
-    started_at: datetime | None = None
-    completed_at: datetime | None = None
-
-    class Settings:
-        name = "optimal_route_progress"
 
     model_config = ConfigDict(extra="allow")
 
@@ -810,9 +753,6 @@ ALL_DOCUMENT_MODELS = [
     Place,
     TaskConfig,
     TaskHistory,
-    ProgressStatus,
-    ExportJob,
-    OptimalRouteProgress,
     GasFillup,
     Vehicle,
     SetupSession,
@@ -828,6 +768,5 @@ ALL_DOCUMENT_MODELS = [
     Street,
     # Map data management models
     MapServiceConfig,
-    MapBuildProgress,
     GeoServiceHealth,
 ]

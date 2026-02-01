@@ -9,9 +9,10 @@ from typing import Any
 from fastapi import HTTPException, status
 
 from core.date_utils import get_current_utc_time, normalize_calendar_date
+from core.jobs import JobHandle, create_job, find_job
 from core.spatial import GeometryService, extract_timestamps_for_coordinates
 from db import build_calendar_date_expr
-from db.models import ProgressStatus, Trip
+from db.models import Job, Trip
 from map_data.services import check_service_health
 from tasks.config import update_task_history_entry
 from tasks.ops import abort_job, enqueue_task
@@ -32,7 +33,7 @@ def _is_terminal_stage(stage: str | None) -> bool:
     return stage in TERMINAL_STAGES
 
 
-def _is_terminal_progress(progress: ProgressStatus) -> bool:
+def _is_terminal_progress(progress: Job) -> bool:
     return _is_terminal_stage(progress.stage) or _is_terminal_stage(progress.status)
 
 
@@ -61,10 +62,7 @@ class MapMatchingJobService:
         }
 
     async def get_job(self, job_id: str) -> dict[str, Any]:
-        progress = await ProgressStatus.find_one(
-            ProgressStatus.operation_id == job_id,
-            ProgressStatus.operation_type == "map_matching",
-        )
+        progress = await find_job("map_matching", operation_id=job_id)
         if not progress:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -85,8 +83,8 @@ class MapMatchingJobService:
 
     async def list_jobs(self, limit: int = 20, offset: int = 0) -> dict[str, Any]:
         cursor = (
-            ProgressStatus.find(ProgressStatus.operation_type == "map_matching")
-            .sort(-ProgressStatus.updated_at)
+            Job.find(Job.job_type == "map_matching")
+            .sort("-updated_at")
             .skip(offset)
             .limit(limit)
         )
@@ -94,7 +92,7 @@ class MapMatchingJobService:
         async for entry in cursor:
             jobs.append(
                 {
-                    "job_id": entry.operation_id,
+                    "job_id": entry.operation_id or entry.task_id or str(entry.id),
                     "stage": entry.stage or "unknown",
                     "progress": entry.progress or 0,
                     "message": entry.message or "",
@@ -106,9 +104,7 @@ class MapMatchingJobService:
                 },
             )
 
-        total = await ProgressStatus.find(
-            ProgressStatus.operation_type == "map_matching",
-        ).count()
+        total = await Job.find(Job.job_type == "map_matching").count()
         return {"total": total, "jobs": jobs}
 
     async def delete_job(
@@ -117,10 +113,7 @@ class MapMatchingJobService:
         *,
         allow_active: bool = False,
     ) -> dict[str, Any]:
-        progress = await ProgressStatus.find_one(
-            ProgressStatus.operation_id == job_id,
-            ProgressStatus.operation_type == "map_matching",
-        )
+        progress = await find_job("map_matching", operation_id=job_id)
         if not progress:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -142,10 +135,7 @@ class MapMatchingJobService:
         *,
         reason: str = "Cancelled by user",
     ) -> dict[str, Any]:
-        progress = await ProgressStatus.find_one(
-            ProgressStatus.operation_id == job_id,
-            ProgressStatus.operation_type == "map_matching",
-        )
+        progress = await find_job("map_matching", operation_id=job_id)
         if not progress:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -169,15 +159,15 @@ class MapMatchingJobService:
             logger.warning("Failed to abort map matching job %s: %s", job_id, exc)
 
         now = datetime.now(UTC)
-        progress.status = "cancelled"
-        progress.stage = "cancelled"
-        progress.message = reason
-        progress.updated_at = now
-        progress.completed_at = now
         metadata = progress.metadata or {}
         metadata["cancelled"] = True
-        progress.metadata = metadata
-        await progress.save()
+        await JobHandle(progress).update(
+            status="cancelled",
+            stage="cancelled",
+            message=reason,
+            completed_at=now,
+            metadata_patch=metadata,
+        )
 
         try:
             await update_task_history_entry(
@@ -202,9 +192,7 @@ class MapMatchingJobService:
         }
 
     async def clear_history(self, *, include_active: bool = False) -> dict[str, Any]:
-        entries = await ProgressStatus.find(
-            ProgressStatus.operation_type == "map_matching",
-        ).to_list()
+        entries = await Job.find(Job.job_type == "map_matching").to_list()
 
         deletable = [
             entry for entry in entries if include_active or _is_terminal_progress(entry)
@@ -261,10 +249,7 @@ class MapMatchingJobService:
         job_id: str,
         limit: int = 120,
     ) -> dict[str, Any]:
-        progress = await ProgressStatus.find_one(
-            ProgressStatus.operation_id == job_id,
-            ProgressStatus.operation_type == "map_matching",
-        )
+        progress = await find_job("map_matching", operation_id=job_id)
         if not progress:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -428,15 +413,15 @@ class MapMatchingJobService:
         if not job_id:
             return
 
-        progress = ProgressStatus(
+        await create_job(
+            "map_matching",
             operation_id=job_id,
-            operation_type="map_matching",
+            task_id=job_id,
             status="queued",
             stage="queued",
-            progress=0,
+            progress=0.0,
             message="Queued map matching job",
             started_at=datetime.now(UTC),
-            updated_at=datetime.now(UTC),
             metadata={
                 "source": source,
                 "mode": request.mode,
@@ -454,7 +439,6 @@ class MapMatchingJobService:
                 "failed": 0,
             },
         )
-        await progress.insert()
 
 
 class MapMatchingJobRunner:
@@ -582,19 +566,20 @@ class MapMatchingJobRunner:
 
         except Exception as exc:
             logger.exception("Map matching job failed")
-            progress.status = "failed"
-            progress.stage = "error"
-            progress.progress = 0
-            progress.message = f"Error: {exc!s}"
-            progress.error = str(exc)
-            progress.updated_at = datetime.now(UTC)
-            await progress.save()
+            await JobHandle(progress).update(
+                status="failed",
+                stage="error",
+                progress=0,
+                message=f"Error: {exc!s}",
+                error=str(exc),
+                completed_at=datetime.now(UTC),
+            )
             raise
 
     async def _process_trips_directly(
         self,
         trips: list[TripMapMatchProjection],
-        progress: ProgressStatus,
+        progress: Job,
         total: int,
         job_id: str,
     ) -> dict[str, int | bool]:
@@ -747,48 +732,44 @@ class MapMatchingJobRunner:
             trip.matched_at = get_current_utc_time()
             await trip.save()
 
-    async def _get_or_create_progress(self, job_id: str) -> ProgressStatus:
+    async def _get_or_create_progress(self, job_id: str) -> Job:
         """Get existing progress or create new one."""
-        progress = await ProgressStatus.find_one(
-            ProgressStatus.operation_id == job_id,
-            ProgressStatus.operation_type == "map_matching",
-        )
+        progress = await find_job("map_matching", operation_id=job_id)
         if not progress:
-            progress = ProgressStatus(
+            progress_handle = await create_job(
+                "map_matching",
                 operation_id=job_id,
-                operation_type="map_matching",
+                task_id=job_id,
                 status="running",
                 stage="initializing",
-                progress=0,
+                progress=0.0,
                 message="Starting map matching...",
                 started_at=datetime.now(UTC),
-                updated_at=datetime.now(UTC),
                 metadata={},
             )
-            await progress.insert()
-        else:
-            if _is_terminal_progress(progress):
-                return progress
-            progress.status = "running"
-            progress.stage = "initializing"
-            progress.progress = 0
-            progress.message = "Finding trips to map match..."
-            progress.updated_at = datetime.now(UTC)
-            await progress.save()
+            return progress_handle.job
+
+        if _is_terminal_progress(progress):
+            return progress
+
+        await JobHandle(progress).update(
+            status="running",
+            stage="initializing",
+            progress=0,
+            message="Finding trips to map match...",
+            started_at=progress.started_at or datetime.now(UTC),
+        )
         return progress
 
     async def _is_cancelled(self, job_id: str) -> bool:
-        progress = await ProgressStatus.find_one(
-            ProgressStatus.operation_id == job_id,
-            ProgressStatus.operation_type == "map_matching",
-        )
+        progress = await find_job("map_matching", operation_id=job_id)
         if not progress:
             return False
         return progress.stage == "cancelled" or progress.status == "cancelled"
 
     async def _update_progress(
         self,
-        progress: ProgressStatus,
+        progress: Job,
         *,
         status: str | None = None,
         stage: str | None = None,
@@ -797,21 +778,13 @@ class MapMatchingJobRunner:
         **metrics: Any,
     ) -> None:
         """Update progress with given values."""
-        if status:
-            progress.status = status
-        if stage:
-            progress.stage = stage
-        if progress_pct is not None:
-            progress.progress = progress_pct
-        if message:
-            progress.message = message
-
-        # Merge metrics into metadata
-        if metrics:
-            progress.metadata = {**(progress.metadata or {}), **metrics}
-
-        progress.updated_at = datetime.now(UTC)
-        await progress.save()
+        await JobHandle(progress).update(
+            status=status,
+            stage=stage,
+            progress=progress_pct,
+            message=message,
+            metadata_patch=metrics or None,
+        )
 
     @staticmethod
     def _build_query(request: MapMatchJobRequest) -> dict[str, Any]:

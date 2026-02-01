@@ -17,6 +17,7 @@ from exports.services.export_service import ExportService
 class FakeJob:
     def __init__(self) -> None:
         self.id = ObjectId()
+        self.job_type = "export"
         self.owner_key = "default"
         self.status = "pending"
         self.progress = 0.0
@@ -44,7 +45,7 @@ class ExportJobLifecycleTests(unittest.IsolatedAsyncioTestCase):
                     export_root,
                 ),
                 patch(
-                    "exports.services.export_service.ExportJob.get",
+                    "exports.services.export_service.Job.get",
                     new=AsyncMock(return_value=job),
                 ),
                 patch.object(
@@ -72,7 +73,7 @@ class ExportJobLifecycleTests(unittest.IsolatedAsyncioTestCase):
                     export_root,
                 ),
                 patch(
-                    "exports.services.export_service.ExportJob.get",
+                    "exports.services.export_service.Job.get",
                     new=AsyncMock(return_value=job),
                 ),
                 patch.object(
@@ -94,7 +95,7 @@ class ExportJobLifecycleTests(unittest.IsolatedAsyncioTestCase):
 
         with (
             patch(
-                "exports.api.ExportJob.get",
+                "exports.api.Job.get",
                 new=AsyncMock(return_value=job),
             ),
             pytest.raises(HTTPException) as context,
@@ -122,7 +123,7 @@ class ExportJobLifecycleTests(unittest.IsolatedAsyncioTestCase):
             request = Request(scope)
 
             with patch(
-                "exports.api.ExportJob.get",
+                "exports.api.Job.get",
                 new=AsyncMock(return_value=job),
             ):
                 response = await download_export_job(job.id, request)

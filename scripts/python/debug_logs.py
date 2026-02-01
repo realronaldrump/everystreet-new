@@ -1,9 +1,16 @@
 import asyncio
+import sys
+from pathlib import Path
 
 from dotenv import load_dotenv
 
 # Load env vars first
 load_dotenv()
+
+# Ensure repo root is on path for local imports.
+ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 from beanie.operators import In
 

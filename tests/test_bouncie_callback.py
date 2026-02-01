@@ -432,7 +432,7 @@ class TestSyncVehiclesAfterAuth:
     async def test_sync_no_vehicles(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test sync when no vehicles are returned."""
         monkeypatch.setattr(
-            "setup.api.bouncie.fetch_all_vehicles",
+            "setup.services.bouncie_sync.fetch_all_vehicles",
             AsyncMock(return_value=[]),
         )
         mock_session = MagicMock()
@@ -447,7 +447,7 @@ class TestSyncVehiclesAfterAuth:
         from setup.services.bouncie_api import BouncieUnauthorizedError
 
         monkeypatch.setattr(
-            "setup.api.bouncie.fetch_all_vehicles",
+            "setup.services.bouncie_sync.fetch_all_vehicles",
             AsyncMock(side_effect=BouncieUnauthorizedError("unauthorized", status=401)),
         )
         mock_session = MagicMock()
@@ -473,7 +473,7 @@ class TestSyncVehiclesAfterAuth:
         ]
 
         monkeypatch.setattr(
-            "setup.api.bouncie.fetch_all_vehicles",
+            "setup.services.bouncie_sync.fetch_all_vehicles",
             AsyncMock(return_value=vehicles),
         )
 
@@ -487,12 +487,12 @@ class TestSyncVehiclesAfterAuth:
         mock_vehicle_class.return_value = mock_vehicle_instance
 
         monkeypatch.setattr(
-            "db.models.Vehicle",
+            "setup.services.bouncie_sync.Vehicle",
             mock_vehicle_class,
         )
 
         monkeypatch.setattr(
-            "setup.api.bouncie.update_bouncie_credentials",
+            "setup.services.bouncie_sync.update_bouncie_credentials",
             AsyncMock(return_value=True),
         )
 
@@ -507,7 +507,7 @@ class TestSyncVehiclesAfterAuth:
     ) -> None:
         """Test that sync handles exceptions gracefully."""
         monkeypatch.setattr(
-            "setup.api.bouncie.fetch_all_vehicles",
+            "setup.services.bouncie_sync.fetch_all_vehicles",
             AsyncMock(side_effect=Exception("Network error")),
         )
         mock_session = MagicMock()

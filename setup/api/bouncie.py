@@ -12,11 +12,9 @@ from fastapi import APIRouter, Query, Request
 from fastapi.responses import RedirectResponse
 
 from core.api import api_route
-from setup.services.bouncie_api import (
-    BouncieApiError,
-    BouncieRateLimitError,
-    BouncieUnauthorizedError,
-    fetch_all_vehicles,
+from setup.services.bouncie_sync import (
+    BouncieVehicleSyncError,
+    sync_bouncie_vehicles,
 )
 from setup.services.bouncie_credentials import (
     get_bouncie_credentials,
@@ -38,10 +36,6 @@ def _generate_oauth_state() -> str:
 
 def _state_expired(expires_at: float | None) -> bool:
     return bool(expires_at and expires_at < time.time())
-
-
-class BouncieVehicleSyncError(RuntimeError):
-    """Raised when automatic vehicle sync fails."""
 
 
 def _first_forwarded_value(value: str | None) -> str | None:
@@ -339,107 +333,17 @@ async def _sync_vehicles_after_auth(
 
     Returns the number of vehicles synced.
     """
-    from datetime import UTC, datetime
-
-    from db.models import Vehicle
-
     try:
-        try:
-            vehicles_data = await fetch_all_vehicles(session, token)
-        except BouncieUnauthorizedError as exc:
-            if not credentials:
-                logger.warning(
-                    "Auto-sync vehicles unauthorized and no credentials to refresh: %s",
-                    exc,
-                )
-                msg = "unauthorized"
-                raise BouncieVehicleSyncError(msg) from exc
-
-            from setup.services.bouncie_oauth import BouncieOAuth
-
-            logger.info("Refreshing access token after 401/403 during vehicle sync")
-            refreshed_token = await BouncieOAuth.get_access_token(
-                session=session,
-                credentials=credentials,
-                force_refresh=True,
-            )
-            if not refreshed_token:
-                logger.exception("Failed to refresh access token during vehicle sync")
-                msg = "unauthorized"
-                raise BouncieVehicleSyncError(msg) from exc
-
-            token = refreshed_token
-            vehicles_data = await fetch_all_vehicles(session, token)
-        except BouncieRateLimitError as exc:
-            logger.exception("Bouncie API rate limited during vehicle sync: %s", exc)
-            msg = "rate_limited"
-            raise BouncieVehicleSyncError(msg) from exc
-        except BouncieApiError as exc:
-            logger.exception("Bouncie API error during vehicle sync: %s", exc)
-            msg = "api_error"
-            raise BouncieVehicleSyncError(msg) from exc
-
-        if not vehicles_data:
+        result = await sync_bouncie_vehicles(
+            session,
+            token,
+            credentials=credentials,
+            merge_authorized_devices=False,
+            update_authorized_devices=True,
+        )
+        if not result.get("imeis"):
             logger.info("No vehicles found in Bouncie account")
-            return 0
-
-        found_imeis = []
-
-        for v in vehicles_data:
-            imei = v.get("imei")
-            if not imei:
-                continue
-
-            found_imeis.append(imei)
-
-            model_data = v.get("model")
-            if isinstance(model_data, dict):
-                model_name = model_data.get("name")
-                make = v.get("make") or model_data.get("make")
-                year = v.get("year") or model_data.get("year")
-            else:
-                model_name = model_data
-                make = v.get("make")
-                year = v.get("year")
-
-            custom_name = (
-                v.get("nickName")
-                or f"{year or ''} {make or ''} {model_name or ''}".strip()
-                or f"Vehicle {imei}"
-            )
-
-            existing_vehicle = await Vehicle.find_one({"imei": imei})
-            if existing_vehicle:
-                existing_vehicle.vin = v.get("vin")
-                existing_vehicle.make = make
-                existing_vehicle.model = model_name
-                existing_vehicle.year = year
-                existing_vehicle.nickName = v.get("nickName")
-                existing_vehicle.custom_name = custom_name
-                existing_vehicle.is_active = True
-                existing_vehicle.updated_at = datetime.now(UTC)
-                existing_vehicle.last_synced_at = datetime.now(UTC)
-                existing_vehicle.bouncie_data = v
-                await existing_vehicle.save()
-            else:
-                new_vehicle = Vehicle(
-                    imei=imei,
-                    vin=v.get("vin"),
-                    make=make,
-                    model=model_name,
-                    year=year,
-                    custom_name=custom_name,
-                    is_active=True,
-                    updated_at=datetime.now(UTC),
-                )
-                await new_vehicle.insert()
-
-        # Update authorized_devices in credentials
-        if found_imeis:
-            await update_bouncie_credentials({"authorized_devices": found_imeis})
-            logger.info("Updated authorized_devices with %d IMEIs", len(found_imeis))
-
-        return len(found_imeis)
+        return len(result.get("imeis", []))
 
     except BouncieVehicleSyncError:
         raise

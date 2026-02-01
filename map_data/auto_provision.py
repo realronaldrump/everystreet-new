@@ -14,7 +14,8 @@ import logging
 from datetime import UTC, datetime
 from typing import Any
 
-from map_data.models import MapBuildProgress, MapServiceConfig
+from map_data.models import MapServiceConfig
+from map_data.progress import MapBuildProgress
 from map_data.us_states import get_state, list_states
 
 logger = logging.getLogger(__name__)

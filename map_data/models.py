@@ -49,38 +49,6 @@ class MapServiceConfig(Document):
         return config
 
 
-class MapBuildProgress(Document):
-    """Singleton progress tracker for active map builds."""
-
-    id: str = Field(default="map_build_progress", alias="_id")
-
-    phase: str = "idle"
-    phase_progress: float = 0.0
-    total_progress: float = 0.0
-    started_at: datetime | None = None
-    cancellation_requested: bool = False
-    last_progress_at: datetime | None = None
-    active_job_id: str | None = None
-
-    PHASE_IDLE: ClassVar[str] = "idle"
-    PHASE_DOWNLOADING: ClassVar[str] = "downloading"
-    PHASE_BUILDING_GEOCODER: ClassVar[str] = "building_geocoder"
-    PHASE_BUILDING_ROUTER: ClassVar[str] = "building_router"
-
-    class Settings:
-        name = "map_build_progress"
-
-    model_config = ConfigDict(extra="allow")
-
-    @classmethod
-    async def get_or_create(cls) -> MapBuildProgress:
-        progress = await cls.find_one({"_id": "map_build_progress"})
-        if not progress:
-            progress = cls()
-            await progress.insert()
-        return progress
-
-
 class GeoServiceHealth(Document):
     """
     Health status tracking for geo services (Nominatim, Valhalla).
@@ -135,5 +103,4 @@ class GeoServiceHealth(Document):
 
 # Ensure forward references resolve correctly under Pydantic v2
 MapServiceConfig.model_rebuild()
-MapBuildProgress.model_rebuild()
 GeoServiceHealth.model_rebuild()

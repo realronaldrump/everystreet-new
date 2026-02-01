@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any
 from fastapi import HTTPException, status
 
 from config import get_bouncie_config
+from core.serialization import serialize_datetime
 from db.models import TaskHistory, Trip
 from tasks.config import (
     get_global_disable,
@@ -28,14 +29,6 @@ SYNC_TASK_IDS = (
     "manual_fetch_trips_range",
     "fetch_all_missing_trips",
 )
-
-
-def _serialize_datetime(dt: datetime | str | None) -> str | None:
-    if not dt:
-        return None
-    if isinstance(dt, str):
-        return dt
-    return dt.isoformat()
 
 
 def _credentials_configured(credentials: dict[str, Any]) -> bool:
@@ -130,10 +123,10 @@ class TripSyncService:
 
         status_payload: dict[str, Any] = {
             "state": "idle",
-            "last_success_at": _serialize_datetime(last_success_at),
-            "last_attempt_at": _serialize_datetime(last_attempt_at),
+            "last_success_at": serialize_datetime(last_success_at),
+            "last_attempt_at": serialize_datetime(last_attempt_at),
             "current_job_id": str(active.id) if active and active.id else None,
-            "started_at": _serialize_datetime(
+            "started_at": serialize_datetime(
                 active.start_time if active and active.start_time else None,
             ),
             "auto_sync_enabled": auto_sync_enabled,
@@ -255,7 +248,7 @@ class TripSyncService:
             "auto_sync_enabled": bool(task_config.enabled),
             "interval_minutes": task_config.interval_minutes,
             "global_disabled": await get_global_disable(),
-            "last_success_at": _serialize_datetime(
+            "last_success_at": serialize_datetime(
                 task_config.config.get("last_success_time"),
             ),
         }
