@@ -8,7 +8,7 @@ import notificationManager from "../../ui/notifications.js";
 import { formatVehicleName, getStorage, setStorage } from "../../utils.js";
 
 /**
- * Gas Tracking Module
+ * Gas Tracking Module - Redesigned for better UX
  * Handles gas fill-up recording, MPG calculation, and statistics
  */
 
@@ -43,7 +43,7 @@ export default async function initGasTrackingPage({ signal, cleanup } = {}) {
  */
 async function initializePage(signal, cleanup) {
   try {
-    // Initialize map
+    // Initialize map (but don't show it immediately)
     await initializeMap();
 
     // Load vehicles
@@ -57,6 +57,9 @@ async function initializePage(signal, cleanup) {
 
     // Set up event listeners
     setupEventListeners(signal);
+
+    // Set up advanced section toggle
+    setupAdvancedToggle();
 
     // Set current time as default
     setCurrentTime();
@@ -104,14 +107,14 @@ async function initializeMap() {
     map = createMap("fillup-map", {
       center: [-95.7129, 37.0902],
       zoom: 4,
-      attributionControl: false, // usually handled by css or small container
+      attributionControl: false,
     });
   } else {
     // Fallback if factory not found
     mapboxgl.accessToken = window.MAPBOX_ACCESS_TOKEN;
     map = new mapboxgl.Map({
       container: "fillup-map",
-      style: "mapbox://styles/mapbox/dark-v11", // Default to dark as per app theme
+      style: "mapbox://styles/mapbox/dark-v11",
       center: [-95.7129, 37.0902],
       zoom: 4,
       attributionControl: false,
@@ -121,6 +124,27 @@ async function initializeMap() {
 
   // Wait for map to load
   await new Promise((resolve) => map.on("load", resolve));
+}
+
+/**
+ * Set up advanced section toggle
+ */
+function setupAdvancedToggle() {
+  const toggle = document.getElementById("advanced-toggle");
+  const content = document.getElementById("advanced-content");
+
+  if (!toggle || !content) return;
+
+  toggle.addEventListener("click", () => {
+    const isExpanded = toggle.getAttribute("aria-expanded") === "true";
+    toggle.setAttribute("aria-expanded", !isExpanded);
+    content.style.display = isExpanded ? "none" : "block";
+
+    // Resize map when shown
+    if (!isExpanded && map) {
+      setTimeout(() => map.resize(), 100);
+    }
+  });
 }
 
 /**
@@ -136,12 +160,12 @@ function setVehicleStatus(message, tone = "muted") {
     success: "text-success",
     warning: "text-warning",
     danger: "text-danger",
-    muted: "text-muted",
+    muted: "form-hint",
     info: "text-info",
   };
 
   const toneClass = toneClassMap[tone] || toneClassMap.muted;
-  statusEl.className = `vehicle-status small ${toneClass}`;
+  statusEl.className = toneClass;
   statusEl.textContent = message;
 }
 
@@ -150,21 +174,15 @@ function setVehicleStatus(message, tone = "muted") {
  */
 function toggleVehicleLoading(isLoading, message = "Detecting vehicles...") {
   const loadingEl = document.getElementById("vehicle-loading-state");
-  const loadingText = document.getElementById("vehicle-loading-text");
   const vehicleSelect = document.getElementById("vehicle-select");
 
   if (loadingEl) {
-    loadingEl.style.display = isLoading ? "inline-flex" : "none";
-  }
-  if (loadingText && message) {
-    loadingText.textContent = message;
+    loadingEl.style.display = isLoading ? "flex" : "none";
   }
   if (vehicleSelect) {
     vehicleSelect.disabled = isLoading && !vehicleSelect.value;
   }
 }
-
-// Use shared utility
 
 /**
  * Load vehicles from API
@@ -184,7 +202,7 @@ async function loadVehicles(options = {}) {
 
     vehicles = await response.json();
 
-    vehicleSelect.innerHTML = '<option value="">Select Vehicle...</option>';
+    vehicleSelect.innerHTML = '<option value="">Choose your vehicle...</option>';
 
     if (vehicles.length === 0 && !vehicleDiscoveryAttempted && !skipDiscovery) {
       vehicleDiscoveryAttempted = true;
@@ -195,10 +213,10 @@ async function loadVehicles(options = {}) {
     }
 
     if (vehicles.length === 0) {
-      vehicleSelect.innerHTML
-        = '<option value="">No vehicles found. Go to Profile to sync/add.</option>';
+      vehicleSelect.innerHTML =
+        '<option value="">No vehicles found. Go to Profile to sync/add.</option>';
       setVehicleStatus(
-        "No vehicles detected yet. Auto-discovery attempted—please sync from Profile.",
+        "No vehicles detected. Try syncing from your Profile page.",
         "warning"
       );
       return vehicles;
@@ -217,7 +235,7 @@ async function loadVehicles(options = {}) {
       vehicleSelect.value = savedImei;
       await updateLocationAndOdometer();
       setVehicleStatus(
-        `Loaded ${formatVehicleName(vehicles.find((v) => v.imei === savedImei))}.`,
+        `Loaded ${formatVehicleName(vehicles.find((v) => v.imei === savedImei))}`,
         "success"
       );
       return vehicles;
@@ -227,24 +245,18 @@ async function loadVehicles(options = {}) {
     if (vehicles.length === 1) {
       vehicleSelect.value = vehicles[0].imei;
       await updateLocationAndOdometer();
-      setVehicleStatus(
-        `Detected ${formatVehicleName(vehicles[0])} automatically.`,
-        "success"
-      );
+      setVehicleStatus(`Auto-selected ${formatVehicleName(vehicles[0])}`, "success");
       return vehicles;
     }
     if (vehicles.length > 0) {
       setVehicleStatus(
-        "Vehicles detected. Select one to see its latest location and odometer.",
+        `${vehicles.length} vehicles available. Select one to continue.`,
         "success"
       );
     }
     return vehicles;
   } catch {
-    setVehicleStatus(
-      "Could not load vehicles automatically. Please sync from Profile.",
-      "danger"
-    );
+    setVehicleStatus("Could not load vehicles. Please sync from Profile.", "danger");
     showError("Failed to load vehicles");
     return [];
   } finally {
@@ -271,9 +283,9 @@ async function attemptVehicleDiscovery() {
       method: "POST",
       successMessage: "Created vehicles from your recorded trips.",
       hasVehicles: (data) =>
-        (data?.synced ?? 0) > 0
-        || (data?.updated ?? 0) > 0
-        || (data?.total_vehicles ?? 0) > 0,
+        (data?.synced ?? 0) > 0 ||
+        (data?.updated ?? 0) > 0 ||
+        (data?.total_vehicles ?? 0) > 0,
     },
   ];
 
@@ -286,7 +298,6 @@ async function attemptVehicleDiscovery() {
         if (step.tolerateStatuses?.includes(response.status)) {
           continue;
         }
-        // Tolerated error, continue to next step
         continue;
       }
 
@@ -315,14 +326,14 @@ async function updateLocationAndOdometer() {
   const odometerInput = document.getElementById("odometer");
 
   if (!vehicleSelect.value) {
-    locationText.textContent = "Please select a vehicle";
-    odometerDisplay.textContent = "--";
+    if (locationText) locationText.textContent = "Select a vehicle to see location";
+    if (odometerDisplay) odometerDisplay.textContent = "Last known: --";
     return;
   }
 
   try {
-    locationText.textContent = "Loading location...";
-    odometerDisplay.textContent = "Loading...";
+    if (locationText) locationText.textContent = "Loading location...";
+    if (odometerDisplay) odometerDisplay.textContent = "Loading...";
 
     // Determine if we should use "now" or a specific timestamp
     const useNow = !fillupTime || isNearCurrentTime(fillupTime);
@@ -340,10 +351,15 @@ async function updateLocationAndOdometer() {
       // Handle specific error cases
       if (response.status === 404) {
         // No trip data for this vehicle
-        locationText.textContent = "No trip data available for this vehicle";
-        locationText.classList.add("text-muted");
-        odometerDisplay.textContent = "Enter manually";
-        odometerInput.placeholder = "Enter odometer reading";
+        if (locationText) {
+          locationText.textContent = "No trip data available";
+        }
+        if (odometerDisplay) {
+          odometerDisplay.textContent = "Enter odometer reading";
+        }
+        if (odometerInput) {
+          odometerInput.placeholder = "Enter miles";
+        }
         if (map && marker) {
           marker.remove();
         }
@@ -362,12 +378,13 @@ async function updateLocationAndOdometer() {
     // Update map
     if (data.latitude && data.longitude) {
       updateMap(data.latitude, data.longitude);
-      locationText.textContent
-        = data.address || `${data.latitude.toFixed(6)}, ${data.longitude.toFixed(6)}`;
-      locationText.classList.remove("text-muted");
+      if (locationText) {
+        locationText.textContent = data.address
+          ? truncateText(data.address, 40)
+          : `${data.latitude.toFixed(4)}, ${data.longitude.toFixed(4)}`;
+      }
     } else {
-      locationText.textContent = "Location not available (GPS data missing)";
-      locationText.classList.add("text-muted");
+      if (locationText) locationText.textContent = "Location not available";
       if (map && marker) {
         marker.remove();
       }
@@ -376,21 +393,29 @@ async function updateLocationAndOdometer() {
     // Update odometer - strict check for null/undefined to allow 0
     if (data.odometer != null) {
       const odoVal = Math.round(data.odometer);
-      odometerDisplay.textContent = odoVal.toLocaleString();
-      odometerInput.value = odoVal;
-    } else {
-      odometerDisplay.textContent = "Not available";
-      // Don't clear manual input if user typed something
-      if (!odometerInput.value) {
-        odometerInput.placeholder = "Enter manually";
+      if (odometerDisplay) {
+        odometerDisplay.textContent = `Last known: ${odoVal.toLocaleString()} mi`;
       }
+      if (odometerInput && !odometerInput.value) {
+        odometerInput.value = odoVal;
+      }
+    } else {
+      if (odometerDisplay) odometerDisplay.textContent = "Enter odometer reading";
+      if (odometerInput) odometerInput.placeholder = "Enter miles";
     }
   } catch {
-    locationText.textContent = "Error loading location";
-    locationText.classList.add("text-muted");
-    odometerDisplay.textContent = "--";
+    if (locationText) locationText.textContent = "Error loading location";
+    if (odometerDisplay) odometerDisplay.textContent = "Last known: --";
     currentLocation = null;
   }
+}
+
+/**
+ * Truncate text with ellipsis
+ */
+function truncateText(text, maxLength) {
+  if (!text || text.length <= maxLength) return text;
+  return text.substring(0, maxLength - 3) + "...";
 }
 
 /**
@@ -417,7 +442,7 @@ function updateMap(lat, lon) {
   }
 
   // Add new marker
-  marker = new mapboxgl.Marker({ color: "#10b981" }).setLngLat([lon, lat]).addTo(map);
+  marker = new mapboxgl.Marker({ color: "#0d9488" }).setLngLat([lon, lat]).addTo(map);
 
   // Fly to location
   map.flyTo({
@@ -432,8 +457,8 @@ function updateMap(lat, lon) {
  */
 function calculateTotalCost() {
   const gallons = parseFloat(document.getElementById("gallons").value) || 0;
-  const pricePerGallon
-    = parseFloat(document.getElementById("price-per-gallon").value) || 0;
+  const pricePerGallon =
+    parseFloat(document.getElementById("price-per-gallon").value) || 0;
   const totalCostInput = document.getElementById("total-cost");
 
   if (gallons > 0 && pricePerGallon > 0) {
@@ -516,7 +541,7 @@ function setupEventListeners(signal) {
         odoInput.placeholder = "Not recorded";
       } else {
         odoInput.disabled = false;
-        odoInput.placeholder = "miles";
+        odoInput.placeholder = "Miles";
       }
     },
     signal ? { signal } : false
@@ -532,13 +557,13 @@ function setupEventListeners(signal) {
   fillupList?.addEventListener(
     "click",
     (event) => {
-      const target
-        = event.target instanceof Element ? event.target : event.target?.parentElement;
-      const button = target?.closest("[data-fillup-action]");
+      const target =
+        event.target instanceof Element ? event.target : event.target?.parentElement;
+      const button = target?.closest("[data-action]");
       if (!button) {
         return;
       }
-      const action = button.getAttribute("data-fillup-action");
+      const action = button.getAttribute("data-action");
       const fillupId = button.getAttribute("data-fillup-id");
       if (!fillupId) {
         return;
@@ -574,8 +599,8 @@ async function autoCalcOdometer() {
 
   try {
     // Show loading state
-    autoCalcBtn.innerHTML
-      = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
+    autoCalcBtn.innerHTML =
+      '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
     autoCalcBtn.disabled = true;
 
     const timestamp = new Date(fillupTime).toISOString();
@@ -592,9 +617,9 @@ async function autoCalcOdometer() {
     if (result.estimated_odometer !== null) {
       odoInput.value = result.estimated_odometer;
       // Visual feedback
-      odoInput.classList.add("bg-success", "text-white", "bg-opacity-25");
+      odoInput.classList.add("is-valid");
       setTimeout(() => {
-        odoInput.classList.remove("bg-success", "text-white", "bg-opacity-25");
+        odoInput.classList.remove("is-valid");
       }, 1000);
       showSuccess(
         `Estimated from ${result.method} (Anchor: ${result.anchor_odometer}, Diff: ${result.distance_diff} mi)`
@@ -618,7 +643,7 @@ async function handleFormSubmit(e) {
   e.preventDefault();
 
   const submitButton = document.getElementById("submit-btn");
-  const spinner = submitButton.querySelector(".loading-spinner");
+  const spinner = document.getElementById("submit-spinner");
   const fillupId = document.getElementById("fillup-id").value;
   const isEdit = Boolean(fillupId);
 
@@ -689,7 +714,7 @@ async function handleFormSubmit(e) {
       const mpgDisplay = document.getElementById("calculated-mpg");
       const mpgValue = document.getElementById("mpg-value");
       mpgValue.textContent = result.calculated_mpg.toFixed(2);
-      mpgDisplay.style.display = "block";
+      mpgDisplay.style.display = "flex";
 
       setTimeout(() => {
         mpgDisplay.style.display = "none";
@@ -718,23 +743,31 @@ function resetFormState() {
   // Clear ID and reset buttons
   document.getElementById("fillup-id").value = "";
   document.getElementById("cancel-edit-btn").style.display = "none";
-  document.getElementById("submit-btn-text").textContent = "Save Fill-Up";
+  document.getElementById("submit-btn-text").textContent = "Save Fill-up";
+  document.getElementById("form-badge").style.display = "none";
 
   // Reset Odometer check
   const odoInput = document.getElementById("odometer");
   const odoCheck = document.getElementById("odometer-not-recorded");
   odoCheck.checked = false;
   odoInput.disabled = false;
-  odoInput.placeholder = "miles";
+  odoInput.placeholder = "Miles";
 
   // Reset helper text
-  document.getElementById("location-text").textContent = "Select vehicle...";
-  document.getElementById("odometer-display").textContent = "--";
+  document.getElementById("location-text").textContent =
+    "Select a vehicle to see location";
+  document.getElementById("odometer-display").textContent = "Last known: --";
   document.getElementById("calculated-mpg").style.display = "none";
 
+  // Collapse advanced section
+  const advancedToggle = document.getElementById("advanced-toggle");
+  const advancedContent = document.getElementById("advanced-content");
+  if (advancedToggle && advancedContent) {
+    advancedToggle.setAttribute("aria-expanded", "false");
+    advancedContent.style.display = "none";
+  }
+
   // Retain vehicle selection if possible, otherwise reset
-  // Actually standard reset clears it, let's see if we want to keep vehicle
-  // Usually better to keep vehicle selected
   const vehicleSelect = document.getElementById("vehicle-select");
   const selectedVehicle = vehicleSelect.value;
   if (selectedVehicle) {
@@ -759,6 +792,7 @@ function resetFormState() {
 async function loadRecentFillups() {
   const vehicleSelect = document.getElementById("vehicle-select");
   const fillupList = document.getElementById("fillup-list");
+  const historyCount = document.getElementById("history-count");
 
   try {
     let url = "/api/gas-fillups?limit=10";
@@ -774,16 +808,28 @@ async function loadRecentFillups() {
     const fillups = await response.json();
     recentFillups = fillups; // Store globally
 
+    // Update count badge
+    if (historyCount) {
+      historyCount.textContent = fillups.length;
+    }
+
     if (fillups.length === 0) {
-      fillupList.innerHTML
-        = '<p class="text-center text-muted">No fill-ups recorded yet</p>';
+      fillupList.innerHTML = `
+        <div class="empty-state" id="empty-state">
+          <div class="empty-icon">
+            <i class="fas fa-gas-pump"></i>
+          </div>
+          <h3 class="empty-title">No fill-ups yet</h3>
+          <p class="empty-text">Record your first fill-up to start tracking your fuel efficiency.</p>
+        </div>
+      `;
       return;
     }
 
     fillupList.innerHTML = fillups.map((fillup) => createFillupItem(fillup)).join("");
   } catch {
-    fillupList.innerHTML
-      = '<p class="text-center text-danger">Error loading fill-ups</p>';
+    fillupList.innerHTML =
+      '<p class="text-center text-danger p-4">Error loading fill-ups</p>';
   }
 }
 
@@ -791,11 +837,20 @@ async function loadRecentFillups() {
  * Create HTML for a fill-up item
  */
 function createFillupItem(fillup) {
-  const date = new Date(fillup.fillup_time).toLocaleString("en-US", {
+  const date = new Date(fillup.fillup_time);
+  const dateStr = date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: date.getFullYear() !== new Date().getFullYear() ? "numeric" : undefined,
+  });
+  const timeStr = date.toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
     hour12: true,
   });
+
   const cost = fillup.total_cost ? `$${fillup.total_cost.toFixed(2)}` : "--";
-  const mpg = fillup.calculated_mpg ? fillup.calculated_mpg.toFixed(2) : "--";
+  const mpg = fillup.calculated_mpg ? fillup.calculated_mpg.toFixed(1) : "--";
   const pricePerGallon = fillup.price_per_gallon
     ? `$${fillup.price_per_gallon.toFixed(2)}`
     : "--";
@@ -803,47 +858,50 @@ function createFillupItem(fillup) {
   // Lookup vehicle name
   const vehicle = vehicles.find((v) => v.imei === fillup.imei);
   const vehicleName = vehicle
-    ? vehicle.custom_name || `Vehicle ${vehicle.vin || vehicle.imei}`
-    : fillup.vin || fillup.imei || "Unknown Vehicle";
+    ? vehicle.custom_name || `Vehicle ${vehicle.vin || vehicle.imei.slice(-4)}`
+    : fillup.vin || fillup.imei?.slice(-4) || "Unknown";
 
   return `
-        <div class="fillup-item" id="fillup-item-${fillup._id}">
-            <div class="fillup-header">
-                <div>
-                    <span class="fillup-date">${date}</span>
-                    <div class="small text-muted">${vehicleName}</div>
-                </div>
-                <div class="d-flex align-items-center gap-2">
-                    <span class="badge bg-primary me-2">${fillup.gallons.toFixed(2)} gal</span>
-                    <button class="btn btn-sm btn-outline-secondary" data-fillup-action="edit" data-fillup-id="${fillup._id}" title="Edit">
-                        <i class="fas fa-edit"></i>
-                    </button>
-                    <button class="btn btn-sm btn-outline-danger" data-fillup-action="delete" data-fillup-id="${fillup._id}" title="Delete">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                </div>
-            </div>
-            <div class="fillup-details">
-                <div class="fillup-detail">
-                    <span class="fillup-detail-label">Total Cost</span>
-                    <span class="fillup-detail-value">${cost}</span>
-                </div>
-                <div class="fillup-detail">
-                    <span class="fillup-detail-label">Price/Gallon</span>
-                    <span class="fillup-detail-value">${pricePerGallon}</span>
-                </div>
-                <div class="fillup-detail">
-                    <span class="fillup-detail-label">MPG</span>
-                    <span class="fillup-detail-value">${mpg}</span>
-                </div>
-                <div class="fillup-detail">
-                    <span class="fillup-detail-label">Odometer</span>
-                    <span class="fillup-detail-value">${fillup.odometer ? `${Math.round(fillup.odometer)} mi` : "--"}</span>
-                </div>
-            </div>
-            ${fillup.notes ? `<div class="mt-2 text-wrap text-break"><small class="text-muted"><i class="fas fa-note-sticky me-1"></i>${fillup.notes}</small></div>` : ""}
+    <div class="fillup-item" id="fillup-item-${fillup._id}">
+      <div class="fillup-header">
+        <div class="fillup-main">
+          <span class="fillup-date">${dateStr} at ${timeStr}</span>
+          <span class="fillup-vehicle">${vehicleName}</span>
         </div>
-    `;
+        <span class="fillup-amount">${fillup.gallons.toFixed(2)} gal</span>
+      </div>
+      
+      <div class="fillup-details">
+        <div class="fillup-detail">
+          <span class="fillup-detail-label">Total Cost</span>
+          <span class="fillup-detail-value">${cost}</span>
+        </div>
+        <div class="fillup-detail">
+          <span class="fillup-detail-label">Price/Gallon</span>
+          <span class="fillup-detail-value">${pricePerGallon}</span>
+        </div>
+        <div class="fillup-detail">
+          <span class="fillup-detail-label">MPG</span>
+          <span class="fillup-detail-value">${mpg}</span>
+        </div>
+        <div class="fillup-detail">
+          <span class="fillup-detail-label">Odometer</span>
+          <span class="fillup-detail-value">${fillup.odometer ? `${Math.round(fillup.odometer).toLocaleString()} mi` : "--"}</span>
+        </div>
+      </div>
+      
+      ${fillup.notes ? `<div class="fillup-notes"><i class="fas fa-sticky-note"></i>${fillup.notes}</div>` : ""}
+      
+      <div class="fillup-actions">
+        <button data-action="edit" data-fillup-id="${fillup._id}" title="Edit">
+          <i class="fas fa-edit"></i>
+        </button>
+        <button data-action="delete" data-fillup-id="${fillup._id}" title="Delete">
+          <i class="fas fa-trash"></i>
+        </button>
+      </div>
+    </div>
+  `;
 }
 
 /**
@@ -855,18 +913,28 @@ function editFillup(id) {
     return;
   }
 
+  // Expand advanced section
+  const advancedToggle = document.getElementById("advanced-toggle");
+  const advancedContent = document.getElementById("advanced-content");
+  if (advancedToggle && advancedContent) {
+    advancedToggle.setAttribute("aria-expanded", "true");
+    advancedContent.style.display = "block";
+    // Resize map
+    if (map) {
+      setTimeout(() => map.resize(), 100);
+    }
+  }
+
   // Switch to edit mode UI
   document.getElementById("fillup-id").value = fillup._id;
-  document.getElementById("submit-btn-text").textContent = "Update Fill-Up";
-  document.getElementById("cancel-edit-btn").style.display = "inline-block";
+  document.getElementById("submit-btn-text").textContent = "Update Fill-up";
+  document.getElementById("cancel-edit-btn").style.display = "block";
+  document.getElementById("form-badge").style.display = "inline-flex";
 
   // Populate form
   document.getElementById("vehicle-select").value = fillup.imei;
 
-  // Format date for datetime-local input (remove seconds/milliseconds if needed, or just slice)
-  // fillup.fillup_time is ISO string from JSON (e.g. 2023-12-01T12:00:00Z)
-  // datetime-local needs YYYY-MM-DDTHH:MM
-  // We need to convert it to local time for the input because the input is "local"
+  // Format date for datetime-local input
   const dateObj = new Date(fillup.fillup_time);
   const offset = dateObj.getTimezoneOffset();
   const localTime = new Date(dateObj.getTime() - offset * 60 * 1000);
@@ -889,11 +957,11 @@ function editFillup(id) {
     odoCheck.checked = false;
     odoInput.value = fillup.odometer;
     odoInput.disabled = false;
-    odoInput.placeholder = "miles";
+    odoInput.placeholder = "Miles";
   }
 
-  document.getElementById("full-tank").checked = fillup.is_full_tank !== false; // Default to true
-  document.getElementById("missed-previous").checked = fillup.missed_previous === true; // Default to false
+  document.getElementById("full-tank").checked = fillup.is_full_tank !== false;
+  document.getElementById("missed-previous").checked = fillup.missed_previous === true;
   document.getElementById("notes").value = fillup.notes || "";
 
   // Set location state
@@ -908,12 +976,14 @@ function editFillup(id) {
     updateMap(fillup.latitude, fillup.longitude);
     document.getElementById("location-text").textContent = "Location from record";
     document.getElementById("odometer-display").textContent = fillup.odometer
-      ? Math.round(fillup.odometer)
-      : "--";
+      ? `${Math.round(fillup.odometer).toLocaleString()} mi`
+      : "Not recorded";
   }
 
   // Scroll to form
-  document.getElementById("gas-fillup-card").scrollIntoView({ behavior: "smooth" });
+  document
+    .querySelector(".form-section")
+    .scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 /**
@@ -974,14 +1044,11 @@ async function loadStatistics() {
 
     // Update stats display
     document.getElementById("total-fillups").textContent = stats.total_fillups || 0;
-    document.getElementById("total-spent").textContent
-      = `$${(stats.total_cost || 0).toFixed(2)}`;
+    document.getElementById("total-spent").textContent =
+      `$${(stats.total_cost || 0).toFixed(0)}`;
     document.getElementById("avg-mpg").textContent = stats.average_mpg
       ? stats.average_mpg.toFixed(1)
       : "--";
-    document.getElementById("cost-per-mile").textContent = stats.cost_per_mile
-      ? `$${stats.cost_per_mile.toFixed(3)}`
-      : "$0.00";
   } catch {
     // Error loading statistics - silently ignore
   }
