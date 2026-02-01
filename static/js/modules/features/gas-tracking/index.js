@@ -58,9 +58,6 @@ async function initializePage(signal, cleanup) {
     // Set up event listeners
     setupEventListeners(signal);
 
-    // Set up advanced section toggle
-    setupAdvancedToggle();
-
     // Set current time as default
     setCurrentTime();
 
@@ -124,27 +121,6 @@ async function initializeMap() {
 
   // Wait for map to load
   await new Promise((resolve) => map.on("load", resolve));
-}
-
-/**
- * Set up advanced section toggle
- */
-function setupAdvancedToggle() {
-  const toggle = document.getElementById("advanced-toggle");
-  const content = document.getElementById("advanced-content");
-
-  if (!toggle || !content) return;
-
-  toggle.addEventListener("click", () => {
-    const isExpanded = toggle.getAttribute("aria-expanded") === "true";
-    toggle.setAttribute("aria-expanded", !isExpanded);
-    content.style.display = isExpanded ? "none" : "block";
-
-    // Resize map when shown
-    if (!isExpanded && map) {
-      setTimeout(() => map.resize(), 100);
-    }
-  });
 }
 
 /**
@@ -576,6 +552,34 @@ function setupEventListeners(signal) {
     },
     signal ? { signal } : false
   );
+
+  // Advanced section toggle
+  const advancedToggle = document.getElementById("advanced-toggle");
+  const advancedContent = document.getElementById("advanced-content");
+
+  if (advancedToggle && advancedContent) {
+    advancedToggle.addEventListener(
+      "click",
+      () => {
+        const isExpanded = advancedToggle.getAttribute("aria-expanded") === "true";
+        advancedToggle.setAttribute("aria-expanded", !isExpanded);
+        // Use classList toggle for better CSS control
+        if (isExpanded) {
+          advancedContent.classList.remove("is-expanded");
+          advancedContent.style.display = "none";
+        } else {
+          advancedContent.style.display = "flex";
+          advancedContent.classList.add("is-expanded");
+        }
+
+        // Resize map when shown
+        if (!isExpanded && map) {
+          setTimeout(() => map.resize(), 100);
+        }
+      },
+      signal ? { signal } : false
+    );
+  }
 }
 
 /**
@@ -918,7 +922,8 @@ function editFillup(id) {
   const advancedContent = document.getElementById("advanced-content");
   if (advancedToggle && advancedContent) {
     advancedToggle.setAttribute("aria-expanded", "true");
-    advancedContent.style.display = "block";
+    advancedContent.style.display = "flex";
+    advancedContent.classList.add("is-expanded");
     // Resize map
     if (map) {
       setTimeout(() => map.resize(), 100);
