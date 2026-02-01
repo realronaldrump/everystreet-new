@@ -10,6 +10,7 @@ import asyncio
 import logging
 import os
 import shlex
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from config import get_osm_extracts_path
@@ -18,6 +19,11 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
+
+
+def _raise_error(msg: str, exc_type: type[Exception] = RuntimeError) -> None:
+    raise exc_type(msg)
+
 
 # Build configuration
 BUILD_TIMEOUT = 7200  # 2 hours max build time
@@ -31,9 +37,10 @@ def _get_int_env(name: str, default: int) -> int:
         return default
     try:
         parsed = int(value)
-        return parsed if parsed > 0 else default
     except ValueError:
         return default
+    else:
+        return parsed if parsed > 0 else default
 
 
 async def start_container_on_demand(
@@ -180,7 +187,7 @@ async def start_container_on_demand(
                     f"Container {service_name} did not start within "
                     f"{CONTAINER_START_TIMEOUT}s"
                 )
-                raise RuntimeError(msg)
+                _raise_error(msg)
 
             # Command failed for other reasons, save error and try next
             last_error = error_msg or "Unknown error"
@@ -269,9 +276,9 @@ async def build_nominatim_data(
     """
     pbf_full_path, pbf_relative = _resolve_pbf_path(pbf_path)
 
-    if not os.path.exists(pbf_full_path):
+    if not Path(pbf_full_path).exists():
         msg = f"PBF file not found: {pbf_full_path}"
-        raise ValueError(msg)
+        _raise_error(msg, ValueError)
 
     logger.info("Starting Nominatim build for %s", label)
 
@@ -346,7 +353,7 @@ async def build_nominatim_data(
 
         if check_result.returncode != 0:
             msg = f"PBF file not accessible in container: {pbf_container_path}"
-            raise ValueError(msg)
+            _raise_error(msg, ValueError)
 
         logger.info("PBF file verified in container: %s", pbf_container_path)
 
@@ -499,7 +506,7 @@ async def build_nominatim_data(
             error_output = "\n".join(output_lines[-20:])
             logger.error("Nominatim import failed. Last output:\n%s", error_output)
             msg = f"Nominatim import failed (exit code {process.returncode})"
-            raise RuntimeError(msg)
+            _raise_error(msg)
 
         if progress_callback:
             await _safe_callback(
@@ -534,14 +541,15 @@ async def build_nominatim_data(
             await _safe_callback(progress_callback, 100, "Nominatim build complete")
 
         logger.info("Nominatim build complete for %s", label)
+
+    except Exception:
+        logger.exception("Nominatim build failed for %s", label)
+        raise
+    else:
         return True
 
-    except Exception as e:
-        logger.exception("Nominatim build failed for %s: %s", label, e)
-        raise
 
-
-async def _wait_for_nominatim_db_ready(timeout: int = 120) -> None:
+async def _wait_for_nominatim_db_ready(wait_timeout: int = 120) -> None:
     """
     Wait for PostgreSQL to be ready inside the Nominatim container.
 
@@ -553,7 +561,7 @@ async def _wait_for_nominatim_db_ready(timeout: int = 120) -> None:
     container_name = await _get_container_name("nominatim")
     start_time = asyncio.get_event_loop().time()
 
-    while (asyncio.get_event_loop().time() - start_time) < timeout:
+    while (asyncio.get_event_loop().time() - start_time) < wait_timeout:
         try:
             # Check PostgreSQL readiness using the 'postgres' database
             # which always exists, not 'nominatim' which is created during import
@@ -684,7 +692,7 @@ async def _clear_nominatim_import_marker(container_name: str) -> None:
         logger.debug("Failed to clear Nominatim import marker: %s", e)
 
 
-async def _wait_for_nominatim_healthy(timeout: int = 120) -> None:
+async def _wait_for_nominatim_healthy(wait_timeout: int = 120) -> None:
     """Wait for Nominatim service to become healthy after restart."""
     import httpx
 
@@ -693,7 +701,7 @@ async def _wait_for_nominatim_healthy(timeout: int = 120) -> None:
     nominatim_url = get_nominatim_base_url()
     start_time = asyncio.get_event_loop().time()
 
-    while (asyncio.get_event_loop().time() - start_time) < timeout:
+    while (asyncio.get_event_loop().time() - start_time) < wait_timeout:
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
                 response = await client.get(f"{nominatim_url}/status")
@@ -733,9 +741,9 @@ async def build_valhalla_tiles(
     """
     pbf_full_path, pbf_relative = _resolve_pbf_path(pbf_path)
 
-    if not os.path.exists(pbf_full_path):
+    if not Path(pbf_full_path).exists():
         msg = f"PBF file not found: {pbf_full_path}"
-        raise ValueError(msg)
+        _raise_error(msg, ValueError)
 
     logger.info("Starting Valhalla build for %s", label)
 
@@ -780,7 +788,7 @@ async def build_valhalla_tiles(
 
         if check_result.returncode != 0:
             msg = f"PBF file not accessible in Valhalla container: {pbf_container_path}"
-            raise ValueError(msg)
+            _raise_error(msg, ValueError)
 
         logger.info("PBF file verified in container: %s", pbf_container_path)
 
@@ -969,7 +977,7 @@ async def build_valhalla_tiles(
             error_output = "\n".join(output_lines[-20:])
             logger.error("Valhalla build failed. Last output:\n%s", error_output)
             msg = f"Valhalla build failed (exit code {process.returncode})"
-            raise RuntimeError(msg)
+            _raise_error(msg)
 
         if progress_callback:
             await _safe_callback(
@@ -1002,14 +1010,15 @@ async def build_valhalla_tiles(
             await _safe_callback(progress_callback, 100, "Valhalla build complete")
 
         logger.info("Valhalla build complete for %s", label)
+
+    except Exception:
+        logger.exception("Valhalla build failed for %s", label)
+        raise
+    else:
         return True
 
-    except Exception as e:
-        logger.exception("Valhalla build failed for %s: %s", label, e)
-        raise
 
-
-async def _wait_for_valhalla_healthy(timeout: int = 120) -> None:
+async def _wait_for_valhalla_healthy(wait_timeout: int = 120) -> None:
     """Wait for Valhalla service to become healthy after restart."""
     import httpx
 
@@ -1018,7 +1027,7 @@ async def _wait_for_valhalla_healthy(timeout: int = 120) -> None:
     valhalla_url = get_valhalla_base_url()
     start_time = asyncio.get_event_loop().time()
 
-    while (asyncio.get_event_loop().time() - start_time) < timeout:
+    while (asyncio.get_event_loop().time() - start_time) < wait_timeout:
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
                 response = await client.get(f"{valhalla_url}/status")
@@ -1040,12 +1049,12 @@ async def _wait_for_valhalla_healthy(timeout: int = 120) -> None:
 
 def _resolve_pbf_path(pbf_path: str) -> tuple[str, str]:
     extracts_path = get_osm_extracts_path()
-    if os.path.isabs(pbf_path):
+    if Path(pbf_path).is_absolute():
         pbf_full_path = pbf_path
         pbf_relative = os.path.relpath(pbf_full_path, extracts_path)
     else:
         pbf_relative = pbf_path
-        pbf_full_path = os.path.join(extracts_path, pbf_path)
+        pbf_full_path = str(Path(extracts_path) / pbf_path)
 
     if pbf_relative.startswith(".."):
         msg = f"PBF path must be within extracts volume: {pbf_path}"
