@@ -1577,45 +1577,24 @@ function bindTripModalActions() {
   }
 
   const shareBtn = document.getElementById("modal-share-btn");
-  if (!shareBtn) {
+  const deleteBtn = document.getElementById("modal-delete-btn");
+
+  if (!shareBtn && !deleteBtn) {
+    console.warn("Trip modal action buttons not found");
     return;
   }
 
-  shareBtn.type = "button";
-  shareBtn.addEventListener(
-    "click",
-    () => {
-      const shareData = buildTripShareData(currentTripData);
-      if (navigator.share) {
-        navigator.share(shareData).catch((err) => {
-          if (err?.name === "AbortError") {
-            return;
-          }
-          notificationManager.show("Share failed", "danger");
-          console.warn("Share failed:", err);
-        });
-        return;
-      }
+  if (shareBtn) {
+    shareBtn.type = "button";
+    shareBtn.addEventListener(
+      "click",
+      () => {
+        showShareModal();
+      },
+      pageSignal ? { signal: pageSignal } : undefined
+    );
+  }
 
-      if (navigator.clipboard?.writeText && shareData.url) {
-        navigator.clipboard
-          .writeText(shareData.url)
-          .then(() => {
-            notificationManager.show("Trip link copied to clipboard", "success");
-          })
-          .catch((err) => {
-            notificationManager.show("Share is not available on this device", "info");
-            console.warn("Clipboard write failed:", err);
-          });
-        return;
-      }
-
-      notificationManager.show("Share is not available on this device", "info");
-    },
-    pageSignal ? { signal: pageSignal } : false
-  );
-
-  const deleteBtn = document.getElementById("modal-delete-btn");
   if (deleteBtn) {
     deleteBtn.type = "button";
     deleteBtn.addEventListener(
@@ -1623,20 +1602,117 @@ function bindTripModalActions() {
       async () => {
         const confirmed = await confirmationDialog.show({
           title: "Delete Trip",
-          message: "Are you sure you want to delete this trip?",
+          message:
+            "Are you sure you want to delete this trip? This action cannot be undone.",
           confirmText: "Delete",
           confirmButtonClass: "btn-danger",
         });
         if (confirmed && currentTripId) {
           tripModalInstance?.hide();
-          deleteTrip(currentTripId);
+          await deleteTrip(currentTripId);
         }
       },
-      pageSignal ? { signal: pageSignal } : false
+      pageSignal ? { signal: pageSignal } : undefined
     );
   }
 
   modalActionsBound = true;
+}
+
+function showShareModal() {
+  const shareData = buildTripShareData(currentTripData);
+
+  // Try native share first on mobile
+  if (navigator.share && /Mobi|Android/i.test(navigator.userAgent)) {
+    navigator.share(shareData).catch((err) => {
+      if (err?.name !== "AbortError") {
+        console.warn("Native share failed, showing modal:", err);
+        displayShareModalUI(shareData);
+      }
+    });
+    return;
+  }
+
+  displayShareModalUI(shareData);
+}
+
+function displayShareModalUI(shareData) {
+  const existingModal = document.getElementById("shareModal");
+  if (existingModal) {
+    existingModal.remove();
+  }
+
+  const modal = document.createElement("div");
+  modal.className = "modal fade";
+  modal.id = "shareModal";
+  modal.tabIndex = -1;
+  modal.innerHTML = `
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">
+            <i class="fas fa-share-alt me-2"></i>Share Trip
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <p class="text-muted mb-3">${escapeHtml(shareData.text)}</p>
+          <div class="input-group mb-3">
+            <input type="text" class="form-control" id="share-url-input" value="${escapeHtml(shareData.url)}" readonly>
+            <button class="btn btn-primary" type="button" id="copy-share-url">
+              <i class="fas fa-copy"></i>
+            </button>
+          </div>
+          <div class="share-buttons d-flex gap-2 flex-wrap">
+            <a href="https://twitter.com/intent/tweet?url=${encodeURIComponent(shareData.url)}&text=${encodeURIComponent(shareData.text)}"
+               target="_blank" rel="noopener" class="btn btn-outline-secondary">
+              <i class="fab fa-twitter me-1"></i>Twitter
+            </a>
+            <a href="https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareData.url)}"
+               target="_blank" rel="noopener" class="btn btn-outline-secondary">
+              <i class="fab fa-facebook me-1"></i>Facebook
+            </a>
+            <a href="mailto:?subject=${encodeURIComponent(shareData.title)}&body=${encodeURIComponent(shareData.text + "\n\n" + shareData.url)}"
+               class="btn btn-outline-secondary">
+              <i class="fas fa-envelope me-1"></i>Email
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  const shareModal = new bootstrap.Modal(modal);
+
+  const copyBtn = modal.querySelector("#copy-share-url");
+  const urlInput = modal.querySelector("#share-url-input");
+
+  copyBtn.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(shareData.url);
+      copyBtn.innerHTML = '<i class="fas fa-check"></i>';
+      copyBtn.classList.remove("btn-primary");
+      copyBtn.classList.add("btn-success");
+      notificationManager.show("Link copied to clipboard", "success");
+      setTimeout(() => {
+        copyBtn.innerHTML = '<i class="fas fa-copy"></i>';
+        copyBtn.classList.remove("btn-success");
+        copyBtn.classList.add("btn-primary");
+      }, 2000);
+    } catch {
+      urlInput.select();
+      document.execCommand("copy");
+      notificationManager.show("Link copied to clipboard", "success");
+    }
+  });
+
+  modal.addEventListener("hidden.bs.modal", () => {
+    modal.remove();
+  });
+
+  shareModal.show();
 }
 
 function buildTripShareData(trip) {
