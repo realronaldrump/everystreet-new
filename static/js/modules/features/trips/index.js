@@ -53,14 +53,10 @@ const playbackState = {
   trailLayerId: "modal-trip-trail-line",
   headSourceId: "modal-trip-head",
   headLayerId: "modal-trip-head-point",
-  startSourceId: "modal-trip-start",
-  startLayerId: "modal-trip-start-point",
-  endSourceId: "modal-trip-end",
-  endLayerId: "modal-trip-end-point",
 };
 
 const PLAYBACK_SPEED_BASE = 0.5;
-const PLAYBACK_STEP_PER_FRAME = 0.05;
+const PLAYBACK_STEP_PER_FRAME = 0.02;
 
 const withSignal = (options = {}) =>
   pageSignal ? { ...options, signal: pageSignal } : options;
@@ -188,22 +184,11 @@ async function initializePage(signal, cleanup) {
     cleanup,
   });
 
-  // Listen for date filter changes from global filter panel
+  // Listen for date/vehicle filter changes from global filter panel
   document.addEventListener(
     "filtersApplied",
     () => {
       loadTrips();
-    },
-    signal ? { signal } : false
-  );
-
-  document.addEventListener(
-    "es:filters-change",
-    (event) => {
-      const source = event?.detail?.source;
-      if (source !== "filters" && source !== "url") {
-        return;
-      }
       loadTripStats();
     },
     signal ? { signal } : false
@@ -264,6 +249,11 @@ function getStatsQueryFilters() {
   };
 }
 
+function shouldUseClientStats() {
+  const localFilters = getLocalFilterValues();
+  return Boolean(localFilters.distance_min || localFilters.distance_max);
+}
+
 function restoreSavedFilters() {
   // Restore vehicle filter
   const savedVehicle = getStorage(CONFIG.STORAGE_KEYS.selectedVehicle);
@@ -290,7 +280,9 @@ function applySavedFilters() {
   }
 
   if (hasAnyFilters) {
-    updateFilteredStats();
+    if (shouldUseClientStats()) {
+      updateFilteredStats();
+    }
   }
 }
 
@@ -447,7 +439,7 @@ async function loadVehicles() {
 async function loadTripStats() {
   try {
     const statsFilters = getStatsQueryFilters();
-    if (statsFilters.distance_min || statsFilters.distance_max) {
+    if (shouldUseClientStats()) {
       updateFilteredStats();
       return;
     }
@@ -593,7 +585,9 @@ async function loadTrips() {
 
     if (tripsData.length === 0) {
       showEmptyState();
-      updateFilteredStats();
+      if (shouldUseClientStats()) {
+        updateFilteredStats();
+      }
       updateFilterResultsPreview();
     } else {
       hideEmptyState();
@@ -601,7 +595,9 @@ async function loadTrips() {
       updatePagination();
 
       // Update stats based on filtered results
-      updateFilteredStats();
+      if (shouldUseClientStats()) {
+        updateFilteredStats();
+      }
       updateFilterResultsPreview();
     }
   } catch (err) {
@@ -1031,8 +1027,11 @@ function setupSearchAndFilters() {
     updateFilterChips();
     showFilterFeedback();
 
-    // Update stat cards with filtered data
-    updateFilteredStats();
+    if (shouldUseClientStats()) {
+      updateFilteredStats();
+    } else {
+      loadTripStats();
+    }
 
     // Close filters panel on mobile
     if (window.innerWidth < 768 && filtersPanel) {
@@ -1056,7 +1055,11 @@ function setupSearchAndFilters() {
     currentPage = 1;
     loadTrips();
     updateFilterChips();
-    updateFilteredStats();
+    if (shouldUseClientStats()) {
+      updateFilteredStats();
+    } else {
+      loadTripStats();
+    }
 
     // Reset visual feedback
     document.querySelectorAll(".stat-pill").forEach((pill) => {
@@ -1733,48 +1736,6 @@ function initTripModalMap() {
         });
       }
 
-      // Add start point marker source and layer
-      if (!tripModalMap.getSource(playbackState.startSourceId)) {
-        tripModalMap.addSource(playbackState.startSourceId, {
-          type: "geojson",
-          data: { type: "FeatureCollection", features: [] },
-        });
-
-        tripModalMap.addLayer({
-          id: playbackState.startLayerId,
-          type: "circle",
-          source: playbackState.startSourceId,
-          paint: {
-            "circle-radius": 12,
-            "circle-color": "#10b981",
-            "circle-opacity": 1,
-            "circle-stroke-width": 3,
-            "circle-stroke-color": stroke,
-          },
-        });
-      }
-
-      // Add end point marker source and layer
-      if (!tripModalMap.getSource(playbackState.endSourceId)) {
-        tripModalMap.addSource(playbackState.endSourceId, {
-          type: "geojson",
-          data: { type: "FeatureCollection", features: [] },
-        });
-
-        tripModalMap.addLayer({
-          id: playbackState.endLayerId,
-          type: "circle",
-          source: playbackState.endSourceId,
-          paint: {
-            "circle-radius": 12,
-            "circle-color": "#8b5cf6",
-            "circle-opacity": 1,
-            "circle-stroke-width": 3,
-            "circle-stroke-color": stroke,
-          },
-        });
-      }
-
       setupTripPlaybackControls();
       loadTripData(currentTripId);
     });
@@ -1881,40 +1842,12 @@ function renderTripOnMap(trip) {
 
   setPlaybackRoute(geometry);
 
-  // Update start and end markers
   if (geometry.type === "LineString" && geometry.coordinates.length >= 2) {
     const startCoord = geometry.coordinates[0];
     const endCoord = geometry.coordinates[geometry.coordinates.length - 1];
-
-    // Update start point
-    const startSrc = tripModalMap.getSource(playbackState.startSourceId);
-    if (startSrc) {
-      startSrc.setData({
-        type: "FeatureCollection",
-        features: [
-          {
-            type: "Feature",
-            geometry: { type: "Point", coordinates: startCoord },
-            properties: { label: "Start" },
-          },
-        ],
-      });
-    }
-
-    // Update end point
-    const endSrc = tripModalMap.getSource(playbackState.endSourceId);
-    if (endSrc) {
-      endSrc.setData({
-        type: "FeatureCollection",
-        features: [
-          {
-            type: "Feature",
-            geometry: { type: "Point", coordinates: endCoord },
-            properties: { label: "End" },
-          },
-        ],
-      });
-    }
+    updateTripEndpointMarkers(startCoord, endCoord);
+  } else {
+    updateTripEndpointMarkers(null, null);
   }
 
   const bounds = new mapboxgl.LngLatBounds();
@@ -1934,6 +1867,45 @@ function renderTripOnMap(trip) {
       essential: true,
     });
   }
+}
+
+function createTripEndpointMarker(label, variant) {
+  const markerEl = document.createElement("div");
+  markerEl.className = `trip-route-marker trip-route-marker--${variant}`;
+  markerEl.innerHTML = `
+    <div class="trip-route-marker__label">${label}</div>
+    <div class="trip-route-marker__dot"></div>
+  `;
+  return markerEl;
+}
+
+function updateTripEndpointMarkers(startCoord, endCoord) {
+  if (!tripModalMap) {
+    return;
+  }
+
+  const updateMarker = (coord, key, variant, label) => {
+    if (!Array.isArray(coord) || coord.length < 2) {
+      if (playbackState[key]) {
+        playbackState[key].remove();
+        playbackState[key] = null;
+      }
+      return;
+    }
+
+    if (!playbackState[key]) {
+      const markerEl = createTripEndpointMarker(label, variant);
+      playbackState[key] = new mapboxgl.Marker({
+        element: markerEl,
+        anchor: "bottom",
+      });
+    }
+
+    playbackState[key].setLngLat(coord).addTo(tripModalMap);
+  };
+
+  updateMarker(startCoord, "startMarker", "start", "Started");
+  updateMarker(endCoord, "endMarker", "end", "Ended");
 }
 
 function extractTripGeometry(trip) {
