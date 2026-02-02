@@ -20,6 +20,24 @@ class VisitsDrawing {
     this.placeBeingEdited = null;
   }
 
+  _setSavePlaceFormVisible(isVisible) {
+    const form = document.getElementById("save-place-form");
+    if (!form) {
+      return;
+    }
+
+    form.style.display = isVisible ? "block" : "none";
+  }
+
+  _setDrawingToastVisible(isVisible) {
+    const toast = document.getElementById("drawing-toast");
+    if (!toast) {
+      return;
+    }
+
+    toast.style.display = isVisible ? "flex" : "none";
+  }
+
   /**
    * Initialize Mapbox Draw controls
    * @param {mapboxgl.Map} map - The map instance
@@ -118,6 +136,8 @@ class VisitsDrawing {
     this.resetDrawing(false);
     this.draw.changeMode("draw_polygon");
     this.drawingEnabled = true;
+    this._setSavePlaceFormVisible(false);
+    this._setDrawingToastVisible(true);
 
     const drawBtn = document.getElementById("start-drawing");
     drawBtn?.classList.add("active");
@@ -154,6 +174,9 @@ class VisitsDrawing {
       this.drawingNotification.remove();
     }
 
+    this._setDrawingToastVisible(false);
+    this._setSavePlaceFormVisible(true);
+
     this.notificationManager?.show(
       "Boundary drawn! Enter a name and click Save Place.",
       "success"
@@ -178,6 +201,9 @@ class VisitsDrawing {
       this.drawingEnabled = false;
       document.getElementById("start-drawing")?.classList.remove("active");
     }
+
+    this._setSavePlaceFormVisible(false);
+    this._setDrawingToastVisible(false);
   }
 
   /**
@@ -193,6 +219,8 @@ class VisitsDrawing {
     const placeNameInput = document.getElementById("place-name");
     const savePlaceBtn = document.getElementById("save-place");
     const startDrawingBtn = document.getElementById("start-drawing");
+    this._setSavePlaceFormVisible(false);
+    this._setDrawingToastVisible(false);
 
     if (placeNameInput) {
       placeNameInput.value = "";
@@ -229,7 +257,7 @@ class VisitsDrawing {
 
     this.resetDrawing(false);
 
-    this.placeBeingEdited = place;
+    this.placeBeingEdited = _placeId;
 
     const geoJson = {
       type: "Feature",
@@ -244,15 +272,15 @@ class VisitsDrawing {
       this.currentPolygon = polygon;
       this.draw.changeMode("direct_select", { featureId: polygon.id });
       this.drawingEnabled = true;
+      this._setDrawingToastVisible(false);
 
       document.getElementById("start-drawing")?.classList.add("active");
-      document.getElementById("save-place")?.removeAttribute("disabled");
 
       document.getElementById("place-name").value = place.name;
       document.getElementById("place-name")?.focus();
 
       this.notificationManager?.show(
-        "Edit the boundary by dragging points. Click Save Place when done.",
+        "Edit the boundary by dragging points. Click Save Changes in the dialog.",
         "info"
       );
     }
@@ -303,6 +331,8 @@ class VisitsDrawing {
       this.currentPolygon = polygon;
       this.draw.changeMode("direct_select", { featureId: polygon.id });
       this.drawingEnabled = true;
+      this._setSavePlaceFormVisible(true);
+      this._setDrawingToastVisible(false);
       document.getElementById("start-drawing")?.classList.add("active");
       document.getElementById("save-place")?.removeAttribute("disabled");
       document.getElementById("place-name").value = suggestionName || "";

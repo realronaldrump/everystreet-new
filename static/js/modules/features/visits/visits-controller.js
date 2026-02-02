@@ -154,6 +154,14 @@ class VisitsPageController {
     });
   }
 
+  cancelDrawing() {
+    this.visitsManager?.resetDrawing?.();
+  }
+
+  discardDrawing() {
+    this.visitsManager?.resetDrawing?.();
+  }
+
   async loadData() {
     try {
       // Load all data in parallel
