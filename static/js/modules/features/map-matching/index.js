@@ -267,6 +267,7 @@ function resetToSelect() {
   lastAutoPreviewJobId = null;
   stopPolling();
   setPhase(PHASES.SELECT);
+  setResultMode(RESULT_MODES.JOB);
 
   // Clear URL parameter
   const url = new URL(window.location.href);
@@ -2038,6 +2039,7 @@ async function loadMatchedPreview(jobId, { silent = false } = {}) {
     return;
   }
 
+  setResultMode(RESULT_MODES.JOB);
   clearInlineStatus(elements.previewMapStatus);
   clearInlineStatus(elements.previewActionsStatus);
   try {
@@ -2082,8 +2084,7 @@ function setResultMode(mode) {
   switch (mode) {
     case RESULT_MODES.JOB:
       elements.resultsHeaderSuccess?.classList.remove("d-none");
-      elements.matchedListContainer?.classList.remove("d-none");
-      elements.failedListContainer?.classList.add("d-none");
+      switchTab("matched");
       break;
     case RESULT_MODES.BROWSE_MATCHED:
       elements.resultsHeaderBrowse?.classList.remove("d-none");
@@ -2108,6 +2109,46 @@ function switchTab(tab) {
   elements.failedListContainer?.classList.toggle("d-none", tab !== "failed");
 }
 
+function normalizeMatchedTripsResponse(response) {
+  if (!response) {
+    return { trips: [], geojson: null, total: 0 };
+  }
+
+  const asFeatureCollection
+    = response?.type === "FeatureCollection" && Array.isArray(response?.features)
+      ? response
+      : response?.geojson?.type === "FeatureCollection"
+        && Array.isArray(response?.geojson?.features)
+        ? response.geojson
+        : null;
+
+  const explicitTrips = Array.isArray(response?.trips) ? response.trips : null;
+  if (explicitTrips) {
+    const total = response?.total ?? explicitTrips.length;
+    return { trips: explicitTrips, geojson: asFeatureCollection, total };
+  }
+
+  if (asFeatureCollection) {
+    const trips = asFeatureCollection.features
+      .map((feature) => {
+        if (!feature) {
+          return null;
+        }
+        const props = feature.properties || {};
+        return {
+          ...props,
+          transactionId: props.transactionId || feature.id || "",
+          matchedGps: feature.geometry || props.matchedGps || null,
+        };
+      })
+      .filter(Boolean);
+
+    return { trips, geojson: asFeatureCollection, total: trips.length };
+  }
+
+  return { trips: [], geojson: asFeatureCollection || response?.geojson || null, total: 0 };
+}
+
 async function browseMatchedTrips({ silent = false } = {}) {
   setPhase(PHASES.RESULTS);
   setResultMode(RESULT_MODES.BROWSE_MATCHED);
@@ -2126,22 +2167,23 @@ async function browseMatchedTrips({ silent = false } = {}) {
 
     // Fetch all matched trips
     const response = await apiGet(`${CONFIG.API.matchedTrips}?limit=100`);
-    const trips = response?.trips || [];
+    const { trips, geojson, total } = normalizeMatchedTripsResponse(response);
+    const summaryCount = typeof total === "number" ? total : trips.length;
 
     // Update summary
     if (elements.browseSummary) {
       elements.browseSummary.textContent
-        = trips.length > 0
-          ? `${trips.length} matched trip${trips.length !== 1 ? "s" : ""}`
+        = summaryCount > 0
+          ? `${summaryCount} matched trip${summaryCount !== 1 ? "s" : ""}`
           : "No matched trips yet";
     }
 
     // Update table/cards
-    updateMatchedPreviewTable({ total: trips.length, sample: trips });
+    updateMatchedPreviewTable({ total: summaryCount, sample: trips });
 
     // Update map with geojson if available
-    if (response?.geojson) {
-      updateMatchedPreviewMap(response.geojson);
+    if (geojson?.features?.length) {
+      updateMatchedPreviewMap(geojson);
     } else {
       // Build geojson from trips that have geometry
       const features = trips
