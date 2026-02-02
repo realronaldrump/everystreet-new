@@ -7,11 +7,10 @@ const panelManager = {
   transitionDuration: CONFIG.UI.transitions.normal,
 
   async close(type) {
-    const panelMap = {
-      mobile: CONFIG.UI.selectors.mobileDrawer,
-      filters: CONFIG.UI.selectors.filtersPanel,
-    };
-    const panel = store.getElement(panelMap[type]);
+    if (type !== "mobile") {
+      return;
+    }
+    const panel = store.getElement(CONFIG.UI.selectors.mobileDrawer);
     const overlay = store.getElement(CONFIG.UI.selectors.contentOverlay);
     if (!panel || !panel.classList.contains(CONFIG.UI.classes.open)) {
       return;
@@ -21,60 +20,40 @@ const panelManager = {
     if (overlay) {
       await utils.fadeOut(overlay, this.transitionDuration);
     }
-    if (type === "mobile") {
-      document.body.style.overflow = "";
-      document.body.style.paddingRight = "";
-    }
-    if (type === "filters") {
-      store.set("ui.filtersOpen", false, { source: "ui" });
-      store.saveUIState();
-    }
+    document.body.style.overflow = "";
+    document.body.style.paddingRight = "";
     setTimeout(() => {
       panel.style.transition = "";
     }, this.transitionDuration);
   },
 
   async open(type) {
-    const panelMap = {
-      mobile: CONFIG.UI.selectors.mobileDrawer,
-      filters: CONFIG.UI.selectors.filtersPanel,
-    };
-    const panel = store.getElement(panelMap[type]);
+    if (type !== "mobile") {
+      return;
+    }
+    const panel = store.getElement(CONFIG.UI.selectors.mobileDrawer);
     const overlay = store.getElement(CONFIG.UI.selectors.contentOverlay);
     if (!panel || panel.classList.contains(CONFIG.UI.classes.open)) {
       return;
     }
     panel.style.transition = `transform ${this.transitionDuration}ms ease-in-out`;
-    if (type === "mobile") {
-      const scrollbarW = utils.measureScrollbarWidth();
-      document.body.style.overflow = "hidden";
-      if (scrollbarW > 0) {
-        document.body.style.paddingRight = `${scrollbarW}px`;
-      }
+    const scrollbarW = utils.measureScrollbarWidth();
+    document.body.style.overflow = "hidden";
+    if (scrollbarW > 0) {
+      document.body.style.paddingRight = `${scrollbarW}px`;
     }
     if (overlay) {
       overlay.style.display = "block";
       await utils.fadeIn(overlay, this.transitionDuration / 2);
     }
     panel.classList.add(CONFIG.UI.classes.open);
-    if (type === "filters") {
-      store.set("ui.filtersOpen", true, { source: "ui" });
-      store.saveUIState();
-      setTimeout(() => {
-        const firstInput = panel.querySelector("input, select, button");
-        if (firstInput) {
-          firstInput.focus();
-        }
-      }, this.transitionDuration);
-    }
   },
 
   toggle(type) {
-    const panelMap = {
-      filters: CONFIG.UI.selectors.filtersPanel,
-      mobile: CONFIG.UI.selectors.mobileDrawer,
-    };
-    const panel = store.getElement(panelMap[type]);
+    if (type !== "mobile") {
+      return;
+    }
+    const panel = store.getElement(CONFIG.UI.selectors.mobileDrawer);
     panel?.classList.contains(CONFIG.UI.classes.open)
       ? this.close(type)
       : this.open(type);
@@ -96,26 +75,13 @@ const panelManager = {
     eventManager.add(CONFIG.UI.selectors.closeBtn, "click", () => this.close("mobile"));
     eventManager.add(CONFIG.UI.selectors.contentOverlay, "click", () => {
       this.close("mobile");
-      this.close("filters");
     });
-    eventManager.add(CONFIG.UI.selectors.filterToggle, "click", (e) => {
-      e.stopPropagation();
-      this.toggle("filters");
-    });
-    eventManager.add(CONFIG.UI.selectors.filtersClose, "click", () =>
-      this.close("filters")
-    );
 
     document.addEventListener("keydown", (e) => {
       if (e.key === "Escape" && !e.defaultPrevented) {
         this.close("mobile");
-        this.close("filters");
       }
     });
-
-    if (store.ui.filtersOpen) {
-      setTimeout(() => this.open("filters"), 100);
-    }
 
     if (mobileDrawer) {
       mobileDrawer.addEventListener("click", (event) => {

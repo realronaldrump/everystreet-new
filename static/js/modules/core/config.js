@@ -182,18 +182,20 @@ export const CONFIG = {
       menuToggle: "#menu-toggle",
       closeBtn: ".drawer-close-btn",
       contentOverlay: "#content-overlay",
-      filterToggle: "#filters-toggle",
-      filtersPanel: "#filters-panel",
-      filtersClose: ".panel-close-btn",
-      startDate: "#start-date",
-      endDate: "#end-date",
-      applyFiltersBtn: "#apply-filters",
-      resetFilters: "#reset-filters",
+      // Date picker dropdown selectors
+      datePickerWrapper: "#date-picker-wrapper",
+      datePickerTrigger: "#date-picker-trigger",
+      datePickerDropdown: "#date-picker-dropdown",
+      datePickerOverlay: "#date-picker-overlay",
+      dateDisplay: "#date-display",
+      dpStartDate: "#dp-start-date",
+      dpEndDate: "#dp-end-date",
+      datePickerApply: "#date-picker-apply",
+      datePickerReset: "#date-picker-reset",
       header: ".app-header",
       mapControls: "#map-controls",
       controlsToggle: "#controls-toggle",
       controlsContent: "#controls-content",
-      filterIndicator: "#filter-indicator",
       toolsSection: ".tools-section",
       mapTypeSelect: "#map-type-select",
     },
@@ -217,8 +219,8 @@ export const CONFIG = {
     },
     animations: {
       enabled:
-        typeof window !== "undefined" &&
-        !window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+        typeof window !== "undefined"
+        && !window.matchMedia("(prefers-reduced-motion: reduce)").matches,
     },
   },
 };

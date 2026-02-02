@@ -2,16 +2,16 @@ import { CONFIG } from "../core/config.js";
 import store from "../core/store.js";
 import { DateUtils, utils } from "../utils.js";
 import eventManager from "./event-manager.js";
-import panelManager from "./panel-manager.js";
 
 const dateUtils = DateUtils;
 
 const dateManager = {
   flatpickrInstances: new Map(),
+  isDropdownOpen: false,
 
   init() {
-    const startInput = store.getElement(CONFIG.UI.selectors.startDate);
-    const endInput = store.getElement(CONFIG.UI.selectors.endDate);
+    const startInput = store.getElement(CONFIG.UI.selectors.dpStartDate);
+    const endInput = store.getElement(CONFIG.UI.selectors.dpEndDate);
     if (!startInput || !endInput) {
       return;
     }
@@ -65,71 +65,144 @@ const dateManager = {
     }
 
     this.updateInputs(startDate, endDate);
-    this.updateIndicator();
+    this.updateDateDisplay();
+    this.highlightActivePreset();
 
+    // Listen for external filter changes
     document.addEventListener("es:filters-change", (event) => {
       const detail = event.detail || {};
       if (detail.source === "filters") {
         return;
       }
-      const nextStart = detail.startDate || store.get("filters.startDate") || startDate;
+      const nextStart
+        = detail.startDate || store.get("filters.startDate") || startDate;
       const nextEnd = detail.endDate || store.get("filters.endDate") || endDate;
       if (!nextStart || !nextEnd) {
         return;
       }
       this.updateInputs(nextStart, nextEnd);
-      this.updateIndicator();
+      this.updateDateDisplay();
+      this.highlightActivePreset();
     });
 
-    // Bind quick-select buttons
-    store.getAllElements(".quick-select-btn").forEach((btn) => {
+    // Bind dropdown trigger
+    const trigger = store.getElement(CONFIG.UI.selectors.datePickerTrigger);
+    if (trigger) {
+      eventManager.add(trigger, "click", (e) => {
+        e.stopPropagation();
+        this.toggleDropdown();
+      });
+    }
+
+    // Bind preset buttons (auto-apply on click)
+    store.getAllElements(".preset-btn").forEach((btn) => {
       eventManager.add(btn, "click", () => this.setRange(btn.dataset.range));
     });
 
     // Bind apply and reset buttons
-    const applyBtn = store.getElement(CONFIG.UI.selectors.applyFiltersBtn);
-    const resetBtn = store.getElement(CONFIG.UI.selectors.resetFilters);
+    const applyBtn = store.getElement(CONFIG.UI.selectors.datePickerApply);
+    const resetBtn = store.getElement(CONFIG.UI.selectors.datePickerReset);
     if (applyBtn) {
       eventManager.add(applyBtn, "click", () => this.applyFilters());
     }
     if (resetBtn) {
       eventManager.add(resetBtn, "click", () => this.reset());
     }
+
+    // Close dropdown on click outside
+    document.addEventListener("click", (e) => {
+      if (!this.isDropdownOpen) {
+        return;
+      }
+      const wrapper = store.getElement(CONFIG.UI.selectors.datePickerWrapper);
+      const dropdown = store.getElement(CONFIG.UI.selectors.datePickerDropdown);
+      if (wrapper && !wrapper.contains(e.target) && !dropdown?.contains(e.target)) {
+        // Check if click is inside a flatpickr calendar
+        if (e.target.closest(".flatpickr-calendar")) {
+          return;
+        }
+        this.closeDropdown();
+      }
+    });
+
+    // Close on Escape key
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && this.isDropdownOpen) {
+        this.closeDropdown();
+      }
+    });
+
+    // Overlay click closes dropdown (mobile)
+    const overlay = store.getElement(CONFIG.UI.selectors.datePickerOverlay);
+    if (overlay) {
+      eventManager.add(overlay, "click", () => this.closeDropdown());
+    }
+  },
+
+  toggleDropdown() {
+    if (this.isDropdownOpen) {
+      this.closeDropdown();
+    } else {
+      this.openDropdown();
+    }
+  },
+
+  openDropdown() {
+    const dropdown = store.getElement(CONFIG.UI.selectors.datePickerDropdown);
+    const trigger = store.getElement(CONFIG.UI.selectors.datePickerTrigger);
+    const overlay = store.getElement(CONFIG.UI.selectors.datePickerOverlay);
+
+    if (!dropdown) {
+      return;
+    }
+
+    dropdown.classList.add("open");
+    trigger?.setAttribute("aria-expanded", "true");
+    this.isDropdownOpen = true;
+
+    // Show overlay on mobile
+    if (window.innerWidth <= 768 && overlay) {
+      overlay.classList.add("visible");
+    }
+  },
+
+  closeDropdown() {
+    const dropdown = store.getElement(CONFIG.UI.selectors.datePickerDropdown);
+    const trigger = store.getElement(CONFIG.UI.selectors.datePickerTrigger);
+    const overlay = store.getElement(CONFIG.UI.selectors.datePickerOverlay);
+
+    if (!dropdown) {
+      return;
+    }
+
+    dropdown.classList.remove("open");
+    trigger?.setAttribute("aria-expanded", "false");
+    this.isDropdownOpen = false;
+
+    // Hide overlay
+    if (overlay) {
+      overlay.classList.remove("visible");
+    }
   },
 
   updateInputs(startDate, endDate) {
-    const startInputEl = store.getElement(CONFIG.UI.selectors.startDate);
-    const endInputEl = store.getElement(CONFIG.UI.selectors.endDate);
-
-    // Helper to calculate "today" for diverse constraints if needed,
-    // but here we just need to relax them effectively.
-    // For start picker: maxDate usually constrains it to <= End Date.
-    // For end picker: minDate usually constrains it to >= Start Date.
+    const startInputEl = store.getElement(CONFIG.UI.selectors.dpStartDate);
+    const endInputEl = store.getElement(CONFIG.UI.selectors.dpEndDate);
 
     if (startInputEl?._flatpickr && endInputEl && endInputEl._flatpickr) {
-      // 1. Relax constraints temporarily to allow any valid range
-      // Set start's max to today (or broadly valid) to unblock moving it forward
+      // Relax constraints temporarily
       startInputEl._flatpickr.set("maxDate", "today");
-      // Set end's min to null (or very old) to unblock moving it backward
       endInputEl._flatpickr.set("minDate", null);
 
-      // 2. Set the dates
-      // true argument triggers onChange, which normally re-sets constraints.
-      // However, we want to ensure values are set first.
-      startInputEl._flatpickr.setDate(startDate, false); // false = no event yet
-      endInputEl._flatpickr.setDate(endDate, false); // false = no event yet
+      // Set the dates
+      startInputEl._flatpickr.setDate(startDate, false);
+      endInputEl._flatpickr.setDate(endDate, false);
 
-      // 3. Re-establish strict cross-linking manually or trigger events if needed.
-      // The init() logic binds onChange to update the OTHER picker's min/max.
-      // We should manually sync them now to be safe and clean.
+      // Re-establish strict cross-linking
       startInputEl._flatpickr.set("maxDate", endDate);
       endInputEl._flatpickr.set("minDate", startDate);
-
-      // Optional: If we want to trigger internal listeners that might rely on change events
-      // startInputEl.dispatchEvent(new Event('change'));
-      // endInputEl.dispatchEvent(new Event('change'));
     } else {
-      // Fallback or partial existence
+      // Fallback
       if (startInputEl) {
         if (startInputEl._flatpickr) {
           startInputEl._flatpickr.setDate(startDate, true);
@@ -156,11 +229,10 @@ const dateManager = {
       const { startDate, endDate } = await dateUtils.getDateRangePreset(range);
       if (startDate && endDate) {
         this.updateInputs(startDate, endDate);
-        store.getAllElements(".quick-select-btn").forEach((b) => {
-          b.classList.toggle(CONFIG.UI.classes.active, b.dataset.range === range);
-        });
+        this.highlightActivePreset(range);
         store.set("ui.lastFilterPreset", range, { source: "ui" });
         store.saveUIState();
+        // Auto-apply for presets
         await this.applyFilters();
       } else {
         throw new Error("Invalid date range");
@@ -180,7 +252,6 @@ const dateManager = {
       return null;
     }
 
-    // Use string comparison for date strings (YYYY-MM-DD)
     const today = dateUtils.getCurrentDate();
     const yesterday = dateUtils.getYesterday();
 
@@ -194,7 +265,7 @@ const dateManager = {
       }
     }
 
-    // For range presets, calculate day difference using string dates
+    // For range presets, calculate day difference
     const startDate = dateUtils.parseDateString(start);
     const endDate = dateUtils.parseDateString(end);
     if (!startDate || !endDate) {
@@ -222,40 +293,67 @@ const dateManager = {
     return null;
   },
 
-  updateIndicator() {
-    const indicator = store.getElement(CONFIG.UI.selectors.filterIndicator);
-    if (!indicator) {
-      return;
-    }
-    const span = indicator.querySelector(".filter-date-range");
-    if (!span) {
-      return;
-    }
+  highlightActivePreset(preset = null) {
     const savedStartDate
       = utils.getStorage(CONFIG.STORAGE_KEYS.startDate) || dateUtils.getCurrentDate();
     const savedEndDate
       = utils.getStorage(CONFIG.STORAGE_KEYS.endDate) || dateUtils.getCurrentDate();
-    const fmt = (d) => dateUtils.formatForDisplay(d, { dateStyle: "medium" }) || d;
-    const preset = this.detectPreset(savedStartDate, savedEndDate);
-    if (preset) {
-      span.textContent
-        = preset.charAt(0).toUpperCase() + preset.slice(1).replace("-", " ");
-      indicator.setAttribute("data-preset", preset);
-    } else {
-      span.textContent
-        = savedStartDate === savedEndDate
-          ? fmt(savedStartDate)
-          : `${fmt(savedStartDate)} - ${fmt(savedEndDate)}`;
-      indicator.removeAttribute("data-preset");
-    }
-    indicator.classList.add("filter-changed");
-    setTimeout(() => indicator.classList.remove("filter-changed"), 600);
+
+    const activePreset = preset || this.detectPreset(savedStartDate, savedEndDate);
+
+    store.getAllElements(".preset-btn").forEach((btn) => {
+      btn.classList.toggle(
+        CONFIG.UI.classes.active,
+        btn.dataset.range === activePreset
+      );
+    });
   },
 
-  async applyFilters() {
-    const sIn = store.getElement(CONFIG.UI.selectors.startDate);
-    const eIn = store.getElement(CONFIG.UI.selectors.endDate);
-    const btn = store.getElement(CONFIG.UI.selectors.applyFiltersBtn);
+  updateDateDisplay() {
+    const display = store.getElement(CONFIG.UI.selectors.dateDisplay);
+    const trigger = store.getElement(CONFIG.UI.selectors.datePickerTrigger);
+    if (!display) {
+      return;
+    }
+
+    const savedStartDate
+      = utils.getStorage(CONFIG.STORAGE_KEYS.startDate) || dateUtils.getCurrentDate();
+    const savedEndDate
+      = utils.getStorage(CONFIG.STORAGE_KEYS.endDate) || dateUtils.getCurrentDate();
+    const today = dateUtils.getCurrentDate();
+
+    const fmt = (d) => dateUtils.formatForDisplay(d, { dateStyle: "medium" }) || d;
+    const preset = this.detectPreset(savedStartDate, savedEndDate);
+
+    // Map preset names to display text
+    const presetLabels = {
+      today: "Today",
+      yesterday: "Yesterday",
+      "last-week": "Last 7 Days",
+      "last-month": "Last 30 Days",
+      "last-quarter": "Last Quarter",
+      "last-year": "Last Year",
+      "all-time": "All Time",
+    };
+
+    if (preset && presetLabels[preset]) {
+      display.textContent = presetLabels[preset];
+    } else if (savedStartDate === savedEndDate) {
+      display.textContent = fmt(savedStartDate);
+    } else {
+      display.textContent = `${fmt(savedStartDate)} - ${fmt(savedEndDate)}`;
+    }
+
+    // Update trigger active state
+    const isNotToday
+      = savedStartDate !== today || savedEndDate !== today;
+    trigger?.classList.toggle("has-filter", isNotToday);
+  },
+
+  applyFilters() {
+    const sIn = store.getElement(CONFIG.UI.selectors.dpStartDate);
+    const eIn = store.getElement(CONFIG.UI.selectors.dpEndDate);
+    const btn = store.getElement(CONFIG.UI.selectors.datePickerApply);
     if (!sIn || !eIn) {
       utils.showNotification("Date input elements missing", "danger");
       return;
@@ -279,8 +377,9 @@ const dateManager = {
         { startDate: startDateVal, endDate: endDateVal },
         { push: true, source: "filters" }
       );
-      this.updateIndicator();
-      await panelManager.close("filters");
+      this.updateDateDisplay();
+      this.highlightActivePreset();
+      this.closeDropdown();
       const fd = (d) => dateUtils.formatForDisplay(d, { dateStyle: "short" });
       utils.showNotification(
         `Filters applied: ${fd(startDateVal)} to ${fd(endDateVal)}`,
@@ -298,14 +397,8 @@ const dateManager = {
   reset() {
     const today = dateUtils.getCurrentDate();
     this.updateInputs(today, today);
-    store.getAllElements(".quick-select-btn").forEach((btn) => {
-      btn.classList.remove(CONFIG.UI.classes.active);
-    });
-    const todayBtn = store.getElement('.quick-select-btn[data-range="today"]');
-    if (todayBtn) {
-      todayBtn.classList.add(CONFIG.UI.classes.active);
-    }
-    this.updateIndicator();
+    this.highlightActivePreset("today");
+    this.updateDateDisplay();
     this.applyFilters();
     document.dispatchEvent(new Event("filtersReset"));
   },

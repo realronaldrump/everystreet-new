@@ -1,54 +1,9 @@
-import { CONFIG } from "../core/config.js";
-import store from "../core/store.js";
-import dateManager from "./date-manager.js";
-import eventManager from "./event-manager.js";
-import panelManager from "./panel-manager.js";
-
-function ensureIndicator() {
-  let indicator = store.getElement(CONFIG.UI.selectors.filterIndicator);
-  if (!indicator) {
-    const tools = store.getElement(CONFIG.UI.selectors.toolsSection);
-    if (!tools) {
-      return null;
-    }
-    indicator = document.createElement("span");
-    indicator.id = "filter-indicator";
-    indicator.className = "filter-indicator";
-    indicator.innerHTML
-      = '<i class="fas fa-calendar-alt me-1" aria-hidden="true"></i> <span class="filter-date-range">—</span>';
-    tools.insertBefore(indicator, tools.firstChild.nextSibling); // after filters button
-  }
-  return indicator;
-}
+// Filter indicator functionality is now built into the date picker dropdown trigger
+// This module is kept as a no-op for backward compatibility
 
 const filterIndicatorManager = {
   init() {
-    const indicator = ensureIndicator();
-    const filtersBtn = store.getElement(CONFIG.UI.selectors.filterToggle);
-    if (!indicator || !filtersBtn) {
-      return;
-    }
-
-    filtersBtn.addEventListener("click", () => {
-      indicator.classList.remove(CONFIG.UI.classes.unseen);
-    });
-
-    document.addEventListener("filtersApplied", () => {
-      indicator.classList.remove(CONFIG.UI.classes.active);
-      indicator.classList.add(CONFIG.UI.classes.applied);
-      indicator.classList.add(CONFIG.UI.classes.unseen);
-      dateManager.updateIndicator();
-    });
-
-    eventManager.on("filtersReset", () => {
-      indicator.classList.remove(CONFIG.UI.classes.applied, CONFIG.UI.classes.unseen);
-    });
-
-    // Clicking the indicator or icon opens the filters panel
-    eventManager.add(indicator, "click", (e) => {
-      e.stopPropagation();
-      panelManager.open("filters");
-    });
+    // No-op: date picker trigger now displays the current date range
   },
 };
 

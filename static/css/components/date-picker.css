@@ -1,0 +1,336 @@
+/* ============================
+   Date Picker Dropdown
+   ============================ */
+
+/* === Wrapper === */
+.date-picker-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+/* === Trigger Button === */
+.date-picker-trigger {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface-2);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-pill);
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.date-picker-trigger:hover {
+  background: var(--surface-3);
+  border-color: var(--border-color-light);
+}
+
+.date-picker-trigger:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.date-picker-trigger .trigger-icon {
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  flex-shrink: 0;
+}
+
+.date-picker-trigger .trigger-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.date-picker-trigger .trigger-chevron {
+  color: var(--text-tertiary);
+  font-size: 0.65rem;
+  margin-left: var(--space-1);
+  transition: transform var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.date-picker-trigger[aria-expanded="true"] .trigger-chevron {
+  transform: rotate(180deg);
+}
+
+/* Active state when filter is not "today" */
+.date-picker-trigger.has-filter {
+  background: rgb(var(--primary-rgb) / 12%);
+  border-color: rgb(var(--primary-rgb) / 30%);
+  color: var(--primary);
+}
+
+.date-picker-trigger.has-filter .trigger-icon {
+  color: var(--primary);
+}
+
+/* === Dropdown Popover === */
+.date-picker-dropdown {
+  position: absolute;
+  top: calc(100% + var(--space-2));
+  right: 0;
+  width: 320px;
+  background: var(--surface-1);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-elevation-3);
+  z-index: var(--z-dropdown);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-8px);
+  transition:
+    opacity var(--transition-fast),
+    visibility var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+.date-picker-dropdown.open {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+/* === Dropdown Sections === */
+.dp-section {
+  padding: var(--space-4);
+}
+
+.dp-section + .dp-section {
+  border-top: 1px solid var(--divider-color);
+}
+
+.dp-section-label {
+  display: block;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: var(--space-3);
+}
+
+/* === Quick Presets === */
+.dp-presets {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-2);
+}
+
+.preset-btn {
+  padding: var(--space-2) var(--space-2);
+  background: var(--surface-2);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  text-align: center;
+}
+
+.preset-btn:hover {
+  background: var(--surface-3);
+  border-color: var(--border-color-light);
+  color: var(--text-primary);
+}
+
+.preset-btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
+
+.preset-btn.active {
+  background: rgb(var(--primary-rgb) / 15%);
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.preset-btn.btn-loading {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+/* === Custom Date Range === */
+.dp-custom-range {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.dp-custom-range .dp-date-input {
+  flex: 1;
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface-2);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  min-width: 0;
+}
+
+.dp-custom-range .dp-date-input:focus {
+  border-color: var(--primary);
+  outline: none;
+  box-shadow: 0 0 0 2px rgb(var(--primary-rgb) / 20%);
+}
+
+.dp-custom-range .dp-separator {
+  color: var(--text-tertiary);
+  font-size: var(--font-size-sm);
+  flex-shrink: 0;
+}
+
+/* === Actions === */
+.dp-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-2);
+  border-top: 1px solid var(--divider-color);
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+}
+
+.dp-actions .btn-reset {
+  padding: var(--space-2) var(--space-3);
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.dp-actions .btn-reset:hover {
+  background: var(--surface-3);
+  color: var(--text-primary);
+}
+
+.dp-actions .btn-apply {
+  padding: var(--space-2) var(--space-4);
+  background: var(--primary);
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-on-primary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.dp-actions .btn-apply:hover {
+  background: var(--primary-hover);
+}
+
+.dp-actions .btn-apply:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.dp-actions .btn-apply.btn-loading {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+/* === Mobile: Bottom Sheet === */
+@media (width <= 768px) {
+  .date-picker-trigger .trigger-text {
+    max-width: 120px;
+  }
+
+  .date-picker-dropdown {
+    position: fixed;
+    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    max-height: 80vh;
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+    transform: translateY(100%);
+    overflow-y: auto;
+  }
+
+  .date-picker-dropdown.open {
+    transform: translateY(0);
+  }
+
+  /* Bottom sheet handle */
+  .date-picker-dropdown::before {
+    content: "";
+    display: block;
+    width: 40px;
+    height: 4px;
+    background: var(--border-color-light);
+    border-radius: 2px;
+    margin: var(--space-3) auto var(--space-2);
+  }
+
+  .dp-presets {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .dp-custom-range {
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+
+  .dp-custom-range .dp-date-input {
+    width: 100%;
+  }
+
+  .dp-custom-range .dp-separator {
+    display: none;
+  }
+
+  .dp-actions {
+    padding: var(--space-4);
+    gap: var(--space-3);
+  }
+
+  .dp-actions .btn-reset,
+  .dp-actions .btn-apply {
+    flex: 1;
+    padding: var(--space-3);
+  }
+}
+
+/* === Overlay for mobile bottom sheet === */
+.date-picker-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgb(0 0 0 / 50%);
+  backdrop-filter: blur(var(--blur-subtle));
+  z-index: calc(var(--z-dropdown) - 1);
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.date-picker-overlay.visible {
+  display: block;
+  opacity: 1;
+}
+
+/* Light mode adjustments */
+body.light-mode .date-picker-dropdown {
+  box-shadow: var(--shadow-elevation-2);
+}
+
+body.light-mode .preset-btn:hover {
+  background: var(--surface-3);
+}
+
+/* Flatpickr integration - ensure it displays above dropdown */
+.flatpickr-calendar {
+  z-index: calc(var(--z-dropdown) + 10) !important;
+}

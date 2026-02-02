@@ -382,16 +382,67 @@ self.title()|striptags|trim %}
 
           <!-- Tools and User Options -->
           <div class="tools-section">
-            <button
-              id="filters-toggle"
-              class="tool-btn"
-              aria-label="Toggle filters panel"
-              title="Filters"
-              aria-expanded="false"
-              aria-controls="filters-panel"
-            >
-              <i class="fas fa-filter" aria-hidden="true"></i>
-            </button>
+            <!-- Date Picker Dropdown -->
+            <div id="date-picker-wrapper" class="date-picker-wrapper">
+              <button
+                id="date-picker-trigger"
+                class="date-picker-trigger"
+                aria-label="Select date range"
+                aria-expanded="false"
+                aria-controls="date-picker-dropdown"
+              >
+                <i class="fas fa-calendar trigger-icon" aria-hidden="true"></i>
+                <span id="date-display" class="trigger-text">Today</span>
+                <i class="fas fa-chevron-down trigger-chevron" aria-hidden="true"></i>
+              </button>
+              <div
+                id="date-picker-dropdown"
+                class="date-picker-dropdown"
+                role="dialog"
+                aria-label="Date range selection"
+              >
+                <div class="dp-section">
+                  <span class="dp-section-label">Quick Select</span>
+                  <div class="dp-presets" role="group" aria-label="Date range presets">
+                    <button type="button" class="preset-btn" data-range="today">Today</button>
+                    <button type="button" class="preset-btn" data-range="yesterday">Yesterday</button>
+                    <button type="button" class="preset-btn" data-range="last-week">Last 7 Days</button>
+                    <button type="button" class="preset-btn" data-range="last-month">Last 30 Days</button>
+                    <button type="button" class="preset-btn" data-range="last-year">Last Year</button>
+                    <button type="button" class="preset-btn" data-range="all-time">All Time</button>
+                  </div>
+                </div>
+                <div class="dp-section">
+                  <span class="dp-section-label">Custom Range</span>
+                  <div class="dp-custom-range">
+                    <input
+                      type="text"
+                      id="dp-start-date"
+                      class="dp-date-input datepicker"
+                      placeholder="Start date"
+                      aria-label="Start date"
+                    />
+                    <span class="dp-separator">to</span>
+                    <input
+                      type="text"
+                      id="dp-end-date"
+                      class="dp-date-input datepicker"
+                      placeholder="End date"
+                      aria-label="End date"
+                    />
+                  </div>
+                </div>
+                <div class="dp-actions">
+                  <button type="button" id="date-picker-reset" class="btn-reset">
+                    <i class="fas fa-undo" aria-hidden="true"></i> Reset
+                  </button>
+                  <button type="button" id="date-picker-apply" class="btn-apply">
+                    Apply
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div id="date-picker-overlay" class="date-picker-overlay" aria-hidden="true"></div>
             <label class="theme-toggle" title="Toggle dark/light mode">
               <input
                 type="checkbox"
@@ -648,90 +699,6 @@ self.title()|striptags|trim %}
           </div>
         </div>
       </nav>
-
-      <!-- Filters Panel (Hidden by default) -->
-      <aside
-        id="filters-panel"
-        class="side-panel filters-panel"
-        role="complementary"
-        aria-label="Filters"
-      >
-        <div class="panel-header">
-          <h2 class="panel-title">Filters</h2>
-          <button class="panel-close-btn" aria-label="Close filters">
-            <i class="fas fa-times" aria-hidden="true"></i>
-          </button>
-        </div>
-        <div class="panel-body">
-          <form id="filters-form" aria-label="Trip filters">
-            <div class="form-group">
-              <label for="start-date" class="form-label"> Start Date </label>
-              <input
-                type="text"
-                id="start-date"
-                class="form-control datepicker"
-                placeholder="Select Start Date"
-                aria-label="Start date filter"
-                aria-describedby="start-date-help"
-              />
-              <div id="start-date-help" class="form-text">
-                Filter trips from this date
-              </div>
-            </div>
-            <div class="form-group">
-              <label for="end-date" class="form-label"> End Date </label>
-              <input
-                type="text"
-                id="end-date"
-                class="form-control datepicker"
-                placeholder="Select End Date"
-                aria-label="End date filter"
-                aria-describedby="end-date-help"
-              />
-              <div id="end-date-help" class="form-text">
-                Filter trips up to this date
-              </div>
-            </div>
-
-            <div class="form-group">
-              <label class="form-label"> Quick Selections </label>
-              <div
-                class="quick-selections"
-                role="group"
-                aria-label="Date range presets"
-              >
-                <button type="button" class="quick-select-btn" data-range="today">
-                  Today
-                </button>
-                <button type="button" class="quick-select-btn" data-range="yesterday">
-                  Yesterday
-                </button>
-                <button type="button" class="quick-select-btn" data-range="last-week">
-                  Last 7 Days
-                </button>
-                <button type="button" class="quick-select-btn" data-range="last-month">
-                  Last 30 Days
-                </button>
-                <button type="button" class="quick-select-btn" data-range="last-year">
-                  Last Year
-                </button>
-                <button type="button" class="quick-select-btn" data-range="all-time">
-                  All Time
-                </button>
-              </div>
-            </div>
-          </form>
-
-          <div class="panel-actions">
-            <button id="apply-filters" class="btn btn-primary btn-block" type="button">
-              <i class="fas fa-check" aria-hidden="true"></i> Apply Filters
-            </button>
-            <button id="reset-filters" class="btn btn-outline" type="button">
-              <i class="fas fa-undo" aria-hidden="true"></i> Reset
-            </button>
-          </div>
-        </div>
-      </aside>
 
       <!-- Content Overlay (for when panels are open) -->
       <div id="content-overlay" class="content-overlay" aria-hidden="true"></div>

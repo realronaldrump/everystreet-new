@@ -118,6 +118,11 @@ class VisitsPageController {
   }
 
   setupEventListeners() {
+    // Listen for date filter changes
+    document.addEventListener("filtersApplied", () => {
+      this.loadData();
+    });
+
     // View toggle
     this.elements.viewBtns.forEach((btn) => {
       btn.addEventListener("click", (e) => this.handleViewToggle(e));
