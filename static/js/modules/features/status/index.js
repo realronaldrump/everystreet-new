@@ -333,7 +333,7 @@ function updateOverview(data) {
     storageSummaryEl.textContent = hasValue
       ? `${used.toFixed(1)} MB used`
       : "Storage data unavailable";
-    storageDetailEl.textContent = data.storage?.error || "MongoDB storage usage";
+    storageDetailEl.textContent = data.storage?.error || "App storage usage";
   }
 
   const dockerSummaryEl = document.getElementById("docker-summary");
@@ -445,7 +445,7 @@ function updatePlaybooks(data) {
       title: "Database offline",
       body: "MongoDB is unavailable. Check storage, then review logs.",
       actions: [
-        { label: "Open DB Tools", href: "/settings#database" },
+        { label: "Open Storage Tools", href: "/settings#storage" },
         { label: "View Logs", action: () => loadServiceLogs("mongodb") },
       ],
     });

@@ -15,6 +15,7 @@ from core.service_config import (
     clear_config_cache,
     get_service_config,
 )
+from admin.services.storage_service import StorageService
 from db.manager import db_manager
 from db.models import (
     AppSettings,
@@ -183,9 +184,24 @@ class AdminService:
 
     @staticmethod
     async def get_storage_info() -> dict[str, Any]:
-        stats = await db_manager.db.command("dbStats")
-        used_bytes = _total_size_bytes(stats, "indexSize", "dataSize")
-        return {"used_mb": _bytes_to_mb(used_bytes)}
+        snapshot = await StorageService.get_storage_snapshot()
+        db_logical_bytes: int | None = None
+        db_logical_mb: float | None = None
+        try:
+            stats = await db_manager.db.command("dbStats")
+            db_logical_bytes = _total_size_bytes(stats, "indexSize", "dataSize")
+            db_logical_mb = _bytes_to_mb(db_logical_bytes)
+        except Exception:
+            logger.exception("Failed to load database logical size stats")
+
+        snapshot.update(
+            {
+                "database_logical_bytes": db_logical_bytes,
+                "database_logical_mb": db_logical_mb,
+                "used_mb": snapshot.get("total_mb"),
+            },
+        )
+        return snapshot
 
     @staticmethod
     async def get_collection_sizes_mb(

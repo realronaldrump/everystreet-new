@@ -361,6 +361,44 @@
   margin-bottom: var(--space-1);
 }
 
+/* === Storage Summary === */
+.storage-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--space-3);
+  align-items: end;
+}
+
+.storage-metric {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+}
+
+.storage-metric-label {
+  font-size: var(--font-size-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.storage-metric-value {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  word-break: break-word;
+}
+
+.storage-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+}
+
 /* === Inline Status === */
 .settings-status {
   display: inline-flex;
@@ -417,6 +455,18 @@
 
     /* Ensure scroll container doesn't get messed up */
     padding-bottom: 0;
+  }
+
+  .storage-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .storage-actions {
+    justify-content: flex-start;
+  }
+
+  .storage-actions .btn {
+    width: 100%;
   }
 
   /* Stack setting items vertically on mobile */

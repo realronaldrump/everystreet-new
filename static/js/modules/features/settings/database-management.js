@@ -1,16 +1,46 @@
 import apiClient from "../../core/api-client.js";
 import confirmationDialog from "../../ui/confirmation-dialog.js";
 import notificationManager from "../../ui/notifications.js";
+import { escapeHtml } from "../../utils.js";
 
 export function initDatabaseManagement({ signal } = {}) {
   const refreshStorageBtn = document.getElementById("refresh-storage");
-  const storageText = document.querySelector(".storage-text");
+  const storageTotalEl = document.getElementById("storage-total-value");
+  const storageDbEl = document.getElementById("storage-db-value");
+  const storageUpdatedEl = document.getElementById("storage-updated-at");
+  const storageSourcesTable = document.getElementById("storage-sources-table");
 
   let currentAction = null;
   let currentCollection = null;
   let currentButton = null;
 
   const withSignal = (options = {}) => (signal ? { ...options, signal } : options);
+
+  function formatBytes(bytes) {
+    if (!Number.isFinite(bytes) || bytes <= 0) {
+      return "0 B";
+    }
+    const units = ["B", "KB", "MB", "GB", "TB"];
+    let value = bytes;
+    let unitIndex = 0;
+    while (value >= 1024 && unitIndex < units.length - 1) {
+      value /= 1024;
+      unitIndex += 1;
+    }
+    const precision = value >= 100 || unitIndex === 0 ? 0 : value >= 10 ? 1 : 2;
+    return `${value.toFixed(precision)} ${units[unitIndex]}`;
+  }
+
+  function formatTimestamp(value) {
+    if (!value) {
+      return "N/A";
+    }
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return value;
+    }
+    return date.toLocaleString();
+  }
 
   function setButtonLoading(button, isLoading, action) {
     if (!button) {
@@ -36,7 +66,7 @@ export function initDatabaseManagement({ signal } = {}) {
   }
 
   async function performDatabaseAction(endpoint, body = {}) {
-    const method = endpoint.includes("storage-info") ? "GET" : "POST";
+    const method = endpoint.includes("storage") ? "GET" : "POST";
     if (method === "GET") {
       return apiClient.get(endpoint, withSignal());
     }
@@ -57,16 +87,116 @@ export function initDatabaseManagement({ signal } = {}) {
     return cell?.dataset?.value || cell?.textContent?.trim() || "";
   }
 
-  function updateStorageDisplay(data) {
+  function updateStorageSummary(data) {
     if (!data) {
       return;
     }
-
-    if (storageText) {
-      storageText.textContent
-        = data.used_mb == null ? "Using N/A" : `Using ${data.used_mb}MB`;
+    if (storageTotalEl) {
+      const totalBytes
+        = Number.isFinite(data.total_bytes)
+          ? data.total_bytes
+          : Number.isFinite(data.used_mb)
+            ? data.used_mb * 1024 * 1024
+            : null;
+      storageTotalEl.textContent
+        = totalBytes == null ? "N/A" : formatBytes(totalBytes);
+      if (Number.isFinite(totalBytes)) {
+        storageTotalEl.dataset.bytes = String(totalBytes);
+      }
+    }
+    if (storageDbEl) {
+      const dbBytes
+        = Number.isFinite(data.database_logical_bytes)
+          ? data.database_logical_bytes
+          : Number.isFinite(data.database_logical_mb)
+            ? data.database_logical_mb * 1024 * 1024
+            : null;
+      storageDbEl.textContent = dbBytes == null ? "N/A" : formatBytes(dbBytes);
+      if (Number.isFinite(dbBytes)) {
+        storageDbEl.dataset.bytes = String(dbBytes);
+      }
+    }
+    if (storageUpdatedEl) {
+      const iso = data.updated_at || "";
+      storageUpdatedEl.textContent = formatTimestamp(iso);
+      storageUpdatedEl.dataset.iso = iso;
     }
   }
+
+  function renderStorageSources(sources = []) {
+    if (!storageSourcesTable) {
+      return;
+    }
+    const tbody = storageSourcesTable.querySelector("tbody");
+    if (!tbody) {
+      return;
+    }
+    if (!sources.length) {
+      tbody.innerHTML
+        = '<tr><td colspan="5" class="text-muted">No storage sources available.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = sources
+      .map((source) => {
+        const sizeBytes = Number.isFinite(source.size_bytes) ? source.size_bytes : null;
+        const sizeDisplay
+          = sizeBytes == null
+            ? Number.isFinite(source.size_mb)
+              ? `${source.size_mb} MB`
+              : "N/A"
+            : formatBytes(sizeBytes);
+        const status = source.error ? "Error" : "OK";
+        const statusBadge = source.error
+          ? '<span class="badge bg-danger">Error</span>'
+          : '<span class="badge bg-success">OK</span>';
+        const detailText = source.detail ? escapeHtml(source.detail) : "--";
+        const errorText = source.error
+          ? `<div class="text-muted small">${escapeHtml(source.error)}</div>`
+          : "";
+        return `
+          <tr>
+            <td data-value="${escapeHtml(source.label || "")}" class="fw-medium">
+              ${escapeHtml(source.label || "")}
+            </td>
+            <td data-value="${escapeHtml(source.category || "")}">
+              ${escapeHtml(source.category || "")}
+            </td>
+            <td data-value="${sizeBytes || 0}">
+              ${escapeHtml(sizeDisplay)}
+            </td>
+            <td data-value="${escapeHtml(source.detail || "")}">
+              <span class="text-muted small">${detailText}</span>
+            </td>
+            <td data-value="${status}">
+              ${statusBadge}
+              ${errorText}
+            </td>
+          </tr>
+        `;
+      })
+      .join("");
+  }
+
+  function hydrateInitialStorage() {
+    if (storageTotalEl?.dataset?.bytes) {
+      const bytes = Number(storageTotalEl.dataset.bytes);
+      if (Number.isFinite(bytes)) {
+        storageTotalEl.textContent = formatBytes(bytes);
+      }
+    }
+    if (storageDbEl?.dataset?.bytes) {
+      const bytes = Number(storageDbEl.dataset.bytes);
+      if (Number.isFinite(bytes)) {
+        storageDbEl.textContent = formatBytes(bytes);
+      }
+    }
+    if (storageUpdatedEl?.dataset?.iso) {
+      storageUpdatedEl.textContent = formatTimestamp(storageUpdatedEl.dataset.iso);
+    }
+  }
+
+  hydrateInitialStorage();
 
   if (refreshStorageBtn) {
     refreshStorageBtn.addEventListener(
@@ -77,15 +207,16 @@ export function initDatabaseManagement({ signal } = {}) {
         }
         try {
           setButtonLoading(refreshStorageBtn, true, "refresh");
-          const data = await performDatabaseAction("/api/database/storage-info");
-          updateStorageDisplay(data);
+          const data = await performDatabaseAction("/api/storage/summary");
+          updateStorageSummary(data);
+          renderStorageSources(data?.sources || []);
           notificationManager.show(
             "Storage information updated successfully",
             "success"
           );
         } catch (error) {
           notificationManager.show(
-            error.message || "Failed to perform database action",
+            error.message || "Failed to perform storage action",
             "danger"
           );
           setButtonLoading(currentButton, false, currentAction);
@@ -131,11 +262,17 @@ export function initDatabaseManagement({ signal } = {}) {
     signal ? { signal } : false
   );
 
-  // Table Sorting Logic
-  const table = document.getElementById("collections-table");
-  if (table) {
+  function setupSortableTable(table) {
+    if (!table) {
+      return;
+    }
     const headers = table.querySelectorAll("th[data-sort]");
+    if (!headers.length) {
+      return;
+    }
     let currentSort = { column: null, dir: "asc" };
+    const numericColumns = new Set(["count", "size"]);
+    const eventOptions = signal ? { signal } : false;
 
     headers.forEach((th) => {
       th.addEventListener(
@@ -145,10 +282,8 @@ export function initDatabaseManagement({ signal } = {}) {
           const dir
             = currentSort.column === column && currentSort.dir === "asc" ? "desc" : "asc";
 
-          // Update Sort State
           currentSort = { column, dir };
 
-          // Update Icons
           headers.forEach((h) => {
             const icon = h.querySelector("i");
             if (icon) {
@@ -159,38 +294,39 @@ export function initDatabaseManagement({ signal } = {}) {
             }
           });
 
-          // Sort Rows
           const tbody = table.querySelector("tbody");
+          if (!tbody) {
+            return;
+          }
           const rows = Array.from(tbody.querySelectorAll("tr"));
 
           rows.sort((a, b) => {
-            const aVal
-              = a.querySelector(`td[data-value]`).parentElement.children[th.cellIndex]
-                .dataset.value;
-            const bVal
-              = b.querySelector(`td[data-value]`).parentElement.children[th.cellIndex]
-                .dataset.value;
+            const aCell = a.children[th.cellIndex];
+            const bCell = b.children[th.cellIndex];
+            const aVal = aCell?.dataset?.value ?? aCell?.textContent?.trim() ?? "";
+            const bVal = bCell?.dataset?.value ?? bCell?.textContent?.trim() ?? "";
 
-            let comparison = 0;
-            if (column === "name") {
-              comparison = aVal.localeCompare(bVal);
-            } else {
-              // Numeric sort for count and size
-              comparison = parseFloat(aVal) - parseFloat(bVal);
+            if (numericColumns.has(column)) {
+              const aNum = parseFloat(aVal) || 0;
+              const bNum = parseFloat(bVal) || 0;
+              return dir === "asc" ? aNum - bNum : bNum - aNum;
             }
-
-            return dir === "asc" ? comparison : -comparison;
+            return dir === "asc"
+              ? aVal.localeCompare(bVal)
+              : bVal.localeCompare(aVal);
           });
 
-          // Re-append sorted rows
           rows.forEach((row) => {
             tbody.appendChild(row);
           });
         },
-        signal ? { signal } : false
+        eventOptions
       );
     });
   }
+
+  setupSortableTable(storageSourcesTable);
+  setupSortableTable(document.getElementById("collections-table"));
 
   async function handleConfirmedAction() {
     try {
@@ -220,7 +356,7 @@ export function initDatabaseManagement({ signal } = {}) {
       }, 1500);
     } catch (error) {
       notificationManager.show(
-        error.message || "Failed to perform database action",
+        error.message || "Failed to perform storage action",
         "danger"
       );
       setButtonLoading(currentButton, false, currentAction);

@@ -37,8 +37,8 @@ def _render_page(template_name: str, request: Request, **context: Any) -> HTMLRe
     )
 
 
-async def _database_management_context() -> dict[str, Any]:
-    """Build database management statistics context."""
+async def _storage_management_context() -> dict[str, Any]:
+    """Build storage management statistics context."""
     try:
         collections_info = []
         collection_models = {}
@@ -61,16 +61,24 @@ async def _database_management_context() -> dict[str, Any]:
             )
 
         return {
+            "storage_snapshot": storage_info,
+            "storage_sources": storage_info.get("sources", []),
             "storage_used_mb": storage_info.get("used_mb"),
+            "database_logical_mb": storage_info.get("database_logical_mb"),
+            "storage_updated_at": storage_info.get("updated_at"),
             "collections": collections_info,
-            "database_error": None,
+            "storage_error": storage_info.get("error"),
         }
     except Exception as exc:
-        logger.exception("Error loading database management data")
+        logger.exception("Error loading storage management data")
         return {
+            "storage_snapshot": {},
+            "storage_sources": [],
             "storage_used_mb": None,
+            "database_logical_mb": None,
+            "storage_updated_at": None,
             "collections": [],
-            "database_error": str(exc),
+            "storage_error": str(exc),
         }
 
 
@@ -96,7 +104,7 @@ async def settings_page(request: Request):
     return _render_page(
         "settings.html",
         request,
-        **(await _database_management_context()),
+        **(await _storage_management_context()),
     )
 
 
@@ -169,7 +177,7 @@ async def coverage_management_page(request: Request):
 @router.get("/database-management", response_class=RedirectResponse)
 async def database_management_page(request: Request):
     """Redirect database management to settings tab."""
-    return RedirectResponse(url="/settings#database", status_code=301)
+    return RedirectResponse(url="/settings#storage", status_code=301)
 
 
 @router.get("/app-settings", response_class=HTMLResponse)

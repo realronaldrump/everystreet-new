@@ -12,6 +12,7 @@ export function setupTabSwitching({ signal } = {}) {
   const LEGACY_TAB_MAP = {
     "background-tasks": "sync-settings",
     bouncie: "credentials",
+    database: "storage",
   };
 
   const normalizeTabName = (value) => {

@@ -687,7 +687,7 @@ export default function initSettingsPage({ cleanup, signal } = {}) {
   // Initialize app settings (tabs, preferences)
   initAppSettings({ signal });
 
-  // Initialize database management tab
+  // Initialize storage management tab
   initDatabaseManagement({ signal });
 
   // Initialize InvalidTripReview
