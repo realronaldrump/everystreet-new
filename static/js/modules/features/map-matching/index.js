@@ -8,8 +8,8 @@ import notificationManager from "../../ui/notifications.js";
 import { DateUtils } from "../../utils.js";
 import { clearInlineStatus, setInlineStatus } from "../settings/status-utils.js";
 
-const mapboxgl = globalThis.mapboxgl;
-const flatpickr = globalThis.flatpickr;
+const { mapboxgl } = globalThis;
+const { flatpickr } = globalThis;
 
 let elements = {};
 
@@ -88,6 +88,38 @@ function cacheElements() {
     historyFab: document.getElementById("mm-history-fab"),
     drawerBackdrop: document.getElementById("mm-drawer-backdrop"),
     drawerClose: document.getElementById("mm-drawer-close"),
+    // Browse/Quick action elements
+    browseMatchedBtn: document.getElementById("mm-browse-matched-btn"),
+    browseFailedBtn: document.getElementById("mm-browse-failed-btn"),
+    failedCountBadge: document.getElementById("mm-failed-count"),
+    // Results headers
+    resultsHeaderSuccess: document.getElementById("mm-results-header-success"),
+    resultsHeaderBrowse: document.getElementById("mm-results-header-browse"),
+    resultsHeaderFailed: document.getElementById("mm-results-header-failed"),
+    browseSummary: document.getElementById("mm-browse-summary"),
+    browseRefreshBtn: document.getElementById("mm-browse-refresh-btn"),
+    browseBackBtn: document.getElementById("mm-browse-back-btn"),
+    failedSummary: document.getElementById("mm-failed-summary"),
+    failedRefreshBtn: document.getElementById("mm-failed-refresh-btn"),
+    failedBackBtn: document.getElementById("mm-failed-back-btn"),
+    // Tabs
+    resultsTabs: document.getElementById("mm-results-tabs"),
+    tabMatched: document.getElementById("mm-tab-matched"),
+    tabFailed: document.getElementById("mm-tab-failed"),
+    tabMatchedCount: document.getElementById("mm-tab-matched-count"),
+    tabFailedCount: document.getElementById("mm-tab-failed-count"),
+    // Failed trips list
+    matchedListContainer: document.getElementById("mm-matched-list-container"),
+    failedListContainer: document.getElementById("mm-failed-list-container"),
+    failedTrips: document.getElementById("mm-failed-trips"),
+    failedListCount: document.getElementById("mm-failed-list-count"),
+    failedBulkActions: document.getElementById("mm-failed-bulk-actions"),
+    failedSelectionCount: document.getElementById("mm-failed-selection-count"),
+    retrySelectedBtn: document.getElementById("mm-retry-selected-btn"),
+    deleteFailedSelectedBtn: document.getElementById("mm-delete-failed-selected-btn"),
+    failedSelectAll: document.getElementById("mm-failed-select-all"),
+    retryAllBtn: document.getElementById("mm-retry-all-btn"),
+    matchMoreContainer: document.getElementById("mm-match-more-container"),
   };
 }
 
@@ -106,6 +138,17 @@ let jobsPollTimer = null;
 let matchedSelection = new Set();
 let selectedQuickPick = null;
 let pageSignal = null;
+let failedTripsData = [];
+let failedSelection = new Set();
+
+// Result modes for the results phase
+const RESULT_MODES = {
+  JOB: "job", // Showing results from a specific job
+  BROWSE_MATCHED: "browse_matched", // Browsing all matched trips
+  BROWSE_FAILED: "browse_failed", // Browsing failed trips
+};
+
+let currentResultMode = RESULT_MODES.JOB;
 
 const withSignal = (options = {}) =>
   pageSignal ? { ...options, signal: pageSignal } : options;
@@ -127,6 +170,45 @@ const FRIENDLY_MESSAGES = {
   error: "Something went wrong",
   cancelled: "Cancelled by user",
 };
+
+// User-friendly failure reasons
+function formatFailureReason(matchStatus) {
+  if (!matchStatus) {
+    return "Unknown issue";
+  }
+
+  const status = String(matchStatus).toLowerCase();
+
+  if (status.startsWith("skipped:no-gps") || status.includes("no gps")) {
+    return "No GPS data recorded";
+  }
+  if (status.startsWith("skipped:single-point") || status.includes("single point")) {
+    return "Only one location point";
+  }
+  if (status.startsWith("skipped:insufficient") || status.includes("insufficient")) {
+    return "Not enough coordinates";
+  }
+  if (status.startsWith("error:no-geometry") || status.includes("no geometry")) {
+    return "No route geometry returned";
+  }
+  if (status.startsWith("error:") || status.includes("error")) {
+    // Extract message after 'error:'
+    const msg = status.replace(/^error:/, "").trim();
+    if (msg && msg !== "error") {
+      return msg.charAt(0).toUpperCase() + msg.slice(1);
+    }
+    return "Route matching failed";
+  }
+  if (status.startsWith("skipped:")) {
+    const reason = status
+      .replace(/^skipped:/, "")
+      .replace(/-/g, " ")
+      .trim();
+    return reason.charAt(0).toUpperCase() + reason.slice(1);
+  }
+
+  return matchStatus;
+}
 
 // ========================================
 // Phase State Machine
@@ -254,6 +336,9 @@ function resetState() {
   matchedSelection = new Set();
   selectedQuickPick = null;
   currentPhase = PHASES.SELECT;
+  currentResultMode = RESULT_MODES.JOB;
+  failedTripsData = [];
+  failedSelection = new Set();
   destroyPreviewMap();
 }
 
@@ -364,8 +449,8 @@ function updateProgressRing(pct) {
   if (!elements.progressRing) {
     return;
   }
-  const offset =
-    PROGRESS_RING_CIRCUMFERENCE - (pct / 100) * PROGRESS_RING_CIRCUMFERENCE;
+  const offset
+    = PROGRESS_RING_CIRCUMFERENCE - (pct / 100) * PROGRESS_RING_CIRCUMFERENCE;
   elements.progressRing.style.strokeDashoffset = offset;
 }
 
@@ -463,9 +548,9 @@ async function fetchJob(jobId) {
         setPhase(PHASES.RESULTS);
         loadMatchedPreview(jobId, { silent: true });
       } else if (
-        data.stage === "failed" ||
-        data.stage === "error" ||
-        data.stage === "cancelled"
+        data.stage === "failed"
+        || data.stage === "error"
+        || data.stage === "cancelled"
       ) {
         // Stay on process phase but show error state
         // User can click "Match More" to go back
@@ -531,8 +616,8 @@ function renderJobs(jobs) {
           const progress = job.progress ?? 0;
           const updated = formatFriendlyDate(job.updated_at);
           const isTerminal = isTerminalStage(status);
-          const statusClass =
-            status === "completed"
+          const statusClass
+            = status === "completed"
               ? "is-completed"
               : status === "cancelled"
                 ? "is-cancelled"
@@ -675,11 +760,9 @@ function renderPreview(data) {
     if (elements.previewSummary) {
       elements.previewSummary.textContent = "No trips found for this selection";
     }
-  } else {
-    if (elements.previewSummary) {
+  } else if (elements.previewSummary) {
       elements.previewSummary.textContent = `${total} trip${total !== 1 ? "s" : ""} ready to improve`;
     }
-  }
 
   // Render sample in hidden table for legacy compatibility
   const sample = data.sample || [];
@@ -1185,6 +1268,138 @@ function wireEvents(signal) {
     eventOptions
   );
 
+  // Browse matched trips button
+  elements.browseMatchedBtn?.addEventListener(
+    "click",
+    () => {
+      browseMatchedTrips();
+    },
+    eventOptions
+  );
+
+  // Browse failed trips button
+  elements.browseFailedBtn?.addEventListener(
+    "click",
+    () => {
+      browseFailedTrips();
+    },
+    eventOptions
+  );
+
+  // Browse back buttons (return to select)
+  elements.browseBackBtn?.addEventListener(
+    "click",
+    () => {
+      resetToSelect();
+    },
+    eventOptions
+  );
+
+  elements.failedBackBtn?.addEventListener(
+    "click",
+    () => {
+      resetToSelect();
+    },
+    eventOptions
+  );
+
+  // Browse refresh buttons
+  elements.browseRefreshBtn?.addEventListener(
+    "click",
+    () => {
+      browseMatchedTrips({ silent: true });
+    },
+    eventOptions
+  );
+
+  elements.failedRefreshBtn?.addEventListener(
+    "click",
+    () => {
+      browseFailedTrips({ silent: true });
+    },
+    eventOptions
+  );
+
+  // Tab switching
+  elements.tabMatched?.addEventListener(
+    "click",
+    () => {
+      switchTab("matched");
+    },
+    eventOptions
+  );
+
+  elements.tabFailed?.addEventListener(
+    "click",
+    () => {
+      switchTab("failed");
+    },
+    eventOptions
+  );
+
+  // Failed trips list event delegation
+  elements.failedTrips?.addEventListener(
+    "click",
+    (event) => {
+      const actionButton = event.target.closest("button[data-action]");
+      if (actionButton) {
+        const { tripId } = actionButton.dataset;
+        const { action } = actionButton.dataset;
+        if (tripId && action === "retry") {
+          retryMatchingTrips([tripId]);
+        } else if (tripId && action === "delete") {
+          deleteTrips([tripId]);
+        }
+        return;
+      }
+
+      const checkbox = event.target.closest(".failed-trip-select input");
+      if (checkbox) {
+        setFailedSelection(checkbox.dataset.tripId, checkbox.checked);
+      }
+    },
+    eventOptions
+  );
+
+  // Failed trips select all
+  elements.failedSelectAll?.addEventListener(
+    "change",
+    (event) => {
+      selectAllFailed(event.target.checked);
+    },
+    eventOptions
+  );
+
+  // Retry selected failed trips
+  elements.retrySelectedBtn?.addEventListener(
+    "click",
+    () => {
+      retryMatchingTrips(Array.from(failedSelection));
+    },
+    eventOptions
+  );
+
+  // Delete selected failed trips
+  elements.deleteFailedSelectedBtn?.addEventListener(
+    "click",
+    () => {
+      deleteTrips(Array.from(failedSelection));
+    },
+    eventOptions
+  );
+
+  // Retry all failed trips
+  elements.retryAllBtn?.addEventListener(
+    "click",
+    () => {
+      const allFailedIds = failedTripsData.map((t) => t.transactionId).filter(Boolean);
+      if (allFailedIds.length > 0) {
+        retryMatchingTrips(allFailedIds);
+      }
+    },
+    eventOptions
+  );
+
   const invalidateTargets = [
     elements.modeSelect,
     elements.dateModeSelect,
@@ -1550,8 +1765,8 @@ function updateMatchedPreviewTable(data) {
 
   // Update results count
   if (elements.resultsCount) {
-    elements.resultsCount.textContent =
-      total > 0 ? `${total} trip${total !== 1 ? "s" : ""}` : "No trips yet";
+    elements.resultsCount.textContent
+      = total > 0 ? `${total} trip${total !== 1 ? "s" : ""}` : "No trips yet";
   }
 
   if (!total) {
@@ -1844,6 +2059,328 @@ async function loadMatchedPreview(jobId, { silent = false } = {}) {
   }
 }
 
+// ========================================
+// Browse Mode Functions
+// ========================================
+
+function setResultMode(mode) {
+  currentResultMode = mode;
+
+  // Hide all headers first
+  elements.resultsHeaderSuccess?.classList.add("d-none");
+  elements.resultsHeaderBrowse?.classList.add("d-none");
+  elements.resultsHeaderFailed?.classList.add("d-none");
+
+  // Show/hide tabs based on mode
+  const showTabs = mode === RESULT_MODES.JOB;
+  elements.resultsTabs?.classList.toggle("d-none", !showTabs);
+
+  // Show/hide match more button (only in job mode)
+  elements.matchMoreContainer?.classList.toggle("d-none", mode !== RESULT_MODES.JOB);
+
+  // Show appropriate header and content
+  switch (mode) {
+    case RESULT_MODES.JOB:
+      elements.resultsHeaderSuccess?.classList.remove("d-none");
+      elements.matchedListContainer?.classList.remove("d-none");
+      elements.failedListContainer?.classList.add("d-none");
+      break;
+    case RESULT_MODES.BROWSE_MATCHED:
+      elements.resultsHeaderBrowse?.classList.remove("d-none");
+      elements.matchedListContainer?.classList.remove("d-none");
+      elements.failedListContainer?.classList.add("d-none");
+      break;
+    case RESULT_MODES.BROWSE_FAILED:
+      elements.resultsHeaderFailed?.classList.remove("d-none");
+      elements.matchedListContainer?.classList.add("d-none");
+      elements.failedListContainer?.classList.remove("d-none");
+      break;
+  }
+}
+
+function switchTab(tab) {
+  // Update tab buttons
+  elements.tabMatched?.classList.toggle("is-active", tab === "matched");
+  elements.tabFailed?.classList.toggle("is-active", tab === "failed");
+
+  // Show/hide content
+  elements.matchedListContainer?.classList.toggle("d-none", tab !== "matched");
+  elements.failedListContainer?.classList.toggle("d-none", tab !== "failed");
+}
+
+async function browseMatchedTrips({ silent = false } = {}) {
+  setPhase(PHASES.RESULTS);
+  setResultMode(RESULT_MODES.BROWSE_MATCHED);
+
+  clearInlineStatus(elements.previewMapStatus);
+  clearInlineStatus(elements.previewActionsStatus);
+
+  try {
+    matchedPreviewSelectedId = null;
+    setFocusedTripUI(null);
+    matchedSelection = new Set();
+
+    if (!silent) {
+      setInlineStatus(elements.previewMapStatus, "Loading matched trips...", "info");
+    }
+
+    // Fetch all matched trips
+    const response = await apiGet(`${CONFIG.API.matchedTrips}?limit=100`);
+    const trips = response?.trips || [];
+
+    // Update summary
+    if (elements.browseSummary) {
+      elements.browseSummary.textContent
+        = trips.length > 0
+          ? `${trips.length} matched trip${trips.length !== 1 ? "s" : ""}`
+          : "No matched trips yet";
+    }
+
+    // Update table/cards
+    updateMatchedPreviewTable({ total: trips.length, sample: trips });
+
+    // Update map with geojson if available
+    if (response?.geojson) {
+      updateMatchedPreviewMap(response.geojson);
+    } else {
+      // Build geojson from trips that have geometry
+      const features = trips
+        .filter((t) => t.matchedGps?.coordinates)
+        .map((t) => ({
+          type: "Feature",
+          properties: { transactionId: t.transactionId },
+          geometry: t.matchedGps,
+        }));
+
+      if (features.length > 0) {
+        updateMatchedPreviewMap({ type: "FeatureCollection", features });
+      } else {
+        updateMatchedPreviewEmptyState("No routes to display");
+      }
+    }
+
+    clearInlineStatus(elements.previewMapStatus);
+  } catch (error) {
+    console.error("Failed to load matched trips", error);
+    setInlineStatus(elements.previewMapStatus, error.message, "danger");
+  }
+}
+
+async function browseFailedTrips({ silent = false } = {}) {
+  setPhase(PHASES.RESULTS);
+  setResultMode(RESULT_MODES.BROWSE_FAILED);
+
+  try {
+    failedTripsData = [];
+    failedSelection = new Set();
+
+    if (!silent) {
+      setInlineStatus(elements.previewMapStatus, "Loading failed trips...", "info");
+    }
+
+    // Fetch trips with failed/skipped match status
+    const response = await apiGet(`${CONFIG.API.failedTrips}?limit=100`);
+    const trips = response?.trips || [];
+    failedTripsData = trips;
+
+    // Update summary
+    if (elements.failedSummary) {
+      elements.failedSummary.textContent
+        = trips.length > 0
+          ? `${trips.length} trip${trips.length !== 1 ? "s" : ""} with issues`
+          : "No failed trips";
+    }
+
+    // Update count badge
+    if (elements.failedCountBadge) {
+      elements.failedCountBadge.textContent = trips.length;
+      elements.failedCountBadge.classList.toggle("d-none", trips.length === 0);
+    }
+
+    // Render failed trips list
+    renderFailedTrips(trips);
+
+    // Update map - show empty state for failed trips
+    updateMatchedPreviewEmptyState("Select trips to retry matching");
+
+    clearInlineStatus(elements.previewMapStatus);
+  } catch (error) {
+    console.error("Failed to load failed trips", error);
+    setInlineStatus(elements.previewMapStatus, error.message, "danger");
+  }
+}
+
+function renderFailedTrips(trips) {
+  if (!elements.failedTrips) {
+    return;
+  }
+
+  // Update count
+  if (elements.failedListCount) {
+    elements.failedListCount.textContent
+      = trips.length > 0
+        ? `${trips.length} trip${trips.length !== 1 ? "s" : ""} with issues`
+        : "No issues";
+  }
+
+  if (trips.length === 0) {
+    elements.failedTrips.innerHTML = `
+      <div class="mm-failed-empty">
+        <i class="fas fa-check-circle"></i>
+        <div>No failed trips found</div>
+      </div>
+    `;
+    return;
+  }
+
+  elements.failedTrips.innerHTML = trips
+    .map((trip) => {
+      const tripId = trip.transactionId || "";
+      const dateStr = formatTripDate(trip.startTime);
+      const reason = formatFailureReason(trip.matchStatus);
+      const isSelected = failedSelection.has(String(tripId));
+
+      return `
+        <div class="failed-trip" data-trip-id="${tripId}">
+          <div class="failed-trip-select">
+            <input type="checkbox" class="form-check-input" data-trip-id="${tripId}" ${isSelected ? "checked" : ""} />
+          </div>
+          <div class="failed-trip-info">
+            <div class="failed-trip-date">${dateStr}</div>
+            <div class="failed-trip-reason">
+              <i class="fas fa-exclamation-circle"></i>
+              <span>${reason}</span>
+            </div>
+          </div>
+          <div class="failed-trip-actions">
+            <button class="btn btn-ghost btn-sm mm-btn-retry" data-action="retry" data-trip-id="${tripId}" title="Retry matching">
+              <i class="fas fa-redo"></i>
+            </button>
+            <button class="btn btn-ghost btn-sm text-danger" data-action="delete" data-trip-id="${tripId}" title="Delete trip">
+              <i class="fas fa-trash"></i>
+            </button>
+          </div>
+        </div>
+      `;
+    })
+    .join("");
+
+  updateFailedSelectionUI();
+}
+
+function updateFailedSelectionUI() {
+  const total = failedTripsData.length;
+  const selectedCount = failedSelection.size;
+
+  if (elements.failedSelectionCount) {
+    elements.failedSelectionCount.textContent = `${selectedCount} selected`;
+  }
+
+  // Show/hide bulk actions
+  if (elements.failedBulkActions) {
+    elements.failedBulkActions.classList.toggle("d-none", selectedCount === 0);
+  }
+
+  if (elements.failedSelectAll) {
+    const allSelected = total > 0 && selectedCount === total;
+    elements.failedSelectAll.checked = allSelected;
+    elements.failedSelectAll.indeterminate = selectedCount > 0 && !allSelected;
+    elements.failedSelectAll.disabled = total === 0;
+  }
+
+  const disableActions = selectedCount === 0;
+  if (elements.retrySelectedBtn) {
+    elements.retrySelectedBtn.disabled = disableActions;
+  }
+  if (elements.deleteFailedSelectedBtn) {
+    elements.deleteFailedSelectedBtn.disabled = disableActions;
+  }
+}
+
+function setFailedSelection(tripId, checked) {
+  if (!tripId) {
+    return;
+  }
+  const normalized = String(tripId);
+  if (checked) {
+    failedSelection.add(normalized);
+  } else {
+    failedSelection.delete(normalized);
+  }
+
+  // Update checkbox in DOM
+  const checkbox = elements.failedTrips?.querySelector(
+    `input[data-trip-id="${tripId}"]`
+  );
+  if (checkbox) {
+    checkbox.checked = checked;
+  }
+
+  updateFailedSelectionUI();
+}
+
+function selectAllFailed(checked) {
+  failedSelection = new Set();
+  if (checked) {
+    failedTripsData.forEach((trip) => {
+      if (trip.transactionId) {
+        failedSelection.add(String(trip.transactionId));
+      }
+    });
+  }
+
+  // Update all checkboxes
+  elements.failedTrips?.querySelectorAll('input[type="checkbox"]').forEach((cb) => {
+    cb.checked = checked;
+  });
+
+  updateFailedSelectionUI();
+}
+
+async function retryMatchingTrips(tripIds) {
+  if (!tripIds.length) {
+    return;
+  }
+
+  try {
+    setInlineStatus(elements.previewMapStatus, "Starting retry...", "info");
+
+    const payload = {
+      mode: "trip_ids",
+      trip_ids: tripIds,
+    };
+
+    const result = await apiPost(CONFIG.API.mapMatchingJobs, payload);
+    clearInlineStatus(elements.previewMapStatus);
+    notificationManager.show(
+      `Retrying ${tripIds.length} trip${tripIds.length !== 1 ? "s" : ""}`,
+      "success"
+    );
+
+    if (result?.job_id) {
+      startPolling(result.job_id);
+      loadJobs();
+    }
+  } catch (error) {
+    console.error("Failed to retry trips", error);
+    setInlineStatus(elements.previewMapStatus, error.message, "danger");
+    notificationManager.show(error.message, "danger");
+  }
+}
+
+async function loadFailedTripsCount() {
+  try {
+    const response = await apiGet(`${CONFIG.API.failedTrips}?limit=1`);
+    const count = response?.total || 0;
+    if (elements.failedCountBadge) {
+      elements.failedCountBadge.textContent = count;
+      elements.failedCountBadge.classList.toggle("d-none", count === 0);
+    }
+  } catch {
+    // Ignore errors for count badge
+  }
+}
+
 function focusMatchedPreviewTrip(tripId) {
   if (!tripId) {
     return;
@@ -1970,6 +2507,9 @@ export default async function initMapMatchingPage({ signal, cleanup } = {}) {
   if (!jobFromUrl) {
     await resumeFromJobs(jobs);
   }
+
+  // Load failed trips count for the badge
+  loadFailedTripsCount();
 
   const teardown = () => {
     stopPolling();

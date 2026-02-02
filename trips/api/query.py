@@ -118,6 +118,67 @@ async def get_matched_trips(request: Request):
     return StreamingResponse(stream(), media_type="application/geo+json")
 
 
+@router.get("/api/failed_trips", tags=["Trips API"])
+async def get_failed_trips(request: Request):
+    """
+    Get trips that failed map matching.
+
+    Returns trips with matchStatus starting with 'skipped:' or 'error:',
+    or trips that have no matchedGps and have been processed.
+    """
+    limit = _safe_int(request.query_params.get("limit", 100), 100)
+    limit = min(limit, 500)  # Cap at 500
+
+    # Query for failed/skipped match status
+    query = {
+        "$and": [
+            {"invalid": {"$ne": True}},
+            {
+                "$or": [
+                    {"matchStatus": {"$regex": "^skipped:", "$options": "i"}},
+                    {"matchStatus": {"$regex": "^error:", "$options": "i"}},
+                    {"matchStatus": {"$regex": "no-valid-geometry", "$options": "i"}},
+                ]
+            },
+        ]
+    }
+
+    trip_cursor = Trip.find(query).sort(-Trip.endTime).limit(limit)
+
+    trips = []
+    total = await Trip.find(query).count()
+
+    async for trip in trip_cursor:
+        try:
+            if hasattr(trip, "model_dump"):
+                trip_dict = trip.model_dump()
+            elif hasattr(trip, "dict"):
+                trip_dict = trip.dict()
+            else:
+                trip_dict = dict(trip)
+
+            st = parse_timestamp(trip_dict.get("startTime"))
+            et = parse_timestamp(trip_dict.get("endTime"))
+
+            trips.append(
+                {
+                    "transactionId": trip_dict.get("transactionId"),
+                    "imei": trip_dict.get("imei"),
+                    "startTime": st.isoformat() if st else None,
+                    "endTime": et.isoformat() if et else None,
+                    "distance": safe_float(trip_dict.get("distance"), 0),
+                    "startLocation": trip_dict.get("startLocation"),
+                    "destination": trip_dict.get("destination"),
+                    "matchStatus": trip_dict.get("matchStatus"),
+                }
+            )
+        except Exception:
+            logger.exception("Error processing failed trip")
+            continue
+
+    return {"total": total, "trips": trips}
+
+
 @router.get("/api/trips", tags=["Trips API"])
 async def get_trips(request: Request):
     """Stream all trips as GeoJSON to improve performance."""

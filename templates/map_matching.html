@@ -62,6 +62,19 @@
         </div>
       </div>
 
+      <!-- Quick Actions -->
+      <div class="mm-quick-actions">
+        <button type="button" class="mm-quick-action" id="mm-browse-matched-btn">
+          <i class="fas fa-check-double"></i>
+          <span>Browse Matched Trips</span>
+        </button>
+        <button type="button" class="mm-quick-action" id="mm-browse-failed-btn">
+          <i class="fas fa-exclamation-triangle"></i>
+          <span>Review Failed Trips</span>
+          <span class="mm-quick-action-badge d-none" id="mm-failed-count">0</span>
+        </button>
+      </div>
+
       <!-- Selection Card -->
       <div class="mm-selection-card">
         <h2 class="mm-section-title">What would you like to match?</h2>
@@ -337,7 +350,7 @@
     <section class="mm-phase" data-phase="results" role="region" aria-labelledby="mm-results-heading">
       <div class="mm-results-card">
         <!-- Success Header -->
-        <div class="mm-results-header">
+        <div class="mm-results-header" id="mm-results-header-success">
           <div class="mm-results-icon">
             <i class="fas fa-check-circle"></i>
           </div>
@@ -363,6 +376,78 @@
           </div>
         </div>
 
+        <!-- Browse Mode Header (for viewing all matched trips) -->
+        <div class="mm-results-header mm-results-header-browse d-none" id="mm-results-header-browse">
+          <div class="mm-results-icon mm-results-icon-browse">
+            <i class="fas fa-map-marked-alt"></i>
+          </div>
+          <div class="mm-results-summary">
+            <h2 class="mm-results-title">Matched Trips</h2>
+            <p class="mm-results-desc" id="mm-browse-summary">
+              All your previously matched trips
+            </p>
+          </div>
+          <div class="mm-results-actions">
+            <button
+              class="btn mm-btn-secondary btn-sm"
+              id="mm-browse-refresh-btn"
+            >
+              <i class="fas fa-sync"></i>
+              Refresh
+            </button>
+            <button
+              class="btn mm-btn-secondary btn-sm"
+              id="mm-browse-back-btn"
+            >
+              <i class="fas fa-arrow-left"></i>
+              Back
+            </button>
+          </div>
+        </div>
+
+        <!-- Failed Trips Header -->
+        <div class="mm-results-header mm-results-header-failed d-none" id="mm-results-header-failed">
+          <div class="mm-results-icon mm-results-icon-warning">
+            <i class="fas fa-exclamation-triangle"></i>
+          </div>
+          <div class="mm-results-summary">
+            <h2 class="mm-results-title">Failed Trips</h2>
+            <p class="mm-results-desc" id="mm-failed-summary">
+              Some trips couldn't be matched
+            </p>
+          </div>
+          <div class="mm-results-actions">
+            <button
+              class="btn mm-btn-secondary btn-sm"
+              id="mm-failed-refresh-btn"
+            >
+              <i class="fas fa-sync"></i>
+              Refresh
+            </button>
+            <button
+              class="btn mm-btn-secondary btn-sm"
+              id="mm-failed-back-btn"
+            >
+              <i class="fas fa-arrow-left"></i>
+              Back
+            </button>
+          </div>
+        </div>
+
+        <!-- Results Tabs (for job results) -->
+        <div class="mm-results-tabs" id="mm-results-tabs">
+          <button class="mm-results-tab is-active" data-tab="matched" id="mm-tab-matched">
+            <i class="fas fa-check"></i>
+            <span>Matched</span>
+            <span class="mm-tab-count" id="mm-tab-matched-count">0</span>
+          </button>
+          <button class="mm-results-tab" data-tab="failed" id="mm-tab-failed">
+            <i class="fas fa-exclamation-circle"></i>
+            <span>Issues</span>
+            <span class="mm-tab-count mm-tab-count-warning" id="mm-tab-failed-count">0</span>
+          </button>
+        </div>
+
         <!-- Map -->
         <div class="mm-results-map-container">
           <div
@@ -382,8 +467,8 @@
           </div>
         </div>
 
-        <!-- Trip List -->
-        <div class="mm-results-list">
+        <!-- Matched Trip List (default tab) -->
+        <div class="mm-results-list" id="mm-matched-list-container">
           <div class="mm-results-list-header">
             <span class="mm-results-count" id="map-match-results-count">No trips yet</span>
             <div class="mm-bulk-actions d-none" id="map-match-bulk-actions">
@@ -450,8 +535,57 @@
           </div>
         </div>
 
+        <!-- Failed Trip List (shown when failed tab active) -->
+        <div class="mm-results-list mm-failed-list d-none" id="mm-failed-list-container">
+          <div class="mm-results-list-header">
+            <span class="mm-results-count" id="mm-failed-list-count">No issues</span>
+            <div class="mm-bulk-actions d-none" id="mm-failed-bulk-actions">
+              <span class="mm-bulk-count" id="mm-failed-selection-count">0 selected</span>
+              <button
+                class="btn btn-ghost btn-sm mm-btn-retry"
+                id="mm-retry-selected-btn"
+                disabled
+                title="Retry matching"
+              >
+                <i class="fas fa-redo"></i>
+                Retry
+              </button>
+              <button
+                class="btn btn-ghost btn-sm text-danger"
+                id="mm-delete-failed-selected-btn"
+                disabled
+                title="Delete trips"
+              >
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+          </div>
+          <div class="mm-results-list-scroll">
+            <div class="mm-failed-trips" id="mm-failed-trips">
+              <!-- Failed trip cards will be rendered here -->
+            </div>
+          </div>
+          <div class="mm-results-list-footer">
+            <label class="mm-select-all">
+              <input
+                type="checkbox"
+                id="mm-failed-select-all"
+                class="form-check-input"
+              />
+              <span>Select all</span>
+            </label>
+            <button
+              class="btn mm-btn-secondary btn-sm"
+              id="mm-retry-all-btn"
+            >
+              <i class="fas fa-redo"></i>
+              Retry All
+            </button>
+          </div>
+        </div>
+
         <!-- Match More Button -->
-        <div class="mm-match-more">
+        <div class="mm-match-more" id="mm-match-more-container">
           <button type="button" class="btn mm-btn-primary" id="mm-match-more-btn">
             <i class="fas fa-plus"></i>
             Match More Trips

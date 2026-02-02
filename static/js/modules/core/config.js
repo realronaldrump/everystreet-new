@@ -54,6 +54,7 @@ export const CONFIG = {
     matchedTrips: "/api/matched_trips",
     matchedTripById: (id) => `/api/matched_trips/${id}`,
     matchedTripsBulkUnmatch: "/api/matched_trips/bulk_unmatch",
+    failedTrips: "/api/failed_trips",
     mapMatchTrips: "/api/map_match_trips",
     mapMatchingJobs: "/api/map_matching/jobs",
     mapMatchingJob: (id) => `/api/map_matching/jobs/${id}`,
@@ -216,8 +217,8 @@ export const CONFIG = {
     },
     animations: {
       enabled:
-        typeof window !== "undefined"
-        && !window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+        typeof window !== "undefined" &&
+        !window.matchMedia("(prefers-reduced-motion: reduce)").matches,
     },
   },
 };

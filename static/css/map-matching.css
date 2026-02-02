@@ -1329,6 +1329,241 @@
   color: var(--danger) !important;
 }
 
+/* === Quick Actions === */
+.mm-quick-actions {
+  display: flex;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.mm-quick-action {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-xl);
+  background: var(--surface-2);
+  border: 1px solid rgb(var(--border-rgb) / 12%);
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.mm-quick-action:hover {
+  background: var(--surface-3);
+  border-color: rgb(var(--border-rgb) / 20%);
+  color: var(--text-primary);
+}
+
+.mm-quick-action i {
+  font-size: var(--font-size-base);
+  color: var(--text-tertiary);
+  transition: color var(--transition-fast);
+}
+
+.mm-quick-action:hover i {
+  color: var(--primary);
+}
+
+.mm-quick-action-badge {
+  min-width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-full);
+  background: var(--warning);
+  color: white;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+}
+
+/* === Results Tabs === */
+.mm-results-tabs {
+  display: flex;
+  border-bottom: 1px solid rgb(var(--border-rgb) / 10%);
+  background: var(--surface-2);
+}
+
+.mm-results-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-tertiary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.mm-results-tab:hover {
+  color: var(--text-secondary);
+  background: rgb(var(--border-rgb) / 5%);
+}
+
+.mm-results-tab.is-active {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+}
+
+.mm-tab-count {
+  min-width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-full);
+  background: rgb(var(--border-rgb) / 15%);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+}
+
+.mm-results-tab.is-active .mm-tab-count {
+  background: rgb(var(--primary-rgb) / 15%);
+  color: var(--primary);
+}
+
+.mm-tab-count-warning {
+  background: rgb(var(--warning-rgb) / 15%);
+  color: var(--warning);
+}
+
+/* === Results Header Variants === */
+.mm-results-header-browse {
+  background: rgb(var(--primary-rgb) / 8%);
+}
+
+.mm-results-icon-browse {
+  background: var(--primary);
+}
+
+.mm-results-header-failed {
+  background: rgb(var(--warning-rgb) / 8%);
+}
+
+.mm-results-icon-warning {
+  background: var(--warning);
+}
+
+/* === Failed Trips List === */
+.mm-failed-list {
+  border-top: none;
+}
+
+.mm-failed-trips {
+  display: flex;
+  flex-direction: column;
+}
+
+.failed-trip {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid rgb(var(--border-rgb) / 6%);
+  transition: background var(--transition-fast);
+}
+
+.failed-trip:hover {
+  background: rgb(var(--warning-rgb) / 4%);
+}
+
+.failed-trip:last-child {
+  border-bottom: none;
+}
+
+.failed-trip-select {
+  flex-shrink: 0;
+  padding-top: var(--space-1);
+}
+
+.failed-trip-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.failed-trip-date {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-primary);
+  margin-bottom: var(--space-1);
+}
+
+.failed-trip-reason {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.failed-trip-reason i {
+  color: var(--warning);
+  font-size: var(--font-size-xs);
+}
+
+.failed-trip-actions {
+  display: flex;
+  gap: var(--space-1);
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.failed-trip:hover .failed-trip-actions {
+  opacity: 1;
+}
+
+.mm-btn-retry {
+  color: var(--primary);
+}
+
+.mm-btn-retry:hover {
+  background: rgb(var(--primary-rgb) / 10%);
+  color: var(--primary);
+}
+
+/* === Empty State for Failed === */
+.mm-failed-empty {
+  padding: var(--space-6);
+  text-align: center;
+  color: var(--text-tertiary);
+}
+
+.mm-failed-empty i {
+  font-size: 2rem;
+  margin-bottom: var(--space-2);
+  opacity: 0.5;
+}
+
+/* === Mobile Adjustments === */
+@media (width <= 768px) {
+  .mm-quick-actions {
+    flex-direction: column;
+  }
+
+  .mm-results-tab {
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--font-size-xs);
+  }
+
+  .failed-trip-actions {
+    opacity: 1;
+  }
+}
+
 /* === Legacy compatibility - hidden elements === */
 .map-matching-hero,
 .map-matching-form,
