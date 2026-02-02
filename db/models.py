@@ -29,7 +29,7 @@ from typing import Any, ClassVar
 
 from beanie import Document, Indexed, PydanticObjectId
 from beanie.odm.fields import IndexModel
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from core.date_utils import parse_timestamp
 from core.spatial import GeometryService
@@ -98,16 +98,6 @@ class Trip(Document):
     validated_at: datetime | None = None
     validation_status: str | None = None
     validation_message: str | None = None
-
-    @model_validator(mode="before")
-    @classmethod
-    def normalize_idle_duration(cls, data: Any) -> Any:
-        if isinstance(data, dict):
-            idle_duration = data.get("totalIdleDuration")
-            if idle_duration is None and "totalIdlingTime" in data:
-                data["totalIdleDuration"] = data.get("totalIdlingTime")
-            data.pop("totalIdlingTime", None)
-        return data
 
     @field_validator(
         "startTime",

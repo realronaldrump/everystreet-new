@@ -21,7 +21,7 @@ class ExportSerializerTests(unittest.TestCase):
             "endTime": "2024-01-01T01:00:00Z",
             "distance": 12.5,
             "avgSpeed": 25.5,
-            "hardBrakingCount": 2,
+            "hardBrakingCounts": 2,
             "startLocation": {"formatted_address": "Start"},
             "destination": {"formatted_address": "End"},
             "gps": {"type": "LineString", "coordinates": [[-97.0, 32.0]]},

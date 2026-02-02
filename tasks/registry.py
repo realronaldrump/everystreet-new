@@ -16,12 +16,6 @@ TASK_DEFINITIONS: dict[str, dict[str, object]] = {
         "dependencies": [],
         "description": "Fetches trips from the Bouncie API periodically",
     },
-    "cleanup_stale_trips": {
-        "display_name": "Cleanup Stale Trips",
-        "default_interval_minutes": 60,
-        "dependencies": [],
-        "description": "Completes active trips that haven't been updated recently",
-    },
     "validate_trips": {
         "display_name": "Validate Trips",
         "default_interval_minutes": 720,

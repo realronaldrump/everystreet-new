@@ -43,7 +43,6 @@ class TripProcessingProjection(BaseModel):
     endTime: Any | None = None
     lastUpdate: Any | None = None
     totalIdleDuration: float | None = None
-    totalIdlingTime: float | None = None
     source: str | None = None
     distance: float | None = None
 

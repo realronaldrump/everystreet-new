@@ -2,7 +2,6 @@
 Maintenance tasks for trip data.
 
 This module provides ARQ jobs for maintaining trip data quality:
-- cleanup_stale_trips: Completes stale active trips
 - validate_trips: Validates trip data and marks invalid records
 - remap_unmatched_trips: Attempts to map-match trips that previously failed
 """
@@ -20,48 +19,11 @@ from pydantic import ValidationError
 from db.models import Trip
 from tasks.config import check_dependencies
 from tasks.ops import run_task_with_history
-from tracking.services.tracking_service import TrackingService
 from trips.models import MapMatchJobRequest
 from trips.services.map_matching_jobs import MapMatchingJobRunner
 
 logger = logging.getLogger(__name__)
 
-
-async def _cleanup_stale_trips_logic() -> dict[str, Any]:
-    """Async logic for completing stale active trips."""
-
-    cleanup_result = await TrackingService.cleanup_stale_trips()
-
-    stale_completed_count = cleanup_result.get("stale_trips_archived", 0)
-    old_removed_count = cleanup_result.get("old_archives_removed", 0)
-    logger.info(
-        "Cleanup logic completed: Completed %d stale active trips, "
-        "removed %d old trips.",
-        stale_completed_count,
-        old_removed_count,
-    )
-
-    return {
-        "status": "success",
-        "message": (
-            f"Completed {stale_completed_count} stale trips, "
-            f"removed {old_removed_count} old trips."
-        ),
-        "details": cleanup_result,
-    }
-
-
-async def cleanup_stale_trips(
-    ctx: dict[str, Any],
-    manual_run: bool = False,
-) -> dict[str, Any]:
-    """ARQ job for completing stale active trips."""
-    return await run_task_with_history(
-        ctx,
-        "cleanup_stale_trips",
-        _cleanup_stale_trips_logic,
-        manual_run=manual_run,
-    )
 
 
 async def _validate_trips_logic() -> dict[str, Any]:

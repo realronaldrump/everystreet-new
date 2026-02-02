@@ -424,7 +424,7 @@ class TripQueryService:
 
             total_idle_duration = trip_dict.get("totalIdleDuration")
             if total_idle_duration is None:
-                total_idle_duration = trip_dict.get("totalIdlingTime", 0)
+                total_idle_duration = trip_dict.get("totalIdleDuration", 0)
 
             formatted_trip = {
                 "transactionId": trip_dict.get("transactionId", ""),

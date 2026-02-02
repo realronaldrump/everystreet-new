@@ -15,7 +15,6 @@ from tasks.arq import get_redis_settings
 from tasks.coverage import update_coverage_for_new_trips
 from tasks.cron import (
     cron_auto_provision_map_data,
-    cron_cleanup_stale_trips,
     cron_monitor_map_data_jobs,
     cron_periodic_fetch_trips,
     cron_remap_unmatched_trips,
@@ -29,7 +28,7 @@ from tasks.fetch import (
     periodic_fetch_trips,
 )
 from tasks.health import worker_heartbeat
-from tasks.maintenance import cleanup_stale_trips, remap_unmatched_trips, validate_trips
+from tasks.maintenance import remap_unmatched_trips, validate_trips
 from tasks.map_data import (
     SETUP_JOB_TIMEOUT_SECONDS,
     auto_provision_check,
@@ -81,7 +80,6 @@ class WorkerSettings:
         fetch_trip_by_transaction_id,
         manual_fetch_trips_range,
         fetch_all_missing_trips,
-        cleanup_stale_trips,
         validate_trips,
         remap_unmatched_trips,
         map_match_trips,
@@ -95,7 +93,6 @@ class WorkerSettings:
     ]
     cron_jobs: ClassVar[list[object]] = [
         cron(cron_periodic_fetch_trips, timeout=PERIODIC_FETCH_TIMEOUT_SECONDS),
-        cron(cron_cleanup_stale_trips),
         cron(cron_validate_trips),
         cron(cron_remap_unmatched_trips),
         cron(cron_update_coverage_for_new_trips),

@@ -139,7 +139,6 @@ async def complete_setup() -> dict[str, Any]:
 
     await set_global_disable(False)
     await _enable_task("periodic_fetch_trips", 5)
-    await _enable_task("cleanup_stale_trips", 60)
 
     initial_fetch = None
     try:

@@ -100,7 +100,7 @@ const tripInteractions = {
           </div>
           <div class="popup-detail">
             <span class="popup-label">Avg Speed:</span>
-            <span>${formatNumber(props.averageSpeed || props.avgSpeed)} mph</span>
+            <span>${formatNumber(props.avgSpeed)} mph</span>
           </div>
           <div class="popup-detail">
             <span class="popup-label">Max Speed:</span>

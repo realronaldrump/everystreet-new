@@ -45,17 +45,6 @@ def _get_value(source: Any, key: str) -> Any:
     return getattr(source, key, None)
 
 
-def _get_value_with_fallback(source: Any, key: str, *fallbacks: str) -> Any:
-    value = _get_value(source, key)
-    if value is not None:
-        return value
-    for fallback in fallbacks:
-        value = _get_value(source, fallback)
-        if value is not None:
-            return value
-    return None
-
-
 def _get_trip_id(trip: Any) -> str | None:
     if isinstance(trip, dict):
         trip_id = trip.get("tripId") or trip.get("_id") or trip.get("id")
@@ -104,23 +93,11 @@ def build_trip_values(trip: Any) -> dict[str, Any]:
         "distance": _get_value(trip, "distance"),
         "currentSpeed": _get_value(trip, "currentSpeed"),
         "maxSpeed": _get_value(trip, "maxSpeed"),
-        "avgSpeed": _get_value_with_fallback(trip, "avgSpeed", "averageSpeed"),
+        "avgSpeed": _get_value(trip, "avgSpeed"),
         "pointsRecorded": _get_value(trip, "pointsRecorded"),
-        "totalIdleDuration": _get_value_with_fallback(
-            trip,
-            "totalIdleDuration",
-            "totalIdlingTime",
-        ),
-        "hardBrakingCounts": _get_value_with_fallback(
-            trip,
-            "hardBrakingCounts",
-            "hardBrakingCount",
-        ),
-        "hardAccelerationCounts": _get_value_with_fallback(
-            trip,
-            "hardAccelerationCounts",
-            "hardAccelerationCount",
-        ),
+        "totalIdleDuration": _get_value(trip, "totalIdleDuration"),
+        "hardBrakingCounts": _get_value(trip, "hardBrakingCounts"),
+        "hardAccelerationCounts": _get_value(trip, "hardAccelerationCounts"),
         "fuelConsumed": _get_value(trip, "fuelConsumed"),
         "startOdometer": _get_value(trip, "startOdometer"),
         "endOdometer": _get_value(trip, "endOdometer"),

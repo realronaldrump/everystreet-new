@@ -10,6 +10,7 @@ from fastapi import HTTPException, status
 from pydantic import ValidationError
 
 from admin.services.admin_service import AdminService
+from core.bouncie_normalization import normalize_rest_trip_payload
 from config import require_nominatim_reverse_url, require_valhalla_trace_route_url
 from core.date_utils import get_current_utc_time
 from db.models import Trip
@@ -308,11 +309,14 @@ class TripService:
             unique_trips: list[dict[str, Any]] = []
             seen_incoming: set[str] = set()
             for t in trips_data:
-                tx = t.get("transactionId")
+                if not isinstance(t, dict):
+                    continue
+                normalized_trip = normalize_rest_trip_payload(t)
+                tx = normalized_trip.get("transactionId")
                 if not tx or tx in seen_incoming:
                     continue
                 seen_incoming.add(tx)
-                unique_trips.append(t)
+                unique_trips.append(normalized_trip)
 
             trips_to_handle = []
             existing_by_id: dict[str, Any] = {}
@@ -398,7 +402,7 @@ class TripService:
                         result = await self.process_single_trip(
                             trip,
                             options,
-                            source="api",
+                            source="bouncie",
                             do_coverage=True,
                         )
                     except Exception:
@@ -421,7 +425,7 @@ class TripService:
                     merged = await self._merge_existing_trip(
                         existing_doc,
                         trip,
-                        source="api",
+                        source="bouncie",
                     )
                     if merged:
                         processed_trip_ids.append(transaction_id)

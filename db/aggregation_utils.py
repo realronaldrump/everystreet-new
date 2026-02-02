@@ -51,7 +51,7 @@ def build_trip_numeric_fields_stage() -> dict[str, Any]:
             },
             "avgSpeedValue": {
                 "$convert": {
-                    "input": {"$ifNull": ["$avgSpeed", "$averageSpeed"]},
+                    "input": "$avgSpeed",
                     "to": "double",
                     "onError": 0.0,
                     "onNull": 0.0,
@@ -59,7 +59,7 @@ def build_trip_numeric_fields_stage() -> dict[str, Any]:
             },
             "idleSeconds": {
                 "$convert": {
-                    "input": {"$ifNull": ["$totalIdleDuration", "$totalIdlingTime"]},
+                    "input": "$totalIdleDuration",
                     "to": "double",
                     "onError": 0.0,
                     "onNull": 0.0,
@@ -67,12 +67,7 @@ def build_trip_numeric_fields_stage() -> dict[str, Any]:
             },
             "hardBrakingVal": {
                 "$convert": {
-                    "input": {
-                        "$ifNull": [
-                            "$hardBrakingCounts",
-                            {"$ifNull": ["$hardBrakingCount", 0]},
-                        ],
-                    },
+                    "input": "$hardBrakingCounts",
                     "to": "double",
                     "onError": 0.0,
                     "onNull": 0.0,
@@ -80,12 +75,7 @@ def build_trip_numeric_fields_stage() -> dict[str, Any]:
             },
             "hardAccelVal": {
                 "$convert": {
-                    "input": {
-                        "$ifNull": [
-                            "$hardAccelerationCounts",
-                            {"$ifNull": ["$hardAccelerationCount", 0]},
-                        ],
-                    },
+                    "input": "$hardAccelerationCounts",
                     "to": "double",
                     "onError": 0.0,
                     "onNull": 0.0,
@@ -157,27 +147,21 @@ def build_driver_behavior_fields_stage(
             },
             "speedValue": {
                 "$convert": {
-                    "input": {"$ifNull": ["$avgSpeed", "$averageSpeed"]},
+                    "input": "$avgSpeed",
                     "to": "double",
                     "onError": None,
                     "onNull": None,
                 },
             },
             "hardBrakingVal": {
-                "$ifNull": [
-                    "$hardBrakingCounts",
-                    {"$ifNull": ["$hardBrakingCount", 0]},
-                ],
+                "$ifNull": ["$hardBrakingCounts", 0],
             },
             "hardAccelVal": {
-                "$ifNull": [
-                    "$hardAccelerationCounts",
-                    {"$ifNull": ["$hardAccelerationCount", 0]},
-                ],
+                "$ifNull": ["$hardAccelerationCounts", 0],
             },
             "idleSeconds": {
                 "$convert": {
-                    "input": {"$ifNull": ["$totalIdleDuration", "$totalIdlingTime"]},
+                    "input": "$totalIdleDuration",
                     "to": "double",
                     "onError": 0.0,
                     "onNull": 0.0,

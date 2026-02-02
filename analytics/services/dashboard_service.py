@@ -67,7 +67,7 @@ class DashboardService:
                         "$sum": {
                             "$ifNull": [
                                 "$totalIdleDuration",
-                                {"$ifNull": ["$totalIdlingTime", 0]},
+                                0,
                             ],
                         },
                     },

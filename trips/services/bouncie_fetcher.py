@@ -10,7 +10,6 @@ import logging
 from datetime import datetime, timedelta
 from typing import Any
 
-import aiohttp
 
 from config import get_bouncie_config
 from core.clients.bouncie import BouncieClient
@@ -270,50 +269,7 @@ async def fetch_bouncie_trips_in_range(
     return all_new_trips
 
 
-class BouncieTripFetcher:
-    """Service wrapper for Bouncie trip fetching."""
-
-    @staticmethod
-    async def fetch_trips_for_device(
-        session: aiohttp.ClientSession,
-        token: str,
-        imei: str,
-        start_dt: datetime,
-        end_dt: datetime,
-    ) -> list:
-        return await fetch_trips_for_device(session, token, imei, start_dt, end_dt)
-
-    @staticmethod
-    async def fetch_trip_by_transaction_id(
-        session: aiohttp.ClientSession,
-        token: str,
-        transaction_id: str,
-    ) -> list:
-        return await fetch_trip_by_transaction_id(session, token, transaction_id)
-
-    @staticmethod
-    async def fetch_bouncie_trip_by_transaction_id(
-        transaction_id: str,
-    ) -> dict[str, Any] | None:
-        return await fetch_bouncie_trip_by_transaction_id(transaction_id)
-
-    @staticmethod
-    async def fetch_bouncie_trips_in_range(
-        start_iso: str,
-        end_iso: str,
-        map_match: bool = False,
-        progress_tracker: dict | None = None,
-    ) -> dict[str, Any]:
-        return await fetch_bouncie_trips_in_range(
-            start_iso,
-            end_iso,
-            map_match=map_match,
-            progress_tracker=progress_tracker,
-        )
-
-
 __all__ = [
-    "BouncieTripFetcher",
     "fetch_bouncie_trip_by_transaction_id",
     "fetch_bouncie_trips_in_range",
     "fetch_trip_by_transaction_id",

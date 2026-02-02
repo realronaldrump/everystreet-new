@@ -101,9 +101,7 @@ class TimeAnalyticsService:
                     "startLocation": 1,
                     "destination": 1,
                     "maxSpeed": 1,
-                    "totalIdleDuration": {
-                        "$ifNull": ["$totalIdleDuration", "$totalIdlingTime"],
-                    },
+                    "totalIdleDuration": "$totalIdleDuration",
                     "fuelConsumed": 1,
                     "timeZone": 1,
                 },

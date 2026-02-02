@@ -231,11 +231,7 @@ async def get_trips(request: Request):
                     )
                     num_points = len(coords) if isinstance(coords, list) else 0
                     total_idle_duration = trip_dict.get("totalIdleDuration")
-                    if total_idle_duration is None:
-                        total_idle_duration = trip_dict.get("totalIdlingTime")
-                    avg_speed = trip_dict.get("averageSpeed")
-                    if avg_speed is None:
-                        avg_speed = trip_dict.get("avgSpeed")
+                    avg_speed = trip_dict.get("avgSpeed")
 
                     # Skip trips without valid geometry
                     if not final_geom or not final_geom.get("coordinates"):
@@ -259,11 +255,12 @@ async def get_trips(request: Request):
                         "totalIdleDuration": total_idle_duration,
                         "fuelConsumed": safe_float(trip_dict.get("fuelConsumed"), 0),
                         "source": trip_dict.get("source"),
-                        "hardBrakingCount": trip_dict.get("hardBrakingCount"),
-                        "hardAccelerationCount": trip_dict.get("hardAccelerationCount"),
+                        "hardBrakingCounts": trip_dict.get("hardBrakingCounts"),
+                        "hardAccelerationCounts": trip_dict.get(
+                            "hardAccelerationCounts",
+                        ),
                         "startOdometer": trip_dict.get("startOdometer"),
                         "endOdometer": trip_dict.get("endOdometer"),
-                        "averageSpeed": avg_speed,
                         "avgSpeed": avg_speed,
                         "pointsRecorded": num_points,
                         "estimated_cost": TripCostService.calculate_trip_cost(

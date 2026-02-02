@@ -317,10 +317,6 @@ class TripPipeline:
         if not valid_start or not valid_end:
             return False, "Invalid start or end coordinates"
 
-        total_idle_duration = processed_data.get("totalIdleDuration")
-        if total_idle_duration is None and "totalIdlingTime" in processed_data:
-            processed_data["totalIdleDuration"] = processed_data["totalIdlingTime"]
-
         if "totalIdleDuration" in processed_data:
             processed_data["totalIdleDurationFormatted"] = (
                 TripPipeline._format_idle_time(

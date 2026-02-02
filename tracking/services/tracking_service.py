@@ -7,9 +7,14 @@ access.
 """
 
 import logging
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from typing import Any
 
+from core.bouncie_normalization import (
+    normalize_existing_coordinates,
+    normalize_webhook_trip_data_points,
+    normalize_webhook_trip_metrics,
+)
 from core.date_utils import parse_timestamp
 from core.spatial import GeometryService
 from db.models import BouncieCredentials, Trip
@@ -29,10 +34,6 @@ async def _publish_trip_snapshot(
 ) -> None:
     """Publish trip update to WebSocket clients via Redis."""
     trip_dict = trip_doc.model_dump() if isinstance(trip_doc, Trip) else dict(trip_doc)
-
-    if "totalIdleDuration" not in trip_dict and "totalIdlingTime" in trip_dict:
-        trip_dict["totalIdleDuration"] = trip_dict.get("totalIdlingTime")
-    trip_dict.pop("totalIdlingTime", None)
 
     transaction_id = trip_dict.get("transactionId")
     if not transaction_id:
@@ -63,36 +64,13 @@ def _extract_coordinates_from_data(data_points: list[dict]) -> list[dict[str, An
 
     Returns list of dicts with keys: timestamp, lat, lon, speed (optional)
     """
-    coords = []
-    for point in data_points:
-        timestamp = _parse_timestamp(point.get("timestamp"))
-        gps = point.get("gps", {})
-        lat = gps.get("lat")
-        lon = gps.get("lon")
-
-        if timestamp and lat is not None and lon is not None:
-            # Use centralized validation for coordinate pairs
-            is_valid, validated_coord = GeometryService.validate_coordinate_pair(
-                [lon, lat],
-            )
-            if is_valid and validated_coord is not None:
-                coord = {
-                    "timestamp": timestamp,
-                    "lat": validated_coord[1],  # lat is second element
-                    "lon": validated_coord[0],  # lon is first element
-                }
-
-                # Include speed if available
-                speed = point.get("speed")
-                if speed is not None:
-                    coord["speed"] = float(speed)
-
-                coords.append(coord)
-
-    return coords
+    return normalize_webhook_trip_data_points(data_points)
 
 
-def _deduplicate_coordinates(existing: list[dict], new: list[dict]) -> list[dict]:
+def _deduplicate_coordinates(
+    existing: list[dict] | None,
+    new: list[dict] | None,
+) -> list[dict]:
     """
     Merge and deduplicate coordinates by timestamp.
 
@@ -100,13 +78,15 @@ def _deduplicate_coordinates(existing: list[dict], new: list[dict]) -> list[dict
     Use timestamp as unique key, preferring newer data.
     """
     # Build dict keyed by ISO timestamp
-    coords_map = {}
+    coords_map: dict[str, dict] = {}
 
-    for coord in existing + new:
-        if isinstance(coord, dict) and "timestamp" in coord:
-            ts = coord["timestamp"]
-            # Convert datetime to ISO string for consistent key
-            key = ts.isoformat() if isinstance(ts, datetime) else str(ts)
+    existing_coords = normalize_existing_coordinates(existing or [], validate_coords=True)
+    new_coords = normalize_existing_coordinates(new or [], validate_coords=True)
+
+    for coord in existing_coords + new_coords:
+        if isinstance(coord, dict) and isinstance(coord.get("timestamp"), datetime):
+            ts: datetime = coord["timestamp"]
+            key = ts.isoformat()
             coords_map[key] = coord
 
     # Sort by timestamp
@@ -295,7 +275,7 @@ async def process_trip_data(data: dict[str, Any]) -> None:
 
     # Merge with existing, deduplicate
     # Access extra fields via getattr/setattr or dict access if supported
-    existing_coords = getattr(trip, "coordinates", [])
+    existing_coords = getattr(trip, "coordinates", None)
     all_coords = _deduplicate_coordinates(existing_coords, new_coords)
 
     # Calculate metrics
@@ -337,59 +317,22 @@ async def process_trip_metrics(data: dict[str, Any]) -> None:
         logger.info("Trip %s not found for tripMetrics", transaction_id)
         return
 
-    # Update fields from Bouncie metrics
+    normalized = normalize_webhook_trip_metrics(metrics_data)
+    if not normalized:
+        return
+
     updates_made = False
 
-    avg_speed = metrics_data.get("averageDriveSpeed")
-    if avg_speed is None:
-        avg_speed = metrics_data.get("averageSpeed")
-    if avg_speed is not None:
-        trip.avgSpeed = float(avg_speed)
-        updates_made = True
+    for key, value in normalized.items():
+        if key == "maxSpeed":
+            current_max = getattr(trip, "maxSpeed", 0.0) or 0.0
+            if value > current_max:
+                trip.maxSpeed = value
+                updates_made = True
+            continue
 
-    idling_time = metrics_data.get("totalIdlingTime")
-    if idling_time is None:
-        idling_time = metrics_data.get("idlingTime")
-    if idling_time is not None:
-        trip.totalIdleDuration = float(idling_time)
+        setattr(trip, key, value)
         updates_made = True
-
-    hard_braking = metrics_data.get("hardBrakingCounts")
-    if hard_braking is None:
-        hard_braking = metrics_data.get("hardBraking")
-    if hard_braking is not None:
-        trip.hardBrakingCounts = int(hard_braking)
-        updates_made = True
-
-    hard_acceleration = metrics_data.get("hardAccelerationCounts")
-    if hard_acceleration is None:
-        hard_acceleration = metrics_data.get("hardAcceleration")
-    if hard_acceleration is not None:
-        trip.hardAccelerationCounts = int(hard_acceleration)
-        updates_made = True
-
-    trip_distance = metrics_data.get("tripDistance")
-    if trip_distance is not None:
-        trip.distance = float(trip_distance)
-        updates_made = True
-
-    trip_time = metrics_data.get("tripTime")
-    if trip_time is not None:
-        trip.duration = float(trip_time)
-        updates_made = True
-
-    # Update lastUpdate timestamp
-    metrics_timestamp = _parse_timestamp(metrics_data.get("timestamp"))
-    if metrics_timestamp:
-        trip.lastUpdate = metrics_timestamp
-        updates_made = True
-
-    if "maxSpeed" in metrics_data:
-        new_max = float(metrics_data["maxSpeed"])
-        current_max = getattr(trip, "maxSpeed", 0.0) or 0.0
-        if new_max > current_max:
-            trip.maxSpeed = new_max
-            updates_made = True
 
     if updates_made:
         await trip.save()
@@ -473,27 +416,7 @@ async def process_trip_end(data: dict[str, Any]) -> None:
                 coverage_err,
             )
 
-    # Trigger targeted fetch in ARQ
-    try:
-        from tasks.ops import enqueue_task
-
-        enqueue_result = await enqueue_task(
-            "fetch_trip_by_transaction_id",
-            transaction_id=transaction_id,
-            trigger_source="trip_end",
-            manual_run=False,
-        )
-        logger.info(
-            "Triggered targeted fetch for trip %s (job_id: %s)",
-            transaction_id,
-            enqueue_result.get("job_id"),
-        )
-    except Exception as trigger_err:
-        logger.warning(
-            "Failed to trigger fetch after trip %s ended: %s",
-            transaction_id,
-            trigger_err,
-        )
+    # Periodic REST backfill handles reconciliation for any missed data.
 
 
 # ============================================================================
@@ -534,63 +457,6 @@ async def get_trip_updates(_last_sequence: int = 0) -> dict[str, Any]:
     }
 
 
-async def cleanup_old_trips(max_age_days: int = 30) -> int:
-    """Retain completed trips in the unified trips collection."""
-    logger.info(
-        "Skipping cleanup of completed trips (retaining history, max_age_days=%d)",
-        max_age_days,
-    )
-    return 0
-
-
-async def cleanup_stale_trips_logic(
-    stale_minutes: int = 15,
-    max_archive_age_days: int = 30,
-) -> dict[str, int]:
-    """Mark stale active trips as completed and cleanup old trips."""
-    now = datetime.now(UTC)
-    stale_threshold = now - timedelta(minutes=stale_minutes)
-
-    # Find stale active trips
-    stale_trips = await Trip.find(
-        Trip.status == "active",
-        Trip.lastUpdate < stale_threshold,
-    ).to_list(length=100)
-
-    stale_count = 0
-    for trip in stale_trips:
-        transaction_id = trip.transactionId
-        logger.warning("Marking stale trip as completed: %s", transaction_id)
-
-        # Convert to GeoJSON
-        coordinates = getattr(trip, "coordinates", [])
-        gps = (
-            GeometryService.geometry_from_coordinate_dicts(coordinates)
-            if coordinates
-            else None
-        )
-
-        trip.status = "completed"
-        trip.endTime = trip.lastUpdate
-        trip.closed_reason = "stale"
-        if gps:
-            trip.gps = gps
-
-        await trip.save()
-        stale_count += 1
-
-    # Cleanup old completed trips
-    old_removed = await cleanup_old_trips(max_archive_age_days)
-
-    logger.info(
-        "Cleanup: %d stale trips, %d old trips removed",
-        stale_count,
-        old_removed,
-    )
-    return {
-        "stale_trips_archived": stale_count,
-        "old_archives_removed": old_removed,
-    }
 
 
 async def record_webhook_event(event_type: str | None) -> None:
@@ -675,16 +541,6 @@ class TrackingService:
     @staticmethod
     async def process_trip_end(data: dict[str, Any]) -> None:
         await process_trip_end(data)
-
-    @staticmethod
-    async def cleanup_stale_trips(
-        max_archive_age_days: int = 7,
-        stale_minutes: int = 10,
-    ) -> dict[str, Any]:
-        return await cleanup_stale_trips_logic(
-            max_archive_age_days,
-            stale_minutes,
-        )
 
     @staticmethod
     async def record_webhook_event(event_type: str | None) -> None:
