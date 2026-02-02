@@ -25,7 +25,6 @@ from trips.services.map_matching_jobs import MapMatchingJobRunner
 logger = logging.getLogger(__name__)
 
 
-
 async def _validate_trips_logic() -> dict[str, Any]:
     """
     Async logic for validating trip data and marking invalid records.

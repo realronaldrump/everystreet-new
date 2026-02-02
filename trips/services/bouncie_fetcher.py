@@ -8,8 +8,6 @@ trip using the unified TripPipeline, and stores trips in MongoDB.
 import asyncio
 import logging
 from datetime import datetime, timedelta
-from typing import Any
-
 
 from config import get_bouncie_config
 from core.clients.bouncie import BouncieClient

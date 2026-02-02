@@ -163,7 +163,13 @@ self.title()|striptags|trim %}
                 <a
                   href="/map"
                   title="Map"
-                  {% if request.url.path == "/map" %}aria-current="page"{% endif %}
+                  {%
+                  if
+                  request.url.path == "/map"
+                  %}aria-current="page"
+                  {%
+                  endif
+                  %}
                 >
                   <i class="fas fa-map" aria-hidden="true"></i> <span>Map</span>
                 </a>
@@ -174,7 +180,13 @@ self.title()|striptags|trim %}
                 <a
                   href="/trips"
                   title="Trips"
-                  {% if request.url.path == "/trips" %}aria-current="page"{% endif %}
+                  {%
+                  if
+                  request.url.path == "/trips"
+                  %}aria-current="page"
+                  {%
+                  endif
+                  %}
                 >
                   <i class="fas fa-road" aria-hidden="true"></i>
                   <span>Trips</span>
@@ -186,7 +198,13 @@ self.title()|striptags|trim %}
                 <a
                   href="/map-matching"
                   title="Map Matching"
-                  {% if request.url.path == "/map-matching" %}aria-current="page"{% endif %}
+                  {%
+                  if
+                  request.url.path == "/map-matching"
+                  %}aria-current="page"
+                  {%
+                  endif
+                  %}
                 >
                   <i class="fas fa-route" aria-hidden="true"></i>
                   <span>Map Matching</span>
@@ -198,7 +216,13 @@ self.title()|striptags|trim %}
                 <a
                   href="/insights"
                   title="Insights"
-                  {% if request.url.path == "/insights" %}aria-current="page"{% endif %}
+                  {%
+                  if
+                  request.url.path == "/insights"
+                  %}aria-current="page"
+                  {%
+                  endif
+                  %}
                 >
                   <i class="fas fa-chart-line" aria-hidden="true"></i>
                   <span>Insights</span>
@@ -210,7 +234,13 @@ self.title()|striptags|trim %}
                 <a
                   href="/gas-tracking"
                   title="Gas Tracking"
-                  {% if request.url.path == "/gas-tracking" %}aria-current="page"{% endif %}
+                  {%
+                  if
+                  request.url.path == "/gas-tracking"
+                  %}aria-current="page"
+                  {%
+                  endif
+                  %}
                 >
                   <i class="fas fa-gas-pump" aria-hidden="true"></i>
                   <span>Gas</span>
@@ -222,7 +252,13 @@ self.title()|striptags|trim %}
                 <a
                   href="/coverage-navigator"
                   title="Coverage Navigator"
-                  {% if request.url.path == "/coverage-navigator" %}aria-current="page"{% endif %}
+                  {%
+                  if
+                  request.url.path == "/coverage-navigator"
+                  %}aria-current="page"
+                  {%
+                  endif
+                  %}
                 >
                   <i class="fas fa-route" aria-hidden="true"></i>
                   <span>Coverage Navigator</span>
@@ -252,7 +288,13 @@ self.title()|striptags|trim %}
                       class="dropdown-item {% if request.url.path == '/visits' %}active{% endif %}"
                       href="/visits"
                       role="menuitem"
-                      {% if request.url.path == "/visits" %}aria-current="page"{% endif %}
+                      {%
+                      if
+                      request.url.path == "/visits"
+                      %}aria-current="page"
+                      {%
+                      endif
+                      %}
                     >
                       <i class="fas fa-map-marker-alt me-2" aria-hidden="true"></i>
                       Visits
@@ -263,7 +305,13 @@ self.title()|striptags|trim %}
                       class="dropdown-item {% if request.url.path == '/vehicles' %}active{% endif %}"
                       href="/vehicles"
                       role="menuitem"
-                      {% if request.url.path == "/vehicles" %}aria-current="page"{% endif %}
+                      {%
+                      if
+                      request.url.path == "/vehicles"
+                      %}aria-current="page"
+                      {%
+                      endif
+                      %}
                     >
                       <i class="fas fa-car me-2" aria-hidden="true"></i>
                       My Vehicle
@@ -280,7 +328,13 @@ self.title()|striptags|trim %}
                       class="dropdown-item {% if request.url.path == '/coverage-management' %}active{% endif %}"
                       href="/coverage-management"
                       role="menuitem"
-                      {% if request.url.path == "/coverage-management" %}aria-current="page"{% endif %}
+                      {%
+                      if
+                      request.url.path == "/coverage-management"
+                      %}aria-current="page"
+                      {%
+                      endif
+                      %}
                     >
                       <i class="fas fa-map-marked-alt me-2" aria-hidden="true"></i>
                       Coverage Areas
@@ -291,7 +345,13 @@ self.title()|striptags|trim %}
                       class="dropdown-item {% if request.url.path == '/turn-by-turn' %}active{% endif %}"
                       href="/turn-by-turn"
                       role="menuitem"
-                      {% if request.url.path == "/turn-by-turn" %}aria-current="page"{% endif %}
+                      {%
+                      if
+                      request.url.path == "/turn-by-turn"
+                      %}aria-current="page"
+                      {%
+                      endif
+                      %}
                     >
                       <i class="fas fa-location-arrow me-2" aria-hidden="true"></i>
                       Turn-by-Turn
@@ -302,7 +362,13 @@ self.title()|striptags|trim %}
                       class="dropdown-item {% if request.url.path == '/county-map' %}active{% endif %}"
                       href="/county-map"
                       role="menuitem"
-                      {% if request.url.path == "/county-map" %}aria-current="page"{% endif %}
+                      {%
+                      if
+                      request.url.path == "/county-map"
+                      %}aria-current="page"
+                      {%
+                      endif
+                      %}
                     >
                       <i class="fas fa-globe-americas me-2" aria-hidden="true"></i>
                       County Map
@@ -319,7 +385,13 @@ self.title()|striptags|trim %}
                       class="dropdown-item {% if request.url.path == '/export' %}active{% endif %}"
                       href="/export"
                       role="menuitem"
-                      {% if request.url.path == "/export" %}aria-current="page"{% endif %}
+                      {%
+                      if
+                      request.url.path == "/export"
+                      %}aria-current="page"
+                      {%
+                      endif
+                      %}
                     >
                       <i class="fas fa-file-export me-2" aria-hidden="true"></i>
                       Export Data
@@ -336,7 +408,13 @@ self.title()|striptags|trim %}
                       class="dropdown-item {% if request.url.path == '/status' %}active{% endif %}"
                       href="/status"
                       role="menuitem"
-                      {% if request.url.path == "/status" %}aria-current="page"{% endif %}
+                      {%
+                      if
+                      request.url.path == "/status"
+                      %}aria-current="page"
+                      {%
+                      endif
+                      %}
                     >
                       <i class="fas fa-heartbeat me-2" aria-hidden="true"></i>
                       System Status
@@ -347,7 +425,13 @@ self.title()|striptags|trim %}
                       class="dropdown-item {% if request.url.path == '/server-logs' %}active{% endif %}"
                       href="/server-logs"
                       role="menuitem"
-                      {% if request.url.path == "/server-logs" %}aria-current="page"{% endif %}
+                      {%
+                      if
+                      request.url.path == "/server-logs"
+                      %}aria-current="page"
+                      {%
+                      endif
+                      %}
                     >
                       <i class="fas fa-file-alt me-2" aria-hidden="true"></i>
                       Server Logs
@@ -358,7 +442,13 @@ self.title()|striptags|trim %}
                       class="dropdown-item {% if request.url.path == '/settings' %}active{% endif %}"
                       href="/settings"
                       role="menuitem"
-                      {% if request.url.path == "/settings" %}aria-current="page"{% endif %}
+                      {%
+                      if
+                      request.url.path == "/settings"
+                      %}aria-current="page"
+                      {%
+                      endif
+                      %}
                     >
                       <i class="fas fa-cog me-2" aria-hidden="true"></i>
                       Settings
@@ -369,7 +459,13 @@ self.title()|striptags|trim %}
                       class="dropdown-item {% if request.url.path == '/profile' %}active{% endif %}"
                       href="/profile"
                       role="menuitem"
-                      {% if request.url.path == "/profile" %}aria-current="page"{% endif %}
+                      {%
+                      if
+                      request.url.path == "/profile"
+                      %}aria-current="page"
+                      {%
+                      endif
+                      %}
                     >
                       <i class="fas fa-user-circle me-2" aria-hidden="true"></i>
                       Profile
@@ -404,12 +500,24 @@ self.title()|striptags|trim %}
                 <div class="dp-section">
                   <span class="dp-section-label">Quick Select</span>
                   <div class="dp-presets" role="group" aria-label="Date range presets">
-                    <button type="button" class="preset-btn" data-range="today">Today</button>
-                    <button type="button" class="preset-btn" data-range="yesterday">Yesterday</button>
-                    <button type="button" class="preset-btn" data-range="last-week">Last 7 Days</button>
-                    <button type="button" class="preset-btn" data-range="last-month">Last 30 Days</button>
-                    <button type="button" class="preset-btn" data-range="last-year">Last Year</button>
-                    <button type="button" class="preset-btn" data-range="all-time">All Time</button>
+                    <button type="button" class="preset-btn" data-range="today">
+                      Today
+                    </button>
+                    <button type="button" class="preset-btn" data-range="yesterday">
+                      Yesterday
+                    </button>
+                    <button type="button" class="preset-btn" data-range="last-week">
+                      Last 7 Days
+                    </button>
+                    <button type="button" class="preset-btn" data-range="last-month">
+                      Last 30 Days
+                    </button>
+                    <button type="button" class="preset-btn" data-range="last-year">
+                      Last Year
+                    </button>
+                    <button type="button" class="preset-btn" data-range="all-time">
+                      All Time
+                    </button>
                   </div>
                 </div>
                 <div class="dp-section">
@@ -442,7 +550,11 @@ self.title()|striptags|trim %}
                 </div>
               </div>
             </div>
-            <div id="date-picker-overlay" class="date-picker-overlay" aria-hidden="true"></div>
+            <div
+              id="date-picker-overlay"
+              class="date-picker-overlay"
+              aria-hidden="true"
+            ></div>
             <label class="theme-toggle" title="Toggle dark/light mode">
               <input
                 type="checkbox"
@@ -491,7 +603,13 @@ self.title()|striptags|trim %}
                 <a
                   href="/map"
                   class="{% if request.url.path == '/map' %}active{% endif %}"
-                  {% if request.url.path == "/map" %}aria-current="page"{% endif %}
+                  {%
+                  if
+                  request.url.path == "/map"
+                  %}aria-current="page"
+                  {%
+                  endif
+                  %}
                 >
                   <i class="fas fa-map me-2" aria-hidden="true"></i> Map
                 </a>
@@ -500,7 +618,13 @@ self.title()|striptags|trim %}
                 <a
                   href="/trips"
                   class="{% if request.url.path == '/trips' %}active{% endif %}"
-                  {% if request.url.path == "/trips" %}aria-current="page"{% endif %}
+                  {%
+                  if
+                  request.url.path == "/trips"
+                  %}aria-current="page"
+                  {%
+                  endif
+                  %}
                 >
                   <i class="fas fa-road me-2" aria-hidden="true"></i> Trips
                 </a>
@@ -526,7 +650,13 @@ self.title()|striptags|trim %}
                 <a
                   href="/insights"
                   class="{% if request.url.path == '/insights' %}active{% endif %}"
-                  {% if request.url.path == "/insights" %}aria-current="page"{% endif %}
+                  {%
+                  if
+                  request.url.path == "/insights"
+                  %}aria-current="page"
+                  {%
+                  endif
+                  %}
                 >
                   <i class="fas fa-chart-line me-2" aria-hidden="true"></i> Driving
                   Insights
@@ -536,7 +666,13 @@ self.title()|striptags|trim %}
                 <a
                   href="/gas-tracking"
                   class="{% if request.url.path == '/gas-tracking' %}active{% endif %}"
-                  {% if request.url.path == "/gas-tracking" %}aria-current="page"{% endif %}
+                  {%
+                  if
+                  request.url.path == "/gas-tracking"
+                  %}aria-current="page"
+                  {%
+                  endif
+                  %}
                 >
                   <i class="fas fa-gas-pump me-2" aria-hidden="true"></i> Gas Tracking
                 </a>
@@ -545,7 +681,13 @@ self.title()|striptags|trim %}
                 <a
                   href="/visits"
                   class="{% if request.url.path == '/visits' %}active{% endif %}"
-                  {% if request.url.path == "/visits" %}aria-current="page"{% endif %}
+                  {%
+                  if
+                  request.url.path == "/visits"
+                  %}aria-current="page"
+                  {%
+                  endif
+                  %}
                 >
                   <i class="fas fa-map-marker-alt me-2" aria-hidden="true"></i> Visits
                 </a>
@@ -554,7 +696,13 @@ self.title()|striptags|trim %}
                 <a
                   href="/vehicles"
                   class="{% if request.url.path == '/vehicles' %}active{% endif %}"
-                  {% if request.url.path == "/vehicles" %}aria-current="page"{% endif %}
+                  {%
+                  if
+                  request.url.path == "/vehicles"
+                  %}aria-current="page"
+                  {%
+                  endif
+                  %}
                 >
                   <i class="fas fa-car me-2" aria-hidden="true"></i> My Vehicle
                 </a>
@@ -580,7 +728,13 @@ self.title()|striptags|trim %}
                 <a
                   href="/coverage-management"
                   class="{% if request.url.path == '/coverage-management' %}active{% endif %}"
-                  {% if request.url.path == "/coverage-management" %}aria-current="page"{% endif %}
+                  {%
+                  if
+                  request.url.path == "/coverage-management"
+                  %}aria-current="page"
+                  {%
+                  endif
+                  %}
                 >
                   <i class="fas fa-map-marked-alt me-2" aria-hidden="true"></i> Coverage
                   Areas
@@ -590,7 +744,13 @@ self.title()|striptags|trim %}
                 <a
                   href="/coverage-navigator"
                   class="{% if request.url.path == '/coverage-navigator' %}active{% endif %}"
-                  {% if request.url.path == "/coverage-navigator" %}aria-current="page"{% endif %}
+                  {%
+                  if
+                  request.url.path == "/coverage-navigator"
+                  %}aria-current="page"
+                  {%
+                  endif
+                  %}
                 >
                   <i class="fas fa-route me-2" aria-hidden="true"></i> Coverage
                   Navigator
@@ -600,7 +760,13 @@ self.title()|striptags|trim %}
                 <a
                   href="/turn-by-turn"
                   class="{% if request.url.path == '/turn-by-turn' %}active{% endif %}"
-                  {% if request.url.path == "/turn-by-turn" %}aria-current="page"{% endif %}
+                  {%
+                  if
+                  request.url.path == "/turn-by-turn"
+                  %}aria-current="page"
+                  {%
+                  endif
+                  %}
                 >
                   <i class="fas fa-location-arrow me-2" aria-hidden="true"></i>
                   Turn-by-Turn
@@ -610,7 +776,13 @@ self.title()|striptags|trim %}
                 <a
                   href="/county-map"
                   class="{% if request.url.path == '/county-map' %}active{% endif %}"
-                  {% if request.url.path == "/county-map" %}aria-current="page"{% endif %}
+                  {%
+                  if
+                  request.url.path == "/county-map"
+                  %}aria-current="page"
+                  {%
+                  endif
+                  %}
                 >
                   <i class="fas fa-globe-americas me-2" aria-hidden="true"></i> County
                   Map
@@ -637,7 +809,13 @@ self.title()|striptags|trim %}
                 <a
                   href="/export"
                   class="{% if request.url.path == '/export' %}active{% endif %}"
-                  {% if request.url.path == "/export" %}aria-current="page"{% endif %}
+                  {%
+                  if
+                  request.url.path == "/export"
+                  %}aria-current="page"
+                  {%
+                  endif
+                  %}
                 >
                   <i class="fas fa-file-export me-2" aria-hidden="true"></i> Export Data
                 </a>
@@ -663,7 +841,13 @@ self.title()|striptags|trim %}
                 <a
                   href="/status"
                   class="{% if request.url.path == '/status' %}active{% endif %}"
-                  {% if request.url.path == "/status" %}aria-current="page"{% endif %}
+                  {%
+                  if
+                  request.url.path == "/status"
+                  %}aria-current="page"
+                  {%
+                  endif
+                  %}
                 >
                   <i class="fas fa-heartbeat me-2" aria-hidden="true"></i> System Status
                 </a>
@@ -672,7 +856,13 @@ self.title()|striptags|trim %}
                 <a
                   href="/server-logs"
                   class="{% if request.url.path == '/server-logs' %}active{% endif %}"
-                  {% if request.url.path == "/server-logs" %}aria-current="page"{% endif %}
+                  {%
+                  if
+                  request.url.path == "/server-logs"
+                  %}aria-current="page"
+                  {%
+                  endif
+                  %}
                 >
                   <i class="fas fa-file-alt me-2" aria-hidden="true"></i> Server Logs
                 </a>
@@ -681,7 +871,13 @@ self.title()|striptags|trim %}
                 <a
                   href="/settings"
                   class="{% if request.url.path == '/settings' %}active{% endif %}"
-                  {% if request.url.path == "/settings" %}aria-current="page"{% endif %}
+                  {%
+                  if
+                  request.url.path == "/settings"
+                  %}aria-current="page"
+                  {%
+                  endif
+                  %}
                 >
                   <i class="fas fa-cog me-2" aria-hidden="true"></i> Settings
                 </a>
@@ -690,7 +886,13 @@ self.title()|striptags|trim %}
                 <a
                   href="/profile"
                   class="{% if request.url.path == '/profile' %}active{% endif %}"
-                  {% if request.url.path == "/profile" %}aria-current="page"{% endif %}
+                  {%
+                  if
+                  request.url.path == "/profile"
+                  %}aria-current="page"
+                  {%
+                  endif
+                  %}
                 >
                   <i class="fas fa-user-circle me-2" aria-hidden="true"></i> Profile
                 </a>

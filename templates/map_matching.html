@@ -21,7 +21,6 @@
 <div class="container-fluid px-4 py-3 map-matching-page">
   <!-- Wizard Shell -->
   <div class="mm-wizard-shell" id="mm-wizard-shell">
-    
     <!-- Phase Indicator -->
     <div class="mm-phase-indicator" role="navigation" aria-label="Wizard progress">
       <div class="mm-phase-step is-active" data-phase="select">
@@ -41,13 +40,20 @@
     </div>
 
     <!-- Phase 1: Select -->
-    <section class="mm-phase is-active" data-phase="select" role="region" aria-labelledby="mm-select-heading">
-      
+    <section
+      class="mm-phase is-active"
+      data-phase="select"
+      role="region"
+      aria-labelledby="mm-select-heading"
+    >
       <!-- Welcome Card -->
       <div class="mm-welcome-card">
         <div class="mm-welcome-visual" aria-hidden="true">
           <svg class="mm-morph-svg" viewBox="0 0 120 60">
-            <path class="mm-morph-path" d="M10,30 L25,22 L35,38 L50,26 L65,34 L80,20 L95,35 L110,28" />
+            <path
+              class="mm-morph-path"
+              d="M10,30 L25,22 L35,38 L50,26 L65,34 L80,20 L95,35 L110,28"
+            />
           </svg>
         </div>
         <div class="mm-welcome-content">
@@ -56,8 +62,9 @@
             Improve Your Routes
           </h1>
           <p class="mm-welcome-desc">
-            GPS signals can be imprecise, causing trips to appear off-road or jagged. 
-            Route matching snaps your trips to actual roads for cleaner, more accurate tracking.
+            GPS signals can be imprecise, causing trips to appear off-road or jagged.
+            Route matching snaps your trips to actual roads for cleaner, more accurate
+            tracking.
           </p>
         </div>
       </div>
@@ -78,7 +85,7 @@
       <!-- Selection Card -->
       <div class="mm-selection-card">
         <h2 class="mm-section-title">What would you like to match?</h2>
-        
+
         <form id="map-matching-form">
           <!-- Selection Options -->
           <div class="mm-options" id="map-match-selection-cards">
@@ -231,11 +238,7 @@
               <i class="fas fa-eye"></i>
               Preview
             </button>
-            <button
-              type="submit"
-              class="btn mm-btn-primary"
-              id="map-match-submit"
-            >
+            <button type="submit" class="btn mm-btn-primary" id="map-match-submit">
               <i class="fas fa-sparkles"></i>
               Start Matching
             </button>
@@ -255,7 +258,11 @@
           </div>
 
           <!-- Advanced Toggle -->
-          <button type="button" class="mm-advanced-toggle" id="map-match-advanced-toggle">
+          <button
+            type="button"
+            class="mm-advanced-toggle"
+            id="map-match-advanced-toggle"
+          >
             <i class="fas fa-sliders"></i>
             <span>Advanced options</span>
             <i class="fas fa-chevron-down mm-toggle-arrow"></i>
@@ -285,15 +292,20 @@
     </section>
 
     <!-- Phase 2: Process -->
-    <section class="mm-phase" data-phase="process" role="region" aria-labelledby="mm-process-heading">
+    <section
+      class="mm-phase"
+      data-phase="process"
+      role="region"
+      aria-labelledby="mm-process-heading"
+    >
       <div class="mm-process-card">
         <h2 class="visually-hidden" id="mm-process-heading">Processing routes</h2>
-        
+
         <!-- Hidden empty state for JS compatibility -->
         <div id="map-match-current-empty" class="d-none">
           <span class="empty-text">Ready when you are</span>
         </div>
-        
+
         <div id="map-match-current-panel">
           <div class="mm-progress-visual">
             <div class="mm-progress-ring-container">
@@ -308,18 +320,20 @@
                 />
               </svg>
               <div class="mm-progress-ring-text">
-                <span class="mm-progress-percent" id="map-match-progress-percent">0%</span>
+                <span class="mm-progress-percent" id="map-match-progress-percent"
+                  >0%</span
+                >
               </div>
             </div>
           </div>
-          
+
           <div class="mm-progress-info" aria-live="polite">
             <div id="map-match-progress-message" class="mm-progress-message">
               Improving your routes...
             </div>
             <div id="map-match-progress-metrics" class="mm-progress-metrics"></div>
           </div>
-          
+
           <div class="mm-progress-actions">
             <button
               class="btn mm-btn-cancel d-none"
@@ -330,7 +344,7 @@
               Cancel
             </button>
           </div>
-          
+
           <!-- Hidden legacy progress bar for JS compatibility -->
           <div class="progress d-none" style="height: 22px">
             <div
@@ -347,7 +361,12 @@
     </section>
 
     <!-- Phase 3: Results -->
-    <section class="mm-phase" data-phase="results" role="region" aria-labelledby="mm-results-heading">
+    <section
+      class="mm-phase"
+      data-phase="results"
+      role="region"
+      aria-labelledby="mm-results-heading"
+    >
       <div class="mm-results-card">
         <!-- Success Header -->
         <div class="mm-results-header" id="mm-results-header-success">
@@ -361,10 +380,7 @@
             </p>
           </div>
           <div class="mm-results-actions">
-            <button
-              class="btn mm-btn-secondary btn-sm"
-              id="map-match-preview-map-btn"
-            >
+            <button class="btn mm-btn-secondary btn-sm" id="map-match-preview-map-btn">
               <i class="fas fa-sync"></i>
               Refresh
             </button>
@@ -377,7 +393,10 @@
         </div>
 
         <!-- Browse Mode Header (for viewing all matched trips) -->
-        <div class="mm-results-header mm-results-header-browse d-none" id="mm-results-header-browse">
+        <div
+          class="mm-results-header mm-results-header-browse d-none"
+          id="mm-results-header-browse"
+        >
           <div class="mm-results-icon mm-results-icon-browse">
             <i class="fas fa-map-marked-alt"></i>
           </div>
@@ -388,17 +407,11 @@
             </p>
           </div>
           <div class="mm-results-actions">
-            <button
-              class="btn mm-btn-secondary btn-sm"
-              id="mm-browse-refresh-btn"
-            >
+            <button class="btn mm-btn-secondary btn-sm" id="mm-browse-refresh-btn">
               <i class="fas fa-sync"></i>
               Refresh
             </button>
-            <button
-              class="btn mm-btn-secondary btn-sm"
-              id="mm-browse-back-btn"
-            >
+            <button class="btn mm-btn-secondary btn-sm" id="mm-browse-back-btn">
               <i class="fas fa-arrow-left"></i>
               Back
             </button>
@@ -406,7 +419,10 @@
         </div>
 
         <!-- Failed Trips Header -->
-        <div class="mm-results-header mm-results-header-failed d-none" id="mm-results-header-failed">
+        <div
+          class="mm-results-header mm-results-header-failed d-none"
+          id="mm-results-header-failed"
+        >
           <div class="mm-results-icon mm-results-icon-warning">
             <i class="fas fa-exclamation-triangle"></i>
           </div>
@@ -417,17 +433,11 @@
             </p>
           </div>
           <div class="mm-results-actions">
-            <button
-              class="btn mm-btn-secondary btn-sm"
-              id="mm-failed-refresh-btn"
-            >
+            <button class="btn mm-btn-secondary btn-sm" id="mm-failed-refresh-btn">
               <i class="fas fa-sync"></i>
               Refresh
             </button>
-            <button
-              class="btn mm-btn-secondary btn-sm"
-              id="mm-failed-back-btn"
-            >
+            <button class="btn mm-btn-secondary btn-sm" id="mm-failed-back-btn">
               <i class="fas fa-arrow-left"></i>
               Back
             </button>
@@ -436,7 +446,11 @@
 
         <!-- Results Tabs (for job results) -->
         <div class="mm-results-tabs" id="mm-results-tabs">
-          <button class="mm-results-tab is-active" data-tab="matched" id="mm-tab-matched">
+          <button
+            class="mm-results-tab is-active"
+            data-tab="matched"
+            id="mm-tab-matched"
+          >
             <i class="fas fa-check"></i>
             <span>Matched</span>
             <span class="mm-tab-count" id="mm-tab-matched-count">0</span>
@@ -444,7 +458,9 @@
           <button class="mm-results-tab" data-tab="failed" id="mm-tab-failed">
             <i class="fas fa-exclamation-circle"></i>
             <span>Issues</span>
-            <span class="mm-tab-count mm-tab-count-warning" id="mm-tab-failed-count">0</span>
+            <span class="mm-tab-count mm-tab-count-warning" id="mm-tab-failed-count"
+              >0</span
+            >
           </button>
         </div>
 
@@ -470,9 +486,13 @@
         <!-- Matched Trip List (default tab) -->
         <div class="mm-results-list" id="mm-matched-list-container">
           <div class="mm-results-list-header">
-            <span class="mm-results-count" id="map-match-results-count">No trips yet</span>
+            <span class="mm-results-count" id="map-match-results-count"
+              >No trips yet</span
+            >
             <div class="mm-bulk-actions d-none" id="map-match-bulk-actions">
-              <span class="mm-bulk-count" id="map-match-preview-selection-count">0 selected</span>
+              <span class="mm-bulk-count" id="map-match-preview-selection-count"
+                >0 selected</span
+              >
               <button
                 class="btn btn-ghost btn-sm"
                 id="map-match-preview-clear-selection"
@@ -536,11 +556,16 @@
         </div>
 
         <!-- Failed Trip List (shown when failed tab active) -->
-        <div class="mm-results-list mm-failed-list d-none" id="mm-failed-list-container">
+        <div
+          class="mm-results-list mm-failed-list d-none"
+          id="mm-failed-list-container"
+        >
           <div class="mm-results-list-header">
             <span class="mm-results-count" id="mm-failed-list-count">No issues</span>
             <div class="mm-bulk-actions d-none" id="mm-failed-bulk-actions">
-              <span class="mm-bulk-count" id="mm-failed-selection-count">0 selected</span>
+              <span class="mm-bulk-count" id="mm-failed-selection-count"
+                >0 selected</span
+              >
               <button
                 class="btn btn-ghost btn-sm mm-btn-retry"
                 id="mm-retry-selected-btn"
@@ -574,10 +599,7 @@
               />
               <span>Select all</span>
             </label>
-            <button
-              class="btn mm-btn-secondary btn-sm"
-              id="mm-retry-all-btn"
-            >
+            <button class="btn mm-btn-secondary btn-sm" id="mm-retry-all-btn">
               <i class="fas fa-redo"></i>
               Retry All
             </button>
@@ -596,7 +618,11 @@
   </div>
 
   <!-- History Drawer -->
-  <aside class="mm-history-drawer" id="mm-history-drawer" aria-labelledby="mm-history-title">
+  <aside
+    class="mm-history-drawer"
+    id="mm-history-drawer"
+    aria-labelledby="mm-history-title"
+  >
     <div class="mm-drawer-header">
       <h2 class="mm-drawer-title" id="mm-history-title">
         <i class="fas fa-history"></i>
@@ -606,10 +632,18 @@
         <button class="btn btn-ghost btn-sm" id="map-match-refresh" title="Refresh">
           <i class="fas fa-sync"></i>
         </button>
-        <button class="btn btn-ghost btn-sm" id="map-match-history-clear" title="Clear completed">
+        <button
+          class="btn btn-ghost btn-sm"
+          id="map-match-history-clear"
+          title="Clear completed"
+        >
           <i class="fas fa-trash-alt"></i>
         </button>
-        <button class="btn btn-ghost btn-sm mm-drawer-close" id="mm-drawer-close" title="Close">
+        <button
+          class="btn btn-ghost btn-sm mm-drawer-close"
+          id="mm-drawer-close"
+          title="Close"
+        >
           <i class="fas fa-times"></i>
         </button>
         <span

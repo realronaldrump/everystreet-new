@@ -762,8 +762,8 @@ function renderPreview(data) {
       elements.previewSummary.textContent = "No trips found for this selection";
     }
   } else if (elements.previewSummary) {
-      elements.previewSummary.textContent = `${total} trip${total !== 1 ? "s" : ""} ready to improve`;
-    }
+    elements.previewSummary.textContent = `${total} trip${total !== 1 ? "s" : ""} ready to improve`;
+  }
 
   // Render sample in hidden table for legacy compatibility
   const sample = data.sample || [];
@@ -2118,7 +2118,7 @@ function normalizeMatchedTripsResponse(response) {
     = response?.type === "FeatureCollection" && Array.isArray(response?.features)
       ? response
       : response?.geojson?.type === "FeatureCollection"
-        && Array.isArray(response?.geojson?.features)
+          && Array.isArray(response?.geojson?.features)
         ? response.geojson
         : null;
 
@@ -2146,7 +2146,11 @@ function normalizeMatchedTripsResponse(response) {
     return { trips, geojson: asFeatureCollection, total: trips.length };
   }
 
-  return { trips: [], geojson: asFeatureCollection || response?.geojson || null, total: 0 };
+  return {
+    trips: [],
+    geojson: asFeatureCollection || response?.geojson || null,
+    total: 0,
+  };
 }
 
 async function browseMatchedTrips({ silent = false } = {}) {

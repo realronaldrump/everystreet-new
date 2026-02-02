@@ -20,7 +20,7 @@ extra_css %}
           <p class="page-subtitle">Track your fuel and see your efficiency</p>
         </div>
       </div>
-      
+
       <!-- Quick Stats Pills -->
       <div class="stats-row" id="header-stats">
         <div class="stat-pill" data-stat="fillups">
@@ -54,7 +54,7 @@ extra_css %}
           </h2>
           <span class="card-badge" id="form-badge" style="display: none">Editing</span>
         </div>
-        
+
         <form id="gas-fillup-form" class="gas-form">
           <!-- Essential Info Section -->
           <div class="form-group essential">
@@ -65,11 +65,17 @@ extra_css %}
               <select class="form-select" id="vehicle-select" name="imei" required>
                 <option value="">Choose your vehicle...</option>
               </select>
-              <div id="vehicle-loading-state" class="input-spinner" style="display: none">
+              <div
+                id="vehicle-loading-state"
+                class="input-spinner"
+                style="display: none"
+              >
                 <span class="spinner-border spinner-border-sm"></span>
               </div>
             </div>
-            <small id="vehicle-status" class="form-hint">Loading your vehicles...</small>
+            <small id="vehicle-status" class="form-hint"
+              >Loading your vehicles...</small
+            >
           </div>
 
           <!-- Date/Time with Quick Actions -->
@@ -85,7 +91,12 @@ extra_css %}
                 name="fillup_time"
                 required
               />
-              <button type="button" class="btn-quick" id="use-now-btn" title="Set to current time">
+              <button
+                type="button"
+                class="btn-quick"
+                id="use-now-btn"
+                title="Set to current time"
+              >
                 <i class="fas fa-clock"></i> Now
               </button>
             </div>
@@ -150,11 +161,16 @@ extra_css %}
 
           <!-- Collapsible Advanced Section -->
           <div class="advanced-section">
-            <button type="button" class="advanced-toggle" id="advanced-toggle" aria-expanded="false">
+            <button
+              type="button"
+              class="advanced-toggle"
+              id="advanced-toggle"
+              aria-expanded="false"
+            >
               <span class="toggle-text">More options</span>
               <i class="fas fa-chevron-down toggle-icon"></i>
             </button>
-            
+
             <div class="advanced-content" id="advanced-content" style="display: none">
               <!-- Map Location -->
               <div class="form-group">
@@ -162,7 +178,9 @@ extra_css %}
                 <div class="map-container">
                   <div id="fillup-map" class="mini-map"></div>
                   <div class="map-overlay" id="map-overlay">
-                    <span class="location-text" id="location-text">Select a vehicle to see location</span>
+                    <span class="location-text" id="location-text"
+                      >Select a vehicle to see location</span
+                    >
                   </div>
                 </div>
               </div>
@@ -182,7 +200,12 @@ extra_css %}
                     min="0"
                     placeholder="Miles"
                   />
-                  <button type="button" class="btn-icon" id="auto-calc-odometer" title="Auto-calculate from trips">
+                  <button
+                    type="button"
+                    class="btn-icon"
+                    id="auto-calc-odometer"
+                    title="Auto-calculate from trips"
+                  >
                     <i class="fas fa-magic"></i>
                   </button>
                 </div>
@@ -196,7 +219,9 @@ extra_css %}
                     <span>Full tank</span>
                   </label>
                 </div>
-                <small class="form-hint odometer-hint" id="odometer-display">Last known: --</small>
+                <small class="form-hint odometer-hint" id="odometer-display"
+                  >Last known: --</small
+                >
               </div>
 
               <!-- Missed Fill-up Option -->
@@ -204,7 +229,11 @@ extra_css %}
                 <label class="checkbox-label">
                   <input type="checkbox" id="missed-previous" />
                   <span>Missed a previous fill-up?</span>
-                  <i class="fas fa-info-circle" data-bs-toggle="tooltip" title="Check if you forgot to log a fill-up. This helps keep MPG calculations accurate."></i>
+                  <i
+                    class="fas fa-info-circle"
+                    data-bs-toggle="tooltip"
+                    title="Check if you forgot to log a fill-up. This helps keep MPG calculations accurate."
+                  ></i>
                 </label>
               </div>
 
@@ -234,9 +263,18 @@ extra_css %}
           <div class="form-actions">
             <button type="submit" class="btn-primary btn-submit" id="submit-btn">
               <span id="submit-btn-text">Save Fill-up</span>
-              <span class="spinner-border spinner-border-sm ms-2" style="display: none" id="submit-spinner"></span>
+              <span
+                class="spinner-border spinner-border-sm ms-2"
+                style="display: none"
+                id="submit-spinner"
+              ></span>
             </button>
-            <button type="button" class="btn-secondary btn-cancel" id="cancel-edit-btn" style="display: none">
+            <button
+              type="button"
+              class="btn-secondary btn-cancel"
+              id="cancel-edit-btn"
+              style="display: none"
+            >
               Cancel
             </button>
           </div>
@@ -254,7 +292,7 @@ extra_css %}
           </h2>
           <span class="card-badge subtle" id="history-count">0</span>
         </div>
-        
+
         <div class="history-list" id="fillup-list">
           <!-- Empty State -->
           <div class="empty-state" id="empty-state">
@@ -262,7 +300,9 @@ extra_css %}
               <i class="fas fa-gas-pump"></i>
             </div>
             <h3 class="empty-title">No fill-ups yet</h3>
-            <p class="empty-text">Record your first fill-up to start tracking your fuel efficiency.</p>
+            <p class="empty-text">
+              Record your first fill-up to start tracking your fuel efficiency.
+            </p>
           </div>
         </div>
       </div>

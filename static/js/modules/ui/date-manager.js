@@ -74,8 +74,7 @@ const dateManager = {
       if (detail.source === "filters") {
         return;
       }
-      const nextStart
-        = detail.startDate || store.get("filters.startDate") || startDate;
+      const nextStart = detail.startDate || store.get("filters.startDate") || startDate;
       const nextEnd = detail.endDate || store.get("filters.endDate") || endDate;
       if (!nextStart || !nextEnd) {
         return;
@@ -345,8 +344,7 @@ const dateManager = {
     }
 
     // Update trigger active state
-    const isNotToday
-      = savedStartDate !== today || savedEndDate !== today;
+    const isNotToday = savedStartDate !== today || savedEndDate !== today;
     trigger?.classList.toggle("has-filter", isNotToday);
   },
 

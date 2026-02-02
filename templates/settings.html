@@ -1238,7 +1238,10 @@
           Track storage used by Docker volumes and app caches.
         </p>
         <div class="table-responsive-lg">
-          <table class="table table-striped table-hover w-100" id="storage-sources-table">
+          <table
+            class="table table-striped table-hover w-100"
+            id="storage-sources-table"
+          >
             <thead>
               <tr>
                 <th data-sort="source" style="cursor: pointer">
@@ -1264,12 +1267,10 @@
                 <td data-value="{{ source.label }}" class="fw-medium">
                   {{ source.label }}
                 </td>
-                <td data-value="{{ source.category }}">
-                  {{ source.category }}
-                </td>
+                <td data-value="{{ source.category }}">{{ source.category }}</td>
                 <td data-value="{{ source.size_bytes or 0 }}">
-                  {% if source.size_mb is not none %} {{
-                  "%.2f"|format(source.size_mb) }} MB {% else %} N/A {% endif %}
+                  {% if source.size_mb is not none %} {{ "%.2f"|format(source.size_mb)
+                  }} MB {% else %} N/A {% endif %}
                 </td>
                 <td data-value="{{ source.detail or '' }}">
                   {% if source.detail %}

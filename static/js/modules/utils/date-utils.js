@@ -1,8 +1,8 @@
 import apiClient from "../core/api-client.js";
 import { getStorage, setStorage } from "./data.js";
 
-const dayjs = globalThis.dayjs;
-const flatpickr = globalThis.flatpickr;
+const { dayjs } = globalThis;
+const { flatpickr } = globalThis;
 
 const DATE_STORAGE_KEYS = {
   startDate: "startDate",

@@ -166,11 +166,7 @@
   right: -10%;
   width: 500px;
   height: 500px;
-  background: radial-gradient(
-    circle,
-    rgba(var(--cat-mint-rgb), 0.15) 0%,
-    transparent 70%
-  );
+  background: radial-gradient(circle, rgba(var(--cat-mint-rgb), 0.15) 0%, transparent 70%);
   pointer-events: none;
 }
 
@@ -274,11 +270,7 @@
 
 .stat-card.highlight {
   border-color: var(--cat-ochre);
-  background: linear-gradient(
-    135deg,
-    var(--surface-2) 0%,
-    rgba(var(--cat-ochre-rgb), 0.1) 100%
-  );
+  background: linear-gradient(135deg, var(--surface-2) 0%, rgba(var(--cat-ochre-rgb), 0.1) 100%);
 }
 
 .stat-number {
@@ -534,11 +526,7 @@
 
 /* Patterns Section */
 .patterns-section {
-  background: linear-gradient(
-    135deg,
-    var(--surface-1) 0%,
-    rgba(var(--cat-purple-rgb), 0.08) 100%
-  );
+  background: linear-gradient(135deg, var(--surface-1) 0%, rgba(var(--cat-purple-rgb), 0.08) 100%);
   border-color: rgba(var(--cat-purple-rgb), 0.3);
 }
 
@@ -622,11 +610,7 @@
 
 /* Discoveries Section */
 .discoveries-section {
-  background: linear-gradient(
-    135deg,
-    var(--surface-1) 0%,
-    rgba(var(--cat-sky-rgb), 0.08) 100%
-  );
+  background: linear-gradient(135deg, var(--surface-1) 0%, rgba(var(--cat-sky-rgb), 0.08) 100%);
   border-color: rgba(var(--cat-sky-rgb), 0.3);
 }
 
@@ -846,11 +830,7 @@
 
 /* Map Section */
 .map-section {
-  background: linear-gradient(
-    135deg,
-    var(--surface-1) 0%,
-    rgba(var(--cat-lime-rgb), 0.08) 100%
-  );
+  background: linear-gradient(135deg, var(--surface-1) 0%, rgba(var(--cat-lime-rgb), 0.08) 100%);
   border-color: rgba(var(--cat-lime-rgb), 0.3);
 }
 
@@ -1146,11 +1126,7 @@
 
 /* Trips Section */
 .trips-section {
-  background: linear-gradient(
-    135deg,
-    var(--surface-1) 0%,
-    rgba(var(--cat-ochre-rgb), 0.08) 100%
-  );
+  background: linear-gradient(135deg, var(--surface-1) 0%, rgba(var(--cat-ochre-rgb), 0.08) 100%);
   border-color: rgba(var(--cat-ochre-rgb), 0.3);
 }
 

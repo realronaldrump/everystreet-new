@@ -92,25 +92,22 @@ export function initDatabaseManagement({ signal } = {}) {
       return;
     }
     if (storageTotalEl) {
-      const totalBytes
-        = Number.isFinite(data.total_bytes)
-          ? data.total_bytes
-          : Number.isFinite(data.used_mb)
-            ? data.used_mb * 1024 * 1024
-            : null;
-      storageTotalEl.textContent
-        = totalBytes == null ? "N/A" : formatBytes(totalBytes);
+      const totalBytes = Number.isFinite(data.total_bytes)
+        ? data.total_bytes
+        : Number.isFinite(data.used_mb)
+          ? data.used_mb * 1024 * 1024
+          : null;
+      storageTotalEl.textContent = totalBytes == null ? "N/A" : formatBytes(totalBytes);
       if (Number.isFinite(totalBytes)) {
         storageTotalEl.dataset.bytes = String(totalBytes);
       }
     }
     if (storageDbEl) {
-      const dbBytes
-        = Number.isFinite(data.database_logical_bytes)
-          ? data.database_logical_bytes
-          : Number.isFinite(data.database_logical_mb)
-            ? data.database_logical_mb * 1024 * 1024
-            : null;
+      const dbBytes = Number.isFinite(data.database_logical_bytes)
+        ? data.database_logical_bytes
+        : Number.isFinite(data.database_logical_mb)
+          ? data.database_logical_mb * 1024 * 1024
+          : null;
       storageDbEl.textContent = dbBytes == null ? "N/A" : formatBytes(dbBytes);
       if (Number.isFinite(dbBytes)) {
         storageDbEl.dataset.bytes = String(dbBytes);
@@ -311,9 +308,7 @@ export function initDatabaseManagement({ signal } = {}) {
               const bNum = parseFloat(bVal) || 0;
               return dir === "asc" ? aNum - bNum : bNum - aNum;
             }
-            return dir === "asc"
-              ? aVal.localeCompare(bVal)
-              : bVal.localeCompare(aVal);
+            return dir === "asc" ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
           });
 
           rows.forEach((row) => {

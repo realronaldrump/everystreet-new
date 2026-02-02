@@ -126,12 +126,7 @@
   left: 0;
   right: 0;
   height: 4px;
-  background: linear-gradient(
-    90deg,
-    var(--trips-primary),
-    var(--trips-mint),
-    var(--trips-sky)
-  );
+  background: linear-gradient(90deg, var(--trips-primary), var(--trips-mint), var(--trips-sky));
 }
 
 .welcome-greeting {
@@ -1449,11 +1444,7 @@
 }
 
 .trip-details-modal .modal-content {
-  background: linear-gradient(
-    145deg,
-    rgba(23, 25, 35, 0.95) 0%,
-    rgba(15, 17, 25, 0.98) 100%
-  );
+  background: linear-gradient(145deg, rgba(23, 25, 35, 0.95) 0%, rgba(15, 17, 25, 0.98) 100%);
   border-radius: 24px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow:
@@ -1579,11 +1570,7 @@
 .trip-modal-map-col {
   min-height: 480px;
   position: relative;
-  background: linear-gradient(
-    180deg,
-    rgba(10, 12, 18, 0.8) 0%,
-    rgba(15, 17, 25, 0.95) 100%
-  );
+  background: linear-gradient(180deg, rgba(10, 12, 18, 0.8) 0%, rgba(15, 17, 25, 0.95) 100%);
 }
 
 .trip-modal-map {

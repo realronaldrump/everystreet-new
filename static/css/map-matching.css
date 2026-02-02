@@ -113,11 +113,7 @@
   padding: var(--space-6) var(--space-4);
   margin-bottom: var(--space-5);
   background:
-    radial-gradient(
-      600px ellipse at 50% 0%,
-      rgb(var(--cat-mint-rgb) / 15%),
-      transparent 60%
-    ),
+    radial-gradient(600px ellipse at 50% 0%, rgb(var(--cat-mint-rgb) / 15%), transparent 60%),
     var(--surface-1);
   border-radius: var(--radius-2xl);
   border: 1px solid rgb(var(--border-rgb) / 10%);

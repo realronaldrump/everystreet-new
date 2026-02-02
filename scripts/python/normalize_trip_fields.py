@@ -95,7 +95,9 @@ def normalize_coordinate_timestamps(db) -> int:
 
 
 def main() -> None:
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s"
+    )
     db_name = os.getenv("MONGODB_DATABASE", DEFAULT_DB_NAME)
     client = _get_mongo_client()
     db = client[db_name]
@@ -106,7 +108,9 @@ def main() -> None:
 
     logger.info("Normalizing coordinate timestamps (string -> datetime)...")
     updated_coords = normalize_coordinate_timestamps(db)
-    logger.info("Updated %d trip documents with normalized coordinates.", updated_coords)
+    logger.info(
+        "Updated %d trip documents with normalized coordinates.", updated_coords
+    )
 
 
 if __name__ == "__main__":

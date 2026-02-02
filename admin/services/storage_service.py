@@ -53,7 +53,9 @@ def _is_docker_unavailable(error_text: str | None) -> bool:
         return True
     lowered = error_text.lower()
     return "docker" in lowered and (
-        "not found" in lowered or "no such file" in lowered or "command not found" in lowered
+        "not found" in lowered
+        or "no such file" in lowered
+        or "command not found" in lowered
     )
 
 
@@ -179,14 +181,14 @@ class StorageService:
 
         if project:
             volume_names, docker_error = await _list_volumes(
-                [f"--filter", f"label=com.docker.compose.project={project}"],
+                ["--filter", f"label=com.docker.compose.project={project}"],
             )
 
         if not volume_names and not docker_error:
             fallback_names: set[str] = set()
             for volume_label in EXPECTED_VOLUMES:
                 names, err = await _list_volumes(
-                    [f"--filter", f"label=com.docker.compose.volume={volume_label}"],
+                    ["--filter", f"label=com.docker.compose.volume={volume_label}"],
                 )
                 if err and not docker_error:
                     docker_error = err

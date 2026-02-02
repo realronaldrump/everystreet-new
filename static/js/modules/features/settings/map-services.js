@@ -548,7 +548,9 @@ async function triggerProvisioning() {
     const response = await apiClient.raw(endpoint, {
       method: "POST",
       headers: useConfigure ? { "Content-Type": "application/json" } : undefined,
-      body: useConfigure ? JSON.stringify({ states: retryStates, force: true }) : undefined,
+      body: useConfigure
+        ? JSON.stringify({ states: retryStates, force: true })
+        : undefined,
     });
 
     console.log("[MapServices] Response status:", response.status);

@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any
 from fastapi import HTTPException, status
 from pymongo.errors import OperationFailure
 
+from admin.services.storage_service import StorageService
 from core.date_utils import ensure_utc
 from core.http.geocoding import validate_location_osm
 from core.service_config import (
@@ -15,7 +16,6 @@ from core.service_config import (
     clear_config_cache,
     get_service_config,
 )
-from admin.services.storage_service import StorageService
 from db.manager import db_manager
 from db.models import (
     AppSettings,

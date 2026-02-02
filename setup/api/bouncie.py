@@ -12,13 +12,13 @@ from fastapi import APIRouter, Query, Request
 from fastapi.responses import RedirectResponse
 
 from core.api import api_route
-from setup.services.bouncie_sync import (
-    BouncieVehicleSyncError,
-    sync_bouncie_vehicles,
-)
 from setup.services.bouncie_credentials import (
     get_bouncie_credentials,
     update_bouncie_credentials,
+)
+from setup.services.bouncie_sync import (
+    BouncieVehicleSyncError,
+    sync_bouncie_vehicles,
 )
 
 logger = logging.getLogger(__name__)

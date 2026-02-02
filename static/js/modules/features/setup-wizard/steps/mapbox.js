@@ -1,6 +1,6 @@
 import { isValidMapboxToken as isValidMapboxTokenShared } from "../../../settings/credentials.js";
 
-const mapboxgl = globalThis.mapboxgl;
+const { mapboxgl } = globalThis;
 
 export function isValidMapboxToken(token) {
   return isValidMapboxTokenShared(token);

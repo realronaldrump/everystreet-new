@@ -10,8 +10,8 @@ from fastapi import HTTPException, status
 from pydantic import ValidationError
 
 from admin.services.admin_service import AdminService
-from core.bouncie_normalization import normalize_rest_trip_payload
 from config import require_nominatim_reverse_url, require_valhalla_trace_route_url
+from core.bouncie_normalization import normalize_rest_trip_payload
 from core.date_utils import get_current_utc_time
 from db.models import Trip
 from trips.models import TripProcessingProjection, TripStatusProjection

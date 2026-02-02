@@ -80,7 +80,9 @@ def _deduplicate_coordinates(
     # Build dict keyed by ISO timestamp
     coords_map: dict[str, dict] = {}
 
-    existing_coords = normalize_existing_coordinates(existing or [], validate_coords=True)
+    existing_coords = normalize_existing_coordinates(
+        existing or [], validate_coords=True
+    )
     new_coords = normalize_existing_coordinates(new or [], validate_coords=True)
 
     for coord in existing_coords + new_coords:
@@ -455,8 +457,6 @@ async def get_trip_updates(_last_sequence: int = 0) -> dict[str, Any]:
         "has_update": False,
         "message": "No active trip",
     }
-
-
 
 
 async def record_webhook_event(event_type: str | None) -> None:

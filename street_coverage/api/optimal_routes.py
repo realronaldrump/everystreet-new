@@ -276,7 +276,9 @@ async def cancel_optimal_route_task(task_id: str):
     if not progress:
         raise HTTPException(status_code=404, detail="Task not found")
 
-    location_id = progress.location or (str(progress.area_id) if progress.area_id else None)
+    location_id = progress.location or (
+        str(progress.area_id) if progress.area_id else None
+    )
     current_status = progress.status or ""
 
     if current_status not in ("completed", "failed", "cancelled"):
@@ -334,7 +336,8 @@ async def get_optimal_route_progress(task_id: str):
 
     return {
         "task_id": task_id,
-        "location_id": progress.location or (str(progress.area_id) if progress.area_id else None),
+        "location_id": progress.location
+        or (str(progress.area_id) if progress.area_id else None),
         "status": progress.status or "pending",
         "stage": progress.stage or "initializing",
         "progress": progress.progress or 0,

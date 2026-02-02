@@ -189,8 +189,8 @@ async function loadVehicles(options = {}) {
     }
 
     if (vehicles.length === 0) {
-      vehicleSelect.innerHTML =
-        '<option value="">No vehicles found. Go to Profile to sync/add.</option>';
+      vehicleSelect.innerHTML
+        = '<option value="">No vehicles found. Go to Profile to sync/add.</option>';
       setVehicleStatus(
         "No vehicles detected. Try syncing from your Profile page.",
         "warning"
@@ -259,9 +259,9 @@ async function attemptVehicleDiscovery() {
       method: "POST",
       successMessage: "Created vehicles from your recorded trips.",
       hasVehicles: (data) =>
-        (data?.synced ?? 0) > 0 ||
-        (data?.updated ?? 0) > 0 ||
-        (data?.total_vehicles ?? 0) > 0,
+        (data?.synced ?? 0) > 0
+        || (data?.updated ?? 0) > 0
+        || (data?.total_vehicles ?? 0) > 0,
     },
   ];
 
@@ -302,14 +302,22 @@ async function updateLocationAndOdometer() {
   const odometerInput = document.getElementById("odometer");
 
   if (!vehicleSelect.value) {
-    if (locationText) locationText.textContent = "Select a vehicle to see location";
-    if (odometerDisplay) odometerDisplay.textContent = "Last known: --";
+    if (locationText) {
+      locationText.textContent = "Select a vehicle to see location";
+    }
+    if (odometerDisplay) {
+      odometerDisplay.textContent = "Last known: --";
+    }
     return;
   }
 
   try {
-    if (locationText) locationText.textContent = "Loading location...";
-    if (odometerDisplay) odometerDisplay.textContent = "Loading...";
+    if (locationText) {
+      locationText.textContent = "Loading location...";
+    }
+    if (odometerDisplay) {
+      odometerDisplay.textContent = "Loading...";
+    }
 
     // Determine if we should use "now" or a specific timestamp
     const useNow = !fillupTime || isNearCurrentTime(fillupTime);
@@ -360,7 +368,9 @@ async function updateLocationAndOdometer() {
           : `${data.latitude.toFixed(4)}, ${data.longitude.toFixed(4)}`;
       }
     } else {
-      if (locationText) locationText.textContent = "Location not available";
+      if (locationText) {
+        locationText.textContent = "Location not available";
+      }
       if (map && marker) {
         marker.remove();
       }
@@ -376,12 +386,20 @@ async function updateLocationAndOdometer() {
         odometerInput.value = odoVal;
       }
     } else {
-      if (odometerDisplay) odometerDisplay.textContent = "Enter odometer reading";
-      if (odometerInput) odometerInput.placeholder = "Enter miles";
+      if (odometerDisplay) {
+        odometerDisplay.textContent = "Enter odometer reading";
+      }
+      if (odometerInput) {
+        odometerInput.placeholder = "Enter miles";
+      }
     }
   } catch {
-    if (locationText) locationText.textContent = "Error loading location";
-    if (odometerDisplay) odometerDisplay.textContent = "Last known: --";
+    if (locationText) {
+      locationText.textContent = "Error loading location";
+    }
+    if (odometerDisplay) {
+      odometerDisplay.textContent = "Last known: --";
+    }
     currentLocation = null;
   }
 }
@@ -390,8 +408,10 @@ async function updateLocationAndOdometer() {
  * Truncate text with ellipsis
  */
 function truncateText(text, maxLength) {
-  if (!text || text.length <= maxLength) return text;
-  return text.substring(0, maxLength - 3) + "...";
+  if (!text || text.length <= maxLength) {
+    return text;
+  }
+  return `${text.substring(0, maxLength - 3)}...`;
 }
 
 /**
@@ -433,8 +453,8 @@ function updateMap(lat, lon) {
  */
 function calculateTotalCost() {
   const gallons = parseFloat(document.getElementById("gallons").value) || 0;
-  const pricePerGallon =
-    parseFloat(document.getElementById("price-per-gallon").value) || 0;
+  const pricePerGallon
+    = parseFloat(document.getElementById("price-per-gallon").value) || 0;
   const totalCostInput = document.getElementById("total-cost");
 
   if (gallons > 0 && pricePerGallon > 0) {
@@ -533,8 +553,8 @@ function setupEventListeners(signal) {
   fillupList?.addEventListener(
     "click",
     (event) => {
-      const target =
-        event.target instanceof Element ? event.target : event.target?.parentElement;
+      const target
+        = event.target instanceof Element ? event.target : event.target?.parentElement;
       const button = target?.closest("[data-action]");
       if (!button) {
         return;
@@ -603,8 +623,8 @@ async function autoCalcOdometer() {
 
   try {
     // Show loading state
-    autoCalcBtn.innerHTML =
-      '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
+    autoCalcBtn.innerHTML
+      = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
     autoCalcBtn.disabled = true;
 
     const timestamp = new Date(fillupTime).toISOString();
@@ -758,8 +778,8 @@ function resetFormState() {
   odoInput.placeholder = "Miles";
 
   // Reset helper text
-  document.getElementById("location-text").textContent =
-    "Select a vehicle to see location";
+  document.getElementById("location-text").textContent
+    = "Select a vehicle to see location";
   document.getElementById("odometer-display").textContent = "Last known: --";
   document.getElementById("calculated-mpg").style.display = "none";
 
@@ -832,8 +852,8 @@ async function loadRecentFillups() {
 
     fillupList.innerHTML = fillups.map((fillup) => createFillupItem(fillup)).join("");
   } catch {
-    fillupList.innerHTML =
-      '<p class="text-center text-danger p-4">Error loading fill-ups</p>';
+    fillupList.innerHTML
+      = '<p class="text-center text-danger p-4">Error loading fill-ups</p>';
   }
 }
 
@@ -1049,8 +1069,8 @@ async function loadStatistics() {
 
     // Update stats display
     document.getElementById("total-fillups").textContent = stats.total_fillups || 0;
-    document.getElementById("total-spent").textContent =
-      `$${(stats.total_cost || 0).toFixed(0)}`;
+    document.getElementById("total-spent").textContent
+      = `$${(stats.total_cost || 0).toFixed(0)}`;
     document.getElementById("avg-mpg").textContent = stats.average_mpg
       ? stats.average_mpg.toFixed(1)
       : "--";

@@ -7,8 +7,8 @@ import { VisitsGeometry } from "../../visits/geometry.js";
 import VisitsManager from "../../visits/visits-manager.js";
 import confirmationDialog from "../../ui/confirmation-dialog.js";
 
-const mapboxgl = globalThis.mapboxgl;
-const bootstrap = globalThis.bootstrap;
+const { mapboxgl } = globalThis;
+const { bootstrap } = globalThis;
 
 // Configuration for imperial units
 const IMPERIAL_CONFIG = {
