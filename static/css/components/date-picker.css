@@ -330,7 +330,7 @@ body.light-mode .preset-btn:hover {
   background: var(--surface-3);
 }
 
-/* Flatpickr integration - ensure it displays above dropdown */
+/* Flatpickr integration - ensure it displays above fixed header */
 .flatpickr-calendar {
-  z-index: calc(var(--z-dropdown) + 10) !important;
+  z-index: var(--z-popover) !important;
 }
