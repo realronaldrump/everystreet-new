@@ -19,62 +19,57 @@
 </script>
 {% endblock %} {% block content %}
 <div class="container-fluid px-4 py-3 map-matching-page">
-  <div class="bento-grid" data-stagger>
-    <!-- Hero Section - Friendly Introduction -->
-    <div class="bento-span-12 widget map-matching-hero" data-accent="mint">
-      <div class="widget-header">
-        <div class="hero-content">
-          <h1 class="widget-title">
-            <i class="fas fa-magic" aria-hidden="true"></i>
-            Match Your Routes
-          </h1>
-          <p class="hero-description">
-            GPS signals can be imprecise, causing your trips to appear off-road or
-            jagged. Route matching automatically snaps your trips to actual roads for
-            cleaner, more accurate coverage tracking.
-          </p>
-        </div>
-        <div class="hero-visual">
-          <div class="before-after">
-            <div class="visual-item">
-              <span class="visual-label">Before</span>
-              <svg class="route-svg" viewBox="0 0 80 50" aria-hidden="true">
-                <path
-                  class="route-jagged"
-                  d="M5,25 L15,20 L20,30 L30,22 L35,28 L45,18 L55,32 L65,24 L75,26"
-                />
-              </svg>
-            </div>
-            <div class="visual-arrow">
-              <i class="fas fa-arrow-right"></i>
-            </div>
-            <div class="visual-item">
-              <span class="visual-label">After</span>
-              <svg class="route-svg" viewBox="0 0 80 50" aria-hidden="true">
-                <path class="route-smooth" d="M5,25 Q40,15 75,25" />
-              </svg>
-            </div>
-          </div>
-        </div>
+  <!-- Wizard Shell -->
+  <div class="mm-wizard-shell" id="mm-wizard-shell">
+    
+    <!-- Phase Indicator -->
+    <div class="mm-phase-indicator" role="navigation" aria-label="Wizard progress">
+      <div class="mm-phase-step is-active" data-phase="select">
+        <span class="mm-step-dot">1</span>
+        <span class="mm-step-label">Select</span>
+      </div>
+      <div class="mm-phase-connector"></div>
+      <div class="mm-phase-step" data-phase="process">
+        <span class="mm-step-dot">2</span>
+        <span class="mm-step-label">Match</span>
+      </div>
+      <div class="mm-phase-connector"></div>
+      <div class="mm-phase-step" data-phase="results">
+        <span class="mm-step-dot">3</span>
+        <span class="mm-step-label">Review</span>
       </div>
     </div>
 
-    <!-- Main Action Card - Simplified -->
-    <div class="bento-span-7 widget map-matching-form" data-accent="mint">
-      <div class="widget-header">
-        <div>
-          <h2 class="widget-title">
-            <i class="fas fa-route" aria-hidden="true"></i>
-            Ready to Improve
-          </h2>
-          <div class="widget-meta">Select which trips to process</div>
+    <!-- Phase 1: Select -->
+    <section class="mm-phase is-active" data-phase="select" role="region" aria-labelledby="mm-select-heading">
+      
+      <!-- Welcome Card -->
+      <div class="mm-welcome-card">
+        <div class="mm-welcome-visual" aria-hidden="true">
+          <svg class="mm-morph-svg" viewBox="0 0 120 60">
+            <path class="mm-morph-path" d="M10,30 L25,22 L35,38 L50,26 L65,34 L80,20 L95,35 L110,28" />
+          </svg>
+        </div>
+        <div class="mm-welcome-content">
+          <h1 class="mm-welcome-title" id="mm-select-heading">
+            <i class="fas fa-magic" aria-hidden="true"></i>
+            Improve Your Routes
+          </h1>
+          <p class="mm-welcome-desc">
+            GPS signals can be imprecise, causing trips to appear off-road or jagged. 
+            Route matching snaps your trips to actual roads for cleaner, more accurate tracking.
+          </p>
         </div>
       </div>
-      <div class="widget-body">
+
+      <!-- Selection Card -->
+      <div class="mm-selection-card">
+        <h2 class="mm-section-title">What would you like to match?</h2>
+        
         <form id="map-matching-form">
-          <!-- Simple Selection -->
-          <div class="selection-cards" id="map-match-selection-cards">
-            <label class="selection-card is-selected" data-mode="unmatched">
+          <!-- Selection Options -->
+          <div class="mm-options" id="map-match-selection-cards">
+            <label class="mm-option is-selected" data-mode="unmatched">
               <input
                 type="radio"
                 name="match-mode"
@@ -82,37 +77,33 @@
                 checked
                 class="visually-hidden"
               />
-              <div class="selection-card-icon">
+              <div class="mm-option-icon">
                 <i class="fas fa-clock"></i>
               </div>
-              <div class="selection-card-content">
-                <span class="selection-card-title">Pending trips</span>
-                <span class="selection-card-desc"
-                  >All trips that haven't been matched yet</span
-                >
+              <div class="mm-option-content">
+                <span class="mm-option-title">Pending trips</span>
+                <span class="mm-option-desc">All trips not yet matched</span>
               </div>
-              <div class="selection-card-check">
+              <div class="mm-option-check">
                 <i class="fas fa-check"></i>
               </div>
             </label>
 
-            <label class="selection-card" data-mode="date_range">
+            <label class="mm-option" data-mode="date_range">
               <input
                 type="radio"
                 name="match-mode"
                 value="date_range"
                 class="visually-hidden"
               />
-              <div class="selection-card-icon">
+              <div class="mm-option-icon">
                 <i class="fas fa-calendar-alt"></i>
               </div>
-              <div class="selection-card-content">
-                <span class="selection-card-title">By date range</span>
-                <span class="selection-card-desc"
-                  >Choose specific dates to process</span
-                >
+              <div class="mm-option-content">
+                <span class="mm-option-title">By date range</span>
+                <span class="mm-option-desc">Choose specific dates</span>
               </div>
-              <div class="selection-card-check">
+              <div class="mm-option-check">
                 <i class="fas fa-check"></i>
               </div>
             </label>
@@ -126,35 +117,35 @@
           </select>
 
           <!-- Date Range Options (shown when date_range selected) -->
-          <div id="map-match-date-controls" class="date-options d-none">
-            <div class="date-quick-picks">
-              <span class="quick-picks-label">Quick select:</span>
-              <div class="quick-picks-buttons">
-                <button type="button" class="quick-pick-btn" data-days="7">
+          <div id="map-match-date-controls" class="mm-date-panel d-none">
+            <div class="mm-quick-picks">
+              <span class="mm-quick-picks-label">Quick select:</span>
+              <div class="mm-quick-picks-buttons">
+                <button type="button" class="mm-quick-pick" data-days="7">
                   Last week
                 </button>
-                <button type="button" class="quick-pick-btn" data-days="30">
+                <button type="button" class="mm-quick-pick" data-days="30">
                   Last month
                 </button>
-                <button type="button" class="quick-pick-btn" data-days="90">
-                  Last 3 months
+                <button type="button" class="mm-quick-pick" data-days="90">
+                  3 months
                 </button>
-                <button type="button" class="quick-pick-btn" data-days="365">
+                <button type="button" class="mm-quick-pick" data-days="365">
                   Last year
                 </button>
               </div>
             </div>
 
-            <div class="date-custom">
-              <span class="date-custom-label">Or choose dates:</span>
-              <div class="date-inputs">
+            <div class="mm-date-custom">
+              <span class="mm-date-label">Or choose dates:</span>
+              <div class="mm-date-inputs">
                 <input
                   type="text"
                   id="map-match-start"
                   class="form-control datepicker"
                   placeholder="Start date"
                 />
-                <span class="date-separator">to</span>
+                <span class="mm-date-separator">to</span>
                 <input
                   type="text"
                   id="map-match-end"
@@ -164,7 +155,7 @@
               </div>
             </div>
 
-            <div class="form-check form-switch reprocess-option">
+            <label class="mm-switch-option">
               <input
                 class="form-check-input"
                 type="checkbox"
@@ -172,10 +163,8 @@
                 id="map-match-unmatched-only"
                 checked
               />
-              <label class="form-check-label" for="map-match-unmatched-only">
-                Only process trips not yet matched
-              </label>
-            </div>
+              <span>Only process trips not yet matched</span>
+            </label>
           </div>
 
           <!-- Hidden elements for legacy JS compatibility -->
@@ -197,8 +186,8 @@
           <div id="map-match-interval" class="d-none"></div>
 
           <!-- Advanced: Specific Trip (hidden by default) -->
-          <div id="map-match-trip-controls" class="d-none">
-            <label class="form-label" for="map-match-trip-id">Trip ID</label>
+          <div id="map-match-trip-controls" class="mm-trip-panel d-none">
+            <label class="mm-input-label" for="map-match-trip-id">Trip ID</label>
             <input
               type="text"
               id="map-match-trip-id"
@@ -207,26 +196,23 @@
             />
           </div>
 
-          <!-- Preview Section (simplified) -->
-          <div id="map-match-preview-panel" class="preview-panel d-none">
-            <div class="preview-header">
-              <span class="preview-icon"><i class="fas fa-list-check"></i></span>
-              <span class="preview-summary" id="map-match-preview-summary"></span>
-            </div>
-            <div class="preview-trips-mini" id="map-match-preview-body-container">
-              <div class="preview-trips-scroll">
-                <table class="preview-table-mini">
-                  <tbody id="map-match-preview-body"></tbody>
-                </table>
-              </div>
+          <!-- Preview Badge (inline) -->
+          <div id="map-match-preview-panel" class="mm-preview-badge d-none">
+            <span class="mm-preview-icon"><i class="fas fa-check-circle"></i></span>
+            <span class="mm-preview-text" id="map-match-preview-summary"></span>
+            <!-- Hidden table for legacy compatibility -->
+            <div class="d-none">
+              <table class="preview-table-mini">
+                <tbody id="map-match-preview-body"></tbody>
+              </table>
             </div>
           </div>
 
           <!-- Main Actions -->
-          <div class="form-actions">
+          <div class="mm-actions">
             <button
               type="button"
-              class="btn btn-outline-secondary btn-preview"
+              class="btn mm-btn-secondary"
               id="map-match-preview-btn"
             >
               <i class="fas fa-eye"></i>
@@ -234,14 +220,15 @@
             </button>
             <button
               type="submit"
-              class="btn btn-primary btn-start"
+              class="btn mm-btn-primary"
               id="map-match-submit"
             >
               <i class="fas fa-sparkles"></i>
-              Match Routes
+              Start Matching
             </button>
           </div>
-          <div class="form-status">
+
+          <div class="mm-status">
             <span
               class="settings-status is-hidden"
               id="map-match-preview-status"
@@ -255,87 +242,82 @@
           </div>
 
           <!-- Advanced Toggle -->
-          <button type="button" class="advanced-toggle" id="map-match-advanced-toggle">
+          <button type="button" class="mm-advanced-toggle" id="map-match-advanced-toggle">
             <i class="fas fa-sliders"></i>
             <span>Advanced options</span>
-            <i class="fas fa-chevron-down toggle-arrow"></i>
+            <i class="fas fa-chevron-down mm-toggle-arrow"></i>
           </button>
-          <div class="advanced-options d-none" id="map-match-advanced-options">
-            <label class="selection-card selection-card-small" data-mode="trip_id">
+          <div class="mm-advanced-panel d-none" id="map-match-advanced-options">
+            <label class="mm-option mm-option-small" data-mode="trip_id">
               <input
                 type="radio"
                 name="match-mode"
                 value="trip_id"
                 class="visually-hidden"
               />
-              <div class="selection-card-icon">
+              <div class="mm-option-icon">
                 <i class="fas fa-fingerprint"></i>
               </div>
-              <div class="selection-card-content">
-                <span class="selection-card-title">Specific trip</span>
-                <span class="selection-card-desc">Process a single trip by ID</span>
+              <div class="mm-option-content">
+                <span class="mm-option-title">Specific trip</span>
+                <span class="mm-option-desc">Process a single trip by ID</span>
               </div>
-              <div class="selection-card-check">
+              <div class="mm-option-check">
                 <i class="fas fa-check"></i>
               </div>
             </label>
           </div>
         </form>
       </div>
-    </div>
+    </section>
 
-    <!-- Progress Widget - Friendly -->
-    <div class="bento-span-5 widget map-matching-progress" data-accent="amber">
-      <div class="widget-header">
-        <div>
-          <h2 class="widget-title">
-            <i class="fas fa-bolt" aria-hidden="true"></i>
-            Progress
-          </h2>
-        </div>
-      </div>
-      <div class="widget-body">
-        <div id="map-match-current-empty" class="empty-state">
-          <div class="empty-icon">
-            <i class="fas fa-route"></i>
-          </div>
+    <!-- Phase 2: Process -->
+    <section class="mm-phase" data-phase="process" role="region" aria-labelledby="mm-process-heading">
+      <div class="mm-process-card">
+        <h2 class="visually-hidden" id="mm-process-heading">Processing routes</h2>
+        
+        <!-- Hidden empty state for JS compatibility -->
+        <div id="map-match-current-empty" class="d-none">
           <span class="empty-text">Ready when you are</span>
         </div>
-        <div id="map-match-current-panel" class="d-none">
-          <div class="progress-visual">
-            <div class="progress-ring-container">
-              <svg class="progress-ring" viewBox="0 0 100 100">
-                <circle class="progress-ring-bg" cx="50" cy="50" r="42" />
+        
+        <div id="map-match-current-panel">
+          <div class="mm-progress-visual">
+            <div class="mm-progress-ring-container">
+              <svg class="mm-progress-ring" viewBox="0 0 100 100">
+                <circle class="mm-progress-ring-bg" cx="50" cy="50" r="42" />
                 <circle
-                  class="progress-ring-fill"
+                  class="mm-progress-ring-fill"
                   cx="50"
                   cy="50"
                   r="42"
                   id="map-match-progress-ring"
                 />
               </svg>
-              <div class="progress-ring-text">
-                <span class="progress-percent" id="map-match-progress-percent">0%</span>
+              <div class="mm-progress-ring-text">
+                <span class="mm-progress-percent" id="map-match-progress-percent">0%</span>
               </div>
             </div>
           </div>
-          <div class="progress-info">
-            <div id="map-match-progress-message" class="progress-message">
-              Starting...
+          
+          <div class="mm-progress-info" aria-live="polite">
+            <div id="map-match-progress-message" class="mm-progress-message">
+              Improving your routes...
             </div>
-            <div id="map-match-progress-metrics" class="progress-metrics"></div>
-            <div class="progress-actions">
-              <button
-                class="btn btn-outline-danger btn-sm d-none"
-                id="map-match-cancel-btn"
-                type="button"
-                title="Cancel job"
-              >
-                <i class="fas fa-stop"></i>
-                Cancel
-              </button>
-            </div>
+            <div id="map-match-progress-metrics" class="mm-progress-metrics"></div>
           </div>
+          
+          <div class="mm-progress-actions">
+            <button
+              class="btn mm-btn-cancel d-none"
+              id="map-match-cancel-btn"
+              type="button"
+            >
+              <i class="fas fa-stop"></i>
+              Cancel
+            </button>
+          </div>
+          
           <!-- Hidden legacy progress bar for JS compatibility -->
           <div class="progress d-none" style="height: 22px">
             <div
@@ -349,174 +331,180 @@
           </div>
         </div>
       </div>
-    </div>
+    </section>
 
-    <!-- Recent Activity (collapsed history) -->
-    <div class="bento-span-12 widget map-matching-history" data-accent="slate">
-      <div
-        class="widget-header widget-header-collapsible"
-        id="map-match-history-toggle"
-      >
-        <div class="history-header-content">
-          <h2 class="widget-title">
-            <i class="fas fa-history" aria-hidden="true"></i>
-            Recent Activity
-          </h2>
-          <span class="history-badge" id="map-match-history-count">0</span>
-        </div>
-        <div class="history-header-actions">
-          <button class="btn btn-ghost btn-sm" id="map-match-refresh" title="Refresh">
-            <i class="fas fa-sync"></i>
-          </button>
-          <button
-            class="btn btn-ghost btn-sm"
-            id="map-match-history-clear"
-            title="Clear completed"
-          >
-            <i class="fas fa-trash-alt"></i>
-          </button>
-          <i class="fas fa-chevron-down history-chevron"></i>
-          <span
-            class="settings-status is-hidden"
-            id="map-match-history-status"
-            role="status"
-          ></span>
-        </div>
-      </div>
-      <div class="widget-body history-body" id="map-match-history-body">
-        <div class="history-list" id="map-match-jobs-list">
-          <!-- Jobs will be rendered here as cards, not a table -->
-        </div>
-        <!-- Hidden table for JS compatibility -->
-        <table class="d-none">
-          <tbody id="map-match-jobs-body"></tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- Results Preview - Map Focused -->
-    <div class="bento-span-12 widget map-matching-preview" data-accent="sky">
-      <div class="widget-header">
-        <div>
-          <h2 class="widget-title">
-            <i class="fas fa-map" aria-hidden="true"></i>
-            Matched Routes
-          </h2>
-          <div class="widget-meta" id="map-match-preview-map-summary">
-            Complete a job above to see your matched routes
+    <!-- Phase 3: Results -->
+    <section class="mm-phase" data-phase="results" role="region" aria-labelledby="mm-results-heading">
+      <div class="mm-results-card">
+        <!-- Success Header -->
+        <div class="mm-results-header">
+          <div class="mm-results-icon">
+            <i class="fas fa-check-circle"></i>
+          </div>
+          <div class="mm-results-summary">
+            <h2 class="mm-results-title" id="mm-results-heading">Routes Improved!</h2>
+            <p class="mm-results-desc" id="map-match-preview-map-summary">
+              Your trips have been matched to roads
+            </p>
+          </div>
+          <div class="mm-results-actions">
+            <button
+              class="btn mm-btn-secondary btn-sm"
+              id="map-match-preview-map-btn"
+            >
+              <i class="fas fa-sync"></i>
+              Refresh
+            </button>
+            <span
+              class="settings-status is-hidden"
+              id="map-match-preview-map-status"
+              role="status"
+            ></span>
           </div>
         </div>
-        <div class="results-actions">
-          <button
-            class="btn btn-outline-secondary btn-sm"
-            id="map-match-preview-map-btn"
-          >
-            <i class="fas fa-sync"></i>
-            Refresh
-          </button>
-          <span
-            class="settings-status is-hidden"
-            id="map-match-preview-map-status"
-            role="status"
-          ></span>
-        </div>
-      </div>
-      <div class="widget-body">
-        <div class="results-layout">
-          <!-- Map Side -->
-          <div class="results-map-container">
-            <div
-              class="results-map"
-              id="map-match-preview-map"
-              aria-label="Matched routes map"
-            ></div>
-            <div id="map-match-preview-map-empty" class="results-map-empty">
-              <div class="empty-map-content">
-                <i class="fas fa-map-marked-alt"></i>
-                <span>Your matched routes will appear here</span>
-              </div>
-            </div>
-            <div class="results-map-legend">
-              <span class="legend-dot"></span>
-              <span>Matched route</span>
+
+        <!-- Map -->
+        <div class="mm-results-map-container">
+          <div
+            class="mm-results-map"
+            id="map-match-preview-map"
+            aria-label="Matched routes map"
+          ></div>
+          <div id="map-match-preview-map-empty" class="mm-results-map-empty">
+            <div class="mm-empty-map-content">
+              <i class="fas fa-map-marked-alt"></i>
+              <span>Your matched routes will appear here</span>
             </div>
           </div>
+          <div class="mm-results-map-legend">
+            <span class="mm-legend-dot"></span>
+            <span>Matched route</span>
+          </div>
+        </div>
 
-          <!-- Trips List Side -->
-          <div class="results-list-container">
-            <div class="results-list-header">
-              <span class="results-count" id="map-match-results-count"
-                >No trips yet</span
+        <!-- Trip List -->
+        <div class="mm-results-list">
+          <div class="mm-results-list-header">
+            <span class="mm-results-count" id="map-match-results-count">No trips yet</span>
+            <div class="mm-bulk-actions d-none" id="map-match-bulk-actions">
+              <span class="mm-bulk-count" id="map-match-preview-selection-count">0 selected</span>
+              <button
+                class="btn btn-ghost btn-sm"
+                id="map-match-preview-clear-selection"
+                disabled
+                title="Clear selection"
               >
-              <div class="results-bulk-actions d-none" id="map-match-bulk-actions">
-                <span class="bulk-count" id="map-match-preview-selection-count"
-                  >0 selected</span
-                >
-                <button
-                  class="btn btn-ghost btn-sm"
-                  id="map-match-preview-clear-selection"
-                  disabled
-                  title="Clear selection"
-                >
-                  <i class="fas fa-times"></i>
-                </button>
-                <button
-                  class="btn btn-ghost btn-sm"
-                  id="map-match-preview-unmatch-selected"
-                  disabled
-                  title="Remove improvement"
-                >
-                  <i class="fas fa-undo"></i>
-                </button>
-                <button
-                  class="btn btn-ghost btn-sm text-danger"
-                  id="map-match-preview-delete-selected"
-                  disabled
-                  title="Delete trips"
-                >
-                  <i class="fas fa-trash"></i>
-                </button>
-              </div>
-            </div>
-            <div class="results-list-scroll">
-              <div class="results-trips" id="map-match-results-trips">
-                <!-- Trip cards will be rendered here -->
-              </div>
-              <!-- Hidden table for JS compatibility -->
-              <table class="d-none">
-                <thead>
-                  <tr>
-                    <th class="matched-preview-select-col"></th>
-                    <th>Trip ID</th>
-                    <th>Matched</th>
-                    <th>Distance</th>
-                    <th>Status</th>
-                    <th class="matched-preview-actions-col">Actions</th>
-                  </tr>
-                </thead>
-                <tbody id="map-match-preview-map-body"></tbody>
-              </table>
-            </div>
-            <div class="results-list-footer" id="map-match-results-footer">
-              <label class="select-all-toggle">
-                <input
-                  type="checkbox"
-                  id="map-match-preview-select-all"
-                  class="form-check-input"
-                />
-                <span>Select all</span>
-              </label>
-              <span
-                class="settings-status is-hidden"
-                id="map-match-preview-actions-status"
-                role="status"
-              ></span>
+                <i class="fas fa-times"></i>
+              </button>
+              <button
+                class="btn btn-ghost btn-sm"
+                id="map-match-preview-unmatch-selected"
+                disabled
+                title="Remove improvement"
+              >
+                <i class="fas fa-undo"></i>
+              </button>
+              <button
+                class="btn btn-ghost btn-sm text-danger"
+                id="map-match-preview-delete-selected"
+                disabled
+                title="Delete trips"
+              >
+                <i class="fas fa-trash"></i>
+              </button>
             </div>
           </div>
+          <div class="mm-results-list-scroll">
+            <div class="mm-results-trips" id="map-match-results-trips">
+              <!-- Trip cards will be rendered here -->
+            </div>
+            <!-- Hidden table for JS compatibility -->
+            <table class="d-none">
+              <thead>
+                <tr>
+                  <th class="matched-preview-select-col"></th>
+                  <th>Trip ID</th>
+                  <th>Matched</th>
+                  <th>Distance</th>
+                  <th>Status</th>
+                  <th class="matched-preview-actions-col">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="map-match-preview-map-body"></tbody>
+            </table>
+          </div>
+          <div class="mm-results-list-footer" id="map-match-results-footer">
+            <label class="mm-select-all">
+              <input
+                type="checkbox"
+                id="map-match-preview-select-all"
+                class="form-check-input"
+              />
+              <span>Select all</span>
+            </label>
+            <span
+              class="settings-status is-hidden"
+              id="map-match-preview-actions-status"
+              role="status"
+            ></span>
+          </div>
+        </div>
+
+        <!-- Match More Button -->
+        <div class="mm-match-more">
+          <button type="button" class="btn mm-btn-primary" id="mm-match-more-btn">
+            <i class="fas fa-plus"></i>
+            Match More Trips
+          </button>
         </div>
       </div>
-    </div>
+    </section>
   </div>
+
+  <!-- History Drawer -->
+  <aside class="mm-history-drawer" id="mm-history-drawer" aria-labelledby="mm-history-title">
+    <div class="mm-drawer-header">
+      <h2 class="mm-drawer-title" id="mm-history-title">
+        <i class="fas fa-history"></i>
+        Recent Activity
+      </h2>
+      <div class="mm-drawer-actions">
+        <button class="btn btn-ghost btn-sm" id="map-match-refresh" title="Refresh">
+          <i class="fas fa-sync"></i>
+        </button>
+        <button class="btn btn-ghost btn-sm" id="map-match-history-clear" title="Clear completed">
+          <i class="fas fa-trash-alt"></i>
+        </button>
+        <button class="btn btn-ghost btn-sm mm-drawer-close" id="mm-drawer-close" title="Close">
+          <i class="fas fa-times"></i>
+        </button>
+        <span
+          class="settings-status is-hidden"
+          id="map-match-history-status"
+          role="status"
+        ></span>
+      </div>
+    </div>
+    <div class="mm-drawer-body" id="map-match-history-body">
+      <div class="mm-history-list" id="map-match-jobs-list">
+        <!-- Jobs will be rendered here -->
+      </div>
+      <!-- Hidden table for JS compatibility -->
+      <table class="d-none">
+        <tbody id="map-match-jobs-body"></tbody>
+      </table>
+    </div>
+  </aside>
+  <div class="mm-drawer-backdrop" id="mm-drawer-backdrop"></div>
+
+  <!-- History FAB -->
+  <button class="mm-history-fab" id="mm-history-fab" title="View activity history">
+    <i class="fas fa-history"></i>
+    <span class="mm-fab-badge" id="map-match-history-count">0</span>
+  </button>
+
+  <!-- Legacy hidden elements for compatibility -->
+  <div class="d-none" id="map-match-history-toggle"></div>
 </div>
 {% endblock %} {% block extra_js %}
 <script src="{{ CDN.mapbox_gl_js }}"></script>

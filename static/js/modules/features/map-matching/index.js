@@ -3,8 +3,8 @@
 import apiClient from "../../core/api-client.js";
 import { CONFIG } from "../../core/config.js";
 import mapBase from "../../map-base.js";
-import notificationManager from "../../ui/notifications.js";
 import confirmationDialog from "../../ui/confirmation-dialog.js";
+import notificationManager from "../../ui/notifications.js";
 import { DateUtils } from "../../utils.js";
 import { clearInlineStatus, setInlineStatus } from "../settings/status-utils.js";
 
@@ -12,6 +12,15 @@ const mapboxgl = globalThis.mapboxgl;
 const flatpickr = globalThis.flatpickr;
 
 let elements = {};
+
+// Phase state machine
+const PHASES = {
+  SELECT: "select",
+  PROCESS: "process",
+  RESULTS: "results",
+};
+
+let currentPhase = PHASES.SELECT;
 
 function cacheElements() {
   elements = {
@@ -70,6 +79,15 @@ function cacheElements() {
     resultsTrips: document.getElementById("map-match-results-trips"),
     resultsCount: document.getElementById("map-match-results-count"),
     bulkActions: document.getElementById("map-match-bulk-actions"),
+    // Wizard elements
+    wizardShell: document.getElementById("mm-wizard-shell"),
+    phaseIndicator: document.querySelector(".mm-phase-indicator"),
+    matchMoreBtn: document.getElementById("mm-match-more-btn"),
+    // History drawer elements
+    historyDrawer: document.getElementById("mm-history-drawer"),
+    historyFab: document.getElementById("mm-history-fab"),
+    drawerBackdrop: document.getElementById("mm-drawer-backdrop"),
+    drawerClose: document.getElementById("mm-drawer-close"),
   };
 }
 
@@ -110,6 +128,108 @@ const FRIENDLY_MESSAGES = {
   cancelled: "Cancelled by user",
 };
 
+// ========================================
+// Phase State Machine
+// ========================================
+
+function setPhase(phase) {
+  if (!PHASES[phase.toUpperCase()] && !Object.values(PHASES).includes(phase)) {
+    console.warn("Invalid phase:", phase);
+    return;
+  }
+
+  currentPhase = phase;
+
+  // Update phase sections
+  document.querySelectorAll(".mm-phase").forEach((section) => {
+    const sectionPhase = section.dataset.phase;
+    const isActive = sectionPhase === phase;
+    section.classList.toggle("is-active", isActive);
+
+    // Manage focus for accessibility
+    if (isActive) {
+      const heading = section.querySelector("h1, h2");
+      if (heading) {
+        heading.setAttribute("tabindex", "-1");
+        heading.focus();
+      }
+    }
+  });
+
+  // Update phase indicator dots
+  const phaseOrder = [PHASES.SELECT, PHASES.PROCESS, PHASES.RESULTS];
+  const currentIndex = phaseOrder.indexOf(phase);
+
+  document.querySelectorAll(".mm-phase-step").forEach((step, index) => {
+    const stepPhase = step.dataset.phase;
+    const stepIndex = phaseOrder.indexOf(stepPhase);
+
+    step.classList.remove("is-active", "is-completed");
+
+    if (stepIndex < currentIndex) {
+      step.classList.add("is-completed");
+    } else if (stepIndex === currentIndex) {
+      step.classList.add("is-active");
+    }
+  });
+
+  // Update connectors
+  document.querySelectorAll(".mm-phase-connector").forEach((connector, index) => {
+    connector.classList.toggle("is-active", index < currentIndex);
+  });
+}
+
+function resetToSelect() {
+  currentJobId = null;
+  currentJobStage = null;
+  lastAutoPreviewJobId = null;
+  stopPolling();
+  setPhase(PHASES.SELECT);
+
+  // Clear URL parameter
+  const url = new URL(window.location.href);
+  url.searchParams.delete("job");
+  window.history.replaceState({}, "", url.toString());
+}
+
+// ========================================
+// History Drawer
+// ========================================
+
+function openHistoryDrawer() {
+  elements.historyDrawer?.classList.add("is-open");
+  elements.drawerBackdrop?.classList.add("is-visible");
+  document.body.style.overflow = "hidden";
+
+  // Focus management for accessibility
+  const closeBtn = elements.drawerClose;
+  if (closeBtn) {
+    closeBtn.focus();
+  }
+}
+
+function closeHistoryDrawer() {
+  elements.historyDrawer?.classList.remove("is-open");
+  elements.drawerBackdrop?.classList.remove("is-visible");
+  document.body.style.overflow = "";
+
+  // Return focus to FAB
+  elements.historyFab?.focus();
+}
+
+function toggleHistoryDrawer() {
+  const isOpen = elements.historyDrawer?.classList.contains("is-open");
+  if (isOpen) {
+    closeHistoryDrawer();
+  } else {
+    openHistoryDrawer();
+  }
+}
+
+// ========================================
+// Core Functions
+// ========================================
+
 function destroyPreviewMap() {
   if (matchedPreviewMap) {
     try {
@@ -133,6 +253,7 @@ function resetState() {
   lastAutoPreviewJobId = null;
   matchedSelection = new Set();
   selectedQuickPick = null;
+  currentPhase = PHASES.SELECT;
   destroyPreviewMap();
 }
 
@@ -201,10 +322,20 @@ function formatTripDate(startTime, endTime) {
 function setModeUI(mode) {
   const isDate = mode === "date_range";
   const isTrip = mode === "trip_id";
-  elements.dateControls.classList.toggle("d-none", !isDate);
-  elements.tripControls.classList.toggle("d-none", !isTrip);
+  elements.dateControls?.classList.toggle("d-none", !isDate);
+  elements.tripControls?.classList.toggle("d-none", !isTrip);
 
-  // Update selection cards
+  // Update selection options (new wizard UI)
+  document.querySelectorAll(".mm-option").forEach((option) => {
+    const optionMode = option.dataset.mode;
+    option.classList.toggle("is-selected", optionMode === mode);
+    const radio = option.querySelector('input[type="radio"]');
+    if (radio) {
+      radio.checked = optionMode === mode;
+    }
+  });
+
+  // Legacy: Update selection cards
   document.querySelectorAll(".selection-card").forEach((card) => {
     const cardMode = card.dataset.mode;
     card.classList.toggle("is-selected", cardMode === mode);
@@ -233,15 +364,15 @@ function updateProgressRing(pct) {
   if (!elements.progressRing) {
     return;
   }
-  const offset
-    = PROGRESS_RING_CIRCUMFERENCE - (pct / 100) * PROGRESS_RING_CIRCUMFERENCE;
+  const offset =
+    PROGRESS_RING_CIRCUMFERENCE - (pct / 100) * PROGRESS_RING_CIRCUMFERENCE;
   elements.progressRing.style.strokeDashoffset = offset;
 }
 
 function updateProgressUI(progress) {
   if (!progress) {
-    elements.currentPanel.classList.add("d-none");
-    elements.currentEmpty.classList.remove("d-none");
+    elements.currentPanel?.classList.add("d-none");
+    elements.currentEmpty?.classList.remove("d-none");
     currentJobStage = null;
     if (elements.cancelBtn) {
       elements.cancelBtn.classList.add("d-none");
@@ -250,8 +381,8 @@ function updateProgressUI(progress) {
     return;
   }
 
-  elements.currentPanel.classList.remove("d-none");
-  elements.currentEmpty.classList.add("d-none");
+  elements.currentPanel?.classList.remove("d-none");
+  elements.currentEmpty?.classList.add("d-none");
   currentJobStage = progress.stage || null;
 
   const pct = Math.min(100, Math.max(0, progress.progress || 0));
@@ -272,7 +403,9 @@ function updateProgressUI(progress) {
   // Friendly message
   const stage = progress.stage || "unknown";
   const friendlyMsg = FRIENDLY_MESSAGES[stage] || progress.message || "";
-  elements.progressMessage.textContent = friendlyMsg;
+  if (elements.progressMessage) {
+    elements.progressMessage.textContent = friendlyMsg;
+  }
 
   if (elements.cancelBtn) {
     const canCancel = !isTerminalStage(stage);
@@ -282,11 +415,10 @@ function updateProgressUI(progress) {
 
   // Simplified metrics
   const metrics = progress.metrics || {};
-  if (metrics.total != null) {
+  if (metrics.total != null && elements.progressMetrics) {
     const matchedCount = metrics.matched ?? metrics.map_matched ?? 0;
-    const processed = metrics.processed ?? 0;
     elements.progressMetrics.textContent = `${matchedCount} of ${metrics.total} trips matched`;
-  } else {
+  } else if (elements.progressMetrics) {
     elements.progressMetrics.textContent = "";
   }
 
@@ -321,12 +453,23 @@ async function fetchJob(jobId) {
   try {
     const data = await apiGet(CONFIG.API.mapMatchingJob(jobId));
     updateProgressUI(data);
+
     if (isTerminalStage(data.stage)) {
       stopPolling();
-    }
-    if (data.stage === "completed" && jobId && lastAutoPreviewJobId !== jobId) {
-      lastAutoPreviewJobId = jobId;
-      loadMatchedPreview(jobId, { silent: true });
+
+      // Transition to results phase when completed
+      if (data.stage === "completed" && jobId && lastAutoPreviewJobId !== jobId) {
+        lastAutoPreviewJobId = jobId;
+        setPhase(PHASES.RESULTS);
+        loadMatchedPreview(jobId, { silent: true });
+      } else if (
+        data.stage === "failed" ||
+        data.stage === "error" ||
+        data.stage === "cancelled"
+      ) {
+        // Stay on process phase but show error state
+        // User can click "Match More" to go back
+      }
     }
     return data;
   } catch (error) {
@@ -340,6 +483,10 @@ function startPolling(jobId) {
   currentJobId = jobId;
   lastAutoPreviewJobId = null;
   storeLastJobId(jobId);
+
+  // Transition to process phase
+  setPhase(PHASES.PROCESS);
+
   fetchJob(jobId);
   stopPolling();
   pollTimer = setInterval(() => fetchJob(jobId), 1000);
@@ -365,14 +512,16 @@ function renderJobs(jobs) {
   // Update count badge
   if (elements.historyCount) {
     elements.historyCount.textContent = jobs.length;
+    elements.historyCount.dataset.count = jobs.length;
   }
 
-  // Render as cards in the new UI
+  // Render as cards in the drawer
   if (elements.jobsList) {
     if (jobs.length === 0) {
       elements.jobsList.innerHTML = `
-        <div class="history-empty" style="padding: var(--space-4); text-align: center; color: var(--text-tertiary); font-size: var(--font-size-sm);">
-          No recent activity
+        <div class="mm-history-empty" style="padding: var(--space-6); text-align: center; color: var(--text-tertiary); font-size: var(--font-size-sm);">
+          <i class="fas fa-inbox" style="font-size: 2rem; margin-bottom: var(--space-2); opacity: 0.5;"></i>
+          <div>No recent activity</div>
         </div>
       `;
     } else {
@@ -382,8 +531,8 @@ function renderJobs(jobs) {
           const progress = job.progress ?? 0;
           const updated = formatFriendlyDate(job.updated_at);
           const isTerminal = isTerminalStage(status);
-          const statusClass
-            = status === "completed"
+          const statusClass =
+            status === "completed"
               ? "is-completed"
               : status === "cancelled"
                 ? "is-cancelled"
@@ -464,20 +613,20 @@ function renderJobs(jobs) {
 }
 
 function buildPayload() {
-  const mode = elements.modeSelect.value;
+  const mode = elements.modeSelect?.value || "unmatched";
   if (mode === "unmatched") {
     return { mode: "unmatched" };
   }
 
   if (mode === "trip_id") {
-    const tripId = elements.tripIdInput.value.trim();
+    const tripId = elements.tripIdInput?.value.trim();
     if (!tripId) {
       throw new Error("Trip ID is required");
     }
     return { mode: "trip_id", trip_id: tripId };
   }
 
-  const unmatchedOnly = Boolean(elements.unmatchedOnly.checked);
+  const unmatchedOnly = Boolean(elements.unmatchedOnly?.checked);
 
   // Check if using quick pick interval
   if (selectedQuickPick) {
@@ -489,8 +638,8 @@ function buildPayload() {
   }
 
   // Custom date range
-  const start = elements.startInput.value.trim();
-  const end = elements.endInput.value.trim();
+  const start = elements.startInput?.value.trim();
+  const end = elements.endInput?.value.trim();
   if (!start || !end) {
     throw new Error("Please select a date range or quick pick option");
   }
@@ -514,7 +663,6 @@ function invalidatePreview() {
   if (elements.previewSummary) {
     elements.previewSummary.textContent = "";
   }
-  // Don't disable submit button - allow direct submission
 }
 
 function renderPreview(data) {
@@ -523,28 +671,35 @@ function renderPreview(data) {
   }
 
   const total = data.total || 0;
-  const sample = data.sample || [];
   if (total === 0) {
-    elements.previewSummary.textContent = "No trips found for this selection.";
+    if (elements.previewSummary) {
+      elements.previewSummary.textContent = "No trips found for this selection";
+    }
   } else {
-    elements.previewSummary.textContent = `Found ${total} trip${total !== 1 ? "s" : ""} to improve`;
+    if (elements.previewSummary) {
+      elements.previewSummary.textContent = `${total} trip${total !== 1 ? "s" : ""} ready to improve`;
+    }
   }
 
-  elements.previewBody.innerHTML = sample
-    .map((trip) => {
-      const dateStr = formatTripDate(trip.startTime);
-      let distance = "";
-      if (trip.distance != null && !Number.isNaN(Number(trip.distance))) {
-        distance = `${Number(trip.distance).toFixed(1)} mi`;
-      }
-      return `
-        <tr>
-          <td>${dateStr}</td>
-          <td style="text-align: right; color: var(--text-tertiary);">${distance}</td>
-        </tr>
-      `;
-    })
-    .join("");
+  // Render sample in hidden table for legacy compatibility
+  const sample = data.sample || [];
+  if (elements.previewBody) {
+    elements.previewBody.innerHTML = sample
+      .map((trip) => {
+        const dateStr = formatTripDate(trip.startTime);
+        let distance = "";
+        if (trip.distance != null && !Number.isNaN(Number(trip.distance))) {
+          distance = `${Number(trip.distance).toFixed(1)} mi`;
+        }
+        return `
+          <tr>
+            <td>${dateStr}</td>
+            <td style="text-align: right; color: var(--text-tertiary);">${distance}</td>
+          </tr>
+        `;
+      })
+      .join("");
+  }
 
   elements.previewPanel.classList.remove("d-none");
 }
@@ -607,7 +762,21 @@ function wireEvents(signal) {
   }
   const eventOptions = signal ? { signal } : false;
 
-  // Selection cards
+  // New wizard: Selection options (mm-option)
+  document.querySelectorAll(".mm-option").forEach((option) => {
+    option.addEventListener(
+      "click",
+      () => {
+        const { mode } = option.dataset;
+        if (mode) {
+          setModeUI(mode);
+        }
+      },
+      eventOptions
+    );
+  });
+
+  // Legacy: Selection cards
   document.querySelectorAll(".selection-card").forEach((card) => {
     card.addEventListener(
       "click",
@@ -621,8 +790,8 @@ function wireEvents(signal) {
     );
   });
 
-  // Quick pick buttons
-  document.querySelectorAll(".quick-pick-btn").forEach((btn) => {
+  // New wizard: Quick pick buttons (mm-quick-pick)
+  document.querySelectorAll(".mm-quick-pick").forEach((btn) => {
     btn.addEventListener(
       "click",
       () => {
@@ -638,8 +807,48 @@ function wireEvents(signal) {
         }
 
         // Update button states
-        document.querySelectorAll(".quick-pick-btn").forEach((b) => {
+        document.querySelectorAll(".mm-quick-pick").forEach((b) => {
           b.classList.toggle("is-active", b === btn);
+        });
+
+        // Legacy quick-pick-btn compatibility
+        document.querySelectorAll(".quick-pick-btn").forEach((b) => {
+          b.classList.toggle("is-active", parseInt(b.dataset.days, 10) === days);
+        });
+
+        // Update legacy selects for compatibility
+        if (elements.dateModeSelect) {
+          elements.dateModeSelect.value = "interval";
+        }
+        if (elements.intervalSelect) {
+          elements.intervalSelect.value = String(days);
+        }
+
+        invalidatePreview();
+      },
+      eventOptions
+    );
+  });
+
+  // Legacy: Quick pick buttons
+  document.querySelectorAll(".quick-pick-btn").forEach((btn) => {
+    btn.addEventListener(
+      "click",
+      () => {
+        const days = parseInt(btn.dataset.days, 10);
+        selectedQuickPick = days;
+
+        // Clear custom date inputs
+        if (elements.startInput) {
+          elements.startInput.value = "";
+        }
+        if (elements.endInput) {
+          elements.endInput.value = "";
+        }
+
+        // Update button states (both new and legacy)
+        document.querySelectorAll(".quick-pick-btn, .mm-quick-pick").forEach((b) => {
+          b.classList.toggle("is-active", parseInt(b.dataset.days, 10) === days);
         });
 
         // Update legacy selects for compatibility
@@ -663,7 +872,7 @@ function wireEvents(signal) {
         "change",
         () => {
           selectedQuickPick = null;
-          document.querySelectorAll(".quick-pick-btn").forEach((b) => {
+          document.querySelectorAll(".quick-pick-btn, .mm-quick-pick").forEach((b) => {
             b.classList.remove("is-active");
           });
           if (elements.dateModeSelect) {
@@ -686,7 +895,54 @@ function wireEvents(signal) {
     eventOptions
   );
 
-  // History toggle (collapse/expand)
+  // Match more button (return to select phase)
+  elements.matchMoreBtn?.addEventListener(
+    "click",
+    () => {
+      resetToSelect();
+    },
+    eventOptions
+  );
+
+  // History FAB
+  elements.historyFab?.addEventListener(
+    "click",
+    () => {
+      openHistoryDrawer();
+    },
+    eventOptions
+  );
+
+  // Drawer close button
+  elements.drawerClose?.addEventListener(
+    "click",
+    () => {
+      closeHistoryDrawer();
+    },
+    eventOptions
+  );
+
+  // Drawer backdrop
+  elements.drawerBackdrop?.addEventListener(
+    "click",
+    () => {
+      closeHistoryDrawer();
+    },
+    eventOptions
+  );
+
+  // Escape key to close drawer
+  document.addEventListener(
+    "keydown",
+    (e) => {
+      if (e.key === "Escape" && elements.historyDrawer?.classList.contains("is-open")) {
+        closeHistoryDrawer();
+      }
+    },
+    eventOptions
+  );
+
+  // Legacy: History toggle (collapse/expand) - now just open drawer
   elements.historyToggle?.addEventListener(
     "click",
     (e) => {
@@ -694,8 +950,7 @@ function wireEvents(signal) {
       if (e.target.closest("button")) {
         return;
       }
-      const historyWidget = elements.historyToggle.closest(".map-matching-history");
-      historyWidget?.classList.toggle("is-collapsed");
+      openHistoryDrawer();
     },
     eventOptions
   );
@@ -713,9 +968,12 @@ function wireEvents(signal) {
       const { jobId } = btn.dataset;
 
       if (action === "view" && jobId) {
+        closeHistoryDrawer();
         startPolling(jobId);
       } else if (action === "preview" && jobId) {
-        startPolling(jobId);
+        closeHistoryDrawer();
+        setPhase(PHASES.RESULTS);
+        currentJobId = jobId;
         loadMatchedPreview(jobId);
       } else if (action === "cancel" && jobId) {
         cancelJob(jobId);
@@ -836,7 +1094,8 @@ function wireEvents(signal) {
       if (previewButton) {
         const jobId = previewButton.dataset.previewJobId;
         if (jobId) {
-          startPolling(jobId);
+          setPhase(PHASES.RESULTS);
+          currentJobId = jobId;
           loadMatchedPreview(jobId);
         }
         return;
@@ -971,11 +1230,11 @@ function getMatchedPreviewColor() {
   if (!elements.previewMap) {
     return CONFIG.LAYER_DEFAULTS.matchedTrips.color;
   }
-  const widget = elements.previewMap.closest(".map-matching-preview");
-  if (!widget) {
+  const container = elements.previewMap.closest(".mm-results-map-container");
+  if (!container) {
     return CONFIG.LAYER_DEFAULTS.matchedTrips.color;
   }
-  const color = getComputedStyle(widget).getPropertyValue("--matched-preview-color");
+  const color = getComputedStyle(container).getPropertyValue("--matched-preview-color");
   return color?.trim() || CONFIG.LAYER_DEFAULTS.matchedTrips.color;
 }
 
@@ -1024,7 +1283,9 @@ function updateMatchedPreviewEmptyState(message) {
     return;
   }
   if (message) {
-    const content = elements.previewMapEmpty.querySelector(".empty-map-content span");
+    const content = elements.previewMapEmpty.querySelector(
+      ".mm-empty-map-content span, .empty-map-content span"
+    );
     if (content) {
       content.textContent = message;
     }
@@ -1289,8 +1550,8 @@ function updateMatchedPreviewTable(data) {
 
   // Update results count
   if (elements.resultsCount) {
-    elements.resultsCount.textContent
-      = total > 0 ? `${total} trip${total !== 1 ? "s" : ""}` : "No trips yet";
+    elements.resultsCount.textContent =
+      total > 0 ? `${total} trip${total !== 1 ? "s" : ""}` : "No trips yet";
   }
 
   if (!total) {
@@ -1632,8 +1893,18 @@ async function resumeFromJobs(jobs) {
   }
   const storedJobId = getStoredJobId();
   if (storedJobId) {
-    startPolling(storedJobId);
-    return;
+    // Check if stored job is completed, go to results phase
+    try {
+      const job = await apiGet(CONFIG.API.mapMatchingJob(storedJobId));
+      if (job && job.stage === "completed") {
+        currentJobId = storedJobId;
+        setPhase(PHASES.RESULTS);
+        loadMatchedPreview(storedJobId, { silent: true });
+        return;
+      }
+    } catch {
+      // Ignore errors, just stay on select
+    }
   }
   updateProgressUI(null);
 }
@@ -1658,6 +1929,8 @@ export default async function initMapMatchingPage({ signal, cleanup } = {}) {
     return;
   }
 
+  // Initialize phase
+  setPhase(PHASES.SELECT);
   setModeUI(elements.modeSelect.value);
   invalidatePreview();
   updateMatchedSelectionUI();
@@ -1672,8 +1945,27 @@ export default async function initMapMatchingPage({ signal, cleanup } = {}) {
 
   const jobFromUrl = getJobIdFromURL();
   if (jobFromUrl) {
-    startPolling(jobFromUrl);
+    // Check if job is completed or still processing
+    try {
+      const job = await apiGet(CONFIG.API.mapMatchingJob(jobFromUrl));
+      if (job && job.stage === "completed") {
+        currentJobId = jobFromUrl;
+        setPhase(PHASES.RESULTS);
+        loadMatchedPreview(jobFromUrl, { silent: true });
+      } else if (job && !isTerminalStage(job.stage)) {
+        startPolling(jobFromUrl);
+      } else {
+        // Failed/cancelled - show process phase with status
+        currentJobId = jobFromUrl;
+        setPhase(PHASES.PROCESS);
+        updateProgressUI(job);
+      }
+    } catch {
+      // If job not found, just start fresh
+      setPhase(PHASES.SELECT);
+    }
   }
+
   const jobs = await loadJobs();
   if (!jobFromUrl) {
     await resumeFromJobs(jobs);
@@ -1682,6 +1974,7 @@ export default async function initMapMatchingPage({ signal, cleanup } = {}) {
   const teardown = () => {
     stopPolling();
     resetState();
+    closeHistoryDrawer();
     elements = {};
     pageSignal = null;
   };
