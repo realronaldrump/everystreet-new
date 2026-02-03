@@ -13,7 +13,7 @@ async def test_safe_readline_handles_overlong_line() -> None:
 
     result = await builders._safe_readline(
         reader,
-        timeout=0.1,
+        wait_timeout=0.1,
         label="test",
     )
 
@@ -28,7 +28,7 @@ async def test_safe_readline_returns_normal_line() -> None:
 
     result = await builders._safe_readline(
         reader,
-        timeout=0.1,
+        wait_timeout=0.1,
         label="test",
     )
 

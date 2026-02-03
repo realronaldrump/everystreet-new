@@ -1175,106 +1175,149 @@
     <div class="bento-grid" data-stagger>
       {% if storage_error %}
       <div class="settings-group bento-span-12">
-        <div class="alert alert-warning mb-0" role="alert">
-          Some storage sources are unavailable. {{ storage_error }}
+        <div class="storage-alert storage-alert-warning" role="alert">
+          <i class="fas fa-exclamation-triangle"></i>
+          <span>Some storage sources are unavailable. {{ storage_error }}</span>
         </div>
       </div>
       {% endif %}
+
+      <!-- Storage Overview Header -->
       <div class="settings-group bento-span-12">
-        <h3 class="settings-group-title">
-          <i class="fas fa-server"></i>
-          Storage Overview
-        </h3>
-        <p class="text-muted small">Monitor total storage usage across the app.</p>
-        <div class="storage-summary-grid">
-          <div class="storage-metric">
-            <span class="storage-metric-label">Total used</span>
-            <span
-              class="storage-metric-value"
-              id="storage-total-value"
-              data-bytes="{{ storage_snapshot.get('total_bytes') if storage_snapshot.get('total_bytes') is not none else '' }}"
-            >
-              {% if storage_snapshot.get('total_mb') is not none %} {{
-              "%.2f"|format(storage_snapshot.get('total_mb')) }} MB {% else %} N/A {%
-              endif %}
-            </span>
+        <div class="storage-overview-header">
+          <div class="storage-overview-icon">
+            <i class="fas fa-database"></i>
           </div>
-          <div class="storage-metric">
-            <span class="storage-metric-label">MongoDB logical size</span>
-            <span
-              class="storage-metric-value"
-              id="storage-db-value"
-              data-bytes="{{ storage_snapshot.get('database_logical_bytes') if storage_snapshot.get('database_logical_bytes') is not none else '' }}"
-            >
-              {% if storage_snapshot.get('database_logical_mb') is not none %} {{
-              "%.2f"|format(storage_snapshot.get('database_logical_mb')) }} MB {% else
-              %} N/A {% endif %}
-            </span>
+          <div class="storage-overview-content">
+            <h3 class="storage-overview-title">Storage Overview</h3>
+            <p class="storage-overview-message">Monitor your application's storage usage and database collections.</p>
           </div>
-          <div class="storage-metric">
-            <span class="storage-metric-label">Last updated</span>
-            <span
-              class="storage-metric-value"
-              id="storage-updated-at"
-              data-iso="{{ storage_snapshot.get('updated_at') or '' }}"
-            >
-              {{ storage_snapshot.get("updated_at") or "N/A" }}
-            </span>
-          </div>
-          <div class="storage-actions">
-            <button id="refresh-storage" class="btn btn-primary">
-              <i class="fas fa-sync-alt"></i> Refresh Storage Info
+          <div class="storage-overview-actions">
+            <button id="refresh-storage" class="btn btn-secondary btn-sm" title="Refresh storage information">
+              <i class="fas fa-sync-alt"></i>
             </button>
           </div>
         </div>
       </div>
 
+      <!-- Storage Metrics Cards -->
+      <div class="settings-group bento-span-4">
+        <div class="storage-metric-card storage-metric-primary">
+          <div class="storage-metric-icon">
+            <i class="fas fa-hdd"></i>
+          </div>
+          <div class="storage-metric-info">
+            <span class="storage-metric-label">Total Storage Used</span>
+            <span class="storage-metric-value" id="storage-total-value" data-bytes="{{ storage_snapshot.get('total_bytes') if storage_snapshot.get('total_bytes') is not none else '' }}">
+              {% if storage_snapshot.get('total_mb') is not none %}
+                {% if storage_snapshot.get('total_mb') > 1024 %}
+                  {{ "%.2f"|format(storage_snapshot.get('total_mb') / 1024) }} GB
+                {% else %}
+                  {{ "%.2f"|format(storage_snapshot.get('total_mb')) }} MB
+                {% endif %}
+              {% else %}
+                N/A
+              {% endif %}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-group bento-span-4">
+        <div class="storage-metric-card storage-metric-secondary">
+          <div class="storage-metric-icon">
+            <i class="fas fa-server"></i>
+          </div>
+          <div class="storage-metric-info">
+            <span class="storage-metric-label">MongoDB Size</span>
+            <span class="storage-metric-value" id="storage-db-value" data-bytes="{{ storage_snapshot.get('database_logical_bytes') if storage_snapshot.get('database_logical_bytes') is not none else '' }}">
+              {% if storage_snapshot.get('database_logical_mb') is not none %}
+                {% if storage_snapshot.get('database_logical_mb') > 1024 %}
+                  {{ "%.2f"|format(storage_snapshot.get('database_logical_mb') / 1024) }} GB
+                {% else %}
+                  {{ "%.2f"|format(storage_snapshot.get('database_logical_mb')) }} MB
+                {% endif %}
+              {% else %}
+                N/A
+              {% endif %}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-group bento-span-4">
+        <div class="storage-metric-card storage-metric-tertiary">
+          <div class="storage-metric-icon">
+            <i class="fas fa-clock"></i>
+          </div>
+          <div class="storage-metric-info">
+            <span class="storage-metric-label">Last Updated</span>
+            <span class="storage-metric-value" id="storage-updated-at" data-iso="{{ storage_snapshot.get('updated_at') or '' }}">
+              {{ storage_snapshot.get("updated_at") or "N/A" }}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Storage Sources Section -->
       <div class="settings-group bento-span-12">
-        <h3 class="settings-group-title">
-          <i class="fas fa-layer-group"></i>
-          Storage Breakdown
-        </h3>
-        <p class="text-muted small">
-          Track storage used by Docker volumes and app caches.
-        </p>
-        <div class="table-responsive-lg">
-          <table
-            class="table table-striped table-hover w-100"
-            id="storage-sources-table"
-          >
-            <thead>
-              <tr>
-                <th data-sort="source" style="cursor: pointer">
-                  Source <i class="fas fa-sort small text-muted ms-1"></i>
-                </th>
-                <th data-sort="category" style="cursor: pointer">
-                  Category <i class="fas fa-sort small text-muted ms-1"></i>
-                </th>
-                <th data-sort="size" style="cursor: pointer" class="text-end">
-                  Size <i class="fas fa-sort small text-muted ms-1"></i>
-                </th>
-                <th data-sort="detail" style="cursor: pointer">
-                  Details <i class="fas fa-sort small text-muted ms-1"></i>
-                </th>
-                <th data-sort="status" style="cursor: pointer">
-                  Status <i class="fas fa-sort small text-muted ms-1"></i>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {% if storage_sources %} {% for source in storage_sources %}
-              <tr>
-                <td
-                  data-label="Source"
-                  data-value="{{ source.label }}"
-                  class="fw-medium"
-                >
-                  {{ source.label }}
-                </td>
-                <td data-label="Category" data-value="{{ source.category }}">
-                  {{ source.category }}
-                </td>
-                <td data-label="Size" data-value="{{ source.size_bytes or 0 }}" class="text-end">
+        <div class="storage-section-header">
+          <h3 class="settings-group-title">
+            <i class="fas fa-layer-group"></i>
+            Storage Sources
+          </h3>
+          <div class="storage-section-controls">
+            <select id="storage-sort-select" class="form-select form-select-sm">
+              <option value="size-desc">Largest First</option>
+              <option value="size-asc">Smallest First</option>
+              <option value="name-asc">Name A-Z</option>
+              <option value="name-desc">Name Z-A</option>
+              <option value="category">By Category</option>
+            </select>
+          </div>
+        </div>
+        <p class="text-muted small mb-3">Storage used by Docker volumes, app caches, and other sources.</p>
+        <div id="storage-sources-container" class="storage-sources-grid">
+          {% if storage_sources %}
+            {% for source in storage_sources %}
+            <div class="storage-source-card" data-source="{{ source.label }}" data-category="{{ source.category }}" data-size="{{ source.size_bytes or 0 }}">
+              <div class="storage-source-header">
+                <div class="storage-source-icon">
+                  {% if source.category == 'Docker Volume' %}
+                    <i class="fab fa-docker"></i>
+                  {% elif source.category == 'Cache' %}
+                    <i class="fas fa-bolt"></i>
+                  {% elif source.category == 'Database' %}
+                    <i class="fas fa-database"></i>
+                  {% elif source.category == 'Logs' %}
+                    <i class="fas fa-file-alt"></i>
+                  {% else %}
+                    <i class="fas fa-folder"></i>
+                  {% endif %}
+                </div>
+                <div class="storage-source-info">
+                  <span class="storage-source-name">{{ source.label }}</span>
+                  <span class="storage-source-category">{{ source.category }}</span>
+                </div>
+                <div class="storage-source-status">
+                  {% if source.error %}
+                    <span class="status-chip status-error" title="{{ source.error }}">
+                      <i class="fas fa-exclamation-circle"></i>
+                      Error
+                    </span>
+                  {% else %}
+                    <span class="status-chip status-ok">
+                      <i class="fas fa-check-circle"></i>
+                      OK
+                    </span>
+                  {% endif %}
+                </div>
+              </div>
+              <div class="storage-source-bar-container">
+                <div class="storage-source-bar" style="width: 0%" data-size="{{ source.size_bytes or 0 }}"></div>
+              </div>
+              <div class="storage-source-footer">
+                <span class="storage-source-size">
                   {% if source.size_mb is not none %}
                     {% if source.size_mb > 1024 %}
                       {{ "%.2f"|format(source.size_mb / 1024) }} GB
@@ -1284,93 +1327,87 @@
                   {% else %}
                     N/A
                   {% endif %}
-                </td>
-                <td data-label="Details" data-value="{{ source.detail or '' }}">
-                  {% if source.detail %}
-                  <span class="text-muted small">{{ source.detail }}</span>
-                  {% else %}
-                  <span class="text-muted small">--</span>
-                  {% endif %}
-                </td>
-                <td
-                  data-label="Status"
-                  data-value="{{ 'Error' if source.error else 'OK' }}"
-                >
-                  {% if source.error %}
-                  <span class="badge bg-danger">Error</span>
-                  <div class="text-muted small">{{ source.error }}</div>
-                  {% else %}
-                  <span class="badge bg-success">OK</span>
-                  {% endif %}
-                </td>
-              </tr>
-              {% endfor %} {% else %}
-              <tr>
-                <td colspan="5" class="text-muted">No storage sources available.</td>
-              </tr>
-              {% endif %}
-            </tbody>
-          </table>
+                </span>
+                {% if source.detail %}
+                  <span class="storage-source-detail">{{ source.detail }}</span>
+                {% endif %}
+              </div>
+            </div>
+            {% endfor %}
+          {% else %}
+            <div class="storage-empty-state">
+              <i class="fas fa-inbox"></i>
+              <p>No storage sources available.</p>
+            </div>
+          {% endif %}
         </div>
       </div>
 
+      <!-- Collections Section -->
       <div class="settings-group bento-span-12">
-        <h3 class="settings-group-title">
-          <i class="fas fa-table"></i>
-          Collection Statistics
-        </h3>
-        <div class="table-responsive-lg">
-          <table class="table table-striped table-hover w-100" id="collections-table">
-            <thead>
-              <tr>
-                <th data-sort="name" style="cursor: pointer">
-                  Collection <i class="fas fa-sort small text-muted ms-1"></i>
-                </th>
-                <th data-sort="count" style="cursor: pointer" class="text-end">
-                  Documents <i class="fas fa-sort small text-muted ms-1"></i>
-                </th>
-                <th data-sort="size" style="cursor: pointer" class="text-end">
-                  Size (MB) <i class="fas fa-sort small text-muted ms-1"></i>
-                </th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% if collections %} {% for collection in collections %}
-              <tr>
-                <td
-                  data-label="Collection"
-                  data-value="{{ collection.name }}"
-                  class="fw-medium"
-                >
-                  {{ collection.name }}
-                </td>
-                <td data-label="Documents" data-value="{{ collection.document_count }}" class="text-end">
-                  {{ collection.document_count }}
-                </td>
-                <td data-label="Size (MB)" data-value="{{ collection.size_mb or 0 }}" class="text-end">
-                  {% if collection.size_mb is not none %} {{
-                  "%.2f"|format(collection.size_mb) }} {% else %} N/A {% endif %}
-                </td>
-                <td data-label="Actions" class="action-cell">
-                  <div class="btn-group btn-group-sm">
-                    <button
-                      class="btn btn-outline-danger clear-collection"
-                      data-collection="{{ collection.name }}"
-                      title="Clear Collection"
-                    >
-                      <i class="fas fa-trash"></i>
-                    </button>
-                  </div>
-                </td>
-              </tr>
-              {% endfor %} {% else %}
-              <tr>
-                <td colspan="4" class="text-muted">No collections available.</td>
-              </tr>
-              {% endif %}
-            </tbody>
-          </table>
+        <div class="storage-section-header">
+          <h3 class="settings-group-title">
+            <i class="fas fa-cubes"></i>
+            Database Collections
+          </h3>
+          <div class="storage-section-controls">
+            <select id="collections-sort-select" class="form-select form-select-sm">
+              <option value="size-desc">Largest First</option>
+              <option value="size-asc">Smallest First</option>
+              <option value="name-asc">Name A-Z</option>
+              <option value="name-desc">Name Z-A</option>
+              <option value="count-desc">Most Documents</option>
+              <option value="count-asc">Fewest Documents</option>
+            </select>
+          </div>
+        </div>
+        <p class="text-muted small mb-3">Manage your MongoDB collections and their data.</p>
+        <div id="collections-container" class="collections-grid">
+          {% if collections %}
+            {% for collection in collections %}
+            <div class="collection-card" data-collection="{{ collection.name }}" data-count="{{ collection.document_count }}" data-size="{{ collection.size_mb or 0 }}">
+              <div class="collection-card-header">
+                <div class="collection-icon">
+                  <i class="fas fa-table"></i>
+                </div>
+                <div class="collection-info">
+                  <span class="collection-name">{{ collection.name }}</span>
+                </div>
+              </div>
+              <div class="collection-stats">
+                <div class="collection-stat">
+                  <span class="collection-stat-value">{{ collection.document_count|format_number }}</span>
+                  <span class="collection-stat-label">Documents</span>
+                </div>
+                <div class="collection-stat">
+                  <span class="collection-stat-value">
+                    {% if collection.size_mb is not none %}
+                      {% if collection.size_mb > 1024 %}
+                        {{ "%.2f"|format(collection.size_mb / 1024) }} GB
+                      {% else %}
+                        {{ "%.2f"|format(collection.size_mb) }} MB
+                      {% endif %}
+                    {% else %}
+                      N/A
+                    {% endif %}
+                  </span>
+                  <span class="collection-stat-label">Size</span>
+                </div>
+              </div>
+              <div class="collection-card-actions">
+                <button class="btn btn-outline-danger btn-sm clear-collection" data-collection="{{ collection.name }}" title="Clear all documents from this collection">
+                  <i class="fas fa-trash-alt"></i>
+                  Clear
+                </button>
+              </div>
+            </div>
+            {% endfor %}
+          {% else %}
+            <div class="storage-empty-state">
+              <i class="fas fa-inbox"></i>
+              <p>No collections available.</p>
+            </div>
+          {% endif %}
         </div>
       </div>
     </div>

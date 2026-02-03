@@ -8,7 +8,9 @@ export function initDatabaseManagement({ signal } = {}) {
   const storageTotalEl = document.getElementById("storage-total-value");
   const storageDbEl = document.getElementById("storage-db-value");
   const storageUpdatedEl = document.getElementById("storage-updated-at");
-  const storageSourcesTable = document.getElementById("storage-sources-table");
+  const storageSourcesContainer = document.getElementById("storage-sources-container");
+  const storageSortSelect = document.getElementById("storage-sort-select");
+  const collectionsSortSelect = document.getElementById("collections-sort-select");
 
   let currentAction = null;
   let currentCollection = null;
@@ -42,6 +44,13 @@ export function initDatabaseManagement({ signal } = {}) {
     return date.toLocaleString();
   }
 
+  function formatNumber(num) {
+    if (!Number.isFinite(num)) return "0";
+    if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(1)}M`;
+    if (num >= 1_000) return `${(num / 1_000).toFixed(1)}K`;
+    return num.toString();
+  }
+
   function setButtonLoading(button, isLoading, action) {
     if (!button) {
       return;
@@ -50,14 +59,14 @@ export function initDatabaseManagement({ signal } = {}) {
     button.disabled = isLoading;
 
     if (isLoading) {
-      button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+      button.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
     } else {
       switch (action) {
         case "refresh":
-          button.innerHTML = '<i class="fas fa-sync-alt"></i> Refresh Storage Info';
+          button.innerHTML = '<i class="fas fa-sync-alt"></i>';
           break;
         case "clear":
-          button.innerHTML = '<i class="fas fa-trash"></i> Clear';
+          button.innerHTML = '<i class="fas fa-trash-alt"></i> Clear';
           break;
         default:
           button.innerHTML = '<i class="fas fa-cog"></i> Manage';
@@ -77,14 +86,14 @@ export function initDatabaseManagement({ signal } = {}) {
     if (!button) {
       return "";
     }
-    const fromDataset
-      = button.dataset.collection || button.getAttribute("data-collection");
+    const fromDataset =
+      button.dataset.collection || button.getAttribute("data-collection");
     if (fromDataset) {
       return fromDataset;
     }
-    const row = button.closest("tr");
-    const cell = row?.querySelector("td[data-value]") || row?.querySelector("td");
-    return cell?.dataset?.value || cell?.textContent?.trim() || "";
+    const card = button.closest(".collection-card");
+    const nameEl = card?.querySelector(".collection-name");
+    return nameEl?.textContent?.trim() || "";
   }
 
   function updateStorageSummary(data) {
@@ -120,61 +129,232 @@ export function initDatabaseManagement({ signal } = {}) {
     }
   }
 
+  function getCategoryIcon(category) {
+    switch (category?.toLowerCase()) {
+      case "docker volume":
+        return "fab fa-docker";
+      case "cache":
+        return "fas fa-bolt";
+      case "database":
+        return "fas fa-database";
+      case "logs":
+        return "fas fa-file-alt";
+      default:
+        return "fas fa-folder";
+    }
+  }
+
   function renderStorageSources(sources = []) {
-    if (!storageSourcesTable) {
-      return;
-    }
-    const tbody = storageSourcesTable.querySelector("tbody");
-    if (!tbody) {
-      return;
-    }
-    if (!sources.length) {
-      tbody.innerHTML
-        = '<tr><td colspan="5" class="text-muted">No storage sources available.</td></tr>';
+    if (!storageSourcesContainer) {
       return;
     }
 
-    tbody.innerHTML = sources
+    if (!sources.length) {
+      storageSourcesContainer.innerHTML = `
+        <div class="storage-empty-state">
+          <i class="fas fa-inbox"></i>
+          <p>No storage sources available.</p>
+        </div>
+      `;
+      return;
+    }
+
+    // Calculate max size for bar scaling
+    const maxSize = Math.max(...sources.map((s) => s.size_bytes || 0));
+
+    storageSourcesContainer.innerHTML = sources
       .map((source) => {
         const sizeBytes = Number.isFinite(source.size_bytes) ? source.size_bytes : null;
-        const sizeDisplay
-          = sizeBytes == null
+        const sizeDisplay =
+          sizeBytes == null
             ? Number.isFinite(source.size_mb)
               ? source.size_mb > 1024
                 ? `${(source.size_mb / 1024).toFixed(2)} GB`
                 : `${source.size_mb.toFixed(2)} MB`
               : "N/A"
             : formatBytes(sizeBytes);
-        const status = source.error ? "Error" : "OK";
-        const statusBadge = source.error
-          ? '<span class="badge bg-danger">Error</span>'
-          : '<span class="badge bg-success">OK</span>';
-        const detailText = source.detail ? escapeHtml(source.detail) : "--";
-        const errorText = source.error
-          ? `<div class="text-muted small">${escapeHtml(source.error)}</div>`
-          : "";
+
+        const hasError = !!source.error;
+        const barWidth = maxSize > 0 && sizeBytes ? (sizeBytes / maxSize) * 100 : 0;
+        const iconClass = getCategoryIcon(source.category);
+
         return `
-          <tr>
-            <td data-label="Source" data-value="${escapeHtml(source.label || "")}" class="fw-medium">
-              ${escapeHtml(source.label || "")}
-            </td>
-            <td data-label="Category" data-value="${escapeHtml(source.category || "")}">
-              ${escapeHtml(source.category || "")}
-            </td>
-            <td data-label="Size" data-value="${sizeBytes || 0}" class="text-end">
-              ${escapeHtml(sizeDisplay)}
-            </td>
-            <td data-label="Details" data-value="${escapeHtml(source.detail || "")}">
-              <span class="text-muted small">${detailText}</span>
-            </td>
-            <td data-label="Status" data-value="${status}">
-              ${statusBadge}
-              ${errorText}
-            </td>
-          </tr>
+          <div class="storage-source-card" 
+               data-source="${escapeHtml(source.label || "")}" 
+               data-category="${escapeHtml(source.category || "")}" 
+               data-size="${sizeBytes || 0}">
+            <div class="storage-source-header">
+              <div class="storage-source-icon">
+                <i class="${iconClass}"></i>
+              </div>
+              <div class="storage-source-info">
+                <span class="storage-source-name">${escapeHtml(source.label || "")}</span>
+                <span class="storage-source-category">${escapeHtml(source.category || "")}</span>
+              </div>
+              <div class="storage-source-status">
+                ${
+                  hasError
+                    ? `<span class="status-chip status-error" title="${escapeHtml(source.error)}">
+                      <i class="fas fa-exclamation-circle"></i>
+                      Error
+                    </span>`
+                    : `<span class="status-chip status-ok">
+                      <i class="fas fa-check-circle"></i>
+                      OK
+                    </span>`
+                }
+              </div>
+            </div>
+            <div class="storage-source-bar-container">
+              <div class="storage-source-bar ${hasError ? "has-error" : ""}" style="width: ${barWidth}%" data-size="${sizeBytes || 0}"></div>
+            </div>
+            <div class="storage-source-footer">
+              <span class="storage-source-size">${escapeHtml(sizeDisplay)}</span>
+              ${source.detail ? `<span class="storage-source-detail">${escapeHtml(source.detail)}</span>` : ""}
+            </div>
+          </div>
         `;
       })
       .join("");
+
+    // Animate bars after render
+    requestAnimationFrame(() => {
+      const bars = storageSourcesContainer.querySelectorAll(".storage-source-bar");
+      bars.forEach((bar, index) => {
+        setTimeout(() => {
+          bar.style.opacity = "1";
+        }, index * 50);
+      });
+    });
+  }
+
+  function renderCollections(collections = []) {
+    const container = document.getElementById("collections-container");
+    if (!container) {
+      return;
+    }
+
+    if (!collections.length) {
+      container.innerHTML = `
+        <div class="storage-empty-state">
+          <i class="fas fa-inbox"></i>
+          <p>No collections available.</p>
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = collections
+      .map((collection) => {
+        const sizeDisplay =
+          collection.size_mb != null
+            ? collection.size_mb > 1024
+              ? `${(collection.size_mb / 1024).toFixed(2)} GB`
+              : `${collection.size_mb.toFixed(2)} MB`
+            : "N/A";
+
+        return `
+          <div class="collection-card" 
+               data-collection="${escapeHtml(collection.name)}" 
+               data-count="${collection.document_count}" 
+               data-size="${collection.size_mb || 0}">
+            <div class="collection-card-header">
+              <div class="collection-icon">
+                <i class="fas fa-table"></i>
+              </div>
+              <div class="collection-info">
+                <span class="collection-name">${escapeHtml(collection.name)}</span>
+              </div>
+            </div>
+            <div class="collection-stats">
+              <div class="collection-stat">
+                <span class="collection-stat-value">${formatNumber(collection.document_count)}</span>
+                <span class="collection-stat-label">Documents</span>
+              </div>
+              <div class="collection-stat">
+                <span class="collection-stat-value">${escapeHtml(sizeDisplay)}</span>
+                <span class="collection-stat-label">Size</span>
+              </div>
+            </div>
+            <div class="collection-card-actions">
+              <button class="btn btn-outline-danger btn-sm clear-collection" 
+                      data-collection="${escapeHtml(collection.name)}" 
+                      title="Clear all documents from this collection">
+                <i class="fas fa-trash-alt"></i>
+                Clear
+              </button>
+            </div>
+          </div>
+        `;
+      })
+      .join("");
+  }
+
+  function sortStorageSources(sortValue) {
+    const cards = Array.from(
+      storageSourcesContainer?.querySelectorAll(".storage-source-card") || []
+    );
+    if (!cards.length) return;
+
+    cards.sort((a, b) => {
+      const aSize = parseFloat(a.dataset.size) || 0;
+      const bSize = parseFloat(b.dataset.size) || 0;
+      const aName = a.dataset.source || "";
+      const bName = b.dataset.source || "";
+      const aCategory = a.dataset.category || "";
+      const bCategory = b.dataset.category || "";
+
+      switch (sortValue) {
+        case "size-desc":
+          return bSize - aSize;
+        case "size-asc":
+          return aSize - bSize;
+        case "name-asc":
+          return aName.localeCompare(bName);
+        case "name-desc":
+          return bName.localeCompare(aName);
+        case "category":
+          return aCategory.localeCompare(bCategory) || bSize - aSize;
+        default:
+          return 0;
+      }
+    });
+
+    cards.forEach((card) => storageSourcesContainer.appendChild(card));
+  }
+
+  function sortCollections(sortValue) {
+    const container = document.getElementById("collections-container");
+    const cards = Array.from(container?.querySelectorAll(".collection-card") || []);
+    if (!cards.length) return;
+
+    cards.sort((a, b) => {
+      const aSize = parseFloat(a.dataset.size) || 0;
+      const bSize = parseFloat(b.dataset.size) || 0;
+      const aCount = parseInt(a.dataset.count) || 0;
+      const bCount = parseInt(b.dataset.count) || 0;
+      const aName = a.dataset.collection || "";
+      const bName = b.dataset.collection || "";
+
+      switch (sortValue) {
+        case "size-desc":
+          return bSize - aSize;
+        case "size-asc":
+          return aSize - bSize;
+        case "name-asc":
+          return aName.localeCompare(bName);
+        case "name-desc":
+          return bName.localeCompare(aName);
+        case "count-desc":
+          return bCount - aCount;
+        case "count-asc":
+          return aCount - bCount;
+        default:
+          return 0;
+      }
+    });
+
+    cards.forEach((card) => container.appendChild(card));
   }
 
   function hydrateInitialStorage() {
@@ -197,6 +377,7 @@ export function initDatabaseManagement({ signal } = {}) {
 
   hydrateInitialStorage();
 
+  // Refresh button handler
   if (refreshStorageBtn) {
     refreshStorageBtn.addEventListener(
       "click",
@@ -209,6 +390,7 @@ export function initDatabaseManagement({ signal } = {}) {
           const data = await performDatabaseAction("/api/storage/summary");
           updateStorageSummary(data);
           renderStorageSources(data?.sources || []);
+          renderCollections(data?.collections || []);
           notificationManager.show(
             "Storage information updated successfully",
             "success"
@@ -218,7 +400,6 @@ export function initDatabaseManagement({ signal } = {}) {
             error.message || "Failed to perform storage action",
             "danger"
           );
-          setButtonLoading(currentButton, false, currentAction);
         } finally {
           setButtonLoading(refreshStorageBtn, false, "refresh");
         }
@@ -227,6 +408,21 @@ export function initDatabaseManagement({ signal } = {}) {
     );
   }
 
+  // Storage sort handler
+  if (storageSortSelect) {
+    storageSortSelect.addEventListener("change", (e) => {
+      sortStorageSources(e.target.value);
+    });
+  }
+
+  // Collections sort handler
+  if (collectionsSortSelect) {
+    collectionsSortSelect.addEventListener("change", (e) => {
+      sortCollections(e.target.value);
+    });
+  }
+
+  // Clear collection handler using event delegation
   document.body.addEventListener(
     "click",
     async (event) => {
@@ -249,7 +445,7 @@ export function initDatabaseManagement({ signal } = {}) {
         }
 
         const confirmed = await confirmationDialog.show({
-          message: `Are you sure you want to clear all documents from the ${currentCollection} collection? This action cannot be undone.`,
+          message: `Are you sure you want to clear all documents from the "${currentCollection}" collection? This action cannot be undone.`,
           confirmButtonClass: "btn-danger",
         });
 
@@ -260,70 +456,6 @@ export function initDatabaseManagement({ signal } = {}) {
     },
     signal ? { signal } : false
   );
-
-  function setupSortableTable(table) {
-    if (!table) {
-      return;
-    }
-    const headers = table.querySelectorAll("th[data-sort]");
-    if (!headers.length) {
-      return;
-    }
-    let currentSort = { column: null, dir: "asc" };
-    const numericColumns = new Set(["count", "size"]);
-    const eventOptions = signal ? { signal } : false;
-
-    headers.forEach((th) => {
-      th.addEventListener(
-        "click",
-        () => {
-          const column = th.dataset.sort;
-          const dir
-            = currentSort.column === column && currentSort.dir === "asc" ? "desc" : "asc";
-
-          currentSort = { column, dir };
-
-          headers.forEach((h) => {
-            const icon = h.querySelector("i");
-            if (icon) {
-              icon.className = "fas fa-sort small text-muted ms-1";
-              if (h === th) {
-                icon.className = `fas fa-sort-${dir === "asc" ? "up" : "down"} small text-primary ms-1`;
-              }
-            }
-          });
-
-          const tbody = table.querySelector("tbody");
-          if (!tbody) {
-            return;
-          }
-          const rows = Array.from(tbody.querySelectorAll("tr"));
-
-          rows.sort((a, b) => {
-            const aCell = a.children[th.cellIndex];
-            const bCell = b.children[th.cellIndex];
-            const aVal = aCell?.dataset?.value ?? aCell?.textContent?.trim() ?? "";
-            const bVal = bCell?.dataset?.value ?? bCell?.textContent?.trim() ?? "";
-
-            if (numericColumns.has(column)) {
-              const aNum = parseFloat(aVal) || 0;
-              const bNum = parseFloat(bVal) || 0;
-              return dir === "asc" ? aNum - bNum : bNum - aNum;
-            }
-            return dir === "asc" ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
-          });
-
-          rows.forEach((row) => {
-            tbody.appendChild(row);
-          });
-        },
-        eventOptions
-      );
-    });
-  }
-
-  setupSortableTable(storageSourcesTable);
-  setupSortableTable(document.getElementById("collections-table"));
 
   async function handleConfirmedAction() {
     try {

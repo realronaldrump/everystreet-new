@@ -81,6 +81,25 @@ app.mount(
 templates = Jinja2Templates(directory="templates")
 
 
+# Custom Jinja2 filters
+def format_number_filter(value: int | float | None) -> str:
+    """Format a number with K/M suffix for large numbers."""
+    if value is None:
+        return "0"
+    try:
+        num = float(value)
+        if num >= 1_000_000:
+            return f"{num / 1_000_000:.1f}M"
+        if num >= 1_000:
+            return f"{num / 1_000:.1f}K"
+        return str(int(num))
+    except (ValueError, TypeError):
+        return str(value)
+
+
+templates.env.filters["format_number"] = format_number_filter
+
+
 # Root-level icon requests (browser defaults)
 @app.get("/favicon.ico", include_in_schema=False)
 async def favicon() -> RedirectResponse:

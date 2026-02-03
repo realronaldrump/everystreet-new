@@ -50,11 +50,11 @@ def _get_int_env(name: str, default: int) -> int:
 async def _safe_readline(
     stream: asyncio.StreamReader,
     *,
-    timeout: float,
+    wait_timeout: float,
     label: str,
 ) -> bytes:
     try:
-        return await asyncio.wait_for(stream.readline(), timeout=timeout)
+        return await asyncio.wait_for(stream.readline(), timeout=wait_timeout)
     except asyncio.LimitOverrunError as exc:
         consumed = int(getattr(exc, "consumed", 0) or 0)
         if consumed > 0:
@@ -66,6 +66,16 @@ async def _safe_readline(
             consumed,
         )
         return _OUTPUT_LINE_OVERFLOW_BYTES
+    except ValueError as exc:
+        if "Separator is found, but chunk is longer than limit" in str(
+            exc
+        ) or "Separator is not found, and chunk exceed the limit" in str(exc):
+            logger.warning(
+                "%s output line exceeded buffer (ValueError); skipping",
+                label,
+            )
+            return _OUTPUT_LINE_OVERFLOW_BYTES
+        raise
 
 
 async def start_container_on_demand(
@@ -455,7 +465,7 @@ async def build_nominatim_data(
             try:
                 line = await _safe_readline(
                     process.stdout,
-                    timeout=PROGRESS_UPDATE_INTERVAL,
+                    wait_timeout=PROGRESS_UPDATE_INTERVAL,
                     label="Nominatim import",
                 )
                 if line:
@@ -942,7 +952,7 @@ async def build_valhalla_tiles(
             try:
                 line = await _safe_readline(
                     process.stdout,
-                    timeout=PROGRESS_UPDATE_INTERVAL,
+                    wait_timeout=PROGRESS_UPDATE_INTERVAL,
                     label="Valhalla build",
                 )
                 if line:
