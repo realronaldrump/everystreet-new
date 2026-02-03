@@ -53,9 +53,9 @@ async def get_service_logs(service_name: str) -> dict[str, Any]:
             .to_list()
         )
 
-        log_lines = []
-        for log in reversed(db_logs):  # Oldest first
-            log_lines.append(f"[{log.timestamp}] {log.level}: {log.message}")
+        log_lines = [
+            f"[{log.timestamp}] {log.level}: {log.message}" for log in reversed(db_logs)
+        ]
 
         return {
             "success": True,

@@ -228,6 +228,73 @@ class DockerClearResponse(BaseModel):
     cleared: bool
 
 
+def _raise_container_not_found(container_name: str) -> None:
+    """Raise HTTPException for container not found."""
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail=f"Container '{container_name}' not found",
+    )
+
+
+def _raise_docker_command_failed(stderr: str) -> None:
+    """Raise HTTPException for docker command failure."""
+    raise HTTPException(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail=f"Docker command failed: {stderr or 'Unknown error'}",
+    )
+
+
+def _raise_docker_logs_failed(stderr: str) -> None:
+    """Raise HTTPException for docker logs command failure."""
+    raise HTTPException(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail=f"Docker logs command failed: {stderr or 'Unknown error'}",
+    )
+
+
+def _raise_docker_inspect_failed(stderr: str) -> None:
+    """Raise HTTPException for docker inspect command failure."""
+    raise HTTPException(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail=f"Docker inspect command failed: {stderr or 'Unknown error'}",
+    )
+
+
+def _raise_log_config_error() -> None:
+    """Raise HTTPException for log configuration error."""
+    raise HTTPException(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        detail="Failed to determine container log configuration",
+    )
+
+
+def _raise_unsupported_log_driver(log_driver: str) -> None:
+    """Raise HTTPException for unsupported log driver."""
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail=(
+            "Clearing logs is only supported for json-file or local log drivers "
+            f"(found '{log_driver}')"
+        ),
+    )
+
+
+def _raise_log_path_unavailable() -> None:
+    """Raise HTTPException for unavailable log path."""
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail="Log path not available for this container",
+    )
+
+
+def _raise_log_file_not_found() -> None:
+    """Raise HTTPException for missing log file."""
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail="Log file not found for this container",
+    )
+
+
 async def _run_docker_command(args: list[str]) -> tuple[str, str, int]:
     """Run a docker command and return stdout, stderr, and return code."""
     try:
@@ -377,27 +444,24 @@ async def list_docker_containers() -> dict[str, Any]:
 
         if returncode != 0:
             logger.warning("Docker ps command failed: %s", stderr)
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail=f"Docker command failed: {stderr or 'Unknown error'}",
-            )
+            _raise_docker_command_failed(stderr)
+        else:
+            containers = []
+            for line in stdout.strip().split("\n"):
+                if not line.strip():
+                    continue
+                parts = line.split("\t")
+                if len(parts) >= 3:
+                    containers.append(
+                        ContainerInfo(
+                            name=parts[0],
+                            status=parts[1],
+                            image=parts[2],
+                            created=parts[3] if len(parts) > 3 else None,
+                        ),
+                    )
 
-        containers = []
-        for line in stdout.strip().split("\n"):
-            if not line.strip():
-                continue
-            parts = line.split("\t")
-            if len(parts) >= 3:
-                containers.append(
-                    ContainerInfo(
-                        name=parts[0],
-                        status=parts[1],
-                        image=parts[2],
-                        created=parts[3] if len(parts) > 3 else None,
-                    ),
-                )
-
-        return {"containers": containers}
+            return {"containers": containers}
 
     except HTTPException:
         raise
@@ -443,14 +507,8 @@ async def get_docker_container_logs(
         if returncode != 0:
             # Check if container doesn't exist
             if "No such container" in stderr or "no such container" in stderr.lower():
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"Container '{container_name}' not found",
-                )
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail=f"Docker logs command failed: {stderr or 'Unknown error'}",
-            )
+                _raise_container_not_found(container_name)
+            _raise_docker_logs_failed(stderr)
 
         # Docker logs may output to stdout or stderr depending on the container
         # Combine both and split into lines
@@ -505,61 +563,40 @@ async def clear_docker_container_logs(container_name: str) -> dict[str, Any]:
 
         if returncode != 0:
             if "No such container" in stderr or "no such container" in stderr.lower():
+                _raise_container_not_found(container_name)
+            _raise_docker_inspect_failed(stderr)
+        else:
+            parts = stdout.strip().split("\t")
+            if len(parts) < 2:
+                _raise_log_config_error()
+
+            log_driver = parts[0].strip()
+            log_path = parts[1].strip()
+
+            if log_driver not in {"json-file", "local"}:
+                _raise_unsupported_log_driver(log_driver)
+
+            if not log_path:
+                _raise_log_path_unavailable()
+
+            log_file = Path(log_path)
+            if not log_file.exists():
+                _raise_log_file_not_found()
+
+            try:
+                log_file.write_bytes(b"")
+            except OSError as exc:
+                logger.exception("Error clearing Docker logs for %s", container_name)
                 raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"Container '{container_name}' not found",
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"Failed to clear container logs: {exc!s}",
                 )
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail=f"Docker inspect command failed: {stderr or 'Unknown error'}",
-            )
-
-        parts = stdout.strip().split("\t")
-        if len(parts) < 2:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to determine container log configuration",
-            )
-
-        log_driver = parts[0].strip()
-        log_path = parts[1].strip()
-
-        if log_driver not in {"json-file", "local"}:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=(
-                    "Clearing logs is only supported for json-file or local log drivers "
-                    f"(found '{log_driver}')"
-                ),
-            )
-
-        if not log_path:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Log path not available for this container",
-            )
-
-        log_file = Path(log_path)
-        if not log_file.exists():
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Log file not found for this container",
-            )
-
-        try:
-            log_file.write_bytes(b"")
-        except OSError as exc:
-            logger.exception("Error clearing Docker logs for %s", container_name)
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to clear container logs: {exc!s}",
-            )
-
-        return {
-            "container": resolved_name,
-            "log_driver": log_driver,
-            "cleared": True,
-        }
+            else:
+                return {
+                    "container": resolved_name,
+                    "log_driver": log_driver,
+                    "cleared": True,
+                }
 
     except HTTPException:
         raise
