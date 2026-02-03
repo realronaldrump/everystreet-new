@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import logging
 import os
+from pathlib import Path
 from typing import Any, Final
 
 # --- Bouncie API Endpoints (constants, not credentials) ---
@@ -209,6 +210,53 @@ def get_osm_data_path() -> str:
     return os.getenv(OSM_DATA_PATH_ENV_VAR, "").strip()
 
 
+def _resolve_osm_data_path_candidates() -> tuple[str | None, list[str]]:
+    checked: list[str] = []
+
+    env_path = get_osm_data_path()
+    if env_path:
+        checked.append(env_path)
+        if Path(env_path).exists():
+            return env_path, checked
+
+    extracts_path = get_osm_extracts_path()
+    if extracts_path:
+        coverage_path = str(Path(extracts_path) / "coverage" / "coverage.osm.pbf")
+        checked.append(coverage_path)
+        if Path(coverage_path).exists():
+            return coverage_path, checked
+
+        merged_path = str(Path(extracts_path) / "merged" / "us-states.osm.pbf")
+        checked.append(merged_path)
+        if Path(merged_path).exists():
+            return merged_path, checked
+
+        states_dir = Path(extracts_path) / "states"
+        checked.append(str(states_dir / "*.osm.pbf"))
+        if states_dir.exists():
+            def _safe_mtime(path: Path) -> float:
+                try:
+                    return path.stat().st_mtime
+                except OSError:
+                    return -1.0
+
+            candidates = sorted(
+                states_dir.glob("*.osm.pbf"),
+                key=_safe_mtime,
+                reverse=True,
+            )
+            if candidates:
+                return str(candidates[0]), checked
+
+    return None, checked
+
+
+def resolve_osm_data_path() -> str | None:
+    """Resolve the best available OSM extract path for coverage ingestion."""
+    resolved, _checked = _resolve_osm_data_path_candidates()
+    return resolved
+
+
 def get_geofabrik_mirror() -> str:
     """Get the Geofabrik mirror URL for downloading OSM extracts."""
     return os.getenv(GEOFABRIK_MIRROR_ENV_VAR, DEFAULT_GEOFABRIK_MIRROR).strip()
@@ -236,11 +284,17 @@ def require_nominatim_user_agent() -> str:
 
 
 def require_osm_data_path() -> str:
-    return _require_env_var(
-        OSM_DATA_PATH_ENV_VAR,
-        "Expected local OSM extract path used by Valhalla/Nominatim "
-        "(e.g. /data/osm/region.osm or /data/osm/region.pbf).",
+    resolved, checked = _resolve_osm_data_path_candidates()
+    if resolved:
+        return resolved
+    checked_display = ", ".join(checked) if checked else "<none>"
+    msg = (
+        "OSM data file not found. Checked: "
+        f"{checked_display}. "
+        "Expected a local OSM extract used by Valhalla/Nominatim "
+        "(e.g. /osm/coverage/coverage.osm.pbf or /osm/merged/us-states.osm.pbf)."
     )
+    raise RuntimeError(msg)
 
 
 async def get_bouncie_config() -> dict[str, Any]:
@@ -289,6 +343,7 @@ __all__ = [
     "require_nominatim_search_url",
     "require_nominatim_user_agent",
     "require_osm_data_path",
+    "resolve_osm_data_path",
     "require_valhalla_base_url",
     "require_valhalla_route_url",
     "require_valhalla_status_url",

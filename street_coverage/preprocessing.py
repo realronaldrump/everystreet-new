@@ -23,7 +23,7 @@ import networkx as nx
 from dotenv import load_dotenv
 from shapely.geometry import box, shape
 
-from config import require_osm_data_path
+from config import require_osm_data_path, resolve_osm_data_path
 from core.spatial import buffer_polygon_for_routing
 from routing.constants import GRAPH_STORAGE_DIR, ROUTING_BUFFER_FT
 from street_coverage.osm_filters import get_driveable_highway
@@ -246,7 +246,11 @@ async def preprocess_streets(
         def _download_and_save():
             ox = _get_osmnx()
             GRAPH_STORAGE_DIR.mkdir(parents=True, exist_ok=True)
-            osm_path = Path(require_osm_data_path())
+            osm_path_str = resolve_osm_data_path()
+            if not osm_path_str:
+                require_osm_data_path()
+            osm_path = Path(osm_path_str)
+            logger.info("Using OSM extract: %s", osm_path)
             if not osm_path.exists():
                 msg = f"OSM data file not found: {osm_path}"
                 raise FileNotFoundError(msg)
