@@ -177,7 +177,7 @@ async def coverage_management_page(request: Request):
 
 
 @router.get("/database-management", response_class=RedirectResponse)
-async def database_management_page(request: Request):
+async def database_management_page():
     """Redirect database management to settings tab."""
     return RedirectResponse(url="/settings#storage", status_code=301)
 
