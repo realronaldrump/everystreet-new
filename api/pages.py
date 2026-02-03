@@ -7,6 +7,7 @@ from fastapi.templating import Jinja2Templates
 
 from admin.services.admin_service import AdminService
 from config import validate_mapbox_token
+from core.jinja import register_template_filters
 from core.repo_info import get_repo_version_info
 from core.service_config import get_mapbox_token_async
 from db.models import ALL_DOCUMENT_MODELS
@@ -15,6 +16,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 templates = Jinja2Templates(directory="templates")
+register_template_filters(templates)
 
 # Get Mapbox access token from centralized config (map rendering only)
 

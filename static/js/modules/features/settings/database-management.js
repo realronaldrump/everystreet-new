@@ -228,6 +228,37 @@ export function initDatabaseManagement({ signal } = {}) {
     });
   }
 
+  function initializeStorageSources() {
+    if (!storageSourcesContainer) {
+      return;
+    }
+
+    const cards = Array.from(
+      storageSourcesContainer.querySelectorAll(".storage-source-card")
+    );
+    if (!cards.length) {
+      return;
+    }
+
+    const sizes = cards.map((card) => parseFloat(card.dataset.size) || 0);
+    const maxSize = Math.max(...sizes, 0);
+
+    requestAnimationFrame(() => {
+      cards.forEach((card, index) => {
+        const bar = card.querySelector(".storage-source-bar");
+        if (!bar) {
+          return;
+        }
+        const size = parseFloat(card.dataset.size) || 0;
+        const barWidth = maxSize > 0 && size ? (size / maxSize) * 100 : 0;
+        bar.style.width = `${barWidth}%`;
+        setTimeout(() => {
+          bar.style.opacity = "1";
+        }, index * 50);
+      });
+    });
+  }
+
   function renderCollections(collections = []) {
     const container = document.getElementById("collections-container");
     if (!container) {
@@ -376,6 +407,7 @@ export function initDatabaseManagement({ signal } = {}) {
   }
 
   hydrateInitialStorage();
+  initializeStorageSources();
 
   // Refresh button handler
   if (refreshStorageBtn) {

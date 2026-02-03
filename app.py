@@ -17,6 +17,7 @@ from api.pages import router as pages_router
 from api.routing import router as routing_router
 from api.status import router as status_router
 from core.http.session import cleanup_session
+from core.jinja import register_template_filters
 from core.repo_info import get_repo_version_info
 from county import router as county_api_router
 from db import db_manager
@@ -79,25 +80,7 @@ app.mount(
     name="static",
 )
 templates = Jinja2Templates(directory="templates")
-
-
-# Custom Jinja2 filters
-def format_number_filter(value: int | float | None) -> str:
-    """Format a number with K/M suffix for large numbers."""
-    if value is None:
-        return "0"
-    try:
-        num = float(value)
-        if num >= 1_000_000:
-            return f"{num / 1_000_000:.1f}M"
-        if num >= 1_000:
-            return f"{num / 1_000:.1f}K"
-        return str(int(num))
-    except (ValueError, TypeError):
-        return str(value)
-
-
-templates.env.filters["format_number"] = format_number_filter
+register_template_filters(templates)
 
 
 # Root-level icon requests (browser defaults)
