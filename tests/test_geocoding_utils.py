@@ -5,6 +5,7 @@ from http_fakes import FakeResponse, FakeSession
 
 from core.exceptions import ExternalServiceException
 from core.http.geocoding import reverse_geocode_nominatim, validate_location_osm
+from core.http.nominatim import NominatimClient
 
 
 @pytest.mark.asyncio
@@ -87,3 +88,24 @@ async def test_reverse_geocode_raises_on_rate_limit(
         await reverse_geocode_nominatim(31.5, -97.1)
 
     assert raised.value.details.get("status") == 429
+
+
+@pytest.mark.asyncio
+async def test_lookup_raw_builds_lookup_request(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    response = FakeResponse(status=200, json_data=[{"osm_id": 123}])
+    session = FakeSession(get_responses=[response])
+    monkeypatch.setattr(
+        "core.http.nominatim.get_session",
+        AsyncMock(return_value=session),
+    )
+
+    client = NominatimClient()
+    result = await client.lookup_raw(osm_id="123", osm_type="relation")
+
+    assert result == [{"osm_id": 123}]
+    method, url, kwargs = session.requests[0]
+    assert method == "GET"
+    assert "/lookup" in url
+    assert kwargs["params"]["osm_ids"] == "R123"

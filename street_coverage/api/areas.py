@@ -14,10 +14,17 @@ from typing import Any
 
 from beanie import PydanticObjectId
 from fastapi import APIRouter, HTTPException, status
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 
 from db.models import CoverageArea, Job
-from street_coverage.ingestion import create_area, delete_area, rebuild_area
+from core.http.nominatim import NominatimClient
+from street_coverage.ingestion import (
+    _calculate_bounding_box,
+    _fetch_boundary,
+    create_area,
+    delete_area,
+    rebuild_area,
+)
 from street_coverage.stats import update_area_stats
 
 logger = logging.getLogger(__name__)
@@ -35,6 +42,67 @@ class CreateAreaRequest(BaseModel):
     display_name: str
     area_type: str = "city"  # city, county, state, custom
     boundary: dict[str, Any] | None = None  # Optional GeoJSON, fetched if not provided
+
+
+class ValidateAreaRequest(BaseModel):
+    """Request to validate a potential coverage area."""
+
+    location: str
+    area_type: str = "city"
+    limit: int | None = None
+
+
+class ValidateCandidate(BaseModel):
+    """Candidate match for a coverage area lookup."""
+
+    display_name: str
+    osm_id: int | None = None
+    osm_type: str | None = None
+    type: str | None = None
+    class_: str | None = Field(default=None, alias="class")
+    address: dict[str, Any] | None = None
+    importance: float | None = None
+    bounding_box: list[float] | None = None
+    type_match: bool = False
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class ValidateAreaResponse(BaseModel):
+    """Response for validating a location."""
+
+    success: bool = True
+    candidates: list[ValidateCandidate]
+    note: str | None = None
+
+
+class ResolveAreaRequest(BaseModel):
+    """Request to resolve a coverage area boundary."""
+
+    osm_id: int | str
+    osm_type: str
+
+
+class ResolveCandidate(BaseModel):
+    """Resolved candidate with boundary details."""
+
+    display_name: str
+    boundary: dict[str, Any]
+    bounding_box: list[float] | None = None
+    type: str | None = None
+    class_: str | None = Field(default=None, alias="class")
+    address: dict[str, Any] | None = None
+    osm_id: int | None = None
+    osm_type: str | None = None
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class ResolveAreaResponse(BaseModel):
+    """Response for resolving a candidate boundary."""
+
+    success: bool = True
+    candidate: ResolveCandidate
 
 
 class AreaResponse(BaseModel):
@@ -98,8 +166,269 @@ class DeleteAreaResponse(BaseModel):
 
 
 # =============================================================================
+# Helpers
+# =============================================================================
+
+
+def _normalize_area_type(area_type: str) -> str:
+    return str(area_type or "").strip().lower()
+
+
+def _parse_bounding_box(raw_bbox: Any) -> list[float] | None:
+    if not isinstance(raw_bbox, list) or len(raw_bbox) != 4:
+        return None
+    try:
+        south, north, west, east = map(float, raw_bbox)
+    except (TypeError, ValueError):
+        return None
+    return [west, south, east, north]
+
+
+def _is_type_match(area_type: str, result: dict[str, Any]) -> bool:
+    normalized = _normalize_area_type(area_type)
+    if not normalized:
+        return True
+
+    result_type = str(result.get("type") or "").lower()
+    result_class = str(result.get("class") or "").lower()
+    address = result.get("address") or {}
+
+    if normalized == "city":
+        return result_type in {
+            "city",
+            "town",
+            "village",
+            "hamlet",
+            "municipality",
+            "locality",
+        } or (result_class == "place" and result_type not in {"state", "county"})
+    if normalized == "county":
+        return result_type == "county" or bool(address.get("county"))
+    if normalized == "state":
+        return result_type in {"state", "province", "region"} or bool(address.get("state"))
+    return True
+
+
+def _normalize_candidate(
+    result: dict[str, Any],
+    area_type: str,
+) -> dict[str, Any] | None:
+    display_name = result.get("display_name") or result.get("name") or ""
+    osm_id = result.get("osm_id")
+    osm_type = result.get("osm_type")
+    if not display_name or osm_id is None or not osm_type:
+        return None
+
+    return {
+        "display_name": display_name,
+        "osm_id": osm_id,
+        "osm_type": osm_type,
+        "type": result.get("type"),
+        "class": result.get("class"),
+        "address": result.get("address") or {},
+        "importance": result.get("importance"),
+        "bounding_box": _parse_bounding_box(result.get("boundingbox")),
+        "type_match": _is_type_match(area_type, result),
+    }
+
+
+def _extract_boundary(result: dict[str, Any], label: str) -> dict[str, Any]:
+    geojson = result.get("geojson")
+    if isinstance(geojson, dict) and geojson.get("type") == "Feature":
+        geojson = geojson.get("geometry")
+
+    if not geojson:
+        bbox = result.get("boundingbox")
+        if isinstance(bbox, list) and len(bbox) == 4:
+            try:
+                south, north, west, east = map(float, bbox)
+                geojson = {
+                    "type": "Polygon",
+                    "coordinates": [
+                        [
+                            [west, south],
+                            [west, north],
+                            [east, north],
+                            [east, south],
+                            [west, south],
+                        ],
+                    ],
+                }
+                logger.warning(
+                    "Using bounding box fallback for %s due to missing polygon",
+                    label,
+                )
+            except (TypeError, ValueError):
+                geojson = None
+
+    if not geojson:
+        msg = f"No boundary polygon for: {label}"
+        raise ValueError(msg)
+
+    geom_type = geojson.get("type")
+    if geom_type not in ("Polygon", "MultiPolygon"):
+        msg = f"Invalid geometry type for boundary: {geom_type}"
+        raise ValueError(msg)
+
+    return geojson
+
+
+def _ensure_polygon_geojson(boundary: dict[str, Any], label: str) -> dict[str, Any]:
+    if not boundary:
+        msg = f"No boundary polygon for: {label}"
+        raise ValueError(msg)
+    geojson = boundary
+    if isinstance(geojson, dict) and geojson.get("type") == "Feature":
+        geojson = geojson.get("geometry")
+    if not isinstance(geojson, dict):
+        msg = "Boundary geometry must be a GeoJSON object."
+        raise ValueError(msg)
+    geom_type = geojson.get("type")
+    if geom_type not in ("Polygon", "MultiPolygon"):
+        msg = f"Invalid geometry type for boundary: {geom_type}"
+        raise ValueError(msg)
+    return geojson
+
+
+def _candidate_bounding_box(
+    result: dict[str, Any],
+    boundary: dict[str, Any] | None,
+) -> list[float] | None:
+    bbox = _parse_bounding_box(result.get("boundingbox"))
+    if bbox:
+        return bbox
+    if boundary:
+        return _calculate_bounding_box(boundary)
+    return None
+
+
+# =============================================================================
 # Endpoints
 # =============================================================================
+
+
+@router.post(
+    "/areas/validate",
+    response_model=ValidateAreaResponse,
+    response_model_by_alias=True,
+)
+async def validate_area(request: ValidateAreaRequest):
+    """
+    Validate a location before creating a coverage area.
+
+    Returns candidate matches for selection.
+    """
+    location = request.location.strip()
+    if not location:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Location is required.",
+        )
+
+    limit = request.limit or 5
+    limit = max(1, min(int(limit), 10))
+
+    client = NominatimClient()
+    try:
+        results = await client.search_raw(
+            query=location,
+            limit=limit,
+            polygon_geojson=False,
+            addressdetails=True,
+        )
+    except Exception as exc:
+        logger.exception("Location validation failed for %s", location)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Unable to validate location at this time.",
+        ) from exc
+
+    if not results:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Location not found.",
+        )
+
+    candidates = [
+        candidate
+        for result in results
+        if (candidate := _normalize_candidate(result, request.area_type)) is not None
+    ]
+
+    if not candidates:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Location not found.",
+        )
+
+    note = None
+    if candidates and not any(candidate["type_match"] for candidate in candidates):
+        note = (
+            "No matches for the selected area type. "
+            "Select the closest result or adjust the area type."
+        )
+
+    return ValidateAreaResponse(candidates=candidates, note=note)
+
+
+@router.post(
+    "/areas/resolve",
+    response_model=ResolveAreaResponse,
+    response_model_by_alias=True,
+)
+async def resolve_area(request: ResolveAreaRequest):
+    """
+    Resolve a candidate boundary for confirmation.
+    """
+    client = NominatimClient()
+    try:
+        results = await client.lookup_raw(
+            osm_id=request.osm_id,
+            osm_type=request.osm_type,
+            polygon_geojson=True,
+            addressdetails=True,
+        )
+    except Exception as exc:
+        logger.exception(
+            "Location resolve failed for osm_id=%s osm_type=%s",
+            request.osm_id,
+            request.osm_type,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Unable to resolve location at this time.",
+        ) from exc
+
+    if not results:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Location not found.",
+        )
+
+    result = results[0]
+    try:
+        boundary = _extract_boundary(
+            result,
+            str(result.get("display_name") or request.osm_id),
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+
+    candidate = {
+        "display_name": result.get("display_name") or result.get("name") or "",
+        "boundary": boundary,
+        "bounding_box": _candidate_bounding_box(result, boundary),
+        "type": result.get("type"),
+        "class": result.get("class"),
+        "address": result.get("address") or {},
+        "osm_id": result.get("osm_id"),
+        "osm_type": result.get("osm_type"),
+    }
+
+    return ResolveAreaResponse(candidate=candidate)
 
 
 @router.get("/areas", response_model=AreaListResponse)
@@ -205,10 +534,30 @@ async def add_area(request: CreateAreaRequest):
     No configuration options - the system "just works".
     """
     try:
+        boundary = request.boundary if request.boundary else None
+        if boundary is None:
+            try:
+                boundary = await _fetch_boundary(request.display_name)
+            except ValueError as exc:
+                detail = str(exc)
+                status_code = (
+                    status.HTTP_404_NOT_FOUND
+                    if "Location not found" in detail
+                    else status.HTTP_400_BAD_REQUEST
+                )
+                raise HTTPException(status_code=status_code, detail=detail) from exc
+        try:
+            boundary = _ensure_polygon_geojson(boundary, request.display_name)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(exc),
+            ) from exc
+
         area = await create_area(
             display_name=request.display_name,
             area_type=request.area_type,
-            boundary=request.boundary,
+            boundary=boundary,
         )
 
         # Get the associated job

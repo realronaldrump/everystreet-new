@@ -10,6 +10,7 @@ import logging
 from typing import Any
 
 from config import (
+    require_nominatim_base_url,
     require_nominatim_reverse_url,
     require_nominatim_search_url,
     require_nominatim_user_agent,
@@ -24,12 +25,70 @@ logger = logging.getLogger(__name__)
 
 class NominatimClient:
     def __init__(self) -> None:
+        self._base_url = require_nominatim_base_url()
         self._search_url = require_nominatim_search_url()
         self._reverse_url = require_nominatim_reverse_url()
         self._user_agent = require_nominatim_user_agent()
+        self._lookup_url = f"{self._base_url}/lookup"
 
     def _headers(self) -> dict[str, str]:
         return {"User-Agent": self._user_agent}
+
+    @staticmethod
+    def _lookup_prefix(osm_type: str) -> str | None:
+        type_value = str(osm_type or "").strip().lower()
+        if not type_value:
+            return None
+        mapping = {
+            "node": "N",
+            "n": "N",
+            "way": "W",
+            "w": "W",
+            "relation": "R",
+            "rel": "R",
+            "r": "R",
+        }
+        return mapping.get(type_value)
+
+    async def lookup_raw(
+        self,
+        *,
+        osm_id: int | str,
+        osm_type: str,
+        polygon_geojson: bool = True,
+        addressdetails: bool = True,
+    ) -> list[dict[str, Any]]:
+        prefix = self._lookup_prefix(osm_type)
+        if not prefix:
+            msg = "Nominatim lookup error: invalid osm_type"
+            raise ExternalServiceException(msg, {"osm_type": osm_type})
+        try:
+            osm_id_value = int(osm_id)
+        except (TypeError, ValueError) as exc:
+            msg = "Nominatim lookup error: invalid osm_id"
+            raise ExternalServiceException(msg, {"osm_id": osm_id}) from exc
+
+        params: dict[str, Any] = {
+            "osm_ids": f"{prefix}{osm_id_value}",
+            "format": "json",
+            "addressdetails": int(addressdetails),
+        }
+        if polygon_geojson:
+            params["polygon_geojson"] = 1
+
+        session = await get_session()
+        results = await request_json(
+            "GET",
+            self._lookup_url,
+            session=session,
+            params=params,
+            headers=self._headers(),
+            service_name="Nominatim lookup",
+        )
+        if not isinstance(results, list):
+            msg = "Nominatim lookup error: unexpected response"
+            raise ExternalServiceException(msg, {"url": self._lookup_url})
+        return results
 
     @retry_async()
     async def search_raw(

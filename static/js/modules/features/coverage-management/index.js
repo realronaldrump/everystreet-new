@@ -13,7 +13,7 @@ import apiClient from "../../core/api-client.js";
 import confirmationDialog from "../../ui/confirmation-dialog.js";
 import GlobalJobTracker from "../../ui/global-job-tracker.js";
 import notificationManager from "../../ui/notifications.js";
-import { escapeHtml } from "../../utils.js";
+import { debounce, escapeHtml } from "../../utils.js";
 import { isJobTerminalStatus, renderAreasTable } from "./areas.js";
 import { setMetricValue } from "./stats.js";
 
@@ -29,6 +29,21 @@ let currentMapFilter = "all";
 const areaErrorById = new Map();
 const areaNameById = new Map();
 let activeErrorAreaId = null;
+
+const VALIDATION_DEBOUNCE_MS = 500;
+const validationState = {
+  status: "idle",
+  lastQuery: "",
+  lastType: "",
+  candidates: [],
+  selectedCandidate: null,
+  confirmedCandidate: null,
+  confirmedBoundary: null,
+  note: "",
+  requestId: 0,
+  resolveRequestId: 0,
+};
+let validationElements = null;
 
 const STREET_LAYERS = ["streets-undriven", "streets-driven", "streets-undriveable"];
 const HIGHLIGHT_LAYER_ID = "streets-highlight";
@@ -58,6 +73,7 @@ export default async function initCoverageManagementPage({ signal, cleanup } = {
   pageActive = true;
   setupEventListeners(signal);
   setupBackgroundJobUI();
+  initValidationUI();
 
   // Move modal outside the layout-wrapper to prevent z-index stacking issues
   // The layout-wrapper creates a stacking context that can trap modals behind the backdrop
@@ -116,6 +132,62 @@ function setupEventListeners(signal) {
   document
     .getElementById("add-coverage-area")
     ?.addEventListener("click", addArea, signal ? { signal } : false);
+
+  const locationInput = document.getElementById("location-input");
+  const locationType = document.getElementById("location-type");
+  const candidatesContainer = document.getElementById(
+    "location-validation-candidates"
+  );
+  const addAreaModal = document.getElementById("addAreaModal");
+  const debouncedValidate = debounce(validateLocationInput, VALIDATION_DEBOUNCE_MS);
+
+  const handleValidationTrigger = () => {
+    clearValidationSelection();
+    const query = locationInput?.value.trim() || "";
+    if (!query) {
+      setValidationStatus({
+        icon: "fa-location-dot",
+        message: "Enter a location to validate.",
+        tone: "neutral",
+      });
+    } else if (query.length < 2) {
+      setValidationStatus({
+        icon: "fa-pen",
+        message: "Keep typing to validate.",
+        tone: "neutral",
+      });
+    } else {
+      setValidationStatus({
+        icon: "fa-spinner fa-spin",
+        message: "Validating location...",
+        tone: "info",
+      });
+    }
+    debouncedValidate();
+  };
+
+  locationInput?.addEventListener(
+    "input",
+    handleValidationTrigger,
+    signal ? { signal } : false
+  );
+  locationType?.addEventListener(
+    "change",
+    handleValidationTrigger,
+    signal ? { signal } : false
+  );
+  candidatesContainer?.addEventListener(
+    "click",
+    handleCandidateClick,
+    signal ? { signal } : false
+  );
+  addAreaModal?.addEventListener(
+    "hidden.bs.modal",
+    () => {
+      resetValidationState();
+    },
+    signal ? { signal } : false
+  );
 
   const coverageTable = document.getElementById("coverage-areas-table");
   coverageTable?.addEventListener(
@@ -309,6 +381,312 @@ async function apiDelete(endpoint) {
 }
 
 // =============================================================================
+// Location Validation
+// =============================================================================
+
+function initValidationUI() {
+  validationElements = {
+    status: document.getElementById("location-validation-status"),
+    note: document.getElementById("location-validation-note"),
+    candidates: document.getElementById("location-validation-candidates"),
+    confirmation: document.getElementById("location-validation-confirmation"),
+    addButton: document.getElementById("add-coverage-area"),
+  };
+  resetValidationState();
+}
+
+function setAddButtonEnabled(enabled) {
+  if (!validationElements?.addButton) {
+    return;
+  }
+  validationElements.addButton.disabled = !enabled;
+  validationElements.addButton.setAttribute("aria-disabled", String(!enabled));
+}
+
+function setValidationStatus({ icon, message, tone = "neutral" }) {
+  if (!validationElements?.status) {
+    return;
+  }
+  const toneClassMap = {
+    neutral: "text-secondary",
+    info: "text-info",
+    success: "text-success",
+    warning: "text-warning",
+    danger: "text-danger",
+  };
+  const toneClass = toneClassMap[tone] || toneClassMap.neutral;
+  validationElements.status.className = `validation-status ${toneClass}`;
+  validationElements.status.innerHTML = `
+    <span class="status-icon"><i class="fas ${icon}" aria-hidden="true"></i></span>
+    <span>${escapeHtml(message)}</span>
+  `;
+}
+
+function showValidationNote(note) {
+  if (!validationElements?.note) {
+    return;
+  }
+  if (!note) {
+    validationElements.note.classList.add("d-none");
+    validationElements.note.textContent = "";
+    return;
+  }
+  validationElements.note.textContent = note;
+  validationElements.note.classList.remove("d-none");
+}
+
+function showValidationConfirmation(message) {
+  if (!validationElements?.confirmation) {
+    return;
+  }
+  validationElements.confirmation.innerHTML = `
+    <i class="fas fa-check-circle me-2" aria-hidden="true"></i>${escapeHtml(message)}
+  `;
+  validationElements.confirmation.classList.remove("d-none");
+}
+
+function hideValidationConfirmation() {
+  if (!validationElements?.confirmation) {
+    return;
+  }
+  validationElements.confirmation.classList.add("d-none");
+  validationElements.confirmation.innerHTML = "";
+}
+
+function clearValidationSelection() {
+  validationState.selectedCandidate = null;
+  validationState.confirmedCandidate = null;
+  validationState.confirmedBoundary = null;
+  validationState.note = "";
+  validationState.candidates = [];
+  validationState.status = "idle";
+  validationState.requestId += 1;
+  validationState.resolveRequestId += 1;
+  setAddButtonEnabled(false);
+  renderValidationCandidates();
+  showValidationNote("");
+  hideValidationConfirmation();
+}
+
+function resetValidationState() {
+  validationState.lastQuery = "";
+  validationState.lastType = "";
+  clearValidationSelection();
+  setValidationStatus({
+    icon: "fa-location-dot",
+    message: "Enter a location to validate.",
+    tone: "neutral",
+  });
+}
+
+async function validateLocationInput() {
+  const query = document.getElementById("location-input")?.value.trim() || "";
+  const areaType = document.getElementById("location-type")?.value || "";
+
+  if (!query) {
+    resetValidationState();
+    return;
+  }
+
+  if (query.length < 2) {
+    setValidationStatus({
+      icon: "fa-pen",
+      message: "Keep typing to validate.",
+      tone: "neutral",
+    });
+    return;
+  }
+
+  validationState.lastQuery = query;
+  validationState.lastType = areaType;
+  validationState.status = "validating";
+  const requestId = ++validationState.requestId;
+
+  setValidationStatus({
+    icon: "fa-spinner fa-spin",
+    message: "Validating location...",
+    tone: "info",
+  });
+  showValidationNote("");
+  hideValidationConfirmation();
+  renderValidationCandidates();
+
+  try {
+    const data = await apiPost("/areas/validate", {
+      location: query,
+      area_type: areaType,
+      limit: 5,
+    });
+    if (requestId !== validationState.requestId) {
+      return;
+    }
+
+    validationState.candidates = data.candidates || [];
+    validationState.note = data.note || "";
+    validationState.status = "ready";
+
+    renderValidationCandidates();
+    showValidationNote(validationState.note);
+
+    if (!validationState.candidates.length) {
+      setValidationStatus({
+        icon: "fa-circle-xmark",
+        message: "No matches found.",
+        tone: "warning",
+      });
+      return;
+    }
+
+    setValidationStatus({
+      icon: "fa-list-check",
+      message: "Select a match to confirm.",
+      tone: "info",
+    });
+  } catch (error) {
+    if (requestId !== validationState.requestId) {
+      return;
+    }
+    validationState.candidates = [];
+    validationState.note = "";
+    validationState.status = "error";
+    renderValidationCandidates();
+    showValidationNote("");
+
+    const isNotFound = error?.status === 404;
+    setValidationStatus({
+      icon: "fa-circle-xmark",
+      message: isNotFound ? "No matches found." : error.message,
+      tone: isNotFound ? "warning" : "danger",
+    });
+  }
+}
+
+function renderValidationCandidates() {
+  if (!validationElements?.candidates) {
+    return;
+  }
+  if (!validationState.candidates.length) {
+    validationElements.candidates.innerHTML = "";
+    return;
+  }
+
+  validationElements.candidates.innerHTML = validationState.candidates
+    .map((candidate) => {
+      const displayName = escapeHtml(candidate.display_name || "Unknown location");
+      const classLabel = candidate.class || candidate.class_;
+      const typeLabel = [classLabel, candidate.type]
+        .filter(Boolean)
+        .map((value) => escapeHtml(String(value)))
+        .join(" / ");
+      const mismatchBadge = candidate.type_match
+        ? ""
+        : '<span class="validation-badge badge-mismatch">Type mismatch</span>';
+      return `
+        <button type="button"
+                class="validation-candidate"
+                data-osm-id="${candidate.osm_id}"
+                data-osm-type="${candidate.osm_type}"
+                aria-label="Select ${displayName}">
+          <div class="candidate-main">
+            <div class="candidate-title">${displayName}</div>
+            <div class="candidate-meta">
+              ${typeLabel ? `<span class="validation-badge badge-type">${typeLabel}</span>` : ""}
+              ${mismatchBadge}
+            </div>
+          </div>
+        </button>
+      `;
+    })
+    .join("");
+}
+
+function handleCandidateClick(event) {
+  const button = event.target.closest(".validation-candidate");
+  if (!button) {
+    return;
+  }
+
+  const osmId = button.dataset.osmId;
+  const osmType = button.dataset.osmType;
+  if (!osmId || !osmType) {
+    return;
+  }
+
+  const candidate = validationState.candidates.find(
+    (item) => String(item.osm_id) === String(osmId) && item.osm_type === osmType
+  );
+  if (!candidate) {
+    return;
+  }
+
+  validationElements?.candidates
+    ?.querySelectorAll(".validation-candidate")
+    .forEach((el) => {
+      el.classList.toggle("is-selected", el === button);
+      el.setAttribute("aria-selected", el === button ? "true" : "false");
+    });
+
+  confirmCandidate(candidate);
+}
+
+async function confirmCandidate(candidate) {
+  validationState.selectedCandidate = candidate;
+  validationState.confirmedCandidate = null;
+  validationState.confirmedBoundary = null;
+  setAddButtonEnabled(false);
+  hideValidationConfirmation();
+
+  const requestId = ++validationState.resolveRequestId;
+  setValidationStatus({
+    icon: "fa-spinner fa-spin",
+    message: "Confirming match...",
+    tone: "info",
+  });
+
+  try {
+    const data = await apiPost("/areas/resolve", {
+      osm_id: candidate.osm_id,
+      osm_type: candidate.osm_type,
+    });
+    if (requestId !== validationState.resolveRequestId) {
+      return;
+    }
+
+    validationState.confirmedCandidate = {
+      ...candidate,
+      display_name: data.candidate?.display_name || candidate.display_name,
+    };
+    validationState.confirmedBoundary = data.candidate?.boundary || null;
+
+    if (!validationState.confirmedBoundary) {
+      throw new Error("Unable to confirm boundary.");
+    }
+
+    setValidationStatus({
+      icon: "fa-check-circle",
+      message: "Location confirmed.",
+      tone: "success",
+    });
+    showValidationConfirmation(
+      `Confirmed: ${validationState.confirmedCandidate.display_name}`
+    );
+    setAddButtonEnabled(true);
+  } catch (error) {
+    if (requestId !== validationState.resolveRequestId) {
+      return;
+    }
+    validationState.confirmedCandidate = null;
+    validationState.confirmedBoundary = null;
+    setAddButtonEnabled(false);
+    setValidationStatus({
+      icon: "fa-circle-xmark",
+      message: error.message || "Unable to confirm location.",
+      tone: "danger",
+    });
+  }
+}
+
+// =============================================================================
 // Area Management
 // =============================================================================
 
@@ -375,13 +753,24 @@ function handleAreaActionClick(event) {
 }
 
 async function addArea() {
-  const displayName = document.getElementById("location-input").value.trim();
+  const displayNameInput = document.getElementById("location-input").value.trim();
   const areaType = document.getElementById("location-type").value;
 
-  if (!displayName) {
+  if (!displayNameInput) {
     showNotification("Please enter a location name", "warning");
     return;
   }
+
+  if (!validationState.confirmedBoundary || !validationState.confirmedCandidate) {
+    showNotification(
+      "Please validate and confirm a location before adding.",
+      "warning"
+    );
+    return;
+  }
+
+  const displayName
+    = validationState.confirmedCandidate.display_name || displayNameInput;
 
   try {
     // Blur focused element and close add modal
@@ -406,6 +795,7 @@ async function addArea() {
     const result = await apiPost("/areas", {
       display_name: displayName,
       area_type: areaType,
+      boundary: validationState.confirmedBoundary,
     });
 
     // Refresh table immediately so you can keep using the page
@@ -430,6 +820,7 @@ async function addArea() {
 
     // Clear form
     document.getElementById("location-input").value = "";
+    resetValidationState();
   } catch (error) {
     console.error("Failed to add area:", error);
     showNotification(`Failed to add area: ${error.message}`, "danger");

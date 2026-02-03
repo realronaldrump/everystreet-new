@@ -596,3 +596,93 @@
   outline: 2px solid var(--danger);
   outline-offset: 2px;
 }
+
+/* Coverage validation panel */
+.coverage-validation {
+  margin-top: var(--space-3);
+  padding: var(--space-3);
+  background: var(--surface-2);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+}
+
+.validation-status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface-3);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+}
+
+.validation-status .status-icon {
+  width: 1.25rem;
+  text-align: center;
+}
+
+.validation-note {
+  margin-top: var(--space-2);
+}
+
+.validation-candidates {
+  margin-top: var(--space-2);
+  display: grid;
+  gap: var(--space-2);
+}
+
+.validation-candidate {
+  width: 100%;
+  text-align: left;
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface-1);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-height: 44px;
+  transition: var(--transition-fast);
+}
+
+.validation-candidate:hover {
+  border-color: var(--primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.validation-candidate.is-selected {
+  border-color: var(--success);
+  box-shadow: var(--shadow-md);
+}
+
+.validation-candidate .candidate-title {
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+
+.validation-candidate .candidate-meta {
+  margin-top: var(--space-1);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.validation-badge {
+  font-size: var(--font-size-xs);
+  padding: 0.1rem 0.45rem;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.validation-badge.badge-mismatch {
+  border-color: var(--warning);
+  color: var(--warning);
+  background: rgba(255, 193, 7, 0.1);
+}
+
+.validation-confirmation {
+  margin-top: var(--space-2);
+}

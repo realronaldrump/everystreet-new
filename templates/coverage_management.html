@@ -376,6 +376,21 @@ State
                 </option>
               </select>
             </div>
+
+            <div class="coverage-validation" id="coverage-validation-panel">
+              <div id="location-validation-status" class="validation-status" role="status" aria-live="polite">
+                <span class="status-icon">
+                  <i class="fas fa-location-dot" aria-hidden="true"></i>
+                </span>
+                <span>Enter a location to validate.</span>
+              </div>
+              <div id="location-validation-note" class="validation-note text-secondary small d-none"></div>
+              <div id="location-validation-candidates" class="validation-candidates" role="listbox" aria-label="Validation matches"></div>
+              <div id="location-validation-confirmation" class="alert alert-success validation-confirmation d-none" role="status" aria-live="polite"></div>
+              <small class="form-text text-secondary mt-2">
+              Validate and confirm the correct location before adding.
+              </small>
+            </div>
           </form>
 
           <div class="alert alert-info small" role="alert">
@@ -398,7 +413,7 @@ Update automatically as you drive
           <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
           Cancel
           </button>
-          <button type="button" id="add-coverage-area" class="btn btn-success">
+          <button type="button" id="add-coverage-area" class="btn btn-success" disabled aria-disabled="true">
             <i class="fas fa-plus me-1"></i>Add Area
           </button>
         </div>
