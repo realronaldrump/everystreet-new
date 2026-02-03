@@ -53,27 +53,17 @@
 }
 
 /* Hover with left border accent */
-.table-hover tbody tr {
-  position: relative;
-}
-
-.table-hover tbody tr::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 2px;
-  background: transparent;
-  transition: background-color var(--transition-fast);
-}
-
 .table-hover tbody tr:hover {
   background-color: var(--surface-2);
 }
 
-.table-hover tbody tr:hover::before {
-  background: var(--primary);
+.table-hover tbody tr td:first-child {
+  box-shadow: inset 2px 0 0 transparent;
+  transition: box-shadow var(--transition-fast);
+}
+
+.table-hover tbody tr:hover td:first-child {
+  box-shadow: inset 2px 0 0 var(--primary);
 }
 
 /* Subtle striping with glass effect */
