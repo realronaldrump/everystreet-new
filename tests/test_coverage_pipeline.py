@@ -43,6 +43,7 @@ async def test_preprocess_and_ingestion_uses_driveable_graph(tmp_path: Path) -> 
 
         with pytest.MonkeyPatch.context() as monkeypatch:
             monkeypatch.setenv("OSM_DATA_PATH", str(fixture_path))
+            monkeypatch.setenv("COVERAGE_GRAPH_MAX_MB", "0")
             await preprocess_streets(location)
 
         graph_path = graph_dir / "test-area.graphml"

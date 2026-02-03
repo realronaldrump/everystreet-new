@@ -35,13 +35,31 @@ from street_coverage.osm_filters import get_driveable_highway
 logger = logging.getLogger(__name__)
 
 OSM_EXTENSIONS = {".osm", ".xml", ".pbf"}
-DEFAULT_AREA_EXTRACT_THRESHOLD_MB = 1024
+DEFAULT_AREA_EXTRACT_THRESHOLD_MB = 256
+DEFAULT_GRAPH_MEMORY_LIMIT_MB = 4096
 
 
 def _get_area_extract_threshold_mb() -> int:
     raw = os.getenv("OSM_AREA_EXTRACT_THRESHOLD_MB", "").strip()
     if not raw:
         return DEFAULT_AREA_EXTRACT_THRESHOLD_MB
+
+
+def _is_area_extract_required() -> bool:
+    raw = os.getenv("OSM_AREA_EXTRACT_REQUIRED", "").strip().lower()
+    if raw in {"0", "false", "no", "off"}:
+        return False
+    return True
+
+
+def _get_graph_memory_limit_mb() -> int:
+    raw = os.getenv("COVERAGE_GRAPH_MAX_MB", "").strip()
+    if not raw:
+        return DEFAULT_GRAPH_MEMORY_LIMIT_MB
+    try:
+        return max(int(raw), 0)
+    except ValueError:
+        return DEFAULT_GRAPH_MEMORY_LIMIT_MB
     try:
         return max(int(raw), 0)
     except ValueError:
@@ -59,8 +77,11 @@ def _maybe_extract_area_pbf(
     source_path: Path,
     routing_polygon: Any,
     location_id: str,
+    *,
+    require_extract: bool = False,
+    threshold_mb: int | None = None,
 ) -> Path | None:
-    threshold_mb = _get_area_extract_threshold_mb()
+    threshold_mb = _get_area_extract_threshold_mb() if threshold_mb is None else threshold_mb
     if threshold_mb <= 0:
         return None
     try:
@@ -72,6 +93,11 @@ def _maybe_extract_area_pbf(
 
     extracts_root_str = (get_osm_extracts_path() or "").strip()
     if not extracts_root_str:
+        if require_extract:
+            msg = (
+                "Area extract required for large OSM files, but OSM_EXTRACTS_PATH is not set."
+            )
+            raise RuntimeError(msg)
         return None
     extracts_root = Path(extracts_root_str)
     area_dir = extracts_root / "coverage" / "areas"
@@ -98,6 +124,13 @@ def _maybe_extract_area_pbf(
         result = subprocess.run(cmd, capture_output=True, text=True, check=False)
     except FileNotFoundError:
         logger.warning("osmium not available; skipping area extract.")
+        if require_extract:
+            msg = (
+                "osmium is required to extract large OSM files. "
+                "Install osmium or set OSM_AREA_EXTRACT_REQUIRED=0 to allow "
+                "loading the full extract (not recommended)."
+            )
+            raise RuntimeError(msg)
         return None
 
     if result.returncode != 0:
@@ -105,12 +138,21 @@ def _maybe_extract_area_pbf(
         logger.warning("Area extract failed: %s", err)
         with contextlib.suppress(FileNotFoundError):
             tmp_pbf.unlink()
+        if require_extract:
+            msg = (
+                f"Area extract failed: {err}. "
+                "Install osmium or reduce the extract size."
+            )
+            raise RuntimeError(msg)
         return None
 
     if not tmp_pbf.exists() or tmp_pbf.stat().st_size == 0:
         logger.warning("Area extract produced empty output.")
         with contextlib.suppress(FileNotFoundError):
             tmp_pbf.unlink()
+        if require_extract:
+            msg = "Area extract produced empty output."
+            raise RuntimeError(msg)
         return None
 
     tmp_pbf.replace(area_pbf)
@@ -146,7 +188,121 @@ def _graph_from_pbf(osm_path: Path) -> nx.MultiDiGraph:
             nodes_gdf, edges_gdf = nodes_edges
             graph = _try_pyrosm_to_graph(osm, nodes_gdf, edges_gdf)
             if graph is not None:
-                return graph
+    return graph
+
+
+def _build_graph_in_process(
+    osm_path: Path,
+    routing_polygon: Any,
+    graph_path: Path,
+) -> nx.MultiDiGraph:
+    ox = _get_osmnx()
+    G = _load_graph_from_extract(osm_path, routing_polygon)
+    if not isinstance(G, nx.MultiDiGraph):
+        G = nx.MultiDiGraph(G)
+    non_driveable = [
+        (u, v, k)
+        for u, v, k, data in G.edges(keys=True, data=True)
+        if get_driveable_highway(data.get("highway")) is None
+    ]
+    if non_driveable:
+        G.remove_edges_from(non_driveable)
+        G.remove_nodes_from(list(nx.isolates(G)))
+    ox.save_graphml(G, filepath=graph_path)
+    return G
+
+
+def _apply_memory_limit(max_mb: int) -> None:
+    if max_mb <= 0:
+        return
+    try:
+        import resource
+
+        max_bytes = max_mb * 1024 * 1024
+        resource.setrlimit(resource.RLIMIT_AS, (max_bytes, max_bytes))
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Unable to apply memory limit: %s", exc)
+
+
+def _graph_build_worker(
+    osm_path_str: str,
+    routing_geojson: dict[str, Any],
+    graph_path_str: str,
+    max_mb: int,
+    result_queue: Any,
+) -> None:
+    try:
+        _apply_memory_limit(max_mb)
+        from shapely.geometry import shape
+
+        routing_polygon = shape(routing_geojson)
+        G = _build_graph_in_process(Path(osm_path_str), routing_polygon, Path(graph_path_str))
+        result_queue.put(
+            {
+                "success": True,
+                "nodes": int(G.number_of_nodes()),
+                "edges": int(G.number_of_edges()),
+            },
+        )
+    except MemoryError:
+        result_queue.put(
+            {
+                "success": False,
+                "error": (
+                    f"Graph build exceeded memory limit of {max_mb} MB. "
+                    "Increase COVERAGE_GRAPH_MAX_MB or reduce the extract size."
+                ),
+            },
+        )
+    except Exception as exc:  # noqa: BLE001
+        result_queue.put({"success": False, "error": str(exc)})
+
+
+def _build_graph_in_subprocess(
+    osm_path: Path,
+    routing_polygon: Any,
+    graph_path: Path,
+    max_mb: int,
+) -> None:
+    import multiprocessing as mp
+    from shapely.geometry import mapping
+
+    ctx = mp.get_context("spawn")
+    result_queue = ctx.Queue()
+    routing_geojson = mapping(routing_polygon)
+    proc = ctx.Process(
+        target=_graph_build_worker,
+        args=(str(osm_path), routing_geojson, str(graph_path), max_mb, result_queue),
+    )
+    proc.start()
+    proc.join()
+
+    result = None
+    if not result_queue.empty():
+        result = result_queue.get()
+
+    if result and not result.get("success"):
+        raise RuntimeError(result.get("error") or "Graph build failed.")
+
+    if proc.exitcode and proc.exitcode != 0:
+        msg = (
+            "Graph build failed or exceeded memory limit. "
+            f"Memory limit: {max_mb} MB."
+        )
+        raise RuntimeError(msg)
+
+
+def _build_graph_with_limit(
+    osm_path: Path,
+    routing_polygon: Any,
+    graph_path: Path,
+    max_mb: int,
+) -> nx.MultiDiGraph | None:
+    if max_mb <= 0:
+        return _build_graph_in_process(osm_path, routing_polygon, graph_path)
+
+    _build_graph_in_subprocess(osm_path, routing_polygon, graph_path, max_mb)
+    return None
             nodes_gdf, edges_gdf = _normalize_pyrosm_gdfs(nodes_gdf, edges_gdf)
             return ox.graph_from_gdfs(nodes_gdf, edges_gdf)
 
@@ -329,7 +485,6 @@ async def preprocess_streets(
         loop = asyncio.get_running_loop()
 
         def _download_and_save():
-            ox = _get_osmnx()
             GRAPH_STORAGE_DIR.mkdir(parents=True, exist_ok=True)
             osm_path_str = resolve_osm_data_path()
             if not osm_path_str:
@@ -345,27 +500,36 @@ async def preprocess_streets(
                     "exported from your Valhalla/Nominatim data."
                 )
                 raise ValueError(msg)
+            threshold_mb = _get_area_extract_threshold_mb()
+            try:
+                size_mb = osm_path.stat().st_size / (1024 * 1024)
+            except OSError:
+                size_mb = 0
+            require_extract = (
+                _is_area_extract_required()
+                and threshold_mb > 0
+                and size_mb >= threshold_mb
+            )
             area_extract = _maybe_extract_area_pbf(
                 osm_path,
                 routing_polygon,
                 location_id,
+                require_extract=require_extract,
+                threshold_mb=threshold_mb,
             )
             if area_extract:
                 osm_path = area_extract
                 logger.info("Using area extract for graph build: %s", osm_path)
-            G = _load_graph_from_extract(osm_path, routing_polygon)
-            non_driveable = [
-                (u, v, k)
-                for u, v, k, data in G.edges(keys=True, data=True)
-                if get_driveable_highway(data.get("highway")) is None
-            ]
-            if non_driveable:
-                G.remove_edges_from(non_driveable)
-                G.remove_nodes_from(list(nx.isolates(G)))
+
             # 4. Save to Disk
             file_path = GRAPH_STORAGE_DIR / f"{location_id}.graphml"
-            ox.save_graphml(G, filepath=file_path)
-            return G, file_path
+            graph = _build_graph_with_limit(
+                osm_path,
+                routing_polygon,
+                file_path,
+                _get_graph_memory_limit_mb(),
+            )
+            return graph, file_path
 
         graph, file_path = await loop.run_in_executor(None, _download_and_save)
 
