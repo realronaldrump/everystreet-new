@@ -14,16 +14,24 @@ This script:
 from __future__ import annotations
 
 import asyncio
+import contextlib
+import json
 import logging
+import os
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
 
 import networkx as nx
 from dotenv import load_dotenv
-from shapely.geometry import box, shape
+from shapely.geometry import box, mapping, shape
 
-from config import require_osm_data_path, resolve_osm_data_path
+from config import (
+    get_osm_extracts_path,
+    require_osm_data_path,
+    resolve_osm_data_path,
+)
 from core.spatial import buffer_polygon_for_routing
 from routing.constants import GRAPH_STORAGE_DIR, ROUTING_BUFFER_FT
 from street_coverage.osm_filters import get_driveable_highway
@@ -31,6 +39,87 @@ from street_coverage.osm_filters import get_driveable_highway
 logger = logging.getLogger(__name__)
 
 OSM_EXTENSIONS = {".osm", ".xml", ".pbf"}
+DEFAULT_AREA_EXTRACT_THRESHOLD_MB = 1024
+
+
+def _get_area_extract_threshold_mb() -> int:
+    raw = os.getenv("OSM_AREA_EXTRACT_THRESHOLD_MB", "").strip()
+    if not raw:
+        return DEFAULT_AREA_EXTRACT_THRESHOLD_MB
+    try:
+        return max(int(raw), 0)
+    except ValueError:
+        return DEFAULT_AREA_EXTRACT_THRESHOLD_MB
+
+
+def _write_geojson(path: Path, geometry: Any) -> None:
+    feature = {"type": "Feature", "properties": {}, "geometry": mapping(geometry)}
+    data = {"type": "FeatureCollection", "features": [feature]}
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(data), encoding="utf-8")
+
+
+def _maybe_extract_area_pbf(
+    source_path: Path,
+    routing_polygon: Any,
+    location_id: str,
+) -> Path | None:
+    threshold_mb = _get_area_extract_threshold_mb()
+    if threshold_mb <= 0:
+        return None
+    try:
+        size_mb = source_path.stat().st_size / (1024 * 1024)
+    except OSError:
+        return None
+    if size_mb < threshold_mb:
+        return None
+
+    extracts_root_str = (get_osm_extracts_path() or "").strip()
+    if not extracts_root_str:
+        return None
+    extracts_root = Path(extracts_root_str)
+    area_dir = extracts_root / "coverage" / "areas"
+    area_dir.mkdir(parents=True, exist_ok=True)
+    area_pbf = area_dir / f"{location_id}.osm.pbf"
+    area_geojson = area_dir / f"{location_id}.geojson"
+    if area_pbf.exists() and area_pbf.stat().st_size > 0:
+        logger.info("Using cached area extract: %s", area_pbf)
+        return area_pbf
+
+    _write_geojson(area_geojson, routing_polygon)
+    tmp_pbf = Path(f"{area_pbf}.tmp")
+    cmd = [
+        "osmium",
+        "extract",
+        "-p",
+        str(area_geojson),
+        "-o",
+        str(tmp_pbf),
+        "--overwrite",
+        str(source_path),
+    ]
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+    except FileNotFoundError:
+        logger.warning("osmium not available; skipping area extract.")
+        return None
+
+    if result.returncode != 0:
+        err = (result.stderr or "").strip() or "osmium extract failed"
+        logger.warning("Area extract failed: %s", err)
+        with contextlib.suppress(FileNotFoundError):
+            tmp_pbf.unlink()
+        return None
+
+    if not tmp_pbf.exists() or tmp_pbf.stat().st_size == 0:
+        logger.warning("Area extract produced empty output.")
+        with contextlib.suppress(FileNotFoundError):
+            tmp_pbf.unlink()
+        return None
+
+    tmp_pbf.replace(area_pbf)
+    logger.info("Area extract ready: %s", area_pbf)
+    return area_pbf
 
 
 def _get_osmnx():
@@ -248,7 +337,7 @@ async def preprocess_streets(
             GRAPH_STORAGE_DIR.mkdir(parents=True, exist_ok=True)
             osm_path_str = resolve_osm_data_path()
             if not osm_path_str:
-                require_osm_data_path()
+                osm_path_str = require_osm_data_path()
             osm_path = Path(osm_path_str)
             logger.info("Using OSM extract: %s", osm_path)
             if not osm_path.exists():
@@ -260,6 +349,14 @@ async def preprocess_streets(
                     "exported from your Valhalla/Nominatim data."
                 )
                 raise ValueError(msg)
+            area_extract = _maybe_extract_area_pbf(
+                osm_path,
+                routing_polygon,
+                location_id,
+            )
+            if area_extract:
+                osm_path = area_extract
+                logger.info("Using area extract for graph build: %s", osm_path)
             G = _load_graph_from_extract(osm_path, routing_polygon)
             non_driveable = [
                 (u, v, k)
