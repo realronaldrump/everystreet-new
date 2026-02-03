@@ -180,6 +180,13 @@ async def rebuild_area(area_id: PydanticObjectId) -> Job:
 # =============================================================================
 
 
+def _validate_area_id(area: CoverageArea) -> PydanticObjectId:
+    if area.id is None:
+        msg = "Coverage area missing id during ingestion"
+        raise RuntimeError(msg)
+    return area.id
+
+
 async def _run_ingestion_pipeline(
     area_id: PydanticObjectId,
     job_id: PydanticObjectId,
@@ -258,10 +265,7 @@ async def _run_ingestion_pipeline(
             message=f"Segmenting {len(osm_ways):,} OSM ways",
         )
 
-        if area.id is None:
-            msg = "Coverage area missing id during ingestion"
-            raise RuntimeError(msg)
-        area_id = area.id
+        area_id = _validate_area_id(area)
 
         segments = _segment_streets(osm_ways, area_id, area.area_version)
         logger.info(
