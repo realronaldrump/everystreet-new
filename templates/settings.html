@@ -1250,7 +1250,7 @@
                 <th data-sort="category" style="cursor: pointer">
                   Category <i class="fas fa-sort small text-muted ms-1"></i>
                 </th>
-                <th data-sort="size" style="cursor: pointer">
+                <th data-sort="size" style="cursor: pointer" class="text-end">
                   Size <i class="fas fa-sort small text-muted ms-1"></i>
                 </th>
                 <th data-sort="detail" style="cursor: pointer">
@@ -1274,7 +1274,7 @@
                 <td data-label="Category" data-value="{{ source.category }}">
                   {{ source.category }}
                 </td>
-                <td data-label="Size" data-value="{{ source.size_bytes or 0 }}">
+                <td data-label="Size" data-value="{{ source.size_bytes or 0 }}" class="text-end">
                   {% if source.size_mb is not none %} {{ "%.2f"|format(source.size_mb)
                   }} MB {% else %} N/A {% endif %}
                 </td>
@@ -1319,10 +1319,10 @@
                 <th data-sort="name" style="cursor: pointer">
                   Collection <i class="fas fa-sort small text-muted ms-1"></i>
                 </th>
-                <th data-sort="count" style="cursor: pointer">
+                <th data-sort="count" style="cursor: pointer" class="text-end">
                   Documents <i class="fas fa-sort small text-muted ms-1"></i>
                 </th>
-                <th data-sort="size" style="cursor: pointer">
+                <th data-sort="size" style="cursor: pointer" class="text-end">
                   Size (MB) <i class="fas fa-sort small text-muted ms-1"></i>
                 </th>
                 <th>Actions</th>
@@ -1338,10 +1338,10 @@
                 >
                   {{ collection.name }}
                 </td>
-                <td data-label="Documents" data-value="{{ collection.document_count }}">
+                <td data-label="Documents" data-value="{{ collection.document_count }}" class="text-end">
                   {{ collection.document_count }}
                 </td>
-                <td data-label="Size (MB)" data-value="{{ collection.size_mb or 0 }}">
+                <td data-label="Size (MB)" data-value="{{ collection.size_mb or 0 }}" class="text-end">
                   {% if collection.size_mb is not none %} {{
                   "%.2f"|format(collection.size_mb) }} {% else %} N/A {% endif %}
                 </td>

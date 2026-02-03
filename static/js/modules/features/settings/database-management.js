@@ -159,7 +159,7 @@ export function initDatabaseManagement({ signal } = {}) {
             <td data-label="Category" data-value="${escapeHtml(source.category || "")}">
               ${escapeHtml(source.category || "")}
             </td>
-            <td data-label="Size" data-value="${sizeBytes || 0}">
+            <td data-label="Size" data-value="${sizeBytes || 0}" class="text-end">
               ${escapeHtml(sizeDisplay)}
             </td>
             <td data-label="Details" data-value="${escapeHtml(source.detail || "")}">
