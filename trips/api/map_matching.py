@@ -1,6 +1,7 @@
 """API routes for map matching jobs."""
 
 import logging
+from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query, status
 
@@ -49,8 +50,8 @@ async def get_map_matching_job(job_id: str):
 @router.get("/api/map_matching/jobs", response_model=dict[str, object])
 @api_route(logger)
 async def list_map_matching_jobs(
-    limit: int = Query(20, ge=1, le=100),
-    offset: int = Query(0, ge=0),
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    offset: Annotated[int, Query(ge=0)] = 0,
 ):
     """List recent map matching jobs."""
     try:
@@ -66,7 +67,7 @@ async def list_map_matching_jobs(
 @router.delete("/api/map_matching/jobs", response_model=dict[str, object])
 @api_route(logger)
 async def clear_map_matching_history(
-    include_active: bool = Query(False),
+    include_active: Annotated[bool, Query()] = False,
 ):
     """Delete map matching job history entries."""
     try:
@@ -85,7 +86,7 @@ async def clear_map_matching_history(
 @api_route(logger)
 async def preview_map_matching_jobs(
     request: MapMatchJobRequest,
-    limit: int = Query(25, ge=1, le=100),
+    limit: Annotated[int, Query(ge=1, le=100)] = 25,
 ):
     """Preview trips that would be matched by a job request."""
     try:
@@ -104,7 +105,7 @@ async def preview_map_matching_jobs(
 @api_route(logger)
 async def delete_map_matching_job(
     job_id: str,
-    force: bool = Query(False),
+    force: Annotated[bool, Query()] = False,
 ):
     """Delete a map matching job entry from history."""
     try:
@@ -141,7 +142,7 @@ async def cancel_map_matching_job(
 @api_route(logger)
 async def preview_map_matching_results(
     job_id: str,
-    limit: int = Query(120, ge=1, le=300),
+    limit: Annotated[int, Query(ge=1, le=300)] = 120,
 ):
     """Preview matched trips for a completed job."""
     try:

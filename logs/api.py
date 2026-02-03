@@ -332,7 +332,7 @@ async def _resolve_container_name(container_name: str) -> str | None:
     service = _extract_compose_service(container_name)
     if service:
         candidates = await _list_container_names(
-            ["--filter", f"label=com.docker.compose.service={service}"]
+            ["--filter", f"label=com.docker.compose.service={service}"],
         )
         if candidates:
             index = _extract_compose_index(container_name)

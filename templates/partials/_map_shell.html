@@ -1,16 +1,18 @@
 <div class="map-wrapper d-flex flex-column flex-grow-1" data-es-shell-id="map-shell">
-  <h1 id="map-page-title" class="visually-hidden" data-es-focus>Map</h1>
+  <h1 id="map-page-title" class="visually-hidden" data-es-focus>
+Map
+  </h1>
   <!-- Map Container -->
-  <div
-    id="map"
-    class="flex-grow-1 position-relative"
-    role="application"
-    aria-label="Interactive map"
-  >
-    <div id="map-canvas" class="map-canvas"></div>
+  <div id="map"
+       class="flex-grow-1 position-relative"
+       role="application"
+       aria-label="Interactive map">
+    <div id="map-canvas" class="map-canvas">
+    </div>
     <!-- Loading indicator -->
     <div id="map-loading-indicator" class="map-loading d-none">
-      <div class="loading-spinner"></div>
+      <div class="loading-spinner">
+      </div>
       <span class="map-loading-text">Loading map...</span>
     </div>
 
@@ -23,26 +25,35 @@
             <div class="trip-stats-icon">
               <i class="fas fa-chart-bar" aria-hidden="true"></i>
             </div>
-            <div class="trip-stats-title">Trip Stats</div>
-            <button
-              class="trip-stats-toggle"
-              id="trip-stats-toggle"
-              type="button"
-              aria-expanded="false"
-              aria-label="Toggle statistics details"
-            >
+            <div class="trip-stats-title">
+Trip Stats
+            </div>
+            <button class="trip-stats-toggle"
+                    id="trip-stats-toggle"
+                    type="button"
+                    aria-expanded="false"
+                    aria-label="Toggle statistics details">
               <i class="fas fa-chevron-down" aria-hidden="true"></i>
             </button>
           </div>
           <div class="trip-stats-summary">
             <div class="trip-stats-summary-item">
-              <div class="trip-stats-summary-value" id="widget-total-trips">0</div>
-              <div class="trip-stats-summary-label">trips</div>
+              <div class="trip-stats-summary-value" id="widget-total-trips">
+0
+              </div>
+              <div class="trip-stats-summary-label">
+trips
+              </div>
             </div>
-            <div class="trip-stats-summary-divider"></div>
+            <div class="trip-stats-summary-divider">
+            </div>
             <div class="trip-stats-summary-item">
-              <div class="trip-stats-summary-value" id="widget-total-distance">0</div>
-              <div class="trip-stats-summary-label">miles</div>
+              <div class="trip-stats-summary-value" id="widget-total-distance">
+0
+              </div>
+              <div class="trip-stats-summary-label">
+miles
+              </div>
             </div>
           </div>
         </div>
@@ -55,8 +66,12 @@
                 <i class="fas fa-route" aria-hidden="true"></i>
               </div>
               <div class="trip-stats-metric-info">
-                <div class="trip-stats-metric-label">Total Trips</div>
-                <div class="trip-stats-metric-value" id="widget-detailed-trips">0</div>
+                <div class="trip-stats-metric-label">
+Total Trips
+                </div>
+                <div class="trip-stats-metric-value" id="widget-detailed-trips">
+0
+                </div>
               </div>
             </div>
             <div class="trip-stats-metric">
@@ -64,7 +79,9 @@
                 <i class="fas fa-road" aria-hidden="true"></i>
               </div>
               <div class="trip-stats-metric-info">
-                <div class="trip-stats-metric-label">Total Distance</div>
+                <div class="trip-stats-metric-label">
+Total Distance
+                </div>
                 <div class="trip-stats-metric-value">
                   <span id="widget-detailed-distance">0</span>
                   <span class="trip-stats-metric-unit">mi</span>
@@ -76,7 +93,9 @@
                 <i class="fas fa-balance-scale" aria-hidden="true"></i>
               </div>
               <div class="trip-stats-metric-info">
-                <div class="trip-stats-metric-label">Avg Distance</div>
+                <div class="trip-stats-metric-label">
+Avg Distance
+                </div>
                 <div class="trip-stats-metric-value">
                   <span id="widget-detailed-avg-distance">0</span>
                   <span class="trip-stats-metric-unit">mi</span>
@@ -88,7 +107,9 @@
                 <i class="fas fa-tachometer-alt" aria-hidden="true"></i>
               </div>
               <div class="trip-stats-metric-info">
-                <div class="trip-stats-metric-label">Avg Speed</div>
+                <div class="trip-stats-metric-label">
+Avg Speed
+                </div>
                 <div class="trip-stats-metric-value">
                   <span id="widget-detailed-avg-speed">0</span>
                   <span class="trip-stats-metric-unit">mph</span>
@@ -100,7 +121,9 @@
                 <i class="fas fa-clock" aria-hidden="true"></i>
               </div>
               <div class="trip-stats-metric-info">
-                <div class="trip-stats-metric-label">Avg Start Time</div>
+                <div class="trip-stats-metric-label">
+Avg Start Time
+                </div>
                 <div class="trip-stats-metric-value" id="widget-detailed-avg-start">
                   --:--
                 </div>
@@ -111,7 +134,9 @@
                 <i class="fas fa-hourglass-half" aria-hidden="true"></i>
               </div>
               <div class="trip-stats-metric-info">
-                <div class="trip-stats-metric-label">Avg Duration</div>
+                <div class="trip-stats-metric-label">
+Avg Duration
+                </div>
                 <div class="trip-stats-metric-value" id="widget-detailed-avg-duration">
                   --:--
                 </div>
@@ -129,18 +154,18 @@
           <div class="live-trip-hud-status">
             <span class="live-trip-dot" aria-hidden="true"></span>
             <div>
-              <div class="live-trip-title">Live Trip</div>
+              <div class="live-trip-title">
+Live Trip
+              </div>
               <div class="live-trip-subtitle" id="live-trip-last-update">
                 Waiting for updates...
               </div>
             </div>
           </div>
-          <button
-            class="live-trip-follow-toggle"
-            id="live-trip-follow-toggle"
-            type="button"
-            aria-pressed="false"
-          >
+          <button class="live-trip-follow-toggle"
+                  id="live-trip-follow-toggle"
+                  type="button"
+                  aria-pressed="false">
             <i class="fas fa-location-arrow" aria-hidden="true"></i>
             <span class="follow-label">Follow</span>
           </button>
@@ -150,48 +175,60 @@
             <div class="live-trip-speed-value" id="live-trip-speed" data-value-flash>
               --
             </div>
-            <div class="live-trip-speed-label">mph</div>
+            <div class="live-trip-speed-label">
+mph
+            </div>
           </div>
           <div class="live-trip-road">
-            <div class="live-trip-road-label">Current Street</div>
-            <div class="live-trip-road-value" id="live-trip-street">--</div>
-            <div
-              class="live-trip-road-meta"
-              id="live-trip-coverage"
-              data-coverage-percent
-              data-value-flash
-            >
+            <div class="live-trip-road-label">
+Current Street
+            </div>
+            <div class="live-trip-road-value" id="live-trip-street">
+--
+            </div>
+            <div class="live-trip-road-meta"
+                 id="live-trip-coverage"
+                 data-coverage-percent
+                 data-value-flash>
               Coverage: --
             </div>
           </div>
         </div>
         <div class="live-trip-hud-stats">
           <div class="live-trip-stat">
-            <div class="label">Distance</div>
-            <div class="value" id="live-trip-distance" data-value-flash>--</div>
+            <div class="label">
+Distance
+            </div>
+            <div class="value" id="live-trip-distance" data-value-flash>
+--
+            </div>
           </div>
           <div class="live-trip-stat">
-            <div class="label">Duration</div>
-            <div class="value" id="live-trip-duration" data-value-flash>--</div>
+            <div class="label">
+Duration
+            </div>
+            <div class="value" id="live-trip-duration" data-value-flash>
+--
+            </div>
           </div>
           <div class="live-trip-stat">
-            <div class="label">Avg Speed</div>
-            <div class="value" id="live-trip-avg-speed" data-value-flash>--</div>
+            <div class="label">
+Avg Speed
+            </div>
+            <div class="value" id="live-trip-avg-speed" data-value-flash>
+--
+            </div>
           </div>
         </div>
       </div>
     </div>
 
     <!-- Unified Control Panel - Redesigned -->
-    <div
-      id="map-controls"
-      class="control-panel"
-      role="region"
-      aria-label="Map controls"
-    >
+    <div id="map-controls" class="control-panel" role="region" aria-label="Map controls">
       <!-- Mobile handle -->
       <div class="mobile-sheet-handle-container" onclick="toggleMapControls()">
-        <div class="mobile-sheet-handle"></div>
+        <div class="mobile-sheet-handle">
+        </div>
       </div>
 
       <!-- Panel Header -->
@@ -207,13 +244,11 @@
             <span>Live</span>
           </span>
           <!-- Desktop toggle -->
-          <button
-            id="controls-toggle"
-            class="btn btn-sm btn-icon-only"
-            aria-label="Toggle Controls"
-            aria-expanded="true"
-            onclick="toggleMapControls()"
-          >
+          <button id="controls-toggle"
+                  class="btn btn-sm btn-icon-only"
+                  aria-label="Toggle Controls"
+                  aria-expanded="true"
+                  onclick="toggleMapControls()">
             <i class="fas fa-chevron-down" aria-hidden="true"></i>
           </button>
         </div>
@@ -221,27 +256,19 @@
 
       <!-- Quick Actions -->
       <div class="control-panel-quick-actions">
-        <button
-          class="quick-action-btn active"
-          data-street-mode="undriven"
-          onclick="setStreetMode('undriven')"
-        >
+        <button class="quick-action-btn active"
+                data-street-mode="undriven"
+                onclick="setStreetMode('undriven')">
           <i class="fas fa-road"></i>
           <span>Undriven</span>
         </button>
-        <button
-          class="quick-action-btn"
-          data-street-mode="driven"
-          onclick="setStreetMode('driven')"
-        >
+        <button class="quick-action-btn"
+                data-street-mode="driven"
+                onclick="setStreetMode('driven')">
           <i class="fas fa-check-circle"></i>
           <span>Driven</span>
         </button>
-        <button
-          class="quick-action-btn"
-          data-street-mode="all"
-          onclick="setStreetMode('all')"
-        >
+        <button class="quick-action-btn" data-street-mode="all" onclick="setStreetMode('all')">
           <i class="fas fa-layer-group"></i>
           <span>All</span>
         </button>
@@ -253,14 +280,12 @@
         <div class="search-container">
           <div class="search-wrapper">
             <i class="fas fa-search search-icon" aria-hidden="true"></i>
-            <input
-              type="text"
-              id="map-search-input"
-              class="search-input"
-              placeholder="Search places, addresses..."
-              autocomplete="off"
-              aria-label="Search map"
-            />
+            <input type="text"
+                   id="map-search-input"
+                   class="search-input"
+                   placeholder="Search places, addresses..."
+                   autocomplete="off"
+                   aria-label="Search map" />
           </div>
         </div>
 
@@ -275,16 +300,28 @@
           </div>
           <div class="live-metrics-compact" id="live-metrics">
             <div class="live-metric">
-              <div class="live-metric-value" id="live-metric-speed">--</div>
-              <div class="live-metric-label">mph</div>
+              <div class="live-metric-value" id="live-metric-speed">
+--
+              </div>
+              <div class="live-metric-label">
+mph
+              </div>
             </div>
             <div class="live-metric">
-              <div class="live-metric-value" id="live-metric-distance">--</div>
-              <div class="live-metric-label">mi</div>
+              <div class="live-metric-value" id="live-metric-distance">
+--
+              </div>
+              <div class="live-metric-label">
+mi
+              </div>
             </div>
             <div class="live-metric">
-              <div class="live-metric-value" id="live-metric-duration">--</div>
-              <div class="live-metric-label">min</div>
+              <div class="live-metric-value" id="live-metric-duration">
+--
+              </div>
+              <div class="live-metric-label">
+min
+              </div>
             </div>
           </div>
         </div>
@@ -292,7 +329,9 @@
         <!-- Layer Toggles -->
         <div class="control-section">
           <div class="layer-group">
-            <h3 class="layer-group-title">Layers</h3>
+            <h3 class="layer-group-title">
+Layers
+            </h3>
             <div id="layer-toggles" class="layer-toggles-grid">
               <!-- Layer toggles inserted by JavaScript -->
             </div>
@@ -302,9 +341,13 @@
         <!-- Location Selector -->
         <div class="control-section" id="location-selector-container">
           <div class="layer-group">
-            <h3 class="layer-group-title">Coverage Area</h3>
+            <h3 class="layer-group-title">
+Coverage Area
+            </h3>
             <select id="streets-location" class="search-input">
-              <option value="">Select location...</option>
+              <option value="">
+Select location...
+              </option>
             </select>
           </div>
         </div>
@@ -328,22 +371,21 @@
     </div>
 
     <!-- Search Results Dropdown (positioned outside control panel to avoid clipping) -->
-    <div
-      id="search-results"
-      class="search-results-dropdown d-none"
-      role="listbox"
-      aria-label="Search results"
-    ></div>
+    <div id="search-results"
+         class="search-results-dropdown d-none"
+         role="listbox"
+         aria-label="Search results">
+    </div>
 
     <!-- Mobile sheet backdrop (for when bottom sheet is expanded) -->
-    <div class="mobile-sheet-backdrop"></div>
+    <div class="mobile-sheet-backdrop">
+    </div>
   </div>
 </div>
 
 <!-- Accessibility announcements -->
-<div
-  class="visually-hidden"
-  aria-live="polite"
-  aria-atomic="true"
-  id="map-announcements"
-></div>
+<div class="visually-hidden"
+     aria-live="polite"
+     aria-atomic="true"
+     id="map-announcements">
+</div>

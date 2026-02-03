@@ -27,11 +27,7 @@ import networkx as nx
 from dotenv import load_dotenv
 from shapely.geometry import box, mapping, shape
 
-from config import (
-    get_osm_extracts_path,
-    require_osm_data_path,
-    resolve_osm_data_path,
-)
+from config import get_osm_extracts_path, require_osm_data_path, resolve_osm_data_path
 from core.spatial import buffer_polygon_for_routing
 from routing.constants import GRAPH_STORAGE_DIR, ROUTING_BUFFER_FT
 from street_coverage.osm_filters import get_driveable_highway

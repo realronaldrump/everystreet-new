@@ -1,5 +1,4 @@
 import metricAnimator from "../ui/metric-animator.js";
-import { DateUtils } from "../utils.js";
 import VisitsDataService from "./data-service.js";
 
 class VisitsStatsManager {

@@ -22,9 +22,7 @@ class JobHandle:
         if important or self._throttle_ms == 0:
             return True
         now = time.monotonic()
-        if now - self._last_saved >= (self._throttle_ms / 1000.0):
-            return True
-        return False
+        return now - self._last_saved >= self._throttle_ms / 1000.0
 
     async def update(
         self,

@@ -18,7 +18,7 @@
 .notification {
   background: var(--glass-2);
   backdrop-filter: blur(var(--blur-strong));
-  -webkit-backdrop-filter: blur(var(--blur-strong));
+  backdrop-filter: blur(var(--blur-strong));
   border-radius: var(--radius-lg);
   padding: var(--space-3) var(--space-4);
   box-shadow: var(--shadow-glass-lg);
@@ -44,9 +44,11 @@
 .notification:nth-child(1).show {
   transition-delay: 0ms;
 }
+
 .notification:nth-child(2).show {
   transition-delay: 50ms;
 }
+
 .notification:nth-child(3).show {
   transition-delay: 100ms;
 }

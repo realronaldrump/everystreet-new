@@ -36,7 +36,8 @@ async def _fetch_vehicles(
     except BouncieUnauthorizedError as exc:
         if not credentials:
             logger.warning("Vehicle sync unauthorized and no credentials to refresh")
-            raise BouncieVehicleSyncError("unauthorized") from exc
+            msg = "unauthorized"
+            raise BouncieVehicleSyncError(msg) from exc
         logger.info("Refreshing access token after 401/403 during vehicle sync")
         refreshed_token = await BouncieOAuth.get_access_token(
             session=session,
@@ -45,14 +46,17 @@ async def _fetch_vehicles(
         )
         if not refreshed_token:
             logger.exception("Failed to refresh access token during vehicle sync")
-            raise BouncieVehicleSyncError("unauthorized") from exc
+            msg = "unauthorized"
+            raise BouncieVehicleSyncError(msg) from exc
         return await fetch_all_vehicles(session, refreshed_token)
     except BouncieRateLimitError as exc:
         logger.exception("Bouncie API rate limited during vehicle sync: %s", exc)
-        raise BouncieVehicleSyncError("rate_limited") from exc
+        msg = "rate_limited"
+        raise BouncieVehicleSyncError(msg) from exc
     except BouncieApiError as exc:
         logger.exception("Bouncie API error during vehicle sync: %s", exc)
-        raise BouncieVehicleSyncError("api_error") from exc
+        msg = "api_error"
+        raise BouncieVehicleSyncError(msg) from exc
 
 
 async def sync_bouncie_vehicles(

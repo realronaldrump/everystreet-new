@@ -917,7 +917,7 @@ function summarizePgQuery(query) {
     if (match) {
       const verb = cleaned.split(" ", 1)[0].toUpperCase();
       if (match[1]) {
-        return `${verb} ${match[1].replace(/\"/g, "")}`;
+        return `${verb} ${match[1].replace(/"/g, "")}`;
       }
       return verb;
     }

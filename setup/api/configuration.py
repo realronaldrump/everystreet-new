@@ -73,9 +73,11 @@ async def get_status_overview() -> dict[str, Any]:
                 "total": len(tasks),
                 "running": running_count,
                 "failed": failed_count,
-                "disabled": bool(tasks_snapshot.get("disabled"))
-                if isinstance(tasks_snapshot, dict)
-                else False,
+                "disabled": (
+                    bool(tasks_snapshot.get("disabled"))
+                    if isinstance(tasks_snapshot, dict)
+                    else False
+                ),
             },
             "config": tasks_snapshot,
         },

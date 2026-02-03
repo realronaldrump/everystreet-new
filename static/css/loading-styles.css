@@ -85,7 +85,7 @@ body.light-mode .loading-overlay,
   box-shadow: var(--shadow-glass-lg);
   border: 1px solid var(--glass-border);
   backdrop-filter: blur(var(--blur-strong));
-  -webkit-backdrop-filter: blur(var(--blur-strong));
+  backdrop-filter: blur(var(--blur-strong));
 }
 
 body.light-mode .loading-indicator,
@@ -178,6 +178,7 @@ body.light-mode .loading-text,
   0% {
     background-position: 200% 0;
   }
+
   100% {
     background-position: -200% 0;
   }

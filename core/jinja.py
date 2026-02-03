@@ -1,7 +1,7 @@
 from fastapi.templating import Jinja2Templates
 
 
-def format_number_filter(value: int | float | None) -> str:
+def format_number_filter(value: float | None) -> str:
     """Format a number with K/M suffix for large numbers."""
     if value is None:
         return "0"

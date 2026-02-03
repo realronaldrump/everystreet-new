@@ -20,7 +20,6 @@
   height: var(--header-height);
   background: var(--glass-panel);
   backdrop-filter: blur(var(--blur-strong));
-  backdrop-filter: blur(var(--blur-strong));
   border-bottom: 1px solid var(--glass-border-subtle);
   box-shadow: var(--shadow-glass-sm);
   z-index: var(--z-fixed);
@@ -164,7 +163,6 @@
 /* === Dropdown Menus - Glassmorphic === */
 .dropdown-menu {
   background: var(--glass-dropdown);
-  backdrop-filter: blur(var(--blur-modal));
   backdrop-filter: blur(var(--blur-modal));
   border: 1px solid var(--glass-border-medium);
   border-radius: var(--radius-lg);
@@ -328,7 +326,6 @@
   height: 100%;
   background: var(--glass-panel);
   backdrop-filter: blur(var(--blur-strong));
-  backdrop-filter: blur(var(--blur-strong));
   border-right: 1px solid var(--glass-border-medium);
   z-index: var(--z-drawer);
   transform: translateX(-100%);
@@ -362,7 +359,6 @@
 .mobile-nav-drawer ol,
 .mobile-nav-drawer li {
   list-style: none;
-  list-style-type: none;
   padding-left: 0;
   margin-left: 0;
 }
@@ -403,7 +399,6 @@
 .mobile-nav-drawer .drawer-nav-list,
 .drawer-nav-list {
   list-style: none;
-  list-style-type: none;
   padding: 0;
   margin: 0;
 }
@@ -411,7 +406,6 @@
 .mobile-nav-drawer .drawer-nav-list li,
 .drawer-nav-list li {
   list-style: none;
-  list-style-type: none;
   margin: 0;
   padding: 0;
 }
@@ -512,9 +506,7 @@
 .mobile-nav-drawer ul,
 .drawer-nav ul {
   list-style: none;
-  list-style-type: none;
   padding: 0;
-  padding-left: 0;
   margin: 0;
   overflow: hidden;
   max-height: 500px;
@@ -529,7 +521,6 @@
 .mobile-nav-drawer ul li,
 .drawer-nav ul li {
   list-style: none;
-  list-style-type: none;
   margin: 0;
   padding: 0;
 }

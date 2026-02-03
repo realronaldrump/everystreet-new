@@ -4,7 +4,6 @@
  * Main entry point for the county map feature
  */
 
-import notificationManager from "../../ui/notifications.js";
 import * as CountyMapAPI from "../../county-map/api.js";
 import { getStateName, MAP_CONFIG } from "../../county-map/constants.js";
 import { setupInteractions } from "../../county-map/interactions.js";
@@ -29,6 +28,7 @@ import {
   updateRecalculateUi,
   updateStats,
 } from "../../county-map/ui.js";
+import notificationManager from "../../ui/notifications.js";
 
 let pageSignal = null;
 

@@ -57,7 +57,7 @@ export default function initVisitsPage({ cleanup } = {}) {
     visitsPage?.clearSuggestionPreviewMaps?.();
     visitsPage?.visitsManager?.destroy?.();
     if (window.visitsPage === visitsPage) {
-      delete window.visitsPage;
+      window.visitsPage = undefined;
     }
     visitsPage = null;
   };

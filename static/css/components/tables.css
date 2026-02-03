@@ -11,7 +11,7 @@
   border: 1px solid var(--glass-border);
   background: var(--glass-panel);
   backdrop-filter: blur(var(--blur-strong));
-  -webkit-backdrop-filter: blur(var(--blur-strong));
+  backdrop-filter: blur(var(--blur-strong));
 }
 
 .table {
@@ -36,7 +36,7 @@
 .table thead th {
   background: var(--glass-2);
   backdrop-filter: blur(var(--blur-strong));
-  -webkit-backdrop-filter: blur(var(--blur-strong));
+  backdrop-filter: blur(var(--blur-strong));
   font-weight: var(--font-weight-semibold);
   color: var(--text-secondary);
   font-size: var(--font-size-xs);
@@ -113,6 +113,7 @@ body.light-mode .table-striped tbody tr:nth-of-type(odd) {
   0% {
     background-position: 200% 0;
   }
+
   100% {
     background-position: -200% 0;
   }

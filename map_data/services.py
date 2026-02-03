@@ -463,10 +463,9 @@ async def cancel_map_setup() -> dict[str, Any]:
     progress.last_progress_at = now
     await progress.save()
 
-    aborted = False
     if progress.active_job_id:
         with contextlib.suppress(Exception):
-            aborted = await abort_job(progress.active_job_id)
+            await abort_job(progress.active_job_id)
 
     cleanup_result = _cleanup_map_setup_artifacts()
     logger.info("Map setup cleanup removed artifacts: %s", cleanup_result)

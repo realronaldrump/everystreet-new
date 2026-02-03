@@ -17,7 +17,6 @@ import math
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
-from beanie import PydanticObjectId
 from shapely.geometry import LineString, MultiLineString, mapping, shape
 from shapely.ops import transform
 
@@ -38,6 +37,8 @@ from street_coverage.stats import update_area_stats
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+    from beanie import PydanticObjectId
 
 logger = logging.getLogger(__name__)
 _background_tasks: set[asyncio.Task] = set()

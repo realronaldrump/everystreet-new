@@ -379,7 +379,8 @@ def buffer_trip_line(
     """
     Create buffer polygons around a trip line.
 
-    Returns (buffer_meters_geom, buffer_wgs84_geom, to_meters_transform).
+    Returns (buffer_meters_geom, buffer_wgs84_geom,
+    to_meters_transform).
     """
     to_meters, to_wgs84 = get_local_transformers(trip_line)
     line_meters = transform(to_meters, trip_line)

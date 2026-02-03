@@ -148,7 +148,7 @@ function setVehicleStatus(message, tone = "muted") {
 /**
  * Toggle vehicle loading indicator and selection state
  */
-function toggleVehicleLoading(isLoading, message = "Detecting vehicles...") {
+function toggleVehicleLoading(isLoading, _message = "Detecting vehicles...") {
   const loadingEl = document.getElementById("vehicle-loading-state");
   const vehicleSelect = document.getElementById("vehicle-select");
 
@@ -894,7 +894,7 @@ function createFillupItem(fillup) {
         </div>
         <span class="fillup-amount">${fillup.gallons.toFixed(2)} gal</span>
       </div>
-      
+
       <div class="fillup-details">
         <div class="fillup-detail">
           <span class="fillup-detail-label">Total Cost</span>
@@ -913,9 +913,9 @@ function createFillupItem(fillup) {
           <span class="fillup-detail-value">${fillup.odometer ? `${Math.round(fillup.odometer).toLocaleString()} mi` : "--"}</span>
         </div>
       </div>
-      
+
       ${fillup.notes ? `<div class="fillup-notes"><i class="fas fa-sticky-note"></i>${fillup.notes}</div>` : ""}
-      
+
       <div class="fillup-actions">
         <button data-action="edit" data-fillup-id="${fillup._id}" title="Edit">
           <i class="fas fa-edit"></i>

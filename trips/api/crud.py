@@ -14,7 +14,8 @@ router = APIRouter()
 
 
 async def _cleanup_trip_references(trip_ids: list) -> int:
-    """Clean up references to trips in other collections.
+    """
+    Clean up references to trips in other collections.
 
     Clears the driven_by_trip_id field in CoverageState documents
     that reference the deleted trips. This preserves the coverage
@@ -31,7 +32,7 @@ async def _cleanup_trip_references(trip_ids: list) -> int:
 
     # Find all coverage states that reference these trips
     coverage_states = await CoverageState.find(
-        In(CoverageState.driven_by_trip_id, trip_ids)
+        In(CoverageState.driven_by_trip_id, trip_ids),
     ).to_list()
 
     updated_count = 0
@@ -67,15 +68,18 @@ async def get_single_trip(trip_id: str):
 @router.delete("/api/trips/{trip_id}", tags=["Trips API"])
 @api_route(logger)
 async def delete_trip(trip_id: str):
-    """Delete a trip by its transaction ID.
+    """
+    Delete a trip by its transaction ID.
 
     Also cleans up any references to this trip in other collections,
-    such as CoverageState documents that track which trip drove a street.
+    such as CoverageState documents that track which trip drove a
+    street.
     """
     trip = await Trip.find_one(Trip.transactionId == trip_id)
     if not trip:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Trip not found"
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Trip not found",
         )
 
     # Clean up references in other collections before deleting
@@ -98,7 +102,8 @@ async def unmatch_trip(trip_id: str):
     trip = await Trip.find_one(Trip.transactionId == trip_id)
     if not trip:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Trip not found"
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Trip not found",
         )
     trip.matchedGps = None
     trip.matchStatus = None
@@ -115,17 +120,20 @@ async def unmatch_trip(trip_id: str):
 @router.post("/api/trips/bulk_delete", tags=["Trips API"])
 @api_route(logger)
 async def bulk_delete_trips(request: Request):
-    """Bulk delete trips by their transaction IDs.
+    """
+    Bulk delete trips by their transaction IDs.
 
     Also cleans up any references to these trips in other collections,
-    such as CoverageState documents that track which trip drove a street.
+    such as CoverageState documents that track which trip drove a
+    street.
     """
     body = await request.json()
     trip_ids = body.get("trip_ids", [])
 
     if not trip_ids:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="No trip IDs provided"
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No trip IDs provided",
         )
 
     # Get the ObjectIds for the trips before deleting
@@ -154,7 +162,8 @@ async def bulk_unmatch_trips(request: Request):
 
     if not trip_ids:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="No trip IDs provided"
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No trip IDs provided",
         )
 
     trips = await Trip.find(In(Trip.transactionId, trip_ids)).to_list()
@@ -179,7 +188,8 @@ async def restore_trip(trip_id: str):
     trip = await Trip.find_one(Trip.transactionId == trip_id)
     if not trip:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Trip not found"
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Trip not found",
         )
 
     trip.invalid = None

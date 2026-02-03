@@ -172,9 +172,9 @@ class TripService:
                 do_coverage=do_coverage,
             )
             processing_status = {
-                "state": getattr(trip, "processing_state", "completed")
-                if trip
-                else "failed",
+                "state": (
+                    getattr(trip, "processing_state", "completed") if trip else "failed"
+                ),
                 "history": getattr(trip, "processing_history", []) if trip else [],
                 "errors": {},
                 "transaction_id": trip_data.get("transactionId", "unknown"),
@@ -194,9 +194,9 @@ class TripService:
             do_coverage=do_coverage,
         )
         processing_status = {
-            "state": getattr(trip, "processing_state", "completed")
-            if trip
-            else "failed",
+            "state": (
+                getattr(trip, "processing_state", "completed") if trip else "failed"
+            ),
             "history": getattr(trip, "processing_history", []) if trip else [],
             "errors": {},
             "transaction_id": trip_data.get("transactionId", "unknown"),

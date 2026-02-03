@@ -142,7 +142,7 @@ class AdminService:
                 payload["mapbox_token"] = effective.mapbox_token
         except Exception:
             logger.exception(
-                "Failed to load effective mapbox token for settings payload"
+                "Failed to load effective mapbox token for settings payload",
             )
         return payload
 

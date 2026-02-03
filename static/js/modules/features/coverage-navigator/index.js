@@ -1,8 +1,8 @@
 /* global mapboxgl */
 
-import { createMap } from "../../map-base.js";
 import { DrivingNavigation } from "../../driving-navigation/manager.js";
 import { DrivingNavigationUI } from "../../driving-navigation/ui.js";
+import { createMap } from "../../map-base.js";
 import { OptimalRoutesManager } from "../../optimal-route/manager.js";
 
 const MAP_CONTAINER_ID = "coverage-map";

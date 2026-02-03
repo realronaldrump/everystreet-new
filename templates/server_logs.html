@@ -1,439 +1,561 @@
-{% extends "base.html" %} {% block title %} Server Logs {% endblock %} {% block
+{% extends "base.html" %}
+
+{% block title %}
+
+ Server Logs
+{% endblock %}
+
+
+{% block
 extra_css %}
 
-<link
-  rel="stylesheet"
-  href="{{ url_for('static', path='css/server-logs.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}"
-/>
 
-{% endblock %} {% block content %}
+  <link rel="stylesheet"
+        href="{{ url_for('static', path='css/server-logs.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}" />
 
-<div class="container-fluid server-logs-page py-4">
-  <div class="bento-grid mb-4" data-stagger>
-    <div class="bento-span-12 widget" data-accent="slate">
-      <div class="widget-header">
-        <h1 class="widget-title">
-          <i class="fas fa-file-alt" aria-hidden="true"></i>
+{% endblock %}
+
+
+{% block content %}
+
+
+  <div class="container-fluid server-logs-page py-4">
+    <div class="bento-grid mb-4" data-stagger>
+      <div class="bento-span-12 widget" data-accent="slate">
+        <div class="widget-header">
+          <h1 class="widget-title">
+            <i class="fas fa-file-alt" aria-hidden="true"></i>
           Server Logs
-        </h1>
-        <div class="widget-meta">
+          </h1>
+          <div class="widget-meta">
           Monitor application events and container activity in one place.
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Log Type Tabs -->
-  <ul class="nav nav-tabs log-tabs mb-4" id="log-type-tabs" role="tablist">
-    <li class="nav-item" role="presentation">
-      <button
-        class="nav-link active"
-        id="app-logs-tab"
-        data-bs-toggle="tab"
-        data-bs-target="#app-logs-pane"
-        type="button"
-        role="tab"
-        aria-controls="app-logs-pane"
-        aria-selected="true"
-      >
-        <i class="fas fa-code me-1"></i> Application Logs
-      </button>
-    </li>
-    <li class="nav-item" role="presentation">
-      <button
-        class="nav-link"
-        id="docker-logs-tab"
-        data-bs-toggle="tab"
-        data-bs-target="#docker-logs-pane"
-        type="button"
-        role="tab"
-        aria-controls="docker-logs-pane"
-        aria-selected="false"
-      >
-        <i class="fab fa-docker me-1"></i> Docker Container Logs
-      </button>
-    </li>
-  </ul>
-
-  <div class="tab-content" id="log-type-content">
-    <!-- Application Logs Tab -->
-    <div
-      class="tab-pane fade show active"
-      id="app-logs-pane"
-      role="tabpanel"
-      aria-labelledby="app-logs-tab"
-    >
-      <!-- Statistics Card -->
-      <div class="card log-card log-card--filters mb-4">
-        <div class="card-header d-flex justify-content-between align-items-center">
-          <h2 class="h5 mb-0">Log Statistics</h2>
-          <button id="refresh-stats" class="btn btn-sm btn-outline-primary">
-            <i class="fas fa-sync-alt"></i> Refresh
-          </button>
-        </div>
-        <div class="card-body">
-          <div class="row" id="log-stats">
-            <div class="col-6 col-md-2">
-              <div class="stat-item">
-                <div class="stat-label">Total Logs</div>
-                <div class="stat-value" id="total-count">-</div>
-              </div>
-            </div>
-            <div class="col-6 col-md-2">
-              <div class="stat-item">
-                <div class="stat-label">DEBUG</div>
-                <div class="stat-value text-secondary" id="debug-count">0</div>
-              </div>
-            </div>
-            <div class="col-6 col-md-2">
-              <div class="stat-item">
-                <div class="stat-label">INFO</div>
-                <div class="stat-value text-info" id="info-count">0</div>
-              </div>
-            </div>
-            <div class="col-6 col-md-2">
-              <div class="stat-item">
-                <div class="stat-label">WARNING</div>
-                <div class="stat-value text-warning" id="warning-count">0</div>
-              </div>
-            </div>
-            <div class="col-6 col-md-2">
-              <div class="stat-item">
-                <div class="stat-label">ERROR</div>
-                <div class="stat-value text-danger" id="error-count">0</div>
-              </div>
-            </div>
-            <div class="col-6 col-md-2">
-              <div class="stat-item">
-                <div class="stat-label">CRITICAL</div>
-                <div class="stat-value text-danger" id="critical-count">0</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Filters and Actions Card -->
-      <div class="card log-card log-card--filters mb-4">
-        <div class="card-header">
-          <h2 class="h5 mb-0">Filters &amp; Actions</h2>
-        </div>
-        <div class="card-body">
-          <div class="row g-3">
-            <div class="col-md-3">
-              <label for="level-filter" class="form-label"> Log Level </label>
-              <select id="level-filter" class="form-select">
-                <option value="">All Levels</option>
-                <option value="DEBUG">DEBUG</option>
-                <option value="INFO">INFO</option>
-                <option value="WARNING">WARNING</option>
-                <option value="ERROR">ERROR</option>
-                <option value="CRITICAL">CRITICAL</option>
-              </select>
-            </div>
-            <div class="col-md-3">
-              <label for="limit-filter" class="form-label"> Limit </label>
-              <select id="limit-filter" class="form-select">
-                <option value="100">100</option>
-                <option value="250">250</option>
-                <option value="500" selected>500</option>
-                <option value="1000">1000</option>
-                <option value="2500">2500</option>
-              </select>
-            </div>
-            <div class="col-md-4">
-              <label for="search-filter" class="form-label"> Search Message </label>
-              <input
-                type="text"
-                id="search-filter"
-                class="form-control"
-                placeholder="Search log messages..."
-              />
-            </div>
-            <div class="col-md-2 d-flex align-items-end">
-              <button id="apply-logs-filters" class="btn btn-primary w-100">
-                <i class="fas fa-filter"></i> Apply
-              </button>
-            </div>
-          </div>
-          <div class="row mt-3">
-            <div class="col-12">
-              <div class="log-actions" role="group" aria-label="Server log actions">
-                <button id="refresh-logs" class="btn btn-success">
-                  <i class="fas fa-sync-alt"></i> Refresh Logs
-                </button>
-                <button id="auto-refresh-toggle" class="btn btn-outline-success">
-                  <i class="fas fa-clock"></i> Auto-Refresh: OFF
-                </button>
-                <button id="copy-all-logs" class="btn btn-info">
-                  <i class="fas fa-copy"></i> Copy All
-                </button>
-                <button id="export-logs" class="btn btn-secondary">
-                  <i class="fas fa-download"></i> Export
-                </button>
-                <button id="clear-logs" class="btn btn-danger">
-                  <i class="fas fa-trash"></i> Clear All
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Logs Display Card -->
-      <div class="card log-card">
-        <div class="card-header d-flex justify-content-between align-items-center">
-          <h2 class="h5 mb-0">Log Entries</h2>
-          <small class="text-muted" id="logs-info" aria-live="polite">Loading...</small>
-        </div>
-        <div class="card-body p-0">
-          <div id="logs-container" class="logs-container">
-            <div class="text-center py-5">
-              <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Loading...</span>
-              </div>
-              <p class="mt-2">Loading logs...</p>
-            </div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Docker Container Logs Tab -->
-    <div
-      class="tab-pane fade"
-      id="docker-logs-pane"
-      role="tabpanel"
-      aria-labelledby="docker-logs-tab"
-    >
-      <!-- Statistics Card (Client-side calculated) -->
-      <div class="card log-card mb-4">
-        <div class="card-header d-flex justify-content-between align-items-center">
-          <h2 class="h5 mb-0">Log Statistics (Client-Side)</h2>
-          <button
-            id="refresh-docker-stats"
-            class="btn btn-sm btn-outline-primary"
-            style="display: none"
-          >
-            <!-- This button might not be needed if stats update with logs, but keeping for symmetry/potential future use -->
-            <i class="fas fa-sync-alt"></i> Refresh
-          </button>
-        </div>
-        <div class="card-body">
-          <div class="row" id="docker-log-stats">
-            <div class="col-6 col-md-2">
-              <div class="stat-item">
-                <div class="stat-label">Total Lines</div>
-                <div class="stat-value" id="docker-total-count">-</div>
-              </div>
-            </div>
-            <div class="col-6 col-md-2">
-              <div class="stat-item">
-                <div class="stat-label">DEBUG</div>
-                <div class="stat-value text-secondary" id="docker-debug-count">0</div>
-              </div>
-            </div>
-            <div class="col-6 col-md-2">
-              <div class="stat-item">
-                <div class="stat-label">INFO</div>
-                <div class="stat-value text-info" id="docker-info-count">0</div>
-              </div>
-            </div>
-            <div class="col-6 col-md-2">
-              <div class="stat-item">
-                <div class="stat-label">WARNING</div>
-                <div class="stat-value text-warning" id="docker-warning-count">0</div>
-              </div>
-            </div>
-            <div class="col-6 col-md-2">
-              <div class="stat-item">
-                <div class="stat-label">ERROR</div>
-                <div class="stat-value text-danger" id="docker-error-count">0</div>
-              </div>
-            </div>
-            <div class="col-6 col-md-2">
-              <div class="stat-item">
-                <div class="stat-label">CRITICAL</div>
-                <div class="stat-value text-danger" id="docker-critical-count">0</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+    <!-- Log Type Tabs -->
+    <ul class="nav nav-tabs log-tabs mb-4" id="log-type-tabs" role="tablist">
+      <li class="nav-item" role="presentation">
+        <button class="nav-link active"
+                id="app-logs-tab"
+                data-bs-toggle="tab"
+                data-bs-target="#app-logs-pane"
+                type="button"
+                role="tab"
+                aria-controls="app-logs-pane"
+                aria-selected="true">
+          <i class="fas fa-code me-1"></i> Application Logs
+        </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link"
+                id="docker-logs-tab"
+                data-bs-toggle="tab"
+                data-bs-target="#docker-logs-pane"
+                type="button"
+                role="tab"
+                aria-controls="docker-logs-pane"
+                aria-selected="false">
+          <i class="fab fa-docker me-1"></i> Docker Container Logs
+        </button>
+      </li>
+    </ul>
 
-      <!-- Filters and Actions Card -->
-      <div class="card log-card mb-4">
-        <div class="card-header">
-          <h2 class="h5 mb-0">Filters &amp; Actions</h2>
-        </div>
-        <div class="card-body">
-          <div class="row g-3">
-            <div class="col-md-3">
-              <label for="container-select-btn" class="form-label"> Containers </label>
-              <!-- Custom Multi-Select Dropdown Container -->
-              <div class="multi-select-container" id="container-multi-select">
-                <button
-                  type="button"
-                  class="form-select text-start multi-select-button"
-                  id="container-select-btn"
-                  aria-haspopup="listbox"
-                  aria-expanded="false"
-                  aria-controls="container-select-dropdown"
-                >
-                  Select Containers...
-                </button>
-                <div class="multi-select-dropdown" id="container-select-dropdown">
-                  <div class="multi-select-actions p-2 border-bottom">
-                    <div class="btn-group w-100 btn-group-sm">
-                      <button
-                        type="button"
-                        class="btn btn-outline-secondary"
-                        id="docker-select-all"
-                      >
-                        Select All
-                      </button>
-                      <button
-                        type="button"
-                        class="btn btn-outline-secondary"
-                        id="docker-clear-selection"
-                      >
-                        Clear
-                      </button>
-                    </div>
+    <div class="tab-content" id="log-type-content">
+      <!-- Application Logs Tab -->
+      <div class="tab-pane fade show active"
+           id="app-logs-pane"
+           role="tabpanel"
+           aria-labelledby="app-logs-tab">
+        <!-- Statistics Card -->
+        <div class="card log-card log-card--filters mb-4">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <h2 class="h5 mb-0">
+Log Statistics
+            </h2>
+            <button id="refresh-stats" class="btn btn-sm btn-outline-primary">
+              <i class="fas fa-sync-alt"></i> Refresh
+            </button>
+          </div>
+          <div class="card-body">
+            <div class="row" id="log-stats">
+              <div class="col-6 col-md-2">
+                <div class="stat-item">
+                  <div class="stat-label">
+Total Logs
                   </div>
-                  <div
-                    class="multi-select-options p-1"
-                    id="container-select-options"
-                    role="listbox"
-                  >
-                    <!-- Options populated by JS -->
-                    <div class="text-center p-2 text-muted">Loading...</div>
+                  <div class="stat-value" id="total-count">
+-
                   </div>
                 </div>
-                <!-- Hidden input to store values for form submission if needed, or just state in JS -->
+              </div>
+              <div class="col-6 col-md-2">
+                <div class="stat-item">
+                  <div class="stat-label">
+DEBUG
+                  </div>
+                  <div class="stat-value text-secondary" id="debug-count">
+0
+                  </div>
+                </div>
+              </div>
+              <div class="col-6 col-md-2">
+                <div class="stat-item">
+                  <div class="stat-label">
+INFO
+                  </div>
+                  <div class="stat-value text-info" id="info-count">
+0
+                  </div>
+                </div>
+              </div>
+              <div class="col-6 col-md-2">
+                <div class="stat-item">
+                  <div class="stat-label">
+WARNING
+                  </div>
+                  <div class="stat-value text-warning" id="warning-count">
+0
+                  </div>
+                </div>
+              </div>
+              <div class="col-6 col-md-2">
+                <div class="stat-item">
+                  <div class="stat-label">
+ERROR
+                  </div>
+                  <div class="stat-value text-danger" id="error-count">
+0
+                  </div>
+                </div>
+              </div>
+              <div class="col-6 col-md-2">
+                <div class="stat-item">
+                  <div class="stat-label">
+CRITICAL
+                  </div>
+                  <div class="stat-value text-danger" id="critical-count">
+0
+                  </div>
+                </div>
               </div>
             </div>
-            <div class="col-md-2">
-              <label for="docker-level-filter" class="form-label"> Log Level </label>
-              <select id="docker-level-filter" class="form-select">
-                <option value="">All Levels</option>
-                <option value="DEBUG">DEBUG</option>
-                <option value="INFO">INFO</option>
-                <option value="WARNING">WARNING</option>
-                <option value="ERROR">ERROR</option>
-                <option value="CRITICAL">CRITICAL</option>
-              </select>
+          </div>
+        </div>
+
+        <!-- Filters and Actions Card -->
+        <div class="card log-card log-card--filters mb-4">
+          <div class="card-header">
+            <h2 class="h5 mb-0">
+Filters &amp; Actions
+            </h2>
+          </div>
+          <div class="card-body">
+            <div class="row g-3">
+              <div class="col-md-3">
+                <label for="level-filter" class="form-label">
+ Log Level
+                </label>
+                <select id="level-filter" class="form-select">
+                  <option value="">
+All Levels
+                  </option>
+                  <option value="DEBUG">
+DEBUG
+                  </option>
+                  <option value="INFO">
+INFO
+                  </option>
+                  <option value="WARNING">
+WARNING
+                  </option>
+                  <option value="ERROR">
+ERROR
+                  </option>
+                  <option value="CRITICAL">
+CRITICAL
+                  </option>
+                </select>
+              </div>
+              <div class="col-md-3">
+                <label for="limit-filter" class="form-label">
+ Limit
+                </label>
+                <select id="limit-filter" class="form-select">
+                  <option value="100">
+100
+                  </option>
+                  <option value="250">
+250
+                  </option>
+                  <option value="500" selected>
+500
+                  </option>
+                  <option value="1000">
+1000
+                  </option>
+                  <option value="2500">
+2500
+                  </option>
+                </select>
+              </div>
+              <div class="col-md-4">
+                <label for="search-filter" class="form-label">
+ Search Message
+                </label>
+                <input type="text"
+                       id="search-filter"
+                       class="form-control"
+                       placeholder="Search log messages..." />
+              </div>
+              <div class="col-md-2 d-flex align-items-end">
+                <button id="apply-logs-filters" class="btn btn-primary w-100">
+                  <i class="fas fa-filter"></i> Apply
+                </button>
+              </div>
             </div>
-            <div class="col-md-2">
-              <label for="docker-limit-filter" class="form-label"> Lines </label>
-              <select id="docker-limit-filter" class="form-select">
-                <option value="100">100</option>
-                <option value="250">250</option>
-                <option value="500" selected>500</option>
-                <option value="1000">1000</option>
-                <option value="2500">2500</option>
-                <option value="5000">5000</option>
-              </select>
-            </div>
-            <div class="col-md-3">
-              <label for="docker-since-filter" class="form-label"> Since </label>
-              <select id="docker-since-filter" class="form-select">
-                <option value="">All time</option>
-                <option value="5m">Last 5 minutes</option>
-                <option value="15m">Last 15 minutes</option>
-                <option value="1h" selected>Last 1 hour</option>
-                <option value="6h">Last 6 hours</option>
-                <option value="24h">Last 24 hours</option>
-                <option value="7d">Last 7 days</option>
-              </select>
-            </div>
-            <div class="col-md-2 d-flex align-items-end">
-              <button id="refresh-docker-logs" class="btn btn-primary w-100">
-                <i class="fas fa-sync-alt"></i> Refresh
-              </button>
+            <div class="row mt-3">
+              <div class="col-12">
+                <div class="log-actions" role="group" aria-label="Server log actions">
+                  <button id="refresh-logs" class="btn btn-success">
+                    <i class="fas fa-sync-alt"></i> Refresh Logs
+                  </button>
+                  <button id="auto-refresh-toggle" class="btn btn-outline-success">
+                    <i class="fas fa-clock"></i> Auto-Refresh: OFF
+                  </button>
+                  <button id="copy-all-logs" class="btn btn-info">
+                    <i class="fas fa-copy"></i> Copy All
+                  </button>
+                  <button id="export-logs" class="btn btn-secondary">
+                    <i class="fas fa-download"></i> Export
+                  </button>
+                  <button id="clear-logs" class="btn btn-danger">
+                    <i class="fas fa-trash"></i> Clear All
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
+        </div>
 
-          <div class="row mt-3 g-3">
-            <div class="col-md-10">
-              <label for="docker-search-filter" class="form-label">
+        <!-- Logs Display Card -->
+        <div class="card log-card">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <h2 class="h5 mb-0">
+Log Entries
+            </h2>
+            <small class="text-muted" id="logs-info" aria-live="polite">Loading...</small>
+          </div>
+          <div class="card-body p-0">
+            <div id="logs-container" class="logs-container">
+              <div class="text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                  <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-2">
+Loading logs...
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Docker Container Logs Tab -->
+      <div class="tab-pane fade"
+           id="docker-logs-pane"
+           role="tabpanel"
+           aria-labelledby="docker-logs-tab">
+        <!-- Statistics Card (Client-side calculated) -->
+        <div class="card log-card mb-4">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <h2 class="h5 mb-0">
+Log Statistics (Client-Side)
+            </h2>
+            <button id="refresh-docker-stats"
+                    class="btn btn-sm btn-outline-primary"
+                    style="display: none">
+              <!-- This button might not be needed if stats update with logs, but keeping for symmetry/potential future use -->
+              <i class="fas fa-sync-alt"></i> Refresh
+            </button>
+          </div>
+          <div class="card-body">
+            <div class="row" id="docker-log-stats">
+              <div class="col-6 col-md-2">
+                <div class="stat-item">
+                  <div class="stat-label">
+Total Lines
+                  </div>
+                  <div class="stat-value" id="docker-total-count">
+-
+                  </div>
+                </div>
+              </div>
+              <div class="col-6 col-md-2">
+                <div class="stat-item">
+                  <div class="stat-label">
+DEBUG
+                  </div>
+                  <div class="stat-value text-secondary" id="docker-debug-count">
+0
+                  </div>
+                </div>
+              </div>
+              <div class="col-6 col-md-2">
+                <div class="stat-item">
+                  <div class="stat-label">
+INFO
+                  </div>
+                  <div class="stat-value text-info" id="docker-info-count">
+0
+                  </div>
+                </div>
+              </div>
+              <div class="col-6 col-md-2">
+                <div class="stat-item">
+                  <div class="stat-label">
+WARNING
+                  </div>
+                  <div class="stat-value text-warning" id="docker-warning-count">
+0
+                  </div>
+                </div>
+              </div>
+              <div class="col-6 col-md-2">
+                <div class="stat-item">
+                  <div class="stat-label">
+ERROR
+                  </div>
+                  <div class="stat-value text-danger" id="docker-error-count">
+0
+                  </div>
+                </div>
+              </div>
+              <div class="col-6 col-md-2">
+                <div class="stat-item">
+                  <div class="stat-label">
+CRITICAL
+                  </div>
+                  <div class="stat-value text-danger" id="docker-critical-count">
+0
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Filters and Actions Card -->
+        <div class="card log-card mb-4">
+          <div class="card-header">
+            <h2 class="h5 mb-0">
+Filters &amp; Actions
+            </h2>
+          </div>
+          <div class="card-body">
+            <div class="row g-3">
+              <div class="col-md-3">
+                <label for="container-select-btn" class="form-label">
+ Containers
+                </label>
+                <!-- Custom Multi-Select Dropdown Container -->
+                <div class="multi-select-container" id="container-multi-select">
+                  <button type="button"
+                          class="form-select text-start multi-select-button"
+                          id="container-select-btn"
+                          aria-haspopup="listbox"
+                          aria-expanded="false"
+                          aria-controls="container-select-dropdown">
+                  Select Containers...
+                  </button>
+                  <div class="multi-select-dropdown" id="container-select-dropdown">
+                    <div class="multi-select-actions p-2 border-bottom">
+                      <div class="btn-group w-100 btn-group-sm">
+                        <button type="button" class="btn btn-outline-secondary" id="docker-select-all">
+                        Select All
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary" id="docker-clear-selection">
+                        Clear
+                        </button>
+                      </div>
+                    </div>
+                    <div class="multi-select-options p-1" id="container-select-options" role="listbox">
+                      <!-- Options populated by JS -->
+                      <div class="text-center p-2 text-muted">
+Loading...
+                      </div>
+                    </div>
+                  </div>
+                  <!-- Hidden input to store values for form submission if needed, or just state in JS -->
+                </div>
+              </div>
+              <div class="col-md-2">
+                <label for="docker-level-filter" class="form-label">
+ Log Level
+                </label>
+                <select id="docker-level-filter" class="form-select">
+                  <option value="">
+All Levels
+                  </option>
+                  <option value="DEBUG">
+DEBUG
+                  </option>
+                  <option value="INFO">
+INFO
+                  </option>
+                  <option value="WARNING">
+WARNING
+                  </option>
+                  <option value="ERROR">
+ERROR
+                  </option>
+                  <option value="CRITICAL">
+CRITICAL
+                  </option>
+                </select>
+              </div>
+              <div class="col-md-2">
+                <label for="docker-limit-filter" class="form-label">
+ Lines
+                </label>
+                <select id="docker-limit-filter" class="form-select">
+                  <option value="100">
+100
+                  </option>
+                  <option value="250">
+250
+                  </option>
+                  <option value="500" selected>
+500
+                  </option>
+                  <option value="1000">
+1000
+                  </option>
+                  <option value="2500">
+2500
+                  </option>
+                  <option value="5000">
+5000
+                  </option>
+                </select>
+              </div>
+              <div class="col-md-3">
+                <label for="docker-since-filter" class="form-label">
+ Since
+                </label>
+                <select id="docker-since-filter" class="form-select">
+                  <option value="">
+All time
+                  </option>
+                  <option value="5m">
+Last 5 minutes
+                  </option>
+                  <option value="15m">
+Last 15 minutes
+                  </option>
+                  <option value="1h" selected>
+Last 1 hour
+                  </option>
+                  <option value="6h">
+Last 6 hours
+                  </option>
+                  <option value="24h">
+Last 24 hours
+                  </option>
+                  <option value="7d">
+Last 7 days
+                  </option>
+                </select>
+              </div>
+              <div class="col-md-2 d-flex align-items-end">
+                <button id="refresh-docker-logs" class="btn btn-primary w-100">
+                  <i class="fas fa-sync-alt"></i> Refresh
+                </button>
+              </div>
+            </div>
+
+            <div class="row mt-3 g-3">
+              <div class="col-md-10">
+                <label for="docker-search-filter" class="form-label">
                 Search Message (Local Filter)
-              </label>
-              <input
-                type="text"
-                id="docker-search-filter"
-                class="form-control"
-                placeholder="Filter loaded logs..."
-              />
+                </label>
+                <input type="text"
+                       id="docker-search-filter"
+                       class="form-control"
+                       placeholder="Filter loaded logs..." />
+              </div>
+              <div class="col-md-2 d-flex align-items-end">
+                <button id="apply-docker-filters" class="btn btn-primary w-100">
+                  <i class="fas fa-filter"></i> Apply Local
+                </button>
+              </div>
             </div>
-            <div class="col-md-2 d-flex align-items-end">
-              <button id="apply-docker-filters" class="btn btn-primary w-100">
-                <i class="fas fa-filter"></i> Apply Local
-              </button>
-            </div>
-          </div>
 
-          <div class="row mt-3">
-            <div class="col-12">
-              <div class="log-actions" role="group" aria-label="Docker log actions">
-                <button id="docker-auto-refresh-toggle" class="btn btn-outline-success">
-                  <i class="fas fa-clock"></i> Auto-Refresh: OFF
-                </button>
-                <button id="copy-docker-logs" class="btn btn-info">
-                  <i class="fas fa-copy"></i> Copy All
-                </button>
-                <button id="export-docker-logs" class="btn btn-secondary">
-                  <i class="fas fa-download"></i> Export
-                </button>
-                <button id="clear-docker-logs" class="btn btn-danger">
-                  <i class="fas fa-trash"></i> Clear Logs
-                </button>
+            <div class="row mt-3">
+              <div class="col-12">
+                <div class="log-actions" role="group" aria-label="Docker log actions">
+                  <button id="docker-auto-refresh-toggle" class="btn btn-outline-success">
+                    <i class="fas fa-clock"></i> Auto-Refresh: OFF
+                  </button>
+                  <button id="copy-docker-logs" class="btn btn-info">
+                    <i class="fas fa-copy"></i> Copy All
+                  </button>
+                  <button id="export-docker-logs" class="btn btn-secondary">
+                    <i class="fas fa-download"></i> Export
+                  </button>
+                  <button id="clear-docker-logs" class="btn btn-danger">
+                    <i class="fas fa-trash"></i> Clear Logs
+                  </button>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
 
-      <!-- Container Status Card (Hidden initially) -->
-      <div class="card log-card mb-4" id="container-status-card" style="display: none">
-        <div class="card-body py-2">
-          <div class="d-flex align-items-center">
-            <span class="badge rounded-pill me-2" id="container-status-badge"
-              >Unknown</span
-            >
-            <span class="text-muted" id="container-image-info"></span>
+        <!-- Container Status Card (Hidden initially) -->
+        <div class="card log-card mb-4" id="container-status-card" style="display: none">
+          <div class="card-body py-2">
+            <div class="d-flex align-items-center">
+              <span class="badge rounded-pill me-2" id="container-status-badge">Unknown</span>
+              <span class="text-muted" id="container-image-info"></span>
+            </div>
           </div>
         </div>
-      </div>
 
-      <!-- Docker Logs Display Card -->
-      <div class="card log-card">
-        <div class="card-header d-flex justify-content-between align-items-center">
-          <h2 class="h5 mb-0">Container Logs</h2>
-          <small class="text-muted" id="docker-logs-info" aria-live="polite"
-            >Select containers to view logs</small
-          >
-        </div>
-        <div class="card-body p-0">
-          <div id="docker-logs-container" class="logs-container">
-            <div class="text-center py-5 text-muted">
-              <i class="fab fa-docker fa-3x mb-3"></i>
-              <p>Select one or more containers from the list above to view logs.</p>
+        <!-- Docker Logs Display Card -->
+        <div class="card log-card">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <h2 class="h5 mb-0">
+Container Logs
+            </h2>
+            <small class="text-muted" id="docker-logs-info" aria-live="polite">Select containers to view logs</small>
+          </div>
+          <div class="card-body p-0">
+            <div id="docker-logs-container" class="logs-container">
+              <div class="text-center py-5 text-muted">
+                <i class="fab fa-docker fa-3x mb-3"></i>
+                <p>
+Select one or more containers from the list above to view logs.
+                </p>
+              </div>
             </div>
           </div>
         </div>
       </div>
     </div>
   </div>
-</div>
 
-<!-- Notification container -->
-<div class="notification-container position-fixed top-0 end-0 p-3"></div>
+  <!-- Notification container -->
+  <div class="notification-container position-fixed top-0 end-0 p-3">
+  </div>
 
-{% endblock %} {% block extra_js %}
+{% endblock %}
 
-<script
-  type="module"
-  src="{{ url_for('static', path='js/pages/server-logs.js') | replace('http://', '//') }}?v={{ repo_version.commit_count }}"
-></script>
+
+{% block extra_js %}
+
+
+  <script type="module"
+          src="{{ url_for('static', path='js/pages/server-logs.js') | replace('http://', '//') }}?v={{ repo_version.commit_count }}"></script>
 {% endblock %}

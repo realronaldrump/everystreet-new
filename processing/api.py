@@ -1,4 +1,5 @@
 import logging
+from typing import Annotated
 
 from fastapi import APIRouter, Body, HTTPException, status
 from pydantic import BaseModel
@@ -114,7 +115,7 @@ async def map_match_trips_endpoint(
     trip_id: str | None = None,
     start_date: str | None = None,
     end_date: str | None = None,
-    data: DateRangeModel | None = Body(default=None),
+    data: Annotated[DateRangeModel | None, Body()] = None,
 ):
     """Map match trips within a date range or a specific trip."""
     interval_days = 0

@@ -106,7 +106,7 @@ def _parse_volume_sizes(output: str) -> dict[str, int]:
         if not in_volume_section:
             continue
         if stripped.upper().startswith("CACHE ID") or stripped.lower().startswith(
-            "build cache"
+            "build cache",
         ):
             break
         parts = stripped.split()
@@ -296,9 +296,9 @@ class StorageService:
             for volume_name in volume_names:
                 inspect, error = await _inspect_volume(volume_name)
                 labels = inspect.get("Labels") or {} if inspect else {}
-                volume_label = labels.get("com.docker.compose.volume") or _match_expected_label(
-                    volume_name
-                )
+                volume_label = labels.get(
+                    "com.docker.compose.volume",
+                ) or _match_expected_label(volume_name)
                 project_label = labels.get("com.docker.compose.project") or project
                 size_value = None
                 if inspect:

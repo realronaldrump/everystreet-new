@@ -765,21 +765,21 @@ function createTripCard(trip, allTrips) {
             : ""
         }
       </div>
-      
+
       <div class="trip-route">
         <i class="fas fa-map-marker-alt"></i>
         <span>${escapeHtml(sanitizeLocation(trip.startLocation))}</span>
         <span class="trip-route-arrow">→</span>
         <span>${escapeHtml(sanitizeLocation(trip.destination))}</span>
       </div>
-      
+
       <div class="trip-progress">
         <div class="trip-progress-bar">
           <div class="trip-progress-fill" style="width: ${progressPercent}%"></div>
         </div>
         <span class="trip-progress-label">${distance.toFixed(1)} miles</span>
       </div>
-      
+
       <div class="trip-meta">
         <span class="trip-meta-item">
           <i class="far fa-clock"></i>
@@ -794,7 +794,7 @@ function createTripCard(trip, allTrips) {
           ${escapeHtml(trip.vehicleLabel || "Unknown")}
         </span>
       </div>
-      
+
       <div class="trip-card-footer">
         <span class="trip-date">${timeAgo}</span>
         <div class="trip-actions">
@@ -1121,7 +1121,7 @@ function showFilterFeedback() {
 
   // Show notification
   const filterCount = document.getElementById("active-filter-count");
-  if (filterCount && filterCount.textContent && filterCount.textContent !== "0") {
+  if (filterCount?.textContent && filterCount.textContent !== "0") {
     notificationManager.show(
       `${filterCount.textContent} filter${filterCount.textContent !== "1" ? "s" : ""} applied`,
       "info",
@@ -1140,7 +1140,7 @@ function updateFilteredStats() {
   );
   const totalTrips = visibleTrips.length;
   const totalDuration = visibleTrips.reduce(
-    (sum, trip) => sum + (parseInt(trip.duration) || 0),
+    (sum, trip) => sum + (parseInt(trip.duration, 10) || 0),
     0
   );
   const totalHours = Math.round(totalDuration / 3600);
@@ -1354,8 +1354,8 @@ function updateFilterResultsPreview() {
       0
     );
     previewEl.innerHTML = `
-      <span class="results-count">${visibleTrips.length}</span> trips 
-      <span style="color: var(--trips-text-tertiary);">•</span> 
+      <span class="results-count">${visibleTrips.length}</span> trips
+      <span style="color: var(--trips-text-tertiary);">•</span>
       ${totalMiles.toFixed(1)} mi
     `;
     previewEl.style.display = "inline";
@@ -1370,7 +1370,7 @@ function updateFilterResultsPreview() {
 // ==========================================
 
 function setupBulkActions() {
-  const bulkBar = document.getElementById("bulk-actions-bar");
+  const _bulkBar = document.getElementById("bulk-actions-bar");
   const selectAllBtn = document.getElementById("bulk-select-all-btn");
   const deleteBtn = document.getElementById("bulk-delete-trips-btn");
   const closeBtn = document.getElementById("bulk-close-btn");
@@ -2003,7 +2003,7 @@ function extractTripGeometry(trip) {
   if (typeof candidate === "string") {
     try {
       parsed = JSON.parse(candidate);
-    } catch (err) {
+    } catch (_err) {
       return null;
     }
   }

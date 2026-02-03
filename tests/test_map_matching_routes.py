@@ -63,7 +63,8 @@ def test_preview_map_matching_jobs() -> None:
     ):
         client = TestClient(app)
         response = client.post(
-            "/api/map_matching/jobs/preview", json={"mode": "unmatched"}
+            "/api/map_matching/jobs/preview",
+            json={"mode": "unmatched"},
         )
 
     assert response.status_code == 200

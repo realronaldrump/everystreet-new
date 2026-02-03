@@ -138,9 +138,9 @@ async def get_failed_trips(request: Request):
                     {"matchStatus": {"$regex": "^skipped:", "$options": "i"}},
                     {"matchStatus": {"$regex": "^error:", "$options": "i"}},
                     {"matchStatus": {"$regex": "no-valid-geometry", "$options": "i"}},
-                ]
+                ],
             },
-        ]
+        ],
     }
 
     trip_cursor = Trip.find(query).sort(-Trip.endTime).limit(limit)
@@ -170,7 +170,7 @@ async def get_failed_trips(request: Request):
                     "startLocation": trip_dict.get("startLocation"),
                     "destination": trip_dict.get("destination"),
                     "matchStatus": trip_dict.get("matchStatus"),
-                }
+                },
             )
         except Exception:
             logger.exception("Error processing failed trip")

@@ -240,7 +240,8 @@ async def periodic_fetch_trips(
     """
     ARQ job for fetching periodic trips.
 
-    Accepts kwargs to support explicit range triggers with specific date ranges.
+    Accepts kwargs to support explicit range triggers with specific date
+    ranges.
     """
     return await run_task_with_history(
         ctx,

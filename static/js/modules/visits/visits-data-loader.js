@@ -68,7 +68,7 @@ class VisitsDataLoader {
     try {
       // Timeframe filter removed in redesign - suggestions now always use all time
       const sizeSelect = document.getElementById("suggestion-size");
-      if (sizeSelect && sizeSelect.value && sizeSelect.value !== "auto") {
+      if (sizeSelect?.value && sizeSelect.value !== "auto") {
         const size = Number.parseInt(sizeSelect.value, 10);
         if (!Number.isNaN(size) && size > 0) {
           params.cell_size_m = size;

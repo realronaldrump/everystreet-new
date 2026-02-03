@@ -234,6 +234,7 @@ def _resolve_osm_data_path_candidates() -> tuple[str | None, list[str]]:
         states_dir = Path(extracts_path) / "states"
         checked.append(str(states_dir / "*.osm.pbf"))
         if states_dir.exists():
+
             def _safe_mtime(path: Path) -> float:
                 try:
                     return path.stat().st_mtime
@@ -343,11 +344,11 @@ __all__ = [
     "require_nominatim_search_url",
     "require_nominatim_user_agent",
     "require_osm_data_path",
-    "resolve_osm_data_path",
     "require_valhalla_base_url",
     "require_valhalla_route_url",
     "require_valhalla_status_url",
     "require_valhalla_trace_attributes_url",
     "require_valhalla_trace_route_url",
+    "resolve_osm_data_path",
     "validate_mapbox_token",
 ]

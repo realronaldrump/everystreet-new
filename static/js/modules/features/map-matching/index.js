@@ -20,7 +20,7 @@ const PHASES = {
   RESULTS: "results",
 };
 
-let currentPhase = PHASES.SELECT;
+let _currentPhase = PHASES.SELECT;
 
 function cacheElements() {
   elements = {
@@ -124,7 +124,7 @@ function cacheElements() {
 }
 
 let currentJobId = null;
-let currentJobStage = null;
+let _currentJobStage = null;
 let pollTimer = null;
 let previewSignature = null;
 let previewPayload = null;
@@ -148,7 +148,7 @@ const RESULT_MODES = {
   BROWSE_FAILED: "browse_failed", // Browsing failed trips
 };
 
-let currentResultMode = RESULT_MODES.JOB;
+let _currentResultMode = RESULT_MODES.JOB;
 
 const withSignal = (options = {}) =>
   pageSignal ? { ...options, signal: pageSignal } : options;
@@ -220,7 +220,7 @@ function setPhase(phase) {
     return;
   }
 
-  currentPhase = phase;
+  _currentPhase = phase;
 
   // Update phase sections
   document.querySelectorAll(".mm-phase").forEach((section) => {
@@ -242,7 +242,7 @@ function setPhase(phase) {
   const phaseOrder = [PHASES.SELECT, PHASES.PROCESS, PHASES.RESULTS];
   const currentIndex = phaseOrder.indexOf(phase);
 
-  document.querySelectorAll(".mm-phase-step").forEach((step, index) => {
+  document.querySelectorAll(".mm-phase-step").forEach((step, _index) => {
     const stepPhase = step.dataset.phase;
     const stepIndex = phaseOrder.indexOf(stepPhase);
 
@@ -263,7 +263,7 @@ function setPhase(phase) {
 
 function resetToSelect() {
   currentJobId = null;
-  currentJobStage = null;
+  _currentJobStage = null;
   lastAutoPreviewJobId = null;
   stopPolling();
   setPhase(PHASES.SELECT);
@@ -300,7 +300,7 @@ function closeHistoryDrawer() {
   elements.historyFab?.focus();
 }
 
-function toggleHistoryDrawer() {
+function _toggleHistoryDrawer() {
   const isOpen = elements.historyDrawer?.classList.contains("is-open");
   if (isOpen) {
     closeHistoryDrawer();
@@ -330,14 +330,14 @@ function destroyPreviewMap() {
 
 function resetState() {
   currentJobId = null;
-  currentJobStage = null;
+  _currentJobStage = null;
   previewSignature = null;
   previewPayload = null;
   lastAutoPreviewJobId = null;
   matchedSelection = new Set();
   selectedQuickPick = null;
-  currentPhase = PHASES.SELECT;
-  currentResultMode = RESULT_MODES.JOB;
+  _currentPhase = PHASES.SELECT;
+  _currentResultMode = RESULT_MODES.JOB;
   failedTripsData = [];
   failedSelection = new Set();
   destroyPreviewMap();
@@ -388,7 +388,7 @@ function formatFriendlyDate(dateStr) {
   return date.toLocaleDateString([], { month: "short", day: "numeric" });
 }
 
-function formatTripDate(startTime, endTime) {
+function formatTripDate(startTime, _endTime) {
   if (!startTime) {
     return "Unknown date";
   }
@@ -459,7 +459,7 @@ function updateProgressUI(progress) {
   if (!progress) {
     elements.currentPanel?.classList.add("d-none");
     elements.currentEmpty?.classList.remove("d-none");
-    currentJobStage = null;
+    _currentJobStage = null;
     if (elements.cancelBtn) {
       elements.cancelBtn.classList.add("d-none");
       elements.cancelBtn.disabled = true;
@@ -469,7 +469,7 @@ function updateProgressUI(progress) {
 
   elements.currentPanel?.classList.remove("d-none");
   elements.currentEmpty?.classList.add("d-none");
-  currentJobStage = progress.stage || null;
+  _currentJobStage = progress.stage || null;
 
   const pct = Math.min(100, Math.max(0, progress.progress || 0));
 
@@ -2066,7 +2066,7 @@ async function loadMatchedPreview(jobId, { silent = false } = {}) {
 // ========================================
 
 function setResultMode(mode) {
-  currentResultMode = mode;
+  _currentResultMode = mode;
 
   // Hide all headers first
   elements.resultsHeaderSuccess?.classList.add("d-none");
@@ -2434,7 +2434,7 @@ function focusMatchedPreviewTrip(tripId) {
   matchedPreviewSelectedId = String(tripId);
   setFocusedTripUI(matchedPreviewSelectedId);
   const map = ensureMatchedPreviewMap();
-  if (map && map.getLayer("matched-preview-highlight")) {
+  if (map?.getLayer("matched-preview-highlight")) {
     map.setFilter("matched-preview-highlight", [
       "==",
       ["get", "transactionId"],

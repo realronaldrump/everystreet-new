@@ -7,13 +7,15 @@ import json
 import logging
 import os
 import time
-from collections.abc import Iterable
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import httpx
 from shapely.geometry import shape
 
 from config import DEFAULT_GEOFABRIK_MIRROR, get_geofabrik_mirror, get_osm_extracts_path
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 logger = logging.getLogger(__name__)
 

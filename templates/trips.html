@@ -1,488 +1,503 @@
-{% extends "base.html" %} {% block title %} Your Trips - Every Street {% endblock %} {%
+{% extends "base.html" %}
+
+{% block title %}
+
+ Your Trips - Every Street
+{% endblock %}
+
+{%
 block extra_css %}
+
 <!-- Mapbox GL CSS -->
 <link rel="stylesheet" href="{{ CDN.mapbox_gl_css }}" />
-<link
-  rel="stylesheet"
-  href="{{ url_for('static', path='css/features/map/index.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}"
-/>
-<link
-  rel="stylesheet"
-  href="{{ url_for('static', path='css/trips.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}"
-/>
-{% endblock %} {% block content %}
-<div class="trips-journal-page">
-  <!-- Ambient Background -->
-  <div class="trips-ambient-bg">
-    <div class="ambient-gradient"></div>
-    <div class="ambient-noise"></div>
-  </div>
+<link rel="stylesheet"
+      href="{{ url_for('static', path='css/features/map/index.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}" />
+<link rel="stylesheet"
+      href="{{ url_for('static', path='css/trips.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}" />
+{% endblock %}
 
-  <div class="trips-container">
-    <!-- Warm Welcome Header -->
-    <header class="trips-welcome" data-stagger>
-      <div class="welcome-greeting">
-        <h1 class="welcome-title">
-          <span class="greeting-text">Good afternoon</span>
-          <span class="greeting-icon"><i class="fas fa-hand-paper"></i></span>
-        </h1>
-        <p class="welcome-subtitle" id="trips-summary-text">
-          You've traveled <strong>loading...</strong> this month
-        </p>
+
+{% block content %}
+
+  <div class="trips-journal-page">
+    <!-- Ambient Background -->
+    <div class="trips-ambient-bg">
+      <div class="ambient-gradient">
       </div>
-
-      <div class="welcome-stats" id="welcome-stats">
-        <div class="stat-pill">
-          <span class="stat-icon"><i class="fas fa-road"></i></span>
-          <span class="stat-value" id="stat-total-miles">--</span>
-          <span class="stat-label">miles</span>
-        </div>
-        <div class="stat-pill">
-          <span class="stat-icon"><i class="fas fa-car"></i></span>
-          <span class="stat-value" id="stat-total-trips">--</span>
-          <span class="stat-label">trips</span>
-        </div>
-        <div class="stat-pill">
-          <span class="stat-icon"><i class="fas fa-clock"></i></span>
-          <span class="stat-value" id="stat-total-time">--</span>
-          <span class="stat-label">hours</span>
-        </div>
-      </div>
-
-      <div class="sync-status-mini" id="sync-status-mini">
-        <span class="sync-indicator" data-state="idle">
-          <span class="sync-dot"></span>
-        </span>
-        <span class="sync-text">Updated 2 hours ago</span>
-        <button class="sync-btn" id="sync-now-btn" title="Sync now">
-          <i class="fas fa-sync-alt"></i>
-        </button>
-      </div>
-    </header>
-
-    <!-- Smart Search & Quick Filters -->
-    <section class="trips-search-section" data-accent="mint">
-      <div class="search-container">
-        <div class="search-input-wrap">
-          <i class="fas fa-search search-icon"></i>
-          <input
-            type="text"
-            id="trip-search-input"
-            class="search-input"
-            placeholder="Search trips, places, or vehicles..."
-            autocomplete="off"
-          />
-          <button class="search-clear" id="search-clear-btn" style="display: none">
-            <i class="fas fa-times"></i>
-          </button>
-        </div>
-        <button
-          class="filter-toggle-btn"
-          id="filter-toggle-btn"
-          aria-controls="trips-filters-panel"
-          aria-expanded="false"
-        >
-          <i class="fas fa-sliders-h"></i>
-          <span>Filters</span>
-          <span class="filter-badge" id="active-filter-count">0</span>
-        </button>
-      </div>
-
-      <!-- Expandable Filters Panel -->
-      <div class="filters-panel" id="trips-filters-panel">
-        <div class="filters-header">
-          <span class="filters-header-title">
-            <i class="fas fa-filter"></i>
-            Filter Options
-          </span>
-          <span class="filters-header-status" id="filters-status" style="display: none">
-            <span class="status-dot"></span>
-            Active
-          </span>
-        </div>
-        <div class="filters-content">
-          <div class="filter-group">
-            <label class="filter-label">
-              <i class="fas fa-car"></i>
-              Vehicle
-            </label>
-            <select id="trip-filter-vehicle" class="filter-select">
-              <option value="">All vehicles</option>
-            </select>
-          </div>
-
-          <div class="filter-group">
-            <label class="filter-label">
-              <i class="fas fa-road"></i>
-              Distance (miles)
-            </label>
-            <div class="range-inputs">
-              <input
-                type="number"
-                id="trip-filter-distance-min"
-                placeholder="Min"
-                step="0.1"
-                min="0"
-              />
-              <span>to</span>
-              <input
-                type="number"
-                id="trip-filter-distance-max"
-                placeholder="Max"
-                step="0.1"
-                min="0"
-              />
-            </div>
-          </div>
-
-          <div class="filter-actions">
-            <button class="btn-apply" id="trip-filter-apply">
-              <i class="fas fa-check" style="margin-right: 6px"></i>
-              Apply Filters
-            </button>
-            <button class="btn-reset" id="trip-filter-reset">
-              <i class="fas fa-undo" style="margin-right: 6px"></i>
-              Reset
-            </button>
-            <span class="filter-results-preview" id="filter-results-preview"></span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Active Filter Chips -->
-      <div class="active-filters" id="active-filter-chips">
-        <!-- Dynamically populated -->
-      </div>
-    </section>
-
-    <!-- Insights Cards -->
-    <section class="trips-insights" id="trips-insights">
-      <div class="insight-card" data-insight="longest">
-        <div class="insight-icon"><i class="fas fa-trophy text-warning"></i></div>
-        <div class="insight-content">
-          <span class="insight-value" id="insight-longest">--</span>
-          <span class="insight-label">Longest Trip</span>
-        </div>
-      </div>
-      <div class="insight-card" data-insight="fuel">
-        <div class="insight-icon"><i class="fas fa-gas-pump"></i></div>
-        <div class="insight-content">
-          <span class="insight-value" id="insight-fuel">--</span>
-          <span class="insight-label">Fuel This Month</span>
-        </div>
-      </div>
-    </section>
-
-    <!-- Trips Timeline -->
-    <section class="trips-timeline" id="trips-timeline">
-      <!-- Timeline sections will be dynamically populated -->
-      <div class="timeline-section" data-section="today">
-        <h2 class="timeline-header">
-          <span class="timeline-title">Today</span>
-          <span class="timeline-count" id="count-today">0 trips</span>
-        </h2>
-        <div class="trips-cards-container" id="trips-today"></div>
-      </div>
-
-      <div class="timeline-section" data-section="yesterday">
-        <h2 class="timeline-header">
-          <span class="timeline-title">Yesterday</span>
-          <span class="timeline-count" id="count-yesterday">0 trips</span>
-        </h2>
-        <div class="trips-cards-container" id="trips-yesterday"></div>
-      </div>
-
-      <div class="timeline-section" data-section="week">
-        <h2 class="timeline-header">
-          <span class="timeline-title">Earlier This Week</span>
-          <span class="timeline-count" id="count-week">0 trips</span>
-        </h2>
-        <div class="trips-cards-container" id="trips-week"></div>
-      </div>
-
-      <div class="timeline-section" data-section="month">
-        <h2 class="timeline-header">
-          <span class="timeline-title">Earlier This Month</span>
-          <span class="timeline-count" id="count-month">0 trips</span>
-        </h2>
-        <div class="trips-cards-container" id="trips-month"></div>
-      </div>
-
-      <div class="timeline-section" data-section="older">
-        <h2 class="timeline-header">
-          <span class="timeline-title">Earlier</span>
-          <span class="timeline-count" id="count-older">0 trips</span>
-        </h2>
-        <div class="trips-cards-container" id="trips-older"></div>
-      </div>
-    </section>
-
-    <!-- Loading State -->
-    <div class="trips-loading" id="trips-loading">
-      <div class="loading-skeleton">
-        <div class="skeleton-card"></div>
-        <div class="skeleton-card"></div>
-        <div class="skeleton-card"></div>
+      <div class="ambient-noise">
       </div>
     </div>
 
-    <!-- Empty State -->
-    <div class="trips-empty" id="trips-empty" style="display: none">
-      <div class="empty-illustration">
-        <span class="empty-icon"><i class="fas fa-car"></i></span>
+    <div class="trips-container">
+      <!-- Warm Welcome Header -->
+      <header class="trips-welcome" data-stagger>
+        <div class="welcome-greeting">
+          <h1 class="welcome-title">
+            <span class="greeting-text">Good afternoon</span>
+            <span class="greeting-icon"><i class="fas fa-hand-paper"></i></span>
+          </h1>
+          <p class="welcome-subtitle" id="trips-summary-text">
+          You've traveled <strong>loading...</strong> this month
+          </p>
+        </div>
+
+        <div class="welcome-stats" id="welcome-stats">
+          <div class="stat-pill">
+            <span class="stat-icon"><i class="fas fa-road"></i></span>
+            <span class="stat-value" id="stat-total-miles">--</span>
+            <span class="stat-label">miles</span>
+          </div>
+          <div class="stat-pill">
+            <span class="stat-icon"><i class="fas fa-car"></i></span>
+            <span class="stat-value" id="stat-total-trips">--</span>
+            <span class="stat-label">trips</span>
+          </div>
+          <div class="stat-pill">
+            <span class="stat-icon"><i class="fas fa-clock"></i></span>
+            <span class="stat-value" id="stat-total-time">--</span>
+            <span class="stat-label">hours</span>
+          </div>
+        </div>
+
+        <div class="sync-status-mini" id="sync-status-mini">
+          <span class="sync-indicator" data-state="idle">
+            <span class="sync-dot"></span>
+          </span>
+          <span class="sync-text">Updated 2 hours ago</span>
+          <button class="sync-btn" id="sync-now-btn" title="Sync now">
+            <i class="fas fa-sync-alt"></i>
+          </button>
+        </div>
+      </header>
+
+      <!-- Smart Search & Quick Filters -->
+      <section class="trips-search-section" data-accent="mint">
+        <div class="search-container">
+          <div class="search-input-wrap">
+            <i class="fas fa-search search-icon"></i>
+            <input type="text"
+                   id="trip-search-input"
+                   class="search-input"
+                   placeholder="Search trips, places, or vehicles..."
+                   autocomplete="off" />
+            <button class="search-clear" id="search-clear-btn" style="display: none">
+              <i class="fas fa-times"></i>
+            </button>
+          </div>
+          <button class="filter-toggle-btn"
+                  id="filter-toggle-btn"
+                  aria-controls="trips-filters-panel"
+                  aria-expanded="false">
+            <i class="fas fa-sliders-h"></i>
+            <span>Filters</span>
+            <span class="filter-badge" id="active-filter-count">0</span>
+          </button>
+        </div>
+
+        <!-- Expandable Filters Panel -->
+        <div class="filters-panel" id="trips-filters-panel">
+          <div class="filters-header">
+            <span class="filters-header-title">
+              <i class="fas fa-filter"></i>
+            Filter Options
+            </span>
+            <span class="filters-header-status" id="filters-status" style="display: none">
+              <span class="status-dot"></span>
+            Active
+            </span>
+          </div>
+          <div class="filters-content">
+            <div class="filter-group">
+              <label class="filter-label">
+                <i class="fas fa-car"></i>
+              Vehicle
+              </label>
+              <select id="trip-filter-vehicle" class="filter-select">
+                <option value="">
+All vehicles
+                </option>
+              </select>
+            </div>
+
+            <div class="filter-group">
+              <label class="filter-label">
+                <i class="fas fa-road"></i>
+              Distance (miles)
+              </label>
+              <div class="range-inputs">
+                <input type="number"
+                       id="trip-filter-distance-min"
+                       placeholder="Min"
+                       step="0.1"
+                       min="0" />
+                <span>to</span>
+                <input type="number"
+                       id="trip-filter-distance-max"
+                       placeholder="Max"
+                       step="0.1"
+                       min="0" />
+              </div>
+            </div>
+
+            <div class="filter-actions">
+              <button class="btn-apply" id="trip-filter-apply">
+                <i class="fas fa-check" style="margin-right: 6px"></i>
+              Apply Filters
+              </button>
+              <button class="btn-reset" id="trip-filter-reset">
+                <i class="fas fa-undo" style="margin-right: 6px"></i>
+              Reset
+              </button>
+              <span class="filter-results-preview" id="filter-results-preview"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Active Filter Chips -->
+        <div class="active-filters" id="active-filter-chips">
+          <!-- Dynamically populated -->
+        </div>
+      </section>
+
+      <!-- Insights Cards -->
+      <section class="trips-insights" id="trips-insights">
+        <div class="insight-card" data-insight="longest">
+          <div class="insight-icon">
+            <i class="fas fa-trophy text-warning"></i>
+          </div>
+          <div class="insight-content">
+            <span class="insight-value" id="insight-longest">--</span>
+            <span class="insight-label">Longest Trip</span>
+          </div>
+        </div>
+        <div class="insight-card" data-insight="fuel">
+          <div class="insight-icon">
+            <i class="fas fa-gas-pump"></i>
+          </div>
+          <div class="insight-content">
+            <span class="insight-value" id="insight-fuel">--</span>
+            <span class="insight-label">Fuel This Month</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Trips Timeline -->
+      <section class="trips-timeline" id="trips-timeline">
+        <!-- Timeline sections will be dynamically populated -->
+        <div class="timeline-section" data-section="today">
+          <h2 class="timeline-header">
+            <span class="timeline-title">Today</span>
+            <span class="timeline-count" id="count-today">0 trips</span>
+          </h2>
+          <div class="trips-cards-container" id="trips-today">
+          </div>
+        </div>
+
+        <div class="timeline-section" data-section="yesterday">
+          <h2 class="timeline-header">
+            <span class="timeline-title">Yesterday</span>
+            <span class="timeline-count" id="count-yesterday">0 trips</span>
+          </h2>
+          <div class="trips-cards-container" id="trips-yesterday">
+          </div>
+        </div>
+
+        <div class="timeline-section" data-section="week">
+          <h2 class="timeline-header">
+            <span class="timeline-title">Earlier This Week</span>
+            <span class="timeline-count" id="count-week">0 trips</span>
+          </h2>
+          <div class="trips-cards-container" id="trips-week">
+          </div>
+        </div>
+
+        <div class="timeline-section" data-section="month">
+          <h2 class="timeline-header">
+            <span class="timeline-title">Earlier This Month</span>
+            <span class="timeline-count" id="count-month">0 trips</span>
+          </h2>
+          <div class="trips-cards-container" id="trips-month">
+          </div>
+        </div>
+
+        <div class="timeline-section" data-section="older">
+          <h2 class="timeline-header">
+            <span class="timeline-title">Earlier</span>
+            <span class="timeline-count" id="count-older">0 trips</span>
+          </h2>
+          <div class="trips-cards-container" id="trips-older">
+          </div>
+        </div>
+      </section>
+
+      <!-- Loading State -->
+      <div class="trips-loading" id="trips-loading">
+        <div class="loading-skeleton">
+          <div class="skeleton-card">
+          </div>
+          <div class="skeleton-card">
+          </div>
+          <div class="skeleton-card">
+          </div>
+        </div>
       </div>
-      <h3 class="empty-title">No trips yet</h3>
-      <p class="empty-text">
+
+      <!-- Empty State -->
+      <div class="trips-empty" id="trips-empty" style="display: none">
+        <div class="empty-illustration">
+          <span class="empty-icon"><i class="fas fa-car"></i></span>
+        </div>
+        <h3 class="empty-title">
+No trips yet
+        </h3>
+        <p class="empty-text">
         Your adventure begins here. Sync with your vehicle to import your driving
         history.
-      </p>
-      <div class="empty-actions">
-        <button class="btn-primary" id="empty-sync-btn">
-          <i class="fas fa-sync-alt"></i>
+        </p>
+        <div class="empty-actions">
+          <button class="btn-primary" id="empty-sync-btn">
+            <i class="fas fa-sync-alt"></i>
           Sync my vehicle
-        </button>
-        <a href="/settings" class="btn-secondary">
-          <i class="fas fa-cog"></i>
+          </button>
+          <a href="/settings" class="btn-secondary">
+            <i class="fas fa-cog"></i>
           Setup
-        </a>
+          </a>
+        </div>
       </div>
-    </div>
 
-    <!-- Pagination -->
-    <div class="trips-pagination" id="trips-pagination">
-      <div class="pagination-info">
-        <span id="pagination-text">Showing 0 trips</span>
-      </div>
-      <div class="pagination-controls">
-        <button class="pagination-btn" id="prev-page" disabled>
-          <i class="fas fa-chevron-left"></i>
+      <!-- Pagination -->
+      <div class="trips-pagination" id="trips-pagination">
+        <div class="pagination-info">
+          <span id="pagination-text">Showing 0 trips</span>
+        </div>
+        <div class="pagination-controls">
+          <button class="pagination-btn" id="prev-page" disabled>
+            <i class="fas fa-chevron-left"></i>
           Previous
-        </button>
-        <div class="pagination-pages" id="pagination-pages"></div>
-        <button class="pagination-btn" id="next-page" disabled>
+          </button>
+          <div class="pagination-pages" id="pagination-pages">
+          </div>
+          <button class="pagination-btn" id="next-page" disabled>
           Next
-          <i class="fas fa-chevron-right"></i>
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Trip Details Modal -->
-  <div
-    class="modal fade trip-details-modal"
-    id="tripDetailsModal"
-    tabindex="-1"
-    aria-hidden="true"
-  >
-    <div class="modal-dialog modal-xl modal-dialog-centered">
-      <div class="modal-content">
-        <div class="modal-header">
-          <div class="modal-title-wrap">
-            <h5 class="modal-title" id="tripModalTitle">Trip Details</h5>
-            <div class="modal-subtitle" id="tripModalSubtitle">
-              <span id="modal-date"></span>
-              <span class="trip-id" id="modal-trip-id"></span>
-            </div>
-          </div>
-          <div class="modal-actions">
-            <button class="btn-icon" id="modal-share-btn" title="Share">
-              <i class="fas fa-share-alt"></i>
-            </button>
-            <button class="btn-icon btn-danger" id="modal-delete-btn" title="Delete">
-              <i class="fas fa-trash"></i>
-            </button>
-            <button
-              class="btn-icon"
-              id="modal-minimize-btn"
-              type="button"
-              title="Minimize"
-              aria-label="Minimize"
-              data-bs-dismiss="modal"
-            >
-              <i class="fas fa-minus"></i>
-            </button>
-            <button
-              type="button"
-              class="btn-close"
-              data-bs-dismiss="modal"
-              aria-label="Close"
-            ></button>
-          </div>
-        </div>
-        <div class="modal-body p-0">
-          <div class="row g-0">
-            <!-- Map Column -->
-            <div class="col-lg-8 position-relative trip-modal-map-col">
-              <div id="trip-modal-map" class="trip-modal-map"></div>
-              <div class="trip-playback-controls glass">
-                <button
-                  class="btn-playback"
-                  id="trip-playback-toggle"
-                  aria-pressed="false"
-                >
-                  <i class="fas fa-play"></i>
-                  <span>Play</span>
-                </button>
-                <div class="playback-speed">
-                  <label for="trip-playback-speed">Speed</label>
-                  <input
-                    type="range"
-                    id="trip-playback-speed"
-                    min="0.25"
-                    max="3"
-                    step="0.25"
-                    value="0.5"
-                  />
-                  <span id="trip-playback-speed-label">1.0x</span>
-                </div>
-              </div>
-              <div id="trip-map-loading" class="map-loading-overlay d-none">
-                <div class="loading-content">
-                  <div class="spinner"></div>
-                  <span>Loading trip...</span>
-                </div>
-              </div>
-            </div>
-            <!-- Details Column -->
-            <div class="col-lg-4 trip-modal-panel">
-              <div class="panel-content">
-                <div class="detail-section">
-                  <h6 class="section-title">Route</h6>
-                  <div class="route-display">
-                    <div class="route-point start">
-                      <i class="fas fa-map-marker-alt"></i>
-                      <div class="route-info">
-                        <span class="route-label">Started</span>
-                        <span class="route-location" id="modal-start-loc">--</span>
-                      </div>
-                    </div>
-                    <div class="route-point end">
-                      <i class="fas fa-map-marker-alt"></i>
-                      <div class="route-info">
-                        <span class="route-label">Ended</span>
-                        <span class="route-location" id="modal-end-loc">--</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="detail-section">
-                  <h6 class="section-title">Statistics</h6>
-                  <div class="stats-grid">
-                    <div class="stat-item">
-                      <i class="fas fa-road"></i>
-                      <div class="stat-info">
-                        <span class="stat-value" id="modal-distance">--</span>
-                        <span class="stat-label">Distance</span>
-                      </div>
-                    </div>
-                    <div class="stat-item">
-                      <i class="fas fa-clock"></i>
-                      <div class="stat-info">
-                        <span class="stat-value" id="modal-duration">--</span>
-                        <span class="stat-label">Duration</span>
-                      </div>
-                    </div>
-                    <div class="stat-item">
-                      <i class="fas fa-tachometer-alt"></i>
-                      <div class="stat-info">
-                        <span class="stat-value" id="modal-max-speed">--</span>
-                        <span class="stat-label">Max Speed</span>
-                      </div>
-                    </div>
-                    <div class="stat-item">
-                      <i class="fas fa-gas-pump"></i>
-                      <div class="stat-info">
-                        <span class="stat-value" id="modal-fuel">--</span>
-                        <span class="stat-label">Fuel</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="detail-section">
-                  <h6 class="section-title">Tags</h6>
-                  <div class="trip-tags" id="modal-tags">
-                    <span class="trip-tag">Commute</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+            <i class="fas fa-chevron-right"></i>
+          </button>
         </div>
       </div>
     </div>
-  </div>
 
-  <!-- Import History Modal -->
-  <div class="modal fade" id="tripSyncHistoryModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title">Import Trip History</h5>
-          <button
-            type="button"
-            class="btn-close"
-            data-bs-dismiss="modal"
-            aria-label="Close"
-          ></button>
+    <!-- Trip Details Modal -->
+    <div class="modal fade trip-details-modal"
+         id="tripDetailsModal"
+         tabindex="-1"
+         aria-hidden="true">
+      <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header">
+            <div class="modal-title-wrap">
+              <h5 class="modal-title" id="tripModalTitle">
+Trip Details
+              </h5>
+              <div class="modal-subtitle" id="tripModalSubtitle">
+                <span id="modal-date"></span>
+                <span class="trip-id" id="modal-trip-id"></span>
+              </div>
+            </div>
+            <div class="modal-actions">
+              <button class="btn-icon" id="modal-share-btn" title="Share">
+                <i class="fas fa-share-alt"></i>
+              </button>
+              <button class="btn-icon btn-danger" id="modal-delete-btn" title="Delete">
+                <i class="fas fa-trash"></i>
+              </button>
+              <button class="btn-icon"
+                      id="modal-minimize-btn"
+                      type="button"
+                      title="Minimize"
+                      aria-label="Minimize"
+                      data-bs-dismiss="modal">
+                <i class="fas fa-minus"></i>
+              </button>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close">
+              </button>
+            </div>
+          </div>
+          <div class="modal-body p-0">
+            <div class="row g-0">
+              <!-- Map Column -->
+              <div class="col-lg-8 position-relative trip-modal-map-col">
+                <div id="trip-modal-map" class="trip-modal-map">
+                </div>
+                <div class="trip-playback-controls glass">
+                  <button class="btn-playback" id="trip-playback-toggle" aria-pressed="false">
+                    <i class="fas fa-play"></i>
+                    <span>Play</span>
+                  </button>
+                  <div class="playback-speed">
+                    <label for="trip-playback-speed">
+Speed
+                    </label>
+                    <input type="range"
+                           id="trip-playback-speed"
+                           min="0.25"
+                           max="3"
+                           step="0.25"
+                           value="0.5" />
+                    <span id="trip-playback-speed-label">1.0x</span>
+                  </div>
+                </div>
+                <div id="trip-map-loading" class="map-loading-overlay d-none">
+                  <div class="loading-content">
+                    <div class="spinner">
+                    </div>
+                    <span>Loading trip...</span>
+                  </div>
+                </div>
+              </div>
+              <!-- Details Column -->
+              <div class="col-lg-4 trip-modal-panel">
+                <div class="panel-content">
+                  <div class="detail-section">
+                    <h6 class="section-title">
+Route
+                    </h6>
+                    <div class="route-display">
+                      <div class="route-point start">
+                        <i class="fas fa-map-marker-alt"></i>
+                        <div class="route-info">
+                          <span class="route-label">Started</span>
+                          <span class="route-location" id="modal-start-loc">--</span>
+                        </div>
+                      </div>
+                      <div class="route-point end">
+                        <i class="fas fa-map-marker-alt"></i>
+                        <div class="route-info">
+                          <span class="route-label">Ended</span>
+                          <span class="route-location" id="modal-end-loc">--</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="detail-section">
+                    <h6 class="section-title">
+Statistics
+                    </h6>
+                    <div class="stats-grid">
+                      <div class="stat-item">
+                        <i class="fas fa-road"></i>
+                        <div class="stat-info">
+                          <span class="stat-value" id="modal-distance">--</span>
+                          <span class="stat-label">Distance</span>
+                        </div>
+                      </div>
+                      <div class="stat-item">
+                        <i class="fas fa-clock"></i>
+                        <div class="stat-info">
+                          <span class="stat-value" id="modal-duration">--</span>
+                          <span class="stat-label">Duration</span>
+                        </div>
+                      </div>
+                      <div class="stat-item">
+                        <i class="fas fa-tachometer-alt"></i>
+                        <div class="stat-info">
+                          <span class="stat-value" id="modal-max-speed">--</span>
+                          <span class="stat-label">Max Speed</span>
+                        </div>
+                      </div>
+                      <div class="stat-item">
+                        <i class="fas fa-gas-pump"></i>
+                        <div class="stat-info">
+                          <span class="stat-value" id="modal-fuel">--</span>
+                          <span class="stat-label">Fuel</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="detail-section">
+                    <h6 class="section-title">
+Tags
+                    </h6>
+                    <div class="trip-tags" id="modal-tags">
+                      <span class="trip-tag">Commute</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-        <div class="modal-body">
-          <p class="modal-description">
+      </div>
+    </div>
+
+    <!-- Import History Modal -->
+    <div class="modal fade" id="tripSyncHistoryModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">
+Import Trip History
+            </h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close">
+            </button>
+          </div>
+          <div class="modal-body">
+            <p class="modal-description">
             Import older trips in the background. You can keep using the app while this
             runs.
-          </p>
-          <div class="form-group">
-            <label for="trip-sync-history-start">Start from date (optional)</label>
-            <input
-              type="datetime-local"
-              class="form-control"
-              id="trip-sync-history-start"
-            />
+            </p>
+            <div class="form-group">
+              <label for="trip-sync-history-start">
+Start from date (optional)
+              </label>
+              <input type="datetime-local" class="form-control" id="trip-sync-history-start" />
+            </div>
           </div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn-secondary" data-bs-dismiss="modal">
+          <div class="modal-footer">
+            <button type="button" class="btn-secondary" data-bs-dismiss="modal">
             Cancel
-          </button>
-          <button type="button" class="btn-primary" id="trip-sync-history-confirm">
+            </button>
+            <button type="button" class="btn-primary" id="trip-sync-history-confirm">
             Start Import
-          </button>
+            </button>
+          </div>
         </div>
       </div>
     </div>
-  </div>
 
-  <!-- Bulk Actions Bar -->
-  <div class="bulk-actions-bar" id="bulk-actions-bar" style="display: none">
-    <div class="bulk-info">
-      <span class="bulk-count" id="bulk-count">0 selected</span>
-    </div>
-    <div class="bulk-buttons">
-      <button class="bulk-btn" id="bulk-select-all-btn">
-        <i class="fas fa-check-square"></i>
+    <!-- Bulk Actions Bar -->
+    <div class="bulk-actions-bar" id="bulk-actions-bar" style="display: none">
+      <div class="bulk-info">
+        <span class="bulk-count" id="bulk-count">0 selected</span>
+      </div>
+      <div class="bulk-buttons">
+        <button class="bulk-btn" id="bulk-select-all-btn">
+          <i class="fas fa-check-square"></i>
         Select All
-      </button>
-      <button class="bulk-btn danger" id="bulk-delete-trips-btn">
-        <i class="fas fa-trash"></i>
+        </button>
+        <button class="bulk-btn danger" id="bulk-delete-trips-btn">
+          <i class="fas fa-trash"></i>
         Delete Selected
-      </button>
-      <button class="bulk-btn close" id="bulk-close-btn">
-        <i class="fas fa-times"></i>
-      </button>
+        </button>
+        <button class="bulk-btn close" id="bulk-close-btn">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
     </div>
   </div>
-</div>
-{% endblock %} {% block extra_js %}
-<!-- Mapbox GL JS -->
-<script src="{{ CDN.mapbox_gl_js }}"></script>
-<script>
-  window.MAPBOX_ACCESS_TOKEN = "{{ MAPBOX_ACCESS_TOKEN }}";
-  window.PRELOAD_TRIP_ID = "{{ trip_id }}" !== "None" ? "{{ trip_id }}" : null;
-</script>
+{% endblock %}
 
-<script
-  type="module"
-  src="{{ url_for('static', path='js/pages/trips.js') | replace('http://', '//') }}?v={{ repo_version.commit_count }}"
-></script>
+
+{% block extra_js %}
+
+  <!-- Mapbox GL JS -->
+  <script src="{{ CDN.mapbox_gl_js }}"></script>
+  <script>
+      window.MAPBOX_ACCESS_TOKEN = "{{ MAPBOX_ACCESS_TOKEN }}";
+      window.PRELOAD_TRIP_ID = "{{ trip_id }}" !== "None" ? "{{ trip_id }}" : null;
+  </script>
+
+  <script type="module"
+          src="{{ url_for('static', path='js/pages/trips.js') | replace('http://', '//') }}?v={{ repo_version.commit_count }}"></script>
 {% endblock %}

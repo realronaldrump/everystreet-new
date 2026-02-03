@@ -162,10 +162,10 @@ export default function initMapControls({ signal, cleanup } = {}) {
     controls.removeEventListener("touchend", onTouchEnd);
     window.removeEventListener("resize", onResize);
     if (window.toggleMapControls === toggleMapControls) {
-      delete window.toggleMapControls;
+      window.toggleMapControls = undefined;
     }
     if (window.setStreetMode === setStreetMode) {
-      delete window.setStreetMode;
+      window.setStreetMode = undefined;
     }
   };
 

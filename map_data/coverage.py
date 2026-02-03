@@ -1,9 +1,9 @@
 """
 Trip coverage extraction for local/offline geocoding.
 
-Builds a buffered coverage polygon from trip GPS geometries and uses osmium
-to extract a smaller OSM PBF for Nominatim/Valhalla imports.
-All configuration uses imperial units (miles/feet).
+Builds a buffered coverage polygon from trip GPS geometries and uses
+osmium to extract a smaller OSM PBF for Nominatim/Valhalla imports. All
+configuration uses imperial units (miles/feet).
 """
 
 from __future__ import annotations
@@ -13,15 +13,17 @@ import json
 import logging
 import os
 import time
-from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from pyproj import Transformer
 from shapely.geometry import LineString, Point, mapping
 from shapely.ops import transform, unary_union
 
 from config import get_osm_extracts_path
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
 

@@ -227,10 +227,8 @@ async def _download_state(
         response.raise_for_status()
         content_length = response.headers.get("Content-Length")
         if content_length:
-            try:
+            with contextlib.suppress(ValueError):
                 tracker.total_bytes += max(0, int(content_length))
-            except ValueError:
-                pass
         with open(temp_path, "wb") as handle:
             async for chunk in response.aiter_bytes(CHUNK_SIZE):
                 await _check_cancel(progress_doc)
@@ -432,7 +430,7 @@ async def _merge_pbf_files(
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
-    stdout, stderr = await process.communicate()
+    _stdout, stderr = await process.communicate()
 
     if process.returncode != 0:
         error_msg = stderr.decode().strip() if stderr else "osmium merge failed"
@@ -560,7 +558,7 @@ async def _maybe_build_coverage_extract(
                 )
                 return extract_path
             logger.warning(
-                "Coverage extract unavailable; falling back to state bounds."
+                "Coverage extract unavailable; falling back to state bounds.",
             )
 
     if state_bounds_geometry is not None:

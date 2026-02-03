@@ -1,4 +1,5 @@
-"""System status API endpoints.
+"""
+System status API endpoints.
 
 Note: The /health endpoint is defined in setup/api/configuration.py
 which provides a more comprehensive health check. This module only
@@ -58,9 +59,11 @@ async def get_service_logs(service_name: str) -> dict[str, Any]:
 
         return {
             "success": True,
-            "logs": "\n".join(log_lines)
-            if log_lines
-            else "No recent logs found in database.",
+            "logs": (
+                "\n".join(log_lines)
+                if log_lines
+                else "No recent logs found in database."
+            ),
             "timestamp": datetime.now(UTC).isoformat(),
         }
     except Exception as exc:

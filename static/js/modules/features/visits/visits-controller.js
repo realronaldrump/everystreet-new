@@ -3,9 +3,9 @@
  * Integrates with real API endpoints and uses imperial units
  */
 
+import confirmationDialog from "../../ui/confirmation-dialog.js";
 import { VisitsGeometry } from "../../visits/geometry.js";
 import VisitsManager from "../../visits/visits-manager.js";
-import confirmationDialog from "../../ui/confirmation-dialog.js";
 
 const { mapboxgl } = globalThis;
 const { bootstrap } = globalThis;
@@ -26,7 +26,7 @@ const IMPERIAL_CONFIG = {
 const PLACE_ICON = "📍";
 
 // Day names for pattern detection
-const DAY_NAMES = [
+const _DAY_NAMES = [
   "Sunday",
   "Monday",
   "Tuesday",
@@ -130,7 +130,7 @@ class VisitsPageController {
 
     // Suggestion size change
     this.elements.suggestionSize?.addEventListener("change", (e) => {
-      this.currentSuggestionSize = parseInt(e.target.value);
+      this.currentSuggestionSize = parseInt(e.target.value, 10);
       this.suggestionPage = 1;
       this.loadSuggestions();
     });
@@ -491,8 +491,8 @@ class VisitsPageController {
           <div class="discovery-content">
             <h4>${this.escapeHtml(suggestion.suggestedName)}</h4>
             <p class="discovery-stats">
-              ${suggestion.totalVisits} visits • 
-              First: ${this.formatDate(suggestion.firstVisit)} • 
+              ${suggestion.totalVisits} visits •
+              First: ${this.formatDate(suggestion.firstVisit)} •
               Last: ${this.formatDate(suggestion.lastVisit)}
             </p>
             <div class="discovery-actions">
@@ -597,7 +597,7 @@ class VisitsPageController {
   }
 
   // Helper methods
-  getPlaceIcon(name) {
+  getPlaceIcon(_name) {
     return PLACE_ICON;
   }
 
@@ -662,16 +662,16 @@ class VisitsPageController {
     const secs = durationStr.match(/(\d+)s/);
 
     if (days) {
-      seconds += parseInt(days[1]) * 86400;
+      seconds += parseInt(days[1], 10) * 86400;
     }
     if (hours) {
-      seconds += parseInt(hours[1]) * 3600;
+      seconds += parseInt(hours[1], 10) * 3600;
     }
     if (minutes) {
-      seconds += parseInt(minutes[1]) * 60;
+      seconds += parseInt(minutes[1], 10) * 60;
     }
     if (secs) {
-      seconds += parseInt(secs[1]);
+      seconds += parseInt(secs[1], 10);
     }
 
     return seconds;
@@ -759,7 +759,7 @@ class VisitsPageController {
 
   previewSuggestion(index) {
     const suggestion = this.suggestions[index];
-    if (suggestion && suggestion.boundary) {
+    if (suggestion?.boundary) {
       // Show boundary on main map with editable controls
       this.visitsManager?.applySuggestion?.(suggestion);
 

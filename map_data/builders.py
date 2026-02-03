@@ -68,7 +68,7 @@ async def _safe_readline(
         return _OUTPUT_LINE_OVERFLOW_BYTES
     except ValueError as exc:
         if "Separator is found, but chunk is longer than limit" in str(
-            exc
+            exc,
         ) or "Separator is not found, and chunk exceed the limit" in str(exc):
             logger.warning(
                 "%s output line exceeded buffer (ValueError); skipping",

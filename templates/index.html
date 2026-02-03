@@ -1,42 +1,66 @@
-{% extends "base.html" %} {% block title %} Every Street - Map {% endblock %} {% block
+{% extends "base.html" %}
+
+{% block title %}
+
+ Every Street - Map
+{% endblock %}
+
+
+{% block
 extra_css %}
 
-<!-- Mapbox GL CSS -->
-<link rel="stylesheet" href="{{ CDN.mapbox_gl_css }}" />
-<link
-  rel="stylesheet"
-  href="{{ url_for('static', path='css/features/map/index.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}"
-/>
-<link
-  rel="stylesheet"
-  href="{{ url_for('static', path='css/search.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}"
-/>
-{% endblock %} {% block persistent_shell %} {% include "partials/_map_shell.html" %} {%
-endblock %} {% block content %}
 
-<div class="visually-hidden">Map view</div>
-{% endblock %} {% block head_content %}
-
-<meta name="mapbox-access-token" content="{{ MAPBOX_ACCESS_TOKEN }}" />
-<script>
-  window.MAPBOX_ACCESS_TOKEN = "{{ MAPBOX_ACCESS_TOKEN }}";
-  document.dispatchEvent(
-    new CustomEvent("es:mapbox-token-ready", {
-      detail: {
-        token: window.MAPBOX_ACCESS_TOKEN,
-      },
-    })
-  );
-</script>
-{% endblock %} {% block extra_js %}
-
-<!-- Mapbox GL JS -->
-<script src="{{ CDN.mapbox_gl_js }}"></script>
-<script>
-  window.PRELOAD_TRIP_ID = "{{ trip_id }}" !== "None" ? "{{ trip_id }}" : null;
-</script>
-<script
-  type="module"
-  src="{{ url_for('static', path='js/pages/map.js') | replace('http://', '//') }}?v={{ repo_version.commit_count }}"
-></script>
+  <!-- Mapbox GL CSS -->
+  <link rel="stylesheet" href="{{ CDN.mapbox_gl_css }}" />
+  <link rel="stylesheet"
+        href="{{ url_for('static', path='css/features/map/index.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}" />
+  <link rel="stylesheet"
+        href="{{ url_for('static', path='css/search.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}" />
 {% endblock %}
+
+
+{% block persistent_shell %}
+
+
+{% include "partials/_map_shell.html" %}
+
+{%
+endblock %}
+
+  {% block content %}
+
+
+    <div class="visually-hidden">
+Map view
+    </div>
+  {% endblock %}
+
+
+  {% block head_content %}
+
+
+    <meta name="mapbox-access-token" content="{{ MAPBOX_ACCESS_TOKEN }}" />
+    <script>
+        window.MAPBOX_ACCESS_TOKEN = "{{ MAPBOX_ACCESS_TOKEN }}";
+        document.dispatchEvent(
+            new CustomEvent("es:mapbox-token-ready", {
+                detail: {
+                    token: window.MAPBOX_ACCESS_TOKEN,
+                },
+            })
+        );
+    </script>
+  {% endblock %}
+
+
+  {% block extra_js %}
+
+
+    <!-- Mapbox GL JS -->
+    <script src="{{ CDN.mapbox_gl_js }}"></script>
+    <script>
+        window.PRELOAD_TRIP_ID = "{{ trip_id }}" !== "None" ? "{{ trip_id }}" : null;
+    </script>
+    <script type="module"
+            src="{{ url_for('static', path='js/pages/map.js') | replace('http://', '//') }}?v={{ repo_version.commit_count }}"></script>
+  {% endblock %}

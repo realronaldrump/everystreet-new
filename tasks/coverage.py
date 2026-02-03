@@ -3,8 +3,8 @@ Coverage calculation tasks.
 
 This module provides ARQ jobs for coverage operations.
 
-Coverage updates run inline during trip ingestion. This task is kept
-for manual/scheduled full refreshes of coverage statistics.
+Coverage updates run inline during trip ingestion. This task is kept for
+manual/scheduled full refreshes of coverage statistics.
 """
 
 from __future__ import annotations

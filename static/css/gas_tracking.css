@@ -407,6 +407,7 @@
     opacity: 0;
     transform: translateY(-10px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -515,6 +516,7 @@
     opacity: 0;
     transform: scale(0.95);
   }
+
   to {
     opacity: 1;
     transform: scale(1);
@@ -727,7 +729,7 @@
 /* ===== Responsive Breakpoints ===== */
 
 /* Tablet (768px and up) */
-@media (min-width: 768px) {
+@media (width >= 768px) {
   .gas-content {
     grid-template-columns: 1fr 380px;
   }
@@ -744,7 +746,7 @@
 }
 
 /* Desktop (1024px and up) */
-@media (min-width: 1024px) {
+@media (width >= 1024px) {
   .gas-content {
     grid-template-columns: 1.2fr 400px;
   }
@@ -759,14 +761,14 @@
 }
 
 /* Large Desktop (1280px and up) */
-@media (min-width: 1280px) {
+@media (width >= 1280px) {
   .gas-content {
     grid-template-columns: 1.4fr 420px;
   }
 }
 
 /* Mobile Optimizations */
-@media (max-width: 767px) {
+@media (width <= 767px) {
   .gas-tracking-page {
     --gas-gutter: var(--space-4);
     --gas-card-padding: var(--space-4);
@@ -831,7 +833,7 @@
 }
 
 /* Small Mobile (480px and below) */
-@media (max-width: 480px) {
+@media (width <= 480px) {
   .stats-row {
     gap: var(--space-2);
   }

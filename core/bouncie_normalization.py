@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import logging
 from typing import Any
 
@@ -38,10 +39,8 @@ def normalize_webhook_trip_data_points(
             "lon": pair[0],
         }
         if point.get("speed") is not None:
-            try:
+            with contextlib.suppress(TypeError, ValueError):
                 entry["speed"] = float(point["speed"])
-            except (TypeError, ValueError):
-                pass
         normalized.append(entry)
     return normalized
 
@@ -82,10 +81,8 @@ def normalize_existing_coordinates(
             "lon": lon,
         }
         if item.get("speed") is not None:
-            try:
+            with contextlib.suppress(TypeError, ValueError):
                 entry["speed"] = float(item["speed"])
-            except (TypeError, ValueError):
-                pass
         normalized.append(entry)
 
     return normalized
@@ -159,27 +156,19 @@ def normalize_rest_trip_payload(trip: dict[str, Any]) -> dict[str, Any]:
         normalized["endTime"] = parse_timestamp(normalized.get("endTime"))
 
     if "averageSpeed" in normalized:
-        try:
+        with contextlib.suppress(TypeError, ValueError):
             normalized["avgSpeed"] = float(normalized.get("averageSpeed"))
-        except (TypeError, ValueError):
-            pass
     if "hardBrakingCount" in normalized:
-        try:
+        with contextlib.suppress(TypeError, ValueError):
             normalized["hardBrakingCounts"] = int(normalized.get("hardBrakingCount"))
-        except (TypeError, ValueError):
-            pass
     if "hardAccelerationCount" in normalized:
-        try:
+        with contextlib.suppress(TypeError, ValueError):
             normalized["hardAccelerationCounts"] = int(
                 normalized.get("hardAccelerationCount"),
             )
-        except (TypeError, ValueError):
-            pass
     if "totalIdleDuration" in normalized:
-        try:
+        with contextlib.suppress(TypeError, ValueError):
             normalized["totalIdleDuration"] = float(normalized.get("totalIdleDuration"))
-        except (TypeError, ValueError):
-            pass
 
     gps = normalized.get("gps")
     normalized["gps"] = _normalize_rest_gps(gps)

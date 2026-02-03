@@ -239,7 +239,7 @@ body.light-mode .legend-indicator--undriven {
 .glass-panel {
   background: var(--glass-panel);
   backdrop-filter: blur(var(--blur-strong));
-  -webkit-backdrop-filter: blur(var(--blur-strong));
+  backdrop-filter: blur(var(--blur-strong));
   border: 1px solid var(--glass-border);
   box-shadow: var(--glass-shadow);
 }
@@ -247,14 +247,14 @@ body.light-mode .legend-indicator--undriven {
 .glass-subtle {
   background: var(--glass-1);
   backdrop-filter: blur(var(--blur-subtle));
-  -webkit-backdrop-filter: blur(var(--blur-subtle));
+  backdrop-filter: blur(var(--blur-subtle));
   border: 1px solid var(--glass-border);
 }
 
 .glass-strong {
   background: var(--glass-3);
   backdrop-filter: blur(var(--blur-modal));
-  -webkit-backdrop-filter: blur(var(--blur-modal));
+  backdrop-filter: blur(var(--blur-modal));
   border: 1px solid var(--glass-border-medium);
   box-shadow: var(--shadow-glass-lg);
 }
@@ -433,7 +433,7 @@ body.light-mode .legend-indicator--undriven {
   .card {
     box-shadow: none;
     border: 1px solid #ccc;
-    page-break-inside: avoid;
+    break-inside: avoid;
   }
 
   .table,
@@ -457,7 +457,7 @@ body.light-mode .legend-indicator--undriven {
     position: static;
     height: auto; /* Or specific print height */
     width: 100%;
-    page-break-inside: avoid;
+    break-inside: avoid;
   }
 
   .container,

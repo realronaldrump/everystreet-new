@@ -1,7 +1,8 @@
-"""Spatial and geometry utilities.
+"""
+Spatial and geometry utilities.
 
-Centralizes GeoJSON handling, coordinate validation, distance calculations,
-Shapely/pyproj helpers, and routing geometry utilities.
+Centralizes GeoJSON handling, coordinate validation, distance
+calculations, Shapely/pyproj helpers, and routing geometry utilities.
 """
 
 from __future__ import annotations

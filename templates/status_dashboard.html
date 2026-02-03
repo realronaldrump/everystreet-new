@@ -1,551 +1,638 @@
-{% extends "base.html" %} {% block title %} System Control Center {% endblock %} {%
+{% extends "base.html" %}
+
+{% block title %}
+
+ System Control Center
+{% endblock %}
+
+{%
 block extra_css %}
-<link
-  rel="stylesheet"
-  href="{{ url_for('static', path='css/settings.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}"
-/>
-<link
-  rel="stylesheet"
-  href="{{ url_for('static', path='css/status-dashboard.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}"
-/>
-{% endblock %} {% block content %}
-<div class="container-fluid status-dashboard pb-5">
-  <header class="status-hero" data-stagger>
-    <div class="status-hero-left">
-      <div class="status-hero-heading">
-        <i class="fas fa-satellite-dish status-hero-icon"></i>
-        <p class="status-hero-kicker">Operations Center</p>
-        <h1 class="status-hero-title">System Control Center</h1>
+
+<link rel="stylesheet"
+      href="{{ url_for('static', path='css/settings.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}" />
+<link rel="stylesheet"
+      href="{{ url_for('static', path='css/status-dashboard.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}" />
+{% endblock %}
+
+
+{% block content %}
+
+  <div class="container-fluid status-dashboard pb-5">
+    <header class="status-hero" data-stagger>
+      <div class="status-hero-left">
+        <div class="status-hero-heading">
+          <i class="fas fa-satellite-dish status-hero-icon"></i>
+          <p class="status-hero-kicker">
+Operations Center
+          </p>
+          <h1 class="status-hero-title">
+System Control Center
+          </h1>
+        </div>
+        <div class="status-hero-meta">
+          <span class="status-pill" id="overall-status-badge">--</span>
+          <span class="status-muted" id="status-last-updated">Last updated: --</span>
+          <span class="status-muted" id="status-app-version">Version: --</span>
+        </div>
       </div>
-      <div class="status-hero-meta">
-        <span class="status-pill" id="overall-status-badge">--</span>
-        <span class="status-muted" id="status-last-updated">Last updated: --</span>
-        <span class="status-muted" id="status-app-version">Version: --</span>
-      </div>
-    </div>
-    <div class="status-hero-actions">
-      <button class="btn btn-outline-light" id="status-refresh-btn">
-        <i class="fas fa-sync-alt"></i>
+      <div class="status-hero-actions">
+        <button class="btn btn-outline-light" id="status-refresh-btn">
+          <i class="fas fa-sync-alt"></i>
         Refresh Status
-      </button>
-    </div>
-  </header>
+        </button>
+      </div>
+    </header>
 
-  <section class="bento-grid status-overview" data-stagger>
-    <div class="widget bento-span-4" data-accent="mint">
-      <div class="widget-header">
-        <h3 class="widget-title"><i class="fas fa-heart-pulse"></i> Overall Health</h3>
-      </div>
-      <div class="widget-body">
-        <div class="status-overview-value" id="overall-status-message">--</div>
-        <div class="status-overview-detail" id="overall-status-detail">--</div>
-      </div>
-    </div>
-    <div class="widget bento-span-4" data-accent="sky">
-      <div class="widget-header">
-        <h3 class="widget-title"><i class="fas fa-layer-group"></i> Tasks</h3>
-      </div>
-      <div class="widget-body">
-        <div class="status-overview-value" id="tasks-summary">--</div>
-        <div class="status-overview-detail" id="tasks-detail">--</div>
-      </div>
-    </div>
-    <div class="widget bento-span-4" data-accent="amber">
-      <div class="widget-header">
-        <h3 class="widget-title"><i class="fas fa-database"></i> Storage</h3>
-      </div>
-      <div class="widget-body">
-        <div class="status-overview-value" id="storage-summary">--</div>
-        <div class="status-overview-detail" id="storage-detail">--</div>
-      </div>
-    </div>
-    <div class="widget bento-span-6" data-accent="purple">
-      <div class="widget-header">
-        <h3 class="widget-title"><i class="fas fa-cubes"></i> Containers</h3>
-      </div>
-      <div class="widget-body">
-        <div class="status-overview-value" id="docker-summary">--</div>
-        <div class="status-overview-detail" id="docker-detail">--</div>
-      </div>
-    </div>
-    <div class="widget bento-span-6" data-accent="coral">
-      <div class="widget-header">
-        <h3 class="widget-title"><i class="fas fa-plug"></i> Integrations</h3>
-      </div>
-      <div class="widget-body">
-        <div class="status-overview-value" id="integration-summary">--</div>
-        <div class="status-overview-detail" id="integration-detail">--</div>
-      </div>
-    </div>
-  </section>
-
-  <div class="row g-4">
-    <div class="col-12 col-xl-8">
-      <section class="widget" data-accent="slate">
+    <section class="bento-grid status-overview" data-stagger>
+      <div class="widget bento-span-4" data-accent="mint">
         <div class="widget-header">
-          <h2 class="widget-title"><i class="fas fa-server"></i> Core Services</h2>
-          <div class="widget-meta">Live health checks and quick actions.</div>
+          <h3 class="widget-title">
+            <i class="fas fa-heart-pulse"></i> Overall Health
+          </h3>
         </div>
         <div class="widget-body">
-          <div class="status-services-grid">
-            <div class="status-service-card" data-service-key="mongodb">
-              <div class="status-service-header">
-                <h3><i class="fas fa-database"></i> MongoDB</h3>
-                <span class="badge bg-secondary" id="mongodb-status-badge">--</span>
-              </div>
-              <div id="mongodb-status-message" class="status-service-message">--</div>
-              <div class="status-service-footer">
-                <small id="mongodb-status-detail" class="text-muted">--</small>
-                <button
-                  class="btn btn-light btn-sm view-logs-btn"
-                  data-service="mongodb"
-                >
-                  <i class="fas fa-terminal"></i>
-                </button>
-              </div>
+          <div class="status-overview-value" id="overall-status-message">
+--
+          </div>
+          <div class="status-overview-detail" id="overall-status-detail">
+--
+          </div>
+        </div>
+      </div>
+      <div class="widget bento-span-4" data-accent="sky">
+        <div class="widget-header">
+          <h3 class="widget-title">
+            <i class="fas fa-layer-group"></i> Tasks
+          </h3>
+        </div>
+        <div class="widget-body">
+          <div class="status-overview-value" id="tasks-summary">
+--
+          </div>
+          <div class="status-overview-detail" id="tasks-detail">
+--
+          </div>
+        </div>
+      </div>
+      <div class="widget bento-span-4" data-accent="amber">
+        <div class="widget-header">
+          <h3 class="widget-title">
+            <i class="fas fa-database"></i> Storage
+          </h3>
+        </div>
+        <div class="widget-body">
+          <div class="status-overview-value" id="storage-summary">
+--
+          </div>
+          <div class="status-overview-detail" id="storage-detail">
+--
+          </div>
+        </div>
+      </div>
+      <div class="widget bento-span-6" data-accent="purple">
+        <div class="widget-header">
+          <h3 class="widget-title">
+            <i class="fas fa-cubes"></i> Containers
+          </h3>
+        </div>
+        <div class="widget-body">
+          <div class="status-overview-value" id="docker-summary">
+--
+          </div>
+          <div class="status-overview-detail" id="docker-detail">
+--
+          </div>
+        </div>
+      </div>
+      <div class="widget bento-span-6" data-accent="coral">
+        <div class="widget-header">
+          <h3 class="widget-title">
+            <i class="fas fa-plug"></i> Integrations
+          </h3>
+        </div>
+        <div class="widget-body">
+          <div class="status-overview-value" id="integration-summary">
+--
+          </div>
+          <div class="status-overview-detail" id="integration-detail">
+--
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="row g-4">
+      <div class="col-12 col-xl-8">
+        <section class="widget" data-accent="slate">
+          <div class="widget-header">
+            <h2 class="widget-title">
+              <i class="fas fa-server"></i> Core Services
+            </h2>
+            <div class="widget-meta">
+Live health checks and quick actions.
             </div>
-            <div class="status-service-card" data-service-key="redis">
-              <div class="status-service-header">
-                <h3><i class="fas fa-network-wired"></i> Redis</h3>
-                <span class="badge bg-secondary" id="redis-status-badge">--</span>
-              </div>
-              <div id="redis-status-message" class="status-service-message">--</div>
-              <div class="status-service-footer">
-                <small id="redis-status-detail" class="text-muted">--</small>
-                <button class="btn btn-light btn-sm view-logs-btn" data-service="redis">
-                  <i class="fas fa-terminal"></i>
-                </button>
-              </div>
-            </div>
-            <div class="status-service-card" data-service-key="worker">
-              <div class="status-service-header">
-                <h3><i class="fas fa-robot"></i> Worker</h3>
-                <span class="badge bg-secondary" id="worker-status-badge">--</span>
-              </div>
-              <div id="worker-status-message" class="status-service-message">--</div>
-              <div class="status-service-footer">
-                <small id="worker-status-detail" class="text-muted">--</small>
-                <button
-                  class="btn btn-light btn-sm view-logs-btn"
-                  data-service="worker"
-                >
-                  <i class="fas fa-terminal"></i>
-                </button>
-              </div>
-            </div>
-            <div class="status-service-card" data-service-key="bouncie">
-              <div class="status-service-header">
-                <h3><i class="fas fa-satellite"></i> Bouncie</h3>
-                <span class="badge bg-secondary" id="bouncie-status-badge">--</span>
-              </div>
-              <div id="bouncie-status-message" class="status-service-message">--</div>
-              <div class="status-service-footer">
-                <small id="bouncie-status-detail" class="text-muted">--</small>
-                <a class="btn btn-light btn-sm" href="/setup-wizard">
-                  <i class="fas fa-wand-magic-sparkles"></i>
-                </a>
-              </div>
-            </div>
-            <div class="status-service-card" data-service-key="nominatim">
-              <div class="status-service-header">
-                <h3><i class="fas fa-search-location"></i> Nominatim</h3>
-                <span class="badge bg-secondary" id="nominatim-status-badge">--</span>
-              </div>
-              <div id="nominatim-status-message" class="status-service-message">--</div>
-              <div class="status-service-footer">
-                <small id="nominatim-status-detail" class="text-muted">--</small>
-                <div class="btn-group btn-group-sm">
-                  <button
-                    class="btn btn-outline-danger restart-service-btn"
-                    data-service="nominatim"
-                  >
-                    <i class="fas fa-power-off"></i>
-                  </button>
-                  <button class="btn btn-light view-logs-btn" data-service="nominatim">
+          </div>
+          <div class="widget-body">
+            <div class="status-services-grid">
+              <div class="status-service-card" data-service-key="mongodb">
+                <div class="status-service-header">
+                  <h3>
+                    <i class="fas fa-database"></i> MongoDB
+                  </h3>
+                  <span class="badge bg-secondary" id="mongodb-status-badge">--</span>
+                </div>
+                <div id="mongodb-status-message" class="status-service-message">
+--
+                </div>
+                <div class="status-service-footer">
+                  <small id="mongodb-status-detail" class="text-muted">--</small>
+                  <button class="btn btn-light btn-sm view-logs-btn" data-service="mongodb">
                     <i class="fas fa-terminal"></i>
                   </button>
                 </div>
               </div>
-            </div>
-            <div class="status-service-card" data-service-key="valhalla">
-              <div class="status-service-header">
-                <h3><i class="fas fa-route"></i> Valhalla</h3>
-                <span class="badge bg-secondary" id="valhalla-status-badge">--</span>
-              </div>
-              <div id="valhalla-status-message" class="status-service-message">--</div>
-              <div class="status-service-footer">
-                <small id="valhalla-status-detail" class="text-muted">--</small>
-                <div class="btn-group btn-group-sm">
-                  <button
-                    class="btn btn-outline-danger restart-service-btn"
-                    data-service="valhalla"
-                  >
-                    <i class="fas fa-power-off"></i>
-                  </button>
-                  <button class="btn btn-light view-logs-btn" data-service="valhalla">
+              <div class="status-service-card" data-service-key="redis">
+                <div class="status-service-header">
+                  <h3>
+                    <i class="fas fa-network-wired"></i> Redis
+                  </h3>
+                  <span class="badge bg-secondary" id="redis-status-badge">--</span>
+                </div>
+                <div id="redis-status-message" class="status-service-message">
+--
+                </div>
+                <div class="status-service-footer">
+                  <small id="redis-status-detail" class="text-muted">--</small>
+                  <button class="btn btn-light btn-sm view-logs-btn" data-service="redis">
                     <i class="fas fa-terminal"></i>
                   </button>
+                </div>
+              </div>
+              <div class="status-service-card" data-service-key="worker">
+                <div class="status-service-header">
+                  <h3>
+                    <i class="fas fa-robot"></i> Worker
+                  </h3>
+                  <span class="badge bg-secondary" id="worker-status-badge">--</span>
+                </div>
+                <div id="worker-status-message" class="status-service-message">
+--
+                </div>
+                <div class="status-service-footer">
+                  <small id="worker-status-detail" class="text-muted">--</small>
+                  <button class="btn btn-light btn-sm view-logs-btn" data-service="worker">
+                    <i class="fas fa-terminal"></i>
+                  </button>
+                </div>
+              </div>
+              <div class="status-service-card" data-service-key="bouncie">
+                <div class="status-service-header">
+                  <h3>
+                    <i class="fas fa-satellite"></i> Bouncie
+                  </h3>
+                  <span class="badge bg-secondary" id="bouncie-status-badge">--</span>
+                </div>
+                <div id="bouncie-status-message" class="status-service-message">
+--
+                </div>
+                <div class="status-service-footer">
+                  <small id="bouncie-status-detail" class="text-muted">--</small>
+                  <a class="btn btn-light btn-sm" href="/setup-wizard">
+                    <i class="fas fa-wand-magic-sparkles"></i>
+                  </a>
+                </div>
+              </div>
+              <div class="status-service-card" data-service-key="nominatim">
+                <div class="status-service-header">
+                  <h3>
+                    <i class="fas fa-search-location"></i> Nominatim
+                  </h3>
+                  <span class="badge bg-secondary" id="nominatim-status-badge">--</span>
+                </div>
+                <div id="nominatim-status-message" class="status-service-message">
+--
+                </div>
+                <div class="status-service-footer">
+                  <small id="nominatim-status-detail" class="text-muted">--</small>
+                  <div class="btn-group btn-group-sm">
+                    <button class="btn btn-outline-danger restart-service-btn" data-service="nominatim">
+                      <i class="fas fa-power-off"></i>
+                    </button>
+                    <button class="btn btn-light view-logs-btn" data-service="nominatim">
+                      <i class="fas fa-terminal"></i>
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div class="status-service-card" data-service-key="valhalla">
+                <div class="status-service-header">
+                  <h3>
+                    <i class="fas fa-route"></i> Valhalla
+                  </h3>
+                  <span class="badge bg-secondary" id="valhalla-status-badge">--</span>
+                </div>
+                <div id="valhalla-status-message" class="status-service-message">
+--
+                </div>
+                <div class="status-service-footer">
+                  <small id="valhalla-status-detail" class="text-muted">--</small>
+                  <div class="btn-group btn-group-sm">
+                    <button class="btn btn-outline-danger restart-service-btn" data-service="valhalla">
+                      <i class="fas fa-power-off"></i>
+                    </button>
+                    <button class="btn btn-light view-logs-btn" data-service="valhalla">
+                      <i class="fas fa-terminal"></i>
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <section class="widget mt-4" data-accent="sage">
-        <div class="widget-header">
-          <h2 class="widget-title"><i class="fas fa-globe"></i> Map Services</h2>
-          <div class="widget-meta">
+        <section class="widget mt-4" data-accent="sage">
+          <div class="widget-header">
+            <h2 class="widget-title">
+              <i class="fas fa-globe"></i> Map Services
+            </h2>
+            <div class="widget-meta">
             Automatic coverage, routing, and geocoding controls.
-          </div>
-        </div>
-        <div class="widget-body">
-          <div id="map-services-content">
-            <div class="map-services-loading">
-              <i class="fas fa-spinner fa-spin"></i>
-              <span>Loading map services status...</span>
             </div>
           </div>
-        </div>
-      </section>
-
-      <section class="widget mt-4" data-accent="steel">
-        <div class="widget-header">
-          <h2 class="widget-title"><i class="fas fa-tasks"></i> Background Tasks</h2>
-          <div class="widget-meta">Schedule, run, and inspect task execution.</div>
-        </div>
-        <div class="widget-body">
-          <div class="status-task-actions">
-            <div class="form-check form-switch">
-              <input
-                class="form-check-input"
-                type="checkbox"
-                id="globalDisableSwitch"
-              />
-              <label class="form-check-label" for="globalDisableSwitch"
-                >Globally disable tasks</label
-              >
-            </div>
-            <div class="btn-group btn-group-sm">
-              <button class="btn btn-warning" id="pauseTasksBtn">
-                <i class="fas fa-pause"></i> Pause
-              </button>
-              <button class="btn btn-success" id="resumeTasksBtn">
-                <i class="fas fa-play"></i> Resume
-              </button>
-              <button class="btn btn-danger" id="stopAllTasksBtn">
-                <i class="fas fa-stop"></i> Stop All
-              </button>
-            </div>
-            <div class="btn-group btn-group-sm">
-              <button class="btn btn-info" id="runAllTasksBtn">
-                <i class="fas fa-play-circle"></i> Run All
-              </button>
-              <button class="btn btn-secondary" id="resetTasksBtn">
-                <i class="fas fa-sync"></i> Reset
-              </button>
-              <button class="btn btn-outline-light" id="saveTaskConfigBtn">
-                <i class="fas fa-save"></i> Save Config
-              </button>
-            </div>
-          </div>
-
-          <div class="table-responsive">
-            <table class="table table-dark" id="taskConfigTable">
-              <thead>
-                <tr>
-                  <th>Task</th>
-                  <th>Interval</th>
-                  <th>Enabled</th>
-                  <th>Status</th>
-                  <th>Last Run</th>
-                  <th>Next Run</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody></tbody>
-            </table>
-          </div>
-
-          <div class="status-task-forms">
-            <form id="manualFetchTripsForm" class="row g-3" novalidate>
-              <div class="col-md-6">
-                <label for="manual-fetch-start" class="form-label">Start</label>
-                <input
-                  type="datetime-local"
-                  class="form-control"
-                  id="manual-fetch-start"
-                  required
-                />
+          <div class="widget-body">
+            <div id="map-services-content">
+              <div class="map-services-loading">
+                <i class="fas fa-spinner fa-spin"></i>
+                <span>Loading map services status...</span>
               </div>
-              <div class="col-md-6">
-                <label for="manual-fetch-end" class="form-label">End</label>
-                <input
-                  type="datetime-local"
-                  class="form-control"
-                  id="manual-fetch-end"
-                  required
-                />
+            </div>
+          </div>
+        </section>
+
+        <section class="widget mt-4" data-accent="steel">
+          <div class="widget-header">
+            <h2 class="widget-title">
+              <i class="fas fa-tasks"></i> Background Tasks
+            </h2>
+            <div class="widget-meta">
+Schedule, run, and inspect task execution.
+            </div>
+          </div>
+          <div class="widget-body">
+            <div class="status-task-actions">
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="globalDisableSwitch" />
+                <label class="form-check-label" for="globalDisableSwitch">
+Globally disable tasks
+                </label>
               </div>
-              <div class="col-12 d-flex align-items-center gap-3 flex-wrap">
-                <button type="submit" class="btn btn-success" id="manual-fetch-submit">
-                  <i class="fas fa-cloud-download-alt"></i> Fetch Trips
+              <div class="btn-group btn-group-sm">
+                <button class="btn btn-warning" id="pauseTasksBtn">
+                  <i class="fas fa-pause"></i> Pause
                 </button>
-                <span
-                  class="settings-status is-hidden"
-                  id="manual-fetch-status"
-                  role="status"
-                ></span>
+                <button class="btn btn-success" id="resumeTasksBtn">
+                  <i class="fas fa-play"></i> Resume
+                </button>
+                <button class="btn btn-danger" id="stopAllTasksBtn">
+                  <i class="fas fa-stop"></i> Stop All
+                </button>
               </div>
-            </form>
-
-            <div class="status-fetch-all">
-              <div>
-                <label for="fetch-all-start" class="form-label"
-                  >Fetch all missing trips from</label
-                >
-                <input
-                  type="datetime-local"
-                  class="form-control"
-                  id="fetch-all-start"
-                />
+              <div class="btn-group btn-group-sm">
+                <button class="btn btn-info" id="runAllTasksBtn">
+                  <i class="fas fa-play-circle"></i> Run All
+                </button>
+                <button class="btn btn-secondary" id="resetTasksBtn">
+                  <i class="fas fa-sync"></i> Reset
+                </button>
+                <button class="btn btn-outline-light" id="saveTaskConfigBtn">
+                  <i class="fas fa-save"></i> Save Config
+                </button>
               </div>
-              <button class="btn btn-warning" id="fetchAllMissingBtn">
-                <i class="fas fa-sync-alt"></i> Fetch All Missing
-              </button>
-              <span
-                class="settings-status is-hidden"
-                id="fetch-all-status"
-                role="status"
-              ></span>
             </div>
-          </div>
 
-          <div class="status-task-history">
-            <div
-              class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2"
-            >
-              <h3 class="status-subtitle">Recent Runs</h3>
-              <button class="btn btn-danger btn-sm" id="clearHistoryBtn">
-                <i class="fas fa-trash"></i> Clear History
-              </button>
-            </div>
             <div class="table-responsive">
-              <table class="table table-dark" id="taskHistoryTable">
+              <table class="table table-dark" id="taskConfigTable">
                 <thead>
                   <tr>
-                    <th>Task</th>
-                    <th>Status</th>
-                    <th>Start</th>
-                    <th>Duration</th>
-                    <th>Result</th>
-                    <th>Details</th>
+                    <th>
+Task
+                    </th>
+                    <th>
+Interval
+                    </th>
+                    <th>
+Enabled
+                    </th>
+                    <th>
+Status
+                    </th>
+                    <th>
+Last Run
+                    </th>
+                    <th>
+Next Run
+                    </th>
+                    <th>
+Actions
+                    </th>
                   </tr>
                 </thead>
-                <tbody></tbody>
+                <tbody>
+                </tbody>
               </table>
-              <div id="taskHistoryPagination" class="mt-3"></div>
+            </div>
+
+            <div class="status-task-forms">
+              <form id="manualFetchTripsForm" class="row g-3" novalidate>
+                <div class="col-md-6">
+                  <label for="manual-fetch-start" class="form-label">
+Start
+                  </label>
+                  <input type="datetime-local" class="form-control" id="manual-fetch-start" required />
+                </div>
+                <div class="col-md-6">
+                  <label for="manual-fetch-end" class="form-label">
+End
+                  </label>
+                  <input type="datetime-local" class="form-control" id="manual-fetch-end" required />
+                </div>
+                <div class="col-12 d-flex align-items-center gap-3 flex-wrap">
+                  <button type="submit" class="btn btn-success" id="manual-fetch-submit">
+                    <i class="fas fa-cloud-download-alt"></i> Fetch Trips
+                  </button>
+                  <span class="settings-status is-hidden" id="manual-fetch-status" role="status"></span>
+                </div>
+              </form>
+
+              <div class="status-fetch-all">
+                <div>
+                  <label for="fetch-all-start" class="form-label">
+Fetch all missing trips from
+                  </label>
+                  <input type="datetime-local" class="form-control" id="fetch-all-start" />
+                </div>
+                <button class="btn btn-warning" id="fetchAllMissingBtn">
+                  <i class="fas fa-sync-alt"></i> Fetch All Missing
+                </button>
+                <span class="settings-status is-hidden" id="fetch-all-status" role="status"></span>
+              </div>
+            </div>
+
+            <div class="status-task-history">
+              <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+                <h3 class="status-subtitle">
+Recent Runs
+                </h3>
+                <button class="btn btn-danger btn-sm" id="clearHistoryBtn">
+                  <i class="fas fa-trash"></i> Clear History
+                </button>
+              </div>
+              <div class="table-responsive">
+                <table class="table table-dark" id="taskHistoryTable">
+                  <thead>
+                    <tr>
+                      <th>
+Task
+                      </th>
+                      <th>
+Status
+                      </th>
+                      <th>
+Start
+                      </th>
+                      <th>
+Duration
+                      </th>
+                      <th>
+Result
+                      </th>
+                      <th>
+Details
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                  </tbody>
+                </table>
+                <div id="taskHistoryPagination" class="mt-3">
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <section class="widget mt-4" data-accent="neutral">
-        <div class="widget-header">
-          <h2 class="widget-title"><i class="fas fa-terminal"></i> Logs</h2>
-          <div class="widget-meta">
+        <section class="widget mt-4" data-accent="neutral">
+          <div class="widget-header">
+            <h2 class="widget-title">
+              <i class="fas fa-terminal"></i> Logs
+            </h2>
+            <div class="widget-meta">
             Inspect application, service, and container output.
+            </div>
           </div>
-        </div>
-        <div class="widget-body">
-          <ul class="nav nav-tabs status-log-tabs" id="status-log-tabs" role="tablist">
-            <li class="nav-item" role="presentation">
-              <button
-                class="nav-link active"
-                id="app-logs-tab"
-                data-bs-toggle="tab"
-                data-bs-target="#app-logs-panel"
-                type="button"
-                role="tab"
-              >
+          <div class="widget-body">
+            <ul class="nav nav-tabs status-log-tabs" id="status-log-tabs" role="tablist">
+              <li class="nav-item" role="presentation">
+                <button class="nav-link active"
+                        id="app-logs-tab"
+                        data-bs-toggle="tab"
+                        data-bs-target="#app-logs-panel"
+                        type="button"
+                        role="tab">
                 App Logs
-              </button>
-            </li>
-            <li class="nav-item" role="presentation">
-              <button
-                class="nav-link"
-                id="service-logs-tab"
-                data-bs-toggle="tab"
-                data-bs-target="#service-logs-panel"
-                type="button"
-                role="tab"
-              >
+                </button>
+              </li>
+              <li class="nav-item" role="presentation">
+                <button class="nav-link"
+                        id="service-logs-tab"
+                        data-bs-toggle="tab"
+                        data-bs-target="#service-logs-panel"
+                        type="button"
+                        role="tab">
                 Service Logs
-              </button>
-            </li>
-            <li class="nav-item" role="presentation">
-              <button
-                class="nav-link"
-                id="container-logs-tab"
-                data-bs-toggle="tab"
-                data-bs-target="#container-logs-panel"
-                type="button"
-                role="tab"
-              >
+                </button>
+              </li>
+              <li class="nav-item" role="presentation">
+                <button class="nav-link"
+                        id="container-logs-tab"
+                        data-bs-toggle="tab"
+                        data-bs-target="#container-logs-panel"
+                        type="button"
+                        role="tab">
                 Container Logs
+                </button>
+              </li>
+            </ul>
+            <div class="tab-content status-log-content">
+              <div class="tab-pane fade show active" id="app-logs-panel" role="tabpanel">
+                <div class="status-log-controls">
+                  <select class="form-select form-select-sm" id="app-log-level">
+                    <option value="">
+All levels
+                    </option>
+                    <option value="INFO">
+INFO
+                    </option>
+                    <option value="WARNING">
+WARNING
+                    </option>
+                    <option value="ERROR">
+ERROR
+                    </option>
+                    <option value="CRITICAL">
+CRITICAL
+                    </option>
+                  </select>
+                  <input type="text"
+                         class="form-control form-control-sm"
+                         id="app-log-search"
+                         placeholder="Search logs" />
+                  <button class="btn btn-outline-light btn-sm" id="refresh-app-logs">
+                    <i class="fas fa-sync"></i>
+                  </button>
+                </div>
+                <pre class="status-log-output" id="app-log-output">
+Loading app logs...</pre>
+              </div>
+              <div class="tab-pane fade" id="service-logs-panel" role="tabpanel">
+                <div class="status-log-controls">
+                  <select class="form-select form-select-sm" id="service-log-select">
+                    <option value="mongodb">
+MongoDB
+                    </option>
+                    <option value="redis">
+Redis
+                    </option>
+                    <option value="worker">
+Worker
+                    </option>
+                    <option value="nominatim">
+Nominatim
+                    </option>
+                    <option value="valhalla">
+Valhalla
+                    </option>
+                  </select>
+                  <button class="btn btn-outline-light btn-sm" id="refresh-service-logs">
+                    <i class="fas fa-sync"></i>
+                  </button>
+                </div>
+                <pre class="status-log-output" id="service-log-output">
+Select a service to view logs.</pre>
+              </div>
+              <div class="tab-pane fade" id="container-logs-panel" role="tabpanel">
+                <div class="status-log-controls">
+                  <select class="form-select form-select-sm" id="container-log-select">
+                    <option value="">
+Select container
+                    </option>
+                  </select>
+                  <button class="btn btn-outline-light btn-sm" id="refresh-container-logs">
+                    <i class="fas fa-sync"></i>
+                  </button>
+                </div>
+                <pre class="status-log-output" id="container-log-output">
+Select a container to view logs.</pre>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div class="col-12 col-xl-4">
+        <section class="widget" data-accent="rose">
+          <div class="widget-header">
+            <h2 class="widget-title">
+              <i class="fas fa-compass"></i> Guided Playbooks
+            </h2>
+            <div class="widget-meta">
+Follow safe, step-by-step fixes.
+            </div>
+          </div>
+          <div class="widget-body">
+            <div id="playbook-list" class="playbook-list">
+              <div class="text-muted small">
+Loading playbooks...
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="widget mt-4" data-accent="gray">
+          <div class="widget-header">
+            <h2 class="widget-title">
+              <i class="fas fa-bolt"></i> Quick Actions
+            </h2>
+            <div class="widget-meta">
+High impact tools for immediate recovery.
+            </div>
+          </div>
+          <div class="widget-body">
+            <div class="d-grid gap-2">
+              <button class="btn btn-outline-light text-start" id="quick-refresh-services">
+                <i class="fas fa-heartbeat me-2"></i> Re-check all services
               </button>
-            </li>
-          </ul>
-          <div class="tab-content status-log-content">
-            <div class="tab-pane fade show active" id="app-logs-panel" role="tabpanel">
-              <div class="status-log-controls">
-                <select class="form-select form-select-sm" id="app-log-level">
-                  <option value="">All levels</option>
-                  <option value="INFO">INFO</option>
-                  <option value="WARNING">WARNING</option>
-                  <option value="ERROR">ERROR</option>
-                  <option value="CRITICAL">CRITICAL</option>
-                </select>
-                <input
-                  type="text"
-                  class="form-control form-control-sm"
-                  id="app-log-search"
-                  placeholder="Search logs"
-                />
-                <button class="btn btn-outline-light btn-sm" id="refresh-app-logs">
-                  <i class="fas fa-sync"></i>
-                </button>
-              </div>
-              <pre class="status-log-output" id="app-log-output">
-Loading app logs...</pre
-              >
-            </div>
-            <div class="tab-pane fade" id="service-logs-panel" role="tabpanel">
-              <div class="status-log-controls">
-                <select class="form-select form-select-sm" id="service-log-select">
-                  <option value="mongodb">MongoDB</option>
-                  <option value="redis">Redis</option>
-                  <option value="worker">Worker</option>
-                  <option value="nominatim">Nominatim</option>
-                  <option value="valhalla">Valhalla</option>
-                </select>
-                <button class="btn btn-outline-light btn-sm" id="refresh-service-logs">
-                  <i class="fas fa-sync"></i>
-                </button>
-              </div>
-              <pre class="status-log-output" id="service-log-output">
-Select a service to view logs.</pre
-              >
-            </div>
-            <div class="tab-pane fade" id="container-logs-panel" role="tabpanel">
-              <div class="status-log-controls">
-                <select class="form-select form-select-sm" id="container-log-select">
-                  <option value="">Select container</option>
-                </select>
-                <button
-                  class="btn btn-outline-light btn-sm"
-                  id="refresh-container-logs"
-                >
-                  <i class="fas fa-sync"></i>
-                </button>
-              </div>
-              <pre class="status-log-output" id="container-log-output">
-Select a container to view logs.</pre
-              >
+              <button class="btn btn-outline-light text-start" id="quick-run-all">
+                <i class="fas fa-play-circle me-2"></i> Run all enabled tasks
+              </button>
+              <button class="btn btn-outline-light text-start" id="quick-open-setup">
+                <i class="fas fa-wand-magic-sparkles me-2"></i> Open setup wizard
+              </button>
+              <a class="btn btn-outline-light text-start" href="/settings#storage">
+                <i class="fas fa-database me-2"></i> Storage tools
+              </a>
             </div>
           </div>
-        </div>
-      </section>
-    </div>
+        </section>
 
-    <div class="col-12 col-xl-4">
-      <section class="widget" data-accent="rose">
-        <div class="widget-header">
-          <h2 class="widget-title"><i class="fas fa-compass"></i> Guided Playbooks</h2>
-          <div class="widget-meta">Follow safe, step-by-step fixes.</div>
-        </div>
-        <div class="widget-body">
-          <div id="playbook-list" class="playbook-list">
-            <div class="text-muted small">Loading playbooks...</div>
+        <section class="widget mt-4" data-accent="slate">
+          <div class="widget-header">
+            <h2 class="widget-title">
+              <i class="fas fa-history"></i> Recent Activity
+            </h2>
           </div>
-        </div>
-      </section>
-
-      <section class="widget mt-4" data-accent="gray">
-        <div class="widget-header">
-          <h2 class="widget-title"><i class="fas fa-bolt"></i> Quick Actions</h2>
-          <div class="widget-meta">High impact tools for immediate recovery.</div>
-        </div>
-        <div class="widget-body">
-          <div class="d-grid gap-2">
-            <button
-              class="btn btn-outline-light text-start"
-              id="quick-refresh-services"
-            >
-              <i class="fas fa-heartbeat me-2"></i> Re-check all services
-            </button>
-            <button class="btn btn-outline-light text-start" id="quick-run-all">
-              <i class="fas fa-play-circle me-2"></i> Run all enabled tasks
-            </button>
-            <button class="btn btn-outline-light text-start" id="quick-open-setup">
-              <i class="fas fa-wand-magic-sparkles me-2"></i> Open setup wizard
-            </button>
-            <a class="btn btn-outline-light text-start" href="/settings#storage">
-              <i class="fas fa-database me-2"></i> Storage tools
-            </a>
-          </div>
-        </div>
-      </section>
-
-      <section class="widget mt-4" data-accent="slate">
-        <div class="widget-header">
-          <h2 class="widget-title"><i class="fas fa-history"></i> Recent Activity</h2>
-        </div>
-        <div class="widget-body p-0">
-          <div
-            class="list-group list-group-flush bg-transparent"
-            id="recent-activity-list"
-          >
-            <div
-              class="list-group-item bg-transparent text-muted small fst-italic py-3"
-            >
+          <div class="widget-body p-0">
+            <div class="list-group list-group-flush bg-transparent" id="recent-activity-list">
+              <div class="list-group-item bg-transparent text-muted small fst-italic py-3">
               Loading history...
+              </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
+      </div>
     </div>
   </div>
-</div>
 
-<div class="modal fade" id="taskDetailsModal" tabindex="-1">
-  <div class="modal-dialog modal-lg modal-dialog-centered">
-    <div class="modal-content bg-dark text-white">
-      <div class="modal-header">
-        <h5 class="modal-title">Task Details</h5>
-        <button
-          type="button"
-          class="btn-close btn-close-white"
-          data-bs-dismiss="modal"
-        ></button>
-      </div>
-      <div class="modal-body">
-        <div class="task-details-content"></div>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+  <div class="modal fade" id="taskDetailsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+      <div class="modal-content bg-dark text-white">
+        <div class="modal-header">
+          <h5 class="modal-title">
+Task Details
+          </h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal">
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="task-details-content">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
           Close
-        </button>
-        <button type="button" class="btn btn-primary run-task-btn">
-          <i class="fas fa-play"></i> Run Now
-        </button>
+          </button>
+          <button type="button" class="btn btn-primary run-task-btn">
+            <i class="fas fa-play"></i> Run Now
+          </button>
+        </div>
       </div>
     </div>
   </div>
-</div>
-{% endblock %} {% block extra_js %}
-<script
-  type="module"
-  src="{{ url_for('static', path='js/pages/status.js') }}?v={{ repo_version.commit_count }}"
-></script>
+{% endblock %}
+
+
+{% block extra_js %}
+
+  <script type="module"
+          src="{{ url_for('static', path='js/pages/status.js') }}?v={{ repo_version.commit_count }}"></script>
 {% endblock %}

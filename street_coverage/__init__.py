@@ -1,4 +1,5 @@
-"""Coverage package for street coverage tracking.
+"""
+Coverage package for street coverage tracking.
 
 Coverage updates are executed in-process during trip ingestion via the
 TripPipeline and core.coverage utilities. This package focuses on:

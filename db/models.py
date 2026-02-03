@@ -388,9 +388,7 @@ class CoverageState(Document):
 
 
 class Job(Document):
-    """
-    Unified job status tracking for all background work.
-    """
+    """Unified job status tracking for all background work."""
 
     # Identity
     job_type: str

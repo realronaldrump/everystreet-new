@@ -1,683 +1,635 @@
-{% extends "base.html" %} {% block title %} Every Street - Route Improvement {% endblock
-%} {% block extra_css %}
-<link rel="stylesheet" href="{{ CDN.mapbox_gl_css }}" />
-<link
-  rel="stylesheet"
-  href="{{ url_for('static', path='css/map-matching.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}"
-/>
-{% endblock %} {% block head_content %}
-<meta name="mapbox-access-token" content="{{ MAPBOX_ACCESS_TOKEN }}" />
-<script>
-  window.MAPBOX_ACCESS_TOKEN = "{{ MAPBOX_ACCESS_TOKEN }}";
-  document.dispatchEvent(
-    new CustomEvent("es:mapbox-token-ready", {
-      detail: {
-        token: window.MAPBOX_ACCESS_TOKEN,
-      },
-    })
-  );
-</script>
-{% endblock %} {% block content %}
-<div class="container-fluid px-4 py-3 map-matching-page">
-  <!-- Wizard Shell -->
-  <div class="mm-wizard-shell" id="mm-wizard-shell">
-    <!-- Phase Indicator -->
-    <div class="mm-phase-indicator" role="navigation" aria-label="Wizard progress">
-      <div class="mm-phase-step is-active" data-phase="select">
-        <span class="mm-step-dot">1</span>
-        <span class="mm-step-label">Select</span>
-      </div>
-      <div class="mm-phase-connector"></div>
-      <div class="mm-phase-step" data-phase="process">
-        <span class="mm-step-dot">2</span>
-        <span class="mm-step-label">Match</span>
-      </div>
-      <div class="mm-phase-connector"></div>
-      <div class="mm-phase-step" data-phase="results">
-        <span class="mm-step-dot">3</span>
-        <span class="mm-step-label">Review</span>
-      </div>
-    </div>
+{% extends "base.html" %}
 
-    <!-- Phase 1: Select -->
-    <section
-      class="mm-phase is-active"
-      data-phase="select"
-      role="region"
-      aria-labelledby="mm-select-heading"
-    >
-      <!-- Welcome Card -->
-      <div class="mm-welcome-card">
-        <div class="mm-welcome-visual" aria-hidden="true">
-          <svg class="mm-morph-svg" viewBox="0 0 120 60">
-            <path
-              class="mm-morph-path"
-              d="M10,30 L25,22 L35,38 L50,26 L65,34 L80,20 L95,35 L110,28"
-            />
-          </svg>
+{% block title %}
+
+ Every Street - Route Improvement
+{% endblock
+%}
+
+
+{% block extra_css %}
+
+  <link rel="stylesheet" href="{{ CDN.mapbox_gl_css }}" />
+  <link rel="stylesheet"
+        href="{{ url_for('static', path='css/map-matching.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}" />
+{% endblock %}
+
+
+{% block head_content %}
+
+  <meta name="mapbox-access-token" content="{{ MAPBOX_ACCESS_TOKEN }}" />
+  <script>
+      window.MAPBOX_ACCESS_TOKEN = "{{ MAPBOX_ACCESS_TOKEN }}";
+      document.dispatchEvent(
+          new CustomEvent("es:mapbox-token-ready", {
+              detail: {
+                  token: window.MAPBOX_ACCESS_TOKEN,
+              },
+          })
+      );
+  </script>
+{% endblock %}
+
+
+{% block content %}
+
+  <div class="container-fluid px-4 py-3 map-matching-page">
+    <!-- Wizard Shell -->
+    <div class="mm-wizard-shell" id="mm-wizard-shell">
+      <!-- Phase Indicator -->
+      <div class="mm-phase-indicator" role="navigation" aria-label="Wizard progress">
+        <div class="mm-phase-step is-active" data-phase="select">
+          <span class="mm-step-dot">1</span>
+          <span class="mm-step-label">Select</span>
         </div>
-        <div class="mm-welcome-content">
-          <h1 class="mm-welcome-title" id="mm-select-heading">
-            <i class="fas fa-magic" aria-hidden="true"></i>
+        <div class="mm-phase-connector">
+        </div>
+        <div class="mm-phase-step" data-phase="process">
+          <span class="mm-step-dot">2</span>
+          <span class="mm-step-label">Match</span>
+        </div>
+        <div class="mm-phase-connector">
+        </div>
+        <div class="mm-phase-step" data-phase="results">
+          <span class="mm-step-dot">3</span>
+          <span class="mm-step-label">Review</span>
+        </div>
+      </div>
+
+      <!-- Phase 1: Select -->
+      <section class="mm-phase is-active"
+               data-phase="select"
+               role="region"
+               aria-labelledby="mm-select-heading">
+        <!-- Welcome Card -->
+        <div class="mm-welcome-card">
+          <div class="mm-welcome-visual" aria-hidden="true">
+            <svg class="mm-morph-svg" viewBox="0 0 120 60">
+<path class="mm-morph-path" d="M10,30 L25,22 L35,38 L50,26 L65,34 L80,20 L95,35 L110,28" />
+            </svg>
+          </div>
+          <div class="mm-welcome-content">
+            <h1 class="mm-welcome-title" id="mm-select-heading">
+              <i class="fas fa-magic" aria-hidden="true"></i>
             Improve Your Routes
-          </h1>
-          <p class="mm-welcome-desc">
+            </h1>
+            <p class="mm-welcome-desc">
             GPS signals can be imprecise, causing trips to appear off-road or jagged.
             Route matching snaps your trips to actual roads for cleaner, more accurate
             tracking.
-          </p>
+            </p>
+          </div>
         </div>
-      </div>
 
-      <!-- Quick Actions -->
-      <div class="mm-quick-actions">
-        <button type="button" class="mm-quick-action" id="mm-browse-matched-btn">
-          <i class="fas fa-check-double"></i>
-          <span>Browse Matched Trips</span>
-        </button>
-        <button type="button" class="mm-quick-action" id="mm-browse-failed-btn">
-          <i class="fas fa-exclamation-triangle"></i>
-          <span>Review Failed Trips</span>
-          <span class="mm-quick-action-badge d-none" id="mm-failed-count">0</span>
-        </button>
-      </div>
+        <!-- Quick Actions -->
+        <div class="mm-quick-actions">
+          <button type="button" class="mm-quick-action" id="mm-browse-matched-btn">
+            <i class="fas fa-check-double"></i>
+            <span>Browse Matched Trips</span>
+          </button>
+          <button type="button" class="mm-quick-action" id="mm-browse-failed-btn">
+            <i class="fas fa-exclamation-triangle"></i>
+            <span>Review Failed Trips</span>
+            <span class="mm-quick-action-badge d-none" id="mm-failed-count">0</span>
+          </button>
+        </div>
 
-      <!-- Selection Card -->
-      <div class="mm-selection-card">
-        <h2 class="mm-section-title">What would you like to match?</h2>
+        <!-- Selection Card -->
+        <div class="mm-selection-card">
+          <h2 class="mm-section-title">
+What would you like to match?
+          </h2>
 
-        <form id="map-matching-form">
-          <!-- Selection Options -->
-          <div class="mm-options" id="map-match-selection-cards">
-            <label class="mm-option is-selected" data-mode="unmatched">
-              <input
-                type="radio"
-                name="match-mode"
-                value="unmatched"
-                checked
-                class="visually-hidden"
-              />
-              <div class="mm-option-icon">
-                <i class="fas fa-clock"></i>
-              </div>
-              <div class="mm-option-content">
-                <span class="mm-option-title">Pending trips</span>
-                <span class="mm-option-desc">All trips not yet matched</span>
-              </div>
-              <div class="mm-option-check">
-                <i class="fas fa-check"></i>
-              </div>
-            </label>
+          <form id="map-matching-form">
+            <!-- Selection Options -->
+            <div class="mm-options" id="map-match-selection-cards">
+              <label class="mm-option is-selected" data-mode="unmatched">
+                <input type="radio"
+                       name="match-mode"
+                       value="unmatched"
+                       checked
+                       class="visually-hidden" />
+                <div class="mm-option-icon">
+                  <i class="fas fa-clock"></i>
+                </div>
+                <div class="mm-option-content">
+                  <span class="mm-option-title">Pending trips</span>
+                  <span class="mm-option-desc">All trips not yet matched</span>
+                </div>
+                <div class="mm-option-check">
+                  <i class="fas fa-check"></i>
+                </div>
+              </label>
 
-            <label class="mm-option" data-mode="date_range">
-              <input
-                type="radio"
-                name="match-mode"
-                value="date_range"
-                class="visually-hidden"
-              />
-              <div class="mm-option-icon">
-                <i class="fas fa-calendar-alt"></i>
-              </div>
-              <div class="mm-option-content">
-                <span class="mm-option-title">By date range</span>
-                <span class="mm-option-desc">Choose specific dates</span>
-              </div>
-              <div class="mm-option-check">
-                <i class="fas fa-check"></i>
-              </div>
-            </label>
-          </div>
+              <label class="mm-option" data-mode="date_range">
+                <input type="radio" name="match-mode" value="date_range" class="visually-hidden" />
+                <div class="mm-option-icon">
+                  <i class="fas fa-calendar-alt"></i>
+                </div>
+                <div class="mm-option-content">
+                  <span class="mm-option-title">By date range</span>
+                  <span class="mm-option-desc">Choose specific dates</span>
+                </div>
+                <div class="mm-option-check">
+                  <i class="fas fa-check"></i>
+                </div>
+              </label>
+            </div>
 
-          <!-- Hidden select for JS compatibility -->
-          <select id="map-match-mode" class="visually-hidden" aria-hidden="true">
-            <option value="unmatched">Unmatched trips</option>
-            <option value="date_range">Date range</option>
-            <option value="trip_id">Specific trip</option>
-          </select>
+            <!-- Hidden select for JS compatibility -->
+            <select id="map-match-mode" class="visually-hidden" aria-hidden="true">
+              <option value="unmatched">
+Unmatched trips
+              </option>
+              <option value="date_range">
+Date range
+              </option>
+              <option value="trip_id">
+Specific trip
+              </option>
+            </select>
 
-          <!-- Date Range Options (shown when date_range selected) -->
-          <div id="map-match-date-controls" class="mm-date-panel d-none">
-            <div class="mm-quick-picks">
-              <span class="mm-quick-picks-label">Quick select:</span>
-              <div class="mm-quick-picks-buttons">
-                <button type="button" class="mm-quick-pick" data-days="7">
+            <!-- Date Range Options (shown when date_range selected) -->
+            <div id="map-match-date-controls" class="mm-date-panel d-none">
+              <div class="mm-quick-picks">
+                <span class="mm-quick-picks-label">Quick select:</span>
+                <div class="mm-quick-picks-buttons">
+                  <button type="button" class="mm-quick-pick" data-days="7">
                   Last week
-                </button>
-                <button type="button" class="mm-quick-pick" data-days="30">
+                  </button>
+                  <button type="button" class="mm-quick-pick" data-days="30">
                   Last month
-                </button>
-                <button type="button" class="mm-quick-pick" data-days="90">
+                  </button>
+                  <button type="button" class="mm-quick-pick" data-days="90">
                   3 months
-                </button>
-                <button type="button" class="mm-quick-pick" data-days="365">
+                  </button>
+                  <button type="button" class="mm-quick-pick" data-days="365">
                   Last year
+                  </button>
+                </div>
+              </div>
+
+              <div class="mm-date-custom">
+                <span class="mm-date-label">Or choose dates:</span>
+                <div class="mm-date-inputs">
+                  <input type="text"
+                         id="map-match-start"
+                         class="form-control datepicker"
+                         placeholder="Start date" />
+                  <span class="mm-date-separator">to</span>
+                  <input type="text"
+                         id="map-match-end"
+                         class="form-control datepicker"
+                         placeholder="End date" />
+                </div>
+              </div>
+
+              <label class="mm-switch-option">
+                <input class="form-check-input"
+                       type="checkbox"
+                       role="switch"
+                       id="map-match-unmatched-only"
+                       checked />
+                <span>Only process trips not yet matched</span>
+              </label>
+            </div>
+
+            <!-- Hidden elements for legacy JS compatibility -->
+            <select id="map-match-date-mode" class="visually-hidden" aria-hidden="true">
+              <option value="interval" selected>
+Interval
+              </option>
+              <option value="date">
+Date range
+              </option>
+            </select>
+            <select id="map-match-interval-select" class="visually-hidden" aria-hidden="true">
+              <option value="7">
+Last Week
+              </option>
+              <option value="30">
+Last Month
+              </option>
+              <option value="90">
+Last 3 Months
+              </option>
+              <option value="365">
+Last Year
+              </option>
+            </select>
+            <div id="map-match-date-range" class="d-none">
+            </div>
+            <div id="map-match-interval" class="d-none">
+            </div>
+
+            <!-- Advanced: Specific Trip (hidden by default) -->
+            <div id="map-match-trip-controls" class="mm-trip-panel d-none">
+              <label class="mm-input-label" for="map-match-trip-id">
+Trip ID
+              </label>
+              <input type="text"
+                     id="map-match-trip-id"
+                     class="form-control"
+                     placeholder="Enter trip ID" />
+            </div>
+
+            <!-- Preview Badge (inline) -->
+            <div id="map-match-preview-panel" class="mm-preview-badge d-none">
+              <span class="mm-preview-icon"><i class="fas fa-check-circle"></i></span>
+              <span class="mm-preview-text" id="map-match-preview-summary"></span>
+              <!-- Hidden table for legacy compatibility -->
+              <div class="d-none">
+                <table class="preview-table-mini">
+                  <tbody id="map-match-preview-body">
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Main Actions -->
+            <div class="mm-actions">
+              <button type="button" class="btn mm-btn-secondary" id="map-match-preview-btn">
+                <i class="fas fa-eye"></i>
+              Preview
+              </button>
+              <button type="submit" class="btn mm-btn-primary" id="map-match-submit">
+                <i class="fas fa-sparkles"></i>
+              Start Matching
+              </button>
+            </div>
+
+            <div class="mm-status">
+              <span class="settings-status is-hidden" id="map-match-preview-status" role="status"></span>
+              <span class="settings-status is-hidden" id="map-match-submit-status" role="status"></span>
+            </div>
+
+            <!-- Advanced Toggle -->
+            <button type="button" class="mm-advanced-toggle" id="map-match-advanced-toggle">
+              <i class="fas fa-sliders"></i>
+              <span>Advanced options</span>
+              <i class="fas fa-chevron-down mm-toggle-arrow"></i>
+            </button>
+            <div class="mm-advanced-panel d-none" id="map-match-advanced-options">
+              <label class="mm-option mm-option-small" data-mode="trip_id">
+                <input type="radio" name="match-mode" value="trip_id" class="visually-hidden" />
+                <div class="mm-option-icon">
+                  <i class="fas fa-fingerprint"></i>
+                </div>
+                <div class="mm-option-content">
+                  <span class="mm-option-title">Specific trip</span>
+                  <span class="mm-option-desc">Process a single trip by ID</span>
+                </div>
+                <div class="mm-option-check">
+                  <i class="fas fa-check"></i>
+                </div>
+              </label>
+            </div>
+          </form>
+        </div>
+      </section>
+
+      <!-- Phase 2: Process -->
+      <section class="mm-phase"
+               data-phase="process"
+               role="region"
+               aria-labelledby="mm-process-heading">
+        <div class="mm-process-card">
+          <h2 class="visually-hidden" id="mm-process-heading">
+Processing routes
+          </h2>
+
+          <!-- Hidden empty state for JS compatibility -->
+          <div id="map-match-current-empty" class="d-none">
+            <span class="empty-text">Ready when you are</span>
+          </div>
+
+          <div id="map-match-current-panel">
+            <div class="mm-progress-visual">
+              <div class="mm-progress-ring-container">
+                <svg class="mm-progress-ring" viewBox="0 0 100 100">
+<circle class="mm-progress-ring-bg" cx="50" cy="50" r="42" />
+<circle class="mm-progress-ring-fill" cx="50" cy="50" r="42" id="map-match-progress-ring" />
+                </svg>
+                <div class="mm-progress-ring-text">
+                  <span class="mm-progress-percent" id="map-match-progress-percent">0%</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="mm-progress-info" aria-live="polite">
+              <div id="map-match-progress-message" class="mm-progress-message">
+              Improving your routes...
+              </div>
+              <div id="map-match-progress-metrics" class="mm-progress-metrics">
+              </div>
+            </div>
+
+            <div class="mm-progress-actions">
+              <button class="btn mm-btn-cancel d-none" id="map-match-cancel-btn" type="button">
+                <i class="fas fa-stop"></i>
+              Cancel
+              </button>
+            </div>
+
+            <!-- Hidden legacy progress bar for JS compatibility -->
+            <div class="progress d-none" style="height: 22px">
+              <div id="map-match-progress-bar"
+                   class="progress-bar progress-bar-striped progress-bar-animated"
+                   role="progressbar"
+                   style="width: 0%">
+              0%
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Phase 3: Results -->
+      <section class="mm-phase"
+               data-phase="results"
+               role="region"
+               aria-labelledby="mm-results-heading">
+        <div class="mm-results-card">
+          <!-- Success Header -->
+          <div class="mm-results-header" id="mm-results-header-success">
+            <div class="mm-results-icon">
+              <i class="fas fa-check-circle"></i>
+            </div>
+            <div class="mm-results-summary">
+              <h2 class="mm-results-title" id="mm-results-heading">
+Routes Improved!
+              </h2>
+              <p class="mm-results-desc" id="map-match-preview-map-summary">
+              Your trips have been matched to roads
+              </p>
+            </div>
+            <div class="mm-results-actions">
+              <button class="btn mm-btn-secondary btn-sm" id="map-match-preview-map-btn">
+                <i class="fas fa-sync"></i>
+              Refresh
+              </button>
+              <span class="settings-status is-hidden"
+                    id="map-match-preview-map-status"
+                    role="status"></span>
+            </div>
+          </div>
+
+          <!-- Browse Mode Header (for viewing all matched trips) -->
+          <div class="mm-results-header mm-results-header-browse d-none"
+               id="mm-results-header-browse">
+            <div class="mm-results-icon mm-results-icon-browse">
+              <i class="fas fa-map-marked-alt"></i>
+            </div>
+            <div class="mm-results-summary">
+              <h2 class="mm-results-title">
+Matched Trips
+              </h2>
+              <p class="mm-results-desc" id="mm-browse-summary">
+              All your previously matched trips
+              </p>
+            </div>
+            <div class="mm-results-actions">
+              <button class="btn mm-btn-secondary btn-sm" id="mm-browse-refresh-btn">
+                <i class="fas fa-sync"></i>
+              Refresh
+              </button>
+              <button class="btn mm-btn-secondary btn-sm" id="mm-browse-back-btn">
+                <i class="fas fa-arrow-left"></i>
+              Back
+              </button>
+            </div>
+          </div>
+
+          <!-- Failed Trips Header -->
+          <div class="mm-results-header mm-results-header-failed d-none"
+               id="mm-results-header-failed">
+            <div class="mm-results-icon mm-results-icon-warning">
+              <i class="fas fa-exclamation-triangle"></i>
+            </div>
+            <div class="mm-results-summary">
+              <h2 class="mm-results-title">
+Failed Trips
+              </h2>
+              <p class="mm-results-desc" id="mm-failed-summary">
+              Some trips couldn't be matched
+              </p>
+            </div>
+            <div class="mm-results-actions">
+              <button class="btn mm-btn-secondary btn-sm" id="mm-failed-refresh-btn">
+                <i class="fas fa-sync"></i>
+              Refresh
+              </button>
+              <button class="btn mm-btn-secondary btn-sm" id="mm-failed-back-btn">
+                <i class="fas fa-arrow-left"></i>
+              Back
+              </button>
+            </div>
+          </div>
+
+          <!-- Results Tabs (for job results) -->
+          <div class="mm-results-tabs" id="mm-results-tabs">
+            <button class="mm-results-tab is-active" data-tab="matched" id="mm-tab-matched">
+              <i class="fas fa-check"></i>
+              <span>Matched</span>
+              <span class="mm-tab-count" id="mm-tab-matched-count">0</span>
+            </button>
+            <button class="mm-results-tab" data-tab="failed" id="mm-tab-failed">
+              <i class="fas fa-exclamation-circle"></i>
+              <span>Issues</span>
+              <span class="mm-tab-count mm-tab-count-warning" id="mm-tab-failed-count">0</span>
+            </button>
+          </div>
+
+          <!-- Map -->
+          <div class="mm-results-map-container">
+            <div class="mm-results-map"
+                 id="map-match-preview-map"
+                 aria-label="Matched routes map">
+            </div>
+            <div id="map-match-preview-map-empty" class="mm-results-map-empty">
+              <div class="mm-empty-map-content">
+                <i class="fas fa-map-marked-alt"></i>
+                <span>Your matched routes will appear here</span>
+              </div>
+            </div>
+            <div class="mm-results-map-legend">
+              <span class="mm-legend-dot"></span>
+              <span>Matched route</span>
+            </div>
+          </div>
+
+          <!-- Matched Trip List (default tab) -->
+          <div class="mm-results-list" id="mm-matched-list-container">
+            <div class="mm-results-list-header">
+              <span class="mm-results-count" id="map-match-results-count">No trips yet</span>
+              <div class="mm-bulk-actions d-none" id="map-match-bulk-actions">
+                <span class="mm-bulk-count" id="map-match-preview-selection-count">0 selected</span>
+                <button class="btn btn-ghost btn-sm"
+                        id="map-match-preview-clear-selection"
+                        disabled
+                        title="Clear selection">
+                  <i class="fas fa-times"></i>
+                </button>
+                <button class="btn btn-ghost btn-sm"
+                        id="map-match-preview-unmatch-selected"
+                        disabled
+                        title="Remove improvement">
+                  <i class="fas fa-undo"></i>
+                </button>
+                <button class="btn btn-ghost btn-sm text-danger"
+                        id="map-match-preview-delete-selected"
+                        disabled
+                        title="Delete trips">
+                  <i class="fas fa-trash"></i>
                 </button>
               </div>
             </div>
-
-            <div class="mm-date-custom">
-              <span class="mm-date-label">Or choose dates:</span>
-              <div class="mm-date-inputs">
-                <input
-                  type="text"
-                  id="map-match-start"
-                  class="form-control datepicker"
-                  placeholder="Start date"
-                />
-                <span class="mm-date-separator">to</span>
-                <input
-                  type="text"
-                  id="map-match-end"
-                  class="form-control datepicker"
-                  placeholder="End date"
-                />
+            <div class="mm-results-list-scroll">
+              <div class="mm-results-trips" id="map-match-results-trips">
+                <!-- Trip cards will be rendered here -->
               </div>
-            </div>
-
-            <label class="mm-switch-option">
-              <input
-                class="form-check-input"
-                type="checkbox"
-                role="switch"
-                id="map-match-unmatched-only"
-                checked
-              />
-              <span>Only process trips not yet matched</span>
-            </label>
-          </div>
-
-          <!-- Hidden elements for legacy JS compatibility -->
-          <select id="map-match-date-mode" class="visually-hidden" aria-hidden="true">
-            <option value="interval" selected>Interval</option>
-            <option value="date">Date range</option>
-          </select>
-          <select
-            id="map-match-interval-select"
-            class="visually-hidden"
-            aria-hidden="true"
-          >
-            <option value="7">Last Week</option>
-            <option value="30">Last Month</option>
-            <option value="90">Last 3 Months</option>
-            <option value="365">Last Year</option>
-          </select>
-          <div id="map-match-date-range" class="d-none"></div>
-          <div id="map-match-interval" class="d-none"></div>
-
-          <!-- Advanced: Specific Trip (hidden by default) -->
-          <div id="map-match-trip-controls" class="mm-trip-panel d-none">
-            <label class="mm-input-label" for="map-match-trip-id">Trip ID</label>
-            <input
-              type="text"
-              id="map-match-trip-id"
-              class="form-control"
-              placeholder="Enter trip ID"
-            />
-          </div>
-
-          <!-- Preview Badge (inline) -->
-          <div id="map-match-preview-panel" class="mm-preview-badge d-none">
-            <span class="mm-preview-icon"><i class="fas fa-check-circle"></i></span>
-            <span class="mm-preview-text" id="map-match-preview-summary"></span>
-            <!-- Hidden table for legacy compatibility -->
-            <div class="d-none">
-              <table class="preview-table-mini">
-                <tbody id="map-match-preview-body"></tbody>
+              <!-- Hidden table for JS compatibility -->
+              <table class="d-none">
+                <thead>
+                  <tr>
+                    <th class="matched-preview-select-col">
+                    </th>
+                    <th>
+Trip ID
+                    </th>
+                    <th>
+Matched
+                    </th>
+                    <th>
+Distance
+                    </th>
+                    <th>
+Status
+                    </th>
+                    <th class="matched-preview-actions-col">
+Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody id="map-match-preview-map-body">
+                </tbody>
               </table>
             </div>
-          </div>
-
-          <!-- Main Actions -->
-          <div class="mm-actions">
-            <button
-              type="button"
-              class="btn mm-btn-secondary"
-              id="map-match-preview-btn"
-            >
-              <i class="fas fa-eye"></i>
-              Preview
-            </button>
-            <button type="submit" class="btn mm-btn-primary" id="map-match-submit">
-              <i class="fas fa-sparkles"></i>
-              Start Matching
-            </button>
-          </div>
-
-          <div class="mm-status">
-            <span
-              class="settings-status is-hidden"
-              id="map-match-preview-status"
-              role="status"
-            ></span>
-            <span
-              class="settings-status is-hidden"
-              id="map-match-submit-status"
-              role="status"
-            ></span>
-          </div>
-
-          <!-- Advanced Toggle -->
-          <button
-            type="button"
-            class="mm-advanced-toggle"
-            id="map-match-advanced-toggle"
-          >
-            <i class="fas fa-sliders"></i>
-            <span>Advanced options</span>
-            <i class="fas fa-chevron-down mm-toggle-arrow"></i>
-          </button>
-          <div class="mm-advanced-panel d-none" id="map-match-advanced-options">
-            <label class="mm-option mm-option-small" data-mode="trip_id">
-              <input
-                type="radio"
-                name="match-mode"
-                value="trip_id"
-                class="visually-hidden"
-              />
-              <div class="mm-option-icon">
-                <i class="fas fa-fingerprint"></i>
-              </div>
-              <div class="mm-option-content">
-                <span class="mm-option-title">Specific trip</span>
-                <span class="mm-option-desc">Process a single trip by ID</span>
-              </div>
-              <div class="mm-option-check">
-                <i class="fas fa-check"></i>
-              </div>
-            </label>
-          </div>
-        </form>
-      </div>
-    </section>
-
-    <!-- Phase 2: Process -->
-    <section
-      class="mm-phase"
-      data-phase="process"
-      role="region"
-      aria-labelledby="mm-process-heading"
-    >
-      <div class="mm-process-card">
-        <h2 class="visually-hidden" id="mm-process-heading">Processing routes</h2>
-
-        <!-- Hidden empty state for JS compatibility -->
-        <div id="map-match-current-empty" class="d-none">
-          <span class="empty-text">Ready when you are</span>
-        </div>
-
-        <div id="map-match-current-panel">
-          <div class="mm-progress-visual">
-            <div class="mm-progress-ring-container">
-              <svg class="mm-progress-ring" viewBox="0 0 100 100">
-                <circle class="mm-progress-ring-bg" cx="50" cy="50" r="42" />
-                <circle
-                  class="mm-progress-ring-fill"
-                  cx="50"
-                  cy="50"
-                  r="42"
-                  id="map-match-progress-ring"
-                />
-              </svg>
-              <div class="mm-progress-ring-text">
-                <span class="mm-progress-percent" id="map-match-progress-percent"
-                  >0%</span
-                >
-              </div>
+            <div class="mm-results-list-footer" id="map-match-results-footer">
+              <label class="mm-select-all">
+                <input type="checkbox" id="map-match-preview-select-all" class="form-check-input" />
+                <span>Select all</span>
+              </label>
+              <span class="settings-status is-hidden"
+                    id="map-match-preview-actions-status"
+                    role="status"></span>
             </div>
           </div>
 
-          <div class="mm-progress-info" aria-live="polite">
-            <div id="map-match-progress-message" class="mm-progress-message">
-              Improving your routes...
-            </div>
-            <div id="map-match-progress-metrics" class="mm-progress-metrics"></div>
-          </div>
-
-          <div class="mm-progress-actions">
-            <button
-              class="btn mm-btn-cancel d-none"
-              id="map-match-cancel-btn"
-              type="button"
-            >
-              <i class="fas fa-stop"></i>
-              Cancel
-            </button>
-          </div>
-
-          <!-- Hidden legacy progress bar for JS compatibility -->
-          <div class="progress d-none" style="height: 22px">
-            <div
-              id="map-match-progress-bar"
-              class="progress-bar progress-bar-striped progress-bar-animated"
-              role="progressbar"
-              style="width: 0%"
-            >
-              0%
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Phase 3: Results -->
-    <section
-      class="mm-phase"
-      data-phase="results"
-      role="region"
-      aria-labelledby="mm-results-heading"
-    >
-      <div class="mm-results-card">
-        <!-- Success Header -->
-        <div class="mm-results-header" id="mm-results-header-success">
-          <div class="mm-results-icon">
-            <i class="fas fa-check-circle"></i>
-          </div>
-          <div class="mm-results-summary">
-            <h2 class="mm-results-title" id="mm-results-heading">Routes Improved!</h2>
-            <p class="mm-results-desc" id="map-match-preview-map-summary">
-              Your trips have been matched to roads
-            </p>
-          </div>
-          <div class="mm-results-actions">
-            <button class="btn mm-btn-secondary btn-sm" id="map-match-preview-map-btn">
-              <i class="fas fa-sync"></i>
-              Refresh
-            </button>
-            <span
-              class="settings-status is-hidden"
-              id="map-match-preview-map-status"
-              role="status"
-            ></span>
-          </div>
-        </div>
-
-        <!-- Browse Mode Header (for viewing all matched trips) -->
-        <div
-          class="mm-results-header mm-results-header-browse d-none"
-          id="mm-results-header-browse"
-        >
-          <div class="mm-results-icon mm-results-icon-browse">
-            <i class="fas fa-map-marked-alt"></i>
-          </div>
-          <div class="mm-results-summary">
-            <h2 class="mm-results-title">Matched Trips</h2>
-            <p class="mm-results-desc" id="mm-browse-summary">
-              All your previously matched trips
-            </p>
-          </div>
-          <div class="mm-results-actions">
-            <button class="btn mm-btn-secondary btn-sm" id="mm-browse-refresh-btn">
-              <i class="fas fa-sync"></i>
-              Refresh
-            </button>
-            <button class="btn mm-btn-secondary btn-sm" id="mm-browse-back-btn">
-              <i class="fas fa-arrow-left"></i>
-              Back
-            </button>
-          </div>
-        </div>
-
-        <!-- Failed Trips Header -->
-        <div
-          class="mm-results-header mm-results-header-failed d-none"
-          id="mm-results-header-failed"
-        >
-          <div class="mm-results-icon mm-results-icon-warning">
-            <i class="fas fa-exclamation-triangle"></i>
-          </div>
-          <div class="mm-results-summary">
-            <h2 class="mm-results-title">Failed Trips</h2>
-            <p class="mm-results-desc" id="mm-failed-summary">
-              Some trips couldn't be matched
-            </p>
-          </div>
-          <div class="mm-results-actions">
-            <button class="btn mm-btn-secondary btn-sm" id="mm-failed-refresh-btn">
-              <i class="fas fa-sync"></i>
-              Refresh
-            </button>
-            <button class="btn mm-btn-secondary btn-sm" id="mm-failed-back-btn">
-              <i class="fas fa-arrow-left"></i>
-              Back
-            </button>
-          </div>
-        </div>
-
-        <!-- Results Tabs (for job results) -->
-        <div class="mm-results-tabs" id="mm-results-tabs">
-          <button
-            class="mm-results-tab is-active"
-            data-tab="matched"
-            id="mm-tab-matched"
-          >
-            <i class="fas fa-check"></i>
-            <span>Matched</span>
-            <span class="mm-tab-count" id="mm-tab-matched-count">0</span>
-          </button>
-          <button class="mm-results-tab" data-tab="failed" id="mm-tab-failed">
-            <i class="fas fa-exclamation-circle"></i>
-            <span>Issues</span>
-            <span class="mm-tab-count mm-tab-count-warning" id="mm-tab-failed-count"
-              >0</span
-            >
-          </button>
-        </div>
-
-        <!-- Map -->
-        <div class="mm-results-map-container">
-          <div
-            class="mm-results-map"
-            id="map-match-preview-map"
-            aria-label="Matched routes map"
-          ></div>
-          <div id="map-match-preview-map-empty" class="mm-results-map-empty">
-            <div class="mm-empty-map-content">
-              <i class="fas fa-map-marked-alt"></i>
-              <span>Your matched routes will appear here</span>
-            </div>
-          </div>
-          <div class="mm-results-map-legend">
-            <span class="mm-legend-dot"></span>
-            <span>Matched route</span>
-          </div>
-        </div>
-
-        <!-- Matched Trip List (default tab) -->
-        <div class="mm-results-list" id="mm-matched-list-container">
-          <div class="mm-results-list-header">
-            <span class="mm-results-count" id="map-match-results-count"
-              >No trips yet</span
-            >
-            <div class="mm-bulk-actions d-none" id="map-match-bulk-actions">
-              <span class="mm-bulk-count" id="map-match-preview-selection-count"
-                >0 selected</span
-              >
-              <button
-                class="btn btn-ghost btn-sm"
-                id="map-match-preview-clear-selection"
-                disabled
-                title="Clear selection"
-              >
-                <i class="fas fa-times"></i>
-              </button>
-              <button
-                class="btn btn-ghost btn-sm"
-                id="map-match-preview-unmatch-selected"
-                disabled
-                title="Remove improvement"
-              >
-                <i class="fas fa-undo"></i>
-              </button>
-              <button
-                class="btn btn-ghost btn-sm text-danger"
-                id="map-match-preview-delete-selected"
-                disabled
-                title="Delete trips"
-              >
-                <i class="fas fa-trash"></i>
-              </button>
-            </div>
-          </div>
-          <div class="mm-results-list-scroll">
-            <div class="mm-results-trips" id="map-match-results-trips">
-              <!-- Trip cards will be rendered here -->
-            </div>
-            <!-- Hidden table for JS compatibility -->
-            <table class="d-none">
-              <thead>
-                <tr>
-                  <th class="matched-preview-select-col"></th>
-                  <th>Trip ID</th>
-                  <th>Matched</th>
-                  <th>Distance</th>
-                  <th>Status</th>
-                  <th class="matched-preview-actions-col">Actions</th>
-                </tr>
-              </thead>
-              <tbody id="map-match-preview-map-body"></tbody>
-            </table>
-          </div>
-          <div class="mm-results-list-footer" id="map-match-results-footer">
-            <label class="mm-select-all">
-              <input
-                type="checkbox"
-                id="map-match-preview-select-all"
-                class="form-check-input"
-              />
-              <span>Select all</span>
-            </label>
-            <span
-              class="settings-status is-hidden"
-              id="map-match-preview-actions-status"
-              role="status"
-            ></span>
-          </div>
-        </div>
-
-        <!-- Failed Trip List (shown when failed tab active) -->
-        <div
-          class="mm-results-list mm-failed-list d-none"
-          id="mm-failed-list-container"
-        >
-          <div class="mm-results-list-header">
-            <span class="mm-results-count" id="mm-failed-list-count">No issues</span>
-            <div class="mm-bulk-actions d-none" id="mm-failed-bulk-actions">
-              <span class="mm-bulk-count" id="mm-failed-selection-count"
-                >0 selected</span
-              >
-              <button
-                class="btn btn-ghost btn-sm mm-btn-retry"
-                id="mm-retry-selected-btn"
-                disabled
-                title="Retry matching"
-              >
-                <i class="fas fa-redo"></i>
+          <!-- Failed Trip List (shown when failed tab active) -->
+          <div class="mm-results-list mm-failed-list d-none" id="mm-failed-list-container">
+            <div class="mm-results-list-header">
+              <span class="mm-results-count" id="mm-failed-list-count">No issues</span>
+              <div class="mm-bulk-actions d-none" id="mm-failed-bulk-actions">
+                <span class="mm-bulk-count" id="mm-failed-selection-count">0 selected</span>
+                <button class="btn btn-ghost btn-sm mm-btn-retry"
+                        id="mm-retry-selected-btn"
+                        disabled
+                        title="Retry matching">
+                  <i class="fas fa-redo"></i>
                 Retry
-              </button>
-              <button
-                class="btn btn-ghost btn-sm text-danger"
-                id="mm-delete-failed-selected-btn"
-                disabled
-                title="Delete trips"
-              >
-                <i class="fas fa-trash"></i>
-              </button>
+                </button>
+                <button class="btn btn-ghost btn-sm text-danger"
+                        id="mm-delete-failed-selected-btn"
+                        disabled
+                        title="Delete trips">
+                  <i class="fas fa-trash"></i>
+                </button>
+              </div>
             </div>
-          </div>
-          <div class="mm-results-list-scroll">
-            <div class="mm-failed-trips" id="mm-failed-trips">
-              <!-- Failed trip cards will be rendered here -->
+            <div class="mm-results-list-scroll">
+              <div class="mm-failed-trips" id="mm-failed-trips">
+                <!-- Failed trip cards will be rendered here -->
+              </div>
             </div>
-          </div>
-          <div class="mm-results-list-footer">
-            <label class="mm-select-all">
-              <input
-                type="checkbox"
-                id="mm-failed-select-all"
-                class="form-check-input"
-              />
-              <span>Select all</span>
-            </label>
-            <button class="btn mm-btn-secondary btn-sm" id="mm-retry-all-btn">
-              <i class="fas fa-redo"></i>
+            <div class="mm-results-list-footer">
+              <label class="mm-select-all">
+                <input type="checkbox" id="mm-failed-select-all" class="form-check-input" />
+                <span>Select all</span>
+              </label>
+              <button class="btn mm-btn-secondary btn-sm" id="mm-retry-all-btn">
+                <i class="fas fa-redo"></i>
               Retry All
+              </button>
+            </div>
+          </div>
+
+          <!-- Match More Button -->
+          <div class="mm-match-more" id="mm-match-more-container">
+            <button type="button" class="btn mm-btn-primary" id="mm-match-more-btn">
+              <i class="fas fa-plus"></i>
+            Match More Trips
             </button>
           </div>
         </div>
+      </section>
+    </div>
 
-        <!-- Match More Button -->
-        <div class="mm-match-more" id="mm-match-more-container">
-          <button type="button" class="btn mm-btn-primary" id="mm-match-more-btn">
-            <i class="fas fa-plus"></i>
-            Match More Trips
+    <!-- History Drawer -->
+    <aside class="mm-history-drawer"
+           id="mm-history-drawer"
+           aria-labelledby="mm-history-title">
+      <div class="mm-drawer-header">
+        <h2 class="mm-drawer-title" id="mm-history-title">
+          <i class="fas fa-history"></i>
+        Recent Activity
+        </h2>
+        <div class="mm-drawer-actions">
+          <button class="btn btn-ghost btn-sm" id="map-match-refresh" title="Refresh">
+            <i class="fas fa-sync"></i>
           </button>
+          <button class="btn btn-ghost btn-sm"
+                  id="map-match-history-clear"
+                  title="Clear completed">
+            <i class="fas fa-trash-alt"></i>
+          </button>
+          <button class="btn btn-ghost btn-sm mm-drawer-close" id="mm-drawer-close" title="Close">
+            <i class="fas fa-times"></i>
+          </button>
+          <span class="settings-status is-hidden" id="map-match-history-status" role="status"></span>
         </div>
       </div>
-    </section>
+      <div class="mm-drawer-body" id="map-match-history-body">
+        <div class="mm-history-list" id="map-match-jobs-list">
+          <!-- Jobs will be rendered here -->
+        </div>
+        <!-- Hidden table for JS compatibility -->
+        <table class="d-none">
+          <tbody id="map-match-jobs-body">
+          </tbody>
+        </table>
+      </div>
+    </aside>
+    <div class="mm-drawer-backdrop" id="mm-drawer-backdrop">
+    </div>
+
+    <!-- History FAB -->
+    <button class="mm-history-fab" id="mm-history-fab" title="View activity history">
+      <i class="fas fa-history"></i>
+      <span class="mm-fab-badge" id="map-match-history-count">0</span>
+    </button>
+
+    <!-- Legacy hidden elements for compatibility -->
+    <div class="d-none" id="map-match-history-toggle">
+    </div>
   </div>
+{% endblock %}
 
-  <!-- History Drawer -->
-  <aside
-    class="mm-history-drawer"
-    id="mm-history-drawer"
-    aria-labelledby="mm-history-title"
-  >
-    <div class="mm-drawer-header">
-      <h2 class="mm-drawer-title" id="mm-history-title">
-        <i class="fas fa-history"></i>
-        Recent Activity
-      </h2>
-      <div class="mm-drawer-actions">
-        <button class="btn btn-ghost btn-sm" id="map-match-refresh" title="Refresh">
-          <i class="fas fa-sync"></i>
-        </button>
-        <button
-          class="btn btn-ghost btn-sm"
-          id="map-match-history-clear"
-          title="Clear completed"
-        >
-          <i class="fas fa-trash-alt"></i>
-        </button>
-        <button
-          class="btn btn-ghost btn-sm mm-drawer-close"
-          id="mm-drawer-close"
-          title="Close"
-        >
-          <i class="fas fa-times"></i>
-        </button>
-        <span
-          class="settings-status is-hidden"
-          id="map-match-history-status"
-          role="status"
-        ></span>
-      </div>
-    </div>
-    <div class="mm-drawer-body" id="map-match-history-body">
-      <div class="mm-history-list" id="map-match-jobs-list">
-        <!-- Jobs will be rendered here -->
-      </div>
-      <!-- Hidden table for JS compatibility -->
-      <table class="d-none">
-        <tbody id="map-match-jobs-body"></tbody>
-      </table>
-    </div>
-  </aside>
-  <div class="mm-drawer-backdrop" id="mm-drawer-backdrop"></div>
 
-  <!-- History FAB -->
-  <button class="mm-history-fab" id="mm-history-fab" title="View activity history">
-    <i class="fas fa-history"></i>
-    <span class="mm-fab-badge" id="map-match-history-count">0</span>
-  </button>
 
-  <!-- Legacy hidden elements for compatibility -->
-  <div class="d-none" id="map-match-history-toggle"></div>
-</div>
-{% endblock %} {% block extra_js %}
-<script src="{{ CDN.mapbox_gl_js }}"></script>
-<script
-  type="module"
-  src="{{ url_for('static', path='js/pages/map-matching.js') | replace('http://', '//') }}?v={{ repo_version.commit_count }}"
-></script>
+{% block extra_js %}
+
+  <script src="{{ CDN.mapbox_gl_js }}"></script>
+  <script type="module"
+          src="{{ url_for('static', path='js/pages/map-matching.js') | replace('http://', '//') }}?v={{ repo_version.commit_count }}"></script>
 {% endblock %}

@@ -482,7 +482,7 @@ class VisitStatsService:
         points_m = [to_meters(lng, lat) for lng, lat in all_points]
 
         def grid_key(x: float, y: float, cell: float) -> tuple[int, int]:
-            return (int(math.floor(x / cell)), int(math.floor(y / cell)))
+            return (math.floor(x / cell), math.floor(y / cell))
 
         def dbscan(points: list[tuple[float, float]], eps: float, min_samples: int):
             labels = [-1] * len(points)

@@ -232,7 +232,7 @@ class APIClient {
   /**
    * Handle and normalize errors
    */
-  _handleError(error, url) {
+  _handleError(error, _url) {
     if (error?.name === "AbortError") {
       return error;
     }

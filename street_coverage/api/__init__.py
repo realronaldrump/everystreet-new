@@ -1,4 +1,5 @@
-"""Coverage API package.
+"""
+Coverage API package.
 
 Contains API route handlers organized by domain:
     - areas: Coverage area CRUD operations

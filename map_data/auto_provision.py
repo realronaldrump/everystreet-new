@@ -80,9 +80,9 @@ def get_state_for_coordinate(lon: float, lat: float) -> str | None:
     """
     Determine which US state a coordinate falls within.
 
-    Uses bounding box checks for fast approximate detection. Returns
-    the first matching state code (e.g., 'CA') or None if not in any
-    US state.
+    Uses bounding box checks for fast approximate detection. Returns the
+    first matching state code (e.g., 'CA') or None if not in any US
+    state.
     """
     for state_code, (min_lon, min_lat, max_lon, max_lat) in US_STATE_BOUNDS.items():
         if min_lon <= lon <= max_lon and min_lat <= lat <= max_lat:
@@ -94,8 +94,8 @@ def get_states_for_coordinate(lon: float, lat: float) -> set[str]:
     """
     Return all states whose bounding boxes include the coordinate.
 
-    This is conservative (may include neighbor states near borders),
-    but avoids missing coverage when bounding boxes overlap.
+    This is conservative (may include neighbor states near borders), but
+    avoids missing coverage when bounding boxes overlap.
     """
     states: set[str] = set()
     for state_code, (min_lon, min_lat, max_lon, max_lat) in US_STATE_BOUNDS.items():

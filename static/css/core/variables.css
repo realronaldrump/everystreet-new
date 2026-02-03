@@ -1,7 +1,7 @@
 /* ============================
    Design Tokens: Carbon Signal Refinery
    Phase 1: Refined Color & Typography Foundation
-   
+
    Palette (Premium, Professional)
    - Deep Teal:   #0d9488 (primary) - sophisticated, grounded
    - Indigo:      #6366f1 (accent) - modern highlights
@@ -334,7 +334,7 @@
 /* Light Mode Overrides - Premium Feel (Phase 1) */
 body.light-mode {
   --surface-0: #fafafa;
-  --surface-1: #ffffff;
+  --surface-1: #fff;
   --surface-2: #f3f4f6;
   --surface-3: #e5e7eb;
   --surface-4: #d1d5db;

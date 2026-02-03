@@ -3,16 +3,18 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime
-from typing import Any
-
-import aiohttp
+from typing import TYPE_CHECKING, Any
 
 from config import API_BASE_URL, get_bouncie_config
 from core.date_utils import parse_timestamp
 from core.http.retry import retry_async
 from core.http.session import get_session
 from setup.services.bouncie_oauth import BouncieOAuth
+
+if TYPE_CHECKING:
+    from datetime import datetime
+
+    import aiohttp
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +31,8 @@ class BouncieClient:
         return self._session
 
     async def get_access_token(
-        self, credentials: dict[str, Any] | None = None
+        self,
+        credentials: dict[str, Any] | None = None,
     ) -> str | None:
         if credentials is None:
             credentials = await get_bouncie_config()

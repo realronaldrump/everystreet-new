@@ -161,11 +161,10 @@ class TripGeocoder:
             if name:
                 return False
             components = location.get("address_components")
-            if isinstance(components, dict) and any(
-                str(value).strip() for value in components.values()
-            ):
-                return False
-            return True
+            return not (
+                isinstance(components, dict)
+                and any(str(value).strip() for value in components.values())
+            )
         return True
 
     @staticmethod

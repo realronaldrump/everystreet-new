@@ -668,10 +668,13 @@ class MapMatchingJobRunner:
 
         if gps_type != "LineString":
             logger.debug(
-                "Trip %s: Unsupported GPS type '%s', skipping", trip_id, gps_type
+                "Trip %s: Unsupported GPS type '%s', skipping",
+                trip_id,
+                gps_type,
             )
             await self._update_trip_match_status(
-                trip_id, f"skipped:unsupported-type:{gps_type}"
+                trip_id,
+                f"skipped:unsupported-type:{gps_type}",
             )
             return "skipped"
 
@@ -686,10 +689,13 @@ class MapMatchingJobRunner:
 
         # Call Valhalla
         logger.debug(
-            "Trip %s: Calling Valhalla with %d coordinates", trip_id, len(coords)
+            "Trip %s: Calling Valhalla with %d coordinates",
+            trip_id,
+            len(coords),
         )
         result = await self._map_matching_service.map_match_coordinates(
-            coords, timestamps
+            coords,
+            timestamps,
         )
 
         if result.get("code") != "Ok":
@@ -706,7 +712,7 @@ class MapMatchingJobRunner:
             return "failed"
 
         matched_geometry = matchings[0]["geometry"]
-        geom_type = matched_geometry.get("type", "unknown")
+        matched_geometry.get("type", "unknown")
 
         # Update the trip in the database
         await self._update_trip_matched_gps(trip_id, matched_geometry)
@@ -722,7 +728,9 @@ class MapMatchingJobRunner:
             await trip.save()
 
     async def _update_trip_matched_gps(
-        self, trip_id: str, geometry: dict[str, Any]
+        self,
+        trip_id: str,
+        geometry: dict[str, Any],
     ) -> None:
         """Update the matched GPS geometry for a trip."""
         trip = await Trip.find_one(Trip.transactionId == trip_id)

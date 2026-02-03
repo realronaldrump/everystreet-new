@@ -14,7 +14,7 @@ async def check_container_running(service_name: str) -> bool:
 
 # Mock for asyncio.create_subprocess_exec
 class MockProcess:
-    def __init__(self, returncode, stderr_content):
+    def __init__(self, returncode, stderr_content) -> None:
         self.returncode = returncode
         self.stderr_content = stderr_content
         self.stdout = self
@@ -23,7 +23,7 @@ class MockProcess:
     async def communicate(self):
         return (b"", self.stderr_content)
 
-    def decode(self):
+    def decode(self) -> str:
         return ""  # Not used directly on process, but on stderr output
 
 
@@ -117,10 +117,9 @@ async def start_container_on_demand(
 
     logger.error("Failed to start container %s: %s", service_name, last_error)
     return f"Failed to start {service_name}: {last_error}"
-    # raise RuntimeError(msg)
 
 
-async def run_tests():
+async def run_tests() -> None:
     print("--- Test 1: All fail with empty stderr ---")
     # 1. docker compose -> fail, stderr empty
     # 2. docker-compose -> fail, stderr empty

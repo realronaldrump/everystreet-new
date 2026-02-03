@@ -296,7 +296,8 @@ class ValhallaClient:
             shift = 0
             while True:
                 if index >= length:
-                    raise ValueError("Invalid polyline encoding")
+                    msg = "Invalid polyline encoding"
+                    raise ValueError(msg)
                 b = ord(encoded[index]) - 63
                 index += 1
                 result |= (b & 0x1F) << shift

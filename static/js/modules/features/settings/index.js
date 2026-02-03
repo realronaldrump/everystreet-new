@@ -11,7 +11,6 @@
  * - App Settings: Tab switching and preferences
  */
 
-import { initDatabaseManagement } from "./database-management.js";
 import apiClient from "../../core/api-client.js";
 import { CONFIG } from "../../core/config.js";
 import confirmationDialog from "../../ui/confirmation-dialog.js";
@@ -20,6 +19,7 @@ import notificationManager from "../../ui/notifications.js";
 import { formatDateTime } from "../../utils.js";
 import { initAppSettings } from "./app-settings.js";
 import { setupCredentialsSettings } from "./credentials-settings.js";
+import { initDatabaseManagement } from "./database-management.js";
 import {
   setupGeocodeTrips,
   setupManualFetchTripsForm,

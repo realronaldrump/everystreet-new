@@ -74,9 +74,8 @@ class MapMatchingService:
             if not is_valid:
                 continue
             valid_coords.append(coord)
-            if valid_timestamps is not None:
-                if idx < len(timestamps or []):
-                    valid_timestamps.append((timestamps or [])[idx])
+            if valid_timestamps is not None and idx < len(timestamps or []):
+                valid_timestamps.append((timestamps or [])[idx])
 
         if valid_timestamps is not None and len(valid_timestamps) != len(valid_coords):
             valid_timestamps = None

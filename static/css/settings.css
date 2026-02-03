@@ -1498,11 +1498,7 @@
 
 .map-services-progress .progress-bar {
   height: 100%;
-  background: linear-gradient(
-    90deg,
-    var(--primary),
-    var(--primary-light, var(--primary))
-  );
+  background: linear-gradient(90deg, var(--primary), var(--primary-light, var(--primary)));
   border-radius: var(--radius-pill);
   transition: width 0.3s ease;
 }
@@ -1573,6 +1569,7 @@
   0% {
     transform: translateX(-120%);
   }
+
   100% {
     transform: translateX(120%);
   }
@@ -1583,12 +1580,13 @@
   100% {
     opacity: 0.35;
   }
+
   50% {
     opacity: 0.85;
   }
 }
 
-@media (min-width: 640px) {
+@media (width >= 640px) {
   .map-services-progress .progress-status {
     flex-direction: row;
     justify-content: space-between;

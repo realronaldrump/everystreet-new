@@ -1,10 +1,10 @@
-import { announce, showNotification } from "../../utils.js";
 import {
   createExportJob,
   fetchCoverageAreas,
   fetchExportStatus,
   fetchVehicles,
 } from "../../export/api.js";
+import { announce, showNotification } from "../../utils.js";
 
 const ENTITY_LABELS = {
   trips: "Trips",

@@ -45,9 +45,15 @@ export function initDatabaseManagement({ signal } = {}) {
   }
 
   function formatNumber(num) {
-    if (!Number.isFinite(num)) return "0";
-    if (num >= 1_000_000) return `${(num / 1_000_000).toFixed(1)}M`;
-    if (num >= 1_000) return `${(num / 1_000).toFixed(1)}K`;
+    if (!Number.isFinite(num)) {
+      return "0";
+    }
+    if (num >= 1_000_000) {
+      return `${(num / 1_000_000).toFixed(1)}M`;
+    }
+    if (num >= 1_000) {
+      return `${(num / 1_000).toFixed(1)}K`;
+    }
     return num.toString();
   }
 
@@ -86,8 +92,8 @@ export function initDatabaseManagement({ signal } = {}) {
     if (!button) {
       return "";
     }
-    const fromDataset =
-      button.dataset.collection || button.getAttribute("data-collection");
+    const fromDataset
+      = button.dataset.collection || button.getAttribute("data-collection");
     if (fromDataset) {
       return fromDataset;
     }
@@ -165,8 +171,8 @@ export function initDatabaseManagement({ signal } = {}) {
     storageSourcesContainer.innerHTML = sources
       .map((source) => {
         const sizeBytes = Number.isFinite(source.size_bytes) ? source.size_bytes : null;
-        const sizeDisplay =
-          sizeBytes == null
+        const sizeDisplay
+          = sizeBytes == null
             ? Number.isFinite(source.size_mb)
               ? source.size_mb > 1024
                 ? `${(source.size_mb / 1024).toFixed(2)} GB`
@@ -174,14 +180,14 @@ export function initDatabaseManagement({ signal } = {}) {
               : "N/A"
             : formatBytes(sizeBytes);
 
-        const hasError = !!source.error;
+        const hasError = Boolean(source.error);
         const barWidth = maxSize > 0 && sizeBytes ? (sizeBytes / maxSize) * 100 : 0;
         const iconClass = getCategoryIcon(source.category);
 
         return `
-          <div class="storage-source-card" 
-               data-source="${escapeHtml(source.label || "")}" 
-               data-category="${escapeHtml(source.category || "")}" 
+          <div class="storage-source-card"
+               data-source="${escapeHtml(source.label || "")}"
+               data-category="${escapeHtml(source.category || "")}"
                data-size="${sizeBytes || 0}">
             <div class="storage-source-header">
               <div class="storage-source-icon">
@@ -277,17 +283,17 @@ export function initDatabaseManagement({ signal } = {}) {
 
     container.innerHTML = collections
       .map((collection) => {
-        const sizeDisplay =
-          collection.size_mb != null
+        const sizeDisplay
+          = collection.size_mb != null
             ? collection.size_mb > 1024
               ? `${(collection.size_mb / 1024).toFixed(2)} GB`
               : `${collection.size_mb.toFixed(2)} MB`
             : "N/A";
 
         return `
-          <div class="collection-card" 
-               data-collection="${escapeHtml(collection.name)}" 
-               data-count="${collection.document_count}" 
+          <div class="collection-card"
+               data-collection="${escapeHtml(collection.name)}"
+               data-count="${collection.document_count}"
                data-size="${collection.size_mb || 0}">
             <div class="collection-card-header">
               <div class="collection-icon">
@@ -308,8 +314,8 @@ export function initDatabaseManagement({ signal } = {}) {
               </div>
             </div>
             <div class="collection-card-actions">
-              <button class="btn btn-outline-danger btn-sm clear-collection" 
-                      data-collection="${escapeHtml(collection.name)}" 
+              <button class="btn btn-outline-danger btn-sm clear-collection"
+                      data-collection="${escapeHtml(collection.name)}"
                       title="Clear all documents from this collection">
                 <i class="fas fa-trash-alt"></i>
                 Clear
@@ -325,7 +331,9 @@ export function initDatabaseManagement({ signal } = {}) {
     const cards = Array.from(
       storageSourcesContainer?.querySelectorAll(".storage-source-card") || []
     );
-    if (!cards.length) return;
+    if (!cards.length) {
+      return;
+    }
 
     cards.sort((a, b) => {
       const aSize = parseFloat(a.dataset.size) || 0;
@@ -357,13 +365,15 @@ export function initDatabaseManagement({ signal } = {}) {
   function sortCollections(sortValue) {
     const container = document.getElementById("collections-container");
     const cards = Array.from(container?.querySelectorAll(".collection-card") || []);
-    if (!cards.length) return;
+    if (!cards.length) {
+      return;
+    }
 
     cards.sort((a, b) => {
       const aSize = parseFloat(a.dataset.size) || 0;
       const bSize = parseFloat(b.dataset.size) || 0;
-      const aCount = parseInt(a.dataset.count) || 0;
-      const bCount = parseInt(b.dataset.count) || 0;
+      const aCount = parseInt(a.dataset.count, 10) || 0;
+      const bCount = parseInt(b.dataset.count, 10) || 0;
       const aName = a.dataset.collection || "";
       const bName = b.dataset.collection || "";
 

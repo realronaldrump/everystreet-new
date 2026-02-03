@@ -81,7 +81,8 @@ def _deduplicate_coordinates(
     coords_map: dict[str, dict] = {}
 
     existing_coords = normalize_existing_coordinates(
-        existing or [], validate_coords=True
+        existing or [],
+        validate_coords=True,
     )
     new_coords = normalize_existing_coordinates(new or [], validate_coords=True)
 

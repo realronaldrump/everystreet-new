@@ -3,9 +3,8 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from beanie import PydanticObjectId
 from pydantic import ValidationError
@@ -16,6 +15,9 @@ from core.spatial import GeometryService, derive_geo_points, is_valid_geojson_ge
 from db.models import Trip
 from trips.services.geocoding import TripGeocoder
 from trips.services.matching import TripMapMatcher
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
 
@@ -29,8 +31,9 @@ class TripPipeline:
         self,
         geo_service: TripGeocoder | None = None,
         matcher: TripMapMatcher | None = None,
-        coverage_service: Callable[[dict[str, Any], PydanticObjectId | str | None], Any]
-        | None = None,
+        coverage_service: (
+            Callable[[dict[str, Any], PydanticObjectId | str | None], Any] | None
+        ) = None,
     ) -> None:
         self.geo_service = geo_service or TripGeocoder()
         self.matcher = matcher or TripMapMatcher()
@@ -46,9 +49,11 @@ class TripPipeline:
                 "state": state,
                 "history": history,
                 "errors": {"validation": error} if error else {},
-                "transaction_id": processed_data.get("transactionId", "unknown")
-                if processed_data
-                else raw_data.get("transactionId", "unknown"),
+                "transaction_id": (
+                    processed_data.get("transactionId", "unknown")
+                    if processed_data
+                    else raw_data.get("transactionId", "unknown")
+                ),
             },
         }
 
@@ -62,7 +67,9 @@ class TripPipeline:
         do_coverage: bool = True,
         force_map_match: bool = False,
     ) -> Trip | None:
-        """Process a raw trip through validation, matching, geocoding, coverage, and save."""
+        """Process a raw trip through validation, matching, geocoding, coverage, and
+        save.
+        """
         if not raw_data:
             logger.warning("No trip data provided to pipeline")
             return None
@@ -89,14 +96,17 @@ class TripPipeline:
             existing_dict = existing_trip.model_dump()
             if self._has_meaningful_location(existing_dict.get("startLocation")):
                 processed_data.setdefault(
-                    "startLocation", existing_dict.get("startLocation")
+                    "startLocation",
+                    existing_dict.get("startLocation"),
                 )
                 processed_data.setdefault(
-                    "startPlaceId", existing_dict.get("startPlaceId")
+                    "startPlaceId",
+                    existing_dict.get("startPlaceId"),
                 )
             if self._has_meaningful_location(existing_dict.get("destination")):
                 processed_data.setdefault(
-                    "destination", existing_dict.get("destination")
+                    "destination",
+                    existing_dict.get("destination"),
                 )
                 processed_data.setdefault(
                     "destinationPlaceId",
@@ -105,7 +115,8 @@ class TripPipeline:
             if existing_dict.get("matchedGps") and not force_map_match:
                 processed_data.setdefault("matchedGps", existing_dict.get("matchedGps"))
                 processed_data.setdefault(
-                    "matchStatus", existing_dict.get("matchStatus")
+                    "matchStatus",
+                    existing_dict.get("matchStatus"),
                 )
                 processed_data.setdefault("matched_at", existing_dict.get("matched_at"))
 
@@ -282,7 +293,7 @@ class TripPipeline:
     @staticmethod
     def _basic_process(processed_data: dict[str, Any]) -> tuple[bool, str | None]:
         gps_data = processed_data.get("gps")
-        transaction_id = processed_data.get("transactionId", "unknown")
+        processed_data.get("transactionId", "unknown")
         if not gps_data:
             return False, "Missing GPS data for basic processing"
 
@@ -307,7 +318,7 @@ class TripPipeline:
 
             if not processed_data.get("distance"):
                 processed_data["distance"] = TripPipeline._calculate_distance(
-                    gps_coords
+                    gps_coords,
                 )
         else:
             return False, f"Unsupported GPS type '{gps_type}'"
@@ -566,7 +577,7 @@ class TripPipeline:
                 continue
             existing_val = existing.get(field)
             if self._has_meaningful_location(
-                incoming_val
+                incoming_val,
             ) or not self._has_meaningful_location(existing_val):
                 setattr(trip, field, incoming_val)
 
