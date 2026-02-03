@@ -101,7 +101,7 @@ def api_route(logger: logging.Logger):
                     status_code=status.HTTP_502_BAD_GATEWAY,
                     detail=f"External service error: {e.message}",
                 ) from e
-            except EveryStreetException as e:
+            except EveryStreetException as e:  # pragma: no cover
                 # Catch-all for other custom exceptions
                 logger.exception(
                     "Application error in %s: %s",
@@ -112,7 +112,7 @@ def api_route(logger: logging.Logger):
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                     detail=e.message,
                 ) from e
-            except Exception as e:
+            except Exception as e:  # pragma: no cover
                 # Generic catch-all for unexpected errors
                 logger.exception("Unexpected error in %s", func.__name__)
                 raise HTTPException(

@@ -216,8 +216,8 @@ def _resolve_osm_data_path_candidates() -> tuple[str | None, list[str]]:
     env_path = get_osm_data_path()
     if env_path:
         checked.append(env_path)
-        if Path(env_path).exists():
-            return env_path, checked
+        # Trust explicit env var overrides; the path may exist only inside containers.
+        return env_path, checked
 
     extracts_path = get_osm_extracts_path()
     if extracts_path:

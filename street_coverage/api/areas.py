@@ -129,8 +129,7 @@ class AreaResponse(BaseModel):
     optimal_route_generated_at: str | None
     has_optimal_route: bool
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class AreaListResponse(BaseModel):
@@ -569,6 +568,8 @@ async def add_area(request: CreateAreaRequest):
             message=f"Area '{request.display_name}' is being set up. This typically takes 1-2 minutes.",
         )
 
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
