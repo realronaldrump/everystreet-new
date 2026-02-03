@@ -60,10 +60,6 @@ def _get_graph_memory_limit_mb() -> int:
         return max(int(raw), 0)
     except ValueError:
         return DEFAULT_GRAPH_MEMORY_LIMIT_MB
-    try:
-        return max(int(raw), 0)
-    except ValueError:
-        return DEFAULT_AREA_EXTRACT_THRESHOLD_MB
 
 
 def _write_geojson(path: Path, geometry: Any) -> None:
@@ -81,7 +77,9 @@ def _maybe_extract_area_pbf(
     require_extract: bool = False,
     threshold_mb: int | None = None,
 ) -> Path | None:
-    threshold_mb = _get_area_extract_threshold_mb() if threshold_mb is None else threshold_mb
+    threshold_mb = (
+        _get_area_extract_threshold_mb() if threshold_mb is None else threshold_mb
+    )
     if threshold_mb <= 0:
         return None
     try:
@@ -94,9 +92,7 @@ def _maybe_extract_area_pbf(
     extracts_root_str = (get_osm_extracts_path() or "").strip()
     if not extracts_root_str:
         if require_extract:
-            msg = (
-                "Area extract required for large OSM files, but OSM_EXTRACTS_PATH is not set."
-            )
+            msg = "Area extract required for large OSM files, but OSM_EXTRACTS_PATH is not set."
             raise RuntimeError(msg)
         return None
     extracts_root = Path(extracts_root_str)
@@ -188,7 +184,12 @@ def _graph_from_pbf(osm_path: Path) -> nx.MultiDiGraph:
             nodes_gdf, edges_gdf = nodes_edges
             graph = _try_pyrosm_to_graph(osm, nodes_gdf, edges_gdf)
             if graph is not None:
-    return graph
+                return graph
+            nodes_gdf, edges_gdf = _normalize_pyrosm_gdfs(nodes_gdf, edges_gdf)
+            return ox.graph_from_gdfs(nodes_gdf, edges_gdf)
+
+    msg = "Pyrosm returned unexpected network data for .pbf extraction."
+    raise RuntimeError(msg)
 
 
 def _build_graph_in_process(
@@ -236,7 +237,9 @@ def _graph_build_worker(
         from shapely.geometry import shape
 
         routing_polygon = shape(routing_geojson)
-        G = _build_graph_in_process(Path(osm_path_str), routing_polygon, Path(graph_path_str))
+        G = _build_graph_in_process(
+            Path(osm_path_str), routing_polygon, Path(graph_path_str)
+        )
         result_queue.put(
             {
                 "success": True,
@@ -285,10 +288,7 @@ def _build_graph_in_subprocess(
         raise RuntimeError(result.get("error") or "Graph build failed.")
 
     if proc.exitcode and proc.exitcode != 0:
-        msg = (
-            "Graph build failed or exceeded memory limit. "
-            f"Memory limit: {max_mb} MB."
-        )
+        msg = f"Graph build failed or exceeded memory limit. Memory limit: {max_mb} MB."
         raise RuntimeError(msg)
 
 
@@ -303,24 +303,6 @@ def _build_graph_with_limit(
 
     _build_graph_in_subprocess(osm_path, routing_polygon, graph_path, max_mb)
     return None
-            nodes_gdf, edges_gdf = _normalize_pyrosm_gdfs(nodes_gdf, edges_gdf)
-            return ox.graph_from_gdfs(nodes_gdf, edges_gdf)
-
-    try:
-        nodes_gdf, edges_gdf = osm.get_network(network_type="driving", nodes=True)
-        nodes_edges = _coerce_nodes_edges((nodes_gdf, edges_gdf))
-        if nodes_edges is None:
-            msg = "Pyrosm returned unexpected network data for .pbf extraction."
-            raise RuntimeError(msg)
-        nodes_gdf, edges_gdf = nodes_edges
-        graph = _try_pyrosm_to_graph(osm, nodes_gdf, edges_gdf)
-        if graph is not None:
-            return graph
-        nodes_gdf, edges_gdf = _normalize_pyrosm_gdfs(nodes_gdf, edges_gdf)
-        return ox.graph_from_gdfs(nodes_gdf, edges_gdf)
-    except Exception as exc:
-        msg = "Unable to build a driving network graph from the .pbf extract."
-        raise RuntimeError(msg) from exc
 
 
 def _coerce_nodes_edges(network: tuple[Any, Any]) -> tuple[Any, Any] | None:
