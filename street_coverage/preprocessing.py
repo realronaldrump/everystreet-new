@@ -411,6 +411,16 @@ def _load_graph_from_extract(osm_path: Path, routing_polygon: Any) -> nx.MultiDi
     return G
 
 
+def _validate_osm_path(osm_path: Path) -> None:
+    if not osm_path.exists():
+        raise FileNotFoundError(f"OSM data file not found: {osm_path}")
+    if osm_path.suffix.lower() not in OSM_EXTENSIONS:
+        raise ValueError(
+            "OSM_DATA_PATH must point to an OSM extract (.osm, .xml, or .pbf) "
+            "exported from your Valhalla/Nominatim data."
+        )
+
+
 async def preprocess_streets(
     location: dict,
     task_id: str | None = None,
@@ -479,13 +489,7 @@ async def preprocess_streets(
                 osm_path_str = require_osm_data_path()
             osm_path = Path(osm_path_str)
             logger.info("Using OSM extract: %s", osm_path)
-            if not osm_path.exists():
-                raise FileNotFoundError(f"OSM data file not found: {osm_path}")
-            if osm_path.suffix.lower() not in OSM_EXTENSIONS:
-                raise ValueError(
-                    "OSM_DATA_PATH must point to an OSM extract (.osm, .xml, or .pbf) "
-                    "exported from your Valhalla/Nominatim data."
-                )
+            _validate_osm_path(osm_path)
             threshold_mb = _get_area_extract_threshold_mb()
             try:
                 size_mb = osm_path.stat().st_size / (1024 * 1024)
