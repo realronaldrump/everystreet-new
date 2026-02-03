@@ -153,19 +153,19 @@ export function initDatabaseManagement({ signal } = {}) {
           : "";
         return `
           <tr>
-            <td data-value="${escapeHtml(source.label || "")}" class="fw-medium">
+            <td data-label="Source" data-value="${escapeHtml(source.label || "")}" class="fw-medium">
               ${escapeHtml(source.label || "")}
             </td>
-            <td data-value="${escapeHtml(source.category || "")}">
+            <td data-label="Category" data-value="${escapeHtml(source.category || "")}">
               ${escapeHtml(source.category || "")}
             </td>
-            <td data-value="${sizeBytes || 0}">
+            <td data-label="Size" data-value="${sizeBytes || 0}">
               ${escapeHtml(sizeDisplay)}
             </td>
-            <td data-value="${escapeHtml(source.detail || "")}">
+            <td data-label="Details" data-value="${escapeHtml(source.detail || "")}">
               <span class="text-muted small">${detailText}</span>
             </td>
-            <td data-value="${status}">
+            <td data-label="Status" data-value="${status}">
               ${statusBadge}
               ${errorText}
             </td>

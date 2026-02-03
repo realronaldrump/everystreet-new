@@ -1264,22 +1264,31 @@
             <tbody>
               {% if storage_sources %} {% for source in storage_sources %}
               <tr>
-                <td data-value="{{ source.label }}" class="fw-medium">
+                <td
+                  data-label="Source"
+                  data-value="{{ source.label }}"
+                  class="fw-medium"
+                >
                   {{ source.label }}
                 </td>
-                <td data-value="{{ source.category }}">{{ source.category }}</td>
-                <td data-value="{{ source.size_bytes or 0 }}">
+                <td data-label="Category" data-value="{{ source.category }}">
+                  {{ source.category }}
+                </td>
+                <td data-label="Size" data-value="{{ source.size_bytes or 0 }}">
                   {% if source.size_mb is not none %} {{ "%.2f"|format(source.size_mb)
                   }} MB {% else %} N/A {% endif %}
                 </td>
-                <td data-value="{{ source.detail or '' }}">
+                <td data-label="Details" data-value="{{ source.detail or '' }}">
                   {% if source.detail %}
                   <span class="text-muted small">{{ source.detail }}</span>
                   {% else %}
                   <span class="text-muted small">--</span>
                   {% endif %}
                 </td>
-                <td data-value="{{ 'Error' if source.error else 'OK' }}">
+                <td
+                  data-label="Status"
+                  data-value="{{ 'Error' if source.error else 'OK' }}"
+                >
                   {% if source.error %}
                   <span class="badge bg-danger">Error</span>
                   <div class="text-muted small">{{ source.error }}</div>
@@ -1322,17 +1331,21 @@
             <tbody>
               {% if collections %} {% for collection in collections %}
               <tr>
-                <td data-value="{{ collection.name }}" class="fw-medium">
+                <td
+                  data-label="Collection"
+                  data-value="{{ collection.name }}"
+                  class="fw-medium"
+                >
                   {{ collection.name }}
                 </td>
-                <td data-value="{{ collection.document_count }}">
+                <td data-label="Documents" data-value="{{ collection.document_count }}">
                   {{ collection.document_count }}
                 </td>
-                <td data-value="{{ collection.size_mb or 0 }}">
+                <td data-label="Size (MB)" data-value="{{ collection.size_mb or 0 }}">
                   {% if collection.size_mb is not none %} {{
                   "%.2f"|format(collection.size_mb) }} {% else %} N/A {% endif %}
                 </td>
-                <td>
+                <td data-label="Actions" class="action-cell">
                   <div class="btn-group btn-group-sm">
                     <button
                       class="btn btn-outline-danger clear-collection"
