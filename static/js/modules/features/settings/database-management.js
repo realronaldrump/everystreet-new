@@ -140,7 +140,9 @@ export function initDatabaseManagement({ signal } = {}) {
         const sizeDisplay
           = sizeBytes == null
             ? Number.isFinite(source.size_mb)
-              ? `${source.size_mb} MB`
+              ? source.size_mb > 1024
+                ? `${(source.size_mb / 1024).toFixed(2)} GB`
+                : `${source.size_mb.toFixed(2)} MB`
               : "N/A"
             : formatBytes(sizeBytes);
         const status = source.error ? "Error" : "OK";

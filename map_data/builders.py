@@ -7,6 +7,7 @@ Handles triggering and monitoring builds using Docker SDK.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import os
 import shlex
@@ -30,6 +31,8 @@ def _raise_error(msg: str, exc_type: type[Exception] = RuntimeError) -> None:
 BUILD_TIMEOUT = 7200  # 2 hours max build time
 PROGRESS_UPDATE_INTERVAL = 5.0  # Update progress every 5 seconds
 CONTAINER_START_TIMEOUT = 120  # seconds to wait for container to start
+_OUTPUT_LINE_OVERFLOW_TEXT = "Output line exceeded buffer; skipping"
+_OUTPUT_LINE_OVERFLOW_BYTES = _OUTPUT_LINE_OVERFLOW_TEXT.encode("utf-8")
 
 
 def _get_int_env(name: str, default: int) -> int:
@@ -42,6 +45,27 @@ def _get_int_env(name: str, default: int) -> int:
         return default
     else:
         return parsed if parsed > 0 else default
+
+
+async def _safe_readline(
+    stream: asyncio.StreamReader,
+    *,
+    timeout: float,
+    label: str,
+) -> bytes:
+    try:
+        return await asyncio.wait_for(stream.readline(), timeout=timeout)
+    except asyncio.LimitOverrunError as exc:
+        consumed = int(getattr(exc, "consumed", 0) or 0)
+        if consumed > 0:
+            with contextlib.suppress(Exception):
+                await stream.readexactly(consumed)
+        logger.warning(
+            "%s output line exceeded buffer; skipped %s bytes",
+            label,
+            consumed,
+        )
+        return _OUTPUT_LINE_OVERFLOW_BYTES
 
 
 async def start_container_on_demand(
@@ -429,53 +453,68 @@ async def build_nominatim_data(
 
         while True:
             try:
-                line = await asyncio.wait_for(
-                    process.stdout.readline(),
+                line = await _safe_readline(
+                    process.stdout,
                     timeout=PROGRESS_UPDATE_INTERVAL,
+                    label="Nominatim import",
                 )
                 if line:
+                    overflow = line == _OUTPUT_LINE_OVERFLOW_BYTES
                     decoded = line.decode("utf-8", errors="replace").strip()
                     if decoded:
                         quiet_ticks = 0
-                        output_lines.append(decoded)
-                        # Keep only last 50 lines
-                        if len(output_lines) > 50:
-                            output_lines.pop(0)
+                        if not overflow:
+                            output_lines.append(decoded)
+                            # Keep only last 50 lines
+                            if len(output_lines) > 50:
+                                output_lines.pop(0)
 
                         # Update progress based on Nominatim output stages
-                        if "Importing OSM" in decoded or "Loading data" in decoded:
-                            progress = max(progress, 25)
-                        elif "Building index" in decoded or "Indexing" in decoded:
-                            progress = max(progress, 50)
-                        elif "Ranking" in decoded:
-                            progress = max(progress, 70)
-                        elif "Analysing" in decoded:
-                            progress = max(progress, 80)
-
-                        now = asyncio.get_event_loop().time()
-                        if now - last_log_time >= PROGRESS_UPDATE_INTERVAL:
-                            last_log_time = now
+                        if overflow:
                             if progress_callback:
-                                # Extract meaningful stage from output
-                                stage = "Processing..."
-                                for line_text in reversed(output_lines[-5:]):
-                                    if any(
-                                        kw in line_text.lower()
-                                        for kw in [
-                                            "import",
-                                            "index",
-                                            "load",
-                                            "analys",
-                                            "rank",
-                                        ]
-                                    ):
-                                        stage = (
-                                            line_text[:60] + "..."
-                                            if len(line_text) > 60
-                                            else line_text
-                                        )
-                                        break
-                                await _safe_callback(progress_callback, progress, stage)
+                                await _safe_callback(
+                                    progress_callback,
+                                    progress,
+                                    "Import in progress...",
+                                )
+                        else:
+                            if "Importing OSM" in decoded or "Loading data" in decoded:
+                                progress = max(progress, 25)
+                            elif "Building index" in decoded or "Indexing" in decoded:
+                                progress = max(progress, 50)
+                            elif "Ranking" in decoded:
+                                progress = max(progress, 70)
+                            elif "Analysing" in decoded:
+                                progress = max(progress, 80)
+
+                            now = asyncio.get_event_loop().time()
+                            if now - last_log_time >= PROGRESS_UPDATE_INTERVAL:
+                                last_log_time = now
+                                if progress_callback:
+                                    # Extract meaningful stage from output
+                                    stage = "Processing..."
+                                    for line_text in reversed(output_lines[-5:]):
+                                        if any(
+                                            kw in line_text.lower()
+                                            for kw in [
+                                                "import",
+                                                "index",
+                                                "load",
+                                                "analys",
+                                                "rank",
+                                            ]
+                                        ):
+                                            stage = (
+                                                line_text[:60] + "..."
+                                                if len(line_text) > 60
+                                                else line_text
+                                            )
+                                            break
+                                    await _safe_callback(
+                                        progress_callback,
+                                        progress,
+                                        stage,
+                                    )
                 elif process.returncode is not None:
                     break
             except TimeoutError:
@@ -901,55 +940,70 @@ async def build_valhalla_tiles(
 
         while True:
             try:
-                line = await asyncio.wait_for(
-                    process.stdout.readline(),
+                line = await _safe_readline(
+                    process.stdout,
                     timeout=PROGRESS_UPDATE_INTERVAL,
+                    label="Valhalla build",
                 )
                 if line:
+                    overflow = line == _OUTPUT_LINE_OVERFLOW_BYTES
                     decoded = line.decode("utf-8", errors="replace").strip()
                     if decoded:
                         quiet_ticks = 0
-                        output_lines.append(decoded)
-                        if len(output_lines) > 50:
-                            output_lines.pop(0)
+                        if not overflow:
+                            output_lines.append(decoded)
+                            if len(output_lines) > 50:
+                                output_lines.pop(0)
 
                         # Update progress based on Valhalla output stages
-                        if "Parsing" in decoded:
-                            progress = max(progress, 25)
-                        elif "Building" in decoded:
-                            progress = max(progress, 40)
-                        elif "Adding" in decoded:
-                            progress = max(progress, 55)
-                        elif "Forming" in decoded:
-                            progress = max(progress, 70)
-                        elif "Enhancing" in decoded:
-                            progress = max(progress, 80)
-                        elif "Finished" in decoded:
-                            progress = max(progress, 90)
-
-                        now = asyncio.get_event_loop().time()
-                        if now - last_log_time >= PROGRESS_UPDATE_INTERVAL:
-                            last_log_time = now
+                        if overflow:
                             if progress_callback:
-                                stage = "Building tiles..."
-                                for line_text in reversed(output_lines[-5:]):
-                                    if any(
-                                        kw in line_text
-                                        for kw in [
-                                            "Parsing",
-                                            "Building",
-                                            "Adding",
-                                            "Forming",
-                                            "Enhancing",
-                                        ]
-                                    ):
-                                        stage = (
-                                            line_text[:60] + "..."
-                                            if len(line_text) > 60
-                                            else line_text
-                                        )
-                                        break
-                                await _safe_callback(progress_callback, progress, stage)
+                                await _safe_callback(
+                                    progress_callback,
+                                    progress,
+                                    "Tile build in progress...",
+                                )
+                        else:
+                            if "Parsing" in decoded:
+                                progress = max(progress, 25)
+                            elif "Building" in decoded:
+                                progress = max(progress, 40)
+                            elif "Adding" in decoded:
+                                progress = max(progress, 55)
+                            elif "Forming" in decoded:
+                                progress = max(progress, 70)
+                            elif "Enhancing" in decoded:
+                                progress = max(progress, 80)
+                            elif "Finished" in decoded:
+                                progress = max(progress, 90)
+
+                            now = asyncio.get_event_loop().time()
+                            if now - last_log_time >= PROGRESS_UPDATE_INTERVAL:
+                                last_log_time = now
+                                if progress_callback:
+                                    stage = "Building tiles..."
+                                    for line_text in reversed(output_lines[-5:]):
+                                        if any(
+                                            kw in line_text
+                                            for kw in [
+                                                "Parsing",
+                                                "Building",
+                                                "Adding",
+                                                "Forming",
+                                                "Enhancing",
+                                            ]
+                                        ):
+                                            stage = (
+                                                line_text[:60] + "..."
+                                                if len(line_text) > 60
+                                                else line_text
+                                            )
+                                            break
+                                    await _safe_callback(
+                                        progress_callback,
+                                        progress,
+                                        stage,
+                                    )
                 elif process.returncode is not None:
                     break
             except TimeoutError:

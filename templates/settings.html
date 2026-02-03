@@ -1275,8 +1275,15 @@
                   {{ source.category }}
                 </td>
                 <td data-label="Size" data-value="{{ source.size_bytes or 0 }}" class="text-end">
-                  {% if source.size_mb is not none %} {{ "%.2f"|format(source.size_mb)
-                  }} MB {% else %} N/A {% endif %}
+                  {% if source.size_mb is not none %}
+                    {% if source.size_mb > 1024 %}
+                      {{ "%.2f"|format(source.size_mb / 1024) }} GB
+                    {% else %}
+                      {{ "%.2f"|format(source.size_mb) }} MB
+                    {% endif %}
+                  {% else %}
+                    N/A
+                  {% endif %}
                 </td>
                 <td data-label="Details" data-value="{{ source.detail or '' }}">
                   {% if source.detail %}
