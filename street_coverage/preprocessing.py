@@ -43,13 +43,15 @@ def _get_area_extract_threshold_mb() -> int:
     raw = os.getenv("OSM_AREA_EXTRACT_THRESHOLD_MB", "").strip()
     if not raw:
         return DEFAULT_AREA_EXTRACT_THRESHOLD_MB
+    try:
+        return max(int(raw), 0)
+    except ValueError:
+        return DEFAULT_AREA_EXTRACT_THRESHOLD_MB
 
 
 def _is_area_extract_required() -> bool:
     raw = os.getenv("OSM_AREA_EXTRACT_REQUIRED", "").strip().lower()
-    if raw in {"0", "false", "no", "off"}:
-        return False
-    return True
+    return raw not in {"0", "false", "no", "off"}
 
 
 def _get_graph_memory_limit_mb() -> int:
@@ -221,7 +223,7 @@ def _apply_memory_limit(max_mb: int) -> None:
 
         max_bytes = max_mb * 1024 * 1024
         resource.setrlimit(resource.RLIMIT_AS, (max_bytes, max_bytes))
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         logger.warning("Unable to apply memory limit: %s", exc)
 
 
@@ -257,7 +259,7 @@ def _graph_build_worker(
                 ),
             },
         )
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         result_queue.put({"success": False, "error": str(exc)})
 
 
@@ -268,6 +270,7 @@ def _build_graph_in_subprocess(
     max_mb: int,
 ) -> None:
     import multiprocessing as mp
+
     from shapely.geometry import mapping
 
     ctx = mp.get_context("spawn")
@@ -349,10 +352,13 @@ def _normalize_pyrosm_gdfs(nodes_gdf: Any, edges_gdf: Any) -> tuple[Any, Any]:
     nodes = nodes_gdf.copy()
     edges = edges_gdf.copy()
 
-    if "x" not in nodes.columns or "y" not in nodes.columns:
-        if "lon" in nodes.columns and "lat" in nodes.columns:
-            nodes["x"] = nodes["lon"]
-            nodes["y"] = nodes["lat"]
+    if (
+        ("x" not in nodes.columns or "y" not in nodes.columns)
+        and "lon" in nodes.columns
+        and "lat" in nodes.columns
+    ):
+        nodes["x"] = nodes["lon"]
+        nodes["y"] = nodes["lat"]
 
     if nodes.index.name not in {"osmid", "id"} or not nodes.index.is_unique:
         if "id" in nodes.columns:
@@ -474,14 +480,12 @@ async def preprocess_streets(
             osm_path = Path(osm_path_str)
             logger.info("Using OSM extract: %s", osm_path)
             if not osm_path.exists():
-                msg = f"OSM data file not found: {osm_path}"
-                raise FileNotFoundError(msg)
+                raise FileNotFoundError(f"OSM data file not found: {osm_path}")
             if osm_path.suffix.lower() not in OSM_EXTENSIONS:
-                msg = (
+                raise ValueError(
                     "OSM_DATA_PATH must point to an OSM extract (.osm, .xml, or .pbf) "
                     "exported from your Valhalla/Nominatim data."
                 )
-                raise ValueError(msg)
             threshold_mb = _get_area_extract_threshold_mb()
             try:
                 size_mb = osm_path.stat().st_size / (1024 * 1024)
