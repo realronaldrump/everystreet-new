@@ -560,14 +560,14 @@
 .light-mode .stat-value,
 [data-bs-theme="light"] .legend-label,
 .light-mode .legend-label {
-  color: #1f2937;
+  color: var(--text-primary);
 }
 
 [data-bs-theme="light"] .stat-label,
 .light-mode .stat-label,
 [data-bs-theme="light"] .legend-title,
 .light-mode .legend-title {
-  color: #6b7280;
+  color: var(--text-secondary);
 }
 
 [data-bs-theme="light"] .county-tooltip,
@@ -578,35 +578,35 @@
 
 [data-bs-theme="light"] .tooltip-county-name,
 .light-mode .tooltip-county-name {
-  color: #1f2937;
+  color: var(--text-primary);
 }
 
 [data-bs-theme="light"] .tooltip-state-name,
 .light-mode .tooltip-state-name {
-  color: #6b7280;
+  color: var(--text-secondary);
 }
 
 [data-bs-theme="light"] .map-loading-overlay,
 .light-mode .map-loading-overlay {
-  background: #f9fafb;
+  background: var(--surface-0);
 }
 
 [data-bs-theme="light"] .loading-text,
 .light-mode .loading-text {
-  color: #1f2937;
+  color: var(--text-primary);
 }
 
 [data-bs-theme="light"] .last-updated,
 .light-mode .last-updated {
-  color: #6b7280;
+  color: var(--text-secondary);
 }
 
 [data-bs-theme="light"] .recalculate-status,
 .light-mode .recalculate-status {
-  color: #6b7280;
+  color: var(--text-secondary);
 }
 
 [data-bs-theme="light"] .recalculate-prompt p,
 .light-mode .recalculate-prompt p {
-  color: #1f2937;
+  color: var(--text-primary);
 }
