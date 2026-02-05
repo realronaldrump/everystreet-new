@@ -223,47 +223,87 @@ async def get_all_streets(
             detail="Invalid status filter",
         )
 
-    # Load all streets for this area version
+    if status in (None, "undriven"):
+        # Undriven is the default state; CoverageState rows may be omitted entirely.
+        # To keep this endpoint fast, only load non-default statuses and default
+        # missing statuses to undriven.
+        streets = await Street.find(
+            {
+                "area_id": area_id,
+                "area_version": area.area_version,
+            },
+        ).to_list()
+
+        if not streets:
+            return {"type": "FeatureCollection", "features": []}
+
+        street_ids = {s.segment_id for s in streets}
+        states = await CoverageState.find(
+            {
+                "area_id": area_id,
+                "status": {"$in": ["driven", "undriveable"]},
+            },
+        ).to_list()
+        status_map = {
+            s.segment_id: s.status for s in states if s.segment_id in street_ids
+        }
+
+        features = []
+        for street in streets:
+            segment_status = status_map.get(street.segment_id, "undriven")
+            if status == "undriven" and segment_status != "undriven":
+                continue
+
+            features.append(
+                {
+                    "type": "Feature",
+                    "geometry": street.geometry,
+                    "properties": {
+                        "segment_id": street.segment_id,
+                        "street_name": street.street_name,
+                        "highway_type": street.highway_type,
+                        "length_miles": street.length_miles,
+                        "status": segment_status,
+                    },
+                },
+            )
+
+        return {
+            "type": "FeatureCollection",
+            "features": features,
+        }
+
+    # status in {"driven", "undriveable"}: fetch the matching CoverageState rows
+    # first, then hydrate with the current Street geometries.
+    states = await CoverageState.find({"area_id": area_id, "status": status}).to_list()
+    if not states:
+        return {"type": "FeatureCollection", "features": []}
+
+    segment_ids = [s.segment_id for s in states]
     streets = await Street.find(
         {
             "area_id": area_id,
             "area_version": area.area_version,
+            "segment_id": {"$in": segment_ids},
         },
     ).to_list()
 
-    if not streets:
-        return {"type": "FeatureCollection", "features": []}
-
-    segment_ids = [s.segment_id for s in streets]
-    states = await CoverageState.find(
-        {"area_id": area_id, "segment_id": {"$in": segment_ids}},
-    ).to_list()
-    status_map = {s.segment_id: s.status for s in states}
-
-    features = []
-    for street in streets:
-        segment_status = status_map.get(street.segment_id, "undriven")
-        if status and segment_status != status:
-            continue
-
-        features.append(
-            {
-                "type": "Feature",
-                "geometry": street.geometry,
-                "properties": {
-                    "segment_id": street.segment_id,
-                    "street_name": street.street_name,
-                    "highway_type": street.highway_type,
-                    "length_miles": street.length_miles,
-                    "status": segment_status,
-                },
+    features = [
+        {
+            "type": "Feature",
+            "geometry": street.geometry,
+            "properties": {
+                "segment_id": street.segment_id,
+                "street_name": street.street_name,
+                "highway_type": street.highway_type,
+                "length_miles": street.length_miles,
+                "status": status,
             },
-        )
+        }
+        for street in streets
+    ]
 
-    return {
-        "type": "FeatureCollection",
-        "features": features,
-    }
+    return {"type": "FeatureCollection", "features": features}
 
 
 @router.patch("/areas/{area_id}/streets/{segment_id}")
@@ -288,19 +328,19 @@ async def update_segment_status(
         )
 
     if request.status == "undriveable":
-        await mark_segment_undriveable(area_id, segment_id)
+        ok = await mark_segment_undriveable(area_id, segment_id)
     elif request.status == "undriven":
-        await mark_segment_undriven(area_id, segment_id)
+        ok = await mark_segment_undriven(area_id, segment_id)
     else:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid status: {request.status}. Must be 'undriveable' or 'undriven'.",
         )
-
-    # Recalculate stats
-    from street_coverage.stats import update_area_stats
-
-    await update_area_stats(area_id)
+    if not ok:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update segment status",
+        )
 
     return {
         "success": True,
@@ -321,18 +361,15 @@ async def mark_segments_driven(
             detail="Coverage area not found",
         )
 
-    updated = await update_coverage_for_segments(
+    result = await update_coverage_for_segments(
         area_id=area_id,
         segment_ids=request.segment_ids,
     )
 
-    from street_coverage.stats import update_area_stats
-
-    await update_area_stats(area_id)
-
     return {
         "success": True,
-        "updated": updated,
+        "updated": result.updated,
+        "newly_driven": len(result.newly_driven_segment_ids),
     }
 
 

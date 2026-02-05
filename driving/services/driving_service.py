@@ -160,7 +160,14 @@ def _estimate_linestring_length_m(geometry: dict[str, Any] | None) -> float:
 async def _load_undriven_segments(area: CoverageArea) -> list[dict[str, Any]]:
     driven_segment_ids = set()
     undriveable_segment_ids = set()
-    async for state in CoverageState.find(CoverageState.area_id == area.id):
+    # CoverageState may omit explicit "undriven" rows; only fetch the
+    # non-default statuses to avoid scanning an entire area worth of segments.
+    async for state in CoverageState.find(
+        {
+            "area_id": area.id,
+            "status": {"$in": ["driven", "undriveable"]},
+        },
+    ):
         if state.status == "driven":
             driven_segment_ids.add(state.segment_id)
         elif state.status == "undriveable":

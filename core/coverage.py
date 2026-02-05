@@ -7,6 +7,7 @@ import itertools
 import logging
 import time
 from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from functools import lru_cache
 from statistics import median
@@ -23,7 +24,6 @@ from core.spatial import geodesic_distance_meters, get_local_transformers
 from db.models import CoverageArea, CoverageState, Street, Trip
 from street_coverage.constants import (
     BACKFILL_BULK_WRITE_SIZE,
-    BACKFILL_TRIP_BATCH_SIZE,
     GPS_GAP_MULTIPLIER,
     MATCH_BUFFER_METERS,
     MAX_GPS_GAP_METERS,
@@ -32,7 +32,7 @@ from street_coverage.constants import (
     MIN_OVERLAP_METERS,
     SHORT_SEGMENT_OVERLAP_RATIO,
 )
-from street_coverage.stats import update_area_stats
+from street_coverage.stats import apply_area_stats_delta
 
 if TYPE_CHECKING:
     from shapely.geometry.base import BaseGeometry
@@ -40,6 +40,53 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 BackfillProgressCallback = Callable[[dict[str, Any]], Awaitable[None]]
+
+
+async def _bulk_write_updates(
+    collection: Any,
+    updates: list[tuple[dict[str, Any], dict[str, Any], bool]],
+    *,
+    ordered: bool = False,
+) -> tuple[int, int]:
+    """
+    Run a batch of update operations efficiently.
+
+    Uses bulk_write when supported by the backend. Falls back to N
+    update_one calls for test backends (mongomock) that don't fully
+    implement pymongo's bulk API.
+    """
+    if not updates:
+        return 0, 0
+
+    operations = [UpdateOne(flt, doc, upsert=upsert) for flt, doc, upsert in updates]
+    try:
+        result = await collection.bulk_write(operations, ordered=ordered)
+    except TypeError as exc:
+        # mongomock's bulk_write doesn't accept the newer pymongo UpdateOne "sort"
+        # kwarg, even when it's None. Fall back to N update_one calls.
+        if "unexpected keyword argument 'sort'" not in str(exc):
+            raise
+
+        modified = 0
+        upserted = 0
+        for flt, doc, upsert in updates:
+            res = await collection.update_one(flt, doc, upsert=upsert)
+            modified += int(getattr(res, "modified_count", 0) or 0)
+            if getattr(res, "upserted_id", None) is not None:
+                upserted += 1
+        return modified, upserted
+
+    upserted_count = getattr(result, "upserted_count", None)
+    if upserted_count is None:
+        upserted_count = len(getattr(result, "upserted_ids", {}) or {})
+    return int(getattr(result, "modified_count", 0) or 0), int(upserted_count or 0)
+
+
+@dataclass(frozen=True, slots=True)
+class CoverageSegmentsUpdateResult:
+    updated: int
+    newly_driven_segment_ids: list[str]
+    newly_driven_length_miles: float
 
 
 class AreaSegmentIndex:
@@ -131,7 +178,8 @@ class AreaSegmentIndex:
             transform(self.to_meters, g) for g in self.segment_geoms
         ]
 
-        self.strtree = STRtree(self.segment_geoms)
+        # Index in projected meters space to avoid lon/lat degree distortions.
+        self.strtree = STRtree(self.segment_geoms_meters)
 
         self._built = True
         logger.info(
@@ -147,6 +195,8 @@ class AreaSegmentIndex:
         buffer_meters: float = MATCH_BUFFER_METERS,
         min_overlap_meters: float = MIN_OVERLAP_METERS,
         short_segment_ratio: float = SHORT_SEGMENT_OVERLAP_RATIO,
+        *,
+        skip_segment_ids: set[str] | None = None,
     ) -> list[str]:
         """
         Find all segments that match a trip line using the spatial index.
@@ -156,18 +206,18 @@ class AreaSegmentIndex:
         if not self._built or not self.strtree or not self.segments:
             return []
 
-        trip_buffer_wgs84 = trip_line.buffer(buffer_meters / 111139)
-        candidate_indices = self.strtree.query(trip_buffer_wgs84)
+        trip_meters = transform(self.to_meters, trip_line)
+        trip_buffer_meters = trip_meters.buffer(buffer_meters)
+        candidate_indices = self.strtree.query(trip_buffer_meters)
 
         if len(candidate_indices) == 0:
             return []
 
-        trip_meters = transform(self.to_meters, trip_line)
-        trip_buffer_meters = trip_meters.buffer(buffer_meters)
-
         matched_ids = []
         for idx in candidate_indices:
             segment = self.segments[idx]
+            if skip_segment_ids and segment.segment_id in skip_segment_ids:
+                continue
             segment_meters = self.segment_geoms_meters[idx]
 
             if not trip_buffer_meters.intersects(segment_meters):
@@ -218,11 +268,10 @@ class AreaSegmentIndex:
             if trip_line is None or trip_line.is_empty:
                 continue
 
-            trip_buffer_wgs84 = trip_line.buffer(buffer_meters / 111139)
             trip_meters = transform(self.to_meters, trip_line)
             trip_buffer_meters = trip_meters.buffer(buffer_meters)
 
-            candidate_indices = self.strtree.query(trip_buffer_wgs84)
+            candidate_indices = self.strtree.query(trip_buffer_meters)
 
             for idx in candidate_indices:
                 segment_id = self.segments[idx].segment_id
@@ -598,7 +647,7 @@ async def update_coverage_for_trip(
 
     total_updated = 0
     for area_id, segment_ids in matches.items():
-        updated = await update_coverage_for_segments(
+        result = await update_coverage_for_segments(
             area_id=area_id,
             segment_ids=segment_ids,
             trip_id=(
@@ -606,8 +655,7 @@ async def update_coverage_for_trip(
             ),
             driven_at=trip_driven_at,
         )
-        total_updated += updated
-        await update_area_stats(area_id)
+        total_updated += result.updated
 
     logger.info(
         "Trip coverage updated %s segments across %s areas",
@@ -622,79 +670,86 @@ async def update_coverage_for_segments(
     segment_ids: list[str],
     trip_id: PydanticObjectId | None = None,
     driven_at: datetime | str | None = None,
-) -> int:
+) -> CoverageSegmentsUpdateResult:
     """
     Mark segments as driven for an area.
 
     Uses bulk operations for efficiency. Returns the number of segments
-    updated.
+    updated and which segments were newly driven.
     """
     if not segment_ids:
-        return 0
+        return CoverageSegmentsUpdateResult(
+            updated=0,
+            newly_driven_segment_ids=[],
+            newly_driven_length_miles=0.0,
+        )
 
-    undriveable_states = await CoverageState.find(
+    # De-dupe but keep stable order for predictable behavior and smaller writes.
+    segment_ids = list(dict.fromkeys(segment_ids))
+
+    states = await CoverageState.find(
         {
             "area_id": area_id,
             "segment_id": {"$in": segment_ids},
-            "status": "undriveable",
+            "status": {"$in": ["driven", "undriveable"]},
         },
     ).to_list()
-    undriveable_ids = {state.segment_id for state in undriveable_states}
+    undriveable_ids = {s.segment_id for s in states if s.status == "undriveable"}
     if undriveable_ids:
         segment_ids = [sid for sid in segment_ids if sid not in undriveable_ids]
 
     if not segment_ids:
-        return 0
+        return CoverageSegmentsUpdateResult(
+            updated=0,
+            newly_driven_segment_ids=[],
+            newly_driven_length_miles=0.0,
+        )
+
+    # Determine which segments are newly driven so we can update cached stats
+    # without a full recompute.
+    driven_ids = {s.segment_id for s in states if s.status == "driven"}
+    newly_driven_ids = [sid for sid in segment_ids if sid not in driven_ids]
 
     driven_at = normalize_to_utc_datetime(driven_at) or get_current_utc_time()
 
-    operations = []
-    for segment_id in segment_ids:
-        update_pipeline = [
+    collection = CoverageState.get_pymongo_collection()
+    updates = [
+        (
+            {"area_id": area_id, "segment_id": segment_id},
             {
-                "$set": {
-                    "status": "driven",
-                    "last_driven_at": driven_at,
-                    "first_driven_at": {
-                        "$let": {
-                            "vars": {"existing": "$first_driven_at"},
-                            "in": {
-                                "$cond": [
-                                    {
-                                        "$or": [
-                                            {"$eq": ["$$existing", None]},
-                                            {"$gt": ["$$existing", driven_at]},
-                                        ],
-                                    },
-                                    driven_at,
-                                    "$$existing",
-                                ],
-                            },
-                        },
-                    },
-                    "driven_by_trip_id": trip_id,
+                "$set": {"status": "driven"},
+                "$max": {"last_driven_at": driven_at},
+                "$min": {"first_driven_at": driven_at},
+                "$setOnInsert": {
                     "area_id": area_id,
                     "segment_id": segment_id,
-                    "manually_marked": {"$ifNull": ["$manually_marked", False]},
+                    "manually_marked": False,
                 },
             },
-        ]
-        operations.append(
-            UpdateOne(
-                {"area_id": area_id, "segment_id": segment_id},
-                update_pipeline,
-                upsert=True,
-            ),
+            True,
         )
+        for segment_id in segment_ids
+    ]
+    modified, upserted = await _bulk_write_updates(collection, updates, ordered=False)
+    updated = modified + upserted
 
-    updated = 0
-    if operations:
-        collection = CoverageState.get_motor_collection()
-        result = await collection.bulk_write(operations, ordered=False)
-        upserted_count = getattr(result, "upserted_count", None)
-        if upserted_count is None:
-            upserted_count = len(getattr(result, "upserted_ids", {}) or {})
-        updated = result.modified_count + upserted_count
+    # Only associate a trip with the segment if this update sets the most recent
+    # last_driven_at value. This preserves driven_by_trip_id for out-of-order trips.
+    if trip_id is not None and segment_ids:
+        trip_updates = [
+            (
+                {
+                    "area_id": area_id,
+                    "segment_id": segment_id,
+                    "last_driven_at": driven_at,
+                },
+                {"$set": {"driven_by_trip_id": trip_id}},
+                False,
+            )
+            for segment_id in segment_ids
+        ]
+        if trip_updates:
+            await _bulk_write_updates(collection, trip_updates, ordered=False)
 
     if updated:
         logger.debug(
@@ -703,7 +758,30 @@ async def update_coverage_for_segments(
             area_id,
         )
 
-    return updated
+    newly_driven_length = 0.0
+    if newly_driven_ids:
+        # Sum lengths for newly driven segments to update cached area stats.
+        area = await CoverageArea.get(area_id)
+        if area:
+            streets = await Street.find(
+                {
+                    "area_id": area_id,
+                    "area_version": area.area_version,
+                    "segment_id": {"$in": newly_driven_ids},
+                },
+            ).to_list()
+            newly_driven_length = sum(s.length_miles or 0.0 for s in streets)
+            await apply_area_stats_delta(
+                area_id,
+                driven_segments_delta=len(newly_driven_ids),
+                driven_length_miles_delta=newly_driven_length,
+            )
+
+    return CoverageSegmentsUpdateResult(
+        updated=updated,
+        newly_driven_segment_ids=newly_driven_ids,
+        newly_driven_length_miles=newly_driven_length,
+    )
 
 
 async def mark_segment_undriveable(
@@ -711,25 +789,53 @@ async def mark_segment_undriveable(
     segment_id: str,
 ) -> bool:
     """Mark a segment as undriveable (e.g., highway, private road)."""
-    result = await CoverageState.find_one(
+    street = await Street.find_one({"area_id": area_id, "segment_id": segment_id})
+    if not street:
+        return False
+
+    length_miles = float(street.length_miles or 0.0)
+
+    existing = await CoverageState.find_one(
         {"area_id": area_id, "segment_id": segment_id},
     )
+    previous_status = existing.status if existing else "undriven"
 
-    if result:
-        result.status = "undriveable"
-        result.manually_marked = True
-        result.marked_at = datetime.now(UTC)
-        await result.save()
+    if existing and previous_status == "undriveable":
+        # Ensure the manual flag is set, but no stats change needed.
+        existing.manually_marked = True
+        existing.marked_at = datetime.now(UTC)
+        await existing.save()
         return True
 
-    state = CoverageState(
-        area_id=area_id,
-        segment_id=segment_id,
-        status="undriveable",
-        manually_marked=True,
-        marked_at=datetime.now(UTC),
+    if existing:
+        existing.status = "undriveable"
+        existing.last_driven_at = None
+        existing.first_driven_at = None
+        existing.driven_by_trip_id = None
+        existing.manually_marked = True
+        existing.marked_at = datetime.now(UTC)
+        await existing.save()
+    else:
+        state = CoverageState(
+            area_id=area_id,
+            segment_id=segment_id,
+            status="undriveable",
+            manually_marked=True,
+            marked_at=datetime.now(UTC),
+        )
+        await state.insert()
+
+    driven_delta = -1 if previous_status == "driven" else 0
+    driven_len_delta = -length_miles if previous_status == "driven" else 0.0
+
+    await apply_area_stats_delta(
+        area_id,
+        driven_segments_delta=driven_delta,
+        driven_length_miles_delta=driven_len_delta,
+        undriveable_segments_delta=1,
+        undriveable_length_miles_delta=length_miles,
     )
-    await state.insert()
+
     return True
 
 
@@ -738,21 +844,41 @@ async def mark_segment_undriven(
     segment_id: str,
 ) -> bool:
     """Reset a segment to undriven state."""
-    result = await CoverageState.find_one(
+    street = await Street.find_one({"area_id": area_id, "segment_id": segment_id})
+    if not street:
+        return False
+
+    length_miles = float(street.length_miles or 0.0)
+
+    existing = await CoverageState.find_one(
         {"area_id": area_id, "segment_id": segment_id},
     )
 
-    if result:
-        result.status = "undriven"
-        result.last_driven_at = None
-        result.first_driven_at = None
-        result.driven_by_trip_id = None
-        result.manually_marked = True
-        result.marked_at = datetime.now(UTC)
-        await result.save()
+    if not existing:
+        # Missing state implies undriven already.
         return True
 
-    return False
+    previous_status = existing.status
+    await existing.delete()
+
+    driven_delta = -1 if previous_status == "driven" else 0
+    driven_len_delta = -length_miles if previous_status == "driven" else 0.0
+
+    undriveable_delta = -1 if previous_status == "undriveable" else 0
+    undriveable_len_delta = (
+        -length_miles if previous_status == "undriveable" else 0.0
+    )
+
+    if driven_delta or undriveable_delta:
+        await apply_area_stats_delta(
+            area_id,
+            driven_segments_delta=driven_delta,
+            driven_length_miles_delta=driven_len_delta,
+            undriveable_segments_delta=undriveable_delta,
+            undriveable_length_miles_delta=undriveable_len_delta,
+        )
+
+    return True
 
 
 async def backfill_coverage_for_area(
@@ -785,14 +911,22 @@ async def backfill_coverage_for_area(
     segment_index = await get_area_segment_index(area_id, area.area_version)
 
     processed_trips = 0
-    total_updated = 0
-    matched_batches = 0
+    matched_trips = 0
     last_reported_time = time.time()
+
+    # Track per-segment first/last driven timestamps (and the most-recent trip id).
+    segment_first: dict[str, datetime] = {}
+    segment_last: dict[str, datetime] = {}
+    segment_last_trip: dict[str, PydanticObjectId] = {}
+
+    undriveable_states = await CoverageState.find(
+        {"area_id": area_id, "status": "undriveable"},
+    ).to_list()
+    undriveable_ids = {state.segment_id for state in undriveable_states}
 
     async def report_progress(
         *,
         total_trips: int | None = None,
-        segments_found: int | None = None,
         force: bool = False,
     ) -> None:
         nonlocal last_reported_time
@@ -811,162 +945,204 @@ async def backfill_coverage_for_area(
             "area_id": str(area_id),
             "processed_trips": processed_trips,
             "total_trips": total_trips,
-            "segments_found": segments_found,
+            "matched_trips": matched_trips,
+            "segments_updated": len(segment_first),
             "stage": "matching",
         }
         await progress_callback(payload)
         last_reported_time = now
 
+    gps_filter: dict[str, Any] = {"$ne": None}
+    if (
+        isinstance(area.bounding_box, list)
+        and len(area.bounding_box) == 4
+        and all(isinstance(v, (int, float)) for v in area.bounding_box)
+    ):
+        min_lon, min_lat, max_lon, max_lat = map(float, area.bounding_box)
+        bbox_polygon = {
+            "type": "Polygon",
+            "coordinates": [
+                [
+                    [min_lon, min_lat],
+                    [max_lon, min_lat],
+                    [max_lon, max_lat],
+                    [min_lon, max_lat],
+                    [min_lon, min_lat],
+                ],
+            ],
+        }
+        gps_filter["$geoIntersects"] = {"$geometry": bbox_polygon}
+
     query: dict[str, Any] = {
-        "gps": {"$ne": None},
+        "gps": gps_filter,
         "invalid": {"$ne": True},
     }
     if since:
         query["endTime"] = {"$gte": since}
 
-    total_trip_count = await Trip.find(query).count()
+    # Geo queries are great in production, but some test backends may not
+    # implement them. If we can't count with the geo filter, fall back to
+    # scanning all valid trips (we still do precise STRtree matching).
+    try:
+        total_trip_count = await Trip.find(query).count()
+    except Exception:
+        gps_filter.pop("$geoIntersects", None)
+        total_trip_count = await Trip.find(query).count()
+
     logger.info(
-        "Processing %d trips for area %s in batches of %d",
+        "Processing %d trips for area %s",
         total_trip_count,
         area.display_name,
-        BACKFILL_TRIP_BATCH_SIZE,
     )
     await report_progress(total_trips=total_trip_count, force=True)
 
-    mega_batch_size = 50
-    all_matched_segments: set[str] = set()
-    total_line_count = 0
-    earliest_driven_at: datetime | None = None
-    skip = 0
+    cursor = Trip.find(query).sort([("endTime", 1), ("_id", 1)])
+    async for trip in cursor:
+        processed_trips += 1
+        trip_data = trip.model_dump()
+        trip_line = trip_to_linestring(trip_data)
+        if trip_line is None:
+            await report_progress(total_trips=total_trip_count)
+            continue
 
-    while True:
-        batch = (
-            await Trip.find(query).skip(skip).limit(BACKFILL_TRIP_BATCH_SIZE).to_list()
-        )
-        if not batch:
-            break
+        trip_time = get_trip_driven_at(trip_data)
+        if trip_time is None:
+            await report_progress(total_trips=total_trip_count)
+            continue
 
-        batch_lines: list[Any] = []
-        for trip in batch:
-            trip_data = trip.model_dump()
-            line = trip_to_linestring(trip_data)
-            if line is not None:
-                batch_lines.append(line)
-                total_line_count += 1
-                trip_time = get_trip_driven_at(trip_data)
-                if trip_time and (
-                    earliest_driven_at is None or trip_time < earliest_driven_at
-                ):
-                    earliest_driven_at = trip_time
+        matched_segment_ids = segment_index.find_matching_segments(trip_line)
+        if not matched_segment_ids:
+            await report_progress(total_trips=total_trip_count)
+            continue
 
-        for batch_start in range(0, len(batch_lines), mega_batch_size):
-            batch_end = min(batch_start + mega_batch_size, len(batch_lines))
-            batch_lines_slice = batch_lines[batch_start:batch_end]
-            if not batch_lines_slice:
+        matched_trips += 1
+
+        for segment_id in matched_segment_ids:
+            if segment_id in undriveable_ids:
                 continue
-            matched = segment_index.find_matching_segments_batch(batch_lines_slice)
-            all_matched_segments.update(matched)
-            matched_batches += 1
-            await report_progress(
-                total_trips=total_trip_count,
-                segments_found=len(all_matched_segments),
-            )
 
-        processed_trips += len(batch)
-        skip += len(batch)
+            existing_first = segment_first.get(segment_id)
+            if existing_first is None or trip_time < existing_first:
+                segment_first[segment_id] = trip_time
+
+            existing_last = segment_last.get(segment_id)
+            if existing_last is None or trip_time > existing_last:
+                segment_last[segment_id] = trip_time
+                if trip.id is not None:
+                    segment_last_trip[segment_id] = trip.id
+
         await report_progress(total_trips=total_trip_count)
 
-        # Explicit garbage collection to release memory between batches
-        del batch
-        del batch_lines
-        gc.collect()
+        # Periodic garbage collection to reduce peak memory when scanning
+        # large trip histories.
+        if processed_trips % (progress_interval * 10) == 0:
+            gc.collect()
 
-    logger.info(
-        "Converted %d/%d trips to valid geometries",
-        total_line_count,
-        total_trip_count,
-    )
-
-    if not total_line_count:
-        logger.warning("No valid trip geometries found for area %s", area.display_name)
-        await update_area_stats(area_id)
+    if not segment_first:
+        logger.info("Backfill found no matching segments for area %s", area.display_name)
+        await report_progress(total_trips=total_trip_count, force=True)
         return 0
 
+    segments_to_update = list(segment_first.keys())
     logger.info(
-        "Batch matching complete: %d segments matched from %d trips",
-        len(all_matched_segments),
-        total_line_count,
+        "Backfill matching complete for area %s: %d segments from %d trips",
+        area.display_name,
+        len(segments_to_update),
+        matched_trips,
     )
 
-    if all_matched_segments:
-        logger.info(
-            "Bulk updating %d segments for area %s",
-            len(all_matched_segments),
-            area.display_name,
+    # Determine which segments are newly driven for stats deltas.
+    driven_states = await CoverageState.find(
+        {
+            "area_id": area_id,
+            "segment_id": {"$in": segments_to_update},
+            "status": "driven",
+        },
+    ).to_list()
+    existing_driven = {s.segment_id for s in driven_states}
+    newly_driven_ids = [sid for sid in segments_to_update if sid not in existing_driven]
+
+    # Bulk upsert coverage state with accurate first/last driven timestamps.
+    collection = CoverageState.get_pymongo_collection()
+    operations: list[tuple[dict[str, Any], dict[str, Any], bool]] = []
+    trip_updates: list[tuple[dict[str, Any], dict[str, Any], bool]] = []
+
+    for segment_id in segments_to_update:
+        first_at = segment_first[segment_id]
+        last_at = segment_last.get(segment_id, first_at)
+
+        operations.append(
+            (
+                {"area_id": area_id, "segment_id": segment_id},
+                {
+                    "$set": {"status": "driven"},
+                    "$max": {"last_driven_at": last_at},
+                    "$min": {"first_driven_at": first_at},
+                    "$setOnInsert": {
+                        "area_id": area_id,
+                        "segment_id": segment_id,
+                        "manually_marked": False,
+                    },
+                },
+                True,
+            ),
         )
 
-        undriveable_states = await CoverageState.find(
-            {"area_id": area_id, "status": "undriveable"},
-        ).to_list()
-        undriveable_ids = {state.segment_id for state in undriveable_states}
-
-        segments_to_update = all_matched_segments - undriveable_ids
-
-        driven_at = earliest_driven_at or get_current_utc_time()
-
-        operations = []
-        for seg_id in segments_to_update:
-            operations.append(
-                UpdateOne(
-                    {"area_id": area_id, "segment_id": seg_id},
+        last_trip_id = segment_last_trip.get(segment_id)
+        if last_trip_id is not None:
+            trip_updates.append(
+                (
                     {
-                        "$set": {
-                            "status": "driven",
-                            "last_driven_at": driven_at,
-                        },
-                        "$min": {"first_driven_at": driven_at},
-                        "$setOnInsert": {
-                            "area_id": area_id,
-                            "segment_id": seg_id,
-                            "manually_marked": False,
-                            "driven_by_trip_id": None,
-                        },
+                        "area_id": area_id,
+                        "segment_id": segment_id,
+                        "last_driven_at": last_at,
                     },
-                    upsert=True,
+                    {"$set": {"driven_by_trip_id": last_trip_id}},
+                    False,
                 ),
             )
 
-            if len(operations) >= BACKFILL_BULK_WRITE_SIZE:
-                collection = CoverageState.get_pymongo_collection()
-                result = await collection.bulk_write(operations, ordered=False)
-                total_updated += result.modified_count + result.upserted_count
-                operations = []
-                await report_progress(
-                    total_trips=total_trip_count,
-                    segments_found=len(all_matched_segments),
-                )
+        if len(operations) >= BACKFILL_BULK_WRITE_SIZE:
+            await _bulk_write_updates(collection, operations, ordered=False)
+            operations = []
 
-        if operations:
-            collection = CoverageState.get_pymongo_collection()
-            result = await collection.bulk_write(operations, ordered=False)
-            total_updated += result.modified_count + result.upserted_count
+    if operations:
+        await _bulk_write_updates(collection, operations, ordered=False)
 
-    await update_area_stats(area_id)
-    await report_progress(
-        total_trips=total_trip_count,
-        segments_found=len(all_matched_segments),
-        force=True,
-    )
+    if trip_updates:
+        # Run in a second pass so last_driven_at is settled before we bind trip ids.
+        for i in range(0, len(trip_updates), BACKFILL_BULK_WRITE_SIZE):
+            chunk = trip_updates[i : i + BACKFILL_BULK_WRITE_SIZE]
+            await _bulk_write_updates(collection, chunk, ordered=False)
+
+    newly_driven_length = 0.0
+    if newly_driven_ids:
+        streets = await Street.find(
+            {
+                "area_id": area_id,
+                "area_version": area.area_version,
+                "segment_id": {"$in": newly_driven_ids},
+            },
+        ).to_list()
+        newly_driven_length = sum(s.length_miles or 0.0 for s in streets)
+        await apply_area_stats_delta(
+            area_id,
+            driven_segments_delta=len(newly_driven_ids),
+            driven_length_miles_delta=newly_driven_length,
+        )
+
+    await report_progress(total_trips=total_trip_count, force=True)
 
     logger.info(
-        "Backfill complete for area %s: %d segments from %d trips in %d batches",
+        "Backfill complete for area %s: %d segments updated (%d newly driven), %.2f mi",
         area.display_name,
-        total_updated,
-        total_line_count,
-        matched_batches,
+        len(segments_to_update),
+        len(newly_driven_ids),
+        newly_driven_length,
     )
 
-    return total_updated
+    # Return the number of segments that were newly marked driven.
+    return len(newly_driven_ids)
 
 
 def get_trip_driven_at(trip_data: dict[str, Any] | None) -> datetime | None:

@@ -5,7 +5,7 @@
 
 import TurnByTurnAPI from "./turn-by-turn-api.js";
 import { DISTANCE_THRESHOLDS } from "./turn-by-turn-config.js";
-import { distanceToLineString } from "./turn-by-turn-geo.js";
+import { distanceToLineString, toXY } from "./turn-by-turn-geo.js";
 
 /**
  * Coverage tracking for real-time segment completion
@@ -14,6 +14,7 @@ class TurnByTurnCoverage {
   constructor(config = {}) {
     this.config = {
       segmentMatchThresholdMeters: DISTANCE_THRESHOLDS.segmentMatch,
+      spatialIndexCellSizeMeters: 160,
       persistDebounceMs: 2000,
       ...config,
     };
@@ -25,6 +26,11 @@ class TurnByTurnCoverage {
     this.undrivenSegmentIds = new Set();
     this.totalSegmentLength = 0;
     this.drivenSegmentLength = 0;
+
+    // Spatial index of undriven segments for fast nearby matching.
+    this._spatialGrid = new Map(); // cellKey -> Set(segmentId)
+    this._segmentCells = new Map(); // segmentId -> Array(cellKey)
+    this._refLat = null;
 
     // Live session tracking
     this.liveSegmentsCovered = new Set();
@@ -42,6 +48,87 @@ class TurnByTurnCoverage {
     // Callbacks
     this.onMapUpdate = null;
     this.onCoverageUpdate = null;
+  }
+
+  _gridKey(cx, cy) {
+    return `${cx},${cy}`;
+  }
+
+  _indexUndrivenSegment(segmentId, coordinates) {
+    if (!segmentId || !Array.isArray(coordinates) || coordinates.length < 2) {
+      return;
+    }
+
+    if (!Number.isFinite(this._refLat)) {
+      const first = coordinates[0];
+      if (Array.isArray(first) && first.length >= 2 && Number.isFinite(first[1])) {
+        this._refLat = first[1];
+      } else {
+        this._refLat = 0;
+      }
+    }
+
+    // Compute a bbox in projected XY meters for grid indexing.
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+
+    for (const coord of coordinates) {
+      if (!Array.isArray(coord) || coord.length < 2) {
+        continue;
+      }
+      const xy = toXY(coord, this._refLat);
+      if (!Number.isFinite(xy?.x) || !Number.isFinite(xy?.y)) {
+        continue;
+      }
+      minX = Math.min(minX, xy.x);
+      minY = Math.min(minY, xy.y);
+      maxX = Math.max(maxX, xy.x);
+      maxY = Math.max(maxY, xy.y);
+    }
+
+    if (!Number.isFinite(minX) || !Number.isFinite(minY)) {
+      return;
+    }
+
+    const cellSize = Math.max(40, this.config.spatialIndexCellSizeMeters || 160);
+    const cx0 = Math.floor(minX / cellSize);
+    const cy0 = Math.floor(minY / cellSize);
+    const cx1 = Math.floor(maxX / cellSize);
+    const cy1 = Math.floor(maxY / cellSize);
+
+    const keys = [];
+    for (let cx = cx0; cx <= cx1; cx++) {
+      for (let cy = cy0; cy <= cy1; cy++) {
+        const key = this._gridKey(cx, cy);
+        if (!this._spatialGrid.has(key)) {
+          this._spatialGrid.set(key, new Set());
+        }
+        this._spatialGrid.get(key).add(segmentId);
+        keys.push(key);
+      }
+    }
+
+    this._segmentCells.set(segmentId, keys);
+  }
+
+  _unindexSegment(segmentId) {
+    const keys = this._segmentCells.get(segmentId);
+    if (!keys) {
+      return;
+    }
+    for (const key of keys) {
+      const bucket = this._spatialGrid.get(key);
+      if (!bucket) {
+        continue;
+      }
+      bucket.delete(segmentId);
+      if (bucket.size === 0) {
+        this._spatialGrid.delete(key);
+      }
+    }
+    this._segmentCells.delete(segmentId);
   }
 
   /**
@@ -64,9 +151,7 @@ class TurnByTurnCoverage {
     try {
       const geojson = await TurnByTurnAPI.fetchCoverageSegments(areaId);
       this.segmentsData = geojson;
-
-      const drivenFeatures = [];
-      const undrivenFeatures = [];
+      const driveableFeatures = [];
 
       // Index all segments and categorize
       for (const feature of geojson.features) {
@@ -81,22 +166,29 @@ class TurnByTurnCoverage {
           continue;
         }
 
+        // Mapbox feature-state requires a stable feature id.
+        feature.id = segmentId;
+
         this.segmentIndex.set(segmentId, feature);
         this.totalSegmentLength += length;
+        driveableFeatures.push(feature);
 
         if (isDriven) {
           this.drivenSegmentIds.add(segmentId);
           this.drivenSegmentLength += length;
-          drivenFeatures.push(feature);
         } else {
           this.undrivenSegmentIds.add(segmentId);
-          undrivenFeatures.push(feature);
+          this._indexUndrivenSegment(segmentId, feature.geometry?.coordinates);
         }
       }
 
       // Notify map to update layers
       if (this.onMapUpdate) {
-        this.onMapUpdate(drivenFeatures, undrivenFeatures, []);
+        this.onMapUpdate({
+          type: "init",
+          features: driveableFeatures,
+          drivenIds: Array.from(this.drivenSegmentIds),
+        });
       }
     } catch {
       // Silently fail - coverage tracking is optional enhancement
@@ -115,8 +207,38 @@ class TurnByTurnCoverage {
     const current = [position.lon, position.lat];
     const newlyDriven = [];
 
-    // Check each undriven segment
-    for (const segmentId of this.undrivenSegmentIds) {
+    const cellSize = Math.max(40, this.config.spatialIndexCellSizeMeters || 160);
+    if (!Number.isFinite(this._refLat)) {
+      this._refLat = current[1] || 0;
+    }
+    const p = toXY(current, this._refLat);
+    if (!Number.isFinite(p?.x) || !Number.isFinite(p?.y)) {
+      return;
+    }
+    const cx = Math.floor(p.x / cellSize);
+    const cy = Math.floor(p.y / cellSize);
+    const radiusCells = Math.max(
+      1,
+      Math.ceil(this.config.segmentMatchThresholdMeters / cellSize)
+    );
+
+    const candidates = new Set();
+    for (let dx = -radiusCells; dx <= radiusCells; dx++) {
+      for (let dy = -radiusCells; dy <= radiusCells; dy++) {
+        const bucket = this._spatialGrid.get(this._gridKey(cx + dx, cy + dy));
+        if (!bucket) {
+          continue;
+        }
+        for (const segmentId of bucket) {
+          candidates.add(segmentId);
+        }
+      }
+    }
+
+    for (const segmentId of candidates) {
+      if (!this.undrivenSegmentIds.has(segmentId)) {
+        continue;
+      }
       const feature = this.segmentIndex.get(segmentId);
       if (!feature) {
         continue;
@@ -141,7 +263,7 @@ class TurnByTurnCoverage {
    * @param {Array<string>} segmentIds
    */
   markSegmentsDriven(segmentIds) {
-    const newlyDrivenFeatures = [];
+    const newlyDrivenIds = [];
 
     for (const segmentId of segmentIds) {
       if (!this.undrivenSegmentIds.has(segmentId)) {
@@ -157,6 +279,7 @@ class TurnByTurnCoverage {
       this.undrivenSegmentIds.delete(segmentId);
       this.drivenSegmentIds.add(segmentId);
       this.liveSegmentsCovered.add(segmentId);
+      this._unindexSegment(segmentId);
 
       // Track length
       const lengthMiles = feature.properties?.length_miles || 0;
@@ -164,28 +287,19 @@ class TurnByTurnCoverage {
       this.drivenSegmentLength += length;
       this.liveCoverageIncrease += length;
 
-      newlyDrivenFeatures.push(feature);
+      newlyDrivenIds.push(segmentId);
     }
 
-    if (newlyDrivenFeatures.length === 0) {
+    if (newlyDrivenIds.length === 0) {
       return;
     }
 
-    // Rebuild feature arrays for map update
-    const drivenFeatures = [];
-    const undrivenFeatures = [];
-
-    for (const [segmentId, feature] of this.segmentIndex) {
-      if (this.drivenSegmentIds.has(segmentId)) {
-        drivenFeatures.push(feature);
-      } else if (this.undrivenSegmentIds.has(segmentId)) {
-        undrivenFeatures.push(feature);
-      }
-    }
-
-    // Update map with glow effect on newly driven
+    // Update map with glow effect on newly driven segments
     if (this.onMapUpdate) {
-      this.onMapUpdate(drivenFeatures, undrivenFeatures, newlyDrivenFeatures);
+      this.onMapUpdate({
+        type: "segments-driven",
+        segmentIds: newlyDrivenIds,
+      });
     }
 
     // Update coverage stats in real-time
@@ -194,17 +308,10 @@ class TurnByTurnCoverage {
     }
 
     // Trigger satisfaction feedback
-    this.onSegmentsCompleted(newlyDrivenFeatures.length);
+    this.onSegmentsCompleted(newlyDrivenIds.length);
 
     // Persist to server (debounced)
-    this.queueSegmentPersistence(segmentIds);
-
-    // Clear the "just driven" glow after animation
-    setTimeout(() => {
-      if (this.onMapUpdate) {
-        this.onMapUpdate(drivenFeatures, undrivenFeatures, []);
-      }
-    }, 1500);
+    this.queueSegmentPersistence(newlyDrivenIds);
   }
 
   /**
@@ -316,6 +423,9 @@ class TurnByTurnCoverage {
     this.undrivenSegmentIds.clear();
     this.totalSegmentLength = 0;
     this.drivenSegmentLength = 0;
+    this._spatialGrid.clear();
+    this._segmentCells.clear();
+    this._refLat = null;
     this.liveSegmentsCovered.clear();
     this.liveCoverageIncrease = 0;
     this.sessionSegmentsCompleted = 0;

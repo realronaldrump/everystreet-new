@@ -26,6 +26,11 @@ class TurnByTurnMap {
     this.mapReady = false;
     this.themeObserver = null;
 
+    // Coverage overlay state (re-applied after style changes)
+    this._coverageFeatureCollection = null;
+    this._coverageDrivenIds = new Set();
+    this._coverageGlowTimeouts = new Map();
+
     // Markers
     this.positionMarker = null;
     this.startMarker = null;
@@ -151,78 +156,71 @@ class TurnByTurnMap {
 
     // === COVERAGE SEGMENT LAYERS ===
 
-    if (!this.map.getSource("coverage-undriven")) {
-      this.map.addSource("coverage-undriven", { type: "geojson", data: emptyGeoJSON });
+    if (!this.map.getSource("coverage-segments")) {
+      this.map.addSource("coverage-segments", { type: "geojson", data: emptyGeoJSON });
     }
 
-    if (!this.map.getSource("coverage-driven")) {
-      this.map.addSource("coverage-driven", { type: "geojson", data: emptyGeoJSON });
-    }
-
-    if (!this.map.getSource("coverage-just-driven")) {
-      this.map.addSource("coverage-just-driven", {
-        type: "geojson",
-        data: emptyGeoJSON,
-      });
-    }
-
-    // Undriven segments layer
-    if (!this.map.getLayer("coverage-undriven-line")) {
+    // Base coverage line: style via feature-state to avoid rebuilding GeoJSON on every update.
+    if (!this.map.getLayer("coverage-segments-line")) {
       this.map.addLayer({
-        id: "coverage-undriven-line",
+        id: "coverage-segments-line",
         type: "line",
-        source: "coverage-undriven",
+        source: "coverage-segments",
         layout: { "line-cap": "round", "line-join": "round" },
         paint: {
-          "line-color": getThemeColor("--color-undriven", "#8b98a8"),
+          "line-color": [
+            "case",
+            ["boolean", ["feature-state", "driven"], false],
+            getThemeColor("--success", "#4d9a6a"),
+            getThemeColor("--color-undriven", "#8b98a8"),
+          ],
           "line-width": 4,
-          "line-opacity": 0.6,
+          "line-opacity": [
+            "case",
+            ["boolean", ["feature-state", "driven"], false],
+            0.4,
+            0.6,
+          ],
         },
       });
     }
 
-    // Driven segments layer
-    if (!this.map.getLayer("coverage-driven-line")) {
+    // Just-driven glow (feature-state `justDriven`)
+    if (!this.map.getLayer("coverage-segments-glow")) {
       this.map.addLayer({
-        id: "coverage-driven-line",
+        id: "coverage-segments-glow",
         type: "line",
-        source: "coverage-driven",
-        layout: { "line-cap": "round", "line-join": "round" },
-        paint: {
-          "line-color": getThemeColor("--success", "#4d9a6a"),
-          "line-width": 4,
-          "line-opacity": 0.4,
-        },
-      });
-    }
-
-    // Just-driven glow
-    if (!this.map.getLayer("coverage-just-driven-glow")) {
-      this.map.addLayer({
-        id: "coverage-just-driven-glow",
-        type: "line",
-        source: "coverage-just-driven",
+        source: "coverage-segments",
         layout: { "line-cap": "round", "line-join": "round" },
         paint: {
           "line-color": getThemeColor("--success", "#4d9a6a"),
           "line-width": 10,
-          "line-opacity": 0.3,
+          "line-opacity": [
+            "case",
+            ["boolean", ["feature-state", "justDriven"], false],
+            0.3,
+            0,
+          ],
           "line-blur": 4,
         },
       });
     }
 
-    // Just-driven line
-    if (!this.map.getLayer("coverage-just-driven-line")) {
+    if (!this.map.getLayer("coverage-segments-just-driven")) {
       this.map.addLayer({
-        id: "coverage-just-driven-line",
+        id: "coverage-segments-just-driven",
         type: "line",
-        source: "coverage-just-driven",
+        source: "coverage-segments",
         layout: { "line-cap": "round", "line-join": "round" },
         paint: {
           "line-color": getThemeColor("--success", "#4d9a6a"),
           "line-width": 5,
-          "line-opacity": 0.9,
+          "line-opacity": [
+            "case",
+            ["boolean", ["feature-state", "justDriven"], false],
+            0.9,
+            0,
+          ],
         },
       });
     }
@@ -306,6 +304,9 @@ class TurnByTurnMap {
         },
       });
     }
+
+    // Restore coverage data after style changes.
+    this._restoreCoverageOverlay();
   }
 
   /**
@@ -366,31 +367,94 @@ class TurnByTurnMap {
   }
 
   /**
-   * Update coverage map layers
-   * @param {Array} drivenFeatures
-   * @param {Array} undrivenFeatures
-   * @param {Array} justDrivenFeatures
+   * Restore coverage overlays after style changes.
    */
-  updateCoverageMapLayers(drivenFeatures, undrivenFeatures, justDrivenFeatures) {
-    if (!this.map) {
+  _restoreCoverageOverlay() {
+    if (!this.map || !this.mapReady || !this._coverageFeatureCollection) {
       return;
     }
 
-    const drivenSource = this.map.getSource("coverage-driven");
-    const undrivenSource = this.map.getSource("coverage-undriven");
-    const justDrivenSource = this.map.getSource("coverage-just-driven");
+    const source = this.map.getSource("coverage-segments");
+    if (!source) {
+      return;
+    }
 
-    if (drivenSource) {
-      drivenSource.setData({ type: "FeatureCollection", features: drivenFeatures });
+    source.setData(this._coverageFeatureCollection);
+
+    if (typeof this.map.removeFeatureState === "function") {
+      this.map.removeFeatureState({ source: "coverage-segments" });
     }
-    if (undrivenSource) {
-      undrivenSource.setData({ type: "FeatureCollection", features: undrivenFeatures });
+
+    for (const segmentId of this._coverageDrivenIds) {
+      this.map.setFeatureState(
+        { source: "coverage-segments", id: segmentId },
+        { driven: true }
+      );
     }
-    if (justDrivenSource) {
-      justDrivenSource.setData({
-        type: "FeatureCollection",
-        features: justDrivenFeatures,
-      });
+  }
+
+  _setCoverageOverlay(features, drivenIds) {
+    this._coverageFeatureCollection = {
+      type: "FeatureCollection",
+      features: Array.isArray(features) ? features : [],
+    };
+    this._coverageDrivenIds = new Set(Array.isArray(drivenIds) ? drivenIds : []);
+
+    // Clear any pending glow timers from a previous run/area.
+    for (const timeoutId of this._coverageGlowTimeouts.values()) {
+      clearTimeout(timeoutId);
+    }
+    this._coverageGlowTimeouts.clear();
+
+    this._restoreCoverageOverlay();
+  }
+
+  _markCoverageSegmentsDriven(segmentIds, glowMs = 1500) {
+    if (!this.map || !Array.isArray(segmentIds) || segmentIds.length === 0) {
+      return;
+    }
+
+    for (const segmentId of segmentIds) {
+      this._coverageDrivenIds.add(segmentId);
+
+      this.map.setFeatureState(
+        { source: "coverage-segments", id: segmentId },
+        { driven: true, justDriven: true }
+      );
+
+      const existing = this._coverageGlowTimeouts.get(segmentId);
+      if (existing) {
+        clearTimeout(existing);
+      }
+
+      const timeoutId = setTimeout(() => {
+        if (!this.map) {
+          return;
+        }
+        this.map.setFeatureState(
+          { source: "coverage-segments", id: segmentId },
+          { justDriven: false }
+        );
+        this._coverageGlowTimeouts.delete(segmentId);
+      }, glowMs);
+
+      this._coverageGlowTimeouts.set(segmentId, timeoutId);
+    }
+  }
+
+  /**
+   * Update coverage overlay from TurnByTurnCoverage events.
+   * @param {{type: string, features?: Array, drivenIds?: Array<string>, segmentIds?: Array<string>}} update
+   */
+  updateCoverageMapLayers(update) {
+    if (!update || typeof update !== "object") {
+      return;
+    }
+
+    if (update.type === "init") {
+      this._setCoverageOverlay(update.features, update.drivenIds);
+    } else if (update.type === "segments-driven") {
+      this._markCoverageSegmentsDriven(update.segmentIds);
     }
   }
 

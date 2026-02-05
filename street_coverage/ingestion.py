@@ -12,6 +12,7 @@ This module handles the complete lifecycle of adding a coverage area:
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import math
 from datetime import UTC, datetime
@@ -41,11 +42,49 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 _background_tasks: set[asyncio.Task] = set()
+_job_tasks: dict[str, set[asyncio.Task]] = {}
 
 
-def _track_task(task: asyncio.Task) -> None:
+def _track_task(
+    task: asyncio.Task,
+    *,
+    job_id: PydanticObjectId | None = None,
+) -> None:
     _background_tasks.add(task)
-    task.add_done_callback(_background_tasks.discard)
+
+    job_key = str(job_id) if job_id is not None else None
+    if job_key is not None:
+        _job_tasks.setdefault(job_key, set()).add(task)
+
+    def _cleanup(done: asyncio.Task) -> None:
+        _background_tasks.discard(done)
+        if job_key is None:
+            return
+        tasks = _job_tasks.get(job_key)
+        if not tasks:
+            return
+        tasks.discard(done)
+        if not tasks:
+            _job_tasks.pop(job_key, None)
+
+    task.add_done_callback(_cleanup)
+
+
+def cancel_ingestion_job(job_id: PydanticObjectId) -> bool:
+    """
+    Attempt to cancel any in-process ingestion tasks for a job.
+
+    Note: This only affects tasks running in the current process.
+    Callers should still mark the Job document as cancelled so the
+    pipeline can self-abort on the next progress update.
+    """
+    job_key = str(job_id)
+    tasks = _job_tasks.get(job_key)
+    if not tasks:
+        return False
+    for task in list(tasks):
+        task.cancel()
+    return True
 
 
 BACKFILL_PROGRESS_START = 75.0
@@ -104,7 +143,7 @@ async def create_area(
         return area
 
     task = asyncio.create_task(_run_ingestion_pipeline(area_id, job.id))
-    _track_task(task)
+    _track_task(task, job_id=job.id)
 
     return area
 
@@ -127,6 +166,14 @@ async def delete_area(area_id: PydanticObjectId) -> bool:
 
     # Delete any pending jobs for this area
     await Job.find({"area_id": area_id}).delete()
+
+    # Remove cached graph file (if present)
+    with contextlib.suppress(Exception):
+        from routing.constants import GRAPH_STORAGE_DIR
+
+        graph_path = GRAPH_STORAGE_DIR / f"{area_id}.graphml"
+        if graph_path.exists():
+            graph_path.unlink()
 
     # Delete the area itself
     await area.delete()
@@ -152,7 +199,27 @@ async def rebuild_area(area_id: PydanticObjectId) -> Job:
     area.area_version += 1
     area.optimal_route = None
     area.optimal_route_generated_at = None
+    area.last_error = None
+    area.last_synced = None
+    area.total_length_miles = 0.0
+    area.driveable_length_miles = 0.0
+    area.driven_length_miles = 0.0
+    area.coverage_percentage = 0.0
+    area.total_segments = 0
+    area.driven_segments = 0
+    area.undriveable_segments = 0
+    area.undriveable_length_miles = 0.0
     await area.save()
+
+    # Rebuilds are a clean slate: remove all prior derived data and cached graphs
+    await Street.find({"area_id": area_id}).delete()
+    await CoverageState.find({"area_id": area_id}).delete()
+    with contextlib.suppress(Exception):
+        from routing.constants import GRAPH_STORAGE_DIR
+
+        graph_path = GRAPH_STORAGE_DIR / f"{area_id}.graphml"
+        if graph_path.exists():
+            graph_path.unlink()
 
     # Create ingestion job
     job = Job(
@@ -169,7 +236,7 @@ async def rebuild_area(area_id: PydanticObjectId) -> Job:
 
     # Queue the ingestion (fire and forget)
     task = asyncio.create_task(_run_ingestion_pipeline(area_id, job.id))
-    _track_task(task)
+    _track_task(task, job_id=job.id)
 
     return job
 
@@ -195,11 +262,10 @@ async def _run_ingestion_pipeline(
 
     This is the main orchestrator that runs all ingestion stages.
     """
-    job = await Job.get(job_id)
     area = await CoverageArea.get(area_id)
 
-    if not job or not area:
-        logger.error("Job %s or area %s not found", job_id, area_id)
+    if not area:
+        logger.error("Area %s not found for job %s", area_id, job_id)
         return
 
     try:
@@ -208,19 +274,46 @@ async def _run_ingestion_pipeline(
             stage: str | None = None,
             progress: float | None = None,
             message: str | None = None,
+            status: str | None = None,
+            error: str | None = None,
+            started_at: datetime | None = None,
+            completed_at: datetime | None = None,
+            retry_count: int | None = None,
         ) -> None:
+            job = await Job.get(job_id)
+            if not job:
+                return
+
+            # Honor cancellation without allowing this pipeline to overwrite it.
+            if job.status == "cancelled":
+                raise asyncio.CancelledError()
+
+            updates: dict[str, Any] = {"updated_at": datetime.now(UTC)}
             if stage is not None:
-                job.stage = stage
+                updates["stage"] = stage
             if progress is not None:
-                job.progress = progress
+                updates["progress"] = float(progress)
             if message is not None:
-                job.message = message
-            await job.save()
+                updates["message"] = message
+            if status is not None:
+                updates["status"] = status
+            if error is not None:
+                updates["error"] = error
+            if started_at is not None:
+                updates["started_at"] = started_at
+            if completed_at is not None:
+                updates["completed_at"] = completed_at
+            if retry_count is not None:
+                updates["retry_count"] = int(retry_count)
+
+            await job.set(updates)
 
         # Mark job as running
-        job.status = "running"
-        job.started_at = datetime.now(UTC)
-        await update_job(message="Starting ingestion pipeline")
+        await update_job(
+            status="running",
+            started_at=datetime.now(UTC),
+            message="Starting ingestion pipeline",
+        )
 
         # Stage 1: Fetch boundary if needed
         await update_job(
@@ -250,7 +343,7 @@ async def _run_ingestion_pipeline(
             message="Loading graph data",
         )
 
-        osm_ways = await _load_osm_streets_from_graph(area, job.id)
+        osm_ways = await _load_osm_streets_from_graph(area, job_id)
         logger.info(
             "Loaded %s ways from local graph for %s",
             len(osm_ways),
@@ -264,9 +357,9 @@ async def _run_ingestion_pipeline(
             message=f"Segmenting {len(osm_ways):,} OSM ways",
         )
 
-        area_id = _validate_area_id(area)
+        area_doc_id = _validate_area_id(area)
 
-        segments = _segment_streets(osm_ways, area_id, area.area_version)
+        segments = _segment_streets(osm_ways, area_doc_id, area.area_version)
         logger.info(
             "Created %s segments for %s",
             len(segments),
@@ -279,10 +372,10 @@ async def _run_ingestion_pipeline(
         await update_job(
             stage="Clearing existing street data",
             progress=45,
-            message=f"Clearing data for version {area.area_version}",
+            message="Clearing existing street data",
         )
 
-        await _clear_existing_area_version_data(area_id, area.area_version)
+        await _clear_existing_area_data(area_doc_id)
 
         # Stage 5: Store segments
         await update_job(
@@ -297,10 +390,12 @@ async def _run_ingestion_pipeline(
         await update_job(
             stage="Initializing coverage",
             progress=70,
-            message=f"Initializing {len(segments):,} segments",
+            message="Preparing coverage state",
         )
 
-        await _initialize_coverage_state(area_id, segments)
+        # CoverageState documents are created only for non-default statuses
+        # (driven/undriveable). Missing states imply "undriven".
+        await _initialize_coverage_state(area_doc_id, segments)
 
         # Stage 7: Update statistics
         await update_job(
@@ -310,7 +405,7 @@ async def _run_ingestion_pipeline(
         )
 
         await area.set({"osm_fetched_at": datetime.now(UTC)})
-        stats_area = await update_area_stats(area_id)
+        stats_area = await update_area_stats(area_doc_id)
         if stats_area:
             await update_job(
                 message=(
@@ -375,10 +470,10 @@ async def _run_ingestion_pipeline(
                 stage="Processing historical trips",
                 progress=progress,
                 message=format_backfill_message(backfill_state),
-            )
+        )
 
         segments_updated = await backfill_coverage_for_area(
-            area_id,
+            area_doc_id,
             progress_callback=handle_backfill_progress,
         )
         backfill_state["segments_updated"] = segments_updated
@@ -389,19 +484,20 @@ async def _run_ingestion_pipeline(
         )
 
         # Complete
-        job.status = "completed"
-        job.stage = "Complete"
-        job.progress = 100
+        message = "Complete"
         if backfill_state.get("matched_trips", 0) > 0:
-            job.message = (
+            message = (
                 "Backfill updated "
                 f"{backfill_state['segments_updated']:,} segments from "
                 f"{backfill_state['matched_trips']:,} trips"
             )
-        else:
-            job.message = "Complete"
-        job.completed_at = datetime.now(UTC)
-        await job.save()
+        await update_job(
+            status="completed",
+            stage="Complete",
+            progress=100,
+            message=message,
+            completed_at=datetime.now(UTC),
+        )
 
         await area.set(
             {
@@ -413,30 +509,75 @@ async def _run_ingestion_pipeline(
 
         logger.info("Ingestion complete for area %s", area.display_name)
 
+    except asyncio.CancelledError:
+        logger.info("Ingestion cancelled for area %s (job %s)", area_id, job_id)
+        now = datetime.now(UTC)
+        job = await Job.get(job_id)
+        if job:
+            await job.set(
+                {
+                    "status": "cancelled",
+                    "stage": "Cancelled by user",
+                    "message": "Cancelled",
+                    "completed_at": job.completed_at or now,
+                    "updated_at": now,
+                },
+            )
+        await area.set(
+            {
+                "status": "error",
+                "health": "unavailable",
+                "last_error": "Cancelled by user",
+            },
+        )
+        return
     except Exception as e:
         logger.exception("Ingestion failed for area %s", area_id)
 
-        job.retry_count += 1
-        job.error = str(e)
+        job = await Job.get(job_id)
+        if not job:
+            return
+        if job.status == "cancelled":
+            return
+
+        retry_count = int(job.retry_count or 0) + 1
+        err_str = str(e)
+        now = datetime.now(UTC)
 
         area_updates: dict[str, Any] = {}
-        if job.retry_count >= MAX_INGESTION_RETRIES:
-            job.status = "needs_attention"
-            job.stage = "Failed - manual intervention required"
+        if retry_count >= MAX_INGESTION_RETRIES:
+            await job.set(
+                {
+                    "status": "needs_attention",
+                    "stage": "Failed - manual intervention required",
+                    "error": err_str,
+                    "retry_count": retry_count,
+                    "message": f"Failed: {err_str}",
+                    "completed_at": now,
+                    "updated_at": now,
+                },
+            )
             area_updates = {
                 "status": "error",
                 "health": "unavailable",
-                "last_error": str(e),
+                "last_error": err_str,
             }
         else:
-            job.status = "pending"
-            job.stage = f"Retry {job.retry_count} scheduled"
             # Schedule retry with exponential backoff
-            delay = RETRY_BASE_DELAY_SECONDS * (2 ** (job.retry_count - 1))
+            delay = RETRY_BASE_DELAY_SECONDS * (2 ** (retry_count - 1))
+            await job.set(
+                {
+                    "status": "pending",
+                    "stage": f"Retry {retry_count} scheduled",
+                    "error": err_str,
+                    "retry_count": retry_count,
+                    "message": f"Retrying in {delay:.0f}s: {err_str}",
+                    "updated_at": now,
+                },
+            )
             task = asyncio.create_task(_delayed_retry(area_id, job_id, delay))
-            _track_task(task)
+            _track_task(task, job_id=job_id)
 
-        await job.save()
         if area_updates:
             await area.set(area_updates)
 
@@ -447,7 +588,15 @@ async def _delayed_retry(
     delay_seconds: float,
 ) -> None:
     """Schedule a retry after a delay."""
-    await asyncio.sleep(delay_seconds)
+    try:
+        await asyncio.sleep(delay_seconds)
+    except asyncio.CancelledError:
+        return
+
+    job = await Job.get(job_id)
+    if not job or job.status == "cancelled":
+        return
+
     await _run_ingestion_pipeline(area_id, job_id)
 
 
@@ -853,46 +1002,29 @@ async def _store_segments(segments: list[dict[str, Any]]) -> None:
     logger.debug("Stored %s street segments", len(segments))
 
 
-async def _clear_existing_area_version_data(
-    area_id: PydanticObjectId,
-    area_version: int,
-) -> None:
+async def _clear_existing_area_data(area_id: PydanticObjectId) -> None:
     """
-    Clear any existing street data for the current area version.
+    Clear existing derived data for an area.
 
-    This keeps rebuilds and retries idempotent without deleting past
-    versions.
+    Rebuilds are treated as clean slates, and ingestion retries should
+    be idempotent. We delete *all* streets and coverage state for the
+    area to avoid accumulating old versions.
     """
-    await Street.find({"area_id": area_id, "area_version": area_version}).delete()
-
-    segment_prefix = f"{area_id}-{area_version}-"
-    await CoverageState.find(
-        {
-            "area_id": area_id,
-            "segment_id": {"$regex": f"^{segment_prefix}"},
-        },
-    ).delete()
+    await Street.find({"area_id": area_id}).delete()
+    await CoverageState.find({"area_id": area_id}).delete()
 
 
 async def _initialize_coverage_state(
     area_id: PydanticObjectId,
     segments: list[dict[str, Any]],
 ) -> None:
-    """Initialize coverage state for all segments as undriven."""
-    if not segments:
-        return
+    """
+    Initialize coverage state for an area.
 
-    # Create state records in batches
-    for i in range(0, len(segments), BATCH_SIZE):
-        batch = segments[i : i + BATCH_SIZE]
-        state_docs = [
-            CoverageState(
-                area_id=area_id,
-                segment_id=seg["segment_id"],
-                status="undriven",
-            )
-            for seg in batch
-        ]
-        await CoverageState.insert_many(state_docs)
-
-    logger.debug("Initialized coverage state for %s segments", len(segments))
+    CoverageState rows are only stored for non-default statuses
+    (driven/undriveable). Missing rows imply "undriven", so there is
+    nothing to initialize here.
+    """
+    _ = area_id
+    _ = segments
+    return

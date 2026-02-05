@@ -5,12 +5,14 @@ Provides endpoints for checking background job progress.
 """
 
 import logging
+from datetime import UTC, datetime
 
 from beanie import PydanticObjectId
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
 
 from db.models import CoverageArea, Job
+from street_coverage.ingestion import cancel_ingestion_job
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/coverage", tags=["coverage-jobs"])
@@ -176,8 +178,9 @@ async def cancel_job(job_id: PydanticObjectId):
     """
     Cancel a pending or running job.
 
-    Note: This doesn't immediately stop running tasks, but prevents
-    retries and marks the job as cancelled.
+    Attempts to cancel in-process tasks (best-effort) and marks the job
+    as cancelled in the database. Ingestion pipelines also self-abort by
+    checking job status between stages.
     """
     job = await Job.get(job_id)
     if not job:
@@ -192,9 +195,29 @@ async def cancel_job(job_id: PydanticObjectId):
             detail=f"Cannot cancel job with status: {job.status}",
         )
 
+    # Best-effort: cancel in-process asyncio task(s) for this job.
+    cancel_ingestion_job(job_id)
+
+    now = datetime.now(UTC)
     job.status = "cancelled"
     job.stage = "Cancelled by user"
+    job.message = "Cancelled"
+    job.completed_at = now
+    job.updated_at = now
     await job.save()
+
+    # For area ingestion/rebuild jobs, also mark the area as unavailable so the
+    # UI doesn't remain stuck in initializing/rebuilding.
+    if job.area_id and job.job_type in {"area_ingestion", "area_rebuild"}:
+        area = await CoverageArea.get(job.area_id)
+        if area:
+            await area.set(
+                {
+                    "status": "error",
+                    "health": "unavailable",
+                    "last_error": "Cancelled by user",
+                },
+            )
 
     return {
         "success": True,

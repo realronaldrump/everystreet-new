@@ -96,8 +96,8 @@ class TurnByTurnNavigator {
 
     // Coverage map update callback
     this.coverage.setCallbacks({
-      onMapUpdate: (driven, undriven, justDriven) => {
-        this.map.updateCoverageMapLayers(driven, undriven, justDriven);
+      onMapUpdate: (update) => {
+        this.map.updateCoverageMapLayers(update);
       },
       onCoverageUpdate: (stats) => {
         const baselinePercent = this.coverageBaseline.percentage || 0;

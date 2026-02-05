@@ -288,6 +288,8 @@ class CoverageArea(Document):
     coverage_percentage: float = 0.0
     total_segments: int = 0
     driven_segments: int = 0
+    undriveable_segments: int = 0
+    undriveable_length_miles: float = 0.0
     area_version: int = 1
     osm_fetched_at: datetime | None = None
     last_error: str | None = None
@@ -361,6 +363,19 @@ class CoverageState(Document):
     driven_by_trip_id: PydanticObjectId | None = None
     manually_marked: bool = False
     marked_at: datetime | None = None
+
+    @field_validator(
+        "last_driven_at",
+        "first_driven_at",
+        "marked_at",
+        mode="before",
+    )
+    @classmethod
+    def parse_datetime_fields(cls, v: Any) -> datetime | None:
+        """Normalize CoverageState datetimes to explicit UTC-aware values."""
+        if v is None:
+            return None
+        return parse_timestamp(v)
 
     class Settings:
         name = "coverage_state"

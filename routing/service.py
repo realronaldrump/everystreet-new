@@ -146,7 +146,14 @@ async def generate_optimal_route_with_progress(
         driven_segment_ids = set()
         undriveable_segment_ids = set()
 
-        async for state in CoverageState.find(CoverageState.area_id == location_id):
+        # CoverageState may omit explicit "undriven" rows; only fetch the
+        # non-default statuses to avoid scanning an entire area worth of segments.
+        async for state in CoverageState.find(
+            {
+                "area_id": location_id,
+                "status": {"$in": ["driven", "undriveable"]},
+            },
+        ):
             if state.status == "driven":
                 driven_segment_ids.add(state.segment_id)
             elif state.status == "undriveable":
