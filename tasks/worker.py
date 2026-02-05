@@ -28,6 +28,7 @@ from tasks.fetch import (
     periodic_fetch_trips,
 )
 from tasks.health import worker_heartbeat
+from tasks.logs import purge_server_logs_before
 from tasks.maintenance import remap_unmatched_trips, validate_trips
 from tasks.map_data import (
     SETUP_JOB_TIMEOUT_SECONDS,
@@ -40,6 +41,9 @@ from tasks.optimal_routes import generate_optimal_route
 
 PERIODIC_FETCH_TIMEOUT_SECONDS = int(
     os.getenv("TRIP_FETCH_JOB_TIMEOUT_SECONDS", str(15 * 60)),
+)
+LOG_PURGE_TIMEOUT_SECONDS = int(
+    os.getenv("LOG_PURGE_JOB_TIMEOUT_SECONDS", str(30 * 60)),
 )
 
 
@@ -86,6 +90,7 @@ class WorkerSettings:
         update_coverage_for_new_trips,
         generate_optimal_route,
         worker_heartbeat,
+        func(purge_server_logs_before, timeout=LOG_PURGE_TIMEOUT_SECONDS),
         # Map services setup tasks
         func(setup_map_data_task, timeout=SETUP_JOB_TIMEOUT_SECONDS),
         monitor_map_services,

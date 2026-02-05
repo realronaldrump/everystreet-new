@@ -130,7 +130,7 @@ def build_osmid_index(G: nx.MultiDiGraph) -> dict[int, list[EdgeRef]]:
     """Index OSM IDs to edges in the routing graph."""
     index: dict[int, list[EdgeRef]] = {}
     for u, v, k, data in G.edges(keys=True, data=True):
-        osmids = data.get("osmid")
+        osmids = data.get("osmid") or data.get("id")
         if osmids is None:
             continue
         candidates = osmids if isinstance(osmids, (list, set, tuple)) else [osmids]
@@ -271,10 +271,11 @@ def reverse_candidates_for_edge(
     # Try to match by osmid when possible; otherwise return all reverse edges.
     try:
         fwd = G.edges[u, v, key]
-        f_osmid = fwd.get("osmid")
+        f_osmid = fwd.get("osmid") or fwd.get("id")
         revs: list[EdgeRef] = []
         for rk, rdata in G[v][u].items():
-            if f_osmid is not None and rdata.get("osmid") == f_osmid:
+            r_osmid = rdata.get("osmid") or rdata.get("id")
+            if f_osmid is not None and r_osmid == f_osmid:
                 revs.append((v, u, rk))
         if revs:
             return revs

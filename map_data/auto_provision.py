@@ -76,20 +76,6 @@ US_STATE_BOUNDS: dict[str, tuple[float, float, float, float]] = {
 }
 
 
-def get_state_for_coordinate(lon: float, lat: float) -> str | None:
-    """
-    Determine which US state a coordinate falls within.
-
-    Uses bounding box checks for fast approximate detection. Returns the
-    first matching state code (e.g., 'CA') or None if not in any US
-    state.
-    """
-    for state_code, (min_lon, min_lat, max_lon, max_lat) in US_STATE_BOUNDS.items():
-        if min_lon <= lon <= max_lon and min_lat <= lat <= max_lat:
-            return state_code
-    return None
-
-
 def get_states_for_coordinate(lon: float, lat: float) -> set[str]:
     """
     Return all states whose bounding boxes include the coordinate.
@@ -182,22 +168,6 @@ async def detect_trip_states() -> dict[str, Any]:
         "sample_size": sample_size,
         "detected_at": datetime.now(UTC).isoformat(),
     }
-
-
-async def get_unconfigured_trip_states() -> list[str]:
-    """
-    Get states that have trips but are not yet configured for map services.
-
-    Returns:
-        List of state codes that need to be added to map coverage
-    """
-    config = await MapServiceConfig.get_or_create()
-    configured = set(config.selected_states)
-
-    detection = await detect_trip_states()
-    detected = set(detection["detected_states"])
-
-    return list(detected - configured)
 
 
 async def should_auto_provision() -> dict[str, Any]:

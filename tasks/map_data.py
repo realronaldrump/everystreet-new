@@ -88,7 +88,6 @@ class DownloadTracker:
 class DownloadResult:
     files: list[str]
     used_covering_extract: bool = False
-    covering_extract_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -372,7 +371,6 @@ async def _download_states(
     return DownloadResult(
         files=[os.path.join(states_dir, target.filename) for target in download_plan],
         used_covering_extract=len(states) > 1,
-        covering_extract_id=download_plan[0].geofabrik_id if len(states) > 1 else None,
     )
 
 

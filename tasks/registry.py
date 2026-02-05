@@ -92,11 +92,6 @@ def is_manual_only(task_id: str) -> bool:
     return bool(TASK_DEFINITIONS.get(task_id, {}).get("manual_only", False))
 
 
-def get_default_interval(task_id: str) -> int:
-    definition = TASK_DEFINITIONS.get(task_id, {})
-    return int(definition.get("default_interval_minutes", 0) or 0)
-
-
 def get_dependencies(task_id: str) -> list[str]:
     definition = TASK_DEFINITIONS.get(task_id, {})
     return list(definition.get("dependencies", []))

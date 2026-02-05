@@ -7,9 +7,6 @@ import os
 
 logger = logging.getLogger(__name__)
 
-_COMPOSE_CMD: list[str] | None = None
-
-
 def is_docker_unavailable_error(error_text: str) -> bool:
     lowered = (error_text or "").lower()
     return any(
@@ -47,36 +44,6 @@ async def run_docker(cmd: list[str], timeout: float = 10.0) -> tuple[int, str, s
         )
     except FileNotFoundError as exc:
         return 127, "", str(exc)
-
-
-async def resolve_compose_cmd() -> list[str]:
-    global _COMPOSE_CMD
-    if _COMPOSE_CMD:
-        return _COMPOSE_CMD
-
-    rc, _stdout, _stderr = await run_docker(["docker", "compose", "version"])
-    if rc == 0:
-        _COMPOSE_CMD = ["docker", "compose"]
-        return _COMPOSE_CMD
-
-    rc, _stdout, _stderr = await run_docker(["docker-compose", "version"])
-    if rc == 0:
-        _COMPOSE_CMD = ["docker-compose"]
-        return _COMPOSE_CMD
-
-    _COMPOSE_CMD = ["docker", "compose"]
-    return _COMPOSE_CMD
-
-
-async def run_compose(
-    args: list[str],
-    *,
-    compose_file: str = "docker-compose.yml",
-    timeout: float = 10.0,
-) -> tuple[int, str, str]:
-    base_cmd = await resolve_compose_cmd()
-    cmd = [*base_cmd, "-f", compose_file, *args]
-    return await run_docker(cmd, timeout=timeout)
 
 
 async def get_container_name(service_name: str) -> str:

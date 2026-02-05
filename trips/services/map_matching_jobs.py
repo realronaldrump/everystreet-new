@@ -25,7 +25,6 @@ from trips.services.matching import MapMatchingService
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_BATCH_SIZE = 50  # Smaller batches for better progress feedback
 TERMINAL_STAGES = {"completed", "failed", "error", "cancelled"}
 
 
@@ -835,9 +834,3 @@ class MapMatchingJobRunner:
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Unsupported map matching mode",
         )
-
-
-def _chunked(items: list[str], size: int) -> list[list[str]]:
-    if size <= 0:
-        return [items]
-    return [items[i : i + size] for i in range(0, len(items), size)]

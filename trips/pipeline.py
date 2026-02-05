@@ -375,17 +375,6 @@ class TripPipeline:
             return f"{hrs:02d}:{mins:02d}:{secs:02d}"
 
     @staticmethod
-    def _extract_processing_state(
-        state_history: list[dict[str, Any]],
-    ) -> str | None:
-        if not state_history:
-            return None
-        last_entry = state_history[-1]
-        if isinstance(last_entry, dict):
-            return last_entry.get("to")
-        return None
-
-    @staticmethod
     def _coerce_datetime(value: Any) -> datetime | None:
         if isinstance(value, datetime):
             return value

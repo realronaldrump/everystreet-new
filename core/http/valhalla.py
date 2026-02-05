@@ -13,7 +13,6 @@ from typing import Any
 from config import (
     require_valhalla_route_url,
     require_valhalla_status_url,
-    require_valhalla_trace_attributes_url,
     require_valhalla_trace_route_url,
 )
 from core.exceptions import ExternalServiceException
@@ -29,7 +28,6 @@ class ValhallaClient:
         self._status_url = require_valhalla_status_url()
         self._route_url = require_valhalla_route_url()
         self._trace_route_url = require_valhalla_trace_route_url()
-        self._trace_attributes_url = require_valhalla_trace_attributes_url()
 
     @retry_async()
     async def status(self) -> dict[str, Any]:
@@ -121,37 +119,6 @@ class ValhallaClient:
             msg = "Valhalla trace_route error: unexpected response"
             raise ExternalServiceException(msg, {"url": self._trace_route_url})
         return self._normalize_trace_response(data)
-
-    @retry_async()
-    async def trace_attributes(
-        self,
-        shape: list[dict[str, float | int | str]],
-        *,
-        costing: str = "auto",
-    ) -> dict[str, Any]:
-        if len(shape) < 2:
-            msg = "Valhalla trace_attributes requires at least two points."
-            raise ExternalServiceException(
-                msg,
-            )
-        payload = {
-            "shape": shape,
-            "costing": costing,
-            "shape_match": "map_snap",
-            "shape_format": "geojson",
-        }
-        session = await get_session()
-        data = await request_json(
-            "POST",
-            self._trace_attributes_url,
-            session=session,
-            json=payload,
-            service_name="Valhalla trace_attributes",
-        )
-        if not isinstance(data, dict):
-            msg = "Valhalla trace_attributes error: unexpected response"
-            raise ExternalServiceException(msg, {"url": self._trace_attributes_url})
-        return data
 
     @staticmethod
     def _normalize_route_response(data: dict[str, Any]) -> dict[str, Any]:

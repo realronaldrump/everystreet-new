@@ -14,19 +14,6 @@ from db import BouncieCredentials
 
 logger = logging.getLogger(__name__)
 
-
-def _normalize_fetch_concurrency(value: Any) -> int | None:
-    if value is None:
-        return None
-    try:
-        parsed = int(value)
-    except (TypeError, ValueError):
-        return None
-    if parsed < 1:
-        return None
-    return parsed
-
-
 async def get_bouncie_credentials() -> dict[str, Any]:
     """
     Retrieve Bouncie credentials from database.

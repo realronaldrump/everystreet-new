@@ -24,7 +24,6 @@ VALHALLA_BASE_URL_ENV_VAR: Final[str] = "VALHALLA_BASE_URL"
 VALHALLA_STATUS_URL_ENV_VAR: Final[str] = "VALHALLA_STATUS_URL"
 VALHALLA_ROUTE_URL_ENV_VAR: Final[str] = "VALHALLA_ROUTE_URL"
 VALHALLA_TRACE_ROUTE_URL_ENV_VAR: Final[str] = "VALHALLA_TRACE_ROUTE_URL"
-VALHALLA_TRACE_ATTRIBUTES_URL_ENV_VAR: Final[str] = "VALHALLA_TRACE_ATTRIBUTES_URL"
 VALHALLA_MAX_SHAPE_POINTS_ENV_VAR: Final[str] = "VALHALLA_MAX_SHAPE_POINTS"
 
 NOMINATIM_BASE_URL_ENV_VAR: Final[str] = "NOMINATIM_BASE_URL"
@@ -50,7 +49,6 @@ _DEPRECATED_SERVICE_ENV_VARS: Final[tuple[str, ...]] = (
     VALHALLA_STATUS_URL_ENV_VAR,
     VALHALLA_ROUTE_URL_ENV_VAR,
     VALHALLA_TRACE_ROUTE_URL_ENV_VAR,
-    VALHALLA_TRACE_ATTRIBUTES_URL_ENV_VAR,
     NOMINATIM_BASE_URL_ENV_VAR,
     NOMINATIM_SEARCH_URL_ENV_VAR,
     NOMINATIM_REVERSE_URL_ENV_VAR,
@@ -113,19 +111,6 @@ def require_mapbox_token() -> str:
     return token
 
 
-def _require_env_var(env_name: str, description: str) -> str:
-    value = os.getenv(env_name, "").strip()
-    if not value:
-        msg = (
-            f"{env_name} is not set. Configure it in the environment before "
-            f"startup. {description}"
-        )
-        raise RuntimeError(
-            msg,
-        )
-    return value
-
-
 def get_valhalla_base_url() -> str:
     _warn_deprecated_service_env_vars()
     return DEFAULT_VALHALLA_URL
@@ -144,11 +129,6 @@ def get_valhalla_route_url() -> str:
 def get_valhalla_trace_route_url() -> str:
     _warn_deprecated_service_env_vars()
     return f"{DEFAULT_VALHALLA_URL}/trace_route"
-
-
-def get_valhalla_trace_attributes_url() -> str:
-    _warn_deprecated_service_env_vars()
-    return f"{DEFAULT_VALHALLA_URL}/trace_attributes"
 
 
 def get_valhalla_max_shape_points() -> int:
@@ -181,10 +161,6 @@ def require_valhalla_route_url() -> str:
 
 def require_valhalla_trace_route_url() -> str:
     return get_valhalla_trace_route_url()
-
-
-def require_valhalla_trace_attributes_url() -> str:
-    return get_valhalla_trace_attributes_url()
 
 
 def get_nominatim_base_url() -> str:
@@ -336,7 +312,6 @@ __all__ = [
     "get_valhalla_base_url",
     "get_valhalla_route_url",
     "get_valhalla_status_url",
-    "get_valhalla_trace_attributes_url",
     "get_valhalla_trace_route_url",
     "require_mapbox_token",
     "require_nominatim_base_url",
@@ -347,7 +322,6 @@ __all__ = [
     "require_valhalla_base_url",
     "require_valhalla_route_url",
     "require_valhalla_status_url",
-    "require_valhalla_trace_attributes_url",
     "require_valhalla_trace_route_url",
     "resolve_osm_data_path",
     "validate_mapbox_token",

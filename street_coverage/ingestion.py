@@ -28,7 +28,6 @@ from street_coverage.constants import (
     BATCH_SIZE,
     MAX_INGESTION_RETRIES,
     METERS_TO_MILES,
-    OSM_REFRESH_DAYS,
     RETRY_BASE_DELAY_SECONDS,
     SEGMENT_LENGTH_METERS,
 )
@@ -661,8 +660,10 @@ async def _load_osm_streets_from_graph(
     import networkx as nx
     import osmnx as ox
 
+    from core.osmnx_graphml import load_graphml_robust
+
     graph_path = await _ensure_area_graph(area, job_id)
-    G = ox.load_graphml(graph_path)
+    G = load_graphml_robust(graph_path)
     if not isinstance(G, nx.MultiDiGraph):
         G = nx.MultiDiGraph(G)
 
@@ -692,7 +693,8 @@ async def _load_osm_streets_from_graph(
 
         result.append(
             {
-                "osm_id": _coerce_osm_id(data.get("osmid")),
+                # Pyrosm graphs sometimes use `id` instead of `osmid`.
+                "osm_id": _coerce_osm_id(data.get("osmid") or data.get("id")),
                 "tags": {
                     "name": _coerce_name(data.get("name")),
                     "highway": highway_type,
@@ -894,41 +896,3 @@ async def _initialize_coverage_state(
         await CoverageState.insert_many(state_docs)
 
     logger.debug("Initialized coverage state for %s segments", len(segments))
-
-
-# =============================================================================
-# Maintenance
-# =============================================================================
-
-
-async def check_areas_needing_refresh() -> list[CoverageArea]:
-    """Find areas that need OSM data refresh (older than 90 days)."""
-    from datetime import timedelta
-
-    cutoff = datetime.now(UTC) - timedelta(days=OSM_REFRESH_DAYS)
-
-    return await CoverageArea.find(
-        {
-            "status": "ready",
-            "$or": [
-                {"osm_fetched_at": None},
-                {"osm_fetched_at": {"$lt": cutoff}},
-            ],
-        },
-    ).to_list()
-
-
-async def refresh_stale_areas() -> int:
-    """
-    Trigger rebuilds for all areas needing refresh.
-
-    Returns number of areas queued for rebuild.
-    """
-    areas = await check_areas_needing_refresh()
-
-    for area in areas:
-        if area.id is None:
-            continue
-        await rebuild_area(area.id)
-
-    return len(areas)

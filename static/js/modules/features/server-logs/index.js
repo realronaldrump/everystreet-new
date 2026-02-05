@@ -402,7 +402,8 @@ export default function initServerLogsPage({ signal, cleanup } = {}) {
       const result = await apiDelete("/api/server-logs");
 
       notificationManager.show(
-        `Successfully cleared ${result.deleted_count} log entries`,
+        result?.message
+          || `Successfully cleared ${result?.deleted_count ?? 0} log entries`,
         "success"
       );
 

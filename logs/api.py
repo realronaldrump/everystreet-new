@@ -12,7 +12,7 @@ from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import BaseModel
 
 from core.api import api_route
-from db import ServerLog
+from db import AppSettings, ServerLog
 from db.aggregation import aggregate_to_list
 
 logger = logging.getLogger(__name__)
@@ -34,6 +34,21 @@ class ClearLogsResponse(BaseModel):
     message: str
     deleted_count: int
     filter: dict[str, Any]
+    soft_cleared: bool = False
+    cutoff_timestamp: str | None = None
+    purge_job_id: str | None = None
+
+
+async def _get_logs_cutoff() -> datetime | None:
+    """Return the current server logs cutoff timestamp, if set."""
+    try:
+        settings = await AppSettings.find_one()
+    except Exception:
+        logger.exception("Failed to load AppSettings for server log cutoff")
+        return None
+
+    cutoff = getattr(settings, "serverLogsCutoff", None) if settings else None
+    return cutoff if isinstance(cutoff, datetime) else None
 
 
 class LogsStatsResponse(BaseModel):
@@ -65,6 +80,10 @@ async def get_server_logs(
     """
     try:
         query_filter: dict[str, Any] = {}
+
+        cutoff = await _get_logs_cutoff()
+        if cutoff:
+            query_filter["timestamp"] = {"$gte": cutoff}
 
         if level:
             query_filter["level"] = level.upper()
@@ -114,6 +133,82 @@ async def clear_server_logs(
     try:
         delete_filter: dict[str, Any] = {}
 
+        # No filters means "clear everything". For large collections this can be slow if
+        # we hard-delete synchronously, so we do an instant "soft clear" by setting a
+        # cutoff timestamp and enqueueing a background purge.
+        if not level and not older_than_days:
+            cutoff_date = datetime.now(UTC)
+
+            settings = await AppSettings.find_one()
+            if settings:
+                settings.serverLogsCutoff = cutoff_date
+                settings.updated_at = cutoff_date
+                await settings.save()
+            else:
+                await AppSettings(
+                    serverLogsCutoff=cutoff_date,
+                    updated_at=cutoff_date,
+                ).insert()
+
+            # Best-effort background purge via ARQ; if Redis/worker isn't available,
+            # fall back to a local background task so the request still returns fast.
+            purge_job_id: str | None = None
+
+            async def _local_purge() -> None:
+                try:
+                    delete_result = await ServerLog.get_pymongo_collection().delete_many(
+                        {"timestamp": {"$lt": cutoff_date}},
+                    )
+                    local_deleted = int(getattr(delete_result, "deleted_count", 0))
+                    logger.info(
+                        "Locally purged %d server log entries older than %s",
+                        local_deleted,
+                        cutoff_date.isoformat(),
+                    )
+                except Exception:
+                    logger.exception("Local server log purge failed")
+
+            try:
+                from tasks.arq import get_arq_pool
+
+                pool = await asyncio.wait_for(get_arq_pool(), timeout=0.75)
+                job = await asyncio.wait_for(
+                    pool.enqueue_job(
+                        "purge_server_logs_before",
+                        cutoff_iso=cutoff_date.isoformat(),
+                    ),
+                    timeout=0.75,
+                )
+                purge_job_id = (
+                    getattr(job, "job_id", None)
+                    or getattr(job, "id", None)
+                    or str(job)
+                )
+            except Exception as exc:
+                logger.warning(
+                    "Failed to enqueue server log purge job; falling back to local purge: %s",
+                    exc,
+                )
+                asyncio.create_task(_local_purge())
+
+            logger.info(
+                "Soft-cleared server logs at cutoff %s (purge_job_id=%s)",
+                cutoff_date.isoformat(),
+                purge_job_id,
+            )
+
+            return {
+                "message": (
+                    "Server logs cleared (hidden immediately). "
+                    + ("Background purge scheduled." if purge_job_id else "Purging in background.")
+                ),
+                "deleted_count": 0,
+                "filter": delete_filter,
+                "soft_cleared": True,
+                "cutoff_timestamp": cutoff_date.isoformat(),
+                "purge_job_id": purge_job_id,
+            }
+
         if level:
             delete_filter["level"] = level.upper()
 
@@ -123,8 +218,8 @@ async def clear_server_logs(
 
         # Use a single bulk delete instead of fetching and deleting documents
         # one-by-one. This keeps the endpoint fast even with 100k+ log rows.
-        delete_result = await ServerLog.get_motor_collection().delete_many(
-            delete_filter
+        delete_result = await ServerLog.get_pymongo_collection().delete_many(
+            delete_filter,
         )
         deleted_count = int(getattr(delete_result, "deleted_count", 0))
 
@@ -145,6 +240,9 @@ async def clear_server_logs(
             "message": f"Successfully cleared {deleted_count} log entries",
             "deleted_count": deleted_count,
             "filter": delete_filter,
+            "soft_cleared": False,
+            "cutoff_timestamp": None,
+            "purge_job_id": None,
         }
 
 
@@ -158,16 +256,31 @@ async def get_logs_stats() -> dict[str, Any]:
         Dictionary containing log statistics
     """
     try:
-        total_count = await ServerLog.find().count()
+        query_filter: dict[str, Any] = {}
+        cutoff = await _get_logs_cutoff()
+        if cutoff:
+            query_filter["timestamp"] = {"$gte": cutoff}
 
-        pipeline = [
+        total_count = await ServerLog.find(query_filter).count()
+
+        pipeline: list[dict[str, Any]] = []
+        if query_filter:
+            pipeline.append({"$match": query_filter})
+
+        pipeline.extend(
+            [
             {"$group": {"_id": "$level", "count": {"$sum": 1}}},
             {"$sort": {"_id": 1}},
-        ]
+            ]
+        )
         level_counts = await aggregate_to_list(ServerLog, pipeline)
 
-        oldest_log = await ServerLog.find().sort("+timestamp").first_or_none()
-        newest_log = await ServerLog.find().sort("-timestamp").first_or_none()
+        oldest_log = (
+            await ServerLog.find(query_filter).sort("+timestamp").first_or_none()
+        )
+        newest_log = (
+            await ServerLog.find(query_filter).sort("-timestamp").first_or_none()
+        )
 
         return {
             "total_count": total_count,

@@ -9,7 +9,6 @@ from urllib.parse import urlparse
 
 from arq import create_pool
 from arq.connections import ArqRedis, RedisSettings
-from arq.jobs import Job
 
 from core.redis import get_redis_url
 
@@ -62,35 +61,3 @@ async def close_arq_pool() -> None:
             await result
     _pool = None
     logger.info("Closed ARQ Redis pool")
-
-
-async def fetch_job_status(redis: ArqRedis, job_id: str) -> dict[str, object]:
-    """Fetch status/result details for a job id."""
-    job = Job(job_id, redis)
-    status = await job.status()
-    status_value = status.value if hasattr(status, "value") else str(status)
-    result = None
-    error = None
-
-    if status_value == "complete":
-        try:
-            if hasattr(job, "result_info"):
-                info = await job.result_info()
-                if info:
-                    if getattr(info, "success", True):
-                        result = getattr(info, "result", None)
-                    else:
-                        error = str(
-                            getattr(info, "exception", None)
-                            or getattr(info, "result", None),
-                        )
-            else:
-                result = await job.result()
-        except Exception as exc:  # pragma: no cover - depends on backend error details
-            error = str(exc)
-
-    return {
-        "status": status_value,
-        "result": result,
-        "error": error,
-    }

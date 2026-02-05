@@ -68,7 +68,6 @@ class DatabaseManager:
         MONGODB_CONNECTION_TIMEOUT_MS: Connection timeout (default: 5000)
         MONGODB_SERVER_SELECTION_TIMEOUT_MS: Server selection timeout (default: 10000)
         MONGODB_SOCKET_TIMEOUT_MS: Socket timeout (default: 30000)
-        MONGODB_MAX_RETRY_ATTEMPTS: Max retry attempts (default: 5)
     """
 
     _instance: DatabaseManager | None = None
@@ -91,7 +90,6 @@ class DatabaseManager:
             self._connection_healthy = True
             self._beanie_initialized = False
             self._initialized = True
-            self._conn_retry_backoff = [1, 2, 5, 10, 30]
 
             # Load configuration from environment
             self._max_pool_size = int(os.getenv("MONGODB_MAX_POOL_SIZE", "50"))
@@ -104,7 +102,6 @@ class DatabaseManager:
             self._socket_timeout_ms = int(
                 os.getenv("MONGODB_SOCKET_TIMEOUT_MS", "30000"),
             )
-            self._max_retry_attempts = int(os.getenv("MONGODB_MAX_RETRY_ATTEMPTS", "5"))
             self._db_name = os.getenv("MONGODB_DATABASE", "every_street")
 
             logger.debug(
@@ -264,16 +261,6 @@ class DatabaseManager:
             True if connection is healthy, False otherwise.
         """
         return self._connection_healthy
-
-    @property
-    def max_retry_attempts(self) -> int:
-        """
-        Get the maximum number of retry attempts.
-
-        Returns:
-            Maximum retry attempts configuration value.
-        """
-        return self._max_retry_attempts
 
     async def init_beanie(self) -> None:
         """

@@ -47,18 +47,6 @@ class GeometryService:
         return True, [lon, lat]
 
     @staticmethod
-    def validate_bounding_box(
-        min_lat: float,
-        min_lon: float,
-        max_lat: float,
-        max_lon: float,
-    ) -> bool:
-        """Validate bounding box coordinate ranges."""
-        valid_min, _ = GeometryService.validate_coordinate_pair([min_lon, min_lat])
-        valid_max, _ = GeometryService.validate_coordinate_pair([max_lon, max_lat])
-        return valid_min and valid_max
-
-    @staticmethod
     def haversine_distance(
         lon1: float,
         lat1: float,
@@ -104,16 +92,6 @@ class GeometryService:
             if "type" in value:
                 return value
         return None
-
-    @staticmethod
-    def geometry_from_document(
-        doc: dict[str, Any],
-        geometry_field: str,
-    ) -> dict[str, Any] | None:
-        """Extract GeoJSON geometry from a document field."""
-        if not isinstance(doc, dict):
-            return None
-        return GeometryService.parse_geojson(doc.get(geometry_field))
 
     @staticmethod
     def geometry_from_coordinate_pairs(
@@ -184,30 +162,6 @@ class GeometryService:
         )
 
     @staticmethod
-    def bounding_box_polygon(
-        min_lat: float,
-        min_lon: float,
-        max_lat: float,
-        max_lon: float,
-    ) -> dict[str, Any] | None:
-        """Create a GeoJSON Polygon for a bounding box."""
-        if not GeometryService.validate_bounding_box(
-            min_lat,
-            min_lon,
-            max_lat,
-            max_lon,
-        ):
-            return None
-        coords = [
-            [min_lon, min_lat],
-            [max_lon, min_lat],
-            [max_lon, max_lat],
-            [min_lon, max_lat],
-            [min_lon, min_lat],
-        ]
-        return {"type": "Polygon", "coordinates": [coords]}
-
-    @staticmethod
     def feature_from_geometry(
         geometry: dict[str, Any] | None,
         properties: dict[str, Any] | None = None,
@@ -218,11 +172,6 @@ class GeometryService:
             "geometry": geometry,
             "properties": properties or {},
         }
-
-    @staticmethod
-    def feature_collection(features: list[dict[str, Any]]) -> dict[str, Any]:
-        """Build a GeoJSON FeatureCollection."""
-        return {"type": "FeatureCollection", "features": features}
 
 
 def is_valid_geojson_geometry(geojson_data: Any) -> bool:

@@ -20,6 +20,7 @@ import logging
 import os
 import subprocess
 import sys
+import warnings
 from pathlib import Path
 from typing import Any
 
@@ -38,6 +39,8 @@ OSM_EXTENSIONS = {".osm", ".xml", ".pbf"}
 DEFAULT_AREA_EXTRACT_THRESHOLD_MB = 256
 # Lowered from 4096 to reduce memory pressure on constrained systems
 DEFAULT_GRAPH_MEMORY_LIMIT_MB = 2048
+_TRUE_LITERALS = {"true", "t", "1", "yes", "y", "on"}
+_FALSE_LITERALS = {"false", "f", "0", "no", "n", "off"}
 
 
 def _get_area_extract_threshold_mb() -> int:
@@ -203,6 +206,55 @@ def _get_osmnx():
     return ox
 
 
+def _coerce_osmnx_bool(value: Any) -> bool | None:
+    # OSMnx's GraphML loader only accepts "True"/"False" (or bool) for bool attrs.
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return bool(value)
+    if isinstance(value, str):
+        raw = value.strip()
+        if raw in {"True", "False"}:
+            return raw == "True"
+        lowered = raw.lower()
+        if lowered in _TRUE_LITERALS:
+            return True
+        if lowered in _FALSE_LITERALS:
+            return False
+        if lowered == "-1":
+            return True
+    return None
+
+
+def _sanitize_graph_for_graphml(G: nx.MultiDiGraph) -> None:
+    # Some graphs (notably pyrosm) emit "yes"/"no" strings for `oneway`, which
+    # OSMnx can't round-trip via GraphML (`load_graphml` expects "True"/"False").
+    for key in ("simplified", "consolidated"):
+        if key not in G.graph:
+            continue
+        coerced = _coerce_osmnx_bool(G.graph.get(key))
+        if coerced is None:
+            G.graph.pop(key, None)
+        else:
+            G.graph[key] = coerced
+
+    for _u, _v, _k, data in G.edges(keys=True, data=True):
+        # Provide a consistent OSM id key for downstream matching/indexing.
+        if "osmid" not in data and "id" in data:
+            data["osmid"] = data.get("id")
+
+        for key in ("oneway", "reversed"):
+            if key not in data:
+                continue
+            coerced = _coerce_osmnx_bool(data.get(key))
+            if coerced is None:
+                data.pop(key, None)
+            else:
+                data[key] = coerced
+
+
 def _graph_from_pbf(osm_path: Path) -> nx.MultiDiGraph:
     ox = _get_osmnx()
     try:
@@ -210,6 +262,15 @@ def _graph_from_pbf(osm_path: Path) -> nx.MultiDiGraph:
     except ImportError as exc:
         msg = "pyrosm is required to load .pbf extracts. Install it to use OSM_DATA_PATH with .pbf."
         raise RuntimeError(msg) from exc
+
+    # Pandas Copy-on-Write breaks some third-party chained assignments (pyrosm),
+    # producing noisy warnings and potentially incorrect results. Force it off.
+    with contextlib.suppress(Exception):
+        import pandas as pd
+
+        pd.options.mode.copy_on_write = False
+        with contextlib.suppress(Exception):
+            warnings.filterwarnings("ignore", category=pd.errors.ChainedAssignmentError)
 
     osm = OSM(str(osm_path))
     try:
@@ -250,6 +311,8 @@ def _build_graph_in_process(
     if non_driveable:
         G.remove_edges_from(non_driveable)
         G.remove_nodes_from(list(nx.isolates(G)))
+
+    _sanitize_graph_for_graphml(G)
     ox.save_graphml(G, filepath=graph_path)
     return G
 

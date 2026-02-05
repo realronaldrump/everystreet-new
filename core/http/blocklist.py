@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 
@@ -17,11 +16,6 @@ DEFAULT_FORBIDDEN_HOSTS = {
     "api.mapbox.com",
     "events.mapbox.com",
 }
-
-
-@dataclass(frozen=True)
-class BlockedHost:
-    host: str
 
 
 def is_forbidden_host(

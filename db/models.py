@@ -636,6 +636,10 @@ class AppSettings(Document):
     mapCoverageMaxPointsPerTrip: int = 2000
     mapCoverageBatchSize: int = 200
 
+    # Logs
+    # When set, server log queries should hide entries older than this cutoff.
+    serverLogsCutoff: datetime | None = None
+
     class Settings:
         name = "app_settings"
         use_state_management = True

@@ -26,7 +26,6 @@ SHORT_SEGMENT_OVERLAP_RATIO = 0.4  # Require 40% of very short segments (reduced
 # =============================================================================
 # Unit Conversions
 # =============================================================================
-FEET_TO_METERS = 0.3048
 METERS_TO_MILES = 0.000621371
 MILES_TO_METERS = 1609.344
 
@@ -70,4 +69,3 @@ MAX_SEGMENTS_IN_MEMORY = _get_int_env("COVERAGE_MAX_SEGMENTS", 100000)
 # =============================================================================
 MAX_INGESTION_RETRIES = 3
 RETRY_BASE_DELAY_SECONDS = 60  # 60s, 120s, 240s exponential backoff
-OSM_REFRESH_DAYS = 90  # Auto-rebuild after 90 days

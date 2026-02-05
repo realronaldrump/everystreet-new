@@ -137,16 +137,3 @@ class VehicleService:
         await vehicle.save()
 
         return {"status": "success", "message": "Vehicle marked as inactive"}
-
-    @staticmethod
-    async def get_vehicle_by_imei(imei: str) -> Vehicle | None:
-        """
-        Get a vehicle by IMEI.
-
-        Args:
-            imei: Vehicle IMEI
-
-        Returns:
-            Vehicle model or None if not found
-        """
-        return await Vehicle.find_one(Vehicle.imei == imei)

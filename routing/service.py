@@ -240,8 +240,9 @@ async def generate_optimal_route_with_progress(
                 _raise_value_error(msg)
 
         try:
-            ox = _get_osmnx()
-            G = ox.load_graphml(graph_path)
+            from core.osmnx_graphml import load_graphml_robust
+
+            G = load_graphml_robust(graph_path)
             # Ensure it's the correct type (OSMnx load_graphml returns MultiDiGraph usually)
             if not isinstance(G, nx.MultiDiGraph):
                 G = nx.MultiDiGraph(G)

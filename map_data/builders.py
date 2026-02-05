@@ -28,7 +28,6 @@ def _raise_error(msg: str, exc_type: type[Exception] = RuntimeError) -> None:
 
 
 # Build configuration
-BUILD_TIMEOUT = 7200  # 2 hours max build time
 PROGRESS_UPDATE_INTERVAL = 5.0  # Update progress every 5 seconds
 CONTAINER_START_TIMEOUT = 120  # seconds to wait for container to start
 _OUTPUT_LINE_OVERFLOW_TEXT = "Output line exceeded buffer; skipping"

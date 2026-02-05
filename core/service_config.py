@@ -30,8 +30,8 @@ async def get_service_config() -> AppSettings:
     Returns AppSettings document with user-specific settings. Falls back
     to defaults if no settings are saved yet.
 
-    This function caches the settings for the lifetime of the request.
-    Use refresh_service_config() to force a reload.
+    This function caches the settings for the lifetime of the process.
+    Use clear_config_cache() to force a reload.
     """
     global _settings_cache
 
@@ -106,13 +106,6 @@ def _apply_settings_to_env(settings: AppSettings, *, force: bool = False) -> Non
 def apply_settings_to_env(settings: AppSettings, *, force: bool = False) -> None:
     """Public helper to sync settings into env vars for the running process."""
     _apply_settings_to_env(settings, force=force)
-
-
-async def refresh_service_config() -> AppSettings:
-    """Force reload of service configuration from database."""
-    global _settings_cache
-    _settings_cache = None
-    return await get_service_config()
 
 
 def clear_config_cache() -> None:

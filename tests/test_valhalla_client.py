@@ -102,17 +102,6 @@ def test_normalize_trace_response_returns_none_for_empty_coords() -> None:
     assert normalized["geometry"] is None
 
 
-@pytest.mark.asyncio
-async def test_valhalla_trace_attributes_requires_two_points() -> None:
-    """trace_attributes should raise when given fewer than 2 points."""
-    client = ValhallaClient()
-
-    with pytest.raises(ExternalServiceException) as raised:
-        await client.trace_attributes([{"lat": 0.0, "lon": 0.0}])
-
-    assert "at least two points" in raised.value.message
-
-
 def test_coerce_shape_coordinates_handles_dict_points() -> None:
     """_coerce_shape_coordinates should extract lon/lat from dict points."""
     shape = [{"lon": 1.0, "lat": 2.0}, {"lon": 3.0, "lat": 4.0}]

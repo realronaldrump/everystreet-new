@@ -107,10 +107,10 @@ async def build_trip_coverage_polygon(
     to_3857 = Transformer.from_crs("EPSG:4326", "EPSG:3857", always_xy=True)
     to_4326 = Transformer.from_crs("EPSG:3857", "EPSG:4326", always_xy=True)
 
-    def project(x: float, y: float, z: float | None = None) -> tuple[float, float]:
+    def project(x: float, y: float, _z: float | None = None) -> tuple[float, float]:
         return to_3857.transform(x, y)
 
-    def unproject(x: float, y: float, z: float | None = None) -> tuple[float, float]:
+    def unproject(x: float, y: float, _z: float | None = None) -> tuple[float, float]:
         return to_4326.transform(x, y)
 
     batch: list[Any] = []

@@ -14,7 +14,7 @@ from config import require_nominatim_reverse_url, require_valhalla_trace_route_u
 from core.bouncie_normalization import normalize_rest_trip_payload
 from core.date_utils import get_current_utc_time
 from db.models import Trip
-from trips.models import TripProcessingProjection, TripStatusProjection
+from trips.models import TripStatusProjection
 from trips.pipeline import TripPipeline
 
 logger = logging.getLogger(__name__)
@@ -36,30 +36,6 @@ class ProcessingOptions:
         self.map_match = map_match
         self.validate_only = validate_only
         self.geocode_only = geocode_only
-
-
-class BatchProcessingResult:
-    """Result container for batch processing operations."""
-
-    def __init__(self) -> None:
-        self.total = 0
-        self.validated = 0
-        self.geocoded = 0
-        self.map_matched = 0
-        self.failed = 0
-        self.skipped = 0
-        self.errors = []
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "total": self.total,
-            "validated": self.validated,
-            "geocoded": self.geocoded,
-            "map_matched": self.map_matched,
-            "failed": self.failed,
-            "skipped": self.skipped,
-            "errors": self.errors,
-        }
 
 
 def with_comprehensive_handling(func: Callable) -> Callable:
@@ -208,71 +184,6 @@ class TripService:
             "completed": processing_status.get("state") in {"completed", "map_matched"},
             "saved_id": str(trip.id) if trip else None,
         }
-
-    @with_comprehensive_handling
-    async def process_batch_trips(
-        self,
-        query: dict[str, Any],
-        options: ProcessingOptions,
-        limit: int = 100,
-        progress_tracker: dict | None = None,
-    ) -> BatchProcessingResult:
-        """Process multiple trips in batch with configurable options."""
-        result = BatchProcessingResult()
-
-        # Ensure reasonable limit
-        limit = min(limit, 500)
-
-        # Find trips matching query
-        trips = (
-            await Trip.find(query)
-            .project(TripProcessingProjection)
-            .limit(limit)
-            .to_list()
-        )
-        if not trips:
-            return result
-
-        result.total = len(trips)
-
-        for i, trip_model in enumerate(trips):
-            trip = trip_model.model_dump()
-            if progress_tracker:
-                progress = int((i / len(trips)) * 100)
-                progress_tracker["progress"] = progress
-                progress_tracker["message"] = f"Processing trip {i + 1} of {len(trips)}"
-
-            try:
-                trip_result = await self.process_single_trip(
-                    trip,
-                    options,
-                    trip.get("source", "unknown"),
-                )
-
-                # Update counters based on processing result
-                processing_status = trip_result.get("processing_status", {})
-                state = processing_status.get("state")
-
-                if state == "validated":
-                    result.validated += 1
-                elif state == "geocoded":
-                    result.geocoded += 1
-                elif state in {"map_matched", "completed"}:
-                    result.map_matched += 1
-                elif state == "failed":
-                    result.failed += 1
-
-            except Exception as e:
-                result.failed += 1
-                result.errors.append(
-                    {"trip_id": trip.get("transactionId", "unknown"), "error": str(e)},
-                )
-                logger.exception(
-                    "Error processing trip %s",
-                    trip.get("transactionId"),
-                )
-
-        return result
 
     @with_comprehensive_handling
     async def process_bouncie_trips(
@@ -451,46 +362,6 @@ class TripService:
                 progress_section["status"] = "completed"
                 progress_section["progress"] = 100
                 progress_section["message"] = "Completed trip processing"
-
-    @with_comprehensive_handling
-    async def remap_trips(
-        self,
-        trip_ids: list[str] | None = None,
-        query: dict[str, Any] | None = None,
-        limit: int = 100,
-    ) -> dict[str, Any]:
-        """Remap trips using map matching."""
-        if not trip_ids and not query:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Either trip_ids or query must be provided",
-            )
-
-        # We need to adapt logic. process_batch_trips is designed to find by query.
-        # But if we have specific IDs, constructing a query is better.
-
-        options = ProcessingOptions(
-            validate=False,
-            geocode=False,
-            map_match=True,
-        )
-
-        # If we have trip_ids, we can pass a query to process_batch_trips
-        if trip_ids:
-            batch_query = {"transactionId": {"$in": trip_ids}}
-            result = await self.process_batch_trips(
-                batch_query,
-                options,
-                limit=len(trip_ids),
-            )
-            return result.to_dict()
-        if query:
-            # Just pass the query
-            result = await self.process_batch_trips(query, options, limit=limit)
-            return result.to_dict()
-
-        # If we reached here (shouldn't happen due to check above)
-        return BatchProcessingResult().to_dict()
 
     @with_comprehensive_handling
     async def refresh_geocoding(

@@ -4,14 +4,6 @@ from typing import Final
 
 EXPORT_SPEC_VERSION: Final[int] = 1
 
-EXPORT_ENTITIES: Final[set[str]] = {
-    "trips",
-    "matched_trips",
-    "streets",
-    "boundaries",
-    "undriven_streets",
-}
-
 EXPORT_FORMATS_BY_ENTITY: Final[dict[str, set[str]]] = {
     "trips": {"json", "csv", "geojson", "gpx"},
     "matched_trips": {"json", "csv", "geojson", "gpx"},

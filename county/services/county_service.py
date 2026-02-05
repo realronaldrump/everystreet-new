@@ -428,12 +428,6 @@ def _coerce_point_coords(coords):
         return None
 
 
-def _extract_point_coords(geo_point: dict | None):
-    if not geo_point or geo_point.get("type") != "Point":
-        return None
-    return _coerce_point_coords(geo_point.get("coordinates"))
-
-
 def _record_visit(
     visit_map: dict[str, dict[str, datetime | None]],
     fips: str,
