@@ -20,24 +20,28 @@ let pageSignal = null;
  */
 export default async function initInsightsPage({ signal, cleanup } = {}) {
   pageSignal = signal || null;
-  setupEventListeners(signal);
-  window.addEventListener("beforeunload", stopAutoRefresh, signal ? { signal } : false);
-  initTooltips();
-  InsightsCharts.initCharts();
-  await loadAllData();
-  startAutoRefresh();
+  const returnTeardown = typeof cleanup !== "function";
   const teardown = () => {
     stopAutoRefresh();
     InsightsTables.destroyTables?.();
+    InsightsCharts.destroyCharts?.();
     tooltipInstances.forEach((instance) => instance?.dispose?.());
     tooltipInstances = [];
     pageSignal = null;
   };
-  if (typeof cleanup === "function") {
+  if (!returnTeardown) {
     cleanup(teardown);
-  } else {
-    return teardown;
   }
+  setupEventListeners(signal);
+  window.addEventListener("beforeunload", stopAutoRefresh, signal ? { signal } : false);
+  initTooltips();
+  InsightsCharts.initCharts();
+  await loadAllData(signal);
+  if (signal?.aborted) {
+    return returnTeardown ? teardown : undefined;
+  }
+  startAutoRefresh();
+  return returnTeardown ? teardown : undefined;
 }
 
 /**
@@ -172,7 +176,11 @@ function setupFabActions(signal) {
 /**
  * Load all data for the insights page
  */
-export async function loadAllData() {
+export async function loadAllData(signalOverride) {
+  const activeSignal = signalOverride ?? pageSignal;
+  if (activeSignal?.aborted) {
+    return;
+  }
   const state = InsightsState.getState();
   if (state.isLoading) {
     return;
@@ -198,7 +206,10 @@ export async function loadAllData() {
     );
 
     // Fetch all data
-    const allData = await InsightsAPI.loadAllData(dateRange, prevRange, pageSignal);
+    const allData = await InsightsAPI.loadAllData(dateRange, prevRange, activeSignal);
+    if (activeSignal?.aborted) {
+      return;
+    }
 
     // Update state with fetched data
     InsightsState.updateData(allData.current);
@@ -209,6 +220,9 @@ export async function loadAllData() {
     InsightsCharts.updateAllCharts();
     InsightsTables.updateTables();
   } catch (error) {
+    if (error?.name === "AbortError" || activeSignal?.aborted) {
+      return;
+    }
     console.error("Error loading data:", error);
     InsightsExport.showNotification("Error loading data. Please try again.", "error");
   } finally {

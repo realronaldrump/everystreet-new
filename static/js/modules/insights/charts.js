@@ -8,6 +8,60 @@ import { formatDate, formatHourLabel, formatMonth } from "./formatters.js";
 import { loadAndShowTripsForTimePeriod } from "./modal.js";
 import { getChart, getState, setChart } from "./state.js";
 
+const chartCleanupKey = "_esCleanup";
+
+function registerChartCleanup(chart, cleanup) {
+  if (!chart || typeof cleanup !== "function") {
+    return;
+  }
+  if (!Array.isArray(chart[chartCleanupKey])) {
+    chart[chartCleanupKey] = [];
+  }
+  chart[chartCleanupKey].push(cleanup);
+}
+
+function destroyChartInstance(chart) {
+  if (!chart) {
+    return;
+  }
+  const cleanups = chart[chartCleanupKey];
+  if (Array.isArray(cleanups)) {
+    cleanups.forEach((cleanup) => {
+      try {
+        cleanup();
+      } catch (error) {
+        console.warn("Failed to clean up chart listener:", error);
+      }
+    });
+    chart[chartCleanupKey] = [];
+  }
+  if (typeof chart.destroy === "function") {
+    chart.destroy();
+  }
+}
+
+function findChartForCanvas(canvas) {
+  if (!canvas || typeof Chart === "undefined") {
+    return null;
+  }
+  if (typeof Chart.getChart === "function") {
+    return Chart.getChart(canvas);
+  }
+  const instances = Chart.instances;
+  if (!instances) {
+    return null;
+  }
+  const charts = Array.isArray(instances) ? instances : Object.values(instances);
+  return charts.find((chart) => chart && chart.canvas === canvas) || null;
+}
+
+export function destroyCharts() {
+  const state = getState();
+  const charts = state.charts || {};
+  Object.values(charts).forEach((chart) => destroyChartInstance(chart));
+  state.charts = {};
+}
+
 const spotlightPlugin = {
   id: "spotlight",
   afterEvent(chart, _args) {
@@ -73,7 +127,7 @@ const spotlightPlugin = {
 function attachZoomPan(chart) {
   const labels = chart.data.labels || [];
   if (labels.length < 5) {
-    return;
+    return null;
   }
 
   const state = {
@@ -104,7 +158,7 @@ function attachZoomPan(chart) {
     chart.update("none");
   };
 
-  chart.canvas.addEventListener("wheel", (event) => {
+  const handleWheel = (event) => {
     event.preventDefault();
     const zoomFactor = event.deltaY > 0 ? 1.2 : 0.8;
     const range = state.maxIndex - state.minIndex;
@@ -117,9 +171,9 @@ function attachZoomPan(chart) {
     state.maxIndex = Math.round(center + newRange / 2);
     clampRange();
     applyRange();
-  });
+  };
 
-  chart.canvas.addEventListener("pointerdown", (event) => {
+  const handlePointerDown = (event) => {
     if (event.pointerType === "touch") {
       return;
     }
@@ -128,9 +182,9 @@ function attachZoomPan(chart) {
     state.dragStartMin = state.minIndex;
     state.dragStartMax = state.maxIndex;
     chart.canvas.setPointerCapture(event.pointerId);
-  });
+  };
 
-  chart.canvas.addEventListener("pointermove", (event) => {
+  const handlePointerMove = (event) => {
     if (!state.dragging) {
       return;
     }
@@ -141,25 +195,25 @@ function attachZoomPan(chart) {
     state.maxIndex = state.dragStartMax + shift;
     clampRange();
     applyRange();
-  });
+  };
 
-  chart.canvas.addEventListener("pointerup", () => {
+  const handlePointerUp = () => {
     state.dragging = false;
-  });
+  };
 
-  chart.canvas.addEventListener("pointercancel", () => {
+  const handlePointerCancel = () => {
     state.dragging = false;
-  });
+  };
 
-  chart.canvas.addEventListener("touchstart", (event) => {
+  const handleTouchStart = (event) => {
     if (event.touches.length !== 2) {
       return;
     }
     const [a, b] = event.touches;
     state.pinchStartDistance = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
-  });
+  };
 
-  chart.canvas.addEventListener("touchmove", (event) => {
+  const handleTouchMove = (event) => {
     if (event.touches.length !== 2 || !state.pinchStartDistance) {
       return;
     }
@@ -177,7 +231,25 @@ function attachZoomPan(chart) {
     clampRange();
     applyRange();
     state.pinchStartDistance = distance;
-  });
+  };
+
+  chart.canvas.addEventListener("wheel", handleWheel);
+  chart.canvas.addEventListener("pointerdown", handlePointerDown);
+  chart.canvas.addEventListener("pointermove", handlePointerMove);
+  chart.canvas.addEventListener("pointerup", handlePointerUp);
+  chart.canvas.addEventListener("pointercancel", handlePointerCancel);
+  chart.canvas.addEventListener("touchstart", handleTouchStart, { passive: true });
+  chart.canvas.addEventListener("touchmove", handleTouchMove);
+
+  return () => {
+    chart.canvas.removeEventListener("wheel", handleWheel);
+    chart.canvas.removeEventListener("pointerdown", handlePointerDown);
+    chart.canvas.removeEventListener("pointermove", handlePointerMove);
+    chart.canvas.removeEventListener("pointerup", handlePointerUp);
+    chart.canvas.removeEventListener("pointercancel", handlePointerCancel);
+    chart.canvas.removeEventListener("touchstart", handleTouchStart);
+    chart.canvas.removeEventListener("touchmove", handleTouchMove);
+  };
 }
 
 function attachLongPressTooltip(chart) {
@@ -201,29 +273,38 @@ function attachLongPressTooltip(chart) {
     chart.update("none");
   };
 
-  chart.canvas.addEventListener(
-    "touchstart",
-    (event) => {
-      if (event.touches.length !== 1) {
-        return;
-      }
-      timerId = setTimeout(() => showTooltip(event), 450);
-    },
-    { passive: true }
-  );
+  const handleTouchStart = (event) => {
+    if (event.touches.length !== 1) {
+      return;
+    }
+    timerId = setTimeout(() => showTooltip(event), 450);
+  };
 
-  chart.canvas.addEventListener("touchend", () => {
+  const handleTouchEnd = () => {
     if (timerId) {
       clearTimeout(timerId);
       timerId = null;
     }
-  });
+  };
+
+  chart.canvas.addEventListener("touchstart", handleTouchStart, { passive: true });
+  chart.canvas.addEventListener("touchend", handleTouchEnd);
+
+  return () => {
+    if (timerId) {
+      clearTimeout(timerId);
+      timerId = null;
+    }
+    chart.canvas.removeEventListener("touchstart", handleTouchStart);
+    chart.canvas.removeEventListener("touchend", handleTouchEnd);
+  };
 }
 
 /**
  * Initialize all charts
  */
 export function initCharts() {
+  destroyCharts();
   initTrendsChart();
   initEfficiencyChart();
   initTimeDistChart();
@@ -233,9 +314,15 @@ export function initCharts() {
  * Initialize the trends chart (line chart for distance and trips)
  */
 function initTrendsChart() {
-  const trendsCtx = document.getElementById("trendsChart")?.getContext("2d");
+  const trendsCanvas = document.getElementById("trendsChart");
+  const trendsCtx = trendsCanvas?.getContext("2d");
   if (!trendsCtx) {
     return;
+  }
+
+  const existingChart = findChartForCanvas(trendsCtx.canvas) || getChart("trends");
+  if (existingChart) {
+    destroyChartInstance(existingChart);
   }
 
   const chart = new Chart(trendsCtx, {
@@ -327,17 +414,24 @@ function initTrendsChart() {
   });
 
   setChart("trends", chart);
-  attachZoomPan(chart);
-  attachLongPressTooltip(chart);
+  registerChartCleanup(chart, attachZoomPan(chart));
+  registerChartCleanup(chart, attachLongPressTooltip(chart));
 }
 
 /**
  * Initialize the efficiency chart (doughnut chart)
  */
 function initEfficiencyChart() {
-  const efficiencyCtx = document.getElementById("efficiencyChart")?.getContext("2d");
+  const efficiencyCanvas = document.getElementById("efficiencyChart");
+  const efficiencyCtx = efficiencyCanvas?.getContext("2d");
   if (!efficiencyCtx) {
     return;
+  }
+
+  const existingChart
+    = findChartForCanvas(efficiencyCtx.canvas) || getChart("efficiency");
+  if (existingChart) {
+    destroyChartInstance(existingChart);
   }
 
   const chart = new Chart(efficiencyCtx, {
@@ -388,9 +482,15 @@ function initEfficiencyChart() {
  * Initialize the time distribution chart (bar chart)
  */
 function initTimeDistChart() {
-  const timeDistCtx = document.getElementById("timeDistChart")?.getContext("2d");
+  const timeDistCanvas = document.getElementById("timeDistChart");
+  const timeDistCtx = timeDistCanvas?.getContext("2d");
   if (!timeDistCtx) {
     return;
+  }
+
+  const existingChart = findChartForCanvas(timeDistCtx.canvas) || getChart("timeDist");
+  if (existingChart) {
+    destroyChartInstance(existingChart);
   }
 
   const chart = new Chart(timeDistCtx, {
@@ -446,7 +546,7 @@ function initTimeDistChart() {
   });
 
   setChart("timeDist", chart);
-  attachLongPressTooltip(chart);
+  registerChartCleanup(chart, attachLongPressTooltip(chart));
 }
 
 /**
