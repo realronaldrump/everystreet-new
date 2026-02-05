@@ -286,7 +286,7 @@ async def _run_ingestion_pipeline(
 
             # Honor cancellation without allowing this pipeline to overwrite it.
             if job.status == "cancelled":
-                raise asyncio.CancelledError()
+                raise asyncio.CancelledError
 
             updates: dict[str, Any] = {"updated_at": datetime.now(UTC)}
             if stage is not None:
@@ -470,7 +470,7 @@ async def _run_ingestion_pipeline(
                 stage="Processing historical trips",
                 progress=progress,
                 message=format_backfill_message(backfill_state),
-        )
+            )
 
         segments_updated = await backfill_coverage_for_area(
             area_doc_id,
@@ -1027,4 +1027,3 @@ async def _initialize_coverage_state(
     """
     _ = area_id
     _ = segments
-    return
