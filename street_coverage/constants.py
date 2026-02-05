@@ -37,10 +37,33 @@ BATCH_SIZE = 1000
 MAX_VIEWPORT_FEATURES = 5000
 
 # =============================================================================
-# Backfill Optimization
+# Backfill Optimization (Configurable for memory-constrained systems)
 # =============================================================================
-BACKFILL_TRIP_BATCH_SIZE = 500  # Number of trips to process per batch (increased)
-BACKFILL_BULK_WRITE_SIZE = 1000  # Max operations per bulk write (increased)
+# Lower defaults to reduce memory pressure; override via environment variables
+
+
+def _get_int_env(name: str, default: int) -> int:
+    """Get an integer from environment variable with fallback."""
+    import os
+
+    raw = os.getenv(name, "").strip()
+    if not raw:
+        return default
+    try:
+        return max(int(raw), 1)
+    except ValueError:
+        return default
+
+
+# Number of trips to process per batch (reduced from 500 to 100 for memory safety)
+BACKFILL_TRIP_BATCH_SIZE = _get_int_env("COVERAGE_TRIP_BATCH_SIZE", 100)
+
+# Max operations per bulk write (reduced from 1000 to 500)
+BACKFILL_BULK_WRITE_SIZE = _get_int_env("COVERAGE_BULK_WRITE_SIZE", 500)
+
+# Max segments to load into memory for spatial indexing (fail-safe for large areas)
+MAX_SEGMENTS_IN_MEMORY = _get_int_env("COVERAGE_MAX_SEGMENTS", 100000)
+
 
 # =============================================================================
 # Retry/Rebuild Configuration

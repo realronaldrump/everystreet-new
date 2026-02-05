@@ -36,7 +36,8 @@ logger = logging.getLogger(__name__)
 
 OSM_EXTENSIONS = {".osm", ".xml", ".pbf"}
 DEFAULT_AREA_EXTRACT_THRESHOLD_MB = 256
-DEFAULT_GRAPH_MEMORY_LIMIT_MB = 4096
+# Lowered from 4096 to reduce memory pressure on constrained systems
+DEFAULT_GRAPH_MEMORY_LIMIT_MB = 2048
 
 
 def _get_area_extract_threshold_mb() -> int:
@@ -54,14 +55,51 @@ def _is_area_extract_required() -> bool:
     return raw not in {"0", "false", "no", "off"}
 
 
-def _get_graph_memory_limit_mb() -> int:
-    raw = os.getenv("COVERAGE_GRAPH_MAX_MB", "").strip()
-    if not raw:
-        return DEFAULT_GRAPH_MEMORY_LIMIT_MB
+def _get_available_memory_mb() -> int | None:
+    """Detect available system memory in MB. Returns None if unable to detect."""
     try:
-        return max(int(raw), 0)
-    except ValueError:
-        return DEFAULT_GRAPH_MEMORY_LIMIT_MB
+        # Try to get memory info (Linux)
+        with open("/proc/meminfo") as f:
+            for line in f:
+                if line.startswith("MemAvailable:"):
+                    # Value is in kB
+                    return int(line.split()[1]) // 1024
+    except Exception:
+        pass
+    return None
+
+
+def _get_graph_memory_limit_mb() -> int:
+    """
+    Get graph memory limit with auto-scaling for memory-constrained systems.
+
+    Priority:
+    1. COVERAGE_GRAPH_MAX_MB environment variable (explicit override)
+    2. Auto-scaled based on available system RAM (use ~25% of available)
+    3. DEFAULT_GRAPH_MEMORY_LIMIT_MB fallback
+    """
+    raw = os.getenv("COVERAGE_GRAPH_MAX_MB", "").strip()
+    if raw:
+        try:
+            return max(int(raw), 0)
+        except ValueError:
+            pass
+
+    # Auto-scale based on available memory
+    available_mb = _get_available_memory_mb()
+    if available_mb is not None:
+        # Use at most 25% of available RAM, capped at default
+        auto_limit = min(available_mb // 4, DEFAULT_GRAPH_MEMORY_LIMIT_MB)
+        # Ensure at least 512MB for very constrained systems
+        auto_limit = max(auto_limit, 512)
+        logger.info(
+            "Auto-detected available memory: %d MB, using graph limit: %d MB",
+            available_mb,
+            auto_limit,
+        )
+        return auto_limit
+
+    return DEFAULT_GRAPH_MEMORY_LIMIT_MB
 
 
 def _write_geojson(path: Path, geometry: Any) -> None:

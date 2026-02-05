@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import gc
 import itertools
 import logging
 import time
@@ -26,6 +27,7 @@ from street_coverage.constants import (
     GPS_GAP_MULTIPLIER,
     MATCH_BUFFER_METERS,
     MAX_GPS_GAP_METERS,
+    MAX_SEGMENTS_IN_MEMORY,
     MIN_GPS_GAP_METERS,
     MIN_OVERLAP_METERS,
     SHORT_SEGMENT_OVERLAP_RATIO,
@@ -68,6 +70,36 @@ class AreaSegmentIndex:
         query: dict[str, Any] = {"area_id": self.area_id}
         if self.area_version is not None:
             query["area_version"] = self.area_version
+
+        # Check segment count before loading to prevent memory exhaustion
+        segment_count = await Street.find(query).count()
+        if segment_count == 0:
+            logger.info("No segments found for area %s", self.area_id)
+            self._built = True
+            return self
+
+        logger.info(
+            "Loading %d segments for area %s into spatial index",
+            segment_count,
+            self.area_id,
+        )
+
+        if segment_count > MAX_SEGMENTS_IN_MEMORY:
+            msg = (
+                f"Area {self.area_id} has {segment_count:,} segments, "
+                f"exceeding limit of {MAX_SEGMENTS_IN_MEMORY:,}. "
+                "Increase COVERAGE_MAX_SEGMENTS or process in smaller areas."
+            )
+            logger.error(msg)
+            raise MemoryError(msg)
+
+        if segment_count > MAX_SEGMENTS_IN_MEMORY // 2:
+            logger.warning(
+                "Area %s has %d segments - this may consume significant memory. "
+                "Consider splitting into smaller areas if memory issues occur.",
+                self.area_id,
+                segment_count,
+            )
 
         self.segments = await Street.find(query).to_list()
 
@@ -840,6 +872,11 @@ async def backfill_coverage_for_area(
         processed_trips += len(batch)
         skip += len(batch)
         await report_progress(total_trips=total_trip_count)
+
+        # Explicit garbage collection to release memory between batches
+        del batch
+        del batch_lines
+        gc.collect()
 
     logger.info(
         "Converted %d/%d trips to valid geometries",
