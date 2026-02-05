@@ -7,7 +7,7 @@
 const getCSSVariable = (varName) =>
   getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
 
-const MAP_LAYER_COLORS = {
+const buildMapLayerColors = () => ({
   trips: {
     default: getCSSVariable("--primary"),
     selected: getCSSVariable("--accent"),
@@ -45,28 +45,58 @@ const MAP_LAYER_COLORS = {
     outline: getCSSVariable("--primary-dark"),
     highlight: getCSSVariable("--accent"),
   },
-};
+});
 
-const MAP_LAYER_STYLES = {
+const buildMapLayerStyles = (colors) => ({
   trip: {
     default: {
-      color: MAP_LAYER_COLORS.trips.default,
+      color: colors.trips.default,
       width: 4,
     },
     selected: {
-      color: MAP_LAYER_COLORS.trips.selected,
+      color: colors.trips.selected,
       width: 6,
     },
     recent: {
-      color: MAP_LAYER_COLORS.trips.recent.light,
+      color: colors.trips.recent.light,
       width: 4,
     },
     matched: {
-      color: MAP_LAYER_COLORS.matchedTrips.default,
+      color: colors.matchedTrips.default,
       width: 4,
     },
   },
+});
+
+const updateNestedValues = (target, source) => {
+  Object.entries(source).forEach(([key, value]) => {
+    if (value && typeof value === "object" && !Array.isArray(value)) {
+      if (!target[key] || typeof target[key] !== "object") {
+        target[key] = {};
+      }
+      updateNestedValues(target[key], value);
+      return;
+    }
+    target[key] = value;
+  });
+  return target;
 };
+
+const MAP_LAYER_COLORS = buildMapLayerColors();
+const MAP_LAYER_STYLES = buildMapLayerStyles(MAP_LAYER_COLORS);
+
+const refreshMapStyles = () => {
+  const nextColors = buildMapLayerColors();
+  updateNestedValues(MAP_LAYER_COLORS, nextColors);
+  const nextStyles = buildMapLayerStyles(MAP_LAYER_COLORS);
+  updateNestedValues(MAP_LAYER_STYLES, nextStyles);
+  return { MAP_LAYER_COLORS, MAP_LAYER_STYLES };
+};
+
+if (typeof document !== "undefined") {
+  document.addEventListener("themeChanged", refreshMapStyles);
+  document.addEventListener("mapThemeChanged", refreshMapStyles);
+}
 
 function getClusterColor(count) {
   if (count < 10) {
@@ -85,10 +115,17 @@ function getTripStyle(state = "default") {
 const MapStyles = {
   MAP_LAYER_COLORS,
   MAP_LAYER_STYLES,
+  refreshMapStyles,
   getClusterColor,
   getTripStyle,
 };
 
-export { MAP_LAYER_COLORS, MAP_LAYER_STYLES, getClusterColor, getTripStyle };
+export {
+  MAP_LAYER_COLORS,
+  MAP_LAYER_STYLES,
+  refreshMapStyles,
+  getClusterColor,
+  getTripStyle,
+};
 export { MapStyles };
 export default MapStyles;
