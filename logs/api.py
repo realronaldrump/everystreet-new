@@ -121,11 +121,12 @@ async def clear_server_logs(
             cutoff_date = datetime.now(UTC) - timedelta(days=older_than_days)
             delete_filter["timestamp"] = {"$lt": cutoff_date}
 
-        logs_to_delete = await ServerLog.find(delete_filter).to_list()
-        deleted_count = len(logs_to_delete)
-
-        for log in logs_to_delete:
-            await log.delete()
+        # Use a single bulk delete instead of fetching and deleting documents
+        # one-by-one. This keeps the endpoint fast even with 100k+ log rows.
+        delete_result = await ServerLog.get_motor_collection().delete_many(
+            delete_filter
+        )
+        deleted_count = int(getattr(delete_result, "deleted_count", 0))
 
         logger.info(
             "Cleared %d server log entries (filter: %s)",
