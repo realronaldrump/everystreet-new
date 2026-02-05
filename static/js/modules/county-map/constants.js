@@ -17,25 +17,25 @@ export const MAP_CONFIG = {
 /** Map layer colors */
 export const COLORS = {
   visited: {
-    fill: "#10b981",
-    border: "#059669",
+    fill: "#4d9a6a",
+    border: "#3b7a53",
     opacity: 0.6,
   },
   stopped: {
-    fill: "#ef4444",
-    border: "#dc2626",
+    fill: "#c45454",
+    border: "#9f3f3f",
     opacity: 0.55,
   },
   unvisited: {
-    fill: "rgba(255, 255, 255, 0.02)",
+    fill: "rgba(245, 242, 236, 0.02)",
   },
   hover: {
-    fill: "#ffffff",
+    fill: "#faf9f7",
     opacity: 0.2,
   },
   borders: {
-    county: "rgba(255, 255, 255, 0.15)",
-    state: "rgba(255, 255, 255, 0.4)",
+    county: "rgba(245, 242, 236, 0.15)",
+    state: "rgba(245, 242, 236, 0.35)",
   },
 };
 

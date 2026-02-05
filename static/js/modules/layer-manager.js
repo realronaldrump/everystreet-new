@@ -280,7 +280,7 @@ const layerManager = {
         = info.supportsColorPicker !== false && name !== "customPlaces";
       const supportsOpacitySlider
         = info.supportsOpacitySlider !== false && name !== "customPlaces";
-      const colorValue = typeof info.color === "string" ? info.color : "#ffffff";
+      const colorValue = typeof info.color === "string" ? info.color : "#faf9f7";
 
       const controls = [];
 
@@ -1003,7 +1003,7 @@ const layerManager = {
   _updateLayerPaintProperties(layerId, layerInfo) {
     const colorValue = Array.isArray(layerInfo.color)
       ? layerInfo.color
-      : layerInfo.color || "#331107";
+      : layerInfo.color || "#727a84";
 
     store.map.setPaintProperty(layerId, "line-color", colorValue);
     store.map.setPaintProperty(layerId, "line-opacity", layerInfo.opacity);
@@ -1109,7 +1109,7 @@ const layerManager = {
       paint: {
         "line-color": Array.isArray(layerInfo.color)
           ? layerInfo.color
-          : layerInfo.color || "#331107",
+          : layerInfo.color || "#727a84",
         "line-opacity": layerInfo.opacity,
         "line-width": [
           "interpolate",

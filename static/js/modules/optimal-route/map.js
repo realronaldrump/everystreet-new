@@ -75,8 +75,8 @@ export class OptimalRouteMap {
     const ctx = canvas.getContext("2d");
 
     // Draw arrow
-    ctx.fillStyle = "#9333ea"; // Purple
-    ctx.strokeStyle = "#ffffff";
+    ctx.fillStyle = "#b87a4a"; // Copper
+    ctx.strokeStyle = "#faf9f7";
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(width * 0.2, height * 0.8);
@@ -106,7 +106,7 @@ export class OptimalRouteMap {
       source: "streets-driven",
       layout: { "line-join": "round", "line-cap": "round" },
       paint: {
-        "line-color": "#10b981",
+        "line-color": "#4d9a6a",
         "line-width": 2,
         "line-opacity": 0.6,
       },
@@ -118,7 +118,7 @@ export class OptimalRouteMap {
       source: "streets-undriven",
       layout: { "line-join": "round", "line-cap": "round" },
       paint: {
-        "line-color": "#ef4444",
+        "line-color": "#8b98a8",
         "line-width": 2.5,
         "line-opacity": 0.8,
       },
@@ -141,7 +141,7 @@ export class OptimalRouteMap {
       source: "optimal-route",
       layout: { "line-join": "round", "line-cap": "round" },
       paint: {
-        "line-color": "#9333ea",
+        "line-color": "#b87a4a",
         "line-width": 5,
         "line-opacity": 0.9,
       },

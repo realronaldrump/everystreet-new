@@ -298,7 +298,7 @@ class TurnByTurnUI {
       return;
     }
     el.textContent = message;
-    el.style.color = isError ? "#b91c1c" : "";
+    el.style.color = isError ? "var(--danger)" : "";
   }
 
   setNavStatus(message, isError = false) {
@@ -307,7 +307,7 @@ class TurnByTurnUI {
       return;
     }
     el.textContent = message;
-    el.style.color = isError ? "#b91c1c" : "";
+    el.style.color = isError ? "var(--danger)" : "";
   }
 
   // === Navigation HUD Updates ===

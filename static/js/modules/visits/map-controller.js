@@ -115,15 +115,15 @@ class VisitsMapController {
       data: suggestion.boundary,
     });
 
-    this.map.addLayer({
-      id: "suggestion-preview-fill",
-      type: "fill",
-      source: "suggestion-preview",
-      paint: {
-        "fill-color": "#F59E0B",
-        "fill-opacity": 0.25,
-      },
-    });
+      this.map.addLayer({
+        id: "suggestion-preview-fill",
+        type: "fill",
+        source: "suggestion-preview",
+        paint: {
+        "fill-color": "#d4a24a",
+          "fill-opacity": 0.25,
+        },
+      });
 
     this.geometryUtils.fitMapToGeometry(this.map, suggestion.boundary, {
       padding: 50,

@@ -44,7 +44,7 @@
 .spa-progress-bar {
   height: 100%;
   width: 100%;
-  background: var(--primary, #6366f1);
+  background: var(--primary, #3b8a7f);
 }
 
 .loading-overlay.non-blocking {
@@ -71,7 +71,7 @@
 /* Light mode adjustments */
 body.light-mode .loading-overlay,
 [data-bs-theme="light"] .loading-overlay {
-  background-color: rgb(255 255 255 / 50%);
+  background-color: rgb(var(--surface-rgb) / 60%);
 }
 
 /* === Loading Indicator - Glassmorphism Refined === */
@@ -99,29 +99,29 @@ body.light-mode .loading-indicator,
 .loading-spinner {
   width: 24px;
   height: 24px;
-  border: 3px solid rgb(255 255 255 / 20%);
-  border-top-color: var(--primary, #6366f1);
+  border: 3px solid rgb(var(--text-rgb) / 20%);
+  border-top-color: var(--primary, #3b8a7f);
   border-radius: 50%;
   animation: loading-spin 0.8s linear infinite;
 }
 
 body.light-mode .loading-spinner,
 [data-bs-theme="light"] .loading-spinner {
-  border-color: rgb(0 0 0 / 10%);
-  border-top-color: var(--primary, #6366f1);
+  border-color: rgb(var(--border-rgb) / 20%);
+  border-top-color: var(--primary, #3b8a7f);
 }
 
 /* === Loading Text === */
 .loading-text {
   font-size: 14px;
   font-weight: 500;
-  color: var(--text-primary, #fff);
+  color: var(--text-primary, #f5f2ec);
   white-space: nowrap;
 }
 
 body.light-mode .loading-text,
 [data-bs-theme="light"] .loading-text {
-  color: var(--text-primary, #1f2937);
+  color: var(--text-primary, #1c1a18);
 }
 
 /* === Spin Animation === */
@@ -155,8 +155,8 @@ body.light-mode .loading-text,
 
 /* Filled buttons need white spinner */
 .btn-primary.btn-loading::after {
-  border-color: rgb(255 255 255 / 30%);
-  border-top-color: #fff;
+  border-color: rgb(var(--text-rgb) / 30%);
+  border-top-color: var(--text-primary);
 }
 
 /* === Skeleton Loading - Phase 3 Shimmer Effect === */
@@ -233,12 +233,12 @@ body.light-mode .skeleton-loader {
   width: 1.5rem;
   height: 1.5rem;
   border-width: 0.2em;
-  color: var(--primary, #6366f1);
+  color: var(--primary, #3b8a7f);
 }
 
 .map-loading-text {
   font-size: 0.875rem;
-  color: var(--text-primary, #fff);
+  color: var(--text-primary, #f5f2ec);
 }
 
 /* === Reduced Motion Support === */
@@ -251,7 +251,7 @@ body.light-mode .skeleton-loader {
   }
 
   .loading-spinner {
-    border-color: var(--primary, #6366f1);
+    border-color: var(--primary, #3b8a7f);
     opacity: 0.7;
   }
 

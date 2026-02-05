@@ -273,7 +273,7 @@ class LiveTripTracker {
         "circle-radius": 9,
         "circle-color": color,
         "circle-stroke-width": 2.5,
-        "circle-stroke-color": "#ffffff",
+        "circle-stroke-color": "#faf9f7",
         "circle-blur": 0,
       },
     });
@@ -333,7 +333,7 @@ class LiveTripTracker {
   }
 
   loadRouteStyle() {
-    let color = LiveTripTracker.getCssVar("--primary", "#7c9d96");
+    let color = LiveTripTracker.getCssVar("--primary", "#3b8a7f");
     let opacity = 0.9;
 
     try {
@@ -1052,19 +1052,19 @@ class LiveTripTracker {
     let strokeWidth = 0;
 
     if (speed === 0) {
-      color = LiveTripTracker.getCssVar("--danger", "#d48584");
+      color = LiveTripTracker.getCssVar("--danger", "#c45454");
       radius = 8;
       strokeWidth = 2;
     } else if (speed < 10) {
-      color = LiveTripTracker.getCssVar("--warning", "#d4a574");
+      color = LiveTripTracker.getCssVar("--warning", "#d4a24a");
       radius = 8;
       strokeWidth = 2;
     } else if (speed < 35) {
-      color = LiveTripTracker.getCssVar("--info", "#8b9dc3");
+      color = LiveTripTracker.getCssVar("--info", "#5a86b0");
       radius = 9;
       strokeWidth = 2.5;
     } else {
-      color = LiveTripTracker.getCssVar("--primary", "#7c9d96");
+      color = LiveTripTracker.getCssVar("--primary", "#3b8a7f");
       radius = 10;
       strokeWidth = 3;
     }

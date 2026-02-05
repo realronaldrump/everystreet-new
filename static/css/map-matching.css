@@ -45,14 +45,14 @@
 .mm-phase-step.is-active .mm-step-dot {
   background: var(--primary);
   border-color: var(--primary);
-  color: white;
+  color: var(--text-on-primary);
   box-shadow: 0 4px 12px rgb(var(--primary-rgb) / 30%);
 }
 
 .mm-phase-step.is-completed .mm-step-dot {
   background: var(--success);
   border-color: var(--success);
-  color: white;
+  color: var(--text-on-primary);
 }
 
 .mm-step-label {
@@ -250,7 +250,7 @@
 
 .mm-option.is-selected .mm-option-icon {
   background: var(--primary);
-  color: white;
+  color: var(--text-on-primary);
 }
 
 .mm-option-content {
@@ -289,7 +289,7 @@
 .mm-option.is-selected .mm-option-check {
   border-color: var(--primary);
   background: var(--primary);
-  color: white;
+  color: var(--text-on-primary);
 }
 
 .mm-option-small {
@@ -466,7 +466,7 @@
   border-radius: var(--radius-xl);
   background: linear-gradient(135deg, var(--primary), var(--primary-dark));
   border: none;
-  color: white;
+  color: var(--text-on-primary);
   font-weight: var(--font-weight-semibold);
   font-size: var(--font-size-base);
   display: flex;
@@ -685,7 +685,7 @@
   justify-content: center;
   border-radius: var(--radius-full);
   background: var(--success);
-  color: white;
+  color: var(--text-on-primary);
   font-size: var(--font-size-2xl);
   flex-shrink: 0;
 }
@@ -717,7 +717,7 @@
 
 /* === Results Map === */
 .mm-results-map-container {
-  --matched-preview-color: #cf6679;
+  --matched-preview-color: var(--danger);
 
   position: relative;
   height: 300px;
@@ -1116,7 +1116,7 @@
   padding: 0 var(--space-1);
   border-radius: var(--radius-full);
   background: var(--primary);
-  color: white;
+  color: var(--text-on-primary);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-bold);
 }
@@ -1374,7 +1374,7 @@
   padding: 0 var(--space-1);
   border-radius: var(--radius-full);
   background: var(--warning);
-  color: white;
+  color: var(--text-on-primary);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-bold);
 }

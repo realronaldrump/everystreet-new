@@ -872,7 +872,7 @@ class VisitsPageController {
           type: "fill",
           source: "suggestion-preview",
           paint: {
-            "fill-color": "#38bdf8",
+            "fill-color": "#6a9fc0",
             "fill-opacity": 0.28,
           },
         });
@@ -882,7 +882,7 @@ class VisitsPageController {
           type: "line",
           source: "suggestion-preview",
           paint: {
-            "line-color": "#38bdf8",
+            "line-color": "#6a9fc0",
             "line-width": 2,
           },
         });

@@ -28,7 +28,7 @@
   box-shadow:
     0 4px 6px -1px rgb(0 0 0 / 10%),
     0 2px 4px -1px rgb(0 0 0 / 6%),
-    inset 0 1px 0 rgb(255 255 255 / 5%);
+    inset 0 1px 0 rgb(var(--text-rgb) / 5%);
   transition: all var(--transition-normal);
   border: 1px solid rgb(var(--border-rgb) / 30%);
 }
@@ -113,7 +113,7 @@
   border: 1px solid rgb(var(--widget-accent-rgb) / 30%);
   box-shadow:
     0 4px 6px -1px rgb(var(--widget-accent-rgb) / 20%),
-    inset 0 1px 0 rgb(255 255 255 / 10%);
+    inset 0 1px 0 rgb(var(--text-rgb) / 10%);
 }
 
 /* Stats display in header */
@@ -143,7 +143,7 @@
   box-shadow:
     0 8px 32px rgb(0 0 0 / 12%),
     0 2px 8px rgb(0 0 0 / 8%),
-    inset 0 1px 0 rgb(255 255 255 / 10%);
+    inset 0 1px 0 rgb(var(--text-rgb) / 10%);
   border: 1px solid rgb(var(--border-rgb) / 40%);
   position: relative;
   overflow: hidden;
@@ -259,7 +259,7 @@
   width: 0;
   height: 0;
   border-radius: 50%;
-  background: rgb(255 255 255 / 25%);
+  background: rgb(var(--text-rgb) / 25%);
   transform: translate(-50%, -50%);
   transition:
     width 0.6s ease,
@@ -946,7 +946,7 @@
   background: linear-gradient(135deg, var(--primary), var(--secondary));
   color: var(--text-on-primary);
   box-shadow: 0 4px 6px rgb(var(--primary-rgb) / 30%);
-  border: 1px solid rgb(255 255 255 / 20%);
+  border: 1px solid rgb(var(--text-rgb) / 20%);
 }
 
 .visits-badge::before {
@@ -1256,7 +1256,7 @@
   border-radius: var(--radius-xl);
   box-shadow:
     0 8px 32px rgb(0 0 0 / 12%),
-    inset 0 1px 0 rgb(255 255 255 / 10%);
+    inset 0 1px 0 rgb(var(--text-rgb) / 10%);
 }
 
 /* ============================================
@@ -1277,7 +1277,7 @@
 #visits-page .widget {
   background: rgb(var(--surface-rgb) / 70%);
   background-image: none;
-  border: 1px solid rgb(255 255 255 / 8%);
+  border: 1px solid rgb(var(--text-rgb) / 8%);
   box-shadow: 0 12px 28px rgb(0 0 0 / 18%);
 }
 
@@ -1330,8 +1330,8 @@
 }
 
 #visits-page .visits-hero-stats > div {
-  background: rgb(255 255 255 / 4%);
-  border: 1px solid rgb(255 255 255 / 8%);
+  background: rgb(var(--text-rgb) / 4%);
+  border: 1px solid rgb(var(--text-rgb) / 8%);
   border-radius: var(--radius-lg);
   padding: var(--space-3) var(--space-4);
 }
@@ -1341,13 +1341,13 @@
 }
 
 #visits-page .place-name-input {
-  background: rgb(255 255 255 / 3%);
-  border: 1px solid rgb(255 255 255 / 10%);
+  background: rgb(var(--text-rgb) / 3%);
+  border: 1px solid rgb(var(--text-rgb) / 10%);
   box-shadow: none;
 }
 
 #visits-page .place-name-input:focus {
-  background: rgb(255 255 255 / 6%);
+  background: rgb(var(--text-rgb) / 6%);
   box-shadow: 0 0 0 0.2rem rgb(var(--primary-rgb) / 18%);
   transform: none;
 }
@@ -1364,8 +1364,8 @@
   align-items: flex-start;
   padding: var(--space-3);
   border-radius: var(--radius-lg);
-  background: rgb(255 255 255 / 4%);
-  border: 1px solid rgb(255 255 255 / 8%);
+  background: rgb(var(--text-rgb) / 4%);
+  border: 1px solid rgb(var(--text-rgb) / 8%);
 }
 
 #visits-page .visit-step .step-index {
@@ -1397,8 +1397,8 @@
   align-items: flex-start;
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-lg);
-  background: rgb(255 255 255 / 4%);
-  border: 1px solid rgb(255 255 255 / 8%);
+  background: rgb(var(--text-rgb) / 4%);
+  border: 1px solid rgb(var(--text-rgb) / 8%);
 }
 
 #visits-page .visits-filters .filter-label {
@@ -1434,7 +1434,7 @@
 
 #visits-page .map-container {
   background: rgb(var(--surface-rgb) / 60%);
-  border: 1px solid rgb(255 255 255 / 8%);
+  border: 1px solid rgb(var(--text-rgb) / 8%);
   box-shadow: 0 12px 28px rgb(0 0 0 / 18%);
 }
 
@@ -1452,13 +1452,13 @@
 
 #visits-page .map-controls-enhanced {
   background: rgb(var(--surface-rgb) / 80%);
-  border: 1px solid rgb(255 255 255 / 10%);
+  border: 1px solid rgb(var(--text-rgb) / 10%);
   box-shadow: 0 8px 16px rgb(0 0 0 / 18%);
 }
 
 #visits-page .map-control-btn {
-  background: rgb(255 255 255 / 6%);
-  border: 1px solid rgb(255 255 255 / 12%);
+  background: rgb(var(--text-rgb) / 6%);
+  border: 1px solid rgb(var(--text-rgb) / 12%);
   box-shadow: none;
 }
 
@@ -1471,8 +1471,8 @@
 }
 
 #visits-page .visits-nav-tabs {
-  background: rgb(255 255 255 / 4%);
-  border: 1px solid rgb(255 255 255 / 8%);
+  background: rgb(var(--text-rgb) / 4%);
+  border: 1px solid rgb(var(--text-rgb) / 8%);
   box-shadow: none;
 }
 
@@ -1494,13 +1494,13 @@
 
 #visits-page .visits-table {
   box-shadow: none;
-  border: 1px solid rgb(255 255 255 / 8%);
-  background: rgb(255 255 255 / 2%);
+  border: 1px solid rgb(var(--text-rgb) / 8%);
+  background: rgb(var(--text-rgb) / 2%);
 }
 
 #visits-page .visits-table thead {
-  background: rgb(255 255 255 / 4%);
-  border-bottom: 1px solid rgb(255 255 255 / 6%);
+  background: rgb(var(--text-rgb) / 4%);
+  border-bottom: 1px solid rgb(var(--text-rgb) / 6%);
 }
 
 #visits-page .visits-table thead th {
@@ -1511,14 +1511,14 @@
 }
 
 #visits-page .visits-table tbody tr:hover {
-  background: rgb(255 255 255 / 4%);
+  background: rgb(var(--text-rgb) / 4%);
   transform: none;
   box-shadow: none;
 }
 
 #visits-page .empty-state {
-  background: rgb(255 255 255 / 3%);
-  border: 1px dashed rgb(255 255 255 / 12%);
+  background: rgb(var(--text-rgb) / 3%);
+  border: 1px dashed rgb(var(--text-rgb) / 12%);
 }
 
 #visits-page .empty-state i {
@@ -1538,8 +1538,8 @@
 }
 
 #visits-page #insights-content .bg-body-secondary {
-  background: rgb(255 255 255 / 4%) !important;
-  border: 1px solid rgb(255 255 255 / 8%);
+  background: rgb(var(--text-rgb) / 4%) !important;
+  border: 1px solid rgb(var(--text-rgb) / 8%);
   box-shadow: none;
 }
 

@@ -9,40 +9,41 @@ const getCSSVariable = (varName) =>
 
 const MAP_LAYER_COLORS = {
   trips: {
-    default: "#5f7d78",
-    selected: "#d4a574",
+    default: getCSSVariable("--primary"),
+    selected: getCSSVariable("--accent"),
     recent: {
-      light: "#e3c09a",
-      dark: "#d4a574",
+      light: getCSSVariable("--accent-light"),
+      dark: getCSSVariable("--accent"),
     },
   },
   matchedTrips: {
-    default: "#d48584",
-    highlight: "#7c9d96",
+    default: getCSSVariable("--danger"),
+    highlight: getCSSVariable("--primary-light"),
   },
   streets: {
-    undriven: "#8b9dc3",
+    undriven: getCSSVariable("--color-undriven"),
     driven: getCSSVariable("--success"),
     all: getCSSVariable("--primary-light"),
   },
   routes: {
-    default: "#f97316",
-    active: "#60a5fa",
-    completed: "#22c55e",
+    default: getCSSVariable("--accent"),
+    active: getCSSVariable("--info"),
+    completed: getCSSVariable("--success"),
   },
   clusters: {
-    small: "#f1c40f",
-    medium: "#e67e22",
-    large: "#e74c3c",
+    small: getCSSVariable("--warning"),
+    medium: getCSSVariable("--accent"),
+    large: getCSSVariable("--danger"),
   },
   coverage: {
-    driven: "#1d9bf0",
-    undriven: "#cbd5f5",
-    undriveable: "#7c7c7c",
+    driven: getCSSVariable("--success"),
+    undriven: getCSSVariable("--color-undriven"),
+    undriveable: getCSSVariable("--secondary"),
   },
   customPlaces: {
-    fill: "#22c55e",
-    outline: "#15803d",
+    fill: getCSSVariable("--primary"),
+    outline: getCSSVariable("--primary-dark"),
+    highlight: getCSSVariable("--accent"),
   },
 };
 

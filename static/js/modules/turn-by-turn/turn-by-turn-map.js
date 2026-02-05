@@ -7,6 +7,16 @@
 
 import { MAP_STYLES } from "./turn-by-turn-config.js";
 
+const getThemeColor = (variable, fallback) => {
+  if (typeof window === "undefined") {
+    return fallback;
+  }
+  const value = getComputedStyle(document.documentElement)
+    .getPropertyValue(variable)
+    .trim();
+  return value || fallback;
+};
+
 /**
  * Map manager for turn-by-turn navigation
  */
@@ -164,7 +174,7 @@ class TurnByTurnMap {
         source: "coverage-undriven",
         layout: { "line-cap": "round", "line-join": "round" },
         paint: {
-          "line-color": "#d48584",
+          "line-color": getThemeColor("--color-undriven", "#8b98a8"),
           "line-width": 4,
           "line-opacity": 0.6,
         },
@@ -179,7 +189,7 @@ class TurnByTurnMap {
         source: "coverage-driven",
         layout: { "line-cap": "round", "line-join": "round" },
         paint: {
-          "line-color": "#6b9d8a",
+          "line-color": getThemeColor("--success", "#4d9a6a"),
           "line-width": 4,
           "line-opacity": 0.4,
         },
@@ -194,7 +204,7 @@ class TurnByTurnMap {
         source: "coverage-just-driven",
         layout: { "line-cap": "round", "line-join": "round" },
         paint: {
-          "line-color": "#6b9d8a",
+          "line-color": getThemeColor("--success", "#4d9a6a"),
           "line-width": 10,
           "line-opacity": 0.3,
           "line-blur": 4,
@@ -210,7 +220,7 @@ class TurnByTurnMap {
         source: "coverage-just-driven",
         layout: { "line-cap": "round", "line-join": "round" },
         paint: {
-          "line-color": "#4caf50",
+          "line-color": getThemeColor("--success", "#4d9a6a"),
           "line-width": 5,
           "line-opacity": 0.9,
         },
@@ -232,7 +242,9 @@ class TurnByTurnMap {
     }
 
     const isLightMode = document.body.classList.contains("light-mode");
-    const casingColor = isLightMode ? "#ffffff" : "#2f3239";
+    const casingColor = isLightMode
+      ? getThemeColor("--surface-1", "#ffffff")
+      : getThemeColor("--surface-3", "#27272c");
 
     // Route casing
     if (!this.map.getLayer("nav-route-casing")) {
@@ -257,7 +269,7 @@ class TurnByTurnMap {
         source: "nav-route",
         layout: { "line-cap": "round", "line-join": "round" },
         paint: {
-          "line-color": "#8a8f98",
+          "line-color": getThemeColor("--secondary", "#727a84"),
           "line-width": 6,
           "line-opacity": 0.5,
         },
@@ -272,7 +284,7 @@ class TurnByTurnMap {
         source: "nav-route-progress",
         layout: { "line-cap": "round", "line-join": "round" },
         paint: {
-          "line-color": "#7c9d96",
+          "line-color": getThemeColor("--primary", "#3b8a7f"),
           "line-width": 7,
           "line-opacity": 0.95,
         },
@@ -287,7 +299,7 @@ class TurnByTurnMap {
         source: "nav-to-start",
         layout: { "line-cap": "round", "line-join": "round" },
         paint: {
-          "line-color": "#d4a574",
+          "line-color": getThemeColor("--accent-light", "#d09868"),
           "line-width": 4,
           "line-opacity": 0.9,
           "line-dasharray": [2, 1],

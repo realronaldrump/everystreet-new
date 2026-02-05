@@ -69,9 +69,9 @@ class VisitsDrawing {
    */
   _getDrawStyles() {
     const colors = MapStyles.MAP_LAYER_COLORS?.customPlaces || {
-      fill: "#3b82f6",
-      outline: "#3b82f6",
-      highlight: "#F59E0B",
+      fill: "#3b8a7f",
+      outline: "#2d6e65",
+      highlight: "#b87a4a",
     };
 
     return [
@@ -89,7 +89,7 @@ class VisitsDrawing {
         type: "fill",
         filter: ["all", ["==", "$type", "Polygon"], ["==", "active", "true"]],
         paint: {
-          "fill-color": "#F59E0B",
+          "fill-color": colors.highlight,
           "fill-opacity": 0.1,
         },
       },
@@ -117,9 +117,9 @@ class VisitsDrawing {
         filter: ["all", ["==", "meta", "vertex"], ["==", "active", "true"]],
         paint: {
           "circle-radius": 6,
-          "circle-color": "#F59E0B",
+          "circle-color": colors.highlight,
           "circle-stroke-width": 2,
-          "circle-stroke-color": "#fff",
+          "circle-stroke-color": "#faf9f7",
         },
       },
     ];

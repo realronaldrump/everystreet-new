@@ -15,8 +15,8 @@ class VisitsChartManager {
       = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
 
     const gradient = ctx.createLinearGradient(0, 0, 0, 400);
-    gradient.addColorStop(0, "rgba(187, 134, 252, 0.8)");
-    gradient.addColorStop(1, "rgba(187, 134, 252, 0.1)");
+    gradient.addColorStop(0, "rgba(184, 122, 74, 0.8)");
+    gradient.addColorStop(1, "rgba(184, 122, 74, 0.1)");
 
     this.chart = new Chart(ctx, {
       type: "bar",
@@ -27,7 +27,7 @@ class VisitsChartManager {
             label: "Visits",
             data: [],
             backgroundColor: gradient,
-            borderColor: "#9965EB",
+            borderColor: "#b87a4a",
             borderWidth: 2,
             borderRadius: 8,
             borderSkipped: false,

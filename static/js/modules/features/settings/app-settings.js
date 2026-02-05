@@ -145,7 +145,7 @@ export function setupAppSettingsForm() {
       mapMatchTripsOnFetch.checked = mmtof === true;
     }
     if (polylineColor) {
-      polylineColor.value = pc || localStorage.getItem("polylineColor") || "#00FF00";
+      polylineColor.value = pc || localStorage.getItem("polylineColor") || "#4d9a6a";
     }
     if (polylineOpacity) {
       polylineOpacity.value = po || localStorage.getItem("polylineOpacity") || "0.8";
@@ -155,7 +155,7 @@ export function setupAppSettingsForm() {
     }
 
     const storedAccent
-      = accentColor || localStorage.getItem("es:accent-color") || "#7c9d96";
+      = accentColor || localStorage.getItem("es:accent-color") || "#b87a4a";
     if (accentColorPicker) {
       accentColorPicker.value = storedAccent;
     }

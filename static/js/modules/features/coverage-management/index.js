@@ -1247,7 +1247,7 @@ async function loadStreets(areaId) {
         source: "streets",
         filter: ["==", ["get", "status"], "undriven"],
         paint: {
-          "line-color": "#ef4444",
+          "line-color": "#8b98a8",
           "line-width": 2,
           "line-opacity": 0.8,
         },
@@ -1260,7 +1260,7 @@ async function loadStreets(areaId) {
         source: "streets",
         filter: ["==", ["get", "status"], "driven"],
         paint: {
-          "line-color": "#22c55e",
+          "line-color": "#4d9a6a",
           "line-width": 2,
           "line-opacity": 0.8,
         },
@@ -1273,7 +1273,7 @@ async function loadStreets(areaId) {
         source: "streets",
         filter: ["==", ["get", "status"], "undriveable"],
         paint: {
-          "line-color": "#6b7280",
+          "line-color": "#727a84",
           "line-width": 1,
           "line-opacity": 0.5,
           "line-dasharray": [2, 2],
@@ -1287,7 +1287,7 @@ async function loadStreets(areaId) {
         source: "streets",
         filter: ["==", ["get", "segment_id"], ""],
         paint: {
-          "line-color": "#fbbf24",
+          "line-color": "#d4a24a",
           "line-width": 4,
           "line-opacity": 0.9,
         },

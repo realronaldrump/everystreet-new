@@ -12,12 +12,12 @@ const heatmapUtils = {
    */
   COLORS: {
     dark: {
-      glow: "#ff4400", // Orange-red outer glow
-      core: "#ffaa00", // Bright orange-yellow core
+      glow: "#9a6438", // Warm copper glow
+      core: "#d4a24a", // Honey amber core
     },
     light: {
-      glow: "#ff5500",
-      core: "#ff8800",
+      glow: "#b87a4a",
+      core: "#d09868",
     },
   },
 

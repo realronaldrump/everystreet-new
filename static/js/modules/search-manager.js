@@ -436,7 +436,7 @@ const searchManager = {
           type: "line",
           source: this.highlightSourceId,
           paint: {
-            "line-color": MapStyles.MAP_LAYER_COLORS?.trips?.selected || "#FFD700",
+            "line-color": MapStyles.MAP_LAYER_COLORS?.trips?.selected || "#d09868",
             "line-width": ["interpolate", ["linear"], ["zoom"], 10, 3, 15, 6, 20, 12],
             "line-opacity": 0.9,
           },
@@ -503,7 +503,7 @@ const searchManager = {
     popupContent.appendChild(document.createTextNode(result.subtitle));
 
     this.searchMarkerId = new mapboxgl.Marker({
-      color: MapStyles.MAP_LAYER_COLORS?.trips?.selected || "#FFD700",
+      color: MapStyles.MAP_LAYER_COLORS?.trips?.selected || "#d09868",
     })
       .setLngLat([lng, lat])
       .setPopup(new mapboxgl.Popup({ offset: 25 }).setDOMContent(popupContent))

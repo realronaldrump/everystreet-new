@@ -876,40 +876,40 @@
 
 /* ===== Light Mode Adjustments ===== */
 body.light-mode .section-card {
-  background: #fff;
-  border-color: rgb(0 0 0 / 8%);
+  background: var(--surface-1);
+  border-color: var(--border-color);
 }
 
 body.light-mode .card-header {
-  background: #fafafa;
+  background: var(--surface-0);
 }
 
 body.light-mode .form-control,
 body.light-mode .form-select {
-  background: #fafafa;
-  border-color: rgb(0 0 0 / 10%);
+  background: var(--surface-0);
+  border-color: var(--border-color);
 }
 
 body.light-mode .fillup-item {
-  background: #fff;
+  background: var(--surface-1);
 }
 
 body.light-mode .btn-quick,
 body.light-mode .btn-icon {
-  background: #f3f4f6;
-  border-color: rgb(0 0 0 / 8%);
+  background: var(--surface-2);
+  border-color: var(--border-color);
 }
 
 body.light-mode .map-container {
-  border-color: rgb(0 0 0 / 10%);
+  border-color: var(--border-color);
 }
 
 body.light-mode .mini-map {
-  background: #f3f4f6;
+  background: var(--surface-2);
 }
 
 body.light-mode .empty-icon {
-  background: #f3f4f6;
+  background: var(--surface-2);
 }
 
 /* ===== Touch Device Optimizations ===== */

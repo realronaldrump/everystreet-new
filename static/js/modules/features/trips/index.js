@@ -889,9 +889,9 @@ function getThemeColor(variable, fallback) {
 
 function getTripUiColors() {
   return {
-    primary: getThemeColor("--primary", "#1fb6ad"),
-    success: getThemeColor("--success", "#2fb86d"),
-    stroke: getThemeColor("--text-primary", "#f2f7fc"),
+    primary: getThemeColor("--primary", "#3b8a7f"),
+    success: getThemeColor("--success", "#4d9a6a"),
+    stroke: getThemeColor("--text-primary", "#f5f2ec"),
   };
 }
 
@@ -1824,7 +1824,7 @@ function initTripModalMap() {
   } catch (e) {
     console.error("Failed to init modal map:", e);
     document.getElementById("trip-modal-map").innerHTML
-      = '<div style="padding: 20px; color: #dc3545;">Failed to load map.</div>';
+      = '<div style="padding: 20px; color: var(--danger);">Failed to load map.</div>';
   }
 }
 

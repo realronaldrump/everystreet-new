@@ -1459,7 +1459,7 @@
   box-shadow:
     0 0 0 1px rgb(0 0 0 / 30%),
     0 25px 80px -20px rgb(0 0 0 / 70%),
-    0 0 60px -10px rgb(99 102 241 / 15%);
+    0 0 60px -10px rgb(var(--accent-rgb) / 15%);
   overflow: hidden;
   backdrop-filter: blur(20px);
 }
@@ -1481,8 +1481,8 @@
   background: linear-gradient(
     90deg,
     transparent 0%,
-    rgb(99 102 241 / 50%) 20%,
-    rgb(139 92 246 / 50%) 80%,
+    rgb(var(--accent-rgb) / 50%) 20%,
+    rgb(var(--accent-rgb) / 50%) 80%,
     transparent 100%
   );
 }
@@ -1495,7 +1495,7 @@
   font-family: var(--font-display);
   font-size: 1.75rem;
   font-weight: 800;
-  color: #fff;
+  color: var(--text-primary);
   margin: 0;
   letter-spacing: -0.02em;
   text-shadow: 0 2px 10px rgb(0 0 0 / 30%);
@@ -1544,15 +1544,15 @@
 .btn-icon:hover {
   background: rgb(255 255 255 / 10%);
   border-color: rgb(255 255 255 / 15%);
-  color: #fff;
+  color: var(--text-primary);
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgb(0 0 0 / 20%);
 }
 
 .btn-icon.btn-danger:hover {
-  background: rgb(239 68 68 / 15%);
-  border-color: rgb(239 68 68 / 30%);
-  color: #ef4444;
+  background: rgb(var(--danger-rgb) / 15%);
+  border-color: rgb(var(--danger-rgb) / 30%);
+  color: var(--danger);
 }
 
 .btn-close {
@@ -1602,7 +1602,7 @@
   border-radius: 16px;
   box-shadow:
     0 8px 32px rgb(0 0 0 / 40%),
-    0 0 0 1px rgb(99 102 241 / 10%);
+    0 0 0 1px rgb(var(--accent-rgb) / 10%);
   min-width: 200px;
 }
 
@@ -1612,20 +1612,20 @@
   justify-content: center;
   gap: 10px;
   padding: 12px 20px;
-  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-light) 100%);
   border: none;
   border-radius: 12px;
   font-size: 0.9375rem;
   font-weight: 600;
-  color: #fff;
+  color: var(--text-primary);
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 4px 15px rgb(99 102 241 / 30%);
+  box-shadow: 0 4px 15px rgb(var(--accent-rgb) / 30%);
 }
 
 .btn-playback:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgb(99 102 241 / 40%);
+  box-shadow: 0 6px 20px rgb(var(--accent-rgb) / 40%);
 }
 
 .btn-playback:active {
@@ -1633,12 +1633,12 @@
 }
 
 .btn-playback.is-complete {
-  background: linear-gradient(135deg, #10b981 0%, #34d399 100%);
-  box-shadow: 0 4px 15px rgb(16 185 129 / 30%);
+  background: linear-gradient(135deg, var(--success) 0%, var(--success-light) 100%);
+  box-shadow: 0 4px 15px rgb(var(--success-rgb) / 30%);
 }
 
 .btn-playback.is-complete:hover {
-  box-shadow: 0 6px 20px rgb(16 185 129 / 40%);
+  box-shadow: 0 6px 20px rgb(var(--success-rgb) / 40%);
 }
 
 .playback-speed {
@@ -1657,7 +1657,7 @@
 
 .playback-speed input[type="range"] {
   width: 100%;
-  accent-color: #6366f1;
+  accent-color: var(--accent);
   height: 4px;
   background: rgb(255 255 255 / 10%);
   border-radius: 2px;
@@ -1668,10 +1668,10 @@
   appearance: none;
   width: 14px;
   height: 14px;
-  background: #6366f1;
+  background: var(--accent);
   border-radius: 50%;
   cursor: pointer;
-  box-shadow: 0 2px 8px rgb(99 102 241 / 40%);
+  box-shadow: 0 2px 8px rgb(var(--accent-rgb) / 40%);
 }
 
 #trip-playback-speed-label {
@@ -1710,7 +1710,7 @@
   width: 44px;
   height: 44px;
   border: 3px solid rgb(255 255 255 / 10%);
-  border-top-color: #6366f1;
+  border-top-color: var(--accent);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
@@ -1729,10 +1729,10 @@
   transform: translate(-50%, -50%);
   width: 16px;
   height: 16px;
-  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-light) 100%);
   border-radius: 50%;
-  border: 2px solid #fff;
-  box-shadow: 0 2px 8px rgb(99 102 241 / 50%);
+  border: 2px solid rgb(var(--text-rgb) / 85%);
+  box-shadow: 0 2px 8px rgb(var(--accent-rgb) / 50%);
   z-index: 2;
 }
 
@@ -1743,7 +1743,7 @@
   transform: translate(-50%, -50%);
   width: 16px;
   height: 16px;
-  background: rgb(99 102 241 / 60%);
+  background: rgb(var(--accent-rgb) / 60%);
   border-radius: 50%;
   z-index: 1;
   animation: markerPulse 2s ease-out infinite;
@@ -1769,13 +1769,13 @@
   gap: 6px;
   pointer-events: none;
 
-  --marker-color: #10b981;
-  --marker-rgb: 16, 185, 129;
+  --marker-color: var(--success);
+  --marker-rgb: 77, 154, 106;
 }
 
 .trip-route-marker--end {
-  --marker-color: #8b5cf6;
-  --marker-rgb: 139, 92, 246;
+  --marker-color: var(--accent);
+  --marker-rgb: 184, 122, 74;
 }
 
 .trip-route-marker__label {
@@ -1892,7 +1892,7 @@
   top: 24px;
   bottom: 24px;
   width: 2px;
-  background: linear-gradient(180deg, #10b981 0%, #6366f1 50%, #8b5cf6 100%);
+  background: linear-gradient(180deg, var(--success) 0%, var(--accent) 50%, var(--accent-light) 100%);
   border-radius: 1px;
 }
 
@@ -1929,15 +1929,15 @@
 }
 
 .route-point.start::before {
-  background: #10b981;
-  border-color: #10b981;
-  box-shadow: 0 0 0 4px rgb(16 185 129 / 20%);
+  background: var(--success);
+  border-color: var(--success);
+  box-shadow: 0 0 0 4px rgb(var(--success-rgb) / 20%);
 }
 
 .route-point.end::before {
-  background: #8b5cf6;
-  border-color: #8b5cf6;
-  box-shadow: 0 0 0 4px rgb(139 92 246 / 20%);
+  background: var(--accent-light);
+  border-color: var(--accent-light);
+  box-shadow: 0 0 0 4px rgb(var(--accent-rgb) / 20%);
 }
 
 .route-point i {
@@ -1953,13 +1953,13 @@
 }
 
 .route-point.start i {
-  color: #10b981;
-  background: rgb(16 185 129 / 10%);
+  color: var(--success);
+  background: rgb(var(--success-rgb) / 10%);
 }
 
 .route-point.end i {
-  color: #8b5cf6;
-  background: rgb(139 92 246 / 10%);
+  color: var(--accent-light);
+  background: rgb(var(--accent-rgb) / 10%);
 }
 
 .route-info {
@@ -2016,13 +2016,13 @@
 
 .stat-item i {
   font-size: 1.125rem;
-  color: #6366f1;
+  color: var(--accent);
   width: 40px;
   height: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgb(99 102 241 / 10%);
+  background: rgb(var(--accent-rgb) / 10%);
   border-radius: 10px;
 }
 
@@ -2035,7 +2035,7 @@
 .stat-info .stat-value {
   font-size: 1.25rem;
   font-weight: 800;
-  color: #fff;
+  color: var(--text-primary);
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
 }
@@ -2057,8 +2057,8 @@
 
 .trip-tag {
   padding: 8px 16px;
-  background: rgb(99 102 241 / 10%);
-  border: 1px solid rgb(99 102 241 / 25%);
+  background: rgb(var(--accent-rgb) / 10%);
+  border: 1px solid rgb(var(--accent-rgb) / 25%);
   border-radius: 20px;
   font-size: 0.8125rem;
   font-weight: 600;
@@ -2068,9 +2068,9 @@
 }
 
 .trip-tag:hover {
-  background: rgb(99 102 241 / 20%);
-  border-color: rgb(99 102 241 / 40%);
-  color: #fff;
+  background: rgb(var(--accent-rgb) / 20%);
+  border-color: rgb(var(--accent-rgb) / 40%);
+  color: var(--text-primary);
   transform: translateY(-1px);
 }
 
@@ -2401,6 +2401,6 @@
 }
 
 #shareModal .copy-btn.btn-success {
-  background: var(--success-color, #10b981);
-  border-color: var(--success-color, #10b981);
+  background: var(--success-color, var(--success));
+  border-color: var(--success-color, var(--success));
 }

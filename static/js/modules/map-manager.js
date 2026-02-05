@@ -219,7 +219,7 @@ const mapManager = {
         return;
       }
 
-      const baseColor = layerInfo.color || "#4A90D9";
+      const baseColor = layerInfo.color || "#3b8a7f";
       const baseWeight = layerInfo.weight || 2;
 
       // Build color expression
@@ -231,7 +231,7 @@ const mapManager = {
               ["to-string", ["coalesce", ["get", "transactionId"], ["get", "id"]]],
               selectedId,
             ],
-            layerInfo.highlightColor || "#FFD700",
+            layerInfo.highlightColor || "#d09868",
             baseColor,
           ]
         : baseColor;
@@ -323,7 +323,7 @@ const mapManager = {
       properties: matchingFeature.properties || {},
     };
 
-    const fallbackHighlight = selectedLayer === "matchedTrips" ? "#40E0D0" : "#FFD700";
+    const fallbackHighlight = selectedLayer === "matchedTrips" ? "#4da396" : "#d09868";
     const highlightColor
       = (selectedLayer === "matchedTrips"
         ? MapStyles.MAP_LAYER_COLORS?.matchedTrips?.highlight

@@ -95,7 +95,7 @@ export const CONFIG = {
   LAYER_DEFAULTS: {
     trips: {
       order: 1,
-      color: "#ff6600",
+      color: "#b87a4a",
       opacity: 0.85,
       visible: true,
       name: "Trips Heatmap",
@@ -108,10 +108,10 @@ export const CONFIG = {
     },
     matchedTrips: {
       order: 3,
-      color: "#CF6679",
+      color: "#c45454",
       opacity: 0.6,
       visible: false,
-      highlightColor: "#40E0D0",
+      highlightColor: "#4da396",
       name: "Matched Trips",
       weight: 2,
       minzoom: 0,
@@ -122,7 +122,7 @@ export const CONFIG = {
     },
     undrivenStreets: {
       order: 2,
-      color: "#00BFFF",
+      color: "#8b98a8",
       opacity: 0.8,
       visible: false,
       name: "Undriven Streets",
@@ -132,7 +132,7 @@ export const CONFIG = {
     },
     drivenStreets: {
       order: 2,
-      color: "#059669",
+      color: "#4d9a6a",
       opacity: 0.8,
       visible: false,
       name: "Driven Streets",
@@ -142,7 +142,7 @@ export const CONFIG = {
     },
     allStreets: {
       order: 2,
-      color: "#818cf8",
+      color: "#6a72a0",
       opacity: 0.7,
       visible: false,
       name: "All Streets",
@@ -214,8 +214,8 @@ export const CONFIG = {
       applied: "applied",
     },
     themeColors: {
-      light: "#f8f9fa",
-      dark: "#121212",
+      light: "#faf9f7",
+      dark: "#111113",
     },
     animations: {
       enabled:
