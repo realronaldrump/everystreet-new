@@ -47,8 +47,25 @@ export class DrivingNavigationUI {
     if (!this.statusMsg) {
       return;
     }
-    this.statusMsg.textContent = message;
-    this.statusMsg.className = isError ? "text-danger" : "text-info";
+
+    this.statusMsg.classList.add("status-message");
+    this.statusMsg.classList.remove("info", "success", "warning", "error");
+    this.statusMsg.classList.add(isError ? "error" : "info");
+
+    let icon = this.statusMsg.querySelector("i");
+    if (!icon) {
+      icon = document.createElement("i");
+      icon.setAttribute("aria-hidden", "true");
+      this.statusMsg.prepend(icon);
+    }
+    icon.className = isError ? "fas fa-exclamation-circle" : "fas fa-info-circle";
+
+    let textSpan = this.statusMsg.querySelector("span");
+    if (!textSpan) {
+      textSpan = document.createElement("span");
+      this.statusMsg.appendChild(textSpan);
+    }
+    textSpan.textContent = message;
   }
 
   /**

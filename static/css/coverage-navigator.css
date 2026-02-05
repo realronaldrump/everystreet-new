@@ -643,6 +643,14 @@
    Progress Steps
    ========================================================================== */
 
+.coverage-navigator #route-progress-container {
+  display: none;
+}
+
+.coverage-navigator #route-progress-container.active {
+  display: block;
+}
+
 .progress-steps {
   display: flex;
   align-items: center;

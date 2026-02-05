@@ -24,8 +24,11 @@ function initCollapsibleSections() {
 
     // Click handler for both header and button
     const toggleHandler = (e) => {
-      // Don't toggle if clicking on interactive elements
-      if (e.target.closest(".form-switch, .form-check-input, .header-actions")) {
+      // Don't toggle if clicking on interactive elements (except collapse button)
+      const isFormControl = e.target.closest(".form-switch, .form-check-input");
+      const inHeaderActions = e.target.closest(".header-actions");
+      const isCollapseButton = e.target.closest(".btn-collapse");
+      if (isFormControl || (inHeaderActions && !isCollapseButton)) {
         return;
       }
 
@@ -195,7 +198,7 @@ function enhanceAccessibility() {
 /**
  * Main initialization
  */
-function initPage() {
+function initPage({ cleanup } = {}) {
   // Initialize UI components
   initCollapsibleSections();
   initMobilePanelToggle();
@@ -206,12 +209,7 @@ function initPage() {
   enhanceAccessibility();
 
   // Initialize the main coverage navigator functionality
-  initCoverageNavigatorPage({
-    cleanup: (teardown) => {
-      // Store teardown function for SPA navigation
-      window.coverageNavigatorTeardown = teardown;
-    },
-  });
+  initCoverageNavigatorPage({ cleanup });
 }
 
 // Initialize on page load
