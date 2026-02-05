@@ -771,7 +771,10 @@ async def backfill_coverage_for_area(
     if not area:
         return 0
 
-    if area.status != "ready":
+    # Ingestion calls backfill before marking an area "ready", so allow it for
+    # in-progress states as long as segments exist.
+    allowed_statuses = {"ready", "initializing", "rebuilding"}
+    if area.status not in allowed_statuses:
         logger.warning(
             "Skipping backfill for area %s: status=%s",
             area.display_name,

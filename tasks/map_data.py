@@ -10,8 +10,10 @@ import shutil
 import time
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Any
 
+import aiofiles
 import httpx
 from shapely.geometry import box
 from shapely.ops import unary_union
@@ -68,7 +70,7 @@ VERIFY_PROGRESS_END = 100.0
 CHUNK_SIZE = 4 * 1024 * 1024
 
 
-class MapSetupCancelled(RuntimeError):
+class MapSetupCancelledError(RuntimeError):
     """Raised when map setup is cancelled."""
 
 
@@ -162,7 +164,7 @@ async def _sync_cancellation_flag(
     progress.cancellation_requested = bool(latest.cancellation_requested)
     if raise_on_cancel and progress.cancellation_requested:
         msg = "Setup cancelled"
-        raise MapSetupCancelled(msg)
+        raise MapSetupCancelledError(msg)
 
 
 async def _update_progress(
@@ -219,8 +221,9 @@ async def _download_state(
     progress_callback: Any,
     progress_doc: MapBuildProgress,
 ) -> None:
-    temp_path = f"{destination}.downloading"
-    os.makedirs(os.path.dirname(destination), exist_ok=True)
+    temp_path = Path(f"{destination}.downloading")
+    dest_path = Path(destination)
+    dest_path.parent.mkdir(parents=True, exist_ok=True)
 
     async with client.stream("GET", url) as response:
         response.raise_for_status()
@@ -228,17 +231,17 @@ async def _download_state(
         if content_length:
             with contextlib.suppress(ValueError):
                 tracker.total_bytes += max(0, int(content_length))
-        with open(temp_path, "wb") as handle:
+        async with aiofiles.open(temp_path, "wb") as handle:
             async for chunk in response.aiter_bytes(CHUNK_SIZE):
                 await _check_cancel(progress_doc)
-                handle.write(chunk)
+                await handle.write(chunk)
                 tracker.downloaded_bytes += len(chunk)
                 now = time.monotonic()
                 if (now - tracker.last_update) >= 0.8:
                     tracker.last_update = now
                     await progress_callback()
 
-    os.replace(temp_path, destination)
+    temp_path.replace(dest_path)
     await progress_callback(force=True)
 
 
@@ -305,14 +308,14 @@ async def _download_states(
             label = _format_extract_label(target_id, state.get("name", code))
             download_plan.append(DownloadTarget(target_id, filename, label))
 
-    extracts_path = get_osm_extracts_path()
-    states_dir = os.path.join(extracts_path, "states")
-    os.makedirs(states_dir, exist_ok=True)
+    extracts_path = Path(get_osm_extracts_path())
+    states_dir = extracts_path / "states"
+    states_dir.mkdir(parents=True, exist_ok=True)
     existing_bytes = 0
     for target in download_plan:
-        dest_path = os.path.join(states_dir, target.filename)
-        if os.path.exists(dest_path) and os.path.getsize(dest_path) > 0:
-            existing_bytes += os.path.getsize(dest_path)
+        target_path = states_dir / target.filename
+        if target_path.exists() and target_path.stat().st_size > 0:
+            existing_bytes += target_path.stat().st_size
 
     tracker = DownloadTracker(total_bytes=max(existing_bytes, 1))
     tracker.downloaded_bytes = existing_bytes
@@ -339,8 +342,8 @@ async def _download_states(
         for target in download_plan:
             await _check_cancel(progress)
             url = _state_download_url(target.geofabrik_id)
-            dest_path = os.path.join(states_dir, target.filename)
-            if os.path.exists(dest_path) and os.path.getsize(dest_path) > 0:
+            target_path = states_dir / target.filename
+            if target_path.exists() and target_path.stat().st_size > 0:
                 await progress_callback(force=True)
                 continue
             await _update_progress(
@@ -352,7 +355,7 @@ async def _download_states(
             await _download_state(
                 client,
                 url,
-                dest_path,
+                str(target_path),
                 tracker,
                 progress_callback,
                 progress,
@@ -369,7 +372,7 @@ async def _download_states(
     )
 
     return DownloadResult(
-        files=[os.path.join(states_dir, target.filename) for target in download_plan],
+        files=[str(states_dir / target.filename) for target in download_plan],
         used_covering_extract=len(states) > 1,
     )
 
@@ -379,11 +382,11 @@ async def _merge_pbf_files(
     config: MapServiceConfig,
     progress: MapBuildProgress,
 ) -> str:
-    extracts_path = get_osm_extracts_path()
-    merged_dir = os.path.join(extracts_path, "merged")
-    os.makedirs(merged_dir, exist_ok=True)
-    output_path = os.path.join(merged_dir, "us-states.osm.pbf")
-    temp_output = f"{output_path}.tmp"
+    extracts_path = Path(get_osm_extracts_path())
+    merged_dir = extracts_path / "merged"
+    merged_dir.mkdir(parents=True, exist_ok=True)
+    output_path = merged_dir / "us-states.osm.pbf"
+    temp_output = output_path.with_suffix(".osm.pbf.tmp")
 
     await _update_progress(
         config,
@@ -396,12 +399,12 @@ async def _merge_pbf_files(
     )
 
     if len(files) == 1:
-        src = files[0]
+        src = Path(files[0])
         if src != output_path:
             with contextlib.suppress(FileNotFoundError):
-                os.remove(temp_output)
+                temp_output.unlink()
             with contextlib.suppress(FileNotFoundError):
-                os.remove(output_path)
+                output_path.unlink()
             try:
                 os.link(src, output_path)
             except OSError:
@@ -413,14 +416,14 @@ async def _merge_pbf_files(
             message="Map files ready",
             overall_progress=MERGE_PROGRESS_END,
         )
-        return output_path
+        return str(output_path)
 
     with contextlib.suppress(FileNotFoundError):
-        os.remove(temp_output)
+        temp_output.unlink()
     with contextlib.suppress(FileNotFoundError):
-        os.remove(output_path)
+        output_path.unlink()
 
-    cmd = ["osmium", "merge", "-f", "pbf", "-o", temp_output, *files]
+    cmd = ["osmium", "merge", "-f", "pbf", "-o", str(temp_output), *files]
     logger.info("Running osmium merge: %s", " ".join(cmd))
 
     process = await asyncio.create_subprocess_exec(
@@ -434,7 +437,7 @@ async def _merge_pbf_files(
         error_msg = stderr.decode().strip() if stderr else "osmium merge failed"
         raise RuntimeError(error_msg)
 
-    os.replace(temp_output, output_path)
+    temp_output.replace(output_path)
     await _update_progress(
         config,
         progress,
@@ -442,7 +445,7 @@ async def _merge_pbf_files(
         message="Map files ready",
         overall_progress=MERGE_PROGRESS_END,
     )
-    return output_path
+    return str(output_path)
 
 
 async def _maybe_build_coverage_extract(
@@ -915,9 +918,7 @@ async def setup_map_data_task(ctx: dict, states: list[str]) -> dict[str, Any]:
             progress.cancellation_requested = False
             progress.last_progress_at = datetime.now(UTC)
             await progress.save()
-
-            return {"success": True}
-        except MapSetupCancelled as exc:
+        except MapSetupCancelledError as exc:
             config.last_error = None
             config.last_error_at = None
             await _update_progress(
@@ -958,6 +959,8 @@ async def setup_map_data_task(ctx: dict, states: list[str]) -> dict[str, Any]:
             progress.last_progress_at = datetime.now(UTC)
             await progress.save()
             return {"success": False, "error": str(exc)}
+        else:
+            return {"success": True}
 
     return await run_task_with_history(
         ctx,
@@ -1080,16 +1083,17 @@ async def _auto_provision_logic() -> dict[str, Any]:
 
         # Auto-provision detected states
         result = await auto_provision_map_data()
-        return {
-            "status": "provisioning_triggered",
-            "result": result,
-        }
 
     except Exception as e:
-        logger.exception("Auto-provision check failed: %s", e)
+        logger.exception("Auto-provision check failed")
         return {
             "status": "error",
             "error": str(e),
+        }
+    else:
+        return {
+            "status": "provisioning_triggered",
+            "result": result,
         }
 
 
