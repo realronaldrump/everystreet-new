@@ -686,3 +686,42 @@
 .validation-confirmation {
   margin-top: var(--space-2);
 }
+
+/* =============================================================================
+   Action Card Centering Fixes
+   ============================================================================= */
+
+/* Center content in action cards (Add New Area, Refresh Data) */
+.bento-span-6 > .widget > .widget-body.text-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Ensure icon is block-level and centered */
+.bento-span-6 > .widget > .widget-body.text-center > i {
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Ensure subtitle text is centered properly */
+.bento-span-6 > .widget > .widget-body.text-center .card-text {
+  width: 100%;
+  text-align: center;
+}
+
+/* =============================================================================
+   Empty State Centering Fixes
+   ============================================================================= */
+
+/* Center the empty state content in the table */
+#coverage-areas-table tbody td[colspan] {
+  text-align: center;
+}
+
+#coverage-areas-table tbody td[colspan] p {
+  margin-left: auto;
+  margin-right: auto;
+}
