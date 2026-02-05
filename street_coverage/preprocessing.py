@@ -145,7 +145,8 @@ def _maybe_extract_area_pbf(
         return area_pbf
 
     _write_geojson(area_geojson, routing_polygon)
-    tmp_pbf = Path(f"{area_pbf}.tmp")
+    # Use .tmp.osm.pbf (not .osm.pbf.tmp) - osmium detects format from extension
+    tmp_pbf = area_dir / f"{location_id}.tmp.osm.pbf"
     cmd = [
         "osmium",
         "extract",
