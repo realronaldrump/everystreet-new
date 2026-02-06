@@ -2,12 +2,12 @@ from core.spatial import calculate_max_route_gap
 
 from .constants import (
     DEADHEAD_RATIO_REQUIRED_DISTANCE_FLOOR_M,
+    FEET_PER_METER,
     MAX_DEADHEAD_RATIO_ERROR,
     MAX_DEADHEAD_RATIO_WARN,
     MAX_ROUTE_GAP_FT,
     MAX_SKIPPED_REQ_COUNT_ERROR,
     MAX_SKIPPED_REQ_RATIO_ERROR,
-    FEET_PER_METER,
     MIN_SEGMENT_COVERAGE_RATIO,
 )
 from .gaps import GapFillStats
@@ -50,14 +50,14 @@ def validate_route(
 
     max_gap_ft = calculate_max_route_gap(route_coords)
     details["max_gap_ft"] = max_gap_ft
-    details["max_gap_m"] = float(max_gap_ft) / float(FEET_PER_METER) if max_gap_ft else 0.0
+    details["max_gap_m"] = (
+        float(max_gap_ft) / float(FEET_PER_METER) if max_gap_ft else 0.0
+    )
     if max_gap_ft > MAX_ROUTE_GAP_FT:
         gap_miles = max_gap_ft / 5280.0
         gap_msg_extra = ""
         if gap_fill_stats and gap_fill_stats.gaps_unfilled:
-            gap_msg_extra = (
-                f" ({gap_fill_stats.gaps_unfilled}/{gap_fill_stats.gaps_found} gaps could not be filled via Valhalla)"
-            )
+            gap_msg_extra = f" ({gap_fill_stats.gaps_unfilled}/{gap_fill_stats.gaps_found} gaps could not be filled via Valhalla)"
         errors.append(
             f"Route contains a {max_gap_ft:.0f}ft ({gap_miles:.2f} miles) gap between points{gap_msg_extra}.",
         )
@@ -70,19 +70,28 @@ def validate_route(
     if total_distance <= 0:
         errors.append("Route total distance is zero.")
 
-    deadhead_distance = float(stats.get("deadhead_distance", max(0.0, total_distance - required_distance_completed)))
+    deadhead_distance = float(
+        stats.get(
+            "deadhead_distance", max(0.0, total_distance - required_distance_completed)
+        )
+    )
     details["required_distance_m"] = required_distance
     details["required_distance_completed_m"] = required_distance_completed
     details["total_distance_m"] = total_distance
     details["deadhead_distance_m"] = deadhead_distance
 
-    deadhead_ratio_all = total_distance / required_distance if required_distance > 0 else 0.0
+    deadhead_ratio_all = (
+        total_distance / required_distance if required_distance > 0 else 0.0
+    )
     deadhead_ratio_completed = (
-        total_distance / required_distance_completed if required_distance_completed > 0 else 0.0
+        total_distance / required_distance_completed
+        if required_distance_completed > 0
+        else 0.0
     )
     # Ratio threshold evaluation uses a floor so "tiny remaining work" does not hard-fail.
     deadhead_ratio_eval = (
-        total_distance / max(required_distance_completed, DEADHEAD_RATIO_REQUIRED_DISTANCE_FLOOR_M)
+        total_distance
+        / max(required_distance_completed, DEADHEAD_RATIO_REQUIRED_DISTANCE_FLOOR_M)
         if total_distance > 0
         else 0.0
     )
@@ -91,27 +100,27 @@ def validate_route(
     details["deadhead_ratio_eval"] = deadhead_ratio_eval
 
     if required_distance_completed <= 0:
-        errors.append("Route did not service any required edges (required distance completed is zero).")
-    else:
-        if required_distance_completed >= DEADHEAD_RATIO_REQUIRED_DISTANCE_FLOOR_M:
-            if deadhead_ratio_eval > MAX_DEADHEAD_RATIO_ERROR:
-                errors.append(
-                    f"Deadhead ratio {deadhead_ratio_completed:.2f} exceeds maximum threshold (evaluated with floor).",
-                )
-            elif deadhead_ratio_eval > MAX_DEADHEAD_RATIO_WARN:
-                warnings.append(
-                    f"Deadhead ratio {deadhead_ratio_completed:.2f} is high; route may be inefficient.",
-                )
-        else:
-            # Only warn when required work is tiny (ratio is noisy).
-            if deadhead_ratio_completed > MAX_DEADHEAD_RATIO_ERROR:
-                warnings.append(
-                    f"Deadhead ratio {deadhead_ratio_completed:.2f} is high, but required work is small so the ratio is less meaningful.",
-                )
-            elif deadhead_ratio_completed > MAX_DEADHEAD_RATIO_WARN:
-                warnings.append(
-                    f"Deadhead ratio {deadhead_ratio_completed:.2f} is high; route may be inefficient.",
-                )
+        errors.append(
+            "Route did not service any required edges (required distance completed is zero)."
+        )
+    elif required_distance_completed >= DEADHEAD_RATIO_REQUIRED_DISTANCE_FLOOR_M:
+        if deadhead_ratio_eval > MAX_DEADHEAD_RATIO_ERROR:
+            errors.append(
+                f"Deadhead ratio {deadhead_ratio_completed:.2f} exceeds maximum threshold (evaluated with floor).",
+            )
+        elif deadhead_ratio_eval > MAX_DEADHEAD_RATIO_WARN:
+            warnings.append(
+                f"Deadhead ratio {deadhead_ratio_completed:.2f} is high; route may be inefficient.",
+            )
+    # Only warn when required work is tiny (ratio is noisy).
+    elif deadhead_ratio_completed > MAX_DEADHEAD_RATIO_ERROR:
+        warnings.append(
+            f"Deadhead ratio {deadhead_ratio_completed:.2f} is high, but required work is small so the ratio is less meaningful.",
+        )
+    elif deadhead_ratio_completed > MAX_DEADHEAD_RATIO_WARN:
+        warnings.append(
+            f"Deadhead ratio {deadhead_ratio_completed:.2f} is high; route may be inefficient.",
+        )
 
     # Solver-level coverage: skipped requirements imply incomplete route.
     required_reqs = int(stats.get("required_reqs", 0.0))
@@ -121,7 +130,10 @@ def validate_route(
     if required_reqs > 0 and skipped_reqs > 0:
         skipped_ratio = float(skipped_reqs) / float(required_reqs)
         details["skipped_req_ratio"] = skipped_ratio
-        if skipped_reqs >= MAX_SKIPPED_REQ_COUNT_ERROR or skipped_ratio > MAX_SKIPPED_REQ_RATIO_ERROR:
+        if (
+            skipped_reqs >= MAX_SKIPPED_REQ_COUNT_ERROR
+            or skipped_ratio > MAX_SKIPPED_REQ_RATIO_ERROR
+        ):
             errors.append(
                 f"Route skipped {skipped_reqs}/{required_reqs} required edges due to disconnected/unreachable network.",
             )
