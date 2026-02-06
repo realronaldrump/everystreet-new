@@ -304,6 +304,10 @@ export async function initNavigation() {
   swup = new Swup({
     containers: ["#route-content"],
     native: true,
+    // We're using the browser's View Transitions API (native mode) + our own
+    // view-transition CSS. Swup's default animationSelector looks for
+    // `[class*="transition-"]` and warns if none exist.
+    animationSelector: false,
     cache: true,
     animateHistoryBrowsing: true,
     linkToSelf: "scroll",

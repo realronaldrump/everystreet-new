@@ -9,8 +9,8 @@ import "./modules/ui/global-job-tracker.js";
 
 const start = async () => {
   store.init(window.location.href);
-  await AppController.initialize();
   await initNavigation();
+  await AppController.initialize();
 };
 
 if (document.readyState === "loading") {

@@ -99,9 +99,6 @@ const pullToRefresh = {
             cache: { read: false, write: true },
             history: "replace",
           });
-        })
-        .catch(() => {
-          window.location.reload();
         });
     } else {
       this.reset();

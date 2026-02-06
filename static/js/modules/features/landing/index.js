@@ -898,9 +898,6 @@ function bindSwipeActions() {
         swupReady
           .then((swup) => {
             swup.navigate("/trips");
-          })
-          .catch(() => {
-            window.location.href = "/trips";
           });
       } else if (action === "share" && tripId) {
         const shareData = {

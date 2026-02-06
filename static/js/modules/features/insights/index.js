@@ -170,9 +170,6 @@ function setupFabActions(signal) {
         swupReady
           .then((swup) => {
             swup.navigate("/trips");
-          })
-          .catch(() => {
-            window.location.href = "/trips";
           });
       },
       signal ? { signal } : false

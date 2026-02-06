@@ -713,9 +713,6 @@ function handleNavigationAttempt(event) {
       swupReady
         .then((swup) => {
           swup.navigate(url.href);
-        })
-        .catch(() => {
-          window.location.assign(anchor.href);
         });
     }
   });

@@ -485,9 +485,6 @@ export class OptimalRoutesManager {
     swupReady
       .then((swup) => {
         swup.navigate(href);
-      })
-      .catch(() => {
-        window.location.href = href;
       });
   }
 

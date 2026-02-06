@@ -1402,9 +1402,6 @@ async function completeSetupAndExit() {
           cache: { read: false, write: true },
           history: "replace",
         });
-      })
-      .catch(() => {
-        window.location.href = "/";
       });
   } catch (error) {
     notificationManager.show(error.message || "Unable to finish setup.", "danger");

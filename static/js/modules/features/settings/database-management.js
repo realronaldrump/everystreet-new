@@ -529,9 +529,6 @@ export function initDatabaseManagement({ signal } = {}) {
                 cache: { read: false, write: true },
                 history: "replace",
               });
-            })
-            .catch(() => {
-              window.location.reload();
             });
         }
       }, 1500);

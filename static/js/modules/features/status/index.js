@@ -82,9 +82,6 @@ function initialize() {
       swupReady
         .then((swup) => {
           swup.navigate("/setup-wizard");
-        })
-        .catch(() => {
-          window.location.href = "/setup-wizard";
         });
     },
     eventOptions

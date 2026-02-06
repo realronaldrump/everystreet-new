@@ -283,9 +283,6 @@ async function checkAndRefresh(startedAt) {
             cache: { read: false, write: true },
             history: "replace",
           });
-        })
-        .catch(() => {
-          window.location.reload();
         });
       return;
     }
