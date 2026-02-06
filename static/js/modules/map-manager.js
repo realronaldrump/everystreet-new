@@ -391,36 +391,34 @@ const mapManager = {
       return;
     }
 
-    await utils.measurePerformance("fitBounds", () => {
-      const bounds = new mapboxgl.LngLatBounds();
-      let hasFeatures = false;
+    const bounds = new mapboxgl.LngLatBounds();
+    let hasFeatures = false;
 
-      Object.values(store.mapLayers).forEach(({ visible, layer }) => {
-        if (visible && layer?.features) {
-          layer.features.forEach((feature) => {
-            if (feature.geometry) {
-              if (feature.geometry.type === "Point") {
-                bounds.extend(feature.geometry.coordinates);
+    Object.values(store.mapLayers).forEach(({ visible, layer }) => {
+      if (visible && layer?.features) {
+        layer.features.forEach((feature) => {
+          if (feature.geometry) {
+            if (feature.geometry.type === "Point") {
+              bounds.extend(feature.geometry.coordinates);
+              hasFeatures = true;
+            } else if (feature.geometry.type === "LineString") {
+              feature.geometry.coordinates.forEach((coord) => {
+                bounds.extend(coord);
                 hasFeatures = true;
-              } else if (feature.geometry.type === "LineString") {
-                feature.geometry.coordinates.forEach((coord) => {
-                  bounds.extend(coord);
-                  hasFeatures = true;
-                });
-              }
+              });
             }
-          });
-        }
-      });
-
-      if (hasFeatures && !bounds.isEmpty()) {
-        store.map.fitBounds(bounds, {
-          padding: 50,
-          maxZoom: 15,
-          duration: animate ? 1000 : 0,
+          }
         });
       }
     });
+
+    if (hasFeatures && !bounds.isEmpty()) {
+      store.map.fitBounds(bounds, {
+        padding: 50,
+        maxZoom: 15,
+        duration: animate ? 1000 : 0,
+      });
+    }
   },
 
   /**

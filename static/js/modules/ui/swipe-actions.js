@@ -55,10 +55,4 @@ const swipeActions = {
   },
 };
 
-if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", () => swipeActions.init());
-} else {
-  swipeActions.init();
-}
-
 export default swipeActions;

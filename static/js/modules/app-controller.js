@@ -33,43 +33,27 @@ import loadingManager from "./ui/loading-manager.js";
 import notificationManager from "./ui/notifications.js";
 import { DateUtils, utils } from "./utils.js";
 
-const dateUtils = DateUtils;
-
-// ============================================================
-// Map Loading Indicator Helper
-// ============================================================
-
-const createMapLoadingHelper = () => {
-  const indicatorEl = document.getElementById("map-loading-indicator");
-  const textEl = indicatorEl?.querySelector(".map-loading-text") || indicatorEl;
-
-  if (!indicatorEl) {
-    return null;
-  }
-
-  return {
-    show(message) {
-      indicatorEl.classList.remove("d-none");
-      indicatorEl.setAttribute("aria-busy", "true");
-      if (textEl && message) {
-        textEl.textContent = message;
-      }
-    },
-    update(message) {
-      if (textEl && message) {
-        textEl.textContent = message;
-      }
-    },
-    hide() {
-      indicatorEl.classList.add("d-none");
-      indicatorEl.removeAttribute("aria-busy");
-    },
-  };
-};
-
 // ============================================================
 // Helper Functions
 // ============================================================
+
+/**
+ * Get saved street view mode states, migrating from old string format if needed
+ */
+const getSavedStreetViewModes = () => {
+  let savedStates = utils.getStorage(CONFIG.STORAGE_KEYS.streetViewMode);
+  if (typeof savedStates === "string") {
+    const oldMode = savedStates;
+    savedStates = {};
+    if (oldMode && oldMode !== "none") {
+      savedStates[oldMode] = true;
+    }
+    utils.setStorage(CONFIG.STORAGE_KEYS.streetViewMode, savedStates);
+  } else if (!savedStates || typeof savedStates !== "object") {
+    savedStates = {};
+  }
+  return savedStates;
+};
 
 /**
  * Initialize live trip tracker if available
@@ -255,19 +239,7 @@ const AppController = {
       return;
     }
 
-    let savedStates = utils.getStorage(CONFIG.STORAGE_KEYS.streetViewMode);
-
-    // Handle migration from old string format
-    if (typeof savedStates === "string") {
-      const oldMode = savedStates;
-      savedStates = {};
-      if (oldMode && oldMode !== "none") {
-        savedStates[oldMode] = true;
-      }
-      utils.setStorage(CONFIG.STORAGE_KEYS.streetViewMode, savedStates);
-    } else if (!savedStates || typeof savedStates !== "object") {
-      savedStates = {};
-    }
+    const savedStates = getSavedStreetViewModes();
 
     // Delay to allow map to settle
     setTimeout(() => {
@@ -414,17 +386,7 @@ const AppController = {
     // Street view mode toggle buttons
     const streetToggleButtons = document.querySelectorAll(".street-mode-btn");
     if (streetToggleButtons.length > 0) {
-      let savedStates = utils.getStorage(CONFIG.STORAGE_KEYS.streetViewMode);
-      if (typeof savedStates === "string") {
-        const oldMode = savedStates;
-        savedStates = {};
-        if (oldMode && oldMode !== "none") {
-          savedStates[oldMode] = true;
-        }
-        utils.setStorage(CONFIG.STORAGE_KEYS.streetViewMode, savedStates);
-      } else if (!savedStates || typeof savedStates !== "object") {
-        savedStates = {};
-      }
+      const savedStates = getSavedStreetViewModes();
 
       streetToggleButtons.forEach((btn) => {
         const mode = btn.dataset.streetMode;
@@ -550,8 +512,8 @@ const AppController = {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           mode: "date_range",
-          start_date: dateUtils.getStartDate(),
-          end_date: dateUtils.getEndDate(),
+          start_date: DateUtils.getStartDate(),
+          end_date: DateUtils.getEndDate(),
           unmatched_only: true,
         }),
       });
@@ -614,17 +576,7 @@ const AppController = {
   },
 
   async refreshStreetLayers() {
-    let savedStates = utils.getStorage(CONFIG.STORAGE_KEYS.streetViewMode);
-    if (typeof savedStates === "string") {
-      const oldMode = savedStates;
-      savedStates = {};
-      if (oldMode && oldMode !== "none") {
-        savedStates[oldMode] = true;
-      }
-      utils.setStorage(CONFIG.STORAGE_KEYS.streetViewMode, savedStates);
-    } else if (!savedStates || typeof savedStates !== "object") {
-      savedStates = {};
-    }
+    const savedStates = getSavedStreetViewModes();
 
     for (const [mode, isActive] of Object.entries(savedStates)) {
       if (isActive) {

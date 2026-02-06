@@ -4,13 +4,11 @@ import store from "./store.js";
 
 const loadedScripts = new Set();
 
-const prefersReducedMotion = () =>
-  typeof window !== "undefined"
-  && window.matchMedia
-  && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-const shouldHandleClick = (event, link) => {
-  if (!link || event.defaultPrevented) {
+/**
+ * Check if a link is a navigable SPA link (not mailto, hash, external, etc.)
+ */
+const isSpaLink = (link) => {
+  if (!link) {
     return false;
   }
   const href = link.getAttribute("href") || "";
@@ -26,6 +24,14 @@ const shouldHandleClick = (event, link) => {
   if (link.hasAttribute("data-es-no-spa") || link.hasAttribute("data-no-spa")) {
     return false;
   }
+  const url = new URL(link.href, window.location.origin);
+  return url.origin === window.location.origin;
+};
+
+const shouldHandleClick = (event, link) => {
+  if (!isSpaLink(link) || event.defaultPrevented) {
+    return false;
+  }
   if (link.target && link.target !== "_self") {
     return false;
   }
@@ -33,10 +39,6 @@ const shouldHandleClick = (event, link) => {
     return false;
   }
   if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
-    return false;
-  }
-  const url = new URL(link.href, window.location.origin);
-  if (url.origin !== window.location.origin) {
     return false;
   }
   return true;
@@ -207,7 +209,7 @@ const router = {
       if (
         this.viewTransitionsEnabled
         && "startViewTransition" in document
-        && !prefersReducedMotion()
+        && !store.ui.reducedMotion
       ) {
         await document.startViewTransition(apply).finished;
       } else {
@@ -423,22 +425,9 @@ const router = {
     if (!path) {
       return;
     }
-    const isRealLink = (anchor) => {
-      const href = anchor.getAttribute("href") || "";
-      if (!href || href.startsWith("#")) {
-        return false;
-      }
-      if (href.startsWith("mailto:") || href.startsWith("tel:")) {
-        return false;
-      }
-      if (anchor.getAttribute("data-bs-toggle")) {
-        return false;
-      }
-      return true;
-    };
     const anchors = document.querySelectorAll("nav a[href]");
     anchors.forEach((anchor) => {
-      if (!isRealLink(anchor)) {
+      if (!isSpaLink(anchor)) {
         return;
       }
       const url = new URL(anchor.href, window.location.origin);
@@ -452,7 +441,7 @@ const router = {
     });
     document.querySelectorAll(".nav-item").forEach((item) => {
       const link = item.querySelector("a[href]");
-      if (!link || !isRealLink(link)) {
+      if (!link || !isSpaLink(link)) {
         return;
       }
       const url = new URL(link.href, window.location.origin);
@@ -650,27 +639,7 @@ const router = {
   },
 
   shouldPrefetch(link) {
-    if (!link) {
-      return false;
-    }
-    const href = link.getAttribute("href") || "";
-    if (!href || href.startsWith("#")) {
-      return false;
-    }
-    if (href.startsWith("mailto:") || href.startsWith("tel:")) {
-      return false;
-    }
-    if (link.getAttribute("data-bs-toggle")) {
-      return false;
-    }
-    if (link.hasAttribute("data-es-no-spa") || link.hasAttribute("data-no-spa")) {
-      return false;
-    }
-    if (link.hasAttribute("data-no-prefetch")) {
-      return false;
-    }
-    const url = new URL(link.href, window.location.origin);
-    return url.origin === window.location.origin;
+    return isSpaLink(link) && !link.hasAttribute("data-no-prefetch");
   },
 
   getPrefetched(url) {
