@@ -24,6 +24,7 @@
   flex-grow: 1;
   height: 100%; /* Ensure it fills its wrapper */
   width: 100%;
+  position: relative; /* Anchor absolute children like #map-canvas + error overlays */
   background-color: var(--surface-1); /* Fallback background */
   z-index: var(--z-base);
   outline: none; /* Remove focus outline from map container */
@@ -34,6 +35,41 @@
   inset: 0;
   height: 100%;
   width: 100%;
+}
+
+/* === Map Init Error Overlay === */
+.map-init-error {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: var(--space-6);
+  z-index: var(--z-overlay);
+  pointer-events: none;
+}
+
+.map-init-error-card {
+  width: min(560px, 100%);
+  padding: var(--space-5);
+  border-radius: var(--radius-xl);
+  background: var(--glass-panel);
+  border: 1px solid var(--glass-border-subtle);
+  box-shadow: var(--shadow-glass-md);
+  color: var(--text-primary);
+  text-align: center;
+  pointer-events: auto;
+}
+
+.map-init-error-card h2 {
+  font-size: var(--font-size-lg);
+  margin-bottom: var(--space-2);
+}
+
+.map-init-error-card p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: 1.4;
 }
 
 /* === Map Canvas & Markers === */

@@ -9,7 +9,11 @@ import "./modules/ui/global-job-tracker.js";
 
 const start = async () => {
   store.init(window.location.href);
-  await initNavigation();
+  try {
+    await initNavigation();
+  } catch (error) {
+    console.warn("Navigation init failed; continuing without SPA transitions.", error);
+  }
   await AppController.initialize();
 };
 

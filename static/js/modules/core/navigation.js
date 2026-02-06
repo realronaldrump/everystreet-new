@@ -1,10 +1,3 @@
-import Swup from "https://cdn.jsdelivr.net/npm/swup@4.8.2/+esm";
-import SwupHeadPlugin from "https://cdn.jsdelivr.net/npm/@swup/head-plugin@2.3.1/+esm";
-import SwupPreloadPlugin from "https://cdn.jsdelivr.net/npm/@swup/preload-plugin@3.2.11/+esm";
-import SwupScrollPlugin from "https://cdn.jsdelivr.net/npm/@swup/scroll-plugin@4.0.0/+esm";
-import SwupProgressPlugin from "https://cdn.jsdelivr.net/npm/@swup/progress-plugin@3.2.0/+esm";
-import SwupA11yPlugin from "https://cdn.jsdelivr.net/npm/@swup/a11y-plugin@5.0.0/+esm";
-
 import store from "./store.js";
 import { ensureRouteModule } from "./route-loader.js";
 
@@ -17,6 +10,54 @@ export const swupReady = new Promise((resolve) => {
 
 export function getSwup() {
   return swup;
+}
+
+function createSwupFallback() {
+  const hooks = {
+    on() {},
+    off() {},
+  };
+  return {
+    hooks,
+    // Match Swup's navigate signature; options are ignored.
+    navigate(href) {
+      if (typeof href !== "string" || !href) {
+        return;
+      }
+      try {
+        window.location.assign(href);
+      } catch {
+        window.location.href = href;
+      }
+    },
+  };
+}
+
+async function loadSwupDeps() {
+  const [
+    swupMod,
+    headMod,
+    preloadMod,
+    scrollMod,
+    progressMod,
+    a11yMod,
+  ] = await Promise.all([
+    import("https://cdn.jsdelivr.net/npm/swup@4.8.2/+esm"),
+    import("https://cdn.jsdelivr.net/npm/@swup/head-plugin@2.3.1/+esm"),
+    import("https://cdn.jsdelivr.net/npm/@swup/preload-plugin@3.2.11/+esm"),
+    import("https://cdn.jsdelivr.net/npm/@swup/scroll-plugin@4.0.0/+esm"),
+    import("https://cdn.jsdelivr.net/npm/@swup/progress-plugin@3.2.0/+esm"),
+    import("https://cdn.jsdelivr.net/npm/@swup/a11y-plugin@5.0.0/+esm"),
+  ]);
+
+  return {
+    Swup: swupMod?.default,
+    SwupHeadPlugin: headMod?.default,
+    SwupPreloadPlugin: preloadMod?.default,
+    SwupScrollPlugin: scrollMod?.default,
+    SwupProgressPlugin: progressMod?.default,
+    SwupA11yPlugin: a11yMod?.default,
+  };
 }
 
 function applyThemeFromStorage() {
@@ -300,6 +341,69 @@ export async function initNavigation() {
 
   // Apply persisted theme once before swup plugins start syncing head/attributes.
   applyThemeFromStorage();
+
+  let Swup = null;
+  let SwupHeadPlugin = null;
+  let SwupPreloadPlugin = null;
+  let SwupScrollPlugin = null;
+  let SwupProgressPlugin = null;
+  let SwupA11yPlugin = null;
+
+  try {
+    ({
+      Swup,
+      SwupHeadPlugin,
+      SwupPreloadPlugin,
+      SwupScrollPlugin,
+      SwupProgressPlugin,
+      SwupA11yPlugin,
+    } = await loadSwupDeps());
+  } catch (error) {
+    console.warn(
+      "Swup failed to load; falling back to full page navigation.",
+      error
+    );
+
+    swup = createSwupFallback();
+    // Initial route module and state (no SPA transitions).
+    await ensureRouteModule(window.location.pathname);
+    setRouteState(window.location.pathname);
+    updateHistoryAndBreadcrumb(window.location.pathname);
+    resolveReady?.(swup);
+    return swup;
+  }
+
+  const missing = [];
+  if (typeof Swup !== "function") {
+    missing.push("Swup");
+  }
+  if (typeof SwupHeadPlugin !== "function") {
+    missing.push("SwupHeadPlugin");
+  }
+  if (typeof SwupPreloadPlugin !== "function") {
+    missing.push("SwupPreloadPlugin");
+  }
+  if (typeof SwupScrollPlugin !== "function") {
+    missing.push("SwupScrollPlugin");
+  }
+  if (typeof SwupProgressPlugin !== "function") {
+    missing.push("SwupProgressPlugin");
+  }
+  if (typeof SwupA11yPlugin !== "function") {
+    missing.push("SwupA11yPlugin");
+  }
+
+  if (missing.length > 0) {
+    console.warn(
+      `Swup dependencies missing (${missing.join(", ")}); disabling SPA navigation.`
+    );
+    swup = createSwupFallback();
+    await ensureRouteModule(window.location.pathname);
+    setRouteState(window.location.pathname);
+    updateHistoryAndBreadcrumb(window.location.pathname);
+    resolveReady?.(swup);
+    return swup;
+  }
 
   swup = new Swup({
     containers: ["#route-content"],

@@ -31,6 +31,7 @@ const readyCallbacks = [];
  */
 const mapCore = {
   _telemetryPatched: false,
+  _initErrorRendered: false,
 
   /**
    * Check if map is ready for use
@@ -101,6 +102,7 @@ const mapCore = {
    */
   async _doInitialize(options = {}) {
     try {
+      this._clearInitError();
       loadingManager?.show("Initializing map...");
 
       // Verify DOM elements exist
@@ -186,6 +188,7 @@ const mapCore = {
       state.mapInitialized = true;
       state.metrics.mapLoadTime = Date.now() - state.metrics.loadStartTime;
 
+      this._clearInitError();
       loadingManager?.hide();
 
       // Dispatch event for other modules
@@ -204,6 +207,7 @@ const mapCore = {
       initializationError = error;
       loadingManager?.hide();
 
+      this._showInitError(error?.message || "Unknown error");
       notificationManager.show(`Map initialization failed: ${error.message}`, "danger");
 
       return false;
@@ -416,6 +420,54 @@ const mapCore = {
    */
   _createTransformRequest() {
     return (url) => ({ url });
+  },
+
+  /**
+   * Render an in-map error overlay so failures are visible even when toast UI is hidden.
+   * @private
+   */
+  _showInitError(message) {
+    const mapElement = utils.getElement("map");
+    if (!mapElement) {
+      return;
+    }
+
+    let overlay = document.getElementById("map-init-error");
+    if (!overlay) {
+      overlay = document.createElement("div");
+      overlay.id = "map-init-error";
+      overlay.className = "map-init-error";
+
+      const card = document.createElement("div");
+      card.className = "map-init-error-card";
+
+      const title = document.createElement("h2");
+      title.textContent = "Map failed to load";
+
+      const body = document.createElement("p");
+      body.id = "map-init-error-message";
+
+      card.appendChild(title);
+      card.appendChild(body);
+      overlay.appendChild(card);
+      mapElement.appendChild(overlay);
+    }
+
+    const messageEl = overlay.querySelector("#map-init-error-message");
+    if (messageEl) {
+      messageEl.textContent = message || "Unknown error.";
+    }
+  },
+
+  /**
+   * Remove init error overlay (if present).
+   * @private
+   */
+  _clearInitError() {
+    const overlay = document.getElementById("map-init-error");
+    if (overlay) {
+      overlay.remove();
+    }
   },
 
   /**
