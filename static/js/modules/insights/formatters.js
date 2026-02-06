@@ -4,13 +4,13 @@
  *
  * Common formatters are imported from the central formatters module.
  */
+import store from "../core/store.js";
 import {
   formatDuration as baseDuration,
   formatDateToString,
   formatHourLabel,
   formatMonth,
   formatWeekRange,
-  getStorage,
 } from "../utils.js";
 
 // Re-export common formatters
@@ -35,14 +35,15 @@ export function formatDuration(seconds) {
 }
 
 /**
- * Get the date range from the universal filters (utils storage)
+ * Get the date range from the universal filters (store state)
  * @returns {Object} Object with start and end date strings
  */
 export function getDateRange() {
   const today = formatDate(new Date());
+  const filters = store.get("filters") || {};
   return {
-    start: getStorage("startDate", today),
-    end: getStorage("endDate", today),
+    start: filters.startDate || today,
+    end: filters.endDate || today,
   };
 }
 
