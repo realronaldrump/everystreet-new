@@ -58,6 +58,18 @@ function initMobilePanelToggle() {
 
   if (!toggle || !panel) return;
 
+  const storageKey = "coverage-navigator-mobile-panel";
+
+  // Restore last state on mobile to prioritize map visibility.
+  if (window.innerWidth < 1024) {
+    const saved = localStorage.getItem(storageKey);
+    if (saved === "hidden") {
+      panel.classList.add("is-hidden");
+    } else if (saved === "visible") {
+      panel.classList.remove("is-hidden");
+    }
+  }
+
   // Check initial state
   const isPanelVisible = !panel.classList.contains("is-hidden");
   toggle.setAttribute("aria-expanded", isPanelVisible.toString());
@@ -68,9 +80,11 @@ function initMobilePanelToggle() {
     if (isExpanded) {
       panel.classList.add("is-hidden");
       toggle.setAttribute("aria-expanded", "false");
+      localStorage.setItem(storageKey, "hidden");
     } else {
       panel.classList.remove("is-hidden");
       toggle.setAttribute("aria-expanded", "true");
+      localStorage.setItem(storageKey, "visible");
     }
   });
 
@@ -84,6 +98,7 @@ function initMobilePanelToggle() {
         if (isExpanded && !e.target.closest(".map-legend")) {
           panel.classList.add("is-hidden");
           toggle.setAttribute("aria-expanded", "false");
+          localStorage.setItem(storageKey, "hidden");
         }
       }
     });
