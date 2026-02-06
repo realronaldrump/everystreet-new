@@ -109,6 +109,8 @@ class ESStore {
     this.loadingStates = new Map();
     this.pendingRequests = new Set();
     this.layerLoadPromises = new Map();
+    // In-memory API response cache used by utils.fetchWithRetry().
+    this.apiCache = new Map();
 
     // UI runtime state
     this.ui = {
