@@ -263,7 +263,7 @@ const AppController = {
       fetchPromises.push(dataManager.fetchMatchedTrips());
     }
 
-    await Promise.all(fetchPromises);
+    await Promise.allSettled(fetchPromises);
 
     // Ensure all visible layers have their visibility applied
     await new Promise((resolve) => {

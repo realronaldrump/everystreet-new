@@ -1,9 +1,8 @@
 /* ============================
    Animation Keyframes
-   Consolidated from all CSS files
    ============================ */
 
-/* === Fade Animations - Phase 3 Refined === */
+/* === Fade Animations === */
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -60,6 +59,16 @@
   }
 }
 
+@keyframes fadeInMetric {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
 /* Stagger animation utility classes */
 .stagger-container > * {
   opacity: 0;
@@ -105,7 +114,7 @@
   }
 }
 
-/* === SPA View Transitions (content-only) - Phase 3 Refined === */
+/* === SPA View Transitions (content-only) === */
 @keyframes spaFadeOut {
   from {
     opacity: 1;
@@ -159,18 +168,6 @@
   }
 }
 
-@keyframes fadeInMetric {
-  from {
-    opacity: 0;
-    transform: none;
-  }
-
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-
 @keyframes ambientFloat {
   0%,
   100% {
@@ -183,30 +180,7 @@
 }
 
 /* === Slide Animations === */
-@keyframes slideUp {
-  from {
-    transform: translateY(12px);
-    opacity: 0;
-  }
-
-  to {
-    transform: none;
-    opacity: 1;
-  }
-}
-
-@keyframes slideDown {
-  from {
-    transform: translateY(-12px);
-    opacity: 0;
-  }
-
-  to {
-    transform: none;
-    opacity: 1;
-  }
-}
-
+/* slideUp and slideInUp are identical - use slideInUp */
 @keyframes slideInUp {
   from {
     opacity: 0;
@@ -219,6 +193,7 @@
   }
 }
 
+/* slideDown and slideInDown are identical - use slideInDown */
 @keyframes slideInDown {
   from {
     opacity: 0;
@@ -267,30 +242,6 @@
   }
 }
 
-@keyframes pulse-indicator {
-  0%,
-  100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-
-  50% {
-    opacity: 0.85;
-    transform: scale(0.99);
-  }
-}
-
-@keyframes pulse-hero {
-  0%,
-  100% {
-    transform: scale(1);
-  }
-
-  50% {
-    transform: scale(1.01);
-  }
-}
-
 @keyframes pulse-marker {
   0% {
     box-shadow: 0 0 0 0 rgb(var(--primary-rgb) / 50%);
@@ -298,33 +249,6 @@
 
   100% {
     box-shadow: 0 0 0 6px rgb(var(--primary-rgb) / 0%);
-  }
-}
-
-@keyframes pulse-draw {
-  0%,
-  100% {
-    opacity: 0.9;
-  }
-
-  50% {
-    opacity: 1;
-  }
-}
-
-@keyframes icon-pop {
-  0% {
-    transform: scale(0.8);
-    opacity: 0.4;
-  }
-
-  60% {
-    transform: scale(1.06);
-    opacity: 1;
-  }
-
-  100% {
-    transform: scale(1);
   }
 }
 
@@ -362,41 +286,24 @@
   }
 }
 
-@keyframes mobile-pulse {
-  0%,
-  100% {
-    opacity: 0.8;
+@keyframes icon-pop {
+  0% {
+    transform: scale(0.8);
+    opacity: 0.4;
   }
 
-  50% {
+  60% {
+    transform: scale(1.06);
     opacity: 1;
   }
+
+  100% {
+    transform: scale(1);
+  }
 }
 
-/* === Spin/Rotate Animations === */
+/* === Spin Animation (single definition) === */
 @keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@keyframes btn-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@keyframes search-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@keyframes rotate-slow {
-  from {
-    transform: rotate(0deg);
-  }
-
   to {
     transform: rotate(360deg);
   }
@@ -430,7 +337,6 @@
 
 /* === Immersive Experience Animations === */
 
-/* Ambient glow pulse for active/connected states */
 @keyframes glow-pulse {
   0%,
   100% {
@@ -444,7 +350,6 @@
   }
 }
 
-/* Success glow pulse for connected indicators */
 @keyframes glow-pulse-success {
   0%,
   100% {
@@ -460,19 +365,6 @@
   }
 }
 
-/* Subtle breathing scale for interactive elements */
-@keyframes breathe {
-  0%,
-  100% {
-    transform: scale(1);
-  }
-
-  50% {
-    transform: scale(1.01);
-  }
-}
-
-/* Expanding ring for vehicle markers */
 @keyframes ring-expand {
   0% {
     transform: scale(0.8);
@@ -485,7 +377,6 @@
   }
 }
 
-/* Double ring effect for live tracking */
 @keyframes ring-expand-delayed {
   0% {
     transform: scale(0.8);
@@ -498,7 +389,6 @@
   }
 }
 
-/* Value flash highlight for metric updates */
 @keyframes value-flash {
   0% {
     background-color: rgb(var(--primary-rgb) / 12%);
@@ -513,7 +403,6 @@
   animation: value-flash 600ms ease-out;
 }
 
-/* Ripple effect for button touches */
 @keyframes ripple {
   0% {
     transform: scale(0);
@@ -523,46 +412,6 @@
   100% {
     transform: scale(3);
     opacity: 0;
-  }
-}
-
-/* Subtle border glow animation */
-@keyframes border-glow {
-  0%,
-  100% {
-    border-color: rgb(var(--primary-rgb) / 20%);
-  }
-
-  50% {
-    border-color: rgb(var(--primary-rgb) / 35%);
-  }
-}
-
-/* Metric counter tick animation */
-@keyframes counter-tick {
-  0% {
-    transform: translateY(0);
-  }
-
-  25% {
-    transform: translateY(-1px);
-  }
-
-  50% {
-    transform: translateY(0);
-  }
-}
-
-/* Slide in with fade for panels */
-@keyframes slide-in-fade {
-  0% {
-    opacity: 0;
-    transform: none;
-  }
-
-  100% {
-    opacity: 1;
-    transform: none;
   }
 }
 
@@ -578,47 +427,4 @@
   }
 }
 
-@keyframes modal-section-in {
-  0% {
-    opacity: 0;
-    transform: none;
-  }
-
-  100% {
-    opacity: 1;
-    transform: none;
-  }
-}
-
-@keyframes focus-glow {
-  0% {
-    box-shadow: 0 0 0 0 rgb(var(--primary-rgb) / 0%);
-  }
-
-  100% {
-    box-shadow: 0 0 0 4px rgb(var(--primary-rgb) / 18%);
-  }
-}
-
-/* === Mobile Specific Animations === */
-@keyframes mobile-bounce {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-
-  50% {
-    transform: translateY(-3px);
-  }
-}
-
-/* === Reduced Motion Support === */
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms;
-    animation-iteration-count: 1;
-    transition-duration: 0.01ms;
-  }
-}
+/* Reduced motion support defined in core/utilities.css */

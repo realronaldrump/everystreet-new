@@ -156,14 +156,13 @@ const dataManager = {
    */
   _normalizeLayerName(layerName) {
     if (!layerName) {
-      return "";
+      return null;
     }
     const name = String(layerName).trim();
-    // Direct match against known layer keys
     if (state.mapLayers?.[name]) {
       return name;
     }
-    return name;
+    return null;
   },
 
   /**
@@ -194,123 +193,60 @@ const dataManager = {
   },
 
   /**
-   * Fetch undriven streets for selected coverage area
-   * @returns {Promise<Object|null>}
+   * Generic street data fetcher to avoid duplication.
+   * Uses a loading flag on state to prevent concurrent duplicate requests.
+   * @private
    */
+  async _fetchStreets(layerKey, loadedFlag, query, label) {
+    const selectedLocationId = utils.getStorage(CONFIG.STORAGE_KEYS.selectedLocation);
+
+    if (!selectedLocationId || !state.mapInitialized || state[loadedFlag]) {
+      return null;
+    }
+
+    // Set flag immediately to prevent concurrent duplicate calls (race condition fix)
+    state[loadedFlag] = true;
+
+    loadingManager.pulse(`Loading ${label}...`);
+
+    try {
+      const data = await utils.fetchWithRetry(
+        CONFIG.API.coverageAreaStreets(selectedLocationId, query),
+        {},
+        CONFIG.API.retryAttempts,
+        CONFIG.API.cacheTime,
+        `fetch${layerKey.charAt(0).toUpperCase() + layerKey.slice(1)}`
+      );
+
+      if (data?.type === "FeatureCollection") {
+        state.mapLayers[layerKey].layer = data;
+        await layerManager.updateMapLayer(layerKey, data);
+        return data;
+      }
+
+      // Data was invalid, reset flag
+      state[loadedFlag] = false;
+      return null;
+    } catch (error) {
+      state[loadedFlag] = false;
+      if (error?.name === "AbortError") {
+        return null;
+      }
+      console.error(`Error fetching ${label}:`, error);
+      return null;
+    }
+  },
+
   async fetchUndrivenStreets() {
-    const selectedLocationId = utils.getStorage(CONFIG.STORAGE_KEYS.selectedLocation);
-
-    if (!selectedLocationId || !state.mapInitialized || state.undrivenStreetsLoaded) {
-      return null;
-    }
-
-    loadingManager.pulse("Loading undriven streets...");
-
-    try {
-      const data = await utils.fetchWithRetry(
-        CONFIG.API.coverageAreaStreets(selectedLocationId, "undriven=true"),
-        {},
-        CONFIG.API.retryAttempts,
-        CONFIG.API.cacheTime,
-        "fetchUndrivenStreets"
-      );
-
-      if (data?.type === "FeatureCollection") {
-        state.mapLayers.undrivenStreets.layer = data;
-        state.undrivenStreetsLoaded = true;
-        await layerManager.updateMapLayer("undrivenStreets", data);
-        return data;
-      }
-
-      return null;
-    } catch (error) {
-      if (error?.name === "AbortError") {
-        return null;
-      }
-      console.error("Error fetching undriven streets:", error);
-      state.undrivenStreetsLoaded = false;
-      return null;
-    }
+    return this._fetchStreets("undrivenStreets", "undrivenStreetsLoaded", "undriven=true", "undriven streets");
   },
 
-  /**
-   * Fetch driven streets for selected coverage area
-   * @returns {Promise<Object|null>}
-   */
   async fetchDrivenStreets() {
-    const selectedLocationId = utils.getStorage(CONFIG.STORAGE_KEYS.selectedLocation);
-
-    if (!selectedLocationId || !state.mapInitialized || state.drivenStreetsLoaded) {
-      return null;
-    }
-
-    loadingManager.pulse("Loading driven streets...");
-
-    try {
-      const data = await utils.fetchWithRetry(
-        CONFIG.API.coverageAreaStreets(selectedLocationId, "driven=true"),
-        {},
-        CONFIG.API.retryAttempts,
-        CONFIG.API.cacheTime,
-        "fetchDrivenStreets"
-      );
-
-      if (data?.type === "FeatureCollection") {
-        state.mapLayers.drivenStreets.layer = data;
-        state.drivenStreetsLoaded = true;
-        await layerManager.updateMapLayer("drivenStreets", data);
-        return data;
-      }
-
-      return null;
-    } catch (error) {
-      if (error?.name === "AbortError") {
-        return null;
-      }
-      console.error("Error fetching driven streets:", error);
-      state.drivenStreetsLoaded = false;
-      return null;
-    }
+    return this._fetchStreets("drivenStreets", "drivenStreetsLoaded", "driven=true", "driven streets");
   },
 
-  /**
-   * Fetch all streets for selected coverage area
-   * @returns {Promise<Object|null>}
-   */
   async fetchAllStreets() {
-    const selectedLocationId = utils.getStorage(CONFIG.STORAGE_KEYS.selectedLocation);
-
-    if (!selectedLocationId || !state.mapInitialized || state.allStreetsLoaded) {
-      return null;
-    }
-
-    loadingManager.pulse("Loading all streets...");
-
-    try {
-      const data = await utils.fetchWithRetry(
-        CONFIG.API.coverageAreaStreets(selectedLocationId),
-        {},
-        CONFIG.API.retryAttempts,
-        CONFIG.API.cacheTime,
-        "fetchAllStreets"
-      );
-
-      if (data?.type === "FeatureCollection") {
-        state.mapLayers.allStreets.layer = data;
-        state.allStreetsLoaded = true;
-        await layerManager.updateMapLayer("allStreets", data);
-        return data;
-      }
-
-      return null;
-    } catch (error) {
-      if (error?.name === "AbortError") {
-        return null;
-      }
-      console.error("Error fetching all streets:", error);
-      state.allStreetsLoaded = false;
-      return null;
-    }
+    return this._fetchStreets("allStreets", "allStreetsLoaded", undefined, "all streets");
   },
 
   /**
@@ -426,24 +362,22 @@ const dataManager = {
    */
   async handleLayerDataNeeded(layerName) {
     const normalizedLayerName = this._normalizeLayerName(layerName);
-    switch (normalizedLayerName) {
-      case "trips":
-        await this.fetchTrips();
-        break;
-      case "matchedTrips":
-        await this.fetchMatchedTrips();
-        break;
-      case "undrivenStreets":
-        await this.fetchUndrivenStreets();
-        break;
-      case "drivenStreets":
-        await this.fetchDrivenStreets();
-        break;
-      case "allStreets":
-        await this.fetchAllStreets();
-        break;
-      default:
-        console.warn(`Unknown layer data requested: "${layerName}"`);
+    if (!normalizedLayerName) {
+      console.warn(`Unknown layer data requested: "${layerName}"`);
+      return;
+    }
+    const fetchMap = {
+      trips: () => this.fetchTrips(),
+      matchedTrips: () => this.fetchMatchedTrips(),
+      undrivenStreets: () => this.fetchUndrivenStreets(),
+      drivenStreets: () => this.fetchDrivenStreets(),
+      allStreets: () => this.fetchAllStreets(),
+    };
+    const fetcher = fetchMap[normalizedLayerName];
+    if (fetcher) {
+      await fetcher();
+    } else {
+      console.warn(`No fetcher for layer: "${normalizedLayerName}"`);
     }
   },
 };

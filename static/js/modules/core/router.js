@@ -211,7 +211,11 @@ const router = {
         && "startViewTransition" in document
         && !store.ui.reducedMotion
       ) {
-        await document.startViewTransition(apply).finished;
+        try {
+          await document.startViewTransition(apply).finished;
+        } catch {
+          // View transition was skipped or aborted - the DOM update still applied
+        }
       } else {
         this.main.classList.add("is-transitioning");
         await apply();
@@ -363,9 +367,10 @@ const router = {
         script.src = src;
         const loadPromise = new Promise((resolve, reject) => {
           script.addEventListener("load", resolve, { once: true });
-          script.addEventListener("error", () =>
-            reject(new Error(`Failed to load ${src}`))
-          );
+          script.addEventListener("error", (e) => {
+            console.error(`Failed to load script: ${src}`, e);
+            reject(new Error(`Failed to load ${src}`));
+          });
         });
         this.scriptHost.appendChild(script);
         await Promise.allSettled([loadPromise]);

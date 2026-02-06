@@ -48,7 +48,7 @@
     0 4px 12px rgb(0 0 0 / 30%);
   z-index: 9999;
   backdrop-filter: blur(var(--blur-subtle));
-  animation: slideDown 0.2s ease-out;
+  animation: slideInDown 0.2s ease-out;
   min-width: 280px;
   margin-top: 0.5rem;
   transition:
@@ -57,14 +57,10 @@
   will-change: transform;
 }
 
-/* Note: @keyframes slideDown moved to animations.css */
-
 /* When dropdown appears above the input */
 .search-results-dropdown.above {
-  animation: slideUp 0.2s ease-out;
+  animation: slideInUp 0.2s ease-out;
 }
-
-/* Note: @keyframes slideUp moved to animations.css */
 
 .search-result-item {
   padding: 0.875rem 1.125rem;
@@ -215,12 +211,10 @@
   border: 2px solid rgb(var(--text-rgb) / 28%);
   border-top-color: var(--primary);
   border-radius: 50%;
-  animation: search-spin 0.6s linear infinite;
+  animation: spin 0.6s linear infinite;
   margin-right: 0.5rem;
   vertical-align: middle;
 }
-
-/* Note: @keyframes search-spin moved to animations.css */
 
 /* Scrollbar styling for dropdown */
 .search-results-dropdown::-webkit-scrollbar {

@@ -105,7 +105,6 @@ class ESStore {
     this.allStreetsLoaded = false;
 
     this.dom = new Map();
-    this.apiCache = new Map();
     this.abortControllers = new Map();
     this.loadingStates = new Map();
     this.pendingRequests = new Set();
@@ -185,10 +184,15 @@ class ESStore {
     return this.ui.isMobile;
   }
 
-  // DOM element caching
+  // DOM element caching with stale-reference validation
   getElement(selector) {
     if (this.dom.has(selector)) {
-      return this.dom.get(selector);
+      const cached = this.dom.get(selector);
+      // Validate the cached element is still connected to the DOM
+      if (cached && cached.isConnected) {
+        return cached;
+      }
+      this.dom.delete(selector);
     }
     const element = document.querySelector(
       selector.startsWith("#") || selector.includes(" ") || selector.startsWith(".")
@@ -203,13 +207,8 @@ class ESStore {
   }
 
   getAllElements(selector) {
-    const key = `all_${selector}`;
-    if (this.dom.has(key)) {
-      return this.dom.get(key);
-    }
-    const nodes = document.querySelectorAll(selector);
-    this.dom.set(key, nodes);
-    return nodes;
+    // Don't cache NodeLists - they become stale after SPA navigation
+    return document.querySelectorAll(selector);
   }
 
   clearElementCache() {
@@ -277,10 +276,11 @@ class ESStore {
     this.drivenStreetsLoaded = false;
     this.allStreetsLoaded = false;
     this.dom.clear();
-    this.apiCache.clear();
     this.loadingStates.clear();
     this.pendingRequests.clear();
     this.layerLoadPromises.clear();
+    this.listeners.clear();
+    this.pathListeners.clear();
   }
 
   resetStreetCache() {
