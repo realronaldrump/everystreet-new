@@ -40,6 +40,9 @@ let playbackControlsBound = false;
 let modalActionsBound = false;
 let pageSignal = null;
 
+const DEFAULT_TRIP_SORT = "new_to_old";
+let appliedTripSort = DEFAULT_TRIP_SORT;
+
 const playbackState = {
   coords: [],
   marker: null,
@@ -78,6 +81,7 @@ function resetTripsState() {
   currentTripData = null;
   playbackControlsBound = false;
   modalActionsBound = false;
+  appliedTripSort = DEFAULT_TRIP_SORT;
 
   pausePlayback();
   if (playbackState.marker) {
@@ -116,6 +120,58 @@ function resetTripsState() {
     tripModalMap = null;
   }
   tripModalInstance = null;
+}
+
+function normalizeTripSort(value) {
+  if (typeof value !== "string") {
+    return DEFAULT_TRIP_SORT;
+  }
+
+  const normalized = value.trim();
+  switch (normalized) {
+    case "new_to_old":
+    case "old_to_new":
+    case "distance":
+    case "speed":
+    case "fuel":
+    case "duration":
+      return normalized;
+    default:
+      return DEFAULT_TRIP_SORT;
+  }
+}
+
+function getTripSortValue() {
+  const select = document.getElementById("trip-sort-select");
+  const stored = getStorage(CONFIG.STORAGE_KEYS.tripsSort, DEFAULT_TRIP_SORT);
+  const candidate = select?.value || stored || DEFAULT_TRIP_SORT;
+  return normalizeTripSort(candidate);
+}
+
+function getTripsSortRequest() {
+  const sort = getTripSortValue();
+
+  let column = "startTime";
+  let dir = "desc";
+
+  if (sort === "old_to_new") {
+    column = "startTime";
+    dir = "asc";
+  } else if (sort === "distance") {
+    column = "distance";
+  } else if (sort === "speed") {
+    column = "maxSpeed";
+  } else if (sort === "fuel") {
+    column = "fuelConsumed";
+  } else if (sort === "duration") {
+    column = "duration";
+  }
+
+  return {
+    sort,
+    order: [{ column: 0, dir }],
+    columns: [{ data: column }],
+  };
 }
 
 export default async function initTripsPage({ signal, cleanup } = {}) {
@@ -257,6 +313,16 @@ function shouldUseClientStats() {
 }
 
 function restoreSavedFilters() {
+  // Restore sort selection
+  const sortSelect = document.getElementById("trip-sort-select");
+  if (sortSelect) {
+    const savedSort = normalizeTripSort(
+      getStorage(CONFIG.STORAGE_KEYS.tripsSort, DEFAULT_TRIP_SORT)
+    );
+    sortSelect.value = savedSort;
+    sortSelect.classList.toggle("has-value", savedSort !== DEFAULT_TRIP_SORT);
+  }
+
   // Restore vehicle filter
   const savedVehicle = getStorage(CONFIG.STORAGE_KEYS.selectedVehicle);
   const vehicleSelect = document.getElementById("trip-filter-vehicle");
@@ -569,14 +635,15 @@ async function loadTrips() {
 
   try {
     const filters = getFilterValues();
+    const sortRequest = getTripsSortRequest();
 
     const response = await apiPost(CONFIG.API.tripsDataTable, {
       draw: ++datatableDraw,
       start: (currentPage - 1) * pageSize,
       length: pageSize,
       search: { value: "" },
-      order: [],
-      columns: [],
+      order: sortRequest.order,
+      columns: sortRequest.columns,
       filters,
     });
 
@@ -584,6 +651,7 @@ async function loadTrips() {
     totalTrips
       = response?.recordsFiltered ?? response?.recordsTotal ?? tripsData.length;
     filteredTrips = [...tripsData];
+    appliedTripSort = sortRequest.sort;
 
     if (tripsData.length === 0) {
       showEmptyState();
@@ -593,7 +661,7 @@ async function loadTrips() {
       updateFilterResultsPreview();
     } else {
       hideEmptyState();
-      renderTripsTimeline(tripsData);
+      renderTrips(tripsData);
       updatePagination();
 
       // Update stats based on filtered results
@@ -693,16 +761,96 @@ function groupTripsByTimeline(trips) {
   return groups;
 }
 
-function renderTripsTimeline(trips) {
-  const groups = groupTripsByTimeline(trips);
+function cacheTimelineDefaultTitles() {
+  document.querySelectorAll(".timeline-section .timeline-title").forEach((titleEl) => {
+    if (!titleEl.dataset.defaultTitle) {
+      titleEl.dataset.defaultTitle = (titleEl.textContent || "").trim();
+    }
+  });
+}
 
-  // Hide all sections initially
+function restoreTimelineDefaultTitles() {
+  cacheTimelineDefaultTitles();
+  document.querySelectorAll(".timeline-section .timeline-title").forEach((titleEl) => {
+    if (titleEl.dataset.defaultTitle) {
+      titleEl.textContent = titleEl.dataset.defaultTitle;
+    }
+  });
+}
+
+function getFlatTripsTitle(sort) {
+  switch (sort) {
+    case "distance":
+      return "Sorted by Distance";
+    case "speed":
+      return "Sorted by Speed";
+    case "fuel":
+      return "Sorted by Gas Used";
+    case "duration":
+      return "Sorted by Duration";
+    default:
+      return "Trips";
+  }
+}
+
+function renderTrips(trips) {
+  const sort = normalizeTripSort(appliedTripSort);
+  if (sort === "new_to_old" || sort === "old_to_new") {
+    renderTripsTimeline(trips, { direction: sort === "old_to_new" ? "asc" : "desc" });
+  } else {
+    renderTripsFlatList(trips, sort);
+  }
+}
+
+function renderTripsFlatList(trips, sort) {
+  restoreTimelineDefaultTitles();
+
+  // Hide all sections initially.
   document.querySelectorAll(".timeline-section").forEach((section) => {
     section.style.display = "none";
   });
 
-  // Render each group
-  Object.entries(groups).forEach(([period, periodTrips]) => {
+  const container = document.getElementById("trips-today");
+  const section = container?.closest(".timeline-section");
+  const countEl = document.getElementById("count-today");
+  const titleEl = section?.querySelector(".timeline-title");
+
+  if (titleEl) {
+    titleEl.textContent = getFlatTripsTitle(sort);
+  }
+
+  if (container && trips.length > 0) {
+    container.innerHTML = "";
+    trips.forEach((trip) => {
+      const card = createTripCard(trip, trips);
+      container.appendChild(card);
+    });
+
+    if (section) {
+      section.style.display = "block";
+    }
+    if (countEl) {
+      countEl.textContent = `${trips.length} trip${trips.length !== 1 ? "s" : ""}`;
+    }
+  }
+}
+
+function renderTripsTimeline(trips, { direction = "desc" } = {}) {
+  restoreTimelineDefaultTitles();
+
+  const groups = groupTripsByTimeline(trips);
+  const periodOrder
+    = direction === "asc"
+      ? ["older", "month", "week", "yesterday", "today"]
+      : ["today", "yesterday", "week", "month", "older"];
+
+  // Hide all sections initially.
+  document.querySelectorAll(".timeline-section").forEach((section) => {
+    section.style.display = "none";
+  });
+
+  periodOrder.forEach((period) => {
+    const periodTrips = groups[period] || [];
     const container = document.getElementById(`trips-${period}`);
     const section = container?.closest(".timeline-section");
     const countEl = document.getElementById(`count-${period}`);
@@ -1046,6 +1194,11 @@ function setupSearchAndFilters() {
   // Reset filters
   document.getElementById("trip-filter-reset")?.addEventListener("click", () => {
     document.querySelectorAll(".filter-select, .filter-group input").forEach((el) => {
+      if (el.id === "trip-sort-select") {
+        el.value = DEFAULT_TRIP_SORT;
+        el.classList.remove("has-value");
+        return;
+      }
       if (el.type === "checkbox") {
         el.checked = false;
       } else {
@@ -1053,6 +1206,10 @@ function setupSearchAndFilters() {
       }
       el.classList.remove("has-value");
     });
+
+    setStorage(CONFIG.STORAGE_KEYS.tripsSort, null);
+    setStorage(CONFIG.STORAGE_KEYS.selectedVehicle, null);
+    store.updateFilters({ vehicle: null }, { source: "vehicle" });
 
     currentPage = 1;
     loadTrips();
@@ -1070,6 +1227,14 @@ function setupSearchAndFilters() {
     filtersPanel?.classList.remove("has-filters");
     document.querySelector(".trips-search-section")?.classList.remove("has-filters");
     document.getElementById("filters-status")?.style.setProperty("display", "none");
+  });
+
+  // Sort selection
+  document.getElementById("trip-sort-select")?.addEventListener("change", (e) => {
+    const normalized = normalizeTripSort(e.target.value);
+    e.target.value = normalized;
+    setStorage(CONFIG.STORAGE_KEYS.tripsSort, normalized);
+    e.target.classList.toggle("has-value", normalized !== DEFAULT_TRIP_SORT);
   });
 
   // Vehicle filter
@@ -1220,7 +1385,7 @@ function performSearch(query) {
     });
   }
 
-  renderTripsTimeline(filteredTrips);
+  renderTrips(filteredTrips);
 }
 
 function getFilterValues() {
@@ -1479,7 +1644,7 @@ async function deleteTrip(id) {
       optimistic: () => {
         tripsData = tripsData.filter((t) => t.transactionId !== id);
         filteredTrips = filteredTrips.filter((t) => t.transactionId !== id);
-        renderTripsTimeline(filteredTrips);
+        renderTrips(filteredTrips);
         selectedTripIds.delete(id);
         updateBulkActionsBar();
         return { id };
@@ -1510,7 +1675,7 @@ async function bulkDeleteTrips(ids) {
         tripsData = tripsData.filter((t) => !idSet.has(t.transactionId));
         filteredTrips = filteredTrips.filter((t) => !idSet.has(t.transactionId));
         ids.forEach((id) => selectedTripIds.delete(id));
-        renderTripsTimeline(filteredTrips);
+        renderTrips(filteredTrips);
         updateBulkActionsBar();
         return { ids };
       },

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from dataclasses import dataclass
 
 from core.exceptions import ExternalServiceException
 from core.http.valhalla import ValhallaClient
@@ -27,6 +28,13 @@ class ValhallaClientState:
     client_loop: asyncio.AbstractEventLoop | None = None
     api_semaphore: asyncio.Semaphore | None = None
     api_semaphore_loop: asyncio.AbstractEventLoop | None = None
+
+
+@dataclass(frozen=True)
+class BridgeRoute:
+    coordinates: list[list[float]]
+    distance_m: float = 0.0
+    duration_s: float = 0.0
 
 
 async def get_valhalla_client() -> ValhallaClient:
@@ -77,7 +85,7 @@ async def fetch_bridge_route(
     from_xy: tuple[float, float],
     to_xy: tuple[float, float],
     request_timeout: float = 30.0,
-) -> list[list[float]] | None:
+) -> BridgeRoute | None:
     """
     Get driveable route between two points via Valhalla routing API.
 
@@ -109,12 +117,17 @@ async def fetch_bridge_route(
     coords = geometry.get("coordinates") if geometry else []
     if coords:
         distance_m = result.get("distance_meters", 0) if isinstance(result, dict) else 0
+        duration_s = result.get("duration_seconds", 0) if isinstance(result, dict) else 0
         logger.info(
             "Fetched bridge route with %d coordinates (%.2f miles)",
             len(coords),
             (distance_m or 0) * 0.000621371,
         )
-        return coords
+        return BridgeRoute(
+            coordinates=coords,
+            distance_m=float(distance_m or 0.0),
+            duration_s=float(duration_s or 0.0),
+        )
 
     logger.warning("No route found by Valhalla routing API")
     return None

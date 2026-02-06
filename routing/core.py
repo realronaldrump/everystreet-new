@@ -5,7 +5,7 @@ import networkx as nx
 from core.spatial import log_jump_distance
 
 from .graph import (
-    dijkstra_to_any_target,
+    dijkstra_to_best_target,
     edge_length_m,
     get_edge_geometry,
     reverse_candidates_for_edge,
@@ -58,18 +58,20 @@ def initialize_route_state(
 
 def build_requirement_indices(
     required_reqs: dict[ReqId, list[EdgeRef]],
-) -> tuple[dict[ReqId, list[int]], dict[int, int]]:
+) -> tuple[dict[ReqId, list[int]], dict[int, int], dict[int, set[ReqId]]]:
     """Build indices mapping requirements to start nodes."""
     req_to_starts: dict[ReqId, list[int]] = {}
     start_counts: dict[int, int] = {}
+    start_to_rids: dict[int, set[ReqId]] = {}
 
     for rid, opts in required_reqs.items():
         starts = sorted({u for (u, _, _) in opts})
         req_to_starts[rid] = starts
         for s in starts:
             start_counts[s] = start_counts.get(s, 0) + 1
+            start_to_rids.setdefault(s, set()).add(rid)
 
-    return req_to_starts, start_counts
+    return req_to_starts, start_counts, start_to_rids
 
 
 def calculate_required_distance(
@@ -92,47 +94,42 @@ def build_component_structure(
     dict[ReqId, int],
     dict[int, set[ReqId]],
     dict[int, set[int]],
+    dict[int, int],
 ]:
     """Build component-aware grouping for required edges."""
-    # Build undirected graph of requirements
-    req_repr_edge: dict[ReqId, EdgeRef] = {}
-    req_graph = nx.Graph()
-    for rid, opts in required_reqs.items():
-        best = min(opts, key=lambda e: edge_length_m(G, e[0], e[1], e[2]))
-        req_repr_edge[rid] = best
-        req_graph.add_edge(best[0], best[1])
+    # We want to group requirements by actual road-network connectivity, not
+    # just whether required edges touch each other. Use weakly-connected
+    # components of the full routing graph (treating one-ways as connected).
+    required_nodes: set[int] = set()
+    for starts in req_to_starts.values():
+        required_nodes.update(starts)
 
-    # Find connected components
     node_to_comp: dict[int, int] = {}
-    for idx, nodes in enumerate(nx.connected_components(req_graph)):
-        for node in nodes:
-            node_to_comp[node] = idx
+    remaining = set(required_nodes)
+    for comp_id, nodes in enumerate(nx.weakly_connected_components(G)):
+        if not remaining:
+            break
+        touched = remaining.intersection(nodes)
+        if not touched:
+            continue
+        for n in touched:
+            node_to_comp[n] = comp_id
+        remaining.difference_update(touched)
 
-    # Map requirements to components
+    start_to_comp = {n: node_to_comp.get(n, -1) for n in required_nodes}
+
     req_to_comp: dict[ReqId, int] = {}
     comp_to_rids: dict[int, set[ReqId]] = {}
-    for rid, edge in req_repr_edge.items():
-        comp_id = node_to_comp.get(edge[0])
-        if comp_id is None:
-            continue
+    comp_targets: dict[int, set[int]] = {}
+
+    for rid, opts in required_reqs.items():
+        best = min(opts, key=lambda e: edge_length_m(G, e[0], e[1], e[2]))
+        comp_id = node_to_comp.get(best[0], -1)
         req_to_comp[rid] = comp_id
         comp_to_rids.setdefault(comp_id, set()).add(rid)
+        comp_targets.setdefault(comp_id, set()).update(req_to_starts.get(rid, []))
 
-    # Build component targets
-    comp_start_counts: dict[int, dict[int, int]] = {}
-    for rid, starts in req_to_starts.items():
-        comp_id = req_to_comp.get(rid)
-        if comp_id is None:
-            continue
-        comp_start_counts.setdefault(comp_id, {})
-        for s in starts:
-            comp_start_counts[comp_id][s] = comp_start_counts[comp_id].get(s, 0) + 1
-
-    comp_targets: dict[int, set[int]] = {}
-    for comp_id, counts in comp_start_counts.items():
-        comp_targets[comp_id] = set(counts.keys())
-
-    return req_to_comp, comp_to_rids, comp_targets
+    return req_to_comp, comp_to_rids, comp_targets, start_to_comp
 
 
 def solve_greedy_route(
@@ -158,23 +155,45 @@ def solve_greedy_route(
 
     # Initialize state
     current_node, node_xy = initialize_route_state(G, required_reqs, start_node)
-    req_to_starts, start_counts = build_requirement_indices(required_reqs)
+    req_to_starts, start_counts, start_to_rids = build_requirement_indices(required_reqs)
     unvisited: set[ReqId] = set(required_reqs.keys())
 
-    # Calculate distances
-    total_dist = 0.0
-    required_dist = calculate_required_distance(G, required_reqs)
-    deadhead_dist = 0.0
+    # Requirement <-> edge indices (so we can opportunistically service required edges
+    # while deadheading along shortest paths).
+    edge_to_rid: dict[EdgeRef, ReqId] = {}
+    for rid, opts in required_reqs.items():
+        for e in opts:
+            edge_to_rid.setdefault(e, rid)
 
-    # Build component structure
-    req_to_comp, comp_to_rids, comp_targets = build_component_structure(
+    # Distance accounting (meters)
+    total_dist = 0.0
+    service_dist = 0.0
+    deadhead_dist = 0.0
+    required_dist_all = calculate_required_distance(G, required_reqs)
+
+    # Build component structure + targets
+    req_to_comp, comp_to_rids, comp_targets, start_to_comp = build_component_structure(
         G,
         required_reqs,
         req_to_starts,
     )
     global_targets: set[int] = set(start_counts.keys())
 
-    # Helper to append geometry with stitching
+    comp_remaining_req_count: dict[int, int] = {
+        comp_id: len(rids) for comp_id, rids in comp_to_rids.items()
+    }
+    comp_remaining_seg_count: dict[int, float] = {}
+    for comp_id, rids in comp_to_rids.items():
+        comp_remaining_seg_count[comp_id] = float(
+            sum(
+                int(req_segment_counts.get(rid, 1) if req_segment_counts else 1)
+                for rid in rids
+            ),
+        )
+
+    # Geometry cache
+    edge_geo_cache: dict[EdgeRef, list[list[float]]] = {}
+
     def _append_coords(coords: list[list[float]]) -> None:
         if not coords:
             return
@@ -183,119 +202,169 @@ def solve_greedy_route(
         else:
             route_coords.extend(coords)
 
-    def _append_path_edges(path_edges: list[EdgeRef]) -> None:
-        for u, v, k in path_edges:
+    def _append_edge_geometry(u: int, v: int, k: int) -> None:
+        cache_key: EdgeRef = (u, v, k)
+        geo = edge_geo_cache.get(cache_key)
+        if geo is None:
             key = None if k == -1 else k
             geo = get_edge_geometry(G, u, v, key, node_xy=node_xy)
-            _append_coords(geo)
-            route_edges.append((u, v, k))
+            edge_geo_cache[cache_key] = geo
+        _append_coords(geo)
+        route_edges.append(cache_key)
 
     def _best_service_edge_from_start(rid: ReqId, start: int) -> EdgeRef:
         opts = [e for e in required_reqs[rid] if e[0] == start]
         return min(opts, key=lambda e: edge_length_m(G, e[0], e[1], e[2]))
 
-    def _remove_req_from_bookkeeping(rid: ReqId) -> None:
-        """Remove a requirement from all tracking structures."""
+    def _seg_count(rid: ReqId) -> float:
+        return float(req_segment_counts.get(rid, 1) if req_segment_counts else 1)
+
+    def _remove_req_from_targets(rid: ReqId) -> None:
+        comp_id = req_to_comp.get(rid, -1)
         for s in req_to_starts.get(rid, []):
-            start_counts[s] = start_counts.get(s, 1) - 1
-            if start_counts.get(s, 0) <= 0:
+            start_counts[s] = start_counts.get(s, 0) - 1
+            if start_counts[s] <= 0:
                 global_targets.discard(s)
-                comp_id = req_to_comp.get(rid)
-                if comp_id is not None:
-                    comp_targets.get(comp_id, set()).discard(s)
+                comp_targets.get(comp_id, set()).discard(s)
+
+    completed_reqs = 0
+    opportunistic_reqs = 0
+    teleports = 0
+
+    def _mark_completed(rid: ReqId, *, opportunistic: bool) -> None:
+        nonlocal completed_reqs, opportunistic_reqs
+        if rid not in unvisited:
+            return
+        unvisited.discard(rid)
+        comp_id = req_to_comp.get(rid, -1)
+        comp_remaining_req_count[comp_id] = comp_remaining_req_count.get(comp_id, 0) - 1
+        comp_remaining_seg_count[comp_id] = comp_remaining_seg_count.get(comp_id, 0.0) - _seg_count(rid)
+        _remove_req_from_targets(rid)
+        completed_reqs += 1
+        if opportunistic:
+            opportunistic_reqs += 1
+
+    def _mark_skipped(rid: ReqId) -> None:
+        if rid not in unvisited:
+            return
+        unvisited.discard(rid)
+        skipped_disconnected.add(rid)
+        comp_id = req_to_comp.get(rid, -1)
+        comp_remaining_req_count[comp_id] = comp_remaining_req_count.get(comp_id, 0) - 1
+        comp_remaining_seg_count[comp_id] = comp_remaining_seg_count.get(comp_id, 0.0) - _seg_count(rid)
+        _remove_req_from_targets(rid)
+
+    def _traverse_edge(edge: EdgeRef, *, opportunistic: bool) -> None:
+        nonlocal total_dist, service_dist, deadhead_dist
+        u, v, k = edge
+        _append_edge_geometry(u, v, k)
+        length_m = edge_length_m(G, u, v, k)
+
+        rid = edge_to_rid.get(edge)
+        if rid is not None and rid in unvisited:
+            # Treat this traversal as servicing the requirement even if we were
+            # conceptually deadheading to somewhere else.
+            service_dist += length_m
+            total_dist += length_m
+            _mark_completed(rid, opportunistic=opportunistic)
+        else:
+            deadhead_dist += length_m
+            total_dist += length_m
+
+    def _traverse_path(path_edges: list[EdgeRef]) -> None:
+        nonlocal current_node
+        for e in path_edges:
+            _traverse_edge(e, opportunistic=True)
+            current_node = e[1]
+
+    def _teleport_to_best_start(targets: set[int]) -> int | None:
+        nonlocal teleports, current_node
+        if not targets:
+            return None
+        old_node = current_node
+        old_xy = node_xy.get(old_node)
+        if old_xy is None:
+            return None
+        best_start: int | None = None
+        best_score = float("inf")
+        for s in targets:
+            if s not in G.nodes:
+                continue
+            if G.out_degree(s) <= 0:
+                continue
+            xy = node_xy.get(s)
+            if xy is None:
+                continue
+            dx = float(xy[0] - old_xy[0])
+            dy = float(xy[1] - old_xy[1])
+            jump_score = dx * dx + dy * dy
+            comp_id = start_to_comp.get(s, -1)
+            benefit = comp_remaining_seg_count.get(comp_id, 1.0)
+            score = jump_score / max(benefit, 1.0)
+            if score < best_score:
+                best_score = score
+                best_start = s
+        if best_start is None:
+            return None
+        teleports += 1
+        current_node = best_start
+        log_jump_distance(old_node, best_start, node_xy)
+        return best_start
 
     # Greedy loop
     iterations = 0
     active_comp: int | None = None
-    max_iterations = len(required_reqs) * 3  # Safety limit to prevent infinite loops
+    max_iterations = max(1_000, len(required_reqs) * 10)
 
     while unvisited and iterations < max_iterations:
         iterations += 1
 
-        # Determine active component
-        if active_comp is None or not (
-            comp_to_rids.get(active_comp, set()) & unvisited
-        ):
-            # Jump to nearest start among all unvisited requirements
+        # Select an active component when needed.
+        if active_comp is None or comp_remaining_req_count.get(active_comp, 0) <= 0:
             if not global_targets:
-                # No more reachable targets - remaining segments are disconnected
+                # Should not happen if bookkeeping is correct, but don't spin.
                 logger.warning(
-                    "Routing complete with %d unreachable segments (disconnected graph components)",
+                    "No remaining target starts but %d requirements are unvisited; skipping the rest",
                     len(unvisited),
                 )
                 for rid in list(unvisited):
-                    skipped_disconnected.add(rid)
-                    unvisited.discard(rid)
+                    _mark_skipped(rid)
                 break
 
-            result = dijkstra_to_any_target(
+            def _global_score(node: int, d: float) -> float:
+                comp_id = start_to_comp.get(node, -1)
+                benefit = comp_remaining_seg_count.get(comp_id, 1.0)
+                return float(d) / max(float(benefit), 1.0)
+
+            result = dijkstra_to_best_target(
                 G,
                 current_node,
                 global_targets,
                 weight="length",
+                score_fn=_global_score,
             )
             if result is None:
-                # Current position is disconnected from remaining segments
-                # Try to find an alternative starting point from unvisited requirements
-                # and fetch connecting road network to get there
-                found_alternative = False
-                old_node = current_node
-                for rid in list(unvisited):
-                    for start in req_to_starts.get(rid, []):
-                        if start in G.nodes and G.out_degree(start) > 0:
-                            current_node = start
-                            found_alternative = True
-                            logger.info(
-                                "Jumping to disconnected component at node %d",
-                                start,
-                            )
-                            break
-                    if found_alternative:
-                        break
-
-                if not found_alternative:
-                    # No reachable segments remain - skip all unvisited
-                    # Note: This should rarely happen if bridge_disconnected_clusters()
-                    # was called before running the solver
-                    logger.warning(
-                        "Cannot reach %d remaining segments (graph disconnected). "
-                        "Consider running bridge_disconnected_clusters() before solving.",
-                        len(unvisited),
-                    )
+                # Teleport to a new component to continue coverage; gaps are filled later.
+                if _teleport_to_best_start(global_targets) is None:
                     for rid in list(unvisited):
-                        skipped_disconnected.add(rid)
-                        _remove_req_from_bookkeeping(rid)
-                    unvisited.clear()
+                        _mark_skipped(rid)
                     break
-
-                # Note: We no longer create interpolated "teleport" paths
-                # The graph should have been bridged before calling the solver.
-                # If we reach here, log a warning about the jump.
-                log_jump_distance(old_node, current_node, node_xy)
-
-                # Continue to process from the new starting point
+                active_comp = start_to_comp.get(current_node)
                 continue
 
-            target_start, d_dead, path_edges = result
+            target_start, _d_dead, path_edges = result
             if path_edges:
-                deadhead_dist += d_dead
-                total_dist += d_dead
-                _append_path_edges(path_edges)
+                _traverse_path(path_edges)
             current_node = target_start
-            candidates = [
-                rid for rid in unvisited if target_start in req_to_starts[rid]
-            ]
-            if not candidates:
-                global_targets.discard(target_start)
-                continue
-            active_comp = req_to_comp.get(candidates[0])
+            active_comp = start_to_comp.get(target_start)
+            continue
 
-        # Prefer adjacent required edges in the active component
+        # Prefer adjacent required edges in the active component.
+        start_rids = start_to_rids.get(current_node, set())
         candidates = [
             rid
-            for rid in unvisited
-            if req_to_comp.get(rid) == active_comp
-            and current_node in req_to_starts[rid]
+            for rid in start_rids
+            if rid in unvisited and req_to_comp.get(rid, -1) == active_comp
         ]
 
         if not candidates:
@@ -303,106 +372,85 @@ def solve_greedy_route(
             if not comp_target_nodes:
                 active_comp = None
                 continue
-            result = dijkstra_to_any_target(
+
+            def _comp_score(node: int, d: float) -> float:
+                # Prefer starts with more remaining work.
+                return float(d) / max(float(start_counts.get(node, 1)), 1.0)
+
+            result = dijkstra_to_best_target(
                 G,
                 current_node,
                 comp_target_nodes,
                 weight="length",
+                score_fn=_comp_score,
             )
             if result is None:
-                # Component is unreachable from current position
-                # Skip remaining segments in this component and try another
-                comp_rids = comp_to_rids.get(active_comp, set()) & unvisited
+                # Try a local teleport within the component before giving up.
+                if _teleport_to_best_start(comp_target_nodes) is not None:
+                    continue
+
+                comp_rids = [rid for rid in list(unvisited) if req_to_comp.get(rid, -1) == active_comp]
                 if comp_rids:
                     logger.warning(
-                        "Skipping %d segments in unreachable component %s",
+                        "Skipping %d requirements in unreachable component %s",
                         len(comp_rids),
                         active_comp,
                     )
                     for rid in comp_rids:
-                        skipped_disconnected.add(rid)
-                        _remove_req_from_bookkeeping(rid)
-                        unvisited.discard(rid)
+                        _mark_skipped(rid)
                 active_comp = None
                 continue
 
-            target_start, d_dead, path_edges = result
+            target_start, _d_dead, path_edges = result
             if path_edges:
-                deadhead_dist += d_dead
-                total_dist += d_dead
-                _append_path_edges(path_edges)
+                _traverse_path(path_edges)
             current_node = target_start
-            candidates = [
-                rid
-                for rid in unvisited
-                if req_to_comp.get(rid) == active_comp
-                and target_start in req_to_starts[rid]
-            ]
-            if not candidates:
-                comp_targets.get(active_comp, set()).discard(target_start)
-                global_targets.discard(target_start)
-                continue
+            continue
 
-        def _candidate_score(
-            rid: ReqId,
-            _node: int = current_node,
-        ) -> tuple[float, float]:
-            service_edge = _best_service_edge_from_start(rid, _node)
-            seg_count = float(
-                req_segment_counts.get(rid, 1) if req_segment_counts else 1,
-            )
-            edge_len = edge_length_m(
-                G,
-                service_edge[0],
-                service_edge[1],
-                service_edge[2],
-            )
-            return (-seg_count, -edge_len)
+        def _candidate_score(rid: ReqId) -> tuple[float, float, float]:
+            service_edge = _best_service_edge_from_start(rid, current_node)
+            seg_count = _seg_count(rid)
+            edge_len = edge_length_m(G, service_edge[0], service_edge[1], service_edge[2])
+            next_node_score = float(start_counts.get(service_edge[1], 0))
+            return (-seg_count, -edge_len, -next_node_score)
 
         chosen_rid = min(candidates, key=_candidate_score)
         service_edge = _best_service_edge_from_start(chosen_rid, current_node)
-        su, sv, sk = service_edge
+        _traverse_edge(service_edge, opportunistic=False)
+        current_node = service_edge[1]
 
-        # Service traversal geometry
-        service_geo = get_edge_geometry(G, su, sv, sk, node_xy=node_xy)
-        _append_coords(service_geo)
-        route_edges.append((su, sv, sk))
+    # If we bailed out, don't claim success on leftovers.
+    if unvisited:
+        logger.warning(
+            "Greedy solver exited with %d unvisited requirements; marking them as skipped",
+            len(unvisited),
+        )
+        for rid in list(unvisited):
+            _mark_skipped(rid)
 
-        # Dist update
-        s_len = edge_length_m(G, su, sv, sk)
-        total_dist += s_len
-
-        # Advance
-        current_node = sv
-
-        # Mark visited + update targets bookkeeping
-        unvisited.remove(chosen_rid)
-        for s in req_to_starts[chosen_rid]:
-            start_counts[s] -= 1
-            if start_counts[s] <= 0:
-                global_targets.discard(s)
-                comp_id = req_to_comp.get(chosen_rid)
-                if comp_id is not None:
-                    comp_targets.get(comp_id, set()).discard(s)
-
-    # Log warning if segments were skipped
     if skipped_disconnected:
         logger.warning(
-            "Route generation completed with %d/%d segments skipped due to disconnected graph",
+            "Route generation completed with %d/%d requirements skipped (likely disconnected graph components)",
             len(skipped_disconnected),
             len(required_reqs),
         )
 
     stats: dict[str, float] = {
         "total_distance": float(total_dist),
-        "required_distance": float(required_dist),
+        "required_distance": float(required_dist_all),
+        "required_distance_completed": float(service_dist),
+        "service_distance": float(service_dist),
         "deadhead_distance": float(deadhead_dist),
         "deadhead_percentage": float(
             (deadhead_dist / total_dist * 100.0) if total_dist > 0 else 0.0,
         ),
+        "deadhead_ratio_all": float(total_dist / required_dist_all) if required_dist_all > 0 else 0.0,
+        "deadhead_ratio_completed": float(total_dist / service_dist) if service_dist > 0 else 0.0,
         "required_reqs": float(len(required_reqs)),
-        "completed_reqs": float(len(required_reqs) - len(skipped_disconnected)),
+        "completed_reqs": float(completed_reqs),
         "skipped_disconnected": float(len(skipped_disconnected)),
+        "opportunistic_completed": float(opportunistic_reqs),
+        "teleports": float(teleports),
         "iterations": float(iterations),
     }
     return route_coords, stats, route_edges

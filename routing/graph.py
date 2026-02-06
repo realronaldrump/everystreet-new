@@ -1,11 +1,62 @@
 import contextlib
 import heapq
+import logging
+from collections.abc import Callable
 
 import networkx as nx
 from shapely.geometry import LineString
 
 from .constants import FEET_PER_METER, MAX_OSM_MATCH_DISTANCE_FT
 from .types import EdgeRef
+
+
+logger = logging.getLogger(__name__)
+
+
+def graph_units_to_feet(G: nx.Graph, distance: float) -> float:
+    """
+    Convert a distance measured in the graph's coordinate units to feet.
+
+    OSMnx returns distances from nearest-node/edge queries in the same units
+    as the graph's CRS. For accurate distance-based thresholds, graphs should
+    be projected. In practice this app often operates on EPSG:4326 graphs, so
+    we also support a rough degrees->meters conversion for validation/matching.
+    """
+    try:
+        distance = float(distance)
+    except Exception:
+        return float("inf")
+
+    crs = getattr(G, "graph", {}).get("crs") if hasattr(G, "graph") else None
+    if crs is not None:
+        with contextlib.suppress(Exception):
+            import pyproj
+
+            crs_obj = pyproj.CRS.from_user_input(crs)
+            if crs_obj.is_projected:
+                # Assume projected units are meters.
+                return distance * FEET_PER_METER
+
+    # Geographic degrees (approx; ~111km per degree).
+    return distance * 111_000.0 * FEET_PER_METER
+
+
+def _reconstruct_path_edges(
+    source: int,
+    target: int,
+    prev: dict[int, tuple[int, int | None]],
+) -> list[EdgeRef]:
+    edges: list[EdgeRef] = []
+    cur = target
+    while cur != source:
+        p, k = prev[cur]
+        if k is None:
+            edges.append((p, cur, -1))
+        else:
+            edges.append((p, cur, k))
+        cur = p
+    edges.reverse()
+    return edges
 
 
 def edge_length_m(G: nx.Graph, u: int, v: int, key: int | None = None) -> float:
@@ -181,8 +232,8 @@ def try_match_osmid(
         if not edge_line:
             continue
 
-        d_deg = edge_line.distance(seg_line)
-        d_ft = d_deg * 111_000.0 * FEET_PER_METER  # degrees to feet
+        d_units = edge_line.distance(seg_line)
+        d_ft = graph_units_to_feet(G, d_units)
         if d_ft < best_dist:
             best_dist = d_ft
             best_edge = (u, v, k)
@@ -220,19 +271,7 @@ def dijkstra_to_any_target(
         visited.add(u)
 
         if u in targets:
-            # reconstruct edges
-            edges: list[EdgeRef] = []
-            cur = u
-            while cur != source:
-                p, k = prev[cur]
-                if k is None:
-                    # non-multigraph: no key; store -1
-                    edges.append((p, cur, -1))
-                else:
-                    edges.append((p, cur, k))
-                cur = p
-            edges.reverse()
-            return (u, d, edges)
+            return (u, d, _reconstruct_path_edges(source, u, prev))
 
         # Iterate outgoing edges
         if G.is_multigraph():
@@ -257,6 +296,88 @@ def dijkstra_to_any_target(
                     heapq.heappush(heap, (nd, v))
 
     return None
+
+
+def dijkstra_to_best_target(
+    G: nx.DiGraph | nx.MultiDiGraph,
+    source: int,
+    targets: set[int],
+    *,
+    weight: str = "length",
+    max_candidates: int = 25,
+    distance_cutoff_factor: float = 3.0,
+    score_fn: Callable[[int, float], float] | None = None,
+) -> tuple[int, float, list[EdgeRef]] | None:
+    """
+    Dijkstra from source to select a "best" target among the closest candidates.
+
+    This explores the graph once and collects up to `max_candidates` target nodes
+    in increasing path-distance order (bounded by `distance_cutoff_factor` times
+    the nearest target distance). The returned target is the one with the lowest
+    score (lower is better).
+
+    If `score_fn` is omitted, this behaves like "nearest by distance".
+    """
+    if source in targets:
+        return (source, 0.0, [])
+
+    if not targets:
+        return None
+
+    dist: dict[int, float] = {source: 0.0}
+    prev: dict[int, tuple[int, int | None]] = {}
+    heap: list[tuple[float, int]] = [(0.0, source)]
+    visited: set[int] = set()
+
+    candidates: list[tuple[int, float, float]] = []  # (node, dist, score)
+    nearest_target_dist: float | None = None
+
+    while heap:
+        d, u = heapq.heappop(heap)
+        if u in visited:
+            continue
+        visited.add(u)
+
+        if nearest_target_dist is not None:
+            cutoff = nearest_target_dist * float(distance_cutoff_factor)
+            if d > cutoff:
+                break
+
+        if u in targets:
+            if nearest_target_dist is None:
+                nearest_target_dist = float(d)
+            score = float(score_fn(u, float(d))) if score_fn else float(d)
+            candidates.append((u, float(d), score))
+            if len(candidates) >= max_candidates:
+                break
+
+        # Iterate outgoing edges
+        if G.is_multigraph():
+            for _, v, k, data in G.out_edges(u, keys=True, data=True):
+                w = float(data.get(weight, 1.0))
+                if w < 0:
+                    continue
+                nd = d + w
+                if nd < dist.get(v, float("inf")):
+                    dist[v] = nd
+                    prev[v] = (u, k)
+                    heapq.heappush(heap, (nd, v))
+        else:
+            for _, v, data in G.out_edges(u, data=True):
+                w = float(data.get(weight, 1.0))
+                if w < 0:
+                    continue
+                nd = d + w
+                if nd < dist.get(v, float("inf")):
+                    dist[v] = nd
+                    prev[v] = (u, None)
+                    heapq.heappush(heap, (nd, v))
+
+    if not candidates:
+        return None
+
+    best_node, best_dist, _best_score = min(candidates, key=lambda item: item[2])
+    return (best_node, best_dist, _reconstruct_path_edges(source, best_node, prev))
 
 
 def reverse_candidates_for_edge(

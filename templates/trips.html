@@ -113,6 +113,33 @@ block extra_css %}
           <div class="filters-content">
             <div class="filter-group">
               <label class="filter-label">
+                <i class="fas fa-sort"></i>
+              Sort
+              </label>
+              <select id="trip-sort-select" class="filter-select">
+                <option value="new_to_old">
+New to old (default)
+                </option>
+                <option value="old_to_new">
+Old to new
+                </option>
+                <option value="distance">
+Distance
+                </option>
+                <option value="speed">
+Speed
+                </option>
+                <option value="fuel">
+Most gallons of gas used
+                </option>
+                <option value="duration">
+Longest duration
+                </option>
+              </select>
+            </div>
+
+            <div class="filter-group">
+              <label class="filter-label">
                 <i class="fas fa-car"></i>
               Vehicle
               </label>
