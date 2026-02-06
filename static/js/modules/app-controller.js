@@ -39,6 +39,21 @@ import { DateUtils, utils } from "./utils.js";
 // ============================================================
 
 /**
+ * Create a loading helper for map initialization with show/update/hide methods
+ */
+const createMapLoadingHelper = () => ({
+  show(message) {
+    loadingManager.show(message, { blocking: true, compact: false });
+  },
+  update(message) {
+    loadingManager.updateMessage(message);
+  },
+  hide() {
+    loadingManager.hide();
+  },
+});
+
+/**
  * Get saved street view mode states, migrating from old string format if needed
  */
 const getSavedStreetViewModes = () => {
