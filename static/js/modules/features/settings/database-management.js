@@ -1,4 +1,5 @@
 import apiClient from "../../core/api-client.js";
+import { swupReady } from "../../core/navigation.js";
 import confirmationDialog from "../../ui/confirmation-dialog.js";
 import notificationManager from "../../ui/notifications.js";
 import { escapeHtml } from "../../utils.js";
@@ -522,7 +523,16 @@ export function initDatabaseManagement({ signal } = {}) {
 
       setTimeout(() => {
         if (!signal?.aborted) {
-          window.location.reload();
+          swupReady
+            .then((swup) => {
+              swup.navigate(window.location.href, {
+                cache: { read: false, write: true },
+                history: "replace",
+              });
+            })
+            .catch(() => {
+              window.location.reload();
+            });
         }
       }, 1500);
     } catch (error) {

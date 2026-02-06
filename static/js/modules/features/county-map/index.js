@@ -19,6 +19,7 @@ import {
   getStoredRecalcState,
   storeRecalcState,
 } from "../../county-map/storage.js";
+import { swupReady } from "../../core/navigation.js";
 import {
   hideLoading,
   setupPanelToggle,
@@ -276,7 +277,16 @@ async function checkAndRefresh(startedAt) {
 
     if (isUpdated) {
       clearRecalcState();
-      window.location.reload();
+      swupReady
+        .then((swup) => {
+          swup.navigate(window.location.href, {
+            cache: { read: false, write: true },
+            history: "replace",
+          });
+        })
+        .catch(() => {
+          window.location.reload();
+        });
       return;
     }
 

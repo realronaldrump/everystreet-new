@@ -4,6 +4,7 @@
  */
 
 import apiClient from "../../core/api-client.js";
+import { swupReady } from "../../core/navigation.js";
 import confirmationDialog from "../../ui/confirmation-dialog.js";
 import { notify } from "../../ui/notifications.js";
 import {
@@ -696,7 +697,26 @@ function handleNavigationAttempt(event) {
   event.preventDefault();
   confirmDiscardChanges().then((confirmed) => {
     if (confirmed) {
-      window.location.assign(anchor.href);
+      const allowSwup = !anchor.closest?.("[data-no-swup]");
+      let url = null;
+      try {
+        url = new URL(anchor.href, window.location.origin);
+      } catch {
+        // Ignore parsing errors and fall back to a normal navigation.
+      }
+
+      if (!allowSwup || !url || url.origin !== window.location.origin) {
+        window.location.assign(anchor.href);
+        return;
+      }
+
+      swupReady
+        .then((swup) => {
+          swup.navigate(url.href);
+        })
+        .catch(() => {
+          window.location.assign(anchor.href);
+        });
     }
   });
 }

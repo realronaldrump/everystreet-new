@@ -613,7 +613,14 @@ class ESStore {
     }
 
     if (push && window.history.pushState) {
-      window.history.pushState({ source: "es-store" }, document.title, url.toString());
+      // Preserve any existing Swup/native history metadata while marking this entry
+      // as a store-only URL/state change.
+      const baseState
+        = window.history.state && typeof window.history.state === "object"
+          ? window.history.state
+          : null;
+      const nextState = baseState ? { ...baseState, source: "es-store" } : { source: "es-store" };
+      window.history.pushState(nextState, document.title, url.toString());
       return;
     }
 

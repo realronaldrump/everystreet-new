@@ -1,5 +1,6 @@
 /* global mapboxgl */
 import apiClient from "../../core/api-client.js";
+import { swupReady } from "../../core/navigation.js";
 import {
   fetchBouncieCredentials as fetchBouncieCredentialsShared,
   fetchMapboxToken,
@@ -1395,7 +1396,16 @@ async function completeSetupAndExit() {
       // Ignore storage errors
     }
     document.dispatchEvent(new CustomEvent("es:setup-status-refresh"));
-    window.location.href = "/";
+    swupReady
+      .then((swup) => {
+        swup.navigate("/", {
+          cache: { read: false, write: true },
+          history: "replace",
+        });
+      })
+      .catch(() => {
+        window.location.href = "/";
+      });
   } catch (error) {
     notificationManager.show(error.message || "Unable to finish setup.", "danger");
   }

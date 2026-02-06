@@ -11,6 +11,7 @@ import * as InsightsFormatters from "../../insights/formatters.js";
 import * as InsightsMetrics from "../../insights/metrics.js";
 import * as InsightsState from "../../insights/state.js";
 import * as InsightsTables from "../../insights/tables.js";
+import { swupReady } from "../../core/navigation.js";
 
 let tooltipInstances = [];
 let pageSignal = null;
@@ -166,7 +167,13 @@ function setupFabActions(signal) {
     viewMapBtn.addEventListener(
       "click",
       () => {
-        window.location.href = "/trips";
+        swupReady
+          .then((swup) => {
+            swup.navigate("/trips");
+          })
+          .catch(() => {
+            window.location.href = "/trips";
+          });
       },
       signal ? { signal } : false
     );

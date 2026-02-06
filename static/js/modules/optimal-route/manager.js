@@ -2,6 +2,7 @@ import { OptimalRouteAPI } from "./api.js";
 import { OPTIMAL_ROUTES_DEFAULTS } from "./constants.js";
 import { OptimalRouteMap } from "./map.js";
 import { OptimalRouteUI } from "./ui.js";
+import { swupReady } from "../core/navigation.js";
 
 export class OptimalRoutesManager {
   constructor(options = {}) {
@@ -480,9 +481,14 @@ export class OptimalRoutesManager {
       return;
     }
     window.localStorage.setItem("turnByTurnAreaId", this.selectedAreaId);
-    window.location.href = `/turn-by-turn?areaId=${encodeURIComponent(
-      this.selectedAreaId
-    )}`;
+    const href = `/turn-by-turn?areaId=${encodeURIComponent(this.selectedAreaId)}`;
+    swupReady
+      .then((swup) => {
+        swup.navigate(href);
+      })
+      .catch(() => {
+        window.location.href = href;
+      });
   }
 
   exportGPX() {

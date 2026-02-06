@@ -4,6 +4,7 @@
  */
 
 import apiClient from "../../core/api-client.js";
+import { swupReady } from "../../core/navigation.js";
 import metricAnimator from "../../ui/metric-animator.js";
 import notificationManager from "../../ui/notifications.js";
 import { formatNumber, formatRelativeTimeShort } from "../../utils.js";
@@ -894,7 +895,13 @@ function bindSwipeActions() {
       const tripId = item?.dataset.tripId;
 
       if (action === "view") {
-        window.location.href = "/trips";
+        swupReady
+          .then((swup) => {
+            swup.navigate("/trips");
+          })
+          .catch(() => {
+            window.location.href = "/trips";
+          });
       } else if (action === "share" && tripId) {
         const shareData = {
           title: "Every Street Trip",

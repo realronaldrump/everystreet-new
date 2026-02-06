@@ -181,11 +181,22 @@ export default function initServerLogsPage({ signal, cleanup } = {}) {
         <div class="text-center py-5 text-danger">
           <i class="fas fa-exclamation-triangle fa-3x mb-3"></i>
           <p>Failed to load logs. Please try again.</p>
-          <button class="btn btn-primary" onclick="location.reload()">
+          <button class="btn btn-primary" type="button" id="retry-load-logs">
             <i class="fas fa-sync-alt"></i> Retry
           </button>
         </div>
       `;
+      const retryBtn = logsContainer.querySelector("#retry-load-logs");
+      if (retryBtn) {
+        retryBtn.addEventListener(
+          "click",
+          (e) => {
+            e.preventDefault();
+            loadLogs();
+          },
+          signal ? { signal } : false
+        );
+      }
       notificationManager.show("Failed to load logs", "danger");
     }
   }

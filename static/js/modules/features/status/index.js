@@ -1,6 +1,7 @@
 /* global bootstrap */
 
 import apiClient from "../../core/api-client.js";
+import { swupReady } from "../../core/navigation.js";
 import confirmationDialog from "../../ui/confirmation-dialog.js";
 import notificationManager from "../../ui/notifications.js";
 import { escapeHtml, formatDateTime } from "../../utils.js";
@@ -78,7 +79,13 @@ function initialize() {
   document.getElementById("quick-open-setup")?.addEventListener(
     "click",
     () => {
-      window.location.href = "/setup-wizard";
+      swupReady
+        .then((swup) => {
+          swup.navigate("/setup-wizard");
+        })
+        .catch(() => {
+          window.location.href = "/setup-wizard";
+        });
     },
     eventOptions
   );
