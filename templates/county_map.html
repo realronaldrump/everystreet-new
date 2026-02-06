@@ -15,6 +15,10 @@ block extra_css %}
       href="{{ url_for('static', path='css/county-map.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}" />
 {% endblock %}
 
+{% block head_content %}
+
+  <meta name="mapbox-access-token" content="{{ MAPBOX_ACCESS_TOKEN }}" />
+{% endblock %}
 
 {% block content %}
 
@@ -190,15 +194,4 @@ Sort by Visited (High to Low)
 {% endblock %}
 
 
-{% block extra_js %}
-
-
-  <!-- Mapbox GL JS -->
-  <script src="{{ CDN.mapbox_gl_js }}"></script>
-  <script src="{{ CDN.topojson }}"></script>
-  <script>
-      window.MAPBOX_ACCESS_TOKEN = "{{ MAPBOX_ACCESS_TOKEN }}";
-  </script>
-  <script type="module"
-          src="{{ url_for('static', path='js/pages/county-map.js') | replace('http://', '//') }}?v={{ repo_version.commit_count }}"></script>
-{% endblock %}
+{# Page scripts are loaded via route-loader + swup. #}

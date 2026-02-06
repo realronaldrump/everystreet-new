@@ -1,3 +1,5 @@
+import { swupReady } from "../core/navigation.js";
+
 const STORAGE_KEYS = {
   accent: "es:accent-color",
   density: "es:ui-density",
@@ -19,7 +21,11 @@ const personalization = {
       window.personalization = this;
     }
     this.applyFromStorage();
-    document.addEventListener("es:page-load", () => this.applyFromStorage());
+    swupReady
+      .then((swup) => {
+        swup.hooks.on("page:view", () => this.applyFromStorage());
+      })
+      .catch(() => {});
     document.addEventListener("personalization:update", (event) => {
       this.applyPreferences(event.detail || {});
     });

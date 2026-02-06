@@ -1,5 +1,7 @@
 /* global mapboxgl */
 
+import { getMapboxToken } from "../mapbox-token.js";
+
 export class OptimalRouteMap {
   constructor(containerId, options = {}) {
     this.containerId = containerId;
@@ -21,11 +23,12 @@ export class OptimalRouteMap {
     }
 
     const container = document.getElementById(this.containerId);
-    if (!container || !window.MAPBOX_ACCESS_TOKEN) {
+    const token = getMapboxToken();
+    if (!container || !token) {
       return Promise.resolve();
     }
 
-    mapboxgl.accessToken = window.MAPBOX_ACCESS_TOKEN;
+    mapboxgl.accessToken = token;
 
     this.map = new mapboxgl.Map({
       container: this.containerId,

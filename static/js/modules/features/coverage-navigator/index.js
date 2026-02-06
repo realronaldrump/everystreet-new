@@ -3,6 +3,7 @@
 import { DrivingNavigation } from "../../driving-navigation/manager.js";
 import { DrivingNavigationUI } from "../../driving-navigation/ui.js";
 import { createMap } from "../../map-base.js";
+import { getMapboxToken } from "../../mapbox-token.js";
 import { OptimalRoutesManager } from "../../optimal-route/manager.js";
 
 const MAP_CONTAINER_ID = "coverage-map";
@@ -18,7 +19,8 @@ export default function initCoverageNavigatorPage({ cleanup } = {}) {
   }
 
   const container = document.getElementById(MAP_CONTAINER_ID);
-  if (!container || !window.MAPBOX_ACCESS_TOKEN) {
+  const token = getMapboxToken();
+  if (!container || !token) {
     return;
   }
 
@@ -30,7 +32,7 @@ export default function initCoverageNavigatorPage({ cleanup } = {}) {
     sharedMap = createMap(MAP_CONTAINER_ID, {
       center: [-96, 37.8],
       zoom: 4,
-      accessToken: window.MAPBOX_ACCESS_TOKEN,
+      accessToken: token,
     });
   } catch (error) {
     console.error("Coverage navigator map failed to initialize", error);

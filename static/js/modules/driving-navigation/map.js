@@ -6,6 +6,7 @@
  */
 
 import MapStyles from "../map-styles.js";
+import { getMapboxToken } from "../mapbox-token.js";
 import {
   DEFAULT_CLUSTER_COLORS,
   DEFAULT_ROUTE_COLORS,
@@ -106,7 +107,11 @@ export class DrivingNavigationMap {
           throw new Error(`Map container #${this.containerId} not found!`);
         }
 
-        mapboxgl.accessToken = window.MAPBOX_ACCESS_TOKEN;
+        const token = getMapboxToken();
+        if (!token) {
+          throw new Error("Mapbox access token not configured");
+        }
+        mapboxgl.accessToken = token;
         this.map = new mapboxgl.Map({
           container: this.containerId,
           style: "mapbox://styles/mapbox/dark-v11",

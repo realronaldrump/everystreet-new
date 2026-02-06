@@ -186,7 +186,7 @@ const mapManager = {
       url.searchParams.set("lat", center.lat.toFixed(5));
       url.searchParams.set("lng", center.lng.toFixed(5));
 
-      window.history.replaceState({}, "", url.toString());
+      window.history.replaceState(window.history.state, document.title, url.toString());
     } catch (error) {
       console.warn("Failed to update URL:", error);
     }

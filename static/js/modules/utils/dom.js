@@ -1,4 +1,5 @@
 import store from "../core/store.js";
+import { swupReady } from "../core/navigation.js";
 
 /**
  * Create an element with safe text content
@@ -63,13 +64,32 @@ export function yieldToBrowser(delay = 0) {
   });
 }
 
+function routeMatches(route, pathname) {
+  if (!route) {
+    return true;
+  }
+  if (typeof route === "string") {
+    return pathname === route;
+  }
+  if (route instanceof RegExp) {
+    return route.test(pathname);
+  }
+  if (typeof route === "function") {
+    return Boolean(route(pathname));
+  }
+  return false;
+}
+
 export function onPageLoad(callback, options = {}) {
   let cleanup = null;
   let controller = null;
   let activeRoute = null;
+  let disposed = false;
+  let boundSwup = null;
 
   const run = () => {
-    if (options.route && document.body?.dataset?.route !== options.route) {
+    const currentPath = document.body?.dataset?.route || window.location.pathname;
+    if (!routeMatches(options.route, currentPath)) {
       return;
     }
 
@@ -88,7 +108,7 @@ export function onPageLoad(callback, options = {}) {
       controller.abort();
     }
     controller = new AbortController();
-    activeRoute = options.route || document.body?.dataset?.route || null;
+    activeRoute = currentPath || null;
 
     const registerCleanup = (fn) => {
       if (typeof fn === "function") {
@@ -102,8 +122,9 @@ export function onPageLoad(callback, options = {}) {
     }
   };
 
-  const handleUnload = (event) => {
-    if (options.route && event?.detail?.path && event.detail.path !== options.route) {
+  const handleUnload = (visit) => {
+    const fromPath = visit?.from?.url?.pathname || activeRoute;
+    if (!routeMatches(options.route, fromPath)) {
       return;
     }
     if (!activeRoute) {
@@ -134,12 +155,28 @@ export function onPageLoad(callback, options = {}) {
     setTimeout(run, 0);
   }
 
-  document.addEventListener("es:page-load", run);
-  document.addEventListener("es:page-unload", handleUnload);
+  const swupViewHandler = () => run();
+  const swupUnloadHandler = (visit) => handleUnload(visit);
+  swupReady
+    .then((instance) => {
+      if (disposed) {
+        return;
+      }
+      boundSwup = instance;
+      instance.hooks.on("page:view", swupViewHandler);
+      instance.hooks.on("visit:start", swupUnloadHandler);
+    })
+    .catch(() => {
+      // If swup never initializes (or fails), onPageLoad still works for initial load.
+    });
 
   return () => {
-    document.removeEventListener("es:page-load", run);
-    document.removeEventListener("es:page-unload", handleUnload);
+    disposed = true;
+    if (boundSwup) {
+      boundSwup.hooks.off("page:view", swupViewHandler);
+      boundSwup.hooks.off("visit:start", swupUnloadHandler);
+      boundSwup = null;
+    }
     if (cleanup) {
       cleanup();
       cleanup = null;
@@ -150,14 +187,6 @@ export function onPageLoad(callback, options = {}) {
     }
   };
 }
-
-document.addEventListener("es:page-load", () => {
-  store.clearElementCache();
-});
-
-document.addEventListener("es:page-unload", () => {
-  store.clearElementCache();
-});
 
 /**
  * Move modals out of content containers to avoid stacking context issues.

@@ -1,7 +1,13 @@
+import { swupReady } from "../core/navigation.js";
+
 const swipeActions = {
   init() {
     this.bindItems();
-    document.addEventListener("es:page-load", () => this.bindItems());
+    swupReady
+      .then((swup) => {
+        swup.hooks.on("page:view", () => this.bindItems());
+      })
+      .catch(() => {});
   },
 
   bindItems() {

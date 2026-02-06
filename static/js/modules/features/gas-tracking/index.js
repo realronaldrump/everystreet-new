@@ -3,6 +3,7 @@
 import apiClient from "../../core/api-client.js";
 import store from "../../core/store.js";
 import { createMap } from "../../map-base.js";
+import { getMapboxToken } from "../../mapbox-token.js";
 import confirmationDialog from "../../ui/confirmation-dialog.js";
 import notificationManager from "../../ui/notifications.js";
 import { formatVehicleName, getStorage, setStorage } from "../../utils.js";
@@ -95,7 +96,8 @@ async function initializePage(signal, cleanup) {
  * Initialize Mapbox map
  */
 async function initializeMap() {
-  if (!window.MAPBOX_ACCESS_TOKEN) {
+  const token = getMapboxToken();
+  if (!token) {
     return;
   }
 
@@ -104,11 +106,12 @@ async function initializeMap() {
     map = createMap("fillup-map", {
       center: [-95.7129, 37.0902],
       zoom: 4,
+      accessToken: token,
       attributionControl: false,
     });
   } else {
     // Fallback if factory not found
-    mapboxgl.accessToken = window.MAPBOX_ACCESS_TOKEN;
+    mapboxgl.accessToken = token;
     map = new mapboxgl.Map({
       container: "fillup-map",
       style: "mapbox://styles/mapbox/dark-v11",

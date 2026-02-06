@@ -6,6 +6,7 @@
 /* global mapboxgl */
 
 import { MAP_STYLES } from "./turn-by-turn-config.js";
+import { getMapboxToken } from "../mapbox-token.js";
 
 const getThemeColor = (variable, fallback) => {
   if (typeof window === "undefined") {
@@ -53,7 +54,8 @@ class TurnByTurnMap {
       throw new Error("Map container not found.");
     }
 
-    if (!window.MAPBOX_ACCESS_TOKEN) {
+    const token = getMapboxToken();
+    if (!token) {
       throw new Error("Mapbox token missing.");
     }
 
@@ -65,7 +67,7 @@ class TurnByTurnMap {
       mapboxgl.setTelemetryEnabled(false);
     }
 
-    mapboxgl.accessToken = window.MAPBOX_ACCESS_TOKEN;
+    mapboxgl.accessToken = token;
     this.map = new mapboxgl.Map({
       container: containerId,
       style: this.getMapStyle(),

@@ -1,13 +1,8 @@
-import router from "../core/router.js";
-import loadingManager from "./loading-manager.js";
+import { swupReady } from "../core/navigation.js";
 
 const pullToRefresh = {
   init() {
-    if (!this.isEnabled()) {
-      return;
-    }
-
-    this.indicator = this.createIndicator();
+    this.indicator = null;
     this.startY = 0;
     this.pullDistance = 0;
     this.isPulling = false;
@@ -21,7 +16,11 @@ const pullToRefresh = {
       passive: false,
     });
     document.addEventListener("touchend", () => this.onEnd(), { passive: true });
-    document.addEventListener("es:page-load", () => this.reset());
+    swupReady
+      .then((swup) => {
+        swup.hooks.on("page:view", () => this.reset());
+      })
+      .catch(() => {});
   },
 
   isEnabled() {
@@ -47,6 +46,9 @@ const pullToRefresh = {
   },
 
   onStart(event) {
+    if (!this.isEnabled()) {
+      return;
+    }
     if (!event.touches || event.touches.length !== 1) {
       return;
     }
@@ -56,12 +58,13 @@ const pullToRefresh = {
     if (event.target.closest("[data-no-pull]")) {
       return;
     }
+    this.indicator = this.indicator || this.createIndicator();
     this.startY = event.touches[0].clientY;
     this.isPulling = true;
   },
 
   onMove(event) {
-    if (!this.isPulling || !event.touches) {
+    if (!this.isPulling || !event.touches || !this.indicator) {
       return;
     }
     const delta = event.touches[0].clientY - this.startY;
@@ -80,7 +83,7 @@ const pullToRefresh = {
   },
 
   onEnd() {
-    if (!this.isPulling) {
+    if (!this.isPulling || !this.indicator) {
       return;
     }
     const shouldRefresh = this.pullDistance >= this.threshold;
@@ -90,8 +93,16 @@ const pullToRefresh = {
       this.indicator.classList.add("loading");
       this.indicator.querySelector(".pull-to-refresh-text").textContent
         = "Refreshing...";
-      loadingManager.showBar("Refreshing...");
-      router.navigate(window.location.href, { push: false, force: true });
+      swupReady
+        .then((swup) => {
+          swup.navigate(window.location.href, {
+            cache: { read: false, write: true },
+            history: "replace",
+          });
+        })
+        .catch(() => {
+          window.location.reload();
+        });
     } else {
       this.reset();
     }

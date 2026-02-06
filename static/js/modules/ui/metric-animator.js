@@ -1,3 +1,5 @@
+import { swupReady } from "../core/navigation.js";
+
 const MetricAnimator = {
   counters: new Map(),
   initialized: false,
@@ -12,7 +14,11 @@ const MetricAnimator = {
     }
 
     this.animateAll();
-    document.addEventListener("es:page-load", () => this.animateAll());
+    swupReady
+      .then((swup) => {
+        swup.hooks.on("page:view", () => this.animateAll());
+      })
+      .catch(() => {});
     this.initialized = true;
   },
 

@@ -9,6 +9,7 @@ const root = path.resolve(__dirname, "..");
 const templatesDir = path.join(root, "templates");
 const pagesDir = path.join(root, "static", "js", "pages");
 const jsRoot = path.join(root, "static", "js");
+const routeLoaderPath = path.join(jsRoot, "modules", "core", "route-loader.js");
 
 function listHtmlFiles(dir) {
   const entries = fs.readdirSync(dir, { withFileTypes: true });
@@ -24,10 +25,10 @@ function listHtmlFiles(dir) {
   return files;
 }
 
-test("page entrypoints wire templates to feature init", () => {
+test("page entrypoints are wired via route-loader", () => {
   const htmlFiles = listHtmlFiles(templatesDir);
-  const pageScripts = new Set();
   const pageRegex = /js\/pages\/([a-z0-9-]+)\.js/g;
+  const pageScripts = new Set();
 
   htmlFiles.forEach((filePath) => {
     const content = fs.readFileSync(filePath, "utf8");
@@ -37,13 +38,31 @@ test("page entrypoints wire templates to feature init", () => {
     }
   });
 
-  assert.ok(pageScripts.size > 0, "No js/pages entrypoints found in templates");
+  assert.equal(
+    pageScripts.size,
+    0,
+    `Templates should not reference js/pages entrypoints (route-loader owns them): ${[
+      ...pageScripts,
+    ].join(", ")}`
+  );
 
-  pageScripts.forEach((name) => {
+  assert.ok(fs.existsSync(routeLoaderPath), "Missing route-loader module");
+  const routeLoaderContent = fs.readFileSync(routeLoaderPath, "utf8");
+  const routeRegex = /\.\.\/\.\.\/pages\/([a-z0-9-]+)\.js/g;
+  const routedPages = new Set();
+
+  let match = null;
+  while ((match = routeRegex.exec(routeLoaderContent))) {
+    routedPages.add(match[1]);
+  }
+
+  assert.ok(routedPages.size > 0, "No js/pages entrypoints found in route-loader.js");
+
+  routedPages.forEach((name) => {
     const entryPath = path.join(pagesDir, `${name}.js`);
     assert.ok(
       fs.existsSync(entryPath),
-      `Missing entrypoint file for template script: ${name}.js`
+      `Missing entrypoint file for routed page: ${name}.js`
     );
     const entryContent = fs.readFileSync(entryPath, "utf8");
     assert.match(entryContent, /onPageLoad\s*\(/, `${name}.js missing onPageLoad`);
@@ -58,11 +77,11 @@ test("page entrypoints wire templates to feature init", () => {
     .readdirSync(pagesDir)
     .filter((name) => name.endsWith(".js"))
     .map((name) => name.replace(/\.js$/, ""));
-  const extraPages = pageFiles.filter((name) => !pageScripts.has(name));
+  const extraPages = pageFiles.filter((name) => !routedPages.has(name));
   assert.equal(
     extraPages.length,
     0,
-    `Entrypoints not referenced by templates: ${extraPages.join(", ")}`
+    `Entrypoints not referenced by route-loader: ${extraPages.join(", ")}`
   );
 
   const rootJsFiles = fs

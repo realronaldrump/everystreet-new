@@ -592,7 +592,7 @@ function handleBouncieRedirectParams() {
     url.searchParams.delete("bouncie_error");
     url.searchParams.delete("bouncie_connected");
     url.searchParams.delete("vehicles_synced");
-    window.history.replaceState({}, document.title, url.pathname);
+    window.history.replaceState(window.history.state, document.title, url.pathname);
   }
 }
 

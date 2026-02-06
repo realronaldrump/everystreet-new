@@ -40,27 +40,7 @@ Map view
 
 
     <meta name="mapbox-access-token" content="{{ MAPBOX_ACCESS_TOKEN }}" />
-    <script>
-        window.MAPBOX_ACCESS_TOKEN = "{{ MAPBOX_ACCESS_TOKEN }}";
-        document.dispatchEvent(
-            new CustomEvent("es:mapbox-token-ready", {
-                detail: {
-                    token: window.MAPBOX_ACCESS_TOKEN,
-                },
-            })
-        );
-    </script>
   {% endblock %}
 
 
-  {% block extra_js %}
-
-
-    <!-- Mapbox GL JS -->
-    <script src="{{ CDN.mapbox_gl_js }}"></script>
-    <script>
-        window.PRELOAD_TRIP_ID = "{{ trip_id }}" !== "None" ? "{{ trip_id }}" : null;
-    </script>
-    <script type="module"
-            src="{{ url_for('static', path='js/pages/map.js') | replace('http://', '//') }}?v={{ repo_version.commit_count }}"></script>
-  {% endblock %}
+  {# Page scripts are loaded via route-loader + swup. #}

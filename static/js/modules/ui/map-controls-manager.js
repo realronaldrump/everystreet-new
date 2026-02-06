@@ -11,6 +11,7 @@
  */
 
 import { CONFIG } from "../core/config.js";
+import { swupReady } from "../core/navigation.js";
 import store from "../core/store.js";
 import mapCore from "../map-core.js";
 import { utils } from "../utils.js";
@@ -179,14 +180,18 @@ const mapControlsManager = {
   },
 };
 
-// Listen for page load event to initialize
-document.addEventListener("es:page-load", (event) => {
-  if (event.detail?.path === "/map") {
-    // Wait for map to be ready before initializing controls
-    mapCore.onReady(() => {
-      mapControlsManager.init();
+swupReady
+  .then((swup) => {
+    swup.hooks.on("page:view", (visit) => {
+      if (visit?.to?.url?.pathname !== "/map") {
+        return;
+      }
+      // Wait for map to be ready before initializing controls.
+      mapCore.onReady(() => {
+        mapControlsManager.init();
+      });
     });
-  }
-});
+  })
+  .catch(() => {});
 
 export default mapControlsManager;

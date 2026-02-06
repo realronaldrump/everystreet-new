@@ -553,9 +553,4 @@ Select one or more containers from the list above to view logs.
 {% endblock %}
 
 
-{% block extra_js %}
-
-
-  <script type="module"
-          src="{{ url_for('static', path='js/pages/server-logs.js') | replace('http://', '//') }}?v={{ repo_version.commit_count }}"></script>
-{% endblock %}
+{# Page scripts are loaded via route-loader + swup. #}

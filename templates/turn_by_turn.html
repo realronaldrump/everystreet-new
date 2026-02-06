@@ -8,6 +8,7 @@
 {%
 block head_content %}
 
+<meta name="mapbox-access-token" content="{{ MAPBOX_ACCESS_TOKEN }}" />
 
 <link rel="stylesheet" href="{{ CDN.mapbox_gl_css }}" />
 <link rel="stylesheet"
@@ -277,16 +278,4 @@ Select a coverage area...
 {% endblock %}
 
 
-{% block extra_js %}
-
-
-  <script src="{{ CDN.mapbox_gl_js }}"></script>
-  <script>
-      window.MAPBOX_ACCESS_TOKEN = "{{ MAPBOX_ACCESS_TOKEN }}";
-  </script>
-  <script type="module"
-          src="{{ url_for('static', path='js/pages/turn-by-turn.js') | replace('http://', '//') }}?v={{ repo_version.commit_count }}"></script>
-  <script>
-      document.body.classList.add("turn-by-turn-active");
-  </script>
-{% endblock %}
+{# Page scripts are loaded via route-loader + swup. #}

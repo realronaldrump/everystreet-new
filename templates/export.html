@@ -391,38 +391,4 @@ Latest Export
 
 
 
-{% block extra_js %}
-
-  <script type="module"
-          src="{{ url_for('static', path='js/pages/export.js') | replace('http://', '//') }}?v={{ repo_version.commit_count }}"></script>
-  <script>
-      // Sync radio buttons to hidden select for JS compatibility
-      document.querySelectorAll('input[name="trip-format-radio"]').forEach(radio => {
-          radio.addEventListener('change', () => {
-              document.getElementById('trip-format').value = radio.value;
-              document.getElementById('trip-format').dispatchEvent(new Event('change'));
-          });
-      });
-
-      // Toggle selected state on option cards
-      document.querySelectorAll('.export-option-card input[type="checkbox"]').forEach(checkbox => {
-          const card = checkbox.closest('.export-option-card');
-          const updateState = () => {
-              card.classList.toggle('selected', checkbox.checked);
-          };
-          checkbox.addEventListener('change', updateState);
-          updateState();
-      });
-
-      // Update format pill active states
-      document.querySelectorAll('.format-pill input').forEach(radio => {
-          const pill = radio.closest('.format-pill');
-          const updateState = () => {
-              document.querySelectorAll('.format-pill').forEach(p => p.classList.remove('active'));
-              if (radio.checked) pill.classList.add('active');
-          };
-          radio.addEventListener('change', updateState);
-          updateState();
-      });
-  </script>
-{% endblock %}
+{# Page scripts are loaded via route-loader + swup. #}

@@ -88,7 +88,8 @@ body[data-route="/"] .nav-breadcrumb {
   display: none;
 }
 
-body[data-route="/trips"] {
+body[data-route="/trips"],
+body[data-route^="/trips/"] {
   --section-accent-rgb: var(--cat-sky-rgb);
 }
 

@@ -51,7 +51,7 @@ export function setupTabSwitching({ signal } = {}) {
     if (updateHash) {
       const url = new URL(window.location.href);
       url.hash = tabName;
-      window.history.replaceState(null, "", url);
+      window.history.replaceState(window.history.state, document.title, url.toString());
     }
 
     return true;

@@ -613,10 +613,12 @@ class ESStore {
     }
 
     if (push && window.history.pushState) {
-      window.history.pushState({ es: true }, "", url.toString());
-    } else {
-      window.history.replaceState({ es: true }, "", url.toString());
+      window.history.pushState({ source: "es-store" }, document.title, url.toString());
+      return;
     }
+
+    // Preserve swup's history.state so back/forward navigation keeps working.
+    window.history.replaceState(window.history.state, document.title, url.toString());
   }
 
   getDefaultState() {

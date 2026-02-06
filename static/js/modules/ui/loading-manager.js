@@ -12,14 +12,6 @@ class LoadingManager {
     this.hideTimeout = null;
     this.minShowTime = 200; // Minimum time to show overlay (prevents flicker)
     this.showStartTime = null;
-    this.bar = null;
-    this.barIsVisible = false;
-    this.barActiveCount = 0;
-    this.barHideTimeout = null;
-    this.barShowStartTime = null;
-    this.barMinShowTime = 150;
-    this.barAutoTimer = null;
-    this.barAutoDelay = 600;
 
     // Initialize when DOM is ready
     if (document.readyState === "loading") {
@@ -38,28 +30,6 @@ class LoadingManager {
     } else {
       this.textElement = this.overlay.querySelector(".loading-text");
     }
-
-    this.initBar();
-  }
-
-  initBar() {
-    this.bar = document.getElementById("spa-progress");
-    if (!this.bar) {
-      this.createBar();
-    }
-  }
-
-  createBar() {
-    this.bar = document.createElement("div");
-    this.bar.id = "spa-progress";
-    this.bar.className = "spa-progress";
-    this.bar.setAttribute("role", "progressbar");
-    this.bar.setAttribute("aria-hidden", "true");
-
-    const bar = document.createElement("div");
-    bar.className = "spa-progress-bar";
-    this.bar.appendChild(bar);
-    document.body.prepend(this.bar);
   }
 
   createOverlay() {
@@ -122,21 +92,6 @@ class LoadingManager {
       this.textElement.textContent = messageText;
     }
 
-    if (blocking) {
-      this.hideBar(true);
-    }
-
-    if (!blocking && !this.barIsVisible) {
-      if (this.barAutoTimer) {
-        clearTimeout(this.barAutoTimer);
-      }
-      this.barAutoTimer = setTimeout(() => {
-        if (this.activeCount > 0 && !this.barIsVisible) {
-          this.showBar(messageText);
-        }
-      }, this.barAutoDelay);
-    }
-
     if (blocking === false) {
       this.overlay?.classList.add("non-blocking");
     } else {
@@ -158,32 +113,6 @@ class LoadingManager {
     return this;
   }
 
-  showBar(message = "Loading...") {
-    if (!this.bar) {
-      this.initBar();
-    }
-
-    if (this.barHideTimeout) {
-      clearTimeout(this.barHideTimeout);
-      this.barHideTimeout = null;
-    }
-
-    this.barActiveCount += 1;
-
-    if (this.bar) {
-      this.bar.setAttribute("aria-hidden", "false");
-      this.bar.setAttribute("aria-valuetext", message);
-      if (!this.barIsVisible) {
-        this.barShowStartTime = Date.now();
-        this.bar.classList.add("is-active");
-        document.body?.classList.add("is-busy");
-        this.barIsVisible = true;
-      }
-    }
-
-    return this;
-  }
-
   /**
    * Hide the loading overlay
    * @returns {LoadingManager} - Returns this for chaining
@@ -194,11 +123,6 @@ class LoadingManager {
     // Only hide if no active operations
     if (this.activeCount > 0) {
       return this;
-    }
-
-    if (this.activeCount === 0 && this.barAutoTimer) {
-      clearTimeout(this.barAutoTimer);
-      this.barAutoTimer = null;
     }
 
     // Ensure minimum show time to prevent flicker
@@ -212,42 +136,7 @@ class LoadingManager {
         this.overlay?.classList.remove("compact");
         this.isVisible = false;
         this.showStartTime = null;
-        if (!this.barIsVisible) {
-          document.body?.classList.remove("is-busy");
-        }
-      }
-    }, delay);
-
-    return this;
-  }
-
-  hideBar(force = false) {
-    if (this.barHideTimeout) {
-      clearTimeout(this.barHideTimeout);
-      this.barHideTimeout = null;
-    }
-
-    this.barActiveCount = force ? 0 : Math.max(0, this.barActiveCount - 1);
-
-    if (this.barActiveCount > 0) {
-      return this;
-    }
-
-    const elapsed = this.barShowStartTime
-      ? Date.now() - this.barShowStartTime
-      : Infinity;
-    const delay = Math.max(0, this.barMinShowTime - elapsed);
-
-    this.barHideTimeout = setTimeout(() => {
-      if (this.barActiveCount === 0 && this.bar) {
-        this.bar.classList.remove("is-active");
-        this.bar.setAttribute("aria-hidden", "true");
-        this.bar.removeAttribute("aria-valuetext");
-        this.barIsVisible = false;
-        this.barShowStartTime = null;
-        if (!this.isVisible) {
-          document.body?.classList.remove("is-busy");
-        }
+        document.body?.classList.remove("is-busy");
       }
     }, delay);
 
@@ -269,6 +158,7 @@ class LoadingManager {
     this.overlay?.classList.remove("compact");
     this.isVisible = false;
     this.showStartTime = null;
+    document.body?.classList.remove("is-busy");
     return this;
   }
 

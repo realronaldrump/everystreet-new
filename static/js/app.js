@@ -1,5 +1,5 @@
 import AppController from "./modules/app-controller.js";
-import router from "./modules/core/router.js";
+import { initNavigation } from "./modules/core/navigation.js";
 import store from "./modules/core/store.js";
 import "./modules/ui/ui-init.js";
 import "./modules/ui/loading-manager.js";
@@ -10,7 +10,7 @@ import "./modules/ui/global-job-tracker.js";
 const start = async () => {
   store.init(window.location.href);
   await AppController.initialize();
-  router.init();
+  await initNavigation();
 };
 
 if (document.readyState === "loading") {

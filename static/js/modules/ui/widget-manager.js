@@ -1,3 +1,5 @@
+import { swupReady } from "../core/navigation.js";
+
 const widgetManager = {
   editMode: false,
   dragItem: null,
@@ -12,7 +14,11 @@ const widgetManager = {
     document.addEventListener("widgets:set-edit", (event) => {
       this.setEdit(Boolean(event.detail?.enabled));
     });
-    document.addEventListener("es:page-load", () => this.refresh());
+    swupReady
+      .then((swup) => {
+        swup.hooks.on("page:view", () => this.refresh());
+      })
+      .catch(() => {});
     this.initialized = true;
   },
 

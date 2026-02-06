@@ -3,6 +3,7 @@
 import apiClient from "../../core/api-client.js";
 import { CONFIG } from "../../core/config.js";
 import mapBase from "../../map-base.js";
+import { getMapboxToken } from "../../mapbox-token.js";
 import confirmationDialog from "../../ui/confirmation-dialog.js";
 import notificationManager from "../../ui/notifications.js";
 import { DateUtils } from "../../utils.js";
@@ -272,7 +273,7 @@ function resetToSelect() {
   // Clear URL parameter
   const url = new URL(window.location.href);
   url.searchParams.delete("job");
-  window.history.replaceState({}, "", url.toString());
+  window.history.replaceState(window.history.state, document.title, url.toString());
 }
 
 // ========================================
@@ -580,7 +581,7 @@ function startPolling(jobId) {
 
   const url = new URL(window.location.href);
   url.searchParams.set("job", jobId);
-  window.history.replaceState({}, "", url.toString());
+  window.history.replaceState(window.history.state, document.title, url.toString());
 }
 
 async function loadJobs() {
@@ -1430,18 +1431,6 @@ function initDatePickers() {
   }
 }
 
-function ensureMapboxToken() {
-  if (window.MAPBOX_ACCESS_TOKEN) {
-    return true;
-  }
-  const meta = document.querySelector('meta[name="mapbox-access-token"]');
-  if (meta?.content) {
-    window.MAPBOX_ACCESS_TOKEN = meta.content;
-    return true;
-  }
-  return false;
-}
-
 function getMatchedPreviewColor() {
   if (!elements.previewMap) {
     return CONFIG.LAYER_DEFAULTS.matchedTrips.color;
@@ -1465,7 +1454,7 @@ function ensureMatchedPreviewMap() {
     setInlineStatus(elements.previewMapStatus, "Mapbox GL is not loaded.", "danger");
     return null;
   }
-  if (!ensureMapboxToken()) {
+  if (!getMapboxToken()) {
     setInlineStatus(elements.previewMapStatus, "Mapbox token is missing.", "danger");
     return null;
   }

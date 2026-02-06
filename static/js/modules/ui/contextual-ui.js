@@ -1,3 +1,5 @@
+import { swupReady } from "../core/navigation.js";
+
 const COVERAGE_SELECTORS = [
   "[data-coverage-percent]",
   "#dashboard-coverage-percentage",
@@ -20,10 +22,14 @@ const contextualUI = {
     this.applyTimeTone();
     this.observeCoverage();
     document.addEventListener("contextual:refresh", () => this.applyAccentTone());
-    document.addEventListener("es:page-load", () => {
-      this.applyTimeTone();
-      this.observeCoverage();
-    });
+    swupReady
+      .then((swup) => {
+        swup.hooks.on("page:view", () => {
+          this.applyTimeTone();
+          this.observeCoverage();
+        });
+      })
+      .catch(() => {});
     this.initialized = true;
   },
 

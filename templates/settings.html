@@ -424,7 +424,7 @@ Geocode Trips on Fetch
               <a href="/api/bouncie/authorize"
                  class="btn btn-outline-primary"
                  id="credentials-connect-bouncie-btn"
-                 data-es-no-spa>
+                 data-no-swup>
                 <i class="fas fa-plug"></i> Connect/Authorize
               </a>
               <button type="submit" class="btn btn-primary" id="credentials-save-bouncie-btn">
@@ -1664,11 +1664,6 @@ Clear Task History
 {% endblock %}
 
 
-{% block extra_js %}
-
-
-  <script type="module"
-          src="{{ url_for('static', path='js/pages/settings.js') | replace('http://', '//') }}?v={{ repo_version.commit_count }}"></script>
-{% endblock %}
+{# Page scripts are loaded via route-loader + swup. #}
 
 </div>

@@ -4,6 +4,7 @@
  */
 
 import confirmationDialog from "../../ui/confirmation-dialog.js";
+import { getMapboxToken } from "../../mapbox-token.js";
 import { VisitsGeometry } from "../../visits/geometry.js";
 import VisitsManager from "../../visits/visits-manager.js";
 
@@ -830,7 +831,7 @@ class VisitsPageController {
       return;
     }
 
-    const token = window.MAPBOX_ACCESS_TOKEN;
+    const token = getMapboxToken();
     if (!token) {
       return;
     }

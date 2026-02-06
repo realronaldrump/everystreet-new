@@ -1,5 +1,3 @@
-const TOKEN_EVENT = "es:mapbox-token-ready";
-
 const readMetaToken = () => {
   if (typeof document === "undefined") {
     return "";
@@ -9,8 +7,7 @@ const readMetaToken = () => {
 };
 
 export const getMapboxToken = () => {
-  const token = typeof window !== "undefined" ? window.MAPBOX_ACCESS_TOKEN : "";
-  return (token || readMetaToken() || "").trim();
+  return readMetaToken();
 };
 
 export const waitForMapboxToken = async ({ timeoutMs = 2000 } = {}) => {
@@ -24,31 +21,40 @@ export const waitForMapboxToken = async ({ timeoutMs = 2000 } = {}) => {
   }
 
   return new Promise((resolve, reject) => {
-    let settled = false;
-    const cleanup = () => {
-      if (settled) {
+    let done = false;
+    const finish = (value, error) => {
+      if (done) {
         return;
       }
-      settled = true;
+      done = true;
       clearTimeout(timeoutId);
-      document.removeEventListener(TOKEN_EVENT, handler);
-    };
-
-    const handler = (event) => {
-      const token = event?.detail?.token || getMapboxToken();
-      if (token) {
-        cleanup();
-        resolve(token);
+      observer.disconnect();
+      if (error) {
+        reject(error);
+      } else {
+        resolve(value);
       }
     };
 
+    const check = () => {
+      const token = getMapboxToken();
+      if (token) {
+        finish(token);
+      }
+    };
+
+    const observer = new MutationObserver(() => check());
+    const root = document.head || document.documentElement;
+    observer.observe(root, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+    });
+
     const timeoutId = setTimeout(() => {
-      cleanup();
-      reject(new Error("Mapbox access token not configured"));
+      finish(null, new Error("Mapbox access token not configured"));
     }, timeoutMs);
 
-    document.addEventListener(TOKEN_EVENT, handler);
+    check();
   });
 };
-
-export const MAPBOX_TOKEN_EVENT = TOKEN_EVENT;

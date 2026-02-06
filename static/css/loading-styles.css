@@ -20,31 +20,16 @@
   pointer-events: auto;
 }
 
-/* === SPA Progress Bar === */
-.spa-progress {
+/* === Swup Progress Bar === */
+.swup-progress-bar {
   position: fixed;
   top: env(safe-area-inset-top, 0);
   left: 0;
   right: 0;
   height: 3px;
-  opacity: 0;
-  transform: translateY(-2px);
+  background: var(--primary, #3b8a7f);
   pointer-events: none;
   z-index: var(--z-loading-overlay, 9999);
-  transition:
-    opacity 0.15s ease,
-    transform 0.15s ease;
-}
-
-.spa-progress.is-active {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-.spa-progress-bar {
-  height: 100%;
-  width: 100%;
-  background: var(--primary, #3b8a7f);
 }
 
 .loading-overlay.non-blocking {
@@ -240,7 +225,7 @@ body.light-mode .skeleton-loader {
   .loading-spinner,
   .btn.btn-loading::after,
   .skeleton-loader::after,
-  .spa-progress-bar {
+  .swup-progress-bar {
     animation: none;
   }
 

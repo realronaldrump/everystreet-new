@@ -28,6 +28,7 @@ import {
   updateRecalculateUi,
   updateStats,
 } from "../../county-map/ui.js";
+import { getMapboxToken } from "../../mapbox-token.js";
 import notificationManager from "../../ui/notifications.js";
 
 let pageSignal = null;
@@ -40,7 +41,12 @@ export default function initCountyMapPage({ cleanup, signal } = {}) {
   updateLoadingText("Initializing map...");
 
   // Create map with standard projection (not Albers - TopoJSON is unprojected)
-  mapboxgl.accessToken = window.MAPBOX_ACCESS_TOKEN;
+  const token = getMapboxToken();
+  if (!token) {
+    notificationManager.show("Mapbox access token not configured", "danger");
+    return;
+  }
+  mapboxgl.accessToken = token;
 
   const map = new mapboxgl.Map({
     container: "county-map",

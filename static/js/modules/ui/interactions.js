@@ -1,3 +1,5 @@
+import { swupReady } from "../core/navigation.js";
+
 const RIPPLE_SELECTOR
   = ".btn, .nav-tile, .action-button, .mobile-fab, .mobile-action-btn, [data-ripple]";
 
@@ -17,10 +19,14 @@ const interactions = {
     this.applyStaggeredReveals();
     this.observeValueFlashes();
 
-    document.addEventListener("es:page-load", () => {
-      this.applyStaggeredReveals();
-      this.observeValueFlashes();
-    });
+    swupReady
+      .then((swup) => {
+        swup.hooks.on("page:view", () => {
+          this.applyStaggeredReveals();
+          this.observeValueFlashes();
+        });
+      })
+      .catch(() => {});
 
     this.initialized = true;
   },

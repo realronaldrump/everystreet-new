@@ -1,3 +1,5 @@
+import { swupReady } from "../core/navigation.js";
+
 const mobileNav = {
   init() {
     this.nav = document.getElementById("bottom-nav");
@@ -17,7 +19,11 @@ const mobileNav = {
     this.updateActive();
     this.bindScroll();
 
-    document.addEventListener("es:page-load", () => this.updateActive());
+    swupReady
+      .then((swup) => {
+        swup.hooks.on("page:view", () => this.updateActive());
+      })
+      .catch(() => {});
   },
 
   updateActive() {

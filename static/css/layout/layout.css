@@ -119,11 +119,6 @@
   view-transition-name: route-content;
 }
 
-.route-content.is-transitioning {
-  opacity: 0;
-  transform: translateX(var(--nav-exit-x, 0));
-}
-
 body[data-route="/map"] .persistent-shell {
   display: flex;
 }

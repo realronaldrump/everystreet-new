@@ -7,6 +7,7 @@
 import apiClient from "../../core/api-client.js";
 import { CONFIG } from "../../core/config.js";
 import store, { optimisticAction } from "../../core/store.js";
+import { getPreloadTripIdFromUrl } from "../../core/url-state.js";
 import { createMap } from "../../map-base.js";
 import { initTripSync } from "../../trip-sync.js";
 import confirmationDialog from "../../ui/confirmation-dialog.js";
@@ -201,8 +202,9 @@ async function initializePage(signal, cleanup) {
   applySavedFilters();
 
   // Check if we need to open a specific trip (from URL param)
-  if (window.PRELOAD_TRIP_ID) {
-    requestAnimationFrame(() => openTripModal(window.PRELOAD_TRIP_ID));
+  const preloadTripId = getPreloadTripIdFromUrl();
+  if (preloadTripId) {
+    requestAnimationFrame(() => openTripModal(preloadTripId));
   }
 }
 

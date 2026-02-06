@@ -140,30 +140,30 @@
 }
 
 /* biome-ignore lint/correctness/noUnknownTypeSelector: 'root' is a valid view-transition-name */
-::view-transition-old(root) {
+html.swup-native::view-transition-old(root) {
   animation: none;
 }
 
 /* biome-ignore lint/correctness/noUnknownTypeSelector: 'root' is a valid view-transition-name */
-::view-transition-new(root) {
+html.swup-native::view-transition-new(root) {
   animation: none;
 }
 
-::view-transition-old(route-content),
-::view-transition-old(route-shell) {
+html.swup-native::view-transition-old(route-content),
+html.swup-native::view-transition-old(route-shell) {
   animation: spaFadeOut var(--transition-normal) cubic-bezier(0.4, 0, 1, 1) both;
 }
 
-::view-transition-new(route-content),
-::view-transition-new(route-shell) {
+html.swup-native::view-transition-new(route-content),
+html.swup-native::view-transition-new(route-shell) {
   animation: spaFadeIn var(--transition-smooth) cubic-bezier(0, 0, 0.2, 1) both;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  ::view-transition-old(route-content),
-  ::view-transition-old(route-shell),
-  ::view-transition-new(route-content),
-  ::view-transition-new(route-shell) {
+  html.swup-native::view-transition-old(route-content),
+  html.swup-native::view-transition-old(route-shell),
+  html.swup-native::view-transition-new(route-content),
+  html.swup-native::view-transition-new(route-shell) {
     animation: none;
   }
 }

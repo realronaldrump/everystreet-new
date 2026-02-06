@@ -1,4 +1,5 @@
 import store from "../core/store.js";
+import { swupReady } from "../core/navigation.js";
 import { moveModalsToContainer, utils } from "../utils.js";
 import contextualUI from "./contextual-ui.js";
 import dateManager from "./date-manager.js";
@@ -23,9 +24,9 @@ function init() {
   }
 
   try {
-    const cleanupModalsForRoute = (event) => {
-      const route = event?.detail?.path || document.body?.dataset?.route;
-      if (!route) {
+    const cleanupModalsForRoute = (route) => {
+      const resolvedRoute = route || document.body?.dataset?.route;
+      if (!resolvedRoute) {
         return;
       }
       const container = document.getElementById("modals-container");
@@ -33,7 +34,7 @@ function init() {
         return;
       }
       container
-        .querySelectorAll(`.modal[data-es-modal-route="${route}"]`)
+        .querySelectorAll(`.modal[data-es-modal-route="${resolvedRoute}"]`)
         .forEach((modal) => {
           const instance = window.bootstrap?.Modal?.getInstance(modal);
           if (instance && modal.classList.contains("show")) {
@@ -80,8 +81,14 @@ function init() {
     window.addEventListener("resize", debouncedResize);
 
     moveModalsToContainer();
-    document.addEventListener("es:page-load", () => moveModalsToContainer());
-    document.addEventListener("es:page-unload", cleanupModalsForRoute);
+    swupReady
+      .then((swup) => {
+        swup.hooks.on("page:view", () => moveModalsToContainer());
+        swup.hooks.on("visit:start", (visit) =>
+          cleanupModalsForRoute(visit?.from?.url?.pathname)
+        );
+      })
+      .catch(() => {});
 
     // Defer heavier init (date pickers & events)
     const runDeferred = () => {

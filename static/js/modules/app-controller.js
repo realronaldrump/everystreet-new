@@ -20,6 +20,7 @@
 /* global bootstrap */
 
 import { CONFIG } from "./core/config.js";
+import { getPreloadTripIdFromUrl } from "./core/url-state.js";
 import state from "./core/store.js";
 import dataManager from "./data-manager.js";
 import LiveTripTracker from "./features/tracking/index.js";
@@ -286,8 +287,9 @@ const AppController = {
    * @private
    */
   _applyPostInitialization() {
-    if (window.PRELOAD_TRIP_ID) {
-      requestAnimationFrame(() => mapManager.zoomToTrip(window.PRELOAD_TRIP_ID));
+    const preloadTripId = getPreloadTripIdFromUrl();
+    if (preloadTripId) {
+      requestAnimationFrame(() => mapManager.zoomToTrip(preloadTripId));
     } else if (state.mapLayers.trips?.layer?.features?.length) {
       requestAnimationFrame(() => mapManager.zoomToLastTrip());
     }
@@ -585,11 +587,5 @@ const AppController = {
     }
   },
 };
-
-document.addEventListener("es:page-load", (event) => {
-  if (event.detail?.path === "/map") {
-    AppController.initialize();
-  }
-});
 
 export default AppController;

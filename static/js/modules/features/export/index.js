@@ -454,6 +454,65 @@ function registerEventListeners(elements, signal) {
   );
 }
 
+function bindFormatPills(elements, signal) {
+  const eventOptions = signal ? { signal } : false;
+  const formatSelect = elements.tripFormat;
+  if (!formatSelect) {
+    return;
+  }
+
+  const radios = Array.from(
+    document.querySelectorAll('input[name="trip-format-radio"]')
+  ).filter((radio) => radio instanceof HTMLInputElement);
+
+  const updatePillActiveStates = () => {
+    document.querySelectorAll(".format-pill").forEach((pill) => {
+      pill.classList.remove("active");
+    });
+    const checked = radios.find((radio) => radio.checked);
+    checked?.closest?.(".format-pill")?.classList?.add("active");
+  };
+
+  radios.forEach((radio) => {
+    radio.addEventListener(
+      "change",
+      () => {
+        if (!radio.checked) {
+          return;
+        }
+        formatSelect.value = radio.value;
+        formatSelect.dispatchEvent(new Event("change", { bubbles: true }));
+        updatePillActiveStates();
+      },
+      eventOptions
+    );
+  });
+
+  updatePillActiveStates();
+}
+
+function bindOptionCardSelection(signal) {
+  const eventOptions = signal ? { signal } : false;
+  document
+    .querySelectorAll('.export-option-card input[type="checkbox"]')
+    .forEach((checkbox) => {
+      if (!(checkbox instanceof HTMLInputElement)) {
+        return;
+      }
+      const card = checkbox.closest(".export-option-card");
+      if (!card) {
+        return;
+      }
+
+      const update = () => {
+        card.classList.toggle("selected", checkbox.checked);
+      };
+
+      checkbox.addEventListener("change", update, eventOptions);
+      update();
+    });
+}
+
 export default function initExportPage({ signal, cleanup } = {}) {
   const elements = cacheElements();
   if (!elements.form) {
@@ -468,6 +527,8 @@ export default function initExportPage({ signal, cleanup } = {}) {
   loadCoverageAreas(elements, signal);
   loadVehicles(elements, signal);
   registerEventListeners(elements, signal);
+  bindFormatPills(elements, signal);
+  bindOptionCardSelection(signal);
 
   const teardown = () => {
     if (activePoll) {
