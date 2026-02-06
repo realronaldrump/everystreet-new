@@ -9,7 +9,6 @@ import metricAnimator from "./metric-animator.js";
 import mobileNav from "./mobile-nav.js";
 import modalEffects from "./modal-effects.js";
 import panelManager from "./panel-manager.js";
-import perf from "./performance-optimisations.js";
 import personalization from "./personalization.js";
 import pullToRefresh from "./pull-to-refresh.js";
 import setupRequired from "./setup-required.js";
@@ -63,7 +62,22 @@ function init() {
     mapControlsManager.init?.();
     filterIndicatorManager.init?.();
     setupRequired.init?.();
-    perf.init?.();
+
+    // Pause animations when tab is hidden (saves CPU)
+    document.addEventListener("visibilitychange", () => {
+      const root = document.documentElement;
+      if (document.hidden) {
+        root.style.setProperty("--transition-duration", "0ms");
+      } else {
+        root.style.removeProperty("--transition-duration");
+      }
+    });
+
+    // Throttled resize event for responsive components
+    const debouncedResize = utils.debounce(() => {
+      window.dispatchEvent(new Event("appResized"));
+    }, 150);
+    window.addEventListener("resize", debouncedResize);
 
     moveModalsToContainer();
     document.addEventListener("es:page-load", () => moveModalsToContainer());

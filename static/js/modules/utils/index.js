@@ -5,7 +5,6 @@ import {
   getDeviceProfile,
   getStorage,
   handleError,
-  measurePerformance,
   removeStorage,
   setStorage,
   showNotification,
@@ -49,6 +48,7 @@ export {
   batchDOMUpdates,
   clearOldCache,
   createElement,
+  DateUtils,
   debounce,
   distanceInUserUnits,
   escapeHtml,
@@ -73,7 +73,6 @@ export {
   getElement,
   getStorage,
   handleError,
-  measurePerformance,
   measureScrollbarWidth,
   moveModalsToContainer,
   onPageLoad,
@@ -83,66 +82,46 @@ export {
   showNotification,
   throttle,
   yieldToBrowser,
-  DateUtils,
 };
 
+// Bundled object for consumers that use `utils.method()` pattern
 const utils = {
-  // Formatters
+  announce,
+  batchDOMUpdates,
+  clearOldCache,
+  createElement,
+  debounce,
+  distanceInUserUnits,
   escapeHtml,
-  formatNumber,
-  formatDistance,
-  formatDuration,
+  fadeIn,
+  fadeOut,
+  fetchWithRetry,
   formatDateTime,
   formatDateToString,
+  formatDistance,
+  formatDuration,
   formatDurationMs,
   formatHourLabel,
   formatMonth,
-  formatTimeAgo,
+  formatNumber,
   formatRelativeTimeLong,
   formatRelativeTimeShort,
+  formatTimeAgo,
   formatVehicleName,
   formatWeekRange,
-  distanceInUserUnits,
-  sanitizeLocation,
-
-  // DOM
-  createElement,
-  getElement,
   getAllElements,
-  batchDOMUpdates,
-  yieldToBrowser,
-  moveModalsToContainer,
-
-  // Functions
-  debounce,
-  throttle,
-
-  // Storage
-  getStorage,
-  setStorage,
-  removeStorage,
-  clearOldCache,
-
-  // Fetch
-  fetchWithRetry,
-
-  // Animation
-  fadeIn,
-  fadeOut,
-
-  // Device/Browser
   getDeviceProfile,
-  measureScrollbarWidth,
-
-  // Notifications
-  showNotification,
-  announce,
-
-  // Performance
-  measurePerformance,
-
-  // Error Handling
+  getElement,
+  getStorage,
   handleError,
+  measureScrollbarWidth,
+  moveModalsToContainer,
+  removeStorage,
+  sanitizeLocation,
+  setStorage,
+  showNotification,
+  throttle,
+  yieldToBrowser,
 };
 
 export { utils };

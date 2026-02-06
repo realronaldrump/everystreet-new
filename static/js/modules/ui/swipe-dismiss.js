@@ -105,10 +105,4 @@ const swipeDismiss = {
   },
 };
 
-if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", () => swipeDismiss.init());
-} else {
-  swipeDismiss.init();
-}
-
 export default swipeDismiss;

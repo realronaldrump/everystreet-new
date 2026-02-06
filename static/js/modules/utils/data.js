@@ -191,30 +191,15 @@ export async function fetchWithRetry(
   try {
     store.trackRequest(url);
 
-    let attempt = 0;
-    while (attempt <= retries) {
-      try {
-        const data = await apiClient.request(url, {
-          ...options,
-          signal: controller.signal,
-          retry: false,
-        });
-        clearTimeout(timeoutId);
-        store.apiCache.set(cacheKey, { data, timestamp: Date.now() });
-        return data;
-      } catch (error) {
-        if (error.name === "AbortError") {
-          throw error;
-        }
-        if (attempt < retries && (!error.status || error.status >= 500)) {
-          attempt += 1;
-          await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
-          continue;
-        }
-        throw error;
-      }
-    }
-    return null;
+    // Delegate retry logic to apiClient - avoid double-retry
+    const data = await apiClient.request(url, {
+      ...options,
+      signal: controller.signal,
+      retry: retries > 0,
+    });
+    clearTimeout(timeoutId);
+    store.apiCache.set(cacheKey, { data, timestamp: Date.now() });
+    return data;
   } catch (error) {
     if (error.name === "AbortError") {
       return null;
@@ -278,32 +263,9 @@ export function getDeviceProfile() {
 
 /**
  * Show a notification (delegates to notificationManager)
- * @param {...*} args - Arguments to pass to notificationManager.show
- * @returns {*} Notification result
  */
 export function showNotification(...args) {
   return notificationManager.show(...args);
-}
-
-// ============================================================================
-// Performance Utilities
-// ============================================================================
-
-/**
- * Measure performance of an async function
- * @param {string} name - Operation name for logging
- * @param {Function} fn - Async function to measure
- * @returns {Promise<*>} Function result
- */
-export async function measurePerformance(name, fn) {
-  const startTime = performance.now();
-  try {
-    return await fn();
-  } catch (error) {
-    const duration = performance.now() - startTime;
-    console.error(`Performance: ${name} failed after ${duration.toFixed(2)}ms`, error);
-    throw error;
-  }
 }
 
 // ============================================================================

@@ -1,5 +1,13 @@
 import apiClient from "../core/api-client.js";
 import { getStorage, setStorage } from "./data.js";
+import {
+  formatDateToString,
+  formatForDisplay,
+  formatSecondsToHMS,
+  formatTimeAgo,
+  formatTimeFromHours,
+  parseDurationToSeconds,
+} from "./formatting.js";
 
 const { dayjs } = globalThis;
 const { flatpickr } = globalThis;
@@ -18,13 +26,13 @@ const DateUtils = {
     return d.isValid() ? d.startOf("day").toDate() : null;
   },
 
-  formatDateToString(date) {
-    if (!date) {
-      return null;
-    }
-    const d = dayjs(date);
-    return d.isValid() ? d.format("YYYY-MM-DD") : null;
-  },
+  // Delegate to formatting.js canonical implementations
+  formatDateToString,
+  formatForDisplay,
+  formatSecondsToHMS,
+  formatTimeFromHours,
+  formatTimeAgo,
+  convertDurationToSeconds: parseDurationToSeconds,
 
   getCurrentDate() {
     return dayjs().format("YYYY-MM-DD");
@@ -105,59 +113,6 @@ const DateUtils = {
     };
   },
 
-  formatForDisplay(dateString, options = { dateStyle: "medium" }) {
-    const d = dayjs(dateString);
-    if (!d.isValid()) {
-      return dateString || "";
-    }
-
-    const formatterOptions = {};
-    if (options.dateStyle !== null) {
-      formatterOptions.dateStyle = options.dateStyle || "medium";
-    }
-    if (options.timeStyle !== null && options.timeStyle !== undefined) {
-      formatterOptions.timeStyle = options.timeStyle;
-    }
-    Object.entries(options).forEach(([key, value]) => {
-      if (
-        value !== null
-        && value !== undefined
-        && !["dateStyle", "timeStyle"].includes(key)
-      ) {
-        formatterOptions[key] = value;
-      }
-    });
-
-    return new Intl.DateTimeFormat("en-US", formatterOptions).format(d.toDate());
-  },
-
-  formatTimeFromHours(hours) {
-    if (hours === null || typeof hours === "undefined") {
-      return "--:--";
-    }
-    const h = Math.floor(hours);
-    const m = Math.round((hours - h) * 60);
-    const displayHour = h % 12 === 0 ? 12 : h % 12;
-    const amPm = h < 12 ? "AM" : "PM";
-    return `${displayHour}:${m.toString().padStart(2, "0")} ${amPm}`;
-  },
-
-  formatSecondsToHMS(seconds) {
-    if (typeof seconds !== "number" || Number.isNaN(seconds)) {
-      return "00:00:00";
-    }
-    const dur = dayjs.duration(Math.max(0, Math.floor(seconds)), "seconds");
-    const h = Math.floor(dur.asHours());
-
-    if (h >= 24) {
-      return this.formatDuration(seconds);
-    }
-
-    const m = dur.minutes();
-    const s = dur.seconds();
-    return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
-  },
-
   formatDuration(durationMsOrSec = 0) {
     if (!durationMsOrSec || Number.isNaN(durationMsOrSec)) {
       return "N/A";
@@ -199,66 +154,7 @@ const DateUtils = {
     }
 
     const diffMs = Math.max(0, end.diff(start));
-    return this.formatSecondsToHMS(Math.floor(diffMs / 1000));
-  },
-
-  convertDurationToSeconds(duration = "") {
-    if (!duration || duration === "N/A" || duration === "Unknown") {
-      return 0;
-    }
-
-    let seconds = 0;
-    const dayMatch = duration.match(/(\d+)\s*d/);
-    const hourMatch = duration.match(/(\d+)\s*h/);
-    const minuteMatch = duration.match(/(\d+)\s*m/);
-    const secondMatch = duration.match(/(\d+)\s*s/);
-
-    if (dayMatch) {
-      seconds += parseInt(dayMatch[1], 10) * 86400;
-    }
-    if (hourMatch) {
-      seconds += parseInt(hourMatch[1], 10) * 3600;
-    }
-    if (minuteMatch) {
-      seconds += parseInt(minuteMatch[1], 10) * 60;
-    }
-    if (secondMatch) {
-      seconds += parseInt(secondMatch[1], 10);
-    }
-
-    return seconds;
-  },
-
-  formatTimeAgo(timestamp, abbreviated = false) {
-    const d = dayjs(timestamp);
-    if (!d.isValid()) {
-      return "";
-    }
-
-    const now = dayjs();
-    const seconds = now.diff(d, "second");
-
-    if (seconds < 5) {
-      return "just now";
-    }
-
-    if (abbreviated) {
-      if (seconds < 60) {
-        return `${seconds}s ago`;
-      }
-      const minutes = Math.floor(seconds / 60);
-      if (minutes < 60) {
-        return `${minutes}m ago`;
-      }
-      const hours = Math.floor(minutes / 60);
-      if (hours < 24) {
-        return `${hours}h ago`;
-      }
-      const days = Math.floor(hours / 24);
-      return `${days}d ago`;
-    }
-
-    return d.fromNow();
+    return formatSecondsToHMS(Math.floor(diffMs / 1000));
   },
 
   isValidDateRange(start, end) {

@@ -107,10 +107,4 @@ const interactions = {
   },
 };
 
-if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", () => interactions.init());
-} else {
-  interactions.init();
-}
-
 export default interactions;

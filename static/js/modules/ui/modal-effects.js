@@ -32,10 +32,4 @@ const modalEffects = {
   },
 };
 
-if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", () => modalEffects.init());
-} else {
-  modalEffects.init();
-}
-
 export default modalEffects;

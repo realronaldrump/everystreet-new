@@ -22,54 +22,6 @@ import loadingManager from "./ui/loading-manager.js";
 import notificationManager from "./ui/notifications.js";
 import { DateUtils, utils } from "./utils.js";
 
-const dateUtils = DateUtils;
-
-// ============================================================
-// Loading Indicator
-// ============================================================
-
-const mapLoadingIndicator = (() => {
-  let indicatorEl = null;
-  let textEl = null;
-
-  const ensureElements = () => {
-    if (!indicatorEl) {
-      indicatorEl = document.getElementById("map-loading-indicator");
-      textEl = indicatorEl?.querySelector(".map-loading-text") || indicatorEl;
-    }
-    return indicatorEl;
-  };
-
-  return {
-    show(message = "Loading map data...") {
-      if (!ensureElements()) {
-        return;
-      }
-      indicatorEl.classList.remove("d-none");
-      indicatorEl.setAttribute("aria-busy", "true");
-      indicatorEl.setAttribute("aria-live", "polite");
-      this.update(message);
-    },
-
-    update(message) {
-      if (!ensureElements()) {
-        return;
-      }
-      if (textEl) {
-        textEl.textContent = message;
-      }
-    },
-
-    hide() {
-      if (!ensureElements()) {
-        return;
-      }
-      indicatorEl.classList.add("d-none");
-      indicatorEl.removeAttribute("aria-busy");
-    },
-  };
-})();
-
 // ============================================================
 // Data Manager
 // ============================================================
@@ -84,19 +36,12 @@ const dataManager = {
       return null;
     }
 
-    const useGlobalLoading = !document.getElementById("map-loading-indicator");
-
-    if (useGlobalLoading) {
-      loadingManager?.show("Loading trips...", { blocking: false, compact: true });
-    }
-    mapLoadingIndicator.show("Loading trips...");
+    loadingManager.show("Loading trips...", { blocking: false, compact: true });
 
     try {
-      const { start, end } = dateUtils.getCachedDateRange();
+      const { start, end } = DateUtils.getCachedDateRange();
       const params = new URLSearchParams({ start_date: start, end_date: end });
-      if (useGlobalLoading) {
-        loadingManager?.updateMessage(`Loading trips from ${start} to ${end}...`);
-      }
+      loadingManager.updateMessage(`Loading trips from ${start} to ${end}...`);
 
       const rawTripData = await utils.fetchWithRetry(
         `${CONFIG.API.trips}?${params}`,
@@ -108,86 +53,30 @@ const dataManager = {
 
       const tripData = this._coerceFeatureCollection(rawTripData);
       if (!tripData) {
-        if (useGlobalLoading) {
-          loadingManager?.hide();
-        }
-        // Enhanced error logging for debugging
-        console.group("Trip data validation failed");
-        console.error(
-          "The API returned data that could not be coerced into a FeatureCollection."
-        );
-        console.info("Request URL:", `${CONFIG.API.trips}?${params}`);
-        console.info("Data type:", typeof rawTripData);
-        console.info("Data is null/undefined:", rawTripData == null);
-
-        if (rawTripData == null) {
-          console.warn(
-            "Issue: Response was null or undefined - check network tab for actual response"
-          );
-        } else if (typeof rawTripData === "object") {
-          console.info("Object keys:", Object.keys(rawTripData));
-          console.info("type property:", rawTripData?.type);
-          console.info("features property type:", typeof rawTripData?.features);
-          console.info("features is array:", Array.isArray(rawTripData?.features));
-          if (rawTripData?.features && !Array.isArray(rawTripData.features)) {
-            console.warn(
-              "Issue: 'features' property exists but is not an array:",
-              rawTripData.features
-            );
-          }
-          if (!rawTripData?.type) {
-            console.warn("Issue: Missing 'type' property");
-          }
-          console.dir(rawTripData);
-        } else if (typeof rawTripData === "string") {
-          console.warn("Issue: Response is a string, not parsed JSON");
-          console.log("String content (first 500 chars):", rawTripData.slice(0, 500));
-        } else {
-          console.log("Raw output:", rawTripData);
-        }
-        console.groupEnd();
-
+        console.error("Trip data validation failed:", typeof rawTripData);
         notificationManager.show("Failed to load valid trip data", "danger");
         return null;
       }
 
-      if (useGlobalLoading) {
-        loadingManager?.updateMessage(`Rendering ${tripData.features.length} trips...`);
-      }
-      mapLoadingIndicator.update(`Rendering ${tripData.features.length} trips...`);
-
-      // Update map layer
+      loadingManager.updateMessage(`Rendering ${tripData.features.length} trips...`);
       await layerManager.updateMapLayer("trips", tripData);
 
-      if (useGlobalLoading) {
-        loadingManager?.updateMessage("Finalizing...");
-      }
-
-      // Emit event for trip styles refresh (handled by app-controller)
       document.dispatchEvent(
         new CustomEvent("tripsDataLoaded", {
           detail: { featureCount: tripData.features.length, geojson: tripData },
         })
       );
 
-      // Update metrics table
       metricsManager.updateTripsTable(tripData);
-
       return tripData;
     } catch (error) {
       if (error?.name === "AbortError") {
         return null;
       }
-      if (useGlobalLoading) {
-        loadingManager?.hide();
-      }
       notificationManager.show("Failed to load trips", "danger");
       return null;
     } finally {
-      if (useGlobalLoading) {
-        loadingManager?.hide();
-      }
-      mapLoadingIndicator.hide();
+      loadingManager.hide();
     }
   },
 
@@ -203,7 +92,7 @@ const dataManager = {
     loadingManager.pulse("Loading matched trips...");
 
     try {
-      const { start, end } = dateUtils.getCachedDateRange();
+      const { start, end } = DateUtils.getCachedDateRange();
       const params = new URLSearchParams({
         start_date: start,
         end_date: end,
@@ -266,43 +155,15 @@ const dataManager = {
    * @private
    */
   _normalizeLayerName(layerName) {
-    const rawName
-      = typeof layerName === "string" ? layerName.trim() : String(layerName ?? "").trim();
-    if (!rawName) {
+    if (!layerName) {
       return "";
     }
-    const candidates = Object.keys(state.mapLayers || {});
-    if (!candidates.length) {
-      return rawName;
+    const name = String(layerName).trim();
+    // Direct match against known layer keys
+    if (state.mapLayers?.[name]) {
+      return name;
     }
-
-    const directMatch = candidates.find(
-      (candidate) => candidate.toLowerCase() === rawName.toLowerCase()
-    );
-    if (directMatch) {
-      return directMatch;
-    }
-
-    const normalizedKey = (value) => value.toLowerCase().replace(/[^a-z0-9]/g, "");
-    const cleanedName = rawName.replace(/[-_ ]*layer(?:[-_ ]*\d+)?$/i, "").trim();
-    const cleanedKey = normalizedKey(cleanedName || rawName);
-
-    const keyMatch = candidates.find(
-      (candidate) => normalizedKey(candidate) === cleanedKey
-    );
-    if (keyMatch) {
-      return keyMatch;
-    }
-
-    const labelMatch = candidates.find((candidate) => {
-      const label = state.mapLayers?.[candidate]?.name;
-      return label && normalizedKey(label) === normalizedKey(rawName);
-    });
-    if (labelMatch) {
-      return labelMatch;
-    }
-
-    return rawName;
+    return name;
   },
 
   /**
@@ -458,7 +319,7 @@ const dataManager = {
    */
   async fetchMetrics() {
     try {
-      const { start, end } = dateUtils.getCachedDateRange();
+      const { start, end } = DateUtils.getCachedDateRange();
       const params = new URLSearchParams({ start_date: start, end_date: end });
 
       const data = await utils.fetchWithRetry(
@@ -582,15 +443,7 @@ const dataManager = {
         await this.fetchAllStreets();
         break;
       default:
-        console.warn(
-          `Unknown layer data requested: "${normalizedLayerName || layerName}"`,
-          {
-            type: typeof layerName,
-            value: layerName,
-            normalized: normalizedLayerName,
-            stack: new Error().stack,
-          }
-        );
+        console.warn(`Unknown layer data requested: "${layerName}"`);
     }
   },
 };
