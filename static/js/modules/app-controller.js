@@ -388,8 +388,20 @@ const AppController = {
     const locationDropdown = utils.getElement("streets-location");
     if (locationDropdown) {
       locationDropdown.addEventListener("change", async (e) => {
-        utils.setStorage(CONFIG.STORAGE_KEYS.selectedLocation, e.target.value);
-        if (e.target.value) {
+        const nextLocationId = e.target.value;
+        const prevLocationId = utils.getStorage(CONFIG.STORAGE_KEYS.selectedLocation);
+
+        utils.setStorage(CONFIG.STORAGE_KEYS.selectedLocation, nextLocationId);
+
+        // If the coverage area changes, clear cached street GeoJSON so we fetch fresh data.
+        if (nextLocationId && nextLocationId !== prevLocationId) {
+          await this.handleStreetViewModeChange("undriven", true);
+          await this.handleStreetViewModeChange("driven", true);
+          await this.handleStreetViewModeChange("all", true);
+          state.resetStreetCache?.();
+        }
+
+        if (nextLocationId) {
           await this.refreshStreetLayers();
         } else {
           // Clear selection - hide all street layers
@@ -399,6 +411,30 @@ const AppController = {
         }
       });
     }
+
+    // Quick-action street mode buttons (map controls). These dispatch a custom event.
+    document.addEventListener("es:streetModeChange", async (e) => {
+      const mode = e?.detail?.mode;
+      if (!mode || !["undriven", "driven", "all"].includes(mode)) {
+        return;
+      }
+
+      // Persist as an exclusive selection so changing coverage areas can re-load the active mode.
+      utils.setStorage(CONFIG.STORAGE_KEYS.streetViewMode, {
+        undriven: mode === "undriven",
+        driven: mode === "driven",
+        all: mode === "all",
+      });
+
+      // Quick actions behave like a radio group: show only the selected street layer.
+      for (const otherMode of ["undriven", "driven", "all"]) {
+        if (otherMode !== mode) {
+          await this.handleStreetViewModeChange(otherMode, true);
+        }
+      }
+
+      await this.handleStreetViewModeChange(mode, false);
+    });
 
     // Street view mode toggle buttons
     const streetToggleButtons = document.querySelectorAll(".street-mode-btn");
@@ -595,10 +631,28 @@ const AppController = {
   async refreshStreetLayers() {
     const savedStates = getSavedStreetViewModes();
 
-    for (const [mode, isActive] of Object.entries(savedStates)) {
-      if (isActive) {
-        await this.handleStreetViewModeChange(mode, false);
+    const activeModes = Object.entries(savedStates)
+      .filter(([, isActive]) => isActive)
+      .map(([mode]) => mode);
+
+    // New map controls use quick-action buttons; if nothing is persisted yet,
+    // fall back to whichever mode is currently active in the UI.
+    if (activeModes.length === 0) {
+      const activeBtn = document.querySelector(".quick-action-btn.active[data-street-mode]");
+      const fallbackMode = activeBtn?.dataset?.streetMode;
+      if (fallbackMode && ["undriven", "driven", "all"].includes(fallbackMode)) {
+        utils.setStorage(CONFIG.STORAGE_KEYS.streetViewMode, {
+          undriven: fallbackMode === "undriven",
+          driven: fallbackMode === "driven",
+          all: fallbackMode === "all",
+        });
+        await this.handleStreetViewModeChange(fallbackMode, false);
       }
+      return;
+    }
+
+    for (const mode of activeModes) {
+      await this.handleStreetViewModeChange(mode, false);
     }
   },
 };

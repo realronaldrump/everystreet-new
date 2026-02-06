@@ -78,6 +78,15 @@
   --page-padding: var(--space-4);
 }
 
+/* Server logs uses Bootstrap utility classes for small status text (e.g. loading/empty states).
+   The global typography rules cap `.text-muted` and `p` widths for long-form reading, but that
+   makes these states look unintentionally left-aligned. */
+.server-logs-page p,
+.server-logs-page .text-muted,
+.server-logs-page .text-secondary {
+  max-width: none;
+}
+
 @media (max-width: 768px) {
   .server-logs-page {
     --page-padding: var(--space-3);
@@ -721,12 +730,21 @@
   border-width: 0.2em;
 }
 
-.logs-container .text-center.py-5 {
+/* Ensure loading/empty/error states are centered and don't hug the left edge */
+.logs-container > .text-center.py-5 {
+  width: 100%;
+  max-width: none;
+  min-height: 220px;
   padding: var(--space-8) var(--space-4);
   color: var(--text-secondary);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
 }
 
-.logs-container .text-center.py-5 p {
+.logs-container > .text-center.py-5 p {
   font-size: var(--font-size-sm);
   margin-top: var(--space-3);
 }
@@ -736,21 +754,12 @@
   color: var(--text-tertiary);
 }
 
-.logs-container .text-center.py-5.text-muted {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 200px;
-  padding: var(--space-8);
-}
-
-.logs-container .text-center.py-5.text-muted i {
+.logs-container > .text-center.py-5.text-muted i {
   opacity: 0.6;
   margin-bottom: var(--space-4);
 }
 
-.logs-container .text-center.py-5.text-muted p {
+.logs-container > .text-center.py-5.text-muted p {
   font-size: var(--font-size-md);
   max-width: 300px;
   text-align: center;
@@ -785,16 +794,16 @@
 
 /* Mobile: adjust empty state */
 @media (max-width: 576px) {
-  .logs-container .text-center.py-5.text-muted {
-    min-height: 150px;
-    padding: var(--space-6);
+  .logs-container > .text-center.py-5 {
+    min-height: 160px;
+    padding: var(--space-6) var(--space-3);
   }
 
-  .logs-container .text-center.py-5.text-muted i {
+  .logs-container > .text-center.py-5.text-muted i {
     font-size: 2rem !important;
   }
 
-  .logs-container .text-center.py-5.text-muted p {
+  .logs-container > .text-center.py-5.text-muted p {
     font-size: var(--font-size-sm);
   }
 }

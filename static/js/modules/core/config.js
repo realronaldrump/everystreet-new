@@ -75,6 +75,9 @@ export const CONFIG = {
     coverageAreaById: (id) => `/api/coverage/areas/${id}`,
     coverageAreaStreets: (id, params = "") =>
       `/api/coverage/areas/${id}/streets${params ? `?${params}` : ""}`,
+    // Full-area street export endpoint (FeatureCollection). Supports `status=undriven|driven|undriveable`.
+    coverageAreaAllStreets: (id, params = "") =>
+      `/api/coverage/areas/${id}/streets/all${params ? `?${params}` : ""}`,
 
     // Search endpoints
     searchStreets: "/api/search/streets",

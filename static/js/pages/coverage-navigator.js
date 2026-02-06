@@ -2,6 +2,77 @@ import initCoverageNavigatorPage from "../modules/features/coverage-navigator/in
 import { onPageLoad } from "../modules/utils.js";
 
 /**
+ * Measure the mobile bottom nav (if present) so fixed UI on this page
+ * (panel toggle, legend, Mapbox attribution) doesn't get covered.
+ */
+function initBottomNavInsets({ signal } = {}) {
+  const root = document.querySelector(".coverage-navigator");
+  if (!root) return;
+
+  const bottomNav = document.getElementById("bottom-nav");
+  if (!bottomNav) {
+    root.style.setProperty("--bottom-nav-height", "0px");
+    root.style.setProperty("--bottom-nav-offset", "0px");
+    return;
+  }
+
+  let rafId = null;
+
+  const apply = () => {
+    rafId = null;
+
+    const styles = window.getComputedStyle(bottomNav);
+    const isDisplayed = styles.display !== "none";
+    const isHidden = bottomNav.classList.contains("hidden");
+
+    if (!isDisplayed || isHidden) {
+      root.style.setProperty("--bottom-nav-height", "0px");
+      root.style.setProperty("--bottom-nav-offset", "0px");
+      return;
+    }
+
+    const navHeight = Math.round(bottomNav.getBoundingClientRect().height);
+    const paddingTop = Number.parseFloat(styles.paddingTop) || 0;
+    const paddingBottom = Number.parseFloat(styles.paddingBottom) || 0;
+    const safeArea = Math.max(0, paddingBottom - paddingTop);
+    const offset = Math.max(0, navHeight - safeArea);
+
+    root.style.setProperty("--bottom-nav-height", `${navHeight}px`);
+    // Offset is nav height minus safe-area; CSS adds env(safe-area-inset-bottom) itself.
+    root.style.setProperty("--bottom-nav-offset", `${Math.round(offset)}px`);
+  };
+
+  const schedule = () => {
+    if (rafId != null) return;
+    rafId = requestAnimationFrame(apply);
+  };
+
+  // Initial measure.
+  schedule();
+
+  window.addEventListener("resize", schedule, { passive: true, signal });
+  if (window.visualViewport) {
+    // Address bar show/hide can change the viewport without a full window resize.
+    window.visualViewport.addEventListener("resize", schedule, { passive: true, signal });
+    window.visualViewport.addEventListener("scroll", schedule, { passive: true, signal });
+  }
+
+  // React to nav show/hide transitions or class toggles.
+  const observer = new MutationObserver(schedule);
+  observer.observe(bottomNav, { attributes: true, attributeFilter: ["class", "style"] });
+  signal?.addEventListener(
+    "abort",
+    () => {
+      observer.disconnect();
+      if (rafId != null) {
+        cancelAnimationFrame(rafId);
+      }
+    },
+    { once: true }
+  );
+}
+
+/**
  * Initialize collapsible sections in the control panel
  */
 function initCollapsibleSections() {
@@ -213,7 +284,9 @@ function enhanceAccessibility() {
 /**
  * Main initialization
  */
-function initPage({ cleanup } = {}) {
+function initPage({ signal, cleanup } = {}) {
+  initBottomNavInsets({ signal });
+
   // Initialize UI components
   initCollapsibleSections();
   initMobilePanelToggle();

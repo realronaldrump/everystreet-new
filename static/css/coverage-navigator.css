@@ -14,9 +14,21 @@
   /* Prefer dynamic viewport units where supported (mobile browser UI). */
   height: calc(100vh - var(--header-height));
   height: calc(100dvh - var(--header-height));
+  /* Set by JS based on the mobile bottom nav so fixed UI doesn't get covered. */
+  --bottom-nav-height: 0px;
+  --bottom-nav-offset: 0px;
   background: var(--surface-0);
   position: relative;
   overflow: hidden;
+}
+
+/* Phone-sized viewports typically show the fixed bottom nav. Provide a safe fallback
+   so the panel toggle isn't initially rendered under it before JS measures height. */
+@media (max-width: 768px) {
+  .coverage-navigator {
+    --bottom-nav-height: calc(72px + env(safe-area-inset-bottom, 0px));
+    --bottom-nav-offset: 72px;
+  }
 }
 
 /* Mobile-first: Stack layout by default */
@@ -43,10 +55,10 @@
   justify-content: center;
   gap: 0.5rem;
   position: fixed;
-  bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px));
+  bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px) + var(--bottom-nav-offset, 0px));
   left: 50%;
   transform: translateX(-50%);
-  z-index: 100;
+  z-index: calc(var(--z-fixed) + 1);
   background: var(--surface-1);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-full);
@@ -1610,13 +1622,13 @@
   .map-legend {
     left: var(--space-3);
     right: var(--space-3);
-    bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+    bottom: calc(80px + env(safe-area-inset-bottom, 0px) + var(--bottom-nav-offset, 0px));
   }
 
   /* Keep Mapbox controls/attribution above the fixed mobile toggle. */
   .coverage-navigator .mapboxgl-ctrl-bottom-left,
   .coverage-navigator .mapboxgl-ctrl-bottom-right {
-    bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+    bottom: calc(84px + env(safe-area-inset-bottom, 0px) + var(--bottom-nav-offset, 0px));
   }
 
   /* Make small action buttons reliably tappable. */

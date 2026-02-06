@@ -197,7 +197,7 @@ const dataManager = {
    * Uses a loading flag on state to prevent concurrent duplicate requests.
    * @private
    */
-  async _fetchStreets(layerKey, loadedFlag, query, label) {
+  async _fetchStreets(layerKey, loadedFlag, status, label) {
     const selectedLocationId = utils.getStorage(CONFIG.STORAGE_KEYS.selectedLocation);
 
     if (!selectedLocationId || !state.mapInitialized || state[loadedFlag]) {
@@ -210,8 +210,9 @@ const dataManager = {
     loadingManager.pulse(`Loading ${label}...`);
 
     try {
+      const params = status ? new URLSearchParams({ status }).toString() : "";
       const data = await utils.fetchWithRetry(
-        CONFIG.API.coverageAreaStreets(selectedLocationId, query),
+        CONFIG.API.coverageAreaAllStreets(selectedLocationId, params),
         {},
         CONFIG.API.retryAttempts,
         CONFIG.API.cacheTime,
@@ -238,11 +239,16 @@ const dataManager = {
   },
 
   async fetchUndrivenStreets() {
-    return this._fetchStreets("undrivenStreets", "undrivenStreetsLoaded", "undriven=true", "undriven streets");
+    return this._fetchStreets(
+      "undrivenStreets",
+      "undrivenStreetsLoaded",
+      "undriven",
+      "undriven streets"
+    );
   },
 
   async fetchDrivenStreets() {
-    return this._fetchStreets("drivenStreets", "drivenStreetsLoaded", "driven=true", "driven streets");
+    return this._fetchStreets("drivenStreets", "drivenStreetsLoaded", "driven", "driven streets");
   },
 
   async fetchAllStreets() {
