@@ -3,7 +3,7 @@ export function getPreloadTripIdFromUrl(href = window.location.href) {
     const url = new URL(href, window.location.origin);
 
     const path = url.pathname || "";
-    const tripPathMatch = path.match(/^\\/trips\\/([^/]+)$/);
+    const tripPathMatch = path.match(/^\/trips\/([^/]+)$/);
     if (tripPathMatch) {
       return tripPathMatch[1] || null;
     }
@@ -13,4 +13,3 @@ export function getPreloadTripIdFromUrl(href = window.location.href) {
     return null;
   }
 }
-
