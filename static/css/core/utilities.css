@@ -107,7 +107,7 @@
 }
 
 .slide-up {
-  animation: slideUp 0.4s ease forwards;
+  animation: slideInUp 0.4s ease forwards;
 }
 
 .slide-in-down {
@@ -189,35 +189,7 @@ body.light-mode .legend-indicator--undriven {
   }
 }
 
-/* High contrast mode support */
-@media (prefers-contrast: high) {
-  .card,
-  .side-panel,
-  .control-panel,
-  .modal-content {
-    border: 2px solid currentcolor; /* Use current text color for borders */
-  }
-
-  .btn {
-    border-width: 2px;
-    border-style: solid; /* Ensure border is solid */
-  }
-
-  .btn-primary,
-  .btn-secondary /* etc. */ {
-    border-color: currentcolor; /* Ensure contrast for filled buttons */
-  }
-
-  .btn-outline {
-    border-color: currentcolor;
-  }
-
-  .form-control,
-  .form-select {
-    border-width: 2px;
-    border-color: currentcolor;
-  }
-}
+/* High contrast mode support - merged into single block below */
 
 /* === Phase 2 Refined Utilities === */
 
@@ -239,7 +211,6 @@ body.light-mode .legend-indicator--undriven {
 .glass-panel {
   background: var(--glass-panel);
   backdrop-filter: blur(var(--blur-strong));
-  backdrop-filter: blur(var(--blur-strong));
   border: 1px solid var(--glass-border);
   box-shadow: var(--glass-shadow);
 }
@@ -247,13 +218,11 @@ body.light-mode .legend-indicator--undriven {
 .glass-subtle {
   background: var(--glass-1);
   backdrop-filter: blur(var(--blur-subtle));
-  backdrop-filter: blur(var(--blur-subtle));
   border: 1px solid var(--glass-border);
 }
 
 .glass-strong {
   background: var(--glass-3);
-  backdrop-filter: blur(var(--blur-modal));
   backdrop-filter: blur(var(--blur-modal));
   border: 1px solid var(--glass-border-medium);
   box-shadow: var(--shadow-glass-lg);
@@ -353,7 +322,7 @@ body.light-mode .legend-indicator--undriven {
   outline-offset: 2px;
 }
 
-/* High contrast mode enhancements */
+/* High contrast mode */
 @media (prefers-contrast: high) {
   :root {
     --glass-border: rgb(var(--border-rgb) / 40%);
@@ -363,34 +332,30 @@ body.light-mode .legend-indicator--undriven {
   }
 
   .card,
+  .side-panel,
+  .control-panel,
   .widget,
   .table-container,
   .modal-content,
   .notification {
-    border-width: 2px;
+    border: 2px solid currentcolor;
   }
 
   .btn {
     border-width: 2px;
+    border-style: solid;
   }
 
   .form-control,
   .form-select {
     border-width: 2px;
-    border-color: var(--border-color);
+    border-color: currentcolor;
   }
 
   .table th,
   .table td {
     border-bottom-width: 2px;
   }
-}
-
-/* Focus visible enhancements */
-:focus-visible {
-  outline: var(--focus-outline);
-  outline-offset: 2px;
-  box-shadow: var(--focus-ring);
 }
 
 /* Ensure sufficient touch targets */
