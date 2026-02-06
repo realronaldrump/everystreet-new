@@ -307,9 +307,25 @@ export async function initNavigation() {
     cache: true,
     animateHistoryBrowsing: true,
     linkToSelf: "scroll",
-    // Only skip popstates that *explicitly* declare a non-Swup source (e.g. filter UI).
-    // If there's no `source`, let Swup handle it so URL/content stay aligned.
-    skipPopStateHandling: (event) => Boolean(event.state?.source && event.state.source !== "swup"),
+    // Some UI interactions (filters, map state, etc.) push history entries that should not
+    // trigger a full Swup navigation. However, those same entries can be reached via
+    // back/forward *across routes*; in that case Swup must handle the popstate or the URL
+    // and rendered content will drift out of sync.
+    skipPopStateHandling: (event) => {
+      const source = event?.state?.source;
+      if (!source || source === "swup") {
+        return false;
+      }
+
+      const renderedRoute = document.body?.dataset?.route;
+      if (!renderedRoute) {
+        // Be conservative: if we can't verify the currently-rendered route, let Swup handle.
+        return false;
+      }
+
+      // Only skip non-swup popstates when the URL change stays on the currently-rendered route.
+      return window.location.pathname === renderedRoute;
+    },
     ignoreVisit: shouldIgnoreVisit,
     plugins: [
       new SwupHeadPlugin({
@@ -344,6 +360,14 @@ export async function initNavigation() {
   // a swup page transition.
   window.addEventListener("popstate", (event) => {
     if (event.state?.source === "es-store") {
+      const renderedRoute = document.body?.dataset?.route;
+      // Only apply URL params directly when the popstate stays on the same rendered route.
+      // Cross-route browsing should be handled by Swup, which will call applyUrlParams after
+      // the correct page content is loaded.
+      if (!renderedRoute || window.location.pathname !== renderedRoute) {
+        return;
+      }
+
       store.applyUrlParams(window.location.href, {
         emit: true,
         source: "popstate",
