@@ -243,6 +243,10 @@ min_confidence = 60
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+filterwarnings = [
+    # mongomock uses deprecated datetime.utcnow() - upstream issue, ignore it
+    "ignore:datetime.datetime.utcnow\\(\\) is deprecated:DeprecationWarning:mongomock",
+]
 addopts = "-ra --cov=core.api --cov=core.exceptions --cov=core.http.geocoding --cov=core.http.nominatim --cov=core.http.retry --cov=core.http.session --cov=core.http.valhalla --cov=core.math_utils --cov=db.aggregation --cov=db.models --cov=db.query --cov=core.date_utils --cov=exports.auth --cov=exports.models --cov=exports.serializers --cov=exports.services.export_service --cov=exports.services.export_writer --cov=api.routing --cov=setup.services.bouncie_credentials --cov=setup.services.bouncie_oauth --cov=tracking.api.webhooks --cov-report=term-missing --cov-report=lcov:coverage.lcov --cov-fail-under=80 -m 'not integration'"
 asyncio_mode = "auto"
 markers = [

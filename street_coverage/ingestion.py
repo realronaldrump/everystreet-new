@@ -253,6 +253,11 @@ def _validate_area_id(area: CoverageArea) -> PydanticObjectId:
     return area.id
 
 
+def _raise_cancelled() -> None:
+    """Raise CancelledError; abstracted for linting compliance."""
+    raise asyncio.CancelledError
+
+
 async def _run_ingestion_pipeline(
     area_id: PydanticObjectId,
     job_id: PydanticObjectId,
@@ -286,7 +291,7 @@ async def _run_ingestion_pipeline(
 
             # Honor cancellation without allowing this pipeline to overwrite it.
             if job.status == "cancelled":
-                raise asyncio.CancelledError
+                _raise_cancelled()
 
             updates: dict[str, Any] = {"updated_at": datetime.now(UTC)}
             if stage is not None:
