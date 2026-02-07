@@ -31,6 +31,11 @@ RUN set -eux; \
 
 WORKDIR /app
 
+
+# Pin setuptools to <72.0.0 to fix build issue with pyrobuf (dependency of pyrosm)
+RUN echo "setuptools<72.0.0" > pip-constraints.txt
+ENV PIP_CONSTRAINT=/app/pip-constraints.txt
+
 # Copy ONLY requirements first for layer caching
 COPY requirements.runtime.txt ./
 
