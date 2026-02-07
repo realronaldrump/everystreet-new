@@ -93,27 +93,81 @@ def build_calendar_date_expr(
     if not start_str and not end_str:
         return None
 
-    # Build timezone expression that handles edge cases and validates timezone format
-    # Attempts to match IANA-like timezone strings (Area/Location) or UTC/GMT
-    # If invalid, falls back to UTC to prevent $dateToString from crashing
+    # Build timezone expression that handles edge cases and validates timezone format.
+    #
+    # Trips store their timezone as `startTimeZone` / `endTimeZone` (and some older
+    # documents may have `timeZone`). Prefer the field that corresponds to the
+    # date_field we are filtering on.
+    #
+    # MongoDB accepts IANA timezone strings (e.g. "America/Los_Angeles") or
+    # UTC offsets (e.g. "-07:00"). Some upstream sources send offsets as "-0700";
+    # normalize those to "-07:00" to avoid $dateToString errors.
+    if date_field == "startTime":
+        tz_candidate_expr: dict[str, Any] | str = {
+            "$ifNull": ["$startTimeZone", "$timeZone"],
+        }
+    elif date_field == "endTime":
+        tz_candidate_expr = {"$ifNull": ["$endTimeZone", "$timeZone"]}
+    else:
+        tz_candidate_expr = "$timeZone"
+
     tz_expr: dict[str, Any] = {
-        "$switch": {
-            "branches": [
-                {
-                    "case": {"$in": ["$timeZone", ["", "0000", None]]},
-                    "then": "UTC",
-                },
-                {
-                    "case": {
-                        "$regexMatch": {
-                            "input": "$timeZone",
-                            "regex": r"^[a-zA-Z_]+/[a-zA-Z0-9_+\-]+$|^UTC$|^GMT$",
+        "$let": {
+            "vars": {"tz": tz_candidate_expr},
+            "in": {
+                "$switch": {
+                    "branches": [
+                        # Null/empty/unknown timezone values.
+                        {
+                            "case": {"$in": ["$$tz", ["", "0000", None]]},
+                            "then": "UTC",
                         },
-                    },
-                    "then": "$timeZone",
+                        # Explicit UTC/GMT.
+                        {
+                            "case": {"$in": ["$$tz", ["UTC", "GMT"]]},
+                            "then": "$$tz",
+                        },
+                        # Normalize "+HHMM"/"-HHMM" -> "+HH:MM"/"-HH:MM".
+                        {
+                            "case": {
+                                "$regexMatch": {
+                                    "input": "$$tz",
+                                    "regex": r"^[+-][0-9]{4}$",
+                                },
+                            },
+                            "then": {
+                                "$concat": [
+                                    {"$substrBytes": ["$$tz", 0, 3]},
+                                    ":",
+                                    {"$substrBytes": ["$$tz", 3, 2]},
+                                ],
+                            },
+                        },
+                        # "+HH:MM"/"-HH:MM" offset format.
+                        {
+                            "case": {
+                                "$regexMatch": {
+                                    "input": "$$tz",
+                                    "regex": r"^[+-][0-9]{2}:[0-9]{2}$",
+                                },
+                            },
+                            "then": "$$tz",
+                        },
+                        # IANA timezone strings, including multi-segment forms
+                        # like "America/Argentina/Buenos_Aires".
+                        {
+                            "case": {
+                                "$regexMatch": {
+                                    "input": "$$tz",
+                                    "regex": r"^[a-zA-Z_]+(?:/[a-zA-Z0-9_+\-]+)+$",
+                                },
+                            },
+                            "then": "$$tz",
+                        },
+                    ],
+                    "default": "UTC",
                 },
-            ],
-            "default": "UTC",
+            },
         },
     }
 

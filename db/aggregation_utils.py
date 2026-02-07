@@ -15,16 +15,67 @@ def get_mongo_tz_expr() -> dict[str, Any]:
     """
     Return the standard MongoDB timezone expression for aggregation pipelines.
 
-    This expression handles the timeZone field on trip documents, falling back
-    to UTC when the field is missing, empty, or set to "0000".
+    Trips store their timezone as `startTimeZone` / `endTimeZone` (and some older
+    documents may have `timeZone`). This helper prefers `startTimeZone` because
+    most analytics bucket by the trip's start time.
+
+    The value may be an IANA name (e.g. "America/New_York") or a UTC offset
+    (e.g. "-07:00"). Some upstream sources send offsets as "-0700"; normalize
+    those to "-07:00" so MongoDB date operators do not error.
 
     Returns:
         MongoDB $switch expression for use in $dateToString, $hour, $dayOfWeek, etc.
     """
+    tz_candidate_expr: dict[str, Any] = {"$ifNull": ["$startTimeZone", "$timeZone"]}
+
     return {
-        "$switch": {
-            "branches": [{"case": {"$in": ["$timeZone", ["", "0000"]]}, "then": "UTC"}],
-            "default": {"$ifNull": ["$timeZone", "UTC"]},
+        "$let": {
+            "vars": {"tz": tz_candidate_expr},
+            "in": {
+                "$switch": {
+                    "branches": [
+                        {
+                            "case": {"$in": ["$$tz", ["", "0000", None]]},
+                            "then": "UTC",
+                        },
+                        {"case": {"$in": ["$$tz", ["UTC", "GMT"]]}, "then": "$$tz"},
+                        {
+                            "case": {
+                                "$regexMatch": {
+                                    "input": "$$tz",
+                                    "regex": r"^[+-][0-9]{4}$",
+                                },
+                            },
+                            "then": {
+                                "$concat": [
+                                    {"$substrBytes": ["$$tz", 0, 3]},
+                                    ":",
+                                    {"$substrBytes": ["$$tz", 3, 2]},
+                                ],
+                            },
+                        },
+                        {
+                            "case": {
+                                "$regexMatch": {
+                                    "input": "$$tz",
+                                    "regex": r"^[+-][0-9]{2}:[0-9]{2}$",
+                                },
+                            },
+                            "then": "$$tz",
+                        },
+                        {
+                            "case": {
+                                "$regexMatch": {
+                                    "input": "$$tz",
+                                    "regex": r"^[a-zA-Z_]+(?:/[a-zA-Z0-9_+\-]+)+$",
+                                },
+                            },
+                            "then": "$$tz",
+                        },
+                    ],
+                    "default": "UTC",
+                },
+            },
         },
     }
 

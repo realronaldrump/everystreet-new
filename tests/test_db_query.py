@@ -1,5 +1,6 @@
 from datetime import UTC, datetime
 
+import json
 import pytest
 from starlette.requests import Request
 
@@ -41,6 +42,31 @@ def test_build_calendar_date_expr_includes_bounds() -> None:
     assert expr is not None
     assert "$and" in expr
     assert len(expr["$and"]) == 2
+
+
+def test_build_calendar_date_expr_prefers_trip_timezone_fields() -> None:
+    expr = build_calendar_date_expr("2024-01-01", "2024-01-01")
+    assert expr is not None
+    encoded = json.dumps(expr, sort_keys=True)
+
+    # Modern trip documents use `startTimeZone`; keep supporting legacy `timeZone`.
+    assert "$startTimeZone" in encoded
+    assert "$timeZone" in encoded
+
+    # Offset normalization is required for sources that send "-0700" style offsets.
+    assert "^[+-][0-9]{4}$" in encoded
+    assert "$substrBytes" in encoded
+
+
+def test_build_calendar_date_expr_uses_end_timezone_for_end_time_field() -> None:
+    expr = build_calendar_date_expr(
+        "2024-01-01",
+        "2024-01-01",
+        date_field="endTime",
+    )
+    assert expr is not None
+    encoded = json.dumps(expr, sort_keys=True)
+    assert "$endTimeZone" in encoded
 
 
 @pytest.mark.asyncio
