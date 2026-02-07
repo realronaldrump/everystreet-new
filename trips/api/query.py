@@ -3,7 +3,7 @@
 import json
 import logging
 
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import APIRouter, HTTPException, Query, Request, status
 from fastapi.responses import StreamingResponse
 
 from core.api import api_route
@@ -13,6 +13,7 @@ from core.spatial import GeometryService
 from db import build_query_from_request
 from db.models import Trip
 from trips.services import TripCostService, TripQueryService
+from trips.services.trip_ingest_issue_service import TripIngestIssueService
 
 
 def _safe_int(value, default: int = 0):
@@ -331,3 +332,42 @@ async def get_trips_datatable(request: Request):
 async def get_invalid_trips():
     """Get all invalid trips for review."""
     return await TripQueryService.get_invalid_trips()
+
+
+@router.get("/api/trips/ingest-issues", tags=["Trips API"])
+@api_route(logger)
+async def list_trip_ingest_issues(
+    page: int = Query(1, ge=1),
+    limit: int = Query(50, ge=1, le=200),
+    issue_type: str | None = Query(None),
+    include_resolved: bool = Query(False),
+    search: str | None = Query(None),
+):
+    """List recent trip fetch/processing issues for review in Settings."""
+    return await TripIngestIssueService.list_issues(
+        page=page,
+        limit=limit,
+        issue_type=issue_type,
+        include_resolved=include_resolved,
+        search=search,
+    )
+
+
+@router.post("/api/trips/ingest-issues/{issue_id}/resolve", tags=["Trips API"])
+@api_route(logger)
+async def resolve_trip_ingest_issue(issue_id: str):
+    """Mark a trip ingest issue as resolved/dismissed."""
+    ok = await TripIngestIssueService.resolve_issue(issue_id)
+    if not ok:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Issue not found")
+    return {"status": "success"}
+
+
+@router.delete("/api/trips/ingest-issues/{issue_id}", tags=["Trips API"])
+@api_route(logger)
+async def delete_trip_ingest_issue(issue_id: str):
+    """Delete an ingest issue entry."""
+    ok = await TripIngestIssueService.delete_issue(issue_id)
+    if not ok:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Issue not found")
+    return {"status": "success"}

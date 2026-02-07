@@ -84,9 +84,18 @@ function init() {
     swupReady
       .then((swup) => {
         swup.hooks.on("page:view", () => moveModalsToContainer());
-        swup.hooks.on("visit:start", (visit) =>
-          cleanupModalsForRoute(visit?.from?.url?.pathname)
-        );
+        swup.hooks.on("visit:start", (visit) => {
+          const fromUrl = visit?.from?.url;
+          let fromPath = null;
+          if (typeof fromUrl === "string" && fromUrl) {
+            try {
+              fromPath = new URL(fromUrl, window.location.origin).pathname;
+            } catch {
+              fromPath = null;
+            }
+          }
+          cleanupModalsForRoute(fromPath);
+        });
       })
       .catch(() => {});
 

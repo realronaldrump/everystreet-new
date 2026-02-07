@@ -25,6 +25,7 @@ import {
   setupRemapMatchedTrips,
 } from "./geocode-remap.js";
 import { InvalidTripReview } from "./invalid-trip-review.js";
+import { TripIngestIssues } from "./trip-ingest-issues.js";
 import mapServices from "./map-services.js";
 import { initMobileUI } from "./mobile-ui.js";
 import { gatherTaskConfigFromUI, submitTaskConfigUpdate } from "./task-manager/api.js";
@@ -549,6 +550,8 @@ export default function initSettingsPage({ cleanup, signal } = {}) {
 
   // Initialize InvalidTripReview
   new InvalidTripReview();
+  // Initialize TripIngestIssues
+  new TripIngestIssues();
 
   // Initialize Map Services tab
   mapServices.initMapServicesTab();

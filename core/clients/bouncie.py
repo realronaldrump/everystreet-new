@@ -64,17 +64,21 @@ class BouncieClient:
             async with session.get(url, headers=headers, params=params) as response:
                 response.raise_for_status()
                 trips = await response.json()
-
-                for trip in trips:
-                    if "startTime" in trip:
-                        trip["startTime"] = parse_timestamp(trip["startTime"])
-                    if "endTime" in trip:
-                        trip["endTime"] = parse_timestamp(trip["endTime"])
-
-                return trips
         except Exception:
             logger.exception("Error fetching trips for device %s", imei)
-            return []
+            raise
+
+        if not isinstance(trips, list):
+            msg = f"Unexpected /trips response type: {type(trips).__name__}"
+            raise TypeError(msg)
+
+        for trip in trips:
+            if isinstance(trip, dict) and "startTime" in trip:
+                trip["startTime"] = parse_timestamp(trip["startTime"])
+            if isinstance(trip, dict) and "endTime" in trip:
+                trip["endTime"] = parse_timestamp(trip["endTime"])
+
+        return trips
 
     @retry_async(max_retries=3, retry_delay=1.5)
     async def fetch_trip_by_transaction_id(
@@ -97,17 +101,21 @@ class BouncieClient:
             async with session.get(url, headers=headers, params=params) as response:
                 response.raise_for_status()
                 trips = await response.json()
-
-                for trip in trips:
-                    if "startTime" in trip:
-                        trip["startTime"] = parse_timestamp(trip["startTime"])
-                    if "endTime" in trip:
-                        trip["endTime"] = parse_timestamp(trip["endTime"])
-
-                return trips
         except Exception:
             logger.exception("Error fetching trip for transactionId %s", transaction_id)
-            return []
+            raise
+
+        if not isinstance(trips, list):
+            msg = f"Unexpected /trips response type: {type(trips).__name__}"
+            raise TypeError(msg)
+
+        for trip in trips:
+            if isinstance(trip, dict) and "startTime" in trip:
+                trip["startTime"] = parse_timestamp(trip["startTime"])
+            if isinstance(trip, dict) and "endTime" in trip:
+                trip["endTime"] = parse_timestamp(trip["endTime"])
+
+        return trips
 
 
 __all__ = ["BouncieClient"]

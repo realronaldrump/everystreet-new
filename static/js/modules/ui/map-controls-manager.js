@@ -183,7 +183,17 @@ const mapControlsManager = {
 swupReady
   .then((swup) => {
     swup.hooks.on("page:view", (visit) => {
-      if (visit?.to?.url?.pathname !== "/map") {
+      const toUrl = visit?.to?.url;
+      let pathname = null;
+      if (typeof toUrl === "string" && toUrl) {
+        try {
+          pathname = new URL(toUrl, window.location.origin).pathname;
+        } catch {
+          pathname = null;
+        }
+      }
+
+      if ((pathname || window.location.pathname) !== "/map") {
         return;
       }
       // Wait for map to be ready before initializing controls.

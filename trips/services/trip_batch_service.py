@@ -16,6 +16,7 @@ from core.date_utils import get_current_utc_time
 from db.models import Trip
 from trips.models import TripStatusProjection
 from trips.pipeline import TripPipeline
+from trips.services.trip_ingest_issue_service import TripIngestIssueService
 
 logger = logging.getLogger(__name__)
 
@@ -260,6 +261,18 @@ class TripService:
                             "Skipping trip %s because 'endTime' is missing",
                             transaction_id,
                         )
+                        await TripIngestIssueService.record_issue(
+                            issue_type="validation_failed",
+                            message="Missing endTime",
+                            source="bouncie",
+                            transaction_id=str(transaction_id),
+                            imei=str(trip.get("imei") or "") or None,
+                            details={
+                                "transactionId": transaction_id,
+                                "imei": trip.get("imei"),
+                                "reason": "Missing endTime",
+                            },
+                        )
                         continue
                     trips_to_handle.append(trip)
 
@@ -303,28 +316,68 @@ class TripService:
                 )
 
                 if needs_processing:
-                    try:
-                        options = ProcessingOptions(
-                            validate=True,
-                            geocode=geocode_enabled,
-                            map_match=do_map_match,
+                    validation = await self._pipeline.validate_raw_trip_with_basic(trip)
+                    if not validation.get("success"):
+                        reason = (
+                            (validation.get("processing_status") or {})
+                            .get("errors", {})
+                            .get("validation")
                         )
-
-                        result = await self.process_single_trip(
-                            trip,
-                            options,
+                        await TripIngestIssueService.record_issue(
+                            issue_type="validation_failed",
+                            message=str(reason),
                             source="bouncie",
+                            transaction_id=str(transaction_id),
+                            imei=str(trip.get("imei") or "") or None,
+                            details={
+                                "transactionId": transaction_id,
+                                "imei": trip.get("imei"),
+                                "reason": reason,
+                            },
+                        )
+                        continue
+
+                    try:
+                        saved = await self._pipeline.process_raw_trip(
+                            trip,
+                            source="bouncie",
+                            do_map_match=do_map_match,
+                            do_geocode=bool(geocode_enabled),
                             do_coverage=True,
                         )
-                    except Exception:
+                    except Exception as exc:
                         logger.exception(
                             "Failed to process Bouncie trip %s",
                             transaction_id,
                         )
+                        await TripIngestIssueService.record_issue(
+                            issue_type="process_error",
+                            message=str(exc),
+                            source="bouncie",
+                            transaction_id=str(transaction_id),
+                            imei=str(trip.get("imei") or "") or None,
+                            details={
+                                "transactionId": transaction_id,
+                                "imei": trip.get("imei"),
+                                "error": str(exc),
+                            },
+                        )
                     else:
-                        if result.get("saved_id"):
+                        if saved and getattr(saved, "id", None):
                             processed_trip_ids.append(transaction_id)
                             processed_count += 1
+                        else:
+                            await TripIngestIssueService.record_issue(
+                                issue_type="process_error",
+                                message="Trip processing returned no saved record",
+                                source="bouncie",
+                                transaction_id=str(transaction_id),
+                                imei=str(trip.get("imei") or "") or None,
+                                details={
+                                    "transactionId": transaction_id,
+                                    "imei": trip.get("imei"),
+                                },
+                            )
                 else:
                     if not existing_trip:
                         continue

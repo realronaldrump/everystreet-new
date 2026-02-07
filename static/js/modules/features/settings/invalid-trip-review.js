@@ -53,27 +53,62 @@ export class InvalidTripReview {
       return;
     }
 
+    const escapeHtml = (value) => {
+      const str = String(value ?? "");
+      return str
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    };
+
+    const formatDate = (value) => {
+      if (!value) {
+        return "N/A";
+      }
+      const dt = new Date(value);
+      if (Number.isNaN(dt.getTime())) {
+        return String(value);
+      }
+      return dt.toLocaleString();
+    };
+
     this.tableBody.innerHTML = pageTrips
-      .map(
-        (trip) => `
-      <tr data-trip-id="${trip.id}">
-        <td>${trip.id}</td>
-        <td>${trip.transaction_id || "N/A"}</td>
-        <td>${new Date(trip.start_time).toLocaleString()}</td>
-        <td>${trip.invalidation_reason || "Unknown"}</td>
+      .map((trip) => {
+        const transactionId = trip.transaction_id || "";
+        const source = trip.source || "N/A";
+        const when = trip.start_time || trip.end_time || trip.validated_at || null;
+        const reason = trip.invalidation_reason || "Unknown";
+
+        const disableActions = !transactionId;
+        const disabledAttr = disableActions ? "disabled" : "";
+
+        return `
+      <tr data-trip-id="${escapeHtml(transactionId)}">
+        <td><span class="trip-issues-mono">${escapeHtml(transactionId || "N/A")}</span></td>
+        <td>${escapeHtml(source)}</td>
+        <td class="col-hide-mobile">${escapeHtml(formatDate(when))}</td>
+        <td>${escapeHtml(reason)}</td>
         <td>
           <div class="btn-group btn-group-sm">
-            <button class="btn btn-success restore-trip-btn" data-trip-id="${trip.id}" title="Restore trip">
+            <button class="btn btn-outline-success restore-trip-btn"
+                    data-trip-id="${escapeHtml(transactionId)}"
+                    title="Restore trip"
+                    ${disabledAttr}>
               <i class="fas fa-undo"></i>
             </button>
-            <button class="btn btn-danger delete-trip-btn" data-trip-id="${trip.id}" title="Delete permanently">
+            <button class="btn btn-outline-danger delete-trip-btn"
+                    data-trip-id="${escapeHtml(transactionId)}"
+                    title="Delete permanently"
+                    ${disabledAttr}>
               <i class="fas fa-trash"></i>
             </button>
           </div>
         </td>
       </tr>
-    `
-      )
+    `;
+      })
       .join("");
   }
 
@@ -96,7 +131,7 @@ export class InvalidTripReview {
 
   async restoreTrip(tripId) {
     try {
-      const response = await apiClient.raw(`/api/trips/invalid/${tripId}/restore`, {
+      const response = await apiClient.raw(`/api/trips/${tripId}/restore`, {
         method: "POST",
       });
 
@@ -125,7 +160,7 @@ export class InvalidTripReview {
     }
 
     try {
-      const response = await apiClient.raw(`/api/trips/invalid/${tripId}`, {
+      const response = await apiClient.raw(`/api/trips/${tripId}/permanent`, {
         method: "DELETE",
       });
 

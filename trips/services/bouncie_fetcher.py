@@ -14,6 +14,7 @@ from core.clients.bouncie import BouncieClient
 from core.http.session import get_session
 from setup.services.bouncie_oauth import BouncieOAuth
 from trips.services.trip_batch_service import TripService
+from trips.services.trip_ingest_issue_service import TripIngestIssueService
 
 logger = logging.getLogger(__name__)
 
@@ -96,11 +97,21 @@ async def fetch_bouncie_trip_by_transaction_id(
             return []
 
         trip_service = TripService()
-        raw_trips = await fetch_trip_by_transaction_id(
-            session,
-            token,
-            transaction_id,
-        )
+        try:
+            raw_trips = await fetch_trip_by_transaction_id(
+                session,
+                token,
+                transaction_id,
+            )
+        except Exception as exc:
+            await TripIngestIssueService.record_issue(
+                issue_type="fetch_error",
+                message=str(exc),
+                source="bouncie",
+                transaction_id=str(transaction_id),
+                details={"transactionId": transaction_id, "error": str(exc)},
+            )
+            return []
         if not raw_trips:
             return []
 
@@ -193,13 +204,34 @@ async def fetch_bouncie_trips_in_range(
         async def process_chunk(imei: str, s: datetime, e: datetime) -> list[dict]:
             async with semaphore:
                 try:
-                    raw_trips_chunk = await fetch_trips_for_device(
-                        session,
-                        token,
-                        imei,
-                        s,
-                        e,
-                    )
+                    try:
+                        raw_trips_chunk = await fetch_trips_for_device(
+                            session,
+                            token,
+                            imei,
+                            s,
+                            e,
+                        )
+                    except Exception as exc:
+                        logger.exception(
+                            "Fetch failed for device %s (%s to %s)",
+                            imei,
+                            s.isoformat(),
+                            e.isoformat(),
+                        )
+                        await TripIngestIssueService.record_issue(
+                            issue_type="fetch_error",
+                            message=str(exc),
+                            source="bouncie",
+                            imei=str(imei),
+                            details={
+                                "imei": imei,
+                                "window_start": s.isoformat(),
+                                "window_end": e.isoformat(),
+                                "error": str(exc),
+                            },
+                        )
+                        return []
                     if raw_trips_chunk:
                         logger.info(
                             "Processing %s fetched trips for device %s (do_map_match=%s)...",
@@ -207,13 +239,32 @@ async def fetch_bouncie_trips_in_range(
                             imei,
                             do_map_match,
                         )
-                        processed_transaction_ids = (
-                            await trip_service.process_bouncie_trips(
+                        try:
+                            processed_transaction_ids = await trip_service.process_bouncie_trips(
                                 raw_trips_chunk,
                                 do_map_match=do_map_match,
                                 progress_tracker=progress_tracker,
                             )
-                        )
+                        except Exception as exc:
+                            logger.exception(
+                                "Trip processing failed for device %s (%s to %s)",
+                                imei,
+                                s.isoformat(),
+                                e.isoformat(),
+                            )
+                            await TripIngestIssueService.record_issue(
+                                issue_type="process_error",
+                                message=str(exc),
+                                source="bouncie",
+                                imei=str(imei),
+                                details={
+                                    "imei": imei,
+                                    "window_start": s.isoformat(),
+                                    "window_end": e.isoformat(),
+                                    "error": str(exc),
+                                },
+                            )
+                            return []
                         return [
                             {"transactionId": t.get("transactionId"), "imei": imei}
                             for t in raw_trips_chunk

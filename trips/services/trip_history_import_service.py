@@ -28,6 +28,7 @@ from db.models import Job, Trip, Vehicle
 from setup.services.bouncie_oauth import BouncieOAuth
 from trips.models import TripStatusProjection
 from trips.pipeline import TripPipeline
+from trips.services.trip_ingest_issue_service import TripIngestIssueService
 
 logger = logging.getLogger(__name__)
 
@@ -447,6 +448,18 @@ async def run_import(
                         {"error": str(exc), "imei": imei, "window_index": window_index},
                     )
                     record_failure_reason(str(exc))
+                    await TripIngestIssueService.record_issue(
+                        issue_type="fetch_error",
+                        message=str(exc),
+                        source="bouncie",
+                        imei=imei,
+                        details={
+                            "imei": imei,
+                            "window_index": window_index,
+                            "window_start": window_start.isoformat(),
+                            "window_end": window_end.isoformat(),
+                        },
+                    )
                     return []
 
                 async with lock:
@@ -659,6 +672,19 @@ async def run_import(
                         },
                     )
                     record_failure_reason(str(reason))
+                    await TripIngestIssueService.record_issue(
+                        issue_type="validation_failed",
+                        message=str(reason),
+                        source="bouncie",
+                        transaction_id=str(tx) if tx else None,
+                        imei=imei if isinstance(imei, str) else None,
+                        details={
+                            "transactionId": tx,
+                            "imei": imei,
+                            "window_index": idx,
+                            "reason": reason,
+                        },
+                    )
                     processed_count += 1
                     if processed_count % 5 == 0 or processed_count == len(new_trips):
                         within = processed_count / max(1, len(new_trips))
@@ -698,6 +724,19 @@ async def run_import(
                         {"error": str(exc), "transactionId": tx, "imei": imei, "window_index": idx},
                     )
                     record_failure_reason(str(exc))
+                    await TripIngestIssueService.record_issue(
+                        issue_type="process_error",
+                        message=str(exc),
+                        source="bouncie",
+                        transaction_id=str(tx) if tx else None,
+                        imei=imei if isinstance(imei, str) else None,
+                        details={
+                            "transactionId": tx,
+                            "imei": imei,
+                            "window_index": idx,
+                            "error": str(exc),
+                        },
+                    )
                 else:
                     if inserted:
                         counters["inserted"] += 1

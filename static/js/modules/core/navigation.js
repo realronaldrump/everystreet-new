@@ -12,6 +12,56 @@ export function getSwup() {
   return swup;
 }
 
+function pathnameFromSwupUrl(urlish) {
+  if (!urlish) {
+    return null;
+  }
+  // Swup v4 uses strings for visit.to.url / visit.from.url (pathname + search).
+  if (typeof urlish === "string") {
+    try {
+      return new URL(urlish, window.location.origin).pathname || null;
+    } catch {
+      const trimmed = urlish.trim();
+      if (!trimmed) {
+        return null;
+      }
+      return trimmed.split("#")[0].split("?")[0] || null;
+    }
+  }
+  // Backward/defensive: tolerate URL-like objects.
+  if (typeof urlish === "object") {
+    if (typeof urlish.pathname === "string" && urlish.pathname) {
+      return urlish.pathname;
+    }
+    if (typeof urlish.href === "string" && urlish.href) {
+      try {
+        return new URL(urlish.href, window.location.origin).pathname || null;
+      } catch {
+        return null;
+      }
+    }
+  }
+  return null;
+}
+
+function urlFromSwupUrl(urlish) {
+  if (!urlish) {
+    return null;
+  }
+  if (typeof urlish === "string") {
+    return urlish;
+  }
+  if (typeof urlish === "object") {
+    if (typeof urlish.href === "string" && urlish.href) {
+      return urlish.href;
+    }
+    if (typeof urlish.pathname === "string" && urlish.pathname) {
+      return urlish.pathname;
+    }
+  }
+  return null;
+}
+
 function createSwupFallback() {
   const hooks = {
     on() {},
@@ -484,23 +534,25 @@ export async function initNavigation() {
   });
 
   swup.hooks.on("visit:start", (visit) => {
-    ensureRouteModule(visit?.to?.url?.pathname);
+    const toPath = pathnameFromSwupUrl(visit?.to?.url);
+    ensureRouteModule(toPath || window.location.pathname);
   });
 
   swup.hooks.on("content:replace", (visit) => {
     updatePersistentShell(visit);
-    setRouteState(visit?.to?.url?.pathname);
+    const toPath = pathnameFromSwupUrl(visit?.to?.url);
+    setRouteState(toPath || window.location.pathname);
   });
 
   swup.hooks.on("page:view", (visit) => {
     applyThemeFromStorage();
 
-    const href = visit?.to?.url?.href || window.location.href;
+    const href = urlFromSwupUrl(visit?.to?.url) || window.location.href;
     const source = visit?.history?.popstate ? "popstate" : "navigate";
     store.applyUrlParams(href, { emit: true, source });
     store.clearElementCache();
 
-    updateHistoryAndBreadcrumb(visit?.to?.url?.pathname || window.location.pathname);
+    updateHistoryAndBreadcrumb(window.location.pathname);
   });
 
   // Initial route module and state.

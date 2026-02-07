@@ -52,6 +52,7 @@ from db.models import (
     Street,
     TaskConfig,
     TaskHistory,
+    TripIngestIssue,
     Trip,
     Vehicle,
 )
@@ -90,6 +91,7 @@ __all__ = [
     "TaskConfig",
     "TaskHistory",
     # Beanie Models
+    "TripIngestIssue",
     "Trip",
     "Vehicle",
     "build_calendar_date_expr",

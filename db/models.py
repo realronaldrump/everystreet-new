@@ -227,6 +227,63 @@ class Trip(Document):
     model_config = ConfigDict(extra="allow")
 
 
+class TripIngestIssue(Document):
+    """
+    Persistent record of trip fetch/validation/processing issues.
+
+    This is a user-facing diagnostics log shown in Settings -> Data.
+    It is intentionally lightweight (counts + latest details) and time-bounded.
+    """
+
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    last_seen_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+    # "fetch_error" | "validation_failed" | "process_error" | ...
+    issue_type: Indexed(str)  # noqa: A003 - aligns with persisted schema naming
+    source: str | None = None
+
+    transactionId: str | None = None
+    imei: str | None = None
+
+    message: str | None = None
+    details: dict[str, Any] | None = None
+
+    occurrences: int = 1
+    resolved: bool = False
+    resolved_at: datetime | None = None
+
+    # Deterministic identifier used for dedupe/upsert semantics.
+    fingerprint: Indexed(str, unique=True) | None = None
+
+    class Settings:
+        name = "trip_ingest_issues"
+        indexes: ClassVar[list[IndexModel]] = [
+            IndexModel(
+                [("last_seen_at", 1)],
+                name="trip_ingest_issues_ttl_idx",
+                expireAfterSeconds=30 * 24 * 60 * 60,
+            ),
+            IndexModel(
+                [("resolved", 1), ("issue_type", 1), ("last_seen_at", -1)],
+                name="trip_ingest_issues_status_type_seen_idx",
+            ),
+            IndexModel(
+                [("transactionId", 1)],
+                name="trip_ingest_issues_tx_idx",
+            ),
+            IndexModel(
+                [("imei", 1)],
+                name="trip_ingest_issues_imei_idx",
+            ),
+            IndexModel(
+                [("source", 1), ("last_seen_at", -1)],
+                name="trip_ingest_issues_source_seen_idx",
+            ),
+        ]
+
+    model_config = ConfigDict(extra="allow")
+
+
 class OsmData(Document):
     """OSM data cache document."""
 
@@ -756,6 +813,7 @@ class CountyTopology(Document):
 # List of all document models for Beanie initialization
 ALL_DOCUMENT_MODELS = [
     Trip,
+    TripIngestIssue,
     OsmData,
     Place,
     TaskConfig,

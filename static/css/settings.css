@@ -2122,6 +2122,189 @@
   gap: var(--space-2);
 }
 
+/* Trip data health (Settings -> Data) */
+.trip-data-health-nav {
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.trip-data-health-nav .nav-link {
+  border-radius: 999px;
+  padding: 0.35rem 0.75rem;
+  font-size: var(--font-size-sm);
+}
+
+.trip-issues-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+@media (width >= 768px) {
+  .trip-issues-toolbar {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+.trip-issues-chips {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.trip-issues-chip {
+  border: 1px solid var(--border-color);
+  background: var(--surface-1);
+  color: var(--text-secondary);
+  border-radius: 999px;
+  padding: 0.25rem 0.5rem;
+  font-size: var(--font-size-xs);
+  display: inline-flex;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.trip-issues-chip:hover {
+  background: var(--surface-2);
+}
+
+.trip-issues-chip.is-active {
+  background: rgb(var(--primary-rgb) / 10%);
+  border-color: rgb(var(--primary-rgb) / 35%);
+  color: rgb(var(--primary-rgb));
+}
+
+.trip-issues-chip-count {
+  font-variant-numeric: tabular-nums;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+  color: var(--text-tertiary);
+  border-left: 1px solid var(--border-color);
+  padding-left: 0.4rem;
+}
+
+.trip-issues-controls {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.trip-issues-controls #trip-ingest-issues-search {
+  min-width: min(24rem, 100%);
+}
+
+.trip-issues-switch {
+  margin: 0;
+}
+
+.trip-issues-table th,
+.trip-issues-table td {
+  vertical-align: top;
+}
+
+.trip-issue-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid var(--border-color);
+  background: var(--surface-1);
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.trip-issue-badge--fetch {
+  border-color: rgb(var(--warning-rgb) / 35%);
+  background: rgb(var(--warning-rgb) / 12%);
+  color: var(--warning);
+}
+
+.trip-issue-badge--validation {
+  border-color: rgb(var(--danger-rgb) / 25%);
+  background: rgb(var(--danger-rgb) / 10%);
+  color: var(--danger);
+}
+
+.trip-issue-badge--process {
+  border-color: rgb(var(--primary-rgb) / 30%);
+  background: rgb(var(--primary-rgb) / 10%);
+  color: rgb(var(--primary-rgb));
+}
+
+.trip-issue-mono,
+.trip-issues-mono {
+  font-variant-numeric: tabular-nums;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+}
+
+.trip-issue-link {
+  text-decoration: none;
+}
+
+.trip-issue-link:hover {
+  text-decoration: underline;
+}
+
+.trip-issue-time {
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
+.trip-issue-count {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+}
+
+.trip-issue-message {
+  color: var(--text-secondary);
+  line-height: 1.25;
+}
+
+.trip-issue-details {
+  margin-top: var(--space-1);
+  color: var(--text-tertiary);
+}
+
+.trip-issue-details summary {
+  cursor: pointer;
+  user-select: none;
+  font-size: var(--font-size-xs);
+}
+
+.trip-issue-details pre {
+  margin: var(--space-2) 0 0;
+  padding: var(--space-2);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  background: var(--surface-2);
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+}
+
+.trip-issues-actions {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+@media (width < 768px) {
+  .trip-issues-actions .btn {
+    min-height: 44px;
+  }
+}
+
 @media (width >= 768px) {
   .trip-import-summary-grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));

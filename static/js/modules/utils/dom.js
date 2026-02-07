@@ -80,6 +80,36 @@ function routeMatches(route, pathname) {
   return false;
 }
 
+function pathnameFromSwupUrl(urlish) {
+  if (!urlish) {
+    return null;
+  }
+  if (typeof urlish === "string") {
+    try {
+      return new URL(urlish, window.location.origin).pathname || null;
+    } catch {
+      const trimmed = urlish.trim();
+      if (!trimmed) {
+        return null;
+      }
+      return trimmed.split("#")[0].split("?")[0] || null;
+    }
+  }
+  if (typeof urlish === "object") {
+    if (typeof urlish.pathname === "string" && urlish.pathname) {
+      return urlish.pathname;
+    }
+    if (typeof urlish.href === "string" && urlish.href) {
+      try {
+        return new URL(urlish.href, window.location.origin).pathname || null;
+      } catch {
+        return null;
+      }
+    }
+  }
+  return null;
+}
+
 export function onPageLoad(callback, options = {}) {
   let cleanup = null;
   let controller = null;
@@ -123,7 +153,7 @@ export function onPageLoad(callback, options = {}) {
   };
 
   const handleUnload = (visit) => {
-    const fromPath = visit?.from?.url?.pathname || activeRoute;
+    const fromPath = pathnameFromSwupUrl(visit?.from?.url) || activeRoute;
     if (!routeMatches(options.route, fromPath)) {
       return;
     }
