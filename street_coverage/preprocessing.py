@@ -462,19 +462,69 @@ def _normalize_pyrosm_gdfs(nodes_gdf: Any, edges_gdf: Any) -> tuple[Any, Any]:
         nodes["x"] = nodes["lon"]
         nodes["y"] = nodes["lat"]
 
-    if nodes.index.name not in {"osmid", "id"} or not nodes.index.is_unique:
-        if "id" in nodes.columns:
-            nodes = nodes.set_index("id")
-        elif "osmid" in nodes.columns:
-            nodes = nodes.set_index("osmid")
+    # OSMnx expects the nodes GeoDataFrame to be uniquely indexed by osmid.
+    if nodes.index.name != "osmid" or not nodes.index.is_unique:
+        if "osmid" in nodes.columns:
+            nodes = nodes.set_index("osmid", drop=False)
+        elif "id" in nodes.columns:
+            # Pyrosm uses `id` for node ids. Keep values but normalize index name.
+            nodes = nodes.set_index("id", drop=False)
+            nodes.index.rename("osmid", inplace=True)
+        elif nodes.index.name == "id" and nodes.index.is_unique:
+            # Some pyrosm versions return nodes already indexed by `id` without a column.
+            nodes.index.rename("osmid", inplace=True)
 
-    if not isinstance(edges.index, pd.MultiIndex) or edges.index.names[:2] != [
-        "u",
-        "v",
-    ]:
+    if not nodes.index.is_unique:
+        dup_count = int(nodes.index.duplicated(keep="first").sum())
+        logger.warning(
+            "Pyrosm nodes GeoDataFrame has %d duplicate node ids; dropping duplicates.",
+            dup_count,
+        )
+        nodes = nodes[~nodes.index.duplicated(keep="first")].copy()
+
+    # OSMnx expects edges to be uniquely indexed by (u, v, key).
+    needs_edge_index = not isinstance(edges.index, pd.MultiIndex) or list(
+        edges.index.names
+    ) != ["u", "v", "key"]
+
+    if needs_edge_index:
+        # Ensure u/v are present as columns so we can build an OSMnx-compatible
+        # MultiIndex, even if the incoming dataframe used them as index levels.
+        if "u" not in edges.columns or "v" not in edges.columns:
+            edges = edges.reset_index()
+
+        # Drop malformed edges (can't be represented in a (u, v, key) index).
+        if "u" in edges.columns and "v" in edges.columns:
+            bad_uv = edges["u"].isna() | edges["v"].isna()
+            if bool(bad_uv.any()):
+                dropped = int(bad_uv.sum())
+                logger.warning(
+                    "Pyrosm edges GeoDataFrame has %d rows with null u/v; dropping them.",
+                    dropped,
+                )
+                edges = edges.loc[~bad_uv].copy()
+
+        # If pyrosm didn't provide an edge key, create one per (u, v) so parallel
+        # edges are preserved and index uniqueness is guaranteed.
         if "key" not in edges.columns:
-            edges["key"] = 0
+            edges["key"] = edges.groupby(["u", "v"], sort=False).cumcount().astype(int)
+
         edges = edges.set_index(["u", "v", "key"])
+
+    if not edges.index.is_unique:
+        # A non-unique (u, v, key) will crash `ox.graph_from_gdfs`. Force a stable
+        # per-(u, v) key assignment to preserve parallel edges.
+        edges = edges.reset_index()
+        edges["key"] = edges.groupby(["u", "v"], sort=False).cumcount().astype(int)
+        edges = edges.set_index(["u", "v", "key"])
+
+    if not edges.index.is_unique:
+        dup_count = int(edges.index.duplicated(keep="first").sum())
+        logger.warning(
+            "Pyrosm edges GeoDataFrame still has %d duplicate edge ids after key normalization; dropping duplicates.",
+            dup_count,
+        )
+        edges = edges[~edges.index.duplicated(keep="first")].copy()
 
     return nodes, edges
 
