@@ -55,10 +55,10 @@
   justify-content: center;
   gap: 0.5rem;
   position: fixed;
-  bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px) + var(--bottom-nav-offset, 0px));
+  bottom: calc(1rem + env(safe-area-inset-bottom, 0px) + var(--bottom-nav-offset, 0px));
   left: 50%;
   transform: translateX(-50%);
-  z-index: calc(var(--z-fixed) + 1);
+  z-index: calc(var(--z-overlay) + 1);
   background: var(--surface-1);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-full);
@@ -87,7 +87,7 @@
   transition: transform 0.3s ease;
 }
 
-.mobile-panel-toggle[aria-expanded="false"] i {
+.mobile-panel-toggle[aria-expanded="true"] i {
   transform: rotate(180deg);
 }
 
@@ -150,26 +150,43 @@
   background: var(--text-tertiary);
 }
 
-/* Mobile panel behavior */
+/* Mobile panel behavior - bottom sheet pattern */
 @media (max-width: 1023px) {
   .control-panel {
     position: fixed;
-    top: var(--header-height);
     left: 0;
     right: 0;
     bottom: 0;
-    z-index: 50;
-    max-height: 60vh;
+    top: auto;
+    z-index: var(--z-overlay);
+    max-height: 70vh;
     border-right: none;
-    border-bottom: 1px solid var(--divider-color);
+    border-top: 1px solid var(--divider-color);
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+    box-shadow: 0 -4px 20px rgb(0 0 0 / 15%);
     transform: translateY(0);
     transition: transform 0.3s ease;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior: contain;
+    /* Bottom sheet handle */
+    padding-top: calc(var(--space-3) + 20px);
+  }
+
+  .control-panel::before {
+    content: "";
+    position: absolute;
+    top: var(--space-3);
+    left: 50%;
+    transform: translateX(-50%);
+    width: 40px;
+    height: 4px;
+    background: var(--border-color-light);
+    border-radius: 2px;
+    z-index: 1;
   }
 
   .control-panel.is-hidden {
-    transform: translateY(-100%);
+    transform: translateY(100%);
   }
 }
 
@@ -1618,17 +1635,17 @@
     max-width: none;
   }
 
-  /* Legend positioning for mobile */
+  /* Legend positioning for mobile - above toggle button */
   .map-legend {
     left: var(--space-3);
     right: var(--space-3);
-    bottom: calc(80px + env(safe-area-inset-bottom, 0px) + var(--bottom-nav-offset, 0px));
+    bottom: calc(70px + env(safe-area-inset-bottom, 0px) + var(--bottom-nav-offset, 0px));
   }
 
   /* Keep Mapbox controls/attribution above the fixed mobile toggle. */
   .coverage-navigator .mapboxgl-ctrl-bottom-left,
   .coverage-navigator .mapboxgl-ctrl-bottom-right {
-    bottom: calc(84px + env(safe-area-inset-bottom, 0px) + var(--bottom-nav-offset, 0px));
+    bottom: calc(70px + env(safe-area-inset-bottom, 0px) + var(--bottom-nav-offset, 0px));
   }
 
   /* Make small action buttons reliably tappable. */
@@ -1636,11 +1653,32 @@
   .export-actions .btn {
     min-height: 44px;
   }
+
+  /* Increase slider thumb for easier touch interaction */
+  .layer-opacity .form-range::-webkit-slider-thumb {
+    width: 24px;
+    height: 24px;
+  }
+
+  .layer-opacity .form-range::-moz-range-thumb {
+    width: 24px;
+    height: 24px;
+  }
+
+  .layer-opacity .form-range {
+    height: 8px;
+  }
 }
 
 @media (max-width: 480px) {
   .control-panel {
     padding: var(--space-3);
+    padding-top: calc(var(--space-3) + 20px);
+  }
+
+  /* Hide the descriptive header widget on small screens to save space */
+  .coverage-navigator .widget.is-compact {
+    display: none;
   }
 
   .coverage-navigator .widget-body {

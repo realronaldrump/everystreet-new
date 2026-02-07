@@ -73,10 +73,21 @@ function initBottomNavInsets({ signal } = {}) {
 }
 
 /**
+ * Sections that should start collapsed on mobile to reduce scroll depth.
+ * Only applies if the user has no saved preference.
+ */
+const MOBILE_DEFAULT_COLLAPSED = new Set([
+  "section-planner",
+  "section-saved",
+  "section-results",
+]);
+
+/**
  * Initialize collapsible sections in the control panel
  */
 function initCollapsibleSections() {
   const headers = document.querySelectorAll(".widget-header.collapsible");
+  const isMobile = window.innerWidth < 1024;
 
   headers.forEach((header) => {
     const toggleId = header.dataset.toggle;
@@ -85,9 +96,12 @@ function initCollapsibleSections() {
 
     if (!content || !collapseBtn) return;
 
-    // Initialize state from localStorage
+    // Initialize state from localStorage, or use mobile defaults
+    const saved = localStorage.getItem(`coverage-navigator-${toggleId}`);
     const isCollapsed =
-      localStorage.getItem(`coverage-navigator-${toggleId}`) === "collapsed";
+      saved === "collapsed" ||
+      (saved === null && isMobile && MOBILE_DEFAULT_COLLAPSED.has(toggleId));
+
     if (isCollapsed) {
       content.classList.add("is-collapsed");
       collapseBtn.setAttribute("aria-expanded", "false");
