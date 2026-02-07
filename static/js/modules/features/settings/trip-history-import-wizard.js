@@ -238,6 +238,8 @@ export function initTripHistoryImportWizard({ signal } = {}) {
   const footerHint = getEl("trip-import-footer-hint");
 
   const configError = getEl("trip-import-config-error");
+  const configActions = getEl("trip-import-config-actions");
+  const stopSyncBtn = getEl("trip-import-stop-sync-btn");
 
   const planWindows = getEl("trip-import-plan-windows");
   const planRequests = getEl("trip-import-plan-requests");
@@ -277,6 +279,8 @@ export function initTripHistoryImportWizard({ signal } = {}) {
   let pollTimer = null;
   let finished = false;
   let lastPlan = null;
+  let activeSyncJobId = null;
+  let activeSyncTaskId = null;
 
   const cleanupStreaming = () => {
     if (es) {
@@ -295,6 +299,36 @@ export function initTripHistoryImportWizard({ signal } = {}) {
     }
     configError.classList.toggle("d-none", !message);
     configError.textContent = message || "";
+  };
+
+  const setConfigActionsVisible = (visible) => {
+    if (!configActions) {
+      return;
+    }
+    configActions.classList.toggle("d-none", !visible);
+  };
+
+  const showSyncInProgress = (status) => {
+    activeSyncJobId = status?.current_job_id || null;
+    activeSyncTaskId = status?.active_task_id || null;
+
+    const parts = ["Trip sync is already in progress."];
+    if (activeSyncTaskId) {
+      parts.push(`Task: ${activeSyncTaskId}.`);
+    }
+    if (activeSyncJobId) {
+      parts.push(`Job: ${activeSyncJobId}.`);
+    }
+    if (status?.started_at) {
+      parts.push(`Started: ${formatIsoToLocal(status.started_at)}.`);
+    }
+    parts.push("Wait for it to finish, or cancel it here.");
+
+    setConfigError(parts.join(" "));
+    setConfigActionsVisible(Boolean(activeSyncJobId));
+    if (startBtn) {
+      startBtn.disabled = true;
+    }
   };
 
   const setProgressError = (message) => {
@@ -488,12 +522,39 @@ export function initTripHistoryImportWizard({ signal } = {}) {
     };
   };
 
+  const attachToExistingImport = async (existingProgressJobId) => {
+    if (!existingProgressJobId) {
+      return;
+    }
+    progressJobId = existingProgressJobId;
+    progressUrl = CONFIG.API.tripSyncHistoryImportJob(progressJobId);
+    progressSseUrl = CONFIG.API.tripSyncHistoryImportSse(progressJobId);
+
+    setConfigError("");
+    setConfigActionsVisible(false);
+    setProgressError("");
+    setStep(root, "import");
+    setFooterState({ step: "import", running: true });
+
+    try {
+      const job = await apiClient.get(progressUrl, { signal });
+      renderJob(job);
+    } catch {
+      // If the first fetch fails, SSE/poll fallback will still try.
+    }
+
+    startSse();
+  };
+
   const resetUi = () => {
     progressJobId = null;
     progressSseUrl = null;
     progressUrl = null;
     finished = false;
+    activeSyncJobId = null;
+    activeSyncTaskId = null;
     setConfigError("");
+    setConfigActionsVisible(false);
     setProgressError("");
     setStep(root, "config");
     setFooterState({ step: "config", running: false });
@@ -526,14 +587,22 @@ export function initTripHistoryImportWizard({ signal } = {}) {
     resetUi();
     modal.show();
 
+    let status = null;
     try {
-      const status = await apiClient.get(CONFIG.API.tripSyncStatus, { signal });
+      status = await apiClient.get(CONFIG.API.tripSyncStatus, { signal });
       if (status?.state === "paused") {
         setConfigError(status?.error?.message || "Trip sync is paused.");
         if (startBtn) {
           startBtn.disabled = true;
         }
         return;
+      }
+      if (status?.state === "syncing" && status?.history_import_progress_job_id) {
+        await attachToExistingImport(status.history_import_progress_job_id);
+        return;
+      }
+      if (status?.state === "syncing") {
+        showSyncInProgress(status);
       }
     } catch {
       // If status fails, still allow user to attempt plan fetch.
@@ -558,6 +627,7 @@ export function initTripHistoryImportWizard({ signal } = {}) {
 
   const handleStart = async () => {
     setConfigError("");
+    setConfigActionsVisible(false);
     setProgressError("");
     if (startBtn) {
       startBtn.disabled = true;
@@ -596,6 +666,26 @@ export function initTripHistoryImportWizard({ signal } = {}) {
 
       startSse();
     } catch (error) {
+      if (error?.status === 409) {
+        try {
+          const status = await apiClient.get(CONFIG.API.tripSyncStatus, { signal });
+          if (status?.state === "syncing" && status?.history_import_progress_job_id) {
+            notificationManager.show(
+              "A history import is already running. Showing progress.",
+              "info"
+            );
+            await attachToExistingImport(status.history_import_progress_job_id);
+            return;
+          }
+          if (status?.state === "syncing") {
+            showSyncInProgress(status);
+            return;
+          }
+        } catch {
+          // fall back to generic error
+        }
+      }
+
       setConfigError(error.message || "Failed to start import.");
       if (startBtn) {
         startBtn.disabled = false;
@@ -625,6 +715,58 @@ export function initTripHistoryImportWizard({ signal } = {}) {
     }
   };
 
+  const handleStopSync = async () => {
+    if (!activeSyncJobId) {
+      return;
+    }
+    if (stopSyncBtn) {
+      stopSyncBtn.disabled = true;
+    }
+    setConfigError("");
+    setConfigActionsVisible(true);
+
+    try {
+      await apiClient.delete(CONFIG.API.tripSyncCancel(activeSyncJobId), { signal });
+      notificationManager.show("Cancelling current sync...", "info");
+
+      // Poll briefly until the status clears.
+      let cleared = false;
+      for (let i = 0; i < 20; i += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        // eslint-disable-next-line no-await-in-loop
+        const status = await apiClient
+          .get(CONFIG.API.tripSyncStatus, { signal })
+          .catch(() => null);
+        if (!status || status.state !== "syncing") {
+          cleared = true;
+          break;
+        }
+      }
+
+      if (!cleared) {
+        const status = await apiClient
+          .get(CONFIG.API.tripSyncStatus, { signal })
+          .catch(() => null);
+        if (status?.state === "syncing") {
+          showSyncInProgress(status);
+        } else {
+          setConfigActionsVisible(false);
+        }
+      } else {
+        activeSyncJobId = null;
+        activeSyncTaskId = null;
+        setConfigActionsVisible(false);
+        await loadPlan();
+      }
+    } catch (error) {
+      setConfigError(error.message || "Failed to cancel current sync.");
+    } finally {
+      if (stopSyncBtn) {
+        stopSyncBtn.disabled = false;
+      }
+    }
+  };
+
   let planDebounce = null;
   const handleStartChange = () => {
     if (planDebounce) {
@@ -636,6 +778,7 @@ export function initTripHistoryImportWizard({ signal } = {}) {
   openBtn.addEventListener("click", openWizard, eventOptions);
   startBtn?.addEventListener("click", handleStart, eventOptions);
   cancelBtn?.addEventListener("click", handleCancel, eventOptions);
+  stopSyncBtn?.addEventListener("click", handleStopSync, eventOptions);
   startInput?.addEventListener("change", handleStartChange, eventOptions);
   startInput?.addEventListener("input", handleStartChange, eventOptions);
 
@@ -644,6 +787,7 @@ export function initTripHistoryImportWizard({ signal } = {}) {
     () => {
       cleanupStreaming();
       setConfigError("");
+      setConfigActionsVisible(false);
       setProgressError("");
     },
     eventOptions

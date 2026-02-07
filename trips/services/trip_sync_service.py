@@ -130,6 +130,8 @@ class TripSyncService:
             "last_success_at": serialize_datetime(last_success_at),
             "last_attempt_at": serialize_datetime(last_attempt_at),
             "current_job_id": str(active.id) if active and active.id else None,
+            "active_task_id": active.task_id if active else None,
+            "active_task_status": active.status if active else None,
             "started_at": serialize_datetime(
                 active.start_time if active and active.start_time else None,
             ),
@@ -140,6 +142,32 @@ class TripSyncService:
             "pause_reason": None,
             "error": None,
         }
+
+        if (
+            active
+            and active.task_id == "fetch_all_missing_trips"
+            and active.id
+        ):
+            progress_job = await Job.find_one(
+                {
+                    "job_type": "trip_history_import",
+                    "operation_id": str(active.id),
+                    "status": {"$in": ["pending", "running"]},
+                },
+            )
+            if progress_job and progress_job.id:
+                progress_job_id = str(progress_job.id)
+                status_payload.update(
+                    {
+                        "history_import_progress_job_id": progress_job_id,
+                        "history_import_progress_url": (
+                            f"/api/actions/trips/sync/history_import/{progress_job_id}"
+                        ),
+                        "history_import_progress_sse_url": (
+                            f"/api/actions/trips/sync/history_import/{progress_job_id}/sse"
+                        ),
+                    },
+                )
 
         if not credentials_ready:
             status_payload.update(

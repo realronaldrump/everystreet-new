@@ -2040,6 +2040,17 @@
   white-space: pre-wrap;
 }
 
+.trip-import-config-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.trip-import-config-actions .btn {
+  min-height: 44px;
+}
+
 .trip-import-summary-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
