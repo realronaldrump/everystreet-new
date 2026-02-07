@@ -1,5 +1,5 @@
 """Profile API package."""
 
-from profile.api import router
+from user_profile.api import router
 
 __all__ = ["router"]

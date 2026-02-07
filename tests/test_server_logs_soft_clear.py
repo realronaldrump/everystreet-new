@@ -4,6 +4,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from beanie import init_beanie
+from fastapi import BackgroundTasks
 from mongomock_motor import AsyncMongoMockClient
 
 from core.date_utils import parse_timestamp
@@ -29,7 +30,7 @@ async def test_soft_clear_sets_cutoff_and_filters_queries(
 
     monkeypatch.setattr("tasks.arq.get_arq_pool", _no_arq_pool)
 
-    clear_result = await clear_server_logs()
+    clear_result = await clear_server_logs(BackgroundTasks())
     assert clear_result["soft_cleared"] is True
 
     cutoff_dt = parse_timestamp(clear_result["cutoff_timestamp"])
@@ -74,10 +75,9 @@ async def test_filtered_clear_hard_deletes_without_cutoff(
         message="b",
     ).insert()
 
-    result = await clear_server_logs(level="INFO")
+    result = await clear_server_logs(BackgroundTasks(), level="INFO")
     assert result["soft_cleared"] is False
     assert result["deleted_count"] == 1
 
     settings = await AppSettings.find_one()
     assert settings is None
-

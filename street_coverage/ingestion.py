@@ -241,6 +241,36 @@ async def rebuild_area(area_id: PydanticObjectId) -> Job:
     return job
 
 
+async def backfill_area(area_id: PydanticObjectId) -> Job:
+    """
+    Trigger a backfill of an area using historical trips.
+
+    Returns the created job for tracking progress.
+    """
+    area = await CoverageArea.get(area_id)
+    if not area:
+        msg = f"Area {area_id} not found"
+        raise ValueError(msg)
+
+    job = Job(
+        job_type="area_backfill",
+        area_id=area_id,
+        status="pending",
+        stage="Queued",
+        message="Queued",
+    )
+    await job.insert()
+
+    if job.id is None:
+        msg = "Coverage backfill job insert failed (missing id)"
+        raise RuntimeError(msg)
+
+    task = asyncio.create_task(_run_backfill_pipeline(area_id, job.id))
+    _track_task(task, job_id=job.id)
+
+    return job
+
+
 # =============================================================================
 # Ingestion Pipeline
 # =============================================================================
@@ -256,6 +286,131 @@ def _validate_area_id(area: CoverageArea) -> PydanticObjectId:
 def _raise_cancelled() -> None:
     """Raise CancelledError; abstracted for linting compliance."""
     raise asyncio.CancelledError
+
+
+async def _run_backfill_pipeline(
+    area_id: PydanticObjectId,
+    job_id: PydanticObjectId,
+) -> None:
+    """Run a backfill job for an area and update Job status/progress."""
+    area = await CoverageArea.get(area_id)
+    if not area:
+        logger.error("Area %s not found for backfill job %s", area_id, job_id)
+        return
+
+    async def update_job(
+        *,
+        stage: str | None = None,
+        progress: float | None = None,
+        message: str | None = None,
+        status: str | None = None,
+        error: str | None = None,
+        started_at: datetime | None = None,
+        completed_at: datetime | None = None,
+        result: dict[str, Any] | None = None,
+    ) -> None:
+        job = await Job.get(job_id)
+        if not job:
+            return
+
+        # Honor cancellation without allowing this pipeline to overwrite it.
+        if job.status == "cancelled":
+            _raise_cancelled()
+
+        updates: dict[str, Any] = {"updated_at": datetime.now(UTC)}
+        if stage is not None:
+            updates["stage"] = stage
+        if progress is not None:
+            updates["progress"] = float(progress)
+        if message is not None:
+            updates["message"] = message
+        if status is not None:
+            updates["status"] = status
+        if error is not None:
+            updates["error"] = error
+        if started_at is not None:
+            updates["started_at"] = started_at
+        if completed_at is not None:
+            updates["completed_at"] = completed_at
+        if result is not None:
+            updates["result"] = result
+
+        await job.set(updates)
+
+    def format_backfill_message(state: dict[str, Any]) -> str:
+        processed = int(state.get("processed_trips", 0) or 0)
+        total = state.get("total_trips")
+        matched = int(state.get("matched_trips", 0) or 0)
+        segments = int(state.get("segments_updated", 0) or 0)
+        if isinstance(total, int) and total > 0:
+            return (
+                f"Matching trips: {processed:,}/{total:,} "
+                f"(matched {matched:,}, segments {segments:,})"
+            )
+        return f"Matching trips: {processed:,} (matched {matched:,}, segments {segments:,})"
+
+    try:
+        await update_job(
+            status="running",
+            started_at=datetime.now(UTC),
+            stage="Backfill",
+            progress=0.0,
+            message=f"Starting backfill for {area.display_name}",
+        )
+
+        backfill_state: dict[str, Any] = {}
+        last_progress = 0.0
+
+        async def handle_backfill_progress(payload: dict[str, Any]) -> None:
+            nonlocal last_progress
+            backfill_state.update(payload)
+
+            total = payload.get("total_trips")
+            processed = int(payload.get("processed_trips", 0) or 0)
+            progress = last_progress
+            if isinstance(total, int) and total > 0:
+                ratio = min(1.0, processed / max(1, total))
+                progress = ratio * 99.0
+            progress = max(last_progress, float(progress))
+            last_progress = progress
+
+            await update_job(
+                stage="Backfill",
+                progress=progress,
+                message=format_backfill_message(backfill_state),
+            )
+
+        segments_updated = await backfill_coverage_for_area(
+            area_id,
+            progress_callback=handle_backfill_progress,
+        )
+
+        result = {
+            "segments_updated": segments_updated,
+            "processed_trips": int(backfill_state.get("processed_trips", 0) or 0),
+            "matched_trips": int(backfill_state.get("matched_trips", 0) or 0),
+        }
+
+        await update_job(
+            status="completed",
+            completed_at=datetime.now(UTC),
+            stage="Completed",
+            progress=100.0,
+            message=f"Backfill complete. Updated {segments_updated} segments.",
+            result=result,
+        )
+    except asyncio.CancelledError:
+        logger.info("Backfill job %s cancelled", job_id)
+    except Exception as exc:
+        logger.exception("Backfill job %s failed", job_id)
+        await update_job(
+            status="failed",
+            completed_at=datetime.now(UTC),
+            stage="Failed",
+            progress=100.0,
+            message="Backfill failed",
+            error=str(exc),
+        )
 
 
 async def _run_ingestion_pipeline(

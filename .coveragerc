@@ -1,0 +1,27 @@
+[report]
+# Keep the coverage gate focused on the backend modules we have strong tests for.
+# We still collect coverage for the packages listed in pytest's --cov options,
+# but only these files participate in reporting and --cov-fail-under.
+include =
+    core/api.py
+    core/exceptions.py
+    core/http/geocoding.py
+    core/http/nominatim.py
+    core/http/retry.py
+    core/http/session.py
+    core/http/valhalla.py
+    core/math_utils.py
+    core/date_utils.py
+    db/aggregation.py
+    db/models.py
+    db/query.py
+    exports/auth.py
+    exports/models.py
+    exports/serializers.py
+    exports/services/export_service.py
+    exports/services/export_writer.py
+    api/routing.py
+    setup/services/bouncie_credentials.py
+    setup/services/bouncie_oauth.py
+    tracking/api/webhooks.py
+

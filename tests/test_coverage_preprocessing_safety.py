@@ -38,7 +38,6 @@ def test_build_graph_with_limit_uses_subprocess(
 
     def fake_subprocess(_osm_path, _routing_polygon, _graph_path, _max_mb):
         called["value"] = True
-        return None
 
     monkeypatch.setattr(preprocess_module, "_build_graph_in_subprocess", fake_subprocess)
 

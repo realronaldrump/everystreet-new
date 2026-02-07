@@ -37,6 +37,7 @@ __all__ = [
     "Job",
     "Street",
     # Ingestion
+    "backfill_area",
     "create_area",
     "delete_area",
     "rebuild_area",
@@ -45,6 +46,7 @@ __all__ = [
 ]
 
 _LAZY_IMPORTS: dict[str, tuple[str, str | None]] = {
+    "backfill_area": ("street_coverage.ingestion", "backfill_area"),
     "create_area": ("street_coverage.ingestion", "create_area"),
     "delete_area": ("street_coverage.ingestion", "delete_area"),
     "rebuild_area": ("street_coverage.ingestion", "rebuild_area"),

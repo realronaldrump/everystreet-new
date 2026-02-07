@@ -2,7 +2,7 @@ import logging
 import os
 import uuid
 from pathlib import Path
-from profile import router as profile_api_router
+from user_profile import router as profile_api_router
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request, status

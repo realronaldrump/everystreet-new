@@ -407,8 +407,14 @@ def solve_greedy_route(
             current_node = target_start
             continue
 
-        def _candidate_score(rid: ReqId) -> tuple[float, float, float]:
-            service_edge = _best_service_edge_from_start(rid, current_node)
+        # Bind `current_node` at definition time to avoid accidental late binding
+        # if this scorer ever escapes the loop context.
+        def _candidate_score(
+            rid: ReqId,
+            *,
+            _current_node: int = current_node,
+        ) -> tuple[float, float, float]:
+            service_edge = _best_service_edge_from_start(rid, _current_node)
             seg_count = _seg_count(rid)
             edge_len = edge_length_m(G, service_edge[0], service_edge[1], service_edge[2])
             next_node_score = float(start_counts.get(service_edge[1], 0))

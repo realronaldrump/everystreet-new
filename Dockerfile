@@ -32,10 +32,10 @@ RUN set -eux; \
 WORKDIR /app
 
 # Copy ONLY requirements first for layer caching
-COPY requirements.txt ./
+COPY requirements.runtime.txt ./
 
 # Install Python dependencies (cached unless requirements.txt changes)
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.runtime.txt
 
 # Copy the rest of the application code
 COPY . ./
@@ -49,4 +49,4 @@ RUN echo "{\"commit_count\": \"$(git rev-list --count HEAD 2>/dev/null || echo U
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
     CMD curl -sf http://localhost:${PORT:-8080}/api/status/health || exit 1
 
-CMD ["sh", "-c", "gunicorn app:app -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:${PORT:-8080} --workers 1"]
+CMD ["sh", "-c", "gunicorn app:app -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:${PORT:-8080} --workers ${WEB_CONCURRENCY:-1}"]

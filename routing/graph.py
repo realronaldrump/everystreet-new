@@ -9,7 +9,6 @@ from shapely.geometry import LineString
 from .constants import FEET_PER_METER, MAX_OSM_MATCH_DISTANCE_FT
 from .types import EdgeRef
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -240,60 +239,6 @@ def try_match_osmid(
 
     if best_edge and best_dist <= MAX_OSM_MATCH_DISTANCE_FT:
         return best_edge
-
-    return None
-
-
-def dijkstra_to_any_target(
-    G: nx.DiGraph | nx.MultiDiGraph,
-    source: int,
-    targets: set[int],
-    *,
-    weight: str = "length",
-) -> tuple[int, float, list[EdgeRef]] | None:
-    """
-    Early-exit Dijkstra: find shortest path from source to ANY node in targets.
-
-    Returns (target_node, distance, path_edges[(u,v,key), ...]) or None.
-    """
-    if source in targets:
-        return (source, 0.0, [])
-
-    dist: dict[int, float] = {source: 0.0}
-    prev: dict[int, tuple[int, int | None]] = {}  # node -> (prev_node, prev_key)
-    heap: list[tuple[float, int]] = [(0.0, source)]
-    visited: set[int] = set()
-
-    while heap:
-        d, u = heapq.heappop(heap)
-        if u in visited:
-            continue
-        visited.add(u)
-
-        if u in targets:
-            return (u, d, _reconstruct_path_edges(source, u, prev))
-
-        # Iterate outgoing edges
-        if G.is_multigraph():
-            for _, v, k, data in G.out_edges(u, keys=True, data=True):
-                w = float(data.get(weight, 1.0))
-                if w < 0:
-                    continue
-                nd = d + w
-                if nd < dist.get(v, float("inf")):
-                    dist[v] = nd
-                    prev[v] = (u, k)
-                    heapq.heappush(heap, (nd, v))
-        else:
-            for _, v, data in G.out_edges(u, data=True):
-                w = float(data.get(weight, 1.0))
-                if w < 0:
-                    continue
-                nd = d + w
-                if nd < dist.get(v, float("inf")):
-                    dist[v] = nd
-                    prev[v] = (u, None)
-                    heapq.heappush(heap, (nd, v))
 
     return None
 

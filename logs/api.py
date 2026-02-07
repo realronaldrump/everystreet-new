@@ -8,7 +8,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Annotated, Any
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, status
 from pydantic import BaseModel
 
 from core.api import api_route
@@ -117,6 +117,7 @@ async def get_server_logs(
 @router.delete("/api/server-logs", response_model=ClearLogsResponse)
 @api_route(logger)
 async def clear_server_logs(
+    background_tasks: BackgroundTasks,
     level: Annotated[str | None, Query()] = None,
     older_than_days: Annotated[int | None, Query(ge=1)] = None,
 ) -> dict[str, Any]:
@@ -189,7 +190,7 @@ async def clear_server_logs(
                     "Failed to enqueue server log purge job; falling back to local purge: %s",
                     exc,
                 )
-                asyncio.create_task(_local_purge())
+                background_tasks.add_task(_local_purge)
 
             logger.info(
                 "Soft-cleared server logs at cutoff %s (purge_job_id=%s)",

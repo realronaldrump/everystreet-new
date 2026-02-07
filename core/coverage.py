@@ -246,60 +246,6 @@ class AreaSegmentIndex:
 
         return matched_ids
 
-    def find_matching_segments_batch(
-        self,
-        trip_lines: list[BaseGeometry],
-        buffer_meters: float = MATCH_BUFFER_METERS,
-        min_overlap_meters: float = MIN_OVERLAP_METERS,
-        short_segment_ratio: float = SHORT_SEGMENT_OVERLAP_RATIO,
-    ) -> set[str]:
-        """
-        Find all segments that match ANY of the given trip lines.
-
-        Uses per-trip STRtree queries - avoids expensive geometry union.
-        Returns set of segment_ids that were matched.
-        """
-        if not self._built or not self.strtree or not self.segments:
-            return set()
-
-        matched_ids: set[str] = set()
-
-        for trip_line in trip_lines:
-            if trip_line is None or trip_line.is_empty:
-                continue
-
-            trip_meters = transform(self.to_meters, trip_line)
-            trip_buffer_meters = trip_meters.buffer(buffer_meters)
-
-            candidate_indices = self.strtree.query(trip_buffer_meters)
-
-            for idx in candidate_indices:
-                segment_id = self.segments[idx].segment_id
-                if segment_id in matched_ids:
-                    continue
-                segment_meters = self.segment_geoms_meters[idx]
-                if not trip_buffer_meters.intersects(segment_meters):
-                    continue
-
-                intersection = trip_buffer_meters.intersection(segment_meters)
-                if intersection.is_empty:
-                    continue
-
-                intersection_length = intersection.length
-                segment_length = segment_meters.length
-                if segment_length <= 0:
-                    continue
-
-                required_overlap = min(
-                    min_overlap_meters,
-                    segment_length * short_segment_ratio,
-                )
-                if intersection_length >= required_overlap:
-                    matched_ids.add(segment_id)
-
-        return matched_ids
-
-
 @lru_cache(maxsize=10)
 def _get_area_segment_index(
     area_id: PydanticObjectId,
