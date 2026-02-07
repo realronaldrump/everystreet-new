@@ -71,13 +71,6 @@ TASK_DEFINITIONS: dict[str, dict[str, object]] = {
         "description": "Fetches Bouncie trips for a specific date range on-demand",
         "manual_only": True,
     },
-    "fetch_all_missing_trips": {
-        "display_name": "Fetch All Missing Trips",
-        "default_interval_minutes": 0,
-        "dependencies": [],
-        "description": "Fetches all trips from 2020-01-01 to now to fill gaps",
-        "manual_only": True,
-    },
     "generate_optimal_route": {
         "display_name": "Generate Optimal Route",
         "default_interval_minutes": 0,

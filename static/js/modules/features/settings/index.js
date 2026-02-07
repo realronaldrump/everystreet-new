@@ -13,7 +13,6 @@
 
 import apiClient from "../../core/api-client.js";
 import { CONFIG } from "../../core/config.js";
-import confirmationDialog from "../../ui/confirmation-dialog.js";
 import loadingManager from "../../ui/loading-manager.js";
 import notificationManager from "../../ui/notifications.js";
 import { formatDateTime } from "../../utils.js";
@@ -28,17 +27,17 @@ import {
 import { InvalidTripReview } from "./invalid-trip-review.js";
 import mapServices from "./map-services.js";
 import { initMobileUI } from "./mobile-ui.js";
-import { clearInlineStatus, setInlineStatus } from "./status-utils.js";
 import { gatherTaskConfigFromUI, submitTaskConfigUpdate } from "./task-manager/api.js";
 import { showTaskDetails } from "./task-manager/modals.js";
 import { TaskManager } from "./task-manager/task-manager.js";
+import { initTripHistoryImportWizard } from "./trip-history-import-wizard.js";
 
 let taskManager = null;
 const SETTINGS_MODAL_IDS = [
   "taskDetailsModal",
   "pauseModal",
   "clearHistoryModal",
-  "fetchAllMissingModal",
+  "tripHistoryImportWizardModal",
 ];
 
 function moveSettingsModals() {
@@ -62,17 +61,6 @@ function moveSettingsModals() {
       modalsContainer.appendChild(modal);
     }
   });
-}
-
-function parseDateInput(value) {
-  if (!value) {
-    return null;
-  }
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return null;
-  }
-  return parsed;
 }
 
 async function loadSyncSettings() {
@@ -141,18 +129,12 @@ function setupTripSyncSettings(signal) {
   const saveBtn = document.getElementById("sync-settings-save");
   const resetBtn = document.getElementById("sync-settings-reset");
   const syncNowBtn = document.getElementById("sync-now-btn");
-  const importBtn = document.getElementById("sync-import-btn");
-  const historyStart = document.getElementById("sync-history-start");
 
   if (!autoToggle || !intervalSelect) {
     return;
   }
 
   loadSyncSettings();
-
-  if (historyStart && !historyStart.value) {
-    historyStart.value = "2020-01-01";
-  }
 
   saveBtn?.addEventListener(
     "click",
@@ -190,33 +172,6 @@ function setupTripSyncSettings(signal) {
       try {
         await apiClient.post(CONFIG.API.tripSyncStart, { mode: "recent" });
         notificationManager.show("Trip sync started", "info");
-      } catch (error) {
-        notificationManager.show(error.message, "danger");
-      }
-    },
-    eventOptions
-  );
-
-  importBtn?.addEventListener(
-    "click",
-    async () => {
-      const confirmed = await confirmationDialog.show({
-        title: "Import trip history",
-        message: "This can take a while. You can keep using the app while it runs.",
-        confirmText: "Start import",
-        confirmButtonClass: "btn-primary",
-      });
-      if (!confirmed) {
-        return;
-      }
-      const startDate = parseDateInput(historyStart?.value);
-      const payload = { mode: "history" };
-      if (startDate) {
-        payload.start_date = startDate.toISOString();
-      }
-      try {
-        await apiClient.post(CONFIG.API.tripSyncStart, payload);
-        notificationManager.show("History import started", "info");
       } catch (error) {
         notificationManager.show(error.message, "danger");
       }
@@ -565,104 +520,6 @@ function setupTaskConfigEventListeners(taskManager, signal) {
 }
 
 /**
- * Setup fetch all missing trips modal
- */
-function setupFetchAllMissingModal(taskManager, signal) {
-  const eventOptions = signal ? { signal } : false;
-  const openFetchAllMissingModalBtn = document.getElementById(
-    "openFetchAllMissingModalBtn"
-  );
-  const confirmFetchAllMissingBtn = document.getElementById("confirmFetchAllMissing");
-  const fetchAllMissingStartInput = document.getElementById("fetchAllMissingStart");
-
-  if (openFetchAllMissingModalBtn) {
-    openFetchAllMissingModalBtn.addEventListener(
-      "click",
-      async () => {
-        try {
-          const response = await apiClient.raw("/api/trips/earliest_date");
-          if (response.ok) {
-            const data = await response.json();
-            if (data.earliest_date && fetchAllMissingStartInput) {
-              const date = new Date(data.earliest_date);
-              const formatted = date.toISOString().slice(0, 16);
-              fetchAllMissingStartInput.value = formatted;
-            } else if (fetchAllMissingStartInput) {
-              fetchAllMissingStartInput.value = "2020-01-01T00:00";
-            }
-          }
-        } catch {
-          if (fetchAllMissingStartInput) {
-            fetchAllMissingStartInput.value = "2020-01-01T00:00";
-          }
-        }
-      },
-      eventOptions
-    );
-  }
-
-  if (confirmFetchAllMissingBtn) {
-    confirmFetchAllMissingBtn.addEventListener(
-      "click",
-      async () => {
-        const startDate = fetchAllMissingStartInput?.value;
-        const statusSpan = document.getElementById("fetchAllMissingStatus");
-
-        const modalEl = document.getElementById("fetchAllMissingModal");
-        const modal = bootstrap.Modal.getInstance(modalEl);
-        modal.hide();
-
-        try {
-          if (openFetchAllMissingModalBtn) {
-            openFetchAllMissingModalBtn.disabled = true;
-          }
-          clearInlineStatus(statusSpan);
-          setInlineStatus(statusSpan, "Starting task...", "info");
-
-          loadingManager.show();
-          const response = await apiClient.raw(
-            "/api/background_tasks/fetch_all_missing_trips",
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ start_date: startDate }),
-            }
-          );
-          const result = await response.json();
-          loadingManager.hide();
-
-          if (response.ok && result.status === "success") {
-            taskManager.notifier.show(
-              "Success",
-              "Fetch all missing trips task started",
-              "success"
-            );
-            setInlineStatus(statusSpan, "Task started!", "success");
-            setTimeout(() => {
-              clearInlineStatus(statusSpan);
-              if (openFetchAllMissingModalBtn) {
-                openFetchAllMissingModalBtn.disabled = false;
-              }
-            }, 3000);
-            taskManager.loadTaskConfig();
-          } else {
-            throw new Error(result.detail || result.message || "Failed to start task");
-          }
-        } catch (error) {
-          loadingManager.hide();
-          taskManager.notifier.show("Error", error.message, "danger");
-          setInlineStatus(statusSpan, "Error starting task", "danger");
-          if (openFetchAllMissingModalBtn) {
-            openFetchAllMissingModalBtn.disabled = false;
-          }
-        }
-      },
-      eventOptions
-    );
-  }
-}
-
-/**
  * Main initialization function
  */
 export default function initSettingsPage({ cleanup, signal } = {}) {
@@ -677,9 +534,9 @@ export default function initSettingsPage({ cleanup, signal } = {}) {
   setupManualFetchTripsForm(taskManager, signal);
   setupGeocodeTrips(signal);
   setupRemapMatchedTrips(signal);
-  setupFetchAllMissingModal(taskManager, signal);
   setupTripSyncSettings(signal);
   setupCredentialsSettings({ signal });
+  initTripHistoryImportWizard({ signal });
 
   // Initialize mobile UI
   const mobileCleanup = initMobileUI(taskManager);

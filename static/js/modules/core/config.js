@@ -70,6 +70,13 @@ export const CONFIG = {
     tripSyncCancel: (jobId) => `/api/actions/trips/sync/${jobId}`,
     tripSyncSse: "/api/actions/trips/sync/sse",
     tripSyncConfig: "/api/actions/trips/sync/config",
+    tripSyncHistoryImportPlan: "/api/actions/trips/sync/history_import/plan",
+    tripSyncHistoryImportJob: (jobId) =>
+      `/api/actions/trips/sync/history_import/${jobId}`,
+    tripSyncHistoryImportSse: (jobId) =>
+      `/api/actions/trips/sync/history_import/${jobId}/sse`,
+    tripSyncHistoryImportCancel: (jobId) =>
+      `/api/actions/trips/sync/history_import/${jobId}`,
 
     // Coverage endpoints
     coverageAreas: "/api/coverage/areas",

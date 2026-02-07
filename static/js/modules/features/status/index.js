@@ -238,10 +238,6 @@ function initialize() {
     );
   }
 
-  document
-    .getElementById("fetchAllMissingBtn")
-    ?.addEventListener("click", () => fetchAllMissingTrips(), eventOptions);
-
   taskManager = new TaskManager();
   setupManualFetchTripsForm(taskManager, pageSignal);
   mapServices.initMapServicesTab();
@@ -727,34 +723,6 @@ async function clearTaskHistory() {
     return;
   }
   await taskManager.clearTaskHistory();
-}
-
-async function fetchAllMissingTrips() {
-  const statusEl = document.getElementById("fetch-all-status");
-  const startInput = document.getElementById("fetch-all-start");
-  const startDate = startInput?.value || null;
-
-  if (statusEl) {
-    statusEl.classList.remove("is-hidden");
-    statusEl.textContent = "Starting fetch...";
-  }
-
-  try {
-    const data = await apiClient.post(
-      "/api/background_tasks/fetch_all_missing_trips",
-      { start_date: startDate },
-      withSignal()
-    );
-    notificationManager.show(data.message || "Fetch started", "success");
-    if (statusEl) {
-      statusEl.textContent = "Fetch started successfully.";
-    }
-  } catch (error) {
-    notificationManager.show(`Failed to start fetch: ${error.message}`, "danger");
-    if (statusEl) {
-      statusEl.textContent = "Failed to start fetch.";
-    }
-  }
 }
 
 function updateLastUpdated(timestamp) {

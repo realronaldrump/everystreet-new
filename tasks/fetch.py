@@ -22,6 +22,10 @@ from trips.services.bouncie_fetcher import (
     fetch_bouncie_trip_by_transaction_id,
     fetch_bouncie_trips_in_range,
 )
+from trips.services.trip_history_import_service import (
+    resolve_import_start_dt_from_db,
+    run_import,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -402,76 +406,40 @@ async def get_earliest_trip_date() -> datetime | None:
 async def _fetch_all_missing_trips_logic(
     manual_run: bool = False,
     start_iso: str | None = None,
+    progress_job_id: str | None = None,
 ) -> dict[str, Any]:
-    """Fetch all trips from a start date (defaulting to earliest trip or 2020-01-01) to
-    now.
+    """Import trips from Bouncie for the full history range.
+
+    This is insert-only: existing trips are never modified.
     """
 
-    if start_iso:
-        start_dt = parse_timestamp(start_iso)
-        if not start_dt:
-            logger.error(
-                "Invalid start_iso provided: %s. Using default.",
-                start_iso,
-            )
-    else:
-        start_dt = None
+    start_dt = parse_timestamp(start_iso) if start_iso else None
+    if start_iso and not start_dt:
+        logger.error("Invalid start_iso provided: %s. Using default.", start_iso)
 
-    if not start_dt:
-        # Try to find the earliest trip in the DB to use as a start date
-        # This ensures we cover everything from the beginning of our history
-        earliest_db_date = await get_earliest_trip_date()
-        if earliest_db_date:
-            # Go back a bit further just in case? Or just use that date.
-            # Let's use that date.
-            start_dt = earliest_db_date
-            logger.info("Using earliest trip date from DB: %s", start_dt)
-        else:
-            # Fallback if DB is empty
-            start_dt = datetime(2020, 1, 1, tzinfo=UTC)
-            logger.info("No trips in DB, using hardcoded start date: %s", start_dt)
-
+    start_dt = await resolve_import_start_dt_from_db(start_dt)
     end_dt = datetime.now(UTC)
 
     logger.info(
-        "STARTING FETCH ALL MISSING TRIPS TASK: %s to %s (manual_run=%s)",
+        "STARTING TRIP HISTORY IMPORT TASK: %s to %s (manual_run=%s, progress_job_id=%s)",
         start_dt.isoformat(),
         end_dt.isoformat(),
         manual_run,
+        progress_job_id,
     )
 
-    try:
-        initial_count = await Trip.count()
-        logger.info("Current total trips in DB before fetch: %d", initial_count)
-    except Exception:
-        logger.exception("Error counting trips")
-
-    # We disable map matching for this bulk operation to be faster/safer,
-    # or we could make it configurable. For now, let's default to False
-    # to avoid slamming the map matching service with years of data.
-    # The user can run "Remap Unmatched Trips" later if needed.
-    fetched_trips = await fetch_bouncie_trips_in_range(
-        start_dt,
-        end_dt,
-        do_map_match=False,
+    return await run_import(
+        progress_job_id=progress_job_id,
+        start_dt=start_dt,
+        end_dt=end_dt,
     )
-
-    logger.info("Fetch all missing trips completed: %d trips", len(fetched_trips))
-
-    return {
-        "status": "success",
-        "trips_fetched": len(fetched_trips),
-        "date_range": {
-            "start": start_dt.isoformat(),
-            "end": end_dt.isoformat(),
-        },
-    }
 
 
 async def fetch_all_missing_trips(
     ctx: dict[str, Any],
     manual_run: bool = True,
     start_iso: str | None = None,
+    progress_job_id: str | None = None,
 ):
     """ARQ job for fetching all missing trips."""
     return await run_task_with_history(
@@ -480,6 +448,7 @@ async def fetch_all_missing_trips(
         lambda: _fetch_all_missing_trips_logic(
             manual_run=manual_run,
             start_iso=start_iso,
+            progress_job_id=progress_job_id,
         ),
         manual_run=manual_run,
     )

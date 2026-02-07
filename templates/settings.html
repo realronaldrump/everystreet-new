@@ -555,19 +555,6 @@ Manual sync
               </button>
             </div>
           </div>
-          <div class="setting-item">
-            <div class="setting-label">
-              <div class="setting-label-title">
-History start date
-              </div>
-              <div class="setting-label-description">
-              Optional start date for history import.
-              </div>
-            </div>
-            <div class="setting-control">
-              <input type="date" class="form-control" id="sync-history-start" />
-            </div>
-          </div>
           <div class="sync-settings-alert d-none" id="sync-settings-alert">
           </div>
           <div class="sync-settings-actions-row">
@@ -796,35 +783,10 @@ Actions
             </form>
           </div>
 
-          <!-- Fetch All Missing Trips -->
-          <div class="settings-group bento-span-6">
-            <h3 class="settings-group-title">
-              <i class="fas fa-sync-alt"></i>
-            Fetch All Missing Trips
-            </h3>
-            <p class="text-muted small">
-            Fetches all trips from a configurable start date to now. Useful for filling
-            gaps.
-            </p>
-            <div class="d-flex align-items-center gap-3 flex-wrap">
-              <button class="btn btn-warning"
-                      data-bs-toggle="modal"
-                      data-bs-target="#fetchAllMissingModal"
-                      id="openFetchAllMissingModalBtn">
-                <i class="fas fa-sync-alt"></i> Fetch All Missing Trips
-              </button>
-              <span class="settings-status is-hidden"
-                    id="fetchAllMissingStatus"
-                    role="status"
-                    aria-live="polite"
-                    aria-atomic="true"></span>
-            </div>
-          </div>
-
-          <!-- Task History -->
-          <div class="settings-group bento-span-6">
-            <h3 class="settings-group-title">
-              <i class="fas fa-history"></i>
+	          <!-- Task History -->
+	          <div class="settings-group bento-span-6">
+	            <h3 class="settings-group-title">
+	              <i class="fas fa-history"></i>
             Task History
             </h3>
             <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2 d-none d-md-flex">
@@ -1614,54 +1576,298 @@ Clear Task History
         </div>
       </div>
     </div>
-  </template>
+	  </template>
 
-  <!-- Fetch All Missing Trips Modal -->
-  <div class="modal fade"
-       id="fetchAllMissingModal"
-       tabindex="-1"
-       aria-labelledby="fetchAllMissingModalLabel"
-       aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-      <div class="modal-content bg-dark text-white">
-        <div class="modal-header">
-          <h5 class="modal-title" id="fetchAllMissingModalLabel">
-            Fetch All Missing Trips
-          </h5>
-          <button type="button"
-                  class="btn-close btn-close-white"
-                  data-bs-dismiss="modal"
-                  aria-label="Close">
-          </button>
-        </div>
-        <div class="modal-body">
-          <p>
-            This will fetch all trips from the selected start date up to now. This
-            process may take a while.
-          </p>
-          <div class="mb-3">
-            <label for="fetchAllMissingStart" class="form-label">
- Start Date
-            </label>
-            <input type="datetime-local" class="form-control" id="fetchAllMissingStart" />
-            <div class="form-text text-muted">
-              Defaults to the earliest trip found in your database.
-            </div>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-            Cancel
-          </button>
-          <button type="button" class="btn btn-warning" id="confirmFetchAllMissing">
-            Start Fetch
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
+	  <!-- Trip History Import Wizard (Bouncie Backfill) -->
+	  <div class="modal fade"
+	       id="tripHistoryImportWizardModal"
+	       tabindex="-1"
+	       aria-labelledby="tripHistoryImportWizardLabel"
+	       aria-hidden="true">
+	    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-xl">
+	      <div class="modal-content trip-import-modal">
+	        <div class="modal-header">
+	          <div class="d-flex flex-column">
+	            <h5 class="modal-title" id="tripHistoryImportWizardLabel">
+	              Import Trip History
+	            </h5>
+	            <small class="text-muted">
+	            Backfill missing trips from Bouncie without modifying existing records.
+	            </small>
+	          </div>
+	          <button type="button"
+	                  class="btn-close"
+	                  data-bs-dismiss="modal"
+	                  aria-label="Close">
+	          </button>
+	        </div>
 
-{% endblock %}
+	        <div class="modal-body">
+	          <!-- Step Indicator -->
+	          <nav class="trip-import-steps" aria-label="Import steps">
+	            <div class="trip-import-step-indicator is-active" data-step="config">
+	              <span class="trip-import-step-dot">1</span>
+	              <span class="trip-import-step-label">Configure</span>
+	            </div>
+	            <div class="trip-import-step-connector" aria-hidden="true">
+	            </div>
+	            <div class="trip-import-step-indicator" data-step="import">
+	              <span class="trip-import-step-dot">2</span>
+	              <span class="trip-import-step-label">Import</span>
+	            </div>
+	            <div class="trip-import-step-connector" aria-hidden="true">
+	            </div>
+	            <div class="trip-import-step-indicator" data-step="summary">
+	              <span class="trip-import-step-dot">3</span>
+	              <span class="trip-import-step-label">Summary</span>
+	            </div>
+	          </nav>
+
+	          <!-- Step: Configure -->
+	          <section class="trip-import-step is-active" data-step="config">
+	            <div class="row g-4">
+	              <div class="col-12 col-lg-5">
+	                <div class="trip-import-card">
+	                  <h6 class="trip-import-card-title">
+	                  Start date
+	                  </h6>
+	                  <p class="text-muted small mb-3">
+	                  Trips are fetched in 7-day windows with a 24-hour overlap for safety.
+	                  </p>
+	                  <label for="trip-import-start" class="form-label">
+	Start from (local time)
+	                  </label>
+	                  <input type="datetime-local"
+	                         class="form-control"
+	                         id="trip-import-start"
+	                         autocomplete="off" />
+	                  <div class="form-text">
+	                  Default is your earliest saved trip date.
+	                  </div>
+
+	                  <div class="alert alert-warning mt-3 mb-0" role="alert">
+	                    <strong>Safe mode:</strong> Existing trips are never modified. Only missing trips
+	                    are inserted.
+	                  </div>
+	                </div>
+	              </div>
+
+	              <div class="col-12 col-lg-7">
+	                <div class="trip-import-card">
+	                  <div class="d-flex align-items-start justify-content-between gap-3 flex-wrap">
+	                    <div>
+	                      <h6 class="trip-import-card-title mb-1">
+	                      Plan preview
+	                      </h6>
+	                      <p class="text-muted small mb-0">
+	                      Estimated workload and devices to scan.
+	                      </p>
+	                    </div>
+	                    <span class="badge text-bg-light border trip-import-plan-badge">
+	                      7d windows + 24h overlap
+	                    </span>
+	                  </div>
+
+	                  <div class="trip-import-plan-grid mt-3">
+	                    <div class="trip-import-plan-item">
+	                      <div class="trip-import-plan-k">Windows</div>
+	                      <div class="trip-import-plan-v" id="trip-import-plan-windows">--</div>
+	                    </div>
+	                    <div class="trip-import-plan-item">
+	                      <div class="trip-import-plan-k">Requests</div>
+	                      <div class="trip-import-plan-v" id="trip-import-plan-requests">--</div>
+	                    </div>
+	                    <div class="trip-import-plan-item">
+	                      <div class="trip-import-plan-k">Concurrency</div>
+	                      <div class="trip-import-plan-v" id="trip-import-plan-concurrency">--</div>
+	                    </div>
+	                  </div>
+
+	                  <div class="trip-import-devices mt-3">
+	                    <div class="d-flex align-items-center justify-content-between">
+	                      <div class="small text-muted">
+	                      Vehicles / devices
+	                      </div>
+	                      <div class="small text-muted" id="trip-import-devices-count">
+	                      --
+	                      </div>
+	                    </div>
+	                    <div class="trip-import-devices-list" id="trip-import-devices-list" role="list">
+	                    </div>
+	                  </div>
+
+	                  <div class="trip-import-inline-error d-none mt-3"
+	                       id="trip-import-config-error"
+	                       role="alert">
+	                  </div>
+	                </div>
+	              </div>
+	            </div>
+	          </section>
+
+	          <!-- Step: Import -->
+	          <section class="trip-import-step" data-step="import">
+	            <div class="trip-import-progress-header">
+	              <div class="trip-import-progress-title">
+	                <span class="trip-import-stage" id="trip-import-stage">Queued</span>
+	                <span class="trip-import-message" id="trip-import-message" aria-live="polite">
+	                Waiting to start...
+	                </span>
+	              </div>
+	              <div class="trip-import-progress-meta">
+	                <div class="trip-import-meta-item">
+	                  <span class="trip-import-meta-k">Window</span>
+	                  <span class="trip-import-meta-v" id="trip-import-window">--</span>
+	                </div>
+	                <div class="trip-import-meta-item">
+	                  <span class="trip-import-meta-k">Progress</span>
+	                  <span class="trip-import-meta-v" id="trip-import-windows">--</span>
+	                </div>
+	              </div>
+	            </div>
+
+	            <div class="progress trip-import-progress-bar" role="progressbar" aria-label="Import progress">
+	              <div class="progress-bar progress-bar-striped progress-bar-animated"
+	                   id="trip-import-progress-bar"
+	                   style="width: 0%">
+	              0%
+	              </div>
+	            </div>
+
+	            <div class="trip-import-stats" aria-label="Import counters">
+	              <div class="trip-import-stat">
+	                <div class="trip-import-stat-k">Found (raw)</div>
+	                <div class="trip-import-stat-v" id="trip-import-count-found-raw">0</div>
+	              </div>
+	              <div class="trip-import-stat">
+	                <div class="trip-import-stat-k">Unique</div>
+	                <div class="trip-import-stat-v" id="trip-import-count-found-unique">0</div>
+	              </div>
+	              <div class="trip-import-stat">
+	                <div class="trip-import-stat-k">Existing</div>
+	                <div class="trip-import-stat-v" id="trip-import-count-skipped-existing">0</div>
+	              </div>
+	              <div class="trip-import-stat">
+	                <div class="trip-import-stat-k">New</div>
+	                <div class="trip-import-stat-v" id="trip-import-count-new-candidates">0</div>
+	              </div>
+	              <div class="trip-import-stat">
+	                <div class="trip-import-stat-k">Inserted</div>
+	                <div class="trip-import-stat-v" id="trip-import-count-inserted">0</div>
+	              </div>
+	              <div class="trip-import-stat">
+	                <div class="trip-import-stat-k">Missing endTime</div>
+	                <div class="trip-import-stat-v" id="trip-import-count-skipped-missing-end">0</div>
+	              </div>
+	              <div class="trip-import-stat">
+	                <div class="trip-import-stat-k">Fetch errors</div>
+	                <div class="trip-import-stat-v" id="trip-import-count-fetch-errors">0</div>
+	              </div>
+	              <div class="trip-import-stat">
+	                <div class="trip-import-stat-k">Process errors</div>
+	                <div class="trip-import-stat-v" id="trip-import-count-process-errors">0</div>
+	              </div>
+	            </div>
+
+	            <div class="trip-import-surface mt-3">
+	              <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+	                <h6 class="mb-0">Vehicles</h6>
+	                <small class="text-muted">Per-device results</small>
+	              </div>
+	              <div class="trip-import-table-wrap mt-2">
+	                <table class="table table-sm table-striped align-middle mb-0 trip-import-table">
+	                  <thead>
+	                    <tr>
+	                      <th scope="col">Device</th>
+	                      <th scope="col">Windows</th>
+	                      <th scope="col">Found</th>
+	                      <th scope="col">Unique</th>
+	                      <th scope="col">Existing</th>
+	                      <th scope="col">New</th>
+	                      <th scope="col">Inserted</th>
+	                      <th scope="col">Errors</th>
+	                    </tr>
+	                  </thead>
+	                  <tbody id="trip-import-vehicles-tbody">
+	                  </tbody>
+	                </table>
+	              </div>
+	            </div>
+
+	            <div class="trip-import-surface mt-3">
+	              <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+	                <h6 class="mb-0">Event log</h6>
+	                <small class="text-muted">Latest 60 entries</small>
+	              </div>
+	              <div class="trip-import-events mt-2" id="trip-import-events" aria-live="polite">
+	              </div>
+	            </div>
+
+	            <div class="trip-import-inline-error d-none mt-3"
+	                 id="trip-import-progress-error"
+	                 role="alert">
+	            </div>
+	          </section>
+
+	          <!-- Step: Summary -->
+	          <section class="trip-import-step" data-step="summary">
+	            <div class="trip-import-card">
+	              <h6 class="trip-import-card-title" id="trip-import-summary-title">
+	              Import complete
+	              </h6>
+	              <p class="text-muted mb-3" id="trip-import-summary-body">
+	              --
+	              </p>
+	              <div class="trip-import-summary-grid">
+	                <div class="trip-import-summary-item">
+	                  <div class="trip-import-summary-k">Inserted</div>
+	                  <div class="trip-import-summary-v" id="trip-import-summary-inserted">0</div>
+	                </div>
+	                <div class="trip-import-summary-item">
+	                  <div class="trip-import-summary-k">Existing</div>
+	                  <div class="trip-import-summary-v" id="trip-import-summary-existing">0</div>
+	                </div>
+	                <div class="trip-import-summary-item">
+	                  <div class="trip-import-summary-k">Fetch errors</div>
+	                  <div class="trip-import-summary-v" id="trip-import-summary-fetch-errors">0</div>
+	                </div>
+	                <div class="trip-import-summary-item">
+	                  <div class="trip-import-summary-k">Process errors</div>
+	                  <div class="trip-import-summary-v" id="trip-import-summary-process-errors">0</div>
+	                </div>
+	              </div>
+	            </div>
+	          </section>
+	        </div>
+
+	        <div class="modal-footer trip-import-footer">
+	          <div class="me-auto text-muted small" id="trip-import-footer-hint">
+	          </div>
+	          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+	          Close
+	          </button>
+	          <button type="button"
+	                  class="btn btn-outline-danger d-none"
+	                  id="trip-import-cancel-btn">
+	          Cancel import
+	          </button>
+	          <a class="btn btn-outline-primary d-none"
+	             href="/trips"
+	             id="trip-import-go-trips"
+	             data-no-swup>
+	          Go to trips
+	          </a>
+	          <button type="button"
+	                  class="btn btn-primary"
+	                  id="trip-import-start-btn">
+	          Start import
+	          </button>
+	        </div>
+	      </div>
+	    </div>
+	  </div>
+
+	{% endblock %}
 
 
 {# Page scripts are loaded via route-loader + swup. #}

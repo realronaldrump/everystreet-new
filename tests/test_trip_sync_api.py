@@ -40,6 +40,75 @@ def test_trip_sync_start_endpoint() -> None:
     assert response.json()["job_id"] == "job-1"
 
 
+def test_trip_sync_start_endpoint_history_returns_progress_job_id() -> None:
+    app = _create_app()
+
+    with patch(
+        "trips.api.sync.TripSyncService.start_sync",
+        new=AsyncMock(
+            return_value={
+                "status": "success",
+                "job_id": "job-1",
+                "progress_job_id": "65b1b5b6b5b6b5b6b5b6b5b6",
+                "progress_url": "/api/actions/trips/sync/history_import/65b1b5b6b5b6b5b6b5b6b5b6",
+                "progress_sse_url": "/api/actions/trips/sync/history_import/65b1b5b6b5b6b5b6b5b6b5b6/sse",
+            }
+        ),
+    ):
+        client = TestClient(app)
+        response = client.post(
+            "/api/actions/trips/sync",
+            json={"mode": "history", "start_date": "2024-01-01T00:00:00Z"},
+        )
+
+    assert response.status_code == 200
+    assert response.json()["progress_job_id"] == "65b1b5b6b5b6b5b6b5b6b5b6"
+
+
+def test_trip_history_import_status_endpoint_returns_metadata() -> None:
+    app = _create_app()
+
+    class StubJob:
+        def __init__(self) -> None:
+            self.id = "65b1b5b6b5b6b5b6b5b6b5b6"
+            self.job_type = "trip_history_import"
+            self.task_id = "fetch_all_missing_trips"
+            self.operation_id = "arq-1"
+            self.status = "running"
+            self.stage = "scanning"
+            self.progress = 42.0
+            self.message = "Scanning"
+            self.error = None
+            self.created_at = None
+            self.started_at = None
+            self.completed_at = None
+            self.updated_at = None
+            self.metadata = {
+                "counters": {
+                    "found_raw": 10,
+                    "found_unique": 9,
+                    "skipped_existing": 3,
+                    "skipped_missing_end_time": 1,
+                    "new_candidates": 6,
+                    "inserted": 5,
+                    "fetch_errors": 0,
+                    "process_errors": 1,
+                }
+            }
+            self.result = None
+
+    with patch("trips.api.sync.Job.get", new=AsyncMock(return_value=StubJob())):
+        client = TestClient(app)
+        response = client.get(
+            "/api/actions/trips/sync/history_import/65b1b5b6b5b6b5b6b5b6b5b6",
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["metadata"]["counters"]["found_raw"] == 10
+    assert payload["metadata"]["counters"]["inserted"] == 5
+
+
 def test_trip_sync_config_update_endpoint() -> None:
     app = _create_app()
 

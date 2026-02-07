@@ -5,12 +5,21 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+from datetime import UTC, datetime
 
-from fastapi import APIRouter
+from beanie import PydanticObjectId
+from fastapi import APIRouter, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
 
 from core.api import api_route
+from core.date_utils import parse_timestamp
+from db.models import Job
+from tasks.ops import abort_job
 from trips.models import TripSyncConfigUpdate, TripSyncRequest
+from trips.services.trip_history_import_service import (
+    build_import_plan,
+    resolve_import_start_dt_from_db,
+)
 from trips.services.trip_sync_service import TripSyncService
 
 logger = logging.getLogger(__name__)
@@ -87,3 +96,133 @@ async def stream_trip_sync_updates():
             "Connection": "keep-alive",
         },
     )
+
+
+def _job_payload(job: Job) -> dict:
+    return {
+        "job_id": str(job.id) if job.id else None,
+        "job_type": job.job_type,
+        "task_id": job.task_id,
+        "operation_id": job.operation_id,
+        "status": job.status,
+        "stage": job.stage,
+        "progress": float(job.progress or 0.0),
+        "message": job.message,
+        "error": job.error,
+        "created_at": job.created_at.isoformat() if job.created_at else None,
+        "started_at": job.started_at.isoformat() if job.started_at else None,
+        "completed_at": job.completed_at.isoformat() if job.completed_at else None,
+        "updated_at": job.updated_at.isoformat() if job.updated_at else None,
+        "metadata": job.metadata or {},
+        "result": job.result,
+    }
+
+
+@router.get("/api/actions/trips/sync/history_import/plan", response_model=dict)
+@api_route(logger)
+async def get_trip_history_import_plan(
+    start_date: str | None = Query(
+        None,
+        description="Optional import start datetime (ISO 8601). Defaults to earliest stored trip.",
+    ),
+):
+    """Preview a trip history import plan (windows, requests, devices)."""
+    parsed = parse_timestamp(start_date) if start_date else None
+    start_dt = await resolve_import_start_dt_from_db(parsed)
+    end_dt = datetime.now(UTC)
+    return await build_import_plan(start_dt=start_dt, end_dt=end_dt)
+
+
+@router.get("/api/actions/trips/sync/history_import/{progress_job_id}", response_model=dict)
+@api_route(logger)
+async def get_trip_history_import_status(progress_job_id: PydanticObjectId):
+    """Fetch current progress for a trip history import job."""
+    job = await Job.get(progress_job_id)
+    if not job or job.job_type != "trip_history_import":
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="History import job not found",
+        )
+    return _job_payload(job)
+
+
+@router.get(
+    "/api/actions/trips/sync/history_import/{progress_job_id}/sse",
+    response_model=None,
+)
+@api_route(logger)
+async def stream_trip_history_import_status(progress_job_id: PydanticObjectId):
+    """Stream history import progress via SSE."""
+
+    async def event_generator():
+        last_payload = None
+        poll_count = 0
+        max_polls = 3600  # 1 hour at 1 second intervals
+
+        while poll_count < max_polls:
+            poll_count += 1
+            try:
+                job = await Job.get(progress_job_id)
+                if not job:
+                    yield "data: {}\n\n"
+                    return
+
+                payload = _job_payload(job)
+                payload_json = json.dumps(payload, default=str)
+                if payload_json != last_payload:
+                    yield f"data: {payload_json}\n\n"
+                    last_payload = payload_json
+                elif poll_count % 10 == 0:
+                    yield ": keepalive\n\n"
+
+                if job.status in {"completed", "failed", "cancelled"}:
+                    return
+
+                await asyncio.sleep(1)
+            except Exception:
+                logger.exception("Error streaming history import status")
+                await asyncio.sleep(1)
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+        },
+    )
+
+
+@router.delete(
+    "/api/actions/trips/sync/history_import/{progress_job_id}",
+    response_model=dict,
+)
+@api_route(logger)
+async def cancel_trip_history_import(progress_job_id: PydanticObjectId):
+    """Cancel a running/pending history import."""
+    job = await Job.get(progress_job_id)
+    if not job or job.job_type != "trip_history_import":
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="History import job not found",
+        )
+
+    if job.status in {"completed", "failed", "cancelled"}:
+        return {"status": "success", "message": "Job is already finished."}
+
+    now = datetime.now(UTC)
+    job.status = "cancelled"
+    job.stage = "cancelled"
+    job.message = "Cancelled"
+    job.completed_at = now
+    job.updated_at = now
+    await job.save()
+
+    operation_id = job.operation_id
+    if operation_id:
+        try:
+            await abort_job(operation_id)
+        except Exception:
+            logger.exception("Failed to abort ARQ job %s", operation_id)
+
+    return {"status": "success", "message": "Import cancelled"}

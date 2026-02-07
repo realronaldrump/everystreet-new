@@ -114,3 +114,71 @@ async def test_trip_pipeline_handles_map_match_failure(beanie_db) -> None:
     assert trip.processing_state == "completed"
     assert trip.matchStatus is not None
     assert trip.matchStatus.startswith("error:")
+
+
+@pytest.mark.asyncio
+async def test_trip_pipeline_insert_only_inserts_new_trip(beanie_db) -> None:
+    calls: list[tuple[dict[str, Any], Any]] = []
+
+    async def coverage_stub(trip_data: dict[str, Any], trip_id: Any) -> int:
+        calls.append((trip_data, trip_id))
+        return 1
+
+    pipeline = TripPipeline(
+        geo_service=StubGeocoder(),
+        matcher=StubMatcher(),
+        coverage_service=coverage_stub,
+    )
+
+    trip = await pipeline.process_raw_trip_insert_only(
+        _build_raw_trip("tx-insert-only-1"),
+        source="test",
+        do_map_match=False,
+        do_geocode=True,
+        do_coverage=True,
+    )
+
+    assert trip is not None
+    assert trip.transactionId == "tx-insert-only-1"
+    assert len(calls) == 1
+
+    saved = await Trip.find_one(Trip.transactionId == "tx-insert-only-1")
+    assert saved is not None
+
+
+@pytest.mark.asyncio
+async def test_trip_pipeline_insert_only_skips_existing_trip_without_modification(
+    beanie_db,
+) -> None:
+    coverage_calls: list[tuple[dict[str, Any], Any]] = []
+
+    async def coverage_stub(trip_data: dict[str, Any], trip_id: Any) -> int:
+        coverage_calls.append((trip_data, trip_id))
+        return 1
+
+    pipeline = TripPipeline(
+        geo_service=StubGeocoder(),
+        matcher=StubMatcher(),
+        coverage_service=coverage_stub,
+    )
+
+    existing = Trip(**_build_raw_trip("tx-existing-1"))
+    existing.source = "seed"
+    existing.matchStatus = "seed-match"
+    await existing.insert()
+
+    result = await pipeline.process_raw_trip_insert_only(
+        _build_raw_trip("tx-existing-1"),
+        source="new-source",
+        do_map_match=False,
+        do_geocode=True,
+        do_coverage=True,
+    )
+
+    assert result is None
+    assert len(coverage_calls) == 0
+
+    saved = await Trip.find_one(Trip.transactionId == "tx-existing-1")
+    assert saved is not None
+    assert saved.source == "seed"
+    assert saved.matchStatus == "seed-match"

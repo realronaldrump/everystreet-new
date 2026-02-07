@@ -78,7 +78,6 @@ function getButtonList(elements) {
 
   addButtons(elements.syncButtons);
   addButtons(elements.emptyButtons);
-  addButtons(elements.historyButton);
   return buttons;
 }
 
@@ -245,43 +244,6 @@ async function startSync(
   }
 }
 
-function setupHistoryModal(elements) {
-  const modalEl = getElement("tripSyncHistoryModal");
-  if (!modalEl || !elements.historyButton) {
-    return null;
-  }
-  const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
-  const startInput = getElement("trip-sync-history-start");
-  const confirmBtn = getElement("trip-sync-history-confirm");
-
-  if (startInput && !startInput.value) {
-    const defaultDate = new Date("2020-01-01T00:00:00");
-    startInput.value = defaultDate.toISOString().slice(0, 16);
-  }
-
-  const handleOpen = () => {
-    modal.show();
-  };
-
-  const handleConfirm = async () => {
-    modal.hide();
-    const startValue = startInput?.value;
-    const startDate = startValue ? new Date(startValue) : null;
-    await startSync(elements, {
-      mode: "history",
-      startDate: startDate && !Number.isNaN(startDate.getTime()) ? startDate : null,
-    });
-  };
-
-  elements.historyButton.addEventListener("click", handleOpen);
-  confirmBtn?.addEventListener("click", handleConfirm);
-
-  return () => {
-    elements.historyButton?.removeEventListener("click", handleOpen);
-    confirmBtn?.removeEventListener("click", handleConfirm);
-  };
-}
-
 function setupPullToRefresh(elements) {
   let startY = null;
   let triggered = false;
@@ -433,7 +395,6 @@ export function initTripSync({ onSyncComplete, onSyncError, cleanup } = {}) {
     syncButtons: [getElement("sync-trips-btn"), getElement("sync-now-btn")].filter(
       Boolean
     ),
-    historyButton: getElement("sync-history-btn"),
     miniIndicator: document.querySelector(".sync-indicator"),
     miniText: document.querySelector(".sync-text"),
   };
@@ -474,10 +435,6 @@ export function initTripSync({ onSyncComplete, onSyncError, cleanup } = {}) {
     });
   });
 
-  const historyCleanup = setupHistoryModal(elements);
-  if (historyCleanup) {
-    cleanupHandlers.push(historyCleanup);
-  }
   const pullCleanup = setupPullToRefresh(elements);
   if (pullCleanup) {
     cleanupHandlers.push(pullCleanup);

@@ -202,6 +202,129 @@ class TripPipeline:
         logger.debug("Saved trip %s successfully", transaction_id)
         return final_trip
 
+    async def process_raw_trip_insert_only(
+        self,
+        raw_data: dict[str, Any],
+        *,
+        source: str = "api",
+        do_map_match: bool = False,
+        do_geocode: bool = True,
+        do_coverage: bool = True,
+        skip_existing_check: bool = False,
+    ) -> Trip | None:
+        """
+        Process a raw trip and insert it only if it does not already exist.
+
+        This is intentionally "insert-only": if a trip with the same
+        transactionId exists, this returns None and does not modify the
+        stored trip in any way.
+        """
+        if not raw_data:
+            logger.warning("No trip data provided to pipeline")
+            return None
+
+        success, processed_data, history, state, error = self._validate_and_basic(
+            raw_data,
+        )
+        if not success:
+            logger.warning(
+                "Trip %s failed validation: %s",
+                raw_data.get("transactionId", "unknown"),
+                error,
+            )
+            return None
+
+        transaction_id = processed_data.get("transactionId")
+        if not transaction_id:
+            logger.warning("Trip missing transactionId, skipping")
+            return None
+
+        if not skip_existing_check:
+            existing_trip = await Trip.find_one(Trip.transactionId == transaction_id)
+            if existing_trip:
+                logger.debug(
+                    "Trip %s already exists; skipping insert-only processing",
+                    transaction_id,
+                )
+                return None
+
+        matched = False
+        if do_map_match and not processed_data.get("matchedGps"):
+            status, processed_data = await self.matcher.map_match(processed_data)
+            if status == "matched":
+                matched = True
+                state = self._record_state(history, state, "map_matched")
+        else:
+            matched = bool(processed_data.get("matchedGps"))
+
+        if do_geocode:
+            processed_data = await self.geo_service.geocode(processed_data)
+            if not matched:
+                state = self._record_state(history, state, "geocoded")
+
+        if not matched:
+            state = self._record_state(history, state, "completed")
+
+        processing_state = "map_matched" if matched else "completed"
+
+        processed_data["processing_state"] = processing_state
+        processed_data["processing_history"] = history
+        processed_data["source"] = source
+        processed_data["saved_at"] = get_current_utc_time()
+        processed_data["status"] = "processed"
+
+        gps = processed_data.get("gps")
+        if gps is not None and not is_valid_geojson_geometry(gps):
+            logger.error(
+                "Trip %s: invalid gps geometry at save time; setting gps to null",
+                transaction_id,
+            )
+            processed_data["gps"] = None
+
+        start_geo, dest_geo = derive_geo_points(processed_data.get("gps"))
+        if start_geo:
+            processed_data["startGeoPoint"] = start_geo
+        if dest_geo:
+            processed_data["destinationGeoPoint"] = dest_geo
+
+        if "_id" in processed_data:
+            processed_data.pop("_id", None)
+
+        final_trip = Trip(**processed_data)
+        if final_trip.id is None:
+            final_trip.id = PydanticObjectId()
+
+        try:
+            await final_trip.insert()
+        except Exception as exc:
+            # If a concurrent importer inserted the same trip, skip silently.
+            if exc.__class__.__name__ == "DuplicateKeyError":
+                logger.info(
+                    "Trip %s inserted concurrently; skipping insert-only processing",
+                    transaction_id,
+                )
+                return None
+            raise
+
+        if do_coverage and getattr(final_trip, "coverage_emitted_at", None) is None:
+            try:
+                if processed_data.get("gps"):
+                    await self.coverage_service(
+                        processed_data,
+                        getattr(final_trip, "id", None),
+                    )
+                    final_trip.coverage_emitted_at = get_current_utc_time()
+                    await final_trip.save()
+            except Exception as exc:
+                logger.warning(
+                    "Failed to update coverage for trip %s: %s",
+                    transaction_id,
+                    exc,
+                )
+
+        logger.debug("Inserted trip %s successfully (insert-only)", transaction_id)
+        return final_trip
+
     def _validate_and_basic(
         self,
         raw_data: dict[str, Any],

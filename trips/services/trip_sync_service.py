@@ -10,7 +10,7 @@ from fastapi import HTTPException, status
 
 from config import get_bouncie_config
 from core.serialization import serialize_datetime
-from db.models import TaskHistory, Trip
+from db.models import Job, TaskHistory, Trip
 from tasks.config import (
     get_global_disable,
     get_task_config_entry,
@@ -18,6 +18,10 @@ from tasks.config import (
     update_task_schedule,
 )
 from tasks.ops import abort_job, enqueue_task
+from trips.services.trip_history_import_service import (
+    build_import_plan,
+    resolve_import_start_dt_from_db,
+)
 
 if TYPE_CHECKING:
     from trips.models import TripSyncConfigUpdate, TripSyncRequest
@@ -299,14 +303,97 @@ class TripSyncService:
             return {"status": "success", "job_id": result.get("job_id")}
 
         if request.mode == "history":
+            active = (
+                await Job.find(
+                    {"job_type": "trip_history_import", "status": {"$in": ["pending", "running"]}},
+                )
+                .sort("-created_at")
+                .first_or_none()
+            )
+            if active and not request.force:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Trip history import is already in progress.",
+                )
+
+            start_dt = await resolve_import_start_dt_from_db(request.start_date)
+            end_dt = datetime.now(UTC)
+
+            plan = await build_import_plan(start_dt=start_dt, end_dt=end_dt)
+            devices = list(plan.get("devices") or [])
+
+            now = datetime.now(UTC)
+            job = Job(
+                job_type="trip_history_import",
+                task_id="fetch_all_missing_trips",
+                status="pending",
+                stage="queued",
+                progress=0.0,
+                message="Queued",
+                created_at=now,
+                updated_at=now,
+                metadata={
+                    "start_iso": plan.get("start_iso"),
+                    "end_iso": plan.get("end_iso"),
+                    "window_days": plan.get("window_days"),
+                    "overlap_hours": plan.get("overlap_hours"),
+                    "step_hours": plan.get("step_hours"),
+                    "devices": devices,
+                    "windows_total": plan.get("windows_total", 0),
+                    "windows_completed": 0,
+                    "current_window": None,
+                    "counters": {
+                        "found_raw": 0,
+                        "found_unique": 0,
+                        "skipped_existing": 0,
+                        "skipped_missing_end_time": 0,
+                        "new_candidates": 0,
+                        "inserted": 0,
+                        "fetch_errors": 0,
+                        "process_errors": 0,
+                    },
+                    "per_device": {
+                        d.get("imei"): {
+                            "windows_completed": 0,
+                            "found_raw": 0,
+                            "found_unique": 0,
+                            "skipped_existing": 0,
+                            "new_candidates": 0,
+                            "inserted": 0,
+                            "errors": 0,
+                        }
+                        for d in devices
+                        if d.get("imei")
+                    },
+                    "events": [],
+                },
+            )
+            await job.insert()
+            if not job.id:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Failed to create progress job.",
+                )
+
             result = await enqueue_task(
                 "fetch_all_missing_trips",
                 manual_run=True,
-                start_iso=(
-                    request.start_date.isoformat() if request.start_date else None
-                ),
+                start_iso=start_dt.isoformat(),
+                progress_job_id=str(job.id),
             )
-            return {"status": "success", "job_id": result.get("job_id")}
+
+            job.operation_id = result.get("job_id")
+            job.updated_at = datetime.now(UTC)
+            await job.save()
+
+            progress_job_id = str(job.id)
+            return {
+                "status": "success",
+                "job_id": result.get("job_id"),
+                "progress_job_id": progress_job_id,
+                "progress_url": f"/api/actions/trips/sync/history_import/{progress_job_id}",
+                "progress_sse_url": f"/api/actions/trips/sync/history_import/{progress_job_id}/sse",
+            }
 
         if request.mode == "range":
             if not request.start_date or not request.end_date:

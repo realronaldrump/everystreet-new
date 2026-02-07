@@ -511,33 +511,6 @@ async def fetch_trips_manual(data: FetchTripsRangeRequest):
         )
 
 
-@router.post(
-    "/api/background_tasks/fetch_all_missing_trips",
-    response_model=dict[str, Any],
-)
-@api_route(logger)
-async def fetch_all_missing_trips(data: Annotated[dict, Body()]):
-    """Manually trigger a fetch for all missing trips."""
-    start_date = data.get("start_date")
-    try:
-        result = await enqueue_task(
-            "fetch_all_missing_trips",
-            start_iso=start_date,
-            manual_run=True,
-        )
-        return {
-            "status": "success",
-            "message": f"Fetch all missing trips scheduled (Job ID: {result.get('job_id')})",
-            "job_id": result.get("job_id"),
-        }
-    except Exception as e:
-        logger.exception("Error starting fetch_all_missing_trips")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
-        )
-
-
 @router.get("/api/background_tasks/sse", response_model=None)
 @api_route(logger)
 async def stream_background_tasks_updates():
