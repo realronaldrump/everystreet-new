@@ -57,6 +57,29 @@ class TripPipeline:
             },
         }
 
+    async def validate_raw_trip_with_basic(self, raw_data: dict[str, Any]) -> dict[str, Any]:
+        """
+        Validate a raw trip with basic processing checks, without persistence.
+
+        This matches the same validation+basic processing done by
+        process_raw_trip[_insert_only], but does not geocode, map-match, or write.
+        """
+        success, processed_data, history, state, error = self._validate_and_basic(raw_data)
+        return {
+            "success": success,
+            "processed_data": processed_data,
+            "processing_status": {
+                "state": state,
+                "history": history,
+                "errors": {"validation": error} if error else {},
+                "transaction_id": (
+                    processed_data.get("transactionId", "unknown")
+                    if processed_data
+                    else raw_data.get("transactionId", "unknown")
+                ),
+            },
+        }
+
     async def process_raw_trip(
         self,
         raw_data: dict[str, Any],

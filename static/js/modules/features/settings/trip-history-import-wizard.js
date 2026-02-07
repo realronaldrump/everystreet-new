@@ -146,17 +146,41 @@ function renderEvents(container, events) {
     return;
   }
 
+  const shouldShowDetails = (data) => {
+    if (!data || typeof data !== "object") {
+      return false;
+    }
+    return Boolean(
+      data.error
+        || data.reason
+        || data.transactionId
+        || data.imei
+        || data.window_index
+        || data.windowIndex
+    );
+  };
+
   const lines = events
     .slice(-60)
     .map((evt) => {
       const level = (evt?.level || "info").toLowerCase();
       const ts = evt?.ts_iso ? new Date(evt.ts_iso).toLocaleTimeString() : "";
       const msg = evt?.message || "";
+      const data = evt?.data && typeof evt.data === "object" ? evt.data : null;
+      const details = shouldShowDetails(data)
+        ? `
+          <details class="trip-import-event-details">
+            <summary>Details</summary>
+            <pre>${escapeHtml(JSON.stringify(data, null, 2))}</pre>
+          </details>
+        `
+        : "";
       return `
         <div class="trip-import-event trip-import-event--${escapeHtml(level)}">
           <span class="trip-import-event-ts">${escapeHtml(ts)}</span>
           <span class="trip-import-event-level">${escapeHtml(level)}</span>
           <span class="trip-import-event-msg">${escapeHtml(msg)}</span>
+          ${details}
         </div>
       `;
     })
@@ -164,6 +188,45 @@ function renderEvents(container, events) {
 
   container.innerHTML = lines;
   container.scrollTop = container.scrollHeight;
+}
+
+function renderFailureSummary(container, failureReasons) {
+  if (!container) {
+    return;
+  }
+
+  if (!failureReasons || typeof failureReasons !== "object") {
+    container.innerHTML = "";
+    return;
+  }
+
+  const entries = Object.entries(failureReasons)
+    .map(([reason, count]) => [String(reason), Number(count) || 0])
+    .filter(([, count]) => count > 0);
+
+  if (entries.length === 0) {
+    container.innerHTML = "";
+    return;
+  }
+
+  entries.sort((a, b) => b[1] - a[1]);
+  const top = entries.slice(0, 6);
+
+  const lines = top
+    .map(([reason, count]) => {
+      return `
+        <div class="trip-import-failure-row">
+          <span class="trip-import-failure-count">${escapeHtml(count)}</span>
+          <span class="trip-import-failure-reason">${escapeHtml(reason)}</span>
+        </div>
+      `;
+    })
+    .join("");
+
+  container.innerHTML = `
+    <div class="trip-import-failure-title">Top failure reasons</div>
+    <div class="trip-import-failure-list">${lines}</div>
+  `;
 }
 
 function renderPerDeviceTable(tbody, devices, perDevice) {
@@ -196,6 +259,7 @@ function renderPerDeviceTable(tbody, devices, perDevice) {
       <td>${stats.found_raw ?? 0}</td>
       <td>${stats.found_unique ?? 0}</td>
       <td>${stats.skipped_existing ?? 0}</td>
+      <td>${stats.validation_failed ?? 0}</td>
       <td>${stats.new_candidates ?? 0}</td>
       <td>${stats.inserted ?? 0}</td>
       <td>${stats.errors ?? 0}</td>
@@ -215,6 +279,7 @@ function jobToCounters(job) {
     new_candidates: counters.new_candidates ?? 0,
     inserted: counters.inserted ?? 0,
     skipped_missing_end_time: counters.skipped_missing_end_time ?? 0,
+    validation_failed: counters.validation_failed ?? 0,
     fetch_errors: counters.fetch_errors ?? 0,
     process_errors: counters.process_errors ?? 0,
   };
@@ -253,6 +318,7 @@ export function initTripHistoryImportWizard({ signal } = {}) {
   const windowsEl = getEl("trip-import-windows");
   const progressBar = getEl("trip-import-progress-bar");
   const eventsEl = getEl("trip-import-events");
+  const failureSummaryEl = getEl("trip-import-failure-summary");
   const vehiclesTbody = getEl("trip-import-vehicles-tbody");
   const progressError = getEl("trip-import-progress-error");
 
@@ -262,6 +328,7 @@ export function initTripHistoryImportWizard({ signal } = {}) {
   const countNew = getEl("trip-import-count-new-candidates");
   const countInserted = getEl("trip-import-count-inserted");
   const countMissingEnd = getEl("trip-import-count-skipped-missing-end");
+  const countValidationFailed = getEl("trip-import-count-validation-failed");
   const countFetchErr = getEl("trip-import-count-fetch-errors");
   const countProcessErr = getEl("trip-import-count-process-errors");
 
@@ -269,6 +336,7 @@ export function initTripHistoryImportWizard({ signal } = {}) {
   const summaryBody = getEl("trip-import-summary-body");
   const summaryInserted = getEl("trip-import-summary-inserted");
   const summaryExisting = getEl("trip-import-summary-existing");
+  const summaryValidationFailed = getEl("trip-import-summary-validation-failed");
   const summaryFetchErrors = getEl("trip-import-summary-fetch-errors");
   const summaryProcessErrors = getEl("trip-import-summary-process-errors");
 
@@ -425,12 +493,14 @@ export function initTripHistoryImportWizard({ signal } = {}) {
     setText(countNew, counters.new_candidates);
     setText(countInserted, counters.inserted);
     setText(countMissingEnd, counters.skipped_missing_end_time);
+    setText(countValidationFailed, counters.validation_failed);
     setText(countFetchErr, counters.fetch_errors);
     setText(countProcessErr, counters.process_errors);
 
     const devices = lastPlan?.devices || job?.metadata?.devices || [];
     renderPerDeviceTable(vehiclesTbody, devices, job?.metadata?.per_device || {});
     renderEvents(eventsEl, job?.metadata?.events || []);
+    renderFailureSummary(failureSummaryEl, job?.metadata?.failure_reasons || {});
 
     const terminal = TERMINAL_STATUSES.has(job?.status);
     if (terminal && !finished) {
@@ -468,6 +538,7 @@ export function initTripHistoryImportWizard({ signal } = {}) {
 
     setText(summaryInserted, counters.inserted);
     setText(summaryExisting, counters.skipped_existing);
+    setText(summaryValidationFailed, counters.validation_failed);
     setText(summaryFetchErrors, counters.fetch_errors);
     setText(summaryProcessErrors, counters.process_errors);
   };
@@ -574,10 +645,14 @@ export function initTripHistoryImportWizard({ signal } = {}) {
       countNew,
       countInserted,
       countMissingEnd,
+      countValidationFailed,
       countFetchErr,
       countProcessErr,
     ];
     zeros.forEach((el) => setText(el, "0"));
+    if (failureSummaryEl) {
+      failureSummaryEl.innerHTML = "";
+    }
     if (goTrips) {
       goTrips.classList.add("d-none");
     }

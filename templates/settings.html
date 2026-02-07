@@ -1764,18 +1764,22 @@ Clear Task History
 	                <div class="trip-import-stat-k">Inserted</div>
 	                <div class="trip-import-stat-v" id="trip-import-count-inserted">0</div>
 	              </div>
-	              <div class="trip-import-stat">
-	                <div class="trip-import-stat-k">Missing endTime</div>
-	                <div class="trip-import-stat-v" id="trip-import-count-skipped-missing-end">0</div>
-	              </div>
-	              <div class="trip-import-stat">
-	                <div class="trip-import-stat-k">Fetch errors</div>
-	                <div class="trip-import-stat-v" id="trip-import-count-fetch-errors">0</div>
-	              </div>
-	              <div class="trip-import-stat">
-	                <div class="trip-import-stat-k">Process errors</div>
-	                <div class="trip-import-stat-v" id="trip-import-count-process-errors">0</div>
-	              </div>
+		              <div class="trip-import-stat">
+		                <div class="trip-import-stat-k">Missing endTime</div>
+		                <div class="trip-import-stat-v" id="trip-import-count-skipped-missing-end">0</div>
+		              </div>
+		              <div class="trip-import-stat">
+		                <div class="trip-import-stat-k">Invalid trips</div>
+		                <div class="trip-import-stat-v" id="trip-import-count-validation-failed">0</div>
+		              </div>
+		              <div class="trip-import-stat">
+		                <div class="trip-import-stat-k">Fetch errors</div>
+		                <div class="trip-import-stat-v" id="trip-import-count-fetch-errors">0</div>
+		              </div>
+		              <div class="trip-import-stat">
+		                <div class="trip-import-stat-k">Process errors</div>
+		                <div class="trip-import-stat-v" id="trip-import-count-process-errors">0</div>
+		              </div>
 	            </div>
 
 	            <div class="trip-import-surface mt-3">
@@ -1786,16 +1790,17 @@ Clear Task History
 	              <div class="trip-import-table-wrap mt-2">
 	                <table class="table table-sm table-striped align-middle mb-0 trip-import-table">
 	                  <thead>
-	                    <tr>
-	                      <th scope="col">Device</th>
-	                      <th scope="col">Windows</th>
-	                      <th scope="col">Found</th>
-	                      <th scope="col">Unique</th>
-	                      <th scope="col">Existing</th>
-	                      <th scope="col">New</th>
-	                      <th scope="col">Inserted</th>
-	                      <th scope="col">Errors</th>
-	                    </tr>
+		                    <tr>
+		                      <th scope="col">Device</th>
+		                      <th scope="col">Windows</th>
+		                      <th scope="col">Found</th>
+		                      <th scope="col">Unique</th>
+		                      <th scope="col">Existing</th>
+		                      <th scope="col">Invalid</th>
+		                      <th scope="col">New</th>
+		                      <th scope="col">Inserted</th>
+		                      <th scope="col">Errors</th>
+		                    </tr>
 	                  </thead>
 	                  <tbody id="trip-import-vehicles-tbody">
 	                  </tbody>
@@ -1803,14 +1808,16 @@ Clear Task History
 	              </div>
 	            </div>
 
-	            <div class="trip-import-surface mt-3">
-	              <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
-	                <h6 class="mb-0">Event log</h6>
-	                <small class="text-muted">Latest 60 entries</small>
-	              </div>
-	              <div class="trip-import-events mt-2" id="trip-import-events" aria-live="polite">
-	              </div>
-	            </div>
+		            <div class="trip-import-surface mt-3">
+		              <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+		                <h6 class="mb-0">Event log</h6>
+		                <small class="text-muted">Latest 60 entries (click for details)</small>
+		              </div>
+		              <div class="trip-import-failure-summary mt-2" id="trip-import-failure-summary">
+		              </div>
+		              <div class="trip-import-events mt-2" id="trip-import-events" aria-live="polite">
+		              </div>
+		            </div>
 
 	            <div class="trip-import-inline-error d-none mt-3"
 	                 id="trip-import-progress-error"
@@ -1827,24 +1834,28 @@ Clear Task History
 	              <p class="text-muted mb-3" id="trip-import-summary-body">
 	              --
 	              </p>
-	              <div class="trip-import-summary-grid">
-	                <div class="trip-import-summary-item">
-	                  <div class="trip-import-summary-k">Inserted</div>
-	                  <div class="trip-import-summary-v" id="trip-import-summary-inserted">0</div>
-	                </div>
-	                <div class="trip-import-summary-item">
-	                  <div class="trip-import-summary-k">Existing</div>
-	                  <div class="trip-import-summary-v" id="trip-import-summary-existing">0</div>
-	                </div>
-	                <div class="trip-import-summary-item">
-	                  <div class="trip-import-summary-k">Fetch errors</div>
-	                  <div class="trip-import-summary-v" id="trip-import-summary-fetch-errors">0</div>
-	                </div>
-	                <div class="trip-import-summary-item">
-	                  <div class="trip-import-summary-k">Process errors</div>
-	                  <div class="trip-import-summary-v" id="trip-import-summary-process-errors">0</div>
-	                </div>
-	              </div>
+		              <div class="trip-import-summary-grid">
+		                <div class="trip-import-summary-item">
+		                  <div class="trip-import-summary-k">Inserted</div>
+		                  <div class="trip-import-summary-v" id="trip-import-summary-inserted">0</div>
+		                </div>
+		                <div class="trip-import-summary-item">
+		                  <div class="trip-import-summary-k">Existing</div>
+		                  <div class="trip-import-summary-v" id="trip-import-summary-existing">0</div>
+		                </div>
+		                <div class="trip-import-summary-item">
+		                  <div class="trip-import-summary-k">Invalid trips</div>
+		                  <div class="trip-import-summary-v" id="trip-import-summary-validation-failed">0</div>
+		                </div>
+		                <div class="trip-import-summary-item">
+		                  <div class="trip-import-summary-k">Fetch errors</div>
+		                  <div class="trip-import-summary-v" id="trip-import-summary-fetch-errors">0</div>
+		                </div>
+		                <div class="trip-import-summary-item">
+		                  <div class="trip-import-summary-k">Process errors</div>
+		                  <div class="trip-import-summary-v" id="trip-import-summary-process-errors">0</div>
+		                </div>
+		              </div>
 	            </div>
 	          </section>
 	        </div>

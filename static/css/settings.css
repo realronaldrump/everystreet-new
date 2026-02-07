@@ -2002,6 +2002,71 @@
   border-bottom: 1px solid var(--border-color);
 }
 
+.trip-import-event-details {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding-left: calc(var(--space-2) + 0.15rem);
+  color: var(--text-secondary);
+}
+
+.trip-import-event-details summary {
+  cursor: pointer;
+  user-select: none;
+  color: var(--text-tertiary);
+  font-size: var(--font-size-xs);
+}
+
+.trip-import-event-details pre {
+  margin: var(--space-2) 0 0;
+  padding: var(--space-2);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  background: var(--surface-2);
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+}
+
+.trip-import-failure-summary {
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-color);
+  background: var(--surface-1);
+  padding: var(--space-3);
+  font-size: var(--font-size-xs);
+}
+
+.trip-import-failure-title {
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-secondary);
+  margin-bottom: var(--space-2);
+}
+
+.trip-import-failure-list {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.trip-import-failure-row {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-2);
+  align-items: baseline;
+}
+
+.trip-import-failure-count {
+  font-variant-numeric: tabular-nums;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+  color: var(--text-tertiary);
+}
+
+.trip-import-failure-reason {
+  color: var(--text-secondary);
+  word-break: break-word;
+}
+
 .trip-import-event:last-child {
   border-bottom: none;
 }

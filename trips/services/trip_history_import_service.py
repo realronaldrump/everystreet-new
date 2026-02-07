@@ -35,6 +35,12 @@ WINDOW_DAYS = 7
 OVERLAP_HOURS = 24
 STEP_HOURS = (WINDOW_DAYS * 24) - OVERLAP_HOURS
 
+# History import is intended to be fast. Expensive downstream work should be
+# deferred to dedicated jobs (e.g. geocoding/re-coverage runs), otherwise a
+# multi-year backfill can take hours.
+IMPORT_DO_GEOCODE = False
+IMPORT_DO_COVERAGE = False
+
 
 def resolve_import_start_dt(start_dt: datetime | None) -> datetime:
     """Resolve a start datetime for history import, defaulting to earliest DB trip."""
@@ -240,6 +246,7 @@ async def run_import(
         "found_unique": 0,
         "skipped_existing": 0,
         "skipped_missing_end_time": 0,
+        "validation_failed": 0,
         "new_candidates": 0,
         "inserted": 0,
         "fetch_errors": 0,
@@ -252,6 +259,7 @@ async def run_import(
             "found_raw": 0,
             "found_unique": 0,
             "skipped_existing": 0,
+            "validation_failed": 0,
             "new_candidates": 0,
             "inserted": 0,
             "errors": 0,
@@ -260,6 +268,26 @@ async def run_import(
     }
 
     events: list[dict[str, Any]] = []
+    failure_reasons: dict[str, int] = {}
+
+    def record_failure_reason(reason: str | None) -> None:
+        text = (reason or "").strip() or "Unknown error"
+        # Keep keys stable + bounded so job metadata doesn't grow unbounded.
+        text = text.replace("\n", " ").replace("\r", " ")
+        if len(text) > 180:
+            text = text[:177] + "..."
+
+        if text in failure_reasons:
+            failure_reasons[text] += 1
+            return
+
+        # Cap unique reasons to avoid runaway metadata growth.
+        if len(failure_reasons) >= 25:
+            other = "Other (see event log for details)"
+            failure_reasons[other] = failure_reasons.get(other, 0) + 1
+            return
+
+        failure_reasons[text] = 1
 
     def add_event(level: str, message: str, data: dict[str, Any] | None = None) -> None:
         events.append(
@@ -303,6 +331,7 @@ async def run_import(
             "counters": dict(counters),
             "per_device": per_device,
             "events": _trim_events(list(events)),
+            "failure_reasons": dict(failure_reasons),
         }
         await handle.update(
             status=status,
@@ -376,7 +405,13 @@ async def run_import(
 
         pipeline = TripPipeline()
         app_settings = await AdminService.get_persisted_app_settings()
-        do_geocode = bool(getattr(app_settings, "geocodeTripsOnFetch", True))
+        # Keep reading settings for parity with other ingest paths, but history
+        # import deliberately skips expensive per-trip side effects.
+        _geocode_enabled_in_settings = bool(
+            getattr(app_settings, "geocodeTripsOnFetch", True),
+        )
+        do_geocode = bool(IMPORT_DO_GEOCODE)
+        do_coverage = bool(IMPORT_DO_COVERAGE)
         seen_transaction_ids: set[str] = set()
 
         semaphore = asyncio.Semaphore(fetch_concurrency)
@@ -409,8 +444,9 @@ async def run_import(
                     add_event(
                         "error",
                         f"Fetch failed for {imei}",
-                        {"error": str(exc), "window_index": window_index},
+                        {"error": str(exc), "imei": imei, "window_index": window_index},
                     )
+                    record_failure_reason(str(exc))
                     return []
 
                 async with lock:
@@ -600,31 +636,76 @@ async def run_import(
                     return {"status": "cancelled", "message": "Cancelled"}
 
                 tx = trip.get("transactionId", "unknown")
+                imei = trip.get("imei")
+
+                validation = await pipeline.validate_raw_trip_with_basic(trip)
+                if not validation.get("success"):
+                    counters["validation_failed"] += 1
+                    if isinstance(imei, str) and imei in per_device:
+                        per_device[imei]["validation_failed"] += 1
+                    reason = (
+                        (validation.get("processing_status") or {})
+                        .get("errors", {})
+                        .get("validation")
+                    )
+                    add_event(
+                        "error",
+                        f"Trip failed validation ({tx})",
+                        {
+                            "transactionId": tx,
+                            "imei": imei,
+                            "reason": reason,
+                            "window_index": idx,
+                        },
+                    )
+                    record_failure_reason(str(reason))
+                    processed_count += 1
+                    if processed_count % 5 == 0 or processed_count == len(new_trips):
+                        within = processed_count / max(1, len(new_trips))
+                        overall = ((idx - 1) + (0.4 + (0.6 * within))) / max(
+                            1,
+                            windows_total,
+                        )
+                        await write_progress(
+                            status="running",
+                            stage="processing",
+                            message=(
+                                f"Processed {processed_count}/{len(new_trips)} trips "
+                                f"(window {idx}/{windows_total})"
+                            ),
+                            progress=min(99.0, overall * 100.0),
+                            current_window=current_window,
+                            windows_completed=windows_completed,
+                        )
+                    continue
+
                 try:
                     inserted = await pipeline.process_raw_trip_insert_only(
                         trip,
                         source="bouncie",
                         do_map_match=False,
                         do_geocode=do_geocode,
-                        do_coverage=True,
+                        do_coverage=do_coverage,
                         skip_existing_check=True,
                     )
                 except Exception as exc:
                     counters["process_errors"] += 1
-                    imei = trip.get("imei")
                     if isinstance(imei, str) and imei in per_device:
                         per_device[imei]["errors"] += 1
-                    add_event("error", f"Failed processing trip {tx}", {"error": str(exc)})
+                    add_event(
+                        "error",
+                        f"Failed processing trip {tx}",
+                        {"error": str(exc), "transactionId": tx, "imei": imei, "window_index": idx},
+                    )
+                    record_failure_reason(str(exc))
                 else:
                     if inserted:
                         counters["inserted"] += 1
-                        imei = trip.get("imei")
                         if isinstance(imei, str) and imei in per_device:
                             per_device[imei]["inserted"] += 1
                     else:
                         # Insert-only skip (already exists / concurrent insert)
                         counters["skipped_existing"] += 1
-                        imei = trip.get("imei")
                         if isinstance(imei, str) and imei in per_device:
                             per_device[imei]["skipped_existing"] += 1
 
@@ -675,6 +756,7 @@ async def run_import(
                     "counters": dict(counters),
                     "start_iso": start_dt.isoformat(),
                     "end_iso": end_dt.isoformat(),
+                    "failure_reasons": dict(failure_reasons),
                 },
             )
 
@@ -682,6 +764,7 @@ async def run_import(
             "status": "success",
             "message": "Import complete",
             "counters": dict(counters),
+            "failure_reasons": dict(failure_reasons),
             "date_range": {"start": start_dt.isoformat(), "end": end_dt.isoformat()},
         }
     except Exception as exc:

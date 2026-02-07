@@ -375,6 +375,7 @@ class TripSyncService:
                         "found_unique": 0,
                         "skipped_existing": 0,
                         "skipped_missing_end_time": 0,
+                        "validation_failed": 0,
                         "new_candidates": 0,
                         "inserted": 0,
                         "fetch_errors": 0,
@@ -386,6 +387,7 @@ class TripSyncService:
                             "found_raw": 0,
                             "found_unique": 0,
                             "skipped_existing": 0,
+                            "validation_failed": 0,
                             "new_candidates": 0,
                             "inserted": 0,
                             "errors": 0,
@@ -394,6 +396,7 @@ class TripSyncService:
                         if d.get("imei")
                     },
                     "events": [],
+                    "failure_reasons": {},
                 },
             )
             await job.insert()
