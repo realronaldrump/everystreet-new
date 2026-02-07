@@ -8,6 +8,10 @@ export class InvalidTripReview {
   constructor() {
     this.tableBody = document.querySelector("#invalidTripsTable tbody");
     this.paginationContainer = document.getElementById("invalidTripsPagination");
+
+    this.navCountBadge = document.getElementById("invalid-trips-nav-count");
+    this.refreshBtn = document.getElementById("invalid-trips-refresh");
+
     this.trips = [];
     this.currentPage = 1;
     this.itemsPerPage = 10;
@@ -28,6 +32,13 @@ export class InvalidTripReview {
 
       const data = await response.json();
       this.trips = data.trips;
+
+      if (this.navCountBadge) {
+        const count = Array.isArray(this.trips) ? this.trips.length : 0;
+        this.navCountBadge.textContent = String(count);
+        this.navCountBadge.classList.toggle("is-empty", count === 0);
+      }
+
       this.renderTable();
       this.renderPagination();
     } catch {
@@ -116,6 +127,10 @@ export class InvalidTripReview {
     if (!this.tableBody) {
       return;
     }
+
+    this.refreshBtn?.addEventListener("click", () => {
+      this.fetchInvalidTrips();
+    });
 
     this.tableBody.addEventListener("click", (e) => {
       const restoreBtn = e.target.closest(".restore-trip-btn");

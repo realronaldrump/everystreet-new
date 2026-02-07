@@ -2132,6 +2132,26 @@
   border-radius: 999px;
   padding: 0.35rem 0.75rem;
   font-size: var(--font-size-sm);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.trip-data-health-pill-badge {
+  font-variant-numeric: tabular-nums;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+  font-size: var(--font-size-xs);
+  line-height: 1;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  border: 1px solid var(--border-color);
+  background: var(--surface-1);
+  color: var(--text-tertiary);
+}
+
+.trip-data-health-pill-badge.is-empty {
+  opacity: 0.6;
 }
 
 .trip-issues-toolbar {
@@ -2190,6 +2210,12 @@
   gap: var(--space-2);
   flex-wrap: wrap;
   align-items: center;
+}
+
+.trip-issues-refresh {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .trip-issues-controls #trip-ingest-issues-search {

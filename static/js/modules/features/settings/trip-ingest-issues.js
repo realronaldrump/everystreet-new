@@ -72,6 +72,9 @@ export class TripIngestIssues {
       "trip-ingest-issues-include-resolved"
     );
 
+    this.navCountBadge = document.getElementById("trip-ingest-issues-nav-count");
+    this.refreshBtn = document.getElementById("trip-ingest-issues-refresh");
+
     this.issues = [];
     this.currentPage = 1;
     this.itemsPerPage = 25;
@@ -122,6 +125,10 @@ export class TripIngestIssues {
     this.includeResolvedSwitch?.addEventListener("change", () => {
       this.includeResolved = Boolean(this.includeResolvedSwitch.checked);
       this.currentPage = 1;
+      this.fetchIssues();
+    });
+
+    this.refreshBtn?.addEventListener("click", () => {
       this.fetchIssues();
     });
 
@@ -184,6 +191,11 @@ export class TripIngestIssues {
 
     if (this.countAll) {
       this.countAll.textContent = String(openTotal);
+    }
+
+    if (this.navCountBadge) {
+      this.navCountBadge.textContent = String(openTotal);
+      this.navCountBadge.classList.toggle("is-empty", openTotal === 0);
     }
     if (this.countFetch) {
       this.countFetch.textContent = String(fetchCount);

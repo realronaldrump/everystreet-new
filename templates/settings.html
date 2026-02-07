@@ -881,6 +881,7 @@ Details
 	                    aria-controls="trip-data-health-issues"
 	                    aria-selected="true">
 	              Ingest issues
+	              <span class="trip-data-health-pill-badge" id="trip-ingest-issues-nav-count">0</span>
 	            </button>
 	          </li>
 	          <li class="nav-item" role="presentation">
@@ -893,6 +894,7 @@ Details
 	                    aria-controls="trip-data-health-invalid"
 	                    aria-selected="false">
 	              Invalid trips
+	              <span class="trip-data-health-pill-badge" id="invalid-trips-nav-count">0</span>
 	            </button>
 	          </li>
 	        </ul>
@@ -950,6 +952,13 @@ Details
 	                    Show dismissed
 	                  </label>
 	                </div>
+	                <button type="button"
+	                        class="btn btn-outline-secondary btn-sm trip-issues-refresh"
+	                        id="trip-ingest-issues-refresh"
+	                        title="Refresh ingest issues">
+	                  <i class="fas fa-rotate-right"></i>
+	                  <span class="d-none d-md-inline">Refresh</span>
+	                </button>
 	              </div>
 	            </div>
 
@@ -996,11 +1005,22 @@ Details
 	               role="tabpanel"
 	               aria-labelledby="trip-data-health-invalid-tab"
 	               tabindex="0">
-	            <p class="text-muted small mb-2">
-	              This list contains trips already stored in your database that were marked invalid
-	              (typically by the “Validate Trips” maintenance task). Ingest-time failures appear
-	              under “Ingest issues”.
-	            </p>
+	            <div class="trip-issues-toolbar">
+	              <p class="text-muted small mb-0">
+	                This list contains trips already stored in your database that were marked invalid
+	                (typically by the “Validate Trips” maintenance task). Ingest-time failures appear
+	                under “Ingest issues”.
+	              </p>
+	              <div class="trip-issues-controls">
+	                <button type="button"
+	                        class="btn btn-outline-secondary btn-sm trip-issues-refresh"
+	                        id="invalid-trips-refresh"
+	                        title="Refresh invalid trips">
+	                  <i class="fas fa-rotate-right"></i>
+	                  <span class="d-none d-md-inline">Refresh</span>
+	                </button>
+	              </div>
+	            </div>
 	            <div class="table-responsive">
 	              <table class="table table-sm table-hover align-middle" id="invalidTripsTable">
 	                <thead>
