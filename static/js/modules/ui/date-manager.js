@@ -36,6 +36,8 @@ const dateManager = {
       allowInput: true,
       animate: CONFIG.UI.animations.enabled && !store.ui.reducedMotion,
       locale: { firstDayOfWeek: 0 },
+      // Append calendar to body so it's not clipped by the bottom sheet overflow
+      appendTo: document.body,
     };
 
     if (!startInput._flatpickr) {
