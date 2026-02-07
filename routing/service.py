@@ -597,7 +597,10 @@ async def generate_optimal_route_with_progress(
             try:
                 import asyncio
 
-                from routing.graph_connectivity import get_api_semaphore, get_valhalla_client
+                from routing.graph_connectivity import (
+                    get_api_semaphore,
+                    get_valhalla_client,
+                )
             except Exception:
                 trace_candidates = []
                 trace_leftover = unmatched_after_spatial

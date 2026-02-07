@@ -7,7 +7,12 @@ import pytest
 from beanie import PydanticObjectId, init_beanie
 from mongomock_motor import AsyncMongoMockClient
 
-from core.coverage import backfill_coverage_for_area, mark_segment_undriveable, mark_segment_undriven, update_coverage_for_segments
+from core.coverage import (
+    backfill_coverage_for_area,
+    mark_segment_undriveable,
+    mark_segment_undriven,
+    update_coverage_for_segments,
+)
 from db.models import CoverageArea, CoverageState, Job, Street, Trip
 from street_coverage import ingestion as coverage_ingestion
 

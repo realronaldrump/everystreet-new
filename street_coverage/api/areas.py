@@ -13,14 +13,16 @@ import logging
 from typing import Any
 
 from beanie import PydanticObjectId
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Query, status
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 
-from db.models import CoverageArea, Job
 from core.http.nominatim import NominatimClient
+from db.models import CoverageArea, Job
 from street_coverage.ingestion import (
     _calculate_bounding_box,
     _fetch_boundary,
+    backfill_area,
     create_area,
     delete_area,
     rebuild_area,
@@ -281,7 +283,7 @@ def _ensure_polygon_geojson(boundary: dict[str, Any], label: str) -> dict[str, A
         geojson = geojson.get("geometry")
     if not isinstance(geojson, dict):
         msg = "Boundary geometry must be a GeoJSON object."
-        raise ValueError(msg)
+        raise TypeError(msg)
     geom_type = geojson.get("type")
     if geom_type not in ("Polygon", "MultiPolygon"):
         msg = f"Invalid geometry type for boundary: {geom_type}"
@@ -547,7 +549,7 @@ async def add_area(request: CreateAreaRequest):
                 raise HTTPException(status_code=status_code, detail=detail) from exc
         try:
             boundary = _ensure_polygon_geojson(boundary, request.display_name)
-        except ValueError as exc:
+        except (TypeError, ValueError) as exc:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=str(exc),
@@ -643,7 +645,10 @@ async def trigger_rebuild(area_id: PydanticObjectId):
 
 
 @router.post("/areas/{area_id}/backfill")
-async def trigger_backfill(area_id: PydanticObjectId):
+async def trigger_backfill(
+    area_id: PydanticObjectId,
+    background: bool = Query(False),
+):
     """
     Trigger a backfill of coverage data for an existing area.
 
@@ -666,6 +671,27 @@ async def trigger_backfill(area_id: PydanticObjectId):
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Coverage area not found",
         )
+
+    if background:
+        try:
+            job = await backfill_area(area_id)
+        except Exception as e:
+            logger.exception("Error enqueueing backfill job for area %s", area.display_name)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=str(e),
+            )
+        else:
+            job_id = str(job.id) if job.id is not None else None
+            return JSONResponse(
+                status_code=status.HTTP_202_ACCEPTED,
+                content={
+                    "success": True,
+                    "job_id": job_id,
+                    "message": "Backfill enqueued.",
+                    "status_url": f"/api/coverage/jobs/{job_id}" if job_id else None,
+                },
+            )
 
     try:
         logger.info("Starting backfill for area %s", area.display_name)
