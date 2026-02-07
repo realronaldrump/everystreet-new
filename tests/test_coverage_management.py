@@ -227,6 +227,55 @@ async def test_backfill_sets_first_last_and_driven_by_trip_id(coverage_db) -> No
 
 
 @pytest.mark.asyncio
+async def test_backfill_uses_raw_gps_not_matched_gps(coverage_db) -> None:
+    area = CoverageArea(
+        display_name="Coverage Raw GPS Only Area",
+        status="initializing",
+        health="unavailable",
+        total_length_miles=1.0,
+        driveable_length_miles=1.0,
+        total_segments=1,
+    )
+    await area.insert()
+    assert area.id is not None
+
+    segment_id = f"{area.id}-{area.area_version}-0"
+    await Street(
+        segment_id=segment_id,
+        area_id=area.id,
+        area_version=area.area_version,
+        geometry={
+            "type": "LineString",
+            "coordinates": [[-97.0, 31.0], [-97.0, 31.001]],
+        },
+        length_miles=1.0,
+    ).insert()
+
+    t1 = datetime(2025, 1, 1, tzinfo=UTC)
+    trip = Trip(
+        transactionId="trip-raw-vs-matched",
+        endTime=t1,
+        # Raw GPS is far away and should not match the segment.
+        gps={
+            "type": "LineString",
+            "coordinates": [[-97.2, 31.0], [-97.2, 31.001]],
+        },
+        # Matched geometry overlaps the segment, but coverage should ignore it.
+        matchedGps={
+            "type": "LineString",
+            "coordinates": [[-97.0, 31.0], [-97.0, 31.001]],
+        },
+    )
+    await trip.insert()
+
+    updated = await backfill_coverage_for_area(area.id)
+    assert updated == 0
+
+    state = await CoverageState.find_one({"area_id": area.id, "segment_id": segment_id})
+    assert state is None
+
+
+@pytest.mark.asyncio
 async def test_ingestion_pipeline_respects_cancelled_job(coverage_db, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     area = CoverageArea(
         display_name="Cancelled Ingestion Area",
@@ -259,4 +308,3 @@ async def test_ingestion_pipeline_respects_cancelled_job(coverage_db, tmp_path: 
     assert area_after is not None
     assert area_after.status == "error"
     assert area_after.last_error == "Cancelled by user"
-

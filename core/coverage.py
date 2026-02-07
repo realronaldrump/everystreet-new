@@ -360,31 +360,16 @@ def trip_to_linestring(trip: dict[str, Any]) -> BaseGeometry | None:
     """
     Convert a trip document to a Shapely LineString/MultiLineString.
 
-    Handles both GeoJSON geometry and raw coordinate arrays. Returns
-    None if trip has no valid geometry.
+    Coverage matching intentionally uses the trip's raw GPS trace only
+    (trip["gps"]) and does not use map-matched geometry (matchedGps).
+
+    Returns None if trip has no valid raw GPS geometry.
     """
-    lines = None
-    if "matchedGps" in trip and isinstance(trip["matchedGps"], dict):
-        lines = _extract_lines_from_geojson(trip["matchedGps"])
+    geom = trip.get("gps")
+    if not isinstance(geom, dict):
+        return None
 
-    if lines is None and "gps" in trip and isinstance(trip["gps"], dict):
-        geom = trip["gps"]
-        lines = _extract_lines_from_geojson(geom)
-
-    if lines is None and "coordinates" in trip:
-        raw_coords = trip["coordinates"]
-        if isinstance(raw_coords, list):
-            coords = _normalize_coords(raw_coords)
-            if len(coords) >= 2:
-                lines = [coords]
-
-    if lines is None and "locations" in trip:
-        locs = trip["locations"]
-        if isinstance(locs, list):
-            coords = _normalize_coords(locs)
-            if len(coords) >= 2:
-                lines = [coords]
-
+    lines = _extract_lines_from_geojson(geom)
     if not lines:
         return None
 
