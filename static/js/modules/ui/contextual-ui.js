@@ -14,6 +14,8 @@ const contextualUI = {
   timeTone: null,
   observers: new Map(),
   initialized: false,
+  _styleCache: null,
+  _styleCacheTime: 0,
 
   init() {
     if (this.initialized) {
@@ -48,6 +50,7 @@ const contextualUI = {
       tone = "night";
     }
     this.timeTone = tone;
+    this._styleCache = null;
     document.body?.setAttribute("data-time-of-day", tone);
     this.applyAccentTone();
   },
@@ -66,11 +69,18 @@ const contextualUI = {
       if (this.observers.has(element)) {
         return;
       }
+      let debounceTimer = null;
       const observer = new MutationObserver(() => {
-        const percent = this.parsePercent(element.textContent || "");
-        if (Number.isFinite(percent)) {
-          this.setCoverageTone(percent);
+        if (debounceTimer) {
+          return;
         }
+        debounceTimer = setTimeout(() => {
+          debounceTimer = null;
+          const percent = this.parsePercent(element.textContent || "");
+          if (Number.isFinite(percent)) {
+            this.setCoverageTone(percent);
+          }
+        }, 300);
       });
       observer.observe(element, {
         childList: true,
@@ -123,7 +133,12 @@ const contextualUI = {
   },
 
   getToneRgb(tone) {
-    const style = getComputedStyle(document.documentElement);
+    const now = Date.now();
+    if (!this._styleCache || now - this._styleCacheTime > 5000) {
+      this._styleCache = getComputedStyle(document.documentElement);
+      this._styleCacheTime = now;
+    }
+    const style = this._styleCache;
     if (tone === "warm") {
       return style.getPropertyValue("--warning-rgb").trim();
     }

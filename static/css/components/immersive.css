@@ -29,6 +29,8 @@
   filter: blur(var(--blur-subtle));
   opacity: 0.35;
   animation: ambientFloat 40s ease-in-out infinite;
+  will-change: transform;
+  contain: strict;
 }
 
 .ambient-orb.orb-cool {

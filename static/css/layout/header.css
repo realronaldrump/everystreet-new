@@ -19,11 +19,12 @@
   right: 0;
   height: var(--header-height);
   background: var(--glass-panel);
-  backdrop-filter: blur(var(--blur-strong));
+  backdrop-filter: blur(var(--blur-subtle));
   border-bottom: 1px solid var(--glass-border-subtle);
   box-shadow: var(--shadow-glass-sm);
   z-index: var(--z-fixed);
   transition: all var(--transition-normal);
+  contain: layout style;
 }
 
 .app-header.scrolled {

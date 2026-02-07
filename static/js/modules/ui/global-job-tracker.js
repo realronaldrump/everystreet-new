@@ -134,6 +134,8 @@ function clearJobState() {
 
 function startPolling(jobId) {
   clearTimeout(pollTimeout);
+  let errorCount = 0;
+  const MAX_POLL_ERRORS = 5;
 
   const poll = async () => {
     if (!activeJob || activeJob.jobId !== jobId) {
@@ -142,6 +144,7 @@ function startPolling(jobId) {
 
     try {
       const job = await fetchJobStatus(jobId);
+      errorCount = 0;
       activeJob = { ...activeJob, ...mapJobToState(job) };
       saveJobState();
 
@@ -152,9 +155,19 @@ function startPolling(jobId) {
         handleJobFinished(job);
       }
     } catch (e) {
-      console.warn("Polling error:", e);
-      // Back off a bit but keep trying unless it's a 404
-      pollTimeout = setTimeout(poll, JOB_POLL_INTERVAL_MS * 2);
+      errorCount++;
+      console.warn(`Polling error (${errorCount}/${MAX_POLL_ERRORS}):`, e);
+
+      // Stop polling if job not found or too many consecutive errors
+      if (e?.status === 404 || errorCount >= MAX_POLL_ERRORS) {
+        console.warn("Stopping poll: job not found or max errors reached");
+        stopTracking();
+        return;
+      }
+
+      // Exponential backoff: 3s, 6s, 12s, 24s...
+      const backoff = JOB_POLL_INTERVAL_MS * 2 * 2 ** (errorCount - 1);
+      pollTimeout = setTimeout(poll, Math.min(backoff, 30000));
     }
   };
 

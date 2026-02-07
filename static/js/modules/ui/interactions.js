@@ -98,10 +98,19 @@ const interactions = {
       if (this.observers.has(element)) {
         return;
       }
+      let pendingFlash = false;
       const observer = new MutationObserver(() => {
+        if (pendingFlash) {
+          return;
+        }
+        pendingFlash = true;
         element.classList.remove("value-flash");
-        void element.offsetWidth;
-        element.classList.add("value-flash");
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            element.classList.add("value-flash");
+            pendingFlash = false;
+          });
+        });
       });
       observer.observe(element, {
         characterData: true,
