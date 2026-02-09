@@ -67,7 +67,7 @@ export class InvalidTripReview {
 
     if (pageTrips.length === 0) {
       this.tableBody.innerHTML
-        = '<tr><td colspan="5" class="text-center">No invalid trips found</td></tr>';
+        = '<tr><td colspan="5" class="text-center text-muted">No invalid trips found.</td></tr>';
       return;
     }
 
