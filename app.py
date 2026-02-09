@@ -2,7 +2,6 @@ import logging
 import os
 import uuid
 from pathlib import Path
-from user_profile import router as profile_api_router
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request, status
@@ -35,6 +34,7 @@ from tasks.api import router as tasks_api_router
 from tasks.arq import close_arq_pool
 from tracking import router as tracking_api_router
 from trips import router as trips_router
+from user_profile import router as profile_api_router
 from visits import router as visits_router
 
 load_dotenv()
@@ -73,10 +73,28 @@ class AppState:
 # Initialize FastAPI App
 app = FastAPI(title="Every Street")
 
+
+class CacheControlStaticFiles(StaticFiles):
+    """StaticFiles with cache headers suitable for frequent deploys.
+
+    Most of our JS is loaded as ESM modules without versioned import specifiers,
+    so we force revalidation to avoid stale client-side modules after updates.
+    """
+
+    async def get_response(self, path: str, scope):  # type: ignore[override]
+        response = await super().get_response(path, scope)
+
+        if response.status_code in {200, 304}:
+            lower = (path or "").lower()
+            if lower.endswith((".js", ".css", ".map")):
+                response.headers["Cache-Control"] = "no-cache"
+        return response
+
+
 # Mount static files and templates
 app.mount(
     "/static",
-    StaticFiles(directory="static"),
+    CacheControlStaticFiles(directory="static"),
     name="static",
 )
 templates = Jinja2Templates(directory="templates")

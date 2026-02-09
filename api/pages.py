@@ -1,7 +1,8 @@
 import logging
+from datetime import UTC, datetime
 from typing import Any
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
@@ -10,7 +11,11 @@ from config import validate_mapbox_token
 from core.jinja import register_template_filters
 from core.repo_info import get_repo_version_info
 from core.service_config import get_mapbox_token_async
-from db.models import ALL_DOCUMENT_MODELS
+from db.models import ALL_DOCUMENT_MODELS, Vehicle
+from setup.services.bouncie_credentials import (
+    get_bouncie_credentials,
+    update_bouncie_credentials,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -108,6 +113,49 @@ async def settings_page(request: Request):
         request,
         **(await _storage_management_context()),
     )
+
+
+@router.post("/settings/credentials/add-vehicle", response_class=RedirectResponse)
+async def settings_add_vehicle(
+    imei: str = Form(""),
+    custom_name: str | None = Form(None),
+) -> RedirectResponse:
+    """Fallback handler for the Credentials -> Add Vehicle form (non-JS)."""
+    imei_value = (imei or "").strip()
+    name_value = (custom_name or "").strip() or None
+
+    if imei_value:
+        now = datetime.now(UTC)
+        vehicle = await Vehicle.find_one(Vehicle.imei == imei_value)
+        if vehicle:
+            if name_value is not None:
+                vehicle.custom_name = name_value
+            vehicle.is_active = True
+            vehicle.updated_at = now
+            await vehicle.save()
+        else:
+            vehicle = Vehicle(
+                imei=imei_value,
+                custom_name=name_value,
+                is_active=True,
+                created_at=now,
+                updated_at=now,
+            )
+            await vehicle.insert()
+
+        credentials = await get_bouncie_credentials()
+        devices = credentials.get("authorized_devices") or []
+        if isinstance(devices, str):
+            devices = [d.strip() for d in devices.split(",") if d.strip()]
+        if not isinstance(devices, list):
+            devices = []
+        devices = [str(d).strip() for d in devices if str(d).strip()]
+        if imei_value not in devices:
+            devices.append(imei_value)
+            await update_bouncie_credentials({"authorized_devices": devices})
+
+    # Always return the user to the Credentials tab.
+    return RedirectResponse(url="/settings#credentials", status_code=303)
 
 
 @router.get("/profile", response_class=HTMLResponse)
