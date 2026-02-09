@@ -30,6 +30,21 @@ function formatLocal(value) {
   }
 }
 
+function formatLocalDate(value) {
+  if (!value) {
+    return "";
+  }
+  try {
+    const dt = new Date(value);
+    if (Number.isNaN(dt.getTime())) {
+      return String(value);
+    }
+    return dt.toLocaleDateString();
+  } catch {
+    return String(value);
+  }
+}
+
 function typeLabel(type) {
   switch (String(type || "").toLowerCase()) {
     case "fetch_error":
@@ -54,6 +69,244 @@ function typeBadgeClass(type) {
     default:
       return "trip-issue-badge";
   }
+}
+
+function normalizeSourceLabel(source, urlHost = "") {
+  const src = String(source || "").trim().toLowerCase();
+  const host = String(urlHost || "").trim().toLowerCase();
+  if (src === "bouncie" || host.includes("bouncie")) {
+    return "Bouncie";
+  }
+  if (src) {
+    return src;
+  }
+  return "the trip provider";
+}
+
+function parseHttpishError(message) {
+  const text = String(message ?? "").trim();
+  if (!text) {
+    return null;
+  }
+
+  const statusMatch
+    = text.match(/(?:^|\b)(\d{3})(?=\s*,\s*message=)/i) || text.match(/^(\d{3})\b/);
+  const msgMatch = text.match(/message=['"]([^'"]+)['"]/i);
+  const urlMatch
+    = text.match(/\burl=(?:URL\()?['"]([^'"]+)['"]\)?/i)
+    || text.match(/\burl=['"]([^'"]+)['"]/i);
+
+  const status = statusMatch ? Number(statusMatch[1]) : null;
+  const statusText = msgMatch?.[1] ? String(msgMatch[1]) : null;
+  const url = urlMatch?.[1] ? String(urlMatch[1]) : null;
+  let host = null;
+  if (url) {
+    try {
+      host = new URL(url).hostname;
+    } catch {
+      host = null;
+    }
+  }
+
+  if (!status && !statusText && !url) {
+    return null;
+  }
+
+  return { status, statusText, url, host };
+}
+
+function extractWindowInfo(details, fallbackUrl) {
+  const out = {
+    windowIndex: null,
+    startIso: null,
+    endIso: null,
+  };
+
+  if (details && typeof details === "object") {
+    const idx = Number(details.window_index ?? details.windowIndex);
+    out.windowIndex = Number.isFinite(idx) ? idx : null;
+    out.startIso = details.window_start ?? details.windowStart ?? details.start_iso ?? null;
+    out.endIso = details.window_end ?? details.windowEnd ?? details.end_iso ?? null;
+  }
+
+  if (!out.startIso && fallbackUrl) {
+    try {
+      const u = new URL(fallbackUrl);
+      out.startIso = u.searchParams.get("starts-after");
+      out.endIso = u.searchParams.get("ends-before");
+    } catch {
+      // ignore
+    }
+  }
+
+  return out;
+}
+
+function formatWindowRangeText(windowInfo) {
+  if (!windowInfo) {
+    return "";
+  }
+  const start = windowInfo.startIso ? formatLocalDate(windowInfo.startIso) : "";
+  const end = windowInfo.endIso ? formatLocalDate(windowInfo.endIso) : "";
+  if (start && end) {
+    return `${start} to ${end}`;
+  }
+  if (start) {
+    return `starting ${start}`;
+  }
+  if (end) {
+    return `ending ${end}`;
+  }
+  return "";
+}
+
+function buildFriendlyIssueCopy(issue, httpInfo, windowInfo) {
+  const issueType = String(issue?.issue_type || "").toLowerCase();
+  const provider = normalizeSourceLabel(issue?.source, httpInfo?.host);
+  const windowText = formatWindowRangeText(windowInfo);
+  const windowClause = windowText ? ` for ${windowText}` : "";
+
+  const status = httpInfo?.status;
+
+  if (issueType === "fetch_error") {
+    if (status && status >= 500) {
+      return {
+        title: `Could not download trips from ${provider}.`,
+        body: `${provider} had a server problem (error code ${status})${windowClause}.`,
+        hint: "This is usually temporary. Try again later.",
+      };
+    }
+
+    if (status === 401 || status === 403) {
+      return {
+        title: `Could not download trips from ${provider}.`,
+        body: `${provider} rejected the request (error code ${status})${windowClause}.`,
+        hint: "Your connection may need to be re-authorized.",
+      };
+    }
+
+    if (status === 429) {
+      return {
+        title: `Could not download trips from ${provider}.`,
+        body: `${provider} is rate limiting requests right now (error code ${status})${windowClause}.`,
+        hint: "Try again later.",
+      };
+    }
+
+    if (status) {
+      return {
+        title: `Could not download trips from ${provider}.`,
+        body: `${provider} returned an error (error code ${status})${windowClause}.`,
+        hint: 'Open "More info" for the technical details.',
+      };
+    }
+
+    const raw = String(issue?.message || "").trim();
+    const rawLower = raw.toLowerCase();
+    if (rawLower.includes("timeout") || rawLower.includes("timed out")) {
+      return {
+        title: `Could not download trips from ${provider}.`,
+        body: `The request timed out${windowClause}.`,
+        hint: "Try again later.",
+      };
+    }
+    if (
+      rawLower.includes("cannot connect")
+      || rawLower.includes("connection")
+      || rawLower.includes("network")
+    ) {
+      return {
+        title: `Could not download trips from ${provider}.`,
+        body: `We could not connect to ${provider}${windowClause}.`,
+        hint: "Try again later.",
+      };
+    }
+
+    return {
+      title: `Could not download trips from ${provider}.`,
+      body: `Something went wrong while contacting ${provider}${windowClause}.`,
+      hint: 'Open "More info" for the technical details.',
+    };
+  }
+
+  if (issueType === "validation_failed") {
+    const reason = issue?.details?.reason ?? issue?.message;
+    const reasonText = String(reason || "").trim();
+    if (reasonText.toLowerCase().includes("missing endtime")) {
+      return {
+        title: "Trip data was incomplete, so it was skipped.",
+        body: `${provider} did not provide a trip end time, so we cannot store it as a completed trip.`,
+        hint: "This comes from the data source, not your settings.",
+      };
+    }
+    return {
+      title: "Trip data did not pass validation, so it was skipped.",
+      body: reasonText ? `Reason: ${reasonText}.` : "A required field was missing or invalid.",
+      hint: 'Open "More info" for the technical details.',
+    };
+  }
+
+  if (issueType === "process_error") {
+    return {
+      title: "Trip data was downloaded, but processing failed.",
+      body: "We hit an error while saving or processing this trip data.",
+      hint: 'Open "More info" for the technical details.',
+    };
+  }
+
+  return {
+    title: "Trip sync issue",
+    body: "Something went wrong while fetching or processing trip data.",
+    hint: 'Open "More info" for the technical details.',
+  };
+}
+
+function buildTechnicalLines(issue, httpInfo, windowInfo) {
+  const lines = [];
+  const provider = normalizeSourceLabel(issue?.source, httpInfo?.host);
+
+  lines.push(`Source: ${provider}`);
+  if (issue?.imei) {
+    lines.push(`Device (IMEI): ${issue.imei}`);
+  }
+  if (issue?.transaction_id) {
+    lines.push(`Trip (transaction ID): ${issue.transaction_id}`);
+  }
+
+  const windowText = formatWindowRangeText(windowInfo);
+  if (windowText) {
+    lines.push(`Time window: ${windowText}`);
+  }
+  if (windowInfo?.windowIndex) {
+    lines.push(`Window index: ${windowInfo.windowIndex}`);
+  }
+
+  if (httpInfo?.status || httpInfo?.statusText) {
+    const status = httpInfo.status ? String(httpInfo.status) : "";
+    const statusText = httpInfo.statusText ? String(httpInfo.statusText) : "";
+    lines.push(
+      `Provider response: ${status}${status && statusText ? " " : ""}${statusText}`.trim()
+    );
+  }
+  if (httpInfo?.url) {
+    lines.push(`Request URL: ${httpInfo.url}`);
+  }
+
+  if (issue?.details && typeof issue.details === "object") {
+    if (issue.details.reason != null) {
+      lines.push(`Details reason: ${String(issue.details.reason)}`);
+    }
+    if (issue.details.error != null) {
+      lines.push(`Details error: ${String(issue.details.error)}`);
+    }
+  }
+
+  const raw = String(issue?.message || "").trim();
+  if (raw) {
+    lines.push(`Raw error: ${raw}`);
+  }
+
+  return lines;
 }
 
 export class TripIngestIssues {
@@ -226,23 +479,30 @@ export class TripIngestIssues {
         const imei = issue?.imei || "";
         const lastSeen = formatLocal(issue?.last_seen_at || issue?.created_at);
         const count = Number(issue?.occurrences) || 1;
-        const message = issue?.message || "";
         const resolved = Boolean(issue?.resolved);
         const details = issue?.details && typeof issue.details === "object" ? issue.details : null;
 
+        const httpInfo = parseHttpishError(issue?.message || "");
+        const windowInfo = extractWindowInfo(details, httpInfo?.url);
+        const friendly = buildFriendlyIssueCopy(issue, httpInfo, windowInfo);
+        const technicalLines = buildTechnicalLines(issue, httpInfo, windowInfo);
+
+        const windowTripText = formatWindowRangeText(windowInfo);
         const tripCell = tx
           ? `<a class="trip-issue-link" href="/trips/${encodeURIComponent(
               tx
             )}" data-no-swup>${escapeHtml(tx)}</a>`
+          : windowTripText
+            ? `<span class="trip-issue-window">${escapeHtml(windowTripText)}</span>`
           : '<span class="text-muted">--</span>';
 
         const deviceCell = imei ? `<span class="trip-issue-mono">${escapeHtml(imei)}</span>` : "--";
 
-        const detailsEl = details
+        const detailsEl = technicalLines.length
           ? `
             <details class="trip-issue-details">
-              <summary>Details</summary>
-              <pre>${escapeHtml(JSON.stringify(details, null, 2))}</pre>
+              <summary>More info</summary>
+              <pre>${escapeHtml(technicalLines.join("\n"))}</pre>
             </details>
           `
           : "";
@@ -281,7 +541,15 @@ export class TripIngestIssues {
             <td class="col-hide-mobile">${deviceCell}</td>
             <td class="trip-issue-count">${escapeHtml(count)}</td>
             <td>
-              <div class="trip-issue-message">${escapeHtml(message)}</div>
+              <div class="trip-issue-message">
+                <div class="trip-issue-message-title">${escapeHtml(friendly.title)}</div>
+                <div class="trip-issue-message-body">${escapeHtml(friendly.body)}</div>
+                ${
+                  friendly.hint
+                    ? `<div class="trip-issue-message-hint">${escapeHtml(friendly.hint)}</div>`
+                    : ""
+                }
+              </div>
               ${detailsEl}
             </td>
             <td>

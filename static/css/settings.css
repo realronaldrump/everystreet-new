@@ -2290,8 +2290,28 @@
 }
 
 .trip-issue-message {
-  color: var(--text-secondary);
   line-height: 1.25;
+}
+
+.trip-issue-message-title {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.trip-issue-message-body {
+  margin-top: 2px;
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+}
+
+.trip-issue-message-hint {
+  margin-top: 2px;
+  color: var(--text-tertiary);
+  font-size: var(--font-size-xs);
+}
+
+.trip-issue-window {
+  color: var(--text-tertiary);
 }
 
 .trip-issue-details {
