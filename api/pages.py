@@ -158,6 +158,48 @@ async def settings_add_vehicle(
     return RedirectResponse(url="/settings#credentials", status_code=303)
 
 
+@router.post("/vehicles/add-vehicle", response_class=RedirectResponse)
+async def vehicles_add_vehicle(
+    imei: str = Form(""),
+    custom_name: str | None = Form(None),
+) -> RedirectResponse:
+    """Fallback handler for the My Vehicles -> Add Vehicle form (non-JS)."""
+    imei_value = (imei or "").strip()
+    name_value = (custom_name or "").strip() or None
+
+    if imei_value:
+        now = datetime.now(UTC)
+        vehicle = await Vehicle.find_one(Vehicle.imei == imei_value)
+        if vehicle:
+            if name_value is not None:
+                vehicle.custom_name = name_value
+            vehicle.is_active = True
+            vehicle.updated_at = now
+            await vehicle.save()
+        else:
+            vehicle = Vehicle(
+                imei=imei_value,
+                custom_name=name_value,
+                is_active=True,
+                created_at=now,
+                updated_at=now,
+            )
+            await vehicle.insert()
+
+        credentials = await get_bouncie_credentials()
+        devices = credentials.get("authorized_devices") or []
+        if isinstance(devices, str):
+            devices = [d.strip() for d in devices.split(",") if d.strip()]
+        if not isinstance(devices, list):
+            devices = []
+        devices = [str(d).strip() for d in devices if str(d).strip()]
+        if imei_value not in devices:
+            devices.append(imei_value)
+            await update_bouncie_credentials({"authorized_devices": devices})
+
+    return RedirectResponse(url="/vehicles", status_code=303)
+
+
 @router.get("/profile", response_class=HTMLResponse)
 async def profile_page(request: Request):
     """Render profile settings page."""

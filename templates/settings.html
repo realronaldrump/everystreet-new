@@ -386,12 +386,114 @@ Geocode Trips on Fetch
               </button>
             </div>
           </form>
-        </div>
+	        </div>
 
-	        <div class="settings-group bento-span-12">
+	        <div class="settings-group bento-span-12" id="credentials-bouncie-vehicles-group">
 	          <h3 class="settings-group-title">
-	            <i class="fas fa-globe"></i>
-	          Mapbox Token
+	            <i class="fas fa-car"></i>
+	          Bouncie Vehicles
+	          </h3>
+	          <p class="text-muted small">
+	          Vehicles synced from Bouncie and authorized for trip fetching.
+	          </p>
+
+	          <div class="d-flex justify-content-end gap-2 flex-wrap mb-3">
+	            <button type="button"
+	                    class="btn btn-outline-secondary"
+	                    id="credentials-refresh-vehicles-btn">
+	              <i class="fas fa-rotate-right"></i> Refresh List
+	            </button>
+	            <a href="/vehicles"
+	               class="btn btn-outline-secondary"
+	               data-no-swup>
+	              <i class="fas fa-car"></i> My Vehicles
+	            </a>
+	          </div>
+
+	          <div id="credentials-vehicles-loading" class="text-muted small">
+	          Loading vehicles...
+	          </div>
+	          <div id="credentials-vehicles-empty"
+	               class="text-muted small"
+	               style="display: none">
+	          No vehicles synced yet. Click "Sync Vehicles" above to pull them from Bouncie.
+	          </div>
+	          <div class="table-responsive"
+	               id="credentials-vehicles-table-wrapper"
+	               style="display: none">
+	            <table class="table align-middle mb-0">
+	              <thead>
+	                <tr>
+	                  <th scope="col">
+	                  Vehicle
+	                  </th>
+	                  <th scope="col">
+	                  IMEI
+	                  </th>
+	                  <th scope="col">
+	                  VIN
+	                  </th>
+	                  <th scope="col">
+	                  Last synced
+	                  </th>
+	                </tr>
+	              </thead>
+	              <tbody id="credentials-vehicles-tbody"></tbody>
+	            </table>
+	          </div>
+
+	          <hr class="my-4" />
+
+	          <h4 class="h6 text-muted text-uppercase mb-3">
+	          Add Vehicle
+	          </h4>
+	          <form id="credentials-add-vehicle-form"
+	                method="post"
+	                action="/settings/credentials/add-vehicle"
+	                novalidate>
+	            <div class="row g-3 align-items-end">
+	              <div class="col-12 col-md-4">
+	                <label for="credentials-add-vehicle-imei" class="form-label">
+	                IMEI
+	                </label>
+	                <input type="text"
+	                       class="form-control"
+	                       id="credentials-add-vehicle-imei"
+	                       name="imei"
+	                       placeholder="123456789012345"
+	                       inputmode="numeric"
+	                       autocomplete="off" />
+	              </div>
+	              <div class="col-12 col-md-5">
+	                <label for="credentials-add-vehicle-name" class="form-label">
+	                Display name (optional)
+	                </label>
+	                <input type="text"
+	                       class="form-control"
+	                       id="credentials-add-vehicle-name"
+	                       name="custom_name"
+	                       placeholder="My car"
+	                       autocomplete="off" />
+	              </div>
+	              <div class="col-12 col-md-3">
+	                <button type="submit"
+	                        class="btn btn-primary w-100"
+	                        id="credentials-add-vehicle-btn">
+	                  <i class="fas fa-plus"></i> Add Vehicle
+	                </button>
+	              </div>
+	            </div>
+	            <div class="form-text mt-2">
+	            Adds the IMEI to your local vehicle list and authorizes it for trip syncing.
+	            Use "Sync Vehicles" above to discover all vehicles on the account automatically.
+	            </div>
+	          </form>
+	        </div>
+
+		        <div class="settings-group bento-span-12">
+		          <h3 class="settings-group-title">
+		            <i class="fas fa-globe"></i>
+		          Mapbox Token
           </h3>
           <p class="text-muted small">
           Required for map tiles and static imagery across the app.

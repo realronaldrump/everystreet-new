@@ -90,7 +90,10 @@ extra_css %}
 	            <h3 class="h6 text-muted text-uppercase mb-3">
 	            Add Vehicle
 	            </h3>
-	            <form id="fleet-add-vehicle-form" novalidate>
+		            <form id="fleet-add-vehicle-form"
+		                  method="post"
+		                  action="/vehicles/add-vehicle"
+		                  novalidate>
 	              <div class="row g-3 align-items-end">
 	                <div class="col-12 col-md-4">
 	                  <label for="fleet-add-vehicle-imei" class="form-label">

@@ -990,7 +990,7 @@ System
 
       <!-- App bootstrap -->
       <script type="module"
-              src="{{ url_for('static', path='js/app.js') | replace('http://', '//') }}?v={{ repo_version.commit_count }}"></script>
+              src="/static-v/{{ repo_version.commit_count }}/js/app.js"></script>
 
 
       <!-- Global Progress Modal -->
