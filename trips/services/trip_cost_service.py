@@ -3,7 +3,7 @@
 import bisect
 
 from core.casting import safe_float
-from core.date_utils import parse_timestamp
+from core.date_utils import ensure_utc, parse_timestamp
 from db.models import GasFillup
 
 
@@ -64,6 +64,10 @@ class TripCostService:
                 # Robustly handle string timestamps
                 if isinstance(ts, str):
                     ts = parse_timestamp(ts)
+                    if ts is None:
+                        continue
+                elif hasattr(ts, "tzinfo"):
+                    ts = ensure_utc(ts)
                     if ts is None:
                         continue
 

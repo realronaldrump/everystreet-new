@@ -24,6 +24,7 @@ from core.date_utils import ensure_utc, parse_timestamp
 from core.clients.bouncie import format_bouncie_datetime_param
 from core.http.retry import retry_async
 from core.http.session import get_session
+from core.http.valhalla import ValhallaClient
 from core.jobs import JobHandle
 from db.models import Job, Trip, Vehicle
 from setup.services.bouncie_oauth import BouncieOAuth
@@ -160,32 +161,67 @@ async def _fetch_trips_for_device_strict(
     start_dt: datetime,
     end_dt: datetime,
 ) -> list[dict[str, Any]]:
+    def _decode_polyline_gps(trip: dict[str, Any]) -> None:
+        gps = trip.get("gps")
+        if not isinstance(gps, str) or not gps.strip():
+            return
+        coords = ValhallaClient._decode_polyline_shape(gps)
+        # Store coordinate pairs; the Trip model field validator will coerce to GeoJSON.
+        if coords:
+            trip["gps"] = coords
+
     headers = {
         "Authorization": token,
         "Content-Type": "application/json",
     }
-    params = {
-        "imei": imei,
-        "gps-format": "geojson",
-        "starts-after": format_bouncie_datetime_param(start_dt),
-        "ends-before": format_bouncie_datetime_param(end_dt),
-    }
     url = f"{API_BASE_URL}/trips"
-    async with session.get(url, headers=headers, params=params) as response:
-        response.raise_for_status()
-        trips = await response.json()
-        if not isinstance(trips, list):
-            return []
 
-        for trip in trips:
-            if not isinstance(trip, dict):
-                continue
-            if "startTime" in trip:
-                trip["startTime"] = parse_timestamp(trip["startTime"])
-            if "endTime" in trip:
-                trip["endTime"] = parse_timestamp(trip["endTime"])
+    async def _fetch(*, gps_format: str) -> list[dict[str, Any]]:
+        params = {
+            "imei": imei,
+            "gps-format": gps_format,
+            "starts-after": format_bouncie_datetime_param(start_dt),
+            "ends-before": format_bouncie_datetime_param(end_dt),
+        }
+        async with session.get(url, headers=headers, params=params) as response:
+            if response.status >= 400:
+                body = (await response.text())[:800]
+                logger.warning(
+                    "Bouncie /trips error (status=%s, imei=%s, gps_format=%s, starts_after=%s, ends_before=%s): %s",
+                    response.status,
+                    imei,
+                    gps_format,
+                    params.get("starts-after"),
+                    params.get("ends-before"),
+                    body,
+                )
+                response.raise_for_status()
+            payload = await response.json()
+            return payload if isinstance(payload, list) else []
 
-        return trips
+    try:
+        trips = await _fetch(gps_format="geojson")
+    except Exception as exc:
+        # Some Bouncie accounts/weeks intermittently 500 on geojson. Try polyline as a fallback
+        # to recover data without changing the public API surface.
+        status = getattr(exc, "status", None)
+        if status == 500:
+            trips = await _fetch(gps_format="polyline")
+            for trip in trips:
+                if isinstance(trip, dict):
+                    _decode_polyline_gps(trip)
+        else:
+            raise
+
+    for trip in trips:
+        if not isinstance(trip, dict):
+            continue
+        if "startTime" in trip:
+            trip["startTime"] = parse_timestamp(trip["startTime"])
+        if "endTime" in trip:
+            trip["endTime"] = parse_timestamp(trip["endTime"])
+
+    return trips
 
 
 def _expand_window_bounds_for_bouncie(
