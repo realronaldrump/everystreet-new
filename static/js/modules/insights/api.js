@@ -51,6 +51,15 @@ export function fetchTimePeriodTrips(params, signal) {
 }
 
 /**
+ * Fetch trips for a drill-down modal (sorted/filtered server-side)
+ * @param {URLSearchParams} params - Query parameters (start_date, end_date, kind, limit)
+ * @returns {Promise<Array>} Trip data
+ */
+export function fetchDrilldownTrips(params, signal) {
+  return apiClient.get(`/api/drilldown-trips?${params}`, { signal });
+}
+
+/**
  * Load all data for the insights page
  * @param {Object} dateRange - Date range object with start and end
  * @param {Object} prevRange - Previous period date range

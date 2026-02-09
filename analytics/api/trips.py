@@ -5,7 +5,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query, Request, status
 
-from analytics.services import TimeAnalyticsService, TripAnalyticsService
+from analytics.services import DrilldownService, TimeAnalyticsService, TripAnalyticsService
 from core.api import api_route
 from db import build_query_from_request
 
@@ -60,6 +60,32 @@ async def get_time_period_trips(request: Request):
             time_type,
             time_value,
         )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+
+
+@router.get("/api/drilldown-trips")
+@api_route(logger)
+async def get_drilldown_trips(request: Request):
+    """Get a small list of trips for drill-down insights modals."""
+    query = await build_query_from_request(request)
+
+    kind = request.query_params.get("kind", "trips")
+    limit_raw = request.query_params.get("limit", "100")
+
+    try:
+        limit = int(limit_raw)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="limit must be an integer",
+        )
+
+    try:
+        return await DrilldownService.get_drilldown_trips(query, kind, limit)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

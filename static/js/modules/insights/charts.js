@@ -5,7 +5,7 @@
  */
 
 import { formatDate, formatHourLabel, formatMonth } from "./formatters.js";
-import { loadAndShowTripsForTimePeriod } from "./modal.js";
+import { loadAndShowTripsForDrilldown, loadAndShowTripsForTimePeriod } from "./modal.js";
 import { getChart, getState, setChart } from "./state.js";
 
 const chartCleanupKey = "_esCleanup";
@@ -306,7 +306,6 @@ function attachLongPressTooltip(chart) {
 export function initCharts() {
   destroyCharts();
   initTrendsChart();
-  initEfficiencyChart();
   initTimeDistChart();
 }
 
@@ -379,6 +378,7 @@ function initTrendsChart() {
               }
               return label;
             },
+            afterBody: () => "Click to view trips",
           },
         },
       },
@@ -410,72 +410,13 @@ function initTrendsChart() {
           },
         },
       },
+      onClick: handleTrendsChartClick,
     },
   });
 
   setChart("trends", chart);
   registerChartCleanup(chart, attachZoomPan(chart));
   registerChartCleanup(chart, attachLongPressTooltip(chart));
-}
-
-/**
- * Initialize the efficiency chart (doughnut chart)
- */
-function initEfficiencyChart() {
-  const efficiencyCanvas = document.getElementById("efficiencyChart");
-  const efficiencyCtx = efficiencyCanvas?.getContext("2d");
-  if (!efficiencyCtx) {
-    return;
-  }
-
-  const existingChart
-    = findChartForCanvas(efficiencyCtx.canvas) || getChart("efficiency");
-  if (existingChart) {
-    destroyChartInstance(existingChart);
-  }
-
-  const chart = new Chart(efficiencyCtx, {
-    type: "doughnut",
-    data: {
-      labels: ["Fuel Efficiency", "Idle Efficiency", "Speed Efficiency"],
-      datasets: [
-        {
-          data: [0, 0, 0],
-          backgroundColor: [
-            "rgba(77, 154, 106, 0.8)",
-            "rgba(212, 162, 74, 0.8)",
-            "rgba(90, 134, 176, 0.8)",
-          ],
-          borderWidth: 0,
-        },
-      ],
-    },
-    plugins: [spotlightPlugin],
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      animation: {
-        animateRotate: true,
-        animateScale: true,
-        duration: 900,
-        easing: "easeOutQuart",
-      },
-      plugins: {
-        legend: {
-          position: "bottom",
-        },
-        tooltip: {
-          callbacks: {
-            label(context) {
-              return `${context.label}: ${context.parsed}%`;
-            },
-          },
-        },
-      },
-    },
-  });
-
-  setChart("efficiency", chart);
 }
 
 /**
@@ -554,7 +495,6 @@ function initTimeDistChart() {
  */
 export function updateAllCharts() {
   updateTrendsChart();
-  updateEfficiencyChart();
   updateTimeDistChart();
 }
 
@@ -578,26 +518,7 @@ export function updateTrendsChart() {
   chart.data.labels = data.labels;
   chart.data.datasets[0].data = data.distances;
   chart.data.datasets[1].data = data.counts;
-  chart.update();
-}
-
-/**
- * Update the efficiency chart with calculated scores
- */
-export function updateEfficiencyChart() {
-  const state = getState();
-  const { insights, behavior } = state.data;
-
-  const fuelEfficiency = calculateFuelEfficiency(insights, behavior);
-  const idleEfficiency = calculateIdleEfficiency(behavior);
-  const speedEfficiency = calculateSpeedEfficiency(behavior);
-
-  const chart = getChart("efficiency");
-  if (!chart) {
-    return;
-  }
-
-  chart.data.datasets[0].data = [fuelEfficiency, idleEfficiency, speedEfficiency];
+  chart._esBucketRanges = data.ranges;
   chart.update();
 }
 
@@ -646,6 +567,7 @@ function processTimeSeriesData(dailyData, viewType) {
     labels: aggregated.map((d) => d.label),
     distances: aggregated.map((d) => d.distance),
     counts: aggregated.map((d) => d.count),
+    ranges: aggregated.map((d) => ({ start: d.start, end: d.end, label: d.label })),
   };
 }
 
@@ -662,6 +584,8 @@ function aggregateByView(dailyData, viewType) {
         month: "short",
         day: "numeric",
       }),
+      start: d.date,
+      end: d.date,
       distance: d.distance || 0,
       count: d.count || 0,
     }));
@@ -673,31 +597,45 @@ function aggregateByView(dailyData, viewType) {
   dailyData.forEach((d) => {
     const date = new Date(d.date);
     let key = "";
+    let start = "";
+    let end = "";
 
     if (viewType === "weekly") {
       const weekStart = new Date(date);
       weekStart.setDate(date.getDate() - date.getDay());
       key = formatDate(weekStart);
+      start = key;
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekEnd.getDate() + 6);
+      end = formatDate(weekEnd);
     } else {
       key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+      start = `${key}-01`;
+      const lastDay = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+      end = `${key}-${String(lastDay).padStart(2, "0")}`;
     }
 
     if (!aggregated[key]) {
-      aggregated[key] = { distance: 0, count: 0 };
+      aggregated[key] = { distance: 0, count: 0, start, end };
     }
 
     aggregated[key].distance += d.distance || 0;
     aggregated[key].count += d.count || 0;
   });
 
-  return Object.entries(aggregated).map(([key, value]) => ({
-    label:
-      viewType === "weekly"
+  return Object.entries(aggregated).map(([key, value]) => {
+    const label
+      = viewType === "weekly"
         ? `Week of ${new Date(key).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
-        : formatMonth(key),
-    distance: value.distance,
-    count: value.count,
-  }));
+        : formatMonth(key);
+    return {
+      label,
+      start: value.start,
+      end: value.end,
+      distance: value.distance,
+      count: value.count,
+    };
+  });
 }
 
 /**
@@ -732,54 +670,6 @@ function processDailyData(weekdayData) {
   return byDay;
 }
 
-// Efficiency Calculation Functions
-
-/**
- * Calculate fuel efficiency score (0-100)
- * @param {Object} insights - Insights data
- */
-export function calculateFuelEfficiency(insights) {
-  const mpg
-    = insights.total_distance > 0 && insights.total_fuel_consumed > 0
-      ? insights.total_distance / insights.total_fuel_consumed
-      : 0;
-
-  // Convert to percentage (assuming 30 MPG is 100%)
-  return Math.min((mpg / 30) * 100, 100);
-}
-
-/**
- * Calculate idle efficiency score (0-100)
- * @param {Object} behavior - Behavior data
- * @returns {number} Idle efficiency percentage
- */
-export function calculateIdleEfficiency(behavior) {
-  const totalTime = behavior.totalTrips * 30 * 60; // Assume 30 min avg per trip
-  const idleSeconds = behavior.totalIdleDuration || 0;
-  const idlePercent = (idleSeconds / totalTime) * 100;
-
-  // Lower idle percentage = higher efficiency
-  return Math.max(100 - idlePercent * 2, 0);
-}
-
-/**
- * Calculate speed efficiency score (0-100)
- * @param {Object} behavior - Behavior data
- * @returns {number} Speed efficiency percentage
- */
-export function calculateSpeedEfficiency(behavior) {
-  // Optimal speed range is 45-65 mph
-  const avgSpeed = behavior.avgSpeed || 0;
-
-  if (avgSpeed >= 45 && avgSpeed <= 65) {
-    return 100;
-  }
-  if (avgSpeed < 45) {
-    return (avgSpeed / 45) * 100;
-  }
-  return Math.max(100 - (avgSpeed - 65) * 2, 0);
-}
-
 /**
  * Handle click on time distribution chart bar
  * @param {Event} _event - Chart click event
@@ -796,4 +686,23 @@ function handleTimeDistChartClick(_event, activeElements) {
   const timeType = state.currentTimeView; // "hour" or "day"
 
   loadAndShowTripsForTimePeriod(timeType, timeValue);
+}
+
+function handleTrendsChartClick(_event, activeElements, chart) {
+  if (!activeElements || activeElements.length === 0) {
+    return;
+  }
+
+  const index = activeElements[0].index;
+  const ranges = chart?._esBucketRanges;
+  const range = Array.isArray(ranges) ? ranges[index] : null;
+  if (!range?.start || !range?.end) {
+    return;
+  }
+
+  loadAndShowTripsForDrilldown("trips", {
+    start: range.start,
+    end: range.end,
+    title: `Trips for ${range.label}`,
+  });
 }

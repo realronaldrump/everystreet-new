@@ -232,6 +232,44 @@
   margin-bottom: var(--space-2);
 }
 
+.insights-drilldown-trigger {
+  appearance: none;
+  -webkit-appearance: none;
+  background: none;
+  border: 0;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.insights-drilldown-trigger:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.insights-drilldown-trigger:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+.fact-content .insights-title-button {
+  display: inline-block;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  font-weight: 500;
+  margin-bottom: var(--space-2);
+}
+
+.chart-title .insights-title-button {
+  display: inline;
+  font-size: inherit;
+  font-weight: inherit;
+  color: inherit;
+}
+
 .metric-context {
   display: flex;
   align-items: center;

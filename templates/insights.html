@@ -68,9 +68,11 @@ Quick highlights from your driving data
             <div class="metric-value counter" id="total-trips">
 0
             </div>
-            <div class="metric-label">
+            <button type="button"
+                    class="metric-label insights-drilldown-trigger"
+                    data-drilldown="trips">
 trips taken
-            </div>
+            </button>
             <div class="metric-context">
               <i class="fas fa-info-circle"></i>
               <span id="trips-context">That's a lot of adventures!</span>
@@ -89,9 +91,11 @@ trips taken
               <span class="counter" id="total-distance">0</span>
               <span class="metric-unit">mi</span>
             </div>
-            <div class="metric-label">
+            <button type="button"
+                    class="metric-label insights-drilldown-trigger"
+                    data-drilldown="distance">
 total distance
-            </div>
+            </button>
             <div class="metric-context">
               <i class="fas fa-map-marker-alt"></i>
               <span id="distance-context">Keep exploring!</span>
@@ -109,9 +113,11 @@ total distance
             <div class="metric-value" id="total-time">
 0h 0m
             </div>
-            <div class="metric-label">
+            <button type="button"
+                    class="metric-label insights-drilldown-trigger"
+                    data-drilldown="duration">
 time driving
-            </div>
+            </button>
             <div class="metric-context">
               <i class="fas fa-hourglass-half"></i>
               <span id="time-context">Time well spent</span>
@@ -130,9 +136,11 @@ time driving
               <span class="counter" id="total-fuel">0</span>
               <span class="metric-unit">gal</span>
             </div>
-            <div class="metric-label">
+            <button type="button"
+                    class="metric-label insights-drilldown-trigger"
+                    data-drilldown="fuel">
 fuel used
-            </div>
+            </button>
             <div class="metric-context">
               <i class="fas fa-leaf"></i>
               <span id="fuel-context">Efficient driving!</span>
@@ -159,10 +167,12 @@ Interesting facts about your driving style
           <div class="fact-icon">
             <i class="fas fa-exclamation-triangle"></i>
           </div>
-          <div class="fact-content">
-            <h4>
+        <div class="fact-content">
+            <button type="button"
+                    class="insights-drilldown-trigger insights-title-button"
+                    data-drilldown="hard_braking">
 Driving Events
-            </h4>
+            </button>
             <p class="fact-value">
               <span class="counter" id="hard-braking">0</span> hard braking moments
             </p>
@@ -176,10 +186,12 @@ Driving Events
           <div class="fact-icon">
             <i class="fas fa-tachometer-alt"></i>
           </div>
-          <div class="fact-content">
-            <h4>
+        <div class="fact-content">
+            <button type="button"
+                    class="insights-drilldown-trigger insights-title-button"
+                    data-drilldown="top_speed">
 Speed Insights
-            </h4>
+            </button>
             <p class="fact-value">
                 Top speed: <span class="counter" id="max-speed">0</span> mph
             </p>
@@ -193,10 +205,12 @@ Speed Insights
           <div class="fact-icon">
             <i class="fas fa-pause-circle"></i>
           </div>
-          <div class="fact-content">
-            <h4>
+        <div class="fact-content">
+            <button type="button"
+                    class="insights-drilldown-trigger insights-title-button"
+                    data-drilldown="idle_time">
 Time at Rest
-            </h4>
+            </button>
             <p class="fact-value" id="idle-time">
 0h 0m
             </p>
@@ -224,7 +238,11 @@ See patterns in your trips, distance, and habits
         <div class="chart-card chart-large">
           <div class="chart-header">
             <h3 class="chart-title">
+              <button type="button"
+                      class="insights-drilldown-trigger insights-title-button"
+                      data-drilldown="trips">
 Your driving journey
+              </button>
             </h3>
             <div class="chart-controls">
               <div class="toggle-group">
@@ -246,17 +264,6 @@ Monthly
               </div>
             </div>
             <canvas id="trendsChart" style="display: none"></canvas>
-          </div>
-        </div>
-
-        <div class="chart-card chart-medium">
-          <div class="chart-header">
-            <h3 class="chart-title">
-Efficiency score
-            </h3>
-          </div>
-          <div class="chart-body">
-            <canvas id="efficiencyChart"></canvas>
           </div>
         </div>
       </div>
@@ -333,53 +340,6 @@ Last visit
       </div>
     </section>
 
-    <!-- Detailed Stats Section -->
-    <section class="insights-section" data-accent="purple">
-      <div class="section-header">
-        <h2 class="section-title">
-          <i class="fas fa-table section-icon"></i>
-            All the details
-        </h2>
-        <p class="section-subtitle">
-A complete breakdown of your driving stats
-        </p>
-      </div>
-
-      <div class="analytics-card">
-        <div class="table-responsive">
-          <table class="data-table friendly-table" id="analytics-table">
-            <thead>
-              <tr>
-                <th>
-Time period
-                </th>
-                <th>
-Trips
-                </th>
-                <th>
-Distance
-                </th>
-                <th>
-Time driving
-                </th>
-                <th>
-Fuel used
-                </th>
-                <th>
-Events
-                </th>
-                <th>
-Efficiency
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              <!-- Dynamic content -->
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </section>
   </div>
 </div>
 </div>
@@ -448,6 +408,9 @@ Destination
                 </th>
                 <th>
 Max Speed
+                </th>
+                <th>
+Insight
                 </th>
                 <th>
 Actions

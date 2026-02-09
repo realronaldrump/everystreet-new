@@ -11,6 +11,7 @@ import * as InsightsFormatters from "../../insights/formatters.js";
 import * as InsightsMetrics from "../../insights/metrics.js";
 import * as InsightsState from "../../insights/state.js";
 import * as InsightsTables from "../../insights/tables.js";
+import { loadAndShowTripsForDrilldown } from "../../insights/modal.js";
 import { swupReady } from "../../core/navigation.js";
 
 let tooltipInstances = [];
@@ -74,9 +75,9 @@ function setupEventListeners(signal) {
     btn.addEventListener("click", handleToggleChange, signal ? { signal } : false);
   });
 
-  // Metric cards
-  document.querySelectorAll(".metric-card").forEach((card) => {
-    card.addEventListener("click", handleMetricClick, signal ? { signal } : false);
+  // Drill-down triggers (titles on cards/charts/etc.)
+  document.querySelectorAll(".insights-drilldown-trigger").forEach((el) => {
+    el.addEventListener("click", handleDrilldownClick, signal ? { signal } : false);
   });
 
   // FAB menu
@@ -249,11 +250,7 @@ function handleToggleChange(e) {
   });
   btn.classList.add("active");
 
-  // Determine which chart to update
-  const chartHeader = parent.closest(".chart-header");
-  const chartTitle = chartHeader?.querySelector(".chart-title");
-
-  if (chartTitle?.textContent?.includes("Trends")) {
+  if (btn.dataset.view) {
     InsightsState.updateState({ currentView: btn.dataset.view });
     InsightsCharts.updateTrendsChart();
   } else if (btn.dataset.time) {
@@ -263,15 +260,14 @@ function handleToggleChange(e) {
 }
 
 /**
- * Handle metric card click to toggle comparison details
+ * Handle drilldown trigger click to open modal trip list
  * @param {Event} e - Click event
  */
-function handleMetricClick(e) {
-  const card = e.currentTarget;
-  const comparison = card.querySelector(".stat-comparison");
-  if (comparison) {
-    comparison.classList.toggle("show");
-  }
+function handleDrilldownClick(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  const kind = e.currentTarget?.dataset?.drilldown || "trips";
+  loadAndShowTripsForDrilldown(kind);
 }
 
 /**
