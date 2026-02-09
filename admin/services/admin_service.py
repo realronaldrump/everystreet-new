@@ -82,9 +82,6 @@ DEFAULT_APP_SETTINGS: dict[str, Any] = {
     # UI Preferences
     "highlightRecentTrips": True,
     "autoCenter": True,
-    "showLiveTracking": True,
-    "polylineColor": "#00FF00",
-    "polylineOpacity": 0.8,
     "geocodeTripsOnFetch": True,
     "mapMatchTripsOnFetch": False,
     # Geo Service Configuration (defaults for Docker Compose)
@@ -110,6 +107,9 @@ DEPRECATED_APP_SETTINGS_FIELDS = {
     "valhalla_route_url",
     "valhalla_trace_route_url",
     "valhalla_trace_attributes_url",
+    "showLiveTracking",
+    "polylineColor",
+    "polylineOpacity",
 }
 
 

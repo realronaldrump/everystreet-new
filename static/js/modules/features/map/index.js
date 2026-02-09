@@ -1,17 +1,6 @@
-import apiClient from "../../core/api-client.js";
 import store from "../../core/store.js";
 import initMapControls from "./map-controls.js";
 import { initMobileMap } from "./mobile-map.js";
-
-function updateLiveTrackingVisibility() {
-  const liveTrackingPanel = document.getElementById("live-tracking-panel");
-  if (!liveTrackingPanel) {
-    return;
-  }
-  const showLiveTracking = window.localStorage.getItem("showLiveTracking");
-  const shouldShow = showLiveTracking !== "false";
-  liveTrackingPanel.classList.toggle("d-none", !shouldShow);
-}
 
 function setupMapTilt(signal) {
   const { map } = window;
@@ -62,38 +51,12 @@ export default function initMapPage({ signal, cleanup } = {}) {
     perfObserver = new PerformanceObserver((list) => {
       for (const entry of list.getEntries()) {
         if (entry.entryType === "largest-contentful-paint") {
-          // LCP monitoring - could log metrics here if needed
+          // LCP monitoring
         }
       }
     });
     perfObserver.observe({ entryTypes: ["largest-contentful-paint"] });
     registerCleanup(() => perfObserver.disconnect());
-  }
-
-  updateLiveTrackingVisibility();
-
-  (async () => {
-    try {
-      const data = await apiClient.get("/api/app_settings", signal ? { signal } : {});
-      if (typeof data.showLiveTracking !== "undefined") {
-        window.localStorage.setItem("showLiveTracking", data.showLiveTracking);
-        updateLiveTrackingVisibility();
-      }
-    } catch (error) {
-      if (error?.name !== "AbortError") {
-        console.warn("Failed to load app settings", error);
-      }
-    }
-  })();
-
-  const handleStorage = (e) => {
-    if (e.key === "showLiveTracking") {
-      updateLiveTrackingVisibility();
-    }
-  };
-  window.addEventListener("storage", handleStorage, signal ? { signal } : false);
-  if (!signal) {
-    registerCleanup(() => window.removeEventListener("storage", handleStorage));
   }
 
   setupMapTilt(signal);

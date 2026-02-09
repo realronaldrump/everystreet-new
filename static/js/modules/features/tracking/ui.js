@@ -1,29 +1,32 @@
-export function createFeatures(coords, heading = null) {
-  const features = [];
-  const mapboxCoords = coords.map((c) => [c.lon, c.lat]);
-
-  if (mapboxCoords.length > 1) {
-    features.push({
-      type: "Feature",
-      properties: { type: "line" },
-      geometry: { type: "LineString", coordinates: mapboxCoords },
-    });
+export function createLineFeature(coords) {
+  if (coords.length < 2) {
+    return null;
   }
+  return {
+    type: "Feature",
+    properties: {},
+    geometry: {
+      type: "LineString",
+      coordinates: coords.map((c) => [c.lon, c.lat]),
+    },
+  };
+}
 
-  if (mapboxCoords.length > 0) {
-    const markerProps = { type: "marker" };
-    if (typeof heading === "number") {
-      markerProps.heading = heading;
-    }
-    features.push({
-      type: "Feature",
-      properties: markerProps,
-      geometry: {
-        type: "Point",
-        coordinates: mapboxCoords[mapboxCoords.length - 1],
-      },
-    });
+export function createMarkerFeature(coords, heading = null) {
+  if (coords.length === 0) {
+    return null;
   }
-
-  return features;
+  const last = coords[coords.length - 1];
+  const props = {};
+  if (typeof heading === "number") {
+    props.heading = heading;
+  }
+  return {
+    type: "Feature",
+    properties: props,
+    geometry: {
+      type: "Point",
+      coordinates: [last.lon, last.lat],
+    },
+  };
 }

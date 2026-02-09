@@ -4,14 +4,10 @@ const LIVE_TRACKING_DEFAULTS = {
 };
 
 const LIVE_TRACKING_LAYER_IDS = {
-  source: "live-trip-source",
-  lineGlow: "live-trip-line-glow",
-  lineCasing: "live-trip-line-casing",
+  lineSource: "live-trip-line-source",
+  markerSource: "live-trip-marker-source",
   line: "live-trip-line",
-  trailSource: "live-trip-trail-source",
-  trail: "live-trip-trail",
   marker: "live-trip-marker",
-  pulse: "live-trip-pulse",
   arrow: "live-trip-arrow",
   arrowImage: "live-trip-arrow-icon",
 };

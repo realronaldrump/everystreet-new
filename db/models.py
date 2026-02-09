@@ -685,9 +685,6 @@ class AppSettings(Document):
     # UI Preferences
     highlightRecentTrips: bool = True
     autoCenter: bool = True
-    showLiveTracking: bool = True
-    polylineColor: str = "#00FF00"
-    polylineOpacity: float = 0.8
     geocodeTripsOnFetch: bool = True
     mapMatchTripsOnFetch: bool = False
 

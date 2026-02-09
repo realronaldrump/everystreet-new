@@ -42,7 +42,6 @@ export const CONFIG = {
     mapView: "mapView",
     mapType: "mapType",
     uiState: "uiState",
-    showLiveTracking: "showLiveTracking",
   },
 
   // API endpoints - centralized location for all backend routes

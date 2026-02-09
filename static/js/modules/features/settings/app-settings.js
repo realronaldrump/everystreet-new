@@ -93,10 +93,6 @@ export function setupAppSettingsForm() {
   const darkModeToggle = document.getElementById("dark-mode-toggle");
   const highlightRecentTrips = document.getElementById("highlight-recent-trips");
   const autoCenterToggle = document.getElementById("auto-center-toggle");
-  const showLiveTracking = document.getElementById("show-live-tracking");
-  const polylineColor = document.getElementById("polyline-color");
-  const polylineOpacity = document.getElementById("polyline-opacity");
-  const opacityValue = document.getElementById("opacity-value");
   const geocodeTripsOnFetch = document.getElementById("geocode-trips-on-fetch");
   const mapMatchTripsOnFetch = document.getElementById("map-match-trips-on-fetch");
   const form = document.getElementById("app-settings-form");
@@ -111,9 +107,6 @@ export function setupAppSettingsForm() {
     const {
       highlightRecentTrips: hrt,
       autoCenter,
-      showLiveTracking: slt,
-      polylineColor: pc,
-      polylineOpacity: po,
       geocodeTripsOnFetch: gtof,
       mapMatchTripsOnFetch: mmtof,
       accentColor,
@@ -135,23 +128,11 @@ export function setupAppSettingsForm() {
     if (autoCenterToggle) {
       autoCenterToggle.checked = autoCenter !== false;
     }
-    if (showLiveTracking) {
-      showLiveTracking.checked = slt !== false;
-    }
     if (geocodeTripsOnFetch) {
       geocodeTripsOnFetch.checked = gtof !== false;
     }
     if (mapMatchTripsOnFetch) {
       mapMatchTripsOnFetch.checked = mmtof === true;
-    }
-    if (polylineColor) {
-      polylineColor.value = pc || localStorage.getItem("polylineColor") || "#4d9a6a";
-    }
-    if (polylineOpacity) {
-      polylineOpacity.value = po || localStorage.getItem("polylineOpacity") || "0.8";
-      if (opacityValue) {
-        opacityValue.textContent = polylineOpacity.value;
-      }
     }
 
     const storedAccent
@@ -195,13 +176,6 @@ export function setupAppSettingsForm() {
     }
   })();
 
-  // Sync opacity display
-  if (polylineOpacity && opacityValue) {
-    polylineOpacity.addEventListener("input", function () {
-      opacityValue.textContent = this.value;
-    });
-  }
-
   // Save preferences function
   async function savePreferences() {
     const densityValue = [...densityOptions].find((input) => input.checked)?.value;
@@ -209,9 +183,6 @@ export function setupAppSettingsForm() {
     const payload = {
       highlightRecentTrips: highlightRecentTrips?.checked,
       autoCenter: autoCenterToggle?.checked,
-      showLiveTracking: showLiveTracking?.checked,
-      polylineColor: polylineColor?.value,
-      polylineOpacity: polylineOpacity?.value,
       geocodeTripsOnFetch: geocodeTripsOnFetch?.checked,
       mapMatchTripsOnFetch: mapMatchTripsOnFetch?.checked,
       accentColor: accentColorPicker?.value,
@@ -230,9 +201,6 @@ export function setupAppSettingsForm() {
     // Mirror to localStorage
     localStorage.setItem("highlightRecentTrips", payload.highlightRecentTrips);
     localStorage.setItem("autoCenter", payload.autoCenter);
-    localStorage.setItem("showLiveTracking", payload.showLiveTracking);
-    localStorage.setItem("polylineColor", payload.polylineColor);
-    localStorage.setItem("polylineOpacity", payload.polylineOpacity);
     localStorage.setItem("es:accent-color", payload.accentColor || "");
     localStorage.setItem("es:ui-density", payload.uiDensity);
     localStorage.setItem("es:motion-mode", payload.motionMode);
@@ -253,18 +221,6 @@ export function setupAppSettingsForm() {
 
     // Show success
     notificationManager.show("Settings saved successfully", "success");
-
-    // Update live tracker if active
-    if (window.liveTracker) {
-      try {
-        window.liveTracker.updatePolylineStyle(
-          payload.polylineColor,
-          payload.polylineOpacity
-        );
-      } catch (error) {
-        console.warn("Failed to update live tracker polyline style", error);
-      }
-    }
   }
 
   // Form submission

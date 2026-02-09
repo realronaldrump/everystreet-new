@@ -39,8 +39,7 @@ p,
 .hero-stat .display-3,
 .nav-progress-value,
 .preview-stat-value,
-.live-trip-speed-value,
-.live-trip-stat .value,
+.live-trip-hud-speed,
 .nav-stat .value,
 .meta-value {
   font-family: var(--font-family-mono);

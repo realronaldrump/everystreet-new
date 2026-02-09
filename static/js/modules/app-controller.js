@@ -76,17 +76,6 @@ const getSavedStreetViewModes = () => {
  */
 const initializeLiveTracker = () => {
   if (state.map && !state.liveTracker) {
-    // Respect user preference to hide live tracking
-    try {
-      const show = window.localStorage.getItem("showLiveTracking") !== "false";
-      if (!show) {
-        console.info("Live tracking disabled by user setting");
-        return;
-      }
-    } catch {
-      // Ignore storage errors
-    }
-
     try {
       state.liveTracker = new LiveTripTracker(state.map);
     } catch (err) {

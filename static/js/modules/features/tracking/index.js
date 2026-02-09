@@ -7,20 +7,21 @@ import {
   LIVE_TRACKING_DEFAULTS,
   LIVE_TRACKING_LAYER_IDS,
 } from "./state.js";
-import { createFeatures } from "./ui.js";
+import { createLineFeature, createMarkerFeature } from "./ui.js";
 import { connectLiveWebSocket } from "./websocket.js";
 
 /**
- * LiveTripTracker - Real-time trip visualization for Bouncie webhooks
+ * LiveTripTracker - Real-time trip visualization
  *
- * Simplified single-user implementation with WebSocket primary, polling fallback.
+ * Renders a thin gradient line with a clean marker dot on the map.
+ * Uses 2 sources (line with lineMetrics for gradient, marker point)
+ * and 3 layers (line, marker circle, direction arrow).
  */
 
 class LiveTripTracker {
   static instance = null;
 
   constructor(map) {
-    // Enforce singleton
     if (LiveTripTracker.instance) {
       LiveTripTracker.instance.destroy();
     }
@@ -32,17 +33,14 @@ class LiveTripTracker {
     }
 
     this.map = map;
-
     this._initializeState();
     this._cacheDomElements();
-
     this.initializeMapLayers();
     this.bindHudControls();
     this.bindMapInteractionHandlers();
     this.setLiveTripActive(false);
     this.initialize();
     this.startFreshnessMonitor();
-    this.startWebhookStatusMonitor();
   }
 
   // --- Setup ------------------------------------------------------------
@@ -51,20 +49,11 @@ class LiveTripTracker {
     this.ws = null;
     this.pollingTimer = null;
     this.pollingInterval = LIVE_TRACKING_DEFAULTS.pollingInterval;
-    this.webhookStatusTimer = null;
-    this.webhookStatusPending = false;
-    this.webhookStatusInterval = 15000;
-    this.webhookActiveWindowMs = 90 * 1000;
-    this.webhookIdleWindowMs = 30 * 60 * 1000;
 
-    this.sourceId = LIVE_TRACKING_LAYER_IDS.source;
-    this.lineGlowLayerId = LIVE_TRACKING_LAYER_IDS.lineGlow;
-    this.lineCasingLayerId = LIVE_TRACKING_LAYER_IDS.lineCasing;
+    this.lineSourceId = LIVE_TRACKING_LAYER_IDS.lineSource;
+    this.markerSourceId = LIVE_TRACKING_LAYER_IDS.markerSource;
     this.lineLayerId = LIVE_TRACKING_LAYER_IDS.line;
-    this.trailSourceId = LIVE_TRACKING_LAYER_IDS.trailSource;
-    this.trailLayerId = LIVE_TRACKING_LAYER_IDS.trail;
     this.markerLayerId = LIVE_TRACKING_LAYER_IDS.marker;
-    this.pulseLayerId = LIVE_TRACKING_LAYER_IDS.pulse;
     this.arrowLayerId = LIVE_TRACKING_LAYER_IDS.arrow;
     this.arrowImageId = LIVE_TRACKING_LAYER_IDS.arrowImage;
 
@@ -76,31 +65,25 @@ class LiveTripTracker {
     this.lastBearing = null;
     this.lastCoord = null;
     this.hasActiveTrip = false;
-    this.routeStyle = this.loadRouteStyle();
     this.mapInteractionHandlers = [];
-    this.pulseAnimationFrame = null;
     this.lastUpdateTimestamp = null;
     this.freshnessTimer = null;
+    this.primaryColor = LiveTripTracker.getCssVar("--primary", "#3b8a7f");
   }
 
   _cacheDomElements() {
-    this.statusIndicator = document.querySelector(".status-indicator");
+    this.statusIndicator = document.querySelector(".live-status-dot");
     this.statusText = document.querySelector(".live-status-text");
-    this.tripCountElem = document.querySelector("#active-trips-count");
-    this.metricsElem = document.querySelector(".live-trip-metrics");
     this.liveBadge = document.getElementById("live-status-badge");
     this.hudElem = document.getElementById("live-trip-hud");
-    this.hudLastUpdateElem = document.getElementById("live-trip-last-update");
     this.hudSpeedElem = document.getElementById("live-trip-speed");
     this.hudStreetElem = document.getElementById("live-trip-street");
-    this.hudCoverageElem = document.getElementById("live-trip-coverage");
-    this.hudDistanceElem = document.getElementById("live-trip-distance");
-    this.hudDurationElem = document.getElementById("live-trip-duration");
-    this.hudAvgSpeedElem = document.getElementById("live-trip-avg-speed");
     this.followToggle = document.getElementById("live-trip-follow-toggle");
-    this.followLabel = this.followToggle?.querySelector(".follow-label");
-    this.webhookIndicator = document.getElementById("bouncie-webhook-indicator");
-    this.webhookStatusText = document.getElementById("bouncie-webhook-text");
+
+    // Control panel compact metrics
+    this.metricSpeedElem = document.getElementById("live-metric-speed");
+    this.metricDistanceElem = document.getElementById("live-metric-distance");
+    this.metricDurationElem = document.getElementById("live-metric-duration");
   }
 
   // --- Map layers -------------------------------------------------------
@@ -111,104 +94,43 @@ class LiveTripTracker {
     }
 
     try {
-      const { lineWidth, casingWidth, glowWidth } = this._getRouteWidths();
-      const { color, opacity } = this.routeStyle;
-      const casingColor = this.getRouteCasingColor();
-
-      this._ensureLiveTripSource();
-      this._ensureRouteLayers({
-        lineWidth,
-        casingWidth,
-        glowWidth,
-        color,
-        opacity,
-        casingColor,
-      });
-      this._ensureTrailLayer(color);
-      this._ensurePulseLayer(color);
-      this._ensureMarkerLayer(color);
-      this.ensureArrowLayer();
-      this.startPulseAnimation();
+      this._ensureLineLayers();
+      this._ensureMarkerLayers();
+      this._ensureArrowLayer();
     } catch (error) {
       console.error("Error initializing map layers:", error);
     }
   }
 
-  _getRouteWidths() {
-    return {
-      lineWidth: ["interpolate", ["linear"], ["zoom"], 10, 3.5, 14, 5, 18, 8],
-      casingWidth: ["interpolate", ["linear"], ["zoom"], 10, 6.5, 14, 9, 18, 13],
-      glowWidth: ["interpolate", ["linear"], ["zoom"], 10, 10, 14, 14, 18, 20],
-    };
-  }
-
-  _ensureLiveTripSource() {
-    if (this.map.getSource(this.sourceId)) {
-      return;
-    }
-    this.map.addSource(this.sourceId, {
-      type: "geojson",
-      data: { type: "FeatureCollection", features: [] },
-    });
-  }
-
-  _ensureRouteLayers({
-    lineWidth,
-    casingWidth,
-    glowWidth,
-    color,
-    opacity,
-    casingColor,
-  }) {
-    if (!this.map.getLayer(this.lineGlowLayerId)) {
-      this.map.addLayer({
-        id: this.lineGlowLayerId,
-        type: "line",
-        source: this.sourceId,
-        filter: ["==", ["get", "type"], "line"],
-        paint: {
-          "line-color": color,
-          "line-width": glowWidth,
-          "line-opacity": Math.min(0.45, opacity * 0.6),
-          "line-blur": 6,
-        },
-        layout: {
-          "line-cap": "round",
-          "line-join": "round",
-        },
-      });
-    }
-
-    if (!this.map.getLayer(this.lineCasingLayerId)) {
-      this.map.addLayer({
-        id: this.lineCasingLayerId,
-        type: "line",
-        source: this.sourceId,
-        filter: ["==", ["get", "type"], "line"],
-        paint: {
-          "line-color": casingColor,
-          "line-width": casingWidth,
-          "line-opacity": 0.85,
-          "line-blur": 0.6,
-        },
-        layout: {
-          "line-cap": "round",
-          "line-join": "round",
-        },
+  _ensureLineLayers() {
+    if (!this.map.getSource(this.lineSourceId)) {
+      this.map.addSource(this.lineSourceId, {
+        type: "geojson",
+        data: { type: "FeatureCollection", features: [] },
+        lineMetrics: true,
       });
     }
 
     if (!this.map.getLayer(this.lineLayerId)) {
+      const color = this.primaryColor;
       this.map.addLayer({
         id: this.lineLayerId,
         type: "line",
-        source: this.sourceId,
-        filter: ["==", ["get", "type"], "line"],
+        source: this.lineSourceId,
         paint: {
-          "line-color": color,
-          "line-width": lineWidth,
-          "line-opacity": opacity,
-          "line-blur": 0.3,
+          "line-width": [
+            "interpolate", ["linear"], ["zoom"],
+            10, 1.5,
+            14, 2.5,
+            18, 4,
+          ],
+          "line-gradient": [
+            "interpolate", ["linear"], ["line-progress"],
+            0, `${color}26`,
+            0.4, `${color}66`,
+            0.75, `${color}bb`,
+            1, `${color}e6`,
+          ],
         },
         layout: {
           "line-cap": "round",
@@ -218,68 +140,31 @@ class LiveTripTracker {
     }
   }
 
-  _ensureTrailLayer(color) {
-    if (!this.map.getSource(this.trailSourceId)) {
-      this.map.addSource(this.trailSourceId, {
+  _ensureMarkerLayers() {
+    if (!this.map.getSource(this.markerSourceId)) {
+      this.map.addSource(this.markerSourceId, {
         type: "geojson",
         data: { type: "FeatureCollection", features: [] },
       });
     }
 
-    if (!this.map.getLayer(this.trailLayerId)) {
+    if (!this.map.getLayer(this.markerLayerId)) {
       this.map.addLayer({
-        id: this.trailLayerId,
+        id: this.markerLayerId,
         type: "circle",
-        source: this.trailSourceId,
+        source: this.markerSourceId,
         paint: {
-          "circle-color": color,
-          "circle-radius": ["interpolate", ["linear"], ["get", "age"], 0, 6, 1, 2],
-          "circle-opacity": ["interpolate", ["linear"], ["get", "age"], 0, 0.6, 1, 0],
-          "circle-blur": 0.4,
+          "circle-radius": 6,
+          "circle-color": this.primaryColor,
+          "circle-stroke-width": 2,
+          "circle-stroke-color": "#faf9f7",
+          "circle-blur": 0,
         },
       });
     }
   }
 
-  _ensurePulseLayer(color) {
-    if (this.map.getLayer(this.pulseLayerId)) {
-      return;
-    }
-    this.map.addLayer({
-      id: this.pulseLayerId,
-      type: "circle",
-      source: this.sourceId,
-      filter: ["==", ["get", "type"], "marker"],
-      paint: {
-        "circle-radius": 20,
-        "circle-color": "transparent",
-        "circle-stroke-width": 2,
-        "circle-stroke-color": color,
-        "circle-stroke-opacity": 0.4,
-      },
-    });
-  }
-
-  _ensureMarkerLayer(color) {
-    if (this.map.getLayer(this.markerLayerId)) {
-      return;
-    }
-    this.map.addLayer({
-      id: this.markerLayerId,
-      type: "circle",
-      source: this.sourceId,
-      filter: ["==", ["get", "type"], "marker"],
-      paint: {
-        "circle-radius": 9,
-        "circle-color": color,
-        "circle-stroke-width": 2.5,
-        "circle-stroke-color": "#faf9f7",
-        "circle-blur": 0,
-      },
-    });
-  }
-
-  ensureArrowLayer() {
+  _ensureArrowLayer() {
     if (!this.map) {
       return;
     }
@@ -291,18 +176,17 @@ class LiveTripTracker {
       this.map.addLayer({
         id: this.arrowLayerId,
         type: "symbol",
-        source: this.sourceId,
-        filter: ["==", ["get", "type"], "marker"],
+        source: this.markerSourceId,
         layout: {
           "icon-image": this.arrowImageId,
-          "icon-size": 0.55,
+          "icon-size": 0.45,
           "icon-allow-overlap": true,
           "icon-ignore-placement": true,
           "icon-rotate": ["get", "heading"],
           "icon-rotation-alignment": "map",
         },
         paint: {
-          "icon-color": this.routeStyle.color,
+          "icon-color": this.primaryColor,
         },
       });
     };
@@ -332,29 +216,6 @@ class LiveTripTracker {
     img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
   }
 
-  loadRouteStyle() {
-    let color = LiveTripTracker.getCssVar("--primary", "#3b8a7f");
-    let opacity = 0.9;
-
-    try {
-      const storedColor = localStorage.getItem("polylineColor");
-      const storedOpacity = localStorage.getItem("polylineOpacity");
-      if (storedColor) {
-        color = storedColor;
-      }
-      if (storedOpacity) {
-        const parsed = Number.parseFloat(storedOpacity);
-        if (Number.isFinite(parsed)) {
-          opacity = Math.min(Math.max(parsed, 0.1), 1);
-        }
-      }
-    } catch {
-      // Ignore storage errors
-    }
-
-    return { color, opacity };
-  }
-
   loadFollowPreference() {
     try {
       const stored = getStorage(this.followStorageKey);
@@ -381,47 +242,6 @@ class LiveTripTracker {
     }
 
     return true;
-  }
-
-  getRouteCasingColor() {
-    const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
-    return theme === "light" ? "rgba(15, 23, 42, 0.8)" : "rgba(248, 250, 252, 0.85)";
-  }
-
-  applyRouteStyle() {
-    if (!this.map) {
-      return;
-    }
-    const { color, opacity } = this.routeStyle;
-    if (this.map.getLayer(this.lineLayerId)) {
-      this.map.setPaintProperty(this.lineLayerId, "line-color", color);
-      this.map.setPaintProperty(this.lineLayerId, "line-opacity", opacity);
-    }
-    if (this.map.getLayer(this.lineGlowLayerId)) {
-      this.map.setPaintProperty(this.lineGlowLayerId, "line-color", color);
-      this.map.setPaintProperty(
-        this.lineGlowLayerId,
-        "line-opacity",
-        Math.min(0.45, opacity * 0.6)
-      );
-    }
-    if (this.map.getLayer(this.lineCasingLayerId)) {
-      this.map.setPaintProperty(
-        this.lineCasingLayerId,
-        "line-color",
-        this.getRouteCasingColor()
-      );
-    }
-  }
-
-  updatePolylineStyle(color, opacity) {
-    const nextColor = color || this.routeStyle.color;
-    const parsedOpacity = Number.parseFloat(opacity);
-    const nextOpacity = Number.isFinite(parsedOpacity)
-      ? Math.min(Math.max(parsedOpacity, 0.1), 1)
-      : this.routeStyle.opacity;
-    this.routeStyle = { color: nextColor, opacity: nextOpacity };
-    this.applyRouteStyle();
   }
 
   // --- HUD & follow -----------------------------------------------------
@@ -498,9 +318,6 @@ class LiveTripTracker {
     this.followToggle.classList.toggle("is-active", isActive);
     this.followToggle.setAttribute("aria-pressed", isActive ? "true" : "false");
     this.followToggle.disabled = disabled;
-    if (this.followLabel) {
-      this.followLabel.textContent = isActive ? "Following" : "Follow";
-    }
   }
 
   setFollowMode(enabled, { persist = true, resetCamera = false, force = false } = {}) {
@@ -555,9 +372,6 @@ class LiveTripTracker {
   }
 
   clearHudValues() {
-    if (this.hudLastUpdateElem) {
-      this.hudLastUpdateElem.textContent = "Waiting for updates...";
-    }
     if (this.hudSpeedElem) {
       this.hudSpeedElem.textContent = "--";
     }
@@ -565,30 +379,27 @@ class LiveTripTracker {
       this.hudStreetElem.textContent = "--";
       this.hudStreetElem.title = "";
     }
-    if (this.hudCoverageElem) {
-      this.hudCoverageElem.textContent = "Coverage: --";
-      this.hudCoverageElem.classList.remove(
-        "is-driven",
-        "is-undriven",
-        "is-undriveable"
-      );
+    this.clearCompactMetrics();
+  }
+
+  clearCompactMetrics() {
+    if (this.metricSpeedElem) {
+      this.metricSpeedElem.textContent = "--";
     }
-    if (this.hudDistanceElem) {
-      this.hudDistanceElem.textContent = "--";
+    if (this.metricDistanceElem) {
+      this.metricDistanceElem.textContent = "--";
     }
-    if (this.hudDurationElem) {
-      this.hudDurationElem.textContent = "--";
-    }
-    if (this.hudAvgSpeedElem) {
-      this.hudAvgSpeedElem.textContent = "--";
+    if (this.metricDurationElem) {
+      this.metricDurationElem.textContent = "--";
     }
   }
 
   updateHud(trip, coords) {
-    if (!this.hudElem || !trip) {
+    if (!trip) {
       return;
     }
 
+    // Speed
     const speedValue
       = typeof trip.currentSpeed === "number"
         ? Math.max(0, Math.round(trip.currentSpeed))
@@ -597,36 +408,7 @@ class LiveTripTracker {
       this.hudSpeedElem.textContent = `${speedValue}`;
     }
 
-    const startTime = trip.startTime ? new Date(trip.startTime) : null;
-    const lastUpdate = trip.lastUpdate ? new Date(trip.lastUpdate) : null;
-    let duration = "--";
-    if (startTime && lastUpdate) {
-      duration = DateUtils.formatDurationHMS(startTime, lastUpdate);
-    }
-
-    if (this.hudDurationElem) {
-      this.hudDurationElem.textContent = duration;
-    }
-    if (this.hudDistanceElem) {
-      this.hudDistanceElem.textContent = `${(trip.distance || 0).toFixed(2)} mi`;
-    }
-    if (this.hudAvgSpeedElem) {
-      this.hudAvgSpeedElem.textContent
-        = trip.avgSpeed > 0 ? `${trip.avgSpeed.toFixed(1)} mph` : "--";
-    }
-
-    if (this.hudLastUpdateElem) {
-      this.hudLastUpdateElem.textContent = lastUpdate
-        ? `Updated ${DateUtils.formatTimeAgo(lastUpdate)}`
-        : "Updating...";
-    }
-
-    if (lastUpdate) {
-      this.lastUpdateTimestamp = lastUpdate.getTime();
-      this.updateFreshnessState();
-    }
-
-    const areaName = this.getCoverageAreaName();
+    // Street name from coverage layers
     const lastCoord = coords?.[coords.length - 1];
     const coverageInfo = lastCoord ? this.getCoverageStreetInfo(lastCoord) : null;
 
@@ -634,81 +416,42 @@ class LiveTripTracker {
       this.hudStreetElem.textContent = coverageInfo.streetName;
       this.hudStreetElem.title = coverageInfo.streetName;
     } else if (this.hudStreetElem) {
-      const fallback = areaName ? "Outside coverage" : "--";
-      this.hudStreetElem.textContent = fallback;
-      this.hudStreetElem.title = fallback;
+      this.hudStreetElem.textContent = "--";
+      this.hudStreetElem.title = "";
     }
 
-    this.updateCoverageBadge(coverageInfo?.status, areaName);
+    // Compact metrics in control panel
+    this.updateCompactMetrics(trip);
+
+    // Freshness
+    const lastUpdate = trip.lastUpdate ? new Date(trip.lastUpdate) : null;
+    if (lastUpdate) {
+      this.lastUpdateTimestamp = lastUpdate.getTime();
+      this.updateFreshnessState();
+    }
   }
 
-  updateParticleTrail(coords) {
-    if (!this.map?.getSource(this.trailSourceId)) {
-      return;
+  updateCompactMetrics(trip) {
+    if (this.metricSpeedElem) {
+      const speed = typeof trip.currentSpeed === "number"
+        ? Math.round(trip.currentSpeed)
+        : 0;
+      this.metricSpeedElem.textContent = speed;
     }
-
-    const trailLength = 18;
-    const recent = coords.slice(-trailLength);
-    const total = recent.length;
-    const features = recent.map((point, index) => ({
-      type: "Feature",
-      geometry: {
-        type: "Point",
-        coordinates: [point.lon, point.lat],
-      },
-      properties: {
-        age: total > 1 ? (total - 1 - index) / (total - 1) : 0,
-      },
-    }));
-
-    this.map.getSource(this.trailSourceId).setData({
-      type: "FeatureCollection",
-      features,
-    });
-  }
-
-  updateCoverageBadge(status, areaName) {
-    if (!this.hudCoverageElem) {
-      return;
+    if (this.metricDistanceElem) {
+      this.metricDistanceElem.textContent = (trip.distance || 0).toFixed(1);
     }
-
-    this.hudCoverageElem.classList.remove("is-driven", "is-undriven", "is-undriveable");
-
-    if (!status) {
-      this.hudCoverageElem.textContent = areaName
-        ? `Coverage: ${areaName}`
-        : "Coverage: Not active";
-      return;
+    if (this.metricDurationElem) {
+      const startTime = trip.startTime ? new Date(trip.startTime) : null;
+      const lastUpdate = trip.lastUpdate ? new Date(trip.lastUpdate) : null;
+      if (startTime && lastUpdate) {
+        const diffMs = lastUpdate - startTime;
+        const mins = Math.floor(diffMs / 60000);
+        this.metricDurationElem.textContent = mins;
+      } else {
+        this.metricDurationElem.textContent = "0";
+      }
     }
-
-    const normalized = String(status).toLowerCase();
-    let label = "Unknown";
-    if (normalized === "driven") {
-      label = "Driven";
-      this.hudCoverageElem.classList.add("is-driven");
-    } else if (normalized === "undriven") {
-      label = "Undriven";
-      this.hudCoverageElem.classList.add("is-undriven");
-    } else if (normalized === "undriveable") {
-      label = "Undriveable";
-      this.hudCoverageElem.classList.add("is-undriveable");
-    }
-
-    const suffix = areaName ? ` - ${areaName}` : "";
-    this.hudCoverageElem.textContent = `Coverage: ${label}${suffix}`;
-  }
-
-  getCoverageAreaName() {
-    const select = document.getElementById("streets-location");
-    if (!select || !select.value) {
-      return null;
-    }
-    const selected = select.options[select.selectedIndex];
-    const text = selected?.textContent?.trim();
-    if (!text || text === "Select a location...") {
-      return null;
-    }
-    return text;
   }
 
   getCoverageStreetInfo(coord) {
@@ -746,35 +489,21 @@ class LiveTripTracker {
     const feature = preferred || features[0];
     const props = feature?.properties || {};
     const streetName = props.street_name || props.name || null;
-    let status = props.status || null;
-
-    if (!status && feature?.layer?.id) {
-      if (feature.layer.id.includes("driven")) {
-        status = "driven";
-      } else if (feature.layer.id.includes("undriven")) {
-        status = "undriven";
-      }
-    }
 
     if (!streetName) {
       return null;
     }
 
-    return { streetName, status };
+    return { streetName };
   }
 
   // --- Live updates -----------------------------------------------------
   async initialize() {
     try {
-      // Load initial trip data
       await this.loadInitialTrip();
-
-      // Start WebSocket connection
       this.connectWebSocket();
 
-      // Re-layer on map updates
       document.addEventListener("mapUpdated", () => {
-        // Live trip layers are always on top in Mapbox GL JS
         console.debug("Map updated, live trip layers maintained");
       });
     } catch (error) {
@@ -792,7 +521,6 @@ class LiveTripTracker {
         console.info(`Initial trip loaded: ${data.trip.transactionId}`);
         this.updateTrip(data.trip);
       } else {
-        // console.info("No active trip on startup");
         this.clearTrip();
       }
     } catch (error) {
@@ -846,7 +574,6 @@ class LiveTripTracker {
     if (this.pollingTimer) {
       return;
     }
-
     console.info("Starting polling fallback");
     this.poll();
   }
@@ -885,7 +612,6 @@ class LiveTripTracker {
       return;
     }
 
-    // Handle completed trips
     if (trip.status === "completed") {
       console.info(`Trip ${trip.transactionId} completed`);
       this.clearTrip();
@@ -897,7 +623,6 @@ class LiveTripTracker {
 
     this.activeTrip = trip;
 
-    // Extract coordinates
     const coords = LiveTripTracker.extractCoordinates(trip);
     if (!coords || coords.length === 0) {
       console.warn("No coordinates in trip update");
@@ -913,24 +638,30 @@ class LiveTripTracker {
       this.lastBearing = heading;
     }
 
-    // Create GeoJSON features
-    const features = createFeatures(coords, heading);
-
-    // Update map source
-    const source = this.map.getSource(this.sourceId);
-    if (source) {
-      source.setData({ type: "FeatureCollection", features });
+    // Update line source
+    const lineFeature = createLineFeature(coords);
+    const lineSource = this.map.getSource(this.lineSourceId);
+    if (lineSource) {
+      lineSource.setData({
+        type: "FeatureCollection",
+        features: lineFeature ? [lineFeature] : [],
+      });
     }
 
-    // Update marker style based on speed
-    this.updateMarkerStyle(trip.currentSpeed || 0);
+    // Update marker source
+    const markerFeature = createMarkerFeature(coords, heading);
+    const markerSource = this.map.getSource(this.markerSourceId);
+    if (markerSource) {
+      markerSource.setData({
+        type: "FeatureCollection",
+        features: markerFeature ? [markerFeature] : [],
+      });
+    }
 
-    // Update metrics panel
-    this.updateMetrics(trip);
+    // Update HUD and metrics
     this.updateHud(trip, coords);
-    this.updateParticleTrail(coords);
 
-    // Update map view for new trips
+    // Camera
     if (isNewTrip) {
       this.setLiveTripActive(true);
       this.setFollowMode(this.followPreference, { persist: false, resetCamera: false });
@@ -944,17 +675,11 @@ class LiveTripTracker {
     }
 
     this.lastCoord = coords[coords.length - 1];
-
-    // Update UI
-    this.updateTripCount(1);
     this.updateStatus(true, "Live tracking");
 
     document.dispatchEvent(
       new CustomEvent("liveTrackingUpdated", {
-        detail: {
-          trip,
-          coords,
-        },
+        detail: { trip, coords },
       })
     );
   }
@@ -962,7 +687,6 @@ class LiveTripTracker {
   static extractCoordinates(trip) {
     let coords = [];
 
-    // Try coordinates array first (active trips)
     if (Array.isArray(trip.coordinates) && trip.coordinates.length > 0) {
       coords = trip.coordinates
         .map((c) => {
@@ -974,7 +698,6 @@ class LiveTripTracker {
         .filter(Boolean);
     }
 
-    // Fallback to GeoJSON format
     if (coords.length === 0 && trip.gps) {
       const { gps } = trip;
       if (gps.type === "Point" && Array.isArray(gps.coordinates)) {
@@ -1042,203 +765,6 @@ class LiveTripTracker {
     }
   }
 
-  updateMarkerStyle(speed) {
-    if (!this.map || !this.map.getLayer(this.markerLayerId)) {
-      return;
-    }
-
-    let color = "";
-    let radius = 0;
-    let strokeWidth = 0;
-
-    if (speed === 0) {
-      color = LiveTripTracker.getCssVar("--danger", "#c45454");
-      radius = 8;
-      strokeWidth = 2;
-    } else if (speed < 10) {
-      color = LiveTripTracker.getCssVar("--warning", "#d4a24a");
-      radius = 8;
-      strokeWidth = 2;
-    } else if (speed < 35) {
-      color = LiveTripTracker.getCssVar("--info", "#5a86b0");
-      radius = 9;
-      strokeWidth = 2.5;
-    } else {
-      color = LiveTripTracker.getCssVar("--primary", "#3b8a7f");
-      radius = 10;
-      strokeWidth = 3;
-    }
-
-    // Update marker styling with smooth transition
-    this.map.setPaintProperty(this.markerLayerId, "circle-color", color);
-    this.map.setPaintProperty(this.markerLayerId, "circle-radius", radius);
-    this.map.setPaintProperty(this.markerLayerId, "circle-stroke-width", strokeWidth);
-
-    // Sync pulse ring color
-    if (this.map.getLayer(this.pulseLayerId)) {
-      this.map.setPaintProperty(this.pulseLayerId, "circle-stroke-color", color);
-    }
-
-    if (this.map.getLayer(this.arrowLayerId)) {
-      this.map.setPaintProperty(this.arrowLayerId, "icon-color", color);
-    }
-  }
-
-  /**
-   * Start animated pulse effect on the vehicle marker
-   */
-  startPulseAnimation() {
-    if (this.pulseAnimationFrame) {
-      return;
-    }
-
-    let pulseRadius = 20;
-    let pulseOpacity = 0.4;
-    let expanding = true;
-
-    const animate = () => {
-      if (!this.map || !this.map.getLayer(this.pulseLayerId)) {
-        this.stopPulseAnimation();
-        return;
-      }
-
-      // Animate radius between 20 and 35
-      if (expanding) {
-        pulseRadius += 0.3;
-        pulseOpacity -= 0.006;
-        if (pulseRadius >= 35) {
-          expanding = false;
-        }
-      } else {
-        pulseRadius -= 0.5;
-        pulseOpacity += 0.01;
-        if (pulseRadius <= 20) {
-          expanding = true;
-        }
-      }
-
-      try {
-        this.map.setPaintProperty(this.pulseLayerId, "circle-radius", pulseRadius);
-        this.map.setPaintProperty(
-          this.pulseLayerId,
-          "circle-stroke-opacity",
-          Math.max(0.1, pulseOpacity)
-        );
-      } catch {
-        // Layer might be removed during animation
-      }
-
-      this.pulseAnimationFrame = requestAnimationFrame(animate);
-    };
-
-    this.pulseAnimationFrame = requestAnimationFrame(animate);
-  }
-
-  /**
-   * Stop pulse animation
-   */
-  stopPulseAnimation() {
-    if (this.pulseAnimationFrame) {
-      cancelAnimationFrame(this.pulseAnimationFrame);
-      this.pulseAnimationFrame = null;
-    }
-  }
-
-  _renderMetricRows(metrics) {
-    return Object.entries(metrics)
-      .map(
-        ([label, value]) => `
-        <div class="metric-row">
-          <span class="metric-label">${label}:</span>
-          <span class="metric-value">${value}</span>
-        </div>
-      `
-      )
-      .join("");
-  }
-
-  updateMetrics(trip) {
-    if (!this.metricsElem || !trip) {
-      return;
-    }
-
-    const startTime = trip.startTime ? new Date(trip.startTime) : null;
-    const lastUpdate = trip.lastUpdate ? new Date(trip.lastUpdate) : null;
-
-    // Calculate duration
-    let duration = "0:00:00";
-    if (startTime && lastUpdate) {
-      duration = DateUtils.formatDurationHMS(startTime, lastUpdate);
-    }
-
-    // Build metrics HTML
-    const metrics = {
-      "Start Time": startTime
-        ? startTime.toLocaleString(undefined, {
-            month: "short",
-            day: "numeric",
-            hour: "numeric",
-            minute: "numeric",
-            second: "numeric",
-          })
-        : "N/A",
-      Duration: duration,
-      Distance: `${(trip.distance || 0).toFixed(2)} mi`,
-      "Current Speed": `${(trip.currentSpeed || 0).toFixed(1)} mph`,
-      "Points Recorded": trip.pointsRecorded || 0,
-      "Last Update": lastUpdate ? DateUtils.formatTimeAgo(lastUpdate) : "N/A",
-    };
-
-    // Optional metrics (only show if meaningful)
-    const optional = {};
-
-    if (trip.avgSpeed > 0) {
-      optional["Average Speed"] = `${trip.avgSpeed.toFixed(1)} mph`;
-    }
-
-    if (trip.maxSpeed > Math.max(trip.currentSpeed, 5)) {
-      optional["Max Speed"] = `${trip.maxSpeed.toFixed(1)} mph`;
-    }
-
-    if (trip.totalIdleDuration > 0) {
-      optional["Idling Time"] = DateUtils.formatSecondsToHMS(trip.totalIdleDuration);
-    }
-
-    if (trip.hardBrakingCounts > 0) {
-      optional["Hard Braking"] = trip.hardBrakingCounts;
-    }
-
-    if (trip.hardAccelerationCounts > 0) {
-      optional["Hard Acceleration"] = trip.hardAccelerationCounts;
-    }
-
-    // Render metrics
-    const baseHtml = this._renderMetricRows(metrics);
-
-    const optionalHtml
-      = Object.keys(optional).length > 0
-        ? `
-        <div class="metric-section-divider"></div>
-        <div class="metric-section-title">Trip Behavior</div>
-        ${this._renderMetricRows(optional)}
-      `
-        : "";
-
-    this.metricsElem.innerHTML = `
-      <div class="metric-section">
-        <div class="metric-section-title">Live Trip</div>
-        ${baseHtml}
-      </div>
-      ${optionalHtml}
-    `;
-
-    this.metricsElem.querySelectorAll(".metric-value").forEach((valueEl) => {
-      valueEl.classList.remove("value-flash");
-      void valueEl.offsetWidth;
-      valueEl.classList.add("value-flash");
-    });
-  }
-
   fitTripBounds(coords) {
     if (!coords || coords.length === 0) {
       return;
@@ -1295,50 +821,35 @@ class LiveTripTracker {
     this.lastUpdateTimestamp = null;
     this.updateFreshnessState();
 
-    // Clear map
-    const source = this.map.getSource(this.sourceId);
-    if (source) {
-      source.setData({ type: "FeatureCollection", features: [] });
+    const lineSource = this.map.getSource(this.lineSourceId);
+    if (lineSource) {
+      lineSource.setData({ type: "FeatureCollection", features: [] });
     }
-    const trailSource = this.map.getSource(this.trailSourceId);
-    if (trailSource) {
-      trailSource.setData({ type: "FeatureCollection", features: [] });
-    }
-
-    // Clear metrics
-    if (this.metricsElem) {
-      this.metricsElem.innerHTML = `
-        <div class="text-secondary small">No live trip in progress.</div>
-      `;
+    const markerSource = this.map.getSource(this.markerSourceId);
+    if (markerSource) {
+      markerSource.setData({ type: "FeatureCollection", features: [] });
     }
 
     this.setLiveTripActive(false);
-    this.updateTripCount(0);
     this.updateStatus(true, "Idle");
   }
 
   updateStatus(connected, message) {
-    if (!this.statusIndicator || !this.statusText) {
-      return;
+    if (this.statusIndicator) {
+      this.statusIndicator.classList.toggle("connected", connected);
+      this.statusIndicator.classList.toggle("disconnected", !connected);
+      const isConnecting
+        = typeof message === "string" && /reconnect|connect|sync/i.test(message);
+      this.statusIndicator.classList.toggle("connecting", !connected && isConnecting);
     }
 
-    this.statusIndicator.classList.toggle("connected", connected);
-    this.statusIndicator.classList.toggle("disconnected", !connected);
-    const isConnecting
-      = typeof message === "string" && /reconnect|connect|sync/i.test(message);
-    this.statusIndicator.classList.toggle("connecting", !connected && isConnecting);
-
-    const statusMsg = message || (connected ? "Connected" : "Disconnected");
-    this.statusText.textContent = statusMsg;
+    if (this.statusText) {
+      const statusMsg = message || (connected ? "Connected" : "Disconnected");
+      this.statusText.textContent = statusMsg;
+    }
 
     if (this.liveBadge) {
       this.liveBadge.classList.toggle("disconnected", !connected);
-    }
-  }
-
-  updateTripCount(count) {
-    if (this.tripCountElem) {
-      this.tripCountElem.textContent = count;
     }
   }
 
@@ -1366,87 +877,6 @@ class LiveTripTracker {
     }
   }
 
-  startWebhookStatusMonitor() {
-    if (!this.webhookIndicator || !this.webhookStatusText) {
-      return;
-    }
-    if (this.webhookStatusTimer) {
-      clearInterval(this.webhookStatusTimer);
-    }
-    this.refreshWebhookStatus();
-    this.webhookStatusTimer = setInterval(
-      () => this.refreshWebhookStatus(),
-      this.webhookStatusInterval
-    );
-  }
-
-  stopWebhookStatusMonitor() {
-    if (this.webhookStatusTimer) {
-      clearInterval(this.webhookStatusTimer);
-      this.webhookStatusTimer = null;
-    }
-  }
-
-  async refreshWebhookStatus() {
-    if (
-      !this.webhookIndicator
-      || !this.webhookStatusText
-      || this.webhookStatusPending
-    ) {
-      return;
-    }
-    this.webhookStatusPending = true;
-    try {
-      const data = await apiClient.get("/api/webhooks/bouncie/status", {
-        cache: false,
-      });
-      const lastReceived = data.last_received ? new Date(data.last_received) : null;
-      if (!lastReceived || Number.isNaN(lastReceived.getTime())) {
-        this.setWebhookStatusIndicator("disconnected", "No webhook received yet");
-        return;
-      }
-
-      const ageMs = Date.now() - lastReceived.getTime();
-      const windowMs = this.hasActiveTrip
-        ? this.webhookActiveWindowMs
-        : this.webhookIdleWindowMs;
-      const timeAgo = DateUtils?.formatTimeAgo(lastReceived, true) || "just now";
-      const eventLabel = data.event_type
-        ? `${data.event_type} ${timeAgo}`
-        : `webhook ${timeAgo}`;
-
-      if (ageMs <= windowMs) {
-        this.setWebhookStatusIndicator("connected", `Last ${eventLabel}`);
-      } else {
-        this.setWebhookStatusIndicator(
-          "stale",
-          `No recent webhooks (last ${eventLabel})`
-        );
-      }
-    } catch {
-      this.setWebhookStatusIndicator("disconnected", "Webhook status unavailable");
-    } finally {
-      this.webhookStatusPending = false;
-    }
-  }
-
-  setWebhookStatusIndicator(state, message) {
-    if (!this.webhookIndicator || !this.webhookStatusText) {
-      return;
-    }
-    this.webhookIndicator.classList.remove(
-      "connected",
-      "stale",
-      "disconnected",
-      "connecting",
-      "fresh"
-    );
-    if (state) {
-      this.webhookIndicator.classList.add(state);
-    }
-    this.webhookStatusText.textContent = message;
-  }
-
   // --- Cleanup ----------------------------------------------------------
   _removeLayer(layerId) {
     if (!this.map?.getLayer(layerId)) {
@@ -1464,8 +894,6 @@ class LiveTripTracker {
 
   destroy() {
     this.stopPolling();
-    this.stopPulseAnimation();
-    this.stopWebhookStatusMonitor();
     if (this.freshnessTimer) {
       clearInterval(this.freshnessTimer);
       this.freshnessTimer = null;
@@ -1487,18 +915,13 @@ class LiveTripTracker {
       this.mapInteractionHandlers = [];
     }
 
-    // Remove map layers
     if (this.map) {
       try {
-        [
-          this.pulseLayerId,
-          this.arrowLayerId,
-          this.lineLayerId,
-          this.lineCasingLayerId,
-          this.lineGlowLayerId,
-          this.markerLayerId,
-        ].forEach((layerId) => this._removeLayer(layerId));
-        this._removeSource(this.sourceId);
+        [this.arrowLayerId, this.lineLayerId, this.markerLayerId].forEach(
+          (layerId) => this._removeLayer(layerId)
+        );
+        this._removeSource(this.lineSourceId);
+        this._removeSource(this.markerSourceId);
       } catch (error) {
         console.warn("Error removing layers:", error);
       }
