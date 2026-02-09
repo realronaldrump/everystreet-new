@@ -109,8 +109,8 @@ async function setupMapboxCredentials({ signal } = {}) {
     toggleBtn.addEventListener(
       "click",
       () => {
-        const type
-          = tokenInput.getAttribute("type") === "password" ? "text" : "password";
+        const type =
+          tokenInput.getAttribute("type") === "password" ? "text" : "password";
         tokenInput.setAttribute("type", type);
         toggleBtn.querySelector("i")?.classList.toggle("fa-eye");
         toggleBtn.querySelector("i")?.classList.toggle("fa-eye-slash");
@@ -145,8 +145,8 @@ async function setupBouncieCredentials({ signal } = {}) {
       secretInput.value = creds.client_secret || "";
     }
     if (redirectUri) {
-      redirectUri.value
-        = creds.redirect_uri || (await getExpectedRedirectUri({ signal }));
+      redirectUri.value =
+        creds.redirect_uri || (await getExpectedRedirectUri({ signal }));
     }
     if (fetchConcurrencyInput) {
       fetchConcurrencyInput.value = String(
@@ -166,8 +166,8 @@ async function setupBouncieCredentials({ signal } = {}) {
     toggleBtn.addEventListener(
       "click",
       () => {
-        const type
-          = secretInput.getAttribute("type") === "password" ? "text" : "password";
+        const type =
+          secretInput.getAttribute("type") === "password" ? "text" : "password";
         secretInput.setAttribute("type", type);
         toggleBtn.querySelector("i")?.classList.toggle("fa-eye");
         toggleBtn.querySelector("i")?.classList.toggle("fa-eye-slash");
@@ -356,7 +356,8 @@ function setupBouncieVehicles({ signal } = {}) {
         } finally {
           if (addBtn) {
             addBtn.disabled = false;
-            addBtn.innerHTML = originalHtml || '<i class="fas fa-plus"></i> Add Vehicle';
+            addBtn.innerHTML =
+              originalHtml || '<i class="fas fa-plus"></i> Add Vehicle';
           }
         }
       },
@@ -395,7 +396,7 @@ async function loadBouncieVehicles({ signal } = {}) {
   tbody.innerHTML = "";
 
   try {
-    const response = await apiClient.raw(VEHICLES_API, { signal });
+    const response = await apiClient.raw(VEHICLES_API, { signal, cache: "no-store" });
     if (!response.ok) {
       const data = await response.json().catch(() => null);
       throw new Error(data?.detail || "Failed to load vehicles.");
@@ -420,7 +421,9 @@ async function loadBouncieVehicles({ signal } = {}) {
         return vehicle.custom_name;
       }
       const parts = [vehicle?.year, vehicle?.make, vehicle?.model].filter(Boolean);
-      return parts.length > 0 ? parts.join(" ") : `Vehicle ${vehicle?.imei || ""}`.trim();
+      return parts.length > 0
+        ? parts.join(" ")
+        : `Vehicle ${vehicle?.imei || ""}`.trim();
     };
 
     const getVehicleSubtitle = (vehicle) => {

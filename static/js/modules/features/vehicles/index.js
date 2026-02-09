@@ -196,7 +196,7 @@ async function loadVehicle() {
   try {
     const response = await apiClient.raw(
       "/api/vehicles?active_only=false",
-      withSignal()
+      withSignal({ cache: "no-store" })
     );
     if (!response.ok) {
       throw new Error("Failed to fetch vehicles");

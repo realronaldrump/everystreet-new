@@ -116,7 +116,7 @@ class VehicleService:
     @staticmethod
     async def delete_vehicle(imei: str) -> dict[str, str]:
         """
-        Mark a vehicle as inactive.
+        Delete a vehicle from the local database and de-authorize it for trip sync.
 
         Args:
             imei: Vehicle IMEI
@@ -132,8 +132,35 @@ class VehicleService:
             msg = f"Vehicle with IMEI {imei} not found"
             raise ResourceNotFoundException(msg)
 
-        vehicle.is_active = False
-        vehicle.updated_at = datetime.now(UTC)
-        await vehicle.save()
+        # Remove from the authorized_devices list so future syncs don't immediately
+        # re-add it to the local database.
+        try:
+            from setup.services.bouncie_credentials import (
+                get_bouncie_credentials,
+                update_bouncie_credentials,
+            )
 
-        return {"status": "success", "message": "Vehicle marked as inactive"}
+            credentials = await get_bouncie_credentials()
+            devices = credentials.get("authorized_devices") or []
+            if isinstance(devices, str):
+                devices = [d.strip() for d in devices.split(",") if d.strip()]
+            if not isinstance(devices, list):
+                devices = []
+            devices = [str(d).strip() for d in devices if str(d).strip()]
+
+            if imei in devices:
+                next_devices = [d for d in devices if d != imei]
+                updated = await update_bouncie_credentials(
+                    {"authorized_devices": next_devices},
+                )
+                if not updated:
+                    raise RuntimeError("Failed to update authorized devices")
+        except Exception:
+            # Don't silently "succeed" if we couldn't deauthorize; the vehicle would
+            # likely come back on the next sync.
+            logger.exception("Failed to deauthorize vehicle %s from Bouncie credentials", imei)
+            raise
+
+        await vehicle.delete()
+
+        return {"status": "success", "message": "Vehicle deleted"}

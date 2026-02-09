@@ -5,6 +5,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query
 
+from core.exceptions import DuplicateResourceException, ResourceNotFoundException
 from db.models import Vehicle
 from db.schemas import VehicleModel
 from gas.services import VehicleService
@@ -38,6 +39,8 @@ async def create_vehicle(vehicle_data: VehicleModel) -> Vehicle:
         vehicle_dict = vehicle_data.model_dump(exclude={"id"}, exclude_none=True)
         return await VehicleService.create_vehicle(vehicle_dict)
 
+    except DuplicateResourceException as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -55,8 +58,10 @@ async def update_vehicle(imei: str, vehicle_data: VehicleModel) -> Vehicle:
         )
         return await VehicleService.update_vehicle(imei, update_data)
 
-    except ValueError as e:
+    except ResourceNotFoundException as e:
         raise HTTPException(status_code=404, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.exception("Error updating vehicle")
         raise HTTPException(status_code=500, detail=str(e))
@@ -64,11 +69,11 @@ async def update_vehicle(imei: str, vehicle_data: VehicleModel) -> Vehicle:
 
 @router.delete("/api/vehicles/{imei}")
 async def delete_vehicle(imei: str) -> dict[str, str]:
-    """Delete a vehicle (or mark as inactive)."""
+    """Delete a vehicle and de-authorize it for trip sync."""
     try:
         return await VehicleService.delete_vehicle(imei)
 
-    except ValueError as e:
+    except ResourceNotFoundException as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         logger.exception("Error deleting vehicle")
