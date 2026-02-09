@@ -699,10 +699,16 @@ class VisitsPageController {
 
   async showPlaceDetail(placeId) {
     try {
-      const [stats, trips] = await Promise.all([
+      const [stats, tripsResponse] = await Promise.all([
         this.fetchPlaceStats(placeId),
         this.fetchPlaceTrips(placeId),
       ]);
+
+      // `/api/places/:id/trips` returns `{ trips: [...], name: string }`.
+      // Be defensive in case older endpoints ever returned the array directly.
+      const trips = Array.isArray(tripsResponse)
+        ? tripsResponse
+        : (tripsResponse?.trips || []);
 
       // Update modal content
       document.getElementById("modal-place-name").textContent = stats.name;
