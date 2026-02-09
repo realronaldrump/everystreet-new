@@ -144,6 +144,8 @@ class DrilldownService:
         pipeline = [
             {"$match": match_query},
             {"$addFields": add_fields},
+            {"$sort": sort_spec},
+            {"$limit": limit},
             {
                 "$project": {
                     "_id": 0,
@@ -163,9 +165,6 @@ class DrilldownService:
                     "timeZone": 1,
                 },
             },
-            {"$sort": sort_spec},
-            {"$limit": limit},
         ]
 
         return await aggregate_to_list(Trip, pipeline)
-

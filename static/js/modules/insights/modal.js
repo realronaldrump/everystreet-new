@@ -54,23 +54,74 @@ function titleForDrilldown(kind, dateRange) {
   const rangeText = dateRange ? `${dateRange.start} to ${dateRange.end}` : "";
   switch (kind) {
     case "distance":
-      return `Trips by distance (${rangeText})`;
+      return `Top trips by distance (${rangeText})`;
     case "duration":
-      return `Trips by duration (${rangeText})`;
+      return `Top trips by duration (${rangeText})`;
     case "fuel":
-      return `Trips by fuel used (${rangeText})`;
+      return `Top trips by fuel used (${rangeText})`;
     case "top_speed":
-      return `Trips with top speeds (${rangeText})`;
+      return `Top trips by top speed (${rangeText})`;
     case "avg_speed":
-      return `Trips with highest average speed (${rangeText})`;
+      return `Top trips by average speed (${rangeText})`;
     case "idle_time":
-      return `Trips with the most idling (${rangeText})`;
+      return `Top trips by idle time (${rangeText})`;
     case "hard_braking":
-      return `Trips with hard braking (${rangeText})`;
+      return `Top trips by hard braking (${rangeText})`;
     case "trips":
     default:
       return `Trips (${rangeText})`;
   }
+}
+
+function parseDateMs(value) {
+  if (!value) {
+    return 0;
+  }
+  const t = Date.parse(value);
+  return Number.isFinite(t) ? t : 0;
+}
+
+function getTripSortValue(kind, trip) {
+  if (!trip) {
+    return 0;
+  }
+  switch (kind) {
+    case "distance":
+      return Number(trip.distance) || 0;
+    case "duration":
+      return Number(trip.duration) || 0;
+    case "fuel":
+      return Number(trip.fuelConsumed) || 0;
+    case "top_speed":
+      return Number(trip.maxSpeed) || 0;
+    case "avg_speed":
+      return Number(trip.avgSpeed) || 0;
+    case "idle_time":
+      return Number(trip.totalIdleDuration) || 0;
+    case "hard_braking":
+      return Number(trip.hardBrakingCounts) || 0;
+    case "trips":
+    default:
+      return parseDateMs(trip.startTime);
+  }
+}
+
+function sortTripsByKind(trips, kind) {
+  if (!Array.isArray(trips) || trips.length < 2) {
+    return trips;
+  }
+  const activeKind = kind || "trips";
+  return [...trips].sort((a, b) => {
+    const av = getTripSortValue(activeKind, a);
+    const bv = getTripSortValue(activeKind, b);
+    if (bv !== av) {
+      return bv - av;
+    }
+    // Stable-ish tie-breaker: newest trip first.
+    const at = parseDateMs(a?.startTime);
+    const bt = parseDateMs(b?.startTime);
+    return bt - at;
+  });
 }
 
 /**
@@ -153,11 +204,12 @@ export async function loadAndShowTripsForDrilldown(kind, opts = {}) {
  */
 export function displayTripsInModal(trips, opts = {}) {
   const { title, insightKind } = opts;
+  const sortedTrips = sortTripsByKind(trips, insightKind || "trips");
 
   // Update modal title.
   const modalTitle = document.getElementById("tripDetailsModalLabel");
   if (modalTitle) {
-    modalTitle.textContent = title || `Trips (${trips?.length || 0})`;
+    modalTitle.textContent = title || `Trips (${sortedTrips?.length || 0})`;
   }
 
   // Build table rows
@@ -166,11 +218,11 @@ export function displayTripsInModal(trips, opts = {}) {
     return;
   }
 
-  if (!trips || trips.length === 0) {
+  if (!sortedTrips || sortedTrips.length === 0) {
     tbody.innerHTML
       = '<tr><td colspan="9" class="text-center">No trips found.</td></tr>';
   } else {
-    tbody.innerHTML = trips
+    tbody.innerHTML = sortedTrips
       .map((trip) => {
         const startTime = trip.startTime
           ? new Date(trip.startTime).toLocaleString("en-US", { hour12: true })

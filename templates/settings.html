@@ -445,7 +445,10 @@ Geocode Trips on Fetch
           <h4 class="h6 text-muted text-uppercase mb-3">
           Add Vehicle
           </h4>
-          <form id="credentials-add-vehicle-form" novalidate>
+          <form id="credentials-add-vehicle-form"
+                method="post"
+                action="/settings/credentials/add-vehicle"
+                novalidate>
             <div class="row g-3 align-items-end">
               <div class="col-12 col-md-6">
                 <label for="credentials-add-vehicle-imei" class="form-label">
@@ -454,6 +457,7 @@ Geocode Trips on Fetch
                 <input type="text"
                        class="form-control"
                        id="credentials-add-vehicle-imei"
+                       name="imei"
                        placeholder="123456789012345"
                        inputmode="numeric"
                        autocomplete="off" />
@@ -465,6 +469,7 @@ Geocode Trips on Fetch
                 <input type="text"
                        class="form-control"
                        id="credentials-add-vehicle-name"
+                       name="custom_name"
                        placeholder="My car"
                        autocomplete="off" />
               </div>
