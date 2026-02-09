@@ -15,6 +15,7 @@ import time
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+import aiohttp
 from beanie import PydanticObjectId
 from beanie.operators import In
 
@@ -23,7 +24,6 @@ from config import API_BASE_URL, get_bouncie_config
 from core.bouncie_normalization import normalize_rest_trip_payload
 from core.date_utils import ensure_utc, parse_timestamp
 from core.clients.bouncie import format_bouncie_datetime_param
-from core.http.retry import retry_async
 from core.http.session import get_session
 from core.http.valhalla import ValhallaClient
 from core.jobs import JobHandle
@@ -127,6 +127,8 @@ async def build_import_plan(
     fetch_concurrency = credentials.get("fetch_concurrency", 12)
     if not isinstance(fetch_concurrency, int) or fetch_concurrency < 1:
         fetch_concurrency = 12
+    # History import tends to stress the upstream API; keep concurrency bounded.
+    fetch_concurrency = min(fetch_concurrency, 4)
 
     vehicles = (
         await Vehicle.find(In(Vehicle.imei, imeis)).to_list() if imeis else []
@@ -153,7 +155,6 @@ async def build_import_plan(
     }
 
 
-@retry_async(max_retries=3, retry_delay=1.5)
 async def _fetch_trips_for_device_strict(
     session,
     *,
@@ -176,43 +177,27 @@ async def _fetch_trips_for_device_strict(
         "Content-Type": "application/json",
     }
     url = f"{API_BASE_URL}/trips"
-
-    async def _fetch(*, gps_format: str) -> list[dict[str, Any]]:
-        params = {
-            "imei": imei,
-            "gps-format": gps_format,
-            "starts-after": format_bouncie_datetime_param(start_dt),
-            "ends-before": format_bouncie_datetime_param(end_dt),
-        }
-        async with session.get(url, headers=headers, params=params) as response:
-            if response.status >= 400:
-                body = (await response.text())[:800]
-                logger.warning(
-                    "Bouncie /trips error (status=%s, imei=%s, gps_format=%s, starts_after=%s, ends_before=%s): %s",
-                    response.status,
-                    imei,
-                    gps_format,
-                    params.get("starts-after"),
-                    params.get("ends-before"),
-                    body,
-                )
-                response.raise_for_status()
-            payload = await response.json()
-            return payload if isinstance(payload, list) else []
-
-    try:
-        # Per Bouncie docs, `gps` is returned as an encoded string in the requested
-        # format. Using polyline is usually smaller and avoids server-side GeoJSON
-        # generation (which appears to 500 intermittently).
-        trips = await _fetch(gps_format="polyline")
-    except Exception as exc:
-        # If polyline fails with a server error, fall back to geojson as a
-        # recovery mechanism.
-        status = getattr(exc, "status", None)
-        if status == 500:
-            trips = await _fetch(gps_format="geojson")
-        else:
-            raise
+    params = {
+        "imei": imei,
+        "gps-format": "polyline",
+        "starts-after": format_bouncie_datetime_param(start_dt),
+        "ends-before": format_bouncie_datetime_param(end_dt),
+    }
+    async with session.get(url, headers=headers, params=params) as response:
+        if response.status >= 400:
+            body = (await response.text())[:800]
+            logger.warning(
+                "Bouncie /trips error (status=%s, imei=%s, gps_format=%s, starts_after=%s, ends_before=%s): %s",
+                response.status,
+                imei,
+                params.get("gps-format"),
+                params.get("starts-after"),
+                params.get("ends-before"),
+                body,
+            )
+            response.raise_for_status()
+        payload = await response.json()
+        trips = payload if isinstance(payload, list) else []
 
     normalized: list[dict[str, Any]] = []
     for trip in trips:
@@ -225,6 +210,121 @@ async def _fetch_trips_for_device_strict(
         normalized.append(normalize_rest_trip_payload(trip))
 
     return normalized
+
+
+def _dedupe_trips_by_transaction_id(trips: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Deduplicate trips in-memory, preserving the first occurrence."""
+    by_id: dict[str, dict[str, Any]] = {}
+    for trip in trips:
+        if not isinstance(trip, dict):
+            continue
+        tx = trip.get("transactionId")
+        if isinstance(tx, str) and tx and tx not in by_id:
+            by_id[tx] = trip
+    return list(by_id.values())
+
+
+async def _fetch_trips_for_device_window_resilient(
+    session,
+    *,
+    token: str,
+    imei: str,
+    window_start: datetime,
+    window_end: datetime,
+    on_unrecoverable_window_error: (
+        Any | None
+    ) = None,  # async (exc, start_dt, end_dt) -> None
+) -> list[dict[str, Any]]:
+    """Fetch trips for a window, splitting on upstream 500s to recover partial data.
+
+    Strategy:
+    - Try the full window first (polyline).
+    - If Bouncie returns 500, retry only the failing ranges using progressively
+      smaller windows.
+
+    This keeps the common-case fast, but prevents one bad 7-day query from
+    blocking the entire history import.
+    """
+
+    # (window_days, overlap_hours) tiers. Overlap stays large (24h) while the
+    # window is >= 48h, then relaxes as a last resort.
+    fallback_tiers: list[tuple[int, int]] = [
+        (2, 24),
+        (1, 20),
+    ]
+
+    query_start, query_end = _expand_window_bounds_for_bouncie(window_start, window_end)
+    try:
+        trips = await _fetch_trips_for_device_strict(
+            session,
+            token=token,
+            imei=imei,
+            start_dt=query_start,
+            end_dt=query_end,
+        )
+        return trips
+    except aiohttp.ClientResponseError as exc:
+        if exc.status != 500:
+            raise
+        root_exc: Exception = exc
+
+    accumulated: list[dict[str, Any]] = []
+    successful_any = False
+    failing_ranges: list[tuple[datetime, datetime]] = [(window_start, window_end)]
+    last_exc: Exception = root_exc
+
+    for window_days, overlap_hours in fallback_tiers:
+        if not failing_ranges:
+            break
+
+        next_failures: list[tuple[datetime, datetime]] = []
+        for range_start, range_end in failing_ranges:
+            subwindows = build_import_windows(
+                range_start,
+                range_end,
+                window_days=window_days,
+                overlap_hours=overlap_hours,
+            )
+            if not subwindows:
+                continue
+
+            for sub_start, sub_end in subwindows:
+                q_start, q_end = _expand_window_bounds_for_bouncie(sub_start, sub_end)
+                try:
+                    chunk = await _fetch_trips_for_device_strict(
+                        session,
+                        token=token,
+                        imei=imei,
+                        start_dt=q_start,
+                        end_dt=q_end,
+                    )
+                    successful_any = True
+                    if chunk:
+                        accumulated.extend(chunk)
+                except aiohttp.ClientResponseError as exc:
+                    if exc.status != 500:
+                        raise
+                    last_exc = exc
+                    next_failures.append((sub_start, sub_end))
+                except Exception as exc:
+                    # Treat unknown errors like 500s here; the import will record
+                    # these ranges as failures, but keep importing whatever it can.
+                    last_exc = exc
+                    next_failures.append((sub_start, sub_end))
+
+        failing_ranges = next_failures
+
+    if failing_ranges and on_unrecoverable_window_error:
+        for sub_start, sub_end in failing_ranges:
+            try:
+                await on_unrecoverable_window_error(last_exc, sub_start, sub_end)
+            except Exception:
+                logger.exception("Failed recording history import fetch error")
+
+    if not successful_any and failing_ranges:
+        raise last_exc
+
+    return _dedupe_trips_by_transaction_id(accumulated)
 
 
 def _expand_window_bounds_for_bouncie(
@@ -333,6 +433,8 @@ async def run_import(
     fetch_concurrency = credentials.get("fetch_concurrency", 12)
     if not isinstance(fetch_concurrency, int) or fetch_concurrency < 1:
         fetch_concurrency = 12
+    # History import tends to stress the upstream API; keep concurrency bounded.
+    fetch_concurrency = min(fetch_concurrency, 4)
 
     vehicles = (
         await Vehicle.find(In(Vehicle.imei, imeis)).to_list() if imeis else []
@@ -533,17 +635,52 @@ async def run_import(
         ) -> list[dict[str, Any]]:
             async with semaphore:
                 try:
-                    query_start, query_end = _expand_window_bounds_for_bouncie(
-                        window_start,
-                        window_end,
-                    )
-                    trips = await _fetch_trips_for_device_strict(
+                    async def on_unrecoverable_window_error(
+                        exc: Exception,
+                        sub_start: datetime,
+                        sub_end: datetime,
+                    ) -> None:
+                        # Called when we have exhausted fallback tiers for a sub-window.
+                        async with lock:
+                            counters["fetch_errors"] += 1
+                            if imei in per_device:
+                                per_device[imei]["errors"] += 1
+                        add_event(
+                            "error",
+                            f"Fetch failed for {imei} (sub-window)",
+                            {
+                                "error": str(exc),
+                                "imei": imei,
+                                "window_index": window_index,
+                                "subwindow_start": sub_start.isoformat(),
+                                "subwindow_end": sub_end.isoformat(),
+                            },
+                        )
+                        record_failure_reason(str(exc))
+                        await TripIngestIssueService.record_issue(
+                            issue_type="fetch_error",
+                            message=str(exc),
+                            source="bouncie",
+                            imei=imei,
+                            details={
+                                "imei": imei,
+                                "window_index": window_index,
+                                "window_start": window_start.isoformat(),
+                                "window_end": window_end.isoformat(),
+                                "subwindow_start": sub_start.isoformat(),
+                                "subwindow_end": sub_end.isoformat(),
+                            },
+                        )
+
+                    trips = await _fetch_trips_for_device_window_resilient(
                         session,
                         token=token,
                         imei=imei,
-                        start_dt=query_start,
-                        end_dt=query_end,
+                        window_start=window_start,
+                        window_end=window_end,
+                        on_unrecoverable_window_error=on_unrecoverable_window_error,
                     )
+                    trips = _dedupe_trips_by_transaction_id(trips)
                     before_count = len(trips)
                     trips = _filter_trips_to_window(
                         trips,
