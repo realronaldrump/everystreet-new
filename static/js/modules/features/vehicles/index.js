@@ -1,5 +1,6 @@
 import apiClient from "../../core/api-client.js";
 import store from "../../core/store.js";
+import confirmationDialog from "../../ui/confirmation-dialog.js";
 import { notify } from "../../ui/notifications.js";
 import {
   formatNumber,
@@ -693,9 +694,13 @@ async function deleteVehicle() {
   }
 
   const name = getVehicleDisplayName(currentVehicle);
-  const confirmed = window.confirm(
-    `Remove "${name}" from your vehicles? This cannot be undone.`
-  );
+  const confirmed = await confirmationDialog.show({
+    title: "Delete vehicle",
+    message: `Remove "${name}" from your vehicles? This cannot be undone.`,
+    confirmText: "Delete vehicle",
+    cancelText: "Keep vehicle",
+    variant: "danger",
+  });
   if (!confirmed) {
     return;
   }
