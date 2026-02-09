@@ -370,7 +370,8 @@ async def add_bouncie_vehicle(payload: BouncieVehicleCreate):
             status_code=404,
             detail=(
                 "Vehicle not found in your Bouncie account (or not authorized for this app). "
-                "Double-check the IMEI and try syncing vehicles first."
+                "Double-check the IMEI, verify the device appears under Users & Devices in the "
+                "Bouncie Developer Portal for your application, then try syncing vehicles again."
             ),
         )
 
