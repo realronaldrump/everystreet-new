@@ -20,6 +20,7 @@ from beanie.operators import In
 
 from admin.services.admin_service import AdminService
 from config import API_BASE_URL, get_bouncie_config
+from core.bouncie_normalization import normalize_rest_trip_payload
 from core.date_utils import ensure_utc, parse_timestamp
 from core.clients.bouncie import format_bouncie_datetime_param
 from core.http.retry import retry_async
@@ -200,54 +201,58 @@ async def _fetch_trips_for_device_strict(
             return payload if isinstance(payload, list) else []
 
     try:
-        trips = await _fetch(gps_format="geojson")
+        # Per Bouncie docs, `gps` is returned as an encoded string in the requested
+        # format. Using polyline is usually smaller and avoids server-side GeoJSON
+        # generation (which appears to 500 intermittently).
+        trips = await _fetch(gps_format="polyline")
     except Exception as exc:
-        # Some Bouncie accounts/weeks intermittently 500 on geojson. Try polyline as a fallback
-        # to recover data without changing the public API surface.
+        # If polyline fails with a server error, fall back to geojson as a
+        # recovery mechanism.
         status = getattr(exc, "status", None)
         if status == 500:
-            trips = await _fetch(gps_format="polyline")
-            for trip in trips:
-                if isinstance(trip, dict):
-                    _decode_polyline_gps(trip)
+            trips = await _fetch(gps_format="geojson")
         else:
             raise
 
+    normalized: list[dict[str, Any]] = []
     for trip in trips:
         if not isinstance(trip, dict):
             continue
-        if "startTime" in trip:
-            trip["startTime"] = parse_timestamp(trip["startTime"])
-        if "endTime" in trip:
-            trip["endTime"] = parse_timestamp(trip["endTime"])
+        # If we used polyline format, decode gps so the rest of the pipeline sees
+        # canonical GeoJSON (via normalization/model validators).
+        if isinstance(trip.get("gps"), str):
+            _decode_polyline_gps(trip)
+        normalized.append(normalize_rest_trip_payload(trip))
 
-    return trips
+    return normalized
 
 
 def _expand_window_bounds_for_bouncie(
     window_start: datetime,
     window_end: datetime,
 ) -> tuple[datetime, datetime]:
-    """Return slightly expanded inclusive bounds for Bouncie queries.
+    """Return query bounds that satisfy Bouncie's strict semantics and limits.
 
     Bouncie filtering params are documented as strict "after" / "before".
-    Expand by 1 second to behave inclusively at the window edges.
+    We bias the lower bound backwards by 1 second to behave inclusively at
+    the left edge (important for the first window where there is no overlap
+    before it).
 
     Important: Bouncie also documents that the window between `starts-after`
-    and `ends-before` must be no longer than a week. Our import windows are
-    often exactly 7 days, so a naive +/-1s expansion can exceed that limit
-    (7 days + 2 seconds) and trigger upstream errors.
+    and `ends-before` must be no longer than a week. In practice, some
+    requests at exactly 7 days appear to 500, so we keep the request window
+    strictly smaller than 7 days.
     """
 
     start = ensure_utc(window_start) or window_start
     end = ensure_utc(window_end) or window_end
-    expanded_start = start - timedelta(seconds=1)
-    expanded_end = end + timedelta(seconds=1)
-    max_window = timedelta(days=7)
-    if expanded_end - expanded_start > max_window:
-        # Keep the unexpanded bounds rather than exceed the upstream limit.
-        return (start, end)
-    return (expanded_start, expanded_end)
+    query_start = start - timedelta(seconds=1)
+    # Keep strictly under 7 days to avoid upstream enforcement quirks.
+    max_window = timedelta(days=7) - timedelta(seconds=1)
+    query_end = end
+    if query_end - query_start > max_window:
+        query_end = query_start + max_window
+    return (query_start, query_end)
 
 
 def _filter_trips_to_window(
