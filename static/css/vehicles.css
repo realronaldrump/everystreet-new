@@ -232,6 +232,10 @@
   box-shadow: var(--shadow-md);
 }
 
+.fleet-row {
+  cursor: pointer;
+}
+
 /* Responsive adjustments */
 @media (width <= 768px) {
   .vehicle-hero .card-body {

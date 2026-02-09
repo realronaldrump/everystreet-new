@@ -1,6 +1,7 @@
 import apiClient from "../../core/api-client.js";
 import store from "../../core/store.js";
 import {
+  formatDateTime,
   formatNumber,
   formatRelativeTimeLong,
   getStorage,
@@ -20,6 +21,7 @@ let pageSignal = null;
 
 // LocalStorage key for persisting selected vehicle
 const STORAGE_KEY = "selectedVehicleImei";
+const BOUNCIE_ADD_VEHICLE_API = "/api/profile/bouncie-credentials/vehicles";
 const formatOdometer = (value) =>
   formatNumber(value, { minimumFractionDigits: 0, maximumFractionDigits: 1 });
 
@@ -51,6 +53,17 @@ function cacheElements() {
     loadingState: document.getElementById("loading-state"),
     emptyState: document.getElementById("empty-state"),
     vehicleContent: document.getElementById("vehicle-content"),
+
+    // Fleet management
+    fleetSyncBtn: document.getElementById("fleet-sync-btn"),
+    fleetLoading: document.getElementById("fleet-loading"),
+    fleetEmpty: document.getElementById("fleet-empty"),
+    fleetTableWrapper: document.getElementById("fleet-table-wrapper"),
+    fleetTbody: document.getElementById("fleet-tbody"),
+    fleetAddVehicleForm: document.getElementById("fleet-add-vehicle-form"),
+    fleetAddVehicleBtn: document.getElementById("fleet-add-vehicle-btn"),
+    fleetAddVehicleImei: document.getElementById("fleet-add-vehicle-imei"),
+    fleetAddVehicleName: document.getElementById("fleet-add-vehicle-name"),
 
     // Vehicle info
     vehicleName: document.getElementById("vehicle-name"),
@@ -106,6 +119,34 @@ function withSignal(options = {}) {
   return options;
 }
 
+function showFleetLoading() {
+  if (
+    !elements.fleetLoading
+    || !elements.fleetEmpty
+    || !elements.fleetTableWrapper
+    || !elements.fleetTbody
+  ) {
+    return;
+  }
+
+  elements.fleetLoading.style.display = "";
+  elements.fleetEmpty.style.display = "none";
+  elements.fleetTableWrapper.style.display = "none";
+  elements.fleetTbody.innerHTML = "";
+}
+
+function showFleetError(message) {
+  if (!elements.fleetEmpty || !elements.fleetTableWrapper) {
+    return;
+  }
+  if (elements.fleetLoading) {
+    elements.fleetLoading.style.display = "none";
+  }
+  elements.fleetEmpty.textContent = message || "Failed to load vehicles.";
+  elements.fleetEmpty.style.display = "";
+  elements.fleetTableWrapper.style.display = "none";
+}
+
 /**
  * Initialize event listeners
  */
@@ -119,6 +160,13 @@ function initializeEventListeners(signal) {
   }
   if (elements.syncVehicleBtn) {
     elements.syncVehicleBtn.addEventListener(
+      "click",
+      syncFromBouncie,
+      signal ? { signal } : false
+    );
+  }
+  if (elements.fleetSyncBtn) {
+    elements.fleetSyncBtn.addEventListener(
       "click",
       syncFromBouncie,
       signal ? { signal } : false
@@ -159,6 +207,14 @@ function initializeEventListeners(signal) {
       signal ? { signal } : false
     );
   }
+
+  if (elements.fleetAddVehicleForm) {
+    elements.fleetAddVehicleForm.addEventListener(
+      "submit",
+      handleAddVehicleSubmit,
+      signal ? { signal } : false
+    );
+  }
 }
 
 /**
@@ -168,6 +224,7 @@ async function loadVehicle() {
   if (pageSignal?.aborted) {
     return;
   }
+  showFleetLoading();
   showLoading();
 
   try {
@@ -181,17 +238,18 @@ async function loadVehicle() {
 
     const vehicles = await response.json();
 
-    if (vehicles.length === 0) {
+    allVehicles = Array.isArray(vehicles) ? vehicles : [];
+    // Render fleet table even if the main page is empty.
+    renderFleetTable(allVehicles);
+
+    if (allVehicles.length === 0) {
       showEmpty();
       return;
     }
 
-    // Store all vehicles
-    allVehicles = vehicles;
-
     // Show vehicle selector if multiple vehicles
-    if (vehicles.length > 1) {
-      populateVehicleSelector(vehicles);
+    if (allVehicles.length > 1) {
+      populateVehicleSelector(allVehicles);
       elements.vehicleSelectorCard.style.display = "block";
     } else {
       elements.vehicleSelectorCard.style.display = "none";
@@ -203,21 +261,25 @@ async function loadVehicle() {
 
     // Try to find saved vehicle
     if (savedImei) {
-      vehicleToDisplay = vehicles.find((v) => v.imei === savedImei);
+      vehicleToDisplay = allVehicles.find((v) => v.imei === savedImei);
     }
 
     // Fall back to first active vehicle, or first vehicle
     if (!vehicleToDisplay) {
-      vehicleToDisplay = vehicles.find((v) => v.is_active) || vehicles[0];
+      vehicleToDisplay = allVehicles.find((v) => v.is_active) || allVehicles[0];
     }
 
     selectVehicle(vehicleToDisplay.imei);
     showContent();
+
+    // Re-render so the selected row is highlighted.
+    renderFleetTable(allVehicles);
   } catch (error) {
     if (error.name === "AbortError") {
       return;
     }
     console.error("Error loading vehicle:", error);
+    showFleetError(error?.message || "Failed to load vehicles");
     showEmpty();
     showNotification("Error", "Failed to load vehicle data", "error");
   }
@@ -250,6 +312,154 @@ function getVehicleDisplayName(vehicle) {
   }
   const parts = [vehicle.year, vehicle.make, vehicle.model].filter(Boolean);
   return parts.length > 0 ? parts.join(" ") : `Vehicle ${vehicle.imei}`;
+}
+
+function getVehicleSubtitle(vehicle) {
+  if (!vehicle) {
+    return "";
+  }
+  if (vehicle.custom_name) {
+    const parts = [vehicle.year, vehicle.make, vehicle.model].filter(Boolean);
+    return parts.length > 0 ? parts.join(" ") : "";
+  }
+  return vehicle.vin ? String(vehicle.vin) : "";
+}
+
+function renderFleetTable(vehicles) {
+  if (
+    !elements.fleetLoading
+    || !elements.fleetEmpty
+    || !elements.fleetTableWrapper
+    || !elements.fleetTbody
+  ) {
+    return;
+  }
+
+  const list = Array.isArray(vehicles) ? vehicles : [];
+  elements.fleetLoading.style.display = "none";
+  elements.fleetTbody.innerHTML = "";
+
+  if (list.length === 0) {
+    elements.fleetEmpty.style.display = "";
+    elements.fleetTableWrapper.style.display = "none";
+    return;
+  }
+
+  elements.fleetEmpty.style.display = "none";
+  elements.fleetTableWrapper.style.display = "";
+
+  list
+    .slice()
+    .sort((a, b) => getVehicleDisplayName(a).localeCompare(getVehicleDisplayName(b)))
+    .forEach((vehicle) => {
+      const row = document.createElement("tr");
+      row.dataset.imei = vehicle?.imei || "";
+      row.classList.add("fleet-row");
+      if (currentVehicle?.imei && vehicle?.imei === currentVehicle.imei) {
+        row.classList.add("table-active");
+      }
+
+      row.addEventListener("click", () => {
+        if (vehicle?.imei) {
+          selectVehicle(vehicle.imei);
+          showContent();
+          // Keep selected row highlighted.
+          renderFleetTable(allVehicles);
+        }
+      });
+
+      const nameCell = document.createElement("td");
+      const title = document.createElement("div");
+      title.className = "fw-semibold";
+      title.textContent = getVehicleDisplayName(vehicle);
+      const subtitleText = getVehicleSubtitle(vehicle);
+      if (subtitleText) {
+        const subtitle = document.createElement("div");
+        subtitle.className = "text-muted small";
+        subtitle.textContent = subtitleText;
+        nameCell.appendChild(title);
+        nameCell.appendChild(subtitle);
+      } else {
+        nameCell.appendChild(title);
+      }
+
+      const imeiCell = document.createElement("td");
+      const imeiCode = document.createElement("code");
+      imeiCode.textContent = vehicle?.imei || "--";
+      imeiCell.appendChild(imeiCode);
+
+      const vinCell = document.createElement("td");
+      vinCell.textContent = vehicle?.vin || "--";
+
+      const syncedCell = document.createElement("td");
+      const stamp = vehicle?.last_synced_at || vehicle?.updated_at || null;
+      syncedCell.textContent = stamp ? formatDateTime(stamp) : "--";
+
+      row.appendChild(nameCell);
+      row.appendChild(imeiCell);
+      row.appendChild(vinCell);
+      row.appendChild(syncedCell);
+      elements.fleetTbody.appendChild(row);
+    });
+}
+
+async function handleAddVehicleSubmit(event) {
+  event.preventDefault();
+  const imei = elements.fleetAddVehicleImei?.value?.trim() || "";
+  const customName = elements.fleetAddVehicleName?.value?.trim() || "";
+
+  if (!imei) {
+    showNotification("Error", "IMEI is required.", "error");
+    return;
+  }
+
+  const btn = elements.fleetAddVehicleBtn;
+  const originalHtml = btn?.innerHTML;
+
+  try {
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Adding...';
+    }
+
+    const payload = {
+      imei,
+      custom_name: customName || null,
+    };
+    const response = await apiClient.post(
+      BOUNCIE_ADD_VEHICLE_API,
+      payload,
+      withSignal()
+    );
+
+    showNotification(
+      "Success",
+      response?.message || "Vehicle added successfully.",
+      "success"
+    );
+
+    if (elements.fleetAddVehicleImei) {
+      elements.fleetAddVehicleImei.value = "";
+    }
+    if (elements.fleetAddVehicleName) {
+      elements.fleetAddVehicleName.value = "";
+    }
+
+    // Prefer showing the newly added vehicle.
+    setStorage(STORAGE_KEY, imei);
+    await loadVehicle();
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      return;
+    }
+    console.error("Error adding vehicle:", error);
+    showNotification("Error", error.message || "Failed to add vehicle.", "error");
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = originalHtml || '<i class="fas fa-plus"></i> Add Vehicle';
+    }
+  }
 }
 
 /**

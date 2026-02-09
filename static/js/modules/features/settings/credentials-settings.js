@@ -9,12 +9,9 @@ import {
 } from "../../settings/credentials.js";
 import notificationManager from "../../ui/notifications.js";
 import { DEFAULT_FETCH_CONCURRENCY } from "../profile/state.js";
-import { formatDateTime } from "../../utils.js";
 
 const BOUNCIE_AUTHORIZE_URL = "/api/bouncie/authorize";
 const BOUNCIE_REDIRECT_URI_API = "/api/bouncie/redirect-uri";
-const VEHICLES_API = "/api/vehicles?active_only=false";
-const BOUNCIE_ADD_VEHICLE_API = "/api/profile/bouncie-credentials/vehicles";
 const FETCH_CONCURRENCY_MIN = 1;
 const FETCH_CONCURRENCY_MAX = 50;
 const isAbortError = (error) => error?.name === "AbortError";
@@ -45,7 +42,6 @@ function validateFetchConcurrency(value) {
 export function setupCredentialsSettings({ signal } = {}) {
   setupMapboxCredentials({ signal });
   setupBouncieCredentials({ signal });
-  setupBouncieVehicles({ signal });
 }
 
 async function setupMapboxCredentials({ signal } = {}) {
@@ -277,170 +273,6 @@ async function setupBouncieCredentials({ signal } = {}) {
       },
       eventOptions
     );
-  }
-}
-
-function setupBouncieVehicles({ signal } = {}) {
-  const eventOptions = signal ? { signal } : false;
-  const addForm = document.getElementById("credentials-add-vehicle-form");
-  const addBtn = document.getElementById("credentials-add-vehicle-btn");
-  const imeiInput = document.getElementById("credentials-add-vehicle-imei");
-  const nameInput = document.getElementById("credentials-add-vehicle-name");
-
-  if (!document.getElementById("credentials-bouncie-vehicles")) {
-    return;
-  }
-
-  loadBouncieVehicles({ signal });
-
-  if (addForm) {
-    addForm.addEventListener(
-      "submit",
-      async (event) => {
-        event.preventDefault();
-        const imei = imeiInput?.value?.trim() || "";
-        const customName = nameInput?.value?.trim() || "";
-
-        if (!imei) {
-          notificationManager.show("IMEI is required.", "danger");
-          return;
-        }
-
-        try {
-          if (addBtn) {
-            addBtn.disabled = true;
-            addBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Adding...';
-          }
-          const payload = {
-            imei,
-            custom_name: customName || null,
-          };
-          const response = await apiClient.post(BOUNCIE_ADD_VEHICLE_API, payload, {
-            signal,
-          });
-          notificationManager.show(
-            response?.message || "Vehicle added successfully",
-            "success"
-          );
-          if (imeiInput) {
-            imeiInput.value = "";
-          }
-          if (nameInput) {
-            nameInput.value = "";
-          }
-          await loadBouncieVehicles({ signal });
-        } catch (error) {
-          if (!isAbortError(error)) {
-            notificationManager.show(error.message, "danger");
-          }
-        } finally {
-          if (addBtn) {
-            addBtn.disabled = false;
-            addBtn.innerHTML = '<i class="fas fa-plus"></i> Add Vehicle';
-          }
-        }
-      },
-      eventOptions
-    );
-  }
-}
-
-function getVehicleLabel(vehicle) {
-  if (!vehicle) {
-    return "--";
-  }
-  if (vehicle.custom_name) {
-    return String(vehicle.custom_name);
-  }
-  const parts = [vehicle.year, vehicle.make, vehicle.model].filter(Boolean);
-  if (parts.length > 0) {
-    return parts.join(" ");
-  }
-  return vehicle.imei ? `Vehicle ${vehicle.imei}` : "Vehicle";
-}
-
-function getVehicleSubtitle(vehicle) {
-  if (!vehicle) {
-    return "";
-  }
-  if (vehicle.custom_name) {
-    const parts = [vehicle.year, vehicle.make, vehicle.model].filter(Boolean);
-    return parts.length > 0 ? parts.join(" ") : "";
-  }
-  return vehicle.vin ? String(vehicle.vin) : "";
-}
-
-async function loadBouncieVehicles({ signal } = {}) {
-  const loadingEl = document.getElementById("credentials-vehicles-loading");
-  const emptyEl = document.getElementById("credentials-vehicles-empty");
-  const tableWrapper = document.getElementById("credentials-vehicles-table-wrapper");
-  const tbody = document.getElementById("credentials-vehicles-tbody");
-
-  if (!loadingEl || !emptyEl || !tableWrapper || !tbody) {
-    return;
-  }
-
-  loadingEl.style.display = "";
-  emptyEl.style.display = "none";
-  tableWrapper.style.display = "none";
-  tbody.innerHTML = "";
-
-  try {
-    const vehicles = await apiClient.get(VEHICLES_API, { signal });
-    const list = Array.isArray(vehicles) ? vehicles : [];
-
-    if (list.length === 0) {
-      emptyEl.style.display = "";
-      return;
-    }
-
-    list.sort((a, b) => getVehicleLabel(a).localeCompare(getVehicleLabel(b)));
-
-    list.forEach((vehicle) => {
-      const row = document.createElement("tr");
-
-      const nameCell = document.createElement("td");
-      const title = document.createElement("div");
-      title.className = "fw-semibold";
-      title.textContent = getVehicleLabel(vehicle);
-      const subtitle = getVehicleSubtitle(vehicle);
-      if (subtitle) {
-        const sub = document.createElement("div");
-        sub.className = "text-muted small";
-        sub.textContent = subtitle;
-        nameCell.appendChild(title);
-        nameCell.appendChild(sub);
-      } else {
-        nameCell.appendChild(title);
-      }
-
-      const imeiCell = document.createElement("td");
-      const imeiCode = document.createElement("code");
-      imeiCode.textContent = vehicle?.imei || "--";
-      imeiCell.appendChild(imeiCode);
-
-      const vinCell = document.createElement("td");
-      vinCell.textContent = vehicle?.vin || "--";
-
-      const syncedCell = document.createElement("td");
-      const stamp = vehicle?.last_synced_at || vehicle?.updated_at || null;
-      syncedCell.textContent = stamp ? formatDateTime(stamp) : "--";
-
-      row.appendChild(nameCell);
-      row.appendChild(imeiCell);
-      row.appendChild(vinCell);
-      row.appendChild(syncedCell);
-      tbody.appendChild(row);
-    });
-
-    tableWrapper.style.display = "";
-  } catch (error) {
-    if (!isAbortError(error)) {
-      emptyEl.textContent = `Failed to load vehicles: ${error.message}`;
-      emptyEl.style.display = "";
-    }
-  } finally {
-    loadingEl.style.display = "none";
   }
 }
 

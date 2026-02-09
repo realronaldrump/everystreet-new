@@ -49,6 +49,7 @@ class BouncieVehicleCreate(BaseModel):
     imei: str
     custom_name: str | None = None
     authorize: bool = True
+    sync_trips: bool = True
 
 
 @router.get("/api/profile/bouncie-credentials", response_model=dict[str, Any])
@@ -302,9 +303,10 @@ async def add_bouncie_vehicle(payload: BouncieVehicleCreate):
     """
     Add a vehicle to the local database and (optionally) authorize it for trip sync.
 
-    Note: The Bouncie REST API spec only exposes vehicle search (`GET /v1/vehicles`).
-    It does not support creating vehicles in the user's Bouncie account. This endpoint
-    only affects local app state and the `authorized_devices` list used for trip fetch.
+    Note: The Bouncie REST API exposes vehicle search (`GET /v1/vehicles`) but does
+    not support creating vehicles in the user's Bouncie account. This endpoint
+    validates the IMEI against the Bouncie account, stores/updates a local vehicle
+    record, and updates the `authorized_devices` list used for trip fetch.
     """
     imei = (payload.imei or "").strip()
     if not imei:
@@ -313,30 +315,122 @@ async def add_bouncie_vehicle(payload: BouncieVehicleCreate):
     custom_name = (payload.custom_name or "").strip() or None
     now = datetime.now(UTC)
 
+    credentials = await get_bouncie_credentials()
+    if not credentials.get("authorization_code"):
+        raise HTTPException(
+            status_code=400,
+            detail="Not connected to Bouncie. Please click 'Connect/Authorize' first.",
+        )
+
+    from setup.services.bouncie_api import (
+        BouncieApiError,
+        BouncieRateLimitError,
+        BouncieUnauthorizedError,
+        fetch_vehicle_by_imei,
+    )
+    from setup.services.bouncie_oauth import BouncieOAuth
+
+    session = await get_session()
+    token = await BouncieOAuth.get_access_token(session=session, credentials=credentials)
+    if not token:
+        raise HTTPException(
+            status_code=401,
+            detail="Failed to authenticate with Bouncie. Please reconnect.",
+        )
+
+    try:
+        bouncie_vehicle = await fetch_vehicle_by_imei(session, token, imei)
+    except BouncieUnauthorizedError:
+        token = await BouncieOAuth.get_access_token(
+            session=session,
+            credentials=credentials,
+            force_refresh=True,
+        )
+        if not token:
+            raise HTTPException(
+                status_code=401,
+                detail="Failed to authenticate with Bouncie. Please reconnect.",
+            )
+        bouncie_vehicle = await fetch_vehicle_by_imei(session, token, imei)
+    except BouncieRateLimitError as exc:
+        logger.warning("Bouncie API rate limited while adding vehicle %s: %s", imei, exc)
+        raise HTTPException(
+            status_code=503,
+            detail="Bouncie API rate limited. Please try again shortly.",
+        ) from exc
+    except BouncieApiError as exc:
+        logger.exception("Bouncie API error while adding vehicle %s", imei)
+        raise HTTPException(
+            status_code=502,
+            detail="Failed to fetch vehicle details from Bouncie.",
+        ) from exc
+
+    if not bouncie_vehicle:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                "Vehicle not found in your Bouncie account (or not authorized for this app). "
+                "Double-check the IMEI and try syncing vehicles first."
+            ),
+        )
+
+    model_data = bouncie_vehicle.get("model")
+    if isinstance(model_data, dict):
+        model_name = model_data.get("name")
+        make = bouncie_vehicle.get("make") or model_data.get("make")
+        year = bouncie_vehicle.get("year") or model_data.get("year")
+    else:
+        model_name = model_data
+        make = bouncie_vehicle.get("make")
+        year = bouncie_vehicle.get("year")
+
+    derived_name = (
+        bouncie_vehicle.get("nickName")
+        or f"{year or ''} {make or ''} {model_name or ''}".strip()
+        or f"Vehicle {imei}"
+    )
+    display_name = custom_name or derived_name
+
     vehicle = await Vehicle.find_one(Vehicle.imei == imei)
     if vehicle:
-        if custom_name is not None:
-            vehicle.custom_name = custom_name
+        vehicle.vin = bouncie_vehicle.get("vin")
+        vehicle.make = make
+        vehicle.model = model_name
+        vehicle.year = year
+        vehicle.nickName = bouncie_vehicle.get("nickName")
+        vehicle.standardEngine = bouncie_vehicle.get("standardEngine")
+        vehicle.custom_name = display_name
         vehicle.is_active = True
         vehicle.updated_at = now
+        vehicle.last_synced_at = now
+        vehicle.bouncie_data = bouncie_vehicle
         await vehicle.save()
         created = False
     else:
         vehicle = Vehicle(
             imei=imei,
-            custom_name=custom_name,
+            vin=bouncie_vehicle.get("vin"),
+            make=make,
+            model=model_name,
+            year=year,
+            nickName=bouncie_vehicle.get("nickName"),
+            standardEngine=bouncie_vehicle.get("standardEngine"),
+            custom_name=display_name,
             is_active=True,
             created_at=now,
             updated_at=now,
+            last_synced_at=now,
+            bouncie_data=bouncie_vehicle,
         )
         await vehicle.insert()
         created = True
 
     if payload.authorize:
-        credentials = await get_bouncie_credentials()
         current_devices = credentials.get("authorized_devices") or []
         if isinstance(current_devices, str):
-            current_devices = [d.strip() for d in current_devices.split(",") if d.strip()]
+            current_devices = [
+                d.strip() for d in current_devices.split(",") if d.strip()
+            ]
         if not isinstance(current_devices, list):
             current_devices = []
         current_devices = [str(d).strip() for d in current_devices if str(d).strip()]
@@ -351,11 +445,39 @@ async def add_bouncie_vehicle(payload: BouncieVehicleCreate):
                     detail="Failed to update authorized devices.",
                 )
 
+    trip_sync_job_id: str | None = None
+    trip_sync_note: str | None = None
+    if payload.authorize and payload.sync_trips:
+        try:
+            from trips.models import TripSyncRequest
+            from trips.services.trip_sync_service import TripSyncService
+
+            result = await TripSyncService.start_sync(
+                TripSyncRequest(
+                    mode="recent",
+                    trigger_source="vehicle_added",
+                ),
+            )
+            trip_sync_job_id = result.get("job_id")
+        except HTTPException as exc:
+            # Don't fail vehicle creation if a sync can't be queued.
+            trip_sync_note = str(exc.detail) if getattr(exc, "detail", None) else str(exc)
+        except Exception as exc:
+            logger.exception("Failed to enqueue trip sync after adding vehicle %s", imei)
+            trip_sync_note = str(exc)
+
     message = "Vehicle added."
     if created:
-        message = "Vehicle added. Sync from Bouncie to pull full vehicle details."
+        message = "Vehicle added."
+
+    if trip_sync_job_id:
+        message = f"{message} Trip sync queued."
+    elif payload.authorize and payload.sync_trips and trip_sync_note:
+        message = f"{message} Trip sync not started: {trip_sync_note}"
+
     return {
         "status": "success",
         "message": message,
         "vehicle": vehicle,
+        "trip_sync_job_id": trip_sync_job_id,
     }

@@ -92,13 +92,24 @@ class CacheControlStaticFiles(StaticFiles):
 
 
 # Mount static files and templates
+static_files = CacheControlStaticFiles(directory="static")
 app.mount(
     "/static",
-    CacheControlStaticFiles(directory="static"),
+    static_files,
     name="static",
 )
 templates = Jinja2Templates(directory="templates")
 register_template_filters(templates)
+
+@app.get("/static-v/{_version}/{path:path}", include_in_schema=False)
+async def static_versioned(_version: str, path: str, request: Request):
+    """Serve static files under a versioned prefix.
+
+    This is primarily to avoid stale ESM module caching behind CDNs/proxies.
+    The version segment becomes part of the URL path, so relative `import` paths
+    stay within the same versioned prefix.
+    """
+    return await static_files.get_response(path, request.scope)
 
 
 # Root-level icon requests (browser defaults)

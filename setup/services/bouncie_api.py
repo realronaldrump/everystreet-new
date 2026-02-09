@@ -54,12 +54,18 @@ async def _fetch_vehicle_page(
     *,
     limit: int,
     skip: int,
+    imei: str | None = None,
+    vin: str | None = None,
 ) -> list[dict[str, Any]]:
     headers = {
         "Authorization": token,
         "Content-Type": "application/json",
     }
-    params = {"limit": limit, "skip": skip}
+    params: dict[str, Any] = {"limit": limit, "skip": skip}
+    if imei:
+        params["imei"] = imei
+    if vin:
+        params["vin"] = vin
     url = f"{API_BASE_URL}/vehicles"
 
     for attempt in range(MAX_RATE_LIMIT_RETRIES + 1):
@@ -145,3 +151,26 @@ async def fetch_all_vehicles(
         skip += limit
 
     return all_vehicles
+
+
+async def fetch_vehicle_by_imei(
+    session: aiohttp.ClientSession,
+    token: str,
+    imei: str,
+) -> dict[str, Any] | None:
+    """Fetch a single vehicle by IMEI, returning None when not found."""
+    imei = str(imei or "").strip()
+    if not imei:
+        return None
+
+    page = await _fetch_vehicle_page(
+        session,
+        token,
+        limit=1,
+        skip=0,
+        imei=imei,
+    )
+    if not page:
+        return None
+    vehicle = page[0]
+    return vehicle if isinstance(vehicle, dict) else None

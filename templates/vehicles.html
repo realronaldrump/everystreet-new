@@ -20,25 +20,120 @@ extra_css %}
 
   <div class="container-fluid vehicles-page py-4">
     <div class="bento-grid" data-stagger>
-      <div class="bento-span-12 widget" data-accent="purple">
-        <div class="widget-header">
-          <div>
-            <h1 class="widget-title">
-              <i class="fas fa-car" aria-hidden="true"></i>
-            My Vehicles
-            </h1>
-            <div class="widget-meta">
-            View your vehicle details and manage odometer settings.
-            </div>
-          </div>
-        </div>
-      </div>
+	      <div class="bento-span-12 widget" data-accent="purple">
+	        <div class="widget-header">
+	          <div>
+	            <h1 class="widget-title">
+	              <i class="fas fa-car" aria-hidden="true"></i>
+	            My Vehicles
+	            </h1>
+	            <div class="widget-meta">
+	            View your vehicle details and manage odometer settings.
+	            </div>
+	          </div>
+	        </div>
+	      </div>
 
-      <!-- Loading State -->
-      <div class="bento-span-12" id="loading-state">
-        <div class="widget" data-accent="mint">
-          <div class="widget-body text-center py-5">
-            <div class="spinner-border text-primary" role="status">
+	      <!-- Bouncie Fleet -->
+	      <div class="bento-span-12" id="fleet-section">
+	        <div class="widget" data-accent="mint">
+	          <div class="widget-header">
+	            <div>
+	              <h2 class="widget-title">
+	                <i class="fas fa-satellite-dish" aria-hidden="true"></i>
+	              Bouncie Fleet
+	              </h2>
+	              <div class="widget-meta">
+	              Vehicles synced from Bouncie and authorized for trip fetching.
+	              </div>
+	            </div>
+	            <div class="d-flex gap-2 flex-wrap">
+	              <button type="button" class="btn btn-outline-primary" id="fleet-sync-btn">
+	                <i class="fas fa-sync"></i> Sync Vehicles
+	              </button>
+	              <a href="/settings" class="btn btn-outline-secondary" data-no-swup>
+	                <i class="fas fa-key"></i> Credentials
+	              </a>
+	            </div>
+	          </div>
+	          <div class="widget-body">
+	            <div id="fleet-loading" class="text-muted small">
+	            Loading vehicles...
+	            </div>
+	            <div id="fleet-empty" class="text-muted small" style="display: none">
+	            No vehicles synced yet. Click "Sync Vehicles" to pull them from Bouncie.
+	            </div>
+	            <div class="table-responsive" id="fleet-table-wrapper" style="display: none">
+	              <table class="table table-hover align-middle mb-0">
+	                <thead>
+	                  <tr>
+	                    <th scope="col">
+	                    Vehicle
+	                    </th>
+	                    <th scope="col">
+	                    IMEI
+	                    </th>
+	                    <th scope="col">
+	                    VIN
+	                    </th>
+	                    <th scope="col">
+	                    Last synced
+	                    </th>
+	                  </tr>
+	                </thead>
+	                <tbody id="fleet-tbody"></tbody>
+	              </table>
+	            </div>
+
+	            <hr class="my-4" />
+
+	            <h3 class="h6 text-muted text-uppercase mb-3">
+	            Add Vehicle
+	            </h3>
+	            <form id="fleet-add-vehicle-form" novalidate>
+	              <div class="row g-3 align-items-end">
+	                <div class="col-12 col-md-4">
+	                  <label for="fleet-add-vehicle-imei" class="form-label">
+	                  IMEI
+	                  </label>
+	                  <input type="text"
+	                         class="form-control"
+	                         id="fleet-add-vehicle-imei"
+	                         name="imei"
+	                         placeholder="123456789012345"
+	                         inputmode="numeric"
+	                         autocomplete="off" />
+	                </div>
+	                <div class="col-12 col-md-5">
+	                  <label for="fleet-add-vehicle-name" class="form-label">
+	                  Display name (optional)
+	                  </label>
+	                  <input type="text"
+	                         class="form-control"
+	                         id="fleet-add-vehicle-name"
+	                         name="custom_name"
+	                         placeholder="My car"
+	                         autocomplete="off" />
+	                </div>
+	                <div class="col-12 col-md-3">
+	                  <button type="submit" class="btn btn-primary w-100" id="fleet-add-vehicle-btn">
+	                    <i class="fas fa-plus"></i> Add Vehicle
+	                  </button>
+	                </div>
+	              </div>
+	              <div class="form-text mt-2">
+	              Validates the IMEI against your Bouncie account, stores it locally, and adds it to authorized devices for trip sync.
+	              </div>
+	            </form>
+	          </div>
+	        </div>
+	      </div>
+
+	      <!-- Loading State -->
+	      <div class="bento-span-12" id="loading-state">
+	        <div class="widget" data-accent="mint">
+	          <div class="widget-body text-center py-5">
+	            <div class="spinner-border text-primary" role="status">
               <span class="visually-hidden">Loading...</span>
             </div>
             <p class="text-muted mt-3">
