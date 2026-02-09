@@ -297,6 +297,14 @@
                     <button type="button" class="btn btn-primary w-100" id="save-settings-btn">
                       <i class="fas fa-check me-1"></i> Save Settings
                     </button>
+
+                    <!-- Delete (only for manually added vehicles, hidden by JS for Bouncie) -->
+                    <button type="button"
+                            class="btn btn-outline-danger w-100 mt-2"
+                            id="delete-vehicle-btn"
+                            style="display: none">
+                      <i class="fas fa-trash-alt me-1"></i> Remove Vehicle
+                    </button>
                   </div>
                 </div>
 
@@ -328,21 +336,6 @@
     </div>
   </div>
 
-  <!-- Toast Container -->
-  <div class="toast-container position-fixed bottom-0 end-0 p-3">
-    <div id="notification-toast"
-         class="toast"
-         role="alert"
-         aria-live="assertive"
-         aria-atomic="true">
-      <div class="toast-header">
-        <i class="fas fa-info-circle text-primary me-2"></i>
-        <strong class="me-auto" id="toast-title">Notification</strong>
-        <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
-      </div>
-      <div class="toast-body" id="toast-body">Message here</div>
-    </div>
-  </div>
 {% endblock %}
 
 {# Page scripts are loaded via route-loader + swup. #}

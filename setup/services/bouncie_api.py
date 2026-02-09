@@ -158,19 +158,18 @@ async def fetch_vehicle_by_imei(
     token: str,
     imei: str,
 ) -> dict[str, Any] | None:
-    """Fetch a single vehicle by IMEI, returning None when not found."""
+    """Fetch a single vehicle by IMEI, returning None when not found.
+
+    The Bouncie REST API ``GET /v1/vehicles`` does not reliably support
+    server-side ``imei`` filtering, so we fetch all vehicles and filter
+    locally to guarantee an accurate match.
+    """
     imei = str(imei or "").strip()
     if not imei:
         return None
 
-    page = await _fetch_vehicle_page(
-        session,
-        token,
-        limit=1,
-        skip=0,
-        imei=imei,
-    )
-    if not page:
-        return None
-    vehicle = page[0]
-    return vehicle if isinstance(vehicle, dict) else None
+    all_vehicles = await fetch_all_vehicles(session, token)
+    for vehicle in all_vehicles:
+        if isinstance(vehicle, dict) and str(vehicle.get("imei", "")).strip() == imei:
+            return vehicle
+    return None
