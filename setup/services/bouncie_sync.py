@@ -132,14 +132,10 @@ async def sync_bouncie_vehicles(
             await existing_vehicle.save()
         else:
             new_vehicle = Vehicle(
-                imei=imei,
-                vin=vehicle_doc["vin"],
-                make=vehicle_doc["make"],
-                model=vehicle_doc["model"],
-                year=vehicle_doc["year"],
-                custom_name=vehicle_doc["custom_name"],
-                is_active=vehicle_doc["is_active"],
-                updated_at=vehicle_doc["updated_at"],
+                **{
+                    **vehicle_doc,
+                    "created_at": datetime.now(UTC),
+                },
             )
             await new_vehicle.insert()
 

@@ -157,6 +157,13 @@ async def update_bouncie_credentials(credentials: dict[str, Any]) -> bool:
                     elif not isinstance(devices, list):
                         devices = []
                     existing.authorized_devices = devices
+                elif key == "fetch_concurrency":
+                    if value is None:
+                        continue
+                    try:
+                        existing.fetch_concurrency = int(value)
+                    except (TypeError, ValueError):
+                        continue
                 elif key == "access_token":
                     existing.access_token = value
                 elif key == "refresh_token":
@@ -198,7 +205,14 @@ async def update_bouncie_credentials(credentials: dict[str, Any]) -> bool:
                 elif not isinstance(devices, list):
                     devices = []
                 new_creds.authorized_devices = devices
-            new_creds.fetch_concurrency = 12
+            fetch_concurrency = credentials.get("fetch_concurrency")
+            if fetch_concurrency is not None:
+                try:
+                    new_creds.fetch_concurrency = int(fetch_concurrency)
+                except (TypeError, ValueError):
+                    new_creds.fetch_concurrency = 12
+            else:
+                new_creds.fetch_concurrency = 12
 
             if "access_token" in credentials:
                 new_creds.access_token = credentials["access_token"]

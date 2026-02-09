@@ -8,6 +8,7 @@ other user- specific settings.
 from __future__ import annotations
 
 import logging
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
@@ -21,6 +22,7 @@ from setup.services.bouncie_credentials import (
     validate_bouncie_credentials,
 )
 from setup.services.bouncie_sync import BouncieVehicleSyncError, sync_bouncie_vehicles
+from db.models import Vehicle
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +41,14 @@ class BouncieCredentials(BaseModel):
     authorization_code: str | None = None
     authorized_devices: list[str] | str | None = None
     fetch_concurrency: int | None = None
+
+
+class BouncieVehicleCreate(BaseModel):
+    """Model for adding a vehicle IMEI to the local fleet + authorized devices."""
+
+    imei: str
+    custom_name: str | None = None
+    authorize: bool = True
 
 
 @router.get("/api/profile/bouncie-credentials", response_model=dict[str, Any])
@@ -281,3 +291,64 @@ async def sync_vehicles_from_bouncie():
             raise
         logger.exception("Error syncing vehicles from Bouncie")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post(
+    "/api/profile/bouncie-credentials/vehicles",
+    response_model=dict[str, Any],
+)
+@api_route(logger)
+async def add_bouncie_vehicle(payload: BouncieVehicleCreate):
+    """
+    Add a vehicle to the local database and (optionally) authorize it for trip sync.
+
+    Note: The Bouncie REST API spec only exposes vehicle search (`GET /v1/vehicles`).
+    It does not support creating vehicles in the user's Bouncie account. This endpoint
+    only affects local app state and the `authorized_devices` list used for trip fetch.
+    """
+    imei = (payload.imei or "").strip()
+    if not imei:
+        raise HTTPException(status_code=400, detail="IMEI is required.")
+
+    custom_name = (payload.custom_name or "").strip() or None
+    now = datetime.now(UTC)
+
+    vehicle = await Vehicle.find_one(Vehicle.imei == imei)
+    if vehicle:
+        if custom_name is not None:
+            vehicle.custom_name = custom_name
+        vehicle.is_active = True
+        vehicle.updated_at = now
+        await vehicle.save()
+        created = False
+    else:
+        vehicle = Vehicle(
+            imei=imei,
+            custom_name=custom_name,
+            is_active=True,
+            created_at=now,
+            updated_at=now,
+        )
+        await vehicle.insert()
+        created = True
+
+    if payload.authorize:
+        credentials = await get_bouncie_credentials()
+        current_devices = credentials.get("authorized_devices") or []
+        if isinstance(current_devices, str):
+            current_devices = [d.strip() for d in current_devices.split(",") if d.strip()]
+        if not isinstance(current_devices, list):
+            current_devices = []
+        current_devices = [str(d).strip() for d in current_devices if str(d).strip()]
+        if imei not in current_devices:
+            current_devices.append(imei)
+            await update_bouncie_credentials({"authorized_devices": current_devices})
+
+    message = "Vehicle added."
+    if created:
+        message = "Vehicle added. Sync from Bouncie to pull full vehicle details."
+    return {
+        "status": "success",
+        "message": message,
+        "vehicle": vehicle,
+    }
