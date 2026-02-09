@@ -173,9 +173,11 @@ Interesting facts about your driving style
                     data-drilldown="hard_braking">
 Driving Events
             </button>
-            <p class="fact-value">
+            <button type="button"
+                    class="fact-value insights-drilldown-trigger"
+                    data-drilldown="hard_braking">
               <span class="counter" id="hard-braking">0</span> hard braking moments
-            </p>
+            </button>
             <p class="fact-hint">
                 Smooth braking saves fuel and keeps everyone comfortable
             </p>
@@ -192,12 +194,16 @@ Driving Events
                     data-drilldown="top_speed">
 Speed Insights
             </button>
-            <p class="fact-value">
+            <button type="button"
+                    class="fact-value insights-drilldown-trigger"
+                    data-drilldown="top_speed">
                 Top speed: <span class="counter" id="max-speed">0</span> mph
-            </p>
-            <p class="fact-hint">
+            </button>
+            <button type="button"
+                    class="fact-hint insights-drilldown-trigger"
+                    data-drilldown="avg_speed">
                 Average: <span class="counter" id="avg-speed">0</span> mph
-            </p>
+            </button>
           </div>
         </div>
 
@@ -211,9 +217,12 @@ Speed Insights
                     data-drilldown="idle_time">
 Time at Rest
             </button>
-            <p class="fact-value" id="idle-time">
+            <button type="button"
+                    class="fact-value insights-drilldown-trigger"
+                    data-drilldown="idle_time"
+                    id="idle-time">
 0h 0m
-            </p>
+            </button>
             <p class="fact-hint">
                 Time spent idling during your trips
             </p>
