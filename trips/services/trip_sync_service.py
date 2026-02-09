@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
@@ -34,6 +35,24 @@ SYNC_TASK_IDS = (
     "fetch_all_missing_trips",
 )
 
+_PERIODIC_FETCH_TIMEOUT_SECONDS = int(
+    os.getenv("TRIP_FETCH_JOB_TIMEOUT_SECONDS", str(15 * 60)),
+)
+
+# If a sync TaskHistory entry is left RUNNING/PENDING longer than this threshold,
+# the app will consider it stale and mark it FAILED to clear the "sync lock".
+#
+# These are deliberately generous for manual/history modes, but will still clear
+# "stuck for months" rows.
+_SYNC_STALE_AFTER_SECONDS_BY_TASK_ID: dict[str, int] = {
+    "periodic_fetch_trips": (_PERIODIC_FETCH_TIMEOUT_SECONDS * 2) + 60,
+    "manual_fetch_trips_range": int(os.getenv("TRIP_SYNC_STALE_RANGE_SECONDS", str(6 * 60 * 60))),
+    "fetch_all_missing_trips": int(os.getenv("TRIP_SYNC_STALE_HISTORY_SECONDS", str(72 * 60 * 60))),
+}
+_SYNC_STALE_DEFAULT_SECONDS = int(
+    os.getenv("TRIP_SYNC_STALE_DEFAULT_SECONDS", str(6 * 60 * 60)),
+)
+
 
 def _credentials_configured(credentials: dict[str, Any]) -> bool:
     required = [
@@ -58,7 +77,137 @@ class TripSyncService:
     """Trips-first sync orchestration and status."""
 
     @staticmethod
+    def _coerce_utc(dt: datetime) -> datetime:
+        """Return a timezone-aware UTC datetime.
+
+        Some test harnesses (eg mongomock) drop tzinfo on round-trip; for sync
+        staleness calculations we treat naive datetimes as UTC.
+        """
+
+        if dt.tzinfo is None:
+            return dt.replace(tzinfo=UTC)
+        return dt.astimezone(UTC)
+
+    @staticmethod
+    def _stale_after_seconds(task_id: str | None) -> int:
+        if not task_id:
+            return _SYNC_STALE_DEFAULT_SECONDS
+        return int(
+            _SYNC_STALE_AFTER_SECONDS_BY_TASK_ID.get(
+                task_id,
+                _SYNC_STALE_DEFAULT_SECONDS,
+            ),
+        )
+
+    @staticmethod
+    def _history_started_at(history: TaskHistory) -> datetime | None:
+        started_at = history.start_time or history.timestamp
+        if isinstance(started_at, datetime):
+            return TripSyncService._coerce_utc(started_at)
+        return None
+
+    @staticmethod
+    async def _clear_stale_sync_entries() -> None:
+        """Mark stale RUNNING/PENDING trip sync history entries as FAILED.
+
+        This is a self-healing guard for cases where the worker crashed and the
+        TaskHistory row was never finalized, leaving the UI stuck in "Syncing..."
+        forever.
+        """
+
+        now = datetime.now(UTC)
+        candidates = (
+            await TaskHistory.find(
+                {
+                    "task_id": {"$in": list(SYNC_TASK_IDS)},
+                    "status": {"$in": ["RUNNING", "PENDING"]},
+                },
+            )
+            .sort("-timestamp")
+            .to_list()
+        )
+
+        if not candidates:
+            return
+
+        for history in candidates:
+            started_at = TripSyncService._history_started_at(history)
+            if not started_at:
+                continue
+
+            age_seconds = (now - started_at).total_seconds()
+            stale_after = TripSyncService._stale_after_seconds(history.task_id)
+            if age_seconds <= stale_after:
+                continue
+
+            # Special case: a history import keeps progress in the Job document.
+            # If that job is still being updated recently, do not mark it stale.
+            progress_job = None
+            if history.task_id == "fetch_all_missing_trips" and history.id:
+                try:
+                    progress_job = await Job.find_one(
+                        {
+                            "job_type": "trip_history_import",
+                            "operation_id": str(history.id),
+                            "status": {"$in": ["pending", "running"]},
+                        },
+                    )
+                except Exception:
+                    # Beanie may not have Job initialized in some test contexts.
+                    progress_job = None
+
+            if progress_job:
+                heartbeat_at = (
+                    progress_job.updated_at
+                    or progress_job.started_at
+                    or progress_job.created_at
+                )
+                if heartbeat_at:
+                    heartbeat_at = TripSyncService._coerce_utc(heartbeat_at)
+                    if (now - heartbeat_at).total_seconds() <= 30 * 60:
+                        continue
+
+            reason = (
+                f"Stale trip sync cleared automatically: task_id={history.task_id}, "
+                f"status={history.status}, started_at={started_at.isoformat()}"
+            )
+
+            runtime_ms = (now - started_at).total_seconds() * 1000
+
+            await update_task_history_entry(
+                job_id=str(history.id),
+                task_name=history.task_id or "trip_sync",
+                status="FAILED",
+                manual_run=bool(history.manual_run),
+                error=reason,
+                end_time=now,
+                runtime_ms=runtime_ms,
+            )
+
+            if progress_job:
+                try:
+                    progress_job.status = "failed"
+                    progress_job.stage = "failed"
+                    progress_job.message = "Failed (stale job cleared automatically)"
+                    progress_job.error = reason
+                    progress_job.completed_at = now
+                    progress_job.updated_at = now
+                    await progress_job.save()
+                except Exception:
+                    logger.exception(
+                        "Failed to update stale trip history import progress job %s",
+                        getattr(progress_job, "id", None),
+                    )
+
+    @staticmethod
     async def get_sync_status() -> dict[str, Any]:
+        # Clear any stale RUNNING/PENDING rows before we compute status so users
+        # don't get stuck forever behind an old "sync lock".
+        try:
+            await TripSyncService._clear_stale_sync_entries()
+        except Exception:
+            logger.exception("Failed clearing stale trip sync entries")
+
         credentials = await get_bouncie_config()
         credentials_ready = _credentials_configured(credentials)
         auth_connected = _auth_connected(credentials)

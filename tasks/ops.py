@@ -165,10 +165,18 @@ async def run_task_if_due(
 async def abort_job(job_id: str) -> bool:
     """Request an ARQ job abort by job id."""
     redis: ArqRedis = await get_arq_pool()
-    abort_fn = getattr(redis, "abort_job", None)
-    if not abort_fn:
+
+    # arq 0.26.x exposes abort on Job instances, not on the redis pool.
+    try:
+        from arq.jobs import Job as ArqJob
+
+        job = ArqJob(job_id, redis)
+        try:
+            # We want to send the abort signal without blocking the API for long.
+            # If the abort isn't confirmed quickly, treat it as "requested".
+            return await job.abort(timeout=0.5)
+        except TimeoutError:
+            return True
+    except Exception:
+        logger.exception("Failed to abort ARQ job %s", job_id)
         return False
-    result = abort_fn(job_id)
-    if hasattr(result, "__await__"):
-        await result
-    return True

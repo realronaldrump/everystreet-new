@@ -37,6 +37,7 @@ let currentStatus = null;
 let pollingInterval = null;
 let eventSource = null;
 let autoSyncTriggered = false;
+let actionInFlight = false;
 
 const POLL_INTERVAL_MS = 15000;
 
@@ -87,10 +88,32 @@ function setButtonsDisabled(disabled, elements) {
   });
 }
 
+function updateActionButtons(status, elements) {
+  const isSyncing = status?.state === "syncing";
+  const canCancel = Boolean(status?.current_job_id);
+
+  (elements.syncButtons || []).forEach((btn) => {
+    const icon = btn.querySelector("i");
+    if (icon) {
+      icon.className = isSyncing ? "fas fa-stop" : "fas fa-sync-alt";
+    }
+    btn.dataset.action = isSyncing ? "cancel" : "start";
+    btn.title = isSyncing ? "Cancel sync" : "Sync now";
+    btn.setAttribute("aria-label", btn.title);
+
+    // If we're syncing but don't have a job id to cancel, keep the button disabled.
+    if (isSyncing && !canCancel) {
+      btn.disabled = true;
+      btn.title = "Sync is running (cancel unavailable)";
+    }
+  });
+}
+
 function setSyncingState(state, elements) {
   const isSyncing = state === "syncing";
   (elements.syncButtons || []).forEach((btn) => {
-    btn.classList.toggle("syncing", isSyncing);
+    const isCancel = btn.dataset.action === "cancel";
+    btn.classList.toggle("syncing", isSyncing && !isCancel);
   });
 }
 
@@ -157,8 +180,15 @@ function updateStatusUI(status, elements) {
     setText(elements.miniText, text);
   }
 
+  updateActionButtons(status, elements);
   setSyncingState(status.state, elements);
-  setButtonsDisabled(status.state === "syncing" || status.state === "paused", elements);
+  // While syncing, buttons can act as "cancel" (if job id is available).
+  // Always disable while paused and while an action request is in flight.
+  const shouldDisable
+    = actionInFlight
+      || status.state === "paused"
+      || (status.state === "syncing" && !status.current_job_id);
+  setButtonsDisabled(shouldDisable, elements);
 }
 
 function updateOfflineUI(elements) {
@@ -220,6 +250,8 @@ async function startSync(
     return null;
   }
   try {
+    actionInFlight = true;
+    setButtonsDisabled(true, elements);
     const payload = { mode };
     if (trigger_source) {
       payload.trigger_source = trigger_source;
@@ -241,6 +273,41 @@ async function startSync(
     notificationManager.show(error.message, "danger");
     onSyncError?.(error);
     return null;
+  } finally {
+    actionInFlight = false;
+    const status = currentStatus || (await fetchStatus(elements));
+    if (status) {
+      updateStatusUI(status, elements);
+    }
+  }
+}
+
+async function cancelSync(elements, { onSyncError } = {}) {
+  const jobId = currentStatus?.current_job_id;
+  if (!jobId) {
+    notificationManager.show("Unable to cancel sync (missing job id).", "warning");
+    return null;
+  }
+  try {
+    actionInFlight = true;
+    setButtonsDisabled(true, elements);
+    await apiClient.delete(CONFIG.API.tripSyncCancel(jobId));
+    notificationManager.show("Cancelling trip sync...", "info");
+    const status = await fetchStatus(elements);
+    if (status) {
+      handleStatusUpdate(status, elements, null, onSyncError);
+    }
+    return { status: "success" };
+  } catch (error) {
+    notificationManager.show(error.message, "danger");
+    onSyncError?.(error);
+    return null;
+  } finally {
+    actionInFlight = false;
+    const status = currentStatus || (await fetchStatus(elements));
+    if (status) {
+      updateStatusUI(status, elements);
+    }
   }
 }
 
@@ -413,6 +480,14 @@ export function initTripSync({ onSyncComplete, onSyncError, cleanup } = {}) {
 
   const cleanupHandlers = [];
   const handleSyncClick = () => {
+    if (actionInFlight) {
+      return;
+    }
+    if (currentStatus?.state === "syncing") {
+      cancelSync(elements, { onSyncError });
+      return;
+    }
+
     startSync(elements, {
       mode: "recent",
       trigger_source: "manual",

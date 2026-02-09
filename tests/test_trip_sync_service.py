@@ -187,3 +187,53 @@ async def test_start_sync_enqueues_history_with_progress_job(
     assert job.metadata.get("window_days") == 7
     assert job.metadata.get("overlap_hours") == 24
     assert job.metadata.get("devices") == [{"imei": "device-123", "name": "Test Car"}]
+
+
+@pytest.mark.asyncio
+async def test_sync_status_clears_stale_running_lock(beanie_db_with_tasks) -> None:
+    await seed_credentials()
+    old = datetime.now(UTC) - timedelta(days=90)
+    running = TaskHistory(
+        task_id="periodic_fetch_trips",
+        status="RUNNING",
+        timestamp=old,
+        start_time=old,
+    )
+    running.id = "job-stale-running"
+    await running.insert()
+
+    status = await TripSyncService.get_sync_status()
+    assert status["state"] == "error"
+    assert status["current_job_id"] is None
+
+    history = await TaskHistory.get("job-stale-running")
+    assert history is not None
+    assert history.status == "FAILED"
+    assert history.end_time is not None
+    assert history.error
+
+
+@pytest.mark.asyncio
+async def test_start_sync_ignores_stale_running_lock(
+    beanie_db_with_tasks,
+    monkeypatch,
+) -> None:
+    await seed_credentials()
+    old = datetime.now(UTC) - timedelta(days=90)
+    running = TaskHistory(
+        task_id="periodic_fetch_trips",
+        status="RUNNING",
+        timestamp=old,
+        start_time=old,
+    )
+    running.id = "job-stale-running"
+    await running.insert()
+
+    async def fake_enqueue(task_id, *args, **kwargs):
+        return {"job_id": "job-new"}
+
+    monkeypatch.setattr(trip_sync_service, "enqueue_task", fake_enqueue)
+
+    result = await TripSyncService.start_sync(TripSyncRequest(mode="recent"))
+    assert result["status"] == "success"
+    assert result["job_id"] == "job-new"
