@@ -1,7 +1,6 @@
 import apiClient from "../../core/api-client.js";
 import store from "../../core/store.js";
 import {
-  formatDateTime,
   formatNumber,
   formatRelativeTimeLong,
   getStorage,
@@ -56,14 +55,13 @@ function cacheElements() {
 
     // Fleet management
     fleetSyncBtn: document.getElementById("fleet-sync-btn"),
-    fleetLoading: document.getElementById("fleet-loading"),
-    fleetEmpty: document.getElementById("fleet-empty"),
-    fleetTableWrapper: document.getElementById("fleet-table-wrapper"),
-    fleetTbody: document.getElementById("fleet-tbody"),
     fleetAddVehicleForm: document.getElementById("fleet-add-vehicle-form"),
     fleetAddVehicleBtn: document.getElementById("fleet-add-vehicle-btn"),
     fleetAddVehicleImei: document.getElementById("fleet-add-vehicle-imei"),
     fleetAddVehicleName: document.getElementById("fleet-add-vehicle-name"),
+
+    // Vehicle list (new sidebar)
+    vehicleListCards: document.getElementById("vehicle-list-cards"),
 
     // Vehicle info
     vehicleName: document.getElementById("vehicle-name"),
@@ -95,8 +93,7 @@ function cacheElements() {
     saveManualOdometerBtn: document.getElementById("save-manual-odometer-btn"),
     saveSettingsBtn: document.getElementById("save-settings-btn"),
 
-    // Vehicle selector
-    vehicleSelectorCard: document.getElementById("vehicle-selector-card"),
+    // Hidden vehicle selector (kept for store compat)
     vehicleSelect: document.getElementById("vehicle-select"),
 
     // Toast
@@ -117,34 +114,6 @@ function withSignal(options = {}) {
     return { ...options, signal: pageSignal };
   }
   return options;
-}
-
-function showFleetLoading() {
-  if (
-    !elements.fleetLoading
-    || !elements.fleetEmpty
-    || !elements.fleetTableWrapper
-    || !elements.fleetTbody
-  ) {
-    return;
-  }
-
-  elements.fleetLoading.style.display = "";
-  elements.fleetEmpty.style.display = "none";
-  elements.fleetTableWrapper.style.display = "none";
-  elements.fleetTbody.innerHTML = "";
-}
-
-function showFleetError(message) {
-  if (!elements.fleetEmpty || !elements.fleetTableWrapper) {
-    return;
-  }
-  if (elements.fleetLoading) {
-    elements.fleetLoading.style.display = "none";
-  }
-  elements.fleetEmpty.textContent = message || "Failed to load vehicles.";
-  elements.fleetEmpty.style.display = "";
-  elements.fleetTableWrapper.style.display = "none";
 }
 
 /**
@@ -200,13 +169,6 @@ function initializeEventListeners(signal) {
       signal ? { signal } : false
     );
   }
-  if (elements.vehicleSelect) {
-    elements.vehicleSelect.addEventListener(
-      "change",
-      handleVehicleSelectChange,
-      signal ? { signal } : false
-    );
-  }
 
   if (elements.fleetAddVehicleForm) {
     elements.fleetAddVehicleForm.addEventListener(
@@ -224,7 +186,6 @@ async function loadVehicle() {
   if (pageSignal?.aborted) {
     return;
   }
-  showFleetLoading();
   showLoading();
 
   try {
@@ -239,21 +200,14 @@ async function loadVehicle() {
     const vehicles = await response.json();
 
     allVehicles = Array.isArray(vehicles) ? vehicles : [];
-    // Render fleet table even if the main page is empty.
-    renderFleetTable(allVehicles);
 
     if (allVehicles.length === 0) {
       showEmpty();
       return;
     }
 
-    // Show vehicle selector if multiple vehicles
-    if (allVehicles.length > 1) {
-      populateVehicleSelector(allVehicles);
-      elements.vehicleSelectorCard.style.display = "block";
-    } else {
-      elements.vehicleSelectorCard.style.display = "none";
-    }
+    // Populate hidden select for store compat
+    populateVehicleSelector(allVehicles);
 
     // Determine which vehicle to display
     const savedImei = getStorage(STORAGE_KEY);
@@ -272,21 +226,20 @@ async function loadVehicle() {
     selectVehicle(vehicleToDisplay.imei);
     showContent();
 
-    // Re-render so the selected row is highlighted.
-    renderFleetTable(allVehicles);
+    // Render the sidebar vehicle list
+    renderVehicleList(allVehicles);
   } catch (error) {
     if (error.name === "AbortError") {
       return;
     }
     console.error("Error loading vehicle:", error);
-    showFleetError(error?.message || "Failed to load vehicles");
     showEmpty();
     showNotification("Error", "Failed to load vehicle data", "error");
   }
 }
 
 /**
- * Populate the vehicle selector dropdown
+ * Populate the hidden vehicle selector for store compat
  */
 function populateVehicleSelector(vehicles) {
   if (!elements.vehicleSelect) {
@@ -325,84 +278,97 @@ function getVehicleSubtitle(vehicle) {
   return vehicle.vin ? String(vehicle.vin) : "";
 }
 
-function renderFleetTable(vehicles) {
-  if (
-    !elements.fleetLoading
-    || !elements.fleetEmpty
-    || !elements.fleetTableWrapper
-    || !elements.fleetTbody
-  ) {
+/**
+ * Render the sidebar vehicle list as clickable cards
+ */
+function renderVehicleList(vehicles) {
+  if (!elements.vehicleListCards) {
     return;
   }
 
   const list = Array.isArray(vehicles) ? vehicles : [];
-  elements.fleetLoading.style.display = "none";
-  elements.fleetTbody.innerHTML = "";
+  elements.vehicleListCards.innerHTML = "";
 
-  if (list.length === 0) {
-    elements.fleetEmpty.style.display = "";
-    elements.fleetTableWrapper.style.display = "none";
+  if (list.length <= 1) {
+    // Hide the sidebar when there's only one vehicle
+    const panel = document.getElementById("vehicle-list-panel");
+    if (panel) {
+      panel.style.display = "none";
+    }
+    // Make detail panel full-width
+    const detailPanel = document.getElementById("vehicle-detail-panel");
+    if (detailPanel) {
+      detailPanel.classList.remove("bento-span-8");
+      detailPanel.classList.add("bento-span-12");
+    }
     return;
   }
 
-  elements.fleetEmpty.style.display = "none";
-  elements.fleetTableWrapper.style.display = "";
+  // Ensure panels are visible and sized correctly
+  const panel = document.getElementById("vehicle-list-panel");
+  if (panel) {
+    panel.style.display = "";
+  }
+  const detailPanel = document.getElementById("vehicle-detail-panel");
+  if (detailPanel) {
+    detailPanel.classList.remove("bento-span-12");
+    detailPanel.classList.add("bento-span-8");
+  }
 
   list
     .slice()
     .sort((a, b) => getVehicleDisplayName(a).localeCompare(getVehicleDisplayName(b)))
     .forEach((vehicle) => {
-      const row = document.createElement("tr");
-      row.dataset.imei = vehicle?.imei || "";
-      row.classList.add("fleet-row");
+      const card = document.createElement("div");
+      card.className = "vehicle-list-card";
       if (currentVehicle?.imei && vehicle?.imei === currentVehicle.imei) {
-        row.classList.add("table-active");
+        card.classList.add("is-selected");
       }
 
-      row.addEventListener("click", () => {
+      card.addEventListener("click", () => {
         if (vehicle?.imei) {
           selectVehicle(vehicle.imei);
           showContent();
-          // Keep selected row highlighted.
-          renderFleetTable(allVehicles);
+          renderVehicleList(allVehicles);
         }
       });
 
-      const nameCell = document.createElement("td");
-      const title = document.createElement("div");
-      title.className = "fw-semibold";
-      title.textContent = getVehicleDisplayName(vehicle);
-      const subtitleText = getVehicleSubtitle(vehicle);
-      if (subtitleText) {
-        const subtitle = document.createElement("div");
-        subtitle.className = "text-muted small";
-        subtitle.textContent = subtitleText;
-        nameCell.appendChild(title);
-        nameCell.appendChild(subtitle);
-      } else {
-        nameCell.appendChild(title);
+      // Icon
+      const icon = document.createElement("div");
+      icon.className = "vl-icon";
+      icon.innerHTML = '<i class="fas fa-car"></i>';
+
+      // Info
+      const info = document.createElement("div");
+      info.className = "vl-info";
+
+      const name = document.createElement("div");
+      name.className = "vl-name";
+      name.textContent = getVehicleDisplayName(vehicle);
+      info.appendChild(name);
+
+      const subtitle = getVehicleSubtitle(vehicle);
+      if (subtitle) {
+        const meta = document.createElement("div");
+        meta.className = "vl-meta";
+        meta.textContent = subtitle;
+        info.appendChild(meta);
       }
 
-      const imeiCell = document.createElement("td");
-      const imeiCode = document.createElement("code");
-      imeiCode.textContent = vehicle?.imei || "--";
-      imeiCell.appendChild(imeiCode);
+      // Status badge
+      const badgeWrap = document.createElement("div");
+      badgeWrap.className = "vl-badge";
+      const badge = document.createElement("span");
+      badge.className = vehicle?.is_active ? "badge bg-success" : "badge bg-secondary";
+      badge.textContent = vehicle?.is_active ? "Active" : "Inactive";
+      badgeWrap.appendChild(badge);
 
-      const vinCell = document.createElement("td");
-      vinCell.textContent = vehicle?.vin || "--";
-
-      const syncedCell = document.createElement("td");
-      const stamp = vehicle?.last_synced_at || vehicle?.updated_at || null;
-      syncedCell.textContent = stamp ? formatDateTime(stamp) : "--";
-
-      row.appendChild(nameCell);
-      row.appendChild(imeiCell);
-      row.appendChild(vinCell);
-      row.appendChild(syncedCell);
-      elements.fleetTbody.appendChild(row);
+      card.appendChild(icon);
+      card.appendChild(info);
+      card.appendChild(badgeWrap);
+      elements.vehicleListCards.appendChild(card);
     });
 }
-
 async function handleAddVehicleSubmit(event) {
   event.preventDefault();
   const imei = elements.fleetAddVehicleImei?.value?.trim() || "";
@@ -463,16 +429,6 @@ async function handleAddVehicleSubmit(event) {
 }
 
 /**
- * Handle vehicle selector change
- */
-function handleVehicleSelectChange() {
-  const selectedImei = elements.vehicleSelect.value;
-  if (selectedImei) {
-    selectVehicle(selectedImei);
-  }
-}
-
-/**
  * Select and display a vehicle by IMEI
  */
 function selectVehicle(imei) {
@@ -508,10 +464,10 @@ function displayVehicle(vehicle) {
   }
 
   // Name and subtitle
-  const displayName
-    = vehicle.custom_name
-    || `${vehicle.year || ""} ${vehicle.make || ""} ${vehicle.model || ""}`.trim()
-    || "My Vehicle";
+  const displayName =
+    vehicle.custom_name ||
+    `${vehicle.year || ""} ${vehicle.make || ""} ${vehicle.model || ""}`.trim() ||
+    "My Vehicle";
   elements.vehicleName.textContent = displayName;
 
   const subtitle = vehicle.custom_name
@@ -521,11 +477,11 @@ function displayVehicle(vehicle) {
 
   // Status badge
   if (vehicle.is_active) {
-    elements.vehicleStatusBadge.innerHTML
-      = '<span class="badge bg-success">Active</span>';
+    elements.vehicleStatusBadge.innerHTML =
+      '<span class="badge bg-success">Active</span>';
   } else {
-    elements.vehicleStatusBadge.innerHTML
-      = '<span class="badge bg-secondary">Inactive</span>';
+    elements.vehicleStatusBadge.innerHTML =
+      '<span class="badge bg-secondary">Inactive</span>';
   }
 
   // Info grid
@@ -553,8 +509,8 @@ function displayVehicle(vehicle) {
     }
   } else {
     elements.currentOdometer.textContent = "--";
-    elements.odometerSource.innerHTML
-      = '<i class="fas fa-info-circle me-1"></i>No reading yet';
+    elements.odometerSource.innerHTML =
+      '<i class="fas fa-info-circle me-1"></i>No reading yet';
     elements.odometerUpdated.textContent = "";
   }
 
@@ -576,8 +532,8 @@ async function fetchBouncieOdometer() {
     return;
   }
 
-  elements.bouncieOdometer.innerHTML
-    = '<span class="spinner-border spinner-border-sm" role="status"></span>';
+  elements.bouncieOdometer.innerHTML =
+    '<span class="spinner-border spinner-border-sm" role="status"></span>';
   elements.useBouncieReadingBtn.disabled = true;
 
   try {
@@ -589,7 +545,7 @@ async function fetchBouncieOdometer() {
 
     if (data.odometer) {
       bouncieOdometer = data.odometer;
-      elements.bouncieOdometer.textContent = `${formatOdometer(data.odometer)} miles`;
+      elements.bouncieOdometer.textContent = `${formatOdometer(data.odometer)} mi`;
       elements.bouncieOdometer.classList.remove("error");
       elements.useBouncieReadingBtn.disabled = false;
     } else {
@@ -786,8 +742,8 @@ function showNotification(title, message, type = "info") {
   elements.toastBody.textContent = message;
 
   // Update icon based on type
-  const iconClass
-    = type === "success"
+  const iconClass =
+    type === "success"
       ? "fa-check-circle text-success"
       : type === "error"
         ? "fa-exclamation-circle text-danger"

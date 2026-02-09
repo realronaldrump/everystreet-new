@@ -1,39 +1,133 @@
-/* Vehicles page styles - clean, app-like feel */
+/* ============================================================
+   Vehicles page — card-based sidebar + detail layout
+   ============================================================ */
 
 .vehicles-page {
   color: var(--text-primary);
-  max-width: 1200px;
+  max-width: 1400px;
   margin: 0 auto;
 }
 
-/* Hero Section */
-.vehicle-hero {
-  background: var(--primary-gradient);
+/* ---- Master layout ---- */
+.vehicles-layout {
+  gap: var(--space-4) !important;
+}
+
+.vehicle-detail-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.vehicle-lower-grid {
+  gap: var(--space-4) !important;
+}
+
+.vehicle-lower-col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* ---- Vehicle list sidebar ---- */
+.vehicle-list-panel {
+  position: sticky;
+  top: calc(var(--header-height, 64px) + var(--space-4));
+  align-self: start;
+}
+
+.vehicle-list-cards {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/* Individual vehicle card in list */
+.vehicle-list-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--glass-panel);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition:
+    background var(--transition-fast),
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+.vehicle-list-card:hover {
+  background: var(--glass-panel-hover);
+  border-color: var(--glass-border-medium);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+.vehicle-list-card.is-selected {
+  background: rgb(var(--primary-rgb) / 12%);
+  border-color: var(--primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.vehicle-list-card .vl-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  background: var(--surface-3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+  transition:
+    background var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.vehicle-list-card.is-selected .vl-icon {
+  background: var(--primary);
   color: var(--text-on-primary);
-  border: 1px solid rgb(var(--border-rgb) / 20%);
-  box-shadow: var(--shadow-lg);
 }
 
-.vehicle-hero .lead {
-  color: rgb(255 255 255 / 85%);
+.vehicle-list-card .vl-info {
+  flex: 1;
+  min-width: 0;
 }
 
-/* Empty State */
-#empty-state {
-  padding: var(--space-8) var(--space-4);
-}
-
-.empty-icon {
-  opacity: 0.5;
-}
-
-/* Vehicle Card */
-.vehicle-card {
-  background: var(--surface-1);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-lg);
+.vehicle-list-card .vl-name {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
   overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.3;
+}
+
+.vehicle-list-card .vl-meta {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vehicle-list-card .vl-badge {
+  flex-shrink: 0;
+}
+
+.vehicle-list-card .vl-badge .badge {
+  font-size: 0.65rem;
+  padding: 0.2em 0.55em;
+}
+
+/* ---- Vehicle identity widget ---- */
+.vehicle-identity-widget {
+  /* override default hover lift for this card */
 }
 
 .vehicle-header {
@@ -43,14 +137,14 @@
 }
 
 .vehicle-icon {
-  width: 64px;
-  height: 64px;
+  width: 56px;
+  height: 56px;
   border-radius: var(--radius-lg);
   background: var(--primary-gradient);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.75rem;
+  font-size: 1.5rem;
   color: white;
   flex-shrink: 0;
 }
@@ -61,60 +155,60 @@
 }
 
 .vehicle-name {
-  font-size: 1.5rem;
+  font-size: 1.35rem;
   font-weight: var(--font-weight-bold);
   color: var(--text-primary);
   margin: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  line-height: 1.3;
 }
 
 .vehicle-subtitle {
   font-size: var(--font-size-sm);
   color: var(--text-secondary);
+  margin-top: 2px;
 }
 
-/* Vehicle Info Grid */
-.vehicle-info-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: var(--space-3);
-}
-
-.info-item {
-  background: var(--surface-2);
-  border-radius: var(--radius-md);
-  padding: var(--space-3);
-}
-
-.info-label {
-  font-size: var(--font-size-xs);
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-bottom: var(--space-1);
-}
-
-.info-value {
-  font-size: var(--font-size-base);
-  font-weight: var(--font-weight-semibold);
-  color: var(--text-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* Section Titles */
-.section-title {
-  font-size: 1.1rem;
-  font-weight: var(--font-weight-semibold);
-  color: var(--text-primary);
+/* ---- Detail chips ---- */
+.vehicle-detail-chips {
   display: flex;
-  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
 }
 
-/* Odometer Section */
+.detail-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  background: var(--surface-2);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-pill);
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--font-size-xs);
+}
+
+.detail-chip-label {
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: var(--font-weight-medium);
+}
+
+.detail-chip-value {
+  color: var(--text-primary);
+  font-weight: var(--font-weight-semibold);
+}
+
+.detail-chip-mono {
+  font-family: var(--font-family-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+}
+
+/* ---- Odometer ---- */
 .odometer-display {
   background: var(--surface-2);
   border-radius: var(--radius-lg);
@@ -131,24 +225,25 @@
 }
 
 .odometer-value {
-  font-size: 3rem;
+  font-size: 2.75rem;
   font-weight: var(--font-weight-bold);
   color: var(--text-primary);
   font-variant-numeric: tabular-nums;
+  font-family: var(--font-family-mono);
 }
 
 .odometer-unit {
-  font-size: 1.25rem;
-  color: var(--text-secondary);
+  font-size: 1.1rem;
+  color: var(--text-tertiary);
   font-weight: var(--font-weight-medium);
 }
 
 .odometer-meta {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: 2px;
   color: var(--text-secondary);
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-xs);
 }
 
 .odometer-source {
@@ -157,140 +252,193 @@
 
 .odometer-updated {
   font-size: var(--font-size-xs);
-  opacity: 0.7;
+  color: var(--text-tertiary);
 }
 
-/* Bouncie Reading Card */
-.bouncie-reading-card {
-  background: var(--surface-2);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-}
-
-.bouncie-reading-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: var(--space-3) var(--space-4);
-  background: var(--surface-3);
-  border-bottom: 1px solid var(--border-color);
-}
-
-.bouncie-label {
-  font-weight: var(--font-weight-medium);
-  color: var(--text-primary);
-}
-
-.bouncie-reading-body {
-  padding: var(--space-4);
+/* ---- Odometer action rows ---- */
+.odometer-actions {
   display: flex;
   flex-direction: column;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+
+.odometer-action-row {
+  display: flex;
   align-items: center;
   gap: var(--space-3);
-}
-
-.bouncie-value {
-  font-size: 2rem;
-  font-weight: var(--font-weight-bold);
-  color: var(--text-primary);
-}
-
-.bouncie-value.error {
-  font-size: 1rem;
-  color: var(--text-secondary);
-}
-
-/* Manual Entry Card */
-.manual-entry-card {
   background: var(--surface-2);
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
 }
 
-.manual-entry-header {
-  padding: var(--space-3) var(--space-4);
-  background: var(--surface-3);
-  border-bottom: 1px solid var(--border-color);
+.odometer-action-info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex: 1;
+  min-width: 0;
 }
 
-.manual-label {
+.odometer-action-info > i {
+  font-size: 1rem;
+  width: 20px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.odometer-action-label {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
   font-weight: var(--font-weight-medium);
+}
+
+.odometer-action-value {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
   color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
 }
 
-.manual-entry-body {
-  padding: var(--space-4);
+.odometer-action-value.error {
+  font-size: var(--font-size-sm);
+  color: var(--text-tertiary);
+  font-weight: var(--font-weight-normal);
 }
 
-/* Actions Card */
-.actions-card {
-  background: var(--surface-1);
+.odometer-action-btns {
+  display: flex;
+  gap: var(--space-2);
+  flex-shrink: 0;
+  align-items: center;
+}
+
+.odometer-action-btns--manual {
+  align-self: flex-end;
+}
+
+/* ---- Settings fields ---- */
+.setting-field {
+  margin-bottom: var(--space-3);
+}
+
+.setting-field:last-of-type {
+  margin-bottom: var(--space-4);
+}
+
+/* ---- Empty state ---- */
+.empty-icon {
+  opacity: 0.4;
+}
+
+/* ---- Ghost button style ---- */
+.btn-ghost {
+  background: transparent;
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-md);
+  color: var(--text-secondary);
+  border-radius: var(--radius-md);
+  padding: 0.25rem 0.5rem;
+  transition:
+    background var(--transition-fast),
+    color var(--transition-fast),
+    border-color var(--transition-fast);
 }
 
-.fleet-row {
-  cursor: pointer;
+.btn-ghost:hover {
+  background: var(--surface-3);
+  color: var(--text-primary);
+  border-color: var(--border-color-light);
 }
 
-/* Responsive adjustments */
+/* ============================================================
+   Responsive
+   ============================================================ */
+@media (width <= 992px) {
+  .vehicles-layout {
+    grid-template-columns: 1fr !important;
+  }
+
+  .vehicles-layout > * {
+    grid-column: 1 / -1 !important;
+  }
+
+  .vehicle-list-panel {
+    position: static;
+  }
+
+  .vehicle-list-cards {
+    flex-direction: row;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: var(--space-2);
+    scrollbar-width: thin;
+  }
+
+  .vehicle-list-card {
+    min-width: 200px;
+    flex-shrink: 0;
+  }
+
+  .vehicle-lower-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .vehicle-lower-grid > * {
+    grid-column: 1 / -1 !important;
+  }
+}
+
 @media (width <= 768px) {
-  .vehicle-hero .card-body {
-    padding: var(--space-4);
-  }
-
-  .vehicle-hero h1 {
-    font-size: 1.75rem;
-  }
-
   .vehicle-header {
     flex-direction: column;
     text-align: center;
   }
 
   .vehicle-icon {
-    width: 56px;
-    height: 56px;
-    font-size: 1.5rem;
-  }
-
-  .vehicle-name {
+    width: 48px;
+    height: 48px;
     font-size: 1.25rem;
   }
 
+  .vehicle-name {
+    font-size: 1.15rem;
+  }
+
   .odometer-value {
-    font-size: 2.5rem;
+    font-size: 2.25rem;
   }
 
-  .vehicle-info-grid {
-    grid-template-columns: repeat(2, 1fr);
+  .vehicle-detail-chips {
+    justify-content: center;
+  }
+
+  .odometer-action-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .odometer-action-btns {
+    justify-content: flex-end;
+  }
+
+  .odometer-action-btns--manual {
+    align-self: auto;
   }
 }
 
-/* Light mode adjustments */
-body.light-mode .vehicle-hero {
-  color: var(--text-on-light);
-  border-color: rgb(0 0 0 / 8%);
+/* ============================================================
+   Light mode
+   ============================================================ */
+body.light-mode .vehicle-list-card.is-selected {
+  background: rgb(var(--primary-rgb) / 8%);
 }
 
-body.light-mode .vehicle-card,
-body.light-mode .actions-card {
-  background: #fff;
-  border-color: rgb(0 0 0 / 8%);
-}
-
-body.light-mode .info-item,
+body.light-mode .detail-chip,
 body.light-mode .odometer-display,
-body.light-mode .bouncie-reading-card,
-body.light-mode .manual-entry-card {
+body.light-mode .odometer-action-row {
   background: var(--surface-1);
   border-color: rgb(0 0 0 / 8%);
-}
-
-body.light-mode .bouncie-reading-header,
-body.light-mode .manual-entry-header {
-  background: var(--surface-2);
 }
