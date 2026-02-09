@@ -6,7 +6,6 @@
 .card {
   background: var(--glass-panel);
   backdrop-filter: blur(var(--blur-strong));
-  backdrop-filter: blur(var(--blur-strong));
   border-radius: var(--radius-lg);
   box-shadow: var(--glass-shadow);
   border: 1px solid var(--glass-border);
@@ -102,7 +101,6 @@
 /* === Widget - Glassmorphism Refined === */
 .widget {
   background: var(--glass-panel);
-  backdrop-filter: blur(var(--blur-strong));
   backdrop-filter: blur(var(--blur-strong));
   border-radius: var(--radius-xl);
   border: 1px solid var(--glass-border);

@@ -35,7 +35,6 @@
 .modal-content {
   background: var(--glass-3);
   backdrop-filter: blur(var(--blur-modal));
-  backdrop-filter: blur(var(--blur-modal));
   border: 1px solid var(--glass-border-medium);
   box-shadow: var(--shadow-glass-lg);
   border-radius: var(--radius-xl);
@@ -69,7 +68,6 @@
 
 .modal-backdrop {
   background: rgb(0 0 0 / 60%);
-  backdrop-filter: blur(4px);
   backdrop-filter: blur(4px);
   transition:
     opacity var(--transition-normal),
