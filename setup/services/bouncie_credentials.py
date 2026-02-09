@@ -14,6 +14,11 @@ from db import BouncieCredentials
 
 logger = logging.getLogger(__name__)
 
+DEFAULT_FETCH_CONCURRENCY = 12
+FETCH_CONCURRENCY_MIN = 1
+FETCH_CONCURRENCY_MAX = 50
+
+
 async def get_bouncie_credentials() -> dict[str, Any]:
     """
     Retrieve Bouncie credentials from database.
@@ -46,7 +51,7 @@ async def get_bouncie_credentials() -> dict[str, Any]:
         "last_auth_error_at": None,
         "webhook_key": "",
         "authorized_devices": [],
-        "fetch_concurrency": 12,
+        "fetch_concurrency": DEFAULT_FETCH_CONCURRENCY,
         "access_token": None,
         "refresh_token": None,
         "expires_at": None,
@@ -69,7 +74,7 @@ async def get_bouncie_credentials() -> dict[str, Any]:
     if credentials:
         logger.debug("Retrieved Bouncie credentials from database")
 
-        fetch_concurrency = credentials.fetch_concurrency or 12
+        fetch_concurrency = credentials.fetch_concurrency or DEFAULT_FETCH_CONCURRENCY
 
         return {
             "client_id": credentials.client_id or "",
@@ -161,9 +166,11 @@ async def update_bouncie_credentials(credentials: dict[str, Any]) -> bool:
                     if value is None:
                         continue
                     try:
-                        existing.fetch_concurrency = int(value)
+                        parsed = int(value)
                     except (TypeError, ValueError):
                         continue
+                    if FETCH_CONCURRENCY_MIN <= parsed <= FETCH_CONCURRENCY_MAX:
+                        existing.fetch_concurrency = parsed
                 elif key == "access_token":
                     existing.access_token = value
                 elif key == "refresh_token":
@@ -208,11 +215,16 @@ async def update_bouncie_credentials(credentials: dict[str, Any]) -> bool:
             fetch_concurrency = credentials.get("fetch_concurrency")
             if fetch_concurrency is not None:
                 try:
-                    new_creds.fetch_concurrency = int(fetch_concurrency)
+                    parsed = int(fetch_concurrency)
                 except (TypeError, ValueError):
-                    new_creds.fetch_concurrency = 12
+                    new_creds.fetch_concurrency = DEFAULT_FETCH_CONCURRENCY
+                else:
+                    if FETCH_CONCURRENCY_MIN <= parsed <= FETCH_CONCURRENCY_MAX:
+                        new_creds.fetch_concurrency = parsed
+                    else:
+                        new_creds.fetch_concurrency = DEFAULT_FETCH_CONCURRENCY
             else:
-                new_creds.fetch_concurrency = 12
+                new_creds.fetch_concurrency = DEFAULT_FETCH_CONCURRENCY
 
             if "access_token" in credentials:
                 new_creds.access_token = credentials["access_token"]

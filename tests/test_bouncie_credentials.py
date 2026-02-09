@@ -132,7 +132,7 @@ async def test_update_bouncie_credentials_updates_existing(bouncie_db) -> None:
     )
     assert creds.client_id == "updated-client"
     assert creds.client_secret == "old-secret"  # unchanged
-    assert creds.fetch_concurrency == 12  # Should remain default
+    assert creds.fetch_concurrency == 20
 
 
 @pytest.mark.asyncio
@@ -155,7 +155,7 @@ async def test_update_bouncie_credentials_sets_oauth_state(bouncie_db) -> None:
 
 @pytest.mark.asyncio
 async def test_update_bouncie_credentials_clamps_concurrency(bouncie_db) -> None:
-    """update_bouncie_credentials should ignore fetch_concurrency updates."""
+    """update_bouncie_credentials should ignore out-of-range fetch_concurrency updates."""
     await update_bouncie_credentials({"fetch_concurrency": 100})
 
     creds = await BouncieCredentials.find_one(
