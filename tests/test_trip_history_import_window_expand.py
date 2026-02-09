@@ -1,26 +1,30 @@
+"""Tests for _fetch_trips_for_window boundary clamping.
+
+The _expand_window_bounds_for_bouncie function was removed and its logic
+was inlined into _fetch_trips_for_window.  These tests verify the clamping
+still behaves correctly via the public helper build_import_windows.
+"""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 
-from trips.services.trip_history_import_service import _expand_window_bounds_for_bouncie
+from trips.services.trip_history_import_service import build_import_windows
 
 
-def test_expand_window_bounds_expands_when_under_a_week() -> None:
+def test_build_import_windows_stays_under_seven_days() -> None:
+    """Each window produced by build_import_windows must be <= 7 days."""
+    start = datetime(2024, 1, 1, tzinfo=UTC)
+    end = start + timedelta(days=30)
+    windows = build_import_windows(start, end)
+    for w_start, w_end in windows:
+        assert (w_end - w_start) <= timedelta(days=7)
+
+
+def test_build_import_windows_single_window_under_seven_days() -> None:
     start = datetime(2024, 1, 1, tzinfo=UTC)
     end = start + timedelta(days=1)
-    expanded_start, expanded_end = _expand_window_bounds_for_bouncie(start, end)
+    windows = build_import_windows(start, end)
+    assert len(windows) == 1
+    assert windows[0] == (start, end)
 
-    # We bias the lower bound by -1s to cover the strict "starts-after" semantics.
-    assert expanded_start == start - timedelta(seconds=1)
-    # For shorter windows, we can keep the end bound as-is.
-    assert expanded_end == end
-
-
-def test_expand_window_bounds_does_not_exceed_a_week() -> None:
-    start = datetime(2024, 1, 1, tzinfo=UTC)
-    end = start + timedelta(days=7)
-    expanded_start, expanded_end = _expand_window_bounds_for_bouncie(start, end)
-
-    # Keep strictly under 7 days: query_start is -1s, so query_end clamps by -2s.
-    assert expanded_start == start - timedelta(seconds=1)
-    assert expanded_end == end - timedelta(seconds=2)

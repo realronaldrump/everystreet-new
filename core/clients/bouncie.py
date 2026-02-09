@@ -92,6 +92,53 @@ class BouncieClient:
 
         return trips
 
+    @retry_async(max_retries=5, retry_delay=3.0)
+    async def fetch_trips_for_device_resilient(
+        self,
+        token: str,
+        imei: str,
+        start_dt: datetime,
+        end_dt: datetime,
+    ) -> list[dict[str, Any]]:
+        """Fetch trips with extended retry for history import / backfill.
+
+        Same as fetch_trips_for_device but with more aggressive retry
+        (5 attempts, 3s base delay with exponential backoff) to handle
+        Bouncie server-side timeouts on old / large data ranges.
+        """
+        headers = {
+            "Authorization": token,
+            "Content-Type": "application/json",
+        }
+        params = {
+            "imei": imei,
+            "gps-format": "geojson",
+            "starts-after": format_bouncie_datetime_param(start_dt),
+            "ends-before": format_bouncie_datetime_param(end_dt),
+        }
+        url = f"{API_BASE_URL}/trips"
+
+        session = await self._get_session()
+        try:
+            async with session.get(url, headers=headers, params=params) as response:
+                response.raise_for_status()
+                trips = await response.json()
+        except Exception:
+            logger.exception("Error fetching trips for device %s (resilient)", imei)
+            raise
+
+        if not isinstance(trips, list):
+            msg = f"Unexpected /trips response type: {type(trips).__name__}"
+            raise TypeError(msg)
+
+        for trip in trips:
+            if isinstance(trip, dict) and "startTime" in trip:
+                trip["startTime"] = parse_timestamp(trip["startTime"])
+            if isinstance(trip, dict) and "endTime" in trip:
+                trip["endTime"] = parse_timestamp(trip["endTime"])
+
+        return trips
+
     @retry_async(max_retries=3, retry_delay=1.5)
     async def fetch_trip_by_transaction_id(
         self,
