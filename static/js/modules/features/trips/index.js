@@ -962,6 +962,7 @@ function createTripCard(trip, allTrips) {
   // Format times
   const duration = trip.duration ? formatDuration(trip.duration) : "--";
   const timeAgo = formatRelativeTime(trip.startTime);
+  const tripCost = formatUsd(trip.estimated_cost);
 
   card.innerHTML = `
     <div class="trip-card-checkbox">
@@ -1008,6 +1009,10 @@ function createTripCard(trip, allTrips) {
         <span class="trip-meta-item">
           <i class="fas fa-tachometer-alt"></i>
           ${trip.maxSpeed ? `${Math.round(trip.maxSpeed)} mph` : "--"}
+        </span>
+        <span class="trip-meta-item">
+          <i class="fas fa-dollar-sign"></i>
+          ${escapeHtml(tripCost)}
         </span>
         <span class="trip-meta-item">
           <i class="fas fa-car"></i>
@@ -1140,6 +1145,26 @@ function formatRelativeTime(dateStr) {
   }
 
   return formatDateTime(dateStr);
+}
+
+function formatUsd(value) {
+  if (value === null || value === undefined) {
+    return "--";
+  }
+  if (typeof value === "string" && value.trim() === "") {
+    return "--";
+  }
+
+  const n = Number(value);
+  if (!Number.isFinite(n)) {
+    return "--";
+  }
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(n);
 }
 
 // ==========================================
@@ -2224,6 +2249,7 @@ function updateModalContent(trip) {
   const durationEl = document.getElementById("modal-duration");
   const speedEl = document.getElementById("modal-max-speed");
   const fuelEl = document.getElementById("modal-fuel");
+  const costEl = document.getElementById("modal-cost");
   const startEl = document.getElementById("modal-start-loc");
   const endEl = document.getElementById("modal-end-loc");
 
@@ -2242,6 +2268,9 @@ function updateModalContent(trip) {
     fuelEl.textContent = trip.fuelConsumed
       ? `${parseFloat(trip.fuelConsumed).toFixed(2)} gal`
       : "--";
+  }
+  if (costEl) {
+    costEl.textContent = formatUsd(trip.estimated_cost);
   }
   if (startEl) {
     const startLoc = sanitizeLocation(trip.startLocation);

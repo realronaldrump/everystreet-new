@@ -13,7 +13,7 @@ from fastapi.responses import StreamingResponse
 
 from core.api import api_route
 from core.date_utils import parse_timestamp
-from db.models import Job
+from db.models import Job, TaskHistory
 from tasks.ops import abort_job
 from tasks.config import update_task_history_entry
 from trips.models import TripSyncConfigUpdate, TripSyncRequest
@@ -218,20 +218,29 @@ async def cancel_trip_history_import(progress_job_id: PydanticObjectId):
                 "cancelled": "CANCELLED",
             }
             try:
-                await update_task_history_entry(
-                    job_id=operation_id,
-                    task_name=job.task_id or "fetch_all_missing_trips",
-                    status=status_map.get(job.status, "CANCELLED"),
-                    manual_run=True,
-                    error=(
-                        "Finalized via history import cancel endpoint "
-                        f"(job already {job.status})"
-                    ),
-                    end_time=datetime.now(UTC),
-                )
+                history = await TaskHistory.get(operation_id)
+                # Only "clear the lock" if TaskHistory still claims to be active.
+                # Avoid mutating finalized entries (end_time/error/timestamp) on
+                # an idempotent cancel request for an already-finished job.
+                if history and (history.status in {"RUNNING", "PENDING"}):
+                    final_status = status_map.get(job.status, "CANCELLED")
+                    finished_at = job.completed_at or job.updated_at or datetime.now(UTC)
+                    history.task_id = history.task_id or (
+                        job.task_id or "fetch_all_missing_trips"
+                    )
+                    history.status = final_status
+                    history.timestamp = finished_at
+                    history.end_time = history.end_time or finished_at
+                    if (
+                        final_status == "FAILED"
+                        and not history.error
+                        and getattr(job, "error", None)
+                    ):
+                        history.error = str(job.error)
+                    await history.save()
             except Exception:
                 logger.exception(
-                    "Failed to finalize task history for history import %s",
+                    "Failed to clear lingering task history lock for history import %s",
                     operation_id,
                 )
         return {"status": "success", "message": "Job is already finished."}

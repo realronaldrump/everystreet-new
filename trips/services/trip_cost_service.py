@@ -13,7 +13,12 @@ class TripCostService:
     @staticmethod
     async def get_fillup_price_map(query=None):
         """
-        Fetches valid gas fill-ups and organizes them by IMEI for efficient lookup.
+        Fetches gas fill-ups and organizes an effective $/gallon series by IMEI for
+        efficient lookup.
+
+        Effective price is derived as:
+        - Prefer `total_cost / gallons` when available (captures taxes/rounding).
+        - Fall back to `price_per_gallon` when total_cost is missing.
 
         Args:
             query: Optional MongoDB query filter
@@ -24,12 +29,16 @@ class TripCostService:
         if query is None:
             query = {}
 
-        # Ensure we only get fill-ups with valid price, time, and IMEI
+        # Ensure we only get fill-ups with usable price info, time, and IMEI.
+        # We accept either explicit `price_per_gallon` or derived `total_cost/gallons`.
         fillup_query = {
             **query,
-            "price_per_gallon": {"$ne": None},
             "fillup_time": {"$ne": None},
             "imei": {"$ne": None},
+            "$or": [
+                {"price_per_gallon": {"$ne": None}},
+                {"$and": [{"total_cost": {"$ne": None}}, {"gallons": {"$ne": None}}]},
+            ],
         }
 
         # Use Beanie cursor iteration
@@ -37,12 +46,21 @@ class TripCostService:
         async for fillup in GasFillup.find(fillup_query).sort(GasFillup.fillup_time):
             imei = fillup.imei
             ts = fillup.fillup_time
-            price = fillup.price_per_gallon
+            gallons = safe_float(fillup.gallons, None)
+            total_cost = safe_float(fillup.total_cost, None)
+            ppg = safe_float(fillup.price_per_gallon, None)
+
+            # Prefer total_cost-derived price when possible.
+            effective_ppg = None
+            if total_cost is not None and gallons is not None and gallons > 0:
+                effective_ppg = total_cost / gallons
+            elif ppg is not None:
+                effective_ppg = ppg
 
             if imei not in price_map:
                 price_map[imei] = ([], [])
 
-            if ts and price:
+            if ts and effective_ppg is not None and effective_ppg > 0:
                 # Robustly handle string timestamps
                 if isinstance(ts, str):
                     ts = parse_timestamp(ts)
@@ -50,7 +68,7 @@ class TripCostService:
                         continue
 
                 price_map[imei][0].append(ts)
-                price_map[imei][1].append(price)
+                price_map[imei][1].append(effective_ppg)
 
         # Ensure lists are strictly sorted by timestamp
         for imei in price_map:
@@ -71,7 +89,8 @@ class TripCostService:
         prices.
 
         Args:
-            trip (dict): Trip document with 'fuelConsumed', 'imei', 'startTime'
+            trip (dict): Trip document with 'fuelConsumed', 'imei', and timestamps
+                (`endTime` preferred, fallback to `startTime`)
             price_map (dict): Output from get_fillup_price_map
 
         Returns:
@@ -79,18 +98,19 @@ class TripCostService:
         """
         fuel_consumed = safe_float(trip.get("fuelConsumed"), None)
         imei = trip.get("imei")
-        start_time = parse_timestamp(trip.get("startTime"))
+        ref_time = parse_timestamp(trip.get("endTime") or trip.get("startTime"))
 
-        if fuel_consumed is None or not imei or not start_time or imei not in price_map:
+        if fuel_consumed is None or not imei or not ref_time or imei not in price_map:
             return None
 
         timestamps, prices = price_map[imei]
         if not timestamps:
             return None
 
-        # Find the insertion point for start_time in timestamps to get the most recent past fill-up
+        # Find the insertion point for ref_time in timestamps to get the most recent
+        # past fill-up (at or before the trip reference time).
         try:
-            idx = bisect.bisect_right(timestamps, start_time)
+            idx = bisect.bisect_right(timestamps, ref_time)
 
             if idx > 0:
                 # We found a fill-up that happened before (or at) the trip start

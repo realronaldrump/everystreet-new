@@ -8,6 +8,7 @@ from fastapi import APIRouter, HTTPException, Request, status
 
 from core.api import api_route
 from db.models import CoverageState, Trip
+from trips.services import TripCostService
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -59,9 +60,20 @@ async def get_single_trip(trip_id: str):
         )
     if trip.duration is None and trip.startTime and trip.endTime:
         trip.duration = (trip.endTime - trip.startTime).total_seconds()
+
+    # Include computed per-trip cost when we have fillup + fuelConsumed data.
+    trip_dict = trip.model_dump()
+    trip_dict["estimated_cost"] = None
+    if trip.imei and trip.fuelConsumed is not None:
+        price_map = await TripCostService.get_fillup_price_map({"imei": trip.imei})
+        trip_dict["estimated_cost"] = TripCostService.calculate_trip_cost(
+            trip_dict,
+            price_map,
+        )
+
     return {
         "status": "success",
-        "trip": trip,  # FastAPI auto-serializes Beanie models
+        "trip": trip_dict,
     }
 
 

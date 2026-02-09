@@ -1,5 +1,7 @@
 from unittest.mock import AsyncMock, patch
 
+from datetime import UTC, datetime
+
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -150,6 +152,119 @@ def test_trip_history_import_cancel_endpoint_marks_job_cancelled_and_clears_task
     assert stub.status == "cancelled"
     abort_mock.assert_awaited()
     history_mock.assert_awaited()
+
+
+def test_trip_history_import_cancel_endpoint_idempotent_does_not_overwrite_completed_task_history() -> None:
+    app = _create_app()
+
+    completed_at = datetime(2025, 1, 2, 3, 4, 5, tzinfo=UTC)
+
+    class StubJob:
+        def __init__(self) -> None:
+            self.id = "65b1b5b6b5b6b5b6b5b6b5b6"
+            self.job_type = "trip_history_import"
+            self.task_id = "fetch_all_missing_trips"
+            self.operation_id = "arq-job-1"
+            self.status = "completed"
+            self.stage = "done"
+            self.message = "Done"
+            self.progress = 100.0
+            self.error = None
+            self.created_at = None
+            self.started_at = None
+            self.completed_at = completed_at
+            self.updated_at = completed_at
+            self.metadata = {}
+            self.result = None
+
+    class StubHistory:
+        def __init__(self) -> None:
+            self.id = "arq-job-1"
+            self.task_id = "fetch_all_missing_trips"
+            self.status = "COMPLETED"
+            self.timestamp = completed_at
+            self.manual_run = True
+            self.start_time = None
+            self.end_time = completed_at
+            self.error = None
+            self.save = AsyncMock(return_value=None)
+
+    history = StubHistory()
+
+    with patch("trips.api.sync.Job.get", new=AsyncMock(return_value=StubJob())), patch(
+        "trips.api.sync.TaskHistory.get",
+        new=AsyncMock(return_value=history),
+    ), patch(
+        "trips.api.sync.update_task_history_entry",
+        new=AsyncMock(return_value=None),
+    ) as history_update_mock:
+        client = TestClient(app)
+        response = client.delete(
+            "/api/actions/trips/sync/history_import/65b1b5b6b5b6b5b6b5b6b5b6",
+        )
+
+    assert response.status_code == 200
+    assert response.json()["message"] == "Job is already finished."
+    history_update_mock.assert_not_awaited()
+    history.save.assert_not_awaited()
+    assert history.end_time == completed_at
+    assert history.error is None
+
+
+def test_trip_history_import_cancel_endpoint_idempotent_clears_running_task_history_lock() -> None:
+    app = _create_app()
+
+    completed_at = datetime(2025, 2, 3, 4, 5, 6, tzinfo=UTC)
+
+    class StubJob:
+        def __init__(self) -> None:
+            self.id = "65b1b5b6b5b6b5b6b5b6b5b6"
+            self.job_type = "trip_history_import"
+            self.task_id = "fetch_all_missing_trips"
+            self.operation_id = "arq-job-1"
+            self.status = "completed"
+            self.stage = "done"
+            self.message = "Done"
+            self.progress = 100.0
+            self.error = None
+            self.created_at = None
+            self.started_at = None
+            self.completed_at = completed_at
+            self.updated_at = completed_at
+            self.metadata = {}
+            self.result = None
+
+    class StubHistory:
+        def __init__(self) -> None:
+            self.id = "arq-job-1"
+            self.task_id = "fetch_all_missing_trips"
+            self.status = "RUNNING"
+            self.timestamp = datetime(2025, 2, 3, 4, 0, 0, tzinfo=UTC)
+            self.manual_run = True
+            self.start_time = None
+            self.end_time = None
+            self.error = None
+            self.save = AsyncMock(return_value=None)
+
+    history = StubHistory()
+
+    with patch("trips.api.sync.Job.get", new=AsyncMock(return_value=StubJob())), patch(
+        "trips.api.sync.TaskHistory.get",
+        new=AsyncMock(return_value=history),
+    ), patch(
+        "trips.api.sync.update_task_history_entry",
+        new=AsyncMock(return_value=None),
+    ) as history_update_mock:
+        client = TestClient(app)
+        response = client.delete(
+            "/api/actions/trips/sync/history_import/65b1b5b6b5b6b5b6b5b6b5b6",
+        )
+
+    assert response.status_code == 200
+    history_update_mock.assert_not_awaited()
+    history.save.assert_awaited()
+    assert history.status == "COMPLETED"
+    assert history.end_time == completed_at
 
 
 def test_trip_sync_config_update_endpoint() -> None:
