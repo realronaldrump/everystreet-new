@@ -3,8 +3,9 @@
 import logging
 from typing import Annotated, Any
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Query
 
+from core.api import api_route
 from gas.services import OdometerService
 
 logger = logging.getLogger(__name__)
@@ -12,6 +13,7 @@ router = APIRouter()
 
 
 @router.get("/api/vehicle-location")
+@api_route(logger)
 async def get_vehicle_location_at_time(
     imei: Annotated[str, Query(description="Vehicle IMEI")],
     timestamp: Annotated[
@@ -24,21 +26,15 @@ async def get_vehicle_location_at_time(
     ] = False,
 ) -> dict[str, Any]:
     """Get vehicle location and odometer at a specific time."""
-    try:
-        return await OdometerService.get_vehicle_location_at_time(
-            imei,
-            timestamp,
-            use_now,
-        )
-
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        logger.exception("Error getting vehicle location")
-        raise HTTPException(status_code=500, detail=str(e))
+    return await OdometerService.get_vehicle_location_at_time(
+        imei,
+        timestamp,
+        use_now,
+    )
 
 
 @router.get("/api/vehicles/estimate-odometer")
+@api_route(logger)
 async def estimate_odometer_reading(
     imei: Annotated[str, Query(description="Vehicle IMEI")],
     timestamp: Annotated[str, Query(description="ISO datetime to estimate at")],
@@ -46,9 +42,4 @@ async def estimate_odometer_reading(
     """Estimate odometer reading by interpolating/extrapolating from nearest known
     anchors.
     """
-    try:
-        return await OdometerService.estimate_odometer_reading(imei, timestamp)
-
-    except Exception as e:
-        logger.exception("Error estimating odometer")
-        raise HTTPException(status_code=500, detail=str(e))
+    return await OdometerService.estimate_odometer_reading(imei, timestamp)

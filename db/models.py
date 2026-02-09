@@ -564,6 +564,7 @@ class GasFillup(Document):
     """Gas fillup record document."""
 
     imei: Indexed(str) | None = None
+    vin: str | None = None
     fillup_time: Indexed(datetime) | None = None
     gallons: float | None = None
     price_per_gallon: float | None = None
@@ -571,8 +572,15 @@ class GasFillup(Document):
     odometer: float | None = None
     latitude: float | None = None
     longitude: float | None = None
-    is_full_tank: bool = True
-    notes: str | None = None
+    is_full_tank: bool | None = True
+    missed_previous: bool | None = False
+
+    # Derived MPG fields (maintained by FillupService).
+    previous_odometer: float | None = None
+    miles_since_last_fillup: float | None = None
+    calculated_mpg: float | None = None
+
+    detected_automatically: bool = False
     created_at: datetime | None = None
     updated_at: datetime | None = None
 

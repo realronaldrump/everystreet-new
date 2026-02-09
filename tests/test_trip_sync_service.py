@@ -237,3 +237,109 @@ async def test_start_sync_ignores_stale_running_lock(
     result = await TripSyncService.start_sync(TripSyncRequest(mode="recent"))
     assert result["status"] == "success"
     assert result["job_id"] == "job-new"
+
+
+@pytest.mark.asyncio
+async def test_sync_status_reports_active_history_import_job_without_task_history(
+    beanie_db_with_history_import,
+) -> None:
+    await seed_credentials()
+    now = datetime.now(UTC)
+    job = Job(
+        job_type="trip_history_import",
+        task_id="fetch_all_missing_trips",
+        status="running",
+        stage="scanning",
+        progress=10.0,
+        message="Scanning",
+        created_at=now,
+        updated_at=now,
+        started_at=now,
+        operation_id="arq-job-1",
+        metadata={},
+    )
+    await job.insert()
+
+    status = await TripSyncService.get_sync_status()
+    assert status["state"] == "syncing"
+    assert status["history_import_progress_job_id"] == str(job.id)
+    assert status["current_job_id"] == "arq-job-1"
+    assert status["active_task_id"] == "fetch_all_missing_trips"
+
+
+@pytest.mark.asyncio
+async def test_start_sync_history_when_import_running_returns_progress_payload(
+    beanie_db_with_history_import,
+) -> None:
+    await seed_credentials()
+    now = datetime.now(UTC)
+    job = Job(
+        job_type="trip_history_import",
+        task_id="fetch_all_missing_trips",
+        status="running",
+        stage="scanning",
+        progress=10.0,
+        message="Scanning",
+        created_at=now,
+        updated_at=now,
+        started_at=now,
+        operation_id="arq-job-1",
+        metadata={},
+    )
+    await job.insert()
+
+    result = await TripSyncService.start_sync(
+        TripSyncRequest(mode="history", start_date=datetime(2020, 3, 1, tzinfo=UTC)),
+    )
+    assert result["status"] == "running"
+    assert result["progress_job_id"] == str(job.id)
+
+
+@pytest.mark.asyncio
+async def test_cancel_sync_cancels_history_import_job_and_task_history(
+    beanie_db_with_history_import,
+    monkeypatch,
+) -> None:
+    await seed_credentials()
+    now = datetime.now(UTC)
+
+    history = TaskHistory(
+        task_id="fetch_all_missing_trips",
+        status="RUNNING",
+        timestamp=now,
+        start_time=now,
+        manual_run=True,
+    )
+    history.id = "arq-job-1"
+    await history.insert()
+
+    job = Job(
+        job_type="trip_history_import",
+        task_id="fetch_all_missing_trips",
+        status="running",
+        stage="scanning",
+        progress=10.0,
+        message="Scanning",
+        created_at=now,
+        updated_at=now,
+        started_at=now,
+        operation_id="arq-job-1",
+        metadata={},
+    )
+    await job.insert()
+
+    async def fake_abort(job_id: str) -> bool:  # noqa: ARG001
+        return True
+
+    monkeypatch.setattr(trip_sync_service, "abort_job", fake_abort)
+
+    result = await TripSyncService.cancel_sync("arq-job-1")
+    assert result["status"] == "success"
+
+    updated_history = await TaskHistory.get("arq-job-1")
+    assert updated_history is not None
+    assert updated_history.status == "CANCELLED"
+
+    updated_job = await Job.get(PydanticObjectId(str(job.id)))
+    assert updated_job is not None
+    assert updated_job.status == "cancelled"

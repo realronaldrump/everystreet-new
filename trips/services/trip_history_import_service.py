@@ -21,6 +21,7 @@ from beanie.operators import In
 from admin.services.admin_service import AdminService
 from config import API_BASE_URL, get_bouncie_config
 from core.date_utils import ensure_utc, parse_timestamp
+from core.clients.bouncie import format_bouncie_datetime_param
 from core.http.retry import retry_async
 from core.http.session import get_session
 from core.jobs import JobHandle
@@ -166,8 +167,8 @@ async def _fetch_trips_for_device_strict(
     params = {
         "imei": imei,
         "gps-format": "geojson",
-        "starts-after": start_dt.isoformat(),
-        "ends-before": end_dt.isoformat(),
+        "starts-after": format_bouncie_datetime_param(start_dt),
+        "ends-before": format_bouncie_datetime_param(end_dt),
     }
     url = f"{API_BASE_URL}/trips"
     async with session.get(url, headers=headers, params=params) as response:
@@ -185,6 +186,58 @@ async def _fetch_trips_for_device_strict(
                 trip["endTime"] = parse_timestamp(trip["endTime"])
 
         return trips
+
+
+def _expand_window_bounds_for_bouncie(
+    window_start: datetime,
+    window_end: datetime,
+) -> tuple[datetime, datetime]:
+    """Return slightly expanded inclusive bounds for Bouncie queries.
+
+    Bouncie filtering params are documented as strict "after" / "before".
+    Expand by 1 second to behave inclusively at the window edges.
+    """
+
+    start = ensure_utc(window_start) or window_start
+    end = ensure_utc(window_end) or window_end
+    return (start - timedelta(seconds=1), end + timedelta(seconds=1))
+
+
+def _filter_trips_to_window(
+    trips: list[dict[str, Any]],
+    *,
+    window_start: datetime,
+    window_end: datetime,
+) -> list[dict[str, Any]]:
+    """Defensively enforce window bounds.
+
+    If the upstream API returns trips outside the requested window (or ignores
+    filters), ensure we only process trips whose [startTime,endTime] fit inside
+    the window.
+    """
+
+    start = ensure_utc(window_start) or window_start
+    end = ensure_utc(window_end) or window_end
+    kept: list[dict[str, Any]] = []
+    for trip in trips:
+        if not isinstance(trip, dict):
+            continue
+        st = trip.get("startTime")
+        et = trip.get("endTime")
+        if not isinstance(st, datetime):
+            st = parse_timestamp(st)
+        if not isinstance(et, datetime):
+            et = parse_timestamp(et)
+        if not st or not et:
+            continue
+        st = ensure_utc(st) or st
+        et = ensure_utc(et) or et
+        if st < start:
+            continue
+        if et > end:
+            continue
+        kept.append(trip)
+    return kept
 
 
 def _trim_events(events: list[dict[str, Any]], *, limit: int = 60) -> list[dict[str, Any]]:
@@ -428,13 +481,32 @@ async def run_import(
         ) -> list[dict[str, Any]]:
             async with semaphore:
                 try:
+                    query_start, query_end = _expand_window_bounds_for_bouncie(
+                        window_start,
+                        window_end,
+                    )
                     trips = await _fetch_trips_for_device_strict(
                         session,
                         token=token,
                         imei=imei,
-                        start_dt=window_start,
-                        end_dt=window_end,
+                        start_dt=query_start,
+                        end_dt=query_end,
                     )
+                    before_count = len(trips)
+                    trips = _filter_trips_to_window(
+                        trips,
+                        window_start=window_start,
+                        window_end=window_end,
+                    )
+                    after_count = len(trips)
+                    if after_count != before_count:
+                        logger.info(
+                            "Filtered %s/%s trips outside window (imei=%s, window_index=%s)",
+                            before_count - after_count,
+                            before_count,
+                            imei,
+                            window_index,
+                        )
                 except Exception as exc:
                     async with lock:
                         counters["fetch_errors"] += 1

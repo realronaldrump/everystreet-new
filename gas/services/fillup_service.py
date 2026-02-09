@@ -17,6 +17,39 @@ class FillupService:
     """Service class for gas fill-up operations."""
 
     @staticmethod
+    async def _get_previous_fillup(
+        *,
+        imei: str,
+        before_time: datetime,
+        exclude_id: PydanticObjectId | None = None,
+    ) -> GasFillup | None:
+        """Fetch the most recent fill-up before `before_time` for an IMEI."""
+
+        conditions: list[Any] = [
+            GasFillup.imei == imei,
+            GasFillup.fillup_time < before_time,
+        ]
+        if exclude_id is not None:
+            conditions.append(GasFillup.id != exclude_id)
+
+        return await (
+            GasFillup.find(*conditions).sort(-GasFillup.fillup_time).first_or_none()
+        )
+
+    @staticmethod
+    async def _get_next_fillup(*, imei: str, after_time: datetime) -> GasFillup | None:
+        """Fetch the next fill-up after `after_time` for an IMEI."""
+
+        return await (
+            GasFillup.find(
+                GasFillup.imei == imei,
+                GasFillup.fillup_time > after_time,
+            )
+            .sort(GasFillup.fillup_time)
+            .first_or_none()
+        )
+
+    @staticmethod
     async def get_fillups(
         imei: str | None = None,
         vin: str | None = None,
@@ -106,7 +139,7 @@ class FillupService:
             return None, None, None
 
         previous_odometer = previous_fillup.odometer
-        if not previous_odometer:
+        if previous_odometer is None:
             return None, None, None
 
         # Check all MPG calculation requirements
@@ -142,26 +175,51 @@ class FillupService:
             msg = "Invalid fillup_time format"
             raise ValidationException(msg)
 
+        imei = str(fillup_data.get("imei") or "")
+        if not imei:
+            msg = "Missing imei"
+            raise ValidationException(msg)
+
+        gallons = fillup_data.get("gallons")
+        if gallons is None or gallons <= 0:
+            msg = "gallons must be greater than 0"
+            raise ValidationException(msg)
+
+        odometer = fillup_data.get("odometer")
+        if odometer is not None and odometer < 0:
+            msg = "odometer must be greater than or equal to 0"
+            raise ValidationException(msg)
+
+        price_per_gallon = fillup_data.get("price_per_gallon")
+        if price_per_gallon is not None and price_per_gallon < 0:
+            msg = "price_per_gallon must be greater than or equal to 0"
+            raise ValidationException(msg)
+
+        total_cost = fillup_data.get("total_cost")
+        if total_cost is not None and total_cost < 0:
+            msg = "total_cost must be greater than or equal to 0"
+            raise ValidationException(msg)
+
         # Get vehicle info if available
-        vehicle = await Vehicle.find_one(Vehicle.imei == fillup_data["imei"])
+        vehicle = await Vehicle.find_one(Vehicle.imei == imei)
         vin = vehicle.vin if vehicle else None
 
         # Get previous fill-up to calculate MPG
-        previous_fillup = await GasFillup.find_one(
-            GasFillup.imei == fillup_data["imei"],
-            GasFillup.fillup_time < fillup_time,
-        ).sort(-GasFillup.fillup_time)
+        previous_fillup = await FillupService._get_previous_fillup(
+            imei=imei,
+            before_time=fillup_time,
+        )
 
         # Calculate MPG if we have odometer readings
         calculated_mpg = None
         miles_since_last = None
         previous_odometer = None
 
-        if fillup_data.get("odometer") and previous_fillup:
+        if fillup_data.get("odometer") is not None and previous_fillup:
             calculated_mpg, miles_since_last, previous_odometer = (
                 FillupService.calculate_mpg(
                     fillup_data["odometer"],
-                    fillup_data["gallons"],
+                    gallons,
                     previous_fillup,
                     fillup_data.get("is_full_tank", True),
                     fillup_data.get("missed_previous", False),
@@ -169,28 +227,22 @@ class FillupService:
             )
 
         # Calculate total cost if not provided
-        total_cost = fillup_data.get("total_cost")
-        if (
-            not total_cost
-            and fillup_data.get("price_per_gallon")
-            and fillup_data.get("gallons")
-        ):
-            total_cost = fillup_data["price_per_gallon"] * fillup_data["gallons"]
+        if total_cost is None and price_per_gallon is not None and price_per_gallon > 0:
+            total_cost = price_per_gallon * gallons
 
         # Create GasFillup model
         fillup = GasFillup(
-            imei=fillup_data["imei"],
+            imei=imei,
             vin=vin,
             fillup_time=fillup_time,
-            gallons=fillup_data["gallons"],
-            price_per_gallon=fillup_data.get("price_per_gallon"),
+            gallons=gallons,
+            price_per_gallon=price_per_gallon,
             total_cost=total_cost,
             odometer=fillup_data.get("odometer"),
             latitude=fillup_data.get("latitude"),
             longitude=fillup_data.get("longitude"),
             is_full_tank=fillup_data.get("is_full_tank", True),
             missed_previous=fillup_data.get("missed_previous", False),
-            notes=fillup_data.get("notes"),
             previous_odometer=previous_odometer,
             miles_since_last_fillup=miles_since_last,
             calculated_mpg=calculated_mpg,
@@ -203,7 +255,7 @@ class FillupService:
 
         # Trigger recalculation of next entry
         await FillupService.recalculate_subsequent_fillup(
-            fillup_data["imei"],
+            imei,
             fillup_time,
         )
 
@@ -234,17 +286,70 @@ class FillupService:
             msg = "Fill-up not found"
             raise ResourceNotFoundException(msg)
 
+        original_time = fillup.fillup_time
+        original_imei = fillup.imei
+
         current_time = update_data.get("fillup_time", fillup.fillup_time)
-        imei = update_data.get("imei", fillup.imei)
+        if current_time is not None:
+            parsed_time = parse_timestamp(current_time)
+            if not parsed_time:
+                msg = "Invalid fillup_time format"
+                raise ValidationException(msg)
+            current_time = parsed_time
+            update_data["fillup_time"] = parsed_time
+
+        imei = str(update_data.get("imei", fillup.imei) or "")
+        if not imei:
+            msg = "Missing imei"
+            raise ValidationException(msg)
+        update_data["imei"] = imei
+
+        if "gallons" in update_data:
+            gallons = update_data.get("gallons")
+            if gallons is None or gallons <= 0:
+                msg = "gallons must be greater than 0"
+                raise ValidationException(msg)
+
+        if "odometer" in update_data:
+            odometer = update_data.get("odometer")
+            if odometer is not None and odometer < 0:
+                msg = "odometer must be greater than or equal to 0"
+                raise ValidationException(msg)
+
+        if "price_per_gallon" in update_data:
+            price = update_data.get("price_per_gallon")
+            if price is not None and price < 0:
+                msg = "price_per_gallon must be greater than or equal to 0"
+                raise ValidationException(msg)
+
+        if "total_cost" in update_data:
+            total_cost = update_data.get("total_cost")
+            if total_cost is not None and total_cost < 0:
+                msg = "total_cost must be greater than or equal to 0"
+                raise ValidationException(msg)
+
+        # If vehicle changed, refresh VIN for the new IMEI.
+        if imei != original_imei:
+            vehicle = await Vehicle.find_one(Vehicle.imei == imei)
+            fillup.vin = vehicle.vin if vehicle else None
 
         # Recalculate MPG for THIS entry if fields that affect it changed
-        fields_affecting_mpg = ["gallons", "odometer", "fillup_time"]
+        fields_affecting_mpg = [
+            "gallons",
+            "odometer",
+            "fillup_time",
+            "is_full_tank",
+            "missed_previous",
+            "imei",
+        ]
         if any(f in update_data for f in fields_affecting_mpg):
-            previous_fillup = await GasFillup.find_one(
-                GasFillup.imei == imei,
-                GasFillup.fillup_time < current_time,
-                GasFillup.id != fillup.id,  # Exclude self
-            ).sort(-GasFillup.fillup_time)
+            previous_fillup = None
+            if current_time is not None:
+                previous_fillup = await FillupService._get_previous_fillup(
+                    imei=imei,
+                    before_time=current_time,
+                    exclude_id=fillup.id,
+                )
 
             # Use new values or fallback to existing
             current_odometer = (
@@ -261,11 +366,15 @@ class FillupService:
 
             curr_missed_prev = update_data.get(
                 "missed_previous",
-                fillup.missed_previous,
+                getattr(fillup, "missed_previous", False),
             )
 
             # Calculate stats
-            if previous_fillup and current_odometer is not None:
+            if (
+                previous_fillup
+                and current_odometer is not None
+                and current_gallons is not None
+            ):
                 calculated_mpg, miles_since_last, previous_odometer = (
                     FillupService.calculate_mpg(
                         current_odometer,
@@ -280,10 +389,23 @@ class FillupService:
                 fillup.calculated_mpg = calculated_mpg
                 fillup.miles_since_last_fillup = miles_since_last
                 fillup.previous_odometer = previous_odometer
+            else:
+                # Clear derived fields when required inputs are missing or the
+                # chain is broken.
+                fillup.calculated_mpg = None
+                fillup.miles_since_last_fillup = None
+                fillup.previous_odometer = (
+                    previous_fillup.odometer if previous_fillup else None
+                )
 
-        # Recalculate total cost if price or gallons changed
-        if update_data.get("price_per_gallon") and update_data.get("gallons"):
-            fillup.total_cost = update_data["price_per_gallon"] * update_data["gallons"]
+        # Recalculate total cost if price or gallons changed (or clear if missing).
+        if "price_per_gallon" in update_data or "gallons" in update_data:
+            price = update_data.get("price_per_gallon", fillup.price_per_gallon)
+            gallons = update_data.get("gallons", fillup.gallons)
+            if price is not None and gallons is not None and gallons > 0:
+                fillup.total_cost = price * gallons
+            else:
+                fillup.total_cost = None
 
         # Apply all update_data fields to the fillup model
         for key, value in update_data.items():
@@ -294,8 +416,16 @@ class FillupService:
         fillup.updated_at = datetime.now(UTC)
         await fillup.save()
 
-        # Trigger recalculation of next entry
-        await FillupService.recalculate_subsequent_fillup(imei, current_time)
+        # Trigger recalculation of neighbors. Updates can move the fill-up in time
+        # or across vehicles, which can affect the "next" fill-up in both the old
+        # and new positions.
+        recalc_targets = set()
+        if original_imei and original_time:
+            recalc_targets.add((original_imei, original_time))
+        if imei and current_time:
+            recalc_targets.add((imei, current_time))
+        for target_imei, target_time in recalc_targets:
+            await FillupService.recalculate_subsequent_fillup(target_imei, target_time)
 
         return fillup
 
@@ -345,22 +475,28 @@ class FillupService:
             imei: Vehicle IMEI
             after_time: Look for fill-ups after this time
         """
+        if not imei or after_time is None:
+            return
+
         try:
             # Find the immediately following fill-up
-            next_fillup = await GasFillup.find_one(
-                GasFillup.imei == imei,
-                GasFillup.fillup_time > after_time,
-            ).sort(GasFillup.fillup_time)
+            next_fillup = await FillupService._get_next_fillup(
+                imei=imei,
+                after_time=after_time,
+            )
 
             if not next_fillup:
                 return
 
             # Now find the fill-up immediately before THIS 'next_fillup'
             # (This effectively bridges the gap if the middle one was deleted)
-            prev_fillup = await GasFillup.find_one(
-                GasFillup.imei == imei,
-                GasFillup.fillup_time < next_fillup.fillup_time,
-            ).sort(-GasFillup.fillup_time)
+            prev_fillup = None
+            if next_fillup.fillup_time is not None:
+                prev_fillup = await FillupService._get_previous_fillup(
+                    imei=imei,
+                    before_time=next_fillup.fillup_time,
+                    exclude_id=next_fillup.id,
+                )
 
             # Calculate new stats for next_fillup
             next_odo = next_fillup.odometer

@@ -688,20 +688,6 @@
   font-size: var(--font-size-sm);
 }
 
-.fillup-notes {
-  font-size: var(--font-size-sm);
-  color: var(--text-secondary);
-  padding-top: var(--space-2);
-  border-top: 1px solid var(--divider-color);
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.fillup-notes i {
-  color: var(--text-tertiary);
-}
-
 /* ===== Responsive Breakpoints ===== */
 
 /* Tablet (768px and up) */

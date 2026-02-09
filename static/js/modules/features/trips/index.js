@@ -36,11 +36,13 @@ let tripModalMap = null;
 let tripModalInstance = null;
 let currentTripId = null;
 let currentTripData = null;
+let regeocodeInFlight = false;
+let modalRouteActionsTripId = null;
 let playbackControlsBound = false;
 let modalActionsBound = false;
 let pageSignal = null;
 
-const DEFAULT_TRIP_SORT = "new_to_old";
+const DEFAULT_TRIP_SORT = "date_desc";
 let appliedTripSort = DEFAULT_TRIP_SORT;
 
 const playbackState = {
@@ -79,6 +81,8 @@ function resetTripsState() {
   isLoading = false;
   currentTripId = null;
   currentTripData = null;
+  regeocodeInFlight = false;
+  modalRouteActionsTripId = null;
   playbackControlsBound = false;
   modalActionsBound = false;
   appliedTripSort = DEFAULT_TRIP_SORT;
@@ -128,13 +132,37 @@ function normalizeTripSort(value) {
   }
 
   const normalized = value.trim();
+  // Legacy values (kept for backward compatibility with older localStorage)
+  if (normalized === "new_to_old") {
+    return "date_desc";
+  }
+  if (normalized === "old_to_new") {
+    return "date_asc";
+  }
+  if (normalized === "distance") {
+    return "distance_desc";
+  }
+  if (normalized === "speed") {
+    return "speed_desc";
+  }
+  if (normalized === "fuel") {
+    return "fuel_desc";
+  }
+  if (normalized === "duration") {
+    return "duration_desc";
+  }
+
   switch (normalized) {
-    case "new_to_old":
-    case "old_to_new":
-    case "distance":
-    case "speed":
-    case "fuel":
-    case "duration":
+    case "date_desc":
+    case "date_asc":
+    case "distance_desc":
+    case "distance_asc":
+    case "speed_desc":
+    case "speed_asc":
+    case "fuel_desc":
+    case "fuel_asc":
+    case "duration_desc":
+    case "duration_asc":
       return normalized;
     default:
       return DEFAULT_TRIP_SORT;
@@ -148,23 +176,69 @@ function getTripSortValue() {
   return normalizeTripSort(candidate);
 }
 
+function getTripSortLabel(sort) {
+  switch (normalizeTripSort(sort)) {
+    case "date_desc":
+      return "Date (newest first)";
+    case "date_asc":
+      return "Date (oldest first)";
+    case "distance_desc":
+      return "Distance (high to low)";
+    case "distance_asc":
+      return "Distance (low to high)";
+    case "speed_desc":
+      return "Speed (high to low)";
+    case "speed_asc":
+      return "Speed (low to high)";
+    case "fuel_desc":
+      return "Gas used (high to low)";
+    case "fuel_asc":
+      return "Gas used (low to high)";
+    case "duration_desc":
+      return "Duration (high to low)";
+    case "duration_asc":
+      return "Duration (low to high)";
+    default:
+      return "Date (newest first)";
+  }
+}
+
 function getTripsSortRequest() {
   const sort = getTripSortValue();
 
   let column = "startTime";
   let dir = "desc";
 
-  if (sort === "old_to_new") {
+  if (sort === "date_asc") {
     column = "startTime";
     dir = "asc";
-  } else if (sort === "distance") {
+  } else if (sort === "date_desc") {
+    column = "startTime";
+    dir = "desc";
+  } else if (sort === "distance_desc") {
     column = "distance";
-  } else if (sort === "speed") {
+    dir = "desc";
+  } else if (sort === "distance_asc") {
+    column = "distance";
+    dir = "asc";
+  } else if (sort === "speed_desc") {
     column = "maxSpeed";
-  } else if (sort === "fuel") {
+    dir = "desc";
+  } else if (sort === "speed_asc") {
+    column = "maxSpeed";
+    dir = "asc";
+  } else if (sort === "fuel_desc") {
     column = "fuelConsumed";
-  } else if (sort === "duration") {
+    dir = "desc";
+  } else if (sort === "fuel_asc") {
+    column = "fuelConsumed";
+    dir = "asc";
+  } else if (sort === "duration_desc") {
     column = "duration";
+    dir = "desc";
+  } else if (sort === "duration_asc") {
+    column = "duration";
+    dir = "asc";
   }
 
   return {
@@ -410,11 +484,11 @@ function generateSmartTitle(trip) {
   const isMorning = hour >= 6 && hour < 12;
   const isShort = distance < 5;
   const isLong = distance > 50;
-  const isCommute
-    = (startLoc.includes("home") && endLoc.includes("work"))
-    || (startLoc.includes("work") && endLoc.includes("home"))
-    || (startLoc.includes("home") && endLoc.includes("office"))
-    || (startLoc.includes("office") && endLoc.includes("home"));
+  const isCommute =
+    (startLoc.includes("home") && endLoc.includes("work")) ||
+    (startLoc.includes("work") && endLoc.includes("home")) ||
+    (startLoc.includes("home") && endLoc.includes("office")) ||
+    (startLoc.includes("office") && endLoc.includes("home"));
 
   // Smart title logic
   if (isCommute) {
@@ -543,8 +617,8 @@ async function loadTripStats() {
     }
 
     const metrics = metricsResult.status === "fulfilled" ? metricsResult.value : null;
-    const insights
-      = insightsResult.status === "fulfilled" ? insightsResult.value : null;
+    const insights =
+      insightsResult.status === "fulfilled" ? insightsResult.value : null;
 
     if (!metrics && !insights) {
       return;
@@ -648,8 +722,8 @@ async function loadTrips() {
     });
 
     tripsData = response?.data || [];
-    totalTrips
-      = response?.recordsFiltered ?? response?.recordsTotal ?? tripsData.length;
+    totalTrips =
+      response?.recordsFiltered ?? response?.recordsTotal ?? tripsData.length;
     filteredTrips = [...tripsData];
     appliedTripSort = sortRequest.sort;
 
@@ -779,24 +853,20 @@ function restoreTimelineDefaultTitles() {
 }
 
 function getFlatTripsTitle(sort) {
-  switch (sort) {
-    case "distance":
-      return "Sorted by Distance";
-    case "speed":
-      return "Sorted by Speed";
-    case "fuel":
-      return "Sorted by Gas Used";
-    case "duration":
-      return "Sorted by Duration";
-    default:
-      return "Trips";
+  const label = getTripSortLabel(sort);
+  if (
+    normalizeTripSort(sort) === "date_desc" ||
+    normalizeTripSort(sort) === "date_asc"
+  ) {
+    return "Trips";
   }
+  return `Sorted by ${label}`;
 }
 
 function renderTrips(trips) {
   const sort = normalizeTripSort(appliedTripSort);
-  if (sort === "new_to_old" || sort === "old_to_new") {
-    renderTripsTimeline(trips, { direction: sort === "old_to_new" ? "asc" : "desc" });
+  if (sort === "date_desc" || sort === "date_asc") {
+    renderTripsTimeline(trips, { direction: sort === "date_asc" ? "asc" : "desc" });
   } else {
     renderTripsFlatList(trips, sort);
   }
@@ -839,8 +909,8 @@ function renderTripsTimeline(trips, { direction = "desc" } = {}) {
   restoreTimelineDefaultTitles();
 
   const groups = groupTripsByTimeline(trips);
-  const periodOrder
-    = direction === "asc"
+  const periodOrder =
+    direction === "asc"
       ? ["older", "month", "week", "yesterday", "today"]
       : ["today", "yesterday", "week", "month", "older"];
 
@@ -885,8 +955,8 @@ function createTripCard(trip, allTrips) {
   const title = generateSmartTitle(trip);
   const badges = getTripBadges(trip, allTrips);
   const distance = parseFloat(trip.distance) || 0;
-  const maxDistance
-    = Math.max(...allTrips.map((t) => parseFloat(t.distance) || 0)) || 1;
+  const maxDistance =
+    Math.max(...allTrips.map((t) => parseFloat(t.distance) || 0)) || 1;
   const progressPercent = Math.min(100, (distance / Math.max(maxDistance, 50)) * 100);
 
   // Format times
@@ -970,8 +1040,8 @@ function createTripCard(trip, allTrips) {
   // Event listeners
   card.addEventListener("click", (e) => {
     if (
-      e.target.closest(".trip-card-checkbox")
-      || e.target.closest(".trip-action-btn")
+      e.target.closest(".trip-card-checkbox") ||
+      e.target.closest(".trip-action-btn")
     ) {
       return;
     }
@@ -1235,6 +1305,11 @@ function setupSearchAndFilters() {
     e.target.value = normalized;
     setStorage(CONFIG.STORAGE_KEYS.tripsSort, normalized);
     e.target.classList.toggle("has-value", normalized !== DEFAULT_TRIP_SORT);
+
+    // Sorting is a view operation; apply immediately so users don't need to hit "Apply Filters".
+    currentPage = 1;
+    updateFilterChips();
+    loadTrips();
   });
 
   // Vehicle filter
@@ -1377,10 +1452,10 @@ function performSearch(query) {
       const startLoc = getLocationText(trip.startLocation).toLowerCase();
       const endLoc = getLocationText(trip.destination).toLowerCase();
       return (
-        (trip.vehicleLabel || "").toLowerCase().includes(lowerQuery)
-        || startLoc.includes(lowerQuery)
-        || endLoc.includes(lowerQuery)
-        || (trip.transactionId || "").toLowerCase().includes(lowerQuery)
+        (trip.vehicleLabel || "").toLowerCase().includes(lowerQuery) ||
+        startLoc.includes(lowerQuery) ||
+        endLoc.includes(lowerQuery) ||
+        (trip.transactionId || "").toLowerCase().includes(lowerQuery)
       );
     });
   }
@@ -1462,8 +1537,8 @@ function updateFilterChips() {
 
   if (filters.imei) {
     const vehicleSelect = document.getElementById("trip-filter-vehicle");
-    const vehicleName
-      = vehicleSelect?.options[vehicleSelect.selectedIndex]?.text || filters.imei;
+    const vehicleName =
+      vehicleSelect?.options[vehicleSelect.selectedIndex]?.text || filters.imei;
     addChip(`Vehicle: ${vehicleName}`, () => {
       document.getElementById("trip-filter-vehicle").value = "";
       setStorage(CONFIG.STORAGE_KEYS.selectedVehicle, null);
@@ -1478,6 +1553,18 @@ function updateFilterChips() {
         document.getElementById("trip-filter-distance-max").value = "";
       }
     );
+  }
+
+  const sort = getTripSortValue();
+  if (sort && sort !== DEFAULT_TRIP_SORT) {
+    addChip(`Sort: ${getTripSortLabel(sort)}`, () => {
+      const sortSelect = document.getElementById("trip-sort-select");
+      if (sortSelect) {
+        sortSelect.value = DEFAULT_TRIP_SORT;
+        sortSelect.classList.remove("has-value");
+      }
+      setStorage(CONFIG.STORAGE_KEYS.tripsSort, null);
+    });
   }
 
   // Update badge count
@@ -1713,6 +1800,8 @@ function openTripModal(tripId) {
       el.addEventListener("hidden.bs.modal", () => {
         resetPlayback();
         currentTripData = null;
+        regeocodeInFlight = false;
+        modalRouteActionsTripId = null;
         if (tripModalMap) {
           const src = tripModalMap.getSource("modal-trip");
           if (src) {
@@ -1745,8 +1834,9 @@ function bindTripModalActions() {
 
   const shareBtn = document.getElementById("modal-share-btn");
   const deleteBtn = document.getElementById("modal-delete-btn");
+  const regeocodeBtn = document.getElementById("modal-regeocode-btn");
 
-  if (!shareBtn && !deleteBtn) {
+  if (!shareBtn && !deleteBtn && !regeocodeBtn) {
     console.warn("Trip modal action buttons not found");
     return;
   }
@@ -1783,16 +1873,114 @@ function bindTripModalActions() {
     );
   }
 
+  if (regeocodeBtn) {
+    regeocodeBtn.type = "button";
+    regeocodeBtn.addEventListener(
+      "click",
+      async () => {
+        await regeocodeCurrentTrip();
+      },
+      pageSignal ? { signal: pageSignal } : undefined
+    );
+  }
+
   modalActionsBound = true;
+}
+
+function updateRegeocodeControls(trip) {
+  const wrap = document.getElementById("modal-route-actions");
+  const btn = document.getElementById("modal-regeocode-btn");
+  const statusEl = document.getElementById("modal-regeocode-status");
+
+  if (!wrap || !btn) {
+    return;
+  }
+
+  const tripId = trip?.transactionId || null;
+  if (!regeocodeInFlight && tripId && tripId !== modalRouteActionsTripId) {
+    modalRouteActionsTripId = tripId;
+    if (statusEl) {
+      statusEl.textContent = "";
+    }
+  }
+
+  const startLoc = sanitizeLocation(trip?.startLocation);
+  const endLoc = sanitizeLocation(trip?.destination);
+  const needsGeocode = startLoc === "Unknown" || endLoc === "Unknown";
+
+  wrap.style.display = needsGeocode ? "flex" : "none";
+  if (!needsGeocode) {
+    if (statusEl) {
+      statusEl.textContent = "";
+    }
+    return;
+  }
+
+  btn.disabled = regeocodeInFlight;
+  btn.classList.toggle("is-loading", regeocodeInFlight);
+
+  const textEl = btn.querySelector(".btn-route-action__text");
+  if (textEl) {
+    textEl.textContent = regeocodeInFlight ? "Geocoding..." : "Geocode this trip";
+  }
+
+  if (statusEl && !regeocodeInFlight && !statusEl.textContent) {
+    statusEl.textContent = "Addresses are missing. Click to geocode this trip.";
+  }
+}
+
+async function regeocodeCurrentTrip() {
+  const tripId = currentTripData?.transactionId || currentTripId;
+  if (!tripId || regeocodeInFlight) {
+    return;
+  }
+
+  const btn = document.getElementById("modal-regeocode-btn");
+  const statusEl = document.getElementById("modal-regeocode-status");
+  const textEl = btn?.querySelector(".btn-route-action__text");
+
+  try {
+    regeocodeInFlight = true;
+    if (btn) {
+      btn.disabled = true;
+      btn.classList.add("is-loading");
+    }
+    if (textEl) {
+      textEl.textContent = "Geocoding...";
+    }
+    if (statusEl) {
+      statusEl.textContent = "Running geocoder for this trip...";
+    }
+
+    const resp = await apiPost(CONFIG.API.tripRegeocode(tripId), {});
+    notificationManager.show(resp?.message || "Trip geocoded", "success");
+    if (statusEl) {
+      statusEl.textContent = resp?.message || "Geocoding finished. Refreshing trip...";
+    }
+
+    await loadTripData(tripId);
+  } catch (err) {
+    console.error("Failed to geocode trip:", err);
+    notificationManager.show(
+      err?.message ? `Geocode failed: ${err.message}` : "Failed to geocode trip",
+      "danger"
+    );
+    if (statusEl) {
+      statusEl.textContent = err?.message || "Failed to geocode trip.";
+    }
+  } finally {
+    regeocodeInFlight = false;
+    updateRegeocodeControls(currentTripData);
+  }
 }
 
 function showShareModal() {
   const shareData = buildTripShareData(currentTripData);
 
   // Detect mobile/touch devices (iOS, Android, etc.)
-  const isMobile
-    = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
-    || (navigator.maxTouchPoints && navigator.maxTouchPoints > 1);
+  const isMobile =
+    /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) ||
+    (navigator.maxTouchPoints && navigator.maxTouchPoints > 1);
 
   // Use native share on mobile devices (iOS share sheet, Android share, etc.)
   if (navigator.share && isMobile) {
@@ -1990,8 +2178,8 @@ function initTripModalMap() {
     });
   } catch (e) {
     console.error("Failed to init modal map:", e);
-    document.getElementById("trip-modal-map").innerHTML
-      = '<div style="padding: 20px; color: var(--danger);">Failed to load map.</div>';
+    document.getElementById("trip-modal-map").innerHTML =
+      '<div style="padding: 20px; color: var(--danger);">Failed to load map.</div>';
   }
 }
 
@@ -2065,6 +2253,8 @@ function updateModalContent(trip) {
     endEl.textContent = endLoc;
     endEl.classList.toggle("unknown", endLoc === "Unknown");
   }
+
+  updateRegeocodeControls(trip);
 }
 
 function renderTripOnMap(trip) {
@@ -2236,8 +2426,8 @@ function setupTripPlaybackControls() {
 }
 
 function getPlaybackSpeedMultiplier() {
-  const speedValue
-    = Number.isFinite(playbackState.speed) && playbackState.speed > 0
+  const speedValue =
+    Number.isFinite(playbackState.speed) && playbackState.speed > 0
       ? playbackState.speed
       : PLAYBACK_SPEED_BASE;
   return speedValue / PLAYBACK_SPEED_BASE;

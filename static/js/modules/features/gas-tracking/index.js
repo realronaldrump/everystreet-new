@@ -467,6 +467,11 @@ function calculateTotalCost() {
   }
 }
 
+function parseOptionalNumber(value) {
+  const n = parseFloat(value);
+  return Number.isFinite(n) ? n : null;
+}
+
 /**
  * Set current time in datetime input
  */
@@ -686,17 +691,17 @@ async function handleFormSubmit(e) {
       imei: document.getElementById("vehicle-select").value,
       fillup_time: new Date(document.getElementById("fillup-time").value).toISOString(),
       gallons: parseFloat(document.getElementById("gallons").value),
-      price_per_gallon:
-        parseFloat(document.getElementById("price-per-gallon").value) || null,
-      total_cost: parseFloat(document.getElementById("total-cost").value) || null,
+      price_per_gallon: parseOptionalNumber(
+        document.getElementById("price-per-gallon").value
+      ),
+      total_cost: parseOptionalNumber(document.getElementById("total-cost").value),
       odometer: isNoOdo
         ? null
-        : parseFloat(document.getElementById("odometer").value) || null,
+        : parseOptionalNumber(document.getElementById("odometer").value),
       latitude: currentLocation?.latitude || null,
       longitude: currentLocation?.longitude || null,
       is_full_tank: document.getElementById("full-tank").checked,
       missed_previous: document.getElementById("missed-previous").checked,
-      notes: document.getElementById("notes").value || null,
     };
 
     // Validate
@@ -765,6 +770,10 @@ async function handleFormSubmit(e) {
  * Reset form state (clear fields, exit edit mode)
  */
 function resetFormState() {
+  // Preserve vehicle selection across form reset.
+  const vehicleSelect = document.getElementById("vehicle-select");
+  const selectedVehicle = vehicleSelect?.value || "";
+
   document.getElementById("gas-fillup-form").reset();
 
   // Clear ID and reset buttons
@@ -794,9 +803,6 @@ function resetFormState() {
     advancedContent.style.display = "none";
   }
 
-  // Retain vehicle selection if possible, otherwise reset
-  const vehicleSelect = document.getElementById("vehicle-select");
-  const selectedVehicle = vehicleSelect.value;
   if (selectedVehicle) {
     // Re-select it after a tick because reset clears it
     setTimeout(() => {
@@ -863,7 +869,12 @@ async function loadRecentFillups() {
 /**
  * Create HTML for a fill-up item
  */
+function getFillupId(fillup) {
+  return String(fillup?._id || fillup?.id || "");
+}
+
 function createFillupItem(fillup) {
+  const fillupId = getFillupId(fillup);
   const date = new Date(fillup.fillup_time);
   const dateStr = date.toLocaleDateString("en-US", {
     month: "short",
@@ -876,10 +887,18 @@ function createFillupItem(fillup) {
     hour12: true,
   });
 
-  const cost = fillup.total_cost ? `$${fillup.total_cost.toFixed(2)}` : "--";
-  const mpg = fillup.calculated_mpg ? fillup.calculated_mpg.toFixed(1) : "--";
-  const pricePerGallon = fillup.price_per_gallon
-    ? `$${fillup.price_per_gallon.toFixed(2)}`
+  const totalCost = fillup.total_cost != null ? Number(fillup.total_cost) : null;
+  const mpgValue = fillup.calculated_mpg != null ? Number(fillup.calculated_mpg) : null;
+  const ppg = fillup.price_per_gallon != null ? Number(fillup.price_per_gallon) : null;
+
+  const cost = totalCost != null && Number.isFinite(totalCost)
+    ? `$${totalCost.toFixed(2)}`
+    : "--";
+  const mpg = mpgValue != null && Number.isFinite(mpgValue) && mpgValue > 0
+    ? mpgValue.toFixed(1)
+    : "--";
+  const pricePerGallon = ppg != null && Number.isFinite(ppg) && ppg > 0
+    ? `$${ppg.toFixed(2)}`
     : "--";
 
   // Lookup vehicle name
@@ -889,13 +908,13 @@ function createFillupItem(fillup) {
     : fillup.vin || fillup.imei?.slice(-4) || "Unknown";
 
   return `
-    <div class="fillup-item" id="fillup-item-${fillup._id}">
+    <div class="fillup-item" id="fillup-item-${fillupId}">
       <div class="fillup-header">
         <div class="fillup-main">
           <span class="fillup-date">${dateStr} at ${timeStr}</span>
           <span class="fillup-vehicle">${vehicleName}</span>
         </div>
-        <span class="fillup-amount">${fillup.gallons.toFixed(2)} gal</span>
+        <span class="fillup-amount">${Number(fillup.gallons).toFixed(2)} gal</span>
       </div>
 
       <div class="fillup-details">
@@ -913,17 +932,15 @@ function createFillupItem(fillup) {
         </div>
         <div class="fillup-detail">
           <span class="fillup-detail-label">Odometer</span>
-          <span class="fillup-detail-value">${fillup.odometer ? `${Math.round(fillup.odometer).toLocaleString()} mi` : "--"}</span>
+          <span class="fillup-detail-value">${fillup.odometer != null ? `${Math.round(fillup.odometer).toLocaleString()} mi` : "--"}</span>
         </div>
       </div>
 
-      ${fillup.notes ? `<div class="fillup-notes"><i class="fas fa-sticky-note"></i>${fillup.notes}</div>` : ""}
-
       <div class="fillup-actions">
-        <button data-action="edit" data-fillup-id="${fillup._id}" title="Edit">
+        <button data-action="edit" data-fillup-id="${fillupId}" title="Edit">
           <i class="fas fa-edit"></i>
         </button>
-        <button data-action="delete" data-fillup-id="${fillup._id}" title="Delete">
+        <button data-action="delete" data-fillup-id="${fillupId}" title="Delete">
           <i class="fas fa-trash"></i>
         </button>
       </div>
@@ -935,7 +952,7 @@ function createFillupItem(fillup) {
  * Edit a fill-up
  */
 function editFillup(id) {
-  const fillup = recentFillups.find((f) => f._id === id);
+  const fillup = recentFillups.find((f) => getFillupId(f) === String(id));
   if (!fillup) {
     return;
   }
@@ -954,7 +971,7 @@ function editFillup(id) {
   }
 
   // Switch to edit mode UI
-  document.getElementById("fillup-id").value = fillup._id;
+  document.getElementById("fillup-id").value = getFillupId(fillup);
   document.getElementById("submit-btn-text").textContent = "Update Fill-up";
   document.getElementById("cancel-edit-btn").style.display = "block";
   document.getElementById("form-badge").style.display = "inline-flex";
@@ -990,7 +1007,6 @@ function editFillup(id) {
 
   document.getElementById("full-tank").checked = fillup.is_full_tank !== false;
   document.getElementById("missed-previous").checked = fillup.missed_previous === true;
-  document.getElementById("notes").value = fillup.notes || "";
 
   // Set location state
   currentLocation = {
@@ -1003,7 +1019,7 @@ function editFillup(id) {
   if (fillup.latitude && fillup.longitude) {
     updateMap(fillup.latitude, fillup.longitude);
     document.getElementById("location-text").textContent = "Location from record";
-    document.getElementById("odometer-display").textContent = fillup.odometer
+    document.getElementById("odometer-display").textContent = fillup.odometer != null
       ? `${Math.round(fillup.odometer).toLocaleString()} mi`
       : "Not recorded";
   }

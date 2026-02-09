@@ -109,6 +109,49 @@ def test_trip_history_import_status_endpoint_returns_metadata() -> None:
     assert payload["metadata"]["counters"]["inserted"] == 5
 
 
+def test_trip_history_import_cancel_endpoint_marks_job_cancelled_and_clears_task_history_lock() -> None:
+    app = _create_app()
+
+    class StubJob:
+        def __init__(self) -> None:
+            self.id = "65b1b5b6b5b6b5b6b5b6b5b6"
+            self.job_type = "trip_history_import"
+            self.task_id = "fetch_all_missing_trips"
+            self.operation_id = "arq-job-1"
+            self.status = "running"
+            self.stage = "scanning"
+            self.message = "Scanning"
+            self.progress = 1.0
+            self.error = None
+            self.created_at = None
+            self.started_at = None
+            self.completed_at = None
+            self.updated_at = None
+            self.metadata = {}
+            self.result = None
+
+        async def save(self) -> None:
+            return None
+
+    stub = StubJob()
+    with patch("trips.api.sync.Job.get", new=AsyncMock(return_value=stub)), patch(
+        "trips.api.sync.abort_job",
+        new=AsyncMock(return_value=True),
+    ) as abort_mock, patch(
+        "trips.api.sync.update_task_history_entry",
+        new=AsyncMock(return_value=None),
+    ) as history_mock:
+        client = TestClient(app)
+        response = client.delete(
+            "/api/actions/trips/sync/history_import/65b1b5b6b5b6b5b6b5b6b5b6",
+        )
+
+    assert response.status_code == 200
+    assert stub.status == "cancelled"
+    abort_mock.assert_awaited()
+    history_mock.assert_awaited()
+
+
 def test_trip_sync_config_update_endpoint() -> None:
     app = _create_app()
 

@@ -117,23 +117,35 @@ block extra_css %}
               Sort
               </label>
               <select id="trip-sort-select" class="filter-select">
-                <option value="new_to_old">
-New to old (default)
+                <option value="date_desc">
+Date (newest first) (default)
                 </option>
-                <option value="old_to_new">
-Old to new
+                <option value="date_asc">
+Date (oldest first)
                 </option>
-                <option value="distance">
-Distance
+                <option value="distance_desc">
+Distance (high to low)
                 </option>
-                <option value="speed">
-Speed
+                <option value="distance_asc">
+Distance (low to high)
                 </option>
-                <option value="fuel">
-Most gallons of gas used
+                <option value="speed_desc">
+Speed (high to low)
                 </option>
-                <option value="duration">
-Longest duration
+                <option value="speed_asc">
+Speed (low to high)
+                </option>
+                <option value="fuel_desc">
+Gas used (high to low)
+                </option>
+                <option value="fuel_asc">
+Gas used (low to high)
+                </option>
+                <option value="duration_desc">
+Duration (high to low)
+                </option>
+                <option value="duration_asc">
+Duration (low to high)
                 </option>
               </select>
             </div>
@@ -407,6 +419,13 @@ Route
                           <span class="route-location" id="modal-end-loc">--</span>
                         </div>
                       </div>
+                    </div>
+                    <div class="route-actions" id="modal-route-actions" style="display: none">
+                      <button class="btn-route-action" id="modal-regeocode-btn" type="button">
+                        <i class="fas fa-map-marked-alt"></i>
+                        <span class="btn-route-action__text">Geocode this trip</span>
+                      </button>
+                      <div class="route-action-status" id="modal-regeocode-status" aria-live="polite"></div>
                     </div>
                   </div>
 

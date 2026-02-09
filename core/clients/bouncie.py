@@ -6,7 +6,7 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 from config import API_BASE_URL, get_bouncie_config
-from core.date_utils import parse_timestamp
+from core.date_utils import ensure_utc, parse_timestamp
 from core.http.retry import retry_async
 from core.http.session import get_session
 from setup.services.bouncie_oauth import BouncieOAuth
@@ -17,6 +17,18 @@ if TYPE_CHECKING:
     import aiohttp
 
 logger = logging.getLogger(__name__)
+
+
+def format_bouncie_datetime_param(dt: "datetime") -> str:
+    """Format datetimes for Bouncie query params.
+
+    Bouncie expects RFC3339/ISO-8601 "date-time" strings.
+    Use explicit UTC + 'Z' with second precision for maximal compatibility.
+    """
+
+    utc = ensure_utc(dt) or dt
+    utc = utc.replace(microsecond=0)
+    return utc.isoformat().replace("+00:00", "Z")
 
 
 class BouncieClient:
@@ -54,8 +66,8 @@ class BouncieClient:
         params = {
             "imei": imei,
             "gps-format": "geojson",
-            "starts-after": start_dt.isoformat(),
-            "ends-before": end_dt.isoformat(),
+            "starts-after": format_bouncie_datetime_param(start_dt),
+            "ends-before": format_bouncie_datetime_param(end_dt),
         }
         url = f"{API_BASE_URL}/trips"
 

@@ -300,6 +300,7 @@ export function initTripHistoryImportWizard({ signal } = {}) {
   const startBtn = getEl("trip-import-start-btn");
   const cancelBtn = getEl("trip-import-cancel-btn");
   const goTrips = getEl("trip-import-go-trips");
+  const newBtn = getEl("trip-import-new-btn");
   const footerHint = getEl("trip-import-footer-hint");
 
   const configError = getEl("trip-import-config-error");
@@ -422,6 +423,10 @@ export function initTripHistoryImportWizard({ signal } = {}) {
     }
     if (goTrips) {
       goTrips.classList.toggle("d-none", !isSummary);
+    }
+    if (newBtn) {
+      newBtn.classList.toggle("d-none", !isSummary);
+      newBtn.disabled = Boolean(running);
     }
 
     if (footerHint) {
@@ -734,6 +739,15 @@ export function initTripHistoryImportWizard({ signal } = {}) {
         throw new Error("Missing progress_job_id in response.");
       }
 
+      if (result?.status === "running") {
+        notificationManager.show(
+          "A history import is already running. Showing progress.",
+          "info"
+        );
+        await attachToExistingImport(progressJobId);
+        return;
+      }
+
       setStep(root, "import");
       setFooterState({ step: "import", running: true });
 
@@ -779,15 +793,26 @@ export function initTripHistoryImportWizard({ signal } = {}) {
     try {
       await apiClient.delete(CONFIG.API.tripSyncHistoryImportCancel(progressJobId), { signal });
       notificationManager.show("Cancelling import...", "info");
-      if (cancelBtn) {
-        cancelBtn.disabled = false;
+      // Force an immediate refresh so the UI transitions promptly.
+      if (progressUrl) {
+        const job = await apiClient.get(progressUrl, { signal }).catch(() => null);
+        if (job) {
+          renderJob(job);
+        }
       }
     } catch (error) {
       setProgressError(error.message || "Failed to cancel import.");
+    } finally {
       if (cancelBtn) {
         cancelBtn.disabled = false;
       }
     }
+  };
+
+  const handleStartAnother = async () => {
+    cleanupStreaming();
+    resetUi();
+    await loadPlan();
   };
 
   const handleStopSync = async () => {
@@ -853,6 +878,7 @@ export function initTripHistoryImportWizard({ signal } = {}) {
   openBtn.addEventListener("click", openWizard, eventOptions);
   startBtn?.addEventListener("click", handleStart, eventOptions);
   cancelBtn?.addEventListener("click", handleCancel, eventOptions);
+  newBtn?.addEventListener("click", handleStartAnother, eventOptions);
   stopSyncBtn?.addEventListener("click", handleStopSync, eventOptions);
   startInput?.addEventListener("change", handleStartChange, eventOptions);
   startInput?.addEventListener("input", handleStartChange, eventOptions);

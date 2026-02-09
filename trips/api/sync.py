@@ -15,6 +15,7 @@ from core.api import api_route
 from core.date_utils import parse_timestamp
 from db.models import Job
 from tasks.ops import abort_job
+from tasks.config import update_task_history_entry
 from trips.models import TripSyncConfigUpdate, TripSyncRequest
 from trips.services.trip_history_import_service import (
     build_import_plan,
@@ -208,6 +209,31 @@ async def cancel_trip_history_import(progress_job_id: PydanticObjectId):
         )
 
     if job.status in {"completed", "failed", "cancelled"}:
+        # Idempotent cancel: also ensure any lingering TaskHistory lock is cleared.
+        operation_id = job.operation_id
+        if operation_id:
+            status_map = {
+                "completed": "COMPLETED",
+                "failed": "FAILED",
+                "cancelled": "CANCELLED",
+            }
+            try:
+                await update_task_history_entry(
+                    job_id=operation_id,
+                    task_name=job.task_id or "fetch_all_missing_trips",
+                    status=status_map.get(job.status, "CANCELLED"),
+                    manual_run=True,
+                    error=(
+                        "Finalized via history import cancel endpoint "
+                        f"(job already {job.status})"
+                    ),
+                    end_time=datetime.now(UTC),
+                )
+            except Exception:
+                logger.exception(
+                    "Failed to finalize task history for history import %s",
+                    operation_id,
+                )
         return {"status": "success", "message": "Job is already finished."}
 
     now = datetime.now(UTC)
@@ -224,5 +250,18 @@ async def cancel_trip_history_import(progress_job_id: PydanticObjectId):
             await abort_job(operation_id)
         except Exception:
             logger.exception("Failed to abort ARQ job %s", operation_id)
+
+        # Clear the task_history RUNNING/PENDING lock so new imports can start.
+        try:
+            await update_task_history_entry(
+                job_id=operation_id,
+                task_name=job.task_id or "fetch_all_missing_trips",
+                status="CANCELLED",
+                manual_run=True,
+                error="Cancelled via trip history import modal",
+                end_time=now,
+            )
+        except Exception:
+            logger.exception("Failed to mark task history cancelled for %s", operation_id)
 
     return {"status": "success", "message": "Import cancelled"}

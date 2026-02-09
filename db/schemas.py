@@ -128,7 +128,7 @@ class GasFillupCreateModel(BaseModel):
     """Model for creating a new gas fill-up record."""
 
     imei: str
-    fillup_time: datetime | str  # Accept ISO string or datetime
+    fillup_time: datetime  # Accept ISO string or datetime
     gallons: float
     price_per_gallon: float | None = None
     total_cost: float | None = None
@@ -136,7 +136,7 @@ class GasFillupCreateModel(BaseModel):
     latitude: float | None = None
     longitude: float | None = None
     is_full_tank: bool = True
-    notes: str | None = None
+    missed_previous: bool = False
 
     model_config = ConfigDict(extra="allow")
 

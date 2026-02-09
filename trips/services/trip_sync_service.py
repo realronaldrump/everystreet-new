@@ -77,6 +77,30 @@ class TripSyncService:
     """Trips-first sync orchestration and status."""
 
     @staticmethod
+    def _job_db_matches_task_history_db() -> bool:
+        """Best-effort guard that Job/TaskHistory are bound to the same Beanie DB.
+
+        In production this is always true. In tests, init_beanie can re-bind a
+        subset of document models to a different DB, leaving other models bound
+        to a previous DB instance. Avoid cross-DB queries so status doesn't
+        leak across test databases.
+        """
+
+        try:
+            job_db = Job.get_pymongo_collection().database
+            history_db = TaskHistory.get_pymongo_collection().database
+        except Exception:
+            return False
+
+        job_client = getattr(job_db, "client", None)
+        history_client = getattr(history_db, "client", None)
+        return (
+            job_db.name == history_db.name
+            and job_client is not None
+            and job_client is history_client
+        )
+
+    @staticmethod
     def _coerce_utc(dt: datetime) -> datetime:
         """Return a timezone-aware UTC datetime.
 
@@ -208,6 +232,25 @@ class TripSyncService:
         except Exception:
             logger.exception("Failed clearing stale trip sync entries")
 
+        # History import persists an authoritative Job document. TaskHistory can
+        # be stale/missing across restarts, so we always check for an active
+        # history import Job and expose it as "syncing".
+        active_history_job: Job | None = None
+        if TripSyncService._job_db_matches_task_history_db():
+            try:
+                active_history_job = (
+                    await Job.find(
+                        {
+                            "job_type": "trip_history_import",
+                            "status": {"$in": ["pending", "running"]},
+                        },
+                    )
+                    .sort("-created_at")
+                    .first_or_none()
+                )
+            except Exception:
+                active_history_job = None
+
         credentials = await get_bouncie_config()
         credentials_ready = _credentials_configured(credentials)
         auth_connected = _auth_connected(credentials)
@@ -292,31 +335,57 @@ class TripSyncService:
             "error": None,
         }
 
+        # Link wizard UI to the authoritative progress job when present.
+        progress_job = None
         if (
             active
             and active.task_id == "fetch_all_missing_trips"
             and active.id
         ):
-            progress_job = await Job.find_one(
-                {
-                    "job_type": "trip_history_import",
-                    "operation_id": str(active.id),
-                    "status": {"$in": ["pending", "running"]},
-                },
-            )
-            if progress_job and progress_job.id:
-                progress_job_id = str(progress_job.id)
-                status_payload.update(
+            try:
+                progress_job = await Job.find_one(
                     {
-                        "history_import_progress_job_id": progress_job_id,
-                        "history_import_progress_url": (
-                            f"/api/actions/trips/sync/history_import/{progress_job_id}"
-                        ),
-                        "history_import_progress_sse_url": (
-                            f"/api/actions/trips/sync/history_import/{progress_job_id}/sse"
-                        ),
+                        "job_type": "trip_history_import",
+                        "operation_id": str(active.id),
+                        "status": {"$in": ["pending", "running"]},
                     },
                 )
+            except Exception:
+                progress_job = None
+
+        if not progress_job:
+            progress_job = active_history_job
+
+        if progress_job and progress_job.id:
+            progress_job_id = str(progress_job.id)
+            status_payload.update(
+                {
+                    "history_import_progress_job_id": progress_job_id,
+                    "history_import_operation_id": progress_job.operation_id,
+                    "history_import_status": progress_job.status,
+                    "history_import_progress_url": (
+                        f"/api/actions/trips/sync/history_import/{progress_job_id}"
+                    ),
+                    "history_import_progress_sse_url": (
+                        f"/api/actions/trips/sync/history_import/{progress_job_id}/sse"
+                    ),
+                },
+            )
+
+        # If a history import is running, always report "syncing" so the UI can
+        # attach and offer cancel, even if credentials/settings are now paused.
+        if progress_job:
+            if not active:
+                status_payload.update(
+                    {
+                        "current_job_id": progress_job.operation_id,
+                        "active_task_id": "fetch_all_missing_trips",
+                        "active_task_status": progress_job.status,
+                        "started_at": serialize_datetime(progress_job.started_at),
+                    },
+                )
+            status_payload.update({"state": "syncing"})
+            return status_payload
 
         if not credentials_ready:
             status_payload.update(
@@ -465,6 +534,22 @@ class TripSyncService:
                 detail="Trip sync is unavailable. Check credentials or settings.",
             )
 
+        # If a history import is already running, return its progress payload so
+        # the UI can attach and show Cancel reliably.
+        if request.mode == "history" and not request.force:
+            existing = status_snapshot.get("history_import_progress_job_id")
+            if existing:
+                progress_job_id = str(existing)
+                return {
+                    "status": "running",
+                    "message": "Trip history import is already in progress.",
+                    "progress_job_id": progress_job_id,
+                    "progress_url": f"/api/actions/trips/sync/history_import/{progress_job_id}",
+                    "progress_sse_url": (
+                        f"/api/actions/trips/sync/history_import/{progress_job_id}/sse"
+                    ),
+                }
+
         if status_snapshot.get("state") == "syncing" and not request.force:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
@@ -488,6 +573,17 @@ class TripSyncService:
                 .first_or_none()
             )
             if active and not request.force:
+                progress_job_id = str(active.id) if active.id else None
+                if progress_job_id:
+                    return {
+                        "status": "running",
+                        "message": "Trip history import is already in progress.",
+                        "progress_job_id": progress_job_id,
+                        "progress_url": f"/api/actions/trips/sync/history_import/{progress_job_id}",
+                        "progress_sse_url": (
+                            f"/api/actions/trips/sync/history_import/{progress_job_id}/sse"
+                        ),
+                    }
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
                     detail="Trip history import is already in progress.",
@@ -495,6 +591,12 @@ class TripSyncService:
 
             start_dt = await resolve_import_start_dt_from_db(request.start_date)
             end_dt = datetime.now(UTC)
+
+            logger.info(
+                "Trip history import requested (start_date=%s) resolved to %s",
+                request.start_date.isoformat() if request.start_date else None,
+                start_dt.isoformat(),
+            )
 
             plan = await build_import_plan(start_dt=start_dt, end_dt=end_dt)
             devices = list(plan.get("devices") or [])
@@ -624,4 +726,24 @@ class TripSyncService:
             error="Cancelled by user",
             end_time=datetime.now(UTC),
         )
+
+        # If this was a history import, also cancel the persisted progress Job
+        # so refreshes/tabs don't stay "in progress".
+        if history.task_id == "fetch_all_missing_trips":
+            now = datetime.now(UTC)
+            progress_job = await Job.find_one(
+                {
+                    "job_type": "trip_history_import",
+                    "operation_id": job_id,
+                    "status": {"$in": ["pending", "running"]},
+                },
+            )
+            if progress_job:
+                progress_job.status = "cancelled"
+                progress_job.stage = "cancelled"
+                progress_job.message = "Cancelled"
+                progress_job.completed_at = now
+                progress_job.updated_at = now
+                await progress_job.save()
+
         return {"status": "success", "message": "Sync cancelled"}

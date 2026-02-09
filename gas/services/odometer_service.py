@@ -42,7 +42,7 @@ class OdometerService:
         if use_now:
             # Try to get real-time data from Bouncie API first
             bouncie_data = await BouncieService.fetch_vehicle_status(imei)
-            if bouncie_data and bouncie_data.get("odometer"):
+            if bouncie_data and bouncie_data.get("odometer") is not None:
                 logger.info("Using real-time Bouncie data for IMEI %s", imei)
                 return bouncie_data
 
@@ -54,6 +54,9 @@ class OdometerService:
         else:
             # Parse timestamp
             target_time = parse_timestamp(timestamp)
+            if not target_time:
+                msg = "Invalid timestamp format"
+                raise ValidationException(msg)
 
             # Find the trip closest to this timestamp
             # First, try to find a trip that contains this timestamp
@@ -247,21 +250,32 @@ class OdometerService:
             Dict with estimated_odometer, anchor_date, anchor_odometer, distance_diff, method
         """
         target_time = parse_timestamp(timestamp)
+        if not target_time:
+            msg = "Invalid timestamp format"
+            raise ValidationException(msg)
 
         # 1. Find Anchors (Gas Fill-ups)
         # Previous trusted fill-up
-        prev_fillup = await GasFillup.find_one(
-            GasFillup.imei == imei,
-            GasFillup.fillup_time <= target_time,
-            GasFillup.odometer is not None,
-        ).sort(-GasFillup.fillup_time)
+        prev_fillup = await (
+            GasFillup.find(
+                GasFillup.imei == imei,
+                GasFillup.fillup_time <= target_time,
+                GasFillup.odometer != None,  # noqa: E711
+            )
+            .sort(-GasFillup.fillup_time)
+            .first_or_none()
+        )
 
         # Next trusted fill-up
-        next_fillup = await GasFillup.find_one(
-            GasFillup.imei == imei,
-            GasFillup.fillup_time > target_time,
-            GasFillup.odometer is not None,
-        ).sort(GasFillup.fillup_time)
+        next_fillup = await (
+            GasFillup.find(
+                GasFillup.imei == imei,
+                GasFillup.fillup_time > target_time,
+                GasFillup.odometer != None,  # noqa: E711
+            )
+            .sort(GasFillup.fillup_time)
+            .first_or_none()
+        )
 
         best_anchor = None
         anchor_type = None  # "prev" or "next"
@@ -297,11 +311,15 @@ class OdometerService:
 
         # 2. If no fill-up anchor, try to find a trip anchor
         if not best_anchor:
-            prev_trip = await Trip.find_one(
-                Trip.imei == imei,
-                Trip.endTime <= target_time,
-                Trip.endOdometer is not None,
-            ).sort(-Trip.endTime)
+            prev_trip = await (
+                Trip.find(
+                    Trip.imei == imei,
+                    Trip.endTime <= target_time,
+                    Trip.endOdometer != None,  # noqa: E711
+                )
+                .sort(-Trip.endTime)
+                .first_or_none()
+            )
             if prev_trip:
                 # Standardize structure to look like fillup for calc
                 best_anchor = {

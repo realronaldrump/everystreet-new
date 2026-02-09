@@ -3,7 +3,7 @@ from beanie import init_beanie
 from mongomock_motor import AsyncMongoMockClient
 from network_blocker import install_network_blocker
 
-from db.models import Trip
+from db.models import GasFillup, Trip, Vehicle
 
 
 @pytest.fixture(autouse=True)
@@ -17,5 +17,5 @@ def _default_test_env(monkeypatch: pytest.MonkeyPatch) -> None:
 async def beanie_db():
     client = AsyncMongoMockClient()
     database = client["test_db"]
-    await init_beanie(database=database, document_models=[Trip])
+    await init_beanie(database=database, document_models=[Trip, GasFillup, Vehicle])
     return database
