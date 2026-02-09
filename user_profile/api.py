@@ -16,13 +16,13 @@ from pydantic import BaseModel
 
 from core.api import api_route
 from core.http.session import get_session
+from db.models import Vehicle
 from setup.services.bouncie_credentials import (
     get_bouncie_credentials,
     update_bouncie_credentials,
     validate_bouncie_credentials,
 )
 from setup.services.bouncie_sync import BouncieVehicleSyncError, sync_bouncie_vehicles
-from db.models import Vehicle
 
 logger = logging.getLogger(__name__)
 
@@ -342,7 +342,14 @@ async def add_bouncie_vehicle(payload: BouncieVehicleCreate):
         current_devices = [str(d).strip() for d in current_devices if str(d).strip()]
         if imei not in current_devices:
             current_devices.append(imei)
-            await update_bouncie_credentials({"authorized_devices": current_devices})
+            success = await update_bouncie_credentials(
+                {"authorized_devices": current_devices},
+            )
+            if not success:
+                raise HTTPException(
+                    status_code=500,
+                    detail="Failed to update authorized devices.",
+                )
 
     message = "Vehicle added."
     if created:

@@ -50,11 +50,11 @@ async def _fetch_vehicles(
             raise BouncieVehicleSyncError(msg) from exc
         return await fetch_all_vehicles(session, refreshed_token)
     except BouncieRateLimitError as exc:
-        logger.exception("Bouncie API rate limited during vehicle sync: %s", exc)
+        logger.exception("Bouncie API rate limited during vehicle sync")
         msg = "rate_limited"
         raise BouncieVehicleSyncError(msg) from exc
     except BouncieApiError as exc:
-        logger.exception("Bouncie API error during vehicle sync: %s", exc)
+        logger.exception("Bouncie API error during vehicle sync")
         msg = "api_error"
         raise BouncieVehicleSyncError(msg) from exc
 
