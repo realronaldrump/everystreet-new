@@ -344,10 +344,20 @@
   margin-bottom: var(--space-2);
 }
 
+.fact-value.insights-drilldown-trigger {
+  display: block;
+  width: 100%;
+}
+
 .fact-hint {
   font-size: var(--font-size-xs);
   color: var(--text-tertiary);
   line-height: 1.5;
+}
+
+.fact-hint.insights-drilldown-trigger {
+  display: block;
+  width: 100%;
 }
 
 /* ============================================
