@@ -196,11 +196,22 @@ def _expand_window_bounds_for_bouncie(
 
     Bouncie filtering params are documented as strict "after" / "before".
     Expand by 1 second to behave inclusively at the window edges.
+
+    Important: Bouncie also documents that the window between `starts-after`
+    and `ends-before` must be no longer than a week. Our import windows are
+    often exactly 7 days, so a naive +/-1s expansion can exceed that limit
+    (7 days + 2 seconds) and trigger upstream errors.
     """
 
     start = ensure_utc(window_start) or window_start
     end = ensure_utc(window_end) or window_end
-    return (start - timedelta(seconds=1), end + timedelta(seconds=1))
+    expanded_start = start - timedelta(seconds=1)
+    expanded_end = end + timedelta(seconds=1)
+    max_window = timedelta(days=7)
+    if expanded_end - expanded_start > max_window:
+        # Keep the unexpanded bounds rather than exceed the upstream limit.
+        return (start, end)
+    return (expanded_start, expanded_end)
 
 
 def _filter_trips_to_window(
