@@ -328,12 +328,17 @@ export class TripIngestIssues {
     this.navCountBadge = document.getElementById("trip-ingest-issues-nav-count");
     this.refreshBtn = document.getElementById("trip-ingest-issues-refresh");
 
+    this.bulkMenuToggle = document.getElementById("trip-ingest-issues-bulk-menu");
+    this.dismissAllBtn = document.getElementById("trip-ingest-issues-dismiss-all");
+    this.deleteAllBtn = document.getElementById("trip-ingest-issues-delete-all");
+
     this.issues = [];
     this.currentPage = 1;
     this.itemsPerPage = 25;
     this.issueType = "";
     this.includeResolved = false;
     this.search = "";
+    this.openFilteredCount = 0;
 
     this._searchDebounce = null;
 
@@ -385,6 +390,14 @@ export class TripIngestIssues {
       this.fetchIssues();
     });
 
+    this.dismissAllBtn?.addEventListener("click", () => {
+      this.bulkResolveMatchingIssues();
+    });
+
+    this.deleteAllBtn?.addEventListener("click", () => {
+      this.bulkDeleteMatchingIssues();
+    });
+
     this.tableBody.addEventListener("click", (e) => {
       const resolveBtn = e.target.closest(".trip-issue-resolve-btn");
       const deleteBtn = e.target.closest(".trip-issue-delete-btn");
@@ -421,6 +434,7 @@ export class TripIngestIssues {
       const data = await apiClient.get(`/api/trips/ingest-issues?${params.toString()}`);
       this.issues = Array.isArray(data?.issues) ? data.issues : [];
       this.totalCount = Number(data?.count) || 0;
+      this.openFilteredCount = Number(data?.open_filtered_count) || 0;
       this.renderStats(data);
       this.renderTable();
       this.renderPagination();
@@ -432,6 +446,8 @@ export class TripIngestIssues {
       if (this.paginationContainer) {
         this.paginationContainer.innerHTML = "";
       }
+      this.openFilteredCount = 0;
+      this.updateBulkActions({ count: 0, open_filtered_count: 0 });
     }
   }
 
@@ -458,6 +474,126 @@ export class TripIngestIssues {
     }
     if (this.countProcess) {
       this.countProcess.textContent = String(processCount);
+    }
+
+    this.updateBulkActions(payload);
+  }
+
+  updateBulkActions(payload) {
+    const openFiltered = Number(payload?.open_filtered_count) || 0;
+    const totalFiltered = Number(payload?.count) || 0;
+
+    if (this.dismissAllBtn) {
+      this.dismissAllBtn.disabled = openFiltered === 0;
+      this.dismissAllBtn.setAttribute("aria-disabled", String(openFiltered === 0));
+      this.dismissAllBtn.textContent = openFiltered
+        ? `Dismiss all matching (${openFiltered})`
+        : "Dismiss all matching";
+    }
+
+    if (this.deleteAllBtn) {
+      this.deleteAllBtn.disabled = totalFiltered === 0;
+      this.deleteAllBtn.setAttribute("aria-disabled", String(totalFiltered === 0));
+      this.deleteAllBtn.textContent = totalFiltered
+        ? `Delete all matching (${totalFiltered})...`
+        : "Delete all matching...";
+    }
+  }
+
+  hideBulkMenu() {
+    try {
+      if (!this.bulkMenuToggle) {
+        return;
+      }
+      const bootstrapRef = window.bootstrap;
+      if (!bootstrapRef?.Dropdown) {
+        return;
+      }
+      bootstrapRef.Dropdown.getOrCreateInstance(this.bulkMenuToggle).hide();
+    } catch {
+      // ignore
+    }
+  }
+
+  async bulkResolveMatchingIssues() {
+    const openCount = Number(this.openFilteredCount) || 0;
+    if (!openCount) {
+      notificationManager.show("No open issues to dismiss.", "info");
+      this.hideBulkMenu();
+      return;
+    }
+
+    const confirmed = await confirmationDialog.show({
+      title: "Dismiss All Matching Issues",
+      message: `Dismiss ${openCount} matching ingest issue${openCount === 1 ? "" : "s"}? This only hides them from the default view and does not delete any trips.`,
+      confirmText: "Dismiss all",
+      confirmButtonClass: "btn-success",
+    });
+
+    if (!confirmed) {
+      this.hideBulkMenu();
+      return;
+    }
+
+    try {
+      const result = await apiClient.post("/api/trips/ingest-issues/bulk_resolve", {
+        issue_type: this.issueType || null,
+        search: this.search || null,
+      });
+      const resolved = Number(result?.resolved) || 0;
+      notificationManager.show(
+        resolved
+          ? `Dismissed ${resolved} issue${resolved === 1 ? "" : "s"}.`
+          : "No issues were dismissed.",
+        resolved ? "success" : "info"
+      );
+      this.currentPage = 1;
+      this.fetchIssues();
+    } catch (error) {
+      notificationManager.show(error.message || "Failed to dismiss issues.", "danger");
+    } finally {
+      this.hideBulkMenu();
+    }
+  }
+
+  async bulkDeleteMatchingIssues() {
+    const total = Number(this.totalCount) || 0;
+    if (!total) {
+      notificationManager.show("No issues to delete.", "info");
+      this.hideBulkMenu();
+      return;
+    }
+
+    const resolvedSuffix = this.includeResolved ? " (including dismissed)" : "";
+    const confirmed = await confirmationDialog.show({
+      title: "Delete All Matching Issues",
+      message: `Delete ${total} matching ingest issue${total === 1 ? "" : "s"}${resolvedSuffix}? This only clears the diagnostics log and does not delete any trips.`,
+      confirmText: "Delete all",
+      confirmButtonClass: "btn-danger",
+    });
+
+    if (!confirmed) {
+      this.hideBulkMenu();
+      return;
+    }
+
+    try {
+      const result = await apiClient.post("/api/trips/ingest-issues/bulk_delete", {
+        issue_type: this.issueType || null,
+        include_resolved: Boolean(this.includeResolved),
+        search: this.search || null,
+      });
+      const deleted = Number(result?.deleted) || 0;
+      notificationManager.show(
+        deleted ? `Deleted ${deleted} issue${deleted === 1 ? "" : "s"}.` : "No issues were deleted.",
+        deleted ? "success" : "info"
+      );
+      this.currentPage = 1;
+      this.fetchIssues();
+    } catch (error) {
+      notificationManager.show(error.message || "Failed to delete issues.", "danger");
+    } finally {
+      this.hideBulkMenu();
     }
   }
 

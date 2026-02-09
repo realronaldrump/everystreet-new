@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import re
 from datetime import UTC, datetime
 from typing import Any
 
@@ -30,6 +31,36 @@ def _clean_message(message: str | None, *, limit: int = 240) -> str:
 def _fingerprint(payload: dict[str, Any]) -> str:
     encoded = json.dumps(payload, sort_keys=True, default=str).encode("utf-8")
     return hashlib.sha1(encoded).hexdigest()  # nosec - non-crypto dedupe key
+
+
+def _build_issue_query(
+    *,
+    issue_type: str | None = None,
+    include_resolved: bool = False,
+    search: str | None = None,
+) -> dict[str, Any]:
+    query: dict[str, Any] = {}
+
+    if issue_type:
+        query["issue_type"] = issue_type
+
+    if not include_resolved:
+        query["resolved"] = {"$ne": True}
+
+    if search:
+        s = str(search).strip()
+        if s:
+            # Treat search input as a literal substring, not a regex.
+            # This avoids accidental regex chars (e.g. ".*") matching everything.
+            pattern = re.escape(s)
+            query["$or"] = [
+                {"message": {"$regex": pattern, "$options": "i"}},
+                {"transactionId": {"$regex": pattern, "$options": "i"}},
+                {"imei": {"$regex": pattern, "$options": "i"}},
+                {"source": {"$regex": pattern, "$options": "i"}},
+            ]
+
+    return query
 
 
 class TripIngestIssueService:
@@ -118,22 +149,16 @@ class TripIngestIssueService:
         safe_page = max(1, int(page or 1))
         safe_limit = max(1, min(200, int(limit or 50)))
 
-        query: dict[str, Any] = {}
-        if issue_type:
-            query["issue_type"] = issue_type
-        if not include_resolved:
-            query["resolved"] = {"$ne": True}
-
-        if search:
-            s = str(search).strip()
-            if s:
-                # Basic substring match across a few high-signal fields.
-                query["$or"] = [
-                    {"message": {"$regex": s, "$options": "i"}},
-                    {"transactionId": {"$regex": s, "$options": "i"}},
-                    {"imei": {"$regex": s, "$options": "i"}},
-                    {"source": {"$regex": s, "$options": "i"}},
-                ]
+        query = _build_issue_query(
+            issue_type=issue_type,
+            include_resolved=include_resolved,
+            search=search,
+        )
+        open_query = _build_issue_query(
+            issue_type=issue_type,
+            include_resolved=False,
+            search=search,
+        )
 
         cursor = TripIngestIssue.find(query).sort("-last_seen_at")
         total = await cursor.count()
@@ -166,6 +191,8 @@ class TripIngestIssueService:
                 {"resolved": {"$ne": True}, "issue_type": t},
             ).count()
 
+        open_filtered = await TripIngestIssue.find(open_query).count()
+
         return {
             "status": "success",
             "issues": issues,
@@ -174,6 +201,7 @@ class TripIngestIssueService:
             "limit": safe_limit,
             "open_total": open_total,
             "open_counts": type_counts,
+            "open_filtered_count": open_filtered,
         }
 
     @staticmethod
@@ -209,3 +237,42 @@ class TripIngestIssueService:
 
         await issue.delete()
         return True
+
+    @staticmethod
+    async def bulk_resolve(
+        *,
+        issue_type: str | None = None,
+        search: str | None = None,
+    ) -> int:
+        """Resolve/dismiss all matching (unresolved) ingest issues."""
+        query = _build_issue_query(
+            issue_type=issue_type,
+            include_resolved=False,
+            search=search,
+        )
+
+        now = datetime.now(UTC)
+        collection = TripIngestIssue.get_motor_collection()
+        result = await collection.update_many(
+            query,
+            {"$set": {"resolved": True, "resolved_at": now}},
+        )
+        return int(getattr(result, "modified_count", 0) or 0)
+
+    @staticmethod
+    async def bulk_delete(
+        *,
+        issue_type: str | None = None,
+        include_resolved: bool = False,
+        search: str | None = None,
+    ) -> int:
+        """Delete all matching ingest issue records."""
+        query = _build_issue_query(
+            issue_type=issue_type,
+            include_resolved=include_resolved,
+            search=search,
+        )
+
+        collection = TripIngestIssue.get_motor_collection()
+        result = await collection.delete_many(query)
+        return int(getattr(result, "deleted_count", 0) or 0)

@@ -371,3 +371,40 @@ async def delete_trip_ingest_issue(issue_id: str):
     if not ok:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Issue not found")
     return {"status": "success"}
+
+
+@router.post("/api/trips/ingest-issues/bulk_resolve", tags=["Trips API"])
+@api_route(logger)
+async def bulk_resolve_trip_ingest_issues(request: Request):
+    """Bulk resolve/dismiss matching ingest issues (does not delete trips)."""
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+
+    issue_type = body.get("issue_type") or None
+    search = body.get("search") or None
+
+    resolved = await TripIngestIssueService.bulk_resolve(issue_type=issue_type, search=search)
+    return {"status": "success", "resolved": resolved}
+
+
+@router.post("/api/trips/ingest-issues/bulk_delete", tags=["Trips API"])
+@api_route(logger)
+async def bulk_delete_trip_ingest_issues(request: Request):
+    """Bulk delete matching ingest issue records (does not delete trips)."""
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+
+    issue_type = body.get("issue_type") or None
+    include_resolved = bool(body.get("include_resolved"))
+    search = body.get("search") or None
+
+    deleted = await TripIngestIssueService.bulk_delete(
+        issue_type=issue_type,
+        include_resolved=include_resolved,
+        search=search,
+    )
+    return {"status": "success", "deleted": deleted}

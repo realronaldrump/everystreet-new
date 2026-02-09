@@ -1015,6 +1015,32 @@ Details
 	                  <i class="fas fa-rotate-right"></i>
 	                  <span class="d-none d-md-inline">Refresh</span>
 	                </button>
+	                <div class="dropdown">
+	                  <button class="btn btn-outline-secondary btn-sm dropdown-toggle trip-issues-bulk-toggle"
+	                          type="button"
+	                          id="trip-ingest-issues-bulk-menu"
+	                          data-bs-toggle="dropdown"
+	                          aria-expanded="false">
+	                    <i class="fas fa-layer-group"></i>
+	                    Bulk
+	                  </button>
+	                  <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="trip-ingest-issues-bulk-menu">
+	                    <li>
+	                      <button class="dropdown-item"
+	                              type="button"
+	                              id="trip-ingest-issues-dismiss-all">
+	                        Dismiss all matching
+	                      </button>
+	                    </li>
+	                    <li>
+	                      <button class="dropdown-item text-danger"
+	                              type="button"
+	                              id="trip-ingest-issues-delete-all">
+	                        Delete all matching...
+	                      </button>
+	                    </li>
+	                  </ul>
+	                </div>
 	              </div>
 	            </div>
 
@@ -1074,6 +1100,13 @@ Details
 	                        title="Refresh invalid trips">
 	                  <i class="fas fa-rotate-right"></i>
 	                  <span class="d-none d-md-inline">Refresh</span>
+	                </button>
+	                <button type="button"
+	                        class="btn btn-outline-danger btn-sm"
+	                        id="invalid-trips-delete-all"
+	                        title="Delete all invalid trips">
+	                  <i class="fas fa-trash"></i>
+	                  <span class="d-none d-md-inline">Delete all</span>
 	                </button>
 	              </div>
 	            </div>

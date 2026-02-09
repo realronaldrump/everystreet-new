@@ -11,6 +11,7 @@ export class InvalidTripReview {
 
     this.navCountBadge = document.getElementById("invalid-trips-nav-count");
     this.refreshBtn = document.getElementById("invalid-trips-refresh");
+    this.deleteAllBtn = document.getElementById("invalid-trips-delete-all");
 
     this.trips = [];
     this.currentPage = 1;
@@ -37,6 +38,12 @@ export class InvalidTripReview {
         const count = Array.isArray(this.trips) ? this.trips.length : 0;
         this.navCountBadge.textContent = String(count);
         this.navCountBadge.classList.toggle("is-empty", count === 0);
+      }
+
+      if (this.deleteAllBtn) {
+        const count = Array.isArray(this.trips) ? this.trips.length : 0;
+        this.deleteAllBtn.disabled = count === 0;
+        this.deleteAllBtn.setAttribute("aria-disabled", String(count === 0));
       }
 
       this.renderTable();
@@ -95,28 +102,38 @@ export class InvalidTripReview {
         const disableActions = !transactionId;
         const disabledAttr = disableActions ? "disabled" : "";
 
+        const tripCell = transactionId
+          ? `<a class="trip-issue-link trip-issues-mono" href="/trips/${encodeURIComponent(
+              transactionId
+            )}" data-no-swup>${escapeHtml(transactionId)}</a>`
+          : `<span class="trip-issues-mono">N/A</span>`;
+
+        const actions = disableActions
+          ? '<span class="text-muted">—</span>'
+          : `
+            <div class="trip-issues-actions">
+              <button class="btn btn-outline-success btn-sm restore-trip-btn"
+                      data-trip-id="${escapeHtml(transactionId)}"
+                      type="button"
+                      ${disabledAttr}>
+                Restore
+              </button>
+              <button class="btn btn-outline-danger btn-sm delete-trip-btn"
+                      data-trip-id="${escapeHtml(transactionId)}"
+                      type="button"
+                      ${disabledAttr}>
+                Delete
+              </button>
+            </div>
+          `;
+
         return `
       <tr data-trip-id="${escapeHtml(transactionId)}">
-        <td><span class="trip-issues-mono">${escapeHtml(transactionId || "N/A")}</span></td>
+        <td>${tripCell}</td>
         <td>${escapeHtml(source)}</td>
         <td class="col-hide-mobile">${escapeHtml(formatDate(when))}</td>
         <td>${escapeHtml(reason)}</td>
-        <td>
-          <div class="btn-group btn-group-sm">
-            <button class="btn btn-outline-success restore-trip-btn"
-                    data-trip-id="${escapeHtml(transactionId)}"
-                    title="Restore trip"
-                    ${disabledAttr}>
-              <i class="fas fa-undo"></i>
-            </button>
-            <button class="btn btn-outline-danger delete-trip-btn"
-                    data-trip-id="${escapeHtml(transactionId)}"
-                    title="Delete permanently"
-                    ${disabledAttr}>
-              <i class="fas fa-trash"></i>
-            </button>
-          </div>
-        </td>
+        <td>${actions}</td>
       </tr>
     `;
       })
@@ -124,13 +141,17 @@ export class InvalidTripReview {
   }
 
   attachEventListeners() {
-    if (!this.tableBody) {
-      return;
-    }
-
     this.refreshBtn?.addEventListener("click", () => {
       this.fetchInvalidTrips();
     });
+
+    this.deleteAllBtn?.addEventListener("click", () => {
+      this.bulkDeleteInvalidTrips();
+    });
+
+    if (!this.tableBody) {
+      return;
+    }
 
     this.tableBody.addEventListener("click", (e) => {
       const restoreBtn = e.target.closest(".restore-trip-btn");
@@ -187,6 +208,57 @@ export class InvalidTripReview {
       this.fetchInvalidTrips();
     } catch (error) {
       notificationManager.show(`Failed to delete trip: ${error.message}`, "danger");
+    }
+  }
+
+  async bulkDeleteInvalidTrips() {
+    const tripIds = Array.isArray(this.trips)
+      ? this.trips.map((t) => t?.transaction_id).filter(Boolean)
+      : [];
+
+    if (!tripIds.length) {
+      notificationManager.show("No invalid trips to delete.", "info");
+      return;
+    }
+
+    const confirmed = await confirmationDialog.show({
+      title: "Delete All Invalid Trips",
+      message: `Permanently delete ${tripIds.length} invalid trip${
+        tripIds.length === 1 ? "" : "s"
+      }? This cannot be undone.`,
+      confirmText: "Delete all",
+      confirmButtonClass: "btn-danger",
+    });
+
+    if (!confirmed) {
+      return;
+    }
+
+    const btn = this.deleteAllBtn;
+    if (btn) {
+      btn.disabled = true;
+      btn.setAttribute("aria-disabled", "true");
+    }
+
+    try {
+      const result = await apiClient.post("/api/trips/bulk_delete", { trip_ids: tripIds });
+      const deleted = Number(result?.deleted_trips) || 0;
+      notificationManager.show(
+        deleted
+          ? `Deleted ${deleted} trip${deleted === 1 ? "" : "s"}.`
+          : "No trips were deleted.",
+        deleted ? "success" : "info"
+      );
+      this.currentPage = 1;
+      await this.fetchInvalidTrips();
+    } catch (error) {
+      notificationManager.show(error.message || "Failed to delete trips.", "danger");
+    } finally {
+      if (btn) {
+        const count = Array.isArray(this.trips) ? this.trips.length : 0;
+        btn.disabled = count === 0;
+        btn.setAttribute("aria-disabled", String(count === 0));
+      }
     }
   }
 

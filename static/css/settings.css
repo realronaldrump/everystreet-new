@@ -2212,6 +2212,25 @@
   align-items: center;
 }
 
+.trip-issues-bulk-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.trip-issues-toolbar .dropdown-item:disabled {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.trip-issues-toolbar .dropdown-item.text-danger {
+  color: var(--danger);
+}
+
+.trip-issues-toolbar .dropdown-item.text-danger:hover {
+  color: var(--danger);
+}
+
 .trip-issues-refresh {
   display: inline-flex;
   align-items: center;
@@ -2224,6 +2243,16 @@
 
 .trip-issues-switch {
   margin: 0;
+}
+
+@media (width < 768px) {
+  .trip-issues-controls .btn {
+    min-height: 44px;
+  }
+
+  .trip-issues-controls .form-control {
+    min-height: 44px;
+  }
 }
 
 .trip-issues-table th,
