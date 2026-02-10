@@ -294,7 +294,7 @@ const AppController = {
     const preloadTripId = getPreloadTripIdFromUrl();
     if (preloadTripId) {
       requestAnimationFrame(() => mapManager.zoomToTrip(preloadTripId));
-    } else if (state.mapLayers.trips?.layer?.features?.length) {
+    } else {
       requestAnimationFrame(() => mapManager.zoomToLastTrip());
     }
   },

@@ -102,7 +102,8 @@ body.light-mode .turn-by-turn {
   z-index: 0;
 }
 
-.turn-by-turn .mapboxgl-ctrl-bottom-right {
+.turn-by-turn .mapboxgl-ctrl-bottom-right,
+.turn-by-turn .maplibregl-ctrl-bottom-right {
   bottom: calc(env(safe-area-inset-bottom) + 190px);
   right: 12px;
 }

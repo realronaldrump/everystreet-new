@@ -27,9 +27,40 @@ import { DateUtils, utils } from "./utils.js";
 // ============================================================
 
 const dataManager = {
+  // Cache-buster version for vector tiles (fetched from backend).
+  _tripTilesVersion: null,
+  _tripTilesVersionCheckedAt: 0,
+
+  async _getTripTilesVersion() {
+    const now = Date.now();
+    // Avoid a version fetch for every updateMap() call.
+    if (this._tripTilesVersion && now - this._tripTilesVersionCheckedAt < 2000) {
+      return this._tripTilesVersion;
+    }
+    this._tripTilesVersionCheckedAt = now;
+    try {
+      const data = await utils.fetchWithRetry(
+        CONFIG.API.tripTilesVersion,
+        {},
+        0,
+        0,
+        "fetchTripTilesVersion"
+      );
+      const version = data?.version != null ? String(data.version) : null;
+      if (version) {
+        this._tripTilesVersion = version;
+        return version;
+      }
+    } catch (err) {
+      // Non-fatal: tiles will still render, but HTTP caches may serve stale content longer.
+      console.warn("Failed to fetch trip tiles version:", err);
+    }
+    return this._tripTilesVersion;
+  },
+
   /**
    * Fetch trips data and update the trips layer
-   * @returns {Promise<Object|null>} GeoJSON FeatureCollection or null
+   * @returns {Promise<Object|null>} Vector config or GeoJSON FeatureCollection (legacy) or null
    */
   async fetchTrips() {
     if (!state.mapInitialized) {
@@ -40,9 +71,47 @@ const dataManager = {
 
     try {
       const { start, end } = DateUtils.getCachedDateRange();
+      const imei = utils.getStorage(CONFIG.STORAGE_KEYS.selectedVehicle);
       const params = new URLSearchParams({ start_date: start, end_date: end });
+      if (imei) {
+        params.set("imei", imei);
+      }
       loadingManager.updateMessage(`Loading trips from ${start} to ${end}...`);
 
+      if (CONFIG.MAP.useVectorTripTiles) {
+        const version = await this._getTripTilesVersion();
+        if (version) {
+          params.set("v", version);
+        }
+        const tileTemplate = `${CONFIG.API.tripTiles}/{z}/{x}/{y}.pbf?${params}`;
+        const vectorConfig = {
+          kind: "vector",
+          tiles: [tileTemplate],
+          sourceLayer: "trips",
+          minzoom: 0,
+          maxzoom: CONFIG.MAP.maxZoom,
+        };
+
+        loadingManager.updateMessage("Rendering trips...");
+        await layerManager.updateMapLayer("trips", vectorConfig);
+
+        document.dispatchEvent(
+          new CustomEvent("tripsDataLoaded", {
+            detail: {
+              kind: "vector",
+              featureCount: null,
+              tileTemplate,
+              start,
+              end,
+              imei: imei || null,
+            },
+          })
+        );
+
+        return vectorConfig;
+      }
+
+      // Legacy fallback (GeoJSON) for deployments that disable vector tiles.
       const rawTripData = await utils.fetchWithRetry(
         `${CONFIG.API.trips}?${params}`,
         {},
@@ -82,7 +151,7 @@ const dataManager = {
 
   /**
    * Fetch matched trips data and update the layer
-   * @returns {Promise<Object|null>} GeoJSON FeatureCollection or null
+   * @returns {Promise<Object|null>} Vector config or GeoJSON FeatureCollection (legacy) or null
    */
   async fetchMatchedTrips() {
     if (!state.mapInitialized) {
@@ -93,14 +162,41 @@ const dataManager = {
 
     try {
       const { start, end } = DateUtils.getCachedDateRange();
-      const params = new URLSearchParams({
+      const imei = utils.getStorage(CONFIG.STORAGE_KEYS.selectedVehicle);
+      const params = new URLSearchParams({ start_date: start, end_date: end });
+      if (imei) {
+        params.set("imei", imei);
+      }
+
+      if (CONFIG.MAP.useVectorTripTiles) {
+        const version = await this._getTripTilesVersion();
+        if (version) {
+          params.set("v", version);
+        }
+        const tileTemplate = `${CONFIG.API.matchedTripTiles}/{z}/{x}/{y}.pbf?${params}`;
+        const vectorConfig = {
+          kind: "vector",
+          tiles: [tileTemplate],
+          sourceLayer: "trips",
+          minzoom: 0,
+          maxzoom: CONFIG.MAP.maxZoom,
+        };
+
+        state.mapLayers.matchedTrips.layer = vectorConfig;
+        await layerManager.updateMapLayer("matchedTrips", vectorConfig);
+        return vectorConfig;
+      }
+
+      // Legacy fallback (GeoJSON)
+      const legacyParams = new URLSearchParams({
         start_date: start,
         end_date: end,
         format: "geojson",
+        ...(imei ? { imei } : {}),
       });
 
       const rawData = await utils.fetchWithRetry(
-        `${CONFIG.API.matchedTrips}?${params}`,
+        `${CONFIG.API.matchedTrips}?${legacyParams}`,
         {},
         CONFIG.API.retryAttempts,
         CONFIG.API.cacheTime,
@@ -108,16 +204,16 @@ const dataManager = {
       );
 
       const data = this._coerceFeatureCollection(rawData);
-      if (data) {
-        // Tag recent matched trips
-        this._tagRecentTrips(data);
-
-        state.mapLayers.matchedTrips.layer = data;
-        await layerManager.updateMapLayer("matchedTrips", data);
-        return data;
+      if (!data) {
+        return null;
       }
 
-      return null;
+      // Tag recent matched trips
+      this._tagRecentTrips(data);
+
+      state.mapLayers.matchedTrips.layer = data;
+      await layerManager.updateMapLayer("matchedTrips", data);
+      return data;
     } catch (error) {
       if (error?.name === "AbortError") {
         return null;
@@ -262,21 +358,60 @@ const dataManager = {
   async fetchMetrics() {
     try {
       const { start, end } = DateUtils.getCachedDateRange();
+      const imei = utils.getStorage(CONFIG.STORAGE_KEYS.selectedVehicle);
       const params = new URLSearchParams({ start_date: start, end_date: end });
+      if (imei) {
+        params.set("imei", imei);
+      }
 
       const data = await utils.fetchWithRetry(
-        `${CONFIG.API.tripAnalytics}?${params}`,
+        `${CONFIG.API.tripMetrics}?${params}`,
         {},
         CONFIG.API.retryAttempts,
         CONFIG.API.cacheTime,
         "fetchMetrics"
       );
 
-      if (data) {
-        document.dispatchEvent(new CustomEvent("metricsUpdated", { detail: data }));
-      }
+      // `/api/metrics` returns strings for some numeric fields. Normalize for UI consumers.
+      const totalTrips = Number.parseInt(data?.total_trips ?? data?.totalTrips ?? 0, 10) || 0;
+      const totalDistanceMiles = Number.parseFloat(data?.total_distance ?? data?.totalDistance ?? 0) || 0;
+      const avgSpeed = Number.parseFloat(data?.avg_speed ?? data?.avgSpeed ?? 0) || 0;
+      const maxSpeed = Number.parseFloat(data?.max_speed ?? data?.maxSpeed ?? 0) || 0;
+      const avgDistanceMiles = Number.parseFloat(data?.avg_distance ?? data?.avgDistance ?? 0) || 0;
+      const avgStartTime = data?.avg_start_time ?? data?.avgStartTime ?? "--:--";
+      const avgDrivingTime = data?.avg_driving_time ?? data?.avgDrivingTime ?? "--:--";
 
-      return data;
+      // Update the legacy metrics table on the map page if it exists.
+      metricsManager.updateTripsTableFromApi?.({
+        totalTrips,
+        totalDistanceMiles,
+        avgDistanceMiles,
+        avgStartTime,
+        avgDrivingTime,
+        avgSpeed,
+        maxSpeed,
+      });
+
+      const detail = {
+        source: "dataManager",
+        updatedAt: Date.now(),
+        totals: { totalTrips, totalDistanceMiles, avgSpeed, maxSpeed },
+        metrics: {
+          totalTrips,
+          totalDistanceMiles,
+          avgDistanceMiles,
+          avgStartTime,
+          avgDrivingTime,
+          avgSpeed,
+          maxSpeed,
+        },
+      };
+      document.dispatchEvent(new CustomEvent("metricsUpdated", { detail }));
+
+      // Store a copy for other modules (e.g. heatmap styling) to use without extra fetches.
+      state.tripTotals = detail.totals;
+
+      return detail;
     } catch (error) {
       if (error?.name === "AbortError") {
         return null;
@@ -307,6 +442,8 @@ const dataManager = {
       if (state.mapLayers.trips.visible) {
         promises.push(this.fetchTrips());
       }
+      // Metrics are needed for the map stats widget regardless of which layers are toggled.
+      promises.push(this.fetchMetrics());
       if (state.mapLayers.matchedTrips.visible) {
         promises.push(this.fetchMatchedTrips());
       }

@@ -154,8 +154,8 @@ const mapControlsManager = {
         map.once("styledata", onStyleLoaded);
       }
 
-      // Get style URL
-      const styleUrl = CONFIG.MAP.styles[type] || `mapbox://styles/mapbox/${type}-v11`;
+      // Get style URL (no Mapbox-protocol fallbacks; styles are configured in CONFIG).
+      const styleUrl = CONFIG.MAP.styles[type] || CONFIG.MAP.styles.dark;
 
       // Apply new style
       map.setStyle(styleUrl);

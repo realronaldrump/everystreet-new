@@ -10,10 +10,10 @@
 
 // API base URL
 import apiClient from "../../core/api-client.js";
+import { CONFIG } from "../../core/config.js";
 import confirmationDialog from "../../ui/confirmation-dialog.js";
 import GlobalJobTracker from "../../ui/global-job-tracker.js";
 import notificationManager from "../../ui/notifications.js";
-import { getMapboxToken } from "../../mapbox-token.js";
 import { debounce, escapeHtml } from "../../utils.js";
 import { isJobTerminalStatus, renderAreasTable } from "./areas.js";
 import { setMetricValue } from "./stats.js";
@@ -1185,15 +1185,11 @@ function initOrUpdateMap(areaId, bbox) {
   container.innerHTML = ""; // Clear loading spinner
 
   if (!map) {
-    const token = getMapboxToken();
-    if (!token) {
-      showNotification("Mapbox access token not configured", "danger");
-      return;
-    }
-    mapboxgl.accessToken = token;
+    const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
+    const styleUrl = CONFIG.MAP.styles[theme] || CONFIG.MAP.styles.dark;
     map = new mapboxgl.Map({
       container: "coverage-map",
-      style: "mapbox://styles/mapbox/dark-v11",
+      style: styleUrl,
       bounds: [
         [bbox[0], bbox[1]],
         [bbox[2], bbox[3]],

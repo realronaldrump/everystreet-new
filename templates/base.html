@@ -49,9 +49,9 @@
       <!-- Resource hints -->
       <link rel="dns-prefetch" href="//cdn.jsdelivr.net" />
       <link rel="dns-prefetch" href="//cdnjs.cloudflare.com" />
-      <link rel="dns-prefetch" href="//api.mapbox.com" />
       <link rel="preconnect" href="//cdn.jsdelivr.net" crossorigin />
-      <link rel="preconnect" href="//api.mapbox.com" crossorigin />
+      <link rel="dns-prefetch" href="//tiles.openfreemap.org" />
+      <link rel="preconnect" href="//tiles.openfreemap.org" crossorigin />
 
       <!-- Favicon -->
       <link rel="icon"
@@ -1005,6 +1005,11 @@ System
 
       <!-- Libraries used across routes (swup does not execute scripts from fetched HTML) -->
       <script src="{{ CDN.mapbox_gl_js }}"></script>
+      <script>
+          // MapLibre defines `maplibregl` global. Keep legacy modules working by
+          // shimming Mapbox GL's `mapboxgl` name.
+          window.mapboxgl = window.maplibregl;
+      </script>
       <script src="{{ CDN.mapbox_draw_js }}"></script>
       <script src="{{ CDN.topojson }}"></script>
 

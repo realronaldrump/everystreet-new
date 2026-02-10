@@ -182,27 +182,32 @@
   overflow: hidden;
 }
 
-.mapboxgl-ctrl-draw-btn {
+.mapboxgl-ctrl-draw-btn,
+.maplibregl-ctrl-draw-btn {
   background-color: var(--primary);
   color: var(--text-on-primary);
 }
 
-.mapboxgl-ctrl-draw-btn:hover {
+.mapboxgl-ctrl-draw-btn:hover,
+.maplibregl-ctrl-draw-btn:hover {
   background-color: var(--primary-light);
 }
 
-.mapboxgl-ctrl-draw-btn.active {
+.mapboxgl-ctrl-draw-btn.active,
+.maplibregl-ctrl-draw-btn.active {
   background-color: var(--success);
 }
 
 /* Custom draw controls styling */
-.mapboxgl-ctrl-draw {
+.mapboxgl-ctrl-draw,
+.maplibregl-ctrl-draw {
   background: var(--surface-glass);
   border-radius: var(--radius-sm);
   box-shadow: var(--shadow-md);
 }
 
-.mapboxgl-ctrl-draw button {
+.mapboxgl-ctrl-draw button,
+.maplibregl-ctrl-draw button {
   background-color: transparent;
   border: none;
   color: var(--text-on-dark);
@@ -213,11 +218,13 @@
   transition: var(--transition-fast);
 }
 
-.mapboxgl-ctrl-draw button:hover {
+.mapboxgl-ctrl-draw button:hover,
+.maplibregl-ctrl-draw button:hover {
   background-color: rgb(var(--text-rgb) / 10%);
 }
 
-.mapboxgl-ctrl-draw button.active {
+.mapboxgl-ctrl-draw button.active,
+.maplibregl-ctrl-draw button.active {
   background-color: var(--primary);
   color: var(--text-on-primary);
 }
@@ -374,7 +381,8 @@
 }
 
 /* Coverage segment popup */
-.coverage-segment-popup .mapboxgl-popup-content {
+.coverage-segment-popup .mapboxgl-popup-content,
+.coverage-segment-popup .maplibregl-popup-content {
   background: var(--surface-2);
   color: var(--text-primary);
   border: 1px solid var(--border-color);
@@ -384,13 +392,15 @@
   min-width: 200px;
 }
 
-.coverage-segment-popup .mapboxgl-popup-close-button {
+.coverage-segment-popup .mapboxgl-popup-close-button,
+.coverage-segment-popup .maplibregl-popup-close-button {
   color: var(--text-secondary);
   font-size: 1.25rem;
   padding: 2px 6px;
 }
 
-.coverage-segment-popup.mapboxgl-popup-anchor-bottom .mapboxgl-popup-tip {
+.coverage-segment-popup.mapboxgl-popup-anchor-bottom .mapboxgl-popup-tip,
+.coverage-segment-popup.maplibregl-popup-anchor-bottom .maplibregl-popup-tip {
   border-top-color: var(--surface-2);
 }
 

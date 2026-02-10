@@ -1,6 +1,7 @@
 /* global mapboxgl */
 
 import { createMap } from "../map-base.js";
+import { CONFIG } from "../core/config.js";
 import MapStyles from "../map-styles.js";
 import { VisitsGeometry } from "./geometry.js";
 
@@ -26,10 +27,7 @@ class VisitsMapController {
         this.mapStyle = theme || "dark";
         this.map = createMap("map", {
           library: "mapbox",
-          style:
-            this.mapStyle === "light"
-              ? "mapbox://styles/mapbox/light-v11"
-              : "mapbox://styles/mapbox/dark-v11",
+          style: CONFIG.MAP.styles[this.mapStyle] || CONFIG.MAP.styles.dark,
           center: [-95.7129, 37.0902],
           zoom: 4,
           attributionControl: false,
@@ -173,8 +171,8 @@ class VisitsMapController {
     this.mapStyle = this.mapStyle === "satellite" ? "dark" : "satellite";
     const styleUrl
       = this.mapStyle === "satellite"
-        ? "mapbox://styles/mapbox/satellite-streets-v12"
-        : "mapbox://styles/mapbox/dark-v11";
+        ? (CONFIG.MAP.styles.satellite || CONFIG.MAP.styles.dark)
+        : CONFIG.MAP.styles.dark;
 
     this.map.setStyle(styleUrl);
     this.map.once("styledata", () => {
@@ -189,8 +187,8 @@ class VisitsMapController {
     this.mapStyle = theme === "light" ? "light" : "dark";
     const styleUrl
       = this.mapStyle === "light"
-        ? "mapbox://styles/mapbox/light-v11"
-        : "mapbox://styles/mapbox/dark-v11";
+        ? CONFIG.MAP.styles.light
+        : CONFIG.MAP.styles.dark;
 
     const center = this.map?.getCenter();
     const zoom = this.map?.getZoom();

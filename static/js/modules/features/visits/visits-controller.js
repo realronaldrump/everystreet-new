@@ -4,7 +4,7 @@
  */
 
 import confirmationDialog from "../../ui/confirmation-dialog.js";
-import { getMapboxToken } from "../../mapbox-token.js";
+import { CONFIG } from "../../core/config.js";
 import { VisitsGeometry } from "../../visits/geometry.js";
 import VisitsManager from "../../visits/visits-manager.js";
 
@@ -837,17 +837,8 @@ class VisitsPageController {
       return;
     }
 
-    const token = getMapboxToken();
-    if (!token) {
-      return;
-    }
-
-    mapboxgl.accessToken = token;
     const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
-    const style
-      = theme === "light"
-        ? "mapbox://styles/mapbox/light-v11"
-        : "mapbox://styles/mapbox/dark-v11";
+    const style = CONFIG.MAP.styles[theme] || CONFIG.MAP.styles.dark;
 
     pageSuggestions.forEach((suggestion, pageIndex) => {
       if (!suggestion?.boundary) {

@@ -40,7 +40,8 @@
     grid-template-columns: 1fr;
   }
 
-  .turn-by-turn .mapboxgl-ctrl-bottom-right {
+  .turn-by-turn .mapboxgl-ctrl-bottom-right,
+  .turn-by-turn .maplibregl-ctrl-bottom-right {
     bottom: calc(env(safe-area-inset-bottom) + 230px);
   }
 }

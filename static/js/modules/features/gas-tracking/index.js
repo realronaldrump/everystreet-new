@@ -1,6 +1,7 @@
 /* global mapboxgl */
 
 import apiClient from "../../core/api-client.js";
+import { CONFIG } from "../../core/config.js";
 import store from "../../core/store.js";
 import { createMap } from "../../map-base.js";
 import { getMapboxToken } from "../../mapbox-token.js";
@@ -96,25 +97,26 @@ async function initializePage(signal, cleanup) {
  * Initialize Mapbox map
  */
 async function initializeMap() {
-  const token = getMapboxToken();
-  if (!token) {
-    return;
-  }
+  const token = getMapboxToken(); // Optional when using non-Mapbox styles.
 
   // Use the shared map factory if available to ensure consistent styling
   if (createMap) {
     map = createMap("fillup-map", {
       center: [-95.7129, 37.0902],
       zoom: 4,
-      accessToken: token,
+      accessToken: token || undefined,
       attributionControl: false,
     });
   } else {
     // Fallback if factory not found
-    mapboxgl.accessToken = token;
+    if (token) {
+      mapboxgl.accessToken = token;
+    }
+    const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
+    const styleUrl = CONFIG.MAP.styles[theme] || CONFIG.MAP.styles.dark;
     map = new mapboxgl.Map({
       container: "fillup-map",
-      style: "mapbox://styles/mapbox/dark-v11",
+      style: styleUrl,
       center: [-95.7129, 37.0902],
       zoom: 4,
       attributionControl: false,

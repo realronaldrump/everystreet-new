@@ -172,6 +172,6 @@ export function getMapStyle() {
     || document.documentElement.classList.contains("dark-mode")
     || !document.documentElement.classList.contains("light-mode");
   return isDark
-    ? "mapbox://styles/mapbox/dark-v11"
-    : "mapbox://styles/mapbox/light-v11";
+    ? "https://tiles.openfreemap.org/styles/dark"
+    : "https://tiles.openfreemap.org/styles/positron";
 }

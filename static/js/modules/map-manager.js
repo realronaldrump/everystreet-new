@@ -15,7 +15,7 @@ import { CONFIG } from "./core/config.js";
 import store from "./core/store.js";
 import mapCore from "./map-core.js";
 import MapStyles from "./map-styles.js";
-import { utils } from "./utils.js";
+import { DateUtils, utils } from "./utils.js";
 
 // Debounced view state saver
 let saveViewStateDebounced = null;
@@ -23,6 +23,77 @@ let saveViewStateDebounced = null;
 const mapManager = {
   // Track if view state listener is bound
   _viewListenerBound: false,
+  _selectedTripOverlayRequestId: 0,
+
+  _coerceEpochToMs(value) {
+    if (typeof value !== "number" || !Number.isFinite(value)) {
+      return null;
+    }
+    // Heuristic: seconds since epoch are < 1e12, ms since epoch are ~1e12-1e13.
+    return value < 1e12 ? value * 1000 : value;
+  },
+
+  async _fetchTripById(tripId, abortKey = null) {
+    const url = CONFIG.API.tripById(tripId);
+    return utils.fetchWithRetry(
+      url,
+      {},
+      CONFIG.API.retryAttempts,
+      CONFIG.API.cacheTime,
+      abortKey
+    );
+  },
+
+  _pickTripGeometry(trip, layerName) {
+    if (!trip) {
+      return null;
+    }
+    if (layerName === "matchedTrips" && trip.matchedGps) {
+      return trip.matchedGps;
+    }
+    return trip.gps || trip.matchedGps || null;
+  },
+
+  _extendBoundsFromGeometry(bounds, geometry) {
+    if (!bounds || !geometry) {
+      return;
+    }
+
+    const extendCoord = (coord) => {
+      if (!Array.isArray(coord) || coord.length < 2) {
+        return;
+      }
+      const lng = Number(coord[0]);
+      const lat = Number(coord[1]);
+      if (!Number.isFinite(lng) || !Number.isFinite(lat)) {
+        return;
+      }
+      bounds.extend([lng, lat]);
+    };
+
+    const type = geometry.type;
+    const coords = geometry.coordinates;
+
+    if (type === "Point") {
+      extendCoord(coords);
+      return;
+    }
+    if (type === "LineString" && Array.isArray(coords)) {
+      coords.forEach(extendCoord);
+      return;
+    }
+    if (type === "MultiLineString" && Array.isArray(coords)) {
+      coords.forEach((line) => {
+        if (Array.isArray(line)) {
+          line.forEach(extendCoord);
+        }
+      });
+      return;
+    }
+    if (type === "GeometryCollection" && Array.isArray(geometry.geometries)) {
+      geometry.geometries.forEach((g) => this._extendBoundsFromGeometry(bounds, g));
+    }
+  },
 
   /**
    * Initialize the map using MapCore and set up view state management
@@ -284,44 +355,16 @@ const mapManager = {
       }
     };
 
-    // Remove overlay if no selection or not in heatmap mode
+    // Selected trip overlay is always drawn from the authoritative full-resolution
+    // geometry (via `/api/trips/{id}`) so we don't sacrifice accuracy to tiling/simplification.
     const selectedLayer = store.selectedTripLayer;
-    const validHeatmapLayer
-      = selectedLayer === "trips" || selectedLayer === "matchedTrips";
-    const layerInfo = validHeatmapLayer ? store.mapLayers[selectedLayer] : null;
+    const validTripLayer = selectedLayer === "trips" || selectedLayer === "matchedTrips";
+    const layerInfo = validTripLayer ? store.mapLayers[selectedLayer] : null;
 
-    if (
-      !selectedId
-      || !layerInfo
-      || !layerInfo.isHeatmap
-      || !layerInfo.visible
-      || !validHeatmapLayer
-    ) {
+    if (!selectedId || !layerInfo || !layerInfo.visible || !validTripLayer) {
       removeOverlay();
       return;
     }
-
-    // Find the matching feature
-    const tripLayer = layerInfo.layer;
-    const matchingFeature = tripLayer?.features?.find((feature) => {
-      const featureId
-        = feature?.properties?.transactionId
-        || feature?.properties?.id
-        || feature?.properties?.tripId
-        || feature?.id;
-      return featureId != null && String(featureId) === selectedId;
-    });
-
-    if (!matchingFeature?.geometry) {
-      removeOverlay();
-      return;
-    }
-
-    const selectedFeature = {
-      type: "Feature",
-      geometry: matchingFeature.geometry,
-      properties: matchingFeature.properties || {},
-    };
 
     const fallbackHighlight = selectedLayer === "matchedTrips" ? "#4da396" : "#d09868";
     const highlightColor
@@ -347,39 +390,71 @@ const mapManager = {
       14,
     ];
 
-    // Create or update source
-    if (!store.map.getSource(sourceId)) {
-      store.map.addSource(sourceId, {
-        type: "geojson",
-        data: { type: "FeatureCollection", features: [selectedFeature] },
-      });
-    } else {
-      store.map.getSource(sourceId).setData({
-        type: "FeatureCollection",
-        features: [selectedFeature],
-      });
-    }
+    const requestId = (this._selectedTripOverlayRequestId += 1);
+    const tripId = String(selectedId);
 
-    // Create or update layer
-    if (!store.map.getLayer(layerId)) {
-      store.map.addLayer({
-        id: layerId,
-        type: "line",
-        source: sourceId,
-        layout: {
-          "line-join": "round",
-          "line-cap": "round",
-        },
-        paint: {
-          "line-color": highlightColor,
-          "line-opacity": 0.9,
-          "line-width": highlightWidth,
-        },
+    this._fetchTripById(tripId, "selectedTripOverlay")
+      .then((payload) => {
+        if (this._selectedTripOverlayRequestId !== requestId) {
+          return;
+        }
+
+        const trip = payload?.trip;
+        const geometry = this._pickTripGeometry(trip, selectedLayer);
+        if (!geometry) {
+          removeOverlay();
+          return;
+        }
+
+        const selectedFeature = {
+          type: "Feature",
+          geometry,
+          properties: {
+            transactionId: trip?.transactionId || tripId,
+          },
+        };
+
+        // Create or update source
+        if (!store.map.getSource(sourceId)) {
+          store.map.addSource(sourceId, {
+            type: "geojson",
+            data: { type: "FeatureCollection", features: [selectedFeature] },
+          });
+        } else {
+          store.map.getSource(sourceId).setData({
+            type: "FeatureCollection",
+            features: [selectedFeature],
+          });
+        }
+
+        // Create or update layer
+        if (!store.map.getLayer(layerId)) {
+          store.map.addLayer({
+            id: layerId,
+            type: "line",
+            source: sourceId,
+            layout: {
+              "line-join": "round",
+              "line-cap": "round",
+            },
+            paint: {
+              "line-color": highlightColor,
+              "line-opacity": 0.9,
+              "line-width": highlightWidth,
+            },
+          });
+        } else {
+          store.map.setPaintProperty(layerId, "line-color", highlightColor);
+          store.map.setPaintProperty(layerId, "line-width", highlightWidth);
+        }
+      })
+      .catch((error) => {
+        if (this._selectedTripOverlayRequestId !== requestId) {
+          return;
+        }
+        console.warn("Failed to load selected trip overlay:", error);
+        removeOverlay();
       });
-    } else {
-      store.map.setPaintProperty(layerId, "line-color", highlightColor);
-      store.map.setPaintProperty(layerId, "line-width", highlightWidth);
-    }
   },
 
   /**
@@ -418,6 +493,10 @@ const mapManager = {
         maxZoom: 15,
         duration: animate ? 1000 : 0,
       });
+    } else {
+      // Vector-tiled trip layers don't have an in-memory FeatureCollection to bound.
+      // Fall back to a "zoom to last trip" behavior so filter changes still feel responsive.
+      await this.zoomToLastTrip();
     }
   },
 
@@ -426,47 +505,36 @@ const mapManager = {
    * @param {string|number} tripId - The trip ID to zoom to
    */
   async zoomToTrip(tripId) {
-    if (!store.map || !store.mapLayers.trips?.layer?.features) {
+    if (!store.map || !store.mapInitialized) {
       return;
     }
 
-    // Wait for features to be loaded if they aren't yet
-    if (store.mapLayers.trips.layer.features.length === 0) {
-      await new Promise((resolve) => setTimeout(resolve, 500));
-    }
+    try {
+      const payload = await this._fetchTripById(String(tripId), "zoomToTrip");
+      const trip = payload?.trip;
+      const geometry = this._pickTripGeometry(trip, "trips");
 
-    const { features } = store.mapLayers.trips.layer;
-    const tripFeature = features.find((f) => {
-      const fId
-        = f.properties?.transactionId || f.properties?.id || f.properties?.tripId || f.id;
-      return String(fId) === String(tripId);
-    });
+      if (!geometry) {
+        console.warn(`Trip ${tripId} has no geometry`);
+        return;
+      }
 
-    if (!tripFeature?.geometry) {
-      console.warn(`Trip ${tripId} not found in loaded features`);
-      return;
-    }
+      const bounds = new mapboxgl.LngLatBounds();
+      this._extendBoundsFromGeometry(bounds, geometry);
 
-    const bounds = new mapboxgl.LngLatBounds();
-    const { type, coordinates } = tripFeature.geometry;
+      if (!bounds.isEmpty()) {
+        store.map.fitBounds(bounds, {
+          padding: 50,
+          maxZoom: 15,
+          duration: 2000,
+        });
+      }
 
-    if (type === "LineString") {
-      coordinates.forEach((coord) => bounds.extend(coord));
-    } else if (type === "Point") {
-      bounds.extend(coordinates);
-    }
-
-    if (!bounds.isEmpty()) {
-      store.map.fitBounds(bounds, {
-        padding: 50,
-        maxZoom: 15,
-        duration: 2000,
-      });
-
-      // Select the trip
       store.selectedTripId = tripId;
       store.selectedTripLayer = "trips";
       this.refreshTripStyles();
+    } catch (error) {
+      console.warn("Failed to zoom to trip:", error);
     }
   },
 
@@ -474,52 +542,50 @@ const mapManager = {
    * Zoom to the most recent trip
    * @param {number} targetZoom - Zoom level to use
    */
-  zoomToLastTrip(targetZoom = 14) {
-    if (!store.map || !store.mapLayers.trips?.layer?.features) {
+  async zoomToLastTrip(targetZoom = 14) {
+    if (!store.map || !store.mapInitialized) {
       return;
     }
 
-    const { features } = store.mapLayers.trips.layer;
-
-    // Find the trip with the most recent end time
-    const lastTripFeature = features.reduce((latest, feature) => {
-      const endTime = feature.properties?.endTime;
-      if (!endTime) {
-        return latest;
+    try {
+      const { start, end } = DateUtils.getCachedDateRange();
+      const imei = utils.getStorage(CONFIG.STORAGE_KEYS.selectedVehicle);
+      const params = new URLSearchParams({ start_date: start, end_date: end });
+      if (imei) {
+        params.set("imei", imei);
       }
 
-      const time = new Date(endTime).getTime();
-      const latestTime = latest?.properties?.endTime
-        ? new Date(latest.properties.endTime).getTime()
-        : 0;
+      const data = await utils.fetchWithRetry(
+        `${CONFIG.API.tripLastInRange}?${params}`,
+        {},
+        CONFIG.API.retryAttempts,
+        CONFIG.API.cacheTime,
+        "zoomToLastTrip"
+      );
 
-      return time > latestTime ? feature : latest;
-    }, null);
+      const tripId = data?.transactionId;
+      const lastCoord = data?.lastCoord;
 
-    if (!lastTripFeature?.geometry) {
-      return;
-    }
+      if (Array.isArray(lastCoord) && lastCoord.length === 2) {
+        const lng = Number(lastCoord[0]);
+        const lat = Number(lastCoord[1]);
+        if (Number.isFinite(lng) && Number.isFinite(lat)) {
+          store.map.flyTo({
+            center: [lng, lat],
+            zoom: targetZoom,
+            duration: 2000,
+            essential: true,
+          });
+        }
+      }
 
-    let lastCoord = null;
-    const { type, coordinates } = lastTripFeature.geometry;
-
-    if (type === "LineString" && coordinates?.length > 0) {
-      lastCoord = coordinates[coordinates.length - 1];
-    } else if (type === "Point") {
-      lastCoord = coordinates;
-    }
-
-    if (
-      lastCoord?.length === 2
-      && !Number.isNaN(lastCoord[0])
-      && !Number.isNaN(lastCoord[1])
-    ) {
-      store.map.flyTo({
-        center: lastCoord,
-        zoom: targetZoom,
-        duration: 2000,
-        essential: true,
-      });
+      if (tripId) {
+        store.selectedTripId = tripId;
+        store.selectedTripLayer = "trips";
+        this.refreshTripStyles();
+      }
+    } catch (error) {
+      console.warn("Failed to zoom to last trip:", error);
     }
   },
 

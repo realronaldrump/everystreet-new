@@ -1,6 +1,6 @@
 /* global mapboxgl */
 
-import { getMapboxToken } from "../mapbox-token.js";
+import { CONFIG } from "../core/config.js";
 
 export class OptimalRouteMap {
   constructor(containerId, options = {}) {
@@ -23,16 +23,16 @@ export class OptimalRouteMap {
     }
 
     const container = document.getElementById(this.containerId);
-    const token = getMapboxToken();
-    if (!container || !token) {
+    if (!container) {
       return Promise.resolve();
     }
 
-    mapboxgl.accessToken = token;
+    const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
+    const styleUrl = CONFIG.MAP.styles[theme] || CONFIG.MAP.styles.dark;
 
     this.map = new mapboxgl.Map({
       container: this.containerId,
-      style: "mapbox://styles/mapbox/dark-v11",
+      style: styleUrl,
       center: [-98.5795, 39.8283], // Center of US
       zoom: 4,
       attributionControl: false,

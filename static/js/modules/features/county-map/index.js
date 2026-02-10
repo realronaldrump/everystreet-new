@@ -43,11 +43,9 @@ export default function initCountyMapPage({ cleanup, signal } = {}) {
 
   // Create map with standard projection (not Albers - TopoJSON is unprojected)
   const token = getMapboxToken();
-  if (!token) {
-    notificationManager.show("Mapbox access token not configured", "danger");
-    return;
+  if (token) {
+    mapboxgl.accessToken = token;
   }
-  mapboxgl.accessToken = token;
 
   const map = new mapboxgl.Map({
     container: "county-map",

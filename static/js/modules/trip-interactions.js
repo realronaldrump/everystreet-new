@@ -54,27 +54,38 @@ const tripInteractions = {
   createPopupContent(feature) {
     const props = feature.properties || {};
 
+    const toDate = (value) => {
+      if (value == null) {
+        return null;
+      }
+      if (typeof value === "number" && Number.isFinite(value)) {
+        const ms = value < 1e12 ? value * 1000 : value;
+        return new Date(ms);
+      }
+      return new Date(value);
+    };
+
     const formatValue = (value, formatter) =>
       value != null ? formatter(value) : "N/A";
     const formatNumber = (value, digits = 1) =>
       formatValue(value, (v) => parseFloat(v).toFixed(digits));
     const formatTime = (value) =>
       formatValue(value, (v) =>
-        new Date(v).toLocaleString("en-US", {
+        toDate(v)?.toLocaleString("en-US", {
           month: "short",
           day: "numeric",
           year: "numeric",
           hour: "numeric",
           minute: "2-digit",
           hour12: true,
-        })
+        }) || "N/A"
       );
 
     let duration = props.duration || props.drivingTime;
     if (!duration && props.startTime && props.endTime) {
-      const start = new Date(props.startTime);
-      const end = new Date(props.endTime);
-      if (!Number.isNaN(start.getTime()) && !Number.isNaN(end.getTime())) {
+      const start = toDate(props.startTime);
+      const end = toDate(props.endTime);
+      if (start && end && !Number.isNaN(start.getTime()) && !Number.isNaN(end.getTime())) {
         duration = (end - start) / 1000;
       }
     }

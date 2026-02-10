@@ -22,6 +22,9 @@ import { utils } from "./utils.js";
 // Layers that support trip click interactions
 const INTERACTIVE_TRIP_LAYERS = new Set(["trips", "matchedTrips"]);
 
+const isVectorLayerData = (data) =>
+  Boolean(data && typeof data === "object" && data.kind === "vector" && Array.isArray(data.tiles));
+
 // Animation constants
 const FADE_DURATION = 320;
 
@@ -135,11 +138,13 @@ const layerManager = {
     }
 
     const hitboxLayerId = `${layerName}-hitbox`;
+    const vectorMeta = isVectorLayerData(layerInfo?.layer) ? layerInfo.layer : null;
 
     const hitboxConfig = {
       id: hitboxLayerId,
       type: "line",
       source: sourceId,
+      ...(vectorMeta?.sourceLayer ? { "source-layer": vectorMeta.sourceLayer } : {}),
       minzoom: layerInfo.minzoom || 0,
       maxzoom: layerInfo.maxzoom || 22,
       layout: {
@@ -811,14 +816,21 @@ const layerManager = {
     }
 
     const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
-    const totalTripCount = layerInfo.layer?.features?.length || 0;
+    const vectorMeta = isVectorLayerData(layerInfo.layer) ? layerInfo.layer : null;
+    const totalTripCount = vectorMeta
+      ? (Number.isFinite(vectorMeta.tripCountHint)
+          ? vectorMeta.tripCountHint
+          : store.tripTotals?.totalTrips || 0)
+      : layerInfo.layer?.features?.length || 0;
     const visibleTripCount = this._getHeatmapTripCountInView(layerName, totalTripCount);
 
-    const { glowLayers } = heatmapUtils.generateHeatmapConfig(layerInfo.layer, {
-      theme,
-      opacity: layerInfo.opacity,
-      visibleTripCount,
-    });
+    const glowLayers = vectorMeta
+      ? heatmapUtils.generateGlowLayers(visibleTripCount, layerInfo.opacity, theme)
+      : heatmapUtils.generateHeatmapConfig(layerInfo.layer, {
+          theme,
+          opacity: layerInfo.opacity,
+          visibleTripCount,
+        }).glowLayers;
 
     glowLayers.forEach((glowConfig, index) => {
       const glowLayerId = `${layerName}-layer-${index}`;
@@ -973,7 +985,13 @@ const layerManager = {
    */
   async _tryUpdateExistingLayer(layerName, layerId, sourceId, layerInfo, data) {
     try {
+      if (isVectorLayerData(data)) {
+        return false;
+      }
       const existingSource = store.map.getSource(sourceId);
+      if (!existingSource || typeof existingSource.setData !== "function") {
+        return false;
+      }
       existingSource.setData(data);
 
       this._updateLayerPaintProperties(layerId, layerInfo);
@@ -1031,7 +1049,9 @@ const layerManager = {
     await new Promise((resolve) => requestAnimationFrame(resolve));
 
     this._createSource(sourceId, data);
-    this._createLayer(layerName, layerId, sourceId, layerInfo);
+    // Ensure downstream helpers (e.g. hitbox config) can inspect the current layer data.
+    layerInfo.layer = data;
+    this._createLayer(layerName, layerId, sourceId, layerInfo, data);
 
     if (store.map.getLayer(layerId)) {
       store.map.setLayoutProperty(
@@ -1044,8 +1064,6 @@ const layerManager = {
     if (this._shouldEnableTripInteractions(layerName)) {
       await this._setupTripInteractions(layerName, sourceId, layerInfo);
     }
-
-    layerInfo.layer = data;
   },
 
   /**
@@ -1079,6 +1097,15 @@ const layerManager = {
    * @private
    */
   _createSource(sourceId, data) {
+    if (isVectorLayerData(data)) {
+      store.map.addSource(sourceId, {
+        type: "vector",
+        tiles: data.tiles,
+        minzoom: data.minzoom ?? 0,
+        maxzoom: data.maxzoom ?? 22,
+      });
+      return;
+    }
     store.map.addSource(sourceId, {
       type: "geojson",
       data,
@@ -1094,11 +1121,13 @@ const layerManager = {
    * Create line layer
    * @private
    */
-  _createLayer(layerName, layerId, sourceId, layerInfo) {
+  _createLayer(layerName, layerId, sourceId, layerInfo, data) {
+    const vectorMeta = isVectorLayerData(data) ? data : null;
     const layerConfig = {
       id: layerId,
       type: "line",
       source: sourceId,
+      ...(vectorMeta?.sourceLayer ? { "source-layer": vectorMeta.sourceLayer } : {}),
       minzoom: layerInfo.minzoom || 0,
       maxzoom: layerInfo.maxzoom || 22,
       layout: {
@@ -1142,23 +1171,116 @@ const layerManager = {
    */
   async _updateHeatmapLayer(layerName, data, sourceId, _layerId, layerInfo) {
     const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
-    const totalTripCount = data?.features?.length || 0;
+    const vectorMeta = isVectorLayerData(data) ? data : null;
+
+    const totalTripCount = vectorMeta
+      ? (Number.isFinite(vectorMeta.tripCountHint)
+          ? vectorMeta.tripCountHint
+          : store.tripTotals?.totalTrips || 0)
+      : data?.features?.length || 0;
     const visibleTripCount = this._getHeatmapTripCountInView(layerName, totalTripCount);
 
-    const heatmapConfig = heatmapUtils.generateHeatmapConfig(data, {
-      theme,
-      opacity: layerInfo.opacity,
-      visibleTripCount,
-    });
-
-    const { glowLayers } = heatmapConfig;
+    const glowLayers = vectorMeta
+      ? heatmapUtils.generateGlowLayers(visibleTripCount, layerInfo.opacity, theme)
+      : heatmapUtils.generateHeatmapConfig(data, {
+          theme,
+          opacity: layerInfo.opacity,
+          visibleTripCount,
+        }).glowLayers;
 
     const existingSource = store.map.getSource(sourceId);
     const firstGlowLayerId = `${layerName}-layer-0`;
     const existingGlowLayer = store.map.getLayer(firstGlowLayerId);
 
+    if (vectorMeta) {
+      const tilesKey = vectorMeta.tiles.join("|");
+
+      // Fast path: keep existing vector source when tile template is unchanged.
+      if (existingSource && existingGlowLayer && layerInfo._vectorTilesKey === tilesKey) {
+        glowLayers.forEach((glowConfig, index) => {
+          const glowLayerId = `${layerName}-layer-${index}`;
+          if (!store.map.getLayer(glowLayerId)) {
+            return;
+          }
+          store.map.setPaintProperty(glowLayerId, "line-color", glowConfig.paint["line-color"]);
+          store.map.setPaintProperty(glowLayerId, "line-width", glowConfig.paint["line-width"]);
+          store.map.setPaintProperty(
+            glowLayerId,
+            "line-opacity",
+            glowConfig.paint["line-opacity"]
+          );
+          if (glowConfig.paint["line-blur"] !== undefined) {
+            store.map.setPaintProperty(glowLayerId, "line-blur", glowConfig.paint["line-blur"]);
+          }
+          store.map.setLayoutProperty(
+            glowLayerId,
+            "visibility",
+            layerInfo.visible ? "visible" : "none"
+          );
+        });
+
+        layerInfo.layer = data;
+        layerInfo._vectorTilesKey = tilesKey;
+        this._scheduleHeatmapRefresh(layerName);
+
+        if (this._shouldEnableTripInteractions(layerName)) {
+          await this._setupTripInteractions(layerName, sourceId, layerInfo);
+        }
+        return;
+      }
+
+      // Rebuild source + layers.
+      if (this._shouldEnableTripInteractions(layerName)) {
+        this._removeTripHitboxLayer(layerName);
+      }
+
+      for (let i = 0; i < 2; i++) {
+        const glowLayerId = `${layerName}-layer-${i}`;
+        if (store.map.getLayer(glowLayerId)) {
+          store.map.removeLayer(glowLayerId);
+        }
+      }
+      if (existingSource) {
+        store.map.removeSource(sourceId);
+      }
+
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+
+      this._createSource(sourceId, data);
+      layerInfo.layer = data;
+      layerInfo._vectorTilesKey = tilesKey;
+
+      glowLayers.forEach((glowConfig, index) => {
+        const glowLayerId = `${layerName}-layer-${index}`;
+        if (store.map.getLayer(glowLayerId)) {
+          return;
+        }
+        store.map.addLayer({
+          id: glowLayerId,
+          type: "line",
+          source: sourceId,
+          ...(vectorMeta?.sourceLayer ? { "source-layer": vectorMeta.sourceLayer } : {}),
+          minzoom: layerInfo.minzoom || 0,
+          maxzoom: layerInfo.maxzoom || 22,
+          layout: {
+            visibility: layerInfo.visible ? "visible" : "none",
+            "line-join": "round",
+            "line-cap": "round",
+          },
+          paint: glowConfig.paint,
+        });
+      });
+
+      this._scheduleHeatmapRefresh(layerName);
+      if (this._shouldEnableTripInteractions(layerName)) {
+        await this._setupTripInteractions(layerName, sourceId, layerInfo);
+      }
+      return;
+    }
+
+    // GeoJSON heatmaps (legacy)
     // Fast path: update existing source and layer paint properties
-    if (existingSource && existingGlowLayer) {
+    if (existingSource && existingGlowLayer && typeof existingSource.setData === "function") {
       try {
         existingSource.setData(data);
 
@@ -1231,9 +1353,9 @@ const layerManager = {
 
     await new Promise((resolve) => requestAnimationFrame(resolve));
 
-    // Create new source
+    // Create new source (GeoJSON)
     const refreshedSource = store.map.getSource(sourceId);
-    if (refreshedSource) {
+    if (refreshedSource && typeof refreshedSource.setData === "function") {
       refreshedSource.setData(data);
     } else {
       store.map.addSource(sourceId, {

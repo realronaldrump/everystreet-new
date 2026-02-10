@@ -22,7 +22,9 @@ export function renderMapPreview({ token, onError, containerId = "mapbox-preview
   mapboxgl.accessToken = token;
   const preview = new mapboxgl.Map({
     container,
-    style: "mapbox://styles/mapbox/streets-v12",
+    // OpenFreeMap style (no Mapbox token required). This keeps the setup wizard
+    // map preview functional even when Mapbox is not configured.
+    style: "https://tiles.openfreemap.org/styles/liberty",
     center: [-96, 37.8],
     zoom: 3,
     interactive: false,

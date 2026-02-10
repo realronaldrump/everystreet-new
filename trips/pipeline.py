@@ -222,6 +222,14 @@ class TripPipeline:
         else:
             await final_trip.insert()
 
+        # Invalidate cached trip tiles so "today" updates quickly.
+        try:
+            from trips.services.trip_tile_service import bump_trip_tiles_version
+
+            await bump_trip_tiles_version()
+        except Exception:
+            logger.debug("Failed to bump trip tile version", exc_info=True)
+
         logger.debug("Saved trip %s successfully", transaction_id)
         return final_trip
 

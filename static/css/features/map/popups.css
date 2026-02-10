@@ -1,14 +1,16 @@
 /* Map Popups */
 
 /* === Mapbox GL JS Popup Styling === */
-.mapboxgl-popup {
+.mapboxgl-popup,
+.maplibregl-popup {
   z-index: var(--z-popover);
   animation: fadeInScale 0.2s ease-out; /* From map-enhancements */
 }
 
 /* Note: @keyframes fadeInScale moved to animations.css */
 
-.mapboxgl-popup-content {
+.mapboxgl-popup-content,
+.maplibregl-popup-content {
   font-family: var(--font-family);
   background-color: var(--surface-glass);
   color: var(--text-primary);
@@ -20,18 +22,21 @@
   backdrop-filter: blur(var(--blur-subtle));
 }
 
-.mapboxgl-popup-tip {
+.mapboxgl-popup-tip,
+.maplibregl-popup-tip {
   border-top-color: var(--surface-glass); /* Match content background */
 
   /* Adjust tip color if content has a border */
 }
 
-.mapboxgl-popup-tip::before {
+.mapboxgl-popup-tip::before,
+.maplibregl-popup-tip::before {
   /* If there's a border on content, this helps blend */
   border-top-color: var(--border-color);
 }
 
-.mapboxgl-popup-close-button {
+.mapboxgl-popup-close-button,
+.maplibregl-popup-close-button {
   color: var(--text-secondary);
   font-size: var(--font-size-lg);
   padding: var(--space-2);
@@ -47,7 +52,8 @@
   justify-content: center;
 }
 
-.mapboxgl-popup-close-button:hover {
+.mapboxgl-popup-close-button:hover,
+.maplibregl-popup-close-button:hover {
   color: var(--text-primary);
   background: var(--surface-3);
 }

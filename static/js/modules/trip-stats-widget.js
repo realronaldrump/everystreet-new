@@ -97,22 +97,23 @@ const tripStatsWidget = {
    * Handle metrics update event
    */
   handleMetricsUpdate(detail) {
-    if (!detail?.totals) {
+    if (!detail) {
       return;
     }
 
-    const { totals } = detail;
+    const totals = detail.totals || {};
+    const metrics = detail.metrics || null;
 
     // Update compact view
     if (this.elements.totalTripsCompact) {
       this.elements.totalTripsCompact.textContent = this.formatNumber(
-        totals.totalTrips ?? 0
+        totals.totalTrips ?? metrics?.totalTrips ?? 0
       );
     }
 
     if (this.elements.totalDistanceCompact) {
       this.elements.totalDistanceCompact.textContent = this.formatNumber(
-        totals.totalDistanceMiles ?? 0,
+        totals.totalDistanceMiles ?? metrics?.totalDistanceMiles ?? 0,
         1
       );
     }
@@ -120,15 +121,39 @@ const tripStatsWidget = {
     // Update detailed view (if the values are available)
     if (this.elements.detailedTrips) {
       this.elements.detailedTrips.textContent = this.formatNumber(
-        totals.totalTrips ?? 0
+        totals.totalTrips ?? metrics?.totalTrips ?? 0
       );
     }
 
     if (this.elements.detailedDistance) {
       this.elements.detailedDistance.textContent = this.formatNumber(
-        totals.totalDistanceMiles ?? 0,
+        totals.totalDistanceMiles ?? metrics?.totalDistanceMiles ?? 0,
         1
       );
+    }
+
+    // Extended metrics (preferred when available from `/api/metrics`)
+    if (metrics) {
+      if (this.elements.detailedAvgDistance) {
+        this.elements.detailedAvgDistance.textContent = this.formatNumber(
+          metrics.avgDistanceMiles ?? 0,
+          1
+        );
+      }
+      if (this.elements.detailedAvgSpeed) {
+        this.elements.detailedAvgSpeed.textContent = this.formatNumber(
+          metrics.avgSpeed ?? 0,
+          1
+        );
+      }
+      if (this.elements.detailedAvgStart) {
+        this.elements.detailedAvgStart.textContent = String(metrics.avgStartTime ?? "--:--");
+      }
+      if (this.elements.detailedAvgDuration) {
+        this.elements.detailedAvgDuration.textContent = String(
+          metrics.avgDrivingTime ?? "--:--"
+        );
+      }
     }
   },
 

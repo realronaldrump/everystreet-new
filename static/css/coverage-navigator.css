@@ -1274,7 +1274,8 @@
 }
 
 /* Mapbox Popup Styles */
-.coverage-navigator .mapboxgl-popup-content {
+.coverage-navigator .mapboxgl-popup-content,
+.coverage-navigator .maplibregl-popup-content {
   background: var(--surface-2);
   color: var(--text-primary);
   border: 1px solid var(--border-color);
@@ -1284,18 +1285,21 @@
   font-size: 0.875rem;
 }
 
-.coverage-navigator .mapboxgl-popup-close-button {
+.coverage-navigator .mapboxgl-popup-close-button,
+.coverage-navigator .maplibregl-popup-close-button {
   color: var(--text-secondary);
   font-size: 1.25rem;
   padding: var(--space-1) var(--space-2);
   transition: color 0.2s ease;
 }
 
-.coverage-navigator .mapboxgl-popup-close-button:hover {
+.coverage-navigator .mapboxgl-popup-close-button:hover,
+.coverage-navigator .maplibregl-popup-close-button:hover {
   color: var(--text-primary);
 }
 
-.coverage-navigator .mapboxgl-popup-anchor-bottom .mapboxgl-popup-tip {
+.coverage-navigator .mapboxgl-popup-anchor-bottom .mapboxgl-popup-tip,
+.coverage-navigator .maplibregl-popup-anchor-bottom .maplibregl-popup-tip {
   border-top-color: var(--surface-2);
 }
 
@@ -1644,7 +1648,9 @@
 
   /* Keep Mapbox controls/attribution above the fixed mobile toggle. */
   .coverage-navigator .mapboxgl-ctrl-bottom-left,
-  .coverage-navigator .mapboxgl-ctrl-bottom-right {
+  .coverage-navigator .maplibregl-ctrl-bottom-left,
+  .coverage-navigator .mapboxgl-ctrl-bottom-right,
+  .coverage-navigator .maplibregl-ctrl-bottom-right {
     bottom: calc(70px + env(safe-area-inset-bottom, 0px) + var(--bottom-nav-offset, 0px));
   }
 

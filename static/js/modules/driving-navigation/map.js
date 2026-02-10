@@ -6,7 +6,7 @@
  */
 
 import MapStyles from "../map-styles.js";
-import { getMapboxToken } from "../mapbox-token.js";
+import { CONFIG } from "../core/config.js";
 import {
   DEFAULT_CLUSTER_COLORS,
   DEFAULT_ROUTE_COLORS,
@@ -107,14 +107,12 @@ export class DrivingNavigationMap {
           throw new Error(`Map container #${this.containerId} not found!`);
         }
 
-        const token = getMapboxToken();
-        if (!token) {
-          throw new Error("Mapbox access token not configured");
-        }
-        mapboxgl.accessToken = token;
+        // OpenFreeMap styles do not require a Mapbox token.
+        const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
+        const styleUrl = CONFIG.MAP.styles[theme] || CONFIG.MAP.styles.dark;
         this.map = new mapboxgl.Map({
           container: this.containerId,
-          style: "mapbox://styles/mapbox/dark-v11",
+          style: styleUrl,
           center: [-96, 37.8],
           zoom: 3,
           attributionControl: false,

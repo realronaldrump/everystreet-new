@@ -16,7 +16,7 @@
 
 import { CONFIG } from "./core/config.js";
 import state from "./core/store.js";
-import { waitForMapboxToken } from "./mapbox-token.js";
+import { maybeWaitForMapboxToken } from "./mapbox-token.js";
 import loadingManager from "./ui/loading-manager.js";
 import notificationManager from "./ui/notifications.js";
 import { utils } from "./utils.js";
@@ -121,16 +121,6 @@ const mapCore = {
         return true;
       }
 
-      // Get Mapbox token
-      loadingManager?.updateMessage("Loading map resources...");
-      const token = await waitForMapboxToken({ timeoutMs: 5000 });
-
-      if (!token) {
-        throw new Error("Mapbox access token not available");
-      }
-
-      mapboxgl.accessToken = token;
-
       // Check WebGL support
       if (!mapboxgl.supported()) {
         mapElement.innerHTML
@@ -148,6 +138,16 @@ const mapCore = {
       const storedMapType = utils.getStorage(CONFIG.STORAGE_KEYS.mapType);
       const mapType = storedMapType || theme;
       const mapStyle = CONFIG.MAP.styles[mapType] || CONFIG.MAP.styles[theme];
+
+      // Only require a Mapbox token if the chosen style is Mapbox-hosted.
+      loadingManager?.updateMessage("Loading map resources...");
+      const token = await maybeWaitForMapboxToken({
+        styleUrl: mapStyle,
+        timeoutMs: 5000,
+      });
+      if (token) {
+        mapboxgl.accessToken = token;
+      }
 
       // Determine initial view (URL params > saved state > defaults)
       const initialView = this._getInitialView(options);
@@ -268,7 +268,9 @@ const mapCore = {
         reject(new Error("Mapbox GL JS not loaded"));
       }, timeoutMs);
 
-      scriptEl = document.querySelector('script[src*="mapbox-gl.js"]');
+      scriptEl = document.querySelector(
+        'script[src*="mapbox-gl.js"], script[src*="maplibre-gl.js"]'
+      );
       if (scriptEl) {
         scriptEl.addEventListener("load", checkReady, { once: true });
         scriptEl.addEventListener("error", handleError, { once: true });
@@ -569,8 +571,13 @@ const mapCore = {
       throw new Error("Map not initialized");
     }
 
-    const styleUrl
-      = CONFIG.MAP.styles[styleType] || `mapbox://styles/mapbox/${styleType}-v11`;
+    const styleUrl = CONFIG.MAP.styles[styleType] || CONFIG.MAP.styles.dark;
+
+    // Ensure Mapbox token is available for Mapbox-hosted styles.
+    const token = await maybeWaitForMapboxToken({ styleUrl, timeoutMs: 5000 });
+    if (token) {
+      mapboxgl.accessToken = token;
+    }
 
     // Save current view
     const currentView = {

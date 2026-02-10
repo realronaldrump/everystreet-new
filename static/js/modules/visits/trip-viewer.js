@@ -1,5 +1,6 @@
 /* global bootstrap, mapboxgl */
 
+import { CONFIG } from "../core/config.js";
 import MapStyles from "../map-styles.js";
 import { DateUtils } from "../utils.js";
 import { VisitsGeometry } from "./geometry.js";
@@ -110,8 +111,8 @@ class TripViewer {
 
     const styleUrl
       = this.currentTheme === "light"
-        ? "mapbox://styles/mapbox/light-v11"
-        : "mapbox://styles/mapbox/dark-v11";
+        ? CONFIG.MAP.styles.light
+        : CONFIG.MAP.styles.dark;
 
     const center = this.tripViewMap.getCenter();
     const zoom = this.tripViewMap.getZoom();
@@ -141,8 +142,8 @@ class TripViewer {
 
       const styleUrl
         = this.currentTheme === "light"
-          ? "mapbox://styles/mapbox/light-v11"
-          : "mapbox://styles/mapbox/dark-v11";
+          ? CONFIG.MAP.styles.light
+          : CONFIG.MAP.styles.dark;
 
       this.tripViewMap = new mapboxgl.Map({
         container: mapElement.id,
