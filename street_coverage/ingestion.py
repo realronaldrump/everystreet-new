@@ -873,7 +873,7 @@ def _calculate_bounding_box(boundary: dict[str, Any]) -> list[float]:
 def _coerce_osm_id(value: Any) -> int | None:
     if value is None:
         return None
-    if isinstance(value, (list, tuple, set)):
+    if isinstance(value, list | tuple | set):
         for item in value:
             try:
                 return int(item)
@@ -924,7 +924,7 @@ def _edge_geometry(G: Any, u: Any, v: Any, data: dict[str, Any]) -> Any | None:
 def _coerce_name(value: Any) -> str | None:
     if value is None:
         return None
-    if isinstance(value, (list, tuple, set)):
+    if isinstance(value, list | tuple | set):
         for item in value:
             if item is None:
                 continue

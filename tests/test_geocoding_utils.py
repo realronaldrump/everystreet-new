@@ -37,7 +37,7 @@ async def test_validate_location_osm_raises_on_error(
         AsyncMock(return_value=session),
     )
 
-    with pytest.raises(Exception):
+    with pytest.raises(ExternalServiceException):
         await validate_location_osm("Waco", "city")
 
 
@@ -65,7 +65,7 @@ async def test_reverse_geocode_raises_on_error(
         AsyncMock(return_value=session),
     )
 
-    with pytest.raises(Exception):
+    with pytest.raises(ExternalServiceException):
         await reverse_geocode_nominatim(31.5, -97.1)
 
 

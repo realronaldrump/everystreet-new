@@ -100,6 +100,7 @@ class TripIngestIssueService:
         }
         fp = _fingerprint(fp_payload)
 
+        issue: TripIngestIssue | None = None
         try:
             existing = await TripIngestIssue.find_one(TripIngestIssue.fingerprint == fp)
             if existing:
@@ -132,10 +133,10 @@ class TripIngestIssueService:
                 fingerprint=fp,
             )
             await issue.insert()
-            return issue
         except Exception:
             logger.exception("Failed to record trip ingest issue")
             return None
+        return issue
 
     @staticmethod
     async def list_issues(

@@ -670,7 +670,7 @@ async def generate_optimal_route_with_progress(
                         return seg_idx, None
 
                     mid_pt = snapped[len(snapped) // 2]
-                    if not isinstance(mid_pt, (list, tuple)) or len(mid_pt) < 2:
+                    if not isinstance(mid_pt, list | tuple) or len(mid_pt) < 2:
                         return seg_idx, None
 
                     try:

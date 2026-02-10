@@ -1,8 +1,7 @@
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from beanie import PydanticObjectId
-from beanie import init_beanie
+from beanie import PydanticObjectId, init_beanie
 from mongomock_motor import AsyncMongoMockClient
 
 from db.models import BouncieCredentials, Job, TaskConfig, TaskHistory, Trip, Vehicle
@@ -152,7 +151,7 @@ async def test_start_sync_enqueues_history_with_progress_job(
     async def fake_enqueue(task_id, *args, **kwargs):
         return {"job_id": "arq-job-123"}
 
-    async def fake_plan(*, start_dt, end_dt):  # noqa: ARG001
+    async def fake_plan(*, start_dt, end_dt):
         return {
             "status": "success",
             "start_iso": "2024-01-01T00:00:00+00:00",
@@ -328,7 +327,7 @@ async def test_cancel_sync_cancels_history_import_job_and_task_history(
     )
     await job.insert()
 
-    async def fake_abort(job_id: str) -> bool:  # noqa: ARG001
+    async def fake_abort(job_id: str) -> bool:
         return True
 
     monkeypatch.setattr(trip_sync_service, "abort_job", fake_abort)

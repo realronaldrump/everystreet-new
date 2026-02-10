@@ -7,6 +7,7 @@ import json
 import logging
 import os
 import time
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import httpx
@@ -27,7 +28,7 @@ INDEX_CHUNK_SIZE = 2 * 1024 * 1024
 
 
 def _index_cache_path(extracts_path: str) -> str:
-    return os.path.join(extracts_path, INDEX_CACHE_SUBDIR, INDEX_CACHE_FILENAME)
+    return str(Path(extracts_path) / INDEX_CACHE_SUBDIR / INDEX_CACHE_FILENAME)
 
 
 def _index_url() -> str:
@@ -38,15 +39,17 @@ def _index_url() -> str:
 
 
 def _needs_refresh(path: str, max_age_seconds: int) -> bool:
-    if not os.path.exists(path):
+    cache_path = Path(path)
+    if not cache_path.exists():
         return True
-    age = time.time() - os.path.getmtime(path)
+    age = time.time() - cache_path.stat().st_mtime
     return age > max_age_seconds
 
 
 async def _download_index(cache_path: str, url: str) -> None:
-    os.makedirs(os.path.dirname(cache_path), exist_ok=True)
-    temp_path = f"{cache_path}.tmp"
+    cache_file = Path(cache_path)
+    cache_file.parent.mkdir(parents=True, exist_ok=True)
+    temp_path = cache_file.with_name(f"{cache_file.name}.tmp")
 
     async with (
         httpx.AsyncClient(
@@ -63,7 +66,7 @@ async def _download_index(cache_path: str, url: str) -> None:
         finally:
             await asyncio.to_thread(handle.close)
 
-    await asyncio.to_thread(os.replace, temp_path, cache_path)
+    await asyncio.to_thread(os.replace, temp_path, cache_file)
 
 
 async def load_geofabrik_index(

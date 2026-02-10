@@ -282,12 +282,6 @@ async def auto_provision_map_data() -> dict[str, Any]:
 
     try:
         result = await configure_map_services(new_states, force=False)
-        return {
-            "success": True,
-            "action": "provisioning_started",
-            "states": new_states,
-            "result": result,
-        }
     except RuntimeError as e:
         if "already in progress" in str(e).lower():
             return {
@@ -296,6 +290,13 @@ async def auto_provision_map_data() -> dict[str, Any]:
                 "states": new_states,
             }
         raise
+    else:
+        return {
+            "success": True,
+            "action": "provisioning_started",
+            "states": new_states,
+            "result": result,
+        }
 
 
 async def get_auto_provision_status() -> dict[str, Any]:
@@ -340,21 +341,21 @@ async def get_auto_provision_status() -> dict[str, Any]:
             missing_size += int(state_map[code].get("size_mb", 0))
 
     # Get state names for display
-    configured_names = []
-    for code in sorted(configured_states):
-        if code in state_map:
-            configured_names.append(state_map[code].get("name", code))
+    configured_names = [
+        state_map[code].get("name", code)
+        for code in sorted(configured_states)
+        if code in state_map
+    ]
 
-    missing_details = []
-    for code in sorted(missing_states):
-        if code in state_map:
-            missing_details.append(
-                {
-                    "code": code,
-                    "name": state_map[code].get("name", code),
-                    "size_mb": state_map[code].get("size_mb", 0),
-                },
-            )
+    missing_details = [
+        {
+            "code": code,
+            "name": state_map[code].get("name", code),
+            "size_mb": state_map[code].get("size_mb", 0),
+        }
+        for code in sorted(missing_states)
+        if code in state_map
+    ]
 
     is_ready = (
         config.status == MapServiceConfig.STATUS_READY

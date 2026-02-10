@@ -14,8 +14,8 @@ from fastapi.responses import StreamingResponse
 from core.api import api_route
 from core.date_utils import parse_timestamp
 from db.models import Job, TaskHistory
-from tasks.ops import abort_job
 from tasks.config import update_task_history_entry
+from tasks.ops import abort_job
 from trips.models import TripSyncConfigUpdate, TripSyncRequest
 from trips.services.trip_history_import_service import (
     build_import_plan,

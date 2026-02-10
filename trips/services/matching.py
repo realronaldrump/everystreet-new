@@ -332,7 +332,6 @@ class TripMapMatcher:
 
             logger.info("No valid matchedGps data for trip %s", transaction_id)
             set_match_status("no-valid-geometry")
-            return "failed", processed_data
 
         except Exception as exc:
             logger.warning(
@@ -341,7 +340,7 @@ class TripMapMatcher:
                 exc,
             )
             processed_data["matchStatus"] = "error:exception"
-            return "failed", processed_data
+        return "failed", processed_data
 
     @staticmethod
     def _validate_matched_geometry(

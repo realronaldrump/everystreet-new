@@ -305,7 +305,7 @@ class StorageService:
                     usage = inspect.get("UsageData") or {}
                     if isinstance(usage, dict):
                         size_bytes = usage.get("Size")
-                        if isinstance(size_bytes, (int, float)):
+                        if isinstance(size_bytes, int | float):
                             size_value = int(size_bytes)
                 if size_value is None:
                     size_value = volume_sizes.get(volume_name)

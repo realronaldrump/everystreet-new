@@ -74,7 +74,6 @@ async def fill_route_gaps(
     import asyncio
 
     results: dict[int, Any] = {}
-    completed = 0
 
     async def _fetch_one(gap_idx: int, gap_ft: float) -> tuple[int, float, Any]:
         prev = route_coords[gap_idx - 1]
@@ -89,10 +88,9 @@ async def fill_route_gaps(
         for (gap_idx, gap_ft) in gaps_to_fill
     ]
 
-    for fut in asyncio.as_completed(tasks):
+    for completed, fut in enumerate(asyncio.as_completed(tasks), start=1):
         gap_idx, gap_ft, bridge = await fut
         results[gap_idx] = bridge
-        completed += 1
         if progress_callback:
             pct = int(completed / max(1, len(gaps_to_fill)) * 100)
             await progress_callback(

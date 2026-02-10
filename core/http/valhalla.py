@@ -49,7 +49,7 @@ class ValhallaClient:
         locations: list[tuple[float, float]] | list[list[float]],
         *,
         costing: str = "auto",
-        timeout: float | None = None,
+        timeout_s: float | None = None,
     ) -> dict[str, Any]:
         normalized_locations: list[tuple[float, float]] = []
         for item in locations:
@@ -79,7 +79,7 @@ class ValhallaClient:
             session=session,
             json=payload,
             service_name="Valhalla route",
-            timeout=timeout,
+            timeout_s=timeout_s,
         )
         if not isinstance(data, dict):
             msg = "Valhalla route error: unexpected response"
@@ -202,7 +202,7 @@ class ValhallaClient:
                 lon = point.get("lon")
                 lat = point.get("lat")
             else:
-                if not isinstance(point, (list, tuple)) or len(point) < 2:
+                if not isinstance(point, list | tuple) or len(point) < 2:
                     continue
                 lon, lat = point[0], point[1]
             if lon is None or lat is None:

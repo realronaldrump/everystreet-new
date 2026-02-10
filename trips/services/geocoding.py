@@ -136,15 +136,13 @@ class TripGeocoder:
             processed_data["location_schema_version"] = 2
             processed_data["geocoded_at"] = get_current_utc_time()
 
-            return processed_data
-
         except Exception as exc:
             logger.warning(
                 "Geocoding error for trip %s (continuing): %s",
                 processed_data.get("transactionId", "unknown"),
                 exc,
             )
-            return processed_data
+        return processed_data
 
     @staticmethod
     def _needs_geocode(location: Any) -> bool:

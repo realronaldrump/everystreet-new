@@ -356,9 +356,9 @@ class TripPipeline:
         state = "new"
         error = None
         processed_data: dict[str, Any] = {}
+        transaction_id = raw_data.get("transactionId", "unknown")
 
         try:
-            transaction_id = raw_data.get("transactionId", "unknown")
             validated_trip = Trip(**raw_data)
             processed_data = validated_trip.model_dump(exclude_unset=True)
 
@@ -375,7 +375,6 @@ class TripPipeline:
                 return False, processed_data, history, state, error
 
             state = self._record_state(history, state, "processed")
-            return True, processed_data, history, state, None
 
         except ValidationError as exc:
             error = f"Validation error: {exc}"
@@ -383,6 +382,8 @@ class TripPipeline:
         except Exception as exc:
             error = f"Unexpected validation error: {exc!s}"
             logger.exception("Error validating trip %s", raw_data.get("transactionId"))
+        else:
+            return True, processed_data, history, state, None
 
         state = self._record_state(history, state, "failed", error)
         return False, processed_data, history, state, error
@@ -395,9 +396,9 @@ class TripPipeline:
         state = "new"
         error = None
         processed_data: dict[str, Any] = {}
+        transaction_id = raw_data.get("transactionId", "unknown")
 
         try:
-            transaction_id = raw_data.get("transactionId", "unknown")
             validated_trip = Trip(**raw_data)
             processed_data = validated_trip.model_dump(exclude_unset=True)
 
@@ -407,7 +408,6 @@ class TripPipeline:
             processed_data["validation_message"] = None
 
             state = self._record_state(history, state, "validated")
-            return True, processed_data, history, state, None
 
         except ValidationError as exc:
             error = f"Validation error: {exc}"
@@ -415,6 +415,8 @@ class TripPipeline:
         except Exception as exc:
             error = f"Unexpected validation error: {exc!s}"
             logger.exception("Error validating trip %s", raw_data.get("transactionId"))
+        else:
+            return True, processed_data, history, state, None
 
         state = self._record_state(history, state, "failed", error)
         return False, processed_data, history, state, error

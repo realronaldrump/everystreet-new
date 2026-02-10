@@ -183,7 +183,7 @@ def build_osmid_index(G: nx.MultiDiGraph) -> dict[int, list[EdgeRef]]:
         osmids = data.get("osmid") or data.get("id")
         if osmids is None:
             continue
-        candidates = osmids if isinstance(osmids, (list, set, tuple)) else [osmids]
+        candidates = osmids if isinstance(osmids, list | set | tuple) else [osmids]
         for osmid in candidates:
             with contextlib.suppress(Exception):
                 oid = int(osmid)

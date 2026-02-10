@@ -4,6 +4,7 @@ import asyncio
 import contextlib
 import logging
 import os
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +22,19 @@ def is_docker_unavailable_error(error_text: str) -> bool:
     )
 
 
-async def run_docker(cmd: list[str], timeout: float = 10.0) -> tuple[int, str, str]:
+async def run_docker(
+    cmd: list[str],
+    timeout_seconds: float = 10.0,
+    **kwargs: Any,
+) -> tuple[int, str, str]:
+    # Backwards-compatible alias: callers may still pass `timeout=...`.
+    # Avoid a `timeout` parameter name in the signature (ruff ASYNC109).
+    if kwargs:
+        if set(kwargs) != {"timeout"}:
+            unexpected = ", ".join(sorted(kwargs))
+            raise TypeError(f"run_docker() got unexpected keyword arguments: {unexpected}")
+        timeout_seconds = float(kwargs["timeout"])
+
     try:
         process = await asyncio.create_subprocess_exec(
             *cmd,
@@ -29,10 +42,8 @@ async def run_docker(cmd: list[str], timeout: float = 10.0) -> tuple[int, str, s
             stderr=asyncio.subprocess.PIPE,
         )
         try:
-            stdout, stderr = await asyncio.wait_for(
-                process.communicate(),
-                timeout=timeout,
-            )
+            async with asyncio.timeout(timeout_seconds):
+                stdout, stderr = await process.communicate()
         except TimeoutError:
             with contextlib.suppress(ProcessLookupError):
                 process.kill()

@@ -7,6 +7,7 @@ Valhalla and Nominatim clients.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import TYPE_CHECKING, Any
 
@@ -30,7 +31,7 @@ async def request_json(
     expected_status: int | Iterable[int] = 200,
     none_on: Iterable[int] | None = None,
     service_name: str = "Service",
-    timeout: Any | None = None,
+    timeout_s: float | None = None,
 ) -> Any | None:
     method_upper = method.upper()
     if isinstance(expected_status, int):
@@ -58,33 +59,44 @@ async def request_json(
         "json": json,
         "headers": headers,
     }
-    if timeout is not None:
-        request_kwargs["timeout"] = timeout
 
-    async with request_fn(url, **request_kwargs) as response:
-        if response.status in none_on_set:
-            logger.debug("%s returned %s for %s", service_name, response.status, url)
-            return None
-        if response.status == 429:
-            retry_after = int(response.headers.get("Retry-After", 5))
-            msg = f"{service_name} error: 429"
-            raise ExternalServiceException(
-                msg,
-                {
-                    "status": 429,
-                    "retry_after": retry_after,
-                    "url": str(getattr(response, "url", url)),
-                },
-            )
-        if response.status not in expected:
-            body = await response.text()
-            msg = f"{service_name} error: {response.status}"
-            raise ExternalServiceException(
-                msg,
-                {
-                    "status": response.status,
-                    "body": body,
-                    "url": str(getattr(response, "url", url)),
-                },
-            )
-        return await response.json()
+    async def _execute() -> Any | None:
+        async with request_fn(url, **request_kwargs) as response:
+            if response.status in none_on_set:
+                logger.debug("%s returned %s for %s", service_name, response.status, url)
+                return None
+            if response.status == 429:
+                retry_after = int(response.headers.get("Retry-After", 5))
+                msg = f"{service_name} error: 429"
+                raise ExternalServiceException(
+                    msg,
+                    {
+                        "status": 429,
+                        "retry_after": retry_after,
+                        "url": str(getattr(response, "url", url)),
+                    },
+                )
+            if response.status not in expected:
+                body = await response.text()
+                msg = f"{service_name} error: {response.status}"
+                raise ExternalServiceException(
+                    msg,
+                    {
+                        "status": response.status,
+                        "body": body,
+                        "url": str(getattr(response, "url", url)),
+                    },
+                )
+            return await response.json()
+
+    try:
+        if timeout_s is None:
+            return await _execute()
+        async with asyncio.timeout(timeout_s):
+            return await _execute()
+    except TimeoutError as exc:
+        msg = f"{service_name} timeout"
+        raise ExternalServiceException(
+            msg,
+            {"timeout_s": timeout_s, "url": url},
+        ) from exc

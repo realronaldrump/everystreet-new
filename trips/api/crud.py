@@ -43,7 +43,10 @@ async def _cleanup_trip_references(trip_ids: list) -> int:
         updated_count += 1
 
     if updated_count > 0:
-        logger.info(f"Cleared trip references from {updated_count} coverage states")
+        logger.info(
+            "Cleared trip references from %s coverage states",
+            updated_count,
+        )
 
     return updated_count
 

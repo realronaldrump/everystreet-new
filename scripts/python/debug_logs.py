@@ -12,13 +12,14 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from beanie.operators import In
-
-from db.manager import db_manager
-from db.models import ServerLog
-
 
 async def main() -> None:
+    # Local imports after sys.path adjustment.
+    from beanie.operators import In
+
+    from db.manager import db_manager
+    from db.models import ServerLog
+
     try:
         await db_manager.init_beanie()
         print("Connected to MongoDB.")

@@ -87,21 +87,18 @@ class MapMatchingJobService:
             .skip(offset)
             .limit(limit)
         )
-        jobs = []
-        async for entry in cursor:
-            jobs.append(
-                {
-                    "job_id": entry.operation_id or entry.task_id or str(entry.id),
-                    "stage": entry.stage or "unknown",
-                    "progress": entry.progress or 0,
-                    "message": entry.message or "",
-                    "metrics": entry.metadata or {},
-                    "error": entry.error,
-                    "updated_at": (
-                        entry.updated_at.isoformat() if entry.updated_at else None
-                    ),
-                },
-            )
+        jobs = [
+            {
+                "job_id": entry.operation_id or entry.task_id or str(entry.id),
+                "stage": entry.stage or "unknown",
+                "progress": entry.progress or 0,
+                "message": entry.message or "",
+                "metrics": entry.metadata or {},
+                "error": entry.error,
+                "updated_at": entry.updated_at.isoformat() if entry.updated_at else None,
+            }
+            async for entry in cursor
+        ]
 
         total = await Job.find(Job.job_type == "map_matching").count()
         return {"total": total, "jobs": jobs}

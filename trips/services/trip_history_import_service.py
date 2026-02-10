@@ -406,6 +406,8 @@ async def run_import(
     ) -> None:
         if not handle:
             return
+        # Keep the signature stable for callers; currently unused.
+        del important
         if windows_completed is None:
             windows_completed = 0
         meta_patch = {
@@ -463,6 +465,9 @@ async def run_import(
     windows_completed = 0
     session = await get_session()
 
+    def _raise_runtime_error(message: str) -> None:
+        raise RuntimeError(message)
+
     try:
         token = await BouncieOAuth.get_access_token(session, credentials)
         if not token:
@@ -479,7 +484,7 @@ async def run_import(
                 error=err_msg,
                 important=True,
             )
-            raise RuntimeError(err_msg)
+            _raise_runtime_error(err_msg)
 
         add_event("info", "Authenticated with Bouncie")
         await write_progress(

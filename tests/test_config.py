@@ -62,9 +62,8 @@ class MapboxConfigTests(unittest.TestCase):
 
 class OsmDataPathTests(unittest.TestCase):
     def test_require_osm_data_path_missing(self) -> None:
-        with patch.dict(os.environ, {}, clear=True):
-            with pytest.raises(RuntimeError):
-                config.require_osm_data_path()
+        with patch.dict(os.environ, {}, clear=True), pytest.raises(RuntimeError):
+            config.require_osm_data_path()
 
     def test_require_osm_data_path_present(self) -> None:
         with patch.dict(

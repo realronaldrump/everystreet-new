@@ -60,7 +60,7 @@ class TripRouteBuildProjection(BaseModel):
 
 
 def _median(values: list[float]) -> float | None:
-    cleaned = [float(v) for v in values if isinstance(v, (int, float))]
+    cleaned = [float(v) for v in values if isinstance(v, int | float)]
     if not cleaned:
         return None
     try:
@@ -70,7 +70,7 @@ def _median(values: list[float]) -> float | None:
 
 
 def _avg(values: list[float]) -> float | None:
-    cleaned = [float(v) for v in values if isinstance(v, (int, float))]
+    cleaned = [float(v) for v in values if isinstance(v, int | float)]
     if not cleaned:
         return None
     return float(sum(cleaned) / len(cleaned))
@@ -298,11 +298,11 @@ class RecurringRoutesBuilder:
                     group["end_count"] += 1
 
                 dist = trip_dict.get("distance")
-                if isinstance(dist, (int, float)) and dist >= 0:
+                if isinstance(dist, int | float) and dist >= 0:
                     group["distances"].append(float(dist))
 
                 duration = trip_dict.get("duration")
-                if isinstance(duration, (int, float)) and duration >= 0:
+                if isinstance(duration, int | float) and duration >= 0:
                     group["durations"].append(float(duration))
                 else:
                     st = trip_dict.get("startTime")
@@ -316,16 +316,16 @@ class RecurringRoutesBuilder:
                             pass
 
                 fuel = trip_dict.get("fuelConsumed")
-                if isinstance(fuel, (int, float)) and fuel > 0:
+                if isinstance(fuel, int | float) and fuel > 0:
                     group["fuel"].append(float(fuel))
 
                 max_speed = trip_dict.get("maxSpeed")
-                if isinstance(max_speed, (int, float)) and max_speed >= 0:
+                if isinstance(max_speed, int | float) and max_speed >= 0:
                     prev = group.get("max_speed_max")
                     group["max_speed_max"] = float(max_speed) if prev is None else max(prev, float(max_speed))
 
                 trip_cost = TripCostService.calculate_trip_cost(trip_dict, price_map)
-                if isinstance(trip_cost, (int, float)) and trip_cost > 0:
+                if isinstance(trip_cost, int | float) and trip_cost > 0:
                     group["costs"].append(float(trip_cost))
 
                 st = trip_dict.get("startTime")
@@ -445,7 +445,7 @@ class RecurringRoutesBuilder:
                     route.is_recurring = trip_count >= min_recurring
                     route.first_start_time = group.get("first_start_time")
                     route.last_start_time = group.get("last_start_time")
-                    route.vehicle_imeis = sorted(list(group.get("vehicle_imeis") or set()))
+                    route.vehicle_imeis = sorted(group.get("vehicle_imeis") or set())
                     route.distance_miles_median = dist_med
                     route.distance_miles_avg = dist_avg
                     route.duration_sec_median = dur_med
@@ -476,7 +476,7 @@ class RecurringRoutesBuilder:
                         is_recurring=trip_count >= min_recurring,
                         first_start_time=group.get("first_start_time"),
                         last_start_time=group.get("last_start_time"),
-                        vehicle_imeis=sorted(list(group.get("vehicle_imeis") or set())),
+                        vehicle_imeis=sorted(group.get("vehicle_imeis") or set()),
                         distance_miles_median=dist_med,
                         distance_miles_avg=dist_avg,
                         duration_sec_median=dur_med,
@@ -587,9 +587,9 @@ class RecurringRoutesBuilder:
                 metadata_patch=result,
             )
 
-            return result
-
         except Exception as exc:
             logger.exception("Recurring routes build failed")
             await handle.fail(str(exc), message="Build failed")
             raise
+        else:
+            return result

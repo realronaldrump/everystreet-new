@@ -12,7 +12,10 @@ from fastapi import APIRouter, Body, HTTPException, Query, status
 from core.api import api_route
 from core.jobs import JobHandle, create_job, find_job
 from db.models import Job, RecurringRoute, Trip
-from recurring_routes.models import BuildRecurringRoutesRequest, PatchRecurringRouteRequest
+from recurring_routes.models import (
+    BuildRecurringRoutesRequest,
+    PatchRecurringRouteRequest,
+)
 from recurring_routes.services.service import (
     normalize_hex_color,
     serialize_route_detail,

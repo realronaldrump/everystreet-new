@@ -35,7 +35,7 @@ class GeometryService:
         coord: Sequence[Any],
     ) -> tuple[bool, list[float] | None]:
         """Validate a [lon, lat] coordinate pair."""
-        if not isinstance(coord, (list, tuple)) or len(coord) < 2:
+        if not isinstance(coord, list | tuple) or len(coord) < 2:
             return False, None
         try:
             lon = float(coord[0])
@@ -185,7 +185,7 @@ def is_valid_geojson_geometry(geojson_data: Any) -> bool:
     if geom_type == "Point":
         if not isinstance(coordinates, list) or len(coordinates) != 2:
             return False
-        if not all(isinstance(coord, (int, float)) for coord in coordinates):
+        if not all(isinstance(coord, int | float) for coord in coordinates):
             return False
         lon, lat = coordinates
         if not (-180 <= lon <= 180 and -90 <= lat <= 90):
@@ -203,7 +203,7 @@ def is_valid_geojson_geometry(geojson_data: Any) -> bool:
         for point in coordinates:
             if not isinstance(point, list) or len(point) != 2:
                 return False
-            if not all(isinstance(coord, (int, float)) for coord in point):
+            if not all(isinstance(coord, int | float) for coord in point):
                 return False
             lon, lat = point
             if not (-180 <= lon <= 180 and -90 <= lat <= 90):
@@ -422,7 +422,7 @@ def extract_timestamps_for_coordinates(
             return int(parsed.timestamp()) if parsed else None
         if hasattr(value, "timestamp"):
             return int(value.timestamp())
-        if isinstance(value, (int, float)):
+        if isinstance(value, int | float):
             return int(value)
         return None
 

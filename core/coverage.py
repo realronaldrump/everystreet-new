@@ -271,7 +271,7 @@ def _coerce_coord_pair(value: Any) -> list[float] | None:
             lon = value.get("lng")
         lat = value.get("lat")
     else:
-        if not isinstance(value, (list, tuple)) or len(value) < 2:
+        if not isinstance(value, list | tuple) or len(value) < 2:
             return None
         lon, lat = value[0], value[1]
 
@@ -887,7 +887,7 @@ async def backfill_coverage_for_area(
     if (
         isinstance(area.bounding_box, list)
         and len(area.bounding_box) == 4
-        and all(isinstance(v, (int, float)) for v in area.bounding_box)
+        and all(isinstance(v, int | float) for v in area.bounding_box)
     ):
         min_lon, min_lat, max_lon, max_lat = map(float, area.bounding_box)
         bbox_polygon = {

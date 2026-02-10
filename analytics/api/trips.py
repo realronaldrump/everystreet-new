@@ -5,7 +5,11 @@ from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query, Request, status
 
-from analytics.services import DrilldownService, TimeAnalyticsService, TripAnalyticsService
+from analytics.services import (
+    DrilldownService,
+    TimeAnalyticsService,
+    TripAnalyticsService,
+)
 from core.api import api_route
 from db import build_query_from_request
 

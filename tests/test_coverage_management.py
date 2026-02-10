@@ -196,7 +196,8 @@ async def test_backfill_sets_first_last_and_driven_by_trip_id(coverage_db) -> No
     trip2 = Trip(transactionId="trip-2", endTime=t2, gps={"type": "LineString", "coordinates": [[-97.0, 31.0], [-97.0, 31.001]]})
     await trip1.insert()
     await trip2.insert()
-    assert trip1.id is not None and trip2.id is not None
+    assert trip1.id is not None
+    assert trip2.id is not None
 
     payloads: list[dict] = []
 

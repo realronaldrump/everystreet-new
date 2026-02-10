@@ -134,6 +134,7 @@ class VehicleService:
 
         # Remove from the authorized_devices list so future syncs don't immediately
         # re-add it to the local database.
+        updated: bool | None = None
         try:
             from setup.services.bouncie_credentials import (
                 get_bouncie_credentials,
@@ -153,13 +154,16 @@ class VehicleService:
                 updated = await update_bouncie_credentials(
                     {"authorized_devices": next_devices},
                 )
-                if not updated:
-                    raise RuntimeError("Failed to update authorized devices")
         except Exception:
             # Don't silently "succeed" if we couldn't deauthorize; the vehicle would
             # likely come back on the next sync.
             logger.exception("Failed to deauthorize vehicle %s from Bouncie credentials", imei)
             raise
+
+        if updated is False:
+            msg = "Failed to update authorized devices"
+            logger.error(msg)
+            raise RuntimeError(msg)
 
         await vehicle.delete()
 

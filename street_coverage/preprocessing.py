@@ -212,7 +212,7 @@ def _coerce_osmnx_bool(value: Any) -> bool | None:
         return None
     if isinstance(value, bool):
         return value
-    if isinstance(value, (int, float)):
+    if isinstance(value, int | float):
         return bool(value)
     if isinstance(value, str):
         raw = value.strip()

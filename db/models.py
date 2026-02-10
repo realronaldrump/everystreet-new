@@ -307,7 +307,7 @@ class TripIngestIssue(Document):
     last_seen_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     # "fetch_error" | "validation_failed" | "process_error" | ...
-    issue_type: Indexed(str)  # noqa: A003 - aligns with persisted schema naming
+    issue_type: Indexed(str)
     source: str | None = None
 
     transactionId: str | None = None

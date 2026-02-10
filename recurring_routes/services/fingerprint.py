@@ -8,7 +8,8 @@ from __future__ import annotations
 import hashlib
 import logging
 import math
-from typing import Any, Sequence
+from collections.abc import Sequence
+from typing import Any
 
 from core.spatial import GeometryService
 
@@ -190,11 +191,11 @@ def compute_route_signature(trip: dict[str, Any], params: dict[str, Any]) -> str
 
     dist_miles = None
     raw_dist = trip.get("distance")
-    if isinstance(raw_dist, (int, float)):
+    if isinstance(raw_dist, int | float):
         dist_miles = float(raw_dist)
     elif isinstance(raw_dist, dict):
         value = raw_dist.get("value")
-        if isinstance(value, (int, float)):
+        if isinstance(value, int | float):
             dist_miles = float(value)
     if dist_miles is None:
         _, total_m = _cumulative_distances_m(points)

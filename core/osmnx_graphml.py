@@ -24,7 +24,7 @@ def _coerce_osmnx_bool(value: Any) -> bool | None:
         return None
     if isinstance(value, bool):
         return value
-    if isinstance(value, (int, float)):
+    if isinstance(value, int | float):
         # Accept 0/1, but also anything numeric as a last resort.
         return bool(value)
     if isinstance(value, str):

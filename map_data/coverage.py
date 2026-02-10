@@ -11,9 +11,9 @@ from __future__ import annotations
 import contextlib
 import json
 import logging
-import os
 import time
 from dataclasses import dataclass
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from pyproj import Transformer
@@ -169,11 +169,12 @@ async def build_trip_coverage_polygon(
     return coverage, stats
 
 
-def write_coverage_geojson(geometry: Any, output_path: str) -> None:
+def write_coverage_geojson(geometry: Any, output_path: str | Path) -> None:
     feature = {"type": "Feature", "properties": {}, "geometry": mapping(geometry)}
     data = {"type": "FeatureCollection", "features": [feature]}
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
-    with open(output_path, "w", encoding="utf-8") as handle:
+    output = Path(output_path)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    with output.open("w", encoding="utf-8") as handle:
         json.dump(data, handle)
 
 
@@ -186,11 +187,13 @@ async def build_trip_coverage_extract_from_geometry(
     heartbeat_interval: float = 15.0,
     timeout_seconds: int | None = None,
 ) -> str | None:
-    extracts_path = get_osm_extracts_path()
-    coverage_dir = coverage_dir or os.path.join(extracts_path, "coverage")
-    os.makedirs(coverage_dir, exist_ok=True)
-    polygon_path = os.path.join(coverage_dir, "coverage.geojson")
-    output_pbf = os.path.join(coverage_dir, "coverage.osm.pbf")
+    extracts_path = Path(get_osm_extracts_path())
+    coverage_dir_path = (
+        Path(coverage_dir) if coverage_dir is not None else extracts_path / "coverage"
+    )
+    coverage_dir_path.mkdir(parents=True, exist_ok=True)
+    polygon_path = coverage_dir_path / "coverage.geojson"
+    output_pbf = coverage_dir_path / "coverage.osm.pbf"
 
     write_coverage_geojson(geometry, polygon_path)
 
@@ -200,9 +203,9 @@ async def build_trip_coverage_extract_from_geometry(
         "osmium",
         "extract",
         "-p",
-        polygon_path,
+        str(polygon_path),
         "-o",
-        output_pbf,
+        str(output_pbf),
         "--overwrite",
         source_pbf,
     ]
@@ -259,10 +262,10 @@ async def build_trip_coverage_extract_from_geometry(
         return None
     if stdout:
         logger.info("osmium extract: %s", stdout.decode().strip())
-    if not os.path.exists(output_pbf) or os.path.getsize(output_pbf) == 0:
+    if not output_pbf.exists() or output_pbf.stat().st_size == 0:
         logger.warning("Coverage extract output missing or empty.")
         return None
-    return output_pbf
+    return str(output_pbf)
 
 
 async def build_trip_coverage_extract(
@@ -318,9 +321,11 @@ async def build_trip_coverage_extract(
     if coverage is None:
         return None
 
-    extracts_path = get_osm_extracts_path()
-    coverage_dir = coverage_dir or os.path.join(extracts_path, "coverage")
-    os.makedirs(coverage_dir, exist_ok=True)
+    extracts_path = Path(get_osm_extracts_path())
+    coverage_dir_path = (
+        Path(coverage_dir) if coverage_dir is not None else extracts_path / "coverage"
+    )
+    coverage_dir_path.mkdir(parents=True, exist_ok=True)
 
     logger.info(
         "Coverage polygon built: trips=%d geometries=%d points=%d",
@@ -331,7 +336,7 @@ async def build_trip_coverage_extract(
     return await build_trip_coverage_extract_from_geometry(
         source_pbf,
         coverage,
-        coverage_dir=coverage_dir,
+        coverage_dir=str(coverage_dir_path),
         heartbeat_callback=extract_heartbeat,
         heartbeat_interval=extract_heartbeat_interval,
         timeout_seconds=extract_timeout_seconds,

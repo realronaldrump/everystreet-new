@@ -26,7 +26,7 @@ def test_normalize_pyrosm_gdfs_makes_unique_indexes() -> None:
 
     assert norm_nodes.index.name == "osmid"
     assert norm_nodes.index.is_unique
-    assert set(["x", "y"]).issubset(norm_nodes.columns)
+    assert {"x", "y"}.issubset(norm_nodes.columns)
 
     assert isinstance(norm_edges.index, pd.MultiIndex)
     assert list(norm_edges.index.names) == ["u", "v", "key"]

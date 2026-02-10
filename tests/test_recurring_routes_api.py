@@ -94,7 +94,8 @@ async def test_list_and_patch_routes_after_build(routes_api_db) -> None:
     assert len(body["routes"]) == 2
 
     route_id = body["routes"][0]["id"]
-    assert isinstance(route_id, str) and route_id
+    assert isinstance(route_id, str)
+    assert route_id
 
     patch_resp = client.patch(
         f"/api/recurring_routes/{route_id}",

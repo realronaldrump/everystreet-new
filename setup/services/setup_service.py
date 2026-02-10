@@ -42,10 +42,11 @@ async def get_setup_status() -> dict[str, Any]:
     settings = await _get_or_create_settings()
     credentials = await get_bouncie_credentials()
 
-    bouncie_missing = []
-    for field in ["client_id", "client_secret", "redirect_uri"]:
-        if not credentials.get(field):
-            bouncie_missing.append(field)
+    bouncie_missing = [
+        field
+        for field in ["client_id", "client_secret", "redirect_uri"]
+        if not credentials.get(field)
+    ]
 
     devices = _normalize_devices(credentials.get("authorized_devices"))
     if not devices:
@@ -222,7 +223,7 @@ async def get_service_health() -> dict[str, Any]:
         if heartbeat:
             heartbeat_value = (
                 heartbeat.decode()
-                if isinstance(heartbeat, (bytes, bytearray))
+                if isinstance(heartbeat, bytes | bytearray)
                 else str(heartbeat)
             )
             heartbeat_dt = None
@@ -404,10 +405,13 @@ async def get_service_logs(service_name: str, tail: int = 100) -> dict[str, Any]
     service_name = service_name.strip().lower()
     # Basic allowlist for security
     allowed = {"nominatim", "valhalla", "mongo", "redis", "worker", "app"}
-    if service_name not in allowed and not service_name.startswith("everystreet-"):
+    if (
+        service_name not in allowed
+        and not service_name.startswith("everystreet-")
+        and service_name != "web"
+    ):
         # Also allow app service if named differently in compose
-        if service_name != "web":
-            pass
+        pass
 
     # Actually, let's just use a mapped lookup for container names
     container_map = {

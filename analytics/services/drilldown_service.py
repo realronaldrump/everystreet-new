@@ -1,7 +1,7 @@
 """Business logic for drill-down trip lists used by the insights UI."""
 
 import logging
-from typing import Any
+from typing import Any, ClassVar
 
 from db.aggregation import aggregate_to_list
 from db.models import Trip
@@ -12,16 +12,18 @@ logger = logging.getLogger(__name__)
 class DrilldownService:
     """Service class for insight drill-down trip lists."""
 
-    SUPPORTED_KINDS: set[str] = {
-        "trips",
-        "distance",
-        "duration",
-        "fuel",
-        "top_speed",
-        "avg_speed",
-        "idle_time",
-        "hard_braking",
-    }
+    SUPPORTED_KINDS: ClassVar[frozenset[str]] = frozenset(
+        {
+            "trips",
+            "distance",
+            "duration",
+            "fuel",
+            "top_speed",
+            "avg_speed",
+            "idle_time",
+            "hard_braking",
+        },
+    )
 
     @staticmethod
     async def get_drilldown_trips(

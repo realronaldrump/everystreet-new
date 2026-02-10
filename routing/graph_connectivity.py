@@ -104,7 +104,7 @@ async def fetch_bridge_route(
             client = await get_valhalla_client()
             result = await client.route(
                 [from_xy, to_xy],
-                timeout=request_timeout,
+                timeout_s=request_timeout,
             )
     except ExternalServiceException as exc:
         logger.exception("Valhalla routing error: %s", exc.message)

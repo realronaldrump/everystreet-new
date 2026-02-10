@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def format_bouncie_datetime_param(dt: "datetime") -> str:
+def format_bouncie_datetime_param(dt: datetime) -> str:
     """Format datetimes for Bouncie query params.
 
     Bouncie expects RFC3339/ISO-8601 "date-time" strings.

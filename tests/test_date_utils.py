@@ -22,7 +22,7 @@ def test_parse_timestamp_normalizes_to_utc() -> None:
 
 
 def test_ensure_utc_handles_naive_datetime() -> None:
-    value = datetime(2024, 1, 1, 12, 0, 0)
+    value = datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC).replace(tzinfo=None)
     normalized = ensure_utc(value)
     assert normalized is not None
     assert normalized.tzinfo == UTC

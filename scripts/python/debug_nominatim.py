@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 CONTAINER_START_TIMEOUT = 120
 
 
-async def check_container_running(service_name: str) -> bool:
+async def check_container_running(_service_name: str) -> bool:
     return False
 
 

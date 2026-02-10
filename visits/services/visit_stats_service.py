@@ -383,8 +383,8 @@ class VisitStatsService:
                 if (
                     isinstance(coords, list)
                     and len(coords) >= 2
-                    and isinstance(coords[0], (int, float))
-                    and isinstance(coords[1], (int, float))
+                    and isinstance(coords[0], int | float)
+                    and isinstance(coords[1], int | float)
                 ):
                     return float(coords[0]), float(coords[1])
 
@@ -412,7 +412,7 @@ class VisitStatsService:
             if isinstance(coords, dict):
                 lng = coords.get("lng")
                 lat = coords.get("lat")
-                if isinstance(lng, (int, float)) and isinstance(lat, (int, float)):
+                if isinstance(lng, int | float) and isinstance(lat, int | float):
                     return float(lng), float(lat)
 
             return None

@@ -47,21 +47,20 @@ async def get_service_config() -> AppSettings:
             settings = AppSettings()
             await settings.insert()
             logger.info("Created default AppSettings document")
-
-        # Apply environment variable overrides for backward compatibility
-        # Environment variables take precedence if set
-        _apply_env_overrides(settings)
-        _apply_settings_to_env(settings)
-
-        _settings_cache = settings
-        return settings
-
     except Exception as e:
         logger.warning("Failed to load settings from DB, using defaults: %s", e)
         # Return a default settings object (not persisted)
         settings = AppSettings()
         _apply_env_overrides(settings)
         _apply_settings_to_env(settings)
+        return settings
+    else:
+        # Apply environment variable overrides for backward compatibility
+        # Environment variables take precedence if set
+        _apply_env_overrides(settings)
+        _apply_settings_to_env(settings)
+
+        _settings_cache = settings
         return settings
 
 

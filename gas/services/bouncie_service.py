@@ -106,8 +106,8 @@ class BouncieService:
                         result["timestamp"],
                     )
                     return result
-            return None
-
         except Exception:
             logger.exception("Error fetching vehicle status from Bouncie")
             return None
+
+        return None
