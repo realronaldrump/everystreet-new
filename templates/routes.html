@@ -1,0 +1,268 @@
+{% extends "base.html" %}
+
+{% block title %}
+
+Recurring Routes - Every Street
+{% endblock %}
+
+{% block extra_css %}
+
+  <!-- Mapbox GL CSS -->
+  <link rel="stylesheet" href="{{ CDN.mapbox_gl_css }}" />
+  <link rel="stylesheet"
+        href="{{ url_for('static', path='css/features/map/index.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}" />
+  <link rel="stylesheet"
+        href="{{ url_for('static', path='css/routes.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}" />
+{% endblock %}
+
+{% block head_content %}
+
+  <meta name="mapbox-access-token" content="{{ MAPBOX_ACCESS_TOKEN }}" />
+{% endblock %}
+
+{% block content %}
+
+  <div id="routes-page" class="routes-page">
+    <!-- Ambient Background -->
+    <div class="routes-ambient-bg" aria-hidden="true">
+      <div class="routes-ambient-gradient">
+      </div>
+      <div class="routes-ambient-noise">
+      </div>
+      <div class="routes-ambient-grid">
+      </div>
+    </div>
+
+    <div class="routes-container">
+      <header class="routes-hero" data-stagger>
+        <div class="routes-hero-left">
+          <div class="routes-badge">
+            <i class="fas fa-route" aria-hidden="true"></i>
+            <span>Recurring routes</span>
+          </div>
+          <h1 class="routes-title">
+            Your paths,
+            <span class="routes-title-accent">distilled</span>
+          </h1>
+          <p class="routes-subtitle">
+          Automatically grouped from your stored trips. Rename, pin, hide, and explore the patterns that emerge.
+          </p>
+        </div>
+
+        <div class="routes-hero-right">
+          <div class="routes-build-card" data-accent="mint">
+            <div class="build-card-top">
+              <div class="build-status">
+                <span class="build-dot" id="routes-build-dot" data-state="idle" aria-hidden="true"></span>
+                <span class="build-text" id="routes-build-text">Ready to build</span>
+              </div>
+              <div class="build-meta" id="routes-build-meta">
+                <span class="build-meta-item" id="routes-last-built">Not built yet</span>
+              </div>
+            </div>
+
+            <div class="build-actions">
+              <button type="button" class="btn btn-primary routes-build-btn" id="routes-build-btn">
+                <i class="fas fa-wand-magic-sparkles me-2" aria-hidden="true"></i>
+              Build / Refresh Routes
+              </button>
+              <button type="button"
+                      class="btn btn-outline-secondary routes-cancel-btn d-none"
+                      id="routes-cancel-btn">
+                <i class="fas fa-ban me-2" aria-hidden="true"></i>
+              Cancel
+              </button>
+            </div>
+
+            <div class="build-progress-wrap d-none" id="routes-build-progress-wrap" aria-live="polite">
+              <div class="build-progress">
+                <div class="build-progress-bar" id="routes-build-progress-bar" style="width: 0%"></div>
+              </div>
+              <div class="build-progress-labels">
+                <span id="routes-build-stage">Queued</span>
+                <span id="routes-build-progress">0%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <!-- Controls -->
+      <section class="routes-controls" data-stagger>
+        <div class="routes-controls-inner">
+          <div class="routes-search">
+            <i class="fas fa-search" aria-hidden="true"></i>
+            <input type="text"
+                   id="routes-search-input"
+                   class="routes-search-input"
+                   placeholder="Search routes..."
+                   autocomplete="off" />
+            <button type="button" class="routes-search-clear d-none" id="routes-search-clear" aria-label="Clear search">
+              <i class="fas fa-times" aria-hidden="true"></i>
+            </button>
+          </div>
+
+          <div class="routes-filters">
+            <div class="routes-filter">
+              <label for="routes-min-trips" class="routes-filter-label">Min trips</label>
+              <select id="routes-min-trips" class="routes-filter-select">
+                <option value="3" selected>3 (recurring)</option>
+                <option value="2">2</option>
+                <option value="1">1</option>
+              </select>
+            </div>
+
+            <div class="routes-filter">
+              <label for="routes-vehicle" class="routes-filter-label">Vehicle</label>
+              <select id="routes-vehicle" class="routes-filter-select">
+                <option value="">All vehicles</option>
+              </select>
+            </div>
+
+            <label class="routes-toggle">
+              <input type="checkbox" id="routes-include-hidden" />
+              <span class="routes-toggle-ui" aria-hidden="true"></span>
+              <span class="routes-toggle-text">Include hidden</span>
+            </label>
+          </div>
+        </div>
+      </section>
+
+      <!-- Results -->
+      <section class="routes-results" data-stagger>
+        <div class="routes-results-header">
+          <div class="routes-results-title">
+            <span id="routes-results-count">0</span> routes
+          </div>
+          <div class="routes-results-hint" id="routes-results-hint">
+          Showing routes built from your trips
+          </div>
+        </div>
+
+        <div class="routes-grid" id="routes-grid">
+          <div class="routes-loading" id="routes-loading">
+            <div class="spinner-border text-primary" role="status">
+              <span class="visually-hidden">Loading routes...</span>
+            </div>
+            <p class="mt-2 text-secondary">
+            Loading routes...
+            </p>
+          </div>
+        </div>
+
+        <div class="routes-empty d-none" id="routes-empty">
+          <div class="routes-empty-icon" aria-hidden="true">
+            <i class="fas fa-route"></i>
+          </div>
+          <h3 class="routes-empty-title">No routes yet</h3>
+          <p class="routes-empty-text">
+          Build your route templates to group similar trips into recurring patterns.
+          </p>
+          <button type="button" class="btn btn-primary btn-lg" id="routes-empty-build-btn">
+            <i class="fas fa-wand-magic-sparkles me-2" aria-hidden="true"></i>
+          Build routes
+          </button>
+        </div>
+      </section>
+    </div>
+
+    <!-- Route Details Modal -->
+    <div class="modal fade"
+         id="routeDetailsModal"
+         tabindex="-1"
+         aria-hidden="true">
+      <div class="modal-dialog modal-xl modal-dialog-centered routes-modal-dialog">
+        <div class="modal-content routes-modal-content">
+          <div class="modal-header routes-modal-header">
+            <div class="routes-modal-title-wrap">
+              <h5 class="modal-title" id="routeModalTitle">Route</h5>
+              <div class="routes-modal-subtitle" id="routeModalSubtitle">
+                <span id="routeModalMeta">--</span>
+              </div>
+            </div>
+            <div class="modal-actions">
+              <button class="btn-icon" id="route-modal-pin-btn" title="Pin">
+                <i class="fas fa-thumbtack" aria-hidden="true"></i>
+              </button>
+              <button class="btn-icon" id="route-modal-hide-btn" title="Hide">
+                <i class="fas fa-eye-slash" aria-hidden="true"></i>
+              </button>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close">
+              </button>
+            </div>
+          </div>
+          <div class="modal-body p-0">
+            <div class="row g-0">
+              <div class="col-lg-8 position-relative routes-modal-map-col">
+                <div class="routes-modal-map" id="route-modal-map">
+                </div>
+                <div class="routes-modal-map-badge" id="route-modal-map-badge" style="display: none">
+                  <span class="badge-dot" aria-hidden="true"></span>
+                  <span id="route-modal-map-badge-text">Pinned</span>
+                </div>
+              </div>
+              <div class="col-lg-4 routes-modal-panel">
+                <div class="routes-modal-panel-inner">
+                  <div class="routes-modal-edit">
+                    <label class="routes-modal-label" for="route-modal-name">Name</label>
+                    <div class="routes-modal-name-row">
+                      <input type="text"
+                             id="route-modal-name"
+                             class="form-control routes-modal-name-input"
+                             placeholder="(auto)" />
+                      <input type="color" id="route-modal-color" class="routes-modal-color" title="Route color" />
+                    </div>
+                    <div class="routes-modal-edit-hint" id="route-modal-edit-hint">
+                    Renaming overrides the auto name for this route.
+                    </div>
+                  </div>
+
+                  <div class="routes-modal-stats" id="route-modal-stats">
+                    <div class="routes-stat">
+                      <span class="routes-stat-label">Trips</span>
+                      <span class="routes-stat-value" id="route-stat-trips">--</span>
+                    </div>
+                    <div class="routes-stat">
+                      <span class="routes-stat-label">Median distance</span>
+                      <span class="routes-stat-value" id="route-stat-distance">--</span>
+                    </div>
+                    <div class="routes-stat">
+                      <span class="routes-stat-label">Median duration</span>
+                      <span class="routes-stat-value" id="route-stat-duration">--</span>
+                    </div>
+                    <div class="routes-stat">
+                      <span class="routes-stat-label">Last taken</span>
+                      <span class="routes-stat-value" id="route-stat-last">--</span>
+                    </div>
+                  </div>
+
+                  <div class="routes-modal-trips">
+                    <div class="routes-modal-trips-header">
+                      <h6 class="routes-modal-section-title">
+                      Trips on this route
+                      </h6>
+                      <span class="routes-modal-trips-count" id="route-modal-trips-count">0</span>
+                    </div>
+                    <div class="routes-modal-trips-list" id="route-modal-trips-list">
+                    </div>
+                  </div>
+
+                  <div class="routes-modal-footer">
+                    <a class="btn btn-outline-secondary w-100" id="route-modal-open-btn" href="/routes">
+                      <i class="fas fa-external-link-alt me-2" aria-hidden="true"></i>
+                    Open route page
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+{% endblock %}
+
+{# Page scripts are loaded via route-loader + swup. #}
+

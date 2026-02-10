@@ -252,7 +252,7 @@ class TripIngestIssueService:
         )
 
         now = datetime.now(UTC)
-        collection = TripIngestIssue.get_motor_collection()
+        collection = TripIngestIssue.get_pymongo_collection()
         result = await collection.update_many(
             query,
             {"$set": {"resolved": True, "resolved_at": now}},
@@ -273,6 +273,6 @@ class TripIngestIssueService:
             search=search,
         )
 
-        collection = TripIngestIssue.get_motor_collection()
+        collection = TripIngestIssue.get_pymongo_collection()
         result = await collection.delete_many(query)
         return int(getattr(result, "deleted_count", 0) or 0)

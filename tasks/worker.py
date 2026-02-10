@@ -38,6 +38,7 @@ from tasks.map_data import (
 )
 from tasks.map_matching import map_match_trips
 from tasks.optimal_routes import generate_optimal_route
+from tasks.recurring_routes import build_recurring_routes
 
 PERIODIC_FETCH_TIMEOUT_SECONDS = int(
     os.getenv("TRIP_FETCH_JOB_TIMEOUT_SECONDS", str(15 * 60)),
@@ -88,6 +89,7 @@ class WorkerSettings:
         remap_unmatched_trips,
         map_match_trips,
         update_coverage_for_new_trips,
+        build_recurring_routes,
         generate_optimal_route,
         worker_heartbeat,
         func(purge_server_logs_before, timeout=LOG_PURGE_TIMEOUT_SECONDS),

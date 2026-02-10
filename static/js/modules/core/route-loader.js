@@ -60,6 +60,10 @@ export async function ensureRouteModule(pathname) {
     await importOnce("/trips", "../../pages/trips.js");
     return;
   }
+  if (path === "/routes" || path.startsWith("/routes/")) {
+    await importOnce("/routes", "../../pages/routes.js");
+    return;
+  }
   if (path === "/insights") {
     await importOnce("/insights", "../../pages/insights.js");
     return;
@@ -120,4 +124,3 @@ export async function ensureRouteModule(pathname) {
     await importOnce("/status", "../../pages/status.js");
   }
 }
-

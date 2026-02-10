@@ -157,6 +157,9 @@ function normalizeForNav(pathname) {
   if (pathname === "/trips" || pathname.startsWith("/trips/")) {
     return "/trips";
   }
+  if (pathname === "/routes" || pathname.startsWith("/routes/")) {
+    return "/routes";
+  }
   return pathname;
 }
 

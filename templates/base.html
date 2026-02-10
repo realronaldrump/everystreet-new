@@ -257,6 +257,23 @@ Insights & Tracking
                     </li>
                     <li role="none">
                       <a
+                      class="dropdown-item {% if request.url.path == '/routes' or request.url.path.startswith('/routes/') %}active{% endif %}"
+                      href="/routes"
+                      role="menuitem"
+{%
+                      if
+                      request.url.path == "/routes" or request.url.path.startswith('/routes/')
+                      %}aria-current="page"
+{%
+                      endif
+                      %}
+                    >
+                        <i class="fas fa-route me-2" aria-hidden="true"></i>
+                      Routes
+                      </a>
+                    </li>
+                    <li role="none">
+                      <a
                       class="dropdown-item {% if request.url.path == '/vehicles' %}active{% endif %}"
                       href="/vehicles"
                       role="menuitem"
@@ -626,6 +643,21 @@ System
                   %}
                 >
                     <i class="fas fa-map-marker-alt me-2" aria-hidden="true"></i> Visits
+                  </a>
+                </li>
+                <li role="none">
+                  <a
+                  href="/routes"
+                  class="{% if request.url.path == '/routes' or request.url.path.startswith('/routes/') %}active{% endif %}"
+{%
+                  if
+                  request.url.path == "/routes" or request.url.path.startswith('/routes/')
+                  %}aria-current="page"
+{%
+                  endif
+                  %}
+                >
+                    <i class="fas fa-route me-2" aria-hidden="true"></i> Routes
                   </a>
                 </li>
                 <li role="none">

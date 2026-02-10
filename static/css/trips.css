@@ -2050,6 +2050,9 @@
 }
 
 .trip-tag {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
   padding: 8px 16px;
   background: rgb(var(--accent-rgb) / 10%);
   border: 1px solid rgb(var(--accent-rgb) / 25%);
@@ -2057,6 +2060,7 @@
   font-size: 0.8125rem;
   font-weight: 600;
   color: rgb(255 255 255 / 70%);
+  text-decoration: none;
   transition: all 0.2s ease;
   cursor: pointer;
 }
@@ -2066,6 +2070,11 @@
   border-color: rgb(var(--accent-rgb) / 40%);
   color: var(--text-primary);
   transform: translateY(-1px);
+}
+
+.trip-tag:focus-visible {
+  outline: 2px solid rgb(var(--accent-rgb) / 55%);
+  outline-offset: 3px;
 }
 
 /* Import History Modal */

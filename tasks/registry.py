@@ -43,6 +43,18 @@ TASK_DEFINITIONS: dict[str, dict[str, object]] = {
         "description": "Runs map matching jobs created from the Map Matching page",
         "manual_only": True,
     },
+    "build_recurring_routes": {
+        "display_name": "Build Recurring Routes",
+        "default_interval_minutes": 0,
+        "dependencies": [],
+        "description": (
+            "Derives recurring route templates by clustering stored trips with similar "
+            "start/end areas and path fingerprints. This does not call Bouncie; it "
+            "only uses locally stored trip data and assigns each trip a route template "
+            "id for browsing and analysis."
+        ),
+        "manual_only": True,
+    },
     "update_coverage_for_new_trips": {
         "display_name": "Incremental Progress Updates",
         "default_interval_minutes": 180,

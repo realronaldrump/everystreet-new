@@ -38,6 +38,7 @@ let currentTripId = null;
 let currentTripData = null;
 let regeocodeInFlight = false;
 let modalRouteActionsTripId = null;
+let modalRouteChipToken = 0;
 let playbackControlsBound = false;
 let modalActionsBound = false;
 let pageSignal = null;
@@ -2283,7 +2284,89 @@ function updateModalContent(trip) {
     endEl.classList.toggle("unknown", endLoc === "Unknown");
   }
 
+  void updateTripRouteChip(trip);
   updateRegeocodeControls(trip);
+}
+
+function normalizeMongoId(value) {
+  if (!value) {
+    return null;
+  }
+  if (typeof value === "string") {
+    const cleaned = value.trim();
+    return cleaned ? cleaned : null;
+  }
+  if (typeof value === "object") {
+    if (typeof value.$oid === "string" && value.$oid.trim()) {
+      return value.$oid.trim();
+    }
+    if (typeof value.toString === "function") {
+      const rendered = value.toString();
+      if (typeof rendered === "string") {
+        const cleaned = rendered.trim();
+        if (cleaned && cleaned !== "[object Object]") {
+          return cleaned;
+        }
+      }
+    }
+  }
+  return null;
+}
+
+async function updateTripRouteChip(trip) {
+  const tagsEl = document.getElementById("modal-tags");
+  if (!tagsEl) {
+    return;
+  }
+
+  tagsEl.innerHTML = "";
+
+  const routeId = normalizeMongoId(trip?.recurringRouteId);
+  if (!routeId) {
+    return;
+  }
+
+  const token = ++modalRouteChipToken;
+
+  const chip = document.createElement("a");
+  chip.className = "trip-tag";
+  chip.href = `/routes/${encodeURIComponent(routeId)}`;
+  chip.textContent = "Route: ...";
+  chip.addEventListener(
+    "click",
+    () => {
+      try {
+        tripModalInstance?.hide();
+      } catch {
+        // Best-effort: navigation will still work.
+      }
+    },
+    pageSignal ? { signal: pageSignal } : undefined
+  );
+
+  tagsEl.appendChild(chip);
+
+  try {
+    const resp = await apiGet(`/api/recurring_routes/${encodeURIComponent(routeId)}`);
+    if (token !== modalRouteChipToken) {
+      return;
+    }
+    const route = resp?.route || resp;
+    const displayName = (
+      route?.display_name ||
+      route?.displayName ||
+      route?.name ||
+      route?.auto_name ||
+      route?.autoName ||
+      ""
+    ).trim();
+    chip.textContent = displayName ? `Route: ${displayName}` : "Route";
+  } catch (err) {
+    if (token !== modalRouteChipToken) {
+      return;
+    }
+    chip.textContent = "Route: (unavailable)";
+  }
 }
 
 function renderTripOnMap(trip) {

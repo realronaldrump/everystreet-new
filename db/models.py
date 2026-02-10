@@ -93,6 +93,9 @@ class Trip(Document):
     destinationPlaceId: str | None = None
     destinationPlaceName: str | None = None
 
+    # Recurring route association (computed locally from stored trip data)
+    recurringRouteId: PydanticObjectId | None = None
+
     # Validation fields
     invalid: bool | None = None
     validated_at: datetime | None = None
@@ -221,6 +224,71 @@ class Trip(Document):
                 [("destinationPlaceName", 1)],
                 name="trips_destinationPlaceName_idx",
                 sparse=True,
+            ),
+            IndexModel(
+                [("recurringRouteId", 1), ("startTime", -1)],
+                name="trips_recurringRoute_startTime_desc_idx",
+                sparse=True,
+            ),
+        ]
+
+    model_config = ConfigDict(extra="allow")
+
+
+class RecurringRoute(Document):
+    """Locally-derived route template grouping multiple similar trips."""
+
+    route_key: Indexed(str, unique=True)
+    route_signature: str
+    algorithm_version: int = 1
+    params: dict[str, Any] = Field(default_factory=dict)
+
+    # Display/edit fields
+    name: str | None = None
+    auto_name: str = ""
+    start_label: str = ""
+    end_label: str = ""
+
+    # Geometry summary
+    start_centroid: list[float] = Field(default_factory=list)  # [lon, lat]
+    end_centroid: list[float] = Field(default_factory=list)  # [lon, lat]
+    geometry: dict[str, Any] | None = None
+    preview_svg_path: str | None = None
+
+    # Aggregates
+    trip_count: int = 0
+    is_recurring: bool = False
+    first_start_time: datetime | None = None
+    last_start_time: datetime | None = None
+    vehicle_imeis: list[str] = Field(default_factory=list)
+    distance_miles_median: float | None = None
+    distance_miles_avg: float | None = None
+    duration_sec_median: float | None = None
+    duration_sec_avg: float | None = None
+    fuel_gal_avg: float | None = None
+    cost_usd_avg: float | None = None
+    max_speed_mph_max: float | None = None
+    representative_trip_id: str | None = None
+
+    # User customization
+    color: str | None = None
+    is_pinned: bool = False
+    is_hidden: bool = False
+
+    # Lifecycle
+    is_active: bool = True
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+    class Settings:
+        name = "recurring_routes"
+        indexes: ClassVar[list[IndexModel]] = [
+            IndexModel(
+                [("is_pinned", -1), ("trip_count", -1), ("last_start_time", -1)],
+                name="recurring_routes_pinned_count_last_idx",
+            ),
+            IndexModel(
+                [("is_recurring", -1), ("trip_count", -1)],
+                name="recurring_routes_recurring_count_idx",
             ),
         ]
 
@@ -818,6 +886,7 @@ class CountyTopology(Document):
 # List of all document models for Beanie initialization
 ALL_DOCUMENT_MODELS = [
     Trip,
+    RecurringRoute,
     TripIngestIssue,
     OsmData,
     Place,
