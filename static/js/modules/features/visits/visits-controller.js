@@ -71,6 +71,11 @@ class VisitsPageController {
       "view-trip-modal",
     ];
 
+    // Timeline pagination for the detail modal
+    this.TIMELINE_PAGE_SIZE = 20;
+    this.modalTrips = [];
+    this.modalTimelineShown = 0;
+
     // DOM Elements
     this.elements = {};
 
@@ -196,6 +201,13 @@ class VisitsPageController {
 
     document.getElementById("modal-delete-place")?.addEventListener("click", () => {
       void this.deleteActivePlace();
+    }, { signal });
+
+    document.getElementById("modal-timeline-show-more")?.addEventListener("click", () => {
+      const timelineEl = document.getElementById("modal-visit-timeline");
+      if (timelineEl) {
+        this._renderTimelineBatch(timelineEl);
+      }
     }, { signal });
 
     document.addEventListener("hidden.bs.modal", () => {
@@ -1105,25 +1117,20 @@ class VisitsPageController {
         editPlaceNameInput.value = stats.name || "";
       }
 
-      // Update timeline
-      const timelineHTML = trips
-        .map((trip, index) => {
-          const sinceLast = index > 0 ? trip.timeSinceLastVisit : null;
-          return `
-          <div class="timeline-item">
-            <div class="timeline-date">${this.formatDate(trip.endTime)}</div>
-            <div class="timeline-content">
-              <span>${new Date(trip.endTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })} - ${trip.departureTime ? new Date(trip.departureTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) : "Unknown"}</span>
-              <span class="duration">${trip.timeSpent}</span>
-              ${sinceLast ? `<span class="since-last">${sinceLast} since last</span>` : ""}
-            </div>
-          </div>
-        `;
-        })
-        .join("");
+      // Store trips for progressive rendering
+      this.modalTrips = trips;
+      this.modalTimelineShown = 0;
 
-      document.getElementById("modal-visit-timeline").innerHTML =
-        timelineHTML || '<p class="text-secondary">No visits recorded</p>';
+      // Update timeline count badge
+      const countEl = document.getElementById("modal-timeline-count");
+      if (countEl) {
+        countEl.textContent = trips.length > 0 ? `${trips.length} visit${trips.length !== 1 ? "s" : ""}` : "";
+      }
+
+      // Clear and render initial batch
+      const timelineEl = document.getElementById("modal-visit-timeline");
+      timelineEl.innerHTML = "";
+      this._renderTimelineBatch(timelineEl);
 
       // Show modal
       const modalEl = document.getElementById("place-detail-modal");
@@ -1137,6 +1144,54 @@ class VisitsPageController {
     } catch (error) {
       console.error("Error loading place detail:", error);
       this.showNotification("Error loading place details", "error");
+    }
+  }
+
+  /**
+   * Render the next batch of timeline items, updating the "show more" button.
+   */
+  _renderTimelineBatch(timelineEl) {
+    const trips = this.modalTrips;
+    const start = this.modalTimelineShown;
+    const end = Math.min(start + this.TIMELINE_PAGE_SIZE, trips.length);
+
+    if (trips.length === 0) {
+      timelineEl.innerHTML = '<p class="text-secondary">No visits recorded</p>';
+      return;
+    }
+
+    const fragment = document.createDocumentFragment();
+
+    for (let i = start; i < end; i++) {
+      const trip = trips[i];
+      const sinceLast = i > 0 ? trip.timeSinceLastVisit : null;
+
+      const item = document.createElement("div");
+      item.className = "timeline-item";
+      item.innerHTML = `
+        <div class="timeline-date">${this.formatDate(trip.endTime)}</div>
+        <div class="timeline-content">
+          <span>${new Date(trip.endTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })} - ${trip.departureTime ? new Date(trip.departureTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) : "Unknown"}</span>
+          <span class="duration">${trip.timeSpent}</span>
+          ${sinceLast ? `<span class="since-last">${sinceLast} since last</span>` : ""}
+        </div>
+      `;
+      fragment.appendChild(item);
+    }
+
+    timelineEl.appendChild(fragment);
+    this.modalTimelineShown = end;
+
+    // Update "show more" button
+    const showMoreBtn = document.getElementById("modal-timeline-show-more");
+    if (showMoreBtn) {
+      const remaining = trips.length - this.modalTimelineShown;
+      if (remaining > 0) {
+        showMoreBtn.style.display = "flex";
+        showMoreBtn.innerHTML = `<i class="fas fa-chevron-down me-2"></i>Show ${Math.min(remaining, this.TIMELINE_PAGE_SIZE)} more of ${remaining} remaining`;
+      } else {
+        showMoreBtn.style.display = "none";
+      }
     }
   }
 

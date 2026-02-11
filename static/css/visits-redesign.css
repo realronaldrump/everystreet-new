@@ -1030,12 +1030,13 @@
     rgb(var(--primary-rgb), 0.95) 0%,
     rgb(var(--cat-mint-rgb), 0.95) 100%
   );
-  color: var(--text-on-primary);
+  color: #fff;
   border-color: rgb(var(--primary-rgb), 0.7);
+  text-shadow: 0 1px 2px rgb(0 0 0 / 30%);
 }
 
 .btn-draw:hover {
-  color: var(--text-on-primary);
+  color: #fff;
   border-color: rgb(var(--cat-mint-rgb), 0.8);
 }
 
@@ -1216,13 +1217,22 @@
 
 .other-stop-item {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--space-4) var(--space-5);
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
   background: var(--surface-2);
   border-radius: var(--radius-lg);
   border: 1px solid var(--border-color);
   transition: all var(--transition-fast);
+}
+
+@media (width >= 640px) {
+  .other-stop-item {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-4) var(--space-5);
+  }
 }
 
 .other-stop-item:hover {
@@ -1238,9 +1248,16 @@
 
 .other-stop-dates {
   display: flex;
-  gap: var(--space-4);
+  flex-wrap: wrap;
+  gap: var(--space-2);
   font-size: var(--font-size-xs);
   color: var(--text-tertiary);
+}
+
+@media (width >= 640px) {
+  .other-stop-dates {
+    gap: var(--space-4);
+  }
 }
 
 .btn-save {
@@ -1493,6 +1510,150 @@
   border-bottom-color: rgb(var(--cat-mint-rgb), 0.3);
 }
 
+/* --- Visits Modal Header with Inline Actions --- */
+.visits-modal-header {
+  padding: var(--space-4) var(--space-5);
+}
+
+.visits-modal-header-content {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  flex: 1;
+  min-width: 0;
+}
+
+.visits-modal-header-content .modal-title {
+  flex-shrink: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.visits-modal-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.visits-modal-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid rgb(var(--border-rgb) / 40%);
+  background: rgb(var(--surface-rgb) / 40%);
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.visits-modal-action-btn:hover {
+  background: rgb(var(--primary-rgb) / 15%);
+  border-color: rgb(var(--primary-rgb) / 50%);
+  color: var(--primary);
+}
+
+.visits-modal-action-btn--danger:hover {
+  background: rgb(220 53 69 / 15%);
+  border-color: rgb(220 53 69 / 50%);
+  color: #dc3545;
+}
+
+@media (width < 640px) {
+  .visits-modal-header-content {
+    flex-wrap: wrap;
+    gap: var(--space-3);
+  }
+
+  .visits-modal-actions {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .visits-modal-action-btn span {
+    display: none;
+  }
+
+  .visits-modal-action-btn {
+    padding: var(--space-2);
+    min-width: 36px;
+    justify-content: center;
+  }
+}
+
+/* --- Visits Modal Scrollable Body --- */
+.visits-modal .modal-dialog-scrollable .modal-body {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* --- Timeline Header with Count --- */
+.timeline-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-4);
+}
+
+.timeline-header .timeline-title {
+  margin-bottom: 0;
+}
+
+.timeline-count {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  background: rgb(var(--surface-rgb) / 60%);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-color);
+}
+
+/* --- Timeline Show More Button --- */
+.timeline-show-more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  margin-top: var(--space-3);
+  border: 1px dashed var(--border-color);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.timeline-show-more:hover {
+  background: rgb(var(--primary-rgb) / 8%);
+  border-color: rgb(var(--primary-rgb) / 40%);
+  color: var(--primary);
+}
+
+/* --- Edit Modal Form Actions --- */
+.visits-modal-form-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+@media (width >= 480px) {
+  .visits-modal-form-actions {
+    flex-direction: row;
+    justify-content: space-between;
+  }
+}
+
 .modal-stats-row {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -1605,6 +1766,14 @@
     min-width: 8rem;
   }
 
+  .btn-control span {
+    display: none;
+  }
+
+  .btn-control.btn-draw span {
+    display: inline;
+  }
+
   .drawing-toast {
     flex-direction: column;
     align-items: flex-start;
@@ -1620,6 +1789,27 @@
 
   .boundary-adjust-actions {
     flex-direction: column;
+  }
+
+  /* Modal mobile improvements */
+  .visits-modal .modal-header {
+    padding: var(--space-3) var(--space-4);
+  }
+
+  .visits-modal .modal-body {
+    padding: var(--space-3) var(--space-4);
+  }
+
+  .visits-modal .modal-title {
+    font-size: var(--font-size-md);
+  }
+
+  .modal-stat {
+    padding: var(--space-3);
+  }
+
+  .modal-stat-value {
+    font-size: var(--font-size-lg);
   }
 }
 
@@ -1736,20 +1926,26 @@
 .visits-modal .modal-header {
   background: rgb(var(--primary-rgb) / 12%);
   border-bottom: 1px solid rgb(var(--border-rgb) / 40%);
-  padding: var(--space-5);
+  padding: var(--space-4) var(--space-5);
 }
 
 .visits-modal .modal-title {
   font-weight: var(--font-weight-bold);
-  font-size: var(--font-size-xl);
+  font-size: var(--font-size-lg);
   color: var(--primary);
   display: flex;
   align-items: center;
   gap: var(--space-2);
 }
 
+@media (width >= 640px) {
+  .visits-modal .modal-title {
+    font-size: var(--font-size-xl);
+  }
+}
+
 .visits-modal .modal-body {
-  padding: var(--space-5);
+  padding: var(--space-4) var(--space-5);
 }
 
 .visits-modal .btn-close {
@@ -1758,6 +1954,7 @@
   width: 32px;
   height: 32px;
   border-radius: var(--radius-full);
+  flex-shrink: 0;
 }
 
 .visits-modal .btn-close:hover {
