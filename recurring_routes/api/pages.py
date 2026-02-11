@@ -44,4 +44,3 @@ async def routes_page(request: Request):
 async def route_details_page(request: Request, route_id: str):
     """Render routes page with a specific route preselected."""
     return await _render_routes_page(request, route_id=route_id)
-

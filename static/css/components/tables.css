@@ -47,7 +47,6 @@
 
 .table td {
   overflow-wrap: anywhere;
-  word-break: break-word;
 }
 
 /* Hover with left border accent */

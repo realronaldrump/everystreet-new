@@ -19,6 +19,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 async def apply_area_stats_delta(
     area_id: PydanticObjectId,
     *,

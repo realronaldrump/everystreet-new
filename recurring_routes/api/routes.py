@@ -122,12 +122,7 @@ async def list_trips_for_route(
         raise HTTPException(status_code=404, detail="Route not found")
 
     query = {"recurringRouteId": oid, "invalid": {"$ne": True}}
-    trips_cursor = (
-        Trip.find(query)
-        .sort("-startTime")
-        .skip(offset)
-        .limit(limit)
-    )
+    trips_cursor = Trip.find(query).sort("-startTime").skip(offset).limit(limit)
 
     trips = []
     async for trip in trips_cursor:
@@ -148,7 +143,11 @@ async def list_trips_for_route(
         )
 
     total = await Trip.find(query).count()
-    return {"total": total, "trips": trips, "route": {"id": route_id, "name": route.name, "auto_name": route.auto_name}}
+    return {
+        "total": total,
+        "trips": trips,
+        "route": {"id": route_id, "name": route.name, "auto_name": route.auto_name},
+    }
 
 
 @router.patch("/api/recurring_routes/{route_id}", response_model=dict[str, Any])
@@ -181,7 +180,9 @@ async def patch_recurring_route(route_id: str, payload: PatchRecurringRouteReque
         else:
             normalized = normalize_hex_color(str(color_raw))
             if normalized is None:
-                raise HTTPException(status_code=400, detail="Invalid color format; expected #RRGGBB")
+                raise HTTPException(
+                    status_code=400, detail="Invalid color format; expected #RRGGBB"
+                )
             route.color = normalized
 
     if patch.get("is_pinned") is not None:
@@ -213,7 +214,10 @@ async def start_recurring_routes_build(
     """Start a background job to build recurring routes from stored trips."""
     active = await _find_active_build_job()
     if active and (active.operation_id or active.task_id):
-        return {"status": "already_running", "job_id": active.operation_id or active.task_id}
+        return {
+            "status": "already_running",
+            "job_id": active.operation_id or active.task_id,
+        }
 
     build_request = BuildRecurringRoutesRequest(**(data or {}))
     enqueue_result = await enqueue_task(
@@ -263,7 +267,9 @@ async def get_recurring_routes_build(job_id: str):
     }
 
 
-@router.post("/api/recurring_routes/jobs/{job_id}/cancel", response_model=dict[str, Any])
+@router.post(
+    "/api/recurring_routes/jobs/{job_id}/cancel", response_model=dict[str, Any]
+)
 @api_route(logger)
 async def cancel_recurring_routes_build(job_id: str):
     """Cancel a running recurring routes build job."""
@@ -273,8 +279,15 @@ async def cancel_recurring_routes_build(job_id: str):
 
     stage = (progress.stage or "").lower()
     status_value = (progress.status or "").lower()
-    if stage in {"cancelled", "completed", "failed", "error"} or status_value in {"cancelled", "completed", "failed"}:
-        return {"status": "already_finished", "job": await get_recurring_routes_build(job_id)}
+    if stage in {"cancelled", "completed", "failed", "error"} or status_value in {
+        "cancelled",
+        "completed",
+        "failed",
+    }:
+        return {
+            "status": "already_finished",
+            "job": await get_recurring_routes_build(job_id),
+        }
 
     aborted = False
     try:
@@ -301,7 +314,12 @@ async def cancel_recurring_routes_build(job_id: str):
             end_time=now,
         )
     except Exception as exc:
-        logger.warning("Failed to update task history for cancelled job %s: %s", job_id, exc)
+        logger.warning(
+            "Failed to update task history for cancelled job %s: %s", job_id, exc
+        )
 
-    return {"status": "cancelled", "aborted": aborted, "job": await get_recurring_routes_build(job_id)}
-
+    return {
+        "status": "cancelled",
+        "aborted": aborted,
+        "job": await get_recurring_routes_build(job_id),
+    }

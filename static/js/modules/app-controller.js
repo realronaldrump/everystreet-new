@@ -20,8 +20,8 @@
 /* global bootstrap */
 
 import { CONFIG } from "./core/config.js";
-import { getPreloadTripIdFromUrl } from "./core/url-state.js";
 import state from "./core/store.js";
+import { getPreloadTripIdFromUrl } from "./core/url-state.js";
 import dataManager from "./data-manager.js";
 import LiveTripTracker from "./features/tracking/index.js";
 import layerManager from "./layer-manager.js";
@@ -103,11 +103,11 @@ const initializeLocationDropdown = async () => {
     areas.forEach((area) => {
       const option = document.createElement("option");
       option.value = area.id || area._id;
-      option.textContent
-        = area.display_name
-        || area.location?.display_name
-        || area.name
-        || "Unknown Location";
+      option.textContent =
+        area.display_name ||
+        area.location?.display_name ||
+        area.name ||
+        "Unknown Location";
       frag.appendChild(option);
     });
     dropdown.appendChild(frag);
@@ -158,8 +158,8 @@ const AppController = {
    * Initialize the application
    */
   async initialize() {
-    const isMapPage
-      = Boolean(utils.getElement("map")) && !document.getElementById("visits-page");
+    const isMapPage =
+      Boolean(utils.getElement("map")) && !document.getElementById("visits-page");
     const mapLoading = isMapPage ? createMapLoadingHelper() : null;
 
     try {
@@ -238,7 +238,7 @@ const AppController = {
    * Restore street view mode selections
    * @private
    */
-  async _restoreStreetViewModes() {
+  _restoreStreetViewModes() {
     const selectedLocationId = utils.getStorage(CONFIG.STORAGE_KEYS.selectedLocation);
     if (!selectedLocationId) {
       return;
@@ -539,8 +539,8 @@ const AppController = {
       const confirmed = await confirmationDialog.show({
         title: "Map Match Trips",
         message:
-          "This will process all trips in the selected date range. "
-          + "This may take several minutes for large date ranges. Continue?",
+          "This will process all trips in the selected date range. " +
+          "This may take several minutes for large date ranges. Continue?",
         confirmText: "Start Map Matching",
         confirmButtonClass: "btn-primary",
       });
@@ -627,7 +627,9 @@ const AppController = {
     // New map controls use quick-action buttons; if nothing is persisted yet,
     // fall back to whichever mode is currently active in the UI.
     if (activeModes.length === 0) {
-      const activeBtn = document.querySelector(".quick-action-btn.active[data-street-mode]");
+      const activeBtn = document.querySelector(
+        ".quick-action-btn.active[data-street-mode]"
+      );
       const fallbackMode = activeBtn?.dataset?.streetMode;
       if (fallbackMode && ["undriven", "driven", "all"].includes(fallbackMode)) {
         utils.setStorage(CONFIG.STORAGE_KEYS.streetViewMode, {

@@ -153,8 +153,8 @@ class VisitsManager {
       widget.style.opacity = "0";
       widget.style.transform = "translateY(20px)";
       setTimeout(() => {
-        widget.style.transition
-          = "opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1), transform 0.5s cubic-bezier(0.4, 0, 0.2, 1)";
+        widget.style.transition =
+          "opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1), transform 0.5s cubic-bezier(0.4, 0, 0.2, 1)";
         widget.style.opacity = "1";
         widget.style.transform = "translateY(0)";
       }, index * 100);
@@ -266,8 +266,8 @@ class VisitsManager {
     });
 
     try {
-      const { customStats, otherStats }
-        = await this.dataLoader.filterByTimeframe(timeframe);
+      const { customStats, otherStats } =
+        await this.dataLoader.filterByTimeframe(timeframe);
 
       this.updateVisitsData(customStats);
       this.nonCustomVisitsTable?.clear().rows.add(otherStats).draw();
@@ -335,8 +335,8 @@ class VisitsManager {
     const placeBeingEdited = this.drawing.getPlaceBeingEdited();
 
     // Only include geometry if editing the same place that was started for edit
-    const newGeometry
-      = currentPolygon && placeBeingEdited === placeId ? currentPolygon.geometry : null;
+    const newGeometry =
+      currentPolygon && placeBeingEdited === placeId ? currentPolygon.geometry : null;
 
     const updatedPlace = await this.actions.saveEditedPlace({
       placeId,

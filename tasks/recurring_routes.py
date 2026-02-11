@@ -33,4 +33,3 @@ async def build_recurring_routes(
         lambda: builder.run(job_id, request),
         manual_run=manual_run,
     )
-

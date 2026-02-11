@@ -155,7 +155,9 @@ def solve_greedy_route(
 
     # Initialize state
     current_node, node_xy = initialize_route_state(G, required_reqs, start_node)
-    req_to_starts, start_counts, start_to_rids = build_requirement_indices(required_reqs)
+    req_to_starts, start_counts, start_to_rids = build_requirement_indices(
+        required_reqs
+    )
     unvisited: set[ReqId] = set(required_reqs.keys())
 
     # Requirement <-> edge indices (so we can opportunistically service required edges
@@ -238,7 +240,9 @@ def solve_greedy_route(
         unvisited.discard(rid)
         comp_id = req_to_comp.get(rid, -1)
         comp_remaining_req_count[comp_id] = comp_remaining_req_count.get(comp_id, 0) - 1
-        comp_remaining_seg_count[comp_id] = comp_remaining_seg_count.get(comp_id, 0.0) - _seg_count(rid)
+        comp_remaining_seg_count[comp_id] = comp_remaining_seg_count.get(
+            comp_id, 0.0
+        ) - _seg_count(rid)
         _remove_req_from_targets(rid)
         completed_reqs += 1
         if opportunistic:
@@ -251,7 +255,9 @@ def solve_greedy_route(
         skipped_disconnected.add(rid)
         comp_id = req_to_comp.get(rid, -1)
         comp_remaining_req_count[comp_id] = comp_remaining_req_count.get(comp_id, 0) - 1
-        comp_remaining_seg_count[comp_id] = comp_remaining_seg_count.get(comp_id, 0.0) - _seg_count(rid)
+        comp_remaining_seg_count[comp_id] = comp_remaining_seg_count.get(
+            comp_id, 0.0
+        ) - _seg_count(rid)
         _remove_req_from_targets(rid)
 
     def _traverse_edge(edge: EdgeRef, *, opportunistic: bool) -> None:
@@ -389,7 +395,11 @@ def solve_greedy_route(
                 if _teleport_to_best_start(comp_target_nodes) is not None:
                     continue
 
-                comp_rids = [rid for rid in list(unvisited) if req_to_comp.get(rid, -1) == active_comp]
+                comp_rids = [
+                    rid
+                    for rid in list(unvisited)
+                    if req_to_comp.get(rid, -1) == active_comp
+                ]
                 if comp_rids:
                     logger.warning(
                         "Skipping %d requirements in unreachable component %s",
@@ -416,7 +426,9 @@ def solve_greedy_route(
         ) -> tuple[float, float, float]:
             service_edge = _best_service_edge_from_start(rid, _current_node)
             seg_count = _seg_count(rid)
-            edge_len = edge_length_m(G, service_edge[0], service_edge[1], service_edge[2])
+            edge_len = edge_length_m(
+                G, service_edge[0], service_edge[1], service_edge[2]
+            )
             next_node_score = float(start_counts.get(service_edge[1], 0))
             return (-seg_count, -edge_len, -next_node_score)
 
@@ -450,8 +462,12 @@ def solve_greedy_route(
         "deadhead_percentage": float(
             (deadhead_dist / total_dist * 100.0) if total_dist > 0 else 0.0,
         ),
-        "deadhead_ratio_all": float(total_dist / required_dist_all) if required_dist_all > 0 else 0.0,
-        "deadhead_ratio_completed": float(total_dist / service_dist) if service_dist > 0 else 0.0,
+        "deadhead_ratio_all": float(total_dist / required_dist_all)
+        if required_dist_all > 0
+        else 0.0,
+        "deadhead_ratio_completed": float(total_dist / service_dist)
+        if service_dist > 0
+        else 0.0,
         "required_reqs": float(len(required_reqs)),
         "completed_reqs": float(completed_reqs),
         "skipped_disconnected": float(len(skipped_disconnected)),

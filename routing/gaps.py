@@ -130,7 +130,12 @@ async def fill_route_gaps(
 
     gaps_unfilled = len(gaps_to_fill) - gaps_filled
     if gaps_unfilled:
-        logger.warning("Filled %d/%d route gaps; %d remain unfilled", gaps_filled, len(gaps_to_fill), gaps_unfilled)
+        logger.warning(
+            "Filled %d/%d route gaps; %d remain unfilled",
+            gaps_filled,
+            len(gaps_to_fill),
+            gaps_unfilled,
+        )
     else:
         logger.info("Filled %d/%d gaps in route", gaps_filled, len(gaps_to_fill))
 

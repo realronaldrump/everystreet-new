@@ -111,4 +111,3 @@ def test_validate_route_skipped_requirements_warn_vs_error() -> None:
     )
     assert warnings == []
     assert any("skipped 5/100" in msg for msg in errors)
-

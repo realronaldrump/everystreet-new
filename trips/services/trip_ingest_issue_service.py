@@ -163,7 +163,9 @@ class TripIngestIssueService:
 
         cursor = TripIngestIssue.find(query).sort("-last_seen_at")
         total = await cursor.count()
-        docs = await cursor.skip((safe_page - 1) * safe_limit).limit(safe_limit).to_list()
+        docs = (
+            await cursor.skip((safe_page - 1) * safe_limit).limit(safe_limit).to_list()
+        )
 
         def serialize(doc: TripIngestIssue) -> dict[str, Any]:
             return {

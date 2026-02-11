@@ -55,7 +55,9 @@ export class TripIngestIssuesReview {
     this.chipsRoot = document.getElementById("trip-ingest-issues-chips");
     this.countAll = document.getElementById("trip-ingest-issues-count-all");
     this.countFetch = document.getElementById("trip-ingest-issues-count-fetch");
-    this.countValidation = document.getElementById("trip-ingest-issues-count-validation");
+    this.countValidation = document.getElementById(
+      "trip-ingest-issues-count-validation"
+    );
     this.countProcess = document.getElementById("trip-ingest-issues-count-process");
 
     this.searchInput = document.getElementById("trip-ingest-issues-search");
@@ -135,7 +137,9 @@ export class TripIngestIssuesReview {
     }
     this.chipsRoot
       .querySelectorAll(".trip-issues-chip")
-      .forEach((el) => el.classList.toggle("is-active", (el.dataset.issueType ?? "") === type));
+      .forEach((el) =>
+        el.classList.toggle("is-active", (el.dataset.issueType ?? "") === type)
+      );
   }
 
   async fetchIssues() {
@@ -157,7 +161,9 @@ export class TripIngestIssuesReview {
     }
 
     try {
-      const response = await apiClient.raw(`/api/trips/ingest-issues?${params.toString()}`);
+      const response = await apiClient.raw(
+        `/api/trips/ingest-issues?${params.toString()}`
+      );
       if (!response.ok) {
         throw new Error("Failed to fetch trip ingest issues");
       }
@@ -183,7 +189,8 @@ export class TripIngestIssuesReview {
 
   renderCounts(data) {
     const openTotal = clampInt(data.open_total, 0);
-    const openCounts = data.open_counts && typeof data.open_counts === "object" ? data.open_counts : {};
+    const openCounts =
+      data.open_counts && typeof data.open_counts === "object" ? data.open_counts : {};
 
     if (this.countAll) {
       this.countAll.textContent = String(openTotal);
@@ -192,7 +199,9 @@ export class TripIngestIssuesReview {
       this.countFetch.textContent = String(clampInt(openCounts.fetch_error, 0));
     }
     if (this.countValidation) {
-      this.countValidation.textContent = String(clampInt(openCounts.validation_failed, 0));
+      this.countValidation.textContent = String(
+        clampInt(openCounts.validation_failed, 0)
+      );
     }
     if (this.countProcess) {
       this.countProcess.textContent = String(clampInt(openCounts.process_error, 0));
@@ -226,7 +235,8 @@ export class TripIngestIssuesReview {
         const count = clampInt(issue?.count, 1);
         const resolved = Boolean(issue?.resolved);
         const message = issue?.message || "Unknown error";
-        const details = issue?.details && typeof issue.details === "object" ? issue.details : null;
+        const details =
+          issue?.details && typeof issue.details === "object" ? issue.details : null;
 
         const subject = tx
           ? `<span class="trip-issues-mono">${escapeHtml(tx)}</span>`
@@ -323,13 +333,17 @@ export class TripIngestIssuesReview {
     };
 
     pagination.appendChild(
-      mkPageLi("Previous", Math.max(1, this.currentPage - 1), { disabled: this.currentPage === 1 })
+      mkPageLi("Previous", Math.max(1, this.currentPage - 1), {
+        disabled: this.currentPage === 1,
+      })
     );
 
     const startPage = Math.max(1, this.currentPage - 2);
     const endPage = Math.min(totalPages, startPage + 4);
     for (let i = startPage; i <= endPage; i += 1) {
-      pagination.appendChild(mkPageLi(String(i), i, { active: i === this.currentPage }));
+      pagination.appendChild(
+        mkPageLi(String(i), i, { active: i === this.currentPage })
+      );
     }
 
     pagination.appendChild(
@@ -347,9 +361,12 @@ export class TripIngestIssuesReview {
       return;
     }
     try {
-      const response = await apiClient.raw(`/api/trips/ingest-issues/${issueId}/resolve`, {
-        method: "POST",
-      });
+      const response = await apiClient.raw(
+        `/api/trips/ingest-issues/${issueId}/resolve`,
+        {
+          method: "POST",
+        }
+      );
       if (!response.ok) {
         throw new Error("Failed to dismiss issue");
       }
@@ -389,4 +406,3 @@ export class TripIngestIssuesReview {
     }
   }
 }
-

@@ -53,6 +53,8 @@ export default function initStatusPage({ signal, cleanup } = {}) {
   } else {
     return teardown;
   }
+
+  return teardown;
 }
 
 function withSignal(options = {}) {
@@ -79,10 +81,9 @@ function initialize() {
   document.getElementById("quick-open-setup")?.addEventListener(
     "click",
     () => {
-      swupReady
-        .then((swup) => {
-          swup.navigate("/setup-wizard");
-        });
+      swupReady.then((swup) => {
+        swup.navigate("/setup-wizard");
+      });
     },
     eventOptions
   );
@@ -282,7 +283,7 @@ async function loadStatus(isManual = false) {
     updateService("bouncie", data.services?.bouncie);
     updateActivityList(data.recent_errors || []);
     updateLastUpdated(data.overall?.last_updated);
-  } catch (_error) {
+  } catch {
     if (isManual) {
       notificationManager.show("Failed to refresh system status.", "warning");
     }
@@ -311,8 +312,8 @@ function updateOverview(data) {
   }
 
   if (overallDetail) {
-    overallDetail.textContent
-      = overall.detail || "Monitor services and tasks in real time.";
+    overallDetail.textContent =
+      overall.detail || "Monitor services and tasks in real time.";
   }
 
   const tasksSummary = data.tasks?.summary || {};
@@ -400,8 +401,8 @@ function updateActivityList(errors) {
   }
 
   if (!errors || errors.length === 0) {
-    list.innerHTML
-      = '<div class="list-group-item bg-transparent text-muted small fst-italic py-3">No recent errors or warnings.</div>';
+    list.innerHTML =
+      '<div class="list-group-item bg-transparent text-muted small fst-italic py-3">No recent errors or warnings.</div>';
     return;
   }
 
@@ -479,9 +480,9 @@ function updatePlaybooks(data) {
   }
 
   if (
-    mapConfig?.last_error
-    || mapConfig?.status === "error"
-    || mapConfig?.status === "not_configured"
+    mapConfig?.last_error ||
+    mapConfig?.status === "error" ||
+    mapConfig?.status === "not_configured"
   ) {
     playbooks.push({
       title: "Map services incomplete",
@@ -509,8 +510,8 @@ function updatePlaybooks(data) {
   }
 
   if (playbooks.length === 0) {
-    container.innerHTML
-      = '<div class="text-muted small">All systems look steady. No active playbooks.</div>';
+    container.innerHTML =
+      '<div class="text-muted small">All systems look steady. No active playbooks.</div>';
     return;
   }
 
@@ -570,8 +571,8 @@ async function loadAppLogs(showSpinner = false) {
       `${SERVER_LOGS_API}?${query.toString()}`,
       withSignal()
     );
-    const lines
-      = data.logs?.map((log) => `[${log.timestamp}] ${log.level}: ${log.message}`) || [];
+    const lines =
+      data.logs?.map((log) => `[${log.timestamp}] ${log.level}: ${log.message}`) || [];
     output.textContent = lines.join("\n") || "No logs found.";
   } catch (error) {
     output.textContent = `Failed to load logs: ${error.message}`;

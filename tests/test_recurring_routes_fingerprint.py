@@ -64,4 +64,3 @@ def test_waypoint_sampling_simple_line() -> None:
     for idx, expected in enumerate(expected_lons):
         assert waypoints[idx][1] == pytest.approx(0.0, abs=1e-9)
         assert waypoints[idx][0] == pytest.approx(expected, abs=1e-6)
-

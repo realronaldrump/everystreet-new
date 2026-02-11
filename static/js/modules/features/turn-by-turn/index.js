@@ -28,4 +28,6 @@ export default function initTurnByTurnPage({ cleanup } = {}) {
   } else {
     return teardown;
   }
+
+  return teardown;
 }

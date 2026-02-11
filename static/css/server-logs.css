@@ -29,7 +29,7 @@
 }
 
 /* Mobile: 2x3 grid for stats */
-@media (max-width: 768px) {
+@media (width <= 768px) {
   #log-stats.row,
   #docker-log-stats.row {
     display: grid;
@@ -58,7 +58,7 @@
 }
 
 /* Small mobile: 2 columns */
-@media (max-width: 480px) {
+@media (width <= 480px) {
   #log-stats.row,
   #docker-log-stats.row {
     grid-template-columns: repeat(2, 1fr);
@@ -87,9 +87,10 @@
   max-width: none;
 }
 
-@media (max-width: 768px) {
+@media (width <= 768px) {
   .server-logs-page {
     --page-padding: var(--space-3);
+
     padding-top: var(--space-3) !important;
     padding-bottom: var(--space-3) !important;
   }
@@ -131,7 +132,7 @@
   padding: var(--space-4);
 }
 
-@media (max-width: 576px) {
+@media (width <= 576px) {
   .server-logs-page .card-header {
     padding: var(--space-3);
   }
@@ -178,7 +179,7 @@
 }
 
 /* Mobile: full-width tabs with better spacing */
-@media (max-width: 480px) {
+@media (width <= 480px) {
   .log-tabs {
     flex-direction: column;
     padding: var(--space-2);
@@ -225,7 +226,7 @@
 }
 
 /* Responsive filter layout */
-@media (max-width: 768px) {
+@media (width <= 768px) {
   .server-logs-page .card-header {
     flex-direction: column;
     align-items: flex-start;
@@ -242,7 +243,7 @@
 }
 
 /* Mobile filter grid improvements */
-@media (max-width: 576px) {
+@media (width <= 576px) {
   .server-logs-page .row.g-3 > [class*="col-"] {
     margin-bottom: var(--space-3);
   }
@@ -273,7 +274,7 @@
 }
 
 /* Mobile-optimized action buttons */
-@media (max-width: 480px) {
+@media (width <= 480px) {
   .log-actions {
     grid-template-columns: repeat(2, 1fr);
   }
@@ -332,7 +333,7 @@
 }
 
 /* Mobile: reduce max-height */
-@media (max-width: 768px) {
+@media (width <= 768px) {
   .logs-container {
     max-height: min(600px, 60vh);
     font-size: var(--font-size-xs);
@@ -378,7 +379,7 @@
 }
 
 /* Mobile: adjust docker group headers */
-@media (max-width: 576px) {
+@media (width <= 576px) {
   .docker-log-group-header {
     padding: var(--space-2) var(--space-3);
     flex-direction: column;
@@ -416,7 +417,7 @@
 }
 
 /* Mobile: more compact log entries */
-@media (max-width: 576px) {
+@media (width <= 576px) {
   .log-entry {
     padding: var(--space-3);
     gap: var(--space-1);
@@ -474,7 +475,7 @@
 }
 
 /* Mobile: stack timestamp and level badge */
-@media (max-width: 480px) {
+@media (width <= 480px) {
   .log-header {
     flex-direction: column;
     align-items: flex-start;
@@ -505,7 +506,7 @@
 }
 
 /* Mobile: slightly larger touch target */
-@media (max-width: 480px) {
+@media (width <= 480px) {
   .log-level {
     padding: 0.25rem 0.5rem;
     font-size: var(--font-size-xs);
@@ -550,7 +551,6 @@
   color: var(--text-primary);
   font-size: var(--font-size-md);
   line-height: var(--line-height-relaxed);
-  word-break: break-word;
   overflow-wrap: break-word;
 }
 
@@ -577,13 +577,12 @@
   white-space: pre-wrap;
   font-size: var(--font-size-xs);
   color: var(--danger-dark);
-  overflow-x: auto;
+  overflow: auto;
   max-height: 300px;
-  overflow-y: auto;
 }
 
 /* Mobile: adjust typography */
-@media (max-width: 576px) {
+@media (width <= 576px) {
   .log-message {
     font-size: var(--font-size-sm);
     line-height: var(--line-height-normal);
@@ -771,6 +770,7 @@
   0% {
     background-position: -200% 0;
   }
+
   100% {
     background-position: 200% 0;
   }
@@ -793,7 +793,7 @@
 }
 
 /* Mobile: adjust empty state */
-@media (max-width: 576px) {
+@media (width <= 576px) {
   .logs-container > .text-center.py-5 {
     min-height: 160px;
     padding: var(--space-6) var(--space-3);

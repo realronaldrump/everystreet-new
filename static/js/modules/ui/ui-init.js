@@ -1,5 +1,5 @@
-import store from "../core/store.js";
 import { swupReady } from "../core/navigation.js";
+import store from "../core/store.js";
 import { moveModalsToContainer, utils } from "../utils.js";
 import contextualUI from "./contextual-ui.js";
 import dateManager from "./date-manager.js";

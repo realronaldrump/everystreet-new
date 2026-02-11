@@ -20,7 +20,12 @@ export async function saveMapboxToken(token, { signal } = {}) {
   if (!isValidMapboxToken(token)) {
     throw new Error("Mapbox token must start with 'pk.' and be valid length.");
   }
-  return apiClient.post(APP_SETTINGS_API, { mapbox_token: token }, { signal });
+  const data = await apiClient.post(
+    APP_SETTINGS_API,
+    { mapbox_token: token },
+    { signal }
+  );
+  return data;
 }
 
 export async function fetchBouncieCredentials({ signal, unmask = true } = {}) {
@@ -45,9 +50,11 @@ export async function saveBouncieCredentials(payload, { signal } = {}) {
     redirect_uri: redirectUri,
   };
 
-  return apiClient.post(BOUNCIE_CREDENTIALS_API, body, { signal });
+  const data = await apiClient.post(BOUNCIE_CREDENTIALS_API, body, { signal });
+  return data;
 }
 
 export async function syncBouncieVehicles({ signal } = {}) {
-  return apiClient.post(BOUNCIE_SYNC_API, null, { signal });
+  const data = await apiClient.post(BOUNCIE_SYNC_API, null, { signal });
+  return data;
 }

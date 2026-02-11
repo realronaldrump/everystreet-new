@@ -196,7 +196,11 @@ body[data-route="/county-map"] .route-content {
 }
 
 body.light-mode .hero-section {
-  background: linear-gradient(135deg, rgb(var(--primary-rgb) / 8%), rgb(var(--primary-rgb) / 3%));
+  background: linear-gradient(
+    135deg,
+    rgb(var(--primary-rgb) / 8%),
+    rgb(var(--primary-rgb) / 3%)
+  );
 }
 
 body.light-mode .hero-section::before {

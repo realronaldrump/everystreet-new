@@ -44,4 +44,3 @@ def buffer_meters(
     if tile_width_m <= 0:
         return 0.0
     return float(tile_width_m * (float(buffer) / float(extent)))
-

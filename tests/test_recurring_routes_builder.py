@@ -86,7 +86,9 @@ async def test_builder_creates_routes_and_assigns_trips(routes_beanie_db) -> Non
     )
 
     builder = RecurringRoutesBuilder()
-    result = await builder.run(job_id="test-job-1", request=BuildRecurringRoutesRequest())
+    result = await builder.run(
+        job_id="test-job-1", request=BuildRecurringRoutesRequest()
+    )
     assert result["status"] == "success"
 
     routes = await RecurringRoute.find({}).to_list()
@@ -149,7 +151,9 @@ async def test_builder_preserves_user_fields_across_rebuild(routes_beanie_db) ->
 
 
 @pytest.mark.asyncio
-async def test_builder_unsets_recurring_route_id_for_ineligible_trips(routes_beanie_db) -> None:
+async def test_builder_unsets_recurring_route_id_for_ineligible_trips(
+    routes_beanie_db,
+) -> None:
     now = datetime(2026, 2, 10, tzinfo=UTC)
     coords = [[0.001, 0.001], [0.02, 0.02], [0.05, 0.05]]
 

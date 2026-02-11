@@ -187,7 +187,8 @@ swupReady
       let pathname = null;
       if (typeof toUrl === "string" && toUrl) {
         try {
-          pathname = new URL(toUrl, window.location.origin).pathname;
+          const { pathname: resolvedPathname } = new URL(toUrl, window.location.origin);
+          pathname = resolvedPathname;
         } catch {
           pathname = null;
         }

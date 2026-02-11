@@ -41,10 +41,16 @@ const metricsManager = {
           elements.totalTrips.textContent = String(metrics.totalTrips ?? 0);
         }
         if (elements.totalDistance) {
-          elements.totalDistance.textContent = toFixedNumber(metrics.totalDistanceMiles ?? 0, 1);
+          elements.totalDistance.textContent = toFixedNumber(
+            metrics.totalDistanceMiles ?? 0,
+            1
+          );
         }
         if (elements.avgDistance) {
-          elements.avgDistance.textContent = toFixedNumber(metrics.avgDistanceMiles ?? 0, 1);
+          elements.avgDistance.textContent = toFixedNumber(
+            metrics.avgDistanceMiles ?? 0,
+            1
+          );
         }
         if (elements.avgStartTime) {
           elements.avgStartTime.textContent = metrics.avgStartTime ?? "--:--";

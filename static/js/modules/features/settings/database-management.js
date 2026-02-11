@@ -81,7 +81,7 @@ export function initDatabaseManagement({ signal } = {}) {
     }
   }
 
-  async function performDatabaseAction(endpoint, body = {}) {
+  function performDatabaseAction(endpoint, body = {}) {
     const method = endpoint.includes("storage") ? "GET" : "POST";
     if (method === "GET") {
       return apiClient.get(endpoint, withSignal());
@@ -93,8 +93,8 @@ export function initDatabaseManagement({ signal } = {}) {
     if (!button) {
       return "";
     }
-    const fromDataset
-      = button.dataset.collection || button.getAttribute("data-collection");
+    const fromDataset =
+      button.dataset.collection || button.getAttribute("data-collection");
     if (fromDataset) {
       return fromDataset;
     }
@@ -172,8 +172,8 @@ export function initDatabaseManagement({ signal } = {}) {
     storageSourcesContainer.innerHTML = sources
       .map((source) => {
         const sizeBytes = Number.isFinite(source.size_bytes) ? source.size_bytes : null;
-        const sizeDisplay
-          = sizeBytes == null
+        const sizeDisplay =
+          sizeBytes == null
             ? Number.isFinite(source.size_mb)
               ? source.size_mb > 1024
                 ? `${(source.size_mb / 1024).toFixed(2)} GB`
@@ -284,8 +284,8 @@ export function initDatabaseManagement({ signal } = {}) {
 
     container.innerHTML = collections
       .map((collection) => {
-        const sizeDisplay
-          = collection.size_mb != null
+        const sizeDisplay =
+          collection.size_mb != null
             ? collection.size_mb > 1024
               ? `${(collection.size_mb / 1024).toFixed(2)} GB`
               : `${collection.size_mb.toFixed(2)} MB`
@@ -523,13 +523,12 @@ export function initDatabaseManagement({ signal } = {}) {
 
       setTimeout(() => {
         if (!signal?.aborted) {
-          swupReady
-            .then((swup) => {
-              swup.navigate(window.location.href, {
-                cache: { read: false, write: true },
-                history: "replace",
-              });
+          swupReady.then((swup) => {
+            swup.navigate(window.location.href, {
+              cache: { read: false, write: true },
+              history: "replace",
             });
+          });
         }
       }, 1500);
     } catch (error) {

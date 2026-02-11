@@ -5,6 +5,7 @@ import VisitsPageController from "./visits-controller.js";
 let visitsPage;
 
 export default function initVisitsPage({ cleanup } = {}) {
+  const noopTeardown = () => {};
   const missingLibraries = [];
 
   if (typeof Chart === "undefined") {
@@ -31,7 +32,10 @@ export default function initVisitsPage({ cleanup } = {}) {
         <strong>Error:</strong> Missing required libraries: ${missingLibraries.join(", ")}.
       `;
     document.body.prepend(errorDiv);
-    return;
+    if (typeof cleanup === "function") {
+      cleanup(noopTeardown);
+    }
+    return noopTeardown;
   }
 
   // Initialize new visits page controller
@@ -67,4 +71,6 @@ export default function initVisitsPage({ cleanup } = {}) {
   } else {
     return teardown;
   }
+
+  return teardown;
 }

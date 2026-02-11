@@ -463,7 +463,7 @@
   font-weight: var(--font-weight-semibold);
   color: var(--text-primary);
   font-family: var(--font-family-mono);
-  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 /* === Storage Section Header === */
@@ -1498,7 +1498,11 @@
 
 .map-services-progress .progress-bar {
   height: 100%;
-  background: linear-gradient(90deg, var(--primary), var(--primary-light, var(--primary)));
+  background: linear-gradient(
+    90deg,
+    var(--primary),
+    var(--primary-light, var(--primary))
+  );
   border-radius: var(--radius-pill);
   transition: width 0.3s ease;
 }
@@ -1843,8 +1847,9 @@
 .trip-import-device-meta {
   font-size: var(--font-size-xs);
   color: var(--text-tertiary);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-    "Liberation Mono", "Courier New", monospace;
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
   font-variant-numeric: tabular-nums;
 }
 
@@ -1979,8 +1984,9 @@
 .trip-import-device-cell-imei {
   font-size: var(--font-size-xs);
   color: var(--text-tertiary);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-    "Liberation Mono", "Courier New", monospace;
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
   font-variant-numeric: tabular-nums;
 }
 
@@ -2024,9 +2030,10 @@
   background: var(--surface-2);
   color: var(--text-secondary);
   white-space: pre-wrap;
-  word-break: break-word;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-    "Liberation Mono", "Courier New", monospace;
+  overflow-wrap: break-word;
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
 }
 
 .trip-import-failure-summary {
@@ -2057,14 +2064,15 @@
 
 .trip-import-failure-count {
   font-variant-numeric: tabular-nums;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-    "Liberation Mono", "Courier New", monospace;
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
   color: var(--text-tertiary);
 }
 
 .trip-import-failure-reason {
   color: var(--text-secondary);
-  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .trip-import-event:last-child {
@@ -2139,8 +2147,9 @@
 
 .trip-data-health-pill-badge {
   font-variant-numeric: tabular-nums;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-    "Liberation Mono", "Courier New", monospace;
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
   font-size: var(--font-size-xs);
   line-height: 1;
   padding: 0.15rem 0.45rem;
@@ -2198,8 +2207,9 @@
 
 .trip-issues-chip-count {
   font-variant-numeric: tabular-nums;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-    "Liberation Mono", "Courier New", monospace;
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
   color: var(--text-tertiary);
   border-left: 1px solid var(--border-color);
   padding-left: 0.4rem;
@@ -2296,8 +2306,9 @@
 .trip-issue-mono,
 .trip-issues-mono {
   font-variant-numeric: tabular-nums;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-    "Liberation Mono", "Courier New", monospace;
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
 }
 
 .trip-issue-link {
@@ -2362,9 +2373,10 @@
   background: var(--surface-2);
   color: var(--text-secondary);
   white-space: pre-wrap;
-  word-break: break-word;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-    "Liberation Mono", "Courier New", monospace;
+  overflow-wrap: break-word;
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
 }
 
 .trip-issues-actions {

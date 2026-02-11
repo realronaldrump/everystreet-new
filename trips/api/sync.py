@@ -134,7 +134,9 @@ async def get_trip_history_import_plan(
     return await build_import_plan(start_dt=start_dt, end_dt=end_dt)
 
 
-@router.get("/api/actions/trips/sync/history_import/{progress_job_id}", response_model=dict)
+@router.get(
+    "/api/actions/trips/sync/history_import/{progress_job_id}", response_model=dict
+)
 @api_route(logger)
 async def get_trip_history_import_status(progress_job_id: PydanticObjectId):
     """Fetch current progress for a trip history import job."""
@@ -224,7 +226,9 @@ async def cancel_trip_history_import(progress_job_id: PydanticObjectId):
                 # an idempotent cancel request for an already-finished job.
                 if history and (history.status in {"RUNNING", "PENDING"}):
                     final_status = status_map.get(job.status, "CANCELLED")
-                    finished_at = job.completed_at or job.updated_at or datetime.now(UTC)
+                    finished_at = (
+                        job.completed_at or job.updated_at or datetime.now(UTC)
+                    )
                     history.task_id = history.task_id or (
                         job.task_id or "fetch_all_missing_trips"
                     )
@@ -271,6 +275,8 @@ async def cancel_trip_history_import(progress_job_id: PydanticObjectId):
                 end_time=now,
             )
         except Exception:
-            logger.exception("Failed to mark task history cancelled for %s", operation_id)
+            logger.exception(
+                "Failed to mark task history cancelled for %s", operation_id
+            )
 
     return {"status": "success", "message": "Import cancelled"}

@@ -4,10 +4,14 @@
  */
 
 export default function initMapControls({ signal, cleanup } = {}) {
+  const noopTeardown = () => {};
   const controls = document.getElementById("map-controls");
   const toggleBtn = document.getElementById("controls-toggle");
   if (!controls) {
-    return;
+    if (typeof cleanup === "function") {
+      cleanup(noopTeardown);
+    }
+    return noopTeardown;
   }
 
   let isExpanded = true;
@@ -171,7 +175,7 @@ export default function initMapControls({ signal, cleanup } = {}) {
 
   if (typeof cleanup === "function") {
     cleanup(teardown);
-  } else {
-    return teardown;
   }
+
+  return teardown;
 }

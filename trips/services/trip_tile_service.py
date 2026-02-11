@@ -10,6 +10,7 @@ Design goals:
 
 from __future__ import annotations
 
+import contextlib
 import gzip
 import logging
 import math
@@ -23,7 +24,13 @@ from shapely.geometry import box, shape
 from shapely.ops import transform as shapely_transform
 
 from core.redis_cache import cache_get, cache_incr, cache_set
-from core.tiles import DEFAULT_BUFFER, DEFAULT_EXTENT, buffer_meters, tile_bounds_3857, tile_bounds_wgs84
+from core.tiles import (
+    DEFAULT_BUFFER,
+    DEFAULT_EXTENT,
+    buffer_meters,
+    tile_bounds_3857,
+    tile_bounds_wgs84,
+)
 from db.models import Trip
 from db.query import build_calendar_date_expr, parse_query_date
 from trips.models import TripTileProjection
@@ -97,7 +104,7 @@ def _downsample_coords(coords: list[list[float]], max_points: int) -> list[list[
     if max_points < 2:
         return coords[:1]
 
-    stride = int(math.ceil((len(coords) - 1) / float(max_points - 1)))
+    stride = math.ceil((len(coords) - 1) / float(max_points - 1))
     if stride <= 1:
         return coords
     sampled = coords[0::stride]
@@ -142,7 +149,7 @@ def _cap_vertices(geom, max_vertices: int):
             if remaining <= 2:
                 break
             coords = [[float(x), float(y)] for (x, y) in list(part.coords)]
-            per_part = max(2, int(math.floor(remaining / max(1, len(geom.geoms)))))
+            per_part = max(2, math.floor(remaining / max(1, len(geom.geoms))))
             coords = _downsample_coords(coords, per_part)
             if len(coords) >= 2:
                 parts.append(LineString(coords))
@@ -185,7 +192,7 @@ async def _get_tiles_version() -> str:
     # We store version as an integer string. If Redis is unavailable, fall back.
     try:
         value = await cache_get(TRIP_TILES_VERSION_KEY)
-        if isinstance(value, (bytes, bytearray)) and value:
+        if isinstance(value, bytes | bytearray) and value:
             decoded = value.decode("utf-8", errors="ignore").strip()
             if decoded:
                 _version_cache_value = decoded
@@ -224,7 +231,11 @@ def _unpack_cached_tile(value: bytes) -> tuple[bytes, bool]:
     # Back-compat: raw gzipped payload.
     if value.startswith(b"\x1f\x8b"):
         return value, False
-    if len(value) >= 4 and value[0:2] == _CACHE_MAGIC and value[2] == _CACHE_FORMAT_VERSION:
+    if (
+        len(value) >= 4
+        and value[0:2] == _CACHE_MAGIC
+        and value[2] == _CACHE_FORMAT_VERSION
+    ):
         flags = int(value[3])
         truncated = bool(flags & _CACHE_FLAG_TRUNCATED)
         payload = value[4:]
@@ -280,7 +291,10 @@ def _build_trip_query(
     query[geom_field] = {"$geoIntersects": {"$geometry": viewport_polygon}}
     if use_matched:
         # Ensure we don't emit "matched" tiles from raw-only trips.
-        query["matchedGps"] = {"$ne": None, "$geoIntersects": {"$geometry": viewport_polygon}}
+        query["matchedGps"] = {
+            "$ne": None,
+            "$geoIntersects": {"$geometry": viewport_polygon},
+        }
 
     return query
 
@@ -289,7 +303,9 @@ def _build_transformer_4326_to_3857() -> pyproj.Transformer:
     return pyproj.Transformer.from_crs("EPSG:4326", "EPSG:3857", always_xy=True)
 
 
-def _coerce_linestring_geometry(geojson_geom: dict[str, Any] | None) -> dict[str, Any] | None:
+def _coerce_linestring_geometry(
+    geojson_geom: dict[str, Any] | None,
+) -> dict[str, Any] | None:
     if not isinstance(geojson_geom, dict):
         return None
     if geojson_geom.get("type") not in {"LineString", "MultiLineString"}:
@@ -300,7 +316,9 @@ def _coerce_linestring_geometry(geojson_geom: dict[str, Any] | None) -> dict[str
     return geojson_geom
 
 
-def _compute_simplify_tolerance_m(bounds_3857: tuple[float, float, float, float]) -> float:
+def _compute_simplify_tolerance_m(
+    bounds_3857: tuple[float, float, float, float],
+) -> float:
     minx, _miny, maxx, _maxy = bounds_3857
     tile_width_m = maxx - minx
     if tile_width_m <= 0:
@@ -421,9 +439,7 @@ async def build_trip_tile(
     count_seen = 0
 
     cursor = (
-        Trip.find(query)
-        .project(TripTileProjection)
-        .limit(MAX_FEATURES_PER_TILE + 1)
+        Trip.find(query).project(TripTileProjection).limit(MAX_FEATURES_PER_TILE + 1)
     )
     async for trip in cursor:
         count_seen += 1
@@ -432,9 +448,7 @@ async def build_trip_tile(
             break
 
         try:
-            trip_dict = (
-                trip.model_dump() if hasattr(trip, "model_dump") else dict(trip)
-            )
+            trip_dict = trip.model_dump() if hasattr(trip, "model_dump") else dict(trip)
 
             geojson_geom = trip_dict.get(geom_field) or trip_dict.get("gps")
             geojson_geom = _coerce_linestring_geometry(geojson_geom)
@@ -442,12 +456,17 @@ async def build_trip_tile(
                 continue
 
             coords = geojson_geom.get("coordinates")
-            if geojson_geom.get("type") == "LineString" and isinstance(coords, list):
-                if len(coords) > MAX_VERTICES_PER_FEATURE * 4:
-                    geojson_geom = {
-                        "type": "LineString",
-                        "coordinates": _downsample_coords(coords, MAX_VERTICES_PER_FEATURE * 4),
-                    }
+            if (
+                geojson_geom.get("type") == "LineString"
+                and isinstance(coords, list)
+                and len(coords) > MAX_VERTICES_PER_FEATURE * 4
+            ):
+                geojson_geom = {
+                    "type": "LineString",
+                    "coordinates": _downsample_coords(
+                        coords, MAX_VERTICES_PER_FEATURE * 4
+                    ),
+                }
 
             geom = shape(geojson_geom)
             if geom.is_empty:
@@ -464,11 +483,8 @@ async def build_trip_tile(
 
             # Simplify in meters (WebMercator).
             if tol_m > 0:
-                try:
+                with contextlib.suppress(Exception):
                     geom_3857 = geom_3857.simplify(tol_m, preserve_topology=False)
-                except Exception:
-                    # If simplify fails on edge cases, keep original clipped geom.
-                    pass
                 if geom_3857.is_empty:
                     continue
 
@@ -477,8 +493,14 @@ async def build_trip_tile(
 
             start_time = trip_dict.get("startTime")
             end_time = trip_dict.get("endTime")
-            start_ts = int(start_time.timestamp()) if isinstance(start_time, datetime) else None
-            end_ts = int(end_time.timestamp()) if isinstance(end_time, datetime) else None
+            start_ts = (
+                int(start_time.timestamp())
+                if isinstance(start_time, datetime)
+                else None
+            )
+            end_ts = (
+                int(end_time.timestamp()) if isinstance(end_time, datetime) else None
+            )
 
             props = {
                 "transactionId": trip_dict.get("transactionId"),
@@ -500,7 +522,9 @@ async def build_trip_tile(
                 }
             )
         except Exception:
-            logger.debug("Failed to process trip for tile z=%s x=%s y=%s", z, x, y, exc_info=True)
+            logger.debug(
+                "Failed to process trip for tile z=%s x=%s y=%s", z, x, y, exc_info=True
+            )
             continue
 
     if truncated:
@@ -513,7 +537,9 @@ async def build_trip_tile(
         )
 
     try:
-        mvt = _encode_mvt(layer_name="trips", features=features, quantize_bounds_3857=bounds_3857)
+        mvt = _encode_mvt(
+            layer_name="trips", features=features, quantize_bounds_3857=bounds_3857
+        )
     except Exception:
         logger.exception("Failed to encode MVT tile z=%s x=%s y=%s", z, x, y)
         mvt = b""

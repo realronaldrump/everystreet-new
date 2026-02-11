@@ -42,12 +42,15 @@ async def test_backfill_endpoint_supports_background_job(coverage_db) -> None:
         created_tasks.append(task)
         return task
 
-    with patch(
-        "street_coverage.ingestion.backfill_coverage_for_area",
-        new=AsyncMock(return_value=0),
-    ), patch(
-        "street_coverage.ingestion.asyncio.create_task",
-        new=_create_task_spy,
+    with (
+        patch(
+            "street_coverage.ingestion.backfill_coverage_for_area",
+            new=AsyncMock(return_value=0),
+        ),
+        patch(
+            "street_coverage.ingestion.asyncio.create_task",
+            new=_create_task_spy,
+        ),
     ):
         response = await trigger_backfill(area.id, background=True)
         if created_tasks:

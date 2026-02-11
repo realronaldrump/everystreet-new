@@ -11,8 +11,8 @@ class VisitsChartManager {
     }
 
     Chart.defaults.color = "rgba(255, 255, 255, 0.8)";
-    Chart.defaults.font.family
-      = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+    Chart.defaults.font.family =
+      "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
 
     const gradient = ctx.createLinearGradient(0, 0, 0, 400);
     gradient.addColorStop(0, "rgba(184, 122, 74, 0.8)");

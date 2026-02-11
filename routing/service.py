@@ -432,7 +432,9 @@ async def generate_optimal_route_with_progress(
                 "fallback_total": len(unmatched_indices),
                 "fallback_matched": fallback_matched,
                 "skipped_segments": (
-                    skipped_invalid_geometry + skipped_match_errors + skipped_mapping_distance
+                    skipped_invalid_geometry
+                    + skipped_match_errors
+                    + skipped_mapping_distance
                 ),
                 "skipped_invalid_geometry": skipped_invalid_geometry,
                 "skipped_mapping_distance": skipped_mapping_distance,
@@ -591,8 +593,12 @@ async def generate_optimal_route_with_progress(
         valhalla_trace_attempted = 0
         valhalla_trace_matched = 0
         if unmatched_after_spatial:
-            trace_candidates = unmatched_after_spatial[:VALHALLA_TRACE_FALLBACK_MAX_SEGMENTS]
-            trace_leftover = unmatched_after_spatial[VALHALLA_TRACE_FALLBACK_MAX_SEGMENTS:]
+            trace_candidates = unmatched_after_spatial[
+                :VALHALLA_TRACE_FALLBACK_MAX_SEGMENTS
+            ]
+            trace_leftover = unmatched_after_spatial[
+                VALHALLA_TRACE_FALLBACK_MAX_SEGMENTS:
+            ]
 
             try:
                 import asyncio
@@ -630,7 +636,9 @@ async def generate_optimal_route_with_progress(
                     },
                 )
 
-                async def _trace_and_match(seg_idx: int) -> tuple[int, tuple[int, int, int] | None]:
+                async def _trace_and_match(
+                    seg_idx: int,
+                ) -> tuple[int, tuple[int, int, int] | None]:
                     data = seg_data_list[seg_idx]
                     if not data:
                         return seg_idx, None
@@ -664,8 +672,14 @@ async def generate_optimal_route_with_progress(
                     except Exception:
                         return seg_idx, None
 
-                    geometry = result.get("geometry") if isinstance(result, dict) else None
-                    snapped = geometry.get("coordinates") if isinstance(geometry, dict) else []
+                    geometry = (
+                        result.get("geometry") if isinstance(result, dict) else None
+                    )
+                    snapped = (
+                        geometry.get("coordinates")
+                        if isinstance(geometry, dict)
+                        else []
+                    )
                     if not snapped:
                         return seg_idx, None
 
@@ -688,7 +702,10 @@ async def generate_optimal_route_with_progress(
                     except Exception:
                         return seg_idx, None
 
-                tasks = [asyncio.create_task(_trace_and_match(idx)) for idx in trace_candidates]
+                tasks = [
+                    asyncio.create_task(_trace_and_match(idx))
+                    for idx in trace_candidates
+                ]
                 still_unmatched: list[int] = []
                 last_update = time.monotonic()
                 progress_interval = max(10, max(1, len(tasks)) // 25)
@@ -841,15 +858,27 @@ async def generate_optimal_route_with_progress(
         if gap_fill_stats is not None and gap_fill_stats.bridge_distance_m:
             bridge_m = float(gap_fill_stats.bridge_distance_m or 0.0)
             stats["gap_bridge_distance_m"] = bridge_m
-            stats["deadhead_distance"] = float(stats.get("deadhead_distance", 0.0)) + bridge_m
+            stats["deadhead_distance"] = (
+                float(stats.get("deadhead_distance", 0.0)) + bridge_m
+            )
             stats["total_distance"] = float(stats.get("total_distance", 0.0)) + bridge_m
             total_m = float(stats.get("total_distance", 0.0))
             dead_m = float(stats.get("deadhead_distance", 0.0))
-            stats["deadhead_percentage"] = (dead_m / total_m * 100.0) if total_m > 0 else 0.0
+            stats["deadhead_percentage"] = (
+                (dead_m / total_m * 100.0) if total_m > 0 else 0.0
+            )
             req_all_m = float(stats.get("required_distance", 0.0))
-            req_done_m = float(stats.get("required_distance_completed", stats.get("service_distance", 0.0)))
-            stats["deadhead_ratio_all"] = (total_m / req_all_m) if req_all_m > 0 else 0.0
-            stats["deadhead_ratio_completed"] = (total_m / req_done_m) if req_done_m > 0 else 0.0
+            req_done_m = float(
+                stats.get(
+                    "required_distance_completed", stats.get("service_distance", 0.0)
+                )
+            )
+            stats["deadhead_ratio_all"] = (
+                (total_m / req_all_m) if req_all_m > 0 else 0.0
+            )
+            stats["deadhead_ratio_completed"] = (
+                (total_m / req_done_m) if req_done_m > 0 else 0.0
+            )
 
         await update_progress("finalizing", 95, "Finalizing route geometry...")
 

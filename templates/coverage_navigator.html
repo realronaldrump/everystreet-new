@@ -1,8 +1,13 @@
 {% extends "base.html" %}
 
-{% block title %}Coverage Navigator{% endblock %}
+{% block title %}
+
+Coverage Navigator
+{% endblock %}
+
 
 {% block head_content %}
+
   <meta name="mapbox-access-token" content="{{ MAPBOX_ACCESS_TOKEN }}" />
   <!-- Mapbox GL CSS -->
   <link rel="stylesheet" href="{{ CDN.mapbox_gl_css }}" />
@@ -10,10 +15,14 @@
         href="{{ url_for('static', path='css/coverage-navigator.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}" />
 {% endblock %}
 
+
 {% block content %}
+
   <div class="coverage-navigator">
-    <h1 class="visually-hidden">Coverage Navigator</h1>
-    
+    <h1 class="visually-hidden">
+Coverage Navigator
+    </h1>
+
     <!-- Mobile Toggle Button -->
     <button type="button"
             class="mobile-panel-toggle"
@@ -24,7 +33,7 @@
       <i class="fas fa-chevron-up" aria-hidden="true"></i>
       <span class="toggle-text">Hide Controls</span>
     </button>
-    
+
     <aside class="control-panel" id="control-panel">
       <!-- Header Widget -->
       <div class="widget is-compact" data-accent="amber">
@@ -48,7 +57,10 @@
             <i class="fas fa-map-marked-alt" aria-hidden="true"></i>
             Coverage Area
           </h3>
-          <button type="button" class="btn-collapse" aria-expanded="true" aria-label="Toggle section">
+          <button type="button"
+                  class="btn-collapse"
+                  aria-expanded="true"
+                  aria-label="Toggle section">
             <i class="fas fa-chevron-up" aria-hidden="true"></i>
           </button>
         </div>
@@ -59,11 +71,13 @@
           </label>
           <div class="select-wrapper">
             <select id="area-select" class="form-select">
-              <option value="">Select a coverage area...</option>
+              <option value="">
+Select a coverage area...
+              </option>
             </select>
             <i class="fas fa-map-marker-alt select-icon" aria-hidden="true"></i>
           </div>
-          
+
           <div id="area-stats" class="area-stats" style="display: none">
             <div class="stats-row">
               <div class="stat-item">
@@ -89,9 +103,14 @@
           <div class="header-actions">
             <div class="form-check form-switch form-switch-sm">
               <input class="form-check-input" type="checkbox" role="switch" id="auto-follow-toggle" />
-              <label class="form-check-label" for="auto-follow-toggle">Auto-Follow</label>
+              <label class="form-check-label" for="auto-follow-toggle">
+Auto-Follow
+              </label>
             </div>
-            <button type="button" class="btn-collapse" aria-expanded="true" aria-label="Toggle section">
+            <button type="button"
+                    class="btn-collapse"
+                    aria-expanded="true"
+                    aria-label="Toggle section">
               <i class="fas fa-chevron-up" aria-hidden="true"></i>
             </button>
           </div>
@@ -119,14 +138,16 @@
             <span>Select a coverage area to begin navigation</span>
           </div>
 
-          <div id="target-info" class="target-info"></div>
+          <div id="target-info" class="target-info">
+          </div>
 
           <div id="route-info" class="route-info">
             <div class="route-info-header">
               <i class="fas fa-route" aria-hidden="true"></i>
               <span>Active Guidance</span>
             </div>
-            <div id="route-details-content" class="route-details-content"></div>
+            <div id="route-details-content" class="route-details-content">
+            </div>
             <div class="route-actions">
               <button id="open-google-maps-btn" class="btn btn-outline-light btn-sm" disabled>
                 <i class="fab fa-google" aria-hidden="true"></i>
@@ -148,7 +169,10 @@
             <i class="fas fa-magic" aria-hidden="true"></i>
             Optimal Route Planner
           </h3>
-          <button type="button" class="btn-collapse" aria-expanded="true" aria-label="Toggle section">
+          <button type="button"
+                  class="btn-collapse"
+                  aria-expanded="true"
+                  aria-label="Toggle section">
             <i class="fas fa-chevron-up" aria-hidden="true"></i>
           </button>
         </div>
@@ -168,7 +192,9 @@
       </div>
 
       <!-- Route Progress Section (Hidden by default) -->
-      <div id="route-progress-container" class="widget control-section is-processing" data-accent="amber">
+      <div id="route-progress-container"
+           class="widget control-section is-processing"
+           data-accent="amber">
         <div class="widget-header">
           <h3 class="widget-title">
             <i class="fas fa-spinner fa-spin" aria-hidden="true"></i>
@@ -178,27 +204,31 @@
         <div class="widget-body">
           <div class="progress-steps">
             <div id="step-clustering" class="step" data-step="1">
-              <div class="step-indicator"></div>
+              <div class="step-indicator">
+              </div>
               <span class="step-label">Clustering</span>
             </div>
             <div id="step-optimizing" class="step" data-step="2">
-              <div class="step-indicator"></div>
+              <div class="step-indicator">
+              </div>
               <span class="step-label">Optimizing</span>
             </div>
             <div id="step-rendering" class="step" data-step="3">
-              <div class="step-indicator"></div>
+              <div class="step-indicator">
+              </div>
               <span class="step-label">Rendering</span>
             </div>
           </div>
           <div class="progress-bar-container">
             <div class="progress">
-              <div id="route-progress-bar" 
-                   class="progress-bar progress-bar-striped progress-bar-animated" 
-                   role="progressbar" 
+              <div id="route-progress-bar"
+                   class="progress-bar progress-bar-striped progress-bar-animated"
+                   role="progressbar"
                    style="width: 0%"
-                   aria-valuenow="0" 
-                   aria-valuemin="0" 
-                   aria-valuemax="100"></div>
+                   aria-valuenow="0"
+                   aria-valuemin="0"
+                   aria-valuemax="100">
+              </div>
             </div>
             <span id="processing-status" class="progress-status">Preparing...</span>
           </div>
@@ -206,23 +236,33 @@
       </div>
 
       <!-- Route Details Section (Hidden by default) -->
-      <div id="route-details" class="widget control-section" data-accent="slate" style="display: none">
+      <div id="route-details"
+           class="widget control-section"
+           data-accent="slate"
+           style="display: none">
         <div class="widget-header collapsible" data-toggle="section-details">
           <h3 class="widget-title">
             <i class="fas fa-list-ul" aria-hidden="true"></i>
             Route Details
           </h3>
-          <button type="button" class="btn-collapse" aria-expanded="true" aria-label="Toggle section">
+          <button type="button"
+                  class="btn-collapse"
+                  aria-expanded="true"
+                  aria-label="Toggle section">
             <i class="fas fa-chevron-up" aria-hidden="true"></i>
           </button>
         </div>
         <div class="widget-body collapsible-content" id="section-details">
-          <div id="route-stats" class="route-stats"></div>
+          <div id="route-stats" class="route-stats">
+          </div>
         </div>
       </div>
 
       <!-- Live Progress Section (Hidden by default) -->
-      <div id="progress-section" class="widget control-section is-live" data-accent="amber" style="display: none">
+      <div id="progress-section"
+           class="widget control-section is-live"
+           data-accent="amber"
+           style="display: none">
         <div class="widget-header">
           <h3 class="widget-title">
             <i class="fas fa-satellite-dish fa-pulse" aria-hidden="true"></i>
@@ -231,57 +271,76 @@
           <span class="live-badge">LIVE</span>
         </div>
         <div class="widget-body">
-          <p class="live-description">Mapping, connecting, and plotting the circuit in real time.</p>
-          
+          <p class="live-description">
+Mapping, connecting, and plotting the circuit in real time.
+          </p>
+
           <div class="progress-stages">
             <div class="stage" data-stage="queued,waiting,initializing">
-              <div class="stage-icon"><i class="fas fa-play" aria-hidden="true"></i></div>
+              <div class="stage-icon">
+                <i class="fas fa-play" aria-hidden="true"></i>
+              </div>
               <span class="stage-label">Starting</span>
             </div>
-            <div class="stage" data-stage="loading_area,loading_segments,loading_graph,fetching_osm">
-              <div class="stage-icon"><i class="fas fa-database" aria-hidden="true"></i></div>
+            <div class="stage"
+                 data-stage="loading_area,loading_segments,loading_graph,fetching_osm">
+              <div class="stage-icon">
+                <i class="fas fa-database" aria-hidden="true"></i>
+              </div>
               <span class="stage-label">Loading</span>
             </div>
             <div class="stage" data-stage="mapping_segments">
-              <div class="stage-icon"><i class="fas fa-project-diagram" aria-hidden="true"></i></div>
+              <div class="stage-icon">
+                <i class="fas fa-project-diagram" aria-hidden="true"></i>
+              </div>
               <span class="stage-label">Mapping</span>
             </div>
             <div class="stage" data-stage="connectivity_check">
-              <div class="stage-icon"><i class="fas fa-network-wired" aria-hidden="true"></i></div>
+              <div class="stage-icon">
+                <i class="fas fa-network-wired" aria-hidden="true"></i>
+              </div>
               <span class="stage-label">Linking</span>
             </div>
             <div class="stage" data-stage="routing">
-              <div class="stage-icon"><i class="fas fa-route" aria-hidden="true"></i></div>
+              <div class="stage-icon">
+                <i class="fas fa-route" aria-hidden="true"></i>
+              </div>
               <span class="stage-label">Routing</span>
             </div>
             <div class="stage" data-stage="finalizing,complete">
-              <div class="stage-icon"><i class="fas fa-check" aria-hidden="true"></i></div>
+              <div class="stage-icon">
+                <i class="fas fa-check" aria-hidden="true"></i>
+              </div>
               <span class="stage-label">Finalize</span>
             </div>
           </div>
-          
+
           <div class="progress-bar-container">
             <div class="progress">
-              <div id="progress-bar" 
-                   class="progress-bar progress-bar-striped progress-bar-animated" 
-                   role="progressbar" 
+              <div id="progress-bar"
+                   class="progress-bar progress-bar-striped progress-bar-animated"
+                   role="progressbar"
                    style="width: 0%"
-                   aria-valuenow="0" 
-                   aria-valuemin="0" 
-                   aria-valuemax="100"></div>
+                   aria-valuenow="0"
+                   aria-valuemin="0"
+                   aria-valuemax="100">
+              </div>
             </div>
           </div>
-          
+
           <div class="progress-messages">
-            <div id="progress-message-primary" class="message-primary">Initializing...</div>
-            <div id="progress-message-secondary" class="message-secondary"></div>
+            <div id="progress-message-primary" class="message-primary">
+Initializing...
+            </div>
+            <div id="progress-message-secondary" class="message-secondary">
+            </div>
           </div>
-          
+
           <div class="elapsed-time">
             <i class="fas fa-clock" aria-hidden="true"></i>
             <span>Elapsed: <span id="elapsed-value">0:00</span></span>
           </div>
-          
+
           <button id="cancel-task-btn" class="btn btn-outline-danger btn-sm btn-cancel">
             <i class="fas fa-times" aria-hidden="true"></i>
             Cancel Task
@@ -290,48 +349,64 @@
       </div>
 
       <!-- Results Section (Hidden by default) -->
-      <div id="results-section" class="widget control-section is-results" data-accent="sky" style="display: none">
+      <div id="results-section"
+           class="widget control-section is-results"
+           data-accent="sky"
+           style="display: none">
         <div class="widget-header collapsible" data-toggle="section-results">
           <h3 class="widget-title">
             <i class="fas fa-chart-bar" aria-hidden="true"></i>
             Route Statistics
           </h3>
-          <button type="button" class="btn-collapse" aria-expanded="true" aria-label="Toggle section">
+          <button type="button"
+                  class="btn-collapse"
+                  aria-expanded="true"
+                  aria-label="Toggle section">
             <i class="fas fa-chevron-up" aria-hidden="true"></i>
           </button>
         </div>
         <div class="widget-body collapsible-content" id="section-results">
           <div class="stats-grid">
             <div class="stat-card" data-stat="total">
-              <div class="stat-icon"><i class="fas fa-road" aria-hidden="true"></i></div>
+              <div class="stat-icon">
+                <i class="fas fa-road" aria-hidden="true"></i>
+              </div>
               <div class="stat-content">
                 <span id="stat-total-distance" class="stat-value">--</span>
                 <span class="stat-label">Total Route</span>
               </div>
             </div>
             <div class="stat-card" data-stat="required">
-              <div class="stat-icon"><i class="fas fa-check-circle" aria-hidden="true"></i></div>
+              <div class="stat-icon">
+                <i class="fas fa-check-circle" aria-hidden="true"></i>
+              </div>
               <div class="stat-content">
                 <span id="stat-required-distance" class="stat-value">--</span>
                 <span class="stat-label">Required</span>
               </div>
             </div>
             <div class="stat-card" data-stat="coverage">
-              <div class="stat-icon"><i class="fas fa-map-marked-alt" aria-hidden="true"></i></div>
+              <div class="stat-icon">
+                <i class="fas fa-map-marked-alt" aria-hidden="true"></i>
+              </div>
               <div class="stat-content">
                 <span id="stat-covered-distance" class="stat-value">--</span>
                 <span class="stat-label">Coverage</span>
               </div>
             </div>
             <div class="stat-card" data-stat="deadhead">
-              <div class="stat-icon"><i class="fas fa-car-side" aria-hidden="true"></i></div>
+              <div class="stat-icon">
+                <i class="fas fa-car-side" aria-hidden="true"></i>
+              </div>
               <div class="stat-content">
                 <span id="stat-deadhead-distance" class="stat-value">--</span>
                 <span class="stat-label">Deadhead</span>
               </div>
             </div>
             <div class="stat-card is-efficiency" data-stat="efficiency">
-              <div class="stat-icon"><i class="fas fa-percentage" aria-hidden="true"></i></div>
+              <div class="stat-icon">
+                <i class="fas fa-percentage" aria-hidden="true"></i>
+              </div>
               <div class="stat-content">
                 <span id="stat-deadhead-percent" class="stat-value">--</span>
                 <span class="stat-label">Efficiency</span>
@@ -359,7 +434,9 @@
           </div>
 
           <div class="layer-controls">
-            <h4 class="layer-controls-title">Map Layers</h4>
+            <h4 class="layer-controls-title">
+Map Layers
+            </h4>
             <div id="layer-list" class="layer-list">
               <div class="layer-item" data-layer-id="route">
                 <div class="layer-main">
@@ -378,11 +455,11 @@
                     <span>Opacity</span>
                     <span class="opacity-value">100%</span>
                   </label>
-                  <input type="range" 
-                         class="form-range" 
-                         id="opacity-route-layer" 
-                         min="0" 
-                         max="100" 
+                  <input type="range"
+                         class="form-range"
+                         id="opacity-route-layer"
+                         min="0"
+                         max="100"
                          value="100" />
                 </div>
               </div>
@@ -404,11 +481,11 @@
                     <span>Opacity</span>
                     <span class="opacity-value">60%</span>
                   </label>
-                  <input type="range" 
-                         class="form-range" 
-                         id="opacity-driven-layer" 
-                         min="0" 
-                         max="100" 
+                  <input type="range"
+                         class="form-range"
+                         id="opacity-driven-layer"
+                         min="0"
+                         max="100"
                          value="60" />
                 </div>
               </div>
@@ -430,11 +507,11 @@
                     <span>Opacity</span>
                     <span class="opacity-value">80%</span>
                   </label>
-                  <input type="range" 
-                         class="form-range" 
-                         id="opacity-undriven-layer" 
-                         min="0" 
-                         max="100" 
+                  <input type="range"
+                         class="form-range"
+                         id="opacity-undriven-layer"
+                         min="0"
+                         max="100"
                          value="80" />
                 </div>
               </div>
@@ -444,7 +521,10 @@
       </div>
 
       <!-- Error Section (Hidden by default) -->
-      <div id="error-section" class="widget control-section is-error" data-accent="coral" style="display: none">
+      <div id="error-section"
+           class="widget control-section is-error"
+           data-accent="coral"
+           style="display: none">
         <div class="widget-header">
           <h3 class="widget-title">
             <i class="fas fa-triangle-exclamation" aria-hidden="true"></i>
@@ -456,7 +536,9 @@
             <div class="error-icon">
               <i class="fas fa-exclamation-triangle" aria-hidden="true"></i>
             </div>
-            <div id="error-message" class="error-message">An error occurred.</div>
+            <div id="error-message" class="error-message">
+An error occurred.
+            </div>
             <button id="retry-btn" class="btn btn-outline-danger btn-sm">
               <i class="fas fa-redo" aria-hidden="true"></i>
               Try Again
@@ -472,7 +554,10 @@
             <i class="fas fa-history" aria-hidden="true"></i>
             Saved Routes
           </h3>
-          <button type="button" class="btn-collapse" aria-expanded="true" aria-label="Toggle section">
+          <button type="button"
+                  class="btn-collapse"
+                  aria-expanded="true"
+                  aria-label="Toggle section">
             <i class="fas fa-chevron-up" aria-hidden="true"></i>
           </button>
         </div>
@@ -489,11 +574,13 @@
 
     <!-- Map Container -->
     <div class="map-container">
-      <div id="coverage-map"></div>
-      
+      <div id="coverage-map">
+      </div>
+
       <!-- Map Scanner Overlay -->
-      <div id="map-scanner-overlay" class="map-scanner-overlay" aria-hidden="true"></div>
-      
+      <div id="map-scanner-overlay" class="map-scanner-overlay" aria-hidden="true">
+      </div>
+
       <!-- Route Solver HUD -->
       <div id="route-solver-hud" class="route-solver-hud" aria-live="polite">
         <div class="hud-panel">
@@ -502,10 +589,15 @@
               <span class="hud-dot"></span>
               <span class="hud-title">Route Solver</span>
             </div>
-            <div id="hud-stage" class="hud-stage">Initializing</div>
+            <div id="hud-stage" class="hud-stage">
+Initializing
+            </div>
           </div>
-          <div id="hud-message" class="hud-message">Initializing...</div>
-          <div id="hud-submessage" class="hud-submessage"></div>
+          <div id="hud-message" class="hud-message">
+Initializing...
+          </div>
+          <div id="hud-submessage" class="hud-submessage">
+          </div>
           <div class="hud-metrics">
             <div class="hud-metric">
               <span class="metric-label">Segments</span>
@@ -524,13 +616,16 @@
               <span id="hud-elapsed" class="metric-value">0:00</span>
             </div>
           </div>
-          <div id="hud-activity" class="hud-activity"></div>
+          <div id="hud-activity" class="hud-activity">
+          </div>
         </div>
       </div>
-      
+
       <!-- Map Legend -->
       <div class="map-legend" id="map-legend" style="display: none">
-        <h6>Legend</h6>
+        <h6>
+Legend
+        </h6>
         <div class="legend-items">
           <div class="legend-item">
             <span class="legend-color" style="background: var(--success)"></span>
@@ -549,5 +644,6 @@
     </div>
   </div>
 {% endblock %}
+
 
 {# Page scripts are loaded via route-loader + swup. #}

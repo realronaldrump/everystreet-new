@@ -1,5 +1,3 @@
-/* global bootstrap */
-
 import apiClient from "./core/api-client.js";
 import { CONFIG } from "./core/config.js";
 import notificationManager from "./ui/notifications.js";
@@ -159,8 +157,8 @@ function updateStatusUI(status, elements) {
   }
 
   if (elements.miniIndicator) {
-    const indicatorState
-      = status.state === "syncing"
+    const indicatorState =
+      status.state === "syncing"
         ? "syncing"
         : status.state === "error"
           ? "error"
@@ -169,8 +167,8 @@ function updateStatusUI(status, elements) {
   }
 
   if (elements.miniText) {
-    const text
-      = status.state === "syncing"
+    const text =
+      status.state === "syncing"
         ? "Syncing..."
         : status.state === "error"
           ? "Sync failed"
@@ -184,10 +182,10 @@ function updateStatusUI(status, elements) {
   setSyncingState(status.state, elements);
   // While syncing, buttons can act as "cancel" (if job id is available).
   // Always disable while paused and while an action request is in flight.
-  const shouldDisable
-    = actionInFlight
-      || status.state === "paused"
-      || (status.state === "syncing" && !status.current_job_id);
+  const shouldDisable =
+    actionInFlight ||
+    status.state === "paused" ||
+    (status.state === "syncing" && !status.current_job_id);
   setButtonsDisabled(shouldDisable, elements);
 }
 
@@ -446,6 +444,7 @@ function handleStatusUpdate(status, elements, onSyncComplete, onSyncError) {
 }
 
 export function initTripSync({ onSyncComplete, onSyncError, cleanup } = {}) {
+  const noopTeardown = () => {};
   const elements = {
     pill: getElement("trip-sync-pill"),
     statusText: getElement("trip-sync-status-text"),
@@ -467,15 +466,18 @@ export function initTripSync({ onSyncComplete, onSyncError, cleanup } = {}) {
   };
 
   const hasUi = Boolean(
-    elements.pill
-      || elements.miniIndicator
-      || elements.miniText
-      || elements.syncButtons.length
-      || elements.emptyButtons.length
+    elements.pill ||
+      elements.miniIndicator ||
+      elements.miniText ||
+      elements.syncButtons.length ||
+      elements.emptyButtons.length
   );
 
   if (!hasUi) {
-    return;
+    if (typeof cleanup === "function") {
+      cleanup(noopTeardown);
+    }
+    return noopTeardown;
   }
 
   const cleanupHandlers = [];

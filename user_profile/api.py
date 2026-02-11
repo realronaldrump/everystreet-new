@@ -331,7 +331,9 @@ async def add_bouncie_vehicle(payload: BouncieVehicleCreate):
     from setup.services.bouncie_oauth import BouncieOAuth
 
     session = await get_session()
-    token = await BouncieOAuth.get_access_token(session=session, credentials=credentials)
+    token = await BouncieOAuth.get_access_token(
+        session=session, credentials=credentials
+    )
     if not token:
         raise HTTPException(
             status_code=401,
@@ -353,7 +355,9 @@ async def add_bouncie_vehicle(payload: BouncieVehicleCreate):
             )
         bouncie_vehicle = await fetch_vehicle_by_imei(session, token, imei)
     except BouncieRateLimitError as exc:
-        logger.warning("Bouncie API rate limited while adding vehicle %s: %s", imei, exc)
+        logger.warning(
+            "Bouncie API rate limited while adding vehicle %s: %s", imei, exc
+        )
         raise HTTPException(
             status_code=503,
             detail="Bouncie API rate limited. Please try again shortly.",
@@ -462,9 +466,13 @@ async def add_bouncie_vehicle(payload: BouncieVehicleCreate):
             trip_sync_job_id = result.get("job_id")
         except HTTPException as exc:
             # Don't fail vehicle creation if a sync can't be queued.
-            trip_sync_note = str(exc.detail) if getattr(exc, "detail", None) else str(exc)
+            trip_sync_note = (
+                str(exc.detail) if getattr(exc, "detail", None) else str(exc)
+            )
         except Exception as exc:
-            logger.exception("Failed to enqueue trip sync after adding vehicle %s", imei)
+            logger.exception(
+                "Failed to enqueue trip sync after adding vehicle %s", imei
+            )
             trip_sync_note = str(exc)
 
     message = "Vehicle added."

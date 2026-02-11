@@ -1,4 +1,4 @@
-/* global bootstrap, mapboxgl, dayjs */
+/* global bootstrap, mapboxgl */
 /**
  * Trips Page - Modern Travel Journal
  * Card-based trip display with timeline grouping and smart features
@@ -100,13 +100,17 @@ function resetTripsState() {
   if (playbackState.startMarker) {
     try {
       playbackState.startMarker.remove();
-    } catch {}
+    } catch {
+      // Ignore marker cleanup errors.
+    }
     playbackState.startMarker = null;
   }
   if (playbackState.endMarker) {
     try {
       playbackState.endMarker.remove();
-    } catch {}
+    } catch {
+      // Ignore marker cleanup errors.
+    }
     playbackState.endMarker = null;
   }
   playbackState.coords = [];
@@ -287,6 +291,8 @@ export default async function initTripsPage({ signal, cleanup } = {}) {
   } else {
     return teardown;
   }
+
+  return teardown;
 }
 
 async function initializePage(signal, cleanup) {
@@ -339,12 +345,14 @@ async function initializePage(signal, cleanup) {
   }
 }
 
-function updateOverviewStats({ totalMiles, totalTrips, totalHours }) {
+function updateOverviewStats({ totalMiles, totalTrips: totalTripsCount, totalHours }) {
   const milesEl = document.getElementById("stat-total-miles");
   const tripsEl = document.getElementById("stat-total-trips");
   const hoursEl = document.getElementById("stat-total-time");
   const safeMiles = Number.isFinite(Number(totalMiles)) ? Number(totalMiles) : 0;
-  const safeTrips = Number.isFinite(Number(totalTrips)) ? Number(totalTrips) : 0;
+  const safeTrips = Number.isFinite(Number(totalTripsCount))
+    ? Number(totalTripsCount)
+    : 0;
   const safeHours = Number.isFinite(Number(totalHours)) ? Number(totalHours) : 0;
 
   if (milesEl) {
@@ -634,12 +642,12 @@ async function loadTripStats() {
     };
 
     const totalMiles = toNumber(metrics?.total_distance ?? insights?.total_distance, 0);
-    const totalTrips = toNumber(metrics?.total_trips ?? insights?.total_trips, 0);
+    const totalTripsCount = toNumber(metrics?.total_trips ?? insights?.total_trips, 0);
     const totalHours = Math.round(toNumber(metrics?.total_duration_seconds, 0) / 3600);
 
     updateOverviewStats({
       totalMiles,
-      totalTrips,
+      totalTrips: totalTripsCount,
       totalHours,
     });
 
@@ -1406,7 +1414,7 @@ function updateFilteredStats() {
     (sum, trip) => sum + (parseFloat(trip.distance) || 0),
     0
   );
-  const totalTrips = visibleTrips.length;
+  const totalTripsCount = visibleTrips.length;
   const totalDuration = visibleTrips.reduce(
     (sum, trip) => sum + (parseInt(trip.duration, 10) || 0),
     0
@@ -1415,7 +1423,7 @@ function updateFilteredStats() {
 
   updateOverviewStats({
     totalMiles,
-    totalTrips,
+    totalTrips: totalTripsCount,
     totalHours,
   });
 
@@ -2361,7 +2369,7 @@ async function updateTripRouteChip(trip) {
       ""
     ).trim();
     chip.textContent = displayName ? `Route: ${displayName}` : "Route";
-  } catch (err) {
+  } catch {
     if (token !== modalRouteChipToken) {
       return;
     }
@@ -2472,7 +2480,7 @@ function extractTripGeometry(trip) {
   if (typeof candidate === "string") {
     try {
       parsed = JSON.parse(candidate);
-    } catch (_err) {
+    } catch {
       return null;
     }
   }

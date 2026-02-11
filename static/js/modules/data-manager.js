@@ -236,8 +236,8 @@ const dataManager = {
         const endTime = f?.properties?.endTime;
         const endTs = endTime ? new Date(endTime).getTime() : null;
         f.properties = f.properties || {};
-        f.properties.isRecent
-          = typeof endTs === "number" && !Number.isNaN(endTs)
+        f.properties.isRecent =
+          typeof endTs === "number" && !Number.isNaN(endTs)
             ? now - endTs <= threshold
             : false;
       });
@@ -334,7 +334,7 @@ const dataManager = {
     }
   },
 
-  async fetchUndrivenStreets() {
+  fetchUndrivenStreets() {
     return this._fetchStreets(
       "undrivenStreets",
       "undrivenStreetsLoaded",
@@ -343,12 +343,22 @@ const dataManager = {
     );
   },
 
-  async fetchDrivenStreets() {
-    return this._fetchStreets("drivenStreets", "drivenStreetsLoaded", "driven", "driven streets");
+  fetchDrivenStreets() {
+    return this._fetchStreets(
+      "drivenStreets",
+      "drivenStreetsLoaded",
+      "driven",
+      "driven streets"
+    );
   },
 
-  async fetchAllStreets() {
-    return this._fetchStreets("allStreets", "allStreetsLoaded", undefined, "all streets");
+  fetchAllStreets() {
+    return this._fetchStreets(
+      "allStreets",
+      "allStreetsLoaded",
+      undefined,
+      "all streets"
+    );
   },
 
   /**
@@ -373,11 +383,14 @@ const dataManager = {
       );
 
       // `/api/metrics` returns strings for some numeric fields. Normalize for UI consumers.
-      const totalTrips = Number.parseInt(data?.total_trips ?? data?.totalTrips ?? 0, 10) || 0;
-      const totalDistanceMiles = Number.parseFloat(data?.total_distance ?? data?.totalDistance ?? 0) || 0;
+      const totalTrips =
+        Number.parseInt(data?.total_trips ?? data?.totalTrips ?? 0, 10) || 0;
+      const totalDistanceMiles =
+        Number.parseFloat(data?.total_distance ?? data?.totalDistance ?? 0) || 0;
       const avgSpeed = Number.parseFloat(data?.avg_speed ?? data?.avgSpeed ?? 0) || 0;
       const maxSpeed = Number.parseFloat(data?.max_speed ?? data?.maxSpeed ?? 0) || 0;
-      const avgDistanceMiles = Number.parseFloat(data?.avg_distance ?? data?.avgDistance ?? 0) || 0;
+      const avgDistanceMiles =
+        Number.parseFloat(data?.avg_distance ?? data?.avgDistance ?? 0) || 0;
       const avgStartTime = data?.avg_start_time ?? data?.avgStartTime ?? "--:--";
       const avgDrivingTime = data?.avg_driving_time ?? data?.avgDrivingTime ?? "--:--";
 

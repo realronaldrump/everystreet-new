@@ -319,8 +319,8 @@ class TurnByTurnCoverage {
    * @returns {{percentage: number, drivenLength: number, totalLength: number}}
    */
   getCoverageStats() {
-    const percentage
-      = this.totalSegmentLength > 0
+    const percentage =
+      this.totalSegmentLength > 0
         ? (this.drivenSegmentLength / this.totalSegmentLength) * 100
         : 0;
 

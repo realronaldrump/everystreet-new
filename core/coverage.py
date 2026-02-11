@@ -246,6 +246,7 @@ class AreaSegmentIndex:
 
         return matched_ids
 
+
 @lru_cache(maxsize=10)
 def _get_area_segment_index(
     area_id: PydanticObjectId,
@@ -796,9 +797,7 @@ async def mark_segment_undriven(
     driven_len_delta = -length_miles if previous_status == "driven" else 0.0
 
     undriveable_delta = -1 if previous_status == "undriveable" else 0
-    undriveable_len_delta = (
-        -length_miles if previous_status == "undriveable" else 0.0
-    )
+    undriveable_len_delta = -length_miles if previous_status == "undriveable" else 0.0
 
     if driven_delta or undriveable_delta:
         await apply_area_stats_delta(
@@ -970,7 +969,9 @@ async def backfill_coverage_for_area(
             gc.collect()
 
     if not segment_first:
-        logger.info("Backfill found no matching segments for area %s", area.display_name)
+        logger.info(
+            "Backfill found no matching segments for area %s", area.display_name
+        )
         await report_progress(total_trips=total_trip_count, force=True)
         return 0
 

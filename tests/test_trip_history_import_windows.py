@@ -13,6 +13,8 @@ def test_build_import_windows_seven_day_windows_with_24h_overlap() -> None:
 
     assert len(windows) == 3
     assert windows[0] == (start, datetime(2024, 1, 8, tzinfo=UTC))
-    assert windows[1] == (datetime(2024, 1, 7, tzinfo=UTC), datetime(2024, 1, 14, tzinfo=UTC))
+    assert windows[1] == (
+        datetime(2024, 1, 7, tzinfo=UTC),
+        datetime(2024, 1, 14, tzinfo=UTC),
+    )
     assert windows[2] == (datetime(2024, 1, 13, tzinfo=UTC), end)
-

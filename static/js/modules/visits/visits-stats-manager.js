@@ -57,14 +57,9 @@ class VisitsStatsManager {
     }
   }
 
-  updateInsights(stats) {
-    // These insights are now displayed in the new design via VisitsPageController
-    // Keeping this method for backward compatibility
-    if (!stats || stats.length === 0) {
-    }
-
-    // Most visited place, avg duration, and visit frequency are calculated in visits-new.js
-    // and displayed in the hero section, patterns section, and place detail modals
+  updateInsights(_stats) {
+    // These insights are now displayed in the new design via VisitsPageController.
+    // Keeping this method for backward compatibility.
   }
 
   destroy() {

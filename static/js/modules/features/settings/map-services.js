@@ -123,9 +123,9 @@ function renderAutoStatus(status) {
 function renderStatusHeader(status) {
   const { is_ready, is_building, status: rawStatus, message } = status;
 
-  let icon,
-label,
-tone;
+  let icon;
+  let label;
+  let tone;
   if (is_ready) {
     icon = "fa-check-circle";
     label = "Map Services Ready";
@@ -186,10 +186,10 @@ function renderServicesStatus(status) {
   const build = status.build || {};
   const phase = build.phase || status.status;
   const phaseMessage = (status.message || "").trim();
-  const isBuilding
-    = status.is_building
-    || status.status === "building"
-    || status.status === "downloading";
+  const isBuilding =
+    status.is_building ||
+    status.status === "building" ||
+    status.status === "downloading";
 
   const geocodingIcon = geocoding.ready
     ? "fa-check"
@@ -255,9 +255,9 @@ function renderStatesCoverage(status) {
 
   // Don't show if no data at all
   if (
-    configured_state_names.length === 0
-    && missing_state_details.length === 0
-    && detected_states.length === 0
+    configured_state_names.length === 0 &&
+    missing_state_details.length === 0 &&
+    detected_states.length === 0
   ) {
     return `
       <div class="map-services-empty">
@@ -320,8 +320,8 @@ function renderProgressSection(status) {
   const phase = build.phase || status.status || "building";
   const phaseLabel = getBuildPhaseLabel(phase);
   const rawPhaseProgress = Number(build.phase_progress);
-  const phaseProgress
-    = Number.isFinite(rawPhaseProgress) && rawPhaseProgress >= 0
+  const phaseProgress =
+    Number.isFinite(rawPhaseProgress) && rawPhaseProgress >= 0
       ? clampNumber(rawPhaseProgress, 0, 100)
       : null;
   const phasePercent = phaseProgress === null ? "—" : `${Math.round(phaseProgress)}%`;
@@ -417,13 +417,13 @@ function renderProgressSection(status) {
  * - "Check Status" (muted link): Manual status refresh - icon only, subtle
  */
 function renderActions(status) {
-  const { is_building, needs_provisioning, last_error, retry_count, max_retries }
-    = status;
+  const { is_building, needs_provisioning, last_error, retry_count, max_retries } =
+    status;
   const retryCap = typeof max_retries === "number" && max_retries > 0 ? max_retries : 3;
   const displayAttempt = Math.min(retry_count || 0, retryCap);
-  const noTrips
-    = !(status?.detected_states || []).length
-    && !(status?.configured_states || []).length;
+  const noTrips =
+    !(status?.detected_states || []).length &&
+    !(status?.configured_states || []).length;
 
   const buttons = [];
 
@@ -528,8 +528,8 @@ async function handleRefresh() {
  */
 async function triggerProvisioning() {
   console.log("[MapServices] triggerProvisioning called");
-  const btn
-    = document.getElementById("provision-btn") || document.getElementById("retry-btn");
+  const btn =
+    document.getElementById("provision-btn") || document.getElementById("retry-btn");
   const isRetry = btn?.id === "retry-btn";
   const retryStates = Array.isArray(_lastStatus?.configured_states)
     ? _lastStatus.configured_states
@@ -608,8 +608,8 @@ async function cancelSetup() {
   } finally {
     if (btn) {
       btn.disabled = false;
-      btn.innerHTML
-        = '<i class="fas fa-times"></i> <span class="btn-text">Cancel</span>';
+      btn.innerHTML =
+        '<i class="fas fa-times"></i> <span class="btn-text">Cancel</span>';
     }
   }
 }

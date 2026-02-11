@@ -1,4 +1,3 @@
-/* global mapboxgl */
 import apiClient from "../../core/api-client.js";
 import { swupReady } from "../../core/navigation.js";
 import {
@@ -54,6 +53,8 @@ export default function initSetupWizardPage({ signal, cleanup } = {}) {
   } else {
     return teardown;
   }
+
+  return teardown;
 }
 
 function withSignal(options = {}) {
@@ -180,7 +181,7 @@ async function loadSetupStatus() {
   try {
     const data = await apiClient.get(SETUP_STATUS_API, withSignal());
     setupStatus = data;
-  } catch (_error) {
+  } catch {
     setupStatus = null;
   }
 }
@@ -189,7 +190,7 @@ async function loadCoverageSettings() {
   try {
     const data = await apiClient.get(APP_SETTINGS_API, withSignal());
     coverageMode = String(data?.mapCoverageMode || "trips").toLowerCase();
-  } catch (_error) {
+  } catch {
     coverageMode = "trips";
   }
   updateCoverageModeUI();
@@ -202,7 +203,7 @@ async function loadCoverageSettings() {
 async function loadTripSyncStatus() {
   try {
     tripSyncStatus = await apiClient.get(TRIP_SYNC_STATUS_API, withSignal());
-  } catch (_error) {
+  } catch {
     tripSyncStatus = null;
   }
   updateTripSyncStatusUI();
@@ -216,7 +217,7 @@ async function loadMapboxSettings() {
       input.value = token;
     }
     handleMapboxInput();
-  } catch (_error) {
+  } catch {
     showStatus("credentials-status", "Unable to load Mapbox settings.", true);
   }
 }
@@ -234,13 +235,13 @@ async function loadBouncieCredentials() {
       clientSecret.value = credentials.client_secret || "";
     }
     if (redirectUri) {
-      const expectedRedirect
-        = credentials.redirect_uri || (await getExpectedRedirectUri());
+      const expectedRedirect =
+        credentials.redirect_uri || (await getExpectedRedirectUri());
       redirectUri.value = expectedRedirect;
     }
     bouncieConnected = Boolean(credentials.authorization_code);
     updateBouncieActions();
-  } catch (_error) {
+  } catch {
     showStatus("credentials-status", "Unable to load Bouncie credentials.", true);
     bouncieConnected = false;
     updateBouncieActions();
@@ -271,7 +272,7 @@ async function loadStateCatalog() {
     }
     stateCatalog = data;
     renderStateGrid();
-  } catch (_error) {
+  } catch {
     const grid = document.getElementById("state-selection");
     if (grid) {
       grid.innerHTML = '<div class="text-danger">Failed to load states.</div>';
@@ -291,7 +292,7 @@ async function refreshMapServicesStatus() {
     mapServiceStatus = normalizeMapServiceStatus(data);
     applySelectedStatesFromStatus();
     updateMapCoverageUI();
-  } catch (_error) {
+  } catch {
     mapServiceStatus = null;
   }
 }
@@ -569,7 +570,7 @@ async function getExpectedRedirectUri() {
     if (response.ok && data?.redirect_uri) {
       return data.redirect_uri;
     }
-  } catch (_error) {
+  } catch {
     // Fall back to origin-based redirect URI.
   }
   return buildRedirectUri();
@@ -942,19 +943,19 @@ function updateTripSyncStatusUI() {
   if (bannerTitle && bannerMessage) {
     if (state === "syncing") {
       bannerTitle.textContent = "Importing trips";
-      bannerMessage.textContent
-        = "Trip import is running. Coverage will update automatically.";
+      bannerMessage.textContent =
+        "Trip import is running. Coverage will update automatically.";
     } else if (state === "error") {
       bannerTitle.textContent = "Trip sync needs attention";
       bannerMessage.textContent = tripSyncStatus.error?.message || "Trip sync failed.";
     } else if (state === "paused") {
       bannerTitle.textContent = "Trip sync is paused";
-      bannerMessage.textContent
-        = tripSyncStatus.error?.message || "Complete setup to import trips.";
+      bannerMessage.textContent =
+        tripSyncStatus.error?.message || "Complete setup to import trips.";
     } else {
       bannerTitle.textContent = "Import trips first";
-      bannerMessage.textContent
-        = "We need at least one trip to calculate coverage. Sync trips to continue.";
+      bannerMessage.textContent =
+        "We need at least one trip to calculate coverage. Sync trips to continue.";
     }
   }
 
@@ -1090,9 +1091,10 @@ function updateMapCoverageUI() {
   const status = mapServiceStatus?.config;
   const progress = mapServiceStatus?.progress;
   const running = status?.status === "downloading" || status?.status === "building";
+  const ready = status?.status === "ready";
   const noTrips = shouldBlockCoverageSetup();
-  const selectionMissing
-    = !(coverageMode === "trips" || coverageMode === "auto") && !selectedStates.size;
+  const selectionMissing =
+    !(coverageMode === "trips" || coverageMode === "auto") && !selectedStates.size;
 
   const messageEl = document.getElementById("map-setup-message");
   if (messageEl) {
@@ -1101,7 +1103,8 @@ function updateMapCoverageUI() {
       if (tripSyncStatus?.state === "syncing") {
         message = "Importing trips now. Coverage will update automatically.";
       } else if (tripSyncStatus?.error?.message) {
-        message = tripSyncStatus.error.message;
+        const { message: tripSyncErrorMessage } = tripSyncStatus.error;
+        message = tripSyncErrorMessage;
       } else {
         message = "Import trips first to detect coverage.";
       }
@@ -1143,8 +1146,8 @@ function updateMapCoverageUI() {
     progressText.textContent = percent ? `${percent.toFixed(0)}%` : "";
   }
   if (progressWrap) {
-    const showProgress
-      = status?.status === "downloading" || status?.status === "building";
+    const showProgress =
+      status?.status === "downloading" || status?.status === "building";
     progressWrap.classList.toggle("d-none", !showProgress);
   }
 
@@ -1180,13 +1183,11 @@ function updateMapCoverageUI() {
   }
   const mapSetupBtn = document.getElementById("map-setup-btn");
   if (mapSetupBtn) {
-    const credentialsComplete
-      = setupStatus?.steps?.bouncie?.complete && setupStatus?.steps?.mapbox?.complete;
-    const running = status?.status === "downloading" || status?.status === "building";
-    const ready = status?.status === "ready";
+    const credentialsComplete =
+      setupStatus?.steps?.bouncie?.complete && setupStatus?.steps?.mapbox?.complete;
     mapSetupBtn.classList.toggle("d-none", running || ready || mapSetupInFlight);
-    mapSetupBtn.disabled
-      = locked || !credentialsComplete || mapSetupInFlight || noTrips || selectionMissing;
+    mapSetupBtn.disabled =
+      locked || !credentialsComplete || mapSetupInFlight || noTrips || selectionMissing;
     mapSetupBtn.title = noTrips ? "Import trips first" : "";
   }
 
@@ -1197,15 +1198,14 @@ function updateMapCoverageUI() {
       : "not configured";
   }
 
-  const ready = status?.status === "ready";
   if (running || ready) {
     updateCoverageView("run");
   }
 
   if (
-    status?.status === "downloading"
-    || status?.status === "building"
-    || progress?.phase === "downloading"
+    status?.status === "downloading" ||
+    status?.status === "building" ||
+    progress?.phase === "downloading"
   ) {
     startStatusPolling();
   } else {
@@ -1226,15 +1226,15 @@ function updateMapCoverageUI() {
 
   const runBtn = document.getElementById("coverage-run-btn");
   if (runBtn) {
-    runBtn.disabled
-      = running || ready || mapSetupInFlight || noTrips || selectionMissing;
+    runBtn.disabled =
+      running || ready || mapSetupInFlight || noTrips || selectionMissing;
     runBtn.title = noTrips ? "Import trips first" : "";
   }
 
   const reviewBtn = document.getElementById("coverage-review-btn");
   if (reviewBtn) {
-    reviewBtn.disabled
-      = running || ready || mapSetupInFlight || noTrips || selectionMissing;
+    reviewBtn.disabled =
+      running || ready || mapSetupInFlight || noTrips || selectionMissing;
     reviewBtn.title = noTrips ? "Import trips first" : "";
   }
 
@@ -1265,8 +1265,8 @@ function updateMapCoverageUI() {
       selectDesc.textContent = "States are inferred from your trip paths.";
     } else {
       selectTitle.textContent = "Select states";
-      selectDesc.textContent
-        = "Start with the states you need now. You can add more later.";
+      selectDesc.textContent =
+        "Start with the states you need now. You can add more later.";
     }
   }
 
@@ -1278,11 +1278,11 @@ function updateMapCoverageUI() {
   const stepDescription = document.getElementById("coverage-step-description");
   if (stepDescription) {
     if (coverageMode === "states") {
-      stepDescription.textContent
-        = "Choose the states you need now. Coverage can be expanded later as you travel.";
+      stepDescription.textContent =
+        "Choose the states you need now. Coverage can be expanded later as you travel.";
     } else {
-      stepDescription.textContent
-        = "Coverage is built from your trips so geocoding stays local and fast. We download the smallest extract that fully covers your trip area.";
+      stepDescription.textContent =
+        "Coverage is built from your trips so geocoding stays local and fast. We download the smallest extract that fully covers your trip area.";
     }
   }
 
@@ -1352,11 +1352,11 @@ function updateCoverageModeUI() {
   const stepDescription = document.getElementById("coverage-step-description");
   if (stepDescription) {
     if (coverageMode === "states") {
-      stepDescription.textContent
-        = "Choose the states you need now. Coverage can be expanded later as you travel.";
+      stepDescription.textContent =
+        "Choose the states you need now. Coverage can be expanded later as you travel.";
     } else {
-      stepDescription.textContent
-        = "Coverage is built from your trips so geocoding stays local and fast. We download the smallest extract that fully covers your trip area.";
+      stepDescription.textContent =
+        "Coverage is built from your trips so geocoding stays local and fast. We download the smallest extract that fully covers your trip area.";
     }
   }
 }
@@ -1396,13 +1396,12 @@ async function completeSetupAndExit() {
       // Ignore storage errors
     }
     document.dispatchEvent(new CustomEvent("es:setup-status-refresh"));
-    swupReady
-      .then((swup) => {
-        swup.navigate("/", {
-          cache: { read: false, write: true },
-          history: "replace",
-        });
+    swupReady.then((swup) => {
+      swup.navigate("/", {
+        cache: { read: false, write: true },
+        history: "replace",
       });
+    });
   } catch (error) {
     notificationManager.show(error.message || "Unable to finish setup.", "danger");
   }

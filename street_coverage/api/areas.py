@@ -206,7 +206,9 @@ def _is_type_match(area_type: str, result: dict[str, Any]) -> bool:
     if normalized == "county":
         return result_type == "county" or bool(address.get("county"))
     if normalized == "state":
-        return result_type in {"state", "province", "region"} or bool(address.get("state"))
+        return result_type in {"state", "province", "region"} or bool(
+            address.get("state")
+        )
     return True
 
 
@@ -676,7 +678,9 @@ async def trigger_backfill(
         try:
             job = await backfill_area(area_id)
         except Exception as e:
-            logger.exception("Error enqueueing backfill job for area %s", area.display_name)
+            logger.exception(
+                "Error enqueueing backfill job for area %s", area.display_name
+            )
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=str(e),

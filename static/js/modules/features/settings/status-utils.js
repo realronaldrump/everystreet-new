@@ -30,8 +30,8 @@ export function setInlineStatus(element, message, tone = "info") {
 
   initInlineStatus(element);
 
-  const text
-    = typeof message === "string" ? message : message == null ? "" : String(message);
+  const text =
+    typeof message === "string" ? message : message == null ? "" : String(message);
 
   if (!text) {
     clearInlineStatus(element);

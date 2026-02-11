@@ -24,4 +24,3 @@ class PatchRecurringRouteRequest(BaseModel):
     is_hidden: bool | None = None
 
     model_config = ConfigDict(extra="ignore")
-

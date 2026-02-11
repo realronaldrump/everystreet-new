@@ -16,14 +16,14 @@ const dateManager = {
       return;
     }
 
-    const startDate
-      = store.get("filters.startDate")
-      || utils.getStorage(CONFIG.STORAGE_KEYS.startDate)
-      || dateUtils.getCurrentDate();
-    const endDate
-      = store.get("filters.endDate")
-      || utils.getStorage(CONFIG.STORAGE_KEYS.endDate)
-      || dateUtils.getCurrentDate();
+    const startDate =
+      store.get("filters.startDate") ||
+      utils.getStorage(CONFIG.STORAGE_KEYS.startDate) ||
+      dateUtils.getCurrentDate();
+    const endDate =
+      store.get("filters.endDate") ||
+      utils.getStorage(CONFIG.STORAGE_KEYS.endDate) ||
+      dateUtils.getCurrentDate();
     this.flatpickrInstances = new Map();
 
     const fpConfig = {
@@ -295,10 +295,10 @@ const dateManager = {
   },
 
   highlightActivePreset(preset = null) {
-    const savedStartDate
-      = utils.getStorage(CONFIG.STORAGE_KEYS.startDate) || dateUtils.getCurrentDate();
-    const savedEndDate
-      = utils.getStorage(CONFIG.STORAGE_KEYS.endDate) || dateUtils.getCurrentDate();
+    const savedStartDate =
+      utils.getStorage(CONFIG.STORAGE_KEYS.startDate) || dateUtils.getCurrentDate();
+    const savedEndDate =
+      utils.getStorage(CONFIG.STORAGE_KEYS.endDate) || dateUtils.getCurrentDate();
 
     const activePreset = preset || this.detectPreset(savedStartDate, savedEndDate);
 
@@ -317,10 +317,10 @@ const dateManager = {
       return;
     }
 
-    const savedStartDate
-      = utils.getStorage(CONFIG.STORAGE_KEYS.startDate) || dateUtils.getCurrentDate();
-    const savedEndDate
-      = utils.getStorage(CONFIG.STORAGE_KEYS.endDate) || dateUtils.getCurrentDate();
+    const savedStartDate =
+      utils.getStorage(CONFIG.STORAGE_KEYS.startDate) || dateUtils.getCurrentDate();
+    const savedEndDate =
+      utils.getStorage(CONFIG.STORAGE_KEYS.endDate) || dateUtils.getCurrentDate();
     const today = dateUtils.getCurrentDate();
 
     const fmt = (d) => dateUtils.formatForDisplay(d, { dateStyle: "medium" }) || d;

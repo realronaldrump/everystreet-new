@@ -14,28 +14,24 @@ function formatInsightValue(kind, trip) {
     return "-";
   }
   switch (kind) {
-    case "distance":
-      {
-        const v = Number(trip.distance);
-        return Number.isFinite(v) && v > 0 ? `${v.toFixed(1)} mi` : "-";
-      }
+    case "distance": {
+      const v = Number(trip.distance);
+      return Number.isFinite(v) && v > 0 ? `${v.toFixed(1)} mi` : "-";
+    }
     case "duration":
       return formatDuration(Number(trip.duration) || 0);
-    case "fuel":
-      {
-        const v = Number(trip.fuelConsumed);
-        return Number.isFinite(v) && v > 0 ? `${v.toFixed(2)} gal` : "-";
-      }
-    case "top_speed":
-      {
-        const v = Number(trip.maxSpeed);
-        return Number.isFinite(v) && v > 0 ? `${v.toFixed(1)} mph` : "-";
-      }
-    case "avg_speed":
-      {
-        const v = Number(trip.avgSpeed);
-        return Number.isFinite(v) && v > 0 ? `${v.toFixed(1)} mph` : "-";
-      }
+    case "fuel": {
+      const v = Number(trip.fuelConsumed);
+      return Number.isFinite(v) && v > 0 ? `${v.toFixed(2)} gal` : "-";
+    }
+    case "top_speed": {
+      const v = Number(trip.maxSpeed);
+      return Number.isFinite(v) && v > 0 ? `${v.toFixed(1)} mph` : "-";
+    }
+    case "avg_speed": {
+      const v = Number(trip.avgSpeed);
+      return Number.isFinite(v) && v > 0 ? `${v.toFixed(1)} mph` : "-";
+    }
     case "idle_time":
       return trip.totalIdleDuration
         ? formatDuration(Number(trip.totalIdleDuration) || 0)
@@ -44,7 +40,6 @@ function formatInsightValue(kind, trip) {
       return trip.hardBrakingCounts !== undefined && trip.hardBrakingCounts !== null
         ? `${trip.hardBrakingCounts}`
         : "-";
-    case "trips":
     default:
       return "-";
   }
@@ -67,7 +62,6 @@ function titleForDrilldown(kind, dateRange) {
       return `Top trips by idle time (${rangeText})`;
     case "hard_braking":
       return `Top trips by hard braking (${rangeText})`;
-    case "trips":
     default:
       return `Trips (${rangeText})`;
   }
@@ -100,7 +94,6 @@ function getTripSortValue(kind, trip) {
       return Number(trip.totalIdleDuration) || 0;
     case "hard_braking":
       return Number(trip.hardBrakingCounts) || 0;
-    case "trips":
     default:
       return parseDateMs(trip.startTime);
   }
@@ -219,8 +212,8 @@ export function displayTripsInModal(trips, opts = {}) {
   }
 
   if (!sortedTrips || sortedTrips.length === 0) {
-    tbody.innerHTML
-      = '<tr><td colspan="9" class="text-center">No trips found.</td></tr>';
+    tbody.innerHTML =
+      '<tr><td colspan="9" class="text-center">No trips found.</td></tr>';
   } else {
     tbody.innerHTML = sortedTrips
       .map((trip) => {
@@ -232,19 +225,21 @@ export function displayTripsInModal(trips, opts = {}) {
           : "-";
         const duration = formatDuration(Number(trip.duration) || 0);
         const distanceVal = Number(trip.distance);
-        const distance = Number.isFinite(distanceVal) && distanceVal > 0
-          ? `${distanceVal.toFixed(1)} mi`
-          : "-";
-        const startLoc
-          = trip.startLocation?.formatted_address
-          || trip.startLocation?.name
-          || "Unknown";
-        const destLoc
-          = trip.destination?.formatted_address || trip.destination?.name || "Unknown";
+        const distance =
+          Number.isFinite(distanceVal) && distanceVal > 0
+            ? `${distanceVal.toFixed(1)} mi`
+            : "-";
+        const startLoc =
+          trip.startLocation?.formatted_address ||
+          trip.startLocation?.name ||
+          "Unknown";
+        const destLoc =
+          trip.destination?.formatted_address || trip.destination?.name || "Unknown";
         const maxSpeedVal = Number(trip.maxSpeed);
-        const maxSpeed = Number.isFinite(maxSpeedVal) && maxSpeedVal > 0
-          ? `${maxSpeedVal.toFixed(1)} mph`
-          : "-";
+        const maxSpeed =
+          Number.isFinite(maxSpeedVal) && maxSpeedVal > 0
+            ? `${maxSpeedVal.toFixed(1)} mph`
+            : "-";
         const insight = escapeHtml(formatInsightValue(insightKind, trip));
         const tripId = trip.transactionId || trip._id?.$oid || trip._id || "-";
 

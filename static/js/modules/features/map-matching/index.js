@@ -1,5 +1,3 @@
-/* global mapboxgl */
-
 import apiClient from "../../core/api-client.js";
 import { CONFIG } from "../../core/config.js";
 import mapBase from "../../map-base.js";
@@ -450,8 +448,8 @@ function updateProgressRing(pct) {
   if (!elements.progressRing) {
     return;
   }
-  const offset
-    = PROGRESS_RING_CIRCUMFERENCE - (pct / 100) * PROGRESS_RING_CIRCUMFERENCE;
+  const offset =
+    PROGRESS_RING_CIRCUMFERENCE - (pct / 100) * PROGRESS_RING_CIRCUMFERENCE;
   elements.progressRing.style.strokeDashoffset = offset;
 }
 
@@ -534,7 +532,7 @@ function stopPolling() {
 
 async function fetchJob(jobId) {
   if (!jobId) {
-    return;
+    return null;
   }
   try {
     const data = await apiGet(CONFIG.API.mapMatchingJob(jobId));
@@ -549,9 +547,9 @@ async function fetchJob(jobId) {
         setPhase(PHASES.RESULTS);
         loadMatchedPreview(jobId, { silent: true });
       } else if (
-        data.stage === "failed"
-        || data.stage === "error"
-        || data.stage === "cancelled"
+        data.stage === "failed" ||
+        data.stage === "error" ||
+        data.stage === "cancelled"
       ) {
         // Stay on process phase but show error state
         // User can click "Match More" to go back
@@ -617,8 +615,8 @@ function renderJobs(jobs) {
           const progress = job.progress ?? 0;
           const updated = formatFriendlyDate(job.updated_at);
           const isTerminal = isTerminalStage(status);
-          const statusClass
-            = status === "completed"
+          const statusClass =
+            status === "completed"
               ? "is-completed"
               : status === "cancelled"
                 ? "is-cancelled"
@@ -1750,8 +1748,8 @@ function updateMatchedPreviewTable(data) {
 
   // Update results count
   if (elements.resultsCount) {
-    elements.resultsCount.textContent
-      = total > 0 ? `${total} trip${total !== 1 ? "s" : ""}` : "No trips yet";
+    elements.resultsCount.textContent =
+      total > 0 ? `${total} trip${total !== 1 ? "s" : ""}` : "No trips yet";
   }
 
   if (!total) {
@@ -2098,11 +2096,11 @@ function normalizeMatchedTripsResponse(response) {
     return { trips: [], geojson: null, total: 0 };
   }
 
-  const asFeatureCollection
-    = response?.type === "FeatureCollection" && Array.isArray(response?.features)
+  const asFeatureCollection =
+    response?.type === "FeatureCollection" && Array.isArray(response?.features)
       ? response
-      : response?.geojson?.type === "FeatureCollection"
-          && Array.isArray(response?.geojson?.features)
+      : response?.geojson?.type === "FeatureCollection" &&
+          Array.isArray(response?.geojson?.features)
         ? response.geojson
         : null;
 
@@ -2160,8 +2158,8 @@ async function browseMatchedTrips({ silent = false } = {}) {
 
     // Update summary
     if (elements.browseSummary) {
-      elements.browseSummary.textContent
-        = summaryCount > 0
+      elements.browseSummary.textContent =
+        summaryCount > 0
           ? `${summaryCount} matched trip${summaryCount !== 1 ? "s" : ""}`
           : "No matched trips yet";
     }
@@ -2215,8 +2213,8 @@ async function browseFailedTrips({ silent = false } = {}) {
 
     // Update summary
     if (elements.failedSummary) {
-      elements.failedSummary.textContent
-        = trips.length > 0
+      elements.failedSummary.textContent =
+        trips.length > 0
           ? `${trips.length} trip${trips.length !== 1 ? "s" : ""} with issues`
           : "No failed trips";
     }
@@ -2247,8 +2245,8 @@ function renderFailedTrips(trips) {
 
   // Update count
   if (elements.failedListCount) {
-    elements.failedListCount.textContent
-      = trips.length > 0
+    elements.failedListCount.textContent =
+      trips.length > 0
         ? `${trips.length} trip${trips.length !== 1 ? "s" : ""} with issues`
         : "No issues";
   }
@@ -2493,7 +2491,7 @@ export default async function initMapMatchingPage({ signal, cleanup } = {}) {
     } else {
       return teardown;
     }
-    return;
+    return teardown;
   }
 
   // Initialize phase
@@ -2554,4 +2552,6 @@ export default async function initMapMatchingPage({ signal, cleanup } = {}) {
   } else {
     return teardown;
   }
+
+  return teardown;
 }

@@ -22,6 +22,10 @@ export default function initProfilePage({ signal, cleanup } = {}) {
   pageSignal = signal || null;
   const hasCredentialsForm = Boolean(document.getElementById("bouncieCredentialsForm"));
 
+  const noopTeardown = () => {
+    pageSignal = null;
+  };
+
   const teardown = () => {
     pageSignal = null;
     currentDevices = [];
@@ -30,15 +34,9 @@ export default function initProfilePage({ signal, cleanup } = {}) {
 
   if (!hasCredentialsForm) {
     if (typeof cleanup === "function") {
-      cleanup(() => {
-        pageSignal = null;
-      });
-    } else {
-      return () => {
-        pageSignal = null;
-      };
+      cleanup(noopTeardown);
     }
-    return;
+    return noopTeardown;
   }
 
   initializeEventListeners(signal);
@@ -51,6 +49,8 @@ export default function initProfilePage({ signal, cleanup } = {}) {
   } else {
     return teardown;
   }
+
+  return teardown;
 }
 
 function withSignal(options = {}) {
@@ -359,7 +359,7 @@ async function getExpectedRedirectUri() {
     if (data?.redirect_uri) {
       return data.redirect_uri;
     }
-  } catch (_error) {
+  } catch {
     // Fall back to constructing from window.location
   }
   return `${window.location.origin}/api/bouncie/callback`;
@@ -687,9 +687,9 @@ function handleNavigationAttempt(event) {
   const href = anchor.getAttribute("href");
   const scriptProtocol = "javascript".concat(":");
   if (
-    !href
-    || href.startsWith("#")
-    || href.trim().toLowerCase().startsWith(scriptProtocol)
+    !href ||
+    href.startsWith("#") ||
+    href.trim().toLowerCase().startsWith(scriptProtocol)
   ) {
     return;
   }
@@ -710,10 +710,9 @@ function handleNavigationAttempt(event) {
         return;
       }
 
-      swupReady
-        .then((swup) => {
-          swup.navigate(url.href);
-        });
+      swupReady.then((swup) => {
+        swup.navigate(url.href);
+      });
     }
   });
 }

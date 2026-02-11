@@ -36,13 +36,6 @@ function setText(el, value) {
   el.textContent = value ?? "";
 }
 
-function setHtml(el, html) {
-  if (!el) {
-    return;
-  }
-  el.innerHTML = html ?? "";
-}
-
 function clampPct(value) {
   const n = Number(value);
   if (!Number.isFinite(n)) {
@@ -125,7 +118,9 @@ function setStep(root, step) {
 
   root
     .querySelectorAll(".trip-import-step-connector")
-    .forEach((connector, idx) => connector.classList.toggle("is-active", idx < activeIndex));
+    .forEach((connector, idx) =>
+      connector.classList.toggle("is-active", idx < activeIndex)
+    );
 }
 
 function updateProgressBar(barEl, pct) {
@@ -151,12 +146,12 @@ function renderEvents(container, events) {
       return false;
     }
     return Boolean(
-      data.error
-        || data.reason
-        || data.transactionId
-        || data.imei
-        || data.window_index
-        || data.windowIndex
+      data.error ||
+        data.reason ||
+        data.transactionId ||
+        data.imei ||
+        data.window_index ||
+        data.windowIndex
     );
   };
 
@@ -213,14 +208,14 @@ function renderFailureSummary(container, failureReasons) {
   const top = entries.slice(0, 6);
 
   const lines = top
-    .map(([reason, count]) => {
-      return `
+    .map(
+      ([reason, count]) => `
         <div class="trip-import-failure-row">
           <span class="trip-import-failure-count">${escapeHtml(count)}</span>
           <span class="trip-import-failure-reason">${escapeHtml(reason)}</span>
         </div>
-      `;
-    })
+      `
+    )
     .join("");
 
   container.innerHTML = `
@@ -430,12 +425,11 @@ export function initTripHistoryImportWizard({ signal } = {}) {
     }
 
     if (footerHint) {
-      footerHint.textContent
-        = isConfig
-          ? "Pick a start date, review the plan, then start the import."
-          : isImport
-            ? "You can close this window; the import continues in the background."
-            : "";
+      footerHint.textContent = isConfig
+        ? "Pick a start date, review the plan, then start the import."
+        : isImport
+          ? "You can close this window; the import continues in the background."
+          : "";
     }
   };
 
@@ -445,7 +439,10 @@ export function initTripHistoryImportWizard({ signal } = {}) {
     setText(planRequests, plan?.estimated_requests ?? "--");
     setText(planConcurrency, plan?.fetch_concurrency ?? "--");
     const devices = plan?.devices || [];
-    setText(devicesCount, Array.isArray(devices) ? `${devices.length} device(s)` : "--");
+    setText(
+      devicesCount,
+      Array.isArray(devices) ? `${devices.length} device(s)` : "--"
+    );
     renderDevicesList(devicesList, devices);
   };
 
@@ -456,7 +453,9 @@ export function initTripHistoryImportWizard({ signal } = {}) {
     }
     try {
       const startDate = parseLocalDateTime(startInput?.value);
-      const qs = startDate ? `?start_date=${encodeURIComponent(startDate.toISOString())}` : "";
+      const qs = startDate
+        ? `?start_date=${encodeURIComponent(startDate.toISOString())}`
+        : "";
       const plan = await apiClient.get(`${CONFIG.API.tripSyncHistoryImportPlan}${qs}`, {
         signal,
       });
@@ -521,8 +520,8 @@ export function initTripHistoryImportWizard({ signal } = {}) {
     const status = job?.status || "completed";
     const counters = jobToCounters(job);
 
-    const title
-      = status === "cancelled"
+    const title =
+      status === "cancelled"
         ? "Import cancelled"
         : status === "failed"
           ? "Import failed"
@@ -584,7 +583,7 @@ export function initTripHistoryImportWizard({ signal } = {}) {
     es.onmessage = (event) => {
       try {
         const job = JSON.parse(event.data);
-        if (job && job.job_id) {
+        if (job?.job_id) {
           renderJob(job);
         }
       } catch {
@@ -725,15 +724,19 @@ export function initTripHistoryImportWizard({ signal } = {}) {
     try {
       const result = await apiClient.post(
         CONFIG.API.tripSyncStart,
-        { mode: "history", start_date: startDate.toISOString(), trigger_source: "wizard" },
+        {
+          mode: "history",
+          start_date: startDate.toISOString(),
+          trigger_source: "wizard",
+        },
         { signal }
       );
 
       progressJobId = result?.progress_job_id || null;
       progressSseUrl = result?.progress_sse_url || null;
-      progressUrl
-        = result?.progress_url
-          || (progressJobId ? CONFIG.API.tripSyncHistoryImportJob(progressJobId) : null);
+      progressUrl =
+        result?.progress_url ||
+        (progressJobId ? CONFIG.API.tripSyncHistoryImportJob(progressJobId) : null);
 
       if (!progressJobId) {
         throw new Error("Missing progress_job_id in response.");
@@ -791,7 +794,9 @@ export function initTripHistoryImportWizard({ signal } = {}) {
     }
     setProgressError("");
     try {
-      await apiClient.delete(CONFIG.API.tripSyncHistoryImportCancel(progressJobId), { signal });
+      await apiClient.delete(CONFIG.API.tripSyncHistoryImportCancel(progressJobId), {
+        signal,
+      });
       notificationManager.show("Cancelling import...", "info");
       // Force an immediate refresh so the UI transitions promptly.
       if (progressUrl) {
@@ -833,7 +838,7 @@ export function initTripHistoryImportWizard({ signal } = {}) {
       let cleared = false;
       for (let i = 0; i < 20; i += 1) {
         await new Promise((resolve) => setTimeout(resolve, 500));
-        // eslint-disable-next-line no-await-in-loop
+
         const status = await apiClient
           .get(CONFIG.API.tripSyncStatus, { signal })
           .catch(() => null);

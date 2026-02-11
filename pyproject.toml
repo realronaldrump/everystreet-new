@@ -29,7 +29,7 @@ select = [
     # === CODE QUALITY (SOME FIXES) ===
     "B",      # flake8-bugbear - likely bugs and design problems
     "RET",    # flake8-return - return statement issues
-    "TCH",    # flake8-type-checking - move imports to TYPE_CHECKING
+    "TC",     # flake8-type-checking - move imports to TYPE_CHECKING
     "TID",    # flake8-tidy-imports - import hygiene
     "PERF",   # Perflint - performance anti-patterns
     "FURB",   # refurb - modernize code
@@ -118,9 +118,9 @@ ignore = [
     "SLOT001", # Subclasses of non-slot classes should not define slots
 
     # Type checking - can cause issues
-    "TCH001",  # Move application import into TYPE_CHECKING block
-    "TCH002",  # Move third-party import into TYPE_CHECKING block
-    "TCH003",  # Move standard library import into TYPE_CHECKING block
+    "TC001",  # Move application import into TYPE_CHECKING block
+    "TC002",  # Move third-party import into TYPE_CHECKING block
+    "TC003",  # Move standard library import into TYPE_CHECKING block
 
     # Path-related - too invasive
     "PTH123",  # open() should be replaced by Path.open()

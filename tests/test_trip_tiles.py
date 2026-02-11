@@ -1,7 +1,6 @@
 import gzip
 
 import mapbox_vector_tile
-import pytest
 from shapely.geometry import LineString
 
 from core.tiles import buffer_meters, tile_bounds_3857, tile_bounds_wgs84
@@ -54,7 +53,7 @@ def test_encode_trip_tile_roundtrip_decode() -> None:
         ],
         quantize_bounds_3857=bounds,
     )
-    assert isinstance(mvt, (bytes, bytearray))
+    assert isinstance(mvt, bytes | bytearray)
     assert len(mvt) > 0
 
     decoded = mapbox_vector_tile.decode(bytes(mvt))

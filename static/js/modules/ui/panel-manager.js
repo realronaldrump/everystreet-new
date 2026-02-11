@@ -1,6 +1,6 @@
 import { CONFIG } from "../core/config.js";
-import store from "../core/store.js";
 import { swupReady } from "../core/navigation.js";
+import store from "../core/store.js";
 import { utils } from "../utils.js";
 import eventManager from "./event-manager.js";
 

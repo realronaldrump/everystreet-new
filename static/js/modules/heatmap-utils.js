@@ -218,8 +218,8 @@ const heatmapUtils = {
   generateHeatmapConfig(tripsGeoJSON, options = {}) {
     const { theme = "dark", opacity = 0.85, visibleTripCount = null } = options;
     const tripCount = tripsGeoJSON?.features?.length || 0;
-    const styleTripCount
-      = Number.isFinite(visibleTripCount) && visibleTripCount >= 0
+    const styleTripCount =
+      Number.isFinite(visibleTripCount) && visibleTripCount >= 0
         ? visibleTripCount
         : tripCount;
     const glowLayers = this.generateGlowLayers(styleTripCount, opacity, theme);

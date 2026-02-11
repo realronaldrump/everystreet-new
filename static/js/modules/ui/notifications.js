@@ -34,8 +34,8 @@ class NotificationManager {
       info: "fa-info-circle",
     };
     const iconName = iconMap[typeClass] || iconMap.info;
-    const iconMarkup
-      = typeClass === "success"
+    const iconMarkup =
+      typeClass === "success"
         ? '<span class="notification-check" aria-hidden="true"></span>'
         : `<i class="fas ${iconName}" aria-hidden="true"></i>`;
 

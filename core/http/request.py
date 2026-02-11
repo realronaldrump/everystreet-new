@@ -63,7 +63,9 @@ async def request_json(
     async def _execute() -> Any | None:
         async with request_fn(url, **request_kwargs) as response:
             if response.status in none_on_set:
-                logger.debug("%s returned %s for %s", service_name, response.status, url)
+                logger.debug(
+                    "%s returned %s for %s", service_name, response.status, url
+                )
                 return None
             if response.status == 429:
                 retry_after = int(response.headers.get("Retry-After", 5))

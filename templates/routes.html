@@ -74,9 +74,12 @@ Recurring Routes - Every Street
               </button>
             </div>
 
-            <div class="build-progress-wrap d-none" id="routes-build-progress-wrap" aria-live="polite">
+            <div class="build-progress-wrap d-none"
+                 id="routes-build-progress-wrap"
+                 aria-live="polite">
               <div class="build-progress">
-                <div class="build-progress-bar" id="routes-build-progress-bar" style="width: 0%"></div>
+                <div class="build-progress-bar" id="routes-build-progress-bar" style="width: 0%">
+                </div>
               </div>
               <div class="build-progress-labels">
                 <span id="routes-build-stage">Queued</span>
@@ -97,25 +100,40 @@ Recurring Routes - Every Street
                    class="routes-search-input"
                    placeholder="Search routes..."
                    autocomplete="off" />
-            <button type="button" class="routes-search-clear d-none" id="routes-search-clear" aria-label="Clear search">
+            <button type="button"
+                    class="routes-search-clear d-none"
+                    id="routes-search-clear"
+                    aria-label="Clear search">
               <i class="fas fa-times" aria-hidden="true"></i>
             </button>
           </div>
 
           <div class="routes-filters">
             <div class="routes-filter">
-              <label for="routes-min-trips" class="routes-filter-label">Min trips</label>
+              <label for="routes-min-trips" class="routes-filter-label">
+Min trips
+              </label>
               <select id="routes-min-trips" class="routes-filter-select">
-                <option value="3" selected>3 (recurring)</option>
-                <option value="2">2</option>
-                <option value="1">1</option>
+                <option value="3" selected>
+3 (recurring)
+                </option>
+                <option value="2">
+2
+                </option>
+                <option value="1">
+1
+                </option>
               </select>
             </div>
 
             <div class="routes-filter">
-              <label for="routes-vehicle" class="routes-filter-label">Vehicle</label>
+              <label for="routes-vehicle" class="routes-filter-label">
+Vehicle
+              </label>
               <select id="routes-vehicle" class="routes-filter-select">
-                <option value="">All vehicles</option>
+                <option value="">
+All vehicles
+                </option>
               </select>
             </div>
 
@@ -154,7 +172,9 @@ Recurring Routes - Every Street
           <div class="routes-empty-icon" aria-hidden="true">
             <i class="fas fa-route"></i>
           </div>
-          <h3 class="routes-empty-title">No routes yet</h3>
+          <h3 class="routes-empty-title">
+No routes yet
+          </h3>
           <p class="routes-empty-text">
           Build your route templates to group similar trips into recurring patterns.
           </p>
@@ -167,15 +187,14 @@ Recurring Routes - Every Street
     </div>
 
     <!-- Route Details Modal -->
-    <div class="modal fade"
-         id="routeDetailsModal"
-         tabindex="-1"
-         aria-hidden="true">
+    <div class="modal fade" id="routeDetailsModal" tabindex="-1" aria-hidden="true">
       <div class="modal-dialog modal-xl modal-dialog-centered routes-modal-dialog">
         <div class="modal-content routes-modal-content">
           <div class="modal-header routes-modal-header">
             <div class="routes-modal-title-wrap">
-              <h5 class="modal-title" id="routeModalTitle">Route</h5>
+              <h5 class="modal-title" id="routeModalTitle">
+Route
+              </h5>
               <div class="routes-modal-subtitle" id="routeModalSubtitle">
                 <span id="routeModalMeta">--</span>
               </div>
@@ -204,13 +223,18 @@ Recurring Routes - Every Street
               <div class="col-lg-4 routes-modal-panel">
                 <div class="routes-modal-panel-inner">
                   <div class="routes-modal-edit">
-                    <label class="routes-modal-label" for="route-modal-name">Name</label>
+                    <label class="routes-modal-label" for="route-modal-name">
+Name
+                    </label>
                     <div class="routes-modal-name-row">
                       <input type="text"
                              id="route-modal-name"
                              class="form-control routes-modal-name-input"
                              placeholder="(auto)" />
-                      <input type="color" id="route-modal-color" class="routes-modal-color" title="Route color" />
+                      <input type="color"
+                             id="route-modal-color"
+                             class="routes-modal-color"
+                             title="Route color" />
                     </div>
                     <div class="routes-modal-edit-hint" id="route-modal-edit-hint">
                     Renaming overrides the auto name for this route.
@@ -248,7 +272,9 @@ Recurring Routes - Every Street
                   </div>
 
                   <div class="routes-modal-footer">
-                    <a class="btn btn-outline-secondary w-100" id="route-modal-open-btn" href="/routes">
+                    <a class="btn btn-outline-secondary w-100"
+                       id="route-modal-open-btn"
+                       href="/routes">
                       <i class="fas fa-external-link-alt me-2" aria-hidden="true"></i>
                     Open route page
                     </a>
@@ -265,4 +291,3 @@ Recurring Routes - Every Street
 {% endblock %}
 
 {# Page scripts are loaded via route-loader + swup. #}
-

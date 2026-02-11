@@ -350,8 +350,8 @@ class TurnByTurnUI {
       return;
     }
 
-    const distLabel
-      = distanceToTurn < 25 ? "Now" : `In ${formatDistance(distanceToTurn)}`;
+    const distLabel =
+      distanceToTurn < 25 ? "Now" : `In ${formatDistance(distanceToTurn)}`;
     const instruction = getInstructionText(type);
     const rotation = getTurnRotation(type);
 
@@ -491,11 +491,11 @@ class TurnByTurnUI {
     select.innerHTML = '<option value="">Select a coverage area...</option>';
     areas.forEach((area) => {
       const areaId = area._id || area.id;
-      const name
-        = area.display_name
-        || area.location?.display_name
-        || area.name
-        || "Coverage Area";
+      const name =
+        area.display_name ||
+        area.location?.display_name ||
+        area.name ||
+        "Coverage Area";
       if (!areaId) {
         return;
       }

@@ -8,18 +8,26 @@ import { OptimalRoutesManager } from "../../optimal-route/manager.js";
 const MAP_CONTAINER_ID = "coverage-map";
 
 export default function initCoverageNavigatorPage({ cleanup } = {}) {
+  const noopTeardown = () => {};
+
   if (typeof mapboxgl === "undefined") {
     const mapDiv = document.getElementById(MAP_CONTAINER_ID);
     if (mapDiv) {
-      mapDiv.innerHTML
-        = '<div class="alert alert-danger m-3">Error: Mapping library failed to load.</div>';
+      mapDiv.innerHTML =
+        '<div class="alert alert-danger m-3">Error: Mapping library failed to load.</div>';
     }
-    return;
+    if (typeof cleanup === "function") {
+      cleanup(noopTeardown);
+    }
+    return noopTeardown;
   }
 
   const container = document.getElementById(MAP_CONTAINER_ID);
   if (!container) {
-    return;
+    if (typeof cleanup === "function") {
+      cleanup(noopTeardown);
+    }
+    return noopTeardown;
   }
 
   let sharedMap = null;
@@ -33,7 +41,10 @@ export default function initCoverageNavigatorPage({ cleanup } = {}) {
     });
   } catch (error) {
     console.error("Coverage navigator map failed to initialize", error);
-    return;
+    if (typeof cleanup === "function") {
+      cleanup(noopTeardown);
+    }
+    return noopTeardown;
   }
 
   DrivingNavigationUI.injectClusterStyles();
@@ -76,4 +87,6 @@ export default function initCoverageNavigatorPage({ cleanup } = {}) {
   } else {
     return teardown;
   }
+
+  return teardown;
 }

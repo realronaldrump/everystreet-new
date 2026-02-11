@@ -1,4 +1,4 @@
-/* global bootstrap, mapboxgl */
+/* global bootstrap */
 /**
  * Routes Page - Recurring Route Templates
  * Browse, filter, build, and edit locally-derived route templates.
@@ -12,14 +12,13 @@ import { debounce, escapeHtml, formatDuration, sanitizeLocation } from "../../ut
 const DEFAULT_LIST_LIMIT = 200;
 
 let pageSignal = null;
-let listState = {
+const listState = {
   q: "",
   minTrips: 3,
   includeHidden: false,
   imei: "",
 };
 
-let routesData = [];
 let vehicles = [];
 
 let buildPollTimer = null;
@@ -51,7 +50,7 @@ function getPreloadRouteIdFromUrl(href = window.location.href) {
   try {
     const url = new URL(href, window.location.origin);
     const path = url.pathname || "";
-    const match = path.match(/^\\/routes\\/([^/]+)$/);
+    const match = path.match(/^\/routes\/([^/]+)$/);
     if (match) {
       return match[1] || null;
     }
@@ -85,17 +84,6 @@ function showEmpty(show) {
   empty.classList.toggle("d-none", !show);
 }
 
-function updateCount(count) {
-  const countEl = getEl("routes-results-count");
-  if (countEl) {
-    countEl.textContent = String(count);
-  }
-  const resultsCount = getEl("routes-results-count");
-  if (resultsCount) {
-    // Keep
-  }
-}
-
 function updateResultsHeader(total) {
   const countEl = getEl("routes-results-count");
   const hintEl = getEl("routes-results-hint");
@@ -104,9 +92,18 @@ function updateResultsHeader(total) {
   }
   if (hintEl) {
     const minTrips = Number(listState.minTrips) || 3;
-    const vehicle = listState.imei ? vehicles.find((v) => v.imei === listState.imei) : null;
-    const vehicleLabel = vehicle ? sanitizeLocation(vehicle.custom_name || vehicle.label || vehicle.vin || vehicle.imei) : null;
-    const recurringText = minTrips >= 3 ? "recurring routes" : `routes with ${minTrips}+ trip${minTrips === 1 ? "" : "s"}`;
+    const vehicle = listState.imei
+      ? vehicles.find((v) => v.imei === listState.imei)
+      : null;
+    const vehicleLabel = vehicle
+      ? sanitizeLocation(
+          vehicle.custom_name || vehicle.label || vehicle.vin || vehicle.imei
+        )
+      : null;
+    const recurringText =
+      minTrips >= 3
+        ? "recurring routes"
+        : `routes with ${minTrips}+ trip${minTrips === 1 ? "" : "s"}`;
     hintEl.textContent = vehicleLabel
       ? `Showing ${recurringText} for ${vehicleLabel}`
       : `Showing ${recurringText}`;
@@ -129,12 +126,16 @@ function formatDateShort(value) {
   if (Number.isNaN(dt.getTime())) {
     return "--";
   }
-  return dt.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+  return dt.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 }
 
 function routeStrokeColor(route) {
   const raw = (route?.color || "").trim();
-  if (raw && raw.startsWith("#") && raw.length === 7) {
+  if (raw.startsWith("#") && raw.length === 7) {
     return raw;
   }
   return "rgb(var(--primary-rgb) / 90%)";
@@ -152,16 +153,24 @@ function createRouteCard(route) {
 
   const pills = [];
   if (route.is_pinned) {
-    pills.push(`<span class="route-pill primary"><i class="fas fa-thumbtack"></i> Pinned</span>`);
+    pills.push(
+      `<span class="route-pill primary"><i class="fas fa-thumbtack"></i> Pinned</span>`
+    );
   }
   if (route.is_hidden) {
-    pills.push(`<span class="route-pill"><i class="fas fa-eye-slash"></i> Hidden</span>`);
+    pills.push(
+      `<span class="route-pill"><i class="fas fa-eye-slash"></i> Hidden</span>`
+    );
   }
-  pills.push(`<span class="route-pill"><i class="fas fa-repeat"></i> ${route.trip_count || 0}</span>`);
+  pills.push(
+    `<span class="route-pill"><i class="fas fa-repeat"></i> ${route.trip_count || 0}</span>`
+  );
 
   const previewPath = route.preview_svg_path || "M 5,35 Q 25,5 50,20 T 95,15";
   const medianDist = formatMiles(route.distance_miles_median);
-  const medianDur = route.duration_sec_median ? formatDuration(route.duration_sec_median) : "--";
+  const medianDur = route.duration_sec_median
+    ? formatDuration(route.duration_sec_median)
+    : "--";
   const lastTaken = formatDateShort(route.last_start_time);
 
   card.innerHTML = `
@@ -231,7 +240,8 @@ async function loadVehicles() {
     vehicles.forEach((v) => {
       const option = document.createElement("option");
       option.value = v.imei;
-      option.textContent = v.custom_name || v.name || v.label || v.vin || v.imei || "Vehicle";
+      option.textContent =
+        v.custom_name || v.name || v.label || v.vin || v.imei || "Vehicle";
       select.appendChild(option);
     });
   } catch {
@@ -261,7 +271,6 @@ async function loadRoutes() {
   try {
     const data = await apiGet(buildListUrl(), { cache: false });
     const routes = Array.isArray(data?.routes) ? data.routes : [];
-    routesData = routes;
     updateResultsHeader(data?.total ?? routes.length);
     renderRoutes(routes);
 
@@ -347,12 +356,19 @@ async function pollBuildJob(jobId) {
       return;
     }
     try {
-      const status = await apiGet(`/api/recurring_routes/jobs/${encodeURIComponent(jobId)}`, { cache: false });
+      const status = await apiGet(
+        `/api/recurring_routes/jobs/${encodeURIComponent(jobId)}`,
+        { cache: false }
+      );
       const stage = status?.stage || "unknown";
       const pct = Number(status?.progress || 0);
-      const isTerminal = ["completed", "failed", "cancelled", "error"].includes(
-        String(status?.status || stage).toLowerCase()
-      ) || ["completed", "failed", "cancelled", "error"].includes(String(stage).toLowerCase());
+      const isTerminal =
+        ["completed", "failed", "cancelled", "error"].includes(
+          String(status?.status || stage).toLowerCase()
+        ) ||
+        ["completed", "failed", "cancelled", "error"].includes(
+          String(stage).toLowerCase()
+        );
 
       setBuildUi({
         dotState: isTerminal
@@ -467,8 +483,7 @@ function bboxForGeometry(geometry) {
   if (!geometry || typeof geometry !== "object") {
     return null;
   }
-  const type = geometry.type;
-  const coords = geometry.coordinates;
+  const { type, coordinates: coords } = geometry;
   const points = [];
   if (type === "LineString" && Array.isArray(coords)) {
     coords.forEach((c) => points.push(c));
@@ -536,12 +551,7 @@ function ensureModalMap() {
         source: MODAL_SOURCE_ID,
         filter: ["==", ["get", "kind"], "route"],
         paint: {
-          "line-width": [
-            "interpolate", ["linear"], ["zoom"],
-            10, 2.5,
-            14, 4,
-            18, 7,
-          ],
+          "line-width": ["interpolate", ["linear"], ["zoom"], 10, 2.5, 14, 4, 18, 7],
           "line-color": ["coalesce", ["get", "color"], "#3b8a7f"],
           "line-opacity": 0.9,
         },
@@ -590,7 +600,9 @@ function setModalHeader(route) {
   }
   if (metaEl) {
     const trips = route?.trip_count || 0;
-    const dist = route?.distance_miles_median ? formatMiles(route.distance_miles_median) : "--";
+    const dist = route?.distance_miles_median
+      ? formatMiles(route.distance_miles_median)
+      : "--";
     metaEl.textContent = `${trips} trips • ${dist}`;
   }
   if (openBtn && route?.id) {
@@ -607,13 +619,19 @@ function setModalStats(route) {
     tripsEl.textContent = String(route?.trip_count || 0);
   }
   if (distEl) {
-    distEl.textContent = route?.distance_miles_median ? formatMiles(route.distance_miles_median) : "--";
+    distEl.textContent = route?.distance_miles_median
+      ? formatMiles(route.distance_miles_median)
+      : "--";
   }
   if (durEl) {
-    durEl.textContent = route?.duration_sec_median ? formatDuration(route.duration_sec_median) : "--";
+    durEl.textContent = route?.duration_sec_median
+      ? formatDuration(route.duration_sec_median)
+      : "--";
   }
   if (lastEl) {
-    lastEl.textContent = route?.last_start_time ? formatDateShort(route.last_start_time) : "--";
+    lastEl.textContent = route?.last_start_time
+      ? formatDateShort(route.last_start_time)
+      : "--";
   }
 }
 
@@ -648,7 +666,7 @@ function syncModalControls(route) {
   }
 }
 
-function setModalTrips(trips, route) {
+function setModalTrips(trips) {
   const list = getEl("route-modal-trips-list");
   const count = getEl("route-modal-trips-count");
   if (count) {
@@ -661,11 +679,15 @@ function setModalTrips(trips, route) {
   trips.forEach((trip) => {
     const tx = trip.transactionId;
     const start = trip.startTime ? new Date(trip.startTime) : null;
-    const when = start && !Number.isNaN(start.getTime()) ? start.toLocaleString() : "Unknown time";
-    const dist = typeof trip.distance === "number" ? `${trip.distance.toFixed(1)} mi` : "--";
-    const dur = typeof trip.duration === "number" ? formatDuration(trip.duration) : "--";
+    const when =
+      start && !Number.isNaN(start.getTime()) ? start.toLocaleString() : "Unknown time";
+    const dist =
+      typeof trip.distance === "number" ? `${trip.distance.toFixed(1)} mi` : "--";
+    const dur =
+      typeof trip.duration === "number" ? formatDuration(trip.duration) : "--";
     const startLoc = sanitizeLocation(trip.startLocation);
-    const endLoc = sanitizeLocation(trip.destination) || trip.destinationPlaceName || "Unknown";
+    const endLoc =
+      sanitizeLocation(trip.destination) || trip.destinationPlaceName || "Unknown";
 
     const a = document.createElement("a");
     a.className = "route-trip-row";
@@ -701,11 +723,16 @@ function setModalMap(route) {
     const bbox = bboxForGeometry(geometry);
     if (bbox) {
       const [minLon, minLat, maxLon, maxLat] = bbox;
-      const start = Array.isArray(geometry?.coordinates) ? geometry.coordinates?.[0] : null;
+      const start = Array.isArray(geometry?.coordinates)
+        ? geometry.coordinates?.[0]
+        : null;
       let end = null;
       if (geometry?.type === "LineString" && Array.isArray(geometry.coordinates)) {
         end = geometry.coordinates[geometry.coordinates.length - 1];
-      } else if (geometry?.type === "MultiLineString" && Array.isArray(geometry.coordinates)) {
+      } else if (
+        geometry?.type === "MultiLineString" &&
+        Array.isArray(geometry.coordinates)
+      ) {
         const lastLine = geometry.coordinates[geometry.coordinates.length - 1];
         if (Array.isArray(lastLine) && lastLine.length > 0) {
           end = lastLine[lastLine.length - 1];
@@ -771,7 +798,9 @@ async function openRouteModal(routeId) {
   const token = ++routeModalOpenToken;
   routeModalRouteId = routeId;
   try {
-    const data = await apiGet(`/api/recurring_routes/${encodeURIComponent(routeId)}`, { cache: false });
+    const data = await apiGet(`/api/recurring_routes/${encodeURIComponent(routeId)}`, {
+      cache: false,
+    });
     if (token !== routeModalOpenToken || routeModalRouteId !== routeId) {
       return;
     }
@@ -794,14 +823,21 @@ async function openRouteModal(routeId) {
       setModalMap(route);
     }, 50);
 
-    const tripsResp = await apiGet(`/api/recurring_routes/${encodeURIComponent(routeId)}/trips?limit=50&offset=0`, { cache: false });
+    const tripsResp = await apiGet(
+      `/api/recurring_routes/${encodeURIComponent(routeId)}/trips?limit=50&offset=0`,
+      { cache: false }
+    );
     if (token !== routeModalOpenToken || routeModalRouteId !== routeId) {
       return;
     }
     const trips = Array.isArray(tripsResp?.trips) ? tripsResp.trips : [];
-    setModalTrips(trips, route);
+    setModalTrips(trips);
   } catch (e) {
-    if (token !== routeModalOpenToken || routeModalRouteId !== routeId || e?.name === "AbortError") {
+    if (
+      token !== routeModalOpenToken ||
+      routeModalRouteId !== routeId ||
+      e?.name === "AbortError"
+    ) {
       return;
     }
     notificationManager.show?.(`Failed to open route: ${e?.message || e}`, "danger");
@@ -812,7 +848,10 @@ async function saveRoutePatch(routeId, patch) {
   if (!routeId) {
     return null;
   }
-  const resp = await apiPatch(`/api/recurring_routes/${encodeURIComponent(routeId)}`, patch);
+  const resp = await apiPatch(
+    `/api/recurring_routes/${encodeURIComponent(routeId)}`,
+    patch
+  );
   return resp?.route || null;
 }
 
@@ -867,7 +906,9 @@ function bindModalControls(signal) {
           return;
         }
         try {
-          const updated = await saveRoutePatch(routeModalRouteId, { color: colorInput.value });
+          const updated = await saveRoutePatch(routeModalRouteId, {
+            color: colorInput.value,
+          });
           if (updated) {
             routeModalRoute = updated;
             syncModalControls(updated);
@@ -875,7 +916,10 @@ function bindModalControls(signal) {
             await loadRoutes();
           }
         } catch (e) {
-          notificationManager.show?.(`Failed to save color: ${e?.message || e}`, "warning");
+          notificationManager.show?.(
+            `Failed to save color: ${e?.message || e}`,
+            "warning"
+          );
         }
       },
       signal ? { signal } : false
@@ -890,14 +934,19 @@ function bindModalControls(signal) {
           return;
         }
         try {
-          const updated = await saveRoutePatch(routeModalRouteId, { is_pinned: !routeModalRoute.is_pinned });
+          const updated = await saveRoutePatch(routeModalRouteId, {
+            is_pinned: !routeModalRoute.is_pinned,
+          });
           if (updated) {
             routeModalRoute = updated;
             syncModalControls(updated);
             await loadRoutes();
           }
         } catch (e) {
-          notificationManager.show?.(`Failed to update pin: ${e?.message || e}`, "warning");
+          notificationManager.show?.(
+            `Failed to update pin: ${e?.message || e}`,
+            "warning"
+          );
         }
       },
       signal ? { signal } : false
@@ -912,14 +961,19 @@ function bindModalControls(signal) {
           return;
         }
         try {
-          const updated = await saveRoutePatch(routeModalRouteId, { is_hidden: !routeModalRoute.is_hidden });
+          const updated = await saveRoutePatch(routeModalRouteId, {
+            is_hidden: !routeModalRoute.is_hidden,
+          });
           if (updated) {
             routeModalRoute = updated;
             syncModalControls(updated);
             await loadRoutes();
           }
         } catch (e) {
-          notificationManager.show?.(`Failed to update hidden: ${e?.message || e}`, "warning");
+          notificationManager.show?.(
+            `Failed to update hidden: ${e?.message || e}`,
+            "warning"
+          );
         }
       },
       signal ? { signal } : false
@@ -1007,7 +1061,11 @@ function bindPageControls(signal) {
     buildBtn.addEventListener("click", startBuildHandler, signal ? { signal } : false);
   }
   if (emptyBuildBtn) {
-    emptyBuildBtn.addEventListener("click", startBuildHandler, signal ? { signal } : false);
+    emptyBuildBtn.addEventListener(
+      "click",
+      startBuildHandler,
+      signal ? { signal } : false
+    );
   }
 
   if (cancelBtn) {
@@ -1018,11 +1076,6 @@ function bindPageControls(signal) {
 export default async function initRoutesPage({ signal, cleanup } = {}) {
   pageSignal = signal || null;
   const cleanupFns = [];
-  const registerCleanup = (fn) => {
-    if (typeof fn === "function") {
-      cleanupFns.push(fn);
-    }
-  };
 
   setBuildUi({
     dotState: "idle",
@@ -1049,7 +1102,9 @@ export default async function initRoutesPage({ signal, cleanup } = {}) {
     if (routeModalMap) {
       try {
         routeModalMap.remove();
-      } catch {}
+      } catch {
+        // Ignore cleanup errors.
+      }
       routeModalMap = null;
     }
     routeModalInstance = null;
@@ -1059,7 +1114,9 @@ export default async function initRoutesPage({ signal, cleanup } = {}) {
     cleanupFns.forEach((fn) => {
       try {
         fn();
-      } catch {}
+      } catch {
+        // Ignore cleanup errors.
+      }
     });
   };
 
@@ -1068,4 +1125,6 @@ export default async function initRoutesPage({ signal, cleanup } = {}) {
   } else {
     return teardown;
   }
+
+  return teardown;
 }

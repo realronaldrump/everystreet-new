@@ -48,9 +48,9 @@ function renderStatus(area, job) {
   }
 
   if (
-    job
-    && isJobActiveStatus(job.status)
-    && (status === "initializing" || status === "rebuilding")
+    job &&
+    isJobActiveStatus(job.status) &&
+    (status === "initializing" || status === "rebuilding")
   ) {
     const percent = typeof job.progress === "number" ? Math.round(job.progress) : 0;
     const detailText = job.message ? escapeHtml(job.message) : "Processing";

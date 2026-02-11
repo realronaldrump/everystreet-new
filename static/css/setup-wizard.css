@@ -447,7 +447,11 @@
 }
 
 .bouncie-redirect-modal {
-  background: linear-gradient(135deg, rgb(var(--primary-rgb) / 18%), rgb(var(--surface-rgb) / 92%));
+  background: linear-gradient(
+    135deg,
+    rgb(var(--primary-rgb) / 18%),
+    rgb(var(--surface-rgb) / 92%)
+  );
   border: 1px solid rgb(var(--primary-rgb) / 35%);
   color: var(--text-primary);
   box-shadow: var(--glow-primary);
@@ -740,7 +744,7 @@
   font-size: var(--font-size-xs);
   color: var(--text-secondary);
   line-height: 1.4;
-  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .summary-item-status {

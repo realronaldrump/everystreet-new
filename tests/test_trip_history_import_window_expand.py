@@ -27,4 +27,3 @@ def test_build_import_windows_single_window_under_seven_days() -> None:
     windows = build_import_windows(start, end)
     assert len(windows) == 1
     assert windows[0] == (start, end)
-

@@ -139,12 +139,10 @@
   }
 }
 
-/* biome-ignore lint/correctness/noUnknownTypeSelector: 'root' is a valid view-transition-name */
 html.swup-native::view-transition-old(root) {
   animation: none;
 }
 
-/* biome-ignore lint/correctness/noUnknownTypeSelector: 'root' is a valid view-transition-name */
 html.swup-native::view-transition-new(root) {
   animation: none;
 }
@@ -180,6 +178,7 @@ html.swup-native::view-transition-new(route-shell) {
 }
 
 /* === Slide Animations === */
+
 /* slideUp and slideInUp are identical - use slideInUp */
 @keyframes slideInUp {
   from {

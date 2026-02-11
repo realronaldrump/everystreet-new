@@ -99,7 +99,12 @@ async def test_list_and_patch_routes_after_build(routes_api_db) -> None:
 
     patch_resp = client.patch(
         f"/api/recurring_routes/{route_id}",
-        json={"name": "Pinned Route", "color": "00ff00", "is_pinned": True, "is_hidden": False},
+        json={
+            "name": "Pinned Route",
+            "color": "00ff00",
+            "is_pinned": True,
+            "is_hidden": False,
+        },
     )
     assert patch_resp.status_code == 200
     patched = patch_resp.json()["route"]
@@ -113,4 +118,3 @@ async def test_list_and_patch_routes_after_build(routes_api_db) -> None:
     route = get_resp.json()["route"]
     assert route["name"] == "Pinned Route"
     assert route["color"] == "#00ff00"
-

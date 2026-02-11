@@ -47,6 +47,8 @@ export default function initVehiclesPage({ signal, cleanup } = {}) {
   } else {
     return teardown;
   }
+
+  return teardown;
 }
 
 function cacheElements() {

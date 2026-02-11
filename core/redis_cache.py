@@ -55,22 +55,23 @@ async def cache_get(key: str) -> bytes | None:
         value = await client.get(key)
         if value is None:
             return None
-        return value if isinstance(value, (bytes, bytearray)) else None
+        return value if isinstance(value, bytes | bytearray) else None
     except Exception:
         logger.debug("Binary cache get failed for key=%s", key, exc_info=True)
         return None
 
 
-async def cache_set(key: str, value: bytes, ttl_sec: int) -> bool:
-    if not isinstance(value, (bytes, bytearray)):
+async def cache_set(key: str, value: bytes | bytearray, ttl_sec: int) -> bool:
+    if not isinstance(value, bytes | bytearray):
         return False
     try:
         client = await get_binary_redis_client()
         await client.set(key, bytes(value), ex=int(ttl_sec))
-        return True
     except Exception:
         logger.debug("Binary cache set failed for key=%s", key, exc_info=True)
         return False
+    else:
+        return True
 
 
 async def cache_incr(key: str) -> int | None:

@@ -54,8 +54,8 @@ class APIClient {
     const controller = new AbortController();
     const activeSignal = signal || controller.signal;
     let timeoutTriggered = false;
-    const timeoutId
-      = timeout && !signal
+    const timeoutId =
+      timeout && !signal
         ? setTimeout(() => {
             timeoutTriggered = true;
             controller.abort();
@@ -110,8 +110,8 @@ class APIClient {
     const controller = new AbortController();
     const activeSignal = signal || controller.signal;
     let timeoutTriggered = false;
-    const timeoutId
-      = timeout && !signal
+    const timeoutId =
+      timeout && !signal
         ? setTimeout(() => {
             timeoutTriggered = true;
             controller.abort();
@@ -182,8 +182,8 @@ class APIClient {
         const contentType = response.headers.get("content-type");
         if (contentType?.includes("application/json")) {
           const errorData = await response.json();
-          errorDetail
-            = errorData.detail || errorData.error || errorData.message || errorDetail;
+          errorDetail =
+            errorData.detail || errorData.error || errorData.message || errorDetail;
         } else {
           const text = await response.text();
           errorDetail = text || errorDetail;

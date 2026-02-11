@@ -1,5 +1,5 @@
-import store from "./store.js";
 import { ensureRouteModule } from "./route-loader.js";
+import store from "./store.js";
 
 let swup = null;
 let resolveReady = null;
@@ -84,21 +84,15 @@ function createSwupFallback() {
 }
 
 async function loadSwupDeps() {
-  const [
-    swupMod,
-    headMod,
-    preloadMod,
-    scrollMod,
-    progressMod,
-    a11yMod,
-  ] = await Promise.all([
-    import("https://cdn.jsdelivr.net/npm/swup@4.8.2/+esm"),
-    import("https://cdn.jsdelivr.net/npm/@swup/head-plugin@2.3.1/+esm"),
-    import("https://cdn.jsdelivr.net/npm/@swup/preload-plugin@3.2.11/+esm"),
-    import("https://cdn.jsdelivr.net/npm/@swup/scroll-plugin@4.0.0/+esm"),
-    import("https://cdn.jsdelivr.net/npm/@swup/progress-plugin@3.2.0/+esm"),
-    import("https://cdn.jsdelivr.net/npm/@swup/a11y-plugin@5.0.0/+esm"),
-  ]);
+  const [swupMod, headMod, preloadMod, scrollMod, progressMod, a11yMod] =
+    await Promise.all([
+      import("https://cdn.jsdelivr.net/npm/swup@4.8.2/+esm"),
+      import("https://cdn.jsdelivr.net/npm/@swup/head-plugin@2.3.1/+esm"),
+      import("https://cdn.jsdelivr.net/npm/@swup/preload-plugin@3.2.11/+esm"),
+      import("https://cdn.jsdelivr.net/npm/@swup/scroll-plugin@4.0.0/+esm"),
+      import("https://cdn.jsdelivr.net/npm/@swup/progress-plugin@3.2.0/+esm"),
+      import("https://cdn.jsdelivr.net/npm/@swup/a11y-plugin@5.0.0/+esm"),
+    ]);
 
   return {
     Swup: swupMod?.default,
@@ -412,10 +406,7 @@ export async function initNavigation() {
       SwupA11yPlugin,
     } = await loadSwupDeps());
   } catch (error) {
-    console.warn(
-      "Swup failed to load; falling back to full page navigation.",
-      error
-    );
+    console.warn("Swup failed to load; falling back to full page navigation.", error);
 
     swup = createSwupFallback();
     // Initial route module and state (no SPA transitions).
@@ -496,9 +487,7 @@ export async function initNavigation() {
       }),
       new SwupPreloadPlugin({ preloadInitialPage: true }),
       new SwupScrollPlugin({
-        animateScroll: window.matchMedia("(prefers-reduced-motion: reduce)").matches
-          ? false
-          : true,
+        animateScroll: !window.matchMedia("(prefers-reduced-motion: reduce)").matches,
       }),
       new SwupProgressPlugin({
         className: "swup-progress-bar",

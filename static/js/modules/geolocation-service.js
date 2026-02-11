@@ -109,9 +109,9 @@ class GeolocationService {
     const Δφ = ((lat2 - lat1) * Math.PI) / 180;
     const Δλ = ((lon2 - lon1) * Math.PI) / 180;
 
-    const a
-      = Math.sin(Δφ / 2) * Math.sin(Δφ / 2)
-      + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    const a =
+      Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+      Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
     return R * c; // Distance in meters
@@ -187,8 +187,8 @@ class GeolocationService {
       3: "Location request timeout. Please try again.",
     };
 
-    const message
-      = errorMessages[error.code] || "An unknown geolocation error occurred";
+    const message =
+      errorMessages[error.code] || "An unknown geolocation error occurred";
 
     return new Error(message);
   }

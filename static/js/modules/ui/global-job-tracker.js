@@ -174,7 +174,7 @@ function startPolling(jobId) {
   poll();
 }
 
-async function fetchJobStatus(jobId) {
+function fetchJobStatus(jobId) {
   return apiClient.get(`${API_BASE}/jobs/${jobId}`);
 }
 
@@ -207,8 +207,8 @@ async function cancelActiveJob() {
     console.error("Failed to cancel job:", e);
     notify("Failed to cancel job", "danger");
     if (document.getElementById("task-progress-message")) {
-      document.getElementById("task-progress-message").textContent
-        = oldText || "Error cancelling";
+      document.getElementById("task-progress-message").textContent =
+        oldText || "Error cancelling";
     }
   }
 }

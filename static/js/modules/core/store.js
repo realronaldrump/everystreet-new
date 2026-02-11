@@ -118,8 +118,8 @@ class ESStore {
       isMobile:
         typeof window !== "undefined" && window.innerWidth < CONFIG.UI.mobileBreakpoint,
       reducedMotion:
-        typeof window !== "undefined"
-        && window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+        typeof window !== "undefined" &&
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches,
       controlsMinimized: false,
       filtersOpen: false,
       lastFilterPreset: null,
@@ -191,7 +191,7 @@ class ESStore {
     if (this.dom.has(selector)) {
       const cached = this.dom.get(selector);
       // Validate the cached element is still connected to the DOM
-      if (cached && cached.isConnected) {
+      if (cached?.isConnected) {
         return cached;
       }
       this.dom.delete(selector);
@@ -528,8 +528,8 @@ class ESStore {
     const lat = parseFloat(params.get("lat"));
     const lng = parseFloat(params.get("lng"));
     const zoom = parseFloat(params.get("zoom"));
-    const hasMapParams
-      = !Number.isNaN(lat) && !Number.isNaN(lng) && !Number.isNaN(zoom);
+    const hasMapParams =
+      !Number.isNaN(lat) && !Number.isNaN(lng) && !Number.isNaN(zoom);
     if (hasMapParams) {
       this.state.map.view = { center: [lng, lat], zoom };
     }
@@ -617,11 +617,13 @@ class ESStore {
     if (push && window.history.pushState) {
       // Preserve any existing Swup/native history metadata while marking this entry
       // as a store-only URL/state change.
-      const baseState
-        = window.history.state && typeof window.history.state === "object"
+      const baseState =
+        window.history.state && typeof window.history.state === "object"
           ? window.history.state
           : null;
-      const nextState = baseState ? { ...baseState, source: "es-store" } : { source: "es-store" };
+      const nextState = baseState
+        ? { ...baseState, source: "es-store" }
+        : { source: "es-store" };
       window.history.pushState(nextState, document.title, url.toString());
       return;
     }

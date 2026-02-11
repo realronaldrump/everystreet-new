@@ -76,7 +76,7 @@ const mapCore = {
    * @param {Object} options - Optional configuration overrides
    * @returns {Promise<boolean>} - Resolves true on success, false on failure
    */
-  async initialize(options = {}) {
+  initialize(options = {}) {
     // Return existing promise if already initializing/initialized
     if (initializationPromise) {
       return initializationPromise;
@@ -123,9 +123,9 @@ const mapCore = {
 
       // Check WebGL support
       if (!mapboxgl.supported()) {
-        mapElement.innerHTML
-          = '<div class="webgl-unsupported-message p-4 text-center">'
-          + "WebGL is not supported by your browser. Please use a modern browser.</div>";
+        mapElement.innerHTML =
+          '<div class="webgl-unsupported-message p-4 text-center">' +
+          "WebGL is not supported by your browser. Please use a modern browser.</div>";
         throw new Error("WebGL not supported");
       }
 
@@ -365,15 +365,15 @@ const mapCore = {
     }
 
     const telemetryHost = "events.mapbox.com";
-    const baseUrl
-      = typeof window !== "undefined" && window.location?.origin
+    const baseUrl =
+      typeof window !== "undefined" && window.location?.origin
         ? window.location.origin
         : "http://localhost";
     let patched = false;
 
     if (
-      typeof navigator !== "undefined"
-      && typeof navigator.sendBeacon === "function"
+      typeof navigator !== "undefined" &&
+      typeof navigator.sendBeacon === "function"
     ) {
       const originalSendBeacon = navigator.sendBeacon.bind(navigator);
       navigator.sendBeacon = (url, data) => {
@@ -532,14 +532,14 @@ const mapCore = {
    * Useful after style changes
    * @returns {Promise<void>}
    */
-  async waitForStyleLoad() {
+  waitForStyleLoad() {
     const { map } = state;
     if (!map) {
       throw new Error("Map not initialized");
     }
 
     if (map.isStyleLoaded()) {
-      return;
+      return Promise.resolve();
     }
 
     return new Promise((resolve) => {

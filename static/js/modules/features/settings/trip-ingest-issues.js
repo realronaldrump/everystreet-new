@@ -72,8 +72,12 @@ function typeBadgeClass(type) {
 }
 
 function normalizeSourceLabel(source, urlHost = "") {
-  const src = String(source || "").trim().toLowerCase();
-  const host = String(urlHost || "").trim().toLowerCase();
+  const src = String(source || "")
+    .trim()
+    .toLowerCase();
+  const host = String(urlHost || "")
+    .trim()
+    .toLowerCase();
   if (src === "bouncie" || host.includes("bouncie")) {
     return "Bouncie";
   }
@@ -89,12 +93,12 @@ function parseHttpishError(message) {
     return null;
   }
 
-  const statusMatch
-    = text.match(/(?:^|\b)(\d{3})(?=\s*,\s*message=)/i) || text.match(/^(\d{3})\b/);
+  const statusMatch =
+    text.match(/(?:^|\b)(\d{3})(?=\s*,\s*message=)/i) || text.match(/^(\d{3})\b/);
   const msgMatch = text.match(/message=['"]([^'"]+)['"]/i);
-  const urlMatch
-    = text.match(/\burl=(?:URL\()?['"]([^'"]+)['"]\)?/i)
-    || text.match(/\burl=['"]([^'"]+)['"]/i);
+  const urlMatch =
+    text.match(/\burl=(?:URL\()?['"]([^'"]+)['"]\)?/i) ||
+    text.match(/\burl=['"]([^'"]+)['"]/i);
 
   const status = statusMatch ? Number(statusMatch[1]) : null;
   const statusText = msgMatch?.[1] ? String(msgMatch[1]) : null;
@@ -125,7 +129,8 @@ function extractWindowInfo(details, fallbackUrl) {
   if (details && typeof details === "object") {
     const idx = Number(details.window_index ?? details.windowIndex);
     out.windowIndex = Number.isFinite(idx) ? idx : null;
-    out.startIso = details.window_start ?? details.windowStart ?? details.start_iso ?? null;
+    out.startIso =
+      details.window_start ?? details.windowStart ?? details.start_iso ?? null;
     out.endIso = details.window_end ?? details.windowEnd ?? details.end_iso ?? null;
   }
 
@@ -211,9 +216,9 @@ function buildFriendlyIssueCopy(issue, httpInfo, windowInfo) {
       };
     }
     if (
-      rawLower.includes("cannot connect")
-      || rawLower.includes("connection")
-      || rawLower.includes("network")
+      rawLower.includes("cannot connect") ||
+      rawLower.includes("connection") ||
+      rawLower.includes("network")
     ) {
       return {
         title: `Could not download trips from ${provider}.`,
@@ -241,7 +246,9 @@ function buildFriendlyIssueCopy(issue, httpInfo, windowInfo) {
     }
     return {
       title: "Trip data did not pass validation, so it was skipped.",
-      body: reasonText ? `Reason: ${reasonText}.` : "A required field was missing or invalid.",
+      body: reasonText
+        ? `Reason: ${reasonText}.`
+        : "A required field was missing or invalid.",
       hint: 'Open "More info" for the technical details.',
     };
   }
@@ -317,7 +324,9 @@ export class TripIngestIssues {
     this.chips = document.getElementById("trip-ingest-issues-chips");
     this.countAll = document.getElementById("trip-ingest-issues-count-all");
     this.countFetch = document.getElementById("trip-ingest-issues-count-fetch");
-    this.countValidation = document.getElementById("trip-ingest-issues-count-validation");
+    this.countValidation = document.getElementById(
+      "trip-ingest-issues-count-validation"
+    );
     this.countProcess = document.getElementById("trip-ingest-issues-count-process");
 
     this.searchInput = document.getElementById("trip-ingest-issues-search");
@@ -439,10 +448,9 @@ export class TripIngestIssues {
       this.renderTable();
       this.renderPagination();
     } catch (error) {
-      this.tableBody.innerHTML
-        = `<tr><td colspan="7" class="text-center text-danger">${escapeHtml(
-            error.message || "Failed to load issues"
-          )}</td></tr>`;
+      this.tableBody.innerHTML = `<tr><td colspan="7" class="text-center text-danger">${escapeHtml(
+        error.message || "Failed to load issues"
+      )}</td></tr>`;
       if (this.paginationContainer) {
         this.paginationContainer.innerHTML = "";
       }
@@ -585,7 +593,9 @@ export class TripIngestIssues {
       });
       const deleted = Number(result?.deleted) || 0;
       notificationManager.show(
-        deleted ? `Deleted ${deleted} issue${deleted === 1 ? "" : "s"}.` : "No issues were deleted.",
+        deleted
+          ? `Deleted ${deleted} issue${deleted === 1 ? "" : "s"}.`
+          : "No issues were deleted.",
         deleted ? "success" : "info"
       );
       this.currentPage = 1;
@@ -603,8 +613,8 @@ export class TripIngestIssues {
     }
 
     if (!Array.isArray(this.issues) || this.issues.length === 0) {
-      this.tableBody.innerHTML
-        = '<tr><td colspan="7" class="text-center text-muted">No ingest issues found.</td></tr>';
+      this.tableBody.innerHTML =
+        '<tr><td colspan="7" class="text-center text-muted">No ingest issues found.</td></tr>';
       return;
     }
 
@@ -616,7 +626,8 @@ export class TripIngestIssues {
         const lastSeen = formatLocal(issue?.last_seen_at || issue?.created_at);
         const count = Number(issue?.occurrences) || 1;
         const resolved = Boolean(issue?.resolved);
-        const details = issue?.details && typeof issue.details === "object" ? issue.details : null;
+        const details =
+          issue?.details && typeof issue.details === "object" ? issue.details : null;
 
         const httpInfo = parseHttpishError(issue?.message || "");
         const windowInfo = extractWindowInfo(details, httpInfo?.url);
@@ -630,9 +641,11 @@ export class TripIngestIssues {
             )}" data-no-swup>${escapeHtml(tx)}</a>`
           : windowTripText
             ? `<span class="trip-issue-window">${escapeHtml(windowTripText)}</span>`
-          : '<span class="text-muted">--</span>';
+            : '<span class="text-muted">--</span>';
 
-        const deviceCell = imei ? `<span class="trip-issue-mono">${escapeHtml(imei)}</span>` : "--";
+        const deviceCell = imei
+          ? `<span class="trip-issue-mono">${escapeHtml(imei)}</span>`
+          : "--";
 
         const detailsEl = technicalLines.length
           ? `
@@ -760,7 +773,10 @@ export class TripIngestIssues {
       return;
     }
     try {
-      await apiClient.post(`/api/trips/ingest-issues/${encodeURIComponent(issueId)}/resolve`, {});
+      await apiClient.post(
+        `/api/trips/ingest-issues/${encodeURIComponent(issueId)}/resolve`,
+        {}
+      );
       notificationManager.show("Issue dismissed.", "success");
       this.fetchIssues();
     } catch (error) {

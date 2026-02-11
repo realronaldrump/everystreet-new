@@ -54,7 +54,9 @@ async def test_delete_vehicle_removes_record_and_deauthorizes(vehicle_db) -> Non
 
 
 @pytest.mark.asyncio
-async def test_delete_vehicle_fails_if_deauth_update_fails(monkeypatch, vehicle_db) -> None:
+async def test_delete_vehicle_fails_if_deauth_update_fails(
+    monkeypatch, vehicle_db
+) -> None:
     imei = "987654321098765"
     await BouncieCredentials(
         id="bouncie_credentials",
@@ -76,4 +78,3 @@ async def test_delete_vehicle_fails_if_deauth_update_fails(monkeypatch, vehicle_
 
     # Vehicle should still exist (we don't want to "succeed" only partially).
     assert await Vehicle.find_one(Vehicle.imei == imei) is not None
-

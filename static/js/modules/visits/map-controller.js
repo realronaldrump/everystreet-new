@@ -1,7 +1,7 @@
 /* global mapboxgl */
 
-import { createMap } from "../map-base.js";
 import { CONFIG } from "../core/config.js";
+import { createMap } from "../map-base.js";
 import MapStyles from "../map-styles.js";
 import { VisitsGeometry } from "./geometry.js";
 
@@ -113,15 +113,15 @@ class VisitsMapController {
       data: suggestion.boundary,
     });
 
-      this.map.addLayer({
-        id: "suggestion-preview-fill",
-        type: "fill",
-        source: "suggestion-preview",
-        paint: {
+    this.map.addLayer({
+      id: "suggestion-preview-fill",
+      type: "fill",
+      source: "suggestion-preview",
+      paint: {
         "fill-color": "#d4a24a",
-          "fill-opacity": 0.25,
-        },
-      });
+        "fill-opacity": 0.25,
+      },
+    });
 
     this.geometryUtils.fitMapToGeometry(this.map, suggestion.boundary, {
       padding: 50,
@@ -169,9 +169,9 @@ class VisitsMapController {
 
   toggleMapStyle() {
     this.mapStyle = this.mapStyle === "satellite" ? "dark" : "satellite";
-    const styleUrl
-      = this.mapStyle === "satellite"
-        ? (CONFIG.MAP.styles.satellite || CONFIG.MAP.styles.dark)
+    const styleUrl =
+      this.mapStyle === "satellite"
+        ? CONFIG.MAP.styles.satellite || CONFIG.MAP.styles.dark
         : CONFIG.MAP.styles.dark;
 
     this.map.setStyle(styleUrl);
@@ -185,10 +185,8 @@ class VisitsMapController {
 
   updateTheme(theme) {
     this.mapStyle = theme === "light" ? "light" : "dark";
-    const styleUrl
-      = this.mapStyle === "light"
-        ? CONFIG.MAP.styles.light
-        : CONFIG.MAP.styles.dark;
+    const styleUrl =
+      this.mapStyle === "light" ? CONFIG.MAP.styles.light : CONFIG.MAP.styles.dark;
 
     const center = this.map?.getCenter();
     const zoom = this.map?.getZoom();

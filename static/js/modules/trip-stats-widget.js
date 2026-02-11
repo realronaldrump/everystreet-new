@@ -147,7 +147,9 @@ const tripStatsWidget = {
         );
       }
       if (this.elements.detailedAvgStart) {
-        this.elements.detailedAvgStart.textContent = String(metrics.avgStartTime ?? "--:--");
+        this.elements.detailedAvgStart.textContent = String(
+          metrics.avgStartTime ?? "--:--"
+        );
       }
       if (this.elements.detailedAvgDuration) {
         this.elements.detailedAvgDuration.textContent = String(

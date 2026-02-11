@@ -13,15 +13,15 @@ const tripInteractions = {
       return;
     }
 
-    const tripId
-      = feature.properties.transactionId
-      || feature.properties.id
-      || feature.properties.tripId;
+    const tripId =
+      feature.properties.transactionId ||
+      feature.properties.id ||
+      feature.properties.tripId;
 
     if (tripId) {
       state.selectedTripId = tripId;
-      state.selectedTripLayer
-        = layerName || this.resolveTripLayerName(feature?.layer?.id);
+      state.selectedTripLayer =
+        layerName || this.resolveTripLayerName(feature?.layer?.id);
       mapManager.refreshTripStyles();
     }
 
@@ -70,22 +70,29 @@ const tripInteractions = {
     const formatNumber = (value, digits = 1) =>
       formatValue(value, (v) => parseFloat(v).toFixed(digits));
     const formatTime = (value) =>
-      formatValue(value, (v) =>
-        toDate(v)?.toLocaleString("en-US", {
-          month: "short",
-          day: "numeric",
-          year: "numeric",
-          hour: "numeric",
-          minute: "2-digit",
-          hour12: true,
-        }) || "N/A"
+      formatValue(
+        value,
+        (v) =>
+          toDate(v)?.toLocaleString("en-US", {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+            hour: "numeric",
+            minute: "2-digit",
+            hour12: true,
+          }) || "N/A"
       );
 
     let duration = props.duration || props.drivingTime;
     if (!duration && props.startTime && props.endTime) {
       const start = toDate(props.startTime);
       const end = toDate(props.endTime);
-      if (start && end && !Number.isNaN(start.getTime()) && !Number.isNaN(end.getTime())) {
+      if (
+        start &&
+        end &&
+        !Number.isNaN(start.getTime()) &&
+        !Number.isNaN(end.getTime())
+      ) {
         duration = (end - start) / 1000;
       }
     }
@@ -124,10 +131,10 @@ const tripInteractions = {
 
   createActionButtons(feature) {
     const props = feature.properties || {};
-    const isMatched
-      = props.source === "matched"
-      || props.mapMatchingStatus === "success"
-      || feature.source?.includes("matched");
+    const isMatched =
+      props.source === "matched" ||
+      props.mapMatchingStatus === "success" ||
+      feature.source?.includes("matched");
     const tripId = props.transactionId || props.id || props.tripId;
 
     if (!tripId) {

@@ -5,7 +5,10 @@
  */
 
 import { formatDate, formatHourLabel, formatMonth } from "./formatters.js";
-import { loadAndShowTripsForDrilldown, loadAndShowTripsForTimePeriod } from "./modal.js";
+import {
+  loadAndShowTripsForDrilldown,
+  loadAndShowTripsForTimePeriod,
+} from "./modal.js";
 import { getChart, getState, setChart } from "./state.js";
 
 const chartCleanupKey = "_esCleanup";
@@ -47,7 +50,7 @@ function findChartForCanvas(canvas) {
   if (typeof Chart.getChart === "function") {
     return Chart.getChart(canvas);
   }
-  const instances = Chart.instances;
+  const { instances } = Chart;
   if (!instances) {
     return null;
   }
@@ -109,8 +112,8 @@ const spotlightPlugin = {
         : applyAlpha(orig.borderColor);
 
       if (
-        dataset.backgroundColor !== nextBackground
-        || dataset.borderColor !== nextBorder
+        dataset.backgroundColor !== nextBackground ||
+        dataset.borderColor !== nextBorder
       ) {
         dataset.backgroundColor = nextBackground;
         dataset.borderColor = nextBorder;
@@ -532,13 +535,13 @@ export function updateTimeDistChart() {
     return;
   }
 
-  const labels
-    = state.currentTimeView === "hour"
+  const labels =
+    state.currentTimeView === "hour"
       ? Array.from({ length: 24 }, (_, i) => formatHourLabel(i))
       : ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-  const data
-    = state.currentTimeView === "hour"
+  const data =
+    state.currentTimeView === "hour"
       ? processHourlyData(analytics.time_distribution)
       : processDailyData(analytics.weekday_distribution);
 
@@ -624,8 +627,8 @@ function aggregateByView(dailyData, viewType) {
   });
 
   return Object.entries(aggregated).map(([key, value]) => {
-    const label
-      = viewType === "weekly"
+    const label =
+      viewType === "weekly"
         ? `Week of ${new Date(key).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
         : formatMonth(key);
     return {
@@ -693,7 +696,7 @@ function handleTrendsChartClick(_event, activeElements, chart) {
     return;
   }
 
-  const index = activeElements[0].index;
+  const { index } = activeElements[0];
   const ranges = chart?._esBucketRanges;
   const range = Array.isArray(ranges) ? ranges[index] : null;
   if (!range?.start || !range?.end) {

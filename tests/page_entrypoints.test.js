@@ -32,9 +32,10 @@ test("page entrypoints are wired via route-loader", () => {
 
   htmlFiles.forEach((filePath) => {
     const content = fs.readFileSync(filePath, "utf8");
-    let match = null;
-    while ((match = pageRegex.exec(content))) {
+    let match = pageRegex.exec(content);
+    while (match) {
       pageScripts.add(match[1]);
+      match = pageRegex.exec(content);
     }
   });
 
@@ -51,9 +52,10 @@ test("page entrypoints are wired via route-loader", () => {
   const routeRegex = /\.\.\/\.\.\/pages\/([a-z0-9-]+)\.js/g;
   const routedPages = new Set();
 
-  let match = null;
-  while ((match = routeRegex.exec(routeLoaderContent))) {
+  let match = routeRegex.exec(routeLoaderContent);
+  while (match) {
     routedPages.add(match[1]);
+    match = routeRegex.exec(routeLoaderContent);
   }
 
   assert.ok(routedPages.size > 0, "No js/pages entrypoints found in route-loader.js");

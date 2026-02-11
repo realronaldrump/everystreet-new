@@ -33,4 +33,3 @@ def test_normalize_pyrosm_gdfs_makes_unique_indexes() -> None:
     assert norm_edges.index.is_unique
     # Parallel edges should be preserved by generating distinct keys.
     assert len(norm_edges) == len(edges)
-

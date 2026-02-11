@@ -5,8 +5,8 @@
  * Handles map initialization, layers, and map interactions.
  */
 
-import MapStyles from "../map-styles.js";
 import { CONFIG } from "../core/config.js";
+import MapStyles from "../map-styles.js";
 import {
   DEFAULT_CLUSTER_COLORS,
   DEFAULT_ROUTE_COLORS,
@@ -276,8 +276,8 @@ export class DrivingNavigationMap {
     this.clusterMarkers = [];
 
     if (this.map && this.interactivityHandlers) {
-      const { handleMouseEnter, handleMouseLeave, handleClick }
-        = this.interactivityHandlers;
+      const { handleMouseEnter, handleMouseLeave, handleClick } =
+        this.interactivityHandlers;
       try {
         this.map.off("mouseenter", "undriven-streets-layer", handleMouseEnter);
         this.map.off("mouseleave", "undriven-streets-layer", handleMouseLeave);

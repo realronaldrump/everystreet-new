@@ -33,8 +33,8 @@ const eventManager = {
         return;
       } // already registered
 
-      const wrapped
-        = options.leftClickOnly && eventType === "click"
+      const wrapped =
+        options.leftClickOnly && eventType === "click"
           ? (e) => {
               if (e.button === 0) {
                 handler(e);
@@ -57,8 +57,8 @@ const eventManager = {
    * Event delegation.
    */
   delegate(container, selector, eventType, handler) {
-    const containerEl
-      = typeof container === "string" ? store.getElement(container) : container;
+    const containerEl =
+      typeof container === "string" ? store.getElement(container) : container;
     if (!containerEl) {
       return false;
     }

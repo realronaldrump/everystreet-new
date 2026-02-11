@@ -57,4 +57,3 @@ async def test_trip_cost_uses_end_time_when_available(beanie_db) -> None:
     }
     cost = TripCostService.calculate_trip_cost(trip, price_map)
     assert cost == pytest.approx(4.0)  # 1 gal * ($40/10 gal)
-

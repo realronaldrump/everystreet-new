@@ -104,7 +104,9 @@ async def test_fetch_trips_for_window_raises_for_small_window() -> None:
     window_end = datetime(2020, 3, 2, 0, 0, 0, tzinfo=UTC)  # 18 hours
 
     mock_client = AsyncMock()
-    mock_client.fetch_trips_for_device_resilient.side_effect = RuntimeError("Server error")
+    mock_client.fetch_trips_for_device_resilient.side_effect = RuntimeError(
+        "Server error"
+    )
 
     with pytest.raises(RuntimeError, match="Server error"):
         await _fetch_trips_for_window(
@@ -114,4 +116,3 @@ async def test_fetch_trips_for_window_raises_for_small_window() -> None:
             window_start=window_start,
             window_end=window_end,
         )
-

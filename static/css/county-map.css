@@ -383,12 +383,20 @@
 }
 
 .legend-color--visited {
-  background: linear-gradient(135deg, var(--county-success), var(--county-success-deep));
+  background: linear-gradient(
+    135deg,
+    var(--county-success),
+    var(--county-success-deep)
+  );
   box-shadow: 0 0 8px rgb(var(--county-success-rgb) / 50%);
 }
 
 .legend-color--stopped {
-  background: linear-gradient(135deg, var(--county-danger), var(--county-danger-strong));
+  background: linear-gradient(
+    135deg,
+    var(--county-danger),
+    var(--county-danger-strong)
+  );
   box-shadow: 0 0 8px rgb(var(--county-danger-rgb) / 45%);
 }
 

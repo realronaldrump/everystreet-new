@@ -27,7 +27,14 @@ async def beanie_db_with_history_import():
     database = client["test_db"]
     await init_beanie(
         database=database,  # type: ignore[arg-type]
-        document_models=[Trip, TaskConfig, TaskHistory, BouncieCredentials, Job, Vehicle],
+        document_models=[
+            Trip,
+            TaskConfig,
+            TaskHistory,
+            BouncieCredentials,
+            Job,
+            Vehicle,
+        ],
     )
     return database
 
@@ -176,7 +183,7 @@ async def test_start_sync_enqueues_history_with_progress_job(
     assert result["job_id"] == "arq-job-123"
     assert result["progress_job_id"]
     assert result["progress_url"].endswith(result["progress_job_id"])
-    assert result["progress_sse_url"].endswith(f'{result["progress_job_id"]}/sse')
+    assert result["progress_sse_url"].endswith(f"{result['progress_job_id']}/sse")
 
     job = await Job.get(PydanticObjectId(result["progress_job_id"]))
     assert job is not None

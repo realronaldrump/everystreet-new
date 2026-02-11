@@ -10,7 +10,9 @@ from gas.services.odometer_service import OdometerService
 
 
 @pytest.mark.asyncio
-async def test_create_fillup_calculates_mpg_using_previous_sorted_fillup(beanie_db) -> None:
+async def test_create_fillup_calculates_mpg_using_previous_sorted_fillup(
+    beanie_db,
+) -> None:
     imei = "imei-123"
     await Vehicle(imei=imei, vin="VIN-123").insert()
 

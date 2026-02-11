@@ -88,9 +88,9 @@ function createVisitsTable({ onPlaceSelected }) {
       searchPlaceholder: "Search places...",
     },
     dom:
-      "<'row'<'col-sm-12 col-md-6'l><'col-sm-12 col-md-6'f>>"
-      + "<'row'<'col-sm-12'tr>>"
-      + "<'row'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
+      "<'row'<'col-sm-12 col-md-6'l><'col-sm-12 col-md-6'f>>" +
+      "<'row'<'col-sm-12'tr>>" +
+      "<'row'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
     columnDefs: [{ type: "duration", targets: 4 }],
     drawCallback() {
       $("#visits-table tbody tr").each(function (i) {
@@ -179,9 +179,9 @@ function createNonCustomVisitsTable() {
       searchPlaceholder: "Search locations...",
     },
     dom:
-      "<'row'<'col-sm-12 col-md-6'l><'col-sm-12 col-md-6'f>>"
-      + "<'row'<'col-sm-12'tr>>"
-      + "<'row'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
+      "<'row'<'col-sm-12 col-md-6'l><'col-sm-12 col-md-6'f>>" +
+      "<'row'<'col-sm-12'tr>>" +
+      "<'row'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
   });
 }
 
@@ -270,9 +270,9 @@ function createTripsTable({ onTripSelected }) {
       searchPlaceholder: "Search trips...",
     },
     dom:
-      "<'row'<'col-sm-12 col-md-6'l><'col-sm-12 col-md-6'f>>"
-      + "<'row'<'col-sm-12'tr>>"
-      + "<'row'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
+      "<'row'<'col-sm-12 col-md-6'l><'col-sm-12 col-md-6'f>>" +
+      "<'row'<'col-sm-12'tr>>" +
+      "<'row'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
   });
 
   $(el).on("mousedown", ".view-trip-btn", (event) => {
@@ -359,8 +359,8 @@ function createSuggestionsTable({ onCreatePlace, onPreview } = {}) {
           if (type !== "display") {
             return data;
           }
-          const suggestionId
-            = row?.suggestionId || row?._id || row?.suggestedName || "";
+          const suggestionId =
+            row?.suggestionId || row?._id || row?.suggestedName || "";
           return `<div class="btn-group btn-group-sm" role="group">
                 <button class="btn btn-sm btn-outline-info preview-suggestion-btn" data-place-id="${suggestionId}" title="Preview">
                   <i class="fas fa-eye"></i>
@@ -383,9 +383,9 @@ function createSuggestionsTable({ onCreatePlace, onPreview } = {}) {
       searchPlaceholder: "Search suggestions...",
     },
     dom:
-      "<'row'<'col-sm-12 col-md-6'l><'col-sm-12 col-md-6'f>>"
-      + "<'row'<'col-sm-12'tr>>"
-      + "<'row'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
+      "<'row'<'col-sm-12 col-md-6'l><'col-sm-12 col-md-6'f>>" +
+      "<'row'<'col-sm-12'tr>>" +
+      "<'row'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
   });
 
   const getRowData = (event) => {

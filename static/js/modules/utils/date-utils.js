@@ -182,8 +182,8 @@ const DateUtils = {
 
     const startDate = this.parseDateString(currentStart);
     const endDate = this.parseDateString(currentEnd);
-    const days
-      = startDate && endDate ? dayjs(endDate).diff(dayjs(startDate), "day") + 1 : 0;
+    const days =
+      startDate && endDate ? dayjs(endDate).diff(dayjs(startDate), "day") + 1 : 0;
 
     const range = { start: currentStart, end: currentEnd, startDate, endDate, days };
     setStorage(cacheKey, range);

@@ -1,5 +1,5 @@
-import store from "../core/store.js";
 import { swupReady } from "../core/navigation.js";
+import store from "../core/store.js";
 
 /**
  * Create an element with safe text content
@@ -324,9 +324,9 @@ export function fadeOut(el, duration = 200) {
  * @param {string} priority - Priority ("polite" or "assertive")
  */
 export function announce(message, priority = "polite") {
-  const announcer
-    = document.getElementById("map-announcements")
-    || document.querySelector('[aria-live="polite"]');
+  const announcer =
+    document.getElementById("map-announcements") ||
+    document.querySelector('[aria-live="polite"]');
 
   if (!announcer) {
     console.warn("No aria-live region found for announcements");

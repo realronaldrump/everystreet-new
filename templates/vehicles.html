@@ -1,13 +1,20 @@
 {% extends "base.html" %}
 
-{% block title %}My Vehicles{% endblock %}
+{% block title %}
+
+My Vehicles
+{% endblock %}
+
 
 {% block extra_css %}
+
   <link rel="stylesheet"
         href="{{ url_for('static', path='css/vehicles.css') | replace('http://', '//') }}?v={{ repo_version.commit_count }}" />
 {% endblock %}
 
+
 {% block content %}
+
   <div class="container-fluid vehicles-page py-4">
     <div class="bento-grid" data-stagger>
 
@@ -49,7 +56,9 @@
                   novalidate>
               <div class="row g-3 align-items-end">
                 <div class="col-12 col-md-4">
-                  <label for="fleet-add-vehicle-imei" class="form-label">IMEI</label>
+                  <label for="fleet-add-vehicle-imei" class="form-label">
+IMEI
+                  </label>
                   <input type="text"
                          class="form-control"
                          id="fleet-add-vehicle-imei"
@@ -59,269 +68,288 @@
                          autocomplete="off" />
                 </div>
                 <div class="col-12 col-md-5">
-                  <label for="fleet-add-vehicle-name" class="form-label">Display name <span class="text-tertiary">(optional)</span></label>
-                  <input type="text"
-                         class="form-control"
-                         id="fleet-add-vehicle-name"
-                         name="custom_name"
-                         placeholder="My car"
-                         autocomplete="off" />
+                  <label for="fleet-add-vehicle-name" class="form-label">
+                                      Display name <span class="text-tertiary">(optional)</span>
+                </label>
+                <input type="text"
+                       class="form-control"
+                       id="fleet-add-vehicle-name"
+                       name="custom_name"
+                       placeholder="My car"
+                       autocomplete="off" />
+              </div>
+              <div class="col-12 col-md-3">
+                <button type="submit" class="btn btn-primary w-100" id="fleet-add-vehicle-btn">
+                  <i class="fas fa-plus me-1"></i> Add Vehicle
+                </button>
+              </div>
+            </div>
+            <div class="form-text mt-2">
+                Validates the IMEI against your Bouncie account and authorizes it for trip syncing.
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Loading State -->
+    <div class="bento-span-12" id="loading-state">
+      <div class="widget" data-accent="mint">
+        <div class="widget-body text-center py-5">
+          <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+          <p class="text-muted mt-3">
+Loading vehicles...
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Empty State -->
+    <div class="bento-span-12" id="empty-state" style="display: none">
+      <div class="widget" data-accent="sky">
+        <div class="widget-body text-center py-5">
+          <div class="empty-icon mb-4">
+            <i class="fas fa-car-side fa-4x text-muted"></i>
+          </div>
+          <h3 class="text-muted mb-3">
+No Vehicles Yet
+          </h3>
+          <p class="text-secondary mb-4">
+              Sync your vehicles from Bouncie or add one manually to get started.
+          </p>
+          <div class="d-flex gap-2 justify-content-center flex-wrap">
+            <button type="button" class="btn btn-primary" id="sync-from-empty-btn">
+              <i class="fas fa-sync me-2"></i>Sync from Bouncie
+            </button>
+            <button type="button"
+                    class="btn btn-outline-primary"
+                    data-bs-toggle="collapse"
+                    data-bs-target="#add-vehicle-collapse">
+              <i class="fas fa-plus me-2"></i>Add Manually
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Vehicle Content (hidden until loaded) -->
+    <div class="bento-span-12" id="vehicle-content" style="display: none">
+      <div class="bento-grid vehicles-layout">
+
+        <!-- Left: Vehicle List Sidebar -->
+        <div class="bento-span-4 vehicle-list-panel" id="vehicle-list-panel">
+          <div class="vehicle-list-cards" id="vehicle-list-cards">
+            <!-- Vehicle cards rendered by JS -->
+          </div>
+        </div>
+
+        <!-- Right: Vehicle Detail -->
+        <div class="bento-span-8 vehicle-detail-panel" id="vehicle-detail-panel">
+
+          <!-- Vehicle Identity Card -->
+          <div class="widget vehicle-identity-widget" data-accent="purple">
+            <div class="widget-body">
+              <div class="vehicle-header">
+                <div class="vehicle-icon">
+                  <i class="fas fa-car"></i>
                 </div>
-                <div class="col-12 col-md-3">
-                  <button type="submit" class="btn btn-primary w-100" id="fleet-add-vehicle-btn">
-                    <i class="fas fa-plus me-1"></i> Add Vehicle
+                <div class="vehicle-title-section">
+                  <h2 class="vehicle-name" id="vehicle-name">
+--
+                  </h2>
+                  <div class="vehicle-subtitle" id="vehicle-subtitle">
+--
+                  </div>
+                </div>
+                <div class="vehicle-status-badge" id="vehicle-status-badge">
+                  <span class="badge bg-success">Active</span>
+                </div>
+              </div>
+
+              <!-- Vehicle Details Chips -->
+              <div class="vehicle-detail-chips" id="vehicle-detail-chips">
+                <div class="detail-chip">
+                  <span class="detail-chip-label">Year</span>
+                  <span class="detail-chip-value" id="vehicle-year">--</span>
+                </div>
+                <div class="detail-chip">
+                  <span class="detail-chip-label">Make</span>
+                  <span class="detail-chip-value" id="vehicle-make">--</span>
+                </div>
+                <div class="detail-chip">
+                  <span class="detail-chip-label">Model</span>
+                  <span class="detail-chip-value" id="vehicle-model">--</span>
+                </div>
+                <div class="detail-chip">
+                  <span class="detail-chip-label">VIN</span>
+                  <span class="detail-chip-value detail-chip-mono" id="vehicle-vin">--</span>
+                </div>
+                <div class="detail-chip">
+                  <span class="detail-chip-label">IMEI</span>
+                  <span class="detail-chip-value detail-chip-mono" id="vehicle-imei">--</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Odometer & Settings Row -->
+          <div class="bento-grid vehicle-lower-grid">
+
+            <!-- Odometer Widget -->
+            <div class="bento-span-7 vehicle-lower-col">
+              <div class="widget" data-accent="mint">
+                <div class="widget-header">
+                  <div>
+                    <h3 class="widget-title">
+                      <i class="fas fa-tachometer-alt" aria-hidden="true"></i>
+                        Odometer
+                    </h3>
+                  </div>
+                </div>
+                <div class="widget-body">
+                  <!-- Current Reading -->
+                  <div class="odometer-display">
+                    <div class="odometer-value-container">
+                      <span class="odometer-value" id="current-odometer">--</span>
+                      <span class="odometer-unit">mi</span>
+                    </div>
+                    <div class="odometer-meta">
+                      <span class="odometer-source" id="odometer-source">
+                        <i class="fas fa-info-circle me-1"></i>No reading yet
+                      </span>
+                      <span class="odometer-updated" id="odometer-updated"></span>
+                    </div>
+                  </div>
+
+                  <!-- Update Options -->
+                  <div class="odometer-actions">
+                    <!-- Bouncie Live -->
+                    <div class="odometer-action-row" id="bouncie-reading-section">
+                      <div class="odometer-action-info">
+                        <i class="fas fa-satellite-dish text-primary"></i>
+                        <div>
+                          <div class="odometer-action-label">
+Bouncie Live
+                          </div>
+                          <div class="odometer-action-value" id="bouncie-odometer">
+                            <span class="spinner-border spinner-border-sm" role="status"></span>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="odometer-action-btns">
+                        <button type="button"
+                                class="btn btn-sm btn-ghost"
+                                id="refresh-bouncie-btn"
+                                title="Refresh reading">
+                          <i class="fas fa-sync-alt"></i>
+                        </button>
+                        <button type="button"
+                                class="btn btn-sm btn-primary"
+                                id="use-bouncie-reading-btn"
+                                disabled>
+                            Apply
+                        </button>
+                      </div>
+                    </div>
+
+                    <!-- Manual Entry -->
+                    <div class="odometer-action-row">
+                      <div class="odometer-action-info">
+                        <i class="fas fa-pen text-secondary"></i>
+                        <div class="flex-grow-1">
+                          <div class="odometer-action-label">
+Manual Entry
+                          </div>
+                          <div class="input-group input-group-sm mt-1">
+                            <input type="number"
+                                   class="form-control"
+                                   id="manual-odometer-input"
+                                   placeholder="Odometer"
+                                   step="0.1"
+                                   min="0" />
+                            <span class="input-group-text">mi</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="odometer-action-btns odometer-action-btns--manual">
+                        <button type="button" class="btn btn-sm btn-primary" id="save-manual-odometer-btn">
+                            Save
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Settings Widget -->
+            <div class="bento-span-5 vehicle-lower-col">
+              <div class="widget" data-accent="sky">
+                <div class="widget-header">
+                  <div>
+                    <h3 class="widget-title">
+                      <i class="fas fa-sliders-h" aria-hidden="true"></i>
+                        Settings
+                    </h3>
+                  </div>
+                </div>
+                <div class="widget-body">
+                  <!-- Display Name -->
+                  <div class="setting-field">
+                    <label for="custom-name-input" class="form-label">
+Display Name
+                    </label>
+                    <input type="text"
+                           class="form-control"
+                           id="custom-name-input"
+                           placeholder="e.g. Daily Driver" />
+                    <div class="form-text">
+Shown throughout the app.
+                    </div>
+                  </div>
+
+                  <!-- Active Status -->
+                  <div class="setting-field">
+                    <div class="form-check form-switch">
+                      <input class="form-check-input" type="checkbox" id="active-status-toggle" checked />
+                      <label class="form-check-label" for="active-status-toggle">
+Vehicle is active
+                      </label>
+                    </div>
+                    <div class="form-text">
+Inactive vehicles won't sync trips.
+                    </div>
+                  </div>
+
+                  <button type="button" class="btn btn-primary w-100" id="save-settings-btn">
+                    <i class="fas fa-check me-1"></i> Save Settings
+                  </button>
+
+                  <!-- Delete (only for manually added vehicles, hidden by JS for Bouncie) -->
+                  <button type="button"
+                          class="btn btn-outline-danger w-100 mt-2"
+                          id="delete-vehicle-btn"
+                          style="display: none">
+                    <i class="fas fa-trash-alt me-1"></i> Remove Vehicle
                   </button>
                 </div>
               </div>
-              <div class="form-text mt-2">
-                Validates the IMEI against your Bouncie account and authorizes it for trip syncing.
-              </div>
-            </form>
-          </div>
-        </div>
-      </div>
 
-      <!-- Loading State -->
-      <div class="bento-span-12" id="loading-state">
-        <div class="widget" data-accent="mint">
-          <div class="widget-body text-center py-5">
-            <div class="spinner-border text-primary" role="status">
-              <span class="visually-hidden">Loading...</span>
-            </div>
-            <p class="text-muted mt-3">Loading vehicles...</p>
-          </div>
-        </div>
-      </div>
-
-      <!-- Empty State -->
-      <div class="bento-span-12" id="empty-state" style="display: none">
-        <div class="widget" data-accent="sky">
-          <div class="widget-body text-center py-5">
-            <div class="empty-icon mb-4">
-              <i class="fas fa-car-side fa-4x text-muted"></i>
-            </div>
-            <h3 class="text-muted mb-3">No Vehicles Yet</h3>
-            <p class="text-secondary mb-4">
-              Sync your vehicles from Bouncie or add one manually to get started.
-            </p>
-            <div class="d-flex gap-2 justify-content-center flex-wrap">
-              <button type="button" class="btn btn-primary" id="sync-from-empty-btn">
-                <i class="fas fa-sync me-2"></i>Sync from Bouncie
-              </button>
-              <button type="button"
-                      class="btn btn-outline-primary"
-                      data-bs-toggle="collapse"
-                      data-bs-target="#add-vehicle-collapse">
-                <i class="fas fa-plus me-2"></i>Add Manually
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Vehicle Content (hidden until loaded) -->
-      <div class="bento-span-12" id="vehicle-content" style="display: none">
-        <div class="bento-grid vehicles-layout">
-
-          <!-- Left: Vehicle List Sidebar -->
-          <div class="bento-span-4 vehicle-list-panel" id="vehicle-list-panel">
-            <div class="vehicle-list-cards" id="vehicle-list-cards">
-              <!-- Vehicle cards rendered by JS -->
-            </div>
-          </div>
-
-          <!-- Right: Vehicle Detail -->
-          <div class="bento-span-8 vehicle-detail-panel" id="vehicle-detail-panel">
-
-            <!-- Vehicle Identity Card -->
-            <div class="widget vehicle-identity-widget" data-accent="purple">
-              <div class="widget-body">
-                <div class="vehicle-header">
-                  <div class="vehicle-icon">
-                    <i class="fas fa-car"></i>
-                  </div>
-                  <div class="vehicle-title-section">
-                    <h2 class="vehicle-name" id="vehicle-name">--</h2>
-                    <div class="vehicle-subtitle" id="vehicle-subtitle">--</div>
-                  </div>
-                  <div class="vehicle-status-badge" id="vehicle-status-badge">
-                    <span class="badge bg-success">Active</span>
-                  </div>
-                </div>
-
-                <!-- Vehicle Details Chips -->
-                <div class="vehicle-detail-chips" id="vehicle-detail-chips">
-                  <div class="detail-chip">
-                    <span class="detail-chip-label">Year</span>
-                    <span class="detail-chip-value" id="vehicle-year">--</span>
-                  </div>
-                  <div class="detail-chip">
-                    <span class="detail-chip-label">Make</span>
-                    <span class="detail-chip-value" id="vehicle-make">--</span>
-                  </div>
-                  <div class="detail-chip">
-                    <span class="detail-chip-label">Model</span>
-                    <span class="detail-chip-value" id="vehicle-model">--</span>
-                  </div>
-                  <div class="detail-chip">
-                    <span class="detail-chip-label">VIN</span>
-                    <span class="detail-chip-value detail-chip-mono" id="vehicle-vin">--</span>
-                  </div>
-                  <div class="detail-chip">
-                    <span class="detail-chip-label">IMEI</span>
-                    <span class="detail-chip-value detail-chip-mono" id="vehicle-imei">--</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Odometer & Settings Row -->
-            <div class="bento-grid vehicle-lower-grid">
-
-              <!-- Odometer Widget -->
-              <div class="bento-span-7 vehicle-lower-col">
-                <div class="widget" data-accent="mint">
-                  <div class="widget-header">
-                    <div>
-                      <h3 class="widget-title">
-                        <i class="fas fa-tachometer-alt" aria-hidden="true"></i>
-                        Odometer
-                      </h3>
-                    </div>
-                  </div>
-                  <div class="widget-body">
-                    <!-- Current Reading -->
-                    <div class="odometer-display">
-                      <div class="odometer-value-container">
-                        <span class="odometer-value" id="current-odometer">--</span>
-                        <span class="odometer-unit">mi</span>
-                      </div>
-                      <div class="odometer-meta">
-                        <span class="odometer-source" id="odometer-source">
-                          <i class="fas fa-info-circle me-1"></i>No reading yet
-                        </span>
-                        <span class="odometer-updated" id="odometer-updated"></span>
-                      </div>
-                    </div>
-
-                    <!-- Update Options -->
-                    <div class="odometer-actions">
-                      <!-- Bouncie Live -->
-                      <div class="odometer-action-row" id="bouncie-reading-section">
-                        <div class="odometer-action-info">
-                          <i class="fas fa-satellite-dish text-primary"></i>
-                          <div>
-                            <div class="odometer-action-label">Bouncie Live</div>
-                            <div class="odometer-action-value" id="bouncie-odometer">
-                              <span class="spinner-border spinner-border-sm" role="status"></span>
-                            </div>
-                          </div>
-                        </div>
-                        <div class="odometer-action-btns">
-                          <button type="button"
-                                  class="btn btn-sm btn-ghost"
-                                  id="refresh-bouncie-btn"
-                                  title="Refresh reading">
-                            <i class="fas fa-sync-alt"></i>
-                          </button>
-                          <button type="button"
-                                  class="btn btn-sm btn-primary"
-                                  id="use-bouncie-reading-btn"
-                                  disabled>
-                            Apply
-                          </button>
-                        </div>
-                      </div>
-
-                      <!-- Manual Entry -->
-                      <div class="odometer-action-row">
-                        <div class="odometer-action-info">
-                          <i class="fas fa-pen text-secondary"></i>
-                          <div class="flex-grow-1">
-                            <div class="odometer-action-label">Manual Entry</div>
-                            <div class="input-group input-group-sm mt-1">
-                              <input type="number"
-                                     class="form-control"
-                                     id="manual-odometer-input"
-                                     placeholder="Odometer"
-                                     step="0.1"
-                                     min="0" />
-                              <span class="input-group-text">mi</span>
-                            </div>
-                          </div>
-                        </div>
-                        <div class="odometer-action-btns odometer-action-btns--manual">
-                          <button type="button"
-                                  class="btn btn-sm btn-primary"
-                                  id="save-manual-odometer-btn">
-                            Save
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Settings Widget -->
-              <div class="bento-span-5 vehicle-lower-col">
-                <div class="widget" data-accent="sky">
-                  <div class="widget-header">
-                    <div>
-                      <h3 class="widget-title">
-                        <i class="fas fa-sliders-h" aria-hidden="true"></i>
-                        Settings
-                      </h3>
-                    </div>
-                  </div>
-                  <div class="widget-body">
-                    <!-- Display Name -->
-                    <div class="setting-field">
-                      <label for="custom-name-input" class="form-label">Display Name</label>
-                      <input type="text"
-                             class="form-control"
-                             id="custom-name-input"
-                             placeholder="e.g. Daily Driver" />
-                      <div class="form-text">Shown throughout the app.</div>
-                    </div>
-
-                    <!-- Active Status -->
-                    <div class="setting-field">
-                      <div class="form-check form-switch">
-                        <input class="form-check-input" type="checkbox" id="active-status-toggle" checked />
-                        <label class="form-check-label" for="active-status-toggle">Vehicle is active</label>
-                      </div>
-                      <div class="form-text">Inactive vehicles won't sync trips.</div>
-                    </div>
-
-                    <button type="button" class="btn btn-primary w-100" id="save-settings-btn">
-                      <i class="fas fa-check me-1"></i> Save Settings
+              <!-- Quick Links -->
+              <div class="widget is-compact" data-accent="amber">
+                <div class="widget-body">
+                  <div class="d-grid gap-2">
+                    <button type="button" class="btn btn-outline-primary btn-sm" id="sync-vehicle-btn">
+                      <i class="fas fa-sync me-1"></i> Re-sync Vehicle
                     </button>
-
-                    <!-- Delete (only for manually added vehicles, hidden by JS for Bouncie) -->
-                    <button type="button"
-                            class="btn btn-outline-danger w-100 mt-2"
-                            id="delete-vehicle-btn"
-                            style="display: none">
-                      <i class="fas fa-trash-alt me-1"></i> Remove Vehicle
-                    </button>
-                  </div>
-                </div>
-
-                <!-- Quick Links -->
-                <div class="widget is-compact" data-accent="amber">
-                  <div class="widget-body">
-                    <div class="d-grid gap-2">
-                      <button type="button" class="btn btn-outline-primary btn-sm" id="sync-vehicle-btn">
-                        <i class="fas fa-sync me-1"></i> Re-sync Vehicle
-                      </button>
-                      <a href="/gas-tracking" class="btn btn-outline-secondary btn-sm">
-                        <i class="fas fa-gas-pump me-1"></i> Gas Tracking
-                      </a>
-                      <a href="/settings" class="btn btn-outline-secondary btn-sm" data-no-swup>
-                        <i class="fas fa-key me-1"></i> Bouncie Credentials
-                      </a>
-                    </div>
+                    <a href="/gas-tracking" class="btn btn-outline-secondary btn-sm">
+                      <i class="fas fa-gas-pump me-1"></i> Gas Tracking
+                    </a>
+                    <a href="/settings" class="btn btn-outline-secondary btn-sm" data-no-swup>
+                      <i class="fas fa-key me-1"></i> Bouncie Credentials
+                    </a>
                   </div>
                 </div>
               </div>
@@ -329,13 +357,16 @@
           </div>
         </div>
       </div>
-
-      <!-- Hidden vehicle selector for JS compat -->
-      <select class="d-none" id="vehicle-select"></select>
-
     </div>
+
+    <!-- Hidden vehicle selector for JS compat -->
+    <select class="d-none" id="vehicle-select">
+    </select>
+
   </div>
+</div>
 
 {% endblock %}
+
 
 {# Page scripts are loaded via route-loader + swup. #}

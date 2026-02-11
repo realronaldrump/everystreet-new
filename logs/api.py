@@ -157,8 +157,10 @@ async def clear_server_logs(
 
             async def _local_purge() -> None:
                 try:
-                    delete_result = await ServerLog.get_pymongo_collection().delete_many(
-                        {"timestamp": {"$lt": cutoff_date}},
+                    delete_result = (
+                        await ServerLog.get_pymongo_collection().delete_many(
+                            {"timestamp": {"$lt": cutoff_date}},
+                        )
                     )
                     local_deleted = int(getattr(delete_result, "deleted_count", 0))
                     logger.info(
@@ -181,9 +183,7 @@ async def clear_server_logs(
                     timeout=0.75,
                 )
                 purge_job_id = (
-                    getattr(job, "job_id", None)
-                    or getattr(job, "id", None)
-                    or str(job)
+                    getattr(job, "job_id", None) or getattr(job, "id", None) or str(job)
                 )
             except Exception as exc:
                 logger.warning(
@@ -201,7 +201,11 @@ async def clear_server_logs(
             return {
                 "message": (
                     "Server logs cleared (hidden immediately). "
-                    + ("Background purge scheduled." if purge_job_id else "Purging in background.")
+                    + (
+                        "Background purge scheduled."
+                        if purge_job_id
+                        else "Purging in background."
+                    )
                 ),
                 "deleted_count": 0,
                 "filter": delete_filter,
@@ -270,8 +274,8 @@ async def get_logs_stats() -> dict[str, Any]:
 
         pipeline.extend(
             [
-            {"$group": {"_id": "$level", "count": {"$sum": 1}}},
-            {"$sort": {"_id": 1}},
+                {"$group": {"_id": "$level", "count": {"$sum": 1}}},
+                {"$sort": {"_id": 1}},
             ]
         )
         level_counts = await aggregate_to_list(ServerLog, pipeline)

@@ -23,7 +23,12 @@ import { utils } from "./utils.js";
 const INTERACTIVE_TRIP_LAYERS = new Set(["trips", "matchedTrips"]);
 
 const isVectorLayerData = (data) =>
-  Boolean(data && typeof data === "object" && data.kind === "vector" && Array.isArray(data.tiles));
+  Boolean(
+    data &&
+      typeof data === "object" &&
+      data.kind === "vector" &&
+      Array.isArray(data.tiles)
+  );
 
 // Animation constants
 const FADE_DURATION = 320;
@@ -281,10 +286,10 @@ const layerManager = {
       div.style.cursor = "move";
 
       const checkboxId = `${name}-toggle`;
-      const supportsColorPicker
-        = info.supportsColorPicker !== false && name !== "customPlaces";
-      const supportsOpacitySlider
-        = info.supportsOpacitySlider !== false && name !== "customPlaces";
+      const supportsColorPicker =
+        info.supportsColorPicker !== false && name !== "customPlaces";
+      const supportsOpacitySlider =
+        info.supportsOpacitySlider !== false && name !== "customPlaces";
       const colorValue = typeof info.color === "string" ? info.color : "#faf9f7";
 
       const controls = [];
@@ -366,11 +371,11 @@ const layerManager = {
       const { target } = e;
       // Prevent drag on interactive elements
       if (
-        target.tagName === "INPUT"
-        || target.tagName === "LABEL"
-        || target.closest("input")
-        || target.closest("label")
-        || target.closest("button")
+        target.tagName === "INPUT" ||
+        target.tagName === "LABEL" ||
+        target.closest("input") ||
+        target.closest("label") ||
+        target.closest("button")
       ) {
         e.preventDefault();
         return;
@@ -763,11 +768,11 @@ const layerManager = {
 
     const uniqueTrips = new Set();
     rendered.forEach((feature, index) => {
-      const id
-        = feature.properties?.transactionId
-        ?? feature.properties?.id
-        ?? feature.id
-        ?? `rendered-${index}`;
+      const id =
+        feature.properties?.transactionId ??
+        feature.properties?.id ??
+        feature.id ??
+        `rendered-${index}`;
       uniqueTrips.add(String(id));
     });
 
@@ -786,8 +791,8 @@ const layerManager = {
 
     const firstGlowLayerId = `${layerName}-layer-0`;
     const secondGlowLayerId = `${layerName}-layer-1`;
-    const missingGlowLayers
-      = !store.map.getLayer(firstGlowLayerId) || !store.map.getLayer(secondGlowLayerId);
+    const missingGlowLayers =
+      !store.map.getLayer(firstGlowLayerId) || !store.map.getLayer(secondGlowLayerId);
 
     if (missingGlowLayers) {
       if (!store.map.isStyleLoaded()) {
@@ -818,9 +823,9 @@ const layerManager = {
     const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
     const vectorMeta = isVectorLayerData(layerInfo.layer) ? layerInfo.layer : null;
     const totalTripCount = vectorMeta
-      ? (Number.isFinite(vectorMeta.tripCountHint)
-          ? vectorMeta.tripCountHint
-          : store.tripTotals?.totalTrips || 0)
+      ? Number.isFinite(vectorMeta.tripCountHint)
+        ? vectorMeta.tripCountHint
+        : store.tripTotals?.totalTrips || 0
       : layerInfo.layer?.features?.length || 0;
     const visibleTripCount = this._getHeatmapTripCountInView(layerName, totalTripCount);
 
@@ -1174,9 +1179,9 @@ const layerManager = {
     const vectorMeta = isVectorLayerData(data) ? data : null;
 
     const totalTripCount = vectorMeta
-      ? (Number.isFinite(vectorMeta.tripCountHint)
-          ? vectorMeta.tripCountHint
-          : store.tripTotals?.totalTrips || 0)
+      ? Number.isFinite(vectorMeta.tripCountHint)
+        ? vectorMeta.tripCountHint
+        : store.tripTotals?.totalTrips || 0
       : data?.features?.length || 0;
     const visibleTripCount = this._getHeatmapTripCountInView(layerName, totalTripCount);
 
@@ -1196,21 +1201,37 @@ const layerManager = {
       const tilesKey = vectorMeta.tiles.join("|");
 
       // Fast path: keep existing vector source when tile template is unchanged.
-      if (existingSource && existingGlowLayer && layerInfo._vectorTilesKey === tilesKey) {
+      if (
+        existingSource &&
+        existingGlowLayer &&
+        layerInfo._vectorTilesKey === tilesKey
+      ) {
         glowLayers.forEach((glowConfig, index) => {
           const glowLayerId = `${layerName}-layer-${index}`;
           if (!store.map.getLayer(glowLayerId)) {
             return;
           }
-          store.map.setPaintProperty(glowLayerId, "line-color", glowConfig.paint["line-color"]);
-          store.map.setPaintProperty(glowLayerId, "line-width", glowConfig.paint["line-width"]);
+          store.map.setPaintProperty(
+            glowLayerId,
+            "line-color",
+            glowConfig.paint["line-color"]
+          );
+          store.map.setPaintProperty(
+            glowLayerId,
+            "line-width",
+            glowConfig.paint["line-width"]
+          );
           store.map.setPaintProperty(
             glowLayerId,
             "line-opacity",
             glowConfig.paint["line-opacity"]
           );
           if (glowConfig.paint["line-blur"] !== undefined) {
-            store.map.setPaintProperty(glowLayerId, "line-blur", glowConfig.paint["line-blur"]);
+            store.map.setPaintProperty(
+              glowLayerId,
+              "line-blur",
+              glowConfig.paint["line-blur"]
+            );
           }
           store.map.setLayoutProperty(
             glowLayerId,
@@ -1259,7 +1280,9 @@ const layerManager = {
           id: glowLayerId,
           type: "line",
           source: sourceId,
-          ...(vectorMeta?.sourceLayer ? { "source-layer": vectorMeta.sourceLayer } : {}),
+          ...(vectorMeta?.sourceLayer
+            ? { "source-layer": vectorMeta.sourceLayer }
+            : {}),
           minzoom: layerInfo.minzoom || 0,
           maxzoom: layerInfo.maxzoom || 22,
           layout: {
@@ -1280,7 +1303,11 @@ const layerManager = {
 
     // GeoJSON heatmaps (legacy)
     // Fast path: update existing source and layer paint properties
-    if (existingSource && existingGlowLayer && typeof existingSource.setData === "function") {
+    if (
+      existingSource &&
+      existingGlowLayer &&
+      typeof existingSource.setData === "function"
+    ) {
       try {
         existingSource.setData(data);
 

@@ -192,8 +192,16 @@ async def test_backfill_sets_first_last_and_driven_by_trip_id(coverage_db) -> No
 
     t1 = datetime(2025, 1, 1, tzinfo=UTC)
     t2 = datetime(2025, 1, 2, tzinfo=UTC)
-    trip1 = Trip(transactionId="trip-1", endTime=t1, gps={"type": "LineString", "coordinates": [[-97.0, 31.0], [-97.0, 31.001]]})
-    trip2 = Trip(transactionId="trip-2", endTime=t2, gps={"type": "LineString", "coordinates": [[-97.0, 31.0], [-97.0, 31.001]]})
+    trip1 = Trip(
+        transactionId="trip-1",
+        endTime=t1,
+        gps={"type": "LineString", "coordinates": [[-97.0, 31.0], [-97.0, 31.001]]},
+    )
+    trip2 = Trip(
+        transactionId="trip-2",
+        endTime=t2,
+        gps={"type": "LineString", "coordinates": [[-97.0, 31.0], [-97.0, 31.001]]},
+    )
     await trip1.insert()
     await trip2.insert()
     assert trip1.id is not None
@@ -220,9 +228,12 @@ async def test_backfill_sets_first_last_and_driven_by_trip_id(coverage_db) -> No
     assert state.driven_by_trip_id == trip2.id
 
     assert payloads
-    assert {"processed_trips", "total_trips", "matched_trips", "segments_updated"} <= set(
-        payloads[-1].keys()
-    )
+    assert {
+        "processed_trips",
+        "total_trips",
+        "matched_trips",
+        "segments_updated",
+    } <= set(payloads[-1].keys())
     assert payloads[-1]["processed_trips"] == 2
     assert payloads[-1]["matched_trips"] == 2
 
@@ -277,7 +288,9 @@ async def test_backfill_uses_raw_gps_not_matched_gps(coverage_db) -> None:
 
 
 @pytest.mark.asyncio
-async def test_ingestion_pipeline_respects_cancelled_job(coverage_db, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_ingestion_pipeline_respects_cancelled_job(
+    coverage_db, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     area = CoverageArea(
         display_name="Cancelled Ingestion Area",
         status="initializing",

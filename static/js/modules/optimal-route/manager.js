@@ -1,8 +1,8 @@
+import { swupReady } from "../core/navigation.js";
 import { OptimalRouteAPI } from "./api.js";
 import { OPTIMAL_ROUTES_DEFAULTS } from "./constants.js";
 import { OptimalRouteMap } from "./map.js";
 import { OptimalRouteUI } from "./ui.js";
-import { swupReady } from "../core/navigation.js";
 
 export class OptimalRoutesManager {
   constructor(options = {}) {
@@ -332,8 +332,8 @@ export class OptimalRoutesManager {
 
     // Load streets
     try {
-      const { drivenFeatures, undrivenFeatures }
-        = await this.api.loadStreetNetwork(nextAreaId);
+      const { drivenFeatures, undrivenFeatures } =
+        await this.api.loadStreetNetwork(nextAreaId);
       this.map.updateStreets(drivenFeatures, undrivenFeatures);
     } catch {
       // already logged in api
@@ -482,10 +482,9 @@ export class OptimalRoutesManager {
     }
     window.localStorage.setItem("turnByTurnAreaId", this.selectedAreaId);
     const href = `/turn-by-turn?areaId=${encodeURIComponent(this.selectedAreaId)}`;
-    swupReady
-      .then((swup) => {
-        swup.navigate(href);
-      });
+    swupReady.then((swup) => {
+      swup.navigate(href);
+    });
   }
 
   exportGPX() {

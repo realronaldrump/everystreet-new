@@ -23,7 +23,7 @@ export async function fetchCountyTopology() {
  * Fetch visited counties data
  * @returns {Promise<Object>} Visited counties response
  */
-export async function fetchVisitedCounties() {
+export function fetchVisitedCounties() {
   return apiClient.get("/api/counties/visited");
 }
 
@@ -31,7 +31,7 @@ export async function fetchVisitedCounties() {
  * Trigger county recalculation
  * @returns {Promise<Object>} Recalculation response
  */
-export async function triggerRecalculation() {
+export function triggerRecalculation() {
   return apiClient.post("/api/counties/recalculate");
 }
 
@@ -39,6 +39,6 @@ export async function triggerRecalculation() {
  * Check county cache status
  * @returns {Promise<Object>} Cache status response
  */
-export async function fetchCacheStatus() {
+export function fetchCacheStatus() {
   return apiClient.get("/api/counties/cache-status");
 }

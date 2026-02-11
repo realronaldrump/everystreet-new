@@ -240,10 +240,12 @@ async def fetch_bouncie_trips_in_range(
                             do_map_match,
                         )
                         try:
-                            processed_transaction_ids = await trip_service.process_bouncie_trips(
-                                raw_trips_chunk,
-                                do_map_match=do_map_match,
-                                progress_tracker=progress_tracker,
+                            processed_transaction_ids = (
+                                await trip_service.process_bouncie_trips(
+                                    raw_trips_chunk,
+                                    do_map_match=do_map_match,
+                                    progress_tracker=progress_tracker,
+                                )
                             )
                         except Exception as exc:
                             logger.exception(

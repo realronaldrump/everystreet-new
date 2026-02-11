@@ -8,6 +8,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+
 def is_docker_unavailable_error(error_text: str) -> bool:
     lowered = (error_text or "").lower()
     return any(
@@ -32,7 +33,9 @@ async def run_docker(
     if kwargs:
         if set(kwargs) != {"timeout"}:
             unexpected = ", ".join(sorted(kwargs))
-            raise TypeError(f"run_docker() got unexpected keyword arguments: {unexpected}")
+            raise TypeError(
+                f"run_docker() got unexpected keyword arguments: {unexpected}"
+            )
         timeout_seconds = float(kwargs["timeout"])
 
     try:

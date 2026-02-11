@@ -39,4 +39,3 @@ def test_solver_teleports_between_disconnected_components_and_counts_it() -> Non
     assert stats["total_distance"] == 30.0
     assert stats["teleports"] == 1.0
     assert stats["skipped_disconnected"] == 0.0
-

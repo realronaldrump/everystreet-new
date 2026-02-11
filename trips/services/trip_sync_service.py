@@ -46,8 +46,12 @@ _PERIODIC_FETCH_TIMEOUT_SECONDS = int(
 # "stuck for months" rows.
 _SYNC_STALE_AFTER_SECONDS_BY_TASK_ID: dict[str, int] = {
     "periodic_fetch_trips": (_PERIODIC_FETCH_TIMEOUT_SECONDS * 2) + 60,
-    "manual_fetch_trips_range": int(os.getenv("TRIP_SYNC_STALE_RANGE_SECONDS", str(6 * 60 * 60))),
-    "fetch_all_missing_trips": int(os.getenv("TRIP_SYNC_STALE_HISTORY_SECONDS", str(72 * 60 * 60))),
+    "manual_fetch_trips_range": int(
+        os.getenv("TRIP_SYNC_STALE_RANGE_SECONDS", str(6 * 60 * 60))
+    ),
+    "fetch_all_missing_trips": int(
+        os.getenv("TRIP_SYNC_STALE_HISTORY_SECONDS", str(72 * 60 * 60))
+    ),
 }
 _SYNC_STALE_DEFAULT_SECONDS = int(
     os.getenv("TRIP_SYNC_STALE_DEFAULT_SECONDS", str(6 * 60 * 60)),
@@ -337,11 +341,7 @@ class TripSyncService:
 
         # Link wizard UI to the authoritative progress job when present.
         progress_job = None
-        if (
-            active
-            and active.task_id == "fetch_all_missing_trips"
-            and active.id
-        ):
+        if active and active.task_id == "fetch_all_missing_trips" and active.id:
             try:
                 progress_job = await Job.find_one(
                     {
@@ -567,7 +567,10 @@ class TripSyncService:
         if request.mode == "history":
             active = (
                 await Job.find(
-                    {"job_type": "trip_history_import", "status": {"$in": ["pending", "running"]}},
+                    {
+                        "job_type": "trip_history_import",
+                        "status": {"$in": ["pending", "running"]},
+                    },
                 )
                 .sort("-created_at")
                 .first_or_none()

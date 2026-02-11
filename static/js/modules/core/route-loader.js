@@ -1,7 +1,9 @@
 const loadedRoutes = new Set();
 
 function getStaticVersion() {
-  const script = document.querySelector('script[type="module"][src*="/static/js/app.js"]');
+  const script = document.querySelector(
+    'script[type="module"][src*="/static/js/app.js"]'
+  );
   if (!script?.src) {
     return "";
   }

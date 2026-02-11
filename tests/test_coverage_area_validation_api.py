@@ -130,10 +130,13 @@ def test_resolve_area_rejects_invalid_geometry() -> None:
 def test_add_area_fails_fast_on_invalid_location() -> None:
     app = _create_app()
 
-    with patch(
-        "street_coverage.api.areas._fetch_boundary",
-        new=AsyncMock(side_effect=ValueError("Location not found: Nowhere")),
-    ), patch("street_coverage.api.areas.create_area", new=AsyncMock()) as create_area:
+    with (
+        patch(
+            "street_coverage.api.areas._fetch_boundary",
+            new=AsyncMock(side_effect=ValueError("Location not found: Nowhere")),
+        ),
+        patch("street_coverage.api.areas.create_area", new=AsyncMock()) as create_area,
+    ):
         client = TestClient(app)
         response = client.post(
             "/api/coverage/areas",

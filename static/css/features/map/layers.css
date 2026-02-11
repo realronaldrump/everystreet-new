@@ -21,7 +21,9 @@
 .trip-path.selected,
 .trip-feature-selected {
   /* stroke-width: further increased by JS */
-  filter: drop-shadow(0 0 6px var(--primary)); /* Use primary color for selection glow */
+  filter: drop-shadow(
+    0 0 6px var(--primary)
+  ); /* Use primary color for selection glow */
 }
 
 .recent-trip,
@@ -37,5 +39,7 @@
 }
 
 .undriven-street-feature:hover {
-  filter: drop-shadow(0 0 5px rgb(var(--info-rgb) / 80%)); /* Info color for undriven hover */
+  filter: drop-shadow(
+    0 0 5px rgb(var(--info-rgb) / 80%)
+  ); /* Info color for undriven hover */
 }

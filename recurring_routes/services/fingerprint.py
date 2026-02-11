@@ -25,7 +25,11 @@ def lonlat_to_mercator_m(lon: float, lat: float) -> tuple[float, float]:
     lat_clamped = max(-_MAX_MERCATOR_LAT, min(_MAX_MERCATOR_LAT, float(lat)))
     lon_f = float(lon)
     x = lon_f * _ORIGIN_SHIFT_M / 180.0
-    y = math.log(math.tan((90.0 + lat_clamped) * math.pi / 360.0)) * _ORIGIN_SHIFT_M / math.pi
+    y = (
+        math.log(math.tan((90.0 + lat_clamped) * math.pi / 360.0))
+        * _ORIGIN_SHIFT_M
+        / math.pi
+    )
     return x, y
 
 
@@ -67,7 +71,9 @@ def _extract_geojson_coords(geometry: dict[str, Any] | None) -> list[list[float]
 
 def extract_polyline(trip: dict[str, Any]) -> list[list[float]]:
     """Extract a [lon, lat] polyline from a trip in a stable priority order."""
-    geom = GeometryService.parse_geojson(trip.get("matchedGps")) or GeometryService.parse_geojson(
+    geom = GeometryService.parse_geojson(
+        trip.get("matchedGps")
+    ) or GeometryService.parse_geojson(
         trip.get("gps"),
     )
     coords = _extract_geojson_coords(geom) if geom else []
@@ -88,7 +94,9 @@ def extract_polyline(trip: dict[str, Any]) -> list[list[float]]:
                 continue
             pairs.append([lon, lat])
 
-        geom2 = GeometryService.geometry_from_coordinate_pairs(pairs, allow_point=False, dedupe=True, validate=True)
+        geom2 = GeometryService.geometry_from_coordinate_pairs(
+            pairs, allow_point=False, dedupe=True, validate=True
+        )
         coords2 = _extract_geojson_coords(geom2) if geom2 else []
         if len(coords2) >= 2:
             return coords2
@@ -112,7 +120,9 @@ def _cumulative_distances_m(points: list[list[float]]) -> tuple[list[float], flo
     return distances, total
 
 
-def sample_waypoints(points: list[list[float]], waypoint_count: int = 4) -> list[list[float]]:
+def sample_waypoints(
+    points: list[list[float]], waypoint_count: int = 4
+) -> list[list[float]]:
     """Sample waypoints at 20/40/60/80% (for count=4) of polyline distance."""
     if len(points) < 2:
         return []
@@ -204,7 +214,11 @@ def compute_route_signature(trip: dict[str, Any], params: dict[str, Any]) -> str
     if dist_miles < 0:
         dist_miles = 0.0
 
-    bucket = round(dist_miles / bucket_miles) * bucket_miles if bucket_miles > 0 else dist_miles
+    bucket = (
+        round(dist_miles / bucket_miles) * bucket_miles
+        if bucket_miles > 0
+        else dist_miles
+    )
 
     wp_part = ",".join(f"{cx}:{cy}" for cx, cy in waypoint_cells)
     sig = (
@@ -302,4 +316,3 @@ def extract_display_label(value: Any) -> str | None:
             if parts:
                 return ", ".join(parts)
     return None
-

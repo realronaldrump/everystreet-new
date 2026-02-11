@@ -103,16 +103,16 @@ export function setStorage(key, value) {
       store.setLegacy(key, value, { source: "utils" });
       return true;
     }
-    const stringValue
-      = typeof value === "object" ? JSON.stringify(value) : String(value);
+    const stringValue =
+      typeof value === "object" ? JSON.stringify(value) : String(value);
     localStorage.setItem(key, stringValue);
     return true;
   } catch (e) {
     console.warn("Storage error:", e);
     clearOldCache();
     try {
-      const stringValue
-        = typeof value === "object" ? JSON.stringify(value) : String(value);
+      const stringValue =
+        typeof value === "object" ? JSON.stringify(value) : String(value);
       localStorage.setItem(key, stringValue);
       return true;
     } catch {
@@ -229,22 +229,22 @@ export function getDeviceProfile() {
     return _deviceProfile;
   }
 
-  const hasTouch
-    = typeof window !== "undefined"
-    && ("ontouchstart" in window || navigator.maxTouchPoints > 1);
-  const smallViewport
-    = typeof window !== "undefined"
-    && typeof window.matchMedia === "function"
-    && window.matchMedia("(max-width: 820px)").matches;
-  const deviceMemory
-    = typeof navigator !== "undefined" && "deviceMemory" in navigator
+  const hasTouch =
+    typeof window !== "undefined" &&
+    ("ontouchstart" in window || navigator.maxTouchPoints > 1);
+  const smallViewport =
+    typeof window !== "undefined" &&
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(max-width: 820px)").matches;
+  const deviceMemory =
+    typeof navigator !== "undefined" && "deviceMemory" in navigator
       ? navigator.deviceMemory
       : null;
   const lowMemory = Number.isFinite(deviceMemory) && deviceMemory <= 4;
-  const saveData
-    = typeof navigator !== "undefined"
-    && navigator.connection
-    && navigator.connection.saveData === true;
+  const saveData =
+    typeof navigator !== "undefined" &&
+    navigator.connection &&
+    navigator.connection.saveData === true;
 
   _deviceProfile = {
     isMobile: Boolean(hasTouch || smallViewport),
@@ -293,9 +293,9 @@ export function handleError(error, context = "", level = "error", onComplete = n
     let userMessage = `Error in ${context}: ${errorObj.message}`;
 
     if (
-      errorObj.name === "NetworkError"
-      || errorObj.message.includes("fetch")
-      || errorObj.message.includes("network")
+      errorObj.name === "NetworkError" ||
+      errorObj.message.includes("fetch") ||
+      errorObj.message.includes("network")
     ) {
       userMessage = "Network error: Please check your connection and try again.";
     } else if (errorObj.message.includes("timeout")) {

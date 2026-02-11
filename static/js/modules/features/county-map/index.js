@@ -4,6 +4,7 @@
  * Main entry point for the county map feature
  */
 
+import { swupReady } from "../../core/navigation.js";
 import * as CountyMapAPI from "../../county-map/api.js";
 import { getStateName, MAP_CONFIG } from "../../county-map/constants.js";
 import { setupInteractions } from "../../county-map/interactions.js";
@@ -19,7 +20,6 @@ import {
   getStoredRecalcState,
   storeRecalcState,
 } from "../../county-map/storage.js";
-import { swupReady } from "../../core/navigation.js";
 import {
   hideLoading,
   setupPanelToggle,
@@ -106,6 +106,8 @@ export default function initCountyMapPage({ cleanup, signal } = {}) {
   setupStateStatsToggle();
   setupStopToggle(pageSignal);
   resumeRecalculateIfNeeded();
+
+  return teardown;
 }
 
 /**
@@ -144,8 +146,8 @@ async function loadVisitedCounties() {
     const countyData = CountyMapState.getCountyData();
 
     const hasVisits = data.counties && Object.keys(data.counties).length > 0;
-    const hasStops
-      = data.stoppedCounties && Object.keys(data.stoppedCounties).length > 0;
+    const hasStops =
+      data.stoppedCounties && Object.keys(data.stoppedCounties).length > 0;
 
     if (data.success && (hasVisits || hasStops)) {
       // Store county visits data (includes dates)
@@ -172,9 +174,9 @@ async function loadVisitedCounties() {
         updateLastUpdated(data.lastUpdated);
 
         if (
-          recalcState
-          && lastUpdated > recalcState.startedAt
-          && CountyMapState.getIsRecalculating()
+          recalcState &&
+          lastUpdated > recalcState.startedAt &&
+          CountyMapState.getIsRecalculating()
         ) {
           clearRecalcState();
         }
@@ -267,21 +269,20 @@ async function checkAndRefresh(startedAt) {
     const data = await CountyMapAPI.fetchCacheStatus();
 
     const lastUpdated = data.lastUpdated ? new Date(data.lastUpdated) : null;
-    const isUpdated
-      = data.cached
-      && (startedAt
+    const isUpdated =
+      data.cached &&
+      (startedAt
         ? lastUpdated && lastUpdated > startedAt
         : data.totalVisited > 0 || data.totalStopped > 0);
 
     if (isUpdated) {
       clearRecalcState();
-      swupReady
-        .then((swup) => {
-          swup.navigate(window.location.href, {
-            cache: { read: false, write: true },
-            history: "replace",
-          });
+      swupReady.then((swup) => {
+        swup.navigate(window.location.href, {
+          cache: { read: false, write: true },
+          history: "replace",
         });
+      });
       return;
     }
 

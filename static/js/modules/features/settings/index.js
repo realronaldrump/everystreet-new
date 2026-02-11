@@ -25,13 +25,13 @@ import {
   setupRemapMatchedTrips,
 } from "./geocode-remap.js";
 import { InvalidTripReview } from "./invalid-trip-review.js";
-import { TripIngestIssues } from "./trip-ingest-issues.js";
 import mapServices from "./map-services.js";
 import { initMobileUI } from "./mobile-ui.js";
 import { gatherTaskConfigFromUI, submitTaskConfigUpdate } from "./task-manager/api.js";
 import { showTaskDetails } from "./task-manager/modals.js";
 import { TaskManager } from "./task-manager/task-manager.js";
 import { initTripHistoryImportWizard } from "./trip-history-import-wizard.js";
+import { TripIngestIssues } from "./trip-ingest-issues.js";
 
 let taskManager = null;
 const SETTINGS_MODAL_IDS = [
@@ -184,7 +184,7 @@ function setupTripSyncSettings(signal) {
 /**
  * Setup task configuration event listeners (buttons, checkboxes, etc.)
  */
-function setupTaskConfigEventListeners(taskManager, signal) {
+function setupTaskConfigEventListeners(taskMgr, signal) {
   const eventOptions = signal ? { signal } : false;
   const saveTaskConfigBtn = document.getElementById("saveTaskConfigBtn");
   const confirmPauseBtn = document.getElementById("confirmPause");
@@ -210,7 +210,7 @@ function setupTaskConfigEventListeners(taskManager, signal) {
               "Task configuration updated successfully",
               "success"
             );
-            taskManager.loadTaskConfig();
+            taskMgr.loadTaskConfig();
           })
           .catch((error) => {
             notificationManager.show(
@@ -510,7 +510,7 @@ function setupTaskConfigEventListeners(taskManager, signal) {
         async (e) => {
           const { taskId } = e.target.dataset;
           if (taskId) {
-            await taskManager.runTask(taskId);
+            await taskMgr.runTask(taskId);
             bootstrap.Modal.getInstance(taskDetailsModal).hide();
           }
         },
@@ -575,4 +575,6 @@ export default function initSettingsPage({ cleanup, signal } = {}) {
   } else {
     return teardown;
   }
+
+  return teardown;
 }

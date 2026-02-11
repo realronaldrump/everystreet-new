@@ -6,7 +6,9 @@ from shapely.geometry import box
 import street_coverage.preprocessing as preprocess_module
 
 
-def test_extract_required_without_osmium(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_extract_required_without_osmium(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     source_path = tmp_path / "large.osm.pbf"
     source_path.write_bytes(b"0" * (2 * 1024 * 1024))
 
@@ -39,7 +41,9 @@ def test_build_graph_with_limit_uses_subprocess(
     def fake_subprocess(_osm_path, _routing_polygon, _graph_path, _max_mb):
         called["value"] = True
 
-    monkeypatch.setattr(preprocess_module, "_build_graph_in_subprocess", fake_subprocess)
+    monkeypatch.setattr(
+        preprocess_module, "_build_graph_in_subprocess", fake_subprocess
+    )
 
     preprocess_module._build_graph_with_limit(
         Path("dummy.osm"),

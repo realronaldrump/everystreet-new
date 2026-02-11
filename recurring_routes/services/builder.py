@@ -83,8 +83,12 @@ def _best_label(counter: Counter[str]) -> str:
     return value or "Unknown"
 
 
-def _extract_representative_geometry(trip_dict: dict[str, Any]) -> dict[str, Any] | None:
-    geom = GeometryService.parse_geojson(trip_dict.get("matchedGps")) or GeometryService.parse_geojson(
+def _extract_representative_geometry(
+    trip_dict: dict[str, Any],
+) -> dict[str, Any] | None:
+    geom = GeometryService.parse_geojson(
+        trip_dict.get("matchedGps")
+    ) or GeometryService.parse_geojson(
         trip_dict.get("gps"),
     )
     if geom:
@@ -113,7 +117,9 @@ def _extract_representative_geometry(trip_dict: dict[str, Any]) -> dict[str, Any
     return None
 
 
-def _extract_start_end_points(trip_dict: dict[str, Any]) -> tuple[list[float] | None, list[float] | None]:
+def _extract_start_end_points(
+    trip_dict: dict[str, Any],
+) -> tuple[list[float] | None, list[float] | None]:
     start_geo = trip_dict.get("startGeoPoint")
     dest_geo = trip_dict.get("destinationGeoPoint")
     start_pt = None
@@ -187,7 +193,9 @@ class RecurringRoutesBuilder:
         )
         return progress_handle.job
 
-    async def run(self, job_id: str, request: BuildRecurringRoutesRequest) -> dict[str, Any]:
+    async def run(
+        self, job_id: str, request: BuildRecurringRoutesRequest
+    ) -> dict[str, Any]:
         params = request.model_dump()
         now = datetime.now(UTC)
 
@@ -235,7 +243,11 @@ class RecurringRoutesBuilder:
                         message="Cancelled",
                         completed_at=datetime.now(UTC),
                     )
-                    return {"status": "cancelled", "processed": processed, "usable": usable}
+                    return {
+                        "status": "cancelled",
+                        "processed": processed,
+                        "usable": usable,
+                    }
 
                 trip_dict = trip.model_dump()
                 signature = compute_route_signature(trip_dict, params)
@@ -322,7 +334,11 @@ class RecurringRoutesBuilder:
                 max_speed = trip_dict.get("maxSpeed")
                 if isinstance(max_speed, int | float) and max_speed >= 0:
                     prev = group.get("max_speed_max")
-                    group["max_speed_max"] = float(max_speed) if prev is None else max(prev, float(max_speed))
+                    group["max_speed_max"] = (
+                        float(max_speed)
+                        if prev is None
+                        else max(prev, float(max_speed))
+                    )
 
                 trip_cost = TripCostService.calculate_trip_cost(trip_dict, price_map)
                 if isinstance(trip_cost, int | float) and trip_cost > 0:
@@ -330,9 +346,15 @@ class RecurringRoutesBuilder:
 
                 st = trip_dict.get("startTime")
                 if isinstance(st, datetime):
-                    if group["first_start_time"] is None or st < group["first_start_time"]:
+                    if (
+                        group["first_start_time"] is None
+                        or st < group["first_start_time"]
+                    ):
                         group["first_start_time"] = st
-                    if group["last_start_time"] is None or st > group["last_start_time"]:
+                    if (
+                        group["last_start_time"] is None
+                        or st > group["last_start_time"]
+                    ):
                         group["last_start_time"] = st
 
                 # Representative trip: most recent trip with a usable geometry.
@@ -350,7 +372,10 @@ class RecurringRoutesBuilder:
                     await handle.update(
                         progress=pct,
                         message=f"Fingerprinting trips... ({processed}/{total_trips})",
-                        metadata_patch={"processed_trips": processed, "usable_trips": usable},
+                        metadata_patch={
+                            "processed_trips": processed,
+                            "usable_trips": usable,
+                        },
                     )
 
             await handle.update(
@@ -363,7 +388,11 @@ class RecurringRoutesBuilder:
             min_assign = max(1, int(params.get("min_assign_trips") or 2))
             min_recurring = max(1, int(params.get("min_recurring_trips") or 3))
 
-            eligible_keys = [k for k, g in groups.items() if len(g.get("trip_ids") or []) >= min_assign]
+            eligible_keys = [
+                k
+                for k, g in groups.items()
+                if len(g.get("trip_ids") or []) >= min_assign
+            ]
 
             await handle.update(
                 stage="upserting_routes",
@@ -373,7 +402,9 @@ class RecurringRoutesBuilder:
             )
 
             existing_routes = (
-                await RecurringRoute.find(In(RecurringRoute.route_key, eligible_keys)).to_list()
+                await RecurringRoute.find(
+                    In(RecurringRoute.route_key, eligible_keys)
+                ).to_list()
                 if eligible_keys
                 else []
             )
@@ -394,7 +425,11 @@ class RecurringRoutesBuilder:
                         message="Cancelled",
                         completed_at=datetime.now(UTC),
                     )
-                    return {"status": "cancelled", "processed": processed, "usable": usable}
+                    return {
+                        "status": "cancelled",
+                        "processed": processed,
+                        "usable": usable,
+                    }
 
                 group = groups[key]
                 trip_ids: list[str] = list(group.get("trip_ids") or [])
@@ -426,15 +461,21 @@ class RecurringRoutesBuilder:
                 cost_avg = _avg(group.get("costs") or [])
                 max_speed_max = group.get("max_speed_max")
 
-                rep_trip_id = group.get("rep_trip_id") or (trip_ids[-1] if trip_ids else None)
+                rep_trip_id = group.get("rep_trip_id") or (
+                    trip_ids[-1] if trip_ids else None
+                )
                 rep_geom = group.get("rep_geometry")
                 preview = group.get("rep_preview")
 
                 route = existing_by_key.get(key)
                 if route:
                     # Preserve customization fields across rebuilds
-                    route.route_signature = str(group.get("route_signature") or route.route_signature)
-                    route.algorithm_version = int(params.get("algorithm_version") or route.algorithm_version or 1)
+                    route.route_signature = str(
+                        group.get("route_signature") or route.route_signature
+                    )
+                    route.algorithm_version = int(
+                        params.get("algorithm_version") or route.algorithm_version or 1
+                    )
                     route.params = params
                     route.auto_name = auto_name
                     route.start_label = start_label
@@ -452,7 +493,11 @@ class RecurringRoutesBuilder:
                     route.duration_sec_avg = dur_avg
                     route.fuel_gal_avg = fuel_avg
                     route.cost_usd_avg = cost_avg
-                    route.max_speed_mph_max = safe_float(max_speed_max, None) if max_speed_max is not None else None
+                    route.max_speed_mph_max = (
+                        safe_float(max_speed_max, None)
+                        if max_speed_max is not None
+                        else None
+                    )
                     route.representative_trip_id = rep_trip_id
                     route.geometry = rep_geom
                     route.preview_svg_path = preview
@@ -483,7 +528,9 @@ class RecurringRoutesBuilder:
                         duration_sec_avg=dur_avg,
                         fuel_gal_avg=fuel_avg,
                         cost_usd_avg=cost_avg,
-                        max_speed_mph_max=safe_float(max_speed_max, None) if max_speed_max is not None else None,
+                        max_speed_mph_max=safe_float(max_speed_max, None)
+                        if max_speed_max is not None
+                        else None,
                         representative_trip_id=rep_trip_id,
                         geometry=rep_geom,
                         preview_svg_path=preview,
@@ -503,7 +550,10 @@ class RecurringRoutesBuilder:
                     await handle.update(
                         progress=pct,
                         message=f"Upserting routes... ({idx}/{len(eligible_keys)})",
-                        metadata_patch={"routes_created": created, "routes_updated": updated},
+                        metadata_patch={
+                            "routes_created": created,
+                            "routes_updated": updated,
+                        },
                     )
 
             # Deactivate routes not seen in this run.
@@ -542,7 +592,11 @@ class RecurringRoutesBuilder:
                         message="Cancelled",
                         completed_at=datetime.now(UTC),
                     )
-                    return {"status": "cancelled", "processed": processed, "usable": usable}
+                    return {
+                        "status": "cancelled",
+                        "processed": processed,
+                        "usable": usable,
+                    }
 
                 route_id = route_id_by_key.get(key)
                 if not route_id:

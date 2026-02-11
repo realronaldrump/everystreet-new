@@ -1,10 +1,9 @@
-/* global mapboxgl */
 /* Visits Page Redesign - Main Controller
  * Integrates with real API endpoints and uses imperial units
  */
 
-import confirmationDialog from "../../ui/confirmation-dialog.js";
 import { CONFIG } from "../../core/config.js";
+import confirmationDialog from "../../ui/confirmation-dialog.js";
 import { VisitsGeometry } from "../../visits/geometry.js";
 import VisitsManager from "../../visits/visits-manager.js";
 
@@ -708,7 +707,7 @@ class VisitsPageController {
       // Be defensive in case older endpoints ever returned the array directly.
       const trips = Array.isArray(tripsResponse)
         ? tripsResponse
-        : (tripsResponse?.trips || []);
+        : tripsResponse?.trips || [];
 
       // Update modal content
       document.getElementById("modal-place-name").textContent = stats.name;
@@ -747,8 +746,8 @@ class VisitsPageController {
         })
         .join("");
 
-      document.getElementById("modal-visit-timeline").innerHTML
-        = timelineHTML || '<p class="text-secondary">No visits recorded</p>';
+      document.getElementById("modal-visit-timeline").innerHTML =
+        timelineHTML || '<p class="text-secondary">No visits recorded</p>';
 
       // Show modal
       const modalEl = document.getElementById("place-detail-modal");
@@ -956,10 +955,10 @@ class VisitsPageController {
     }
   }
 
-  async promptPlaceName(defaultValue = "") {
+  promptPlaceName(defaultValue = "") {
     if (!confirmationDialog?.prompt) {
       this.showNotification("Unable to open naming dialog.", "error");
-      return null;
+      return Promise.resolve(null);
     }
 
     return confirmationDialog.prompt({

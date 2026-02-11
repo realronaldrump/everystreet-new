@@ -50,8 +50,8 @@ export class InvalidTripReview {
       this.renderPagination();
     } catch {
       if (this.tableBody) {
-        this.tableBody.innerHTML
-          = '<tr><td colspan="5" class="text-center text-danger">Failed to load invalid trips</td></tr>';
+        this.tableBody.innerHTML =
+          '<tr><td colspan="5" class="text-center text-danger">Failed to load invalid trips</td></tr>';
       }
     }
   }
@@ -66,8 +66,8 @@ export class InvalidTripReview {
     const pageTrips = this.trips.slice(start, end);
 
     if (pageTrips.length === 0) {
-      this.tableBody.innerHTML
-        = '<tr><td colspan="5" class="text-center text-muted">No invalid trips found.</td></tr>';
+      this.tableBody.innerHTML =
+        '<tr><td colspan="5" class="text-center text-muted">No invalid trips found.</td></tr>';
       return;
     }
 
@@ -241,7 +241,9 @@ export class InvalidTripReview {
     }
 
     try {
-      const result = await apiClient.post("/api/trips/bulk_delete", { trip_ids: tripIds });
+      const result = await apiClient.post("/api/trips/bulk_delete", {
+        trip_ids: tripIds,
+      });
       const deleted = Number(result?.deleted_trips) || 0;
       notificationManager.show(
         deleted

@@ -35,10 +35,10 @@ function shouldSkipBanner() {
   return document.body?.dataset?.route === SETUP_ROUTE;
 }
 
-async function fetchSetupStatus(signal, { force = false } = {}) {
+function fetchSetupStatus(signal, { force = false } = {}) {
   const now = Date.now();
   if (!force && cachedStatus && now - lastFetchAt < CACHE_WINDOW_MS) {
-    return cachedStatus;
+    return Promise.resolve(cachedStatus);
   }
 
   if (!force && inFlight) {
@@ -91,8 +91,8 @@ function renderChecklist(listEl, steps) {
     if (complete) {
       detail.textContent = "Complete";
     } else {
-      const missing
-        = Array.isArray(step.missing) && step.missing.length
+      const missing =
+        Array.isArray(step.missing) && step.missing.length
           ? `Missing: ${step.missing.join(", ")}`
           : meta.detail;
       detail.textContent = missing;

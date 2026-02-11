@@ -79,4 +79,6 @@ export default function initMapPage({ signal, cleanup } = {}) {
   } else {
     return teardown;
   }
+
+  return teardown;
 }

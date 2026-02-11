@@ -33,7 +33,7 @@ const mapManager = {
     return value < 1e12 ? value * 1000 : value;
   },
 
-  async _fetchTripById(tripId, abortKey = null) {
+  _fetchTripById(tripId, abortKey = null) {
     const url = CONFIG.API.tripById(tripId);
     return utils.fetchWithRetry(
       url,
@@ -71,7 +71,7 @@ const mapManager = {
       bounds.extend([lng, lat]);
     };
 
-    const type = geometry.type;
+    const { type } = geometry;
     const coords = geometry.coordinates;
 
     if (type === "Point") {
@@ -198,8 +198,8 @@ const mapManager = {
     } else if (!store.mapLayers.trips?.isHeatmap && store.map.getLayer("trips-layer")) {
       queryLayers.push("trips-layer");
     } else if (
-      store.mapLayers.trips?.isHeatmap
-      && store.map.getLayer("trips-layer-1")
+      store.mapLayers.trips?.isHeatmap &&
+      store.map.getLayer("trips-layer-1")
     ) {
       queryLayers.push("trips-layer-1");
     }
@@ -207,13 +207,13 @@ const mapManager = {
     if (store.map.getLayer("matchedTrips-hitbox")) {
       queryLayers.push("matchedTrips-hitbox");
     } else if (
-      !store.mapLayers.matchedTrips?.isHeatmap
-      && store.map.getLayer("matchedTrips-layer")
+      !store.mapLayers.matchedTrips?.isHeatmap &&
+      store.map.getLayer("matchedTrips-layer")
     ) {
       queryLayers.push("matchedTrips-layer");
     } else if (
-      store.mapLayers.matchedTrips?.isHeatmap
-      && store.map.getLayer("matchedTrips-layer-1")
+      store.mapLayers.matchedTrips?.isHeatmap &&
+      store.map.getLayer("matchedTrips-layer-1")
     ) {
       queryLayers.push("matchedTrips-layer-1");
     }
@@ -358,7 +358,8 @@ const mapManager = {
     // Selected trip overlay is always drawn from the authoritative full-resolution
     // geometry (via `/api/trips/{id}`) so we don't sacrifice accuracy to tiling/simplification.
     const selectedLayer = store.selectedTripLayer;
-    const validTripLayer = selectedLayer === "trips" || selectedLayer === "matchedTrips";
+    const validTripLayer =
+      selectedLayer === "trips" || selectedLayer === "matchedTrips";
     const layerInfo = validTripLayer ? store.mapLayers[selectedLayer] : null;
 
     if (!selectedId || !layerInfo || !layerInfo.visible || !validTripLayer) {
@@ -367,12 +368,12 @@ const mapManager = {
     }
 
     const fallbackHighlight = selectedLayer === "matchedTrips" ? "#4da396" : "#d09868";
-    const highlightColor
-      = (selectedLayer === "matchedTrips"
+    const highlightColor =
+      (selectedLayer === "matchedTrips"
         ? MapStyles.MAP_LAYER_COLORS?.matchedTrips?.highlight
-        : MapStyles.MAP_LAYER_COLORS?.trips?.selected)
-      || layerInfo.highlightColor
-      || fallbackHighlight;
+        : MapStyles.MAP_LAYER_COLORS?.trips?.selected) ||
+      layerInfo.highlightColor ||
+      fallbackHighlight;
 
     const highlightWidth = [
       "interpolate",
@@ -390,7 +391,8 @@ const mapManager = {
       14,
     ];
 
-    const requestId = (this._selectedTripOverlayRequestId += 1);
+    this._selectedTripOverlayRequestId += 1;
+    const requestId = this._selectedTripOverlayRequestId;
     const tripId = String(selectedId);
 
     this._fetchTripById(tripId, "selectedTripOverlay")

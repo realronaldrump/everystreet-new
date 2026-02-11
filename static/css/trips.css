@@ -123,7 +123,12 @@
   left: 0;
   right: 0;
   height: 4px;
-  background: linear-gradient(90deg, var(--trips-primary), var(--trips-mint), var(--trips-sky));
+  background: linear-gradient(
+    90deg,
+    var(--trips-primary),
+    var(--trips-mint),
+    var(--trips-sky)
+  );
 }
 
 .welcome-greeting {
@@ -1822,7 +1827,12 @@
   top: 24px;
   bottom: 24px;
   width: 2px;
-  background: linear-gradient(180deg, var(--success) 0%, var(--accent) 50%, var(--accent-light) 100%);
+  background: linear-gradient(
+    180deg,
+    var(--success) 0%,
+    var(--accent) 50%,
+    var(--accent-light) 100%
+  );
   border-radius: 1px;
 }
 
@@ -2343,6 +2353,7 @@
    Share Modal Styles
    ============================ */
 
+/* stylelint-disable selector-id-pattern -- legacy ID must match template markup */
 #shareModal .modal-dialog {
   max-width: 380px;
 }
@@ -2407,3 +2418,4 @@
   background: var(--success-color, var(--success));
   border-color: var(--success-color, var(--success));
 }
+/* stylelint-enable selector-id-pattern */

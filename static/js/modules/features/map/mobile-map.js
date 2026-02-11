@@ -154,8 +154,8 @@ class MobileMapInterface {
           return;
         }
         const collapsedState = this.sortedStates[0]?.state || "collapsed";
-        const expandedState
-          = this.sortedStates[this.sortedStates.length - 1]?.state || "expanded";
+        const expandedState =
+          this.sortedStates[this.sortedStates.length - 1]?.state || "expanded";
 
         if (this.currentState === collapsedState) {
           this.setState(this.getNextStateUp(collapsedState));
@@ -287,8 +287,8 @@ class MobileMapInterface {
     this.currentOffset = this.clampOffset(this.dragStartOffset + deltaY);
     this.applySheetOffset(this.currentOffset, { immediate: false });
 
-    const targetState
-      = Math.abs(deltaY) > this.flingThreshold
+    const targetState =
+      Math.abs(deltaY) > this.flingThreshold
         ? deltaY > 0
           ? this.getNextStateDown(this.currentState)
           : this.getNextStateUp(this.currentState)
@@ -298,8 +298,8 @@ class MobileMapInterface {
   }
 
   clampOffset(offset) {
-    const maxOffset
-      = this.sortedStates.length > 0
+    const maxOffset =
+      this.sortedStates.length > 0
         ? this.sortedStates[0].offset
         : this.stateOffsets.collapsed;
     const clampedMax = Number.isFinite(maxOffset) ? maxOffset : 0;
@@ -327,8 +327,8 @@ class MobileMapInterface {
     if (!this.backdrop) {
       return;
     }
-    const maxOffset
-      = this.sortedStates.length > 0
+    const maxOffset =
+      this.sortedStates.length > 0
         ? this.sortedStates[0].offset
         : this.stateOffsets.collapsed;
     const denominator = Number.isFinite(maxOffset) && maxOffset > 0 ? maxOffset : 1;
@@ -419,8 +419,8 @@ class MobileMapInterface {
       return;
     }
 
-    const viewportHeight
-      = window.innerHeight || document.documentElement.clientHeight || 0;
+    const viewportHeight =
+      window.innerHeight || document.documentElement.clientHeight || 0;
     const sheetRect = this.sheet.getBoundingClientRect();
     const sheetHeight = sheetRect.height || viewportHeight * 0.85 || 0;
 

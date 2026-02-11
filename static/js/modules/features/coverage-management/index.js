@@ -118,6 +118,8 @@ export default async function initCoverageManagementPage({ signal, cleanup } = {
   } else {
     return teardown;
   }
+
+  return teardown;
 }
 
 function setupEventListeners(signal) {
@@ -136,9 +138,7 @@ function setupEventListeners(signal) {
 
   const locationInput = document.getElementById("location-input");
   const locationType = document.getElementById("location-type");
-  const candidatesContainer = document.getElementById(
-    "location-validation-candidates"
-  );
+  const candidatesContainer = document.getElementById("location-validation-candidates");
   const addAreaModal = document.getElementById("addAreaModal");
   const debouncedValidate = debounce(validateLocationInput, VALIDATION_DEBOUNCE_MS);
 
@@ -221,9 +221,9 @@ function setupEventListeners(signal) {
     "click",
     async () => {
       if (currentAreaId) {
-        const areaName
-          = document.getElementById("dashboard-location-name")?.textContent
-          || "this area";
+        const areaName =
+          document.getElementById("dashboard-location-name")?.textContent ||
+          "this area";
         await recalculateCoverage(currentAreaId, areaName);
       }
     },
@@ -234,9 +234,9 @@ function setupEventListeners(signal) {
     "click",
     async () => {
       if (currentAreaId) {
-        const areaName
-          = document.getElementById("dashboard-location-name")?.textContent
-          || "this area";
+        const areaName =
+          document.getElementById("dashboard-location-name")?.textContent ||
+          "this area";
         await rebuildArea(currentAreaId, areaName);
       }
     },
@@ -344,8 +344,8 @@ function updateMinimizedBadge() {
   }
 
   const title = document.getElementById("task-progress-title")?.textContent;
-  const pctText
-    = document.querySelector("#taskProgressModal .progress-bar")?.textContent || "0%";
+  const pctText =
+    document.querySelector("#taskProgressModal .progress-bar")?.textContent || "0%";
 
   const nameEl = badge.querySelector(".minimized-location-name");
   const pctEl = badge.querySelector(".minimized-progress-percent");
@@ -369,15 +369,15 @@ function setProgressModalTitle() {
 // API Functions
 // =============================================================================
 
-async function apiGet(endpoint) {
+function apiGet(endpoint) {
   return apiClient.get(`${API_BASE}${endpoint}`, withSignal());
 }
 
-async function apiPost(endpoint, data) {
+function apiPost(endpoint, data) {
   return apiClient.post(`${API_BASE}${endpoint}`, data, withSignal());
 }
 
-async function apiDelete(endpoint) {
+function apiDelete(endpoint) {
   return apiClient.delete(`${API_BASE}${endpoint}`, withSignal());
 }
 
@@ -607,8 +607,8 @@ function handleCandidateClick(event) {
     return;
   }
 
-  const osmId = button.dataset.osmId;
-  const osmType = button.dataset.osmType;
+  const { osmId } = button.dataset;
+  const { osmType } = button.dataset;
   if (!osmId || !osmType) {
     return;
   }
@@ -739,8 +739,8 @@ function handleAreaActionClick(event) {
     return;
   }
 
-  const areaName
-    = button.dataset.areaName || areaNameById.get(areaId) || "Coverage area";
+  const areaName =
+    button.dataset.areaName || areaNameById.get(areaId) || "Coverage area";
 
   if (action === "view") {
     viewArea(areaId);
@@ -770,8 +770,8 @@ async function addArea() {
     return;
   }
 
-  const displayName
-    = validationState.confirmedCandidate.display_name || displayNameInput;
+  const displayName =
+    validationState.confirmedCandidate.display_name || displayNameInput;
 
   try {
     // Blur focused element and close add modal
@@ -813,8 +813,8 @@ async function addArea() {
       });
 
       showNotification(
-        result.message
-          || `Area "${displayName}" is being set up in the background. You can minimize this window and keep using the app.`,
+        result.message ||
+          `Area "${displayName}" is being set up in the background. You can minimize this window and keep using the app.`,
         "info"
       );
     }
@@ -911,8 +911,8 @@ async function rebuildArea(areaId, displayName = null) {
       });
 
       showNotification(
-        result.message
-          || "Rebuild started in the background. You can minimize this window and keep using the app.",
+        result.message ||
+          "Rebuild started in the background. You can minimize this window and keep using the app.",
         "info"
       );
     }
@@ -926,8 +926,8 @@ async function recalculateCoverage(areaId, displayName) {
   const confirmed = await confirmationDialog.show({
     title: "Recalculate Coverage",
     message:
-      `Recalculate coverage for "<strong>${escapeHtml(displayName)}</strong>" by matching all existing trips?<br><br>`
-      + `This will update coverage data without reloading the local OSM extract. Use this if coverage seems incomplete.`,
+      `Recalculate coverage for "<strong>${escapeHtml(displayName)}</strong>" by matching all existing trips?<br><br>` +
+      `This will update coverage data without reloading the local OSM extract. Use this if coverage seems incomplete.`,
     confirmText: "Recalculate",
     confirmButtonClass: "btn-info",
   });
@@ -1102,8 +1102,8 @@ function updateProgress(percent, message, detailMessage = null) {
   const bar = document.querySelector("#taskProgressModal .progress-bar");
   const msg = document.querySelector("#taskProgressModal .progress-message");
   const stage = document.querySelector("#taskProgressModal .progress-stage");
-  const resolvedDetail
-    = typeof detailMessage === "string" ? detailMessage : activeJob?.message || "";
+  const resolvedDetail =
+    typeof detailMessage === "string" ? detailMessage : activeJob?.message || "";
 
   if (bar) {
     bar.style.width = `${percent}%`;
@@ -1406,8 +1406,8 @@ function updateHighlightFilter() {
 function createStreetPopupContent(props) {
   const streetName = escapeHtml(props.street_name || "Unnamed Street");
   const segmentId = escapeHtml(props.segment_id || "Unknown");
-  const statusKey
-    = typeof props.status === "string" ? props.status.toLowerCase() : "unknown";
+  const statusKey =
+    typeof props.status === "string" ? props.status.toLowerCase() : "unknown";
   const statusLabel = formatStatus(statusKey);
   const lengthLabel = formatSegmentLength(props.length_miles);
   const highwayType = escapeHtml(formatHighwayType(props.highway_type));

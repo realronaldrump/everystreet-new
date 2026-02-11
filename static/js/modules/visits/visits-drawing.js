@@ -1,4 +1,4 @@
-/* global MapboxDraw, bootstrap */
+/* global MapboxDraw */
 
 import MapStyles from "../map-styles.js";
 import notificationManager from "../ui/notifications.js";
@@ -316,8 +316,8 @@ class VisitsDrawing {
 
     this.resetDrawing(false);
 
-    const suggestionName
-      = suggestion.suggestedName || suggestion.name || "Suggested Place";
+    const suggestionName =
+      suggestion.suggestedName || suggestion.name || "Suggested Place";
     const geoJson = {
       type: "Feature",
       geometry: suggestion.boundary,

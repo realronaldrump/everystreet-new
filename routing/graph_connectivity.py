@@ -117,7 +117,9 @@ async def fetch_bridge_route(
     coords = geometry.get("coordinates") if geometry else []
     if coords:
         distance_m = result.get("distance_meters", 0) if isinstance(result, dict) else 0
-        duration_s = result.get("duration_seconds", 0) if isinstance(result, dict) else 0
+        duration_s = (
+            result.get("duration_seconds", 0) if isinstance(result, dict) else 0
+        )
         logger.info(
             "Fetched bridge route with %d coordinates (%.2f miles)",
             len(coords),

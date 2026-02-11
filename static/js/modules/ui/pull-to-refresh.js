@@ -91,15 +91,14 @@ const pullToRefresh = {
 
     if (shouldRefresh) {
       this.indicator.classList.add("loading");
-      this.indicator.querySelector(".pull-to-refresh-text").textContent
-        = "Refreshing...";
-      swupReady
-        .then((swup) => {
-          swup.navigate(window.location.href, {
-            cache: { read: false, write: true },
-            history: "replace",
-          });
+      this.indicator.querySelector(".pull-to-refresh-text").textContent =
+        "Refreshing...";
+      swupReady.then((swup) => {
+        swup.navigate(window.location.href, {
+          cache: { read: false, write: true },
+          history: "replace",
         });
+      });
     } else {
       this.reset();
     }

@@ -7,7 +7,9 @@ from routing.graph_connectivity import BridgeRoute
 
 
 @pytest.mark.asyncio
-async def test_fill_route_gaps_inserts_bridge_coords_and_reports_stats(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_fill_route_gaps_inserts_bridge_coords_and_reports_stats(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     # Two gaps of ~0.01 degrees lat (~0.69 miles) each, above the 1000ft threshold.
     route_coords = [[0.0, 0.0], [0.0, 0.01], [0.0, 0.02]]
 
@@ -38,4 +40,3 @@ async def test_fill_route_gaps_inserts_bridge_coords_and_reports_stats(monkeypat
     assert len(filled) == 5
     assert filled[0] == [0.0, 0.0]
     assert filled[-1] == [0.0, 0.02]
-

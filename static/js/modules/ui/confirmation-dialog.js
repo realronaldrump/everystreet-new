@@ -69,8 +69,8 @@ class ConfirmationDialog {
       const message = options.message || this.config.defaultMessage;
       const confirmText = options.confirmText || this.config.defaultConfirmText;
       const cancelText = options.cancelText || this.config.defaultCancelText;
-      const confirmButtonClass
-        = options.confirmButtonClass || this.config.defaultConfirmButtonClass;
+      const confirmButtonClass =
+        options.confirmButtonClass || this.config.defaultConfirmButtonClass;
       const showCancel = options.showCancel !== false; // Default true
 
       modalElement.querySelector(".modal-title").textContent = title;
@@ -120,9 +120,9 @@ class ConfirmationDialog {
 
       const handleKeyDown = (e) => {
         if (
-          e.key === "Enter"
-          && this.activeModal
-          && modalElement.classList.contains("show")
+          e.key === "Enter" &&
+          this.activeModal &&
+          modalElement.classList.contains("show")
         ) {
           e.preventDefault();
           handleConfirm();
@@ -162,8 +162,8 @@ class ConfirmationDialog {
    * @returns {Promise<void>}
    */
   async alert(messageOrOptions) {
-    const options
-      = typeof messageOrOptions === "string"
+    const options =
+      typeof messageOrOptions === "string"
         ? { message: messageOrOptions }
         : messageOrOptions;
 
@@ -197,8 +197,8 @@ class ConfirmationDialog {
       const placeholder = options.placeholder || "";
       const confirmText = options.confirmText || this.config.defaultConfirmText;
       const cancelText = options.cancelText || this.config.defaultCancelText;
-      const confirmButtonClass
-        = options.confirmButtonClass || this.config.defaultConfirmButtonClass;
+      const confirmButtonClass =
+        options.confirmButtonClass || this.config.defaultConfirmButtonClass;
       const showCancel = options.showCancel !== false; // Default true
       const allowEmpty = options.allowEmpty === true;
       const inputType = options.inputType || "text";
@@ -290,9 +290,9 @@ class ConfirmationDialog {
 
       const handleKeyDown = (e) => {
         if (
-          e.key === "Enter"
-          && this.activeModal
-          && modalElement.classList.contains("show")
+          e.key === "Enter" &&
+          this.activeModal &&
+          modalElement.classList.contains("show")
         ) {
           e.preventDefault();
           handleConfirm();

@@ -116,8 +116,8 @@ export function updateStats() {
 
   const totalCounties = countyData.features.length;
   const visitedCount = Object.keys(countyVisits).length;
-  const percentage
-    = totalCounties > 0 ? ((visitedCount / totalCounties) * 100).toFixed(1) : "0.0";
+  const percentage =
+    totalCounties > 0 ? ((visitedCount / totalCounties) * 100).toFixed(1) : "0.0";
 
   // Count unique states
   const visitedStates = new Set();

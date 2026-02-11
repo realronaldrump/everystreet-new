@@ -4,6 +4,7 @@ import notificationManager from "../../ui/notifications.js";
 import { escapeHtml } from "../../utils.js";
 
 export default function initServerLogsPage({ signal, cleanup } = {}) {
+  const noopTeardown = () => {};
   const withSignal = (options = {}) => (signal ? { ...options, signal } : options);
   const apiGet = (url, options = {}) => apiClient.get(url, withSignal(options));
   const apiDelete = (url, options = {}) => apiClient.delete(url, withSignal(options));
@@ -24,21 +25,24 @@ export default function initServerLogsPage({ signal, cleanup } = {}) {
 
   // Guard: bail out if required elements are not found
   if (
-    !logsContainer
-    || !refreshLogsBtn
-    || !refreshStatsBtn
-    || !clearLogsBtn
-    || !exportLogsBtn
-    || !applyFiltersBtn
-    || !autoRefreshToggle
-    || !levelFilter
-    || !limitFilter
-    || !searchFilter
+    !logsContainer ||
+    !refreshLogsBtn ||
+    !refreshStatsBtn ||
+    !clearLogsBtn ||
+    !exportLogsBtn ||
+    !applyFiltersBtn ||
+    !autoRefreshToggle ||
+    !levelFilter ||
+    !limitFilter ||
+    !searchFilter
   ) {
     console.warn(
       "Server logs page: Required DOM elements not found, skipping initialization"
     );
-    return;
+    if (typeof cleanup === "function") {
+      cleanup(noopTeardown);
+    }
+    return noopTeardown;
   }
 
   // State
@@ -142,8 +146,8 @@ export default function initServerLogsPage({ signal, cleanup } = {}) {
     document.getElementById("info-count").textContent = data.by_level?.INFO || 0;
     document.getElementById("warning-count").textContent = data.by_level?.WARNING || 0;
     document.getElementById("error-count").textContent = data.by_level?.ERROR || 0;
-    document.getElementById("critical-count").textContent
-      = data.by_level?.CRITICAL || 0;
+    document.getElementById("critical-count").textContent =
+      data.by_level?.CRITICAL || 0;
   }
 
   /**
@@ -413,8 +417,8 @@ export default function initServerLogsPage({ signal, cleanup } = {}) {
       const result = await apiDelete("/api/server-logs");
 
       notificationManager.show(
-        result?.message
-          || `Successfully cleared ${result?.deleted_count ?? 0} log entries`,
+        result?.message ||
+          `Successfully cleared ${result?.deleted_count ?? 0} log entries`,
         "success"
       );
 
@@ -463,8 +467,8 @@ export default function initServerLogsPage({ signal, cleanup } = {}) {
     if (autoRefreshEnabled) {
       autoRefreshToggle.classList.remove("btn-outline-success");
       autoRefreshToggle.classList.add("btn-success");
-      autoRefreshToggle.innerHTML
-        = '<i class="fas fa-clock"></i> Auto-Refresh: ON (30s)';
+      autoRefreshToggle.innerHTML =
+        '<i class="fas fa-clock"></i> Auto-Refresh: ON (30s)';
 
       // Refresh every 30 seconds
       autoRefreshInterval = setInterval(() => {
@@ -776,8 +780,8 @@ export default function initServerLogsPage({ signal, cleanup } = {}) {
       containerSelectBtn.innerHTML = `All Containers (${count}) <span class="container-count-badge">${count}</span>`;
     } else {
       const names = Array.from(selectedContainerNames);
-      const label
-        = names.length === 1 ? names[0] : `${names.length} Containers Selected`;
+      const label =
+        names.length === 1 ? names[0] : `${names.length} Containers Selected`;
       containerSelectBtn.innerHTML = `${escapeHtml(label)} <span class="container-count-badge">${count}</span>`;
     }
 
@@ -941,16 +945,16 @@ export default function initServerLogsPage({ signal, cleanup } = {}) {
 
     try {
       setContainerSelectionEnabled(false);
-      containerSelectOptions.innerHTML
-        = '<div class="text-center p-2 text-muted">Loading containers...</div>';
+      containerSelectOptions.innerHTML =
+        '<div class="text-center p-2 text-muted">Loading containers...</div>';
 
       const data = await apiGet("/api/docker-logs/containers");
       containersData = data.containers || [];
       selectedContainerNames.clear();
 
       if (containersData.length === 0) {
-        containerSelectOptions.innerHTML
-          = '<div class="text-center p-2 text-muted">No containers found</div>';
+        containerSelectOptions.innerHTML =
+          '<div class="text-center p-2 text-muted">No containers found</div>';
         updateMultiSelectUI();
         return;
       }
@@ -1019,8 +1023,8 @@ export default function initServerLogsPage({ signal, cleanup } = {}) {
       loadDockerLogs();
     } catch (err) {
       console.error(err);
-      containerSelectOptions.innerHTML
-        = '<div class="text-center p-2 text-danger">Error loading containers</div>';
+      containerSelectOptions.innerHTML =
+        '<div class="text-center p-2 text-danger">Error loading containers</div>';
       setContainerSelectionEnabled(false);
       notificationManager.show("Failed to load Docker containers", "warning");
     }
@@ -1056,8 +1060,8 @@ export default function initServerLogsPage({ signal, cleanup } = {}) {
 
     try {
       // Show loading state
-      const loadingLabel
-        = selectedContainers.length === 1
+      const loadingLabel =
+        selectedContainers.length === 1
           ? `Loading logs for ${escapeHtml(selectedContainers[0])}...`
           : `Loading logs for ${selectedContainers.length} containers...`;
 
@@ -1332,8 +1336,8 @@ export default function initServerLogsPage({ signal, cleanup } = {}) {
             `;
         }
 
-        const groupLogsHtml
-          = group.logs.length > 0
+        const groupLogsHtml =
+          group.logs.length > 0
             ? group.logs
                 .map((line) => renderDockerLogLine(line, group.container))
                 .join("")
@@ -1379,8 +1383,8 @@ export default function initServerLogsPage({ signal, cleanup } = {}) {
     if (dockerAutoRefreshEnabled) {
       dockerAutoRefreshToggle.classList.remove("btn-outline-success");
       dockerAutoRefreshToggle.classList.add("btn-success");
-      dockerAutoRefreshToggle.innerHTML
-        = '<i class="fas fa-clock"></i> Auto-Refresh: ON (10s)';
+      dockerAutoRefreshToggle.innerHTML =
+        '<i class="fas fa-clock"></i> Auto-Refresh: ON (10s)';
 
       // Refresh every 10 seconds for Docker logs
       dockerAutoRefreshInterval = setInterval(() => {
@@ -1391,8 +1395,8 @@ export default function initServerLogsPage({ signal, cleanup } = {}) {
     } else {
       dockerAutoRefreshToggle.classList.remove("btn-success");
       dockerAutoRefreshToggle.classList.add("btn-outline-success");
-      dockerAutoRefreshToggle.innerHTML
-        = '<i class="fas fa-clock"></i> Auto-Refresh: OFF';
+      dockerAutoRefreshToggle.innerHTML =
+        '<i class="fas fa-clock"></i> Auto-Refresh: OFF';
 
       if (dockerAutoRefreshInterval) {
         clearInterval(dockerAutoRefreshInterval);
@@ -1421,8 +1425,8 @@ export default function initServerLogsPage({ signal, cleanup } = {}) {
       const containerNames = currentDockerLogs
         .map((group) => group.container)
         .filter(Boolean);
-      const containerLabel
-        = containerNames.length > 1
+      const containerLabel =
+        containerNames.length > 1
           ? `Containers: ${containerNames.join(", ")}`
           : `Container: ${containerNames[0] || "unknown"}`;
 
@@ -1476,12 +1480,12 @@ export default function initServerLogsPage({ signal, cleanup } = {}) {
       const containerNames = currentDockerLogs
         .map((group) => group.container)
         .filter(Boolean);
-      const fileSuffix
-        = containerNames.length === 1
+      const fileSuffix =
+        containerNames.length === 1
           ? `docker-${containerNames[0]}-logs`
           : "docker-containers-logs";
-      const containerLabel
-        = containerNames.length > 1
+      const containerLabel =
+        containerNames.length > 1
           ? `Containers: ${containerNames.join(", ")}`
           : `Container: ${containerNames[0] || "unknown"}`;
 
@@ -1596,7 +1600,7 @@ export default function initServerLogsPage({ signal, cleanup } = {}) {
 
   if (typeof cleanup === "function") {
     cleanup(teardown);
-  } else {
-    return teardown;
   }
+
+  return teardown;
 }

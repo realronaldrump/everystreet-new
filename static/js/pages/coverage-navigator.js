@@ -7,7 +7,9 @@ import { onPageLoad } from "../modules/utils.js";
  */
 function initBottomNavInsets({ signal } = {}) {
   const root = document.querySelector(".coverage-navigator");
-  if (!root) return;
+  if (!root) {
+    return;
+  }
 
   const bottomNav = document.getElementById("bottom-nav");
   if (!bottomNav) {
@@ -43,7 +45,9 @@ function initBottomNavInsets({ signal } = {}) {
   };
 
   const schedule = () => {
-    if (rafId != null) return;
+    if (rafId != null) {
+      return;
+    }
     rafId = requestAnimationFrame(apply);
   };
 
@@ -53,13 +57,22 @@ function initBottomNavInsets({ signal } = {}) {
   window.addEventListener("resize", schedule, { passive: true, signal });
   if (window.visualViewport) {
     // Address bar show/hide can change the viewport without a full window resize.
-    window.visualViewport.addEventListener("resize", schedule, { passive: true, signal });
-    window.visualViewport.addEventListener("scroll", schedule, { passive: true, signal });
+    window.visualViewport.addEventListener("resize", schedule, {
+      passive: true,
+      signal,
+    });
+    window.visualViewport.addEventListener("scroll", schedule, {
+      passive: true,
+      signal,
+    });
   }
 
   // React to nav show/hide transitions or class toggles.
   const observer = new MutationObserver(schedule);
-  observer.observe(bottomNav, { attributes: true, attributeFilter: ["class", "style"] });
+  observer.observe(bottomNav, {
+    attributes: true,
+    attributeFilter: ["class", "style"],
+  });
   signal?.addEventListener(
     "abort",
     () => {
@@ -94,7 +107,9 @@ function initCollapsibleSections() {
     const content = document.getElementById(toggleId);
     const collapseBtn = header.querySelector(".btn-collapse");
 
-    if (!content || !collapseBtn) return;
+    if (!content || !collapseBtn) {
+      return;
+    }
 
     // Initialize state from localStorage, or use mobile defaults
     const saved = localStorage.getItem(`coverage-navigator-${toggleId}`);
@@ -141,7 +156,9 @@ function initMobilePanelToggle() {
   const toggle = document.getElementById("mobile-panel-toggle");
   const panel = document.getElementById("control-panel");
 
-  if (!toggle || !panel) return;
+  if (!toggle || !panel) {
+    return;
+  }
 
   const storageKey = "coverage-navigator-mobile-panel";
 
@@ -213,7 +230,9 @@ function initLayerControls() {
  */
 function initSmoothScroll() {
   const panel = document.querySelector(".control-panel");
-  if (!panel) return;
+  if (!panel) {
+    return;
+  }
 
   // Add smooth scroll behavior
   panel.style.scrollBehavior = "smooth";
@@ -226,7 +245,9 @@ function handleResponsiveLayout() {
   const panel = document.getElementById("control-panel");
   const toggle = document.getElementById("mobile-panel-toggle");
 
-  if (!panel || !toggle) return;
+  if (!panel || !toggle) {
+    return;
+  }
 
   const mediaQuery = window.matchMedia("(min-width: 1024px)");
 
@@ -254,7 +275,9 @@ function handleResponsiveLayout() {
 function initKeyboardShortcuts() {
   document.addEventListener("keydown", (e) => {
     // Only handle shortcuts when not in input fields
-    if (e.target.matches("input, select, textarea")) return;
+    if (e.target.matches("input, select, textarea")) {
+      return;
+    }
 
     // ESC to toggle panel on mobile
     if (e.key === "Escape") {

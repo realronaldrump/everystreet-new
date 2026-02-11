@@ -109,6 +109,7 @@
   min-width: 0;
 }
 
+/* stylelint-disable selector-id-pattern -- legacy ID must match template markup */
 #bouncieCredentialsForm[data-editing="false"] .edit-only {
   display: none;
 }
@@ -120,6 +121,7 @@
 #bouncieCredentialsForm[data-editing="false"] [data-editable] {
   cursor: not-allowed;
 }
+/* stylelint-enable selector-id-pattern */
 
 .credential-masked {
   letter-spacing: 0.1em;

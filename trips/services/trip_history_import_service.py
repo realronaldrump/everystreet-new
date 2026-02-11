@@ -107,7 +107,11 @@ def _vehicle_label(vehicle: Vehicle | None, imei: str) -> str:
         name = (vehicle.custom_name or "").strip()
         if name:
             return name
-        parts = [str(vehicle.year) if vehicle.year else None, vehicle.make, vehicle.model]
+        parts = [
+            str(vehicle.year) if vehicle.year else None,
+            vehicle.make,
+            vehicle.model,
+        ]
         make_model = " ".join([p for p in parts if p])
         if make_model.strip():
             return make_model.strip()
@@ -128,9 +132,7 @@ async def build_import_plan(
     # History import tends to stress the upstream API; keep concurrency bounded.
     fetch_concurrency = min(fetch_concurrency, 4)
 
-    vehicles = (
-        await Vehicle.find(In(Vehicle.imei, imeis)).to_list() if imeis else []
-    )
+    vehicles = await Vehicle.find(In(Vehicle.imei, imeis)).to_list() if imeis else []
     vehicles_by_imei = {v.imei: v for v in vehicles if v and getattr(v, "imei", None)}
 
     windows = build_import_windows(start_dt, end_dt)
@@ -153,7 +155,9 @@ async def build_import_plan(
     }
 
 
-def _dedupe_trips_by_transaction_id(trips: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def _dedupe_trips_by_transaction_id(
+    trips: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
     """Deduplicate trips in-memory, preserving the first occurrence."""
     by_id: dict[str, dict[str, Any]] = {}
     for trip in trips:
@@ -192,12 +196,13 @@ async def _fetch_trips_for_window(
 
     try:
         raw_trips = await client.fetch_trips_for_device_resilient(
-            token, imei, query_start, query_end,
+            token,
+            imei,
+            query_start,
+            query_end,
         )
         return [
-            normalize_rest_trip_payload(t)
-            for t in raw_trips
-            if isinstance(t, dict)
+            normalize_rest_trip_payload(t) for t in raw_trips if isinstance(t, dict)
         ]
     except Exception:
         span = window_end - window_start
@@ -274,7 +279,9 @@ def _filter_trips_to_window(
     return kept
 
 
-def _trim_events(events: list[dict[str, Any]], *, limit: int = 60) -> list[dict[str, Any]]:
+def _trim_events(
+    events: list[dict[str, Any]], *, limit: int = 60
+) -> list[dict[str, Any]]:
     if len(events) <= limit:
         return events
     return events[-limit:]
@@ -318,9 +325,7 @@ async def run_import(
     # History import tends to stress the upstream API; keep concurrency bounded.
     fetch_concurrency = min(fetch_concurrency, 4)
 
-    vehicles = (
-        await Vehicle.find(In(Vehicle.imei, imeis)).to_list() if imeis else []
-    )
+    vehicles = await Vehicle.find(In(Vehicle.imei, imeis)).to_list() if imeis else []
     vehicles_by_imei = {v.imei: v for v in vehicles if v and getattr(v, "imei", None)}
 
     devices = [
@@ -612,7 +617,10 @@ async def run_import(
             add_event(
                 "info",
                 f"Scanning window {idx}/{windows_total}",
-                {"start": current_window["start_iso"], "end": current_window["end_iso"]},
+                {
+                    "start": current_window["start_iso"],
+                    "end": current_window["end_iso"],
+                },
             )
 
             devices_done_ref = {"done": 0}
@@ -636,7 +644,9 @@ async def run_import(
                 for imei in imeis
             ]
             raw_lists = await asyncio.gather(*fetch_tasks)
-            raw_trips = [t for sub in raw_lists for t in (sub or []) if isinstance(t, dict)]
+            raw_trips = [
+                t for sub in raw_lists for t in (sub or []) if isinstance(t, dict)
+            ]
 
             # Deduplicate within the entire import run, and enforce required fields.
             unique_trips: list[dict[str, Any]] = []
@@ -682,7 +692,9 @@ async def run_import(
                 .to_list()
             )
             existing_ids = {
-                d.transactionId for d in existing_docs if getattr(d, "transactionId", None)
+                d.transactionId
+                for d in existing_docs
+                if getattr(d, "transactionId", None)
             }
 
             new_trips: list[dict[str, Any]] = []
@@ -733,7 +745,9 @@ async def run_import(
                 )
                 continue
 
-            add_event("info", f"Processing {len(new_trips)} new trips", {"window_index": idx})
+            add_event(
+                "info", f"Processing {len(new_trips)} new trips", {"window_index": idx}
+            )
             await write_progress(
                 status="running",
                 stage="processing",
@@ -747,7 +761,11 @@ async def run_import(
             processed_count = 0
             for trip in new_trips:
                 # Avoid hot-looping DB reads; check roughly once per second.
-                if processed_count and processed_count % 25 == 0 and await is_cancelled():
+                if (
+                    processed_count
+                    and processed_count % 25 == 0
+                    and await is_cancelled()
+                ):
                     add_event("warning", "Cancelled by user")
                     await write_progress(
                         status="cancelled",
@@ -834,7 +852,12 @@ async def run_import(
                     add_event(
                         "error",
                         f"Failed processing trip {tx}",
-                        {"error": str(exc), "transactionId": tx, "imei": imei, "window_index": idx},
+                        {
+                            "error": str(exc),
+                            "transactionId": tx,
+                            "imei": imei,
+                            "window_index": idx,
+                        },
                     )
                     record_failure_reason(str(exc))
                     await TripIngestIssueService.record_issue(
@@ -864,7 +887,9 @@ async def run_import(
                 processed_count += 1
                 if processed_count % 5 == 0 or processed_count == len(new_trips):
                     within = processed_count / max(1, len(new_trips))
-                    overall = ((idx - 1) + (0.4 + (0.6 * within))) / max(1, windows_total)
+                    overall = ((idx - 1) + (0.4 + (0.6 * within))) / max(
+                        1, windows_total
+                    )
                     await write_progress(
                         status="running",
                         stage="processing",

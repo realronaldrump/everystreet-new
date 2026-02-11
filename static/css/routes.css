@@ -86,7 +86,7 @@
   margin-bottom: var(--space-8);
 }
 
-@media (min-width: 992px) {
+@media (width >= 992px) {
   .routes-hero {
     grid-template-columns: 1.15fr 0.85fr;
     align-items: start;
@@ -141,7 +141,8 @@
 
 /* Build Card */
 .routes-build-card {
-  background: linear-gradient(
+  background:
+    linear-gradient(
       180deg,
       rgb(var(--routes-primary-rgb) / 10%) 0%,
       rgb(var(--routes-primary-rgb) / 5%) 40%,
@@ -193,9 +194,11 @@
   0% {
     box-shadow: 0 0 0 0 rgb(var(--routes-primary-rgb) / 38%);
   }
+
   70% {
     box-shadow: 0 0 0 10px rgb(var(--routes-primary-rgb) / 0%);
   }
+
   100% {
     box-shadow: 0 0 0 0 rgb(var(--routes-primary-rgb) / 0%);
   }
@@ -218,7 +221,7 @@
   gap: var(--space-3);
 }
 
-@media (min-width: 520px) {
+@media (width >= 520px) {
   .build-actions {
     grid-template-columns: 1fr auto;
   }
@@ -277,7 +280,7 @@
   backdrop-filter: blur(10px);
 }
 
-@media (min-width: 992px) {
+@media (width >= 992px) {
   .routes-controls-inner {
     grid-template-columns: 1.1fr 0.9fr;
     align-items: center;
@@ -425,13 +428,13 @@
   gap: var(--space-4);
 }
 
-@media (min-width: 768px) {
+@media (width >= 768px) {
   .routes-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
-@media (min-width: 1200px) {
+@media (width >= 1200px) {
   .routes-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
@@ -493,6 +496,7 @@
     box-shadow var(--transition-normal),
     border-color var(--transition-normal);
   min-height: 160px;
+
   --route-stroke: rgb(var(--routes-primary-rgb) / 90%);
 }
 
@@ -573,7 +577,11 @@
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(circle at 20% 60%, rgb(var(--routes-primary-rgb) / 22%), transparent 55%),
+    radial-gradient(
+      circle at 20% 60%,
+      rgb(var(--routes-primary-rgb) / 22%),
+      transparent 55%
+    ),
     radial-gradient(circle at 80% 40%, rgb(var(--cat-amber-rgb) / 16%), transparent 55%);
   opacity: 0.35;
 }
@@ -637,7 +645,7 @@
   min-height: 340px;
 }
 
-@media (min-width: 992px) {
+@media (width >= 992px) {
   .routes-modal-map-col {
     min-height: 520px;
   }
@@ -794,7 +802,7 @@
 /* Light theme tweaks */
 html[data-bs-theme="light"] .routes-page {
   --routes-bg: #fafafa;
-  --routes-bg-elevated: #ffffff;
+  --routes-bg-elevated: #fff;
   --routes-bg-subtle: #f3f4f6;
   --routes-border: rgb(15 23 42 / 12%);
   --routes-text: rgb(15 23 42 / 92%);

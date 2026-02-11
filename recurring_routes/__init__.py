@@ -14,4 +14,3 @@ router.include_router(pages.router, tags=["Pages"])
 router.include_router(routes.router, tags=["recurring-routes"])
 
 __all__ = ["router"]
-

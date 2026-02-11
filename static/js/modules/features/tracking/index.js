@@ -1,7 +1,7 @@
 /* global mapboxgl */
 
 import apiClient from "../../core/api-client.js";
-import { DateUtils, getDeviceProfile, getStorage, setStorage } from "../../utils.js";
+import { getDeviceProfile, getStorage, setStorage } from "../../utils.js";
 import {
   COVERAGE_LAYER_IDS,
   LIVE_TRACKING_DEFAULTS,
@@ -118,18 +118,19 @@ class LiveTripTracker {
         type: "line",
         source: this.lineSourceId,
         paint: {
-          "line-width": [
-            "interpolate", ["linear"], ["zoom"],
-            10, 1.5,
-            14, 2.5,
-            18, 4,
-          ],
+          "line-width": ["interpolate", ["linear"], ["zoom"], 10, 1.5, 14, 2.5, 18, 4],
           "line-gradient": [
-            "interpolate", ["linear"], ["line-progress"],
-            0, `${color}26`,
-            0.4, `${color}66`,
-            0.75, `${color}bb`,
-            1, `${color}e6`,
+            "interpolate",
+            ["linear"],
+            ["line-progress"],
+            0,
+            `${color}26`,
+            0.4,
+            `${color}66`,
+            0.75,
+            `${color}bb`,
+            1,
+            `${color}e6`,
           ],
         },
         layout: {
@@ -400,8 +401,8 @@ class LiveTripTracker {
     }
 
     // Speed
-    const speedValue
-      = typeof trip.currentSpeed === "number"
+    const speedValue =
+      typeof trip.currentSpeed === "number"
         ? Math.max(0, Math.round(trip.currentSpeed))
         : 0;
     if (this.hudSpeedElem) {
@@ -433,9 +434,8 @@ class LiveTripTracker {
 
   updateCompactMetrics(trip) {
     if (this.metricSpeedElem) {
-      const speed = typeof trip.currentSpeed === "number"
-        ? Math.round(trip.currentSpeed)
-        : 0;
+      const speed =
+        typeof trip.currentSpeed === "number" ? Math.round(trip.currentSpeed) : 0;
       this.metricSpeedElem.textContent = speed;
     }
     if (this.metricDistanceElem) {
@@ -618,8 +618,8 @@ class LiveTripTracker {
       return;
     }
 
-    const isNewTrip
-      = !this.activeTrip || this.activeTrip.transactionId !== trip.transactionId;
+    const isNewTrip =
+      !this.activeTrip || this.activeTrip.transactionId !== trip.transactionId;
 
     this.activeTrip = trip;
 
@@ -630,8 +630,8 @@ class LiveTripTracker {
     }
 
     const rawHeading = LiveTripTracker.calculateHeading(coords);
-    const heading
-      = typeof rawHeading === "number"
+    const heading =
+      typeof rawHeading === "number"
         ? LiveTripTracker.smoothBearing(this.lastBearing, rawHeading, 0.28)
         : this.lastBearing;
     if (typeof heading === "number") {
@@ -728,9 +728,9 @@ class LiveTripTracker {
     const dLon = toRad(curr.lon - prev.lon);
 
     const y = Math.sin(dLon) * Math.cos(lat2);
-    const x
-      = Math.cos(lat1) * Math.sin(lat2)
-      - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+    const x =
+      Math.cos(lat1) * Math.sin(lat2) -
+      Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
     const bearing = toDeg(Math.atan2(y, x));
 
     return LiveTripTracker.normalizeBearing(bearing);
@@ -838,8 +838,8 @@ class LiveTripTracker {
     if (this.statusIndicator) {
       this.statusIndicator.classList.toggle("connected", connected);
       this.statusIndicator.classList.toggle("disconnected", !connected);
-      const isConnecting
-        = typeof message === "string" && /reconnect|connect|sync/i.test(message);
+      const isConnecting =
+        typeof message === "string" && /reconnect|connect|sync/i.test(message);
       this.statusIndicator.classList.toggle("connecting", !connected && isConnecting);
     }
 
@@ -917,8 +917,8 @@ class LiveTripTracker {
 
     if (this.map) {
       try {
-        [this.arrowLayerId, this.lineLayerId, this.markerLayerId].forEach(
-          (layerId) => this._removeLayer(layerId)
+        [this.arrowLayerId, this.lineLayerId, this.markerLayerId].forEach((layerId) =>
+          this._removeLayer(layerId)
         );
         this._removeSource(this.lineSourceId);
         this._removeSource(this.markerSourceId);

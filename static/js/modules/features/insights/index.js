@@ -4,15 +4,15 @@
  * Main initialization and event handling for the driving insights page
  */
 
+import { swupReady } from "../../core/navigation.js";
 import * as InsightsAPI from "../../insights/api.js";
 import * as InsightsCharts from "../../insights/charts.js";
 import * as InsightsExport from "../../insights/export.js";
 import * as InsightsFormatters from "../../insights/formatters.js";
 import * as InsightsMetrics from "../../insights/metrics.js";
+import { loadAndShowTripsForDrilldown } from "../../insights/modal.js";
 import * as InsightsState from "../../insights/state.js";
 import * as InsightsTables from "../../insights/tables.js";
-import { loadAndShowTripsForDrilldown } from "../../insights/modal.js";
-import { swupReady } from "../../core/navigation.js";
 
 let tooltipInstances = [];
 let pageSignal = null;
@@ -168,10 +168,9 @@ function setupFabActions(signal) {
     viewMapBtn.addEventListener(
       "click",
       () => {
-        swupReady
-          .then((swup) => {
-            swup.navigate("/trips");
-          });
+        swupReady.then((swup) => {
+          swup.navigate("/trips");
+        });
       },
       signal ? { signal } : false
     );

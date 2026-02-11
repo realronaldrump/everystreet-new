@@ -44,6 +44,7 @@ export default async function initGasTrackingPage({ signal, cleanup } = {}) {
  * Initialize the page
  */
 async function initializePage(signal, cleanup) {
+  const noopTeardown = () => {};
   try {
     // Initialize map (but don't show it immediately)
     await initializeMap();
@@ -85,11 +86,11 @@ async function initializePage(signal, cleanup) {
 
     if (typeof cleanup === "function") {
       cleanup(teardown);
-    } else {
-      return teardown;
     }
+    return teardown;
   } catch {
     showError("Failed to initialize page");
+    return noopTeardown;
   }
 }
 
@@ -194,8 +195,8 @@ async function loadVehicles(options = {}) {
     }
 
     if (vehicles.length === 0) {
-      vehicleSelect.innerHTML
-        = '<option value="">No vehicles found. Go to Profile to sync/add.</option>';
+      vehicleSelect.innerHTML =
+        '<option value="">No vehicles found. Go to Profile to sync/add.</option>';
       setVehicleStatus(
         "No vehicles detected. Try syncing from your Profile page.",
         "warning"
@@ -264,9 +265,9 @@ async function attemptVehicleDiscovery() {
       method: "POST",
       successMessage: "Created vehicles from your recorded trips.",
       hasVehicles: (data) =>
-        (data?.synced ?? 0) > 0
-        || (data?.updated ?? 0) > 0
-        || (data?.total_vehicles ?? 0) > 0,
+        (data?.synced ?? 0) > 0 ||
+        (data?.updated ?? 0) > 0 ||
+        (data?.total_vehicles ?? 0) > 0,
     },
   ];
 
@@ -458,8 +459,8 @@ function updateMap(lat, lon) {
  */
 function calculateTotalCost() {
   const gallons = parseFloat(document.getElementById("gallons").value) || 0;
-  const pricePerGallon
-    = parseFloat(document.getElementById("price-per-gallon").value) || 0;
+  const pricePerGallon =
+    parseFloat(document.getElementById("price-per-gallon").value) || 0;
   const totalCostInput = document.getElementById("total-cost");
 
   if (gallons > 0 && pricePerGallon > 0) {
@@ -563,8 +564,8 @@ function setupEventListeners(signal) {
   fillupList?.addEventListener(
     "click",
     (event) => {
-      const target
-        = event.target instanceof Element ? event.target : event.target?.parentElement;
+      const target =
+        event.target instanceof Element ? event.target : event.target?.parentElement;
       const button = target?.closest("[data-action]");
       if (!button) {
         return;
@@ -633,8 +634,8 @@ async function autoCalcOdometer() {
 
   try {
     // Show loading state
-    autoCalcBtn.innerHTML
-      = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
+    autoCalcBtn.innerHTML =
+      '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
     autoCalcBtn.disabled = true;
 
     const timestamp = new Date(fillupTime).toISOString();
@@ -792,8 +793,8 @@ function resetFormState() {
   odoInput.placeholder = "Miles";
 
   // Reset helper text
-  document.getElementById("location-text").textContent
-    = "Select a vehicle to see location";
+  document.getElementById("location-text").textContent =
+    "Select a vehicle to see location";
   document.getElementById("odometer-display").textContent = "Last known: --";
   document.getElementById("calculated-mpg").style.display = "none";
 
@@ -863,8 +864,8 @@ async function loadRecentFillups() {
 
     fillupList.innerHTML = fillups.map((fillup) => createFillupItem(fillup)).join("");
   } catch {
-    fillupList.innerHTML
-      = '<p class="text-center text-danger p-4">Error loading fill-ups</p>';
+    fillupList.innerHTML =
+      '<p class="text-center text-danger p-4">Error loading fill-ups</p>';
   }
 }
 
@@ -893,15 +894,14 @@ function createFillupItem(fillup) {
   const mpgValue = fillup.calculated_mpg != null ? Number(fillup.calculated_mpg) : null;
   const ppg = fillup.price_per_gallon != null ? Number(fillup.price_per_gallon) : null;
 
-  const cost = totalCost != null && Number.isFinite(totalCost)
-    ? `$${totalCost.toFixed(2)}`
-    : "--";
-  const mpg = mpgValue != null && Number.isFinite(mpgValue) && mpgValue > 0
-    ? mpgValue.toFixed(1)
-    : "--";
-  const pricePerGallon = ppg != null && Number.isFinite(ppg) && ppg > 0
-    ? `$${ppg.toFixed(2)}`
-    : "--";
+  const cost =
+    totalCost != null && Number.isFinite(totalCost) ? `$${totalCost.toFixed(2)}` : "--";
+  const mpg =
+    mpgValue != null && Number.isFinite(mpgValue) && mpgValue > 0
+      ? mpgValue.toFixed(1)
+      : "--";
+  const pricePerGallon =
+    ppg != null && Number.isFinite(ppg) && ppg > 0 ? `$${ppg.toFixed(2)}` : "--";
 
   // Lookup vehicle name
   const vehicle = vehicles.find((v) => v.imei === fillup.imei);
@@ -1021,9 +1021,10 @@ function editFillup(id) {
   if (fillup.latitude && fillup.longitude) {
     updateMap(fillup.latitude, fillup.longitude);
     document.getElementById("location-text").textContent = "Location from record";
-    document.getElementById("odometer-display").textContent = fillup.odometer != null
-      ? `${Math.round(fillup.odometer).toLocaleString()} mi`
-      : "Not recorded";
+    document.getElementById("odometer-display").textContent =
+      fillup.odometer != null
+        ? `${Math.round(fillup.odometer).toLocaleString()} mi`
+        : "Not recorded";
   }
 
   // Scroll to form
@@ -1090,8 +1091,8 @@ async function loadStatistics() {
 
     // Update stats display
     document.getElementById("total-fillups").textContent = stats.total_fillups || 0;
-    document.getElementById("total-spent").textContent
-      = `$${(stats.total_cost || 0).toFixed(0)}`;
+    document.getElementById("total-spent").textContent =
+      `$${(stats.total_cost || 0).toFixed(0)}`;
     document.getElementById("avg-mpg").textContent = stats.average_mpg
       ? stats.average_mpg.toFixed(1)
       : "--";
