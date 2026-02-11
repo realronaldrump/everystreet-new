@@ -950,8 +950,10 @@
   top: var(--space-3);
   right: var(--space-3);
   display: flex;
-  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: var(--space-2);
+  max-width: min(100% - (var(--space-3) * 2), 34rem);
   z-index: 10;
 }
 
@@ -959,7 +961,7 @@
   .map-overlay-controls {
     top: var(--space-4);
     right: var(--space-4);
-    flex-direction: column;
+    max-width: 18rem;
   }
 }
 
@@ -968,23 +970,29 @@
   backdrop-filter: blur(10px);
   border: 1px solid var(--border-color);
   color: var(--text-primary);
-  width: 40px;
-  height: 40px;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  height: 2.75rem;
+  padding: 0 var(--space-3);
   border-radius: var(--radius-md);
   cursor: pointer;
   transition: all var(--transition-fast);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.9rem;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 @media (width >= 768px) {
   .btn-control {
-    width: 44px;
-    height: 44px;
+    min-width: 2.875rem;
+    min-height: 2.875rem;
+    height: 2.875rem;
     border-radius: var(--radius-lg);
-    font-size: 1rem;
+    font-size: var(--font-size-sm);
   }
 }
 
@@ -994,19 +1002,101 @@
   transform: translateY(-2px);
 }
 
-.btn-draw {
-  background: var(--primary);
-  color: var(--text-on-primary);
+.btn-control:focus-visible {
+  outline: none;
   border-color: var(--primary);
-  width: auto;
-  padding: 0 var(--space-4);
-  font-weight: 600;
-  gap: var(--space-2);
+  box-shadow: var(--focus-ring);
+}
+
+.btn-control.active {
+  background: rgb(var(--primary-rgb), 0.18);
+  border-color: rgb(var(--primary-rgb), 0.6);
+  color: var(--primary);
+}
+
+.btn-control:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-control i {
+  font-size: 0.9rem;
+}
+
+.btn-draw {
+  background: linear-gradient(
+    135deg,
+    rgb(var(--primary-rgb), 0.95) 0%,
+    rgb(var(--cat-mint-rgb), 0.95) 100%
+  );
+  color: var(--text-on-primary);
+  border-color: rgb(var(--primary-rgb), 0.7);
 }
 
 .btn-draw:hover {
-  background: var(--cat-mint);
-  border-color: var(--cat-mint);
+  color: var(--text-on-primary);
+  border-color: rgb(var(--cat-mint-rgb), 0.8);
+}
+
+.boundary-editor-summary {
+  margin-top: var(--space-4);
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  border: 1px solid rgb(var(--primary-rgb), 0.25);
+  background: linear-gradient(
+    135deg,
+    rgb(var(--surface-rgb), 0.75) 0%,
+    rgb(var(--cat-sky-rgb), 0.08) 100%
+  );
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.boundary-mode-pill {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  border-radius: var(--radius-full);
+  padding: 0.3rem 0.75rem;
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border: 1px solid rgb(var(--border-rgb), 0.4);
+  color: var(--text-secondary);
+  background: rgb(var(--surface-rgb), 0.7);
+}
+
+.boundary-mode-pill.boundary-mode-idle {
+  border-color: rgb(var(--cat-slate-rgb), 0.5);
+  color: var(--text-secondary);
+}
+
+.boundary-mode-pill.boundary-mode-drawing {
+  border-color: rgb(var(--cat-coral-rgb), 0.6);
+  color: var(--cat-coral);
+  background: rgb(var(--cat-coral-rgb), 0.14);
+}
+
+.boundary-mode-pill.boundary-mode-selecting {
+  border-color: rgb(var(--cat-ochre-rgb), 0.6);
+  color: var(--cat-ochre);
+  background: rgb(var(--cat-ochre-rgb), 0.14);
+}
+
+.boundary-mode-pill.boundary-mode-editing {
+  border-color: rgb(var(--cat-mint-rgb), 0.6);
+  color: var(--cat-mint);
+  background: rgb(var(--cat-mint-rgb), 0.14);
+}
+
+.boundary-mode-text {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  line-height: 1.4;
 }
 
 /* Drawing Toast */
@@ -1028,6 +1118,7 @@
   gap: var(--space-3);
   color: var(--text-secondary);
   font-size: var(--font-size-sm);
+  line-height: 1.4;
 }
 
 /* Save Place Form */
@@ -1049,6 +1140,13 @@
   color: var(--text-secondary);
   font-size: var(--font-size-sm);
   font-weight: 500;
+}
+
+.save-form-hint {
+  margin: 0 0 var(--space-3);
+  color: var(--text-tertiary);
+  font-size: var(--font-size-xs);
+  line-height: 1.4;
 }
 
 .save-place-form .form-control {
@@ -1190,6 +1288,12 @@
 .fab-btn:hover {
   transform: translateY(-4px);
   box-shadow: 0 20px 40px rgb(var(--cat-coral-rgb), 0.4);
+}
+
+.fab-btn.is-hidden {
+  opacity: 0;
+  transform: translateY(12px);
+  pointer-events: none;
 }
 
 /* Trips Section */
@@ -1457,11 +1561,30 @@
   }
 
   .map-overlay-controls {
-    flex-direction: row;
     top: auto;
-    bottom: var(--space-4);
-    right: 50%;
-    transform: translateX(50%);
+    bottom: var(--space-3);
+    left: var(--space-3);
+    right: var(--space-3);
+    max-width: none;
+    justify-content: center;
+  }
+
+  .btn-control {
+    flex: 1 1 calc(50% - var(--space-2));
+    min-width: 8rem;
+  }
+
+  .drawing-toast {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .form-actions {
+    flex-direction: column;
+  }
+
+  .form-actions .btn {
+    width: 100%;
   }
 }
 

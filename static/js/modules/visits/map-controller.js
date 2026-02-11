@@ -19,6 +19,7 @@ class VisitsMapController {
     this.customPlacesData = { type: "FeatureCollection", features: [] };
     this.placeFeatures = new Map();
     this.activePopup = null;
+    this.placeInteractionHandlers = null;
   }
 
   initialize(theme) {
@@ -351,8 +352,15 @@ class VisitsMapController {
       return;
     }
 
+    if (this.placeInteractionHandlers) {
+      const { onMouseMove, onMouseLeave, onClick } = this.placeInteractionHandlers;
+      this.map.off("mousemove", "custom-places-fill", onMouseMove);
+      this.map.off("mouseleave", "custom-places-fill", onMouseLeave);
+      this.map.off("click", "custom-places-fill", onClick);
+    }
+
     let hoveredStateId = null;
-    this.map.on("mousemove", "custom-places-fill", (e) => {
+    const onMouseMove = (e) => {
       if (e.features.length > 0) {
         const featureId = e.features[0].id;
         // Guard against undefined feature IDs
@@ -373,9 +381,9 @@ class VisitsMapController {
         );
         this.map.getCanvas().style.cursor = "pointer";
       }
-    });
+    };
 
-    this.map.on("mouseleave", "custom-places-fill", () => {
+    const onMouseLeave = () => {
       if (hoveredStateId !== null && hoveredStateId !== undefined) {
         this.map.setFeatureState(
           { source: "custom-places", id: hoveredStateId },
@@ -384,16 +392,22 @@ class VisitsMapController {
       }
       hoveredStateId = null;
       this.map.getCanvas().style.cursor = "";
-    });
+    };
 
-    this.map.on("click", "custom-places-fill", (e) => {
+    const onClick = (e) => {
       const feature = e.features?.[0];
       const placeId = feature?.properties?.placeId;
       if (placeId) {
         this._animatePlaceClick();
         this.onPlaceClicked?.(placeId, e.lngLat);
       }
-    });
+    };
+
+    this.map.on("mousemove", "custom-places-fill", onMouseMove);
+    this.map.on("mouseleave", "custom-places-fill", onMouseLeave);
+    this.map.on("click", "custom-places-fill", onClick);
+
+    this.placeInteractionHandlers = { onMouseMove, onMouseLeave, onClick };
   }
 
   _animatePlaceClick() {

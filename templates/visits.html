@@ -275,31 +275,46 @@ No discoveries yet
       <div class="map-container-wrapper">
         <div id="map" class="map-container map-container-standard map-container--visits">
         </div>
-        <div class="map-overlay-controls">
+        <div class="map-overlay-controls" role="toolbar" aria-label="Map controls">
           <button type="button"
                   class="btn-control btn-draw"
                   id="start-drawing"
-                  title="Draw a boundary">
+                  title="Draw a new boundary"
+                  aria-label="Draw a new boundary">
             <i class="fas fa-draw-polygon"></i>
-            <span>Draw</span>
+            <span>Draw new</span>
+          </button>
+          <button type="button"
+                  class="btn-control"
+                  id="start-edit-boundary"
+                  title="Edit an existing boundary"
+                  aria-label="Edit an existing boundary">
+            <i class="fas fa-pen-ruler"></i>
+            <span>Edit</span>
           </button>
           <button type="button"
                   class="btn-control"
                   id="zoom-to-fit"
-                  title="Zoom to fit all places">
+                  title="Zoom to fit all places"
+                  aria-label="Zoom to fit all places">
             <i class="fas fa-expand-arrows-alt"></i>
+            <span>Fit</span>
           </button>
           <button type="button"
                   class="btn-control"
                   id="clear-drawing"
-                  title="Clear current drawing">
-            <i class="fas fa-eraser"></i>
+                  title="Cancel boundary editing"
+                  aria-label="Cancel boundary drawing or editing">
+            <i class="fas fa-xmark"></i>
+            <span>Cancel</span>
           </button>
           <button type="button"
                   class="btn-control"
                   id="map-style-toggle"
-                  title="Toggle map style">
+                  title="Toggle map style"
+                  aria-label="Toggle map style">
             <i class="fas fa-palette"></i>
+            <span>Style</span>
           </button>
         </div>
         <div id="map-loading" class="map-loading-overlay" style="display: none">
@@ -313,12 +328,21 @@ Loading map...
         </div>
       </div>
 
+      <div class="boundary-editor-summary" id="boundary-editor-summary" aria-live="polite">
+        <span class="boundary-mode-pill boundary-mode-idle" id="boundary-mode-pill">
+Ready
+        </span>
+        <p class="boundary-mode-text" id="boundary-mode-text">
+Draw a new boundary, or click Edit and then a saved place boundary to modify it.
+        </p>
+      </div>
+
       <!-- Drawing Instructions -->
       <div class="drawing-toast" id="drawing-toast" style="display: none">
         <div class="drawing-toast-content">
           <i class="fas fa-info-circle text-warning"></i>
-          <span>Click points to draw a boundary. Press Enter or click first point to
-                                                  close.</span>
+          <span id="drawing-toast-message">Click points to draw a boundary. Press Enter
+          or click first point to close.</span>
         </div>
         <button type="button" class="btn btn-sm btn-outline-secondary" id="cancel-drawing">
         Cancel
@@ -328,9 +352,12 @@ Loading map...
       <!-- Save Place Form (appears after drawing) -->
       <div class="save-place-form" id="save-place-form" style="display: none">
         <div class="form-group">
-          <label for="place-name">
+          <label for="place-name" id="place-name-label">
 Name this place
           </label>
+          <p class="save-form-hint" id="place-name-hint">
+Use drag handles on the map to fine-tune the boundary before saving.
+          </p>
           <input type="text"
                  id="place-name"
                  class="form-control"
@@ -344,7 +371,7 @@ Please enter a name for this place.
           Discard
           </button>
           <button type="button" class="btn btn-success" id="save-place" disabled>
-            <i class="fas fa-save me-2"></i>Save place
+            <i class="fas fa-save me-2"></i><span id="save-place-label">Save place</span>
           </button>
         </div>
       </div>
@@ -434,7 +461,10 @@ Visit History
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-outline-primary" id="modal-edit-place">
-          <i class="fas fa-edit me-2"></i>Edit
+          <i class="fas fa-edit me-2"></i>Edit details
+        </button>
+        <button type="button" class="btn btn-outline-primary" id="modal-edit-boundary">
+          <i class="fas fa-draw-polygon me-2"></i>Edit boundary
         </button>
         <button type="button" class="btn btn-outline-danger" id="modal-delete-place">
           <i class="fas fa-trash me-2"></i>Delete
@@ -469,7 +499,7 @@ Place Name
           </div>
           <div class="d-flex justify-content-between gap-3">
             <button type="button" class="btn btn-outline-primary" id="edit-place-boundary">
-              <i class="fas fa-draw-polygon me-2"></i>Edit Boundary
+              <i class="fas fa-draw-polygon me-2"></i>Edit boundary on map
             </button>
             <button type="submit" class="btn btn-success">
               <i class="fas fa-save me-2"></i>Save Changes

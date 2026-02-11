@@ -15,9 +15,8 @@ class VisitsDrawing {
 
     this.draw = null;
     this.currentPolygon = null;
-    this.drawingEnabled = false;
-    this.drawingNotification = null;
     this.placeBeingEdited = null;
+    this.mode = "idle";
   }
 
   _setSavePlaceFormVisible(isVisible) {
@@ -36,6 +35,143 @@ class VisitsDrawing {
     }
 
     toast.style.display = isVisible ? "flex" : "none";
+  }
+
+  _setDrawingToastMessage(message) {
+    const messageElement = document.getElementById("drawing-toast-message");
+    if (!messageElement) {
+      return;
+    }
+    messageElement.textContent = message;
+  }
+
+  _updateModeSummary() {
+    const modePill = document.getElementById("boundary-mode-pill");
+    const modeText = document.getElementById("boundary-mode-text");
+    if (!modePill || !modeText) {
+      return;
+    }
+
+    const modeConfig = {
+      idle: {
+        pillText: "Ready",
+        pillClass: "boundary-mode-idle",
+        helpText:
+          "Draw a new boundary, or click Edit and then a saved place boundary to modify it.",
+      },
+      "draw-new": {
+        pillText: "Drawing",
+        pillClass: "boundary-mode-drawing",
+        helpText: "Click points on the map to draw your boundary, then close the shape.",
+      },
+      "select-existing": {
+        pillText: "Select Place",
+        pillClass: "boundary-mode-selecting",
+        helpText: "Click a saved place boundary on the map to begin editing it.",
+      },
+      "edit-new": {
+        pillText: "Editing New",
+        pillClass: "boundary-mode-editing",
+        helpText: "Drag vertices and midpoints to refine the new boundary before saving.",
+      },
+      "edit-existing": {
+        pillText: "Editing Existing",
+        pillClass: "boundary-mode-editing",
+        helpText:
+          "Adjust vertices and midpoints to update this saved boundary, then save changes.",
+      },
+    };
+
+    const config = modeConfig[this.mode] || modeConfig.idle;
+    modePill.className = `boundary-mode-pill ${config.pillClass}`;
+    modePill.textContent = config.pillText;
+    modeText.textContent = config.helpText;
+  }
+
+  _syncBoundaryUi() {
+    const drawButton = document.getElementById("start-drawing");
+    const editButton = document.getElementById("start-edit-boundary");
+    const cancelButton = document.getElementById("clear-drawing");
+    const saveButton = document.getElementById("save-place");
+    const placeNameLabel = document.getElementById("place-name-label");
+    const placeNameHint = document.getElementById("place-name-hint");
+    const savePlaceLabel = document.getElementById("save-place-label");
+    const startDrawingFab = document.getElementById("start-drawing-fab");
+
+    const hasPolygon = Boolean(
+      this.currentPolygon?.id && this.draw?.get?.(this.currentPolygon.id)
+    );
+
+    drawButton?.classList.toggle(
+      "active",
+      this.mode === "draw-new" || this.mode === "edit-new"
+    );
+    editButton?.classList.toggle(
+      "active",
+      this.mode === "select-existing" || this.mode === "edit-existing"
+    );
+    cancelButton?.classList.toggle("active", this.mode !== "idle");
+    if (cancelButton) {
+      cancelButton.disabled = this.mode === "idle";
+    }
+
+    const showToast = this.mode === "draw-new" || this.mode === "select-existing";
+    const showSaveForm = this.mode === "edit-new" || this.mode === "edit-existing";
+
+    this._setDrawingToastVisible(showToast);
+    this._setSavePlaceFormVisible(showSaveForm);
+
+    if (placeNameLabel) {
+      placeNameLabel.textContent =
+        this.mode === "edit-existing" ? "Update this place" : "Name this place";
+    }
+
+    if (placeNameHint) {
+      placeNameHint.textContent =
+        this.mode === "edit-existing"
+          ? "Make boundary changes on the map, then save updates to this place."
+          : "Use drag handles on the map to fine-tune the boundary before saving.";
+    }
+
+    if (savePlaceLabel) {
+      savePlaceLabel.textContent =
+        this.mode === "edit-existing" ? "Save changes" : "Save place";
+    }
+
+    if (saveButton) {
+      if (showSaveForm && hasPolygon) {
+        saveButton.removeAttribute("disabled");
+      } else {
+        saveButton.setAttribute("disabled", "true");
+      }
+    }
+
+    startDrawingFab?.classList.toggle("is-hidden", this.mode !== "idle");
+    this._updateModeSummary();
+  }
+
+  _clearDrawFeatures() {
+    if (!this.draw) {
+      return;
+    }
+
+    this.draw.deleteAll();
+    this.currentPolygon = null;
+  }
+
+  _setPolygonForEditing(feature, mode) {
+    if (!feature?.id) {
+      this.notificationManager?.show("Unable to prepare this boundary for editing.", "warning");
+      this.mode = "idle";
+      this._syncBoundaryUi();
+      return;
+    }
+
+    this.currentPolygon = feature;
+    this.mode = mode;
+    this.draw.changeMode("direct_select", { featureId: feature.id });
+    this._setSavePlaceFormVisible(true);
+    this._syncBoundaryUi();
   }
 
   /**
@@ -61,7 +197,10 @@ class VisitsDrawing {
     if (map) {
       map.addControl(this.draw, "top-left");
       map.on("draw.create", (e) => this.onPolygonCreated(e));
+      map.on("draw.update", (e) => this.onPolygonUpdated(e));
     }
+
+    this._syncBoundaryUi();
   }
 
   /**
@@ -78,45 +217,118 @@ class VisitsDrawing {
       {
         id: "gl-draw-polygon-fill-inactive",
         type: "fill",
-        filter: ["all", ["==", "$type", "Polygon"], ["==", "active", "false"]],
+        filter: [
+          "all",
+          ["==", "$type", "Polygon"],
+          ["!=", "mode", "static"],
+          ["==", "active", "false"],
+        ],
         paint: {
           "fill-color": colors.fill,
-          "fill-opacity": 0.15,
+          "fill-opacity": 0.18,
         },
       },
       {
         id: "gl-draw-polygon-fill-active",
         type: "fill",
-        filter: ["all", ["==", "$type", "Polygon"], ["==", "active", "true"]],
+        filter: [
+          "all",
+          ["==", "$type", "Polygon"],
+          ["!=", "mode", "static"],
+          ["==", "active", "true"],
+        ],
         paint: {
           "fill-color": colors.highlight,
-          "fill-opacity": 0.1,
+          "fill-opacity": 0.2,
         },
       },
       {
         id: "gl-draw-polygon-stroke-inactive",
         type: "line",
-        filter: ["all", ["==", "$type", "Polygon"], ["==", "active", "false"]],
+        filter: [
+          "all",
+          ["==", "$type", "Polygon"],
+          ["!=", "mode", "static"],
+          ["==", "active", "false"],
+        ],
         paint: {
           "line-color": colors.outline,
-          "line-width": 2,
+          "line-width": 3,
         },
       },
       {
         id: "gl-draw-polygon-stroke-active",
         type: "line",
-        filter: ["all", ["==", "$type", "Polygon"], ["==", "active", "true"]],
+        filter: [
+          "all",
+          ["==", "$type", "Polygon"],
+          ["!=", "mode", "static"],
+          ["==", "active", "true"],
+        ],
         paint: {
           "line-color": colors.highlight,
-          "line-width": 2,
+          "line-width": 3,
         },
       },
       {
-        id: "gl-draw-polygon-vertex-active",
-        type: "circle",
-        filter: ["all", ["==", "meta", "vertex"], ["==", "active", "true"]],
+        id: "gl-draw-line-inactive",
+        type: "line",
+        filter: ["all", ["==", "$type", "LineString"], ["==", "active", "false"]],
+        layout: {
+          "line-cap": "round",
+          "line-join": "round",
+        },
         paint: {
-          "circle-radius": 6,
+          "line-color": colors.outline,
+          "line-width": 3,
+        },
+      },
+      {
+        id: "gl-draw-line-active",
+        type: "line",
+        filter: ["all", ["==", "$type", "LineString"], ["==", "active", "true"]],
+        layout: {
+          "line-cap": "round",
+          "line-join": "round",
+        },
+        paint: {
+          "line-color": colors.highlight,
+          "line-width": 3,
+        },
+      },
+      {
+        id: "gl-draw-polygon-midpoint",
+        type: "circle",
+        filter: ["all", ["==", "meta", "midpoint"], ["==", "$type", "Point"]],
+        paint: {
+          "circle-radius": 4,
+          "circle-color": colors.highlight,
+          "circle-stroke-width": 1,
+          "circle-stroke-color": "#faf9f7",
+        },
+      },
+      {
+        id: "gl-draw-polygon-vertex-inactive",
+        type: "circle",
+        filter: ["all", ["==", "meta", "vertex"], ["==", "$type", "Point"]],
+        paint: {
+          "circle-radius": 5,
+          "circle-color": colors.outline,
+          "circle-stroke-width": 1.5,
+          "circle-stroke-color": "#faf9f7",
+        },
+      },
+      {
+        id: "gl-draw-polygon-vertex-active-halo",
+        type: "circle",
+        filter: [
+          "all",
+          ["==", "meta", "vertex"],
+          ["==", "$type", "Point"],
+          ["==", "active", "true"],
+        ],
+        paint: {
+          "circle-radius": 8,
           "circle-color": colors.highlight,
           "circle-stroke-width": 2,
           "circle-stroke-color": "#faf9f7",
@@ -129,26 +341,43 @@ class VisitsDrawing {
    * Start drawing mode
    */
   startDrawing() {
-    if (this.drawingEnabled || !this.draw) {
+    if (!this.draw) {
       return;
     }
 
     this.resetDrawing(false);
-    this.draw.changeMode("draw_polygon");
-    this.drawingEnabled = true;
-    this._setSavePlaceFormVisible(false);
-    this._setDrawingToastVisible(true);
-
-    const drawBtn = document.getElementById("start-drawing");
-    drawBtn?.classList.add("active");
-    document.getElementById("save-place")?.setAttribute("disabled", "true");
-
-    const notification = this.notificationManager?.show(
-      "Click on the map to start drawing the place boundary. Click the first point or press Enter to finish.",
-      "info",
-      0
+    this.mode = "draw-new";
+    this.placeBeingEdited = null;
+    this._setDrawingToastMessage(
+      "Click points to draw a boundary. Press Enter or click first point to close."
     );
-    this.drawingNotification = notification;
+    this.draw.changeMode("draw_polygon");
+    this._syncBoundaryUi();
+
+    this.notificationManager?.show(
+      "Drawing mode enabled. Click map points to outline your new place.",
+      "info"
+    );
+  }
+
+  startSelectingBoundaryForEdit() {
+    if (!this.draw) {
+      return;
+    }
+
+    this.resetDrawing(false);
+    this.mode = "select-existing";
+    this.placeBeingEdited = null;
+    this._setDrawingToastMessage(
+      "Click a saved place boundary on the map to start editing it."
+    );
+    this.draw.changeMode("simple_select");
+    this._syncBoundaryUi();
+
+    this.notificationManager?.show(
+      "Select a place boundary on the map to edit its shape.",
+      "info"
+    );
   }
 
   /**
@@ -160,50 +389,44 @@ class VisitsDrawing {
       return;
     }
 
-    if (this.currentPolygon) {
+    const nextPolygon = event.features[0];
+    if (this.currentPolygon?.id && this.currentPolygon.id !== nextPolygon.id) {
       this.draw.delete(this.currentPolygon.id);
     }
 
-    this.currentPolygon = event.features[0];
-    this.drawingEnabled = false;
-
-    document.getElementById("start-drawing")?.classList.remove("active");
-    document.getElementById("save-place")?.removeAttribute("disabled");
-
-    if (this.drawingNotification) {
-      this.drawingNotification.remove();
-    }
-
-    this._setDrawingToastVisible(false);
-    this._setSavePlaceFormVisible(true);
+    this.placeBeingEdited = null;
+    this._setPolygonForEditing(nextPolygon, "edit-new");
 
     this.notificationManager?.show(
-      "Boundary drawn! Enter a name and click Save Place.",
+      "Boundary drawn. Drag vertices if needed, then name and save your place.",
       "success"
     );
 
     document.getElementById("place-name")?.focus();
   }
 
+  onPolygonUpdated(event) {
+    if (!event?.features || event.features.length === 0) {
+      return;
+    }
+
+    this.currentPolygon = event.features[0];
+    if (this.mode === "draw-new") {
+      this.mode = "edit-new";
+    }
+    this._syncBoundaryUi();
+  }
+
   /**
    * Clear current drawing without full reset
    */
   clearCurrentDrawing() {
-    if (this.currentPolygon) {
-      this.draw.delete(this.currentPolygon.id);
-      this.currentPolygon = null;
-      document.getElementById("save-place")?.setAttribute("disabled", "true");
-      this.notificationManager?.show("Drawing cleared.", "info");
+    if (this.mode === "idle") {
+      return;
     }
 
-    if (this.drawingEnabled) {
-      this.draw.changeMode("simple_select");
-      this.drawingEnabled = false;
-      document.getElementById("start-drawing")?.classList.remove("active");
-    }
-
-    this._setSavePlaceFormVisible(false);
-    this._setDrawingToastVisible(false);
+    this.resetDrawing();
+    this.notificationManager?.show("Boundary editing canceled.", "info");
   }
 
   /**
@@ -211,39 +434,21 @@ class VisitsDrawing {
    * @param {boolean} removeControl - Whether to change mode to simple_select
    */
   resetDrawing(removeControl = true) {
-    if (this.currentPolygon && this.draw) {
-      this.draw.delete(this.currentPolygon.id);
-      this.currentPolygon = null;
-    }
+    this._clearDrawFeatures();
 
     const placeNameInput = document.getElementById("place-name");
-    const savePlaceBtn = document.getElementById("save-place");
-    const startDrawingBtn = document.getElementById("start-drawing");
-    this._setSavePlaceFormVisible(false);
-    this._setDrawingToastVisible(false);
-
     if (placeNameInput) {
       placeNameInput.value = "";
       placeNameInput.classList.remove("is-invalid");
-    }
-    if (savePlaceBtn) {
-      savePlaceBtn.setAttribute("disabled", "true");
-    }
-    if (startDrawingBtn) {
-      startDrawingBtn.classList.remove("active");
-    }
-
-    if (this.drawingNotification) {
-      this.drawingNotification.remove();
-      this.drawingNotification = null;
     }
 
     if (removeControl && this.draw) {
       this.draw.changeMode("simple_select");
     }
 
-    this.drawingEnabled = false;
     this.placeBeingEdited = null;
+    this.mode = "idle";
+    this._syncBoundaryUi();
   }
 
   /**
@@ -260,8 +465,7 @@ class VisitsDrawing {
     }
 
     this.resetDrawing(false);
-
-    this.placeBeingEdited = _placeId;
+    this.placeBeingEdited = String(_placeId);
 
     const geoJson = {
       type: "Feature",
@@ -269,27 +473,28 @@ class VisitsDrawing {
       properties: { name: place.name },
     };
 
-    this.draw.add(geoJson);
-    const polygon = this.draw.getAll().features[0];
+    const addedFeatureIds = this.draw.add(geoJson);
+    const featureId = Array.isArray(addedFeatureIds)
+      ? addedFeatureIds[0]
+      : addedFeatureIds;
+    const polygon = featureId ? this.draw.get(featureId) : this.draw.getAll().features[0];
 
     if (polygon) {
-      this.currentPolygon = polygon;
-      this.draw.changeMode("direct_select", { featureId: polygon.id });
-      this.drawingEnabled = true;
-      this._setSavePlaceFormVisible(true);
-      this._setDrawingToastVisible(false);
+      this._setPolygonForEditing(polygon, "edit-existing");
 
-      document.getElementById("start-drawing")?.classList.add("active");
-      document.getElementById("save-place")?.removeAttribute("disabled");
+      const placeNameInput = document.getElementById("place-name");
+      if (placeNameInput) {
+        placeNameInput.value = place.name || "";
+        placeNameInput.focus();
+      }
 
-      document.getElementById("place-name").value = place.name || "";
-      document.getElementById("place-name")?.focus();
-
-      this.notificationManager?.show(
-        "Edit boundary points on the map, then click Save Place to apply updates.",
-        "info"
-      );
+      this.notificationManager?.show("Edit the boundary and save changes when ready.", "info");
+      return;
     }
+
+    this.mode = "idle";
+    this.placeBeingEdited = null;
+    this._syncBoundaryUi();
   }
 
   /**
@@ -297,11 +502,11 @@ class VisitsDrawing {
    * @returns {Object|null} GeoJSON of current polygon
    */
   getCurrentPolygonGeoJSON() {
-    if (!this.currentPolygon) {
+    if (!this.currentPolygon || !this.draw) {
       return null;
     }
 
-    return this.draw.get(this.currentPolygon.id);
+    return this.draw.get(this.currentPolygon.id) || null;
   }
 
   getCurrentPolygon() {
@@ -313,6 +518,18 @@ class VisitsDrawing {
 
   getPlaceBeingEdited() {
     return this.placeBeingEdited;
+  }
+
+  isSelectingBoundaryForEdit() {
+    return this.mode === "select-existing";
+  }
+
+  isDrawingBoundary() {
+    return this.mode === "draw-new";
+  }
+
+  isEditingBoundary() {
+    return this.mode === "edit-new" || this.mode === "edit-existing";
   }
 
   applySuggestion(suggestion) {
@@ -330,19 +547,21 @@ class VisitsDrawing {
       properties: { name: suggestionName },
     };
 
-    this.draw.add(geoJson);
-    const polygon = this.draw.getAll().features[0];
+    const addedFeatureIds = this.draw.add(geoJson);
+    const featureId = Array.isArray(addedFeatureIds)
+      ? addedFeatureIds[0]
+      : addedFeatureIds;
+    const polygon = featureId ? this.draw.get(featureId) : this.draw.getAll().features[0];
 
     if (polygon) {
-      this.currentPolygon = polygon;
-      this.draw.changeMode("direct_select", { featureId: polygon.id });
-      this.drawingEnabled = true;
-      this._setSavePlaceFormVisible(true);
-      this._setDrawingToastVisible(false);
-      document.getElementById("start-drawing")?.classList.add("active");
-      document.getElementById("save-place")?.removeAttribute("disabled");
-      document.getElementById("place-name").value = suggestionName || "";
-      document.getElementById("place-name")?.focus();
+      this.placeBeingEdited = null;
+      this._setPolygonForEditing(polygon, "edit-new");
+
+      const placeNameInput = document.getElementById("place-name");
+      if (placeNameInput) {
+        placeNameInput.value = suggestionName || "";
+        placeNameInput.focus();
+      }
     }
   }
 }

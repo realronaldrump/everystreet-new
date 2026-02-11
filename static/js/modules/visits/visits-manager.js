@@ -44,7 +44,7 @@ class VisitsManager {
     this.mapController = new VisitsMapController({
       geometryUtils: VisitsGeometry,
       mapStyles: MapStyles,
-      onPlaceClicked: (placeId, lngLat) => this.showPlaceStatistics(placeId, lngLat),
+      onPlaceClicked: (placeId, lngLat) => this.handlePlaceClick(placeId, lngLat),
     });
 
     // Trip viewer
@@ -81,6 +81,7 @@ class VisitsManager {
           this.mapController.animateToPlace(place);
         }
       },
+      onEditBoundary: (placeId) => this.startEditingPlaceBoundary(placeId),
     });
 
     // Tables
@@ -470,6 +471,10 @@ class VisitsManager {
     this.drawing.startDrawing();
   }
 
+  startBoundarySelectionMode() {
+    this.drawing.startSelectingBoundaryForEdit();
+  }
+
   clearCurrentDrawing() {
     this.drawing.clearCurrentDrawing();
   }
@@ -589,6 +594,20 @@ class VisitsManager {
       return;
     }
     this.mapController.zoomToFitAllPlaces();
+  }
+
+  handlePlaceClick(placeId, lngLat = null) {
+    if (this.drawing.isSelectingBoundaryForEdit()) {
+      this.startEditingPlaceBoundary(placeId);
+      return;
+    }
+
+    // Avoid popup interruptions while actively drawing/editing boundaries.
+    if (this.drawing.isDrawingBoundary() || this.drawing.isEditingBoundary()) {
+      return;
+    }
+
+    void this.showPlaceStatistics(placeId, lngLat);
   }
 
   async showPlaceStatistics(placeId, lngLat = null) {

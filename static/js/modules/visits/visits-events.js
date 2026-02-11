@@ -32,70 +32,32 @@ class VisitsEvents {
     });
   }
 
+  _bindClick(elementId, handler) {
+    document.getElementById(elementId)?.addEventListener("click", (event) => {
+      event.preventDefault();
+      handler();
+    });
+  }
+
   /**
    * Set up button click listeners
    */
   _setupButtonListeners() {
-    // Drawing controls
-    document.getElementById("start-drawing")?.addEventListener("mousedown", (e) => {
-      if (e.button !== 0) {
-        return;
-      }
-      this.manager.startDrawing();
-    });
-
-    document.getElementById("save-place")?.addEventListener("mousedown", (e) => {
-      if (e.button !== 0) {
-        return;
-      }
-      this.manager.savePlace();
-    });
-
-    document.getElementById("clear-drawing")?.addEventListener("mousedown", (e) => {
-      if (e.button !== 0) {
-        return;
-      }
-      this.manager.clearCurrentDrawing();
-    });
+    // Boundary controls
+    this._bindClick("start-drawing", () => this.manager.startDrawing());
+    this._bindClick("start-edit-boundary", () => this.manager.startBoundarySelectionMode());
+    this._bindClick("save-place", () => this.manager.savePlace());
+    this._bindClick("clear-drawing", () => this.manager.clearCurrentDrawing());
 
     // Map controls
-    document.getElementById("zoom-to-fit")?.addEventListener("mousedown", (e) => {
-      if (e.button !== 0) {
-        return;
-      }
-      this.manager.zoomToFitAllPlaces();
-    });
-
-    document.getElementById("map-style-toggle")?.addEventListener("click", () => {
-      this.manager.mapController?.toggleMapStyle();
-    });
+    this._bindClick("zoom-to-fit", () => this.manager.zoomToFitAllPlaces());
+    this._bindClick("map-style-toggle", () => this.manager.mapController?.toggleMapStyle());
 
     // Place management
-    document.getElementById("manage-places")?.addEventListener("mousedown", (e) => {
-      if (e.button !== 0) {
-        return;
-      }
-      this.manager.uiManager?.showManagePlacesModal(this.manager.places);
-    });
-
-    document
-      .getElementById("edit-place-boundary")
-      ?.addEventListener("mousedown", (e) => {
-        if (e.button !== 0) {
-          return;
-        }
-        this.manager.startEditingPlaceBoundary();
-      });
+    this._bindClick("edit-place-boundary", () => this.manager.startEditingPlaceBoundary());
 
     // Navigation
-    document
-      .getElementById("back-to-places-btn")
-      ?.addEventListener("mousedown", (e) => {
-        if (e.button !== 0) {
-          return;
-        }
-        this.manager.uiManager?.toggleView();
-      });
+    this._bindClick("back-to-places-btn", () => this.manager.uiManager?.toggleView());
   }
 
   /**
@@ -119,20 +81,40 @@ class VisitsEvents {
     });
   }
 
+  _isBoundaryWorkflowActive() {
+    return Boolean(
+      this.manager.drawing?.isDrawingBoundary?.() ||
+        this.manager.drawing?.isEditingBoundary?.() ||
+        this.manager.drawing?.isSelectingBoundaryForEdit?.()
+    );
+  }
+
   /**
    * Set up keyboard shortcuts
    */
   _setupKeyboardShortcuts() {
     document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        if (this._isBoundaryWorkflowActive()) {
+          e.preventDefault();
+          this.manager.clearCurrentDrawing();
+        }
+        return;
+      }
+
       // Only handle shortcuts with Ctrl/Cmd key
       if (!e.ctrlKey && !e.metaKey) {
         return;
       }
 
-      switch (e.key) {
+      switch (e.key.toLowerCase()) {
         case "d":
           e.preventDefault();
           document.getElementById("start-drawing")?.click();
+          break;
+        case "e":
+          e.preventDefault();
+          document.getElementById("start-edit-boundary")?.click();
           break;
         case "s":
           e.preventDefault();

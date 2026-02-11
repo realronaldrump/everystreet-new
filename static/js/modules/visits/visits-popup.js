@@ -14,6 +14,7 @@ class VisitsPopup {
     this.notificationManager = options.notificationManager || notificationManager;
     this.onViewTrips = options.onViewTrips || (() => {});
     this.onZoomToPlace = options.onZoomToPlace || (() => {});
+    this.onEditBoundary = options.onEditBoundary || (() => {});
   }
 
   /**
@@ -135,6 +136,9 @@ class VisitsPopup {
             <button class="btn btn-sm btn-primary view-trips-btn" data-place-id="${placeId}">
               <i class="fas fa-list-ul me-1"></i> View All Trips
             </button>
+            <button class="btn btn-sm btn-outline-success edit-boundary-btn" data-place-id="${placeId}">
+              <i class="fas fa-draw-polygon me-1"></i> Edit Boundary
+            </button>
             <button class="btn btn-sm btn-outline-primary zoom-to-place-btn" data-place-id="${placeId}">
               <i class="fas fa-search-plus me-1"></i> Zoom to Place
             </button>
@@ -185,6 +189,15 @@ class VisitsPopup {
       const id = e.currentTarget.getAttribute("data-place-id");
       if (id) {
         this.onZoomToPlace(id);
+      }
+    });
+
+    popupNode.querySelector(".edit-boundary-btn")?.addEventListener("click", (e) => {
+      e.preventDefault();
+      const id = e.currentTarget.getAttribute("data-place-id");
+      if (id) {
+        this.mapController?.closePopup();
+        this.onEditBoundary(id);
       }
     });
   }

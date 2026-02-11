@@ -181,6 +181,10 @@ class VisitsPageController {
       this.openEditModalForActivePlace();
     });
 
+    document.getElementById("modal-edit-boundary")?.addEventListener("click", () => {
+      this.startBoundaryEditForActivePlace();
+    });
+
     document.getElementById("modal-delete-place")?.addEventListener("click", () => {
       void this.deleteActivePlace();
     });
@@ -256,6 +260,18 @@ class VisitsPageController {
 
     this._hideModalById("place-detail-modal");
     bootstrap.Modal.getOrCreateInstance(editModalEl).show();
+  }
+
+  startBoundaryEditForActivePlace() {
+    const placeId = this.activePlaceId;
+    if (!placeId) {
+      this.showNotification("No place selected to edit.", "warning");
+      return;
+    }
+
+    this._hideModalById("place-detail-modal");
+    this._hideModalById("edit-place-modal");
+    this.visitsManager?.startEditingPlaceBoundary?.(placeId);
   }
 
   async deleteActivePlace() {
