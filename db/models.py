@@ -267,6 +267,8 @@ class RecurringRoute(Document):
     auto_name: str = ""
     start_label: str = ""
     end_label: str = ""
+    start_place_id: str | None = None
+    end_place_id: str | None = None
 
     # Geometry summary
     start_centroid: list[float] = Field(default_factory=list)  # [lon, lat]

@@ -4,19 +4,21 @@ from __future__ import annotations
 
 import re
 from collections import defaultdict
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 from statistics import median
 from typing import Any
 from zoneinfo import ZoneInfo
 
 from beanie import PydanticObjectId
 
+from core.spatial import GeometryService
 from db.aggregation_utils import get_mongo_tz_expr
 from db.models import Place, RecurringRoute, Trip
 from recurring_routes.services.fingerprint import (
     build_preview_svg_path,
     compute_route_key,
     compute_route_signature,
+    extract_polyline,
 )
 from recurring_routes.services.service import (
     build_place_link,
@@ -104,11 +106,33 @@ def _to_local_start_dt(trip: dict[str, Any]) -> datetime | None:
         return dt.astimezone(timezone.utc)
 
 
+def _extract_trip_endpoint_point(
+    trip: dict[str, Any],
+    *,
+    point_field: str,
+    endpoint: str,
+) -> list[float] | None:
+    point = extract_point_from_geojson_point(trip.get(point_field))
+    if point:
+        return point
+
+    polyline = extract_polyline(trip)
+    if len(polyline) < 2:
+        return None
+
+    candidate = polyline[0] if endpoint == "start" else polyline[-1]
+    valid, pair = GeometryService.validate_coordinate_pair(candidate)
+    if valid and pair:
+        return pair
+    return None
+
+
 def _match_endpoint(
     trip: dict[str, Any],
     *,
     place: Place,
     point_field: str,
+    endpoint: str,
     id_fields: tuple[str, ...],
 ) -> tuple[bool, str | None]:
     if not place.id:
@@ -121,7 +145,11 @@ def _match_endpoint(
         if trip_place_id and trip_place_id == place_id:
             return True, place_id
 
-    point = extract_point_from_geojson_point(trip.get(point_field))
+    point = _extract_trip_endpoint_point(
+        trip,
+        point_field=point_field,
+        endpoint=endpoint,
+    )
     if point:
         matched = find_place_id_for_point(point, [place])
         if matched and matched == place_id:
@@ -134,6 +162,7 @@ def _resolve_endpoint_place_id(
     trip: dict[str, Any],
     *,
     point_field: str,
+    endpoint: str,
     id_fields: tuple[str, ...],
     candidate_places: list[Place],
 ) -> str | None:
@@ -143,7 +172,11 @@ def _resolve_endpoint_place_id(
         if place_id and place_id in candidate_ids:
             return place_id
 
-    point = extract_point_from_geojson_point(trip.get(point_field))
+    point = _extract_trip_endpoint_point(
+        trip,
+        point_field=point_field,
+        endpoint=endpoint,
+    )
     if point:
         return find_place_id_for_point(point, candidate_places)
 
@@ -161,25 +194,34 @@ def _match_place_pair(
         trip,
         place=start_place,
         point_field="startGeoPoint",
-        id_fields=("startPlaceId",),
+        endpoint="start",
+        id_fields=("startPlaceId", "start_place_id"),
     )
     end_ok, _ = _match_endpoint(
         trip,
         place=end_place,
         point_field="destinationGeoPoint",
-        id_fields=("destinationPlaceId",),
+        endpoint="end",
+        id_fields=("destinationPlaceId", "endPlaceId", "destination_place_id", "end_place_id"),
     )
     if start_ok and end_ok:
         start_id = _resolve_endpoint_place_id(
             trip,
             point_field="startGeoPoint",
-            id_fields=("startPlaceId",),
+            endpoint="start",
+            id_fields=("startPlaceId", "start_place_id"),
             candidate_places=[start_place, end_place],
         )
         end_id = _resolve_endpoint_place_id(
             trip,
             point_field="destinationGeoPoint",
-            id_fields=("destinationPlaceId",),
+            endpoint="end",
+            id_fields=(
+                "destinationPlaceId",
+                "endPlaceId",
+                "destination_place_id",
+                "end_place_id",
+            ),
             candidate_places=[start_place, end_place],
         )
         return True, "forward", start_id, end_id
@@ -191,25 +233,34 @@ def _match_place_pair(
         trip,
         place=end_place,
         point_field="startGeoPoint",
-        id_fields=("startPlaceId",),
+        endpoint="start",
+        id_fields=("startPlaceId", "start_place_id"),
     )
     rev_end_ok, _ = _match_endpoint(
         trip,
         place=start_place,
         point_field="destinationGeoPoint",
-        id_fields=("destinationPlaceId",),
+        endpoint="end",
+        id_fields=("destinationPlaceId", "endPlaceId", "destination_place_id", "end_place_id"),
     )
     if rev_start_ok and rev_end_ok:
         start_id = _resolve_endpoint_place_id(
             trip,
             point_field="startGeoPoint",
-            id_fields=("startPlaceId",),
+            endpoint="start",
+            id_fields=("startPlaceId", "start_place_id"),
             candidate_places=[start_place, end_place],
         )
         end_id = _resolve_endpoint_place_id(
             trip,
             point_field="destinationGeoPoint",
-            id_fields=("destinationPlaceId",),
+            endpoint="end",
+            id_fields=(
+                "destinationPlaceId",
+                "endPlaceId",
+                "destination_place_id",
+                "end_place_id",
+            ),
             candidate_places=[start_place, end_place],
         )
         return True, "reverse", start_id, end_id
@@ -628,15 +679,36 @@ async def analyze_place_pair(
     if not start_place or not end_place:
         raise LookupError("Place not found")
 
-    now = datetime.now(UTC)
-    query: dict[str, Any] = {"invalid": {"$ne": True}}
-    if timeframe == "90d":
-        query["startTime"] = {"$gte": now - timedelta(days=90)}
+    requested_timeframe = str(timeframe or "all").strip().lower()
+    effective_timeframe = "all"
+    sample_limit = min(max(int(limit), 1), 500)
 
-    scan_cap = min(max(limit * 8, limit), 5000)
+    query: dict[str, Any] = {"invalid": {"$ne": True}}
 
     trips_coll = Trip.get_pymongo_collection()
-    cursor = trips_coll.find(query).sort("startTime", -1)
+    cursor = trips_coll.find(
+        query,
+        {
+            "_id": 1,
+            "transactionId": 1,
+            "startTime": 1,
+            "endTime": 1,
+            "startTimeZone": 1,
+            "timeZone": 1,
+            "distance": 1,
+            "duration": 1,
+            "startLocation": 1,
+            "destination": 1,
+            "destinationPlaceName": 1,
+            "startPlaceId": 1,
+            "destinationPlaceId": 1,
+            "startGeoPoint": 1,
+            "destinationGeoPoint": 1,
+            "recurringRouteId": 1,
+            "matchedGps": 1,
+            "gps": 1,
+        },
+    ).sort("startTime", -1)
 
     matched_trips: list[dict[str, Any]] = []
     scanned = 0
@@ -654,11 +726,6 @@ async def analyze_place_pair(
             trip_doc["_resolvedStartPlaceId"] = resolved_start_id
             trip_doc["_resolvedEndPlaceId"] = resolved_end_id
             matched_trips.append(trip_doc)
-            if len(matched_trips) >= limit:
-                break
-
-        if scanned >= scan_cap:
-            break
 
     places_by_id = {
         str(start_place.id): start_place,
@@ -698,13 +765,14 @@ async def analyze_place_pair(
             "start_place": start_link,
             "end_place": end_link,
             "include_reverse": include_reverse,
-            "timeframe": timeframe,
+            "timeframe": effective_timeframe,
             "query": {
                 "start_place_id": start_place_id,
                 "end_place_id": end_place_id,
                 "include_reverse": include_reverse,
-                "timeframe": timeframe,
-                "limit": limit,
+                "requested_timeframe": requested_timeframe,
+                "timeframe": effective_timeframe,
+                "sample_limit": sample_limit,
                 "scanned": scanned,
                 "matched": 0,
             },
@@ -729,7 +797,11 @@ async def analyze_place_pair(
     routes_by_id = await _load_routes_by_id(route_ids)
 
     trip_ids = [doc.get("_id") for doc in matched_trips if doc.get("_id") is not None]
-    facets = await _aggregate_facets_for_trip_ids(trip_ids)
+    facets = (
+        await _aggregate_facets_for_trip_ids(trip_ids)
+        if 0 < len(trip_ids) <= 4000
+        else {}
+    )
     if not facets:
         facets = _fallback_facets(matched_trips)
 
@@ -800,7 +872,7 @@ async def analyze_place_pair(
             },
         )
 
-    sample_size = min(len(matched_trips), 25)
+    sample_size = min(len(matched_trips), sample_limit)
     sample_trips = [
         _to_sample_trip(doc, places_by_id=places_by_id)
         for doc in matched_trips[:sample_size]
@@ -829,13 +901,14 @@ async def analyze_place_pair(
         "start_place": start_link,
         "end_place": end_link,
         "include_reverse": include_reverse,
-        "timeframe": timeframe,
+        "timeframe": effective_timeframe,
         "query": {
             "start_place_id": start_place_id,
             "end_place_id": end_place_id,
             "include_reverse": include_reverse,
-            "timeframe": timeframe,
-            "limit": limit,
+            "requested_timeframe": requested_timeframe,
+            "timeframe": effective_timeframe,
+            "sample_limit": sample_limit,
             "scanned": scanned,
             "matched": len(matched_trips),
         },

@@ -251,7 +251,11 @@ class VisitsDrawing {
    * @param {Object} place - Place to edit
    */
   startEditingPlaceBoundary(_placeId, place) {
-    if (!this.draw) {
+    if (!this.draw || !place?.geometry) {
+      this.notificationManager?.show(
+        "Unable to load this place boundary for editing.",
+        "warning"
+      );
       return;
     }
 
@@ -272,15 +276,17 @@ class VisitsDrawing {
       this.currentPolygon = polygon;
       this.draw.changeMode("direct_select", { featureId: polygon.id });
       this.drawingEnabled = true;
+      this._setSavePlaceFormVisible(true);
       this._setDrawingToastVisible(false);
 
       document.getElementById("start-drawing")?.classList.add("active");
+      document.getElementById("save-place")?.removeAttribute("disabled");
 
-      document.getElementById("place-name").value = place.name;
+      document.getElementById("place-name").value = place.name || "";
       document.getElementById("place-name")?.focus();
 
       this.notificationManager?.show(
-        "Edit the boundary by dragging points. Click Save Changes in the dialog.",
+        "Edit boundary points on the map, then click Save Place to apply updates.",
         "info"
       );
     }

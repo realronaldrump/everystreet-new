@@ -36,7 +36,7 @@ def _line(coords: list[list[float]]) -> dict:
 
 
 @pytest.mark.asyncio
-async def test_place_pair_analysis_forward_only_uses_place_fallback(place_pair_db) -> None:
+async def test_place_pair_analysis_is_all_time_and_uses_place_fallback(place_pair_db) -> None:
     now = datetime(2026, 2, 10, 8, 0, tzinfo=UTC)
 
     start_place = Place(name="Home", geometry=_point(-122.401, 37.790), created_at=now)
@@ -117,6 +117,19 @@ async def test_place_pair_analysis_forward_only_uses_place_fallback(place_pair_d
         destinationPlaceId=str(end_place.id),
     ).insert()
 
+    # Forward, gps-only endpoint fallback (no place ids or explicit GeoPoints).
+    await Trip(
+        transactionId="pp-forward-gps-only",
+        imei="imei-1",
+        startTime=now - timedelta(days=4),
+        endTime=now - timedelta(days=4) + timedelta(minutes=26),
+        duration=1560,
+        distance=8.2,
+        gps=_line([[-122.401, 37.790], [-122.397, 37.785], [-122.394, 37.781]]),
+        startGeoPoint=None,
+        destinationGeoPoint=None,
+    ).insert()
+
     client = TestClient(_build_app())
     resp = client.get(
         "/api/recurring_routes/place_pair_analysis",
@@ -135,16 +148,18 @@ async def test_place_pair_analysis_forward_only_uses_place_fallback(place_pair_d
     assert body["start_place"]["id"] == str(start_place.id)
     assert body["end_place"]["id"] == str(end_place.id)
     assert body["include_reverse"] is False
-    assert body["timeframe"] == "90d"
-    assert body["query"]["matched"] == 2
+    assert body["timeframe"] == "all"
+    assert body["query"]["matched"] == 4
     assert body["query"]["include_reverse"] is False
-    assert body["query"]["timeframe"] == "90d"
+    assert body["query"]["requested_timeframe"] == "90d"
+    assert body["query"]["timeframe"] == "all"
+    assert body["query"]["sample_limit"] == 500
 
     assert body["places"]["start"]["id"] == str(start_place.id)
     assert body["places"]["end"]["id"] == str(end_place.id)
 
-    assert body["summary"]["trip_count"] == 2
-    assert body["summary"]["variant_count"] == 1
+    assert body["summary"]["trip_count"] == 4
+    assert body["summary"]["variant_count"] >= 2
     assert body["summary"]["median_distance"] is not None
     assert body["summary"]["median_duration"] is not None
     assert body["summary"]["first_trip"] is not None
@@ -152,13 +167,16 @@ async def test_place_pair_analysis_forward_only_uses_place_fallback(place_pair_d
     assert len(body["byHour"]) == 24
     assert len(body["byDayOfWeek"]) == 7
 
-    assert body["variants"][0]["route_id"] == str(route.id)
-    assert body["variants"][0]["trip_count"] == 2
-    assert body["variants"][0]["share"] == pytest.approx(1.0)
-    assert body["variants"][0]["preview_path"]
-    assert body["variants"][0]["representative_geometry"]
+    linked_variant = next(
+        (variant for variant in body["variants"] if variant.get("route_id") == str(route.id)),
+        None,
+    )
+    assert linked_variant is not None
+    assert linked_variant["trip_count"] == 2
+    assert linked_variant["preview_path"]
+    assert linked_variant["representative_geometry"]
 
-    assert len(body["sampleTrips"]) == 2
+    assert len(body["sampleTrips"]) == 4
     assert body["sampleTrips"][0]["startPlaceId"] == str(start_place.id)
     assert body["sampleTrips"][0]["destinationPlaceId"] == str(end_place.id)
     assert body["sampleTrips"][0]["place_links"]["start"]["label"] == "Home"
@@ -258,8 +276,9 @@ async def test_place_pair_analysis_include_reverse_all_and_limit(place_pair_db) 
 
     assert body["include_reverse"] is True
     assert body["timeframe"] == "all"
-    assert body["query"]["matched"] == 3
+    assert body["query"]["matched"] == 4
     assert body["query"]["include_reverse"] is True
+    assert body["query"]["sample_limit"] == 3
     assert body["query"]["timeframe"] == "all"
     assert len(body["sampleTrips"]) == 3
 
@@ -270,7 +289,7 @@ async def test_place_pair_analysis_include_reverse_all_and_limit(place_pair_db) 
     variants = body["variants"]
     assert any(v.get("route_id") == str(linked_route.id) for v in variants)
     assert any(v.get("route_id") is None for v in variants)
-    assert body["summary"]["trip_count"] == 3
+    assert body["summary"]["trip_count"] == 4
     assert body["summary"]["variant_count"] == len(variants)
 
 

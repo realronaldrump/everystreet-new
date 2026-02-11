@@ -58,6 +58,7 @@ export default function initVisitsPage({ cleanup } = {}) {
 
   const teardown = () => {
     themeObserver.disconnect();
+    visitsPage?.clearPlacePreviewMaps?.();
     visitsPage?.clearSuggestionPreviewMaps?.();
     visitsPage?.visitsManager?.destroy?.();
     if (window.visitsPage === visitsPage) {

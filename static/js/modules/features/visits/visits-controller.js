@@ -25,6 +25,18 @@ const IMPERIAL_CONFIG = {
 // Place icon - generic pin for all places
 const PLACE_ICON = "📍";
 
+const DISCOVERY_PREVIEW_COLORS = {
+  fill: "#6a9fc0",
+  line: "#6a9fc0",
+};
+
+const PLACE_PREVIEW_COLORS = {
+  mint: { fill: "#22b7a2", line: "#49d7c3" },
+  purple: { fill: "#9176d2", line: "#b39ce5" },
+  sky: { fill: "#5d9fd9", line: "#82bbea" },
+  slate: { fill: "#6f7f96", line: "#94a3b8" },
+};
+
 // Day names for pattern detection
 const _DAY_NAMES = [
   "Sunday",
@@ -47,8 +59,10 @@ class VisitsPageController {
     this.currentSuggestionSize = 250; // feet (converted from 75m)
     this.suggestionPage = 1;
     this.suggestionPageSize = 6;
+    this.placePreviewMaps = new Map();
     this.suggestionPreviewMaps = new Map();
     this.hasProcessedPlaceDeepLink = false;
+    this.activePlaceId = "";
 
     // DOM Elements
     this.elements = {};
@@ -158,6 +172,18 @@ class VisitsPageController {
     document.getElementById("discard-drawing")?.addEventListener("click", () => {
       this.discardDrawing();
     });
+
+    this.elements.startDrawingFab?.addEventListener("click", () => {
+      this.startDrawingFromFab();
+    });
+
+    document.getElementById("modal-edit-place")?.addEventListener("click", () => {
+      this.openEditModalForActivePlace();
+    });
+
+    document.getElementById("modal-delete-place")?.addEventListener("click", () => {
+      void this.deleteActivePlace();
+    });
   }
 
   cancelDrawing() {
@@ -166,6 +192,87 @@ class VisitsPageController {
 
   discardDrawing() {
     this.visitsManager?.resetDrawing?.();
+  }
+
+  startDrawingFromFab() {
+    this.visitsManager?.startDrawing?.();
+    document.querySelector(".map-section")?.scrollIntoView?.({
+      behavior: "smooth",
+      block: "start",
+    });
+  }
+
+  _hideModalById(modalId) {
+    const modalEl = document.getElementById(modalId);
+    if (!bootstrap?.Modal || !modalEl) {
+      return;
+    }
+
+    const modal = bootstrap.Modal.getInstance(modalEl);
+    modal?.hide();
+  }
+
+  getPlaceByIdentifier(placeId) {
+    const normalizedPlaceId = this.normalizeDeepLinkValue(placeId);
+    if (!normalizedPlaceId) {
+      return null;
+    }
+
+    return (
+      this.places.find(
+        (place) =>
+          this.normalizeDeepLinkValue(this.getPlaceIdentifier(place)) === normalizedPlaceId
+      ) || null
+    );
+  }
+
+  openEditModalForActivePlace() {
+    const placeId = this.activePlaceId;
+    if (!placeId) {
+      this.showNotification("No place selected to edit.", "warning");
+      return;
+    }
+
+    const place = this.getPlaceByIdentifier(placeId);
+    if (!place) {
+      this.showNotification("Unable to find that place for editing.", "warning");
+      return;
+    }
+
+    const editModalEl = document.getElementById("edit-place-modal");
+    if (!bootstrap?.Modal || !editModalEl) {
+      this.showNotification("Edit dialog is unavailable.", "error");
+      return;
+    }
+
+    const editPlaceIdInput = document.getElementById("edit-place-id");
+    const editPlaceNameInput = document.getElementById("edit-place-name");
+    if (editPlaceIdInput) {
+      editPlaceIdInput.value = this.getPlaceIdentifier(place);
+    }
+    if (editPlaceNameInput) {
+      editPlaceNameInput.value = place.name || "";
+    }
+
+    this._hideModalById("place-detail-modal");
+    bootstrap.Modal.getOrCreateInstance(editModalEl).show();
+  }
+
+  async deleteActivePlace() {
+    const placeId = this.activePlaceId;
+    if (!placeId || !this.visitsManager?.deletePlace) {
+      return;
+    }
+
+    const deleted = await this.visitsManager.deletePlace(placeId);
+    if (!deleted) {
+      return;
+    }
+
+    this._hideModalById("place-detail-modal");
+    this._hideModalById("edit-place-modal");
+    this.activePlaceId = "";
+    await this.loadData();
   }
 
   async loadData() {
@@ -331,6 +438,8 @@ class VisitsPageController {
 
   // Rendering
   renderPlaces() {
+    this.clearPlacePreviewMaps();
+
     if (this.placesStats.length === 0) {
       this.elements.placesGrid.style.display = "none";
       this.elements.placesEmptyState.style.display = "block";
@@ -348,18 +457,29 @@ class VisitsPageController {
 
   renderPlaceCards() {
     const maxVisits = Math.max(...this.placesStats.map((p) => p.totalVisits));
+    const placePreviewConfigs = [];
 
     const cardsHTML = this.placesStats
-      .map((place) => {
-        const icon = this.getPlaceIcon(place.name);
+      .map((place, index) => {
         const accent = this.getPlaceAccent(place.totalVisits, maxVisits);
         const patterns = this.detectPatterns(place);
         const isMostVisited = place.totalVisits === maxVisits && maxVisits > 0;
+        const placeId = this.getPlaceIdentifier(place);
+        const mapId = `place-map-${index}`;
+        const geometry = this.getRenderableGeometry(place?.geometry);
+        if (geometry) {
+          placePreviewConfigs.push({ mapId, geometry, accent });
+        }
 
         return `
-        <div class="place-card" data-place-id="${place.id}" onclick="visitsPage.showPlaceDetail('${place.id}')">
+        <div class="place-card" data-place-id="${placeId}" onclick="visitsPage.showPlaceDetail('${placeId}')">
           <div class="place-card-header ${accent}">
-            <span class="place-icon">${icon}</span>
+            <div class="place-map-preview" id="${mapId}">
+              <div class="map-preview-fallback">
+                <i class="fas fa-draw-polygon"></i>
+                <span>${geometry ? "Loading boundary preview..." : "Boundary unavailable"}</span>
+              </div>
+            </div>
             ${isMostVisited ? '<span class="place-badge">Most visited</span>' : ""}
           </div>
           <div class="place-card-body">
@@ -396,10 +516,12 @@ class VisitsPageController {
     this.elements.placesGrid.innerHTML = cardsHTML;
     this.elements.placesGrid.style.display = "grid";
     this.elements.placesListView.style.display = "none";
+    this.renderPlacePreviewMaps(placePreviewConfigs);
   }
 
   renderPlaceList() {
     // Keep using the existing DataTable
+    this.clearPlacePreviewMaps();
     this.elements.placesGrid.style.display = "none";
     this.elements.placesListView.style.display = "block";
 
@@ -823,6 +945,8 @@ class VisitsPageController {
 
   async showPlaceDetail(placeId) {
     try {
+      this.activePlaceId = String(placeId);
+
       const [stats, tripsResponse] = await Promise.all([
         this.fetchPlaceStats(placeId),
         this.fetchPlaceTrips(placeId),
@@ -853,6 +977,14 @@ class VisitsPageController {
         </div>
       `;
       document.getElementById("modal-stats-row").innerHTML = statsHTML;
+      const editPlaceIdInput = document.getElementById("edit-place-id");
+      const editPlaceNameInput = document.getElementById("edit-place-name");
+      if (editPlaceIdInput) {
+        editPlaceIdInput.value = this.activePlaceId;
+      }
+      if (editPlaceNameInput) {
+        editPlaceNameInput.value = stats.name || "";
+      }
 
       // Update timeline
       const timelineHTML = trips
@@ -956,16 +1088,158 @@ class VisitsPageController {
     this.suggestionPreviewMaps.clear();
   }
 
+  clearPlacePreviewMaps() {
+    this.placePreviewMaps.forEach((map) => {
+      try {
+        map.remove();
+      } catch {
+        // Ignore cleanup errors.
+      }
+    });
+    this.placePreviewMaps.clear();
+  }
+
+  getPreviewMapStyle() {
+    const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
+    return CONFIG.MAP.styles[theme] || CONFIG.MAP.styles.dark;
+  }
+
+  getPlacePreviewColors(accent = "slate") {
+    return PLACE_PREVIEW_COLORS[accent] || PLACE_PREVIEW_COLORS.slate;
+  }
+
+  getRenderableGeometry(geometry) {
+    if (!geometry || typeof geometry !== "object") {
+      return null;
+    }
+
+    if (geometry.type === "Feature") {
+      return this.getRenderableGeometry(geometry.geometry);
+    }
+
+    if (!geometry.type) {
+      return null;
+    }
+
+    return geometry;
+  }
+
+  addPreviewLayers(map, { sourceId, layerIdPrefix, geometry, colors }) {
+    const geometryType = geometry?.type;
+    const isPolygon = geometryType === "Polygon" || geometryType === "MultiPolygon";
+    const isPoint = geometryType === "Point" || geometryType === "MultiPoint";
+
+    if (isPolygon) {
+      map.addLayer({
+        id: `${layerIdPrefix}-fill`,
+        type: "fill",
+        source: sourceId,
+        paint: {
+          "fill-color": colors.fill,
+          "fill-opacity": 0.26,
+        },
+      });
+
+      map.addLayer({
+        id: `${layerIdPrefix}-outline`,
+        type: "line",
+        source: sourceId,
+        paint: {
+          "line-color": colors.line,
+          "line-width": 2,
+        },
+      });
+      return;
+    }
+
+    if (isPoint) {
+      map.addLayer({
+        id: `${layerIdPrefix}-point`,
+        type: "circle",
+        source: sourceId,
+        paint: {
+          "circle-color": colors.fill,
+          "circle-radius": 5,
+          "circle-stroke-color": colors.line,
+          "circle-stroke-width": 1.5,
+        },
+      });
+      return;
+    }
+
+    map.addLayer({
+      id: `${layerIdPrefix}-line`,
+      type: "line",
+      source: sourceId,
+      paint: {
+        "line-color": colors.line,
+        "line-width": 2.5,
+      },
+    });
+  }
+
+  renderPlacePreviewMaps(placePreviewConfigs) {
+    if (typeof mapboxgl === "undefined") {
+      return;
+    }
+
+    const style = this.getPreviewMapStyle();
+
+    placePreviewConfigs.forEach(({ mapId, geometry, accent }) => {
+      const container = document.getElementById(mapId);
+      if (!container || !geometry) {
+        return;
+      }
+
+      const previewMap = new mapboxgl.Map({
+        container,
+        style,
+        center: [-95.7129, 37.0902],
+        zoom: 3,
+        interactive: false,
+        attributionControl: false,
+      });
+
+      previewMap.on("load", () => {
+        const sourceId = "place-preview";
+        previewMap.addSource(sourceId, {
+          type: "geojson",
+          data: geometry,
+        });
+
+        this.addPreviewLayers(previewMap, {
+          sourceId,
+          layerIdPrefix: "place-preview",
+          geometry,
+          colors: this.getPlacePreviewColors(accent),
+        });
+
+        VisitsGeometry.fitMapToGeometry(previewMap, geometry, {
+          padding: 18,
+          duration: 0,
+        });
+
+        container.classList.add("has-map");
+      });
+
+      previewMap.on("error", () => {
+        container.classList.remove("has-map");
+      });
+
+      this.placePreviewMaps.set(mapId, previewMap);
+    });
+  }
+
   renderSuggestionPreviewMaps(pageSuggestions, startIndex) {
     if (typeof mapboxgl === "undefined") {
       return;
     }
 
-    const theme = document.documentElement.getAttribute("data-bs-theme") || "dark";
-    const style = CONFIG.MAP.styles[theme] || CONFIG.MAP.styles.dark;
+    const style = this.getPreviewMapStyle();
 
     pageSuggestions.forEach((suggestion, pageIndex) => {
-      if (!suggestion?.boundary) {
+      const boundary = this.getRenderableGeometry(suggestion?.boundary);
+      if (!boundary) {
         return;
       }
       const mapId = `discovery-map-${startIndex + pageIndex}`;
@@ -984,32 +1258,20 @@ class VisitsPageController {
       });
 
       previewMap.on("load", () => {
-        previewMap.addSource("suggestion-preview", {
+        const sourceId = "suggestion-preview";
+        previewMap.addSource(sourceId, {
           type: "geojson",
-          data: suggestion.boundary,
+          data: boundary,
         });
 
-        previewMap.addLayer({
-          id: "suggestion-preview-fill",
-          type: "fill",
-          source: "suggestion-preview",
-          paint: {
-            "fill-color": "#6a9fc0",
-            "fill-opacity": 0.28,
-          },
+        this.addPreviewLayers(previewMap, {
+          sourceId,
+          layerIdPrefix: "suggestion-preview",
+          geometry: boundary,
+          colors: DISCOVERY_PREVIEW_COLORS,
         });
 
-        previewMap.addLayer({
-          id: "suggestion-preview-outline",
-          type: "line",
-          source: "suggestion-preview",
-          paint: {
-            "line-color": "#6a9fc0",
-            "line-width": 2,
-          },
-        });
-
-        VisitsGeometry.fitMapToGeometry(previewMap, suggestion.boundary, {
+        VisitsGeometry.fitMapToGeometry(previewMap, boundary, {
           padding: 18,
           duration: 0,
         });

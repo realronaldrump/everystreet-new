@@ -23,7 +23,17 @@ class VisitsDataLoader {
 
     try {
       const places = await VisitsDataService.fetchPlaces();
-      const placesMap = new Map(places.map((place) => [place._id, place]));
+      const placesMap = new Map(
+        places
+          .map((place) => {
+            const placeId = place?._id ?? place?.id;
+            if (placeId === undefined || placeId === null) {
+              return null;
+            }
+            return [String(placeId), place];
+          })
+          .filter(Boolean)
+      );
 
       if (onPlacesLoaded) {
         await onPlacesLoaded(places);

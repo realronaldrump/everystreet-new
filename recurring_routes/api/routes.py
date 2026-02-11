@@ -12,7 +12,7 @@ from fastapi import APIRouter, Body, HTTPException, Query, status
 from core.api import api_route
 from core.jobs import JobHandle, create_job, find_job
 from db.aggregation_utils import get_mongo_tz_expr
-from db.models import Job, RecurringRoute, Trip
+from db.models import Job, Place, RecurringRoute, Trip
 from recurring_routes.models import (
     BuildRecurringRoutesRequest,
     PatchRecurringRouteRequest,
@@ -22,6 +22,7 @@ from recurring_routes.services.service import (
     build_place_link,
     coerce_place_id,
     extract_location_label,
+    find_place_id_for_point,
     normalize_hex_color,
     resolve_places_by_ids,
     serialize_route_detail_with_place_links,
@@ -65,6 +66,14 @@ def _route_query(
     return query
 
 
+def _route_place_id(route: RecurringRoute, *field_names: str) -> str | None:
+    for field in field_names:
+        place_id = coerce_place_id(getattr(route, field, None))
+        if place_id:
+            return place_id
+    return None
+
+
 @router.get("/api/recurring_routes", response_model=dict[str, Any])
 @api_route(logger)
 async def list_recurring_routes(
@@ -89,7 +98,77 @@ async def list_recurring_routes(
         .skip(offset)
         .limit(limit)
     )
-    routes = [serialize_route_summary(r) async for r in cursor]
+    route_docs = [r async for r in cursor]
+
+    needs_centroid_fallback = any(
+        (
+            _route_place_id(route, "start_place_id", "startPlaceId") is None
+            and isinstance(route.start_centroid, list)
+            and bool(route.start_centroid)
+        )
+        or (
+            _route_place_id(route, "end_place_id", "endPlaceId") is None
+            and isinstance(route.end_centroid, list)
+            and bool(route.end_centroid)
+        )
+        for route in route_docs
+    )
+    all_places: list[Place] = await Place.find_all().to_list() if needs_centroid_fallback else []
+
+    resolved_place_ids: list[tuple[str | None, str | None]] = []
+    place_ids: set[str] = set()
+    for route in route_docs:
+        start_place_id = _route_place_id(route, "start_place_id", "startPlaceId")
+        end_place_id = _route_place_id(route, "end_place_id", "endPlaceId")
+
+        if (
+            not start_place_id
+            and all_places
+            and isinstance(route.start_centroid, list)
+            and route.start_centroid
+        ):
+            start_place_id = find_place_id_for_point(route.start_centroid, all_places)
+        if (
+            not end_place_id
+            and all_places
+            and isinstance(route.end_centroid, list)
+            and route.end_centroid
+        ):
+            end_place_id = find_place_id_for_point(route.end_centroid, all_places)
+
+        if start_place_id:
+            place_ids.add(start_place_id)
+        if end_place_id:
+            place_ids.add(end_place_id)
+        resolved_place_ids.append((start_place_id, end_place_id))
+
+    places_by_id = await resolve_places_by_ids(place_ids)
+    routes: list[dict[str, Any]] = []
+    for route, (start_place_id, end_place_id) in zip(
+        route_docs,
+        resolved_place_ids,
+        strict=False,
+    ):
+        item = serialize_route_summary(route)
+        start_link = build_place_link(
+            start_place_id,
+            places_by_id=places_by_id,
+            fallback_label=route.start_label,
+        )
+        end_link = build_place_link(
+            end_place_id,
+            places_by_id=places_by_id,
+            fallback_label=route.end_label,
+        )
+        if start_link:
+            item["start_label"] = start_link.get("label") or item.get("start_label")
+        if end_link:
+            item["end_label"] = end_link.get("label") or item.get("end_label")
+        item["start_place_id"] = start_place_id
+        item["end_place_id"] = end_place_id
+        item["place_links"] = {"start": start_link, "end": end_link}
+        routes.append(item)
+
     total = await RecurringRoute.find(query).count()
     return {"total": total, "routes": routes}
 
@@ -100,7 +179,7 @@ async def get_place_pair_analysis(
     start_place_id: str = Query(..., min_length=1),
     end_place_id: str = Query(..., min_length=1),
     include_reverse: bool = False,
-    timeframe: str = Query("90d", pattern="^(90d|all)$"),
+    timeframe: str = Query("all", pattern="^(90d|all)$"),
     limit: Annotated[int, Query(ge=1, le=500)] = 500,
 ):
     """Analyze trips between two places, optionally including reverse direction."""

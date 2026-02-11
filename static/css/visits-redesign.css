@@ -386,18 +386,15 @@
 }
 
 .place-card-header {
-  padding: var(--space-4);
+  padding: 0;
   position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 100px;
+  min-height: 8.5rem;
+  isolation: isolate;
 }
 
 @media (width >= 768px) {
   .place-card-header {
-    padding: var(--space-5);
-    min-height: 120px;
+    min-height: 10rem;
   }
 }
 
@@ -450,9 +447,45 @@
   );
 }
 
-.place-icon {
-  font-size: 2.5rem;
-  opacity: 0.8;
+.place-map-preview {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.place-map-preview .map-preview-fallback {
+  display: grid;
+  place-items: center;
+  gap: var(--space-1);
+  text-align: center;
+  color: var(--text-tertiary);
+  font-size: var(--font-size-xs);
+  height: 100%;
+  padding: var(--space-2);
+}
+
+.place-map-preview .map-preview-fallback i {
+  font-size: 1.1rem;
+}
+
+.place-map-preview.has-map .map-preview-fallback {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.place-map-preview .mapboxgl-map,
+.place-map-preview .maplibregl-map,
+.place-map-preview .mapboxgl-canvas,
+.place-map-preview .maplibregl-canvas {
+  width: 100%;
+  height: 100%;
+}
+
+.place-map-preview .mapboxgl-control-container,
+.place-map-preview .maplibregl-control-container {
+  display: none;
 }
 
 .place-badge {
@@ -466,6 +499,7 @@
   font-weight: 600;
   color: var(--cat-ochre);
   border: 1px solid var(--border-color);
+  z-index: 2;
 }
 
 .place-card-body {

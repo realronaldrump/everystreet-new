@@ -12,13 +12,14 @@ from collections import Counter
 from datetime import UTC, datetime
 from typing import Any
 
+from beanie import PydanticObjectId
 from beanie.operators import In
 from pydantic import BaseModel, ConfigDict
 
 from core.casting import safe_float
 from core.jobs import JobHandle, create_job, find_job
 from core.spatial import GeometryService
-from db.models import Job, RecurringRoute, Trip
+from db.models import Job, Place, RecurringRoute, Trip
 from recurring_routes.models import BuildRecurringRoutesRequest
 from recurring_routes.services.fingerprint import (
     build_preview_svg_path,
@@ -52,6 +53,8 @@ class TripRouteBuildProjection(BaseModel):
     destinationGeoPoint: dict[str, Any] | None = None
 
     # Stored as "extra" fields on Trip documents; included here for labels.
+    startPlaceId: str | None = None
+    destinationPlaceId: str | None = None
     startLocation: Any | None = None
     destination: Any | None = None
     destinationPlaceName: str | None = None
@@ -81,6 +84,22 @@ def _best_label(counter: Counter[str]) -> str:
         return "Unknown"
     value, _ = counter.most_common(1)[0]
     return value or "Unknown"
+
+
+def _clean_place_id(value: Any) -> str | None:
+    if value is None:
+        return None
+    cleaned = str(value).strip()
+    return cleaned or None
+
+
+def _best_place_id(counter: Counter[str], place_name_by_id: dict[str, str]) -> str | None:
+    if not counter:
+        return None
+    for place_id, _count in counter.most_common():
+        if place_id in place_name_by_id:
+            return place_id
+    return counter.most_common(1)[0][0]
 
 
 def _extract_representative_geometry(
@@ -227,6 +246,7 @@ class RecurringRoutesBuilder:
 
             # route_key -> aggregation
             groups: dict[str, dict[str, Any]] = {}
+            all_place_ids: set[str] = set()
 
             processed = 0
             usable = 0
@@ -268,6 +288,8 @@ class RecurringRoutesBuilder:
                         "trip_ids": [],
                         "start_labels": Counter(),
                         "end_labels": Counter(),
+                        "start_place_ids": Counter(),
+                        "end_place_ids": Counter(),
                         "start_sum": [0.0, 0.0],
                         "start_count": 0,
                         "end_sum": [0.0, 0.0],
@@ -298,6 +320,15 @@ class RecurringRoutesBuilder:
                     group["start_labels"][start_label] += 1
                 if end_label:
                     group["end_labels"][end_label] += 1
+
+                start_place_id = _clean_place_id(trip_dict.get("startPlaceId"))
+                end_place_id = _clean_place_id(trip_dict.get("destinationPlaceId"))
+                if start_place_id:
+                    group["start_place_ids"][start_place_id] += 1
+                    all_place_ids.add(start_place_id)
+                if end_place_id:
+                    group["end_place_ids"][end_place_id] += 1
+                    all_place_ids.add(end_place_id)
 
                 start_pt, end_pt = _extract_start_end_points(trip_dict)
                 if start_pt:
@@ -388,6 +419,22 @@ class RecurringRoutesBuilder:
             min_assign = max(1, int(params.get("min_assign_trips") or 2))
             min_recurring = max(1, int(params.get("min_recurring_trips") or 3))
 
+            place_name_by_id: dict[str, str] = {}
+            if all_place_ids:
+                place_oids: list[PydanticObjectId] = []
+                for place_id in all_place_ids:
+                    try:
+                        place_oids.append(PydanticObjectId(place_id))
+                    except Exception:
+                        continue
+                if place_oids:
+                    places = await Place.find({"_id": {"$in": place_oids}}).to_list()
+                    place_name_by_id = {
+                        str(place.id): (place.name or "").strip()
+                        for place in places
+                        if place.id is not None and (place.name or "").strip()
+                    }
+
             eligible_keys = [
                 k
                 for k, g in groups.items()
@@ -435,8 +482,22 @@ class RecurringRoutesBuilder:
                 trip_ids: list[str] = list(group.get("trip_ids") or [])
                 trip_count = len(trip_ids)
 
-                start_label = _best_label(group.get("start_labels") or Counter())
-                end_label = _best_label(group.get("end_labels") or Counter())
+                start_place_id = _best_place_id(
+                    group.get("start_place_ids") or Counter(),
+                    place_name_by_id,
+                )
+                end_place_id = _best_place_id(
+                    group.get("end_place_ids") or Counter(),
+                    place_name_by_id,
+                )
+                start_label = (
+                    place_name_by_id.get(start_place_id or "")
+                    or _best_label(group.get("start_labels") or Counter())
+                )
+                end_label = (
+                    place_name_by_id.get(end_place_id or "")
+                    or _best_label(group.get("end_labels") or Counter())
+                )
                 auto_name = f"{start_label} → {end_label}"
 
                 start_centroid = []
@@ -480,6 +541,8 @@ class RecurringRoutesBuilder:
                     route.auto_name = auto_name
                     route.start_label = start_label
                     route.end_label = end_label
+                    route.start_place_id = start_place_id
+                    route.end_place_id = end_place_id
                     route.start_centroid = start_centroid
                     route.end_centroid = end_centroid
                     route.trip_count = trip_count
@@ -515,6 +578,8 @@ class RecurringRoutesBuilder:
                         auto_name=auto_name,
                         start_label=start_label,
                         end_label=end_label,
+                        start_place_id=start_place_id,
+                        end_place_id=end_place_id,
                         start_centroid=start_centroid,
                         end_centroid=end_centroid,
                         trip_count=trip_count,

@@ -73,11 +73,12 @@ class VisitsMapController {
   }
 
   addPlace(place, refreshSource = true) {
-    if (!place?.geometry || !place?._id) {
+    const placeId = VisitsMapController._resolvePlaceId(place);
+    if (!place?.geometry || !placeId) {
       return;
     }
     const feature = VisitsMapController._createFeature(place);
-    this.placeFeatures.set(place._id, feature);
+    this.placeFeatures.set(placeId, feature);
     this.customPlacesData.features.push(feature);
     if (refreshSource) {
       this._refreshPlacesSource();
@@ -85,14 +86,16 @@ class VisitsMapController {
   }
 
   removePlace(placeId) {
-    if (!this.placeFeatures.has(placeId)) {
+    const normalizedPlaceId =
+      placeId === undefined || placeId === null ? "" : String(placeId);
+    if (!normalizedPlaceId || !this.placeFeatures.has(normalizedPlaceId)) {
       return;
     }
-    const feature = this.placeFeatures.get(placeId);
+    const feature = this.placeFeatures.get(normalizedPlaceId);
     this.customPlacesData.features = this.customPlacesData.features.filter(
       (f) => f !== feature
     );
-    this.placeFeatures.delete(placeId);
+    this.placeFeatures.delete(normalizedPlaceId);
     this._refreshPlacesSource();
   }
 
@@ -264,13 +267,22 @@ class VisitsMapController {
     this.activePopup = null;
   }
 
+  static _resolvePlaceId(place) {
+    const rawId = place?._id ?? place?.id;
+    if (rawId === undefined || rawId === null) {
+      return "";
+    }
+    return String(rawId);
+  }
+
   static _createFeature(place) {
+    const placeId = VisitsMapController._resolvePlaceId(place);
     return {
       type: "Feature",
-      id: place._id,
+      id: placeId,
       geometry: place.geometry,
       properties: {
-        placeId: place._id,
+        placeId,
         name: place.name,
       },
     };

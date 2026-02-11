@@ -43,7 +43,17 @@ def route_display_name(route: RecurringRoute) -> str:
     return auto or "Route"
 
 
+def _route_place_id(route: RecurringRoute, *field_names: str) -> str | None:
+    for field in field_names:
+        place_id = coerce_place_id(getattr(route, field, None))
+        if place_id:
+            return place_id
+    return None
+
+
 def serialize_route_summary(route: RecurringRoute) -> dict[str, Any]:
+    start_place_id = _route_place_id(route, "start_place_id", "startPlaceId")
+    end_place_id = _route_place_id(route, "end_place_id", "endPlaceId")
     return {
         "id": str(route.id) if route.id else None,
         "route_key": route.route_key,
@@ -67,6 +77,8 @@ def serialize_route_summary(route: RecurringRoute) -> dict[str, Any]:
         "duration_sec_avg": route.duration_sec_avg,
         "fuel_gal_avg": route.fuel_gal_avg,
         "cost_usd_avg": route.cost_usd_avg,
+        "start_place_id": start_place_id,
+        "end_place_id": end_place_id,
     }
 
 
@@ -74,6 +86,8 @@ def serialize_route_detail(route: RecurringRoute) -> dict[str, Any]:
     data = route.model_dump()
     data["id"] = str(route.id) if route.id else None
     data["display_name"] = route_display_name(route)
+    data["start_place_id"] = _route_place_id(route, "start_place_id", "startPlaceId")
+    data["end_place_id"] = _route_place_id(route, "end_place_id", "endPlaceId")
     data["first_start_time"] = serialize_datetime(route.first_start_time)
     data["last_start_time"] = serialize_datetime(route.last_start_time)
     data["updated_at"] = serialize_datetime(route.updated_at)
@@ -203,33 +217,41 @@ def build_place_link(
 
 async def resolve_route_place_links(route: RecurringRoute) -> dict[str, Any]:
     links: dict[str, Any] = {"start": None, "end": None}
-    if not route.id:
-        return links
+    start_place_id = _route_place_id(route, "start_place_id", "startPlaceId")
+    end_place_id = _route_place_id(route, "end_place_id", "endPlaceId")
 
-    trips = (
-        await Trip.find({"recurringRouteId": route.id, "invalid": {"$ne": True}})
-        .sort("-startTime")
-        .limit(300)
-        .to_list()
-    )
+    place_ids: set[str] = set()
+    if start_place_id:
+        place_ids.add(start_place_id)
+    if end_place_id:
+        place_ids.add(end_place_id)
 
     start_counts: Counter[str] = Counter()
     end_counts: Counter[str] = Counter()
-    place_ids: set[str] = set()
 
-    for trip in trips:
-        trip_data = trip.model_dump()
-        start_id = coerce_place_id(trip_data.get("startPlaceId"))
-        end_id = coerce_place_id(trip_data.get("destinationPlaceId"))
-        if start_id:
-            start_counts[start_id] += 1
-            place_ids.add(start_id)
-        if end_id:
-            end_counts[end_id] += 1
-            place_ids.add(end_id)
+    if route.id and (not start_place_id or not end_place_id):
+        trips = (
+            await Trip.find({"recurringRouteId": route.id, "invalid": {"$ne": True}})
+            .sort("-startTime")
+            .limit(300)
+            .to_list()
+        )
 
-    start_place_id = start_counts.most_common(1)[0][0] if start_counts else None
-    end_place_id = end_counts.most_common(1)[0][0] if end_counts else None
+        for trip in trips:
+            trip_data = trip.model_dump()
+            start_id = coerce_place_id(trip_data.get("startPlaceId"))
+            end_id = coerce_place_id(trip_data.get("destinationPlaceId"))
+            if start_id:
+                start_counts[start_id] += 1
+                place_ids.add(start_id)
+            if end_id:
+                end_counts[end_id] += 1
+                place_ids.add(end_id)
+
+        if not start_place_id and start_counts:
+            start_place_id = start_counts.most_common(1)[0][0]
+        if not end_place_id and end_counts:
+            end_place_id = end_counts.most_common(1)[0][0]
 
     if (
         (not start_place_id and isinstance(route.start_centroid, list) and route.start_centroid)

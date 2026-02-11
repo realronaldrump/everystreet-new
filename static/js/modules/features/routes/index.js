@@ -478,8 +478,8 @@ function createRouteCard(route) {
   const strokeColor = routeStrokeColor(route);
   card.style.setProperty("--route-stroke", strokeColor);
 
-  const start = escapeHtml(route.start_label || "Unknown");
-  const end = escapeHtml(route.end_label || "Unknown");
+  const start = escapeHtml(route?.place_links?.start?.label || route.start_label || "Unknown");
+  const end = escapeHtml(route?.place_links?.end?.label || route.end_label || "Unknown");
   const previewPath = route.preview_svg_path || "M 5,35 Q 25,5 50,20 T 95,15";
   const medianDist = formatMiles(route.distance_miles_median);
   const medianDur = route.duration_sec_median
@@ -1694,10 +1694,7 @@ function setExplorerLoading(isLoading) {
 }
 
 function getExplorerTimeframe() {
-  const selected = document.querySelector(
-    'input[name="routes-explorer-timeframe"]:checked'
-  );
-  return selected?.value || "90d";
+  return "all";
 }
 
 function toExplorerArray(value) {

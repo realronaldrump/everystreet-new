@@ -170,6 +170,18 @@ async def test_route_detail_and_trips_include_place_links(routes_api_db) -> None
 
     client = TestClient(_build_app())
 
+    list_resp = client.get("/api/recurring_routes")
+    assert list_resp.status_code == 200
+    listed = list_resp.json()["routes"]
+    assert listed
+    listed_route = listed[0]
+    assert listed_route["start_label"] == "Home"
+    assert listed_route["end_label"] == "Office"
+    assert listed_route["start_place_id"] == str(start_place.id)
+    assert listed_route["end_place_id"] == str(end_place.id)
+    assert listed_route["place_links"]["start"]["id"] == str(start_place.id)
+    assert listed_route["place_links"]["end"]["id"] == str(end_place.id)
+
     detail_resp = client.get(f"/api/recurring_routes/{route_id}")
     assert detail_resp.status_code == 200
     detail = detail_resp.json()["route"]

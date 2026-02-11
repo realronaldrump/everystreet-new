@@ -76,7 +76,7 @@ class VisitsManager {
       notificationManager,
       onViewTrips: (placeId) => this.uiManager.toggleView(placeId),
       onZoomToPlace: (placeId) => {
-        const place = this.places.get(placeId);
+        const place = this._getPlaceById(placeId);
         if (place) {
           this.mapController.animateToPlace(place);
         }
@@ -161,6 +161,51 @@ class VisitsManager {
     });
   }
 
+  _resolvePlaceId(place) {
+    const rawId = place?._id ?? place?.id;
+    if (rawId === undefined || rawId === null) {
+      return "";
+    }
+    return String(rawId);
+  }
+
+  _getPlaceById(placeId) {
+    const normalizedId = placeId === undefined || placeId === null ? "" : String(placeId);
+    if (!normalizedId) {
+      return null;
+    }
+
+    const directMatch = this.places.get(normalizedId);
+    if (directMatch) {
+      return directMatch;
+    }
+
+    for (const place of this.places.values()) {
+      if (this._resolvePlaceId(place) === normalizedId) {
+        return place;
+      }
+    }
+
+    return null;
+  }
+
+  _setPlace(placeId, place) {
+    const normalizedIncomingId =
+      placeId === undefined || placeId === null ? "" : String(placeId);
+    const normalizedResolvedId = this._resolvePlaceId(place) || normalizedIncomingId;
+
+    if (!normalizedResolvedId) {
+      return "";
+    }
+
+    if (normalizedIncomingId && normalizedIncomingId !== normalizedResolvedId) {
+      this.places.delete(normalizedIncomingId);
+    }
+
+    this.places.set(normalizedResolvedId, place);
+    return normalizedResolvedId;
+  }
+
   // --- Data Loading ---
 
   async loadPlaces() {
@@ -231,7 +276,7 @@ class VisitsManager {
       statsList.sort((a, b) => b.totalVisits - a.totalVisits);
 
       const validResults = statsList.map((d) => ({
-        _id: d._id,
+        _id: d._id || d.id,
         name: d.name,
         totalVisits: d.totalVisits,
         firstVisit: d.firstVisit,
@@ -287,6 +332,7 @@ class VisitsManager {
     const placeNameInput = document.getElementById("place-name");
     const placeName = placeNameInput?.value.trim();
     const currentPolygon = this.drawing.getCurrentPolygon();
+    const placeBeingEdited = this.drawing.getPlaceBeingEdited();
 
     if (!placeName) {
       VisitsHelpers.showInputError(
@@ -296,11 +342,25 @@ class VisitsManager {
       return null;
     }
 
+    if (placeBeingEdited) {
+      return this._saveEditedPlaceFromMap({
+        placeId: placeBeingEdited,
+        newName: placeName,
+        currentPolygon,
+      });
+    }
+
     const savedPlace = await this.actions.savePlace({
       name: placeName,
       geometry: currentPolygon?.geometry,
       onSuccess: async (place) => {
-        this.places.set(place._id, place);
+        const placeId = this._setPlace(this._resolvePlaceId(place), place);
+        if (!placeId) {
+          notificationManager?.show(
+            "Place was saved, but an ID was missing in the response.",
+            "warning"
+          );
+        }
         this.mapController.addPlace(place);
         this.mapController.animateToPlace(place);
         await this.updateVisitsData();
@@ -312,12 +372,50 @@ class VisitsManager {
     return savedPlace;
   }
 
-  async deletePlace(placeId) {
-    const placeToDelete = this.places.get(placeId);
+  async _saveEditedPlaceFromMap({ placeId, newName, currentPolygon }) {
+    const placeToUpdate = this._getPlaceById(placeId);
+    const normalizedPlaceId = this._resolvePlaceId(placeToUpdate) || String(placeId);
 
-    const success = await this.actions.deletePlace(placeId, placeToDelete, async () => {
-      this.mapController.removePlace(placeId);
-      this.places.delete(placeId);
+    const updatedPlace = await this.actions.saveEditedPlace({
+      placeId: normalizedPlaceId,
+      newName,
+      place: placeToUpdate,
+      newGeometry: currentPolygon?.geometry || null,
+      onSuccess: async (place) => {
+        const updatedPlaceId = this._setPlace(normalizedPlaceId, place);
+        this.mapController.removePlace(normalizedPlaceId);
+        if (updatedPlaceId && updatedPlaceId !== normalizedPlaceId) {
+          this.mapController.removePlace(updatedPlaceId);
+        }
+        this.mapController.addPlace(place);
+        this.mapController.animateToPlace(place);
+        await this.updateVisitsData();
+        this.resetDrawing();
+        this.updateStatsCounts();
+      },
+    });
+
+    return updatedPlace;
+  }
+
+  async deletePlace(placeId) {
+    const requestedPlaceId =
+      placeId === undefined || placeId === null ? "" : String(placeId);
+    const placeToDelete = this._getPlaceById(requestedPlaceId);
+    const resolvedPlaceId = this._resolvePlaceId(placeToDelete) || requestedPlaceId;
+    if (!resolvedPlaceId) {
+      return false;
+    }
+
+    const success = await this.actions.deletePlace(resolvedPlaceId, placeToDelete, async () => {
+      this.mapController.removePlace(resolvedPlaceId);
+      if (requestedPlaceId && requestedPlaceId !== resolvedPlaceId) {
+        this.mapController.removePlace(requestedPlaceId);
+      }
+      this.places.delete(resolvedPlaceId);
+      if (requestedPlaceId && requestedPlaceId !== resolvedPlaceId) {
+        this.places.delete(requestedPlaceId);
+      }
       await this.updateVisitsData();
       this.uiManager.refreshManagePlacesModal(this.places);
       this.updateStatsCounts();
@@ -327,30 +425,38 @@ class VisitsManager {
   }
 
   async saveEditedPlace() {
-    const placeId = document.getElementById("edit-place-id")?.value;
+    const placeId = document.getElementById("edit-place-id")?.value?.trim();
     const newNameInput = document.getElementById("edit-place-name");
     const newName = newNameInput?.value.trim();
-    const placeToUpdate = this.places.get(placeId);
+    const placeToUpdate = this._getPlaceById(placeId);
+    const resolvedPlaceId = this._resolvePlaceId(placeToUpdate) || placeId;
     const currentPolygon = this.drawing.getCurrentPolygon();
     const placeBeingEdited = this.drawing.getPlaceBeingEdited();
 
     // Only include geometry if editing the same place that was started for edit
     const newGeometry =
-      currentPolygon && placeBeingEdited === placeId ? currentPolygon.geometry : null;
+      currentPolygon && String(placeBeingEdited) === String(resolvedPlaceId)
+        ? currentPolygon.geometry
+        : null;
 
     const updatedPlace = await this.actions.saveEditedPlace({
-      placeId,
+      placeId: resolvedPlaceId,
       newName,
       place: placeToUpdate,
       newGeometry,
       onSuccess: async (place, hadGeometry) => {
-        this.places.set(placeId, place);
-        this.mapController.removePlace(placeId);
+        const updatedPlaceId = this._setPlace(resolvedPlaceId, place);
+        this.mapController.removePlace(resolvedPlaceId);
+        if (updatedPlaceId && updatedPlaceId !== resolvedPlaceId) {
+          this.mapController.removePlace(updatedPlaceId);
+        }
         this.mapController.addPlace(place);
         await this.updateVisitsData();
+        this.updateStatsCounts();
 
         if (hadGeometry) {
           this.resetDrawing();
+          this.mapController.animateToPlace(place);
         }
       },
     });
@@ -372,10 +478,29 @@ class VisitsManager {
     this.drawing.resetDrawing(removeControl);
   }
 
-  startEditingPlaceBoundary() {
-    const placeId = document.getElementById("edit-place-id")?.value;
-    const place = this.places.get(placeId);
-    this.drawing.startEditingPlaceBoundary(placeId, place);
+  startEditingPlaceBoundary(placeId = null) {
+    const requestedPlaceId =
+      placeId || document.getElementById("edit-place-id")?.value?.trim();
+    const place = this._getPlaceById(requestedPlaceId);
+    const resolvedPlaceId = this._resolvePlaceId(place) || requestedPlaceId;
+
+    if (!resolvedPlaceId || !place) {
+      notificationManager?.show("Could not find that place for boundary editing.", "warning");
+      return;
+    }
+
+    const editModalEl = document.getElementById("edit-place-modal");
+    if (bootstrap?.Modal && editModalEl) {
+      bootstrap.Modal.getInstance(editModalEl)?.hide();
+    }
+
+    this.drawing.startEditingPlaceBoundary(resolvedPlaceId, place);
+    this.mapController.animateToPlace(place);
+
+    document.querySelector(".map-section")?.scrollIntoView?.({
+      behavior: "smooth",
+      block: "start",
+    });
   }
 
   applySuggestion(suggestion) {
@@ -467,12 +592,12 @@ class VisitsManager {
   }
 
   async showPlaceStatistics(placeId, lngLat = null) {
-    const place = this.places.get(placeId);
+    const place = this._getPlaceById(placeId);
     if (!place) {
       return;
     }
 
-    await this.popup.showPlaceStatistics(placeId, place, lngLat);
+    await this.popup.showPlaceStatistics(this._resolvePlaceId(place), place, lngLat);
   }
 
   // --- Cleanup ---

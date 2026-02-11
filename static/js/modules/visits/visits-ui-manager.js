@@ -91,6 +91,7 @@ class VisitsUIManager {
 
     placesArray.forEach((place, index) => {
       const row = tableBody.insertRow();
+      const placeId = place?._id ?? place?.id ?? "";
       const createdDate = place.createdAt
         ? DateUtils.formatForDisplay(place.createdAt, { dateStyle: "medium" })
         : "Unknown";
@@ -103,10 +104,10 @@ class VisitsUIManager {
           <td class="text-center text-muted">${createdDate}</td>
           <td class="text-center">
             <div class="btn-group btn-group-sm" role="group">
-              <button type="button" class="btn btn-primary edit-place-btn" data-place-id="${place._id}" title="Edit Name/Boundary">
+              <button type="button" class="btn btn-primary edit-place-btn" data-place-id="${placeId}" title="Edit Name/Boundary">
                 <i class="fas fa-edit"></i> Edit
               </button>
-              <button type="button" class="btn btn-danger delete-place-btn" data-place-id="${place._id}" title="Delete Place">
+              <button type="button" class="btn btn-danger delete-place-btn" data-place-id="${placeId}" title="Delete Place">
                 <i class="fas fa-trash-alt"></i> Delete
               </button>
             </div>
@@ -151,10 +152,7 @@ class VisitsUIManager {
     document.getElementById("edit-place-id").value = placeId;
     document.getElementById("edit-place-name").value = place.name;
 
-    this.manager.placeBeingEdited = null;
-    if (this.manager.currentPolygon) {
-      this.manager.resetDrawing();
-    }
+    this.manager.resetDrawing();
 
     const modal = bootstrap.Modal.getOrCreateInstance(modalElement);
     modal.show();
