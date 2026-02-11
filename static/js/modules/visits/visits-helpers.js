@@ -75,7 +75,7 @@ const VisitsHelpers = {
   },
 
   /**
-   * Extract trip geometry from various possible sources in trip data
+   * Extract trip geometry from raw trip GPS data.
    * @param {Object} trip - Trip object to extract geometry from
    */
   extractTripGeometry(trip) {
@@ -93,12 +93,6 @@ const VisitsHelpers = {
 
     // Already has valid geometry
     if (trip.geometry?.coordinates?.length > 0) {
-      return;
-    }
-
-    // Try matchedGps field
-    if (trip.matchedGps?.coordinates && trip.matchedGps.coordinates.length > 0) {
-      trip.geometry = trip.matchedGps;
       return;
     }
 

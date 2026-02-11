@@ -71,11 +71,7 @@ def _extract_geojson_coords(geometry: dict[str, Any] | None) -> list[list[float]
 
 def extract_polyline(trip: dict[str, Any]) -> list[list[float]]:
     """Extract a [lon, lat] polyline from a trip in a stable priority order."""
-    geom = GeometryService.parse_geojson(
-        trip.get("matchedGps")
-    ) or GeometryService.parse_geojson(
-        trip.get("gps"),
-    )
+    geom = GeometryService.parse_geojson(trip.get("gps"))
     coords = _extract_geojson_coords(geom) if geom else []
     if len(coords) >= 2:
         return coords

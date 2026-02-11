@@ -11,6 +11,7 @@ from fastapi import APIRouter, Body, HTTPException, Query, status
 
 from core.api import api_route
 from core.jobs import JobHandle, create_job, find_job
+from core.spatial import GeometryService
 from db.aggregation_utils import get_mongo_tz_expr
 from db.models import Job, Place, RecurringRoute, Trip
 from recurring_routes.models import (
@@ -72,6 +73,40 @@ def _route_place_id(route: RecurringRoute, *field_names: str) -> str | None:
         if place_id:
             return place_id
     return None
+
+
+async def _resolve_raw_route_geometry(route: RecurringRoute) -> dict[str, Any] | None:
+    """Resolve route geometry strictly from raw trip GPS data."""
+    rep_trip_id = str(route.representative_trip_id or "").strip()
+    trip: Trip | None = None
+
+    if rep_trip_id:
+        trip = await Trip.find_one(
+            {
+                "transactionId": rep_trip_id,
+                "invalid": {"$ne": True},
+            },
+        )
+
+    if trip is None and route.id:
+        trip = (
+            await Trip.find(
+                {
+                    "recurringRouteId": route.id,
+                    "invalid": {"$ne": True},
+                    "gps": {"$ne": None},
+                },
+            )
+            .sort("-startTime")
+            .limit(1)
+            .first_or_none()
+        )
+
+    if trip is None:
+        return None
+
+    trip_data = trip.model_dump()
+    return GeometryService.parse_geojson(trip_data.get("gps"))
 
 
 @router.get("/api/recurring_routes", response_model=dict[str, Any])
@@ -210,9 +245,12 @@ async def get_recurring_route(route_id: str):
     if not route:
         raise HTTPException(status_code=404, detail="Route not found")
 
+    route_data = await serialize_route_detail_with_place_links(route)
+    route_data["geometry"] = await _resolve_raw_route_geometry(route)
+
     return {
         "status": "success",
-        "route": await serialize_route_detail_with_place_links(route),
+        "route": route_data,
     }
 
 
@@ -295,7 +333,7 @@ async def list_trips_for_route(
             },
         }
         if include_geometry:
-            trip_data["gps"] = data.get("matchedGps") or data.get("gps")
+            trip_data["gps"] = data.get("gps")
         trips.append(trip_data)
 
     total = await Trip.find(query).count()

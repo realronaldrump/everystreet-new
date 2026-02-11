@@ -550,7 +550,7 @@ def _build_variants(
                 group["sample_trip_id"] = str(tx)
 
         if group.get("representative_geometry") is None:
-            rep_geom = trip.get("matchedGps") or trip.get("gps")
+            rep_geom = trip.get("gps")
             if isinstance(rep_geom, dict):
                 group["representative_geometry"] = rep_geom
                 group["preview_path"] = build_preview_svg_path(rep_geom)
@@ -560,8 +560,7 @@ def _build_variants(
 
     for group in groups.values():
         route = routes_by_id.get(group.get("route_id") or "")
-        route_geometry = route.geometry if route else None
-        representative_geometry = route_geometry or group.get("representative_geometry")
+        representative_geometry = group.get("representative_geometry")
         preview_path = (
             route.preview_svg_path
             if route and route.preview_svg_path
@@ -705,7 +704,6 @@ async def analyze_place_pair(
             "startGeoPoint": 1,
             "destinationGeoPoint": 1,
             "recurringRouteId": 1,
-            "matchedGps": 1,
             "gps": 1,
         },
     ).sort("startTime", -1)

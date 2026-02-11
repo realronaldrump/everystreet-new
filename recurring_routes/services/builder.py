@@ -105,11 +105,7 @@ def _best_place_id(counter: Counter[str], place_name_by_id: dict[str, str]) -> s
 def _extract_representative_geometry(
     trip_dict: dict[str, Any],
 ) -> dict[str, Any] | None:
-    geom = GeometryService.parse_geojson(
-        trip_dict.get("matchedGps")
-    ) or GeometryService.parse_geojson(
-        trip_dict.get("gps"),
-    )
+    geom = GeometryService.parse_geojson(trip_dict.get("gps"))
     if geom:
         return geom
 
