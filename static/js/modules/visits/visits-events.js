@@ -48,6 +48,10 @@ class VisitsEvents {
     this._bindClick("start-edit-boundary", () => this.manager.startBoundarySelectionMode());
     this._bindClick("save-place", () => this.manager.savePlace());
     this._bindClick("clear-drawing", () => this.manager.clearCurrentDrawing());
+    this._bindClick("boundary-shrink", () => this.manager.adjustBoundaryRadius(0.9));
+    this._bindClick("boundary-expand", () => this.manager.adjustBoundaryRadius(1.1));
+    this._bindClick("boundary-simplify", () => this.manager.simplifyBoundaryShape());
+    this._bindClick("boundary-smooth", () => this.manager.smoothBoundaryShape());
 
     // Map controls
     this._bindClick("zoom-to-fit", () => this.manager.zoomToFitAllPlaces());

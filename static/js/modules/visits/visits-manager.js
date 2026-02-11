@@ -479,6 +479,18 @@ class VisitsManager {
     this.drawing.clearCurrentDrawing();
   }
 
+  adjustBoundaryRadius(scaleFactor) {
+    this.drawing.adjustBoundaryRadius(scaleFactor);
+  }
+
+  simplifyBoundaryShape() {
+    this.drawing.simplifyBoundaryShape();
+  }
+
+  smoothBoundaryShape() {
+    this.drawing.smoothBoundaryShape();
+  }
+
   resetDrawing(removeControl = true) {
     this.drawing.resetDrawing(removeControl);
   }

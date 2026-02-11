@@ -366,6 +366,40 @@ Use drag handles on the map to fine-tune the boundary before saving.
 Please enter a name for this place.
           </div>
         </div>
+        <div class="boundary-adjust-controls">
+          <span class="boundary-adjust-label">Boundary radius</span>
+          <div class="boundary-adjust-actions">
+            <button type="button"
+                    class="btn btn-outline-secondary btn-sm"
+                    id="boundary-shrink"
+                    aria-label="Shrink boundary radius by ten percent">
+              <i class="fas fa-compress-alt me-1"></i>Shrink
+            </button>
+            <button type="button"
+                    class="btn btn-outline-secondary btn-sm"
+                    id="boundary-expand"
+                    aria-label="Expand boundary radius by ten percent">
+              <i class="fas fa-expand-alt me-1"></i>Expand
+            </button>
+          </div>
+        </div>
+        <div class="boundary-adjust-controls boundary-adjust-controls--shape">
+          <span class="boundary-adjust-label">Shape tools</span>
+          <div class="boundary-adjust-actions">
+            <button type="button"
+                    class="btn btn-outline-secondary btn-sm"
+                    id="boundary-simplify"
+                    aria-label="Simplify boundary shape by reducing unnecessary points">
+              <i class="fas fa-wave-square me-1"></i>Simplify
+            </button>
+            <button type="button"
+                    class="btn btn-outline-secondary btn-sm"
+                    id="boundary-smooth"
+                    aria-label="Smooth boundary shape to soften sharp edges">
+              <i class="fas fa-bezier-curve me-1"></i>Smooth
+            </button>
+          </div>
+        </div>
         <div class="form-actions">
           <button type="button" class="btn btn-outline-secondary" id="discard-drawing">
           Discard

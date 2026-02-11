@@ -129,8 +129,8 @@ class VisitsDrawing {
     if (placeNameHint) {
       placeNameHint.textContent =
         this.mode === "edit-existing"
-          ? "Make boundary changes on the map, then save updates to this place."
-          : "Use drag handles on the map to fine-tune the boundary before saving.";
+          ? "Use Shrink/Expand/Simplify/Smooth for quick shape edits, then drag points for final tuning."
+          : "Use Shrink/Expand/Simplify/Smooth for quick shape edits, then drag points for final tuning.";
     }
 
     if (savePlaceLabel) {
@@ -172,6 +172,384 @@ class VisitsDrawing {
     this.draw.changeMode("direct_select", { featureId: feature.id });
     this._setSavePlaceFormVisible(true);
     this._syncBoundaryUi();
+  }
+
+  _collectOuterRingCoordinates(geometry) {
+    if (!geometry) {
+      return [];
+    }
+
+    if (geometry.type === "Polygon") {
+      return [geometry.coordinates?.[0] || []];
+    }
+
+    if (geometry.type === "MultiPolygon") {
+      return geometry.coordinates
+        .map((polygonCoords) => polygonCoords?.[0] || [])
+        .filter((ring) => ring.length > 0);
+    }
+
+    return [];
+  }
+
+  _calculateGeometryCenter(geometry) {
+    const rings = this._collectOuterRingCoordinates(geometry);
+    if (!rings.length) {
+      return null;
+    }
+
+    let lngSum = 0;
+    let latSum = 0;
+    let pointCount = 0;
+
+    rings.forEach((ring) => {
+      if (!Array.isArray(ring) || ring.length === 0) {
+        return;
+      }
+
+      const hasClosingPoint =
+        ring.length > 1 &&
+        ring[0]?.[0] === ring[ring.length - 1]?.[0] &&
+        ring[0]?.[1] === ring[ring.length - 1]?.[1];
+      const sourcePoints = hasClosingPoint ? ring.slice(0, -1) : ring;
+
+      sourcePoints.forEach((point) => {
+        if (!Array.isArray(point) || point.length < 2) {
+          return;
+        }
+        lngSum += point[0];
+        latSum += point[1];
+        pointCount += 1;
+      });
+    });
+
+    if (pointCount === 0) {
+      return null;
+    }
+
+    return [lngSum / pointCount, latSum / pointCount];
+  }
+
+  _scaleRing(ring, center, scaleFactor) {
+    if (!Array.isArray(ring) || ring.length === 0 || !center) {
+      return ring;
+    }
+
+    const hasClosingPoint =
+      ring.length > 1 &&
+      ring[0]?.[0] === ring[ring.length - 1]?.[0] &&
+      ring[0]?.[1] === ring[ring.length - 1]?.[1];
+    const sourcePoints = hasClosingPoint ? ring.slice(0, -1) : ring.slice();
+
+    const scaled = sourcePoints.map((point) => {
+      if (!Array.isArray(point) || point.length < 2) {
+        return point;
+      }
+
+      const [lng, lat] = point;
+      return [
+        center[0] + (lng - center[0]) * scaleFactor,
+        center[1] + (lat - center[1]) * scaleFactor,
+      ];
+    });
+
+    if (scaled.length > 0) {
+      scaled.push([...scaled[0]]);
+    }
+
+    return scaled;
+  }
+
+  _scaleGeometryFromCenter(geometry, scaleFactor) {
+    const center = this._calculateGeometryCenter(geometry);
+    if (!center) {
+      return null;
+    }
+
+    if (geometry.type === "Polygon") {
+      return {
+        ...geometry,
+        coordinates: (geometry.coordinates || []).map((ring) =>
+          this._scaleRing(ring, center, scaleFactor)
+        ),
+      };
+    }
+
+    if (geometry.type === "MultiPolygon") {
+      return {
+        ...geometry,
+        coordinates: (geometry.coordinates || []).map((polygonCoords) =>
+          (polygonCoords || []).map((ring) => this._scaleRing(ring, center, scaleFactor))
+        ),
+      };
+    }
+
+    return null;
+  }
+
+  _isRingClosed(ring) {
+    return Boolean(
+      Array.isArray(ring) &&
+        ring.length > 1 &&
+        ring[0]?.[0] === ring[ring.length - 1]?.[0] &&
+        ring[0]?.[1] === ring[ring.length - 1]?.[1]
+    );
+  }
+
+  _perpendicularDistance(point, lineStart, lineEnd) {
+    const [x, y] = point;
+    const [x1, y1] = lineStart;
+    const [x2, y2] = lineEnd;
+
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    if (dx === 0 && dy === 0) {
+      return Math.hypot(x - x1, y - y1);
+    }
+
+    return Math.abs(dy * x - dx * y + x2 * y1 - y2 * x1) / Math.hypot(dx, dy);
+  }
+
+  _douglasPeucker(points, tolerance) {
+    if (!Array.isArray(points) || points.length <= 2) {
+      return points || [];
+    }
+
+    let maxDistance = 0;
+    let index = 0;
+    const endIndex = points.length - 1;
+
+    for (let i = 1; i < endIndex; i += 1) {
+      const distance = this._perpendicularDistance(
+        points[i],
+        points[0],
+        points[endIndex]
+      );
+      if (distance > maxDistance) {
+        maxDistance = distance;
+        index = i;
+      }
+    }
+
+    if (maxDistance <= tolerance) {
+      return [points[0], points[endIndex]];
+    }
+
+    const firstHalf = this._douglasPeucker(points.slice(0, index + 1), tolerance);
+    const secondHalf = this._douglasPeucker(points.slice(index), tolerance);
+    return firstHalf.slice(0, -1).concat(secondHalf);
+  }
+
+  _simplifyRing(ring, tolerance) {
+    if (!Array.isArray(ring) || ring.length < 5) {
+      return ring;
+    }
+
+    const isClosed = this._isRingClosed(ring);
+    const openRing = isClosed ? ring.slice(0, -1) : ring.slice();
+    if (openRing.length < 4) {
+      return ring;
+    }
+
+    const simplified = this._douglasPeucker(openRing, tolerance);
+    if (simplified.length < 3) {
+      return ring;
+    }
+
+    return [...simplified, [...simplified[0]]];
+  }
+
+  _estimateSimplificationTolerance(geometry) {
+    const rings = this._collectOuterRingCoordinates(geometry);
+    if (!rings.length) {
+      return 0.00005;
+    }
+
+    let minLng = Infinity;
+    let maxLng = -Infinity;
+    let minLat = Infinity;
+    let maxLat = -Infinity;
+
+    rings.forEach((ring) => {
+      ring.forEach((point) => {
+        if (!Array.isArray(point) || point.length < 2) {
+          return;
+        }
+        minLng = Math.min(minLng, point[0]);
+        maxLng = Math.max(maxLng, point[0]);
+        minLat = Math.min(minLat, point[1]);
+        maxLat = Math.max(maxLat, point[1]);
+      });
+    });
+
+    if (
+      !Number.isFinite(minLng) ||
+      !Number.isFinite(maxLng) ||
+      !Number.isFinite(minLat) ||
+      !Number.isFinite(maxLat)
+    ) {
+      return 0.00005;
+    }
+
+    const diagonal = Math.hypot(maxLng - minLng, maxLat - minLat);
+    return Math.max(diagonal * 0.015, 0.00003);
+  }
+
+  _simplifyGeometry(geometry) {
+    const tolerance = this._estimateSimplificationTolerance(geometry);
+
+    if (geometry.type === "Polygon") {
+      return {
+        ...geometry,
+        coordinates: (geometry.coordinates || []).map((ring) =>
+          this._simplifyRing(ring, tolerance)
+        ),
+      };
+    }
+
+    if (geometry.type === "MultiPolygon") {
+      return {
+        ...geometry,
+        coordinates: (geometry.coordinates || []).map((polygonCoords) =>
+          (polygonCoords || []).map((ring) => this._simplifyRing(ring, tolerance))
+        ),
+      };
+    }
+
+    return null;
+  }
+
+  _smoothRing(ring, strength = 0.22) {
+    if (!Array.isArray(ring) || ring.length < 5) {
+      return ring;
+    }
+
+    const isClosed = this._isRingClosed(ring);
+    const openRing = isClosed ? ring.slice(0, -1) : ring.slice();
+    if (openRing.length < 4) {
+      return ring;
+    }
+
+    const smoothed = openRing.map((point, index) => {
+      const prev = openRing[(index - 1 + openRing.length) % openRing.length];
+      const next = openRing[(index + 1) % openRing.length];
+
+      if (
+        !Array.isArray(point) ||
+        !Array.isArray(prev) ||
+        !Array.isArray(next) ||
+        point.length < 2 ||
+        prev.length < 2 ||
+        next.length < 2
+      ) {
+        return point;
+      }
+
+      return [
+        point[0] + (prev[0] + next[0] - 2 * point[0]) * strength,
+        point[1] + (prev[1] + next[1] - 2 * point[1]) * strength,
+      ];
+    });
+
+    return [...smoothed, [...smoothed[0]]];
+  }
+
+  _smoothGeometry(geometry) {
+    if (geometry.type === "Polygon") {
+      return {
+        ...geometry,
+        coordinates: (geometry.coordinates || []).map((ring) => this._smoothRing(ring)),
+      };
+    }
+
+    if (geometry.type === "MultiPolygon") {
+      return {
+        ...geometry,
+        coordinates: (geometry.coordinates || []).map((polygonCoords) =>
+          (polygonCoords || []).map((ring) => this._smoothRing(ring))
+        ),
+      };
+    }
+
+    return null;
+  }
+
+  _applyBoundaryGeometryTransform(transformGeometry, options = {}) {
+    if (!this.draw || typeof transformGeometry !== "function") {
+      return;
+    }
+
+    if (!this.isEditingBoundary()) {
+      this.notificationManager?.show(
+        "Draw or edit a boundary first, then apply shape tools.",
+        "info"
+      );
+      return;
+    }
+
+    const currentFeature = this.getCurrentPolygonGeoJSON();
+    if (!currentFeature?.id || !currentFeature.geometry) {
+      return;
+    }
+
+    const transformedGeometry = transformGeometry(currentFeature.geometry);
+    if (!transformedGeometry) {
+      this.notificationManager?.show(
+        options.failureMessage || "This boundary couldn't be transformed.",
+        "warning"
+      );
+      return;
+    }
+
+    const modeAfterTransform = this.mode === "edit-existing" ? "edit-existing" : "edit-new";
+    this.draw.delete(currentFeature.id);
+    const addedFeatureIds = this.draw.add({
+      type: "Feature",
+      geometry: transformedGeometry,
+      properties: currentFeature.properties || {},
+    });
+    const featureId = Array.isArray(addedFeatureIds)
+      ? addedFeatureIds[0]
+      : addedFeatureIds;
+    const transformedFeature = featureId
+      ? this.draw.get(featureId)
+      : this.draw.getAll().features[0];
+
+    if (transformedFeature) {
+      this._setPolygonForEditing(transformedFeature, modeAfterTransform);
+      if (options.successMessage) {
+        this.notificationManager?.show(options.successMessage, "info");
+      }
+    }
+  }
+
+  adjustBoundaryRadius(scaleFactor = 1) {
+    if (!Number.isFinite(scaleFactor) || scaleFactor <= 0) {
+      return;
+    }
+
+    const radiusDirection = scaleFactor > 1 ? "expanded" : "shrunk";
+    this._applyBoundaryGeometryTransform(
+      (geometry) => this._scaleGeometryFromCenter(geometry, scaleFactor),
+      {
+        failureMessage: "This boundary shape can't be scaled yet.",
+        successMessage: `Boundary ${radiusDirection} for easier adjustment.`,
+      }
+    );
+  }
+
+  simplifyBoundaryShape() {
+    this._applyBoundaryGeometryTransform((geometry) => this._simplifyGeometry(geometry), {
+      failureMessage: "This boundary shape can't be simplified right now.",
+      successMessage: "Boundary simplified. It should be easier to tweak now.",
+    });
+  }
+
+  smoothBoundaryShape() {
+    this._applyBoundaryGeometryTransform((geometry) => this._smoothGeometry(geometry), {
+      failureMessage: "This boundary shape can't be smoothed right now.",
+      successMessage: "Boundary smoothed. Adjust corners as needed.",
+    });
   }
 
   /**
