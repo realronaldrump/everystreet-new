@@ -460,7 +460,26 @@ const mapCore = {
    * @private
    */
   _createTransformRequest() {
-    return (url) => ({ url });
+    return (url) => {
+      if (typeof url !== "string" || !url.startsWith("/api/")) {
+        // Let MapLibre handle all non-API URLs normally.
+        return undefined;
+      }
+
+      const origin =
+        typeof window !== "undefined" && window.location?.origin
+          ? window.location.origin
+          : null;
+      if (!origin) {
+        return undefined;
+      }
+
+      try {
+        return { url: new URL(url, origin).toString() };
+      } catch {
+        return undefined;
+      }
+    };
   },
 
   /**
