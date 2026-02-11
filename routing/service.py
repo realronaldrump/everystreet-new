@@ -42,6 +42,19 @@ async def generate_optimal_route_with_progress(
     task_id: str,
     start_coords: tuple[float, float] | None = None,  # (lon, lat)
 ) -> dict[str, Any]:
+    """Public entrypoint for background/manual route generation."""
+    return await _generate_optimal_route_with_progress_impl(
+        location_id=location_id,
+        task_id=task_id,
+        start_coords=start_coords,
+    )
+
+
+async def _generate_optimal_route_with_progress_impl(
+    location_id: str | PydanticObjectId,
+    task_id: str,
+    start_coords: tuple[float, float] | None = None,  # (lon, lat)
+) -> dict[str, Any]:
     location_id_str = str(location_id)
     existing_job = await find_job("optimal_route", task_id=task_id)
     if existing_job:

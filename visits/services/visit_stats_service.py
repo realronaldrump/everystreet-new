@@ -1,9 +1,14 @@
 """Business logic for visit statistics and suggestions."""
 
 import logging
+import math
+from collections import Counter, defaultdict, deque
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from shapely.geometry import MultiPoint, mapping
+
+from core.spatial import get_local_transformers
 from db.aggregation import aggregate_to_list
 from db.models import Place, Trip
 from db.schemas import (
@@ -17,6 +22,462 @@ from db.schemas import (
 from visits.services.visit_tracking_service import VisitTrackingService
 
 logger = logging.getLogger(__name__)
+
+TIMEFRAME_DELTAS = {
+    "day": timedelta(days=1),
+    "week": timedelta(weeks=1),
+    "month": timedelta(days=30),
+    "year": timedelta(days=365),
+}
+
+
+def _resolve_timeframe_start(
+    timeframe: str | None,
+    *,
+    error_message: str,
+) -> datetime | None:
+    if not timeframe:
+        return None
+    timeframe_key = timeframe.lower()
+    delta = TIMEFRAME_DELTAS.get(timeframe_key)
+    if delta is None:
+        raise ValueError(error_message)
+    return datetime.now(UTC) - delta
+
+
+def _extract_destination_coords(doc: dict[str, Any]) -> tuple[float, float] | None:
+    dest_geo = doc.get("destinationGeoPoint")
+    if isinstance(dest_geo, dict):
+        coords = dest_geo.get("coordinates")
+        if (
+            isinstance(coords, list)
+            and len(coords) >= 2
+            and isinstance(coords[0], int | float)
+            and isinstance(coords[1], int | float)
+        ):
+            return float(coords[0]), float(coords[1])
+
+    gps = doc.get("gps")
+    if isinstance(gps, dict):
+        gps_type = gps.get("type")
+        coords = gps.get("coordinates")
+        if gps_type == "Point" and isinstance(coords, list) and len(coords) >= 2:
+            return float(coords[0]), float(coords[1])
+        if gps_type == "LineString" and isinstance(coords, list) and len(coords) >= 2:
+            last = coords[-1]
+            if isinstance(last, list) and len(last) >= 2:
+                return float(last[0]), float(last[1])
+
+    destination = doc.get("destination") or {}
+    coords = destination.get("coordinates")
+    if isinstance(coords, dict):
+        lng = coords.get("lng")
+        lat = coords.get("lat")
+        if isinstance(lng, int | float) and isinstance(lat, int | float):
+            return float(lng), float(lat)
+
+    return None
+
+
+def _extract_destination_label(doc: dict[str, Any]) -> str | None:
+    for candidate in (
+        doc.get("destinationPlaceName"),
+        (doc.get("destination") or {}).get("formatted_address"),
+        ((doc.get("destination") or {}).get("address_components") or {}).get("street"),
+    ):
+        if not isinstance(candidate, str):
+            continue
+        cleaned = candidate.strip()
+        if cleaned and cleaned.lower() not in {"unknown", "n/a", "na"}:
+            return cleaned
+    return None
+
+
+def _build_existing_place_index(
+    places: list[Place],
+) -> tuple[list[Any], Any | None]:
+    from shapely import STRtree
+    from shapely.geometry import shape as shp_shape
+
+    polygons: list[Any] = []
+    for place in places:
+        try:
+            if place.geometry:
+                polygons.append(shp_shape(place.geometry))
+        except Exception:
+            continue
+
+    if not polygons:
+        return polygons, None
+    return polygons, STRtree(polygons)
+
+
+def _is_point_within_existing(
+    *,
+    lng: float,
+    lat: float,
+    tree: Any | None,
+    polygons: list[Any],
+) -> bool:
+    if tree is None:
+        return False
+    from shapely.geometry import Point as ShpPoint
+
+    pt = ShpPoint(lng, lat)
+    for idx in tree.query(pt):
+        try:
+            if polygons[idx].contains(pt):
+                return True
+        except Exception:
+            continue
+    return False
+
+
+def _build_candidates(
+    docs: list[dict[str, Any]],
+    *,
+    tree: Any | None,
+    polygons: list[Any],
+) -> list[dict[str, Any]]:
+    candidates: list[dict[str, Any]] = []
+    for doc in docs:
+        coords = _extract_destination_coords(doc)
+        if not coords:
+            continue
+        lng, lat = coords
+        if not (-180 <= lng <= 180 and -90 <= lat <= 90):
+            continue
+        if _is_point_within_existing(lng=lng, lat=lat, tree=tree, polygons=polygons):
+            continue
+        candidates.append(
+            {
+                "lng": lng,
+                "lat": lat,
+                "endTime": doc.get("endTime"),
+                "label": _extract_destination_label(doc),
+            },
+        )
+    return candidates
+
+
+def _grid_key(x: float, y: float, cell: float) -> tuple[int, int]:
+    return (math.floor(x / cell), math.floor(y / cell))
+
+
+def _neighbors_for_point(
+    *,
+    point_idx: int,
+    points: list[tuple[float, float]],
+    grid: dict[tuple[int, int], list[int]],
+    eps_sq: float,
+    cell: float,
+) -> list[int]:
+    x, y = points[point_idx]
+    gx, gy = _grid_key(x, y, cell)
+    result: list[int] = []
+    for dx in (-1, 0, 1):
+        for dy in (-1, 0, 1):
+            for j in grid.get((gx + dx, gy + dy), []):
+                dx_m = x - points[j][0]
+                dy_m = y - points[j][1]
+                if dx_m * dx_m + dy_m * dy_m <= eps_sq:
+                    result.append(j)
+    return result
+
+
+def _dbscan(
+    points: list[tuple[float, float]],
+    eps: float,
+    min_samples: int,
+) -> list[int]:
+    labels = [-1] * len(points)
+    if not points:
+        return labels
+
+    cell = max(eps, 1.0)
+    eps_sq = eps * eps
+    grid: dict[tuple[int, int], list[int]] = defaultdict(list)
+    for idx, (x, y) in enumerate(points):
+        grid[_grid_key(x, y, cell)].append(idx)
+
+    visited = [False] * len(points)
+    cluster_id = 0
+    for i in range(len(points)):
+        if visited[i]:
+            continue
+        visited[i] = True
+        neighbor_idxs = _neighbors_for_point(
+            point_idx=i,
+            points=points,
+            grid=grid,
+            eps_sq=eps_sq,
+            cell=cell,
+        )
+        if len(neighbor_idxs) < min_samples:
+            labels[i] = -1
+            continue
+        cluster_id += 1
+        labels[i] = cluster_id
+        _expand_cluster(
+            points=points,
+            grid=grid,
+            eps_sq=eps_sq,
+            cell=cell,
+            min_samples=min_samples,
+            visited=visited,
+            labels=labels,
+            cluster_id=cluster_id,
+            seed_neighbors=neighbor_idxs,
+        )
+    return labels
+
+
+def _expand_cluster(
+    *,
+    points: list[tuple[float, float]],
+    grid: dict[tuple[int, int], list[int]],
+    eps_sq: float,
+    cell: float,
+    min_samples: int,
+    visited: list[bool],
+    labels: list[int],
+    cluster_id: int,
+    seed_neighbors: list[int],
+) -> None:
+    seed_set = set(seed_neighbors)
+    seeds = deque(seed_neighbors)
+    while seeds:
+        j = seeds.popleft()
+        if not visited[j]:
+            visited[j] = True
+            neighbor_j = _neighbors_for_point(
+                point_idx=j,
+                points=points,
+                grid=grid,
+                eps_sq=eps_sq,
+                cell=cell,
+            )
+            if len(neighbor_j) >= min_samples:
+                for k in neighbor_j:
+                    if k not in seed_set:
+                        seed_set.add(k)
+                        seeds.append(k)
+        if labels[j] == -1:
+            labels[j] = cluster_id
+
+
+def _cluster_centroid_m(
+    points_m: list[tuple[float, float]],
+    indices: list[int],
+) -> tuple[float, float]:
+    xs = [points_m[i][0] for i in indices]
+    ys = [points_m[i][1] for i in indices]
+    return (sum(xs) / len(xs), sum(ys) / len(ys))
+
+
+def _cluster_max_radius_m(
+    points_m: list[tuple[float, float]],
+    indices: list[int],
+) -> float:
+    cx, cy = _cluster_centroid_m(points_m, indices)
+    return max(math.hypot(points_m[i][0] - cx, points_m[i][1] - cy) for i in indices)
+
+
+def _refine_cluster(
+    *,
+    points_m: list[tuple[float, float]],
+    indices: list[int],
+    min_visits: int,
+    cell_size_m: int,
+) -> list[list[int]]:
+    if len(indices) < (min_visits * 2):
+        return [indices]
+
+    max_dist = _cluster_max_radius_m(points_m, indices)
+    if max_dist <= (cell_size_m * 1.1):
+        return [indices]
+
+    refined_eps = max(35.0, min(cell_size_m * 0.35, max_dist * 0.3))
+    local_points = [points_m[i] for i in indices]
+    sub_labels = _dbscan(local_points, refined_eps, min_visits)
+
+    subclusters: dict[int, list[int]] = {}
+    for local_idx, sub_label in enumerate(sub_labels):
+        if sub_label == -1:
+            continue
+        subclusters.setdefault(sub_label, []).append(indices[local_idx])
+
+    if len(subclusters) <= 1:
+        return [indices]
+    return list(subclusters.values())
+
+
+def _cluster_boundary(
+    *,
+    points: list[tuple[float, float]],
+    cell_size_m: int,
+) -> Any:
+    from shapely.geometry import MultiPoint
+    from shapely.ops import transform
+
+    from core.spatial import get_local_transformers
+
+    cluster_geom = MultiPoint(points)
+    to_meters_cluster, to_wgs84_cluster = get_local_transformers(cluster_geom)
+    cluster_geom_m = transform(to_meters_cluster, cluster_geom)
+    hull_m = cluster_geom_m.convex_hull
+    centroid_m = cluster_geom_m.centroid
+    distances = sorted(centroid_m.distance(pt) for pt in cluster_geom_m.geoms)
+    if distances:
+        p60_idx = int(0.6 * (len(distances) - 1))
+        p60_dist = distances[p60_idx]
+    else:
+        p60_dist = 0.0
+    buffer_m = max(20.0, min(cell_size_m * 0.35, p60_dist * 0.6))
+    return transform(to_wgs84_cluster, hull_m.buffer(buffer_m))
+
+
+def _boundary_overlaps_existing(
+    *,
+    boundary_geom: Any,
+    tree: Any | None,
+    polygons: list[Any],
+) -> bool:
+    if tree is None:
+        return False
+    for idx in tree.query(boundary_geom):
+        try:
+            if polygons[idx].intersects(boundary_geom):
+                return True
+        except Exception:
+            continue
+    return False
+
+
+def _suggestion_match_stage(timeframe: str | None) -> dict[str, Any]:
+    match_stage: dict[str, Any] = {
+        "$and": [
+            {
+                "$or": [
+                    {"destinationPlaceId": {"$exists": False}},
+                    {"destinationPlaceId": None},
+                    {"destinationPlaceId": ""},
+                ],
+            },
+            {
+                "$or": [
+                    {"destinationGeoPoint": {"$exists": True}},
+                    {"gps": {"$exists": True}},
+                    {"destination.coordinates": {"$exists": True}},
+                ],
+            },
+        ],
+        "endTime": {"$ne": None},
+    }
+
+    timeframe_start = _resolve_timeframe_start(
+        timeframe,
+        error_message="Unsupported timeframe. Choose from day, week, month, year.",
+    )
+    if timeframe_start is not None:
+        match_stage["endTime"] = {"$gte": timeframe_start}
+    return match_stage
+
+
+def _collect_cluster_indices(labels: list[int]) -> dict[int, list[int]]:
+    cluster_indices: dict[int, list[int]] = {}
+    for idx, label in enumerate(labels):
+        if label == -1:
+            continue
+        cluster_indices.setdefault(label, []).append(idx)
+    return cluster_indices
+
+
+def _collect_refined_clusters(
+    *,
+    points_m: list[tuple[float, float]],
+    cluster_indices: dict[int, list[int]],
+    min_visits: int,
+    cell_size_m: int,
+) -> list[list[int]]:
+    refined_clusters: list[list[int]] = []
+    for indices in cluster_indices.values():
+        refined_clusters.extend(
+            _refine_cluster(
+                points_m=points_m,
+                indices=indices,
+                min_visits=min_visits,
+                cell_size_m=cell_size_m,
+            ),
+        )
+    return refined_clusters
+
+
+def _cluster_summary(
+    *,
+    indices: list[int],
+    candidates: list[dict[str, Any]],
+) -> tuple[list[tuple[float, float]], Counter[str], Any | None, Any | None]:
+    points: list[tuple[float, float]] = []
+    label_counts: Counter[str] = Counter()
+    first_visit = None
+    last_visit = None
+
+    for idx in indices:
+        candidate = candidates[idx]
+        points.append((candidate["lng"], candidate["lat"]))
+        if candidate["label"]:
+            label_counts[candidate["label"]] += 1
+        end_time = candidate["endTime"]
+        if end_time:
+            if first_visit is None or end_time < first_visit:
+                first_visit = end_time
+            if last_visit is None or end_time > last_visit:
+                last_visit = end_time
+
+    return points, label_counts, first_visit, last_visit
+
+
+def _build_cluster_suggestion(
+    *,
+    indices: list[int],
+    candidates: list[dict[str, Any]],
+    min_visits: int,
+    cell_size_m: int,
+    tree: Any | None,
+    existing_polygons: list[Any],
+) -> VisitSuggestion | None:
+    if len(indices) < min_visits:
+        return None
+
+    points, label_counts, first_visit, last_visit = _cluster_summary(
+        indices=indices,
+        candidates=candidates,
+    )
+    avg_lng = sum(p[0] for p in points) / len(points)
+    avg_lat = sum(p[1] for p in points) / len(points)
+    suggested_name = (
+        label_counts.most_common(1)[0][0]
+        if label_counts
+        else f"Area near {round(avg_lat, 4)}, {round(avg_lng, 4)}"
+    )
+
+    boundary_geom = _cluster_boundary(points=points, cell_size_m=cell_size_m)
+    if _boundary_overlaps_existing(
+        boundary_geom=boundary_geom,
+        tree=tree,
+        polygons=existing_polygons,
+    ):
+        return None
+
+    return VisitSuggestion(
+        suggestedName=suggested_name,
+        totalVisits=len(points),
+        firstVisit=first_visit,
+        lastVisit=last_visit,
+        centroid=[avg_lng, avg_lat],
+        boundary=mapping(boundary_geom),
+    )
 
 
 class VisitStatsService:
@@ -205,22 +666,13 @@ class VisitStatsService:
             ],
         }
 
-        if timeframe:
-            timeframe = timeframe.lower()
-            now = datetime.now(UTC)
-            delta_map = {
-                "day": timedelta(days=1),
-                "week": timedelta(weeks=1),
-                "month": timedelta(days=30),
-                "year": timedelta(days=365),
-            }
-            if timeframe not in delta_map:
-                msg = f"Unsupported timeframe '{timeframe}'. Choose from day, week, month, year."
-                raise ValueError(
-                    msg,
-                )
-
-            start_date = now - delta_map[timeframe]
+        start_date = _resolve_timeframe_start(
+            timeframe,
+            error_message=(
+                f"Unsupported timeframe '{timeframe}'. Choose from day, week, month, year."
+            ),
+        )
+        if start_date is not None:
             match_stage["endTime"] = {"$gte": start_date}
 
         pipeline = [
@@ -295,56 +747,7 @@ class VisitStatsService:
         Raises:
             ValueError: If timeframe is invalid
         """
-        import math
-        from collections import Counter, defaultdict, deque
-
-        from shapely import STRtree
-        from shapely.geometry import (
-            MultiPoint,
-            Point as ShpPoint,
-            mapping,
-            shape as shp_shape,
-        )
-        from shapely.ops import transform
-
-        from core.spatial import get_local_transformers
-
-        match_stage: dict[str, Any] = {
-            "$and": [
-                {
-                    "$or": [
-                        {"destinationPlaceId": {"$exists": False}},
-                        {"destinationPlaceId": None},
-                        {"destinationPlaceId": ""},
-                    ],
-                },
-                {
-                    "$or": [
-                        {"destinationGeoPoint": {"$exists": True}},
-                        {"gps": {"$exists": True}},
-                        {"destination.coordinates": {"$exists": True}},
-                    ],
-                },
-            ],
-            "endTime": {"$ne": None},
-        }
-
-        if timeframe:
-            timeframe = timeframe.lower()
-            now = datetime.now(UTC)
-            delta_map = {
-                "day": timedelta(days=1),
-                "week": timedelta(weeks=1),
-                "month": timedelta(days=30),
-                "year": timedelta(days=365),
-            }
-            if timeframe not in delta_map:
-                msg = "Unsupported timeframe. Choose from day, week, month, year."
-                raise ValueError(
-                    msg,
-                )
-
-            match_stage["endTime"] = {"$gte": now - delta_map[timeframe]}
+        match_stage = _suggestion_match_stage(timeframe)
 
         pipeline = [
             {"$match": match_stage},
@@ -364,303 +767,39 @@ class VisitStatsService:
         if not docs:
             return []
 
-        # Build list of existing custom place polygons for overlap check
         existing_places = await Place.find_all().to_list()
-        existing_polygons = []
-        for place in existing_places:
-            try:
-                if place.geometry:
-                    existing_polygons.append(shp_shape(place.geometry))
-            except Exception:
-                continue
-
-        tree = STRtree(existing_polygons) if existing_polygons else None
-
-        def extract_coords(doc: dict[str, Any]) -> tuple[float, float] | None:
-            dest_geo = doc.get("destinationGeoPoint")
-            if isinstance(dest_geo, dict):
-                coords = dest_geo.get("coordinates")
-                if (
-                    isinstance(coords, list)
-                    and len(coords) >= 2
-                    and isinstance(coords[0], int | float)
-                    and isinstance(coords[1], int | float)
-                ):
-                    return float(coords[0]), float(coords[1])
-
-            gps = doc.get("gps")
-            if isinstance(gps, dict):
-                gps_type = gps.get("type")
-                coords = gps.get("coordinates")
-                if (
-                    gps_type == "Point"
-                    and isinstance(coords, list)
-                    and len(coords) >= 2
-                ):
-                    return float(coords[0]), float(coords[1])
-                if (
-                    gps_type == "LineString"
-                    and isinstance(coords, list)
-                    and len(coords) >= 2
-                ):
-                    last = coords[-1]
-                    if isinstance(last, list) and len(last) >= 2:
-                        return float(last[0]), float(last[1])
-
-            destination = doc.get("destination") or {}
-            coords = destination.get("coordinates")
-            if isinstance(coords, dict):
-                lng = coords.get("lng")
-                lat = coords.get("lat")
-                if isinstance(lng, int | float) and isinstance(lat, int | float):
-                    return float(lng), float(lat)
-
-            return None
-
-        def extract_label(doc: dict[str, Any]) -> str | None:
-            candidate = doc.get("destinationPlaceName")
-            if isinstance(candidate, str) and candidate.strip():
-                cleaned = candidate.strip()
-                if cleaned.lower() not in {"unknown", "n/a", "na"}:
-                    return cleaned
-
-            destination = doc.get("destination") or {}
-            formatted = destination.get("formatted_address")
-            if isinstance(formatted, str) and formatted.strip():
-                cleaned = formatted.strip()
-                if cleaned.lower() not in {"unknown", "n/a", "na"}:
-                    return cleaned
-
-            components = destination.get("address_components") or {}
-            street = components.get("street") if isinstance(components, dict) else None
-            if isinstance(street, str) and street.strip():
-                cleaned = street.strip()
-                if cleaned.lower() not in {"unknown", "n/a", "na"}:
-                    return cleaned
-
-            return None
-
-        def is_within_existing(lng: float, lat: float) -> bool:
-            if not tree:
-                return False
-            pt = ShpPoint(lng, lat)
-            for idx in tree.query(pt):
-                try:
-                    if existing_polygons[idx].contains(pt):
-                        return True
-                except Exception:
-                    continue
-            return False
-
-        candidates = []
-        for doc in docs:
-            coords = extract_coords(doc)
-            if not coords:
-                continue
-            lng, lat = coords
-            if not (-180 <= lng <= 180 and -90 <= lat <= 90):
-                continue
-            if is_within_existing(lng, lat):
-                continue
-
-            candidates.append(
-                {
-                    "lng": lng,
-                    "lat": lat,
-                    "endTime": doc.get("endTime"),
-                    "label": extract_label(doc),
-                },
-            )
+        existing_polygons, tree = _build_existing_place_index(existing_places)
+        candidates = _build_candidates(docs, tree=tree, polygons=existing_polygons)
 
         if not candidates:
             return []
 
-        # Build a shared local projection for clustering in meters
         all_points = [(c["lng"], c["lat"]) for c in candidates]
         all_points_geom = MultiPoint(all_points)
         to_meters, _ = get_local_transformers(all_points_geom)
         points_m = [to_meters(lng, lat) for lng, lat in all_points]
 
-        def grid_key(x: float, y: float, cell: float) -> tuple[int, int]:
-            return (math.floor(x / cell), math.floor(y / cell))
-
-        def dbscan(points: list[tuple[float, float]], eps: float, min_samples: int):
-            labels = [-1] * len(points)
-            if not points:
-                return labels
-
-            cell = max(eps, 1.0)
-            eps_sq = eps * eps
-            grid: dict[tuple[int, int], list[int]] = defaultdict(list)
-
-            for idx, (x, y) in enumerate(points):
-                grid[grid_key(x, y, cell)].append(idx)
-
-            visited = [False] * len(points)
-            cluster_id = 0
-
-            def neighbors(i: int) -> list[int]:
-                x, y = points[i]
-                gx, gy = grid_key(x, y, cell)
-                result: list[int] = []
-                for dx in (-1, 0, 1):
-                    for dy in (-1, 0, 1):
-                        for j in grid.get((gx + dx, gy + dy), []):
-                            dx_m = x - points[j][0]
-                            dy_m = y - points[j][1]
-                            if dx_m * dx_m + dy_m * dy_m <= eps_sq:
-                                result.append(j)
-                return result
-
-            for i in range(len(points)):
-                if visited[i]:
-                    continue
-                visited[i] = True
-                neighbor_idxs = neighbors(i)
-                if len(neighbor_idxs) < min_samples:
-                    labels[i] = -1
-                    continue
-
-                cluster_id += 1
-                labels[i] = cluster_id
-                seed_set = set(neighbor_idxs)
-                seeds = deque(neighbor_idxs)
-                while seeds:
-                    j = seeds.popleft()
-                    if not visited[j]:
-                        visited[j] = True
-                        neighbor_j = neighbors(j)
-                        if len(neighbor_j) >= min_samples:
-                            for k in neighbor_j:
-                                if k not in seed_set:
-                                    seed_set.add(k)
-                                    seeds.append(k)
-                    if labels[j] == -1:
-                        labels[j] = cluster_id
-
-            return labels
-
-        labels = dbscan(points_m, cell_size_m, min_visits)
-
-        cluster_indices: dict[int, list[int]] = {}
-        for idx, label in enumerate(labels):
-            if label == -1:
-                continue
-            cluster_indices.setdefault(label, []).append(idx)
-
-        def cluster_centroid_m(indices: list[int]) -> tuple[float, float]:
-            xs = [points_m[i][0] for i in indices]
-            ys = [points_m[i][1] for i in indices]
-            return (sum(xs) / len(xs), sum(ys) / len(ys))
-
-        def cluster_max_radius_m(indices: list[int]) -> float:
-            cx, cy = cluster_centroid_m(indices)
-            return max(
-                math.hypot(points_m[i][0] - cx, points_m[i][1] - cy) for i in indices
-            )
-
-        def refine_cluster(indices: list[int]) -> list[list[int]]:
-            if len(indices) < (min_visits * 2):
-                return [indices]
-
-            max_dist = cluster_max_radius_m(indices)
-            if max_dist <= (cell_size_m * 1.1):
-                return [indices]
-
-            refined_eps = max(35.0, min(cell_size_m * 0.35, max_dist * 0.3))
-            local_points = [points_m[i] for i in indices]
-            sub_labels = dbscan(local_points, refined_eps, min_visits)
-
-            subclusters: dict[int, list[int]] = {}
-            for local_idx, sub_label in enumerate(sub_labels):
-                if sub_label == -1:
-                    continue
-                subclusters.setdefault(sub_label, []).append(indices[local_idx])
-
-            if len(subclusters) <= 1:
-                return [indices]
-
-            return list(subclusters.values())
-
-        refined_clusters: list[list[int]] = []
-        for indices in cluster_indices.values():
-            refined_clusters.extend(refine_cluster(indices))
+        labels = _dbscan(points_m, cell_size_m, min_visits)
+        cluster_indices = _collect_cluster_indices(labels)
+        refined_clusters = _collect_refined_clusters(
+            points_m=points_m,
+            cluster_indices=cluster_indices,
+            min_visits=min_visits,
+            cell_size_m=cell_size_m,
+        )
 
         suggestions: list[VisitSuggestion] = []
-
         for indices in refined_clusters:
-            if len(indices) < min_visits:
-                continue
-
-            points: list[tuple[float, float]] = []
-            label_counts: Counter[str] = Counter()
-            first_visit = None
-            last_visit = None
-
-            for idx in indices:
-                candidate = candidates[idx]
-                points.append((candidate["lng"], candidate["lat"]))
-                if candidate["label"]:
-                    label_counts[candidate["label"]] += 1
-
-                end_time = candidate["endTime"]
-                if end_time:
-                    if first_visit is None or end_time < first_visit:
-                        first_visit = end_time
-                    if last_visit is None or end_time > last_visit:
-                        last_visit = end_time
-
-            avg_lng = sum(p[0] for p in points) / len(points)
-            avg_lat = sum(p[1] for p in points) / len(points)
-
-            if label_counts:
-                suggested_name = label_counts.most_common(1)[0][0]
-            else:
-                suggested_name = f"Area near {round(avg_lat, 4)}, {round(avg_lng, 4)}"
-
-            # Build cluster boundary using convex hull + tighter buffered envelope in meters
-            cluster_geom = MultiPoint(points)
-            to_meters_cluster, to_wgs84_cluster = get_local_transformers(cluster_geom)
-            cluster_geom_m = transform(to_meters_cluster, cluster_geom)
-            hull_m = cluster_geom_m.convex_hull
-
-            centroid_m = cluster_geom_m.centroid
-            distances = sorted(centroid_m.distance(pt) for pt in cluster_geom_m.geoms)
-            if distances:
-                p60_idx = int(0.6 * (len(distances) - 1))
-                p60_dist = distances[p60_idx]
-            else:
-                p60_dist = 0.0
-
-            buffer_m = max(20.0, min(cell_size_m * 0.35, p60_dist * 0.6))
-            hull_m = hull_m.buffer(buffer_m)
-            boundary_geom = transform(to_wgs84_cluster, hull_m)
-
-            # Skip if the boundary overlaps an existing place polygon
-            if tree:
-                overlap = False
-                for idx in tree.query(boundary_geom):
-                    try:
-                        if existing_polygons[idx].intersects(boundary_geom):
-                            overlap = True
-                            break
-                    except Exception:
-                        continue
-                if overlap:
-                    continue
-
-            boundary_geojson = mapping(boundary_geom)
-
-            suggestions.append(
-                VisitSuggestion(
-                    suggestedName=suggested_name,
-                    totalVisits=len(points),
-                    firstVisit=first_visit,
-                    lastVisit=last_visit,
-                    centroid=[avg_lng, avg_lat],
-                    boundary=boundary_geojson,
-                ),
+            suggestion = _build_cluster_suggestion(
+                indices=indices,
+                candidates=candidates,
+                min_visits=min_visits,
+                cell_size_m=cell_size_m,
+                tree=tree,
+                existing_polygons=existing_polygons,
             )
+            if suggestion is not None:
+                suggestions.append(suggestion)
 
         suggestions.sort(key=lambda s: s.totalVisits, reverse=True)
         return suggestions

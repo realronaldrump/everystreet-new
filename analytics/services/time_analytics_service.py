@@ -4,7 +4,7 @@ import logging
 from typing import Any
 
 from db.aggregation import aggregate_to_list
-from db.aggregation_utils import get_mongo_tz_expr
+from db.aggregation_utils import build_trip_duration_fields_stage, get_mongo_tz_expr
 from db.models import Trip
 
 logger = logging.getLogger(__name__)
@@ -68,28 +68,10 @@ class TimeAnalyticsService:
 
         pipeline = [
             {"$match": query},
-            {
-                "$addFields": {
-                    "duration_seconds": {
-                        "$cond": {
-                            "if": {
-                                "$and": [
-                                    {"$ifNull": ["$startTime", False]},
-                                    {"$ifNull": ["$endTime", False]},
-                                    {"$lt": ["$startTime", "$endTime"]},
-                                ],
-                            },
-                            "then": {
-                                "$divide": [
-                                    {"$subtract": ["$endTime", "$startTime"]},
-                                    1000.0,
-                                ],
-                            },
-                            "else": {"$ifNull": ["$duration", 0]},
-                        },
-                    },
-                },
-            },
+            build_trip_duration_fields_stage(
+                tz_expr,
+                fallback_duration_field="$duration",
+            ),
             {
                 "$project": {
                     "_id": 0,

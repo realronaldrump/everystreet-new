@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 from collections import Counter
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from beanie import PydanticObjectId
@@ -15,8 +15,10 @@ from db.models import Place, RecurringRoute, Trip
 from recurring_routes.services.fingerprint import extract_display_label
 
 try:
-    from shapely.geometry import Point as ShapelyPoint
-    from shapely.geometry import shape as shapely_shape
+    from shapely.geometry import (
+        Point as ShapelyPoint,
+        shape as shapely_shape,
+    )
 except Exception:  # pragma: no cover - shapely may be unavailable in some envs
     ShapelyPoint = None
     shapely_shape = None
@@ -29,8 +31,8 @@ def _to_utc_datetime(value: Any) -> datetime | None:
     if not isinstance(value, datetime):
         return None
     if value.tzinfo is None:
-        return value.replace(tzinfo=timezone.utc)
-    return value.astimezone(timezone.utc)
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)
 
 
 def _sunday_week_start(value: datetime) -> datetime:

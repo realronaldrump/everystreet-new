@@ -12,6 +12,8 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+from collections.abc import Awaitable, Callable
+from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -295,6 +297,870 @@ async def _load_progress_job(progress_job_id: str) -> Job | None:
     return await Job.get(oid)
 
 
+def _record_failure_reason(
+    failure_reasons: dict[str, int],
+    reason: str | None,
+) -> None:
+    text = (reason or "").strip() or "Unknown error"
+    # Keep keys stable + bounded so job metadata doesn't grow unbounded.
+    text = text.replace("\n", " ").replace("\r", " ")
+    if len(text) > 180:
+        text = text[:177] + "..."
+
+    if text in failure_reasons:
+        failure_reasons[text] += 1
+        return
+
+    # Cap unique reasons to avoid runaway metadata growth.
+    if len(failure_reasons) >= 25:
+        other = "Other (see event log for details)"
+        failure_reasons[other] = failure_reasons.get(other, 0) + 1
+        return
+
+    failure_reasons[text] = 1
+
+
+def _add_progress_event(
+    events: list[dict[str, Any]],
+    level: str,
+    message: str,
+    data: dict[str, Any] | None = None,
+) -> None:
+    events.append(
+        {
+            "ts_iso": datetime.now(UTC).isoformat(),
+            "level": level,
+            "message": message,
+            "data": data,
+        },
+    )
+    if len(events) > 120:
+        del events[:-120]
+
+
+async def _write_cancelled_progress(
+    *,
+    add_event: Callable[[str, str, dict[str, Any] | None], None],
+    write_progress: Callable[..., Awaitable[None]],
+    windows_completed: int,
+) -> dict[str, str]:
+    add_event("warning", "Cancelled by user", None)
+    await write_progress(
+        status="cancelled",
+        stage="cancelled",
+        message="Cancelled",
+        progress=100.0,
+        current_window=None,
+        windows_completed=windows_completed,
+        completed_at=datetime.now(UTC),
+        important=True,
+    )
+    return {"status": "cancelled", "message": "Cancelled"}
+
+
+async def _fetch_device_window(
+    *,
+    client: BouncieClient,
+    token: str,
+    imei: str,
+    window_start: datetime,
+    window_end: datetime,
+    window_index: int,
+    semaphore: asyncio.Semaphore,
+    lock: asyncio.Lock,
+    counters: dict[str, int],
+    per_device: dict[str, dict[str, int]],
+    devices_done_ref: dict[str, int],
+    add_event: Callable[[str, str, dict[str, Any] | None], None],
+    record_failure_reason: Callable[[str | None], None],
+) -> list[dict[str, Any]]:
+    async with semaphore:
+        try:
+            trips = await _fetch_trips_for_window(
+                client,
+                token=token,
+                imei=imei,
+                window_start=window_start,
+                window_end=window_end,
+            )
+            trips = _dedupe_trips_by_transaction_id(trips)
+            before_count = len(trips)
+            trips = _filter_trips_to_window(
+                trips,
+                window_start=window_start,
+                window_end=window_end,
+            )
+            after_count = len(trips)
+            if after_count != before_count:
+                logger.info(
+                    "Filtered %s/%s trips outside window (imei=%s, window_index=%s)",
+                    before_count - after_count,
+                    before_count,
+                    imei,
+                    window_index,
+                )
+        except Exception as exc:
+            async with lock:
+                counters["fetch_errors"] += 1
+                if imei in per_device:
+                    per_device[imei]["errors"] += 1
+                    per_device[imei]["windows_completed"] += 1
+                devices_done_ref["done"] += 1
+            add_event(
+                "error",
+                f"Fetch failed for {imei}",
+                {"error": str(exc), "imei": imei, "window_index": window_index},
+            )
+            record_failure_reason(str(exc))
+            await TripIngestIssueService.record_issue(
+                issue_type="fetch_error",
+                message=str(exc),
+                source="bouncie",
+                imei=imei,
+                details={
+                    "imei": imei,
+                    "window_index": window_index,
+                    "window_start": window_start.isoformat(),
+                    "window_end": window_end.isoformat(),
+                },
+            )
+            return []
+
+        async with lock:
+            if imei in per_device:
+                per_device[imei]["found_raw"] += len(trips)
+                per_device[imei]["windows_completed"] += 1
+            counters["found_raw"] += len(trips)
+            devices_done_ref["done"] += 1
+        add_event(
+            "info",
+            f"Fetched {len(trips)} trips for {imei}",
+            {"window_index": window_index},
+        )
+        # Rate-limit requests to avoid overwhelming Bouncie's API
+        await asyncio.sleep(1.0)
+        return trips
+
+
+@dataclass
+class ImportRuntime:
+    client: BouncieClient
+    token: str
+    imeis: list[str]
+    windows_total: int
+    semaphore: asyncio.Semaphore
+    lock: asyncio.Lock
+    counters: dict[str, int]
+    per_device: dict[str, dict[str, int]]
+    pipeline: TripPipeline
+    do_geocode: bool
+    do_coverage: bool
+    seen_transaction_ids: set[str]
+    add_event: Callable[[str, str, dict[str, Any] | None], None]
+    write_progress: Callable[..., Awaitable[None]]
+    is_cancelled: Callable[..., Awaitable[bool]]
+    record_failure_reason: Callable[[str | None], None]
+
+
+def _collect_unique_window_trips(
+    raw_trips: list[dict[str, Any]],
+    *,
+    seen_transaction_ids: set[str],
+    counters: dict[str, int],
+) -> list[dict[str, Any]]:
+    unique_trips: list[dict[str, Any]] = []
+    for trip in raw_trips:
+        tx = trip.get("transactionId")
+        if not isinstance(tx, str) or not tx:
+            continue
+        if tx in seen_transaction_ids:
+            continue
+        if not trip.get("endTime"):
+            counters["skipped_missing_end_time"] += 1
+            continue
+        seen_transaction_ids.add(tx)
+        unique_trips.append(trip)
+    counters["found_unique"] += len(unique_trips)
+    return unique_trips
+
+
+def _record_per_device_unique_counts(
+    unique_trips: list[dict[str, Any]],
+    per_device: dict[str, dict[str, int]],
+) -> None:
+    for trip in unique_trips:
+        imei = trip.get("imei")
+        if isinstance(imei, str) and imei in per_device:
+            per_device[imei]["found_unique"] += 1
+
+
+async def _load_existing_transaction_ids(
+    unique_trips: list[dict[str, Any]],
+) -> set[str]:
+    incoming_ids = [t.get("transactionId") for t in unique_trips if t.get("transactionId")]
+    existing_docs = (
+        await Trip.find(In(Trip.transactionId, incoming_ids))
+        .project(TripStatusProjection)
+        .to_list()
+    )
+    return {
+        doc.transactionId for doc in existing_docs if getattr(doc, "transactionId", None)
+    }
+
+
+def _collect_new_trips(
+    *,
+    unique_trips: list[dict[str, Any]],
+    existing_ids: set[str],
+    counters: dict[str, int],
+    per_device: dict[str, dict[str, int]],
+) -> list[dict[str, Any]]:
+    new_trips: list[dict[str, Any]] = []
+    for trip in unique_trips:
+        tx = trip.get("transactionId")
+        if not isinstance(tx, str) or not tx:
+            continue
+        imei = trip.get("imei")
+        if tx in existing_ids:
+            counters["skipped_existing"] += 1
+            if isinstance(imei, str) and imei in per_device:
+                per_device[imei]["skipped_existing"] += 1
+            continue
+        counters["new_candidates"] += 1
+        if isinstance(imei, str) and imei in per_device:
+            per_device[imei]["new_candidates"] += 1
+        new_trips.append(trip)
+    return new_trips
+
+
+async def _record_validation_failure(
+    *,
+    validation: dict[str, Any],
+    tx: str,
+    imei: str | None,
+    window_index: int,
+    counters: dict[str, int],
+    per_device: dict[str, dict[str, int]],
+    add_event: Callable[[str, str, dict[str, Any] | None], None],
+    record_failure_reason: Callable[[str | None], None],
+) -> None:
+    counters["validation_failed"] += 1
+    if isinstance(imei, str) and imei in per_device:
+        per_device[imei]["validation_failed"] += 1
+    reason = (validation.get("processing_status") or {}).get("errors", {}).get("validation")
+    add_event(
+        "error",
+        f"Trip failed validation ({tx})",
+        {
+            "transactionId": tx,
+            "imei": imei,
+            "reason": reason,
+            "window_index": window_index,
+        },
+    )
+    record_failure_reason(str(reason))
+    await TripIngestIssueService.record_issue(
+        issue_type="validation_failed",
+        message=str(reason),
+        source="bouncie",
+        transaction_id=str(tx) if tx else None,
+        imei=imei if isinstance(imei, str) else None,
+        details={
+            "transactionId": tx,
+            "imei": imei,
+            "window_index": window_index,
+            "reason": reason,
+        },
+    )
+
+
+async def _record_process_failure(
+    *,
+    exc: Exception,
+    tx: str,
+    imei: str | None,
+    window_index: int,
+    counters: dict[str, int],
+    per_device: dict[str, dict[str, int]],
+    add_event: Callable[[str, str, dict[str, Any] | None], None],
+    record_failure_reason: Callable[[str | None], None],
+) -> None:
+    counters["process_errors"] += 1
+    if isinstance(imei, str) and imei in per_device:
+        per_device[imei]["errors"] += 1
+    add_event(
+        "error",
+        f"Failed processing trip {tx}",
+        {
+            "error": str(exc),
+            "transactionId": tx,
+            "imei": imei,
+            "window_index": window_index,
+        },
+    )
+    record_failure_reason(str(exc))
+    await TripIngestIssueService.record_issue(
+        issue_type="process_error",
+        message=str(exc),
+        source="bouncie",
+        transaction_id=str(tx) if tx else None,
+        imei=imei if isinstance(imei, str) else None,
+        details={
+            "transactionId": tx,
+            "imei": imei,
+            "window_index": window_index,
+            "error": str(exc),
+        },
+    )
+
+
+def _update_insert_result_counters(
+    *,
+    inserted: bool,
+    imei: str | None,
+    counters: dict[str, int],
+    per_device: dict[str, dict[str, int]],
+) -> None:
+    if inserted:
+        counters["inserted"] += 1
+        if isinstance(imei, str) and imei in per_device:
+            per_device[imei]["inserted"] += 1
+        return
+    counters["skipped_existing"] += 1
+    if isinstance(imei, str) and imei in per_device:
+        per_device[imei]["skipped_existing"] += 1
+
+
+async def _process_new_trips_batch(
+    *,
+    runtime: ImportRuntime,
+    new_trips: list[dict[str, Any]],
+    window_index: int,
+    windows_completed: int,
+    current_window: dict[str, Any],
+) -> bool:
+    processed_count = 0
+    for trip in new_trips:
+        if processed_count and processed_count % 25 == 0 and await runtime.is_cancelled():
+            return True
+
+        tx = str(trip.get("transactionId") or "unknown")
+        imei = trip.get("imei")
+        validation = await runtime.pipeline.validate_raw_trip_with_basic(trip)
+        if not validation.get("success"):
+            await _record_validation_failure(
+                validation=validation,
+                tx=tx,
+                imei=imei if isinstance(imei, str) else None,
+                window_index=window_index,
+                counters=runtime.counters,
+                per_device=runtime.per_device,
+                add_event=runtime.add_event,
+                record_failure_reason=runtime.record_failure_reason,
+            )
+            processed_count += 1
+            await _write_window_insert_progress(
+                runtime=runtime,
+                processed_count=processed_count,
+                total=len(new_trips),
+                window_index=window_index,
+                windows_completed=windows_completed,
+                current_window=current_window,
+            )
+            continue
+
+        try:
+            inserted = await runtime.pipeline.process_raw_trip_insert_only(
+                trip,
+                source="bouncie",
+                do_map_match=False,
+                do_geocode=runtime.do_geocode,
+                do_coverage=runtime.do_coverage,
+                skip_existing_check=True,
+            )
+        except Exception as exc:
+            await _record_process_failure(
+                exc=exc,
+                tx=tx,
+                imei=imei if isinstance(imei, str) else None,
+                window_index=window_index,
+                counters=runtime.counters,
+                per_device=runtime.per_device,
+                add_event=runtime.add_event,
+                record_failure_reason=runtime.record_failure_reason,
+            )
+        else:
+            _update_insert_result_counters(
+                inserted=bool(inserted),
+                imei=imei if isinstance(imei, str) else None,
+                counters=runtime.counters,
+                per_device=runtime.per_device,
+            )
+
+        processed_count += 1
+        await _write_window_insert_progress(
+            runtime=runtime,
+            processed_count=processed_count,
+            total=len(new_trips),
+            window_index=window_index,
+            windows_completed=windows_completed,
+            current_window=current_window,
+        )
+
+    return False
+
+
+async def _write_window_insert_progress(
+    *,
+    runtime: ImportRuntime,
+    processed_count: int,
+    total: int,
+    window_index: int,
+    windows_completed: int,
+    current_window: dict[str, Any],
+) -> None:
+    if processed_count % 5 != 0 and processed_count != total:
+        return
+    within = processed_count / max(1, total)
+    overall = ((window_index - 1) + (0.4 + (0.6 * within))) / max(1, runtime.windows_total)
+    await runtime.write_progress(
+        status="running",
+        stage="processing",
+        message=(
+            f"Inserted {processed_count}/{total} trips "
+            f"(window {window_index}/{runtime.windows_total})"
+        ),
+        progress=min(99.0, overall * 100.0),
+        current_window=current_window,
+        windows_completed=windows_completed,
+    )
+
+
+async def _process_import_window(
+    *,
+    runtime: ImportRuntime,
+    idx: int,
+    window_start: datetime,
+    window_end: datetime,
+    windows_completed: int,
+) -> tuple[bool, int]:
+    current_window = {
+        "index": idx,
+        "start_iso": window_start.isoformat(),
+        "end_iso": window_end.isoformat(),
+    }
+    runtime.add_event(
+        "info",
+        f"Scanning window {idx}/{runtime.windows_total}",
+        {"start": current_window["start_iso"], "end": current_window["end_iso"]},
+    )
+    await runtime.write_progress(
+        status="running",
+        stage="scanning",
+        message=f"Scanning window {idx}/{runtime.windows_total}",
+        progress=((idx - 1) / max(1, runtime.windows_total)) * 100.0,
+        current_window=current_window,
+        windows_completed=windows_completed,
+    )
+
+    devices_done_ref = {"done": 0}
+    fetch_tasks = [
+        _fetch_device_window(
+            client=runtime.client,
+            token=runtime.token,
+            imei=imei,
+            window_start=window_start,
+            window_end=window_end,
+            window_index=idx,
+            devices_done_ref=devices_done_ref,
+            semaphore=runtime.semaphore,
+            lock=runtime.lock,
+            counters=runtime.counters,
+            per_device=runtime.per_device,
+            add_event=runtime.add_event,
+            record_failure_reason=runtime.record_failure_reason,
+        )
+        for imei in runtime.imeis
+    ]
+    raw_lists = await asyncio.gather(*fetch_tasks)
+    raw_trips = [trip for sub in raw_lists for trip in (sub or []) if isinstance(trip, dict)]
+
+    unique_trips = _collect_unique_window_trips(
+        raw_trips,
+        seen_transaction_ids=runtime.seen_transaction_ids,
+        counters=runtime.counters,
+    )
+    _record_per_device_unique_counts(unique_trips, runtime.per_device)
+
+    if not unique_trips:
+        windows_completed += 1
+        await runtime.write_progress(
+            status="running",
+            stage="scanning",
+            message=f"No trips found (window {idx}/{runtime.windows_total})",
+            progress=(windows_completed / max(1, runtime.windows_total)) * 100.0,
+            current_window=current_window,
+            windows_completed=windows_completed,
+            important=True,
+        )
+        return False, windows_completed
+
+    existing_ids = await _load_existing_transaction_ids(unique_trips)
+    new_trips = _collect_new_trips(
+        unique_trips=unique_trips,
+        existing_ids=existing_ids,
+        counters=runtime.counters,
+        per_device=runtime.per_device,
+    )
+
+    if await runtime.is_cancelled(force=True):
+        return True, windows_completed
+
+    if not new_trips:
+        runtime.add_event(
+            "info",
+            "No new trips to insert in this window",
+            {"window_index": idx},
+        )
+        windows_completed += 1
+        await runtime.write_progress(
+            status="running",
+            stage="processing",
+            message=f"No new trips (window {idx}/{runtime.windows_total})",
+            progress=(windows_completed / max(1, runtime.windows_total)) * 100.0,
+            current_window=current_window,
+            windows_completed=windows_completed,
+            important=True,
+        )
+        return False, windows_completed
+
+    runtime.add_event(
+        "info",
+        f"Processing {len(new_trips)} new trips",
+        {"window_index": idx},
+    )
+    await runtime.write_progress(
+        status="running",
+        stage="processing",
+        message=f"Inserting {len(new_trips)} new trips (window {idx}/{runtime.windows_total})",
+        progress=((idx - 1) / max(1, runtime.windows_total)) * 100.0,
+        current_window=current_window,
+        windows_completed=windows_completed,
+        important=True,
+    )
+
+    cancelled = await _process_new_trips_batch(
+        runtime=runtime,
+        new_trips=new_trips,
+        window_index=idx,
+        windows_completed=windows_completed,
+        current_window=current_window,
+    )
+    if cancelled:
+        return True, windows_completed
+
+    windows_completed += 1
+    await runtime.write_progress(
+        status="running",
+        stage="scanning",
+        message=f"Completed window {idx}/{runtime.windows_total}",
+        progress=min(99.0, (windows_completed / max(1, runtime.windows_total)) * 100.0),
+        current_window=current_window,
+        windows_completed=windows_completed,
+        important=True,
+    )
+    return False, windows_completed
+
+
+@dataclass
+class ImportSetup:
+    credentials: dict[str, Any]
+    imeis: list[str]
+    devices: list[dict[str, Any]]
+    windows: list[tuple[datetime, datetime]]
+    windows_total: int
+    fetch_concurrency: int
+    counters: dict[str, int]
+    per_device: dict[str, dict[str, int]]
+
+
+@dataclass
+class ImportProgressContext:
+    start_dt: datetime
+    end_dt: datetime
+    progress_job_id: str | None
+    handle: JobHandle | None
+    devices: list[dict[str, Any]]
+    windows_total: int
+    counters: dict[str, int]
+    per_device: dict[str, dict[str, int]]
+    events: list[dict[str, Any]] = field(default_factory=list)
+    failure_reasons: dict[str, int] = field(default_factory=dict)
+    cancel_state: dict[str, Any] = field(
+        default_factory=lambda: {"checked_at": 0.0, "cancelled": False},
+    )
+
+    def record_failure_reason(self, reason: str | None) -> None:
+        _record_failure_reason(self.failure_reasons, reason)
+
+    def add_event(
+        self,
+        level: str,
+        message: str,
+        data: dict[str, Any] | None = None,
+    ) -> None:
+        _add_progress_event(self.events, level, message, data)
+
+    async def write_progress(
+        self,
+        *,
+        status: str | None = None,
+        stage: str | None = None,
+        message: str | None = None,
+        progress: float | None = None,
+        current_window: dict[str, Any] | None = None,
+        windows_completed: int | None = None,
+        started_at: datetime | None = None,
+        completed_at: datetime | None = None,
+        error: str | None = None,
+        important: bool = False,
+    ) -> None:
+        if not self.handle:
+            return
+        del important
+        if windows_completed is None:
+            windows_completed = 0
+
+        meta_patch = {
+            "start_iso": self.start_dt.isoformat(),
+            "end_iso": self.end_dt.isoformat(),
+            "window_days": WINDOW_DAYS,
+            "overlap_hours": OVERLAP_HOURS,
+            "step_hours": STEP_HOURS,
+            "devices": self.devices,
+            "windows_total": self.windows_total,
+            "windows_completed": windows_completed,
+            "current_window": current_window,
+            "counters": dict(self.counters),
+            "per_device": self.per_device,
+            "events": _trim_events(list(self.events)),
+            "failure_reasons": dict(self.failure_reasons),
+        }
+        await self.handle.update(
+            status=status,
+            stage=stage,
+            message=message,
+            progress=progress,
+            metadata_patch=meta_patch,
+            started_at=started_at,
+            completed_at=completed_at,
+            error=error,
+        )
+
+    async def is_cancelled(self, *, force: bool = False) -> bool:
+        if not self.progress_job_id:
+            return False
+        now = time.monotonic()
+        if not force and now - float(self.cancel_state.get("checked_at") or 0.0) < 1.0:
+            return bool(self.cancel_state.get("cancelled"))
+        self.cancel_state["checked_at"] = now
+        current = await _load_progress_job(self.progress_job_id)
+        cancelled = bool(current and current.status == "cancelled")
+        self.cancel_state["cancelled"] = cancelled
+        return cancelled
+
+
+async def _build_import_setup(
+    *,
+    start_dt: datetime,
+    end_dt: datetime,
+) -> ImportSetup:
+    credentials = await get_bouncie_config()
+    imeis = list(credentials.get("authorized_devices") or [])
+    fetch_concurrency = credentials.get("fetch_concurrency", 12)
+    if not isinstance(fetch_concurrency, int) or fetch_concurrency < 1:
+        fetch_concurrency = 12
+    fetch_concurrency = min(fetch_concurrency, 4)
+
+    vehicles = await Vehicle.find(In(Vehicle.imei, imeis)).to_list() if imeis else []
+    vehicles_by_imei = {v.imei: v for v in vehicles if v and getattr(v, "imei", None)}
+    devices = [
+        {"imei": imei, "name": _vehicle_label(vehicles_by_imei.get(imei), imei)}
+        for imei in imeis
+    ]
+    windows = build_import_windows(start_dt, end_dt)
+
+    counters = {
+        "found_raw": 0,
+        "found_unique": 0,
+        "skipped_existing": 0,
+        "skipped_missing_end_time": 0,
+        "validation_failed": 0,
+        "new_candidates": 0,
+        "inserted": 0,
+        "fetch_errors": 0,
+        "process_errors": 0,
+    }
+    per_device: dict[str, dict[str, int]] = {
+        device["imei"]: {
+            "windows_completed": 0,
+            "found_raw": 0,
+            "found_unique": 0,
+            "skipped_existing": 0,
+            "validation_failed": 0,
+            "new_candidates": 0,
+            "inserted": 0,
+            "errors": 0,
+        }
+        for device in devices
+    }
+    return ImportSetup(
+        credentials=credentials,
+        imeis=imeis,
+        devices=devices,
+        windows=windows,
+        windows_total=len(windows),
+        fetch_concurrency=fetch_concurrency,
+        counters=counters,
+        per_device=per_device,
+    )
+
+
+async def _build_progress_context(
+    *,
+    progress_job_id: str | None,
+    start_dt: datetime,
+    end_dt: datetime,
+    setup: ImportSetup,
+) -> ImportProgressContext:
+    handle: JobHandle | None = None
+    if progress_job_id:
+        job = await _load_progress_job(progress_job_id)
+        if job:
+            handle = JobHandle(job, throttle_ms=500)
+    return ImportProgressContext(
+        start_dt=start_dt,
+        end_dt=end_dt,
+        progress_job_id=progress_job_id,
+        handle=handle,
+        devices=setup.devices,
+        windows_total=setup.windows_total,
+        counters=setup.counters,
+        per_device=setup.per_device,
+    )
+
+
+async def _authenticate_import(
+    *,
+    session: Any,
+    credentials: dict[str, Any],
+    progress_ctx: ImportProgressContext,
+    windows_completed: int,
+) -> str:
+    token = await BouncieOAuth.get_access_token(session, credentials)
+    if token:
+        progress_ctx.add_event("info", "Authenticated with Bouncie")
+        await progress_ctx.write_progress(
+            status="running",
+            stage="auth",
+            message="Authenticated",
+            progress=0.0,
+            current_window=None,
+            windows_completed=windows_completed,
+            started_at=datetime.now(UTC),
+            important=True,
+        )
+        return token
+
+    err_msg = "Failed to obtain Bouncie access token"
+    progress_ctx.add_event("error", err_msg)
+    await progress_ctx.write_progress(
+        status="failed",
+        stage="error",
+        message=err_msg,
+        progress=0.0,
+        current_window=None,
+        windows_completed=windows_completed,
+        completed_at=datetime.now(UTC),
+        error=err_msg,
+        important=True,
+    )
+    raise RuntimeError(err_msg)
+
+
+async def _run_import_windows(
+    *,
+    runtime: ImportRuntime,
+    windows: list[tuple[datetime, datetime]],
+    progress_ctx: ImportProgressContext,
+) -> tuple[bool, int]:
+    windows_completed = 0
+    for idx, (window_start, window_end) in enumerate(windows, start=1):
+        if await progress_ctx.is_cancelled(force=True):
+            return True, windows_completed
+        cancelled, windows_completed = await _process_import_window(
+            runtime=runtime,
+            idx=idx,
+            window_start=window_start,
+            window_end=window_end,
+            windows_completed=windows_completed,
+        )
+        if cancelled:
+            return True, windows_completed
+    return False, windows_completed
+
+
+async def _finalize_import_success(
+    *,
+    progress_ctx: ImportProgressContext,
+    windows_completed: int,
+) -> None:
+    progress_ctx.add_event("info", "Import finished")
+    await progress_ctx.write_progress(
+        status="completed",
+        stage="completed",
+        message="Import complete",
+        progress=100.0,
+        current_window=None,
+        windows_completed=windows_completed,
+        completed_at=datetime.now(UTC),
+        important=True,
+    )
+    if progress_ctx.handle:
+        await progress_ctx.handle.complete(
+            message="Import complete",
+            result={
+                "status": "completed",
+                "counters": dict(progress_ctx.counters),
+                "start_iso": progress_ctx.start_dt.isoformat(),
+                "end_iso": progress_ctx.end_dt.isoformat(),
+                "failure_reasons": dict(progress_ctx.failure_reasons),
+            },
+        )
+
+
+async def _finalize_import_failure(
+    *,
+    progress_ctx: ImportProgressContext,
+    windows_completed: int,
+    error: Exception,
+) -> None:
+    err_msg = str(error)
+    logger.exception("Trip history import failed")
+    progress_ctx.add_event("error", "Import failed", {"error": err_msg})
+    await progress_ctx.write_progress(
+        status="failed",
+        stage="error",
+        message=err_msg,
+        progress=100.0,
+        current_window=None,
+        windows_completed=windows_completed,
+        completed_at=datetime.now(UTC),
+        error=err_msg,
+        important=True,
+    )
+
+
 async def run_import(
     *,
     progress_job_id: str | None,
@@ -308,156 +1174,16 @@ async def run_import(
     """
     start_dt = ensure_utc(start_dt) or start_dt
     end_dt = ensure_utc(end_dt) or end_dt
-
-    handle: JobHandle | None = None
-    job: Job | None = None
-
-    if progress_job_id:
-        job = await _load_progress_job(progress_job_id)
-        if job:
-            handle = JobHandle(job, throttle_ms=500)
-
-    credentials = await get_bouncie_config()
-    imeis = list(credentials.get("authorized_devices") or [])
-    fetch_concurrency = credentials.get("fetch_concurrency", 12)
-    if not isinstance(fetch_concurrency, int) or fetch_concurrency < 1:
-        fetch_concurrency = 12
-    # History import tends to stress the upstream API; keep concurrency bounded.
-    fetch_concurrency = min(fetch_concurrency, 4)
-
-    vehicles = await Vehicle.find(In(Vehicle.imei, imeis)).to_list() if imeis else []
-    vehicles_by_imei = {v.imei: v for v in vehicles if v and getattr(v, "imei", None)}
-
-    devices = [
-        {"imei": imei, "name": _vehicle_label(vehicles_by_imei.get(imei), imei)}
-        for imei in imeis
-    ]
-
-    windows = build_import_windows(start_dt, end_dt)
-    windows_total = len(windows)
-
-    counters = {
-        "found_raw": 0,
-        "found_unique": 0,
-        "skipped_existing": 0,
-        "skipped_missing_end_time": 0,
-        "validation_failed": 0,
-        "new_candidates": 0,
-        "inserted": 0,
-        "fetch_errors": 0,
-        "process_errors": 0,
-    }
-
-    per_device: dict[str, dict[str, int]] = {
-        d["imei"]: {
-            "windows_completed": 0,
-            "found_raw": 0,
-            "found_unique": 0,
-            "skipped_existing": 0,
-            "validation_failed": 0,
-            "new_candidates": 0,
-            "inserted": 0,
-            "errors": 0,
-        }
-        for d in devices
-    }
-
-    events: list[dict[str, Any]] = []
-    failure_reasons: dict[str, int] = {}
-
-    def record_failure_reason(reason: str | None) -> None:
-        text = (reason or "").strip() or "Unknown error"
-        # Keep keys stable + bounded so job metadata doesn't grow unbounded.
-        text = text.replace("\n", " ").replace("\r", " ")
-        if len(text) > 180:
-            text = text[:177] + "..."
-
-        if text in failure_reasons:
-            failure_reasons[text] += 1
-            return
-
-        # Cap unique reasons to avoid runaway metadata growth.
-        if len(failure_reasons) >= 25:
-            other = "Other (see event log for details)"
-            failure_reasons[other] = failure_reasons.get(other, 0) + 1
-            return
-
-        failure_reasons[text] = 1
-
-    def add_event(level: str, message: str, data: dict[str, Any] | None = None) -> None:
-        events.append(
-            {
-                "ts_iso": datetime.now(UTC).isoformat(),
-                "level": level,
-                "message": message,
-                "data": data,
-            },
-        )
-        if len(events) > 120:
-            del events[:-120]
-
-    async def write_progress(
-        *,
-        status: str | None = None,
-        stage: str | None = None,
-        message: str | None = None,
-        progress: float | None = None,
-        current_window: dict[str, Any] | None = None,
-        windows_completed: int | None = None,
-        started_at: datetime | None = None,
-        completed_at: datetime | None = None,
-        error: str | None = None,
-        important: bool = False,
-    ) -> None:
-        if not handle:
-            return
-        # Keep the signature stable for callers; currently unused.
-        del important
-        if windows_completed is None:
-            windows_completed = 0
-        meta_patch = {
-            "start_iso": start_dt.isoformat(),
-            "end_iso": end_dt.isoformat(),
-            "window_days": WINDOW_DAYS,
-            "overlap_hours": OVERLAP_HOURS,
-            "step_hours": STEP_HOURS,
-            "devices": devices,
-            "windows_total": windows_total,
-            "windows_completed": windows_completed,
-            "current_window": current_window,
-            "counters": dict(counters),
-            "per_device": per_device,
-            "events": _trim_events(list(events)),
-            "failure_reasons": dict(failure_reasons),
-        }
-        await handle.update(
-            status=status,
-            stage=stage,
-            message=message,
-            progress=progress,
-            metadata_patch=meta_patch,
-            started_at=started_at,
-            completed_at=completed_at,
-            error=error,
-        )
-
-    cancel_state: dict[str, Any] = {"checked_at": 0.0, "cancelled": False}
-
-    async def is_cancelled(*, force: bool = False) -> bool:
-        if not progress_job_id:
-            return False
-        now = time.monotonic()
-        if not force and now - float(cancel_state.get("checked_at") or 0.0) < 1.0:
-            return bool(cancel_state.get("cancelled"))
-        cancel_state["checked_at"] = now
-        current = await _load_progress_job(progress_job_id)
-        cancelled = bool(current and current.status == "cancelled")
-        cancel_state["cancelled"] = cancelled
-        return cancelled
-
-    if handle:
-        add_event("info", "Import queued", {"windows_total": windows_total})
-        await write_progress(
+    setup = await _build_import_setup(start_dt=start_dt, end_dt=end_dt)
+    progress_ctx = await _build_progress_context(
+        progress_job_id=progress_job_id,
+        start_dt=start_dt,
+        end_dt=end_dt,
+        setup=setup,
+    )
+    if progress_ctx.handle:
+        progress_ctx.add_event("info", "Import queued", {"windows_total": setup.windows_total})
+        await progress_ctx.write_progress(
             status="pending",
             stage="queued",
             message="Queued",
@@ -469,494 +1195,69 @@ async def run_import(
 
     windows_completed = 0
     session = await get_session()
-
-    def _raise_runtime_error(message: str) -> None:
-        raise RuntimeError(message)
-
     try:
-        token = await BouncieOAuth.get_access_token(session, credentials)
-        if not token:
-            err_msg = "Failed to obtain Bouncie access token"
-            add_event("error", err_msg)
-            await write_progress(
-                status="failed",
-                stage="error",
-                message=err_msg,
-                progress=0.0,
-                current_window=None,
-                windows_completed=windows_completed,
-                completed_at=datetime.now(UTC),
-                error=err_msg,
-                important=True,
-            )
-            _raise_runtime_error(err_msg)
-
-        add_event("info", "Authenticated with Bouncie")
-        await write_progress(
-            status="running",
-            stage="auth",
-            message="Authenticated",
-            progress=0.0,
-            current_window=None,
+        token = await _authenticate_import(
+            session=session,
+            credentials=setup.credentials,
+            progress_ctx=progress_ctx,
             windows_completed=windows_completed,
-            started_at=datetime.now(UTC),
-            important=True,
         )
-
         pipeline = TripPipeline()
         client = BouncieClient(session)
         app_settings = await AdminService.get_persisted_app_settings()
-        # Keep reading settings for parity with other ingest paths, but history
-        # import deliberately skips expensive per-trip side effects.
         _geocode_enabled_in_settings = bool(
             getattr(app_settings, "geocodeTripsOnFetch", True),
         )
-        do_geocode = bool(IMPORT_DO_GEOCODE)
-        do_coverage = bool(IMPORT_DO_COVERAGE)
-        seen_transaction_ids: set[str] = set()
+        del _geocode_enabled_in_settings
 
-        semaphore = asyncio.Semaphore(fetch_concurrency)
-        lock = asyncio.Lock()
-
-        async def fetch_device_window(
-            imei: str,
-            window_start: datetime,
-            window_end: datetime,
-            *,
-            window_index: int,
-            devices_done_ref: dict[str, int],
-        ) -> list[dict[str, Any]]:
-            async with semaphore:
-                try:
-                    trips = await _fetch_trips_for_window(
-                        client,
-                        token=token,
-                        imei=imei,
-                        window_start=window_start,
-                        window_end=window_end,
-                    )
-                    trips = _dedupe_trips_by_transaction_id(trips)
-                    before_count = len(trips)
-                    trips = _filter_trips_to_window(
-                        trips,
-                        window_start=window_start,
-                        window_end=window_end,
-                    )
-                    after_count = len(trips)
-                    if after_count != before_count:
-                        logger.info(
-                            "Filtered %s/%s trips outside window (imei=%s, window_index=%s)",
-                            before_count - after_count,
-                            before_count,
-                            imei,
-                            window_index,
-                        )
-                except Exception as exc:
-                    async with lock:
-                        counters["fetch_errors"] += 1
-                        if imei in per_device:
-                            per_device[imei]["errors"] += 1
-                            per_device[imei]["windows_completed"] += 1
-                        devices_done_ref["done"] += 1
-                    add_event(
-                        "error",
-                        f"Fetch failed for {imei}",
-                        {"error": str(exc), "imei": imei, "window_index": window_index},
-                    )
-                    record_failure_reason(str(exc))
-                    await TripIngestIssueService.record_issue(
-                        issue_type="fetch_error",
-                        message=str(exc),
-                        source="bouncie",
-                        imei=imei,
-                        details={
-                            "imei": imei,
-                            "window_index": window_index,
-                            "window_start": window_start.isoformat(),
-                            "window_end": window_end.isoformat(),
-                        },
-                    )
-                    return []
-
-                async with lock:
-                    if imei in per_device:
-                        per_device[imei]["found_raw"] += len(trips)
-                        per_device[imei]["windows_completed"] += 1
-                    counters["found_raw"] += len(trips)
-                    devices_done_ref["done"] += 1
-                add_event(
-                    "info",
-                    f"Fetched {len(trips)} trips for {imei}",
-                    {"window_index": window_index},
-                )
-                # Rate-limit requests to avoid overwhelming Bouncie's API
-                await asyncio.sleep(1.0)
-                return trips
-
-        for idx, (window_start, window_end) in enumerate(windows, start=1):
-            if await is_cancelled(force=True):
-                add_event("warning", "Cancelled by user")
-                await write_progress(
-                    status="cancelled",
-                    stage="cancelled",
-                    message="Cancelled",
-                    progress=100.0,
-                    current_window=None,
-                    windows_completed=windows_completed,
-                    completed_at=datetime.now(UTC),
-                    important=True,
-                )
-                return {"status": "cancelled", "message": "Cancelled"}
-
-            current_window = {
-                "index": idx,
-                "start_iso": window_start.isoformat(),
-                "end_iso": window_end.isoformat(),
-            }
-
-            add_event(
-                "info",
-                f"Scanning window {idx}/{windows_total}",
-                {
-                    "start": current_window["start_iso"],
-                    "end": current_window["end_iso"],
-                },
-            )
-
-            devices_done_ref = {"done": 0}
-            await write_progress(
-                status="running",
-                stage="scanning",
-                message=f"Scanning window {idx}/{windows_total}",
-                progress=((idx - 1) / max(1, windows_total)) * 100.0,
-                current_window=current_window,
-                windows_completed=windows_completed,
-            )
-
-            fetch_tasks = [
-                fetch_device_window(
-                    imei,
-                    window_start,
-                    window_end,
-                    window_index=idx,
-                    devices_done_ref=devices_done_ref,
-                )
-                for imei in imeis
-            ]
-            raw_lists = await asyncio.gather(*fetch_tasks)
-            raw_trips = [
-                t for sub in raw_lists for t in (sub or []) if isinstance(t, dict)
-            ]
-
-            # Deduplicate within the entire import run, and enforce required fields.
-            unique_trips: list[dict[str, Any]] = []
-            for trip in raw_trips:
-                tx = trip.get("transactionId")
-                if not isinstance(tx, str) or not tx:
-                    continue
-                if tx in seen_transaction_ids:
-                    continue
-                if not trip.get("endTime"):
-                    counters["skipped_missing_end_time"] += 1
-                    continue
-                seen_transaction_ids.add(tx)
-                unique_trips.append(trip)
-
-            counters["found_unique"] += len(unique_trips)
-
-            # Track per-device unique counts before DB filtering.
-            for trip in unique_trips:
-                imei = trip.get("imei")
-                if isinstance(imei, str) and imei in per_device:
-                    per_device[imei]["found_unique"] += 1
-
-            if not unique_trips:
-                windows_completed += 1
-                await write_progress(
-                    status="running",
-                    stage="scanning",
-                    message=f"No trips found (window {idx}/{windows_total})",
-                    progress=(windows_completed / max(1, windows_total)) * 100.0,
-                    current_window=current_window,
-                    windows_completed=windows_completed,
-                    important=True,
-                )
-                continue
-
-            incoming_ids = [
-                t.get("transactionId") for t in unique_trips if t.get("transactionId")
-            ]
-            existing_docs = (
-                await Trip.find(In(Trip.transactionId, incoming_ids))
-                .project(TripStatusProjection)
-                .to_list()
-            )
-            existing_ids = {
-                d.transactionId
-                for d in existing_docs
-                if getattr(d, "transactionId", None)
-            }
-
-            new_trips: list[dict[str, Any]] = []
-            for trip in unique_trips:
-                tx = trip.get("transactionId")
-                if not isinstance(tx, str) or not tx:
-                    continue
-                imei = trip.get("imei")
-                if tx in existing_ids:
-                    counters["skipped_existing"] += 1
-                    if isinstance(imei, str) and imei in per_device:
-                        per_device[imei]["skipped_existing"] += 1
-                    continue
-                counters["new_candidates"] += 1
-                if isinstance(imei, str) and imei in per_device:
-                    per_device[imei]["new_candidates"] += 1
-                new_trips.append(trip)
-
-            if await is_cancelled(force=True):
-                add_event("warning", "Cancelled by user")
-                await write_progress(
-                    status="cancelled",
-                    stage="cancelled",
-                    message="Cancelled",
-                    progress=100.0,
-                    current_window=None,
-                    windows_completed=windows_completed,
-                    completed_at=datetime.now(UTC),
-                    important=True,
-                )
-                return {"status": "cancelled", "message": "Cancelled"}
-
-            if not new_trips:
-                add_event(
-                    "info",
-                    "No new trips to insert in this window",
-                    {"window_index": idx},
-                )
-                windows_completed += 1
-                await write_progress(
-                    status="running",
-                    stage="processing",
-                    message=f"No new trips (window {idx}/{windows_total})",
-                    progress=(windows_completed / max(1, windows_total)) * 100.0,
-                    current_window=current_window,
-                    windows_completed=windows_completed,
-                    important=True,
-                )
-                continue
-
-            add_event(
-                "info", f"Processing {len(new_trips)} new trips", {"window_index": idx}
-            )
-            await write_progress(
-                status="running",
-                stage="processing",
-                message=f"Inserting {len(new_trips)} new trips (window {idx}/{windows_total})",
-                progress=((idx - 1) / max(1, windows_total)) * 100.0,
-                current_window=current_window,
-                windows_completed=windows_completed,
-                important=True,
-            )
-
-            processed_count = 0
-            for trip in new_trips:
-                # Avoid hot-looping DB reads; check roughly once per second.
-                if (
-                    processed_count
-                    and processed_count % 25 == 0
-                    and await is_cancelled()
-                ):
-                    add_event("warning", "Cancelled by user")
-                    await write_progress(
-                        status="cancelled",
-                        stage="cancelled",
-                        message="Cancelled",
-                        progress=100.0,
-                        current_window=None,
-                        windows_completed=windows_completed,
-                        completed_at=datetime.now(UTC),
-                        important=True,
-                    )
-                    return {"status": "cancelled", "message": "Cancelled"}
-
-                tx = trip.get("transactionId", "unknown")
-                imei = trip.get("imei")
-
-                validation = await pipeline.validate_raw_trip_with_basic(trip)
-                if not validation.get("success"):
-                    counters["validation_failed"] += 1
-                    if isinstance(imei, str) and imei in per_device:
-                        per_device[imei]["validation_failed"] += 1
-                    reason = (
-                        (validation.get("processing_status") or {})
-                        .get("errors", {})
-                        .get("validation")
-                    )
-                    add_event(
-                        "error",
-                        f"Trip failed validation ({tx})",
-                        {
-                            "transactionId": tx,
-                            "imei": imei,
-                            "reason": reason,
-                            "window_index": idx,
-                        },
-                    )
-                    record_failure_reason(str(reason))
-                    await TripIngestIssueService.record_issue(
-                        issue_type="validation_failed",
-                        message=str(reason),
-                        source="bouncie",
-                        transaction_id=str(tx) if tx else None,
-                        imei=imei if isinstance(imei, str) else None,
-                        details={
-                            "transactionId": tx,
-                            "imei": imei,
-                            "window_index": idx,
-                            "reason": reason,
-                        },
-                    )
-                    processed_count += 1
-                    if processed_count % 5 == 0 or processed_count == len(new_trips):
-                        within = processed_count / max(1, len(new_trips))
-                        overall = ((idx - 1) + (0.4 + (0.6 * within))) / max(
-                            1,
-                            windows_total,
-                        )
-                        await write_progress(
-                            status="running",
-                            stage="processing",
-                            message=(
-                                f"Processed {processed_count}/{len(new_trips)} trips "
-                                f"(window {idx}/{windows_total})"
-                            ),
-                            progress=min(99.0, overall * 100.0),
-                            current_window=current_window,
-                            windows_completed=windows_completed,
-                        )
-                    continue
-
-                try:
-                    inserted = await pipeline.process_raw_trip_insert_only(
-                        trip,
-                        source="bouncie",
-                        do_map_match=False,
-                        do_geocode=do_geocode,
-                        do_coverage=do_coverage,
-                        skip_existing_check=True,
-                    )
-                except Exception as exc:
-                    counters["process_errors"] += 1
-                    if isinstance(imei, str) and imei in per_device:
-                        per_device[imei]["errors"] += 1
-                    add_event(
-                        "error",
-                        f"Failed processing trip {tx}",
-                        {
-                            "error": str(exc),
-                            "transactionId": tx,
-                            "imei": imei,
-                            "window_index": idx,
-                        },
-                    )
-                    record_failure_reason(str(exc))
-                    await TripIngestIssueService.record_issue(
-                        issue_type="process_error",
-                        message=str(exc),
-                        source="bouncie",
-                        transaction_id=str(tx) if tx else None,
-                        imei=imei if isinstance(imei, str) else None,
-                        details={
-                            "transactionId": tx,
-                            "imei": imei,
-                            "window_index": idx,
-                            "error": str(exc),
-                        },
-                    )
-                else:
-                    if inserted:
-                        counters["inserted"] += 1
-                        if isinstance(imei, str) and imei in per_device:
-                            per_device[imei]["inserted"] += 1
-                    else:
-                        # Insert-only skip (already exists / concurrent insert)
-                        counters["skipped_existing"] += 1
-                        if isinstance(imei, str) and imei in per_device:
-                            per_device[imei]["skipped_existing"] += 1
-
-                processed_count += 1
-                if processed_count % 5 == 0 or processed_count == len(new_trips):
-                    within = processed_count / max(1, len(new_trips))
-                    overall = ((idx - 1) + (0.4 + (0.6 * within))) / max(
-                        1, windows_total
-                    )
-                    await write_progress(
-                        status="running",
-                        stage="processing",
-                        message=(
-                            f"Inserted {processed_count}/{len(new_trips)} trips "
-                            f"(window {idx}/{windows_total})"
-                        ),
-                        progress=min(99.0, overall * 100.0),
-                        current_window=current_window,
-                        windows_completed=windows_completed,
-                    )
-
-            windows_completed += 1
-            await write_progress(
-                status="running",
-                stage="scanning",
-                message=f"Completed window {idx}/{windows_total}",
-                progress=min(99.0, (windows_completed / max(1, windows_total)) * 100.0),
-                current_window=current_window,
-                windows_completed=windows_completed,
-                important=True,
-            )
-
-        add_event("info", "Import finished")
-        await write_progress(
-            status="completed",
-            stage="completed",
-            message="Import complete",
-            progress=100.0,
-            current_window=None,
-            windows_completed=windows_completed,
-            completed_at=datetime.now(UTC),
-            important=True,
+        runtime = ImportRuntime(
+            client=client,
+            token=token,
+            imeis=setup.imeis,
+            windows_total=setup.windows_total,
+            semaphore=asyncio.Semaphore(setup.fetch_concurrency),
+            lock=asyncio.Lock(),
+            counters=setup.counters,
+            per_device=setup.per_device,
+            pipeline=pipeline,
+            do_geocode=bool(IMPORT_DO_GEOCODE),
+            do_coverage=bool(IMPORT_DO_COVERAGE),
+            seen_transaction_ids=set(),
+            add_event=progress_ctx.add_event,
+            write_progress=progress_ctx.write_progress,
+            is_cancelled=progress_ctx.is_cancelled,
+            record_failure_reason=progress_ctx.record_failure_reason,
         )
-
-        if handle:
-            await handle.complete(
-                message="Import complete",
-                result={
-                    "status": "completed",
-                    "counters": dict(counters),
-                    "start_iso": start_dt.isoformat(),
-                    "end_iso": end_dt.isoformat(),
-                    "failure_reasons": dict(failure_reasons),
-                },
+        cancelled, windows_completed = await _run_import_windows(
+            runtime=runtime,
+            windows=setup.windows,
+            progress_ctx=progress_ctx,
+        )
+        if cancelled:
+            return await _write_cancelled_progress(
+                add_event=progress_ctx.add_event,
+                write_progress=progress_ctx.write_progress,
+                windows_completed=windows_completed,
             )
 
+        await _finalize_import_success(
+            progress_ctx=progress_ctx,
+            windows_completed=windows_completed,
+        )
         return {
             "status": "success",
             "message": "Import complete",
-            "counters": dict(counters),
-            "failure_reasons": dict(failure_reasons),
-            "date_range": {"start": start_dt.isoformat(), "end": end_dt.isoformat()},
+            "counters": dict(progress_ctx.counters),
+            "failure_reasons": dict(progress_ctx.failure_reasons),
+            "date_range": {
+                "start": progress_ctx.start_dt.isoformat(),
+                "end": progress_ctx.end_dt.isoformat(),
+            },
         }
     except Exception as exc:
-        err_msg = str(exc)
-        logger.exception("Trip history import failed")
-        add_event("error", "Import failed", {"error": err_msg})
-        await write_progress(
-            status="failed",
-            stage="error",
-            message=err_msg,
-            progress=100.0,
-            current_window=None,
+        await _finalize_import_failure(
+            progress_ctx=progress_ctx,
             windows_completed=windows_completed,
-            completed_at=datetime.now(UTC),
-            error=err_msg,
-            important=True,
+            error=exc,
         )
         raise

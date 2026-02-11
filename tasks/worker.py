@@ -8,9 +8,7 @@ from typing import ClassVar
 
 from arq import cron, func
 
-from core.http.session import cleanup_session
-from db import db_manager
-from db.logging_handler import MongoDBHandler
+from core.startup import initialize_shared_runtime, shutdown_shared_runtime
 from tasks.arq import get_redis_settings
 from tasks.coverage import update_coverage_for_new_trips
 from tasks.cron import (
@@ -49,34 +47,18 @@ LOG_PURGE_TIMEOUT_SECONDS = int(
 
 
 async def on_startup(ctx: dict) -> None:
-    await db_manager.init_beanie()
-
-    from core.service_config import get_service_config
-
-    await get_service_config()
-
-    handler = MongoDBHandler()
-    await handler.setup_indexes()
     formatter = logging.Formatter(
         "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
-    handler.setFormatter(formatter)
-    handler.setLevel(logging.INFO)
-
-    root_logger = logging.getLogger()
-    root_logger.addHandler(handler)
+    handler = await initialize_shared_runtime(handler_formatter=formatter)
     ctx["mongo_handler"] = handler
 
 
 async def on_shutdown(ctx: dict) -> None:
-    handler = ctx.get("mongo_handler")
-    if handler:
-        root_logger = logging.getLogger()
-        root_logger.removeHandler(handler)
-        handler.close()
-
-    await cleanup_session()
-    await db_manager.cleanup_connections()
+    await shutdown_shared_runtime(
+        mongo_handler=ctx.get("mongo_handler"),
+        close_http_session=True,
+    )
 
 
 class WorkerSettings:

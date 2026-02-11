@@ -266,7 +266,7 @@ async def test_route_analytics_timezone_buckets_are_complete(
     await route.insert()
 
     client = TestClient(_build_app())
-    analytics_resp = client.get(f"/api/recurring_routes/{str(route.id)}/analytics")
+    analytics_resp = client.get(f"/api/recurring_routes/{route.id!s}/analytics")
     assert analytics_resp.status_code == 200
     body = analytics_resp.json()
 
@@ -335,7 +335,7 @@ async def test_route_analytics_trips_per_week_single_trip_not_null(
     await route.insert()
 
     client = TestClient(_build_app())
-    analytics_resp = client.get(f"/api/recurring_routes/{str(route.id)}/analytics")
+    analytics_resp = client.get(f"/api/recurring_routes/{route.id!s}/analytics")
     assert analytics_resp.status_code == 200
     body = analytics_resp.json()
     assert body["tripsPerWeek"] == pytest.approx(1.0)

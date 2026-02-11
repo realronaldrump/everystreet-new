@@ -15,11 +15,10 @@ from analytics import router as analytics_api_router
 from api.pages import router as pages_router
 from api.routing import router as routing_router
 from api.status import router as status_router
-from core.http.session import cleanup_session
 from core.jinja import register_template_filters
 from core.repo_info import get_repo_version_info
+from core.startup import initialize_shared_runtime, shutdown_shared_runtime
 from county import router as county_api_router
-from db import db_manager
 from db.logging_handler import MongoDBHandler
 from driving import router as driving_api_router
 from exports import router as export_api_router
@@ -200,25 +199,7 @@ app.include_router(recurring_routes_router)
 async def startup_event():
     """Initialize database indexes and components on application startup."""
     try:
-        # Initialize Beanie ODM first
-        await db_manager.init_beanie()
-        logger.info("Beanie ODM initialized successfully.")
-
-        from core.service_config import get_service_config
-
-        await get_service_config()
-
-        # Core database initialization is now handled by Beanie
-        # await init_database()
-
-        # Set up MongoDB logging handler
-        AppState.mongo_handler = MongoDBHandler()
-        await AppState.mongo_handler.setup_indexes()
-
-        # Add the MongoDB handler to the root logger
-        root_logger = logging.getLogger()
-        AppState.mongo_handler.setLevel(logging.INFO)  # Log INFO and above to MongoDB
-        root_logger.addHandler(AppState.mongo_handler)
+        AppState.mongo_handler = await initialize_shared_runtime(logger=logger)
         logger.info("MongoDB logging handler initialized and configured.")
 
         # Validate Valhalla + Nominatim configuration
@@ -275,8 +256,10 @@ async def startup_event():
 async def shutdown_event() -> None:
     """Clean up resources when shutting down."""
     await close_arq_pool()
-    await db_manager.cleanup_connections()
-    await cleanup_session()
+    await shutdown_shared_runtime(
+        mongo_handler=AppState.mongo_handler,
+        close_http_session=True,
+    )
     logger.info("Application shutdown completed successfully")
 
 

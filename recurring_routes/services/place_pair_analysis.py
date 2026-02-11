@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 from collections import defaultdict
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone
 from statistics import median
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -27,7 +27,6 @@ from recurring_routes.services.service import (
     extract_location_label,
     extract_point_from_geojson_point,
     find_place_id_for_point,
-    resolve_places_by_ids,
     route_display_name,
 )
 
@@ -76,7 +75,7 @@ def _day_buckets() -> list[dict[str, Any]]:
 def _normalize_tzinfo(value: Any) -> timezone | ZoneInfo:
     raw = str(value or "").strip()
     if not raw or raw in {"0000", "UTC", "GMT"}:
-        return timezone.utc
+        return UTC
 
     offset_match = _OFFSET_RE.match(raw)
     if offset_match:
@@ -89,7 +88,7 @@ def _normalize_tzinfo(value: Any) -> timezone | ZoneInfo:
     try:
         return ZoneInfo(raw)
     except Exception:
-        return timezone.utc
+        return UTC
 
 
 def _to_local_start_dt(trip: dict[str, Any]) -> datetime | None:
@@ -98,13 +97,13 @@ def _to_local_start_dt(trip: dict[str, Any]) -> datetime | None:
         return None
 
     if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
+        dt = dt.replace(tzinfo=UTC)
 
     tz = _normalize_tzinfo(trip.get("startTimeZone") or trip.get("timeZone"))
     try:
         return dt.astimezone(tz)
     except Exception:
-        return dt.astimezone(timezone.utc)
+        return dt.astimezone(UTC)
 
 
 def _extract_trip_endpoint_point(
@@ -686,7 +685,7 @@ async def analyze_place_pair(
     query: dict[str, Any] = {"invalid": {"$ne": True}}
     timeframe_cutoff: datetime | None = None
     if effective_timeframe == "90d":
-        timeframe_cutoff = datetime.now(timezone.utc) - timedelta(days=90)
+        timeframe_cutoff = datetime.now(UTC) - timedelta(days=90)
         query["startTime"] = {"$gte": timeframe_cutoff}
 
     trips_coll = Trip.get_pymongo_collection()

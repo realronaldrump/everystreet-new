@@ -4,6 +4,10 @@ import logging
 from typing import Any, ClassVar
 
 from db.aggregation import aggregate_to_list
+from db.aggregation_utils import (
+    build_trip_duration_fields_stage,
+    build_trip_numeric_fields_stage,
+)
 from db.models import Trip
 
 logger = logging.getLogger(__name__)
@@ -24,6 +28,17 @@ class DrilldownService:
             "hard_braking",
         },
     )
+
+    SORT_BY_KIND: ClassVar[dict[str, dict[str, int]]] = {
+        "trips": {"startTime": -1},
+        "distance": {"numericDistance": -1, "startTime": -1},
+        "duration": {"duration_seconds": -1, "startTime": -1},
+        "fuel": {"fuelConsumedValue": -1, "startTime": -1},
+        "top_speed": {"numericMaxSpeed": -1, "startTime": -1},
+        "avg_speed": {"avgSpeedValue": -1, "startTime": -1},
+        "idle_time": {"idleSeconds": -1, "startTime": -1},
+        "hard_braking": {"hardBrakingVal": -1, "startTime": -1},
+    }
 
     @staticmethod
     async def get_drilldown_trips(
@@ -48,96 +63,7 @@ class DrilldownService:
         if kind == "hard_braking":
             extra_match["hardBrakingCounts"] = {"$gt": 0}
 
-        # Compute duration + numeric sort fields safely (handles strings / nulls).
-        add_fields = {
-            "duration_seconds": {
-                "$cond": {
-                    "if": {
-                        "$and": [
-                            {"$ifNull": ["$startTime", False]},
-                            {"$ifNull": ["$endTime", False]},
-                            {"$lt": ["$startTime", "$endTime"]},
-                        ],
-                    },
-                    "then": {
-                        "$divide": [
-                            {"$subtract": ["$endTime", "$startTime"]},
-                            1000.0,
-                        ],
-                    },
-                    "else": {"$ifNull": ["$duration", 0]},
-                },
-            },
-            "sort_distance": {
-                "$convert": {
-                    "input": "$distance",
-                    "to": "double",
-                    "onError": 0,
-                    "onNull": 0,
-                },
-            },
-            "sort_fuel": {
-                "$convert": {
-                    "input": "$fuelConsumed",
-                    "to": "double",
-                    "onError": 0,
-                    "onNull": 0,
-                },
-            },
-            "sort_max_speed": {
-                "$convert": {
-                    "input": "$maxSpeed",
-                    "to": "double",
-                    "onError": 0,
-                    "onNull": 0,
-                },
-            },
-            "sort_avg_speed": {
-                "$convert": {
-                    "input": "$avgSpeed",
-                    "to": "double",
-                    "onError": 0,
-                    "onNull": 0,
-                },
-            },
-            "sort_idle": {
-                "$convert": {
-                    "input": "$totalIdleDuration",
-                    "to": "double",
-                    "onError": 0,
-                    "onNull": 0,
-                },
-            },
-            "sort_hard_braking": {
-                "$convert": {
-                    "input": "$hardBrakingCounts",
-                    "to": "double",
-                    "onError": 0,
-                    "onNull": 0,
-                },
-            },
-        }
-
-        sort_spec: dict[str, int]
-        if kind == "trips":
-            sort_spec = {"startTime": -1}
-        elif kind == "distance":
-            sort_spec = {"sort_distance": -1, "startTime": -1}
-        elif kind == "duration":
-            sort_spec = {"duration_seconds": -1, "startTime": -1}
-        elif kind == "fuel":
-            sort_spec = {"sort_fuel": -1, "startTime": -1}
-        elif kind == "top_speed":
-            sort_spec = {"sort_max_speed": -1, "startTime": -1}
-        elif kind == "avg_speed":
-            sort_spec = {"sort_avg_speed": -1, "startTime": -1}
-        elif kind == "idle_time":
-            sort_spec = {"sort_idle": -1, "startTime": -1}
-        elif kind == "hard_braking":
-            sort_spec = {"sort_hard_braking": -1, "startTime": -1}
-        else:
-            # Should be unreachable due to SUPPORTED_KINDS check.
-            sort_spec = {"startTime": -1}
+        sort_spec = DrilldownService.SORT_BY_KIND.get(kind, {"startTime": -1})
 
         match_query = dict(query)
         if extra_match:
@@ -145,7 +71,8 @@ class DrilldownService:
 
         pipeline = [
             {"$match": match_query},
-            {"$addFields": add_fields},
+            build_trip_numeric_fields_stage(),
+            build_trip_duration_fields_stage(fallback_duration_field="$duration"),
             {"$sort": sort_spec},
             {"$limit": limit},
             {

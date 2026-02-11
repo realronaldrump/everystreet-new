@@ -132,15 +132,30 @@ def build_trip_numeric_fields_stage() -> dict[str, Any]:
                     "onNull": 0.0,
                 },
             },
+            "fuelConsumedValue": {
+                "$convert": {
+                    "input": "$fuelConsumed",
+                    "to": "double",
+                    "onError": 0.0,
+                    "onNull": 0.0,
+                },
+            },
         },
     }
 
 
 def build_trip_duration_fields_stage(
     tz_expr: dict[str, Any] | None = None,
+    *,
+    fallback_duration_field: str | None = None,
 ) -> dict[str, Any]:
     """Common duration and date bucketing fields for trip analytics pipelines."""
     tz_expr = tz_expr or get_mongo_tz_expr()
+    fallback_duration: float | dict[str, Any]
+    if fallback_duration_field:
+        fallback_duration = {"$ifNull": [fallback_duration_field, 0.0]}
+    else:
+        fallback_duration = 0.0
     return {
         "$addFields": {
             "duration_seconds": {
@@ -158,7 +173,7 @@ def build_trip_duration_fields_stage(
                             1000,
                         ],
                     },
-                    "else": 0.0,
+                    "else": fallback_duration,
                 },
             },
             "recorded_at": {"$ifNull": ["$endTime", "$startTime"]},
