@@ -6,12 +6,18 @@
 class VisitsEvents {
   constructor(manager) {
     this.manager = manager;
+    this.abortController = null;
   }
 
   /**
    * Set up all event listeners
    */
   setupEventListeners() {
+    if (this.abortController) {
+      this.abortController.abort();
+    }
+    this.abortController = new AbortController();
+
     this._setupButtonListeners();
     this._setupFormListeners();
     this._setupToggleListeners();
@@ -29,14 +35,14 @@ class VisitsEvents {
       resizeTimeout = setTimeout(() => {
         this.manager.map?.resize();
       }, 100);
-    });
+    }, { signal: this.abortController?.signal });
   }
 
   _bindClick(elementId, handler) {
     document.getElementById(elementId)?.addEventListener("click", (event) => {
       event.preventDefault();
       handler();
-    });
+    }, { signal: this.abortController?.signal });
   }
 
   /**
@@ -71,7 +77,7 @@ class VisitsEvents {
     document.getElementById("edit-place-form")?.addEventListener("submit", (e) => {
       e.preventDefault();
       this.manager.saveEditedPlace();
-    });
+    }, { signal: this.abortController?.signal });
   }
 
   /**
@@ -82,7 +88,7 @@ class VisitsEvents {
     // Suggestion size change is now handled by VisitsPageController
     document.getElementById("suggestion-size")?.addEventListener("change", () => {
       this.manager.loadSuggestions();
-    });
+    }, { signal: this.abortController?.signal });
   }
 
   _isBoundaryWorkflowActive() {
@@ -133,7 +139,14 @@ class VisitsEvents {
         default:
           break;
       }
-    });
+    }, { signal: this.abortController?.signal });
+  }
+
+  destroy() {
+    if (this.abortController) {
+      this.abortController.abort();
+      this.abortController = null;
+    }
   }
 }
 

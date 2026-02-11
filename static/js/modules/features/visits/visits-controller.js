@@ -63,6 +63,13 @@ class VisitsPageController {
     this.suggestionPreviewMaps = new Map();
     this.hasProcessedPlaceDeepLink = false;
     this.activePlaceId = "";
+    this.listenerAbortController = new AbortController();
+    this.modalWatchdogObserver = null;
+    this.visitsModalIds = [
+      "place-detail-modal",
+      "edit-place-modal",
+      "view-trip-modal",
+    ];
 
     // DOM Elements
     this.elements = {};
@@ -133,14 +140,16 @@ class VisitsPageController {
   }
 
   setupEventListeners() {
+    const { signal } = this.listenerAbortController;
+
     // Listen for date filter changes
     document.addEventListener("filtersApplied", () => {
       this.loadData();
-    });
+    }, { signal });
 
     // View toggle
     this.elements.viewBtns.forEach((btn) => {
-      btn.addEventListener("click", (e) => this.handleViewToggle(e));
+      btn.addEventListener("click", (e) => this.handleViewToggle(e), { signal });
     });
 
     // Suggestion size change
@@ -148,46 +157,52 @@ class VisitsPageController {
       this.currentSuggestionSize = parseInt(e.target.value, 10);
       this.suggestionPage = 1;
       this.loadSuggestions();
-    });
+    }, { signal });
 
     this.elements.discoveriesPrev?.addEventListener("click", () => {
       this.setSuggestionPage(this.suggestionPage - 1);
-    });
+    }, { signal });
 
     this.elements.discoveriesNext?.addEventListener("click", () => {
       this.setSuggestionPage(this.suggestionPage + 1);
-    });
+    }, { signal });
 
     // Back button
     document.getElementById("back-to-places-btn")?.addEventListener("click", () => {
       this.showPlacesSection();
-    });
+    }, { signal });
 
     // Cancel drawing
     document.getElementById("cancel-drawing")?.addEventListener("click", () => {
       this.cancelDrawing();
-    });
+    }, { signal });
 
     // Discard drawing
     document.getElementById("discard-drawing")?.addEventListener("click", () => {
       this.discardDrawing();
-    });
+    }, { signal });
 
     this.elements.startDrawingFab?.addEventListener("click", () => {
       this.startDrawingFromFab();
-    });
+    }, { signal });
 
     document.getElementById("modal-edit-place")?.addEventListener("click", () => {
       this.openEditModalForActivePlace();
-    });
+    }, { signal });
 
     document.getElementById("modal-edit-boundary")?.addEventListener("click", () => {
       this.startBoundaryEditForActivePlace();
-    });
+    }, { signal });
 
     document.getElementById("modal-delete-place")?.addEventListener("click", () => {
       void this.deleteActivePlace();
-    });
+    }, { signal });
+
+    document.addEventListener("hidden.bs.modal", () => {
+      this._cleanupOrphanedModalState();
+    }, { signal });
+
+    this._startModalWatchdog();
   }
 
   cancelDrawing() {
@@ -212,8 +227,73 @@ class VisitsPageController {
       return;
     }
 
-    const modal = bootstrap.Modal.getInstance(modalEl);
+    const modal =
+      bootstrap.Modal.getInstance(modalEl) ||
+      (modalEl.classList.contains("show")
+        ? bootstrap.Modal.getOrCreateInstance(modalEl)
+        : null);
     modal?.hide();
+  }
+
+  _cleanupOrphanedModalState(force = false) {
+    const hasVisibleModal = Boolean(
+      document.querySelector(
+        '.modal.show, .modal[aria-modal="true"], .modal[style*="display: block"]'
+      )
+    );
+    const backdrops = document.querySelectorAll(".modal-backdrop");
+
+    if (!hasVisibleModal || force) {
+      backdrops.forEach((backdrop) => backdrop.remove());
+      document.body.classList.remove("modal-open");
+      document.body.style.removeProperty("padding-right");
+      document.body.style.removeProperty("overflow");
+      document.body.removeAttribute("data-bs-overflow");
+    }
+  }
+
+  _startModalWatchdog() {
+    this.modalWatchdogObserver?.disconnect();
+    this.modalWatchdogObserver = new MutationObserver(() => {
+      requestAnimationFrame(() => this._cleanupOrphanedModalState());
+    });
+
+    if (document.body) {
+      this.modalWatchdogObserver.observe(document.body, {
+        childList: true,
+        attributes: true,
+        attributeFilter: ["class", "style"],
+      });
+    }
+  }
+
+  _showEditModalAfterDetailClose(editModalEl) {
+    const showEditModal = () => {
+      bootstrap.Modal.getOrCreateInstance(editModalEl).show();
+    };
+
+    const detailModalEl = document.getElementById("place-detail-modal");
+    const detailModal = detailModalEl
+      ? bootstrap?.Modal?.getInstance(detailModalEl) ||
+        bootstrap?.Modal?.getOrCreateInstance(detailModalEl)
+      : null;
+
+    if (detailModalEl?.classList.contains("show") && detailModal) {
+      let completed = false;
+      const finalize = () => {
+        if (completed) {
+          return;
+        }
+        completed = true;
+        showEditModal();
+      };
+      detailModalEl.addEventListener("hidden.bs.modal", finalize, { once: true });
+      detailModal.hide();
+      setTimeout(finalize, 450);
+      return;
+    }
+
+    showEditModal();
   }
 
   getPlaceByIdentifier(placeId) {
@@ -258,8 +338,7 @@ class VisitsPageController {
       editPlaceNameInput.value = place.name || "";
     }
 
-    this._hideModalById("place-detail-modal");
-    bootstrap.Modal.getOrCreateInstance(editModalEl).show();
+    this._showEditModalAfterDetailClose(editModalEl);
   }
 
   startBoundaryEditForActivePlace() {
@@ -269,9 +348,33 @@ class VisitsPageController {
       return;
     }
 
-    this._hideModalById("place-detail-modal");
-    this._hideModalById("edit-place-modal");
-    this.visitsManager?.startEditingPlaceBoundary?.(placeId);
+    const launchBoundaryEdit = () => {
+      this._hideModalById("edit-place-modal");
+      this.visitsManager?.startEditingPlaceBoundary?.(placeId);
+      setTimeout(() => this._cleanupOrphanedModalState(), 450);
+    };
+
+    const detailModalEl = document.getElementById("place-detail-modal");
+    const detailModal = detailModalEl
+      ? bootstrap?.Modal?.getInstance(detailModalEl) ||
+        bootstrap?.Modal?.getOrCreateInstance(detailModalEl)
+      : null;
+    if (detailModalEl?.classList.contains("show") && detailModal) {
+      let completed = false;
+      const finalize = () => {
+        if (completed) {
+          return;
+        }
+        completed = true;
+        launchBoundaryEdit();
+      };
+      detailModalEl.addEventListener("hidden.bs.modal", finalize, { once: true });
+      detailModal.hide();
+      setTimeout(finalize, 450);
+      return;
+    }
+
+    launchBoundaryEdit();
   }
 
   async deleteActivePlace() {
@@ -1028,12 +1131,38 @@ class VisitsPageController {
         console.warn("Bootstrap modal is unavailable for place details.");
         return;
       }
-      const modal = new bootstrap.Modal(modalEl);
+      this._cleanupOrphanedModalState();
+      const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
       modal.show();
     } catch (error) {
       console.error("Error loading place detail:", error);
       this.showNotification("Error loading place details", "error");
     }
+  }
+
+  destroy() {
+    this.listenerAbortController.abort();
+    this.modalWatchdogObserver?.disconnect();
+    this.modalWatchdogObserver = null;
+
+    this.visitsModalIds.forEach((modalId) => {
+      const modalEl = document.getElementById(modalId);
+      if (!modalEl || !bootstrap?.Modal) {
+        return;
+      }
+
+      const instance = bootstrap.Modal.getInstance(modalEl);
+      if (instance) {
+        instance.hide();
+        instance.dispose();
+      }
+      modalEl.classList.remove("show");
+      modalEl.style.display = "none";
+      modalEl.removeAttribute("aria-modal");
+      modalEl.setAttribute("aria-hidden", "true");
+    });
+
+    this._cleanupOrphanedModalState(true);
   }
 
   previewSuggestion(index) {

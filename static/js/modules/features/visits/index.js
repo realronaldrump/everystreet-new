@@ -4,6 +4,22 @@ import VisitsPageController from "./visits-controller.js";
 
 let visitsPage;
 
+function repairModalUiState() {
+  const hasVisibleModal = Boolean(
+    document.querySelector(
+      '.modal.show, .modal[aria-modal="true"], .modal[style*="display: block"]'
+    )
+  );
+  if (hasVisibleModal) {
+    return;
+  }
+
+  document.querySelectorAll(".modal-backdrop").forEach((backdrop) => backdrop.remove());
+  document.body.classList.remove("modal-open");
+  document.body.style.removeProperty("padding-right");
+  document.body.style.removeProperty("overflow");
+}
+
 export default function initVisitsPage({ cleanup } = {}) {
   const noopTeardown = () => {};
   const missingLibraries = [];
@@ -39,6 +55,7 @@ export default function initVisitsPage({ cleanup } = {}) {
   }
 
   // Initialize new visits page controller
+  repairModalUiState();
   visitsPage = new VisitsPageController();
   window.visitsPage = visitsPage; // Expose specifically for inline onclick handlers
 
@@ -58,9 +75,11 @@ export default function initVisitsPage({ cleanup } = {}) {
 
   const teardown = () => {
     themeObserver.disconnect();
+    visitsPage?.destroy?.();
     visitsPage?.clearPlacePreviewMaps?.();
     visitsPage?.clearSuggestionPreviewMaps?.();
     visitsPage?.visitsManager?.destroy?.();
+    repairModalUiState();
     if (window.visitsPage === visitsPage) {
       window.visitsPage = undefined;
     }

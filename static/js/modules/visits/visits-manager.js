@@ -506,18 +506,40 @@ class VisitsManager {
       return;
     }
 
+    const beginBoundaryEdit = () => {
+      this.drawing.startEditingPlaceBoundary(resolvedPlaceId, place);
+      this.mapController.animateToPlace(place);
+
+      document.querySelector(".map-section")?.scrollIntoView?.({
+        behavior: "smooth",
+        block: "start",
+      });
+    };
+
     const editModalEl = document.getElementById("edit-place-modal");
-    if (bootstrap?.Modal && editModalEl) {
-      bootstrap.Modal.getInstance(editModalEl)?.hide();
+    const editModalInstance =
+      bootstrap?.Modal && editModalEl
+        ? bootstrap.Modal.getInstance(editModalEl) ||
+          bootstrap.Modal.getOrCreateInstance(editModalEl)
+        : null;
+
+    if (editModalEl?.classList.contains("show") && editModalInstance) {
+      let completed = false;
+      const finalize = () => {
+        if (completed) {
+          return;
+        }
+        completed = true;
+        beginBoundaryEdit();
+      };
+
+      editModalEl.addEventListener("hidden.bs.modal", finalize, { once: true });
+      editModalInstance.hide();
+      setTimeout(finalize, 450);
+      return;
     }
 
-    this.drawing.startEditingPlaceBoundary(resolvedPlaceId, place);
-    this.mapController.animateToPlace(place);
-
-    document.querySelector(".map-section")?.scrollIntoView?.({
-      behavior: "smooth",
-      block: "start",
-    });
+    beginBoundaryEdit();
   }
 
   applySuggestion(suggestion) {
@@ -634,6 +656,7 @@ class VisitsManager {
   // --- Cleanup ---
 
   destroy() {
+    this.events?.destroy?.();
     this.statsManager.destroy();
     this.map?.remove();
     this.chartManager.destroy();

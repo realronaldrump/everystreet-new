@@ -91,3 +91,32 @@ test("Visits map editing flow supports adjusting an existing place boundary", ()
     "visits-drawing.js should expose the save form during place-boundary editing"
   );
 });
+
+test("Visits modal lifecycle is resilient across route transitions", () => {
+  const controllerSource = fs.readFileSync(controllerPath, "utf8");
+  const managerSource = fs.readFileSync(managerPath, "utf8");
+
+  assert.match(
+    controllerSource,
+    /bootstrap\.Modal\.getOrCreateInstance\(modalEl\)/,
+    "visits-controller.js should reuse place detail modal instances instead of recreating them"
+  );
+
+  assert.match(
+    controllerSource,
+    /_cleanupOrphanedModalState\(/,
+    "visits-controller.js should repair orphaned modal-backdrop/modal-open state"
+  );
+
+  assert.match(
+    controllerSource,
+    /listenerAbortController\.abort\(\)/,
+    "visits-controller.js should remove listeners during teardown"
+  );
+
+  assert.match(
+    managerSource,
+    /this\.events\?\.\s*destroy\?\.\(\)/,
+    "visits-manager.js should tear down VisitsEvents listeners on destroy"
+  );
+});
