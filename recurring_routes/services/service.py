@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from collections import Counter
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from beanie import PydanticObjectId
@@ -22,6 +23,53 @@ except Exception:  # pragma: no cover - shapely may be unavailable in some envs
 
 _HEX_COLOR_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
 _PLACE_POINT_TOLERANCE_METERS = 120.0
+
+
+def _to_utc_datetime(value: Any) -> datetime | None:
+    if not isinstance(value, datetime):
+        return None
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
+
+
+def _sunday_week_start(value: datetime) -> datetime:
+    day_start = datetime(value.year, value.month, value.day, tzinfo=value.tzinfo)
+    days_since_sunday = (day_start.weekday() + 1) % 7
+    return day_start - timedelta(days=days_since_sunday)
+
+
+def compute_trips_per_week(
+    *,
+    total_trips: Any,
+    first_trip: Any,
+    last_trip: Any,
+) -> float | None:
+    try:
+        trip_count = float(total_trips)
+    except Exception:
+        return None
+    if trip_count <= 0:
+        return None
+
+    first_dt = _to_utc_datetime(first_trip)
+    last_dt = _to_utc_datetime(last_trip)
+    if first_dt is None and last_dt is None:
+        return None
+    if first_dt is None:
+        first_dt = last_dt
+    if last_dt is None:
+        last_dt = first_dt
+    if first_dt is None or last_dt is None:
+        return None
+
+    if last_dt < first_dt:
+        first_dt, last_dt = last_dt, first_dt
+
+    first_week_start = _sunday_week_start(first_dt)
+    last_week_start = _sunday_week_start(last_dt)
+    covered_weeks = ((last_week_start - first_week_start).days // 7) + 1
+    return round(trip_count / max(covered_weeks, 1), 2)
 
 
 def normalize_hex_color(value: str | None) -> str | None:

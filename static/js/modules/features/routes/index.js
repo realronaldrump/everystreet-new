@@ -108,13 +108,43 @@ function routeStrokeColor(route) {
 }
 
 /* ───── insight computations ───── */
+const MS_PER_DAY = 86400000;
+const MS_PER_WEEK = 7 * MS_PER_DAY;
+
+function parseDate(value) {
+  if (!value) return null;
+  const dt = new Date(value);
+  return Number.isNaN(dt.getTime()) ? null : dt;
+}
+
+function sundayWeekStartUtc(date) {
+  const day = date.getUTCDay(); // 0=Sun ... 6=Sat
+  return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() - day);
+}
+
 function computeTripsPerWeek(route) {
-  const first = route?.first_start_time ? new Date(route.first_start_time) : null;
-  const last = route?.last_start_time ? new Date(route.last_start_time) : null;
-  if (!first || !last || Number.isNaN(first.getTime()) || Number.isNaN(last.getTime()))
-    return 0;
-  const daySpan = Math.max(7, (last - first) / 86400000);
-  return (route.trip_count || 0) / (daySpan / 7);
+  const trips = Number(route?.trip_count || 0);
+  if (trips <= 0) return 0;
+
+  const first = parseDate(route?.first_start_time);
+  const last = parseDate(route?.last_start_time);
+  if (!first && !last) return 0;
+
+  let start = first || last;
+  let end = last || first;
+  if (!start || !end) return 0;
+  if (end.getTime() < start.getTime()) [start, end] = [end, start];
+
+  const firstWeekStart = sundayWeekStartUtc(start);
+  const lastWeekStart = sundayWeekStartUtc(end);
+  const coveredWeeks = Math.floor((lastWeekStart - firstWeekStart) / MS_PER_WEEK) + 1;
+  return trips / Math.max(coveredWeeks, 1);
+}
+
+function resolveTripsPerWeek(route, analyticsData) {
+  const apiTripsPerWeek = Number(analyticsData?.tripsPerWeek);
+  if (Number.isFinite(apiTripsPerWeek) && apiTripsPerWeek > 0) return apiTripsPerWeek;
+  return computeTripsPerWeek(route);
 }
 
 function getDistanceCategory(medianMiles) {
@@ -954,9 +984,10 @@ function setModalStats(route, analyticsData) {
   };
 
   setVal("route-stat-trips", String(route?.trip_count || stats.totalTrips || 0));
+  const tpw = resolveTripsPerWeek(route, analyticsData);
   setVal(
     "route-stat-frequency",
-    analyticsData?.tripsPerWeek != null ? `${analyticsData.tripsPerWeek}` : "--"
+    tpw > 0 ? Number(tpw).toFixed(1) : "--"
   );
   setVal(
     "route-stat-distance",
@@ -1006,10 +1037,11 @@ function setModalStats(route, analyticsData) {
   setVal("route-insight-sentence", insightSentence);
 
   // Key facts
-  const tpw = analyticsData?.tripsPerWeek ?? computeTripsPerWeek(route);
   setVal(
     "route-fact-frequency",
-    tpw > 0 ? `${Number(tpw).toFixed(1)}x / week` : `${route?.trip_count || 0} total`
+    tpw > 0
+      ? `${Number(tpw).toFixed(1)}x / week`
+      : `${route?.trip_count || stats.totalTrips || 0} total`
   );
 
   const distStr = route?.distance_miles_avg

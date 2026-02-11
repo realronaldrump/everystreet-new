@@ -36,8 +36,8 @@ def _line(coords: list[list[float]]) -> dict:
 
 
 @pytest.mark.asyncio
-async def test_place_pair_analysis_is_all_time_and_uses_place_fallback(place_pair_db) -> None:
-    now = datetime(2026, 2, 10, 8, 0, tzinfo=UTC)
+async def test_place_pair_analysis_honors_90d_timeframe_and_place_fallback(place_pair_db) -> None:
+    now = datetime.now(UTC).replace(microsecond=0)
 
     start_place = Place(name="Home", geometry=_point(-122.401, 37.790), created_at=now)
     end_place = Place(name="Office", geometry=_point(-122.394, 37.781), created_at=now)
@@ -148,20 +148,23 @@ async def test_place_pair_analysis_is_all_time_and_uses_place_fallback(place_pai
     assert body["start_place"]["id"] == str(start_place.id)
     assert body["end_place"]["id"] == str(end_place.id)
     assert body["include_reverse"] is False
-    assert body["timeframe"] == "all"
-    assert body["query"]["matched"] == 4
+    assert body["timeframe"] == "90d"
+    assert body["query"]["matched"] == 3
     assert body["query"]["include_reverse"] is False
     assert body["query"]["requested_timeframe"] == "90d"
-    assert body["query"]["timeframe"] == "all"
+    assert body["query"]["timeframe"] == "90d"
+    assert body["query"]["timeframe_cutoff"] is not None
     assert body["query"]["sample_limit"] == 500
 
     assert body["places"]["start"]["id"] == str(start_place.id)
     assert body["places"]["end"]["id"] == str(end_place.id)
 
-    assert body["summary"]["trip_count"] == 4
+    assert body["summary"]["trip_count"] == 3
     assert body["summary"]["variant_count"] >= 2
     assert body["summary"]["median_distance"] is not None
     assert body["summary"]["median_duration"] is not None
+    assert body["summary"]["trips_per_week"] == pytest.approx(1.5)
+    assert body["tripsPerWeek"] == pytest.approx(1.5)
     assert body["summary"]["first_trip"] is not None
     assert body["summary"]["last_trip"] is not None
     assert len(body["byHour"]) == 24
@@ -176,7 +179,8 @@ async def test_place_pair_analysis_is_all_time_and_uses_place_fallback(place_pai
     assert linked_variant["preview_path"]
     assert linked_variant["representative_geometry"]
 
-    assert len(body["sampleTrips"]) == 4
+    assert len(body["sampleTrips"]) == 3
+    assert "pp-forward-old" not in {trip["transactionId"] for trip in body["sampleTrips"]}
     assert body["sampleTrips"][0]["startPlaceId"] == str(start_place.id)
     assert body["sampleTrips"][0]["destinationPlaceId"] == str(end_place.id)
     assert body["sampleTrips"][0]["place_links"]["start"]["label"] == "Home"

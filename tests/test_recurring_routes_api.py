@@ -277,3 +277,65 @@ async def test_route_analytics_timezone_buckets_are_complete(
     day_counts = [int(entry["count"]) for entry in body["byDayOfWeek"]]
     assert sum(hour_counts) == 3
     assert sum(day_counts) == 3
+    assert body["tripsPerWeek"] == pytest.approx(1.5)
+
+
+@pytest.mark.asyncio
+async def test_route_analytics_trips_per_week_single_trip_not_null(
+    routes_api_db, monkeypatch
+) -> None:
+    monkeypatch.setattr(recurring_routes_api, "get_mongo_tz_expr", lambda: "UTC")
+    trip_time = datetime(2026, 2, 10, 8, 0, tzinfo=UTC)
+
+    class _FakeAggregateCursor:
+        async def to_list(self, _limit):
+            return [
+                {
+                    "byHour": [
+                        {"_id": 8, "count": 1, "avgDistance": 10.0, "avgDuration": 1000.0},
+                    ],
+                    "byDayOfWeek": [
+                        {"_id": 3, "count": 1, "avgDistance": 10.0, "avgDuration": 1000.0},
+                    ],
+                    "byMonth": [
+                        {"_id": "2026-02", "count": 1, "totalDistance": 10.0},
+                    ],
+                    "tripTimeline": [],
+                    "stats": [
+                        {
+                            "_id": None,
+                            "totalTrips": 1,
+                            "totalDistance": 10.0,
+                            "totalDuration": 1000.0,
+                            "firstTrip": trip_time,
+                            "lastTrip": trip_time,
+                        },
+                    ],
+                },
+            ]
+
+    class _FakeTripsCollection:
+        def aggregate(self, _pipeline):
+            return _FakeAggregateCursor()
+
+    monkeypatch.setattr(
+        Trip,
+        "get_pymongo_collection",
+        classmethod(lambda _cls: _FakeTripsCollection()),
+    )
+
+    route = RecurringRoute(
+        route_key="single-route-key",
+        route_signature="single-route-signature",
+        auto_name="Single Route",
+        start_label="Start",
+        end_label="End",
+        trip_count=1,
+    )
+    await route.insert()
+
+    client = TestClient(_build_app())
+    analytics_resp = client.get(f"/api/recurring_routes/{str(route.id)}/analytics")
+    assert analytics_resp.status_code == 200
+    body = analytics_resp.json()
+    assert body["tripsPerWeek"] == pytest.approx(1.0)

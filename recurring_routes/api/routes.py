@@ -22,6 +22,7 @@ from recurring_routes.services.place_pair_analysis import analyze_place_pair
 from recurring_routes.services.service import (
     build_place_link,
     coerce_place_id,
+    compute_trips_per_week,
     extract_location_label,
     find_place_id_for_point,
     normalize_hex_color,
@@ -517,15 +518,14 @@ async def get_route_analytics(route_id: str):
         if val:
             stats_raw[key] = val.isoformat() if hasattr(val, "isoformat") else str(val)
 
-    # Compute trip frequency (trips per week on average)
+    # Compute trip frequency from Sunday-Saturday calendar weeks.
     first_trip = first_trip_dt if isinstance(first_trip_dt, datetime) else None
     last_trip = last_trip_dt if isinstance(last_trip_dt, datetime) else None
-    trips_per_week = None
-    if first_trip and last_trip:
-        span_days = (last_trip - first_trip).total_seconds() / 86400
-        total_trips = stats_raw.get("totalTrips", 0)
-        if span_days > 0 and total_trips > 1:
-            trips_per_week = round((total_trips / span_days) * 7, 2)
+    trips_per_week = compute_trips_per_week(
+        total_trips=stats_raw.get("totalTrips", 0),
+        first_trip=first_trip,
+        last_trip=last_trip,
+    )
 
     return {
         "status": "success",

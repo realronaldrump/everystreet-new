@@ -23,6 +23,7 @@ from recurring_routes.services.fingerprint import (
 from recurring_routes.services.service import (
     build_place_link,
     coerce_place_id,
+    compute_trips_per_week,
     extract_location_label,
     extract_point_from_geojson_point,
     find_place_id_for_point,
@@ -679,10 +680,14 @@ async def analyze_place_pair(
         raise LookupError("Place not found")
 
     requested_timeframe = str(timeframe or "all").strip().lower()
-    effective_timeframe = "all"
+    effective_timeframe = "90d" if requested_timeframe == "90d" else "all"
     sample_limit = min(max(int(limit), 1), 500)
 
     query: dict[str, Any] = {"invalid": {"$ne": True}}
+    timeframe_cutoff: datetime | None = None
+    if effective_timeframe == "90d":
+        timeframe_cutoff = datetime.now(timezone.utc) - timedelta(days=90)
+        query["startTime"] = {"$gte": timeframe_cutoff}
 
     trips_coll = Trip.get_pymongo_collection()
     cursor = trips_coll.find(
@@ -770,6 +775,7 @@ async def analyze_place_pair(
                 "include_reverse": include_reverse,
                 "requested_timeframe": requested_timeframe,
                 "timeframe": effective_timeframe,
+                "timeframe_cutoff": _serialize_dt(timeframe_cutoff),
                 "sample_limit": sample_limit,
                 "scanned": scanned,
                 "matched": 0,
@@ -839,12 +845,12 @@ async def analyze_place_pair(
     if last_trip:
         stats["lastTrip"] = _serialize_dt(last_trip)
 
-    trips_per_week = None
-    if isinstance(first_trip, datetime) and isinstance(last_trip, datetime):
-        span_days = (last_trip - first_trip).total_seconds() / 86400
-        total_trips = int(stats.get("totalTrips") or 0)
-        if span_days > 0 and total_trips > 1:
-            trips_per_week = round((total_trips / span_days) * 7, 2)
+    total_trips = int(stats.get("totalTrips") or len(matched_trips))
+    trips_per_week = compute_trips_per_week(
+        total_trips=total_trips,
+        first_trip=first_trip,
+        last_trip=last_trip,
+    )
 
     variants = _build_variants(matched_trips, routes_by_id)
     variant_count = len(variants)
@@ -877,7 +883,7 @@ async def analyze_place_pair(
     ]
 
     summary = {
-        "trip_count": int(stats.get("totalTrips") or len(matched_trips)),
+        "trip_count": total_trips,
         "variant_count": variant_count,
         "median_distance": median(distance_values) if distance_values else None,
         "median_duration": median(duration_values) if duration_values else None,
@@ -885,7 +891,7 @@ async def analyze_place_pair(
         "first_trip": _serialize_dt(first_trip),
         "last_trip": _serialize_dt(last_trip),
         # Backward-compatible aliases
-        "totalTrips": int(stats.get("totalTrips") or len(matched_trips)),
+        "totalTrips": total_trips,
         "totalDistance": stats.get("totalDistance"),
         "totalDuration": stats.get("totalDuration"),
         "avgDistance": stats.get("avgDistance"),
@@ -906,6 +912,7 @@ async def analyze_place_pair(
             "include_reverse": include_reverse,
             "requested_timeframe": requested_timeframe,
             "timeframe": effective_timeframe,
+            "timeframe_cutoff": _serialize_dt(timeframe_cutoff),
             "sample_limit": sample_limit,
             "scanned": scanned,
             "matched": len(matched_trips),
