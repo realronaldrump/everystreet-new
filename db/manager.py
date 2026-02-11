@@ -267,6 +267,11 @@ class DatabaseManager:
         Initialize Beanie ODM with all document models.
 
         This should be called once during application startup.
+
+        Uses an extended socket timeout during initialization because Beanie
+        triggers ``createIndexes`` for every model, and geospatial index builds
+        can take several minutes on resource-constrained hardware.  After init
+        completes the normal client (with standard timeouts) is used.
         """
         self._check_loop_and_reconnect()
         current_loop = self._get_current_loop()
@@ -290,11 +295,70 @@ class DatabaseManager:
 
         from db.models import ALL_DOCUMENT_MODELS
 
-        await init_beanie(database=self.db, document_models=ALL_DOCUMENT_MODELS)
-        self._beanie_initialized = True
-        logger.info(
-            "Beanie ODM initialized with %d document models",
-            len(ALL_DOCUMENT_MODELS),
+        # Use a generous timeout for the init phase — index builds on
+        # 2dsphere fields can take minutes on small machines.
+        init_timeout_ms = int(
+            os.getenv("MONGODB_INIT_SOCKET_TIMEOUT_MS", "600000"),  # 10 min
+        )
+
+        mongo_uri = _get_mongo_uri()
+        init_kwargs: dict[str, Any] = {
+            "tz_aware": True,
+            "tzinfo": UTC,
+            "maxPoolSize": self._max_pool_size,
+            "minPoolSize": 0,
+            "maxIdleTimeMS": 60000,
+            "connectTimeoutMS": self._connection_timeout_ms,
+            "serverSelectionTimeoutMS": max(
+                self._server_selection_timeout_ms,
+                60000,
+            ),
+            "socketTimeoutMS": init_timeout_ms,
+            "retryWrites": True,
+            "retryReads": True,
+            "waitQueueTimeoutMS": init_timeout_ms,
+            "appname": "EveryStreet",
+        }
+
+        if mongo_uri.startswith("mongodb+srv://"):
+            init_kwargs.update(
+                tls=True,
+                tlsAllowInvalidCertificates=True,
+                tlsCAFile=certifi.where(),
+            )
+
+        init_client: AsyncIOMotorClient | None = None
+        try:
+            logger.info(
+                "Initializing Beanie with extended socket timeout "
+                "(%d ms) for index creation",
+                init_timeout_ms,
+            )
+            init_client = AsyncIOMotorClient(mongo_uri, **init_kwargs)
+            init_db = init_client[self._db_name]
+
+            await init_beanie(
+                database=init_db,
+                document_models=ALL_DOCUMENT_MODELS,
+            )
+
+            self._beanie_initialized = True
+            logger.info(
+                "Beanie ODM initialized with %d document models",
+                len(ALL_DOCUMENT_MODELS),
+            )
+        finally:
+            # Always close the temporary init client — regular operations
+            # will use the standard client with normal timeouts.
+            if init_client is not None:
+                init_client.close()
+
+        # Re-initialize Beanie on the *normal* client so that document
+        # models are bound to the standard timeout settings.  Indexes
+        # already exist at this point so this call is near-instant.
+        await init_beanie(
+            database=self.db,
+            document_models=ALL_DOCUMENT_MODELS,
         )
 
     async def cleanup_connections(self) -> None:
