@@ -27,59 +27,6 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-@router.get("/api/trips/last", tags=["Trips API"])
-@api_route(logger)
-async def get_last_trip_in_range(request: Request):
-    """Get the most recent trip (by endTime) in the requested date range.
-
-    Intended for map initialization so we can zoom to the latest trip without
-    downloading all trip geometries.
-    """
-    start_date = request.query_params.get("start_date")
-    end_date = request.query_params.get("end_date")
-    if not start_date or not end_date:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Missing date range",
-        )
-
-    query = await build_query_from_request(request)
-    # build_query_from_request() omits $expr when start/end are invalid.
-    if "$expr" not in query:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid date range",
-        )
-
-    query["invalid"] = {"$ne": True}
-
-    trips = await Trip.find(query).sort(-Trip.endTime).limit(1).to_list()
-    if not trips:
-        return {"transactionId": None, "endTime": None, "lastCoord": None}
-
-    trip = trips[0]
-    trip_dict = trip.model_dump() if hasattr(trip, "model_dump") else dict(trip)
-
-    geom = GeometryService.parse_geojson(trip_dict.get("gps"))
-    coords = geom.get("coordinates") if isinstance(geom, dict) else None
-    last_coord = None
-
-    if isinstance(coords, list) and coords:
-        if geom.get("type") == "LineString" and coords:
-            last_coord = coords[-1]
-        elif geom.get("type") == "Point":
-            last_coord = coords
-
-    end_time = trip_dict.get("endTime")
-    end_time_iso = end_time.isoformat() if hasattr(end_time, "isoformat") else None
-
-    return {
-        "transactionId": trip_dict.get("transactionId"),
-        "endTime": end_time_iso,
-        "lastCoord": last_coord,
-    }
-
-
 @router.get("/api/matched_trips", tags=["Trips API"])
 async def get_matched_trips(request: Request):
     """
@@ -412,9 +359,7 @@ async def resolve_trip_ingest_issue(issue_id: str):
     """Mark a trip ingest issue as resolved/dismissed."""
     ok = await TripIngestIssueService.resolve_issue(issue_id)
     if not ok:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Issue not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Issue not found")
     return {"status": "success"}
 
 
@@ -424,9 +369,7 @@ async def delete_trip_ingest_issue(issue_id: str):
     """Delete an ingest issue entry."""
     ok = await TripIngestIssueService.delete_issue(issue_id)
     if not ok:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Issue not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Issue not found")
     return {"status": "success"}
 
 
@@ -442,9 +385,7 @@ async def bulk_resolve_trip_ingest_issues(request: Request):
     issue_type = body.get("issue_type") or None
     search = body.get("search") or None
 
-    resolved = await TripIngestIssueService.bulk_resolve(
-        issue_type=issue_type, search=search
-    )
+    resolved = await TripIngestIssueService.bulk_resolve(issue_type=issue_type, search=search)
     return {"status": "success", "resolved": resolved}
 
 

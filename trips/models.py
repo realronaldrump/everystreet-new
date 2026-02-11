@@ -62,28 +62,6 @@ class TripMapMatchProjection(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
 
-class TripTileProjection(BaseModel):
-    """Projection model for building vector tiles.
-
-    Keep this small: we only need basic properties + line geometry.
-    """
-
-    transactionId: str | None = None
-    imei: str | None = None
-    startTime: Any | None = None
-    endTime: Any | None = None
-    distance: float | None = None
-    duration: float | None = None
-    avgSpeed: float | None = None
-    maxSpeed: float | None = None
-    matchStatus: str | None = None
-    gps: dict[str, Any] | None = None
-    matchedGps: dict[str, Any] | None = None
-    invalid: bool | None = None
-
-    model_config = ConfigDict(extra="ignore")
-
-
 class MapMatchJobRequest(BaseModel):
     mode: Literal["unmatched", "date_range", "trip_id", "trip_ids"]
     start_date: str | None = None

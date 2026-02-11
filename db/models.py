@@ -199,25 +199,6 @@ class Trip(Document):
             IndexModel([("endTime", 1)], name="trips_endTime_asc_idx"),
             IndexModel([("endTime", -1)], name="trips_endTime_desc_idx"),
             IndexModel([("gps", "2dsphere")], name="trips_gps_2dsphere_idx"),
-            # Vector tile / viewport queries
-            IndexModel(
-                [("gps", "2dsphere"), ("startTime", 1)],
-                name="trips_gps_startTime_idx",
-            ),
-            IndexModel(
-                [("gps", "2dsphere"), ("endTime", -1)],
-                name="trips_gps_endTime_desc_idx",
-            ),
-            IndexModel(
-                [("matchedGps", "2dsphere")],
-                name="trips_matchedGps_2dsphere_idx",
-                sparse=True,
-            ),
-            IndexModel(
-                [("matchedGps", "2dsphere"), ("endTime", -1)],
-                name="trips_matchedGps_endTime_desc_idx",
-                sparse=True,
-            ),
             IndexModel(
                 [("startGeoPoint", "2dsphere")],
                 name="trips_startGeoPoint_2dsphere_idx",

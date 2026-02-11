@@ -6,9 +6,6 @@
 export const CONFIG = {
   // Map configuration
   MAP: {
-    // When enabled, trips render from vector tiles instead of downloading huge GeoJSON.
-    // Exact (full-resolution) trip geometry is still fetched on selection via `/api/trips/{id}`.
-    useVectorTripTiles: true,
     defaultCenter: [-95.7129, 37.0902],
     defaultZoom: 4,
     maxZoom: 19,
@@ -17,12 +14,10 @@ export const CONFIG = {
     debounceDelay: 150,
     throttleDelay: 50,
     styles: {
-      // OpenFreeMap styles (no Mapbox token required)
-      dark: "https://tiles.openfreemap.org/styles/dark",
-      light: "https://tiles.openfreemap.org/styles/positron",
-      streets: "https://tiles.openfreemap.org/styles/liberty",
-      // Not true satellite imagery, but kept for UI/back-compat.
-      satellite: "https://tiles.openfreemap.org/styles/bright",
+      dark: "mapbox://styles/mapbox/dark-v11",
+      light: "mapbox://styles/mapbox/light-v11",
+      satellite: "mapbox://styles/mapbox/satellite-v9",
+      streets: "mapbox://styles/mapbox/streets-v12",
     },
     performanceOptions: {
       trackResize: false,
@@ -69,10 +64,6 @@ export const CONFIG = {
     geocodeTrips: "/api/geocode_trips",
     tripAnalytics: "/api/trip-analytics",
     tripMetrics: "/api/metrics",
-    tripLastInRange: "/api/trips/last",
-    tripTiles: "/api/tiles/trips",
-    matchedTripTiles: "/api/tiles/matched_trips",
-    tripTilesVersion: "/api/tiles/version",
     drivingInsights: "/api/driving-insights",
     tripSyncStatus: "/api/actions/trips/sync/status",
     tripSyncStart: "/api/actions/trips/sync",
@@ -239,8 +230,8 @@ export const CONFIG = {
     },
     animations: {
       enabled:
-        typeof window !== "undefined" &&
-        !window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+        typeof window !== "undefined"
+        && !window.matchMedia("(prefers-reduced-motion: reduce)").matches,
     },
   },
 };

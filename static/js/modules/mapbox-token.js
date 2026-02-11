@@ -6,25 +6,26 @@ const readMetaToken = () => {
   return meta?.getAttribute("content")?.trim() || "";
 };
 
-export const getMapboxToken = () => readMetaToken();
+export const getMapboxToken = () => {
+  return readMetaToken();
+};
 
 export const isMapboxStyleUrl = (styleUrl) => {
   if (!styleUrl || typeof styleUrl !== "string") {
     return false;
   }
   const url = styleUrl.trim();
-  // `mapbox://` is Mapbox-proprietary. Some https://api.mapbox.com styles also require a token.
   return url.startsWith("mapbox://") || url.includes("api.mapbox.com");
 };
 
-export const waitForMapboxToken = ({ timeoutMs = 2000 } = {}) => {
+export const waitForMapboxToken = async ({ timeoutMs = 2000 } = {}) => {
   const existing = getMapboxToken();
   if (existing) {
-    return Promise.resolve(existing);
+    return existing;
   }
 
   if (typeof document === "undefined") {
-    return Promise.reject(new Error("Mapbox access token not configured"));
+    throw new Error("Mapbox access token not configured");
   }
 
   return new Promise((resolve, reject) => {
@@ -64,15 +65,4 @@ export const waitForMapboxToken = ({ timeoutMs = 2000 } = {}) => {
 
     check();
   });
-};
-
-/**
- * Only require a Mapbox token when the selected style URL is Mapbox-hosted.
- * For OpenFreeMap (or other public styles), resolve immediately.
- */
-export const maybeWaitForMapboxToken = ({ styleUrl, timeoutMs = 2000 } = {}) => {
-  if (!isMapboxStyleUrl(styleUrl)) {
-    return Promise.resolve("");
-  }
-  return waitForMapboxToken({ timeoutMs });
 };

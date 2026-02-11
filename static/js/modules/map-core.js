@@ -16,7 +16,7 @@
 
 import { CONFIG } from "./core/config.js";
 import state from "./core/store.js";
-import { maybeWaitForMapboxToken } from "./mapbox-token.js";
+import { waitForMapboxToken } from "./mapbox-token.js";
 import loadingManager from "./ui/loading-manager.js";
 import notificationManager from "./ui/notifications.js";
 import { utils } from "./utils.js";
@@ -76,7 +76,7 @@ const mapCore = {
    * @param {Object} options - Optional configuration overrides
    * @returns {Promise<boolean>} - Resolves true on success, false on failure
    */
-  initialize(options = {}) {
+  async initialize(options = {}) {
     // Return existing promise if already initializing/initialized
     if (initializationPromise) {
       return initializationPromise;
@@ -121,11 +121,21 @@ const mapCore = {
         return true;
       }
 
+      // Get Mapbox token
+      loadingManager?.updateMessage("Loading map resources...");
+      const token = await waitForMapboxToken({ timeoutMs: 5000 });
+
+      if (!token) {
+        throw new Error("Mapbox access token not available");
+      }
+
+      mapboxgl.accessToken = token;
+
       // Check WebGL support
-      if (!this._isWebGLSupported()) {
-        mapElement.innerHTML =
-          '<div class="webgl-unsupported-message p-4 text-center">' +
-          "WebGL is not supported by your browser. Please use a modern browser.</div>";
+      if (!mapboxgl.supported()) {
+        mapElement.innerHTML
+          = '<div class="webgl-unsupported-message p-4 text-center">'
+          + "WebGL is not supported by your browser. Please use a modern browser.</div>";
         throw new Error("WebGL not supported");
       }
 
@@ -138,16 +148,6 @@ const mapCore = {
       const storedMapType = utils.getStorage(CONFIG.STORAGE_KEYS.mapType);
       const mapType = storedMapType || theme;
       const mapStyle = CONFIG.MAP.styles[mapType] || CONFIG.MAP.styles[theme];
-
-      // Only require a Mapbox token if the chosen style is Mapbox-hosted.
-      loadingManager?.updateMessage("Loading map resources...");
-      const token = await maybeWaitForMapboxToken({
-        styleUrl: mapStyle,
-        timeoutMs: 5000,
-      });
-      if (token) {
-        mapboxgl.accessToken = token;
-      }
 
       // Determine initial view (URL params > saved state > defaults)
       const initialView = this._getInitialView(options);
@@ -268,9 +268,7 @@ const mapCore = {
         reject(new Error("Mapbox GL JS not loaded"));
       }, timeoutMs);
 
-      scriptEl = document.querySelector(
-        'script[src*="mapbox-gl.js"], script[src*="maplibre-gl.js"]'
-      );
+      scriptEl = document.querySelector('script[src*="mapbox-gl.js"]');
       if (scriptEl) {
         scriptEl.addEventListener("load", checkReady, { once: true });
         scriptEl.addEventListener("error", handleError, { once: true });
@@ -310,45 +308,6 @@ const mapCore = {
       center: options.center || CONFIG.MAP.defaultCenter,
       zoom: options.zoom || CONFIG.MAP.defaultZoom,
     };
-  },
-
-  /**
-   * Check WebGL support across Mapbox GL and MapLibre.
-   * Mapbox GL exposes mapboxgl.supported(), while MapLibre may not.
-   * @private
-   */
-  _isWebGLSupported() {
-    if (typeof mapboxgl?.supported === "function") {
-      try {
-        return mapboxgl.supported();
-      } catch {
-        return false;
-      }
-    }
-
-    if (typeof mapboxgl?.supported === "boolean") {
-      return mapboxgl.supported;
-    }
-
-    if (
-      typeof window === "undefined" ||
-      typeof document === "undefined" ||
-      typeof window.WebGLRenderingContext === "undefined"
-    ) {
-      return false;
-    }
-
-    try {
-      const canvas = document.createElement("canvas");
-      const glContext =
-        canvas.getContext("webgl2") ||
-        canvas.getContext("webgl") ||
-        canvas.getContext("experimental-webgl");
-
-      return Boolean(glContext && typeof glContext.getParameter === "function");
-    } catch {
-      return false;
-    }
   },
 
   /**
@@ -404,15 +363,15 @@ const mapCore = {
     }
 
     const telemetryHost = "events.mapbox.com";
-    const baseUrl =
-      typeof window !== "undefined" && window.location?.origin
+    const baseUrl
+      = typeof window !== "undefined" && window.location?.origin
         ? window.location.origin
         : "http://localhost";
     let patched = false;
 
     if (
-      typeof navigator !== "undefined" &&
-      typeof navigator.sendBeacon === "function"
+      typeof navigator !== "undefined"
+      && typeof navigator.sendBeacon === "function"
     ) {
       const originalSendBeacon = navigator.sendBeacon.bind(navigator);
       navigator.sendBeacon = (url, data) => {
@@ -460,26 +419,7 @@ const mapCore = {
    * @private
    */
   _createTransformRequest() {
-    return (url) => {
-      if (typeof url !== "string" || !url.startsWith("/api/")) {
-        // Let MapLibre handle all non-API URLs normally.
-        return undefined;
-      }
-
-      const origin =
-        typeof window !== "undefined" && window.location?.origin
-          ? window.location.origin
-          : null;
-      if (!origin) {
-        return undefined;
-      }
-
-      try {
-        return { url: new URL(url, origin).toString() };
-      } catch {
-        return undefined;
-      }
-    };
+    return (url) => ({ url });
   },
 
   /**
@@ -590,14 +530,14 @@ const mapCore = {
    * Useful after style changes
    * @returns {Promise<void>}
    */
-  waitForStyleLoad() {
+  async waitForStyleLoad() {
     const { map } = state;
     if (!map) {
       throw new Error("Map not initialized");
     }
 
     if (map.isStyleLoaded()) {
-      return Promise.resolve();
+      return;
     }
 
     return new Promise((resolve) => {
@@ -629,13 +569,8 @@ const mapCore = {
       throw new Error("Map not initialized");
     }
 
-    const styleUrl = CONFIG.MAP.styles[styleType] || CONFIG.MAP.styles.dark;
-
-    // Ensure Mapbox token is available for Mapbox-hosted styles.
-    const token = await maybeWaitForMapboxToken({ styleUrl, timeoutMs: 5000 });
-    if (token) {
-      mapboxgl.accessToken = token;
-    }
+    const styleUrl
+      = CONFIG.MAP.styles[styleType] || `mapbox://styles/mapbox/${styleType}-v11`;
 
     // Save current view
     const currentView = {

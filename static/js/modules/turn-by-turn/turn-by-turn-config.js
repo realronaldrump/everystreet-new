@@ -45,8 +45,8 @@ export const TURN_BY_TURN_DEFAULTS = {
  * Map style URLs
  */
 export const MAP_STYLES = {
-  light: "https://tiles.openfreemap.org/styles/positron",
-  dark: "https://tiles.openfreemap.org/styles/dark",
+  light: "mapbox://styles/mapbox/light-v11",
+  dark: "mapbox://styles/mapbox/dark-v11",
 };
 
 /**

@@ -25,5 +25,4 @@ osmnx
 networkx
 tenacity
 aiofiles
-mapbox-vector-tile==2.2.0
-mercantile==1.2.1
+

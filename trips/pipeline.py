@@ -57,18 +57,14 @@ class TripPipeline:
             },
         }
 
-    async def validate_raw_trip_with_basic(
-        self, raw_data: dict[str, Any]
-    ) -> dict[str, Any]:
+    async def validate_raw_trip_with_basic(self, raw_data: dict[str, Any]) -> dict[str, Any]:
         """
         Validate a raw trip with basic processing checks, without persistence.
 
         This matches the same validation+basic processing done by
         process_raw_trip[_insert_only], but does not geocode, map-match, or write.
         """
-        success, processed_data, history, state, error = self._validate_and_basic(
-            raw_data
-        )
+        success, processed_data, history, state, error = self._validate_and_basic(raw_data)
         return {
             "success": success,
             "processed_data": processed_data,
@@ -225,14 +221,6 @@ class TripPipeline:
             await final_trip.save()
         else:
             await final_trip.insert()
-
-        # Invalidate cached trip tiles so "today" updates quickly.
-        try:
-            from trips.services.trip_tile_service import bump_trip_tiles_version
-
-            await bump_trip_tiles_version()
-        except Exception:
-            logger.debug("Failed to bump trip tile version", exc_info=True)
 
         logger.debug("Saved trip %s successfully", transaction_id)
         return final_trip

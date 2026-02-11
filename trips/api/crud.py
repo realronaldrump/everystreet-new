@@ -102,14 +102,6 @@ async def delete_trip(trip_id: str):
 
     await trip.delete()
 
-    # Invalidate cached tiles so the map reflects deletions promptly.
-    try:
-        from trips.services.trip_tile_service import bump_trip_tiles_version
-
-        await bump_trip_tiles_version()
-    except Exception:
-        logger.debug("Failed to bump trip tile version after delete", exc_info=True)
-
     return {
         "status": "success",
         "message": "Trip deleted successfully",
@@ -133,15 +125,6 @@ async def unmatch_trip(trip_id: str):
     trip.matched_at = None
     trip.last_modified = datetime.now(UTC)
     await trip.save()
-
-    # Invalidate cached tiles so matched layers update promptly.
-    try:
-        from trips.services.trip_tile_service import bump_trip_tiles_version
-
-        await bump_trip_tiles_version()
-    except Exception:
-        logger.debug("Failed to bump trip tile version after unmatch", exc_info=True)
-
     return {
         "status": "success",
         "message": "Matched data cleared",
