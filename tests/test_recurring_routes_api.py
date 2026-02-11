@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from mongomock_motor import AsyncMongoMockClient
 
-from db.models import GasFillup, Job, RecurringRoute, Trip, Vehicle
+from db.models import GasFillup, Job, Place, RecurringRoute, Trip, Vehicle
 from recurring_routes.api import routes as recurring_routes_api
 from recurring_routes.models import BuildRecurringRoutesRequest
 from recurring_routes.services.builder import RecurringRoutesBuilder
@@ -18,7 +18,7 @@ async def routes_api_db():
     database = client["test_db"]
     await init_beanie(
         database=database,  # type: ignore[arg-type]
-        document_models=[Trip, RecurringRoute, Job, GasFillup, Vehicle],
+        document_models=[Trip, RecurringRoute, Job, GasFillup, Vehicle, Place],
     )
     return database
 
@@ -31,6 +31,10 @@ def _build_app() -> FastAPI:
 
 def _gps_linestring(coords: list[list[float]]) -> dict:
     return {"type": "LineString", "coordinates": coords}
+
+
+def _point(lon: float, lat: float) -> dict:
+    return {"type": "Point", "coordinates": [lon, lat]}
 
 
 async def _seed_trips() -> None:
@@ -118,3 +122,146 @@ async def test_list_and_patch_routes_after_build(routes_api_db) -> None:
     route = get_resp.json()["route"]
     assert route["name"] == "Pinned Route"
     assert route["color"] == "#00ff00"
+
+
+@pytest.mark.asyncio
+async def test_route_detail_and_trips_include_place_links(routes_api_db) -> None:
+    now = datetime(2026, 2, 10, tzinfo=UTC)
+    coords = [[-122.401, 37.790], [-122.398, 37.786], [-122.394, 37.781]]
+
+    start_place = Place(
+        name="Home",
+        geometry=_point(-122.401, 37.790),
+        created_at=now,
+    )
+    await start_place.insert()
+
+    end_place = Place(
+        name="Office",
+        geometry=_point(-122.394, 37.781),
+        created_at=now,
+    )
+    await end_place.insert()
+
+    for i in range(3):
+        st = now - timedelta(days=i)
+        await Trip(
+            transactionId=f"pl-{i}",
+            imei="imei-place",
+            startTime=st,
+            endTime=st + timedelta(minutes=20),
+            duration=1200,
+            distance=8.3,
+            gps=_gps_linestring(coords),
+            startGeoPoint=_point(-122.401, 37.790),
+            destinationGeoPoint=_point(-122.394, 37.781),
+            startPlaceId=str(start_place.id),
+            destinationPlaceId=str(end_place.id),
+            startLocation={"formatted_address": "Start Label"},
+            destination={"formatted_address": "Destination Label"},
+            destinationPlaceName="Destination Name",
+        ).insert()
+
+    await RecurringRoutesBuilder().run("test-job-place-1", BuildRecurringRoutesRequest())
+
+    route = await RecurringRoute.find_one({"trip_count": 3})
+    assert route is not None
+    route_id = str(route.id)
+
+    client = TestClient(_build_app())
+
+    detail_resp = client.get(f"/api/recurring_routes/{route_id}")
+    assert detail_resp.status_code == 200
+    detail = detail_resp.json()["route"]
+    assert detail["place_links"]["start"]["id"] == str(start_place.id)
+    assert detail["place_links"]["start"]["label"] == "Home"
+    assert detail["place_links"]["end"]["id"] == str(end_place.id)
+    assert detail["place_links"]["end"]["label"] == "Office"
+
+    trips_resp = client.get(f"/api/recurring_routes/{route_id}/trips")
+    assert trips_resp.status_code == 200
+    trips = trips_resp.json()["trips"]
+    assert len(trips) == 3
+
+    first = trips[0]
+    assert first["startPlaceId"] == str(start_place.id)
+    assert first["destinationPlaceId"] == str(end_place.id)
+    assert first["startPlaceLabel"] == "Home"
+    assert first["destinationPlaceLabel"] == "Office"
+    assert first["place_links"]["start"]["href"] == f"/places/{start_place.id}"
+    assert first["place_links"]["end"]["href"] == f"/places/{end_place.id}"
+
+
+@pytest.mark.asyncio
+async def test_route_analytics_timezone_buckets_are_complete(
+    routes_api_db, monkeypatch
+) -> None:
+    monkeypatch.setattr(recurring_routes_api, "get_mongo_tz_expr", lambda: "UTC")
+
+    class _FakeAggregateCursor:
+        async def to_list(self, _limit):
+            return [
+                {
+                    "byHour": [
+                        {"_id": 8, "count": 3, "avgDistance": 10.0, "avgDuration": 1000.0},
+                    ],
+                    "byDayOfWeek": [
+                        {"_id": 2, "count": 3, "avgDistance": 10.0, "avgDuration": 1000.0},
+                    ],
+                    "byMonth": [
+                        {"_id": "2026-02", "count": 3, "totalDistance": 30.0},
+                    ],
+                    "tripTimeline": [],
+                    "stats": [
+                        {
+                            "_id": None,
+                            "totalTrips": 3,
+                            "totalDistance": 30.0,
+                            "totalDuration": 3000.0,
+                            "firstTrip": datetime(2026, 2, 1, tzinfo=UTC),
+                            "lastTrip": datetime(2026, 2, 10, tzinfo=UTC),
+                        },
+                    ],
+                },
+            ]
+
+    class _FakeTripsCollection:
+        def aggregate(self, pipeline):
+            hour_tz = (
+                pipeline[1]["$project"]["hour"]["$hour"].get("timezone")
+            )
+            day_tz = (
+                pipeline[1]["$project"]["dayOfWeek"]["$dayOfWeek"].get("timezone")
+            )
+            assert hour_tz == "UTC"
+            assert day_tz == "UTC"
+            return _FakeAggregateCursor()
+
+    monkeypatch.setattr(
+        Trip,
+        "get_pymongo_collection",
+        classmethod(lambda _cls: _FakeTripsCollection()),
+    )
+
+    route = RecurringRoute(
+        route_key="tz-route-key",
+        route_signature="tz-route-signature",
+        auto_name="TZ Route",
+        start_label="Start",
+        end_label="End",
+        trip_count=3,
+    )
+    await route.insert()
+
+    client = TestClient(_build_app())
+    analytics_resp = client.get(f"/api/recurring_routes/{str(route.id)}/analytics")
+    assert analytics_resp.status_code == 200
+    body = analytics_resp.json()
+
+    assert len(body["byHour"]) == 24
+    assert len(body["byDayOfWeek"]) == 7
+
+    hour_counts = [int(entry["count"]) for entry in body["byHour"]]
+    day_counts = [int(entry["count"]) for entry in body["byDayOfWeek"]]
+    assert sum(hour_counts) == 3
+    assert sum(day_counts) == 3

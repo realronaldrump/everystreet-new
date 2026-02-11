@@ -11,14 +11,20 @@ from fastapi import APIRouter, Body, HTTPException, Query, status
 
 from core.api import api_route
 from core.jobs import JobHandle, create_job, find_job
+from db.aggregation_utils import get_mongo_tz_expr
 from db.models import Job, RecurringRoute, Trip
 from recurring_routes.models import (
     BuildRecurringRoutesRequest,
     PatchRecurringRouteRequest,
 )
+from recurring_routes.services.place_pair_analysis import analyze_place_pair
 from recurring_routes.services.service import (
+    build_place_link,
+    coerce_place_id,
+    extract_location_label,
     normalize_hex_color,
-    serialize_route_detail,
+    resolve_places_by_ids,
+    serialize_route_detail_with_place_links,
     serialize_route_summary,
 )
 from tasks.config import update_task_history_entry
@@ -88,6 +94,30 @@ async def list_recurring_routes(
     return {"total": total, "routes": routes}
 
 
+@router.get("/api/recurring_routes/place_pair_analysis", response_model=dict[str, Any])
+@api_route(logger)
+async def get_place_pair_analysis(
+    start_place_id: str = Query(..., min_length=1),
+    end_place_id: str = Query(..., min_length=1),
+    include_reverse: bool = False,
+    timeframe: str = Query("90d", pattern="^(90d|all)$"),
+    limit: Annotated[int, Query(ge=1, le=500)] = 500,
+):
+    """Analyze trips between two places, optionally including reverse direction."""
+    try:
+        return await analyze_place_pair(
+            start_place_id=start_place_id,
+            end_place_id=end_place_id,
+            include_reverse=bool(include_reverse),
+            timeframe=timeframe,
+            limit=limit,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
 @router.get("/api/recurring_routes/{route_id}", response_model=dict[str, Any])
 @api_route(logger)
 async def get_recurring_route(route_id: str):
@@ -101,15 +131,19 @@ async def get_recurring_route(route_id: str):
     if not route:
         raise HTTPException(status_code=404, detail="Route not found")
 
-    return {"status": "success", "route": serialize_route_detail(route)}
+    return {
+        "status": "success",
+        "route": await serialize_route_detail_with_place_links(route),
+    }
 
 
 @router.get("/api/recurring_routes/{route_id}/trips", response_model=dict[str, Any])
 @api_route(logger)
 async def list_trips_for_route(
     route_id: str,
-    limit: Annotated[int, Query(ge=1, le=200)] = 50,
+    limit: Annotated[int, Query(ge=1, le=500)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
+    include_geometry: bool = False,
 ):
     """List trips assigned to a route template."""
     try:
@@ -124,29 +158,267 @@ async def list_trips_for_route(
     query = {"recurringRouteId": oid, "invalid": {"$ne": True}}
     trips_cursor = Trip.find(query).sort("-startTime").skip(offset).limit(limit)
 
-    trips = []
+    raw_trips: list[dict[str, Any]] = []
+    place_ids: set[str] = set()
     async for trip in trips_cursor:
         data = trip.model_dump()
-        trips.append(
-            {
-                "transactionId": data.get("transactionId"),
-                "startTime": data.get("startTime"),
-                "endTime": data.get("endTime"),
-                "distance": data.get("distance"),
-                "duration": data.get("duration"),
-                "fuelConsumed": data.get("fuelConsumed"),
-                "maxSpeed": data.get("maxSpeed"),
-                "startLocation": data.get("startLocation"),
-                "destination": data.get("destination"),
-                "destinationPlaceName": data.get("destinationPlaceName"),
-            },
+        raw_trips.append(data)
+
+        start_place_id = coerce_place_id(data.get("startPlaceId"))
+        destination_place_id = coerce_place_id(data.get("destinationPlaceId"))
+        if start_place_id:
+            place_ids.add(start_place_id)
+        if destination_place_id:
+            place_ids.add(destination_place_id)
+
+    places_by_id = await resolve_places_by_ids(place_ids)
+    trips = []
+    for data in raw_trips:
+        start_place_id = coerce_place_id(data.get("startPlaceId"))
+        destination_place_id = coerce_place_id(data.get("destinationPlaceId"))
+        start_label = extract_location_label(data.get("startLocation"))
+        destination_label = (
+            str(data.get("destinationPlaceName") or "").strip()
+            or extract_location_label(data.get("destination"))
         )
+
+        start_link = build_place_link(
+            start_place_id,
+            places_by_id=places_by_id,
+            fallback_label=start_label,
+        )
+        destination_link = build_place_link(
+            destination_place_id,
+            places_by_id=places_by_id,
+            fallback_label=destination_label,
+        )
+
+        trip_data = {
+            "transactionId": data.get("transactionId"),
+            "startTime": data.get("startTime"),
+            "endTime": data.get("endTime"),
+            "distance": data.get("distance"),
+            "duration": data.get("duration"),
+            "fuelConsumed": data.get("fuelConsumed"),
+            "maxSpeed": data.get("maxSpeed"),
+            "startLocation": data.get("startLocation"),
+            "destination": data.get("destination"),
+            "destinationPlaceName": data.get("destinationPlaceName"),
+            "startPlaceId": start_place_id,
+            "destinationPlaceId": destination_place_id,
+            "startPlaceLabel": start_link.get("label") if start_link else start_label,
+            "destinationPlaceLabel": destination_link.get("label")
+            if destination_link
+            else destination_label,
+            "place_links": {
+                "start": start_link,
+                "end": destination_link,
+            },
+        }
+        if include_geometry:
+            trip_data["gps"] = data.get("matchedGps") or data.get("gps")
+        trips.append(trip_data)
 
     total = await Trip.find(query).count()
     return {
         "total": total,
         "trips": trips,
         "route": {"id": route_id, "name": route.name, "auto_name": route.auto_name},
+    }
+
+
+@router.get(
+    "/api/recurring_routes/{route_id}/analytics", response_model=dict[str, Any]
+)
+@api_route(logger)
+async def get_route_analytics(route_id: str):
+    """Return time-of-day, day-of-week, and temporal trend analytics for a route."""
+    try:
+        oid = PydanticObjectId(route_id)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail="Invalid route id") from exc
+
+    route = await RecurringRoute.get(oid)
+    if not route:
+        raise HTTPException(status_code=404, detail="Route not found")
+
+    trips_coll = Trip.get_pymongo_collection()
+    tz_expr = get_mongo_tz_expr()
+
+    # Aggregate time patterns from all trips on this route
+    pipeline = [
+        {"$match": {"recurringRouteId": oid, "invalid": {"$ne": True}}},
+        {
+            "$project": {
+                "startTime": 1,
+                "endTime": 1,
+                "distance": 1,
+                "duration": 1,
+                "fuelConsumed": 1,
+                "maxSpeed": 1,
+                "hour": {"$hour": {"date": "$startTime", "timezone": tz_expr}},
+                "dayOfWeek": {
+                    "$dayOfWeek": {"date": "$startTime", "timezone": tz_expr}
+                },
+                "yearMonth": {
+                    "$dateToString": {
+                        "format": "%Y-%m",
+                        "date": "$startTime",
+                        "timezone": tz_expr,
+                    }
+                },
+            }
+        },
+        {
+            "$facet": {
+                "byHour": [
+                    {
+                        "$group": {
+                            "_id": "$hour",
+                            "count": {"$sum": 1},
+                            "avgDistance": {"$avg": "$distance"},
+                            "avgDuration": {"$avg": "$duration"},
+                        }
+                    },
+                    {"$sort": {"_id": 1}},
+                ],
+                "byDayOfWeek": [
+                    {
+                        "$group": {
+                            "_id": "$dayOfWeek",
+                            "count": {"$sum": 1},
+                            "avgDistance": {"$avg": "$distance"},
+                            "avgDuration": {"$avg": "$duration"},
+                        }
+                    },
+                    {"$sort": {"_id": 1}},
+                ],
+                "byMonth": [
+                    {
+                        "$group": {
+                            "_id": "$yearMonth",
+                            "count": {"$sum": 1},
+                            "totalDistance": {"$sum": "$distance"},
+                            "avgDistance": {"$avg": "$distance"},
+                            "avgDuration": {"$avg": "$duration"},
+                        }
+                    },
+                    {"$sort": {"_id": 1}},
+                    {"$limit": 24},
+                ],
+                "tripTimeline": [
+                    {"$sort": {"startTime": 1}},
+                    {
+                        "$project": {
+                            "startTime": 1,
+                            "distance": 1,
+                            "duration": 1,
+                            "maxSpeed": 1,
+                        }
+                    },
+                ],
+                "stats": [
+                    {
+                        "$group": {
+                            "_id": None,
+                            "totalTrips": {"$sum": 1},
+                            "totalDistance": {"$sum": "$distance"},
+                            "totalDuration": {"$sum": "$duration"},
+                            "avgDistance": {"$avg": "$distance"},
+                            "avgDuration": {"$avg": "$duration"},
+                            "minDistance": {"$min": "$distance"},
+                            "maxDistance": {"$max": "$distance"},
+                            "minDuration": {"$min": "$duration"},
+                            "maxDuration": {"$max": "$duration"},
+                            "avgMaxSpeed": {"$avg": "$maxSpeed"},
+                            "maxMaxSpeed": {"$max": "$maxSpeed"},
+                            "totalFuel": {"$sum": "$fuelConsumed"},
+                            "avgFuel": {"$avg": "$fuelConsumed"},
+                            "firstTrip": {"$min": "$startTime"},
+                            "lastTrip": {"$max": "$startTime"},
+                        }
+                    }
+                ],
+            }
+        },
+    ]
+
+    results = await trips_coll.aggregate(pipeline).to_list(1)
+    facets = results[0] if results else {}
+
+    # Fill in all 24 hours
+    hour_map = {h["_id"]: h for h in facets.get("byHour", [])}
+    by_hour = []
+    for h in range(24):
+        entry = hour_map.get(h, {})
+        by_hour.append(
+            {
+                "hour": h,
+                "count": entry.get("count", 0),
+                "avgDistance": entry.get("avgDistance"),
+                "avgDuration": entry.get("avgDuration"),
+            }
+        )
+
+    # Fill in all 7 days (MongoDB: 1=Sun, 2=Mon, ..., 7=Sat)
+    day_names = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+    dow_map = {d["_id"]: d for d in facets.get("byDayOfWeek", [])}
+    by_day = []
+    for d in range(1, 8):
+        entry = dow_map.get(d, {})
+        by_day.append(
+            {
+                "day": d,
+                "dayName": day_names[d - 1],
+                "count": entry.get("count", 0),
+                "avgDistance": entry.get("avgDistance"),
+                "avgDuration": entry.get("avgDuration"),
+            }
+        )
+
+    # Process timeline data
+    timeline = []
+    for t in facets.get("tripTimeline", []):
+        st = t.get("startTime")
+        timeline.append(
+            {
+                "startTime": st.isoformat() if st else None,
+                "distance": t.get("distance"),
+                "duration": t.get("duration"),
+                "maxSpeed": t.get("maxSpeed"),
+            }
+        )
+
+    stats_source = facets.get("stats", [{}])[0] if facets.get("stats") else {}
+    stats_raw = dict(stats_source) if isinstance(stats_source, dict) else {}
+    stats_raw.pop("_id", None)
+    first_trip_dt = stats_raw.get("firstTrip")
+    last_trip_dt = stats_raw.get("lastTrip")
+    # Serialize dates
+    for key in ("firstTrip", "lastTrip"):
+        val = stats_raw.get(key)
+        if val:
+            stats_raw[key] = val.isoformat() if hasattr(val, "isoformat") else str(val)
+
+    # Compute trip frequency (trips per week on average)
+    first_trip = first_trip_dt if isinstance(first_trip_dt, datetime) else None
+    last_trip = last_trip_dt if isinstance(last_trip_dt, datetime) else None
+    trips_per_week = None
+    if first_trip and last_trip:
+        span_days = (last_trip - first_trip).total_seconds() / 86400
+        total_trips = stats_raw.get("totalTrips", 0)
+        if span_days > 0 and total_trips > 1:
+            trips_per_week = round((total_trips / span_days) * 7, 2)
+
+    return {
+        "status": "success",
+        "route_id": route_id,
+        "byHour": by_hour,
+        "byDayOfWeek": by_day,
+        "byMonth": facets.get("byMonth", []),
+        "timeline": timeline,
+        "stats": stats_raw,
+        "tripsPerWeek": trips_per_week,
     }
 
 
@@ -193,7 +465,10 @@ async def patch_recurring_route(route_id: str, payload: PatchRecurringRouteReque
     route.updated_at = datetime.now(UTC)
     await route.save()
 
-    return {"status": "success", "route": serialize_route_detail(route)}
+    return {
+        "status": "success",
+        "route": await serialize_route_detail_with_place_links(route),
+    }
 
 
 async def _find_active_build_job() -> Job | None:

@@ -48,6 +48,7 @@ class VisitsPageController {
     this.suggestionPage = 1;
     this.suggestionPageSize = 6;
     this.suggestionPreviewMaps = new Map();
+    this.hasProcessedPlaceDeepLink = false;
 
     // DOM Elements
     this.elements = {};
@@ -193,6 +194,9 @@ class VisitsPageController {
 
       // Load other stops
       await this.loadOtherStops();
+
+      // Deep-link to a place once after initial data is available.
+      this.processInitialPlaceDeepLink();
     } catch (error) {
       console.error("Error loading visits data:", error);
       this.showNotification("Error loading data. Please try refreshing.", "error");
@@ -594,6 +598,127 @@ class VisitsPageController {
     }
 
     return patterns.length > 0 ? patterns : ["A place you visit"];
+  }
+
+  processInitialPlaceDeepLink() {
+    if (this.hasProcessedPlaceDeepLink) {
+      return;
+    }
+    this.hasProcessedPlaceDeepLink = true;
+
+    const { placeId, placeName } = this.getPlaceDeepLinkParams();
+    if (!placeId && !placeName) {
+      return;
+    }
+
+    const matchedPlace = this.findPlaceForDeepLink({ placeId, placeName });
+    if (!matchedPlace) {
+      return;
+    }
+
+    this.focusPlace(matchedPlace);
+
+    const matchedPlaceId = this.getPlaceIdentifier(matchedPlace);
+    if (!matchedPlaceId) {
+      return;
+    }
+    void this.showPlaceDetail(matchedPlaceId);
+  }
+
+  getPlaceDeepLinkParams() {
+    const locationSearch = globalThis.location?.search || "";
+    const query = new URLSearchParams(locationSearch);
+
+    return {
+      placeId: (query.get("place") || "").trim(),
+      placeName: (query.get("place_name") || "").trim(),
+    };
+  }
+
+  findPlaceForDeepLink({ placeId, placeName }) {
+    const byId = this.findPlaceById(placeId);
+    if (byId) {
+      return byId;
+    }
+    return this.findBestPlaceNameMatch(placeName);
+  }
+
+  findPlaceById(placeId) {
+    const normalizedPlaceId = this.normalizeDeepLinkValue(placeId);
+    if (!normalizedPlaceId) {
+      return null;
+    }
+
+    return (
+      this.places.find(
+        (place) =>
+          this.normalizeDeepLinkValue(this.getPlaceIdentifier(place)) === normalizedPlaceId
+      ) || null
+    );
+  }
+
+  findBestPlaceNameMatch(placeName) {
+    const normalizedQuery = this.normalizeDeepLinkValue(placeName);
+    if (!normalizedQuery) {
+      return null;
+    }
+
+    let bestPlace = null;
+    let bestScore = 0;
+
+    this.places.forEach((place) => {
+      const normalizedName = this.normalizeDeepLinkValue(place?.name);
+      if (!normalizedName) {
+        return;
+      }
+
+      const score = this.scorePlaceNameMatch(normalizedName, normalizedQuery);
+      if (score > bestScore) {
+        bestScore = score;
+        bestPlace = place;
+      }
+    });
+
+    return bestPlace;
+  }
+
+  scorePlaceNameMatch(candidateName, queryName) {
+    if (candidateName === queryName) {
+      return 300;
+    }
+    if (candidateName.startsWith(queryName)) {
+      return 200;
+    }
+    if (candidateName.includes(queryName)) {
+      return 100;
+    }
+    if (queryName.includes(candidateName)) {
+      return 50;
+    }
+    return 0;
+  }
+
+  focusPlace(place) {
+    this.visitsManager?.mapController?.animateToPlace?.(place);
+
+    const placeId = this.getPlaceIdentifier(place);
+    if (!placeId) {
+      return;
+    }
+
+    const matchingCard = Array.from(document.querySelectorAll("[data-place-id]")).find(
+      (card) => card?.dataset?.placeId === placeId
+    );
+    matchingCard?.scrollIntoView?.({ behavior: "smooth", block: "center" });
+  }
+
+  normalizeDeepLinkValue(value) {
+    return value ? String(value).trim().toLowerCase() : "";
+  }
+
+  getPlaceIdentifier(place) {
+    const placeId = place?.id ?? place?._id;
+    return placeId === undefined || placeId === null ? "" : String(placeId);
   }
 
   // Helper methods

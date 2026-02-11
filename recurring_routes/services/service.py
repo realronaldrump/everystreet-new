@@ -3,12 +3,25 @@
 from __future__ import annotations
 
 import re
+from collections import Counter
 from typing import Any
 
+from beanie import PydanticObjectId
+
 from core.serialization import serialize_datetime
-from db.models import RecurringRoute
+from core.spatial import GeometryService
+from db.models import Place, RecurringRoute, Trip
+from recurring_routes.services.fingerprint import extract_display_label
+
+try:
+    from shapely.geometry import Point as ShapelyPoint
+    from shapely.geometry import shape as shapely_shape
+except Exception:  # pragma: no cover - shapely may be unavailable in some envs
+    ShapelyPoint = None
+    shapely_shape = None
 
 _HEX_COLOR_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
+_PLACE_POINT_TOLERANCE_METERS = 120.0
 
 
 def normalize_hex_color(value: str | None) -> str | None:
@@ -45,10 +58,15 @@ def serialize_route_summary(route: RecurringRoute) -> dict[str, Any]:
         "is_hidden": bool(route.is_hidden),
         "color": route.color,
         "preview_svg_path": route.preview_svg_path,
+        "first_start_time": serialize_datetime(route.first_start_time),
         "last_start_time": serialize_datetime(route.last_start_time),
         "updated_at": serialize_datetime(route.updated_at),
         "distance_miles_median": route.distance_miles_median,
+        "distance_miles_avg": route.distance_miles_avg,
         "duration_sec_median": route.duration_sec_median,
+        "duration_sec_avg": route.duration_sec_avg,
+        "fuel_gal_avg": route.fuel_gal_avg,
+        "cost_usd_avg": route.cost_usd_avg,
     }
 
 
@@ -59,4 +77,189 @@ def serialize_route_detail(route: RecurringRoute) -> dict[str, Any]:
     data["first_start_time"] = serialize_datetime(route.first_start_time)
     data["last_start_time"] = serialize_datetime(route.last_start_time)
     data["updated_at"] = serialize_datetime(route.updated_at)
+    # Compute days active span
+    if route.first_start_time and route.last_start_time:
+        span = (route.last_start_time - route.first_start_time).days
+        data["days_active"] = max(span, 1)
+    else:
+        data["days_active"] = None
+    return data
+
+
+def coerce_place_id(value: Any) -> str | None:
+    if value is None:
+        return None
+    cleaned = str(value).strip()
+    return cleaned if cleaned else None
+
+
+def extract_point_from_geojson_point(value: Any) -> list[float] | None:
+    if not isinstance(value, dict):
+        return None
+    if value.get("type") != "Point":
+        return None
+    valid, pair = GeometryService.validate_coordinate_pair(value.get("coordinates") or [])
+    return pair if valid and pair else None
+
+
+def extract_location_label(value: Any) -> str | None:
+    return extract_display_label(value)
+
+
+def _point_matches_place_geometry(place: Place, point: list[float]) -> bool:
+    geometry = place.geometry
+    if not isinstance(geometry, dict):
+        return False
+
+    geom_type = geometry.get("type")
+    if geom_type == "Point":
+        valid, place_point = GeometryService.validate_coordinate_pair(
+            geometry.get("coordinates") or [],
+        )
+        if not valid or not place_point:
+            return False
+        dist_m = GeometryService.haversine_distance(
+            point[0],
+            point[1],
+            place_point[0],
+            place_point[1],
+            unit="meters",
+        )
+        return dist_m <= _PLACE_POINT_TOLERANCE_METERS
+
+    if not ShapelyPoint or not shapely_shape:
+        return False
+
+    try:
+        geom = shapely_shape(geometry)
+        pt = ShapelyPoint(point[0], point[1])
+    except Exception:
+        return False
+
+    try:
+        return bool(geom.covers(pt))
+    except Exception:
+        return False
+
+
+def find_place_id_for_point(point: Any, places: list[Place]) -> str | None:
+    valid, pair = GeometryService.validate_coordinate_pair(point if isinstance(point, list | tuple) else [])
+    if not valid or not pair:
+        return None
+
+    for place in places:
+        if not place.id:
+            continue
+        if _point_matches_place_geometry(place, pair):
+            return str(place.id)
+
+    return None
+
+
+async def resolve_places_by_ids(place_ids: set[str]) -> dict[str, Place]:
+    oids: list[PydanticObjectId] = []
+    for raw in place_ids:
+        place_id = coerce_place_id(raw)
+        if not place_id:
+            continue
+        try:
+            oids.append(PydanticObjectId(place_id))
+        except Exception:
+            continue
+
+    if not oids:
+        return {}
+
+    places = await Place.find({"_id": {"$in": oids}}).to_list()
+    return {
+        str(place.id): place
+        for place in places
+        if place.id is not None
+    }
+
+
+def build_place_link(
+    place_id: str | None,
+    *,
+    places_by_id: dict[str, Place],
+    fallback_label: str | None = None,
+) -> dict[str, Any] | None:
+    cleaned_id = coerce_place_id(place_id)
+    if not cleaned_id:
+        return None
+
+    place = places_by_id.get(cleaned_id)
+    if not place or not place.id:
+        return None
+
+    label = (place.name or "").strip() or (fallback_label or "").strip() or cleaned_id
+    return {
+        "id": cleaned_id,
+        "name": place.name,
+        "label": label,
+        "href": f"/places/{cleaned_id}",
+    }
+
+
+async def resolve_route_place_links(route: RecurringRoute) -> dict[str, Any]:
+    links: dict[str, Any] = {"start": None, "end": None}
+    if not route.id:
+        return links
+
+    trips = (
+        await Trip.find({"recurringRouteId": route.id, "invalid": {"$ne": True}})
+        .sort("-startTime")
+        .limit(300)
+        .to_list()
+    )
+
+    start_counts: Counter[str] = Counter()
+    end_counts: Counter[str] = Counter()
+    place_ids: set[str] = set()
+
+    for trip in trips:
+        trip_data = trip.model_dump()
+        start_id = coerce_place_id(trip_data.get("startPlaceId"))
+        end_id = coerce_place_id(trip_data.get("destinationPlaceId"))
+        if start_id:
+            start_counts[start_id] += 1
+            place_ids.add(start_id)
+        if end_id:
+            end_counts[end_id] += 1
+            place_ids.add(end_id)
+
+    start_place_id = start_counts.most_common(1)[0][0] if start_counts else None
+    end_place_id = end_counts.most_common(1)[0][0] if end_counts else None
+
+    if (
+        (not start_place_id and isinstance(route.start_centroid, list) and route.start_centroid)
+        or (not end_place_id and isinstance(route.end_centroid, list) and route.end_centroid)
+    ):
+        places = await Place.find_all().to_list()
+        if not start_place_id:
+            start_place_id = find_place_id_for_point(route.start_centroid, places)
+        if not end_place_id:
+            end_place_id = find_place_id_for_point(route.end_centroid, places)
+        if start_place_id:
+            place_ids.add(start_place_id)
+        if end_place_id:
+            place_ids.add(end_place_id)
+
+    places_by_id = await resolve_places_by_ids(place_ids)
+    links["start"] = build_place_link(
+        start_place_id,
+        places_by_id=places_by_id,
+        fallback_label=route.start_label,
+    )
+    links["end"] = build_place_link(
+        end_place_id,
+        places_by_id=places_by_id,
+        fallback_label=route.end_label,
+    )
+    return links
+
+
+async def serialize_route_detail_with_place_links(route: RecurringRoute) -> dict[str, Any]:
+    data = serialize_route_detail(route)
+    data["place_links"] = await resolve_route_place_links(route)
     return data

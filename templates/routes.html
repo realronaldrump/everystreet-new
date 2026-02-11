@@ -47,6 +47,24 @@ Recurring Routes - Every Street
           <p class="routes-subtitle">
           Automatically grouped from your stored trips. Rename, pin, hide, and explore the patterns that emerge.
           </p>
+          <div class="routes-hero-stats" id="routes-hero-stats">
+            <div class="routes-hero-stat-card">
+              <span class="routes-hero-stat-label">Routes</span>
+              <span class="routes-hero-stat-value" id="hero-stat-routes">0</span>
+            </div>
+            <div class="routes-hero-stat-card">
+              <span class="routes-hero-stat-label">Trips</span>
+              <span class="routes-hero-stat-value" id="hero-stat-trips">0</span>
+            </div>
+            <div class="routes-hero-stat-card">
+              <span class="routes-hero-stat-label">Miles</span>
+              <span class="routes-hero-stat-value" id="hero-stat-miles">0</span>
+            </div>
+            <div class="routes-hero-stat-card">
+              <span class="routes-hero-stat-label">Top route</span>
+              <span class="routes-hero-stat-value" id="hero-stat-freq">--</span>
+            </div>
+          </div>
         </div>
 
         <div class="routes-hero-right">
@@ -146,6 +164,164 @@ All vehicles
         </div>
       </section>
 
+      <!-- All Paths Explorer -->
+      <section class="routes-explorer" id="routes-explorer" data-stagger>
+        <div class="routes-explorer-header">
+          <div>
+            <h2 class="routes-explorer-title">
+            All Paths Explorer
+            </h2>
+            <p class="routes-explorer-subtitle">
+            Compare custom place pairs, including reverse direction, to inspect route variants over time.
+            </p>
+          </div>
+        </div>
+
+        <div class="routes-explorer-controls">
+          <div class="routes-explorer-control">
+            <label for="routes-explorer-start-place" class="routes-filter-label">
+Start place
+            </label>
+            <select id="routes-explorer-start-place" class="routes-filter-select routes-explorer-select">
+              <option value="">
+Choose a place
+              </option>
+            </select>
+          </div>
+          <div class="routes-explorer-control">
+            <label for="routes-explorer-end-place" class="routes-filter-label">
+End place
+            </label>
+            <select id="routes-explorer-end-place" class="routes-filter-select routes-explorer-select">
+              <option value="">
+Choose a place
+              </option>
+            </select>
+          </div>
+          <label class="routes-toggle routes-explorer-toggle" for="routes-explorer-include-reverse">
+            <input type="checkbox" id="routes-explorer-include-reverse" />
+            <span class="routes-toggle-ui" aria-hidden="true"></span>
+            <span class="routes-toggle-text">Include reverse direction</span>
+          </label>
+          <div class="routes-explorer-timeframe" role="radiogroup" aria-label="Explorer timeframe">
+            <label class="routes-timeframe-option" for="routes-explorer-timeframe-90d">
+              <input type="radio"
+                     id="routes-explorer-timeframe-90d"
+                     name="routes-explorer-timeframe"
+                     value="90d"
+                     checked />
+              <span>Last 90d</span>
+            </label>
+            <label class="routes-timeframe-option" for="routes-explorer-timeframe-all">
+              <input type="radio"
+                     id="routes-explorer-timeframe-all"
+                     name="routes-explorer-timeframe"
+                     value="all" />
+              <span>All time</span>
+            </label>
+          </div>
+          <button type="button" class="btn btn-primary routes-explorer-run-btn" id="routes-explorer-run-btn">
+            <i class="fas fa-compass me-2" aria-hidden="true"></i>
+          Analyze pair
+          </button>
+        </div>
+
+        <div class="routes-explorer-status" id="routes-explorer-status" aria-live="polite">
+        Pick two places to run pair analysis.
+        </div>
+
+        <div class="routes-explorer-results">
+          <div class="routes-explorer-summary-grid">
+            <article class="routes-summary-kpi">
+              <span class="routes-summary-kpi-label">Total trips</span>
+              <span class="routes-summary-kpi-value" id="routes-explorer-kpi-trips">--</span>
+            </article>
+            <article class="routes-summary-kpi">
+              <span class="routes-summary-kpi-label">Variants</span>
+              <span class="routes-summary-kpi-value" id="routes-explorer-kpi-variants">--</span>
+            </article>
+            <article class="routes-summary-kpi">
+              <span class="routes-summary-kpi-label">Top variant share</span>
+              <span class="routes-summary-kpi-value" id="routes-explorer-kpi-top-share">--</span>
+            </article>
+            <article class="routes-summary-kpi">
+              <span class="routes-summary-kpi-label">Span</span>
+              <span class="routes-summary-kpi-value" id="routes-explorer-kpi-span">--</span>
+            </article>
+          </div>
+
+          <div class="routes-explorer-panels">
+            <article class="routes-chart-panel routes-chart-panel-lg">
+              <div class="routes-chart-panel-head">
+                <h3 class="routes-chart-panel-title">
+                Variant share
+                </h3>
+              </div>
+              <div class="routes-chart-wrap">
+                <canvas id="routes-explorer-variant-share-chart" class="routes-chart-canvas d-none"></canvas>
+                <div class="routes-chart-empty" id="routes-explorer-variant-share-empty">
+                Run analysis to see variant share.
+                </div>
+              </div>
+              <div class="routes-variant-share-list" id="routes-explorer-variant-share-list">
+              </div>
+            </article>
+
+            <article class="routes-chart-panel">
+              <div class="routes-chart-panel-head">
+                <h3 class="routes-chart-panel-title">
+                Monthly trips
+                </h3>
+              </div>
+              <div class="routes-chart-wrap">
+                <canvas id="routes-explorer-chart-monthly" class="routes-chart-canvas d-none"></canvas>
+                <div class="routes-chart-empty" id="routes-explorer-chart-monthly-empty">
+                No monthly data yet.
+                </div>
+              </div>
+            </article>
+
+            <article class="routes-chart-panel">
+              <div class="routes-chart-panel-head">
+                <h3 class="routes-chart-panel-title">
+                Hourly trips
+                </h3>
+              </div>
+              <div class="routes-chart-wrap">
+                <canvas id="routes-explorer-chart-hour" class="routes-chart-canvas d-none"></canvas>
+                <div class="routes-chart-empty" id="routes-explorer-chart-hour-empty">
+                No hourly data yet.
+                </div>
+              </div>
+            </article>
+
+            <article class="routes-chart-panel">
+              <div class="routes-chart-panel-head">
+                <h3 class="routes-chart-panel-title">
+                Day of week
+                </h3>
+              </div>
+              <div class="routes-chart-wrap">
+                <canvas id="routes-explorer-chart-day" class="routes-chart-canvas d-none"></canvas>
+                <div class="routes-chart-empty" id="routes-explorer-chart-day-empty">
+                No day-of-week data yet.
+                </div>
+              </div>
+            </article>
+          </div>
+
+          <article class="routes-explorer-variants-card">
+            <div class="routes-chart-panel-head">
+              <h3 class="routes-chart-panel-title">
+              Route variants
+              </h3>
+            </div>
+            <div class="routes-explorer-variants-list" id="routes-explorer-variants-list">
+            </div>
+          </article>
+        </div>
+      </section>
+
       <!-- Results -->
       <section class="routes-results" data-stagger>
         <div class="routes-results-header">
@@ -219,6 +395,14 @@ Route
                   <span class="badge-dot" aria-hidden="true"></span>
                   <span id="route-modal-map-badge-text">Pinned</span>
                 </div>
+                <div class="routes-modal-map-controls">
+                  <button type="button"
+                          class="btn btn-sm btn-outline-light routes-map-toggle-btn"
+                          id="route-modal-show-all-trips">
+                    <i class="fas fa-layer-group me-2" aria-hidden="true"></i>
+                  Show all trips
+                  </button>
+                </div>
               </div>
               <div class="col-lg-4 routes-modal-panel">
                 <div class="routes-modal-panel-inner">
@@ -241,35 +425,144 @@ Name
                     </div>
                   </div>
 
-                  <div class="routes-modal-stats" id="route-modal-stats">
-                    <div class="routes-stat">
-                      <span class="routes-stat-label">Trips</span>
-                      <span class="routes-stat-value" id="route-stat-trips">--</span>
-                    </div>
-                    <div class="routes-stat">
-                      <span class="routes-stat-label">Median distance</span>
-                      <span class="routes-stat-value" id="route-stat-distance">--</span>
-                    </div>
-                    <div class="routes-stat">
-                      <span class="routes-stat-label">Median duration</span>
-                      <span class="routes-stat-value" id="route-stat-duration">--</span>
-                    </div>
-                    <div class="routes-stat">
-                      <span class="routes-stat-label">Last taken</span>
-                      <span class="routes-stat-value" id="route-stat-last">--</span>
-                    </div>
+                  <div class="routes-modal-tabs" role="tablist" aria-label="Route details tabs">
+                    <button type="button"
+                            class="routes-modal-tab active"
+                            data-tab="overview">
+                    Overview
+                    </button>
+                    <button type="button" class="routes-modal-tab" data-tab="analytics">
+                    Analytics
+                    </button>
+                    <button type="button" class="routes-modal-tab" data-tab="trips">
+                    Trips
+                    </button>
                   </div>
 
-                  <div class="routes-modal-trips">
-                    <div class="routes-modal-trips-header">
+                  <section class="routes-modal-tab-content active" data-tab-content="overview">
+                    <div class="routes-modal-stats" id="route-modal-stats">
+                      <div class="routes-stat">
+                        <span class="routes-stat-label">Trips</span>
+                        <span class="routes-stat-value" id="route-stat-trips">--</span>
+                      </div>
+                      <div class="routes-stat">
+                        <span class="routes-stat-label">Trips / week</span>
+                        <span class="routes-stat-value" id="route-stat-frequency">--</span>
+                      </div>
+                      <div class="routes-stat">
+                        <span class="routes-stat-label">Avg distance</span>
+                        <span class="routes-stat-value" id="route-stat-distance">--</span>
+                      </div>
+                      <div class="routes-stat">
+                        <span class="routes-stat-label">Avg duration</span>
+                        <span class="routes-stat-value" id="route-stat-duration">--</span>
+                      </div>
+                      <div class="routes-stat">
+                        <span class="routes-stat-label">First trip</span>
+                        <span class="routes-stat-value" id="route-stat-first">--</span>
+                      </div>
+                      <div class="routes-stat">
+                        <span class="routes-stat-label">Last trip</span>
+                        <span class="routes-stat-value" id="route-stat-last">--</span>
+                      </div>
+                      <div class="routes-stat">
+                        <span class="routes-stat-label">Total miles</span>
+                        <span class="routes-stat-value" id="route-stat-total-dist">--</span>
+                      </div>
+                      <div class="routes-stat">
+                        <span class="routes-stat-label">Total time</span>
+                        <span class="routes-stat-value" id="route-stat-total-time">--</span>
+                      </div>
+                      <div class="routes-stat">
+                        <span class="routes-stat-label">Fuel avg</span>
+                        <span class="routes-stat-value" id="route-stat-fuel">--</span>
+                      </div>
+                      <div class="routes-stat">
+                        <span class="routes-stat-label">Max speed</span>
+                        <span class="routes-stat-value" id="route-stat-speed">--</span>
+                      </div>
+                      <div class="routes-stat">
+                        <span class="routes-stat-label">Cost avg</span>
+                        <span class="routes-stat-value" id="route-stat-cost">--</span>
+                      </div>
+                    </div>
+
+                    <div class="routes-modal-places" id="route-modal-places">
                       <h6 class="routes-modal-section-title">
-                      Trips on this route
+                      Connected places
                       </h6>
-                      <span class="routes-modal-trips-count" id="route-modal-trips-count">0</span>
+                      <div class="routes-connected-places" id="route-places-list">
+                      </div>
                     </div>
-                    <div class="routes-modal-trips-list" id="route-modal-trips-list">
+                  </section>
+
+                  <section class="routes-modal-tab-content" data-tab-content="analytics">
+                    <div class="routes-chart-panel">
+                      <div class="routes-chart-panel-head">
+                        <h6 class="routes-chart-panel-title">
+                        Monthly trips
+                        </h6>
+                      </div>
+                      <div class="routes-chart-wrap">
+                        <canvas id="route-chart-monthly" class="routes-chart-canvas d-none"></canvas>
+                        <div class="routes-chart-empty" id="route-chart-monthly-empty">
+                        Not enough monthly data for this route.
+                        </div>
+                      </div>
                     </div>
-                  </div>
+                    <div class="routes-chart-panel">
+                      <div class="routes-chart-panel-head">
+                        <h6 class="routes-chart-panel-title">
+                        Hourly trips
+                        </h6>
+                      </div>
+                      <div class="routes-chart-wrap">
+                        <canvas id="route-chart-hour" class="routes-chart-canvas d-none"></canvas>
+                        <div class="routes-chart-empty" id="route-chart-hour-empty">
+                        Not enough hourly data for this route.
+                        </div>
+                      </div>
+                    </div>
+                    <div class="routes-chart-panel">
+                      <div class="routes-chart-panel-head">
+                        <h6 class="routes-chart-panel-title">
+                        Day of week
+                        </h6>
+                      </div>
+                      <div class="routes-chart-wrap">
+                        <canvas id="route-chart-dow" class="routes-chart-canvas d-none"></canvas>
+                        <div class="routes-chart-empty" id="route-chart-dow-empty">
+                        Not enough day-of-week data for this route.
+                        </div>
+                      </div>
+                    </div>
+                    <div class="routes-chart-panel">
+                      <div class="routes-chart-panel-head">
+                        <h6 class="routes-chart-panel-title">
+                        Distance and duration trend
+                        </h6>
+                      </div>
+                      <div class="routes-chart-wrap">
+                        <canvas id="route-chart-distance-trend" class="routes-chart-canvas d-none"></canvas>
+                        <div class="routes-chart-empty" id="route-chart-distance-trend-empty">
+                        Not enough trend data for this route.
+                        </div>
+                      </div>
+                    </div>
+                  </section>
+
+                  <section class="routes-modal-tab-content" data-tab-content="trips">
+                    <div class="routes-modal-trips">
+                      <div class="routes-modal-trips-header">
+                        <h6 class="routes-modal-section-title">
+                        Trips on this route
+                        </h6>
+                        <span class="routes-modal-trips-count" id="route-modal-trips-count">0</span>
+                      </div>
+                      <div class="routes-modal-trips-list" id="route-modal-trips-list">
+                      </div>
+                    </div>
+                  </section>
 
                   <div class="routes-modal-footer">
                     <a class="btn btn-outline-secondary w-100"
