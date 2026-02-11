@@ -807,10 +807,8 @@ const layerManager = {
       }
 
       layerInfo._heatmapRebuildInProgress = true;
-      const sourceId = `${layerName}-source`;
-      const layerId = `${layerName}-layer`;
-
-      this._updateHeatmapLayer(layerName, layerInfo.layer, sourceId, layerId, layerInfo)
+      // Rebuild via the normal update queue to avoid concurrent source/layer races.
+      this.updateMapLayer(layerName, layerInfo.layer)
         .catch((error) => {
           console.warn(`Failed to rebuild heatmap layer ${layerName}:`, error);
         })

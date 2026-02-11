@@ -59,6 +59,36 @@ const dataManager = {
   },
 
   /**
+   * Convert app-local API paths to absolute URLs for map worker requests.
+   * Some worker contexts cannot resolve relative request URLs reliably.
+   * @private
+   */
+  _toAbsoluteApiUrl(url) {
+    if (typeof url !== "string" || !url) {
+      return url;
+    }
+
+    if (/^[a-z][a-z\d+\-.]*:/i.test(url) || url.startsWith("//")) {
+      return url;
+    }
+
+    const origin =
+      typeof window !== "undefined" && window.location?.origin
+        ? window.location.origin
+        : null;
+
+    if (!origin) {
+      return url;
+    }
+
+    try {
+      return new URL(url, origin).toString();
+    } catch {
+      return url;
+    }
+  },
+
+  /**
    * Fetch trips data and update the trips layer
    * @returns {Promise<Object|null>} Vector config or GeoJSON FeatureCollection (legacy) or null
    */
@@ -83,7 +113,8 @@ const dataManager = {
         if (version) {
           params.set("v", version);
         }
-        const tileTemplate = `${CONFIG.API.tripTiles}/{z}/{x}/{y}.pbf?${params}`;
+        const tileBase = this._toAbsoluteApiUrl(CONFIG.API.tripTiles);
+        const tileTemplate = `${tileBase}/{z}/{x}/{y}.pbf?${params.toString()}`;
         const vectorConfig = {
           kind: "vector",
           tiles: [tileTemplate],
@@ -173,7 +204,8 @@ const dataManager = {
         if (version) {
           params.set("v", version);
         }
-        const tileTemplate = `${CONFIG.API.matchedTripTiles}/{z}/{x}/{y}.pbf?${params}`;
+        const tileBase = this._toAbsoluteApiUrl(CONFIG.API.matchedTripTiles);
+        const tileTemplate = `${tileBase}/{z}/{x}/{y}.pbf?${params.toString()}`;
         const vectorConfig = {
           kind: "vector",
           tiles: [tileTemplate],
