@@ -47,7 +47,21 @@ Recurring Routes - Every Street
           <p class="routes-subtitle">
           Automatically grouped from your stored trips. Rename, pin, hide, and explore the patterns that emerge.
           </p>
-          <div class="routes-hero-stats" id="routes-hero-stats">
+          <div class="routes-hero-insights" id="routes-hero-insights">
+            <div class="routes-insight-tile">
+              <span class="routes-insight-icon"><i class="fas fa-dna" aria-hidden="true"></i></span>
+              <span class="routes-insight-text" id="hero-insight-dna">Analyzing your routes...</span>
+            </div>
+            <div class="routes-insight-tile accent">
+              <span class="routes-insight-icon"><i class="fas fa-lightbulb" aria-hidden="true"></i></span>
+              <span class="routes-insight-text" id="hero-insight-spotlight">Loading insights...</span>
+            </div>
+          </div>
+          <button type="button" class="routes-stats-toggle" id="routes-stats-toggle" aria-expanded="false">
+            <span>View stats</span>
+            <i class="fas fa-chevron-down" aria-hidden="true"></i>
+          </button>
+          <div class="routes-hero-stats collapsed" id="routes-hero-stats">
             <div class="routes-hero-stat-card">
               <span class="routes-hero-stat-label">Routes</span>
               <span class="routes-hero-stat-value" id="hero-stat-routes">0</span>
@@ -155,6 +169,18 @@ All vehicles
               </select>
             </div>
 
+            <div class="routes-filter">
+              <label for="routes-sort" class="routes-filter-label">
+Sort by
+              </label>
+              <select id="routes-sort" class="routes-filter-select">
+                <option value="trips" selected>Most trips</option>
+                <option value="recent">Recently active</option>
+                <option value="distance">Longest distance</option>
+                <option value="alpha">Alphabetical</option>
+              </select>
+            </div>
+
             <label class="routes-toggle">
               <input type="checkbox" id="routes-include-hidden" />
               <span class="routes-toggle-ui" aria-hidden="true"></span>
@@ -166,6 +192,20 @@ All vehicles
 
       <!-- All Paths Explorer -->
       <section class="routes-explorer" id="routes-explorer" data-stagger>
+        <div class="routes-explorer-teaser" id="routes-explorer-teaser">
+          <div class="routes-explorer-teaser-left">
+            <i class="fas fa-compass" aria-hidden="true"></i>
+            <div>
+              <span class="routes-explorer-teaser-title">All Paths Explorer</span>
+              <span class="routes-explorer-teaser-desc">Compare any two places to discover route patterns</span>
+            </div>
+          </div>
+          <button type="button" class="routes-explorer-expand-btn" id="routes-explorer-expand-btn">
+            <span>Open Explorer</span>
+            <i class="fas fa-chevron-down" aria-hidden="true"></i>
+          </button>
+        </div>
+        <div class="routes-explorer-body" id="routes-explorer-body" style="display:none">
         <div class="routes-explorer-header">
           <div>
             <h2 class="routes-explorer-title">
@@ -231,6 +271,7 @@ Choose a place
         </div>
 
         <div class="routes-explorer-results">
+          <div class="routes-explorer-insight-sentence" id="routes-explorer-insight-sentence"></div>
           <div class="routes-explorer-summary-grid">
             <article class="routes-summary-kpi">
               <span class="routes-summary-kpi-label">Total trips</span>
@@ -320,6 +361,7 @@ Choose a place
             </div>
           </article>
         </div>
+        </div><!-- /routes-explorer-body -->
       </section>
 
       <!-- Results -->
@@ -440,52 +482,78 @@ Name
                   </div>
 
                   <section class="routes-modal-tab-content active" data-tab-content="overview">
-                    <div class="routes-modal-stats" id="route-modal-stats">
-                      <div class="routes-stat">
-                        <span class="routes-stat-label">Trips</span>
-                        <span class="routes-stat-value" id="route-stat-trips">--</span>
+                    <div class="route-insight-banner" id="route-insight-banner">
+                      <div class="route-insight-banner-tag" id="route-insight-tag">Route</div>
+                      <div class="route-insight-banner-sentence" id="route-insight-sentence">Loading insights...</div>
+                    </div>
+
+                    <div class="route-key-facts">
+                      <div class="route-key-fact">
+                        <span class="route-key-fact-icon"><i class="fas fa-repeat" aria-hidden="true"></i></span>
+                        <span class="route-key-fact-value" id="route-fact-frequency">--</span>
+                        <span class="route-key-fact-label">Trip frequency</span>
                       </div>
-                      <div class="routes-stat">
-                        <span class="routes-stat-label">Trips / week</span>
-                        <span class="routes-stat-value" id="route-stat-frequency">--</span>
+                      <div class="route-key-fact">
+                        <span class="route-key-fact-icon"><i class="fas fa-ruler-combined" aria-hidden="true"></i></span>
+                        <span class="route-key-fact-value" id="route-fact-distance">--</span>
+                        <span class="route-key-fact-label">Typical trip</span>
                       </div>
-                      <div class="routes-stat">
-                        <span class="routes-stat-label">Avg distance</span>
-                        <span class="routes-stat-value" id="route-stat-distance">--</span>
-                      </div>
-                      <div class="routes-stat">
-                        <span class="routes-stat-label">Avg duration</span>
-                        <span class="routes-stat-value" id="route-stat-duration">--</span>
-                      </div>
-                      <div class="routes-stat">
-                        <span class="routes-stat-label">First trip</span>
-                        <span class="routes-stat-value" id="route-stat-first">--</span>
-                      </div>
-                      <div class="routes-stat">
-                        <span class="routes-stat-label">Last trip</span>
-                        <span class="routes-stat-value" id="route-stat-last">--</span>
-                      </div>
-                      <div class="routes-stat">
-                        <span class="routes-stat-label">Total miles</span>
-                        <span class="routes-stat-value" id="route-stat-total-dist">--</span>
-                      </div>
-                      <div class="routes-stat">
-                        <span class="routes-stat-label">Total time</span>
-                        <span class="routes-stat-value" id="route-stat-total-time">--</span>
-                      </div>
-                      <div class="routes-stat">
-                        <span class="routes-stat-label">Fuel avg</span>
-                        <span class="routes-stat-value" id="route-stat-fuel">--</span>
-                      </div>
-                      <div class="routes-stat">
-                        <span class="routes-stat-label">Max speed</span>
-                        <span class="routes-stat-value" id="route-stat-speed">--</span>
-                      </div>
-                      <div class="routes-stat">
-                        <span class="routes-stat-label">Cost avg</span>
-                        <span class="routes-stat-value" id="route-stat-cost">--</span>
+                      <div class="route-key-fact">
+                        <span class="route-key-fact-icon"><i class="fas fa-chart-line" aria-hidden="true"></i></span>
+                        <span class="route-key-fact-value" id="route-fact-consistency">--</span>
+                        <span class="route-key-fact-label">Consistency</span>
                       </div>
                     </div>
+
+                    <details class="route-details-expand">
+                      <summary>All statistics</summary>
+                      <div class="routes-modal-stats" id="route-modal-stats">
+                        <div class="routes-stat">
+                          <span class="routes-stat-label">Trips</span>
+                          <span class="routes-stat-value" id="route-stat-trips">--</span>
+                        </div>
+                        <div class="routes-stat">
+                          <span class="routes-stat-label">Trips / week</span>
+                          <span class="routes-stat-value" id="route-stat-frequency">--</span>
+                        </div>
+                        <div class="routes-stat">
+                          <span class="routes-stat-label">Avg distance</span>
+                          <span class="routes-stat-value" id="route-stat-distance">--</span>
+                        </div>
+                        <div class="routes-stat">
+                          <span class="routes-stat-label">Avg duration</span>
+                          <span class="routes-stat-value" id="route-stat-duration">--</span>
+                        </div>
+                        <div class="routes-stat">
+                          <span class="routes-stat-label">First trip</span>
+                          <span class="routes-stat-value" id="route-stat-first">--</span>
+                        </div>
+                        <div class="routes-stat">
+                          <span class="routes-stat-label">Last trip</span>
+                          <span class="routes-stat-value" id="route-stat-last">--</span>
+                        </div>
+                        <div class="routes-stat">
+                          <span class="routes-stat-label">Total miles</span>
+                          <span class="routes-stat-value" id="route-stat-total-dist">--</span>
+                        </div>
+                        <div class="routes-stat">
+                          <span class="routes-stat-label">Total time</span>
+                          <span class="routes-stat-value" id="route-stat-total-time">--</span>
+                        </div>
+                        <div class="routes-stat">
+                          <span class="routes-stat-label">Fuel avg</span>
+                          <span class="routes-stat-value" id="route-stat-fuel">--</span>
+                        </div>
+                        <div class="routes-stat">
+                          <span class="routes-stat-label">Max speed</span>
+                          <span class="routes-stat-value" id="route-stat-speed">--</span>
+                        </div>
+                        <div class="routes-stat">
+                          <span class="routes-stat-label">Cost avg</span>
+                          <span class="routes-stat-value" id="route-stat-cost">--</span>
+                        </div>
+                      </div>
+                    </details>
 
                     <div class="routes-modal-places" id="route-modal-places">
                       <h6 class="routes-modal-section-title">
@@ -503,6 +571,7 @@ Name
                         Monthly trips
                         </h6>
                       </div>
+                      <div class="routes-chart-insight" id="route-chart-monthly-insight"></div>
                       <div class="routes-chart-wrap">
                         <canvas id="route-chart-monthly" class="routes-chart-canvas d-none"></canvas>
                         <div class="routes-chart-empty" id="route-chart-monthly-empty">
@@ -516,6 +585,7 @@ Name
                         Hourly trips
                         </h6>
                       </div>
+                      <div class="routes-chart-insight" id="route-chart-hour-insight"></div>
                       <div class="routes-chart-wrap">
                         <canvas id="route-chart-hour" class="routes-chart-canvas d-none"></canvas>
                         <div class="routes-chart-empty" id="route-chart-hour-empty">
@@ -529,6 +599,7 @@ Name
                         Day of week
                         </h6>
                       </div>
+                      <div class="routes-chart-insight" id="route-chart-dow-insight"></div>
                       <div class="routes-chart-wrap">
                         <canvas id="route-chart-dow" class="routes-chart-canvas d-none"></canvas>
                         <div class="routes-chart-empty" id="route-chart-dow-empty">
@@ -542,6 +613,7 @@ Name
                         Distance and duration trend
                         </h6>
                       </div>
+                      <div class="routes-chart-insight" id="route-chart-trend-insight"></div>
                       <div class="routes-chart-wrap">
                         <canvas id="route-chart-distance-trend" class="routes-chart-canvas d-none"></canvas>
                         <div class="routes-chart-empty" id="route-chart-distance-trend-empty">
