@@ -122,7 +122,7 @@ const mapCore = {
       }
 
       // Check WebGL support
-      if (!mapboxgl.supported()) {
+      if (!this._isWebGLSupported()) {
         mapElement.innerHTML =
           '<div class="webgl-unsupported-message p-4 text-center">' +
           "WebGL is not supported by your browser. Please use a modern browser.</div>";
@@ -310,6 +310,45 @@ const mapCore = {
       center: options.center || CONFIG.MAP.defaultCenter,
       zoom: options.zoom || CONFIG.MAP.defaultZoom,
     };
+  },
+
+  /**
+   * Check WebGL support across Mapbox GL and MapLibre.
+   * Mapbox GL exposes mapboxgl.supported(), while MapLibre may not.
+   * @private
+   */
+  _isWebGLSupported() {
+    if (typeof mapboxgl?.supported === "function") {
+      try {
+        return mapboxgl.supported();
+      } catch {
+        return false;
+      }
+    }
+
+    if (typeof mapboxgl?.supported === "boolean") {
+      return mapboxgl.supported;
+    }
+
+    if (
+      typeof window === "undefined" ||
+      typeof document === "undefined" ||
+      typeof window.WebGLRenderingContext === "undefined"
+    ) {
+      return false;
+    }
+
+    try {
+      const canvas = document.createElement("canvas");
+      const glContext =
+        canvas.getContext("webgl2") ||
+        canvas.getContext("webgl") ||
+        canvas.getContext("experimental-webgl");
+
+      return Boolean(glContext && typeof glContext.getParameter === "function");
+    } catch {
+      return false;
+    }
   },
 
   /**
