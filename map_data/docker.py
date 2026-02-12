@@ -33,8 +33,9 @@ async def run_docker(
     if kwargs:
         if set(kwargs) != {"timeout"}:
             unexpected = ", ".join(sorted(kwargs))
+            msg = f"run_docker() got unexpected keyword arguments: {unexpected}"
             raise TypeError(
-                f"run_docker() got unexpected keyword arguments: {unexpected}"
+                msg,
             )
         timeout_seconds = float(kwargs["timeout"])
 

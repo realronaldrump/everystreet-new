@@ -705,11 +705,7 @@
   overflow: hidden;
   border-radius: 0.6rem;
   margin: 0 var(--space-3);
-  background: linear-gradient(
-    135deg,
-    rgb(var(--routes-primary-rgb) / 4%),
-    transparent 70%
-  );
+  background: linear-gradient(135deg, rgb(var(--routes-primary-rgb) / 4%), transparent 70%);
 }
 
 .route-card-visual .route-preview-svg {
@@ -783,11 +779,7 @@
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(
-      circle at 20% 60%,
-      rgb(var(--routes-primary-rgb) / 22%),
-      transparent 55%
-    ),
+    radial-gradient(circle at 20% 60%, rgb(var(--routes-primary-rgb) / 22%), transparent 55%),
     radial-gradient(circle at 80% 40%, rgb(var(--cat-amber-rgb) / 16%), transparent 55%);
   opacity: 0.35;
 }
@@ -1947,11 +1939,7 @@ html[data-bs-theme="light"] .route-personality-tag {
 }
 
 html[data-bs-theme="light"] .route-card-visual {
-  background: linear-gradient(
-    135deg,
-    rgb(var(--routes-primary-rgb) / 3%),
-    transparent 70%
-  );
+  background: linear-gradient(135deg, rgb(var(--routes-primary-rgb) / 3%), transparent 70%);
 }
 
 html[data-bs-theme="light"] .route-label-arrow {

@@ -59,7 +59,11 @@ def _is_area_extract_required() -> bool:
 
 
 def _get_available_memory_mb() -> int | None:
-    """Detect available system memory in MB. Returns None if unable to detect."""
+    """
+    Detect available system memory in MB.
+
+    Returns None if unable to detect.
+    """
     try:
         # Try to get memory info (Linux)
         with open("/proc/meminfo") as f:
@@ -342,7 +346,9 @@ def _graph_build_worker(
 
         routing_polygon = shape(routing_geojson)
         G = _build_graph_in_process(
-            Path(osm_path_str), routing_polygon, Path(graph_path_str)
+            Path(osm_path_str),
+            routing_polygon,
+            Path(graph_path_str),
         )
         result_queue.put(
             {
@@ -484,7 +490,7 @@ def _normalize_pyrosm_gdfs(nodes_gdf: Any, edges_gdf: Any) -> tuple[Any, Any]:
 
     # OSMnx expects edges to be uniquely indexed by (u, v, key).
     needs_edge_index = not isinstance(edges.index, pd.MultiIndex) or list(
-        edges.index.names
+        edges.index.names,
     ) != ["u", "v", "key"]
 
     if needs_edge_index:
@@ -565,11 +571,15 @@ def _load_graph_from_extract(osm_path: Path, routing_polygon: Any) -> nx.MultiDi
 
 def _validate_osm_path(osm_path: Path) -> None:
     if not osm_path.exists():
-        raise FileNotFoundError(f"OSM data file not found: {osm_path}")
+        msg = f"OSM data file not found: {osm_path}"
+        raise FileNotFoundError(msg)
     if osm_path.suffix.lower() not in OSM_EXTENSIONS:
-        raise ValueError(
+        msg = (
             "OSM_DATA_PATH must point to an OSM extract (.osm, .xml, or .pbf) "
             "exported from your Valhalla/Nominatim data."
+        )
+        raise ValueError(
+            msg,
         )
 
 

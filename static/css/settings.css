@@ -1498,11 +1498,7 @@
 
 .map-services-progress .progress-bar {
   height: 100%;
-  background: linear-gradient(
-    90deg,
-    var(--primary),
-    var(--primary-light, var(--primary))
-  );
+  background: linear-gradient(90deg, var(--primary), var(--primary-light, var(--primary)));
   border-radius: var(--radius-pill);
   transition: width 0.3s ease;
 }
@@ -1848,8 +1844,8 @@
   font-size: var(--font-size-xs);
   color: var(--text-tertiary);
   font-family:
-    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
-    "Courier New", monospace;
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New",
+    monospace;
   font-variant-numeric: tabular-nums;
 }
 
@@ -1985,8 +1981,8 @@
   font-size: var(--font-size-xs);
   color: var(--text-tertiary);
   font-family:
-    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
-    "Courier New", monospace;
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New",
+    monospace;
   font-variant-numeric: tabular-nums;
 }
 
@@ -2032,8 +2028,8 @@
   white-space: pre-wrap;
   overflow-wrap: break-word;
   font-family:
-    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
-    "Courier New", monospace;
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New",
+    monospace;
 }
 
 .trip-import-failure-summary {
@@ -2065,8 +2061,8 @@
 .trip-import-failure-count {
   font-variant-numeric: tabular-nums;
   font-family:
-    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
-    "Courier New", monospace;
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New",
+    monospace;
   color: var(--text-tertiary);
 }
 
@@ -2148,8 +2144,8 @@
 .trip-data-health-pill-badge {
   font-variant-numeric: tabular-nums;
   font-family:
-    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
-    "Courier New", monospace;
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New",
+    monospace;
   font-size: var(--font-size-xs);
   line-height: 1;
   padding: 0.15rem 0.45rem;
@@ -2208,8 +2204,8 @@
 .trip-issues-chip-count {
   font-variant-numeric: tabular-nums;
   font-family:
-    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
-    "Courier New", monospace;
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New",
+    monospace;
   color: var(--text-tertiary);
   border-left: 1px solid var(--border-color);
   padding-left: 0.4rem;
@@ -2307,8 +2303,8 @@
 .trip-issues-mono {
   font-variant-numeric: tabular-nums;
   font-family:
-    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
-    "Courier New", monospace;
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New",
+    monospace;
 }
 
 .trip-issue-link {
@@ -2375,8 +2371,8 @@
   white-space: pre-wrap;
   overflow-wrap: break-word;
   font-family:
-    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
-    "Courier New", monospace;
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New",
+    monospace;
 }
 
 .trip-issues-actions {

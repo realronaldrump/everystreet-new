@@ -17,8 +17,9 @@ def _coerce_osmnx_bool(value: Any) -> bool | None:
     """
     Coerce various OSM/PBF boolean-ish values to a Python bool.
 
-    OSMnx's GraphML loader only accepts "True"/"False" string literals (or a
-    bool) for bool-typed attributes. Pyrosm can emit values like "yes"/"no".
+    OSMnx's GraphML loader only accepts "True"/"False" string literals
+    (or a bool) for bool-typed attributes. Pyrosm can emit values like
+    "yes"/"no".
     """
     if value is None:
         return None
@@ -75,7 +76,8 @@ def load_graphml_robust(graph_path: Path) -> nx.MultiDiGraph:
             coerced = _coerce_osmnx_bool(value)
             if coerced is None:
                 # Keep OSMnx's strictness for truly unknown values.
-                raise ValueError(f"Invalid literal for boolean: {value!r}.")
+                msg = f"Invalid literal for boolean: {value!r}."
+                raise ValueError(msg)
             return coerced
 
         G = ox.load_graphml(

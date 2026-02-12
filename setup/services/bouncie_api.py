@@ -158,7 +158,8 @@ async def fetch_vehicle_by_imei(
     token: str,
     imei: str,
 ) -> dict[str, Any] | None:
-    """Fetch a single vehicle by IMEI, returning None when not found.
+    """
+    Fetch a single vehicle by IMEI, returning None when not found.
 
     The Bouncie REST API ``GET /v1/vehicles`` does not reliably support
     server-side ``imei`` filtering, so we fetch all vehicles and filter

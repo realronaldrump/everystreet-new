@@ -53,7 +53,7 @@ def test_trip_sync_start_endpoint_history_returns_progress_job_id() -> None:
                 "progress_job_id": "65b1b5b6b5b6b5b6b5b6b5b6",
                 "progress_url": "/api/actions/trips/sync/history_import/65b1b5b6b5b6b5b6b5b6b5b6",
                 "progress_sse_url": "/api/actions/trips/sync/history_import/65b1b5b6b5b6b5b6b5b6b5b6/sse",
-            }
+            },
         ),
     ):
         client = TestClient(app)
@@ -94,7 +94,7 @@ def test_trip_history_import_status_endpoint_returns_metadata() -> None:
                     "inserted": 5,
                     "fetch_errors": 0,
                     "process_errors": 1,
-                }
+                },
             }
             self.result = None
 

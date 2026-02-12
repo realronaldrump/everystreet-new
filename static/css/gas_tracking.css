@@ -493,11 +493,7 @@
   justify-content: center;
   gap: var(--space-3);
   padding: var(--space-4);
-  background: linear-gradient(
-    135deg,
-    rgb(var(--success-rgb) / 15%),
-    rgb(var(--success-rgb) / 5%)
-  );
+  background: linear-gradient(135deg, rgb(var(--success-rgb) / 15%), rgb(var(--success-rgb) / 5%));
   border: 1px solid rgb(var(--success-rgb) / 30%);
   border-radius: var(--radius-lg);
   animation: fadeInScale var(--transition-smooth);

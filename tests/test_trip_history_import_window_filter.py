@@ -23,7 +23,9 @@ def test_filter_trips_to_window_includes_boundary_times() -> None:
     ]
 
     kept = _filter_trips_to_window(
-        trips, window_start=window_start, window_end=window_end
+        trips,
+        window_start=window_start,
+        window_end=window_end,
     )
     assert {t["transactionId"] for t in kept} == {"a", "b"}
 
@@ -54,6 +56,8 @@ def test_filter_trips_to_window_excludes_outside_window() -> None:
     ]
 
     kept = _filter_trips_to_window(
-        trips, window_start=window_start, window_end=window_end
+        trips,
+        window_start=window_start,
+        window_end=window_end,
     )
     assert [t["transactionId"] for t in kept] == ["ok"]

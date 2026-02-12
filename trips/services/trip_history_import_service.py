@@ -1,4 +1,5 @@
-"""Trip history import (Bouncie backfill) utilities.
+"""
+Trip history import (Bouncie backfill) utilities.
 
 This module powers the Settings -> Trip Sync -> Import history wizard.
 
@@ -180,7 +181,8 @@ async def _fetch_trips_for_window(
     window_end: datetime,
     _min_window_hours: int = 24,
 ) -> list[dict[str, Any]]:
-    """Fetch trips for a window using BouncieClient (geojson, with retry).
+    """
+    Fetch trips for a window using BouncieClient (geojson, with retry).
 
     The BouncieClient already has built-in retry with exponential backoff
     (5 attempts for the resilient variant).  If all retries fail for the
@@ -250,11 +252,12 @@ def _filter_trips_to_window(
     window_start: datetime,
     window_end: datetime,
 ) -> list[dict[str, Any]]:
-    """Defensively enforce window bounds.
+    """
+    Defensively enforce window bounds.
 
-    If the upstream API returns trips outside the requested window (or ignores
-    filters), ensure we only process trips whose [startTime,endTime] fit inside
-    the window.
+    If the upstream API returns trips outside the requested window (or
+    ignores filters), ensure we only process trips whose
+    [startTime,endTime] fit inside the window.
     """
 
     start = ensure_utc(window_start) or window_start
@@ -282,7 +285,9 @@ def _filter_trips_to_window(
 
 
 def _trim_events(
-    events: list[dict[str, Any]], *, limit: int = 60
+    events: list[dict[str, Any]],
+    *,
+    limit: int = 60,
 ) -> list[dict[str, Any]]:
     if len(events) <= limit:
         return events
@@ -497,14 +502,18 @@ def _record_per_device_unique_counts(
 async def _load_existing_transaction_ids(
     unique_trips: list[dict[str, Any]],
 ) -> set[str]:
-    incoming_ids = [t.get("transactionId") for t in unique_trips if t.get("transactionId")]
+    incoming_ids = [
+        t.get("transactionId") for t in unique_trips if t.get("transactionId")
+    ]
     existing_docs = (
         await Trip.find(In(Trip.transactionId, incoming_ids))
         .project(TripStatusProjection)
         .to_list()
     )
     return {
-        doc.transactionId for doc in existing_docs if getattr(doc, "transactionId", None)
+        doc.transactionId
+        for doc in existing_docs
+        if getattr(doc, "transactionId", None)
     }
 
 
@@ -547,7 +556,9 @@ async def _record_validation_failure(
     counters["validation_failed"] += 1
     if isinstance(imei, str) and imei in per_device:
         per_device[imei]["validation_failed"] += 1
-    reason = (validation.get("processing_status") or {}).get("errors", {}).get("validation")
+    reason = (
+        (validation.get("processing_status") or {}).get("errors", {}).get("validation")
+    )
     add_event(
         "error",
         f"Trip failed validation ({tx})",
@@ -641,7 +652,11 @@ async def _process_new_trips_batch(
 ) -> bool:
     processed_count = 0
     for trip in new_trips:
-        if processed_count and processed_count % 25 == 0 and await runtime.is_cancelled():
+        if (
+            processed_count
+            and processed_count % 25 == 0
+            and await runtime.is_cancelled()
+        ):
             return True
 
         tx = str(trip.get("transactionId") or "unknown")
@@ -722,7 +737,10 @@ async def _write_window_insert_progress(
     if processed_count % 5 != 0 and processed_count != total:
         return
     within = processed_count / max(1, total)
-    overall = ((window_index - 1) + (0.4 + (0.6 * within))) / max(1, runtime.windows_total)
+    overall = ((window_index - 1) + (0.4 + (0.6 * within))) / max(
+        1,
+        runtime.windows_total,
+    )
     await runtime.write_progress(
         status="running",
         stage="processing",
@@ -783,7 +801,9 @@ async def _process_import_window(
         for imei in runtime.imeis
     ]
     raw_lists = await asyncio.gather(*fetch_tasks)
-    raw_trips = [trip for sub in raw_lists for trip in (sub or []) if isinstance(trip, dict)]
+    raw_trips = [
+        trip for sub in raw_lists for trip in (sub or []) if isinstance(trip, dict)
+    ]
 
     unique_trips = _collect_unique_window_trips(
         raw_trips,
@@ -1182,7 +1202,11 @@ async def run_import(
         setup=setup,
     )
     if progress_ctx.handle:
-        progress_ctx.add_event("info", "Import queued", {"windows_total": setup.windows_total})
+        progress_ctx.add_event(
+            "info",
+            "Import queued",
+            {"windows_total": setup.windows_total},
+        )
         await progress_ctx.write_progress(
             status="pending",
             stage="queued",

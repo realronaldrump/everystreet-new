@@ -171,7 +171,8 @@ class VisitsManager {
   }
 
   _getPlaceById(placeId) {
-    const normalizedId = placeId === undefined || placeId === null ? "" : String(placeId);
+    const normalizedId =
+      placeId === undefined || placeId === null ? "" : String(placeId);
     if (!normalizedId) {
       return null;
     }
@@ -408,19 +409,23 @@ class VisitsManager {
       return false;
     }
 
-    const success = await this.actions.deletePlace(resolvedPlaceId, placeToDelete, async () => {
-      this.mapController.removePlace(resolvedPlaceId);
-      if (requestedPlaceId && requestedPlaceId !== resolvedPlaceId) {
-        this.mapController.removePlace(requestedPlaceId);
+    const success = await this.actions.deletePlace(
+      resolvedPlaceId,
+      placeToDelete,
+      async () => {
+        this.mapController.removePlace(resolvedPlaceId);
+        if (requestedPlaceId && requestedPlaceId !== resolvedPlaceId) {
+          this.mapController.removePlace(requestedPlaceId);
+        }
+        this.places.delete(resolvedPlaceId);
+        if (requestedPlaceId && requestedPlaceId !== resolvedPlaceId) {
+          this.places.delete(requestedPlaceId);
+        }
+        await this.updateVisitsData();
+        this.uiManager.refreshManagePlacesModal(this.places);
+        this.updateStatsCounts();
       }
-      this.places.delete(resolvedPlaceId);
-      if (requestedPlaceId && requestedPlaceId !== resolvedPlaceId) {
-        this.places.delete(requestedPlaceId);
-      }
-      await this.updateVisitsData();
-      this.uiManager.refreshManagePlacesModal(this.places);
-      this.updateStatsCounts();
-    });
+    );
 
     return success;
   }
@@ -502,7 +507,10 @@ class VisitsManager {
     const resolvedPlaceId = this._resolvePlaceId(place) || requestedPlaceId;
 
     if (!resolvedPlaceId || !place) {
-      notificationManager?.show("Could not find that place for boundary editing.", "warning");
+      notificationManager?.show(
+        "Could not find that place for boundary editing.",
+        "warning"
+      );
       return;
     }
 

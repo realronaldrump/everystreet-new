@@ -95,9 +95,9 @@ class MapMatchingJobService:
                 "message": entry.message or "",
                 "metrics": entry.metadata or {},
                 "error": entry.error,
-                "updated_at": entry.updated_at.isoformat()
-                if entry.updated_at
-                else None,
+                "updated_at": (
+                    entry.updated_at.isoformat() if entry.updated_at else None
+                ),
             }
             async for entry in cursor
         ]

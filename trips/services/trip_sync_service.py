@@ -47,10 +47,10 @@ _PERIODIC_FETCH_TIMEOUT_SECONDS = int(
 _SYNC_STALE_AFTER_SECONDS_BY_TASK_ID: dict[str, int] = {
     "periodic_fetch_trips": (_PERIODIC_FETCH_TIMEOUT_SECONDS * 2) + 60,
     "manual_fetch_trips_range": int(
-        os.getenv("TRIP_SYNC_STALE_RANGE_SECONDS", str(6 * 60 * 60))
+        os.getenv("TRIP_SYNC_STALE_RANGE_SECONDS", str(6 * 60 * 60)),
     ),
     "fetch_all_missing_trips": int(
-        os.getenv("TRIP_SYNC_STALE_HISTORY_SECONDS", str(72 * 60 * 60))
+        os.getenv("TRIP_SYNC_STALE_HISTORY_SECONDS", str(72 * 60 * 60)),
     ),
 }
 _SYNC_STALE_DEFAULT_SECONDS = int(
@@ -82,12 +82,13 @@ class TripSyncService:
 
     @staticmethod
     def _job_db_matches_task_history_db() -> bool:
-        """Best-effort guard that Job/TaskHistory are bound to the same Beanie DB.
+        """
+        Best-effort guard that Job/TaskHistory are bound to the same Beanie DB.
 
-        In production this is always true. In tests, init_beanie can re-bind a
-        subset of document models to a different DB, leaving other models bound
-        to a previous DB instance. Avoid cross-DB queries so status doesn't
-        leak across test databases.
+        In production this is always true. In tests, init_beanie can re-
+        bind a subset of document models to a different DB, leaving
+        other models bound to a previous DB instance. Avoid cross-DB
+        queries so status doesn't leak across test databases.
         """
 
         try:
@@ -106,10 +107,11 @@ class TripSyncService:
 
     @staticmethod
     def _coerce_utc(dt: datetime) -> datetime:
-        """Return a timezone-aware UTC datetime.
+        """
+        Return a timezone-aware UTC datetime.
 
-        Some test harnesses (eg mongomock) drop tzinfo on round-trip; for sync
-        staleness calculations we treat naive datetimes as UTC.
+        Some test harnesses (eg mongomock) drop tzinfo on round-trip;
+        for sync staleness calculations we treat naive datetimes as UTC.
         """
 
         if dt.tzinfo is None:
@@ -136,7 +138,8 @@ class TripSyncService:
 
     @staticmethod
     async def _clear_stale_sync_entries() -> None:
-        """Mark stale RUNNING/PENDING trip sync history entries as FAILED.
+        """
+        Mark stale RUNNING/PENDING trip sync history entries as FAILED.
 
         This is a self-healing guard for cases where the worker crashed and the
         TaskHistory row was never finalized, leaving the UI stuck in "Syncing..."

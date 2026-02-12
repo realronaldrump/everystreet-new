@@ -193,11 +193,7 @@
 }
 
 .recalculate-prompt {
-  background: linear-gradient(
-    135deg,
-    rgb(var(--info-rgb) / 20%),
-    rgb(var(--info-rgb) / 10%)
-  );
+  background: linear-gradient(135deg, rgb(var(--info-rgb) / 20%), rgb(var(--info-rgb) / 10%));
   border: 1px solid rgb(var(--info-rgb) / 30%);
   border-radius: 12px;
   padding: 1rem;
@@ -383,20 +379,12 @@
 }
 
 .legend-color--visited {
-  background: linear-gradient(
-    135deg,
-    var(--county-success),
-    var(--county-success-deep)
-  );
+  background: linear-gradient(135deg, var(--county-success), var(--county-success-deep));
   box-shadow: 0 0 8px rgb(var(--county-success-rgb) / 50%);
 }
 
 .legend-color--stopped {
-  background: linear-gradient(
-    135deg,
-    var(--county-danger),
-    var(--county-danger-strong)
-  );
+  background: linear-gradient(135deg, var(--county-danger), var(--county-danger-strong));
   box-shadow: 0 0 8px rgb(var(--county-danger-rgb) / 45%);
 }
 

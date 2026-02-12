@@ -1,6 +1,8 @@
-"""Route fingerprinting utilities for recurring route clustering.
+"""
+Route fingerprinting utilities for recurring route clustering.
 
-This module is intentionally deterministic and does not call any external services.
+This module is intentionally deterministic and does not call any
+external services.
 """
 
 from __future__ import annotations
@@ -91,7 +93,10 @@ def extract_polyline(trip: dict[str, Any]) -> list[list[float]]:
             pairs.append([lon, lat])
 
         geom2 = GeometryService.geometry_from_coordinate_pairs(
-            pairs, allow_point=False, dedupe=True, validate=True
+            pairs,
+            allow_point=False,
+            dedupe=True,
+            validate=True,
         )
         coords2 = _extract_geojson_coords(geom2) if geom2 else []
         if len(coords2) >= 2:
@@ -117,7 +122,8 @@ def _cumulative_distances_m(points: list[list[float]]) -> tuple[list[float], flo
 
 
 def sample_waypoints(
-    points: list[list[float]], waypoint_count: int = 4
+    points: list[list[float]],
+    waypoint_count: int = 4,
 ) -> list[list[float]]:
     """Sample waypoints at 20/40/60/80% (for count=4) of polyline distance."""
     if len(points) < 2:
@@ -217,14 +223,13 @@ def compute_route_signature(trip: dict[str, Any], params: dict[str, Any]) -> str
     )
 
     wp_part = ",".join(f"{cx}:{cy}" for cx, cy in waypoint_cells)
-    sig = (
+    return (
         f"v{algo}|"
         f"s{start_cell[0]},{start_cell[1]}|"
         f"e{end_cell[0]},{end_cell[1]}|"
         f"w{wp_part}|"
         f"d{bucket:.1f}"
     )
-    return sig
 
 
 def compute_route_key(signature: str) -> str:

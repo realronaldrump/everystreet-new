@@ -16,10 +16,11 @@ def graph_units_to_feet(G: nx.Graph, distance: float) -> float:
     """
     Convert a distance measured in the graph's coordinate units to feet.
 
-    OSMnx returns distances from nearest-node/edge queries in the same units
-    as the graph's CRS. For accurate distance-based thresholds, graphs should
-    be projected. In practice this app often operates on EPSG:4326 graphs, so
-    we also support a rough degrees->meters conversion for validation/matching.
+    OSMnx returns distances from nearest-node/edge queries in the same
+    units as the graph's CRS. For accurate distance-based thresholds,
+    graphs should be projected. In practice this app often operates on
+    EPSG:4326 graphs, so we also support a rough degrees->meters
+    conversion for validation/matching.
     """
     try:
         distance = float(distance)
@@ -107,8 +108,8 @@ def get_edge_geometry(
     # Fallback: straight line between node coordinates
     def _fallback() -> list[list[float]]:
         if node_xy and u in node_xy and v in node_xy:
-            (ux, uy) = node_xy[u]
-            (vx, vy) = node_xy[v]
+            ux, uy = node_xy[u]
+            vx, vy = node_xy[v]
             return [[ux, uy], [vx, vy]]
         if u in G.nodes and v in G.nodes:
             return [

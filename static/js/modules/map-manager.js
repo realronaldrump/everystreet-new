@@ -127,8 +127,8 @@ const mapManager = {
     } else if (!store.mapLayers.trips?.isHeatmap && store.map.getLayer("trips-layer")) {
       queryLayers.push("trips-layer");
     } else if (
-      store.mapLayers.trips?.isHeatmap
-      && store.map.getLayer("trips-layer-1")
+      store.mapLayers.trips?.isHeatmap &&
+      store.map.getLayer("trips-layer-1")
     ) {
       queryLayers.push("trips-layer-1");
     }
@@ -136,13 +136,13 @@ const mapManager = {
     if (store.map.getLayer("matchedTrips-hitbox")) {
       queryLayers.push("matchedTrips-hitbox");
     } else if (
-      !store.mapLayers.matchedTrips?.isHeatmap
-      && store.map.getLayer("matchedTrips-layer")
+      !store.mapLayers.matchedTrips?.isHeatmap &&
+      store.map.getLayer("matchedTrips-layer")
     ) {
       queryLayers.push("matchedTrips-layer");
     } else if (
-      store.mapLayers.matchedTrips?.isHeatmap
-      && store.map.getLayer("matchedTrips-layer-1")
+      store.mapLayers.matchedTrips?.isHeatmap &&
+      store.map.getLayer("matchedTrips-layer-1")
     ) {
       queryLayers.push("matchedTrips-layer-1");
     }
@@ -286,16 +286,16 @@ const mapManager = {
 
     // Remove overlay if no selection or not in heatmap mode
     const selectedLayer = store.selectedTripLayer;
-    const validHeatmapLayer
-      = selectedLayer === "trips" || selectedLayer === "matchedTrips";
+    const validHeatmapLayer =
+      selectedLayer === "trips" || selectedLayer === "matchedTrips";
     const layerInfo = validHeatmapLayer ? store.mapLayers[selectedLayer] : null;
 
     if (
-      !selectedId
-      || !layerInfo
-      || !layerInfo.isHeatmap
-      || !layerInfo.visible
-      || !validHeatmapLayer
+      !selectedId ||
+      !layerInfo ||
+      !layerInfo.isHeatmap ||
+      !layerInfo.visible ||
+      !validHeatmapLayer
     ) {
       removeOverlay();
       return;
@@ -304,11 +304,11 @@ const mapManager = {
     // Find the matching feature
     const tripLayer = layerInfo.layer;
     const matchingFeature = tripLayer?.features?.find((feature) => {
-      const featureId
-        = feature?.properties?.transactionId
-        || feature?.properties?.id
-        || feature?.properties?.tripId
-        || feature?.id;
+      const featureId =
+        feature?.properties?.transactionId ||
+        feature?.properties?.id ||
+        feature?.properties?.tripId ||
+        feature?.id;
       return featureId != null && String(featureId) === selectedId;
     });
 
@@ -324,12 +324,12 @@ const mapManager = {
     };
 
     const fallbackHighlight = selectedLayer === "matchedTrips" ? "#4da396" : "#d09868";
-    const highlightColor
-      = (selectedLayer === "matchedTrips"
+    const highlightColor =
+      (selectedLayer === "matchedTrips"
         ? MapStyles.MAP_LAYER_COLORS?.matchedTrips?.highlight
-        : MapStyles.MAP_LAYER_COLORS?.trips?.selected)
-      || layerInfo.highlightColor
-      || fallbackHighlight;
+        : MapStyles.MAP_LAYER_COLORS?.trips?.selected) ||
+      layerInfo.highlightColor ||
+      fallbackHighlight;
 
     const highlightWidth = [
       "interpolate",
@@ -413,7 +413,7 @@ const mapManager = {
     });
 
     if (hasFeatures && !bounds.isEmpty()) {
-      store.map.fitBounds(bounds, {
+      await store.map.fitBounds(bounds, {
         padding: 50,
         maxZoom: 15,
         duration: animate ? 1000 : 0,
@@ -437,8 +437,8 @@ const mapManager = {
 
     const { features } = store.mapLayers.trips.layer;
     const tripFeature = features.find((f) => {
-      const fId
-        = f.properties?.transactionId || f.properties?.id || f.properties?.tripId || f.id;
+      const fId =
+        f.properties?.transactionId || f.properties?.id || f.properties?.tripId || f.id;
       return String(fId) === String(tripId);
     });
 
@@ -510,9 +510,9 @@ const mapManager = {
     }
 
     if (
-      lastCoord?.length === 2
-      && !Number.isNaN(lastCoord[0])
-      && !Number.isNaN(lastCoord[1])
+      lastCoord?.length === 2 &&
+      !Number.isNaN(lastCoord[0]) &&
+      !Number.isNaN(lastCoord[1])
     ) {
       store.map.flyTo({
         center: lastCoord,

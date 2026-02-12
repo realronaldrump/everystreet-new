@@ -72,8 +72,9 @@ def validate_route(
 
     deadhead_distance = float(
         stats.get(
-            "deadhead_distance", max(0.0, total_distance - required_distance_completed)
-        )
+            "deadhead_distance",
+            max(0.0, total_distance - required_distance_completed),
+        ),
     )
     details["required_distance_m"] = required_distance
     details["required_distance_completed_m"] = required_distance_completed
@@ -101,7 +102,7 @@ def validate_route(
 
     if required_distance_completed <= 0:
         errors.append(
-            "Route did not service any required edges (required distance completed is zero)."
+            "Route did not service any required edges (required distance completed is zero).",
         )
     elif required_distance_completed >= DEADHEAD_RATIO_REQUIRED_DISTANCE_FLOOR_M:
         if deadhead_ratio_eval > MAX_DEADHEAD_RATIO_ERROR:

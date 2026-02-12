@@ -289,7 +289,9 @@ async def test_backfill_uses_raw_gps_not_matched_gps(coverage_db) -> None:
 
 @pytest.mark.asyncio
 async def test_ingestion_pipeline_respects_cancelled_job(
-    coverage_db, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    coverage_db,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     area = CoverageArea(
         display_name="Cancelled Ingestion Area",

@@ -342,7 +342,7 @@ Draw a new boundary, or click Edit and then a saved place boundary to modify it.
         <div class="drawing-toast-content">
           <i class="fas fa-info-circle text-warning"></i>
           <span id="drawing-toast-message">Click points to draw a boundary. Press Enter
-          or click first point to close.</span>
+                                                  or click first point to close.</span>
         </div>
         <button type="button" class="btn btn-sm btn-outline-secondary" id="cancel-drawing">
         Cancel
@@ -442,7 +442,7 @@ Please enter a name for this place.
         <div class="section-title-wrapper">
           <h2 class="section-title">
             <i class="fas fa-route section-icon"></i>
-                                                  Visits to <span id="selected-place-name" class="text-primary"></span>
+                                                                                          Visits to <span id="selected-place-name" class="text-primary"></span>
         </h2>
       </div>
       <button class="btn btn-outline-secondary" id="back-to-places-btn">
@@ -479,15 +479,24 @@ Please enter a name for this place.
             <span id="modal-place-name">Place Details</span>
           </h5>
           <div class="visits-modal-actions">
-            <button type="button" class="visits-modal-action-btn" id="modal-edit-place" title="Edit details">
+            <button type="button"
+                    class="visits-modal-action-btn"
+                    id="modal-edit-place"
+                    title="Edit details">
               <i class="fas fa-edit"></i>
               <span>Edit</span>
             </button>
-            <button type="button" class="visits-modal-action-btn" id="modal-edit-boundary" title="Edit boundary">
+            <button type="button"
+                    class="visits-modal-action-btn"
+                    id="modal-edit-boundary"
+                    title="Edit boundary">
               <i class="fas fa-draw-polygon"></i>
               <span>Boundary</span>
             </button>
-            <button type="button" class="visits-modal-action-btn visits-modal-action-btn--danger" id="modal-delete-place" title="Delete place">
+            <button type="button"
+                    class="visits-modal-action-btn visits-modal-action-btn--danger"
+                    id="modal-delete-place"
+                    title="Delete place">
               <i class="fas fa-trash"></i>
             </button>
           </div>
@@ -509,7 +518,10 @@ Please enter a name for this place.
           <div class="visit-timeline" id="modal-visit-timeline">
             <!-- Timeline will be rendered here -->
           </div>
-          <button type="button" class="timeline-show-more" id="modal-timeline-show-more" style="display: none">
+          <button type="button"
+                  class="timeline-show-more"
+                  id="modal-timeline-show-more"
+                  style="display: none">
             <i class="fas fa-chevron-down me-2"></i>Show more visits
           </button>
         </div>

@@ -408,7 +408,8 @@ async def _fetch_all_missing_trips_logic(
     start_iso: str | None = None,
     progress_job_id: str | None = None,
 ) -> dict[str, Any]:
-    """Import trips from Bouncie for the full history range.
+    """
+    Import trips from Bouncie for the full history range.
 
     This is insert-only: existing trips are never modified.
     """

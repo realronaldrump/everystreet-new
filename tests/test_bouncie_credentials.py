@@ -155,7 +155,9 @@ async def test_update_bouncie_credentials_sets_oauth_state(bouncie_db) -> None:
 
 @pytest.mark.asyncio
 async def test_update_bouncie_credentials_clamps_concurrency(bouncie_db) -> None:
-    """update_bouncie_credentials should ignore out-of-range fetch_concurrency updates."""
+    """update_bouncie_credentials should ignore out-of-range fetch_concurrency
+    updates.
+    """
     await update_bouncie_credentials({"fetch_concurrency": 100})
 
     creds = await BouncieCredentials.find_one(

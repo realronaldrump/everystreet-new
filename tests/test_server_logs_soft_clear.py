@@ -22,11 +22,13 @@ async def logs_beanie_db():
 
 @pytest.mark.asyncio
 async def test_soft_clear_sets_cutoff_and_filters_queries(
-    logs_beanie_db, monkeypatch: pytest.MonkeyPatch
+    logs_beanie_db,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     # Avoid any real Redis/ARQ work during the unit test.
     async def _no_arq_pool():
-        raise RuntimeError("arq disabled for tests")
+        msg = "arq disabled for tests"
+        raise RuntimeError(msg)
 
     monkeypatch.setattr("tasks.arq.get_arq_pool", _no_arq_pool)
 

@@ -15,11 +15,7 @@ function assertId(source, id) {
 
 function assertClass(source, className) {
   const pattern = new RegExp(`class=["'][^"']*\\b${className}\\b[^"']*["']`);
-  assert.match(
-    source,
-    pattern,
-    `routes.html missing required class: ${className}`,
-  );
+  assert.match(source, pattern, `routes.html missing required class: ${className}`);
 }
 
 test("Routes template includes required IDs/classes used by routes controller", () => {
@@ -50,6 +46,6 @@ test("Routes template includes required IDs/classes used by routes controller", 
   ].forEach((id) => assertId(source, id));
 
   ["routes-modal-tab", "routes-modal-tab-content"].forEach((className) =>
-    assertClass(source, className),
+    assertClass(source, className)
   );
 });

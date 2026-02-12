@@ -970,7 +970,8 @@ async def backfill_coverage_for_area(
 
     if not segment_first:
         logger.info(
-            "Backfill found no matching segments for area %s", area.display_name
+            "Backfill found no matching segments for area %s",
+            area.display_name,
         )
         await report_progress(total_trips=total_trip_count, force=True)
         return 0

@@ -162,7 +162,10 @@ async def test_route_detail_and_trips_include_place_links(routes_api_db) -> None
             destinationPlaceName="Destination Name",
         ).insert()
 
-    await RecurringRoutesBuilder().run("test-job-place-1", BuildRecurringRoutesRequest())
+    await RecurringRoutesBuilder().run(
+        "test-job-place-1",
+        BuildRecurringRoutesRequest(),
+    )
 
     route = await RecurringRoute.find_one({"trip_count": 3})
     assert route is not None
@@ -206,7 +209,8 @@ async def test_route_detail_and_trips_include_place_links(routes_api_db) -> None
 
 @pytest.mark.asyncio
 async def test_route_analytics_timezone_buckets_are_complete(
-    routes_api_db, monkeypatch
+    routes_api_db,
+    monkeypatch,
 ) -> None:
     monkeypatch.setattr(recurring_routes_api, "get_mongo_tz_expr", lambda: "UTC")
 
@@ -215,10 +219,20 @@ async def test_route_analytics_timezone_buckets_are_complete(
             return [
                 {
                     "byHour": [
-                        {"_id": 8, "count": 3, "avgDistance": 10.0, "avgDuration": 1000.0},
+                        {
+                            "_id": 8,
+                            "count": 3,
+                            "avgDistance": 10.0,
+                            "avgDuration": 1000.0,
+                        },
                     ],
                     "byDayOfWeek": [
-                        {"_id": 2, "count": 3, "avgDistance": 10.0, "avgDuration": 1000.0},
+                        {
+                            "_id": 2,
+                            "count": 3,
+                            "avgDistance": 10.0,
+                            "avgDuration": 1000.0,
+                        },
                     ],
                     "byMonth": [
                         {"_id": "2026-02", "count": 3, "totalDistance": 30.0},
@@ -239,12 +253,8 @@ async def test_route_analytics_timezone_buckets_are_complete(
 
     class _FakeTripsCollection:
         def aggregate(self, pipeline):
-            hour_tz = (
-                pipeline[1]["$project"]["hour"]["$hour"].get("timezone")
-            )
-            day_tz = (
-                pipeline[1]["$project"]["dayOfWeek"]["$dayOfWeek"].get("timezone")
-            )
+            hour_tz = pipeline[1]["$project"]["hour"]["$hour"].get("timezone")
+            day_tz = pipeline[1]["$project"]["dayOfWeek"]["$dayOfWeek"].get("timezone")
             assert hour_tz == "UTC"
             assert day_tz == "UTC"
             return _FakeAggregateCursor()
@@ -282,7 +292,8 @@ async def test_route_analytics_timezone_buckets_are_complete(
 
 @pytest.mark.asyncio
 async def test_route_analytics_trips_per_week_single_trip_not_null(
-    routes_api_db, monkeypatch
+    routes_api_db,
+    monkeypatch,
 ) -> None:
     monkeypatch.setattr(recurring_routes_api, "get_mongo_tz_expr", lambda: "UTC")
     trip_time = datetime(2026, 2, 10, 8, 0, tzinfo=UTC)
@@ -292,10 +303,20 @@ async def test_route_analytics_trips_per_week_single_trip_not_null(
             return [
                 {
                     "byHour": [
-                        {"_id": 8, "count": 1, "avgDistance": 10.0, "avgDuration": 1000.0},
+                        {
+                            "_id": 8,
+                            "count": 1,
+                            "avgDistance": 10.0,
+                            "avgDuration": 1000.0,
+                        },
                     ],
                     "byDayOfWeek": [
-                        {"_id": 3, "count": 1, "avgDistance": 10.0, "avgDuration": 1000.0},
+                        {
+                            "_id": 3,
+                            "count": 1,
+                            "avgDistance": 10.0,
+                            "avgDuration": 1000.0,
+                        },
                     ],
                     "byMonth": [
                         {"_id": "2026-02", "count": 1, "totalDistance": 10.0},

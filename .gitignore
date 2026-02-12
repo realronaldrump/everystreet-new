@@ -17,6 +17,7 @@ eslint.config.mjs
 .vscode
 .ruff_cache
 reports/
+.autofix/
 
 scripts/autofix.sh
 scripts/autofix1.sh

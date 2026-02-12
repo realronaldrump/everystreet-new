@@ -883,8 +883,9 @@ async def _generate_optimal_route_with_progress_impl(
             req_all_m = float(stats.get("required_distance", 0.0))
             req_done_m = float(
                 stats.get(
-                    "required_distance_completed", stats.get("service_distance", 0.0)
-                )
+                    "required_distance_completed",
+                    stats.get("service_distance", 0.0),
+                ),
             )
             stats["deadhead_ratio_all"] = (
                 (total_m / req_all_m) if req_all_m > 0 else 0.0

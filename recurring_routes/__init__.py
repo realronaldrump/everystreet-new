@@ -1,7 +1,8 @@
 """
 Recurring routes (route templates) module.
 
-Derives route templates from stored trips and exposes APIs + pages for browsing them.
+Derives route templates from stored trips and exposes APIs + pages for
+browsing them.
 """
 
 from fastapi import APIRouter

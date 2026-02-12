@@ -14,8 +14,8 @@ async def test_fill_route_gaps_inserts_bridge_coords_and_reports_stats(
     route_coords = [[0.0, 0.0], [0.0, 0.01], [0.0, 0.02]]
 
     async def fake_fetch_bridge_route(from_xy, to_xy, request_timeout: float = 30.0):
-        (fx, fy) = from_xy
-        (tx, ty) = to_xy
+        fx, fy = from_xy
+        tx, ty = to_xy
         mid = [float((fx + tx) / 2.0), float((fy + ty) / 2.0)]
         return BridgeRoute(
             coordinates=[[fx, fy], mid, [tx, ty]],

@@ -20,10 +20,11 @@ logger = logging.getLogger(__name__)
 
 
 def format_bouncie_datetime_param(dt: datetime) -> str:
-    """Format datetimes for Bouncie query params.
+    """
+    Format datetimes for Bouncie query params.
 
-    Bouncie expects RFC3339/ISO-8601 "date-time" strings.
-    Use explicit UTC + 'Z' with second precision for maximal compatibility.
+    Bouncie expects RFC3339/ISO-8601 "date-time" strings. Use explicit
+    UTC + 'Z' with second precision for maximal compatibility.
     """
 
     utc = ensure_utc(dt) or dt
@@ -100,10 +101,11 @@ class BouncieClient:
         start_dt: datetime,
         end_dt: datetime,
     ) -> list[dict[str, Any]]:
-        """Fetch trips with extended retry for history import / backfill.
+        """
+        Fetch trips with extended retry for history import / backfill.
 
-        Same as fetch_trips_for_device but with more aggressive retry
-        (5 attempts, 3s base delay with exponential backoff) to handle
+        Same as fetch_trips_for_device but with more aggressive retry (5
+        attempts, 3s base delay with exponential backoff) to handle
         Bouncie server-side timeouts on old / large data ranges.
         """
         headers = {

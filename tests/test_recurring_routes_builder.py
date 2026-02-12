@@ -33,7 +33,7 @@ async def _insert_trip(
     duration_sec: float,
     imei: str = "imei-1",
     invalid: bool | None = None,
-):
+) -> None:
     trip = Trip(
         transactionId=transaction_id,
         imei=imei,
@@ -87,7 +87,8 @@ async def test_builder_creates_routes_and_assigns_trips(routes_beanie_db) -> Non
 
     builder = RecurringRoutesBuilder()
     result = await builder.run(
-        job_id="test-job-1", request=BuildRecurringRoutesRequest()
+        job_id="test-job-1",
+        request=BuildRecurringRoutesRequest(),
     )
     assert result["status"] == "success"
 

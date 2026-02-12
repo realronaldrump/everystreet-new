@@ -2,6 +2,7 @@
 
 import json
 import logging
+from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query, Request, status
 from fastapi.responses import StreamingResponse
@@ -337,11 +338,11 @@ async def get_invalid_trips():
 @router.get("/api/trips/ingest-issues", tags=["Trips API"])
 @api_route(logger)
 async def list_trip_ingest_issues(
-    page: int = Query(1, ge=1),
-    limit: int = Query(50, ge=1, le=200),
-    issue_type: str | None = Query(None),
-    include_resolved: bool = Query(False),
-    search: str | None = Query(None),
+    page: Annotated[int, Query(ge=1)] = 1,
+    limit: Annotated[int, Query(ge=1, le=200)] = 50,
+    issue_type: Annotated[str | None, Query()] = None,
+    include_resolved: Annotated[bool, Query()] = False,
+    search: Annotated[str | None, Query()] = None,
 ):
     """List recent trip fetch/processing issues for review in Settings."""
     return await TripIngestIssueService.list_issues(
@@ -359,7 +360,10 @@ async def resolve_trip_ingest_issue(issue_id: str):
     """Mark a trip ingest issue as resolved/dismissed."""
     ok = await TripIngestIssueService.resolve_issue(issue_id)
     if not ok:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Issue not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Issue not found",
+        )
     return {"status": "success"}
 
 
@@ -369,7 +373,10 @@ async def delete_trip_ingest_issue(issue_id: str):
     """Delete an ingest issue entry."""
     ok = await TripIngestIssueService.delete_issue(issue_id)
     if not ok:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Issue not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Issue not found",
+        )
     return {"status": "success"}
 
 
@@ -385,7 +392,10 @@ async def bulk_resolve_trip_ingest_issues(request: Request):
     issue_type = body.get("issue_type") or None
     search = body.get("search") or None
 
-    resolved = await TripIngestIssueService.bulk_resolve(issue_type=issue_type, search=search)
+    resolved = await TripIngestIssueService.bulk_resolve(
+        issue_type=issue_type,
+        search=search,
+    )
     return {"status": "success", "resolved": resolved}
 
 

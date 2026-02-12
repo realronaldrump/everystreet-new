@@ -55,7 +55,8 @@ async def test_delete_vehicle_removes_record_and_deauthorizes(vehicle_db) -> Non
 
 @pytest.mark.asyncio
 async def test_delete_vehicle_fails_if_deauth_update_fails(
-    monkeypatch, vehicle_db
+    monkeypatch,
+    vehicle_db,
 ) -> None:
     imei = "987654321098765"
     await BouncieCredentials(
@@ -64,7 +65,7 @@ async def test_delete_vehicle_fails_if_deauth_update_fails(
     ).insert()
     await Vehicle(imei=imei, custom_name="Test", is_active=True).insert()
 
-    async def _fail_update(_payload):
+    async def _fail_update(_payload) -> bool:
         return False
 
     monkeypatch.setattr(

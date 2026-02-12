@@ -91,11 +91,7 @@ body.light-mode .turn-by-turn {
   content: "";
   position: absolute;
   inset: -20%;
-  background: radial-gradient(
-    circle at 70% 20%,
-    rgb(var(--primary-rgb) / 12%),
-    transparent 45%
-  );
+  background: radial-gradient(circle at 70% 20%, rgb(var(--primary-rgb) / 12%), transparent 45%);
   pointer-events: none;
   z-index: 1;
 }

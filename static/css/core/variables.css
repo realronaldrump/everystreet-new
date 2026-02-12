@@ -122,11 +122,10 @@
 
   /* Typography - Refined (Phase 1) */
   --font-family: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
-  --font-family-display:
-    "Geist", "Cal Sans", "IBM Plex Sans", system-ui, -apple-system, sans-serif;
+  --font-family-display: "Geist", "Cal Sans", "IBM Plex Sans", system-ui, -apple-system, sans-serif;
   --font-family-mono:
-    "JetBrains Mono", "IBM Plex Mono", ui-monospace, sfmono-regular, menlo, monaco,
-    consolas, monospace;
+    "JetBrains Mono", "IBM Plex Mono", ui-monospace, sfmono-regular, menlo, monaco, consolas,
+    monospace;
 
   /* Refined Font Size Hierarchy */
   --font-size-xs: clamp(0.72rem, 0.68rem + 0.2vw, 0.82rem);
@@ -202,27 +201,15 @@
   --glow-accent: 0 0 8px rgb(var(--accent-rgb) / 8%);
 
   /* Gradient surfaces for glassmorphism */
-  --gradient-surface-glow: linear-gradient(
-    135deg,
-    rgb(255 255 255 / 3%) 0%,
-    transparent 50%
-  );
+  --gradient-surface-glow: linear-gradient(135deg, rgb(255 255 255 / 3%) 0%, transparent 50%);
   --gradient-ambient: radial-gradient(
     ellipse at top,
     rgb(var(--primary-rgb) / 10%) 0%,
     transparent 60%
   );
   --app-bg:
-    radial-gradient(
-      1200px circle at 8% -10%,
-      rgb(var(--primary-rgb) / 6%),
-      transparent 65%
-    ),
-    radial-gradient(
-      900px circle at 110% 12%,
-      rgb(var(--accent-rgb) / 4%),
-      transparent 60%
-    );
+    radial-gradient(1200px circle at 8% -10%, rgb(var(--primary-rgb) / 6%), transparent 65%),
+    radial-gradient(900px circle at 110% 12%, rgb(var(--accent-rgb) / 4%), transparent 60%);
 
   /* Interactive lift shadows */
   --shadow-lift: 0 12px 26px rgb(0 0 0 / 22%);

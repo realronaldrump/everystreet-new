@@ -70,10 +70,7 @@ body.light-mode .form-select {
   display: flex; /* Use flex for better alignment */
   align-items: center;
   margin-bottom: var(--space-2);
-  min-height: calc(
-    var(--font-size-sm) *
-    var(--line-height-normal)
-  ); /* Ensure consistent height */
+  min-height: calc(var(--font-size-sm) * var(--line-height-normal)); /* Ensure consistent height */
 }
 
 .form-check-input {

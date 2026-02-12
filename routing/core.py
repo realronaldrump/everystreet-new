@@ -207,9 +207,10 @@ class GreedySolverState:
         self.comp_remaining_req_count[comp_id] = (
             self.comp_remaining_req_count.get(comp_id, 0) - 1
         )
-        self.comp_remaining_seg_count[comp_id] = (
-            self.comp_remaining_seg_count.get(comp_id, 0.0) - self.seg_count(rid)
-        )
+        self.comp_remaining_seg_count[comp_id] = self.comp_remaining_seg_count.get(
+            comp_id,
+            0.0,
+        ) - self.seg_count(rid)
         self.remove_req_from_targets(rid)
         self.completed_reqs += 1
         if opportunistic:
@@ -224,9 +225,10 @@ class GreedySolverState:
         self.comp_remaining_req_count[comp_id] = (
             self.comp_remaining_req_count.get(comp_id, 0) - 1
         )
-        self.comp_remaining_seg_count[comp_id] = (
-            self.comp_remaining_seg_count.get(comp_id, 0.0) - self.seg_count(rid)
-        )
+        self.comp_remaining_seg_count[comp_id] = self.comp_remaining_seg_count.get(
+            comp_id,
+            0.0,
+        ) - self.seg_count(rid)
         self.remove_req_from_targets(rid)
 
     def traverse_edge(self, edge: EdgeRef, *, opportunistic: bool) -> None:
@@ -317,7 +319,10 @@ def _pick_global_target_component(
     *,
     active_comp: int | None,
 ) -> tuple[int | None, bool]:
-    if active_comp is not None and state.comp_remaining_req_count.get(active_comp, 0) > 0:
+    if (
+        active_comp is not None
+        and state.comp_remaining_req_count.get(active_comp, 0) > 0
+    ):
         return active_comp, False
 
     if not state.global_targets:
@@ -468,11 +473,17 @@ def _build_solver_state(
     req_segment_counts: dict[ReqId, int] | None,
     node_xy: dict[int, tuple[float, float]] | None,
 ) -> tuple[GreedySolverState, float]:
-    current_node, resolved_node_xy = initialize_route_state(G, required_reqs, start_node)
+    current_node, resolved_node_xy = initialize_route_state(
+        G,
+        required_reqs,
+        start_node,
+    )
     if node_xy is None:
         node_xy = resolved_node_xy
 
-    req_to_starts, start_counts, start_to_rids = build_requirement_indices(required_reqs)
+    req_to_starts, start_counts, start_to_rids = build_requirement_indices(
+        required_reqs,
+    )
     unvisited: set[ReqId] = set(required_reqs.keys())
     edge_to_rid = _build_edge_to_requirement(required_reqs)
     required_dist_all = calculate_required_distance(G, required_reqs)
@@ -522,14 +533,22 @@ def _build_solver_stats(
         "service_distance": float(state.service_dist),
         "deadhead_distance": float(state.deadhead_dist),
         "deadhead_percentage": float(
-            (state.deadhead_dist / state.total_dist * 100.0) if state.total_dist > 0 else 0.0,
+            (
+                (state.deadhead_dist / state.total_dist * 100.0)
+                if state.total_dist > 0
+                else 0.0
+            ),
         ),
-        "deadhead_ratio_all": float(state.total_dist / required_dist_all)
-        if required_dist_all > 0
-        else 0.0,
-        "deadhead_ratio_completed": float(state.total_dist / state.service_dist)
-        if state.service_dist > 0
-        else 0.0,
+        "deadhead_ratio_all": (
+            float(state.total_dist / required_dist_all)
+            if required_dist_all > 0
+            else 0.0
+        ),
+        "deadhead_ratio_completed": (
+            float(state.total_dist / state.service_dist)
+            if state.service_dist > 0
+            else 0.0
+        ),
         "required_reqs": float(required_reqs_count),
         "completed_reqs": float(state.completed_reqs),
         "skipped_disconnected": float(len(state.skipped_disconnected)),

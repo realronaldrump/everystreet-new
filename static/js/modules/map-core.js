@@ -93,7 +93,8 @@ const mapCore = {
     }
 
     initializationPromise = this._doInitialize(options);
-    return initializationPromise;
+    const initResult = await initializationPromise;
+    return initResult;
   },
 
   /**
@@ -133,9 +134,9 @@ const mapCore = {
 
       // Check WebGL support
       if (!mapboxgl.supported()) {
-        mapElement.innerHTML
-          = '<div class="webgl-unsupported-message p-4 text-center">'
-          + "WebGL is not supported by your browser. Please use a modern browser.</div>";
+        mapElement.innerHTML =
+          '<div class="webgl-unsupported-message p-4 text-center">' +
+          "WebGL is not supported by your browser. Please use a modern browser.</div>";
         throw new Error("WebGL not supported");
       }
 
@@ -363,15 +364,15 @@ const mapCore = {
     }
 
     const telemetryHost = "events.mapbox.com";
-    const baseUrl
-      = typeof window !== "undefined" && window.location?.origin
+    const baseUrl =
+      typeof window !== "undefined" && window.location?.origin
         ? window.location.origin
         : "http://localhost";
     let patched = false;
 
     if (
-      typeof navigator !== "undefined"
-      && typeof navigator.sendBeacon === "function"
+      typeof navigator !== "undefined" &&
+      typeof navigator.sendBeacon === "function"
     ) {
       const originalSendBeacon = navigator.sendBeacon.bind(navigator);
       navigator.sendBeacon = (url, data) => {
@@ -540,7 +541,7 @@ const mapCore = {
       return;
     }
 
-    return new Promise((resolve) => {
+    await new Promise((resolve) => {
       const onStyleData = () => {
         if (map.isStyleLoaded()) {
           map.off("styledata", onStyleData);
@@ -569,8 +570,8 @@ const mapCore = {
       throw new Error("Map not initialized");
     }
 
-    const styleUrl
-      = CONFIG.MAP.styles[styleType] || `mapbox://styles/mapbox/${styleType}-v11`;
+    const styleUrl =
+      CONFIG.MAP.styles[styleType] || `mapbox://styles/mapbox/${styleType}-v11`;
 
     // Save current view
     const currentView = {

@@ -1,6 +1,7 @@
 # Local vs GHCR Docker Runs
 
-Use these scripts to switch between your local working tree and the published GHCR images.
+Use these scripts to switch between your local working tree and the published
+GHCR images.
 
 ## Quick use
 
@@ -15,12 +16,14 @@ Use these scripts to switch between your local working tree and the published GH
 ## What each mode does
 
 Local mode
+
 - Uses `docker-compose.local.yml` overrides.
 - Bind-mounts this repo into `/app` so local edits are used immediately.
 - Runs `uvicorn` with `--reload` for the web container.
 - Stops Watchtower so it does not pull GHCR and overwrite local images.
 
 Prod mode
+
 - Pulls `web` and `worker` from GHCR.
 - Starts the standard stack in `docker-compose.yml` (including Watchtower).
 
@@ -45,5 +48,6 @@ To return to local after running GHCR:
 
 ## Notes
 
-- If you change Python dependencies (`requirements.txt`), re-run local mode so the image rebuilds.
+- If you change Python dependencies (`requirements.txt`), re-run local mode so
+  the image rebuilds.
 - Worker code changes require a restart: `docker compose restart worker`.

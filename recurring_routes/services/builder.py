@@ -1,7 +1,8 @@
-"""Recurring route builder.
+"""
+Recurring route builder.
 
-Groups stored trips into stable route templates (RecurringRoute) and assigns trips to
-their template via Trip.recurringRouteId.
+Groups stored trips into stable route templates (RecurringRoute) and
+assigns trips to their template via Trip.recurringRouteId.
 """
 
 from __future__ import annotations
@@ -93,7 +94,10 @@ def _clean_place_id(value: Any) -> str | None:
     return cleaned or None
 
 
-def _best_place_id(counter: Counter[str], place_name_by_id: dict[str, str]) -> str | None:
+def _best_place_id(
+    counter: Counter[str],
+    place_name_by_id: dict[str, str],
+) -> str | None:
     if not counter:
         return None
     for place_id, _count in counter.most_common():
@@ -209,7 +213,9 @@ class RecurringRoutesBuilder:
         return progress_handle.job
 
     async def run(
-        self, job_id: str, request: BuildRecurringRoutesRequest
+        self,
+        job_id: str,
+        request: BuildRecurringRoutesRequest,
     ) -> dict[str, Any]:
         params = request.model_dump()
         now = datetime.now(UTC)
@@ -446,7 +452,7 @@ class RecurringRoutesBuilder:
 
             existing_routes = (
                 await RecurringRoute.find(
-                    In(RecurringRoute.route_key, eligible_keys)
+                    In(RecurringRoute.route_key, eligible_keys),
                 ).to_list()
                 if eligible_keys
                 else []
@@ -486,13 +492,11 @@ class RecurringRoutesBuilder:
                     group.get("end_place_ids") or Counter(),
                     place_name_by_id,
                 )
-                start_label = (
-                    place_name_by_id.get(start_place_id or "")
-                    or _best_label(group.get("start_labels") or Counter())
+                start_label = place_name_by_id.get(start_place_id or "") or _best_label(
+                    group.get("start_labels") or Counter(),
                 )
-                end_label = (
-                    place_name_by_id.get(end_place_id or "")
-                    or _best_label(group.get("end_labels") or Counter())
+                end_label = place_name_by_id.get(end_place_id or "") or _best_label(
+                    group.get("end_labels") or Counter(),
                 )
                 auto_name = f"{start_label} → {end_label}"
 
@@ -528,10 +532,10 @@ class RecurringRoutesBuilder:
                 if route:
                     # Preserve customization fields across rebuilds
                     route.route_signature = str(
-                        group.get("route_signature") or route.route_signature
+                        group.get("route_signature") or route.route_signature,
                     )
                     route.algorithm_version = int(
-                        params.get("algorithm_version") or route.algorithm_version or 1
+                        params.get("algorithm_version") or route.algorithm_version or 1,
                     )
                     route.params = params
                     route.auto_name = auto_name
@@ -589,9 +593,11 @@ class RecurringRoutesBuilder:
                         duration_sec_avg=dur_avg,
                         fuel_gal_avg=fuel_avg,
                         cost_usd_avg=cost_avg,
-                        max_speed_mph_max=safe_float(max_speed_max, None)
-                        if max_speed_max is not None
-                        else None,
+                        max_speed_mph_max=(
+                            safe_float(max_speed_max, None)
+                            if max_speed_max is not None
+                            else None
+                        ),
                         representative_trip_id=rep_trip_id,
                         geometry=rep_geom,
                         preview_svg_path=preview,

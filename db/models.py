@@ -301,8 +301,9 @@ class TripIngestIssue(Document):
     """
     Persistent record of trip fetch/validation/processing issues.
 
-    This is a user-facing diagnostics log shown in Settings -> Data.
-    It is intentionally lightweight (counts + latest details) and time-bounded.
+    This is a user-facing diagnostics log shown in Settings -> Data. It
+    is intentionally lightweight (counts + latest details) and time-
+    bounded.
     """
 
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))

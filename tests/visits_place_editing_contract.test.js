@@ -40,13 +40,13 @@ test("Visits detail modal wires edit/delete actions for selected place", () => {
 
   assert.match(
     controllerSource,
-    /getElementById\("modal-edit-place"\)\?\.addEventListener\("click"/,
+    /getElementById\("modal-edit-place"\)\s*\?\.\s*addEventListener\(\s*"click"/,
     "visits-controller.js should register an edit handler on the place-detail modal"
   );
 
   assert.match(
     controllerSource,
-    /getElementById\("modal-delete-place"\)\?\.addEventListener\("click"/,
+    /getElementById\("modal-delete-place"\)\s*\?\.\s*addEventListener\(\s*"click"/,
     "visits-controller.js should register a delete handler on the place-detail modal"
   );
 

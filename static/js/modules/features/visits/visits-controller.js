@@ -65,11 +65,7 @@ class VisitsPageController {
     this.activePlaceId = "";
     this.listenerAbortController = new AbortController();
     this.modalWatchdogObserver = null;
-    this.visitsModalIds = [
-      "place-detail-modal",
-      "edit-place-modal",
-      "view-trip-modal",
-    ];
+    this.visitsModalIds = ["place-detail-modal", "edit-place-modal", "view-trip-modal"];
 
     // Timeline pagination for the detail modal
     this.TIMELINE_PAGE_SIZE = 20;
@@ -148,9 +144,13 @@ class VisitsPageController {
     const { signal } = this.listenerAbortController;
 
     // Listen for date filter changes
-    document.addEventListener("filtersApplied", () => {
-      this.loadData();
-    }, { signal });
+    document.addEventListener(
+      "filtersApplied",
+      () => {
+        this.loadData();
+      },
+      { signal }
+    );
 
     // View toggle
     this.elements.viewBtns.forEach((btn) => {
@@ -158,61 +158,109 @@ class VisitsPageController {
     });
 
     // Suggestion size change
-    this.elements.suggestionSize?.addEventListener("change", (e) => {
-      this.currentSuggestionSize = parseInt(e.target.value, 10);
-      this.suggestionPage = 1;
-      this.loadSuggestions();
-    }, { signal });
+    this.elements.suggestionSize?.addEventListener(
+      "change",
+      (e) => {
+        this.currentSuggestionSize = parseInt(e.target.value, 10);
+        this.suggestionPage = 1;
+        this.loadSuggestions();
+      },
+      { signal }
+    );
 
-    this.elements.discoveriesPrev?.addEventListener("click", () => {
-      this.setSuggestionPage(this.suggestionPage - 1);
-    }, { signal });
+    this.elements.discoveriesPrev?.addEventListener(
+      "click",
+      () => {
+        this.setSuggestionPage(this.suggestionPage - 1);
+      },
+      { signal }
+    );
 
-    this.elements.discoveriesNext?.addEventListener("click", () => {
-      this.setSuggestionPage(this.suggestionPage + 1);
-    }, { signal });
+    this.elements.discoveriesNext?.addEventListener(
+      "click",
+      () => {
+        this.setSuggestionPage(this.suggestionPage + 1);
+      },
+      { signal }
+    );
 
     // Back button
-    document.getElementById("back-to-places-btn")?.addEventListener("click", () => {
-      this.showPlacesSection();
-    }, { signal });
+    document.getElementById("back-to-places-btn")?.addEventListener(
+      "click",
+      () => {
+        this.showPlacesSection();
+      },
+      { signal }
+    );
 
     // Cancel drawing
-    document.getElementById("cancel-drawing")?.addEventListener("click", () => {
-      this.cancelDrawing();
-    }, { signal });
+    document.getElementById("cancel-drawing")?.addEventListener(
+      "click",
+      () => {
+        this.cancelDrawing();
+      },
+      { signal }
+    );
 
     // Discard drawing
-    document.getElementById("discard-drawing")?.addEventListener("click", () => {
-      this.discardDrawing();
-    }, { signal });
+    document.getElementById("discard-drawing")?.addEventListener(
+      "click",
+      () => {
+        this.discardDrawing();
+      },
+      { signal }
+    );
 
-    this.elements.startDrawingFab?.addEventListener("click", () => {
-      this.startDrawingFromFab();
-    }, { signal });
+    this.elements.startDrawingFab?.addEventListener(
+      "click",
+      () => {
+        this.startDrawingFromFab();
+      },
+      { signal }
+    );
 
-    document.getElementById("modal-edit-place")?.addEventListener("click", () => {
-      this.openEditModalForActivePlace();
-    }, { signal });
+    document.getElementById("modal-edit-place")?.addEventListener(
+      "click",
+      () => {
+        this.openEditModalForActivePlace();
+      },
+      { signal }
+    );
 
-    document.getElementById("modal-edit-boundary")?.addEventListener("click", () => {
-      this.startBoundaryEditForActivePlace();
-    }, { signal });
+    document.getElementById("modal-edit-boundary")?.addEventListener(
+      "click",
+      () => {
+        this.startBoundaryEditForActivePlace();
+      },
+      { signal }
+    );
 
-    document.getElementById("modal-delete-place")?.addEventListener("click", () => {
-      void this.deleteActivePlace();
-    }, { signal });
+    document.getElementById("modal-delete-place")?.addEventListener(
+      "click",
+      () => {
+        void this.deleteActivePlace();
+      },
+      { signal }
+    );
 
-    document.getElementById("modal-timeline-show-more")?.addEventListener("click", () => {
-      const timelineEl = document.getElementById("modal-visit-timeline");
-      if (timelineEl) {
-        this._renderTimelineBatch(timelineEl);
-      }
-    }, { signal });
+    document.getElementById("modal-timeline-show-more")?.addEventListener(
+      "click",
+      () => {
+        const timelineEl = document.getElementById("modal-visit-timeline");
+        if (timelineEl) {
+          this._renderTimelineBatch(timelineEl);
+        }
+      },
+      { signal }
+    );
 
-    document.addEventListener("hidden.bs.modal", () => {
-      this._cleanupOrphanedModalState();
-    }, { signal });
+    document.addEventListener(
+      "hidden.bs.modal",
+      () => {
+        this._cleanupOrphanedModalState();
+      },
+      { signal }
+    );
 
     this._startModalWatchdog();
   }
@@ -317,7 +365,8 @@ class VisitsPageController {
     return (
       this.places.find(
         (place) =>
-          this.normalizeDeepLinkValue(this.getPlaceIdentifier(place)) === normalizedPlaceId
+          this.normalizeDeepLinkValue(this.getPlaceIdentifier(place)) ===
+          normalizedPlaceId
       ) || null
     );
   }
@@ -905,7 +954,8 @@ class VisitsPageController {
     return (
       this.places.find(
         (place) =>
-          this.normalizeDeepLinkValue(this.getPlaceIdentifier(place)) === normalizedPlaceId
+          this.normalizeDeepLinkValue(this.getPlaceIdentifier(place)) ===
+          normalizedPlaceId
       ) || null
     );
   }
@@ -1124,7 +1174,10 @@ class VisitsPageController {
       // Update timeline count badge
       const countEl = document.getElementById("modal-timeline-count");
       if (countEl) {
-        countEl.textContent = trips.length > 0 ? `${trips.length} visit${trips.length !== 1 ? "s" : ""}` : "";
+        countEl.textContent =
+          trips.length > 0
+            ? `${trips.length} visit${trips.length !== 1 ? "s" : ""}`
+            : "";
       }
 
       // Clear and render initial batch

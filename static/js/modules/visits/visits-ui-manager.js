@@ -121,19 +121,19 @@ class VisitsUIManager {
       }, index * 50);
 
       row.querySelector(".edit-place-btn").addEventListener("click", (e) => {
-        const placeId = e.currentTarget.getAttribute("data-place-id");
+        const selectedPlaceId = e.currentTarget.getAttribute("data-place-id");
         bootstrap.Modal.getInstance(
           document.getElementById("manage-places-modal")
         )?.hide();
-        this.showEditPlaceModal(placeId, placesMap);
+        this.showEditPlaceModal(selectedPlaceId, placesMap);
       });
 
       row.querySelector(".delete-place-btn").addEventListener("click", (e) => {
-        const placeId = e.currentTarget.getAttribute("data-place-id");
+        const selectedPlaceId = e.currentTarget.getAttribute("data-place-id");
         bootstrap.Modal.getInstance(
           document.getElementById("manage-places-modal")
         )?.hide();
-        this.manager.deletePlace(placeId);
+        this.manager.deletePlace(selectedPlaceId);
       });
     });
   }

@@ -140,8 +140,8 @@ const dataManager = {
         const endTime = f?.properties?.endTime;
         const endTs = endTime ? new Date(endTime).getTime() : null;
         f.properties = f.properties || {};
-        f.properties.isRecent
-          = typeof endTs === "number" && !Number.isNaN(endTs)
+        f.properties.isRecent =
+          typeof endTs === "number" && !Number.isNaN(endTs)
             ? now - endTs <= threshold
             : false;
       });
@@ -239,20 +239,33 @@ const dataManager = {
   },
 
   async fetchUndrivenStreets() {
-    return this._fetchStreets(
+    const streets = await this._fetchStreets(
       "undrivenStreets",
       "undrivenStreetsLoaded",
       "undriven",
       "undriven streets"
     );
+    return streets;
   },
 
   async fetchDrivenStreets() {
-    return this._fetchStreets("drivenStreets", "drivenStreetsLoaded", "driven", "driven streets");
+    const streets = await this._fetchStreets(
+      "drivenStreets",
+      "drivenStreetsLoaded",
+      "driven",
+      "driven streets"
+    );
+    return streets;
   },
 
   async fetchAllStreets() {
-    return this._fetchStreets("allStreets", "allStreetsLoaded", undefined, "all streets");
+    const streets = await this._fetchStreets(
+      "allStreets",
+      "allStreetsLoaded",
+      undefined,
+      "all streets"
+    );
+    return streets;
   },
 
   /**
@@ -273,15 +286,17 @@ const dataManager = {
       );
 
       if (data) {
-        const totalTrips = Number.parseInt(data?.total_trips ?? data?.totalTrips ?? 0, 10) || 0;
-        const totalDistanceMiles
-          = Number.parseFloat(data?.total_distance ?? data?.totalDistance ?? 0) || 0;
+        const totalTrips =
+          Number.parseInt(data?.total_trips ?? data?.totalTrips ?? 0, 10) || 0;
+        const totalDistanceMiles =
+          Number.parseFloat(data?.total_distance ?? data?.totalDistance ?? 0) || 0;
         const avgSpeed = Number.parseFloat(data?.avg_speed ?? data?.avgSpeed ?? 0) || 0;
         const maxSpeed = Number.parseFloat(data?.max_speed ?? data?.maxSpeed ?? 0) || 0;
-        const avgDistanceMiles
-          = Number.parseFloat(data?.avg_distance ?? data?.avgDistance ?? 0) || 0;
+        const avgDistanceMiles =
+          Number.parseFloat(data?.avg_distance ?? data?.avgDistance ?? 0) || 0;
         const avgStartTime = data?.avg_start_time ?? data?.avgStartTime ?? "--:--";
-        const avgDrivingTime = data?.avg_driving_time ?? data?.avgDrivingTime ?? "--:--";
+        const avgDrivingTime =
+          data?.avg_driving_time ?? data?.avgDrivingTime ?? "--:--";
 
         const metrics = {
           totalTrips,

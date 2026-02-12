@@ -36,8 +36,15 @@ def _line(coords: list[list[float]]) -> dict:
 
 
 @pytest.mark.asyncio
-async def test_place_pair_analysis_honors_90d_timeframe_and_place_fallback(place_pair_db) -> None:
-    now = datetime.now(UTC).replace(microsecond=0)
+async def test_place_pair_analysis_honors_90d_timeframe_and_place_fallback(
+    place_pair_db,
+) -> None:
+    # Runtime-relative anchor avoids 90d cutoff drift while keeping week buckets stable.
+    runtime_now = datetime.now(UTC)
+    # Anchor to the most recent Wednesday at 08:00 UTC for deterministic trips/week.
+    now = (
+        runtime_now - timedelta(days=(runtime_now.weekday() - 2) % 7)
+    ).replace(hour=8, minute=0, second=0, microsecond=0)
 
     start_place = Place(name="Home", geometry=_point(-122.401, 37.790), created_at=now)
     end_place = Place(name="Office", geometry=_point(-122.394, 37.781), created_at=now)
@@ -171,7 +178,11 @@ async def test_place_pair_analysis_honors_90d_timeframe_and_place_fallback(place
     assert len(body["byDayOfWeek"]) == 7
 
     linked_variant = next(
-        (variant for variant in body["variants"] if variant.get("route_id") == str(route.id)),
+        (
+            variant
+            for variant in body["variants"]
+            if variant.get("route_id") == str(route.id)
+        ),
         None,
     )
     assert linked_variant is not None
@@ -180,7 +191,9 @@ async def test_place_pair_analysis_honors_90d_timeframe_and_place_fallback(place
     assert linked_variant["representative_geometry"]
 
     assert len(body["sampleTrips"]) == 3
-    assert "pp-forward-old" not in {trip["transactionId"] for trip in body["sampleTrips"]}
+    assert "pp-forward-old" not in {
+        trip["transactionId"] for trip in body["sampleTrips"]
+    }
     assert body["sampleTrips"][0]["startPlaceId"] == str(start_place.id)
     assert body["sampleTrips"][0]["destinationPlaceId"] == str(end_place.id)
     assert body["sampleTrips"][0]["place_links"]["start"]["label"] == "Home"

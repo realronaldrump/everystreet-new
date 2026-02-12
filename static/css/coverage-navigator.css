@@ -806,11 +806,7 @@
    ========================================================================== */
 
 .is-live .widget-header {
-  background: linear-gradient(
-    90deg,
-    var(--surface-2) 0%,
-    rgb(var(--amber-rgb) / 10%) 100%
-  );
+  background: linear-gradient(90deg, var(--surface-2) 0%, rgb(var(--amber-rgb) / 10%) 100%);
 }
 
 .live-badge {
@@ -971,11 +967,7 @@
 
 .stat-card.is-efficiency {
   grid-column: 1 / -1;
-  background: linear-gradient(
-    135deg,
-    var(--surface-2) 0%,
-    rgb(var(--success-rgb) / 5%) 100%
-  );
+  background: linear-gradient(135deg, var(--surface-2) 0%, rgb(var(--success-rgb) / 5%) 100%);
 }
 
 .stat-card .stat-icon {
@@ -1331,11 +1323,7 @@
   height: min(300px, 50vw);
   border-radius: 50%;
   border: 2px solid rgb(var(--primary-rgb) / 40%);
-  background: radial-gradient(
-    circle,
-    rgb(var(--primary-rgb) / 15%) 0%,
-    transparent 70%
-  );
+  background: radial-gradient(circle, rgb(var(--primary-rgb) / 15%) 0%, transparent 70%);
   box-shadow: 0 0 40px rgb(var(--primary-rgb) / 20%);
   animation: scan-pulse 2.5s ease-out infinite;
 }
@@ -1644,11 +1632,7 @@
   .map-legend {
     left: var(--space-3);
     right: var(--space-3);
-    bottom: calc(
-      70px +
-      env(safe-area-inset-bottom, 0px) +
-      var(--bottom-nav-offset, 0px)
-    );
+    bottom: calc(70px + env(safe-area-inset-bottom, 0px) + var(--bottom-nav-offset, 0px));
   }
 
   /* Keep Mapbox controls/attribution above the fixed mobile toggle. */
@@ -1656,11 +1640,7 @@
   .coverage-navigator .maplibregl-ctrl-bottom-left,
   .coverage-navigator .mapboxgl-ctrl-bottom-right,
   .coverage-navigator .maplibregl-ctrl-bottom-right {
-    bottom: calc(
-      70px +
-      env(safe-area-inset-bottom, 0px) +
-      var(--bottom-nav-offset, 0px)
-    );
+    bottom: calc(70px + env(safe-area-inset-bottom, 0px) + var(--bottom-nav-offset, 0px));
   }
 
   /* Make small action buttons reliably tappable. */

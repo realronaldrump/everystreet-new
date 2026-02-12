@@ -56,7 +56,10 @@ def _serialize_dt(value: Any) -> str | None:
 
 
 def _hour_buckets() -> list[dict[str, Any]]:
-    return [{"hour": h, "count": 0, "avgDistance": None, "avgDuration": None} for h in range(24)]
+    return [
+        {"hour": h, "count": 0, "avgDistance": None, "avgDuration": None}
+        for h in range(24)
+    ]
 
 
 def _day_buckets() -> list[dict[str, Any]]:
@@ -202,7 +205,12 @@ def _match_place_pair(
         place=end_place,
         point_field="destinationGeoPoint",
         endpoint="end",
-        id_fields=("destinationPlaceId", "endPlaceId", "destination_place_id", "end_place_id"),
+        id_fields=(
+            "destinationPlaceId",
+            "endPlaceId",
+            "destination_place_id",
+            "end_place_id",
+        ),
     )
     if start_ok and end_ok:
         start_id = _resolve_endpoint_place_id(
@@ -241,7 +249,12 @@ def _match_place_pair(
         place=start_place,
         point_field="destinationGeoPoint",
         endpoint="end",
-        id_fields=("destinationPlaceId", "endPlaceId", "destination_place_id", "end_place_id"),
+        id_fields=(
+            "destinationPlaceId",
+            "endPlaceId",
+            "destination_place_id",
+            "end_place_id",
+        ),
     )
     if rev_start_ok and rev_end_ok:
         start_id = _resolve_endpoint_place_id(
@@ -280,11 +293,7 @@ async def _load_routes_by_id(route_ids: set[str]) -> dict[str, RecurringRoute]:
         return {}
 
     routes = await RecurringRoute.find({"_id": {"$in": oids}}).to_list()
-    return {
-        str(route.id): route
-        for route in routes
-        if route.id is not None
-    }
+    return {str(route.id): route for route in routes if route.id is not None}
 
 
 async def _aggregate_facets_for_trip_ids(trip_ids: list[Any]) -> dict[str, Any]:
@@ -430,8 +439,14 @@ def _fallback_facets(trips: list[dict[str, Any]]) -> dict[str, Any]:
 
         raw_start = trip.get("startTime")
         if isinstance(raw_start, datetime):
-            first_trip = raw_start if first_trip is None or raw_start < first_trip else first_trip
-            last_trip = raw_start if last_trip is None or raw_start > last_trip else last_trip
+            first_trip = (
+                raw_start
+                if first_trip is None or raw_start < first_trip
+                else first_trip
+            )
+            last_trip = (
+                raw_start if last_trip is None or raw_start > last_trip else last_trip
+            )
 
     by_hour_out = []
     for h in range(24):
@@ -440,8 +455,12 @@ def _fallback_facets(trips: list[dict[str, Any]]) -> dict[str, Any]:
             {
                 "_id": h,
                 "count": entry["count"],
-                "avgDistance": (entry["dist"] / entry["distN"]) if entry["distN"] else None,
-                "avgDuration": (entry["dur"] / entry["durN"]) if entry["durN"] else None,
+                "avgDistance": (
+                    (entry["dist"] / entry["distN"]) if entry["distN"] else None
+                ),
+                "avgDuration": (
+                    (entry["dur"] / entry["durN"]) if entry["durN"] else None
+                ),
             },
         )
 
@@ -452,8 +471,12 @@ def _fallback_facets(trips: list[dict[str, Any]]) -> dict[str, Any]:
             {
                 "_id": d,
                 "count": entry["count"],
-                "avgDistance": (entry["dist"] / entry["distN"]) if entry["distN"] else None,
-                "avgDuration": (entry["dur"] / entry["durN"]) if entry["durN"] else None,
+                "avgDistance": (
+                    (entry["dist"] / entry["distN"]) if entry["distN"] else None
+                ),
+                "avgDuration": (
+                    (entry["dur"] / entry["durN"]) if entry["durN"] else None
+                ),
             },
         )
 
@@ -465,8 +488,14 @@ def _fallback_facets(trips: list[dict[str, Any]]) -> dict[str, Any]:
                 "_id": key,
                 "count": entry["count"],
                 "totalDistance": entry["totalDistance"],
-                "avgDistance": (entry["totalDistance"] / entry["distN"]) if entry["distN"] else None,
-                "avgDuration": (entry["dur"] / entry["durN"]) if entry["durN"] else None,
+                "avgDistance": (
+                    (entry["totalDistance"] / entry["distN"])
+                    if entry["distN"]
+                    else None
+                ),
+                "avgDuration": (
+                    (entry["dur"] / entry["durN"]) if entry["durN"] else None
+                ),
             },
         )
 
@@ -505,7 +534,9 @@ def _build_variants(
         else:
             route_signature = compute_route_signature(trip, {})
             route_key = compute_route_key(route_signature) if route_signature else None
-            group_key = f"fingerprint:{route_key}" if route_key else "fingerprint:unclassified"
+            group_key = (
+                f"fingerprint:{route_key}" if route_key else "fingerprint:unclassified"
+            )
 
         group = groups.get(group_key)
         if group is None:
@@ -556,7 +587,9 @@ def _build_variants(
                 group["preview_path"] = build_preview_svg_path(rep_geom)
 
     variants: list[dict[str, Any]] = []
-    total_trip_count = sum(int(group.get("trip_count") or 0) for group in groups.values())
+    total_trip_count = sum(
+        int(group.get("trip_count") or 0) for group in groups.values()
+    )
 
     for group in groups.values():
         route = routes_by_id.get(group.get("route_id") or "")
@@ -564,25 +597,32 @@ def _build_variants(
         preview_path = (
             route.preview_svg_path
             if route and route.preview_svg_path
-            else group.get("preview_path") or build_preview_svg_path(representative_geometry)
+            else group.get("preview_path")
+            or build_preview_svg_path(representative_geometry)
         )
-        distances = [float(v) for v in group.get("distances", []) if isinstance(v, int | float)]
-        durations = [float(v) for v in group.get("durations", []) if isinstance(v, int | float)]
+        distances = [
+            float(v) for v in group.get("distances", []) if isinstance(v, int | float)
+        ]
+        durations = [
+            float(v) for v in group.get("durations", []) if isinstance(v, int | float)
+        ]
         trip_count = int(group.get("trip_count") or 0)
         variants.append(
             {
                 "variant_key": group["variant_key"],
                 "route_id": group.get("route_id"),
                 "route_key": (
-                    route.route_key
-                    if route is not None
-                    else group.get("route_key")
+                    route.route_key if route is not None else group.get("route_key")
                 ),
                 "route_signature": group.get("route_signature"),
-                "display_name": route_display_name(route) if route else group.get("label"),
+                "display_name": (
+                    route_display_name(route) if route else group.get("label")
+                ),
                 "label": route_display_name(route) if route else group.get("label"),
                 "trip_count": trip_count,
-                "share": (trip_count / total_trip_count) if total_trip_count > 0 else 0.0,
+                "share": (
+                    (trip_count / total_trip_count) if total_trip_count > 0 else 0.0
+                ),
                 "median_distance": median(distances) if distances else None,
                 "median_duration": median(durations) if durations else None,
                 "avgDistance": (sum(distances) / len(distances)) if distances else None,
@@ -614,20 +654,17 @@ def _to_sample_trip(
 ) -> dict[str, Any]:
     route_id = coerce_place_id(trip.get("recurringRouteId"))
 
-    start_place_id = (
-        coerce_place_id(trip.get("startPlaceId"))
-        or coerce_place_id(trip.get("_resolvedStartPlaceId"))
+    start_place_id = coerce_place_id(trip.get("startPlaceId")) or coerce_place_id(
+        trip.get("_resolvedStartPlaceId"),
     )
-    destination_place_id = (
-        coerce_place_id(trip.get("destinationPlaceId"))
-        or coerce_place_id(trip.get("_resolvedEndPlaceId"))
-    )
+    destination_place_id = coerce_place_id(
+        trip.get("destinationPlaceId"),
+    ) or coerce_place_id(trip.get("_resolvedEndPlaceId"))
 
     start_label = extract_location_label(trip.get("startLocation"))
-    end_label = (
-        str(trip.get("destinationPlaceName") or "").strip()
-        or extract_location_label(trip.get("destination"))
-    )
+    end_label = str(
+        trip.get("destinationPlaceName") or "",
+    ).strip() or extract_location_label(trip.get("destination"))
 
     start_link = build_place_link(
         start_place_id,
@@ -671,12 +708,14 @@ async def analyze_place_pair(
         start_oid = PydanticObjectId(start_place_id)
         end_oid = PydanticObjectId(end_place_id)
     except Exception as exc:
-        raise ValueError("Invalid place id") from exc
+        msg = "Invalid place id"
+        raise ValueError(msg) from exc
 
     start_place = await Place.get(start_oid)
     end_place = await Place.get(end_oid)
     if not start_place or not end_place:
-        raise LookupError("Place not found")
+        msg = "Place not found"
+        raise LookupError(msg)
 
     requested_timeframe = str(timeframe or "all").strip().lower()
     effective_timeframe = "90d" if requested_timeframe == "90d" else "all"
@@ -794,7 +833,9 @@ async def analyze_place_pair(
 
     route_ids = {
         route_id
-        for route_id in (coerce_place_id(doc.get("recurringRouteId")) for doc in matched_trips)
+        for route_id in (
+            coerce_place_id(doc.get("recurringRouteId")) for doc in matched_trips
+        )
         if route_id
     }
     routes_by_id = await _load_routes_by_id(route_ids)
@@ -855,10 +896,14 @@ async def analyze_place_pair(
     variant_count = len(variants)
 
     distance_values = [
-        value for value in (_to_float(trip.get("distance")) for trip in matched_trips) if value is not None
+        value
+        for value in (_to_float(trip.get("distance")) for trip in matched_trips)
+        if value is not None
     ]
     duration_values = [
-        value for value in (_to_float(trip.get("duration")) for trip in matched_trips) if value is not None
+        value
+        for value in (_to_float(trip.get("duration")) for trip in matched_trips)
+        if value is not None
     ]
 
     month_items = []

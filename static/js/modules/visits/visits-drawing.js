@@ -62,7 +62,8 @@ class VisitsDrawing {
       "draw-new": {
         pillText: "Drawing",
         pillClass: "boundary-mode-drawing",
-        helpText: "Click points on the map to draw your boundary, then close the shape.",
+        helpText:
+          "Click points on the map to draw your boundary, then close the shape.",
       },
       "select-existing": {
         pillText: "Select Place",
@@ -72,7 +73,8 @@ class VisitsDrawing {
       "edit-new": {
         pillText: "Editing New",
         pillClass: "boundary-mode-editing",
-        helpText: "Drag vertices and midpoints to refine the new boundary before saving.",
+        helpText:
+          "Drag vertices and midpoints to refine the new boundary before saving.",
       },
       "edit-existing": {
         pillText: "Editing Existing",
@@ -161,7 +163,10 @@ class VisitsDrawing {
 
   _setPolygonForEditing(feature, mode) {
     if (!feature?.id) {
-      this.notificationManager?.show("Unable to prepare this boundary for editing.", "warning");
+      this.notificationManager?.show(
+        "Unable to prepare this boundary for editing.",
+        "warning"
+      );
       this.mode = "idle";
       this._syncBoundaryUi();
       return;
@@ -279,7 +284,9 @@ class VisitsDrawing {
       return {
         ...geometry,
         coordinates: (geometry.coordinates || []).map((polygonCoords) =>
-          (polygonCoords || []).map((ring) => this._scaleRing(ring, center, scaleFactor))
+          (polygonCoords || []).map((ring) =>
+            this._scaleRing(ring, center, scaleFactor)
+          )
         ),
       };
     }
@@ -501,7 +508,8 @@ class VisitsDrawing {
       return;
     }
 
-    const modeAfterTransform = this.mode === "edit-existing" ? "edit-existing" : "edit-new";
+    const modeAfterTransform =
+      this.mode === "edit-existing" ? "edit-existing" : "edit-new";
     this.draw.delete(currentFeature.id);
     const addedFeatureIds = this.draw.add({
       type: "Feature",
@@ -539,10 +547,13 @@ class VisitsDrawing {
   }
 
   simplifyBoundaryShape() {
-    this._applyBoundaryGeometryTransform((geometry) => this._simplifyGeometry(geometry), {
-      failureMessage: "This boundary shape can't be simplified right now.",
-      successMessage: "Boundary simplified. It should be easier to tweak now.",
-    });
+    this._applyBoundaryGeometryTransform(
+      (geometry) => this._simplifyGeometry(geometry),
+      {
+        failureMessage: "This boundary shape can't be simplified right now.",
+        successMessage: "Boundary simplified. It should be easier to tweak now.",
+      }
+    );
   }
 
   smoothBoundaryShape() {
@@ -855,7 +866,9 @@ class VisitsDrawing {
     const featureId = Array.isArray(addedFeatureIds)
       ? addedFeatureIds[0]
       : addedFeatureIds;
-    const polygon = featureId ? this.draw.get(featureId) : this.draw.getAll().features[0];
+    const polygon = featureId
+      ? this.draw.get(featureId)
+      : this.draw.getAll().features[0];
 
     if (polygon) {
       this._setPolygonForEditing(polygon, "edit-existing");
@@ -866,7 +879,10 @@ class VisitsDrawing {
         placeNameInput.focus();
       }
 
-      this.notificationManager?.show("Edit the boundary and save changes when ready.", "info");
+      this.notificationManager?.show(
+        "Edit the boundary and save changes when ready.",
+        "info"
+      );
       return;
     }
 
@@ -929,7 +945,9 @@ class VisitsDrawing {
     const featureId = Array.isArray(addedFeatureIds)
       ? addedFeatureIds[0]
       : addedFeatureIds;
-    const polygon = featureId ? this.draw.get(featureId) : this.draw.getAll().features[0];
+    const polygon = featureId
+      ? this.draw.get(featureId)
+      : this.draw.getAll().features[0];
 
     if (polygon) {
       this.placeBeingEdited = null;

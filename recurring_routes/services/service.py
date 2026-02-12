@@ -162,7 +162,9 @@ def extract_point_from_geojson_point(value: Any) -> list[float] | None:
         return None
     if value.get("type") != "Point":
         return None
-    valid, pair = GeometryService.validate_coordinate_pair(value.get("coordinates") or [])
+    valid, pair = GeometryService.validate_coordinate_pair(
+        value.get("coordinates") or [],
+    )
     return pair if valid and pair else None
 
 
@@ -207,7 +209,9 @@ def _point_matches_place_geometry(place: Place, point: list[float]) -> bool:
 
 
 def find_place_id_for_point(point: Any, places: list[Place]) -> str | None:
-    valid, pair = GeometryService.validate_coordinate_pair(point if isinstance(point, list | tuple) else [])
+    valid, pair = GeometryService.validate_coordinate_pair(
+        point if isinstance(point, list | tuple) else [],
+    )
     if not valid or not pair:
         return None
 
@@ -235,11 +239,7 @@ async def resolve_places_by_ids(place_ids: set[str]) -> dict[str, Place]:
         return {}
 
     places = await Place.find({"_id": {"$in": oids}}).to_list()
-    return {
-        str(place.id): place
-        for place in places
-        if place.id is not None
-    }
+    return {str(place.id): place for place in places if place.id is not None}
 
 
 def build_place_link(
@@ -304,8 +304,11 @@ async def resolve_route_place_links(route: RecurringRoute) -> dict[str, Any]:
             end_place_id = end_counts.most_common(1)[0][0]
 
     if (
-        (not start_place_id and isinstance(route.start_centroid, list) and route.start_centroid)
-        or (not end_place_id and isinstance(route.end_centroid, list) and route.end_centroid)
+        not start_place_id
+        and isinstance(route.start_centroid, list)
+        and route.start_centroid
+    ) or (
+        not end_place_id and isinstance(route.end_centroid, list) and route.end_centroid
     ):
         places = await Place.find_all().to_list()
         if not start_place_id:
@@ -331,7 +334,9 @@ async def resolve_route_place_links(route: RecurringRoute) -> dict[str, Any]:
     return links
 
 
-async def serialize_route_detail_with_place_links(route: RecurringRoute) -> dict[str, Any]:
+async def serialize_route_detail_with_place_links(
+    route: RecurringRoute,
+) -> dict[str, Any]:
     data = serialize_route_detail(route)
     data["place_links"] = await resolve_route_place_links(route)
     return data

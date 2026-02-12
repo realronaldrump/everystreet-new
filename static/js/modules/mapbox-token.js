@@ -6,9 +6,7 @@ const readMetaToken = () => {
   return meta?.getAttribute("content")?.trim() || "";
 };
 
-export const getMapboxToken = () => {
-  return readMetaToken();
-};
+export const getMapboxToken = () => readMetaToken();
 
 export const isMapboxStyleUrl = (styleUrl) => {
   if (!styleUrl || typeof styleUrl !== "string") {
@@ -28,7 +26,7 @@ export const waitForMapboxToken = async ({ timeoutMs = 2000 } = {}) => {
     throw new Error("Mapbox access token not configured");
   }
 
-  return new Promise((resolve, reject) => {
+  const resolvedToken = await new Promise((resolve, reject) => {
     let done = false;
     const finish = (value, error) => {
       if (done) {
@@ -65,4 +63,5 @@ export const waitForMapboxToken = async ({ timeoutMs = 2000 } = {}) => {
 
     check();
   });
+  return resolvedToken;
 };

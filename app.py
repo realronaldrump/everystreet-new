@@ -75,10 +75,12 @@ app = FastAPI(title="Every Street")
 
 
 class CacheControlStaticFiles(StaticFiles):
-    """StaticFiles with cache headers suitable for frequent deploys.
+    """
+    StaticFiles with cache headers suitable for frequent deploys.
 
-    Most of our JS is loaded as ESM modules without versioned import specifiers,
-    so we force revalidation to avoid stale client-side modules after updates.
+    Most of our JS is loaded as ESM modules without versioned import
+    specifiers, so we force revalidation to avoid stale client-side
+    modules after updates.
     """
 
     async def get_response(self, path: str, scope):  # type: ignore[override]
@@ -101,9 +103,11 @@ app.mount(
 templates = Jinja2Templates(directory="templates")
 register_template_filters(templates)
 
+
 @app.get("/static-v/{_version}/{path:path}", include_in_schema=False)
 async def static_versioned(_version: str, path: str, request: Request):
-    """Serve static files under a versioned prefix.
+    """
+    Serve static files under a versioned prefix.
 
     This is primarily to avoid stale ESM module caching behind CDNs/proxies.
     The version segment becomes part of the URL path, so relative `import` paths

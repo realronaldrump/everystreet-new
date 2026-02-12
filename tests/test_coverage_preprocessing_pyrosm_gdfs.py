@@ -10,7 +10,7 @@ def test_normalize_pyrosm_gdfs_makes_unique_indexes() -> None:
             "id": [1, 1, 2],
             "lon": [-97.0, -97.0, -96.9],
             "lat": [31.5, 31.5, 31.6],
-        }
+        },
     )
 
     # Edges have parallel edges between the same nodes but no `key` column.
@@ -19,7 +19,7 @@ def test_normalize_pyrosm_gdfs_makes_unique_indexes() -> None:
             "u": [1, 1, 1],
             "v": [2, 2, 2],
             "highway": ["residential", "residential", "service"],
-        }
+        },
     )
 
     norm_nodes, norm_edges = _normalize_pyrosm_gdfs(nodes, edges)

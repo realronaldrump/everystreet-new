@@ -59,7 +59,9 @@ function formatMiles(v) {
 }
 
 function formatDateShort(v) {
-  if (!v) return "--";
+  if (!v) {
+    return "--";
+  }
   const d = new Date(v);
   return Number.isNaN(d.getTime())
     ? "--"
@@ -71,7 +73,9 @@ function formatDateShort(v) {
 }
 
 function formatMonthLabel(ym) {
-  if (!ym) return "";
+  if (!ym) {
+    return "";
+  }
   const [y, m] = ym.split("-");
   const months = [
     "Jan",
@@ -91,9 +95,15 @@ function formatMonthLabel(ym) {
 }
 
 function formatHourLabel(h) {
-  if (h === 0) return "12a";
-  if (h < 12) return `${h}a`;
-  if (h === 12) return "12p";
+  if (h === 0) {
+    return "12a";
+  }
+  if (h < 12) {
+    return `${h}a`;
+  }
+  if (h === 12) {
+    return "12p";
+  }
   return `${h - 12}p`;
 }
 
@@ -112,7 +122,9 @@ const MS_PER_DAY = 86400000;
 const MS_PER_WEEK = 7 * MS_PER_DAY;
 
 function parseDate(value) {
-  if (!value) return null;
+  if (!value) {
+    return null;
+  }
   const dt = new Date(value);
   return Number.isNaN(dt.getTime()) ? null : dt;
 }
@@ -124,16 +136,24 @@ function sundayWeekStartUtc(date) {
 
 function computeTripsPerWeek(route) {
   const trips = Number(route?.trip_count || 0);
-  if (trips <= 0) return 0;
+  if (trips <= 0) {
+    return 0;
+  }
 
   const first = parseDate(route?.first_start_time);
   const last = parseDate(route?.last_start_time);
-  if (!first && !last) return 0;
+  if (!first && !last) {
+    return 0;
+  }
 
   let start = first || last;
   let end = last || first;
-  if (!start || !end) return 0;
-  if (end.getTime() < start.getTime()) [start, end] = [end, start];
+  if (!start || !end) {
+    return 0;
+  }
+  if (end.getTime() < start.getTime()) {
+    [start, end] = [end, start];
+  }
 
   const firstWeekStart = sundayWeekStartUtc(start);
   const lastWeekStart = sundayWeekStartUtc(end);
@@ -143,16 +163,26 @@ function computeTripsPerWeek(route) {
 
 function resolveTripsPerWeek(route, analyticsData) {
   const apiTripsPerWeek = Number(analyticsData?.tripsPerWeek);
-  if (Number.isFinite(apiTripsPerWeek) && apiTripsPerWeek > 0) return apiTripsPerWeek;
+  if (Number.isFinite(apiTripsPerWeek) && apiTripsPerWeek > 0) {
+    return apiTripsPerWeek;
+  }
   return computeTripsPerWeek(route);
 }
 
 function getDistanceCategory(medianMiles) {
   const n = Number(medianMiles);
-  if (!Number.isFinite(n) || n <= 0) return "";
-  if (n < 3) return "short hop";
-  if (n < 15) return "regular drive";
-  if (n < 50) return "long commute";
+  if (!Number.isFinite(n) || n <= 0) {
+    return "";
+  }
+  if (n < 3) {
+    return "short hop";
+  }
+  if (n < 15) {
+    return "regular drive";
+  }
+  if (n < 50) {
+    return "long commute";
+  }
   return "road trip";
 }
 
@@ -163,12 +193,24 @@ function getRoutePersonality(route) {
     : null;
   const dist = Number(route?.distance_miles_median || route?.distance_miles_avg || 0);
 
-  if (daysSinceLast !== null && daysSinceLast > 90) return "Inactive route";
-  if (tpw >= 4 && dist < 20) return "Daily commute";
-  if (tpw >= 4) return "Frequent regular";
-  if (tpw >= 1.5) return "Regular route";
-  if (tpw >= 0.5) return "Weekly trip";
-  if (tpw > 0) return "Occasional trip";
+  if (daysSinceLast !== null && daysSinceLast > 90) {
+    return "Inactive route";
+  }
+  if (tpw >= 4 && dist < 20) {
+    return "Daily commute";
+  }
+  if (tpw >= 4) {
+    return "Frequent regular";
+  }
+  if (tpw >= 1.5) {
+    return "Regular route";
+  }
+  if (tpw >= 0.5) {
+    return "Weekly trip";
+  }
+  if (tpw > 0) {
+    return "Occasional trip";
+  }
   return "Route";
 }
 
@@ -187,7 +229,9 @@ function getCardInsightSentence(route) {
 }
 
 function computeHeroInsights(routes) {
-  if (!routes || routes.length === 0) return { dna: "", spotlight: "" };
+  if (!routes || routes.length === 0) {
+    return { dna: "", spotlight: "" };
+  }
 
   const totalTrips = routes.reduce((s, r) => s + (r.trip_count || 0), 0);
   const totalMiles = routes.reduce(
@@ -226,37 +270,50 @@ function computeHeroInsights(routes) {
 
 function computeConsistencyScore(analyticsData) {
   const timeline = analyticsData?.timeline;
-  if (!Array.isArray(timeline) || timeline.length < 3) return null;
+  if (!Array.isArray(timeline) || timeline.length < 3) {
+    return null;
+  }
   const distances = timeline.map((t) => Number(t?.distance)).filter(Number.isFinite);
-  if (distances.length < 3) return null;
+  if (distances.length < 3) {
+    return null;
+  }
   const mean = distances.reduce((s, d) => s + d, 0) / distances.length;
-  if (mean <= 0) return null;
+  if (mean <= 0) {
+    return null;
+  }
   const variance =
     distances.reduce((s, d) => s + (d - mean) ** 2, 0) / distances.length;
   const cv = Math.sqrt(variance) / mean;
-  if (cv < 0.05)
+  if (cv < 0.05) {
     return { score: Math.round(95 + Math.random() * 5), label: "Like clockwork" };
-  if (cv < 0.15)
+  }
+  if (cv < 0.15) {
     return {
       score: Math.round(80 + ((0.15 - cv) / 0.1) * 14),
       label: "Very consistent",
     };
-  if (cv < 0.3)
+  }
+  if (cv < 0.3) {
     return {
       score: Math.round(60 + ((0.3 - cv) / 0.15) * 19),
       label: "Mostly consistent",
     };
+  }
   return { score: Math.max(20, Math.round(60 - cv * 50)), label: "Variable" };
 }
 
 function computePeakDeparture(analyticsData) {
   const byHour = analyticsData?.byHour;
-  if (!Array.isArray(byHour) || byHour.length === 0) return null;
+  if (!Array.isArray(byHour) || byHour.length === 0) {
+    return null;
+  }
   const peak = byHour.reduce(
     (a, b) => ((b?.count || 0) > (a?.count || 0) ? b : a),
     byHour[0]
   );
-  if (!peak || (peak.count || 0) === 0) return null;
+  if (!peak || (peak.count || 0) === 0) {
+    return null;
+  }
   const h = peak.hour;
   const nextH = (h + 1) % 24;
   return {
@@ -268,9 +325,13 @@ function computePeakDeparture(analyticsData) {
 
 function computeDayPattern(analyticsData) {
   const byDay = analyticsData?.byDayOfWeek;
-  if (!Array.isArray(byDay) || byDay.length === 0) return null;
+  if (!Array.isArray(byDay) || byDay.length === 0) {
+    return null;
+  }
   const total = byDay.reduce((s, d) => s + (d?.count || 0), 0);
-  if (total === 0) return null;
+  if (total === 0) {
+    return null;
+  }
   const weekday = byDay
     .filter((d) => {
       const idx = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(d.dayName);
@@ -278,23 +339,35 @@ function computeDayPattern(analyticsData) {
     })
     .reduce((s, d) => s + (d?.count || 0), 0);
   const weekdayShare = weekday / total;
-  if (weekdayShare > 0.8) return "Weekday regular";
-  if (weekdayShare < 0.5) return "Weekend warrior";
+  if (weekdayShare > 0.8) {
+    return "Weekday regular";
+  }
+  if (weekdayShare < 0.5) {
+    return "Weekend warrior";
+  }
   const counts = byDay.map((d) => d?.count || 0);
   const maxDay = Math.max(...counts);
   const minDay = Math.min(...counts.filter((c) => c > 0));
-  if (minDay > 0 && maxDay / minDay < 2.5) return "Everyday route";
+  if (minDay > 0 && maxDay / minDay < 2.5) {
+    return "Everyday route";
+  }
   return "Mixed schedule";
 }
 
 function generateModalInsightSentence(route, analyticsData) {
   const parts = [];
   const dayPattern = computeDayPattern(analyticsData);
-  if (dayPattern) parts.push(dayPattern);
+  if (dayPattern) {
+    parts.push(dayPattern);
+  }
   const peak = computePeakDeparture(analyticsData);
-  if (peak) parts.push(`usually departs ${peak.label}`);
+  if (peak) {
+    parts.push(`usually departs ${peak.label}`);
+  }
   const consistency = computeConsistencyScore(analyticsData);
-  if (consistency) parts.push(`${consistency.label.toLowerCase()} distance`);
+  if (consistency) {
+    parts.push(`${consistency.label.toLowerCase()} distance`);
+  }
   if (parts.length === 0) {
     const personality = getRoutePersonality(route);
     return personality !== "Route" ? personality : "Recurring route pattern";
@@ -391,9 +464,13 @@ function destroyCanvasChart(canvas) {
 function setChartEmptyState(canvasId, emptyId, hasData, emptyText) {
   const canvas = getEl(canvasId);
   const empty = getEl(emptyId);
-  if (canvas) canvas.classList.toggle("d-none", !hasData);
+  if (canvas) {
+    canvas.classList.toggle("d-none", !hasData);
+  }
   if (empty) {
-    if (emptyText) empty.textContent = emptyText;
+    if (emptyText) {
+      empty.textContent = emptyText;
+    }
     empty.classList.toggle("d-none", hasData);
   }
 }
@@ -429,15 +506,22 @@ function setLoading(on) {
   const loading = getEl("routes-loading");
   const grid = getEl("routes-grid");
   const empty = getEl("routes-empty");
-  if (loading) loading.classList.toggle("d-none", !on);
-  if (empty) empty.classList.add("d-none");
-  if (grid)
+  if (loading) {
+    loading.classList.toggle("d-none", !on);
+  }
+  if (empty) {
+    empty.classList.add("d-none");
+  }
+  if (grid) {
     on ? grid.setAttribute("aria-busy", "true") : grid.removeAttribute("aria-busy");
+  }
 }
 
 function showEmpty(show) {
   const el = getEl("routes-empty");
-  if (el) el.classList.toggle("d-none", !show);
+  if (el) {
+    el.classList.toggle("d-none", !show);
+  }
 }
 
 /* ───── hero stats ───── */
@@ -456,7 +540,9 @@ function updateHeroStats(routes) {
 
   const setVal = (id, v) => {
     const el = getEl(id);
-    if (el) el.textContent = v;
+    if (el) {
+      el.textContent = v;
+    }
   };
   setVal("hero-stat-routes", routeCount.toLocaleString());
   setVal("hero-stat-trips", totalTrips.toLocaleString());
@@ -479,7 +565,9 @@ function updateHeroStats(routes) {
 function updateResultsHeader(total) {
   const countEl = getEl("routes-results-count");
   const hintEl = getEl("routes-results-hint");
-  if (countEl) countEl.textContent = String(total || 0);
+  if (countEl) {
+    countEl.textContent = String(total || 0);
+  }
   if (hintEl) {
     const minTrips = Number(listState.minTrips) || 3;
     const vehicle = listState.imei
@@ -508,8 +596,12 @@ function createRouteCard(route) {
   const strokeColor = routeStrokeColor(route);
   card.style.setProperty("--route-stroke", strokeColor);
 
-  const start = escapeHtml(route?.place_links?.start?.label || route.start_label || "Unknown");
-  const end = escapeHtml(route?.place_links?.end?.label || route.end_label || "Unknown");
+  const start = escapeHtml(
+    route?.place_links?.start?.label || route.start_label || "Unknown"
+  );
+  const end = escapeHtml(
+    route?.place_links?.end?.label || route.end_label || "Unknown"
+  );
   const previewPath = route.preview_svg_path || "M 5,35 Q 25,5 50,20 T 95,15";
   const medianDist = formatMiles(route.distance_miles_median);
   const medianDur = route.duration_sec_median
@@ -538,14 +630,16 @@ function createRouteCard(route) {
   }
 
   const pills = [];
-  if (route.is_pinned)
+  if (route.is_pinned) {
     pills.push(
       '<span class="route-pill pinned"><i class="fas fa-thumbtack"></i></span>'
     );
-  if (route.is_hidden)
+  }
+  if (route.is_hidden) {
     pills.push(
       '<span class="route-pill hidden-pill"><i class="fas fa-eye-slash"></i></span>'
     );
+  }
 
   const personality = getRoutePersonality(route);
   const insightSentence = getCardInsightSentence(route);
@@ -584,7 +678,9 @@ function createRouteCard(route) {
 
 function renderRoutes(routes) {
   const grid = getEl("routes-grid");
-  if (!grid) return;
+  if (!grid) {
+    return;
+  }
   grid.innerHTML = "";
   if (!routes || routes.length === 0) {
     showEmpty(true);
@@ -596,7 +692,9 @@ function renderRoutes(routes) {
 
 /* ───── places loading ───── */
 async function loadPlacesCatalog({ force = false } = {}) {
-  if (placesLoaded && !force) return placesCatalog;
+  if (placesLoaded && !force) {
+    return placesCatalog;
+  }
   try {
     const places = await apiGet("/api/places", { cache: true });
     placesCatalog = Array.isArray(places) ? places : [];
@@ -611,7 +709,9 @@ async function loadPlacesCatalog({ force = false } = {}) {
 /* ───── vehicle loading ───── */
 async function loadVehicles() {
   const select = getEl("routes-vehicle");
-  if (!select) return;
+  if (!select) {
+    return;
+  }
   try {
     const list = await apiGet("/api/vehicles?active_only=true");
     vehicles = Array.isArray(list) ? list : [];
@@ -631,10 +731,16 @@ async function loadVehicles() {
 /* ───── list loading ───── */
 function buildListUrl() {
   const p = new URLSearchParams();
-  if (listState.q) p.set("q", listState.q);
+  if (listState.q) {
+    p.set("q", listState.q);
+  }
   p.set("min_trips", String(listState.minTrips || 3));
-  if (listState.includeHidden) p.set("include_hidden", "true");
-  if (listState.imei) p.set("imei", listState.imei);
+  if (listState.includeHidden) {
+    p.set("include_hidden", "true");
+  }
+  if (listState.imei) {
+    p.set("imei", listState.imei);
+  }
   p.set("limit", String(DEFAULT_LIST_LIMIT));
   p.set("offset", "0");
   return `/api/recurring_routes?${p.toString()}`;
@@ -679,14 +785,27 @@ function setBuildUi(state) {
   const stageEl = getEl("routes-build-stage");
   const pctEl = getEl("routes-build-progress");
   const cancelBtn = getEl("routes-cancel-btn");
-  if (dot) dot.dataset.state = state?.dotState || "idle";
-  if (text) text.textContent = state?.text || "Ready to build";
-  if (progressWrap) progressWrap.classList.toggle("d-none", !state?.showProgress);
-  if (progressBar)
+  if (dot) {
+    dot.dataset.state = state?.dotState || "idle";
+  }
+  if (text) {
+    text.textContent = state?.text || "Ready to build";
+  }
+  if (progressWrap) {
+    progressWrap.classList.toggle("d-none", !state?.showProgress);
+  }
+  if (progressBar) {
     progressBar.style.width = `${Math.max(0, Math.min(100, Number(state?.progress || 0)))}%`;
-  if (stageEl) stageEl.textContent = state?.stage || "Queued";
-  if (pctEl) pctEl.textContent = `${Math.round(Number(state?.progress || 0))}%`;
-  if (cancelBtn) cancelBtn.classList.toggle("d-none", !state?.showCancel);
+  }
+  if (stageEl) {
+    stageEl.textContent = state?.stage || "Queued";
+  }
+  if (pctEl) {
+    pctEl.textContent = `${Math.round(Number(state?.progress || 0))}%`;
+  }
+  if (cancelBtn) {
+    cancelBtn.classList.toggle("d-none", !state?.showCancel);
+  }
 }
 
 function stopBuildPolling() {
@@ -698,7 +817,9 @@ function stopBuildPolling() {
 }
 
 async function pollBuildJob(jobId) {
-  if (!jobId) return;
+  if (!jobId) {
+    return;
+  }
   activeBuildJobId = jobId;
   if (buildPollTimer) {
     clearTimeout(buildPollTimer);
@@ -755,8 +876,9 @@ async function pollBuildJob(jobId) {
         return;
       }
     }
-    if (activeBuildJobId === jobId && !pageSignal?.aborted)
+    if (activeBuildJobId === jobId && !pageSignal?.aborted) {
       buildPollTimer = setTimeout(tick, 2000);
+    }
   };
   await tick();
 }
@@ -773,7 +895,9 @@ async function startBuild() {
     });
     const resp = await apiPost("/api/recurring_routes/jobs/build", {});
     const jobId = resp?.job_id;
-    if (!jobId) throw new Error("Build job did not return a job_id");
+    if (!jobId) {
+      throw new Error("Build job did not return a job_id");
+    }
     await pollBuildJob(jobId);
   } catch (e) {
     setBuildUi({
@@ -790,7 +914,9 @@ async function startBuild() {
 
 async function cancelBuild() {
   const jobId = activeBuildJobId;
-  if (!jobId) return;
+  if (!jobId) {
+    return;
+  }
   try {
     await apiPost(`/api/recurring_routes/jobs/${encodeURIComponent(jobId)}/cancel`, {});
   } catch (e) {
@@ -800,21 +926,29 @@ async function cancelBuild() {
 
 /* ───── map helpers ───── */
 function bboxForGeometry(geometry) {
-  if (!geometry) return null;
+  if (!geometry) {
+    return null;
+  }
   const pts = [];
   const { type, coordinates: coords } = geometry;
-  if (type === "LineString" && Array.isArray(coords))
+  if (type === "LineString" && Array.isArray(coords)) {
     coords.forEach((c) => pts.push(c));
-  else if (type === "MultiLineString" && Array.isArray(coords))
+  } else if (type === "MultiLineString" && Array.isArray(coords)) {
     coords.forEach((l) => {
-      if (Array.isArray(l)) l.forEach((c) => pts.push(c));
+      if (Array.isArray(l)) {
+        l.forEach((c) => pts.push(c));
+      }
     });
-  else return null;
+  } else {
+    return null;
+  }
   const valid = pts
     .filter((c) => Array.isArray(c) && c.length >= 2)
     .map((c) => [Number(c[0]), Number(c[1])])
     .filter((p) => Number.isFinite(p[0]) && Number.isFinite(p[1]));
-  if (valid.length < 2) return null;
+  if (valid.length < 2) {
+    return null;
+  }
   const lons = valid.map((p) => p[0]);
   const lats = valid.map((p) => p[1]);
   return [Math.min(...lons), Math.min(...lats), Math.max(...lons), Math.max(...lats)];
@@ -822,7 +956,9 @@ function bboxForGeometry(geometry) {
 
 function ensureRouteModal() {
   const el = getEl("routeDetailsModal");
-  if (!el || typeof bootstrap === "undefined") return null;
+  if (!el || typeof bootstrap === "undefined") {
+    return null;
+  }
   if (!routeModalInstance) {
     routeModalInstance = bootstrap.Modal.getOrCreateInstance(el);
     el.addEventListener("hidden.bs.modal", () => {
@@ -853,7 +989,9 @@ function ensureRouteModal() {
 }
 
 function ensureModalMap() {
-  if (routeModalMap) return routeModalMap;
+  if (routeModalMap) {
+    return routeModalMap;
+  }
   try {
     routeModalMap = createMap("route-modal-map", {
       center: [-98.5795, 39.8283],
@@ -945,7 +1083,9 @@ function setModalHeader(route) {
   const titleEl = getEl("routeModalTitle");
   const metaEl = getEl("routeModalMeta");
   const openBtn = getEl("route-modal-open-btn");
-  if (titleEl) titleEl.textContent = route?.display_name || route?.auto_name || "Route";
+  if (titleEl) {
+    titleEl.textContent = route?.display_name || route?.auto_name || "Route";
+  }
   if (metaEl) {
     const startLink = route?.place_links?.start || {};
     const endLink = route?.place_links?.end || {};
@@ -973,22 +1113,23 @@ function setModalHeader(route) {
       </a>
     `;
   }
-  if (openBtn && route?.id) openBtn.href = `/routes/${encodeURIComponent(route.id)}`;
+  if (openBtn && route?.id) {
+    openBtn.href = `/routes/${encodeURIComponent(route.id)}`;
+  }
 }
 
 function setModalStats(route, analyticsData) {
   const stats = analyticsData?.stats || {};
   const setVal = (id, v) => {
     const el = getEl(id);
-    if (el) el.textContent = v;
+    if (el) {
+      el.textContent = v;
+    }
   };
 
   setVal("route-stat-trips", String(route?.trip_count || stats.totalTrips || 0));
   const tpw = resolveTripsPerWeek(route, analyticsData);
-  setVal(
-    "route-stat-frequency",
-    tpw > 0 ? Number(tpw).toFixed(1) : "--"
-  );
+  setVal("route-stat-frequency", tpw > 0 ? Number(tpw).toFixed(1) : "--");
   setVal(
     "route-stat-distance",
     route?.distance_miles_avg
@@ -1058,7 +1199,9 @@ function setModalStats(route, analyticsData) {
   if (consistency) {
     setVal("route-fact-consistency", `${consistency.score}`);
     const consistLabel = getEl("route-fact-consistency");
-    if (consistLabel) consistLabel.title = consistency.label;
+    if (consistLabel) {
+      consistLabel.title = consistency.label;
+    }
   } else {
     const medDist = Number(route?.distance_miles_median || 0);
     const avgDist = Number(route?.distance_miles_avg || 0);
@@ -1089,19 +1232,27 @@ function syncModalControls(route) {
     const c = route?.color || "#3b8a7f";
     colorInput.value = c.startsWith("#") ? c : `#${c}`;
   }
-  if (pinBtn) pinBtn.classList.toggle("active", Boolean(route?.is_pinned));
-  if (hideBtn) hideBtn.classList.toggle("active", Boolean(route?.is_hidden));
+  if (pinBtn) {
+    pinBtn.classList.toggle("active", Boolean(route?.is_pinned));
+  }
+  if (hideBtn) {
+    hideBtn.classList.toggle("active", Boolean(route?.is_hidden));
+  }
   if (badge) {
     const show = Boolean(route?.is_pinned || route?.is_hidden);
     badge.style.display = show ? "flex" : "none";
-    if (badgeText) badgeText.textContent = route?.is_hidden ? "Hidden" : "Pinned";
+    if (badgeText) {
+      badgeText.textContent = route?.is_hidden ? "Hidden" : "Pinned";
+    }
   }
 }
 
 /* ───── charts ───── */
 function renderMonthlyChart(data) {
   const canvas = getEl("route-chart-monthly");
-  if (!canvas || typeof Chart === "undefined") return;
+  if (!canvas || typeof Chart === "undefined") {
+    return;
+  }
   const byMonth = data?.byMonth || [];
   const hasData =
     Array.isArray(byMonth) &&
@@ -1113,7 +1264,9 @@ function renderMonthlyChart(data) {
     hasData,
     "Not enough monthly data for this route."
   );
-  if (!hasData) return;
+  if (!hasData) {
+    return;
+  }
 
   const labels = byMonth.map((m) => formatMonthLabel(m._id));
   const counts = byMonth.map((m) => m.count);
@@ -1175,7 +1328,9 @@ function renderMonthlyChart(data) {
 
 function renderHourChart(data) {
   const canvas = getEl("route-chart-hour");
-  if (!canvas || typeof Chart === "undefined") return;
+  if (!canvas || typeof Chart === "undefined") {
+    return;
+  }
   const byHour = data?.byHour || [];
   const hasData =
     Array.isArray(byHour) &&
@@ -1187,7 +1342,9 @@ function renderHourChart(data) {
     hasData,
     "Not enough hourly data for this route."
   );
-  if (!hasData) return;
+  if (!hasData) {
+    return;
+  }
 
   const labels = byHour.map((h) => formatHourLabel(h.hour));
   const counts = byHour.map((h) => h.count);
@@ -1243,7 +1400,9 @@ function renderHourChart(data) {
 
 function renderDowChart(data) {
   const canvas = getEl("route-chart-dow");
-  if (!canvas || typeof Chart === "undefined") return;
+  if (!canvas || typeof Chart === "undefined") {
+    return;
+  }
   const byDay = data?.byDayOfWeek || [];
   const hasData =
     Array.isArray(byDay) &&
@@ -1255,7 +1414,9 @@ function renderDowChart(data) {
     hasData,
     "Not enough day-of-week data for this route."
   );
-  if (!hasData) return;
+  if (!hasData) {
+    return;
+  }
 
   const labels = byDay.map((d) => d.dayName);
   const counts = byDay.map((d) => d.count);
@@ -1311,7 +1472,9 @@ function renderDowChart(data) {
 
 function renderDistanceTrendChart(data) {
   const canvas = getEl("route-chart-distance-trend");
-  if (!canvas || typeof Chart === "undefined") return;
+  if (!canvas || typeof Chart === "undefined") {
+    return;
+  }
   const timeline = data?.timeline || [];
   const hasData =
     Array.isArray(timeline) &&
@@ -1322,7 +1485,9 @@ function renderDistanceTrendChart(data) {
     hasData,
     "Not enough trend data for this route."
   );
-  if (!hasData) return;
+  if (!hasData) {
+    return;
+  }
 
   const labels = timeline.map((t) => {
     const d = new Date(t.startTime);
@@ -1431,11 +1596,13 @@ function renderDistanceTrendChart(data) {
       const variance =
         validDist.reduce((s, d) => s + (d - mean) ** 2, 0) / validDist.length;
       const cv = mean > 0 ? Math.sqrt(variance) / mean : 0;
-      if (cv < 0.1)
+      if (cv < 0.1) {
         trendInsight.textContent = `Very consistent distance (${mean.toFixed(1)} mi avg)`;
-      else if (cv < 0.25)
+      } else if (cv < 0.25) {
         trendInsight.textContent = `Mostly consistent distance with some variation`;
-      else trendInsight.textContent = `Distance varies significantly between trips`;
+      } else {
+        trendInsight.textContent = `Distance varies significantly between trips`;
+      }
     }
   }
 }
@@ -1444,8 +1611,12 @@ function renderDistanceTrendChart(data) {
 function setModalTrips(trips) {
   const list = getEl("route-modal-trips-list");
   const count = getEl("route-modal-trips-count");
-  if (count) count.textContent = String(trips.length);
-  if (!list) return;
+  if (count) {
+    count.textContent = String(trips.length);
+  }
+  if (!list) {
+    return;
+  }
   list.innerHTML = "";
   if (!Array.isArray(trips) || trips.length === 0) {
     list.innerHTML =
@@ -1516,7 +1687,9 @@ function setModalTrips(trips) {
 /* ───── map display ───── */
 function setModalMap(route) {
   const map = ensureModalMap();
-  if (!map) return;
+  if (!map) {
+    return;
+  }
   const geometry = route?.geometry;
   const color = routeStrokeColor(route);
   const features = [];
@@ -1543,23 +1716,27 @@ function setModalMap(route) {
         const lastLine = geometry.coordinates[geometry.coordinates.length - 1];
         end = lastLine?.[lastLine.length - 1];
       }
-      if (Array.isArray(start) && start.length >= 2)
+      if (Array.isArray(start) && start.length >= 2) {
         features.push({
           type: "Feature",
           geometry: { type: "Point", coordinates: start },
           properties: { kind: "start", color },
         });
-      if (Array.isArray(end) && end.length >= 2)
+      }
+      if (Array.isArray(end) && end.length >= 2) {
         features.push({
           type: "Feature",
           geometry: { type: "Point", coordinates: end },
           properties: { kind: "end", color },
         });
+      }
 
       const fc = { type: "FeatureCollection", features };
       const applyData = () => {
         const src = map.getSource(MODAL_SOURCE_ID);
-        if (src) src.setData(fc);
+        if (src) {
+          src.setData(fc);
+        }
         map.resize();
         map.fitBounds(
           [
@@ -1569,20 +1746,27 @@ function setModalMap(route) {
           { padding: 48, duration: 450, essential: true }
         );
       };
-      if (map.isStyleLoaded()) applyData();
-      else map.once("load", applyData);
+      if (map.isStyleLoaded()) {
+        applyData();
+      } else {
+        map.once("load", applyData);
+      }
       return;
     }
   }
   const src = map.getSource(MODAL_SOURCE_ID);
-  if (src) src.setData({ type: "FeatureCollection", features });
+  if (src) {
+    src.setData({ type: "FeatureCollection", features });
+  }
 }
 
 /* ───── all-trips overlay ───── */
 async function toggleAllTrips() {
   const map = routeModalMap;
   const routeId = routeModalRouteId;
-  if (!map || !routeId) return;
+  if (!map || !routeId) {
+    return;
+  }
 
   showAllTrips = !showAllTrips;
   const btn = getEl("route-modal-show-all-trips");
@@ -1592,16 +1776,21 @@ async function toggleAllTrips() {
       ? `${icon}Hide trip overlays`
       : `${icon}Show all trips`;
   }
-  if (btn) btn.classList.toggle("active", showAllTrips);
+  if (btn) {
+    btn.classList.toggle("active", showAllTrips);
+  }
 
   if (!showAllTrips) {
-    if (map.getLayer(MODAL_TRIPS_LAYER_ID))
+    if (map.getLayer(MODAL_TRIPS_LAYER_ID)) {
       map.setLayoutProperty(MODAL_TRIPS_LAYER_ID, "visibility", "none");
+    }
     return;
   }
 
   try {
-    if (btn) btn.disabled = true;
+    if (btn) {
+      btn.disabled = true;
+    }
     const resp = await apiGet(
       `/api/recurring_routes/${encodeURIComponent(routeId)}/trips?limit=200&offset=0&include_geometry=true`,
       { cache: false }
@@ -1622,8 +1811,9 @@ async function toggleAllTrips() {
         btn.innerHTML =
           '<i class="fas fa-layer-group me-2" aria-hidden="true"></i>Show all trips';
       }
-      if (map.getLayer(MODAL_TRIPS_LAYER_ID))
+      if (map.getLayer(MODAL_TRIPS_LAYER_ID)) {
         map.setLayoutProperty(MODAL_TRIPS_LAYER_ID, "visibility", "none");
+      }
       notificationManager.show?.(
         "No trip geometry is available for this route.",
         "info"
@@ -1639,24 +1829,35 @@ async function toggleAllTrips() {
     }
     const applyOverlay = () => {
       const src = map.getSource(MODAL_TRIPS_SOURCE_ID);
-      if (src) src.setData({ type: "FeatureCollection", features });
-      if (map.getLayer(MODAL_TRIPS_LAYER_ID))
+      if (src) {
+        src.setData({ type: "FeatureCollection", features });
+      }
+      if (map.getLayer(MODAL_TRIPS_LAYER_ID)) {
         map.setLayoutProperty(MODAL_TRIPS_LAYER_ID, "visibility", "visible");
+      }
     };
-    if (map.isStyleLoaded()) applyOverlay();
-    else map.once("load", applyOverlay);
+    if (map.isStyleLoaded()) {
+      applyOverlay();
+    } else {
+      map.once("load", applyOverlay);
+    }
   } catch (e) {
     notificationManager.show?.(
       `Failed to load trip geometries: ${e?.message || e}`,
       "warning"
     );
     showAllTrips = false;
-    if (btn) btn.classList.remove("active");
-    if (btn)
+    if (btn) {
+      btn.classList.remove("active");
+    }
+    if (btn) {
       btn.innerHTML =
         '<i class="fas fa-layer-group me-2" aria-hidden="true"></i>Show all trips';
+    }
   } finally {
-    if (btn) btn.disabled = false;
+    if (btn) {
+      btn.disabled = false;
+    }
   }
 }
 
@@ -1664,7 +1865,9 @@ async function toggleAllTrips() {
 function loadConnectedPlaces(route) {
   const container = getEl("route-modal-places");
   const list = getEl("route-places-list");
-  if (!container || !list) return;
+  if (!container || !list) {
+    return;
+  }
   const start = route?.place_links?.start || null;
   const end = route?.place_links?.end || null;
   const startLabel = sanitizeLocation(start?.label || route?.start_label);
@@ -1710,7 +1913,9 @@ function loadConnectedPlaces(route) {
 /* ───── all-paths explorer ───── */
 function setExplorerStatus(message, tone = "muted") {
   const status = getEl("routes-explorer-status");
-  if (!status) return;
+  if (!status) {
+    return;
+  }
   status.textContent = message;
   status.classList.remove("is-error", "is-success", "is-muted");
   status.classList.add(
@@ -1720,7 +1925,9 @@ function setExplorerStatus(message, tone = "muted") {
 
 function setExplorerLoading(isLoading) {
   const runBtn = getEl("routes-explorer-run-btn");
-  if (!runBtn) return;
+  if (!runBtn) {
+    return;
+  }
   runBtn.disabled = Boolean(isLoading);
   runBtn.classList.toggle("is-loading", Boolean(isLoading));
 }
@@ -1736,7 +1943,9 @@ function toExplorerArray(value) {
 function setExplorerDefaults() {
   const setVal = (id, value) => {
     const el = getEl(id);
-    if (el) el.textContent = value;
+    if (el) {
+      el.textContent = value;
+    }
   };
   setVal("routes-explorer-kpi-trips", "--");
   setVal("routes-explorer-kpi-variants", "--");
@@ -1785,7 +1994,9 @@ function populateExplorerPlaceSelectors(places) {
   const start = getEl("routes-explorer-start-place");
   const end = getEl("routes-explorer-end-place");
   const runBtn = getEl("routes-explorer-run-btn");
-  if (!start || !end) return;
+  if (!start || !end) {
+    return;
+  }
 
   const items = Array.isArray(places) ? places : [];
   const options = [
@@ -1813,7 +2024,9 @@ function populateExplorerPlaceSelectors(places) {
     end.value = "";
   }
 
-  if (runBtn) runBtn.disabled = items.length < 2;
+  if (runBtn) {
+    runBtn.disabled = items.length < 2;
+  }
   if (items.length < 2) {
     setExplorerStatus(
       "Create at least two custom places in Visits to use All Paths Explorer.",
@@ -1839,7 +2052,9 @@ function normalizeExplorerByHour(data) {
   }));
   source.forEach((entry) => {
     const hour = Number(entry?.hour ?? entry?._id);
-    if (!Number.isInteger(hour) || hour < 0 || hour > 23) return;
+    if (!Number.isInteger(hour) || hour < 0 || hour > 23) {
+      return;
+    }
     byHour[hour].count = Number(entry?.count ?? entry?.trips ?? entry?.total ?? 0) || 0;
   });
   return byHour;
@@ -1866,7 +2081,9 @@ function normalizeExplorerByDay(data) {
             ? dayRaw - 1
             : dayRaw
           : -1;
-    if (zeroBased < 0 || zeroBased > 6) return;
+    if (zeroBased < 0 || zeroBased > 6) {
+      return;
+    }
     byDay[zeroBased].count =
       Number(entry?.count ?? entry?.trips ?? entry?.total ?? 0) || 0;
   });
@@ -1884,7 +2101,9 @@ function normalizeExplorerVariants(data) {
         entry?.percentage ??
         Number.NaN
     );
-    if (Number.isFinite(share) && share > 1) share /= 100;
+    if (Number.isFinite(share) && share > 1) {
+      share /= 100;
+    }
     return {
       key:
         entry?.variant_id ||
@@ -1932,8 +2151,12 @@ function normalizeExplorerVariantShare(data, variants, totalTrips) {
           entry?.percentage ??
           Number.NaN
       );
-      if (!Number.isFinite(share) && totalTrips > 0) share = trips / totalTrips;
-      if (share > 1) share /= 100;
+      if (!Number.isFinite(share) && totalTrips > 0) {
+        share = trips / totalTrips;
+      }
+      if (share > 1) {
+        share /= 100;
+      }
       return {
         key: entry?.variant_id || entry?.variantId || `variant-share-${idx + 1}`,
         label: entry?.label || entry?.name || `Variant ${idx + 1}`,
@@ -1944,7 +2167,9 @@ function normalizeExplorerVariantShare(data, variants, totalTrips) {
   }
 
   const sourceVariants = variants.filter((v) => v.trips > 0);
-  if (sourceVariants.length === 0) return [];
+  if (sourceVariants.length === 0) {
+    return [];
+  }
   const denom =
     totalTrips > 0 ? totalTrips : sourceVariants.reduce((sum, v) => sum + v.trips, 0);
   return sourceVariants.map((variant) => ({
@@ -2037,7 +2262,9 @@ function normalizeExplorerResponse(raw, timeframe) {
 function renderExplorerSummary(summary, timeframe) {
   const setVal = (id, value) => {
     const el = getEl(id);
-    if (el) el.textContent = value;
+    if (el) {
+      el.textContent = value;
+    }
   };
   const topShareNum = Number(summary?.topShare);
   setVal(
@@ -2069,12 +2296,14 @@ function renderExplorerSummary(summary, timeframe) {
       ? `${Math.round(topShareNum * 100)}%`
       : "";
     const parts = [`Between ${startName} and ${endName}`];
-    if (summary.variantCount > 0)
+    if (summary.variantCount > 0) {
       parts.push(
         `${summary.variantCount} route variant${summary.variantCount !== 1 ? "s" : ""}`
       );
-    if (topPct)
+    }
+    if (topPct) {
       parts.push(`most popular covers ${topPct} of ${summary.totalTrips} trips`);
+    }
     insightEl.textContent = `${parts.join(", ")}.`;
     insightEl.style.display = "";
   } else if (insightEl) {
@@ -2085,7 +2314,9 @@ function renderExplorerSummary(summary, timeframe) {
 
 function renderExplorerVariantShareList(items) {
   const list = getEl("routes-explorer-variant-share-list");
-  if (!list) return;
+  if (!list) {
+    return;
+  }
   list.innerHTML = "";
   if (!Array.isArray(items) || items.length === 0) {
     list.innerHTML =
@@ -2108,7 +2339,9 @@ function renderExplorerVariantShareList(items) {
 
 function renderExplorerVariantShareChart(items) {
   const canvas = getEl("routes-explorer-variant-share-chart");
-  if (!canvas || typeof Chart === "undefined") return;
+  if (!canvas || typeof Chart === "undefined") {
+    return;
+  }
   const source = Array.isArray(items)
     ? items.filter((entry) => Number(entry.share || 0) > 0)
     : [];
@@ -2119,7 +2352,9 @@ function renderExplorerVariantShareChart(items) {
     hasData,
     "No variant share data for this pair."
   );
-  if (!hasData) return;
+  if (!hasData) {
+    return;
+  }
 
   destroyCanvasChart(canvas);
   explorerChartVariantShare = destroyChartRef(explorerChartVariantShare);
@@ -2169,7 +2404,9 @@ function renderExplorerVariantShareChart(items) {
 
 function renderExplorerMonthlyChart(byMonth) {
   const canvas = getEl("routes-explorer-chart-monthly");
-  if (!canvas || typeof Chart === "undefined") return;
+  if (!canvas || typeof Chart === "undefined") {
+    return;
+  }
   const source = toExplorerArray(byMonth).filter((entry) => entry.count > 0);
   const hasData = source.length > 0;
   setChartEmptyState(
@@ -2178,7 +2415,9 @@ function renderExplorerMonthlyChart(byMonth) {
     hasData,
     "No monthly data yet."
   );
-  if (!hasData) return;
+  if (!hasData) {
+    return;
+  }
   destroyCanvasChart(canvas);
   explorerChartMonthly = destroyChartRef(explorerChartMonthly);
   explorerChartMonthly = new Chart(canvas, {
@@ -2202,7 +2441,9 @@ function renderExplorerMonthlyChart(byMonth) {
 
 function renderExplorerHourChart(byHour) {
   const canvas = getEl("routes-explorer-chart-hour");
-  if (!canvas || typeof Chart === "undefined") return;
+  if (!canvas || typeof Chart === "undefined") {
+    return;
+  }
   const source = toExplorerArray(byHour);
   const hasData = source.some((entry) => Number(entry.count || 0) > 0);
   setChartEmptyState(
@@ -2211,7 +2452,9 @@ function renderExplorerHourChart(byHour) {
     hasData,
     "No hourly data yet."
   );
-  if (!hasData) return;
+  if (!hasData) {
+    return;
+  }
   destroyCanvasChart(canvas);
   explorerChartHour = destroyChartRef(explorerChartHour);
   explorerChartHour = new Chart(canvas, {
@@ -2235,7 +2478,9 @@ function renderExplorerHourChart(byHour) {
 
 function renderExplorerDayChart(byDay) {
   const canvas = getEl("routes-explorer-chart-day");
-  if (!canvas || typeof Chart === "undefined") return;
+  if (!canvas || typeof Chart === "undefined") {
+    return;
+  }
   const source = toExplorerArray(byDay);
   const hasData = source.some((entry) => Number(entry.count || 0) > 0);
   setChartEmptyState(
@@ -2244,7 +2489,9 @@ function renderExplorerDayChart(byDay) {
     hasData,
     "No day-of-week data yet."
   );
-  if (!hasData) return;
+  if (!hasData) {
+    return;
+  }
   destroyCanvasChart(canvas);
   explorerChartDay = destroyChartRef(explorerChartDay);
   explorerChartDay = new Chart(canvas, {
@@ -2268,7 +2515,9 @@ function renderExplorerDayChart(byDay) {
 
 function renderExplorerVariants(variants) {
   const list = getEl("routes-explorer-variants-list");
-  if (!list) return;
+  if (!list) {
+    return;
+  }
   list.innerHTML = "";
   const source = toExplorerArray(variants).filter(
     (entry) => Number(entry?.trips || 0) > 0
@@ -2324,16 +2573,22 @@ async function requestExplorerAnalysis(payload) {
   params.set("include_reverse", payload.include_reverse ? "true" : "false");
   params.set("timeframe", payload.timeframe);
   params.set("limit", "500");
-  return apiGet(`/api/recurring_routes/place_pair_analysis?${params.toString()}`, {
-    cache: false,
-  });
+  const response = await apiGet(
+    `/api/recurring_routes/place_pair_analysis?${params.toString()}`,
+    {
+      cache: false,
+    }
+  );
+  return response;
 }
 
 async function runExplorerAnalysis() {
   const start = getEl("routes-explorer-start-place");
   const end = getEl("routes-explorer-end-place");
   const includeReverse = getEl("routes-explorer-include-reverse");
-  if (!start || !end) return;
+  if (!start || !end) {
+    return;
+  }
 
   const startPlaceId = (start.value || "").trim();
   const endPlaceId = (end.value || "").trim();
@@ -2358,7 +2613,9 @@ async function runExplorerAnalysis() {
       timeframe,
     };
     const raw = await requestExplorerAnalysis(payload);
-    if (requestId !== explorerRequestId) return;
+    if (requestId !== explorerRequestId) {
+      return;
+    }
 
     const normalized = normalizeExplorerResponse(raw, timeframe);
     renderExplorerSummary(normalized, timeframe);
@@ -2378,7 +2635,9 @@ async function runExplorerAnalysis() {
       );
     }
   } catch (error) {
-    if (error?.name === "AbortError") return;
+    if (error?.name === "AbortError") {
+      return;
+    }
     destroyExplorerCharts();
     setExplorerDefaults();
     setExplorerStatus(
@@ -2386,7 +2645,9 @@ async function runExplorerAnalysis() {
       "error"
     );
   } finally {
-    if (requestId === explorerRequestId) setExplorerLoading(false);
+    if (requestId === explorerRequestId) {
+      setExplorerLoading(false);
+    }
   }
 }
 
@@ -2420,13 +2681,17 @@ function bindExplorerControls(signal) {
           : "Close Explorer";
         expandBtn.querySelector("i").classList.toggle("fa-chevron-down", isOpen);
         expandBtn.querySelector("i").classList.toggle("fa-chevron-up", !isOpen);
-        if (teaser) teaser.classList.toggle("is-expanded", !isOpen);
+        if (teaser) {
+          teaser.classList.toggle("is-expanded", !isOpen);
+        }
       },
       opts
     );
   }
 
-  if (runBtn) runBtn.addEventListener("click", runExplorerAnalysis, opts);
+  if (runBtn) {
+    runBtn.addEventListener("click", runExplorerAnalysis, opts);
+  }
   if (start) {
     start.addEventListener(
       "change",
@@ -2480,7 +2745,7 @@ function initModalTabs() {
   const tabBtns = document.querySelectorAll(".routes-modal-tab");
   tabBtns.forEach((btn) => {
     btn.addEventListener("click", () => {
-      const tab = btn.dataset.tab;
+      const { tab } = btn.dataset;
       activateModalTab(tab);
       handleModalTabChange(tab);
     });
@@ -2489,9 +2754,13 @@ function initModalTabs() {
 
 /* ───── open modal ───── */
 async function openRouteModal(routeId) {
-  if (!routeId) return;
+  if (!routeId) {
+    return;
+  }
   const instance = ensureRouteModal();
-  if (!instance) return;
+  if (!instance) {
+    return;
+  }
 
   const token = ++routeModalOpenToken;
   routeModalRouteId = routeId;
@@ -2529,9 +2798,13 @@ async function openRouteModal(routeId) {
       }).catch(() => null),
     ]);
 
-    if (token !== routeModalOpenToken || routeModalRouteId !== routeId) return;
+    if (token !== routeModalOpenToken || routeModalRouteId !== routeId) {
+      return;
+    }
     const route = detailResp?.route;
-    if (!route) throw new Error("Route not found");
+    if (!route) {
+      throw new Error("Route not found");
+    }
     routeModalRoute = route;
     routeModalAnalyticsData = analyticsResp || {};
 
@@ -2542,7 +2815,9 @@ async function openRouteModal(routeId) {
 
     instance.show();
     setTimeout(() => {
-      if (token !== routeModalOpenToken) return;
+      if (token !== routeModalOpenToken) {
+        return;
+      }
       setModalMap(route);
     }, 80);
 
@@ -2550,17 +2825,23 @@ async function openRouteModal(routeId) {
       `/api/recurring_routes/${encodeURIComponent(routeId)}/trips?limit=100&offset=0`,
       { cache: false }
     );
-    if (token !== routeModalOpenToken || routeModalRouteId !== routeId) return;
+    if (token !== routeModalOpenToken || routeModalRouteId !== routeId) {
+      return;
+    }
     setModalTrips(Array.isArray(tripsResp?.trips) ? tripsResp.trips : []);
   } catch (e) {
-    if (token !== routeModalOpenToken || e?.name === "AbortError") return;
+    if (token !== routeModalOpenToken || e?.name === "AbortError") {
+      return;
+    }
     notificationManager.show?.(`Failed to open route: ${e?.message || e}`, "danger");
   }
 }
 
 /* ───── route PATCH ───── */
 async function saveRoutePatch(routeId, patch) {
-  if (!routeId) return null;
+  if (!routeId) {
+    return null;
+  }
   const resp = await apiPatch(
     `/api/recurring_routes/${encodeURIComponent(routeId)}`,
     patch
@@ -2577,7 +2858,9 @@ function bindModalControls(signal) {
   const allTripsBtn = getEl("route-modal-show-all-trips");
 
   const saveNameNow = async () => {
-    if (!routeModalRouteId) return;
+    if (!routeModalRouteId) {
+      return;
+    }
     const name = (nameInput?.value || "").trim();
     try {
       const updated = await saveRoutePatch(routeModalRouteId, {
@@ -2604,7 +2887,9 @@ function bindModalControls(signal) {
     colorInput.addEventListener(
       "change",
       async () => {
-        if (!routeModalRouteId) return;
+        if (!routeModalRouteId) {
+          return;
+        }
         try {
           const updated = await saveRoutePatch(routeModalRouteId, {
             color: colorInput.value,
@@ -2629,7 +2914,9 @@ function bindModalControls(signal) {
     pinBtn.addEventListener(
       "click",
       async () => {
-        if (!routeModalRouteId || !routeModalRoute) return;
+        if (!routeModalRouteId || !routeModalRoute) {
+          return;
+        }
         try {
           const updated = await saveRoutePatch(routeModalRouteId, {
             is_pinned: !routeModalRoute.is_pinned,
@@ -2653,7 +2940,9 @@ function bindModalControls(signal) {
     hideBtn.addEventListener(
       "click",
       async () => {
-        if (!routeModalRouteId || !routeModalRoute) return;
+        if (!routeModalRouteId || !routeModalRoute) {
+          return;
+        }
         try {
           const updated = await saveRoutePatch(routeModalRouteId, {
             is_hidden: !routeModalRoute.is_hidden,
@@ -2742,7 +3031,9 @@ function bindPageControls(signal) {
       "input",
       () => {
         listState.q = search.value || "";
-        if (clearBtn) clearBtn.classList.toggle("d-none", !listState.q);
+        if (clearBtn) {
+          clearBtn.classList.toggle("d-none", !listState.q);
+        }
         triggerLoad();
       },
       opts
@@ -2752,7 +3043,9 @@ function bindPageControls(signal) {
     clearBtn.addEventListener(
       "click",
       () => {
-        if (search) search.value = "";
+        if (search) {
+          search.value = "";
+        }
         listState.q = "";
         clearBtn.classList.add("d-none");
         loadRoutes();
@@ -2822,9 +3115,15 @@ function bindPageControls(signal) {
   }
 
   const startBuildHandler = () => startBuild();
-  if (buildBtn) buildBtn.addEventListener("click", startBuildHandler, opts);
-  if (emptyBuildBtn) emptyBuildBtn.addEventListener("click", startBuildHandler, opts);
-  if (cancelBtn) cancelBtn.addEventListener("click", cancelBuild, opts);
+  if (buildBtn) {
+    buildBtn.addEventListener("click", startBuildHandler, opts);
+  }
+  if (emptyBuildBtn) {
+    emptyBuildBtn.addEventListener("click", startBuildHandler, opts);
+  }
+  if (cancelBtn) {
+    cancelBtn.addEventListener("click", cancelBuild, opts);
+  }
 }
 
 /* ───── entry-point ───── */
@@ -2850,7 +3149,9 @@ export default async function initRoutesPage({ signal, cleanup } = {}) {
   await loadRoutes();
 
   const preload = getPreloadRouteIdFromUrl();
-  if (preload) requestAnimationFrame(() => openRouteModal(preload));
+  if (preload) {
+    requestAnimationFrame(() => openRouteModal(preload));
+  }
 
   const teardown = () => {
     stopBuildPolling();
@@ -2872,6 +3173,8 @@ export default async function initRoutesPage({ signal, cleanup } = {}) {
     pageSignal = null;
   };
 
-  if (typeof cleanup === "function") cleanup(teardown);
+  if (typeof cleanup === "function") {
+    cleanup(teardown);
+  }
   return teardown;
 }

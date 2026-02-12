@@ -123,12 +123,7 @@
   left: 0;
   right: 0;
   height: 4px;
-  background: linear-gradient(
-    90deg,
-    var(--trips-primary),
-    var(--trips-mint),
-    var(--trips-sky)
-  );
+  background: linear-gradient(90deg, var(--trips-primary), var(--trips-mint), var(--trips-sky));
 }
 
 .welcome-greeting {

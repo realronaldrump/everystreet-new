@@ -276,10 +276,10 @@ const layerManager = {
       div.style.cursor = "move";
 
       const checkboxId = `${name}-toggle`;
-      const supportsColorPicker
-        = info.supportsColorPicker !== false && name !== "customPlaces";
-      const supportsOpacitySlider
-        = info.supportsOpacitySlider !== false && name !== "customPlaces";
+      const supportsColorPicker =
+        info.supportsColorPicker !== false && name !== "customPlaces";
+      const supportsOpacitySlider =
+        info.supportsOpacitySlider !== false && name !== "customPlaces";
       const colorValue = typeof info.color === "string" ? info.color : "#faf9f7";
 
       const controls = [];
@@ -361,11 +361,11 @@ const layerManager = {
       const { target } = e;
       // Prevent drag on interactive elements
       if (
-        target.tagName === "INPUT"
-        || target.tagName === "LABEL"
-        || target.closest("input")
-        || target.closest("label")
-        || target.closest("button")
+        target.tagName === "INPUT" ||
+        target.tagName === "LABEL" ||
+        target.closest("input") ||
+        target.closest("label") ||
+        target.closest("button")
       ) {
         e.preventDefault();
         return;
@@ -758,11 +758,11 @@ const layerManager = {
 
     const uniqueTrips = new Set();
     rendered.forEach((feature, index) => {
-      const id
-        = feature.properties?.transactionId
-        ?? feature.properties?.id
-        ?? feature.id
-        ?? `rendered-${index}`;
+      const id =
+        feature.properties?.transactionId ??
+        feature.properties?.id ??
+        feature.id ??
+        `rendered-${index}`;
       uniqueTrips.add(String(id));
     });
 
@@ -781,8 +781,8 @@ const layerManager = {
 
     const firstGlowLayerId = `${layerName}-layer-0`;
     const secondGlowLayerId = `${layerName}-layer-1`;
-    const missingGlowLayers
-      = !store.map.getLayer(firstGlowLayerId) || !store.map.getLayer(secondGlowLayerId);
+    const missingGlowLayers =
+      !store.map.getLayer(firstGlowLayerId) || !store.map.getLayer(secondGlowLayerId);
 
     if (missingGlowLayers) {
       if (!store.map.isStyleLoaded()) {

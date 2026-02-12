@@ -1,4 +1,5 @@
-"""Trip ingest issues service.
+"""
+Trip ingest issues service.
 
 This module records fetch/validation/processing problems in a durable,
 user-facing log for Settings -> Data.
@@ -80,7 +81,8 @@ class TripIngestIssueService:
         """
         Upsert an issue record, incrementing count for repeat occurrences.
 
-        The upsert key ("fingerprint") is based on (issue_type, source, identifiers, message).
+        The upsert key ("fingerprint") is based on (issue_type, source,
+        identifiers, message).
         """
         issue_type = (issue_type or "").strip() or "unknown"
         source = (source or "").strip() or None

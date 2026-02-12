@@ -1,8 +1,10 @@
-"""Tests for _fetch_trips_for_window boundary clamping.
+"""
+Tests for _fetch_trips_for_window boundary clamping.
 
 The _expand_window_bounds_for_bouncie function was removed and its logic
-was inlined into _fetch_trips_for_window.  These tests verify the clamping
-still behaves correctly via the public helper build_import_windows.
+was inlined into _fetch_trips_for_window.  These tests verify the
+clamping still behaves correctly via the public helper
+build_import_windows.
 """
 
 from __future__ import annotations

@@ -76,7 +76,8 @@ async def test_fetch_trips_for_window_splits_on_failure() -> None:
         call_count += 1
         if call_count == 1:
             # First call (full window) fails
-            raise RuntimeError("Server error")
+            msg = "Server error"
+            raise RuntimeError(msg)
         # Sub-window calls succeed
         return [raw_trip]
 
@@ -105,7 +106,7 @@ async def test_fetch_trips_for_window_raises_for_small_window() -> None:
 
     mock_client = AsyncMock()
     mock_client.fetch_trips_for_device_resilient.side_effect = RuntimeError(
-        "Server error"
+        "Server error",
     )
 
     with pytest.raises(RuntimeError, match="Server error"):

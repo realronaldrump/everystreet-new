@@ -45,11 +45,7 @@
 /* Map route: avoid the bottom-nav hiding the non-blocking loader. */
 body[data-route="/map"] .loading-overlay.non-blocking {
   align-items: flex-start;
-  padding-top: calc(
-    var(--header-height) +
-    env(safe-area-inset-top, 0) +
-    var(--space-3)
-  );
+  padding-top: calc(var(--header-height) + env(safe-area-inset-top, 0) + var(--space-3));
   padding-bottom: var(--space-4);
 }
 

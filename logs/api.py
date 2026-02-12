@@ -276,7 +276,7 @@ async def get_logs_stats() -> dict[str, Any]:
             [
                 {"$group": {"_id": "$level", "count": {"$sum": 1}}},
                 {"$sort": {"_id": 1}},
-            ]
+            ],
         )
         level_counts = await aggregate_to_list(ServerLog, pipeline)
 

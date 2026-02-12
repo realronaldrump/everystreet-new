@@ -10,7 +10,7 @@ Simplified API for managing coverage areas:
 """
 
 import logging
-from typing import Any
+from typing import Annotated, Any
 
 from beanie import PydanticObjectId
 from fastapi import APIRouter, HTTPException, Query, status
@@ -207,7 +207,7 @@ def _is_type_match(area_type: str, result: dict[str, Any]) -> bool:
         return result_type == "county" or bool(address.get("county"))
     if normalized == "state":
         return result_type in {"state", "province", "region"} or bool(
-            address.get("state")
+            address.get("state"),
         )
     return True
 
@@ -380,9 +380,7 @@ async def validate_area(request: ValidateAreaRequest):
     response_model_by_alias=True,
 )
 async def resolve_area(request: ResolveAreaRequest):
-    """
-    Resolve a candidate boundary for confirmation.
-    """
+    """Resolve a candidate boundary for confirmation."""
     client = NominatimClient()
     try:
         results = await client.lookup_raw(
@@ -649,7 +647,7 @@ async def trigger_rebuild(area_id: PydanticObjectId):
 @router.post("/areas/{area_id}/backfill")
 async def trigger_backfill(
     area_id: PydanticObjectId,
-    background: bool = Query(False),
+    background: Annotated[bool, Query()] = False,
 ):
     """
     Trigger a backfill of coverage data for an existing area.
@@ -679,7 +677,8 @@ async def trigger_backfill(
             job = await backfill_area(area_id)
         except Exception as e:
             logger.exception(
-                "Error enqueueing backfill job for area %s", area.display_name
+                "Error enqueueing backfill job for area %s",
+                area.display_name,
             )
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

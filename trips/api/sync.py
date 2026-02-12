@@ -6,6 +6,7 @@ import asyncio
 import json
 import logging
 from datetime import UTC, datetime
+from typing import Annotated
 
 from beanie import PydanticObjectId
 from fastapi import APIRouter, HTTPException, Query, status
@@ -122,10 +123,12 @@ def _job_payload(job: Job) -> dict:
 @router.get("/api/actions/trips/sync/history_import/plan", response_model=dict)
 @api_route(logger)
 async def get_trip_history_import_plan(
-    start_date: str | None = Query(
-        None,
-        description="Optional import start datetime (ISO 8601). Defaults to earliest stored trip.",
-    ),
+    start_date: Annotated[
+        str | None,
+        Query(
+            description="Optional import start datetime (ISO 8601). Defaults to earliest stored trip.",
+        ),
+    ] = None,
 ):
     """Preview a trip history import plan (windows, requests, devices)."""
     parsed = parse_timestamp(start_date) if start_date else None
@@ -135,7 +138,8 @@ async def get_trip_history_import_plan(
 
 
 @router.get(
-    "/api/actions/trips/sync/history_import/{progress_job_id}", response_model=dict
+    "/api/actions/trips/sync/history_import/{progress_job_id}",
+    response_model=dict,
 )
 @api_route(logger)
 async def get_trip_history_import_status(progress_job_id: PydanticObjectId):
@@ -276,7 +280,8 @@ async def cancel_trip_history_import(progress_job_id: PydanticObjectId):
             )
         except Exception:
             logger.exception(
-                "Failed to mark task history cancelled for %s", operation_id
+                "Failed to mark task history cancelled for %s",
+                operation_id,
             )
 
     return {"status": "success", "message": "Import cancelled"}

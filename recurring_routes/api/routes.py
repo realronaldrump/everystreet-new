@@ -149,7 +149,9 @@ async def list_recurring_routes(
         )
         for route in route_docs
     )
-    all_places: list[Place] = await Place.find_all().to_list() if needs_centroid_fallback else []
+    all_places: list[Place] = (
+        await Place.find_all().to_list() if needs_centroid_fallback else []
+    )
 
     resolved_place_ids: list[tuple[str | None, str | None]] = []
     place_ids: set[str] = set()
@@ -212,10 +214,10 @@ async def list_recurring_routes(
 @router.get("/api/recurring_routes/place_pair_analysis", response_model=dict[str, Any])
 @api_route(logger)
 async def get_place_pair_analysis(
-    start_place_id: str = Query(..., min_length=1),
-    end_place_id: str = Query(..., min_length=1),
+    start_place_id: Annotated[str, Query(min_length=1)],
+    end_place_id: Annotated[str, Query(min_length=1)],
     include_reverse: bool = False,
-    timeframe: str = Query("all", pattern="^(90d|all)$"),
+    timeframe: Annotated[str, Query(pattern="^(90d|all)$")] = "all",
     limit: Annotated[int, Query(ge=1, le=500)] = 500,
 ):
     """Analyze trips between two places, optionally including reverse direction."""
@@ -295,10 +297,9 @@ async def list_trips_for_route(
         start_place_id = coerce_place_id(data.get("startPlaceId"))
         destination_place_id = coerce_place_id(data.get("destinationPlaceId"))
         start_label = extract_location_label(data.get("startLocation"))
-        destination_label = (
-            str(data.get("destinationPlaceName") or "").strip()
-            or extract_location_label(data.get("destination"))
-        )
+        destination_label = str(
+            data.get("destinationPlaceName") or "",
+        ).strip() or extract_location_label(data.get("destination"))
 
         start_link = build_place_link(
             start_place_id,
@@ -325,9 +326,9 @@ async def list_trips_for_route(
             "startPlaceId": start_place_id,
             "destinationPlaceId": destination_place_id,
             "startPlaceLabel": start_link.get("label") if start_link else start_label,
-            "destinationPlaceLabel": destination_link.get("label")
-            if destination_link
-            else destination_label,
+            "destinationPlaceLabel": (
+                destination_link.get("label") if destination_link else destination_label
+            ),
             "place_links": {
                 "start": start_link,
                 "end": destination_link,
@@ -345,9 +346,7 @@ async def list_trips_for_route(
     }
 
 
-@router.get(
-    "/api/recurring_routes/{route_id}/analytics", response_model=dict[str, Any]
-)
+@router.get("/api/recurring_routes/{route_id}/analytics", response_model=dict[str, Any])
 @api_route(logger)
 async def get_route_analytics(route_id: str):
     """Return time-of-day, day-of-week, and temporal trend analytics for a route."""
@@ -376,16 +375,16 @@ async def get_route_analytics(route_id: str):
                 "maxSpeed": 1,
                 "hour": {"$hour": {"date": "$startTime", "timezone": tz_expr}},
                 "dayOfWeek": {
-                    "$dayOfWeek": {"date": "$startTime", "timezone": tz_expr}
+                    "$dayOfWeek": {"date": "$startTime", "timezone": tz_expr},
                 },
                 "yearMonth": {
                     "$dateToString": {
                         "format": "%Y-%m",
                         "date": "$startTime",
                         "timezone": tz_expr,
-                    }
+                    },
                 },
-            }
+            },
         },
         {
             "$facet": {
@@ -396,7 +395,7 @@ async def get_route_analytics(route_id: str):
                             "count": {"$sum": 1},
                             "avgDistance": {"$avg": "$distance"},
                             "avgDuration": {"$avg": "$duration"},
-                        }
+                        },
                     },
                     {"$sort": {"_id": 1}},
                 ],
@@ -407,7 +406,7 @@ async def get_route_analytics(route_id: str):
                             "count": {"$sum": 1},
                             "avgDistance": {"$avg": "$distance"},
                             "avgDuration": {"$avg": "$duration"},
-                        }
+                        },
                     },
                     {"$sort": {"_id": 1}},
                 ],
@@ -419,7 +418,7 @@ async def get_route_analytics(route_id: str):
                             "totalDistance": {"$sum": "$distance"},
                             "avgDistance": {"$avg": "$distance"},
                             "avgDuration": {"$avg": "$duration"},
-                        }
+                        },
                     },
                     {"$sort": {"_id": 1}},
                     {"$limit": 24},
@@ -432,7 +431,7 @@ async def get_route_analytics(route_id: str):
                             "distance": 1,
                             "duration": 1,
                             "maxSpeed": 1,
-                        }
+                        },
                     },
                 ],
                 "stats": [
@@ -454,10 +453,10 @@ async def get_route_analytics(route_id: str):
                             "avgFuel": {"$avg": "$fuelConsumed"},
                             "firstTrip": {"$min": "$startTime"},
                             "lastTrip": {"$max": "$startTime"},
-                        }
-                    }
+                        },
+                    },
                 ],
-            }
+            },
         },
     ]
 
@@ -475,7 +474,7 @@ async def get_route_analytics(route_id: str):
                 "count": entry.get("count", 0),
                 "avgDistance": entry.get("avgDistance"),
                 "avgDuration": entry.get("avgDuration"),
-            }
+            },
         )
 
     # Fill in all 7 days (MongoDB: 1=Sun, 2=Mon, ..., 7=Sat)
@@ -491,7 +490,7 @@ async def get_route_analytics(route_id: str):
                 "count": entry.get("count", 0),
                 "avgDistance": entry.get("avgDistance"),
                 "avgDuration": entry.get("avgDuration"),
-            }
+            },
         )
 
     # Process timeline data
@@ -504,7 +503,7 @@ async def get_route_analytics(route_id: str):
                 "distance": t.get("distance"),
                 "duration": t.get("duration"),
                 "maxSpeed": t.get("maxSpeed"),
-            }
+            },
         )
 
     stats_source = facets.get("stats", [{}])[0] if facets.get("stats") else {}
@@ -570,7 +569,8 @@ async def patch_recurring_route(route_id: str, payload: PatchRecurringRouteReque
             normalized = normalize_hex_color(str(color_raw))
             if normalized is None:
                 raise HTTPException(
-                    status_code=400, detail="Invalid color format; expected #RRGGBB"
+                    status_code=400,
+                    detail="Invalid color format; expected #RRGGBB",
                 )
             route.color = normalized
 
@@ -660,7 +660,8 @@ async def get_recurring_routes_build(job_id: str):
 
 
 @router.post(
-    "/api/recurring_routes/jobs/{job_id}/cancel", response_model=dict[str, Any]
+    "/api/recurring_routes/jobs/{job_id}/cancel",
+    response_model=dict[str, Any],
 )
 @api_route(logger)
 async def cancel_recurring_routes_build(job_id: str):
@@ -707,7 +708,9 @@ async def cancel_recurring_routes_build(job_id: str):
         )
     except Exception as exc:
         logger.warning(
-            "Failed to update task history for cancelled job %s: %s", job_id, exc
+            "Failed to update task history for cancelled job %s: %s",
+            job_id,
+            exc,
         )
 
     return {

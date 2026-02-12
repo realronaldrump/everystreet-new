@@ -158,7 +158,8 @@ class VehicleService:
             # Don't silently "succeed" if we couldn't deauthorize; the vehicle would
             # likely come back on the next sync.
             logger.exception(
-                "Failed to deauthorize vehicle %s from Bouncie credentials", imei
+                "Failed to deauthorize vehicle %s from Bouncie credentials",
+                imei,
             )
             raise
 

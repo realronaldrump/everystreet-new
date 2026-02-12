@@ -24,7 +24,7 @@ def test_validate_area_returns_candidates() -> None:
             "address": {"city": "Waco", "state": "Texas"},
             "importance": 0.8,
             "boundingbox": ["31.4", "31.6", "-97.3", "-97.1"],
-        }
+        },
     ]
 
     with patch(
@@ -79,11 +79,11 @@ def test_resolve_area_returns_boundary() -> None:
                         [-97.1, 31.6],
                         [-97.3, 31.6],
                         [-97.3, 31.4],
-                    ]
+                    ],
                 ],
             },
             "boundingbox": ["31.4", "31.6", "-97.3", "-97.1"],
-        }
+        },
     ]
 
     with patch(
@@ -111,7 +111,7 @@ def test_resolve_area_rejects_invalid_geometry() -> None:
             "osm_id": 456,
             "osm_type": "relation",
             "geojson": {"type": "Point", "coordinates": [-97.1, 31.5]},
-        }
+        },
     ]
 
     with patch(

@@ -332,7 +332,8 @@ async def add_bouncie_vehicle(payload: BouncieVehicleCreate):
 
     session = await get_session()
     token = await BouncieOAuth.get_access_token(
-        session=session, credentials=credentials
+        session=session,
+        credentials=credentials,
     )
     if not token:
         raise HTTPException(
@@ -356,7 +357,9 @@ async def add_bouncie_vehicle(payload: BouncieVehicleCreate):
         bouncie_vehicle = await fetch_vehicle_by_imei(session, token, imei)
     except BouncieRateLimitError as exc:
         logger.warning(
-            "Bouncie API rate limited while adding vehicle %s: %s", imei, exc
+            "Bouncie API rate limited while adding vehicle %s: %s",
+            imei,
+            exc,
         )
         raise HTTPException(
             status_code=503,
@@ -471,7 +474,8 @@ async def add_bouncie_vehicle(payload: BouncieVehicleCreate):
             )
         except Exception as exc:
             logger.exception(
-                "Failed to enqueue trip sync after adding vehicle %s", imei
+                "Failed to enqueue trip sync after adding vehicle %s",
+                imei,
             )
             trip_sync_note = str(exc)
 

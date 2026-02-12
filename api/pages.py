@@ -1,6 +1,6 @@
 import logging
 from datetime import UTC, datetime
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -117,8 +117,8 @@ async def settings_page(request: Request):
 
 @router.post("/settings/credentials/add-vehicle", response_class=RedirectResponse)
 async def settings_add_vehicle(
-    imei: str = Form(""),
-    custom_name: str | None = Form(None),
+    imei: Annotated[str, Form()] = "",
+    custom_name: Annotated[str | None, Form()] = None,
 ) -> RedirectResponse:
     """Fallback handler for the Credentials -> Add Vehicle form (non-JS)."""
     imei_value = (imei or "").strip()
@@ -160,8 +160,8 @@ async def settings_add_vehicle(
 
 @router.post("/vehicles/add-vehicle", response_class=RedirectResponse)
 async def vehicles_add_vehicle(
-    imei: str = Form(""),
-    custom_name: str | None = Form(None),
+    imei: Annotated[str, Form()] = "",
+    custom_name: Annotated[str | None, Form()] = None,
 ) -> RedirectResponse:
     """Fallback handler for the My Vehicles -> Add Vehicle form (non-JS)."""
     imei_value = (imei or "").strip()
