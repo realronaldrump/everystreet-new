@@ -45,6 +45,18 @@ try:
 except ValueError:
     _MIN_WINDOW_HOURS = 1
 MIN_WINDOW_HOURS = max(1, _MIN_WINDOW_HOURS)
+try:
+    _SPLIT_CHUNK_HOURS = int(os.getenv("TRIP_HISTORY_IMPORT_SPLIT_CHUNK_HOURS", "12"))
+except ValueError:
+    _SPLIT_CHUNK_HOURS = 12
+SPLIT_CHUNK_HOURS = max(1, _SPLIT_CHUNK_HOURS)
+try:
+    _DEVICE_FETCH_TIMEOUT_SECONDS = int(
+        os.getenv("TRIP_HISTORY_IMPORT_DEVICE_FETCH_TIMEOUT_SECONDS", "120"),
+    )
+except ValueError:
+    _DEVICE_FETCH_TIMEOUT_SECONDS = 120
+DEVICE_FETCH_TIMEOUT_SECONDS = max(10, _DEVICE_FETCH_TIMEOUT_SECONDS)
 
 # History import is intended to be fast. Expensive downstream work should be
 # deferred to dedicated jobs (e.g. geocoding/re-coverage runs), otherwise a
@@ -186,13 +198,14 @@ async def _fetch_trips_for_window(
     window_start: datetime,
     window_end: datetime,
     _min_window_hours: int = MIN_WINDOW_HOURS,
+    _split_chunk_hours: int = SPLIT_CHUNK_HOURS,
 ) -> list[dict[str, Any]]:
     """
     Fetch trips for a window using BouncieClient (geojson, with retry).
 
-    If a window fails after client-level retry, recursively split it and
-    retry sub-windows down to ``_min_window_hours``. This recovers around
-    device/date partitions where larger ranges consistently return 5xx.
+    If a window fails after client-level retry, split it into smaller chunks
+    (bounded by ``_split_chunk_hours``) and retry sub-windows down to
+    ``_min_window_hours``. This avoids very long stalls on bad partitions.
     """
     # Clamp to strictly under 7 days for Bouncie's documented limit.
     max_span = timedelta(days=7) - timedelta(seconds=2)
@@ -216,19 +229,39 @@ async def _fetch_trips_for_window(
         if span <= timedelta(hours=_min_window_hours):
             raise  # Cannot split further — propagate to caller
 
-        midpoint = window_start + span / 2
+        split_size = min(
+            timedelta(hours=max(_min_window_hours, _split_chunk_hours)),
+            span / 2,
+        )
+        if split_size <= timedelta(0):
+            raise
+
+        sub_windows: list[tuple[datetime, datetime]] = []
+        cursor = window_start
+        while cursor < window_end:
+            sub_end = min(cursor + split_size, window_end)
+            if sub_end <= cursor:
+                break
+            sub_windows.append((cursor, sub_end))
+            cursor = sub_end
+
+        if len(sub_windows) < 2:
+            midpoint = window_start + span / 2
+            sub_windows = [
+                (window_start, midpoint),
+                (midpoint, window_end),
+            ]
+
         logger.warning(
-            "Window failed after retries (imei=%s), splitting %s - %s",
+            "Window failed after retries (imei=%s), splitting %s - %s into %s chunks",
             imei,
             window_start.isoformat(),
             window_end.isoformat(),
+            len(sub_windows),
         )
 
         results: list[dict[str, Any]] = []
-        for sub_start, sub_end in [
-            (window_start, midpoint),
-            (midpoint, window_end),
-        ]:
+        for sub_start, sub_end in sub_windows:
             try:
                 chunk = await _fetch_trips_for_window(
                     client,
@@ -237,6 +270,7 @@ async def _fetch_trips_for_window(
                     window_start=sub_start,
                     window_end=sub_end,
                     _min_window_hours=_min_window_hours,
+                    _split_chunk_hours=_split_chunk_hours,
                 )
                 results.extend(chunk)
             except Exception:
@@ -390,13 +424,14 @@ async def _fetch_device_window(
     async with semaphore:
         devices_done = 0
         try:
-            trips = await _fetch_trips_for_window(
-                client,
-                token=token,
-                imei=imei,
-                window_start=window_start,
-                window_end=window_end,
-            )
+            async with asyncio.timeout(DEVICE_FETCH_TIMEOUT_SECONDS):
+                trips = await _fetch_trips_for_window(
+                    client,
+                    token=token,
+                    imei=imei,
+                    window_start=window_start,
+                    window_end=window_end,
+                )
             trips = _dedupe_trips_by_transaction_id(trips)
             before_count = len(trips)
             trips = _filter_trips_to_window(
@@ -414,6 +449,12 @@ async def _fetch_device_window(
                     window_index,
                 )
         except Exception as exc:
+            error_text = str(exc) or exc.__class__.__name__
+            if isinstance(exc, TimeoutError):
+                error_text = (
+                    "Device window fetch exceeded "
+                    f"{DEVICE_FETCH_TIMEOUT_SECONDS}s"
+                )
             async with lock:
                 counters["fetch_errors"] += 1
                 if imei in per_device:
@@ -424,12 +465,12 @@ async def _fetch_device_window(
             add_event(
                 "error",
                 f"Fetch failed for {imei}",
-                {"error": str(exc), "imei": imei, "window_index": window_index},
+                {"error": error_text, "imei": imei, "window_index": window_index},
             )
-            record_failure_reason(str(exc))
+            record_failure_reason(error_text)
             await TripIngestIssueService.record_issue(
                 issue_type="fetch_error",
-                message=str(exc),
+                message=error_text,
                 source="bouncie",
                 imei=imei,
                 details={
