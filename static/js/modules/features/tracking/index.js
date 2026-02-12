@@ -68,6 +68,7 @@ class LiveTripTracker {
     this.mapInteractionHandlers = [];
     this.lastUpdateTimestamp = null;
     this.freshnessTimer = null;
+    this.mapStyleListener = null;
     this.primaryColor = LiveTripTracker.getCssVar("--primary", "#3b8a7f");
   }
 
@@ -502,15 +503,34 @@ class LiveTripTracker {
     try {
       await this.loadInitialTrip();
       this.connectWebSocket();
-
-      document.addEventListener("mapUpdated", () => {
-        console.debug("Map updated, live trip layers maintained");
-      });
+      this.setupMapStyleListener();
     } catch (error) {
       console.error("Initialization error:", error);
       this.updateStatus(false, "Failed to initialize");
       this.startPolling();
     }
+  }
+
+  setupMapStyleListener() {
+    if (this.mapStyleListener) {
+      return;
+    }
+
+    this.mapStyleListener = () => {
+      try {
+        this.initializeMapLayers();
+
+        if (this.activeTrip) {
+          this.updateTrip(this.activeTrip);
+        } else {
+          this.clearTrip();
+        }
+      } catch (error) {
+        console.warn("Failed to restore live trip layers after style load:", error);
+      }
+    };
+
+    document.addEventListener("mapStyleLoaded", this.mapStyleListener);
   }
 
   async loadInitialTrip() {
@@ -689,25 +709,105 @@ class LiveTripTracker {
 
     if (Array.isArray(trip.coordinates) && trip.coordinates.length > 0) {
       coords = trip.coordinates
-        .map((c) => {
-          if (c && c.lon !== undefined && c.lat !== undefined) {
-            return { lon: c.lon, lat: c.lat, timestamp: c.timestamp };
-          }
-          return null;
-        })
+        .map((c) => LiveTripTracker.normalizeCoordinate(c))
         .filter(Boolean);
     }
 
     if (coords.length === 0 && trip.gps) {
       const { gps } = trip;
       if (gps.type === "Point" && Array.isArray(gps.coordinates)) {
-        coords = [{ lon: gps.coordinates[0], lat: gps.coordinates[1] }];
+        const point = LiveTripTracker.normalizeCoordinate(gps.coordinates);
+        coords = point ? [point] : [];
       } else if (gps.type === "LineString" && Array.isArray(gps.coordinates)) {
-        coords = gps.coordinates.map((c) => ({ lon: c[0], lat: c[1] }));
+        coords = gps.coordinates
+          .map((c) => LiveTripTracker.normalizeCoordinate(c))
+          .filter(Boolean);
+      } else {
+        const point = LiveTripTracker.normalizeCoordinate(gps);
+        coords = point ? [point] : [];
+      }
+    }
+
+    if (coords.length === 0) {
+      const fallbackPoint = [
+        trip.currentLocation,
+        trip.current_position,
+        trip.location,
+        trip.lastKnownLocation,
+      ]
+        .map((candidate) => LiveTripTracker.normalizeCoordinate(candidate))
+        .find(Boolean);
+
+      if (fallbackPoint) {
+        coords = [fallbackPoint];
       }
     }
 
     return coords;
+  }
+
+  static parseCoordinateNumber(value) {
+    if (value === null || value === undefined || value === "") {
+      return null;
+    }
+    const parsed =
+      typeof value === "number" ? value : Number.parseFloat(String(value));
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  static isValidCoordinate(lon, lat) {
+    return (
+      Number.isFinite(lon) &&
+      Number.isFinite(lat) &&
+      Math.abs(lon) <= 180 &&
+      Math.abs(lat) <= 90
+    );
+  }
+
+  static normalizeCoordinate(value) {
+    if (!value) {
+      return null;
+    }
+
+    if (Array.isArray(value) && value.length >= 2) {
+      const lon = LiveTripTracker.parseCoordinateNumber(value[0]);
+      const lat = LiveTripTracker.parseCoordinateNumber(value[1]);
+      if (LiveTripTracker.isValidCoordinate(lon, lat)) {
+        return { lon, lat };
+      }
+      return null;
+    }
+
+    if (typeof value !== "object") {
+      return null;
+    }
+
+    const lon = LiveTripTracker.parseCoordinateNumber(
+      value.lon ?? value.lng ?? value.longitude
+    );
+    const lat = LiveTripTracker.parseCoordinateNumber(value.lat ?? value.latitude);
+    if (LiveTripTracker.isValidCoordinate(lon, lat)) {
+      return { lon, lat, timestamp: value.timestamp };
+    }
+
+    if (Array.isArray(value.coordinates)) {
+      const coordFromArray = LiveTripTracker.normalizeCoordinate(value.coordinates);
+      if (coordFromArray) {
+        return { ...coordFromArray, timestamp: value.timestamp };
+      }
+    }
+
+    if (value.gps && typeof value.gps === "object") {
+      const coordFromGps = LiveTripTracker.normalizeCoordinate(value.gps);
+      if (coordFromGps) {
+        return {
+          ...coordFromGps,
+          timestamp: value.timestamp ?? value.gps.timestamp,
+        };
+      }
+    }
+
+    return null;
   }
 
   static calculateHeading(coords) {
@@ -906,6 +1006,11 @@ class LiveTripTracker {
 
     if (this.followToggle && this.followToggleHandler) {
       this.followToggle.removeEventListener("click", this.followToggleHandler);
+    }
+
+    if (this.mapStyleListener) {
+      document.removeEventListener("mapStyleLoaded", this.mapStyleListener);
+      this.mapStyleListener = null;
     }
 
     if (this.map && this.mapInteractionHandlers.length > 0) {
