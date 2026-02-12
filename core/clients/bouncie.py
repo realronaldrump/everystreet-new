@@ -93,7 +93,7 @@ class BouncieClient:
 
         return trips
 
-    @retry_async(max_retries=5, retry_delay=3.0)
+    @retry_async(max_retries=1, retry_delay=1.5)
     async def fetch_trips_for_device_resilient(
         self,
         token: str,
@@ -102,11 +102,11 @@ class BouncieClient:
         end_dt: datetime,
     ) -> list[dict[str, Any]]:
         """
-        Fetch trips with extended retry for history import / backfill.
+        Fetch trips with light retry for history import / backfill.
 
-        Same as fetch_trips_for_device but with more aggressive retry (5
-        attempts, 3s base delay with exponential backoff) to handle
-        Bouncie server-side timeouts on old / large data ranges.
+        History import already falls back to recursive window-splitting.
+        Keeping retries light avoids spending minutes retrying known-bad
+        large windows before splitting to smaller requests.
         """
         headers = {
             "Authorization": token,

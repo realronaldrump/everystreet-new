@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
@@ -39,6 +40,11 @@ logger = logging.getLogger(__name__)
 WINDOW_DAYS = 7
 OVERLAP_HOURS = 24
 STEP_HOURS = (WINDOW_DAYS * 24) - OVERLAP_HOURS
+try:
+    _MIN_WINDOW_HOURS = int(os.getenv("TRIP_HISTORY_IMPORT_MIN_WINDOW_HOURS", "1"))
+except ValueError:
+    _MIN_WINDOW_HOURS = 1
+MIN_WINDOW_HOURS = max(1, _MIN_WINDOW_HOURS)
 
 # History import is intended to be fast. Expensive downstream work should be
 # deferred to dedicated jobs (e.g. geocoding/re-coverage runs), otherwise a
@@ -179,17 +185,14 @@ async def _fetch_trips_for_window(
     imei: str,
     window_start: datetime,
     window_end: datetime,
-    _min_window_hours: int = 24,
+    _min_window_hours: int = MIN_WINDOW_HOURS,
 ) -> list[dict[str, Any]]:
     """
     Fetch trips for a window using BouncieClient (geojson, with retry).
 
-    The BouncieClient already has built-in retry with exponential backoff
-    (5 attempts for the resilient variant).  If all retries fail for the
-    full window, this function recursively splits it in half and retries
-    each sub-window, down to ``_min_window_hours``.  This gracefully
-    recovers partial data when Bouncie's server struggles with large /
-    old date ranges.
+    If a window fails after client-level retry, recursively split it and
+    retry sub-windows down to ``_min_window_hours``. This recovers around
+    device/date partitions where larger ranges consistently return 5xx.
     """
     # Clamp to strictly under 7 days for Bouncie's documented limit.
     max_span = timedelta(days=7) - timedelta(seconds=2)
@@ -376,10 +379,16 @@ async def _fetch_device_window(
     counters: dict[str, int],
     per_device: dict[str, dict[str, int]],
     devices_done_ref: dict[str, int],
+    total_devices: int,
+    windows_total: int,
+    current_window: dict[str, Any],
+    windows_completed: int,
     add_event: Callable[[str, str, dict[str, Any] | None], None],
+    write_progress: Callable[..., Awaitable[None]],
     record_failure_reason: Callable[[str | None], None],
 ) -> list[dict[str, Any]]:
     async with semaphore:
+        devices_done = 0
         try:
             trips = await _fetch_trips_for_window(
                 client,
@@ -411,6 +420,7 @@ async def _fetch_device_window(
                     per_device[imei]["errors"] += 1
                     per_device[imei]["windows_completed"] += 1
                 devices_done_ref["done"] += 1
+                devices_done = devices_done_ref["done"]
             add_event(
                 "error",
                 f"Fetch failed for {imei}",
@@ -429,6 +439,15 @@ async def _fetch_device_window(
                     "window_end": window_end.isoformat(),
                 },
             )
+            await _write_window_scan_progress(
+                write_progress=write_progress,
+                devices_done=devices_done,
+                total_devices=total_devices,
+                window_index=window_index,
+                windows_total=windows_total,
+                current_window=current_window,
+                windows_completed=windows_completed,
+            )
             return []
 
         async with lock:
@@ -437,10 +456,20 @@ async def _fetch_device_window(
                 per_device[imei]["windows_completed"] += 1
             counters["found_raw"] += len(trips)
             devices_done_ref["done"] += 1
+            devices_done = devices_done_ref["done"]
         add_event(
             "info",
             f"Fetched {len(trips)} trips for {imei}",
             {"window_index": window_index},
+        )
+        await _write_window_scan_progress(
+            write_progress=write_progress,
+            devices_done=devices_done,
+            total_devices=total_devices,
+            window_index=window_index,
+            windows_total=windows_total,
+            current_window=current_window,
+            windows_completed=windows_completed,
         )
         # Rate-limit requests to avoid overwhelming Bouncie's API
         await asyncio.sleep(1.0)
@@ -754,6 +783,33 @@ async def _write_window_insert_progress(
     )
 
 
+async def _write_window_scan_progress(
+    *,
+    write_progress: Callable[..., Awaitable[None]],
+    devices_done: int,
+    total_devices: int,
+    window_index: int,
+    windows_total: int,
+    current_window: dict[str, Any],
+    windows_completed: int,
+) -> None:
+    if devices_done <= 0:
+        return
+    within = devices_done / max(1, total_devices)
+    overall = ((window_index - 1) + (0.35 * within)) / max(1, windows_total)
+    await write_progress(
+        status="running",
+        stage="scanning",
+        message=(
+            f"Fetched devices {devices_done}/{total_devices} "
+            f"(window {window_index}/{windows_total})"
+        ),
+        progress=min(99.0, overall * 100.0),
+        current_window=current_window,
+        windows_completed=windows_completed,
+    )
+
+
 async def _process_import_window(
     *,
     runtime: ImportRuntime,
@@ -782,6 +838,7 @@ async def _process_import_window(
     )
 
     devices_done_ref = {"done": 0}
+    total_devices = len(runtime.imeis)
     fetch_tasks = [
         _fetch_device_window(
             client=runtime.client,
@@ -796,6 +853,11 @@ async def _process_import_window(
             counters=runtime.counters,
             per_device=runtime.per_device,
             add_event=runtime.add_event,
+            write_progress=runtime.write_progress,
+            total_devices=total_devices,
+            windows_total=runtime.windows_total,
+            current_window=current_window,
+            windows_completed=windows_completed,
             record_failure_reason=runtime.record_failure_reason,
         )
         for imei in runtime.imeis
@@ -1278,6 +1340,28 @@ async def run_import(
                 "end": progress_ctx.end_dt.isoformat(),
             },
         }
+    except asyncio.CancelledError:
+        cancelled_via_job = await progress_ctx.is_cancelled(force=True)
+        if cancelled_via_job:
+            await asyncio.shield(
+                _write_cancelled_progress(
+                    add_event=progress_ctx.add_event,
+                    write_progress=progress_ctx.write_progress,
+                    windows_completed=windows_completed,
+                ),
+            )
+        else:
+            timeout_error = RuntimeError(
+                "Trip history import timed out in worker before completion.",
+            )
+            await asyncio.shield(
+                _finalize_import_failure(
+                    progress_ctx=progress_ctx,
+                    windows_completed=windows_completed,
+                    error=timeout_error,
+                ),
+            )
+        raise
     except Exception as exc:
         await _finalize_import_failure(
             progress_ctx=progress_ctx,

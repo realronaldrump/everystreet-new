@@ -116,4 +116,50 @@ async def test_fetch_trips_for_window_raises_for_small_window() -> None:
             imei="359486068397551",
             window_start=window_start,
             window_end=window_end,
+            _min_window_hours=24,
         )
+
+
+@pytest.mark.asyncio
+async def test_fetch_trips_for_window_can_split_below_24_hours() -> None:
+    """A failing 18-hour window can recover by splitting below one day."""
+    window_start = datetime(2020, 3, 1, 6, 0, 0, tzinfo=UTC)
+    window_end = datetime(2020, 3, 2, 0, 0, 0, tzinfo=UTC)  # 18 hours
+
+    raw_trip = {
+        "transactionId": "tx-1",
+        "imei": "359486068397551",
+        "startTime": datetime(2020, 3, 1, 12, 0, 0, tzinfo=UTC),
+        "endTime": datetime(2020, 3, 1, 12, 10, 0, tzinfo=UTC),
+        "gps": {
+            "type": "LineString",
+            "coordinates": [[-73.9, 40.7], [-73.8, 40.8]],
+        },
+        "distance": 1.0,
+    }
+
+    call_count = 0
+
+    async def mock_fetch(token, imei, start_dt, end_dt):
+        nonlocal call_count
+        call_count += 1
+        span_hours = (end_dt - start_dt).total_seconds() / 3600
+        if span_hours > 12:
+            msg = "Server error"
+            raise RuntimeError(msg)
+        return [raw_trip]
+
+    mock_client = AsyncMock()
+    mock_client.fetch_trips_for_device_resilient.side_effect = mock_fetch
+
+    trips = await _fetch_trips_for_window(
+        mock_client,
+        token="token",
+        imei="359486068397551",
+        window_start=window_start,
+        window_end=window_end,
+        _min_window_hours=1,
+    )
+
+    assert len(trips) == 2
+    assert call_count == 3

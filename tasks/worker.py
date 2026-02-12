@@ -41,6 +41,9 @@ from tasks.recurring_routes import build_recurring_routes
 PERIODIC_FETCH_TIMEOUT_SECONDS = int(
     os.getenv("TRIP_FETCH_JOB_TIMEOUT_SECONDS", str(15 * 60)),
 )
+HISTORY_IMPORT_TIMEOUT_SECONDS = int(
+    os.getenv("TRIP_HISTORY_IMPORT_JOB_TIMEOUT_SECONDS", str(24 * 60 * 60)),
+)
 LOG_PURGE_TIMEOUT_SECONDS = int(
     os.getenv("LOG_PURGE_JOB_TIMEOUT_SECONDS", str(30 * 60)),
 )
@@ -66,7 +69,7 @@ class WorkerSettings:
         func(periodic_fetch_trips, timeout=PERIODIC_FETCH_TIMEOUT_SECONDS),
         fetch_trip_by_transaction_id,
         manual_fetch_trips_range,
-        fetch_all_missing_trips,
+        func(fetch_all_missing_trips, timeout=HISTORY_IMPORT_TIMEOUT_SECONDS),
         validate_trips,
         remap_unmatched_trips,
         map_match_trips,

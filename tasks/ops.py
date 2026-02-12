@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import uuid
 from datetime import UTC, datetime, timedelta
@@ -84,6 +85,20 @@ async def run_task_with_history(
 
     try:
         result_data = await func()
+    except asyncio.CancelledError:
+        end_time = datetime.now(UTC)
+        runtime_ms = (end_time - start_time).total_seconds() * 1000
+        await update_task_history_entry(
+            job_id=job_id,
+            task_name=task_id,
+            status="CANCELLED",
+            manual_run=manual_run,
+            error="Task cancelled before completion.",
+            end_time=end_time,
+            runtime_ms=runtime_ms,
+        )
+        logger.warning("Task %s cancelled", task_id)
+        raise
     except Exception as exc:
         end_time = datetime.now(UTC)
         runtime_ms = (end_time - start_time).total_seconds() * 1000
