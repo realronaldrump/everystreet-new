@@ -93,7 +93,7 @@ class BouncieClient:
 
         return trips
 
-    @retry_async(max_retries=1, retry_delay=1.5)
+    @retry_async(max_retries=0, retry_delay=1.5)
     async def fetch_trips_for_device_resilient(
         self,
         token: str,
@@ -105,8 +105,8 @@ class BouncieClient:
         Fetch trips with light retry for history import / backfill.
 
         History import already falls back to recursive window-splitting.
-        Keeping retries light avoids spending minutes retrying known-bad
-        large windows before splitting to smaller requests.
+        Avoid client-side retries here so failing windows split immediately
+        instead of burning time on repeated requests.
         """
         headers = {
             "Authorization": token,
