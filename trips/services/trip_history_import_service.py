@@ -41,10 +41,12 @@ WINDOW_DAYS = 7
 OVERLAP_HOURS = 24
 STEP_HOURS = (WINDOW_DAYS * 24) - OVERLAP_HOURS
 try:
-    _MIN_WINDOW_HOURS = int(os.getenv("TRIP_HISTORY_IMPORT_MIN_WINDOW_HOURS", "1"))
+    _MIN_WINDOW_HOURS = float(
+        os.getenv("TRIP_HISTORY_IMPORT_MIN_WINDOW_HOURS", "0.25"),
+    )
 except ValueError:
-    _MIN_WINDOW_HOURS = 1
-MIN_WINDOW_HOURS = max(1, _MIN_WINDOW_HOURS)
+    _MIN_WINDOW_HOURS = 0.25
+MIN_WINDOW_HOURS = max((1.0 / 60.0), _MIN_WINDOW_HOURS)
 try:
     _SPLIT_CHUNK_HOURS = int(os.getenv("TRIP_HISTORY_IMPORT_SPLIT_CHUNK_HOURS", "12"))
 except ValueError:
@@ -59,10 +61,10 @@ except ValueError:
 REQUEST_TIMEOUT_SECONDS = max(5, _REQUEST_TIMEOUT_SECONDS)
 try:
     _DEVICE_FETCH_TIMEOUT_SECONDS = int(
-        os.getenv("TRIP_HISTORY_IMPORT_DEVICE_FETCH_TIMEOUT_SECONDS", "30"),
+        os.getenv("TRIP_HISTORY_IMPORT_DEVICE_FETCH_TIMEOUT_SECONDS", "180"),
     )
 except ValueError:
-    _DEVICE_FETCH_TIMEOUT_SECONDS = 30
+    _DEVICE_FETCH_TIMEOUT_SECONDS = 180
 DEVICE_FETCH_TIMEOUT_SECONDS = max(10, _DEVICE_FETCH_TIMEOUT_SECONDS)
 try:
     _REQUEST_PAUSE_SECONDS = float(
@@ -215,7 +217,7 @@ async def _fetch_trips_for_window(
     imei: str,
     window_start: datetime,
     window_end: datetime,
-    _min_window_hours: int = MIN_WINDOW_HOURS,
+    _min_window_hours: float = MIN_WINDOW_HOURS,
     _split_chunk_hours: int = SPLIT_CHUNK_HOURS,
 ) -> list[dict[str, Any]]:
     """
