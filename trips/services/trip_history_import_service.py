@@ -51,12 +51,26 @@ except ValueError:
     _SPLIT_CHUNK_HOURS = 12
 SPLIT_CHUNK_HOURS = max(1, _SPLIT_CHUNK_HOURS)
 try:
-    _DEVICE_FETCH_TIMEOUT_SECONDS = int(
-        os.getenv("TRIP_HISTORY_IMPORT_DEVICE_FETCH_TIMEOUT_SECONDS", "120"),
+    _REQUEST_TIMEOUT_SECONDS = int(
+        os.getenv("TRIP_HISTORY_IMPORT_REQUEST_TIMEOUT_SECONDS", "20"),
     )
 except ValueError:
-    _DEVICE_FETCH_TIMEOUT_SECONDS = 120
+    _REQUEST_TIMEOUT_SECONDS = 20
+REQUEST_TIMEOUT_SECONDS = max(5, _REQUEST_TIMEOUT_SECONDS)
+try:
+    _DEVICE_FETCH_TIMEOUT_SECONDS = int(
+        os.getenv("TRIP_HISTORY_IMPORT_DEVICE_FETCH_TIMEOUT_SECONDS", "30"),
+    )
+except ValueError:
+    _DEVICE_FETCH_TIMEOUT_SECONDS = 30
 DEVICE_FETCH_TIMEOUT_SECONDS = max(10, _DEVICE_FETCH_TIMEOUT_SECONDS)
+try:
+    _REQUEST_PAUSE_SECONDS = float(
+        os.getenv("TRIP_HISTORY_IMPORT_REQUEST_PAUSE_SECONDS", "0"),
+    )
+except ValueError:
+    _REQUEST_PAUSE_SECONDS = 0.0
+REQUEST_PAUSE_SECONDS = max(0.0, _REQUEST_PAUSE_SECONDS)
 
 # History import is intended to be fast. Expensive downstream work should be
 # deferred to dedicated jobs (e.g. geocoding/re-coverage runs), otherwise a
@@ -112,6 +126,8 @@ def build_import_windows(
         raise ValueError(msg)
 
     window_size = timedelta(days=window_days)
+    if end_dt - start_dt <= window_size:
+        return [(start_dt, end_dt)]
     step = timedelta(hours=step_hours)
 
     windows: list[tuple[datetime, datetime]] = []
@@ -119,6 +135,8 @@ def build_import_windows(
     while cursor < end_dt:
         window_end = min(cursor + window_size, end_dt)
         windows.append((cursor, window_end))
+        if window_end >= end_dt:
+            break
         cursor = cursor + step
     return windows
 
@@ -215,16 +233,25 @@ async def _fetch_trips_for_window(
         query_end = query_start + max_span
 
     try:
-        raw_trips = await client.fetch_trips_for_device_resilient(
-            token,
-            imei,
-            query_start,
-            query_end,
-        )
+        async with asyncio.timeout(REQUEST_TIMEOUT_SECONDS):
+            raw_trips = await client.fetch_trips_for_device_resilient(
+                token,
+                imei,
+                query_start,
+                query_end,
+            )
         return [
             normalize_rest_trip_payload(t) for t in raw_trips if isinstance(t, dict)
         ]
-    except Exception:
+    except Exception as exc:
+        if isinstance(exc, TimeoutError):
+            logger.warning(
+                "Timed out fetching window for imei=%s after %ss (%s - %s)",
+                imei,
+                REQUEST_TIMEOUT_SECONDS,
+                window_start.isoformat(),
+                window_end.isoformat(),
+            )
         span = window_end - window_start
         if span <= timedelta(hours=_min_window_hours):
             raise  # Cannot split further — propagate to caller
@@ -512,8 +539,8 @@ async def _fetch_device_window(
             current_window=current_window,
             windows_completed=windows_completed,
         )
-        # Rate-limit requests to avoid overwhelming Bouncie's API
-        await asyncio.sleep(1.0)
+        if REQUEST_PAUSE_SECONDS > 0:
+            await asyncio.sleep(REQUEST_PAUSE_SECONDS)
         return trips
 
 
