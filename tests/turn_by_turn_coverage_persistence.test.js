@@ -26,8 +26,10 @@ test("persistDrivenSegments falls back to base persistence when mission write fa
     await coverage.persistDrivenSegments();
     assert.equal(coverage.pendingSegmentUpdates.size, 0);
     assert.equal(coverage.activeMissionId, null);
+    assert.equal(coverage.consecutivePersistFailures, 0);
     assert.deepEqual(baseCalls, [[["seg-1"], "area-1"]]);
   } finally {
+    clearTimeout(coverage.persistRetryTimeout);
     TurnByTurnAPI.persistDrivenSegmentsForMission = originalMissionPersist;
     TurnByTurnAPI.persistDrivenSegments = originalBasePersist;
   }
@@ -54,8 +56,11 @@ test("persistDrivenSegments re-queues segments when mission and base writes both
     await coverage.persistDrivenSegments();
     assert.equal(coverage.activeMissionId, "mission-2");
     assert.equal(coverage.pendingSegmentUpdates.size, 2);
+    assert.equal(coverage.consecutivePersistFailures, 1);
+    assert.ok(coverage.persistRetryTimeout);
     assert.deepEqual(Array.from(coverage.pendingSegmentUpdates).sort(), ["seg-a", "seg-b"]);
   } finally {
+    clearTimeout(coverage.persistRetryTimeout);
     TurnByTurnAPI.persistDrivenSegmentsForMission = originalMissionPersist;
     TurnByTurnAPI.persistDrivenSegments = originalBasePersist;
   }
@@ -92,8 +97,74 @@ test("persistDrivenSegments emits mission delta callback on mission success", as
     assert.deepEqual(missionDelta, { mission_id: "mission-3", added_segments: 1 });
     assert.equal(coverage.pendingSegmentUpdates.size, 0);
     assert.equal(coverage.activeMissionId, "mission-3");
+    assert.equal(coverage.consecutivePersistFailures, 0);
   } finally {
+    clearTimeout(coverage.persistRetryTimeout);
     TurnByTurnAPI.persistDrivenSegmentsForMission = originalMissionPersist;
+    TurnByTurnAPI.persistDrivenSegments = originalBasePersist;
+  }
+});
+
+test("persistDrivenSegments notifies mission detachment when fallback to base succeeds", async () => {
+  const coverage = new TurnByTurnCoverage();
+  coverage.selectedAreaId = "area-4";
+  coverage.setMissionContext("mission-4");
+  coverage.pendingSegmentUpdates.add("seg-1");
+  let issue = null;
+  coverage.setCallbacks({
+    onPersistenceIssue: (payload) => {
+      issue = payload;
+    },
+  });
+
+  const originalMissionPersist = TurnByTurnAPI.persistDrivenSegmentsForMission;
+  const originalBasePersist = TurnByTurnAPI.persistDrivenSegments;
+
+  TurnByTurnAPI.persistDrivenSegmentsForMission = async () => {
+    throw new Error("mission write failed");
+  };
+  TurnByTurnAPI.persistDrivenSegments = async () => ({ success: true });
+
+  try {
+    await coverage.persistDrivenSegments();
+    assert.equal(coverage.activeMissionId, null);
+    assert.equal(issue?.type, "mission_detached");
+    assert.equal(issue?.segmentCount, 1);
+  } finally {
+    clearTimeout(coverage.persistRetryTimeout);
+    TurnByTurnAPI.persistDrivenSegmentsForMission = originalMissionPersist;
+    TurnByTurnAPI.persistDrivenSegments = originalBasePersist;
+  }
+});
+
+test("persistDrivenSegments stops auto-retrying after max consecutive failures", async () => {
+  const coverage = new TurnByTurnCoverage();
+  coverage.selectedAreaId = "area-5";
+  coverage.maxPersistRetries = 2;
+  coverage.pendingSegmentUpdates.add("seg-fail");
+
+  const issues = [];
+  coverage.setCallbacks({
+    onPersistenceIssue: (payload) => {
+      issues.push(payload);
+    },
+  });
+
+  const originalBasePersist = TurnByTurnAPI.persistDrivenSegments;
+  TurnByTurnAPI.persistDrivenSegments = async () => {
+    throw new Error("base write failed");
+  };
+
+  try {
+    await coverage.persistDrivenSegments();
+    await coverage.persistDrivenSegments();
+    assert.equal(coverage.consecutivePersistFailures, 2);
+    assert.equal(
+      issues.some((issue) => issue?.type === "retry_exhausted"),
+      true
+    );
+  } finally {
+    clearTimeout(coverage.persistRetryTimeout);
     TurnByTurnAPI.persistDrivenSegments = originalBasePersist;
   }
 });

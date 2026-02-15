@@ -40,8 +40,13 @@ class TurnByTurnCoverage {
     // Persistence queue (debounced)
     this.pendingSegmentUpdates = new Set();
     this.persistSegmentsTimeout = null;
+    this.persistRetryTimeout = null;
     this.selectedAreaId = null;
     this.activeMissionId = null;
+    this.consecutivePersistFailures = 0;
+    this.persistRetryBaseMs = 5000;
+    this.persistRetryMaxMs = 30000;
+    this.maxPersistRetries = 5;
 
     // UI feedback
     this.completionPopupTimeout = null;
@@ -50,6 +55,7 @@ class TurnByTurnCoverage {
     this.onMapUpdate = null;
     this.onCoverageUpdate = null;
     this.onMissionDelta = null;
+    this.onPersistenceIssue = null;
   }
 
   _gridKey(cx, cy) {
@@ -137,10 +143,32 @@ class TurnByTurnCoverage {
    * Set callbacks for UI updates
    * @param {Object} callbacks
    */
-  setCallbacks({ onMapUpdate, onCoverageUpdate, onMissionDelta }) {
+  setCallbacks({ onMapUpdate, onCoverageUpdate, onMissionDelta, onPersistenceIssue }) {
     this.onMapUpdate = onMapUpdate;
     this.onCoverageUpdate = onCoverageUpdate;
     this.onMissionDelta = onMissionDelta;
+    this.onPersistenceIssue = onPersistenceIssue;
+  }
+
+  notifyPersistenceIssue(issue) {
+    if (!issue) {
+      return;
+    }
+    if (this.onPersistenceIssue) {
+      this.onPersistenceIssue(issue);
+    }
+    if (issue.message && typeof window !== "undefined" && typeof console?.warn === "function") {
+      // Keep a low-level trace for debugging without interrupting navigation.
+      console.warn(`[turn-by-turn] ${issue.message}`);
+    }
+  }
+
+  schedulePersistenceRetry(delayMs) {
+    const safeDelay = Math.max(1000, Math.min(Number(delayMs) || 0, this.persistRetryMaxMs));
+    clearTimeout(this.persistRetryTimeout);
+    this.persistRetryTimeout = setTimeout(() => {
+      this.persistDrivenSegments();
+    }, safeDelay);
   }
 
   /**
@@ -397,6 +425,7 @@ class TurnByTurnCoverage {
     }
 
     // Debounce: persist after configured delay
+    clearTimeout(this.persistRetryTimeout);
     clearTimeout(this.persistSegmentsTimeout);
     this.persistSegmentsTimeout = setTimeout(() => {
       this.persistDrivenSegments();
@@ -426,21 +455,66 @@ class TurnByTurnCoverage {
       if (response?.mission_delta && this.onMissionDelta) {
         this.onMissionDelta(response.mission_delta);
       }
-    } catch {
+      this.consecutivePersistFailures = 0;
+      clearTimeout(this.persistRetryTimeout);
+    } catch (error) {
       if (this.activeMissionId) {
         try {
           // Mission failures should not block base coverage persistence.
           await TurnByTurnAPI.persistDrivenSegments(segmentIds, this.selectedAreaId);
           this.activeMissionId = null;
+          this.consecutivePersistFailures = 0;
+          clearTimeout(this.persistRetryTimeout);
+          this.notifyPersistenceIssue({
+            type: "mission_detached",
+            segmentCount: segmentIds.length,
+            message: "Mission persistence failed; continuing without mission tracking.",
+          });
           return;
-        } catch {
+        } catch (baseError) {
+          this.notifyPersistenceIssue({
+            type: "mission_and_base_failed",
+            segmentCount: segmentIds.length,
+            message: `Mission and base persistence failed (${baseError?.message || "unknown error"}).`,
+          });
           // Fall through to re-queue.
         }
+      } else {
+        this.notifyPersistenceIssue({
+          type: "base_failed",
+          segmentCount: segmentIds.length,
+          message: `Coverage persistence failed (${error?.message || "unknown error"}).`,
+        });
       }
       // Re-queue failed segments
       for (const id of segmentIds) {
         this.pendingSegmentUpdates.add(id);
       }
+      this.consecutivePersistFailures += 1;
+      if (this.consecutivePersistFailures >= this.maxPersistRetries) {
+        clearTimeout(this.persistRetryTimeout);
+        this.notifyPersistenceIssue({
+          type: "retry_exhausted",
+          failureCount: this.consecutivePersistFailures,
+          segmentCount: segmentIds.length,
+          message: `Coverage persistence paused after ${this.consecutivePersistFailures} consecutive failures.`,
+        });
+        return;
+      }
+      const retryDelay = Math.min(
+        this.persistRetryBaseMs * 2 ** (this.consecutivePersistFailures - 1),
+        this.persistRetryMaxMs
+      );
+      this.schedulePersistenceRetry(retryDelay);
+      this.notifyPersistenceIssue({
+        type: "retry_scheduled",
+        failureCount: this.consecutivePersistFailures,
+        retryDelayMs: retryDelay,
+        segmentCount: segmentIds.length,
+        message: `Coverage persistence retry ${this.consecutivePersistFailures} scheduled in ${Math.round(
+          retryDelay / 1000
+        )}s.`,
+      });
     }
   }
 
@@ -462,7 +536,9 @@ class TurnByTurnCoverage {
     this.sessionSegmentsCompleted = 0;
     this.pendingSegmentUpdates.clear();
     clearTimeout(this.persistSegmentsTimeout);
+    clearTimeout(this.persistRetryTimeout);
     this.activeMissionId = null;
+    this.consecutivePersistFailures = 0;
   }
 
   /**

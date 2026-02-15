@@ -179,7 +179,8 @@ test("ensureMissionForNavigation clears pending mission after deep-link resume",
   };
 
   try {
-    await TurnByTurnNavigator.prototype.ensureMissionForNavigation.call(harness);
+    const ready = await TurnByTurnNavigator.prototype.ensureMissionForNavigation.call(harness);
+    assert.equal(ready, true);
     assert.equal(harness.pendingMissionId, null);
     assert.equal(harness.activeMissionId, "mission-88");
     assert.equal(harness.activeMission?.status, "active");
@@ -228,7 +229,8 @@ test("ensureMissionForNavigation ignores pending mission from another area", asy
   };
 
   try {
-    await TurnByTurnNavigator.prototype.ensureMissionForNavigation.call(harness);
+    const ready = await TurnByTurnNavigator.prototype.ensureMissionForNavigation.call(harness);
+    assert.equal(ready, true);
     assert.equal(harness.pendingMissionId, null);
     assert.equal(harness.activeMissionId, "mission-area-2");
     assert.equal(harness.activeMission?.area_id, "area-2");
@@ -239,4 +241,137 @@ test("ensureMissionForNavigation ignores pending mission from another area", asy
     TurnByTurnAPI.fetchActiveMission = originalFetchActiveMission;
     TurnByTurnAPI.createMission = originalCreateMission;
   }
+});
+
+test("ensureMissionForNavigation reports terminal deep-link mission before creating replacement", async () => {
+  const navStatusMessages = [];
+  const harness = createNavigatorMethodHarness({
+    pendingMissionId: "mission-completed",
+    ui: {
+      updateMissionSummary: () => {},
+      resetMissionSummary: () => {},
+      setNavStatus: (message) => {
+        navStatusMessages.push(message);
+      },
+    },
+  });
+
+  const originalFetchMission = TurnByTurnAPI.fetchMission;
+  const originalFetchActiveMission = TurnByTurnAPI.fetchActiveMission;
+  const originalCreateMission = TurnByTurnAPI.createMission;
+
+  TurnByTurnAPI.fetchMission = async (missionId) => ({
+    id: missionId,
+    area_id: "area-1",
+    status: "completed",
+  });
+  TurnByTurnAPI.fetchActiveMission = async () => null;
+  TurnByTurnAPI.createMission = async () => ({
+    mission: { id: "mission-replacement", area_id: "area-1", status: "active" },
+  });
+
+  try {
+    const ready = await TurnByTurnNavigator.prototype.ensureMissionForNavigation.call(harness);
+    assert.equal(ready, true);
+    assert.equal(harness.activeMissionId, "mission-replacement");
+    assert.equal(
+      navStatusMessages.some((message) => message.includes("cannot be resumed")),
+      true
+    );
+  } finally {
+    TurnByTurnAPI.fetchMission = originalFetchMission;
+    TurnByTurnAPI.fetchActiveMission = originalFetchActiveMission;
+    TurnByTurnAPI.createMission = originalCreateMission;
+  }
+});
+
+test("beginNavigation blocks startup when mission is unavailable", async () => {
+  const navStatusMessages = [];
+  let transitionedState = null;
+  let started = false;
+  const harness = createNavigatorMethodHarness({
+    ensureMissionForNavigation: async () => false,
+    state: {
+      transitionTo: (state) => {
+        transitionedState = state;
+      },
+    },
+    startNavigation: () => {
+      started = true;
+    },
+    ui: {
+      updateMissionSummary: () => {},
+      resetMissionSummary: () => {},
+      setNavStatus: (message) => {
+        navStatusMessages.push(message);
+      },
+    },
+  });
+
+  await TurnByTurnNavigator.prototype.beginNavigation.call(harness);
+
+  assert.equal(started, false);
+  assert.equal(transitionedState, null);
+  assert.equal(
+    navStatusMessages.includes("Cannot start navigation without an active mission."),
+    true
+  );
+});
+
+test("handlePersistenceIssue clears mission state on mission detach", () => {
+  const navStatusMessages = [];
+  let stopHeartbeatCalls = 0;
+  let clearMissionCalls = 0;
+  const harness = createNavigatorMethodHarness({
+    stopMissionHeartbeat: () => {
+      stopHeartbeatCalls += 1;
+    },
+    clearActiveMission: () => {
+      clearMissionCalls += 1;
+    },
+    ui: {
+      updateMissionSummary: () => {},
+      resetMissionSummary: () => {},
+      setNavStatus: (message) => {
+        navStatusMessages.push(message);
+      },
+    },
+  });
+
+  TurnByTurnNavigator.prototype.handlePersistenceIssue.call(harness, {
+    type: "mission_detached",
+  });
+
+  assert.equal(stopHeartbeatCalls, 1);
+  assert.equal(clearMissionCalls, 1);
+  assert.equal(
+    navStatusMessages.includes(
+      "Mission sync failed. Navigation continues without mission."
+    ),
+    true
+  );
+});
+
+test("handlePersistenceIssue reports retry exhaustion", () => {
+  const navStatusMessages = [];
+  const harness = createNavigatorMethodHarness({
+    ui: {
+      updateMissionSummary: () => {},
+      resetMissionSummary: () => {},
+      setNavStatus: (message) => {
+        navStatusMessages.push(message);
+      },
+    },
+  });
+
+  TurnByTurnNavigator.prototype.handlePersistenceIssue.call(harness, {
+    type: "retry_exhausted",
+  });
+
+  assert.equal(
+    navStatusMessages.includes(
+      "Coverage sync paused after repeated failures. Check network or server health."
+    ),
+    true
+  );
 });

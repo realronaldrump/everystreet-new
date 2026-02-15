@@ -143,6 +143,15 @@ export class OptimalRouteUI {
     return "Mission";
   }
 
+  escapeHtml(value) {
+    return String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
   updateActiveMissionCard(mission, handlers = {}) {
     const container = document.getElementById("active-mission-card");
     if (!container) {
@@ -159,14 +168,22 @@ export class OptimalRouteUI {
       return;
     }
 
+    const missionStatus = String(mission.status || "").toLowerCase();
+    const safeMissionId = this.escapeHtml(mission.id);
+    const safeAreaId = this.escapeHtml(mission.area_id || "");
+    const safeStatus = this.escapeHtml(missionStatus);
+    const safeAreaName = this.escapeHtml(mission.area_display_name || "Coverage Area");
+    const segmentCount = Number(mission.session_segments_completed || 0);
+    const safeSegmentCount = Number.isFinite(segmentCount) ? Math.max(0, segmentCount) : 0;
+    const gainMiles = Number(mission.session_gain_miles || 0);
+    const safeGainMiles = Number.isFinite(gainMiles) ? gainMiles : 0;
+
     container.innerHTML = `
-      <div class="route-history-item" data-mission-id="${mission.id}" data-area-id="${mission.area_id || ""}" data-status="${String(mission.status || "").toLowerCase()}">
+      <div class="route-history-item" data-mission-id="${safeMissionId}" data-area-id="${safeAreaId}" data-status="${safeStatus}">
         <div class="route-history-main">
-          <div class="route-name">${mission.area_display_name || "Coverage Area"}</div>
+          <div class="route-name">${safeAreaName}</div>
           <div class="route-date">${this.formatMissionStatus(mission.status)}</div>
-          <div class="route-meta">${mission.session_segments_completed || 0} segments | ${(
-      mission.session_gain_miles || 0
-    ).toFixed(2)} mi</div>
+          <div class="route-meta">${safeSegmentCount} segments | ${safeGainMiles.toFixed(2)} mi</div>
         </div>
         <div class="route-actions-inline">
           <button type="button" class="btn btn-outline-primary btn-sm btn-inline mission-resume-btn">Resume</button>
@@ -208,23 +225,31 @@ export class OptimalRouteUI {
 
     container.innerHTML = items
       .map((mission) => {
+        const safeMissionId = this.escapeHtml(mission.id);
+        const safeAreaId = this.escapeHtml(mission.area_id || "");
+        const safeAreaName = this.escapeHtml(mission.area_display_name || "Coverage Area");
         const started = mission.started_at
           ? new Date(mission.started_at).toLocaleDateString()
           : "Unknown date";
         const status = String(mission.status || "").toLowerCase();
         const actionLabel =
           status === "active" || status === "paused" ? "Resume" : "Open";
+        const safeStatus = this.escapeHtml(status);
+        const safeStarted = this.escapeHtml(started);
+        const safeActionLabel = this.escapeHtml(actionLabel);
+        const segmentCount = Number(mission.session_segments_completed || 0);
+        const safeSegmentCount = Number.isFinite(segmentCount) ? Math.max(0, segmentCount) : 0;
+        const gainMiles = Number(mission.session_gain_miles || 0);
+        const safeGainMiles = Number.isFinite(gainMiles) ? gainMiles : 0;
         return `
-          <div class="route-history-item" data-mission-id="${mission.id}" data-area-id="${mission.area_id || ""}" data-status="${status}">
+          <div class="route-history-item" data-mission-id="${safeMissionId}" data-area-id="${safeAreaId}" data-status="${safeStatus}">
             <div class="route-history-main">
-              <div class="route-name">${mission.area_display_name || "Coverage Area"}</div>
-              <div class="route-date">${this.formatMissionStatus(mission.status)} | ${started}</div>
-              <div class="route-meta">${mission.session_segments_completed || 0} segments | ${(
-          mission.session_gain_miles || 0
-        ).toFixed(2)} mi</div>
+              <div class="route-name">${safeAreaName}</div>
+              <div class="route-date">${this.formatMissionStatus(mission.status)} | ${safeStarted}</div>
+              <div class="route-meta">${safeSegmentCount} segments | ${safeGainMiles.toFixed(2)} mi</div>
             </div>
             <div class="route-actions-inline">
-              <button type="button" class="btn btn-outline-primary btn-sm btn-inline mission-open-btn">${actionLabel}</button>
+              <button type="button" class="btn btn-outline-primary btn-sm btn-inline mission-open-btn">${safeActionLabel}</button>
             </div>
           </div>
         `;

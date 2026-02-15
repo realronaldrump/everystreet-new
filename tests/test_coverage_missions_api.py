@@ -249,6 +249,37 @@ async def test_mark_driven_with_paused_mission_returns_conflict_without_mutation
 
 
 @pytest.mark.asyncio
+async def test_mark_driven_with_stale_mission_area_version_returns_conflict(
+    coverage_missions_api_db,
+) -> None:
+    area = await _insert_ready_area("Mission API Stale Version Area")
+    old_segment = f"{area.id}-{area.area_version}-old"
+    await _insert_street(area, old_segment, 0.3)
+
+    client = TestClient(_build_app())
+    mission_create = client.post("/api/coverage/missions", json={"area_id": str(area.id)})
+    mission_id = mission_create.json()["mission"]["id"]
+
+    area.area_version += 1
+    area.status = "ready"
+    await area.save()
+    current_segment = f"{area.id}-{area.area_version}-current"
+    await _insert_street(area, current_segment, 0.5)
+
+    response = client.post(
+        f"/api/coverage/areas/{area.id}/streets/mark-driven",
+        json={"segment_ids": [current_segment], "mission_id": mission_id},
+    )
+    assert response.status_code == 409
+    assert "Mission area version is stale" in response.json()["detail"]
+    state = await CoverageState.find_one({"area_id": area.id, "segment_id": current_segment})
+    assert state is None
+    mission_detail = client.get(f"/api/coverage/missions/{mission_id}")
+    assert mission_detail.status_code == 200
+    assert mission_detail.json()["mission"]["status"] == "cancelled"
+
+
+@pytest.mark.asyncio
 async def test_heartbeat_preserves_segment_counters_via_api(
     coverage_missions_api_db,
 ) -> None:
@@ -432,3 +463,30 @@ async def test_mark_driven_invalid_mission_id_returns_400(coverage_missions_api_
     assert response.json()["detail"] == "Invalid mission_id"
     state = await CoverageState.find_one({"area_id": area.id, "segment_id": seg})
     assert state is None
+
+
+@pytest.mark.asyncio
+async def test_create_mission_retires_stale_active_and_creates_replacement(
+    coverage_missions_api_db,
+) -> None:
+    area = await _insert_ready_area("Mission API Stale Replacement Area")
+    client = TestClient(_build_app())
+
+    first = client.post("/api/coverage/missions", json={"area_id": str(area.id)})
+    assert first.status_code == 200
+    first_mission_id = first.json()["mission"]["id"]
+
+    area.area_version += 1
+    area.status = "ready"
+    await area.save()
+
+    second = client.post("/api/coverage/missions", json={"area_id": str(area.id)})
+    assert second.status_code == 200
+    payload = second.json()
+    assert payload["created"] is True
+    assert payload["mission"]["id"] != first_mission_id
+    assert payload["mission"]["area_version"] == area.area_version
+
+    stale_detail = client.get(f"/api/coverage/missions/{first_mission_id}")
+    assert stale_detail.status_code == 200
+    assert stale_detail.json()["mission"]["status"] == "cancelled"

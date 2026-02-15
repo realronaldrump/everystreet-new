@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -196,6 +197,47 @@ async def test_apply_segment_progress_dedupes_ids_and_miles(coverage_mission_db)
 
 
 @pytest.mark.asyncio
+async def test_apply_segment_progress_concurrent_updates_preserve_all_segments(
+    coverage_mission_db,
+) -> None:
+    area = await _insert_ready_area("Concurrent Mission Area")
+    mission, _ = await CoverageMissionService.create_mission(area_id=area.id)
+    seg_a = f"{area.id}-{area.area_version}-concurrent-a"
+    seg_b = f"{area.id}-{area.area_version}-concurrent-b"
+    await _insert_street(
+        area_id=area.id,
+        area_version=area.area_version,
+        segment_id=seg_a,
+        length_miles=0.3,
+    )
+    await _insert_street(
+        area_id=area.id,
+        area_version=area.area_version,
+        segment_id=seg_b,
+        length_miles=0.7,
+    )
+
+    await asyncio.gather(
+        CoverageMissionService.apply_segment_progress(
+            mission_id=mission.id,
+            area_id=area.id,
+            segment_ids=[seg_a],
+        ),
+        CoverageMissionService.apply_segment_progress(
+            mission_id=mission.id,
+            area_id=area.id,
+            segment_ids=[seg_b],
+        ),
+    )
+
+    refreshed = await CoverageMissionService.get_mission(mission.id)
+    assert refreshed is not None
+    assert set(refreshed.completed_segment_ids or []) == {seg_a, seg_b}
+    assert refreshed.session_segments_completed == 2
+    assert refreshed.session_gain_miles == pytest.approx(1.0)
+
+
+@pytest.mark.asyncio
 async def test_apply_segment_progress_ignores_unknown_segment_ids(coverage_mission_db) -> None:
     area = await _insert_ready_area("Unknown Segment Mission Area")
     mission, _ = await CoverageMissionService.create_mission(area_id=area.id)
@@ -215,6 +257,44 @@ async def test_apply_segment_progress_ignores_unknown_segment_ids(coverage_missi
     assert refreshed is not None
     assert refreshed.completed_segment_ids == []
     assert refreshed.session_segments_completed == 0
+
+
+@pytest.mark.asyncio
+async def test_apply_segment_progress_rejects_stale_mission_area_version(
+    coverage_mission_db,
+) -> None:
+    area = await _insert_ready_area("Stale Area Version Mission Area")
+    mission, _ = await CoverageMissionService.create_mission(area_id=area.id)
+    area.area_version += 1
+    await area.save()
+
+    with pytest.raises(ValueError, match="Mission area version is stale"):
+        await CoverageMissionService.apply_segment_progress(
+            mission_id=mission.id,
+            area_id=area.id,
+            segment_ids=["segment-1"],
+        )
+
+    refreshed = await CoverageMissionService.get_mission(mission.id)
+    assert refreshed is not None
+    assert refreshed.status == "cancelled"
+
+
+@pytest.mark.asyncio
+async def test_apply_segment_progress_rejects_non_ready_area_status(
+    coverage_mission_db,
+) -> None:
+    area = await _insert_ready_area("Non-ready Area Mission Area")
+    mission, _ = await CoverageMissionService.create_mission(area_id=area.id)
+    area.status = "rebuilding"
+    await area.save()
+
+    with pytest.raises(ValueError, match="Coverage area is not ready"):
+        await CoverageMissionService.apply_segment_progress(
+            mission_id=mission.id,
+            area_id=area.id,
+            segment_ids=["segment-1"],
+        )
 
 
 @pytest.mark.asyncio
@@ -296,6 +376,34 @@ async def test_mark_driven_back_compat_and_mission_delta(coverage_mission_db) ->
     assert with_mission["mission_delta"] is not None
     assert with_mission["mission_delta"]["added_segments"] == 1
     assert with_mission["mission_delta"]["added_miles"] == pytest.approx(0.6)
+
+
+@pytest.mark.asyncio
+async def test_get_active_mission_retires_stale_active_record(coverage_mission_db) -> None:
+    area = await _insert_ready_area("Retire Stale Mission Area")
+    stale, _ = await CoverageMissionService.create_mission(area_id=area.id)
+    previous_area_version = area.area_version
+    area.area_version += 1
+    await area.save()
+
+    active = await CoverageMissionService.get_active_mission(area.id)
+    assert active is None
+
+    refreshed_stale = await CoverageMissionService.get_mission(stale.id)
+    assert refreshed_stale is not None
+    assert refreshed_stale.status == "cancelled"
+    assert refreshed_stale.ended_at is not None
+    assert refreshed_stale.checkpoints[-1].event == "cancelled"
+    assert (
+        refreshed_stale.checkpoints[-1].metadata["previous_area_version"]
+        == previous_area_version
+    )
+    assert refreshed_stale.checkpoints[-1].metadata["current_area_version"] == area.area_version
+
+    replacement, created = await CoverageMissionService.create_mission(area_id=area.id)
+    assert created is True
+    assert replacement.id != stale.id
+    assert replacement.area_version == area.area_version
 
 
 @pytest.mark.asyncio

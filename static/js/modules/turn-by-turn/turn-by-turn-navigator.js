@@ -115,7 +115,39 @@ class TurnByTurnNavigator {
       onMissionDelta: (delta) => {
         this.ui.applyMissionDelta(delta);
       },
+      onPersistenceIssue: (issue) => {
+        this.handlePersistenceIssue(issue);
+      },
     });
+  }
+
+  handlePersistenceIssue(issue) {
+    if (!issue) {
+      return;
+    }
+
+    if (issue.type === "mission_detached") {
+      this.stopMissionHeartbeat();
+      this.clearActiveMission();
+      this.ui.setNavStatus("Mission sync failed. Navigation continues without mission.", true);
+      return;
+    }
+
+    if (issue.type === "retry_scheduled") {
+      const retryDelaySec = Math.max(1, Math.round((issue.retryDelayMs || 0) / 1000));
+      this.ui.setNavStatus(
+        `Coverage sync retry ${issue.failureCount || 1} in ${retryDelaySec}s.`,
+        true
+      );
+      return;
+    }
+
+    if (issue.type === "retry_exhausted") {
+      this.ui.setNavStatus(
+        "Coverage sync paused after repeated failures. Check network or server health.",
+        true
+      );
+    }
   }
 
   /**
@@ -241,7 +273,11 @@ class TurnByTurnNavigator {
             areaId = mission.area_id;
           }
         }
-      } catch {
+      } catch (error) {
+        this.ui.setSetupStatus(
+          `Mission link unavailable (${error?.message || "unable to load mission"}).`,
+          true
+        );
         this.pendingMissionId = null;
       }
     }
@@ -310,11 +346,21 @@ class TurnByTurnNavigator {
 
   async ensureMissionForNavigation() {
     if (!this.selectedAreaId) {
-      return;
+      return false;
     }
+
     const selectedAreaId = String(this.selectedAreaId);
     const missionMatchesSelectedArea = (mission) =>
       Boolean(mission) && String(mission.area_id || "") === selectedAreaId;
+    const reportMissionIssue = (message) => {
+      if (message) {
+        this.ui.setNavStatus(message, true);
+      }
+    };
+    const missionStatusLabel = (status) => {
+      const normalized = String(status || "").toLowerCase();
+      return normalized || "unknown";
+    };
 
     // 1) Explicit mission in URL has priority.
     if (this.pendingMissionId) {
@@ -322,6 +368,9 @@ class TurnByTurnNavigator {
       try {
         const mission = await TurnByTurnAPI.fetchMission(this.pendingMissionId);
         if (!missionMatchesSelectedArea(mission)) {
+          reportMissionIssue(
+            "Mission link does not match the selected area. Starting a new mission."
+          );
           if (String(this.activeMissionId || "") === pendingMissionId) {
             this.clearActiveMission();
           }
@@ -333,22 +382,29 @@ class TurnByTurnNavigator {
           if (missionMatchesSelectedArea(resumed)) {
             this.setActiveMission(resumed);
             this.pendingMissionId = null;
-            return;
+            return true;
           }
           this.clearActiveMission();
+          reportMissionIssue("Mission link could not be resumed for this area.");
           this.pendingMissionId = null;
         } else if (mission?.status === "active") {
           this.setActiveMission(mission);
           this.pendingMissionId = null;
-          return;
+          return true;
         } else {
+          reportMissionIssue(
+            `Mission link is ${missionStatusLabel(mission?.status)} and cannot be resumed.`
+          );
           this.pendingMissionId = null;
         }
-      } catch {
+      } catch (error) {
         // Fall through to active-or-create behavior.
         if (String(this.activeMissionId || "") === pendingMissionId) {
           this.clearActiveMission();
         }
+        reportMissionIssue(
+          `Mission link could not be loaded (${error?.message || "fetch failed"}).`
+        );
         this.pendingMissionId = null;
       }
     }
@@ -358,24 +414,30 @@ class TurnByTurnNavigator {
       try {
         const mission = await TurnByTurnAPI.fetchMission(this.activeMissionId);
         if (!missionMatchesSelectedArea(mission)) {
+          reportMissionIssue("Saved mission belongs to another area; loading area mission.");
           this.clearActiveMission();
         } else if (mission?.status === "active") {
           this.setActiveMission(mission);
-          return;
+          return true;
         } else if (mission?.status === "paused") {
           const resumed = await TurnByTurnAPI.resumeMission(mission.id, {
             note: "Resumed while starting navigation.",
           });
           if (missionMatchesSelectedArea(resumed)) {
             this.setActiveMission(resumed);
-            return;
+            return true;
           }
           this.clearActiveMission();
+          reportMissionIssue("Saved mission could not be resumed.");
         } else {
+          reportMissionIssue(
+            `Saved mission is ${missionStatusLabel(mission?.status)} and cannot be resumed.`
+          );
           this.clearActiveMission();
         }
-      } catch {
+      } catch (error) {
         // Continue to fetch/create.
+        reportMissionIssue(`Saved mission unavailable (${error?.message || "fetch failed"}).`);
         this.clearActiveMission();
       }
     }
@@ -385,7 +447,7 @@ class TurnByTurnNavigator {
       const active = await TurnByTurnAPI.fetchActiveMission(this.selectedAreaId);
       if (active?.status === "active" && missionMatchesSelectedArea(active)) {
         this.setActiveMission(active);
-        return;
+        return true;
       }
       if (active?.status === "paused" && missionMatchesSelectedArea(active)) {
         const resumed = await TurnByTurnAPI.resumeMission(active.id, {
@@ -393,10 +455,13 @@ class TurnByTurnNavigator {
         });
         if (missionMatchesSelectedArea(resumed)) {
           this.setActiveMission(resumed);
-          return;
+          return true;
         }
       }
-    } catch {
+    } catch (error) {
+      reportMissionIssue(
+        `Unable to load active area mission (${error?.message || "request failed"}).`
+      );
       // Continue to create.
     }
 
@@ -406,13 +471,15 @@ class TurnByTurnNavigator {
       const response = await TurnByTurnAPI.createMission(payload);
       if (response?.mission?.id) {
         this.setActiveMission(response.mission);
+        return true;
       }
-    } catch (error) {
-      this.ui.setNavStatus(
-        `Mission unavailable (${error.message}). Navigation continues.`,
-        true
-      );
+      reportMissionIssue("Mission creation response was incomplete.");
       this.clearActiveMission();
+      return false;
+    } catch (error) {
+      reportMissionIssue(`Mission unavailable (${error.message}).`);
+      this.clearActiveMission();
+      return false;
     }
   }
 
@@ -870,7 +937,11 @@ class TurnByTurnNavigator {
    * Begin navigation from start point
    */
   async beginNavigation() {
-    await this.ensureMissionForNavigation();
+    const missionReady = await this.ensureMissionForNavigation();
+    if (!missionReady) {
+      this.ui.setNavStatus("Cannot start navigation without an active mission.", true);
+      return;
+    }
     this.state.transitionTo(NAV_STATES.ACTIVE_NAVIGATION);
     this.startNavigation();
   }

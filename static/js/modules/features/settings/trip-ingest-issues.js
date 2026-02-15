@@ -348,8 +348,10 @@ export class TripIngestIssues {
     this.includeResolved = false;
     this.search = "";
     this.openFilteredCount = 0;
+    this.isLoading = false;
 
     this._searchDebounce = null;
+    this._requestId = 0;
 
     this.init();
   }
@@ -421,11 +423,67 @@ export class TripIngestIssues {
     });
   }
 
+  setLoadingState(isLoading) {
+    this.isLoading = Boolean(isLoading);
+
+    if (this.refreshBtn) {
+      const icon = this.refreshBtn.querySelector("i");
+      const label = this.refreshBtn.querySelector("span");
+      this.refreshBtn.disabled = this.isLoading;
+      this.refreshBtn.setAttribute("aria-busy", String(this.isLoading));
+      icon?.classList.toggle("fa-spin", this.isLoading);
+      icon?.classList.toggle("trip-issues-icon-spin", this.isLoading);
+      if (label) {
+        label.textContent = this.isLoading ? "Loading" : "Refresh";
+      }
+    }
+
+    if (this.searchInput) {
+      this.searchInput.disabled = this.isLoading;
+    }
+    if (this.includeResolvedSwitch) {
+      this.includeResolvedSwitch.disabled = this.isLoading;
+    }
+    if (this.chips) {
+      this.chips.querySelectorAll(".trip-issues-chip").forEach((chip) => {
+        chip.disabled = this.isLoading;
+      });
+    }
+
+    if (this.bulkMenuToggle && this.isLoading) {
+      this.bulkMenuToggle.disabled = true;
+      this.bulkMenuToggle.setAttribute("aria-disabled", "true");
+      this.hideBulkMenu();
+    }
+  }
+
+  renderStateRow({ title, body = "", tone = "info" }) {
+    if (!this.tableBody) {
+      return;
+    }
+
+    this.tableBody.innerHTML = `
+      <tr class="trip-issues-state-row">
+        <td colspan="7" class="trip-issues-state-cell">
+          <div class="trip-issues-state trip-issues-state--${escapeHtml(tone)}">
+            <p class="trip-issues-state-title">${escapeHtml(title || "")}</p>
+            ${
+              body
+                ? `<p class="trip-issues-state-body">${escapeHtml(String(body))}</p>`
+                : ""
+            }
+          </div>
+        </td>
+      </tr>
+    `;
+  }
+
   async fetchIssues() {
     if (!this.tableBody) {
       return;
     }
 
+    const requestId = ++this._requestId;
     const params = new URLSearchParams();
     params.set("page", String(this.currentPage));
     params.set("limit", String(this.itemsPerPage));
@@ -439,8 +497,18 @@ export class TripIngestIssues {
       params.set("search", this.search);
     }
 
+    this.setLoadingState(true);
+    this.renderStateRow({
+      tone: "loading",
+      title: "Loading ingest issues...",
+      body: "Fetching the latest diagnostics for trip ingestion.",
+    });
+
     try {
       const data = await apiClient.get(`/api/trips/ingest-issues?${params.toString()}`);
+      if (requestId !== this._requestId) {
+        return;
+      }
       this.issues = Array.isArray(data?.issues) ? data.issues : [];
       this.totalCount = Number(data?.count) || 0;
       this.openFilteredCount = Number(data?.open_filtered_count) || 0;
@@ -448,14 +516,27 @@ export class TripIngestIssues {
       this.renderTable();
       this.renderPagination();
     } catch (error) {
-      this.tableBody.innerHTML = `<tr><td colspan="7" class="text-center text-danger">${escapeHtml(
-        error.message || "Failed to load issues"
-      )}</td></tr>`;
+      if (requestId !== this._requestId) {
+        return;
+      }
+      this.renderStateRow({
+        tone: "danger",
+        title: "Couldn't load ingest issues.",
+        body: error.message || "Please try refreshing in a moment.",
+      });
       if (this.paginationContainer) {
         this.paginationContainer.innerHTML = "";
       }
       this.openFilteredCount = 0;
       this.updateBulkActions({ count: 0, open_filtered_count: 0 });
+    } finally {
+      if (requestId === this._requestId) {
+        this.setLoadingState(false);
+        this.updateBulkActions({
+          count: this.totalCount,
+          open_filtered_count: this.openFilteredCount,
+        });
+      }
     }
   }
 
@@ -490,21 +571,30 @@ export class TripIngestIssues {
   updateBulkActions(payload) {
     const openFiltered = Number(payload?.open_filtered_count) || 0;
     const totalFiltered = Number(payload?.count) || 0;
+    const isBusy = Boolean(this.isLoading);
+    const disableDismiss = isBusy || openFiltered === 0;
+    const disableDelete = isBusy || totalFiltered === 0;
 
     if (this.dismissAllBtn) {
-      this.dismissAllBtn.disabled = openFiltered === 0;
-      this.dismissAllBtn.setAttribute("aria-disabled", String(openFiltered === 0));
+      this.dismissAllBtn.disabled = disableDismiss;
+      this.dismissAllBtn.setAttribute("aria-disabled", String(disableDismiss));
       this.dismissAllBtn.textContent = openFiltered
-        ? `Dismiss all matching (${openFiltered})`
-        : "Dismiss all matching";
+        ? `Dismiss matches (${openFiltered})`
+        : "Dismiss matches";
     }
 
     if (this.deleteAllBtn) {
-      this.deleteAllBtn.disabled = totalFiltered === 0;
-      this.deleteAllBtn.setAttribute("aria-disabled", String(totalFiltered === 0));
+      this.deleteAllBtn.disabled = disableDelete;
+      this.deleteAllBtn.setAttribute("aria-disabled", String(disableDelete));
       this.deleteAllBtn.textContent = totalFiltered
-        ? `Delete all matching (${totalFiltered})...`
-        : "Delete all matching...";
+        ? `Delete matches (${totalFiltered})...`
+        : "Delete matches...";
+    }
+
+    if (this.bulkMenuToggle) {
+      const disableToggle = isBusy || totalFiltered === 0;
+      this.bulkMenuToggle.disabled = disableToggle;
+      this.bulkMenuToggle.setAttribute("aria-disabled", String(disableToggle));
     }
   }
 
@@ -613,8 +703,20 @@ export class TripIngestIssues {
     }
 
     if (!Array.isArray(this.issues) || this.issues.length === 0) {
-      this.tableBody.innerHTML =
-        '<tr><td colspan="7" class="text-center text-muted">No ingest issues found.</td></tr>';
+      const hasFilters = Boolean(this.issueType || this.search || this.includeResolved);
+      this.renderStateRow(
+        hasFilters
+          ? {
+              tone: "muted",
+              title: "No issues match these filters.",
+              body: "Try clearing search or changing filters.",
+            }
+          : {
+              tone: "success",
+              title: "No ingest issues found.",
+              body: "Trip ingestion is healthy right now.",
+            }
+      );
       return;
     }
 

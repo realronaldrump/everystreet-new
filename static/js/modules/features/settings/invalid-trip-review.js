@@ -4,6 +4,28 @@
 import apiClient from "../../core/api-client.js";
 import confirmationDialog from "../../ui/confirmation-dialog.js";
 import notificationManager from "../../ui/notifications.js";
+
+function escapeHtml(value) {
+  const str = String(value ?? "");
+  return str
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function formatDateTime(value) {
+  if (!value) {
+    return "N/A";
+  }
+  const dt = new Date(value);
+  if (Number.isNaN(dt.getTime())) {
+    return String(value);
+  }
+  return dt.toLocaleString();
+}
+
 export class InvalidTripReview {
   constructor() {
     this.tableBody = document.querySelector("#invalidTripsTable tbody");
@@ -16,6 +38,8 @@ export class InvalidTripReview {
     this.trips = [];
     this.currentPage = 1;
     this.itemsPerPage = 10;
+    this.isLoading = false;
+    this._requestId = 0;
     this.init();
   }
 
@@ -24,7 +48,59 @@ export class InvalidTripReview {
     this.attachEventListeners();
   }
 
+  setLoadingState(isLoading) {
+    this.isLoading = Boolean(isLoading);
+
+    if (this.refreshBtn) {
+      const icon = this.refreshBtn.querySelector("i");
+      const label = this.refreshBtn.querySelector("span");
+      this.refreshBtn.disabled = this.isLoading;
+      this.refreshBtn.setAttribute("aria-busy", String(this.isLoading));
+      icon?.classList.toggle("fa-spin", this.isLoading);
+      icon?.classList.toggle("trip-issues-icon-spin", this.isLoading);
+      if (label) {
+        label.textContent = this.isLoading ? "Loading" : "Refresh";
+      }
+    }
+
+    if (this.deleteAllBtn) {
+      const noTrips = !Array.isArray(this.trips) || this.trips.length === 0;
+      const shouldDisable = this.isLoading || noTrips;
+      this.deleteAllBtn.disabled = shouldDisable;
+      this.deleteAllBtn.setAttribute("aria-disabled", String(shouldDisable));
+    }
+  }
+
+  renderStateRow({ title, body = "", tone = "info" }) {
+    if (!this.tableBody) {
+      return;
+    }
+
+    this.tableBody.innerHTML = `
+      <tr class="trip-issues-state-row">
+        <td colspan="5" class="trip-issues-state-cell">
+          <div class="trip-issues-state trip-issues-state--${escapeHtml(tone)}">
+            <p class="trip-issues-state-title">${escapeHtml(title || "")}</p>
+            ${
+              body
+                ? `<p class="trip-issues-state-body">${escapeHtml(String(body))}</p>`
+                : ""
+            }
+          </div>
+        </td>
+      </tr>
+    `;
+  }
+
   async fetchInvalidTrips() {
+    const requestId = ++this._requestId;
+    this.setLoadingState(true);
+    this.renderStateRow({
+      tone: "loading",
+      title: "Loading invalid trips...",
+      body: "Fetching validation results from storage.",
+    });
+
     try {
       const response = await apiClient.raw("/api/trips/invalid");
       if (!response.ok) {
@@ -32,7 +108,10 @@ export class InvalidTripReview {
       }
 
       const data = await response.json();
-      this.trips = data.trips;
+      if (requestId !== this._requestId) {
+        return;
+      }
+      this.trips = Array.isArray(data?.trips) ? data.trips : [];
 
       if (this.navCountBadge) {
         const count = Array.isArray(this.trips) ? this.trips.length : 0;
@@ -48,10 +127,21 @@ export class InvalidTripReview {
 
       this.renderTable();
       this.renderPagination();
-    } catch {
-      if (this.tableBody) {
-        this.tableBody.innerHTML =
-          '<tr><td colspan="5" class="text-center text-danger">Failed to load invalid trips</td></tr>';
+    } catch (error) {
+      if (requestId === this._requestId) {
+        this.trips = [];
+        this.renderStateRow({
+          tone: "danger",
+          title: "Couldn't load invalid trips.",
+          body: error.message || "Please try refreshing in a moment.",
+        });
+        if (this.paginationContainer) {
+          this.paginationContainer.innerHTML = "";
+        }
+      }
+    } finally {
+      if (requestId === this._requestId) {
+        this.setLoadingState(false);
       }
     }
   }
@@ -66,31 +156,13 @@ export class InvalidTripReview {
     const pageTrips = this.trips.slice(start, end);
 
     if (pageTrips.length === 0) {
-      this.tableBody.innerHTML =
-        '<tr><td colspan="5" class="text-center text-muted">No invalid trips found.</td></tr>';
+      this.renderStateRow({
+        tone: "success",
+        title: "No invalid trips found.",
+        body: "Your stored trip data currently passes validation.",
+      });
       return;
     }
-
-    const escapeHtml = (value) => {
-      const str = String(value ?? "");
-      return str
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#039;");
-    };
-
-    const formatDate = (value) => {
-      if (!value) {
-        return "N/A";
-      }
-      const dt = new Date(value);
-      if (Number.isNaN(dt.getTime())) {
-        return String(value);
-      }
-      return dt.toLocaleString();
-    };
 
     this.tableBody.innerHTML = pageTrips
       .map((trip) => {
@@ -131,7 +203,7 @@ export class InvalidTripReview {
       <tr data-trip-id="${escapeHtml(transactionId)}">
         <td>${tripCell}</td>
         <td><span class="trip-invalid-source">${escapeHtml(source)}</span></td>
-        <td class="col-hide-mobile trip-invalid-date">${escapeHtml(formatDate(when))}</td>
+        <td class="col-hide-mobile trip-invalid-date">${escapeHtml(formatDateTime(when))}</td>
         <td><span class="trip-invalid-reason">${escapeHtml(reason)}</span></td>
         <td>${actions}</td>
       </tr>

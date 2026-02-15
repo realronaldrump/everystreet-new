@@ -66,6 +66,14 @@ def _append_checkpoint(
     mission.checkpoints = _trim_checkpoints(checkpoints)
 
 
+def _stale_mission_message(*, mission_area_version: int, area_version: int) -> str:
+    return (
+        "Mission area version is stale "
+        f"(mission={mission_area_version}, area={area_version}). "
+        "Start a new mission for this area."
+    )
+
+
 def _checkpoint_to_payload(checkpoint: CoverageMissionCheckpoint) -> dict[str, Any]:
     return {
         "created_at": serialize_datetime(checkpoint.created_at),
@@ -125,13 +133,34 @@ class CoverageMissionService:
     @staticmethod
     async def get_active_mission(area_id: str | PydanticObjectId) -> CoverageMission | None:
         area_oid = _coerce_oid(area_id)
-        return await CoverageMission.find_one(
+        area = await CoverageArea.get(area_oid)
+        if not area:
+            return None
+
+        mission = await CoverageMission.find_one(
             {
                 "area_id": area_oid,
                 "status": MISSION_ACTIVE,
             },
             sort=[("updated_at", -1), ("_id", -1)],
         )
+        if mission and int(mission.area_version or 0) != int(area.area_version or 0):
+            now = _now()
+            mission.status = MISSION_CANCELLED
+            mission.updated_at = now
+            mission.ended_at = now
+            _append_checkpoint(
+                mission,
+                event=MISSION_CANCELLED,
+                note="Mission cancelled because the coverage area version changed.",
+                metadata={
+                    "previous_area_version": int(mission.area_version or 0),
+                    "current_area_version": int(area.area_version or 0),
+                },
+            )
+            await mission.save()
+            return None
+        return mission
 
     @staticmethod
     async def create_mission(
@@ -334,6 +363,33 @@ class CoverageMissionService:
         if mission.status != MISSION_ACTIVE:
             msg = f"Mission is not active (status: {mission.status})."
             raise ValueError(msg)
+        area = await CoverageArea.get(area_id)
+        if not area:
+            msg = "Coverage area not found."
+            raise LookupError(msg)
+        if area.status != "ready":
+            msg = f"Coverage area is not ready (status: {area.status})."
+            raise ValueError(msg)
+        if int(mission.area_version or 0) != int(area.area_version or 0):
+            now = _now()
+            mission.status = MISSION_CANCELLED
+            mission.updated_at = now
+            mission.ended_at = now
+            _append_checkpoint(
+                mission,
+                event=MISSION_CANCELLED,
+                note="Mission cancelled because the coverage area version changed.",
+                metadata={
+                    "previous_area_version": int(mission.area_version or 0),
+                    "current_area_version": int(area.area_version or 0),
+                },
+            )
+            await mission.save()
+            msg = _stale_mission_message(
+                mission_area_version=int(mission.area_version or 0),
+                area_version=int(area.area_version or 0),
+            )
+            raise ValueError(msg)
         return mission
 
     @staticmethod
@@ -392,31 +448,90 @@ class CoverageMissionService:
                 "total_miles": float(mission.session_gain_miles or 0.0),
             }
 
-        added_miles = float(sum(length_by_segment[segment_id] for segment_id in valid_new_ids))
+        mission_id_value = mission.id
+        if mission_id_value is None:
+            msg = "Mission not found."
+            raise LookupError(msg)
 
-        existing_completed_ids = list(mission.completed_segment_ids or [])
-        mission.completed_segment_ids = [*existing_completed_ids, *valid_new_ids]
-        mission.session_segments_completed = int(mission.session_segments_completed or 0) + len(
-            valid_new_ids,
-        )
-        mission.session_gain_miles = float(mission.session_gain_miles or 0.0) + added_miles
-        mission.updated_at = _now()
-        mission.last_heartbeat_at = mission.updated_at
-        _append_checkpoint(
-            mission,
-            event="segments_marked",
-            note=note,
-            metadata={
-                "added_segments": len(valid_new_ids),
-                "added_miles": round(added_miles, 6),
-            },
-        )
-        await mission.save()
+        now = _now()
+        added_segment_ids: list[str] = []
+        added_miles = 0.0
+        mission_collection = CoverageMission.get_pymongo_collection()
+
+        # Apply atomic per-segment updates so concurrent requests cannot clobber each other.
+        for segment_id in valid_new_ids:
+            segment_miles = float(length_by_segment.get(segment_id, 0.0))
+            result = await mission_collection.update_one(
+                {
+                    "_id": mission_id_value,
+                    "area_id": area_id,
+                    "area_version": int(mission.area_version or 0),
+                    "status": MISSION_ACTIVE,
+                    "completed_segment_ids": {"$ne": segment_id},
+                },
+                {
+                    "$addToSet": {"completed_segment_ids": segment_id},
+                    "$inc": {
+                        "session_segments_completed": 1,
+                        "session_gain_miles": segment_miles,
+                    },
+                    "$set": {
+                        "updated_at": now,
+                        "last_heartbeat_at": now,
+                    },
+                },
+            )
+            if result.modified_count:
+                added_segment_ids.append(segment_id)
+                added_miles += segment_miles
+
+        refreshed = await CoverageMissionService.get_mission(mission_id_value)
+        if not refreshed:
+            msg = "Mission not found."
+            raise LookupError(msg)
+
+        if refreshed.status != MISSION_ACTIVE:
+            msg = f"Mission is not active (status: {refreshed.status})."
+            raise ValueError(msg)
+
+        area = await CoverageArea.get(area_id)
+        if not area:
+            msg = "Coverage area not found."
+            raise LookupError(msg)
+        if int(refreshed.area_version or 0) != int(area.area_version or 0):
+            msg = _stale_mission_message(
+                mission_area_version=int(refreshed.area_version or 0),
+                area_version=int(area.area_version or 0),
+            )
+            raise ValueError(msg)
+
+        if added_segment_ids:
+            checkpoint = CoverageMissionCheckpoint(
+                created_at=now,
+                event="segments_marked",
+                note=note,
+                metadata={
+                    "added_segments": len(added_segment_ids),
+                    "added_miles": round(added_miles, 6),
+                },
+            )
+            await mission_collection.update_one(
+                {"_id": mission_id_value},
+                {
+                    "$push": {
+                        "checkpoints": {
+                            "$each": [checkpoint.model_dump()],
+                            "$slice": -CHECKPOINT_LIMIT,
+                        },
+                    },
+                },
+            )
+            refreshed = await CoverageMissionService.get_mission(mission_id_value) or refreshed
 
         return {
-            "mission_id": str(mission.id) if mission.id else None,
-            "added_segments": len(valid_new_ids),
+            "mission_id": str(refreshed.id) if refreshed.id else None,
+            "added_segments": len(added_segment_ids),
             "added_miles": round(added_miles, 6),
-            "total_segments": int(mission.session_segments_completed or 0),
-            "total_miles": round(float(mission.session_gain_miles or 0.0), 6),
+            "total_segments": int(refreshed.session_segments_completed or 0),
+            "total_miles": round(float(refreshed.session_gain_miles or 0.0), 6),
         }

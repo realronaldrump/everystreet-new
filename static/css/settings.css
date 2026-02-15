@@ -2190,6 +2190,11 @@
   background: rgb(var(--surface-rgb) / 45%);
 }
 
+.trip-data-health-nav .nav-link:focus-visible {
+  outline: 2px solid rgb(var(--primary-rgb) / 45%);
+  outline-offset: 2px;
+}
+
 .trip-data-health-nav .nav-link.active,
 .trip-data-health-nav .show > .nav-link {
   color: var(--text-primary);
@@ -2271,6 +2276,11 @@
   color: var(--text-primary);
 }
 
+.trip-issues-chip:focus-visible {
+  outline: 2px solid rgb(var(--primary-rgb) / 45%);
+  outline-offset: 2px;
+}
+
 .trip-issues-chip.is-active {
   background: rgb(var(--primary-rgb) / 14%);
   border-color: rgb(var(--primary-rgb) / 45%);
@@ -2292,6 +2302,11 @@
   border-left-color: rgb(var(--primary-rgb) / 35%);
 }
 
+.trip-issues-chip:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .trip-issues-controls {
   display: flex;
   gap: var(--space-2);
@@ -2304,6 +2319,7 @@
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
+  white-space: nowrap;
 }
 
 .trip-issues-refresh {
@@ -2366,6 +2382,11 @@
   color: var(--text-primary);
   background: var(--surface-2);
   border-color: var(--border-color-light);
+}
+
+.trip-issues-controls .btn:focus-visible {
+  outline: 2px solid rgb(var(--primary-rgb) / 45%);
+  outline-offset: 2px;
 }
 
 .trip-issues-controls .btn.btn-outline-danger {
@@ -2453,7 +2474,7 @@
 .settings-group .trip-invalid-table tbody td {
   background: transparent;
   border-bottom: 1px solid var(--divider-color);
-  padding: var(--space-3);
+  padding: var(--space-2) var(--space-3);
 }
 
 .settings-group .trip-issues-table tbody tr:last-child td,
@@ -2461,9 +2482,77 @@
   border-bottom: none;
 }
 
+.trip-issues-table th:nth-child(5),
+.trip-issues-table td:nth-child(5) {
+  width: 4.5rem;
+  text-align: right;
+}
+
+.trip-issues-table th:last-child,
+.trip-issues-table td:last-child,
+.trip-invalid-table th:last-child,
+.trip-invalid-table td:last-child {
+  width: 1%;
+  white-space: nowrap;
+}
+
 .settings-group .trip-issues-table tbody tr:hover td,
 .settings-group .trip-invalid-table tbody tr:hover td {
   background: rgb(var(--primary-rgb) / 8%);
+}
+
+.settings-group .trip-issues-table tbody .trip-issues-state-row:hover td,
+.settings-group .trip-invalid-table tbody .trip-issues-state-row:hover td {
+  background: transparent;
+}
+
+.settings-group .trip-issues-table tbody .trip-issues-state-cell,
+.settings-group .trip-invalid-table tbody .trip-issues-state-cell {
+  padding: var(--space-6) var(--space-4);
+}
+
+.trip-issues-state {
+  max-width: 48rem;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.trip-issues-state-title {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+}
+
+.trip-issues-state-body {
+  margin: var(--space-1) 0 0;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.trip-issues-state--loading .trip-issues-state-title::before {
+  content: "";
+  width: 0.7rem;
+  height: 0.7rem;
+  margin-right: 0.45rem;
+  border-radius: 999px;
+  border: 2px solid rgb(var(--primary-rgb) / 25%);
+  border-top-color: rgb(var(--primary-rgb));
+  display: inline-block;
+  vertical-align: middle;
+  animation: trip-issues-spin 0.9s linear infinite;
+}
+
+.trip-issues-state--success .trip-issues-state-title {
+  color: var(--success);
+}
+
+.trip-issues-state--danger .trip-issues-state-title {
+  color: var(--danger);
+}
+
+.trip-issues-state--muted .trip-issues-state-title {
+  color: var(--text-secondary);
 }
 
 .trip-issue-badge {
@@ -2519,6 +2608,12 @@
   text-decoration-thickness: 0.08em;
 }
 
+.trip-issue-link:focus-visible {
+  outline: 2px solid rgb(var(--primary-rgb) / 45%);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
 .trip-issue-time {
   color: var(--text-secondary);
   white-space: nowrap;
@@ -2535,7 +2630,7 @@
 
 .trip-issue-message {
   line-height: 1.35;
-  max-width: 60ch;
+  max-width: 56ch;
 }
 
 .trip-issue-message-title {
@@ -2603,6 +2698,11 @@
   border-radius: var(--radius-md);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
+}
+
+.trip-issues-actions .btn:focus-visible {
+  outline: 2px solid rgb(var(--primary-rgb) / 45%);
+  outline-offset: 2px;
 }
 
 .trip-issues-actions .btn-outline-success {
@@ -2706,6 +2806,21 @@
   background: var(--surface-0);
 }
 
+.trip-issues-pagination .page-link:focus-visible {
+  outline: 2px solid rgb(var(--primary-rgb) / 45%);
+  outline-offset: 2px;
+}
+
+.trip-issues-icon-spin {
+  animation-duration: 0.85s;
+}
+
+@keyframes trip-issues-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 @media (width >= 768px) {
   .trip-issues-toolbar {
     flex-direction: row;
@@ -2751,6 +2866,11 @@
   .trip-issues-switch,
   .trip-issues-actions .btn {
     min-height: 44px;
+  }
+
+  .settings-group .trip-issues-table tbody td,
+  .settings-group .trip-invalid-table tbody td {
+    padding: var(--space-2);
   }
 
   .trip-issues-actions .btn {

@@ -994,7 +994,7 @@ Details
                 <input type="search"
                        class="form-control form-control-sm trip-issues-search"
                        id="trip-ingest-issues-search"
-                       placeholder="Search trip ID, device, or reason"
+                       placeholder="Search by trip ID, IMEI, or error details"
                        autocomplete="off" />
                 <div class="form-check form-switch trip-issues-switch">
                   <input class="form-check-input"
@@ -1003,7 +1003,7 @@ Details
                          id="trip-ingest-issues-include-resolved" />
                   <label class="form-check-label trip-issues-switch-label"
                          for="trip-ingest-issues-include-resolved">
-	                    Show dismissed
+	                    Include dismissed
                   </label>
                 </div>
                 <button type="button"
@@ -1020,7 +1020,7 @@ Details
                           data-bs-toggle="dropdown"
                           aria-expanded="false">
                     <i class="fas fa-layer-group"></i>
-	                    Bulk
+	                    Bulk actions
                   </button>
                   <ul class="dropdown-menu dropdown-menu-end"
                       aria-labelledby="trip-ingest-issues-bulk-menu">
@@ -1044,6 +1044,9 @@ Details
             <div class="table-responsive trip-issues-table-wrap">
               <table class="table table-sm table-hover align-middle trip-issues-table"
                      id="tripIngestIssuesTable">
+                <caption class="visually-hidden">
+                  Ingest issues from trip fetching, validation, and processing.
+                </caption>
                 <thead>
                   <tr>
                     <th scope="col">
@@ -1086,9 +1089,9 @@ Details
                tabindex="0">
             <div class="trip-issues-toolbar">
               <p class="trip-data-health-note text-muted small mb-0">
-	                This list contains trips already stored in your database that were marked invalid
-	                (typically by the “Validate Trips” maintenance task). Ingest-time failures appear
-	                under “Ingest issues”.
+	                Trips already stored in your database but later marked invalid
+	                (usually by validation maintenance). Ingest-time failures appear
+	                in “Ingest issues”.
               </p>
               <div class="trip-issues-controls">
                 <button type="button"
@@ -1103,13 +1106,16 @@ Details
                         id="invalid-trips-delete-all"
                         title="Delete all invalid trips">
                   <i class="fas fa-trash"></i>
-                  <span class="d-none d-md-inline">Delete all</span>
+                  <span class="d-none d-md-inline">Delete invalid</span>
                 </button>
               </div>
             </div>
             <div class="table-responsive trip-invalid-table-wrap">
               <table class="table table-sm table-hover align-middle trip-invalid-table"
                      id="invalidTripsTable">
+                <caption class="visually-hidden">
+                  Invalid trips currently stored in the database.
+                </caption>
                 <thead>
                   <tr>
                     <th>
